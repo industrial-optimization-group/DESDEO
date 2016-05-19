@@ -25,7 +25,6 @@ def printCurrentIteration(method):
         print "DISTANCE: ", method.distance()
         print "Lower boundary:", method.fh_lo
         print "Iteration point:", method.zh
-        print "fh:", method.fh
         print "=============================="
 
 
@@ -56,14 +55,14 @@ class NAUTILUS(Method):
 
         self.fh_lo, self.zh = tuple(self.problem.objective_bounds())
         self.fh = self.fh_lo
-
+        self.zh_prev=self.zh
 
         # self.zh = self.zh_pref = self.fh = self.fh_lo = None
 
     def __update_fh(self):
         self.fh = list(self.problem.evaluate([self.fh_factory.result(self.preference, self.zh_prev)])[0])
-    def __update_zh(self, preference):
-        self.preference = preference
+    
+    def __update_zh(self):
         self.zh_prev = self.zh
         self.__update_fh()
 
@@ -73,18 +72,14 @@ class NAUTILUS(Method):
         '''
         Return next iteration bounds
         '''
-
-        # This is for asserting that we do give a preference
-        if not self.preference:
-            assert preference is not None
-            self.__update_zh(preference)
-        elif preference and not np.all(self.preference.weights() == preference.weights()):
-            self.__update_zh(preference)
-        else:
-            self.__update_fh()
-            tmpzh = list(self.zh)
-            self.zh = list(np.array(self.zh) / 2. + np.array(self.zh_prev) / 2.)
-            self.zh_prev = tmpzh
+        if preference:
+            self.preference=preference
+        self.__update_fh()
+        
+        #tmpzh = list(self.zh)
+        self.__update_zh()
+        #self.zh = list(np.array(self.zh) / 2. + np.array(self.zh_prev) / 2.)
+        #self.zh_prev = tmpzh
 
 
         self.fh_lo = list(self.bounds_factory.result(self.zh_prev))
