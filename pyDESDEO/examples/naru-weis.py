@@ -75,7 +75,7 @@ class NaurulaWeistroffer(Problem):
 
 
 if __name__ == '__main__':
-    # method = NAUTILUS(NaurulaWeistroffer(), SciPy)
+    #method = NAUTILUS(NaurulaWeistroffer(), SciPy)
     method = NAUTILUS(NaurulaWeistroffer(), SciPyDE)
 
     method.user_iters = 5
