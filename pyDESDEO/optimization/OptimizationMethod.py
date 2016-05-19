@@ -133,44 +133,28 @@ class SciPyDE(OptimalSearch):
         Constructor
         '''
         self.optimization_problem = optimization_problem
-
+        self.penalty=0.0
     def _objective(self, x):
         '''
         Objective functio to be solved
         '''
-        penalty = 0.0
+        self.penalty = 0.0
         obj, const = self.optimization_problem.evaluate(self.optimization_problem.problem.evaluate([x]))
         for c in const:
             if c > 0:
-                penalty += c
-        return obj + penalty
-
-        # objective, new_constraints = self.scalarproblem(objectives)
-
-        # for ci, const in enumerate(new_constraints):
-        #    constraints[ci].extend(const)
-
-        # return objective[0], constraints[0]
+                # Lets use Death penalty
+                self.penalty = 1000000
+        return obj + self.penalty
 
     def search(self, **params):
         bounds = np.array(self.optimization_problem.problem.bounds())
         np.rot90(bounds)
-        return differential_evolution(func=self._objective, bounds=list(bounds), **params)
+        res = differential_evolution(func=self._objective, bounds=list(bounds), **params)
+        #print "Tot penalty ",self.penalty
+        return res
 
 class PointSearch(OptimizationMethod):
     '''
-    Brief Description
-
-
-    Attributes
-    ----------
-    attr : type
-        Descrption
-
-    Methods
-    -------
-    method(c='rgb')
-        Brief description, methods only for larger classes
     '''
 
     def __init__(self):
