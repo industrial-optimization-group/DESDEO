@@ -7,10 +7,9 @@
 Module description
 '''
 
+
 import copy
 from abc import abstractmethod, ABCMeta
-
-
 
 class Problem(object):
     '''
@@ -27,19 +26,19 @@ class Problem(object):
         Brief description, methods only for larger classes
     '''
     __metaclass__ = ABCMeta
-    
-    
+
+
     def __init__(self, params):
         '''
         Constructor
-        
-        '''
-        self.variables=[]
 
-    @abstractmethod    
+        '''
+        self.variables = []
+
+    @abstractmethod
     def evaluate(self, population):
         '''
-        Evaluate the objective and constraint functions for population and return tuple (objective,constraint) values 
+        Evaluate the objective and constraint functions for population and return tuple (objective,constraint) values
 
 
         Attributes
@@ -47,35 +46,54 @@ class Problem(object):
         population : list of variable values
             Descrption
         '''
-        pass    
+        pass
 
-        
-    def add_variables(self, variables,index=None):
+    def objective_bounds(self):
+        '''
+        Return objective bounds
+
+
+        Returns
+        -------
+        lower : list of floats
+            Lower boundaries for the objectives
+
+        Upper : list of floats
+            Upper boundaries for the objectives
+
+        '''
+        if self.ideal and self.nadir:
+            return self.ideal, self.nadir
+        raise NotImplementedError("Ideal and nadir value calculation is not yet implemented")
+
+
+
+    def add_variables(self, variables, index=None):
         '''
         Brief Description
-    
-    
+
+
         Attributes
         ----------
         variable : list of variables or single variable
             Add variables as problem variables
-            
+
         index : int
             Location to add variables, if None add to the end
-        
+
         '''
         try:
             variables[0]
         except TypeError:
-            addvars=copy.deepcopy([variables])
+            addvars = copy.deepcopy([variables])
         else:
-            addvars=copy.deepcopy(variables)
-        
+            addvars = copy.deepcopy(variables)
+
         if index is None:
             self.variables.extend(addvars)
         else:
-            self.variables[index:index]=addvars
-            
+            self.variables[index:index] = addvars
+
 
 
 class Variable(object):
@@ -87,26 +105,25 @@ class Variable(object):
     ----------
     bounds : list of numeric values
         lower and upper boundaries of the variable
-    
+
     name : string
         Name of the variable
 
     starting_point : numeric value
         Starting point for the variable
-    
+
     Methods
     -------
     method(c='rgb')
         Brief description, methods only for larger classes
     '''
-    
-    def __init__(self, bounds=None,starting_point=None,name=""):
+
+    def __init__(self, bounds=None, starting_point=None, name=""):
         '''
         Constructor
-        
-        
+
+
         '''
-        self.bounds=bounds
-        self.starting_point=starting_point
-        self.name=name
-        
+        self.bounds = bounds
+        self.starting_point = starting_point
+        self.name = name

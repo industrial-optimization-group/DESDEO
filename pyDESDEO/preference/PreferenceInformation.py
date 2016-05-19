@@ -7,6 +7,9 @@
 Module description
 '''
 
+from abc import ABCMeta, abstractmethod
+import numpy as np
+
 class PreferenceInfomration(object):
     '''
     Brief Description
@@ -22,13 +25,17 @@ class PreferenceInfomration(object):
     method(c='rgb')
         Brief description, methods only for larger classes
     '''
+    __metaclass__ = ABCMeta
 
 
     def __init__(self, params):
         '''
         Constructor
         '''
-        
+    def weights(self):
+        ''' Return weight vector corresponding to the given preference information
+        '''
+
 class Direction(object):
     '''
     Brief Description
@@ -44,7 +51,7 @@ class Direction(object):
     method(c='rgb')
         Brief description, methods only for larger classes
     '''
-    
+
     def __init__(self, params):
         '''
         Constructor
@@ -52,24 +59,32 @@ class Direction(object):
 
 class DirectSpecification(Direction):
     '''
-    Brief Description
+     '''
 
-
-    Attributes
-    ----------
-    attr : type
-        Descrption
-
-    Methods
-    -------
-    method(c='rgb')
-        Brief description, methods only for larger classes
-    '''
-    
-    def __init__(self, params):
+    def __init__(self, direction):
         '''
         Constructor
         '''
+
+        self.direction = direction
+
+    def weights(self):
+        return 1. / np.array(self.direction)
+
+
+class RelativeRanking(Direction):
+    '''
+     '''
+
+    def __init__(self, ranking):
+        '''
+        Constructor
+        '''
+
+        self.ranking = ranking
+
+    def weights(self):
+        return 1. / np.array(self.ranking)
 
 
 class PreferredPoint(object):
@@ -87,7 +102,7 @@ class PreferredPoint(object):
     method(c='rgb')
         Brief description, methods only for larger classes
     '''
-    
+
     def __init__(self, params):
         '''
         Constructor

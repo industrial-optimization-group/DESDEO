@@ -8,7 +8,7 @@ Module description
 '''
 
 from abc import ABCMeta, abstractmethod
-
+import numpy as np
 
 class Method(object):
     '''
@@ -32,4 +32,7 @@ class Method(object):
         '''
         Constructor
         '''
-        
+    def distance(self):
+        u = np.linalg.norm(np.array(self.zh) - np.array(self.problem.nadir), ord=2)
+        l = np.linalg.norm(np.array(self.fh) - np.array(self.problem.nadir), ord=2)
+        return (u / l) * 100
