@@ -25,12 +25,13 @@ class OptimizationProblem(object):
     '''
     __metaclass__ = ABCMeta
 
-    def __init__(self, method):
+    def __init__(self, problem):
         '''
         Constructor
         '''
-        self.method = method
         self.nconst = 0
+        self.problem = problem
+        
 
     @abstractmethod
     def evaluate(self, objectives):
@@ -75,8 +76,7 @@ class AchievementProblem(OptimizationProblem):
         '''
         Constructor
         '''
-        self.nconst = 0
-        self.problem = problem
+        super(AchievementProblem,self).__init__(problem)
         self.reference = []
         self.eps = eps
         self.scaling_weights = list(1.0 / (np.array(self.problem.nadir) - (np.array(self.problem.ideal) - self.eps)))
@@ -121,21 +121,23 @@ class EpsilonConstraintProblem(OptimizationProblem):
         '''
         Constructor
         '''
-        self.problem = problem
+        super(EpsilonConstraintProblem,self).__init__(problem)
         self.obj_bounds = obj_bounds
         self.objective = 100000
-        self.const = [100000] * len(self.problem.nadir)
-        self.nconst = len(self.problem.nadir) - 1
-
+ 
 
     def evaluate(self, objectives):
-        penalty = 0.0
-        ind = objectives[0]
-        self.const = []
-        for oi, obj in enumerate(self.obj_bounds):
-            if obj:
-                self.const.append(ind[oi] - obj)
-            else:
-                fi = oi
-        self.objective = ind[fi]
-        return self.objective, self.const
+        objs=[]
+        consts=[]
+        for ind in objectives:
+            const = []
+            for oi, obj in enumerate(self.obj_bounds):
+                if obj:
+                    const.append(ind[oi] - obj)
+                else:
+                    fi = oi
+            objs.append(ind[fi])
+            consts.append(const)
+        
+        return objs,consts
+    

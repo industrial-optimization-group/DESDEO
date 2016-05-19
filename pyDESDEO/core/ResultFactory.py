@@ -41,7 +41,7 @@ class BoundsFactory(ResultFactory):
         for fi, fr in enumerate(prev_point):
             self.optimization_method.optimization_problem.obj_bounds = list(prev_point)
             self.optimization_method.optimization_problem.obj_bounds[fi] = None
-            Phr.append(self.optimization_method.search().fun)
+            Phr.append(self.optimization_method.search()[fi])
 
         return  Phr
 
@@ -71,4 +71,4 @@ class IterationPointFactory(ResultFactory):
         self.optimization_method.optimization_problem.weights = preferences.weights()
         self.optimization_method.optimization_problem.reference = q
         self.last_solution = self.optimization_method.search()
-        return  self.last_solution.x
+        return  self.last_solution

@@ -28,6 +28,34 @@ def printCurrentIteration(method):
         print "=============================="
 
 
+class ENAUTILUS(Method):
+    def __init__(self, problem, method_class):
+        '''
+        Constructor
+        '''
+
+    def nextIteration(self, preference=None):
+        '''
+        Return next iteration bounds
+        '''
+        if preference:
+            self.preference=preference
+        self.__update_fh()
+        
+        #tmpzh = list(self.zh)
+        self.__update_zh()
+        #self.zh = list(np.array(self.zh) / 2. + np.array(self.zh_prev) / 2.)
+        #self.zh_prev = tmpzh
+
+
+        self.fh_lo = list(self.bounds_factory.result(self.zh_prev))
+
+        self.current_iter -= 1
+
+        return self.fh_lo, self.zh
+
+
+
 class NAUTILUS(Method):
     '''
     The first NAUTILUS method variant[1]_
@@ -60,7 +88,7 @@ class NAUTILUS(Method):
         # self.zh = self.zh_pref = self.fh = self.fh_lo = None
 
     def __update_fh(self):
-        self.fh = list(self.problem.evaluate([self.fh_factory.result(self.preference, self.zh_prev)])[0])
+        self.fh = list(self.fh_factory.result(self.preference, self.zh_prev))
     
     def __update_zh(self):
         self.zh_prev = self.zh

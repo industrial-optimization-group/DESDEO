@@ -10,7 +10,7 @@ Module description
 
 import copy
 from abc import abstractmethod, ABCMeta
-
+import numpy as np
 class Problem(object):
     '''
     Abstract base class for multiobjective problem
@@ -28,7 +28,7 @@ class Problem(object):
     __metaclass__ = ABCMeta
 
 
-    def __init__(self, params):
+    def __init__(self):
         '''
         Constructor
 
@@ -127,3 +127,24 @@ class Variable(object):
         self.bounds = bounds
         self.starting_point = starting_point
         self.name = name
+
+
+class PreGeneratedProblem(Problem):
+    ''' A problem where the objective function values have beeen pregenerated
+    '''
+    def __init__(self, filename,delim=","):
+        super(PreGeneratedProblem,self).__init__()
+
+        self.points=[]
+        with open(filename) as fd:
+            for r in fd:
+                self.points.append(map(float,map(str.strip,r.split(delim))))
+     
+        self.ideal = list(np.min(self.points,axis=0))
+        self.nadir = list(np.max(self.points,axis=0))
+        
+        
+    def evaluate(self, population=None):
+        return self.points
+     
+        

@@ -28,10 +28,11 @@ class OptimizationMethod(object):
     '''
     __metaclass__ = ABCMeta
 
-    def __init__(self):
+    def __init__(self, optimization_problem):
         '''
         Constructor
         '''
+        self.optimization_problem = optimization_problem
 
     def search(self, problem):
         '''
@@ -61,20 +62,10 @@ class OptimalSearch(OptimizationMethod):
         Brief description, methods only for larger classes
     '''
 
-    def __init__(self, params):
-        '''
-        Constructor
-        '''
 
 class SciPy(OptimalSearch):
     '''
     '''
-
-    def __init__(self, optimization_problem):
-        '''
-        Constructor
-        '''
-        self.optimization_problem = optimization_problem
 
     def _objective(self, x):
         '''
@@ -104,12 +95,13 @@ class SciPy(OptimalSearch):
             constraints.append({"type":"ineq", "fun":lambda x: box[0] - x[xi], })
             constraints.append({"type":"ineq", "fun":lambda x: x[xi] - box[1], })
             # constraints.append({"type":"ineq", "fun":self.upper, "args":[xi]})
-        return minimize(fun=self._objective,
+        res = minimize(fun=self._objective,
                         x0=self.optimization_problem.problem.starting_point(),
                         method="COBYLA",
                         constraints=constraints,
                          ** params
                         )
+        return self.optimization_problem.problem.evaluate([res.x])[0]
 
 
 class SciPyDE(OptimalSearch):
@@ -132,7 +124,7 @@ class SciPyDE(OptimalSearch):
         '''
         Constructor
         '''
-        self.optimization_problem = optimization_problem
+        super(SciPyDE, self).__init__(optimization_problem)
         self.penalty=0.0
     def _objective(self, x):
         '''
@@ -140,24 +132,37 @@ class SciPyDE(OptimalSearch):
         '''
         self.penalty = 0.0
         obj, const = self.optimization_problem.evaluate(self.optimization_problem.problem.evaluate([x]))
-        for c in const:
-            if c > 0:
-                # Lets use Death penalty
-                self.penalty = 1000000
-        return obj + self.penalty
+        if len(const):
+            self.v=0.0
+            for c in const[0]:
+                if c > 0.00001:
+                    # Lets use Death penalty
+                    self.v+=c
+                    self.penalty = self.v
+        return obj[0] + self.penalty
 
     def search(self, **params):
         bounds = np.array(self.optimization_problem.problem.bounds())
         np.rot90(bounds)
-        res = differential_evolution(func=self._objective, bounds=list(bounds), **params)
-        #print "Tot penalty ",self.penalty
-        return res
+        res = differential_evolution(func=self._objective, bounds=list(bounds), 
+                                     popsize=10,
+                                     polish=True,
+                                     #seed=12432,
+                                     #maxiter=1000000,
+                                     #tol=0.0000001,
+                                     **params)
+        if self.penalty:
+            print "INFEASIBLE %f"%self.v
+        return self.optimization_problem.problem.evaluate([res.x])[0]
 
 class PointSearch(OptimizationMethod):
     '''
     '''
-
-    def __init__(self):
-        '''
-        Constructor
-        '''
+    def search(self, **params):
+        obj, const = self.optimization_problem.evaluate(self.optimization_problem.problem.evaluate())
+        if const:
+            obj=np.array(obj)[np.all(np.array(const)<0,axis=1)]
+            
+        
+        min_i=np.argmin(obj)
+        return self.optimization_problem.problem.evaluate()[min_i]
