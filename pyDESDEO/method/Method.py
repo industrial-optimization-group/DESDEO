@@ -32,7 +32,11 @@ class Method(object):
         '''
         Constructor
         '''
-    def distance(self):
-        u = np.linalg.norm(np.array(self.zh) - np.array(self.problem.nadir), ord=2)
-        l = np.linalg.norm(np.array(self.fh) - np.array(self.problem.nadir), ord=2)
+    def distance(self,where=None,target=None):
+        if where is None:
+            where=self.zh
+        if target is None:
+            target=self.fh
+        u = np.linalg.norm(np.array(where) - np.array(self.problem.nadir))
+        l = np.linalg.norm(np.array(target) - np.array(self.problem.nadir))
         return (u / l) * 100

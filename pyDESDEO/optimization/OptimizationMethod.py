@@ -11,6 +11,7 @@ Module description
 from abc import ABCMeta
 from scipy.optimize import differential_evolution, minimize
 import numpy as np
+
 class OptimizationMethod(object):
     '''
     Brief Description
@@ -161,8 +162,12 @@ class PointSearch(OptimizationMethod):
     def search(self, **params):
         obj, const = self.optimization_problem.evaluate(self.optimization_problem.problem.evaluate())
         if const:
-            obj=np.array(obj)[np.all(np.array(const)<0,axis=1)]
-            
+            feas = np.all(np.array(const)<0,axis=1)
         
-        min_i=np.argmin(obj)
-        return self.optimization_problem.problem.evaluate()[min_i]
+        if len(feas):
+            a_obj=np.array(obj)
+            a_obj[feas==False]=np.inf   
+            min_i=np.argmin(a_obj)
+            return self.optimization_problem.problem.evaluate()[min_i]
+        else:
+            return None
