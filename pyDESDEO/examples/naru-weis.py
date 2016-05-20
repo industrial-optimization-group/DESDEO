@@ -3,7 +3,6 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # Copyright (c) 2016  Vesa Ojalehto <vesa.ojalehto@gmail.com>
-from preference.PreferenceInformation import DirectSpecification
 '''
 River pollution problem by Narula and Weistroffer [1]
 
@@ -31,10 +30,22 @@ References
 
 '''
 
+import sys,os
+example_path=os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(example_path,".."))
+
+if "--tui" in sys.argv:
+    tui=True
+    from prompt_toolkit import prompt
+else:
+    tui=False
 import math
 
+from utils.tui import *
+from preference.PreferenceInformation import DirectSpecification
+
 from problem.Problem import Problem
-from method.NAUTILUS import NAUTILUS, printCurrentIteration
+from method.NAUTILUS import NAUTILUSv1,ENAUTILUS, printCurrentIteration
 from preference.PreferenceInformation import DirectSpecification, RelativeRanking
 from optimization.OptimizationMethod import SciPy, SciPyDE
 
@@ -75,31 +86,24 @@ class NaurulaWeistroffer(Problem):
 
 
 if __name__ == '__main__':
+    # SciPy breaks box constraints
     #method = NAUTILUS(NaurulaWeistroffer(), SciPy)
-    method = NAUTILUS(NaurulaWeistroffer(), SciPyDE)
+    
+    method = NAUTILUSv1(NaurulaWeistroffer(), SciPyDE)
 
-    method.user_iters = 5
+    if tui:
+        method.user_iter=int(prompt(u'Ni: ',default=u"5",validator=NumberValidator()))
+
     printCurrentIteration(method)
-    # preference = DirectSpecification([-5, -3, -3, 5])
+    
+    pref=RelativeRanking([2, 2, 1, 1])
+    #solution, distance = method.nextIteration()
+    #printCurrentIteration(method)
 
-
-
-    # solution, distance = method.nextIteration(DirectSpecification([-5, -3, -3, 5]))
-    solution, distance = method.nextIteration(RelativeRanking([2, 2, 1, 1]))
-    printCurrentIteration(method)
-
-    for i in range(method.user_iters - 1):
-        solution, distance = method.nextIteration()
+    while(method.current_iter):
+        rank=prompt(u'Ranking: ',default=u",".join(map(str,pref.ranking)),validator=VectorValidator(method))
+        if rank=="s":
+            break
+        pref=RelativeRanking(map(float,rank.split(",")))
+        solution, distance = method.nextIteration(pref)
         printCurrentIteration(method)
-
-    # print transfer_point
-
-    # For Narula-Weistroffoer generate set of alternatives with e.g. Steurs method
-    # By changing weight vectors for the ref_point
-    # Getting PO set for problem, how to generate the weights Interactive WASGFA
-
-
-    # check several pareto points here between the current bounds
-    # e_nautilus = ENAUTILUS(NaurulaWeistroffer(), OptimalSearch, starting_point=transfer_point)
-    # print e_nautilus.iterationPoint(DirectSpecification([-5, -3, -3, 5]))
-

@@ -28,8 +28,8 @@ from Method import Method
 def printCurrentIteration(method):
         print "Iteration %s/%s" % (method.user_iters - method.current_iter, method.user_iters)
         print "DISTANCE: ", method.distance()
-        print "Lower boundary:", method.fh_lo
         print "Iteration point:", method.zh
+        print "Lower boundary:", method.fh_lo
         print "=============================="
 
 
@@ -58,7 +58,7 @@ class NAUTILUS(Method):
     def _update_zh(self,term1,term2):
         self.zh_prev = self.zh
 
-        self.zh = self._next_zh(term1,term)
+        self.zh = self._next_zh(term1,term2)
 
 
 

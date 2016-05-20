@@ -35,52 +35,16 @@ sys.path.append(os.path.join(example_path,".."))
 
 if "--tui" in sys.argv:
     from prompt_toolkit import prompt
-from prompt_toolkit.validation import Validator, ValidationError
+
 
 import preference
+from utils.tui import IterValidator,NumberValidator
 from preference.PreferenceInformation import DirectSpecification
 from problem.Problem import PreGeneratedProblem
 from method.NAUTILUS import NAUTILUSv1,ENAUTILUS, printCurrentIteration
 from preference.PreferenceInformation import DirectSpecification, RelativeRanking
 from optimization.OptimizationMethod import SciPy, SciPyDE,PointSearch
 
-class IterValidator(Validator):
-    def __init__(self,method):
-        super(IterValidator,self).__init__()
-        self.range=map(str, range(1,len(method.zhs)+1))+["q"]
-         
-    def validate(self, document):
-        text = document.text
-        if text not in self.range:
-            raise ValidationError(message='Ns %s is not valid iteration point'%text,
-                                  cursor_position=0)
-
-class VectorValidator(Validator):
-    def __init__(self,method):
-        super(IterValidator,self).__init__()
-        self.nfun=len(method.nadir)
-         
-    def validate(self, document):
-        values = document.text.split(",")
-        if len(values) not in self.nfun:
-            raise ValidationError(message='Problem requires %i items in the vector'%self.nfun,
-                                  cursor_position=0)
-
-class NumberValidator(Validator):
-    def validate(self, document):
-        text = document.text
-
-        if text and not text.isdigit():
-            i = 0
-
-            # Get index of fist non numeric character.
-            # We want to move the cursor here.
-            for i, c in enumerate(text):
-                if not c.isdigit():
-                    break
-
-            raise ValidationError(message='This input contains non-numeric characters',
-                                  cursor_position=i)
 
 def select_iter(method,default=1):
     method.printCurrentIteration()
