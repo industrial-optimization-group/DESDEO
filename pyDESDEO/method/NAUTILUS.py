@@ -102,7 +102,7 @@ class ENAUTILUS(NAUTILUS):
             #points=points[np.any(points>np.array(preference[0]==False),axis=1)]
             #points=points[np.any(points<np.array(preference[1]==False),axis=1)]
             self.zh=preference[1]
-            
+
         if len(points)<=self.Ns:
             print "Only %s points can be reached from selected iteartion point"%len(points)
             self.NsPoints=points
@@ -142,6 +142,12 @@ class NAUTILUSv1(NAUTILUS):
         NAUTILUS method: An interactive technique in multiobjective optimization based on the nadir point,
         European Journal of Operational Research, 2010 , 206 , 426-434.
     '''
+    def printCurrentIteration(self):
+            print "Iteration %s/%s" % (self.user_iters - self.current_iter, self.user_iters)
+            print "DISTANCE: ", self.distance()
+            print "Iteration point:", self.zh
+            print "Lower boundary:", self.fh_lo
+            print "=============================="
 
 
     def __init__(self, problem, method_class):

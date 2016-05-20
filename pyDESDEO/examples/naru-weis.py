@@ -33,10 +33,10 @@ References
 import sys,os
 example_path=os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(example_path,".."))
+from prompt_toolkit import prompt
 
-if "--tui" in sys.argv:
+if not "--no-tui" in sys.argv:
     tui=True
-    from prompt_toolkit import prompt
 else:
     tui=False
 import math

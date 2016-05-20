@@ -33,12 +33,14 @@ import sys,os
 example_path=os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(example_path,".."))
 
-if "--tui" in sys.argv:
+if not "--np-tui" in sys.argv:
     from prompt_toolkit import prompt
-
+    tui=True
+else:
+    tui=False
 
 import preference
-from utils.tui import IterValidator,NumberValidator
+from utils.tui import *
 from preference.PreferenceInformation import DirectSpecification
 from problem.Problem import PreGeneratedProblem
 from method.NAUTILUS import NAUTILUSv1,ENAUTILUS, printCurrentIteration
@@ -54,13 +56,11 @@ def select_iter(method,default=1):
         text=str(default)
     if text=="q":
         sys.exit("User Exit")
-    return method.zhs[int(text)-1]
+    elif text=="c":
+        return None
+    return method.zhs[int(text)-1],method.zh_los[int(text)-1]
 
 if __name__ == '__main__':
-    if "--tui" in sys.argv:
-        tui=True
-    else:
-        tui=False
     method = ENAUTILUS(PreGeneratedProblem(os.path.join(example_path,"AuxiliaryServices.csv")), PointSearch)
     print "Nadir: ", method.problem.nadir
     print "Ideal: ",method.problem.ideal
@@ -74,11 +74,36 @@ if __name__ == '__main__':
     
     while method.current_iter:
         if tui:
-            method.nextIteration(select_iter(method,1))
+            pref=select_iter(method,1)
+            if pref is None:
+                break
+            
+            points=method.nextIteration(pref)
         else:
             points=method.nextIteration(points)[0]        
             method.printCurrentIteration()
-    method.printCurrentIteration()
+    if method.current_iter:          
+        method_v1 = NAUTILUSv1(PreGeneratedProblem(os.path.join(example_path,"AuxiliaryServices.csv")), PointSearch)
+        method_v1.zh=method.zh
+        method_v1.zh_prev=method.zh_prev
+        method_v1.current_iter=method.current_iter
+        method_v1.user_iters=method.user_iters
+        method_v1.printCurrentIteration()
+        pref=RelativeRanking([2, 2, 1])
+    
+        while method_v1.current_iter:
+            if tui:
+                rank=prompt(u'Ranking: ',default=u",".join(map(str,pref.ranking)),validator=VectorValidator(method))
+                if rank=="s":
+                    break
+                pref=RelativeRanking(map(float,rank.split(",")))
+    
+            solution, distance = method_v1.nextIteration(pref)
+            method_v1.printCurrentIteration()
+    else:
+        method.printCurrentIteration()
+
+    
     #printCurrentIteration(method)
 
     # solution, distance = method.nextIteration(DirectSpecification([-5, -3, -3, 5]))
