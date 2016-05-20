@@ -44,7 +44,7 @@ import preference
 from utils.tui import *
 from preference.PreferenceInformation import DirectSpecification
 from problem.Problem import PreGeneratedProblem
-from method.NAUTILUS import NAUTILUSv1,ENAUTILUS, printCurrentIteration
+from method.NAUTILUS import NAUTILUSv1,ENAUTILUS
 from preference.PreferenceInformation import DirectSpecification, RelativeRanking
 from optimization.OptimizationMethod import SciPy, SciPyDE,PointSearch
 

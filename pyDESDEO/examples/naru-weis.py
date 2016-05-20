@@ -45,9 +45,11 @@ from utils.tui import *
 from preference.PreferenceInformation import DirectSpecification
 
 from problem.Problem import Problem
-from method.NAUTILUS import NAUTILUSv1,ENAUTILUS, printCurrentIteration
+from method.NAUTILUS import NAUTILUSv1,ENAUTILUS
 from preference.PreferenceInformation import DirectSpecification, RelativeRanking
 from optimization.OptimizationMethod import SciPy, SciPyDE
+
+from AuxiliaryServices import select_iter
 
 class NaurulaWeistroffer(Problem):
     def __init__(self):
@@ -92,9 +94,9 @@ if __name__ == '__main__':
     method = NAUTILUSv1(NaurulaWeistroffer(), SciPyDE)
 
     if tui:
-        method.user_iter=int(prompt(u'Ni: ',default=u"5",validator=NumberValidator()))
+        method.current_iter=method.user_iters=int(prompt(u'Ni: ',default=u"5",validator=NumberValidator()))
 
-    printCurrentIteration(method)
+    method.printCurrentIteration()
     
     pref=RelativeRanking([2, 2, 1, 1])
     #solution, distance = method.nextIteration()
@@ -102,8 +104,14 @@ if __name__ == '__main__':
 
     while(method.current_iter):
         rank=prompt(u'Ranking: ',default=u",".join(map(str,pref.ranking)),validator=VectorValidator(method))
-        if rank=="s":
+        if rank=="c":
             break
         pref=RelativeRanking(map(float,rank.split(",")))
         solution, distance = method.nextIteration(pref)
-        printCurrentIteration(method)
+        method.printCurrentIteration()
+
+    if method.current_iter:          
+        emethod = NAUTILUSv1(PreGeneratedProblem(os.path.join(example_path,"naru-weis.txt"),delimieter=" "), PointSearch)
+        
+
+

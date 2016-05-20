@@ -26,13 +26,6 @@ from optimization.OptimizationProblem import AchievementProblem, \
 from Method import Method
 
 
-def printCurrentIteration(method):
-        print "Iteration %s/%s" % (method.user_iters - method.current_iter, method.user_iters)
-        print "DISTANCE: ", method.distance()
-        print "Iteration point:", method.zh
-        print "Lower boundary:", method.fh_lo
-        print "=============================="
-
 
 class NAUTILUS(Method):
     
@@ -122,7 +115,7 @@ class ENAUTILUS(NAUTILUS):
             self.zh_prev=preference[0]
         print("Reachable points: %i"%len(points))    
         if len(points)<=self.Ns:
-            print "Only %s points can be reached from selected iteation point"%len(points)
+            print ("Only %s points can be reached from selected iteration point"%len(points))
             self.NsPoints=points
         else:      
             k_means = KMeans(n_clusters=self.Ns)
@@ -167,11 +160,14 @@ class NAUTILUSv1(NAUTILUS):
         European Journal of Operational Research, 2010 , 206 , 426-434.
     '''
     def printCurrentIteration(self):
-            print "Iteration %s/%s" % (self.user_iters - self.current_iter, self.user_iters)
-            print "DISTANCE: ", self.distance()
-            print "Iteration point:", self.zh
-            print "Lower boundary:", self.fh_lo
-            print "=============================="
+            if self.current_iter == 0:
+                print "Final iteration point:", self.zh
+            else:
+                print "Iteration %s/%s" % (self.user_iters - self.current_iter, self.user_iters)
+                print "DISTANCE: ", self.distance()
+                print "Iteration point:", self.zh
+                print "Lower boundary:", self.fh_lo
+                print "=============================="
 
 
     def __init__(self, problem, method_class):
