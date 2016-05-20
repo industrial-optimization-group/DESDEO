@@ -13,6 +13,7 @@ TODO
 Longer description of the method variants and methods
 '''
 import numpy as np
+import logging
 from sklearn.cluster import MiniBatchKMeans, KMeans
 from sklearn.metrics import pairwise_distances_argmin_min
 
@@ -54,7 +55,19 @@ class NAUTILUS(Method):
         self.fh = list(self.fh_factory.result(self.preference, self.zh_prev))
 
     def _next_zh(self,term1,term2):
-        return list((self.current_iter - 1.) / self.current_iter * np.array(term1) + (1. / self.current_iter) * np.array(term2))
+        res=list((self.current_iter - 1) * np.array(term1)/ self.current_iter  +  np.array(term2)/ self.current_iter)
+        logging.debug(term1)
+        logging.debug(term2)
+        for i in range(2):
+            logging.debug("%i/%i * %f + %f/%i  =%f"%(
+                                                (self.current_iter - 1),
+                                                self.current_iter,
+                                                term1[i],
+                                                term2[i],
+                                                self.current_iter,
+                                                res[i]))
+        return res
+
     def _update_zh(self,term1,term2):
         self.zh_prev = self.zh
 
