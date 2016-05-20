@@ -88,14 +88,14 @@ class ENAUTILUS(NAUTILUS):
         print "Iteration %s/%s\n" % (self.user_iters - self.current_iter, self.user_iters)
         
         for pi,ns_point in enumerate(self.NsPoints):
-            print "Ns %i"%(pi+1)
+            print "Ns %i (%s)"%(pi+1,self.zh_reach[pi])
             print "Iteration point:", self.zhs[pi]
             print "Lower boundary: ", self.zh_los[pi]
             print "Closeness: ", self.distance(self.zhs[pi],ns_point)
         print "=============================="
 
     def _update_zh(self,term1,term2):
-
+        
         return self._next_zh(term1, term2)
 
     
@@ -103,6 +103,13 @@ class ENAUTILUS(NAUTILUS):
         pass
     
     
+    def _reachable_points(self,upper,lower):
+        points=np.array(self.problem.points)
+        # There is faster way to do this
+        points=points[np.all(points<np.array(upper),axis=1)]
+        points=points[np.all(points>np.array(lower),axis=1)]
+        return points
+        
     def nextIteration(self, preference=None):
         '''
         Return next iteration bounds
@@ -111,13 +118,11 @@ class ENAUTILUS(NAUTILUS):
         points=np.array(self.problem.points)
         # Reduce point set if starting from DM specified sol
         if preference is not None:
-            points=points[(np.any(points > preference[1],axis=1) & np.any(points < preference[0],axis=1))]
-            #points=points[np.any(points>np.array(preference[0]==False),axis=1)]
-            #points=points[np.any(points<np.array(preference[1]==False),axis=1)]
-            self.zh=preference[1]
-
+            points=self._reachable_points(preference[0],preference[1])
+            self.zh_prev=preference[0]
+        print("Reachable points: %i"%len(points))    
         if len(points)<=self.Ns:
-            print "Only %s points can be reached from selected iteartion point"%len(points)
+            print "Only %s points can be reached from selected iteation point"%len(points)
             self.NsPoints=points
         else:      
             k_means = KMeans(n_clusters=self.Ns)
@@ -129,15 +134,21 @@ class ENAUTILUS(NAUTILUS):
 
         self.zh_los=[]
         self.zhs=[]
+        self.zh_reach=[]
         for point in self.NsPoints:
             self.zhs.append(self._update_zh(self.zh_prev,point))
             #self.fh=point
             self.fh_lo = list(self.bounds_factory.result(self.zhs[-1]))
             self.zh_los.append(self.fh_lo)
             
+            apoints=np.array(self.problem.points)
+ 
+            #apoints=apoints[np.all(apoints<np.array(self.zhs[-1]),axis=1)]
+            #apoints=apoints[np.all(apoints>np.array(self.zh_los[-1]),axis=1)]
+
+            self.zh_reach.append(len(self._reachable_points(self.zhs[-1],self.zh_los[-1])))
  
 
-        self.zh_prev=self.zh
         self.current_iter -= 1
 
         return zip(self.zh_los,self.zhs)

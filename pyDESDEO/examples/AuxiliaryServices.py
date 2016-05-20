@@ -30,10 +30,11 @@ References
 
 '''
 import sys,os
+import logging
 example_path=os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(example_path,".."))
 
-if not "--np-tui" in sys.argv:
+if not "--no-tui" in sys.argv:
     from prompt_toolkit import prompt
     tui=True
 else:
@@ -51,7 +52,7 @@ from optimization.OptimizationMethod import SciPy, SciPyDE,PointSearch
 def select_iter(method,default=1):
     method.printCurrentIteration()
     try:
-        text = prompt(u'next Ns: ',validator=IterValidator(method))
+        text = prompt(u'Select iteration point Ns: ',validator=IterValidator(method))
     except TypeError:
         text=str(default)
     if text=="q":
@@ -61,12 +62,17 @@ def select_iter(method,default=1):
     return method.zhs[int(text)-1],method.zh_los[int(text)-1]
 
 if __name__ == '__main__':
+    if "--debug" in sys.argv:
+        FORMAT = "%(message)s"
+        logging.basicConfig(format=FORMAT,level=logging.DEBUG)
+
+    
     method = ENAUTILUS(PreGeneratedProblem(os.path.join(example_path,"AuxiliaryServices.csv")), PointSearch)
     print "Nadir: ", method.problem.nadir
     print "Ideal: ",method.problem.ideal
     
     if tui:
-        method.user_iter=int(prompt(u'Ni: ',default=u"5",validator=NumberValidator()))
+        method.user_iters=method.current_iter=int(prompt(u'Ni: ',default=u"5",validator=NumberValidator()))
         method.Ns=int(prompt(u'Ns: ',default=u"5",validator=NumberValidator()))
         method.nextIteration()
     else:
@@ -80,7 +86,12 @@ if __name__ == '__main__':
             
             points=method.nextIteration(pref)
         else:
-            points=method.nextIteration(points)[0]        
+            points=method.nextIteration(points)
+            for ri,r in enumerate(method.zh_reach):
+                if r:
+                    points=points[ri]
+                    break
+                            
             method.printCurrentIteration()
     if method.current_iter:          
         method_v1 = NAUTILUSv1(PreGeneratedProblem(os.path.join(example_path,"AuxiliaryServices.csv")), PointSearch)

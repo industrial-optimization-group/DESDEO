@@ -9,7 +9,7 @@ Module description
 
 from abc import ABCMeta, abstractmethod
 import numpy as np
-
+import logging
 class Method(object):
     '''
     Abstract base class for interactive multiobjective methods
@@ -37,6 +37,12 @@ class Method(object):
             where=self.zh
         if target is None:
             target=self.fh
+
         u = np.linalg.norm(np.array(where) - np.array(self.problem.nadir))
         l = np.linalg.norm(np.array(target) - np.array(self.problem.nadir))
+
+        logging.debug("NADIR: %s"%self.problem.nadir)
+        logging.debug("zh: %s:",where)
+        logging.debug("PO: %s",target)
+        
         return (u / l) * 100
