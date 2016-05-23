@@ -44,13 +44,14 @@ from optimization.OptimizationProblem import AchievementProblem
 from preference.PreferenceInformation import DirectSpecification, RelativeRanking
 from problem.Problem import PreGeneratedProblem
 from utils import misc, tui
-
-from NarulaWeistroffer import NaurulaWeistroffer,WEIGHTS
-
+try:
+    from NarulaWeistroffer import NaurulaWeistroffer,WEIGHTS
+except ImportError:
+    from examples.NarulaWeistroffer import NaurulaWeistroffer,WEIGHTS
 
 
 from utils.misc import Logger 
-sys.stdout = Logger(os.path.splitext(os.path.basename(__file__))[0]+".log")
+sys.stdout = Logger(os.path.splitext(os.path.basename(__file__))[0])
 
 
 if __name__ == '__main__':
