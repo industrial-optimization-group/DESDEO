@@ -40,7 +40,6 @@ class VectorValidator(Validator):
     def validate(self, document):
         for c in COMMANDS:
             if c in document.text:
-                print c
                 if c == "q":
                     sys.exit("User exit")
                 return
