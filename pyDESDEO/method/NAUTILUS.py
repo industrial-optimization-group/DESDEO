@@ -191,8 +191,7 @@ class NAUTILUSv1(NAUTILUS):
         self._update_zh(self.zh,self.fh)
         #self.zh = list(np.array(self.zh) / 2. + np.array(self.zh_prev) / 2.)
         #self.zh_prev = tmpzh
-
-        if self.current_iter < self.user_iters:
+        if self.current_iter !=1:
             self.fh_lo = list(self.bounds_factory.result(self.zh_prev))
 
         self.current_iter -= 1
