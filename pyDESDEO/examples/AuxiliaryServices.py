@@ -34,11 +34,6 @@ import logging
 example_path=os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(example_path,".."))
 
-if not "--no-tui" in sys.argv:
-    from prompt_toolkit import prompt
-    tui=True
-else:
-    tui=False
 
 import preference
 from utils.tui import *
@@ -47,6 +42,9 @@ from problem.Problem import PreGeneratedProblem
 from method.NAUTILUS import NAUTILUSv1,ENAUTILUS
 from preference.PreferenceInformation import DirectSpecification, RelativeRanking
 from optimization.OptimizationMethod import SciPy, SciPyDE,PointSearch
+
+from utils.misc import Logger 
+sys.stdout = Logger(os.path.splitext(os.path.basename(__file__))[0]+".log")
 
 
 def select_iter(method,default=1):
@@ -61,15 +59,16 @@ def select_iter(method,default=1):
         return None
     return method.zhs[int(text)-1],method.zh_los[int(text)-1]
 
+
 if __name__ == '__main__':
     if "--debug" in sys.argv:
         FORMAT = "%(message)s"
         logging.basicConfig(format=FORMAT,level=logging.DEBUG)
 
     
-    method = ENAUTILUS(PreGeneratedProblem(os.path.join(example_path,"AuxiliaryServices.csv")), PointSearch)
-    print "Nadir: ", method.problem.nadir
-    print "Ideal: ",method.problem.ideal
+    method = ENAUTILUS(PreGeneratedProblem(filename=os.path.join(example_path,"AuxiliaryServices.csv")), PointSearch)
+    print("Nadir: %s"%method.problem.nadir)
+    print("Ideal: %s"%method.problem.ideal)
     
     if tui:
         method.user_iters=method.current_iter=int(prompt(u'Ni: ',default=u"5",validator=NumberValidator()))
@@ -93,19 +92,20 @@ if __name__ == '__main__':
                     break
                             
             method.printCurrentIteration()
+
     if method.current_iter:          
         method_v1 = NAUTILUSv1(PreGeneratedProblem(os.path.join(example_path,"AuxiliaryServices.csv")), PointSearch)
-        method_v1.zh=method.zh
+        method_v1.zh=method.zh_prev
         method_v1.zh_prev=method.zh_prev
         method_v1.current_iter=method.current_iter
         method_v1.user_iters=method.user_iters
         method_v1.printCurrentIteration()
         pref=RelativeRanking([2, 2, 1])
-    
+        
         while method_v1.current_iter:
             if tui:
-                rank=prompt(u'Ranking: ',default=u",".join(map(str,pref.ranking)),validator=VectorValidator(method))
-                if rank=="s":
+                rank=prompt(u'Ranking: ',default=u",".join(map(str,pref.pref_input)),validator=VectorValidator(method))
+                if rank=="c":
                     break
                 pref=RelativeRanking(map(float,rank.split(",")))
     
