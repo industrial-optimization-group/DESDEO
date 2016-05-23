@@ -66,10 +66,10 @@ class DirectSpecification(Direction):
         Constructor
         '''
 
-        self.direction = direction
+        self.pref_input = direction
 
     def weights(self):
-        return 1. / np.array(self.direction)
+        return np.array(self.pref_input)
 
 
 class RelativeRanking(Direction):
@@ -81,10 +81,10 @@ class RelativeRanking(Direction):
         Constructor
         '''
 
-        self.ranking = ranking
+        self.pref_input = ranking
 
     def weights(self):
-        return 1. / np.array(self.ranking)
+        return 1. / np.array(self.pref_input)
 
 
 class PreferredPoint(object):
