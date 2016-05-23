@@ -136,3 +136,8 @@ if __name__ == '__main__':
     # e_nautilus = ENAUTILUS(NaurulaWeistroffer(), OptimalSearch, starting_point=transfer_point)
     # print e_nautilus.iterationPoint(DirectSpecification([-5, -3, -3, 5]))
 
+    try:
+        from prompt_toolkit import prompt
+        a=prompt(u'Press ENTER to exit')
+    except:
+        pass

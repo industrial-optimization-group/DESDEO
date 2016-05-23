@@ -63,8 +63,7 @@ if __name__ == '__main__':
         try:
             from prompt_toolkit import prompt
             weights=prompt(u'Weights (10 or 20): ',default=u"20",validator=tui.NumberValidator())
-        except Exception,e:
-            print e
+        except:
             weights="20"
             
     while method.current_iter:
@@ -82,3 +81,8 @@ if __name__ == '__main__':
     
 
     method.printCurrentIteration()
+    try:
+        from prompt_toolkit import prompt
+        a=prompt(u'Press ENTER to exit')
+    except:
+        pass
