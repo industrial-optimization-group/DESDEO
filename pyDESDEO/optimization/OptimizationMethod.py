@@ -135,10 +135,10 @@ class SciPyDE(OptimalSearch):
         if len(const):
             self.v=0.0
             for c in const[0]:
-                if c > 0.00001:
+                if c > 0.000001:
                     # Lets use Death penalty
                     self.v+=c
-                    self.penalty = self.v
+                    self.penalty = 50000000
         return obj[0] + self.penalty
 
     def search(self, **params):
@@ -148,10 +148,10 @@ class SciPyDE(OptimalSearch):
                                      popsize=10,
                                      polish=True,
                                      #seed=12432,
-                                     #maxiter=1000000,
-                                     #tol=0.0000001,
+                                     maxiter=5000000,
+                                     tol=0.00000001,
                                      **params)
-        if self.penalty:
+        if self.penalty and self.v>0.0001:
             print "INFEASIBLE %f"%self.v
         return self.optimization_problem.problem.evaluate([res.x])[0]
 
