@@ -90,7 +90,7 @@ def ask_pref(method,prev_pref):
 
 def iter_nautilus(method):
     solution=None
-    pref=RelativeRanking([2, 2, 1, 1])
+    pref=RelativeRanking([1.0]*len(method.problem.nadir))
 
     while(method.current_iter):
         method.printCurrentIteration()
