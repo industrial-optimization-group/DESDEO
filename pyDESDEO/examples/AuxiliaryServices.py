@@ -44,7 +44,7 @@ from preference.PreferenceInformation import DirectSpecification, RelativeRankin
 from optimization.OptimizationMethod import SciPy, SciPyDE,PointSearch
 
 from utils.misc import Logger 
-sys.stdout = Logger(os.path.splitext(os.path.basename(__file__))[0]+".log")
+sys.stdout = Logger(os.path.splitext(os.path.basename(__file__))[0])
 
 
 def select_iter(method,default=1):
