@@ -111,6 +111,7 @@ class ENAUTILUS(NAUTILUS):
         points=np.array(self.problem.points)
         # Reduce point set if starting from DM specified sol
         if preference is not None:
+            print("Selected iteration point: %s"%preference[0])
             points=self._reachable_points(preference[0],preference[1])
             self.zh_prev=preference[0]
         print("Reachable points: %i"%len(points))    
@@ -160,14 +161,14 @@ class NAUTILUSv1(NAUTILUS):
         European Journal of Operational Research, 2010 , 206 , 426-434.
     '''
     def printCurrentIteration(self):
-            if self.current_iter == 0:
-                print "Final iteration point:", self.zh
-            else:
-                print "Iteration %s/%s" % (self.user_iters - self.current_iter, self.user_iters)
-                print "DISTANCE: ", self.distance()
-                print "Iteration point:", self.zh
-                print "Lower boundary:", self.fh_lo
-                print "=============================="
+        if self.current_iter == 0:
+            print "Final iteration point:", self.zh
+        else:
+            print "Iteration %s/%s" % (self.user_iters - self.current_iter, self.user_iters)
+            print "DISTANCE: ", self.distance()
+            print "Iteration point:", self.zh
+            print "Lower boundary:", self.fh_lo
+        print "=============================="
 
 
     def __init__(self, problem, method_class):
@@ -183,6 +184,7 @@ class NAUTILUSv1(NAUTILUS):
         '''
         if preference:
             self.preference=preference
+            print("Given preference: %s"%self.preference.pref_input)
         self._update_fh()
         
         #tmpzh = list(self.zh)

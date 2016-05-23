@@ -132,14 +132,18 @@ class Variable(object):
 class PreGeneratedProblem(Problem):
     ''' A problem where the objective function values have beeen pregenerated
     '''
-    def __init__(self, filename,delim=","):
+    def __init__(self, filename=None,points=None,delim=","):
         super(PreGeneratedProblem,self).__init__()
 
         self.points=[]
-        with open(filename) as fd:
-            for r in fd:
-                self.points.append(map(float,map(str.strip,r.split(delim))))
-     
+        if points is not None:
+            self.points=list(points)
+        elif filename is not None:
+            with open(filename) as fd:
+                for r in fd:
+                    self.points.append(map(float,map(str.strip,r.split(delim))))
+        else:
+            assert len(self.points)
         self.ideal = list(np.min(self.points,axis=0))
         self.nadir = list(np.max(self.points,axis=0))
         

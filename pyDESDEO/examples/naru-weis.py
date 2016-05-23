@@ -33,85 +33,51 @@ References
 import sys,os
 example_path=os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(example_path,".."))
+
 from prompt_toolkit import prompt
 
-if not "--no-tui" in sys.argv:
-    tui=True
-else:
-    tui=False
-import math
-
-from utils.tui import *
-from preference.PreferenceInformation import DirectSpecification
-
-from problem.Problem import Problem
+from core.ResultFactory import IterationPointFactory
 from method.NAUTILUS import NAUTILUSv1,ENAUTILUS
+from method.NAUTILUS import NAUTILUSv1,ENAUTILUS, NAUTILUS
+from optimization.OptimizationMethod import SciPyDE, PointSearch
+from optimization.OptimizationProblem import AchievementProblem
 from preference.PreferenceInformation import DirectSpecification, RelativeRanking
-from optimization.OptimizationMethod import SciPy, SciPyDE
+from problem.Problem import PreGeneratedProblem
+from utils import misc, tui
 
-from AuxiliaryServices import select_iter
-
-class NaurulaWeistroffer(Problem):
-    def __init__(self):
-        '''
-        Constructor
-        '''
-        self.ideal = [-6.34, -3.44, -7.5, 0.0]
-        self.nadir = [-4.07, -2.83, -0.32, 9.71]
-    def evaluate(self, population):
-        objectives = []
-
-        for values in population:
-            res = []
-            x0_2 = math.pow(values[0], 2)
-            x1_2 = math.pow(values[1], 2)
-
-            res.append(-1.0 * (4.07 + 2.27 * values[0]))
-
-            res.append(-1.0 * (2.6 + 0.03 * values[0] + 0.02 * values[1] + 0.01 / (1.39 - x1_2) + 0.3 / (1.39 - x1_2)))
-
-            res.append(-1.0 * (8.21 - 0.71 / (1.09 - x0_2)))
-
-            res.append(-1.0 * (0.96 - 0.96 / (1.09 - x1_2)))
-
-            objectives.append(res)
-
-        return objectives
-
-    def starting_point(self):
-        return [0.65, 0.65]
-
-    def bounds(self):
-        return ([0.3, 1.0], [0.3, 1.0])
+from NarulaWeistroffer import NaurulaWeistroffer,WEIGHTS
 
 
+
+from utils.misc import Logger 
+sys.stdout = Logger(os.path.splitext(os.path.basename(__file__))[0]+".log")
 
 
 if __name__ == '__main__':
     # SciPy breaks box constraints
-    #method = NAUTILUS(NaurulaWeistroffer(), SciPy)
-    
     method = NAUTILUSv1(NaurulaWeistroffer(), SciPyDE)
-
-    if tui:
-        method.current_iter=method.user_iters=int(prompt(u'Ni: ',default=u"5",validator=NumberValidator()))
+    solution = tui.iter_nautilus(method)
+    
+    if method.current_iter:
+        try:
+            from prompt_toolkit import prompt
+            weights=prompt(u'Weights (10 or 20): ',default=u"20",validator=tui.NumberValidator())
+        except Exception,e:
+            print e
+            weights="20"
+            
+    while method.current_iter:
+        if solution is None:
+            solution = method.problem.nadir
+            # Generate new points
+        #print solution
+        print("E-NAUTILUS\nselected iteration point: %s:"%",".join(map(str,solution)))
+        factory=IterationPointFactory(SciPyDE(AchievementProblem(NaurulaWeistroffer())))
+        points=misc.new_points(factory,solution,WEIGHTS[weights])
+        
+        method=ENAUTILUS(PreGeneratedProblem(points=points), PointSearch)
+        tui.iter_enautilus(method)
+        solution=method.zh_prev  
+    
 
     method.printCurrentIteration()
-    
-    pref=RelativeRanking([2, 2, 1, 1])
-    #solution, distance = method.nextIteration()
-    #printCurrentIteration(method)
-
-    while(method.current_iter):
-        rank=prompt(u'Ranking: ',default=u",".join(map(str,pref.ranking)),validator=VectorValidator(method))
-        if rank=="c":
-            break
-        pref=RelativeRanking(map(float,rank.split(",")))
-        solution, distance = method.nextIteration(pref)
-        method.printCurrentIteration()
-
-    if method.current_iter:          
-        emethod = NAUTILUSv1(PreGeneratedProblem(os.path.join(example_path,"naru-weis.txt"),delimieter=" "), PointSearch)
-        
-
-
