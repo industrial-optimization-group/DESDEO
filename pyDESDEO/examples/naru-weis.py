@@ -55,8 +55,12 @@ sys.stdout = Logger(os.path.splitext(os.path.basename(__file__))[0])
 
 
 if __name__ == '__main__':
+    
     # SciPy breaks box constraints
     method = NAUTILUSv1(NaurulaWeistroffer(), SciPyDE)
+    nadir = method.problem.nadir
+    ideal = method.problem.ideal
+
     solution = tui.iter_nautilus(method)
     
     if method.current_iter:
@@ -71,11 +75,14 @@ if __name__ == '__main__':
             solution = method.problem.nadir
             # Generate new points
         #print solution
+
         print("E-NAUTILUS\nselected iteration point: %s:"%",".join(map(str,solution)))
         factory=IterationPointFactory(SciPyDE(AchievementProblem(NaurulaWeistroffer())))
         points=misc.new_points(factory,solution,WEIGHTS[weights])
         
         method=ENAUTILUS(PreGeneratedProblem(points=points), PointSearch)
+        method.problem.nadir=nadir
+        method.problem.ideal=ideal
         tui.iter_enautilus(method)
         solution=method.zh_prev  
     

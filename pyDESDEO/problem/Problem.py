@@ -34,7 +34,8 @@ class Problem(object):
 
         '''
         self.variables = []
-
+        self.ideal=None
+        self.nadir=None
     @abstractmethod
     def evaluate(self, population):
         '''
@@ -144,8 +145,10 @@ class PreGeneratedProblem(Problem):
                     self.points.append(map(float,map(str.strip,r.split(delim))))
         else:
             assert len(self.points)
-        self.ideal = list(np.min(self.points,axis=0))
-        self.nadir = list(np.max(self.points,axis=0))
+        if not self.ideal: 
+            self.ideal = list(np.min(self.points,axis=0))
+        if not self.nadir: 
+            self.nadir = list(np.max(self.points,axis=0))
         
         
     def evaluate(self, population=None):
