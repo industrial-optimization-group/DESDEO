@@ -67,18 +67,15 @@ class NAUTILUS(Method):
         self.zh = self._next_zh(term1,term2)
 
     def distance(self,where=None,target=None):
-        if where is None:
-            where=self.zh
-        if target is None:
-            target=self.fh
 
+        
         u = np.linalg.norm(np.array(where) - np.array(self.problem.nadir))
         l = np.linalg.norm(np.array(target) - np.array(self.problem.nadir))
-
         logging.debug("\nNADIR: %s"%self.problem.nadir)
         logging.debug("zh: %s:",where)
         logging.debug("PO: %s",target)
-        
+        if not l:
+            return 0.0
         return (u / l) * 100
 
 
@@ -180,7 +177,7 @@ class NAUTILUSv1(NAUTILUS):
             print "Final iteration point:", self.zh
         else:
             print "Iteration %s/%s" % (self.user_iters - self.current_iter, self.user_iters)
-            print "DISTANCE: ", self.distance()
+            print "Closeness: ", self.distance(self.zh,self.fh)
             print "Iteration point:", self.zh
             print "Lower boundary:", self.fh_lo
         print "=============================="
