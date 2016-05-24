@@ -92,6 +92,11 @@ def ask_pref(method,prev_pref):
 def iter_nautilus(method):
     solution=None
     pref=RelativeRanking([1.0]*len(method.problem.nadir))
+    try:
+        method.current_iter=method.user_iters=method.current_iter=int(prompt(u'Ni: ',default=u"%s"%(method.current_iter),validator=NumberValidator()))
+    except:
+        method.current_iter=method.user_iters=5
+
     print("Nadir: %s"%method.problem.nadir)
     print("Ideal: %s"%method.problem.ideal)
 
