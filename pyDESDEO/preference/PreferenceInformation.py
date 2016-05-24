@@ -10,7 +10,7 @@ Module description
 from abc import ABCMeta, abstractmethod
 import numpy as np
 
-class PreferenceInfomration(object):
+class PreferenceInformation(object):
     '''
     Brief Description
 
@@ -36,7 +36,7 @@ class PreferenceInfomration(object):
         ''' Return weight vector corresponding to the given preference information
         '''
 
-class Direction(object):
+class Direction(PreferenceInformation):
     '''
     Brief Description
 
