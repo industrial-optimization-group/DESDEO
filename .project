@@ -14,4 +14,33 @@
 	<natures>
 		<nature>org.python.pydev.pythonNature</nature>
 	</natures>
+	<filteredResources>
+		<filter>
+			<id>1464071643912</id>
+			<name></name>
+			<type>5</type>
+			<matcher>
+				<id>org.eclipse.ui.ide.multiFilter</id>
+				<arguments>1.0-name-matches-false-false-*.py</arguments>
+			</matcher>
+		</filter>
+		<filter>
+			<id>1464073222220</id>
+			<name>pyDESDEO</name>
+			<type>6</type>
+			<matcher>
+				<id>org.eclipse.ui.ide.multiFilter</id>
+				<arguments>1.0-name-matches-false-false-*.log</arguments>
+			</matcher>
+		</filter>
+		<filter>
+			<id>1464073201836</id>
+			<name>pyDESDEO/examples</name>
+			<type>6</type>
+			<matcher>
+				<id>org.eclipse.ui.ide.multiFilter</id>
+				<arguments>1.0-name-matches-false-false-*.log</arguments>
+			</matcher>
+		</filter>
+	</filteredResources>
 </projectDescription>
