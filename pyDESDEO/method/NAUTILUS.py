@@ -24,7 +24,7 @@ from optimization.OptimizationProblem import AchievementProblem, \
     EpsilonConstraintProblem
 
 from Method import Method
-
+from utils import reachable_points
 
 
 class NAUTILUS(Method):
@@ -114,14 +114,7 @@ class ENAUTILUS(NAUTILUS):
     def select_point(self,point):
         pass
     
-    
-    def _reachable_points(self,upper,lower):
-        points=np.array(self.problem.points)
-        # There is faster way to do this
-        points=points[np.all(points<np.array(upper),axis=1)]
-        points=points[np.all(points>np.array(lower),axis=1)]
-        return points
-        
+          
     def nextIteration(self, preference=None):
         '''
         Return next iteration bounds
@@ -162,7 +155,7 @@ class ENAUTILUS(NAUTILUS):
             #apoints=apoints[np.all(apoints<np.array(self.zhs[-1]),axis=1)]
             #apoints=apoints[np.all(apoints>np.array(self.zh_los[-1]),axis=1)]
 
-            self.zh_reach.append(len(self._reachable_points(self.zhs[-1],self.zh_los[-1])))
+            self.zh_reach.append(len(reachable_points(self.problem.points,self.zh_los[-1],self.zhs[-1])))
  
 
         self.current_iter -= 1
@@ -200,6 +193,10 @@ class NAUTILUSv1(NAUTILUS):
         super(NAUTILUSv1,self).__init__(problem,method_class)
 
 
+    def _update_fh(self):
+        self.fh = list(self.fh_factory.result(self.preference, self.zh_prev))
+
+
     def nextIteration(self, preference=None):
         '''
         Return next iteration bounds
@@ -219,3 +216,49 @@ class NAUTILUSv1(NAUTILUS):
         self.current_iter -= 1
 
         return self.fh_lo, self.zh
+
+
+class NNAUTILUS(NAUTILUS):
+    def __init__(self, problem, method_class):
+        '''
+        Constructor
+        '''
+        super(NNAUTILUS,self).__init__(problem,method_class)
+        self.current_iter=100
+        self.ref_point = None
+        
+    def _update_fh(self):
+        u = [1.0]*len(self.ref_point)
+        pref=DirectSpecification(u)
+        self.fh = list(self.fh_factory.result(pref, self.ref_point))
+        logging.debug("updated fh: %s",self.fh)
+        
+
+    def nextIteration(self, ref_point):
+        '''
+        Calculate the next iteration point to be shown to the DM
+        
+        
+        Attributes
+        ----------
+        ref_point : list of float
+        Reference point given by the DM
+        '''
+        if ref_point != self.ref_point:
+            self.ref_point=list(ref_point)
+            self._update_fh()
+
+        self._update_zh(self.zh_prev,self.fh)
+        
+        self.fh_lo = self.bounds_factory.result(self.zh)
+        self.fh_up = self.bounds_factory.result(self.zh,max=True)
+        if not np.all(np.array(self.fh_up)>np.array(self.fh_lo)):
+            print "FALSE"
+        dist=self.distance(self.zh, self.fh)
+        
+        # Reachable points
+        lP = len(reachable_points(self.problem.points, self.fh_lo,self.fh_up))
+        self.current_iter -= 1
+        
+            
+        return dist,self.fh_lo,self.fh_up,lP       

@@ -6,8 +6,7 @@
 '''
 Module description
 '''
-
-from abc import ABCMeta
+from abc import abstractmethod, ABCMeta
 from scipy.optimize import differential_evolution, minimize
 import numpy as np
 
@@ -18,9 +17,11 @@ class OptimizationMethod(object):
 
     Attributes
     ----------
-    attr : type
-        Description
+    _max : bool (default:False)
+        True if the objective function is to be maximized
 
+    _ceoff : float
+        Coefficient for the objective function
     Methods
     -------
     method(c='rgb')
@@ -34,17 +35,43 @@ class OptimizationMethod(object):
         '''
         self.optimization_problem = optimization_problem
 
-    def search(self, problem):
+    def search(self, max=False, **params):
         '''
-        Brief Description
+        Search for the optimal solution
 
-
+        This sets up the search for the optimization and calls the _search method
+        
         Attributes
         ----------
-        attr : type
-            Descrption
+        max : boold (default False)
+            If true find mximum of the objective function instead of minimum
+        
+        **params : dict [optional]
+            Parameters for single objective optimization method
         '''
 
+        self._max=max
+        if max:
+            self._coeff=-1.0
+        else:
+            self._coeff=1.0
+        
+        return self._search(**params)
+
+    @abstractmethod
+    def _search(self, **params):
+        '''
+        The actual search for the optimal solution   
+
+        This is an abstract class that must be implemented by the subclasses
+
+         Attributes
+        ----------
+        **params : dict [optional]
+            Parameters for single objective optimization method
+        '''
+
+        pass
 
 class OptimalSearch(OptimizationMethod):
     '''
@@ -73,7 +100,7 @@ class SciPy(OptimalSearch):
         '''
 
         self.last_objective, self.last_const = self.optimization_problem.evaluate(self.optimization_problem.problem.evaluate([x]))
-        return self.last_objective
+        return self._coeff*self.last_objective
         # objective, new_constraints = self.scalarproblem(objectives)
 
         # for ci, const in enumerate(new_constraints):
@@ -85,7 +112,7 @@ class SciPy(OptimalSearch):
         self.last_objective, self.last_const = self.optimization_problem.evaluate(self.optimization_problem.problem.evaluate([x]))
         return self.last_const[ncon[0]]
 
-    def search(self, **params):
+    def _search(self, max=False, **params):
         nconst = self.optimization_problem.nconst
         constraints = []
         for const in range(nconst):
@@ -126,6 +153,7 @@ class SciPyDE(OptimalSearch):
         '''
         super(SciPyDE, self).__init__(optimization_problem)
         self.penalty=0.0
+
     def _objective(self, x):
         '''
         Objective functio to be solved
@@ -139,9 +167,9 @@ class SciPyDE(OptimalSearch):
                     # Lets use Death penalty
                     self.v+=c
                     self.penalty = 50000000
-        return obj[0] + self.penalty
+        return self._coeff*obj[0] + self.penalty
 
-    def search(self, **params):
+    def _search(self,**params):
         bounds = np.array(self.optimization_problem.problem.bounds())
         np.rot90(bounds)
         res = differential_evolution(func=self._objective, bounds=list(bounds), 
@@ -158,7 +186,7 @@ class SciPyDE(OptimalSearch):
 class PointSearch(OptimizationMethod):
     '''
     '''
-    def search(self, **params):
+    def _search(self, **params):
         obj, const = self.optimization_problem.evaluate(self.optimization_problem.problem.evaluate())
         a_obj=np.array(obj)
 
@@ -168,5 +196,9 @@ class PointSearch(OptimizationMethod):
                 a_obj[feas==False]=np.inf
             else:
                 return None   
-        min_i=np.argmin(a_obj)
-        return self.optimization_problem.problem.evaluate()[min_i]
+        if self._max:
+            optarg=np.argmax
+        else:
+            optarg=np.argmin
+        opt_i=optarg(a_obj)
+        return self.optimization_problem.problem.evaluate()[opt_i]

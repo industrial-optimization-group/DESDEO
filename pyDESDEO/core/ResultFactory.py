@@ -35,12 +35,12 @@ class BoundsFactory(ResultFactory):
         '''
         '''
         self.optimization_method = optimization_method
-    def result(self, prev_point):
+    def result(self, prev_point,max=False):
         Phr = []
         for fi, fr in enumerate(prev_point):
             self.optimization_method.optimization_problem.obj_bounds = list(prev_point)
             self.optimization_method.optimization_problem.obj_bounds[fi] = None
-            bound=self.optimization_method.search()
+            bound=self.optimization_method.search(max)
             if bound is None:
                 Phr.append(prev_point[fi])
             else:
