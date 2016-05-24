@@ -3,3 +3,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 # Copyright (c) 2016  Vesa Ojalehto <vesa.ojalehto@gmail.com>
+
+import sys
+import logging
+if "--debug" in sys.argv:
+    FORMAT = "%(message)s"
+    logging.basicConfig(format=FORMAT,level=logging.DEBUG)
