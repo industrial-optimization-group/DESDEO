@@ -66,8 +66,9 @@ class NumberValidator(Validator):
 
 
 
-def select_iter(method,default=1):
-    method.printCurrentIteration()
+def select_iter(method,default=1,no_print=False):
+    if not no_print:
+        method.printCurrentIteration()
     try:
         text = prompt(u'Select iteration point Ns: ',validator=IterValidator(method))
     except:
@@ -132,6 +133,9 @@ def iter_enautilus(method):
         if pref  in COMMANDS:
             break
         points=method.nextIteration(pref)
+    if not method.current_iter:
+        method.zh_prev=select_iter(method,1)[0]
+        method.current_iter-=1
     return points 
 
 

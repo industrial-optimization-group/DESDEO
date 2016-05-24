@@ -92,14 +92,19 @@ class ENAUTILUS(NAUTILUS):
     
 
     def printCurrentIteration(self):
-        print "Iteration %s/%s\n" % (self.user_iters - self.current_iter, self.user_iters)
-        
-        for pi,ns_point in enumerate(self.NsPoints):
-            print "Ns %i (%s)"%(pi+1,self.zh_reach[pi])
-            print "Iteration point:", self.zhs[pi]
-            print "Lower boundary: ", self.zh_los[pi]
-            print "Closeness: ", self.distance(self.zhs[pi],ns_point)
-        print "=============================="
+        if self.current_iter<0:
+            print "Final iteration point:", self.zh_prev
+        else:
+            print "Iteration %s/%s\n" % (self.user_iters - self.current_iter, self.user_iters)
+            
+            for pi,ns_point in enumerate(self.NsPoints):
+                print "Ns %i (%s)"%(pi+1,self.zh_reach[pi])
+                print "Iteration point:", self.zhs[pi]
+                if self.current_iter != 0:
+                    print "Lower boundary: ", self.zh_los[pi]
+                print "Closeness: ", self.distance(self.zhs[pi],ns_point)
+    
+            print "=============================="
 
     def _update_zh(self,term1,term2):
         

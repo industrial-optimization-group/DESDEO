@@ -63,14 +63,14 @@ if __name__ == '__main__':
 
     solution = tui.iter_nautilus(method)
     
-    if method.current_iter:
+    if method.current_iter>0:
         try:
             from prompt_toolkit import prompt
             weights=prompt(u'Weights (10 or 20): ',default=u"20",validator=tui.NumberValidator())
         except:
             weights="20"
             
-    while method.current_iter:
+    while method.current_iter>0:
         if solution is None:
             solution = method.problem.nadir
             # Generate new points
@@ -85,8 +85,6 @@ if __name__ == '__main__':
         method.problem.ideal=ideal
         tui.iter_enautilus(method)
         solution=method.zh_prev  
-    
-
     method.printCurrentIteration()
     try:
         from prompt_toolkit import prompt
