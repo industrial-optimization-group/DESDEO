@@ -91,6 +91,8 @@ def ask_pref(method,prev_pref):
 def iter_nautilus(method):
     solution=None
     pref=RelativeRanking([1.0]*len(method.problem.nadir))
+    print("Nadir: %s"%method.problem.nadir)
+    print("Ideal: %s"%method.problem.ideal)
 
     while(method.current_iter):
         method.printCurrentIteration()
@@ -118,6 +120,9 @@ def iter_enautilus(method):
     except:
         method.user_iters=5
         method.Ns=5
+    print("Nadir: %s"%method.problem.nadir)
+    print("Ideal: %s"%method.problem.ideal)
+
     method.nextIteration()
     points = None
     

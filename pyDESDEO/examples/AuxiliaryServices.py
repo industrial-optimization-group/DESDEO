@@ -47,8 +47,6 @@ sys.stdout = Logger(os.path.splitext(os.path.basename(__file__))[0])
 if __name__ == '__main__':
     # SciPy breaks box constraints
     method = ENAUTILUS(PreGeneratedProblem(filename=os.path.join(example_path,"AuxiliaryServices.csv")), PointSearch)
-    print("Nadir: %s"%method.problem.nadir)
-    print("Ideal: %s"%method.problem.ideal)
     tui.iter_enautilus(method)
     solution=method.zh_prev  
     
