@@ -22,6 +22,7 @@ from result.Result import IterationPoint
 from core.ResultFactory import IterationPointFactory, BoundsFactory
 from optimization.OptimizationProblem import AchievementProblem, \
     EpsilonConstraintProblem
+from preference.PreferenceInformation import DirectSpecification
 
 from Method import Method
 from utils import reachable_points
