@@ -255,7 +255,8 @@ class NNAUTILUS(NAUTILUS):
         dist=self.distance(self.zh, self.fh)
         
         # Reachable points
-        lP = len(reachable_points(self.problem.points, self.fh_lo,self.fh_up))
+        self.problem.points=reachable_points(self.problem.points, self.fh_lo,self.fh_up)
+        lP = len(self.problem.points)
         self.current_iter -= 1
         
             

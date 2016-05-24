@@ -193,7 +193,7 @@ class PointSearch(OptimizationMethod):
         if const:
             feas = np.all(np.array(const)<0,axis=1)
             if len(feas):
-                a_obj[feas==False]=np.inf
+                a_obj[feas==False]=self._coeff*np.inf
             else:
                 return None   
         if self._max:
