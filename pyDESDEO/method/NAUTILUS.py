@@ -131,13 +131,16 @@ class ENAUTILUS(NAUTILUS):
         # Reduce point set if starting from DM specified sol
         if preference is not None:
             print("Selected iteration point: %s"%preference[0])
-            points=self._reachable_points(preference[0],preference[1])
+            points=reachable_points(self.problem.points,preference[1],preference[0])
             self.zh_prev=preference[0]
+            self.fh_lo = preference[1]
+            self.nsPoint_prev=self.NsPoints[self.zhs.index(self.zh_prev)]
         print("Reachable points: %i"%len(points))    
         if len(points)<=self.Ns:
             print ("Only %s points can be reached from selected iteration point"%len(points))
             self.NsPoints=points
-        else:      
+        else:
+            # k-mean cluster Ns solutions      
             k_means = KMeans(n_clusters=self.Ns)
             k_means.fit(points)
             

@@ -47,17 +47,28 @@ sys.stdout = Logger(os.path.splitext(os.path.basename(__file__))[0])
 if __name__ == '__main__':
     # SciPy breaks box constraints
     method = ENAUTILUS(PreGeneratedProblem(filename=os.path.join(example_path,"AuxiliaryServices.csv")), PointSearch)
-    tui.iter_enautilus(method)
-    solution=method.zh_prev  
-    
-    if method.current_iter:
-        if solution is None:
-            solution = method.problem.nadir
+    zh=tui.iter_enautilus(method)
+    ci=method.current_iter
+   
+    if ci:
+        if zh is None:
+            fh=zh = method.problem.nadir
+            fh_lo = method.problem.ideal
+
+        else:      
+            zh=method.zh_prev  
+            fh_lo=method.fh_lo
+            fh=method.nsPoint_prev
+
         method = NAUTILUSv1(PreGeneratedProblem(filename=os.path.join(example_path,"AuxiliaryServices.csv")), PointSearch)
+        method.current_iter=ci+1
+        method.zh_prev=method.zh=zh
+        method.fh=fh
+        method.fh_lo=fh_lo
+        #method.fh_lo=list(method.bounds_factory.result(method.zh_prev))
+
         solution = tui.iter_nautilus(method)
-
     method.printCurrentIteration()
-
     try:
         from prompt_toolkit import prompt
         a=prompt(u'Press ENTER to exit')

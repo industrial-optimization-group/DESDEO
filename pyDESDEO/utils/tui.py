@@ -73,6 +73,10 @@ def select_iter(method,default=1,no_print=False):
         text = prompt(u'Select iteration point Ns: ',validator=IterValidator(method))
     except:
         text=str(default)
+        # This is not a tui, so go to next
+        if method.current_iter==3:
+            text="c"
+        
     if  "q" in text:
         sys.exit("User exit")
     elif text in COMMANDS:
@@ -106,7 +110,10 @@ def iter_nautilus(method):
         try:
             pref_input=prompt(u'Ranking: ',default=default,validator=VectorValidator(method))
         except:
+            # This is not a tui, so go to next
             pref_input=default
+            if method.current_iter==3:
+                pref_input="c"
         brk=False
         for c in COMMANDS:
             if c in pref_input:
