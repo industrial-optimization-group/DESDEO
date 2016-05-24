@@ -246,7 +246,7 @@ class NNAUTILUS(NAUTILUS):
             self.ref_point=list(ref_point)
             self._update_fh()
 
-        self._update_zh(self.zh_prev,self.fh)
+        self._update_zh(self.zh,self.fh)
         
         self.fh_lo = self.bounds_factory.result(self.zh)
         self.fh_up = self.bounds_factory.result(self.zh,max=True)
