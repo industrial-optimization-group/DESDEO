@@ -63,12 +63,21 @@ if __name__ == '__main__':
 
     solution = tui.iter_nautilus(method)
     
-    if method.current_iter>0:
+    ci=method.current_iter
+    if ci>0:
         try:
             from prompt_toolkit import prompt
             weights=prompt(u'Weights (10 or 20): ',default=u"20",validator=tui.NumberValidator())
         except:
             weights="20"
+
+        factory=IterationPointFactory(SciPyDE(AchievementProblem(NaurulaWeistroffer())))
+        points=misc.new_points(factory,solution,WEIGHTS[weights])
+        
+        method=ENAUTILUS(PreGeneratedProblem(points=points), PointSearch)
+        method.current_iter=ci
+        method.zh_prev=solution
+        print("E-NAUTILUS\nselected iteration point: %s:"%",".join(map(str,method.zh_prev)))
             
     while method.current_iter>0:
         if solution is None:
@@ -76,11 +85,6 @@ if __name__ == '__main__':
             # Generate new points
         #print solution
 
-        print("E-NAUTILUS\nselected iteration point: %s:"%",".join(map(str,solution)))
-        factory=IterationPointFactory(SciPyDE(AchievementProblem(NaurulaWeistroffer())))
-        points=misc.new_points(factory,solution,WEIGHTS[weights])
-        
-        method=ENAUTILUS(PreGeneratedProblem(points=points), PointSearch)
         method.problem.nadir=nadir
         method.problem.ideal=ideal
         tui.iter_enautilus(method)
