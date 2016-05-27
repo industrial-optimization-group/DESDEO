@@ -70,6 +70,21 @@ class DirectSpecification(Direction):
 
     def weights(self):
         return np.array(self.pref_input)
+    
+
+class PercentageSpecifictation(Direction):
+    '''
+     '''
+
+    def __init__(self, percentages):
+        '''
+        Constructor
+        '''
+
+        self.pref_input = percentages
+
+    def weights(self):
+        return np.array(self.pref_input)/100.
 
 
 class RelativeRanking(Direction):

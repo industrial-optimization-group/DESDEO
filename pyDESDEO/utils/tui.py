@@ -51,10 +51,8 @@ class VectorValidator(Validator):
 class NumberValidator(Validator):
     def validate(self, document):
         text = document.text
-
+        i=0
         if text and not text.isdigit():
-            i = 0
-
             # Get index of fist non numeric character.
             # We want to move the cursor here.
             for i, c in enumerate(text):
@@ -63,8 +61,11 @@ class NumberValidator(Validator):
 
             raise ValidationError(message='This input contains non-numeric characters',
                                   cursor_position=i)
-
-
+        if int(text)<1:
+            raise ValidationError(message='The number must be greater than 0',
+                                  cursor_position=0)
+            
+            
 
 def select_iter(method,default=1,no_print=False):
     if not no_print:
@@ -81,6 +82,8 @@ def select_iter(method,default=1,no_print=False):
         sys.exit("User exit")
     elif text in COMMANDS:
         return text
+    print("Selected iteration point: %s"%method.zhs[int(text)-1])
+    print("Reachable points: %s"%method.zh_reach[int(text)-1])
     return method.zhs[int(text)-1],method.zh_los[int(text)-1]
 
 def ask_pref(method,prev_pref):
@@ -96,15 +99,17 @@ def ask_pref(method,prev_pref):
 def iter_nautilus(method):
     solution=None
     pref=RelativeRanking([1.0]*len(method.problem.nadir))
-    try:
-        method.current_iter=method.user_iters=method.current_iter=int(prompt(u'Ni: ',default=u"%s"%(method.current_iter),validator=NumberValidator()))
-    except:
-        method.current_iter=method.user_iters=5
 
     print("Nadir: %s"%method.problem.nadir)
     print("Ideal: %s"%method.problem.ideal)
 
+    try:
+        method.user_iters=method.current_iter=int(prompt(u'Ni: ',default=u"%s"%(method.current_iter),validator=NumberValidator()))
+    except:
+        method.current_iter=method.user_iters=5
+
     while(method.current_iter):
+
         method.printCurrentIteration()
         default=u",".join(map(str,pref.pref_input))
         try:
@@ -112,7 +117,7 @@ def iter_nautilus(method):
         except:
             # This is not a tui, so go to next
             pref_input=default
-            if method.current_iter==3:
+            if method.current_iter==5:
                 pref_input="c"
         brk=False
         for c in COMMANDS:
@@ -144,7 +149,12 @@ def iter_enautilus(method):
         pref=select_iter(method,1)
         if pref  in COMMANDS:
             break
+        try:
+            method.Ns=int(prompt(u'Ns: ',default=u"%s"%(method.Ns),validator=NumberValidator()))
+        except:
+            pass
         points=method.nextIteration(pref)
+        
     if not method.current_iter:
         method.zh_prev=select_iter(method,1)[0]
         method.current_iter-=1

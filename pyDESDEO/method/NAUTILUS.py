@@ -126,7 +126,6 @@ class ENAUTILUS(NAUTILUS):
             self.zh_prev=preference[0]
             self.fh_lo = preference[1]
             self.nsPoint_prev=self.NsPoints[self.zhs.index(self.zh_prev)]
-        print("Reachable points: %i"%len(points))    
         if len(points)<=self.Ns:
             print ("Only %s points can be reached from selected iteration point"%len(points))
             self.NsPoints=points
