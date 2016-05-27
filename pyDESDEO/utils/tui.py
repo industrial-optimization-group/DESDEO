@@ -14,8 +14,8 @@ except:
 
 from prompt_toolkit.validation import Validator, ValidationError
 
-from method.NAUTILUS import ENAUTILUS, NAUTILUSv1
-from preference.PreferenceInformation import RelativeRanking
+from preference.PreferenceInformation import RelativeRanking,\
+    DirectSpecification, PercentageSpecifictation
 
 COMMANDS=["c","C","q"]
 
@@ -33,10 +33,12 @@ class IterValidator(Validator):
                                   cursor_position=0)
 
 class VectorValidator(Validator):
-    def __init__(self,method):
+    def __init__(self,method,preference=None):
         super(VectorValidator,self).__init__()
         self.nfun=len(method.problem.nadir)
-         
+        self.preference=preference
+        self.method=method
+        
     def validate(self, document):
         for c in COMMANDS:
             if c in document.text:
@@ -47,8 +49,19 @@ class VectorValidator(Validator):
         if len(values) != self.nfun:
             raise ValidationError(message='Problem requires %i items in the vector'%self.nfun,
                                   cursor_position=0)
-
+        if self.preference:
+            err=self.preference.check_input(values,self.method.problem)
+            if err:
+                raise ValidationError(message=err, cursor_position=0)
+                
 class NumberValidator(Validator):
+    def __init__(self,ranges=None):
+        super(NumberValidator,self).__init__()
+        if ranges:
+            self.ranges=ranges
+        else:
+            ranges = [1,None]
+            
     def validate(self, document):
         text = document.text
         i=0
@@ -61,8 +74,14 @@ class NumberValidator(Validator):
 
             raise ValidationError(message='This input contains non-numeric characters',
                                   cursor_position=i)
-        if int(text)<1:
-            raise ValidationError(message='The number must be greater than 0',
+        v=int(text)
+        if self.ranges[0]:
+            if v < self.ranges[0]:
+                raise ValidationError(message='The number must be greater than %i'%self.ranges[0],
+                                  cursor_position=0)
+                
+        if v > self.ranges[1]:
+            raise ValidationError(message='The number must be smaller than %'%self.ranges[1],
                                   cursor_position=0)
             
             
@@ -98,7 +117,20 @@ def ask_pref(method,prev_pref):
 
 def iter_nautilus(method):
     solution=None
-    pref=RelativeRanking([1.0]*len(method.problem.nadir))
+    try:
+        print("Preference elicitation options:")
+        print("\t1 - Percentages")
+        print("\t2 - Relative ranks")
+        print("\t3 - Direct")
+        
+        pref_sel=int(prompt(u'Reference elicitation ',default=u"%s"%(1),validator=NumberValidator([1,3])))
+    except:
+        pref_sel=1
+    
+    PREFCLASSES=[PercentageSpecifictation,RelativeRanking,DirectSpecification]    
+    preference_class=PREFCLASSES[pref_sel-1]
+    
+    
 
     print("Nadir: %s"%method.problem.nadir)
     print("Ideal: %s"%method.problem.ideal)
@@ -107,13 +139,17 @@ def iter_nautilus(method):
         method.user_iters=method.current_iter=int(prompt(u'Ni: ',default=u"%s"%(method.current_iter),validator=NumberValidator()))
     except:
         method.current_iter=method.user_iters=5
+    pref=preference_class(None)
+    default=u",".join(map(str,pref.default_input(method.problem)))
+    pref=preference_class(pref.default_input(method.problem))    
 
     while(method.current_iter):
 
         method.printCurrentIteration()
         default=u",".join(map(str,pref.pref_input))
+        
         try:
-            pref_input=prompt(u'Ranking: ',default=default,validator=VectorValidator(method))
+            pref_input=prompt(u'Preferences: ',default=default,validator=VectorValidator(method,pref))
         except:
             # This is not a tui, so go to next
             pref_input=default
@@ -126,14 +162,14 @@ def iter_nautilus(method):
         if brk:
             solution = method.zh
             break
-        pref=RelativeRanking(map(float,pref_input.split(",")))
+        pref=preference_class(map(float,pref_input.split(",")))
         solution, distance = method.nextIteration(pref)
         
     return solution
 
 def iter_enautilus(method):
     try:
-        method.user_iters=method.current_iter=int(prompt(u'Ni: ',default=u"5",validator=NumberValidator()))
+        method.user_iters=method.current_iter=int(prompt(u'Ni: ',default=u"%i"%method.current_iter,validator=NumberValidator()))
         method.Ns=int(prompt(u'Ns: ',default=u"5",validator=NumberValidator()))
     except:
         method.user_iters=5

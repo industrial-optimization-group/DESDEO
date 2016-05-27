@@ -56,6 +56,12 @@ class Direction(PreferenceInformation):
         '''
         Constructor
         '''
+    def default_input(self,problem):
+        return [0.0]*len(problem.nadir)
+
+    def check_input(self,input,problem):
+        return ""
+
 
 class DirectSpecification(Direction):
     '''
@@ -85,6 +91,16 @@ class PercentageSpecifictation(Direction):
 
     def weights(self):
         return np.array(self.pref_input)/100.
+
+    def default_input(self,problem):
+        return [0]*len(problem.nadir)
+
+    def check_input(self,input,problem):
+        inp=map(float,input)
+        if np.sum(inp)!=100:
+            return "Total of the preferences should be 100"
+        return ""
+
 
 
 class RelativeRanking(Direction):

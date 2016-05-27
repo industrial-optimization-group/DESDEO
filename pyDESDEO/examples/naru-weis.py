@@ -41,7 +41,6 @@ from method.NAUTILUS import NAUTILUSv1,ENAUTILUS
 from method.NAUTILUS import NAUTILUSv1,ENAUTILUS, NAUTILUS
 from optimization.OptimizationMethod import SciPyDE, PointSearch
 from optimization.OptimizationProblem import AchievementProblem
-from preference.PreferenceInformation import DirectSpecification, RelativeRanking
 from problem.Problem import PreGeneratedProblem
 from utils import misc, tui
 try:
