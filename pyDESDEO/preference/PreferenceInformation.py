@@ -102,6 +102,25 @@ class RelativeRanking(Direction):
         return 1. / np.array(self.pref_input)
 
 
+class PairwiseRanking(Direction):
+    '''
+     '''
+
+    def __init__(self, selected_obj,other_ranking):
+        '''
+        Constructor
+        '''
+
+        self.pref_input = (selected_obj,other_ranking)
+
+    def weights(self):
+        ranks=self.pref_input[1]
+        fi = self.pref_input[0]
+        ranks[:fi]+[1.0]+ranks[fi:]
+        return ranks
+
+
+
 class PreferredPoint(object):
     '''
     Brief Description
