@@ -231,7 +231,7 @@ class NNAUTILUS(NAUTILUS):
         logging.debug("updated fh: %s",self.fh)
         
 
-    def nextIteration(self, ref_point):
+    def nextIteration(self, ref_point,bounds=None):
         '''
         Calculate the next iteration point to be shown to the DM
         
@@ -241,6 +241,9 @@ class NNAUTILUS(NAUTILUS):
         ref_point : list of float
         Reference point given by the DM
         '''
+        if bounds:
+            self.problem.points=reachable_points(self.problem.points, self.problem.ideal,bounds) 
+        
         if ref_point != self.ref_point:
             self.ref_point=list(ref_point)
             self._update_fh()
