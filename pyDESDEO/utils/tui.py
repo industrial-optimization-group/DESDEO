@@ -60,7 +60,7 @@ class NumberValidator(Validator):
         if ranges:
             self.ranges=ranges
         else:
-            ranges = [1,None]
+            self.ranges = [1,None]
             
     def validate(self, document):
         text = document.text
@@ -75,13 +75,12 @@ class NumberValidator(Validator):
             raise ValidationError(message='This input contains non-numeric characters',
                                   cursor_position=i)
         v=int(text)
-        if self.ranges[0]:
-            if v < self.ranges[0]:
-                raise ValidationError(message='The number must be greater than %i'%self.ranges[0],
+        if self.ranges[0] and v < self.ranges[0]:
+            raise ValidationError(message='The number must be greater than %i'%self.ranges[0],
                                   cursor_position=0)
                 
-        if v > self.ranges[1]:
-            raise ValidationError(message='The number must be smaller than %'%self.ranges[1],
+        if self.ranges[1] and v > self.ranges[1]:
+            raise ValidationError(message='The number must be smaller than %i'%self.ranges[1],
                                   cursor_position=0)
             
             
@@ -137,8 +136,10 @@ def iter_nautilus(method):
 
     try:
         method.user_iters=method.current_iter=int(prompt(u'Ni: ',default=u"%s"%(method.current_iter),validator=NumberValidator()))
-    except:
+    except Exception,e:
+        print e
         method.current_iter=method.user_iters=5
+    print "Ni:",method.user_iters
     pref=preference_class(None)
     default=u",".join(map(str,pref.default_input(method.problem)))
     pref=preference_class(pref.default_input(method.problem))    
