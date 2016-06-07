@@ -42,6 +42,7 @@ class NAUTILUS(Method):
         self.fh_lo, self.zh = tuple(self.problem.objective_bounds())
         self.fh = self.fh_lo
         self.zh_prev=self.zh
+        self.NsPoints=None
 
         # self.zh = self.zh_pref = self.fh = self.fh_lo = None
 
@@ -69,11 +70,13 @@ class NAUTILUS(Method):
 
     def distance(self,where=None,target=None):
 
-        
-        u = np.linalg.norm(np.array(where) - np.array(self.problem.nadir))
-        l = np.linalg.norm(np.array(target) - np.array(self.problem.nadir))
+        a_nadir=np.array(self.problem.nadir)
+        a_ideal=np.array(self.problem.ideal)
+        w=a_ideal-a_nadir  
+        u = np.linalg.norm((np.array(where) - a_nadir)/w)
+        l = np.linalg.norm((np.array(target) - a_nadir)/w)
         logging.debug("\nNADIR: %s"%self.problem.nadir)
-        logging.debug("zh: %s:",where)
+        logging.debug("zh: %s",where)
         logging.debug("PO: %s",target)
         if not l:
             return 0.0
@@ -174,6 +177,7 @@ class NAUTILUSv1(NAUTILUS):
     '''
     def printCurrentIteration(self):
         if self.current_iter == 0:
+            print "Closeness: ", self.distance(self.zh,self.fh)
             print "Final iteration point:", self.zh
         else:
             print "Iteration %s/%s" % (self.user_iters - self.current_iter, self.user_iters)
