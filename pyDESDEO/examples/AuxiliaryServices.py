@@ -31,8 +31,12 @@ References
 '''
 import sys,os
 
+
 example_path=os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(example_path,".."))
+from utils.misc import Logger 
+sys.stdout = Logger(os.path.splitext(os.path.basename(__file__))[0])
+
 
 from utils import tui
 
@@ -41,25 +45,22 @@ from method.NAUTILUS import NAUTILUSv1,ENAUTILUS
 from optimization.OptimizationMethod import PointSearch
 from problem.Problem import PreGeneratedProblem
 
-from utils.misc import Logger 
-sys.stdout = Logger(os.path.splitext(os.path.basename(__file__))[0])
 
 if __name__ == '__main__':
     # SciPy breaks box constraints
     method = ENAUTILUS(PreGeneratedProblem(filename=os.path.join(example_path,"AuxiliaryServices.csv")), PointSearch)
     zh=tui.iter_enautilus(method)
     ci=method.current_iter
-   
     if ci:
+    if ci>0:
         if zh is None:
             fh=zh = method.problem.nadir
             fh_lo = method.problem.ideal
 
         else:      
             zh=method.zh_prev  
-            fh_lo=method.fh_lo
+            fh_lo=method.fh_lo_prev
             fh=method.nsPoint_prev
-
         method = NAUTILUSv1(PreGeneratedProblem(filename=os.path.join(example_path,"AuxiliaryServices.csv")), PointSearch)
         method.current_iter=ci+1
         method.zh_prev=method.zh=zh
