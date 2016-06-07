@@ -40,8 +40,9 @@ class NAUTILUS(Method):
         self.preference = None
 
         self.fh_lo, self.zh = tuple(self.problem.objective_bounds())
-        self.fh = self.fh_lo
-        self.zh_prev=self.zh
+        self.fh = list(self.fh_lo)
+        self.zh_prev=list(self.zh)
+
         self.NsPoints=None
 
         # self.zh = self.zh_pref = self.fh = self.fh_lo = None
@@ -51,12 +52,13 @@ class NAUTILUS(Method):
 
     def _next_zh(self,term1,term2):
         res=list((self.current_iter - 1) * np.array(term1)/ self.current_iter  +  np.array(term2)/ self.current_iter)
-        logging.debug(term1)
-        logging.debug(term2)
-        for i in range(2):
+        logging.debug("Update zh")
+        logging.debug("First term:  %s"%term1)
+        logging.debug("Second term: %s"%term2)
+        for i in range(3):
             logging.debug("%i/%i * %f + %f/%i  =%f"%(
                                                 (self.current_iter - 1),
-                                                self.current_iter,
+                                                self.   current_iter,
                                                 term1[i],
                                                 term2[i],
                                                 self.current_iter,
@@ -64,9 +66,9 @@ class NAUTILUS(Method):
         return res
 
     def _update_zh(self,term1,term2):
-        self.zh_prev = self.zh
+        self.zh_prev = list(self.zh)
 
-        self.zh = self._next_zh(term1,term2)
+        self.zh = list(self._next_zh(term1,term2))
 
     def distance(self,where=None,target=None):
 
@@ -124,11 +126,12 @@ class ENAUTILUS(NAUTILUS):
         points=np.array(self.problem.points)
         # Reduce point set if starting from DM specified sol
         if preference is not None:
-            print("Selected iteration point: %s"%preference[0])
-            points=reachable_points(self.problem.points,preference[1],preference[0])
-            self.zh_prev=preference[0]
-            self.fh_lo = preference[1]
-            self.nsPoint_prev=self.NsPoints[self.zhs.index(self.zh_prev)]
+            self.problem.points=points=reachable_points(self.problem.points,preference[1],preference[0])
+            self.zh_prev=list(preference[0])
+            self.fh_lo = list(preference[1])
+            self.fh_lo_prev=self.fh_lo
+
+            self.nsPoint_prev=list(self.NsPoints[self.zhs.index(self.zh_prev)])
         if len(points)<=self.Ns:
             print ("Only %s points can be reached from selected iteration point"%len(points))
             self.NsPoints=points
@@ -140,7 +143,8 @@ class ENAUTILUS(NAUTILUS):
             closest, _ = pairwise_distances_argmin_min(k_means.cluster_centers_, points)
             
             self.NsPoints = map(list,points[closest])
-
+        for p in self.NsPoints:
+            logging.debug(p)
         self.zh_los=[]
         self.zhs=[]
         self.zh_reach=[]
@@ -254,14 +258,26 @@ class NNAUTILUS(NAUTILUS):
 
         self._update_zh(self.zh,self.fh)
         
-        self.fh_lo = self.bounds_factory.result(self.zh)
-        self.fh_up = self.bounds_factory.result(self.zh,max=True)
-        if not np.all(np.array(self.fh_up)>np.array(self.fh_lo)):
-            print "FALSE"
+        self.fh_lo = list(self.bounds_factory.result(self.zh))
+        self.fh_up = list(self.bounds_factory.result(self.zh,max=True))
+        
+        assert np.all(np.array(self.fh_up)>np.array(self.fh_lo))
+
+        def isin(a):
+            for i,v in enumerate(a):
+                if v not in  self.problem.points[:,i]:
+                    return False
+            return True
+                
+        assert isin(self.fh_up)
+        assert isin(self.fh_lo)
+
+            
         dist=self.distance(self.zh, self.fh)
         
         # Reachable points
         self.problem.points=reachable_points(self.problem.points, self.fh_lo,self.fh_up)
+
         lP = len(self.problem.points)
         self.current_iter -= 1
         
