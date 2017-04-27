@@ -51,7 +51,7 @@ if __name__ == '__main__':
     method = ENAUTILUS(PreGeneratedProblem(filename=os.path.join(example_path,"AuxiliaryServices.csv")), PointSearch)
     zh=tui.iter_enautilus(method)
     ci=method.current_iter
-    if ci:
+
     if ci>0:
         if zh is None:
             fh=zh = method.problem.nadir

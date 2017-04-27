@@ -33,18 +33,15 @@ class OptimizationProblem(object):
         self.problem = problem
         
 
-    @abstractmethod
     def evaluate(self, objectives):
         '''
-        evaluate value of the objective function and possible additional constraints
+        Evaluate value of the objective function and possible additional constraints
 
 
         Attributes
         ----------
 
         objectives : list of objective values
-            Descrption
-
 
         Returns
         -------
@@ -52,8 +49,11 @@ class OptimizationProblem(object):
             Objective function values corresponding to objectives
         constraint : 2-D matrix of floats
             Constraint function values corresponding to objectives per row. None if no constraints are added
-            This must be 2-D matrix for example for NIMBUS scalarizaton
         '''
+        return self._evaluate(objectives)
+    
+    @abc.abstractmethod
+    def _evaluate(self,objectives):
         pass
 
 class AchievementProblem(OptimizationProblem):
@@ -73,9 +73,6 @@ class AchievementProblem(OptimizationProblem):
     '''
 
     def __init__(self, problem, eps=0.00001, rho=0.01):
-        '''
-        Constructor
-        '''
         super(AchievementProblem,self).__init__(problem)
         self.reference = []
         self.eps = eps
@@ -86,10 +83,10 @@ class AchievementProblem(OptimizationProblem):
 
 
 
-    def evaluate(self, objectives):
+    def _evaluate(self, objectives):
         v_ach = np.vectorize(lambda f, w, r:w * (f - r))
 
-        # Calculate achiemvement values
+        # Calculate achievement values
         ach_rho = v_ach(objectives, np.array(self.scaling_weights), self.reference)
 
         # Calculate rho_term
@@ -112,21 +109,18 @@ class EpsilonConstraintProblem(OptimizationProblem):
     Attributes
     ----------
     bounds : List of numerical values
-        Boundary value for the each of the objectives. The objetive with boundary of None is to be minimized
+        Boundary value for the each of the objectives. The objective with boundary of None is to be minimized
 
 
     '''
 
     def __init__(self, problem, obj_bounds=None):
-        '''
-        Constructor
-        '''
         super(EpsilonConstraintProblem,self).__init__(problem)
         self.obj_bounds = obj_bounds
         self.objective = 100000
  
 
-    def evaluate(self, objectives):
+    def _evaluate(self, objectives):
         objs=[]
         consts=[]
         for ind in objectives:

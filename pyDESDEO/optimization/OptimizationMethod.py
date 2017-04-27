@@ -187,7 +187,8 @@ class PointSearch(OptimizationMethod):
     '''
     '''
     def _search(self, **params):
-        obj, const = self.optimization_problem.evaluate(self.optimization_problem.problem.evaluate())
+        evl = self.optimization_problem.problem.evaluate()
+        obj, const = self.optimization_problem.evaluate(evl)
         a_obj=np.array(obj)
 
         if const:

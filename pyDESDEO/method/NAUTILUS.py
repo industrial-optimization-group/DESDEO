@@ -239,6 +239,9 @@ class NNAUTILUS(NAUTILUS):
         logging.debug("updated fh: %s",self.fh)
         
 
+    def update_points(self):
+        self.problem.points=reachable_points(self.problem.points, self.fh_lo,self.fh_up)
+    
     def nextIteration(self, ref_point,bounds=None):
         '''
         Calculate the next iteration point to be shown to the DM
@@ -251,8 +254,7 @@ class NNAUTILUS(NAUTILUS):
         '''
         if bounds:
             self.problem.points=reachable_points(self.problem.points, self.problem.ideal,bounds) 
-        
-        if ref_point != self.ref_point:
+        if not utils.isin(self.fh,self.problem.points) or ref_point != self.ref_point:
             self.ref_point=list(ref_point)
             self._update_fh()
 
@@ -261,25 +263,20 @@ class NNAUTILUS(NAUTILUS):
         self.fh_lo = list(self.bounds_factory.result(self.zh))
         self.fh_up = list(self.bounds_factory.result(self.zh,max=True))
         
-        assert np.all(np.array(self.fh_up)>np.array(self.fh_lo))
+        if np.all(np.array(self.fh_up)>np.array(self.fh_lo)):
+            logging.debug("Upper boundary is smaller than lower boundary")
 
-        def isin(a):
-            for i,v in enumerate(a):
-                if v not in  self.problem.points[:,i]:
-                    return False
-            return True
-                
-        assert isin(self.fh_up)
-        assert isin(self.fh_lo)
+        assert utils.isin(self.fh_up,self.problem.points)
+        assert utils.isin(self.fh_lo,self.problem.points)
 
             
         dist=self.distance(self.zh, self.fh)
         
         # Reachable points
-        self.problem.points=reachable_points(self.problem.points, self.fh_lo,self.fh_up)
+        self.update_points()
 
         lP = len(self.problem.points)
         self.current_iter -= 1
         
             
-        return dist,self.fh_lo,self.fh_up,lP       
+        return dist,self.fh,self.zh,self.fh_lo,self.fh_up,lP       
