@@ -2,28 +2,28 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Copyright (c) 2016  Vesa Ojalehto <vesa.ojalehto@gmail.com>
+# Copyright (c) 2016  Vesa Ojalehto
 from _pyio import __metaclass__
 '''
 Module description
 '''
 
-from abc import ABCMeta, abstractmethod
+import abc
 import numpy as np
 
 
 class OptimizationProblem(object):
     '''
-    Brief Description
+    Single objective optimization problem
 
 
     Attributes
     ----------
-    method : OptimizationMethod instance
+    problem : OptimizationMethod instance
         Method used for solving the problem
 
     '''
-    __metaclass__ = ABCMeta
+    __metaclass__ = abc.ABCMeta
 
     def __init__(self, problem):
         '''
