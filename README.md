@@ -14,8 +14,7 @@ preferences are expressed and how the preferences are utilized when new solution
 
 Overview of the current DESDEO architecture is shown in diagram
 
-![DESDEO Overview](https://github.com/pyDesdeo/pyDESDEO/blob/master/doc/design/overview.png)
-
+![DESDEO Overview](https://github.com/industrial-optimization-group/pyDESDEO/raw/master/doc/design/overview.png)
 
 # Interactive Methods  #
 
