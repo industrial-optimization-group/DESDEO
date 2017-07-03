@@ -3,10 +3,6 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # Copyright (c) 2016  Vesa Ojalehto 
-'''
-Module description
-'''
-
 
 import copy
 from abc import abstractmethod, ABCMeta
@@ -17,25 +13,23 @@ class Problem(object):
 
     Attributes
     ----------
-    attr : type
-        Descrption
+    variables : list of Variables
+        Problem decision variable information
 
-    Methods
-    -------
-    method(c='rgb')
-        Brief description, methods only for larger classes
+    ideal
+        Ideal, i.e, the worst values of objective functions
+
+    nadir
+        Nadir, i.e, the best values of objective functions
     '''
     __metaclass__ = ABCMeta
 
 
     def __init__(self):
-        '''
-        Constructor
-
-        '''
         self.variables = []
         self.ideal=None
         self.nadir=None
+
     @abstractmethod
     def evaluate(self, population):
         '''
@@ -45,7 +39,7 @@ class Problem(object):
         Attributes
         ----------
         population : list of variable values
-            Descrption
+            Description
         '''
         pass
 
@@ -71,9 +65,6 @@ class Problem(object):
 
     def add_variables(self, variables, index=None):
         '''
-        Brief Description
-
-
         Attributes
         ----------
         variable : list of variables or single variable
@@ -99,9 +90,6 @@ class Problem(object):
 
 class Variable(object):
     '''
-    Brief Description
-
-
     Attributes
     ----------
     bounds : list of numeric values

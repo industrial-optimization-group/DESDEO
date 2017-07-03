@@ -4,7 +4,6 @@
 #
 # Copyright (c) 2016  Vesa Ojalehto 
 '''
-Module description
 '''
 from abc import ABCMeta, abstractmethod
 
@@ -16,7 +15,7 @@ class Result(object):
     Attributes
     ----------
     attr : type
-        Descrption
+        Description
 
     Methods
     -------
@@ -32,65 +31,13 @@ class Result(object):
         '''
         
 class Bound(Result):
-    '''
-    Brief Description
-
-
-    Attributes
-    ----------
-    attr : type
-        Descrption
-
-    Methods
-    -------
-    method(c='rgb')
-        Brief description, methods only for larger classes
-    '''
-    
     def __init__(self, params):
-        '''
-        Constructor
-        '''
-        
+        pass
+
 class Distance(Result):
-    '''
-    Brief Description
-
-
-    Attributes
-    ----------
-    attr : type
-        Descrption
-
-    Methods
-    -------
-    method(c='rgb')
-        Brief description, methods only for larger classes
-    '''
-    
     def __init__(self, params):
-        '''
-        Constructor
-        '''
- 
+        pass
  
 class IterationPoint(Result):
-    '''
-    Brief Description
-
-
-    Attributes
-    ----------
-    attr : type
-        Descrption
-
-    Methods
-    -------
-    method(c='rgb')
-        Brief description, methods only for larger classes
-    '''
-    
     def __init__(self, params):
-        '''
-        Constructor
-        '''
+        pass

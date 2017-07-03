@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # Copyright (c) 2016  Vesa Ojalehto 
+import utils
 '''
 NAUTILUS method variants
 
@@ -81,18 +82,24 @@ class NAUTILUS(Method):
         logging.debug("zh: %s",where)
         logging.debug("PO: %s",target)
         if not l:
+            logging.debug("Distance: %s",0.0)
             return 0.0
+        logging.debug("Distance: %s",(u / l) * 100)
         return (u / l) * 100
 
 
 class ENAUTILUS(NAUTILUS):
     def __init__(self, problem, method_class):
-        '''
-        Constructor
-        '''
         super(ENAUTILUS,self).__init__(problem,method_class)
         self.Ns = 5
-    
+        self.fh_lo_prev = None
+        self.fh_lo_prev = None
+
+        self.nsPoint_prev = []
+
+        self.zhs = []
+        self.zh_los = []
+        self.zh_reach = []
 
     def printCurrentIteration(self):
         if self.current_iter<0:
@@ -134,7 +141,7 @@ class ENAUTILUS(NAUTILUS):
             self.nsPoint_prev=list(self.NsPoints[self.zhs.index(self.zh_prev)])
         if len(points)<=self.Ns:
             print ("Only %s points can be reached from selected iteration point"%len(points))
-            self.NsPoints=points
+            self.NsPoints = self.problem.points
         else:
             # k-mean cluster Ns solutions      
             k_means = KMeans(n_clusters=self.Ns)
@@ -145,20 +152,13 @@ class ENAUTILUS(NAUTILUS):
             self.NsPoints = map(list,points[closest])
         for p in self.NsPoints:
             logging.debug(p)
-        self.zh_los=[]
-        self.zhs=[]
-        self.zh_reach=[]
+
         for point in self.NsPoints:
             self.zhs.append(self._update_zh(self.zh_prev,point))
             #self.fh=point
             self.fh_lo = list(self.bounds_factory.result(self.zhs[-1]))
             self.zh_los.append(self.fh_lo)
             
-            apoints=np.array(self.problem.points)
- 
-            #apoints=apoints[np.all(apoints<np.array(self.zhs[-1]),axis=1)]
-            #apoints=apoints[np.all(apoints>np.array(self.zh_los[-1]),axis=1)]
-
             self.zh_reach.append(len(reachable_points(self.problem.points,self.zh_los[-1],self.zhs[-1])))
  
 
@@ -192,9 +192,6 @@ class NAUTILUSv1(NAUTILUS):
 
 
     def __init__(self, problem, method_class):
-        '''
-        Constructor
-        '''
         super(NAUTILUSv1,self).__init__(problem,method_class)
 
 
@@ -224,10 +221,29 @@ class NAUTILUSv1(NAUTILUS):
 
 
 class NNAUTILUS(NAUTILUS):
+    '''
+    NAVIGATOR NAUTILUS method
+    
+    Attributes
+    ----------
+
+    fh : list of floats
+        Current non-dominated point
+
+    zh : list of floats
+        Current iteration point
+    
+    fh_up : list of floats
+        Upper boundary for iteration points reachable from iteration point zh
+
+    fh_lo : list of floats
+        Lower boundary for iteration points reachable from iteration point  zh
+
+    
+        
+    
+    '''
     def __init__(self, problem, method_class):
-        '''
-        Constructor
-        '''
         super(NNAUTILUS,self).__init__(problem,method_class)
         self.current_iter=100
         self.ref_point = None
@@ -245,8 +261,7 @@ class NNAUTILUS(NAUTILUS):
     def nextIteration(self, ref_point,bounds=None):
         '''
         Calculate the next iteration point to be shown to the DM
-        
-        
+
         Attributes
         ----------
         ref_point : list of float

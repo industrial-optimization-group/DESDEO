@@ -3,28 +3,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 # Copyright (c) 2016  Vesa Ojalehto 
-'''
-Module description
-'''
+from abc import ABCMeta
 
 class Solutions(object):
     '''
-    Brief Description
-
-
-    Attributes
-    ----------
-    attr : type
-        Descrption
-
-    Methods
-    -------
-    method(c='rgb')
-        Brief description, methods only for larger classes
+    Abstract class for storing solutions
     '''
-
-
-    def __init__(self, params):
-        '''
-        Constructor
-        '''
+    __metaclass__ = ABCMeta

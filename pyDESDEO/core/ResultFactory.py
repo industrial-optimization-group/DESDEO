@@ -3,38 +3,21 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # Copyright (c) 2016  Vesa Ojalehto 
-'''
-'''
+
+from abc import ABCMeta, abstractmethod
 from optimization.OptimizationProblem import AchievementProblem
 
 class ResultFactory(object):
     '''
-    Brief Description
-
-
-    Attributes
-    ----------
-    attr : type
-        Descrption
-
-    Methods
-    -------
-    method(c='rgb')
-        Brief description, methods only for larger classes
+    Abstract base class for result factories
 
     '''
-
-
-    def __init__(self, params):
-        '''
-        Constructor
-        '''
+    __metaclass__ = ABCMeta
 
 class BoundsFactory(ResultFactory):
     def __init__(self, optimization_method):
-        '''
-        '''
         self.optimization_method = optimization_method
+
     def result(self, prev_point,max=False):
         Phr = []
         for fi, fr in enumerate(prev_point):
@@ -50,24 +33,7 @@ class BoundsFactory(ResultFactory):
 
 
 class IterationPointFactory(ResultFactory):
-    '''
-    Brief Description
-
-
-    Attributes
-    ----------
-    attr : type
-        Descrption
-
-    Methods
-    -------
-    method(c='rgb')
-        Brief description, methods only for larger classes
-    '''
-
     def __init__(self, optimization_method):
-        '''
-        '''
         self.optimization_method = optimization_method
 
     def result(self, preferences, q):

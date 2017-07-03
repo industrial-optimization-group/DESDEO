@@ -3,59 +3,20 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 # Copyright (c) 2016  Vesa Ojalehto 
-'''
-Module description
-'''
 
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta
 import numpy as np
 
 class PreferenceInformation(object):
-    '''
-    Brief Description
-
-
-    Attributes
-    ----------
-    attr : type
-        Descrption
-
-    Methods
-    -------
-    method(c='rgb')
-        Brief description, methods only for larger classes
-    '''
     __metaclass__ = ABCMeta
 
 
-    def __init__(self, params):
-        '''
-        Constructor
-        '''
     def weights(self):
         ''' Return weight vector corresponding to the given preference information
         '''
 
 class Direction(PreferenceInformation):
-    '''
-    Brief Description
 
-
-    Attributes
-    ----------
-    attr : type
-        Descrption
-
-    Methods
-    -------
-    method(c='rgb')
-        Brief description, methods only for larger classes
-    '''
-
-    def __init__(self, params):
-        '''
-        Constructor
-        '''
     def default_input(self,problem):
         return [0.0]*len(problem.nadir)
 
@@ -64,14 +25,8 @@ class Direction(PreferenceInformation):
 
 
 class DirectSpecification(Direction):
-    '''
-     '''
 
     def __init__(self, direction):
-        '''
-        Constructor
-        '''
-
         self.pref_input = direction
 
     def weights(self):
@@ -79,14 +34,8 @@ class DirectSpecification(Direction):
     
 
 class PercentageSpecifictation(Direction):
-    '''
-     '''
 
     def __init__(self, percentages):
-        '''
-        Constructor
-        '''
-
         self.pref_input = percentages
 
     def weights(self):
@@ -104,14 +53,9 @@ class PercentageSpecifictation(Direction):
 
 
 class RelativeRanking(Direction):
-    '''
-     '''
+
 
     def __init__(self, ranking):
-        '''
-        Constructor
-        '''
-
         self.pref_input = ranking
 
     def weights(self):
@@ -119,14 +63,8 @@ class RelativeRanking(Direction):
 
 
 class PairwiseRanking(Direction):
-    '''
-     '''
 
     def __init__(self, selected_obj,other_ranking):
-        '''
-        Constructor
-        '''
-
         self.pref_input = (selected_obj,other_ranking)
 
     def weights(self):
@@ -138,22 +76,6 @@ class PairwiseRanking(Direction):
 
 
 class PreferredPoint(object):
-    '''
-    Brief Description
+        __metaclass__ = ABCMeta
 
 
-    Attributes
-    ----------
-    attr : type
-        Descrption
-
-    Methods
-    -------
-    method(c='rgb')
-        Brief description, methods only for larger classes
-    '''
-
-    def __init__(self, params):
-        '''
-        Constructor
-        '''

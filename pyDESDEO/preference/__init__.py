@@ -4,4 +4,4 @@
 #
 # Copyright (c) 2016  Vesa Ojalehto 
 
-__all__ = ["PreferenceInfomration"]
+__all__ = ["PreferenceInformation"]

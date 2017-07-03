@@ -14,21 +14,9 @@ class Method(object):
     '''
     Abstract base class for interactive multiobjective methods
 
-
-    Attributes
-    ----------
-    attr : type
-        Descrption
-
-    Methods
-    -------
-    method(c='rgb')
-        Brief description, methods only for larger classes
     '''
     __metaclass__ = ABCMeta
 
 
     def __init__(self, params):
-        '''
-        Constructor
-        '''
+        pass

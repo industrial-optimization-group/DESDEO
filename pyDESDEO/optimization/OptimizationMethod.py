@@ -4,7 +4,6 @@
 #
 # Copyright (c) 2016  Vesa Ojalehto 
 '''
-Module description
 '''
 from abc import abstractmethod, ABCMeta
 from scipy.optimize import differential_evolution, minimize
@@ -12,7 +11,7 @@ import numpy as np
 
 class OptimizationMethod(object):
     '''
-    Brief Description
+    Abstract class for optimization methods
 
 
     Attributes
@@ -30,9 +29,6 @@ class OptimizationMethod(object):
     __metaclass__ = ABCMeta
 
     def __init__(self, optimization_problem):
-        '''
-        Constructor
-        '''
         self.optimization_problem = optimization_problem
 
     def search(self, max=False, **params):
@@ -75,19 +71,20 @@ class OptimizationMethod(object):
 
 class OptimalSearch(OptimizationMethod):
     '''
-    Brief Description
-
-
-    Attributes
-    ----------
-    attr : type
-        Descrption
-
-    Methods
-    -------
-    method(c='rgb')
-        Brief description, methods only for larger classes
+    Abstract class for optimal search
     '''
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def _objective(self, x):
+        '''
+        Return objective function value
+
+        Attributes
+        ----------
+        x : list of values
+            Decision variable vector to be calclated
+        '''
 
 
 class SciPy(OptimalSearch):
@@ -95,10 +92,6 @@ class SciPy(OptimalSearch):
     '''
 
     def _objective(self, x):
-        '''
-        Objective functio to be solved
-        '''
-
         self.last_objective, self.last_const = self.optimization_problem.evaluate(self.optimization_problem.problem.evaluate([x]))
         return self._coeff*self.last_objective
         # objective, new_constraints = self.scalarproblem(objectives)
@@ -132,32 +125,12 @@ class SciPy(OptimalSearch):
 
 
 class SciPyDE(OptimalSearch):
-    '''
-    Brief Description
-
-
-    Attributes
-    ----------
-    attr : type
-        Descrption
-
-    Methods
-    -------
-    method(c='rgb')
-        Brief description, methods only for larger classes
-    '''
 
     def __init__(self, optimization_problem):
-        '''
-        Constructor
-        '''
         super(SciPyDE, self).__init__(optimization_problem)
         self.penalty=0.0
 
     def _objective(self, x):
-        '''
-        Objective functio to be solved
-        '''
         self.penalty = 0.0
         obj, const = self.optimization_problem.evaluate(self.optimization_problem.problem.evaluate([x]))
         if len(const):
@@ -184,8 +157,6 @@ class SciPyDE(OptimalSearch):
         return self.optimization_problem.problem.evaluate([res.x])[0]
 
 class PointSearch(OptimizationMethod):
-    '''
-    '''
     def _search(self, **params):
         evl = self.optimization_problem.problem.evaluate()
         obj, const = self.optimization_problem.evaluate(evl)

@@ -4,15 +4,7 @@
 
 # Copyright (c) 2016  Vesa Ojalehto 
 
+from abc import ABCMeta
 
 class DMInformation(object):
-    '''
-    classdocs
-    '''
-
-
-    def __init__(self, params):
-        '''
-        Constructor
-        '''
-        
+    __metaclass__ = ABCMeta
