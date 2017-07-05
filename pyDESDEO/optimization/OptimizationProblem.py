@@ -73,14 +73,12 @@ class AchievementProblem(OptimizationProblem):
     '''
 
     def __init__(self, problem, eps=0.00001, rho=0.01):
-        super(AchievementProblem,self).__init__(problem)
+        super(AchievementProblem, self).__init__(problem)
         self.reference = []
         self.eps = eps
         self.scaling_weights = list(1.0 / (np.array(self.problem.nadir) - (np.array(self.problem.ideal) - self.eps)))
         self.weights = [1.0] * len(self.problem.nadir)
         self.rho = rho
-
-
 
 
     def _evaluate(self, objectives):

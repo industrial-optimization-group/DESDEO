@@ -7,19 +7,21 @@ import utils
 '''
 NAUTILUS method variants
 
-NAUTILUS    The first NAUTILUS variant by Miettinen, K.; Eskelinen, P.; Ruiz, F. & Luque, M.
+NAUTILUS    The first NAUTILUS variant introduces in
+            Miettinen, K.; Eskelinen, P.; Ruiz, F. & Luque, M.
+            NAUTILUS method: An interactive technique in multiobjective optimization based on the nadir point
+            European Journal of Operational Research, 2010, 206, 426-434
 
 TODO
 ----
-Longer description of the method variants and methods
+Add all variants
+Longer descriptions of the method variants and methods
 '''
 import numpy as np
 import logging
-from sklearn.cluster import MiniBatchKMeans, KMeans
+from sklearn.cluster import KMeans
 from sklearn.metrics import pairwise_distances_argmin_min
 
-from problem.Problem import Problem
-from result.Result import IterationPoint
 from core.ResultFactory import IterationPointFactory, BoundsFactory
 from optimization.OptimizationProblem import AchievementProblem, \
     EpsilonConstraintProblem
@@ -31,9 +33,8 @@ from utils import reachable_points
 
 class NAUTILUS(Method):
     
-    def __init__(self,problem,method_class):
-        self.problem = problem
-        self.method_class = method_class
+    def __init__(self, problem, method_class):
+        super(NAUTILUS, self).__init__(problem, method_class)
         self.user_iters = 5
         self.current_iter = self.user_iters
         self.fh_factory = IterationPointFactory(self.method_class(AchievementProblem(self.problem)))
@@ -46,24 +47,22 @@ class NAUTILUS(Method):
 
         self.NsPoints=None
 
-        # self.zh = self.zh_pref = self.fh = self.fh_lo = None
-
     def _update_fh(self):
         self.fh = list(self.fh_factory.result(self.preference, self.zh_prev))
 
     def _next_zh(self,term1,term2):
         res=list((self.current_iter - 1) * np.array(term1)/ self.current_iter  +  np.array(term2)/ self.current_iter)
         logging.debug("Update zh")
-        logging.debug("First term:  %s"%term1)
-        logging.debug("Second term: %s"%term2)
+        logging.debug("First term:  %s", term1)
+        logging.debug("Second term: %s", term2)
         for i in range(3):
-            logging.debug("%i/%i * %f + %f/%i  =%f"%(
+            logging.debug("%i/%i * %f + %f/%i  =%f",
                                                 (self.current_iter - 1),
                                                 self.   current_iter,
                                                 term1[i],
                                                 term2[i],
                                                 self.current_iter,
-                                                res[i]))
+                                                res[i])
         return res
 
     def _update_zh(self,term1,term2):
@@ -78,7 +77,7 @@ class NAUTILUS(Method):
         w=a_ideal-a_nadir  
         u = np.linalg.norm((np.array(where) - a_nadir)/w)
         l = np.linalg.norm((np.array(target) - a_nadir)/w)
-        logging.debug("\nNADIR: %s"%self.problem.nadir)
+        logging.debug("\nNADIR: %s", self.problem.nadir)
         logging.debug("zh: %s",where)
         logging.debug("PO: %s",target)
         if not l:
@@ -123,7 +122,6 @@ class ENAUTILUS(NAUTILUS):
     
     def select_point(self,point):
         pass
-    
           
     def nextIteration(self, preference=None):
         '''
@@ -247,6 +245,8 @@ class NNAUTILUS(NAUTILUS):
         super(NNAUTILUS,self).__init__(problem,method_class)
         self.current_iter=100
         self.ref_point = None
+
+        self.fh_up = None
         
     def _update_fh(self):
         u = [1.0]*len(self.ref_point)

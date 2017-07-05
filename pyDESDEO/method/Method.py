@@ -6,17 +6,19 @@
 '''
 Module description
 '''
-
-from abc import ABCMeta, abstractmethod
-import numpy as np
-import logging
+import abc
 class Method(object):
     '''
     Abstract base class for interactive multiobjective methods
 
     '''
-    __metaclass__ = ABCMeta
+    __metaclass__ = abc.ABCMeta
+    def __init__(self, problem, method_class):
+        self.problem = problem
+        self.method_class = method_class
 
-
-    def __init__(self, params):
-        pass
+    @abc.abstractmethod
+    def nextIteration(self, preference = None):
+        '''
+        Return solution(s) for the next iteration
+        '''
