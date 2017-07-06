@@ -163,11 +163,13 @@ class PointSearch(OptimizationMethod):
         a_obj=np.array(obj)
 
         if const:
-            feas = np.all(np.array(const)<0,axis=1)
-            if len(feas):
-                a_obj[feas==False]=self._coeff*np.inf
-            else:
-                return None   
+            # feas = np.all(np.array(const)<0,axis=1)
+            ndc = np.array(const)
+            infeas = ndc.max(axis=0)>0
+           
+            violations = np.sum(ndc[:,infeas].clip(0,np.inf),axis=0)
+            a_obj[infeas] += violations*100
+
         if self._max:
             optarg=np.argmax
         else:

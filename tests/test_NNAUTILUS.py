@@ -1,11 +1,11 @@
 import os
 import pytest
 
-from pyDESDEO.method.NAUTILUS import NNAUTILUS
-from pyDESDEO.examples.NarulaWeistroffer import NaurulaWeistroffer, WEIGHTS
-from pyDESDEO.problem.Problem import PreGeneratedProblem
-from pyDESDEO.optimization.OptimizationMethod import PointSearch
-from pyDESDEO.examples.AuxiliaryServices import example_path
+from method.NAUTILUS import NNAUTILUS
+from examples.NarulaWeistroffer import NaurulaWeistroffer, WEIGHTS
+from problem.Problem import PreGeneratedProblem
+from optimization.OptimizationMethod import PointSearch
+from examples.AuxiliaryServices import example_path
 
 
 def run(method, ref_point, steps = 100, bounds = None):
@@ -19,9 +19,9 @@ def run(method, ref_point, steps = 100, bounds = None):
     return vals
 
 
-def test_running():
-    method = NNAUTILUS(PreGeneratedProblem(filename=os.path.join(example_path,"AuxiliaryServices.csv")), PointSearch)
+def test_running_NNAUTILUS():
+    method = NNAUTILUS(PreGeneratedProblem(filename = os.path.join(example_path, "AuxiliaryServices.csv")), PointSearch)
     vals = run(method, [-30000, 4, -60], 6)
     assert len(vals) == 6
 
-    
+

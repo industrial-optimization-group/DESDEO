@@ -10,7 +10,7 @@ Module description
 
 import abc
 import numpy as np
-
+from operator import itemgetter
 
 class OptimizationProblem(object):
     '''
@@ -56,8 +56,31 @@ class OptimizationProblem(object):
     def _evaluate(self,objectives):
         pass
 
-class AchievementProblem(OptimizationProblem):
-    '''
+class ScalarizedProblem(OptimizationProblem):
+    __metaclass__ = abc.ABCMeta
+
+    def __init__(self, problem, **kwargs):
+        super(ScalarizedProblem, self).__init__(problem)
+        self.reference = None
+        self._preferences = None
+        self.weights = None
+
+    @abc.abstractmethod
+    def _set_preferences(self):
+        pass
+
+    def set_preferences(self, preference):
+        self._preferences = preference
+        self.reference = self._preferences.reference_point()
+        self.weights = self._preferences.weights()
+        self._set_preferences()
+
+    @abc.abstractmethod
+    def _evaluate(self, objectives):
+        pass
+
+class AchievementProblem(ScalarizedProblem):
+    r'''
     Finds new solution by solving achievement scalarizing function[1]_
 
     math :: \mbox{minimize}     & \displaystyle{\max_{i=1, \dots , k}\left\{\, \mu_i(f_i(\mathbf x) - q_i)\ \right\}} + \rho \sum_{i=1}^k \mu_i (f_i(\mathbf x)- q_i) \\
@@ -72,32 +95,77 @@ class AchievementProblem(OptimizationProblem):
     Springer, 1980, pp. 468-486.
     '''
 
-    def __init__(self, problem, eps=0.00001, rho=0.01):
-        super(AchievementProblem, self).__init__(problem)
-        self.reference = []
-        self.eps = eps
+    def __init__(self, problem, **kwargs): 
+        super(AchievementProblem, self).__init__(problem, **kwargs)
+        self.eps = kwargs.get("eps",0.00001)
+        self.rho = kwargs.get("rho",0.01)
+
         self.scaling_weights = list(1.0 / (np.array(self.problem.nadir) - (np.array(self.problem.ideal) - self.eps)))
         self.weights = [1.0] * len(self.problem.nadir)
-        self.rho = rho
 
+        self.v_ach = np.vectorize(lambda f, w, r:w * (f - r))
+
+    def _set_preferences(self):
+        self.scaling_weights = list(1.0 / (np.array(self.problem.nadir) - (np.array(self.problem.ideal) - self.eps)))
+
+
+    def _augmentation(self, objectives):
+        '''Calculate augmentation term
+        '''
+
+        rho = self.v_ach(objectives, np.array(self.scaling_weights), self.reference)
+        return np.sum(rho, axis = 1) * self.rho
+
+    def _ach(self, objectives):
+        return self.v_ach(objectives, np.array(self.scaling_weights) * np.array(self.weights), self.reference)
 
     def _evaluate(self, objectives):
-        v_ach = np.vectorize(lambda f, w, r:w * (f - r))
-
-        # Calculate achievement values
-        ach_rho = v_ach(objectives, np.array(self.scaling_weights), self.reference)
-
-        # Calculate rho_term
-        rho_term = np.sum(ach_rho, axis=1) * self.rho
+        rho = self._augmentation(objectives)
+        v_ach = self._ach(objectives)
 
         # Calculate maximum of the values for each objective
-        ach = v_ach(objectives, np.array(self.scaling_weights) * np.array(self.weights), self.reference)
-        max_term = np.max(ach, axis=1)
-        return max_term + rho_term, []
+        ach = np.max(v_ach, axis = 1)
+        return ach + rho, []
 
+
+
+
+class NIMBUSProblem(AchievementProblem):
+    '''
+    Finds new solution by solving NIMBUS scalarizing function[1]_
+    '''
+    def __init__(self, problem, **kwargs):
+        super(NIMBUSProblem, self).__init__(problem, **kwargs)
+        self.raug = kwargs.get("raug", 0.001)
+
+    def _set_preference(self,preference):
+        self.weights = [1.0] * len(self.problem.nadir)
+        
+
+    def _evaluate(self, objectives):
+        fid_a = self._preferences.with_class("<") + self._preferences.with_class("<=")
+        ach = self._ach(objectives)
+        v_obj = ach[:,fid_a]
+        
+        obj = np.max(v_obj, axis = 1)
+
+        rho = self._augmentation(objectives)
+
+        fid_e = fid_a + self._preferences.with_class("=")
+
+        # Bounds
+        fid_b = self._preferences.with_class(">=")
+        self.nconst = len(fid_e + fid_b)
+
+        bounds = []
+        for fid in fid_b:
+            bounds.append(np.array(objectives)[:, fid] - self._preferences[fid][1])
+        for fid in fid_e:
+            bounds.append(np.array(objectives)[:, fid])
+        return obj + rho, bounds
 
 class EpsilonConstraintProblem(OptimizationProblem):
-    '''
+    r'''
     Solves epsilon constraint problem
 
     math :: \mbox{minimize}     & f_r({\bf{x}}) \\

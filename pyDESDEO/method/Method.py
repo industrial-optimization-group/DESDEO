@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Copyright (c) 2016  Vesa Ojalehto 
+# Copyright (c) 2016  Vesa Ojalehto
 '''
 Module description
 '''
@@ -18,7 +18,11 @@ class Method(object):
         self.method_class = method_class
 
     @abc.abstractmethod
-    def nextIteration(self, preference = None):
+    def _nextIteration(self, *args, **kwargs):
+        pass
+
+    def nextIteration(self, *args, **kwargs):
         '''
         Return solution(s) for the next iteration
         '''
+        return self._nextIteration(*args, **kwargs)

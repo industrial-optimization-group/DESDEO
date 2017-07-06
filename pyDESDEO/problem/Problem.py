@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Copyright (c) 2016  Vesa Ojalehto 
+# Copyright (c) 2016  Vesa Ojalehto
 
 import copy
 from abc import abstractmethod, ABCMeta
@@ -27,8 +27,8 @@ class Problem(object):
 
     def __init__(self):
         self.variables = []
-        self.ideal=None
-        self.nadir=None
+        self.ideal = None
+        self.nadir = None
 
     @abstractmethod
     def evaluate(self, population):
@@ -61,9 +61,14 @@ class Problem(object):
             return self.ideal, self.nadir
         raise NotImplementedError("Ideal and nadir value calculation is not yet implemented")
 
+    def nof_objectives(self):
+        assert len(self.ideal) == len(self.nadir)
+        return len(self.ideal)
 
+    def nof_variables(self):
+        return len(self.variables)
 
-    def add_variables(self, variables, index=None):
+    def add_variables(self, variables, index = None):
         '''
         Attributes
         ----------
@@ -107,7 +112,7 @@ class Variable(object):
         Brief description, methods only for larger classes
     '''
 
-    def __init__(self, bounds=None, starting_point=None, name=""):
+    def __init__(self, bounds = None, starting_point = None, name = ""):
         '''
         Constructor
 
@@ -121,25 +126,25 @@ class Variable(object):
 class PreGeneratedProblem(Problem):
     ''' A problem where the objective function values have beeen pregenerated
     '''
-    def __init__(self, filename=None,points=None,delim=","):
-        super(PreGeneratedProblem,self).__init__()
+    def __init__(self, filename = None, points = None, delim = ","):
+        super(PreGeneratedProblem, self).__init__()
 
-        self.points=[]
+        self.points = []
         if points is not None:
-            self.points=list(points)
+            self.points = list(points)
         elif filename is not None:
             with open(filename) as fd:
                 for r in fd:
-                    self.points.append(map(float,map(str.strip,r.split(delim))))
+                    self.points.append(map(float, map(str.strip, r.split(delim))))
         else:
             assert len(self.points)
-        if not self.ideal: 
-            self.ideal = list(np.min(self.points,axis=0))
-        if not self.nadir: 
-            self.nadir = list(np.max(self.points,axis=0))
-        
-        
-    def evaluate(self, population=None):
+        if not self.ideal:
+            self.ideal = list(np.min(self.points, axis = 0))
+        if not self.nadir:
+            self.nadir = list(np.max(self.points, axis = 0))
+
+
+    def evaluate(self, population = None):
         return self.points
-     
-        
+
+
