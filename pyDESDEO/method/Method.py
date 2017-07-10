@@ -26,3 +26,13 @@ class Method(object):
         Return solution(s) for the next iteration
         '''
         return self._nextIteration(*args, **kwargs)
+
+    @abc.abstractmethod
+    def _initIteration(self, *args, **kwargs):
+        pass
+
+    def initIteration(self, *args, **kwargs):
+        '''
+        Return the initial solution(s)
+        '''
+        return self._initIteration(*args, **kwargs)

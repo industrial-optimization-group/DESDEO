@@ -32,5 +32,10 @@ def test_running_NIMBUS():
 
 def test_narula():
     method = NIMBUS(NaurulaWeistroffer(), SciPyDE)
+
+    vals = method.initIteration()
+    assert len(vals) == 1
     vals = method.nextIteration(preference = Classification(method.problem, [("<", None), ("<=", .1), ("<", None), ("<=", 0.4)]))
-    print vals
+    assert len(vals) == 2
+    vals = method.nextIteration(preference = Classification(method.problem, [("<", None), ("<=", .1), ("<", None), ("<=", 0.4)]), scalars = ["NIM"])
+    assert len(vals) == 1

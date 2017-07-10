@@ -13,11 +13,13 @@ Synchronous approach in interactive multiobjective optimization
 European Journal of Operational Research, 2006, 170, 909-922
 '''
 import logging
-
+import numpy as np
 
 from .Method import Method
 from pyDESDEO.optimization.OptimizationProblem import AchievementProblem, NIMBUSProblem
 from pyDESDEO.core.ResultFactory import IterationPointFactory
+from pyDESDEO.preference.PreferenceInformation import Classification
+
 
 class NIMBUS(Method):
     ''''
@@ -30,7 +32,7 @@ class NIMBUS(Method):
         Preference, i.e., classification information  information for current iteration
 
     '''
-    __SCALARS = ["NIM","ACH"]
+    __SCALARS = ["NIM", "ACH"]
     def __init__(self, problem, method_class):
         super(NIMBUS, self).__init__(problem, method_class)
         self._factories = []
@@ -53,3 +55,10 @@ class NIMBUS(Method):
             po.append(list(self._factories[self.__SCALARS.index(scalar)].result(self._classification)))
         return po
 
+    def _initIteration(self, *args, **kwargs):
+        ref = (np.array(self.problem.nadir) - np.array(self.problem.ideal)) / 2
+        cls = []
+        # Todo calculate ideal and nadir values
+        for v in ref:
+            cls.append(("<=", v))
+        return [self._factories[self.__SCALARS.index("ACH")].result(Classification(self.problem, cls))]
