@@ -14,7 +14,7 @@ except:
 
 from prompt_toolkit.validation import Validator, ValidationError
 
-from preference.PreferenceInformation import RelativeRanking, \
+from pyDESDEO.preference.PreferenceInformation import RelativeRanking, \
     DirectSpecification, PercentageSpecifictation
 
 COMMANDS = ["c", "C", "q"]

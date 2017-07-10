@@ -3,7 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # Copyright (c) 2016  Vesa Ojalehto
-import utils
+import pyDESDEO.utils as utils
 '''
 NAUTILUS method variants
 
@@ -22,13 +22,13 @@ import logging
 from sklearn.cluster import KMeans
 from sklearn.metrics import pairwise_distances_argmin_min
 
-from core.ResultFactory import IterationPointFactory, BoundsFactory
-from optimization.OptimizationProblem import AchievementProblem, \
+from pyDESDEO.core.ResultFactory import IterationPointFactory, BoundsFactory
+from pyDESDEO.optimization.OptimizationProblem import AchievementProblem, \
     EpsilonConstraintProblem
-from preference.PreferenceInformation import DirectSpecification
+from pyDESDEO.preference.PreferenceInformation import DirectSpecification
 
-from Method import Method
-from utils import reachable_points
+from .Method import Method
+from pyDESDEO.utils import reachable_points
 
 
 class NAUTILUS(Method):

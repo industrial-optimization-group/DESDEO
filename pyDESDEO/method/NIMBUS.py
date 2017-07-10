@@ -15,9 +15,9 @@ European Journal of Operational Research, 2006, 170, 909-922
 import logging
 
 
-from Method import Method
-from optimization.OptimizationProblem import AchievementProblem, NIMBUSProblem
-from core.ResultFactory import IterationPointFactory
+from .Method import Method
+from pyDESDEO.optimization.OptimizationProblem import AchievementProblem, NIMBUSProblem
+from pyDESDEO.core.ResultFactory import IterationPointFactory
 
 class NIMBUS(Method):
     ''''

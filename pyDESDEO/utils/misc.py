@@ -9,7 +9,7 @@ import os
 import sys
 import time
 
-from preference.PreferenceInformation import DirectSpecification
+from pyDESDEO.preference.PreferenceInformation import DirectSpecification
 
 class Logger(object):
     def __init__(self, filename):

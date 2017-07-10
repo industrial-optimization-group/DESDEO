@@ -2,12 +2,12 @@ import os
 
 import numpy as np
 
-from method.NIMBUS import NIMBUS
-from preference.PreferenceInformation import Classification
-from examples.NarulaWeistroffer import NaurulaWeistroffer
-from problem.Problem import PreGeneratedProblem
-from optimization.OptimizationMethod import PointSearch, SciPyDE
-from examples.AuxiliaryServices import example_path
+from pyDESDEO.method.NIMBUS import NIMBUS
+from pyDESDEO.preference.PreferenceInformation import Classification
+from pyDESDEO.examples.NarulaWeistroffer import NaurulaWeistroffer
+from pyDESDEO.problem.Problem import PreGeneratedProblem
+from pyDESDEO.optimization.OptimizationMethod import PointSearch, SciPyDE
+from pyDESDEO.examples.AuxiliaryServices import example_path
 
 
 def run(method, preference):

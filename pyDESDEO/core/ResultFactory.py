@@ -5,7 +5,7 @@
 # Copyright (c) 2016  Vesa Ojalehto
 
 from abc import ABCMeta, abstractmethod
-from optimization.OptimizationProblem import AchievementProblem
+from pyDESDEO.optimization.OptimizationProblem import AchievementProblem
 
 class ResultFactory(object):
     '''
