@@ -4,9 +4,9 @@ import numpy as np
 
 from method.NIMBUS import NIMBUS
 from preference.PreferenceInformation import Classification
-from examples.NarulaWeistroffer import NaurulaWeistroffer, WEIGHTS
+from examples.NarulaWeistroffer import NaurulaWeistroffer
 from problem.Problem import PreGeneratedProblem
-from optimization.OptimizationMethod import PointSearch
+from optimization.OptimizationMethod import PointSearch, SciPyDE
 from examples.AuxiliaryServices import example_path
 
 
@@ -28,7 +28,9 @@ def test_running_NIMBUS():
         cls.append(("<=", v))
     run2 = run(method, Classification(method.problem, cls))
 
-    assert np.isclose(run1[0], run2[1]).all() # pylint: disable=E1101
-    print ""
-    print run1
-    print run2
+    assert np.isclose(run1[0], run2[1]).all()  # pylint: disable=E1101
+
+def test_narula():
+    method = NIMBUS(NaurulaWeistroffer(), SciPyDE)
+    vals = method.nextIteration(preference = Classification(method.problem, [("<", None), ("<=", .1), ("<", None), ("<=", 0.4)]))
+    print vals

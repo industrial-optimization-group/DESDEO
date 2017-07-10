@@ -30,7 +30,7 @@ class NIMBUS(Method):
         Preference, i.e., classification information  information for current iteration
 
     '''
-
+    __SCALARS = ["NIM","ACH"]
     def __init__(self, problem, method_class):
         super(NIMBUS, self).__init__(problem, method_class)
         self._factories = []
@@ -44,8 +44,12 @@ class NIMBUS(Method):
             self._classification = kwargs["preference"]
         except KeyError:
             logging.error("Failed to obtain preferences for NIMBUS method")
+        try:
+            self._scalars = kwargs["scalars"]
+        except KeyError:
+            self._scalars = self.__SCALARS
         po = []
-        for factory in self._factories:
-            po.append(list(factory.result(self._classification)))
+        for scalar in self._scalars:
+            po.append(list(self._factories[self.__SCALARS.index(scalar)].result(self._classification)))
         return po
 
