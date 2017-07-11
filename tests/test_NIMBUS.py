@@ -39,3 +39,10 @@ def test_narula():
     assert len(vals) == 2
     vals = method.nextIteration(preference = Classification(method.problem, [("<", None), ("<=", .1), ("<", None), ("<=", 0.4)]), scalars = ["NIM"])
     assert len(vals) == 1
+
+
+def test_classification(method):
+    vals = method.initIteration()
+    method.problem.selected = vals[0]
+    cls = Classification(method.problem, vals[0])
+    assert cls.reference_point() == vals[0]

@@ -31,7 +31,7 @@ class OptimizationProblem(object):
         '''
         self.nconst = 0
         self.problem = problem
-        
+
 
     def evaluate(self, objectives):
         '''
@@ -51,9 +51,9 @@ class OptimizationProblem(object):
             Constraint function values corresponding to objectives per row. None if no constraints are added
         '''
         return self._evaluate(objectives)
-    
+
     @abc.abstractmethod
-    def _evaluate(self,objectives):
+    def _evaluate(self, objectives):
         pass
 
 class ScalarizedProblem(OptimizationProblem):
@@ -95,10 +95,10 @@ class AchievementProblem(ScalarizedProblem):
     Springer, 1980, pp. 468-486.
     '''
 
-    def __init__(self, problem, **kwargs): 
+    def __init__(self, problem, **kwargs):
         super(AchievementProblem, self).__init__(problem, **kwargs)
-        self.eps = kwargs.get("eps",0.00001)
-        self.rho = kwargs.get("rho",0.01)
+        self.eps = kwargs.get("eps", 0.00001)
+        self.rho = kwargs.get("rho", 0.01)
 
         self.scaling_weights = list(1.0 / (np.array(self.problem.nadir) - (np.array(self.problem.ideal) - self.eps)))
         self.weights = [1.0] * len(self.problem.nadir)
@@ -108,7 +108,6 @@ class AchievementProblem(ScalarizedProblem):
     def _set_preferences(self):
         self.scaling_weights = list(1.0 / (np.array(self.problem.nadir) - (np.array(self.problem.ideal) - self.eps)))
 
-
     def _augmentation(self, objectives):
         '''Calculate augmentation term
         '''
@@ -117,6 +116,7 @@ class AchievementProblem(ScalarizedProblem):
         return np.sum(rho, axis = 1) * self.rho
 
     def _ach(self, objectives):
+        print self.reference
         return self.v_ach(objectives, np.array(self.scaling_weights) * np.array(self.weights), self.reference)
 
     def _evaluate(self, objectives):
@@ -138,15 +138,15 @@ class NIMBUSProblem(AchievementProblem):
         super(NIMBUSProblem, self).__init__(problem, **kwargs)
         self.raug = kwargs.get("raug", 0.001)
 
-    def _set_preference(self,preference):
+    def _set_preference(self, preference):
         self.weights = [1.0] * len(self.problem.nadir)
-        
+
 
     def _evaluate(self, objectives):
         fid_a = self._preferences.with_class("<") + self._preferences.with_class("<=")
         ach = self._ach(objectives)
-        v_obj = ach[:,fid_a]
-        
+        v_obj = ach[:, fid_a]
+
         obj = np.max(v_obj, axis = 1)
 
         rho = self._augmentation(objectives)
@@ -180,15 +180,15 @@ class EpsilonConstraintProblem(OptimizationProblem):
 
     '''
 
-    def __init__(self, problem, obj_bounds=None):
-        super(EpsilonConstraintProblem,self).__init__(problem)
+    def __init__(self, problem, obj_bounds = None):
+        super(EpsilonConstraintProblem, self).__init__(problem)
         self.obj_bounds = obj_bounds
         self.objective = 100000
- 
+
 
     def _evaluate(self, objectives):
-        objs=[]
-        consts=[]
+        objs = []
+        consts = []
         for ind in objectives:
             const = []
             for oi, obj in enumerate(self.obj_bounds):
@@ -198,6 +198,6 @@ class EpsilonConstraintProblem(OptimizationProblem):
                     fi = oi
             objs.append(ind[fi])
             consts.append(const)
-        
-        return objs,consts
-    
+
+        return objs, consts
+

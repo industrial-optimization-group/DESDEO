@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Copyright (c) 2016  Vesa Ojalehto 
+# Copyright (c) 2016  Vesa Ojalehto
 '''
 River pollution problem by Narula and Weistroffer [1]
 
@@ -29,49 +29,47 @@ References
     Man and Cybernetics, IEEE Transactions on, 1989 , 19 , 883-887.
 
 '''
-import sys,os
+import sys, os
 
 
-example_path=os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(example_path,".."))
-from utils.misc import Logger 
-sys.stdout = Logger(os.path.splitext(os.path.basename(__file__))[0])
+example_path = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(example_path, ".."))
 
 
-from utils import tui
+from pyDESDEO.utils import tui
 
-from method.NAUTILUS import NAUTILUSv1,ENAUTILUS
+from pyDESDEO.method.NAUTILUS import NAUTILUSv1, ENAUTILUS
 
-from optimization.OptimizationMethod import PointSearch
-from problem.Problem import PreGeneratedProblem
+from pyDESDEO.optimization.OptimizationMethod import PointSearch
+from pyDESDEO.problem.Problem import PreGeneratedProblem
 
 
 if __name__ == '__main__':
     # SciPy breaks box constraints
-    method = ENAUTILUS(PreGeneratedProblem(filename=os.path.join(example_path,"AuxiliaryServices.csv")), PointSearch)
-    zh=tui.iter_enautilus(method)
-    ci=method.current_iter
+    method = ENAUTILUS(PreGeneratedProblem(filename = os.path.join(example_path, "AuxiliaryServices.csv")), PointSearch)
+    zh = tui.iter_enautilus(method)
+    ci = method.current_iter
 
-    if ci>0:
+    if ci > 0:
         if zh is None:
-            fh=zh = method.problem.nadir
+            fh = zh = method.problem.nadir
             fh_lo = method.problem.ideal
 
-        else:      
-            zh=method.zh_prev  
-            fh_lo=method.fh_lo_prev
-            fh=method.nsPoint_prev
-        method = NAUTILUSv1(PreGeneratedProblem(filename=os.path.join(example_path,"AuxiliaryServices.csv")), PointSearch)
-        method.current_iter=ci+1
-        method.zh_prev=method.zh=zh
-        method.fh=fh
-        method.fh_lo=fh_lo
-        #method.fh_lo=list(method.bounds_factory.result(method.zh_prev))
+        else:
+            zh = method.zh_prev
+            fh_lo = method.fh_lo_prev
+            fh = method.nsPoint_prev
+        method = NAUTILUSv1(PreGeneratedProblem(filename = os.path.join(example_path, "AuxiliaryServices.csv")), PointSearch)
+        method.current_iter = ci + 1
+        method.zh_prev = method.zh = zh
+        method.fh = fh
+        method.fh_lo = fh_lo
+        # method.fh_lo=list(method.bounds_factory.result(method.zh_prev))
 
         solution = tui.iter_nautilus(method)
     method.printCurrentIteration()
     try:
         from prompt_toolkit import prompt
-        a=prompt(u'Press ENTER to exit')
+        a = prompt(u'Press ENTER to exit')
     except:
         pass

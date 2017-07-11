@@ -15,11 +15,12 @@ class Logger(object):
     def __init__(self, filename):
         self.terminal = sys.stdout
         username = os.getenv('username')
-        self.log = open("%s_%s_%s.log" % (filename, username, time.strftime("%Y%m%d-%H%M%S")), "a")
+        # self.log = open("%s_%s_%s.log" % (filename, username, time.strftime("%Y%m%d-%H%M%S")), "a")
 
     def write(self, message):
-        self.terminal.write(message)
-        self.log.write(message)
+        # self.terminal.write(message)
+        print(message)
+        # self.log.write(message)
 
     def flush(self):
         # this flush method is needed for python 3 compatibility.
@@ -33,3 +34,8 @@ def new_points(factory, solution, weights):
     for pref in map(lambda w: DirectSpecification(factory.problem, w), weights):
         points.append(factory.result(pref, solution))
     return points
+
+def as_minimized(values, maximized):
+    ''' Return vector values as minimized
+    '''
+    return [v * -1. if m else v for v, m in zip(values, maximized)]

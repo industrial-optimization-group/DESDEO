@@ -7,6 +7,9 @@
 import copy
 from abc import abstractmethod, ABCMeta
 import numpy as np
+
+from pyDESDEO.utils.misc import as_minimized
+
 class Problem(object):
     '''
     Abstract base class for multiobjective problem
@@ -21,14 +24,31 @@ class Problem(object):
 
     nadir
         Nadir, i.e, the best values of objective functions
+
+    maximized
+        Indicates maximized objectives
     '''
     __metaclass__ = ABCMeta
 
 
-    def __init__(self):
+    def __init__(self, ideal = None, nadir = None, maximized = None, objectives = None, name = None):
         self.variables = []
-        self.ideal = None
-        self.nadir = None
+        self.ideal = ideal
+        self.nadir = nadir
+        if maximized is not None:
+            self.maximized = maximized
+        elif self.ideal is not None:
+            self.maximized = [False] * len(self.ideal)
+        else:
+            self.maximzed = None
+
+        self.objectives = objectives
+        self.name = name
+
+        if self.ideal and self.nadir:
+            self.maximum = self.as_minimized([i if m else n for i, n, m in zip(ideal, nadir, self.maximized)])
+            self.minimum = self.as_minimized([n if m else i for i, n, m in zip(ideal, nadir, self.maximized)])
+
 
     @abstractmethod
     def evaluate(self, population):
@@ -91,7 +111,8 @@ class Problem(object):
         else:
             self.variables[index:index] = addvars
 
-
+    def as_minimized(self, v):
+            return as_minimized(v, self.maximized)
 
 class Variable(object):
     '''

@@ -124,10 +124,27 @@ class Classification(ReferencePoint):
         super(Classification, self).__init__(problem, **kwargs)
         self.__classification = {}
         for f_id, v in enumerate(functions):
-            self.__classification[f_id] = v
+            # This is classification
+            try:
+                iter(v)
+                self.__classification[f_id] = v
+            # This is reference point
+            except TypeError:
+                if np.isclose(v, self._problem.ideal[f_id]):
+                    self.__classification[f_id] = ("<", self._problem.selected[f_id])
+                elif np.isclose(v, self._problem.nadir[f_id]):
+                    self.__classification[f_id] = ("<>", self._problem.selected[f_id])
+                elif np.isclose(v, self._problem.selected[f_id]):
+                    self.__classification[f_id] = ("=", self._problem.selected[f_id])
+                elif v < self._problem.as_minimized(self._problem.selected)[f_id]:
+                    self.__classification[f_id] = ("<=", v)
+                else:
+                    self.__classification[f_id] = (">=", v)
+            else:
+                self.__classification[f_id] = v
 
         self._reference_point = self.__as_reference_point()
-
+        self._prefrence = self.__classification
     def __getitem__(self, key):
         '''Shortcut to query a classification.'''
         return self.__classification[key]
@@ -152,7 +169,7 @@ class Classification(ReferencePoint):
         for fn, f in  self.__classification.iteritems():
             if f[0] == '<':
                 ref_val.append(self._problem.ideal[fn])
-            elif f[0] == '>':
+            elif f[0] == '<>':
                 ref_val.append(self._problem.nadir[fn])
             else:
                 ref_val.append(f[1])
