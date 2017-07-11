@@ -3,6 +3,8 @@
 The pyDESDEO is free and open source framework for developing and
 experimenting with interactive multiobjective optimization.
 
+Web applicaiton based on Real Python course  available from [DESDEOapp](https://github.com/ferrety/DESDEOapp)
+
 ## Introduction ##
 
 There exist many methods to solve [multiobjective optimization](https://en.wikipedia.org/wiki/Multi-objective_optimization) 
