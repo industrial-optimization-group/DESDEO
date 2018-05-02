@@ -62,5 +62,5 @@ class NIMBUS(InteractiveMethod):
         # Todo calculate ideal and nadir values
         for v in ref:
             cls.append(("<=", v))
-        self.selected_solution = self._factories[self.__SCALARS.index("ACH")].result(NIMBUSClassification(self.problem, cls), self.selected_solution)
+        self.selected_solution = self._factories[self.__SCALARS.index("ACH")].result(NIMBUSClassification(self, cls), self.selected_solution)
         return [self.selected_solution]
