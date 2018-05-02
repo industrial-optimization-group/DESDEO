@@ -40,6 +40,7 @@ class NIMBUS(InteractiveMethod):
         self._factories.append(IterationPointFactory(self.method_class(AchievementProblem(self.problem))))
         self._classification = None
         self._problem = problem
+        self.selected_solution = None
         
     def _nextIteration(self, *args, **kwargs):
         try:
@@ -52,7 +53,7 @@ class NIMBUS(InteractiveMethod):
             self._scalars = self.__SCALARS
         po = []
         for scalar in self._scalars:
-            po.append(list(self._factories[self.__SCALARS.index(scalar)].result(self._classification)))
+            po.append(list(self._factories[self.__SCALARS.index(scalar)].result(self._classification, self.selected_solution)))
         return po
 
     def _initIteration(self, *args, **kwargs):
@@ -61,5 +62,5 @@ class NIMBUS(InteractiveMethod):
         # Todo calculate ideal and nadir values
         for v in ref:
             cls.append(("<=", v))
-        self.selected_solution = self._factories[self.__SCALARS.index("ACH")].result(NIMBUSClassification(self.problem, cls))
+        self.selected_solution = self._factories[self.__SCALARS.index("ACH")].result(NIMBUSClassification(self.problem, cls), self.selected_solution)
         return [self.selected_solution]
