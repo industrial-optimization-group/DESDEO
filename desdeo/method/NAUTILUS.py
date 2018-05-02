@@ -3,7 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # Copyright (c) 2016  Vesa Ojalehto
-import pyDESDEO.utils as utils
+import desdeo.utils as utils
 '''
 NAUTILUS method variants
 
@@ -22,19 +22,19 @@ import logging
 from sklearn.cluster import KMeans
 from sklearn.metrics import pairwise_distances_argmin_min
 
-from pyDESDEO.core.ResultFactory import IterationPointFactory, BoundsFactory
-from pyDESDEO.optimization.OptimizationProblem import AchievementProblem, \
+from desdeo.core.ResultFactory import IterationPointFactory, BoundsFactory
+from desdeo.optimization.OptimizationProblem import AchievementProblem, \
     EpsilonConstraintProblem
-from pyDESDEO.preference.PreferenceInformation import DirectSpecification
+from desdeo.preference.PreferenceInformation import DirectSpecification
 
-from .Method import Method
-from pyDESDEO.utils import reachable_points
+from desdeo.method import InteractiveMethod
+from desdeo.utils import reachable_points
 
 
-class NAUTILUS(Method):
+class NAUTILUS(InteractiveMethod):
 
-    def __init__(self, problem, method_class):
-        super(NAUTILUS, self).__init__(problem, method_class)
+    def __init__(self, method, method_class):
+        super().__init__(method, method_class)
         self.user_iters = 5
         self.current_iter = self.user_iters
         self.fh_factory = IterationPointFactory(self.method_class(AchievementProblem(self.problem)))
@@ -46,6 +46,9 @@ class NAUTILUS(Method):
         self.zh_prev = list(self.zh)
 
         self.NsPoints = None
+
+    def _initIteration(self, *args, **kwargs):
+        pass
 
     def _nextIteration(self, *args, **kwargs):
         pass
@@ -91,8 +94,8 @@ class NAUTILUS(Method):
 
 
 class ENAUTILUS(NAUTILUS):
-    def __init__(self, problem, method_class):
-        super(ENAUTILUS, self).__init__(problem, method_class)
+    def __init__(self, method, method_class):
+        super(ENAUTILUS, self).__init__(method, method_class)
         self.Ns = 5
         self.fh_lo_prev = None
         self.fh_lo_prev = None
@@ -105,18 +108,18 @@ class ENAUTILUS(NAUTILUS):
 
     def printCurrentIteration(self):
         if self.current_iter < 0:
-            print "Final iteration point:", self.zh_prev
+            print("Final iteration point:", self.zh_prev)
         else:
-            print "Iteration %s/%s\n" % (self.user_iters - self.current_iter, self.user_iters)
+            print("Iteration %s/%s\n" % (self.user_iters - self.current_iter, self.user_iters))
 
             for pi, ns_point in enumerate(self.NsPoints):
-                print "Ns %i (%s)" % (pi + 1, self.zh_reach[pi])
-                print "Iteration point:", self.zhs[pi]
+                print("Ns %i (%s)" % (pi + 1, self.zh_reach[pi]))
+                print("Iteration point:", self.zhs[pi])
                 if self.current_iter != 0:
-                    print "Lower boundary: ", self.zh_los[pi]
-                print "Closeness: ", self.distance(self.zhs[pi], ns_point)
+                    print("Lower boundary: ", self.zh_los[pi])
+                print("Closeness: ", self.distance(self.zhs[pi], ns_point))
 
-            print "=============================="
+            print("==============================")
 
     def _update_zh(self, term1, term2):
 
@@ -141,7 +144,7 @@ class ENAUTILUS(NAUTILUS):
 
             self.nsPoint_prev = list(self.NsPoints[self.zhs.index(self.zh_prev)])
         if len(points) <= self.Ns:
-            print ("Only %s points can be reached from selected iteration point" % len(points))
+            print(("Only %s points can be reached from selected iteration point" % len(points)))
             self.NsPoints = self.problem.points
         else:
             # k-mean cluster Ns solutions
@@ -150,7 +153,7 @@ class ENAUTILUS(NAUTILUS):
 
             closest, _ = pairwise_distances_argmin_min(k_means.cluster_centers_, points)
 
-            self.NsPoints = map(list, points[closest])
+            self.NsPoints = list(map(list, points[closest]))
         for p in self.NsPoints:
             logging.debug(p)
 
@@ -165,7 +168,7 @@ class ENAUTILUS(NAUTILUS):
 
         self.current_iter -= 1
 
-        return zip(self.zh_los, self.zhs)
+        return list(zip(self.zh_los, self.zhs))
 
 
 
@@ -182,23 +185,21 @@ class NAUTILUSv1(NAUTILUS):
     '''
     def printCurrentIteration(self):
         if self.current_iter == 0:
-            print "Closeness: ", self.distance(self.zh, self.fh)
-            print "Final iteration point:", self.zh
+            print("Closeness: ", self.distance(self.zh, self.fh))
+            print("Final iteration point:", self.zh)
         else:
-            print "Iteration %s/%s" % (self.user_iters - self.current_iter, self.user_iters)
-            print "Closeness: ", self.distance(self.zh, self.fh)
-            print "Iteration point:", self.zh
-            print "Lower boundary:", self.fh_lo
-        print "=============================="
+            print("Iteration %s/%s" % (self.user_iters - self.current_iter, self.user_iters))
+            print("Closeness: ", self.distance(self.zh, self.fh))
+            print("Iteration point:", self.zh)
+            print("Lower boundary:", self.fh_lo)
+        print("==============================")
 
 
-    def __init__(self, problem, method_class):
-        super(NAUTILUSv1, self).__init__(problem, method_class)
-
+    def __init__(self, method, method_class):
+        super().__init__(method, method_class)
 
     def _update_fh(self):
         self.fh = list(self.fh_factory.result(self.preference, self.zh_prev))
-
 
     def nextIteration(self, preference = None):
         '''
@@ -206,7 +207,7 @@ class NAUTILUSv1(NAUTILUS):
         '''
         if preference:
             self.preference = preference
-            print("Given preference: %s" % self.preference.pref_input)
+            print(("Given preference: %s" % self.preference.pref_input))
         self._update_fh()
 
         # tmpzh = list(self.zh)
@@ -244,8 +245,8 @@ class NNAUTILUS(NAUTILUS):
 
 
     '''
-    def __init__(self, problem, method_class):
-        super(NNAUTILUS, self).__init__(problem, method_class)
+    def __init__(self, method, method_class):
+        super(NNAUTILUS, self).__init__(method, method_class)
         self.current_iter = 100
         self.ref_point = None
 

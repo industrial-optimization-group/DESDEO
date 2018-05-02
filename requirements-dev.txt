@@ -1,0 +1,8 @@
+pytest
+jupyter
+pyqt5
+qtconsole
+autopep8
+jedi
+flake8
+

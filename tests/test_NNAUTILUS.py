@@ -1,11 +1,10 @@
 import os
 import pytest
 
-from pyDESDEO.method.NAUTILUS import NNAUTILUS
-from pyDESDEO.examples.NarulaWeistroffer import NaurulaWeistroffer, WEIGHTS
-from pyDESDEO.problem.Problem import PreGeneratedProblem
-from pyDESDEO.optimization.OptimizationMethod import PointSearch
-from pyDESDEO.examples.AuxiliaryServices import example_path
+from desdeo.method.NAUTILUS import NNAUTILUS
+from desdeo.problem.Problem import PreGeneratedProblem
+from desdeo.optimization.OptimizationMethod import PointSearch
+from examples.AuxiliaryServices import example_path
 
 
 def run(method, ref_point, steps = 100, bounds = None):

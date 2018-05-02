@@ -8,16 +8,18 @@ import copy
 from abc import abstractmethod, ABCMeta
 import numpy as np
 
-from pyDESDEO.utils.misc import as_minimized
+from desdeo.utils.misc import as_minimized
+from desdeo.utils.exceptions import ProblemDefinitionError
 
-class Problem(object):
+
+class MOProblem(object):
     '''
     Abstract base class for multiobjective problem
 
     Attributes
     ----------
     variables : list of Variables
-        Problem decision variable information
+        MOProblem decision variable information
 
     ideal
         Ideal, i.e, the worst values of objective functions
@@ -30,8 +32,9 @@ class Problem(object):
     '''
     __metaclass__ = ABCMeta
 
-
-    def __init__(self, ideal = None, nadir = None, maximized = None, objectives = None, name = None):
+    def __init__(self, nobj, nconst=0, ideal=None, nadir=None, maximized=None, objectives=None, name=None):
+        self.nobj = nobj
+        self.nconst = nconst
         self.variables = []
         self.ideal = ideal
         self.nadir = nadir
@@ -42,13 +45,15 @@ class Problem(object):
         else:
             self.maximzed = None
 
-        self.objectives = objectives
+        if objectives is None:
+            self.objectives = ["f%i" % (i+1) for i in range(self.nobj)]
+        else:
+            self.objectives = objectives
         self.name = name
 
         if self.ideal and self.nadir:
             self.maximum = self.as_minimized([i if m else n for i, n, m in zip(ideal, nadir, self.maximized)])
             self.minimum = self.as_minimized([n if m else i for i, n, m in zip(ideal, nadir, self.maximized)])
-
 
     @abstractmethod
     def evaluate(self, population):
@@ -61,7 +66,6 @@ class Problem(object):
         population : list of variable values
             Description
         '''
-        pass
 
     def objective_bounds(self):
         '''
@@ -114,6 +118,15 @@ class Problem(object):
     def as_minimized(self, v):
             return as_minimized(v, self.maximized)
 
+    def bounds(self):
+
+        return [v.bounds for v in self.variables]
+
+
+class PythonProblem(MOProblem):
+    pass
+
+
 class Variable(object):
     '''
     Attributes
@@ -144,19 +157,23 @@ class Variable(object):
         self.name = name
 
 
-class PreGeneratedProblem(Problem):
+class PreGeneratedProblem(MOProblem):
     ''' A problem where the objective function values have beeen pregenerated
     '''
-    def __init__(self, filename = None, points = None, delim = ","):
-        super(PreGeneratedProblem, self).__init__()
 
-        self.points = []
+    def __init__(self, filename = None, points = None, delim = ",", **kwargs):
+        super(PreGeneratedProblem, self).__init__(**kwargs)
+
+        self.points=[]
+        self.original_points = []
         if points is not None:
-            self.points = list(points)
+            self.original_points = list(points)
+            self.points=list(points)
         elif filename is not None:
             with open(filename) as fd:
                 for r in fd:
-                    self.points.append(map(float, map(str.strip, r.split(delim))))
+                    self.points.append(map(float,map(str.strip,r.split(delim))))
+            self.original_points = list(self.points)
         else:
             assert len(self.points)
         if not self.ideal:

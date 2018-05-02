@@ -12,11 +12,11 @@ from _ast import Num
 class PreferenceInformation(object):
     __metaclass__ = ABCMeta
 
-    def __init__(self, problem):
-        self._problem = problem
+    def __init__(self, method):
+        self._method = method
 
     def _weights(self):
-        return np.array([1.] * self._problem.nof_objectives())
+        return np.array([1.] * self._method.problem.nof_objectives())
         pass
 
     def weights(self):
@@ -28,7 +28,7 @@ class Direction(PreferenceInformation):
     __metaclass__ = ABCMeta
 
     def default_input(self):
-        return [0.0] * len(self._problem.nadir)
+        return [0.0] * len(self._method.problem.nadir)
 
     def check_input(self, data):
         return ""
@@ -43,7 +43,7 @@ class PercentageSpecifictation(Direction):
         return np.array(self.pref_input) / 100.
 
     def default_input(self):
-        return [0] * len(self._problem.nadir)
+        return [0] * len(self._method.problem.nadir)
 
     def check_input(self, input):
         inp = map(float, input)
@@ -96,17 +96,17 @@ class DirectSpecification(Direction, ReferencePoint):
     def _weights(self):
         return np.array(self.pref_input)
 
-class Classification(ReferencePoint):
+class NIMBUSClassification(ReferencePoint):
     '''
     Preferences by NIMBUS classification
 
     Attributes
     ----------
     _classification: Dict (objn_n, (class,value))
-        Classification information pairing  objective n to  a classification
+        NIMBUSClassification information pairing  objective n to  a classification
         with value if needed
 
-    _maxmap: Classification (default:None)
+    _maxmap: NIMBUSClassification (default:None)
         Minimization - maximiation mapping of classification symbols
 
     '''
@@ -121,7 +121,7 @@ class Classification(ReferencePoint):
         functions: list ((class,value)
             Function classification information
         '''
-        super(Classification, self).__init__(problem, **kwargs)
+        super(NIMBUSClassification, self).__init__(problem, **kwargs)
         self.__classification = {}
         for f_id, v in enumerate(functions):
             # This is classification

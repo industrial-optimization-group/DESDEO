@@ -36,12 +36,12 @@ example_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(example_path, ".."))
 
 
-from pyDESDEO.utils import tui
+from desdeo.utils import tui
 
-from pyDESDEO.method.NAUTILUS import NAUTILUSv1, ENAUTILUS
+from desdeo.method.NAUTILUS import NAUTILUSv1, ENAUTILUS
 
-from pyDESDEO.optimization.OptimizationMethod import PointSearch
-from pyDESDEO.problem.Problem import PreGeneratedProblem
+from desdeo.optimization.OptimizationMethod import PointSearch
+from desdeo.problem.Problem import PreGeneratedProblem
 
 
 if __name__ == '__main__':

@@ -15,32 +15,32 @@ European Journal of Operational Research, 2006, 170, 909-922
 import logging
 import numpy as np
 
-from .Method import Method
-from pyDESDEO.optimization.OptimizationProblem import AchievementProblem, NIMBUSProblem
-from pyDESDEO.core.ResultFactory import IterationPointFactory
-from pyDESDEO.preference.PreferenceInformation import Classification
+from . import InteractiveMethod
+from desdeo.optimization.OptimizationProblem import AchievementProblem, NIMBUSProblem
+from desdeo.core.ResultFactory import IterationPointFactory
+from desdeo.preference import NIMBUSClassification
 
 
-class NIMBUS(Method):
+class NIMBUS(InteractiveMethod):
     ''''
     Abstract class for optimization methods
 
 
     Attributes
     ----------
-    _preference : Classification (default:None)
+    _preference : ClNIMBUSClassificationdefault:None)
         Preference, i.e., classification information  information for current iteration
 
     '''
     __SCALARS = ["NIM", "ACH"]
     def __init__(self, problem, method_class):
-        super(NIMBUS, self).__init__(problem, method_class)
+        super().__init__(problem, method_class)
         self._factories = []
         self._factories.append(IterationPointFactory(self.method_class(NIMBUSProblem(self.problem))))
         self._factories.append(IterationPointFactory(self.method_class(AchievementProblem(self.problem))))
         self._classification = None
         self._problem = problem
-
+        
     def _nextIteration(self, *args, **kwargs):
         try:
             self._classification = kwargs["preference"]
@@ -61,4 +61,5 @@ class NIMBUS(Method):
         # Todo calculate ideal and nadir values
         for v in ref:
             cls.append(("<=", v))
-        return [self._factories[self.__SCALARS.index("ACH")].result(Classification(self.problem, cls))]
+        self.selected_solution = self._factories[self.__SCALARS.index("ACH")].result(NIMBUSClassification(self.problem, cls))
+        return [self.selected_solution]

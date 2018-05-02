@@ -6,6 +6,8 @@
 '''
 '''
 import sys
+
+import numpy as np
 try:
     from prompt_toolkit import prompt
     tui = True
@@ -14,7 +16,7 @@ except:
 
 from prompt_toolkit.validation import Validator, ValidationError
 
-from pyDESDEO.preference.PreferenceInformation import RelativeRanking, \
+from desdeo.preference.PreferenceInformation import RelativeRanking, \
     DirectSpecification, PercentageSpecifictation
 
 COMMANDS = ["c", "C", "q"]
@@ -124,7 +126,7 @@ def iter_nautilus(method):
 
         pref_sel = int(prompt(u'Reference elicitation ', default = u"%s" % (1), validator = NumberValidator([1, 3])))
     except:
-        pref_sel = 1
+        pref_sel = 2
 
     PREFCLASSES = [PercentageSpecifictation, RelativeRanking, DirectSpecification]
     preference_class = PREFCLASSES[pref_sel - 1]
@@ -137,13 +139,19 @@ def iter_nautilus(method):
     try:
         method.user_iters = method.current_iter = int(prompt(u'Ni: ', default = u"%s" % (method.current_iter), validator = NumberValidator()))
     except Exception as e:
-        print e
-        method.current_iter = method.user_iters = 5
-    print "Ni:", method.user_iters
-    pref = preference_class(method.problem, None)
+        method.current_iter = method.user_iters = 4
+    print("Ni:", method.user_iters)
+    pref = preference_class(method, None)
     default = u",".join(map(str, pref.default_input()))
-    pref = preference_class(pref.default_input())
+    pref = preference_class(method, pref.default_input())
 
+    MCDA_prefs = [
+        [2.0, 2.0, 1.0, 1.0],
+        [2.0, 2.0, 1.0, 1.0],
+        [2.0, 3.0, 1.0, 4.0],
+        [1.0, 1.0, 2.0, 2.0],
+        ]
+    mi = 0
     while(method.current_iter):
 
         method.printCurrentIteration()
@@ -153,9 +161,10 @@ def iter_nautilus(method):
             pref_input = prompt(u'Preferences: ', default = default, validator = VectorValidator(method, pref))
         except:
             # This is not a tui, so go to next
-            pref_input = default
-            if method.current_iter == 5:
-                pref_input = "c"
+            pref_input = ",".join(map(str, MCDA_prefs[mi]))
+            # pref_input = default
+            # if method.current_iter == 5:
+            #    pref_input = "c"
         brk = False
         for c in COMMANDS:
             if c in pref_input:
@@ -163,9 +172,9 @@ def iter_nautilus(method):
         if brk:
             solution = method.zh
             break
-        pref = preference_class(map(float, pref_input.split(",")))
+        pref = preference_class(method, np.fromstring(pref_input, dtype = np.float, sep = ','))
         solution, _ = method.nextIteration(pref)
-
+        mi += 1
     return solution
 
 def iter_enautilus(method):

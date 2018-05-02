@@ -3,7 +3,6 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # Copyright (c) 2016  Vesa Ojalehto
-from _pyio import __metaclass__
 '''
 Module description
 '''
@@ -12,7 +11,7 @@ import abc
 import numpy as np
 from operator import itemgetter
 
-class OptimizationProblem(object):
+class OptimizationProblem(object, metaclass=abc.ABCMeta):
     '''
     Single objective optimization problem
 
@@ -23,14 +22,13 @@ class OptimizationProblem(object):
         Method used for solving the problem
 
     '''
-    __metaclass__ = abc.ABCMeta
 
-    def __init__(self, problem):
+    def __init__(self, method):
         '''
         Constructor
         '''
         self.nconst = 0
-        self.problem = problem
+        self.problem = method
 
 
     def evaluate(self, objectives):
@@ -56,11 +54,9 @@ class OptimizationProblem(object):
     def _evaluate(self, objectives):
         pass
 
-class ScalarizedProblem(OptimizationProblem):
-    __metaclass__ = abc.ABCMeta
-
-    def __init__(self, problem, **kwargs):
-        super(ScalarizedProblem, self).__init__(problem)
+class ScalarizedProblem(OptimizationProblem, metaclass=abc.ABCMeta):
+    def __init__(self, method, **kwargs):
+        super(ScalarizedProblem, self).__init__(method)
         self.reference = None
         self._preferences = None
         self.weights = None
@@ -69,9 +65,12 @@ class ScalarizedProblem(OptimizationProblem):
     def _set_preferences(self):
         pass
 
-    def set_preferences(self, preference):
+    def set_preferences(self, preference, last_solution):
         self._preferences = preference
-        self.reference = self._preferences.reference_point()
+        try:
+            self.reference = self._preferences.reference_point()
+        except AttributeError:
+            self.reference = last_solution
         self.weights = self._preferences.weights()
         self._set_preferences()
 
@@ -95,8 +94,8 @@ class AchievementProblem(ScalarizedProblem):
     Springer, 1980, pp. 468-486.
     '''
 
-    def __init__(self, problem, **kwargs):
-        super(AchievementProblem, self).__init__(problem, **kwargs)
+    def __init__(self, method, **kwargs):
+        super(AchievementProblem, self).__init__(method, **kwargs)
         self.eps = kwargs.get("eps", 0.00001)
         self.rho = kwargs.get("rho", 0.01)
 
@@ -116,7 +115,6 @@ class AchievementProblem(ScalarizedProblem):
         return np.sum(rho, axis = 1) * self.rho
 
     def _ach(self, objectives):
-        print self.reference
         return self.v_ach(objectives, np.array(self.scaling_weights) * np.array(self.weights), self.reference)
 
     def _evaluate(self, objectives):
@@ -134,8 +132,8 @@ class NIMBUSProblem(AchievementProblem):
     '''
     Finds new solution by solving NIMBUS scalarizing function[1]_
     '''
-    def __init__(self, problem, **kwargs):
-        super(NIMBUSProblem, self).__init__(problem, **kwargs)
+    def __init__(self, method, **kwargs):
+        super(NIMBUSProblem, self).__init__(method, **kwargs)
         self.raug = kwargs.get("raug", 0.001)
 
     def _set_preference(self, preference):
@@ -180,8 +178,8 @@ class EpsilonConstraintProblem(OptimizationProblem):
 
     '''
 
-    def __init__(self, problem, obj_bounds = None):
-        super(EpsilonConstraintProblem, self).__init__(problem)
+    def __init__(self, method, obj_bounds = None):
+        super(EpsilonConstraintProblem, self).__init__(method)
         self.obj_bounds = obj_bounds
         self.objective = 100000
 

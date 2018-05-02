@@ -7,12 +7,13 @@
 Module description
 '''
 import abc
-class Method(object):
+class InteractiveMethod(object):
     '''
     Abstract base class for interactive multiobjective methods
 
     '''
     __metaclass__ = abc.ABCMeta
+
     def __init__(self, problem, method_class):
         self.problem = problem
         self.method_class = method_class

@@ -1,10 +1,11 @@
 import pytest
 
-from pyDESDEO.method.NIMBUS import NIMBUS
-from pyDESDEO.examples.NarulaWeistroffer import NaurulaWeistroffer
-from pyDESDEO.optimization.OptimizationMethod import SciPyDE
+from desdeo.method.NIMBUS import NIMBUS
+from desdeo.optimization.OptimizationMethod import SciPyDE
+
+from examples.NarulaWeistroffer import RiverPollution
 
 
-@pytest.fixture(scope = "function")
+@pytest.fixture(scope="function")
 def method():
-    return  NIMBUS(NaurulaWeistroffer(), SciPyDE)
+    return NIMBUS(RiverPollution(), SciPyDE)

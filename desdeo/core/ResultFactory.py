@@ -5,7 +5,7 @@
 # Copyright (c) 2016  Vesa Ojalehto
 
 from abc import ABCMeta, abstractmethod
-from pyDESDEO.optimization.OptimizationProblem import AchievementProblem
+from desdeo.optimization.OptimizationProblem import AchievementProblem
 
 class ResultFactory(object):
     '''
@@ -33,12 +33,12 @@ class BoundsFactory(ResultFactory):
 
 
 class IterationPointFactory(ResultFactory):
+
     def __init__(self, optimization_method):
         self.optimization_method = optimization_method
-        self.last_solution = None
 
-    def result(self, preferences):
-        self.optimization_method.optimization_problem.set_preferences(preferences)
+    def result(self, preferences, prev_point):
+        self.optimization_method.optimization_problem.set_preferences(preferences, prev_point)
 #        self.optimization_method.optimization_problem.weights = preferences.weights()
 #        self.optimization_method.optimization_problem.reference = preferences.reference_point()
         self.last_solution = self.optimization_method.search()

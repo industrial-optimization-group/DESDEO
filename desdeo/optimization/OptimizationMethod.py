@@ -9,7 +9,7 @@ from abc import abstractmethod, ABCMeta
 from scipy.optimize import differential_evolution, minimize
 import numpy as np
 
-class OptimizationMethod(object):
+class OptimizationMethod(object, metaclass=ABCMeta):
     '''
     Abstract class for optimization methods
 
@@ -26,7 +26,6 @@ class OptimizationMethod(object):
     method(c='rgb')
         Brief description, methods only for larger classes
     '''
-    __metaclass__ = ABCMeta
 
     def __init__(self, optimization_problem):
         self.optimization_problem = optimization_problem
@@ -69,11 +68,10 @@ class OptimizationMethod(object):
 
         pass
 
-class OptimalSearch(OptimizationMethod):
+class OptimalSearch(OptimizationMethod, metaclass=ABCMeta):
     '''
     Abstract class for optimal search
     '''
-    __metaclass__ = ABCMeta
 
     @abstractmethod
     def _objective(self, x):
@@ -153,7 +151,7 @@ class SciPyDE(OptimalSearch):
                                      tol=0.0000001,
                                      **params)
         if self.penalty and self.v>0.0001:
-            print "INFEASIBLE %f"%self.v
+            print("INFEASIBLE %f"%self.v)
         return self.optimization_problem.problem.evaluate([res.x])[0]
 
 class PointSearch(OptimizationMethod):
