@@ -140,10 +140,10 @@ if __name__ == '__main__':
     # Solve River Pollution problem using NAUTILUS
     # Using tui
     print("Before NAUTILUS_solution")
-    method = NAUTILUSv1(RiverPollution(), SciPyDE)
-    NAUTILUS_solution = tui.iter_nautilus(method)[0]
+    natmeth = NAUTILUSv1(RiverPollution(), SciPyDE)
+    NAUTILUS_solution = tui.iter_nautilus(natmeth)[0]
     print("Got NAUTILUS_solution")
-    print(method.problem.to_ui(NAUTILUS_solution))
+    print(natmeth.problem.to_ui(NAUTILUS_solution))
    # Output:
    # [-6.2927077117830965, -3.4038593790999485,
    #   -7.401394350956817, 1.6201876469013787]
@@ -151,20 +151,20 @@ if __name__ == '__main__':
    # Continue solving  River Pollution problem
    # From NAUTILUS solution
 
-    from desdeo.method import NIMBUS
+    from desdeo.method.NIMBUS import NIMBUS
     from desdeo.preference import NIMBUSClassification
 
-    method = NIMBUS(RiverPollution(), SciPyDE)
+    nimmeth = NIMBUS(RiverPollution(), SciPyDE)
 
-    method.selected_solution = NAUTILUS_solution[0]
+    nimmeth.selected_solution = NAUTILUS_solution[0]
 
-    class1 = NIMBUSClassification(method,
+    class1 = NIMBUSClassification(nimmeth,
                                   [(">=", -5.5),
                                    (">=", -3.0),
                                    ("<=", -6.5),
                                    ("<=", -2.0)])
-    iter1 = method.nextIteration(preference = class1)
-    print(method.problem.to_ui(iter1))
+    iter1 = nimmeth.nextIteration(preference = class1)
+    print(nimmeth.problem.to_ui(iter1))
     # Output
     # [[5.63,3.05,7.07,1.20],
     # [5.84,3.09,6.74,1.57],
