@@ -36,7 +36,7 @@ class Direction(PreferenceInformation):
 class PercentageSpecifictation(Direction):
 
     def __init__(self, problem, percentages):
-        super(PercentageSpecifictation, self).__init__(problem)
+        super().__init__(problem)
         self.pref_input = percentages
 
     def _weights(self):
@@ -57,7 +57,7 @@ class RelativeRanking(Direction):
 
 
     def __init__(self, problem, ranking):
-        super(RelativeRanking, self).__init__(problem)
+        super().__init__(problem)
         self.pref_input = ranking
 
     def _weights(self):
@@ -67,7 +67,7 @@ class RelativeRanking(Direction):
 class PairwiseRanking(Direction):
 
     def __init__(self, problem, selected_obj, other_ranking):
-        super(PairwiseRanking, self).__init__(problem)
+        super().__init__(problem)
         self.pref_input = (selected_obj, other_ranking)
 
     def _weights(self):
@@ -79,7 +79,7 @@ class PairwiseRanking(Direction):
 class ReferencePoint(PreferenceInformation):
 
     def __init__(self, problem, reference_point = None):
-        super(ReferencePoint, self).__init__(problem)
+        super().__init__(problem)
         self._reference_point = reference_point
 
 
@@ -90,7 +90,7 @@ class ReferencePoint(PreferenceInformation):
 
 class DirectSpecification(Direction, ReferencePoint):
     def __init__(self, problem, direction, reference_point = None):
-        super(DirectSpecification, self).__init__(problem, **{"reference_point":reference_point})
+        super().__init__(problem, **{"reference_point":reference_point})
         self.pref_input = direction
 
     def _weights(self):
@@ -121,7 +121,7 @@ class NIMBUSClassification(ReferencePoint):
         functions: list ((class,value)
             Function classification information
         '''
-        super(NIMBUSClassification, self).__init__(problem, **kwargs)
+        super().__init__(problem, **kwargs)
         self.__classification = {}
         for f_id, v in enumerate(functions):
             # This is classification

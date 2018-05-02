@@ -95,7 +95,7 @@ class NAUTILUS(InteractiveMethod):
 
 class ENAUTILUS(NAUTILUS):
     def __init__(self, method, method_class):
-        super(ENAUTILUS, self).__init__(method, method_class)
+        super().__init__(method, method_class)
         self.Ns = 5
         self.fh_lo_prev = None
         self.fh_lo_prev = None
@@ -246,7 +246,7 @@ class NNAUTILUS(NAUTILUS):
 
     '''
     def __init__(self, method, method_class):
-        super(NNAUTILUS, self).__init__(method, method_class)
+        super().__init__(method, method_class)
         self.current_iter = 100
         self.ref_point = None
 

@@ -125,7 +125,7 @@ class SciPy(OptimalSearch):
 class SciPyDE(OptimalSearch):
 
     def __init__(self, optimization_problem):
-        super(SciPyDE, self).__init__(optimization_problem)
+        super().__init__(optimization_problem)
         self.penalty=0.0
 
     def _objective(self, x):

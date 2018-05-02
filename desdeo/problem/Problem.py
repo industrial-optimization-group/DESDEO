@@ -162,7 +162,7 @@ class PreGeneratedProblem(MOProblem):
     '''
 
     def __init__(self, filename = None, points = None, delim = ",", **kwargs):
-        super(PreGeneratedProblem, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
         self.points=[]
         self.original_points = []

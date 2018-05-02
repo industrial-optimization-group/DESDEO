@@ -25,7 +25,7 @@ COMMANDS = ["c", "C", "q"]
 
 class IterValidator(Validator):
     def __init__(self, method):
-        super(IterValidator, self).__init__()
+        super().__init__()
         self.range = map(str, range(1, len(method.zhs) + 1)) + ["q"]
 
     def validate(self, document):
@@ -36,7 +36,7 @@ class IterValidator(Validator):
 
 class VectorValidator(Validator):
     def __init__(self, method, preference = None):
-        super(VectorValidator, self).__init__()
+        super().__init__()
         self.nfun = len(method.problem.nadir)
         self.preference = preference
         self.method = method
@@ -58,7 +58,7 @@ class VectorValidator(Validator):
 
 class NumberValidator(Validator):
     def __init__(self, ranges = None):
-        super(NumberValidator, self).__init__()
+        super().__init__()
         if ranges:
             self.ranges = ranges
         else:

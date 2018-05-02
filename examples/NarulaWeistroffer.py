@@ -53,7 +53,7 @@ class RiverPollution(PythonProblem):
 '''
 
     def __init__(self):
-        super(RiverPollution, self).__init__(
+        super().__init__(
             nobj=4,
             nconst=0,  # Optional
             ideal=[-6.34, -3.44, -7.5, 0.1],      # Optional
