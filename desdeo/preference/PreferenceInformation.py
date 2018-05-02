@@ -157,7 +157,7 @@ class NIMBUSClassification(ReferencePoint):
         ''' Return functions with the class
         '''
         rcls = []
-        for key, value in self.__classification.iteritems():
+        for key, value in self.__classification.items():
             if value[0] == cls:
                 rcls.append(key)
         return rcls
@@ -166,7 +166,7 @@ class NIMBUSClassification(ReferencePoint):
         ''' Return classification information as reference point
         '''
         ref_val = []
-        for fn, f in  self.__classification.iteritems():
+        for fn, f in  self.__classification.items():
             if f[0] == '<':
                 ref_val.append(self._problem.ideal[fn])
             elif f[0] == '<>':

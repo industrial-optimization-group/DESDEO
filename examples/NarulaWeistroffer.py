@@ -139,8 +139,10 @@ if __name__ == '__main__':
 
     # Solve River Pollution problem using NAUTILUS
     # Using tui
+    print("Before NAUTILUS_solution")
     method = NAUTILUSv1(RiverPollution(), SciPyDE)
     NAUTILUS_solution = tui.iter_nautilus(method)[0]
+    print("Got NAUTILUS_solution")
     print(method.problem.to_ui(NAUTILUS_solution))
    # Output:
    # [-6.2927077117830965, -3.4038593790999485,
