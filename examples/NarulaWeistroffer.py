@@ -158,7 +158,7 @@ if __name__ == '__main__':
 
     method.selected_solution = NAUTILUS_solution[0]
 
-    class1 = NIMBUSClassification(method.problem,
+    class1 = NIMBUSClassification(method,
                                   [(">=", -5.5),
                                    (">=", -3.0),
                                    ("<=", -6.5),

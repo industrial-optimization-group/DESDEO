@@ -78,8 +78,8 @@ class PairwiseRanking(Direction):
 
 class ReferencePoint(PreferenceInformation):
 
-    def __init__(self, problem, reference_point = None):
-        super().__init__(problem)
+    def __init__(self, method, reference_point = None):
+        super().__init__(method)
         self._reference_point = reference_point
 
 
@@ -89,8 +89,8 @@ class ReferencePoint(PreferenceInformation):
         return self._reference_point
 
 class DirectSpecification(Direction, ReferencePoint):
-    def __init__(self, problem, direction, reference_point = None):
-        super().__init__(problem, **{"reference_point":reference_point})
+    def __init__(self, method, direction, reference_point = None):
+        super().__init__(method, **{"reference_point":reference_point})
         self.pref_input = direction
 
     def _weights(self):
@@ -113,7 +113,7 @@ class NIMBUSClassification(ReferencePoint):
     _maxmap = {">":"<", ">=":"<=", "<":">", "<=":">=", "=":"="}
 
 
-    def __init__(self, problem, functions, **kwargs):
+    def __init__(self, method, functions, **kwargs):
         ''' Initialize the classification information
 
         Parameters
@@ -121,7 +121,7 @@ class NIMBUSClassification(ReferencePoint):
         functions: list ((class,value)
             Function classification information
         '''
-        super().__init__(problem, **kwargs)
+        super().__init__(method, **kwargs)
         self.__classification = {}
         for f_id, v in enumerate(functions):
             # This is classification
@@ -130,13 +130,13 @@ class NIMBUSClassification(ReferencePoint):
                 self.__classification[f_id] = v
             # This is reference point
             except TypeError:
-                if np.isclose(v, self._problem.ideal[f_id]):
-                    self.__classification[f_id] = ("<", self._problem.selected[f_id])
-                elif np.isclose(v, self._problem.nadir[f_id]):
-                    self.__classification[f_id] = ("<>", self._problem.selected[f_id])
-                elif np.isclose(v, self._problem.selected[f_id]):
-                    self.__classification[f_id] = ("=", self._problem.selected[f_id])
-                elif v < self._problem.as_minimized(self._problem.selected)[f_id]:
+                if np.isclose(v, self._method.problem.ideal[f_id]):
+                    self.__classification[f_id] = ("<", self._method.problem.selected[f_id])
+                elif np.isclose(v, self._method.problem.nadir[f_id]):
+                    self.__classification[f_id] = ("<>", self._method.problem.selected[f_id])
+                elif np.isclose(v, self._method.problem.selected[f_id]):
+                    self.__classification[f_id] = ("=", self._method.problem.selected[f_id])
+                elif v < self._method.problem.as_minimized(self._method.problem.selected)[f_id]:
                     self.__classification[f_id] = ("<=", v)
                 else:
                     self.__classification[f_id] = (">=", v)
@@ -168,9 +168,9 @@ class NIMBUSClassification(ReferencePoint):
         ref_val = []
         for fn, f in  self.__classification.items():
             if f[0] == '<':
-                ref_val.append(self._problem.ideal[fn])
+                ref_val.append(self._method.problem.ideal[fn])
             elif f[0] == '<>':
-                ref_val.append(self._problem.nadir[fn])
+                ref_val.append(self._method.problem.nadir[fn])
             else:
                 ref_val.append(f[1])
 
