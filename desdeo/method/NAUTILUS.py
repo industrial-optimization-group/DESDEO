@@ -255,7 +255,7 @@ class NNAUTILUS(NAUTILUS):
     def _update_fh(self):
         u = [1.0] * len(self.ref_point)
         pref = DirectSpecification(self.problem, u, self.ref_point)
-        self.fh = list(self.fh_factory.result(pref))
+        self.fh = list(self.fh_factory.result(pref, self.zh_prev))
         logging.debug("updated fh: %s", self.fh)
 
 
