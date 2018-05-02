@@ -162,8 +162,6 @@ class PreGeneratedProblem(MOProblem):
     '''
 
     def __init__(self, filename = None, points = None, delim = ",", **kwargs):
-        super().__init__(**kwargs)
-
         self.points=[]
         self.original_points = []
         if points is not None:
@@ -172,10 +170,13 @@ class PreGeneratedProblem(MOProblem):
         elif filename is not None:
             with open(filename) as fd:
                 for r in fd:
-                    self.points.append(map(float,map(str.strip,r.split(delim))))
+                    self.points.append(list(map(float,map(str.strip,r.split(delim)))))
             self.original_points = list(self.points)
         else:
             assert len(self.points)
+
+        super().__init__(nobj=len(self.points[0]), **kwargs)
+
         if not self.ideal:
             self.ideal = list(np.min(self.points, axis = 0))
         if not self.nadir:
