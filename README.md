@@ -28,7 +28,7 @@ as provide framework for developing and implementing new methods.
 
 Overview of the current DESDEO architecture is shown in diagram
 
-![DESDEO Overview](https://github.com/industrial-optimization-group/pyDESDEO/raw/master/doc/design/overview.png)
+![DESDEO Overview](https://github.com/industrial-optimization-group/pyDESDEO/raw/master/docs/design/overview.png)
 
 # Interactive Methods  #
 
