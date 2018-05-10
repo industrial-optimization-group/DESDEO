@@ -82,9 +82,15 @@ class AchievementProblem(ScalarizedProblem):
     r'''
     Finds new solution by solving achievement scalarizing function[1]_
 
-    math :: \mbox{minimize}     & \displaystyle{\max_{i=1, \dots , k}\left\{\, \mu_i(f_i(\mathbf x) - q_i)\ \right\}} + \rho \sum_{i=1}^k \mu_i (f_i(\mathbf x)- q_i) \\
-\mbox{subject to}   & {\bf{x}} \in S, \\
+    .. math::
 
+       \mbox{minimize}
+           & \displaystyle{
+               \max_{i=1, \dots , k}
+               \left\{\, \mu_i(f_i(\mathbf x) - q_i)\ \right\}}
+           + \rho \sum_{i=1}^k \mu_i (f_i(\mathbf x)- q_i) \\
+       \mbox{subject to}
+           & {\bf{x}} \in S
 
     References
     ----------
@@ -166,9 +172,13 @@ class EpsilonConstraintProblem(OptimizationProblem):
     r'''
     Solves epsilon constraint problem
 
-    math :: \mbox{minimize}     & f_r({\bf{x}}) \\
-\mbox{subject to}   &f_j({\bf{x}}) \le z _j, j = 1, \dots, k, j \neq r, \\
-                                    & {\bf{x}} \in S, \\
+    .. math::
+
+        \mbox{minimize}
+            & f_r({\bf{x}}) \\
+        \mbox{subject to}
+            & f_j({\bf{x}}) \le z _j, j = 1, \dots, k, j \neq r, \\
+            & {\bf{x}} \in S, \\
 
     Attributes
     ----------
