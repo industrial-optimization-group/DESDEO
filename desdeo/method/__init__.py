@@ -4,7 +4,7 @@
 
 # Copyright (c) 2016  Vesa Ojalehto 
 
-__all__ = ["NAUTILUSv1", "ENAUTILUS", "NNAUTILUS", "print_iteration"]
+__all__ = ["NAUTILUSv1", "ENAUTILUS", "NNAUTILUS"]
 
 from .method import InteractiveMethod
 
