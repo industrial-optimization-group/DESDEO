@@ -1,6 +1,6 @@
 # pyDESDEO #
 
-[![Documentation Status](https://readthedocs.org/projects/desdeo/badge/?version=latest)](http://desdeo.readthedocs.io/en/latest/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/desdeo/badge/?version=latest)](https://desdeo.readthedocs.io/en/latest/?badge=latest)
 
 The pyDESDEO is free and open source framework for developing and
 experimenting with interactive multiobjective optimization.
