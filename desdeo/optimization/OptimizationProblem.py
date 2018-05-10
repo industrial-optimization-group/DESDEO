@@ -36,7 +36,7 @@ class OptimizationProblem(object, metaclass=abc.ABCMeta):
         Evaluate value of the objective function and possible additional constraints
 
 
-        Attributes
+        Parameters
         ----------
 
         objectives : list of objective values

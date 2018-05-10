@@ -13,7 +13,6 @@ class OptimizationMethod(object, metaclass=ABCMeta):
     '''
     Abstract class for optimization methods
 
-
     Attributes
     ----------
     _max : bool (default:False)
@@ -21,10 +20,6 @@ class OptimizationMethod(object, metaclass=ABCMeta):
 
     _ceoff : float
         Coefficient for the objective function
-    Methods
-    -------
-    method(c='rgb')
-        Brief description, methods only for larger classes
     '''
 
     def __init__(self, optimization_problem):
@@ -36,9 +31,9 @@ class OptimizationMethod(object, metaclass=ABCMeta):
 
         This sets up the search for the optimization and calls the _search method
         
-        Attributes
+        Parameters
         ----------
-        max : boold (default False)
+        max : bool (default False)
             If true find mximum of the objective function instead of minimum
         
         **params : dict [optional]
@@ -60,7 +55,7 @@ class OptimizationMethod(object, metaclass=ABCMeta):
 
         This is an abstract class that must be implemented by the subclasses
 
-         Attributes
+        Parameters
         ----------
         **params : dict [optional]
             Parameters for single objective optimization method
@@ -78,7 +73,7 @@ class OptimalSearch(OptimizationMethod, metaclass=ABCMeta):
         '''
         Return objective function value
 
-        Attributes
+        Parameters
         ----------
         x : list of values
             Decision variable vector to be calclated

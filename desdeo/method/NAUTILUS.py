@@ -266,7 +266,7 @@ class NNAUTILUS(NAUTILUS):
         '''
         Calculate the next iteration point to be shown to the DM
 
-        Attributes
+        Parameters
         ----------
         ref_point : list of float
         Reference point given by the DM

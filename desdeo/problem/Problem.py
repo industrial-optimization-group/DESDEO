@@ -61,7 +61,7 @@ class MOProblem(object):
         Evaluate the objective and constraint functions for population and return tuple (objective,constraint) values
 
 
-        Attributes
+        Parameters
         ----------
         population : list of variable values
             Description
@@ -94,7 +94,7 @@ class MOProblem(object):
 
     def add_variables(self, variables, index = None):
         '''
-        Attributes
+        Parameters
         ----------
         variable : list of variables or single variable
             Add variables as problem variables
