@@ -30,9 +30,9 @@ Overview of the current DESDEO architecture is shown in diagram
 
 ![DESDEO Overview](https://github.com/industrial-optimization-group/pyDESDEO/raw/master/docs/design/overview.png)
 
-# Interactive Methods  #
+## Interactive Methods  ##
 
-## NAUTILUS Method ##
+### NAUTILUS Method ###
 
 Most interactive methods developed for solving multiobjective
 optimization problems sequentially generate Pareto optimal solutions
@@ -55,7 +55,7 @@ designed to cover independently the different requirements of the
 NAUTILUS framework. To enhance wide applicability, the implementation
 is available as open source code.
 
-# Examples #
+## Examples ##
 
 The functioning and flexibility of the DESDEO framework is
 demonstrated with two numerical example problems.

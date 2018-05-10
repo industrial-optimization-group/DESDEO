@@ -41,8 +41,15 @@ setup(
     packages=find_packages(include=['desdeo']),
     package_dir={'desdeo': 'desdeo'},
     install_requires=requirements,
-
-
+    extras_require={
+        'docs': [
+            'sphinx_autodoc_typehints',
+            'sphinx>=1.5',
+            'sphinx_rtd_theme',
+            'pytest_check_links',
+            'recommonmark',
+        ],
+    },
     setup_requires=setup_requirements,
     test_suite='tests',
     tests_require=test_requirements,
