@@ -155,8 +155,7 @@ class PointSearch(OptimizationMethod):
         obj, const = self.optimization_problem.evaluate(evl)
         a_obj=np.array(obj)
 
-        if const:
-            # feas = np.all(np.array(const)<0,axis=1)
+        if np.size(const) > 0:
             ndc = np.array(const)
             infeas = ndc.max(axis=0)>0
            

@@ -207,5 +207,4 @@ class EpsilonConstraintProblem(OptimizationProblem):
             objs.append(ind[fi])
             consts.append(const)
 
-        return objs, consts
-
+        return objs, np.transpose(consts)
