@@ -5,3 +5,9 @@ repos:
     - id: black
       args: []
       python_version: python3.6
+-   repo: git://github.com/luismayta/pre-commit-mypy
+    sha: '76dec333d8aaee9fc5c92707fdd12efcd0df9a5c'
+    hooks:
+    -   id: mypy
+        args:
+        - --ignore-missing-imports
