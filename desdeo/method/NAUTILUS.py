@@ -4,6 +4,8 @@
 #
 # Copyright (c) 2016  Vesa Ojalehto
 import desdeo.utils as utils
+from desdeo.warnings import UnexpectedCondition
+from warnings import warn
 '''
 NAUTILUS method variants
 
@@ -245,6 +247,11 @@ class NNAUTILUS(NAUTILUS):
 
 
     '''
+    class NegativeIntervalWarning(UnexpectedCondition):
+        def __str__(self):
+            return "Upper boundary is smaller than lower boundary"
+
+
     def __init__(self, method, method_class):
         super().__init__(method, method_class)
         self.current_iter = 100
@@ -282,8 +289,8 @@ class NNAUTILUS(NAUTILUS):
         self.fh_lo = list(self.bounds_factory.result(self.zh))
         self.fh_up = list(self.bounds_factory.result(self.zh, max = True))
 
-        if np.all(np.array(self.fh_up) > np.array(self.fh_lo)):
-            logging.debug("Upper boundary is smaller than lower boundary")
+        if not np.all(np.array(self.fh_up) > np.array(self.fh_lo)):
+            warn(self.NegativeIntervalWarning())
 
         assert utils.isin(self.fh_up, self.problem.points)
         assert utils.isin(self.fh_lo, self.problem.points)
