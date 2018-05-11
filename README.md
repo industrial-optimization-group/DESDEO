@@ -63,3 +63,15 @@ is available as open source code.
 
 The functioning and flexibility of the DESDEO framework is
 demonstrated with two numerical example problems.
+
+## Development ##
+
+### Set-up ###
+
+You should install the git pre-commit hook. This is configured using the pre-commit utility. See [the installation instructions](https://pre-commit.com/#install).
+
+### Tests ###
+
+Tests use pytest. After installing pytest you can run::
+
+  $ pytest tests
