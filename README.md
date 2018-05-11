@@ -71,10 +71,10 @@ demonstrated with two numerical example problems.
 
 ### Set-up ###
 
-You should install the git pre-commit hook. This is configured using the pre-commit utility. See [the installation instructions](https://pre-commit.com/#install).
+You should install the git pre-commit hook so that code formatting is kept consistent automatically. This is configured using the pre-commit utility. See [the installation instructions](https://pre-commit.com/#install).
 
 ### Tests ###
 
-Tests use pytest. After installing pytest you can run::
+Tests use pytest. After installing pytest you can run:
 
-  $ pytest tests
+    pytest tests
