@@ -160,7 +160,11 @@ class PointSearch(OptimizationMethod):
             infeas = ndc.max(axis=0)>0
            
             violations = np.sum(ndc[:,infeas].clip(0,np.inf),axis=0)
-            a_obj[infeas] += violations*100
+            penalty = violations*100
+            if self._max:
+                a_obj[infeas] -= penalty
+            else:
+                a_obj[infeas] += penalty
 
         if self._max:
             optarg=np.argmax
