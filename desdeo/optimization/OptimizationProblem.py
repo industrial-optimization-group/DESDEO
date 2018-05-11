@@ -3,16 +3,17 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # Copyright (c) 2016  Vesa Ojalehto
-'''
+"""
 Module description
-'''
+"""
 
 import abc
 import numpy as np
 from operator import itemgetter
 
+
 class OptimizationProblem(object, metaclass=abc.ABCMeta):
-    '''
+    """
     Single objective optimization problem
 
 
@@ -21,18 +22,17 @@ class OptimizationProblem(object, metaclass=abc.ABCMeta):
     problem : OptimizationMethod instance
         Method used for solving the problem
 
-    '''
+    """
 
     def __init__(self, method):
-        '''
+        """
         Constructor
-        '''
+        """
         self.nconst = 0
         self.problem = method
 
-
     def evaluate(self, objectives):
-        '''
+        """
         Evaluate value of the objective function and possible additional constraints
 
 
@@ -47,14 +47,16 @@ class OptimizationProblem(object, metaclass=abc.ABCMeta):
             Objective function values corresponding to objectives
         constraint : 2-D matrix of floats
             Constraint function values corresponding to objectives per row. None if no constraints are added
-        '''
+        """
         return self._evaluate(objectives)
 
     @abc.abstractmethod
     def _evaluate(self, objectives):
         pass
 
+
 class ScalarizedProblem(OptimizationProblem, metaclass=abc.ABCMeta):
+
     def __init__(self, method, **kwargs):
         super(ScalarizedProblem, self).__init__(method)
         self.reference = None
@@ -78,8 +80,9 @@ class ScalarizedProblem(OptimizationProblem, metaclass=abc.ABCMeta):
     def _evaluate(self, objectives):
         pass
 
+
 class AchievementProblem(ScalarizedProblem):
-    r'''
+    r"""
     Finds new solution by solving achievement scalarizing function[1]_
 
     .. math::
@@ -98,46 +101,55 @@ class AchievementProblem(ScalarizedProblem):
     [1] A. P. Wierzbicki, The use of reference objectives in multiobjective optimization, in: G. Fandel, T. Gal (Eds.),
     Multiple Criteria Decision Making, Theory and Applications, Vol. 177 of Lecture Notes in Economics and Mathematical Systems,
     Springer, 1980, pp. 468-486.
-    '''
+    """
 
     def __init__(self, method, **kwargs):
         super(AchievementProblem, self).__init__(method, **kwargs)
         self.eps = kwargs.get("eps", 0.00001)
         self.rho = kwargs.get("rho", 0.01)
 
-        self.scaling_weights = list(1.0 / (np.array(self.problem.nadir) - (np.array(self.problem.ideal) - self.eps)))
+        self.scaling_weights = list(
+            1.0
+            / (np.array(self.problem.nadir) - (np.array(self.problem.ideal) - self.eps))
+        )
         self.weights = [1.0] * len(self.problem.nadir)
 
-        self.v_ach = np.vectorize(lambda f, w, r:w * (f - r))
+        self.v_ach = np.vectorize(lambda f, w, r: w * (f - r))
 
     def _set_preferences(self):
-        self.scaling_weights = list(1.0 / (np.array(self.problem.nadir) - (np.array(self.problem.ideal) - self.eps)))
+        self.scaling_weights = list(
+            1.0
+            / (np.array(self.problem.nadir) - (np.array(self.problem.ideal) - self.eps))
+        )
 
     def _augmentation(self, objectives):
-        '''Calculate augmentation term
-        '''
+        """Calculate augmentation term
+        """
 
         rho = self.v_ach(objectives, np.array(self.scaling_weights), self.reference)
-        return np.sum(rho, axis = 1) * self.rho
+        return np.sum(rho, axis=1) * self.rho
 
     def _ach(self, objectives):
-        return self.v_ach(objectives, np.array(self.scaling_weights) * np.array(self.weights), self.reference)
+        return self.v_ach(
+            objectives,
+            np.array(self.scaling_weights) * np.array(self.weights),
+            self.reference,
+        )
 
     def _evaluate(self, objectives):
         rho = self._augmentation(objectives)
         v_ach = self._ach(objectives)
 
         # Calculate maximum of the values for each objective
-        ach = np.max(v_ach, axis = 1)
+        ach = np.max(v_ach, axis=1)
         return ach + rho, []
 
 
-
-
 class NIMBUSProblem(AchievementProblem):
-    '''
+    """
     Finds new solution by solving NIMBUS scalarizing function[1]_
-    '''
+    """
+
     def __init__(self, method, **kwargs):
         super(NIMBUSProblem, self).__init__(method, **kwargs)
         self.raug = kwargs.get("raug", 0.001)
@@ -145,13 +157,12 @@ class NIMBUSProblem(AchievementProblem):
     def _set_preference(self, preference):
         self.weights = [1.0] * len(self.problem.nadir)
 
-
     def _evaluate(self, objectives):
         fid_a = self._preferences.with_class("<") + self._preferences.with_class("<=")
         ach = self._ach(objectives)
         v_obj = ach[:, fid_a]
 
-        obj = np.max(v_obj, axis = 1)
+        obj = np.max(v_obj, axis=1)
 
         rho = self._augmentation(objectives)
 
@@ -168,8 +179,9 @@ class NIMBUSProblem(AchievementProblem):
             bounds.append(np.array(objectives)[:, fid])
         return obj + rho, bounds
 
+
 class EpsilonConstraintProblem(OptimizationProblem):
-    r'''
+    r"""
     Solves epsilon constraint problem
 
     .. math::
@@ -186,13 +198,12 @@ class EpsilonConstraintProblem(OptimizationProblem):
         Boundary value for the each of the objectives. The objective with boundary of None is to be minimized
 
 
-    '''
+    """
 
-    def __init__(self, method, obj_bounds = None):
+    def __init__(self, method, obj_bounds=None):
         super(EpsilonConstraintProblem, self).__init__(method)
         self.obj_bounds = obj_bounds
         self.objective = 100000
-
 
     def _evaluate(self, objectives):
         objs = []

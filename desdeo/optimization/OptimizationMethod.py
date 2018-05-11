@@ -2,15 +2,16 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Copyright (c) 2016  Vesa Ojalehto 
-'''
-'''
+# Copyright (c) 2016  Vesa Ojalehto
+"""
+"""
 from abc import abstractmethod, ABCMeta
 from scipy.optimize import differential_evolution, minimize
 import numpy as np
 
+
 class OptimizationMethod(object, metaclass=ABCMeta):
-    '''
+    """
     Abstract class for optimization methods
 
     Attributes
@@ -20,13 +21,13 @@ class OptimizationMethod(object, metaclass=ABCMeta):
 
     _ceoff : float
         Coefficient for the objective function
-    '''
+    """
 
     def __init__(self, optimization_problem):
         self.optimization_problem = optimization_problem
 
     def search(self, max=False, **params):
-        '''
+        """
         Search for the optimal solution
 
         This sets up the search for the optimization and calls the _search method
@@ -38,19 +39,19 @@ class OptimizationMethod(object, metaclass=ABCMeta):
         
         **params : dict [optional]
             Parameters for single objective optimization method
-        '''
+        """
 
-        self._max=max
+        self._max = max
         if max:
-            self._coeff=-1.0
+            self._coeff = -1.0
         else:
-            self._coeff=1.0
-        
+            self._coeff = 1.0
+
         return self._search(**params)
 
     @abstractmethod
     def _search(self, **params):
-        '''
+        """
         The actual search for the optimal solution   
 
         This is an abstract class that must be implemented by the subclasses
@@ -59,61 +60,68 @@ class OptimizationMethod(object, metaclass=ABCMeta):
         ----------
         **params : dict [optional]
             Parameters for single objective optimization method
-        '''
+        """
 
         pass
 
+
 class OptimalSearch(OptimizationMethod, metaclass=ABCMeta):
-    '''
+    """
     Abstract class for optimal search
-    '''
+    """
 
     @abstractmethod
     def _objective(self, x):
-        '''
+        """
         Return objective function value
 
         Parameters
         ----------
         x : list of values
             Decision variable vector to be calclated
-        '''
+        """
 
 
 class SciPy(OptimalSearch):
-    '''
-    '''
+    """
+    """
 
     def _objective(self, x):
-        self.last_objective, self.last_const = self.optimization_problem.evaluate(self.optimization_problem.problem.evaluate([x]))
-        return self._coeff*self.last_objective
+        self.last_objective, self.last_const = self.optimization_problem.evaluate(
+            self.optimization_problem.problem.evaluate([x])
+        )
+        return self._coeff * self.last_objective
         # objective, new_constraints = self.scalarproblem(objectives)
 
         # for ci, const in enumerate(new_constraints):
         #    constraints[ci].extend(const)
 
         # return objective[0], constraints[0]
+
     def _const(self, x, *ncon):
         # self.last_objective, self.last_const = self.optimization_problem.evaluate(self.optimization_problem.problem.evaluate([x]))
-        self.last_objective, self.last_const = self.optimization_problem.evaluate(self.optimization_problem.problem.evaluate([x]))
+        self.last_objective, self.last_const = self.optimization_problem.evaluate(
+            self.optimization_problem.problem.evaluate([x])
+        )
         return self.last_const[ncon[0]]
 
     def _search(self, max=False, **params):
         nconst = self.optimization_problem.nconst
         constraints = []
         for const in range(nconst):
-            constraints.append({"type":"ineq", "fun":self._const, "args":[const]})
+            constraints.append({"type": "ineq", "fun": self._const, "args": [const]})
 
         for xi, box in enumerate(self.optimization_problem.problem.bounds()):
-            constraints.append({"type":"ineq", "fun":lambda x: box[0] - x[xi], })
-            constraints.append({"type":"ineq", "fun":lambda x: x[xi] - box[1], })
+            constraints.append({"type": "ineq", "fun": lambda x: box[0] - x[xi]})
+            constraints.append({"type": "ineq", "fun": lambda x: x[xi] - box[1]})
             # constraints.append({"type":"ineq", "fun":self.upper, "args":[xi]})
-        res = minimize(fun=self._objective,
-                        x0=self.optimization_problem.problem.starting_point(),
-                        method="COBYLA",
-                        constraints=constraints,
-                         ** params
-                        )
+        res = minimize(
+            fun=self._objective,
+            x0=self.optimization_problem.problem.starting_point(),
+            method="COBYLA",
+            constraints=constraints,
+            **params
+        )
         return self.optimization_problem.problem.evaluate([res.x])[0]
 
 
@@ -121,54 +129,61 @@ class SciPyDE(OptimalSearch):
 
     def __init__(self, optimization_problem):
         super().__init__(optimization_problem)
-        self.penalty=0.0
+        self.penalty = 0.0
 
     def _objective(self, x):
         self.penalty = 0.0
-        obj, const = self.optimization_problem.evaluate(self.optimization_problem.problem.evaluate([x]))
+        obj, const = self.optimization_problem.evaluate(
+            self.optimization_problem.problem.evaluate([x])
+        )
         if len(const):
-            self.v=0.0
+            self.v = 0.0
             for c in const[0]:
                 if c > 0.00001:
                     # Lets use Death penalty
-                    self.v+=c
+                    self.v += c
                     self.penalty = 50000000
-        return self._coeff*obj[0] + self.penalty
+        return self._coeff * obj[0] + self.penalty
 
-    def _search(self,**params):
+    def _search(self, **params):
         bounds = np.array(self.optimization_problem.problem.bounds())
         np.rot90(bounds)
-        res = differential_evolution(func=self._objective, bounds=list(bounds), 
-                                     popsize=10,
-                                     polish=True,
-                                     #seed=12432,
-                                     maxiter=500000,
-                                     tol=0.0000001,
-                                     **params)
-        if self.penalty and self.v>0.0001:
-            print("INFEASIBLE %f"%self.v)
+        res = differential_evolution(
+            func=self._objective,
+            bounds=list(bounds),
+            popsize=10,
+            polish=True,
+            # seed=12432,
+            maxiter=500000,
+            tol=0.0000001,
+            **params
+        )
+        if self.penalty and self.v > 0.0001:
+            print("INFEASIBLE %f" % self.v)
         return self.optimization_problem.problem.evaluate([res.x])[0]
 
+
 class PointSearch(OptimizationMethod):
+
     def _search(self, **params):
         evl = self.optimization_problem.problem.evaluate()
         obj, const = self.optimization_problem.evaluate(evl)
-        a_obj=np.array(obj)
+        a_obj = np.array(obj)
 
         if np.size(const) > 0:
             ndc = np.array(const)
-            infeas = ndc.max(axis=0)>0
-           
-            violations = np.sum(ndc[:,infeas].clip(0,np.inf),axis=0)
-            penalty = violations*100
+            infeas = ndc.max(axis=0) > 0
+
+            violations = np.sum(ndc[:, infeas].clip(0, np.inf), axis=0)
+            penalty = violations * 100
             if self._max:
                 a_obj[infeas] -= penalty
             else:
                 a_obj[infeas] += penalty
 
         if self._max:
-            optarg=np.argmax
+            optarg = np.argmax
         else:
-            optarg=np.argmin
-        opt_i=optarg(a_obj)
+            optarg = np.argmin
+        opt_i = optarg(a_obj)
         return self.optimization_problem.problem.evaluate()[opt_i]

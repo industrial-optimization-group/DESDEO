@@ -3,18 +3,20 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # Copyright (c) 2016  Vesa Ojalehto
-'''
-'''
+"""
+"""
 import os
 import sys
 import time
 
 from desdeo.preference.PreferenceInformation import DirectSpecification
 
+
 class Logger(object):
+
     def __init__(self, filename):
         self.terminal = sys.stdout
-        username = os.getenv('username')
+        username = os.getenv("username")
         # self.log = open("%s_%s_%s.log" % (filename, username, time.strftime("%Y%m%d-%H%M%S")), "a")
 
     def write(self, message):
@@ -35,7 +37,8 @@ def new_points(factory, solution, weights):
         points.append(factory.result(pref, solution))
     return points
 
+
 def as_minimized(values, maximized):
-    ''' Return vector values as minimized
-    '''
+    """ Return vector values as minimized
+    """
     return [v * -1. if m else v for v, m in zip(values, maximized)]

@@ -7,18 +7,21 @@
 from abc import ABCMeta, abstractmethod
 from desdeo.optimization.OptimizationProblem import AchievementProblem
 
+
 class ResultFactory(object):
-    '''
+    """
     Abstract base class for result factories
 
-    '''
+    """
     __metaclass__ = ABCMeta
 
+
 class BoundsFactory(ResultFactory):
+
     def __init__(self, optimization_method):
         self.optimization_method = optimization_method
 
-    def result(self, prev_point, max = False):
+    def result(self, prev_point, max=False):
         Phr = []
         for fi, fr in enumerate(prev_point):
             self.optimization_method.optimization_problem.obj_bounds = list(prev_point)
@@ -29,7 +32,7 @@ class BoundsFactory(ResultFactory):
             else:
                 Phr.append(bound[fi])
 
-        return  Phr
+        return Phr
 
 
 class IterationPointFactory(ResultFactory):
@@ -38,8 +41,10 @@ class IterationPointFactory(ResultFactory):
         self.optimization_method = optimization_method
 
     def result(self, preferences, prev_point):
-        self.optimization_method.optimization_problem.set_preferences(preferences, prev_point)
-#        self.optimization_method.optimization_problem.weights = preferences.weights()
-#        self.optimization_method.optimization_problem.reference = preferences.reference_point()
+        self.optimization_method.optimization_problem.set_preferences(
+            preferences, prev_point
+        )
+        #        self.optimization_method.optimization_problem.weights = preferences.weights()
+        #        self.optimization_method.optimization_problem.reference = preferences.reference_point()
         self.last_solution = self.optimization_method.search()
-        return  self.last_solution
+        return self.last_solution

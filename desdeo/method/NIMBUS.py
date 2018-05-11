@@ -5,13 +5,13 @@
 #
 # Copyright (c) 2017  Vesa Ojalehto
 
-'''
+"""
 Synchronous NIMBUS method
 
 Miettinen, K. & Mäkelä, M. M.
 Synchronous approach in interactive multiobjective optimization
 European Journal of Operational Research, 2006, 170, 909-922
-'''
+"""
 import logging
 import numpy as np
 
@@ -22,7 +22,7 @@ from desdeo.preference import NIMBUSClassification
 
 
 class NIMBUS(InteractiveMethod):
-    ''''
+    """'
     Abstract class for optimization methods
 
 
@@ -31,17 +31,22 @@ class NIMBUS(InteractiveMethod):
     _preference : ClNIMBUSClassificationdefault:None)
         Preference, i.e., classification information  information for current iteration
 
-    '''
+    """
     __SCALARS = ["NIM", "ACH"]
+
     def __init__(self, problem, method_class):
         super().__init__(problem, method_class)
         self._factories = []
-        self._factories.append(IterationPointFactory(self.method_class(NIMBUSProblem(self.problem))))
-        self._factories.append(IterationPointFactory(self.method_class(AchievementProblem(self.problem))))
+        self._factories.append(
+            IterationPointFactory(self.method_class(NIMBUSProblem(self.problem)))
+        )
+        self._factories.append(
+            IterationPointFactory(self.method_class(AchievementProblem(self.problem)))
+        )
         self._classification = None
         self._problem = problem
         self.selected_solution = None
-        
+
     def _nextIteration(self, *args, **kwargs):
         try:
             self._classification = kwargs["preference"]
@@ -53,7 +58,13 @@ class NIMBUS(InteractiveMethod):
             self._scalars = self.__SCALARS
         po = []
         for scalar in self._scalars:
-            po.append(list(self._factories[self.__SCALARS.index(scalar)].result(self._classification, self.selected_solution)))
+            po.append(
+                list(
+                    self._factories[self.__SCALARS.index(scalar)].result(
+                        self._classification, self.selected_solution
+                    )
+                )
+            )
         return po
 
     def _initIteration(self, *args, **kwargs):
@@ -62,5 +73,7 @@ class NIMBUS(InteractiveMethod):
         # Todo calculate ideal and nadir values
         for v in ref:
             cls.append(("<=", v))
-        self.selected_solution = self._factories[self.__SCALARS.index("ACH")].result(NIMBUSClassification(self, cls), self.selected_solution)
+        self.selected_solution = self._factories[self.__SCALARS.index("ACH")].result(
+            NIMBUSClassification(self, cls), self.selected_solution
+        )
         return [self.selected_solution]
