@@ -154,11 +154,6 @@ class Variable(object):
 
     starting_point : numeric value
         Starting point for the variable
-
-    Methods
-    -------
-    method(c='rgb')
-        Brief description, methods only for larger classes
     """
 
     def __init__(self, bounds=None, starting_point=None, name=""):

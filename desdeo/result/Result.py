@@ -11,17 +11,6 @@ from abc import ABCMeta, abstractmethod
 class Result(object):
     """
     Abstract base class for result factories to create new results
-
-
-    Attributes
-    ----------
-    attr : type
-        Description
-
-    Methods
-    -------
-    method(c='rgb')
-        Brief description, methods only for larger classes
     """
     __metaclass__ = ABCMeta
 
