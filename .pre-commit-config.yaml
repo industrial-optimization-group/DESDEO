@@ -12,3 +12,7 @@ repos:
         exclude: "docs"
         args:
         - --ignore-missing-imports
+-   repo: git://github.com/pre-commit/pre-commit-hooks
+    rev: master
+    hooks:
+    -   id: flake8
