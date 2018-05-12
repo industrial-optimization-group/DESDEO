@@ -8,3 +8,4 @@ script:
   - ./check_mypy.sh
   - ./check_black.sh
   - ./check_flake8.sh
+  - ./check_isort.sh
