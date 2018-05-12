@@ -9,8 +9,7 @@ from abc import abstractmethod, ABCMeta
 import numpy as np
 
 from desdeo.utils.misc import as_minimized
-from desdeo.utils.exceptions import ProblemDefinitionError
-from typing import Optional, List, Union, Sequence
+from typing import Optional, List, Union
 
 
 class MOProblem(object):

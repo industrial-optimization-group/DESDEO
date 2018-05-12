@@ -31,12 +31,12 @@ class OptimizationMethod(object, metaclass=ABCMeta):
         Search for the optimal solution
 
         This sets up the search for the optimization and calls the _search method
-        
+
         Parameters
         ----------
         max : bool (default False)
             If true find mximum of the objective function instead of minimum
-        
+
         **params : dict [optional]
             Parameters for single objective optimization method
         """
@@ -52,7 +52,7 @@ class OptimizationMethod(object, metaclass=ABCMeta):
     @abstractmethod
     def _search(self, **params):
         """
-        The actual search for the optimal solution   
+        The actual search for the optimal solution
 
         This is an abstract class that must be implemented by the subclasses
 

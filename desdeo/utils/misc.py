@@ -5,9 +5,7 @@
 # Copyright (c) 2016  Vesa Ojalehto
 """
 """
-import os
 import sys
-import time
 from typing import List
 
 from desdeo.preference.PreferenceInformation import DirectSpecification
@@ -17,8 +15,6 @@ class Logger(object):
 
     def __init__(self, filename):
         self.terminal = sys.stdout
-        username = os.getenv("username")
-        # self.log = open("%s_%s_%s.log" % (filename, username, time.strftime("%Y%m%d-%H%M%S")), "a")
 
     def write(self, message):
         # self.terminal.write(message)

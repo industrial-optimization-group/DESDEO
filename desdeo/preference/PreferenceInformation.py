@@ -4,10 +4,8 @@
 
 # Copyright (c) 2016  Vesa Ojalehto
 
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta
 import numpy as np
-import copy
-from _ast import Num
 
 
 class PreferenceInformation(object):

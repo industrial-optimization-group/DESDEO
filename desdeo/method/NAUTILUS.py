@@ -13,7 +13,8 @@ NAUTILUS method variants
 
 NAUTILUS    The first NAUTILUS variant introduces in
             Miettinen, K.; Eskelinen, P.; Ruiz, F. & Luque, M.
-            NAUTILUS method: An interactive technique in multiobjective optimization based on the nadir point
+            NAUTILUS method: An interactive technique in multiobjective
+                optimization based on the nadir point
             European Journal of Operational Research, 2010, 206, 426-434
 
 TODO

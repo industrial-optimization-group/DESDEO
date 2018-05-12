@@ -5,7 +5,7 @@
 # Copyright (c) 2016  Vesa Ojalehto
 """
 """
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta
 
 
 class Result(object):

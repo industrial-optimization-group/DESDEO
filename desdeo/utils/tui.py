@@ -13,7 +13,7 @@ try:
     from prompt_toolkit import prompt
 
     tui = True
-except:
+except ImportError:
     tui = False
 
 from prompt_toolkit.validation import Validator, ValidationError
@@ -106,9 +106,9 @@ class NumberValidator(Validator):
 def select_iter(method, default=1, no_print=False):
     if not no_print:
         method.printCurrentIteration()
-    try:
+    if tui:
         text = prompt(u"Select iteration point Ns: ", validator=IterValidator(method))
-    except:
+    else:
         text = str(default)
         # This is not a tui, so go to next
         if method.current_iter == 3:
@@ -138,7 +138,7 @@ def ask_pref(method, prev_pref):
 
 def iter_nautilus(method):
     solution = None
-    try:
+    if tui:
         print("Preference elicitation options:")
         print("\t1 - Percentages")
         print("\t2 - Relative ranks")
@@ -151,7 +151,7 @@ def iter_nautilus(method):
                 validator=NumberValidator([1, 3]),
             )
         )
-    except:
+    else:
         pref_sel = 2
 
     PREFCLASSES = [PercentageSpecifictation, RelativeRanking, DirectSpecification]
@@ -160,7 +160,7 @@ def iter_nautilus(method):
     print("Nadir: %s" % method.problem.nadir)
     print("Ideal: %s" % method.problem.ideal)
 
-    try:
+    if tui:
         method.user_iters = method.current_iter = int(
             prompt(
                 u"Ni: ",
@@ -168,7 +168,7 @@ def iter_nautilus(method):
                 validator=NumberValidator(),
             )
         )
-    except Exception as e:
+    else:
         method.current_iter = method.user_iters = 4
     print("Ni:", method.user_iters)
     pref = preference_class(method, None)
@@ -187,13 +187,13 @@ def iter_nautilus(method):
         method.printCurrentIteration()
         default = u",".join(map(str, pref.pref_input))
 
-        try:
+        if tui:
             pref_input = prompt(
                 u"Preferences: ",
                 default=default,
                 validator=VectorValidator(method, pref),
             )
-        except:
+        else:
             # This is not a tui, so go to next
             pref_input = ",".join(map(str, MCDA_prefs[mi]))
             # pref_input = default
@@ -215,7 +215,7 @@ def iter_nautilus(method):
 
 
 def iter_enautilus(method):
-    try:
+    if tui:
         method.user_iters = method.current_iter = int(
             prompt(
                 u"Ni: ",
@@ -224,7 +224,7 @@ def iter_enautilus(method):
             )
         )
         method.Ns = int(prompt(u"Ns: ", default=u"5", validator=NumberValidator()))
-    except:
+    else:
         method.user_iters = 5
         method.Ns = 5
     print("Nadir: %s" % method.problem.nadir)
@@ -238,13 +238,13 @@ def iter_enautilus(method):
         pref = select_iter(method, 1)
         if pref in COMMANDS:
             break
-        try:
+        if tui:
             method.Ns = int(
                 prompt(
                     u"Ns: ", default=u"%s" % (method.Ns), validator=NumberValidator()
                 )
             )
-        except:
+        else:
             pass
         points = method.nextIteration(pref)
 

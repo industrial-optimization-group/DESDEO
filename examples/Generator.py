@@ -6,19 +6,16 @@
 """
 
 """
-import sys, os
+import os
 
-
-example_path = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(example_path, ".."))
-
-import desdeo
 from desdeo.utils import tui
 
 from method import NAUTILUSv1, ENAUTILUS
 
 from desdeo.optimization.method import PointSearch
 from desdeo.problem.problem import PreGeneratedProblem
+
+example_path = os.path.dirname(os.path.realpath(__file__))
 
 
 if __name__ == "__main__":
@@ -59,5 +56,5 @@ if __name__ == "__main__":
         from prompt_toolkit import prompt
 
         a = prompt(u"Press ENTER to exit")
-    except:
+    except ImportError:
         pass

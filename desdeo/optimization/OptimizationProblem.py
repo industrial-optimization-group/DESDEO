@@ -9,7 +9,6 @@ Module description
 
 import abc
 import numpy as np
-from operator import itemgetter
 
 
 class OptimizationProblem(object, metaclass=abc.ABCMeta):

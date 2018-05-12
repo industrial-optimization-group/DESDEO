@@ -1,5 +1,4 @@
 import os
-import pytest
 
 from desdeo.method.NAUTILUS import NNAUTILUS
 from desdeo.problem.Problem import PreGeneratedProblem

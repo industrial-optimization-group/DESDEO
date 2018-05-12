@@ -4,8 +4,7 @@
 #
 # Copyright (c) 2016  Vesa Ojalehto
 
-from abc import ABCMeta, abstractmethod
-from desdeo.optimization.OptimizationProblem import AchievementProblem
+from abc import ABCMeta
 
 
 class ResultFactory(object):

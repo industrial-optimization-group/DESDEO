@@ -17,7 +17,6 @@ def run(method, preference):
 
 
 def test_running_NIMBUS():
-    vals = []
     method = NIMBUS(
         PreGeneratedProblem(
             filename=os.path.join(example_path, "AuxiliaryServices.csv")

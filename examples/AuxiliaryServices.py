@@ -29,12 +29,7 @@ References
     Man and Cybernetics, IEEE Transactions on, 1989 , 19 , 883-887.
 
 """
-import sys, os
-
-
-example_path = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(example_path, ".."))
-
+import os
 
 from desdeo.utils import tui
 
@@ -43,6 +38,7 @@ from desdeo.method.NAUTILUS import NAUTILUSv1, ENAUTILUS
 from desdeo.optimization.OptimizationMethod import PointSearch
 from desdeo.problem.Problem import PreGeneratedProblem
 
+example_path = os.path.dirname(os.path.realpath(__file__))
 
 if __name__ == "__main__":
     # SciPy breaks box constraints
@@ -82,5 +78,5 @@ if __name__ == "__main__":
         from prompt_toolkit import prompt
 
         a = prompt(u"Press ENTER to exit")
-    except:
+    except ImportError:
         pass

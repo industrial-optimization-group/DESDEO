@@ -33,14 +33,10 @@ References
 import sys
 import os
 
-example_path = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(example_path, ".."))
-
 from prompt_toolkit import prompt
 
 from desdeo.core.ResultFactory import IterationPointFactory
 from desdeo.method.NAUTILUS import NAUTILUSv1, ENAUTILUS
-from desdeo.method.NAUTILUS import NAUTILUSv1, ENAUTILUS, NAUTILUS
 from desdeo.optimization.OptimizationMethod import SciPyDE, PointSearch
 from desdeo.optimization.OptimizationProblem import AchievementProblem
 from desdeo.problem.Problem import PreGeneratedProblem
@@ -65,14 +61,9 @@ if __name__ == "__main__":
 
     ci = method_v1.current_iter
     if ci > 0:
-        try:
-            from prompt_toolkit import prompt
-
-            weights = prompt(
-                u"Weights (10 or 20): ", default=u"20", validator=tui.NumberValidator()
-            )
-        except:
-            weights = "20"
+        weights = prompt(
+            u"Weights (10 or 20): ", default=u"20", validator=tui.NumberValidator()
+        )
 
         factory = IterationPointFactory(SciPyDE(AchievementProblem(RiverPollution())))
         points = misc.new_points(factory, solution, WEIGHTS[weights])
@@ -96,9 +87,4 @@ if __name__ == "__main__":
         tui.iter_enautilus(method_e)
         solution = method_e.zh_prev
     method_e.printCurrentIteration()
-    try:
-        from prompt_toolkit import prompt
-
-        a = prompt(u"Press ENTER to exit")
-    except:
-        pass
+    a = prompt(u"Press ENTER to exit")
