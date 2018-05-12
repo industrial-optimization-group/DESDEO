@@ -1,11 +1,11 @@
-# pyDESDEO #
+# DESDEO README #
 
 <p align="center">
 <a href="https://desdeo.readthedocs.io/en/latest/?badge=latest"><img alt="Documentation Status" src="https://readthedocs.org/projects/desdeo/badge/?version=latest"></a>
 <a href="https://github.com/ambv/black"><img alt="Code style: black" src="https://img.shields.io/badge/code%20style-black-000000.svg"></a>
 </p>
 
-The pyDESDEO is free and open source framework for developing and
+DESDEO is a free and open source Python-based framework for developing and
 experimenting with interactive multiobjective optimization.
 
 [Documentation is available.](https://desdeo.readthedocs.io/en/latest/)
@@ -35,7 +35,7 @@ as provide framework for developing and implementing new methods.
 
 Overview of the current DESDEO architecture is shown in diagram
 
-![DESDEO Overview](https://github.com/industrial-optimization-group/pyDESDEO/raw/master/docs/design/overview.png)
+![DESDEO Overview](https://github.com/industrial-optimization-group/DESDEO/raw/master/docs/design/overview.png)
 
 ## Interactive Methods  ##
 
