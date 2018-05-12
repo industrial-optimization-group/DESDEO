@@ -47,7 +47,7 @@ setup(
             "pytest_check_links",
             "recommonmark",
         ],
-        "dev": ["black==18.4a4", "mypy", "flake8"],
+        "dev": ["black==18.4a4", "mypy", "flake8", "isort"],
     },
     setup_requires=setup_requirements,
     test_suite="tests",
