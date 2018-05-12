@@ -30,22 +30,20 @@ References
 
 """
 
-import sys
 import os
+import sys
 
 from prompt_toolkit import prompt
 
 from desdeo.core.ResultFactory import IterationPointFactory
-from desdeo.method.NAUTILUS import NAUTILUSv1, ENAUTILUS
-from desdeo.optimization.OptimizationMethod import SciPyDE, PointSearch
+from desdeo.method.NAUTILUS import ENAUTILUS, NAUTILUSv1
+from desdeo.optimization.OptimizationMethod import PointSearch, SciPyDE
 from desdeo.optimization.OptimizationProblem import AchievementProblem
 from desdeo.problem.Problem import PreGeneratedProblem
 from desdeo.utils import misc, tui
-
-from .NarulaWeistroffer import RiverPollution, WEIGHTS
-
-
 from utils.misc import Logger
+
+from .NarulaWeistroffer import WEIGHTS, RiverPollution
 
 sys.stdout = Logger(os.path.splitext(os.path.basename(__file__))[0])
 

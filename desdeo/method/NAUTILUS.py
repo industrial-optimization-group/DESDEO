@@ -3,10 +3,27 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # Copyright (c) 2016  Vesa Ojalehto
-import desdeo.utils as utils
-from desdeo.utils.warnings import UnexpectedCondition
+import logging
+from typing import List, Type
 from warnings import warn
-from typing import List
+
+import numpy as np
+from sklearn.cluster import KMeans
+from sklearn.metrics import pairwise_distances_argmin_min
+
+import desdeo.utils as utils
+from desdeo.core.ResultFactory import BoundsFactory, IterationPointFactory
+from desdeo.optimization.OptimizationMethod import OptimizationMethod
+from desdeo.optimization.OptimizationProblem import (
+    AchievementProblem,
+    EpsilonConstraintProblem,
+)
+from desdeo.preference.PreferenceInformation import DirectSpecification
+from desdeo.utils import reachable_points
+from desdeo.utils.warnings import UnexpectedCondition
+
+from .base import InteractiveMethod
+
 
 """
 NAUTILUS method variants
@@ -22,22 +39,6 @@ TODO
 Add all variants
 Longer descriptions of the method variants and methods
 """
-from typing import Type
-import numpy as np
-import logging
-from sklearn.cluster import KMeans
-from sklearn.metrics import pairwise_distances_argmin_min
-
-from desdeo.core.ResultFactory import IterationPointFactory, BoundsFactory
-from desdeo.optimization.OptimizationMethod import OptimizationMethod
-from desdeo.optimization.OptimizationProblem import (
-    AchievementProblem,
-    EpsilonConstraintProblem,
-)
-from desdeo.preference.PreferenceInformation import DirectSpecification
-
-from .base import InteractiveMethod
-from desdeo.utils import reachable_points
 
 
 class NAUTILUS(InteractiveMethod):

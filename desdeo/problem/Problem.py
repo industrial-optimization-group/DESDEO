@@ -5,11 +5,12 @@
 # Copyright (c) 2016  Vesa Ojalehto
 
 import copy
-from abc import abstractmethod, ABCMeta
+from abc import ABCMeta, abstractmethod
+from typing import List, Optional, Union
+
 import numpy as np
 
 from desdeo.utils.misc import as_minimized
-from typing import Optional, List, Union
 
 
 class MOProblem(object):

@@ -31,12 +31,10 @@ References
 """
 import os
 
-from desdeo.utils import tui
-
-from desdeo.method.NAUTILUS import NAUTILUSv1, ENAUTILUS
-
+from desdeo.method.NAUTILUS import ENAUTILUS, NAUTILUSv1
 from desdeo.optimization.OptimizationMethod import PointSearch
 from desdeo.problem.Problem import PreGeneratedProblem
+from desdeo.utils import tui
 
 example_path = os.path.dirname(os.path.realpath(__file__))
 

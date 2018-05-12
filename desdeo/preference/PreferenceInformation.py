@@ -5,6 +5,7 @@
 # Copyright (c) 2016  Vesa Ojalehto
 
 from abc import ABCMeta
+
 import numpy as np
 
 

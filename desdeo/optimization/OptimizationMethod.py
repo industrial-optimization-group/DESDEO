@@ -5,9 +5,10 @@
 # Copyright (c) 2016  Vesa Ojalehto
 """
 """
-from abc import abstractmethod, ABCMeta
-from scipy.optimize import differential_evolution, minimize
+from abc import ABCMeta, abstractmethod
+
 import numpy as np
+from scipy.optimize import differential_evolution, minimize
 
 
 class OptimizationMethod(object, metaclass=ABCMeta):

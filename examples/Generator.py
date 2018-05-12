@@ -8,12 +8,10 @@
 """
 import os
 
-from desdeo.utils import tui
-
-from method import NAUTILUSv1, ENAUTILUS
-
 from desdeo.optimization.method import PointSearch
 from desdeo.problem.problem import PreGeneratedProblem
+from desdeo.utils import tui
+from method import ENAUTILUS, NAUTILUSv1
 
 example_path = os.path.dirname(os.path.realpath(__file__))
 

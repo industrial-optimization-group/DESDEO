@@ -13,12 +13,14 @@ Synchronous approach in interactive multiobjective optimization
 European Journal of Operational Research, 2006, 170, 909-922
 """
 import logging
+
 import numpy as np
 
-from .base import InteractiveMethod
-from desdeo.optimization.OptimizationProblem import AchievementProblem, NIMBUSProblem
 from desdeo.core.ResultFactory import IterationPointFactory
+from desdeo.optimization.OptimizationProblem import AchievementProblem, NIMBUSProblem
 from desdeo.preference import NIMBUSClassification
+
+from .base import InteractiveMethod
 
 
 class NIMBUS(InteractiveMethod):

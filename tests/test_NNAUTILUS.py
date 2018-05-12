@@ -1,8 +1,8 @@
 import os
 
 from desdeo.method.NAUTILUS import NNAUTILUS
-from desdeo.problem.Problem import PreGeneratedProblem
 from desdeo.optimization.OptimizationMethod import PointSearch
+from desdeo.problem.Problem import PreGeneratedProblem
 from examples.AuxiliaryServices import example_path
 
 

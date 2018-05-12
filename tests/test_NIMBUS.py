@@ -3,10 +3,9 @@ import os
 import numpy as np
 
 from desdeo.method.NIMBUS import NIMBUS
+from desdeo.optimization.OptimizationMethod import PointSearch, SciPyDE
 from desdeo.preference.PreferenceInformation import NIMBUSClassification
 from desdeo.problem.Problem import PreGeneratedProblem
-from desdeo.optimization.OptimizationMethod import PointSearch, SciPyDE
-
 from examples.AuxiliaryServices import example_path
 from examples.NarulaWeistroffer import RiverPollution
 

@@ -8,6 +8,7 @@ Module description
 """
 
 import abc
+
 import numpy as np
 
 

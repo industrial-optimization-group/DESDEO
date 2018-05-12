@@ -8,6 +8,13 @@
 import sys
 
 import numpy as np
+from prompt_toolkit.validation import ValidationError, Validator
+
+from desdeo.preference.PreferenceInformation import (
+    DirectSpecification,
+    PercentageSpecifictation,
+    RelativeRanking,
+)
 
 try:
     from prompt_toolkit import prompt
@@ -16,13 +23,6 @@ try:
 except ImportError:
     tui = False
 
-from prompt_toolkit.validation import Validator, ValidationError
-
-from desdeo.preference.PreferenceInformation import (
-    RelativeRanking,
-    DirectSpecification,
-    PercentageSpecifictation,
-)
 
 COMMANDS = ["c", "C", "q"]
 

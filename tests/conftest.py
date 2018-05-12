@@ -2,7 +2,6 @@ import pytest
 
 from desdeo.method.NIMBUS import NIMBUS
 from desdeo.optimization.OptimizationMethod import SciPyDE
-
 from examples.NarulaWeistroffer import RiverPollution
 
 
