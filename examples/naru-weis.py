@@ -46,10 +46,7 @@ from desdeo.optimization.OptimizationProblem import AchievementProblem
 from desdeo.problem.Problem import PreGeneratedProblem
 from desdeo.utils import misc, tui
 
-try:
-    from NarulaWeistroffer import NaurulaWeistroffer, WEIGHTS
-except ImportError:
-    from examples.NarulaWeistroffer import NaurulaWeistroffer, WEIGHTS
+from .NarulaWeistroffer import RiverPollution, WEIGHTS
 
 
 from utils.misc import Logger
@@ -60,13 +57,13 @@ sys.stdout = Logger(os.path.splitext(os.path.basename(__file__))[0])
 if __name__ == "__main__":
 
     # SciPy breaks box constraints
-    method = NAUTILUSv1(NaurulaWeistroffer(), SciPyDE)
-    nadir = method.problem.nadir
-    ideal = method.problem.ideal
+    method_v1 = NAUTILUSv1(RiverPollution(), SciPyDE)
+    nadir = method_v1.problem.nadir
+    ideal = method_v1.problem.ideal
 
-    solution = tui.iter_nautilus(method)
+    solution = tui.iter_nautilus(method_v1)
 
-    ci = method.current_iter
+    ci = method_v1.current_iter
     if ci > 0:
         try:
             from prompt_toolkit import prompt
@@ -77,30 +74,28 @@ if __name__ == "__main__":
         except:
             weights = "20"
 
-        factory = IterationPointFactory(
-            SciPyDE(AchievementProblem(NaurulaWeistroffer()))
-        )
+        factory = IterationPointFactory(SciPyDE(AchievementProblem(RiverPollution())))
         points = misc.new_points(factory, solution, WEIGHTS[weights])
 
-        method = ENAUTILUS(PreGeneratedProblem(points=points), PointSearch)
-        method.current_iter = ci
-        method.zh_prev = solution
+        method_e = ENAUTILUS(PreGeneratedProblem(points=points), PointSearch)
+        method_e.current_iter = ci
+        method_e.zh_prev = solution
         print(
             "E-NAUTILUS\nselected iteration point: %s:"
-            % ",".join(map(str, method.zh_prev))
+            % ",".join(map(str, method_e.zh_prev))
         )
 
-    while method.current_iter > 0:
+    while method_e.current_iter > 0:
         if solution is None:
-            solution = method.problem.nadir
+            solution = method_e.problem.nadir
             # Generate new points
         # print solution
 
-        method.problem.nadir = nadir
-        method.problem.ideal = ideal
-        tui.iter_enautilus(method)
-        solution = method.zh_prev
-    method.printCurrentIteration()
+        method_e.problem.nadir = nadir
+        method_e.problem.ideal = ideal
+        tui.iter_enautilus(method_e)
+        solution = method_e.zh_prev
+    method_e.printCurrentIteration()
     try:
         from prompt_toolkit import prompt
 
