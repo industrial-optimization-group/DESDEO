@@ -35,7 +35,7 @@ from desdeo.optimization.OptimizationProblem import (
 )
 from desdeo.preference.PreferenceInformation import DirectSpecification
 
-from desdeo.method import InteractiveMethod
+from .base import InteractiveMethod
 from desdeo.utils import reachable_points
 
 
