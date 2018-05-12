@@ -10,6 +10,7 @@ import numpy as np
 
 from desdeo.utils.misc import as_minimized
 from desdeo.utils.exceptions import ProblemDefinitionError
+from typing import Optional, List, Union, Sequence
 
 
 class MOProblem(object):
@@ -34,25 +35,25 @@ class MOProblem(object):
 
     def __init__(
         self,
-        nobj,
-        nconst=0,
-        ideal=None,
-        nadir=None,
-        maximized=None,
-        objectives=None,
-        name=None,
-    ):
+        nobj: int,
+        nconst: int = 0,
+        ideal: Optional[List[float]] = None,
+        nadir: Optional[List[float]] = None,
+        maximized: Optional[List[bool]] = None,
+        objectives: Optional[List[str]] = None,
+        name: str = None,
+    ) -> None:
         self.nobj = nobj
         self.nconst = nconst
-        self.variables = []
+        self.variables = []  # type: List[Variable]
         self.ideal = ideal
         self.nadir = nadir
         if maximized is not None:
-            self.maximized = maximized
+            self.maximized = maximized  # type: Optional[List[bool]]
         elif self.ideal is not None:
             self.maximized = [False] * len(self.ideal)
         else:
-            self.maximzed = None
+            self.maximized = None
 
         if objectives is None:
             self.objectives = ["f%i" % (i + 1) for i in range(self.nobj)]
@@ -60,12 +61,18 @@ class MOProblem(object):
             self.objectives = objectives
         self.name = name
 
-        if self.ideal and self.nadir:
+        if self.ideal and self.nadir and self.maximized:
             self.maximum = self.as_minimized(
-                [i if m else n for i, n, m in zip(ideal, nadir, self.maximized)]
+                [
+                    i if m else n
+                    for i, n, m in zip(self.ideal, self.nadir, self.maximized)
+                ]
             )
             self.minimum = self.as_minimized(
-                [n if m else i for i, n, m in zip(ideal, nadir, self.maximized)]
+                [
+                    n if m else i
+                    for i, n, m in zip(self.ideal, self.nadir, self.maximized)
+                ]
             )
 
     @abstractmethod
@@ -100,14 +107,19 @@ class MOProblem(object):
             "Ideal and nadir value calculation is not yet implemented"
         )
 
-    def nof_objectives(self):
-        assert len(self.ideal) == len(self.nadir)
-        return len(self.ideal)
+    def nof_objectives(self) -> Optional[int]:
+        if self.ideal and self.nadir:
+            assert len(self.ideal) == len(self.nadir)
+            return len(self.ideal)
+        else:
+            return None
 
-    def nof_variables(self):
+    def nof_variables(self) -> int:
         return len(self.variables)
 
-    def add_variables(self, variables, index=None):
+    def add_variables(
+        self, variables: Union[List[Variable], Variable], index: int = None
+    ) -> None:
         """
         Parameters
         ----------
@@ -118,9 +130,7 @@ class MOProblem(object):
             Location to add variables, if None add to the end
 
         """
-        try:
-            variables[0]
-        except TypeError:
+        if isinstance(variables, Variable):
             addvars = copy.deepcopy([variables])
         else:
             addvars = copy.deepcopy(variables)

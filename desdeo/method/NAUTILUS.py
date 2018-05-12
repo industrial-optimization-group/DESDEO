@@ -6,6 +6,7 @@
 import desdeo.utils as utils
 from desdeo.warnings import UnexpectedCondition
 from warnings import warn
+from typing import List
 
 """
 NAUTILUS method variants
@@ -20,12 +21,14 @@ TODO
 Add all variants
 Longer descriptions of the method variants and methods
 """
+from typing import Type
 import numpy as np
 import logging
 from sklearn.cluster import KMeans
 from sklearn.metrics import pairwise_distances_argmin_min
 
 from desdeo.core.ResultFactory import IterationPointFactory, BoundsFactory
+from desdeo.optimization.optimization.method import OptimizationMethod
 from desdeo.optimization.OptimizationProblem import (
     AchievementProblem,
     EpsilonConstraintProblem,
@@ -38,7 +41,7 @@ from desdeo.utils import reachable_points
 
 class NAUTILUS(InteractiveMethod):
 
-    def __init__(self, method, method_class):
+    def __init__(self, method, method_class: Type[OptimizationMethod]) -> None:
         super().__init__(method, method_class)
         self.user_iters = 5
         self.current_iter = self.user_iters
@@ -93,7 +96,7 @@ class NAUTILUS(InteractiveMethod):
 
         self.zh = list(self._next_zh(term1, term2))
 
-    def distance(self, where=None, target=None):
+    def distance(self, where: List[float], target: List[float]):
 
         a_nadir = np.array(self.problem.nadir)
         a_ideal = np.array(self.problem.ideal)
@@ -112,17 +115,17 @@ class NAUTILUS(InteractiveMethod):
 
 class ENAUTILUS(NAUTILUS):
 
-    def __init__(self, method, method_class):
+    def __init__(self, method, method_class: Type[OptimizationMethod]) -> None:
         super().__init__(method, method_class)
         self.Ns = 5
         self.fh_lo_prev = None
         self.fh_lo_prev = None
 
-        self.nsPoint_prev = []
+        self.nsPoint_prev = []  # type: List[float]
 
-        self.zhs = []
-        self.zh_los = []
-        self.zh_reach = []
+        self.zhs = []  # type: List[float]
+        self.zh_los = []  # type: List[float]
+        self.zh_reach = []  # type: List[int]
 
     def printCurrentIteration(self):
         if self.current_iter < 0:

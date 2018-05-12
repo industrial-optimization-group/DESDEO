@@ -8,6 +8,7 @@
 import os
 import sys
 import time
+from typing import List
 
 from desdeo.preference.PreferenceInformation import DirectSpecification
 
@@ -38,7 +39,7 @@ def new_points(factory, solution, weights):
     return points
 
 
-def as_minimized(values, maximized):
+def as_minimized(values: List[float], maximized: List[bool]) -> List[float]:
     """ Return vector values as minimized
     """
     return [v * -1. if m else v for v, m in zip(values, maximized)]
