@@ -61,10 +61,10 @@ class NAUTILUS(InteractiveMethod):
 
         self.NsPoints = None
 
-    def _initIteration(self, *args, **kwargs):
+    def _init_iteration(self, *args, **kwargs):
         pass
 
-    def _nextIteration(self, *args, **kwargs):
+    def _next_iteration(self, *args, **kwargs):
         pass
 
     def _update_fh(self):
@@ -129,7 +129,7 @@ class ENAUTILUS(NAUTILUS):
         self.zh_los = []  # type: List[float]
         self.zh_reach = []  # type: List[int]
 
-    def printCurrentIteration(self):
+    def print_current_iteration(self):
         if self.current_iter < 0:
             print("Final iteration point:", self.zh_prev)
         else:
@@ -154,7 +154,7 @@ class ENAUTILUS(NAUTILUS):
     def select_point(self, point):
         pass
 
-    def nextIteration(self, preference=None):
+    def next_iteration(self, preference=None):
         """
         Return next iteration bounds
         """
@@ -218,7 +218,7 @@ class NAUTILUSv1(NAUTILUS):
         European Journal of Operational Research, 2010 , 206 , 426-434.
     """
 
-    def printCurrentIteration(self):
+    def print_current_iteration(self):
         if self.current_iter == 0:
             print("Closeness: ", self.distance(self.zh, self.fh))
             print("Final iteration point:", self.zh)
@@ -238,7 +238,7 @@ class NAUTILUSv1(NAUTILUS):
     def _update_fh(self):
         self.fh = list(self.fh_factory.result(self.preference, self.zh_prev))
 
-    def nextIteration(self, preference=None):
+    def next_iteration(self, preference=None):
         """
         Return next iteration bounds
         """
@@ -306,7 +306,7 @@ class NNAUTILUS(NAUTILUS):
             self.problem.points, self.fh_lo, self.fh_up
         )
 
-    def nextIteration(self, ref_point, bounds=None):
+    def next_iteration(self, ref_point, bounds=None):
         """
         Calculate the next iteration point to be shown to the DM
 

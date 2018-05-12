@@ -10,7 +10,7 @@ def run(method, ref_point, steps=100, bounds=None):
     """ test method for steps iterations with given  reference point and bounds (if any)"""
     vals = []
     for i in range(steps):
-        dist, fh, zh, lo, up, nP = method.nextIteration(ref_point, bounds)
+        dist, fh, zh, lo, up, nP = method.next_iteration(ref_point, bounds)
         vals.append([dist, lo, up, zh])
         if not nP:
             break

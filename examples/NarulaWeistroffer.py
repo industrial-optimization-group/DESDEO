@@ -178,7 +178,7 @@ if __name__ == "__main__":
     class1 = NIMBUSClassification(
         nimmeth, [(">=", -5.5), (">=", -3.0), ("<=", -6.5), ("<=", -2.0)]
     )
-    iter1 = nimmeth.nextIteration(preference=class1)
+    iter1 = nimmeth.next_iteration(preference=class1)
     print(nimmeth.problem.to_ui(iter1))
     # Output
     # [[5.63,3.05,7.07,1.20],

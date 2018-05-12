@@ -71,7 +71,7 @@ if __name__ == "__main__":
         # method_v1.fh_lo=list(method_v1.bounds_factory.result(method_v1.zh_prev))
 
         solution = tui.iter_nautilus(method_v1)
-    method_v1.printCurrentIteration()
+    method_v1.print_current_iteration()
     try:
         from prompt_toolkit import prompt
 

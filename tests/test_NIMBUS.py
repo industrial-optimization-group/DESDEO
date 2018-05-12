@@ -12,7 +12,7 @@ from examples.NarulaWeistroffer import RiverPollution
 
 def run(method, preference):
     """ test method for steps iterations with given  reference point and bounds (if any)"""
-    return method.nextIteration(preference=preference)
+    return method.next_iteration(preference=preference)
 
 
 def test_running_NIMBUS():
@@ -41,15 +41,15 @@ def test_running_NIMBUS():
 def test_narula():
     method = NIMBUS(RiverPollution(), SciPyDE)
 
-    vals = method.initIteration()
+    vals = method.init_iteration()
     assert len(vals) == 1
-    vals = method.nextIteration(
+    vals = method.next_iteration(
         preference=NIMBUSClassification(
             method, [("<", None), ("<=", .1), ("<", None), ("<=", 0.4)]
         )
     )
     assert len(vals) == 2
-    vals = method.nextIteration(
+    vals = method.next_iteration(
         preference=NIMBUSClassification(
             method, [("<", None), ("<=", .1), ("<", None), ("<=", 0.4)]
         ),
@@ -59,7 +59,7 @@ def test_narula():
 
 
 def test_classification(method):
-    vals = method.initIteration()
+    vals = method.init_iteration()
     method.problem.selected = vals[0]
     cls = NIMBUSClassification(method, vals[0])
     assert cls.reference_point() == vals[0]

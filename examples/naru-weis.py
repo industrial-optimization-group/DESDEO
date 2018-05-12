@@ -84,5 +84,5 @@ if __name__ == "__main__":
         method_e.problem.ideal = ideal
         tui.iter_enautilus(method_e)
         solution = method_e.zh_prev
-    method_e.printCurrentIteration()
+    method_e.print_current_iteration()
     a = prompt(u"Press ENTER to exit")

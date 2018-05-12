@@ -49,7 +49,7 @@ class NIMBUS(InteractiveMethod):
         self._problem = problem
         self.selected_solution = None
 
-    def _nextIteration(self, *args, **kwargs):
+    def _next_iteration(self, *args, **kwargs):
         try:
             self._classification = kwargs["preference"]
         except KeyError:
@@ -69,7 +69,7 @@ class NIMBUS(InteractiveMethod):
             )
         return po
 
-    def _initIteration(self, *args, **kwargs):
+    def _init_iteration(self, *args, **kwargs):
         ref = (np.array(self.problem.nadir) - np.array(self.problem.ideal)) / 2
         cls = []
         # Todo calculate ideal and nadir values

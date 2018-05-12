@@ -105,7 +105,7 @@ class NumberValidator(Validator):
 
 def select_iter(method, default=1, no_print=False):
     if not no_print:
-        method.printCurrentIteration()
+        method.print_current_iteration()
     if tui:
         text = prompt(u"Select iteration point Ns: ", validator=IterValidator(method))
     else:
@@ -132,8 +132,8 @@ def ask_pref(method, prev_pref):
     if rank == "e":
         return rank
     pref = RelativeRanking(map(float, rank.split(",")))
-    method.nextIteration(pref)
-    method.printCurrentIteration()
+    method.next_iteration(pref)
+    method.print_current_iteration()
 
 
 def iter_nautilus(method):
@@ -184,7 +184,7 @@ def iter_nautilus(method):
     mi = 0
     while method.current_iter:
 
-        method.printCurrentIteration()
+        method.print_current_iteration()
         default = u",".join(map(str, pref.pref_input))
 
         if tui:
@@ -209,7 +209,7 @@ def iter_nautilus(method):
         pref = preference_class(
             method, np.fromstring(pref_input, dtype=np.float, sep=",")
         )
-        solution, _ = method.nextIteration(pref)
+        solution, _ = method.next_iteration(pref)
         mi += 1
     return solution
 
@@ -230,11 +230,11 @@ def iter_enautilus(method):
     print("Nadir: %s" % method.problem.nadir)
     print("Ideal: %s" % method.problem.ideal)
 
-    method.nextIteration()
+    method.next_iteration()
     points = None
 
     while method.current_iter:
-        # method.printCurrentIteration()
+        # method.print_current_iteration()
         pref = select_iter(method, 1)
         if pref in COMMANDS:
             break
@@ -246,7 +246,7 @@ def iter_enautilus(method):
             )
         else:
             pass
-        points = method.nextIteration(pref)
+        points = method.next_iteration(pref)
 
     if not method.current_iter:
         method.zh_prev = select_iter(method, 1)[0]
