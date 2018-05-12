@@ -34,7 +34,7 @@ release = ""
 
 # -- General configuration ---------------------------------------------------
 
-autodoc_mock_imports = ["numpy", "scipy", "sklearn"]
+autodoc_mock_imports = ["numpy", "scipy", "sklearn", "prompt_toolkit"]
 
 # If your documentation needs a minimal Sphinx version, state it here.
 #
