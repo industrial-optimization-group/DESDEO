@@ -2,6 +2,8 @@ language: python
 python:
   - "3.6"
 install:
-  - python setup.py install
+  - pip -e `pwd`\[dev\]
 script:
-  - python setup.py test
+  - pip install -e .[]
+  - ./check_mypy.sh
+  - ./check_black.sh
