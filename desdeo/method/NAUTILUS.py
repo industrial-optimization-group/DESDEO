@@ -4,7 +4,7 @@
 #
 # Copyright (c) 2016  Vesa Ojalehto
 import desdeo.utils as utils
-from desdeo.warnings import UnexpectedCondition
+from desdeo.utils.warnings import UnexpectedCondition
 from warnings import warn
 from typing import List
 
