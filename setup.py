@@ -6,59 +6,58 @@ import sys
 
 from setuptools import setup, find_packages
 
-if sys.argv[-1] == 'publish':
-    os.system('python setup.py sdist upload')
+if sys.argv[-1] == "publish":
+    os.system("python setup.py sdist upload")
     sys.exit()
 
-readme = open('README.md').read()
+readme = open("README.md").read()
 doclink = """
 Documentation
 -------------
 
 The full documentation is located at http://desdeo.it.jyu.fi"""
 
-history = open('HISTORY.md').read()
+history = open("HISTORY.md").read()
 
-long_desc = readme + '\n\n' + doclink + '\n\n' + history
+long_desc = readme + "\n\n" + doclink + "\n\n" + history
 
 
-setup_requirements = ['pytest-runner', ]
+setup_requirements = ["pytest-runner"]
 
-test_requirements = ['pytest', ]
+test_requirements = ["pytest"]
 
-requirements = ['numpy', 'prompt-toolkit', 'scikit-learn', 'scipy']
+requirements = ["numpy", "prompt-toolkit", "scikit-learn", "scipy"]
 
 setup(
-    name='desdeo',
-    url='desdeo.it.jyu.fi',
-    license='MPL 2.0',
-    author='Vesa Ojalehto',
-    author_email='vesa.ojalehto@gmail.com',
-    description='Open source library for for interactive multiobjective optimization',
+    name="desdeo",
+    url="desdeo.it.jyu.fi",
+    license="MPL 2.0",
+    author="Vesa Ojalehto",
+    author_email="vesa.ojalehto@gmail.com",
+    description="Open source library for for interactive multiobjective optimization",
     long_description=long_desc,
-    version='0.1.0',
-
-    packages=find_packages(include=['desdeo']),
-    package_dir={'desdeo': 'desdeo'},
+    version="0.1.0",
+    packages=find_packages(include=["desdeo"]),
+    package_dir={"desdeo": "desdeo"},
     install_requires=requirements,
     extras_require={
-        'docs': [
-            'sphinx_autodoc_typehints',
-            'sphinx>=1.5',
-            'sphinx_rtd_theme',
-            'pytest_check_links',
-            'recommonmark',
-        ],
+        "docs": [
+            "sphinx_autodoc_typehints",
+            "sphinx>=1.5",
+            "sphinx_rtd_theme",
+            "pytest_check_links",
+            "recommonmark",
+        ]
     },
     setup_requires=setup_requirements,
-    test_suite='tests',
+    test_suite="tests",
     tests_require=test_requirements,
     classifiers=[
-        'Development Status :: 2 - Pre-Alpha',
-        'Intended Audience :: Science/Research',
+        "Development Status :: 2 - Pre-Alpha",
+        "Intended Audience :: Science/Research",
         "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)"
-        'Natural Language :: English',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: Implementation :: PyPy',
+        "Natural Language :: English",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: Implementation :: PyPy",
     ],
 )

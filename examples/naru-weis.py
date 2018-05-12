@@ -3,7 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # Copyright (c) 2016  Vesa Ojalehto
-'''
+"""
 River pollution problem by Narula and Weistroffer [1]
 
 The problem has four objectives and two variables
@@ -28,10 +28,11 @@ References
     H. A flexible method for nonlinear multicriteria decision-making problems Systems,
     Man and Cybernetics, IEEE Transactions on, 1989 , 19 , 883-887.
 
-'''
+"""
 
 import sys
 import os
+
 example_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(example_path, ".."))
 
@@ -44,6 +45,7 @@ from desdeo.optimization.OptimizationMethod import SciPyDE, PointSearch
 from desdeo.optimization.OptimizationProblem import AchievementProblem
 from desdeo.problem.Problem import PreGeneratedProblem
 from desdeo.utils import misc, tui
+
 try:
     from NarulaWeistroffer import NaurulaWeistroffer, WEIGHTS
 except ImportError:
@@ -51,10 +53,11 @@ except ImportError:
 
 
 from utils.misc import Logger
+
 sys.stdout = Logger(os.path.splitext(os.path.basename(__file__))[0])
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     # SciPy breaks box constraints
     method = NAUTILUSv1(NaurulaWeistroffer(), SciPyDE)
@@ -67,20 +70,25 @@ if __name__ == '__main__':
     if ci > 0:
         try:
             from prompt_toolkit import prompt
-            weights = prompt(u'Weights (10 or 20): ',
-                             default=u"20", validator=tui.NumberValidator())
+
+            weights = prompt(
+                u"Weights (10 or 20): ", default=u"20", validator=tui.NumberValidator()
+            )
         except:
             weights = "20"
 
         factory = IterationPointFactory(
-            SciPyDE(AchievementProblem(NaurulaWeistroffer())))
+            SciPyDE(AchievementProblem(NaurulaWeistroffer()))
+        )
         points = misc.new_points(factory, solution, WEIGHTS[weights])
 
         method = ENAUTILUS(PreGeneratedProblem(points=points), PointSearch)
         method.current_iter = ci
         method.zh_prev = solution
-        print("E-NAUTILUS\nselected iteration point: %s:" %
-              ",".join(map(str, method.zh_prev)))
+        print(
+            "E-NAUTILUS\nselected iteration point: %s:"
+            % ",".join(map(str, method.zh_prev))
+        )
 
     while method.current_iter > 0:
         if solution is None:
@@ -95,6 +103,7 @@ if __name__ == '__main__':
     method.printCurrentIteration()
     try:
         from prompt_toolkit import prompt
-        a = prompt(u'Press ENTER to exit')
+
+        a = prompt(u"Press ENTER to exit")
     except:
         pass

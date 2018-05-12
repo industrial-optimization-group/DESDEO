@@ -3,7 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # Copyright (c) 2016  Vesa Ojalehto
-'''
+"""
 River pollution problem by Narula and Weistroffer [1]
 
 The problem has four objectives and two variables
@@ -28,7 +28,7 @@ References
     H. A flexible method for nonlinear multicriteria decision-making problems Systems,
     Man and Cybernetics, IEEE Transactions on, 1989 , 19 , 883-887.
 
-'''
+"""
 import sys, os
 
 
@@ -44,9 +44,14 @@ from desdeo.optimization.OptimizationMethod import PointSearch
 from desdeo.problem.Problem import PreGeneratedProblem
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # SciPy breaks box constraints
-    method = ENAUTILUS(PreGeneratedProblem(filename = os.path.join(example_path, "AuxiliaryServices.csv")), PointSearch)
+    method = ENAUTILUS(
+        PreGeneratedProblem(
+            filename=os.path.join(example_path, "AuxiliaryServices.csv")
+        ),
+        PointSearch,
+    )
     zh = tui.iter_enautilus(method)
     ci = method.current_iter
 
@@ -59,7 +64,12 @@ if __name__ == '__main__':
             zh = method.zh_prev
             fh_lo = method.fh_lo_prev
             fh = method.nsPoint_prev
-        method = NAUTILUSv1(PreGeneratedProblem(filename = os.path.join(example_path, "AuxiliaryServices.csv")), PointSearch)
+        method = NAUTILUSv1(
+            PreGeneratedProblem(
+                filename=os.path.join(example_path, "AuxiliaryServices.csv")
+            ),
+            PointSearch,
+        )
         method.current_iter = ci + 1
         method.zh_prev = method.zh = zh
         method.fh = fh
@@ -70,6 +80,7 @@ if __name__ == '__main__':
     method.printCurrentIteration()
     try:
         from prompt_toolkit import prompt
-        a = prompt(u'Press ENTER to exit')
+
+        a = prompt(u"Press ENTER to exit")
     except:
         pass

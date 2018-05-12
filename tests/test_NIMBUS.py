@@ -10,15 +10,24 @@ from desdeo.optimization.OptimizationMethod import PointSearch, SciPyDE
 from examples.AuxiliaryServices import example_path
 from examples.NarulaWeistroffer import RiverPollution
 
+
 def run(method, preference):
-    ''' test method for steps iterations with given  reference point and bounds (if any)'''
-    return method.nextIteration(preference = preference)
+    """ test method for steps iterations with given  reference point and bounds (if any)"""
+    return method.nextIteration(preference=preference)
+
 
 def test_running_NIMBUS():
     vals = []
-    method = NIMBUS(PreGeneratedProblem(filename = os.path.join(example_path, "AuxiliaryServices.csv")), PointSearch)
+    method = NIMBUS(
+        PreGeneratedProblem(
+            filename=os.path.join(example_path, "AuxiliaryServices.csv")
+        ),
+        PointSearch,
+    )
 
-    run1 = run(method, NIMBUSClassification(method, [("<", None), (">=", 1), ("<", None)]))
+    run1 = run(
+        method, NIMBUSClassification(method, [("<", None), (">=", 1), ("<", None)])
+    )
     assert run1[0][1] < 1
     assert len(run1) == 2
 
@@ -30,14 +39,24 @@ def test_running_NIMBUS():
 
     assert np.isclose(run1[0], run2[1]).all()  # pylint: disable=E1101
 
+
 def test_narula():
     method = NIMBUS(RiverPollution(), SciPyDE)
 
     vals = method.initIteration()
     assert len(vals) == 1
-    vals = method.nextIteration(preference = NIMBUSClassification(method, [("<", None), ("<=", .1), ("<", None), ("<=", 0.4)]))
+    vals = method.nextIteration(
+        preference=NIMBUSClassification(
+            method, [("<", None), ("<=", .1), ("<", None), ("<=", 0.4)]
+        )
+    )
     assert len(vals) == 2
-    vals = method.nextIteration(preference = NIMBUSClassification(method, [("<", None), ("<=", .1), ("<", None), ("<=", 0.4)]), scalars = ["NIM"])
+    vals = method.nextIteration(
+        preference=NIMBUSClassification(
+            method, [("<", None), ("<=", .1), ("<", None), ("<=", 0.4)]
+        ),
+        scalars=["NIM"],
+    )
     assert len(vals) == 1
 
 
