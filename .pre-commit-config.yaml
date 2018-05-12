@@ -9,5 +9,6 @@ repos:
     sha: '76dec333d8aaee9fc5c92707fdd12efcd0df9a5c'
     hooks:
     -   id: mypy
+        exclude: "docs"
         args:
         - --ignore-missing-imports
