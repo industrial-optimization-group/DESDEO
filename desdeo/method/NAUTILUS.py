@@ -28,7 +28,7 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import pairwise_distances_argmin_min
 
 from desdeo.core.ResultFactory import IterationPointFactory, BoundsFactory
-from desdeo.optimization.optimization.method import OptimizationMethod
+from desdeo.optimization.OptimizationMethod import OptimizationMethod
 from desdeo.optimization.OptimizationProblem import (
     AchievementProblem,
     EpsilonConstraintProblem,

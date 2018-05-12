@@ -118,7 +118,7 @@ class MOProblem(object):
         return len(self.variables)
 
     def add_variables(
-        self, variables: Union[List[Variable], Variable], index: int = None
+        self, variables: Union[List["Variable"], "Variable"], index: int = None
     ) -> None:
         """
         Parameters
