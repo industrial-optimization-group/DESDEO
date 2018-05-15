@@ -2,7 +2,7 @@ import os
 
 import numpy as np
 
-from desdeo.method.NIMBUS import NIMBUS
+from desdeo.method import NIMBUS
 from desdeo.optimization.OptimizationMethod import PointSearch, SciPyDE
 from desdeo.preference.PreferenceInformation import NIMBUSClassification
 from desdeo.problem.Problem import PreGeneratedProblem
@@ -15,18 +15,18 @@ def run(method, preference):
     return method.next_iteration(preference=preference)
 
 
-def test_running_NIMBUS():
+def test_point_search():
     method = NIMBUS(
         PreGeneratedProblem(
-            filename=os.path.join(example_path, "AuxiliaryServices.csv")
-        ),
-        PointSearch,
-    )
+            filename=os.path.join(example_path, "AuxiliaryServices.csv")),
+        PointSearch)
 
-    run1 = run(
-        method, NIMBUSClassification(method, [("<", None), (">=", 1), ("<", None)])
-    )
-    assert run1[0][1] < 1
+    run1 = run(method,
+               NIMBUSClassification(method, [("<", None), 
+                                             (">=", 1),
+                                             ("<", None)]))
+
+    assert run1[0][1] >= 1
     assert len(run1) == 2
 
     # When using point search, there should not be better solutions when projected
@@ -38,7 +38,7 @@ def test_running_NIMBUS():
     assert np.isclose(run1[0], run2[1]).all()  # pylint: disable=E1101
 
 
-def test_narula():
+def test_optimization():
     method = NIMBUS(RiverPollution(), SciPyDE)
 
     vals = method.init_iteration()

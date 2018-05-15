@@ -17,6 +17,7 @@ from desdeo.optimization.OptimizationMethod import OptimizationMethod
 from desdeo.optimization.OptimizationProblem import (
     AchievementProblem,
     EpsilonConstraintProblem,
+    MaxEpsilonConstraintProblem
 )
 from desdeo.preference.PreferenceInformation import DirectSpecification
 from desdeo.utils import reachable_points
@@ -47,12 +48,17 @@ class NAUTILUS(InteractiveMethod):
         super().__init__(method, method_class)
         self.user_iters = 5
         self.current_iter = self.user_iters
+
         self.fh_factory = IterationPointFactory(
             self.method_class(AchievementProblem(self.problem))
         )
-        self.bounds_factory = BoundsFactory(
+        self.upper_bounds_factory = BoundsFactory(
+            self.method_class(MaxEpsilonConstraintProblem(self.problem))
+        )
+        self.lower_bounds_factory = BoundsFactory(
             self.method_class(EpsilonConstraintProblem(self.problem))
         )
+
         self.preference = None
 
         self.fh_lo, self.zh = tuple(self.problem.objective_bounds())
@@ -166,10 +172,15 @@ class ENAUTILUS(NAUTILUS):
                 self.problem.points, preference[1], preference[0]
             )
             self.zh_prev = list(preference[0])
-            self.fh_lo = list(preference[1])
+            if preference[1] is not None:
+                self.fh_lo = list(preference[1])
+            else:
+                self.fh_lo = self.problem.ideal[:]
             self.fh_lo_prev = self.fh_lo
 
             self.nsPoint_prev = list(self.NsPoints[self.zhs.index(self.zh_prev)])
+            
+            
         if len(points) <= self.Ns:
             print(
                 (
@@ -192,7 +203,7 @@ class ENAUTILUS(NAUTILUS):
         for point in self.NsPoints:
             self.zhs.append(self._update_zh(self.zh_prev, point))
             # self.fh=point
-            self.fh_lo = list(self.bounds_factory.result(self.zhs[-1]))
+            self.fh_lo = list(self.lower_bounds_factory.result(self.zhs[-1]))
             self.zh_los.append(self.fh_lo)
 
             self.zh_reach.append(
@@ -252,7 +263,7 @@ class NAUTILUSv1(NAUTILUS):
         # self.zh = list(np.array(self.zh) / 2. + np.array(self.zh_prev) / 2.)
         # self.zh_prev = tmpzh
         if self.current_iter != 1:
-            self.fh_lo = list(self.bounds_factory.result(self.zh_prev))
+            self.fh_lo = list(self.lower_bounds_factory.result(self.zh_prev))
 
         self.current_iter -= 1
 
@@ -325,8 +336,11 @@ class NNAUTILUS(NAUTILUS):
 
         self._update_zh(self.zh, self.fh)
 
-        self.fh_lo = list(self.bounds_factory.result(self.zh))
-        self.fh_up = list(self.bounds_factory.result(self.zh, max=True))
+        self.fh_lo = list(self.lower_bounds_factory.result(self.zh))
+        self.fh_up = list(self.upper_bounds_factory.result(self.zh))
+
+        logging.debug(f"Updated upper boundary: {self.fh_up}")
+        logging.debug(f"Uppadet lower boundary: {self.fh_lo}")
 
         if not np.all(np.array(self.fh_up) > np.array(self.fh_lo)):
             warn(self.NegativeIntervalWarning())

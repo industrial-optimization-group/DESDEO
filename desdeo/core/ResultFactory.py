@@ -20,12 +20,12 @@ class BoundsFactory(ResultFactory):
     def __init__(self, optimization_method):
         self.optimization_method = optimization_method
 
-    def result(self, prev_point, max=False):
+    def result(self, prev_point, upper = False):
         Phr = []
         for fi, fr in enumerate(prev_point):
             self.optimization_method.optimization_problem.obj_bounds = list(prev_point)
             self.optimization_method.optimization_problem.obj_bounds[fi] = None
-            bound = self.optimization_method.search(max)
+            bound = self.optimization_method.search(upper)
             if bound is None:
                 Phr.append(prev_point[fi])
             else:

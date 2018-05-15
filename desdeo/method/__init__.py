@@ -9,3 +9,4 @@ __all__ = ["NAUTILUSv1", "ENAUTILUS", "NNAUTILUS"]
 from .NAUTILUS import ENAUTILUS
 from .NAUTILUS import NAUTILUSv1
 from .NAUTILUS import NNAUTILUS
+from .NIMBUS import NIMBUS

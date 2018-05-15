@@ -177,12 +177,13 @@ class NIMBUSProblem(AchievementProblem):
             bounds.append(np.array(objectives)[:, fid] - self._preferences[fid][1])
         for fid in fid_e:
             bounds.append(np.array(objectives)[:, fid])
+        bounds = np.rot90(bounds)
         return obj + rho, bounds
 
 
 class EpsilonConstraintProblem(OptimizationProblem):
     r"""
-    Solves epsilon constraint problem
+    Epsilon constraint problem
 
     .. math::
 
@@ -205,6 +206,8 @@ class EpsilonConstraintProblem(OptimizationProblem):
         self.obj_bounds = obj_bounds
         self.objective = 100000
 
+        self._coeff=1
+
     def _evaluate(self, objectives):
         objs = []
         consts = []
@@ -217,5 +220,30 @@ class EpsilonConstraintProblem(OptimizationProblem):
                     fi = oi
             objs.append(ind[fi])
             consts.append(const)
+        
+        return np.array(objs)*self._coeff, np.array(consts)
 
-        return objs, np.transpose(consts)
+class MaxEpsilonConstraintProblem(EpsilonConstraintProblem):
+    r"""
+    Epsilon constraint problem where the objective is to be maximized
+
+    math :: \mbox{maximize}     & f_r({\bf{x}}) \\
+\mbox{subject to}   &f_j({\bf{x}}) \le z _j, j = 1, \dots, k, j \neq r, \\
+                                    & {\bf{x}} \in S, \\
+
+    This is a special case of using epsilon constraint, to be very clear
+    when using maximized scalarizing function.
+
+    Attributes
+    ----------
+    bounds : List of numerical values
+        Boundary value for the each of the objectives. The objective with boundary of None is to be minimized
+
+
+    """
+
+    def __init__(self, method, obj_bounds=None):
+        super().__init__(method)
+        # Note that a class is needed, but here we
+        # wish to be clear of our intention
+        self._coeff = -1

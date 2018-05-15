@@ -171,20 +171,11 @@ class PointSearch(OptimizationMethod):
         obj, const = self.optimization_problem.evaluate(evl)
         a_obj = np.array(obj)
 
-        if np.size(const) > 0:
-            ndc = np.array(const)
-            infeas = ndc.max(axis=0) > 0
-
-            violations = np.sum(ndc[:, infeas].clip(0, np.inf), axis=0)
-            penalty = violations * 100
-            if self._max:
-                a_obj[infeas] -= penalty
-            else:
-                a_obj[infeas] += penalty
-
-        if self._max:
-            optarg = np.argmax
-        else:
-            optarg = np.argmin
-        opt_i = optarg(a_obj)
+        if const is not None and len(const):
+            # Using penalty for handling constraint violations
+            viol = np.sum(np.array(const).clip(0,None),axis=1)
+            a_obj += viol
+            
+        optarg=np.argmax if self._max else np.argmin
+        opt_i=optarg(a_obj)
         return self.optimization_problem.problem.evaluate()[opt_i]
