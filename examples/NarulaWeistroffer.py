@@ -23,6 +23,11 @@ except ImportError:
     sys.path.append(os.path.join(example_path, ".."))
     from desdeo.problem import PythonProblem, Variable
 
+from desdeo.utils import tui
+from desdeo.method import NAUTILUSv1, NIMBUS
+from desdeo.preference import NIMBUSClassification
+from desdeo.optimization import SciPyDE
+
 
 class RiverPollution(PythonProblem):
     """
@@ -149,38 +154,32 @@ WEIGHTS = {
 
 
 if __name__ == "__main__":
-
-    from desdeo.utils import tui
-    from desdeo.method import NAUTILUSv1
-    from desdeo.optimization import SciPyDE
-
     # Solve River Pollution problem using NAUTILUS
     # Using tui
-    print("Before NAUTILUS_solution")
+    print("Solve with NAUTILUS method")
     natmeth = NAUTILUSv1(RiverPollution(), SciPyDE)
-    NAUTILUS_solution = tui.iter_nautilus(natmeth)[0]
-    print("Got NAUTILUS_solution")
-    print(natmeth.problem.to_ui(NAUTILUS_solution))
-    # Output:
-    # [-6.2927077117830965, -3.4038593790999485,
-    #   -7.401394350956817, 1.6201876469013787]
+    NAUTILUS_solution = tui.iter_nautilus(natmeth)
+    print("NAUTILUS solution")
+    print(NAUTILUS_solution)
+   # Output:
+   # [-6.2927077117830965, -3.4038593790999485,
+   #   -7.401394350956817, 1.6201876469013787]
 
     # Continue solving  River Pollution problem
     # From NAUTILUS solution
 
-    from desdeo.method.NIMBUS import NIMBUS
-    from desdeo.preference import NIMBUSClassification
 
     nimmeth = NIMBUS(RiverPollution(), SciPyDE)
-
-    nimmeth.selected_solution = NAUTILUS_solution[0]
-
-    class1 = NIMBUSClassification(
-        nimmeth, [(">=", -5.5), (">=", -3.0), ("<=", -6.5), ("<=", -2.0)]
-    )
-    iter1 = nimmeth.next_iteration(preference=class1)
-    print(nimmeth.problem.to_ui(iter1))
+    nimmeth.init_iteration()
+    print("Solving with NIMBUS method")
+    class1 = NIMBUSClassification(nimmeth,
+                                  [(">=", -5.5),
+                                   (">=", -3.0),
+                                   ("<=", -6.5),
+                                   ("<=", -2.0)])
+    iter1 = nimmeth.next_iteration(preference = class1)
+    print("NIMBUS solutions")
+    print(iter1)
     # Output
-    # [[5.63,3.05,7.07,1.20],
-    # [5.84,3.09,6.74,1.57],
-    # [5.58,3.05,7.12,1.23]]
+    # [[-5.685179670183404, -2.845500670078188, -6.9936653595242255, -0.07781863514782916],
+    #  [-6.104997526730949, -2.8792454934814242, -5.730370900831871, 0.03584500974406313]]

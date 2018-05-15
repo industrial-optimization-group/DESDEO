@@ -48,9 +48,9 @@ class PercentageSpecifictation(Direction):
         return [0] * len(self._method.problem.nadir)
 
     def check_input(self, input):
-        inp = map(float, input)
+        inp = np.array(input).astype(float)
         if np.sum(inp) != 100:
-            return "Total of the preferences should be 100"
+            return "Total sum of preferences should be 100"
         return ""
 
 

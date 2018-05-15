@@ -8,6 +8,7 @@
 import sys
 
 import numpy as np
+
 from prompt_toolkit.validation import ValidationError, Validator
 
 from desdeo.preference.PreferenceInformation import (
@@ -15,20 +16,16 @@ from desdeo.preference.PreferenceInformation import (
     PercentageSpecifictation,
     RelativeRanking,
 )
-
-try:
+if sys.stdout.isatty():
     from prompt_toolkit import prompt
-
     tui = True
-except ImportError:
+else:
     tui = False
-
 
 COMMANDS = ["c", "C", "q"]
 
 
 class IterValidator(Validator):
-
     def __init__(self, method):
         super().__init__()
         self.range = map(str, range(1, len(method.zhs) + 1)) + ["q"]
@@ -37,12 +34,11 @@ class IterValidator(Validator):
         text = document.text
         if text not in self.range + COMMANDS:
             raise ValidationError(
-                message="Ns %s is not valid iteration point" % text, cursor_position=0
-            )
+                message="Ns %s is not valid iteration point" % text,
+                cursor_position=0)
 
 
 class VectorValidator(Validator):
-
     def __init__(self, method, preference=None):
         super().__init__()
         self.nfun = len(method.problem.nadir)
@@ -62,13 +58,12 @@ class VectorValidator(Validator):
                 cursor_position=0,
             )
         if self.preference:
-            err = self.preference.check_input(values, self.method.problem)
+            err = self.preference.check_input(values)
             if err:
                 raise ValidationError(message=err, cursor_position=0)
 
 
 class NumberValidator(Validator):
-
     def __init__(self, ranges=None):
         super().__init__()
         if ranges:
@@ -87,8 +82,8 @@ class NumberValidator(Validator):
                     break
 
             raise ValidationError(
-                message="This input contains non-numeric characters", cursor_position=i
-            )
+                message="This input contains non-numeric characters",
+                cursor_position=i)
         v = int(text)
         if self.ranges[0] and v < self.ranges[0]:
             raise ValidationError(
@@ -107,7 +102,8 @@ def select_iter(method, default=1, no_print=False):
     if not no_print:
         method.print_current_iteration()
     if tui:
-        text = prompt(u"Select iteration point Ns: ", validator=IterValidator(method))
+        text = prompt(
+            u"Select iteration point Ns: ", validator=IterValidator(method))
     else:
         text = str(default)
         # This is not a tui, so go to next
@@ -142,19 +138,21 @@ def iter_nautilus(method):
         print("Preference elicitation options:")
         print("\t1 - Percentages")
         print("\t2 - Relative ranks")
-        print("\t3 - Direct")
+        # TODO Check what Direct actually means here
+        # print("\t3 - Direct")
 
         pref_sel = int(
             prompt(
                 u"Reference elicitation ",
                 default=u"%s" % (1),
                 validator=NumberValidator([1, 3]),
-            )
-        )
+            ))
     else:
         pref_sel = 2
 
-    PREFCLASSES = [PercentageSpecifictation, RelativeRanking, DirectSpecification]
+    PREFCLASSES = [
+        PercentageSpecifictation, RelativeRanking, DirectSpecification
+    ]
     preference_class = PREFCLASSES[pref_sel - 1]
 
     print("Nadir: %s" % method.problem.nadir)
@@ -166,8 +164,7 @@ def iter_nautilus(method):
                 u"Ni: ",
                 default=u"%s" % (method.current_iter),
                 validator=NumberValidator(),
-            )
-        )
+            ))
     else:
         method.current_iter = method.user_iters = 4
     print("Ni:", method.user_iters)
@@ -206,9 +203,9 @@ def iter_nautilus(method):
         if brk:
             solution = method.zh
             break
-        pref = preference_class(
-            method, np.fromstring(pref_input, dtype=np.float, sep=",")
-        )
+        pref = preference_class(method,
+                                np.fromstring(
+                                    pref_input, dtype=np.float, sep=","))
         solution, _ = method.next_iteration(pref)
         mi += 1
     return solution
@@ -221,9 +218,9 @@ def iter_enautilus(method):
                 u"Ni: ",
                 default=u"%i" % method.current_iter,
                 validator=NumberValidator(),
-            )
-        )
-        method.Ns = int(prompt(u"Ns: ", default=u"5", validator=NumberValidator()))
+            ))
+        method.Ns = int(
+            prompt(u"Ns: ", default=u"5", validator=NumberValidator()))
     else:
         method.user_iters = 5
         method.Ns = 5
@@ -241,9 +238,9 @@ def iter_enautilus(method):
         if tui:
             method.Ns = int(
                 prompt(
-                    u"Ns: ", default=u"%s" % (method.Ns), validator=NumberValidator()
-                )
-            )
+                    u"Ns: ",
+                    default=u"%s" % (method.Ns),
+                    validator=NumberValidator()))
         else:
             pass
         points = method.next_iteration(pref)
