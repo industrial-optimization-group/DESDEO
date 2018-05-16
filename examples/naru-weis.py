@@ -31,7 +31,6 @@ References
 """
 
 import os
-import sys
 
 from prompt_toolkit import prompt
 
@@ -41,14 +40,50 @@ from desdeo.optimization.OptimizationMethod import PointSearch, SciPyDE
 from desdeo.optimization.OptimizationProblem import AchievementProblem
 from desdeo.problem.Problem import PreGeneratedProblem
 from desdeo.utils import misc, tui
-from utils.misc import Logger
+from desdeo.utils.misc import Tee
+from NarulaWeistroffer import RiverPollution
 
-from .NarulaWeistroffer import WEIGHTS, RiverPollution
-
-sys.stdout = Logger(os.path.splitext(os.path.basename(__file__))[0])
-
+WEIGHTS = {
+    "20": [
+        [0.1, 0.1, 0.1, 0.7],
+        [0.1, 0.1, 0.366667, 0.433333],
+        [0.1, 0.1, 0.633333, 0.166667],
+        [0.1, 0.1, 0.7, 0.1],
+        [0.1, 0.366667, 0.1, 0.433333],
+        [0.1, 0.366667, 0.366667, 0.166667],
+        [0.1, 0.366667, 0.433333, 0.1],
+        [0.1, 0.633333, 0.1, 0.166667],
+        [0.1, 0.633333, 0.166667, 0.1],
+        [0.1, 0.7, 0.1, 0.1],
+        [0.366667, 0.1, 0.1, 0.433333],
+        [0.366667, 0.1, 0.366667, 0.166667],
+        [0.366667, 0.1, 0.433333, 0.1],
+        [0.366667, 0.366667, 0.1, 0.166667],
+        [0.366667, 0.366667, 0.166667, 0.1],
+        [0.366667, 0.433333, 0.1, 0.1],
+        [0.633333, 0.1, 0.1, 0.166667],
+        [0.633333, 0.1, 0.166667, 0.1],
+        [0.633333, 0.166667, 0.1, 0.1],
+        [0.7, 0.1, 0.1, 0.1],
+    ],
+    "10": [
+        [0.1, 0.1, 0.1, 0.7],
+        [0.1, 0.1, 0.5, 0.3],
+        [0.1, 0.1, 0.7, 0.1],
+        [0.1, 0.5, 0.1, 0.3],
+        [0.1, 0.5, 0.3, 0.1],
+        [0.1, 0.7, 0.1, 0.1],
+        [0.5, 0.1, 0.1, 0.3],
+        [0.5, 0.1, 0.3, 0.1],
+        [0.5, 0.3, 0.1, 0.1],
+        [0.7, 0.1, 0.1, 0.1],
+    ],
+}
 
 if __name__ == "__main__":
+
+    # Duplicate output to log file
+    Tee(f"{os.path.splitext(os.path.basename(__file__))[0]}.log")
 
     # SciPy breaks box constraints
     method_v1 = NAUTILUSv1(RiverPollution(), SciPyDE)
@@ -60,19 +95,19 @@ if __name__ == "__main__":
     ci = method_v1.current_iter
     if ci > 0:
         weights = prompt(
-            u"Weights (10 or 20): ", default=u"20", validator=tui.NumberValidator()
-        )
+            u"Weights (10 or 20): ",
+            default=u"20",
+            validator=tui.NumberValidator())
 
-        factory = IterationPointFactory(SciPyDE(AchievementProblem(RiverPollution())))
+        factory = IterationPointFactory(
+            SciPyDE(AchievementProblem(RiverPollution())))
         points = misc.new_points(factory, solution, WEIGHTS[weights])
 
         method_e = ENAUTILUS(PreGeneratedProblem(points=points), PointSearch)
         method_e.current_iter = ci
         method_e.zh_prev = solution
-        print(
-            "E-NAUTILUS\nselected iteration point: %s:"
-            % ",".join(map(str, method_e.zh_prev))
-        )
+        print("E-NAUTILUS\nselected iteration point: %s:" % ",".join(
+            map(str, method_e.zh_prev)))
 
     while method_e.current_iter > 0:
         if solution is None:

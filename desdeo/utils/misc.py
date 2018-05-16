@@ -5,27 +5,46 @@
 # Copyright (c) 2016  Vesa Ojalehto
 """
 """
+
+import datetime
+import logging
 import sys
 from typing import List
 
 from desdeo.preference.PreferenceInformation import DirectSpecification
 
 
-class Logger(object):
+class Tee(object):
+    """ Duplicate stdout to a logfile. Duplicates functionality of a tee command
 
-    def __init__(self, filename):
+    Note that Tee instance will replace stdout until it has been deleted.
+    """
+
+    def __init__(self, logfile, date_format="%Y-%m-%d %H:%M"):
         self.terminal = sys.stdout
+        sys.stdout = self
+        self.date_format = date_format
+        format = logging.Formatter(
+            "%(asctime)-12s %(levelname)-6s %(message)s", "%Y-%m-%d %H:%M:%S")
+
+        flog = logging.FileHandler(logfile)
+        flog.setFormatter(format)
+        self.log = open(logfile, "a")
 
     def write(self, message):
-        # self.terminal.write(message)
-        print(message)
-        # self.log.write(message)
+
+        self.terminal.write(message)
+        if len(message.strip()):
+            self.log.write(f"{datetime.datetime.now():%Y-%m-%d %H-%m:%S} {message}")
+        else:
+            self.log.write(f"{message}")
+
+    def __del__(self):
+        sys.stdout = self.terminal
+        self.file.close()
 
     def flush(self):
-        # this flush method is needed for python 3 compatibility.
-        # this handles the flush command by doing nothing.
-        # you might want to specify some extra behavior here.
-        pass
+        self.log.flush()
 
 
 def new_points(factory, solution, weights):
