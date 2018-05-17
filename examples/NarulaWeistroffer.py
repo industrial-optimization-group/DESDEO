@@ -75,10 +75,12 @@ class RiverPollution(PythonProblem):
             name="River pollution method",  # Optional
         )
         self.add_variables(
-            Variable([0.0, 1.0], starting_point=0.5, name="BOD City")  # Optional
+            Variable([0.0, 1.0], starting_point=0.5,
+                     name="BOD City")  # Optional
         )  # Optional
         self.add_variables(
-            Variable([0.0, 1.0], starting_point=0.5, name="BOD City")  # Optional
+            Variable([0.0, 1.0], starting_point=0.5,
+                     name="BOD City")  # Optional
         )  # Optional
 
     def evaluate(self, population):
@@ -91,20 +93,9 @@ class RiverPollution(PythonProblem):
 
             res.append(-1.0 * (4.07 + 2.27 * values[0]))
 
-            res.append(
-                -1.0
-                * (
-                    2.6
-                    + 0.03
-                    * values[0]
-                    + 0.02
-                    * values[1]
-                    + 0.01
-                    / (1.39 - x1_2)
-                    + 0.3
-                    / (1.39 - x1_2)
-                )
-            )
+            res.append(-1.0 *
+                       (2.6 + 0.03 * values[0] + 0.02 * values[1] + 0.01 /
+                        (1.39 - x1_2) + 0.3 / (1.39 - x1_2)))
 
             res.append(-1.0 * (8.21 - 0.71 / (1.09 - x0_2)))
 
@@ -115,44 +106,6 @@ class RiverPollution(PythonProblem):
         return objectives
 
 
-WEIGHTS = {
-    "20": [
-        [0.1, 0.1, 0.1, 0.7],
-        [0.1, 0.1, 0.366667, 0.433333],
-        [0.1, 0.1, 0.633333, 0.166667],
-        [0.1, 0.1, 0.7, 0.1],
-        [0.1, 0.366667, 0.1, 0.433333],
-        [0.1, 0.366667, 0.366667, 0.166667],
-        [0.1, 0.366667, 0.433333, 0.1],
-        [0.1, 0.633333, 0.1, 0.166667],
-        [0.1, 0.633333, 0.166667, 0.1],
-        [0.1, 0.7, 0.1, 0.1],
-        [0.366667, 0.1, 0.1, 0.433333],
-        [0.366667, 0.1, 0.366667, 0.166667],
-        [0.366667, 0.1, 0.433333, 0.1],
-        [0.366667, 0.366667, 0.1, 0.166667],
-        [0.366667, 0.366667, 0.166667, 0.1],
-        [0.366667, 0.433333, 0.1, 0.1],
-        [0.633333, 0.1, 0.1, 0.166667],
-        [0.633333, 0.1, 0.166667, 0.1],
-        [0.633333, 0.166667, 0.1, 0.1],
-        [0.7, 0.1, 0.1, 0.1],
-    ],
-    "10": [
-        [0.1, 0.1, 0.1, 0.7],
-        [0.1, 0.1, 0.5, 0.3],
-        [0.1, 0.1, 0.7, 0.1],
-        [0.1, 0.5, 0.1, 0.3],
-        [0.1, 0.5, 0.3, 0.1],
-        [0.1, 0.7, 0.1, 0.1],
-        [0.5, 0.1, 0.1, 0.3],
-        [0.5, 0.1, 0.3, 0.1],
-        [0.5, 0.3, 0.1, 0.1],
-        [0.7, 0.1, 0.1, 0.1],
-    ],
-}
-
-
 if __name__ == "__main__":
     # Solve River Pollution problem using NAUTILUS
     # Using tui
@@ -161,23 +114,19 @@ if __name__ == "__main__":
     NAUTILUS_solution = tui.iter_nautilus(natmeth)
     print("NAUTILUS solution")
     print(NAUTILUS_solution)
-   # Output:
-   # [-6.2927077117830965, -3.4038593790999485,
-   #   -7.401394350956817, 1.6201876469013787]
+    # Output:
+    # [-6.2927077117830965, -3.4038593790999485,
+    #   -7.401394350956817, 1.6201876469013787]
 
     # Continue solving  River Pollution problem
     # From NAUTILUS solution
 
-
     nimmeth = NIMBUS(RiverPollution(), SciPyDE)
     nimmeth.init_iteration()
     print("Solving with NIMBUS method")
-    class1 = NIMBUSClassification(nimmeth,
-                                  [(">=", -5.5),
-                                   (">=", -3.0),
-                                   ("<=", -6.5),
-                                   ("<=", -2.0)])
-    iter1 = nimmeth.next_iteration(preference = class1)
+    class1 = NIMBUSClassification(nimmeth, [(">=", -5.5), (">=", -3.0),
+                                            ("<=", -6.5), ("<=", -2.0)])
+    iter1 = nimmeth.next_iteration(preference=class1)
     print("NIMBUS solutions")
     print(iter1)
     # Output

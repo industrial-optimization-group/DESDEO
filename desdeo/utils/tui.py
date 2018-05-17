@@ -3,12 +3,26 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # Copyright (c) 2016  Vesa Ojalehto
+""" Text based user interafaces for using NIMBUS and NAUTILUS methods
+
+If console is not available, it is possible to iterate in non-interactively with predefined preference
+
+Exceptions
+------
+
+TUIError
+   TUI base error
+
+TUIConsoleError 
+  Console is used but not available
+
 """
-"""
+# TODO: Use given preferences as default values if HAS_TUI
+
 import sys
 
 import numpy as np
-
+from prompt_toolkit import prompt
 from prompt_toolkit.validation import ValidationError, Validator
 
 from desdeo.preference.PreferenceInformation import (
@@ -16,13 +30,23 @@ from desdeo.preference.PreferenceInformation import (
     PercentageSpecifictation,
     RelativeRanking,
 )
+
+from .exceptions import DESDEOException
+
 if sys.stdout.isatty():
-    from prompt_toolkit import prompt
-    tui = True
+    HAS_TUI = True
 else:
-    tui = False
+    HAS_TUI = False
 
 COMMANDS = ["c", "C", "q"]
+
+
+class TUIError(DESDEOException):
+    pass
+
+
+class TUIConsoleError(TUIError):
+    pass
 
 
 class IterValidator(Validator):
@@ -101,12 +125,12 @@ class NumberValidator(Validator):
 def select_iter(method, default=1, no_print=False):
     if not no_print:
         method.print_current_iteration()
-    if tui:
+    if HAS_TUI:
         text = prompt(
             u"Select iteration point Ns: ", validator=IterValidator(method))
     else:
         text = str(default)
-        # This is not a tui, so go to next
+        # We do not have console, so go to next
         if method.current_iter == 3:
             text = "c"
 
@@ -132,9 +156,25 @@ def ask_pref(method, prev_pref):
     method.print_current_iteration()
 
 
-def iter_nautilus(method):
+def iter_nautilus(method, preferences=None):
+    """ Iterate NAUTILUS method either interactively, or using given preferences if given
+
+    Paremters
+    ---------
+
+    method : instance of NAUTILUS subclass
+       Fully initialized NAUTILUS method instance
+
+    preferences 
+       Predefined preferences to be used, if given
+
+
+    """
     solution = None
-    if tui:
+    if preferences:
+        pref_sel = preferences[0]
+
+    elif HAS_TUI:
         print("Preference elicitation options:")
         print("\t1 - Percentages")
         print("\t2 - Relative ranks")
@@ -147,8 +187,9 @@ def iter_nautilus(method):
                 default=u"%s" % (1),
                 validator=NumberValidator([1, 3]),
             ))
+
     else:
-        pref_sel = 2
+        raise TUIConsoleError("Console is not available")
 
     PREFCLASSES = [
         PercentageSpecifictation, RelativeRanking, DirectSpecification
@@ -158,44 +199,38 @@ def iter_nautilus(method):
     print("Nadir: %s" % method.problem.nadir)
     print("Ideal: %s" % method.problem.ideal)
 
-    if tui:
+    if preferences:
+        method.current_iter = method.user_iters = len(preferences[1])
+    else:
         method.user_iters = method.current_iter = int(
             prompt(
                 u"Ni: ",
                 default=u"%s" % (method.current_iter),
                 validator=NumberValidator(),
             ))
-    else:
-        method.current_iter = method.user_iters = 4
+
     print("Ni:", method.user_iters)
     pref = preference_class(method, None)
     default = u",".join(map(str, pref.default_input()))
     pref = preference_class(method, pref.default_input())
 
-    MCDA_prefs = [
-        [2.0, 2.0, 1.0, 1.0],
-        [2.0, 2.0, 1.0, 1.0],
-        [2.0, 3.0, 1.0, 4.0],
-        [1.0, 1.0, 2.0, 2.0],
-    ]
     mi = 0
     while method.current_iter:
 
         method.print_current_iteration()
         default = u",".join(map(str, pref.pref_input))
 
-        if tui:
+        if preferences:
+            pref_input = ",".join(map(str, preferences[1][mi]))
+            # pref_input = default
+            # if method.current_iter == 5:
+            #    pref_input = "c"
+        else:
             pref_input = prompt(
                 u"Preferences: ",
                 default=default,
                 validator=VectorValidator(method, pref),
             )
-        else:
-            # This is not a tui, so go to next
-            pref_input = ",".join(map(str, MCDA_prefs[mi]))
-            # pref_input = default
-            # if method.current_iter == 5:
-            #    pref_input = "c"
         brk = False
         for c in COMMANDS:
             if c in pref_input:
@@ -212,7 +247,7 @@ def iter_nautilus(method):
 
 
 def iter_enautilus(method):
-    if tui:
+    if HAS_TUI:
         method.user_iters = method.current_iter = int(
             prompt(
                 u"Ni: ",
@@ -235,7 +270,7 @@ def iter_enautilus(method):
         pref = select_iter(method, 1)
         if pref in COMMANDS:
             break
-        if tui:
+        if HAS_TUI:
             method.Ns = int(
                 prompt(
                     u"Ns: ",

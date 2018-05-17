@@ -30,6 +30,7 @@ References
 
 """
 
+import argparse
 import os
 
 from prompt_toolkit import prompt
@@ -43,6 +44,8 @@ from desdeo.utils import misc, tui
 from desdeo.utils.misc import Tee
 from NarulaWeistroffer import RiverPollution
 
+#: Predefined weights for E-NAUTILUS
+# TODO: Give weights in an input file
 WEIGHTS = {
     "20": [
         [0.1, 0.1, 0.1, 0.7],
@@ -80,20 +83,31 @@ WEIGHTS = {
     ],
 }
 
-if __name__ == "__main__":
 
+def main(logfile=False):
+    """ Solve River Pollution problem with NAUTILUS V1 and E-NAUTILUS Methods
+    """
     # Duplicate output to log file
-    Tee(f"{os.path.splitext(os.path.basename(__file__))[0]}.log")
+    if logfile:
+        Tee(logfile)
 
     # SciPy breaks box constraints
-    method_v1 = NAUTILUSv1(RiverPollution(), SciPyDE)
-    nadir = method_v1.problem.nadir
-    ideal = method_v1.problem.ideal
+    nautilus_v1 = NAUTILUSv1(RiverPollution(), SciPyDE)
+    nadir = nautilus_v1.problem.nadir
+    ideal = nautilus_v1.problem.ideal
 
-    solution = tui.iter_nautilus(method_v1)
+    preferences = (2,
+                   [[10, 30, 10, 10],
+                    "c"]
+                   )
 
-    ci = method_v1.current_iter
-    if ci > 0:
+    solution = tui.iter_nautilus(nautilus_v1, preferences)
+
+    current_iter = nautilus_v1.current_iter
+
+    # TODO: Move to tui module
+
+    if current_iter > 0:
         weights = prompt(
             u"Weights (10 or 20): ",
             default=u"20",
@@ -104,7 +118,7 @@ if __name__ == "__main__":
         points = misc.new_points(factory, solution, WEIGHTS[weights])
 
         method_e = ENAUTILUS(PreGeneratedProblem(points=points), PointSearch)
-        method_e.current_iter = ci
+        method_e.current_iter = current_iter
         method_e.zh_prev = solution
         print("E-NAUTILUS\nselected iteration point: %s:" % ",".join(
             map(str, method_e.zh_prev)))
@@ -120,4 +134,18 @@ if __name__ == "__main__":
         tui.iter_enautilus(method_e)
         solution = method_e.zh_prev
     method_e.print_current_iteration()
-    a = prompt(u"Press ENTER to exit")
+    _ = prompt(u"Press ENTER to exit")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    logfile = f"{os.path.splitext(os.path.basename(__file__))[0]}.log"
+    parser.add_argument('--logfile', '-l',
+                        action='store',
+                        nargs='?',
+                        const=logfile,
+                        default=False,
+                        help=f"Store intarctions to {logfile} or user specified LOGFILE")
+
+    main(**(vars(parser.parse_args())))
