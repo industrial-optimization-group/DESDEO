@@ -15,33 +15,29 @@ from desdeo.preference.PreferenceInformation import DirectSpecification
 
 
 class Tee(object):
-    """ Duplicate stdout to a logfile. Duplicates functionality of a tee command
+    """ Appends  stdout to a logfile.
 
-    Note that Tee instance will replace stdout until it has been deleted.
+    Note that a Tee instance will replace stdout until it has been deleted.
     """
 
     def __init__(self, logfile, date_format="%Y-%m-%d %H:%M"):
         self.terminal = sys.stdout
         sys.stdout = self
         self.date_format = date_format
-        format = logging.Formatter(
-            "%(asctime)-12s %(levelname)-6s %(message)s", "%Y-%m-%d %H:%M:%S")
-
-        flog = logging.FileHandler(logfile)
-        flog.setFormatter(format)
         self.log = open(logfile, "a")
+        self.__buffer = ""
 
     def write(self, message):
 
         self.terminal.write(message)
-        if len(message.strip()):
-            self.log.write(f"{datetime.datetime.now():%Y-%m-%d %H-%m:%S} {message}")
-        else:
-            self.log.write(f"{message}")
+        self.__buffer += message
+        if "\n" in self.__buffer:
+            self.log.write(f"{datetime.datetime.now():{self.date_format}} {self.__buffer}")
+            self.__buffer = ""
 
     def __del__(self):
         sys.stdout = self.terminal
-        self.file.close()
+        self.log.close()
 
     def flush(self):
         self.log.flush()
