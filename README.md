@@ -11,6 +11,8 @@ experimenting with interactive multiobjective optimization.
 
 [Documentation is available.](https://desdeo.readthedocs.io/en/latest/)
 
+[Background and publications available on the University of Jyväskylä Research Group in Industrial Optimization web pages.](https://desdeo.it.jyu.fi)
+
 ## Introduction ##
 
 There exist many methods to solve [multiobjective optimization](https://en.wikipedia.org/wiki/Multi-objective_optimization) 
