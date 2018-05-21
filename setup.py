@@ -31,7 +31,7 @@ requirements = ["numpy", "prompt-toolkit", "scikit-learn", "scipy"]
 
 setup(
     name="desdeo",
-    url="desdeo.it.jyu.fi",
+    url="https://github.com/industrial-optimization-group/DESDEO",
     license="MPL 2.0",
     author="Vesa Ojalehto",
     author_email="vesa.ojalehto@gmail.com",
