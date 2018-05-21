@@ -11,8 +11,7 @@ if sys.argv[-1] == "publish":
 
 readme = open("README.md").read()
 doclink = """
-Documentation
--------------
+# Documentation #
 
 The full documentation is located at https://desdeo.readthedocs.io/en/latest/
 
@@ -37,6 +36,7 @@ setup(
     author_email="vesa.ojalehto@gmail.com",
     description="Open source library for for interactive multiobjective optimization",
     long_description=long_desc,
+    long_description_content_type="text/markdown",
     version="0.1.0",
     packages=find_packages(include=["desdeo"]),
     package_dir={"desdeo": "desdeo"},
