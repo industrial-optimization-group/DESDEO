@@ -206,7 +206,7 @@ class EpsilonConstraintProblem(OptimizationProblem):
         self.obj_bounds = obj_bounds
         self.objective = 100000
 
-        self._coeff=1
+        self._coeff = 1
 
     def _evaluate(self, objectives):
         objs = []
@@ -220,8 +220,9 @@ class EpsilonConstraintProblem(OptimizationProblem):
                     fi = oi
             objs.append(ind[fi])
             consts.append(const)
-        
-        return np.array(objs)*self._coeff, np.array(consts)
+
+        return np.array(objs) * self._coeff, np.array(consts)
+
 
 class MaxEpsilonConstraintProblem(EpsilonConstraintProblem):
     r"""

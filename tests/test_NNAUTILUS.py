@@ -20,7 +20,9 @@ def run(method, ref_point, steps=100, bounds=None):
 def test_running_NNAUTILUS():
     method = NNAUTILUS(
         PreGeneratedProblem(
-            filename=os.path.join(example_path, "AuxiliaryServices.csv")),
-        PointSearch)
+            filename=os.path.join(example_path, "AuxiliaryServices.csv")
+        ),
+        PointSearch,
+    )
     vals = run(method, [-43000, 2, -60], 6)
     assert len(vals) == 6

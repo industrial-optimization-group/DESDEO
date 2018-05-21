@@ -20,7 +20,7 @@ class BoundsFactory(ResultFactory):
     def __init__(self, optimization_method):
         self.optimization_method = optimization_method
 
-    def result(self, prev_point, upper = False):
+    def result(self, prev_point, upper=False):
         Phr = []
         for fi, fr in enumerate(prev_point):
             self.optimization_method.optimization_problem.obj_bounds = list(prev_point)

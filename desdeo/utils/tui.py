@@ -13,7 +13,7 @@ Exceptions
 TUIError
    TUI base error
 
-TUIConsoleError 
+TUIConsoleError
   Console is used but not available
 
 """
@@ -50,6 +50,7 @@ class TUIConsoleError(TUIError):
 
 
 class IterValidator(Validator):
+
     def __init__(self, method):
         super().__init__()
         self.range = map(str, range(1, len(method.zhs) + 1)) + ["q"]
@@ -58,11 +59,12 @@ class IterValidator(Validator):
         text = document.text
         if text not in self.range + COMMANDS:
             raise ValidationError(
-                message="Ns %s is not valid iteration point" % text,
-                cursor_position=0)
+                message="Ns %s is not valid iteration point" % text, cursor_position=0
+            )
 
 
 class VectorValidator(Validator):
+
     def __init__(self, method, preference=None):
         super().__init__()
         self.nfun = len(method.problem.nadir)
@@ -88,6 +90,7 @@ class VectorValidator(Validator):
 
 
 class NumberValidator(Validator):
+
     def __init__(self, ranges=None):
         super().__init__()
         if ranges:
@@ -106,8 +109,8 @@ class NumberValidator(Validator):
                     break
 
             raise ValidationError(
-                message="This input contains non-numeric characters",
-                cursor_position=i)
+                message="This input contains non-numeric characters", cursor_position=i
+            )
         v = int(text)
         if self.ranges[0] and v < self.ranges[0]:
             raise ValidationError(
@@ -126,8 +129,7 @@ def select_iter(method, default=1, no_print=False):
     if not no_print:
         method.print_current_iteration()
     if HAS_TUI:
-        text = prompt(
-            u"Select iteration point Ns: ", validator=IterValidator(method))
+        text = prompt(u"Select iteration point Ns: ", validator=IterValidator(method))
     else:
         text = str(default)
         # We do not have console, so go to next
@@ -165,7 +167,7 @@ def iter_nautilus(method, preferences=None):
     method : instance of NAUTILUS subclass
        Fully initialized NAUTILUS method instance
 
-    preferences 
+    preferences
        Predefined preferences to be used, if given
 
 
@@ -186,14 +188,13 @@ def iter_nautilus(method, preferences=None):
                 u"Reference elicitation ",
                 default=u"%s" % (1),
                 validator=NumberValidator([1, 3]),
-            ))
+            )
+        )
 
     else:
         raise TUIConsoleError("Console is not available")
 
-    PREFCLASSES = [
-        PercentageSpecifictation, RelativeRanking, DirectSpecification
-    ]
+    PREFCLASSES = [PercentageSpecifictation, RelativeRanking, DirectSpecification]
     preference_class = PREFCLASSES[pref_sel - 1]
 
     print("Nadir: %s" % method.problem.nadir)
@@ -207,7 +208,8 @@ def iter_nautilus(method, preferences=None):
                 u"Ni: ",
                 default=u"%s" % (method.current_iter),
                 validator=NumberValidator(),
-            ))
+            )
+        )
 
     print("Ni:", method.user_iters)
     pref = preference_class(method, None)
@@ -238,9 +240,9 @@ def iter_nautilus(method, preferences=None):
         if brk:
             solution = method.zh
             break
-        pref = preference_class(method,
-                                np.fromstring(
-                                    pref_input, dtype=np.float, sep=","))
+        pref = preference_class(
+            method, np.fromstring(pref_input, dtype=np.float, sep=",")
+        )
         solution, _ = method.next_iteration(pref)
         mi += 1
     return solution
@@ -253,9 +255,9 @@ def iter_enautilus(method):
                 u"Ni: ",
                 default=u"%i" % method.current_iter,
                 validator=NumberValidator(),
-            ))
-        method.Ns = int(
-            prompt(u"Ns: ", default=u"5", validator=NumberValidator()))
+            )
+        )
+        method.Ns = int(prompt(u"Ns: ", default=u"5", validator=NumberValidator()))
     else:
         method.user_iters = 5
         method.Ns = 5
@@ -273,9 +275,9 @@ def iter_enautilus(method):
         if HAS_TUI:
             method.Ns = int(
                 prompt(
-                    u"Ns: ",
-                    default=u"%s" % (method.Ns),
-                    validator=NumberValidator()))
+                    u"Ns: ", default=u"%s" % (method.Ns), validator=NumberValidator()
+                )
+            )
         else:
             pass
         points = method.next_iteration(pref)

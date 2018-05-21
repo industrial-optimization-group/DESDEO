@@ -12,6 +12,11 @@ Problems provided by  Narula and Weistroffer
 """
 import math
 
+from desdeo.method import NIMBUS, NAUTILUSv1
+from desdeo.optimization import SciPyDE
+from desdeo.preference import NIMBUSClassification
+from desdeo.utils import tui
+
 try:
     from desdeo.problem import PythonProblem, Variable
 except ImportError:
@@ -22,11 +27,6 @@ except ImportError:
     example_path = os.path.dirname(os.path.realpath(__file__))
     sys.path.append(os.path.join(example_path, ".."))
     from desdeo.problem import PythonProblem, Variable
-
-from desdeo.utils import tui
-from desdeo.method import NAUTILUSv1, NIMBUS
-from desdeo.preference import NIMBUSClassification
-from desdeo.optimization import SciPyDE
 
 
 class RiverPollution(PythonProblem):
@@ -75,12 +75,10 @@ class RiverPollution(PythonProblem):
             name="River pollution method",  # Optional
         )
         self.add_variables(
-            Variable([0.0, 1.0], starting_point=0.5,
-                     name="BOD City")  # Optional
+            Variable([0.0, 1.0], starting_point=0.5, name="BOD City")  # Optional
         )  # Optional
         self.add_variables(
-            Variable([0.0, 1.0], starting_point=0.5,
-                     name="BOD City")  # Optional
+            Variable([0.0, 1.0], starting_point=0.5, name="BOD City")  # Optional
         )  # Optional
 
     def evaluate(self, population):
@@ -93,9 +91,20 @@ class RiverPollution(PythonProblem):
 
             res.append(-1.0 * (4.07 + 2.27 * values[0]))
 
-            res.append(-1.0 *
-                       (2.6 + 0.03 * values[0] + 0.02 * values[1] + 0.01 /
-                        (1.39 - x1_2) + 0.3 / (1.39 - x1_2)))
+            res.append(
+                -1.0
+                * (
+                    2.6
+                    + 0.03
+                    * values[0]
+                    + 0.02
+                    * values[1]
+                    + 0.01
+                    / (1.39 - x1_2)
+                    + 0.3
+                    / (1.39 - x1_2)
+                )
+            )
 
             res.append(-1.0 * (8.21 - 0.71 / (1.09 - x0_2)))
 
@@ -124,8 +133,9 @@ if __name__ == "__main__":
     nimmeth = NIMBUS(RiverPollution(), SciPyDE)
     nimmeth.init_iteration()
     print("Solving with NIMBUS method")
-    class1 = NIMBUSClassification(nimmeth, [(">=", -5.5), (">=", -3.0),
-                                            ("<=", -6.5), ("<=", -2.0)])
+    class1 = NIMBUSClassification(
+        nimmeth, [(">=", -5.5), (">=", -3.0), ("<=", -6.5), ("<=", -2.0)]
+    )
     iter1 = nimmeth.next_iteration(preference=class1)
     print("NIMBUS solutions")
     print(iter1)

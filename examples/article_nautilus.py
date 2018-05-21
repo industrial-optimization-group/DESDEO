@@ -90,10 +90,7 @@ def main(logfile=False):
     nadir = nautilus_v1.problem.nadir
     ideal = nautilus_v1.problem.ideal
 
-    preferences = (2,
-                   [[10, 30, 10, 10],
-                    "c"]
-                   )
+    preferences = (2, [[10, 30, 10, 10], "c"])
 
     solution = tui.iter_nautilus(nautilus_v1, preferences)
 
@@ -103,19 +100,19 @@ def main(logfile=False):
 
     if current_iter > 0:
         weights = prompt(
-            u"Weights (10 or 20): ",
-            default=u"20",
-            validator=tui.NumberValidator())
+            u"Weights (10 or 20): ", default=u"20", validator=tui.NumberValidator()
+        )
 
-        factory = IterationPointFactory(
-            SciPyDE(AchievementProblem(RiverPollution())))
+        factory = IterationPointFactory(SciPyDE(AchievementProblem(RiverPollution())))
         points = misc.new_points(factory, solution, WEIGHTS[weights])
 
         method_e = ENAUTILUS(PreGeneratedProblem(points=points), PointSearch)
         method_e.current_iter = current_iter
         method_e.zh_prev = solution
-        print("E-NAUTILUS\nselected iteration point: %s:" % ",".join(
-            map(str, method_e.zh_prev)))
+        print(
+            "E-NAUTILUS\nselected iteration point: %s:"
+            % ",".join(map(str, method_e.zh_prev))
+        )
 
     while method_e.current_iter > 0:
         if solution is None:
@@ -128,18 +125,22 @@ def main(logfile=False):
         tui.iter_enautilus(method_e)
         solution = method_e.zh_prev
     method_e.print_current_iteration()
-    _ = prompt(u"Press ENTER to exit")
+    prompt(u"Press ENTER to exit")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     logfile = f"{os.path.splitext(os.path.basename(__file__))[0]}.log"
-    parser.add_argument('--logfile', '-l',
-                        action='store',
-                        nargs='?',
-                        const=logfile,
-                        default=False,
-                        help=f"Store intarctions to {logfile} or user specified LOGFILE")
+    parser.add_argument(
+        "--logfile",
+        "-l",
+        action="store",
+        nargs="?",
+        const=logfile,
+        default=False,
+        help=f"Store intarctions to {logfile} or user specified LOGFILE",
+    )
 
     main(**(vars(parser.parse_args())))

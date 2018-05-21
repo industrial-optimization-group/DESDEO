@@ -17,7 +17,7 @@ from desdeo.optimization.OptimizationMethod import OptimizationMethod
 from desdeo.optimization.OptimizationProblem import (
     AchievementProblem,
     EpsilonConstraintProblem,
-    MaxEpsilonConstraintProblem
+    MaxEpsilonConstraintProblem,
 )
 from desdeo.preference.PreferenceInformation import DirectSpecification
 from desdeo.utils import reachable_points
@@ -179,8 +179,7 @@ class ENAUTILUS(NAUTILUS):
             self.fh_lo_prev = self.fh_lo
 
             self.nsPoint_prev = list(self.NsPoints[self.zhs.index(self.zh_prev)])
-            
-            
+
         if len(points) <= self.Ns:
             print(
                 (

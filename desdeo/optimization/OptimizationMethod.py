@@ -173,9 +173,9 @@ class PointSearch(OptimizationMethod):
 
         if const is not None and len(const):
             # Using penalty for handling constraint violations
-            viol = np.sum(np.array(const).clip(0,None),axis=1)
+            viol = np.sum(np.array(const).clip(0, None), axis=1)
             a_obj += viol
-            
-        optarg=np.argmax if self._max else np.argmin
-        opt_i=optarg(a_obj)
+
+        optarg = np.argmax if self._max else np.argmin
+        opt_i = optarg(a_obj)
         return self.optimization_problem.problem.evaluate()[opt_i]

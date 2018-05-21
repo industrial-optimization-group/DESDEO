@@ -18,13 +18,14 @@ def run(method, preference):
 def test_point_search():
     method = NIMBUS(
         PreGeneratedProblem(
-            filename=os.path.join(example_path, "AuxiliaryServices.csv")),
-        PointSearch)
+            filename=os.path.join(example_path, "AuxiliaryServices.csv")
+        ),
+        PointSearch,
+    )
 
-    run1 = run(method,
-               NIMBUSClassification(method, [("<", None), 
-                                             (">=", 1),
-                                             ("<", None)]))
+    run1 = run(
+        method, NIMBUSClassification(method, [("<", None), (">=", 1), ("<", None)])
+    )
 
     assert run1[0][1] >= 1
     assert len(run1) == 2

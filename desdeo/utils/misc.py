@@ -7,7 +7,6 @@
 """
 
 import datetime
-import logging
 import sys
 from typing import List
 
@@ -32,7 +31,9 @@ class Tee(object):
         self.terminal.write(message)
         self.__buffer += message
         if "\n" in self.__buffer:
-            self.log.write(f"{datetime.datetime.now():{self.date_format}} {self.__buffer}")
+            self.log.write(
+                f"{datetime.datetime.now():{self.date_format}} {self.__buffer}"
+            )
             self.__buffer = ""
 
     def __del__(self):

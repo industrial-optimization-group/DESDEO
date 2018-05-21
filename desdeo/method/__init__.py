@@ -4,7 +4,7 @@
 
 # Copyright (c) 2016  Vesa Ojalehto
 
-__all__ = ["NAUTILUSv1", "ENAUTILUS", "NNAUTILUS"]
+__all__ = ["NAUTILUSv1", "ENAUTILUS", "NNAUTILUS", "NIMBUS"]
 
 from .NAUTILUS import ENAUTILUS
 from .NAUTILUS import NAUTILUSv1
