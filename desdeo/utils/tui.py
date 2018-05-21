@@ -180,8 +180,6 @@ def iter_nautilus(method, preferences=None):
         print("Preference elicitation options:")
         print("\t1 - Percentages")
         print("\t2 - Relative ranks")
-        # TODO Check what Direct actually means here
-        # print("\t3 - Direct")
 
         pref_sel = int(
             prompt(
@@ -194,6 +192,7 @@ def iter_nautilus(method, preferences=None):
     else:
         raise TUIConsoleError("Console is not available")
 
+    print("\t3 - Direct")
     PREFCLASSES = [PercentageSpecifictation, RelativeRanking, DirectSpecification]
     preference_class = PREFCLASSES[pref_sel - 1]
 

@@ -98,6 +98,9 @@ class DirectSpecification(Direction, ReferencePoint):
     def _weights(self):
         return np.array(self.pref_input)
 
+    def reference_point(self):
+        return self.weights()
+
 
 class NIMBUSClassification(ReferencePoint):
     """
