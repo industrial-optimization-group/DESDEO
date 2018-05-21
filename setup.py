@@ -14,7 +14,9 @@ doclink = """
 Documentation
 -------------
 
-The full documentation is located at http://desdeo.it.jyu.fi"""
+The full documentation is located at https://desdeo.readthedocs.io/en/latest/
+
+Information about the academic project, including publications is available at http://desdeo.it.jyu.fi"""
 
 history = open("HISTORY.md").read()
 
