@@ -39,7 +39,13 @@ if sys.stdin.isatty():
 else:
     HAS_INPUT = False
 
-COMMANDS = ["c", "C", "q"]
+if sys.stdout.isatty():
+    HAS_OUTPUT = True
+else:
+    HAS_OUTPUT = False
+
+
+COMMANDS = ["c", "C", "q", "s"]
 
 
 class TUIError(DESDEOException):
@@ -50,12 +56,26 @@ class TUIConsoleError(TUIError):
     pass
 
 
+def _check_cmd(text):
+    return set(COMMANDS).intersection(set(text))
+
+
+def ingore_cmd(fkt):
+
+    def wrap(*args):
+        if not _check_cmd(args[1].text):
+            return fkt(*args)
+
+    return wrap
+
+
 class IterValidator(Validator):
 
     def __init__(self, method):
         super().__init__()
         self.range = list(map(str, range(1, len(method.zhs) + 1))) + ["q"]
 
+    @ingore_cmd
     def validate(self, document):
         text = document.text
         if text not in self.range + COMMANDS:
@@ -72,12 +92,8 @@ class VectorValidator(Validator):
         self.preference = preference
         self.method = method
 
+    @ingore_cmd
     def validate(self, document):
-        for c in COMMANDS:
-            if c in document.text:
-                if c == "q":
-                    sys.exit("User exit")
-                return
         values = document.text.split(",")
         if len(values) != self.nfun:
             raise ValidationError(
@@ -99,6 +115,7 @@ class NumberValidator(Validator):
         else:
             self.ranges = [1, None]
 
+    @ingore_cmd
     def validate(self, document):
         text = document.text
         i = 0
@@ -142,6 +159,10 @@ def _prompt_wrapper(message, default=None, validator=None):
         print(message, ret)
         if validator:
             validator.validate(MockDocument(ret))
+    if "q" in ret:
+        if not HAS_OUTPUT:
+            print("User exit")
+        sys.exit("User exit")
     return ret
 
 
@@ -152,39 +173,28 @@ def select_iter(method, default=1, no_print=False):
     text = _prompt_wrapper(
         u"Select iteration point Ns: ", validator=IterValidator(method)
     )
-    if "q" in text:
-        sys.exit("User exit")
-    elif text in COMMANDS:
+    if text in COMMANDS:
         return text
     print("Selected iteration point: %s" % method.zhs[int(text) - 1])
     print("Reachable points: %s" % method.zh_reach[int(text) - 1])
     return method.zhs[int(text) - 1], method.zh_los[int(text) - 1]
 
 
-def ask_pref(method, prev_pref):
-    rank = _prompt_wrapper(
-        u"Ranking: ",
-        default=u",".join(map(str, prev_pref)),
-        validator=VectorValidator(method),
-    )
-    if rank == "e":
-        return rank
-    pref = RelativeRanking(map(float, rank.split(",")))
-    method.next_iteration(pref)
-    method.print_current_iteration()
+def init_nautilus(method):
+    """Initialize nautilus method
 
+    Parameters
+    ----------
 
-def iter_nautilus(method):
-    """ Iterate NAUTILUS method either interactively, or using given preferences if given
+    method
+        Interactive method used for the process
 
-    Paremters
-    ---------
+    Returns
+    -------
 
-    method : instance of NAUTILUS subclass
-       Fully initialized NAUTILUS method instance
-
+    PreferenceInformation subclass to be initialized
     """
-    solution = None
+
     print("Preference elicitation options:")
     print("\t1 - Percentages")
     print("\t2 - Relative ranks")
@@ -205,37 +215,56 @@ def iter_nautilus(method):
     print("Nadir: %s" % method.problem.nadir)
     print("Ideal: %s" % method.problem.ideal)
 
-    method.user_iters = method.current_iter = int(
+    if method.current_iter - method.user_iters:
+        finished_iter = method.user_iters - method.current_iter
+    else:
+        finished_iter = 0
+    new_iters = int(
         _prompt_wrapper(
             u"Ni: ", default=u"%s" % (method.current_iter), validator=NumberValidator()
         )
     )
+    method.current_iter = new_iters
+    method.user_iters = finished_iter + new_iters
 
-    pref = preference_class(method, None)
-    default = u",".join(map(str, pref.default_input()))
-    pref = preference_class(method, pref.default_input())
+    return preference_class
 
-    mi = 0
+
+def iter_nautilus(method):
+    """ Iterate NAUTILUS method either interactively, or using given preferences if given
+
+    Parameters
+    ----------
+
+    method : instance of NAUTILUS subclass
+       Fully initialized NAUTILUS method instance
+
+    """
+    solution = None
     while method.current_iter:
+        preference_class = init_nautilus(method)
+        pref = preference_class(method, None)
+        default = ",".join(map(str, pref.default_input()))
+        while method.current_iter:
+            method.print_current_iteration()
 
-        method.print_current_iteration()
-        default = u",".join(map(str, pref.pref_input))
+            pref_input = _prompt_wrapper(
+                u"Preferences: ",
+                default=default,
+                validator=VectorValidator(method, pref),
+            )
 
-        pref_input = _prompt_wrapper(
-            u"Preferences: ", default=default, validator=VectorValidator(method, pref)
-        )
-        brk = False
-        for c in COMMANDS:
-            if c in pref_input:
-                brk = True
-        if brk:
-            solution = method.zh
+            cmd = _check_cmd(pref_input)
+            if cmd:
+                solution = method.zh
+                break
+            pref = preference_class(
+                method, np.fromstring(pref_input, dtype=np.float, sep=",")
+            )
+            default = ",".join(map(str, pref.pref_input))
+            solution, _ = method.next_iteration(pref)
+        if list(cmd)[0] == "c":
             break
-        pref = preference_class(
-            method, np.fromstring(pref_input, dtype=np.float, sep=",")
-        )
-        solution, _ = method.next_iteration(pref)
-        mi += 1
     return solution
 
 
