@@ -13,6 +13,14 @@ fishery and a city are polluting water. For more information see
 :class:`NarulaWeistroffer.RiverPollution`
 
 
+Usage
+-----
+
+Instead of providing the preferences interactively, they can
+be piped to the script. For example
+
+python article_nautilus.py < preferences.txt
+
 References
 ----------
 
@@ -23,11 +31,9 @@ References
     Man and Cybernetics, IEEE Transactions on, 1989 , 19 , 883-887.
 
 """
-
+# TODO: Add tui docstrings here (must be first written)
 import argparse
 import os
-
-from prompt_toolkit import prompt
 
 from desdeo.core.ResultFactory import IterationPointFactory
 from desdeo.method.NAUTILUS import ENAUTILUS, NAUTILUSv1
@@ -36,6 +42,7 @@ from desdeo.optimization.OptimizationProblem import AchievementProblem
 from desdeo.problem.Problem import PreGeneratedProblem
 from desdeo.utils import misc, tui
 from desdeo.utils.misc import Tee
+from desdeo.utils.tui import _prompt_wrapper
 from NarulaWeistroffer import RiverPollution
 
 #: Predefined weights for E-NAUTILUS
@@ -90,17 +97,15 @@ def main(logfile=False):
     nadir = nautilus_v1.problem.nadir
     ideal = nautilus_v1.problem.ideal
 
-    preferences = (2, [[10, 30, 10, 10], "c"])
-
-    solution = tui.iter_nautilus(nautilus_v1, preferences)
+    solution = tui.iter_nautilus(nautilus_v1)
 
     current_iter = nautilus_v1.current_iter
 
     # TODO: Move to tui module
-
+    method_e = None
     if current_iter > 0:
-        weights = prompt(
-            u"Weights (10 or 20): ", default=u"20", validator=tui.NumberValidator()
+        weights = _prompt_wrapper(
+            "Weights (10 or 20): ", default="20", validator=tui.NumberValidator()
         )
 
         factory = IterationPointFactory(SciPyDE(AchievementProblem(RiverPollution())))
@@ -114,7 +119,7 @@ def main(logfile=False):
             % ",".join(map(str, method_e.zh_prev))
         )
 
-    while method_e.current_iter > 0:
+    while method_e and method_e.current_iter > 0:
         if solution is None:
             solution = method_e.problem.nadir
             # Generate new points
@@ -124,8 +129,10 @@ def main(logfile=False):
         method_e.problem.ideal = ideal
         tui.iter_enautilus(method_e)
         solution = method_e.zh_prev
-    method_e.print_current_iteration()
-    prompt(u"Press ENTER to exit")
+    if method_e:
+        method_e.print_current_iteration()
+    if tui.HAS_INPUT:
+        input("Press ENTER to exit")
 
 
 if __name__ == "__main__":
@@ -142,5 +149,4 @@ if __name__ == "__main__":
         default=False,
         help=f"Store intarctions to {logfile} or user specified LOGFILE",
     )
-
     main(**(vars(parser.parse_args())))

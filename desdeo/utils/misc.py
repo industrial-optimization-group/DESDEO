@@ -3,7 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # Copyright (c) 2016  Vesa Ojalehto
-"""
+"""Miscellaneous utilities
 """
 
 import datetime
@@ -45,8 +45,28 @@ class Tee(object):
 
 
 def new_points(factory, solution, weights):
+    """Generate approximate set of points
+
+    Generate set of Pareto optimal solutions projecting from the Pareto optimal solution
+    using weights to determine the direction.
+
+
+    Parameters
+    ----------
+
+    factory:
+        IterationPointFactory with suitable optimization problem
+
+    solution:
+        Current solution from which new solutions are projected
+
+    weights:
+        Direction of the projection
+    """
     points = []
-    for pref in map(lambda w: DirectSpecification(factory.problem, w), weights):
+    for pref in map(
+        lambda w: DirectSpecification(factory.optimization_method, w), weights
+    ):
         points.append(factory.result(pref, solution))
     return points
 

@@ -5,10 +5,11 @@
 # Copyright (c) 2016  Vesa Ojalehto
 """ Text based user interafaces for using NIMBUS and NAUTILUS methods
 
-If console is not available, it is possible to iterate in non-interactively with predefined preference
+If console is not available, it is possible to iterate non-interactively
+by piping preferences from a file
 
 Exceptions
-------
+----------
 
 TUIError
    TUI base error
@@ -17,7 +18,6 @@ TUIConsoleError
   Console is used but not available
 
 """
-# TODO: Use given preferences as default values if HAS_TUI
 
 import sys
 
@@ -33,10 +33,11 @@ from desdeo.preference.PreferenceInformation import (
 
 from .exceptions import DESDEOException
 
-if sys.stdout.isatty():
-    HAS_TUI = True
+# check if we are piping to stdin
+if sys.stdin.isatty():
+    HAS_INPUT = True
 else:
-    HAS_TUI = False
+    HAS_INPUT = False
 
 COMMANDS = ["c", "C", "q"]
 
@@ -53,7 +54,7 @@ class IterValidator(Validator):
 
     def __init__(self, method):
         super().__init__()
-        self.range = map(str, range(1, len(method.zhs) + 1)) + ["q"]
+        self.range = list(map(str, range(1, len(method.zhs) + 1))) + ["q"]
 
     def validate(self, document):
         text = document.text
@@ -125,17 +126,32 @@ class NumberValidator(Validator):
             )
 
 
+def _prompt_wrapper(message, default=None, validator=None):
+    """ Handle references piped from file
+    """
+
+    class MockDocument:
+
+        def __init__(self, text):
+            self.text = text
+
+    if HAS_INPUT:
+        ret = prompt(message, default=default, validator=validator)
+    else:
+        ret = sys.stdin.readline().strip()
+        print(message, ret)
+        if validator:
+            validator.validate(MockDocument(ret))
+    return ret
+
+
 def select_iter(method, default=1, no_print=False):
     if not no_print:
         method.print_current_iteration()
-    if HAS_TUI:
-        text = prompt(u"Select iteration point Ns: ", validator=IterValidator(method))
-    else:
-        text = str(default)
-        # We do not have console, so go to next
-        if method.current_iter == 3:
-            text = "c"
 
+    text = _prompt_wrapper(
+        u"Select iteration point Ns: ", validator=IterValidator(method)
+    )
     if "q" in text:
         sys.exit("User exit")
     elif text in COMMANDS:
@@ -146,7 +162,7 @@ def select_iter(method, default=1, no_print=False):
 
 
 def ask_pref(method, prev_pref):
-    rank = prompt(
+    rank = _prompt_wrapper(
         u"Ranking: ",
         default=u",".join(map(str, prev_pref)),
         validator=VectorValidator(method),
@@ -158,7 +174,7 @@ def ask_pref(method, prev_pref):
     method.print_current_iteration()
 
 
-def iter_nautilus(method, preferences=None):
+def iter_nautilus(method):
     """ Iterate NAUTILUS method either interactively, or using given preferences if given
 
     Paremters
@@ -167,50 +183,34 @@ def iter_nautilus(method, preferences=None):
     method : instance of NAUTILUS subclass
        Fully initialized NAUTILUS method instance
 
-    preferences
-       Predefined preferences to be used, if given
-
-
     """
     solution = None
-    if preferences:
-        pref_sel = preferences[0]
-
-    elif HAS_TUI:
-        print("Preference elicitation options:")
-        print("\t1 - Percentages")
-        print("\t2 - Relative ranks")
-
-        pref_sel = int(
-            prompt(
-                u"Reference elicitation ",
-                default=u"%s" % (1),
-                validator=NumberValidator([1, 3]),
-            )
-        )
-
-    else:
-        raise TUIConsoleError("Console is not available")
-
+    print("Preference elicitation options:")
+    print("\t1 - Percentages")
+    print("\t2 - Relative ranks")
     print("\t3 - Direct")
+
     PREFCLASSES = [PercentageSpecifictation, RelativeRanking, DirectSpecification]
+
+    pref_sel = int(
+        _prompt_wrapper(
+            "Reference elicitation ",
+            default=u"%s" % (1),
+            validator=NumberValidator([1, 3]),
+        )
+    )
+
     preference_class = PREFCLASSES[pref_sel - 1]
 
     print("Nadir: %s" % method.problem.nadir)
     print("Ideal: %s" % method.problem.ideal)
 
-    if preferences:
-        method.current_iter = method.user_iters = len(preferences[1])
-    else:
-        method.user_iters = method.current_iter = int(
-            prompt(
-                u"Ni: ",
-                default=u"%s" % (method.current_iter),
-                validator=NumberValidator(),
-            )
+    method.user_iters = method.current_iter = int(
+        _prompt_wrapper(
+            u"Ni: ", default=u"%s" % (method.current_iter), validator=NumberValidator()
         )
+    )
 
-    print("Ni:", method.user_iters)
     pref = preference_class(method, None)
     default = u",".join(map(str, pref.default_input()))
     pref = preference_class(method, pref.default_input())
@@ -221,17 +221,9 @@ def iter_nautilus(method, preferences=None):
         method.print_current_iteration()
         default = u",".join(map(str, pref.pref_input))
 
-        if preferences:
-            pref_input = ",".join(map(str, preferences[1][mi]))
-            # pref_input = default
-            # if method.current_iter == 5:
-            #    pref_input = "c"
-        else:
-            pref_input = prompt(
-                u"Preferences: ",
-                default=default,
-                validator=VectorValidator(method, pref),
-            )
+        pref_input = _prompt_wrapper(
+            u"Preferences: ", default=default, validator=VectorValidator(method, pref)
+        )
         brk = False
         for c in COMMANDS:
             if c in pref_input:
@@ -248,18 +240,12 @@ def iter_nautilus(method, preferences=None):
 
 
 def iter_enautilus(method):
-    if HAS_TUI:
-        method.user_iters = method.current_iter = int(
-            prompt(
-                u"Ni: ",
-                default=u"%i" % method.current_iter,
-                validator=NumberValidator(),
-            )
+    method.user_iters = method.current_iter = int(
+        _prompt_wrapper(
+            u"Ni: ", default=u"%i" % method.current_iter, validator=NumberValidator()
         )
-        method.Ns = int(prompt(u"Ns: ", default=u"5", validator=NumberValidator()))
-    else:
-        method.user_iters = 5
-        method.Ns = 5
+    )
+    method.Ns = int(_prompt_wrapper(u"Ns: ", default=u"5", validator=NumberValidator()))
     print("Nadir: %s" % method.problem.nadir)
     print("Ideal: %s" % method.problem.ideal)
 
@@ -267,18 +253,15 @@ def iter_enautilus(method):
     points = None
 
     while method.current_iter:
-        # method.print_current_iteration()
+        method.print_current_iteration()
         pref = select_iter(method, 1)
         if pref in COMMANDS:
             break
-        if HAS_TUI:
-            method.Ns = int(
-                prompt(
-                    u"Ns: ", default=u"%s" % (method.Ns), validator=NumberValidator()
-                )
+        method.Ns = int(
+            _prompt_wrapper(
+                u"Ns: ", default=u"%s" % (method.Ns), validator=NumberValidator()
             )
-        else:
-            pass
+        )
         points = method.next_iteration(pref)
 
     if not method.current_iter:
