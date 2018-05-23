@@ -20,7 +20,7 @@ from desdeo.optimization.OptimizationProblem import (
     MaxEpsilonConstraintProblem,
 )
 from desdeo.preference.PreferenceInformation import DirectSpecification
-from desdeo.utils import reachable_points
+from desdeo.utils import misc, reachable_points
 from desdeo.utils.warnings import UnexpectedCondition
 
 from .base import InteractiveMethod
@@ -78,11 +78,8 @@ class NAUTILUS(InteractiveMethod):
 
     def _next_zh(self, term1, term2):
         res = list(
-            (self.current_iter - 1)
-            * np.array(term1)
-            / self.current_iter
-            + np.array(term2)
-            / self.current_iter
+            (self.current_iter - 1) * np.array(term1) / self.current_iter
+            + np.array(term2) / self.current_iter
         )
         logging.debug("Update zh")
         logging.debug("First term:  %s", term1)
@@ -160,17 +157,65 @@ class ENAUTILUS(NAUTILUS):
     def select_point(self, point):
         pass
 
-    def next_iteration(self, preference=None):
-        """
-        Return next iteration bounds
-        """
+    def next_iteration__(self, preference=None, weights=None):
+        self.zh_prev = list(preference[0])
+        if preference[1] is not None:
+            self.fh_lo = list(preference[1])
+        else:
+            self.fh_lo = self.problem.ideal[:]
 
-        points = np.array(self.problem.points)
+        self._update_zh(self.zh, self.fh)
+
+        # TODO Create weights if not given, e.g., using
+        # Steuer RE, Choo EU. An interactive weighted Tchebycheff procedure for
+        # multiple objective programming.
+        # Mathematical programming. 1983; 26(3):326-44.
+        assert weights
+        points = misc.new_points(self.fh_factory, self.zh, weights)
+
+        if len(points) <= self.Ns:
+            print(
+                (
+                    "Only %s points can be reached from selected iteration point"
+                    % len(points)
+                )
+            )
+            self.NsPoints = points
+
+        self.fh_lo = list(self.lower_bounds_factory.result(self.zh))
+        self.fh_up = list(self.upper_bounds_factory.result(self.zh))
+
+        logging.debug(f"Updated upper boundary: {self.fh_up}")
+        logging.debug(f"Uppadet lower boundary: {self.fh_lo}")
+
+        if not np.all(np.array(self.fh_up) > np.array(self.fh_lo)):
+            warn(self.NegativeIntervalWarning())
+
+        assert utils.isin(self.fh_up, self.problem.points)
+        assert utils.isin(self.fh_lo, self.problem.points)
+
+        dist = self.distance(self.zh, self.fh)
+
+        # Reachable points
+        self.update_points()
+
+        lP = len(self.problem.points)
+        self.current_iter -= 1
+
+        return dist, self.fh, self.zh, self.fh_lo, self.fh_up, lP
+
+    def next_iteration(self, preference=None, weights=None):
+        # TODO Create weights if not given, e.g., using
+        # Steuer RE, Choo EU. An interactive weighted Tchebycheff procedure for
+        # multiple objective programming.
+        # Mathematical programming. 1983; 26(3):326-44.
+        assert weights
+
+        points = misc.new_points(self.fh_factory, self.zh, weights)
+
         # Reduce point set if starting from DM specified sol
         if preference is not None:
-            self.problem.points = points = reachable_points(
-                self.problem.points, preference[1], preference[0]
-            )
+            points = reachable_points(points, preference[1], preference[0])
             self.zh_prev = list(preference[0])
             if preference[1] is not None:
                 self.fh_lo = list(preference[1])
@@ -187,7 +232,7 @@ class ENAUTILUS(NAUTILUS):
                     % len(points)
                 )
             )
-            self.NsPoints = self.problem.points
+            self.NsPoints = points
         else:
             # k-mean cluster Ns solutions
             k_means = KMeans(n_clusters=self.Ns)
@@ -195,7 +240,7 @@ class ENAUTILUS(NAUTILUS):
 
             closest, _ = pairwise_distances_argmin_min(k_means.cluster_centers_, points)
 
-            self.NsPoints = list(map(list, points[closest]))
+            self.NsPoints = list(map(list, np.array(points)[closest.tolist()]))
         for p in self.NsPoints:
             logging.debug(p)
 
@@ -206,9 +251,7 @@ class ENAUTILUS(NAUTILUS):
             self.zh_los.append(self.fh_lo)
 
             self.zh_reach.append(
-                len(
-                    reachable_points(self.problem.points, self.zh_los[-1], self.zhs[-1])
-                )
+                len(reachable_points(self.NsPoints, self.zh_los[-1], self.zhs[-1]))
             )
 
         self.current_iter -= 1

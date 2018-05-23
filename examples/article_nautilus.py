@@ -3,6 +3,21 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # Copyright (c) 2018  Vesa Ojalehto
+import argparse
+import os
+
+from prompt_toolkit.validation import ValidationError, Validator
+
+from desdeo.core.ResultFactory import IterationPointFactory
+from desdeo.method.NAUTILUS import ENAUTILUS, NAUTILUSv1
+from desdeo.optimization.OptimizationMethod import PointSearch, SciPyDE
+from desdeo.optimization.OptimizationProblem import AchievementProblem
+from desdeo.problem.Problem import PreGeneratedProblem
+from desdeo.utils import misc, tui
+from desdeo.utils.misc import Tee
+from desdeo.utils.tui import _prompt_wrapper
+from NarulaWeistroffer import RiverPollution
+
 """
 Script to generate results in [1]
 
@@ -32,18 +47,7 @@ References
 
 """
 # TODO: Add tui docstrings here (must be first written)
-import argparse
-import os
 
-from desdeo.core.ResultFactory import IterationPointFactory
-from desdeo.method.NAUTILUS import ENAUTILUS, NAUTILUSv1
-from desdeo.optimization.OptimizationMethod import PointSearch, SciPyDE
-from desdeo.optimization.OptimizationProblem import AchievementProblem
-from desdeo.problem.Problem import PreGeneratedProblem
-from desdeo.utils import misc, tui
-from desdeo.utils.misc import Tee
-from desdeo.utils.tui import _prompt_wrapper
-from NarulaWeistroffer import RiverPollution
 
 #: Predefined weights for E-NAUTILUS
 # TODO: Give weights in an input file
@@ -89,6 +93,16 @@ def main(logfile=False):
     """ Solve River Pollution problem with NAUTILUS V1 and E-NAUTILUS Methods
     """
     # Duplicate output to log file
+
+    class NAUTILUSOptionValidator(Validator):
+
+        def validate(self, document):
+            if document.text not in "ao":
+                raise ValidationError(
+                    message="Please select a for apriori or o for optimization option",
+                    cursor_position=0,
+                )
+
     if logfile:
         Tee(logfile)
 
@@ -104,33 +118,49 @@ def main(logfile=False):
     # TODO: Move to tui module
     method_e = None
     if current_iter > 0:
-        weights = _prompt_wrapper(
+        option = _prompt_wrapper(
+            "select a for apriori or o for optimization option: ",
+            default="o",
+            validator=NAUTILUSOptionValidator(),
+        )
+        wi = _prompt_wrapper(
             "Weights (10 or 20): ", default="20", validator=tui.NumberValidator()
         )
+        weights = WEIGHTS[wi]
+        if option.lower() == "a":
+            factory = IterationPointFactory(
+                SciPyDE(AchievementProblem(RiverPollution()))
+            )
+            points = misc.new_points(factory, solution, weights)
 
-        factory = IterationPointFactory(SciPyDE(AchievementProblem(RiverPollution())))
-        points = misc.new_points(factory, solution, WEIGHTS[weights])
+            method_e = ENAUTILUS(PreGeneratedProblem(points=points), PointSearch)
+            method_e.current_iter = current_iter
+            method_e.zh_prev = solution
 
-        method_e = ENAUTILUS(PreGeneratedProblem(points=points), PointSearch)
-        method_e.current_iter = current_iter
-        method_e.zh_prev = solution
+        else:
+            method_e = ENAUTILUS(RiverPollution(), SciPyDE)
+
         print(
             "E-NAUTILUS\nselected iteration point: %s:"
             % ",".join(map(str, method_e.zh_prev))
         )
 
-    while method_e and method_e.current_iter > 0:
-        if solution is None:
-            solution = method_e.problem.nadir
-            # Generate new points
-        # print solution
+        method_e.current_iter = current_iter
+        method_e.zh_prev = solution
 
-        method_e.problem.nadir = nadir
-        method_e.problem.ideal = ideal
-        tui.iter_enautilus(method_e)
-        solution = method_e.zh_prev
-    if method_e:
-        method_e.print_current_iteration()
+        while method_e and method_e.current_iter > 0:
+            if solution is None:
+                solution = method_e.problem.nadir
+                # Generate new points
+            # print solution
+
+            method_e.problem.nadir = nadir
+            method_e.problem.ideal = ideal
+            tui.iter_enautilus(method_e, weights)
+            solution = method_e.zh_prev
+
+            method_e.print_current_iteration()
+
     if tui.HAS_INPUT:
         input("Press ENTER to exit")
 

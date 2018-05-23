@@ -268,7 +268,7 @@ def iter_nautilus(method):
     return solution
 
 
-def iter_enautilus(method):
+def iter_enautilus(method, weights):
     method.user_iters = method.current_iter = int(
         _prompt_wrapper(
             u"Ni: ", default=u"%i" % method.current_iter, validator=NumberValidator()
@@ -278,7 +278,7 @@ def iter_enautilus(method):
     print("Nadir: %s" % method.problem.nadir)
     print("Ideal: %s" % method.problem.ideal)
 
-    method.next_iteration()
+    method.next_iteration(weights=weights)
     points = None
 
     while method.current_iter:
@@ -291,7 +291,7 @@ def iter_enautilus(method):
                 u"Ns: ", default=u"%s" % (method.Ns), validator=NumberValidator()
             )
         )
-        points = method.next_iteration(pref)
+        points = method.next_iteration(pref, weights=weights)
 
     if not method.current_iter:
         method.zh_prev = select_iter(method, 1)[0]
