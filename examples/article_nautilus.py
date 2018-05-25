@@ -104,61 +104,66 @@ def main(logfile=False):
 
     if logfile:
         Tee(logfile)
+    current_iter = 1
+    while current_iter:
+        # SciPy breaks box constraints
+        nautilus_v1 = NAUTILUSv1(RiverPollution(), SciPyDE)
+        nadir = nautilus_v1.problem.nadir
+        ideal = nautilus_v1.problem.ideal
 
-    # SciPy breaks box constraints
-    nautilus_v1 = NAUTILUSv1(RiverPollution(), SciPyDE)
-    nadir = nautilus_v1.problem.nadir
-    ideal = nautilus_v1.problem.ideal
+        solution = tui.iter_nautilus(nautilus_v1)
 
-    solution = tui.iter_nautilus(nautilus_v1)
+        current_iter = nautilus_v1.current_iter
 
-    current_iter = nautilus_v1.current_iter
-
-    # TODO: Move to tui module
-    method_e = None
-    if current_iter > 0:
-        option = _prompt_wrapper(
-            "select a for apriori or o for optimization option: ",
-            default="o",
-            validator=NAUTILUSOptionValidator(),
-        )
-        wi = _prompt_wrapper(
-            "Weights (10 or 20): ", default="20", validator=tui.NumberValidator()
-        )
-        weights = WEIGHTS[wi]
-        if option.lower() == "a":
-            factory = IterationPointFactory(
-                SciPyDE(AchievementProblem(RiverPollution()))
+        # TODO: Move to tui module
+        method_e = None
+        if current_iter > 0:
+            option = _prompt_wrapper(
+                "select a for apriori or o for optimization option: ",
+                default="o",
+                validator=NAUTILUSOptionValidator(),
             )
-            points = misc.new_points(factory, solution, weights)
+            wi = _prompt_wrapper(
+                "Weights (10 or 20): ", default="20", validator=tui.NumberValidator()
+            )
+            weights = WEIGHTS[wi]
+            if option.lower() == "a":
+                factory = IterationPointFactory(
+                    SciPyDE(AchievementProblem(RiverPollution()))
+                )
+                points = misc.new_points(factory, solution, weights)
 
-            method_e = ENAUTILUS(PreGeneratedProblem(points=points), PointSearch)
-            method_e.zh_prev = solution
+                method_e = ENAUTILUS(PreGeneratedProblem(points=points), PointSearch)
+                method_e.zh_prev = solution
 
-        else:
-            method_e = ENAUTILUS(RiverPollution(), SciPyDE)
+            else:
+                method_e = ENAUTILUS(RiverPollution(), SciPyDE)
 
-        # method_e.zh = solution
-        method_e.current_iter = nautilus_v1.current_iter
-        method_e.user_iters = nautilus_v1.user_iters
+            # method_e.zh = solution
+            method_e.current_iter = nautilus_v1.current_iter
+            method_e.user_iters = nautilus_v1.user_iters
 
-        print(
-            "E-NAUTILUS\nselected iteration point: %s:" % ",".join(map(str, solution))
-        )
-
-        while method_e and method_e.current_iter > 0:
-            if solution is None:
-                solution = method_e.problem.nadir
-
-            method_e.problem.nadir = nadir
-            method_e.problem.ideal = ideal
-            tui.iter_enautilus(
-                method_e,
-                weights,
-                initial_iterpoint=solution,
-                initial_bound=method_e.fh_lo,
+            print(
+                "E-NAUTILUS\nselected iteration point: %s:"
+                % ",".join(map(str, solution))
             )
 
+            while method_e and method_e.current_iter > 0:
+                if solution is None:
+                    solution = method_e.problem.nadir
+
+                method_e.problem.nadir = nadir
+                method_e.problem.ideal = ideal
+                cmd = tui.iter_enautilus(
+                    method_e,
+                    weights,
+                    initial_iterpoint=solution,
+                    initial_bound=method_e.fh_lo,
+                )
+                if cmd:
+                    print(method_e.current_iter)
+                    current_iter = method_e.current_iter
+                    break
     if tui.HAS_INPUT:
         input("Press ENTER to exit")
 

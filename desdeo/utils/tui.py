@@ -171,8 +171,10 @@ def select_iter(method, default=1, no_print=False):
         method.print_current_iteration()
 
     text = _prompt_wrapper(
-        u"Select iteration point Ns: ", validator=IterValidator(method)
+        "Select iteration point Ns: "  # , validator=IterValidator(method)
     )
+    # text = prompt("Select iteration point Ns: ")
+    print(text)
     if text in COMMANDS:
         return text
     print("Selected iteration point: %s" % method.zhs[int(text) - 1])
@@ -276,27 +278,35 @@ def iter_enautilus(method, weights, initial_iterpoint=None, initial_bound=None):
             u"Ni: ", default=u"%i" % method.current_iter, validator=NumberValidator()
         )
     )
-    method.Ns = int(_prompt_wrapper(u"Ns: ", default=u"5", validator=NumberValidator()))
+    # ), validator=NumberValidator()))
+    txt = _prompt_wrapper(u"Ns: ", default=u"5")
+    if txt in COMMANDS:
+        return txt
+    method.Ns = int(txt)
     print("Nadir: %s" % method.problem.nadir)
     print("Ideal: %s" % method.problem.ideal)
 
     method.next_iteration(
         preference=(initial_iterpoint, initial_bound), weights=weights
     )
-    points = None
+    # points = None
 
     while method.current_iter:
         pref = select_iter(method, 1)
         if pref in COMMANDS:
-            break
-        method.Ns = int(
-            _prompt_wrapper(
-                u"Ns: ", default=u"%s" % (method.Ns), validator=NumberValidator()
-            )
+            return pref
+
+        text = _prompt_wrapper(
+            u"Ns: ", default=u"%s" % (method.Ns), validator=NumberValidator()
         )
-        points = method.next_iteration(pref, weights=weights)
+
+        if text in COMMANDS:
+            return text
+
+        method.Ns = int(txt)
+        # points = method.next_iteration(pref, weights=weights)
 
     if not method.current_iter:
         method.zh_prev = select_iter(method, 1)[0]
         method.current_iter -= 1
-    return points
+    return None
