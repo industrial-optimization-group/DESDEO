@@ -176,7 +176,9 @@ def select_iter(method, default=1, no_print=False):
     if text in COMMANDS:
         return text
     print("Selected iteration point: %s" % method.zhs[int(text) - 1])
-    print("Reachable points: %s" % method.zh_reach[int(text) - 1])
+    # This is available only for problems wiht pregenerated solutions
+    if method.zh_reach:
+        print("Reachable points: %s" % method.zh_reach[int(text) - 1])
     return method.zhs[int(text) - 1], method.zh_los[int(text) - 1]
 
 
