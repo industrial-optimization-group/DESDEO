@@ -209,14 +209,13 @@ class ENAUTILUS(NAUTILUS):
             self.fh_lo = list(self.lower_bounds_factory.result(self.zh_prev))
             self.zh_los.append(self.fh_lo)
 
-        if not self.problem.points:
-            self.zh_reach = None
-        else:
-            self.current_iter -= 1
-            self.zh_reach.append(
-                len(reachable_points(self.NsPoints, self.zh_los[-1], self.zhs[-1]))
-            )
-
+            if not self.problem.points:
+                self.zh_reach = None
+            else:
+                self.zh_reach.append(
+                    len(reachable_points(self.NsPoints, self.zh_los[-1], self.zhs[-1]))
+                )
+        self.current_iter -= 1
         return list(zip(self.zh_los, self.zhs))
 
 

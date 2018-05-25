@@ -104,10 +104,15 @@ def main(logfile=False):
 
     if logfile:
         Tee(logfile)
-    current_iter = 1
-    while current_iter:
+    first = True
+    current_iter = 0
+    while first or current_iter:
         # SciPy breaks box constraints
+
         nautilus_v1 = NAUTILUSv1(RiverPollution(), SciPyDE)
+        if not first:
+            nautilus_v1.current_iter = current_iter
+        first = False
         nadir = nautilus_v1.problem.nadir
         ideal = nautilus_v1.problem.ideal
 

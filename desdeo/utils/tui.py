@@ -280,7 +280,7 @@ def iter_enautilus(method, weights, initial_iterpoint=None, initial_bound=None):
     )
     # ), validator=NumberValidator()))
     txt = _prompt_wrapper(u"Ns: ", default=u"5")
-    if txt in COMMANDS:
+    if txt[0] in COMMANDS:
         return txt
     method.Ns = int(txt)
     print("Nadir: %s" % method.problem.nadir)
@@ -300,7 +300,7 @@ def iter_enautilus(method, weights, initial_iterpoint=None, initial_bound=None):
             u"Ns: ", default=u"%s" % (method.Ns), validator=NumberValidator()
         )
 
-        if text in COMMANDS:
+        if text[0] in COMMANDS:
             return text
 
         method.Ns = int(txt)
