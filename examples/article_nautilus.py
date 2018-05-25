@@ -3,21 +3,6 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # Copyright (c) 2018  Vesa Ojalehto
-import argparse
-import os
-
-from prompt_toolkit.validation import ValidationError, Validator
-
-from desdeo.core.ResultFactory import IterationPointFactory
-from desdeo.method.NAUTILUS import ENAUTILUS, NAUTILUSv1
-from desdeo.optimization.OptimizationMethod import PointSearch, SciPyDE
-from desdeo.optimization.OptimizationProblem import AchievementProblem
-from desdeo.problem.Problem import PreGeneratedProblem
-from desdeo.utils import misc, tui
-from desdeo.utils.misc import Tee
-from desdeo.utils.tui import _prompt_wrapper
-from NarulaWeistroffer import RiverPollution
-
 """
 Script to generate results in [1]
 
@@ -47,10 +32,24 @@ References
 
 """
 # TODO: Add tui docstrings here (must be first written)
-
-
 #: Predefined weights for E-NAUTILUS
 # TODO: Give weights in an input file
+
+import argparse
+import os
+
+from prompt_toolkit.validation import ValidationError, Validator
+
+from desdeo.core.ResultFactory import IterationPointFactory
+from desdeo.method.NAUTILUS import ENAUTILUS, NAUTILUSv1
+from desdeo.optimization.OptimizationMethod import PointSearch, SciPyDE
+from desdeo.optimization.OptimizationProblem import AchievementProblem
+from desdeo.problem.Problem import PreGeneratedProblem
+from desdeo.utils import misc, tui
+from desdeo.utils.misc import Tee
+from desdeo.utils.tui import _prompt_wrapper
+from NarulaWeistroffer import RiverPollution
+
 WEIGHTS = {
     "20": [
         [0.1, 0.1, 0.1, 0.7],
@@ -134,32 +133,31 @@ def main(logfile=False):
             points = misc.new_points(factory, solution, weights)
 
             method_e = ENAUTILUS(PreGeneratedProblem(points=points), PointSearch)
-            method_e.current_iter = current_iter
             method_e.zh_prev = solution
 
         else:
             method_e = ENAUTILUS(RiverPollution(), SciPyDE)
 
-        print(
-            "E-NAUTILUS\nselected iteration point: %s:"
-            % ",".join(map(str, method_e.zh_prev))
-        )
+        # method_e.zh = solution
+        method_e.current_iter = nautilus_v1.current_iter
+        method_e.user_iters = nautilus_v1.user_iters
 
-        method_e.current_iter = current_iter
-        method_e.zh_prev = solution
+        print(
+            "E-NAUTILUS\nselected iteration point: %s:" % ",".join(map(str, solution))
+        )
 
         while method_e and method_e.current_iter > 0:
             if solution is None:
                 solution = method_e.problem.nadir
-                # Generate new points
-            # print solution
 
             method_e.problem.nadir = nadir
             method_e.problem.ideal = ideal
-            tui.iter_enautilus(method_e, weights)
-            solution = method_e.zh_prev
-
-            method_e.print_current_iteration()
+            tui.iter_enautilus(
+                method_e,
+                weights,
+                initial_iterpoint=solution,
+                initial_bound=method_e.fh_lo,
+            )
 
     if tui.HAS_INPUT:
         input("Press ENTER to exit")

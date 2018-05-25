@@ -3,6 +3,20 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # Copyright (c) 2016  Vesa Ojalehto
+"""
+NAUTILUS method variants
+
+NAUTILUS    The first NAUTILUS variant introduces in
+            Miettinen, K.; Eskelinen, P.; Ruiz, F. & Luque, M.
+            NAUTILUS method: An interactive technique in multiobjective
+                optimization based on the nadir point
+            European Journal of Operational Research, 2010, 206, 426-434
+
+TODO
+----
+Add all variants
+Longer descriptions of the method variants and methods
+"""
 import logging
 from typing import List, Type
 from warnings import warn
@@ -24,22 +38,6 @@ from desdeo.utils import misc, reachable_points
 from desdeo.utils.warnings import UnexpectedCondition
 
 from .base import InteractiveMethod
-
-
-"""
-NAUTILUS method variants
-
-NAUTILUS    The first NAUTILUS variant introduces in
-            Miettinen, K.; Eskelinen, P.; Ruiz, F. & Luque, M.
-            NAUTILUS method: An interactive technique in multiobjective
-                optimization based on the nadir point
-            European Journal of Operational Research, 2010, 206, 426-434
-
-TODO
-----
-Add all variants
-Longer descriptions of the method variants and methods
-"""
 
 
 class NAUTILUS(InteractiveMethod):
@@ -142,7 +140,9 @@ class ENAUTILUS(NAUTILUS):
             )
 
             for pi, ns_point in enumerate(self.NsPoints):
-                print("Ns %i (%s)" % (pi + 1, self.zh_reach[pi]))
+                print(
+                    "Ns %i (%s)" % (pi + 1, self.zh_reach[pi] if self.zh_reach else "-")
+                )
                 print("Iteration point:", self.zhs[pi])
                 if self.current_iter != 0:
                     print("Lower boundary: ", self.zh_los[pi])
@@ -157,19 +157,22 @@ class ENAUTILUS(NAUTILUS):
     def select_point(self, point):
         pass
 
-    def next_iteration__(self, preference=None, weights=None):
-        self.zh_prev = list(preference[0])
-        if preference[1] is not None:
+    def next_iteration(self, preference=None, weights=None):
+        if preference and preference[0]:
+            self.zh_prev = list(preference[0])
+        else:
+            self.zh_prev = self.problem.nadir[:]
+        if preference and preference[1]:
             self.fh_lo = list(preference[1])
         else:
             self.fh_lo = self.problem.ideal[:]
-
-        self._update_zh(self.zh, self.fh)
 
         # TODO Create weights if not given, e.g., using
         # Steuer RE, Choo EU. An interactive weighted Tchebycheff procedure for
         # multiple objective programming.
         # Mathematical programming. 1983; 26(3):326-44.
+
+        # Generate optimal solution set
         assert weights
         points = misc.new_points(self.fh_factory, self.zh, weights)
 
@@ -182,49 +185,7 @@ class ENAUTILUS(NAUTILUS):
             )
             self.NsPoints = points
 
-        self.fh_lo = list(self.lower_bounds_factory.result(self.zh))
-        self.fh_up = list(self.upper_bounds_factory.result(self.zh))
-
-        logging.debug(f"Updated upper boundary: {self.fh_up}")
-        logging.debug(f"Uppadet lower boundary: {self.fh_lo}")
-
-        if not np.all(np.array(self.fh_up) > np.array(self.fh_lo)):
-            warn(self.NegativeIntervalWarning())
-
-        assert utils.isin(self.fh_up, self.problem.points)
-        assert utils.isin(self.fh_lo, self.problem.points)
-
-        dist = self.distance(self.zh, self.fh)
-
-        # Reachable points
-        self.update_points()
-
-        lP = len(self.problem.points)
-        self.current_iter -= 1
-
-        return dist, self.fh, self.zh, self.fh_lo, self.fh_up, lP
-
-    def next_iteration(self, preference=None, weights=None):
-        # TODO Create weights if not given, e.g., using
-        # Steuer RE, Choo EU. An interactive weighted Tchebycheff procedure for
-        # multiple objective programming.
-        # Mathematical programming. 1983; 26(3):326-44.
-        assert weights
-
-        points = misc.new_points(self.fh_factory, self.zh, weights)
-
-        # Reduce point set if starting from DM specified sol
-        if preference is not None:
-            points = reachable_points(points, preference[1], preference[0])
-            self.zh_prev = list(preference[0])
-            if preference[1] is not None:
-                self.fh_lo = list(preference[1])
-            else:
-                self.fh_lo = self.problem.ideal[:]
-            self.fh_lo_prev = self.fh_lo
-
-            self.nsPoint_prev = list(self.NsPoints[self.zhs.index(self.zh_prev)])
-
+        # Find centroids
         if len(points) <= self.Ns:
             print(
                 (
@@ -241,20 +202,20 @@ class ENAUTILUS(NAUTILUS):
             closest, _ = pairwise_distances_argmin_min(k_means.cluster_centers_, points)
 
             self.NsPoints = list(map(list, np.array(points)[closest.tolist()]))
-        for p in self.NsPoints:
-            logging.debug(p)
 
+        # Find iteration point for each centroid
         for point in self.NsPoints:
             self.zhs.append(self._update_zh(self.zh_prev, point))
-            # self.fh=point
-            self.fh_lo = list(self.lower_bounds_factory.result(self.zhs[-1]))
+            self.fh_lo = list(self.lower_bounds_factory.result(self.zh_prev))
             self.zh_los.append(self.fh_lo)
 
+        if not self.problem.points:
+            self.zh_reach = None
+        else:
+            self.current_iter -= 1
             self.zh_reach.append(
                 len(reachable_points(self.NsPoints, self.zh_los[-1], self.zhs[-1]))
             )
-
-        self.current_iter -= 1
 
         return list(zip(self.zh_los, self.zhs))
 

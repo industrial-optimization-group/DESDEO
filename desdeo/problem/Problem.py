@@ -42,12 +42,14 @@ class MOProblem(object):
         maximized: Optional[List[bool]] = None,
         objectives: Optional[List[str]] = None,
         name: str = None,
+        points: Optional[List[float]] = None,
     ) -> None:
         self.nobj = nobj
         self.nconst = nconst
         self.variables = []  # type: List[Variable]
         self.ideal = ideal
         self.nadir = nadir
+        self.points = points
         if maximized is not None:
             self.maximized = maximized  # type: Optional[List[bool]]
         elif self.ideal is not None:
@@ -184,18 +186,16 @@ class PreGeneratedProblem(MOProblem):
     def __init__(self, filename=None, points=None, delim=",", **kwargs):
         self.points = []
         self.original_points = []
-        if points is not None:
+        if points:
             self.original_points = list(points)
             self.points = list(points)
-        elif filename is not None:
+        elif filename:
             with open(filename) as fd:
                 for r in fd:
                     self.points.append(list(map(float, map(str.strip, r.split(delim)))))
             self.original_points = list(self.points)
-        else:
-            assert len(self.points)
 
-        super().__init__(nobj=len(self.points[0]), **kwargs)
+        super().__init__(nobj=len(self.points[0]), points=self.points, **kwargs)
 
         if not self.ideal:
             self.ideal = list(np.min(self.points, axis=0))
