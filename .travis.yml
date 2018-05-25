@@ -9,5 +9,3 @@ script:
   - ./check_black.sh
   - ./check_flake8.sh
   - ./check_isort.sh
-notifications:
-  slack: indopt:IhGOtTZ52IjtfQwHVEuamxk1
