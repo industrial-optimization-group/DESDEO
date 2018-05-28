@@ -10,7 +10,10 @@ import datetime
 import sys
 from typing import List
 
+import numpy as np
 from desdeo.preference.PreferenceInformation import DirectSpecification
+from sklearn.cluster.k_means_ import KMeans
+from sklearn.metrics.pairwise import pairwise_distances_argmin_min
 
 
 class Tee(object):
@@ -44,7 +47,51 @@ class Tee(object):
         self.log.flush()
 
 
-def new_points(factory, solution, weights):
+def _centroids(n_clusters: int, points: List[List[float]]) -> List[List[float]]:
+    """ Return n_clusters centroids of points
+    """
+
+    k_means = KMeans(n_clusters=n_clusters)
+    k_means.fit(points)
+
+    closest, _ = pairwise_distances_argmin_min(k_means.cluster_centers_, points)
+
+    return list(map(list, np.array(points)[closest.tolist()]))
+
+
+def random_weights(nobj: int, nweight: int) -> List[List[float]]:
+    """ Generatate nw random weight vectors for nof objectives as per Tchebycheff method [SteCho83]_
+
+    .. [SteCho83] Steuer, R. E. & Choo, E.-U. An interactive weighted Tchebycheff procedure for multiple objective programming, Mathematical programming, Springer, 1983, 26, 326-344
+
+    Parameters
+    ----------
+    nobj:
+        Number of objective functions
+
+    nweight:
+        Number of weights vectors to be generated
+
+    Returns
+    -------
+    List[List[float]
+        nobj x nweight matrix of weight vectors
+
+
+    """
+
+    # Initial wector space as per
+    # Miettinen, K. Nonlinear Multiobjective Optimization
+    # Kluwer Academic Publishers, 1999
+    wspace = 50 * nobj
+    while wspace < nweight:
+        wspace *= 2
+
+    weights = np.random.rand(wspace, nobj)
+    return _centroids(nobj, weights)
+
+
+def new_points(factory, solution, weights: List[List[float]] = None):
     """Generate approximate set of points
 
     Generate set of Pareto optimal solutions projecting from the Pareto optimal solution
@@ -61,9 +108,14 @@ def new_points(factory, solution, weights):
         Current solution from which new solutions are projected
 
     weights:
-        Direction of the projection
+        Direction of the projection, if not given generate with
+        :func:random_weights
+
     """
     points = []
+    nof = factory.optimization_method.optimization_problem.problem.nof_objectives()
+    if not weights:
+        weights = random_weights(nof, 50 * nof)
     for pref in map(
         lambda w: DirectSpecification(factory.optimization_method, w), weights
     ):

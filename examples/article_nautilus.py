@@ -38,8 +38,6 @@ References
 import argparse
 import os
 
-from prompt_toolkit.validation import ValidationError, Validator
-
 from desdeo.core.ResultFactory import IterationPointFactory
 from desdeo.method.NAUTILUS import ENAUTILUS, NAUTILUSv1
 from desdeo.optimization.OptimizationMethod import PointSearch, SciPyDE
@@ -49,6 +47,7 @@ from desdeo.utils import misc, tui
 from desdeo.utils.misc import Tee
 from desdeo.utils.tui import _prompt_wrapper
 from NarulaWeistroffer import RiverPollution
+from prompt_toolkit.validation import ValidationError, Validator
 
 WEIGHTS = {
     "20": [
@@ -128,15 +127,18 @@ def main(logfile=False):
                 default="o",
                 validator=NAUTILUSOptionValidator(),
             )
-            wi = _prompt_wrapper(
-                "Weights (10 or 20): ", default="20", validator=tui.NumberValidator()
-            )
-            weights = WEIGHTS[wi]
             if option.lower() == "a":
+                wi = _prompt_wrapper(
+                    "Number of PO solutions (10 or 20): ",
+                    default="20",
+                    validator=tui.NumberValidator(),
+                )
+                weights = WEIGHTS[wi]
+
                 factory = IterationPointFactory(
                     SciPyDE(AchievementProblem(RiverPollution()))
                 )
-                points = misc.new_points(factory, solution, weights)
+                points = misc.new_points(factory, solution, weights=weights)
 
                 method_e = ENAUTILUS(PreGeneratedProblem(points=points), PointSearch)
                 method_e.zh_prev = solution
@@ -160,10 +162,7 @@ def main(logfile=False):
                 method_e.problem.nadir = nadir
                 method_e.problem.ideal = ideal
                 cmd = tui.iter_enautilus(
-                    method_e,
-                    weights,
-                    initial_iterpoint=solution,
-                    initial_bound=method_e.fh_lo,
+                    method_e, initial_iterpoint=solution, initial_bound=method_e.fh_lo
                 )
                 if cmd:
                     print(method_e.current_iter)

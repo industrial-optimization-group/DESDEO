@@ -21,11 +21,8 @@ import logging
 from typing import List, Type
 from warnings import warn
 
-import numpy as np
-from sklearn.cluster import KMeans
-from sklearn.metrics import pairwise_distances_argmin_min
-
 import desdeo.utils as utils
+import numpy as np
 from desdeo.core.ResultFactory import BoundsFactory, IterationPointFactory
 from desdeo.optimization.OptimizationMethod import OptimizationMethod
 from desdeo.optimization.OptimizationProblem import (
@@ -36,6 +33,8 @@ from desdeo.optimization.OptimizationProblem import (
 from desdeo.preference.PreferenceInformation import DirectSpecification
 from desdeo.utils import misc, reachable_points
 from desdeo.utils.warnings import UnexpectedCondition
+from sklearn.cluster import KMeans
+from sklearn.metrics import pairwise_distances_argmin_min
 
 from .base import InteractiveMethod
 
@@ -157,7 +156,7 @@ class ENAUTILUS(NAUTILUS):
     def select_point(self, point):
         pass
 
-    def next_iteration(self, preference=None, weights=None):
+    def next_iteration(self, preference=None):
         if preference and preference[0]:
             self.zh_prev = list(preference[0])
         else:
@@ -172,9 +171,7 @@ class ENAUTILUS(NAUTILUS):
         # multiple objective programming.
         # Mathematical programming. 1983; 26(3):326-44.
 
-        # Generate optimal solution set
-        assert weights
-        points = misc.new_points(self.fh_factory, self.zh, weights)
+        points = misc.new_points(self.fh_factory, self.zh)
 
         if len(points) <= self.Ns:
             print(

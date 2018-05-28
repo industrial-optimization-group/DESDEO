@@ -1,5 +1,3 @@
-from .Problem import PythonProblem
-from .Problem import PreGeneratedProblem
-from .Problem import Variable
+from .Problem import PreGeneratedProblem, PythonProblem, Variable
 
 __all__ = ["PythonProblem", "PreGeneratedProblem", "Variable"]

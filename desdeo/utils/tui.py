@@ -22,14 +22,13 @@ TUIConsoleError
 import sys
 
 import numpy as np
-from prompt_toolkit import prompt
-from prompt_toolkit.validation import ValidationError, Validator
-
 from desdeo.preference.PreferenceInformation import (
     DirectSpecification,
     PercentageSpecifictation,
     RelativeRanking,
 )
+from prompt_toolkit import prompt
+from prompt_toolkit.validation import ValidationError, Validator
 
 from .exceptions import DESDEOException
 
@@ -267,12 +266,12 @@ def iter_nautilus(method):
             )
             default = ",".join(map(str, pref.pref_input))
             solution, _ = method.next_iteration(pref)
-        if list(cmd)[0] == "c":
+        if cmd and list(cmd)[0] == "c":
             break
     return solution
 
 
-def iter_enautilus(method, weights, initial_iterpoint=None, initial_bound=None):
+def iter_enautilus(method, initial_iterpoint=None, initial_bound=None, weights=None):
     method.user_iters = method.current_iter = int(
         _prompt_wrapper(
             u"Ni: ", default=u"%i" % method.current_iter, validator=NumberValidator()
@@ -286,9 +285,7 @@ def iter_enautilus(method, weights, initial_iterpoint=None, initial_bound=None):
     print("Nadir: %s" % method.problem.nadir)
     print("Ideal: %s" % method.problem.ideal)
 
-    method.next_iteration(
-        preference=(initial_iterpoint, initial_bound), weights=weights
-    )
+    method.next_iteration(preference=(initial_iterpoint, initial_bound))
     # points = None
 
     while method.current_iter:
@@ -304,7 +301,6 @@ def iter_enautilus(method, weights, initial_iterpoint=None, initial_bound=None):
             return text
 
         method.Ns = int(txt)
-        # points = method.next_iteration(pref, weights=weights)
 
     if not method.current_iter:
         method.zh_prev = select_iter(method, 1)[0]

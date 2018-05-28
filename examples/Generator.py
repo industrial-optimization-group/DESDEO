@@ -8,48 +8,48 @@
 """
 import os
 
-from desdeo.optimization.method import PointSearch
-from desdeo.problem.problem import PreGeneratedProblem
+from desdeo.method import ENAUTILUS, NAUTILUSv1
+from desdeo.optimization import PointSearch
+from desdeo.problem import PreGeneratedProblem
 from desdeo.utils import tui
-from method import ENAUTILUS, NAUTILUSv1
 
 example_path = os.path.dirname(os.path.realpath(__file__))
 
 
 if __name__ == "__main__":
     # SciPy breaks box constraints
-    method = ENAUTILUS(
+    method_e = ENAUTILUS(
         PreGeneratedProblem(
             filename=os.path.join(example_path, "AuxiliaryServices.csv")
         ),
         PointSearch,
     )
-    zh = tui.iter_enautilus(method)
-    ci = method.current_iter
+    zh = tui.iter_enautilus(method_e)
+    ci = method_e.current_iter
 
     if ci > 0:
         if zh is None:
-            fh = zh = method.problem.nadir
-            fh_lo = method.problem.ideal
+            fh = zh = method_e.problem.nadir
+            fh_lo = method_e.problem.ideal
 
         else:
-            zh = method.zh_prev
-            fh_lo = method.fh_lo_prev
-            fh = method.nsPoint_prev
-        method = NAUTILUSv1(
+            zh = method_e.zh_prev
+            fh_lo = method_e.fh_lo_prev
+            fh = method_e.nsPoint_prev
+        method_n = NAUTILUSv1(
             PreGeneratedProblem(
                 filename=os.path.join(example_path, "AuxiliaryServices.csv")
             ),
             PointSearch,
         )
-        method.current_iter = ci + 1
-        method.zh_prev = method.zh = zh
-        method.fh = fh
-        method.fh_lo = fh_lo
+        method_n.current_iter = ci + 1
+        method_n.zh_prev = method_n.zh = zh
+        method_n.fh = fh
+        method_n.fh_lo = fh_lo
         # method.fh_lo=list(method.bounds_factory.result(method.zh_prev))
 
-        solution = tui.iter_nautilus(method)
-    method.print_current_iteration()
+        solution = tui.iter_nautilus(method_n)
+    method_n.print_current_iteration()
     try:
         from prompt_toolkit import prompt
 
