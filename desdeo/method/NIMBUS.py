@@ -15,7 +15,6 @@ European Journal of Operational Research, 2006, 170, 909-922
 import logging
 
 import numpy as np
-
 from desdeo.core.ResultFactory import IterationPointFactory
 from desdeo.optimization.OptimizationProblem import AchievementProblem, NIMBUSProblem
 from desdeo.preference import NIMBUSClassification
