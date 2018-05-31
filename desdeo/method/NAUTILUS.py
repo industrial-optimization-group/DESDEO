@@ -21,8 +21,11 @@ import logging
 from typing import List, Type
 from warnings import warn
 
-import desdeo.utils as utils
 import numpy as np
+from sklearn.cluster import KMeans
+from sklearn.metrics import pairwise_distances_argmin_min
+
+import desdeo.utils as utils
 from desdeo.core.ResultFactory import BoundsFactory, IterationPointFactory
 from desdeo.optimization.OptimizationMethod import OptimizationMethod
 from desdeo.optimization.OptimizationProblem import (
@@ -33,8 +36,6 @@ from desdeo.optimization.OptimizationProblem import (
 from desdeo.preference.PreferenceInformation import DirectSpecification
 from desdeo.utils import misc, reachable_points
 from desdeo.utils.warnings import UnexpectedCondition
-from sklearn.cluster import KMeans
-from sklearn.metrics import pairwise_distances_argmin_min
 
 from .base import InteractiveMethod
 
@@ -75,8 +76,11 @@ class NAUTILUS(InteractiveMethod):
 
     def _next_zh(self, term1, term2):
         res = list(
-            (self.current_iter - 1) * np.array(term1) / self.current_iter
-            + np.array(term2) / self.current_iter
+            (self.current_iter - 1)
+            * np.array(term1)
+            / self.current_iter
+            + np.array(term2)
+            / self.current_iter
         )
         logging.debug("Update zh")
         logging.debug("First term:  %s", term1)

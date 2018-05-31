@@ -11,9 +11,10 @@ import sys
 from typing import List
 
 import numpy as np
-from desdeo.preference.PreferenceInformation import DirectSpecification
 from sklearn.cluster.k_means_ import KMeans
 from sklearn.metrics.pairwise import pairwise_distances_argmin_min
+
+from desdeo.preference.PreferenceInformation import DirectSpecification
 
 
 class Tee(object):

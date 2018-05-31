@@ -22,13 +22,14 @@ TUIConsoleError
 import sys
 
 import numpy as np
+from prompt_toolkit import prompt
+from prompt_toolkit.validation import ValidationError, Validator
+
 from desdeo.preference.PreferenceInformation import (
     DirectSpecification,
     PercentageSpecifictation,
     RelativeRanking,
 )
-from prompt_toolkit import prompt
-from prompt_toolkit.validation import ValidationError, Validator
 
 from .exceptions import DESDEOException
 

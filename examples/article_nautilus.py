@@ -38,6 +38,8 @@ References
 import argparse
 import os
 
+from prompt_toolkit.validation import ValidationError, Validator
+
 from desdeo.core.ResultFactory import IterationPointFactory
 from desdeo.method.NAUTILUS import ENAUTILUS, NAUTILUSv1
 from desdeo.optimization.OptimizationMethod import PointSearch, SciPyDE
@@ -47,7 +49,6 @@ from desdeo.utils import misc, tui
 from desdeo.utils.misc import Tee
 from desdeo.utils.tui import _prompt_wrapper
 from NarulaWeistroffer import RiverPollution
-from prompt_toolkit.validation import ValidationError, Validator
 
 WEIGHTS = {
     "20": [

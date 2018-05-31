@@ -137,18 +137,15 @@ class NIMBUSClassification(ReferencePoint):
             except TypeError:
                 if np.isclose(v, self._method.problem.ideal[f_id]):
                     self.__classification[f_id] = (
-                        "<",
-                        self._method.problem.selected[f_id],
+                        "<", self._method.problem.selected[f_id]
                     )
                 elif np.isclose(v, self._method.problem.nadir[f_id]):
                     self.__classification[f_id] = (
-                        "<>",
-                        self._method.problem.selected[f_id],
+                        "<>", self._method.problem.selected[f_id]
                     )
                 elif np.isclose(v, self._method.problem.selected[f_id]):
                     self.__classification[f_id] = (
-                        "=",
-                        self._method.problem.selected[f_id],
+                        "=", self._method.problem.selected[f_id]
                     )
                 elif (
                     v

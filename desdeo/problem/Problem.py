@@ -9,6 +9,7 @@ from abc import ABCMeta, abstractmethod
 from typing import List, Optional, Union
 
 import numpy as np
+
 from desdeo.utils.misc import as_minimized
 
 
