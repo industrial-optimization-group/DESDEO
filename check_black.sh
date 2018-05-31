@@ -1,3 +1,3 @@
 #!/bin/bash
 
-black --check desdeo examples tests docs setup.py
+black --quiet --check desdeo examples tests docs setup.py
