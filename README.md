@@ -86,4 +86,6 @@ Tests use pytest. After installing pytest you can run:
 
 2. Make a git tag of this commit with `git tag v$VERSION`
 
-3. Upload to PyPI with `python setup.py sdist bdist_wheel` and `twine upload dist/*`
+3. Push -- including the tags with `git push --tags`
+
+4. Upload to PyPI with `python setup.py sdist bdist_wheel` and `twine upload dist/*`
