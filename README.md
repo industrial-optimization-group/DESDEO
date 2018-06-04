@@ -79,3 +79,11 @@ You should install the git pre-commit hook so that code formatting is kept consi
 Tests use pytest. After installing pytest you can run:
 
     pytest tests
+
+### Release process ###
+
+1. Make a release commit in which the version is incremented in setup.py and an entry added to HISTORY.md
+
+2. Make a git tag of this commit with `git tag v$VERSION`
+
+3. Upload to PyPI with `python setup.py sdist bdist_wheel` and `twine upload dist/*`
