@@ -29,9 +29,9 @@ import desdeo.utils as utils
 from desdeo.core.ResultFactory import BoundsFactory, IterationPointFactory
 from desdeo.optimization.OptimizationMethod import OptimizationMethod
 from desdeo.optimization.OptimizationProblem import (
-    AchievementProblem,
     EpsilonConstraintProblem,
     MaxEpsilonConstraintProblem,
+    NautilusAchievementProblem,
 )
 from desdeo.preference.PreferenceInformation import DirectSpecification
 from desdeo.utils import misc, reachable_points
@@ -48,7 +48,7 @@ class NAUTILUS(InteractiveMethod):
         self.current_iter = self.user_iters
 
         self.fh_factory = IterationPointFactory(
-            self.method_class(AchievementProblem(self.problem))
+            self.method_class(NautilusAchievementProblem(self.problem))
         )
         self.upper_bounds_factory = BoundsFactory(
             self.method_class(MaxEpsilonConstraintProblem(self.problem))

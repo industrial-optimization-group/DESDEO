@@ -28,7 +28,7 @@ def test_point_search():
     )
 
     assert run1[0][1] >= 1
-    assert len(run1) == 2
+    assert len(run1) == 4
 
     # When using point search, there should not be better solutions when projected
     cls = []
@@ -49,7 +49,7 @@ def test_optimization():
             method, [("<", None), ("<=", .1), ("<", None), ("<=", 0.4)]
         )
     )
-    assert len(vals) == 2
+    assert len(vals) == 4
     vals = method.next_iteration(
         preference=NIMBUSClassification(
             method, [("<", None), ("<=", .1), ("<", None), ("<=", 0.4)]

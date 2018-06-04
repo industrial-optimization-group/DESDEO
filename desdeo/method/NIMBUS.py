@@ -17,7 +17,12 @@ import logging
 import numpy as np
 
 from desdeo.core.ResultFactory import IterationPointFactory
-from desdeo.optimization.OptimizationProblem import AchievementProblem, NIMBUSProblem
+from desdeo.optimization.OptimizationProblem import (
+    NIMBUSAchievementProblem,
+    NIMBUSGuessProblem,
+    NIMBUSProblem,
+    NIMBUSStomProblem,
+)
 from desdeo.preference import NIMBUSClassification
 
 from .base import InteractiveMethod
@@ -34,17 +39,19 @@ class NIMBUS(InteractiveMethod):
         Preference, i.e., classification information  information for current iteration
 
     """
-    __SCALARS = ["NIM", "ACH"]
+    __SCALARS = ["NIM", "ACH", "GUESS", "STOM"]
 
     def __init__(self, problem, method_class):
         super().__init__(problem, method_class)
-        self._factories = []
-        self._factories.append(
-            IterationPointFactory(self.method_class(NIMBUSProblem(self.problem)))
-        )
-        self._factories.append(
-            IterationPointFactory(self.method_class(AchievementProblem(self.problem)))
-        )
+        self._factories = [
+            IterationPointFactory(self.method_class(prob_cls(self.problem)))
+            for prob_cls in [
+                NIMBUSProblem,
+                NIMBUSAchievementProblem,
+                NIMBUSGuessProblem,
+                NIMBUSStomProblem,
+            ]
+        ]
         self._classification = None
         self._problem = problem
         self.selected_solution = None
