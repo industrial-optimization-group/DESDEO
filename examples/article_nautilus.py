@@ -43,7 +43,7 @@ from prompt_toolkit.validation import ValidationError, Validator
 from desdeo.core.ResultFactory import IterationPointFactory
 from desdeo.method.NAUTILUS import ENAUTILUS, NAUTILUSv1
 from desdeo.optimization.OptimizationMethod import PointSearch, SciPyDE
-from desdeo.optimization.OptimizationProblem import AchievementProblem
+from desdeo.optimization.OptimizationProblem import NautilusAchievementProblem
 from desdeo.problem.Problem import PreGeneratedProblem
 from desdeo.utils import misc, tui
 from desdeo.utils.misc import Tee
@@ -137,7 +137,7 @@ def main(logfile=False):
                 weights = WEIGHTS[wi]
 
                 factory = IterationPointFactory(
-                    SciPyDE(AchievementProblem(RiverPollution()))
+                    SciPyDE(NautilusAchievementProblem(RiverPollution()))
                 )
                 points = misc.new_points(factory, solution, weights=weights)
 

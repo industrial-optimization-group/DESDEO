@@ -8,8 +8,12 @@ Module description
 """
 
 import abc
+from functools import reduce
+from typing import List, Optional, Tuple
 
 import numpy as np
+
+from desdeo.utils.exceptions import PreferenceUndefinedError
 
 
 class OptimizationProblem(object, metaclass=abc.ABCMeta):
@@ -31,7 +35,9 @@ class OptimizationProblem(object, metaclass=abc.ABCMeta):
         self.nconst = 0
         self.problem = method
 
-    def evaluate(self, objectives):
+    def evaluate(
+        self, objectives: List[List[float]]
+    ) -> Tuple[List[float], Optional[np.ndarray]]:
         """
         Evaluate value of the objective function and possible additional constraints
 
@@ -51,7 +57,9 @@ class OptimizationProblem(object, metaclass=abc.ABCMeta):
         return self._evaluate(objectives)
 
     @abc.abstractmethod
-    def _evaluate(self, objectives):
+    def _evaluate(
+        self, objectives: List[List[float]]
+    ) -> Tuple[List[float], Optional[np.ndarray]]:
         pass
 
 
@@ -76,24 +84,114 @@ class ScalarizedProblem(OptimizationProblem, metaclass=abc.ABCMeta):
         self.weights = self._preferences.weights()
         self._set_preferences()
 
+    def evaluate(
+        self, objectives: List[List[float]]
+    ) -> Tuple[List[float], Optional[np.ndarray]]:
+        if self._preferences is None:
+            raise PreferenceUndefinedError(
+                "Attempted to evaluate scalarizing function before preferences have "
+                "been set."
+            )
+        return super().evaluate(objectives)
+
     @abc.abstractmethod
-    def _evaluate(self, objectives):
+    def _evaluate(
+        self, objectives: List[List[float]]
+    ) -> Tuple[List[float], Optional[np.ndarray]]:
         pass
 
 
-class AchievementProblem(ScalarizedProblem):
+v_ach = np.vectorize(lambda f, w, r: w * (f - r))
+v_pen = np.vectorize(lambda f, w, r: w * f)
+
+
+class AchievementProblemBase(ScalarizedProblem):
     r"""
-    Finds new solution by solving achievement scalarizing function[1]_
+    Solves problems of the form:
 
     .. math::
 
-       \mbox{minimize}
+       & \mbox{minimize}\ \
+           & \displaystyle{
+               \max_{i=1, \dots , k}
+               \left\{\, \mu_i(\dots) \right\}}
+           + \rho \sum_{i=1}^k \mu_i (\dots) \\
+       & \mbox{subject to}\
+           & {\bf{x}} \in S
+
+    This is an abstract base class. Implementors should override `_ach`, `_augmentation` and
+    `_set_scaling_weights`.
+    """
+
+    def __init__(self, method, **kwargs):
+        self.eps = kwargs.get("eps", 0.00001)
+        self.rho = kwargs.get("rho", 0.01)
+        kwargs.get("rho", 0.01)
+
+        super().__init__(method, **kwargs)
+
+    def _set_preferences(self):
+        self._set_scaling_weights()
+
+    @abc.abstractmethod
+    def _ach(self, objectives: List[List[float]]) -> List[float]:
+        """
+        Calculate achievement term
+        """
+        pass
+
+    @abc.abstractmethod
+    def _augmentation(self, objectives: List[List[float]]) -> List[float]:
+        """
+        Calculate augmentation term
+        """
+        pass
+
+    def _evaluate(
+        self, objectives: List[List[float]]
+    ) -> Tuple[List[float], Optional[np.ndarray]]:
+        v_aug = self._augmentation(objectives)
+        v_ach = self._ach(objectives)
+
+        # Calculate maximum of the values for each objective
+        ach = np.max(v_ach, axis=1)
+        aug = np.sum(v_aug, axis=1) * self.rho
+        return ach + aug, None
+
+    @abc.abstractmethod
+    def _set_scaling_weights(self):
+        pass
+
+
+class SimpleAchievementProblem(AchievementProblemBase):
+    r"""
+    Solves a simple form of achievement scalarizing function
+
+    .. math::
+
+       & \mbox{minimize}\ \
+           & \displaystyle{
+               \max_{i=1, \dots , k}
+               \left\{\, \mu_i(f_i(\mathbf x) - q_i)\ \right\}}
+           + \rho \sum_{i=1}^k \mu_i (f_i(\mathbf x)) \\
+       & \mbox{subject to}\
+           & {\bf{x}} \in S
+
+    If ach_pen=True is passed to the constructor, the full achivement function
+    is used as the penatly, causing us to instead solve[1]_
+
+    .. math::
+
+       & \mbox{minimize}\ \
            & \displaystyle{
                \max_{i=1, \dots , k}
                \left\{\, \mu_i(f_i(\mathbf x) - q_i)\ \right\}}
            + \rho \sum_{i=1}^k \mu_i (f_i(\mathbf x)- q_i) \\
-       \mbox{subject to}
+       & \mbox{subject to}\
            & {\bf{x}} \in S
+
+    This is an abstract base class. Implementors should override `_get_rel` and
+    `_set_scaling_weights`.
 
     References
     ----------
@@ -104,81 +202,209 @@ class AchievementProblem(ScalarizedProblem):
     """
 
     def __init__(self, method, **kwargs):
-        super(AchievementProblem, self).__init__(method, **kwargs)
-        self.eps = kwargs.get("eps", 0.00001)
-        self.rho = kwargs.get("rho", 0.01)
-
-        self.scaling_weights = list(
-            1.0
-            / (np.array(self.problem.nadir) - (np.array(self.problem.ideal) - self.eps))
-        )
+        self.scaling_weights = None
+        super().__init__(method, **kwargs)
         self.weights = [1.0] * len(self.problem.nadir)
+        if kwargs.get("ach_pen"):
+            self.v_pen = v_ach
+        else:
+            self.v_pen = v_pen
 
-        self.v_ach = np.vectorize(lambda f, w, r: w * (f - r))
+    def _ach(self, objectives: List[List[float]]) -> List[float]:
+        assert self.scaling_weights is not None
+        return v_ach(objectives, np.array(self.scaling_weights), self._get_rel())
 
-    def _set_preferences(self):
-        self.scaling_weights = list(
+    def _augmentation(self, objectives: List[List[float]]) -> List[float]:
+        assert self.scaling_weights is not None
+        return self.v_pen(objectives, np.array(self.scaling_weights), self._get_rel())
+
+    @abc.abstractmethod
+    def _get_rel(self):
+        pass
+
+
+class NIMBUSStomProblem(SimpleAchievementProblem):
+    r"""
+    Finds new solution by solving NIMBUS version of the satisficing trade-off
+    method (STOM).
+
+    .. math::
+
+        & \mbox{minimize }\ \  &  \displaystyle{ \max_{i=1, \dots , k} \left\lbrack\,
+        \frac{f_i(\mathbf x) - z_i^{\star\star}}{\bar{z}_i - z_i^{\star\star}}
+        \, \right\rbrack} +
+        \rho \sum_{i=1}^k
+        \frac{f_i(\mathbf x)}{\bar z_i - z_i^{\star\star}}  \\
+        &\mbox{subject to }\ &\mathbf x \in S
+
+    """
+
+    def _set_scaling_weights(self):
+        r"""
+        Set scaling weights to:
+
+        .. math::
+
+            \frac{1}{\bar z_i - z_i^{\star\star}}
+
+        """
+        self.scaling_weights = (
+            1.0 / (np.array(self.reference) - (np.array(self.problem.ideal) - self.eps))
+        )
+
+    def _get_rel(self):
+        return np.array(self.problem.ideal) - self.eps
+
+
+class NIMBUSGuessProblem(SimpleAchievementProblem):
+    r"""
+    Finds new solution by solving NIMBUS version of the GUESS method.
+
+    .. math::
+
+        & \mbox{minimize }\ \  & \displaystyle{\max_{i \notin I^{\diamond}}}
+            \left\lbrack \frac{f_i(\mathbf x) -
+            z_i^{\mathrm{nad}}}{z_i^{\mathrm{nad}}- \bar z_i} \right\rbrack  +
+        \rho \sum_{i=1}^k
+        \frac{f_i(\mathbf x)}{z_i^{\mathrm{nad}}-\bar z_i} \\
+        &\mbox{subject to }\ &\mathbf x \in S.
+
+    In this implementation :math:`z^\mathrm{nad}` is `eps` larger than the true nadir
+    to protect against the case where :math:`\bar z_i = z_i^{\mathrm{nad}}` causing
+    division by zero.
+    """
+
+    def _set_scaling_weights(self):
+        r"""
+        Set scaling weights to:
+
+        .. math::
+
+            \frac{1}{z_i^{\mathrm{nad}}-\bar z_i}
+
+        """
+        self.scaling_weights = (
+            1.0 / (np.array(self.problem.nadir) + self.eps - np.array(self.reference))
+        )
+
+    def _get_rel(self):
+        return np.array(self.problem.nadir)
+
+
+class NadirStarStarScaleMixin:
+    r"""
+    This mixin implements `_set_scaling_weights` as:
+
+    .. math::
+
+        \frac{1}{z_i^{\mathrm{nad}} - z_i^{\star\star}}
+
+    """
+
+    def _set_scaling_weights(self):
+        self.scaling_weights = (
             1.0
             / (np.array(self.problem.nadir) - (np.array(self.problem.ideal) - self.eps))
         )
 
-    def _augmentation(self, objectives):
-        """Calculate augmentation term
-        """
 
-        rho = self.v_ach(objectives, np.array(self.scaling_weights), self.reference)
-        return np.sum(rho, axis=1) * self.rho
+class NIMBUSAchievementProblem(NadirStarStarScaleMixin, SimpleAchievementProblem):
+    r"""
+    Finds new solution by solving NIMBUS version of the achivement problem.
 
-    def _ach(self, objectives):
-        return self.v_ach(
-            objectives,
-            np.array(self.scaling_weights) * np.array(self.weights),
-            self.reference,
-        )
+    .. math::
+        & \mbox{minimize }\ \  & \displaystyle{\max_{i=1, \dots , k}\left\lbrack\,
+        \frac{f_i(\mathbf x) - \bar z_i}{z_i^{\mathrm{nad}}-z^{\star\star}_i}\,
+        \right\rbrack} +
+        \rho \sum_{i=1}^k
+        \frac{f_i(\mathbf x) }{z_i^{\mathrm{nad}}-z^{\star\star}_i}
+          \\
+        &\mbox{subject to }\ &\mathbf x \in S.
 
-    def _evaluate(self, objectives):
-        rho = self._augmentation(objectives)
-        v_ach = self._ach(objectives)
-
-        # Calculate maximum of the values for each objective
-        ach = np.max(v_ach, axis=1)
-        return ach + rho, []
-
-
-class NIMBUSProblem(AchievementProblem):
     """
-    Finds new solution by solving NIMBUS scalarizing function[1]_
+
+    def _get_rel(self):
+        return self.reference
+
+
+class NIMBUSProblem(NadirStarStarScaleMixin, SimpleAchievementProblem):
+    r"""
+    Finds new solution by solving NIMBUS scalarizing function.
+
+    .. math::
+
+        & \mbox{minimize }\ \  & \displaystyle{\max_{{i\in I^<}\atop{j \in I^{\le}}}
+            \left [ \frac{f_i(\mathbf x) - z^{\star}_i}
+        {z_i^{\mathrm{nad}}-z^{\star\star}_i},
+            \frac{f_j(\mathbf x) - \hat{z}_j }{z_j^{\mathrm{nad}}-z^{\star\star}_j}
+             \right ] + \rho \sum_{i=1}^k
+        \frac{f_i(\mathbf x)}{z_i^{\mathrm{nad}}-z^{\star\star}_i}}  \\
+        & \mbox{subject to }\  &f_i(\mathbf x) \le f_i(\mathbf x^c) \ \mbox{ for all
+            } \ \ i \in     I^< \cup I^{\le} \cup I^=, \\
+        && f_i(\mathbf x) \le \varepsilon_i  \ \mbox{ for all } \  i \in I^{\ge},  \\
+        && \mathbf x \in S
+
     """
 
     def __init__(self, method, **kwargs):
-        super(NIMBUSProblem, self).__init__(method, **kwargs)
-        self.raug = kwargs.get("raug", 0.001)
+        super().__init__(method, **kwargs)
 
-    def _set_preference(self, preference):
-        self.weights = [1.0] * len(self.problem.nadir)
-
-    def _evaluate(self, objectives):
+    def _ach(self, objectives):
         fid_a = self._preferences.with_class("<") + self._preferences.with_class("<=")
-        ach = self._ach(objectives)
+        ach = super()._ach(objectives)
         v_obj = ach[:, fid_a]
+        return v_obj
 
-        obj = np.max(v_obj, axis=1)
+    def _get_rel(self):
+        return self.reference
 
-        rho = self._augmentation(objectives)
-
-        fid_e = fid_a + self._preferences.with_class("=")
+    def _evaluate(
+        self, objectives: List[List[float]]
+    ) -> Tuple[List[float], Optional[np.ndarray]]:
+        obj, no_bounds = super()._evaluate(objectives)
+        assert no_bounds is None
 
         # Bounds
+        fid_e = reduce(
+            lambda a, b: a + b,
+            (self._preferences.with_class(x) for x in ["<", "<=", "="]),
+        )
         fid_b = self._preferences.with_class(">=")
         self.nconst = len(fid_e + fid_b)
 
-        bounds = []
+        bounds_lists = []
         for fid in fid_b:
-            bounds.append(np.array(objectives)[:, fid] - self._preferences[fid][1])
+            bounds_lists.append(
+                np.array(objectives)[:, fid] - self._preferences[fid][1]
+            )
         for fid in fid_e:
-            bounds.append(np.array(objectives)[:, fid])
-        bounds = np.rot90(bounds)
-        return obj + rho, bounds
+            bounds_lists.append(np.array(objectives)[:, fid])
+        bounds = np.rot90(bounds_lists)
+        return obj, bounds
+
+
+class NautilusAchievementProblem(NadirStarStarScaleMixin, SimpleAchievementProblem):
+    r"""
+    Solves problems of the form:
+
+    .. math::
+
+       & \mbox{minimize}\ \
+           & \displaystyle{
+               \max_{i=1, \dots , k}
+               \left\{\, \mu_i(f_i(\mathbf x) - q_i)\ \right\}}
+           + \rho \sum_{i=1}^k \frac{f_i(\mathbf x) - q_i}
+               {z_i^{\mathrm{nad}}-z^{\star\star}_i} \\
+       & \mbox{subject to}\
+           & {\bf{x}} \in S
+
+    """
+
+    def _ach(self, objectives):
+        return self.weights * (np.array(objectives) - self.reference)
+
+    def _get_rel(self):
+        return self.reference
 
 
 class EpsilonConstraintProblem(OptimizationProblem):
@@ -208,7 +434,9 @@ class EpsilonConstraintProblem(OptimizationProblem):
 
         self._coeff = 1
 
-    def _evaluate(self, objectives):
+    def _evaluate(
+        self, objectives: List[List[float]]
+    ) -> Tuple[List[float], Optional[np.ndarray]]:
         objs = []
         consts = []
         for ind in objectives:

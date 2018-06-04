@@ -137,7 +137,7 @@ class SciPyDE(OptimalSearch):
         obj, const = self.optimization_problem.evaluate(
             self.optimization_problem.problem.evaluate([x])
         )
-        if len(const):
+        if const is not None and len(const):
             self.v = 0.0
             for c in const[0]:
                 if c > 0.00001:
