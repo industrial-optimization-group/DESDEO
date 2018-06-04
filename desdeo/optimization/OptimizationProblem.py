@@ -187,9 +187,9 @@ class EpsilonConstraintProblem(OptimizationProblem):
 
     .. math::
 
-        \mbox{minimize}
+        & \mbox{minimize}\ \
             & f_r({\bf{x}}) \\
-        \mbox{subject to}
+        & \mbox{subject to}\
             & f_j({\bf{x}}) \le z _j, j = 1, \dots, k, j \neq r, \\
             & {\bf{x}} \in S, \\
 
@@ -228,9 +228,13 @@ class MaxEpsilonConstraintProblem(EpsilonConstraintProblem):
     r"""
     Epsilon constraint problem where the objective is to be maximized
 
-    math :: \mbox{maximize}     & f_r({\bf{x}}) \\
-\mbox{subject to}   &f_j({\bf{x}}) \le z _j, j = 1, \dots, k, j \neq r, \\
-                                    & {\bf{x}} \in S, \\
+    .. math::
+
+        & \mbox{maximize}\ \
+            & f_r({\bf{x}}) \\
+        & \mbox{subject to}\
+            &f_j({\bf{x}}) \le z _j, j = 1, \dots, k, j \neq r, \\
+            & {\bf{x}} \in S
 
     This is a special case of using epsilon constraint, to be very clear
     when using maximized scalarizing function.
