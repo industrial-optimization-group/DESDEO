@@ -18,7 +18,7 @@ Add all variants
 Longer descriptions of the method variants and methods
 """
 import logging
-from typing import List, Type
+from typing import List, Type, Tuple  # noqa - rm when pyflakes understands type hints
 from warnings import warn
 
 import numpy as np
@@ -63,8 +63,6 @@ class NAUTILUS(InteractiveMethod):
         self.fh = list(self.fh_lo)
         self.zh_prev = list(self.zh)
 
-        self.NsPoints = None
-
     def _init_iteration(self, *args, **kwargs):
         pass
 
@@ -72,7 +70,7 @@ class NAUTILUS(InteractiveMethod):
         pass
 
     def _update_fh(self):
-        self.fh = list(self.fh_factory.result(self.preference, self.zh_prev))
+        self.fh = list(self.fh_factory.result(self.preference, self.zh_prev)[1])
 
     def _next_zh(self, term1, term2):
         res = list(
@@ -133,6 +131,8 @@ class ENAUTILUS(NAUTILUS):
         self.zh_los = []  # type: List[float]
         self.zh_reach = []  # type: List[int]
 
+        self.NsPoints = []  # type: List[Tuple[np.ndarray, List[float]]]
+
     def print_current_iteration(self):
         if self.current_iter < 0:
             print("Final iteration point:", self.zh_prev)
@@ -160,7 +160,7 @@ class ENAUTILUS(NAUTILUS):
     def select_point(self, point):
         pass
 
-    def next_iteration(self, preference=None):
+    def next_iteration(self, *args, preference=None, **kwargs):
         if preference and preference[0]:
             self.zh_prev = list(preference[0])
         else:
@@ -177,15 +177,6 @@ class ENAUTILUS(NAUTILUS):
 
         points = misc.new_points(self.fh_factory, self.zh)
 
-        if len(points) <= self.Ns:
-            print(
-                (
-                    "Only %s points can be reached from selected iteration point"
-                    % len(points)
-                )
-            )
-            self.NsPoints = points
-
         # Find centroids
         if len(points) <= self.Ns:
             print(
@@ -198,20 +189,28 @@ class ENAUTILUS(NAUTILUS):
         else:
             # k-mean cluster Ns solutions
             k_means = KMeans(n_clusters=self.Ns)
-            k_means.fit(points)
+            solution_points = [points[1] for point in points]
+            k_means.fit(solution_points)
 
-            closest, _ = pairwise_distances_argmin_min(k_means.cluster_centers_, points)
-
-            self.NsPoints = list(map(list, np.array(points)[closest.tolist()]))
+            closest = set(
+                pairwise_distances_argmin_min(
+                    k_means.cluster_centers_, solution_points
+                )[
+                    0
+                ]
+            )
+            self.NsPoints = []
+            for point_idx in closest:
+                self.NsPoints.append(points[point_idx])
 
         # Find iteration point for each centroid
-        for point in self.NsPoints:
+        for _, point in self.NsPoints:
             self.zhs.append(self._update_zh(self.zh_prev, point))
             self.fh_lo = list(self.lower_bounds_factory.result(self.zh_prev))
             self.zh_los.append(self.fh_lo)
 
             if not self.problem.points:
-                self.zh_reach = None
+                self.zh_reach = []
             else:
                 self.zh_reach.append(
                     len(reachable_points(self.NsPoints, self.zh_los[-1], self.zhs[-1]))
@@ -250,7 +249,7 @@ class NAUTILUSv1(NAUTILUS):
         super().__init__(method, method_class)
 
     def _update_fh(self):
-        self.fh = list(self.fh_factory.result(self.preference, self.zh_prev))
+        self.fh = list(self.fh_factory.result(self.preference, self.zh_prev)[1])
 
     def next_iteration(self, preference=None):
         """
@@ -312,7 +311,7 @@ class NNAUTILUS(NAUTILUS):
     def _update_fh(self):
         u = [1.0] * len(self.ref_point)
         pref = DirectSpecification(self.problem, u, self.ref_point)
-        self.fh = list(self.fh_factory.result(pref, self.zh_prev))
+        self.fh = list(self.fh_factory.result(pref, self.zh_prev)[1])
         logging.debug("updated fh: %s", self.fh)
 
     def update_points(self):

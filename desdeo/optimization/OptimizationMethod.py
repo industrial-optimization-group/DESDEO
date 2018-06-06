@@ -6,6 +6,7 @@
 """
 """
 from abc import ABCMeta, abstractmethod
+from typing import List, Tuple
 
 import numpy as np
 from scipy.optimize import differential_evolution, minimize
@@ -27,7 +28,7 @@ class OptimizationMethod(object, metaclass=ABCMeta):
     def __init__(self, optimization_problem):
         self.optimization_problem = optimization_problem
 
-    def search(self, max=False, **params):
+    def search(self, max=False, **params) -> Tuple[np.ndarray, List[float]]:
         """
         Search for the optimal solution
 
@@ -51,7 +52,7 @@ class OptimizationMethod(object, metaclass=ABCMeta):
         return self._search(**params)
 
     @abstractmethod
-    def _search(self, **params):
+    def _search(self, **params) -> Tuple[np.ndarray, List[float]]:
         """
         The actual search for the optimal solution
 
@@ -106,7 +107,7 @@ class SciPy(OptimalSearch):
         )
         return self.last_const[ncon[0]]
 
-    def _search(self, max=False, **params):
+    def _search(self, max=False, **params) -> Tuple[np.ndarray, List[float]]:
         nconst = self.optimization_problem.nconst
         constraints = []
         for const in range(nconst):
@@ -146,7 +147,7 @@ class SciPyDE(OptimalSearch):
                     self.penalty = 50000000
         return self._coeff * obj[0] + self.penalty
 
-    def _search(self, **params):
+    def _search(self, **params) -> Tuple[np.ndarray, List[float]]:
         bounds = np.array(self.optimization_problem.problem.bounds())
         np.rot90(bounds)
         res = differential_evolution(
@@ -161,12 +162,12 @@ class SciPyDE(OptimalSearch):
         )
         if self.penalty and self.v > 0.0001:
             print("INFEASIBLE %f" % self.v)
-        return self.optimization_problem.problem.evaluate([res.x])[0]
+        return res.x, self.optimization_problem.problem.evaluate([res.x])[0]
 
 
 class PointSearch(OptimizationMethod):
 
-    def _search(self, **params):
+    def _search(self, **params) -> Tuple[np.ndarray, List[float]]:
         evl = self.optimization_problem.problem.evaluate()
         obj, const = self.optimization_problem.evaluate(evl)
         a_obj = self._coeff * np.array(obj)
@@ -177,4 +178,4 @@ class PointSearch(OptimizationMethod):
             a_obj += viol
 
         opt_i = np.argmin(a_obj)
-        return self.optimization_problem.problem.evaluate()[opt_i]
+        return opt_i, self.optimization_problem.problem.evaluate()[opt_i]

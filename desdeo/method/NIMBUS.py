@@ -13,6 +13,7 @@ Synchronous approach in interactive multiobjective optimization
 European Journal of Operational Research, 2006, 170, 909-922
 """
 import logging
+from typing import List, Tuple
 
 import numpy as np
 
@@ -56,7 +57,7 @@ class NIMBUS(InteractiveMethod):
         self._problem = problem
         self.selected_solution = None
 
-    def _next_iteration(self, *args, **kwargs):
+    def _next_iteration(self, *args, **kwargs) -> List[Tuple[np.ndarray, List[float]]]:
         try:
             self._classification = kwargs["preference"]
         except KeyError:
@@ -71,15 +72,13 @@ class NIMBUS(InteractiveMethod):
         po = []
         for scalar in self._scalars:
             po.append(
-                list(
-                    self._factories[self.__SCALARS.index(scalar)].result(
-                        self._classification, self.selected_solution
-                    )
+                self._factories[self.__SCALARS.index(scalar)].result(
+                    self._classification, self.selected_solution
                 )
             )
         return po
 
-    def _init_iteration(self, *args, **kwargs):
+    def _init_iteration(self, *args, **kwargs) -> List[Tuple[np.ndarray, List[float]]]:
         ref = (np.array(self.problem.nadir) - np.array(self.problem.ideal)) / 2
         cls = []
         # Todo calculate ideal and nadir values

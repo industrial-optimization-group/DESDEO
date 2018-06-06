@@ -5,6 +5,9 @@
 # Copyright (c) 2016  Vesa Ojalehto
 
 from abc import ABCMeta
+from typing import List, Tuple
+
+import numpy as np
 
 
 class ResultFactory(object):
@@ -25,7 +28,7 @@ class BoundsFactory(ResultFactory):
         for fi, fr in enumerate(prev_point):
             self.optimization_method.optimization_problem.obj_bounds = list(prev_point)
             self.optimization_method.optimization_problem.obj_bounds[fi] = None
-            bound = self.optimization_method.search(upper)
+            _, bound = self.optimization_method.search(upper)
             if bound is None:
                 Phr.append(prev_point[fi])
             else:
@@ -39,7 +42,7 @@ class IterationPointFactory(ResultFactory):
     def __init__(self, optimization_method):
         self.optimization_method = optimization_method
 
-    def result(self, preferences, prev_point):
+    def result(self, preferences, prev_point) -> Tuple[np.ndarray, List[float]]:
         self.optimization_method.optimization_problem.set_preferences(
             preferences, prev_point
         )

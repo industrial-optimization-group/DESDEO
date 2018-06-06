@@ -8,12 +8,13 @@
 
 import datetime
 import sys
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 from sklearn.cluster.k_means_ import KMeans
 from sklearn.metrics.pairwise import pairwise_distances_argmin_min
 
+from desdeo.core.ResultFactory import IterationPointFactory
 from desdeo.preference.PreferenceInformation import DirectSpecification
 
 
@@ -92,7 +93,9 @@ def random_weights(nobj: int, nweight: int) -> List[List[float]]:
     return _centroids(nobj, weights)
 
 
-def new_points(factory, solution, weights: List[List[float]] = None):
+def new_points(
+    factory: IterationPointFactory, solution, weights: List[List[float]] = None
+) -> List[Tuple[np.ndarray, List[float]]]:
     """Generate approximate set of points
 
     Generate set of Pareto optimal solutions projecting from the Pareto optimal solution
