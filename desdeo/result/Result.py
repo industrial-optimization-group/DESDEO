@@ -5,34 +5,44 @@
 # Copyright (c) 2016  Vesa Ojalehto
 """
 """
-from abc import ABCMeta
+
+import numpy as np
+from typing import Optional, List, Tuple
 
 
-class Result(object):
+class ResultSet(object):
     """
-    Abstract base class for result factories to create new results
+    Class to store sets of results.
     """
-    __metaclass__ = ABCMeta
 
-    def __init__(self, params):
+    def __init__(
+        self, data: Optional[List[Tuple[np.ndarray, List[float]]]] = None, meta=None
+    ) -> None:
         """
-        Constructor
+        Construct a Result from data, such as a list of (decision, objective) pairs.
         """
+        if data is None:
+            self._data = []  # type: List[Tuple[np.ndarray, List[float]]]
+        else:
+            self._data = data
 
+        self._meta = meta
 
-class Bound(Result):
+    @property
+    def decision_vars(self):
+        return [decis for decis, _ in self._data]
 
-    def __init__(self, params):
-        pass
+    @property
+    def objective_vars(self):
+        return [obj for _, obj in self._data]
 
+    @property
+    def meta(self):
+        return self._meta
 
-class Distance(Result):
+    @property
+    def items(self):
+        return self._data
 
-    def __init__(self, params):
-        pass
-
-
-class IterationPoint(Result):
-
-    def __init__(self, params):
-        pass
+    def __repr__(self):
+        return "ResultSet({!r}, {!r})".format(self.items, self.meta)

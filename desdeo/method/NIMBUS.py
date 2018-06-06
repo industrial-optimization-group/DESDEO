@@ -13,7 +13,6 @@ Synchronous approach in interactive multiobjective optimization
 European Journal of Operational Research, 2006, 170, 909-922
 """
 import logging
-from typing import List, Tuple
 
 import numpy as np
 
@@ -25,6 +24,7 @@ from desdeo.optimization.OptimizationProblem import (
     NIMBUSStomProblem,
 )
 from desdeo.preference import NIMBUSClassification
+from desdeo.result.Result import ResultSet
 
 from .base import InteractiveMethod
 
@@ -57,7 +57,7 @@ class NIMBUS(InteractiveMethod):
         self._problem = problem
         self.selected_solution = None
 
-    def _next_iteration(self, *args, **kwargs) -> List[Tuple[np.ndarray, List[float]]]:
+    def _next_iteration(self, *args, **kwargs) -> ResultSet:
         try:
             self._classification = kwargs["preference"]
         except KeyError:
@@ -76,9 +76,9 @@ class NIMBUS(InteractiveMethod):
                     self._classification, self.selected_solution
                 )
             )
-        return po
+        return ResultSet(po, self._scalars)
 
-    def _init_iteration(self, *args, **kwargs) -> List[Tuple[np.ndarray, List[float]]]:
+    def _init_iteration(self, *args, **kwargs) -> ResultSet:
         ref = (np.array(self.problem.nadir) - np.array(self.problem.ideal)) / 2
         cls = []
         # Todo calculate ideal and nadir values
@@ -87,4 +87,4 @@ class NIMBUS(InteractiveMethod):
         self.selected_solution = self._factories[self.__SCALARS.index("ACH")].result(
             NIMBUSClassification(self, cls), self.selected_solution
         )
-        return [self.selected_solution]
+        return ResultSet([self.selected_solution])
