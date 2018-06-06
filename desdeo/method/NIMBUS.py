@@ -61,9 +61,12 @@ class NIMBUS(InteractiveMethod):
             self._classification = kwargs["preference"]
         except KeyError:
             logging.error("Failed to obtain preferences for NIMBUS method")
-        try:
+        if "scalars" in kwargs:
             self._scalars = kwargs["scalars"]
-        except KeyError:
+        elif "num_scalars" in kwargs:
+            num_scalars = int(kwargs["num_scalars"])
+            self._scalars = self.__SCALARS[:num_scalars]
+        else:
             self._scalars = self.__SCALARS
         po = []
         for scalar in self._scalars:
