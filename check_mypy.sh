@@ -1,3 +1,3 @@
 #!/bin/bash
 
-mypy desdeo examples tests --ignore-missing-imports
+MYPYPATH=./stubs mypy desdeo examples tests --ignore-missing-imports
