@@ -18,7 +18,7 @@ Add all variants
 Longer descriptions of the method variants and methods
 """
 import logging
-from typing import List, Type, Tuple  # noqa - rm when pyflakes understands type hints
+from typing import List, Tuple, Type  # noqa - rm when pyflakes understands type hints
 from warnings import warn
 
 import numpy as np
