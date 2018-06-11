@@ -13,6 +13,7 @@ Synchronous approach in interactive multiobjective optimization
 European Journal of Operational Research, 2006, 170, 909-922
 """
 import logging
+from typing import List
 
 import numpy as np
 
@@ -24,6 +25,7 @@ from desdeo.optimization.OptimizationProblem import (
     NIMBUSStomProblem,
 )
 from desdeo.preference import NIMBUSClassification
+from desdeo.preference.PreferenceInformation import ReferencePoint
 from desdeo.result.Result import ResultSet
 
 from .base import InteractiveMethod
@@ -91,3 +93,30 @@ class NIMBUS(InteractiveMethod):
             NIMBUSClassification(self, cls), None
         )
         return ResultSet([self.selected_solution])
+
+    def between(self, objs1: List[float], objs2: List[float], n=1):
+        """
+        Generate `n` solutions which attempt to trade-off `objs1` and `objs2`.
+
+        Parameters
+        ----------
+        objs1
+            First boundary point for desired objective function values
+
+        objs2
+            Second boundary point for desired objective function values
+
+        n
+            Number of solutions to generate
+        """
+        objs1_arr = np.array(objs1)
+        objs2_arr = np.array(objs2)
+        segments = n + 1
+        diff = objs2_arr - objs1_arr
+        solutions = []
+        for x in range(1, segments):
+            btwn_obj = objs1_arr + float(x) / segments * diff
+            solutions.append(
+                self._get_ach().result(ReferencePoint(self, btwn_obj), None)
+            )
+        return ResultSet(solutions)
