@@ -1,5 +1,6 @@
 """
-This package contains tools for modelling optimisation problems.
+This package contains tools for modelling multi-objective optimisation
+problems.
 """
 
 from .Problem import PreGeneratedProblem, PythonProblem, Variable
