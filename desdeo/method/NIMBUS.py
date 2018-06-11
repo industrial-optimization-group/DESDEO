@@ -78,13 +78,16 @@ class NIMBUS(InteractiveMethod):
             )
         return ResultSet(po, self._scalars)
 
+    def _get_ach(self):
+        return self._factories[self.__SCALARS.index("ACH")]
+
     def _init_iteration(self, *args, **kwargs) -> ResultSet:
         ref = (np.array(self.problem.nadir) - np.array(self.problem.ideal)) / 2
         cls = []
         # Todo calculate ideal and nadir values
         for v in ref:
             cls.append(("<=", v))
-        self.selected_solution = self._factories[self.__SCALARS.index("ACH")].result(
-            NIMBUSClassification(self, cls), self.selected_solution
+        self.selected_solution = self._get_ach().result(
+            NIMBUSClassification(self, cls), None
         )
         return ResultSet([self.selected_solution])
