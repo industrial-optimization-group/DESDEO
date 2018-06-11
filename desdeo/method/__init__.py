@@ -4,6 +4,12 @@
 
 # Copyright (c) 2016  Vesa Ojalehto
 
+"""
+This package contains methods for interactively solving multi-objective
+optimisation problems. Currently this includes the NIMBUS methods and several
+variants of the NAUTILUS method.
+"""
+
 __all__ = ["NAUTILUSv1", "ENAUTILUS", "NNAUTILUS", "NIMBUS"]
 
 from .NAUTILUS import ENAUTILUS
