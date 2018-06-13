@@ -17,5 +17,6 @@ API documentation
 
    desdeo.preference
    desdeo.problem
+   desdeo.problem.toy
    desdeo.result
    desdeo.utils
