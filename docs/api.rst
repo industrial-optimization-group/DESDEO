@@ -8,7 +8,13 @@ API documentation
 
    desdeo.core
    desdeo.method
+
+   :template: optimization.rst
+
    desdeo.optimization
+
+   :template: autosummary/module.rst
+
    desdeo.preference
    desdeo.problem
    desdeo.result

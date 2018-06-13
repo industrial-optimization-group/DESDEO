@@ -4,6 +4,7 @@
 #
 # Copyright (c) 2016  Vesa Ojalehto
 """
+This module contains methods for solving single-objective optimization problems.
 """
 from abc import ABCMeta, abstractmethod
 from typing import List, Tuple

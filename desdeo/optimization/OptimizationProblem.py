@@ -4,7 +4,9 @@
 #
 # Copyright (c) 2016  Vesa Ojalehto
 """
-Module description
+This module contains single objective optimization problems. Principally there
+are scalarization functions for converting multi-objective problems into
+single-objective functions.
 """
 
 import abc
