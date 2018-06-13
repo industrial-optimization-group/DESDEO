@@ -13,9 +13,8 @@ Problems provided by  Narula and Weistroffer
 from desdeo.method import NIMBUS, NAUTILUSv1
 from desdeo.optimization import SciPyDE
 from desdeo.preference import NIMBUSClassification
-from desdeo.utils import tui
 from desdeo.problem.toy import RiverPollution
-
+from desdeo.utils import tui
 
 if __name__ == "__main__":
     # Solve River Pollution problem using NAUTILUS

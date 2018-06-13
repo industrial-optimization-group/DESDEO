@@ -12,16 +12,16 @@ single-objective functions.
 import abc
 from functools import reduce
 from typing import (  # noqa - rm when pyflakes understands type hints
+    Any,
     List,
     Optional,
     Tuple,
-    Any,
 )
 
 import numpy as np
 
-from desdeo.utils.exceptions import PreferenceUndefinedError
 from desdeo.problem.Problem import MOProblem
+from desdeo.utils.exceptions import PreferenceUndefinedError
 
 
 class OptimizationProblem(object, metaclass=abc.ABCMeta):

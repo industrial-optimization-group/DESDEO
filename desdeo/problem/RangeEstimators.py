@@ -4,11 +4,13 @@ set. The vector with the best objective values is called the ideal, and the
 vector with the worst values is called the nadir.
 """
 
+from typing import List, Tuple, Type
+
+import numpy as np
+
 from desdeo.optimization.OptimizationMethod import OptimizationMethod
 from desdeo.optimization.OptimizationProblem import SelectedOptimizationProblem
 from desdeo.problem.Problem import MOProblem
-import numpy as np
-from typing import Tuple, List, Type
 
 
 def estimate_payoff_table(

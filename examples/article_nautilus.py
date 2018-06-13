@@ -45,10 +45,10 @@ from desdeo.method.NAUTILUS import ENAUTILUS, NAUTILUSv1
 from desdeo.optimization.OptimizationMethod import PointSearch, SciPyDE
 from desdeo.optimization.OptimizationProblem import NautilusAchievementProblem
 from desdeo.problem.Problem import PreGeneratedProblem
+from desdeo.problem.toy import RiverPollution
 from desdeo.utils import misc, tui
 from desdeo.utils.misc import Tee
 from desdeo.utils.tui import _prompt_wrapper
-from desdeo.problem.toy import RiverPollution
 
 WEIGHTS = {
     "20": [

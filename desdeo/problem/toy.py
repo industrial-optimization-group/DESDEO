@@ -4,6 +4,7 @@ interactive multi-objective optimization methods.
 """
 
 import math
+
 from desdeo.optimization import SciPyDE
 from desdeo.problem import PythonProblem, Variable
 from desdeo.problem.RangeEstimators import default_estimate
