@@ -2,4 +2,3 @@
 {{ underline }}
 
 .. automodule:: {{ fullname }}
-    :members:
