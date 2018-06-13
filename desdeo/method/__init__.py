@@ -12,7 +12,5 @@ variants of the NAUTILUS method.
 
 __all__ = ["NAUTILUSv1", "ENAUTILUS", "NNAUTILUS", "NIMBUS"]
 
-from .NAUTILUS import ENAUTILUS
-from .NAUTILUS import NAUTILUSv1
-from .NAUTILUS import NNAUTILUS
+from .NAUTILUS import ENAUTILUS, NNAUTILUS, NAUTILUSv1
 from .NIMBUS import NIMBUS

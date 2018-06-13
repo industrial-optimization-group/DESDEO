@@ -4,8 +4,8 @@
 
 # Copyright (c) 2016  Vesa Ojalehto
 
-import sys
 import logging
+import sys
 
 if "--debug" in sys.argv:
     FORMAT = "%(message)s"

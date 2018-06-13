@@ -6,8 +6,6 @@ single-objective fucntions. These are contained in `OptimizationProblem`. Both
 are used as primitives by the methods defined in `desdeo.method`.
 """
 
-from .OptimizationMethod import PointSearch
-from .OptimizationMethod import SciPyDE
-from .OptimizationMethod import SciPy
+from .OptimizationMethod import PointSearch, SciPy, SciPyDE
 
 __all__ = ["PointSearch", "SciPyDE", "SciPy"]
