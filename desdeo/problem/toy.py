@@ -4,7 +4,9 @@ interactive multi-objective optimization methods.
 """
 
 import math
+from desdeo.optimization import SciPyDE
 from desdeo.problem import PythonProblem, Variable
+from desdeo.problem.RangeEstimators import default_estimate
 
 
 class RiverPollution(PythonProblem):
@@ -41,8 +43,6 @@ class RiverPollution(PythonProblem):
         super().__init__(
             nobj=4,
             nconst=0,  # Optional
-            ideal=[-6.34, -3.44, -7.5, 0.1],  # Optional
-            nadir=[-4.07, -2.87, -0.32, 9.71],  # Optional
             maximized=[True, True, True, False],  # Optional
             objectives=[
                 "Water Quality Fishery",  # Optional
@@ -58,6 +58,9 @@ class RiverPollution(PythonProblem):
         self.add_variables(
             Variable([0.0, 1.0], starting_point=0.5, name="BOD City")  # Optional
         )  # Optional
+        ideal, nadir = default_estimate(SciPyDE, self)
+        self.ideal = ideal
+        self.nadir = nadir
 
     def evaluate(self, population):
         objectives = []
