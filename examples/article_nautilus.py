@@ -48,7 +48,7 @@ from desdeo.problem.Problem import PreGeneratedProblem
 from desdeo.utils import misc, tui
 from desdeo.utils.misc import Tee
 from desdeo.utils.tui import _prompt_wrapper
-from NarulaWeistroffer import RiverPollution
+from desdeo.problem.toy import RiverPollution
 
 WEIGHTS = {
     "20": [
