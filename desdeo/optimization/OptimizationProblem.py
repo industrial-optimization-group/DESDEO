@@ -72,6 +72,29 @@ class OptimizationProblem(object, metaclass=abc.ABCMeta):
         pass
 
 
+class SelectedOptimizationProblem(OptimizationProblem):
+    """
+    Converts a multi-objective optimization problem to a single-objective one
+    by selecting only a single objective.
+    """
+
+    def __init__(self, mo_problem: MOProblem, n: int) -> None:
+        """
+        Parameters
+        ----------
+
+        n
+            The index of the objective to be considered
+        """
+        super().__init__(mo_problem)
+        self.n = n
+
+    def _evaluate(
+        self, objectives: List[List[float]]
+    ) -> Tuple[List[float], Optional[np.ndarray]]:
+        return [objectives[0][self.n]], None
+
+
 class ScalarizedProblem(OptimizationProblem, metaclass=abc.ABCMeta):
 
     def __init__(self, mo_problem: MOProblem, **kwargs) -> None:
