@@ -11,11 +11,17 @@ single-objective functions.
 
 import abc
 from functools import reduce
-from typing import List, Optional, Tuple
+from typing import (  # noqa - rm when pyflakes understands type hints
+    List,
+    Optional,
+    Tuple,
+    Any,
+)
 
 import numpy as np
 
 from desdeo.utils.exceptions import PreferenceUndefinedError
+from desdeo.problem.Problem import MOProblem
 
 
 class OptimizationProblem(object, metaclass=abc.ABCMeta):
@@ -25,17 +31,18 @@ class OptimizationProblem(object, metaclass=abc.ABCMeta):
 
     Attributes
     ----------
-    problem : OptimizationMethod instance
-        Method used for solving the problem
+    problem
+        The multi-objective problem that the single-objective problem is posed
+        in terms of
 
     """
 
-    def __init__(self, method):
+    def __init__(self, mo_problem: MOProblem) -> None:
         """
         Constructor
         """
         self.nconst = 0
-        self.problem = method
+        self.problem = mo_problem
 
     def evaluate(
         self, objectives: List[List[float]]
@@ -67,11 +74,11 @@ class OptimizationProblem(object, metaclass=abc.ABCMeta):
 
 class ScalarizedProblem(OptimizationProblem, metaclass=abc.ABCMeta):
 
-    def __init__(self, method, **kwargs):
-        super(ScalarizedProblem, self).__init__(method)
+    def __init__(self, mo_problem: MOProblem, **kwargs) -> None:
+        super(ScalarizedProblem, self).__init__(mo_problem)
         self.reference = None
-        self._preferences = None
-        self.weights = None
+        self._preferences = None  # type: Any
+        self.weights = None  # type: Optional[List[float]]
 
     @abc.abstractmethod
     def _set_preferences(self):
@@ -125,12 +132,12 @@ class AchievementProblemBase(ScalarizedProblem):
     `_set_scaling_weights`.
     """
 
-    def __init__(self, method, **kwargs):
+    def __init__(self, mo_problem: MOProblem, **kwargs) -> None:
         self.eps = kwargs.get("eps", 0.00001)
         self.rho = kwargs.get("rho", 0.01)
         kwargs.get("rho", 0.01)
 
-        super().__init__(method, **kwargs)
+        super().__init__(mo_problem, **kwargs)
 
     def _set_preferences(self):
         self._set_scaling_weights()
@@ -203,10 +210,10 @@ class SimpleAchievementProblem(AchievementProblemBase):
     Springer, 1980, pp. 468-486.
     """
 
-    def __init__(self, method, **kwargs):
+    def __init__(self, mo_problem: MOProblem, **kwargs) -> None:
         self.scaling_weights = None
-        super().__init__(method, **kwargs)
-        self.weights = [1.0] * len(self.problem.nadir)
+        super().__init__(mo_problem, **kwargs)
+        self.weights = [1.0] * self.problem.nobj
         if kwargs.get("ach_pen"):
             self.v_pen = v_ach
         else:
@@ -348,8 +355,8 @@ class NIMBUSProblem(NadirStarStarScaleMixin, SimpleAchievementProblem):
 
     """
 
-    def __init__(self, method, **kwargs):
-        super().__init__(method, **kwargs)
+    def __init__(self, mo_problem: MOProblem, **kwargs) -> None:
+        super().__init__(mo_problem, **kwargs)
 
     def _ach(self, objectives):
         fid_a = self._preferences.with_class("<") + self._preferences.with_class("<=")
@@ -429,8 +436,8 @@ class EpsilonConstraintProblem(OptimizationProblem):
 
     """
 
-    def __init__(self, method, obj_bounds=None):
-        super(EpsilonConstraintProblem, self).__init__(method)
+    def __init__(self, mo_problem: MOProblem, obj_bounds=None) -> None:
+        super(EpsilonConstraintProblem, self).__init__(mo_problem)
         self.obj_bounds = obj_bounds
         self.objective = 100000
 
@@ -477,8 +484,8 @@ class MaxEpsilonConstraintProblem(EpsilonConstraintProblem):
 
     """
 
-    def __init__(self, method, obj_bounds=None):
-        super().__init__(method)
+    def __init__(self, mo_problem: MOProblem, obj_bounds=None) -> None:
+        super().__init__(mo_problem)
         # Note that a class is needed, but here we
         # wish to be clear of our intention
         self._coeff = -1
