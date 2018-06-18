@@ -1,5 +1,9 @@
 # History #
 
+## 0.1.3 (2018-06-18) ##
+
+* Fix PyPI package
+
 ## 0.1.2 (2018-06-13) ##
 
 * Improvements to automatically generated documentation
