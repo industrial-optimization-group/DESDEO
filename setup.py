@@ -38,7 +38,7 @@ setup(
     long_description=long_desc,
     long_description_content_type="text/markdown",
     version="0.1.2",
-    packages=find_packages(include=["desdeo"]),
+    packages=find_packages(exclude=["tests"]),
     package_dir={"desdeo": "desdeo"},
     install_requires=requirements,
     extras_require={
