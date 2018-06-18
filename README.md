@@ -18,10 +18,10 @@ experimenting with interactive multiobjective optimization.
 
 ### From PyPI using pip ###
 
-You can [install desdeo from PyPI](https://pypi.org/project/desdeo/) by using
-the following command:
+You can [install desdeo from PyPI](https://pypi.org/project/desdeo/) by running
+the following command in a terminal:
 
-  $ pip install desdeo
+    pip install desdeo
 
 ## Background ##
 
