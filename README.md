@@ -1,6 +1,7 @@
 # DESDEO README #
 
 <p align="center">
+<a href="https://badge.fury.io/py/desdeo"><img src="https://badge.fury.io/py/desdeo.svg" alt="Available on PyPI" height="18"></a>
 <a href="https://desdeo.readthedocs.io/en/latest/?badge=latest"><img alt="Documentation Status" src="https://readthedocs.org/projects/desdeo/badge/?version=latest"></a>
 <a href="https://travis-ci.com/industrial-optimization-group/DESDEO"><img alt="Build Status" src="https://travis-ci.com/industrial-optimization-group/DESDEO.svg?branch=master"></a>
 <a href="https://github.com/ambv/black"><img alt="Code style: black" src="https://img.shields.io/badge/code%20style-black-000000.svg"></a>
@@ -13,7 +14,16 @@ experimenting with interactive multiobjective optimization.
 
 [Background and publications available on the University of Jyväskylä Research Group in Industrial Optimization web pages.](https://desdeo.it.jyu.fi)
 
-## Introduction ##
+## Installation ##
+
+### From PyPI using pip ###
+
+You can [install desdeo from PyPI](https://pypi.org/project/desdeo/) by using
+the following command:
+
+  $ pip install desdeo
+
+## Background ##
 
 There exist many methods to solve [multiobjective optimization](https://en.wikipedia.org/wiki/Multi-objective_optimization) 
 problems. Methods which introduce some preference information into the solution process
