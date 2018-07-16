@@ -50,6 +50,7 @@ setup(
             "recommonmark",
         ],
         "dev": ["black==18.4a4", "mypy", "flake8", "isort"],
+        "vis": ["desdeo-vis"],
     },
     setup_requires=setup_requirements,
     test_suite="tests",
