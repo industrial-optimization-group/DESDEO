@@ -6,6 +6,7 @@ DESDEO's documentation
    :caption: Contents:
 
    README <README>
+   background/index
    api
 
 Indices and tables
