@@ -1,5 +1,11 @@
 # History #
 
+## 0.1.4 (2018-07-16) ##
+
+* Add CylinderProblem
+* Add background documentation
+* Add desdeo-vis as extra dependency
+
 ## 0.1.3 (2018-06-18) ##
 
 * Fix PyPI package
