@@ -59,6 +59,25 @@ class NIMBUS(InteractiveMethod):
         self._problem = problem
         self.selected_solution = None
 
+    def next_iteration(self, *args, **kwargs):
+        """
+        Generate the next iteration's solutions using the DM's preferences and
+        the NIMBUS scalarization functions.
+
+        Parameters
+        ----------
+        preference: NIMBUSClassification
+            Preference classifications obtained from the DM
+
+        scalars: list of strings
+            List containing one or more of the scalarizing functions: NIM, ACH, GUESS, STOM
+
+        num_scalars: number
+            The number of scalarizing functions to use (mutually exclusive with `scalars`)
+        """
+
+        return super().next_iteration(*args, **kwargs)
+
     def _next_iteration(self, *args, **kwargs) -> ResultSet:
         try:
             self._classification = kwargs["preference"]
