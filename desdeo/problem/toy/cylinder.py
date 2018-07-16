@@ -43,7 +43,7 @@ class CylinderProblem(PythonProblem):
 
             objectives.append(
                 [
-                    math.pi * r ** 2 * h,
+                    -(math.pi * r ** 2 * h),
                     2 * math.pi * r ** 2 + 2 * math.pi * r * h,
                     abs(h - 15.0),
                 ]
