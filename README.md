@@ -14,75 +14,75 @@ experimenting with interactive multiobjective optimization.
 
 [Background and publications available on the University of Jyväskylä Research Group in Industrial Optimization web pages.](https://desdeo.it.jyu.fi)
 
+## Try in your browser ##
+
+You can try a guided example problem in your browser: [choose how to deal with
+river pollution using
+NIMBUS](https://mybinder.org/v2/gh/industrial-optimization-group/desdeo-vis/master?filepath=notebooks%2Fnimbus-river-pollution.ipynb).
+You can also [browse the other
+examples](https://mybinder.org/v2/gh/industrial-optimization-group/desdeo-vis/master?filepath=notebooks).
+
+## What is interactive multiobjective optimization? ##
+
+There exist many methods to solve [multiobjective
+optimization](https://en.wikipedia.org/wiki/Multi-objective_optimization)
+problems. Methods which introduce some preference information into the solution
+process are commonly known as multiple criteria decision making methods. When
+using so called [interactive
+methods](https://en.wikipedia.org/wiki/Multi-objective_optimization#Interactive_methods),
+the decision maker (DM) takes an active part in an iterative solution process
+by expressing preference information at several iterations. According to the
+given preferences, the solution process is updated at each iteration and one or
+several new solutions are generated. This iterative process continues until the
+DM is sufficiently satisfied with one of the solutions found.
+
+Many interactive methods have been proposed and they differ from each other
+e.g. in the way preferences are expressed and how the preferences are utilized
+when new solutions. The aim of the DESDEO is to implement aspects common for
+different interactive methods, as well as provide framework for developing and
+implementing new methods.
+
 ## Installation ##
 
 ### From PyPI using pip ###
 
-You can [install desdeo from PyPI](https://pypi.org/project/desdeo/) by running
-the following command in a terminal:
+Assuming you have Pip and Python 3 installed, you can [install desdeo from
+PyPI](https://pypi.org/project/desdeo/) by running the following command in
+a terminal:
 
-    pip install desdeo
+    pip install desdeo[vis]
 
-## Background ##
+This installs desdeo *and*
+[desdeo-vis](https://github.com/industrial-optimization-group/desdeo-vis),
+which you will also want in most cases.
 
-There exist many methods to solve [multiobjective optimization](https://en.wikipedia.org/wiki/Multi-objective_optimization) 
-problems. Methods which introduce some preference information into the solution process
-are commonly known as multiple criteria decision making methods. When
-using so called [interactive methods](https://en.wikipedia.org/wiki/Multi-objective_optimization#Interactive_methods),
-the decision maker (DM) takes an active part in an iterative solution
-process by expressing preference information at several
-iterations. According to the given preferences, the solution process
-is updated at each iteration and one or several new solutions are
-generated. This iterative process continues until the DM is
-sufficiently satisfied with one of the solutions found.
+## Getting started with example problems ##
 
-Many interactive methods have been proposed and they differ from each
-other e.g. in the way preferences are expressed and how the
-preferences are utilized when new solutions. The aim of the DESDEO is
-to implement aspects common for different interactive methods, as well
-as provide framework for developing and implementing new methods.
+To proceed with this section, you must [first install Jupyter
+notebook](http://jupyter.org/install). If you're using Anaconda, you already
+have it!
 
-## Architecture ##
+You can copy the examples to a directory by running:
 
-Overview of the current DESDEO architecture is shown in diagram
+    python -m desdeo_vis.copy_examples /path/to/destination
 
-![DESDEO Overview](https://github.com/industrial-optimization-group/DESDEO/raw/master/docs/design/overview.png)
+You can then open them in the notebook:
 
-## Interactive Methods  ##
+    jupyter notebook
 
-### NAUTILUS Method ###
-
-Most interactive methods developed for solving multiobjective
-optimization problems sequentially generate Pareto optimal solutions
-and the decision maker must always trade-off to get a new
-solution. Instead, the family of interactive trade-off-free methods
-called NAUTILUS starts from the worst possible objective values and
-improves every objective function step by step according to the
-preferences of the decision maker. Recently, the NAUTILUS family has
-been presented as a general NAUTILUS framework consisting of several
-modules.  To extend the applicability of interactive methods, it is
-recommended that a reliable software implementation, which can be
-easily connected to different simulators or modelling tools, is
-publicly available. In this paper, we bridge the gap between
-presenting an algorithm and implementing it and propose a general
-software framework for the NAUTILUS family which facilitates the
-implementation of all the NAUTILUS methods, and even other interactive
-methods. This software framework has been designed following an
-object-oriented architecture and consists of several software blocks
-designed to cover independently the different requirements of the
-NAUTILUS framework. To enhance wide applicability, the implementation
-is available as open source code.
-
-## Examples ##
-
-The functioning and flexibility of the DESDEO framework is
-demonstrated with two numerical example problems.
+The next step is to [read the full
+documentation.](https://desdeo.readthedocs.io/en/latest/)
 
 ## Development ##
 
 ### Set-up ###
 
 You should install the git pre-commit hook so that code formatting is kept consistent automatically. This is configured using the pre-commit utility. See [the installation instructions](https://pre-commit.com/#install).
+
+If you are using pipenv for development, you can install desdeo and its
+dependencies after obtaining a git checkout like so:
+
+    pipenv install -e .[docs,dev,vis]
 
 ### Tests ###
 

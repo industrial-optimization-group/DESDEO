@@ -11,5 +11,7 @@ interactive multi-objective optimization techniques in DESDEO.
    what-is-nimbus
    classification-in-nimbus
    icv-and-nadir
+   what-is-nautilus
    glossary
+   architecture
    further-reading
