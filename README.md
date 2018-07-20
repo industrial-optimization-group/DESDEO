@@ -44,6 +44,20 @@ implementing new methods.
 
 ## Installation ##
 
+### From conda-forge using Conda ###
+
+This is the **recommended installation method**, especially for those who are
+newer to Python. First download and install the [Anaconda Python
+distribution](https://www.anaconda.com/download/).
+
+Next, run the following commands in a terminal:
+
+    conda config --add channels conda-forge
+    conda install desdeo desdeo-vis
+
+Note: if you prefer not to install the full Anaconda distribution, you can
+install [miniconda](https://conda.io/miniconda.html) instead.
+
 ### From PyPI using pip ###
 
 Assuming you have Pip and Python 3 installed, you can [install desdeo from
