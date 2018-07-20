@@ -76,15 +76,15 @@ To proceed with this section, you must [first install Jupyter
 notebook](http://jupyter.org/install). If you're using Anaconda, you already
 have it!
 
-You can copy the examples to a directory by running:
+You can copy the example notebooks to the current directory by running:
 
-    python -m desdeo_vis.copy_examples /path/to/destination
+    python -m desdeo_vis.copy_examples
 
-You can then open them in the notebook:
+You can then open them using Jupyter notebook by running:
 
     jupyter notebook
 
-The next step is to [read the full
+After trying out the examples, the next step is to [read the full
 documentation.](https://desdeo.readthedocs.io/en/latest/)
 
 ## Development ##
