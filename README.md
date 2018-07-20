@@ -18,9 +18,9 @@ experimenting with interactive multiobjective optimization.
 
 You can try a guided example problem in your browser: [choose how to deal with
 river pollution using
-NIMBUS](https://mybinder.org/v2/gh/industrial-optimization-group/desdeo-vis/master?filepath=notebooks%2Fnimbus-river-pollution.ipynb).
+NIMBUS](https://mybinder.org/v2/gh/industrial-optimization-group/desdeo-vis/master?filepath=desdeo_notebooks%2Fnimbus-river-pollution.ipynb).
 You can also [browse the other
-examples](https://mybinder.org/v2/gh/industrial-optimization-group/desdeo-vis/master?filepath=notebooks).
+examples](https://mybinder.org/v2/gh/industrial-optimization-group/desdeo-vis/master?filepath=desdeo_notebooks).
 
 ## What is interactive multiobjective optimization? ##
 
@@ -78,7 +78,7 @@ have it!
 
 You can copy the example notebooks to the current directory by running:
 
-    python -m desdeo_vis.copy_examples
+    python -m desdeo_notebooks
 
 You can then open them using Jupyter notebook by running:
 
