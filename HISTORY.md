@@ -1,5 +1,10 @@
 # History #
 
+## 0.1.5 (2018-08-27) ##
+
+* Specify prompt-toolkit as <2 to avoid Jupyter-console incompatibility
+* Documentation improvements
+
 ## 0.1.4 (2018-07-16) ##
 
 * Add CylinderProblem
