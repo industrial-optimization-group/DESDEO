@@ -26,7 +26,7 @@ setup_requirements = ["pytest-runner"]
 
 test_requirements = ["pytest"]
 
-requirements = ["numpy", "prompt-toolkit", "scikit-learn", "scipy"]
+requirements = ["numpy", "prompt-toolkit<2", "scikit-learn", "scipy"]
 
 setup(
     name="desdeo",
