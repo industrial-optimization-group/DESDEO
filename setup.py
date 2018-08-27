@@ -49,7 +49,7 @@ setup(
             "pytest_check_links",
             "recommonmark",
         ],
-        "dev": ["black==18.4a4", "mypy", "flake8", "isort"],
+        "dev": ["black==18.4a4", "mypy", "flake8", "isort", "twine"],
         "vis": ["desdeo-vis"],
     },
     setup_requires=setup_requirements,
