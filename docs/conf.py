@@ -59,9 +59,16 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinx.ext.viewcode",
     "sphinx.ext.autosummary",
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.autosectionlabel",
 ]
 
 autosummary_generate = True
+autosectionlabel_prefix_document = True
+
+intersphinx_mapping = {
+    "vis": ("https://desdeo.readthedocs.io/projects/desdeo-vis/en/latest/", None)
+}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]

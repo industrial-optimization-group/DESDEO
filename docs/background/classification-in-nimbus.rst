@@ -74,8 +74,11 @@ functions whose value can be worsened.
 Classification using the widget
 -------------------------------
 
-The current solution is shown graphically as a parallel coordinate plot.
-The classification can be made by either clicking points on the axes, or by
+You may find it useful to follow along with :ref:`the cylinder notebook
+</nimbus-cylinder.ipynb>` while reading this section.
+
+The current solution is shown graphically as a parallel coordinate plot. The
+classification can be made by either clicking points on the axes, or by
 manually adjusting the classification selection boxes and limit fields.
 
 By default, maximization is interpreted as minimization. This means the
@@ -86,8 +89,8 @@ your notebooks:
 
 .. code-block:: python
 
-from desdeo_vis.conf import conf
-conf(max_as_min=False)
+    from desdeo_vis.conf import conf
+    conf(max_as_min=False)
 ..
 
 Let us assume that the function under classification should be minimized.
@@ -116,9 +119,12 @@ limit field.
 Classifying the cylinder problem
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The first solution we get from NIMBUS is reasonable. However, we may decide
-at this point that we want to increase the cylinder's volume as much as
-possible, while still keeping the surface area and height difference low.
+This section walks you through creating a classification with the widget for
+:ref:`the cylinder notebook </nimbus-cylinder.ipynb>`.
+
+The first solution we get from NIMBUS is reasonable. However, we may decide at
+this point that we want to increase the cylinder's volume as much as possible,
+while still keeping the surface area and height difference low.
 
 To do this, we check the rightmost ( **>** ) radiobutton from the line
 describing the current solutions, because we allow (for now) the volume to
