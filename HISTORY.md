@@ -1,5 +1,9 @@
 # History #
 
+## 0.2.0 (2018-08-28) ##
+
+* Documentation improvements
+
 ## 0.1.5 (2018-08-27) ##
 
 * Specify prompt-toolkit as <2 to avoid Jupyter-console incompatibility
