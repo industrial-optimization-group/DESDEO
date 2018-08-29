@@ -35,14 +35,14 @@ release = ""
 # -- General configuration ---------------------------------------------------
 
 autodoc_mock_imports = ["numpy", "scipy", "sklearn", "prompt_toolkit"]
-autodoc_default_options = {
-    "members": None,
-    "undoc-members": None,
-    # "private-members": None,
-    "special-members": None,
-    # "inherited-members": None,
-    "show-inheritance": None,
-}
+autodoc_default_flags = [
+    "members",
+    "undoc-members",
+    # "private-members",
+    "special-members",
+    # "inherited-members",
+    "show-inheritance",
+]
 
 # If your documentation needs a minimal Sphinx version, state it here.
 #
