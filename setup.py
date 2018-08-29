@@ -44,7 +44,7 @@ setup(
     extras_require={
         "docs": [
             "sphinx_autodoc_typehints",
-            "sphinx>=2",
+            "sphinx>=1.8.0b1",
             "sphinx_rtd_theme",
             "pytest_check_links",
             "recommonmark",
