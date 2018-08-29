@@ -81,16 +81,16 @@ The current solution is shown graphically as a parallel coordinate plot. The
 classification can be made by either clicking points on the axes, or by
 manually adjusting the classification selection boxes and limit fields.
 
-By default, maximization is interpreted as minimization. This means the
-function is negated. If you wish to view maximizations in their original
-form, click settings and then uncheck *Reformulate maximization as
-minimization*. To change the default, add the following to the beginning of
-your notebooks:
+By default, maximization and minimization are displayed in their original
+units. You may wish to reformulate the problem so everything is minimized. This
+means all maximized functions are negated. To enable this, click settings and
+then check *Reformulate maximization as minimization*. To change the default,
+add the following to the beginning of your notebooks:
 
 .. code-block:: python
 
     from desdeo_vis.conf import conf
-    conf(max_as_min=False)
+    conf(max_as_min=True)
 ..
 
 Let us assume that the function under classification should be minimized.
