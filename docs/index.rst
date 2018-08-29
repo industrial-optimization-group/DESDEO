@@ -1,4 +1,4 @@
-DESDEO's documentation
+desdeo's documentation
 ======================
 
 .. toctree::
