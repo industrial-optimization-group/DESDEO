@@ -126,22 +126,11 @@ The first solution we get from NIMBUS is reasonable. However, we may decide at
 this point that we want to increase the cylinder's volume as much as possible,
 while still keeping the surface area and height difference low.
 
-To do this, we check the rightmost ( **>** ) radiobutton from the line
-describing the current solutions, because we allow (for now) the volume to
-be varied freely. The next line describes the solution for the surface area
-function. We want to know how much the volume will be when the surface area
-is 1900, so we choose the second button from the right ( **>=** ). For
-height difference we check the second radiobutton from the left ( **<=** ).
-
-After submitting this information a new page appears asking for the
-aspiration functions of the third function and boundary values of the
-second function. The desired level defines a desired value for the
-objective function. The value must be lower than the current solution, but
-greater than the :ref:`ICV vector (lowest solution) <gloss-icv>`. In this
-case, the number is 2. The upper bound is the largest allowable objective
-function value. This value must be greater than the current solution, but
-lower than the :ref:`Nadir vector (highest solution)
-<gloss-upper-lower-bound>`. In this case, the number is 1900.
+To do this, we select ( **<>** ) from the volume dropdown, because we allow
+(for now) the volume to be varied freely. The next column describes the
+solution for the surface area function. We want to know how much the volume
+will be when the surface area is 1900, so we select ( **>=** ) from the
+dropdown and enter 1900 into the box. For height difference we select ( **<=** ).
 
 Classification without the widget
 ---------------------------------
