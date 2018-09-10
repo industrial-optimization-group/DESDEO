@@ -37,7 +37,7 @@ setup(
     description="Open source library for for interactive multiobjective optimization",
     long_description=long_desc,
     long_description_content_type="text/markdown",
-    version="0.2.0",
+    version="0.2.1",
     packages=find_packages(exclude=["tests"]),
     package_dir={"desdeo": "desdeo"},
     install_requires=requirements,

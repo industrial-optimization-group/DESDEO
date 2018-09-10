@@ -1,5 +1,10 @@
 # History #
 
+## 0.2.1 (2018-09-10) ##
+
+* Documentation improvements
+* Add porcelain for specifying problems declaratively and convert toy problems
+
 ## 0.2.0 (2018-08-28) ##
 
 * Documentation improvements
