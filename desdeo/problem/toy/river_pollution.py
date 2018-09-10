@@ -1,11 +1,7 @@
-import math
-
-from desdeo.optimization import SciPyDE
-from desdeo.problem import PythonProblem, Variable
-from desdeo.problem.RangeEstimators import default_estimate
+from desdeo.problem.porcelain import Objective, PorcelainProblem, Variable
 
 
-class RiverPollution(PythonProblem):
+class RiverPollution(PorcelainProblem):
     """
     River pollution problem by Narula and Weistroffer [1]
 
@@ -33,60 +29,36 @@ class RiverPollution(PythonProblem):
       nonlinear multicriteria decision-making problems
       Systems, IEEE Transactions on Man and Cybernetics,
       1989, 19, 883-887.
-"""
+    """
 
-    def __init__(self):
-        super().__init__(
-            nobj=4,
-            nconst=0,  # Optional
-            maximized=[True, True, True, False],  # Optional
-            objectives=[
-                "Water Quality Fishery",  # Optional
-                "Water Quality City",
-                "Fishery ROI",
-                "City Tax Increase",
-            ],
-            name="River pollution method",  # Optional
+    bod_fishery = Variable(0.0, 1.0, 0.5, "BOD Fishery")
+    bod_city = Variable(0.0, 1.0, 0.5, "BOD City")
+
+    @Objective("Water Quality Fishery", maximized=True)
+    def wq_fishery(bod_fishery, bod_city):
+        return -1.0 * (4.07 + 2.27 * bod_fishery)
+
+    @Objective("Water Quality City", maximized=True)
+    def wq_city(bod_fishery, bod_city):
+        return (
+            2.6
+            + 0.03
+            * bod_fishery
+            + 0.02
+            * bod_city
+            + 0.01
+            / (1.39 - bod_fishery ** 2)
+            + 0.3
+            / (1.39 - bod_city ** 2)
         )
-        self.add_variables(
-            Variable([0.0, 1.0], starting_point=0.5, name="BOD City")  # Optional
-        )  # Optional
-        self.add_variables(
-            Variable([0.0, 1.0], starting_point=0.5, name="BOD City")  # Optional
-        )  # Optional
-        ideal, nadir = default_estimate(SciPyDE, self)
-        self.ideal = ideal
-        self.nadir = nadir
 
-    def evaluate(self, population):
-        objectives = []
+    @Objective("Fishery ROI", maximized=True)
+    def fishery_roi(bod_fishery, bod_city):
+        return 8.21 - 0.71 / (1.09 - bod_fishery ** 2)
 
-        for values in population:
-            res = []
-            x0_2 = math.pow(values[0], 2)
-            x1_2 = math.pow(values[1], 2)
+    @Objective("City Tax Increase", maximized=False)
+    def city_tax(bod_fishery, bod_city):
+        return 0.96 * (1 / (1.09 - bod_city ** 2) - 1)
 
-            res.append(-1.0 * (4.07 + 2.27 * values[0]))
-
-            res.append(
-                -1.0
-                * (
-                    2.6
-                    + 0.03
-                    * values[0]
-                    + 0.02
-                    * values[1]
-                    + 0.01
-                    / (1.39 - x1_2)
-                    + 0.3
-                    / (1.39 - x1_2)
-                )
-            )
-
-            res.append(-1.0 * (8.21 - 0.71 / (1.09 - x0_2)))
-
-            res.append(-1.0 * (0.96 - 0.96 / (1.09 - x1_2)))
-
-            objectives.append(res)
-
-        return objectives
+    class Meta:
+        name = "River pollution method"

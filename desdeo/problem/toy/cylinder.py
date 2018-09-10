@@ -1,11 +1,9 @@
 import math
 
-from desdeo.optimization import SciPyDE
-from desdeo.problem import PythonProblem, Variable
-from desdeo.problem.RangeEstimators import default_estimate
+from desdeo.problem.porcelain import Objective, PorcelainProblem, Variable
 
 
-class CylinderProblem(PythonProblem):
+class CylinderProblem(PorcelainProblem):
     """
     In this problem consider a cell shaped like a cylinder with a circular
     cross-section.
@@ -21,32 +19,25 @@ class CylinderProblem(PythonProblem):
     problem.
     """
 
-    def __init__(self):
-        super().__init__(
-            nobj=3,
-            nconst=1,
-            maximized=[True, False],
-            objectives=["Volume", "Surface Area", "Height Difference"],
-            name="Cylinder problem",
-        )
-        self.add_variables(Variable([5, 15], starting_point=10, name="Radius"))
-        self.add_variables(Variable([5, 25], starting_point=10, name="Height"))
-        ideal, nadir = default_estimate(SciPyDE, self)
-        self.ideal = ideal
-        self.nadir = nadir
+    r = Variable(5, 15, 10, "Radius")
+    h = Variable(5, 25, 10, "Height")
 
-    def evaluate(self, population):
-        objectives = []
+    @Objective("Volume", maximized=True)
+    def volume(r, h):
+        return math.pi * r ** 2 * h
 
-        for values in population:
-            r, h = values
+    @Objective("Surface Area", maximized=False)
+    def surface_area(r, h):
+        return 2 * math.pi * r ** 2 + 2 * math.pi * r * h
 
-            objectives.append(
-                [
-                    -(math.pi * r ** 2 * h),
-                    2 * math.pi * r ** 2 + 2 * math.pi * r * h,
-                    abs(h - 15.0),
-                ]
-            )
+    @Objective("Height Difference", maximized=False)
+    def height_diff(r, h):
+        return abs(h - 15.0)
 
-        return objectives
+    # TODO
+    # @Constraint("Height greater than width")
+    # def h_gt_w(r, h):
+    # return 2 * r <= h
+
+    class Meta:
+        name = "Cylinder Problem"
