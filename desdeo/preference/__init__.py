@@ -10,5 +10,5 @@ information given by a decision maker about which objectives they are concerned
 with and to what degree. It is sued by the methods defined in `desdeo.method`.
 """
 
-__all__ = ["NIMBUSClassification"]
-from .PreferenceInformation import NIMBUSClassification
+__all__ = ["NIMBUSClassification", "ReferencePoint"]
+from .PreferenceInformation import NIMBUSClassification, ReferencePoint
