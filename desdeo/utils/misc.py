@@ -121,7 +121,7 @@ def new_points(
     if not weights:
         weights = random_weights(nof, 50 * nof)
     for pref in map(
-        lambda w: DirectSpecification(factory.optimization_method, w), weights
+        lambda w: DirectSpecification(factory.optimization_method, np.array(w)), weights
     ):
         points.append(factory.result(pref, solution))
     return points
