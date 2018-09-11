@@ -65,4 +65,4 @@ def test_classification(method):
     vals = method.init_iteration()
     method.problem.selected = vals.objective_vars[0]
     cls = NIMBUSClassification(method, vals.objective_vars[0])
-    assert cls.reference_point() == vals.objective_vars[0]
+    assert (cls.reference_point() == vals.objective_vars[0]).all()
