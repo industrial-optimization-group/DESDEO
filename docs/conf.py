@@ -70,7 +70,8 @@ autosummary_generate = True
 autosectionlabel_prefix_document = True
 
 intersphinx_mapping = {
-    "vis": ("https://desdeo.readthedocs.io/projects/desdeo-vis/en/latest/", None)
+    "vis": ("https://desdeo.readthedocs.io/projects/desdeo-vis/en/latest/", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy/reference/", None),
 }
 
 # Add any paths that contain templates here, relative to this directory.
