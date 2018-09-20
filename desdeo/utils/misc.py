@@ -15,7 +15,6 @@ from sklearn.cluster.k_means_ import KMeans
 from sklearn.metrics.pairwise import pairwise_distances_argmin_min
 
 from desdeo.core.ResultFactory import IterationPointFactory
-from desdeo.preference.PreferenceInformation import DirectSpecification
 
 
 class Tee(object):
@@ -116,6 +115,8 @@ def new_points(
         :func:random_weights
 
     """
+    from desdeo.preference.PreferenceInformation import DirectSpecification
+
     points = []
     nof = factory.optimization_method.optimization_problem.problem.nof_objectives()
     if not weights:
