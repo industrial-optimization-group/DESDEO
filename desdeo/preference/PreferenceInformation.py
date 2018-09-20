@@ -131,24 +131,24 @@ class NIMBUSClassification(ReferencePoint):
             Function classification information
         """
         super().__init__(method, **kwargs)
-        self.__classification: Dict[int, Tuple[str, float]] = {}
+        self._classification: Dict[int, Tuple[str, float]] = {}
         for f_id, v in enumerate(functions):
             # This is classification
             try:
                 iter(v)
-                self.__classification[f_id] = v
+                self._classification[f_id] = v
             # This is reference point
             except TypeError:
                 if np.isclose(v, self._method.problem.ideal[f_id]):
-                    self.__classification[f_id] = (
+                    self._classification[f_id] = (
                         "<", self._method.problem.selected[f_id]
                     )
                 elif np.isclose(v, self._method.problem.nadir[f_id]):
-                    self.__classification[f_id] = (
+                    self._classification[f_id] = (
                         "<>", self._method.problem.selected[f_id]
                     )
                 elif np.isclose(v, self._method.problem.selected[f_id]):
-                    self.__classification[f_id] = (
+                    self._classification[f_id] = (
                         "=", self._method.problem.selected[f_id]
                     )
                 elif (
@@ -157,37 +157,37 @@ class NIMBUSClassification(ReferencePoint):
                         f_id
                     ]
                 ):
-                    self.__classification[f_id] = ("<=", v)
+                    self._classification[f_id] = ("<=", v)
                 else:
-                    self.__classification[f_id] = (">=", v)
+                    self._classification[f_id] = (">=", v)
             else:
-                self.__classification[f_id] = v
+                self._classification[f_id] = v
 
-        self._reference_point = self.__as_reference_point()
-        self._prefrence = self.__classification
+        self._reference_point = self._as_reference_point()
+        self._prefrence = self._classification
 
     def __getitem__(self, key):
         """Shortcut to query a classification."""
-        return self.__classification[key]
+        return self._classification[key]
 
     def __setitem__(self, key, value):
         """Shortcut to manipulate a single classification."""
-        self.__classification[key] = value
+        self._classification[key] = value
 
     def with_class(self, cls):
         """ Return functions with the class
         """
         rcls = []
-        for key, value in self.__classification.items():
+        for key, value in self._classification.items():
             if value[0] == cls:
                 rcls.append(key)
         return rcls
 
-    def __as_reference_point(self) -> np.ndarray:
+    def _as_reference_point(self) -> np.ndarray:
         """ Return classification information as reference point
         """
         ref_val = []
-        for fn, f in self.__classification.items():
+        for fn, f in self._classification.items():
             if f[0] == "<":
                 ref_val.append(self._method.problem.ideal[fn])
             elif f[0] == "<>":
