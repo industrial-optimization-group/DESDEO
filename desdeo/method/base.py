@@ -4,23 +4,21 @@
 #
 # Copyright (c) 2016  Vesa Ojalehto
 """
-Module description
+This module contains the abstract base class for all interactive methods.
 """
-import abc
+from abc import ABC, abstractmethod
 
 
-class InteractiveMethod(object):
+class InteractiveMethod(ABC):
     """
-    Abstract base class for interactive multiobjective methods
-
+    Abstract base class for interactive multiobjective methods.
     """
-    __metaclass__ = abc.ABCMeta
 
     def __init__(self, problem, method_class):
         self.problem = problem
         self.method_class = method_class
 
-    @abc.abstractmethod
+    @abstractmethod
     def _next_iteration(self, *args, **kwargs):
         pass
 
@@ -30,7 +28,7 @@ class InteractiveMethod(object):
         """
         return self._next_iteration(*args, **kwargs)
 
-    @abc.abstractmethod
+    @abstractmethod
     def _init_iteration(self, *args, **kwargs):
         pass
 
