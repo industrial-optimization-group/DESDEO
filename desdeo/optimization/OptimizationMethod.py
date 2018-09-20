@@ -87,6 +87,7 @@ class OptimalSearch(OptimizationMethod):
 
 class SciPy(OptimalSearch):
     """
+    Optimal search using :py:func:`scipy.optimize.minimize`.
     """
 
     def _objective(self, x):
@@ -129,6 +130,9 @@ class SciPy(OptimalSearch):
 
 
 class SciPyDE(OptimalSearch):
+    """
+    Optimal search using :py:func:`scipy.optimize.differential_evolution`.
+    """
 
     def __init__(self, optimization_problem):
         super().__init__(optimization_problem)
