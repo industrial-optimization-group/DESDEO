@@ -164,7 +164,7 @@ class NIMBUSClassification(ReferencePoint):
                 self._classification[f_id] = v
 
         self._reference_point = self._as_reference_point()
-        self._prefrence = self._classification
+        self._preference = self._classification
 
     def __getitem__(self, key):
         """Shortcut to query a classification."""
