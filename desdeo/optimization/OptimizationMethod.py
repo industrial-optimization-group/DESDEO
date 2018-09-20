@@ -6,14 +6,14 @@
 """
 This module contains methods for solving single-objective optimization problems.
 """
-from abc import ABCMeta, abstractmethod
+from abc import ABC, abstractmethod
 from typing import List, Tuple
 
 import numpy as np
 from scipy.optimize import differential_evolution, minimize
 
 
-class OptimizationMethod(object, metaclass=ABCMeta):
+class OptimizationMethod(ABC):
     """
     Abstract class for optimization methods
 
@@ -68,7 +68,7 @@ class OptimizationMethod(object, metaclass=ABCMeta):
         pass
 
 
-class OptimalSearch(OptimizationMethod, metaclass=ABCMeta):
+class OptimalSearch(OptimizationMethod):
     """
     Abstract class for optimal search
     """
