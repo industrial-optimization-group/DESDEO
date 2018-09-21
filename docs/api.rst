@@ -8,6 +8,7 @@ API documentation
 
    desdeo.core
    desdeo.method
+   desdeo.method.base
 
    :template: optimization.rst
 
