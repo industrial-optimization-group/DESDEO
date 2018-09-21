@@ -33,7 +33,6 @@ from desdeo.optimization.OptimizationProblem import (
     MaxEpsilonConstraintProblem,
     NautilusAchievementProblem,
 )
-from desdeo.preference.PreferenceInformation import DirectSpecification
 from desdeo.utils import misc, reachable_points
 from desdeo.utils.warnings import UnexpectedCondition
 
@@ -309,6 +308,8 @@ class NNAUTILUS(NAUTILUS):
         self.fh_up = None
 
     def _update_fh(self):
+        from desdeo.preference.PreferenceInformation import DirectSpecification
+
         u = [1.0] * len(self.ref_point)
         pref = DirectSpecification(self.problem, u, self.ref_point)
         self.fh = list(self.fh_factory.result(pref, self.zh_prev)[1])

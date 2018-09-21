@@ -24,8 +24,6 @@ from desdeo.optimization.OptimizationProblem import (
     NIMBUSProblem,
     NIMBUSStomProblem,
 )
-from desdeo.preference import NIMBUSClassification
-from desdeo.preference.PreferenceInformation import ReferencePoint
 from desdeo.result.Result import ResultSet
 
 from .base import InteractiveMethod
@@ -103,6 +101,8 @@ class NIMBUS(InteractiveMethod):
         return self._factories[self.__SCALARS.index("ACH")]
 
     def _init_iteration(self, *args, **kwargs) -> ResultSet:
+        from desdeo.preference import NIMBUSClassification
+
         ref = (np.array(self.problem.nadir) - np.array(self.problem.ideal)) / 2
         cls = []
         # Todo calculate ideal and nadir values
@@ -128,6 +128,8 @@ class NIMBUS(InteractiveMethod):
         n
             Number of solutions to generate
         """
+        from desdeo.preference.PreferenceInformation import ReferencePoint
+
         objs1_arr = np.array(objs1)
         objs2_arr = np.array(objs2)
         segments = n + 1
