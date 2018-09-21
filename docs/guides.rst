@@ -6,3 +6,4 @@ Topical guides
    :caption: Contents:
    
    modelling
+   adding

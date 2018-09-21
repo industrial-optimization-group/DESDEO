@@ -115,7 +115,7 @@ def new_points(
         :func:random_weights
 
     """
-    from desdeo.preference.PreferenceInformation import DirectSpecification
+    from desdeo.preference.direct import DirectSpecification
 
     points = []
     nof = factory.optimization_method.optimization_problem.problem.nof_objectives()

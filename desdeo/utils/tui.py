@@ -25,7 +25,7 @@ import numpy as np
 from prompt_toolkit import prompt
 from prompt_toolkit.validation import ValidationError, Validator
 
-from desdeo.preference.PreferenceInformation import (
+from desdeo.preference.direct import (
     DirectSpecification,
     PercentageSpecifictation,
     RelativeRanking,

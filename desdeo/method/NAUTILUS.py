@@ -308,7 +308,7 @@ class NNAUTILUS(NAUTILUS):
         self.fh_up = None
 
     def _update_fh(self):
-        from desdeo.preference.PreferenceInformation import DirectSpecification
+        from desdeo.preference.direct import DirectSpecification
 
         u = [1.0] * len(self.ref_point)
         pref = DirectSpecification(self.problem, u, self.ref_point)

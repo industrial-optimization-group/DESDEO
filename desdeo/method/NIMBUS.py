@@ -128,7 +128,7 @@ class NIMBUS(InteractiveMethod):
         n
             Number of solutions to generate
         """
-        from desdeo.preference.PreferenceInformation import ReferencePoint
+        from desdeo.preference.base import ReferencePoint
 
         objs1_arr = np.array(objs1)
         objs2_arr = np.array(objs2)
