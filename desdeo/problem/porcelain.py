@@ -1,3 +1,5 @@
+from abc import ABCMeta
+
 from desdeo.problem.Problem import PythonProblem
 
 
@@ -33,7 +35,8 @@ class Variable(object):
         self.name = name
 
 
-class PorcelainProblemMeta(type):
+# Inheritance from ABC is compulsary to interoperate with it
+class PorcelainProblemMeta(ABCMeta):
 
     def __new__(cls, name, bases, attrs):
         objs = []

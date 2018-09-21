@@ -4,7 +4,7 @@
 
 # Copyright (c) 2016  Vesa Ojalehto
 
-from abc import ABCMeta
+from abc import ABC
 from typing import Dict, Tuple
 
 import numpy as np
@@ -12,8 +12,7 @@ import numpy as np
 from desdeo.method.base import InteractiveMethod
 
 
-class PreferenceInformation(object):
-    __metaclass__ = ABCMeta
+class PreferenceInformation(ABC):
 
     def __init__(self, method: InteractiveMethod) -> None:
         self._method = method
@@ -28,7 +27,6 @@ class PreferenceInformation(object):
 
 
 class Direction(PreferenceInformation):
-    __metaclass__ = ABCMeta
 
     def default_input(self) -> np.ndarray:
         return np.array([0.0] * len(self._method.problem.nadir))
@@ -198,5 +196,5 @@ class NIMBUSClassification(ReferencePoint):
         return np.array(ref_val)
 
 
-class PreferredPoint(object):
-    __metaclass__ = ABCMeta
+class PreferredPoint(ABC):
+    pass

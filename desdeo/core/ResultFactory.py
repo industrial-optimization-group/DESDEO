@@ -4,18 +4,16 @@
 #
 # Copyright (c) 2016  Vesa Ojalehto
 
-from abc import ABCMeta
+from abc import ABC
 from typing import List, Tuple
 
 import numpy as np
 
 
-class ResultFactory(object):
+class ResultFactory(ABC):
     """
     Abstract base class for result factories
-
     """
-    __metaclass__ = ABCMeta
 
 
 class BoundsFactory(ResultFactory):

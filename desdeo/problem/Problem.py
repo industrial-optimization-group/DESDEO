@@ -5,7 +5,7 @@
 # Copyright (c) 2016  Vesa Ojalehto
 
 import copy
-from abc import ABCMeta, abstractmethod
+from abc import ABC, abstractmethod
 from typing import List, Optional, Union
 
 import numpy as np
@@ -13,7 +13,7 @@ import numpy as np
 from desdeo.utils.misc import as_minimized
 
 
-class MOProblem(object):
+class MOProblem(ABC):
     """
     Abstract base class for multiobjective problem
 
@@ -31,7 +31,6 @@ class MOProblem(object):
     maximized
         Indicates maximized objectives
     """
-    __metaclass__ = ABCMeta
 
     def __init__(
         self,

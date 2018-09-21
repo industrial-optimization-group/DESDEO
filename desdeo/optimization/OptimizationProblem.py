@@ -24,7 +24,7 @@ from desdeo.problem.Problem import MOProblem
 from desdeo.utils.exceptions import PreferenceUndefinedError
 
 
-class OptimizationProblem(object, metaclass=abc.ABCMeta):
+class OptimizationProblem(abc.ABC):
     """
     Single objective optimization problem
 
@@ -95,7 +95,7 @@ class SelectedOptimizationProblem(OptimizationProblem):
         return [objectives[0][self.n]], None
 
 
-class ScalarizedProblem(OptimizationProblem, metaclass=abc.ABCMeta):
+class ScalarizedProblem(OptimizationProblem, abc.ABC):
 
     def __init__(self, mo_problem: MOProblem, **kwargs) -> None:
         super(ScalarizedProblem, self).__init__(mo_problem)
