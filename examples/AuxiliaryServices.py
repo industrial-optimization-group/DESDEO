@@ -4,7 +4,7 @@
 #
 # Copyright (c) 2016  Vesa Ojalehto
 """
-River pollution problem by Narula and Weistroffer [1]
+River pollution problem by Narula and Weistroffer [NARULA1989]_
 
 The problem has four objectives and two variables
 
@@ -24,7 +24,7 @@ respectively.
 References
 ----------
 
-[1] Narula, S. & Weistroffer,
+[NARULA1989] Narula, S. & Weistroffer,
     H. A flexible method for nonlinear multicriteria decision-making problems Systems,
     Man and Cybernetics, IEEE Transactions on, 1989 , 19 , 883-887.
 

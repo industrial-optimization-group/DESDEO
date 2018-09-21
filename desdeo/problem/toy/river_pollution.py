@@ -3,7 +3,7 @@ from desdeo.problem.porcelain import Objective, PorcelainProblem, Variable
 
 class RiverPollution(PorcelainProblem):
     """
-    River pollution problem by Narula and Weistroffer [1]
+    River pollution problem by Narula and Weistroffer [NARULA1989]_.
 
     The problem has four objectives and two variables
 
@@ -25,7 +25,7 @@ class RiverPollution(PorcelainProblem):
     References
     ----------
 
-    [1] Narula, S. & Weistroffer, H. A flexible method for
+    .. [NARULA1989] Narula, S. & Weistroffer, H. A flexible method for
       nonlinear multicriteria decision-making problems
       Systems, IEEE Transactions on Man and Cybernetics,
       1989, 19, 883-887.

@@ -4,13 +4,15 @@
 #
 # Copyright (c) 2016  Vesa Ojalehto
 """
-NAUTILUS method variants
+NAUTILUS method variants. The first NAUTILUS variant was introduced in [MIETTINEN2010]_.
 
-NAUTILUS    The first NAUTILUS variant introduces in
-            Miettinen, K.; Eskelinen, P.; Ruiz, F. & Luque, M.
-            NAUTILUS method: An interactive technique in multiobjective
-                optimization based on the nadir point
-            European Journal of Operational Research, 2010, 206, 426-434
+References
+----------
+
+.. [MIETTINEN2010] Miettinen, K.; Eskelinen, P.; Ruiz, F. & Luque, M.
+    NAUTILUS method: An interactive technique in multiobjective optimization
+    based on the nadir point
+    European Journal of Operational Research, 2010, 206, 426-434
 
 TODO
 ----
@@ -220,12 +222,12 @@ class ENAUTILUS(NAUTILUS):
 
 class NAUTILUSv1(NAUTILUS):
     """
-    The first NAUTILUS method variant[1]_
+    The first NAUTILUS method variant [MIETTINEN2010]_.
 
     References
     ----------
 
-    [1] Miettinen, K.; Eskelinen, P.; Ruiz, F. & Luque, M.,
+    .. [MIETTINEN2010] Miettinen, K.; Eskelinen, P.; Ruiz, F. & Luque, M.,
         NAUTILUS method: An interactive technique in multiobjective optimization based on the nadir point,
         European Journal of Operational Research, 2010 , 206 , 426-434.
     """

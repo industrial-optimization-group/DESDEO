@@ -18,14 +18,14 @@ def estimate_payoff_table(
 ) -> Tuple[List[float], List[float]]:
     """
     Estimates the ideal and nadir by using a payoff table. This should give a
-    good estimate for the ideal, but can be very inaccurate for the nadir. For an explanation of why, see [1]_.
+    good estimate for the ideal, but can be very inaccurate for the nadir. For an explanation of why, see [DEB2010]_.
 
     References
     ----------
 
-    [1] Deb, K., Miettinen, K., & Chaudhuri, S. (2010).
-    Toward an estimation of nadir objective vector using a hybrid of evolutionary and local search approaches.
-    IEEE Transactions on Evolutionary Computation, 14(6), 821-841.
+    .. [DEB2010] Deb, K., Miettinen, K., & Chaudhuri, S. (2010).
+        Toward an estimation of nadir objective vector using a hybrid of evolutionary and local search approaches.
+        IEEE Transactions on Evolutionary Computation, 14(6), 821-841.
     """
     ideal = [float("inf")] * mo_prob.nobj
     nadir = [float("-inf")] * mo_prob.nobj

@@ -210,7 +210,7 @@ class SimpleAchievementProblem(AchievementProblemBase):
            & {\bf{x}} \in S
 
     If ach_pen=True is passed to the constructor, the full achivement function
-    is used as the penatly, causing us to instead solve[1]_
+    is used as the penatly, causing us to instead solve[WIERZBICKI1980]_
 
     .. math::
 
@@ -228,7 +228,7 @@ class SimpleAchievementProblem(AchievementProblemBase):
     References
     ----------
 
-    [1] A. P. Wierzbicki, The use of reference objectives in multiobjective optimization, in: G. Fandel, T. Gal (Eds.),
+    [WIERZBICKI1980] A. P. Wierzbicki, The use of reference objectives in multiobjective optimization, in: G. Fandel, T. Gal (Eds.),
     Multiple Criteria Decision Making, Theory and Applications, Vol. 177 of Lecture Notes in Economics and Mathematical Systems,
     Springer, 1980, pp. 468-486.
     """

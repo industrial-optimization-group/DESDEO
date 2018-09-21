@@ -4,7 +4,7 @@
 #
 # Copyright (c) 2018  Vesa Ojalehto
 """
-Script to generate results in [1]
+Script to generate results in [UNK]_
 
 Here, the DM solved the River pollution problem by Narula
 and Weistroffer[1], with four objectives and two variables. The problem
@@ -24,9 +24,9 @@ python article_nautilus.py < preferences.txt
 References
 ----------
 
-[1] *to be published*
+.. [UNK] *to be published*
 
-[2] Narula, S. & Weistroffer,
+.. [NARULA1989] Narula, S. & Weistroffer,
     H. A flexible method for nonlinear multicriteria decision-making problems Systems,
     Man and Cybernetics, IEEE Transactions on, 1989 , 19 , 883-887.
 
