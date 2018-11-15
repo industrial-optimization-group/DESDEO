@@ -91,7 +91,10 @@ documentation.](https://desdeo.readthedocs.io/en/latest/)
 
 ### Set-up ###
 
-You should install the git pre-commit hook so that code formatting is kept consistent automatically. This is configured using the pre-commit utility. See [the installation instructions](https://pre-commit.com/#install).
+You should install the git pre-commit hook so that code formatting is kept consistent automatically. This is configured using the pre-commit utility. See [the installation instructions](https://pre-commit.com/#install). In short, pre-commit hook can be installed as
+
+    pip install --upgrade pre-commit
+    pre-commit install
 
 If you are using pipenv for development, you can install desdeo and its
 dependencies after obtaining a git checkout like so:
