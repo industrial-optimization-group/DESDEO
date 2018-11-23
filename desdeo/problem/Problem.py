@@ -15,7 +15,7 @@ from desdeo.utils.misc import as_minimized
 
 class MOProblem(ABC):
     """
-    Abstract base class for a multiobjective minimization problem,
+    Abstract base class for a multiobjective minimization problem, 
     which represents some instance of an original multiobjective problem.
         If the original problem contains maximization objectives, 
         they should be multiplied by -1 before implementation.
