@@ -15,7 +15,10 @@ from desdeo.utils.misc import as_minimized
 
 class MOProblem(ABC):
     """
-    Abstract base class for multiobjective problem
+    Abstract base class for a multiobjective minimization problem,
+    which represents some instance of an original multiobjective problem.
+        If the original problem contains maximization objectives, 
+        they should be multiplied by -1 before implementation.
 
     Attributes
     ----------
@@ -23,10 +26,10 @@ class MOProblem(ABC):
         MOProblem decision variable information
 
     ideal
-        Ideal, i.e, the worst values of objective functions
+        Ideal, i.e, the largest (worst) values of objective functions
 
     nadir
-        Nadir, i.e, the best values of objective functions
+        Nadir, i.e, the smalest (best) values of objective functions
 
     maximized
         Indicates maximized objectives
@@ -96,10 +99,10 @@ class MOProblem(ABC):
         Returns
         -------
         lower : list of floats
-            Lower boundaries for the objectives
+            Lower boundaries for the objectives on the Pareto optimal set
 
         Upper : list of floats
-            Upper boundaries for the objectives
+            Upper boundaries for the objectives on the Pareto optimal set
 
         """
         if self.ideal and self.nadir:
@@ -108,7 +111,11 @@ class MOProblem(ABC):
             "Ideal and nadir value calculation is not yet implemented"
         )
 
-    def nof_objectives(self) -> Optional[int]:
+    def nof_objectives(self) -> Optional[int]: 
+        # @Vesa: Why not setting number of objectives explicitly?
+        # Existing of nadir is very method-specific, no need to assume.
+        # Even the ideal is not always needed to be estimated.
+        # Nr. of objektives is a fundamental property, why not setting explicitly? 
         if self.ideal and self.nadir:
             assert len(self.ideal) == len(self.nadir)
             return len(self.ideal)
