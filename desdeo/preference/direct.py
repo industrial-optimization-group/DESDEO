@@ -1,6 +1,7 @@
 import numpy as np
 
 from desdeo.method.base import InteractiveMethod
+
 from .base import Direction, ReferencePoint
 
 

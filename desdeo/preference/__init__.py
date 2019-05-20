@@ -11,5 +11,5 @@ with and to what degree. It is sued by the methods defined in `desdeo.method`.
 """
 
 __all__ = ["NIMBUSClassification", "ReferencePoint"]
-from .nimbus import NIMBUSClassification
 from .base import ReferencePoint
+from .nimbus import NIMBUSClassification
