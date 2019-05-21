@@ -42,18 +42,20 @@ from .base import InteractiveMethod
 
 
 class NAUTILUS(InteractiveMethod):
-    """This class implements the prototype of the NAUTILUS method and it's variants.
+    """This class implements a prototype for the various NAUTILUS variants.
 
     In summary, NAUTILUS aims to be an interactive multioobjective optimization
     method. It's main characteristic is to start the optimization at the worst
     possible point in the decision variable space, namely at the nadir point.
-    The idea at each iteration step is to yield a solution that dominates the
-    previous step's solution. This aids in avoiding an anchoring effect in the decision
-    maker's choices. The decision maker is also able to give preference information
-    which guides the optimization process to a desired solution. If the decision
-    maker is not happy with an intermediate solution, they are also able to backpedal
-    to a previous iterations step and make a different decision. Thus, NAUTILUS supports
-    a learning approach for the optimization process.
+    The idea at each iteration step is to yield a solution(s) that dominates the
+    previous step's solution and is therefore always closer to the (approximated)
+    Pareto front.
+
+    One of the core concepts in the variants of NAUTILUS is to try and eliminate
+    anchoring effects in the decision making of the decision maker (DM). The DM
+    is able to give their preference after each iteration and guide the optimization
+    toward a prefered solution on the Pareto front. Backtracking is also possible, if
+    the DM is not satisfied with the presented alternatives for the preferred point.
 
     ...
 
@@ -82,8 +84,17 @@ class NAUTILUS(InteractiveMethod):
     zh_prev
         The objective vector corresponding to the previous iteration step.
     """
-    def __init__(self, method, method_class: Type[OptimizationMethod]) -> None:
-        super().__init__(method, method_class)
+    def __init__(self, problem, method_class: Type[OptimizationMethod]) -> None:
+        """Constructor for the NAUTILUS class.
+
+        Parameters
+        ----------
+        problem : Type[MOProblem]
+            An object that specifies the multiobjective optimization problem.
+        method_class : Type[OptimizationProblem]
+            An object that specifies the option methods to be used.
+        """
+        super().__init__(problem, method_class)
         self.user_iters = 5
         self.current_iter = self.user_iters
 
@@ -173,13 +184,60 @@ class NAUTILUS(InteractiveMethod):
 
 
 class ENAUTILUS(NAUTILUS):
+    """This class implements the enhanced NAUTILUS (E-NAUTILUS) method.
 
-    def __init__(self, method, method_class: Type[OptimizationMethod]) -> None:
-        super().__init__(method, method_class)
+    E-NAUTILUS aims to extend the basic NAUTILUS method for computationally expensive
+    multiobjective optimization problems. It consists of three stages: the pre-processing
+    stage, the interactive decision making stage, and the post-processing stage.
+
+    In the pre-processing stage, a Pareto front, the nadir point and the ideal point are
+    compted (approximated). The nadir and ideal points are then shown to the decison
+    maker (DM) and they are asked to provide the number of iteration points and their
+    number of points shown to them after each iteration. At each iteration, the DM is
+    shown the specified amount of well-spread points, and auxillary information indicating
+    the proximity and ranges of the reachable solutions from the intermediate points shown.
+    The DM then selects their preferred point and the approximated Pareto front is updated
+    (the amount of reachable points decreases). If the amount of iterations specified by the
+    DM is not yet reached, a new set of intermediate points is calculated and presented to the
+    DM, and iteration continues.
+
+    If the amount of iterations specified is reached, iterations stops and the last preferred
+    point is projected to the Pareto optimal front. The projection is done because the generated
+    intermediate points may or may not be feasible solutions.
+
+    Attributes
+    ---------
+    Ns : int
+        Number of solutions the decision maker wishes to see after each iteration.
+    fh_lo_prev : List[float]
+        Intermediate points associated to the extreme solutions in the previous step.
+    nsPoint_prev : List[float]
+        Intermediate points generated in the previous step.
+    zhs : List[float]
+        The generated intermediate points in the current iteration.
+    zh_los : List[float]
+        The lower bounds of the intermediate points.
+    zh_reach : List[int]
+        Reachable points from the current iteration.
+    NsPoints : List[Tuple[np.ndarray, List[float]]]
+        Intermediate points generated in the current iteration.
+
+    See Also
+    --------
+    NAUTILUS : Base class for the NAUTILUS variants.
+
+    References
+    ----------
+    .. [RUIZ2015] Ruiz, A.; Sindhya, K; Ruiz, F & Luque, M.
+    E-NAUTILUS: A decision support system for the complex multiobjective optimization
+    problems based on the NAUTILUS method.
+    European Journal of Operational Research, 2015, 246, 218-231
+    """
+    def __init__(self, problem, method_class: Type[OptimizationMethod]) -> None:
+        """See NAUTILUS.__init__"""
+        super().__init__(problem, method_class)
         self.Ns = 5
         self.fh_lo_prev = None
-        self.fh_lo_prev = None
-
         self.nsPoint_prev = []  # type: List[float]
 
         self.zhs = []  # type: List[float]
@@ -234,6 +292,8 @@ class ENAUTILUS(NAUTILUS):
 
         # Find centroids
         if len(points) <= self.Ns:
+            # Alert that the amount of reachable points is less than the amount
+            # the DM wishes to see.
             print(
                 (
                     "Only %s points can be reached from selected iteration point"
