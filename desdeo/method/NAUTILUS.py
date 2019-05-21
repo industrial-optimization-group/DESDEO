@@ -42,7 +42,46 @@ from .base import InteractiveMethod
 
 
 class NAUTILUS(InteractiveMethod):
+    """This class implements the prototype of the NAUTILUS method and it's variants.
 
+    In summary, NAUTILUS aims to be an interactive multioobjective optimization
+    method. It's main characteristic is to start the optimization at the worst
+    possible point in the decision variable space, namely at the nadir point.
+    The idea at each iteration step is to yield a solution that dominates the
+    previous step's solution. This aids in avoiding an anchoring effect in the decision
+    maker's choices. The decision maker is also able to give preference information
+    which guides the optimization process to a desired solution. If the decision
+    maker is not happy with an intermediate solution, they are also able to backpedal
+    to a previous iterations step and make a different decision. Thus, NAUTILUS supports
+    a learning approach for the optimization process.
+
+    ...
+
+    Attributes
+    ----------
+    user_iters : int
+        The total number of iterations the decision maker wishes to iterate.
+    current_iter : int
+        The number of the current iteration.
+    fh_factory : IterationPointFactory
+        An object wich generates the optimal solution for the iteration step h.
+    upper_bounds_factory : BoundsFactory
+        An object to generate the upper bounds for the range of reachable values
+        each objective function can take.
+    lower_bounds_factory : BoundsFactory
+        An object to generate the lower bounds for the range of reachable values
+        each objective function can take.
+    preference : TODO
+        The reference point given by the decision maker.
+    fh_lo
+        The lower bounds of the optimal solution.
+    zh
+        The objective vector corresponding to the current iteration step.
+    fh
+        The optimal solution corresponding to the current iteration step.
+    zh_prev
+        The objective vector corresponding to the previous iteration step.
+    """
     def __init__(self, method, method_class: Type[OptimizationMethod]) -> None:
         super().__init__(method, method_class)
         self.user_iters = 5
@@ -102,10 +141,25 @@ class NAUTILUS(InteractiveMethod):
         self.zh = list(self._next_zh(term1, term2))
 
     def distance(self, where: List[float], target: List[float]):
+        """Calculates the distance of the current iteration point to the Pareto
+        optimal set using the L2 norm.
 
+        Parameters
+        ----------
+        where : List[float]
+            The current iteration point.
+        target : List[float]
+            The optimal solution of the Pareto set.
+
+        Returns
+        -------
+        float
+            The distance of the current iteration step to the optimal solution on the
+            Pareto front.
+        """
         a_nadir = np.array(self.problem.nadir)
         a_ideal = np.array(self.problem.ideal)
-        w = a_ideal - a_nadir
+        w = a_ideal - a_nadir  # A normalizing factor.
         u = np.linalg.norm((np.array(where) - a_nadir) / w)
         l = np.linalg.norm((np.array(target) - a_nadir) / w)
         logging.debug("\nNADIR: %s", self.problem.nadir)
