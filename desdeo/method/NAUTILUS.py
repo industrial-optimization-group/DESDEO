@@ -8,16 +8,20 @@ NAUTILUS method variants. The first NAUTILUS variant was introduced in [MIETTINE
 
 References
 ----------
-
 .. [MIETTINEN2010] Miettinen, K.; Eskelinen, P.; Ruiz, F. & Luque, M.
     NAUTILUS method: An interactive technique in multiobjective optimization
     based on the nadir point
     European Journal of Operational Research, 2010, 206, 426-434
 
-TODO
-----
-Add all variants
-Longer descriptions of the method variants and methods
+.. [RUIZ2015] Ruiz, A.; Sindhya, K; Ruiz, F & Luque, M.
+    E-NAUTILUS: A decision support system for the complex multiobjective optimization
+    problems based on the NAUTILUS method
+    European Journal of Operational Research, 2015, 246, 218-231
+
+.. [RUIZ2019] Ruiz, A.; Ruiz, F.; Miettinen, K.; Delgado-Antequera, L. & Ojalehto, V.
+    NAUTILUS Navigator: free search interactive multiobjective optimization without
+    trade-off
+    Journal of Global Optimization, 2019, 10.1007/s10898-019-00765-2
 """
 import logging
 from typing import List, Tuple, Type  # noqa - rm when pyflakes understands type hints
@@ -44,17 +48,18 @@ from .base import InteractiveMethod
 class NAUTILUS(InteractiveMethod):
     """This class implements a prototype for the various NAUTILUS variants.
 
-    In summary, NAUTILUS aims to be an interactive multioobjective optimization
+    In summary, NAUTILUS aims to be an interactive multiobjective optimization
     method. It's main characteristic is to start the optimization at the worst
     possible point in the decision variable space, namely at the nadir point.
     The idea at each iteration step is to yield a solution(s) that dominates the
     previous step's solution and is therefore always closer to the (approximated)
-    Pareto front.
+    Pareto front. NAUTILUS does not itself solve the multiobjective optimization
+    problem.
 
     One of the core concepts in the variants of NAUTILUS is to try and eliminate
-    anchoring effects in the decision making of the decision maker (DM). The DM
+    anchoring effects and to reduce decision stress. The decision maker (DM)
     is able to give their preference after each iteration and guide the optimization
-    toward a prefered solution on the Pareto front. Backtracking is also possible, if
+    toward a preferred solution on the Pareto front. Backtracking is also possible, if
     the DM is not satisfied with the presented alternatives for the preferred point.
 
     ...
@@ -73,7 +78,7 @@ class NAUTILUS(InteractiveMethod):
     lower_bounds_factory : BoundsFactory
         An object to generate the lower bounds for the range of reachable values
         each objective function can take.
-    preference : TODO
+    preference : List[float]
         The reference point given by the decision maker.
     fh_lo
         The lower bounds of the optimal solution.
@@ -83,6 +88,10 @@ class NAUTILUS(InteractiveMethod):
         The optimal solution corresponding to the current iteration step.
     zh_prev
         The objective vector corresponding to the previous iteration step.
+
+    See Also
+    --------
+    NAUTILUSv1 : An implementation of the basic NAUTILUS method.
     """
     def __init__(self, problem, method_class: Type[OptimizationMethod]) -> None:
         """Constructor for the NAUTILUS class.
@@ -184,17 +193,18 @@ class NAUTILUS(InteractiveMethod):
 
 
 class ENAUTILUS(NAUTILUS):
-    """This class implements the enhanced NAUTILUS (E-NAUTILUS) method.
+    """This class implements the enhanced NAUTILUS (E-NAUTILUS) method. As described in
+    _[RUIZ2015].
 
     E-NAUTILUS aims to extend the basic NAUTILUS method for computationally expensive
     multiobjective optimization problems. It consists of three stages: the pre-processing
     stage, the interactive decision making stage, and the post-processing stage.
 
     In the pre-processing stage, a Pareto front, the nadir point and the ideal point are
-    compted (approximated). The nadir and ideal points are then shown to the decison
+    computed (approximated). The nadir and ideal points are then shown to the decision
     maker (DM) and they are asked to provide the number of iteration points and their
     number of points shown to them after each iteration. At each iteration, the DM is
-    shown the specified amount of well-spread points, and auxillary information indicating
+    shown the specified amount of well-spread points, and auxiliary information indicating
     the proximity and ranges of the reachable solutions from the intermediate points shown.
     The DM then selects their preferred point and the approximated Pareto front is updated
     (the amount of reachable points decreases). If the amount of iterations specified by the
@@ -204,6 +214,8 @@ class ENAUTILUS(NAUTILUS):
     If the amount of iterations specified is reached, iterations stops and the last preferred
     point is projected to the Pareto optimal front. The projection is done because the generated
     intermediate points may or may not be feasible solutions.
+
+    ...
 
     Attributes
     ---------
@@ -225,13 +237,6 @@ class ENAUTILUS(NAUTILUS):
     See Also
     --------
     NAUTILUS : Base class for the NAUTILUS variants.
-
-    References
-    ----------
-    .. [RUIZ2015] Ruiz, A.; Sindhya, K; Ruiz, F & Luque, M.
-    E-NAUTILUS: A decision support system for the complex multiobjective optimization
-    problems based on the NAUTILUS method.
-    European Journal of Operational Research, 2015, 246, 218-231
     """
     def __init__(self, problem, method_class: Type[OptimizationMethod]) -> None:
         """See NAUTILUS.__init__"""
@@ -336,14 +341,11 @@ class ENAUTILUS(NAUTILUS):
 
 class NAUTILUSv1(NAUTILUS):
     """
-    The first NAUTILUS method variant [MIETTINEN2010]_.
+    This class implements the first NAUTILUS method variant as specified in [MIETTINEN2010]_.
 
-    References
-    ----------
-
-    .. [MIETTINEN2010] Miettinen, K.; Eskelinen, P.; Ruiz, F. & Luque, M.,
-        NAUTILUS method: An interactive technique in multiobjective optimization based on the nadir point,
-        European Journal of Operational Research, 2010 , 206 , 426-434.
+    See Also
+    --------
+    NAUTILUS : Base class for the NAUTILUS variants.
     """
 
     def print_current_iteration(self):
@@ -360,15 +362,23 @@ class NAUTILUSv1(NAUTILUS):
             print("Lower boundary:", self.fh_lo)
         print("==============================")
 
-    def __init__(self, method, method_class):
-        super().__init__(method, method_class)
+    def __init__(self, problem, method_class):
+        super().__init__(problem, method_class)
 
     def _update_fh(self):
         self.fh = list(self.fh_factory.result(self.preference, self.zh_prev)[1])
 
     def next_iteration(self, preference=None):
-        """
-        Return next iteration bounds
+        """Calculate the next iteration bounds.
+
+        Parameters
+        ----------
+        preference : List[float], optional
+            The preference point given by the decision maker. Default value is None.
+
+        Returns
+        -------
+        The next iteration bounds.
         """
         if preference:
             self.preference = preference
@@ -388,12 +398,22 @@ class NAUTILUSv1(NAUTILUS):
 
 
 class NNAUTILUS(NAUTILUS):
-    """
-    NAVIGATOR NAUTILUS method
+    """This class implements NAUTILUS Navigator method as described in _[RUIZ2019].
+
+    !!! WORK IN PROGRESS !!!
+
+    The NAUTILUS Navigator variant is similar to the original variant. It works on a single
+    point basis iteratively generating new points in the decision variable space. In addition to
+    the original variant, the decision maker (DM) is able to specify an iteration speed and upper
+    upper bounds for the objective functions. The DM is also provided dynamical information on the
+    reachable ranges of the objective functions and how they change when approaching the Pareto
+    front.The DM can then, according to this information, stop the movement at any time and
+    provide new preference information.
+
+    ...
 
     Attributes
     ----------
-
     fh : list of floats
         Current non-dominated point
 
@@ -405,12 +425,7 @@ class NNAUTILUS(NAUTILUS):
 
     fh_lo : list of floats
         Lower boundary for iteration points reachable from iteration point  zh
-
-
-
-
     """
-
     class NegativeIntervalWarning(UnexpectedCondition):
 
         def __str__(self):
@@ -436,21 +451,23 @@ class NNAUTILUS(NAUTILUS):
             self.problem.points, self.fh_lo, self.fh_up
         )
 
-    def next_iteration(self, ref_point, bounds=None):
+    def next_iteration(self, preference, bounds=None):
         """
         Calculate the next iteration point to be shown to the DM
 
         Parameters
         ----------
-        ref_point : list of float
-        Reference point given by the DM
+        preference : List[float]
+            Preference point given by the decision maker
+        bounds : List[float], optional
+            The bounds of the rea
         """
         if bounds:
             self.problem.points = reachable_points(
                 self.problem.points, self.problem.ideal, bounds
             )
-        if not utils.isin(self.fh, self.problem.points) or ref_point != self.ref_point:
-            self.ref_point = list(ref_point)
+        if not utils.isin(self.fh, self.problem.points) or preference != self.ref_point:
+            self.ref_point = list(preference)
             self._update_fh()
 
         self._update_zh(self.zh, self.fh)
