@@ -46,8 +46,17 @@ class MOProblem(ABC):
         self.nobj = nobj
         self.nconst = nconst
         self.variables = []  # type: List[Variable]
+
+        # Check proper number of elements in ideal
+        if ideal:
+            assert len(ideal) == self.nobj
         self.ideal = ideal
+
+        # Check proper number of elements in nadir
+        if nadir:
+            assert len(nadir) == self.nobj
         self.nadir = nadir
+
         self.points = points
         if maximized is not None:
             self.maximized = maximized  # type: Optional[List[bool]]
@@ -108,12 +117,8 @@ class MOProblem(ABC):
             "Ideal and nadir value calculation is not yet implemented"
         )
 
-    def nof_objectives(self) -> Optional[int]:
-        if self.ideal and self.nadir:
-            assert len(self.ideal) == len(self.nadir)
-            return len(self.ideal)
-        else:
-            return None
+    def nof_objectives(self) -> int:
+        return self.nobj
 
     def nof_variables(self) -> int:
         return len(self.variables)
