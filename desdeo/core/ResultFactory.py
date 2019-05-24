@@ -21,15 +21,15 @@ class BoundsFactory(ResultFactory):
 
     Attributes
     ----------
-    optimization_method : OptimizationMethod
+n    optimization_method : OptimizationMethod
         The optimization method which contains the EpsilonConstraintProblem problem
         the bounds should be generated for.
     """
     def __init__(self, optimization_method):
         """Initializer
 
-        Variables
-        ---------
+        Parameters
+        ----------
         optimization_method : OptimizationMethod
             See BoundsFactory's attributes.
         """
@@ -39,8 +39,8 @@ class BoundsFactory(ResultFactory):
         """Generates the bounds for the optimization problem contained in
         optimization_method.
 
-        Variables
-        ---------
+        Parameters
+        ----------
         prev_point : List[float]
             Specifies the previous point, according to which, the bounds for the next
             point should be generated.
@@ -90,8 +90,8 @@ class IterationPointFactory(ResultFactory):
     def __init__(self, optimization_method):
         """Initializer.
 
-        Variables
-        ---------
+        Parameters
+        ----------
         optimization_method : OptimizationMethod
             See IterationPointFactory's attributes.
         """
@@ -100,8 +100,8 @@ class IterationPointFactory(ResultFactory):
     def result(self, preferences, prev_point) -> Tuple[np.ndarray, List[float]]:
         """Generates the iteration point according from a preference and previous point.
 
-        Variables
-        ---------
+        Parameters
+        ----------
         preferences : ReferencePoint
             A preference point specified by a decision makes.
         """
