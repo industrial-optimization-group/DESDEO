@@ -190,7 +190,7 @@ class ENAUTILUS(NAUTILUS):
         else:
             # k-mean cluster Ns solutions
             k_means = KMeans(n_clusters=self.Ns)
-            solution_points = [points[1] for point in points]
+            solution_points = [point[1] for point in points]
             k_means.fit(solution_points)
 
             closest = set(
