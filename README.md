@@ -1,3 +1,7 @@
+# IMPORTANT NOTICE
+This version of DESDEO is no longer supported. Information on the latest, and actively developed version of desdeo,
+can be found [here](https://desdeo.misitano.xyz/software).
+
 # DESDEO README #
 
 <p align="center">
