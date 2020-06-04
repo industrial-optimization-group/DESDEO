@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "desdeo"
+version = "0.1.0"
+description = "Open source framework for interactive multiobjective optimization."
+authors = ["Giovanni Misitano <giovanni.a.misitano@jyu.fi>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.7"
+
+[tool.poetry.dev-dependencies]
+sphinx = "^3.0.4"
+rstcheck = "^3.3.1"
+flake8 = "^3.8.2"
+black = "^19.10b0"
+sphinx_rtd_theme = "^0.4.3"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
