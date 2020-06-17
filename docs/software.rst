@@ -4,7 +4,10 @@ Software
 Modular Structure
 -----------------
 
- - Tell about the modular structure in general.
+ The DESDEO framework consists of various modules defined as Python software
+ packages. The modular structure can be seen in the image below, and a short
+ description of the different packages follows. The descriptions contain
+ links to the invdividual documentation pages for each of the package.
 
 .. image:: images/desdeo-structure.png
    :width: 800
@@ -12,42 +15,56 @@ Modular Structure
 desdeo-problem
 ^^^^^^^^^^^^^^
 
-**Insert short summary and link to project.**
+The desdeo_problem_ package contains tools and classes for defining and
+modelling multiobjective optimization problems. The defined problem classes
+can be used in the other packages in the DESDEO framework, such as
+desdeo_mcdm_ and desdeo-emo (*coming soon*)
 
 desdeo-tools
 ^^^^^^^^^^^^
 
-**Insert short summary and link to project.**
+The desdeo_tools_ package contains tools to facilitate different tasks in the
+other packages in the DESDEO framework. These tools include, for example,
+scalarization routines and various solvers.
 
 desdeo-emo
 ^^^^^^^^^^
 
-**Insert short summary and link to project.**
+(*coming soon*) The desdeo_emo package contains evolutionary algorithms for solving multiobjective optimization problems.
+These algorithms include, for example, interactive RVEA_.
 
 desdeo-mcdm
 ^^^^^^^^^^^
 
-The desdeo-mcdm-docs_ package contains traditional methods for performing
+The desdeo_mcdm_ package contains traditional methods for performing
 interactive multiobjective optimization. These methods include, but are not
 limited to, Synchronous NIMBUS_ and E-NAUTILUS_, for example.
 
 desdeo-vis
 ^^^^^^^^^^
 
-**Insert short summary and link to project.**
+(*coming soon*) The desdeo_vis package contains tools for building visualizations.
 
 desdeo-mix
 ^^^^^^^^^^
 
-**Insert short summary and link to project.**
+(*coming soon*) The desdeo_mix package contains routines and algorithms which
+make use of the other packages in the DESDEO framework, and warrant their own
+implementation to be included as part of the framework.
 
 Installation
 ------------
 
  - Installation instruction can be put here.
 
- .. _desdeo-mcdm-docs: https://desdeo-mcdm.readthedocs.io/en/latest/
+ .. _desdeo_mcdm: https://desdeo-mcdm.readthedocs.io/en/latest/
+
+ .. _desdeo_problem: https://desdeo-problem.readthedocs.io/en/latest/
+
+ .. _desdeo_tools: https://desdeo-tools.readthedocs.io/en/latest/
 
  .. _NIMBUS: https://www.sciencedirect.com/science/article/pii/S0377221704005260?via%3Dihub
 
  .. _E-NAUTILUS: https://www.sciencedirect.com/science/article/pii/S0377221715003203?via%3Dihub
+
+ .. _RVEA: https://ieeexplore.ieee.org/document/7386636
