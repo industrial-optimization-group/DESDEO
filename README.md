@@ -1,7 +1,7 @@
 # <img alt="DESDEO" src="https://github.com/industrial-optimization-group/DESDEO/blob/migrate-to-new/assets/desdeo_logo.png" height="80">
 
-<a href="https://badge.fury.io/py/desdeo"><img src="https://badge.fury.io/py/desdeo.svg" alt="Available on PyPI" height="18"></a>
-<a href="https://desdeo.readthedocs.io/en/latest/?badge=latest"><img alt="Documentation Status" src="https://readthedocs.org/projects/desdeo/badge/?version=latest"></a>
+[![PyPI version](https://badge.fury.io/py/desdeo.svg)](https://badge.fury.io/py/desdeo)
+[![Documentation Status](https://readthedocs.org/projects/desdeo/badge/?version=latest)](https://desdeo.readthedocs.io/en/latest/?badge=latest)
 
 # DESDEO
 
