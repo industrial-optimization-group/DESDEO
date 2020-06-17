@@ -4,10 +4,10 @@ Software
 Modular Structure
 -----------------
 
- The DESDEO framework consists of various modules defined as Python software
- packages. The modular structure can be seen in the image below, and a short
- description of the different packages follows. The descriptions contain
- links to the invdividual documentation pages for each of the package.
+The DESDEO framework consists of various modules defined as Python software
+packages. The modular structure can be seen in the image below, and a short
+description of the different packages follows. The descriptions contain
+links to the invdividual documentation pages for each of the package.
 
 .. image:: images/desdeo-structure.png
    :width: 800
@@ -55,19 +55,34 @@ implementation to be included as part of the framework.
 Installation
 ------------
 
- To install a single package, see that package's documentation. To install
- the whole DESDEO framework, follow one of the alternatives given below
- according to the operating system on the machine you plan to install DESDEO
- on.
+To install a single package, see that package's documentation. To install
+the whole DESDEO framework, follow one of the alternatives given below
+according to the operating system on the machine you plan to install DESDEO
+on.
 
 Linux
 ^^^^^
 
+The recommended way of installing the DESDEO framework is to use pip by invoking the command:
+::
+
+   pip install desdeo
+
+For developing, usage of the poetry dependency management tool is
+recommended. However, no framework code should be contributed to the main
+DESDEO package. Instead, contributions should go to the relevant subpackage,
+which are listed here. See the documentation for the individual for further
+details. See `Modular Structure`_ for links to the individual documentations.
+
 OSX
 ^^^
 
+*Instruction coming eventually.*
+
 Windows
 ^^^^^^^
+
+*Instruction coming eventually.*
 
  .. _desdeo_mcdm: https://desdeo-mcdm.readthedocs.io/en/latest/
 

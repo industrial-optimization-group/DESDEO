@@ -1,12 +1,12 @@
 Contributing
 ============
 
-**Under construction**
+*Further details coming eventually.*
 
 Guidelines and Conventions
 --------------------------
 
-**Under construction**
+*Further details coming eventually.*
 
 Docstring style
 ^^^^^^^^^^^^^^^
@@ -17,31 +17,22 @@ style_ dictated by Google.
 Software development
 --------------------
 
-**Under construction**
+*Further details coming eventually.*
 
 How to get started
 ^^^^^^^^^^^^^^^^^^
 
-1. Copy repo 
-2. Create branch 
-3. Make changes and document them
-4. Commit changes
-5. Make pull request
-6. Go to 3. if changes need revision
+*Further details coming eventually.*
 
 Project management tools
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-- git for version control
-- poetry for package management
-- pyenv for Python version management
+*Further details coming eventually.*
 
 Software development tools
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-- black as code formatter
-- flake8 as linter
-- what else?
+*Further details coming eventually.*
 
 
 Documentation
@@ -102,6 +93,7 @@ User provided extensions:
 
 - Sphinx-autodoc-typehints_ for better type hints.
 - automodapi_ for even better automatic API documentation generation.
+- nbsphinx_ for converting Python notebooks into rst pages.
 
 Building and testing the documentation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -202,9 +194,9 @@ Some common caveats with Sphinx:
    ::
 
       .. toctree::
-          :maxdepht: 2
-          content
-          morecontent
+         :maxdepht: 2
+         content
+         morecontent
 
  - If the contents of an item in a list span more than one line, the lines
    following the first line should have their indentation starting at the same
@@ -233,3 +225,4 @@ Some common caveats with Sphinx:
 .. _automodapi: https://Sphinx-automodapi.readthedocs.io/en/latest/index.html
 .. _readthedocs.org: https://www.readthedocs.org
 .. _tutorial: https://matplotlib.org/sampledoc/
+.. _nbsphinx: https://nbsphinx.readthedocs.io/en/0.7.1/
