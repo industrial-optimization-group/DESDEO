@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "desdeo"
-version = "0.1.0"
+version = "1.0"
 description = "Open source framework for interactive multiobjective optimization."
 authors = ["Giovanni Misitano <giovanni.a.misitano@jyu.fi>"]
 license = "MIT"
