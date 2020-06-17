@@ -34,11 +34,51 @@ About DESDEO
 The Research Projects Behind DESDEO
 -----------------------------------
  
- ** TODO **
+About the Multiobjective Optimization Group
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
- - Tell about the Multiobjective Optimization Group
- - Tell about the DESDEO research project
- - Tell about DAEMON
+The Multiobjective Optimization Group developes theory, methodology and
+open-source computer implementations for solving real-world decision-making
+problems. Most of the research concentrates on multiobjective optimization
+(MO) in which multiple conflicting objectives are optimized simultaneously
+and a decision maker (DM) is supported in finding a preferred compromise.
+
+About the DESDEO research project
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+DESDEO contains implementations of some interactive methods and modules that
+can be utilized to implement further methods. DESDEO brings interactive
+methods closer to researchers and practitioners world-wide, by providing them
+with implementations of interactive methods.
+
+Interactive methods are useful tools for decision support in finding the most
+preferred balance among conflicting objectives. They support the decision
+maker in gaining insight in the trade-offs among the conflicting objectives.
+The decision maker can also conveniently learn about the feasibility of one's
+preferences and update them, if needed.
+
+DESDEO is part of DEMO (Decision analytics utilizing causal models and
+multiobjective optimization) which is the thematic research area of the
+University of Jyväskylä (jyu.fi/demo).
+
+We welcome you to utilize DESDEO and develop it further with us.
+
+About DAEMON
+^^^^^^^^^^^^
+
+The mission of DAEMON is method and software development for making better
+data-driven decisions. The project considers data and decision problems from
+selected fields as cases to inspire the research and demonstrate the added
+value.
+
+In DAEMON, we support optimizing conflicting objectives simultaneously by
+applying interactive multiobjective optimization methods, where a decision
+maker (DM) incorporates one’s domain expertise and preferences in the
+solution process. Overall, we model and formulate optimization problems based
+on data, so that DMs can identify effective strategies to better understand
+trade-offs and balance between conflicting objectives. In this, we
+incorporate machine learning tools, visualize trade-offs to DMs and consider
+uncertainties affecting the decisions.
 
 Publications Related to DESDEO
 ------------------------------

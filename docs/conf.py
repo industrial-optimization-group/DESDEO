@@ -56,4 +56,5 @@ html_static_path = ["_static"]
 intersphinx_mapping = {
     "desdeo-mcdm": ("https://desdeo-mcdm.readthedocs.io/en/latest/", None),
     "desdeo-tools": ("https://desdeo-tools.readthedocs.io/en/latest/", None),
+    "desdeo-problem": ("https://desdeo-problem.readthedocs.io/en/latest/", None),
 }
