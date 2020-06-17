@@ -6,7 +6,10 @@ authors = ["Giovanni Misitano <giovanni.a.misitano@jyu.fi>"]
 license = "MIT"
 
 [tool.poetry.dependencies]
-python = "^3.7"
+python = "^3.7.0"
+desdeo-problem = "^0.15.0"
+desdeo-tools = "^0.2.6"
+desdeo-mcdm = "^0.1.3"
 
 [tool.poetry.dev-dependencies]
 sphinx = "^3.0.4"
