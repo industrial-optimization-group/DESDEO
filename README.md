@@ -67,3 +67,8 @@ The DESDEO framework's documentation can be found [here](https://desdeo.readthed
 ## Contributing
 
 Contributions to the DESDEO framework and its different modules is warmly welcome! See the documentation's [contributing](https://desdeo.readthedocs.io/en/latest/contributing.html) for further details.
+
+## Legacy code
+The old version of DESDEO, which is no longer maintained, can be found [here](https://github.com/industrial-optimization-group/DESDEO/tree/legacy)
+alongside with its [documentation](https://desdeo.readthedocs.io/en/legacy/). The support for this version of DESDEO ceased
+June 2020, and is no longer supported.
