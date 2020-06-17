@@ -55,7 +55,19 @@ implementation to be included as part of the framework.
 Installation
 ------------
 
- - Installation instruction can be put here.
+ To install a single package, see that package's documentation. To install
+ the whole DESDEO framework, follow one of the alternatives given below
+ according to the operating system on the machine you plan to install DESDEO
+ on.
+
+ Linux
+ ^^^^^
+
+ OSX
+ ^^^
+
+ Windows
+ ^^^^^^^
 
  .. _desdeo_mcdm: https://desdeo-mcdm.readthedocs.io/en/latest/
 

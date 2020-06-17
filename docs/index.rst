@@ -17,4 +17,18 @@ For news and other information related to DESDEO, see the official website_.
    guides
    contributing
 
+Shortcut to package documentations
+----------------------------------
+
+ - desdeo_mcdm_
+ - desdeo_problem_
+ - desdeo_tools_
+
+
 .. _website: https://desdeo.misitano.xyz/
+
+.. _desdeo_mcdm: https://desdeo-mcdm.readthedocs.io/en/latest/
+
+.. _desdeo_problem: https://desdeo-problem.readthedocs.io/en/latest/
+
+.. _desdeo_tools: https://desdeo-tools.readthedocs.io/en/latest/
