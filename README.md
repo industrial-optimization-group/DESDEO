@@ -62,4 +62,4 @@ The DESDEO framework's documentation can be found [here](https://desdeo.readthed
 
 ## Contributing
 
-Contributions to the DESDEO framework and its different modules is warmly welcome! See the documentation's [contributing](https://desdeo.readthedocs.io/en/migrate-to-new/contributing.html) for further details.
+Contributions to the DESDEO framework and its different modules is warmly welcome! See the documentation's [contributing](https://desdeo.readthedocs.io/en/latest/contributing.html) for further details.
