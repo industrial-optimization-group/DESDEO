@@ -60,14 +60,14 @@ Installation
  according to the operating system on the machine you plan to install DESDEO
  on.
 
- Linux
- ^^^^^
+Linux
+^^^^^
 
- OSX
- ^^^
+OSX
+^^^
 
- Windows
- ^^^^^^^
+Windows
+^^^^^^^
 
  .. _desdeo_mcdm: https://desdeo-mcdm.readthedocs.io/en/latest/
 
