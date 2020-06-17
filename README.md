@@ -36,7 +36,7 @@ decision maker (DM) is supported in finding a preferred compromise.
 ### Website
 
 To learn more about DESDEO and the Multiobjective Optimization Research
-group, visit the official [homepage](desdeo.it.jyu.fi).
+group, visit the official [homepage](https://desdeo.it.jyu.fi).
 
 ## Installation
 
