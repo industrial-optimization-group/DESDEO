@@ -56,6 +56,10 @@ Requires [poetry](https://python-poetry.org/). See `pyproject.toml` for Python p
 4. `poetry init`
 5. `poetry install`
 
+**NOTE**: This repository does not contain any code implementing the different features in DESDEO. Instead, this
+repository contains the main documentation of the framework, and is used to build and define the DESDEO framework
+software package combining all of the Python subpackages in the framework.
+
 ## Documentation
 
 The DESDEO framework's documentation can be found [here](https://desdeo.readthedocs.io/en/latest/)
