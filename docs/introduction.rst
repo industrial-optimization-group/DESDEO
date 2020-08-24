@@ -127,4 +127,4 @@ Glossary
    ideal (point)
       The best possible objective values of a Pareto front.
 
-.. _publications: https://desdeo.it.jyu.fi/publicpoetryations/
+.. _publications: https://desdeo.it.jyu.fi/publications/

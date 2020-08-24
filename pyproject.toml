@@ -2,7 +2,8 @@
 name = "desdeo"
 version = "1.1"
 description = "Open source framework for interactive multiobjective optimization."
-authors = ["Giovanni Misitano <giovanni.a.misitano@jyu.fi>"]
+authors = ["Giovanni Misitano <giovanni.a.misitano@jyu.fi>",
+            "Bhupinder Singh Saini <bhupinder.s.saini@jyu.fi>"]
 license = "MIT"
 
 [tool.poetry.dependencies]
