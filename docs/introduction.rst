@@ -20,7 +20,24 @@ About DESDEO
  demanding. Furthermore, the decision maker learns about the
  interdependencies among the objectives and also the feasibility of one's
  preferences.
- 
+  
+ Evolutionary algorithms (EAs) are optimization algorithms which emulate the process of
+ evolution via natural selection to find optimal solutions to single- or multiobjective
+ optimization problems (MOPs).
+ This is achieved by taking a *population* of candidate solutions, known as
+ *individuals*.
+ The individuals mix and match their properties with other individuals in a process
+ called *crossover* to form a new batch of candidate solutions, known as *offsprings*.
+ The process also involves a random change in the properties of the offsprings, which
+ occurs via a process called *mutation*.
+ Finally, there is a culling step, called *selection*, which kills the individuals which
+ are considered not optimal according to a *fitness* criteria.
+ The surviving members of the population then undergo the same steps as mentioned above,
+ and slowly converge towards optimality as determined by the fitness criteria used in the
+ selection step.
+ Different EAs differ in the way they handle the population; conduct crossover, mutation,
+ and selection; and calculate the fitness criteria.
+
  The mission of DESDEO is to increase awarenss of the benefits of interactive
  methods make interactive methods more easily available and applicable.
  Thanks to the open architecture, interactive methods are easier to be
@@ -28,8 +45,9 @@ About DESDEO
  components that can be utilized for implementing new methods or modifying
  the existing methods. The framework is released under a permissive open
  source license.
- 
- **TODO: MORE ABOUT EMO AND OTHER MISSING STUFF**
+
+
+ **TODO: MORE ABOUT OTHER MISSING STUFF**
 
 The Research Projects Behind DESDEO
 -----------------------------------
@@ -109,4 +127,4 @@ Glossary
    ideal (point)
       The best possible objective values of a Pareto front.
 
-.. _publications: https://desdeo.misitano.xyz/publications/
+.. _publications: https://desdeo.it.jyu.fi/publicpoetryations/
