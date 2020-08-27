@@ -84,6 +84,14 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 version = "7.1.2"
 
 [[package]]
+category = "main"
+description = "Extended pickling support for Python objects"
+name = "cloudpickle"
+optional = false
+python-versions = ">=3.5"
+version = "1.5.0"
+
+[[package]]
 category = "dev"
 description = "Cross-platform colored terminal text."
 marker = "sys_platform == \"win32\""
@@ -91,6 +99,25 @@ name = "colorama"
 optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 version = "0.4.3"
+
+[[package]]
+category = "main"
+description = "The python version reference vector guided evolutionary algorithm."
+name = "desdeo-emo"
+optional = false
+python-versions = ">=3.7.0,<4.0.0"
+version = "1.0.2"
+
+[package.dependencies]
+desdeo-problem = ">=0.15.0,<0.16.0"
+desdeo-tools = ">=0.2.6,<0.3.0"
+diversipy = ">=0.8.0,<0.9.0"
+optproblems = ">=1.2,<2.0"
+plotly = ">=4.1,<5.0"
+pyDOE = ">=0.3.8,<0.4.0"
+pygmo = "2.12"
+scikit-learn = ">=0.21.2,<0.22.0"
+scipy = ">=1.2,<2.0"
 
 [[package]]
 category = "main"
@@ -292,12 +319,36 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 version = "0.8.0"
 
 [[package]]
+category = "main"
+description = "An open-source, interactive data visualization library for Python"
+name = "plotly"
+optional = false
+python-versions = "*"
+version = "4.9.0"
+
+[package.dependencies]
+retrying = ">=1.3.3"
+six = "*"
+
+[[package]]
 category = "dev"
 description = "Python style guide checker"
 name = "pycodestyle"
 optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 version = "2.6.0"
+
+[[package]]
+category = "main"
+description = "Design of experiments for Python"
+name = "pydoe"
+optional = false
+python-versions = "*"
+version = "0.3.8"
+
+[package.dependencies]
+numpy = "*"
+scipy = "*"
 
 [[package]]
 category = "dev"
@@ -314,6 +365,18 @@ name = "pygments"
 optional = false
 python-versions = ">=3.5"
 version = "2.6.1"
+
+[[package]]
+category = "main"
+description = "Parallel optimisation for C++ / Python"
+name = "pygmo"
+optional = false
+python-versions = "*"
+version = "2.12.0"
+
+[package.dependencies]
+cloudpickle = "*"
+numpy = "*"
 
 [[package]]
 category = "dev"
@@ -367,6 +430,17 @@ urllib3 = ">=1.21.1,<1.25.0 || >1.25.0,<1.25.1 || >1.25.1,<1.26"
 [package.extras]
 security = ["pyOpenSSL (>=0.14)", "cryptography (>=1.3.4)"]
 socks = ["PySocks (>=1.5.6,<1.5.7 || >1.5.7)", "win-inet-pton"]
+
+[[package]]
+category = "main"
+description = "Retrying"
+name = "retrying"
+optional = false
+python-versions = "*"
+version = "1.3.3"
+
+[package.dependencies]
+six = ">=1.7.0"
 
 [[package]]
 category = "dev"
@@ -579,7 +653,8 @@ docs = ["sphinx", "jaraco.packaging (>=3.2)", "rst.linker (>=1.9)"]
 testing = ["jaraco.itertools", "func-timeout"]
 
 [metadata]
-content-hash = "23943a44e71d9cf843d76126f9ba13ecc48f4bcd5eafd753bcb060d44aae1486"
+content-hash = "e9a22bcce4b5cd0897ca8bb37fbe888ceba0dfb70b78e19e5676f98ef48ed115"
+lock-version = "1.0"
 python-versions = "^3.7.0"
 
 [metadata.files]
@@ -615,9 +690,17 @@ click = [
     {file = "click-7.1.2-py2.py3-none-any.whl", hash = "sha256:dacca89f4bfadd5de3d7489b7c8a566eee0d3676333fbb50030263894c38c0dc"},
     {file = "click-7.1.2.tar.gz", hash = "sha256:d2b5255c7c6349bc1bd1e59e08cd12acbbd63ce649f2588755783aa94dfb6b1a"},
 ]
+cloudpickle = [
+    {file = "cloudpickle-1.5.0-py3-none-any.whl", hash = "sha256:994d503de22399a8a09091b091e3850509144ede72977ac475f323096eb72936"},
+    {file = "cloudpickle-1.5.0.tar.gz", hash = "sha256:820c9245cebdec7257211cbe88745101d5d6a042bca11336d78ebd4897ddbc82"},
+]
 colorama = [
     {file = "colorama-0.4.3-py2.py3-none-any.whl", hash = "sha256:7d73d2a99753107a36ac6b455ee49046802e59d9d076ef8e47b61499fa29afff"},
     {file = "colorama-0.4.3.tar.gz", hash = "sha256:e96da0d330793e2cb9485e9ddfd918d456036c7149416295932478192f4436a1"},
+]
+desdeo-emo = [
+    {file = "desdeo_emo-1.0.2-py3-none-any.whl", hash = "sha256:eca0f9a80736c89e62ac8c0937151a871c01abf0aa5a9a0fd036ed25ad3caee6"},
+    {file = "desdeo_emo-1.0.2.tar.gz", hash = "sha256:ca2c5b7bd0a5fdbaf01c117641fc846481a2a813bca82bcae31a7b19b8ee7304"},
 ]
 desdeo-mcdm = [
     {file = "desdeo-mcdm-0.1.3.tar.gz", hash = "sha256:a60b04a7b95e53da862d6c7219892659634e8c68b94d19666b14c7358d660fdb"},
@@ -756,9 +839,16 @@ pathspec = [
     {file = "pathspec-0.8.0-py2.py3-none-any.whl", hash = "sha256:7d91249d21749788d07a2d0f94147accd8f845507400749ea19c1ec9054a12b0"},
     {file = "pathspec-0.8.0.tar.gz", hash = "sha256:da45173eb3a6f2a5a487efba21f050af2b41948be6ab52b6a1e3ff22bb8b7061"},
 ]
+plotly = [
+    {file = "plotly-4.9.0-py2.py3-none-any.whl", hash = "sha256:7c7b613af8def74f48b1298f08a49086bb9792104119feb4a137f737533021e1"},
+    {file = "plotly-4.9.0.tar.gz", hash = "sha256:257f530ffd73754bd008454826905657b329053364597479bb9774437a396837"},
+]
 pycodestyle = [
     {file = "pycodestyle-2.6.0-py2.py3-none-any.whl", hash = "sha256:2295e7b2f6b5bd100585ebcb1f616591b652db8a741695b3d8f5d28bdc934367"},
     {file = "pycodestyle-2.6.0.tar.gz", hash = "sha256:c58a7d2815e0e8d7972bf1803331fb0152f867bd89adf8a01dfd55085434192e"},
+]
+pydoe = [
+    {file = "pyDOE-0.3.8.zip", hash = "sha256:cbd6f14ae26d3c9f736013205f53ea1191add4567033c3ee77b7dd356566c4b6"},
 ]
 pyflakes = [
     {file = "pyflakes-2.2.0-py2.py3-none-any.whl", hash = "sha256:0d94e0e05a19e57a99444b6ddcf9a6eb2e5c68d3ca1e98e90707af8152c90a92"},
@@ -767,6 +857,15 @@ pyflakes = [
 pygments = [
     {file = "Pygments-2.6.1-py3-none-any.whl", hash = "sha256:ff7a40b4860b727ab48fad6360eb351cc1b33cbf9b15a0f689ca5353e9463324"},
     {file = "Pygments-2.6.1.tar.gz", hash = "sha256:647344a061c249a3b74e230c739f434d7ea4d8b1d5f3721bc0f3558049b38f44"},
+]
+pygmo = [
+    {file = "pygmo-2.12.0-cp27-cp27m-manylinux1_x86_64.whl", hash = "sha256:7db8a75539a71977e4925ba216b5671a16146ac04a1eb2d5524d7afd74bb4bd4"},
+    {file = "pygmo-2.12.0-cp27-cp27m-win_amd64.whl", hash = "sha256:a9d24fba61a806e5b8442d2b4d2d8bae8d5ad40fd511376d9f7d88200cadc971"},
+    {file = "pygmo-2.12.0-cp27-cp27mu-manylinux1_x86_64.whl", hash = "sha256:3b3a044fe80f29096cb490a6f935327477f2a6935289d1e25c2fe7ac25763f40"},
+    {file = "pygmo-2.12.0-cp36-cp36m-manylinux1_x86_64.whl", hash = "sha256:16459ec3554dc5501473408ccb4f3baf53e6bfea3a8f761a7ee0cea17f2f4c07"},
+    {file = "pygmo-2.12.0-cp36-cp36m-win_amd64.whl", hash = "sha256:5a3668f031a66908ec6fa229e992c6436479da152c951d3114bffc30bf9ec3ae"},
+    {file = "pygmo-2.12.0-cp37-cp37m-manylinux1_x86_64.whl", hash = "sha256:88d85baacfd99b8cb7e058b1e3833ea8b4e059ea6e68e9e37287067a3fd346c8"},
+    {file = "pygmo-2.12.0-cp37-cp37m-win_amd64.whl", hash = "sha256:3a9f0bf1caccc5ff0325a6c78e483538fedc9e3837905b3b9f6c61b05b0b5270"},
 ]
 pyparsing = [
     {file = "pyparsing-2.4.7-py2.py3-none-any.whl", hash = "sha256:ef9d7589ef3c200abe66653d3f1ab1033c3c419ae9b9bdb1240a85b024efc88b"},
@@ -806,6 +905,9 @@ regex = [
 requests = [
     {file = "requests-2.23.0-py2.py3-none-any.whl", hash = "sha256:43999036bfa82904b6af1d99e4882b560e5e2c68e5c4b0aa03b655f3d7d73fee"},
     {file = "requests-2.23.0.tar.gz", hash = "sha256:b3f43d496c6daba4493e7c431722aeb7dbc6288f52a6e04e7b6023b0247817e6"},
+]
+retrying = [
+    {file = "retrying-1.3.3.tar.gz", hash = "sha256:08c039560a6da2fe4f2c426d0766e284d3b736e355f8dd24b37367b0bb41973b"},
 ]
 rstcheck = [
     {file = "rstcheck-3.3.1.tar.gz", hash = "sha256:92c4f79256a54270e0402ba16a2f92d0b3c15c8f4410cb9c57127067c215741f"},

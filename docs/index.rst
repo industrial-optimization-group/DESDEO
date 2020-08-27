@@ -21,6 +21,7 @@ Shortcut to package documentations
 ----------------------------------
 
  - desdeo_mcdm_
+ - desdeo_emo_
  - desdeo_problem_
  - desdeo_tools_
 
@@ -32,3 +33,5 @@ Shortcut to package documentations
 .. _desdeo_problem: https://desdeo-problem.readthedocs.io/en/latest/
 
 .. _desdeo_tools: https://desdeo-tools.readthedocs.io/en/latest/
+
+.. _desdeo_emo: https://desdeo-emo.readthedocs.io/en/latest/

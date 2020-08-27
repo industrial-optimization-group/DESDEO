@@ -1,8 +1,9 @@
 [tool.poetry]
 name = "desdeo"
-version = "1.0"
+version = "1.1"
 description = "Open source framework for interactive multiobjective optimization."
-authors = ["Giovanni Misitano <giovanni.a.misitano@jyu.fi>"]
+authors = ["Giovanni Misitano <giovanni.a.misitano@jyu.fi>",
+            "Bhupinder Singh Saini <bhupinder.s.saini@jyu.fi>"]
 license = "MIT"
 
 [tool.poetry.dependencies]
@@ -10,6 +11,7 @@ python = "^3.7.0"
 desdeo-problem = "^0.15.0"
 desdeo-tools = "^0.2.6"
 desdeo-mcdm = "^0.1.3"
+desdeo-emo = "^1.0.2"
 
 [tool.poetry.dev-dependencies]
 sphinx = "^3.0.4"
