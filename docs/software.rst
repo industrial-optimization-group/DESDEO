@@ -18,7 +18,7 @@ desdeo-problem
 The desdeo_problem_ package contains tools and classes for defining and
 modelling multiobjective optimization problems. The defined problem classes
 can be used in the other packages in the DESDEO framework, such as
-desdeo_mcdm_ and desdeo-emo (*coming soon*)
+desdeo_mcdm_ and desdeo-emo_.
 
 desdeo-tools
 ^^^^^^^^^^^^
@@ -30,7 +30,7 @@ scalarization routines and various solvers.
 desdeo-emo
 ^^^^^^^^^^
 
-(*coming soon*) The desdeo_emo package contains evolutionary algorithms for solving multiobjective optimization problems.
+The desdeo_emo_ package contains evolutionary algorithms for solving multiobjective optimization problems.
 These algorithms include, for example, interactive RVEA_.
 
 desdeo-mcdm
@@ -60,8 +60,8 @@ the whole DESDEO framework, follow one of the alternatives given below
 according to the operating system on the machine you plan to install DESDEO
 on.
 
-Linux
-^^^^^
+Linux and Windows
+^^^^^^^^^^^^^^^^^
 
 The recommended way of installing the DESDEO framework is to use pip by invoking the command:
 ::
@@ -79,12 +79,10 @@ OSX
 
 *Instruction coming eventually.*
 
-Windows
-^^^^^^^
-
-*Instruction coming eventually.*
 
  .. _desdeo_mcdm: https://desdeo-mcdm.readthedocs.io/en/latest/
+ 
+ .. _desdeo_emo: https://desdeo-emo.readthedocs.io/en/latest/
 
  .. _desdeo_problem: https://desdeo-problem.readthedocs.io/en/latest/
 
