@@ -1,39 +1,150 @@
 Contributing
 ============
 
-*Further details coming eventually.*
+We welcome anybody interested to contribute to the packages found in the DESDEO
+framework. These contributions can be anything. Contributions do not have to necessarely be
+ground-breaking. From fixing typos in the documentation to implementing new multiobjective
+optimization methods, everything is welcome!
 
 Guidelines and Conventions
 --------------------------
 
-*Further details coming eventually.*
+The guidelines for code to be included in DESDEO should follow a few simple rules:
+
+- Use spaces instead of tabs. Four spaces are used for indenting blocks when writing Python.
+- Each line of code should not exceed 120 characters.
+- Try to use type annotations for functions using Python's `type hints`_.
+- For naming classes use ``CamelCase``, and for naming functions and methods use ``snake_case``.
+- Do not use global or file level declarations. Try to always encapsulate your declarations inside classes.
+- Classes should be designed with `duck typing`_ conventions in mind.
+
 
 Docstring style
 ^^^^^^^^^^^^^^^
 
 The docstring style used throughout the DESDEO framework follows the
-style_ dictated by Google.
+style_ dictated by Google. Each function, class, and method should be documented.
 
 Software development
 --------------------
 
-*Further details coming eventually.*
+This sections contains some basic tips to get started in contributing to DESDEO.
+We expect contributors to be proficient in at least the basics of Python.
 
-How to get started
+Version control
+^^^^^^^^^^^^^^^
+
+DESDEO and all of its packages are under version control managed with ``git``.
+It is highly suggested that anybody wanting to contribute to DESDEO should be first
+familiar with the basic principles of ``git``. If terms such as `branching`, `committing`,
+`merging`, `staging`, and `cloning` are alien to the reader, a brief review of the 
+basics of ``git`` is in place before contributing to DESDEO can start. At least if the reader
+wishes to make the experience as painless as possible...
+
+For resources to learn git, `git's official documentation`_ is a very good place to start.
+Many other resources exists on the web as well. We will not be listing them all. However, if a 
+gamified approach is desired instead of having to read documentation, an in-browser tutorial
+is available `here`__.
+
+__ gitgame_
+
+Project management
 ^^^^^^^^^^^^^^^^^^
 
-*Further details coming eventually.*
+The packages in DESDEO depend on many external Python packages. Sometimes a particular version
+of an external package is needed, which does not match the current version of the same
+external package on the computer's system DESDEO is going to be developed on. This can lead
+to many dependency problems. It is therefore 
+highly recommended to
+use `virtual environments` when developing DESDEO to separate the packages needed by DESDEO from the
+packages present on the system's level.
 
-Project management tools
-^^^^^^^^^^^^^^^^^^^^^^^^
+Poetry_ is a modern and powerful tool to manage Python package dependencies and for building Python
+packages. ``Poetry`` is used throughout the DESDEO framework to manage and build its packages. While ``Poetry``
+is `not` a tool for managing virtual environments, it nonetheless offers very simple commands to trivialize
+the task. Anybody contributing code to DESDEO should be familiar with ``Poetry``.
 
-*Further details coming eventually.*
+Sometimes the Python version installed on a system is not compatible with the Python version required
+in DESDEO (3.7.x). In this case, it is recommended to use an external tool, such as `pyenv`_, to facilitate
+the task of switching from one Python version to an other.
 
-Software development tools
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+Example on how to get started
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-*Further details coming eventually.*
+Once the reader is familiar with ``git`` and ``Poetry``, starting to develop DESDEO should proceed
+relatively painlessly. Suppose we have a feature X which we wish to implement in DESDEO's ``desdeo-mcdm``
+package. It is higly recommended to first ``fork`` the ``desdeo-package`` on GitHub on a separate repository
+and then cloning that repository. When doing so, use the forked repository's URL instead of the 
+main repotiry's URL when cloning the project using ``git``. Make sure to also setup your forked repository
+to be configured__ properly to be able to synchronize it later with the upstream repository.
 
+__ upstream_
+
+We proceed by cloning the repository on our local machine:
+
+::
+
+    $ git clone https://github.com/industrial-optimization-group/desdeo-mcdm
+
+Next, we should switch to the newly created directory:
+
+::
+
+    $ cd desdeo-mcdm
+
+We can now easily use ``Poetry`` to first create a Python virtual environment by issuing Poetry's ``shell``-
+command and then use Poetry's ``install``-command to install the ``desdeo-mcdm`` package locally in our
+newly created virtual environment:
+
+::
+
+    $ poetry shell
+    $ poetry install
+
+The ``install`` command might take a while. Once that is done, ``desdeo-mcdm`` should now be installed
+in our virtual environment and be fully usable in it.
+
+To start implemeting our new feature X, we should start by making a new ``branch`` and switching to it
+using ``git``. This ensures that the changes we make are relative to ``desdeo-mcdm``'s master branch,
+at least the version of it which was available at the time of cloning it. Let us create a new branch now
+for our featrue X named ``feature-X``:
+
+::
+    
+    $ git branch feature-X
+    $ git checkout feature-X
+
+We are now ready to start implementing our changes to the package. Frequent ``committing`` is
+encouraged.
+
+Suppose that we are now done impelenting our feature X. We now wish it was included to the master
+branch of ``desdeo-mcdm``. To do so, we need to first switch back to the master branch
+
+::
+
+    $ git checkout master
+
+Then we need to make sure the master branch is up-to-date with the upstream version of the branch
+by issuing a pull. (If a ``forked`` repository is being used, the repository must first be 
+synchronized__ with the upstream repository.) 
+
+__ sync_
+
+::
+
+    $ git pull
+
+Lastly, we will have to merge our ``feature-X`` branch containing our changes with the master branch
+
+::
+
+    $ git merge feature-X
+ 
+If all went well, we should now be ready to issue a ``pull request``. However, if any conflicts emerge during the
+merging of the branches, these conflicts should be addressed before making a ``pull request``. When the merge
+is free of conflicts, a ``pull request`` can be issued on GitHub or from the terminal. A maintainer of the repository
+will then review your changes and either accept them into the upstream or request revisions to be made before
+the new code can be accepted.
 
 Documentation
 -------------
@@ -226,3 +337,11 @@ Some common caveats with Sphinx:
 .. _readthedocs.org: https://www.readthedocs.org
 .. _tutorial: https://matplotlib.org/sampledoc/
 .. _nbsphinx: https://nbsphinx.readthedocs.io/en/0.7.1/
+.. _type hints: https://docs.python.org/3/library/typing.html
+.. _duck typing: https://en.wikipedia.org/wiki/Duck_typing
+.. _git's official documentation: https://git-scm.com/doc
+.. _gitgame: https://learngitbranching.js.org/
+.. _Poetry: https://python-poetry.org/
+.. _pyenv: https://github.com/pyenv/pyenv
+.. _sync: https://docs.github.com/en/free-pro-team@latest/github/collaborating-with-issues-and-pull-requests/syncing-a-fork
+.. _upstream: https://docs.github.com/en/free-pro-team@latest/github/collaborating-with-issues-and-pull-requests/configuring-a-remote-for-a-fork
