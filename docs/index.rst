@@ -10,28 +10,25 @@ For news and other information related to DESDEO, see the official website_.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Contents
 
    introduction
    software
    guides
    contributing
 
-Shortcut to package documentations
-----------------------------------
+.. toctree::
+   :maxdepth: 1
+   :caption: External links
 
- - desdeo_mcdm_
- - desdeo_emo_
- - desdeo_problem_
- - desdeo_tools_
+   desdeo-mcdm <https://desdeo-mcdm.readthedocs.io/en/latest/>
 
+   desdeo-emo <https://desdeo-problem.readthedocs.io/en/latest/>
 
-.. _website: https://desdeo.misitano.xyz/
+   desdeo-tools <https://desdeo-tools.readthedocs.io/en/latest>
 
-.. _desdeo_mcdm: https://desdeo-mcdm.readthedocs.io/en/latest/
+   desdeo-emo <https://desdeo-emo.readthedocs.io/en/latest/>
 
-.. _desdeo_problem: https://desdeo-problem.readthedocs.io/en/latest/
+   DESDEO website <https://desdeo.it.jyu.fi>
 
-.. _desdeo_tools: https://desdeo-tools.readthedocs.io/en/latest/
-
-.. _desdeo_emo: https://desdeo-emo.readthedocs.io/en/latest/
+.. _website: https://desdeo.it.jyu.fi
