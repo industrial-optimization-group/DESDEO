@@ -23,11 +23,11 @@ For news and other information related to DESDEO, see the official website_.
 
    desdeo-mcdm <https://desdeo-mcdm.readthedocs.io/en/latest/>
 
-   desdeo-emo <https://desdeo-problem.readthedocs.io/en/latest/>
+   desdeo-emo <https://desdeo-emo.readthedocs.io/en/latest/>
+
+   desdeo-problem <https://desdeo-problem.readthedocs.io/en/latest/>
 
    desdeo-tools <https://desdeo-tools.readthedocs.io/en/latest>
-
-   desdeo-emo <https://desdeo-emo.readthedocs.io/en/latest/>
 
    DESDEO website <https://desdeo.it.jyu.fi>
 
