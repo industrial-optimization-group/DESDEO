@@ -19,42 +19,43 @@ Packages
       .. container:: descr
 
          .. figure:: /images/desdeo_problem.png
-            :target: interface/index.html
+            :target: https://desdeo-problem.readthedocs.io/en/latest/index.html
 
-         :doc:`/interface/index`
-                The desdeo_problem_ package contains tools and classes for defining and
+         `desdeo-problem <https://desdeo-problem.readthedocs.io/en/latest/index.html>`_
+                The **desdeo-problem** package contains tools and classes for defining and
 		modelling multiobjective optimization problems. The defined problem classes
 		can be used in the other packages in the DESDEO framework, such as
-		desdeo_mcdm_ and desdeo-emo_.
+		**desdeo-mcdm** and **desdeo-emo**.
 
       .. container:: descr
 
          .. figure:: /images/desdeo_tools.png
-            :target: editors/index.html
+            :target: https://desdeo-tools.readthedocs.io/en/latest/index.html
 
-         :doc:`/editors/index`
-            	The desdeo_tools_ package contains tools to facilitate different tasks in the
+         `desdeo-tools <https://desdeo-tools.readthedocs.io/en/latest/index.html>`_
+            	The **desdeo-tools** package contains tools to facilitate different tasks in the
 		other packages in the DESDEO framework. These tools include, for example,
 		scalarization routines and various solvers.
 
       .. container:: descr
 
          .. figure:: /images/desdeo_emo.png
-            :target: scene_layout/index.html
+            :target: https://desdeo-emo.readthedocs.io/en/latest/index.html
 
-         :doc:`/scene_layout/index`
-            	The desdeo_emo_ package contains evolutionary algorithms for solving multiobjective optimization problems.
-		These algorithms include, for example, interactive RVEA_.
+         `desdeo-emo <https://desdeo-emo.readthedocs.io/en/latest/index.html>`_
+            	The **desdeo-emo** package contains evolutionary algorithms for solving multiobjective optimization problems.
+		These algorithms include, for example, interactive RVEA.
 
       .. container:: descr
 
          .. figure:: /images/desdeo_mcdm.png
-            :target: desdeo-mcdm
+            :target: https://desdeo-mcdm.readthedocs.io/en/latest/index.html
 
-         desdeo-emo <https://desdeo-emo.readthedocs.io/en/latest/>
-            	The desdeo_mcdm_ package contains traditional methods for performing
+
+	 `desdeo-mcdm <https://desdeo-mcdm.readthedocs.io/en/latest/index.html>`_
+            	The **desdeo-mcdm** package contains traditional methods for performing
 		interactive multiobjective optimization. These methods include, but are not
-		limited to, Synchronous NIMBUS_ and E-NAUTILUS_, for example.
+		limited to, Synchronous NIMBUS and E-NAUTILUS, for example.
 
 
 
