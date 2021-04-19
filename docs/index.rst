@@ -21,7 +21,7 @@ Packages
          .. figure:: /images/desdeo_problem.png
             :target: https://desdeo-problem.readthedocs.io/en/latest/index.html
 
-         `desdeo-problem <https://desdeo-problem.readthedocs.io/en/latest/index.html>`_
+         desdeo-problem_
                 The **desdeo-problem** package contains tools and classes for defining and
 		modelling multiobjective optimization problems. The defined problem classes
 		can be used in the other packages in the DESDEO framework, such as
@@ -86,3 +86,7 @@ Packages
    DESDEO website <https://desdeo.it.jyu.fi>
 
 .. _website: https://desdeo.it.jyu.fi
+.. _desdeo-mcdm: https://desdeo-mcdm.readthedocs.io/en/latest/index.html
+.. _desdeo-emo: https://desdeo-emo.readthedocs.io/en/latest/index.html
+.. _desdeo-tools: https://desdeo-tools.readthedocs.io/en/latest/index.html
+.. _desdeo-problem: https://desdeo-problem.readthedocs.io/en/latest/
