@@ -32,7 +32,7 @@ Packages
          .. figure:: /images/desdeo_tools.png
             :target: https://desdeo-tools.readthedocs.io/en/latest/index.html
 
-         `desdeo-tools <https://desdeo-tools.readthedocs.io/en/latest/index.html>`_
+         desdeo-tools_
             	The **desdeo-tools** package contains tools to facilitate different tasks in the
 		other packages in the DESDEO framework. These tools include, for example,
 		scalarization routines and various solvers.
@@ -42,7 +42,7 @@ Packages
          .. figure:: /images/desdeo_emo.png
             :target: https://desdeo-emo.readthedocs.io/en/latest/index.html
 
-         `desdeo-emo <https://desdeo-emo.readthedocs.io/en/latest/index.html>`_
+         desdeo-emo_
             	The **desdeo-emo** package contains evolutionary algorithms for solving multiobjective optimization problems.
 		These algorithms include, for example, interactive RVEA.
 
@@ -52,7 +52,7 @@ Packages
             :target: https://desdeo-mcdm.readthedocs.io/en/latest/index.html
 
 
-	 `desdeo-mcdm <https://desdeo-mcdm.readthedocs.io/en/latest/index.html>`_
+	 desdeo-mcdm_
             	The **desdeo-mcdm** package contains traditional methods for performing
 		interactive multiobjective optimization. These methods include, but are not
 		limited to, Synchronous NIMBUS and E-NAUTILUS, for example.
