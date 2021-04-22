@@ -19,7 +19,7 @@ Packages
       .. container:: descr
 
          .. figure:: /images/desdeo_problem.png
-            :target: https://desdeo-problem.readthedocs.io/en/latest/index.html
+            :target: https://desdeo-problem-test.readthedocs.io/en/latest/index.html
 
          desdeo-problem_
                 The **desdeo-problem** package contains tools and classes for defining and
@@ -30,7 +30,7 @@ Packages
       .. container:: descr
 
          .. figure:: /images/desdeo_tools.png
-            :target: https://desdeo-tools.readthedocs.io/en/latest/index.html
+            :target: https://desdeo-tools-test.readthedocs.io/en/latest/index.html
 
          desdeo-tools_
             	The **desdeo-tools** package contains tools to facilitate different tasks in the
@@ -40,7 +40,7 @@ Packages
       .. container:: descr
 
          .. figure:: /images/desdeo_emo.png
-            :target: https://desdeo-emo.readthedocs.io/en/latest/index.html
+            :target: https://desdeo-emo-test.readthedocs.io/en/latest/index.html
 
          desdeo-emo_
             	The **desdeo-emo** package contains evolutionary algorithms for solving multiobjective optimization problems.
@@ -49,7 +49,7 @@ Packages
       .. container:: descr
 
          .. figure:: /images/desdeo_mcdm.png
-            :target: https://desdeo-mcdm.readthedocs.io/en/latest/index.html
+            :target: https://desdeo-mcdm-test.readthedocs.io/en/latest/index.html
 
 
 	 desdeo-mcdm_
@@ -75,18 +75,18 @@ Packages
    :maxdepth: 1
    :caption: External links
 
-   desdeo-mcdm <https://desdeo-mcdm.readthedocs.io/en/latest/>
+   desdeo-mcdm <https://desdeo-mcdm-test.readthedocs.io/en/latest/>
 
-   desdeo-emo <https://desdeo-emo.readthedocs.io/en/latest/>
+   desdeo-emo <https://desdeo-emo-test.readthedocs.io/en/latest/>
 
-   desdeo-problem <https://desdeo-problem.readthedocs.io/en/latest/>
+   desdeo-problem <https://desdeo-problem-test.readthedocs.io/en/latest/>
 
-   desdeo-tools <https://desdeo-tools.readthedocs.io/en/latest>
+   desdeo-tools <https://desdeo-tools-test.readthedocs.io/en/latest>
 
    DESDEO website <https://desdeo.it.jyu.fi>
 
 .. _website: https://desdeo.it.jyu.fi
-.. _desdeo-mcdm: https://desdeo-mcdm.readthedocs.io/en/latest/index.html
-.. _desdeo-emo: https://desdeo-emo.readthedocs.io/en/latest/index.html
-.. _desdeo-tools: https://desdeo-tools.readthedocs.io/en/latest/index.html
-.. _desdeo-problem: https://desdeo-problem.readthedocs.io/en/latest/
+.. _desdeo-mcdm: https://desdeo-mcdm-test.readthedocs.io/en/latest/index.html
+.. _desdeo-emo: https://desdeo-emo-test.readthedocs.io/en/latest/index.html
+.. _desdeo-tools: https://desdeo-tools-test.readthedocs.io/en/latest/index.html
+.. _desdeo-problem: https://desdeo-problem-test.readthedocs.io/en/latest/
