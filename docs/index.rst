@@ -8,6 +8,8 @@ Welcome to DESDEO's documentation!
 
 For news and other information related to DESDEO, see the official website_.
 
+.. figure:: /images/desdeo-main.png
+   :figclass: imgcenter
 
 Packages
 ========
@@ -48,14 +50,14 @@ Packages
 
       .. container:: descr
 
-         .. figure:: /images/desdeo_mcdm.png
-            :target: https://desdeo-mcdm-test.readthedocs.io/en/latest/index.html
-
-
-	 desdeo-mcdm_
+	 
+	 .. figure:: /images/desdeo_mcdm.png
+	    :target: https://desdeo-mcdm-test.readthedocs.io/en/latest/index.html
+ 
+	 desdeo-mcdm_ 
             	The **desdeo-mcdm** package contains traditional methods for performing
-		interactive multiobjective optimization. These methods include, but are not
-		limited to, Synchronous NIMBUS and E-NAUTILUS, for example.
+            	interactive multiobjective optimization. These methods include, but are not
+            	limited to, Synchronous NIMBUS and E-NAUTILUS, for example.
 
 
 

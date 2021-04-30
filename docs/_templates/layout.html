@@ -2,6 +2,7 @@
 
 {% block extrabody %}
 
+
 <div class="ge_header">
   <a id="header-logo" href="index.html">
     <img src="_static/desdeo_logo.png" alt="logo" style="width: 152px; height: auto;" />
@@ -461,20 +462,30 @@
     display: block;
   }
 
-  .descr a.external {
+  div.fig_block {
+    margin-bottom: 0px;
+    display: block;
+  }
+
+  div.text_block {
     text-decoration: none;
     cursor: pointer;
     color: #961717;
   }
 
+  .descr a.external {
+    text-decoration: none;
+    cursor: pointer;
+    /*color: #961717;*/
+  }
+
   .descr dt {
     border-top-width: 3px;
     border-top-style: solid;
-    border-top-color: rgb(106, 176, 222) !important;
-    background-color: #ffffffad;
+    border-top-color: rgb(255, 255, 255) !important;
+    background-color: #ffffff !important;
 
   }
-
 
   .descr img {
     border-top-left-radius: .3em;
@@ -527,5 +538,27 @@
   }
 
   /* End section description. */
+
+  .imgcenter {
+    flex: 2 0 33.3%;
+    -webkit-flex: 2 0 33.3%;
+    margin: 10px 15px;
+    border-radius: .3em;
+    user-select: none;
+    background-color: #ffffff00;
+  }
+
+  .imgcenter img {
+    border-top-left-radius: .3em;
+    border-top-right-radius: .3em;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+  }
+
+  .imgcenter div.figure {
+    margin-bottom: 0px;
+    display: block;
+  }
 </style>
 {% endblock %}
