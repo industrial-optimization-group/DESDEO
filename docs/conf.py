@@ -18,7 +18,7 @@
 # -- Project information -----------------------------------------------------
 
 project = "DESDEO"
-copyright = "2020, Multiobjective Optimization Group"
+copyright = "2021, Multiobjective Optimization Group"
 author = "Multiobjective Optimization Group"
 
 # The full version, including alpha/beta/rc tags

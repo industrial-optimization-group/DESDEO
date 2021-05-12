@@ -6,10 +6,18 @@
 Welcome to DESDEO's documentation!
 ==================================
 
-For news and other information related to DESDEO, see the official website_.
+Decision Support for computationally Demanding Optimization problems
+
+DESDEO is a free and open-source Python-based framework for developing and experimenting with interactive multiobjective optimization. It contains implementations of some interactive methods and modules that can be utilized to implement further methods. 
+
+We welcome you to utilize DESDEO and develop it further with us.
+
+
 
 .. figure:: /images/desdeo-main.png
    :figclass: imgcenter
+
+For news and other information related to DESDEO, see the official website_.
 
 Packages
 ========
@@ -21,43 +29,48 @@ Packages
       .. container:: descr
 
          .. figure:: /images/desdeo_problem.png
-            :target: https://desdeo-problem-test.readthedocs.io/en/latest/index.html
 
-         desdeo-problem_
-                The **desdeo-problem** package contains tools and classes for defining and
+         **desdeo-problem**
+                This package contains tools and classes for defining and
 		modelling multiobjective optimization problems. The defined problem classes
 		can be used in the other packages in the DESDEO framework, such as
 		**desdeo-mcdm** and **desdeo-emo**.
 
+		`Go to documentation <https://desdeo-problem-test.readthedocs.io/en/latest/index.html>`__
+
       .. container:: descr
 
          .. figure:: /images/desdeo_tools.png
-            :target: https://desdeo-tools-test.readthedocs.io/en/latest/index.html
 
-         desdeo-tools_
-            	The **desdeo-tools** package contains tools to facilitate different tasks in the
+         **desdeo-tools** 
+            	This package contains tools to facilitate different tasks in the
 		other packages in the DESDEO framework. These tools include, for example,
 		scalarization routines and various solvers.
+
+
+		`Go to documentation <https://desdeo-tools-test.readthedocs.io/en/latest/index.html>`__
 
       .. container:: descr
 
          .. figure:: /images/desdeo_emo.png
-            :target: https://desdeo-emo-test.readthedocs.io/en/latest/index.html
 
-         desdeo-emo_
-            	The **desdeo-emo** package contains evolutionary algorithms for solving multiobjective optimization problems.
+         **desdeo-emo**
+            	This package contains evolutionary algorithms for solving multiobjective optimization problems.
 		These algorithms include, for example, interactive RVEA.
+
+		`Go to documentation <https://desdeo-emo-test.readthedocs.io/en/latest/index.html>`__
 
       .. container:: descr
 
 	 
 	 .. figure:: /images/desdeo_mcdm.png
-	    :target: https://desdeo-mcdm-test.readthedocs.io/en/latest/index.html
  
-	 desdeo-mcdm_ 
-            	The **desdeo-mcdm** package contains traditional methods for performing
+	 **desdeo-mcdm** 
+            	This package contains traditional methods for performing
             	interactive multiobjective optimization. These methods include, but are not
             	limited to, Synchronous NIMBUS and E-NAUTILUS, for example.
+
+		`Go to documentation <https://desdeo-mcdm-test.readthedocs.io/en/latest/index.html>`__
 
 
 
@@ -71,6 +84,7 @@ Packages
    software
    guides
    contributing
+   glossary
 
 .. toctree::
    :hidden:
