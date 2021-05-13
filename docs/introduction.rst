@@ -17,17 +17,17 @@ DESDEO brings interactive methods closer to researchers and practitioners worldw
 DESDEO is part of DEMO (Decision analytics utilizing causal models and multiobjective optimization which is the thematic research area of the University of Jyväskylä.
 
 
-Mission:
+Mission
 --------
 
 The mission of DESDEO is to increase awareness of the benefits of interactive methods make interactive methods more easily available and applicable. Thanks to the open architecture, interactive methods are easier to be utilized and further developed. The framework consists of reusable components that can be utilized for implementing new methods or modifying the existing methods. The framework is released under a permissive open source license.
 
-Multiobjective optimization:
+Multiobjective optimization
 ----------------------------
 
 In multiobjective optimization, several conflicting objective functions are to be optimized simultaneously. Because of the conflicting nature of the objectives, it is not possible to obtain individual optima of the objectives simultaneously but one must trade-off between the objectives.
 
-Interactive methods in multiobjective optimization:
+Interactive methods in multiobjective optimization
 ---------------------------------------------------
 
 Interactive methods are iterative by nature where a decision maker (who has substance knowledge) can direct the solution process with one\'s preference information to find the most preferred balance between the objectives. In interactive methods, the amount of information to be considered at a time is limited and, thus, the cognitive load set on the decision maker is not too demanding. Furthermore, the decision maker learns about the interdependencies among the objectives and also the feasibility of one\'s preferences.

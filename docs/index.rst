@@ -14,7 +14,7 @@ We welcome you to utilize DESDEO and develop it further with us.
 
 
 
-.. figure:: /images/desdeo-main.png
+.. figure:: /images/desdeo-main.svg
    :figclass: imgcenter
 
 For news and other information related to DESDEO, see the official website_.
