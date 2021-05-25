@@ -21,6 +21,8 @@ For news and other information related to DESDEO, see the official website_.
 
 Packages
 ========
+.. role:: raw-html(raw)
+   :format: html
 
 .. only:: builder_html and (not singlehtml)
 
@@ -36,7 +38,11 @@ Packages
 		can be used in the other packages in the DESDEO framework, such as
 		**desdeo-mcdm** and **desdeo-emo**.
 
-		`Go to documentation <https://desdeo-problem-test.readthedocs.io/en/latest/index.html>`__
+		|br|
+		
+		.. container:: btndoc
+
+			`Go to documentation <https://desdeo-problem-test.readthedocs.io/en/latest/index.html>`__
 
       .. container:: descr
 
@@ -47,8 +53,11 @@ Packages
 		other packages in the DESDEO framework. These tools include, for example,
 		scalarization routines and various solvers.
 
+		|br|
 
-		`Go to documentation <https://desdeo-tools-test.readthedocs.io/en/latest/index.html>`__
+		.. container:: btndoc
+
+			`Go to documentation <https://desdeo-tools-test.readthedocs.io/en/latest/index.html>`__
 
       .. container:: descr
 
@@ -58,7 +67,11 @@ Packages
             	This package contains evolutionary algorithms for solving multiobjective optimization problems.
 		These algorithms include, for example, interactive RVEA.
 
-		`Go to documentation <https://desdeo-emo-test.readthedocs.io/en/latest/index.html>`__
+		|br|
+
+		.. container:: btndoc
+
+			`Go to documentation <https://desdeo-emo-test.readthedocs.io/en/latest/index.html>`__
 
       .. container:: descr
 
@@ -70,7 +83,11 @@ Packages
             	interactive multiobjective optimization. These methods include, but are not
             	limited to, Synchronous NIMBUS and E-NAUTILUS, for example.
 
-		`Go to documentation <https://desdeo-mcdm-test.readthedocs.io/en/latest/index.html>`__
+		|br|
+
+		.. container:: btndoc
+
+			`Go to documentation <https://desdeo-mcdm-test.readthedocs.io/en/latest/index.html>`__
 
 
 
@@ -106,3 +123,7 @@ Packages
 .. _desdeo-emo: https://desdeo-emo-test.readthedocs.io/en/latest/index.html
 .. _desdeo-tools: https://desdeo-tools-test.readthedocs.io/en/latest/index.html
 .. _desdeo-problem: https://desdeo-problem-test.readthedocs.io/en/latest/
+
+.. |br| raw:: html
+
+      <br>

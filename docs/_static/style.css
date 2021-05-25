@@ -1,162 +1,206 @@
+/* GLOBAL VARIABLES */
+:root {
+  --topnav-margin-size: 72px;
+}
 
-/* Sidebar header (and topbar for mobile) */
-/*.wy-side-nav-search,
-.wy-nav-top {
-  background: #00ff00;
-}*/
-/* Sidebar */
-/*.wy-nav-side {
-  background: #ff0000;
-}
-.wy-nav-content {
-  margin: 0;
-  padding: 0;
-}*/
-/*GE HEADER STYLES*/
-.twitter {
-  width: 300;
-  height: 300;
-}
-.ge_header {
-  background-color: rgb(0, 0, 0);
-  position: fixed;
-  z-index: 10000;
-  height: 64px;
-  width: 100%;
-  top: 0;
-}
-#header-logo {
+
+
+/* --- begin TOP NAVBAR --- */
+/* Add a black background color to the top navigation */
+.topnav {
+  background-color: black;
   overflow: hidden;
-  padding-left: 24px;
+}
+
+/* Style the links inside the navigation bar */
+.topnav a {
   float: left;
-  line-height: 64px;
+  display: block;
+  color: #dddddd;
+  text-align: center;
+  padding: 14px 16px;
   text-decoration: none;
-  height: auto;
+  font-size: 17px;
 }
-#header-logo img {
-  display: inline;
-  vertical-align: middle;
-  margin-right: 16px;
-  max-width: 224px;
-  width: 100%;
-  margin-bottom: 0;
+
+/* Add an active class to highlight the current page */
+.active {
+  background-color: #04AA6D;
+  color: #e04e4e;
 }
-#header-actions {
-  float: right;
-  flex: 0 0 auto;
-  padding: 8px;
-  white-space: nowrap;
-  line-height: 46px;
-  font-size: 16px;
-}
-.header-item {
-  display: inline-block;
-  vertical-align: bottom;
-  padding: 0 20px;
-  display: block;
-  color: rgba(255, 255, 255, 0.65) !important;
-  float: left;
-  border-bottom: 2px solid transparent;
-  transition: border-bottom 0.3s cubic-bezier(0.645, 0.045, 0.355, 1),
-    background 0.3s cubic-bezier(0.645, 0.045, 0.355, 1),
-    padding 0.15s cubic-bezier(0.645, 0.045, 0.355, 1);
-}
-.header-item-mobile {
-  display: inline-block;
-  vertical-align: bottom;
-  padding: 0 20px;
-  display: block;
-  color: rgba(7, 7, 7, 0.65) !important;
-  float: left;
-  border-bottom: 2px solid transparent;
-  transition: border-bottom 0.3s cubic-bezier(0.645, 0.045, 0.355, 1),
-    background 0.3s cubic-bezier(0.645, 0.045, 0.355, 1),
-    padding 0.15s cubic-bezier(0.645, 0.045, 0.355, 1);
-}
-#header-actions a:hover {
-  color: #e04e4e !important;
-  border-bottom: 2px solid #e04e4e;
-  transition: border-bottom 0.3s cubic-bezier(0.645, 0.045, 0.355, 1),
-    background 0.3s cubic-bezier(0.645, 0.045, 0.355, 1),
-    padding 0.15s cubic-bezier(0.645, 0.045, 0.355, 1);
-}
-#community-modal {
-  background: #fff;
-  min-width: 172px;
-  border-radius: 4px;
-  height: 0px;
-  transition: all 0.3s ease-in-out;
-  overflow: hidden;
-  position: relative;
-  margin-right: -24px;
-}
-#community-modal ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-#community-modal li {
-  margin-bottom: 8px;
-  padding: 0 16px 0 28px;
-  height: 40px;
-  border: none !important;
-  margin-top: 4px;
-  overflow: hidden;
-  font-size: 14px;
-  line-height: 40px;
-  text-overflow: ellipsis;
-}
-#community-modal a {
-  border-bottom: none !important;
-}
-#mobile-modal {
-  background: #fff;
-  border-radius: 4px;
-  height: 0px;
-  transition: all 0.3s ease-in-out;
-  overflow: hidden;
-  position: relative;
-  top: 37px;
-}
-#mobile-modal ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-#mobile-modal li {
-  margin-bottom: 8px;
-  padding: 0 0px 0 16px;
-  height: 40px;
-  border: none !important;
-  margin-top: 4px;
-  overflow: hidden;
-  font-size: 14px;
-  line-height: 40px;
-  text-overflow: ellipsis;
-  float: left;
-}
-#mobile-modal a {
-  border-bottom: none !important;
-}
-#header-mobile {
+
+/* Hide the link that should open and close the topnav on small screens */
+.topnav .icon {
   display: none;
 }
-#discourse-comments {
-  padding: 16px;
-  margin-bottom: 32px;
-  background-color: #fff;
+
+/* Dropdown container - needed to position the dropdown content */
+.dropdown {
+  float: left;
+  overflow: hidden;
 }
-@media only screen and (max-width: 768px) {
-  #header-actions {
+
+/* Style the dropdown button to fit inside the topnav */
+.dropdown .dropbtn {
+  font-size: 17px;
+  border: none;
+  outline: none;
+  color: #dddddd;
+  padding: 14px 16px;
+  background-color: inherit;
+  font-family: inherit;
+  margin: 0;
+}
+
+/* Style the dropdown content (hidden by default) */
+.dropdown-content {
+  display: none;
+  position: absolute;
+  background-color: #f9f9f9;
+  min-width: 160px;
+  box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+  z-index: 1;
+}
+
+/* Style the links inside the dropdown */
+.dropdown-content a {
+  float: none;
+  color: black;
+  padding: 12px 16px;
+  text-decoration: none;
+  display: block;
+  text-align: left;
+}
+
+/* Add a dark background on topnav links and the dropdown button on hover */
+.header-right a:hover, .dropdown:hover .dropbtn {
+  /*background-color: #555;*/
+  color: #e04e4e;
+  border-bottom: 2px solid #e04e4e;
+}
+
+/* Add a grey background to dropdown links on hover */
+.dropdown-content a:hover {
+  background-color: #ddd;
+  color: black;
+}
+
+/* Show the dropdown menu when the user moves the mouse over the dropdown button */
+.dropdown:hover .dropdown-content {
+  display: block;
+}
+
+/* When the screen is less than 600 pixels wide, hide all links, except for the first one ("Home"). Show the link that contains should open and close the topnav (.icon) */
+@media screen and (max-width: 600px) {
+  /* .topnav a:not(:first-child), .dropdown .dropbtn {
     display: none;
-  }
-  #header-mobile {
+  } */
+  .topnav a.icon {
+    float: right;
     display: block;
   }
 }
+
+/* The "responsive" class is added to the topnav with JavaScript when the user clicks on the icon. This class makes the topnav look good on small screens (display the links vertically instead of horizontally) */
+@media screen and (max-width: 600px) {
+  .topnav {position: relative;}
+  .topnav a.icon {
+    position: absolute;
+    right: 0;
+    top: 0;
+  }
+  .topnav a {
+    float: none;
+    display: block;
+    text-align: right;
+  }
+  .topnav .dropdown {float: none;}
+  .topnav .dropdown-content {position: relative;}
+  .topnav .dropdown .dropbtn {
+    display: block;
+    width: 100%;
+    text-align: right;
+  }
+}
+
+.topnav .header-right {
+  float: right;
+}
+@media screen and (max-width: 600px) {
+  .topnav .header-right {
+    width: 100%;
+  }
+}
+
+.topnav .header-logo {
+  max-width: 180px;
+  padding: 0 10px;
+  overflow: hidden;
+}
+
+.topnav .header-logo a {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -ms-flex-wrap: wrap;
+  flex-wrap: wrap;
+  -webkit-box-align: center;
+  -ms-flex-align: center;
+  align-items: center;
+  height: 46px;
+  text-decoration: none;
+}
+
+.topnav .header-logo a img {
+  max-width: 100%;
+  max-height: 46px;
+}
+/* --- end TOP NAVBAR --- */
+
+
+
+
 .rst-content .sidebar {
   margin-top: 90px !important;
 }
+.rst-content .toctree-wrapper>p.caption, h1, h2, h3, h4, h5, h6, legend {
+  font-family: inherit;
+}
+
+.rst-content dl:not(.docutils) dt {
+  display: table;
+  margin: 0px 0;
+  font-size: inherit;
+  line-height: normal;
+  background: none;
+  color: #2980B9;
+  border-top: none;
+  padding: 6px;
+  position: relative;
+}
+.rst-content .linenodiv pre, .rst-content div[class^=highlight] pre, .rst-content pre.literal-block {
+  font-size: inherit;
+}
+
+.rst-content code, .rst-content tt, code {
+  white-space: nowrap;
+  max-width: 100%;
+  background: #fff;
+  border: 1px solid #e1e4e5;
+  font-size: inherit;
+  padding: 0 5px;
+  font-family: SFMono-Regular,Menlo,Monaco,Consolas,Liberation Mono,Courier New,Courier,monospace;
+  color: #e74c3c;
+  overflow-x: auto;
+}
+
+img.inheritance {
+  background-color: #f3f6f6;
+  font-size: 12px;
+  padding: 20px;
+  width: -webkit-fill-available;
+}
+
 h1,
 h2,
 h3 {
@@ -166,6 +210,8 @@ h3 {
 body {
   background-color: #efefef;
   color: #2b354f;
+  font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif,"Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol","Noto Color Emoji";
+  /*font-size: 1rem;*/
 }
 a {
   cursor: pointer;
@@ -175,7 +221,8 @@ a {
   display: none !important;
 }
 .wy-side-nav-search {
-  padding-top: 72px;
+  /* padding-top: var(--topnav-margin-size); */
+  margin: -20px 0px 0px 0px;
 }
 .wy-nav-content {
   width: auto !important;
@@ -183,7 +230,6 @@ a {
 }
 .wy-body-for-nav {
   background-color: #efefef;
-  padding-top: 72px;
 }
 .section {
   max-width: 800px;
@@ -215,22 +261,49 @@ a {
   background: #efefef;
 }
 .wy-side-nav-search {
+  padding-top: 50px;
   background: #efefef;
+  font-family: inherit;
 }
+
+.wy-side-nav-search input[type=text] {
+  width: 100%;
+  border-radius: 50px;
+  padding: 6px 12px;
+  border-color: rgba(0, 0, 0, 0.514); 
+  border-radius: .25rem;
+  font-family: inherit;
+  /*font-size: 1rem;*/
+}
+
+
 .wy-menu-vertical a {
   color: #222222;
+  /*font-size: inherit;*/
 }
 .wy-menu-vertical a:hover {
   color: #333333;
   background: #c9c9c9;
+  /*font-size: inherit;*/
+}
+
+.wy-menu-vertical header, .wy-menu-vertical p.caption {
+  color: #55a5d9;
+  display: block;
+  font-weight: 700;
+  text-transform: uppercase;
+  /*font-size: inherit;*/
+  white-space: nowrap;
 }
 .wy-nav-side {
   background: #efefef;
-  top: 50px;
+  border-right: 1px solid rgba(0,0,0,.1);
+  position: inherit;
+  /*font-size: 1rem;*/
 }
 /* Applied on main index:sections. */
 /* Start section description. */
-@media screen and (min-width: 450px) {
+@media screen and (min-width: 600px) {
   .tocdescr {
     display: flex;
     display: -webkit-flex;
@@ -255,7 +328,7 @@ a {
     -webkit-align-self: stretch;
   }
 }
-@media screen and (max-width: 450px) {
+@media screen and (max-width: 600px) {
   .tocdescr {
     display: flex;
     display: -webkit-flex;
@@ -275,6 +348,7 @@ a {
     flex: none;
     -webkit-flex: none;
   }
+
 }
 .descr {
   flex: 2 0 33.3%;
@@ -283,6 +357,8 @@ a {
   border-radius: .3em;
   user-select: none;
   background-color: #ffffffad;
+  height: 500px;
+  position: relative;
 }
 .descr div.figure {
   margin-bottom: 0px;
@@ -318,6 +394,15 @@ div.text_block {
 .descr a.external:hover {
   background-color: #23526d;
 }
+
+.btndoc{
+	position: absolute;
+	bottom: 0px;
+	right: 0;
+    left: 0;
+    text-align: center;
+}
+
 .descr dt {
   border-top-width: 3px;
   border-top-style: solid;
@@ -387,3 +472,45 @@ div.text_block {
   margin-bottom: 0px;
   display: block;
 }
+
+/* Styles for tables */
+
+/* override table width restrictions */
+.wy-table-responsive table td, .wy-table-responsive table th {
+  /* !important prevents the common CSS stylesheets from
+     overriding this as on RTD they are loaded after this stylesheet */
+  white-space: normal !important;
+}
+
+.wy-table-responsive {
+  overflow: visible !important;
+}
+
+img.inheritance {
+  background-color: #f3f6f6;
+  font-size: 12px;
+  padding: 20px;
+  width: -webkit-fill-available;
+}
+
+
+.wy-table td, .rst-content table.docutils td, .rst-content table.field-list td {
+  background-color: #e3e3e3;
+}
+
+.wy-table-bordered-all td, .rst-content table.docutils td {
+  border-bottom: 1px solid #4e4b4b45;
+  border-left: 1px solid #4e4b4b45;
+}
+
+.wy-table-bordered-all, .rst-content table.docutils {
+  border: 1px solid #4e4b4b45;
+}
+
+html.writer-html5 .rst-content table.docutils th {
+  border: 1px solid #4e4b4b45;
+}
+
+/*.rst-content .sidebar {
+  margin-top: 90px !important;
+}*/
