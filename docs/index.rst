@@ -42,7 +42,7 @@ Packages
 		
 		.. container:: btndoc
 
-			`Go to documentation <https://desdeo-problem-test.readthedocs.io/en/latest/index.html>`__
+			`Go to documentation <https://desdeo-problem.readthedocs.io/en/latest/index.html>`__
 
       .. container:: descr
 
@@ -57,7 +57,7 @@ Packages
 
 		.. container:: btndoc
 
-			`Go to documentation <https://desdeo-tools-test.readthedocs.io/en/latest/index.html>`__
+			`Go to documentation <https://desdeo-tools.readthedocs.io/en/latest/index.html>`__
 
       .. container:: descr
 
@@ -71,7 +71,7 @@ Packages
 
 		.. container:: btndoc
 
-			`Go to documentation <https://desdeo-emo-test.readthedocs.io/en/latest/index.html>`__
+			`Go to documentation <https://desdeo-emo.readthedocs.io/en/latest/index.html>`__
 
       .. container:: descr
 
@@ -87,7 +87,7 @@ Packages
 
 		.. container:: btndoc
 
-			`Go to documentation <https://desdeo-mcdm-test.readthedocs.io/en/latest/index.html>`__
+			`Go to documentation <https://desdeo-mcdm.readthedocs.io/en/latest/index.html>`__
 
 
 
@@ -108,21 +108,21 @@ Packages
    :maxdepth: 1
    :caption: External links
 
-   desdeo-mcdm <https://desdeo-mcdm-test.readthedocs.io/en/latest/>
+   desdeo-mcdm <https://desdeo-mcdm.readthedocs.io/en/latest/>
 
-   desdeo-emo <https://desdeo-emo-test.readthedocs.io/en/latest/>
+   desdeo-emo <https://desdeo-emo.readthedocs.io/en/latest/>
 
-   desdeo-problem <https://desdeo-problem-test.readthedocs.io/en/latest/>
+   desdeo-problem <https://desdeo-problem.readthedocs.io/en/latest/>
 
-   desdeo-tools <https://desdeo-tools-test.readthedocs.io/en/latest>
+   desdeo-tools <https://desdeo-tools.readthedocs.io/en/latest>
 
    DESDEO website <https://desdeo.it.jyu.fi>
 
 .. _website: https://desdeo.it.jyu.fi
-.. _desdeo-mcdm: https://desdeo-mcdm-test.readthedocs.io/en/latest/index.html
-.. _desdeo-emo: https://desdeo-emo-test.readthedocs.io/en/latest/index.html
-.. _desdeo-tools: https://desdeo-tools-test.readthedocs.io/en/latest/index.html
-.. _desdeo-problem: https://desdeo-problem-test.readthedocs.io/en/latest/
+.. _desdeo-mcdm: https://desdeo-mcdm.readthedocs.io/en/latest/index.html
+.. _desdeo-emo: https://desdeo-emo.readthedocs.io/en/latest/index.html
+.. _desdeo-tools: https://desdeo-tools.readthedocs.io/en/latest/index.html
+.. _desdeo-problem: https://desdeo-problem.readthedocs.io/en/latest/
 
 .. |br| raw:: html
 
