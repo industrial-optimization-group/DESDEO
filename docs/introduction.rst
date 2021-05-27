@@ -30,7 +30,7 @@ In multiobjective optimization, several conflicting objective functions are to b
 Interactive methods in multiobjective optimization
 ---------------------------------------------------
 
-Interactive methods are iterative by nature where a decision maker (who has substance knowledge) can direct the solution process with one\'s preference information to find the most preferred balance between the objectives. In interactive methods, the amount of information to be considered at a time is limited and, thus, the cognitive load set on the decision maker is not too demanding. Furthermore, the decision maker learns about the interdependencies among the objectives and also the feasibility of one\'s preferences.
+Interactive methods are iterative by nature where a decision maker (who has substance knowledge) can direct the solution process with one\'s preference information to find the most preferred balance between the objectives. In interactive methods, the amount of information to be considered at a time is limited and, thus, the cognitive load set on the decision maker is not too demanding. Furthermore, the decision maker learns about the interdependencies among the objectives and also the feasibility of one's preferences.
 
 The Research Projects Behind DESDEO
 -----------------------------------
