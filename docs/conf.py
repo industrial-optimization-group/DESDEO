@@ -18,7 +18,7 @@
 # -- Project information -----------------------------------------------------
 
 project = "DESDEO"
-copyright = "2020, Multiobjective Optimization Group"
+copyright = "2021, Multiobjective Optimization Group"
 author = "Multiobjective Optimization Group"
 
 # The full version, including alpha/beta/rc tags
@@ -34,6 +34,7 @@ extensions = ["sphinx.ext.intersphinx"]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
+
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -52,8 +53,12 @@ html_theme = "sphinx_rtd_theme"
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
+html_logo = "_static/desdeo_logo.png"
+
+master_doc = "index"
 
 intersphinx_mapping = {
+    "desdeo-emo": ("https://desdeo-emo.readthedocs.io/en/latest/", None),
     "desdeo-mcdm": ("https://desdeo-mcdm.readthedocs.io/en/latest/", None),
     "desdeo-tools": ("https://desdeo-tools.readthedocs.io/en/latest/", None),
     "desdeo-problem": ("https://desdeo-problem.readthedocs.io/en/latest/", None),
