@@ -40,6 +40,10 @@ group, visit the official [homepage](https://desdeo.it.jyu.fi).
 
 ## Installation
 
+### Requirements
+
+The packages belonging to the DESDEO framework require Python 3.7 or newer.
+
 ### Using DESDEO as a software library
 
 The DESDEO package can be found on [PyPI](https://pypi.org/project/desdeo/), and can be installed by invoking pip:
