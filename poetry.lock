@@ -189,7 +189,7 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 
 [[package]]
 name = "desdeo-emo"
-version = "1.2.1"
+version = "1.3.1"
 description = "The python version reference vector guided evolutionary algorithm."
 category = "main"
 optional = false
@@ -203,7 +203,7 @@ pyDOE = ">=0.3.8,<0.4.0"
 
 [[package]]
 name = "desdeo-mcdm"
-version = "1.2.6"
+version = "1.2.7"
 description = "Contains traditional optimization techniques from the field of Multiple-criteria decision-making. Methods belonging to the NIMBUS and NAUTILUS families can be found here. Part of the DESDEO framework."
 category = "main"
 optional = false
@@ -215,7 +215,7 @@ desdeo-tools = ">=1.4.1,<2.0.0"
 
 [[package]]
 name = "desdeo-problem"
-version = "1.2.6"
+version = "1.3.0"
 description = "This package contains the problem classes for desdeo framework."
 category = "main"
 optional = false
@@ -230,13 +230,14 @@ scikit-learn = ">=0.21.3,<0.22.0"
 
 [[package]]
 name = "desdeo-tools"
-version = "1.5.1"
+version = "1.5.2"
 description = "Generic tools and design language used in the DESDEO framework"
 category = "main"
 optional = false
 python-versions = ">=3.7,<3.10"
 
 [package.dependencies]
+hvwfg = ">=1.0.2,<2.0.0"
 numba = ">=0.53.1,<0.54.0"
 numpy = ">=1.17,<2.0"
 pandas = ">=1.0,<2.0"
@@ -285,6 +286,17 @@ pycodestyle = ">=2.7.0,<2.8.0"
 pyflakes = ">=2.3.0,<2.4.0"
 
 [[package]]
+name = "hvwfg"
+version = "1.0.2"
+description = "Python wrapper of the WFG hypervolume calculation functions"
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+numpy = "*"
+
+[[package]]
 name = "idna"
 version = "3.2"
 description = "Internationalized Domain Names in Applications (IDNA)"
@@ -318,20 +330,21 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytes
 
 [[package]]
 name = "ipykernel"
-version = "6.0.1"
+version = "6.0.2"
 description = "IPython Kernel for Jupyter"
 category = "dev"
 optional = false
 python-versions = ">=3.7"
 
 [package.dependencies]
-debugpy = ">=1.0.0"
+appnope = {version = "*", markers = "platform_system == \"Darwin\""}
+debugpy = ">=1.0.0,<2.0"
 importlib-metadata = {version = "<4", markers = "python_version < \"3.8.0\""}
-ipython = ">=7.23.1"
-jupyter-client = "*"
-matplotlib-inline = {version = ">=0.1.0,<0.2.0appnope", markers = "platform_system == \"Darwin\""}
-tornado = ">=4.2"
-traitlets = ">=4.1.0"
+ipython = ">=7.23.1,<8.0"
+jupyter-client = "<7.0"
+matplotlib-inline = ">=0.1.0,<0.2.0"
+tornado = ">=4.2,<7.0"
+traitlets = ">=4.1.0,<6.0"
 
 [package.extras]
 test = ["pytest (!=5.3.4)", "pytest-cov", "flaky", "nose", "ipyparallel"]
@@ -1508,20 +1521,20 @@ defusedxml = [
     {file = "defusedxml-0.7.1.tar.gz", hash = "sha256:1bb3032db185915b62d7c6209c5a8792be6a32ab2fedacc84e01b52c51aa3e69"},
 ]
 desdeo-emo = [
-    {file = "desdeo_emo-1.2.1-py3-none-any.whl", hash = "sha256:8f95ca70f252efdac275e1882a9df34d1d3ebcd6545248daa2aa408ad6f2a6ab"},
-    {file = "desdeo_emo-1.2.1.tar.gz", hash = "sha256:fbd29df414663018d46e9e254e717539675a5accd2dab9e684786c75bb007f47"},
+    {file = "desdeo_emo-1.3.1-py3-none-any.whl", hash = "sha256:220b41791163a9a15eeb38a42581f85a9aff45a8042caa66137a6dcb9f05aeaf"},
+    {file = "desdeo_emo-1.3.1.tar.gz", hash = "sha256:b3180bedc4604b7c6332c661c10a9033acb8d4259fe871e067c7483fca033135"},
 ]
 desdeo-mcdm = [
-    {file = "desdeo-mcdm-1.2.6.tar.gz", hash = "sha256:2d19136eb38a265100a31ab747145a63fefbb30ddce725757f3b4867926d1b1f"},
-    {file = "desdeo_mcdm-1.2.6-py3-none-any.whl", hash = "sha256:9280b4f7416012ef6e4ca733fa62c8a0bcb09bebb97f305299218dca54f53e3b"},
+    {file = "desdeo-mcdm-1.2.7.tar.gz", hash = "sha256:43889dff8edc569ec76813a8848df6f98906a6231a04f2865e3e7bb497581c75"},
+    {file = "desdeo_mcdm-1.2.7-py3-none-any.whl", hash = "sha256:556db5f6215203de0bc479c2ec500d72cc2f2c4a179ad6fee46ab32b8021b4b0"},
 ]
 desdeo-problem = [
-    {file = "desdeo_problem-1.2.6-py3-none-any.whl", hash = "sha256:f714cb5cf8e9fe37c773cfaccc7fe0ab22f9709400a865c8e981707c0dfeda34"},
-    {file = "desdeo_problem-1.2.6.tar.gz", hash = "sha256:edfacd6d46a98de80c4f9d3e6162772ede536657c1af44e9c53eb24a2126501c"},
+    {file = "desdeo_problem-1.3.0-py3-none-any.whl", hash = "sha256:e9c25f1471774e29862b88e65be0fed4eee6c75beccac5851cd52861c6827985"},
+    {file = "desdeo_problem-1.3.0.tar.gz", hash = "sha256:caa20038da7460fe4db2c6f9acb0899bf924951db216e48f63e29e890de1626c"},
 ]
 desdeo-tools = [
-    {file = "desdeo-tools-1.5.1.tar.gz", hash = "sha256:11b1758d978aa609866fb6820efe337e13c8afc48552935d5bb6b088a6cfc946"},
-    {file = "desdeo_tools-1.5.1-py3-none-any.whl", hash = "sha256:bd7f41b6ae78cf8a5e7f06482d7c10f4d4bf88124f11c5d12e8e9ebcf9acabce"},
+    {file = "desdeo-tools-1.5.2.tar.gz", hash = "sha256:e63e371597c15cb9c575e74dbbd97e07a2aba275df4beab389f215b932b0a344"},
+    {file = "desdeo_tools-1.5.2-py3-none-any.whl", hash = "sha256:67e67f3f6825d14e150e8e092761db50a3a59e2329dd38024cb0ce57476cf0d1"},
 ]
 diversipy = [
     {file = "diversipy-0.8.tar.gz", hash = "sha256:6abc959e64821c7122137c4352a7c9d45217a26feb2b4d4830d627b0c82b04d4"},
@@ -1538,6 +1551,24 @@ flake8 = [
     {file = "flake8-3.9.2-py2.py3-none-any.whl", hash = "sha256:bf8fd333346d844f616e8d47905ef3a3384edae6b4e9beb0c5101e25e3110907"},
     {file = "flake8-3.9.2.tar.gz", hash = "sha256:07528381786f2a6237b061f6e96610a4167b226cb926e2aa2b6b1d78057c576b"},
 ]
+hvwfg = [
+    {file = "hvwfg-1.0.2-cp35-cp35m-macosx_10_14_x86_64.whl", hash = "sha256:62d8b0a85dcefefbb6d305ebc96850f120bfb1e68e3d5a7ed36932af10db9251"},
+    {file = "hvwfg-1.0.2-cp35-cp35m-manylinux1_x86_64.whl", hash = "sha256:40ea93626122c21865d2944f1ca0d21268b7d96ef9b783586ec8f2a02017af71"},
+    {file = "hvwfg-1.0.2-cp35-cp35m-win_amd64.whl", hash = "sha256:d1e7c2d999610a9805fb6228b78f37f83c6cf0062aaea655cd3d27f0bad30fbb"},
+    {file = "hvwfg-1.0.2-cp36-cp36m-macosx_10_14_x86_64.whl", hash = "sha256:e2dff76d3cb89d94a4394ee028bf5843e5a6f0bac47fa32914aa14ad417118b3"},
+    {file = "hvwfg-1.0.2-cp36-cp36m-manylinux1_x86_64.whl", hash = "sha256:ee224f090c6b12926004083efff73b9a3ae7bc5e77e0236e35f4e591f2e6c132"},
+    {file = "hvwfg-1.0.2-cp36-cp36m-win_amd64.whl", hash = "sha256:1d60db3d55417276961c463d852e9bc1095d328d6080f2468c67ca3b670eda5b"},
+    {file = "hvwfg-1.0.2-cp37-cp37m-macosx_10_14_x86_64.whl", hash = "sha256:86af7b3daf35dd17c5116301b838c34029e70ed4ac1da192141cd8f7127ca978"},
+    {file = "hvwfg-1.0.2-cp37-cp37m-manylinux1_x86_64.whl", hash = "sha256:e84253ebb3932f53c900c965f8f974b69f9cf6449b388a2abf6d72de4ae56085"},
+    {file = "hvwfg-1.0.2-cp37-cp37m-win_amd64.whl", hash = "sha256:f497956eddd8233f930ba86a17d0a0a334234d9899661ff8ba1d76271bf72c57"},
+    {file = "hvwfg-1.0.2-cp38-cp38-macosx_10_14_x86_64.whl", hash = "sha256:d82658435ac1cd9dc91a57301d598521716b11db745cd1078b25151084fb28ae"},
+    {file = "hvwfg-1.0.2-cp38-cp38-manylinux1_x86_64.whl", hash = "sha256:2aad12744d4a433a74a53201b5e9cbf55e88723c433b670c6669d4920affa6af"},
+    {file = "hvwfg-1.0.2-cp38-cp38-win_amd64.whl", hash = "sha256:50e892c2931726799bf222a0d3ff8ed43c854a89e674be0f95e0864c6ac89ccd"},
+    {file = "hvwfg-1.0.2-cp39-cp39-macosx_10_14_x86_64.whl", hash = "sha256:7fb930c1218c04fe660a50b9ecb8bf63b858a87e46ddd921e97384a08daed019"},
+    {file = "hvwfg-1.0.2-cp39-cp39-manylinux1_x86_64.whl", hash = "sha256:374d7221295efb67831ce459be47747b7e4cd003cc47089dadbed539876734bd"},
+    {file = "hvwfg-1.0.2-cp39-cp39-win_amd64.whl", hash = "sha256:4328e3f562af7877619241418300467521669102b3f11558e6059165b2c08223"},
+    {file = "hvwfg-1.0.2.tar.gz", hash = "sha256:b9707da92e20428736828178ae43048af6aaa06a3f76e8a05f2c03970a1a0127"},
+]
 idna = [
     {file = "idna-3.2-py3-none-any.whl", hash = "sha256:14475042e284991034cb48e06f6851428fb14c4dc953acd9be9a5e95c7b6dd7a"},
     {file = "idna-3.2.tar.gz", hash = "sha256:467fbad99067910785144ce333826c71fb0e63a425657295239737f7ecd125f3"},
@@ -1551,8 +1582,8 @@ importlib-metadata = [
     {file = "importlib_metadata-3.10.1.tar.gz", hash = "sha256:c9356b657de65c53744046fa8f7358afe0714a1af7d570c00c3835c2d724a7c1"},
 ]
 ipykernel = [
-    {file = "ipykernel-6.0.1-py3-none-any.whl", hash = "sha256:9a8576cb70a70cc8c63b0b6671e5f4767917071204653a5934e9b2c8680cec74"},
-    {file = "ipykernel-6.0.1.tar.gz", hash = "sha256:a4f51c53c7be3f93d75c25839183fa2dfa24908fc650dfd023b276c7a080dc73"},
+    {file = "ipykernel-6.0.2-py3-none-any.whl", hash = "sha256:61792e0de765e8b258489715d81b0ff2e87ec0ed9f006bb20819c4d40586dc19"},
+    {file = "ipykernel-6.0.2.tar.gz", hash = "sha256:7fb3e370dbb481b012b74bed4e794d2d16eb2a83930b31e6d8d030b9fdb4d5b4"},
 ]
 ipython = [
     {file = "ipython-7.25.0-py3-none-any.whl", hash = "sha256:aa21412f2b04ad1a652e30564fff6b4de04726ce875eab222c8430edc6db383a"},
