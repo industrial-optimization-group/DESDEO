@@ -12,6 +12,7 @@ desdeo-problem = "^1.0.0"
 desdeo-tools = "^1.0.0"
 desdeo-mcdm = "^1.0.0"
 desdeo-emo = "^1.0.0"
+Cython = "^0.29.24"
 
 [tool.poetry.dev-dependencies]
 sphinx = "^3.0.4"
