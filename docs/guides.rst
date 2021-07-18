@@ -4,7 +4,12 @@ Guides and Examples
 Guides
 ------
 
-*Topical guides to be added eventually.*
+.. toctree::
+   :maxdepth: 1
+
+   notebooks/three_simple_use_cases
+
+*More guides to be added eventually.*
 
 Examples
 --------
