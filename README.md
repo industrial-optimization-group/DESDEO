@@ -21,6 +21,10 @@ framework is released under a permissive open source license.
 This repository contains the main DESDEO module aggregating together all of
 the modules in the DESDEO framework.
 
+For an overlook and for information on how DESDEO is structured and how it can be used, we suggest
+reading our article about DESDEO published in IEEE Access 
+[DESDEO: The Modular and Open Source Framework for Interactive Multiobjective Optimization](https://doi.org/10.1109/ACCESS.2021.3123825).
+
 ## Research and website
 
 ### Research
@@ -71,6 +75,10 @@ The DESDEO framework's documentation can be found [here](https://desdeo.readthed
 ## Contributing
 
 Contributions to the DESDEO framework and its different modules is warmly welcome! See the documentation's [contributing](https://desdeo.readthedocs.io/en/latest/contributing.html) for further details.
+
+## Citation
+
+If you decide to use DESDEO is any of your works or research, we would appreciate you citing the appropiate paper published in [IEEE Access](https://doi.org/10.1109/ACCESS.2021.3123825) (open access).
 
 ## Legacy code
 The old version of DESDEO, which is no longer maintained, can be found [here](https://github.com/industrial-optimization-group/DESDEO/tree/legacy)
