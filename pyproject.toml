@@ -1,27 +1,26 @@
 [tool.poetry]
 name = "desdeo"
-version = "1.1.3"
+version = "1.2"
 description = "Open source framework for interactive multiobjective optimization."
 authors = ["Giovanni Misitano <giovanni.a.misitano@jyu.fi>",
             "Bhupinder Singh Saini <bhupinder.s.saini@jyu.fi>"]
 license = "MIT"
 
 [tool.poetry.dependencies]
-python = ">=3.7.0, <3.10"
-desdeo-problem = "^1.0.0"
-desdeo-tools = "^1.0.0"
-desdeo-mcdm = "^1.0.0"
-desdeo-emo = "^1.0.0"
-Cython = "^0.29.24"
+python = ">=3.9, <3.11"
+desdeo-problem = ">=1.5.0"
+desdeo-tools = ">=1.8.0"
+desdeo-mcdm = ">=1.3.0"
+desdeo-emo = ">=1.5.0"
 
 [tool.poetry.dev-dependencies]
-sphinx = "^3.0.4"
+sphinx = "^6.1.0"
 rstcheck = "^3.3.1"
 flake8 = "^3.8.2"
 black = "^19.10b0"
-sphinx_rtd_theme = "^0.4.3"
-jupyter = "^1.0.0"
-nbsphinx = "^0.8.6"
+sphinx_rtd_theme = "^1.2.0"
+# jupyter = "^1.0.0"
+nbsphinx = "^0.8.11"
 matplotlib = "^3.4.3"
 
 [build-system]
