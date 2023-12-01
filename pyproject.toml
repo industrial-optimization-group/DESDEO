@@ -8,6 +8,9 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.11"
+polars = "^0.19.18"
+numpy = "^1.26.2"
+scipy = "^1.11.4"
 
 
 [tool.poetry.group.dev.dependencies]
