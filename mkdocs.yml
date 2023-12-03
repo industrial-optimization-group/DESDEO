@@ -1,6 +1,8 @@
 site_name: 'DESDEO documentation'
 repo_url: 'https://github.com/industrial-optimization-group/DESDEO'
 repo_name: 'GitHub'
+docs_dir: 'docs'
+site_dir: 'site'
 
 nav:
   - Home: 'index.md'
