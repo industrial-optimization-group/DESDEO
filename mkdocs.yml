@@ -1,0 +1,21 @@
+site_name: 'DESDEO documentation'
+repo_url: 'https://github.com/industrial-optimization-group/DESDEO'
+repo_name: 'GitHub'
+
+nav:
+  - Home: 'index.md'
+  - 'User Guide':
+    - 'Defining a multiobjective optimization problem': 'howtoguides/problem.md'
+  - 'Explanation':
+    - 'The JSON-based problem format': 'explanation/problem_format.md'
+
+theme:
+  name: readthedocs
+  nav_style: dark
+  highlightjs: true
+  hljs_languages:
+    - python
+  locale: en
+
+plugins:
+  - search
