@@ -61,7 +61,7 @@ select = [
     "I",
     "N",
 ]
-ignore = []
+ignore = ["COM812"]  # Enforcing trailing commas is too annoying.
 
 # Allow autofix for all enabled rules (when `--fix`) is provided.
 fixable = []
