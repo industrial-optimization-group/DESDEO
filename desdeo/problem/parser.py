@@ -1,4 +1,5 @@
 from functools import reduce
+from typing import Union
 
 import polars as pl
 
@@ -8,14 +9,16 @@ class ParserError(Exception):
 
 
 class MathParser:
-    """A inner class for only parsing functions in JSON file which defined as CortexJS:
-    https://cortexjs.io/compute-engine/
+    """A inner class for only parsing functions in JSON file which defined as CortexJS.
+
+    See https://cortexjs.io/compute-engine/
 
     Arguments:
     parser (str): Names of the parser:choose (polars,pandas)
     """
 
     def __init__(self, parser: str = "polars"):
+        """Init the class."""
         # DEFINE OPERATORS
         # Whenever the OPERATORS in the json file has been altered,
         # change the name here instead of going into the environment model.
@@ -136,57 +139,53 @@ class MathParser:
                 self.LG: lambda a: "log10(%s)" % (a),
                 self.LOP: lambda a: "log1p(%s)" % (a),
                 # BASIC OPERATION
-                self.SQRT: lambda a: "(%s ** (1/2))" % a
-                if isinstance(a, str)
-                else a ** (1 / 2),
-                self.SQUARE: lambda a: "(%s ** (2))" % a
-                if isinstance(a, str)
-                else a ** (2),
+                self.SQRT: lambda a: "(%s ** (1/2))" % a if isinstance(a, str) else a ** (1 / 2),
+                self.SQUARE: lambda a: "(%s ** (2))" % a if isinstance(a, str) else a ** (2),
                 self.NEGATE: lambda a: "(-%s)" % a,
                 self.ADD: lambda lst: reduce(
-                    lambda x, y: "(%s +  %s)" % (x, y)
-                    if isinstance(x, str) or isinstance(y, str)
-                    else x + y,
+                    # lambda x, y: "(%s +  %s)" % (x, y) if isinstance(x, str) or isinstance(y, str) else x + y,
+                    lambda x, y: f"({x} +  {y})" if isinstance(x, str) or isinstance(y, str) else x + y,
                     lst,
                 ),
                 self.SUB: lambda lst: reduce(
-                    lambda x, y: "(%s -  %s)" % (x, y)
-                    if isinstance(x, str) or isinstance(y, str)
-                    else x - y,
+                    # lambda x, y: "(%s -  %s)" % (x, y) if isinstance(x, str) or isinstance(y, str) else x - y,
+                    lambda x, y: f"({x} -  {y})" if isinstance(x, str) or isinstance(y, str) else x - y,
                     lst,
                 ),
                 self.MUL: lambda lst: reduce(
-                    lambda x, y: "(%s *  %s)" % (x, y)
-                    if isinstance(x, str) or isinstance(y, str)
-                    else x * y,
+                    # lambda x, y: "(%s *  %s)" % (x, y) if isinstance(x, str) or isinstance(y, str) else x * y,
+                    lambda x, y: f"({x} *  {y})" if isinstance(x, str) or isinstance(y, str) else x * y,
                     lst,
                 ),
                 self.DIV: lambda lst: reduce(
-                    lambda x, y: "(%s /  %s)" % (x, y)
-                    if isinstance(x, str) or isinstance(y, str)
-                    else x / y,
+                    # lambda x, y: "(%s /  %s)" % (x, y) if isinstance(x, str) or isinstance(y, str) else x / y,
+                    lambda x, y: f"({x} /  {y})" if isinstance(x, str) or isinstance(y, str) else x / y,
                     lst,
                 ),
                 self.RATIONAL: lambda lst: reduce(
-                    lambda x, y: "(%s /  %s)" % (x, y)
-                    if isinstance(x, str) or isinstance(y, str)
-                    else x / y,
+                    # lambda x, y: "(%s /  %s)" % (x, y) if isinstance(x, str) or isinstance(y, str) else x / y,
+                    lambda x, y: f"({x} /  {y})" if isinstance(x, str) or isinstance(y, str) else x / y,
                     lst,
                 ),
                 self.POW: lambda lst: reduce(
-                    lambda x, y: "(%s**  %s)" % (x, y)
-                    if isinstance(x, str) or isinstance(y, str)
-                    else x**y,
+                    # lambda x, y: "(%s**  %s)" % (x, y) if isinstance(x, str) or isinstance(y, str) else x**y,
+                    lambda x, y: f"({x}**{y})" if isinstance(x, str) or isinstance(y, str) else x**y,
                     lst,
                 ),
                 # self.MAX:                lambda lst:reduce(lambda a,b:'where(%s,%s)'%(a,b), lst),    # Max function is not supported in pandas.eval()
                 # BOOL OPERATION
-                self.EQUAL: lambda a, b: "(%s == %s)" % (a, b),
-                self.GREATER: lambda a, b: "(%s >  %s)" % (a, b),
-                self.GE: lambda a, b: "(%s >= %s)" % (a, b),
-                self.LESS: lambda a, b: "(%s <  %s)" % (a, b),
-                self.LE: lambda a, b: "(%s <= %s)" % (a, b),
-                self.NE: lambda a, b: "(%s != %s)" % (a, b),
+                # self.EQUAL: lambda a, b: "(%s == %s)" % (a, b),
+                self.EQUAL: lambda a, b: f"({a} == {b})",
+                # self.GREATER: lambda a, b: "(%s >  %s)" % (a, b),
+                self.GREATER: lambda a, b: f"({a} >  {b})",
+                # self.GE: lambda a, b: "(%s >= %s)" % (a, b),
+                self.GE: lambda a, b: f"({a} >= {b})",
+                # self.LESS: lambda a, b: "(%s <  %s)" % (a, b),
+                self.LESS: lambda a, b: f"({a} <  {b})",
+                # self.LE: lambda a, b: "(%s <= %s)" % (a, b),
+                self.LE: lambda a, b: f"({a} <= {b})",
+                # self.NE: lambda a, b: "(%s != %s)" % (a, b),
+                self.NE: lambda a, b: f"({a} != {b})",
             }
             self.append(pandas_env)
         else:
@@ -218,37 +217,54 @@ class MathParser:
         # super().__init__(objectives, variables, constraints)
 
     def __get_parser_name__(self):
+        """Return the currently defined parser."""
         return self.parser
 
     def append(self, d: dict):
+        """Update the current env with the contents of a dictionary.
+
+        Arguments:
+        d (dict): dictionary used to update the current env.
+        """
         self.env.update(d)
 
-    def replace_str(self, lst, target: str, sub) -> list:
-        """Replace a target in list with a substitution
+    def replace_str(self, lst: list | str, target: str, sub: list | str) -> list:
+        """Replace a target in list with a substitution recursively and in-place.
 
-        Example
+        Arguments:
+        lst (list or str): The list where the substitution is to be made.
+        target (str): The target of the substitution.
+        sub (list or str): The content to substitute the target.
+
+        Return:
+        list or str: The list or str with the substitution.
+
+        Example:
         replace_str("["Max", "g_i", ["Add","g_i","f_i"]]]", "_i", "_1") --->
         ["Max", "g_1", ["Add","g_1","f_1"]]]
         """
         if isinstance(lst, list):
             return [self.replace_str(item, target, sub) for item in lst]
-        elif isinstance(lst, str):
+        if isinstance(lst, str):
             if target in lst:
                 if isinstance(sub, str):
-                    s = lst.replace(target, sub)
-                    return s
-                else:
-                    return sub
-            else:
-                return lst
-        else:
+                    return lst.replace(target, sub)
+                return sub
             return lst
+        return lst
 
-    def parse_sum(self, expr):
-        """Convert Sum Operation into Add Operation
+    def parse_sum(self, expr: list) -> list:
+        """Convert Sum Operation into Add Operation.
+
+        Arguments:
+        expr (list): A list containing a Sum expression. Must contain the keywords
+            'Triple' and 'Hold'.
+
+        Returns:
+        list: An Add expression derived from the Sum expression.
 
         Example:
-        parse_sum(" ["Sum", ["Max", "g_i", 0], ["Triple", ["Hold", "i"], 1, 3]]" ) --->
+        parse_sum(["Sum", ["Max", "g_i", 0], ["Triple", ["Hold", "i"], 1, 3]]) --->
         ["Add", ["Max", "g_1", 0],["Max", "g_2", 0],["Max", "g_3", 0] ]
         """
         if not expr or len(expr) != 3:
@@ -262,33 +278,32 @@ class MathParser:
             raise ParserError(msg)
         hold_list = logic_list[1]
         if hold_list[0] != "Hold":
-            msg = (
-                "The Control Operation is not recognizable,No keyword:Hold is not found"
-            )
+            msg = "The Control Operation is not recognizable,No keyword:Hold is not found"
             raise ParserError(msg)
         holder: str = hold_list[1]
         start = logic_list[2]
         end = logic_list[3]
 
-        # REPLACE ITERATER IN EXPRESSION WITH HODLER
+        # REPLACE ITERATER IN EXPRESSION WITH HOLDER
         expr = expr[1]
         pl_list = []
         for i in range(start, end + 1):
             it_name = "_" + holder
             new_it = "_" + str(i)
-            l = self.replace_str(expr, it_name, new_it)
-            pl_list.append(l)
+            left = self.replace_str(expr, it_name, new_it)
+            pl_list.append(left)
         new_expr = ["Add"]
         for e in pl_list:
             new_expr.append(e)
         return new_expr
 
-    def parse(self, expr):
-        """
-        it will parse Polish Notation, and return polars expression.
+    def parse(self, expr: list):
+        """Parses Polish notation and returns a polars expression.
+
         Arguments:
-            expr, It is a Polish notation that describe a function in list e.g.
-            ["Multiply", ["Sqrt", 2], "x2"]
+            expr (list): A list with a Polish notation expression that describes a, e.g.,
+                ["Multiply", ["Sqrt", 2], "x2"]
+
         Raises:
             ParserError: If the type of the text neither str,list nor int,float, it will
             raise type error; If the operation in expr not found, it means we currently
@@ -300,18 +315,16 @@ class MathParser:
             # Handle variable symbols
             if expr in self.env:
                 return self.parse(self.env[expr])
-            else:
-                if self.__get_parser_name__() == "polars":
-                    return pl.col(expr)
-                elif self.__get_parser_name__() == "pandas":
-                    return expr
-                else:
-                    msg = "incorrect parser"
-                    raise ParserError(msg)
-        elif isinstance(expr, (int, float)):
+            if self.__get_parser_name__() == "polars":
+                return pl.col(expr)
+            if self.__get_parser_name__() == "pandas":
+                return expr
+            msg = "incorrect parser"
+            raise ParserError(msg)
+        if isinstance(expr, int | float):
             # Handle numeric constants
             return expr
-        elif isinstance(expr, list):
+        if isinstance(expr, list):
             # Handle function expressions
             op = expr[0]
             operands = expr[1:]
@@ -319,110 +332,19 @@ class MathParser:
             if op in self.env:
                 if length == 1:
                     return self.env[op](self.parse(expr[1]))
-                elif length > 1:
+                if length > 1:
                     return self.env[op](self.parse(e) for e in operands)
-            elif op == "Sum":
+            if op == "Sum":
                 new_expr = self.parse_sum(expr)
                 return self.parse(new_expr)
-            else:
-                # raise error message:
-                msg = f"I am sorry the operator:{op} is not found."
-                raise ParserError(msg)
-        else:
             # raise error message:
-            text_type = type(expr)
-            msg = f"The type of {text_type} is not found."
+            msg = f"I am sorry the operator:{op} is not found."
             raise ParserError(msg)
 
-    """SHOULD BE CHANGED TO JSON TO DATACLASS THAT MIMICS THE JSON FORMAT
-    def json_to_problem(self, json_data: dict):
-        """ """
-        it will parse json data that decribe in multi-objective optimization format.
-        , and return desdeo Variables, Objectives, and Constraints.
-
-        Arguments:
-            json_data(dict), it is a json file that contains muti-objective optimization
-            information. 
-        Raises:
-            ParserError:
-        """ """
-
-        #GET DATA FROM JSON
-        constants_list      = json_data[self.CONSTANTS]
-        variables_list      = json_data[self.VARIABLES]
-        extra_func          = json_data[self.EXTRA]
-        objectives_list     = json_data[self.OBJECTIVES]
-        constraints_list    = json_data[self.CONSTRAINTS]
-        #VARIABLES AND OBJECTIVES ARE MANDITORY
-        if not variables_list :
-            msg = ("Decision Variable is empty.")
-            raise ParserError(msg)
-        if not objectives_list:
-            msg = ("Objective Functions is empty.")
-            raise ParserError(msg)
-        
-        #CONSTANTS     
-        constants = {}
-        if constants_list:
-            for d in constants_list:
-                name = d[self.NAME]
-                value = d[self.VALUE]
-                constants[name] = value
-            #UPDATE PARSER ENVIRONMENT
-            self.append(constants)
-        
-        #DESDEO VARIABLES
-        desdeo_vars = []
-        for d in variables_list:
-            name = d[self.NAME] 
-            lower_bound = self.parse(d[self.LB])           
-            upper_bound = self.parse(d[self.UB])
-            var_type = d[self.TYPE]
-            initial_value = d[self.IV] 
-            if initial_value is None: initial_value = (lower_bound+upper_bound)/2
-            desdeo_var = Variable(name, 
-                            initial_value,
-                            lower_bound,
-                            upper_bound,
-                            var_type)
-            desdeo_vars.append(desdeo_var)
-
-        #FUNCTIONS THAT NEED BEFORE OBJECTIVES AND CONSTAINTS 
-        extra_funcs = {}            
-        if extra_func:
-            for f in extra_func:
-                name = f[self.NAME]
-                expr = f[self.FUNC]
-                extra_funcs[name] = expr
-            #UPDATE PARSER ENVIRONMENT
-            self.append(extra_funcs)
-
-        #DESDEO OBJECTIVES
-        desdeo_objs = []
-        for obj in objectives_list:
-            name = obj[self.NAME]
-            lower_bound = self.parse(obj[self.LB])
-            upper_bound = self.parse(obj[self.UB])
-
-            is_maximize = obj[self.MAX]
-            polars_func = self.parse(obj[self.FUNC])
-            if lower_bound is None: lower_bound = -np.inf
-            if upper_bound is None: upper_bound = np.inf
-            desdeo_obj = ScalarObjective(name,polars_func,lower_bound,upper_bound,
-                                 maximize=[is_maximize])
-            desdeo_objs.append(desdeo_obj)
-
-        #DESDEO CONSTRAINTS
-        desdeo_csts = []
-        if constraints_list:
-            for cst in constraints_list:
-                name = cst[self.NAME]  
-                polars_func = self.parse(cst[self.FUNC])   
-                desdeo_cst = ScalarConstraint(name,len(variables_list),len(objectives_list),
-                                    polars_func)
-                desdeo_csts.append(desdeo_cst)   
-        return desdeo_vars,desdeo_objs,desdeo_csts
-"""
+        # raise error message:
+        text_type = type(expr)
+        msg = f"The type of {text_type} is not found."
+        raise ParserError(msg)
 
 
 math_parser = MathParser()

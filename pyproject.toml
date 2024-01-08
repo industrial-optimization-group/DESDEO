@@ -61,7 +61,11 @@ select = [
     "I",
     "N",
 ]
-ignore = ["COM812"]  # Enforcing trailing commas is too annoying.
+ignore = [
+	"COM812", # Enforcing trailing commas is too annoying.
+	"PLR0915", # "too many statements (>50)"
+]  
+pydocstyle.convention = "google"
 
 # Allow autofix for all enabled rules (when `--fix`) is provided.
 fixable = []
