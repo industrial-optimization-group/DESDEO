@@ -64,8 +64,10 @@ select = [
 ignore = [
 	"COM812", # Enforcing trailing commas is too annoying.
 	"PLR0915", # "too many statements (>50)"
+	"T201", # allow print statements
 ]  
 pydocstyle.convention = "google"
+
 
 # Allow autofix for all enabled rules (when `--fix`) is provided.
 fixable = []
@@ -95,17 +97,23 @@ exclude = [
     "node_modules",
     "venv",
 ]
-per-file-ignores = {}
 
 line-length = 120
-
-
 
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 # Assume Python 3.11.
 target-version = "py312"
+
+[tool.ruff.per-file-ignores]
+# Ignore certain rules in test files
+"tests/**/*.py" = [
+    "S101", # asserts allowed in tests...
+    "ARG", # Unused function args -> fixtures nevertheless are functionally relevant...
+    "FBT", # Don't care about booleans as positional arguments in tests, e.g. via @pytest.mark.parametrize()
+    "PLR2004", # Magic value used in comparison, ...
+]
 
 [tool.ruff.format]
 quote-style = "double"

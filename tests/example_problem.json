@@ -24,7 +24,7 @@
             "shortname": "a",
             "value": 1.0,
             "__description": "use for Variable bounds "
-        },
+        }
     ],
     "variables": [
         {
@@ -36,7 +36,7 @@
                 "a"
             ],
             "type": "RealNumber",
-            "initialvalue": null,
+            "initialvalue": null
         },
         {
             "longname": "Decision variable 2",
@@ -55,7 +55,7 @@
                 "a"
             ],
             "type": "RealNumber",
-            "initialvalue": null,
+            "initialvalue": null
         },
         {
             "shortname": "x3",
@@ -73,7 +73,7 @@
                 "a"
             ],
             "type": "RealNumber",
-            "initialvalue": null,
+            "initialvalue": null
         },
         {
             "shortname": "x4",
@@ -84,8 +84,8 @@
                 "a"
             ],
             "type": "RealNumber",
-            "initialvalue": null,
-        },
+            "initialvalue": null
+        }
     ],
     "extra_func": [],
     "objectives": [
@@ -114,12 +114,12 @@
                         "Sqrt",
                         "x3"
                     ],
-                    "x4",
-                ],
+                    "x4"
+                ]
             ],
             "max": false,
             "lowerbound": null,
-            "upperbound": null,
+            "upperbound": null
         },
         {
             "longname": "minimize the joint displacement",
@@ -165,17 +165,17 @@
                                 ]
                             ],
                             "x2"
-                        ],
-                    ],
+                        ]
+                    ]
                 ],
-                "E",
+                "E"
             ],
             "max": false,
             "lowerbound": null,
-            "upperbound": null,
-        },
+            "upperbound": null
+        }
     ],
     "constraints": [],
     "__problemName": "Four bar truss design problem",
-    "__problemDescription": "This problem is from DESDEO example Engineering real-world test problems on https://desdeo-problem.readthedocs.io/en/latest/problems/engineering_real_world.html#re-21-four-bar-truss-design-problem",
+    "__problemDescription": "This problem is from DESDEO example Engineering real-world test problems on https://desdeo-problem.readthedocs.io/en/latest/problems/engineering_real_world.html#re-21-four-bar-truss-design-problem"
 }
