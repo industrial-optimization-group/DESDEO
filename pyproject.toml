@@ -26,6 +26,7 @@ viz = ["seaborn", "plotly"]  # We could make viz packages optional in the future
 ruff = "^0.1.6"
 pytest = "^7.4.3"
 mkdocs = "^1.5.3"
+erdantic = "^0.6.0"
 
 
 [tool.ruff]

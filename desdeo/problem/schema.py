@@ -10,11 +10,17 @@ The problem definition is a JSON file that contains the following information:
 """
 
 from enum import Enum
+from typing import Generic, TypeVar
 
-import polars as pl
 from pydantic import BaseModel, Field
 
-MAX_SHORTNAME_LENGTH = 3
+
+VariableType = TypeVar('VariableType')
+
+class VariableTypeEnum(Enum):
+    real: float
+    integer: int
+    binary: bool
 
 
 class Constant(BaseModel):
@@ -31,17 +37,8 @@ class Constant(BaseModel):
             "Symbol to represent the constant. This will be used in the rest of the problem definition."
             " It may also be used in UIs and visualizations. Example: 'c_1'."
         ),
-        max_length=MAX_SHORTNAME_LENGTH,
     )
-    value: float | int | bool = Field(description="Value of the constant.")
-
-
-class VariableTypes(Enum):
-    """Enum of variable types."""
-
-    real = "real"
-    integer = "integer"
-    binary = "binary"
+    value: VariableTypeEnum = Field(description="Value of the constant.")
 
 
 class Variable(BaseModel):
@@ -55,26 +52,57 @@ class Variable(BaseModel):
             "Symbol to represent the variable. This will be used in the rest of the problem definition."
             " It may also be used in UIs and visualizations. Example: 'v_1'."
         ),
-        max_length=MAX_SHORTNAME_LENGTH,
     )
-    lowerbound: float | int | bool = Field(description="Lower bound of the variable.")
-    upperbound: float | int | bool = Field(description="Upper bound of the variable.")
-    variable_type: VariableTypes = Field(description="Type of the variable. Can be real, integer or binary.")
-    initialvalue: float | int | bool | None = Field(
+    variable_type: VariableTypeEnum = Field(description="Type of the variable. Can be real, integer or binary.")
+    lowerbound: VariableTypeEnum = Field(description="Lower bound of the variable.")
+    upperbound: VariableTypeEnum = Field(description="Upper bound of the variable.")
+    initial_value: VariableTypeEnum | None = Field(
         description="Initial value of the variable. This is optional.",
     )
 
-
 class ExtraFunction(BaseModel):
-    """Model for extra functions."""
+    """Model for extra functions.
 
-    ...
+    These functions can, e.g., be functions that are re-used in the problem formulation, or
+    they are needed for other computations related to the problem.
+    """
+
+    name: str = Field(
+        description=(
+            "Descriptive name of the function. Example: 'normalization'"
+        ),
+    )
+    symbol: str = Field(
+        description=(
+            "Symbol to represent the function. This will be used in the rest of the problem definition."
+            " It may also be used in UIs and visualizations. Example: 'avg'."
+        ),
+    )
+    func: list = Field(
+        description=(
+            "The string representing the function. This is a JSON object that can be parsed into a function."
+            "Must be a valid MathJSON object."
+            " The symbols in the function must match symbols defined for objective/variable/constant."
+        ),
+    )
 
 
 class ScalarizationFunction(BaseModel):
     """Model for scalarization of the problem."""
 
-    ...
+    name: str = Field(
+        description=(
+            "Name of the scalarization. Example: 'STOM'"
+        ),
+    )
+    func: list = Field(
+        description=(
+            "Function representation of the scalarization. This is a JSON object that can be parsed into a function."
+            "Must be a valid MathJSON object."
+            " The symbols in the function must match the symbols defined for objective/variable/constant/extra"
+            " function."
+        ),
+    )
 
 
 class Objective(BaseModel):
@@ -91,12 +119,12 @@ class Objective(BaseModel):
             "Symbol to represent the objective function. This will be used in the rest of the problem definition."
             " It may also be used in UIs and visualizations. Example: 'f_1'."
         ),
-        max_length=MAX_SHORTNAME_LENGTH,
     )
     func: list = Field(
         description=(
             "The objective function. This is a JSON object that can be parsed into a function."
-            "Must be a valid MathJSON object. The symbols in the function must match variable/constant shortnames."
+            "Must be a valid MathJSON object. The symbols in the function must match the symbols defined for "
+            "variable/constant/extra function."
         ),
     )
     maximize: bool = Field(
@@ -120,12 +148,11 @@ class Constraint(BaseModel):
             " Example: 'maximum length'"
         ),
     )
-    shortname: str = Field(
+    symbol: str = Field(
         description=(
             "Symbol to represent the constraint. This will be used in the rest of the problem definition."
             " It may also be used in UIs and visualizations. Example: 'g_1'."
         ),
-        max_length=MAX_SHORTNAME_LENGTH,
     )
     func: list = Field(
         description=(
@@ -135,11 +162,50 @@ class Constraint(BaseModel):
         ),
     )
 
+class EvaluatedInfo(BaseModel):
+    """Model to represent information about evaluated an solution or solutions to a problem.
 
-class EvaluatedPoint(BaseModel):
-    """Model to represent the evaluated objective values of an decision vector."""
+    This model may be extended as needed.
+    """
 
-    ...
+    source: str = Field(
+        description="The source of the evaluated solution(s). E.g., an optimization method's name."
+    )
+    dominated: bool | None = Field(
+        description="Optional. Are the solutions dominated?"
+    )
+
+class VariableValue(BaseModel, Generic[VariableType]):
+    """Model to represent the value of a decision variable."""
+    value: VariableType = Field(
+        description="The value of the variable."
+    )
+
+class DecisionVector(BaseModel):
+    """Model to represent a decision vector."""
+    values: list[VariableValue] = Field(
+        description="The values contained in the decision vector."
+    )
+
+class EvaluatedSolutions(BaseModel):
+    """Model to represent the evaluated objective values of a decision vector.
+
+    The decision vectors 'decision_vectors' and objective vectors
+    'objective_vector' correspond to each other based on their ordering. I.e.,
+    the evaluated objective function values for the decision vector at position i
+    (decision_vectors[i]) are represented by the objective vector at position i
+    (objective_vector[i]).
+    """
+
+    info: EvaluatedInfo = Field(
+        description="Information about the evaluated solutions."
+    )
+    decision_vectors: list[DecisionVector] = Field(
+        description="A list of the evaluated decision vectors."
+    )
+    objective_vectors: list[float] = Field(
+        description="A list of the values of the evaluated objective functions."
+    )
 
 
 class Problem(BaseModel):
@@ -168,6 +234,9 @@ class Problem(BaseModel):
     )
     scalarizations_funcs: list[ScalarizationFunction] | None = Field(
         description="Optional list of scalarization functions representing the problem."
+    )
+    evaluated_solutions: list[EvaluatedSolutions] | None = Field(
+        description="Optional list of evaluated solutions of the problem."
     )
 
 
@@ -216,3 +285,18 @@ class DataProblem(BaseModel):
         ),
     )
 """
+
+if __name__ == "__main__":
+    import erdantic as erd   # noqa: I001
+
+    # diagram = erd.create(Problem)
+    # diagram.draw("problem_map.png")
+
+
+    constant_model = Constant(name="constant example", symbol="c", value=42.1)
+    # print(Constant.schema_json(indent=2))
+    # print(constant_model.model_dump_json(indent=2))
+
+    variable_model = Variable(name="example variable", symbol="x_1", variable_type="real", lowerbound=-0.75, upperbound=11.3, initial_value=4.2)
+    print(Variable.schema_json(indent=2))
+    print(variable_model.model_dump_json(indent=2))
