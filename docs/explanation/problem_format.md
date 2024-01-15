@@ -800,3 +800,26 @@ and an example of a JSON object corresponding to the schema looks like:
   ]
 }
 ```
+
+## Parsing
+The problem defined in a `Problem` model is parsed into polars expressions that can be numerically evaluated.
+Parsing is done according to the following logic:
+
+1. First, the `Problem` model is checked for any constant definitions (defined in `Constant` models).
+2. If any constant is defined, its symbol is replaced with its numerical value in the function definitions found in
+the existing `Objective`, `Constraint`, `ExtraFunction`, and `ScalarizationFunction` models.
+3. Then, the `Problem` model is checked for any extra functions (defined in `ExtraFunctions` models).
+4. If any extra function is defined, its symbol is replaced by the extra function definition in the existing
+`Objective`, `Constraint`, and `ScalarizationFunction` models.
+5. Then, the `Problem` model is checked for any scalarization function definitions (defined in `ScalarizationFunction`).
+6. If any scalarization function is defined, the symbols in the scalariztion functions
+corresponding to any objective function are replaced by the
+objective function definition found in the `Objective` models. In these definitions, the previously listed replacements have been
+carried out.
+7. The function expression from the `Objective`, `Constraint`, `ExtraFunction`, and `ScalarizationFunction` should now
+only contain symbols corresponding to decision variables and various mathematical operators.
+8. The function expressions can now be evaluated with decision variable values. 
+
+The flow of the parsing logic has been visualized below:
+
+![Flow of the Problem model parsing into polars expressions](../assets/parsing_flow.png "The parsing of the Problem model.")

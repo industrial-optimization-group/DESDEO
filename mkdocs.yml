@@ -9,7 +9,7 @@ nav:
   - 'User Guide':
     - 'Defining a multiobjective optimization problem': 'howtoguides/problem.md'
   - 'Explanation':
-    - 'The JSON-based problem format': 'explanation/problem_format.md'
+    - 'The problem format': 'explanation/problem_format.md'
 
 theme:
   name: readthedocs
