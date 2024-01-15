@@ -6,21 +6,26 @@ The problem definition is a JSON file that contains the following information:
 - Variables
 - Objectives
 - Extra functions
+- Scalarization functions
+- Evaluated solutions and their info
 
 """
 
+
 from enum import Enum
-from typing import Generic, TypeVar
 
 from pydantic import BaseModel, Field
 
 
-VariableType = TypeVar('VariableType')
+VariableType = float | int | bool
 
-class VariableTypeEnum(Enum):
-    real: float
-    integer: int
-    binary: bool
+
+class VariableTypeEnum(str, Enum):
+    """An enumerator for possible variable types."""
+
+    real = "real"
+    integer = "integer"
+    binary = "binary"
 
 
 class Constant(BaseModel):
@@ -38,7 +43,7 @@ class Constant(BaseModel):
             " It may also be used in UIs and visualizations. Example: 'c_1'."
         ),
     )
-    value: VariableTypeEnum = Field(description="Value of the constant.")
+    value: VariableType = Field(description="Value of the constant.")
 
 
 class Variable(BaseModel):
@@ -54,11 +59,12 @@ class Variable(BaseModel):
         ),
     )
     variable_type: VariableTypeEnum = Field(description="Type of the variable. Can be real, integer or binary.")
-    lowerbound: VariableTypeEnum = Field(description="Lower bound of the variable.")
-    upperbound: VariableTypeEnum = Field(description="Upper bound of the variable.")
-    initial_value: VariableTypeEnum | None = Field(
+    lowerbound: VariableType = Field(description="Lower bound of the variable.")
+    upperbound: VariableType = Field(description="Upper bound of the variable.")
+    initial_value: VariableType | None = Field(
         description="Initial value of the variable. This is optional.",
     )
+
 
 class ExtraFunction(BaseModel):
     """Model for extra functions.
@@ -68,9 +74,7 @@ class ExtraFunction(BaseModel):
     """
 
     name: str = Field(
-        description=(
-            "Descriptive name of the function. Example: 'normalization'"
-        ),
+        description=("Descriptive name of the function. Example: 'normalization'"),
     )
     symbol: str = Field(
         description=(
@@ -91,9 +95,7 @@ class ScalarizationFunction(BaseModel):
     """Model for scalarization of the problem."""
 
     name: str = Field(
-        description=(
-            "Name of the scalarization. Example: 'STOM'"
-        ),
+        description=("Name of the scalarization. Example: 'STOM'"),
     )
     func: list = Field(
         description=(
@@ -162,30 +164,28 @@ class Constraint(BaseModel):
         ),
     )
 
+
 class EvaluatedInfo(BaseModel):
-    """Model to represent information about evaluated an solution or solutions to a problem.
+    """Model to represent information about an evaluated solution or solutions to the problem.
 
     This model may be extended as needed.
     """
 
-    source: str = Field(
-        description="The source of the evaluated solution(s). E.g., an optimization method's name."
-    )
-    dominated: bool | None = Field(
-        description="Optional. Are the solutions dominated?"
-    )
+    source: str = Field(description="The source of the evaluated solution(s). E.g., an optimization method's name.")
+    dominated: bool | None = Field(description="Optional. Are the solutions dominated?")
 
-class VariableValue(BaseModel, Generic[VariableType]):
-    """Model to represent the value of a decision variable."""
-    value: VariableType = Field(
-        description="The value of the variable."
-    )
+
+class VariableValue(BaseModel):
+    """Model to represent a concrete value of a decision variable."""
+
+    value: VariableType = Field(description="The value of the variable.")
+
 
 class DecisionVector(BaseModel):
     """Model to represent a decision vector."""
-    values: list[VariableValue] = Field(
-        description="The values contained in the decision vector."
-    )
+
+    values: list[VariableValue] = Field(description="The values contained in the decision vector.")
+
 
 class EvaluatedSolutions(BaseModel):
     """Model to represent the evaluated objective values of a decision vector.
@@ -197,13 +197,9 @@ class EvaluatedSolutions(BaseModel):
     (objective_vector[i]).
     """
 
-    info: EvaluatedInfo = Field(
-        description="Information about the evaluated solutions."
-    )
-    decision_vectors: list[DecisionVector] = Field(
-        description="A list of the evaluated decision vectors."
-    )
-    objective_vectors: list[float] = Field(
+    info: EvaluatedInfo = Field(description="Information about the evaluated solutions.")
+    decision_vectors: list[DecisionVector] = Field(description="A list of the evaluated decision vectors.")
+    objective_vectors: list[list[float]] = Field(
         description="A list of the values of the evaluated objective functions."
     )
 
@@ -287,16 +283,72 @@ class DataProblem(BaseModel):
 """
 
 if __name__ == "__main__":
-    import erdantic as erd   # noqa: I001
+    # import erdantic as erd
 
     # diagram = erd.create(Problem)
     # diagram.draw("problem_map.png")
-
 
     constant_model = Constant(name="constant example", symbol="c", value=42.1)
     # print(Constant.schema_json(indent=2))
     # print(constant_model.model_dump_json(indent=2))
 
-    variable_model = Variable(name="example variable", symbol="x_1", variable_type="real", lowerbound=-0.75, upperbound=11.3, initial_value=4.2)
-    print(Variable.schema_json(indent=2))
-    print(variable_model.model_dump_json(indent=2))
+    variable_model = Variable(
+        name="example variable",
+        symbol="x_1",
+        variable_type="real",
+        lowerbound=-0.75,
+        upperbound=11.3,
+        initial_value=4.2,
+    )
+    # print(Variable.schema_json(indent=2))
+    # print(variable_model.model_dump_json(indent=2))
+
+    objective_model = Objective(
+        name="example objective",
+        symbol="f_1",
+        func=["Divide", ["Add", "x_1", 3], 2],
+        maximize=False,
+        ideal=-3.3,
+        nadir=5.2,
+    )
+    # print(Objective.schema_json(indent=2))
+    # print(objective_model.model_dump_json(indent=2))
+
+    constraint_model = Constraint(
+        name="example constraint", symbol="g_1", func=["Less", ["Add", ["Divide", "x_1", 2], "c"], 4.2]
+    )
+    # print(Constraint.schema_json(indent=2))
+    # print(constraint_model.model_dump_json(indent=2))
+
+    extra_func_model = ExtraFunction(name="example extra function", symbol="m", func=["Divide", "f_1", 100])
+    # print(ExtraFunction.schema_json(indent=2))
+    # print(extra_func_model.model_dump_json(indent=2))
+
+    scalarization_function_model = ScalarizationFunction(
+        name="Achievement scalarizing function",
+        func=["Max", ["Multiply", "w_1", ["Add", "f_1", -1.1]], ["Multiply", "w_2", ["Add", "f_2", -2.2]]],
+    )
+    # print(ScalarizationFunction.schema_json(indent=2))
+    # print(scalarization_function_model.model_dump_json(indent=2))
+
+    variable_value_model = VariableValue(value=4.2)
+    # print(VariableValue.schema_json(indent=2))
+    # print(variable_value_model.model_dump_json(indent=2))
+
+    decision_vector_model = DecisionVector(
+        values=[VariableValue(value=4.2), VariableValue(value=-1.2), VariableValue(value=6.6)]
+    )
+    # print(DecisionVector.schema_json(indent=2))
+    # print(decision_vector_model.model_dump_json(indent=2))
+
+    evaluated_info_model = EvaluatedInfo(source="NSGA-III", dominated=False)
+    # print(EvaluatedInfo.schema_json(indent=2))
+    # print(evaluated_info_model.model_dump_json(indent=2))
+
+    evaluated_solutions_model = EvaluatedSolutions(
+        info=evaluated_info_model,
+        decision_vectors=[decision_vector_model, decision_vector_model, decision_vector_model],
+        objective_vectors=[[1, 2, 3], [1, 2, 3], [1, 2, 3]],
+    )
+    # print(EvaluatedSolutions.schema_json(indent=2))
+    # print(evaluated_solutions_model.model_dump_json(indent=2))
