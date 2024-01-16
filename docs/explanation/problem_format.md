@@ -805,20 +805,36 @@ and an example of a JSON object corresponding to the schema looks like:
 The problem defined in a `Problem` model is parsed into polars expressions that can be numerically evaluated.
 Parsing is done according to the following logic:
 
-1. First, the `Problem` model is checked for any constant definitions (defined in `Constant` models).
-2. If any constant is defined, its symbol is replaced with its numerical value in the function definitions found in
-the existing `Objective`, `Constraint`, `ExtraFunction`, and `ScalarizationFunction` models.
-3. Then, the `Problem` model is checked for any extra functions (defined in `ExtraFunctions` models).
-4. If any extra function is defined, its symbol is replaced by the extra function definition in the existing
-`Objective`, `Constraint`, and `ScalarizationFunction` models.
-5. Then, the `Problem` model is checked for any scalarization function definitions (defined in `ScalarizationFunction`).
-6. If any scalarization function is defined, the symbols in the scalariztion functions
-corresponding to any objective function are replaced by the
-objective function definition found in the `Objective` models. In these definitions, the previously listed replacements have been
-carried out.
-7. The function expression from the `Objective`, `Constraint`, `ExtraFunction`, and `ScalarizationFunction` should now
-only contain symbols corresponding to decision variables and various mathematical operators.
-8. The function expressions can now be evaluated with decision variable values. 
+### Initialization
+1. **Create Math Parser**: Initialize a math parser of distinct type. The
+default is a polars parser.
+2. **Constant Replacement**: Examine the problem's definition for any constants.
+If found, replace these constants with their numerical values across all
+function expressions within the problem.
+3. **Function Expression Parsing**: Convert the function expressions into a
+structured format, a dataframe in case of the default polars parser, for easier
+manipulation and evaluation.
+
+### Evaluating (using decision variables to evaluate the problem)
+1. **Extra Functions Evaluation**: If any extra functions are defined, evaluate
+them using the decision variables. Store the outcomes in new columns within the
+dataframe, with the symbol of the corresponding extra function as the column
+name.
+2. **Objective Functions Evaluation**: Evaluate the objective functions based on
+the decision variables and any values derived from extra functions. Store these
+results in separate columns of the dataframe. The new columns are named with the symbol
+defined for each objective function.
+3. **Constraints Evaluation**: Evaluate the constraints, if any are present,
+considering the decision variables and any computed extra function values. Store these
+in the dataframe. The new columns are named with the symbol defined for each constraint.
+4. **Scalarization Functions Evaluation**: If scalarization functions are
+defined, evaluate them using the values obtained from objective functions and
+extra functions. Store these results in the dataframe in columns named with the
+name of the scalarization function.
+5. **Result Compilation**: Compile a pydantic dataclass encapsulating all
+results, including decision variables, values of objective functions,
+constraints, and scalarization functions. Return the instance of the dataclass.
+
 
 The flow of the parsing logic has been visualized below:
 
