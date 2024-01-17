@@ -294,8 +294,27 @@ and an example of a JSON object corresponding to the schema looks like:
 ### Constraint
 The `Constraint` model defines a constraint function with a name, symbol, and function expression. Its JSON schema looks as follows:
 
+!!! note
+    The constraint must be expected in a standard format where the function expression of the constraint is on the left hand side of an
+    inequality expression, and on the right hand side a zero is assumed. Likewise, for equality constraints, the left hand side has a function
+    expression that must be equal to zero. In other words, a constraint, such as `x_1 <= 5` must first be expressed as `5 - x_1 <= 0`, and then the
+    constraint expression supplied to the `Constraint` model would be `5 - x_1`. Likewise, an equality constraint, such as `x_1 + x_2 == 5` would be first
+    expressed as `x_1 + x_2 - 5 == 0`, and the supplied function expression would be `x_1 + x_2 - 5`.
+
 ```json
 {
+  {
+  "$defs": {
+    "ConstraintTypeEnum": {
+      "description": "An enumerator for supported constraint expression types.",
+      "enum": [
+        "=",
+        "<="
+      ],
+      "title": "ConstraintTypeEnum",
+      "type": "string"
+    }
+  },
   "description": "Model for a constraint function.",
   "properties": {
     "name": {
@@ -308,6 +327,14 @@ The `Constraint` model defines a constraint function with a name, symbol, and fu
       "title": "Symbol",
       "type": "string"
     },
+    "cons_type": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/ConstraintTypeEnum"
+        }
+      ],
+      "description": "The type of the constraint. Constraints are assumed to be in a standard form where the supplied 'func' expression is on the left hand side of the constraint's expression, and on the right hand side a zero value is assume. The comparison between the left hand side and right hand side is either and quality comparison ('=') or lesser than equal comparison ('<=')."
+    },
     "func": {
       "description": "Function of the constraint. This is a JSON object that can be parsed into a function.Must be a valid MathJSON object. The symbols in the function must match objective/variable/constant shortnames.",
       "items": {},
@@ -318,10 +345,12 @@ The `Constraint` model defines a constraint function with a name, symbol, and fu
   "required": [
     "name",
     "symbol",
+    "cons_type",
     "func"
   ],
   "title": "Constraint",
   "type": "object"
+}
 }
 ```
 
@@ -329,10 +358,12 @@ and an example of a JSON object corresponding to the schema looks like:
 
 ```json
 {
+  {
   "name": "example constraint",
   "symbol": "g_1",
+  "cons_type": "<=",
   "func": [
-    "Less",
+    "Add",
     [
       "Add",
       [
@@ -342,8 +373,9 @@ and an example of a JSON object corresponding to the schema looks like:
       ],
       "c"
     ],
-    4.2
+    -4.2
   ]
+ }
 }
 ```
 
@@ -415,6 +447,18 @@ function has a name and a function definition. Its JSON schema looks as follows:
       "title": "Name",
       "type": "string"
     },
+    "symbol": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": "Optional symbol to represent the scalarization function. This may be used in in UIs and visualizations.",
+      "title": "Symbol"
+    },
     "func": {
       "description": "Function representation of the scalarization. This is a JSON object that can be parsed into a function.Must be a valid MathJSON object. The symbols in the function must match the symbols defined for objective/variable/constant/extra function.",
       "items": {},
@@ -436,6 +480,7 @@ and an example of a JSON object corresponding to the schema looks like:
 ```json
 {
   "name": "Achievement scalarizing function",
+  "symbol": "S",
   "func": [
     "Max",
     [
@@ -462,114 +507,6 @@ and an example of a JSON object corresponding to the schema looks like:
 
 !!! note
     The `func` entry in the JSON object of the scalarization function model must adhere to the MathJSON format.
-
-### VariableValue
-The `VariableValue` model defines a concrete value of a decision variable. Its JSON shcema looks as follows:
-
-```json
-{
-  "description": "Model to represent a concrete value of a decision variable.",
-  "properties": {
-    "value": {
-      "anyOf": [
-        {
-          "type": "number"
-        },
-        {
-          "type": "integer"
-        },
-        {
-          "type": "boolean"
-        }
-      ],
-      "description": "The value of the variable.",
-      "title": "Value"
-    }
-  },
-  "required": [
-    "value"
-  ],
-  "title": "VariableValue",
-  "type": "object"
-}
-```
-
-and an example of a JSON object corresponding to the schema looks like:
-
-```json
-{
-  "value": 4.2
-}
-```
-
-### DecisionVector
-The `DecisionVector` model defines a decision vector with concrete decision variable values. Its JSON schema looks as follows:
-
-```json
-{
-  "$defs": {
-    "VariableValue": {
-      "description": "Model to represent a concrete value of a decision variable.",
-      "properties": {
-        "value": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "integer"
-            },
-            {
-              "type": "boolean"
-            }
-          ],
-          "description": "The value of the variable.",
-          "title": "Value"
-        }
-      },
-      "required": [
-        "value"
-      ],
-      "title": "VariableValue",
-      "type": "object"
-    }
-  },
-  "description": "Model to represent a decision vector.",
-  "properties": {
-    "values": {
-      "description": "The values contained in the decision vector.",
-      "items": {
-        "$ref": "#/$defs/VariableValue"
-      },
-      "title": "Values",
-      "type": "array"
-    }
-  },
-  "required": [
-    "values"
-  ],
-  "title": "DecisionVector",
-  "type": "object"
-}
-```
-
-and an example of a JSON object corresponding to the schema looks like:
-
-```json
-{
-  "values": [
-    {
-      "value": 4.2
-    },
-    {
-      "value": -1.2
-    },
-    {
-      "value": 6.6
-    }
-  ]
-}
-```
 
 ### EvaluatedInfo
 The `EvaluatedInfo` model defines information related to one or more evaluated solutions to the problem. It contains
@@ -624,24 +561,6 @@ contains also information on the evaluated solutions. Its JSON schema looks as f
 ```json
 {
   "$defs": {
-    "DecisionVector": {
-      "description": "Model to represent a decision vector.",
-      "properties": {
-        "values": {
-          "description": "The values contained in the decision vector.",
-          "items": {
-            "$ref": "#/$defs/VariableValue"
-          },
-          "title": "Values",
-          "type": "array"
-        }
-      },
-      "required": [
-        "values"
-      ],
-      "title": "DecisionVector",
-      "type": "object"
-    },
     "EvaluatedInfo": {
       "description": "Model to represent information about an evaluated solution or solutions to the problem.\n\nThis model may be extended as needed.",
       "properties": {
@@ -669,31 +588,6 @@ contains also information on the evaluated solutions. Its JSON schema looks as f
       ],
       "title": "EvaluatedInfo",
       "type": "object"
-    },
-    "VariableValue": {
-      "description": "Model to represent a concrete value of a decision variable.",
-      "properties": {
-        "value": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "integer"
-            },
-            {
-              "type": "boolean"
-            }
-          ],
-          "description": "The value of the variable.",
-          "title": "Value"
-        }
-      },
-      "required": [
-        "value"
-      ],
-      "title": "VariableValue",
-      "type": "object"
     }
   },
   "description": "Model to represent the evaluated objective values of a decision vector.\n\nThe decision vectors 'decision_vectors' and objective vectors\n'objective_vector' correspond to each other based on their ordering. I.e.,\nthe evaluated objective function values for the decision vector at position i\n(decision_vectors[i]) are represented by the objective vector at position i\n(objective_vector[i]).",
@@ -709,7 +603,20 @@ contains also information on the evaluated solutions. Its JSON schema looks as f
     "decision_vectors": {
       "description": "A list of the evaluated decision vectors.",
       "items": {
-        "$ref": "#/$defs/DecisionVector"
+        "items": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "boolean"
+            }
+          ]
+        },
+        "type": "array"
       },
       "title": "Decision Vectors",
       "type": "array"
@@ -740,46 +647,26 @@ and an example of a JSON object corresponding to the schema looks like:
 
 ```json
 {
+  "info": {
+    "source": "NSGA-III",
+    "dominated": false
+  },
   "decision_vectors": [
-    {
-      "values": [
-        {
-          "value": 4.2
-        },
-        {
-          "value": -1.2
-        },
-        {
-          "value": 6.6
-        }
-      ]
-    },
-    {
-      "values": [
-        {
-          "value": 4.2
-        },
-        {
-          "value": -1.2
-        },
-        {
-          "value": 6.6
-        }
-      ]
-    },
-    {
-      "values": [
-        {
-          "value": 4.2
-        },
-        {
-          "value": -1.2
-        },
-        {
-          "value": 6.6
-        }
-      ]
-    }
+    [
+      4.2,
+      -1.2,
+      6.6
+    ],
+    [
+      4.2,
+      -1.2,
+      6.6
+    ],
+    [
+      4.2,
+      -1.2,
+      6.6
+    ]
   ],
   "objective_vectors": [
     [

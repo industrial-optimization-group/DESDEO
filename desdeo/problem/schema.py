@@ -28,6 +28,13 @@ class VariableTypeEnum(str, Enum):
     binary = "binary"
 
 
+class ConstraintTypeEnum(str, Enum):
+    """An enumerator for supported constraint expression types."""
+
+    EQ = "="  # equal
+    LTE = "<="  # less than or equal
+
+
 class Constant(BaseModel):
     """Model for a constant."""
 
@@ -97,6 +104,9 @@ class ScalarizationFunction(BaseModel):
     name: str = Field(
         description=("Name of the scalarization. Example: 'STOM'"),
     )
+    symbol: str | None = Field(
+        "Optional symbol to represent the scalarization function. This may be used in" " in UIs and visualizations."
+    )
     func: list = Field(
         description=(
             "Function representation of the scalarization. This is a JSON object that can be parsed into a function."
@@ -156,6 +166,14 @@ class Constraint(BaseModel):
             " It may also be used in UIs and visualizations. Example: 'g_1'."
         ),
     )
+    cons_type: ConstraintTypeEnum = Field(
+        description=(
+            "The type of the constraint. Constraints are assumed to be in a standard form where the supplied 'func'"
+            " expression is on the left hand side of the constraint's expression, and on the right hand side a zero"
+            " value is assume. The comparison between the left hand side and right hand side is either and quality"
+            " comparison ('=') or lesser than equal comparison ('<=')."
+        )
+    )
     func: list = Field(
         description=(
             "Function of the constraint. This is a JSON object that can be parsed into a function."
@@ -175,18 +193,6 @@ class EvaluatedInfo(BaseModel):
     dominated: bool | None = Field(description="Optional. Are the solutions dominated?")
 
 
-class VariableValue(BaseModel):
-    """Model to represent a concrete value of a decision variable."""
-
-    value: VariableType = Field(description="The value of the variable.")
-
-
-class DecisionVector(BaseModel):
-    """Model to represent a decision vector."""
-
-    values: list[VariableValue] = Field(description="The values contained in the decision vector.")
-
-
 class EvaluatedSolutions(BaseModel):
     """Model to represent the evaluated objective values of a decision vector.
 
@@ -198,7 +204,7 @@ class EvaluatedSolutions(BaseModel):
     """
 
     info: EvaluatedInfo = Field(description="Information about the evaluated solutions.")
-    decision_vectors: list[DecisionVector] = Field(description="A list of the evaluated decision vectors.")
+    decision_vectors: list[list[float | int | bool]] = Field(description="A list of the evaluated decision vectors.")
     objective_vectors: list[list[float]] = Field(
         description="A list of the values of the evaluated objective functions."
     )
@@ -315,7 +321,10 @@ if __name__ == "__main__":
     # print(objective_model.model_dump_json(indent=2))
 
     constraint_model = Constraint(
-        name="example constraint", symbol="g_1", func=["Less", ["Add", ["Divide", "x_1", 2], "c"], 4.2]
+        name="example constraint",
+        symbol="g_1",
+        func=["Add", ["Add", ["Divide", "x_1", 2], "c"], -4.2],
+        cons_type=ConstraintTypeEnum.LTE,
     )
     # print(Constraint.schema_json(indent=2))
     # print(constraint_model.model_dump_json(indent=2))
@@ -326,20 +335,11 @@ if __name__ == "__main__":
 
     scalarization_function_model = ScalarizationFunction(
         name="Achievement scalarizing function",
+        symbol="S",
         func=["Max", ["Multiply", "w_1", ["Add", "f_1", -1.1]], ["Multiply", "w_2", ["Add", "f_2", -2.2]]],
     )
     # print(ScalarizationFunction.schema_json(indent=2))
     # print(scalarization_function_model.model_dump_json(indent=2))
-
-    variable_value_model = VariableValue(value=4.2)
-    # print(VariableValue.schema_json(indent=2))
-    # print(variable_value_model.model_dump_json(indent=2))
-
-    decision_vector_model = DecisionVector(
-        values=[VariableValue(value=4.2), VariableValue(value=-1.2), VariableValue(value=6.6)]
-    )
-    # print(DecisionVector.schema_json(indent=2))
-    # print(decision_vector_model.model_dump_json(indent=2))
 
     evaluated_info_model = EvaluatedInfo(source="NSGA-III", dominated=False)
     # print(EvaluatedInfo.schema_json(indent=2))
@@ -347,8 +347,22 @@ if __name__ == "__main__":
 
     evaluated_solutions_model = EvaluatedSolutions(
         info=evaluated_info_model,
-        decision_vectors=[decision_vector_model, decision_vector_model, decision_vector_model],
+        decision_vectors=[[4.2, -1.2, 6.6], [4.2, -1.2, 6.6], [4.2, -1.2, 6.6]],
         objective_vectors=[[1, 2, 3], [1, 2, 3], [1, 2, 3]],
     )
     # print(EvaluatedSolutions.schema_json(indent=2))
     # print(evaluated_solutions_model.model_dump_json(indent=2))
+
+    problem_model = Problem(
+        name="Example problem",
+        description="This is an example of a the JSON object of the 'Problem' model.",
+        constants=[constant_model],
+        variables=[variable_model, variable_model, variable_model],
+        objectives=[objective_model, objective_model, objective_model],
+        constraints=[constraint_model],
+        extra_funcs=[extra_func_model],
+        scalarizations_funcs=[scalarization_function_model],
+        evaluated_solutions=[evaluated_solutions_model],
+    )
+
+    # print(problem_model.model_dump_json(indent=2))
