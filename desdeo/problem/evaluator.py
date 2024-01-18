@@ -1,7 +1,7 @@
 """Different evaluators are defined for evaluating multiobjective optimization problems."""
 
 from desdeo.problem.schema import Problem
-from desdeo.problem.parser import MathParser
+from desdeo.problem.parser import MathParser, replace_str
 
 from pydantic import BaseModel, Field
 
@@ -25,20 +25,23 @@ class EvaluatorResult(BaseModel):
         description=(
             "The evaluated extra function values. The keys of the dict are the extra function symbols followed"
             " by a list of values corresponding to the extra function. Optional."
-        )
+        ),
+        default=None,
     )
     constraint_values: dict[str, list[float]] | None = Field(
         description=(
             "The evaluated constraint values. The keys of the dict"
             "are the constraint symbols followed by a list of values corresponding to the constraint. Optional."
-        )
+        ),
+        default=None,
     )
     scalarization_values: dict[str, list[float]] | None = Field(
         description=(
             "The evaluated scalarization function values. The"
             " keys of the dict are the names of the scalarization functions followed by a list corresponding to the"
             " functions. Optional."
-        )
+        ),
+        default=None,
     )
 
 
