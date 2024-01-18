@@ -665,7 +665,7 @@ and an example of a JSON object corresponding to the schema looks like:
 ```
 </details>
 
-## Parsing
+## Parsing and Evaluation
 
 The problem defined in a `Problem` model is parsed into polars expressions that can be numerically evaluated.
 Parsing is done according to the following logic described below.
