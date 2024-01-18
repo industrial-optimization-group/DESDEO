@@ -40,8 +40,6 @@ def binh_and_korn() -> Problem:
         symbol="f_2",
         func=["Add", ["Square", ["Subtract", "x_1", "c_2"]], ["Square", ["Subtract", "x_2", "c_2"]]],
         maximize=False,
-        ideal=None,
-        nadir=None,
     )
 
     constraint_1 = Constraint(

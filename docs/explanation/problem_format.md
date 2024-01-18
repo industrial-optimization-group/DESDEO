@@ -8,6 +8,9 @@ TODO:
 
 ## The pydantic schema
 
+!!! warning
+    As of 18.1.2024, the schema examples might not be up to date. Many optional fields have not a default value of "None" or "null".
+
 ### Problem
 
 Multiobjective optimization problems are represented by models stored in JSON files.
