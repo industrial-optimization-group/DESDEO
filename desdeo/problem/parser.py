@@ -24,8 +24,8 @@ class MathParser:
             msg = "The selected parser must be either 'polars' of 'pandas'."
             raise ParserError(msg)
 
-        # Define operator names. Change these when the name is latered in the JSON format.
-        # Basic artitmetic operators
+        # Define operator names. Change these when the name is altered in the JSON format.
+        # Basic arithmetic operators
         self.NEGATE: str = "Negate"
         self.ADD: str = "Add"
         self.SUB: str = "Subtract"

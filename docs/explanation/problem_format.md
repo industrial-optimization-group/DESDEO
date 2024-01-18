@@ -298,8 +298,8 @@ The `Constraint` model defines a constraint function with a name, symbol, and fu
 !!! note
     The constraint must be expected in a standard format where the function expression of the constraint is on the left hand side of an
     inequality expression, and on the right hand side a zero is assumed. Likewise, for equality constraints, the left hand side has a function
-    expression that must be equal to zero. In other words, a constraint, such as `x_1 <= 5` must first be expressed as `5 - x_1 <= 0`, and then the
-    constraint expression supplied to the `Constraint` model would be `5 - x_1`. Likewise, an equality constraint, such as `x_1 + x_2 == 5` would be first
+    expression that must be equal to zero. In other words, a constraint, such as `x_1 <= 5` must first be expressed as `x_1 - 5 <= 0`, and then the
+    constraint expression supplied to the `Constraint` model would be `x_1 - 5`. Likewise, an equality constraint, such as `x_1 + x_2 == 5` would be first
     expressed as `x_1 + x_2 - 5 == 0`, and the supplied function expression would be `x_1 + x_2 - 5`.
 
 <details>

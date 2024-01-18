@@ -230,15 +230,19 @@ class Problem(BaseModel):
     )
     constraints: list[Constraint] | None = Field(
         description="Optional list of constraints.",
+        default=None,
     )
     extra_funcs: list[ExtraFunction] | None = Field(
         description="Optional list of extra functions. Use this if some function is repeated multiple times.",
+        default=None,
     )
     scalarizations_funcs: list[ScalarizationFunction] | None = Field(
-        description="Optional list of scalarization functions representing the problem."
+        description="Optional list of scalarization functions representing the problem.",
+        default=None
     )
     evaluated_solutions: list[EvaluatedSolutions] | None = Field(
-        description="Optional list of evaluated solutions of the problem."
+        description="Optional list of evaluated solutions of the problem.",
+        default=None
     )
 
 
