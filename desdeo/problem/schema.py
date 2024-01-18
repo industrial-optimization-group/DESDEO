@@ -106,7 +106,8 @@ class ScalarizationFunction(BaseModel):
         description=("Name of the scalarization. Example: 'STOM'"),
     )
     symbol: str | None = Field(
-        description="Optional symbol to represent the scalarization function. This may be used in" " in UIs and visualizations.",
+        description=("Optional symbol to represent the scalarization function. This may be used in"
+        " in UIs and visualizations."),
         default=None
     )
     func: list = Field(
