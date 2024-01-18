@@ -34,6 +34,8 @@ more additional models, which will be described next.
 The `Constant` model defines a constant with a name, symbol and a value. Its JSON
 schema looks as follows:
 
+<details>
+<summary><b>Click to expand</b></summary>
 ```json
 {
   "description": "Model for a constant.",
@@ -72,9 +74,12 @@ schema looks as follows:
   "type": "object"
 }
 ```
+</details>
 
 and an example of the JSON object corresponding to the schema looks like:
 
+<details>
+<summary><b>Click to expand</b></summary>
 ```json
 {
   "name": "constant example",
@@ -82,21 +87,20 @@ and an example of the JSON object corresponding to the schema looks like:
   "value": 42.1
 }
 ```
+</details>
 
 ### Variable
 
 The `Variable` model defines a decision variable with a name, symbol, variable type, lower and upper
 bounds, and an initial values. Its JSON schema looks as follows:
 
+<details>
+<summary><b>Click to expand</b></summary>
 ```json
 {
   "$defs": {
     "VariableTypeEnum": {
-      "enum": [
-        "real",
-        "integer",
-        "binary"
-      ],
+      "enum": ["real", "integer", "binary"],
       "title": "VariableTypeEnum",
       "type": "string"
     }
@@ -182,9 +186,12 @@ bounds, and an initial values. Its JSON schema looks as follows:
   "type": "object"
 }
 ```
+</details>
 
 and an example of the JSON object corresponding to the schema looks like:
 
+<details>
+<summary><b>Click to expand</b></summary>
 ```json
 {
   "name": "example variable",
@@ -195,12 +202,15 @@ and an example of the JSON object corresponding to the schema looks like:
   "initial_value": 4.2
 }
 ```
+</details>
 
 ### Objective
 
 The `Objective` model defines an objective function with a name, symbol, function expression, whether the function is
 to be maximized or not, and the function's ideal and nadir value. Its JSON schema looks as follows:
 
+<details>
+<summary><b>Click to expand</b></summary>
 ```json
 {
   "description": "Model for an objective function.",
@@ -255,43 +265,34 @@ to be maximized or not, and the function's ideal and nadir value. Its JSON schem
       "title": "Nadir"
     }
   },
-  "required": [
-    "name",
-    "symbol",
-    "func",
-    "ideal",
-    "nadir"
-  ],
+  "required": ["name", "symbol", "func", "ideal", "nadir"],
   "title": "Objective",
   "type": "object"
 }
 ```
+</details>
 
 and an example of a JSON object corresponding to the schema looks like:
 
+<details>
+<summary><b>Click to expand</b></summary>
 ```json
 {
   "name": "example objective",
   "symbol": "f_1",
-  "func": [
-    "Divide",
-    [
-      "Add",
-      "x_1",
-      3
-    ],
-    2
-  ],
+  "func": ["Divide", ["Add", "x_1", 3], 2],
   "maximize": false,
   "ideal": -3.3,
   "nadir": 5.2
 }
 ```
+</details>
 
 !!! note
     The `func` entry in the JSON object of the objective model must adhere to the MathJSON format.
 
 ### Constraint
+
 The `Constraint` model defines a constraint function with a name, symbol, and function expression. Its JSON schema looks as follows:
 
 !!! note
@@ -301,6 +302,8 @@ The `Constraint` model defines a constraint function with a name, symbol, and fu
     constraint expression supplied to the `Constraint` model would be `5 - x_1`. Likewise, an equality constraint, such as `x_1 + x_2 == 5` would be first
     expressed as `x_1 + x_2 - 5 == 0`, and the supplied function expression would be `x_1 + x_2 - 5`.
 
+<details>
+<summary><b>Click to expand</b></summary>
 ```json
 {
   {
@@ -353,9 +356,12 @@ The `Constraint` model defines a constraint function with a name, symbol, and fu
 }
 }
 ```
+</details>
 
 and an example of a JSON object corresponding to the schema looks like:
 
+<details>
+<summary><b>Click to expand</b></summary>
 ```json
 {
   {
@@ -378,14 +384,18 @@ and an example of a JSON object corresponding to the schema looks like:
  }
 }
 ```
+</details>
 
 !!! note
     The `func` entry in the JSON object of the constraint model must adhere to the MathJSON format.
 
 ### ExtraFunction
+
 The `ExtraFunction` model defines any functions utilized in the definition of the problem. The extra function has a name,
 symbol, and function expression. Its JSON schema looks as:
 
+<details>
+<summary><b>Click to expand</b></summary>
 ```json
 {
   "description": "Model for extra functions.\n\nThese functions can, e.g., be functions that are re-used in the problem formulation, or\nthey are needed for other computations related to the problem.",
@@ -407,37 +417,36 @@ symbol, and function expression. Its JSON schema looks as:
       "type": "array"
     }
   },
-  "required": [
-    "name",
-    "symbol",
-    "func"
-  ],
+  "required": ["name", "symbol", "func"],
   "title": "ExtraFunction",
   "type": "object"
 }
 ```
+</details>
 
 and an example of a JSON object corresponding to the schema looks like:
 
+<details>
+<summary><b>Click to expand</b></summary>
 ```json
 {
   "name": "example extra function",
   "symbol": "m",
-  "func": [
-    "Divide",
-    "f_1",
-    100
-  ]
+  "func": ["Divide", "f_1", 100]
 }
 ```
+</details>
 
 !!! note
     The `func` entry in the JSON object of the extra function model must adhere to the MathJSON format.
 
 ### ScalarizationFunction
+
 The `ScalarizationFunction` model defines any scalarizations of the problem being solved. The scalarization
 function has a name and a function definition. Its JSON schema looks as follows:
 
+<details>
+<summary><b>Click to expand</b></summary>
 ```json
 {
   "description": "Model for scalarization of the problem.",
@@ -466,54 +475,42 @@ function has a name and a function definition. Its JSON schema looks as follows:
       "type": "array"
     }
   },
-  "required": [
-    "name",
-    "func"
-  ],
+  "required": ["name", "func"],
   "title": "ScalarizationFunction",
   "type": "object"
 }
 ```
+</details>
 
 and an example of a JSON object corresponding to the schema looks like:
 
+<details>
+<summary><b>Click to expand</b></summary>
 ```json
 {
   "name": "Achievement scalarizing function",
   "symbol": "S",
   "func": [
     "Max",
-    [
-      "Multiply",
-      "w_1",
-      [
-        "Add",
-        "f_1",
-        -1.1
-      ]
-    ],
-    [
-      "Multiply",
-      "w_2",
-      [
-        "Add",
-        "f_2",
-        -2.2
-      ]
-    ]
+    ["Multiply", "w_1", ["Add", "f_1", -1.1]],
+    ["Multiply", "w_2", ["Add", "f_2", -2.2]]
   ]
 }
 ```
+</details>
 
 !!! note
     The `func` entry in the JSON object of the scalarization function model must adhere to the MathJSON format.
 
 ### EvaluatedInfo
+
 The `EvaluatedInfo` model defines information related to one or more evaluated solutions to the problem. It contains
 infor about the source of the solution (e.g., which method has been used to compute it) and, in case the information
 describes multiple solutions, whether the solutions are mutually dominated or not. The model's JSON schema looks as
 follows:
 
+<details>
+<summary><b>Click to expand</b></summary>
 ```json
 {
   "description": "Model to represent information about an evaluated solution or solutions to the problem.\n\nThis model may be extended as needed.",
@@ -536,28 +533,32 @@ follows:
       "title": "Dominated"
     }
   },
-  "required": [
-    "source",
-    "dominated"
-  ],
+  "required": ["source", "dominated"],
   "title": "EvaluatedInfo",
   "type": "object"
 }
 ```
+</details>
 
 and an example of a JSON object corresponding to the schema looks like:
 
+<details>
+<summary><b>Click to expand</b></summary>
 ```json
 {
   "source": "NSGA-III",
   "dominated": false
 }
 ```
+</details>
 
 ### EvaluatedSolutions
+
 The `EvaluatedSolutions` model defines one or more evaluated decision vectors and their corresponding objective vectors. The model
 contains also information on the evaluated solutions. Its JSON schema looks as follows:
 
+<details>
+<summary><b>Click to expand</b></summary>
 ```json
 {
   "$defs": {
@@ -582,10 +583,7 @@ contains also information on the evaluated solutions. Its JSON schema looks as f
           "title": "Dominated"
         }
       },
-      "required": [
-        "source",
-        "dominated"
-      ],
+      "required": ["source", "dominated"],
       "title": "EvaluatedInfo",
       "type": "object"
     }
@@ -633,18 +631,17 @@ contains also information on the evaluated solutions. Its JSON schema looks as f
       "type": "array"
     }
   },
-  "required": [
-    "info",
-    "decision_vectors",
-    "objective_vectors"
-  ],
+  "required": ["info", "decision_vectors", "objective_vectors"],
   "title": "EvaluatedSolutions",
   "type": "object"
 }
 ```
+</details>
 
 and an example of a JSON object corresponding to the schema looks like:
 
+<details>
+<summary><b>Click to expand</b></summary>
 ```json
 {
   "info": {
@@ -652,78 +649,58 @@ and an example of a JSON object corresponding to the schema looks like:
     "dominated": false
   },
   "decision_vectors": [
-    [
-      4.2,
-      -1.2,
-      6.6
-    ],
-    [
-      4.2,
-      -1.2,
-      6.6
-    ],
-    [
-      4.2,
-      -1.2,
-      6.6
-    ]
+    [4.2, -1.2, 6.6],
+    [4.2, -1.2, 6.6],
+    [4.2, -1.2, 6.6]
   ],
   "objective_vectors": [
-    [
-      1.0,
-      2.0,
-      3.0
-    ],
-    [
-      1.0,
-      2.0,
-      3.0
-    ],
-    [
-      1.0,
-      2.0,
-      3.0
-    ]
+    [1.0, 2.0, 3.0],
+    [1.0, 2.0, 3.0],
+    [1.0, 2.0, 3.0]
   ]
 }
 ```
+</details>
 
 ## Parsing
+
 The problem defined in a `Problem` model is parsed into polars expressions that can be numerically evaluated.
 Parsing is done according to the following logic described below.
 
 ### Initialization
+
 1. **Create Math Parser**: Initialize a math parser of a specified type. The
-default is a polars parser.
+   default is a polars parser.
 2. **Constant Replacement**: Examine a given instance of a `Problem` model for any
-instances of `Constant`.
-If found, replace these constants with their numerical values across all
-function expressions within the problem model.
+   instances of `Constant`.
+   If found, replace these constants with their numerical values across all
+   function expressions within the problem model.
 3. **Function Expression Parsing**: Convert the function expressions
-found in the `Objective`, `Constraint`, `ExtraFunction`, `ScalarizationFunction` models of the problem
-into a structured format, a dataframe in case of the default polars parser, for easier
-manipulation and evaluation.
+   found in the `Objective`, `Constraint`, `ExtraFunction`, `ScalarizationFunction` models of the problem
+   into a structured format, a dataframe in case of the default polars parser, for easier
+   manipulation and evaluation.
 
 ### Evaluating
+
 1. **Extra Functions Evaluation**: If any extra functions are defined, evaluate
-them using specified decision variables. Store the outcomes in new columns within the
-dataframe, with the symbol of the corresponding extra function as the column
-name.
+   them using specified decision variables. Store the outcomes in new columns within the
+   dataframe, with the symbol of the corresponding extra function as the column
+   name.
 2. **Objective Functions Evaluation**: Evaluate the objective functions based on
-the decision variables and any values derived from extra functions (already evaluated and stored
-in the dataframe). Store these
-results in separate columns of the dataframe. The new columns are named with the symbol
-defined for each objective function.
+   the decision variables and any values derived from extra functions (already evaluated and stored
+   in the dataframe). Store these
+   results in separate columns of the dataframe. The new columns are named with the symbol
+   defined for each objective function.
 3. **Constraints Evaluation**: Evaluate the constraints, if any are present,
-considering the decision variables and any computed extra function values. Store these
-in the dataframe. The new columns are named with the symbol defined for each constraint.
+   considering the decision variables and any computed extra function values. Store these
+   in the dataframe. The new columns are named with the symbol defined for each constraint.
 4. **Scalarization Functions Evaluation**: If scalarization functions are
-defined, evaluate them using the values obtained from objective functions and
-extra functions. Store these results in the dataframe in columns named with the
-name of the scalarization function.
+   defined, evaluate them using the values obtained from objective functions and
+   extra functions. Store these results in the dataframe in columns named with the
+   name of the scalarization function.
 5. **Result Compilation**: Compile a pydantic dataclass encapsulating all
-results, including decision variables, values of objective functions,
-constraints, and scalarization functions. Return the instance of the dataclass.
+   results, including decision variables, values of objective functions,
+   constraints, and scalarization functions. Return the instance of the dataclass.
 
 The flow of the parsing logic has been visualized below:
 
