@@ -228,30 +228,6 @@ class MathParser:
         """
         self.env.update(d)
 
-    def replace_str(self, lst: list | str, target: str, sub: list | str) -> list:
-        """Replace a target in list with a substitution recursively and in-place.
-
-        Arguments:
-        lst (list or str): The list where the substitution is to be made.
-        target (str): The target of the substitution.
-        sub (list or str): The content to substitute the target.
-
-        Return:
-        list or str: The list or str with the substitution.
-
-        Example:
-        replace_str("["Max", "g_i", ["Add","g_i","f_i"]]]", "_i", "_1") --->
-        ["Max", "g_1", ["Add","g_1","f_1"]]]
-        """
-        if isinstance(lst, list):
-            return [self.replace_str(item, target, sub) for item in lst]
-        if isinstance(lst, str):
-            if target in lst:
-                if isinstance(sub, str):
-                    return lst.replace(target, sub)
-                return sub
-            return lst
-        return lst
 
     def parse_sum(self, expr: list) -> list:
         """Convert Sum Operation into Add Operation.
@@ -291,7 +267,7 @@ class MathParser:
         for i in range(start, end + 1):
             it_name = "_" + holder
             new_it = "_" + str(i)
-            left = self.replace_str(expr, it_name, new_it)
+            left = replace_str(expr, it_name, new_it)
             pl_list.append(left)
         new_expr = ["Add"]
         for e in pl_list:
@@ -346,3 +322,28 @@ class MathParser:
         text_type = type(expr)
         msg = f"The type of {text_type} is not found."
         raise ParserError(msg)
+
+def replace_str(lst: list | str, target: str, sub: list | str | float | int) -> list:
+    """Replace a target in list with a substitution recursively.
+
+    Arguments:
+    lst (list or str): The list where the substitution is to be made.
+    target (str): The target of the substitution.
+    sub (list or str): The content to substitute the target.
+
+    Return:
+    list or str: The list or str with the substitution.
+
+    Example:
+    replace_str("["Max", "g_i", ["Add","g_i","f_i"]]]", "_i", "_1") --->
+    ["Max", "g_1", ["Add","g_1","f_1"]]]
+    """
+    if isinstance(lst, list):
+        return [replace_str(item, target, sub) for item in lst]
+    if isinstance(lst, str):
+        if target in lst:
+            if isinstance(sub, str):
+                return lst.replace(target, sub)
+            return sub
+        return lst
+    return lst
