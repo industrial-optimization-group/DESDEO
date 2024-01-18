@@ -70,6 +70,7 @@ class Variable(BaseModel):
     upperbound: VariableType = Field(description="Upper bound of the variable.")
     initial_value: VariableType | None = Field(
         description="Initial value of the variable. This is optional.",
+        default=None
     )
 
 
@@ -105,7 +106,8 @@ class ScalarizationFunction(BaseModel):
         description=("Name of the scalarization. Example: 'STOM'"),
     )
     symbol: str | None = Field(
-        "Optional symbol to represent the scalarization function. This may be used in" " in UIs and visualizations."
+        "Optional symbol to represent the scalarization function. This may be used in" " in UIs and visualizations.",
+        default=None
     )
     func: list = Field(
         description=(
@@ -145,9 +147,11 @@ class Objective(BaseModel):
     )
     ideal: float | None = Field(
         description="Ideal value of the objective. This is optional.",
+        default=None
     )
     nadir: float | None = Field(
         description="Nadir value of the objective. This is optional.",
+        default=None
     )
 
 
@@ -190,7 +194,7 @@ class EvaluatedInfo(BaseModel):
     """
 
     source: str = Field(description="The source of the evaluated solution(s). E.g., an optimization method's name.")
-    dominated: bool | None = Field(description="Optional. Are the solutions dominated?")
+    dominated: bool | None = Field(description="Optional. Are the solutions dominated?", default=None)
 
 
 class EvaluatedSolutions(BaseModel):
