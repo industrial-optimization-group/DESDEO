@@ -4,6 +4,7 @@ import pytest
 
 import numpy.testing as npt
 from pathlib import Path
+from desdeo.problem.evaluator import GenericEvaluator
 from desdeo.problem.parser import MathParser, replace_str
 from desdeo.problem.testproblems import binh_and_korn
 
@@ -85,7 +86,7 @@ def test_binh_and_korn():
     )
 
     truth = data.select(
-        (4 * pl.col("x_1")**2 + 4 * pl.col("x_2")**2).alias("f_1_t"),
+        (4 * pl.col("x_1") ** 2 + 4 * pl.col("x_2") ** 2).alias("f_1_t"),
         ((pl.col("x_1") - 5) ** 2 + (pl.col("x_2") - 5) ** 2).alias("f_2_t"),
         ((pl.col("x_1") - 5) ** 2 + pl.col("x_2") ** 2 - 25).alias("g_1_t"),
         (-((pl.col("x_1") - 8) ** 2 + (pl.col("x_2") + 3) ** 2) + 7.7).alias("g_2_t"),
@@ -95,3 +96,16 @@ def test_binh_and_korn():
     npt.assert_array_almost_equal(result["f_2"], truth["f_2_t"])
     npt.assert_array_almost_equal(result["g_1"], truth["g_1_t"])
     npt.assert_array_almost_equal(result["g_2"], truth["g_2_t"])
+
+
+def test_binh_and_korn_w_evaluator():
+    """Basic test of the Binh and Korn problem with the GenericEvaluator.
+
+    Test replacement of constants in both objectives and constraints.
+    Test correct evaluation results of the Binh and Korn problem.
+    """
+    problem = binh_and_korn()
+
+    evaluator = GenericEvaluator(problem, "polars")
+
+    print()

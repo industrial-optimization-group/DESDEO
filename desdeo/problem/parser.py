@@ -3,6 +3,8 @@ from functools import reduce
 
 import polars as pl
 
+SUPPORTED_PARSER_TYPES = ["polars", "pandas"]
+
 
 class ParserError(Exception):
     """Raised when an error related to the MathParser class in encountered."""
@@ -19,7 +21,7 @@ class MathParser:
 
     def __init__(self, parser: str = "polars"):
         """Init the class."""
-        if parser not in ["polars", "pandas"]:
+        if parser not in SUPPORTED_PARSER_TYPES:
             # Check if the selected parser is supported.
             msg = "The selected parser must be either 'polars' of 'pandas'."
             raise ParserError(msg)
@@ -228,7 +230,6 @@ class MathParser:
         """
         self.env.update(d)
 
-
     def parse_sum(self, expr: list) -> list:
         """Convert Sum Operation into Add Operation.
 
@@ -322,6 +323,7 @@ class MathParser:
         text_type = type(expr)
         msg = f"The type of {text_type} is not found."
         raise ParserError(msg)
+
 
 def replace_str(lst: list | str, target: str, sub: list | str | float | int) -> list:
     """Replace a target in list with a substitution recursively.

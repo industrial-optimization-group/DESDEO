@@ -1,7 +1,9 @@
 """Different evaluators are defined for evaluating multiobjective optimization problems."""
 
+import copy
+
 from desdeo.problem.schema import Problem
-from desdeo.problem.parser import MathParser, replace_str
+from desdeo.problem.parser import MathParser, replace_str, SUPPORTED_PARSER_TYPES
 
 from pydantic import BaseModel, Field
 
@@ -45,8 +47,21 @@ class EvaluatorResult(BaseModel):
     )
 
 
-class Evaluator:
-    """A class for creating evaluators for multiobjective optimization problems."""
+class EvaluatorError(Exception):
+    """Error raised when exceptions are encountered in an Evaluator class."""
+
+
+class GenericEvaluator:
+    """A class for creating evaluators for multiobjective optimization problems.
+
+    The evaluator is to be used with different optimizers. GenericEvaluator is specifically
+    for solvers that do not require an exact formulation of the problem, but rather work
+    solely on the input and output values of the problem being solved. This evaluator might not
+    be suitable for computationally expensive problems, or mixed-integer problems. This
+    evaluator is suitable for many Python-based solvers, such as `scipy.optimize.minimize`.
+
+    See the evaluators TO BE DONE for ruther details for approaching other kinds of problems.
+    """
 
     ### Initialization (no need for decision variables yet)
     # 1. Create a math parser with parser type 'evaluator_type'. Defaults to 'polars'.
@@ -67,22 +82,76 @@ class Evaluator:
     #    and scalarization function valeus).
     # 6. End.
 
-    def __init__(self, problem: Problem, evaluator_type: str = "polars"):
+    def __init__(self, problem: Problem, parser_type: str = "polars"):
         """Create an evaluator for a multiobjective optimization problem.
 
         Args:
             problem (Problem): The problem as a pydantic 'Problem' data class.
-            evaluator_type (str): The type of evaluator. Default 'polars'.
+            parser_type (str): The type of parser used to parse the problem into a format
+                that can be evaluated. Default 'polars'.
         """
-        # 1. Create a MathParser of type 'evaluator_type'.
-        ...
-        # 2. If any constants are defined in problem, replace their symbol with the defined numerical
-        #    value in all the function expressions found in the Problem.
-        ...
-        # 3. Parse said function expressions into a dataframe.
-        ...
-        # 4. The dataframe is stored in the class instance.
-        self.dataframe = None
+        # Create a MathParser of type 'evaluator_type'.
+        if parser_type not in SUPPORTED_PARSER_TYPES:
+            msg = (
+                f"The provided 'parser_type' '{parser_type}' is not supported. Must be one of {SUPPORTED_PARSER_TYPES}."
+            )
+            raise EvaluatorError(msg)
+
+        parser = MathParser(parser=parser_type)
+
+        # This stores the reference to the original problem. This should not be modified directly!
+        self.__original_problem = problem
+
+        # This is the local version of the original problem and considers all the changes done
+        # to it in the evaluator.
+        self._local_problem = copy.deepcopy(problem)
+
+        # Gather any constants of the problem definition.
+        self.problem_constants = self._local_problem.constants
+
+        # Gather the objective functions
+        self.problem_objectives = self._local_problem.objectives
+
+        # Gather any constraints
+        self.problem_constraints = self._local_problem.constraints
+
+        # Gather any extra functions
+        self.problem_extra = self._local_problem.extra_funcs
+
+        # Gather any scalarization functions
+        self.problem_scalarization = self._local_problem.scalarizations_funcs
+
+        # If any constants are defined in problem, replace their symbol with the defined numerical
+        # value in all the function expressions found in the Problem.
+        if self.problem_constants is not None:
+            # Objectives are always defined, cannot be None
+            for obj in self.problem_objectives:
+                for c in self.problem_constants:
+                    obj.func = replace_str(obj.func, c.symbol, c.value)
+
+            # Do the same for any constraint expressions as well.
+            if self.problem_constraints is not None:
+                for con in self.problem_constraints:
+                    for c in self.problem_constants:
+                        con.func = replace_str(con.func, c.symbol, c.value)
+
+            # Do the same for any extra functions
+            if self.problem_extra is not None:
+                for extra in self.problem_extra:
+                    for c in self.problem_constants:
+                        extra.func = replace_str(extra.func, c.symbol, c.value)
+
+            # Do the same for any scalarization functions
+            if self.problem_scalarization is not None:
+                for scal in self.problem_scalarization:
+                    for c in self.problem_constants:
+                        scal.func = replace_str(scal.func, c.symbol, c.value)
+
+        # Parse all functions into expressions
+        if parser_type == "polars":
+            self.objective_expressions = [parser.parse(obj.func) for obj in self.problem_objectives]
+            if self.problem_constraints is not None:
+                self.constraint_expressions = [parser.parse(con.func) for con in self.problem_constraints]
 
     def evaluate(self, xs: dict[str, list[float | int | bool]]) -> EvaluatorResult:
         """Evaluate the problem with the given decision variable values.
