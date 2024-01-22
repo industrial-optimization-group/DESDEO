@@ -667,6 +667,11 @@ and an example of a JSON object corresponding to the schema looks like:
 
 ## Parsing and Evaluation
 
+!!! TODO
+    Currently it is assumed that the symbol for any scalarization function is given. In fact, if it is not given
+    (it is optional in the schema), the evaluator will not work as intended. Generating a symbol for
+    scalarization functions without a defined symbol should be implemented.
+
 The problem defined in a `Problem` model is parsed into polars expressions that can be numerically evaluated.
 Parsing is done according to the following logic described below.
 

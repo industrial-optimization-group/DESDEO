@@ -6,6 +6,15 @@ import numpy.testing as npt
 from pathlib import Path
 from desdeo.problem.evaluator import GenericEvaluator
 from desdeo.problem.parser import MathParser, replace_str
+from desdeo.problem.schema import (
+    Problem,
+    Variable,
+    Objective,
+    Constraint,
+    Constant,
+    ExtraFunction,
+    ScalarizationFunction,
+)
 from desdeo.problem.testproblems import binh_and_korn
 
 import polars as pl
@@ -16,6 +25,72 @@ def four_bar_truss_problem():
     """Loads the four bar truss problem."""
     with Path("tests/example_problem.json").open("r") as f:
         return json.load(f)
+
+
+@pytest.fixture
+def extra_functions_problem():
+    """Defines a problem with extra functions and scalarizations for testing."""
+    variables = [
+        Variable(name="Test 1", symbol="x_1", variable_type="real", lowerbound=0.0, upperbound=10.0, initial_value=5.0),
+        Variable(name="Test 2", symbol="x_2", variable_type="real", lowerbound=0.0, upperbound=10.0, initial_value=5.0),
+    ]
+
+    constants = [Constant(name="Constant 1", symbol="c_1", value=3)]
+
+    extras = [
+        ExtraFunction(name="Extra 1", symbol="ef_1", func=["Add", "c_1", "x_1"]),
+        ExtraFunction(name="Extra 2", symbol="ef_2", func=["Subtract", "x_2", "x_1"]),
+    ]
+
+    objectives = [
+        Objective(
+            name="Objective 1",
+            symbol="f_1",
+            func=["Add", ["Negate", "x_1"], "ef_1", 2],
+            maximize=False,
+            ideal=-100,
+            nadir=100,
+        ),
+        Objective(
+            name="Objective 2",
+            symbol="f_2",
+            func=["Add", ["Multiply", 2, "ef_2"], "ef_1"],
+            maximize=False,
+            ideal=-100,
+            nadir=100,
+        ),
+        Objective(
+            name="Objective 3",
+            symbol="f_3",
+            func=["Add", ["Divide", "ef_1", "ef_2"], "c_1"],
+            maximize=False,
+            ideal=-100,
+            nadir=100,
+        ),
+    ]
+
+    constraints = [
+        Constraint(name="Constraint 1", symbol="con_1", cons_type="<=", func=["Add", ["Negate", "c_1"], "ef_1", -4])
+    ]
+
+    scalarizations = [
+        ScalarizationFunction(
+            name="Scalarization 1",
+            symbol="scal_1",
+            func=["Add", ["Negate", ["Multiply", "ef_1", "ef_2"]], "c_1", "f_1", "f_2", "f_3"],
+        )
+    ]
+
+    return Problem(
+        name="Extra functions test problem",
+        description="Test problem to test correct parsing and evaluations with extra functions present.",
+        constants=constants,
+        variables=variables,
+        objectives=objectives,
+        constraints=constraints,
+        extra_funcs=extras,
+        scalarizations_funcs=scalarizations,
+    )
 
 
 def test_basic():
@@ -136,3 +211,45 @@ def test_binh_and_korn_w_evaluator():
 
     # however, the local version should have been mutated (replacing constraints)
     assert evaluator._local_problem != binh_and_korn()
+
+
+def test_extra_functions_problem_w_evaluator(extra_functions_problem):
+    """Test the GenericEvaluator with polars that it handles extra functions correctly."""
+    problem = extra_functions_problem
+
+    evaluator = GenericEvaluator(problem, "polars")
+
+    # to test correct evaluation
+    xs_dict = {"x_1": [2.4, -3.0, 5.5], "x_2": [5.2, 1.1, -9.4]}
+
+    result = evaluator.evaluate(xs_dict)
+
+    data = pl.DataFrame(xs_dict)
+    truth = data.select(
+        (pl.col("x_1") + 3 - pl.col("x_1") + 2).alias("f_1"),
+        (pl.col("x_1") + 3 + 2 * (pl.col("x_2") - pl.col("x_1"))).alias("f_2"),
+        ((pl.col("x_1") + 3) / (pl.col("x_2") - pl.col("x_1")) + 3).alias("f_3"),
+        (pl.col("x_1") + 3 - 4 - 3).alias("con_1"),
+        (pl.col("x_1") + 3).alias("ef_1"),
+        (pl.col("x_2") - pl.col("x_1")).alias("ef_2"),
+    )
+    truth = truth.hstack(data)
+    tmp = truth.select(
+        (pl.col("f_1") + pl.col("f_2") + pl.col("f_3") - pl.col("ef_1") * pl.col("ef_2") + 3).alias("scal_1")
+    )
+
+    truth = truth.hstack(tmp)
+
+    npt.assert_array_almost_equal(result.objective_values["f_1"], truth["f_1"])
+    npt.assert_array_almost_equal(result.objective_values["f_2"], truth["f_2"])
+    npt.assert_array_almost_equal(result.objective_values["f_3"], truth["f_3"])
+
+    npt.assert_almost_equal(result.variable_values["x_1"], truth["x_1"])
+    npt.assert_almost_equal(result.variable_values["x_2"], truth["x_2"])
+
+    npt.assert_almost_equal(result.constraint_values["con_1"], truth["con_1"])
+
+    npt.assert_almost_equal(result.extra_values["ef_1"], truth["ef_1"])
+    npt.assert_almost_equal(result.extra_values["ef_2"], truth["ef_2"])
+
+    npt.assert_almost_equal(result.scalarization_values["scal_1"], truth["scal_1"])
