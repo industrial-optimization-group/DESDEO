@@ -108,4 +108,25 @@ def test_binh_and_korn_w_evaluator():
 
     evaluator = GenericEvaluator(problem, "polars")
 
-    print()
+    # some test data to evaluate the expressions
+    xs_dict = {"x_1": [1, 2.5, 4.2], "x_2": [0.5, 1.5, 2.5]}
+
+    result = evaluator.evaluate(xs_dict)
+
+    data = pl.DataFrame(xs_dict)
+    truth = data.select(
+        (4 * pl.col("x_1") ** 2 + 4 * pl.col("x_2") ** 2).alias("f_1_t"),
+        ((pl.col("x_1") - 5) ** 2 + (pl.col("x_2") - 5) ** 2).alias("f_2_t"),
+        ((pl.col("x_1") - 5) ** 2 + pl.col("x_2") ** 2 - 25).alias("g_1_t"),
+        (-((pl.col("x_1") - 8) ** 2 + (pl.col("x_2") + 3) ** 2) + 7.7).alias("g_2_t"),
+    )
+
+    npt.assert_array_almost_equal(result.objective_values["f_1"], truth["f_1_t"])
+    npt.assert_array_almost_equal(result.objective_values["f_2"], truth["f_2_t"])
+    npt.assert_array_almost_equal(result.constraint_values["g_1"], truth["g_1_t"])
+    npt.assert_array_almost_equal(result.constraint_values["g_2"], truth["g_2_t"])
+    npt.assert_array_almost_equal(result.variable_values["x_1"], data["x_1"])
+    npt.assert_array_almost_equal(result.variable_values["x_2"], data["x_2"])
+
+    assert result.extra_values is None
+    assert result.scalarization_values is None
