@@ -147,11 +147,24 @@ class GenericEvaluator:
                     for c in self.problem_constants:
                         scal.func = replace_str(scal.func, c.symbol, c.value)
 
-        # Parse all functions into expressions
+        # Parse all functions into expressions. These are stored as tuples, as (symbol, parsed expression)
         if parser_type == "polars":
-            self.objective_expressions = [parser.parse(obj.func) for obj in self.problem_objectives]
+            # parse objectives
+            self.objective_expressions = [(obj.symbol, parser.parse(obj.func)) for obj in self.problem_objectives]
+
+            # parse constraints, if any
             if self.problem_constraints is not None:
-                self.constraint_expressions = [parser.parse(con.func) for con in self.problem_constraints]
+                self.constraint_expressions = [(con.symbol, parser.parse(con.func)) for con in self.problem_constraints]
+
+            # parse extra functions, if any
+            if self.problem_extra is not None:
+                self.extra_expressions = [(extra.symbol, parser.parse(extra.func)) for extra in self.problem_extra]
+
+            # parse scalarization functions, if any
+            if self.problem_scalarization is not None:
+                self.scalarization_expressions = [
+                    (scal.symbol, parser.parse(scal.func)) for scal in self.problem_scalarization
+                ]
 
     def evaluate(self, xs: dict[str, list[float | int | bool]]) -> EvaluatorResult:
         """Evaluate the problem with the given decision variable values.
