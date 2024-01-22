@@ -101,7 +101,7 @@ class GenericEvaluator:
         self.parser_type = parser_type
 
         # This stores the reference to the original problem. This should not be modified directly!
-        self.__original_problem = problem
+        self._original_problem = problem
 
         # This is the local version of the original problem and considers all the changes done
         # to it in the evaluator.

@@ -130,3 +130,9 @@ def test_binh_and_korn_w_evaluator():
 
     assert result.extra_values is None
     assert result.scalarization_values is None
+
+    # the original problem should not have been mutated
+    assert evaluator._original_problem == binh_and_korn()
+
+    # however, the local version should have been mutated (replacing constraints)
+    assert evaluator._local_problem != binh_and_korn()
