@@ -253,3 +253,188 @@ def test_extra_functions_problem_w_evaluator(extra_functions_problem):
     npt.assert_almost_equal(result.extra_values["ef_2"], truth["ef_2"])
 
     npt.assert_almost_equal(result.scalarization_values["scal_1"], truth["scal_1"])
+
+
+def test_problem_unique_symbols():
+    """Test that having non-unique symbols in a Problem mode raises an error."""
+    var_1 = Variable(
+        name="Test 1", symbol="x_1", variable_type="real", lowerbound=0.0, upperbound=10.0, initial_value=5.0
+    )
+    var_2 = Variable(
+        name="Test 2", symbol="x_2", variable_type="real", lowerbound=0.0, upperbound=10.0, initial_value=5.0
+    )
+
+    cons_1 = Constant(name="Constant 1", symbol="c_1", value=3)
+    cons_2 = Constant(name="Constant 2", symbol="c_2", value=3)
+
+    efun_1 = ExtraFunction(name="Extra 1", symbol="ef_1", func=["Add", "c_1", "x_1"])
+    efun_2 = ExtraFunction(name="Extra 2", symbol="ef_2", func=["Subtract", "x_2", "x_1"])
+
+    obj_1 = Objective(
+        name="Objective 1",
+        symbol="f_1",
+        func=["Add", ["Negate", "x_1"], "ef_1", 2],
+        maximize=False,
+        ideal=-100,
+        nadir=100,
+    )
+    obj_2 = Objective(
+        name="Objective 2",
+        symbol="f_2",
+        func=["Add", ["Multiply", 2, "ef_2"], "ef_1"],
+        maximize=False,
+        ideal=-100,
+        nadir=100,
+    )
+    obj_3 = Objective(
+        name="Objective 3",
+        symbol="f_3",
+        func=["Add", ["Divide", "ef_1", "ef_2"], "c_1"],
+        maximize=False,
+        ideal=-100,
+        nadir=100,
+    )
+
+    constraint_1 = Constraint(
+        name="Constraint 1", symbol="con_1", cons_type="<=", func=["Add", ["Negate", "c_1"], "ef_1", -4]
+    )
+    constraint_2 = Constraint(
+        name="Constraint 1", symbol="con_2", cons_type="<=", func=["Add", ["Negate", "c_1"], "ef_1", -4]
+    )
+
+    scal_no_name = ScalarizationFunction(
+        name="Scalarization 1", func=["Add", ["Negate", ["Multiply", "ef_1", "ef_2"]], "c_1", "f_1", "f_2", "f_3"]
+    )
+    scal_1 = ScalarizationFunction(
+        name="Scalarization 1",
+        func=["Add", ["Negate", ["Multiply", "ef_1", "ef_2"]], "c_1", "f_1", "f_2", "f_3"],
+        symbol="S_1",
+    )
+    scal_2 = ScalarizationFunction(
+        name="Scalarization 1",
+        func=["Add", ["Negate", ["Multiply", "ef_1", "ef_2"]], "c_1", "f_1", "f_2", "f_3"],
+        symbol="S_2",
+    )
+
+    # Test with same variable symbols, should raise error
+    with pytest.raises(ValueError) as e:
+        problem = Problem(
+            name="Extra functions test problem",
+            description="Test problem to test correct parsing and evaluations with extra functions present.",
+            constants=[cons_1, cons_2],
+            variables=[var_1, var_1],
+            objectives=[obj_1, obj_2, obj_3],
+            constraints=[constraint_1, constraint_2],
+            extra_funcs=[efun_1, efun_2],
+            scalarizations_funcs=[scal_1, scal_2, scal_no_name],
+        )
+    assert "x_1" in str(e.value)
+
+    # Test with same objective symbols, should raise error
+    with pytest.raises(ValueError) as e:
+        problem = Problem(
+            name="Extra functions test problem",
+            description="Test problem to test correct parsing and evaluations with extra functions present.",
+            constants=[cons_1, cons_2],
+            variables=[var_1, var_2],
+            objectives=[obj_1, obj_2, obj_2],
+            constraints=[constraint_1, constraint_2],
+            extra_funcs=[efun_1, efun_2],
+            scalarizations_funcs=[scal_1, scal_2, scal_no_name],
+        )
+    assert "f_2" in str(e.value)
+
+    # Test with same constant symbols, should raise error
+    with pytest.raises(ValueError) as e:
+        problem = Problem(
+            name="Extra functions test problem",
+            description="Test problem to test correct parsing and evaluations with extra functions present.",
+            constants=[cons_2, cons_2],
+            variables=[var_1, var_2],
+            objectives=[obj_1, obj_2, obj_3],
+            constraints=[constraint_1, constraint_2],
+            extra_funcs=[efun_1, efun_2],
+            scalarizations_funcs=[scal_1, scal_2, scal_no_name],
+        )
+    assert "c_2" in str(e.value)
+
+    # Test with same constraints symbols, should raise error
+    with pytest.raises(ValueError) as e:
+        problem = Problem(
+            name="Extra functions test problem",
+            description="Test problem to test correct parsing and evaluations with extra functions present.",
+            constants=[cons_1, cons_2],
+            variables=[var_1, var_2],
+            objectives=[obj_1, obj_2, obj_3],
+            constraints=[constraint_1, constraint_1],
+            extra_funcs=[efun_1, efun_2],
+            scalarizations_funcs=[scal_1, scal_2, scal_no_name],
+        )
+    assert "con_1" in str(e.value)
+
+    # Test with same extra symbols, should raise error
+    with pytest.raises(ValueError) as e:
+        problem = Problem(
+            name="Extra functions test problem",
+            description="Test problem to test correct parsing and evaluations with extra functions present.",
+            constants=[cons_1, cons_2],
+            variables=[var_1, var_2],
+            objectives=[obj_1, obj_2, obj_3],
+            constraints=[constraint_1, constraint_2],
+            extra_funcs=[efun_2, efun_2],
+            scalarizations_funcs=[scal_1, scal_2, scal_no_name],
+        )
+    assert "ef_2" in str(e.value)
+
+    # Test with same scalarization symbols, should raise error
+    with pytest.raises(ValueError) as e:
+        problem = Problem(
+            name="Extra functions test problem",
+            description="Test problem to test correct parsing and evaluations with extra functions present.",
+            constants=[cons_1, cons_2],
+            variables=[var_1, var_2],
+            objectives=[obj_1, obj_2, obj_3],
+            constraints=[constraint_1, constraint_2],
+            extra_funcs=[efun_1, efun_2],
+            scalarizations_funcs=[scal_1, scal_1, scal_no_name],
+        )
+    assert "S_1" in str(e.value)
+
+    # Test mixed case with same symbols, should raise error
+    with pytest.raises(ValueError) as e:
+        constraint_mixed = Constraint(
+            name="Constraint 1", symbol="S_1", cons_type="<=", func=["Add", ["Negate", "c_1"], "ef_1", -4]
+        )
+        problem = Problem(
+            name="Extra functions test problem",
+            description="Test problem to test correct parsing and evaluations with extra functions present.",
+            constants=[cons_1, cons_2],
+            variables=[var_1, var_2],
+            objectives=[obj_1, obj_2, obj_3],
+            constraints=[constraint_1, constraint_2, constraint_mixed],
+            extra_funcs=[efun_1, efun_2],
+            scalarizations_funcs=[scal_1, scal_2, scal_no_name],
+        )
+    assert "S_1" in str(e.value)
+
+    # Test another mixed case with same symbols, should raise error
+    with pytest.raises(ValueError) as e:
+        obj_mixed = Objective(
+            name="Objective 2",
+            symbol="x_2",
+            func=["Add", ["Multiply", 2, "ef_2"], "ef_1"],
+            maximize=False,
+            ideal=-100,
+            nadir=100,
+        )
+        problem = Problem(
+            name="Extra functions test problem",
+            description="Test problem to test correct parsing and evaluations with extra functions present.",
+            constants=[cons_1, cons_2],
+            variables=[var_1, var_2],
+            objectives=[obj_1, obj_mixed, obj_3],
+            constraints=[constraint_1, constraint_2],
+            extra_funcs=[efun_1, efun_2],
+            scalarizations_funcs=[scal_1, scal_2, scal_no_name],
+        )
+    assert "x_2" in str(e.value)

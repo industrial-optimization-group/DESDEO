@@ -12,9 +12,10 @@ The problem definition is a JSON file that contains the following information:
 """
 
 
+from collections import Counter
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 VariableType = float | int | bool
@@ -69,8 +70,7 @@ class Variable(BaseModel):
     lowerbound: VariableType = Field(description="Lower bound of the variable.")
     upperbound: VariableType = Field(description="Upper bound of the variable.")
     initial_value: VariableType | None = Field(
-        description="Initial value of the variable. This is optional.",
-        default=None
+        description="Initial value of the variable. This is optional.", default=None
     )
 
 
@@ -106,9 +106,10 @@ class ScalarizationFunction(BaseModel):
         description=("Name of the scalarization. Example: 'STOM'"),
     )
     symbol: str | None = Field(
-        description=("Optional symbol to represent the scalarization function. This may be used in"
-        " in UIs and visualizations."),
-        default=None
+        description=(
+            "Optional symbol to represent the scalarization function. This may be used in" " in UIs and visualizations."
+        ),
+        default=None,
     )
     func: list = Field(
         description=(
@@ -146,14 +147,8 @@ class Objective(BaseModel):
         description="Whether the objective function is to be maximized or minimized.",
         default=False,
     )
-    ideal: float | None = Field(
-        description="Ideal value of the objective. This is optional.",
-        default=None
-    )
-    nadir: float | None = Field(
-        description="Nadir value of the objective. This is optional.",
-        default=None
-    )
+    ideal: float | None = Field(description="Ideal value of the objective. This is optional.", default=None)
+    nadir: float | None = Field(description="Nadir value of the objective. This is optional.", default=None)
 
 
 class Constraint(BaseModel):
@@ -218,6 +213,37 @@ class EvaluatedSolutions(BaseModel):
 class Problem(BaseModel):
     """Model for a problem definition."""
 
+    @model_validator(mode="after")
+    def check_for_non_unique_symbols(self) -> "Problem":
+        """Check that all the symbols defined in the different fields are unique."""
+        # collect all symbols
+        symbols = [variable.symbol for variable in self.variables]
+        symbols += [objective.symbol for objective in self.objectives]
+        if self.constants is not None:
+            symbols += [constant.symbol for constant in self.constants]
+        if self.constraints is not None:
+            symbols += [constraint.symbol for constraint in self.constraints]
+        if self.extra_funcs is not None:
+            symbols += [extra.symbol for extra in self.extra_funcs]
+        if self.scalarizations_funcs is not None:
+            symbols += [scalarization.symbol for scalarization in self.scalarizations_funcs]
+
+        # symbol is always populated
+        symbol_counts = Counter(symbols)
+
+        # collect duplicates, if they exist
+        duplicates = {symbol: count for symbol, count in symbol_counts.items() if count > 1}
+
+        if duplicates:
+            # if any duplicates are found, raise a value error and report the duplicate symbols.
+            msg = "Non-unique symbols found in the Problem model."
+            for symbol, count in duplicates.items():
+                msg += f" Symbol '{symbol}' occurs {count} times."
+
+            raise ValueError(msg)
+
+        return self
+
     name: str = Field(
         description="Name of the problem.",
     )
@@ -242,60 +268,12 @@ class Problem(BaseModel):
         default=None,
     )
     scalarizations_funcs: list[ScalarizationFunction] | None = Field(
-        description="Optional list of scalarization functions representing the problem.",
-        default=None
+        description="Optional list of scalarization functions representing the problem.", default=None
     )
     evaluated_solutions: list[EvaluatedSolutions] | None = Field(
-        description="Optional list of evaluated solutions of the problem.",
-        default=None
+        description="Optional list of evaluated solutions of the problem.", default=None
     )
 
-
-"""
-class DataObjective(Objective):
-"""
-"""Model for a data-based objective definition."""
-"""
-
-    func: list | None = Field(
-        description=(
-            "Optional analytical function of the objective. This is a JSON object that can be parsed into a function."
-            "Must be a valid MathJSON object. The symbols in the function must match variable/constant shortnames."
-        ),
-    )
-"""
-
-"""
-class DataProblem(BaseModel):
-"""
-"""Model for a data-based problem definition."""
-"""
-
-    name: str = Field(
-        description="Name of the problem.",
-    )
-    description: str = Field(
-        description="Description of the problem.",
-    )
-    variables: list[Variable] = Field(
-        description="List of variables.",
-    )
-    objectives: list[DataObjective] = Field(
-        description="List of objectives.",
-    )
-    constraints: list[Constraint] | None = Field(
-        description="Optional list of constraints.",
-    )
-    extra_funcs: list[ExtraFuncs] | None = Field(
-        description="Optional list of extra functions. Use this if some function is repeated multiple times.",
-    )
-    data: pl.DataFrame = Field(
-        description=(
-            "Dataframe containing the data. Each row is a data point."
-            " Each column is a variable, objective, or constraint.",
-        ),
-    )
-"""
 
 if __name__ == "__main__":
     # import erdantic as erd
@@ -307,9 +285,25 @@ if __name__ == "__main__":
     # print(Constant.schema_json(indent=2))
     # print(constant_model.model_dump_json(indent=2))
 
-    variable_model = Variable(
+    variable_model_1 = Variable(
         name="example variable",
         symbol="x_1",
+        variable_type="real",
+        lowerbound=-0.75,
+        upperbound=11.3,
+        initial_value=4.2,
+    )
+    variable_model_2 = Variable(
+        name="example variable",
+        symbol="x_2",
+        variable_type="real",
+        lowerbound=-0.75,
+        upperbound=11.3,
+        initial_value=4.2,
+    )
+    variable_model_3 = Variable(
+        name="example variable",
+        symbol="x_3",
         variable_type="real",
         lowerbound=-0.75,
         upperbound=11.3,
@@ -318,9 +312,25 @@ if __name__ == "__main__":
     # print(Variable.schema_json(indent=2))
     # print(variable_model.model_dump_json(indent=2))
 
-    objective_model = Objective(
+    objective_model_1 = Objective(
         name="example objective",
         symbol="f_1",
+        func=["Divide", ["Add", "x_1", 3], 2],
+        maximize=False,
+        ideal=-3.3,
+        nadir=5.2,
+    )
+    objective_model_2 = Objective(
+        name="example objective",
+        symbol="f_2",
+        func=["Divide", ["Add", "x_1", 3], 2],
+        maximize=False,
+        ideal=-3.3,
+        nadir=5.2,
+    )
+    objective_model_3 = Objective(
+        name="example objective",
+        symbol="f_3",
         func=["Divide", ["Add", "x_1", 3], 2],
         maximize=False,
         ideal=-3.3,
@@ -366,8 +376,8 @@ if __name__ == "__main__":
         name="Example problem",
         description="This is an example of a the JSON object of the 'Problem' model.",
         constants=[constant_model],
-        variables=[variable_model, variable_model, variable_model],
-        objectives=[objective_model, objective_model, objective_model],
+        variables=[variable_model_1, variable_model_2, variable_model_3],
+        objectives=[objective_model_1, objective_model_2, objective_model_3],
         constraints=[constraint_model],
         extra_funcs=[extra_func_model],
         scalarizations_funcs=[scalarization_function_model],
