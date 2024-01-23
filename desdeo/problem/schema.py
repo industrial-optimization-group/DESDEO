@@ -13,9 +13,10 @@ The problem definition is a JSON file that contains the following information:
 
 
 from collections import Counter
+import copy
 from enum import Enum
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, PrivateAttr
 
 
 VariableType = float | int | bool
@@ -213,20 +214,29 @@ class EvaluatedSolutions(BaseModel):
 class Problem(BaseModel):
     """Model for a problem definition."""
 
+    _scalarization_index: int = PrivateAttr(default=1)
+
+    @model_validator(mode="after")
+    def set_default_scalarization_names(self) -> "Problem":
+        """Check the scalarization functions for symbols with value 'None'.
+
+        If found, names them systematically
+        'scal_i', where 'i' is a running index stored in an instance attribute.
+        """
+        if self.scalarizations_funcs is None:
+            return self
+
+        for func in self.scalarizations_funcs:
+            if func.symbol is None:
+                func.symbol = f"scal_{self._scalarization_index}"
+                self._scalarization_index += 1
+
+        return self
+
     @model_validator(mode="after")
     def check_for_non_unique_symbols(self) -> "Problem":
         """Check that all the symbols defined in the different fields are unique."""
-        # collect all symbols
-        symbols = [variable.symbol for variable in self.variables]
-        symbols += [objective.symbol for objective in self.objectives]
-        if self.constants is not None:
-            symbols += [constant.symbol for constant in self.constants]
-        if self.constraints is not None:
-            symbols += [constraint.symbol for constraint in self.constraints]
-        if self.extra_funcs is not None:
-            symbols += [extra.symbol for extra in self.extra_funcs]
-        if self.scalarizations_funcs is not None:
-            symbols += [scalarization.symbol for scalarization in self.scalarizations_funcs]
+        symbols = self.get_all_symbols()
 
         # symbol is always populated
         symbol_counts = Counter(symbols)
@@ -243,6 +253,54 @@ class Problem(BaseModel):
             raise ValueError(msg)
 
         return self
+
+    def get_all_symbols(self) -> list[str]:
+        """Collects and returns all the symbols symbols currenlty defined in the model."""
+        # collect all symbols
+        symbols = [variable.symbol for variable in self.variables]
+        symbols += [objective.symbol for objective in self.objectives]
+        if self.constants is not None:
+            symbols += [constant.symbol for constant in self.constants]
+        if self.constraints is not None:
+            symbols += [constraint.symbol for constraint in self.constraints]
+        if self.extra_funcs is not None:
+            symbols += [extra.symbol for extra in self.extra_funcs]
+        if self.scalarizations_funcs is not None:
+            symbols += [scalarization.symbol for scalarization in self.scalarizations_funcs]
+
+        return symbols
+
+    def add_scalarization(self, new_scal: ScalarizationFunction):
+        """Adds a new scalarization function to the model.
+
+        If no symbol is defined, adds a name with the format 'scal_i'.
+
+        Args:
+            new_scal (ScalarizationFunction): Scalarization functions to be added to the model.
+
+        Raises:
+            ValueError: Raised when a ScalarizationFunction is given with a symbol that already exists in the model.
+        """
+        if new_scal.symbol is None:
+            new_scal.symbol = f"scal_{self._scalarization_index}"
+            self._scalarization_index += 1
+
+        if self.scalarizations_funcs is None:
+            self.scalarizations_funcs = [new_scal]
+        else:
+            symbols = self.get_all_symbols()
+            symbols.append(new_scal.symbol)
+            symbol_counts = Counter(symbols)
+            duplicates = {symbol: count for symbol, count in symbol_counts.items() if count > 1}
+
+            if duplicates:
+                msg = "Non-unique symbols found in the Problem model."
+                for symbol, count in duplicates.items():
+                    msg += f" Symbol '{symbol}' occurs {count} times."
+
+                raise ValueError(msg)
+
+            self.scalarizations_funcs.append(new_scal)
 
     name: str = Field(
         description="Name of the problem.",

@@ -256,7 +256,7 @@ def test_extra_functions_problem_w_evaluator(extra_functions_problem):
 
 
 def test_problem_unique_symbols():
-    """Test that having non-unique symbols in a Problem mode raises an error."""
+    """Test that having non-unique symbols in a Problem model raises an error."""
     var_1 = Variable(
         name="Test 1", symbol="x_1", variable_type="real", lowerbound=0.0, upperbound=10.0, initial_value=5.0
     )
@@ -438,3 +438,112 @@ def test_problem_unique_symbols():
             scalarizations_funcs=[scal_1, scal_2, scal_no_name],
         )
     assert "x_2" in str(e.value)
+
+
+def test_problem_default_scalarization_names():
+    """Test that default scalarization function symbols in a Problem model are assigned correctly."""
+    var_1 = Variable(
+        name="Test 1", symbol="x_1", variable_type="real", lowerbound=0.0, upperbound=10.0, initial_value=5.0
+    )
+    var_2 = Variable(
+        name="Test 2", symbol="x_2", variable_type="real", lowerbound=0.0, upperbound=10.0, initial_value=5.0
+    )
+
+    cons_1 = Constant(name="Constant 1", symbol="c_1", value=3)
+    cons_2 = Constant(name="Constant 2", symbol="c_2", value=3)
+
+    efun_1 = ExtraFunction(name="Extra 1", symbol="ef_1", func=["Add", "c_1", "x_1"])
+    efun_2 = ExtraFunction(name="Extra 2", symbol="ef_2", func=["Subtract", "x_2", "x_1"])
+
+    obj_1 = Objective(
+        name="Objective 1",
+        symbol="f_1",
+        func=["Add", ["Negate", "x_1"], "ef_1", 2],
+        maximize=False,
+        ideal=-100,
+        nadir=100,
+    )
+    obj_2 = Objective(
+        name="Objective 2",
+        symbol="f_2",
+        func=["Add", ["Multiply", 2, "ef_2"], "ef_1"],
+        maximize=False,
+        ideal=-100,
+        nadir=100,
+    )
+    obj_3 = Objective(
+        name="Objective 3",
+        symbol="f_3",
+        func=["Add", ["Divide", "ef_1", "ef_2"], "c_1"],
+        maximize=False,
+        ideal=-100,
+        nadir=100,
+    )
+
+    constraint_1 = Constraint(
+        name="Constraint 1", symbol="con_1", cons_type="<=", func=["Add", ["Negate", "c_1"], "ef_1", -4]
+    )
+    constraint_2 = Constraint(
+        name="Constraint 1", symbol="con_2", cons_type="<=", func=["Add", ["Negate", "c_1"], "ef_1", -4]
+    )
+
+    scal_1 = ScalarizationFunction(
+        name="Scalarization 1", func=["Add", ["Negate", ["Multiply", "ef_1", "ef_2"]], "c_1", "f_1", "f_2", "f_3"]
+    )
+    scal_2 = ScalarizationFunction(
+        name="Scalarization 1",
+        func=["Add", ["Negate", ["Multiply", "ef_1", "ef_2"]], "c_1", "f_1", "f_2", "f_3"],
+        symbol="S_9",
+    )
+    scal_3 = ScalarizationFunction(
+        name="Scalarization 1",
+        func=["Add", ["Negate", ["Multiply", "ef_1", "ef_2"]], "c_1", "f_1", "f_2", "f_3"],
+    )
+
+    problem = Problem(
+        name="Extra functions test problem",
+        description="Test problem to test correct parsing and evaluations with extra functions present.",
+        constants=[cons_1, cons_2],
+        variables=[var_1, var_2],
+        objectives=[obj_1, obj_2, obj_3],
+        constraints=[constraint_1, constraint_2],
+        extra_funcs=[efun_1, efun_2],
+        scalarizations_funcs=[scal_1, scal_2, scal_3],
+    )
+
+    symbols = [func.symbol for func in problem.scalarizations_funcs]
+    assert "scal_1" in symbols
+    assert "scal_2" in symbols
+    assert "S_9" in symbols
+
+    # add more scalarization functions
+    scal_new = ScalarizationFunction(
+        name="Scalarization 1",
+        func=["Add", ["Negate", ["Multiply", "ef_1", "ef_2"]], "c_1", "f_1", "f_2", "f_3"],
+    )
+
+    problem.add_scalarization(scal_new)
+    symbols = [func.symbol for func in problem.scalarizations_funcs]
+
+    symbols = [func.symbol for func in problem.scalarizations_funcs]
+    assert "scal_3" in symbols
+
+    # add to problem with no prior scalarization functions
+    problem = Problem(
+        name="Extra functions test problem",
+        description="Test problem to test correct parsing and evaluations with extra functions present.",
+        constants=[cons_1, cons_2],
+        variables=[var_1, var_2],
+        objectives=[obj_1, obj_2, obj_3],
+        constraints=[constraint_1, constraint_2],
+        extra_funcs=[efun_1, efun_2],
+    )
+
+    scal_lonely = ScalarizationFunction(
+        name="Scalarization 1",
+        func=["Add", ["Negate", ["Multiply", "ef_1", "ef_2"]], "c_1", "f_1", "f_2", "f_3"],
+    )
+
+    problem.add_scalarization(scal_lonely)
+
+    assert problem.scalarizations_funcs[0].symbol == "scal_1"
