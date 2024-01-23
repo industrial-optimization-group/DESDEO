@@ -32,6 +32,15 @@ of evaluated solutions of the problem (**evaluated_solutions**).
 The **name** and **description** of the problem are just strings. The other fields consist of one or
 more additional models, which will be described next.
 
+!!! Note
+    The `symbol` entries across all fields must be unique. If one or more non-unique symbols are
+    defined, `Problem` will raise an error when being initialized.
+
+!!! Note
+    The `symbol` `scal_i`, where `i` is any positive integer, is reserved and should not be used as a symbol
+    in any model with a `symbol` field. The `scal_i` pattern is used to generate symbols for instances of
+    `ScalarizationFunction` that have a default symbol of `None`.  
+
 ### Constant
 
 The `Constant` model defines a constant with a name, symbol and a value. Its JSON
@@ -444,6 +453,13 @@ and an example of a JSON object corresponding to the schema looks like:
     The `func` entry in the JSON object of the extra function model must adhere to the MathJSON format.
 
 ### ScalarizationFunction
+
+!!! Note
+    The `symbol` of `ScalarizationFunction` is optional. If not defined, a symbol will be generated for each
+    scalarization function with no symbol provided. These symbols follow a systematic pattern `scal_i`, where
+    `i` is a runnin index local to each instance of `Problem`. When adding new scalarization functions, the
+    method `Problem.add_scalarization` should be utilized to ensure the correct default generation of symbols
+    for instance of `ScalarizationFunction`.
 
 The `ScalarizationFunction` model defines any scalarizations of the problem being solved. The scalarization
 function has a name and a function definition. Its JSON schema looks as follows:
