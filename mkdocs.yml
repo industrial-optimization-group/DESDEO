@@ -10,7 +10,7 @@ nav:
       - "Defining a multiobjective optimization problem": "howtoguides/problem.md"
   - "Explanation":
       - "The problem format": "explanation/problem_format.md"
-      - "Scalarizatino-based methods": "explanation/scalarization_methods.md"
+      - "Scalarization-based methods": "explanation/scalarization_methods.md"
       - "Solving problems": "explanation/solving_problems.md"
 
 theme:

@@ -508,7 +508,7 @@ def test_problem_default_scalarization_names():
         objectives=[obj_1, obj_2, obj_3],
         constraints=[constraint_1, constraint_2],
         extra_funcs=[efun_1, efun_2],
-        scalarizations_funcs=[scal_1, scal_2, scal_3],
+        scalarizations_funcs=[scal_1, scal_1, scal_1],
     )
 
     symbols = [func.symbol for func in problem.scalarizations_funcs]

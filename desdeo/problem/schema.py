@@ -300,6 +300,7 @@ class Problem(BaseModel):
 
                 raise ValueError(msg)
 
+            # return copy, schema assumed to be immutable
             self.scalarizations_funcs.append(new_scal)
 
     name: str = Field(

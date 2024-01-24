@@ -41,16 +41,18 @@ which is provided by a decisoin maker.
 
 Now, to create the ASF method, we first create the ASF and then add it to the instance of `problem`:
 
+!!! TODO
+    fix this
+
 ```python
 # the achievement scalarizing function
-asf = create_asf(problem=problem, symbol="s_asf", delta=1e-6, rho=1e-6)
-
-problem.add_scalarization(asf)
+problem = create_asf(problem=problem, symbol="s_asf", ref_point=z, delta=1e-6, rho=1e-6)
 ```
 
 In the above example, we create an instance of the ASF where the variables of the function have been replaced by the
 correspoinding variables found in the instance of `problem`. When creating scalarization functions of any type, at least
-the problem and a symbol must be supplied. The symbol is important because it is used later in solvers to specify
+the problem and a symbol must be supplied. In this example, the argument `z` (reference point) is also
+needed. The symbol is important because it is used later in solvers to specify
 which scalarization functions should be optimized. In the ASF example, `delta` and `rho` are optional parameters of the
 scalarization function. The number of parameters found in scalarization functions varies.
 
@@ -58,3 +60,14 @@ scalarization function. The number of parameters found in scalarization function
     When creating scalarization functions of any kind, the `tag` argument is very important because it is used
     to specify to solvers which scalarization functions should be optimized. The `tag` must be unique inside
     the instance of probelm, i.e., no other field of a `problem` dataclass should share the same symbol.
+
+To solve the scalarization function, we can use of the solver. For instance, the `scipy_solver` can utilize the
+minimizer routine defined in `scipy.optimize.minimize`. To solve the problem utilizing `scipy_solver`, we do:
+
+```python
+scipy_solver(problem, objective_tag="s_asf", kwargs={...})
+```
+
+As mentinoed, the `tag` defined previously is now important so that we can tell the solver what
+to use as an objective when solving scalarization functions. The `kwargs` are optional arguments
+to control the internal solver, in this case, the routine `scipy.optimize.minimize`...
