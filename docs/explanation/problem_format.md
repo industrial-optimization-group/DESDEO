@@ -13,6 +13,10 @@ TODO:
 
 ### Problem
 
+!!! Note
+    The `Problem` model and all its field are **immutable**. The only exception to this
+    is the `symbol` field of the `ScalarizationFunction` models. 
+
 Multiobjective optimization problems are represented by models stored in JSON files.
 The schema of the models have been defined utilizing pydantic. The main
 model storing information related to a multiobjective optimization is the
