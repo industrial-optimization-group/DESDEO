@@ -16,7 +16,7 @@ from collections import Counter
 import copy
 from enum import Enum
 
-from pydantic import BaseModel, Field, model_validator, PrivateAttr
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator, PrivateAttr
 
 
 VariableType = float | int | bool
@@ -32,6 +32,7 @@ class VariableTypeEnum(str, Enum):
 
 class ConstraintTypeEnum(str, Enum):
     """An enumerator for supported constraint expression types."""
+    model_config = ConfigDict(frozen=True)
 
     EQ = "="  # equal
     LTE = "<="  # less than or equal
@@ -39,6 +40,7 @@ class ConstraintTypeEnum(str, Enum):
 
 class Constant(BaseModel):
     """Model for a constant."""
+    model_config = ConfigDict(frozen=True)
 
     name: str = Field(
         description=(
@@ -57,6 +59,7 @@ class Constant(BaseModel):
 
 class Variable(BaseModel):
     """Model for a variable."""
+    model_config = ConfigDict(frozen=True)
 
     name: str = Field(
         description="Descriptive name of the variable. This can be used in UI and visualizations. Example: 'velocity'."
@@ -81,6 +84,7 @@ class ExtraFunction(BaseModel):
     These functions can, e.g., be functions that are re-used in the problem formulation, or
     they are needed for other computations related to the problem.
     """
+    model_config = ConfigDict(frozen=True)
 
     name: str = Field(
         description=("Descriptive name of the function. Example: 'normalization'"),
@@ -105,12 +109,14 @@ class ScalarizationFunction(BaseModel):
 
     name: str = Field(
         description=("Name of the scalarization. Example: 'STOM'"),
+        frozen=True
     )
     symbol: str | None = Field(
         description=(
             "Optional symbol to represent the scalarization function. This may be used in" " in UIs and visualizations."
         ),
         default=None,
+        frozen=False
     )
     func: list = Field(
         description=(
@@ -119,11 +125,13 @@ class ScalarizationFunction(BaseModel):
             " The symbols in the function must match the symbols defined for objective/variable/constant/extra"
             " function."
         ),
+        frozen=True
     )
 
 
 class Objective(BaseModel):
     """Model for an objective function."""
+    model_config = ConfigDict(frozen=True)
 
     name: str = Field(
         description=(
@@ -154,6 +162,7 @@ class Objective(BaseModel):
 
 class Constraint(BaseModel):
     """Model for a constraint function."""
+    model_config = ConfigDict(frozen=True)
 
     name: str = Field(
         description=(
@@ -189,6 +198,7 @@ class EvaluatedInfo(BaseModel):
 
     This model may be extended as needed.
     """
+    model_config = ConfigDict(frozen=True)
 
     source: str = Field(description="The source of the evaluated solution(s). E.g., an optimization method's name.")
     dominated: bool | None = Field(description="Optional. Are the solutions dominated?", default=None)
@@ -203,6 +213,7 @@ class EvaluatedSolutions(BaseModel):
     (decision_vectors[i]) are represented by the objective vector at position i
     (objective_vector[i]).
     """
+    model_config = ConfigDict(frozen=True)
 
     info: EvaluatedInfo = Field(description="Information about the evaluated solutions.")
     decision_vectors: list[list[float | int | bool]] = Field(description="A list of the evaluated decision vectors.")
@@ -213,8 +224,10 @@ class EvaluatedSolutions(BaseModel):
 
 class Problem(BaseModel):
     """Model for a problem definition."""
+    model_config = ConfigDict(frozen=True)
 
     _scalarization_index: int = PrivateAttr(default=1)
+    # TODO: make init to communicate the _scalarization_index to a new model
 
     @model_validator(mode="after")
     def set_default_scalarization_names(self) -> "Problem":
@@ -270,7 +283,7 @@ class Problem(BaseModel):
 
         return symbols
 
-    def add_scalarization(self, new_scal: ScalarizationFunction):
+    def add_scalarization(self, new_scal: ScalarizationFunction) -> "Problem":
         """Adds a new scalarization function to the model.
 
         If no symbol is defined, adds a name with the format 'scal_i'.
@@ -286,22 +299,20 @@ class Problem(BaseModel):
             self._scalarization_index += 1
 
         if self.scalarizations_funcs is None:
-            self.scalarizations_funcs = [new_scal]
-        else:
-            symbols = self.get_all_symbols()
-            symbols.append(new_scal.symbol)
-            symbol_counts = Counter(symbols)
-            duplicates = {symbol: count for symbol, count in symbol_counts.items() if count > 1}
+            return self.model_copy(update={"scalarizations_funcs": [new_scal]})
+        symbols = self.get_all_symbols()
+        symbols.append(new_scal.symbol)
+        symbol_counts = Counter(symbols)
+        duplicates = {symbol: count for symbol, count in symbol_counts.items() if count > 1}
 
-            if duplicates:
-                msg = "Non-unique symbols found in the Problem model."
-                for symbol, count in duplicates.items():
-                    msg += f" Symbol '{symbol}' occurs {count} times."
+        if duplicates:
+            msg = "Non-unique symbols found in the Problem model."
+            for symbol, count in duplicates.items():
+                msg += f" Symbol '{symbol}' occurs {count} times."
 
-                raise ValueError(msg)
+            raise ValueError(msg)
 
-            # return copy, schema assumed to be immutable
-            self.scalarizations_funcs.append(new_scal)
+        return self.model_copy(update={"scalarizations_funcs": [*self.scalarizations_funcs, new_scal]})
 
     name: str = Field(
         description="Name of the problem.",

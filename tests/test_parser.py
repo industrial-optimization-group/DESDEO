@@ -1,4 +1,5 @@
 """Tests for the MathJSON parser."""
+import copy
 import json  # noqa: I001
 import pytest
 
@@ -181,6 +182,8 @@ def test_binh_and_korn_w_evaluator():
     """
     problem = binh_and_korn()
 
+    original_problem = copy.deepcopy(problem)
+
     evaluator = GenericEvaluator(problem, "polars")
 
     # some test data to evaluate the expressions
@@ -206,11 +209,8 @@ def test_binh_and_korn_w_evaluator():
     assert result.extra_values is None
     assert result.scalarization_values is None
 
-    # the original problem should not have been mutated
-    assert evaluator._original_problem == binh_and_korn()
-
-    # however, the local version should have been mutated (replacing constraints)
-    assert evaluator._local_problem != binh_and_korn()
+    # should not have been mutated during evaluation
+    assert original_problem == problem
 
 
 def test_extra_functions_problem_w_evaluator(extra_functions_problem):
@@ -427,7 +427,7 @@ def test_problem_unique_symbols():
             ideal=-100,
             nadir=100,
         )
-        problem = Problem(
+        problem = Problem(  # noqa: F841
             name="Extra functions test problem",
             description="Test problem to test correct parsing and evaluations with extra functions present.",
             constants=[cons_1, cons_2],
@@ -508,7 +508,7 @@ def test_problem_default_scalarization_names():
         objectives=[obj_1, obj_2, obj_3],
         constraints=[constraint_1, constraint_2],
         extra_funcs=[efun_1, efun_2],
-        scalarizations_funcs=[scal_1, scal_1, scal_1],
+        scalarizations_funcs=[scal_1, scal_2, scal_3],
     )
 
     symbols = [func.symbol for func in problem.scalarizations_funcs]
@@ -522,10 +522,9 @@ def test_problem_default_scalarization_names():
         func=["Add", ["Negate", ["Multiply", "ef_1", "ef_2"]], "c_1", "f_1", "f_2", "f_3"],
     )
 
-    problem.add_scalarization(scal_new)
-    symbols = [func.symbol for func in problem.scalarizations_funcs]
+    problem_new = problem.add_scalarization(scal_new)
+    symbols = [func.symbol for func in problem_new.scalarizations_funcs]
 
-    symbols = [func.symbol for func in problem.scalarizations_funcs]
     assert "scal_3" in symbols
 
     # add to problem with no prior scalarization functions
@@ -544,6 +543,6 @@ def test_problem_default_scalarization_names():
         func=["Add", ["Negate", ["Multiply", "ef_1", "ef_2"]], "c_1", "f_1", "f_2", "f_3"],
     )
 
-    problem.add_scalarization(scal_lonely)
+    new_problem = problem.add_scalarization(scal_lonely)
 
-    assert problem.scalarizations_funcs[0].symbol == "scal_1"
+    assert new_problem.scalarizations_funcs[0].symbol == "scal_1"

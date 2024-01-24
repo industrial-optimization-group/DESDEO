@@ -100,24 +100,18 @@ class GenericEvaluator:
 
         self.parser_type = parser_type
 
-        # This stores the reference to the original problem. This should not be modified directly!
-        self._original_problem = problem
-
-        # This is the local version of the original problem and considers all the changes done
-        # to it in the evaluator.
-        self._local_problem = copy.deepcopy(problem)
         # Gather any constants of the problem definition.
-        self.problem_constants = self._local_problem.constants
+        self.problem_constants = problem.constants
         # Gather the objective functions
-        self.problem_objectives = self._local_problem.objectives
+        self.problem_objectives = problem.objectives
         # Gather any constraints
-        self.problem_constraints = self._local_problem.constraints
+        self.problem_constraints = problem.constraints
         # Gather any extra functions
-        self.problem_extra = self._local_problem.extra_funcs
+        self.problem_extra = problem.extra_funcs
         # Gather any scalarization functions
-        self.problem_scalarization = self._local_problem.scalarizations_funcs
+        self.problem_scalarization = problem.scalarizations_funcs
         # Gather the decision variable symbols defined in the problem
-        self.problem_variable_symbols = [var.symbol for var in self._local_problem.variables]
+        self.problem_variable_symbols = [var.symbol for var in problem.variables]
 
         # The below 'expressions' are list of tuples with symbol and expressions pairs, as (symbol, expression)
         # These must be defined in a specialized initialization step, see further below for an example.
@@ -147,52 +141,76 @@ class GenericEvaluator:
             raise EvaluatorError(msg)
 
     def _polars_init(self):
-        """Initialization of the evalutor for parser type 'polars'."""
+        """Initialization of the evaluator for parser type 'polars'."""
         # If any constants are defined in problem, replace their symbol with the defined numerical
         # value in all the function expressions found in the Problem.
         if self.problem_constants is not None:
             # Objectives are always defined, cannot be None
+            parsed_obj_funcs = {}
             for obj in self.problem_objectives:
+                tmp = obj.func
                 for c in self.problem_constants:
-                    obj.func = replace_str(obj.func, c.symbol, c.value)
+                    tmp = replace_str(tmp, c.symbol, c.value)
+                parsed_obj_funcs[f"{obj.symbol}"] = tmp
 
             # Do the same for any constraint expressions as well.
             if self.problem_constraints is not None:
+                parsed_cons_funcs: dict | None = {}
                 for con in self.problem_constraints:
+                    tmp = con.func
                     for c in self.problem_constants:
-                        con.func = replace_str(con.func, c.symbol, c.value)
+                        tmp = replace_str(tmp, c.symbol, c.value)
+                    parsed_cons_funcs[f"{con.symbol}"] = tmp
+            else:
+                parsed_cons_funcs = None
 
             # Do the same for any extra functions
+            parsed_extra_funcs: dict | None = {}
             if self.problem_extra is not None:
                 for extra in self.problem_extra:
+                    tmp = extra.func
                     for c in self.problem_constants:
-                        extra.func = replace_str(extra.func, c.symbol, c.value)
+                        tmp = replace_str(tmp, c.symbol, c.value)
+                    parsed_extra_funcs[f"{extra.symbol}"] = tmp
+            else:
+                parsed_extra_funcs = None
 
             # Do the same for any scalarization functions
+            parsed_scal_funcs: dict | None = {}
             if self.problem_scalarization is not None:
                 for scal in self.problem_scalarization:
+                    tmp = scal.func
                     for c in self.problem_constants:
-                        scal.func = replace_str(scal.func, c.symbol, c.value)
+                        tmp = replace_str(tmp, c.symbol, c.value)
+                    parsed_scal_funcs[f"{scal.symbol}"] = tmp
+            else:
+                parsed_scal_funcs = None
 
         # Parse all functions into expressions. These are stored as tuples, as (symbol, parsed expression)
         # parse objectives
-        self.objective_expressions = [(obj.symbol, self.parser.parse(obj.func)) for obj in self.problem_objectives]
+        self.objective_expressions = [(symbol, self.parser.parse(expression)) for symbol, expression in parsed_obj_funcs.items()]
 
         # parse constraints, if any
-        if self.problem_constraints is not None:
+        if parsed_cons_funcs is not None:
             self.constraint_expressions = [
-                (con.symbol, self.parser.parse(con.func)) for con in self.problem_constraints
+                (symbol, self.parser.parse(expression)) for symbol, expression in parsed_cons_funcs.items()
             ]
+        else:
+            self.constraint_expressions = None
 
         # parse extra functions, if any
-        if self.problem_extra is not None:
-            self.extra_expressions = [(extra.symbol, self.parser.parse(extra.func)) for extra in self.problem_extra]
+        if parsed_extra_funcs is not None:
+            self.extra_expressions = [(symbol, self.parser.parse(expression)) for symbol, expression in parsed_extra_funcs.items()]
+        else:
+            self.extra_expressions = None
 
         # parse scalarization functions, if any
-        if self.problem_scalarization is not None:
+        if parsed_scal_funcs is not None:
             self.scalarization_expressions = [
-                (scal.symbol, self.parser.parse(scal.func)) for scal in self.problem_scalarization
+                (symbol, self.parser.parse(expression)) for symbol, expression in parsed_scal_funcs.items()
             ]
+        else:
+            self.scalarization_expressions = None
 
     def _polars_evaluate(self, xs: dict[str, list[float | int | bool]]) -> EvaluatorResult:
         """Evaluate the problem with the given decision variable values utilizing a polars dataframe.
