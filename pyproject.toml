@@ -28,6 +28,7 @@ pytest = "^7.4.3"
 mkdocs = "^1.5.3"
 erdantic = "^0.6.0"
 python-markdown-math = "^0.8"
+mkdocs-macros-plugin = "^1.0.5"
 
 
 [tool.ruff]
