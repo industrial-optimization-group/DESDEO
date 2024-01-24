@@ -1,15 +1,17 @@
-site_name: 'DESDEO documentation'
-repo_url: 'https://github.com/industrial-optimization-group/DESDEO'
-repo_name: 'GitHub'
-docs_dir: 'docs'
-site_dir: 'site'
+site_name: "DESDEO documentation"
+repo_url: "https://github.com/industrial-optimization-group/DESDEO"
+repo_name: "GitHub"
+docs_dir: "docs"
+site_dir: "site"
 
 nav:
-  - Home: 'index.md'
-  - 'User Guide':
-    - 'Defining a multiobjective optimization problem': 'howtoguides/problem.md'
-  - 'Explanation':
-    - 'The problem format': 'explanation/problem_format.md'
+  - Home: "index.md"
+  - "User Guide":
+      - "Defining a multiobjective optimization problem": "howtoguides/problem.md"
+  - "Explanation":
+      - "The problem format": "explanation/problem_format.md"
+      - "Scalarizatino-based methods": "explanation/scalarization_methods.md"
+      - "Solving problems": "explanation/solving_problems.md"
 
 theme:
   name: readthedocs
@@ -19,8 +21,12 @@ theme:
     - python
   locale: en
 
+extra_javascript:
+  - https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=TeX-AMS-MML_HTMLorMML
+
 plugins:
   - search
 
 markdown_extensions:
   - admonition
+  - mdx_math

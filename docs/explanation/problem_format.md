@@ -1,12 +1,12 @@
-# The problem format
+# Defining and evaluating problems
 
-## MathJSON
+## The MathJSON format
 
 TODO:
 
 - Explain the MathJSON format and how it is used to store function expressions.
 
-## The pydantic schema
+## The Problem schema
 
 !!! warning
     As of 18.1.2024, the schema examples might not be up to date. Many optional fields have not a default value of "None" or "null".
