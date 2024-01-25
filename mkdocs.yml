@@ -12,6 +12,7 @@ nav:
       - "The problem format": "explanation/problem_format.md"
       - "Scalarization-based methods": "explanation/scalarization_methods.md"
       - "Solving problems": "explanation/solving_problems.md"
+      - "Scalarization functions": "explanation/scalarization_functions.md"
 
 theme:
   name: readthedocs

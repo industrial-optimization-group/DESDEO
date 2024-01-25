@@ -1,0 +1,12 @@
+{{ Op.MAX }}(
+{% for i in range(0, k) %}
+    ( {{ objective_symbols[i] }} - {{ reference_point[i] }} ) /
+    ( {{ nadir_point[i] }} - ( {{ ideal_point[i] }} - {{ delta }} ))
+    {# append a comma unles last element #}
+    {% if not loop.last %},{% endif %}
+{% endfor %}
+) + {{ rho }} * (
+{% for i in range(0, k) %}
+    {{ objective_symbols[i] }} / ( {{ nadir_point[i] }} - ( {{ ideal_point[i] }} ) - {{ delta }} )
+{% endfor %}
+)

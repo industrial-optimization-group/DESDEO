@@ -16,6 +16,8 @@ jupyterlab = "^4.0.9"  # Should this be a dev dependency? As long as we don't pu
 seaborn = "^0.13.0"
 plotly = "^5.18.0"
 pydantic = "^2.5.2"
+sympy = "^1.12"
+pyparsing = "^3.1.1"
 
 [tool.poetry.extras]
 standard = ["polars"]
@@ -29,6 +31,7 @@ mkdocs = "^1.5.3"
 erdantic = "^0.6.0"
 python-markdown-math = "^0.8"
 mkdocs-macros-plugin = "^1.0.5"
+djlint = "^1.34.1"
 
 
 [tool.ruff]
@@ -120,6 +123,9 @@ target-version = "py312"
 
 [tool.ruff.format]
 quote-style = "double"
+
+[tool.djlint]
+profile="jinja"
 
 
 [build-system]
