@@ -1,4 +1,17 @@
-from pyparsing import Word, alphas, nums, Group, Forward, infixNotation, opAssoc, ParserElement, delimitedList, Suppress
+from pyparsing import (
+    Word,
+    alphas,
+    nums,
+    Group,
+    Forward,
+    infixNotation,
+    opAssoc,
+    ParserElement,
+    delimitedList,
+    Suppress,
+    Keyword,
+)
+
 
 # Define grammar
 ParserElement.enablePackrat()
@@ -6,20 +19,37 @@ ParserElement.enablePackrat()
 # Basic elements
 number = Word(nums + ".")
 variable = Word(alphas + "_", alphas + nums + "_")
+max_func_name = Keyword("Max")
 lparen = Suppress("(")
 rparen = Suppress(")")
 
-function_args = lparen + delimitedList(number | variable) + rparen
+operands = number
 
-function_call = "Max" + function_args
+function_call = Forward()
 
-atom = number | variable
+# args = operands | function_call | infix_operation
 
-# Functions
+infix_expr = infixNotation(
+    operands | function_call,
+    [
+        ("cos", 1, opAssoc.RIGHT),
+        ("*", 2, opAssoc.LEFT),
+        ("/", 2, opAssoc.LEFT),
+        ("+", 2, opAssoc.LEFT),
+        ("-", 2, opAssoc.LEFT),
+    ],
+)
 
-operand = number | variable
 
-# Function
+function_call <<= Group(max_func_name + lparen + Group(delimitedList(function_call | operands)) + rparen) | infix_expr
+
+
+test = "1.123+ 1 + Max(1,2 + Max(1,2))"
+
+
+res = function_call.parse_string(test)
+print(res)
+
 
 exit()
 
