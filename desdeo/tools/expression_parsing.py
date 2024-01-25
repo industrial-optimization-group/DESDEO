@@ -1,41 +1,58 @@
-"""Minimal example of parsing infix expressions to the MathJSON format."""
-from pyparsing import Word, alphas, nums, Group, Forward, infixNotation, opAssoc, ParserElement, delimitedList
+from pyparsing import Word, alphas, nums, Group, Forward, infixNotation, opAssoc, ParserElement, delimitedList, Suppress
 
 # Define grammar
 ParserElement.enablePackrat()
 
 # Basic elements
-integer = Word(nums)
-variable = Word(alphas, exact=1)
-operand = integer | variable
+number = Word(nums + ".")
+variable = Word(alphas + "_", alphas + nums + "_")
+lparen = Suppress("(")
+rparen = Suppress(")")
+
+function_args = lparen + delimitedList(number | variable) + rparen
+
+function_call = "Max" + function_args
+
+atom = number | variable
+
+# Functions
+
+operand = number | variable
+
+# Function
+
+exit()
+
+# Define function call
+function_name = Word(alphas)
+function_args = delimitedList(integer | variable)
+function_call = Group(function_name + "(" + Group(function_args) + ")")
+
+# Update atom to include function calls
+atom = operand | function_call | Group("(" + Forward() + ")")
 
 # Define the operator precedence
 expn = Forward()
 atom = operand | Group("(" + expn + ")")
 
-# Define the operation list
-ops = [
-    ("cos", 1, opAssoc.RIGHT),
-    ("*", 2, opAssoc.LEFT),
-    ("/", 2, opAssoc.LEFT),
-    ("+", 2, opAssoc.LEFT),
-    ("-", 2, opAssoc.LEFT),
-]
-
-# Define max expression
-max_expr = Forward()
-max_expr << Group("Max" + "(" + delimitedList(expn) + ")")
-
-# Define the expression
-expn <<= max_expr | infixNotation(atom, ops)
+# Define the operator precedence
+expn = Forward()
+expn <<= infixNotation(
+    atom,
+    [
+        ("cos", 1, opAssoc.RIGHT),
+        ("*", 2, opAssoc.LEFT),
+        ("/", 2, opAssoc.LEFT),
+        ("+", 2, opAssoc.LEFT),
+        ("-", 2, opAssoc.LEFT),
+    ],
+)
 
 # Operator mapping to desired format
 operator_mapping = {"+": "Add", "-": "Subtract", "*": "Multiply", "/": "Divide", "cos": "Cos", "Max": "Max"}
 
-
 # Example expression
-expression = "(a + b) * y / x - cos(k)"
-expression2 = "cos(( f_1 - 3 ) / ( 4 - ( 1 - 1e-06 )) , ( f_2 - 3 ) / ( 5 - ( 2 - 1e-06 )) , ( f_3 - 3 ) / ( 6 - ( 3 - 1e-06 ))) + 1e-09 * ( f_1 / ( 4 - ( 1 ) - 1e-06 ) f_2 / ( 5 - ( 2 ) - 1e-06 ) f_3 / ( 6 - ( 3 ) - 1e-06 ))"
+expression2 = "Max(( f_1 - 3 ) / ( 4 - ( 1 - 0.001 )) , ( f_2 - 3 ) / ( 5 - ( 2 - 0.001 )) , ( f_3 - 3 ) / ( 6 - ( 3 - 0.001 ))) + 0.00001 * ( f_1 / ( 4 - ( 1 ) - 0.001 ) + f_2 / ( 5 - ( 2 ) - 0.001 ) + f_3 / ( 6 - ( 3 ) - 0.001 ))"
 
 
 def convert_to_mathjson(parsed):
@@ -67,6 +84,12 @@ def convert_to_mathjson(parsed):
         operand2 = convert_to_mathjson(parsed[2])
         return [operator, operand1, operand2]
 
+    # Handle 'Max' and other possible functions
+    if parsed[0] in operator_mapping and isinstance(parsed[1], list):
+        operator = operator_mapping[parsed[0]]
+        operands = [convert_to_mathjson(p) for p in parsed[1]]
+        return [operator] + operands
+
     # For more complex or nested expressions
     result = []
     for part in parsed:
@@ -75,11 +98,7 @@ def convert_to_mathjson(parsed):
 
 
 # Parse and convert
-parsed_expression = expn.parseString(expression, parseAll=True)
-mathjson_format = convert_to_mathjson(parsed_expression)
-
 parsed_expression2 = expn.parseString(expression2, parseAll=True)
 mathjson_format2 = convert_to_mathjson(parsed_expression2)
 
-print(mathjson_format)
 print(mathjson_format2)
