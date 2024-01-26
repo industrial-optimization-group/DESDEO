@@ -99,6 +99,7 @@ class InfixExpressionParser:
             return float("".join(tokens))
 
         # Derfine operands
+        # TODO: allow scientific notation as well
         integer = Combine(Word(nums)).add_parse_action(parse_integer)
         real = Combine(Word(nums) + "." + Word(nums)).set_parse_action(parse_real)
         # Keywords are excluded from variable names.
