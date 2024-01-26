@@ -10,6 +10,8 @@ from pyparsing import (
     delimitedList,
     Suppress,
     Keyword,
+    Optional,
+    OneOrMore,
 )
 
 
@@ -18,21 +20,22 @@ ParserElement.enablePackrat()
 
 # Basic elements
 number = Word(nums + ".")
-variable = Word(alphas + "_", alphas + nums + "_")
-max_func_name = Keyword("Max")
+variadric_func_names = Keyword("Max")
+unary_func_names = Keyword("Cos")
+variable = ~variadric_func_names + ~unary_func_names + Word(alphas + "_", alphas + nums + "_")
 lparen = Suppress("(")
 rparen = Suppress(")")
 
-operands = number
+operands = number | variable
 
-function_call = Forward()
+variadric_call = Forward()
+unary_call = Forward()
 
 # args = operands | function_call | infix_operation
 
 infix_expr = infixNotation(
-    operands | function_call,
+    operands | variadric_call | unary_call,
     [
-        ("cos", 1, opAssoc.RIGHT),
         ("*", 2, opAssoc.LEFT),
         ("/", 2, opAssoc.LEFT),
         ("+", 2, opAssoc.LEFT),
@@ -41,13 +44,23 @@ infix_expr = infixNotation(
 )
 
 
-function_call <<= Group(max_func_name + lparen + Group(delimitedList(function_call | operands)) + rparen) | infix_expr
+variadric_call <<= Group(variadric_func_names + lparen + Group(delimitedList(infix_expr)) + rparen)
+
+unary_call <<= Group(unary_func_names + lparen + Group(infix_expr) + rparen)
 
 
-test = "1.123+ 1 + Max(1,2 + Max(1,2))"
+test = " 1 + Max(Max(1+Max(2), Max(Max(1-1)))) + 3 + Max(3 - 1)"
+test2 = "Cos(1+1) + 1 - Cos(Cos(1) + 2)"
+test3 = "1 + Cos(2) + Cos(Max(1, 2)) - Max(Cos(1-2), f_5)"
 
 
-res = function_call.parse_string(test)
+res = infix_expr.parse_string(test)
+print(res)
+
+res = infix_expr.parse_string(test2)
+print(res)
+
+res = infix_expr.parse_string(test3)
 print(res)
 
 
