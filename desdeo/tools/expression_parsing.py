@@ -49,7 +49,7 @@ def parse_real(tokens):
 
 
 # Derfine operands
-integer = Word(nums).add_parse_action(parse_integer)
+integer = Combine(Word(nums)).add_parse_action(parse_integer)
 real = Combine(Word(nums) + "." + Word(nums)).set_parse_action(parse_real)
 variable = ~reserved_keywords + Word(alphas + "_", alphas + nums + "_")
 operands = real | integer | variable
@@ -80,8 +80,8 @@ unary_call <<= Group(unary_func_names + lparen + Group(infix_expn) + rparen)
 
 test = " 123 + Max(Max(1+Max(2), Max(Max(1-1)))) + 3 + Max(3 - 1.123)"
 test2 = "Cos(1+1) + 1 - Cos(Cos(1) + 2)"
-test3 = "1 + Cos(2) + Cos(Max(1, 2)) - Max(Cos(1-2), 4)"
-test4 = "-1 + -Max(-3 + (-3))"
+test3 = "1 + Cos(2) + -Cos(Max(1, 2)) - Max(Cos(1-2), 4)"
+test4 = "-1.0 + -Max(-3 + (-3))"
 expression2 = "Max(( f_1 - 3 ) / ( 4 - ( 1 - 0.001 )) , ( f_2 - 3 ) / ( 5 - ( 2 - 0.001 )) , ( f_3 - 3 ) / ( 6 - ( 3 - 0.001 ))) + 0.00001 * ( f_1 / ( 4 - ( 1 ) - 0.001 ) + f_2 / ( 5 - ( 2 ) - 0.001 ) + f_3 / ( 6 - ( 3 ) - 0.001 ))"
 
 
@@ -89,25 +89,39 @@ expression2 = "Max(( f_1 - 3 ) / ( 4 - ( 1 - 0.001 )) , ( f_2 - 3 ) / ( 5 - ( 2 
 operator_mapping = {
     "+": "Add",
     "-": "Subtract",
-    "--": "Negate",
+    "Negate": "Negate",
     "*": "Multiply",
     "/": "Divide",
-    "cos": "Cos",
+    "Cos": "Cos",
     "Max": "Max",
+    "**": "Power",
 }
 
 
-def convert_to_mathjson(parsed):
+def convert_to_mathjson(parsed: list):
+    """Converts a list of expressions into a MathJSON compliant format.
+
+    The conversion happens recursively. Each list of recursed until a terminal character is reached.
+    Terminal characters are integers (int), floating point numbers (float), or non-keyword strings (str).
+    Keyword strings are reserved for operations, such as 'Cos' or 'Max'.
+
+    Args:
+        parsed (list): A list possibly containing other lists. Represents a mathematical expression.
+
+    Returns:
+        list: A list representing a mathematical expression in a MathJSON compliant format.
+    """
     # Directly return the input if it is an integer or a float
-    if isinstance(parsed, (int, float)):
+    if isinstance(parsed, int | float):
         return parsed
 
-    if len(parsed) == 1 and isinstance(parsed[0], (int, float, list)):
-        return convert_to_mathjson(parsed[0])
+    # Handle the case of unary negation
+    # if len(parsed) == 2 and parsed[0] == "-":
+    #   return ["Negate", convert_to_mathjson(parsed[1])]
 
     # Flatten binary operations like 1 + 2 + 3 into ["Add", 1, 2, 3]
     if len(parsed) >= 3 and isinstance(parsed[1], str):
-        current_operator = operator_mapping.get(parsed[1], parsed[1])
+        current_operator = operator_mapping[parsed[1]]
         operands = [convert_to_mathjson(parsed[0])]
 
         i = 1
@@ -116,43 +130,33 @@ def convert_to_mathjson(parsed):
                 operands.append(convert_to_mathjson(parsed[i + 1]))
                 i += 2
             else:
-                # If a different operation is encountered, process it separately
-                return [current_operator] + operands + [convert_to_mathjson(parsed[i + 1 :])]
+                return [[current_operator, *operands, *convert_to_mathjson(parsed[i + 1 :])]]
 
-        return [current_operator] + operands
+        return [current_operator, *operands]
 
     # Handle unary operations and functions
     if isinstance(parsed[0], str):
         if parsed[0] in operator_mapping:
-            operator = operator_mapping[parsed[0]]
+            operator = operator_mapping.get(parsed[0], parsed[0])
             operands = [convert_to_mathjson(p) for p in parsed[1:]]
-            return [operator] + operands
-        else:
-            operand = convert_to_mathjson(parsed[1])
-            return [parsed[0], operand]
+
+            while isinstance(operands, list) and len(operands) == 1 and isinstance(operands[0], list):
+                operands = operands[0]
+
+            return [operator, *operands]
+
+        operand = convert_to_mathjson(parsed[1])
+
+        return [parsed[0], operand]
 
     # For lists and nested expressions
     return [convert_to_mathjson(part) for part in parsed]
 
 
-def flatten_single_element_lists(lst):
-    """Flatten lists that contain a single element."""
-    if isinstance(lst, list):
-        # If the list has only one element and that element is itself a list, flatten it
-        if len(lst) == 1 and isinstance(lst[0], list):
-            return flatten_single_element_lists(lst[0])
-        else:
-            # Otherwise, recursively apply this function to all elements
-            return [flatten_single_element_lists(element) for element in lst]
-    else:
-        # If it's not a list, just return the element
-        return lst
-
-
 # Parse and convert
-test = test4
+test = "Sin(3*Cos(2)) - 7 + 3 - Max(9 - 3 + 4, 10)"
 parsed_expression = infix_expn.parseString(test, parseAll=True)
-mathjson_format = flatten_single_element_lists(convert_to_mathjson(parsed_expression))
+mathjson_format = convert_to_mathjson(parsed_expression)
 
 
 def pprint(mathjson_format, indent=0):
@@ -171,4 +175,7 @@ def pprint(mathjson_format, indent=0):
     print("\n" + "  " * indent + "]", end="\n")
 
 
+print(f"Expresion:\n{test}")
+print(f"Parsed:\n{parsed_expression}")
+print("MathJSON:")
 pprint(mathjson_format)
