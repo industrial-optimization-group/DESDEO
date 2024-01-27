@@ -35,7 +35,31 @@ class InfixExpressionParser:
 
     # Supported infix unary operators, i.e., 'Cos(90)'. The key is the notation of the operator in infix format,
     # and the value the notation in parsed format.
-    UNARY_OPERATORS: ClassVar[dict] = {"Cos": "Cos", "Sin": "Sin", "Tan": "Tan"}
+    UNARY_OPERATORS: ClassVar[dict] = {
+        "Cos": "Cos",
+        "Sin": "Sin",
+        "Tan": "Tan",
+        "Exp": "Exp",
+        "Ln": "Ln",
+        "Lb": "Lb",
+        "Lg": "Lg",
+        "LogOnePlus": "LogOnePlus",
+        "Sqrt": "Sqrt",
+        "Square": "Square",
+        "Abs": "Abs",
+        "Ceil": "Ceil",
+        "Floor": "Floor",
+        "Arccos": "Arccos",
+        "Arccosh": "Arccosh",
+        "Arcsin": "Arcsin",
+        "Arcsinh": "Arcsinh",
+        "Arctan": "Arctan",
+        "Arctanh": "Arctanh",
+        "Cosh": "Cosh",
+        "Sinh": "Sinh",
+        "Tanh": "Tanh",
+        "Rational": "Rational",
+    }
 
     # Supported infix variadic operators (operators that take one or more comma separated arguments),
     # i.e., 'Max(1,2, Cos(3)). The key is the notation of the operator in infix format,
@@ -177,7 +201,9 @@ class InfixExpressionParser:
             return ["Negate", self._to_math_json(parsed[1])]
 
         # Flatten binary operations like 1 + 2 + 3 into ["Add", 1, 2, 3]
-        if len(parsed) >= 3 and isinstance(parsed[1], str):
+        # Last check is to make sure that in cases like ["Max", ["x", "y", ...]] the 'y' is not confused to
+        # be an operator.
+        if len(parsed) >= 3 and isinstance(parsed[1], str) and parsed[1] in InfixExpressionParser.BINARY_OPERATORS:
             current_operator = self.operator_mapping[parsed[1]]
             operands = [self._to_math_json(parsed[0])]
 
