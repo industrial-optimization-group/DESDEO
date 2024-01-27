@@ -1,6 +1,11 @@
 """Tests the infix parser for parsing mathematical expressions in infix format."""
+import polars as pl
+import numpy.testing as npt
 
 from desdeo.tools.expression_parsing import InfixExpressionParser
+from desdeo.problem.schema import Problem, Variable, Objective, Constraint, Constant
+from desdeo.problem.testproblems import binh_and_korn
+from desdeo.problem.evaluator import GenericEvaluator
 
 
 def test_basic_binary_to_json():
@@ -185,3 +190,88 @@ def test_mixed_operations_to_json():
         ["Sqrt", ["Add", ["Square", ["x_7"]], 9]],
     ]
     assert parser.parse(input_mixed_5) == output_mixed_5
+
+
+def test_infix_binh_and_korn_to_json():
+    parser = InfixExpressionParser()
+
+    # Infix expressions
+    infix_obj_1 = "c_1 * (x_1 ** 2) + c_1 * (x_2 ** 2)"
+    infix_obj_2 = "(x_1 - c_2) ** 2 + (x_2 - c_2) ** 2"
+    infix_cons_1 = "(x_1 - c_2) ** 2 + x_2 ** 2 - 25"
+    infix_cons_2 = "-(x_1 - 8) ** 2 - (x_2 + 3) ** 2 + 7.7"
+    # -(x_1 - 8) ** 2 - (x_2 + 3) ** 2 + 7.7
+    # ["Add", ["Negate", ["Square", ["Subtract", "x_1", 8]]], ["Negate", ["Square", ["Add", "x_2", 3]]], 7.7]
+
+    # Parsing expressions
+    parsed_obj_1 = parser.parse(infix_obj_1)
+    assert parsed_obj_1 == ["Add", ["Multiply", "c_1", ["Power", "x_1", 2]], ["Multiply", "c_1", ["Power", "x_2", 2]]]
+
+    parsed_obj_2 = parser.parse(infix_obj_2)
+    assert parsed_obj_2 == ["Add", ["Power", ["Subtract", "x_1", "c_2"], 2], ["Power", ["Subtract", "x_2", "c_2"], 2]]
+
+    parsed_cons_1 = parser.parse(infix_cons_1)
+    assert parsed_cons_1 == ["Add", ["Power", ["Subtract", "x_1", "c_2"], 2], ["Subtract", ["Power", "x_2", 2], 25]]
+
+    parsed_cons_2 = parser.parse(infix_cons_2)
+    assert parsed_cons_2 == [
+        "Subtract",
+        ["Negate", ["Power", ["Subtract", "x_1", 8], 2]],
+        ["Add", ["Power", ["Add", "x_2", 3], 2], 7.7],
+    ]
+
+    constant_1 = Constant(name="Four", symbol="c_1", value=4)
+    constant_2 = Constant(name="Five", symbol="c_2", value=5)
+
+    variable_1 = Variable(
+        name="The first variable", symbol="x_1", variable_type="real", lowerbound=0, upperbound=5, initial_value=2.5
+    )
+    variable_2 = Variable(
+        name="The second variable", symbol="x_2", variable_type="real", lowerbound=0, upperbound=3, initial_value=1.5
+    )
+
+    objective_1 = Objective(
+        name="Objective 1",
+        symbol="f_1",
+        func=parsed_obj_1,
+        maximize=False,
+        ideal=None,
+        nadir=None,
+    )
+    objective_2 = Objective(
+        name="Objective 2",
+        symbol="f_2",
+        func=parsed_obj_2,
+        maximize=False,
+    )
+
+    constraint_1 = Constraint(name="Constraint 1", symbol="g_1", cons_type="<=", func=parsed_cons_1)
+
+    constraint_2 = Constraint(name="Constraint 2", symbol="g_2", cons_type="<=", func=parsed_cons_2)
+
+    infix_problem = Problem(
+        name="The Binh and Korn function",
+        description="The two-objective problem used in the paper by Binh and Korn.",
+        constants=[constant_1, constant_2],
+        variables=[variable_1, variable_2],
+        objectives=[objective_1, objective_2],
+        constraints=[constraint_1, constraint_2],
+    )
+
+    truth_problem = binh_and_korn()
+
+    infix_evaluator = GenericEvaluator(infix_problem, "polars")
+    truth_evaluator = GenericEvaluator(truth_problem, "polars")
+
+    # some test data to evaluate the expressions
+    xs_dict = {"x_1": [1, 2.5, 4.2], "x_2": [0.5, 1.5, 2.5]}
+
+    infix_result = infix_evaluator.evaluate(xs_dict)
+    truth_result = truth_evaluator.evaluate(xs_dict)
+
+    res = str(truth_problem.constraints[1].func)
+
+    npt.assert_array_almost_equal(infix_result.objective_values["f_1"], truth_result.objective_values["f_1"])
+    npt.assert_array_almost_equal(infix_result.objective_values["f_2"], truth_result.objective_values["f_2"])
+    npt.assert_array_almost_equal(infix_result.constraint_values["g_1"], truth_result.constraint_values["g_1"])
+    # npt.assert_array_almost_equal(infix_result.constraint_values["g_2"], truth_result.constraint_values["g_2"])

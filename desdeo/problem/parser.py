@@ -85,10 +85,10 @@ class MathParser:
                 # Define the operations for the different operators.
                 # Basic arithmethic operations
                 self.NEGATE: lambda x: -x,
-                self.ADD: lambda lst: reduce(lambda x, y: x + y, lst),
-                self.SUB: lambda lst: reduce(lambda x, y: x - y, lst),
-                self.MUL: lambda lst: reduce(lambda x, y: x * y, lst),
-                self.DIV: lambda lst: reduce(lambda x, y: x / y, lst),
+                self.ADD: lambda *args: reduce(lambda x, y: x + y, args),
+                self.SUB: lambda *args: reduce(lambda x, y: x - y, args),
+                self.MUL: lambda *args: reduce(lambda x, y: x * y, args),
+                self.DIV: lambda *args: reduce(lambda x, y: x / y, args),
                 # Exponentation and logarithms
                 self.EXP: lambda x: pl.Expr.exp(x),
                 self.LN: lambda x: pl.Expr.log(x),  # 30
@@ -97,7 +97,7 @@ class MathParser:
                 self.LOP: lambda x: pl.Expr.log1p(x),
                 self.SQRT: lambda x: pl.Expr.sqrt(x),
                 self.SQUARE: lambda x: x**2,
-                self.POW: lambda lst: reduce(lambda x, y: x**y, lst),
+                self.POW: lambda *args: reduce(lambda x, y: x**y, args),
                 # Trigonometric operations
                 self.ARCCOS: lambda x: pl.Expr.arccos(x),  #  x ∊ [-1, 1]
                 self.ARCCOSH: lambda x: pl.Expr.arccosh(x),
@@ -287,42 +287,46 @@ class MathParser:
             raise type error; If the operation in expr not found, it means we currently
             don't support such function operation.
         """
+
+    def parse(self, expr: list):
+        """Parses Polish notation and returns a polars expression."""
         if expr is None:
             return expr
+        if isinstance(expr, pl.Expr):
+            return expr
         if isinstance(expr, str):
-            # Handle variable symbols
             if expr in self.env:
+                # operation encountered, get the operation
                 return self.parse(self.env[expr])
+            # else, expr is an operator name, (terminal cases)
             if self.__get_parser_name__() == "polars":
                 return pl.col(expr)
             if self.__get_parser_name__() == "pandas":
                 return expr
-            msg = "incorrect parser"
-            raise ParserError(msg)
+            raise ParserError("incorrect parser")
+
         if isinstance(expr, int | float):
-            # Handle numeric constants
+            # numeric constant, terminal case
             return expr
         if isinstance(expr, list):
-            # Handle function expressions
+            # Extract the operation name
             op = expr[0]
-            operands = expr[1:]
-            length = len(operands)
+            if isinstance(op, list):
+                # Parse the nested operation first
+                op = self.parse(op)
+                if not isinstance(op, str | pl.Expr):
+                    raise ParserError("Nested operation did not resolve to an operation name")
+            # Parse all operands
+            operands = [self.parse(e) for e in expr[1:]]
+            # ISSUE: we sometimes get a polars expr here, with variadic
+            # functions. We need to be able to call the appropiate function with
+            # the Expr and the operands. We need to somehow know the correct
+            # function to call, either from the expr, or we need to store it
+            # somehow. E.g., when we return a pl.Expr, we return the self.env operation name
             if op in self.env:
-                if length == 1:
-                    return self.env[op](self.parse(expr[1]))
-                if length > 1:
-                    return self.env[op](self.parse(e) for e in operands)
-            if op == "Sum":
-                new_expr = self.parse_sum(expr)
-                return self.parse(new_expr)
-            # raise error message:
-            msg = f"I am sorry the operator:{op} is not found."
-            raise ParserError(msg)
-
-        # raise error message:
-        text_type = type(expr)
-        msg = f"The type of {text_type} is not found."
-        raise ParserError(msg)
+                return self.env[op](*operands)
+            raise ParserError(f"Operator: {op} is not found.")
+        raise ParserError(f"The type of {type(expr)} is not supported.")
 
 
 def replace_str(lst: list | str, target: str, sub: list | str | float | int) -> list:

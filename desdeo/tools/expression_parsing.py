@@ -144,8 +144,8 @@ class InfixExpressionParser:
         infix_expn = infixNotation(
             operands | variadic_call | unary_call,
             [
-                (signop, 1, opAssoc.RIGHT),
                 (expop, 2, opAssoc.LEFT),
+                (signop, 1, opAssoc.RIGHT),
                 (multop, 2, opAssoc.LEFT),
                 (plusop, 2, opAssoc.LEFT),
             ],
@@ -268,8 +268,9 @@ class InfixExpressionParser:
 
 
 # Parse and convert
-test = "Cos(2 + f_1 + Sin(-Max(1,2,3) - Max(12, 13))) - 7.2 + Max(f_2, -f_3)"
-test = "n / (1 + n)"
+test = "- (x_1 - 8) ** 2 - (x_2 + 3) ** 2 + 7.7"
+
+ohh_no = "['Add', ['Negate', ['Square', ['Subtract', 'x_1', 8]]], ['Negate', ['Square', ['Add', 'x_2', 3]]], 7.7]"
 
 to_json_parser = InfixExpressionParser(target="MathJSON")
 
@@ -277,5 +278,5 @@ parsed_expression = to_json_parser.parse(test)
 
 
 print(f"Expresion:\n{test}")
-print(f"Parsed:\n{parsed_expression}")
-print("MathJSON:")
+print(f"Parsed:\n{to_json_parser._pre_parse(test)}")
+print(f"MathJSON:\n{parsed_expression}")

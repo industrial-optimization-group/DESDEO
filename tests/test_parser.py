@@ -114,6 +114,29 @@ def test_basic():
     assert objectives["Objective 1"][1] == 675
 
 
+def test_case_1():
+    """Test a problematic case."""
+    # FAILS: SEE PARSER.PY
+    math_parser = MathParser()
+    # input_1 = ["Add", ["Negate", ["Square", ["Subtract", "x_1", 8]]], ["Negate", ["Square", ["Add", "x_2", 3]]], 7.7]
+    input_1 = ["Power", [["Subtract", "x_1", 8], 2]]
+    # input_2 = [ "Subtract", ["Negate", ["Power", [["Subtract", "x_1", 8], 2]]], ["Add", ["Power", [["Add", "x_2", 3], 2]], 7.7], ]
+    input_2 = ["Square", ["Subtract", "x_2", 8]]
+
+    expr_1 = math_parser.parse(input_1)
+    str_1 = str(expr_1)
+    expr_2 = math_parser.parse(input_2)
+    str_2 = str(expr_2)
+
+    data = pl.DataFrame({"x_1": [1, 2], "x_2": [1, 2]})
+
+    res_1 = data.select(expr_1.alias("res"))["res"][0]
+    res_2 = data.select(expr_2.alias("res"))["res"][0]
+
+    print()
+    print()
+
+
 def test_binh_and_korn():
     """Basic test of the Binh and Korn problem.
 
