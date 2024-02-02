@@ -84,7 +84,7 @@ class MathParser:
             polars_env = {
                 # Define the operations for the different operators.
                 # Basic arithmethic operations
-                self.NEGATE: lambda x: -x,
+                self.NEGATE: lambda x: (-1) * x,
                 self.ADD: lambda *args: reduce(lambda x, y: x + y, args),
                 self.SUB: lambda *args: reduce(lambda x, y: x - y, args),
                 self.MUL: lambda *args: reduce(lambda x, y: x * y, args),
@@ -308,24 +308,30 @@ class MathParser:
         if isinstance(expr, int | float):
             # numeric constant, terminal case
             return expr
+
         if isinstance(expr, list):
             # Extract the operation name
-            op = expr[0]
-            if isinstance(op, list):
-                # Parse the nested operation first
-                op = self.parse(op)
-                if not isinstance(op, str | pl.Expr):
-                    raise ParserError("Nested operation did not resolve to an operation name")
-            # Parse all operands
-            operands = [self.parse(e) for e in expr[1:]]
+            if isinstance(expr[0], str):
+                op_name = expr[0]
+                # Parse all operands
+                operands = [self.parse(e) for e in expr[1:]]
+
+            else:
+                return [self.parse(e) for e in expr]
+
+            if isinstance(operands, list) and len(operands) == 1:
+                operands = operands[0]
+
             # ISSUE: we sometimes get a polars expr here, with variadic
             # functions. We need to be able to call the appropiate function with
             # the Expr and the operands. We need to somehow know the correct
             # function to call, either from the expr, or we need to store it
             # somehow. E.g., when we return a pl.Expr, we return the self.env operation name
-            if op in self.env:
-                return self.env[op](*operands)
-            raise ParserError(f"Operator: {op} is not found.")
+            if op_name in self.env:
+                if isinstance(operands, list):
+                    return self.env[op_name](*operands)
+                return self.env[op_name](operands)
+            raise ParserError(f"Operator: {op_name} is not found.")
         raise ParserError(f"The type of {type(expr)} is not supported.")
 
 

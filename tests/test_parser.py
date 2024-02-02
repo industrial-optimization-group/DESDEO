@@ -105,6 +105,7 @@ def test_basic():
     ]
 
     expr = math_parser.parse(expr=json_expr)
+    res = str(expr)
 
     data = pl.DataFrame({"x_1": [20, 30], "x_2": [5, 8], "x_3": [60, 21]})
 
@@ -114,26 +115,33 @@ def test_basic():
     assert objectives["Objective 1"][1] == 675
 
 
-def test_case_1():
-    """Test a problematic case."""
-    # FAILS: SEE PARSER.PY
+def test_negate():
     math_parser = MathParser()
-    # input_1 = ["Add", ["Negate", ["Square", ["Subtract", "x_1", 8]]], ["Negate", ["Square", ["Add", "x_2", 3]]], 7.7]
-    input_1 = ["Power", [["Subtract", "x_1", 8], 2]]
-    # input_2 = [ "Subtract", ["Negate", ["Power", [["Subtract", "x_1", 8], 2]]], ["Add", ["Power", [["Add", "x_2", 3], 2]], 7.7], ]
-    input_2 = ["Square", ["Subtract", "x_2", 8]]
 
-    expr_1 = math_parser.parse(input_1)
-    str_1 = str(expr_1)
-    expr_2 = math_parser.parse(input_2)
-    str_2 = str(expr_2)
+    json_expr_1 = [
+        "Add",
+        ["Negate", ["Power", ["Add", "x_1", ["Negate", 8]], 2]],
+        ["Negate", ["Power", ["Add", "x_2", 3], 2]],
+        7.7,
+    ]
+    json_expr_2 = [
+        "Add",
+        ["Negate", ["Square", ["Subtract", "x_1", 8]]],
+        ["Negate", ["Square", ["Add", "x_2", 3]]],
+        7.7,
+    ]
 
-    data = pl.DataFrame({"x_1": [1, 2], "x_2": [1, 2]})
+    expr_1 = math_parser.parse(expr=json_expr_1)
+    expr_2 = math_parser.parse(expr=json_expr_2)
 
-    res_1 = data.select(expr_1.alias("res"))["res"][0]
-    res_2 = data.select(expr_2.alias("res"))["res"][0]
+    data = pl.DataFrame({"x_1": [1], "x_2": [1]})
 
-    print()
+    res_1 = data.select(expr_1.alias("res_1"))
+    res_2 = data.select(expr_2.alias("res_2"))
+
+    res_1 = res_1["res_1"][0]
+    res_2 = res_2["res_2"][0]
+
     print()
 
 

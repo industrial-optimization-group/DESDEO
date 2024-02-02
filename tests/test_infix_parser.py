@@ -23,9 +23,16 @@ def test_basic_binary_to_json():
 
     # Subtracting
     input_subtract_1 = "f_1 - 3 - 2.5 - x_20 - (7 - 3)"
-    output_subtract_1 = ["Subtract", "f_1", 3, 2.5, "x_20", ["Subtract", 7, 3]]
+    output_subtract_1 = [
+        "Add",
+        "f_1",
+        ["Negate", 3],
+        ["Negate", 2.5],
+        ["Negate", "x_20"],
+        ["Negate", ["Add", 7, ["Negate", 3]]],
+    ]
     input_subtract_2 = "10 - (x_10 - 3.5) - y_4"
-    output_subtract_2 = ["Subtract", 10, ["Subtract", "x_10", 3.5], "y_4"]
+    output_subtract_2 = ["Add", 10, ["Negate", ["Add", "x_10", ["Negate", 3.5]]], ["Negate", "y_4"]]
     assert parser.parse(input_subtract_1) == output_subtract_1
     assert parser.parse(input_subtract_2) == output_subtract_2
 
@@ -102,7 +109,7 @@ def test_basic_unary_to_json():
 
     for op in unary_operators:
         input_expr = f"{op}(x)"
-        output_expr = [op, ["x"]]
+        output_expr = [op, "x"]
         assert parser.parse(input_expr) == output_expr
 
         # Combining with binary operation and negation
@@ -122,7 +129,7 @@ def test_basic_variadic_to_json():
 
     # Test case with a single argument
     input_max_1 = "Max(1)"
-    output_max_1 = ["Max", [1]]
+    output_max_1 = ["Max", 1]
     assert parser.parse(input_max_1) == output_max_1
 
     # Test case with multiple arguments
@@ -142,7 +149,10 @@ def test_basic_variadic_to_json():
 
     # Test case combining 'Max' with other operations
     input_max_5 = "Max(x + 1, 3 * y, Max(2 / z, 4 - w))"
-    output_max_5 = ["Max", [["Add", "x", 1], ["Multiply", 3, "y"], ["Max", [["Divide", 2, "z"], ["Subtract", 4, "w"]]]]]
+    output_max_5 = [
+        "Max",
+        [["Add", "x", 1], ["Multiply", 3, "y"], ["Max", [["Divide", 2, "z"], ["Add", 4, ["Negate", "w"]]]]],
+    ]
     assert parser.parse(input_max_5) == output_max_5
 
 
@@ -154,9 +164,9 @@ def test_mixed_operations_to_json():
     # Combination of unary, binary, and negation
     input_mixed_1 = "Sin(x_1 + 3) ** 2 - Max(4, Cos(y_2 - 5))"
     output_mixed_1 = [
-        "Subtract",
+        "Add",
         ["Power", ["Sin", ["Add", "x_1", 3]], 2],
-        ["Max", [4, ["Cos", ["Subtract", "y_2", 5]]]],
+        ["Negate", ["Max", [4, ["Cos", ["Add", "y_2", ["Negate", 5]]]]]],
     ]
     assert parser.parse(input_mixed_1) == output_mixed_1
 
@@ -164,21 +174,21 @@ def test_mixed_operations_to_json():
     input_mixed_2 = "Max(Sqrt(x_3 ** 2), Abs(-y_4) / 2, Ln(Exp(z_5)))"
     output_mixed_2 = [
         "Max",
-        [["Sqrt", ["Power", "x_3", 2]], ["Divide", ["Abs", ["Negate", "y_4"]], 2], ["Ln", ["Exp", ["z_5"]]]],
+        [["Sqrt", ["Power", "x_3", 2]], ["Divide", ["Abs", ["Negate", "y_4"]], 2], ["Ln", ["Exp", "z_5"]]],
     ]
     assert parser.parse(input_mixed_2) == output_mixed_2
 
     # Combination of unary, binary, negation, and variadic function
     input_mixed_3 = "Arccos(-1 / Max(Sin(2), 3))"
-    output_mixed_3 = ["Arccos", ["Divide", ["Negate", 1], ["Max", [["Sin", [2]], 3]]]]
+    output_mixed_3 = ["Arccos", ["Divide", ["Negate", 1], ["Max", [["Sin", 2], 3]]]]
     assert parser.parse(input_mixed_3) == output_mixed_3
 
     # Very complex and nested expression
     input_mixed_4 = "Ceil((x + 3) * Sin(Max(y, Tan(-2 * z)))) - Floor(Exp(Ln(5 / w)))"
     output_mixed_4 = [
-        "Subtract",
+        "Add",
         ["Ceil", ["Multiply", ["Add", "x", 3], ["Sin", ["Max", ["y", ["Tan", ["Multiply", ["Negate", 2], "z"]]]]]]],
-        ["Floor", ["Exp", ["Ln", ["Divide", 5, "w"]]]],
+        ["Negate", ["Floor", ["Exp", ["Ln", ["Divide", 5, "w"]]]]],
     ]
     assert parser.parse(input_mixed_4) == output_mixed_4
 
@@ -187,7 +197,7 @@ def test_mixed_operations_to_json():
     output_mixed_5 = [
         "Multiply",
         ["Power", 2, ["Lg", ["Abs", ["Negate", ["Max", ["f_6", 4.5]]]]]],
-        ["Sqrt", ["Add", ["Square", ["x_7"]], 9]],
+        ["Sqrt", ["Add", ["Square", "x_7"], 9]],
     ]
     assert parser.parse(input_mixed_5) == output_mixed_5
 
@@ -208,16 +218,25 @@ def test_infix_binh_and_korn_to_json():
     assert parsed_obj_1 == ["Add", ["Multiply", "c_1", ["Power", "x_1", 2]], ["Multiply", "c_1", ["Power", "x_2", 2]]]
 
     parsed_obj_2 = parser.parse(infix_obj_2)
-    assert parsed_obj_2 == ["Add", ["Power", ["Subtract", "x_1", "c_2"], 2], ["Power", ["Subtract", "x_2", "c_2"], 2]]
+    assert parsed_obj_2 == [
+        "Add",
+        ["Power", ["Add", "x_1", ["Negate", "c_2"]], 2],
+        ["Power", ["Add", "x_2", ["Negate", "c_2"]], 2],
+    ]
 
     parsed_cons_1 = parser.parse(infix_cons_1)
-    assert parsed_cons_1 == ["Add", ["Power", ["Subtract", "x_1", "c_2"], 2], ["Subtract", ["Power", "x_2", 2], 25]]
+    assert parsed_cons_1 == [
+        "Add",
+        ["Power", ["Add", "x_1", ["Negate", "c_2"]], 2],
+        ["Add", ["Power", "x_2", 2], ["Negate", 25]],
+    ]
 
     parsed_cons_2 = parser.parse(infix_cons_2)
     assert parsed_cons_2 == [
-        "Subtract",
-        ["Negate", ["Power", ["Subtract", "x_1", 8], 2]],
-        ["Add", ["Power", ["Add", "x_2", 3], 2], 7.7],
+        "Add",
+        ["Negate", ["Power", ["Add", "x_1", ["Negate", 8]], 2]],
+        ["Negate", ["Power", ["Add", "x_2", 3], 2]],
+        7.7,
     ]
 
     constant_1 = Constant(name="Four", symbol="c_1", value=4)
@@ -274,4 +293,4 @@ def test_infix_binh_and_korn_to_json():
     npt.assert_array_almost_equal(infix_result.objective_values["f_1"], truth_result.objective_values["f_1"])
     npt.assert_array_almost_equal(infix_result.objective_values["f_2"], truth_result.objective_values["f_2"])
     npt.assert_array_almost_equal(infix_result.constraint_values["g_1"], truth_result.constraint_values["g_1"])
-    # npt.assert_array_almost_equal(infix_result.constraint_values["g_2"], truth_result.constraint_values["g_2"])
+    npt.assert_array_almost_equal(infix_result.constraint_values["g_2"], truth_result.constraint_values["g_2"])

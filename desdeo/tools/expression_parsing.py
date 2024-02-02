@@ -59,6 +59,7 @@ class InfixExpressionParser:
         "Sinh": "Sinh",
         "Tanh": "Tanh",
         "Rational": "Rational",
+        "-": "Negate",
     }
 
     # Supported infix variadic operators (operators that take one or more comma separated arguments),
@@ -179,6 +180,9 @@ class InfixExpressionParser:
     def _pre_parse(self, str_expr: str):
         return self.expn.parse_string(str_expr, parse_all=True)
 
+    def _is_number_or_variable(self, c):
+        return isinstance(c, int | float) or (isinstance(c, str) and c not in self.reserved_symbols)
+
     def _to_math_json(self, parsed: list | str):
         """Converts a list of expressions into a MathJSON compliant format.
 
@@ -193,29 +197,72 @@ class InfixExpressionParser:
             list: A list representing a mathematical expression in a MathJSON compliant format.
         """
         # Directly return the input if it is an integer or a float
-        if isinstance(parsed, int | float) or (isinstance(parsed, str) and parsed not in self.reserved_symbols):
+        if self._is_number_or_variable(parsed):
             return parsed
 
         # Handle the case of unary negation
-        if len(parsed) == 2 and parsed[0] == "-":
-            return ["Negate", self._to_math_json(parsed[1])]
+        # if len(parsed) == 2 and parsed[0] == "-":
+        #    return ["Negate", self._to_math_json(parsed[1])]
 
         # Flatten binary operations like 1 + 2 + 3 into ["Add", 1, 2, 3]
         # Last check is to make sure that in cases like ["Max", ["x", "y", ...]] the 'y' is not confused to
         # be an operator.
-        if len(parsed) >= 3 and isinstance(parsed[1], str) and parsed[1] in InfixExpressionParser.BINARY_OPERATORS:
-            current_operator = self.operator_mapping[parsed[1]]
-            operands = [self._to_math_json(parsed[0])]
 
-            i = 1
+        if len(parsed) >= 3 and isinstance(parsed[1], str) and parsed[1] in InfixExpressionParser.BINARY_OPERATORS:
+            # Initialize the list to collect operands for the current operation
+            operands = []
+
+            # Check if the first operation is subtraction and handle it specially
+            if parsed[1] == "-":
+                current_operator = "Add"
+                # Negate the operand immediately following the subtraction operator
+                operands.append(self._to_math_json(parsed[0]))  # Add the first operand
+                operands.append(["Negate", self._to_math_json(parsed[2])])  # Negate the second operand
+                start_index = 3  # Start processing the rest of the expression from the next element
+            else:
+                current_operator = self.operator_mapping[parsed[1]]
+                operands.append(self._to_math_json(parsed[0]))  # Add the first operand as is
+                start_index = 1  # Start processing the rest of the expression from the second element
+
+            i = start_index
+
             while i < len(parsed) - 1:
+                op = parsed[i]
+
                 if isinstance(parsed[i], str) and i + 2 < len(parsed) and parsed[i] == parsed[i + 2]:
-                    operands.append(self._to_math_json(parsed[i + 1]))
+                    next_operand = self._to_math_json(parsed[i + 1])  # Next operand
+
+                    if op == "-":  # If subtraction, negate and add
+                        operands.append(["Negate", next_operand])
+                    else:
+                        operands.append(next_operand)
                     i += 2
                 else:
+                    # Handle last expression, negate if needed.
+                    if op == "-":
+                        return [[current_operator, *operands, ["Negate", *self._to_math_json(parsed[i + 1 :])]]]
+
                     return [[current_operator, *operands, *self._to_math_json(parsed[i + 1 :])]]
 
-            return [current_operator, [*operands]]
+            return [[current_operator, *operands]]
+
+            """
+            # Process the rest of the expression
+            for i in range(start_index, len(parsed), 2):
+                op = parsed[i]  # Operator
+                next_operand = self._to_math_json(parsed[i + 1])  # Next operand
+
+                if op == "-":  # If subtraction, negate and add
+                    operands.append(["Negate", next_operand])
+                elif op == "+":  # If addition, just add
+                    operands.append(next_operand)
+                else:  # For other operators, use the mapping
+                    current_operator = self.operator_mapping[op]
+                    operands.append(next_operand)
+
+            # Return the operation with operands correctly merged into a single operation
+            return [current_operator] + operands
+            """
 
         # Handle unary operations and functions
         if isinstance(parsed[0], str) and parsed[0] in self.reserved_symbols:
@@ -249,7 +296,7 @@ class InfixExpressionParser:
             return lst
 
         # If the list has only one element and that element is a list, unpack it
-        if len(lst) == 1 and isinstance(lst[0], list):
+        if len(lst) == 1 and (isinstance(lst[0], list) or self._is_number_or_variable(lst[0])):
             return self._remove_extra_brackets(lst[0])
 
         # Otherwise, process each element of the list
@@ -268,7 +315,7 @@ class InfixExpressionParser:
 
 
 # Parse and convert
-test = "- (x_1 - 8) ** 2 - (x_2 + 3) ** 2 + 7.7"
+test = "(x_1 - c_2) ** 2 + x_2 ** 2 - 25"
 
 ohh_no = "['Add', ['Negate', ['Square', ['Subtract', 'x_1', 8]]], ['Negate', ['Square', ['Add', 'x_2', 3]]], 7.7]"
 
