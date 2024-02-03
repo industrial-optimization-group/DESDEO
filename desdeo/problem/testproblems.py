@@ -4,7 +4,7 @@ Pre-defined problems for, e.g.,
 testing and illustration purposed are defined here.
 """
 
-from desdeo.problem.schema import Problem, Constant, Variable, Objective, Constraint
+from desdeo.problem.schema import Constant, Constraint, Objective, Problem, Variable
 
 
 def binh_and_korn() -> Problem:
@@ -65,6 +65,7 @@ def binh_and_korn() -> Problem:
         constraints=[constraint_1, constraint_2],
     )
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     problem = binh_and_korn()
     print(problem.model_dump_json(indent=2))

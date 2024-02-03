@@ -1,13 +1,13 @@
 """Tests the infix parser for parsing mathematical expressions in infix format."""
-import polars as pl
 import numpy as np
 import numpy.testing as npt
+import polars as pl
 
-from desdeo.problem.infix_parser import InfixExpressionParser
-from desdeo.problem.schema import Problem, Variable, Objective, Constraint, Constant
-from desdeo.problem.testproblems import binh_and_korn
 from desdeo.problem.evaluator import GenericEvaluator
+from desdeo.problem.infix_parser import InfixExpressionParser
 from desdeo.problem.json_parser import MathParser
+from desdeo.problem.schema import Constant, Constraint, Objective, Problem, Variable
+from desdeo.problem.testproblems import binh_and_korn
 
 
 def test_basic_binary_to_json():
@@ -205,6 +205,7 @@ def test_mixed_operations_to_json():
 
 
 def test_infix_binh_and_korn_to_json():
+    """Tests whether the Binh and Korn problem evaluates correctly from infix notation."""
     parser = InfixExpressionParser()
 
     # Infix expressions
@@ -289,8 +290,6 @@ def test_infix_binh_and_korn_to_json():
 
     infix_result = infix_evaluator.evaluate(xs_dict)
     truth_result = truth_evaluator.evaluate(xs_dict)
-
-    res = str(truth_problem.constraints[1].func)
 
     npt.assert_array_almost_equal(infix_result.objective_values["f_1"], truth_result.objective_values["f_1"])
     npt.assert_array_almost_equal(infix_result.objective_values["f_2"], truth_result.objective_values["f_2"])

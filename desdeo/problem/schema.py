@@ -13,11 +13,9 @@ The problem definition is a JSON file that contains the following information:
 
 
 from collections import Counter
-import copy
 from enum import Enum
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator, PrivateAttr
-
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
 VariableType = float | int | bool
 
@@ -32,6 +30,7 @@ class VariableTypeEnum(str, Enum):
 
 class ConstraintTypeEnum(str, Enum):
     """An enumerator for supported constraint expression types."""
+
     model_config = ConfigDict(frozen=True)
 
     EQ = "="  # equal
@@ -40,6 +39,7 @@ class ConstraintTypeEnum(str, Enum):
 
 class Constant(BaseModel):
     """Model for a constant."""
+
     model_config = ConfigDict(frozen=True)
 
     name: str = Field(
@@ -59,6 +59,7 @@ class Constant(BaseModel):
 
 class Variable(BaseModel):
     """Model for a variable."""
+
     model_config = ConfigDict(frozen=True)
 
     name: str = Field(
@@ -84,6 +85,7 @@ class ExtraFunction(BaseModel):
     These functions can, e.g., be functions that are re-used in the problem formulation, or
     they are needed for other computations related to the problem.
     """
+
     model_config = ConfigDict(frozen=True)
 
     name: str = Field(
@@ -107,16 +109,13 @@ class ExtraFunction(BaseModel):
 class ScalarizationFunction(BaseModel):
     """Model for scalarization of the problem."""
 
-    name: str = Field(
-        description=("Name of the scalarization. Example: 'STOM'"),
-        frozen=True
-    )
+    name: str = Field(description=("Name of the scalarization. Example: 'STOM'"), frozen=True)
     symbol: str | None = Field(
         description=(
             "Optional symbol to represent the scalarization function. This may be used in" " in UIs and visualizations."
         ),
         default=None,
-        frozen=False
+        frozen=False,
     )
     func: list = Field(
         description=(
@@ -125,12 +124,13 @@ class ScalarizationFunction(BaseModel):
             " The symbols in the function must match the symbols defined for objective/variable/constant/extra"
             " function."
         ),
-        frozen=True
+        frozen=True,
     )
 
 
 class Objective(BaseModel):
     """Model for an objective function."""
+
     model_config = ConfigDict(frozen=True)
 
     name: str = Field(
@@ -162,6 +162,7 @@ class Objective(BaseModel):
 
 class Constraint(BaseModel):
     """Model for a constraint function."""
+
     model_config = ConfigDict(frozen=True)
 
     name: str = Field(
@@ -198,6 +199,7 @@ class EvaluatedInfo(BaseModel):
 
     This model may be extended as needed.
     """
+
     model_config = ConfigDict(frozen=True)
 
     source: str = Field(description="The source of the evaluated solution(s). E.g., an optimization method's name.")
@@ -213,6 +215,7 @@ class EvaluatedSolutions(BaseModel):
     (decision_vectors[i]) are represented by the objective vector at position i
     (objective_vector[i]).
     """
+
     model_config = ConfigDict(frozen=True)
 
     info: EvaluatedInfo = Field(description="Information about the evaluated solutions.")
@@ -224,6 +227,7 @@ class EvaluatedSolutions(BaseModel):
 
 class Problem(BaseModel):
     """Model for a problem definition."""
+
     model_config = ConfigDict(frozen=True)
 
     _scalarization_index: int = PrivateAttr(default=1)

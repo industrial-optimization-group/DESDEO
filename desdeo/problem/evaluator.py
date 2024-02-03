@@ -1,12 +1,10 @@
 """Different evaluators are defined for evaluating multiobjective optimization problems."""
 
-import copy
-
-from desdeo.problem.schema import Problem
-from desdeo.problem.json_parser import MathParser, replace_str
-
 import polars as pl
 from pydantic import BaseModel, Field
+
+from desdeo.problem.json_parser import MathParser, replace_str
+from desdeo.problem.schema import Problem
 
 SUPPORTED_EVALUATOR_TYPES = ["polars"]
 

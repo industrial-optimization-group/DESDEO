@@ -1,24 +1,24 @@
 """Tests for the MathJSON parser."""
 import copy
-import json  # noqa: I001
-import pytest
+import json
+from pathlib import Path
 
 import numpy.testing as npt
-from pathlib import Path
+import polars as pl
+import pytest
+
 from desdeo.problem.evaluator import GenericEvaluator
 from desdeo.problem.json_parser import MathParser, replace_str
 from desdeo.problem.schema import (
-    Problem,
-    Variable,
-    Objective,
-    Constraint,
     Constant,
+    Constraint,
     ExtraFunction,
+    Objective,
+    Problem,
     ScalarizationFunction,
+    Variable,
 )
 from desdeo.problem.testproblems import binh_and_korn
-
-import polars as pl
 
 
 @pytest.fixture
@@ -105,7 +105,6 @@ def test_basic():
     ]
 
     expr = math_parser.parse(expr=json_expr)
-    res = str(expr)
 
     data = pl.DataFrame({"x_1": [20, 30], "x_2": [5, 8], "x_3": [60, 21]})
 
@@ -116,6 +115,7 @@ def test_basic():
 
 
 def test_negate():
+    """Tests negation."""
     math_parser = MathParser()
 
     json_expr_1 = [

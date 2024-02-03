@@ -33,6 +33,6 @@ if __name__ == "__main__":
             )
         ],
     )
-    print(inter.model_dump_json())  # noqa: T201
-    print()  # noqa: T201
-    print(Interaction.model_json_schema())  # noqa: T201
+    print(inter.model_dump_json())
+    print()
+    print(Interaction.model_json_schema())
