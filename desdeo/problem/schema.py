@@ -15,9 +15,39 @@ The problem definition is a JSON file that contains the following information:
 from collections import Counter
 from enum import Enum
 
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator, model_validator
+
+from desdeo.problem.infix_parser import InfixExpressionParser
 
 VariableType = float | int | bool
+
+
+def parse_infix_to_func(cls, v: str | list) -> list:
+    """Validator that checks if the 'func' field is of type str or list.
+
+    If str, then it is assumed the string represents the func in infix notation. The string
+    is parsed in the validator. If list, then the func is assumed to be represented in Math JSON format.
+
+    Args:
+        v (str | list): The func to be validated.
+
+    Raises:
+        ValueError: v is neither an instance of str or a list.
+
+    Returns:
+        list: The func represented in Math JSON format.
+    """
+    # Check if v is a string (infix expression), then parse it
+    if isinstance(v, str):
+        parser = InfixExpressionParser()
+        return parser.parse(v)
+    # If v is already in the correct format (a list), just return it
+    if isinstance(v, list):
+        return v
+
+    # Raise an error if v is neither a string nor a list
+    msg = f"func must be a string (infix expression) or a list, got {type(v)}"
+    raise ValueError(msg)
 
 
 class VariableTypeEnum(str, Enum):
@@ -44,8 +74,7 @@ class Constant(BaseModel):
 
     name: str = Field(
         description=(
-            "Descriptive name of the constant. This can be used in UI and visualizations.",
-            " Example: 'maximum cost'.",
+            "Descriptive name of the constant. This can be used in UI and visualizations." " Example: 'maximum cost'."
         ),
     )
     symbol: str = Field(
@@ -105,6 +134,8 @@ class ExtraFunction(BaseModel):
         ),
     )
 
+    _parse_infix_to_func = field_validator("func", mode="before")(parse_infix_to_func)
+
 
 class ScalarizationFunction(BaseModel):
     """Model for scalarization of the problem."""
@@ -127,6 +158,8 @@ class ScalarizationFunction(BaseModel):
         frozen=True,
     )
 
+    _parse_infix_to_func = field_validator("func", mode="before")(parse_infix_to_func)
+
 
 class Objective(BaseModel):
     """Model for an objective function."""
@@ -135,8 +168,7 @@ class Objective(BaseModel):
 
     name: str = Field(
         description=(
-            "Descriptive name of the objective function. This can be used in UI and visualizations.",
-            " Example: 'time'.",
+            "Descriptive name of the objective function. This can be used in UI and visualizations." " Example: 'time'."
         ),
     )
     symbol: str = Field(
@@ -158,6 +190,8 @@ class Objective(BaseModel):
     )
     ideal: float | None = Field(description="Ideal value of the objective. This is optional.", default=None)
     nadir: float | None = Field(description="Nadir value of the objective. This is optional.", default=None)
+
+    _parse_infix_to_func = field_validator("func", mode="before")(parse_infix_to_func)
 
 
 class Constraint(BaseModel):
@@ -192,6 +226,8 @@ class Constraint(BaseModel):
             " The symbols in the function must match objective/variable/constant shortnames."
         ),
     )
+
+    _parse_infix_to_func = field_validator("func", mode="before")(parse_infix_to_func)
 
 
 class EvaluatedInfo(BaseModel):
@@ -362,7 +398,7 @@ if __name__ == "__main__":
     variable_model_1 = Variable(
         name="example variable",
         symbol="x_1",
-        variable_type="real",
+        variable_type=VariableTypeEnum.real,
         lowerbound=-0.75,
         upperbound=11.3,
         initial_value=4.2,
@@ -370,7 +406,7 @@ if __name__ == "__main__":
     variable_model_2 = Variable(
         name="example variable",
         symbol="x_2",
-        variable_type="real",
+        variable_type=VariableTypeEnum.real,
         lowerbound=-0.75,
         upperbound=11.3,
         initial_value=4.2,
@@ -378,7 +414,7 @@ if __name__ == "__main__":
     variable_model_3 = Variable(
         name="example variable",
         symbol="x_3",
-        variable_type="real",
+        variable_type=VariableTypeEnum.real,
         lowerbound=-0.75,
         upperbound=11.3,
         initial_value=4.2,
