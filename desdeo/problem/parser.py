@@ -79,52 +79,50 @@ class MathParser:
         # It provides a way to represent and track the association between variables and and operators.
         self.env: dict = {}
         self.parser: str = parser
+        self.literals = int | float
+
+        def to_expr(x):
+            """Helper function to convert literals to polars expressions."""
+            return pl.lit(x) if isinstance(x, self.literals) else x
 
         if self.parser == "polars":
             polars_env = {
                 # Define the operations for the different operators.
-                # Basic arithmethic operations
-                self.NEGATE: lambda x: (-1) * x,
-                self.ADD: lambda *args: reduce(lambda x, y: x + y, args),
-                self.SUB: lambda *args: reduce(lambda x, y: x - y, args),
-                self.MUL: lambda *args: reduce(lambda x, y: x * y, args),
-                self.DIV: lambda *args: reduce(lambda x, y: x / y, args),
-                # Exponentation and logarithms
-                self.EXP: lambda x: pl.Expr.exp(x),
-                self.LN: lambda x: pl.Expr.log(x),  # 30
-                self.LB: lambda x: pl.Expr.log(x, 2),
-                self.LG: lambda x: pl.Expr.log10(x),
-                self.LOP: lambda x: pl.Expr.log1p(x),
-                self.SQRT: lambda x: pl.Expr.sqrt(x),
-                self.SQUARE: lambda x: x**2,
-                self.POW: lambda *args: reduce(lambda x, y: x**y, args),
+                # Basic arithmetic operations
+                self.NEGATE: lambda x: -to_expr(x),
+                self.ADD: lambda *args: reduce(lambda x, y: to_expr(x) + to_expr(y), args),
+                self.SUB: lambda *args: reduce(lambda x, y: to_expr(x) - to_expr(y), args),
+                self.MUL: lambda *args: reduce(lambda x, y: to_expr(x) * to_expr(y), args),
+                self.DIV: lambda *args: reduce(lambda x, y: to_expr(x) / to_expr(y), args),
+                # Exponentiation and logarithms
+                self.EXP: lambda x: pl.Expr.exp(to_expr(x)),
+                self.LN: lambda x: pl.Expr.log(to_expr(x)),
+                self.LB: lambda x: pl.Expr.log(to_expr(x), 2),
+                self.LG: lambda x: pl.Expr.log10(to_expr(x)),
+                self.LOP: lambda x: pl.Expr.log1p(to_expr(x)),
+                self.SQRT: lambda x: pl.Expr.sqrt(to_expr(x)),
+                self.SQUARE: lambda x: to_expr(x) ** 2,
+                self.POW: lambda x, y: to_expr(x) ** to_expr(y),
                 # Trigonometric operations
-                self.ARCCOS: lambda x: pl.Expr.arccos(x),  #  x ∊ [-1, 1]
-                self.ARCCOSH: lambda x: pl.Expr.arccosh(x),
-                self.ARCSIN: lambda x: pl.Expr.arcsin(x),
-                self.ARCSINH: lambda x: pl.Expr.arcsinh(x),
-                self.ARCTAN: lambda x: pl.Expr.arctan(x),
-                self.ARCTANH: lambda x: pl.Expr.arctanh(x),  # # x ∊ [-1, 1]
-                self.COS: lambda x: pl.Expr.cos(x),
-                self.COSH: lambda x: pl.Expr.cosh(x),
-                self.SIN: lambda x: pl.Expr.sin(x),
-                self.SINH: lambda x: pl.Expr.sinh(x),
-                self.TAN: lambda x: pl.Expr.tan(x),
-                self.TANH: lambda x: pl.Expr.tanh(x),
-                # Comparison operations
-                self.EQUAL: lambda lst: reduce(lambda x, y: x == y, lst),
-                self.GREATER: lambda lst: reduce(lambda x, y: x > y, lst),
-                self.GE: lambda lst: reduce(lambda x, y: x >= y, lst),
-                self.LESS: lambda lst: reduce(lambda x, y: x < y, lst),
-                self.LE: lambda lst: reduce(lambda x, y: x <= y, lst),
-                self.NE: lambda lst: reduce(lambda x, y: x != y, lst),
+                self.ARCCOS: lambda x: pl.Expr.arccos(to_expr(x)),
+                self.ARCCOSH: lambda x: pl.Expr.arccosh(to_expr(x)),
+                self.ARCSIN: lambda x: pl.Expr.arcsin(to_expr(x)),
+                self.ARCSINH: lambda x: pl.Expr.arcsinh(to_expr(x)),
+                self.ARCTAN: lambda x: pl.Expr.arctan(to_expr(x)),
+                self.ARCTANH: lambda x: pl.Expr.arctanh(to_expr(x)),
+                self.COS: lambda x: pl.Expr.cos(to_expr(x)),
+                self.COSH: lambda x: pl.Expr.cosh(to_expr(x)),
+                self.SIN: lambda x: pl.Expr.sin(to_expr(x)),
+                self.SINH: lambda x: pl.Expr.sinh(to_expr(x)),
+                self.TAN: lambda x: pl.Expr.tan(to_expr(x)),
+                self.TANH: lambda x: pl.Expr.tanh(to_expr(x)),
                 # Rounding operations
-                self.ABS: lambda x: pl.Expr.abs(x),
-                self.CEIL: lambda x: pl.Expr.ceil(x),  #
-                self.FLOOR: lambda x: pl.Expr.floor(x),  #
+                self.ABS: lambda x: pl.Expr.abs(to_expr(x)),
+                self.CEIL: lambda x: pl.Expr.ceil(to_expr(x)),
+                self.FLOOR: lambda x: pl.Expr.floor(to_expr(x)),
                 # Other operations
                 self.RATIONAL: lambda lst: reduce(lambda x, y: x / y, lst),
-                self.MAX: lambda lst: reduce(lambda x, y: pl.max(x, y), lst),
+                self.MAX: lambda *args: reduce(lambda x, y: pl.max_horizontal(to_expr(x), to_expr(y)), args),
             }
             self.append(polars_env)
         elif parser == "pandas":
@@ -305,13 +303,13 @@ class MathParser:
                 return expr
             raise ParserError("incorrect parser")
 
-        if isinstance(expr, int | float):
+        if isinstance(expr, self.literals):
             # numeric constant, terminal case
-            return expr
+            return pl.lit(expr)
 
         if isinstance(expr, list):
             # Extract the operation name
-            if isinstance(expr[0], str):
+            if isinstance(expr[0], str) and expr[0] in self.env:
                 op_name = expr[0]
                 # Parse all operands
                 operands = [self.parse(e) for e in expr[1:]]

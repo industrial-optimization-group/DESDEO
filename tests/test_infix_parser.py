@@ -1,11 +1,13 @@
 """Tests the infix parser for parsing mathematical expressions in infix format."""
 import polars as pl
+import numpy as np
 import numpy.testing as npt
 
 from desdeo.tools.expression_parsing import InfixExpressionParser
 from desdeo.problem.schema import Problem, Variable, Objective, Constraint, Constant
 from desdeo.problem.testproblems import binh_and_korn
 from desdeo.problem.evaluator import GenericEvaluator
+from desdeo.problem.parser import MathParser
 
 
 def test_basic_binary_to_json():
@@ -294,3 +296,132 @@ def test_infix_binh_and_korn_to_json():
     npt.assert_array_almost_equal(infix_result.objective_values["f_2"], truth_result.objective_values["f_2"])
     npt.assert_array_almost_equal(infix_result.constraint_values["g_1"], truth_result.constraint_values["g_1"])
     npt.assert_array_almost_equal(infix_result.constraint_values["g_2"], truth_result.constraint_values["g_2"])
+
+
+def evaluate_expression_helper(infix_expression, data):
+    """Evaluate an infix expression using the given data and return the result."""
+    infix_parser = InfixExpressionParser(target="MathJSON")
+    math_parser = MathParser(parser="polars")
+
+    parsed_expression = infix_parser.parse(infix_expression)
+    expr = math_parser.parse(parsed_expression)
+    return data.select(expr.alias("result"))["result"][0]
+
+
+def test_infix_evaluated_basics():
+    """Tests the infix parser for basic arithmetic operations by checking the evaluated result's correctness."""
+    data = pl.DataFrame({"x_1": [5.2], "x_2": [-4.2], "bignumber": [10], "smallnum": [0.5]})
+
+    # Retrieve values from the DataFrame for computation
+    x_1 = data["x_1"][0]
+    x_2 = data["x_2"][0]
+    bignumber = data["bignumber"][0]
+    smallnum = data["smallnum"][0]
+
+    # Test cases (infix expression, numpy computation for expected result)
+    tests = [
+        ("1+2+x_1+bignumber", 1 + 2 + x_1 + bignumber),
+        ("1+2-x_1+bignumber-x_2", 1 + 2 - x_1 + bignumber - x_2),
+        ("x_1 - x_2 + bignumber - smallnum", x_1 - x_2 + bignumber - smallnum),
+        ("x_1 * smallnum * bignumber", x_1 * smallnum * bignumber),
+        ("bignumber / smallnum / x_1", bignumber / smallnum / x_1),
+        ("smallnum ** x_1", smallnum**x_1),
+        ("(x_1 + bignumber) * smallnum - x_2 / smallnum", (x_1 + bignumber) * smallnum - x_2 / smallnum),
+        ("bignumber * (smallnum + x_1) - x_2 ** 2", bignumber * (smallnum + x_1) - x_2**2),
+        ("x_1 + x_2", x_1 + x_2),
+        ("bignumber - smallnum", bignumber - smallnum),
+        ("((x_1 + 2) * (x_2 - 2)) / smallnum", ((x_1 + 2) * (x_2 - 2)) / smallnum),
+        ("(bignumber ** 2 - smallnum) / (x_1 + 1)", (bignumber**2 - smallnum) / (x_1 + 1)),
+        ("x_1 * (x_2 / (smallnum + bignumber))", x_1 * (x_2 / (smallnum + bignumber))),
+        ("(x_1 - x_2) * (bignumber + smallnum)", (x_1 - x_2) * (bignumber + smallnum)),
+        ("((x_1 ** 2) + (bignumber * smallnum) - x_2)", ((x_1**2) + (bignumber * smallnum) - x_2)),
+        ("(x_1 + bignumber) * (x_2 - smallnum) / x_1", (x_1 + bignumber) * (x_2 - smallnum) / x_1),
+        ("1+2+3", 1 + 2 + 3),
+        ("1+2-3*5/2", 1 + 2 - 3 * 5 / 2),
+    ]
+
+    for infix_expression, expected in tests:
+        result = evaluate_expression_helper(infix_expression, data)
+        npt.assert_almost_equal(result, expected, decimal=5, err_msg=f"Failed for expression: {infix_expression}")
+
+
+def test_unary_operators_with_nested_expressions_evaluation():
+    """Test parsing and evaluation of complex expressions with unary operators and mixed arithmetic."""
+    data = pl.DataFrame(
+        {
+            "x": [5.5],
+            "y": [2.0],
+            "z": [-1.0],
+        }
+    )
+    x = data["x"][0]
+    y = data["y"][0]
+    z = data["z"][0]
+
+    # Test cases (infix expression, expected result)
+    tests = [
+        ("Sin(x + y)", np.sin(x + y)),
+        ("Exp(x) * Cos(y - x)", np.exp(x) * np.cos(y - x)),
+        ("Lb(x)", np.log2(x)),
+        ("Lg(x)", np.log10(x)),
+        ("LogOnePlus(x)", np.log1p(x)),
+        ("Sqrt(x)", np.sqrt(x)),
+        ("Square(x)", np.square(x)),
+        ("Abs(z)", np.abs(z)),
+        ("Ceil(x)", np.ceil(x)),
+        ("Floor(x)", np.floor(x)),
+        ("Arccos(Cos(y))", np.arccos(np.cos(y))),
+        ("Arccosh(Cosh(x))", np.arccosh(np.cosh(x))),
+        ("Arcsin(Sin(y))", np.arcsin(np.sin(y))),
+        ("Arcsinh(Sinh(x))", np.arcsinh(np.sinh(x))),
+        ("Arctan(Tan(y))", np.arctan(np.tan(y))),
+        ("Arctanh(Tanh(x))", np.arctanh(np.tanh(x))),
+        ("Cosh(x)", np.cosh(x)),
+        ("Sinh(x)", np.sinh(x)),
+        ("Tanh(x)", np.tanh(x)),
+        ("Exp(Ln(x)) + Sqrt(Square(y))", np.exp(np.log(x)) + np.sqrt(np.square(y))),
+        ("Ceil(Sin(x)) + Floor(Cos(y))", np.ceil(np.sin(x)) + np.floor(np.cos(y))),
+        ("Abs(z) * Tanh(x)", np.abs(z) * np.tanh(x)),
+        ("Square(2)", np.square(2)),
+    ]
+
+    for infix_expression, expected in tests:
+        result = evaluate_expression_helper(infix_expression, data)
+        npt.assert_almost_equal(result, expected, decimal=5, err_msg=f"Failed for expression: {infix_expression}")
+
+
+def test_variadic_max_evaluation():
+    """Test parsing and evaluation of expressions with the variadic 'Max' operator."""
+    data = pl.DataFrame(
+        {
+            "a": [1],
+            "b": [2],
+            "c": [3],
+            "d": [4],
+        }
+    )
+    a = data["a"][0]
+    b = data["b"][0]
+    c = data["c"][0]
+    d = data["d"][0]
+
+    # Test cases (infix expression, expected result)
+    tests = [
+        ("Max(a)", np.max([a])),
+        ("Max(a, b)", np.max([a, b])),
+        ("Max(a, b, c)", np.max([a, b, c])),
+        ("Max(a, b, c, d)", np.max([a, b, c, d])),
+        ("Max(a + b, c)", np.max([a + b, c])),
+        ("Max(a, b * c)", np.max([a, b * c])),
+        ("Max((a + b), (c * d), (d - a))", np.max([a + b, c * d, d - a])),
+        ("Max(a, Max(b, c))", np.max([a, np.max([b, c])])),
+        ("Max(Max(a, b), Max(c, d))", np.max([np.max([a, b]), np.max([c, d])])),
+        ("Max(a + b, c - d, d / a, b * d)", np.max([a + b, c - d, d / a, b * d])),
+        ("Max(1,2,3)", np.max([1, 2, 3])),
+        ("Max(a + 3, b - 8, a*c, Sin(d))", np.max([a + 3, b - 8, a * c, np.sin(d)])),
+        ("Max(-1)", -1),
+    ]
+
+    for infix_expression, expected in tests:
+        result = evaluate_expression_helper(infix_expression, data)
+        npt.assert_almost_equal(result, expected, decimal=5, err_msg=f"Failed for expression: {infix_expression}")
