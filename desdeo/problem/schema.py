@@ -360,9 +360,7 @@ class Problem(BaseModel):
     description: str = Field(
         description="Description of the problem.",
     )
-    constants: list[Constant] = Field(
-        description="List of constants.",
-    )
+    constants: list[Constant] | None = Field(description="List of constants.", default=None)
     variables: list[Variable] = Field(
         description="List of variables.",
     )

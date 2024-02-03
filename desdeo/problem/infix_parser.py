@@ -314,16 +314,16 @@ class InfixExpressionParser:
         return self._remove_extra_brackets(self.parse_to_target(self.pre_parse(str_expr)))
 
 
-# Parse and convert
-test = "(x_1 - c_2) ** 2 + x_2 ** 2 - 25"
+if __name__ == "__main__":
+    # Parse and convert
+    test = "(x_1 - c_2) ** 2 + x_2 ** 2 - 25"
 
-ohh_no = "['Add', ['Negate', ['Square', ['Subtract', 'x_1', 8]]], ['Negate', ['Square', ['Add', 'x_2', 3]]], 7.7]"
+    ohh_no = "['Add', ['Negate', ['Square', ['Subtract', 'x_1', 8]]], ['Negate', ['Square', ['Add', 'x_2', 3]]], 7.7]"
 
-to_json_parser = InfixExpressionParser(target="MathJSON")
+    to_json_parser = InfixExpressionParser(target="MathJSON")
 
-parsed_expression = to_json_parser.parse(test)
+    parsed_expression = to_json_parser.parse(test)
 
-
-print(f"Expresion:\n{test}")
-print(f"Parsed:\n{to_json_parser._pre_parse(test)}")
-print(f"MathJSON:\n{parsed_expression}")
+    print(f"Expresion:\n{test}")
+    print(f"Parsed:\n{to_json_parser._pre_parse(test)}")
+    print(f"MathJSON:\n{parsed_expression}")

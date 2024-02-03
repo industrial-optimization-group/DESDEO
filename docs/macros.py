@@ -1,20 +1,22 @@
-""" Macros for dynamically adding content to the documentation."""
-
+"""Macros for dynamically adding content to the documentation."""
+import inspect
 import json
+import re
 
 from desdeo.problem.schema import (
-    Variable,
     Constant,
     Constraint,
-    Objective,
-    ExtraFunction,
-    ScalarizationFunction,
-    EvaluatedSolutions,
     EvaluatedInfo,
+    EvaluatedSolutions,
+    ExtraFunction,
+    Objective,
     Problem,
+    ScalarizationFunction,
+    Variable,
 )
 
 
+# Schema stuff
 def generate_schema_and_example(model_class, example):
     """Generates a schema and JSON example of a given model."""
     schema_json = model_class.model_json_schema()
@@ -149,11 +151,99 @@ def get_problem_info():
     return generate_schema_and_example(Problem, example)
 
 
+# Problem definition examples
+def extract_marked_section(func, start_marker, end_marker, tab_size=4) -> str:
+    """Extract the source code of a function between a start and end marker.
+
+    Args:
+        func (Callable): The function which source code should be extracted.
+        start_marker (str): The start marker. Usually a comment starting with '#' in the source code of func.
+        end_marker (_type_): The end marer. Usually a comment starting with '#' in the source code of func.
+        tab_size (int, optional): Tab size used to deindent the source code to look nicer. Defaults to 4.
+
+    Returns:
+        str: The snippet of the code of func between the markers.
+    """
+    pattern = re.compile(f"{start_marker}(.*?){end_marker}", re.DOTALL)
+    source = inspect.getsource(func)
+    match = pattern.search(source)
+    if match:
+        snippet = match.group(1).strip()
+        # Split the snippet into lines
+        lines = snippet.split("\n")
+
+        # Define a single tab's worth of spaces, or use a tab character '\t' if preferred
+        tab = " " * tab_size
+
+        # Deindent each line by one tab
+        deindented_lines = [line[tab_size:] if line.startswith(tab) else line for line in lines]
+
+        return "\n".join(deindented_lines)
+
+    return "Section not found."
+
+
+def river_problem_example():
+    """An example used in the docs to define the river pollution problem."""
+    # variables_start
+
+    from desdeo.problem.schema import Variable
+
+    variable_1 = Variable(
+        name="BOD", symbol="x_1", variable_type="real", lowerbound=0.3, upperbound=1.0, initial_value=0.65
+    )
+    variable_2 = Variable(
+        name="DO", symbol="x_2", variable_type="real", lowerbound=0.3, upperbound=1.0, initial_value=0.65
+    )
+
+    # variables_end
+
+    # infix_objectives_start
+
+    f_1 = "-4.07 - 2.27 * x_1"
+    f_2 = "-2.60 - 0.03 * x_1 - 0.02 * x_2 - 0.01 / (1.39 - x_1**2) - 0.30 / (1.39 - x_2**2)"
+    f_3 = "-8.21 + 0.71 / (1.09 - x_1**2)"
+    f_4 = "-0.96 + 0.96 / (1.09 - x_2**2)"
+    f_5 = "Max(Abs(x_1 - 0.65), Abs(x_2 - 0.65))"
+
+    # infix_objectives_end
+
+    # objectives_start
+    from desdeo.problem.schema import Objective
+
+    objective_1 = Objective(name="DO city", symbol="f_1", func=f_1, maximize=False)
+    objective_2 = Objective(name="DO municipality", symbol="f_2", func=f_2, maximize=False)
+    objective_3 = Objective(name="(negated) ROI fishery", symbol="f_3", func=f_3, maximize=False)
+    objective_4 = Objective(name="(negated) ROI city", symbol="f_4", func=f_4, maximize=False)
+    objective_5 = Objective(name="BOD deviation", symbol="f_5", func=f_5, maximize=False)
+    # objectives_end
+
+    from desdeo.problem.schema import Problem
+
+    # problem_start
+    river_problem = Problem(
+        name="The river pollution problem",
+        description="The river pollution problem to maximize return of investments and minimize pollution.",
+        variables=[variable_1, variable_2],
+        objectives=[objective_1, objective_2, objective_3, objective_4, objective_5],
+    )
+    # problem_end
+
+    return river_problem.model_dump_json(indent=2)
+
+
+def get_river_snippet(marker: str):
+    """Helper function to get snippets of the river pollution problem example."""
+    return extract_marked_section(river_problem_example, "# " + marker + "_start", "# " + marker + "_end")
+
+
+# Add stuff to env
 def define_env(env):
     """Defines the env used by mkdocs and registers various functions as macros.
 
     For any function to be utilized in the documentation, it must be registered.
     """
+    # Schema examples
     env.macro(get_constant_info)
     env.macro(get_variable_info)
     env.macro(get_extra_function_info)
@@ -163,3 +253,12 @@ def define_env(env):
     env.macro(get_evaluated_info_info)
     env.macro(get_evaluated_solutions_info)
     env.macro(get_problem_info)
+    # River problem example
+    env.macro(get_river_snippet)
+    env.macro(river_problem_example)
+
+
+if __name__ == "__main__":
+    import inspect
+
+    print(river_problem_example())

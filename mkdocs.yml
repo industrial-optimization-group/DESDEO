@@ -7,7 +7,7 @@ site_dir: "site"
 nav:
   - Home: "index.md"
   - "User Guide":
-      - "Defining a multiobjective optimization problem": "howtoguides/problem.md"
+      - "Defining multiobjective optimization problems": "howtoguides/problem.md"
   - "Explanation":
       - "The problem format": "explanation/problem_format.md"
       - "Scalarization-based methods": "explanation/scalarization_methods.md"
