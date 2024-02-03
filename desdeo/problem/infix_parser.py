@@ -4,24 +4,25 @@ Currently, mostly parses to MathJSON, e.g., "n / (1 + n)" -> ['Divide', 'n', ['A
 """
 from functools import reduce
 from operator import or_
-from typing import ClassVar
 
 from pyparsing import (
-    Word,
     Combine,
-    alphas,
-    nums,
-    Group,
     Forward,
-    infixNotation,
-    opAssoc,
-    ParserElement,
-    delimitedList,
-    Suppress,
+    Group,
     Keyword,
     Literal,
+    ParserElement,
+    Suppress,
+    Word,
+    alphas,
+    delimitedList,
+    infixNotation,
+    nums,
     one_of,
+    opAssoc,
 )
+
+from typing import ClassVar
 
 
 class InfixExpressionParser:
@@ -200,14 +201,9 @@ class InfixExpressionParser:
         if self._is_number_or_variable(parsed):
             return parsed
 
-        # Handle the case of unary negation
-        # if len(parsed) == 2 and parsed[0] == "-":
-        #    return ["Negate", self._to_math_json(parsed[1])]
-
         # Flatten binary operations like 1 + 2 + 3 into ["Add", 1, 2, 3]
         # Last check is to make sure that in cases like ["Max", ["x", "y", ...]] the 'y' is not confused to
         # be an operator.
-
         if len(parsed) >= 3 and isinstance(parsed[1], str) and parsed[1] in InfixExpressionParser.BINARY_OPERATORS:
             # Initialize the list to collect operands for the current operation
             operands = []

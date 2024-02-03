@@ -3,10 +3,12 @@
 import copy
 
 from desdeo.problem.schema import Problem
-from desdeo.problem.parser import MathParser, replace_str, SUPPORTED_PARSER_TYPES
+from desdeo.problem.json_parser import MathParser, replace_str
 
 import polars as pl
 from pydantic import BaseModel, Field
+
+SUPPORTED_EVALUATOR_TYPES = ["polars"]
 
 
 class EvaluatorResult(BaseModel):
@@ -92,9 +94,10 @@ class GenericEvaluator:
                 that can be evaluated. Default 'polars'.
         """
         # Create a MathParser of type 'evaluator_type'.
-        if parser_type not in SUPPORTED_PARSER_TYPES:
+        if parser_type not in SUPPORTED_EVALUATOR_TYPES:
             msg = (
-                f"The provided 'parser_type' '{parser_type}' is not supported. Must be one of {SUPPORTED_PARSER_TYPES}."
+                f"The provided 'parser_type' '{parser_type}' is not supported."
+                " Must be one of {SUPPORTED_EVALUATOR_TYPES}."
             )
             raise EvaluatorError(msg)
 
@@ -131,7 +134,7 @@ class GenericEvaluator:
         # as additional if-branches.
         if parser_type == "polars":
             # Note: `self.parser` is assumed to be set before continuing the initialization.
-            self.parser = MathParser(parser=self.parser_type)
+            self.parser = MathParser()
             self._polars_init()
             # Note, when calling an evaluate method, it is assumed the problem has been fully parsed.
             self.evaluate = self._polars_evaluate
@@ -188,7 +191,9 @@ class GenericEvaluator:
 
         # Parse all functions into expressions. These are stored as tuples, as (symbol, parsed expression)
         # parse objectives
-        self.objective_expressions = [(symbol, self.parser.parse(expression)) for symbol, expression in parsed_obj_funcs.items()]
+        self.objective_expressions = [
+            (symbol, self.parser.parse(expression)) for symbol, expression in parsed_obj_funcs.items()
+        ]
 
         # parse constraints, if any
         if parsed_cons_funcs is not None:
@@ -200,7 +205,9 @@ class GenericEvaluator:
 
         # parse extra functions, if any
         if parsed_extra_funcs is not None:
-            self.extra_expressions = [(symbol, self.parser.parse(expression)) for symbol, expression in parsed_extra_funcs.items()]
+            self.extra_expressions = [
+                (symbol, self.parser.parse(expression)) for symbol, expression in parsed_extra_funcs.items()
+            ]
         else:
             self.extra_expressions = None
 

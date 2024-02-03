@@ -3,11 +3,11 @@ import polars as pl
 import numpy as np
 import numpy.testing as npt
 
-from desdeo.tools.expression_parsing import InfixExpressionParser
+from desdeo.problem.infix_parser import InfixExpressionParser
 from desdeo.problem.schema import Problem, Variable, Objective, Constraint, Constant
 from desdeo.problem.testproblems import binh_and_korn
 from desdeo.problem.evaluator import GenericEvaluator
-from desdeo.problem.parser import MathParser
+from desdeo.problem.json_parser import MathParser
 
 
 def test_basic_binary_to_json():
@@ -301,7 +301,7 @@ def test_infix_binh_and_korn_to_json():
 def evaluate_expression_helper(infix_expression, data):
     """Evaluate an infix expression using the given data and return the result."""
     infix_parser = InfixExpressionParser(target="MathJSON")
-    math_parser = MathParser(parser="polars")
+    math_parser = MathParser()
 
     parsed_expression = infix_parser.parse(infix_expression)
     expr = math_parser.parse(parsed_expression)

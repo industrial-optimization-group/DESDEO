@@ -6,7 +6,7 @@ import pytest
 import numpy.testing as npt
 from pathlib import Path
 from desdeo.problem.evaluator import GenericEvaluator
-from desdeo.problem.parser import MathParser, replace_str
+from desdeo.problem.json_parser import MathParser, replace_str
 from desdeo.problem.schema import (
     Problem,
     Variable,
@@ -177,7 +177,7 @@ def test_binh_and_korn():
     con2_expr = replace_str(tmp, c_2.symbol, c_2.value)
 
     # parse the expressions into polars expressions
-    parser = MathParser(parser="polars")
+    parser = MathParser()
 
     parsed_f1 = parser.parse(f1_expr)
     parsed_f2 = parser.parse(f2_expr)
