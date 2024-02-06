@@ -2,7 +2,7 @@
 
 from enum import Enum
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class UserRole(Enum):
@@ -14,7 +14,7 @@ class UserRole(Enum):
 
 
 class User(BaseModel):
-    """Model for a user."""
+    """Model for a user. Temporary."""
 
     username: str = Field(description="Username of the user.")
     password_hash: str = Field(description="SHA256 Hash of the user's password.")

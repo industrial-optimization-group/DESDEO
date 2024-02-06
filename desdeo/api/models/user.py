@@ -1,3 +1,5 @@
+"""SQLAlchemy model for a user."""
+
 from passlib.hash import pbkdf2_sha256 as sha256
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -17,18 +19,30 @@ class UserModel(Base.Model):
     user_group: Mapped[str] = mapped_column(nullable=True)
 
     def __repr__(self):
+        """Return a string representation of the user (username)."""
         return f"User: ('{self.username}')"
 
     @staticmethod
-    def generate_hash(password):
+    def generate_hash(password: str) -> str:
+        """Generate a hash from a password.
+
+        Args:
+            password: The password to hash.
+
+        Returns:
+            The hashed password.
+        """
         return sha256.hash(password)
 
     @staticmethod
-    def verify_hash(password, hash):
-        return sha256.verify(password, hash)
+    def verify_hash(password: str, hashed: str) -> bool:
+        """Verify a password against a hash.
 
+        Args:
+            password: The password to verify.
+            hashed (str): The hash to verify against.
 
-class TokenBlocklist(Base.Model):
-    id = Base.Column(Base.Integer, primary_key=True)
-    jti = Base.Column(Base.String(120), nullable=False)
-    created_at = Base.Column(Base.DateTime, nullable=False)
+        Returns:
+            True if the password matches the hash, False otherwise.
+        """
+        return sha256.verify(password, hashed)
