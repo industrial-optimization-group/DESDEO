@@ -22,6 +22,7 @@ fastapi = "^0.106.0"
 uvicorn = {extras = ["standard"], version = "^0.25.0"}
 sqlalchemy = "^2.0.23"
 passlib = "^1.7.4"
+numba = "^0.59.0"
 
 [tool.poetry.extras]
 standard = ["polars"]
