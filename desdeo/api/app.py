@@ -5,7 +5,11 @@ from desdeo.api.routers import NIMBUS
 
 # from desdeo.api.db import Base
 
-app = FastAPI()
+app = FastAPI(
+    title="DESDEO (fast)API",
+    version="0.1.0",
+    description="A rest API for the DESDEO framework.",
+)
 # db = Base
 
 
