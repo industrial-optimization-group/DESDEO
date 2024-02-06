@@ -134,8 +134,8 @@ quote-style = "double"
 [tool.djlint]
 profile="jinja"
 
-[tools.isort]
-progile="black"
+[tool.isort]
+profile="black"
 
 [build-system]
 requires = ["poetry-core"]
