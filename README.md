@@ -7,6 +7,7 @@ Everything in this repository is currently subject to change. Stay tuned for upd
 ### Prerequisites
 - Python 3.12 or newer
 - Poetry (https://python-poetry.org/docs/#installation)
+- Postgres (https://www.postgresql.org/download/) to run the API.
 
 ### Getting and running DESDEO
 - Clone this repository (`git clone https://github.com/industrial-optimization-group/DESDEO.git`)

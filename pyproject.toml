@@ -18,11 +18,16 @@ plotly = "^5.18.0"
 pydantic = "^2.5.2"
 sympy = "^1.12"
 pyparsing = "^3.1.1"
+fastapi = "^0.106.0"
+uvicorn = {extras = ["standard"], version = "^0.25.0"}
+sqlalchemy = "^2.0.23"
+passlib = "^1.7.4"
 
 [tool.poetry.extras]
 standard = ["polars"]
 legacy = ["polars-lts-cpu"]
 viz = ["seaborn", "plotly"]  # We could make viz packages optional in the future.
+api = ["fastapi", "uvicorn", "sqlalchemy", "passlib"]  # We could make API packages optional in the future.
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.1.6"
