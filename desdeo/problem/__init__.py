@@ -8,6 +8,7 @@ __all__ = [
     "EvaluatedSolutions",
     "ExtraFunction",
     "GenericEvaluator",
+    "InfixExpressionParser",
     "Objective",
     "Problem",
     "river_pollution_problem",
@@ -31,5 +32,7 @@ from .schema import (
     Variable,
     VariableTypeEnum,
 )
+
+from .infix_parser import InfixExpressionParser
 
 from .testproblems import binh_and_korn, river_pollution_problem

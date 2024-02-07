@@ -188,7 +188,7 @@ class GenericEvaluator:
                 parsed_scal_funcs = None
         else:
             # no constants defined, just collect all expressions as they are
-            parsed_cons_funcs = {f"{objective.symbol}": objective.func for objective in self.problem_objectives}
+            parsed_obj_funcs = {f"{objective.symbol}": objective.func for objective in self.problem_objectives}
 
             if self.problem_constraints is not None:
                 parsed_cons_funcs = {f"{constraint.symbol}": constraint.func for constraint in self.problem_constraints}
