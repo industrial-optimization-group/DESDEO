@@ -424,3 +424,28 @@ def test_variadic_max_evaluation():
     for infix_expression, expected in tests:
         result = evaluate_expression_helper(infix_expression, data)
         npt.assert_almost_equal(result, expected, decimal=5, err_msg=f"Failed for expression: {infix_expression}")
+
+def test_scientific_notation_evaluation():
+    """Test parsing and evaluation of expressions with numbers in scientific notation."""
+    data = pl.DataFrame({"x": [1.5], "y": [-1.23e-5]})
+
+    x = data["x"][0]
+    y = data["y"][0]
+
+    # Test cases: Each tuple contains the infix expression and the expected result
+    tests = [
+        ("1e3 + x", 1000 + x),
+        ("2.5e-3 * y", 2.5e-3 * y),
+        ("1.2e2 / 1e1", 1.2e2 / 1e1),
+        ("3e3 - 1.5e2", 3e3 - 1.5e2),
+        ("4e-2 * 2e2", 4e-2 * 2e2),
+        ("5.5e-1 ** 2", 5.5e-1 ** 2),
+        ("(3e2 + x) * 2e-1", (3e2 + x) * 2e-1),
+        ("1e-3 / (2e2 - y)", 1e-3 / (2e2 - y)),
+        ("3.14e0 * x + 1e1", 3.14 * x + 10),
+        ("6e-2 ** (1e1 * y)", 6e-2 ** (10 * y)),
+    ]
+
+    for infix_expression, expected in tests:
+        result = evaluate_expression_helper(infix_expression, data)
+        npt.assert_almost_equal(result, expected, decimal=5, err_msg=f"Failed for expression: {infix_expression}")

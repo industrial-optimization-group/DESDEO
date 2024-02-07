@@ -75,7 +75,6 @@ def create_asf(problem: Problem, reference_point: list[float], delta: float = 0.
     """
     # Question: is minimization assumed here always?
     # Question: unwrapping by replacing function is fine?
-    # TODO: make the infix parser support scientific notation
     objective_symbols = [objective.symbol for objective in problem.objectives]
     ideal_point = [objective.ideal for objective in problem.objectives]
     nadir_point = [objective.nadir for objective in problem.objectives]
@@ -85,7 +84,7 @@ def create_asf(problem: Problem, reference_point: list[float], delta: float = 0.
         f"({objective_symbols[i]} - {reference_point[i]}) / ({nadir_point[i]} - ({ideal_point[i]} - {delta}))"
         for i in range(len(problem.objectives))
     ]
-    max_term = f"Max({', '.join(max_operands)})"
+    max_term = f"{Op.MAX}({', '.join(max_operands)})"
 
     # Build the augmentation term
     aug_operands = [

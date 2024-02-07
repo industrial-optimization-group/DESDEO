@@ -12,6 +12,7 @@ from pyparsing import (
     Group,
     Keyword,
     Literal,
+    Optional,
     ParserElement,
     Suppress,
     Word,
@@ -123,13 +124,22 @@ class InfixExpressionParser:
             """Parses the Literal 'real' into a Python float."""
             return float("".join(tokens))
 
-        # Derfine operands
-        # TODO: allow scientific notation as well
-        integer = Combine(Word(nums)).add_parse_action(parse_integer)
+        def parse_scientific(tokens):
+            """Parses Literal 'scientific' into a Python float."""
+            return float("".join(tokens))
+
+        # Define operands
+        integer = Combine(Word(nums)).set_parse_action(parse_integer)
         real = Combine(Word(nums) + "." + Word(nums)).set_parse_action(parse_real)
+
+        # Scientific notation
+        sign = one_of("+ -")
+        exponent = Combine(one_of("e E") + Optional(sign) + integer)
+        scientific = Combine(real + Optional(exponent) | integer + exponent).set_parse_action(parse_scientific)
+
         # Keywords are excluded from variable names.
         variable = ~reserved_keywords + Word(alphas + "_", alphas + nums + "_")
-        operands = real | integer | variable
+        operands = scientific | real | integer | scientific | variable
 
         # Forward declarations of variadric and unary function calls
         variadic_call = Forward()
