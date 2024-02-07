@@ -1,7 +1,9 @@
 """Defines templates for scalariztation functions and utilities to handle the templates."""
 
 from jinja2 import Environment, FileSystemLoader, Template
+import json, pprint
 
+from desdeo.problem.infix_parser import InfixExpressionParser
 from desdeo.problem.schema import Problem
 from desdeo.problem.testproblems import binh_and_korn
 
@@ -64,7 +66,7 @@ class Op:
     RATIONAL = "Rational"
 
 
-def create_asf(problem: Problem, reference_point: list[float], delta: float = 0.000001, rho: float = 0.000001):
+def create_asf(problem: Problem, reference_point: list[float], delta: float = 0.000001, rho: float = 0.000001) -> str:
     """Creates the achievement scalarizing function for the given problem and reference point.
 
     Args:
@@ -72,6 +74,9 @@ def create_asf(problem: Problem, reference_point: list[float], delta: float = 0.
         reference_point (list[float]): _description_.
         delta (float, optional): _description_. Defaults to 0.000001.
         rho (float, optional): _description_. Defaults to 0.000001.
+
+    Returns:
+        str: The scalarization function for the problem and given reference point in infix format.
     """
     # Question: is minimization assumed here always?
     # Question: unwrapping by replacing function is fine?
@@ -99,5 +104,17 @@ def create_asf(problem: Problem, reference_point: list[float], delta: float = 0.
 
 if __name__ == "__main__":
     problem = binh_and_korn()
+    problem = problem.model_copy(
+        update={
+            "objectives": [
+                objective.model_copy(update={"ideal": 0.5, "nadir": 5.5}) for objective in problem.objectives
+            ]
+        }
+    )
     res = create_asf(problem, [5.0, 2.0])
-    print(res)
+
+    parser = InfixExpressionParser()
+    print(f"Infix:\n\n{res}\n")
+    dump = json.dumps(parser.parse(res), indent=2)
+    print("JSON:\n")
+    pprint.pprint(json.loads(dump))
