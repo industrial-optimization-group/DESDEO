@@ -78,7 +78,7 @@ def create_asf(problem: Problem, reference_point: list[float], delta: float = 0.
     Returns:
         str: The scalarization function for the problem and given reference point in infix format.
     """
-    # Question: is minimization assumed here always?
+    # Question: is minimization assumed here always? Have f_1_min
     # Question: unwrapping by replacing function is fine?
     objective_symbols = [objective.symbol for objective in problem.objectives]
     ideal_point = [objective.ideal for objective in problem.objectives]
