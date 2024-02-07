@@ -186,6 +186,24 @@ class GenericEvaluator:
                     parsed_scal_funcs[f"{scal.symbol}"] = tmp
             else:
                 parsed_scal_funcs = None
+        else:
+            # no constants defined, just collect all expressions as they are
+            parsed_cons_funcs = {f"{objective.symbol}": objective.func for objective in self.problem_objectives}
+
+            if self.problem_constraints is not None:
+                parsed_cons_funcs = {f"{constraint.symbol}": constraint.func for constraint in self.problem_constraints}
+            else:
+                parsed_cons_funcs = None
+
+            if self.problem_extra is not None:
+                parsed_extra_funcs = {f"{extra.symbol}": extra.func for extra in self.problem_extra}
+            else:
+                parsed_extra_funcs = None
+
+            if self.problem_scalarization is not None:
+                parsed_scal_funcs = {f"{scal.symbol}": scal.func for scal in self.problem_scalarization}
+            else:
+                parsed_scal_funcs = None
 
         # Parse all functions into expressions. These are stored as tuples, as (symbol, parsed expression)
         # parse objectives
@@ -217,6 +235,11 @@ class GenericEvaluator:
         else:
             self.scalarization_expressions = None
 
+        # store the symbol and min or max multiplier as well (symbol, min/max multiplier [1 | -1])
+        self.objective_mix_max_mult = [
+            (objective.symbol, -1 if objective.maximize else 1) for objective in self.problem_objectives
+        ]
+
     def _polars_evaluate(self, xs: dict[str, list[float | int | bool]]) -> EvaluatorResult:
         """Evaluate the problem with the given decision variable values utilizing a polars dataframe.
 
@@ -244,6 +267,17 @@ class GenericEvaluator:
         # TODO (maybe?): check min and max
         obj_columns = agg_df.select(*[expr.alias(symbol) for symbol, expr in self.objective_expressions])
         agg_df = agg_df.hstack(obj_columns)
+
+        # Evaluate the minimization form of the objective functions
+        # Note that the column name of these should be 'the objective function's symbol'_min
+        # e.g., 'f_1' -> 'f_1_min'
+        min_obj_columns = agg_df.select(
+            *[
+                (min_max_mult * pl.col(f"{symbol}")).alias(f"{symbol}_min")
+                for symbol, min_max_mult in self.objective_mix_max_mult
+            ]
+        )
+        agg_df = agg_df.hstack(min_obj_columns)
 
         # Evaluate any constraints and put the results in the aggregate dataframe
         if self.constraint_expressions is not None:

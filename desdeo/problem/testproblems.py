@@ -14,7 +14,7 @@ def binh_and_korn() -> Problem:
 
     References:
         Binh T. and Korn U. (1997) MOBES: A Multiobjective Evolution Strategy for Constrained Optimization Problems.
-        In: Proceedings of the Third International Conference on Genetic Algorithms. Czech Republic. pp. 176-182.
+            In: Proceedings of the Third International Conference on Genetic Algorithms. Czech Republic. pp. 176-182.
     """
     # These constants are for demonstrative purposes.
     constant_1 = Constant(name="Four", symbol="c_1", value=4)
@@ -66,6 +66,64 @@ def binh_and_korn() -> Problem:
     )
 
 
+def river_pollution_problem(five_objective_variant: bool = True) -> Problem:
+    """Create a pydantic dataclass representation of the river pollution problem with either five or four variables.
+
+    The objective functions "DO city", "DO municipality", and
+    "BOD deviation" are to be minimized, while "ROI fishery" and "ROI city" are to be
+    maximized. If the four variant problem is used, the the "BOD deviation" objective
+    function is not present.
+
+    Args:
+        five_objective_variant (bool, optional): Whether to use to five
+            objective function variant of the problem or not. Defaults to True.
+
+    Returns:
+        Problem: the river pollution problem.
+
+    References:
+        Narula, Subhash C., and HRoland Weistroffer. "A flexible method for
+            nonlinear multicriteria decision-making problems." IEEE Transactions on
+            Systems, Man, and Cybernetics 19.4 (1989): 883-887.
+        Miettinen, Kaisa, and Marko M. Mäkelä. "Interactive method NIMBUS for
+            nondifferentiable multiobjective optimization problems." Multicriteria
+            Analysis: Proceedings of the XIth International Conference on MCDM, 1–6
+            August 1994, Coimbra, Portugal. Berlin, Heidelberg: Springer Berlin
+            Heidelberg, 1997.
+    """
+    variable_1 = Variable(
+        name="BOD", symbol="x_1", variable_type="real", lowerbound=0.3, upperbound=1.0, initial_value=0.65
+    )
+    variable_2 = Variable(
+        name="DO", symbol="x_2", variable_type="real", lowerbound=0.3, upperbound=1.0, initial_value=0.65
+    )
+
+    f_1 = "-4.07 - 2.27 * x_1"
+    f_2 = "-2.60 - 0.03 * x_1 - 0.02 * x_2 - 0.01 / (1.39 - x_1**2) - 0.30 / (1.39 - x_2**2)"
+    f_3 = "-8.21 + 0.71 / (1.09 - x_1**2)"
+    f_4 = "-0.96 + 0.96 / (1.09 - x_2**2)"
+    f_5 = "Max(Abs(x_1 - 0.65), Abs(x_2 - 0.65))"
+
+    objective_1 = Objective(name="DO city", symbol="f_1", func=f_1, maximize=False)
+    objective_2 = Objective(name="DO municipality", symbol="f_2", func=f_2, maximize=False)
+    objective_3 = Objective(name="ROI fishery", symbol="f_3", func=f_3, maximize=True)
+    objective_4 = Objective(name="ROI city", symbol="f_4", func=f_4, maximize=True)
+    objective_5 = Objective(name="BOD deviation", symbol="f_5", func=f_5, maximize=False)
+
+    objectives = (
+        [objective_1, objective_2, objective_3, objective_4, objective_5]
+        if five_objective_variant
+        else [objective_1, objective_2, objective_3, objective_4]
+    )
+
+    return Problem(
+        name="The river pollution problem",
+        description="The river pollution problem to maximize return of investments and minimize pollution.",
+        variables=[variable_1, variable_2],
+        objectives=objectives,
+    )
+
+
 if __name__ == "__main__":
-    problem = binh_and_korn()
+    problem = river_pollution_problem(five_objective_variant=False)
     print(problem.model_dump_json(indent=2))
