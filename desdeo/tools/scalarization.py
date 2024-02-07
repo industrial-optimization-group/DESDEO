@@ -3,6 +3,7 @@
 from jinja2 import Environment, FileSystemLoader, Template
 
 from desdeo.problem.schema import Problem
+from desdeo.problem.testproblems import binh_and_korn
 
 # TODO: fix
 TEMPLATE_PATH = "desdeo/tools/scalarization_templates"
@@ -63,19 +64,41 @@ class Op:
     RATIONAL = "Rational"
 
 
-template = env.get_template("asf.j2")
+def create_asf(problem: Problem, reference_point: list[float], delta: float = 0.000001, rho: float = 0.000001):
+    """Creates the achievement scalarizing function for the given problem and reference point.
+
+    Args:
+        problem (Problem): _description_
+        reference_point (list[float]): _description_.
+        delta (float, optional): _description_. Defaults to 0.000001.
+        rho (float, optional): _description_. Defaults to 0.000001.
+    """
+    # Question: is minimization assumed here always?
+    # Question: unwrapping by replacing function is fine?
+    # TODO: make the infix parser support scientific notation
+    objective_symbols = [objective.symbol for objective in problem.objectives]
+    ideal_point = [objective.ideal for objective in problem.objectives]
+    nadir_point = [objective.nadir for objective in problem.objectives]
+
+    # Build the max term
+    max_operands = [
+        f"({objective_symbols[i]} - {reference_point[i]}) / ({nadir_point[i]} - ({ideal_point[i]} - {delta}))"
+        for i in range(len(problem.objectives))
+    ]
+    max_term = f"Max({', '.join(max_operands)})"
+
+    # Build the augmentation term
+    aug_operands = [
+        f"{objective_symbols[i]} / ({nadir_point[i]} - ({ideal_point[i]} - {delta}))"
+        for i in range(len(problem.objectives))
+    ]
+    aug_term = " + ".join(aug_operands)
+
+    # Return the whole scalarization function
+    return f"{max_term} + {rho} * ({aug_term})"
 
 
-# Render the template with a specific value for k
-rendered = template.render(
-    k=3,
-    Op=Op,
-    reference_point=[3, 3, 3],
-    ideal_point=[1, 2, 3],
-    nadir_point=[4, 5, 6],
-    objective_symbols=["f_1", "f_2", "f_3"],
-    delta=1e-6,
-    rho=1e-9,
-)
-
-print(rendered)
+if __name__ == "__main__":
+    problem = binh_and_korn()
+    res = create_asf(problem, [5.0, 2.0])
+    print(res)
