@@ -148,6 +148,27 @@ def create_weighted_sums(problem: Problem, weights: list[float]) -> str:
     return " + ".join(sum_terms)
 
 
+def create_from_objective(problem: Problem, objective_symbol: str) -> str:
+    """Creates a scalarization where one of the problem's objective functions is optimized.
+
+    Args:
+        problem (Problem): the problem to which the scalarization should be added.
+        objective_symbol (str): the symbol of the objective function to be optimized.
+
+    Raises:
+        ScalarizationError: the given objective_symbol does not exist in the problem.
+
+    Returns:
+        str: _description_
+    """
+    # check that symbol exists
+    if objective_symbol not in (correct_symbols := [objective.symbol for objective in problem.objectives]):
+        msg = f"The given objective symbol {objective_symbol} should be one of {correct_symbols}."
+        raise ScalarizationError(msg)
+
+    return f"1 * {objective_symbol}_min"
+
+
 def add_scalarization_function(
     problem: Problem,
     func: str,
@@ -191,7 +212,7 @@ if __name__ == "__main__":
             ]
         }
     )
-    res = create_asf(problem, [1, 2, 3, 2, 1], delta=0.1, rho=2.2)
+    res = create_from_objective(problem, "f_1")
 
     parser = InfixExpressionParser()
     print(f"Infix:\n\n{res}\n")
