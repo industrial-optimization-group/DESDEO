@@ -124,6 +124,38 @@ def river_pollution_problem(five_objective_variant: bool = True) -> Problem:
     )
 
 
+def simple_test_problem() -> Problem:
+    """Defines a simple problem suitable for testing purposes."""
+    variables = [
+        Variable(name="x_1", symbol="x_1", variable_type="real", lowerbound=0, upperbound=10, initial_value=5),
+        Variable(name="x_2", symbol="x_2", variable_type="real", lowerbound=0, upperbound=10, initial_value=5),
+    ]
+
+    constants = [Constant(name="c", symbol="c", value=4.2)]
+
+    f_1 = "x_1 + x_2"
+    f_2 = "x_2**3"
+    f_3 = "x_1 + x_2"
+    f_4 = "Max(Abs(x_1 - x_2), c)"  # c = 4.2
+    f_5 = "(-x_1) * (-x_2)"
+
+    objectives = [
+        Objective(name="f_1", symbol="f_1", func=f_1, maximize=False),  # min!
+        Objective(name="f_2", symbol="f_2", func=f_2, maximize=True),  # max!
+        Objective(name="f_3", symbol="f_3", func=f_3, maximize=True),  # max!
+        Objective(name="f_4", symbol="f_4", func=f_4, maximize=False),  # min!
+        Objective(name="f_5", symbol="f_5", func=f_5, maximize=True),  # max!
+    ]
+
+    return Problem(
+        name="Simple test problem.",
+        description="A simple problem for testing purposes.",
+        constants=constants,
+        variables=variables,
+        objectives=objectives,
+    )
+
+
 if __name__ == "__main__":
-    problem = river_pollution_problem(five_objective_variant=False)
+    problem = simple_test_problem()
     print(problem.model_dump_json(indent=2))

@@ -12,6 +12,7 @@ __all__ = [
     "Objective",
     "Problem",
     "river_pollution_problem",
+    "simple_test_problem",
     "ScalarizationFunction",
     "Variable",
     "VariableTypeEnum",
@@ -35,4 +36,4 @@ from .schema import (
 
 from .infix_parser import InfixExpressionParser
 
-from .testproblems import binh_and_korn, river_pollution_problem
+from .testproblems import binh_and_korn, river_pollution_problem, simple_test_problem
