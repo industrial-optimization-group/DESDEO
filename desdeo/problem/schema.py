@@ -227,6 +227,11 @@ class Constraint(BaseModel):
         ),
     )
 
+    linear: bool = Field(
+        description="Whether the constraint is linear or not. Defaults to True, e.g., a linear constraint is assumed.",
+        default=True,
+    )
+
     _parse_infix_to_func = field_validator("func", mode="before")(parse_infix_to_func)
 
 
