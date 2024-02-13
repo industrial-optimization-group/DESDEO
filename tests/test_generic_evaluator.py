@@ -2,10 +2,11 @@
 import numpy.testing as npt
 import polars as pl
 
-from desdeo.problem import GenericEvaluator, river_pollution_problem
+from desdeo.problem import GenericEvaluator, river_pollution_problem, simple_test_problem
 
 
 def test_generic_with_river():
+    """Tests the generic evaluator with the river pollution problem."""
     problem = river_pollution_problem()
 
     data = {"x_1": [0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.95], "x_2": [0.95, 0.85, 0.75, 0.65, 0.55, 0.45, 0.35]}
@@ -42,7 +43,35 @@ def test_generic_with_river():
 
     for symbol in obj_symbols:
         npt.assert_array_almost_equal(
-            eval_res.objective_values[symbol], truth_values[symbol], err_msg=f"Failed for objective {symbol}"
+            objective_values[symbol], truth_values[symbol], err_msg=f"Failed for objective {symbol}"
         )
 
-    print()
+
+def test_generic_w_mins_and_max():
+    """Tests the generic evaluator with problems with both min and max objectives."""
+    problem = simple_test_problem()
+
+    data = {"x_1": [1, 2, 3, 4, 5, 6, 7, 8, 9], "x_2": [9, 8, 7, 6, 5, 4, 3, 2, 1]}
+
+    df = pl.DataFrame(data)
+
+    evaluator = GenericEvaluator(problem)
+
+    eval_res = evaluator.evaluate(data)
+
+    objective_values = eval_res.objective_values
+
+    truth_values = df.select(
+        (pl.col("x_1") + pl.col("x_2")).alias("f_1"),
+        (pl.col("x_2") ** 3).alias("f_2"),
+        (pl.col("x_1") + pl.col("x_2")).alias("f_3"),
+        (pl.max_horizontal(pl.Expr.abs(pl.col("x_1") - pl.col("x_2")), 4.2)).alias("f_4"),
+        (-pl.col("x_1") * -pl.col("x_2")).alias("f_5"),
+    )
+
+    obj_symbols = [obj.symbol for obj in problem.objectives]
+
+    for symbol in obj_symbols:
+        npt.assert_array_almost_equal(
+            objective_values[symbol], truth_values[symbol], err_msg=f"Failed for objective {symbol}"
+        )

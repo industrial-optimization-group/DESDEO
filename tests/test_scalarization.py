@@ -1,7 +1,7 @@
 """Test for adding and utilizing scalarization functions."""
 import pytest
 
-from desdeo.problem import river_pollution_problem, simple_test_problem
+from desdeo.problem import GenericEvaluator, river_pollution_problem, simple_test_problem
 from desdeo.tools.scalarization import add_scalarization_function, create_asf, create_weighted_sums
 
 
