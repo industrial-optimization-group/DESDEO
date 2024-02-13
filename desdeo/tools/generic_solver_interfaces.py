@@ -120,7 +120,7 @@ def create_scipy_object_constraints(problem: Problem, evaluator: GenericEvaluato
     Returns:
         list[NonlinearConstraint]: a list of scipy's NonLinearConstraint objects.
     """
-    # TODO: should we consider LinearConstraints as well?
+    # TODO: should we consider LinearConstraints as well??
     return [
         NonlinearConstraint(
             fun=lambda x,
