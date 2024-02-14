@@ -4,6 +4,7 @@ These solvers will solve various scalarized problems of multiobjective optimizat
 """
 
 from enum import Enum
+from functools import lru_cache
 from typing import Callable
 
 import numpy as np
@@ -95,13 +96,7 @@ def create_scipy_dict_constraints(problem: Problem, evaluator: GenericEvaluator)
     return [
         {
             "type": "ineq" if constraint.cons_type == ConstraintTypeEnum.LTE else "eq",
-            "fun": lambda x,
-            problem=problem,
-            evaluator=evaluator,
-            target=constraint.symbol,
-            eval_target=EvalTargetEnum.constraint: scipy_eval(
-                x, problem=problem, evaluator=evaluator, target=target, eval_target=eval_target
-            ),
+            "fun": get_scipy_eval(problem, evaluator, constraint.symbol, eval_target=EvalTargetEnum.constraint),
         }
         for constraint in problem.constraints
     ]
@@ -122,13 +117,7 @@ def create_scipy_object_constraints(problem: Problem, evaluator: GenericEvaluato
     """
     return [
         NonlinearConstraint(
-            fun=lambda x,
-            problem=problem,
-            evaluator=evaluator,
-            target=constraint.symbol,
-            eval_target=EvalTargetEnum.constraint: scipy_eval(
-                x, problem=problem, evaluator=evaluator, target=target, eval_target=eval_target
-            ),
+            fun=get_scipy_eval(problem, evaluator, constraint.symbol, eval_target=EvalTargetEnum.constraint),
             lb=0,  # constraint value must be between 0 and inf, e.g., positive.
             ub=float("inf"),  # since in scipy, a constraint is respected when its value is positive. See scipy_eval.
         )
@@ -136,17 +125,17 @@ def create_scipy_object_constraints(problem: Problem, evaluator: GenericEvaluato
     ]
 
 
-def scipy_eval(
-    x: list[float],
+def get_scipy_eval(
     problem: Problem,
     evaluator: GenericEvaluator,
     target: str,
     eval_target: EvalTargetEnum,
-) -> list[float | int]:
+) -> Callable[[list[float | int]], list[float | int]]:
     """Wraps the problem and evaluator into a callable function that can be used by scipy routines.
 
+    The returned function expects an array-like argument, such as a numpy array or list.
+
     Args:
-        x (list[float]): decision variables to be evaluated. Expected argument by scipy routines.
         problem (Problem): the problem being solved.
         evaluator (GenericEvaluator): the evaluator to evaluate the problem being solved.
         target (str): the symbol of the objective to of the optimization, defined in problem.
@@ -156,11 +145,9 @@ def scipy_eval(
             defined in problem. If constraint, then the evalution is assumed to be about evaluating
             the constraints defined in problem.
 
-    Raises:
-        SolverError: an incorrect eval_target is provided.
-
     Returns:
-        list[float | int]: a list with the values corresponding to the evaluation of x.
+      Callable[[list[float | int]], list[float | int]]: a function that takes as its argument
+        an array like object.
 
     Note:
         Constraints in scipy are defined such that a positive number means the constraint
@@ -169,25 +156,40 @@ def scipy_eval(
             constraint values, but this does not affect the constraint values computed
             for the true constraints.
     """
-    # TODO: Consider caching the results of evaluator.evaluate
-    evalutor_args = {problem.variables[i].symbol: x[i] for i in range(len(problem.variables))}
 
-    evaluator_res: EvaluatorResult = evaluator.evaluate(evalutor_args)
+    def scipy_eval(x: list[float | int]) -> list[float | int]:
+        """An evaluator to be used in scipy routines.
 
-    if eval_target == EvalTargetEnum.objective:
-        # evaluata objective (scalarized)
-        return evaluator_res.scalarization_values[target]
+        Args:
+            x (list[float  |  int]): an array like, such as a numpy array or list.append
 
-    if eval_target == EvalTargetEnum.constraint:
-        # evaluate constraint
-        # put the minus here because scipy expect positive constraints values when the constraint
-        # is respected. But in DESDEO, we define constraints s.t., a negative value means the constraint
-        # is recpected, therefore, it needs to be flipped here.
-        return [-num for num in evaluator_res.constraint_values[target]]
+        Raises:
+            SolverError: when an invalid evaluator target is specified.
 
-    # non-existing eval_target
-    msg = f"'eval_target' = '{eval_target} not supported. Must be one of {list(EvalTargetEnum)}."
-    raise SolverError(msg)
+        Returns:
+            list[float | int]: an array like.
+        """
+        # TODO: Consider caching the results of evaluator.evaluate
+        evalutor_args = {problem.variables[i].symbol: x[i] for i in range(len(problem.variables))}
+
+        evaluator_res: EvaluatorResult = evaluator.evaluate(evalutor_args)
+
+        if eval_target == EvalTargetEnum.objective:
+            # evaluata objective (scalarized)
+            return evaluator_res.scalarization_values[target]
+
+        if eval_target == EvalTargetEnum.constraint:
+            # evaluate constraint
+            # put the minus here because scipy expect positive constraints values when the constraint
+            # is respected. But in DESDEO, we define constraints s.t., a negative value means the constraint
+            # is recpected, therefore, it needs to be flipped here.
+            return [-num for num in evaluator_res.constraint_values[target]]
+
+        # non-existing eval_target
+        msg = f"'eval_target' = '{eval_target} not supported. Must be one of {list(EvalTargetEnum)}."
+        raise SolverError(msg)
+
+    return scipy_eval
 
 
 def parse_scipy_optimization_result(
@@ -275,13 +277,7 @@ def create_scipy_minimize_solver(
         constraints = create_scipy_dict_constraints(problem, evaluator) if problem.constants is not None else None
 
         optimization_result: _ScipyOptimizeResult = _scipy_minimize(
-            lambda x,
-            problem=problem,
-            evaluator=evaluator,
-            target=target,
-            eval_target=EvalTargetEnum.objective: scipy_eval(
-                x, problem=problem, evaluator=evaluator, target=target, eval_target=eval_target
-            ),
+            get_scipy_eval(problem, evaluator, target, EvalTargetEnum.objective),
             x0,
             method=method,
             bounds=bounds,
@@ -358,13 +354,7 @@ def create_scipy_de_solver(
         constraints = create_scipy_object_constraints(problem, evaluator) if problem.constants is not None else None
 
         optimization_result: _ScipyOptimizeResult = _scipy_de(
-            lambda x,
-            problem=problem,
-            evaluator=evaluator,
-            target=target,
-            eval_target=EvalTargetEnum.objective: scipy_eval(
-                x, problem=problem, evaluator=evaluator, target=target, eval_target=eval_target
-            ),
+            get_scipy_eval(problem, evaluator, target, EvalTargetEnum.objective),
             bounds=bounds,
             x0=x0,
             constraints=constraints,
@@ -382,11 +372,11 @@ if __name__ == "__main__":
 
     problem = binh_and_korn()
 
-    sf = create_from_objective(problem, "f_1")
+    sf = create_from_objective(problem, "f_2")
 
     problem, target = add_scalarization_function(problem, sf, "target")
 
-    solver = create_scipy_de_solver(problem)
+    solver = create_scipy_minimize_solver(problem)
 
     res = solver(target)
     print(res)
