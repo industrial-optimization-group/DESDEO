@@ -3,7 +3,16 @@ import numpy.testing as npt
 import polars as pl
 
 from desdeo.problem.json_parser import MathParser
-from desdeo.problem.schema import Constraint, ExtraFunction, Objective, ScalarizationFunction
+from desdeo.problem.schema import (
+    Constraint,
+    DiscreteDefinition,
+    ExtraFunction,
+    Objective,
+    Problem,
+    ScalarizationFunction,
+    Variable,
+)
+from desdeo.problem.evaluator import GenericEvaluator
 
 
 def test_objective_from_infix():
@@ -80,3 +89,36 @@ def test_extra_from_infix():
     res_json = data.select(expr_json.alias("res"))["res"]
 
     npt.assert_array_almost_equal(res_infix, res_json)
+
+
+def test_data_objective():
+    """Tests a problem with a data objective."""
+    variables = [
+        Variable(
+            name=f"x_{i}", symbol=f"x_{i}", variable_type="real", lowerbound=-5.2, upperbound=4.8, initial_value=0.5
+        )
+        for i in range(1, 3)
+    ]
+    f1_expr = "x_1 + x_2**2 - Max(x_1, x_2)"
+
+    objective_1 = Objective(name="f_1", symbol="f_1", func=f1_expr, maximize=False)
+
+    objective_2 = Objective(name="f_2", symbol="f_2", func=None, objective_type="data_based", maximize=True)
+
+    var_data = {
+        "x_1": [0.288135, 1.951894, 0.827634, 0.248832, -0.963452, 1.258941, -0.824128, 3.717730, 4.436628, -1.365585],
+        "x_2": [2.717250, 0.088949, 0.480446, 4.055966, -4.489639, -4.328707, -4.997816, 3.126198, 2.581568, 3.500121],
+    }
+    obj_data = {"f_2": [x_1 + x_2 for x_1, x_2 in zip(var_data["x_1"], var_data["x_2"], strict=True)]}
+
+    data_definition = DiscreteDefinition(variable_values=var_data, objective_values=obj_data)
+
+    problem = Problem(
+        name="data-based problem test",
+        description="For testing",
+        objectives=[objective_1, objective_2],
+        variables=variables,
+        discrete_definition=data_definition
+    )
+
+    evaluator = GenericEvaluator(problem)

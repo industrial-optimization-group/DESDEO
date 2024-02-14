@@ -37,6 +37,8 @@ def parse_infix_to_func(cls, v: str | list) -> list:
     Returns:
         list: The func represented in Math JSON format.
     """
+    if v is None:
+        return v
     # Check if v is a string (infix expression), then parse it
     if isinstance(v, str):
         parser = InfixExpressionParser()
@@ -61,11 +63,14 @@ class VariableTypeEnum(str, Enum):
 class ConstraintTypeEnum(str, Enum):
     """An enumerator for supported constraint expression types."""
 
-    model_config = ConfigDict(frozen=True)
-
     EQ = "="  # equal
     LTE = "<="  # less than or equal
 
+class ObjectiveTypeEnum(str, Enum):
+    """An enumerator for supported objective function types."""
+
+    analytical = "analytical"
+    data_based = "data_based"
 
 class Constant(BaseModel):
     """Model for a constant."""
@@ -140,10 +145,10 @@ class ExtraFunction(BaseModel):
 class ScalarizationFunction(BaseModel):
     """Model for scalarization of the problem."""
 
-    name: str = Field(description=("Name of the scalarization. Example: 'STOM'"), frozen=True)
+    name: str = Field(description=("Name of the scalarization."), frozen=True)
     symbol: str | None = Field(
         description=(
-            "Optional symbol to represent the scalarization function. This may be used in" " in UIs and visualizations."
+            "Optional symbol to represent the scalarization function. This may be used in UIs and visualizations."
         ),
         default=None,
         frozen=False,
@@ -177,11 +182,11 @@ class Objective(BaseModel):
             " It may also be used in UIs and visualizations. Example: 'f_1'."
         ),
     )
-    func: list = Field(
+    func: list | None = Field(
         description=(
             "The objective function. This is a JSON object that can be parsed into a function."
             "Must be a valid MathJSON object. The symbols in the function must match the symbols defined for "
-            "variable/constant/extra function."
+            "variable/constant/extra function. Can be 'None' for 'data_based' objective functions."
         ),
     )
     maximize: bool = Field(
@@ -190,6 +195,13 @@ class Objective(BaseModel):
     )
     ideal: float | None = Field(description="Ideal value of the objective. This is optional.", default=None)
     nadir: float | None = Field(description="Nadir value of the objective. This is optional.", default=None)
+
+    objective_type: ObjectiveTypeEnum = Field(
+        description=("The type of objective function. 'analytical' means the objective function value is calculated "
+        "based on 'func'. 'data_based' means the objective function value should be retrieved from a table. "
+        "In case of 'data_based' objective function, the 'func' field is ignored. Defaults to 'analytical'."),
+        default=ObjectiveTypeEnum.analytical
+    )
 
     _parse_infix_to_func = field_validator("func", mode="before")(parse_infix_to_func)
 
@@ -260,11 +272,32 @@ class EvaluatedSolutions(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     info: EvaluatedInfo = Field(description="Information about the evaluated solutions.")
-    decision_vectors: list[list[float | int | bool]] = Field(description="A list of the evaluated decision vectors.")
+    decision_vectors: list[list[VariableType]] = Field(description="A list of the evaluated decision vectors.")
     objective_vectors: list[list[float]] = Field(
         description="A list of the values of the evaluated objective functions."
     )
 
+class DiscreteDefinition(BaseModel):
+    """Model to represent discrete objective function and decision variable pairs.
+
+    Used with Objectives of type 'data_based'. Each of the decision variable values and objective
+    functions values are ordered in their respective dict entries. This means that the
+    decision variable values found at 'variable_values['x_i'][j]' correspond to the objective
+    function values found at 'objective_values['f_i'][j] for all i and some j.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    variable_values: dict[str, list[VariableType]] = Field(
+        description=("A dictionary with decision variable values. Each dict key points to a list of all the decision "
+        "variable values available for the decision variable given in the key. "
+        "The keys must match the 'symbols' defined for the decision variables.")
+    )
+    objective_values: dict[str, list[float]] = Field(
+        description=("A dictionary with objective function values. Each dict key points to a list of all the objective "
+        "function values available for the objective function given in the key. The keys must match the 'symbols' "
+        "defined for the objective functions.")
+    )
 
 class Problem(BaseModel):
     """Model for a problem definition."""
@@ -313,7 +346,7 @@ class Problem(BaseModel):
         return self
 
     def get_all_symbols(self) -> list[str]:
-        """Collects and returns all the symbols symbols currenlty defined in the model."""
+        """Collects and returns all the symbols symbols currently defined in the model."""
         # collect all symbols
         symbols = [variable.symbol for variable in self.variables]
         symbols += [objective.symbol for objective in self.objectives]
@@ -385,6 +418,12 @@ class Problem(BaseModel):
     )
     evaluated_solutions: list[EvaluatedSolutions] | None = Field(
         description="Optional list of evaluated solutions of the problem.", default=None
+    )
+    discrete_definition: DiscreteDefinition | None = Field(
+        description=("Optional. Required when there are one or more 'data_based' Objectives. The corresponding values "
+        "of the 'data_based' objective function will be fetched from this with the given variable values. "
+        "Defaults to 'None'."),
+        default=None
     )
 
 

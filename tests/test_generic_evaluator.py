@@ -3,6 +3,7 @@ import numpy.testing as npt
 import polars as pl
 
 from desdeo.problem import GenericEvaluator, river_pollution_problem, simple_test_problem
+from desdeo.problem.evaluator import find_closest_points
 
 
 def test_generic_with_river():
@@ -75,3 +76,17 @@ def test_generic_w_mins_and_max():
         npt.assert_array_almost_equal(
             objective_values[symbol], truth_values[symbol], err_msg=f"Failed for objective {symbol}"
         )
+
+
+def test_find_closest_points():
+    xs = pl.DataFrame({"x_1": [3.1, 2.5, 1.05], "x_2": [4.35, -2.1, -0.9]})
+
+
+    discrete_df = pl.DataFrame({"x_1": [1.1, 2.6, 3.2], "x_2": [-1.1, -2.2, 4.2], "f_2": [42, 69, 420]})
+
+    variable_symbols = ["x_1", "x_2"]
+    objective_symbol = "f_2"
+
+    closest_points_df = find_closest_points(xs, discrete_df, variable_symbols, objective_symbol)
+
+    npt.assert_array_almost_equal(closest_points_df[objective_symbol], [420, 69, 42])

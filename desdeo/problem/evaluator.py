@@ -4,7 +4,7 @@ import polars as pl
 from pydantic import BaseModel, Field
 
 from desdeo.problem.json_parser import MathParser, replace_str
-from desdeo.problem.schema import Problem
+from desdeo.problem.schema import Problem, ObjectiveTypeEnum
 
 SUPPORTED_EVALUATOR_TYPES = ["polars"]
 
@@ -113,6 +113,8 @@ class GenericEvaluator:
         self.problem_scalarization = problem.scalarizations_funcs
         # Gather the decision variable symbols defined in the problem
         self.problem_variable_symbols = [var.symbol for var in problem.variables]
+        # The discrete definition of (some) objectives
+        self.discrete_definition = problem.discrete_definition
 
         # The below 'expressions' are list of tuples with symbol and expressions pairs, as (symbol, expression)
         # These must be defined in a specialized initialization step, see further below for an example.
@@ -149,10 +151,21 @@ class GenericEvaluator:
             # Objectives are always defined, cannot be None
             parsed_obj_funcs = {}
             for obj in self.problem_objectives:
-                tmp = obj.func
-                for c in self.problem_constants:
-                    tmp = replace_str(tmp, c.symbol, c.value)
-                parsed_obj_funcs[f"{obj.symbol}"] = tmp
+                if obj.objective_type == ObjectiveTypeEnum.analytical:
+                    # if analytical proceed with replacing the symbols.
+                    tmp = obj.func
+                    for c in self.problem_constants:
+                        tmp = replace_str(tmp, c.symbol, c.value)
+                    parsed_obj_funcs[f"{obj.symbol}"] = tmp
+                elif obj.objective_type == ObjectiveTypeEnum.data_based:
+                    # data-based objective
+                    parsed_obj_funcs[f"{obj.symbol}"] = None
+                else:
+                    msg = (
+                        f"Incorrect objective-type {obj.objective_type} encountered. "
+                        f"Must be one of {ObjectiveTypeEnum}"
+                    )
+                    raise EvaluatorError(msg)
 
             # Do the same for any constraint expressions as well.
             if self.problem_constraints is not None:
@@ -207,8 +220,10 @@ class GenericEvaluator:
 
         # Parse all functions into expressions. These are stored as tuples, as (symbol, parsed expression)
         # parse objectives
+        # If no expression is given (data-based objective, then the expression is set to be 'None')
         self.objective_expressions = [
-            (symbol, self.parser.parse(expression)) for symbol, expression in parsed_obj_funcs.items()
+            (symbol, self.parser.parse(expression)) if expression is not None else None
+            for symbol, expression in parsed_obj_funcs.items()
         ]
 
         # parse constraints, if any
@@ -240,6 +255,14 @@ class GenericEvaluator:
             (objective.symbol, -1 if objective.maximize else 1) for objective in self.problem_objectives
         ]
 
+        # create dataframe with the discrete representation, if any exists
+        if self.discrete_definition is not None:
+            self.discrete_df = pl.DataFrame(
+                [self.discrete_definition.variable_values, self.discrete_definition.objective_values]
+            )
+        else:
+            self.discrete_df = None
+
     def _polars_evaluate(self, xs: dict[str, list[float | int | bool]]) -> EvaluatorResult:
         """Evaluate the problem with the given decision variable values utilizing a polars dataframe.
 
@@ -264,9 +287,17 @@ class GenericEvaluator:
             agg_df = agg_df.hstack(extra_columns)
 
         # Evaluate the objective functions and put the results in the aggregate dataframe.
-        # TODO (maybe?): check min and max
-        obj_columns = agg_df.select(*[expr.alias(symbol) for symbol, expr in self.objective_expressions])
-        agg_df = agg_df.hstack(obj_columns)
+        # obj_columns = agg_df.select(*[expr.alias(symbol) for symbol, expr in self.objective_expressions])
+        # agg_df = agg_df.hstack(obj_columns)
+
+        for symbol, expr in self.objective_expressions:
+            if expr is not None:
+                # expression given
+                obj_col = agg_df.select(expr.alias(symbol))
+                agg_df = agg_df.hstack(obj_col)
+            else:
+                # expr is note, therefore we must get the objective function's value somehow else, usually from data
+                pass
 
         # Evaluate the minimization form of the objective functions
         # Note that the column name of these should be 'the objective function's symbol'_min
@@ -315,3 +346,47 @@ class GenericEvaluator:
             constraint_values=constraint_values,
             scalarization_values=scalarization_values,
         )
+
+
+def find_closest_points(xs, discrete_df, variable_symbols, objective_symbol):
+    """
+    # Prepare column names for the right side of the join
+    right_cols = [f"{col}_right" for col in variable_symbols]
+
+    # Rename columns in discrete_df for clarity in the cross join
+    discrete_df_renamed = discrete_df.rename({col: f"{col}_right" for col in variable_symbols})
+
+    # Cross join to compare every combination of points between xs and discrete_df
+    combined_df = xs.join(discrete_df_renamed, how="cross")
+
+    # Calculate Euclidean distances using dynamic column names
+    distance_expr = sum(
+        (pl.col(col) - pl.col(f"{col}_right"))**2 for col in variable_symbols
+    ).sqrt().alias("distance")
+
+    combined_df = combined_df.with_columns(distance_expr)
+
+    # Group by the original xs columns and select the closest objective function value
+    closest_points = combined_df.sort("distance").groupby(variable_symbols).agg(
+        pl.first(objective_symbol).alias(f"{objective_symbol}")
+    )
+    return closest_points
+    """
+
+    xs_vars_only = xs[variable_symbols]
+
+    results = []
+
+    for row in xs_vars_only.rows(named=True):
+        print(row)
+        distance_expr = (
+            sum((pl.col(var_symbol) - row[var_symbol]) ** 2 for var_symbol in variable_symbols).sqrt().alias("distance")
+        )
+
+        combined_df = discrete_df.with_columns(distance_expr)
+
+        closest = combined_df.sort("distance").head(1)
+
+        results.append(closest[f"{objective_symbol}"][0])
+
+    return pl.DataFrame({f"{objective_symbol}": results})
