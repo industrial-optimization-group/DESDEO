@@ -17,6 +17,7 @@ __all__ = [
     "ScalarizationFunction",
     "Variable",
     "VariableTypeEnum",
+    "zdt1",
 ]
 
 from .evaluator import GenericEvaluator, EvaluatorResult
@@ -37,4 +38,4 @@ from .schema import (
 
 from .infix_parser import InfixExpressionParser
 
-from .testproblems import binh_and_korn, river_pollution_problem, simple_test_problem
+from .testproblems import binh_and_korn, river_pollution_problem, simple_test_problem, zdt1

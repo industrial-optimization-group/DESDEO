@@ -215,8 +215,7 @@ def parse_scipy_optimization_result(
 
     f_opt = eval_opt.objective_values
 
-    if problem.constraints is not None:
-        const_opt = eval_opt.constraint_values
+    const_opt = eval_opt.constraint_values if problem.constraints is not None else None
 
     return SolverResults(
         optimal_variables={problem.variables[i].symbol: [x_opt[i]] for i in range(len(problem.variables))},
@@ -368,9 +367,9 @@ def create_scipy_de_solver(
 
 
 if __name__ == "__main__":
-    from desdeo.problem import binh_and_korn
+    from desdeo.problem import binh_and_korn, zdt1
 
-    problem = binh_and_korn()
+    problem = zdt1(10)
 
     sf = create_from_objective(problem, "f_2")
 

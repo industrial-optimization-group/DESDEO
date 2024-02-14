@@ -4,7 +4,7 @@ Pre-defined problems for, e.g.,
 testing and illustration purposed are defined here.
 """
 
-from desdeo.problem.schema import Constant, Constraint, Objective, Problem, Variable
+from desdeo.problem.schema import Constant, Constraint, ExtraFunction, Objective, Problem, Variable
 
 
 def binh_and_korn() -> Problem:
@@ -156,6 +156,51 @@ def simple_test_problem() -> Problem:
     )
 
 
+def zdt1(number_of_variables: int) -> Problem:
+    n = number_of_variables
+
+    # function f_1
+    f1_symbol = "f_1"
+    f1_expr = "1 * x_1"
+
+    # function g
+    g_symbol = "g"
+    g_expr_1 = f"1 + (9 / ({n} - 1))"
+    g_expr_2 = "(" + " + ".join([f"x_{i}" for i in range(2, n + 1)]) + ")"
+    g_expr = g_expr_1 + " * " + g_expr_2
+
+    # function h(f, g)
+    h_symbol = "h"
+    h_expr = f"1 - Sqrt(({f1_expr}) / ({g_expr}))"
+
+    # function f_2
+    f2_symbol = "f_2"
+    f2_expr = f"{g_symbol} * {h_symbol}"
+
+    variables = [
+        Variable(name=f"x_{i}", symbol=f"x_{i}", variable_type="real", lowerbound=0, upperbound=1, initial_value=0.5)
+        for i in range(1, n + 1)
+    ]
+
+    objectives = [
+        Objective(name="f_1", symbol=f1_symbol, func=f1_expr, maximize=False),
+        Objective(name="f_2", symbol=f2_symbol, func=f2_expr, maximize=False),
+    ]
+
+    extras = [
+        ExtraFunction(name="g", symbol=g_symbol, func=g_expr),
+        ExtraFunction(name="h", symbol=h_symbol, func=h_expr),
+    ]
+
+    return Problem(
+        name="zdt1",
+        description="The ZDT1 test problem.",
+        variables=variables,
+        objectives=objectives,
+        extra_funcs=extras,
+    )
+
+
 if __name__ == "__main__":
-    problem = simple_test_problem()
+    problem = zdt1(10)
     print(problem.model_dump_json(indent=2))
