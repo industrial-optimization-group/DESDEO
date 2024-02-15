@@ -1,8 +1,16 @@
 """Test for adding and utilizing scalarization functions."""
+import numpy as np
 import pytest
 
 from desdeo.problem import GenericEvaluator, river_pollution_problem, simple_test_problem
-from desdeo.tools.scalarization import add_scalarization_function, create_asf, create_weighted_sums
+from desdeo.tools.scalarization import (
+    add_lte_constraints,
+    add_scalarization_function,
+    create_asf,
+    create_epsilon_constraints,
+    create_weighted_sums,
+)
+from desdeo.tools.scipy_solver_interfaces import create_scipy_minimize_solver
 
 
 @pytest.fixture
@@ -60,3 +68,30 @@ def test_add_scalarization_function(river_w_ideal_and_nadir):
     assert problem.scalarizations_funcs[1].name == "Achievement scalarizing function"
     assert problem.scalarizations_funcs[0].symbol == symbol_ws
     assert problem.scalarizations_funcs[1].symbol == symbol_asf
+
+
+@pytest.mark.slow
+def test_epsilon_constraint():
+    problem = simple_test_problem()
+
+    epsilons = {"f_1": 5.0, "f_2": None, "f_3": -4.0, "f_4": 4.3, "f_5": -3}
+    eps_target = "f_2"
+
+    sf, cons_exprs = create_epsilon_constraints(problem, eps_target, epsilons)
+
+    problem, target = add_scalarization_function(problem, sf, "f_2_eps")
+
+    con_symbols = [f"con_{i}" for i in range(1, len(cons_exprs) + 1)]
+    problem_w_cons = add_lte_constraints(problem, cons_exprs, con_symbols)
+
+    solver = create_scipy_minimize_solver(problem_w_cons)
+
+    res = solver(target)
+
+    # check that constraints are ok
+    cons_values = [res.constraint_values[s][0] for s in con_symbols]
+
+    atol = 1e-9
+    shifted = np.array(cons_values) - atol
+
+    assert np.all(shifted < 0)

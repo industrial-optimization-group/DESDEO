@@ -9,7 +9,7 @@ accounted for when computing scalarization function values.
 import json, pprint
 
 from desdeo.problem import InfixExpressionParser
-from desdeo.problem import Problem, ScalarizationFunction
+from desdeo.problem import Constraint, ConstraintTypeEnum, Problem, ScalarizationFunction
 
 
 class ScalarizationError(Exception):
@@ -189,6 +189,41 @@ def create_from_objective(problem: Problem, objective_symbol: str) -> str:
     return f"1 * {objective_symbol}_min"
 
 
+def create_epsilon_constraints(
+    problem: Problem, objective_symbol: str, epsilons: dict[str, float]
+) -> tuple[str, list[str]]:
+    """Creates expressions for an epsilon constraints scalarization and constraints.
+
+    It is assumed that epsilon have been given in a format where each objective is to be minimized.
+
+    Args:
+        problem (Problem): the problem to scalarize.
+        objective_symbol (str): the objective used as the objective in the epsilon constraint scalarization.
+        epsilons (dict[str, float]): the epsilon constraint values in a dict
+            with each key being an objective's symbol.
+
+    Raises:
+        ScalarizationError: `objective_symbol` not found in problem definition.
+
+    Returns:
+        tuple[str, list[str]]: the first element is the expression of the
+            scalarized objective, the second element is a list of expressions of the
+            constraints. The constraints are in less than or equal format.
+    """
+    if objective_symbol not in (correct_symbols := [objective.symbol for objective in problem.objectives]):
+        msg = f"The given objective symbol {objective_symbol} should be one of {correct_symbols}."
+        raise ScalarizationError(msg)
+
+    scalarization_expr = f"1 * {objective_symbol}_min"
+
+    # the epsilons must be given such that each objective function is to be minimized
+    constraint_exprs = [
+        f"{obj.symbol}_min - {epsilons[obj.symbol]}" for obj in problem.objectives if obj.symbol != objective_symbol
+    ]
+
+    return scalarization_expr, constraint_exprs
+
+
 def add_scalarization_function(
     problem: Problem,
     func: str,
@@ -221,6 +256,59 @@ def add_scalarization_function(
     return problem.add_scalarization(scalarization_function), symbol
 
 
+def add_lte_constraints(
+    problem: Problem, funcs: list[str], symbols: list[str], names: list[str | None] | None = None
+) -> Problem:
+    """Adds constraints to a problem that are defined in the less than or equal format.
+
+    Is is assumed that the constraints expression at position funcs[i] is symbolized by the
+    symbol at position symbols[i] for all i.
+
+    Does not modify problem, but makes a copy of it instead and returns it.
+
+    Args:
+        problem (Problem): the problem to which the constraints are added.
+        funcs (list[str]): the expressions of the constraints.
+        symbols (list[str]): the symbols of the constraints. In order.
+        names (list[str  |  None] | None, optional): The names of the
+            constraints. For any name with 'None' the symbol is used as the name. If
+            names is None, then the symbol is used as the name for all the
+            constraints. Defaults to None.
+
+    Raises:
+        ScalarizationError: if the lengths of the arguments do not match.
+
+    Returns:
+        Problem: a copy of the original problem with the constraints added.
+    """
+    if (len_f := len(funcs)) != (len_s := len(symbols)) and names is not None and (len_n := len(names)) != len(funcs):
+        msg = (
+            f"The lengths of ({len_f=}) and 'symbols' ({len_s=}) must match. "
+            f"If 'names' is not None, then its length ({len_n=}) must also match."
+        )
+        raise ScalarizationError(msg)
+
+    if names is None:
+        names = symbols
+
+    return problem.model_copy(
+        update={
+            "constraints": [
+                *(problem.constraints if problem.constraints is not None else []),
+                *[
+                    Constraint(
+                        name=(name if (name := names[i]) is not None else symbols[i]),
+                        symbol=symbols[i],
+                        cons_type=ConstraintTypeEnum.LTE,
+                        func=funcs[i],
+                    )
+                    for i in range(len(funcs))
+                ],
+            ]
+        }
+    )
+
+
 if __name__ == "__main__":
     from desdeo.problem import river_pollution_problem
 
@@ -232,10 +320,18 @@ if __name__ == "__main__":
             ]
         }
     )
-    res = create_from_objective(problem, "f_1")
+    sf, con_exprs = create_epsilon_constraints(
+        problem, "f_3", {"f_1": 2.5, "f_2": 3.5, "f_3": 1.2, "f_4": 0.8, "f_5": 5.1}
+    )
+
+    problem_w_cons = add_lte_constraints(problem, con_exprs, [f"con_{i}" for i in range(1, len(con_exprs) + 1)])
+
+    print(problem_w_cons.constraints)
+
+    print(con_exprs)
 
     parser = InfixExpressionParser()
-    print(f"Infix:\n\n{res}\n")
-    dump = json.dumps(parser.parse(res), indent=2)
+    print(f"Infix:\n\n{sf}\n")
+    dump = json.dumps(parser.parse(sf), indent=2)
     print("JSON:\n")
     pprint.pprint(json.loads(dump))
