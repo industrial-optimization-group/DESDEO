@@ -16,6 +16,8 @@ from desdeo.problem.schema import (
 )
 from desdeo.problem.evaluator import GenericEvaluator
 
+from desdeo.tools.scalarization import add_scalarization_function
+
 
 def test_objective_from_infix():
     """Test the initialization of an Objective using infix notation."""
@@ -261,7 +263,6 @@ def test_data_problem():
             0.05751804043598988,
             0.26604387361509446,
             0.8599501462066285,
-            0.7306643650514167,
         ],
         "x2": [
             1.0,
@@ -274,7 +275,6 @@ def test_data_problem():
             0.9423839289462318,
             1.0,
             0.7041761798637635,
-            0.3739096112815266,
         ],
         "x3": [
             0.5118155116582402,
@@ -287,7 +287,6 @@ def test_data_problem():
             0.5106619098002502,
             0.5056446257711289,
             0.49380369981865385,
-            0.5045726511786348,
         ],
         "x4": [
             0.4986258005390593,
@@ -300,7 +299,6 @@ def test_data_problem():
             0.5029274410653807,
             0.49681465733421887,
             0.5065886203587019,
-            0.5124663548802791,
         ],
         "x5": [
             0.5003725609145294,
@@ -313,7 +311,6 @@ def test_data_problem():
             0.4985254991567869,
             0.5030733421386511,
             0.5028400679565715,
-            0.4822807853758155,
         ],
     }
 
@@ -329,7 +326,6 @@ def test_data_problem():
             0.09002218160976368,
             5.596574326667622e-17,
             0.09780084029552562,
-            0.3419284070076635,
         ],
         "f2": [
             0.9579634678755125,
@@ -342,7 +338,6 @@ def test_data_problem():
             0.9919687795841546,
             0.9139899488675715,
             0.19509837869899882,
-            0.22762310731712654,
         ],
         "f3": [
             0.28738350919818084,
@@ -355,7 +350,6 @@ def test_data_problem():
             0.09023748333152137,
             0.4058636264760891,
             0.9759873802583043,
-            0.9122792912808544,
         ],
     }
 
@@ -365,3 +359,18 @@ def test_data_problem():
 
     for obj in objective_values:
         npt.assert_array_almost_equal(objective_values[obj], expected_fs[obj])
+
+    # test adding a scalarization function
+    problem, symbol = add_scalarization_function(problem, "f1 + f2 + f3", "simple_sum")
+
+    evaluator = GenericEvaluator(problem)
+
+    res = evaluator.evaluate(xs)
+
+    objective_values = res.objective_values
+
+    should_be = [sum(expected_fs[f"f{i}"][j] for i in range(1, n_obj + 1)) for j in range(n_input)]
+
+    actual = res.scalarization_values[symbol]
+
+    npt.assert_array_almost_equal(should_be, actual)
