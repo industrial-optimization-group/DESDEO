@@ -215,7 +215,7 @@ def test_binh_and_korn_w_evaluator():
 
     original_problem = copy.deepcopy(problem)
 
-    evaluator = GenericEvaluator(problem, "polars")
+    evaluator = GenericEvaluator(problem)
 
     # some test data to evaluate the expressions
     xs_dict = {"x_1": [1, 2.5, 4.2], "x_2": [0.5, 1.5, 2.5]}
@@ -248,7 +248,7 @@ def test_extra_functions_problem_w_evaluator(extra_functions_problem):
     """Test the GenericEvaluator with polars that it handles extra functions correctly."""
     problem = extra_functions_problem
 
-    evaluator = GenericEvaluator(problem, "polars")
+    evaluator = GenericEvaluator(problem)
 
     # to test correct evaluation
     xs_dict = {"x_1": [2.4, -3.0, 5.5], "x_2": [5.2, 1.1, -9.4]}

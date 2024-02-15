@@ -282,8 +282,8 @@ def test_infix_binh_and_korn_to_json():
 
     truth_problem = binh_and_korn()
 
-    infix_evaluator = GenericEvaluator(infix_problem, "polars")
-    truth_evaluator = GenericEvaluator(truth_problem, "polars")
+    infix_evaluator = GenericEvaluator(infix_problem)
+    truth_evaluator = GenericEvaluator(truth_problem)
 
     # some test data to evaluate the expressions
     xs_dict = {"x_1": [1, 2.5, 4.2], "x_2": [0.5, 1.5, 2.5]}
@@ -425,6 +425,7 @@ def test_variadic_max_evaluation():
         result = evaluate_expression_helper(infix_expression, data)
         npt.assert_almost_equal(result, expected, decimal=5, err_msg=f"Failed for expression: {infix_expression}")
 
+
 def test_scientific_notation_evaluation():
     """Test parsing and evaluation of expressions with numbers in scientific notation."""
     data = pl.DataFrame({"x": [1.5], "y": [-1.23e-5]})
@@ -439,7 +440,7 @@ def test_scientific_notation_evaluation():
         ("1.2e2 / 1e1", 1.2e2 / 1e1),
         ("3e3 - 1.5e2", 3e3 - 1.5e2),
         ("4e-2 * 2e2", 4e-2 * 2e2),
-        ("5.5e-1 ** 2", 5.5e-1 ** 2),
+        ("5.5e-1 ** 2", 5.5e-1**2),
         ("(3e2 + x) * 2e-1", (3e2 + x) * 2e-1),
         ("1e-3 / (2e2 - y)", 1e-3 / (2e2 - y)),
         ("3.14e0 * x + 1e1", 3.14 * x + 10),

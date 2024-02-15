@@ -1,4 +1,6 @@
 """Different evaluators are defined for evaluating multiobjective optimization problems."""
+import copy
+from enum import Enum
 
 import polars as pl
 from pydantic import BaseModel, Field
@@ -6,7 +8,12 @@ from pydantic import BaseModel, Field
 from desdeo.problem.json_parser import MathParser, replace_str
 from desdeo.problem.schema import Problem, ObjectiveTypeEnum
 
-SUPPORTED_EVALUATOR_TYPES = ["polars"]
+SUPPORTED_EVALUATOR_MODES = ["variables", "discrete"]
+
+
+class EvaluatorModesEnum(str, Enum):
+    variables = "variables"
+    discrete = "discrete"
 
 
 class EvaluatorResult(BaseModel):
@@ -61,7 +68,7 @@ class GenericEvaluator:
     be suitable for computationally expensive problems, or mixed-integer problems. This
     evaluator is suitable for many Python-based solvers, such as `scipy.optimize.minimize`.
 
-    See the evaluators TO BE DONE for ruther details for approaching other kinds of problems.
+    See the evaluators TO BE DONE for further details for approaching other kinds of problems.
     """
 
     ### Initialization (no need for decision variables yet)
@@ -83,23 +90,29 @@ class GenericEvaluator:
     #    and scalarization function valeus).
     # 6. End.
 
-    def __init__(self, problem: Problem, parser_type: str = "polars"):
+    def __init__(self, problem: Problem, evaluator_mode: EvaluatorModesEnum = EvaluatorModesEnum.variables):
         """Create an evaluator for a multiobjective optimization problem.
+
+        By default, the evaluator expects a set of decision variables to evaluate the given problem.
+        However, if the problem is purely based on data (e.g., it represents an approximation of a Pareto optimal front),
+        then the evaluator should be run in 'discrete' mode instead. In this mode, it will return the whole
+        problem with all of its objectives, constraints, and scalarization functions evaluated with the
+        current data representing the problem.
 
         Args:
             problem (Problem): The problem as a pydantic 'Problem' data class.
-            parser_type (str): The type of parser used to parse the problem into a format
-                that can be evaluated. Default 'polars'.
+            evaluator_mode (str): The mode of evaluator used to parse the problem into a format
+                that can be evaluated. Default 'variables'.
         """
         # Create a MathParser of type 'evaluator_type'.
-        if parser_type not in SUPPORTED_EVALUATOR_TYPES:
+        if evaluator_mode not in EvaluatorModesEnum:
             msg = (
-                f"The provided 'parser_type' '{parser_type}' is not supported."
-                " Must be one of {SUPPORTED_EVALUATOR_TYPES}."
+                f"The provided 'evaluator_mode' '{evaluator_mode}' is not supported."
+                f" Must be one of {EvaluatorModesEnum}."
             )
             raise EvaluatorError(msg)
 
-        self.parser_type = parser_type
+        self.evaluator_mode = evaluator_mode
 
         # Gather any constants of the problem definition.
         self.problem_constants = problem.constants
@@ -127,21 +140,17 @@ class GenericEvaluator:
         # Symbol and expression pairs of any scalarization functions
         self.scalarization_expressions = None
 
-        # When parsing the expressions, branch into different initializations based on `parser_type`.
-        # Setup the correct function to be called when the `evaluate` method is called based on the selected
-        # `parser_type`
-        # When defining support for different parsers in the evaluator, the support should be added below
-        # as additional if-branches.
-        if parser_type == "polars":
-            # Note: `self.parser` is assumed to be set before continuing the initialization.
-            self.parser = MathParser()
-            self._polars_init()
-            # Note, when calling an evaluate method, it is assumed the problem has been fully parsed.
-            self.evaluate = self._polars_evaluate
+        # Note: `self.parser` is assumed to be set before continuing the initialization.
+        self.parser = MathParser()
+        self._polars_init()
 
+        # Note, when calling an evaluate method, it is assumed the problem has been fully parsed.
+        if self.evaluator_mode == EvaluatorModesEnum.variables:
+            self.evaluate = self._polars_evaluate
+        elif self.evaluator_mode == EvaluatorModesEnum.discrete:
+            self.evaluate = self._from_discrete_data
         else:
-            msg = f"Parser type of {parser_type} not yet supported."
-            raise EvaluatorError(msg)
+            msg = f"Provided 'evaluator_mode' {evaluator_mode} not supported. Must be one of {EvaluatorModesEnum}."
 
     def _polars_init(self):
         """Initialization of the evaluator for parser type 'polars'."""
@@ -347,6 +356,48 @@ class GenericEvaluator:
             constraint_values=constraint_values,
             scalarization_values=scalarization_values,
         )
+
+    def _from_discrete_data(self) -> pl.DataFrame:
+        """Evaluates the problem based on its discrete definitions only.
+
+        Assumes that all the objective functions in the problem are of type 'data-based'.
+        In this case, the problem is evaluated based on its current definition. Therefore,
+        no decision variable values are expected.
+
+        Returns:
+            pl.DataFrame: a polars dataframe with the evaluation results.
+        """
+        agg_df = self.discrete_df.clone()
+
+        # Evaluate any extra functions and put the results in the aggregate dataframe.
+        if self.extra_expressions is not None:
+            extra_columns = agg_df.select(*[expr.alias(symbol) for symbol, expr in self.extra_expressions])
+            agg_df = agg_df.hstack(extra_columns)
+
+        # Evaluate the minimization form of the objective functions
+        # Note that the column name of these should be 'the objective function's symbol'_min
+        # e.g., 'f_1' -> 'f_1_min'
+        min_obj_columns = agg_df.select(
+            *[
+                (min_max_mult * pl.col(f"{symbol}")).alias(f"{symbol}_min")
+                for symbol, min_max_mult in self.objective_mix_max_mult
+            ]
+        )
+
+        agg_df = agg_df.hstack(min_obj_columns)
+
+        # Evaluate any constraints and put the results in the aggregate dataframe
+        if self.constraint_expressions is not None:
+            cons_columns = agg_df.select(*[expr.alias(symbol) for symbol, expr in self.constraint_expressions])
+            agg_df = agg_df.hstack(cons_columns)
+
+        # Evaluate any scalarization functions and put the result in the aggregate dataframe
+        if self.scalarization_expressions is not None:
+            scal_columns = agg_df.select(*[expr.alias(symbol) for symbol, expr in self.scalarization_expressions])
+            agg_df = agg_df.hstack(scal_columns)
+
+        # no more processing needed, it is assumed a solver will handle the rest
+        return agg_df
 
 
 def find_closest_points(

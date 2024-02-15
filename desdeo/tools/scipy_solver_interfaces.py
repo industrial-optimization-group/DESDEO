@@ -7,37 +7,14 @@ from enum import Enum
 from functools import lru_cache
 from typing import Callable
 
-import numpy as np
 from scipy.optimize import minimize as _scipy_minimize
 from scipy.optimize import differential_evolution as _scipy_de
 from scipy.optimize import OptimizeResult as _ScipyOptimizeResult
 from scipy.optimize import NonlinearConstraint
-from pydantic import BaseModel, Field
 
 from desdeo.problem import ConstraintTypeEnum, EvaluatorResult, GenericEvaluator, Problem
+from desdeo.tools.generics import SolverError, SolverResults
 from desdeo.tools.scalarization import create_from_objective, add_scalarization_function
-
-
-class SolverError(Exception):
-    """Raised when an error with a solver is encountered."""
-
-
-class SolverResults(BaseModel):
-    """Defines a schema for a dataclass to store the results of a sovler."""
-
-    optimal_variables: dict[str, list[float]] = Field(description="The optimal decision variables found.")
-    optimal_objectives: dict[str, list[float]] = Field(
-        description="The objective function values corresponding to the optimal decision variables found."
-    )
-    constraint_values: dict[str, list[float]] | None = Field(
-        description=(
-            "The constraint values of the problem. A negative value means the constraint is respected, "
-            "a positive one means it has been breached."
-        ),
-        default=None,
-    )
-    success: bool = Field(description="A boolean flag indicating whether the optimization was successful or not.")
-    message: str = Field(description="Description of the cause of termination.")
 
 
 class EvalTargetEnum(str, Enum):

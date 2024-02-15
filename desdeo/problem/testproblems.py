@@ -4,7 +4,18 @@ Pre-defined problems for, e.g.,
 testing and illustration purposed are defined here.
 """
 
-from desdeo.problem.schema import Constant, Constraint, ExtraFunction, Objective, Problem, Variable
+from desdeo.problem.schema import (
+    Constant,
+    Constraint,
+    ConstraintTypeEnum,
+    DiscreteDefinition,
+    ExtraFunction,
+    Objective,
+    ObjectiveTypeEnum,
+    Problem,
+    Variable,
+    VariableTypeEnum,
+)
 
 
 def binh_and_korn() -> Problem:
@@ -201,6 +212,62 @@ def zdt1(number_of_variables: int) -> Problem:
     )
 
 
+def simple_data_problem() -> Problem:
+    """Defines a simple problem with only data-based objective functions."""
+
+    constants = [Constant(name="c", symbol="c", value=10)]
+
+    n_var = 5
+    variables = [
+        Variable(
+            name=f"y_{i}",
+            symbol=f"y_{i}",
+            variable_type=VariableTypeEnum.real,
+            lowerbound=-50.0,
+            upperbound=50.0,
+            initial_value=0.1,
+        )
+        for i in range(1, n_var + 1)
+    ]
+
+    n_objectives = 3
+    # only the first objective is to be maximized, the rest are to be minimized
+    objectives = [
+        Objective(
+            name=f"g_{i}",
+            symbol=f"g_{i}",
+            func=None,
+            objective_type=ObjectiveTypeEnum.data_based,
+            maximize=i == 1,
+            ideal=3000 if i == 1 else -60.0 if i == 3 else 0,
+            nadir=0 if i == 1 else 15 - 2.0 if i == 3 else 15,
+        )
+        for i in range(1, n_objectives + 1)
+    ]
+
+    constraints = [Constraint(name="cons 1", symbol="c_1", cons_type=ConstraintTypeEnum.EQ, func="y_1 + y_2 - c")]
+
+    data_len = 10
+    var_data = {f"y_{i}": [i * 0.5 + j for j in range(data_len)] for i in range(1, n_var + 1)}
+    obj_data = {
+        "g_1": [sum(var_data[f"y_{j}"][i] for j in range(1, n_var + 1)) ** 2 for i in range(data_len)],
+        "g_2": [max(var_data[f"y_{j}"][i] for j in range(1, n_var + 1)) for i in range(data_len)],
+        "g_3": [-sum(var_data[f"y_{j}"][i] for j in range(1, n_var + 1)) for i in range(data_len)],
+    }
+
+    discrete_def = DiscreteDefinition(variable_values=var_data, objective_values=obj_data)
+
+    return Problem(
+        name="Simple data problem",
+        description="Simple problem with all objectives being data-based. Has constraints and a constant also.",
+        constants=constants,
+        variables=variables,
+        objectives=objectives,
+        constraints=constraints,
+        discrete_definition=discrete_def,
+    )
+
+
 if __name__ == "__main__":
-    problem = zdt1(10)
+    problem = simple_data_problem()
     print(problem.model_dump_json(indent=2))

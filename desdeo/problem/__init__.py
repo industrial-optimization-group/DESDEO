@@ -6,6 +6,7 @@ __all__ = [
     "ConstraintTypeEnum",
     "EvaluatorResult",
     "EvaluatedInfo",
+    "EvaluatorModesEnum",
     "EvaluatedSolutions",
     "ExtraFunction",
     "GenericEvaluator",
@@ -13,6 +14,7 @@ __all__ = [
     "Objective",
     "Problem",
     "river_pollution_problem",
+    "simple_data_problem",
     "simple_test_problem",
     "ScalarizationFunction",
     "Variable",
@@ -20,7 +22,7 @@ __all__ = [
     "zdt1",
 ]
 
-from .evaluator import GenericEvaluator, EvaluatorResult
+from .evaluator import GenericEvaluator, EvaluatorModesEnum, EvaluatorResult
 
 from .schema import (
     Constant,
@@ -38,4 +40,4 @@ from .schema import (
 
 from .infix_parser import InfixExpressionParser
 
-from .testproblems import binh_and_korn, river_pollution_problem, simple_test_problem, zdt1
+from .testproblems import binh_and_korn, river_pollution_problem, simple_data_problem, simple_test_problem, zdt1

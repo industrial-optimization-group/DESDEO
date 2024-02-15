@@ -97,8 +97,10 @@ def create_asf(problem: Problem, reference_point: list[float], delta: float = 0.
         raise ScalarizationError(msg)
 
     objective_symbols = [objective.symbol for objective in problem.objectives]
-    ideal_point = [objective.ideal for objective in problem.objectives]
-    nadir_point = [objective.nadir for objective in problem.objectives]
+
+    # check if minimizing or maximizing and adjust ideal and nadir values correspondingly
+    ideal_point = [objective.ideal if not objective.maximize else -objective.ideal for objective in problem.objectives]
+    nadir_point = [objective.nadir if not objective.maximize else -objective.nadir for objective in problem.objectives]
 
     if (None in ideal_point) or (None in nadir_point):
         msg = f"There are undefined values in either the ideal ({ideal_point}) or the nadir point ({nadir_point})."
