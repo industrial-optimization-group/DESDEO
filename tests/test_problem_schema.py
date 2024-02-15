@@ -106,8 +106,8 @@ def test_data_objective():
     objective_2 = Objective(name="f_2", symbol="f_2", func=None, objective_type="data_based", maximize=True)
 
     var_data = {
-        "x_1": [0.288135, 1.951894, 0.827634, 0.248832, -0.963452, 1.258941, -0.824128, 3.717730, 4.436628, -1.365585],
-        "x_2": [2.717250, 0.088949, 0.480446, 4.055966, -4.489639, -4.328707, -4.997816, 3.126198, 2.581568, 3.500121],
+        "x_1": [0.5, 2.5, -3.5, 0.1],
+        "x_2": [1.5, -1.5, 1.5, -0.1],
     }
     obj_data = {"f_2": [x_1 + x_2 for x_1, x_2 in zip(var_data["x_1"], var_data["x_2"], strict=True)]}
 
@@ -118,7 +118,20 @@ def test_data_objective():
         description="For testing",
         objectives=[objective_1, objective_2],
         variables=variables,
-        discrete_definition=data_definition
+        discrete_definition=data_definition,
     )
 
     evaluator = GenericEvaluator(problem)
+
+    xs = {"x_1": [2.4, 0.05, 0.4], "x_2": [-1.4, -0.05, 1.3]}
+
+    eval_res = evaluator.evaluate(xs)
+
+    # compare eval res, f_1 = "x_1 + x_2**2 - Max(x_1, x_2)", and f_2 = x_1 + x_2
+
+    npt.assert_array_almost_equal(
+        [x_1 + x_2**2 - max([x_1, x_2]) for x_1, x_2 in zip(xs["x_1"], xs["x_2"], strict=True)],
+        eval_res.objective_values["f_1"],
+    )
+
+    npt.assert_array_almost_equal([2.5 + -1.5, 0.1 + -0.1, 0.5 + 1.5], eval_res.objective_values["f_2"])

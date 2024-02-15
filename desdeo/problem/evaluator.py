@@ -222,7 +222,7 @@ class GenericEvaluator:
         # parse objectives
         # If no expression is given (data-based objective, then the expression is set to be 'None')
         self.objective_expressions = [
-            (symbol, self.parser.parse(expression)) if expression is not None else None
+            (symbol, self.parser.parse(expression)) if expression is not None else (symbol, None)
             for symbol, expression in parsed_obj_funcs.items()
         ]
 
@@ -258,7 +258,7 @@ class GenericEvaluator:
         # create dataframe with the discrete representation, if any exists
         if self.discrete_definition is not None:
             self.discrete_df = pl.DataFrame(
-                [self.discrete_definition.variable_values, self.discrete_definition.objective_values]
+                {**self.discrete_definition.variable_values, **self.discrete_definition.objective_values}
             )
         else:
             self.discrete_df = None
@@ -296,8 +296,9 @@ class GenericEvaluator:
                 obj_col = agg_df.select(expr.alias(symbol))
                 agg_df = agg_df.hstack(obj_col)
             else:
-                # expr is note, therefore we must get the objective function's value somehow else, usually from data
-                pass
+                # expr is None, therefore we must get the objective function's value somehow else, usually from data
+                obj_col = find_closest_points(agg_df, self.discrete_df, self.problem_variable_symbols, symbol)
+                agg_df = agg_df.hstack(obj_col)
 
         # Evaluate the minimization form of the objective functions
         # Note that the column name of these should be 'the objective function's symbol'_min
@@ -348,31 +349,32 @@ class GenericEvaluator:
         )
 
 
-def find_closest_points(xs, discrete_df, variable_symbols, objective_symbol):
+def find_closest_points(
+    xs: pl.DataFrame, discrete_df: pl.DataFrame, variable_symbols: list[str], objective_symbol: list[str]
+) -> pl.DataFrame:
+    """Finds the closest points between the variable columns in xs and discrete_df.
+
+    For each row in xs, compares the `variable_symbols` columns and find the closest
+    point in `discrete_df`. Returns the objective value in the `objective_symbol` column in
+    `discrete_df` for each variable defined in `xs`, where the objective value
+    corresponds to the closest point of each variable in `xs` compared to `discrete_df`.
+
+    Both `xs` and `discrete_df` must have the columns `variable_symbols`. `discrete_df` must
+    also have the column `objective_symbol`.
+
+    Args:
+        xs (pl.DataFrame): a polars dataframe with the variable values we are
+            interested in finding the closest corresponding variable values in
+            `discrete_df`.
+        discrete_df (pl.DataFrame): a polars dataframe to compare the rows in `xs` to.
+        variable_symbols (list[str]): the names of the columns with decision variable values.
+        objective_symbol (str): the name of the column in `discrete_df` that has the objective function values.
+
+    Returns:
+        pl.DataFrame: a dataframe with the columns `objective_symbol` with the
+            objective function value that corresponds to each decision variable
+            vector in `xs`.
     """
-    # Prepare column names for the right side of the join
-    right_cols = [f"{col}_right" for col in variable_symbols]
-
-    # Rename columns in discrete_df for clarity in the cross join
-    discrete_df_renamed = discrete_df.rename({col: f"{col}_right" for col in variable_symbols})
-
-    # Cross join to compare every combination of points between xs and discrete_df
-    combined_df = xs.join(discrete_df_renamed, how="cross")
-
-    # Calculate Euclidean distances using dynamic column names
-    distance_expr = sum(
-        (pl.col(col) - pl.col(f"{col}_right"))**2 for col in variable_symbols
-    ).sqrt().alias("distance")
-
-    combined_df = combined_df.with_columns(distance_expr)
-
-    # Group by the original xs columns and select the closest objective function value
-    closest_points = combined_df.sort("distance").groupby(variable_symbols).agg(
-        pl.first(objective_symbol).alias(f"{objective_symbol}")
-    )
-    return closest_points
-    """
-
     xs_vars_only = xs[variable_symbols]
 
     results = []

@@ -79,14 +79,50 @@ def test_generic_w_mins_and_max():
 
 
 def test_find_closest_points():
-    xs = pl.DataFrame({"x_1": [3.1, 2.5, 1.05], "x_2": [4.35, -2.1, -0.9]})
+    """Test the 'find_closest_points' function."""
+    # simple data
+    xs_basic = pl.DataFrame({"x_1": [3.1, 2.5, 1.05], "x_2": [4.35, -2.1, -0.9]})
+    discrete_df_basic = pl.DataFrame({"x_1": [1.1, 2.6, 3.2], "x_2": [-1.1, -2.2, 4.2], "f_2": [42, 69, 420]})
+    variable_symbols_basic = ["x_1", "x_2"]
+    objective_symbol_basic = "f_2"
+    expected_basic = [420, 69, 42]
 
+    closest_points_df_basic = find_closest_points(
+        xs_basic, discrete_df_basic, variable_symbols_basic, objective_symbol_basic
+    )
+    npt.assert_array_almost_equal(closest_points_df_basic[objective_symbol_basic].to_numpy(), expected_basic)
 
-    discrete_df = pl.DataFrame({"x_1": [1.1, 2.6, 3.2], "x_2": [-1.1, -2.2, 4.2], "f_2": [42, 69, 420]})
+    # more complex data
+    xs_complex = pl.DataFrame({"x_1": [0, 2.5, 3.5, -1.5], "x_2": [-1, 2, -2, 0], "x_3": [1.5, -0.5, 2.5, -3]})
+    discrete_df_complex = pl.DataFrame(
+        {
+            "x_1": [0.5, 2, 3, -2, 1],
+            "x_2": [-0.5, 2.5, -1.5, 0.5, -1],
+            "x_3": [1, -1, 3, -2.5, 2],
+            "f_2": [100, 200, 300, 400, 500],
+        }
+    )
+    variable_symbols_complex = ["x_1", "x_2", "x_3"]
+    objective_symbol_complex = "f_2"
+    # Define expected values for the complex test based on your function's logic
+    expected_complex = [100, 200, 300, 400]  # These should be updated according to actual expected results
 
-    variable_symbols = ["x_1", "x_2"]
-    objective_symbol = "f_2"
+    closest_points_df_complex = find_closest_points(
+        xs_complex, discrete_df_complex, variable_symbols_complex, objective_symbol_complex
+    )
+    npt.assert_array_almost_equal(closest_points_df_complex[objective_symbol_complex].to_numpy(), expected_complex)
 
-    closest_points_df = find_closest_points(xs, discrete_df, variable_symbols, objective_symbol)
+    # just one variable
+    xs_single_var = pl.DataFrame({"x_1": [3.5, 2.5, -1.5, 0.1]})
+    discrete_df_single_var = pl.DataFrame({"x_1": [0, 2, -2, 0.5], "f_2": [10, 20, 30, 40]})
+    variable_symbols_single_var = ["x_1"]  # Only one variable symbol
+    objective_symbol_single_var = "f_2"
+    # Expected values should match the closest 'f_2' values in 'discrete_df_single_var' based on 'x_1' distances
+    expected_single_var = [20, 20, 30, 10]  # Update these expected values based on your function's logic
 
-    npt.assert_array_almost_equal(closest_points_df[objective_symbol], [420, 69, 42])
+    closest_points_df_single_var = find_closest_points(
+        xs_single_var, discrete_df_single_var, variable_symbols_single_var, objective_symbol_single_var
+    )
+    npt.assert_array_almost_equal(
+        closest_points_df_single_var[objective_symbol_single_var].to_numpy(), expected_single_var
+    )
