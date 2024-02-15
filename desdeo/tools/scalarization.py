@@ -69,6 +69,25 @@ class Op:
     RATIONAL = "Rational"
 
 
+def get_corrected_ideal_and_nadir(problem: Problem) -> tuple[list[float | None] | None, list[float | None] | None]:
+    """Compute the corrected ideal and nadir points depending if an objective function is to be maximized or not.
+
+    I.e., the ideal and nadir point element for objectives to be maximized will be multiplied by -1.
+
+    Args:
+        problem (Problem): the problem with the ideal and nadir points.
+
+    Returns:
+        tuple[list[float], list[float]]: a list with the corrected ideal point
+            and a list with the corrected nadir point. Will return None for missing
+            elements.
+    """
+    ideal_point = [objective.ideal if not objective.maximize else -objective.ideal for objective in problem.objectives]
+    nadir_point = [objective.nadir if not objective.maximize else -objective.nadir for objective in problem.objectives]
+
+    return ideal_point, nadir_point
+
+
 def create_asf(problem: Problem, reference_point: list[float], delta: float = 0.000001, rho: float = 0.000001) -> str:
     """Creates the achievement scalarizing function for the given problem and reference point.
 
@@ -99,8 +118,7 @@ def create_asf(problem: Problem, reference_point: list[float], delta: float = 0.
     objective_symbols = [objective.symbol for objective in problem.objectives]
 
     # check if minimizing or maximizing and adjust ideal and nadir values correspondingly
-    ideal_point = [objective.ideal if not objective.maximize else -objective.ideal for objective in problem.objectives]
-    nadir_point = [objective.nadir if not objective.maximize else -objective.nadir for objective in problem.objectives]
+    ideal_point, nadir_point = get_corrected_ideal_and_nadir(problem)
 
     if (None in ideal_point) or (None in nadir_point):
         msg = f"There are undefined values in either the ideal ({ideal_point}) or the nadir point ({nadir_point})."
