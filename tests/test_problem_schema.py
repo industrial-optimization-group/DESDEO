@@ -8,9 +8,11 @@ from desdeo.problem.schema import (
     DiscreteDefinition,
     ExtraFunction,
     Objective,
+    ObjectiveTypeEnum,
     Problem,
     ScalarizationFunction,
     Variable,
+    VariableTypeEnum,
 )
 from desdeo.problem.evaluator import GenericEvaluator
 
@@ -135,3 +137,231 @@ def test_data_objective():
     )
 
     npt.assert_array_almost_equal([2.5 + -1.5, 0.1 + -0.1, 0.5 + 1.5], eval_res.objective_values["f_2"])
+
+
+def test_data_problem():
+    """Tests the evaluation of a problem with only data objectives."""
+    n_var = 5
+    n_obj = 3
+
+    df = pl.read_csv("./tests/data/DTLZ2_5x_3f.csv")
+
+    variables = [
+        Variable(
+            name=f"x{i}",
+            symbol=f"x{i}",
+            lowerbound=0.0,
+            upperbound=1.0,
+            initial_value=1.0,
+            variable_type=VariableTypeEnum.real,
+        )
+        for i in range(1, n_var + 1)
+    ]
+
+    objectives = [
+        Objective(name=f"f{i}", symbol=f"f{i}", func=None, maximize=False, objective_type=ObjectiveTypeEnum.data_based)
+        for i in range(1, n_obj + 1)
+    ]
+
+    variable_dict = df[[f"f{i}" for i in range(1, n_obj + 1)]].to_dict(as_series=False)
+    objective_dict = df[[f"x{i}" for i in range(1, n_var + 1)]].to_dict(as_series=False)
+
+    problem = Problem(
+        name="DTLZ2",
+        description="DTLZ2 with 5 vars and 3 objs, representation.",
+        variables=variables,
+        objectives=objectives,
+        discrete_definition=DiscreteDefinition(variable_values=variable_dict, objective_values=objective_dict),
+    )
+
+    evaluator = GenericEvaluator(problem)
+
+    n_input = 10
+    xs = {
+        "x1": [
+            0.5,
+            0.5,
+            0.058933292079031085,
+            0.568627185142172,
+            0.3441500730504361,
+            0.8545733304617269,
+            0.9272411190475092,
+            0.007690581519525286,
+            0.9090671387118816,
+            0.07141463778009649,
+        ],
+        "x2": [
+            0.2,
+            0.4,
+            0.6045535577489826,
+            0.28712096312673085,
+            0.0972814234703101,
+            0.873533220112079,
+            0.7409069506233055,
+            0.9579204115062728,
+            0.3189706295496102,
+            0.5585049750880551,
+        ],
+        "x3": [
+            0.9,
+            0.1,
+            0.4428645652739157,
+            0.14258837293033566,
+            0.2941046058668525,
+            0.8016906727667247,
+            0.28875624463989247,
+            0.7180094891313515,
+            0.998503216317003,
+            0.5830186435374128,
+        ],
+        "x4": [
+            0.1,
+            0.9,
+            0.2572949575804011,
+            0.7390210756613486,
+            0.20496408757374118,
+            0.5558856047384275,
+            0.6167896940614638,
+            0.9129284018955703,
+            0.18418029533717595,
+            0.4069113987248817,
+        ],
+        "x5": [
+            0.4,
+            0.6,
+            0.37036805441222154,
+            0.3695885834483116,
+            0.21046481374349546,
+            0.1967692836513416,
+            0.48666567007484285,
+            0.19151606293797985,
+            0.37958833949630955,
+            0.8321661269747351,
+        ],
+    }
+
+    res = evaluator.evaluate(xs)
+
+    # all the solutions evaluated should be close to Pareto optimality (we know there is a 0.01 tolerance in the data)
+    assert all(
+        abs(sum(res.objective_values[f_key][i] ** 2 for f_key in res.objective_values) - 1.0) < 0.01
+        for i in range(n_input)
+    )
+
+    # take directly some decision variables values from the data and make sure they evaluate correctly
+    xs = {
+        "x1": [
+            0.1855437858885801,
+            0.6444446513948299,
+            0.2554487181544489,
+            0.5488223224669113,
+            0.23903395483341938,
+            0.29309453892702203,
+            0.18535427573362392,
+            0.05751804043598988,
+            0.26604387361509446,
+            0.8599501462066285,
+            0.7306643650514167,
+        ],
+        "x2": [
+            1.0,
+            0.0,
+            0.49995462210876557,
+            0.0,
+            0.2570790391295068,
+            0.9208549775240716,
+            0.0,
+            0.9423839289462318,
+            1.0,
+            0.7041761798637635,
+            0.3739096112815266,
+        ],
+        "x3": [
+            0.5118155116582402,
+            0.4986619397546664,
+            0.5275518500926538,
+            0.49705952818499866,
+            0.49541351977747106,
+            0.5010052414967497,
+            0.5009613675610162,
+            0.5106619098002502,
+            0.5056446257711289,
+            0.49380369981865385,
+            0.5045726511786348,
+        ],
+        "x4": [
+            0.4986258005390593,
+            0.5002335327667501,
+            0.4973945846679122,
+            0.4983108809186191,
+            0.4961462094513439,
+            0.5015806399868823,
+            0.502678043720949,
+            0.5029274410653807,
+            0.49681465733421887,
+            0.5065886203587019,
+            0.5124663548802791,
+        ],
+        "x5": [
+            0.5003725609145294,
+            0.49896694329671415,
+            0.4948458502988517,
+            0.49934717566813663,
+            0.49815692274039775,
+            0.5021182769257488,
+            0.4980355703334864,
+            0.4985254991567869,
+            0.5030733421386511,
+            0.5028400679565715,
+            0.4822807853758155,
+        ],
+    }
+
+    expected_fs = {
+        "f1": [
+            5.865834473169222e-17,
+            0.5299205317553395,
+            0.651503859176299,
+            0.650861366725754,
+            0.8555382357060214,
+            0.11109046046117708,
+            0.957924753610067,
+            0.09002218160976368,
+            5.596574326667622e-17,
+            0.09780084029552562,
+            0.3419284070076635,
+        ],
+        "f2": [
+            0.9579634678755125,
+            0.0,
+            0.6514109881551711,
+            0.0,
+            0.36557316386918964,
+            0.8889713119473678,
+            0.0,
+            0.9919687795841546,
+            0.9139899488675715,
+            0.19509837869899882,
+            0.22762310731712654,
+        ],
+        "f3": [
+            0.28738350919818084,
+            0.8480507380637493,
+            0.390886159593875,
+            0.7592123107542801,
+            0.3667276366997508,
+            0.44430272141162297,
+            0.2870611029438926,
+            0.09023748333152137,
+            0.4058636264760891,
+            0.9759873802583043,
+            0.9122792912808544,
+        ],
+    }
+
+    res = evaluator.evaluate(xs)
+
+    objective_values = res.objective_values
+
+    for obj in objective_values:
+        npt.assert_array_almost_equal(objective_values[obj], expected_fs[obj])
