@@ -18,10 +18,16 @@ from desdeo.problem.schema import (
 )
 
 
-def binh_and_korn() -> Problem:
+def binh_and_korn(maximize: tuple[bool] = (False, False)) -> Problem:
     """Create a pydantic dataclass representation of the Binh and Korn problem.
 
     The function has two objective functions, two variables, and two constraint functions.
+    For testing purposes, it can be chosen whether the firs and second objective should
+    be maximized instead.
+
+    Arguments:
+        maximize (tuple[bool]): whether the first or second objective should be
+            maximized or not. Defaults to (False, False).
 
     References:
         Binh T. and Korn U. (1997) MOBES: A Multiobjective Evolution Strategy for Constrained Optimization Problems.
@@ -41,16 +47,18 @@ def binh_and_korn() -> Problem:
     objective_1 = Objective(
         name="Objective 1",
         symbol="f_1",
-        func=["Add", ["Multiply", "c_1", ["Square", "x_1"]], ["Multiply", "c_1", ["Square", "x_2"]]],
-        maximize=False,
+        func=f"{'-' if maximize[0] else ''}(c_1 * x_1**2 + c_1*x_2**2)",
+        # func=["Add", ["Multiply", "c_1", ["Square", "x_1"]], ["Multiply", "c_1", ["Square", "x_2"]]],
+        maximize=maximize[0],
         ideal=None,
         nadir=None,
     )
     objective_2 = Objective(
         name="Objective 2",
         symbol="f_2",
-        func=["Add", ["Square", ["Subtract", "x_1", "c_2"]], ["Square", ["Subtract", "x_2", "c_2"]]],
-        maximize=False,
+        # func=["Add", ["Square", ["Subtract", "x_1", "c_2"]], ["Square", ["Subtract", "x_2", "c_2"]]],
+        func=f"{'-' if maximize[1] else ''}((x_1 - c_2)**2 + (x_2 - c_2)**2)",
+        maximize=maximize[1],
     )
 
     constraint_1 = Constraint(

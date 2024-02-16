@@ -272,17 +272,23 @@ class GenericEvaluator:
         else:
             self.discrete_df = None
 
-    def _polars_evaluate(self, xs: dict[str, list[float | int | bool]]) -> EvaluatorResult:
+    def _polars_evaluate(
+        self, xs: dict[str, list[float | int | bool]], raw_df: bool = False
+    ) -> EvaluatorResult | pl.DataFrame:
         """Evaluate the problem with the given decision variable values utilizing a polars dataframe.
 
         Args:
             xs (dict[str, list[float | int | bool]]): a dict with the decision variable symbols
-            as the keys followed by the corresponding decision variable values stored in a list. The symbols
-            must match the symbols defined for the decision variables defined in the `Problem` being solved.
-            Each list in the dict should contain the same number of values.
+                as the keys followed by the corresponding decision variable values stored in a list. The symbols
+                must match the symbols defined for the decision variables defined in the `Problem` being solved.
+                Each list in the dict should contain the same number of values.
+            raw_df (Optional[bool]): whether to return the results wrapped in an EvalutorResults
+                dataclass, or to return the polars dataframe with the evalution retults.
 
         Returns:
-            EvaluatorResult: the results of the evaluation. See `EvaluatorResult` for details.
+            EvaluatorResult | pl.DataFrame: the results of the evaluation if
+                'raw_df' is True: see `EvaluatorResults` for details. Else, returns the
+                polars dataframew the computed results.
 
         Note:
             At least `self.objective_expressions` must be defined before calling this method.
@@ -329,6 +335,10 @@ class GenericEvaluator:
         if self.scalarization_expressions is not None:
             scal_columns = agg_df.select(*[expr.alias(symbol) for symbol, expr in self.scalarization_expressions])
             agg_df = agg_df.hstack(scal_columns)
+
+        if raw_df:
+            # return the dataframe and let the solver figure it out
+            return agg_df
 
         # Collect the results
         variable_values = {symbol: agg_df[symbol].to_list() for symbol in self.problem_variable_symbols}

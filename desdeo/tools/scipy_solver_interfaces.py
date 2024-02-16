@@ -7,6 +7,7 @@ from enum import Enum
 from functools import lru_cache
 from typing import Callable
 import numpy as np
+import polars as pl
 
 from scipy.optimize import minimize as _scipy_minimize
 from scipy.optimize import differential_evolution as _scipy_de
@@ -93,14 +94,11 @@ def create_scipy_object_constraints(problem: Problem, evaluator: GenericEvaluato
     Returns:
         list[NonlinearConstraint]: a list of scipy's NonLinearConstraint objects.
     """
-    return [
-        NonlinearConstraint(
-            fun=get_scipy_eval(problem, evaluator, constraint.symbol, eval_target=EvalTargetEnum.constraint),
-            lb=0,  # constraint value must be between 0 and inf, e.g., positive.
-            ub=float("inf"),  # since in scipy, a constraint is respected when its value is positive. See scipy_eval.
-        )
-        for constraint in problem.constraints
-    ]
+    return NonlinearConstraint(
+        fun=get_scipy_eval(problem, evaluator, "", eval_target=EvalTargetEnum.constraint),
+        lb=0,  # constraint value must be between 0 and inf, e.g., positive.
+        ub=float("inf"),  # since in scipy, a constraint is respected when its value is positive. See scipy_eval.
+    )
 
 
 def get_scipy_eval(
@@ -150,18 +148,25 @@ def get_scipy_eval(
         # TODO: Consider caching the results of evaluator.evaluate
         evalutor_args = {problem.variables[i].symbol: x[i] for i in range(len(problem.variables))}
 
-        evaluator_res: EvaluatorResult = evaluator.evaluate(evalutor_args)
-
         if eval_target == EvalTargetEnum.objective:
+            evaluator_res: EvaluatorResult = evaluator.evaluate(evalutor_args)
+
             # evaluata objective (scalarized)
             return evaluator_res.scalarization_values[target]
 
         if eval_target == EvalTargetEnum.constraint:
+            evaluator_df: pl.DataFrame = evaluator.evaluate(evalutor_args, raw_df=True)
             # evaluate constraint
             # put the minus here because scipy expect positive constraints values when the constraint
             # is respected. But in DESDEO, we define constraints s.t., a negative value means the constraint
             # is recpected, therefore, it needs to be flipped here.
-            return [-num for num in evaluator_res.constraint_values[target]]
+            con_symbols = [constraint.symbol for constraint in problem.constraints]
+            res_dict = evaluator_df[con_symbols].to_dict(as_series=False)
+
+            res = np.array([np.array(res_dict[symbol]) for symbol in con_symbols])
+
+            # squeeze important for minimization routines
+            return -np.squeeze(res)
 
         # non-existing eval_target
         msg = f"'eval_target' = '{eval_target} not supported. Must be one of {list(EvalTargetEnum)}."
@@ -307,7 +312,7 @@ def create_scipy_de_solver(
             "recombination": 0.7,
             "seed": None,
             "callback": None,
-            "disp": False,
+            "disp": True,
             "polish": True,
             "init": "latinhypercube",
             "atol": 0,
