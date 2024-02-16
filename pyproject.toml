@@ -141,6 +141,7 @@ profile="black"
 [tool.pytest.ini_options]
 markers = [
     "slow: mark test as slow",
+    "nautilus_navigator: tests related to the NAUTILUS Navigator method.",
 ]
 
 [build-system]
