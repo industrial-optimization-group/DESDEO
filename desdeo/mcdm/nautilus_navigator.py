@@ -98,3 +98,8 @@ def calculate_distance_to_front(
     Returns:
         float: the distance to the front.
     """
+    z_nav = np.array(navigation_point)
+    nadir = np.array(nadir_point)
+    f = np.array(reachable_objective_vector)
+
+    return (np.linalg.norm(z_nav - nadir) / np.linalg.norm(f - nadir)) * 100
