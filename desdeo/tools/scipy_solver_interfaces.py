@@ -312,7 +312,7 @@ def create_scipy_de_solver(
             "recombination": 0.7,
             "seed": None,
             "callback": None,
-            "disp": True,
+            "disp": False,
             "polish": True,
             "init": "latinhypercube",
             "atol": 0,
