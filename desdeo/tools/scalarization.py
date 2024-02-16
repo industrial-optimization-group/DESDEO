@@ -88,14 +88,22 @@ def get_corrected_ideal_and_nadir(problem: Problem) -> tuple[list[float | None] 
     return ideal_point, nadir_point
 
 
-def create_asf(problem: Problem, reference_point: list[float], delta: float = 0.000001, rho: float = 0.000001) -> str:
+def create_asf(
+    problem: Problem,
+    reference_point: list[float],
+    reference_in_aug=False,
+    delta: float = 0.000001,
+    rho: float = 0.000001,
+) -> str:
     """Creates the achievement scalarizing function for the given problem and reference point.
 
     Requires that the ideal and nadir point have been defined for the problem.
 
     Args:
         problem (Problem): the problem to which the scalarization function should be added.
-        reference_point (list[float]): a reference poin with as many components as there are objectives.
+        reference_point (list[float]): a reference point with as many components as there are objectives.
+        reference_in_aug (bool): whether the reference point should be used in
+            the augmentation term as well. Defaults to False.
         delta (float, optional): the scalar value used to define the utopian point (ideal - delta).
             Defaults to 0.000001.
         rho (float, optional): the weight factor used in the augmentation term. Defaults to 0.000001.
@@ -132,10 +140,17 @@ def create_asf(problem: Problem, reference_point: list[float], delta: float = 0.
     max_term = f"{Op.MAX}({', '.join(max_operands)})"
 
     # Build the augmentation term
-    aug_operands = [
-        f"{objective_symbols[i]}_min / ({nadir_point[i]} - ({ideal_point[i]} - {delta}))"
-        for i in range(len(problem.objectives))
-    ]
+    if not reference_in_aug:
+        aug_operands = [
+            f"{objective_symbols[i]}_min / ({nadir_point[i]} - ({ideal_point[i]} - {delta}))"
+            for i in range(len(problem.objectives))
+        ]
+    else:
+        aug_operands = [
+            f"({objective_symbols[i]}_min - {reference_point[i]}) / ({nadir_point[i]} - ({ideal_point[i]} - {delta}))"
+            for i in range(len(problem.objectives))
+        ]
+
     aug_term = " + ".join(aug_operands)
 
     # Return the whole scalarization function

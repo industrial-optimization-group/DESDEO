@@ -10,6 +10,8 @@ import numpy as np
 
 from desdeo.problem import Problem
 from desdeo.tools.generics import SolverResults
+from desdeo.tools.scalarization import create_asf, add_scalarization_function, add_lte_constraints
+from desdeo.tools.scipy_solver_interfaces import create_scipy_de_solver
 
 
 class NautilusNavigatorError(Exception):
@@ -83,6 +85,13 @@ def calculate_reachable_solution(problem: Problem, reference_point: list[float])
     Returns:
         SolverResults: the results of the projection.
     """
+    # create and add scalarization function
+    sf = create_asf(problem, reference_point, reference_in_aug=True)
+    problem_w_asf, target = add_scalarization_function(problem, sf, "asf")
+
+    # solve the problem
+    solver = create_scipy_de_solver(problem_w_asf)
+    return solver(target)
 
 
 def calculate_distance_to_front(

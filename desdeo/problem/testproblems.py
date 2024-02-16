@@ -194,8 +194,8 @@ def zdt1(number_of_variables: int) -> Problem:
     ]
 
     objectives = [
-        Objective(name="f_1", symbol=f1_symbol, func=f1_expr, maximize=False),
-        Objective(name="f_2", symbol=f2_symbol, func=f2_expr, maximize=False),
+        Objective(name="f_1", symbol=f1_symbol, func=f1_expr, maximize=False, ideal=0, nadir=1),
+        Objective(name="f_2", symbol=f2_symbol, func=f2_expr, maximize=False, ideal=0, nadir=1),
     ]
 
     extras = [
@@ -214,7 +214,6 @@ def zdt1(number_of_variables: int) -> Problem:
 
 def simple_data_problem() -> Problem:
     """Defines a simple problem with only data-based objective functions."""
-
     constants = [Constant(name="c", symbol="c", value=10)]
 
     n_var = 5

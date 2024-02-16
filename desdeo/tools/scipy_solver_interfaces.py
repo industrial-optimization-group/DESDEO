@@ -6,6 +6,7 @@ These solvers will solve various scalarized problems of multiobjective optimizat
 from enum import Enum
 from functools import lru_cache
 from typing import Callable
+import numpy as np
 
 from scipy.optimize import minimize as _scipy_minimize
 from scipy.optimize import differential_evolution as _scipy_de
@@ -310,10 +311,10 @@ def create_scipy_de_solver(
             "polish": True,
             "init": "latinhypercube",
             "atol": 0,
-            "updating": "immediate",
+            "updating": "deferred",
             "workers": 1,
             "integrality": None,
-            "vectorized": False,
+            "vectorized": True,  # the constraints for scipy_de need to be fixed first for this to work
         }
 
     # variable bounds
@@ -327,7 +328,9 @@ def create_scipy_de_solver(
 
     def solver(target: str) -> SolverResults:
         # add constraints if there are any
-        constraints = create_scipy_object_constraints(problem, evaluator) if problem.constants is not None else None
+        constraints = create_scipy_object_constraints(problem, evaluator) if problem.constraints is not None else ()
+
+        print(constraints)
 
         optimization_result: _ScipyOptimizeResult = _scipy_de(
             get_scipy_eval(problem, evaluator, target, EvalTargetEnum.objective),
@@ -346,13 +349,13 @@ def create_scipy_de_solver(
 if __name__ == "__main__":
     from desdeo.problem import binh_and_korn, zdt1
 
-    problem = zdt1(10)
+    problem = binh_and_korn()
 
     sf = create_from_objective(problem, "f_2")
 
     problem, target = add_scalarization_function(problem, sf, "target")
 
-    solver = create_scipy_minimize_solver(problem)
+    solver = create_scipy_de_solver(problem)
 
     res = solver(target)
     print(res)
