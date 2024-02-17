@@ -22,6 +22,10 @@ def objective_dict_to_numpy_array(problem: Problem, objective_dict: dict[str, fl
         np.ndarray: a numpy array with the objective function values in the order they are
             present in problem.
     """
+    if isinstance(objective_dict[problem.objectives[0].symbol], list):
+        if len(objective_dict[problem.objectives[0].symbol]) != 1:
+            raise ValueError("The objective_dict has multiple values for an objective function")
+        return np.array([objective_dict[objective.symbol][0] for objective in problem.objectives])
     return np.array([objective_dict[objective.symbol] for objective in problem.objectives])
 
 

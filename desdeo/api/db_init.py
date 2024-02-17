@@ -3,7 +3,7 @@ import warnings
 
 from sqlalchemy_utils import create_database, database_exists, drop_database
 
-from desdeo.api import models
+from desdeo.api import db_models
 from desdeo.api.db import SessionLocal, engine
 from desdeo.api.routers.UserAuth import UserPrivileges, UserRole, get_password_hash
 
@@ -23,12 +23,12 @@ else:
 print("Database tables created.")
 
 # Create the tables in the database.
-models.Base.metadata.create_all(bind=engine)
+db_models.Base.metadata.create_all(bind=engine)
 
 # Create test users
 db = SessionLocal()
 db.add(
-    models.User(
+    db_models.User(
         username="test",
         password_hash=get_password_hash("test"),
         role=UserRole.ANALYST,

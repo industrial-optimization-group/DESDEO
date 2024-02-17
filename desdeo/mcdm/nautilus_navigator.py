@@ -6,18 +6,24 @@ Ruiz, Ana B., et al. "NAUTILUS Navigator: free search interactive multiobjective
 optimization without trading-off." Journal of Global Optimization 74.2 (2019):
 213-231.
 """
+from typing import Callable
+
 import numpy as np
 
-from desdeo.problem import Problem
+from desdeo.problem import (
+    Problem,
+    get_nadir_dict,
+    numpy_array_to_objective_dict,
+    objective_dict_to_numpy_array,
+)
 from desdeo.tools.generics import SolverResults
 from desdeo.tools.scalarization import (
+    add_lte_constraints,
+    add_scalarization_function,
     create_asf,
     create_epsilon_constraints,
-    add_scalarization_function,
-    add_lte_constraints,
 )
 from desdeo.tools.scipy_solver_interfaces import create_scipy_de_solver
-from desdeo.problem import get_nadir_dict, objective_dict_to_numpy_array, numpy_array_to_objective_dict
 
 
 class NautilusNavigatorError(Exception):
@@ -53,7 +59,7 @@ def calculate_navigation_point(
         raise NautilusNavigatorError(msg)
 
     z_prev = objective_dict_to_numpy_array(problem, previous_navigation_point)
-    f = objective_dict_to_numpy_array(problem, reachable_objective_vector)
+    f = objective_dict_to_numpy_array(problem, reachable_objective_vector).T  # 
     rs = number_of_steps_remaining
 
     # return the new navigation point
@@ -63,7 +69,7 @@ def calculate_navigation_point(
 
 
 def calculate_reachable_bounds(
-    problem: Problem, navigation_point: dict[str, float]
+    problem: Problem, navigation_point: dict[str, float], solver: Callable[[str], SolverResults] | None = None
 ) -> tuple[dict[str, float], dict[str, float]]:
     """Computes the current reachable (upper and lower) bounds of the solutions in the objective space.
 
@@ -75,6 +81,7 @@ def calculate_reachable_bounds(
         navigation_point (dict[str, float]): the navigation point limiting the
             reachable area. The key is the objective function's symbol and the value
             the navigation point.
+        solver (Callable[[str], SolverResults] | None): the optimizer to be used to solve the problem.
 
     Raises:
         NautilusNavigationError: when optimization of an epsilon constraint problem is not successful.
@@ -110,8 +117,11 @@ def calculate_reachable_bounds(
         )
 
         # solve
-        solver = create_scipy_de_solver(eps_problem)
-        res = solver(target)
+        if not solver:
+            solver = create_scipy_de_solver(eps_problem)
+            res = solver(target)
+        else:
+            res = solver(eps_problem)(target)
 
         if not res.success:
             # could not optimize eps problem
@@ -123,10 +133,16 @@ def calculate_reachable_bounds(
 
         lower_bound = res.optimal_objectives[objective.symbol]
 
+        if isinstance(lower_bound, list):
+            lower_bound = lower_bound[0]
+
         # solver upper bounds
         # the lower bounds is set as in the NAUTILUS method, e.g., taken from
         # the current itration/navigation point
-        upper_bound = navigation_point[objective.symbol]
+        if isinstance(navigation_point[objective.symbol], list):
+            upper_bound = navigation_point[objective.symbol][0]
+        else:
+            upper_bound = navigation_point[objective.symbol]
 
         # add the lower and upper bounds logically depending whether an objective is to be maximized or minimized
         lower_bounds[objective.symbol] = lower_bound if not objective.maximize else upper_bound
@@ -135,7 +151,9 @@ def calculate_reachable_bounds(
     return lower_bounds, upper_bounds
 
 
-def calculate_reachable_solution(problem: Problem, reference_point: dict[str, float]) -> SolverResults:
+def calculate_reachable_solution(
+    problem: Problem, reference_point: dict[str, float], solver: Callable[[str], SolverResults] | None = None
+) -> SolverResults:
     """Calculates the reachable solution on the Pareto optimal front.
 
     For the calculation to make sense in the context of NAUTILUS Navigator, the reference point
@@ -148,6 +166,7 @@ def calculate_reachable_solution(problem: Problem, reference_point: dict[str, fl
     Args:
         problem (Problem): the problem being solved.
         reference_point (dict[str, float]): the reference point to project on the Pareto optimal front.
+        solver (Callable[[str], SolverResults] | None): the optimizer to be used to solve the problem.
 
     Returns:
         SolverResults: the results of the projection.
@@ -158,8 +177,12 @@ def calculate_reachable_solution(problem: Problem, reference_point: dict[str, fl
     problem_w_asf, target = add_scalarization_function(problem, sf, "asf")
 
     # solve the problem
-    solver = create_scipy_de_solver(problem_w_asf)
-    return solver(target)
+    if not solver:
+        solver = create_scipy_de_solver(problem_w_asf)
+        res = solver(target)
+    else:
+        res = solver(problem_w_asf)(target)
+    return res
 
 
 def calculate_distance_to_front(
@@ -196,7 +219,7 @@ def calculate_distance_to_front(
 
 
 if __name__ == "__main__":
-    from desdeo.problem import get_ideal_dict, binh_and_korn
+    from desdeo.problem import binh_and_korn, get_ideal_dict
 
     problem = binh_and_korn()
 
