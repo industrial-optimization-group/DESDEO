@@ -90,7 +90,7 @@ def test_epsilon_constraint():
     res = solver(target)
 
     # check that constraints are ok
-    cons_values = [res.constraint_values[s][0] for s in con_symbols]
+    cons_values = [res.constraint_values[s] for s in con_symbols]
 
     atol = 1e-9
     shifted = np.array(cons_values) - atol

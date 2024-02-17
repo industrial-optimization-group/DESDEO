@@ -40,3 +40,27 @@ def numpy_array_to_objective_dict(problem: Problem, numpy_array: np.ndarray) -> 
             objective function values.
     """
     return {objective.symbol: np.squeeze(numpy_array).tolist()[i] for i, objective in enumerate(problem.objectives)}
+
+
+def get_nadir_dict(problem: Problem) -> dict[str, float]:
+    """Return a dict representing a problem's nadir point.
+
+    Args:
+        problem (Problem): the problem with the nadir point.
+
+    Returns:
+        dict[str, float]: key are objective funciton symbols, values are nadir values.
+    """
+    return {objective.symbol: objective.nadir for objective in problem.objectives}
+
+
+def get_ideal_dict(problem: Problem) -> dict[str, float]:
+    """Return a dict representing a problem's ideal point.
+
+    Args:
+        problem (Problem): the problem with the ideal point.
+
+    Returns:
+        dict[str, float]: key are objective funciton symbols, values are ideal values.
+    """
+    return {objective.symbol: objective.ideal for objective in problem.objectives}

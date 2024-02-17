@@ -166,7 +166,7 @@ def get_scipy_eval(
             res = np.array([np.array(res_dict[symbol]) for symbol in con_symbols])
 
             # squeeze important for minimization routines
-            return -np.squeeze(res)
+            return -np.squeeze(res, axis=-1) if res.shape[-1] == 1 else -res
 
         # non-existing eval_target
         msg = f"'eval_target' = '{eval_target} not supported. Must be one of {list(EvalTargetEnum)}."
@@ -197,16 +197,18 @@ def parse_scipy_optimization_result(
     eval_opt = evaluator.evaluate({problem.variables[i].symbol: x_opt[i] for i in range(len(problem.variables))})
 
     objective_symbols = [obj.symbol for obj in problem.objectives]
-    f_opt = eval_opt[objective_symbols].to_dict(as_series=False)
+    f_res = eval_opt[objective_symbols]
+    f_opt = {symbol: f_res[symbol][0] for symbol in objective_symbols}
 
     if problem.constraints is not None:
         const_symbols = [const.symbol for const in problem.constraints]
-        const_opt = eval_opt[const_symbols].to_dict(as_series=False)
+        const_res = eval_opt[const_symbols]
+        const_opt = {symbol: const_res[symbol][0] for symbol in const_symbols}
     else:
         const_opt = None
 
     return SolverResults(
-        optimal_variables={problem.variables[i].symbol: [x_opt[i]] for i in range(len(problem.variables))},
+        optimal_variables={problem.variables[i].symbol: x_opt[i] for i in range(len(problem.variables))},
         optimal_objectives=f_opt,
         constraint_values=const_opt,
         success=success_opt,
@@ -339,8 +341,6 @@ def create_scipy_de_solver(
     def solver(target: str) -> SolverResults:
         # add constraints if there are any
         constraints = create_scipy_object_constraints(problem, evaluator) if problem.constraints is not None else ()
-
-        print(constraints)
 
         optimization_result: _ScipyOptimizeResult = _scipy_de(
             get_scipy_eval(problem, evaluator, target, EvalTargetEnum.objective),

@@ -50,6 +50,8 @@ def binh_and_korn(maximize: tuple[bool] = (False, False)) -> Problem:
         func=f"{'-' if maximize[0] else ''}(c_1 * x_1**2 + c_1*x_2**2)",
         # func=["Add", ["Multiply", "c_1", ["Square", "x_1"]], ["Multiply", "c_1", ["Square", "x_2"]]],
         maximize=maximize[0],
+        ideal=0,
+        nadir=140 if not maximize[0] else -140,
     )
     objective_2 = Objective(
         name="Objective 2",
@@ -57,6 +59,8 @@ def binh_and_korn(maximize: tuple[bool] = (False, False)) -> Problem:
         # func=["Add", ["Square", ["Subtract", "x_1", "c_2"]], ["Square", ["Subtract", "x_2", "c_2"]]],
         func=f"{'-' if maximize[1] else ''}((x_1 - c_2)**2 + (x_2 - c_2)**2)",
         maximize=maximize[1],
+        ideal=0,
+        nadir=50 if not maximize[0] else -50,
     )
 
     constraint_1 = Constraint(

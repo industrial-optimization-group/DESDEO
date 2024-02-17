@@ -17,7 +17,7 @@ from desdeo.tools.scalarization import (
     add_lte_constraints,
 )
 from desdeo.tools.scipy_solver_interfaces import create_scipy_de_solver
-from desdeo.problem import objective_dict_to_numpy_array, numpy_array_to_objective_dict
+from desdeo.problem import get_nadir_dict, objective_dict_to_numpy_array, numpy_array_to_objective_dict
 
 
 class NautilusNavigatorError(Exception):
@@ -121,7 +121,7 @@ def calculate_reachable_bounds(
             )
             raise NautilusNavigatorError(msg)
 
-        lower_bound = res.optimal_objectives[objective.symbol][0]
+        lower_bound = res.optimal_objectives[objective.symbol]
 
         # solver upper bounds
         # the lower bounds is set as in the NAUTILUS method, e.g., taken from
@@ -135,7 +135,7 @@ def calculate_reachable_bounds(
     return lower_bounds, upper_bounds
 
 
-def calculate_reachable_solution(problem: Problem, reference_point: list[float]) -> SolverResults:
+def calculate_reachable_solution(problem: Problem, reference_point: dict[str, float]) -> SolverResults:
     """Calculates the reachable solution on the Pareto optimal front.
 
     For the calculation to make sense in the context of NAUTILUS Navigator, the reference point
@@ -147,12 +147,13 @@ def calculate_reachable_solution(problem: Problem, reference_point: list[float])
 
     Args:
         problem (Problem): the problem being solved.
-        reference_point (list[float]): the reference point to project on the Pareto optimal front.
+        reference_point (dict[str, float]): the reference point to project on the Pareto optimal front.
 
     Returns:
         SolverResults: the results of the projection.
     """
     # create and add scalarization function
+    reference_point = objective_dict_to_numpy_array(problem, reference_point).tolist()
     sf = create_asf(problem, reference_point, reference_in_aug=True)
     problem_w_asf, target = add_scalarization_function(problem, sf, "asf")
 
@@ -180,9 +181,7 @@ def calculate_distance_to_front(
     Returns:
         float: the distance to the front.
     """
-    nadir_point = objective_dict_to_numpy_array(
-        problem, {objective.symbol: objective.nadir for objective in problem.objectives}
-    )
+    nadir_point = objective_dict_to_numpy_array(problem, get_nadir_dict(problem))
     if None in nadir_point:
         msg = (
             f"Some or all the nadir values for the given problem are 'None': {nadir_point}. "
@@ -194,3 +193,73 @@ def calculate_distance_to_front(
     f = objective_dict_to_numpy_array(problem, reachable_objective_vector)
 
     return (np.linalg.norm(z_nav - nadir_point) / np.linalg.norm(f - nadir_point)) * 100
+
+
+if __name__ == "__main__":
+    from desdeo.problem import get_ideal_dict, binh_and_korn
+
+    problem = binh_and_korn()
+
+    # initialization
+    nav_point = get_nadir_dict(problem)
+    lower_bounds = get_ideal_dict(problem)
+    upper_bounds = get_nadir_dict(problem)
+
+    step = 1
+    steps_remaining = 100
+
+    # get reference point
+    reference_point = {"f_1": 100.0, "f_2": 8.0}
+
+    # calculate reachable solution (direction)
+    opt_result = calculate_reachable_solution(problem, reference_point)
+
+    assert opt_result.success
+
+    reachable_point = opt_result.optimal_objectives
+
+    # update nav point
+    nav_point = calculate_navigation_point(problem, nav_point, reachable_point, steps_remaining)
+
+    # update_bounds
+    lower_bounds, upper_bounds = calculate_reachable_bounds(problem, nav_point)
+
+    distance = calculate_distance_to_front(problem, nav_point, reachable_point)
+
+    step += 1
+    steps_remaining -= 1
+
+    # no new reference point, reachable point (direction) stays the same
+    # update nav point
+    nav_point = calculate_navigation_point(problem, nav_point, reachable_point, steps_remaining)
+
+    # update bounds
+    lower_bounds, upper_bounds = calculate_reachable_bounds(problem, nav_point)
+
+    distance = calculate_distance_to_front(problem, nav_point, reachable_point)
+
+    step += 1
+    steps_remaining -= 1
+
+    # new reference point
+    reference_point = {"f_1": 80.0, "f_2": 9.0}
+
+    # calculate reachable solution (direction)
+    opt_result = calculate_reachable_solution(problem, reference_point)
+
+    assert opt_result.success
+
+    reachable_point = opt_result.optimal_objectives
+
+    # update nav point
+    nav_point = calculate_navigation_point(problem, nav_point, reachable_point, steps_remaining)
+
+    # update_bounds
+    lower_bounds, upper_bounds = calculate_reachable_bounds(problem, nav_point)
+
+    distance = calculate_distance_to_front(problem, nav_point, reachable_point)
+
+    step += 1
+    steps_remaining -= 1
+
+    # etc...

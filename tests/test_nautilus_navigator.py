@@ -71,24 +71,27 @@ def test_calculate_reachable_solution():
     """Test the calculation of a new reachable solution."""
     problem = zdt1(10)
     obj_symbols = [objective.symbol for objective in problem.objectives]
-    reference_point_1 = [0.8, 0.2]
+    reference_point_1 = {"f_1": 0.8, "f_2": 0.2}
 
     res_1 = calculate_reachable_solution(problem, reference_point_1)
 
     assert res_1.success
 
-    objective_vector_1 = [res_1.optimal_objectives[key][0] for key in obj_symbols]
+    objective_vector_1 = [res_1.optimal_objectives[key] for key in obj_symbols]
 
-    reference_point_2 = [0.1, 0.8]
+    reference_point_2 = {"f_1": 0.1, "f_2": 0.8}
 
     res_2 = calculate_reachable_solution(problem, reference_point_2)
 
     assert res_2.success
 
-    objective_vector_2 = [res_2.optimal_objectives[key][0] for key in obj_symbols]
+    objective_vector_2 = [res_2.optimal_objectives[key] for key in obj_symbols]
 
     # the first objective vector computed should be closer to the first reference point
     # than the second and vice versa
+
+    reference_point_1 = objective_dict_to_numpy_array(problem, reference_point_1)
+    reference_point_2 = objective_dict_to_numpy_array(problem, reference_point_2)
 
     distance_1 = np.linalg.norm(np.array(reference_point_1) - np.array(objective_vector_1))
     distance_2 = np.linalg.norm(np.array(reference_point_1) - np.array(objective_vector_2))
