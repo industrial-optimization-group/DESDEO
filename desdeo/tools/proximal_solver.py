@@ -1,8 +1,8 @@
 """Defines solvers meant to be utilized with Problems with pre-defined solutions."""
-from typing import Callable
+from collections.abc import Callable
 
 from desdeo.problem import EvaluatorModesEnum, GenericEvaluator, Problem
-from desdeo.tools.generics import SolverError, SolverResults
+from desdeo.tools.generics import SolverResults
 
 
 def create_proximal_solver(problem: Problem) -> Callable[[str], SolverResults]:
@@ -25,9 +25,7 @@ def create_proximal_solver(problem: Problem) -> Callable[[str], SolverResults]:
         if not problem.constraints:
             closest = results_df.sort(target).head(1)
         else:
-            results_df = results_df.filter(
-                *[results_df[con.symbol] <=0  for con in problem.constraints]
-            )
+            results_df = results_df.filter(*[results_df[con.symbol] <= 0 for con in problem.constraints])
             closest = results_df.sort(target).head(1)
 
         # extract relevant results, extract them as disc for easier jsonification

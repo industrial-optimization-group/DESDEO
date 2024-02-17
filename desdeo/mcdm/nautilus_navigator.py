@@ -6,7 +6,7 @@ Ruiz, Ana B., et al. "NAUTILUS Navigator: free search interactive multiobjective
 optimization without trading-off." Journal of Global Optimization 74.2 (2019):
 213-231.
 """
-from typing import Callable
+from collections.abc import Callable
 
 import numpy as np
 
@@ -59,7 +59,7 @@ def calculate_navigation_point(
         raise NautilusNavigatorError(msg)
 
     z_prev = objective_dict_to_numpy_array(problem, previous_navigation_point)
-    f = objective_dict_to_numpy_array(problem, reachable_objective_vector).T  # 
+    f = objective_dict_to_numpy_array(problem, reachable_objective_vector).T  #
     rs = number_of_steps_remaining
 
     # return the new navigation point
