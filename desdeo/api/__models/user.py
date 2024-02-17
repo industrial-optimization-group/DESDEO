@@ -7,7 +7,7 @@ from desdeo.api.db import Base
 from desdeo.api.schema import UserRole
 
 
-class UserModel(Base.Model):
+class User(Base.Model):
     """A user with a password, stored problems, role, and user group."""
 
     __tablename__ = "user"

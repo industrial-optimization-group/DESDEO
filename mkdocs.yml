@@ -8,6 +8,7 @@ nav:
   - Home: "index.md"
   - "User Guide":
       - "Defining multiobjective optimization problems": "howtoguides/problem.md"
+      - "Running the API": "howtoguides/api.md"
   - "Explanation":
       - "The problem format": "explanation/problem_format.md"
       - "Scalarization-based methods": "explanation/scalarization_methods.md"
