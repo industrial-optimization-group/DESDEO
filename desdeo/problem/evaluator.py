@@ -12,47 +12,16 @@ SUPPORTED_EVALUATOR_MODES = ["variables", "discrete"]
 
 
 class EvaluatorModesEnum(str, Enum):
+    """Defines the supported modes for the GenericEvaluator."""
+
     variables = "variables"
+    """Indicates that the evaluator should expect decision variables vectors and
+    evaluate the problem with them."""
     discrete = "discrete"
-
-
-class EvaluatorResult(BaseModel):
-    """A model to store the results computed by Evaluator."""
-
-    variable_values: dict[str, list[float]] = Field(
-        description=(
-            "The decision variable values utilized in the evaluation. The keys of the dict are the decision variable"
-            " symbols followed by a list of values corresponding to the variable."
-        )
-    )
-    objective_values: dict[str, list[float]] = Field(
-        description=(
-            "The evaluated objective function values. The keys of the dict are objective function symbols followed"
-            " by a list of values corresponding to the objective function."
-        )
-    )
-    extra_values: dict[str, list[float]] | None = Field(
-        description=(
-            "The evaluated extra function values. The keys of the dict are the extra function symbols followed"
-            " by a list of values corresponding to the extra function. Optional."
-        ),
-        default=None,
-    )
-    constraint_values: dict[str, list[float]] | None = Field(
-        description=(
-            "The evaluated constraint values. The keys of the dict"
-            "are the constraint symbols followed by a list of values corresponding to the constraint. Optional."
-        ),
-        default=None,
-    )
-    scalarization_values: dict[str, list[float]] | None = Field(
-        description=(
-            "The evaluated scalarization function values. The"
-            " keys of the dict are the names of the scalarization functions followed by a list corresponding to the"
-            " functions. Optional."
-        ),
-        default=None,
-    )
+    """Indicates that the problem is defined by discrete decision variable
+    vector and objective vector pairs and those should be evaluated. In this
+    mode, the evaluator does not expect any decision variables as arguments when
+    evaluating."""
 
 
 class EvaluatorError(Exception):
@@ -273,8 +242,9 @@ class GenericEvaluator:
             self.discrete_df = None
 
     def _polars_evaluate(
-        self, xs: dict[str, list[float | int | bool]], raw_df: bool = False
-    ) -> EvaluatorResult | pl.DataFrame:
+        self,
+        xs: dict[str, list[float | int | bool]],
+    ) -> pl.DataFrame:
         """Evaluate the problem with the given decision variable values utilizing a polars dataframe.
 
         Args:
@@ -282,13 +252,9 @@ class GenericEvaluator:
                 as the keys followed by the corresponding decision variable values stored in a list. The symbols
                 must match the symbols defined for the decision variables defined in the `Problem` being solved.
                 Each list in the dict should contain the same number of values.
-            raw_df (Optional[bool]): whether to return the results wrapped in an EvalutorResults
-                dataclass, or to return the polars dataframe with the evalution retults.
 
         Returns:
-            EvaluatorResult | pl.DataFrame: the results of the evaluation if
-                'raw_df' is True: see `EvaluatorResults` for details. Else, returns the
-                polars dataframew the computed results.
+            pl.DataFrame: the polars dataframe with the computed results.
 
         Note:
             At least `self.objective_expressions` must be defined before calling this method.
@@ -336,36 +302,8 @@ class GenericEvaluator:
             scal_columns = agg_df.select(*[expr.alias(symbol) for symbol, expr in self.scalarization_expressions])
             agg_df = agg_df.hstack(scal_columns)
 
-        if raw_df:
-            # return the dataframe and let the solver figure it out
-            return agg_df
-
-        # Collect the results
-        variable_values = {symbol: agg_df[symbol].to_list() for symbol in self.problem_variable_symbols}
-        objective_values = {symbol: agg_df[symbol].to_list() for symbol, _ in self.objective_expressions}
-
-        if self.constraint_expressions is not None:
-            constraint_values = {symbol: agg_df[symbol].to_list() for symbol, _ in self.constraint_expressions}
-        else:
-            constraint_values = None
-
-        if self.extra_expressions is not None:
-            extra_values = {symbol: agg_df[symbol].to_list() for symbol, _ in self.extra_expressions}
-        else:
-            extra_values = None
-
-        if self.scalarization_expressions is not None:
-            scalarization_values = {symbol: agg_df[symbol].to_list() for symbol, _ in self.scalarization_expressions}
-        else:
-            scalarization_values = None
-
-        return EvaluatorResult(
-            variable_values=variable_values,
-            objective_values=objective_values,
-            extra_values=extra_values,
-            constraint_values=constraint_values,
-            scalarization_values=scalarization_values,
-        )
+        # return the dataframe and let the solver figure it out
+        return agg_df
 
     def _from_discrete_data(self) -> pl.DataFrame:
         """Evaluates the problem based on its discrete definitions only.

@@ -4,7 +4,6 @@ __all__ = [
     "Constant",
     "Constraint",
     "ConstraintTypeEnum",
-    "EvaluatorResult",
     "EvaluatedInfo",
     "EvaluatorModesEnum",
     "EvaluatedSolutions",
@@ -22,7 +21,7 @@ __all__ = [
     "zdt1",
 ]
 
-from .evaluator import GenericEvaluator, EvaluatorModesEnum, EvaluatorResult
+from .evaluator import GenericEvaluator, EvaluatorModesEnum
 
 from .schema import (
     Constant,

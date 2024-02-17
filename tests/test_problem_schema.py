@@ -135,10 +135,10 @@ def test_data_objective():
 
     npt.assert_array_almost_equal(
         [x_1 + x_2**2 - max([x_1, x_2]) for x_1, x_2 in zip(xs["x_1"], xs["x_2"], strict=True)],
-        eval_res.objective_values["f_1"],
+        eval_res["f_1"],
     )
 
-    npt.assert_array_almost_equal([2.5 + -1.5, 0.1 + -0.1, 0.5 + 1.5], eval_res.objective_values["f_2"])
+    npt.assert_array_almost_equal([2.5 + -1.5, 0.1 + -0.1, 0.5 + 1.5], eval_res["f_2"])
 
 
 def test_data_problem():
@@ -245,9 +245,10 @@ def test_data_problem():
     res = evaluator.evaluate(xs)
 
     # all the solutions evaluated should be close to Pareto optimality (we know there is a 0.01 tolerance in the data)
+    obj_symbols = [obj.symbol for obj in problem.objectives]
+    objective_values = res[obj_symbols].to_dict(as_series=False)
     assert all(
-        abs(sum(res.objective_values[f_key][i] ** 2 for f_key in res.objective_values) - 1.0) < 0.01
-        for i in range(n_input)
+        abs(sum(objective_values[f_key][i] ** 2 for f_key in objective_values) - 1.0) < 0.01 for i in range(n_input)
     )
 
     # take directly some decision variables values from the data and make sure they evaluate correctly
@@ -355,7 +356,7 @@ def test_data_problem():
 
     res = evaluator.evaluate(xs)
 
-    objective_values = res.objective_values
+    objective_values = res[obj_symbols].to_dict(as_series=False)
 
     for obj in objective_values:
         npt.assert_array_almost_equal(objective_values[obj], expected_fs[obj])
@@ -367,10 +368,8 @@ def test_data_problem():
 
     res = evaluator.evaluate(xs)
 
-    objective_values = res.objective_values
-
     should_be = [sum(expected_fs[f"f{i}"][j] for i in range(1, n_obj + 1)) for j in range(n_input)]
 
-    actual = res.scalarization_values[symbol]
+    actual = res[symbol]
 
     npt.assert_array_almost_equal(should_be, actual)

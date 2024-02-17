@@ -288,13 +288,13 @@ def test_infix_binh_and_korn_to_json():
     # some test data to evaluate the expressions
     xs_dict = {"x_1": [1, 2.5, 4.2], "x_2": [0.5, 1.5, 2.5]}
 
-    infix_result = infix_evaluator.evaluate(xs_dict)
-    truth_result = truth_evaluator.evaluate(xs_dict)
+    infix_result = infix_evaluator.evaluate(xs_dict).to_dict(as_series=False)
+    truth_result = truth_evaluator.evaluate(xs_dict).to_dict(as_series=False)
 
-    npt.assert_array_almost_equal(infix_result.objective_values["f_1"], truth_result.objective_values["f_1"])
-    npt.assert_array_almost_equal(infix_result.objective_values["f_2"], truth_result.objective_values["f_2"])
-    npt.assert_array_almost_equal(infix_result.constraint_values["g_1"], truth_result.constraint_values["g_1"])
-    npt.assert_array_almost_equal(infix_result.constraint_values["g_2"], truth_result.constraint_values["g_2"])
+    npt.assert_array_almost_equal(infix_result["f_1"], truth_result["f_1"])
+    npt.assert_array_almost_equal(infix_result["f_2"], truth_result["f_2"])
+    npt.assert_array_almost_equal(infix_result["g_1"], truth_result["g_1"])
+    npt.assert_array_almost_equal(infix_result["g_2"], truth_result["g_2"])
 
 
 def evaluate_expression_helper(infix_expression, data):

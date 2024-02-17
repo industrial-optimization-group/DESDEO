@@ -18,7 +18,9 @@ def test_generic_with_river():
 
     eval_res = evaluator.evaluate(data)
 
-    objective_values = eval_res.objective_values
+    obj_symbols = [obj.symbol for obj in problem.objectives]
+
+    objective_values = eval_res[obj_symbols].to_dict(as_series=False)
 
     # f_1 = "-4.07 - 2.27 * x_1"
     # f_2 = "-2.60 - 0.03 * x_1 - 0.02 * x_2 - 0.01 / (1.39 - x_1**2) - 0.30 / (1.39 - x_2**2)"
@@ -40,8 +42,6 @@ def test_generic_with_river():
         (pl.max_horizontal(pl.Expr.abs(pl.col("x_1") - 0.65), pl.Expr.abs(pl.col("x_2") - 0.65))).alias("f_5"),
     )
 
-    obj_symbols = [obj.symbol for obj in problem.objectives]
-
     for symbol in obj_symbols:
         npt.assert_array_almost_equal(
             objective_values[symbol], truth_values[symbol], err_msg=f"Failed for objective {symbol}"
@@ -60,7 +60,9 @@ def test_generic_w_mins_and_max():
 
     eval_res = evaluator.evaluate(data)
 
-    objective_values = eval_res.objective_values
+    obj_symbols = [obj.symbol for obj in problem.objectives]
+
+    objective_values = eval_res[obj_symbols].to_dict(as_series=False)
 
     truth_values = df.select(
         (pl.col("x_1") + pl.col("x_2")).alias("f_1"),
@@ -69,8 +71,6 @@ def test_generic_w_mins_and_max():
         (pl.max_horizontal(pl.Expr.abs(pl.col("x_1") - pl.col("x_2")), 4.2)).alias("f_4"),
         (-pl.col("x_1") * -pl.col("x_2")).alias("f_5"),
     )
-
-    obj_symbols = [obj.symbol for obj in problem.objectives]
 
     for symbol in obj_symbols:
         npt.assert_array_almost_equal(

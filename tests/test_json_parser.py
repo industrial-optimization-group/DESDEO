@@ -220,7 +220,7 @@ def test_binh_and_korn_w_evaluator():
     # some test data to evaluate the expressions
     xs_dict = {"x_1": [1, 2.5, 4.2], "x_2": [0.5, 1.5, 2.5]}
 
-    result = evaluator.evaluate(xs_dict)
+    result = evaluator.evaluate(xs_dict).to_dict(as_series=False)
 
     data = pl.DataFrame(xs_dict)
     truth = data.select(
@@ -230,15 +230,12 @@ def test_binh_and_korn_w_evaluator():
         (-((pl.col("x_1") - 8) ** 2 + (pl.col("x_2") + 3) ** 2) + 7.7).alias("g_2_t"),
     )
 
-    npt.assert_array_almost_equal(result.objective_values["f_1"], truth["f_1_t"])
-    npt.assert_array_almost_equal(result.objective_values["f_2"], truth["f_2_t"])
-    npt.assert_array_almost_equal(result.constraint_values["g_1"], truth["g_1_t"])
-    npt.assert_array_almost_equal(result.constraint_values["g_2"], truth["g_2_t"])
-    npt.assert_array_almost_equal(result.variable_values["x_1"], data["x_1"])
-    npt.assert_array_almost_equal(result.variable_values["x_2"], data["x_2"])
-
-    assert result.extra_values is None
-    assert result.scalarization_values is None
+    npt.assert_array_almost_equal(result["f_1"], truth["f_1_t"])
+    npt.assert_array_almost_equal(result["f_2"], truth["f_2_t"])
+    npt.assert_array_almost_equal(result["g_1"], truth["g_1_t"])
+    npt.assert_array_almost_equal(result["g_2"], truth["g_2_t"])
+    npt.assert_array_almost_equal(result["x_1"], data["x_1"])
+    npt.assert_array_almost_equal(result["x_2"], data["x_2"])
 
     # should not have been mutated during evaluation
     assert original_problem == problem
@@ -253,7 +250,7 @@ def test_extra_functions_problem_w_evaluator(extra_functions_problem):
     # to test correct evaluation
     xs_dict = {"x_1": [2.4, -3.0, 5.5], "x_2": [5.2, 1.1, -9.4]}
 
-    result = evaluator.evaluate(xs_dict)
+    result = evaluator.evaluate(xs_dict).to_dict(as_series=False)
 
     data = pl.DataFrame(xs_dict)
     truth = data.select(
@@ -271,19 +268,19 @@ def test_extra_functions_problem_w_evaluator(extra_functions_problem):
 
     truth = truth.hstack(tmp)
 
-    npt.assert_array_almost_equal(result.objective_values["f_1"], truth["f_1"])
-    npt.assert_array_almost_equal(result.objective_values["f_2"], truth["f_2"])
-    npt.assert_array_almost_equal(result.objective_values["f_3"], truth["f_3"])
+    npt.assert_array_almost_equal(result["f_1"], truth["f_1"])
+    npt.assert_array_almost_equal(result["f_2"], truth["f_2"])
+    npt.assert_array_almost_equal(result["f_3"], truth["f_3"])
 
-    npt.assert_almost_equal(result.variable_values["x_1"], truth["x_1"])
-    npt.assert_almost_equal(result.variable_values["x_2"], truth["x_2"])
+    npt.assert_almost_equal(result["x_1"], truth["x_1"])
+    npt.assert_almost_equal(result["x_2"], truth["x_2"])
 
-    npt.assert_almost_equal(result.constraint_values["con_1"], truth["con_1"])
+    npt.assert_almost_equal(result["con_1"], truth["con_1"])
 
-    npt.assert_almost_equal(result.extra_values["ef_1"], truth["ef_1"])
-    npt.assert_almost_equal(result.extra_values["ef_2"], truth["ef_2"])
+    npt.assert_almost_equal(result["ef_1"], truth["ef_1"])
+    npt.assert_almost_equal(result["ef_2"], truth["ef_2"])
 
-    npt.assert_almost_equal(result.scalarization_values["scal_1"], truth["scal_1"])
+    npt.assert_almost_equal(result["scal_1"], truth["scal_1"])
 
 
 def test_problem_unique_symbols():

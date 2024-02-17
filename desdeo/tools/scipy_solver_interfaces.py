@@ -14,7 +14,7 @@ from scipy.optimize import differential_evolution as _scipy_de
 from scipy.optimize import OptimizeResult as _ScipyOptimizeResult
 from scipy.optimize import NonlinearConstraint
 
-from desdeo.problem import ConstraintTypeEnum, EvaluatorResult, GenericEvaluator, Problem
+from desdeo.problem import ConstraintTypeEnum, GenericEvaluator, Problem
 from desdeo.tools.generics import SolverError, SolverResults
 from desdeo.tools.scalarization import create_from_objective, add_scalarization_function
 
@@ -152,10 +152,10 @@ def get_scipy_eval(
             evaluator_res: EvaluatorResult = evaluator.evaluate(evalutor_args)
 
             # evaluata objective (scalarized)
-            return evaluator_res.scalarization_values[target]
+            return evaluator_res.to_dict(as_series=False)[target]
 
         if eval_target == EvalTargetEnum.constraint:
-            evaluator_df: pl.DataFrame = evaluator.evaluate(evalutor_args, raw_df=True)
+            evaluator_df = evaluator.evaluate(evalutor_args)
             # evaluate constraint
             # put the minus here because scipy expect positive constraints values when the constraint
             # is respected. But in DESDEO, we define constraints s.t., a negative value means the constraint
@@ -196,9 +196,14 @@ def parse_scipy_optimization_result(
 
     eval_opt = evaluator.evaluate({problem.variables[i].symbol: x_opt[i] for i in range(len(problem.variables))})
 
-    f_opt = eval_opt.objective_values
+    objective_symbols = [obj.symbol for obj in problem.objectives]
+    f_opt = eval_opt[objective_symbols].to_dict(as_series=False)
 
-    const_opt = eval_opt.constraint_values if problem.constraints is not None else None
+    if problem.constraints is not None:
+        const_symbols = [const.symbol for const in problem.constraints]
+        const_opt = eval_opt[const_symbols].to_dict(as_series=False)
+    else:
+        const_opt = None
 
     return SolverResults(
         optimal_variables={problem.variables[i].symbol: [x_opt[i]] for i in range(len(problem.variables))},

@@ -72,6 +72,7 @@ def test_add_scalarization_function(river_w_ideal_and_nadir):
 
 @pytest.mark.slow
 def test_epsilon_constraint():
+    """Tests the epsilon constraint scalarization."""
     problem = simple_test_problem()
 
     epsilons = {"f_1": 5.0, "f_2": None, "f_3": -4.0, "f_4": 4.3, "f_5": -3}
