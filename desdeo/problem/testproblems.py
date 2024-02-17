@@ -50,8 +50,6 @@ def binh_and_korn(maximize: tuple[bool] = (False, False)) -> Problem:
         func=f"{'-' if maximize[0] else ''}(c_1 * x_1**2 + c_1*x_2**2)",
         # func=["Add", ["Multiply", "c_1", ["Square", "x_1"]], ["Multiply", "c_1", ["Square", "x_2"]]],
         maximize=maximize[0],
-        ideal=None,
-        nadir=None,
     )
     objective_2 = Objective(
         name="Objective 2",
@@ -119,15 +117,15 @@ def river_pollution_problem(five_objective_variant: bool = True) -> Problem:
 
     f_1 = "-4.07 - 2.27 * x_1"
     f_2 = "-2.60 - 0.03 * x_1 - 0.02 * x_2 - 0.01 / (1.39 - x_1**2) - 0.30 / (1.39 - x_2**2)"
-    f_3 = "-8.21 + 0.71 / (1.09 - x_1**2)"
-    f_4 = "-0.96 + 0.96 / (1.09 - x_2**2)"
+    f_3 = "8.21 - 0.71 / (1.09 - x_1**2)"
+    f_4 = "0.96 - 0.96 / (1.09 - x_2**2)"
     f_5 = "Max(Abs(x_1 - 0.65), Abs(x_2 - 0.65))"
 
-    objective_1 = Objective(name="DO city", symbol="f_1", func=f_1, maximize=False)
-    objective_2 = Objective(name="DO municipality", symbol="f_2", func=f_2, maximize=False)
-    objective_3 = Objective(name="ROI fishery", symbol="f_3", func=f_3, maximize=True)
-    objective_4 = Objective(name="ROI city", symbol="f_4", func=f_4, maximize=True)
-    objective_5 = Objective(name="BOD deviation", symbol="f_5", func=f_5, maximize=False)
+    objective_1 = Objective(name="DO city", symbol="f_1", func=f_1, maximize=False, ideal=-6.34, nadir=-4.75)
+    objective_2 = Objective(name="DO municipality", symbol="f_2", func=f_2, maximize=False, ideal=-3.44, nadir=-2.85)
+    objective_3 = Objective(name="ROI fishery", symbol="f_3", func=f_3, maximize=True, ideal=7.5, nadir=0.32)
+    objective_4 = Objective(name="ROI city", symbol="f_4", func=f_4, maximize=True, ideal=0, nadir=-9.70)
+    objective_5 = Objective(name="BOD deviation", symbol="f_5", func=f_5, maximize=False, ideal=0, nadir=0.35)
 
     objectives = (
         [objective_1, objective_2, objective_3, objective_4, objective_5]

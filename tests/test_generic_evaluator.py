@@ -37,8 +37,8 @@ def test_generic_with_river():
             - 0.01 / (1.39 - pl.col("x_1") ** 2)
             - 0.30 / (1.39 - pl.col("x_2") ** 2)
         ).alias("f_2"),
-        (-8.21 + 0.71 / (1.09 - pl.col("x_1") ** 2)).alias("f_3"),
-        (-0.96 + 0.96 / (1.09 - pl.col("x_2") ** 2)).alias("f_4"),
+        (8.21 - 0.71 / (1.09 - pl.col("x_1") ** 2)).alias("f_3"),
+        (0.96 - 0.96 / (1.09 - pl.col("x_2") ** 2)).alias("f_4"),
         (pl.max_horizontal(pl.Expr.abs(pl.col("x_1") - 0.65), pl.Expr.abs(pl.col("x_2") - 0.65))).alias("f_5"),
     )
 

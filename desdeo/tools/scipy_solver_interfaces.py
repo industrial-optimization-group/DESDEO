@@ -149,7 +149,7 @@ def get_scipy_eval(
         evalutor_args = {problem.variables[i].symbol: x[i] for i in range(len(problem.variables))}
 
         if eval_target == EvalTargetEnum.objective:
-            evaluator_res: EvaluatorResult = evaluator.evaluate(evalutor_args)
+            evaluator_res = evaluator.evaluate(evalutor_args)
 
             # evaluata objective (scalarized)
             return evaluator_res.to_dict(as_series=False)[target]

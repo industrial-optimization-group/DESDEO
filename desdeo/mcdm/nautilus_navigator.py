@@ -10,7 +10,12 @@ import numpy as np
 
 from desdeo.problem import Problem
 from desdeo.tools.generics import SolverResults
-from desdeo.tools.scalarization import create_asf, add_scalarization_function, add_lte_constraints
+from desdeo.tools.scalarization import (
+    create_asf,
+    create_epsilon_constraints,
+    add_scalarization_function,
+    add_lte_constraints,
+)
 from desdeo.tools.scipy_solver_interfaces import create_scipy_de_solver
 
 
@@ -52,7 +57,9 @@ def calculate_navigation_point(
     return z.tolist()
 
 
-def calculate_reachable_bounds(problem: Problem, navigation_point: list[float]) -> tuple[list[float], list[float]]:
+def calculate_reachable_bounds(
+    problem: Problem, navigation_point: dict[str, float]
+) -> tuple[dict[str, float], dict[str, float]]:
     """Computes the current reachable (upper and lower) bounds of the solutions in the objective space.
 
     The reachable bound are computed based on the current navigation point. The bounds are computed by
@@ -60,12 +67,67 @@ def calculate_reachable_bounds(problem: Problem, navigation_point: list[float]) 
 
     Args:
         problem (Problem): the problem being solved.
-        navigation_point (list[float]): the navigation point limiting the reachable area.
+        navigation_point (dict[str, float]): the navigation point limiting the
+            reachable area. The key is the objective function's symbol and the value
+            the navigation point.
+
+    Raises:
+        NautilusNavigationError: when optimization of an epsilon constraint problem is not successful.
 
     Returns:
-        tuple[list[float], list[float]]: a tuple, where the first element are the lower bounds and the
-            second element the upper bounds.
+        tuple[dict[str, float], dict[str, float]]: a tuple of dicts, where the first dict are the lower bounds and the
+            second element the upper bounds, the key is the symbol of each objective.
     """
+    # If an objective is to be maximized, then the navigation point component of that objective should be
+    # multiplied by -1.
+    const_bounds = {
+        objective.symbol: -1 * navigation_point[objective.symbol]
+        if objective.maximize
+        else navigation_point[objective.symbol]
+        for objective in problem.objectives
+    }
+
+    lower_bounds = {}
+    upper_bounds = {}
+    for objective in problem.objectives:
+        # symbols to identify the objectives to be constrained
+        target_expr, const_exprs = create_epsilon_constraints(
+            problem, objective_symbol=objective.symbol, epsilons=const_bounds
+        )
+
+        # solve lower bounds
+        # add scalarization
+        eps_problem, target = add_scalarization_function(problem, target_expr, "target")
+
+        # add constraints
+        eps_problem = add_lte_constraints(
+            eps_problem, const_exprs, [f"eps_{i}" for i in range(1, len(const_exprs) + 1)]
+        )
+
+        # solve
+        solver = create_scipy_de_solver(eps_problem)
+        res = solver(target)
+
+        if not res.success:
+            # could not optimize eps problem
+            msg = (
+                f"Optimizing the epsilon constrait problem for the objective "
+                f"{objective.symbol} was not successful. Reason: {res.message}"
+            )
+            raise NautilusNavigatorError(msg)
+
+        lower_bound = res.optimal_objectives[objective.symbol][0]
+
+        # solver upper bounds
+        # the lower bounds is set as in the NAUTILUS method, e.g., taken from
+        # the current itration/navigation point
+        upper_bound = navigation_point[objective.symbol]
+
+        # add the lower and upper bounds logically depending whether an objective is to be maximized or minimized
+        lower_bounds[objective.symbol] = lower_bound if not objective.maximize else upper_bound
+        upper_bounds[objective.symbol] = upper_bound if not objective.maximize else lower_bound
+
+    return lower_bounds, upper_bounds
 
 
 def calculate_reachable_solution(problem: Problem, reference_point: list[float]) -> SolverResults:
