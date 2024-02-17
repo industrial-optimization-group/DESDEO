@@ -17,6 +17,7 @@ from desdeo.tools.scalarization import (
     add_lte_constraints,
 )
 from desdeo.tools.scipy_solver_interfaces import create_scipy_de_solver
+from desdeo.problem import objective_dict_to_numpy_array, numpy_array_to_objective_dict
 
 
 class NautilusNavigatorError(Exception):
@@ -24,8 +25,11 @@ class NautilusNavigatorError(Exception):
 
 
 def calculate_navigation_point(
-    previous_navigation_point: list[float], reachable_objective_vector: list[float], number_of_steps_remaining: int
-) -> list[float]:
+    problem: Problem,
+    previous_navigation_point: dict[str, float],
+    reachable_objective_vector: dict[str, float],
+    number_of_steps_remaining: int,
+) -> dict[str, float]:
     """Calculates the navigation point.
 
     The navigation point based on the previous navigation
@@ -33,8 +37,9 @@ def calculate_navigation_point(
     vector from the new navigation point.
 
     Args:
-        previous_navigation_point (list[float]): the previous navigation point.
-        reachable_objective_vector (list[float]): the current reachable objective vector from the navigation point.
+        problem (Problem): the problem being solved.
+        previous_navigation_point (dict[str, float]): the previous navigation point.
+        reachable_objective_vector (dict[str, float]): the current reachable objective vector from the navigation point.
         number_of_steps_remaining (int): the number of steps remaining in the navigation. Must be greater than 0.
 
     Raises:
@@ -47,14 +52,14 @@ def calculate_navigation_point(
         msg = f"The given number of steps remaining ({number_of_steps_remaining=}) must be greater than 0."
         raise NautilusNavigatorError(msg)
 
-    z_prev = np.array(previous_navigation_point)
-    f = np.array(reachable_objective_vector)
+    z_prev = objective_dict_to_numpy_array(problem, previous_navigation_point)
+    f = objective_dict_to_numpy_array(problem, reachable_objective_vector)
     rs = number_of_steps_remaining
 
     # return the new navigation point
     z = ((rs - 1) / (rs)) * z_prev + f / rs
 
-    return z.tolist()
+    return numpy_array_to_objective_dict(problem, z)
 
 
 def calculate_reachable_bounds(
@@ -157,20 +162,35 @@ def calculate_reachable_solution(problem: Problem, reference_point: list[float])
 
 
 def calculate_distance_to_front(
-    navigation_point: list[float], reachable_objective_vector: list[float], nadir_point: list[float]
+    problem: Problem, navigation_point: dict[str, float], reachable_objective_vector: dict[str, float]
 ) -> float:
     """Calculates the distance to the Pareto optimal front from a navigation point.
 
+    It is assumed that a nadir point is defined for the problem.
+
     Args:
-        navigation_point (list[float]): the current navigation point.
-        reachable_objective_vector (list[float]): the current reachable objective vector from the navigation point.
-        nadir_point (list[float]): the nadir point of the front.
+        problem (Problem): the problem being solved.
+        navigation_point (dict[str, float]): the current navigation point.
+        reachable_objective_vector (dict[str, float]): the current reachable objective vector from the navigation point.
+
+    Raises:
+        NautilusNavigatorError: all or some of the components of the problem's nadir point
+            are not defined.
 
     Returns:
         float: the distance to the front.
     """
-    z_nav = np.array(navigation_point)
-    nadir = np.array(nadir_point)
-    f = np.array(reachable_objective_vector)
+    nadir_point = objective_dict_to_numpy_array(
+        problem, {objective.symbol: objective.nadir for objective in problem.objectives}
+    )
+    if None in nadir_point:
+        msg = (
+            f"Some or all the nadir values for the given problem are 'None': {nadir_point}. "
+            "The nadir point must be fully defined."
+        )
+        raise NautilusNavigatorError(msg)
 
-    return (np.linalg.norm(z_nav - nadir) / np.linalg.norm(f - nadir)) * 100
+    z_nav = objective_dict_to_numpy_array(problem, navigation_point)
+    f = objective_dict_to_numpy_array(problem, reachable_objective_vector)
+
+    return (np.linalg.norm(z_nav - nadir_point) / np.linalg.norm(f - nadir_point)) * 100

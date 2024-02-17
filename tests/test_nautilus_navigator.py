@@ -9,17 +9,25 @@ from desdeo.mcdm.nautilus_navigator import (
     calculate_reachable_bounds,
     calculate_reachable_solution,
 )
-from desdeo.problem import zdt1, binh_and_korn, river_pollution_problem
+from desdeo.problem import zdt1, binh_and_korn, river_pollution_problem, objective_dict_to_numpy_array
 
 
 @pytest.mark.nautilus_navigator
 def test_calculate_navigation_point():
     """Tests the function to calculate a new navigation point."""
-    previous_point = [2.5, -2.2, 3.3]  # previous navigation point
-    reachable_objective_vector = [0.5, -1.1, 2.2]  # assumed min, max, min
+    problem = river_pollution_problem()
+    previous_point = {"f_1": -5.25, "f_2": -3.1, "f_3": 4.2, "f_4": -6.9, "f_5": 0.22}
+    reachable_objective_vector = {"f_1": -5.01, "f_2": -3.0, "f_3": 5.1, "f_4": -5.9, "f_5": 0.11}
     number_of_steps_remaining = 42
 
-    nav_point = calculate_navigation_point(previous_point, reachable_objective_vector, number_of_steps_remaining)
+    nav_point = calculate_navigation_point(
+        problem, previous_point, reachable_objective_vector, number_of_steps_remaining
+    )
+
+    # transform to numpy arrays for easier comparison
+    nav_point = objective_dict_to_numpy_array(problem, nav_point)
+    reachable_objective_vector = objective_dict_to_numpy_array(problem, reachable_objective_vector)
+    previous_point = objective_dict_to_numpy_array(problem, previous_point)
 
     # the new navigation point should be closer to the reachable objective vector.
     assert np.linalg.norm(np.array(reachable_objective_vector) - np.array(nav_point)) < np.linalg.norm(
@@ -30,17 +38,31 @@ def test_calculate_navigation_point():
 @pytest.mark.nautilus_navigator
 def test_calculate_distance_to_front():
     """Tests the calculation of the distance from a navigation point to the front."""
-    reachable_objective_vector = [-2.2, 6.9, 420, 48]  # assumed min, min, max max
-    nadir_point = [2.0, 20.1, 86.2, 18.1]
+    problem = river_pollution_problem()
 
-    farther_nav_point = [-0.1, 14.2, 220, 33.0]
-    closer_nav_point = [-1.1, 7.2, 160, 29.2]
+    reachable_objective_vector = {"f_1": -5.01, "f_2": -3.0, "f_3": 5.1, "f_4": -5.9, "f_5": 0.11}
 
-    distance_far = calculate_distance_to_front(farther_nav_point, reachable_objective_vector, nadir_point)
-    distance_close = calculate_distance_to_front(closer_nav_point, reachable_objective_vector, nadir_point)
+    farther_nav_point = {"f_1": -4.8, "f_2": -2.86, "f_3": 4.2, "f_4": -6.9, "f_5": 0.22}
+    closer_nav_point = {"f_1": -4.9, "f_2": -2.9, "f_3": 4.8, "f_4": -6.1, "f_5": 0.19}
 
-    # the distance from the farther point should be greater than from the closer one
-    assert distance_far > distance_close
+    distance_far = calculate_distance_to_front(problem, farther_nav_point, reachable_objective_vector)
+    distance_close = calculate_distance_to_front(problem, closer_nav_point, reachable_objective_vector)
+
+    # the distance from the closer point should be greater than from the farther one
+    # (because 0 means we are farthest, and 100 means we are on the front.)
+    assert distance_far < distance_close
+
+    # from nadir point, distance should be zero
+    distance_nadir = calculate_distance_to_front(
+        problem, {objective.symbol: objective.nadir for objective in problem.objectives}, reachable_objective_vector
+    )
+
+    assert distance_nadir == 0
+
+    # on the reachable solution, we are on the front and distanc should be 100
+    distance_front = calculate_distance_to_front(problem, reachable_objective_vector, reachable_objective_vector)
+
+    assert distance_front == 100
 
 
 @pytest.mark.slow

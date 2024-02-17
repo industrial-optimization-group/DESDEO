@@ -10,6 +10,8 @@ __all__ = [
     "ExtraFunction",
     "GenericEvaluator",
     "InfixExpressionParser",
+    "numpy_array_to_objective_dict",
+    "objective_dict_to_numpy_array",
     "Objective",
     "Problem",
     "river_pollution_problem",
@@ -40,3 +42,5 @@ from .schema import (
 from .infix_parser import InfixExpressionParser
 
 from .testproblems import binh_and_korn, river_pollution_problem, simple_data_problem, simple_test_problem, zdt1
+
+from .utils import numpy_array_to_objective_dict, objective_dict_to_numpy_array
