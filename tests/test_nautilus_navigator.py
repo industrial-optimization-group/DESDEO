@@ -16,8 +16,8 @@ from desdeo.problem import zdt1, binh_and_korn, river_pollution_problem, objecti
 def test_calculate_navigation_point():
     """Tests the function to calculate a new navigation point."""
     problem = river_pollution_problem()
-    previous_point = {"f_1": -5.25, "f_2": -3.1, "f_3": 4.2, "f_4": -6.9, "f_5": 0.22}
-    reachable_objective_vector = {"f_1": -5.01, "f_2": -3.0, "f_3": 5.1, "f_4": -5.9, "f_5": 0.11}
+    previous_point = {"f_1": -5.01, "f_2": -3.0, "f_3": 4.2, "f_4": -6.9, "f_5": 0.22}
+    reachable_objective_vector = {"f_1": -5.25, "f_2": -3.1, "f_3": 5.1, "f_4": -5.9, "f_5": 0.12}
     number_of_steps_remaining = 42
 
     nav_point = calculate_navigation_point(
@@ -30,9 +30,16 @@ def test_calculate_navigation_point():
     previous_point = objective_dict_to_numpy_array(problem, previous_point)
 
     # the new navigation point should be closer to the reachable objective vector.
-    assert np.linalg.norm(np.array(reachable_objective_vector) - np.array(nav_point)) < np.linalg.norm(
-        np.array(reachable_objective_vector) - np.array(previous_point)
-    )
+    d_nav_to_reachale = np.linalg.norm(reachable_objective_vector - nav_point)
+    d_prev_to_reachable = np.linalg.norm(reachable_objective_vector - previous_point)
+
+    assert d_nav_to_reachale < d_prev_to_reachable
+
+    # the navigation point should also be between the previous navigation point and the reachable solution
+    d_prev_to_nav = np.linalg.norm(nav_point - previous_point)
+
+    # previous_point <--------> reachable == previous_point <---> nav_point <----> reachable
+    npt.assert_almost_equal(d_prev_to_reachable, d_nav_to_reachale + d_prev_to_nav)
 
 
 @pytest.mark.nautilus_navigator

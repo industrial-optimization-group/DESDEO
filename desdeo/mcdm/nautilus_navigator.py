@@ -220,6 +220,7 @@ if __name__ == "__main__":
 
     # update nav point
     nav_point = calculate_navigation_point(problem, nav_point, reachable_point, steps_remaining)
+    print(f"{nav_point=}")
 
     # update_bounds
     lower_bounds, upper_bounds = calculate_reachable_bounds(problem, nav_point)
@@ -232,6 +233,7 @@ if __name__ == "__main__":
     # no new reference point, reachable point (direction) stays the same
     # update nav point
     nav_point = calculate_navigation_point(problem, nav_point, reachable_point, steps_remaining)
+    print(f"{nav_point=}")
 
     # update bounds
     lower_bounds, upper_bounds = calculate_reachable_bounds(problem, nav_point)
@@ -253,6 +255,7 @@ if __name__ == "__main__":
 
     # update nav point
     nav_point = calculate_navigation_point(problem, nav_point, reachable_point, steps_remaining)
+    print(f"{nav_point=}")
 
     # update_bounds
     lower_bounds, upper_bounds = calculate_reachable_bounds(problem, nav_point)
