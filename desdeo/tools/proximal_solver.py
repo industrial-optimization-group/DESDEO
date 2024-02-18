@@ -1,5 +1,5 @@
 """Defines solvers meant to be utilized with Problems with pre-defined solutions."""
-from typing import Callable
+from collections.abc import Callable
 
 import polars as pl
 

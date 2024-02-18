@@ -1,22 +1,41 @@
 """The main FastAPI application for the DESDEO API."""
+
+import uvicorn
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-from desdeo.api.routers import NIMBUS
-
-# from desdeo.api.db import Base
+from desdeo.api.routers import NIMBUS, UserAuth, test
 
 app = FastAPI(
     title="DESDEO (fast)API",
     version="0.1.0",
     description="A rest API for the DESDEO framework.",
 )
-# db = Base
-
 
 app.include_router(NIMBUS.router)
+app.include_router(test.router)
+app.include_router(UserAuth.router)
+
+origins = [
+    "http://localhost",
+    "http://localhost:8080",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/")
-async def root():
+async def root() -> dict:
     """Just a simple hello world message."""
-    return {"message": "Hello World"}
+    return {"message": "Hello World!"}
+
+
+if __name__ == "__main__":
+    print("Starting server driectly from app.py")
+    uvicorn.run(app, host="127.0.0.1", port=8000, reload=True)

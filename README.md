@@ -29,3 +29,8 @@ poetry install
   - Note that the `standard` extra includes the `polars` dependency which may not work on older CPUs or in an Apple
     Silicon environment under Rosseta 2. In this case, use the `legacy` extra instead.
 - Run tests? Run Notebooks? Profit?
+
+
+### Running the API
+- `cd desdeo/api/`
+- `uvicorn app:app --reload`

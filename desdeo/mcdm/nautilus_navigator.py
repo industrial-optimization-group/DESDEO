@@ -6,15 +6,22 @@ Ruiz, Ana B., et al. "NAUTILUS Navigator: free search interactive multiobjective
 optimization without trading-off." Journal of Global Optimization 74.2 (2019):
 213-231.
 """
+from collections.abc import Callable
+
 import numpy as np
 
-from desdeo.problem import Problem
+from desdeo.problem import (
+    Problem,
+    get_nadir_dict,
+    numpy_array_to_objective_dict,
+    objective_dict_to_numpy_array,
+)
 from desdeo.tools.generics import SolverResults
 from desdeo.tools.scalarization import (
+    add_lte_constraints,
+    add_scalarization_function,
     create_asf,
     create_epsilon_constraints,
-    add_scalarization_function,
-    add_lte_constraints,
 )
 from desdeo.tools.generics import CreateSolverType
 from desdeo.tools.scipy_solver_interfaces import create_scipy_de_solver
@@ -55,7 +62,7 @@ def calculate_navigation_point(
         raise NautilusNavigatorError(msg)
 
     z_prev = objective_dict_to_numpy_array(problem, previous_navigation_point)
-    f = objective_dict_to_numpy_array(problem, reachable_objective_vector)
+    f = objective_dict_to_numpy_array(problem, reachable_objective_vector).T  #
     rs = number_of_steps_remaining
 
     # return the new navigation point
@@ -130,10 +137,16 @@ def solve_reachable_bounds(
 
         lower_bound = res.optimal_objectives[objective.symbol]
 
+        if isinstance(lower_bound, list):
+            lower_bound = lower_bound[0]
+
         # solver upper bounds
         # the lower bounds is set as in the NAUTILUS method, e.g., taken from
         # the current itration/navigation point
-        upper_bound = navigation_point[objective.symbol]
+        if isinstance(navigation_point[objective.symbol], list):
+            upper_bound = navigation_point[objective.symbol][0]
+        else:
+            upper_bound = navigation_point[objective.symbol]
 
         # add the lower and upper bounds logically depending whether an objective is to be maximized or minimized
         lower_bounds[objective.symbol] = lower_bound if not objective.maximize else upper_bound
@@ -210,7 +223,7 @@ def calculate_distance_to_front(
 
 
 if __name__ == "__main__":
-    from desdeo.problem import get_ideal_dict, binh_and_korn
+    from desdeo.problem import binh_and_korn, get_ideal_dict
 
     problem = binh_and_korn()
 
