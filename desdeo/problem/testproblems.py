@@ -224,7 +224,7 @@ def zdt1(number_of_variables: int) -> Problem:
 
 def simple_data_problem() -> Problem:
     """Defines a simple problem with only data-based objective functions."""
-    constants = [Constant(name="c", symbol="c", value=10)]
+    constants = [Constant(name="c", symbol="c", value=1000)]
 
     n_var = 5
     variables = [

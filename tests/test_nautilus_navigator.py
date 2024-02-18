@@ -9,7 +9,15 @@ from desdeo.mcdm.nautilus_navigator import (
     solve_reachable_bounds,
     solve_reachable_solution,
 )
-from desdeo.problem import zdt1, binh_and_korn, river_pollution_problem, objective_dict_to_numpy_array
+from desdeo.problem import (
+    zdt1,
+    binh_and_korn,
+    river_pollution_problem,
+    objective_dict_to_numpy_array,
+    simple_data_problem,
+)
+
+from fixtures import dtlz2_5x_3f_data_based  # noqa: F401
 
 
 @pytest.mark.nautilus_navigator
@@ -74,17 +82,16 @@ def test_calculate_distance_to_front():
 
 @pytest.mark.slow
 @pytest.mark.nautilus_navigator
-def test_calculate_reachable_solution():
-    """Test the calculation of a new reachable solution."""
+def test_solve_reachable_solution():
+    """Test the solving of a new reachable solution."""
     problem = zdt1(10)
-    obj_symbols = [objective.symbol for objective in problem.objectives]
     reference_point_1 = {"f_1": 0.8, "f_2": 0.2}
 
     res_1 = solve_reachable_solution(problem, reference_point_1)
 
     assert res_1.success
 
-    objective_vector_1 = [res_1.optimal_objectives[key] for key in obj_symbols]
+    objective_vector_1 = objective_dict_to_numpy_array(problem, res_1.optimal_objectives)
 
     reference_point_2 = {"f_1": 0.1, "f_2": 0.8}
 
@@ -92,7 +99,7 @@ def test_calculate_reachable_solution():
 
     assert res_2.success
 
-    objective_vector_2 = [res_2.optimal_objectives[key] for key in obj_symbols]
+    objective_vector_2 = objective_dict_to_numpy_array(problem, res_2.optimal_objectives)
 
     # the first objective vector computed should be closer to the first reference point
     # than the second and vice versa
@@ -100,20 +107,56 @@ def test_calculate_reachable_solution():
     reference_point_1 = objective_dict_to_numpy_array(problem, reference_point_1)
     reference_point_2 = objective_dict_to_numpy_array(problem, reference_point_2)
 
-    distance_1 = np.linalg.norm(np.array(reference_point_1) - np.array(objective_vector_1))
-    distance_2 = np.linalg.norm(np.array(reference_point_1) - np.array(objective_vector_2))
+    distance_1 = np.linalg.norm(reference_point_1 - objective_vector_1)
+    distance_2 = np.linalg.norm(reference_point_1 - objective_vector_2)
 
     assert distance_1 < distance_2
 
-    distance_1 = np.linalg.norm(np.array(reference_point_2) - np.array(objective_vector_1))
-    distance_2 = np.linalg.norm(np.array(reference_point_2) - np.array(objective_vector_2))
+    distance_1 = np.linalg.norm(reference_point_2 - objective_vector_1)
+    distance_2 = np.linalg.norm(reference_point_2 - objective_vector_2)
 
     assert distance_2 < distance_1
 
 
 @pytest.mark.nautilus_navigator
-def test_calculate_reachable_bounds():
-    """Test the calculation of reachable bounds."""
+def test_solve_reachable_solution_discrete(dtlz2_5x_3f_data_based):  # noqa: F811
+    """Tests the solving of the reachable solution with a fully discrete problem."""
+    problem = dtlz2_5x_3f_data_based
+
+    reference_point_1 = {"f1": 0.8, "f2": 0.8, "f3": 0.01}
+
+    res_1 = solve_reachable_solution(problem, reference_point_1)
+
+    assert res_1.success
+
+    objective_vector_1 = objective_dict_to_numpy_array(problem, res_1.optimal_objectives)
+
+    reference_point_2 = {"f1": 0.05, "f2": 0.02, "f3": 0.98}
+
+    res_2 = solve_reachable_solution(problem, reference_point_2)
+
+    assert res_2.success
+
+    objective_vector_2 = objective_dict_to_numpy_array(problem, res_2.optimal_objectives)
+
+    reference_point_1 = objective_dict_to_numpy_array(problem, reference_point_1)
+    reference_point_2 = objective_dict_to_numpy_array(problem, reference_point_2)
+
+    distance_1 = np.linalg.norm(reference_point_1 - objective_vector_1)
+    distance_2 = np.linalg.norm(reference_point_1 - objective_vector_2)
+
+    assert distance_1 < distance_2
+
+    distance_1 = np.linalg.norm(reference_point_2 - objective_vector_1)
+    distance_2 = np.linalg.norm(reference_point_2 - objective_vector_2)
+
+    assert distance_2 < distance_1
+
+
+@pytest.mark.slow
+@pytest.mark.nautilus_navigator
+def test_solve_reachable_bounds():
+    """Test the solving of reachable bounds."""
     # Two objectives, both min
     problem = binh_and_korn(maximize=(False, False))
 
@@ -155,10 +198,31 @@ def test_calculate_reachable_bounds():
         assert upper_bounds[symbol] > lower_bounds[symbol]
 
 
+@pytest.mark.nautilus_navigator
+def test_solve_reachable_bounds_discrete(dtlz2_5x_3f_data_based):  # noqa: F811
+    """Test the solving of reachable bounds with a discrete problem."""
+    # Two objectives, both min
+    problem = dtlz2_5x_3f_data_based
+
+    nav_point = {"f1": 0.65, "f2": 0.85, "f3": 0.75}
+
+    lower_bounds, upper_bounds = solve_reachable_bounds(problem, nav_point)
+
+    # lower bound should be lower (better) than the navigation point
+    assert all(lower_bounds[objective.symbol] < nav_point[objective.symbol] for objective in problem.objectives)
+
+    # upper bound should be less than or equel to nav point, for both
+    assert all(upper_bounds[objective.symbol] <= nav_point[objective.symbol] for objective in problem.objectives)
+
+    # check than bounds make sense
+    for symbol in [objective.symbol for objective in problem.objectives]:
+        assert upper_bounds[symbol] > lower_bounds[symbol]
+
+
 @pytest.mark.slow
 @pytest.mark.nautilus_navigator
-def test_calculate_reachable_bounds_complicated():
-    """Test calcualte reachable bounds with more objectivs."""
+def test_solve_reachable_bounds_complicated():
+    """Test solving of the reachable bounds with more objectivs."""
     # more objectives, both min and max
     problem = river_pollution_problem()
 
