@@ -15,8 +15,13 @@ from scipy.optimize import OptimizeResult as _ScipyOptimizeResult
 from scipy.optimize import NonlinearConstraint
 
 from desdeo.problem import ConstraintTypeEnum, GenericEvaluator, Problem
-from desdeo.tools.generics import SolverError, SolverResults
+from desdeo.tools.generics import CreateSolverType, SolverError, SolverResults
 from desdeo.tools.scalarization import create_from_objective, add_scalarization_function
+
+
+# forward typehints
+create_scipy_de_solver: CreateSolverType
+create_scipy_minimize_solver: CreateSolverType
 
 
 class EvalTargetEnum(str, Enum):

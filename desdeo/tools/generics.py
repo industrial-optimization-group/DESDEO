@@ -1,5 +1,8 @@
 """Defines generic classes, functions, and objects utilized in the tools module."""
+from typing import Callable, TypeVar
 from pydantic import BaseModel, Field
+
+from desdeo.problem import Problem
 
 
 class SolverError(Exception):
@@ -22,3 +25,7 @@ class SolverResults(BaseModel):
     )
     success: bool = Field(description="A boolean flag indicating whether the optimization was successful or not.")
     message: str = Field(description="Description of the cause of termination.")
+
+
+Kwargs = TypeVar("Kwargs", bound=dict)
+CreateSolverType = Callable[[Problem, Kwargs], Callable[[str], SolverResults]]

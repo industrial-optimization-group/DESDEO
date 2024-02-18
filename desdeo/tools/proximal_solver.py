@@ -2,17 +2,24 @@
 from typing import Callable
 
 from desdeo.problem import GenericEvaluator, EvaluatorModesEnum, Problem
-from desdeo.tools.generics import SolverError, SolverResults
+from desdeo.tools.generics import CreateSolverType, SolverResults
+
+# forward typehints
+create_proximal_solver: CreateSolverType
 
 
 def create_proximal_solver(problem: Problem) -> Callable[[str], SolverResults]:
-    """_summary_
+    """Creates a solver that assumes the problem being a fully discrete one.
+
+    Assumes that problem has only data-based objectives and a discrete definition
+    that fully defines all the objectives.
 
     Args:
-        problem (Problem): _description_
+        problem (Problem): the problem being solved.
 
     Returns:
-        Callable[[str], SolverResults]: _description_
+        Callable[[str], SolverResults]: a solver that can be called with a target to be optimized.
+            This function then returns the results of the optimization as in a `SolverResults` dataclass.
     """
     evaluator = GenericEvaluator(problem, evaluator_mode=EvaluatorModesEnum.discrete)
 
@@ -20,8 +27,6 @@ def create_proximal_solver(problem: Problem) -> Callable[[str], SolverResults]:
         results_df = evaluator.evaluate()
 
         # find the row with the minimum value in the 'target' column
-        # closest = combined_df.sort("distance").head(1)
-
         closest = results_df.sort(target).head(1)
 
         # extract relevant results, extract them as disc for easier jsonification

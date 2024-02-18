@@ -16,7 +16,9 @@ from desdeo.tools.scalarization import (
     add_scalarization_function,
     add_lte_constraints,
 )
+from desdeo.tools.generics import CreateSolverType
 from desdeo.tools.scipy_solver_interfaces import create_scipy_de_solver
+from desdeo.tools.utils import guess_best_solver
 from desdeo.problem import get_nadir_dict, objective_dict_to_numpy_array, numpy_array_to_objective_dict
 
 
@@ -63,7 +65,7 @@ def calculate_navigation_point(
 
 
 def solve_reachable_bounds(
-    problem: Problem, navigation_point: dict[str, float]
+    problem: Problem, navigation_point: dict[str, float], create_solver: CreateSolverType | None = None
 ) -> tuple[dict[str, float], dict[str, float]]:
     """Computes the current reachable (upper and lower) bounds of the solutions in the objective space.
 
@@ -75,6 +77,8 @@ def solve_reachable_bounds(
         navigation_point (dict[str, float]): the navigation point limiting the
             reachable area. The key is the objective function's symbol and the value
             the navigation point.
+        create_solver (CreateSolverType | None, optional): a function of type CreateSolverType that returns a solver.
+            If None, then a solver is utilized bases on the problem's properties. Defaults to None.
 
     Raises:
         NautilusNavigationError: when optimization of an epsilon constraint problem is not successful.
@@ -91,6 +95,9 @@ def solve_reachable_bounds(
         else navigation_point[objective.symbol]
         for objective in problem.objectives
     }
+
+    # if a solver creator was provided, use that, else, guess the best one
+    _create_solver = guess_best_solver(problem) if create_solver is None else create_solver
 
     lower_bounds = {}
     upper_bounds = {}
@@ -110,7 +117,7 @@ def solve_reachable_bounds(
         )
 
         # solve
-        solver = create_scipy_de_solver(eps_problem)
+        solver = _create_solver(eps_problem)
         res = solver(target)
 
         if not res.success:
@@ -135,7 +142,9 @@ def solve_reachable_bounds(
     return lower_bounds, upper_bounds
 
 
-def solve_reachable_solution(problem: Problem, reference_point: dict[str, float]) -> SolverResults:
+def solve_reachable_solution(
+    problem: Problem, reference_point: dict[str, float], create_solver: CreateSolverType | None = None
+) -> SolverResults:
     """Calculates the reachable solution on the Pareto optimal front.
 
     For the calculation to make sense in the context of NAUTILUS Navigator, the reference point
@@ -148,17 +157,22 @@ def solve_reachable_solution(problem: Problem, reference_point: dict[str, float]
     Args:
         problem (Problem): the problem being solved.
         reference_point (dict[str, float]): the reference point to project on the Pareto optimal front.
+        create_solver (CreateSolverType | None, optional): a function of type CreateSolverType that returns a solver.
+            If None, then a solver is utilized bases on the problem's properties. Defaults to None.
 
     Returns:
         SolverResults: the results of the projection.
     """
+    # check solver
+    _create_solver = guess_best_solver(problem) if create_solver is None else create_solver
+
     # create and add scalarization function
     reference_point = objective_dict_to_numpy_array(problem, reference_point).tolist()
     sf = create_asf(problem, reference_point, reference_in_aug=True)
     problem_w_asf, target = add_scalarization_function(problem, sf, "asf")
 
     # solve the problem
-    solver = create_scipy_de_solver(problem_w_asf)
+    solver = _create_solver(problem_w_asf)
     return solver(target)
 
 
