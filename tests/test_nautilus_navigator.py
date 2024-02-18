@@ -6,8 +6,8 @@ import pytest
 from desdeo.mcdm.nautilus_navigator import (
     calculate_navigation_point,
     calculate_distance_to_front,
-    calculate_reachable_bounds,
-    calculate_reachable_solution,
+    solve_reachable_bounds,
+    solve_reachable_solution,
 )
 from desdeo.problem import zdt1, binh_and_korn, river_pollution_problem, objective_dict_to_numpy_array
 
@@ -80,7 +80,7 @@ def test_calculate_reachable_solution():
     obj_symbols = [objective.symbol for objective in problem.objectives]
     reference_point_1 = {"f_1": 0.8, "f_2": 0.2}
 
-    res_1 = calculate_reachable_solution(problem, reference_point_1)
+    res_1 = solve_reachable_solution(problem, reference_point_1)
 
     assert res_1.success
 
@@ -88,7 +88,7 @@ def test_calculate_reachable_solution():
 
     reference_point_2 = {"f_1": 0.1, "f_2": 0.8}
 
-    res_2 = calculate_reachable_solution(problem, reference_point_2)
+    res_2 = solve_reachable_solution(problem, reference_point_2)
 
     assert res_2.success
 
@@ -119,7 +119,7 @@ def test_calculate_reachable_bounds():
 
     nav_point = {"f_1": 60.0, "f_2": 20.1}
 
-    lower_bounds, upper_bounds = calculate_reachable_bounds(problem, nav_point)
+    lower_bounds, upper_bounds = solve_reachable_bounds(problem, nav_point)
 
     # lower bound should be lower (better) than the navigation point, for both
     assert lower_bounds["f_1"] < nav_point["f_1"]
@@ -138,7 +138,7 @@ def test_calculate_reachable_bounds():
 
     nav_point = {"f_1": 60.0, "f_2": -20.1}
 
-    lower_bounds, upper_bounds = calculate_reachable_bounds(problem, nav_point)
+    lower_bounds, upper_bounds = solve_reachable_bounds(problem, nav_point)
 
     # lower bound should be lower (better) than the navigation point for min objective
     assert lower_bounds["f_1"] < nav_point["f_1"]
@@ -164,7 +164,7 @@ def test_calculate_reachable_bounds_complicated():
 
     nav_point = {"f_1": -5.25, "f_2": -3.1, "f_3": 4.2, "f_4": -6.9, "f_5": 0.22}
 
-    lower_bounds, upper_bounds = calculate_reachable_bounds(problem, nav_point)
+    lower_bounds, upper_bounds = solve_reachable_bounds(problem, nav_point)
 
     # lower bound should be lower (better) than the navigation point, for min objectives
     assert lower_bounds["f_1"] < nav_point["f_1"]

@@ -62,7 +62,7 @@ def calculate_navigation_point(
     return numpy_array_to_objective_dict(problem, z)
 
 
-def calculate_reachable_bounds(
+def solve_reachable_bounds(
     problem: Problem, navigation_point: dict[str, float]
 ) -> tuple[dict[str, float], dict[str, float]]:
     """Computes the current reachable (upper and lower) bounds of the solutions in the objective space.
@@ -135,7 +135,7 @@ def calculate_reachable_bounds(
     return lower_bounds, upper_bounds
 
 
-def calculate_reachable_solution(problem: Problem, reference_point: dict[str, float]) -> SolverResults:
+def solve_reachable_solution(problem: Problem, reference_point: dict[str, float]) -> SolverResults:
     """Calculates the reachable solution on the Pareto optimal front.
 
     For the calculation to make sense in the context of NAUTILUS Navigator, the reference point
@@ -212,7 +212,7 @@ if __name__ == "__main__":
     reference_point = {"f_1": 100.0, "f_2": 8.0}
 
     # calculate reachable solution (direction)
-    opt_result = calculate_reachable_solution(problem, reference_point)
+    opt_result = solve_reachable_solution(problem, reference_point)
 
     assert opt_result.success
 
@@ -223,7 +223,7 @@ if __name__ == "__main__":
     print(f"{nav_point=}")
 
     # update_bounds
-    lower_bounds, upper_bounds = calculate_reachable_bounds(problem, nav_point)
+    lower_bounds, upper_bounds = solve_reachable_bounds(problem, nav_point)
 
     distance = calculate_distance_to_front(problem, nav_point, reachable_point)
 
@@ -236,7 +236,7 @@ if __name__ == "__main__":
     print(f"{nav_point=}")
 
     # update bounds
-    lower_bounds, upper_bounds = calculate_reachable_bounds(problem, nav_point)
+    lower_bounds, upper_bounds = solve_reachable_bounds(problem, nav_point)
 
     distance = calculate_distance_to_front(problem, nav_point, reachable_point)
 
@@ -247,7 +247,7 @@ if __name__ == "__main__":
     reference_point = {"f_1": 80.0, "f_2": 9.0}
 
     # calculate reachable solution (direction)
-    opt_result = calculate_reachable_solution(problem, reference_point)
+    opt_result = solve_reachable_solution(problem, reference_point)
 
     assert opt_result.success
 
@@ -258,7 +258,7 @@ if __name__ == "__main__":
     print(f"{nav_point=}")
 
     # update_bounds
-    lower_bounds, upper_bounds = calculate_reachable_bounds(problem, nav_point)
+    lower_bounds, upper_bounds = solve_reachable_bounds(problem, nav_point)
 
     distance = calculate_distance_to_front(problem, nav_point, reachable_point)
 
