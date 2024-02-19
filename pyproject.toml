@@ -31,6 +31,7 @@ sqlalchemy-utils = "^0.41.1"
 python-multipart = "^0.0.9"
 python-jose = { extras = ["cryptography"], version = "^3.3.0" }
 bcrypt = "^4.1.2"
+nevergrad = "^1.0.1"
 
 [tool.poetry.extras]
 standard = ["polars"]

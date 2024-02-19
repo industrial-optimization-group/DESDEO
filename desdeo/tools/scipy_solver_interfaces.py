@@ -1,13 +1,11 @@
-"""Here various solver interfaces to Python-based solvers are defined.
+"""Solver interfaces to the optimization routines found in scipy.
 
-These solvers will solve various scalarized problems of multiobjective optimization problems.
+These solvers can solve various scalarized problems of multiobjective optimization problems.
 """
 
 from enum import Enum
-from functools import lru_cache
 from typing import Callable
 import numpy as np
-import polars as pl
 
 from scipy.optimize import minimize as _scipy_minimize
 from scipy.optimize import differential_evolution as _scipy_de
@@ -16,7 +14,6 @@ from scipy.optimize import NonlinearConstraint
 
 from desdeo.problem import ConstraintTypeEnum, GenericEvaluator, Problem
 from desdeo.tools.generics import CreateSolverType, SolverError, SolverResults
-from desdeo.tools.scalarization import create_from_objective, add_scalarization_function
 
 
 # forward typehints
@@ -362,7 +359,8 @@ def create_scipy_de_solver(
 
 
 if __name__ == "__main__":
-    from desdeo.problem import binh_and_korn, zdt1
+    from desdeo.problem import binh_and_korn
+    from desdeo.tools.scalarization import create_from_objective, add_scalarization_function
 
     problem = binh_and_korn()
 
