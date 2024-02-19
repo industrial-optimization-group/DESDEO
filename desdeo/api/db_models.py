@@ -16,7 +16,6 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True, unique=True)
     username: Mapped[str] = mapped_column(unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(nullable=False)
-    problems = mapped_column(Integer, ForeignKey("problem.id"), nullable=True)
     role: Mapped[schema.UserRole] = mapped_column(nullable=False)
     user_group: Mapped[str] = mapped_column(nullable=True)
     privilages: Mapped[list[schema.UserPrivileges]] = mapped_column(ARRAY(Enum(schema.UserPrivileges)), nullable=False)

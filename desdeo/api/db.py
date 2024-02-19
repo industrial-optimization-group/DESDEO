@@ -8,7 +8,6 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy_utils import create_database, database_exists, drop_database
 
-
 # TODO: Extract this to a config file.
 DB_USER = "bhupindersaini"
 DB_PASSWORD = ""  # NOQA: S105
@@ -32,4 +31,3 @@ def get_db():
         yield db
     finally:
         db.close()
-

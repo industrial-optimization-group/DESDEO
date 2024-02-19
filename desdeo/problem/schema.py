@@ -303,6 +303,7 @@ class Problem(BaseModel):
     """Model for a problem definition."""
 
     model_config = ConfigDict(frozen=True)
+    model_config['from_attributes'] = True
 
     _scalarization_index: int = PrivateAttr(default=1)
     # TODO: make init to communicate the _scalarization_index to a new model

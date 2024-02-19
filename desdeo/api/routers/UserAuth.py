@@ -19,7 +19,7 @@ router = APIRouter()
 # openssl rand -hex 32
 SECRET_KEY = "36b96a23d24cebdeadce6d98fa53356111e6f3e85b8144d7273dcba230b9eb18"  # NOQA:S105 # TODO: How to handle this?
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 10000
 SALT = bcrypt.gensalt()
 
 
@@ -49,7 +49,6 @@ def get_password_hash(password):
 
 def get_user(db: Session, username: str):
     """Get a user from the database."""
-    print("Hi from get_user")
     return db.query(UserModel).filter(UserModel.username == username).first()
 
 
@@ -78,7 +77,7 @@ def create_access_token(data: dict, expires_delta: timedelta = timedelta(hours=2
     """
     to_encode = data.copy()
     expire = datetime.now(UTC) + expires_delta
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire.timestamp()})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
@@ -105,14 +104,14 @@ def get_current_user(
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
-        if username is None:
+        expire_time: datetime = payload.get("exp")
+        if username is None or expire_time is None or expire_time < datetime.now(UTC).timestamp():
             raise credentials_exception
     except JWTError:
         raise credentials_exception from JWTError
     user = get_user(db, username=username)
     if user is None:
         raise credentials_exception
-    print(user.user_group)
     return User(
         username=user.username,
         role=user.role,

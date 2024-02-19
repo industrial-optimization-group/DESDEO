@@ -4,7 +4,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from desdeo.api.routers import NIMBUS, UserAuth, test
+from desdeo.api.routers import NIMBUS, UserAuth, problems, test
 
 app = FastAPI(
     title="DESDEO (fast)API",
@@ -15,11 +15,9 @@ app = FastAPI(
 app.include_router(NIMBUS.router)
 app.include_router(test.router)
 app.include_router(UserAuth.router)
+app.include_router(problems.router)
 
-origins = [
-    "http://localhost",
-    "http://localhost:8080",
-]
+origins = ["http://localhost", "http://localhost:8080", "*"]
 
 app.add_middleware(
     CORSMiddleware,
