@@ -197,7 +197,7 @@ def solve_reachable_solution(
     sf = create_asf(problem, reference_point, reference_in_aug=True)
     problem_w_asf, target = add_scalarization_function(problem, sf, "asf")
 
-    # Note: We do not solve the global problem. Instead, we solve this a constrained problem:
+    # Note: We do not solve the global problem. Instead, we solve this constrained problem:
     const_exprs = [
         f"{obj.symbol}_min - {previous_nav_point[obj.symbol] * (-1 if obj.maximize else 1)}"
         for obj in problem.objectives

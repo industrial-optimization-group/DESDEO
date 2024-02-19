@@ -84,18 +84,19 @@ def test_calculate_distance_to_front():
 @pytest.mark.nautilus_navigator
 def test_solve_reachable_solution():
     """Test the solving of a new reachable solution."""
-    problem = zdt1(10)
-    reference_point_1 = {"f_1": 0.8, "f_2": 0.2}
+    problem = binh_and_korn()
+    prev_nav_point = {"f_1": 80.0, "f_2": 30.0}
+    reference_point_1 = {"f_1": 60.0, "f_2": 20.0}
 
-    res_1 = solve_reachable_solution(problem, reference_point_1)
+    res_1 = solve_reachable_solution(problem, reference_point_1, prev_nav_point)
 
     assert res_1.success
 
     objective_vector_1 = objective_dict_to_numpy_array(problem, res_1.optimal_objectives)
 
-    reference_point_2 = {"f_1": 0.1, "f_2": 0.8}
+    reference_point_2 = {"f_1": 20.0, "f_2": 28.0}
 
-    res_2 = solve_reachable_solution(problem, reference_point_2)
+    res_2 = solve_reachable_solution(problem, reference_point_2, prev_nav_point)
 
     assert res_2.success
 
@@ -123,9 +124,10 @@ def test_solve_reachable_solution_discrete(dtlz2_5x_3f_data_based):  # noqa: F81
     """Tests the solving of the reachable solution with a fully discrete problem."""
     problem = dtlz2_5x_3f_data_based
 
+    prev_nav_point = {"f1": 1.0, "f2": 1.0, "f3": 1.0}
     reference_point_1 = {"f1": 0.8, "f2": 0.8, "f3": 0.01}
 
-    res_1 = solve_reachable_solution(problem, reference_point_1)
+    res_1 = solve_reachable_solution(problem, reference_point_1, prev_nav_point)
 
     assert res_1.success
 
@@ -133,7 +135,7 @@ def test_solve_reachable_solution_discrete(dtlz2_5x_3f_data_based):  # noqa: F81
 
     reference_point_2 = {"f1": 0.05, "f2": 0.02, "f3": 0.98}
 
-    res_2 = solve_reachable_solution(problem, reference_point_2)
+    res_2 = solve_reachable_solution(problem, reference_point_2, prev_nav_point)
 
     assert res_2.success
 
