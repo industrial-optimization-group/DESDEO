@@ -48,7 +48,8 @@ class Method(Base):
     properties: Mapped[list[schema.MethodProperties]] = mapped_column(
         ARRAY(Enum(schema.MethodProperties)), nullable=False
     )
-    value = mapped_column(JSON, nullable=False)
+    name: Mapped[str] = mapped_column(nullable=False)
+    parameters = mapped_column(JSON, nullable=True)
 
 
 class Preference(Base):
@@ -88,7 +89,8 @@ class Results(Base):
     id: Mapped[int] = mapped_column(primary_key=True, unique=True)
     user = mapped_column(Integer, ForeignKey("user.id"), nullable=False)
     problem = mapped_column(Integer, ForeignKey("problem.id"), nullable=False)
-    method = mapped_column(Integer, ForeignKey("method.id"), nullable=False)
+    # TODO: The method is temporarily nullable for initial testing. It should be non-nullable.
+    method = mapped_column(Integer, ForeignKey("method.id"), nullable=True)
     method_state = mapped_column(Integer, ForeignKey("method_state.id"), nullable=True)
     value = mapped_column(JSON, nullable=False)  # Depends on the method
 

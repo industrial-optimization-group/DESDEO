@@ -114,6 +114,7 @@ def get_current_user(
         raise credentials_exception
     return User(
         username=user.username,
+        index=user.id,
         role=user.role,
         user_group=user.user_group if user.user_group else "",
         privilages=user.privilages,

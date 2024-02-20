@@ -8,7 +8,7 @@ optimization without trading-off." Journal of Global Optimization 74.2 (2019):
 """
 
 import numpy as np
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from desdeo.problem import (
     Problem,
@@ -29,12 +29,16 @@ from desdeo.tools.utils import guess_best_solver
 class NAUTILUS_Response(BaseModel):  # NOQA: N801
     """The response of the NAUTILUS Navigator method."""
 
-    step_number: int
-    distance_to_front: float
-    reference_point: dict | None
-    navigation_point: dict
-    reachable_solution: dict | None
-    reachable_bounds: dict
+    step_number: int = Field(description="The step number associted with this response.")
+    distance_to_front: float = Field(description=(
+        "The distance travelled to the Pareto front. "
+        "The distance is a ratio of the distances between the nadir and navigation point, and "
+        "the nadir and the reachable objective vector. The distance is given in percentage."
+        ))
+    reference_point: dict | None = Field(description="The reference point used in the step.")
+    navigation_point: dict = Field(description="The navigation point used in the step.")
+    reachable_solution: dict | None = Field(description="The reachable solution found in the step.")
+    reachable_bounds: dict = Field(description="The reachable bounds found in the step.")
 
 
 class NautilusNavigatorError(Exception):
