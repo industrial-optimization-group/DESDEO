@@ -1,4 +1,4 @@
-"""Defines parsers for parsing mathematical expression in an infix fomrat and expressed as string.
+"""Defines parsers for parsing mathematical expression in an infix format and expressed as string.
 
 Currently, mostly parses to MathJSON, e.g., "n / (1 + n)" -> ['Divide', 'n', ['Add', 1, 'n']].
 """

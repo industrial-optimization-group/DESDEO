@@ -32,6 +32,7 @@ python-multipart = "^0.0.9"
 python-jose = { extras = ["cryptography"], version = "^3.3.0" }
 bcrypt = "^4.1.2"
 nevergrad = "^1.0.1"
+pyomo = "^6.7.0"
 
 [tool.poetry.extras]
 standard = ["polars"]
