@@ -24,6 +24,9 @@ from pyparsing import (
     opAssoc,
 )
 
+# Enable Packrat for better performance in recursive parsing
+ParserElement.enablePackrat(None)
+
 
 class InfixExpressionParser:
     """A class for defining infix notation parsers."""
@@ -88,9 +91,6 @@ class InfixExpressionParser:
             msg = f"The target '{target} is not supported. Should be one of {InfixExpressionParser.SUPPORTED_TARGETS}"
             raise ValueError(msg)
         self.target = target
-
-        # Enable Packrat for better performance in recursive parsing
-        ParserElement.enablePackrat()
 
         # Scope limiters
         lparen = Suppress("(")
