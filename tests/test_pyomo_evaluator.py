@@ -36,7 +36,5 @@ def test_w_binh_and_korn(binh_and_korn_w_extra):
     for extra in problem.extra_funcs:
         assert hasattr(evaluator.model, extra.symbol)
 
-    expr = getattr(evaluator.model, "x_1") + getattr(evaluator.model, "x_2") * getattr(evaluator.model, "extr_1")
-
-    evaluator.model.new_thing = Objective(expr=expr, name="lol")
-    print()
+    assert getattr(evaluator.model, problem.extra_funcs[0].symbol).to_string() == "x_1 + x_2"
+    assert getattr(evaluator.model, problem.extra_funcs[1].symbol).to_string() == "x_2 + x_1"

@@ -1,7 +1,16 @@
 """Defines a parser to parse multiobjective optimziation problems defined in a JSON foramt."""
+from enum import Enum
 from functools import reduce
 
 import polars as pl
+import pyomo.environ as pyomo
+
+
+class FormatEnum(str, Enum):
+    """Enumerates the supported formats the JSON format may be parsed to."""
+
+    polars = "polars"
+    pyomo = "pyomo"
 
 
 class ParserError(Exception):
@@ -11,11 +20,16 @@ class ParserError(Exception):
 class MathParser:
     """A class to instantiate MathJSON parsers.
 
-    Currently only parses MathJSON to polars expressions.
+    Currently only parses MathJSON to polars expressions. Pyomo WIP.
     """
 
-    def __init__(self):
-        """Create a parser instance for parsing MathJSON notation into polars expressions."""
+    def __init__(self, to_format: FormatEnum = "polars"):
+        """Create a parser instance for parsing MathJSON notation into polars expressions.
+
+        Args:
+            to_format (FormatEnum, optional): to which format a JSON representation should be parsed to.
+                Defaults to "polars".
+        """
         # Define operator names. Change these when the name is altered in the JSON format.
         # Basic arithmetic operators
         self.NEGATE: str = "Negate"
@@ -71,7 +85,7 @@ class MathParser:
             """Helper function to convert literals to polars expressions."""
             return pl.lit(x) if isinstance(x, self.literals) else x
 
-        self.env = {
+        polars_env = {
             # Define the operations for the different operators.
             # Basic arithmetic operations
             self.NEGATE: lambda x: -to_expr(x),
@@ -110,7 +124,57 @@ class MathParser:
             self.MAX: lambda *args: reduce(lambda x, y: pl.max_horizontal(to_expr(x), to_expr(y)), args),
         }
 
-    def parse(self, expr: list | str | int | float) -> pl.Expr:
+        pyomo_env = {
+            # Define the operations for the different operators.
+            # Basic arithmetic operations
+            self.NEGATE: lambda x: -to_expr(x),
+            self.ADD: lambda *args, model: reduce(lambda x, y: x + y, args),
+            self.SUB: lambda *args: reduce(lambda x, y: to_expr(x) - to_expr(y), args),
+            self.MUL: lambda *args: reduce(lambda x, y: to_expr(x) * to_expr(y), args),
+            self.DIV: lambda *args: reduce(lambda x, y: to_expr(x) / to_expr(y), args),
+            # Exponentiation and logarithms
+            self.EXP: lambda x: pl.Expr.exp(to_expr(x)),
+            self.LN: lambda x: pl.Expr.log(to_expr(x)),
+            self.LB: lambda x: pl.Expr.log(to_expr(x), 2),
+            self.LG: lambda x: pl.Expr.log10(to_expr(x)),
+            self.LOP: lambda x: pl.Expr.log1p(to_expr(x)),
+            self.SQRT: lambda x: pl.Expr.sqrt(to_expr(x)),
+            self.SQUARE: lambda x: to_expr(x) ** 2,
+            self.POW: lambda x, y: to_expr(x) ** to_expr(y),
+            # Trigonometric operations
+            self.ARCCOS: lambda x: pl.Expr.arccos(to_expr(x)),
+            self.ARCCOSH: lambda x: pl.Expr.arccosh(to_expr(x)),
+            self.ARCSIN: lambda x: pl.Expr.arcsin(to_expr(x)),
+            self.ARCSINH: lambda x: pl.Expr.arcsinh(to_expr(x)),
+            self.ARCTAN: lambda x: pl.Expr.arctan(to_expr(x)),
+            self.ARCTANH: lambda x: pl.Expr.arctanh(to_expr(x)),
+            self.COS: lambda x: pl.Expr.cos(to_expr(x)),
+            self.COSH: lambda x: pl.Expr.cosh(to_expr(x)),
+            self.SIN: lambda x: pl.Expr.sin(to_expr(x)),
+            self.SINH: lambda x: pl.Expr.sinh(to_expr(x)),
+            self.TAN: lambda x: pl.Expr.tan(to_expr(x)),
+            self.TANH: lambda x: pl.Expr.tanh(to_expr(x)),
+            # Rounding operations
+            self.ABS: lambda x: pl.Expr.abs(to_expr(x)),
+            self.CEIL: lambda x: pl.Expr.ceil(to_expr(x)),
+            self.FLOOR: lambda x: pl.Expr.floor(to_expr(x)),
+            # Other operations
+            self.RATIONAL: lambda lst: reduce(lambda x, y: x / y, lst),
+            self.MAX: lambda *args: reduce(lambda x, y: pl.max_horizontal(to_expr(x), to_expr(y)), args),
+        }
+
+        match to_format:
+            case FormatEnum.polars:
+                self.env = polars_env
+                self.parse = self._parse_to_polars
+            case FormatEnum.pyomo:
+                self.env = pyomo_env
+                self.parse = self._parse_to_pyomo
+            case _:
+                msg = f"Given target format {to_format} not supported. Must be one of {FormatEnum}."
+                raise ParserError(msg)
+
+    def _parse_to_polars(self, expr: list | str | int | float) -> pl.Expr:
         """Recursively parses JSON math expressions and returns a polars expression.
 
         Arguments:
@@ -153,6 +217,50 @@ class MathParser:
 
             # else, assume the list contents are parseable expressions
             return [self.parse(e) for e in expr]
+
+        msg = f"Encountered unsupported type '{type(expr)}' during parsing."
+        raise ParserError(msg)
+
+    def _parse_to_pyomo(self, expr: list | str | int | float, model: pyomo.Model) -> pyomo.Expression:
+        """Parses the MathJSON format recursively into a Pyomo expression.
+
+        Args:
+            expr (list | str | int | float): a list with a Polish notation expression that describes a, e.g.,
+                ["Multiply", ["Sqrt", 2], "x2"]
+            model (pyomo.Model): a pyomo model with the symbols defined appearing in the expression.
+                E.g., "x2" -> model.x2 must be defined.
+
+        Returns:
+            pyomo.Expression: returns a pyomo expression equivalent to the original expressions.
+        """
+        if isinstance(expr, pyomo.Expression):
+            # Terminal case: pyomo expression
+            return expr
+        if isinstance(expr, str):
+            # Terminal case: str expression, represent a variable or expression
+            return getattr(model, expr)
+        if isinstance(expr, self.literals):
+            # Terminal case: numeric literal
+            return expr
+
+        if isinstance(expr, list):
+            # Extract the operation name
+            if isinstance(expr[0], str) and expr[0] in self.env:
+                op_name = expr[0]
+                # Parse the operands
+                operands = [self._parse_to_pyomo(e, model) for e in expr[1:]]
+
+                if isinstance(operands, list) and len(operands) == 1:
+                    # if the operands have redundant brackets, remove them
+                    operands = operands[0]
+
+                if isinstance(operands, list):
+                    return self.env[op_name](*operands, model=model)
+
+                return self.env[op_name](operands, model=model)
+
+            # else, assume the list contents are parseable expressions
+            return [self._parse_to_pyomo(e, model) for e in expr]
 
         msg = f"Encountered unsupported type '{type(expr)}' during parsing."
         raise ParserError(msg)

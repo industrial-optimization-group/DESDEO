@@ -9,10 +9,12 @@ __all__ = [
     "EvaluatorModesEnum",
     "EvaluatedSolutions",
     "ExtraFunction",
+    "FormatEnum",
     "GenericEvaluator",
     "get_nadir_dict",
     "get_ideal_dict",
     "InfixExpressionParser",
+    "MathParser",
     "numpy_array_to_objective_dict",
     "objective_dict_to_numpy_array",
     "Objective",
@@ -46,6 +48,8 @@ from .schema import (
 )
 
 from .infix_parser import InfixExpressionParser
+
+from .json_parser import FormatEnum, MathParser
 
 from .testproblems import binh_and_korn, river_pollution_problem, simple_data_problem, simple_test_problem, zdt1
 

@@ -12,7 +12,7 @@ from pyomo.environ import (
     Param,
 )
 
-from desdeo.problem import Problem, VariableTypeEnum
+from desdeo.problem import Problem, VariableTypeEnum, FormatEnum, MathParser
 
 
 class PyomoEvaluatorError(Exception):
@@ -26,6 +26,8 @@ class PyomoEvaluator:
         """Summary."""
         model = ConcreteModel()
 
+        # set the parser
+        self.parse = MathParser(to_format=FormatEnum.pyomo).parse
         # Add variables
         model = self.init_variables(problem, model)
         # Add constants
@@ -136,8 +138,8 @@ class PyomoEvaluator:
         """
         for extra in problem.extra_funcs:
             # to be done
-            expr_str = "model.x_1 + model.x_2"  # TODO! produced by parser when extra expr is parsed
+            pyomo_expr = self.parse(extra.func, model)
 
-            setattr(model, extra.symbol, eval(expr_str))  # TODO: make this safer! maybe use getattr
+            setattr(model, extra.symbol, pyomo_expr)
 
         return model
