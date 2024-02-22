@@ -163,7 +163,10 @@ profile = "black"
 markers = [
     "slow: mark test as slow",
     "nautilus_navigator: tests related to the NAUTILUS Navigator method.",
+    "performance: tests that are related to performance. Skipped by default.",
+    "infix_parser: tests related to the infix parser.",
 ]
+addopts = "-m 'not performance'"
 
 [build-system]
 requires = ["poetry-core"]

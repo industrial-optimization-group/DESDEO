@@ -2,14 +2,17 @@
 import numpy as np
 import numpy.testing as npt
 import polars as pl
+import pytest
 
 from desdeo.problem.evaluator import GenericEvaluator
 from desdeo.problem.infix_parser import InfixExpressionParser
 from desdeo.problem.json_parser import MathParser
 from desdeo.problem.schema import Constant, Constraint, Objective, Problem, Variable
 from desdeo.problem.testproblems import binh_and_korn
+from fixtures.utils import timer  # noqa: F401
 
 
+@pytest.mark.infix_parser
 def test_basic_binary_to_json():
     """Test the basic operations and that they convert to JSON correctly."""
     parser = InfixExpressionParser()
@@ -78,6 +81,7 @@ def test_basic_binary_to_json():
     assert parser.parse(input_negate_4) == output_negate_4
 
 
+@pytest.mark.infix_parser
 def test_basic_unary_to_json():
     """Tests the correct parsing of unary operations to JSON."""
     parser = InfixExpressionParser()
@@ -125,6 +129,7 @@ def test_basic_unary_to_json():
         assert parser.parse(complex_input) == complex_output
 
 
+@pytest.mark.infix_parser
 def test_basic_variadic_to_json():
     """Test the correct parsing of variadic functions."""
     parser = InfixExpressionParser()
@@ -158,6 +163,7 @@ def test_basic_variadic_to_json():
     assert parser.parse(input_max_5) == output_max_5
 
 
+@pytest.mark.infix_parser
 def test_mixed_operations_to_json():
     """Test mixed operations including binary, unary, negation, and variadic functions."""
     parser = InfixExpressionParser()
@@ -204,6 +210,7 @@ def test_mixed_operations_to_json():
     assert parser.parse(input_mixed_5) == output_mixed_5
 
 
+@pytest.mark.infix_parser
 def test_infix_binh_and_korn_to_json():
     """Tests whether the Binh and Korn problem evaluates correctly from infix notation."""
     parser = InfixExpressionParser()
@@ -297,6 +304,7 @@ def test_infix_binh_and_korn_to_json():
     npt.assert_array_almost_equal(infix_result["g_2"], truth_result["g_2"])
 
 
+@pytest.mark.infix_parser
 def evaluate_expression_helper(infix_expression, data):
     """Evaluate an infix expression using the given data and return the result."""
     infix_parser = InfixExpressionParser(target="MathJSON")
@@ -307,6 +315,7 @@ def evaluate_expression_helper(infix_expression, data):
     return data.select(expr.alias("result"))["result"][0]
 
 
+@pytest.mark.infix_parser
 def test_infix_evaluated_basics():
     """Tests the infix parser for basic arithmetic operations by checking the evaluated result's correctness."""
     data = pl.DataFrame({"x_1": [5.2], "x_2": [-4.2], "bignumber": [10], "smallnum": [0.5]})
@@ -344,6 +353,7 @@ def test_infix_evaluated_basics():
         npt.assert_almost_equal(result, expected, decimal=5, err_msg=f"Failed for expression: {infix_expression}")
 
 
+@pytest.mark.infix_parser
 def test_unary_operators_with_nested_expressions_evaluation():
     """Test parsing and evaluation of complex expressions with unary operators and mixed arithmetic."""
     data = pl.DataFrame(
@@ -389,6 +399,7 @@ def test_unary_operators_with_nested_expressions_evaluation():
         npt.assert_almost_equal(result, expected, decimal=5, err_msg=f"Failed for expression: {infix_expression}")
 
 
+@pytest.mark.infix_parser
 def test_variadic_max_evaluation():
     """Test parsing and evaluation of expressions with the variadic 'Max' operator."""
     data = pl.DataFrame(
@@ -426,6 +437,7 @@ def test_variadic_max_evaluation():
         npt.assert_almost_equal(result, expected, decimal=5, err_msg=f"Failed for expression: {infix_expression}")
 
 
+@pytest.mark.infix_parser
 def test_scientific_notation_evaluation():
     """Test parsing and evaluation of expressions with numbers in scientific notation."""
     data = pl.DataFrame({"x": [1.5], "y": [-1.23e-5]})
@@ -450,3 +462,13 @@ def test_scientific_notation_evaluation():
     for infix_expression, expected in tests:
         result = evaluate_expression_helper(infix_expression, data)
         npt.assert_almost_equal(result, expected, decimal=5, err_msg=f"Failed for expression: {infix_expression}")
+
+
+@pytest.mark.slow
+@pytest.mark.performance
+@pytest.mark.usefixtures("timer")
+def test_many_executions():
+    """Calls the infix parser with a complicated expression thousands of times."""
+    for _ in range(2000):
+        infix_parser = InfixExpressionParser()
+        expression = "*".join(10 * ["Max(a + 3, b - 8, a*c, Sin(d)) + Max(a + 3, b - 8, a*c, Sin(d))"])

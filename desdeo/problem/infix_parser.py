@@ -7,21 +7,18 @@ from operator import or_
 from typing import ClassVar
 
 from pyparsing import (
-    Combine,
     Forward,
     Group,
     Keyword,
     Literal,
-    Optional,
     ParserElement,
     Suppress,
-    Word,
-    alphas,
     delimitedList,
     infixNotation,
-    nums,
     one_of,
     opAssoc,
+    pyparsing_common,
+    Regex,
 )
 
 # Enable Packrat for better performance in recursive parsing
@@ -97,8 +94,8 @@ class InfixExpressionParser:
         rparen = Suppress(")")
 
         # Define keywords (Note that binary operators must be defined manually)
-        symbols_variadic = list(InfixExpressionParser.VARIADIC_OPERATORS.keys())
-        symbols_unary = list(InfixExpressionParser.UNARY_OPERATORS.keys())
+        symbols_variadic = set(InfixExpressionParser.VARIADIC_OPERATORS.keys())
+        symbols_unary = set(InfixExpressionParser.UNARY_OPERATORS.keys())
 
         # Define binary operation symbols (this is the manual part)
         # If new binary operators are to be added, they must be defined here.
@@ -108,38 +105,26 @@ class InfixExpressionParser:
         expop = Literal("**")
 
         # Dynamically create Keyword objects for variadric functions
-        variadic_func_names = reduce(or_, (Keyword(k) for k in symbols_variadic))
+        variadic_pattern = r"\b(" + f"{'|'.join([*symbols_variadic])}" + r")\b"
+        variadic_func_names = Regex(variadic_pattern)
 
         # Dynamically create Keyword objects for unary functions
-        unary_func_names = reduce(or_, (Keyword(k) for k in symbols_unary))
-
-        reserved_keywords = variadic_func_names | unary_func_names
-
-        # Define parse actions
-        def parse_integer(tokens):
-            """Parses a Literal integer into a Python int."""
-            return int(tokens[0])
-
-        def parse_real(tokens):
-            """Parses the Literal 'real' into a Python float."""
-            return float("".join(tokens))
-
-        def parse_scientific(tokens):
-            """Parses Literal 'scientific' into a Python float."""
-            return float("".join(tokens))
+        # unary_func_names = reduce(or_, (Keyword(k) for k in symbols_unary))
+        unary_pattern = r"\b(" + f"{'|'.join([*symbols_unary])}" + r")\b"
+        unary_func_names = Regex(unary_pattern)
 
         # Define operands
-        integer = Combine(Word(nums)).set_parse_action(parse_integer)
-        real = Combine(Word(nums) + "." + Word(nums)).set_parse_action(parse_real)
+        integer = pyparsing_common.integer.set_parse_action(pyparsing_common.convertToInteger)
 
         # Scientific notation
-        sign = one_of("+ -")
-        exponent = Combine(one_of("e E") + Optional(sign) + integer)
-        scientific = Combine(real + Optional(exponent) | integer + exponent).set_parse_action(parse_scientific)
+        scientific = pyparsing_common.sci_real.set_parse_action(pyparsing_common.convert_to_float)
 
-        # Keywords are excluded from variable names.
-        variable = ~reserved_keywords + Word(alphas + "_", alphas + nums + "_")
-        operands = scientific | real | integer | scientific | variable
+        # Complete regex pattern with exclusions and identifier pattern
+        exclude = f"{'|'.join([*symbols_variadic, *symbols_unary])}"
+        pattern = r"(?!\b(" + exclude + r")\b)(\b[a-zA-Z_][a-zA-Z0-9_]*\b)"
+        variable = Regex(pattern)
+
+        operands = variable | scientific | integer
 
         # Forward declarations of variadric and unary function calls
         variadic_call = Forward()
@@ -147,7 +132,7 @@ class InfixExpressionParser:
 
         # The parsed expressions are assumed to follow a standard infix syntax. The operands
         # of the infix syntax can be either the literal 'operands' defined above (these are singletons),
-        # or either a varaidric function call or a unary function call. These latter two will be
+        # or either a variadic function call or a unary function call. These latter two will be
         # defined to be recursive.
         #
         # Note that the order of the operators in the second argument (the list) of infixNotation matters!
@@ -163,7 +148,7 @@ class InfixExpressionParser:
         )
 
         # These are recursive definitions of the forward declarations of the two type of function calls.
-        # In essence, the resurcion continues until a singleton operand is encountered.
+        # In essence, the recursion continues until a singleton operand is encountered.
         variadic_call <<= Group(variadic_func_names + lparen + Group(delimitedList(infix_expn)) + rparen)
         unary_call <<= Group(unary_func_names + lparen + Group(infix_expn) + rparen)
 
@@ -171,7 +156,7 @@ class InfixExpressionParser:
 
         # The infix operations do not need to be in this list because they are handled by infixNotation() above.
         # If new binary operations are to be added, they must be updated in the infixNotation() call (the list).
-        self.reserved_symbols: list[str] = symbols_unary + symbols_variadic
+        self.reserved_symbols: set[str] = symbols_unary | symbols_variadic
 
         # It is assumed that the dicts in the three class variables have unique keys.
         self.operator_mapping = {
