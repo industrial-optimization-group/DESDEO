@@ -21,7 +21,7 @@ from desdeo.tools.scalarization import (
     add_lte_constraints,
     add_scalarization_function,
     create_asf,
-    create_epsilon_constraints,
+    create_epsilon_constraints_json,
 )
 from desdeo.tools.utils import guess_best_solver
 
@@ -30,11 +30,13 @@ class NAUTILUS_Response(BaseModel):  # NOQA: N801
     """The response of the NAUTILUS Navigator method."""
 
     step_number: int = Field(description="The step number associted with this response.")
-    distance_to_front: float = Field(description=(
-        "The distance travelled to the Pareto front. "
-        "The distance is a ratio of the distances between the nadir and navigation point, and "
-        "the nadir and the reachable objective vector. The distance is given in percentage."
-        ))
+    distance_to_front: float = Field(
+        description=(
+            "The distance travelled to the Pareto front. "
+            "The distance is a ratio of the distances between the nadir and navigation point, and "
+            "the nadir and the reachable objective vector. The distance is given in percentage."
+        )
+    )
     reference_point: dict | None = Field(description="The reference point used in the step.")
     navigation_point: dict = Field(description="The navigation point used in the step.")
     reachable_solution: dict | None = Field(description="The reachable solution found in the step.")
@@ -122,7 +124,7 @@ def solve_reachable_bounds(
     upper_bounds = {}
     for objective in problem.objectives:
         # symbols to identify the objectives to be constrained
-        target_expr, const_exprs = create_epsilon_constraints(
+        target_expr, const_exprs = create_epsilon_constraints_json(
             problem, objective_symbol=objective.symbol, epsilons=const_bounds
         )
 
