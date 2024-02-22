@@ -6,10 +6,16 @@ or minimization of the corresponding objective functions may be correctly
 accounted for when computing scalarization function values.
 """
 
-import json, pprint
+import json
+import pprint
 
-from desdeo.problem import InfixExpressionParser
-from desdeo.problem import Constraint, ConstraintTypeEnum, Problem, ScalarizationFunction
+from desdeo.problem import (
+    Constraint,
+    ConstraintTypeEnum,
+    InfixExpressionParser,
+    Problem,
+    ScalarizationFunction,
+)
 
 
 class ScalarizationError(Exception):
@@ -235,6 +241,41 @@ def create_epsilon_constraints(
     constraint_exprs = [
         f"{obj.symbol}_min - {epsilons[obj.symbol]}" for obj in problem.objectives if obj.symbol != objective_symbol
     ]
+
+    return scalarization_expr, constraint_exprs
+
+
+def create_epsilon_constraints_json(
+    problem: Problem, objective_symbol: str, epsilons: dict[str, float]
+) -> tuple[str, list[str]]:
+    """Creates JSON expressions for an epsilon constraints scalarization and constraints.
+
+    It is assumed that epsilon have been given in a format where each objective is to be minimized.
+
+    Args:
+        problem (Problem): the problem to scalarize.
+        objective_symbol (str): the objective used as the objective in the epsilon constraint scalarization.
+        epsilons (dict[str, float]): the epsilon constraint values in a dict
+            with each key being an objective's symbol.
+
+    Raises:
+        ScalarizationError: `objective_symbol` not found in problem definition.
+
+    Returns:
+        tuple[list, list]: the first element is the expression of the scalarized objective expressed in MathJSON format.
+        The second element is a list of expressions of the constraints expressed in MathJSON format.
+            The constraints are in less than or equal format.
+    """
+    correct_symbols = [objective.symbol for objective in problem.objectives]
+    if objective_symbol not in correct_symbols:
+        msg = f"The given objective symbol {objective_symbol} should be one of {correct_symbols}."
+        raise ScalarizationError(msg)
+    correct_symbols.remove(objective_symbol)
+
+    scalarization_expr = ["Multiply", 1, f"{objective_symbol}_min"]
+
+    # the epsilons must be given such that each objective function is to be minimized
+    constraint_exprs = [["Add", f"{obj}_min", ["Negate", epsilons[obj]]] for obj in correct_symbols]
 
     return scalarization_expr, constraint_exprs
 

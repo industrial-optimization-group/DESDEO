@@ -7,7 +7,7 @@ from desdeo.tools.scalarization import (
     add_lte_constraints,
     add_scalarization_function,
     create_asf,
-    create_epsilon_constraints,
+    create_epsilon_constraints_json,
     create_weighted_sums,
 )
 from desdeo.tools.scipy_solver_interfaces import create_scipy_minimize_solver
@@ -78,7 +78,7 @@ def test_epsilon_constraint():
     epsilons = {"f_1": 5.0, "f_2": None, "f_3": -4.0, "f_4": 4.3, "f_5": -3}
     eps_target = "f_2"
 
-    sf, cons_exprs = create_epsilon_constraints(problem, eps_target, epsilons)
+    sf, cons_exprs = create_epsilon_constraints_json(problem, eps_target, epsilons)
 
     problem, target = add_scalarization_function(problem, sf, "f_2_eps")
 
