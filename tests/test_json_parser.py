@@ -1,5 +1,6 @@
 """Tests for the MathJSON parser."""
 import copy
+import math
 import json
 from pathlib import Path
 
@@ -628,4 +629,83 @@ def test_parse_pyomo_basic_arithmetics():
 
         npt.assert_array_almost_equal(
             pyomo.value(pyomo_expr), result, err_msg=f"Test failed for {str_expr=}, with {pyomo_expr.to_string()=}"
+        )
+
+
+@pytest.mark.pyomo
+def test_parse_pyomo_exponentation_and_logarithms():
+    """Test the JSON parser for correctly parsing MathJSON into pyomo expressions, with exponentation and logarithms."""
+    pyomo_model = pyomo.ConcreteModel()
+
+    x = -6.9
+    y = 1
+    garlic = 11.1
+    pyomo_model.x = pyomo.Var(domain=pyomo.Reals, initialize=x)
+    pyomo_model.y = pyomo.Var(domain=pyomo.Integers, initialize=y)
+    pyomo_model.garlic = pyomo.Var(domain=pyomo.Reals, initialize=garlic)
+
+    cosmic = 4.2
+    pyomo_model.cosmic = pyomo.Param(domain=pyomo.Reals, default=cosmic)
+    potato = -2
+    pyomo_model.potato = pyomo.Param(domain=pyomo.Integers, default=potato)
+
+    tests = [
+        ("garlic**2", garlic**2),
+        ("Ln(cosmic)", math.log(cosmic)),
+        ("Lb(garlic)", math.log(garlic, 2)),
+        ("Lg(cosmic)", math.log10(cosmic)),
+        ("LogOnePlus(y)", math.log1p(y)),
+        ("Sqrt(garlic)", math.sqrt(garlic)),
+        ("Square(x)", x**2),
+        ("garlic**potato", garlic**potato),
+        ("(garlic**2 + Ln(cosmic))", garlic**2 + math.log(cosmic)),
+        ("Lb(garlic) * Lg(cosmic) - y", math.log(garlic, 2) * math.log10(cosmic) - y),
+        ("Ln(cosmic + garlic**potato)", math.log(cosmic + garlic**potato)),
+        ("Sqrt(garlic) * Ln(cosmic)", math.sqrt(garlic) * math.log(cosmic)),
+        ("garlic**y + LogOnePlus(cosmic)", garlic**y + math.log1p(cosmic)),
+        ("(Sqrt(garlic) + Square(x)) / Lg(cosmic)", (math.sqrt(garlic) + x**2) / math.log10(cosmic)),
+        ("Ln(cosmic**2) + garlic**(Lb(cosmic))", math.log(cosmic**2) + garlic ** (math.log(cosmic, 2))),
+        ("Lb(garlic**2) * (Lg(cosmic) + Sqrt(y))", math.log(garlic**2, 2) * (math.log10(cosmic) + math.sqrt(y))),
+        ("Square(x) - Sqrt(y) + Ln(garlic + 1)", x**2 - math.sqrt(y) + math.log(garlic + 1)),
+        (
+            "Ln((garlic**2 + cosmic) / (1 + Lg(-x))) * (Sqrt(-potato + Square(y)))",
+            math.log((garlic**2 + cosmic) / (1 + math.log10(-x))) * math.sqrt(-potato + y**2),
+        ),
+        (
+            "((garlic**3 - 2**Lb(cosmic)) + Ln(x**2 + 1)) / (Sqrt(Square(y) + LogOnePlus(potato + 3.1)))",
+            ((garlic**3 - 2 ** math.log(cosmic, 2)) + math.log(x**2 + 1)) / math.sqrt(y**2 + math.log1p(potato + 3.1)),
+        ),
+        (
+            "Square(Ln(cosmic) + garlic**2) - (Lb(garlic) * Lg(-x) / Sqrt(y + 3))",
+            (math.log(cosmic) + garlic**2) ** 2 - (math.log(garlic, 2) * math.log10(-x) / math.sqrt(y + 3)),
+        ),
+        (
+            "Lg(cosmic**2 + Lb(garlic * -x)) * (Sqrt(Square(potato) + y) - LogOnePlus(garlic))",
+            math.log10(cosmic**2 + math.log(garlic * -x, 2)) * (math.sqrt(potato**2 + y) - math.log1p(garlic)),
+        ),
+        (
+            "(Ln(Lg(cosmic**2) + Sqrt(garlic)) ** 2) / (garlic**(-potato) + 3**y)",
+            (math.log(math.log10(cosmic**2) + math.sqrt(garlic)) ** 2) / (garlic ** (-potato) + 3**y),
+        ),
+        (
+            "(Lb(garlic + Lg(cosmic + Square(x))) - Sqrt(LogOnePlus(y))) * (x**2 + garlic**Lg(cosmic))",
+            (math.log(garlic + math.log10(cosmic + x**2), 2) - math.sqrt(math.log1p(y)))
+            * (x**2 + garlic ** math.log10(cosmic)),
+        ),
+    ]
+
+    infix_parser = InfixExpressionParser()
+    pyomo_parser = MathParser(to_format=FormatEnum.pyomo)
+
+    for str_expr, result in tests:
+        json_expr = infix_parser.parse(str_expr)
+        pyomo_expr = pyomo_parser.parse(json_expr, pyomo_model)
+
+        npt.assert_array_almost_equal(
+            pyomo.value(pyomo_expr),
+            result,
+            err_msg=(
+                f"Test failed for {str_expr=}, with "
+                f"{(pyomo_expr.to_string() if isinstance(pyomo_expr, pyomo.Expression) else pyomo_expr)=}"
+            ),
         )

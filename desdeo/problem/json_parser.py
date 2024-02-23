@@ -133,13 +133,13 @@ class MathParser:
             self.MUL: lambda *args: reduce(lambda x, y: x * y, args),
             self.DIV: lambda *args: reduce(lambda x, y: x / y, args),
             # Exponentiation and logarithms
-            self.EXP: lambda x: pl.Expr.exp(to_expr(x)),
-            self.LN: lambda x: pl.Expr.log(to_expr(x)),
-            self.LB: lambda x: pl.Expr.log(to_expr(x), 2),
-            self.LG: lambda x: pl.Expr.log10(to_expr(x)),
-            self.LOP: lambda x: pl.Expr.log1p(to_expr(x)),
-            self.SQRT: lambda x: pl.Expr.sqrt(to_expr(x)),
-            self.SQUARE: lambda x: to_expr(x) ** 2,
+            self.EXP: lambda x: pyomo.exp(x),
+            self.LN: lambda x: pyomo.log(x),
+            self.LB: lambda x: pyomo.log(x) / pyomo.log(2),  # change of base, pyomo has no native log2
+            self.LG: lambda x: pyomo.log10(x),
+            self.LOP: lambda x: pyomo.log(x + 1),
+            self.SQRT: lambda x: pyomo.sqrt(x),
+            self.SQUARE: lambda x: x**2,
             self.POW: lambda x, y: x**y,
             # Trigonometric operations
             self.ARCCOS: lambda x: pl.Expr.arccos(to_expr(x)),
