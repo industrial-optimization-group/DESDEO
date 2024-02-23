@@ -864,3 +864,89 @@ def test_parse_pyomo_rounding():
                 f"{pyomo_expr.to_string() if isinstance(pyomo_expr, pyomo.Expression) else pyomo_expr}"
             ),
         )
+
+
+@pytest.mark.pyomo
+def test_parse_pyomo_max():
+    """Test the JSON parser for correctly parsing MathJSON into pyomo expressions, with the max operator."""
+    pyomo_model = pyomo.ConcreteModel()
+
+    x = 2.8
+    y = -1.4
+    garlic = 4.2
+    pyomo_model.x = pyomo.Var(domain=pyomo.PositiveReals, initialize=x)
+    pyomo_model.y = pyomo.Var(domain=pyomo.NonNegativeReals, initialize=y)
+    pyomo_model.garlic = pyomo.Var(domain=pyomo.PositiveReals, initialize=garlic)
+
+    cosmic = -69.42
+    pyomo_model.cosmic = pyomo.Param(domain=pyomo.Reals, default=cosmic)
+    potato = 99.22
+    pyomo_model.potato = pyomo.Param(domain=pyomo.Reals, default=potato)
+
+    tests = [
+        ("Max(x)", max((x,))),
+        ("Max(x, y)", max((x, y))),
+        ("Max(x, y, potato)", max((x, y, potato))),
+        ("Max(Abs(cosmic), x)", max((abs(cosmic), x))),
+        ("Max(x + 2, y - 3, garlic)", max((x + 2, y - 3, garlic))),
+        ("Max(Abs(x), Abs(y), Abs(cosmic))", max((abs(x), abs(y), abs(cosmic)))),
+        ("Max(potato, cosmic, x, y)", max((potato, cosmic, x, y))),
+        ("Max(Max(x, y), Max(garlic, cosmic))", max((max((x, y)), max((garlic, cosmic))))),
+        ("Max(x * 2 - 3, Abs(cosmic) + 4, y / 2)", max((x * 2 - 3, abs(cosmic) + 4, y / 2))),
+        ("Max(x, y, garlic, cosmic, potato)", max((x, y, garlic, cosmic, potato))),
+        (
+            "Max(Abs(x - y), garlic + 10, cosmic * 2, potato / 2)",
+            max((abs(x - y), garlic + 10, cosmic * 2, potato / 2)),
+        ),
+        (
+            "Max(Ceil(Sin(garlic) + Tanh(x)), Floor(Ln(Abs(cosmic)) + 1), x ** 2, Sqrt(potato))",
+            max(
+                (
+                    math.ceil(math.sin(garlic) + math.tanh(x)),
+                    math.floor(math.log(abs(cosmic)) + 1),
+                    x**2,
+                    math.sqrt(potato),
+                )
+            ),
+        ),
+        (
+            "Max(Ln(x) + Lb(Abs(y)), Ceil(Sqrt(garlic) * 3), (potato ** 2) / 4, Abs(cosmic) + 10)",
+            max(
+                (math.log(x) + math.log(abs(y), 2), math.ceil(math.sqrt(garlic) * 3), (potato**2) / 4, abs(cosmic) + 10)
+            ),
+        ),
+        (
+            "Max(Abs(x - y), Max(Sin(x), Cos(garlic)), Tanh(potato) + 1)",
+            max((abs(x - y), max((math.sin(x), math.cos(garlic))), math.tanh(potato) + 1)),
+        ),
+        (
+            "Max(Abs(Max(cosmic, x) + Sin(garlic)), Floor(Abs(y) + Ceil(garlic)))",
+            max((abs(max((cosmic, x)) + math.sin(garlic)), math.floor(abs(y) + math.ceil(garlic)))),
+        ),
+        (
+            "Max(Sqrt(Abs(x) + y ** 2), Lg(Max(cosmic, potato)), Ceil(Tanh(x) + Arctan(garlic)))",
+            max(
+                (
+                    math.sqrt(abs(x) + y**2),
+                    math.log10(max((cosmic, potato))),
+                    math.ceil(math.tanh(x) + math.atan(garlic)),
+                )
+            ),
+        ),
+    ]
+
+    infix_parser = InfixExpressionParser()
+    pyomo_parser = MathParser(to_format=FormatEnum.pyomo)
+
+    for str_expr, result in tests:
+        json_expr = infix_parser.parse(str_expr)
+        pyomo_expr = pyomo_parser.parse(json_expr, pyomo_model)
+
+        npt.assert_array_almost_equal(
+            pyomo.value(pyomo_expr),
+            result,
+            err_msg=(
+                f"Test failed for {str_expr=}, with "
+                f"{pyomo_expr.to_string() if isinstance(pyomo_expr, pyomo.Expression) else pyomo_expr}"
+            ),
+        )

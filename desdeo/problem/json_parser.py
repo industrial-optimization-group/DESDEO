@@ -121,7 +121,7 @@ class MathParser:
             self.CEIL: lambda x: pl.Expr.ceil(to_expr(x)),
             self.FLOOR: lambda x: pl.Expr.floor(to_expr(x)),
             # Other operations
-            self.RATIONAL: lambda lst: reduce(lambda x, y: x / y, lst),
+            self.RATIONAL: lambda lst: reduce(lambda x, y: x / y, lst),  # Not supported
             self.MAX: lambda *args: reduce(lambda x, y: pl.max_horizontal(to_expr(x), to_expr(y)), args),
         }
 
@@ -160,8 +160,10 @@ class MathParser:
             self.CEIL: lambda x: pyomo.ceil(x),
             self.FLOOR: lambda x: pyomo.floor(x),
             # Other operations
-            self.RATIONAL: lambda lst: reduce(lambda x, y: x / y, lst),
-            self.MAX: lambda *args: reduce(lambda x, y: pl.max_horizontal(to_expr(x), to_expr(y)), args),
+            self.RATIONAL: lambda lst: reduce(lambda x, y: x / y, lst),  # not supported
+            # probably a better idea to reformulate expressions with a max when utilized with pyomo
+            # self.MAX: lambda *args: reduce(lambda x, y: _PyomoMax((x, y)), args),
+            self.MAX: lambda *args: _PyomoMax(args),
         }
 
         match to_format:
