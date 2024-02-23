@@ -706,6 +706,85 @@ def test_parse_pyomo_exponentation_and_logarithms():
             result,
             err_msg=(
                 f"Test failed for {str_expr=}, with "
-                f"{(pyomo_expr.to_string() if isinstance(pyomo_expr, pyomo.Expression) else pyomo_expr)=}"
+                f"{pyomo_expr.to_string() if isinstance(pyomo_expr, pyomo.Expression) else pyomo_expr}"
+            ),
+        )
+
+
+@pytest.mark.pyomo
+def test_parse_pyomo_trigonometrics():
+    """Test the JSON parser for correctly parsing MathJSON into pyomo expressions, with trigonometric operators."""
+    pyomo_model = pyomo.ConcreteModel()
+
+    x = 0.8
+    y = 1.4
+    garlic = 4.2
+    pyomo_model.x = pyomo.Var(domain=pyomo.PositiveReals, initialize=x)
+    pyomo_model.y = pyomo.Var(domain=pyomo.PositiveReals, initialize=y)
+    pyomo_model.garlic = pyomo.Var(domain=pyomo.PositiveReals, initialize=garlic)
+
+    cosmic = 0.42
+    pyomo_model.cosmic = pyomo.Param(domain=pyomo.Reals, default=cosmic)
+    potato = 0.22
+    pyomo_model.potato = pyomo.Param(domain=pyomo.Reals, default=potato)
+
+    tests = [
+        ("Arccos(x)", math.acos(x)),
+        ("Arccosh(y)", math.acosh(y)),
+        ("Arcsin(x)", math.asin(x)),
+        ("Arcsinh(y)", math.asinh(y)),
+        ("Arctan(garlic)", math.atan(garlic)),
+        ("Arctanh(x)", math.atanh(x)),
+        ("Cos(garlic)", math.cos(garlic)),
+        ("Cosh(x)", math.cosh(x)),
+        ("Sin(garlic)", math.sin(garlic)),
+        ("Sinh(x)", math.sinh(x)),
+        ("Tan(garlic)", math.tan(garlic)),
+        ("Tanh(x)", math.tanh(x)),
+        ("Sin(garlic) + Cos(x)", math.sin(garlic) + math.cos(x)),
+        ("Tan(Arccos(y / Sqrt(y**2 + 1)))", math.tan(math.acos(y / math.sqrt(y**2 + 1)))),
+        ("Sinh(x) * Cos(garlic) - Tanh(x)", math.sinh(x) * math.cos(garlic) - math.tanh(x)),
+        ("Arctan(garlic**2) + Arctanh(x / 2)", math.atan(garlic**2) + math.atanh(x / 2)),
+        ("Cos(Sin(garlic)) + Tanh(Arccosh(y))", math.cos(math.sin(garlic)) + math.tanh(math.acosh(y))),
+        (
+            "Arcsinh(y) * Arctan(garlic) - Arccosh(Sqrt(y**2 + 1))",
+            math.asinh(y) * math.atan(garlic) - math.acosh(math.sqrt(y**2 + 1)),
+        ),
+        ("Sin(garlic) * Cos(x) + Tanh(x)", math.sin(garlic) * math.cos(x) + math.tanh(x)),
+        ("Sqrt(Sin(garlic)**2 + Cos(x)**2)", math.sqrt(math.sin(garlic) ** 2 + math.cos(x) ** 2)),
+        (
+            "Cosh(Arctan(garlic)) - Sinh(Arccos(y / Sqrt(y**2 + 1)))",
+            math.cosh(math.atan(garlic)) - math.sinh(math.acos(y / math.sqrt(y**2 + 1))),
+        ),
+        ("Sin(garlic) + Cos(x)", math.sin(garlic) + math.cos(x)),
+        ("Tan(Arccos(y / Sqrt(y**2 + 1)))", math.tan(math.acos(y / math.sqrt(y**2 + 1)))),
+        ("Sinh(x) * Cos(garlic) - Tanh(x)", math.sinh(x) * math.cos(garlic) - math.tanh(x)),
+        ("Arctan(garlic**2) + Arctanh(x / 2)", math.atan(garlic**2) + math.atanh(x / 2)),
+        ("Cos(Sin(garlic)) + Tanh(Arccosh(y))", math.cos(math.sin(garlic)) + math.tanh(math.acosh(y))),
+        (
+            "Arcsinh(y) * Arctan(garlic) - Arccosh(Sqrt(y**2 + 1))",
+            math.asinh(y) * math.atan(garlic) - math.acosh(math.sqrt(y**2 + 1)),
+        ),
+        ("Sin(garlic) * Cos(x) + Tanh(x)", math.sin(garlic) * math.cos(x) + math.tanh(x)),
+        ("Sqrt(Sin(garlic)**2 + Cos(x)**2)", math.sqrt(math.sin(garlic) ** 2 + math.cos(x) ** 2)),
+        (
+            "Cosh(Arctan(garlic)) - Sinh(Arccos(y / Sqrt(y**2 + 1)))",
+            math.cosh(math.atan(garlic)) - math.sinh(math.acos(y / math.sqrt(y**2 + 1))),
+        ),
+    ]
+
+    infix_parser = InfixExpressionParser()
+    pyomo_parser = MathParser(to_format=FormatEnum.pyomo)
+
+    for str_expr, result in tests:
+        json_expr = infix_parser.parse(str_expr)
+        pyomo_expr = pyomo_parser.parse(json_expr, pyomo_model)
+
+        npt.assert_array_almost_equal(
+            pyomo.value(pyomo_expr),
+            result,
+            err_msg=(
+                f"Test failed for {str_expr=}, with "
+                f"{pyomo_expr.to_string() if isinstance(pyomo_expr, pyomo.Expression) else pyomo_expr}"
             ),
         )

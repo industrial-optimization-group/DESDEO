@@ -4,6 +4,7 @@ from functools import reduce
 
 import polars as pl
 import pyomo.environ as pyomo
+from pyomo.core.expr.numeric_expr import MaxExpression as _PyomoMax
 
 
 class FormatEnum(str, Enum):
@@ -135,25 +136,25 @@ class MathParser:
             # Exponentiation and logarithms
             self.EXP: lambda x: pyomo.exp(x),
             self.LN: lambda x: pyomo.log(x),
-            self.LB: lambda x: pyomo.log(x) / pyomo.log(2),  # change of base, pyomo has no native log2
+            self.LB: lambda x: pyomo.log(x) / pyomo.log(2),  # change of base, pyomo has no log2
             self.LG: lambda x: pyomo.log10(x),
             self.LOP: lambda x: pyomo.log(x + 1),
             self.SQRT: lambda x: pyomo.sqrt(x),
             self.SQUARE: lambda x: x**2,
             self.POW: lambda x, y: x**y,
             # Trigonometric operations
-            self.ARCCOS: lambda x: pl.Expr.arccos(to_expr(x)),
-            self.ARCCOSH: lambda x: pl.Expr.arccosh(to_expr(x)),
-            self.ARCSIN: lambda x: pl.Expr.arcsin(to_expr(x)),
-            self.ARCSINH: lambda x: pl.Expr.arcsinh(to_expr(x)),
-            self.ARCTAN: lambda x: pl.Expr.arctan(to_expr(x)),
-            self.ARCTANH: lambda x: pl.Expr.arctanh(to_expr(x)),
-            self.COS: lambda x: pl.Expr.cos(to_expr(x)),
-            self.COSH: lambda x: pl.Expr.cosh(to_expr(x)),
-            self.SIN: lambda x: pl.Expr.sin(to_expr(x)),
-            self.SINH: lambda x: pl.Expr.sinh(to_expr(x)),
-            self.TAN: lambda x: pl.Expr.tan(to_expr(x)),
-            self.TANH: lambda x: pl.Expr.tanh(to_expr(x)),
+            self.ARCCOS: lambda x: pyomo.acos(x),
+            self.ARCCOSH: lambda x: pyomo.acosh(x),
+            self.ARCSIN: lambda x: pyomo.asin(x),
+            self.ARCSINH: lambda x: pyomo.asinh(x),
+            self.ARCTAN: lambda x: pyomo.atan(x),
+            self.ARCTANH: lambda x: pyomo.atanh(x),
+            self.COS: lambda x: pyomo.cos(x),
+            self.COSH: lambda x: pyomo.cosh(x),
+            self.SIN: lambda x: pyomo.sin(x),
+            self.SINH: lambda x: pyomo.sinh(x),
+            self.TAN: lambda x: pyomo.tan(x),
+            self.TANH: lambda x: pyomo.tanh(x),
             # Rounding operations
             self.ABS: lambda x: pl.Expr.abs(to_expr(x)),
             self.CEIL: lambda x: pl.Expr.ceil(to_expr(x)),
