@@ -127,11 +127,11 @@ class MathParser:
         pyomo_env = {
             # Define the operations for the different operators.
             # Basic arithmetic operations
-            self.NEGATE: lambda x: -to_expr(x),
-            self.ADD: lambda *args, model: reduce(lambda x, y: x + y, args),
-            self.SUB: lambda *args: reduce(lambda x, y: to_expr(x) - to_expr(y), args),
-            self.MUL: lambda *args: reduce(lambda x, y: to_expr(x) * to_expr(y), args),
-            self.DIV: lambda *args: reduce(lambda x, y: to_expr(x) / to_expr(y), args),
+            self.NEGATE: lambda x: -x,
+            self.ADD: lambda *args: reduce(lambda x, y: x + y, args),
+            self.SUB: lambda *args: reduce(lambda x, y: x - y, args),
+            self.MUL: lambda *args: reduce(lambda x, y: x * y, args),
+            self.DIV: lambda *args: reduce(lambda x, y: x / y, args),
             # Exponentiation and logarithms
             self.EXP: lambda x: pl.Expr.exp(to_expr(x)),
             self.LN: lambda x: pl.Expr.log(to_expr(x)),
@@ -140,7 +140,7 @@ class MathParser:
             self.LOP: lambda x: pl.Expr.log1p(to_expr(x)),
             self.SQRT: lambda x: pl.Expr.sqrt(to_expr(x)),
             self.SQUARE: lambda x: to_expr(x) ** 2,
-            self.POW: lambda x, y: to_expr(x) ** to_expr(y),
+            self.POW: lambda x, y: x**y,
             # Trigonometric operations
             self.ARCCOS: lambda x: pl.Expr.arccos(to_expr(x)),
             self.ARCCOSH: lambda x: pl.Expr.arccosh(to_expr(x)),
@@ -255,9 +255,9 @@ class MathParser:
                     operands = operands[0]
 
                 if isinstance(operands, list):
-                    return self.env[op_name](*operands, model=model)
+                    return self.env[op_name](*operands)
 
-                return self.env[op_name](operands, model=model)
+                return self.env[op_name](operands)
 
             # else, assume the list contents are parseable expressions
             return [self._parse_to_pyomo(e, model) for e in expr]

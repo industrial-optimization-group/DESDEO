@@ -5,10 +5,12 @@ from pathlib import Path
 
 import numpy.testing as npt
 import polars as pl
+import pyomo.environ as pyomo
 import pytest
 
 from desdeo.problem.evaluator import GenericEvaluator
-from desdeo.problem.json_parser import MathParser, replace_str
+from desdeo.problem.infix_parser import InfixExpressionParser
+from desdeo.problem.json_parser import FormatEnum, MathParser, replace_str
 from desdeo.problem.schema import (
     Constant,
     Constraint,
@@ -574,3 +576,56 @@ def test_problem_default_scalarization_names():
     new_problem = problem.add_scalarization(scal_lonely)
 
     assert new_problem.scalarizations_funcs[0].symbol == "scal_1"
+
+
+@pytest.mark.pyomo
+def test_parse_pyomo_basic_arithmetics():
+    """Test the JSON parser for correctly parsing MathJSON into pyomo expressions."""
+    pyomo_model = pyomo.ConcreteModel()
+
+    x_1 = 6.9
+    x_2 = 0.1
+    x_3 = -11.1
+    pyomo_model.x_1 = pyomo.Var(domain=pyomo.Reals, initialize=x_1)
+    pyomo_model.x_2 = pyomo.Var(domain=pyomo.Reals, initialize=x_2)
+    pyomo_model.x_3 = pyomo.Var(domain=pyomo.Reals, initialize=x_3)
+
+    c_1 = 4.2
+    pyomo_model.c_1 = pyomo.Param(domain=pyomo.Reals, default=c_1)
+    c_2 = -2.2
+    pyomo_model.c_2 = pyomo.Param(domain=pyomo.Reals, default=c_2)
+
+    tests = [
+        ("x_1 + x_2 + x_3", x_1 + x_2 + x_3),
+        ("x_1 + x_2 + x_3 - c_1 - c_2", x_1 + x_2 + x_3 - c_1 - c_2),
+        ("x_1 - x_2 + c_1", x_1 - x_2 + c_1),
+        ("x_1 * c_2", x_1 * c_2),
+        ("x_2 / c_1", x_2 / c_1),
+        ("(x_1 + x_2) * c_1", (x_1 + x_2) * c_1),
+        ("((x_1 + x_2) - x_3) / c_1", ((x_1 + x_2) - x_3) / c_1),
+        ("x_1 + 2 * x_2 - 3", x_1 + 2 * x_2 - 3),
+        ("(x_1 + (x_2 * c_2) / (c_1 - x_3)) * 2", (x_1 + (x_2 * c_2) / (c_1 - x_3)) * 2),
+        ("x_3 * c_2 / 2", x_3 * c_2 / 2),
+        ("(x_1 + 10) - (c_2 - 5)", (x_1 + 10) - (c_2 - 5)),
+        ("((x_1 * 2) + (x_2 / 0.5)) - (c_1 * (x_3 + 3))", ((x_1 * 2) + (x_2 / 0.5)) - (c_1 * (x_3 + 3))),
+        ("(x_1 - (x_2 * 2) / (x_3 + 5.5) + c_1) * (c_2 + 4.4)", (x_1 - (x_2 * 2) / (x_3 + 5.5) + c_1) * (c_2 + 4.4)),
+        ("x_1 / ((x_2 + 2.1) * (c_1 - 3))", x_1 / ((x_2 + 2.1) * (c_1 - 3))),
+        ("(x_1 + (x_2 * (c_1 + 3.3) / (x_3 - 2))) * 1.5", (x_1 + (x_2 * (c_1 + 3.3) / (x_3 - 2))) * 1.5),
+        ("(x_1 - (x_2 / (2.5 * c_1))) / (c_2 - (x_3 * 0.5))", (x_1 - (x_2 / (2.5 * c_1))) / (c_2 - (x_3 * 0.5))),
+        (
+            "((x_1 * c_1) + (x_2 - c_2) / 2.0) * (x_3 + 3.5) / (1 + c_1)",
+            ((x_1 * c_1) + (x_2 - c_2) / 2.0) * (x_3 + 3.5) / (1 + c_1),
+        ),
+        ("(x_1 ** 2 + x_2 ** 2) ** 0.5 - c_1 * 3 + (x_3 / c_2)", (x_1**2 + x_2**2) ** 0.5 - c_1 * 3 + (x_3 / c_2)),
+    ]
+
+    infix_parser = InfixExpressionParser()
+    pyomo_parser = MathParser(to_format=FormatEnum.pyomo)
+
+    for str_expr, result in tests:
+        json_expr = infix_parser.parse(str_expr)
+        pyomo_expr = pyomo_parser.parse(json_expr, pyomo_model)
+
+        npt.assert_array_almost_equal(
+            pyomo.value(pyomo_expr), result, err_msg=f"Test failed for {str_expr=}, with {pyomo_expr.to_string()=}"
+        )

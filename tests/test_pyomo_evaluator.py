@@ -10,7 +10,7 @@ def binh_and_korn_w_extra():
     """Defines a variant of the Bing and Korn function with extra functions."""
     problem = binh_and_korn()
     extra_1 = ExtraFunction(name="Extra 1", symbol="extr_1", func="x_1 + x_2")
-    extra_2 = ExtraFunction(name="Extra 2", symbol="extr_2", func="x_2 + x_1")
+    extra_2 = ExtraFunction(name="Extra 2", symbol="extr_2", func="x_2 - x_1")
 
     return problem.model_copy(
         update={
@@ -37,4 +37,4 @@ def test_w_binh_and_korn(binh_and_korn_w_extra):
         assert hasattr(evaluator.model, extra.symbol)
 
     assert getattr(evaluator.model, problem.extra_funcs[0].symbol).to_string() == "x_1 + x_2"
-    assert getattr(evaluator.model, problem.extra_funcs[1].symbol).to_string() == "x_2 + x_1"
+    assert getattr(evaluator.model, problem.extra_funcs[1].symbol).to_string() == "x_2 - x_1"

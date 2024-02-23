@@ -165,6 +165,7 @@ markers = [
     "nautilus_navigator: tests related to the NAUTILUS Navigator method.",
     "performance: tests that are related to performance. Skipped by default.",
     "infix_parser: tests related to the infix parser.",
+    "pyomo: tests related to pyomo models, their parsing, and evaluation.",
 ]
 addopts = "-m 'not performance'"
 

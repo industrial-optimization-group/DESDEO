@@ -304,7 +304,6 @@ def test_infix_binh_and_korn_to_json():
     npt.assert_array_almost_equal(infix_result["g_2"], truth_result["g_2"])
 
 
-@pytest.mark.infix_parser
 def evaluate_expression_helper(infix_expression, data):
     """Evaluate an infix expression using the given data and return the result."""
     infix_parser = InfixExpressionParser(target="MathJSON")
