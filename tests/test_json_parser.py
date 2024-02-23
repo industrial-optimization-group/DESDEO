@@ -788,3 +788,79 @@ def test_parse_pyomo_trigonometrics():
                 f"{pyomo_expr.to_string() if isinstance(pyomo_expr, pyomo.Expression) else pyomo_expr}"
             ),
         )
+
+
+@pytest.mark.pyomo
+def test_parse_pyomo_rounding():
+    """Test the JSON parser for correctly parsing MathJSON into pyomo expressions, with rounding operators."""
+    pyomo_model = pyomo.ConcreteModel()
+
+    x = 2.8
+    y = -1.4
+    garlic = 4.2
+    pyomo_model.x = pyomo.Var(domain=pyomo.PositiveReals, initialize=x)
+    pyomo_model.y = pyomo.Var(domain=pyomo.NonNegativeReals, initialize=y)
+    pyomo_model.garlic = pyomo.Var(domain=pyomo.PositiveReals, initialize=garlic)
+
+    cosmic = -69.42
+    pyomo_model.cosmic = pyomo.Param(domain=pyomo.Reals, default=cosmic)
+    potato = 99.22
+    pyomo_model.potato = pyomo.Param(domain=pyomo.Reals, default=potato)
+
+    tests = [
+        ("Abs(y)", abs(y)),
+        ("Ceil(potato)", math.ceil(potato)),
+        ("Floor(cosmic)", math.floor(cosmic)),
+        ("Ceil(x + garlic)", math.ceil(x + garlic)),
+        ("Floor(x - cosmic)", math.floor(x - cosmic)),
+        ("Abs(cosmic + potato)", abs(cosmic + potato)),
+        ("Ceil(Floor(garlic) + Abs(x))", math.ceil(math.floor(garlic) + abs(x))),
+        (
+            "Abs(Ceil(x) - Floor(y)) + Floor(garlic - Ceil(potato))",
+            abs(math.ceil(x) - math.floor(y)) + math.floor(garlic - math.ceil(potato)),
+        ),
+        ("Ceil(Abs(x) + Abs(cosmic))", math.ceil(abs(x) + abs(cosmic))),
+        (
+            "Floor(Ceil(x) + Abs(Ceil(y) + Floor(garlic)))",
+            math.floor(math.ceil(x) + abs(math.ceil(y) + math.floor(garlic))),
+        ),
+        (
+            "Ceil(Sin(garlic)**2 + Cos(x)**2) + Floor(LogOnePlus(Abs(x)))",
+            math.ceil(math.sin(garlic) ** 2 + math.cos(x) ** 2) + math.floor(math.log1p(abs(x))),
+        ),
+        (
+            "Abs(Tanh(x) - Sinh(y)) + Lb(Ceil(Abs(garlic)) + 1) * Sqrt(Abs(Floor(potato)))",
+            abs(math.tanh(x) - math.sinh(y))
+            + math.log(math.ceil(abs(garlic)) + 1, 2) * math.sqrt(abs(math.floor(potato))),
+        ),
+        (
+            "Floor(Cosh(Abs(x)) + Sin(Arctan(Abs(garlic)))) * Ln(Ceil(Abs(y)) + 1)",
+            math.floor(math.cosh(abs(x)) + math.sin(math.atan(abs(garlic)))) * math.log(math.ceil(abs(y)) + 1),
+        ),
+        (
+            "Ln(Ceil(Abs(Sin(garlic) * Tanh(x)) + Floor(Cosh(Abs(y))))) + Sqrt(Abs(Floor(Abs(cosmic))))",
+            math.log(math.ceil(abs(math.sin(garlic) * math.tanh(x)) + math.floor(math.cosh(abs(y)))))
+            + math.sqrt(abs(math.floor(abs(cosmic)))),
+        ),
+        (
+            "Ceil(Lg(Abs(Cos(x) * Sin(garlic)))) + Arctan(Floor(Abs(Tanh(Abs(potato)))))",
+            math.ceil(math.log10(abs(math.cos(x) * math.sin(garlic))))
+            + math.atan(math.floor(abs(math.tanh(abs(potato))))),
+        ),
+    ]
+
+    infix_parser = InfixExpressionParser()
+    pyomo_parser = MathParser(to_format=FormatEnum.pyomo)
+
+    for str_expr, result in tests:
+        json_expr = infix_parser.parse(str_expr)
+        pyomo_expr = pyomo_parser.parse(json_expr, pyomo_model)
+
+        npt.assert_array_almost_equal(
+            pyomo.value(pyomo_expr),
+            result,
+            err_msg=(
+                f"Test failed for {str_expr=}, with "
+                f"{pyomo_expr.to_string() if isinstance(pyomo_expr, pyomo.Expression) else pyomo_expr}"
+            ),
+        )

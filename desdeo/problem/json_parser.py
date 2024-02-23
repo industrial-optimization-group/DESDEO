@@ -156,9 +156,9 @@ class MathParser:
             self.TAN: lambda x: pyomo.tan(x),
             self.TANH: lambda x: pyomo.tanh(x),
             # Rounding operations
-            self.ABS: lambda x: pl.Expr.abs(to_expr(x)),
-            self.CEIL: lambda x: pl.Expr.ceil(to_expr(x)),
-            self.FLOOR: lambda x: pl.Expr.floor(to_expr(x)),
+            self.ABS: lambda x: abs(x),
+            self.CEIL: lambda x: pyomo.ceil(x),
+            self.FLOOR: lambda x: pyomo.floor(x),
             # Other operations
             self.RATIONAL: lambda lst: reduce(lambda x, y: x / y, lst),
             self.MAX: lambda *args: reduce(lambda x, y: pl.max_horizontal(to_expr(x), to_expr(y)), args),
