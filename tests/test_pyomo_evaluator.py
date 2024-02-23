@@ -1,7 +1,8 @@
 """Tests for testing the PyomoEvaluator."""
 from desdeo.problem.pyomo_evaluator import PyomoEvaluator
-from desdeo.problem import binh_and_korn, ExtraFunction, ScalarizationFunction
+from desdeo.problem import binh_and_korn, ExtraFunction, ScalarizationFunction, simple_test_problem
 
+import numpy.testing as npt
 import pyomo.environ as pyomo
 import pytest
 
@@ -59,3 +60,33 @@ def test_w_binh_and_korn(binh_and_korn_w_extra):
 
         # scalarizations should be deactivated by default
         assert not getattr(evaluator.model, scal.symbol).active
+
+
+def test_get_values_w_binh_and_korn(binh_and_korn_w_extra):
+    """Test that the problem evaluates correctly."""
+    problem = binh_and_korn_w_extra
+    evaluator = PyomoEvaluator(problem)
+
+    input_1 = {"x_1": 2, "x_2": 8}
+
+    evaluator.evaluate(input_1)
+
+    res_dict = evaluator.get_values()
+
+    assert res_dict["x_1"] == 2
+    assert res_dict["x_2"] == 8
+
+    npt.assert_almost_equal(res_dict["f_1"], 272)
+    npt.assert_almost_equal(res_dict["f_2"], 18)
+
+    assert res_dict["c_1"] == 4
+    assert res_dict["c_2"] == 5
+
+    npt.assert_almost_equal(res_dict["g_1"], 48)
+    npt.assert_almost_equal(res_dict["g_2"], -149.3)
+
+    npt.assert_almost_equal(res_dict["extr_1"], 10)
+    npt.assert_almost_equal(res_dict["extr_2"], 6)
+
+    npt.assert_almost_equal(res_dict["s_1"], 19.2)
+    npt.assert_almost_equal(res_dict["s_2"], 10)

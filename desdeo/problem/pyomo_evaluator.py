@@ -43,6 +43,7 @@ class PyomoEvaluator:
             model = self.init_scalarizations(problem, model)
 
         self.model = model
+        self.problem = problem
 
     def init_variables(self, problem: Problem, model: pyomo.Model) -> pyomo.Model:
         """Add variables to the pyomo model.
@@ -97,13 +98,13 @@ class PyomoEvaluator:
                     msg = f"Could not figure out the type for variable {var}."
                     raise PyomoEvaluatorError(msg)
 
-            setattr(
-                model,
-                var.symbol,
-                pyomo.Var(
-                    name=var.name, bounds=(var.lowerbound, var.upperbound), initialize=var.initial_value, domain=domain
-                ),
+            pyomo_var = pyomo.Var(
+                name=var.name, initialize=var.initial_value, bounds=(var.lowerbound, var.upperbound), domain=domain
             )
+
+            # add and then construct the variable
+            setattr(model, var.symbol, pyomo_var)
+            getattr(model, var.symbol).construct()
 
         return model
 
@@ -140,7 +141,8 @@ class PyomoEvaluator:
                     msg = f"Failed to figure out the domain for the constant {con.symbol}."
                     raise PyomoEvaluatorError(msg)
 
-            setattr(model, con.symbol, pyomo.Param(name=con.name, initialize=con.value, domain=domain))
+            pyomo_param = pyomo.Param(name=con.name, default=con.value, domain=domain)
+            setattr(model, con.symbol, pyomo_param)
 
         return model
 
@@ -249,3 +251,57 @@ class PyomoEvaluator:
             setattr(model, scal.symbol, scal_expr)
 
         return model
+
+    def evaluate(self, xs: dict[str, float | int | bool]) -> pyomo.Model:
+        """Evaluate the current pyomo model with the given decision variable values.
+
+        Warning:
+            This should not be used for actually solving the pyomo model! For debugging mostly.
+
+        Args:
+            xs (dict[str, list[float | int | bool]]): a dict with the decision variable symbols
+                as the keys followed by the corresponding decision variable values. The symbols
+                must match the symbols defined for the decision variables defined in the `Problem` being solved.
+                Each list in the dict should contain the same number of values.
+
+        Returns:
+            pyomo.Model: the pyomo model with its variable values set to the values found in xs.
+        """
+        for var in self.problem.variables:
+            setattr(self.model, var.symbol, xs[var.symbol])
+
+        return self.model
+
+    def get_values(self) -> dict[str, float | int | bool]:
+        """Get the values from the pyomo model in dict.
+
+        The keys of the dict will be the symbols defined in the problem utilized to initialize the evaluator.
+
+        Returns:
+            dict[str, float | int | bool]: a dict with keys equivalent to the symbols defined in self.problem.
+        """
+        result_dict = {}
+
+        for var in self.problem.variables:
+            result_dict[var.symbol] = pyomo.value(getattr(self.model, var.symbol))
+
+        for obj in self.problem.objectives:
+            result_dict[obj.symbol] = pyomo.value(getattr(self.model, obj.symbol))
+
+        if self.problem.constants is not None:
+            for con in self.problem.constants:
+                result_dict[con.symbol] = pyomo.value(getattr(self.model, con.symbol))
+
+        if self.problem.extra_funcs is not None:
+            for extra in self.problem.extra_funcs:
+                result_dict[extra.symbol] = pyomo.value(getattr(self.model, extra.symbol))
+
+        if self.problem.constraints is not None:
+            for const in self.problem.constraints:
+                result_dict[const.symbol] = pyomo.value(getattr(self.model, const.symbol))
+
+        if self.problem.scalarizations_funcs is not None:
+            for scal in self.problem.scalarizations_funcs:
+                result_dict[scal.symbol] = pyomo.value(getattr(self.model, scal.symbol))
+
+        return result_dict
