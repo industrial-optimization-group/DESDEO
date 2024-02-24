@@ -42,12 +42,6 @@ def test_w_binh_and_korn(binh_and_korn_w_extra):
         assert hasattr(evaluator.model, obj.symbol)
         assert hasattr(evaluator.model, f"{obj.symbol}_min")
 
-        # all objectives should be deactivated by default
-        assert not getattr(evaluator.model, obj.symbol).active
-        assert not getattr(evaluator.model, f"{obj.symbol}_min").active
-
-        assert isinstance(getattr(evaluator.model, obj.symbol), pyomo.Objective)
-
     # has all constraints
     for cons in problem.constraints:
         assert hasattr(evaluator.model, cons.symbol)
@@ -56,10 +50,6 @@ def test_w_binh_and_korn(binh_and_korn_w_extra):
     # has all scalarizations
     for scal in problem.scalarizations_funcs:
         assert hasattr(evaluator.model, scal.symbol)
-        assert isinstance(getattr(evaluator.model, scal.symbol), pyomo.Objective)
-
-        # scalarizations should be deactivated by default
-        assert not getattr(evaluator.model, scal.symbol).active
 
 
 def test_get_values_w_binh_and_korn(binh_and_korn_w_extra):

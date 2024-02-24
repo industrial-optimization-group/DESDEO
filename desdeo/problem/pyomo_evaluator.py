@@ -166,6 +166,9 @@ class PyomoEvaluator:
     def init_objectives(self, problem: Problem, model: pyomo.Model) -> pyomo.Model:
         """Add objective function expressions to a pyomo model.
 
+        Does not yet add any actual pyomo objectives, only the expressions of the objectives.
+        A pyomo solved must add the appropiate pyomo objective before solving.
+
         Args:
             problem (Problem): problem from which to extract the objective function expresions.
             model (pyomo.Model): the pyomo model to add the expressions to.
@@ -177,24 +180,10 @@ class PyomoEvaluator:
         for obj in problem.objectives:
             pyomo_expr = self.parse(obj.func, model)
 
-            obj_expr = pyomo.Objective(
-                expr=pyomo_expr,
-                sense=pyomo.maximize if obj.maximize else pyomo.minimize,
-                name=obj.name,
-            )
-            obj_expr.deactivate()
-
-            setattr(model, obj.symbol, obj_expr)
-
-            obj_min_expr = pyomo.Objective(
-                expr=-obj_expr if obj.maximize else obj_expr,
-                sense=pyomo.minimize,
-                name=obj.name,
-            )
-            obj_min_expr.deactivate()
+            setattr(model, obj.symbol, pyomo_expr)
 
             # the obj.symbol_min objectives are used when optimizing and building scalarizations etc...
-            setattr(model, f"{obj.symbol}_min", obj_min_expr)
+            setattr(model, f"{obj.symbol}_min", -pyomo_expr if obj.maximize else pyomo_expr)
 
         return model
 
@@ -244,11 +233,7 @@ class PyomoEvaluator:
         for scal in problem.scalarizations_funcs:
             pyomo_expr = self.parse(scal.func, model)
 
-            # scalarization functions are always assumed to be minimized!
-            scal_expr = pyomo.Objective(expr=pyomo_expr, name=scal.name, sense=pyomo.minimize)
-            scal_expr.deactivate()
-
-            setattr(model, scal.symbol, scal_expr)
+            setattr(model, scal.symbol, pyomo_expr)
 
         return model
 
