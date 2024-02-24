@@ -140,8 +140,11 @@ def create_asf(
 
     # Build the max term
     max_operands = [
-        f"({objective_symbols[i]}_min - {reference_point[i]}) / ({nadir_point[i]} - ({ideal_point[i]} - {delta}))"
-        for i in range(len(problem.objectives))
+        (
+            f"({objective_symbols[i]}_min - {reference_point[i]} * {-1 if obj.maximize else 1})"
+            f"/ ({nadir_point[i]} - ({ideal_point[i]} - {delta}))"
+        )
+        for i, obj in enumerate(problem.objectives)
     ]
     max_term = f"{Op.MAX}({', '.join(max_operands)})"
 
@@ -153,8 +156,76 @@ def create_asf(
         ]
     else:
         aug_operands = [
-            f"({objective_symbols[i]}_min - {reference_point[i]}) / ({nadir_point[i]} - ({ideal_point[i]} - {delta}))"
-            for i in range(len(problem.objectives))
+            (
+                f"({objective_symbols[i]}_min - {reference_point[i]}) * {-1 if obj.maximize else 1}"
+                f"/ ({nadir_point[i]} - ({ideal_point[i]} - {delta}))"
+            )
+            for i, obj in enumerate(problem.objectives)
+        ]
+
+    aug_term = " + ".join(aug_operands)
+
+    # Return the whole scalarization function
+    return f"{max_term} + {rho} * ({aug_term})"
+
+
+def create_asf_generic(
+    problem: Problem,
+    reference_point: list[float],
+    weights: list[float],
+    reference_in_aug=False,
+    delta: float = 0.000001,
+    rho: float = 0.000001,
+) -> str:
+    """Creates the generic achievement scalarizing function for the given problem and reference point, and weights.
+
+    Args:
+        problem (Problem): the problem to which the scalarization function should be added.
+        reference_point (list[float]): a reference point with as many components as there are objectives.
+        weights (list[float]): the weights to be used in the scalarization function. must be positive.
+        reference_in_aug (bool, optional): Whether the reference point should be used in the augmentation term.
+            Defaults to False.
+        delta (float, optional): the scalar value used to define the utopian point (ideal - delta). Defaults to 0.000001.
+        rho (float, optional): the weight factor used in the augmentation term. Defaults to 0.000001.
+
+    Raises:
+        ScalarizationError: If the number of components in the reference point, the number of objectives,
+            and the number of weights do not match.
+        ScalarizationError: If any of the ideal or nadir point values are undefined (None).
+
+    Returns:
+        str: _description_
+    """
+    if (len_ref := len(reference_point)) != (len_obj := len(problem.objectives) != (len_w := len(weights))):
+        msg = (
+            f"The number of components in the reference point ({len_ref}) must "
+            f"match the number of objective ({len_obj}) and the number of weights ({len_w})."
+        )
+        raise ScalarizationError(msg)
+
+    objective_symbols = [objective.symbol for objective in problem.objectives]
+
+    # check if minimizing or maximizing and adjust ideal and nadir values correspondingly
+    ideal_point, nadir_point = get_corrected_ideal_and_nadir(problem)
+
+    if (None in ideal_point) or (None in nadir_point):
+        msg = f"There are undefined values in either the ideal ({ideal_point}) or the nadir point ({nadir_point})."
+        raise ScalarizationError(msg)
+
+    # Build the max term
+    max_operands = [
+        (f"({objective_symbols[i]}_min - {reference_point[i]} * {-1 if obj.maximize else 1})" f"/ ({weights[i]})")
+        for i, obj in enumerate(problem.objectives)
+    ]
+    max_term = f"{Op.MAX}({', '.join(max_operands)})"
+
+    # Build the augmentation term
+    if not reference_in_aug:
+        aug_operands = [f"{objective_symbols[i]}_min / ({weights[i]})" for i in range(len(problem.objectives))]
+    else:
+        aug_operands = [
+            (f"({objective_symbols[i]}_min - {reference_point[i]}) * {-1 if obj.maximize else 1}" f"/ ({weights[i]})")
+            for i, obj in enumerate(problem.objectives)
         ]
 
     aug_term = " + ".join(aug_operands)
