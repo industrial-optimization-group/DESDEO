@@ -51,6 +51,12 @@ def test_w_binh_and_korn(binh_and_korn_w_extra):
     for scal in problem.scalarizations_funcs:
         assert hasattr(evaluator.model, scal.symbol)
 
+    evaluator.set_optimization_target("f_1")
+
+    assert hasattr(evaluator.model, "f_1_objective")
+    assert isinstance(getattr(evaluator.model, "f_1_objective"), pyomo.Objective)  # noqa: B009
+    assert getattr(evaluator.model, "f_1_objective").active  # noqa: B009
+
 
 def test_get_values_w_binh_and_korn(binh_and_korn_w_extra):
     """Test that the problem evaluates correctly."""

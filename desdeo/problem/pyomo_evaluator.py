@@ -290,3 +290,27 @@ class PyomoEvaluator:
                 result_dict[scal.symbol] = pyomo.value(getattr(self.model, scal.symbol))
 
         return result_dict
+
+    def set_optimization_target(self, target: str):
+        """Creates a minimization objective from the target attribute of the pyomo model.
+
+        The attribute name of the pyomo objective will be target + _objective, e.g.,
+        'f_1' will become 'f_1_objective'. This is done so that the original f_1 expressions
+        attribute does not get reassigned.
+
+        Args:
+            target (str): an str representing a symbol.
+
+        Raises:
+            PyomoEvaluatorError: the given target was not an attribute of the pyomo model.
+        """
+        if not hasattr(self.model, target):
+            msg = f"The pyomo model has no attribute {target}."
+            raise PyomoEvaluatorError(msg)
+
+        obj_expr = getattr(self.model, target)
+
+        objective = pyomo.Objective(expr=obj_expr, sense=pyomo.minimize, name=target)
+
+        # add the postfix '_objective' to the attribute name of the pyomo objective
+        setattr(self.model, f"{target}_objective", objective)

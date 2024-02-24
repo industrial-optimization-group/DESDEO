@@ -20,6 +20,7 @@ __all__ = [
     "Objective",
     "ObjectiveTypeEnum",
     "Problem",
+    "PyomoEvaluator",
     "river_pollution_problem",
     "simple_data_problem",
     "simple_test_problem",
@@ -50,6 +51,8 @@ from .schema import (
 from .infix_parser import InfixExpressionParser
 
 from .json_parser import FormatEnum, MathParser
+
+from .pyomo_evaluator import PyomoEvaluator
 
 from .testproblems import binh_and_korn, river_pollution_problem, simple_data_problem, simple_test_problem, zdt1
 
