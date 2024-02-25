@@ -26,7 +26,7 @@ def test_proximal_with_simple_data_problem():
     obj_should_be = [objective_values[symbol][-1] for symbol in objective_values]
     const_should_be = [variable_values["y_1"][-1] + variable_values["y_2"][-1] - 1000]
 
-    sf = create_weighted_sums(problem, weights=[1, 0, 0])
+    sf = create_weighted_sums(problem, weights={"g_1": 1, "g_2": 0, "g_3": 0})
 
     problem, target = add_scalarization_function(problem, sf, symbol="ws_1")
 
@@ -42,7 +42,7 @@ def test_proximal_with_simple_data_problem():
     obj_should_be = [objective_values[symbol][0] for symbol in objective_values]
     const_should_be = [variable_values["y_1"][0] + variable_values["y_2"][0] - 1000]
 
-    sf = create_weighted_sums(problem, weights=[0, 1, 0])
+    sf = create_weighted_sums(problem, weights={"g_1": 0, "g_2": 1, "g_3": 0})
 
     problem, target = add_scalarization_function(problem, sf, symbol="ws_2")
 
@@ -58,7 +58,7 @@ def test_proximal_with_simple_data_problem():
     obj_should_be = [objective_values[symbol][-1] for symbol in objective_values]
     const_should_be = [variable_values["y_1"][-1] + variable_values["y_2"][-1] - 1000]
 
-    sf = create_weighted_sums(problem, weights=[0, 0, 1])
+    sf = create_weighted_sums(problem, weights={"g_1": 0, "g_2": 0, "g_3": 1})
 
     problem, target = add_scalarization_function(problem, sf, symbol="ws_3")
 
@@ -73,7 +73,7 @@ def test_proximal_with_simple_data_problem():
     obj_should_be = [objective_values[symbol][4] for symbol in objective_values]
     const_should_be = [variable_values["y_1"][4] + variable_values["y_2"][4] - 1000]
 
-    reference_point = [750.0, 6.1, -27.1]
+    reference_point = {"g_1": 750.0, "g_2": 6.1, "g_3": -27.1}
     sf = create_asf(problem, reference_point)
 
     problem, target = add_scalarization_function(problem, sf, symbol="asf")

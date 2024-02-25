@@ -31,7 +31,7 @@ def test_create_asf(river_w_fake_ideal_and_nadir):
     problem = river_w_fake_ideal_and_nadir
 
     # min, min, max, max, min
-    asf = create_asf(problem, [1, 2, 3, 2, 1], delta=0.1, rho=2.2)
+    asf = create_asf(problem, {"f_1": 1, "f_2": 2, "f_3": 3, "f_4": 2, "f_5": 1}, delta=0.1, rho=2.2)
 
     assert asf == (
         "Max((f_1_min - 1) / (5.5 - (0.5 - 0.1)), (f_2_min - 2) / (5.5 - (0.5 - 0.1)), "
@@ -44,7 +44,7 @@ def test_create_asf(river_w_fake_ideal_and_nadir):
 def test_create_ws():
     """Tests that the weighted sum scalarization is added correctly."""
     problem = simple_test_problem()
-    ws = [1, 2, 1, 3, 7.2]
+    ws = {"f_1": 1, "f_2": 2, "f_3": 1, "f_4": 3, "f_5": 7.2}
 
     sf = create_weighted_sums(problem, ws)
 
@@ -55,10 +55,10 @@ def test_add_scalarization_function(river_w_fake_ideal_and_nadir):
     """Tests that scalarization functions are added correctly."""
     problem = river_w_fake_ideal_and_nadir
 
-    ws = [1, 2, 3, 4, 5]
+    ws = {"f_1": 1, "f_2": 2, "f_3": 1, "f_4": 3, "f_5": 5}
     wsf = create_weighted_sums(problem, ws)
 
-    ref_point = [1, 2, 3, 4, 5]
+    ref_point = {"f_1": 1, "f_2": 2, "f_3": 3, "f_4": 4, "f_5": 5}
     asf = create_asf(problem, ref_point)
 
     problem, symbol_ws = add_scalarization_function(problem, wsf, "WS", name="Weighted sums")

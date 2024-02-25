@@ -199,7 +199,6 @@ def solve_reachable_solution(
     _create_solver = guess_best_solver(problem) if create_solver is None else create_solver
 
     # create and add scalarization function
-    reference_point = objective_dict_to_numpy_array(problem, reference_point).tolist()
     sf = create_asf(problem, reference_point, reference_in_aug=True)
     problem_w_asf, target = add_scalarization_function(problem, sf, "asf")
 

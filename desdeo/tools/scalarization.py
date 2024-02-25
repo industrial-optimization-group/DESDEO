@@ -75,7 +75,7 @@ class Op:
     RATIONAL = "Rational"
 
 
-def get_corrected_ideal_and_nadir(problem: Problem) -> tuple[list[float | None] | None, list[float | None] | None]:
+def get_corrected_ideal_and_nadir(problem: Problem) -> tuple[dict[str, float | None], dict[str, float | None] | None]:
     """Compute the corrected ideal and nadir points depending if an objective function is to be maximized or not.
 
     I.e., the ideal and nadir point element for objectives to be maximized will be multiplied by -1.
@@ -88,15 +88,21 @@ def get_corrected_ideal_and_nadir(problem: Problem) -> tuple[list[float | None] 
             and a list with the corrected nadir point. Will return None for missing
             elements.
     """
-    ideal_point = [objective.ideal if not objective.maximize else -objective.ideal for objective in problem.objectives]
-    nadir_point = [objective.nadir if not objective.maximize else -objective.nadir for objective in problem.objectives]
+    ideal_point = {
+        objective.symbol: objective.ideal if not objective.maximize else -objective.ideal
+        for objective in problem.objectives
+    }
+    nadir_point = {
+        objective.symbol: objective.nadir if not objective.maximize else -objective.nadir
+        for objective in problem.objectives
+    }
 
     return ideal_point, nadir_point
 
 
 def create_asf(
     problem: Problem,
-    reference_point: list[float],
+    reference_point: dict[str, float],
     reference_in_aug=False,
     delta: float = 0.000001,
     rho: float = 0.000001,
@@ -107,7 +113,7 @@ def create_asf(
 
     Args:
         problem (Problem): the problem to which the scalarization function should be added.
-        reference_point (list[float]): a reference point with as many components as there are objectives.
+        reference_point (dict[str, float]): a reference point as an objective dict.
         reference_in_aug (bool): whether the reference point should be used in
             the augmentation term as well. Defaults to False.
         delta (float, optional): the scalar value used to define the utopian point (ideal - delta).
@@ -115,52 +121,47 @@ def create_asf(
         rho (float, optional): the weight factor used in the augmentation term. Defaults to 0.000001.
 
     Raises:
-        ScalarizationError: when the number of components in the reference point
-            does not match the number of objectives, or if any of the ideal or nadir
+        ScalarizationError: there are missing elements in the reference point, or if any of the ideal or nadir
             point values are undefined (None).
 
     Returns:
         str: The scalarization function in infix format.
     """
-    if (len_ref := len(reference_point)) != (len_obj := len(problem.objectives)):
-        msg = (
-            f"The number of components in the reference point ({len_ref}) must "
-            f"match the number of objective ({len_obj})."
-        )
+    # check that the reference point has all the objective components
+    if not all(obj.symbol in reference_point for obj in problem.objectives):
+        msg = f"The given reference point {reference_point} does not have a component defined for all the objectives."
         raise ScalarizationError(msg)
-
-    objective_symbols = [objective.symbol for objective in problem.objectives]
 
     # check if minimizing or maximizing and adjust ideal and nadir values correspondingly
     ideal_point, nadir_point = get_corrected_ideal_and_nadir(problem)
 
-    if (None in ideal_point) or (None in nadir_point):
+    if any(value is None for value in ideal_point.values()) or any(value is None for value in nadir_point.values()):
         msg = f"There are undefined values in either the ideal ({ideal_point}) or the nadir point ({nadir_point})."
         raise ScalarizationError(msg)
 
     # Build the max term
     max_operands = [
         (
-            f"({objective_symbols[i]}_min - {reference_point[i]}{" * -1" if obj.maximize else ''}) "
-            f"/ ({nadir_point[i]} - ({ideal_point[i]} - {delta}))"
+            f"({obj.symbol}_min - {reference_point[obj.symbol]}{" * -1" if obj.maximize else ''}) "
+            f"/ ({nadir_point[obj.symbol]} - ({ideal_point[obj.symbol]} - {delta}))"
         )
-        for i, obj in enumerate(problem.objectives)
+        for obj in problem.objectives
     ]
     max_term = f"{Op.MAX}({', '.join(max_operands)})"
 
     # Build the augmentation term
     if not reference_in_aug:
         aug_operands = [
-            f"{objective_symbols[i]}_min / ({nadir_point[i]} - ({ideal_point[i]} - {delta}))"
-            for i in range(len(problem.objectives))
+            f"{obj.symbol}_min / ({nadir_point[obj.symbol]} - ({ideal_point[obj.symbol]} - {delta}))"
+            for obj in problem.objectives
         ]
     else:
         aug_operands = [
             (
-                f"({objective_symbols[i]}_min - {reference_point[i]}{" * -1" if obj.maximize else 1}) "
-                f"/ ({nadir_point[i]} - ({ideal_point[i]} - {delta}))"
+                f"({obj.symbol}_min - {reference_point[obj.symbol]}{" * -1" if obj.maximize else 1}) "
+                f"/ ({nadir_point[obj.symbol]} - ({ideal_point[obj.symbol]} - {delta}))"
             )
-            for i, obj in enumerate(problem.objectives)
+            for obj in problem.objectives
         ]
 
     aug_term = " + ".join(aug_operands)
@@ -189,43 +190,47 @@ def create_asf_generic(
         rho (float, optional): the weight factor used in the augmentation term. Defaults to 0.000001.
 
     Raises:
-        ScalarizationError: If the number of components in the reference point, the number of objectives,
-            and the number of weights do not match.
+        ScalarizationError: If either the reference point or the weights given are missing any of the objective
+            components.
         ScalarizationError: If any of the ideal or nadir point values are undefined (None).
 
     Returns:
         str: _description_
     """
-    if (len_ref := len(reference_point)) != (len_obj := len(problem.objectives) != (len_w := len(weights))):
-        msg = (
-            f"The number of components in the reference point ({len_ref}) must "
-            f"match the number of objective ({len_obj}) and the number of weights ({len_w})."
-        )
+    # check that the reference point has all the objective components
+    if not all(obj.symbol in reference_point for obj in problem.objectives):
+        msg = f"The given reference point {reference_point} does not have a component defined for all the objectives."
         raise ScalarizationError(msg)
 
-    objective_symbols = [objective.symbol for objective in problem.objectives]
+    # check that the weights have all the objective components
+    if not all(obj.symbol in weights for obj in problem.objectives):
+        msg = f"The given weight vector {weights} does not have a component defined for all the objectives."
+        raise ScalarizationError(msg)
 
     # check if minimizing or maximizing and adjust ideal and nadir values correspondingly
     ideal_point, nadir_point = get_corrected_ideal_and_nadir(problem)
 
-    if (None in ideal_point) or (None in nadir_point):
+    if any(value is None for value in ideal_point.values()) or any(value is None for value in nadir_point.values()):
         msg = f"There are undefined values in either the ideal ({ideal_point}) or the nadir point ({nadir_point})."
         raise ScalarizationError(msg)
 
     # Build the max term
     max_operands = [
-        (f"({objective_symbols[i]}_min - {reference_point[i]} * {-1 if obj.maximize else 1})" f"/ ({weights[i]})")
-        for i, obj in enumerate(problem.objectives)
+        (f"({obj.symbol}_min - {reference_point[obj.symbol]} * {-1 if obj.maximize else 1}) / ({weights[obj.symbol]})")
+        for obj in problem.objectives
     ]
     max_term = f"{Op.MAX}({', '.join(max_operands)})"
 
     # Build the augmentation term
     if not reference_in_aug:
-        aug_operands = [f"{objective_symbols[i]}_min / ({weights[i]})" for i in range(len(problem.objectives))]
+        aug_operands = [f"{obj.symbol}_min / ({weights[obj.symbol]})" for obj in problem.objectives]
     else:
         aug_operands = [
-            (f"({objective_symbols[i]}_min - {reference_point[i]}) * {-1 if obj.maximize else 1}" f"/ ({weights[i]})")
-            for i, obj in enumerate(problem.objectives)
+            (
+                f"({obj.symbol}_min - {reference_point[obj.symbol]}) * {-1 if obj.maximize else 1} / "
+                f"({weights[obj.symbol]})"
+            )
+            for obj in problem.objectives
         ]
 
     aug_term = " + ".join(aug_operands)
@@ -234,29 +239,27 @@ def create_asf_generic(
     return f"{max_term} + {rho} * ({aug_term})"
 
 
-def create_weighted_sums(problem: Problem, weights: list[float]) -> str:
+def create_weighted_sums(problem: Problem, weights: dict[str, float]) -> str:
     """Add the weighted sums scalarization.
 
     Args:
         problem (Problem): the problem to which the scalarization should be added.
-        weights (list[float]): the weights. For the method to work, the weights
+        weights (dict[str, float]): the weights. For the method to work, the weights
             should sum to 1. However, this is not a condition that is checked.
 
     Raises:
-        ScalarizationError: if the number of weights and number of objectives in problem do not match.
+        ScalarizationError: if the weights are missing any of the objective components.
 
     Returns:
         str: The scalarization function for in infix format.
     """
-    # Check dimensions, there must be as many weights as there are objectives
-    if (len_obj := len(problem.objectives)) != (len_w := len(weights)):
-        msg = f"The number of weights ({len(len_w)}) does not match the number of objectives ({len_obj})."
+    # check that the weights have all the objective components
+    if not all(obj.symbol in weights for obj in problem.objectives):
+        msg = f"The given weight vector {weights} does not have a component defined for all the objectives."
         raise ScalarizationError(msg)
 
-    objective_symbols = [objective.symbol for objective in problem.objectives]
-
     # Build the sum
-    sum_terms = [f"({weights[i]} * {objective_symbols[i]}_min)" for i in range(len(problem.objectives))]
+    sum_terms = [f"({weights[obj.symbol]} * {obj.symbol}_min)" for obj in problem.objectives]
     return " + ".join(sum_terms)
 
 
