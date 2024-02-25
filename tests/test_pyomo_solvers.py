@@ -13,3 +13,5 @@ def test_bonmin_solver():
     solver = create_pyomo_bonmin_solver(problem)
 
     results = solver("f_2")
+
+    assert results.success
