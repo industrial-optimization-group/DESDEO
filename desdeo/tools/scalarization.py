@@ -141,7 +141,7 @@ def create_asf(
     # Build the max term
     max_operands = [
         (
-            f"({objective_symbols[i]}_min - {reference_point[i]} * {-1 if obj.maximize else 1})"
+            f"({objective_symbols[i]}_min - {reference_point[i]}{" * -1" if obj.maximize else ''}) "
             f"/ ({nadir_point[i]} - ({ideal_point[i]} - {delta}))"
         )
         for i, obj in enumerate(problem.objectives)
@@ -157,7 +157,7 @@ def create_asf(
     else:
         aug_operands = [
             (
-                f"({objective_symbols[i]}_min - {reference_point[i]}) * {-1 if obj.maximize else 1}"
+                f"({objective_symbols[i]}_min - {reference_point[i]}{" * -1" if obj.maximize else 1}) "
                 f"/ ({nadir_point[i]} - ({ideal_point[i]} - {delta}))"
             )
             for i, obj in enumerate(problem.objectives)
