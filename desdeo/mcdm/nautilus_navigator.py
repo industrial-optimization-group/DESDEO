@@ -38,6 +38,7 @@ class NAUTILUS_Response(BaseModel):  # NOQA: N801
         )
     )
     reference_point: dict | None = Field(description="The reference point used in the step.")
+    bounds: dict | None = Field(description="The user provided bounds.")
     navigation_point: dict = Field(description="The navigation point used in the step.")
     reachable_solution: dict | None = Field(description="The reachable solution found in the step.")
     reachable_bounds: dict = Field(description="The reachable bounds found in the step.")
@@ -86,7 +87,10 @@ def calculate_navigation_point(
 
 
 def solve_reachable_bounds(
-    problem: Problem, navigation_point: dict[str, float], create_solver: CreateSolverType | None = None
+    problem: Problem,
+    navigation_point: dict[str, float],
+    bounds: dict[str, float] | None = None,
+    create_solver: CreateSolverType | None = None,
 ) -> tuple[dict[str, float], dict[str, float]]:
     """Computes the current reachable (upper and lower) bounds of the solutions in the objective space.
 
@@ -98,6 +102,7 @@ def solve_reachable_bounds(
         navigation_point (dict[str, float]): the navigation point limiting the
             reachable area. The key is the objective function's symbol and the value
             the navigation point.
+        bounds (dict[str, float]): the user provided bounds preference.
         create_solver (CreateSolverType | None, optional): a function of type CreateSolverType that returns a solver.
             If None, then a solver is utilized bases on the problem's properties. Defaults to None.
 
@@ -123,6 +128,7 @@ def solve_reachable_bounds(
     lower_bounds = {}
     upper_bounds = {}
     for objective in problem.objectives:
+        ## Lower bounds
         # symbols to identify the objectives to be constrained
         target_expr, const_exprs = create_epsilon_constraints_json(
             problem, objective_symbol=objective.symbol, epsilons=const_bounds
@@ -131,6 +137,12 @@ def solve_reachable_bounds(
         # solve lower bounds
         # add scalarization
         eps_problem, target = add_scalarization_function(problem, target_expr, "target")
+
+        # User bounds
+        if bounds is not None:
+            const_exprs += [
+                f"{obj.symbol}_min - {bounds[obj.symbol] * (-1 if obj.maximize else 1)}" for obj in problem.objectives
+            ]
 
         # add constraints
         eps_problem = add_lte_constraints(
@@ -155,12 +167,44 @@ def solve_reachable_bounds(
             lower_bound = lower_bound[0]
 
         # solver upper bounds
-        # the lower bounds is set as in the NAUTILUS method, e.g., taken from
-        # the current itration/navigation point
-        if isinstance(navigation_point[objective.symbol], list):
-            upper_bound = navigation_point[objective.symbol][0]
-        else:
-            upper_bound = navigation_point[objective.symbol]
+        target_expr, const_exprs = create_epsilon_constraints_json(
+            problem, objective_symbol=objective.symbol, epsilons=const_bounds
+        )
+        # We need to add a constrant related to the target objective to bound it to the navigation point
+        # Maybe there should be a replacement to "create_epsilon_constraints_json" that allows for this
+        # for now, we will add the constraint manually
+        const_exprs.append(["Add", f"{objective.symbol}_min", ["Negate", const_bounds[objective.symbol]]])
+        target_expr[1] = -1  # maximize the objective
+
+        eps_problem, target = add_scalarization_function(problem, target_expr, "target")
+        # User bounds
+        if bounds is not None:
+            const_exprs += [
+                f"{obj.symbol}_min - {bounds[obj.symbol] * (-1 if obj.maximize else 1)}" for obj in problem.objectives
+            ]
+        # add constraints
+        eps_problem = add_lte_constraints(
+            eps_problem, const_exprs, [f"eps_{i}" for i in range(1, len(const_exprs) + 1)]
+        )
+        # solve
+        solver = _create_solver(eps_problem)
+        res = solver(target)
+        if not res.success:
+            # could not optimize eps problem
+            msg = (
+                f"Optimizing the epsilon constrait problem for the objective "
+                f"{objective.symbol} was not successful. Reason: {res.message}"
+            )
+            raise NautilusNavigatorError(msg)
+
+        upper_bound = res.optimal_objectives[objective.symbol]
+
+        if isinstance(upper_bound, list):
+            upper_bound = upper_bound[0]
+
+        if upper_bound * (-1 if objective.maximize else 1) > const_bounds[objective.symbol]:
+            msg = "The upper bound is worse than the navigation point. This should not happen."
+            raise NautilusNavigatorError(msg)
 
         # add the lower and upper bounds logically depending whether an objective is to be maximized or minimized
         lower_bounds[objective.symbol] = lower_bound if not objective.maximize else upper_bound
@@ -174,6 +218,7 @@ def solve_reachable_solution(
     reference_point: dict[str, float],
     previous_nav_point: dict[str, float],
     create_solver: CreateSolverType | None = None,
+    bounds: dict[str, float] | None = None,
 ) -> SolverResults:
     """Calculates the reachable solution on the Pareto optimal front.
 
@@ -191,6 +236,7 @@ def solve_reachable_solution(
             is always better than the previous navigation point.
         create_solver (CreateSolverType | None, optional): a function of type CreateSolverType that returns a solver.
             If None, then a solver is utilized bases on the problem's properties. Defaults to None.
+        bounds (dict[str, float] | None, optional): the bounds of the problem. Defaults to None.
 
     Returns:
         SolverResults: the results of the projection.
@@ -207,6 +253,11 @@ def solve_reachable_solution(
         f"{obj.symbol}_min - {previous_nav_point[obj.symbol] * (-1 if obj.maximize else 1)}"
         for obj in problem.objectives
     ]
+
+    if bounds is not None:
+        const_exprs += [
+            f"{obj.symbol}_min - {bounds[obj.symbol] * (-1 if obj.maximize else 1)}" for obj in problem.objectives
+        ]
     problem_w_asf = add_lte_constraints(
         problem_w_asf, const_exprs, [f"const_{i}" for i in range(1, len(const_exprs) + 1)]
     )
@@ -273,6 +324,7 @@ def navigator_init(problem: Problem, create_solver: CreateSolverType | None = No
         reachable_bounds={"lower_bounds": lower_bounds, "upper_bounds": upper_bounds},
         reachable_solution=None,
         reference_point=None,
+        bounds=None,
         step_number=0,
     )
 
@@ -282,6 +334,7 @@ def navigator_step(  # NOQA: PLR0913
     steps_remaining: int,
     step_number: int,
     nav_point: dict,
+    bounds: dict | None = None,
     create_solver: CreateSolverType | None = None,
     reference_point: dict | None = None,
     reachable_solution: dict | None = None,
@@ -297,6 +350,7 @@ def navigator_step(  # NOQA: PLR0913
         reference_point (dict | None, optional): The reference point provided by the DM. Defaults to None, in which
         case it is assumed that the DM has not changed their preference. The algorithm uses the last reachable solution,
         which must be provided in this case.
+        bounds (dict | None, optional): The bounds of the problem provided by the DM. Defaults to None.
         reachable_solution (dict | None, optional): The previous reachable solution. Must only be provided if the DM
         has not changed their preference. Defaults to None.
 
@@ -314,7 +368,7 @@ def navigator_step(  # NOQA: PLR0913
         raise NautilusNavigatorError("Only one of reference_point or reachable_solution should be provided.")
 
     if reference_point is not None:
-        opt_result = solve_reachable_solution(problem, reference_point, nav_point, create_solver)
+        opt_result = solve_reachable_solution(problem, reference_point, nav_point, create_solver, bounds=bounds)
         reachable_point = opt_result.optimal_objectives
     else:
         reachable_point = reachable_solution
@@ -324,9 +378,14 @@ def navigator_step(  # NOQA: PLR0913
 
     # update_bounds
 
-    lower_bounds, upper_bounds = solve_reachable_bounds(problem, new_nav_point, create_solver=create_solver)
+    lower_bounds, upper_bounds = solve_reachable_bounds(
+        problem, new_nav_point, create_solver=create_solver, bounds=bounds
+    )
 
     distance = calculate_distance_to_front(problem, new_nav_point, reachable_point)
+
+    if bounds is None:
+        bounds = {obj.symbol: obj.nadir for obj in problem.objectives}
 
     return NAUTILUS_Response(
         step_number=step_number,
@@ -335,6 +394,7 @@ def navigator_step(  # NOQA: PLR0913
         reachable_solution=reachable_point,
         reference_point=reference_point,
         reachable_bounds={"lower_bounds": lower_bounds, "upper_bounds": upper_bounds},
+        bounds=bounds,
     )
 
 
@@ -343,6 +403,7 @@ def navigator_all_steps(
     steps_remaining: int,
     reference_point: dict,
     previous_responses: list[NAUTILUS_Response],
+    bounds: dict | None = None,
     create_solver: CreateSolverType | None = None,
 ):
     """Performs all steps of the NAUTILUS method.
@@ -358,6 +419,7 @@ def navigator_all_steps(
         problem (Problem): The problem to be solved.
         steps_remaining (int): The number of steps remaining.
         reference_point (dict): The reference point provided by the DM.
+        bounds (dict): The bounds of the problem provided by the DM.
         previous_responses (list[NAUTILUS_Response]): The previous responses of the method.
         create_solver (CreateSolverType | None, optional): The solver to use. Defaults to None, in which case the
             algorithm will guess the best solver for the problem.
@@ -380,6 +442,7 @@ def navigator_all_steps(
                 step_number=step_number,
                 nav_point=nav_point,
                 reference_point=reference_point,
+                bounds=bounds,
                 create_solver=create_solver,
             )
             first_iteration = False
@@ -390,6 +453,7 @@ def navigator_all_steps(
                 step_number=step_number,
                 nav_point=nav_point,
                 reachable_solution=reachable_solution,
+                bounds=bounds,
                 create_solver=create_solver,
             )
         response.reference_point = reference_point

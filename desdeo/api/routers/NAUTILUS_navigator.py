@@ -23,6 +23,35 @@ from desdeo.problem.schema import Problem
 router = APIRouter(prefix="/nautnavi")
 
 
+class InitRequest(BaseModel):
+    """The request to initialize the NAUTILUS Navigator."""
+
+    problem_id: int = Field(description="The ID of the problem to navigate.")
+    total_steps: int | None = Field(
+        description=("The total number of steps in the NAUTILUS Navigator. The default value is 100."), default=100
+    )
+
+
+class NavigateRequest(BaseModel):
+    """The request to navigate the NAUTILUS Navigator."""
+
+    problem_id: int = Field(description="The ID of the problem to navigate.")
+    preference: dict[str, float] = Field(description="The preference of the DM.")
+    bounds: dict[str, float] = Field(description="The bounds preference of the DM.")
+    go_back_step: int = Field(description="The step index to go back.")
+    steps_remaining: int = Field(description="The number of steps remaining. Should be total_steps - go_back_step.")
+
+
+class InitialResponse(BaseModel):
+    """The response from the initial endpoint of NAUTILUS Navigator."""
+
+    objective_names: list[str] = Field(description="The names of the objectives.")
+    is_maximized: list[bool] = Field(description="Whether the objectives are to be maximized or minimized.")
+    ideal: list[float] = Field(description="The ideal values of the objectives.")
+    nadir: list[float] = Field(description="The nadir values of the objectives.")
+    total_steps: int = Field(description="The total number of steps in the NAUTILUS Navigator.")
+
+
 class Response(BaseModel):
     """The response from most NAUTILUS Navigator endpoints.
 
@@ -36,34 +65,9 @@ class Response(BaseModel):
     lower_bounds: dict[str, list[float]] = Field(description="The lower bounds of the reachable region.")
     upper_bounds: dict[str, list[float]] = Field(description="The upper bounds of the reachable region.")
     preferences: dict[str, list[float]] = Field(description="The preferences used in each step.")
-    # bounds: list[list[float]] = Field(description="The bounds of the reachable region.")
+    bounds: dict[str, list[float]] = Field(description="The bounds preference of the DM.")
     total_steps: int = Field(description="The total number of steps in the NAUTILUS Navigator.")
     reachable_solution: dict = Field(description="The solution reached at the end of navigation.")
-
-
-class InitialResponse(BaseModel):
-    """The response from the initial endpoint of NAUTILUS Navigator."""
-
-    objective_names: list[str] = Field(description="The names of the objectives.")
-    is_maximized: list[bool] = Field(description="Whether the objectives are to be maximized or minimized.")
-    ideal: list[float] = Field(description="The ideal values of the objectives.")
-    nadir: list[float] = Field(description="The nadir values of the objectives.")
-    total_steps: int = Field(description="The total number of steps in the NAUTILUS Navigator.")
-
-
-class InitRequest(BaseModel):
-    """The request to initialize the NAUTILUS Navigator."""
-
-    problem_id: int = Field(description="The ID of the problem to navigate.")
-
-
-class NavigateRequest(BaseModel):
-    """The request to navigate the NAUTILUS Navigator."""
-
-    problem_id: int = Field(description="The ID of the problem to navigate.")
-    preference: dict[str, float] = Field(description="The preference of the DM.")
-    go_back_step: int = Field(description="The step index to go back.")
-    steps_remaining: int = Field(description="The number of steps remaining. Should be total_steps - go_back_step.")
 
 
 @router.post("/initialize")
@@ -115,7 +119,7 @@ def init_navigator(
         is_maximized=[obj.maximize for obj in problem.objectives],
         ideal=[obj.ideal for obj in problem.objectives],
         nadir=[obj.nadir for obj in problem.objectives],
-        total_steps=100,
+        total_steps=init_request.total_steps,
     )
 
 
@@ -141,11 +145,12 @@ def navigate(
     Returns:
         Response: _description_
     """
-    problem_id, preference, go_back_step, steps_remaining = (
+    problem_id, preference, go_back_step, steps_remaining, bounds = (
         request.problem_id,
         request.preference,
         request.go_back_step,
         request.steps_remaining,
+        request.bounds,
     )
     problem = db.query(ProblemInDB).filter(ProblemInDB.id == problem_id).first()
     if problem is None:
@@ -165,9 +170,16 @@ def navigate(
 
     responses.append(responses[step_back_index(responses, go_back_step)])
 
-    new_responses = navigator_all_steps(
-        problem, steps_remaining=steps_remaining, reference_point=preference, previous_responses=responses
-    )
+    try:
+        new_responses = navigator_all_steps(
+            problem,
+            steps_remaining=steps_remaining,
+            reference_point=preference,
+            previous_responses=responses,
+            bounds=bounds,
+        )
+    except IndexError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
     for response in new_responses:
         new_result = Results(
@@ -184,10 +196,12 @@ def navigate(
     lower_bounds = {}
     upper_bounds = {}
     preferences = {}
+    bounds = {}
     for obj in problem.objectives:
         lower_bounds[obj.name] = [response.reachable_bounds["lower_bounds"][obj.name] for response in active_responses]
         upper_bounds[obj.name] = [response.reachable_bounds["upper_bounds"][obj.name] for response in active_responses]
         preferences[obj.name] = [response.reference_point[obj.name] for response in active_responses[1:]]
+        bounds[obj.name] = [response.bounds[obj.name] for response in active_responses[1:]]
 
     return Response(
         objective_names=[obj.name for obj in problem.objectives],
@@ -196,7 +210,8 @@ def navigate(
         nadir=[obj.nadir for obj in problem.objectives],
         lower_bounds=lower_bounds,
         upper_bounds=upper_bounds,
+        bounds=bounds,
         preferences=preferences,
-        total_steps=len(responses) - 1,
+        total_steps=len(active_responses) - 1,
         reachable_solution=active_responses[-1].reachable_solution,
     )

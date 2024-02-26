@@ -321,7 +321,7 @@ def create_epsilon_constraints(
 
 def create_epsilon_constraints_json(
     problem: Problem, objective_symbol: str, epsilons: dict[str, float]
-) -> tuple[str, list[str]]:
+) -> tuple[list[str | int | float], list[str]]:
     """Creates JSON expressions for an epsilon constraints scalarization and constraints.
 
     It is assumed that epsilon have been given in a format where each objective is to be minimized.
