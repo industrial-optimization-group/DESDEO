@@ -17,7 +17,7 @@ from desdeo.tools.generics import CreateSolverType, SolverResults
 from desdeo.tools.scalarization import (
     add_lte_constraints,
     add_scalarization_function,
-    create_asf,
+    create_asf_generic,
     create_epsilon_constraints_json,
 )
 from desdeo.tools.utils import guess_best_solver
@@ -130,6 +130,57 @@ def solve_reachable_bounds(
     return lower_bounds, upper_bounds
 
 
+def solve_reachable_solution(
+    problem: Problem,
+    group_improvement_direction: dict[str, float],
+    previous_nav_point: dict[str, float],
+    create_solver: CreateSolverType | None = None,
+) -> SolverResults:
+    """Calculates the reachable solution on the Pareto optimal front.
+
+    For the calculation to make sense in the context of NAUTILUS Navigator, the reference point
+    should be bounded by the reachable bounds present at the navigation step the
+    reference point has been given.
+
+    In practice, the reachable solution is calculated by solving an achievement
+    scalarizing function.
+
+    Args:
+        problem (Problem): the problem being solved.
+        group_improvement_direction (dict[str, float]): the improvement direction for the group.
+        previous_nav_point (dict[str, float]): the previous navigation point. The reachable solution found
+            is always better than the previous navigation point.
+        create_solver (CreateSolverType | None, optional): a function of type CreateSolverType that returns a solver.
+            If None, then a solver is utilized bases on the problem's properties. Defaults to None.
+
+    Returns:
+        SolverResults: the results of the projection.
+    """
+    # check solver
+    _create_solver = guess_best_solver(problem) if create_solver is None else create_solver
+
+    # create and add scalarization function
+    # previous_nav_point = objective_dict_to_numpy_array(problem, previous_nav_point).tolist()
+    # weights = objective_dict_to_numpy_array(problem, group_improvement_direction).tolist()
+    sf = create_asf_generic(
+        problem, reference_point=previous_nav_point, weights=group_improvement_direction, reference_in_aug=True
+    )
+    problem_w_asf, target = add_scalarization_function(problem, sf, "asf")
+
+    # Note: We do not solve the global problem. Instead, we solve this constrained problem:
+    const_exprs = [
+        f"{obj.symbol}_min - {previous_nav_point[obj.symbol] * (-1 if obj.maximize else 1)}"
+        for obj in problem.objectives
+    ]
+    problem_w_asf = add_lte_constraints(
+        problem_w_asf, const_exprs, [f"const_{i}" for i in range(1, len(const_exprs) + 1)]
+    )
+
+    # solve the problem
+    solver = _create_solver(problem_w_asf)
+    return solver(target)
+
+
 def nautili_init(problem: Problem, create_solver: CreateSolverType | None = None) -> NAUTILI_Response:
     """Initializes the NAUTILI method.
 
@@ -216,6 +267,7 @@ def nautili_all_steps(
     for dm in reference_points:
         if reference_points[dm] is None:
             # If no reference point is provided, use the previous improvement direction
+            reference_points[dm] = previous_responses[-1].reference_points[dm]
             improvement_directions[dm] = previous_responses[-1].improvement_directions[dm]
         else:
             # If a reference point is provided, calculate the improvement direction
@@ -224,8 +276,8 @@ def nautili_all_steps(
             reference_point = (
                 np.array([reference_points[dm][obj.symbol] for obj in problem.objectives]) * max_multiplier
             )
-            nav_point = np.array([nav_point[obj.symbol] for obj in problem.objectives]) * max_multiplier
-            improvement = nav_point - reference_point
+            nav_point_arr = np.array([nav_point[obj.symbol] for obj in problem.objectives]) * max_multiplier
+            improvement = nav_point_arr - reference_point
             if np.any(improvement < 0):
                 msg = (
                     f"If a reference point is provided, it must be better than the navigation point.\n"

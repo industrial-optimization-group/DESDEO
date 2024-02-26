@@ -33,6 +33,7 @@ python-jose = { extras = ["cryptography"], version = "^3.3.0" }
 bcrypt = "^4.1.2"
 nevergrad = "^1.0.1"
 pyomo = "^6.7.0"
+jupyter = "^1.0.0"
 
 [tool.poetry.extras]
 standard = ["polars"]
@@ -99,7 +100,8 @@ select = [
 ignore = [
     "COM812",  # Enforcing trailing commas is too annoying.
     "PLR0915", # "too many statements (>50)"
-    "T201",    # allow print statements
+    "T201",    # TODO: remove? it allow print statements
+    "TRY003",  # allow long error messages
 ]
 pydocstyle.convention = "google"
 
