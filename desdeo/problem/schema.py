@@ -66,11 +66,13 @@ class ConstraintTypeEnum(str, Enum):
     EQ = "="  # equal
     LTE = "<="  # less than or equal
 
+
 class ObjectiveTypeEnum(str, Enum):
     """An enumerator for supported objective function types."""
 
     analytical = "analytical"
     data_based = "data_based"
+
 
 class Constant(BaseModel):
     """Model for a constant."""
@@ -106,8 +108,8 @@ class Variable(BaseModel):
         ),
     )
     variable_type: VariableTypeEnum = Field(description="Type of the variable. Can be real, integer or binary.")
-    lowerbound: VariableType = Field(description="Lower bound of the variable.")
-    upperbound: VariableType = Field(description="Upper bound of the variable.")
+    lowerbound: VariableType | None = Field(description="Lower bound of the variable.", default=None)
+    upperbound: VariableType | None = Field(description="Upper bound of the variable.", default=None)
     initial_value: VariableType | None = Field(
         description="Initial value of the variable. This is optional.", default=None
     )
@@ -197,10 +199,12 @@ class Objective(BaseModel):
     nadir: float | None = Field(description="Nadir value of the objective. This is optional.", default=None)
 
     objective_type: ObjectiveTypeEnum = Field(
-        description=("The type of objective function. 'analytical' means the objective function value is calculated "
-        "based on 'func'. 'data_based' means the objective function value should be retrieved from a table. "
-        "In case of 'data_based' objective function, the 'func' field is ignored. Defaults to 'analytical'."),
-        default=ObjectiveTypeEnum.analytical
+        description=(
+            "The type of objective function. 'analytical' means the objective function value is calculated "
+            "based on 'func'. 'data_based' means the objective function value should be retrieved from a table. "
+            "In case of 'data_based' objective function, the 'func' field is ignored. Defaults to 'analytical'."
+        ),
+        default=ObjectiveTypeEnum.analytical,
     )
 
     _parse_infix_to_func = field_validator("func", mode="before")(parse_infix_to_func)
@@ -277,6 +281,7 @@ class EvaluatedSolutions(BaseModel):
         description="A list of the values of the evaluated objective functions."
     )
 
+
 class DiscreteDefinition(BaseModel):
     """Model to represent discrete objective function and decision variable pairs.
 
@@ -289,21 +294,26 @@ class DiscreteDefinition(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     variable_values: dict[str, list[VariableType]] = Field(
-        description=("A dictionary with decision variable values. Each dict key points to a list of all the decision "
-        "variable values available for the decision variable given in the key. "
-        "The keys must match the 'symbols' defined for the decision variables.")
+        description=(
+            "A dictionary with decision variable values. Each dict key points to a list of all the decision "
+            "variable values available for the decision variable given in the key. "
+            "The keys must match the 'symbols' defined for the decision variables."
+        )
     )
     objective_values: dict[str, list[float]] = Field(
-        description=("A dictionary with objective function values. Each dict key points to a list of all the objective "
-        "function values available for the objective function given in the key. The keys must match the 'symbols' "
-        "defined for the objective functions.")
+        description=(
+            "A dictionary with objective function values. Each dict key points to a list of all the objective "
+            "function values available for the objective function given in the key. The keys must match the 'symbols' "
+            "defined for the objective functions."
+        )
     )
+
 
 class Problem(BaseModel):
     """Model for a problem definition."""
 
     model_config = ConfigDict(frozen=True)
-    model_config['from_attributes'] = True
+    model_config["from_attributes"] = True
 
     _scalarization_index: int = PrivateAttr(default=1)
     # TODO: make init to communicate the _scalarization_index to a new model
@@ -421,10 +431,12 @@ class Problem(BaseModel):
         description="Optional list of evaluated solutions of the problem.", default=None
     )
     discrete_definition: DiscreteDefinition | None = Field(
-        description=("Optional. Required when there are one or more 'data_based' Objectives. The corresponding values "
-        "of the 'data_based' objective function will be fetched from this with the given variable values. "
-        "Defaults to 'None'."),
-        default=None
+        description=(
+            "Optional. Required when there are one or more 'data_based' Objectives. The corresponding values "
+            "of the 'data_based' objective function will be fetched from this with the given variable values. "
+            "Defaults to 'None'."
+        ),
+        default=None,
     )
 
 

@@ -277,6 +277,41 @@ def simple_data_problem() -> Problem:
     )
 
 
+def momip_ti2():
+    """Defines the mixed-integer multiobjective optimization problem test instance 2 (TI2).
+
+    The problem has four variables, two continuous and two integer. The Pareto optimal solutions
+    hold for solutions with x_1^2 + x_^2 = 0.25 and (x_3, x_4) = {(0, -1), (-1, 0)}.
+
+    References:
+    Eichfelder, G., Gerlach, T., & Warnow, L. (n.d.). Test Instances for
+        Multiobjective Mixed-Integer Nonlinear Optimization.
+
+    """
+    x_1 = Variable(name="x_1", symbol="x_1", variable_type=VariableTypeEnum.real, lowerbound=-10, upperbound=10)
+    x_2 = Variable(name="x_2", symbol="x_2", variable_type=VariableTypeEnum.real, lowerbound=-10, upperbound=10)
+    x_3 = Variable(name="x_3", symbol="x_3", variable_type=VariableTypeEnum.integer, lowerbound=-10, upperbound=10)
+    x_4 = Variable(name="x_4", symbol="x_4", variable_type=VariableTypeEnum.integer, lowerbound=-10, upperbound=10)
+
+    f_1 = Objective(
+        name="f_1", symbol="f_1", func="x_1 + x_3", objective_type=ObjectiveTypeEnum.analytical, maximize=False
+    )
+    f_2 = Objective(
+        name="f_2", symbol="f_2", func="x_2 + x_4", objective_type=ObjectiveTypeEnum.analytical, maximize=False
+    )
+
+    con_1 = Constraint(name="g_1", symbol="g_1", cons_type=ConstraintTypeEnum.LTE, func="x_1**2 + x_2**2 - 0.25")
+    con_2 = Constraint(name="g_2", symbol="g_2", cons_type=ConstraintTypeEnum.LTE, func="x_3**2 + x_4**2 - 1")
+
+    return Problem(
+        name="MOMIP Test Instance 2",
+        description="Test instance 2",
+        variables=[x_1, x_2, x_3, x_4],
+        constraints=[con_1, con_2],
+        objectives=[f_1, f_2],
+    )
+
+
 if __name__ == "__main__":
-    problem = simple_data_problem()
+    problem = momip_ti2()
     print(problem.model_dump_json(indent=2))

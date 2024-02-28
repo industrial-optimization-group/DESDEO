@@ -24,8 +24,9 @@ class PyomoEvaluator:
         # Add variables
         model = self.init_variables(problem, model)
 
-        # Add constants
-        model = self.init_constants(problem, model)
+        # Add constants, if any
+        if problem.constants is not None:
+            model = self.init_constants(problem, model)
 
         # Add extra expressions, if any
         if problem.extra_funcs is not None:
@@ -84,10 +85,10 @@ class PyomoEvaluator:
                 case (False, False, VariableTypeEnum.real):
                     # variable is negative real
                     domain = pyomo.NegativeReals
-                case (False, True):
+                case (False, True, VariableTypeEnum.real):
                     # variable can be both negative and positive real
                     domain = pyomo.Reals
-                case (True, False):
+                case (True, False, VariableTypeEnum.real):
                     # eror! lower bound is greater than upper bound
                     msg = (
                         f"The lower bound {var.lowerbound} for variable {var.symbol} is greater than the "

@@ -15,6 +15,7 @@ __all__ = [
     "get_ideal_dict",
     "InfixExpressionParser",
     "MathParser",
+    "momip_ti2",
     "numpy_array_to_objective_dict",
     "objective_dict_to_numpy_array",
     "Objective",
@@ -54,6 +55,13 @@ from .json_parser import FormatEnum, MathParser
 
 from .pyomo_evaluator import PyomoEvaluator
 
-from .testproblems import binh_and_korn, river_pollution_problem, simple_data_problem, simple_test_problem, zdt1
+from .testproblems import (
+    binh_and_korn,
+    river_pollution_problem,
+    simple_data_problem,
+    simple_test_problem,
+    zdt1,
+    momip_ti2,
+)
 
 from .utils import get_ideal_dict, get_nadir_dict, numpy_array_to_objective_dict, objective_dict_to_numpy_array
