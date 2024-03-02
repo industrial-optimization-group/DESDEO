@@ -61,8 +61,11 @@ class PyomoEvaluator:
             pyomo.Model: the pyomo model with the variables added as attributes.
         """
         for var in problem.variables:
+            lowerbound = var.lowerbound if var.lowerbound is not None else float("-inf")
+            upperbound = var.upperbound if var.upperbound is not None else float("inf")
+
             # figure out the variable type
-            match (var.lowerbound >= 0, var.upperbound >= 0, var.variable_type):
+            match (lowerbound >= 0, upperbound >= 0, var.variable_type):
                 case (True, True, VariableTypeEnum.integer):
                     # variable is positive integer
                     domain = pyomo.NonNegativeIntegers
@@ -99,6 +102,7 @@ class PyomoEvaluator:
                     msg = f"Could not figure out the type for variable {var}."
                     raise PyomoEvaluatorError(msg)
 
+            # take the bound directly from var here so that float('inf')s are None when passed to pyomo
             pyomo_var = pyomo.Var(
                 name=var.name, initialize=var.initial_value, bounds=(var.lowerbound, var.upperbound), domain=domain
             )

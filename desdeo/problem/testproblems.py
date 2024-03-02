@@ -288,10 +288,10 @@ def momip_ti2():
         Multiobjective Mixed-Integer Nonlinear Optimization.
 
     """
-    x_1 = Variable(name="x_1", symbol="x_1", variable_type=VariableTypeEnum.real, lowerbound=-10, upperbound=10)
-    x_2 = Variable(name="x_2", symbol="x_2", variable_type=VariableTypeEnum.real, lowerbound=-10, upperbound=10)
-    x_3 = Variable(name="x_3", symbol="x_3", variable_type=VariableTypeEnum.integer, lowerbound=-10, upperbound=10)
-    x_4 = Variable(name="x_4", symbol="x_4", variable_type=VariableTypeEnum.integer, lowerbound=-10, upperbound=10)
+    x_1 = Variable(name="x_1", symbol="x_1", variable_type=VariableTypeEnum.real)
+    x_2 = Variable(name="x_2", symbol="x_2", variable_type=VariableTypeEnum.real)
+    x_3 = Variable(name="x_3", symbol="x_3", variable_type=VariableTypeEnum.integer)
+    x_4 = Variable(name="x_4", symbol="x_4", variable_type=VariableTypeEnum.integer)
 
     f_1 = Objective(
         name="f_1", symbol="f_1", func="x_1 + x_3", objective_type=ObjectiveTypeEnum.analytical, maximize=False
