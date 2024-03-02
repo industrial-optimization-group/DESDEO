@@ -2,7 +2,7 @@
 import polars as pl
 import pytest
 
-from desdeo.problem import Problem, Variable, VariableTypeEnum, Objective, ObjectiveTypeEnum, DiscreteDefinition
+from desdeo.problem import Problem, Variable, VariableTypeEnum, Objective, ObjectiveTypeEnum, DiscreteRepresentation
 
 
 @pytest.fixture
@@ -45,5 +45,5 @@ def dtlz2_5x_3f_data_based():
         description="DTLZ2 with 5 vars and 3 objs, representation.",
         variables=variables,
         objectives=objectives,
-        discrete_definition=DiscreteDefinition(variable_values=variable_dict, objective_values=objective_dict),
+        discrete_representation=DiscreteRepresentation(variable_values=variable_dict, objective_values=objective_dict),
     )

@@ -1,5 +1,4 @@
 """General utilities related to solvers."""
-from typing import Callable, TypeVar
 from desdeo.problem import Problem, ObjectiveTypeEnum
 from desdeo.tools.generics import CreateSolverType
 from desdeo.tools.scipy_solver_interfaces import create_scipy_de_solver, create_scipy_minimize_solver
@@ -33,7 +32,7 @@ def guess_best_solver(problem: Problem) -> CreateSolverType:
     all_data_based = all(objective.objective_type == ObjectiveTypeEnum.data_based for objective in problem.objectives)
 
     # check if problem has a discrete definition
-    has_discrete = problem.discrete_definition is not None
+    has_discrete = problem.discrete_representation is not None
 
     if all_data_based and has_discrete:
         # problem has only data-based objectives and a discrete definition is available

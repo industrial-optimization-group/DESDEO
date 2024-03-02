@@ -282,13 +282,16 @@ class EvaluatedSolutions(BaseModel):
     )
 
 
-class DiscreteDefinition(BaseModel):
+class DiscreteRepresentation(BaseModel):
     """Model to represent discrete objective function and decision variable pairs.
 
-    Used with Objectives of type 'data_based'. Each of the decision variable values and objective
-    functions values are ordered in their respective dict entries. This means that the
-    decision variable values found at 'variable_values['x_i'][j]' correspond to the objective
-    function values found at 'objective_values['f_i'][j] for all i and some j.
+    Can be used alongside an analytical representation as well.
+
+    Used with Objectives of type 'data_based' by default. Each of the decision
+    variable values and objective functions values are ordered in their
+    respective dict entries. This means that the decision variable values found
+    at 'variable_values['x_i'][j]' correspond to the objective function values
+    found at 'objective_values['f_i'][j] for all i and some j.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -306,6 +309,13 @@ class DiscreteDefinition(BaseModel):
             "function values available for the objective function given in the key. The keys must match the 'symbols' "
             "defined for the objective functions."
         )
+    )
+    non_dominated: bool = Field(
+        description=(
+            "Indicates whether the representation consists of non-dominated points or not.",
+            "If False, some method can employ non-dominated sorting, which might slow an interactive method down.",
+        ),
+        default=False,
     )
 
 
@@ -430,10 +440,11 @@ class Problem(BaseModel):
     evaluated_solutions: list[EvaluatedSolutions] | None = Field(
         description="Optional list of evaluated solutions of the problem.", default=None
     )
-    discrete_definition: DiscreteDefinition | None = Field(
+    discrete_representation: DiscreteRepresentation | None = Field(
         description=(
             "Optional. Required when there are one or more 'data_based' Objectives. The corresponding values "
             "of the 'data_based' objective function will be fetched from this with the given variable values. "
+            "Is also utilized for methods which require both an analytical and discrete represenation of a problem."
             "Defaults to 'None'."
         ),
         default=None,

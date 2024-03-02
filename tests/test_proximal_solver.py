@@ -10,8 +10,8 @@ def test_proximal_with_simple_data_problem():
     """Test the proximal solver with a simple data problem."""
     problem = simple_data_problem()
     objective_symbols = [obj.symbol for obj in problem.objectives]
-    objective_values = problem.discrete_definition.objective_values
-    variable_values = problem.discrete_definition.variable_values
+    objective_values = problem.discrete_representation.objective_values
+    variable_values = problem.discrete_representation.variable_values
     const_symbol = problem.constraints[0].symbol
 
     # we know that (for simple data problem)

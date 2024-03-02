@@ -8,7 +8,7 @@ from desdeo.problem.schema import (
     Constant,
     Constraint,
     ConstraintTypeEnum,
-    DiscreteDefinition,
+    DiscreteRepresentation,
     ExtraFunction,
     Objective,
     ObjectiveTypeEnum,
@@ -264,7 +264,7 @@ def simple_data_problem() -> Problem:
         "g_3": [-sum(var_data[f"y_{j}"][i] for j in range(1, n_var + 1)) for i in range(data_len)],
     }
 
-    discrete_def = DiscreteDefinition(variable_values=var_data, objective_values=obj_data)
+    discrete_def = DiscreteRepresentation(variable_values=var_data, objective_values=obj_data)
 
     return Problem(
         name="Simple data problem",
@@ -273,7 +273,7 @@ def simple_data_problem() -> Problem:
         variables=variables,
         objectives=objectives,
         constraints=constraints,
-        discrete_definition=discrete_def,
+        discrete_representation=discrete_def,
     )
 
 

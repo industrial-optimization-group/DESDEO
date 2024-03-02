@@ -10,11 +10,9 @@ from desdeo.mcdm.nautilus_navigator import (
     solve_reachable_solution,
 )
 from desdeo.problem import (
-    zdt1,
     binh_and_korn,
     river_pollution_problem,
     objective_dict_to_numpy_array,
-    simple_data_problem,
 )
 
 from fixtures import dtlz2_5x_3f_data_based  # noqa: F401

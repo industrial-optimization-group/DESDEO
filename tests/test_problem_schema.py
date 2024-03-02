@@ -6,14 +6,12 @@ import pytest  # noqa: F401
 from desdeo.problem.json_parser import MathParser
 from desdeo.problem.schema import (
     Constraint,
-    DiscreteDefinition,
+    DiscreteRepresentation,
     ExtraFunction,
     Objective,
-    ObjectiveTypeEnum,
     Problem,
     ScalarizationFunction,
     Variable,
-    VariableTypeEnum,
 )
 from desdeo.problem.evaluator import GenericEvaluator
 
@@ -118,14 +116,14 @@ def test_data_objective():
     }
     obj_data = {"f_2": [x_1 + x_2 for x_1, x_2 in zip(var_data["x_1"], var_data["x_2"], strict=True)]}
 
-    data_definition = DiscreteDefinition(variable_values=var_data, objective_values=obj_data)
+    data_definition = DiscreteRepresentation(variable_values=var_data, objective_values=obj_data)
 
     problem = Problem(
         name="data-based problem test",
         description="For testing",
         objectives=[objective_1, objective_2],
         variables=variables,
-        discrete_definition=data_definition,
+        discrete_representation=data_definition,
     )
 
     evaluator = GenericEvaluator(problem)

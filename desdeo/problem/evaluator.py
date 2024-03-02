@@ -3,7 +3,6 @@ import copy
 from enum import Enum
 
 import polars as pl
-from pydantic import BaseModel, Field
 
 from desdeo.problem.json_parser import MathParser, replace_str
 from desdeo.problem.schema import Problem, ObjectiveTypeEnum
@@ -62,11 +61,13 @@ class GenericEvaluator:
     def __init__(self, problem: Problem, evaluator_mode: EvaluatorModesEnum = EvaluatorModesEnum.variables):
         """Create an evaluator for a multiobjective optimization problem.
 
-        By default, the evaluator expects a set of decision variables to evaluate the given problem.
-        However, if the problem is purely based on data (e.g., it represents an approximation of a Pareto optimal front),
-        then the evaluator should be run in 'discrete' mode instead. In this mode, it will return the whole
-        problem with all of its objectives, constraints, and scalarization functions evaluated with the
-        current data representing the problem.
+        By default, the evaluator expects a set of decision variables to
+        evaluate the given problem.  However, if the problem is purely based on
+        data (e.g., it represents an approximation of a Pareto optimal front),
+        then the evaluator should be run in 'discrete' mode instead. In this
+        mode, it will return the whole problem with all of its objectives,
+        constraints, and scalarization functions evaluated with the current data
+        representing the problem.
 
         Args:
             problem (Problem): The problem as a pydantic 'Problem' data class.
@@ -96,7 +97,7 @@ class GenericEvaluator:
         # Gather the decision variable symbols defined in the problem
         self.problem_variable_symbols = [var.symbol for var in problem.variables]
         # The discrete definition of (some) objectives
-        self.discrete_definition = problem.discrete_definition
+        self.discrete_representation = problem.discrete_representation
 
         # The below 'expressions' are list of tuples with symbol and expressions pairs, as (symbol, expression)
         # These must be defined in a specialized initialization step, see further below for an example.
@@ -121,7 +122,7 @@ class GenericEvaluator:
         else:
             msg = f"Provided 'evaluator_mode' {evaluator_mode} not supported. Must be one of {EvaluatorModesEnum}."
 
-    def _polars_init(self):
+    def _polars_init(self):  # noqa: C901, PLR0912
         """Initialization of the evaluator for parser type 'polars'."""
         # If any constants are defined in problem, replace their symbol with the defined numerical
         # value in all the function expressions found in the Problem.
@@ -234,9 +235,9 @@ class GenericEvaluator:
         ]
 
         # create dataframe with the discrete representation, if any exists
-        if self.discrete_definition is not None:
+        if self.discrete_representation is not None:
             self.discrete_df = pl.DataFrame(
-                {**self.discrete_definition.variable_values, **self.discrete_definition.objective_values}
+                {**self.discrete_representation.variable_values, **self.discrete_representation.objective_values}
             )
         else:
             self.discrete_df = None
@@ -306,10 +307,10 @@ class GenericEvaluator:
         return agg_df
 
     def _from_discrete_data(self) -> pl.DataFrame:
-        """Evaluates the problem based on its discrete definitions only.
+        """Evaluates the problem based on its discrete representation only.
 
         Assumes that all the objective functions in the problem are of type 'data-based'.
-        In this case, the problem is evaluated based on its current definition. Therefore,
+        In this case, the problem is evaluated based on its current discrete representation. Therefore,
         no decision variable values are expected.
 
         Returns:
