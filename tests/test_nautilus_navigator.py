@@ -187,8 +187,8 @@ def test_solve_reachable_bounds():
 
     # lower bound should be lower (better) than the navigation point for min objective
     assert lower_bounds["f_1"] < nav_point["f_1"]
-    # lower bound should be lower or equal to the nav point for max objective
-    assert lower_bounds["f_2"] <= nav_point["f_2"]
+    # lower bound should be higher or equal to the nav point for max objective
+    assert lower_bounds["f_2"] >= nav_point["f_2"]
 
     # upper bound should be less than or equel to nav point for min objective
     assert upper_bounds["f_1"] <= nav_point["f_1"]
@@ -236,9 +236,9 @@ def test_solve_reachable_bounds_complicated():
     assert lower_bounds["f_1"] < nav_point["f_1"]
     assert lower_bounds["f_2"] < nav_point["f_2"]
     assert lower_bounds["f_5"] < nav_point["f_5"]
-    # lower bound should be lower or equal to the nav point for max objectives
-    assert lower_bounds["f_3"] <= nav_point["f_3"]
-    assert lower_bounds["f_4"] <= nav_point["f_4"]
+    # lower bound should be higher or equal to the nav point for max objectives
+    assert lower_bounds["f_3"] >= nav_point["f_3"]
+    assert lower_bounds["f_4"] >= nav_point["f_4"]
 
     # upper bound should be less than or equel to nav point min objectives
     assert upper_bounds["f_1"] <= nav_point["f_1"]
