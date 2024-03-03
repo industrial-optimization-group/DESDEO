@@ -6,8 +6,7 @@ import re
 from desdeo.problem.schema import (
     Constant,
     Constraint,
-    EvaluatedInfo,
-    EvaluatedSolutions,
+    DiscreteRepresentation,
     ExtraFunction,
     Objective,
     Problem,
@@ -84,21 +83,14 @@ def get_constraint_info():
     return generate_schema_and_example(Constraint, example)
 
 
-def get_evaluated_info_info():
-    """Gets information for an EvaluatedInfo model."""
-    example = EvaluatedInfo(source="NSGA-III", dominated=False)
-    return generate_schema_and_example(EvaluatedInfo, example)
-
-
-def get_evaluated_solutions_info():
-    """Gets information for an EvaluatedSolutions model."""
-    evaluated_info_example = EvaluatedInfo(source="NSGA-III", dominated=False)
-    example = EvaluatedSolutions(
-        info=evaluated_info_example,
-        decision_vectors=[[4.2, -1.2, 6.6], [4.2, -1.2, 6.6], [4.2, -1.2, 6.6]],
-        objective_vectors=[[1, 2, 3], [1, 2, 3], [1, 2, 3]],
+def get_discrete_representation_info():
+    """Gets information for a DiscreteRepresentation model."""
+    example = DiscreteRepresentation(
+        variable_values={"x_1": [4.1, 4.2, 5.1], "x_2": [-1.1, -1.2, -1.3], "x_3": [7.1, 5.9, 6.2]},
+        objective_values={"f_1": [1, 2, 3], "f_2": [5, 2, 1.1], "f_3": [9, 1, 5.5]},
+        non_dominated=False,
     )
-    return generate_schema_and_example(EvaluatedSolutions, example)
+    return generate_schema_and_example(DiscreteRepresentation, example)
 
 
 def get_problem_info():
@@ -132,10 +124,10 @@ def get_problem_info():
         symbol="S",
         func=["Max", ["Multiply", "w_1", ["Add", "f_1", -1.1]], ["Multiply", "w_2", ["Add", "f_2", -2.2]]],
     )
-    evaluated_solutions_example = EvaluatedSolutions(
-        info=EvaluatedInfo(source="NSGA-III", dominated=False),
-        decision_vectors=[[4.2, -1.2, 6.6], [4.2, -1.2, 6.6], [4.2, -1.2, 6.6]],
-        objective_vectors=[[1, 2, 3], [1, 2, 3], [1, 2, 3]],
+    discrete_example = DiscreteRepresentation(
+        variable_values={"x_1": [4.1, 4.2, 5.1], "x_2": [-1.1, -1.2, -1.3], "x_3": [7.1, 5.9, 6.2]},
+        objective_values={"f_1": [1, 2, 3], "f_2": [5, 2, 1.1], "f_3": [9, 1, 5.5]},
+        non_dominated=False,
     )
     example = Problem(
         name="Example problem",
@@ -146,7 +138,7 @@ def get_problem_info():
         constraints=[constraint_example],
         extra_funcs=[extra_func_example],
         scalarizations_funcs=[scalarization_function_example],
-        evaluated_solutions=[evaluated_solutions_example],
+        discrete_representation=discrete_example,
     )
     return generate_schema_and_example(Problem, example)
 
@@ -250,9 +242,8 @@ def define_env(env):
     env.macro(get_scalarization_function_info)
     env.macro(get_objective_info)
     env.macro(get_constraint_info)
-    env.macro(get_evaluated_info_info)
-    env.macro(get_evaluated_solutions_info)
     env.macro(get_problem_info)
+    env.macro(get_discrete_representation_info)
     # River problem example
     env.macro(get_river_snippet)
     env.macro(river_problem_example)

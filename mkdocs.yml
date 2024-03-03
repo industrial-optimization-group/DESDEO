@@ -12,9 +12,9 @@ nav:
       - "How to use the NAUTILUS Navigator method": "howtoguides/NAUTILUS Navigator.md"
   - "Explanation":
       - "The problem format": "explanation/problem_format.md"
-      - "Scalarization-based methods": "explanation/scalarization_methods.md"
-      - "Solving problems": "explanation/solving_problems.md"
-      - "Scalarization functions": "explanation/scalarization_functions.md"
+      - "Parsing and evaluating": "explanation/parsing_and_evaluating.md"
+      - "Scalarization": "explanation/scalarization.md"
+      - "Solvers": "explanation/solvers.md"
 
 theme:
   name: readthedocs

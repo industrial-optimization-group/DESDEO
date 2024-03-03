@@ -251,37 +251,6 @@ class Constraint(BaseModel):
     _parse_infix_to_func = field_validator("func", mode="before")(parse_infix_to_func)
 
 
-class EvaluatedInfo(BaseModel):
-    """Model to represent information about an evaluated solution or solutions to the problem.
-
-    This model may be extended as needed.
-    """
-
-    model_config = ConfigDict(frozen=True)
-
-    source: str = Field(description="The source of the evaluated solution(s). E.g., an optimization method's name.")
-    dominated: bool | None = Field(description="Optional. Are the solutions dominated?", default=None)
-
-
-class EvaluatedSolutions(BaseModel):
-    """Model to represent the evaluated objective values of a decision vector.
-
-    The decision vectors 'decision_vectors' and objective vectors
-    'objective_vector' correspond to each other based on their ordering. I.e.,
-    the evaluated objective function values for the decision vector at position i
-    (decision_vectors[i]) are represented by the objective vector at position i
-    (objective_vector[i]).
-    """
-
-    model_config = ConfigDict(frozen=True)
-
-    info: EvaluatedInfo = Field(description="Information about the evaluated solutions.")
-    decision_vectors: list[list[VariableType]] = Field(description="A list of the evaluated decision vectors.")
-    objective_vectors: list[list[float]] = Field(
-        description="A list of the values of the evaluated objective functions."
-    )
-
-
 class DiscreteRepresentation(BaseModel):
     """Model to represent discrete objective function and decision variable pairs.
 
@@ -437,9 +406,6 @@ class Problem(BaseModel):
     scalarizations_funcs: list[ScalarizationFunction] | None = Field(
         description="Optional list of scalarization functions representing the problem.", default=None
     )
-    evaluated_solutions: list[EvaluatedSolutions] | None = Field(
-        description="Optional list of evaluated solutions of the problem.", default=None
-    )
     discrete_representation: DiscreteRepresentation | None = Field(
         description=(
             "Optional. Required when there are one or more 'data_based' Objectives. The corresponding values "
@@ -452,10 +418,10 @@ class Problem(BaseModel):
 
 
 if __name__ == "__main__":
-    # import erdantic as erd
+    import erdantic as erd
 
-    # diagram = erd.create(Problem)
-    # diagram.draw("problem_map.png")
+    diagram = erd.create(Problem)
+    diagram.draw("problem_map.png")
 
     constant_model = Constant(name="constant example", symbol="c", value=42.1)
     # print(Constant.schema_json(indent=2))
@@ -536,18 +502,6 @@ if __name__ == "__main__":
     # print(ScalarizationFunction.schema_json(indent=2))
     # print(scalarization_function_model.model_dump_json(indent=2))
 
-    evaluated_info_model = EvaluatedInfo(source="NSGA-III", dominated=False)
-    # print(EvaluatedInfo.schema_json(indent=2))
-    # print(evaluated_info_model.model_dump_json(indent=2))
-
-    evaluated_solutions_model = EvaluatedSolutions(
-        info=evaluated_info_model,
-        decision_vectors=[[4.2, -1.2, 6.6], [4.2, -1.2, 6.6], [4.2, -1.2, 6.6]],
-        objective_vectors=[[1, 2, 3], [1, 2, 3], [1, 2, 3]],
-    )
-    # print(EvaluatedSolutions.schema_json(indent=2))
-    # print(evaluated_solutions_model.model_dump_json(indent=2))
-
     problem_model = Problem(
         name="Example problem",
         description="This is an example of a the JSON object of the 'Problem' model.",
@@ -557,7 +511,6 @@ if __name__ == "__main__":
         constraints=[constraint_model],
         extra_funcs=[extra_func_model],
         scalarizations_funcs=[scalarization_function_model],
-        evaluated_solutions=[evaluated_solutions_model],
     )
 
     # print(problem_model.model_dump_json(indent=2))
