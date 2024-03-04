@@ -20,11 +20,20 @@ nav:
 
 theme:
   name: material
+  features:
+    - navigation.instant
+    - navigation.tabs
+    - palette.switch
   nav_style: dark
   highlightjs: true
   hljs_languages:
     - python
   locale: en
+  palette:
+    scheme: slate
+    primary: black
+  logo: assets/desdeo_logo.png
+  favicon: assets/desdeo_logo.png
 
 extra_javascript:
   - https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=TeX-AMS-MML_HTMLorMML
@@ -59,4 +68,4 @@ markdown_extensions:
   - mdx_math
 
 extra_css:
-  - stylesheet/extra.css 
+  - stylesheets/extra.css 
