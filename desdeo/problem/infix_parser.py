@@ -178,7 +178,7 @@ class InfixExpressionParser:
     def _is_number_or_variable(self, c):
         return isinstance(c, int | float) or (isinstance(c, str) and c not in self.reserved_symbols)
 
-    def _to_math_json(self, parsed: list | str):
+    def _to_math_json(self, parsed: list | str) -> list:
         """Converts a list of expressions into a MathJSON compliant format.
 
         The conversion happens recursively. Each list of recursed until a terminal character is reached.
@@ -277,7 +277,7 @@ class InfixExpressionParser:
         # For lists and nested expressions
         return [self._to_math_json(part) for part in parsed]
 
-    def _remove_extra_brackets(self, lst: list):
+    def _remove_extra_brackets(self, lst: list) -> list:
         """Removes recursively extra brackets from a nested list that may have been left when parsing an expression.
 
         Args:

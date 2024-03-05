@@ -189,8 +189,8 @@ class MathParser:
 
         Raises:
             ParserError: If the type of the text neither str,list nor int,float, it will
-            raise type error; If the operation in expr not found, it means we currently
-            don't support such function operation.
+                raise type error; If the operation in expr not found, it means we currently
+                don't support such function operation.
         """
         if isinstance(expr, pl.Expr):
             # Terminal case: polars expression

@@ -13,7 +13,7 @@ While optimization on an approximation of a Pareto front is quick and easy, opti
 even just analytical problems can be very time consuming. You can use other methods in this framework to find an
 approximation of the Pareto front.
 
-To set up a problem, you can start with a problem object as described in ["How to define a problem"](howtoguides/problem.md). Then you can add the approximation of the Pareto front as follows:
+To set up a problem, you can start with a problem object as described in ["How to define a problem"](./problem.md). Then you can add the approximation of the Pareto front as follows:
 
 ```python
 from desdeo.problem.schema import DiscreteDefinition

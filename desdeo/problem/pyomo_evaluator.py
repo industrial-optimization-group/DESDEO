@@ -151,7 +151,7 @@ class PyomoEvaluator:
 
         return model
 
-    def init_extras(self, problem: Problem, model: pyomo.Model):
+    def init_extras(self, problem: Problem, model: pyomo.Model) -> pyomo.Model:
         """Add extra function expressions to a pyomo model.
 
         Args:
