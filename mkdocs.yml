@@ -5,18 +5,29 @@ docs_dir: "docs"
 site_dir: "site"
 
 nav:
-  - Home: "index.md"
-  - "User Guide":
-      - "Defining multiobjective optimization problems": "howtoguides/problem.md"
-      - "Running the API": "howtoguides/api.md"
-      - "How to use the NAUTILUS Navigator method": "howtoguides/NAUTILUS Navigator.md"
+  - "DESDEO":
+      - "About": "home/about.md"
+      - "The structure": "home/structure.md"
+      - "Citing DESDEO": "home/citing.md"
+  - "Tutorials":
+      - "A primer on multiobjective optimization": "tutorials/moo_primer.md"
+      - "Installing DESDEO": "tutorials/installing.md"
+      - "Contributing to DESDEO": "tutorials/contributing.md"
   - "Explanation":
       - "The problem format": "explanation/problem_format.md"
       - "Parsing and evaluating": "explanation/parsing_and_evaluating.md"
       - "Scalarization": "explanation/scalarization.md"
       - "Solvers": "explanation/solvers.md"
-  - "API Documentation":
+  - "User Guide":
+      - "How to define multiobjective optimization problems": "howtoguides/problem.md"
+      - "How to run DESDEO's web API": "howtoguides/api.md"
+      - "How to use the NAUTILUS Navigator method": "howtoguides/NAUTILUS Navigator.md"
+  - "API Reference":
       - "desdeo-problem": "api/desdeo_problem.md"
+      - "desdeo-tools": "api/desdeo_tools.md"
+      - "desdeo-mcdm": "api/desdeo_mcdm.md"
+      - "desdeo-emo": "api/desdeo_emo.md"
+      - "desdeo-api": "api/desdeo_api.md"
 
 theme:
   name: material
@@ -37,6 +48,7 @@ theme:
 
 extra_javascript:
   - https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=TeX-AMS-MML_HTMLorMML
+  - extrajs/extra.js
 
 plugins:
   - search
@@ -67,6 +79,8 @@ plugins:
 markdown_extensions:
   - admonition
   - mdx_math
+  - pymdownx.arithmatex:
+      generic: true 
 
 extra_css:
   - stylesheets/extra.css 
