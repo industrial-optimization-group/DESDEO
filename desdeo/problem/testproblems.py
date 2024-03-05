@@ -106,6 +106,7 @@ def river_pollution_problem(five_objective_variant: bool = True) -> Problem:
         Narula, Subhash C., and HRoland Weistroffer. "A flexible method for
             nonlinear multicriteria decision-making problems." IEEE Transactions on
             Systems, Man, and Cybernetics 19.4 (1989): 883-887.
+
         Miettinen, Kaisa, and Marko M. Mäkelä. "Interactive method NIMBUS for
             nondifferentiable multiobjective optimization problems." Multicriteria
             Analysis: Proceedings of the XIth International Conference on MCDM, 1–6

@@ -35,8 +35,6 @@ class GenericEvaluator:
     solely on the input and output values of the problem being solved. This evaluator might not
     be suitable for computationally expensive problems, or mixed-integer problems. This
     evaluator is suitable for many Python-based solvers, such as `scipy.optimize.minimize`.
-
-    See the evaluators TO BE DONE for further details for approaching other kinds of problems.
     """
 
     ### Initialization (no need for decision variables yet)

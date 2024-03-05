@@ -103,6 +103,47 @@ has been summarized in the list below:
 4. Constraint functions, if any.
 5. Scalarization functions, if any.
 
-### The polars evaluator
+### The generic evaluator
+
+The [`GenericEvaluator`][desdeo.problem.evaluator.GenericEvaluator]
+is for evaluating problems to be solved with solvers that expect the
+problem to be defined as Python functions. It can be utilized in two modes:
+`variables` or `discrete`. In the first mode, the problem is expected to be 
+evaluated with a given set of decision variable vectors. In the discrete mode,
+the problem is evaluated based on its discrete representation (c.f., 
+[DiscreteRepresentation][desdeo.problem.schema.DiscreteRepresentation]).
+
+If the `variables` mode is used, then a polars evaluator is utilized. As the
+name suggests, the polars evaluator utilizes polars dataframes to represent a
+problem and evaluate it. The function expression found in the problem are parsed
+to polars expression. This allows any Python-based solver to evaluate the
+problem with given decision variable values.
+
+If the `discrete` mode is used, then the problem is expected to be completely
+defined by decision and objective vector pairs. When the problem is then
+evaluated with a given set of decision variable vectors, the closest vectors are
+searched for in the problem's discrete representation, and the corresponding
+objective function values are then returned.
+
+The generic evaluator is utilized by solvers that do not expect, or require, the
+exact formulation of the problem. That is, heuristics based and gradient-free
+solvers.
+
+!!! Info
+    For more info about polars, see [the polars documentation](https://pola.rs/).
+
 
 ### The pyomo evaluator
+
+The [`PyomoEvaluator`][desdeo.problem.pyomo_evaluator.PyomoEvaluator] transforms
+a problem into a pyomo model. This enables the usage of many external solvers,
+such as the ones found in the [COIN-OR project](https://www.coin-or.org/) to be
+utilized in DESDEO.  Unlike the generic evaluator, the pyomo evaluator does not
+expect decision variables, instead, it provided a pyomo model that external
+solvers can then utilize to solve the original problem.
+
+!!! Note
+    Currently, the pyomo evaluator utilized only concrete pyomo models (ConcreteModel).
+
+!!! Info
+    For more info about pyomo, see [the pyomo documentation](https://pyomo.readthedocs.io/en/stable/).

@@ -15,7 +15,11 @@ class PyomoEvaluator:
     """Defines as evaluator that transforms an instance of Problem into a pyomo model."""
 
     def __init__(self, problem: Problem):
-        """Summary."""
+        """Initialized the evaluator.
+
+        Args:
+            problem (Problem): the problem to be transformed in a pyomo model.
+        """
         model = pyomo.ConcreteModel()
 
         # set the parser
