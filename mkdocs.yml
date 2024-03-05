@@ -48,6 +48,7 @@ plugins:
         python:
           options:
             show_source: true
+            show_bases: true
             show_signature_annotations: true
             show_type_annotations: true
             show_root_heading: true
