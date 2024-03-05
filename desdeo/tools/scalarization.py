@@ -172,8 +172,8 @@ def create_asf(
 
 def create_asf_generic(
     problem: Problem,
-    reference_point: list[float],
-    weights: list[float],
+    reference_point: dict[str, float],
+    weights: dict[str, float],
     reference_in_aug=False,
     delta: float = 0.000001,
     rho: float = 0.000001,
@@ -182,8 +182,8 @@ def create_asf_generic(
 
     Args:
         problem (Problem): the problem to which the scalarization function should be added.
-        reference_point (list[float]): a reference point with as many components as there are objectives.
-        weights (list[float]): the weights to be used in the scalarization function. must be positive.
+        reference_point (dict[str, float]): a reference point with as many components as there are objectives.
+        weights (dict[str, float]): the weights to be used in the scalarization function. must be positive.
         reference_in_aug (bool, optional): Whether the reference point should be used in the augmentation term.
             Defaults to False.
         delta (float, optional): the scalar value used to define the utopian point (ideal - delta). Defaults to 0.000001.

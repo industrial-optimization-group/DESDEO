@@ -64,6 +64,11 @@ def fakeProblemDontLook():
     data = data.drop(["non_dominated", "source"])
     data = data * -1
     data = data.with_columns(pl.Series("index", np.arange(1, len(data) + 1)))
+
+    divisor_NPV= 1_000_000
+    divisor_SV30 = 1_000_000
+    divisor_removal = 10_000_000
+
     # Problem definition
 
     index_var = Variable(
@@ -81,8 +86,8 @@ def fakeProblemDontLook():
         func=None,
         objective_type="data_based",
         maximize=True,
-        ideal=data["npv4%"].max(),
-        nadir=data["npv4%"].min(),
+        ideal=data["npv4%"].max()/divisor_NPV,
+        nadir=data["npv4%"].min()/divisor_NPV,
     )
 
     sv30 = Objective(
@@ -91,8 +96,8 @@ def fakeProblemDontLook():
         func=None,
         objective_type="data_based",
         maximize=True,
-        ideal=data["SV30"].max(),
-        nadir=data["SV30"].min(),
+        ideal=data["SV30"].max()/divisor_SV30,
+        nadir=data["SV30"].min()/divisor_SV30,
     )
 
     removal1 = Objective(
@@ -101,8 +106,8 @@ def fakeProblemDontLook():
         func=None,
         objective_type="data_based",
         maximize=True,
-        ideal=data["removal1"].max(),
-        nadir=data["removal1"].min(),
+        ideal=data["removal1"].max()/divisor_removal,
+        nadir=data["removal1"].min()/divisor_removal,
     )
 
     removal2 = Objective(
@@ -111,8 +116,8 @@ def fakeProblemDontLook():
         func=None,
         objective_type="data_based",
         maximize=True,
-        ideal=data["removal2"].max(),
-        nadir=data["removal2"].min(),
+        ideal=data["removal2"].max()/divisor_removal,
+        nadir=data["removal2"].min()/divisor_removal,
     )
 
     removal3 = Objective(
@@ -121,16 +126,16 @@ def fakeProblemDontLook():
         func=None,
         objective_type="data_based",
         maximize=True,
-        ideal=data["removal3"].max(),
-        nadir=data["removal3"].min(),
+        ideal=data["removal3"].max()/divisor_removal,
+        nadir=data["removal3"].min()/divisor_removal,
     )
 
     obj_data = {
-        "NPV": data["npv4%"].to_list(),
-        "SV30": data["SV30"].to_list(),
-        "Removal1": data["removal1"].to_list(),
-        "Removal2": data["removal2"].to_list(),
-        "Removal3": data["removal3"].to_list(),
+        "NPV": ((data["npv4%"])/divisor_NPV).to_list(),
+        "SV30": ((data["SV30"])/divisor_SV30).to_list(),
+        "Removal1": ((data["removal1"])/divisor_removal).to_list(),
+        "Removal2": ((data["removal2"])/divisor_removal).to_list(),
+        "Removal3": ((data["removal3"])/divisor_removal).to_list(),
     }
 
     dis_def = DiscreteDefinition(

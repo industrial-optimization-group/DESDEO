@@ -119,6 +119,7 @@ def solve_reachable_bounds(
         # the lower bounds is set as in the NAUTILUS method, e.g., taken from
         # the current itration/navigation point
         if isinstance(navigation_point[objective.symbol], list):
+            # It should never be a list accordint to the type hints
             upper_bound = navigation_point[objective.symbol][0]
         else:
             upper_bound = navigation_point[objective.symbol]
@@ -267,6 +268,10 @@ def nautili_all_steps(
     for dm in reference_points:
         if reference_points[dm] is None:
             # If no reference point is provided, use the previous improvement direction
+            if previous_responses[-1].reference_points is None:
+                raise NautiliError("A reference point must be provided for the first iteration.")
+            if previous_responses[-1].improvement_directions is None:
+                raise NautiliError("An improvement direction must be provided for the first iteration.")
             reference_points[dm] = previous_responses[-1].reference_points[dm]
             improvement_directions[dm] = previous_responses[-1].improvement_directions[dm]
         else:

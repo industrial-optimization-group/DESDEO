@@ -11,30 +11,36 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.12"
+# Math stuff
 numpy = "^1.26.2"
 scipy = "^1.11.4"
 polars = { version = "^0.19.19", optional = true }
 polars-lts-cpu = { version = "^0.19.19", optional = true }
-jupyterlab = "^4.0.9"                                           # Should this be a dev dependency? As long as we don't publish to PyPI, I guess it's fine.
+pyarrow = "^15.0.0"
+numba = "^0.59.0"
+# Visualization
 seaborn = "^0.13.0"
 plotly = "^5.18.0"
+# Data handling/parsing
 pydantic = "^2.5.2"
 sympy = "^1.12"
 pyparsing = "^3.1.1"
-fastapi = "^0.106.0"
-uvicorn = { extras = ["standard"], version = "^0.25.0" }
-sqlalchemy = "^2.0.23"
-passlib = "^1.7.4"
-numba = "^0.59.0"
-psycopg2-binary = "^2.9.9"
-sqlalchemy-utils = "^0.41.1"
-python-multipart = "^0.0.9"
-python-jose = { extras = ["cryptography"], version = "^3.3.0" }
-bcrypt = "^4.1.2"
+# Optimization
 nevergrad = "^1.0.1"
 pyomo = "^6.7.0"
+# Miscellaneous
 jupyter = "^1.0.0"
-pyarrow = "^15.0.0"
+jupyterlab = "^4.0.9"
+# API packages
+fastapi = { version = "^0.106.0", optional = true }
+uvicorn = { extras = ["standard"], version = "^0.25.0", optional = true }
+sqlalchemy = { version = "^2.0.23", optional = true }
+passlib = { version = "^1.7.4", optional = true }
+psycopg2-binary = { version = "^2.9.9", optional = true }
+sqlalchemy-utils = { version = "^0.41.1", optional = true }
+python-multipart = { version = "^0.0.9", optional = true }
+python-jose = { extras = ["cryptography"], version = "^3.3.0", optional = true }
+bcrypt = { version = "^4.1.2", optional = true }
 
 [tool.poetry.extras]
 standard = ["polars"]

@@ -1,8 +1,9 @@
-import numba
+"""This module contains functions for non-dominated sorting of solutions."""
 import numpy as np
+from numba import njit  # type: ignore
 
 
-@numba.njit()
+@njit()
 def dominates(x: np.ndarray, y: np.ndarray) -> bool:
     """Returns true if x dominates y.
 
@@ -22,7 +23,7 @@ def dominates(x: np.ndarray, y: np.ndarray) -> bool:
     return dom
 
 
-@numba.njit()
+@njit()
 def non_dominated(data: np.ndarray) -> np.ndarray:
     """Finds the non-dominated front from a population of solutions.
 
@@ -33,7 +34,6 @@ def non_dominated(data: np.ndarray) -> np.ndarray:
         np.ndarray: Boolean array of same length as number of solutions (rows). The value is
             true if corresponding solution is non-dominated. False otherwise
     """
-
     num_solutions = len(data)
     index = np.zeros(num_solutions, dtype=np.bool_)
     index[0] = True
@@ -50,7 +50,7 @@ def non_dominated(data: np.ndarray) -> np.ndarray:
     return index
 
 
-@numba.njit()
+@njit()
 def fast_non_dominated_sort(data: np.ndarray) -> np.ndarray:
     """Conduct fast non-dominated sorting on a population of solutions.
 
@@ -62,7 +62,6 @@ def fast_non_dominated_sort(data: np.ndarray) -> np.ndarray:
             The value of an array element is true if the corresponding solution id (column) belongs in
             the corresponding front (row).
     """
-
     num_solutions = len(data)
     indices = np.arange(num_solutions)
     taken = np.zeros(num_solutions, dtype=np.bool_)
@@ -96,4 +95,4 @@ def fast_non_dominated_sort_indices(data: np.ndarray) -> list[np.ndarray]:
             belonging to the corresponding front.
     """
     fronts = fast_non_dominated_sort(data)
-    return [np.where(fronts[i]) for i in range(len(fronts))]
+    return [np.where(fronts[i])[0] for i in range(len(fronts))]
