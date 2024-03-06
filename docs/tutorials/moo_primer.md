@@ -83,7 +83,7 @@ as follows:
 
 Let us next define the image of a solution to a multiobjective optimization problem
 to be an _objective vector_ $\mathbf{z}$, that is, for some solution $\mathbf{x}'$ we have
-$\mathbf{z}' = [f_1(x'), f_2(x'), \dots, f_k(x')]$. It then follows from the definition
+$\mathbf{z}' = [f_1(x'), f_2(x'), \dots, f_k(x')] = [z'_1, z'_2, \dots, z'_k]$. It then follows from the definition
 of Pareto optimality that when comparing two objective vectors $\mathbf{z}^1$ and $\mathbf{z}^2$,
 that correspond to Pareto optimal solutions, we cannot switch from one vector to the other
 in hopes of improving one objective function's value without having to deteriorate at least
@@ -95,10 +95,35 @@ optimization problem to be $Z$, then we can also define the image set of all Par
 to be $Z^\text{Pareto}$. We then readily see that $Z^\text{Pareto} \subset Z$. The set of all Pareto
 optimal solutions can also be defined as $S^\text{Pareto}$, which is known as the
 _Pareto optimal set_. Likewise, the set $Z^\text{Pareto}$ is known as the _Pareto front_. The Pareto
-optimal set and the Pareto front are often very large, even uncountable, an they are seldom
-fully known for a multiobjective optimization problem.
+optimal set and the Pareto front are often very large, often uncountable, and they are
+therefore seldom fully known for a multiobjective optimization problem. As
+such, the Pareto optimal solution set and Pareto front should be understood as
+theoretical concepts.
+
+A concept similar to Pareto optimality is _dominance_. Dominance is usually
+defined using objective vectors as:
+
+!!! Note "Definition: dominance"
+    An objective vector $\mathbf{z}^1$ is said to dominate another objective
+    vector $\mathbf{z}^2$ if, and only if,
+
+    - $z^1_i \leq z^1_i\,\forall i \in [1, k]$, and
+    - $z^1_j < z^1_j$ for at least one $j \in [1,k]$.
+    
+To notate domination, the following syntax can be used: $\mathbf{z}^1 \succ \mathbf{z}^2$,
+which means that $\mathbf{z}^1$ dominates $\mathbf{z}^2$. Domination is an especially useful
+concept when studying solution sets, and their images, to a multiobjective optimization
+problem that are not necessarily Pareto optimal.
+It allows the identification of solutions that fulfill the properties of Pareto
+optimality _in the solution set_ being studied. Domination is a central concept when
+generating approximations and representations of Pareto optimal solution sets and their
+images. We will return to this topic when discussing about evolutionary multiobjective 
+optimization in the section
+[Evolutionary multiobjective optimization](#evolutionary-multiobjective-optimization).
 
 ## Scalarization
+
+## Evolutionary multiobjective optimization
 
 ## Notation reference
 
