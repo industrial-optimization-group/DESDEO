@@ -12,7 +12,7 @@ nav:
       - "The structure": "home/structure.md"
       - "Citing DESDEO": "home/citing.md"
   - "Tutorials":
-      - "A primer on multiobjective optimization": "tutorials/moo_primer.md"
+      - "A primer on interactive multiobjective optimization": "tutorials/moo_primer.md"
       - "Installing DESDEO": "tutorials/installing.md"
       - "Contributing to DESDEO": "tutorials/contributing.md"
   - "Explanation":
