@@ -1,4 +1,4 @@
-"""Defines templates for scalariztation functions and utilities to handle the templates.
+"""Defines templates for scalarization functions and utilities to handle the templates.
 
 Note that when scalarization functions are defined, they must add the post-fix
 '_min' to any symbol representing objective functions so that the maximization
@@ -100,19 +100,23 @@ def get_corrected_ideal_and_nadir(problem: Problem) -> tuple[dict[str, float | N
     return ideal_point, nadir_point
 
 
-def create_asf(
+def add_asf_nondiff(
     problem: Problem,
+    symbol: str,
     reference_point: dict[str, float],
     reference_in_aug=False,
     delta: float = 0.000001,
     rho: float = 0.000001,
-) -> str:
-    """Creates the achievement scalarizing function for the given problem and reference point.
+) -> tuple[Problem, str]:
+    """Creates and add the achievement scalarizing function for the given problem and reference point.
 
+    This is the non-differentiable variant of the achievement scalarizing function, which
+    means the resulting scalarization function is non-differentiable.
     Requires that the ideal and nadir point have been defined for the problem.
 
     Args:
         problem (Problem): the problem to which the scalarization function should be added.
+        symbol (str): the symbol to reference the added scalarization function.
         reference_point (dict[str, float]): a reference point as an objective dict.
         reference_in_aug (bool): whether the reference point should be used in
             the augmentation term as well. Defaults to False.
@@ -125,7 +129,8 @@ def create_asf(
             point values are undefined (None).
 
     Returns:
-        str: The scalarization function in infix format.
+        tuple[Problem, str]: A tuple containing a copy of the problem with the scalarization function added,
+            and the symbol of the added scalarization function.
     """
     # check that the reference point has all the objective components
     if not all(obj.symbol in reference_point for obj in problem.objectives):
@@ -166,8 +171,15 @@ def create_asf(
 
     aug_term = " + ".join(aug_operands)
 
-    # Return the whole scalarization function
-    return f"{max_term} + {rho} * ({aug_term})"
+    asf_function = f"{max_term} + {rho} * ({aug_term})"
+
+    # Add the function to the problem
+    scalarization_function = ScalarizationFunction(
+        name="Achievement scalarizing function",
+        symbol=symbol,
+        func=asf_function,
+    )
+    return problem.add_scalarization(scalarization_function), symbol
 
 
 def create_asf_generic(

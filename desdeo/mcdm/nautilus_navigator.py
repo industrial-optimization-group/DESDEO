@@ -20,7 +20,7 @@ from desdeo.tools.generics import CreateSolverType, SolverResults
 from desdeo.tools.scalarization import (
     add_lte_constraints,
     add_scalarization_function,
-    create_asf,
+    add_asf_nondiff,
     create_epsilon_constraints_json,
 )
 from desdeo.tools.utils import guess_best_solver
@@ -245,8 +245,9 @@ def solve_reachable_solution(
     _create_solver = guess_best_solver(problem) if create_solver is None else create_solver
 
     # create and add scalarization function
-    sf = create_asf(problem, reference_point, reference_in_aug=True)
-    problem_w_asf, target = add_scalarization_function(problem, sf, "asf")
+    problem_w_asf, target = add_asf_nondiff(
+        problem, symbol="asf", reference_point=reference_point, reference_in_aug=True
+    )
 
     # Note: We do not solve the global problem. Instead, we solve this constrained problem:
     const_exprs = [

@@ -2,15 +2,36 @@
 import numpy as np
 import pytest
 
-from desdeo.problem import GenericEvaluator, river_pollution_problem, simple_test_problem
+from desdeo.problem import river_pollution_problem, simple_test_problem
 from desdeo.tools.scalarization import (
     add_lte_constraints,
     add_scalarization_function,
-    create_asf,
+    add_asf_nondiff,
     create_epsilon_constraints_json,
     create_weighted_sums,
 )
 from desdeo.tools.scipy_solver_interfaces import create_scipy_minimize_solver
+
+
+def flatten(nested_list: list) -> list:
+    """Flattens a given nested list.
+
+    Args:
+        nested_list (list): list to be flattened.
+
+    Returns:
+        list: the flattened list.
+    """
+    flat_list = []
+    # Iterate through each element in the nested list
+    for element in nested_list:
+        # If the element is a list, extend the flat list with the flattened element
+        if isinstance(element, list):
+            flat_list.extend(flatten(element))
+        else:
+            # If the element is not a list, append it to the flat list
+            flat_list.append(element)
+    return flat_list
 
 
 @pytest.fixture
@@ -26,19 +47,22 @@ def river_w_fake_ideal_and_nadir():
     )
 
 
-def test_create_asf(river_w_fake_ideal_and_nadir):
-    """Tests that the achievement scalarization function is created correctly."""
+def test_add_asf_nondiff(river_w_fake_ideal_and_nadir):
+    """Tests that the achievement scalarization function is added correctly."""
     problem = river_w_fake_ideal_and_nadir
 
     # min, min, max, max, min
-    asf = create_asf(problem, {"f_1": 1, "f_2": 2, "f_3": 3, "f_4": 2, "f_5": 1}, delta=0.1, rho=2.2)
+    reference_point = {"f_1": 1.9, "f_2": 2.9, "f_3": 3.1, "f_4": 2.3, "f_5": 1.1}
+    problem, target = add_asf_nondiff(problem, symbol="asf", reference_point=reference_point, delta=0.1, rho=2.2)
 
-    assert asf == (
-        "Max((f_1_min - 1) / (5.5 - (0.5 - 0.1)), (f_2_min - 2) / (5.5 - (0.5 - 0.1)), "
-        "(f_3_min - 3 * -1) / (-5.5 - (-0.5 - 0.1)), (f_4_min - 2 * -1) / (-5.5 - (-0.5 - 0.1)), "
-        "(f_5_min - 1) / (5.5 - (0.5 - 0.1))) + 2.2 * (f_1_min / (5.5 - (0.5 - 0.1)) + f_2_min / (5.5 - (0.5 - 0.1)) "
-        "+ f_3_min / (-5.5 - (-0.5 - 0.1)) + f_4_min / (-5.5 - (-0.5 - 0.1)) + f_5_min / (5.5 - (0.5 - 0.1)))"
-    )
+    assert target == problem.scalarizations_funcs[0].symbol
+    assert "Max" in flatten(problem.scalarizations_funcs[0].func)
+    assert 0.1 in flatten(problem.scalarizations_funcs[0].func)
+    assert 2.2 in flatten(problem.scalarizations_funcs[0].func)
+
+    for key, value in reference_point.items():
+        assert f"{key}_min" in flatten(problem.scalarizations_funcs[0].func)
+        assert value in flatten(problem.scalarizations_funcs[0].func)
 
 
 def test_create_ws():
@@ -59,10 +83,9 @@ def test_add_scalarization_function(river_w_fake_ideal_and_nadir):
     wsf = create_weighted_sums(problem, ws)
 
     ref_point = {"f_1": 1, "f_2": 2, "f_3": 3, "f_4": 4, "f_5": 5}
-    asf = create_asf(problem, ref_point)
 
     problem, symbol_ws = add_scalarization_function(problem, wsf, "WS", name="Weighted sums")
-    problem, symbol_asf = add_scalarization_function(problem, asf, "ASF", name="Achievement scalarizing function")
+    problem, symbol_asf = add_asf_nondiff(problem, reference_point=ref_point, symbol="ASF")
 
     assert len(problem.scalarizations_funcs) == 2  # there should be two scalarization functions now
     assert problem.scalarizations_funcs[0].name == "Weighted sums"

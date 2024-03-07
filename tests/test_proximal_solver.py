@@ -2,7 +2,7 @@
 import numpy.testing as npt
 
 from desdeo.problem import simple_data_problem
-from desdeo.tools.scalarization import add_scalarization_function, create_asf, create_weighted_sums
+from desdeo.tools.scalarization import add_scalarization_function, add_asf_nondiff, create_weighted_sums
 from desdeo.tools.proximal_solver import create_proximal_solver
 
 
@@ -74,9 +74,8 @@ def test_proximal_with_simple_data_problem():
     const_should_be = [variable_values["y_1"][4] + variable_values["y_2"][4] - 1000]
 
     reference_point = {"g_1": 750.0, "g_2": 6.1, "g_3": -27.1}
-    sf = create_asf(problem, reference_point)
 
-    problem, target = add_scalarization_function(problem, sf, symbol="asf")
+    problem, target = add_asf_nondiff(problem, symbol="asf", reference_point=reference_point)
 
     solver = create_proximal_solver(problem)
 
