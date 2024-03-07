@@ -17,7 +17,7 @@ from desdeo.tools.generics import CreateSolverType, SolverResults
 from desdeo.tools.scalarization import (
     add_lte_constraints,
     add_scalarization_function,
-    create_asf_generic,
+    add_asf_generic_nondiff,
     create_epsilon_constraints_json,
 )
 from desdeo.tools.utils import guess_best_solver
@@ -163,10 +163,13 @@ def solve_reachable_solution(
     # create and add scalarization function
     # previous_nav_point = objective_dict_to_numpy_array(problem, previous_nav_point).tolist()
     # weights = objective_dict_to_numpy_array(problem, group_improvement_direction).tolist()
-    sf = create_asf_generic(
-        problem, reference_point=previous_nav_point, weights=group_improvement_direction, reference_in_aug=True
+    problem_w_asf, target = add_asf_generic_nondiff(
+        problem,
+        symbol="asf",
+        reference_point=previous_nav_point,
+        weights=group_improvement_direction,
+        reference_in_aug=True,
     )
-    problem_w_asf, target = add_scalarization_function(problem, sf, "asf")
 
     # Note: We do not solve the global problem. Instead, we solve this constrained problem:
     const_exprs = [

@@ -7,6 +7,7 @@ from desdeo.tools.scalarization import (
     add_lte_constraints,
     add_scalarization_function,
     add_asf_nondiff,
+    add_asf_generic_nondiff,
     create_epsilon_constraints_json,
     create_weighted_sums,
 )
@@ -61,6 +62,30 @@ def test_add_asf_nondiff(river_w_fake_ideal_and_nadir):
     assert 2.2 in flatten(problem.scalarizations_funcs[0].func)
 
     for key, value in reference_point.items():
+        assert f"{key}_min" in flatten(problem.scalarizations_funcs[0].func)
+        assert value in flatten(problem.scalarizations_funcs[0].func)
+
+
+def test_add_asf_generic_nondiff(river_w_fake_ideal_and_nadir):
+    """Tests that the generic achievement scalarization function is added correctly."""
+    problem = river_w_fake_ideal_and_nadir
+
+    # min, min, max, max, min
+    reference_point = {"f_1": 1.9, "f_2": 2.9, "f_3": 3.1, "f_4": 2.3, "f_5": 1.1}
+    weights = {"f_1": 9.19, "f_2": 9.2, "f_3": 1.3, "f_4": 3.2, "f_5": 0.11}
+    problem, target = add_asf_generic_nondiff(
+        problem, symbol="asf", reference_point=reference_point, weights=weights, rho=2.2
+    )
+
+    assert target == problem.scalarizations_funcs[0].symbol
+    assert "Max" in flatten(problem.scalarizations_funcs[0].func)
+    assert 2.2 in flatten(problem.scalarizations_funcs[0].func)
+
+    for key, value in reference_point.items():
+        assert f"{key}_min" in flatten(problem.scalarizations_funcs[0].func)
+        assert value in flatten(problem.scalarizations_funcs[0].func)
+
+    for key, value in weights.items():
         assert f"{key}_min" in flatten(problem.scalarizations_funcs[0].func)
         assert value in flatten(problem.scalarizations_funcs[0].func)
 

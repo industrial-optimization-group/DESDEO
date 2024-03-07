@@ -182,23 +182,27 @@ def add_asf_nondiff(
     return problem.add_scalarization(scalarization_function), symbol
 
 
-def create_asf_generic(
+def add_asf_generic_nondiff(
     problem: Problem,
+    symbol: str,
     reference_point: dict[str, float],
     weights: dict[str, float],
     reference_in_aug=False,
-    delta: float = 0.000001,
     rho: float = 0.000001,
-) -> str:
+) -> tuple[Problem, str]:
     """Creates the generic achievement scalarizing function for the given problem and reference point, and weights.
+
+    This is the non-differentiable variant of the generic achievement scalarizing function, which
+    means the resulting scalarization function is non-differentiable.
+    Requires that the ideal and nadir point have been defined for the problem.
 
     Args:
         problem (Problem): the problem to which the scalarization function should be added.
+        symbol (str): the symbol to reference the added scalarization function.
         reference_point (dict[str, float]): a reference point with as many components as there are objectives.
         weights (dict[str, float]): the weights to be used in the scalarization function. must be positive.
         reference_in_aug (bool, optional): Whether the reference point should be used in the augmentation term.
             Defaults to False.
-        delta (float, optional): the scalar value used to define the utopian point (ideal - delta). Defaults to 0.000001.
         rho (float, optional): the weight factor used in the augmentation term. Defaults to 0.000001.
 
     Raises:
@@ -207,7 +211,8 @@ def create_asf_generic(
         ScalarizationError: If any of the ideal or nadir point values are undefined (None).
 
     Returns:
-        str: _description_
+        tuple[Problem, str]: A tuple containing a copy of the problem with the scalarization function added,
+            and the symbol of the added scalarization function.
     """
     # check that the reference point has all the objective components
     if not all(obj.symbol in reference_point for obj in problem.objectives):
@@ -247,8 +252,16 @@ def create_asf_generic(
 
     aug_term = " + ".join(aug_operands)
 
-    # Return the whole scalarization function
-    return f"{max_term} + {rho} * ({aug_term})"
+    # Collect the terms
+    sf = f"{max_term} + {rho} * ({aug_term})"
+
+    # Add the function to the problem
+    scalarization_function = ScalarizationFunction(
+        name="Generic achievement scalarizing function",
+        symbol=symbol,
+        func=sf,
+    )
+    return problem.add_scalarization(scalarization_function), symbol
 
 
 def create_weighted_sums(problem: Problem, weights: dict[str, float]) -> str:
