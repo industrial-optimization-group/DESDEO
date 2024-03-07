@@ -44,7 +44,7 @@ class PyomoEvaluator:
             model = self.init_constraints(problem, model)
 
         # Add scalarization functions, if any
-        if problem.scalarizations_funcs is not None:
+        if problem.scalarization_funcs is not None:
             model = self.init_scalarizations(problem, model)
 
         self.model = model
@@ -239,7 +239,7 @@ class PyomoEvaluator:
             pyomo.Model: the pyomo model with the scalarization expressions addedd as pyomo Objectives.
                 The objectives are deactivated by default. Scalarization functions are always minimized.
         """
-        for scal in problem.scalarizations_funcs:
+        for scal in problem.scalarization_funcs:
             pyomo_expr = self.parse(scal.func, model)
 
             setattr(model, scal.symbol, pyomo_expr)
@@ -294,8 +294,8 @@ class PyomoEvaluator:
             for const in self.problem.constraints:
                 result_dict[const.symbol] = pyomo.value(getattr(self.model, const.symbol))
 
-        if self.problem.scalarizations_funcs is not None:
-            for scal in self.problem.scalarizations_funcs:
+        if self.problem.scalarization_funcs is not None:
+            for scal in self.problem.scalarization_funcs:
                 result_dict[scal.symbol] = pyomo.value(getattr(self.model, scal.symbol))
 
         return result_dict

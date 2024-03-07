@@ -93,7 +93,7 @@ def extra_functions_problem():
         objectives=objectives,
         constraints=constraints,
         extra_funcs=extras,
-        scalarizations_funcs=scalarizations,
+        scalarization_funcs=scalarizations,
     )
 
 
@@ -357,7 +357,7 @@ def test_problem_unique_symbols():
             objectives=[obj_1, obj_2, obj_3],
             constraints=[constraint_1, constraint_2],
             extra_funcs=[efun_1, efun_2],
-            scalarizations_funcs=[scal_1, scal_2, scal_no_name],
+            scalarization_funcs=[scal_1, scal_2, scal_no_name],
         )
     assert "x_1" in str(e.value)
 
@@ -371,7 +371,7 @@ def test_problem_unique_symbols():
             objectives=[obj_1, obj_2, obj_2],
             constraints=[constraint_1, constraint_2],
             extra_funcs=[efun_1, efun_2],
-            scalarizations_funcs=[scal_1, scal_2, scal_no_name],
+            scalarization_funcs=[scal_1, scal_2, scal_no_name],
         )
     assert "f_2" in str(e.value)
 
@@ -385,7 +385,7 @@ def test_problem_unique_symbols():
             objectives=[obj_1, obj_2, obj_3],
             constraints=[constraint_1, constraint_2],
             extra_funcs=[efun_1, efun_2],
-            scalarizations_funcs=[scal_1, scal_2, scal_no_name],
+            scalarization_funcs=[scal_1, scal_2, scal_no_name],
         )
     assert "c_2" in str(e.value)
 
@@ -399,7 +399,7 @@ def test_problem_unique_symbols():
             objectives=[obj_1, obj_2, obj_3],
             constraints=[constraint_1, constraint_1],
             extra_funcs=[efun_1, efun_2],
-            scalarizations_funcs=[scal_1, scal_2, scal_no_name],
+            scalarization_funcs=[scal_1, scal_2, scal_no_name],
         )
     assert "con_1" in str(e.value)
 
@@ -413,7 +413,7 @@ def test_problem_unique_symbols():
             objectives=[obj_1, obj_2, obj_3],
             constraints=[constraint_1, constraint_2],
             extra_funcs=[efun_2, efun_2],
-            scalarizations_funcs=[scal_1, scal_2, scal_no_name],
+            scalarization_funcs=[scal_1, scal_2, scal_no_name],
         )
     assert "ef_2" in str(e.value)
 
@@ -427,7 +427,7 @@ def test_problem_unique_symbols():
             objectives=[obj_1, obj_2, obj_3],
             constraints=[constraint_1, constraint_2],
             extra_funcs=[efun_1, efun_2],
-            scalarizations_funcs=[scal_1, scal_1, scal_no_name],
+            scalarization_funcs=[scal_1, scal_1, scal_no_name],
         )
     assert "S_1" in str(e.value)
 
@@ -444,7 +444,7 @@ def test_problem_unique_symbols():
             objectives=[obj_1, obj_2, obj_3],
             constraints=[constraint_1, constraint_2, constraint_mixed],
             extra_funcs=[efun_1, efun_2],
-            scalarizations_funcs=[scal_1, scal_2, scal_no_name],
+            scalarization_funcs=[scal_1, scal_2, scal_no_name],
         )
     assert "S_1" in str(e.value)
 
@@ -466,7 +466,7 @@ def test_problem_unique_symbols():
             objectives=[obj_1, obj_mixed, obj_3],
             constraints=[constraint_1, constraint_2],
             extra_funcs=[efun_1, efun_2],
-            scalarizations_funcs=[scal_1, scal_2, scal_no_name],
+            scalarization_funcs=[scal_1, scal_2, scal_no_name],
         )
     assert "x_2" in str(e.value)
 
@@ -539,10 +539,10 @@ def test_problem_default_scalarization_names():
         objectives=[obj_1, obj_2, obj_3],
         constraints=[constraint_1, constraint_2],
         extra_funcs=[efun_1, efun_2],
-        scalarizations_funcs=[scal_1, scal_2, scal_3],
+        scalarization_funcs=[scal_1, scal_2, scal_3],
     )
 
-    symbols = [func.symbol for func in problem.scalarizations_funcs]
+    symbols = [func.symbol for func in problem.scalarization_funcs]
     assert "scal_1" in symbols
     assert "scal_2" in symbols
     assert "S_9" in symbols
@@ -554,7 +554,7 @@ def test_problem_default_scalarization_names():
     )
 
     problem_new = problem.add_scalarization(scal_new)
-    symbols = [func.symbol for func in problem_new.scalarizations_funcs]
+    symbols = [func.symbol for func in problem_new.scalarization_funcs]
 
     assert "scal_3" in symbols
 
@@ -576,7 +576,7 @@ def test_problem_default_scalarization_names():
 
     new_problem = problem.add_scalarization(scal_lonely)
 
-    assert new_problem.scalarizations_funcs[0].symbol == "scal_1"
+    assert new_problem.scalarization_funcs[0].symbol == "scal_1"
 
 
 @pytest.mark.pyomo

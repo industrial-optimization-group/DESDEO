@@ -17,7 +17,7 @@ def binh_and_korn_w_extra():
     scal_1 = ScalarizationFunction(name="scal 1", symbol="s_1", func="x_1 + 2.4*x_2 - x_1")
     scal_2 = ScalarizationFunction(name="scal 2", symbol="s_2", func="x_2 + x_2 - 3*x_1")
 
-    return problem.model_copy(update={"extra_funcs": [extra_1, extra_2], "scalarizations_funcs": [scal_1, scal_2]})
+    return problem.model_copy(update={"extra_funcs": [extra_1, extra_2], "scalarization_funcs": [scal_1, scal_2]})
 
 
 def test_w_binh_and_korn(binh_and_korn_w_extra):
@@ -48,7 +48,7 @@ def test_w_binh_and_korn(binh_and_korn_w_extra):
         assert isinstance(getattr(evaluator.model, cons.symbol), pyomo.Constraint)
 
     # has all scalarizations
-    for scal in problem.scalarizations_funcs:
+    for scal in problem.scalarization_funcs:
         assert hasattr(evaluator.model, scal.symbol)
 
     evaluator.set_optimization_target("f_1")

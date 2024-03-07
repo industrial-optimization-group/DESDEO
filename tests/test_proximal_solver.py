@@ -2,7 +2,7 @@
 import numpy.testing as npt
 
 from desdeo.problem import simple_data_problem
-from desdeo.tools.scalarization import add_scalarization_function, add_asf_nondiff, create_weighted_sums
+from desdeo.tools.scalarization import add_scalarization_function, add_asf_nondiff, add_weighted_sums
 from desdeo.tools.proximal_solver import create_proximal_solver
 
 
@@ -26,9 +26,7 @@ def test_proximal_with_simple_data_problem():
     obj_should_be = [objective_values[symbol][-1] for symbol in objective_values]
     const_should_be = [variable_values["y_1"][-1] + variable_values["y_2"][-1] - 1000]
 
-    sf = create_weighted_sums(problem, weights={"g_1": 1, "g_2": 0, "g_3": 0})
-
-    problem, target = add_scalarization_function(problem, sf, symbol="ws_1")
+    problem, target = add_weighted_sums(problem, symbol="ws_1", weights={"g_1": 1, "g_2": 0, "g_3": 0})
 
     solver = create_proximal_solver(problem)
 
@@ -42,9 +40,7 @@ def test_proximal_with_simple_data_problem():
     obj_should_be = [objective_values[symbol][0] for symbol in objective_values]
     const_should_be = [variable_values["y_1"][0] + variable_values["y_2"][0] - 1000]
 
-    sf = create_weighted_sums(problem, weights={"g_1": 0, "g_2": 1, "g_3": 0})
-
-    problem, target = add_scalarization_function(problem, sf, symbol="ws_2")
+    problem, target = add_weighted_sums(problem, symbol="ws_2", weights={"g_1": 0, "g_2": 1, "g_3": 0})
 
     solver = create_proximal_solver(problem)
 
@@ -58,9 +54,7 @@ def test_proximal_with_simple_data_problem():
     obj_should_be = [objective_values[symbol][-1] for symbol in objective_values]
     const_should_be = [variable_values["y_1"][-1] + variable_values["y_2"][-1] - 1000]
 
-    sf = create_weighted_sums(problem, weights={"g_1": 0, "g_2": 0, "g_3": 1})
-
-    problem, target = add_scalarization_function(problem, sf, symbol="ws_3")
+    problem, target = add_weighted_sums(problem, symbol="ws_3", weights={"g_1": 0, "g_2": 0, "g_3": 1})
 
     solver = create_proximal_solver(problem)
 

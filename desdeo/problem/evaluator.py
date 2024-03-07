@@ -91,7 +91,7 @@ class GenericEvaluator:
         # Gather any extra functions
         self.problem_extra = problem.extra_funcs
         # Gather any scalarization functions
-        self.problem_scalarization = problem.scalarizations_funcs
+        self.problem_scalarization = problem.scalarization_funcs
         # Gather the decision variable symbols defined in the problem
         self.problem_variable_symbols = [var.symbol for var in problem.variables]
         # The discrete definition of (some) objectives

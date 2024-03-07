@@ -264,11 +264,19 @@ def add_asf_generic_nondiff(
     return problem.add_scalarization(scalarization_function), symbol
 
 
-def create_weighted_sums(problem: Problem, weights: dict[str, float]) -> str:
+def add_weighted_sums(problem: Problem, symbol: str, weights: dict[str, float]) -> tuple[Problem, str]:
     """Add the weighted sums scalarization.
+
+    It is assumed that the weights add to 1.
+
+    Warning:
+        The weighted sums scalarization is often not capable of finding most Pareto optimal
+            solutions when optimized. It is advised to utilize some better scalarization
+            functions.
 
     Args:
         problem (Problem): the problem to which the scalarization should be added.
+        symbol (str): the symbol to reference the added scalarization function.
         weights (dict[str, float]): the weights. For the method to work, the weights
             should sum to 1. However, this is not a condition that is checked.
 
@@ -276,7 +284,8 @@ def create_weighted_sums(problem: Problem, weights: dict[str, float]) -> str:
         ScalarizationError: if the weights are missing any of the objective components.
 
     Returns:
-        str: The scalarization function for in infix format.
+        tuple[Problem, str]: A tuple containing a copy of the problem with the scalarization function added,
+            and the symbol of the added scalarization function.
     """
     # check that the weights have all the objective components
     if not all(obj.symbol in weights for obj in problem.objectives):
@@ -285,7 +294,17 @@ def create_weighted_sums(problem: Problem, weights: dict[str, float]) -> str:
 
     # Build the sum
     sum_terms = [f"({weights[obj.symbol]} * {obj.symbol}_min)" for obj in problem.objectives]
-    return " + ".join(sum_terms)
+
+    # aggregate the terms
+    sf = " + ".join(sum_terms)
+
+    # Add the function to the problem
+    scalarization_function = ScalarizationFunction(
+        name="Weighted sums scalarization function",
+        symbol=symbol,
+        func=sf,
+    )
+    return problem.add_scalarization(scalarization_function), symbol
 
 
 def create_from_objective(problem: Problem, objective_symbol: str) -> str:

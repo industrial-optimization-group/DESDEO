@@ -382,10 +382,10 @@ class Problem(BaseModel):
         If found, names them systematically
         'scal_i', where 'i' is a running index stored in an instance attribute.
         """
-        if self.scalarizations_funcs is None:
+        if self.scalarization_funcs is None:
             return self
 
-        for func in self.scalarizations_funcs:
+        for func in self.scalarization_funcs:
             if func.symbol is None:
                 func.symbol = f"scal_{self._scalarization_index}"
                 self._scalarization_index += 1
@@ -424,8 +424,8 @@ class Problem(BaseModel):
             symbols += [constraint.symbol for constraint in self.constraints]
         if self.extra_funcs is not None:
             symbols += [extra.symbol for extra in self.extra_funcs]
-        if self.scalarizations_funcs is not None:
-            symbols += [scalarization.symbol for scalarization in self.scalarizations_funcs]
+        if self.scalarization_funcs is not None:
+            symbols += [scalarization.symbol for scalarization in self.scalarization_funcs]
 
         return symbols
 
@@ -444,8 +444,8 @@ class Problem(BaseModel):
             new_scal.symbol = f"scal_{self._scalarization_index}"
             self._scalarization_index += 1
 
-        if self.scalarizations_funcs is None:
-            return self.model_copy(update={"scalarizations_funcs": [new_scal]})
+        if self.scalarization_funcs is None:
+            return self.model_copy(update={"scalarization_funcs": [new_scal]})
         symbols = self.get_all_symbols()
         symbols.append(new_scal.symbol)
         symbol_counts = Counter(symbols)
@@ -458,7 +458,7 @@ class Problem(BaseModel):
 
             raise ValueError(msg)
 
-        return self.model_copy(update={"scalarizations_funcs": [*self.scalarizations_funcs, new_scal]})
+        return self.model_copy(update={"scalarization_funcs": [*self.scalarization_funcs, new_scal]})
 
     name: str = Field(
         description="Name of the problem.",
@@ -490,7 +490,7 @@ class Problem(BaseModel):
         default=None,
     )
     """Optional list of extra functions. Use this if some function is repeated multiple times. Defaults to `None`."""
-    scalarizations_funcs: list[ScalarizationFunction] | None = Field(
+    scalarization_funcs: list[ScalarizationFunction] | None = Field(
         description="Optional list of scalarization functions of the problem.", default=None
     )
     """Optional list of scalarization functions of the problem. Defaults to `None`."""
@@ -602,7 +602,7 @@ if __name__ == "__main__":
         objectives=[objective_model_1, objective_model_2, objective_model_3],
         constraints=[constraint_model],
         extra_funcs=[extra_func_model],
-        scalarizations_funcs=[scalarization_function_model],
+        scalarization_funcs=[scalarization_function_model],
     )
 
     # print(problem_model.model_dump_json(indent=2))

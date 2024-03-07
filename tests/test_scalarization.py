@@ -9,7 +9,7 @@ from desdeo.tools.scalarization import (
     add_asf_nondiff,
     add_asf_generic_nondiff,
     create_epsilon_constraints_json,
-    create_weighted_sums,
+    add_weighted_sums,
 )
 from desdeo.tools.scipy_solver_interfaces import create_scipy_minimize_solver
 
@@ -56,14 +56,14 @@ def test_add_asf_nondiff(river_w_fake_ideal_and_nadir):
     reference_point = {"f_1": 1.9, "f_2": 2.9, "f_3": 3.1, "f_4": 2.3, "f_5": 1.1}
     problem, target = add_asf_nondiff(problem, symbol="asf", reference_point=reference_point, delta=0.1, rho=2.2)
 
-    assert target == problem.scalarizations_funcs[0].symbol
-    assert "Max" in flatten(problem.scalarizations_funcs[0].func)
-    assert 0.1 in flatten(problem.scalarizations_funcs[0].func)
-    assert 2.2 in flatten(problem.scalarizations_funcs[0].func)
+    assert target == problem.scalarization_funcs[0].symbol
+    assert "Max" in flatten(problem.scalarization_funcs[0].func)
+    assert 0.1 in flatten(problem.scalarization_funcs[0].func)
+    assert 2.2 in flatten(problem.scalarization_funcs[0].func)
 
     for key, value in reference_point.items():
-        assert f"{key}_min" in flatten(problem.scalarizations_funcs[0].func)
-        assert value in flatten(problem.scalarizations_funcs[0].func)
+        assert f"{key}_min" in flatten(problem.scalarization_funcs[0].func)
+        assert value in flatten(problem.scalarization_funcs[0].func)
 
 
 def test_add_asf_generic_nondiff(river_w_fake_ideal_and_nadir):
@@ -77,27 +77,31 @@ def test_add_asf_generic_nondiff(river_w_fake_ideal_and_nadir):
         problem, symbol="asf", reference_point=reference_point, weights=weights, rho=2.2
     )
 
-    assert target == problem.scalarizations_funcs[0].symbol
-    assert "Max" in flatten(problem.scalarizations_funcs[0].func)
-    assert 2.2 in flatten(problem.scalarizations_funcs[0].func)
+    assert target == problem.scalarization_funcs[0].symbol
+    assert "Max" in flatten(problem.scalarization_funcs[0].func)
+    assert 2.2 in flatten(problem.scalarization_funcs[0].func)
 
     for key, value in reference_point.items():
-        assert f"{key}_min" in flatten(problem.scalarizations_funcs[0].func)
-        assert value in flatten(problem.scalarizations_funcs[0].func)
+        assert f"{key}_min" in flatten(problem.scalarization_funcs[0].func)
+        assert value in flatten(problem.scalarization_funcs[0].func)
 
     for key, value in weights.items():
-        assert f"{key}_min" in flatten(problem.scalarizations_funcs[0].func)
-        assert value in flatten(problem.scalarizations_funcs[0].func)
+        assert f"{key}_min" in flatten(problem.scalarization_funcs[0].func)
+        assert value in flatten(problem.scalarization_funcs[0].func)
 
 
 def test_create_ws():
     """Tests that the weighted sum scalarization is added correctly."""
     problem = simple_test_problem()
-    ws = {"f_1": 1, "f_2": 2, "f_3": 1, "f_4": 3, "f_5": 7.2}
+    ws = {"f_1": 0.011, "f_2": 2.2, "f_3": 1.1, "f_4": 3.9, "f_5": 7.2}
 
-    sf = create_weighted_sums(problem, ws)
+    problem, target = add_weighted_sums(problem, symbol="ws", weights=ws)
 
-    assert sf == "(1 * f_1_min) + (2 * f_2_min) + (1 * f_3_min) + (3 * f_4_min) + (7.2 * f_5_min)"
+    assert problem.scalarization_funcs[0].symbol == target
+
+    for key, value in ws.items():
+        assert f"{key}_min" in flatten(problem.scalarization_funcs[0].func)
+        assert value in flatten(problem.scalarization_funcs[0].func)
 
 
 def test_add_scalarization_function(river_w_fake_ideal_and_nadir):
@@ -105,18 +109,17 @@ def test_add_scalarization_function(river_w_fake_ideal_and_nadir):
     problem = river_w_fake_ideal_and_nadir
 
     ws = {"f_1": 1, "f_2": 2, "f_3": 1, "f_4": 3, "f_5": 5}
-    wsf = create_weighted_sums(problem, ws)
 
     ref_point = {"f_1": 1, "f_2": 2, "f_3": 3, "f_4": 4, "f_5": 5}
 
-    problem, symbol_ws = add_scalarization_function(problem, wsf, "WS", name="Weighted sums")
+    problem, symbol_ws = add_weighted_sums(problem, symbol="WS", weights=ws)
     problem, symbol_asf = add_asf_nondiff(problem, reference_point=ref_point, symbol="ASF")
 
-    assert len(problem.scalarizations_funcs) == 2  # there should be two scalarization functions now
-    assert problem.scalarizations_funcs[0].name == "Weighted sums"
-    assert problem.scalarizations_funcs[1].name == "Achievement scalarizing function"
-    assert problem.scalarizations_funcs[0].symbol == symbol_ws
-    assert problem.scalarizations_funcs[1].symbol == symbol_asf
+    assert len(problem.scalarization_funcs) == 2  # there should be two scalarization functions now
+    assert problem.scalarization_funcs[0].name == "Weighted sums scalarization function"
+    assert problem.scalarization_funcs[1].name == "Achievement scalarizing function"
+    assert problem.scalarization_funcs[0].symbol == symbol_ws
+    assert problem.scalarization_funcs[1].symbol == symbol_asf
 
 
 @pytest.mark.slow
