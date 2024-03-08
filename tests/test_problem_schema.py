@@ -6,6 +6,7 @@ import pytest  # noqa: F401
 from desdeo.problem.json_parser import MathParser
 from desdeo.problem.schema import (
     Constraint,
+    ConstraintTypeEnum,
     DiscreteRepresentation,
     ExtraFunction,
     Objective,
@@ -13,6 +14,7 @@ from desdeo.problem.schema import (
     ScalarizationFunction,
     Variable,
 )
+from desdeo.problem.testproblems import river_pollution_problem
 from desdeo.problem.evaluator import GenericEvaluator
 
 from desdeo.tools.scalarization import add_scalarization_function
@@ -343,3 +345,51 @@ def test_data_problem(dtlz2_5x_3f_data_based):  # noqa: F811
     actual = res[symbol]
 
     npt.assert_array_almost_equal(should_be, actual)
+
+
+def test_add_constraints():
+    """Test that constraints are added properly."""
+    problem = river_pollution_problem()
+    assert problem.constraints is None
+
+    cons_1 = Constraint(name="con 1", symbol="g_1", func="x_1 + x_2", linear=False, cons_type=ConstraintTypeEnum.EQ)
+    cons_2 = Constraint(name="con 2", symbol="g_2", func="x_1 - x_2", linear=True, cons_type=ConstraintTypeEnum.LTE)
+    cons_3 = Constraint(name="con 3", symbol="g_3", func="x_1 * x_2", linear=True, cons_type=ConstraintTypeEnum.EQ)
+
+    constraints = [cons_1, cons_2, cons_3]
+
+    new_problem = problem.add_constraints(constraints)
+
+    assert problem.constraints is None
+    assert len(new_problem.constraints) == 3
+
+    assert new_problem.constraints[0].name == "con 1"
+    assert new_problem.constraints[0].symbol == "g_1"
+    assert new_problem.constraints[0].func == ["Add", "x_1", "x_2"]
+    assert not new_problem.constraints[0].linear
+    assert new_problem.constraints[0].cons_type == ConstraintTypeEnum.EQ
+
+    assert new_problem.constraints[1].name == "con 2"
+    assert new_problem.constraints[1].symbol == "g_2"
+    assert new_problem.constraints[1].func == ["Add", "x_1", ["Negate", "x_2"]]
+    assert new_problem.constraints[1].linear
+    assert new_problem.constraints[1].cons_type == ConstraintTypeEnum.LTE
+
+    assert new_problem.constraints[2].name == "con 3"
+    assert new_problem.constraints[2].symbol == "g_3"
+    assert new_problem.constraints[2].func == ["Multiply", "x_1", "x_2"]
+    assert new_problem.constraints[2].linear
+    assert new_problem.constraints[2].cons_type == ConstraintTypeEnum.EQ
+
+    # check that only list is accepted
+    with pytest.raises(TypeError):
+        new_problem.add_constraints(cons_1)
+
+    # check that we cannot add a constraint with an existing symbol
+    with pytest.raises(ValueError):
+        new_problem.add_constraints([cons_2])
+
+    # check that symbol duplicate is checked in other fields as well
+    with pytest.raises(ValueError):
+        cons_x = Constraint(name="con 1", symbol="x_1", func="x_1 + x_2", linear=False, cons_type=ConstraintTypeEnum.EQ)
+        new_problem.add_constraints([cons_x])

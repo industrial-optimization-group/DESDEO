@@ -307,6 +307,9 @@ class Constraint(BaseModel):
             " The symbols in the function must match objective/variable/constant symbols."
         ),
     )
+    """ Function of the constraint. This is a JSON object that can be parsed
+    into a function.  Must be a valid MathJSON object.  The symbols in the
+    function must match objective/variable/constant symbols."""
 
     linear: bool = Field(
         description="Whether the constraint is linear or not. Defaults to True, e.g., a linear constraint is assumed.",
@@ -434,11 +437,17 @@ class Problem(BaseModel):
 
         If no symbol is defined, adds a name with the format 'scal_i'.
 
+        Does not modify the original problem model, but instead returns a copy of it with the added
+        scalarization function.
+
         Args:
             new_scal (ScalarizationFunction): Scalarization functions to be added to the model.
 
         Raises:
             ValueError: Raised when a ScalarizationFunction is given with a symbol that already exists in the model.
+
+        Returns:
+            Problem: a copy of the problem with the added scalarization function.
         """
         if new_scal.symbol is None:
             new_scal.symbol = f"scal_{self._scalarization_index}"
@@ -459,6 +468,50 @@ class Problem(BaseModel):
             raise ValueError(msg)
 
         return self.model_copy(update={"scalarization_funcs": [*self.scalarization_funcs, new_scal]})
+
+    def add_constraints(self, new_constraints: list[Constraint]) -> "Problem":
+        """Adds new constraints to the problem model.
+
+        Does not modify the original problem model, but instead returns a copy of it with
+        the added constraints. The symbols of the new constraints to be added must be
+        unique.
+
+        Args:
+            new_constraints (list[Constraint]): the new `Constraint`s to be added to the model.
+
+        Raises:
+            TypeError: when the `new_constraints` is not a list.
+            ValueError: when duplicate symbols are found among the new_constraints, or
+                any of the new constraints utilized an existing symbol in the problem's model.
+
+        Returns:
+            Problem: a copy of the problem with the added constraints.
+        """
+        if not isinstance(new_constraints, list):
+            # not a list
+            msg = "The argument `new_constraints` must be a list."
+            raise TypeError(msg)
+
+        all_symbols = self.get_all_symbols()
+        new_symbols = [const.symbol for const in new_constraints]
+
+        if len(new_symbols) > len(set(new_symbols)):
+            # duplicate symbols in the new constraint functions
+            msg = "Duplicate symbols found in the new constraint functions to be added."
+            raise ValueError(msg)
+
+        for s in new_symbols:
+            if s in all_symbols:
+                # symbol already exists
+                msg = "A symbol was provided for a new constraint that already exists in the problem definition."
+                raise ValueError(msg)
+
+        # proceed to add the new constraints
+        return self.model_copy(
+            update={
+                "constraints": new_constraints if self.constraints is None else [*self.constraints, *new_constraints]
+            }
+        )
 
     name: str = Field(
         description="Name of the problem.",
