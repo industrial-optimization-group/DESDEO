@@ -124,26 +124,25 @@ def test_add_scalarization_function(river_w_fake_ideal_and_nadir):
 
 
 @pytest.mark.slow
-def test_epsilon_constraint():
-    """Tests the epsilon constraint scalarization."""
+def test_add_epsilon_constraint_and_solve():
+    """Tests the epsilon constraint scalarization and solving it."""
     problem = simple_test_problem()
 
     epsilons = {"f_1": 5.0, "f_2": None, "f_3": -4.0, "f_4": 4.3, "f_5": -3}
-    eps_target = "f_2"
+    eps_symbols = {"f_1": "f_1_eps", "f_2": None, "f_3": "f_3_eps", "f_4": "f_4_eps", "f_5": "f_5_eps"}
+    objective_symbol = "f_2"
+    target = "f_2_target"
 
-    sf, cons_exprs = create_epsilon_constraints_json(problem, eps_target, epsilons)
-
-    problem, target = add_scalarization_function(problem, sf, "f_2_eps")
-
-    con_symbols = [f"con_{i}" for i in range(1, len(cons_exprs) + 1)]
-    problem_w_cons = add_lte_constraints(problem, cons_exprs, con_symbols)
+    problem_w_cons, target, eps_symbols = add_epsilon_constraints(
+        problem, target, eps_symbols, objective_symbol, epsilons
+    )
 
     solver = create_scipy_minimize_solver(problem_w_cons)
 
     res = solver(target)
 
     # check that constraints are ok
-    cons_values = [res.constraint_values[s] for s in con_symbols]
+    cons_values = [res.constraint_values[s] for s in eps_symbols]
 
     atol = 1e-9
     shifted = np.array(cons_values) - atol
@@ -171,7 +170,7 @@ def test_add_epsilon_constraints():
 
     assert problem.constraints[1].symbol == "f_3_eps"
     assert problem.constraints[1].name == "Epsilon for f_3"
-    assert problem.constraints[1].func == ["Add", "f_3_min", ["Negate", ["Negate", 4]]]
+    assert problem.constraints[1].func == ["Add", "f_3_min", ["Negate", -4]]
     assert problem.constraints[1].cons_type == ConstraintTypeEnum.LTE
 
     assert problem.constraints[2].symbol == "f_4_eps"
@@ -181,7 +180,7 @@ def test_add_epsilon_constraints():
 
     assert problem.constraints[3].symbol == "f_5_eps"
     assert problem.constraints[3].name == "Epsilon for f_5"
-    assert problem.constraints[3].func == ["Add", "f_5_min", ["Negate", ["Negate", 3]]]
+    assert problem.constraints[3].func == ["Add", "f_5_min", ["Negate", -3]]
     assert problem.constraints[3].cons_type == ConstraintTypeEnum.LTE
 
     assert _problem.constraints is None

@@ -18,7 +18,7 @@ from desdeo.tools.scalarization import (
     add_lte_constraints,
     add_scalarization_function,
     add_asf_generic_nondiff,
-    create_epsilon_constraints_json,
+    add_epsilon_constraints,
 )
 from desdeo.tools.utils import guess_best_solver
 
@@ -84,18 +84,12 @@ def solve_reachable_bounds(
     lower_bounds = {}
     upper_bounds = {}
     for objective in problem.objectives:
-        # symbols to identify the objectives to be constrained
-        target_expr, const_exprs = create_epsilon_constraints_json(
-            problem, objective_symbol=objective.symbol, epsilons=const_bounds
-        )
-
-        # solve lower bounds
-        # add scalarization
-        eps_problem, target = add_scalarization_function(problem, target_expr, "target")
-
-        # add constraints
-        eps_problem = add_lte_constraints(
-            eps_problem, const_exprs, [f"eps_{i}" for i in range(1, len(const_exprs) + 1)]
+        eps_problem, target, _ = add_epsilon_constraints(
+            problem,
+            "target",
+            {f"{obj.symbol}": f"{obj.symbol}_eps" for obj in problem.objectives},
+            objective.symbol,
+            const_bounds,
         )
 
         # solve

@@ -327,7 +327,7 @@ def add_objective_as_scalarization(problem: Problem, symbol: str, objective_symb
         msg = f"The given objective symbol {objective_symbol} should be one of {correct_symbols}."
         raise ScalarizationError(msg)
 
-    sf = f"1 * {objective_symbol}_min"
+    sf = ["Multiply", 1, f"{objective_symbol}_min"]
 
     # Add the function to the problem
     scalarization_function = ScalarizationFunction(
@@ -377,7 +377,7 @@ def add_epsilon_constraints(
         Constraint(
             name=f"Epsilon for {obj.symbol}",
             symbol=constraint_symbols[obj.symbol],
-            func=f"{obj.symbol}_min - {epsilons[obj.symbol]}",
+            func=["Add", f"{obj.symbol}_min", ["Negate", epsilons[obj.symbol]]],
             cons_type=ConstraintTypeEnum.LTE,
         )
         for obj in problem.objectives

@@ -11,7 +11,10 @@ import numpy as np
 from pydantic import BaseModel, Field
 
 from desdeo.problem import (
+    Constraint,
+    ConstraintTypeEnum,
     Problem,
+    ScalarizationFunction,
     get_nadir_dict,
     numpy_array_to_objective_dict,
     objective_dict_to_numpy_array,
@@ -21,7 +24,7 @@ from desdeo.tools.scalarization import (
     add_lte_constraints,
     add_scalarization_function,
     add_asf_nondiff,
-    create_epsilon_constraints_json,
+    add_epsilon_constraints,
 )
 from desdeo.tools.utils import guess_best_solver
 
@@ -129,25 +132,26 @@ def solve_reachable_bounds(
     upper_bounds = {}
     for objective in problem.objectives:
         ## Lower bounds
-        # symbols to identify the objectives to be constrained
-        target_expr, const_exprs = create_epsilon_constraints_json(
-            problem, objective_symbol=objective.symbol, epsilons=const_bounds
+        eps_problem, target, eps_symbols = add_epsilon_constraints(
+            problem,
+            "target",
+            {f"{obj.symbol}": f"{obj.symbol}_eps" for obj in problem.objectives},
+            objective.symbol,
+            const_bounds,
         )
-
-        # solve lower bounds
-        # add scalarization
-        eps_problem, target = add_scalarization_function(problem, target_expr, "target")
 
         # User bounds
         if bounds is not None:
-            const_exprs += [
-                f"{obj.symbol}_min - {bounds[obj.symbol] * (-1 if obj.maximize else 1)}" for obj in problem.objectives
+            bound_constraints = [
+                Constraint(
+                    name=f"User bound for {obj.symbol}",
+                    symbol=f"{obj.symbol}_user",
+                    func=f"{obj.symbol}_min - {bounds[obj.symbol] * (-1 if obj.maximize else 1)}",
+                    cons_type=ConstraintTypeEnum.LTE,
+                )
+                for obj in problem.objectives
             ]
-
-        # add constraints
-        eps_problem = add_lte_constraints(
-            eps_problem, const_exprs, [f"eps_{i}" for i in range(1, len(const_exprs) + 1)]
-        )
+            eps_problem = eps_problem.add_constraints(bound_constraints)
 
         # solve
         solver = _create_solver(eps_problem)
@@ -167,25 +171,46 @@ def solve_reachable_bounds(
             lower_bound = lower_bound[0]
 
         # solver upper bounds
-        target_expr, const_exprs = create_epsilon_constraints_json(
-            problem, objective_symbol=objective.symbol, epsilons=const_bounds
+        eps_problem, target, eps_symbols = add_epsilon_constraints(
+            problem,
+            "target",
+            {f"{obj.symbol}": f"{obj.symbol}_eps" for obj in problem.objectives},
+            objective.symbol,
+            const_bounds,
         )
         # We need to add a constrant related to the target objective to bound it to the navigation point
         # Maybe there should be a replacement to "create_epsilon_constraints_json" that allows for this
         # for now, we will add the constraint manually
-        const_exprs.append(["Add", f"{objective.symbol}_min", ["Negate", const_bounds[objective.symbol]]])
-        target_expr[1] = -1  # maximize the objective
-
-        eps_problem, target = add_scalarization_function(problem, target_expr, "target")
-        # User bounds
-        if bounds is not None:
-            const_exprs += [
-                f"{obj.symbol}_min - {bounds[obj.symbol] * (-1 if obj.maximize else 1)}" for obj in problem.objectives
-            ]
-        # add constraints
-        eps_problem = add_lte_constraints(
-            eps_problem, const_exprs, [f"eps_{i}" for i in range(1, len(const_exprs) + 1)]
+        # target_expr[1] = -1  # maximize the objective
+        target = "target"
+        max_objective_scal = ScalarizationFunction(
+            symbol=target, name="Max objective", func=["Negate", f"{objective.symbol}_min"]
         )
+
+        eps_problem = problem.add_scalarization(max_objective_scal)
+
+        bound_to_nav_constraint = Constraint(
+            symbol=f"{objective.symbol}_to_bound",
+            name=f"To bound {objective.symbol} to user bounds",
+            func=["Add", f"{objective.symbol}_min", ["Negate", const_bounds[objective.symbol]]],
+            cons_type=ConstraintTypeEnum.LTE,
+        )
+
+        # User bounds, add constraints
+        if bounds is not None:
+            bound_constraints = [
+                Constraint(
+                    name=f"User bound for {obj.symbol}",
+                    symbol=f"{obj.symbol}_user",
+                    func=f"{obj.symbol}_min - {bounds[obj.symbol] * (-1 if obj.maximize else 1)}",
+                    cons_type=ConstraintTypeEnum.LTE,
+                )
+                for obj in problem.objectives
+            ]
+            eps_problem = eps_problem.add_constraints([bound_to_nav_constraint, *bound_constraints])
+        else:
+            eps_problem = eps_problem.add_constraints([bound_to_nav_constraint])
+
         # solve
         solver = _create_solver(eps_problem)
         res = solver(target)
