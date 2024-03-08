@@ -2,12 +2,13 @@
 import numpy as np
 import pytest
 
-from desdeo.problem import river_pollution_problem, simple_test_problem
+from desdeo.problem import ConstraintTypeEnum, river_pollution_problem, simple_test_problem
 from desdeo.tools.scalarization import (
     add_lte_constraints,
     add_scalarization_function,
     add_asf_nondiff,
     add_asf_generic_nondiff,
+    add_epsilon_constraints,
     create_epsilon_constraints_json,
     add_weighted_sums,
 )
@@ -148,3 +149,39 @@ def test_epsilon_constraint():
     shifted = np.array(cons_values) - atol
 
     assert np.all(shifted < 0)
+
+
+def test_add_epsilon_constraints():
+    """The the correct functioning of adding the epsilon constraint scalarization."""
+    _problem = simple_test_problem()
+
+    epsilons = {"f_1": 5.0, "f_2": None, "f_3": -4.0, "f_4": 4.3, "f_5": -3}
+    eps_symbols = {"f_1": "f_1_eps", "f_2": None, "f_3": "f_3_eps", "f_4": "f_4_eps", "f_5": "f_5_eps"}
+    objective_symbol = "f_2"
+    target = "f_2_target"
+
+    problem, target, eps_symbols = add_epsilon_constraints(_problem, target, eps_symbols, objective_symbol, epsilons)
+
+    assert len(problem.constraints) == 4
+
+    assert problem.constraints[0].symbol == "f_1_eps"
+    assert problem.constraints[0].name == "Epsilon for f_1"
+    assert problem.constraints[0].func == ["Add", "f_1_min", ["Negate", 5.0]]
+    assert problem.constraints[0].cons_type == ConstraintTypeEnum.LTE
+
+    assert problem.constraints[1].symbol == "f_3_eps"
+    assert problem.constraints[1].name == "Epsilon for f_3"
+    assert problem.constraints[1].func == ["Add", "f_3_min", ["Negate", ["Negate", 4]]]
+    assert problem.constraints[1].cons_type == ConstraintTypeEnum.LTE
+
+    assert problem.constraints[2].symbol == "f_4_eps"
+    assert problem.constraints[2].name == "Epsilon for f_4"
+    assert problem.constraints[2].func == ["Add", "f_4_min", ["Negate", 4.3]]
+    assert problem.constraints[2].cons_type == ConstraintTypeEnum.LTE
+
+    assert problem.constraints[3].symbol == "f_5_eps"
+    assert problem.constraints[3].name == "Epsilon for f_5"
+    assert problem.constraints[3].func == ["Add", "f_5_min", ["Negate", ["Negate", 3]]]
+    assert problem.constraints[3].cons_type == ConstraintTypeEnum.LTE
+
+    assert _problem.constraints is None

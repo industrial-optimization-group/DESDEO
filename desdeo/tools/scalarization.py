@@ -338,39 +338,55 @@ def add_objective_as_scalarization(problem: Problem, symbol: str, objective_symb
     return problem.add_scalarization(scalarization_function), symbol
 
 
-def create_epsilon_constraints(
-    problem: Problem, objective_symbol: str, epsilons: dict[str, float]
-) -> tuple[str, list[str]]:
+def add_epsilon_constraints(
+    problem: Problem, symbol: str, constraint_symbols: dict[str, str], objective_symbol: str, epsilons: dict[str, float]
+) -> tuple[Problem, str, list[str]]:
     """Creates expressions for an epsilon constraints scalarization and constraints.
 
     It is assumed that epsilon have been given in a format where each objective is to be minimized.
 
     Args:
         problem (Problem): the problem to scalarize.
+        symbol (str): the symbol of the added objective function to be optimized.
+        constraint_symbols (dict[str, str]): a dict with the symbols to be used with the added
+            constraints. The key indicates the name of the objective function the constraint
+            is related to, and the value is the symbol to be used when defining the constraint.
         objective_symbol (str): the objective used as the objective in the epsilon constraint scalarization.
         epsilons (dict[str, float]): the epsilon constraint values in a dict
-            with each key being an objective's symbol.
+            with each key being an objective's symbol. The corresponding value
+            is then used as the epsilon value for the respective objective function.
 
     Raises:
         ScalarizationError: `objective_symbol` not found in problem definition.
 
     Returns:
-        tuple[str, list[str]]: the first element is the expression of the
-            scalarized objective, the second element is a list of expressions of the
-            constraints. The constraints are in less than or equal format.
+        tuple[Problem, str, list[str]]: A triple with the first element being a copy of the
+            problem with the added epsilon constraints. The second element is the symbol of
+            the objective to be optimized. The last element is a list with the symbols
+            of the added constraints to the problem.
     """
     if objective_symbol not in (correct_symbols := [objective.symbol for objective in problem.objectives]):
         msg = f"The given objective symbol {objective_symbol} should be one of {correct_symbols}."
         raise ScalarizationError(msg)
 
-    scalarization_expr = f"1 * {objective_symbol}_min"
+    _problem, _ = add_objective_as_scalarization(problem, symbol, objective_symbol)
 
     # the epsilons must be given such that each objective function is to be minimized
-    constraint_exprs = [
-        f"{obj.symbol}_min - {epsilons[obj.symbol]}" for obj in problem.objectives if obj.symbol != objective_symbol
+    # TODO: check if objective function is linear
+    constraints = [
+        Constraint(
+            name=f"Epsilon for {obj.symbol}",
+            symbol=constraint_symbols[obj.symbol],
+            func=f"{obj.symbol}_min - {epsilons[obj.symbol]}",
+            cons_type=ConstraintTypeEnum.LTE,
+        )
+        for obj in problem.objectives
+        if obj.symbol != objective_symbol
     ]
 
-    return scalarization_expr, constraint_exprs
+    _problem = _problem.add_constraints(constraints)
+
+    return _problem, symbol, [con.symbol for con in constraints]
 
 
 def create_epsilon_constraints_json(
@@ -416,7 +432,7 @@ def add_scalarization_function(
 ) -> tuple[Problem, str]:
     """Adds a scalarization function to a Problem.
 
-    Returns a new instanse of the Problem with the new scalarization function
+    Returns a new instance of the Problem with the new scalarization function
     and the symbol of the scalarization function added.
 
     Args:
@@ -491,31 +507,3 @@ def add_lte_constraints(
             ]
         }
     )
-
-
-if __name__ == "__main__":
-    from desdeo.problem import river_pollution_problem
-
-    problem = river_pollution_problem()
-    problem = problem.model_copy(
-        update={
-            "objectives": [
-                objective.model_copy(update={"ideal": 0.5, "nadir": 5.5}) for objective in problem.objectives
-            ]
-        }
-    )
-    sf, con_exprs = create_epsilon_constraints(
-        problem, "f_3", {"f_1": 2.5, "f_2": 3.5, "f_3": 1.2, "f_4": 0.8, "f_5": 5.1}
-    )
-
-    problem_w_cons = add_lte_constraints(problem, con_exprs, [f"con_{i}" for i in range(1, len(con_exprs) + 1)])
-
-    print(problem_w_cons.constraints)
-
-    print(con_exprs)
-
-    parser = InfixExpressionParser()
-    print(f"Infix:\n\n{sf}\n")
-    dump = json.dumps(parser.parse(sf), indent=2)
-    print("JSON:\n")
-    pprint.pprint(json.loads(dump))
