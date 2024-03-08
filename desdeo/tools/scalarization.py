@@ -265,7 +265,7 @@ def add_asf_generic_nondiff(
 
 
 def add_weighted_sums(problem: Problem, symbol: str, weights: dict[str, float]) -> tuple[Problem, str]:
-    """Add the weighted sums scalarization.
+    """Add the weighted sums scalarization to a problem.
 
     It is assumed that the weights add to 1.
 
@@ -307,25 +307,35 @@ def add_weighted_sums(problem: Problem, symbol: str, weights: dict[str, float]) 
     return problem.add_scalarization(scalarization_function), symbol
 
 
-def create_from_objective(problem: Problem, objective_symbol: str) -> str:
+def add_objective_as_scalarization(problem: Problem, symbol: str, objective_symbol: str) -> tuple[Problem, str]:
     """Creates a scalarization where one of the problem's objective functions is optimized.
 
     Args:
         problem (Problem): the problem to which the scalarization should be added.
+        symbol (str): the symbol to reference the added scalarization function.
         objective_symbol (str): the symbol of the objective function to be optimized.
 
     Raises:
         ScalarizationError: the given objective_symbol does not exist in the problem.
 
     Returns:
-        str: _description_
+        tuple[Problem, str]: A tuple containing a copy of the problem with the scalarization function added,
+            and the symbol of the added scalarization function.
     """
     # check that symbol exists
     if objective_symbol not in (correct_symbols := [objective.symbol for objective in problem.objectives]):
         msg = f"The given objective symbol {objective_symbol} should be one of {correct_symbols}."
         raise ScalarizationError(msg)
 
-    return f"1 * {objective_symbol}_min"
+    sf = f"1 * {objective_symbol}_min"
+
+    # Add the function to the problem
+    scalarization_function = ScalarizationFunction(
+        name=f"Objective {objective_symbol}",
+        symbol=symbol,
+        func=sf,
+    )
+    return problem.add_scalarization(scalarization_function), symbol
 
 
 def create_epsilon_constraints(

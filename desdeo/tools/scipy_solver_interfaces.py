@@ -356,19 +356,3 @@ def create_scipy_de_solver(
         return parse_scipy_optimization_result(optimization_result, problem, evaluator)
 
     return solver
-
-
-if __name__ == "__main__":
-    from desdeo.problem import binh_and_korn
-    from desdeo.tools.scalarization import create_from_objective, add_scalarization_function
-
-    problem = binh_and_korn()
-
-    sf = create_from_objective(problem, "f_2")
-
-    problem, target = add_scalarization_function(problem, sf, "target")
-
-    solver = create_scipy_de_solver(problem)
-
-    res = solver(target)
-    print(res)
