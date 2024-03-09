@@ -244,8 +244,8 @@ def create_scipy_minimize_solver(
             used. If None, a method is selected automatically based on the
             properties of the objective (does it have constraints?). Defaults to
             None.
-        method_options (dict | None, optional): the keyword arguments passed to
-            the scipy.optimize.minimize mehtod. Defaults to None.
+        method_kwargs (dict | None, optional): the keyword arguments passed to
+            the scipy.optimize.minimize method. Defaults to None.
         tol (float | None, optional): the tolerance for termination. Defaults to None.
         subscriber (str | None, optional): not used right now. WIP. Defaults to None.
 
