@@ -1,4 +1,4 @@
-"""Imports of the problem pacakge."""
+"""Imports available from the desdeo-problem package."""
 __all__ = [
     "binh_and_korn",
     "Constant",

@@ -1,4 +1,4 @@
-"""Defines templates for scalarization functions and utilities to handle the templates.
+"""Defines various functions for scalarizing multiobjective optimization problems.
 
 Note that when scalarization functions are defined, they must add the post-fix
 '_min' to any symbol representing objective functions so that the maximization
@@ -16,6 +16,7 @@ from desdeo.problem import (
     Problem,
     ScalarizationFunction,
 )
+from desdeo.tools.utils import get_corrected_ideal_and_nadir
 
 
 class ScalarizationError(Exception):
@@ -73,31 +74,6 @@ class Op:
     # Other operators
     MAX = "Max"
     RATIONAL = "Rational"
-
-
-def get_corrected_ideal_and_nadir(problem: Problem) -> tuple[dict[str, float | None], dict[str, float | None] | None]:
-    """Compute the corrected ideal and nadir points depending if an objective function is to be maximized or not.
-
-    I.e., the ideal and nadir point element for objectives to be maximized will be multiplied by -1.
-
-    Args:
-        problem (Problem): the problem with the ideal and nadir points.
-
-    Returns:
-        tuple[list[float], list[float]]: a list with the corrected ideal point
-            and a list with the corrected nadir point. Will return None for missing
-            elements.
-    """
-    ideal_point = {
-        objective.symbol: objective.ideal if not objective.maximize else -objective.ideal
-        for objective in problem.objectives
-    }
-    nadir_point = {
-        objective.symbol: objective.nadir if not objective.maximize else -objective.nadir
-        for objective in problem.objectives
-    }
-
-    return ideal_point, nadir_point
 
 
 def add_asf_nondiff(

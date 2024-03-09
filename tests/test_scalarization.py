@@ -4,12 +4,9 @@ import pytest
 
 from desdeo.problem import ConstraintTypeEnum, river_pollution_problem, simple_test_problem
 from desdeo.tools.scalarization import (
-    add_lte_constraints,
-    add_scalarization_function,
     add_asf_nondiff,
     add_asf_generic_nondiff,
     add_epsilon_constraints,
-    create_epsilon_constraints_json,
     add_weighted_sums,
 )
 from desdeo.tools.scipy_solver_interfaces import create_scipy_minimize_solver

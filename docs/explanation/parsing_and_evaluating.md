@@ -147,3 +147,13 @@ solvers can then utilize to solve the original problem.
 
 !!! Info
     For more info about pyomo, see [the pyomo documentation](https://pyomo.readthedocs.io/en/stable/).
+
+
+## Where to go next?
+
+You can keep studying the various parsers found
+in the modules [JSON parser][desdeo.problem.json_parser] and [Infix parser][desdeo.problem.infix_parser],
+and the evalutors found in the modules [Generic evaluator][desdeo.problem.evaluator] and
+[Pyomo evaluator][desdeo.problem.pyomo_evaluator]. If you are interested in how to
+solve a multiobjective optimization problem, then the section [Scalarization](./scalarization.md)
+is a good place to check out.

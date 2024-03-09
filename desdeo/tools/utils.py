@@ -43,3 +43,28 @@ def guess_best_solver(problem: Problem) -> CreateSolverType:
     return available_solvers["scipy_de"]
 
     # thigs to check: variable types, does the problem have constraint, constraint types, etc...
+
+
+def get_corrected_ideal_and_nadir(problem: Problem) -> tuple[dict[str, float | None], dict[str, float | None] | None]:
+    """Compute the corrected ideal and nadir points depending if an objective function is to be maximized or not.
+
+    I.e., the ideal and nadir point element for objectives to be maximized will be multiplied by -1.
+
+    Args:
+        problem (Problem): the problem with the ideal and nadir points.
+
+    Returns:
+        tuple[list[float], list[float]]: a list with the corrected ideal point
+            and a list with the corrected nadir point. Will return None for missing
+            elements.
+    """
+    ideal_point = {
+        objective.symbol: objective.ideal if not objective.maximize else -objective.ideal
+        for objective in problem.objectives
+    }
+    nadir_point = {
+        objective.symbol: objective.nadir if not objective.maximize else -objective.nadir
+        for objective in problem.objectives
+    }
+
+    return ideal_point, nadir_point

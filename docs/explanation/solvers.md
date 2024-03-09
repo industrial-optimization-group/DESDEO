@@ -1,2 +1,2 @@
-# Solvers and solver interfaces
+# Solvers
 TODO
