@@ -110,9 +110,9 @@ use a non-differentiable scalarization function.
 ### The epsilon-constraints scalarization
 
 As a more complicated example on how scalarizations might have to be added,
-consider the epsilon-constraints scalarization. Here, we have to also
-add constraint functions to the problem. Luckily, in practice, this
-is quite straight-forward, as illustrated below:
+consider the [epsilon-constraints scalarization](../tutorials/moo_primer.md/#def:epsilon).  Here, we have to also
+add constraint functions to the problem. Luckily, in practice, this is quite
+straight-forward, as illustrated below:
 
 ```python
 from desdeo.tools import add_epsilon_constraints

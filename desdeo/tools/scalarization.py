@@ -317,9 +317,23 @@ def add_objective_as_scalarization(problem: Problem, symbol: str, objective_symb
 def add_epsilon_constraints(
     problem: Problem, symbol: str, constraint_symbols: dict[str, str], objective_symbol: str, epsilons: dict[str, float]
 ) -> tuple[Problem, str, list[str]]:
-    """Creates expressions for an epsilon constraints scalarization and constraints.
+    r"""Creates expressions for an epsilon constraints scalarization and constraints.
 
     It is assumed that epsilon have been given in a format where each objective is to be minimized.
+
+    The scalarization is defined as follows:
+
+    \begin{equation}
+    \begin{aligned}
+    & \operatorname{min}_{\mathbf{x} \in S}
+    & & f_t(\mathbf{x}) \\
+    & \text{s.t.}
+    & & f_j(\mathbf{x}) \leq \epsilon_j \text{ for all } j = 1, \ldots ,k, \; j \neq t,
+    \end{aligned}
+    \end{equation}
+
+    where $\epsilon_j$ are the epsilon bounds used in the epsilon constraints $f_j(\mathbf{x}) \leq \epsilon_j$,
+    and $k$ is the number of objective functions.
 
     Args:
         problem (Problem): the problem to scalarize.

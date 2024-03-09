@@ -237,6 +237,25 @@ defined as:
 By minimizing, e.g., solving, the achievement scalarizing function, we can find
 Pareto optimal solutions that are close to the provided reference point $\mathbf{q}$.
 
+Another example of a scalarization function is the _epsilon-constraints scalarization_
+defines as:
+
+<span id="def:epsilon"></span>
+!!! note "Definition: the epsilon-constraints scalarization"
+    \begin{equation}
+        \begin{aligned}
+        & \operatorname{min}_{\mathbf{x} \in S}
+        & & f_t(\mathbf{x}) \\
+        & \text{s.t.}
+        & & f_j(\mathbf{x}) \leq \epsilon_j \text{ for all } j = 1, \ldots ,k, \; j \neq t,
+        \end{aligned}
+    \end{equation}
+    where $\epsilon_j$ are the epsilon bounds used in the epsilon constraints $f_j(\mathbf{x}) \leq \epsilon_j$,
+    and $k$ is the number of objective functions.
+
+In the epsilon-constraints scalarization, one of the objective functions is chosen to be
+optimized, while the other objective functions are constrained.
+
 However, it is important to choose and appropriate solver
 when solving a [scalarized problem](#def:scalarized_problem). For example, the
 [achievement scalarizing function](#def:asf) is not differentiable due to the _max_-term
@@ -246,7 +265,9 @@ function can also be formulated in such a way that is is equivalent to the origi
 retains its differentiability. Of course, this assumes that the original objective functions,
 and constraint functions, are also differentiable. In the contrary case, reformulating the
 achievement scalarizing function is unnecessary, since we would be utilizing a gradient free
-solver in any case.
+solver in any case. The [epsilon-constraints scalarization](#def:epsilon), on the other
+hand, retains the differentiability of the objective functions, but it introduced
+constraints, which requires then a solver than can handle them.
 
 There are other considerations to be made when choosing an appropriate solver, such as the type
 of the variables (continuous or integer), the convexity of the objective functions and constraints; and the
