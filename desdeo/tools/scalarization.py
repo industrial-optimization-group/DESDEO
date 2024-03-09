@@ -84,11 +84,39 @@ def add_asf_nondiff(
     delta: float = 0.000001,
     rho: float = 0.000001,
 ) -> tuple[Problem, str]:
-    """Creates and add the achievement scalarizing function for the given problem and reference point.
+    r"""Add the achievement scalarizing function for a problem with the reference point.
 
     This is the non-differentiable variant of the achievement scalarizing function, which
     means the resulting scalarization function is non-differentiable.
     Requires that the ideal and nadir point have been defined for the problem.
+
+    The scalarization is defined as follows:
+
+    \begin{equation}
+        \mathcal{S}_\text{ASF}(F(\mathbf{x}); \mathbf{q}, \mathbf{z}^\star, \mathbf{z}^\text{nad}) =
+        \underset{i=1,\ldots,k}{\text{max}}
+        \left[
+        \frac{f_i(\mathbf{x}) - q_i}{z^\text{nad}_i - (z_i^\star - \delta)}
+        \right]
+        + \rho\sum_{i=1}^{k} \frac{f_i(\mathbf{x})}{z_i^\text{nad} - (z_i^\star - \delta)},
+    \end{equation}
+
+    where $\mathbf{q} = [q_1,\dots,q_k]$ is a reference point, $\mathbf{z^\star} = [z_1^\star,\dots,z_k^\star]$
+    is the ideal point, $\mathbf{z}^\text{nad} = [z_1^\text{nad},\dots,z_k^\text{nad}]$ is the nadir point, $k$
+    is the number of objective functions, and $\delta$ and $\rho$ are small scalar values. The summation term
+    in the scalarization is known as the _augmentation term_. If the reference point is chosen to
+    be used in the augmentation term (`reference_in_aug=True`), then
+    the reference point components are subtracted from the objective function values in the nominator
+    of the augmentation term. That is:
+
+    \begin{equation}
+        \mathcal{S}_\text{ASF}(F(\mathbf{x}); \mathbf{q}, \mathbf{z}^\star, \mathbf{z}^\text{nad}) =
+        \underset{i=1,\ldots,k}{\text{max}}
+        \left[
+        \frac{f_i(\mathbf{x}) - q_i}{z^\text{nad}_i - (z_i^\star - \delta)}
+        \right]
+        + \rho\sum_{i=1}^{k} \frac{f_i(\mathbf{x}) - q_i}{z_i^\text{nad} - (z_i^\star - \delta)}.
+    \end{equation}
 
     Args:
         problem (Problem): the problem to which the scalarization function should be added.
@@ -166,11 +194,40 @@ def add_asf_generic_nondiff(
     reference_in_aug=False,
     rho: float = 0.000001,
 ) -> tuple[Problem, str]:
-    """Creates the generic achievement scalarizing function for the given problem and reference point, and weights.
+    r"""Adds the generic achievement scalarizing function to a problem with the given reference point, and weights.
 
     This is the non-differentiable variant of the generic achievement scalarizing function, which
-    means the resulting scalarization function is non-differentiable.
-    Requires that the ideal and nadir point have been defined for the problem.
+    means the resulting scalarization function is non-differentiable. Compared to `add_asf_nondiff`, this
+    variant is useful, when the problem being scalarized does not have a defined ideal or nadir point,
+    or both. The weights should be non-zero to avoid zero division.
+
+    The scalarization is defined as follows:
+
+    \begin{equation}
+        \mathcal{S}_\text{ASF}(F(\mathbf{x}); \mathbf{q}, \mathbf{w}) =
+        \underset{i=1,\ldots,k}{\text{max}}
+        \left[
+        \frac{f_i(\mathbf{x}) - q_i}{w_i}
+        \right]
+        + \rho\sum_{i=1}^{k} \frac{f_i(\mathbf{x})}{w_i},
+    \end{equation}
+
+    where $\mathbf{q} = [q_1,\dots,q_k]$ is a reference point, $\mathbf{w} =
+    [w_1,\dots,w_k]$ are weights, $k$ is the number of objective functions, and
+    $\delta$ and $\rho$ are small scalar values. The summation term in the
+    scalarization is known as the _augmentation term_. If the reference point is
+    chosen to be used in the augmentation term (`reference_in_aug=True`), then
+    the reference point components are subtracted from the objective function
+    values in the nominator of the augmentation term. That is:
+
+    \begin{equation}
+        \mathcal{S}_\text{ASF}(F(\mathbf{x}); \mathbf{q}, \mathbf{w}) =
+        \underset{i=1,\ldots,k}{\text{max}}
+        \left[
+        \frac{f_i(\mathbf{x}) - q_i}{w_i}
+        \right]
+        + \rho\sum_{i=1}^{k} \frac{f_i(\mathbf{x}) - q_i}{w_i}.
+    \end{equation}
 
     Args:
         problem (Problem): the problem to which the scalarization function should be added.
@@ -241,9 +298,21 @@ def add_asf_generic_nondiff(
 
 
 def add_weighted_sums(problem: Problem, symbol: str, weights: dict[str, float]) -> tuple[Problem, str]:
-    """Add the weighted sums scalarization to a problem.
+    r"""Add the weighted sums scalarization to a problem with the given weights.
 
     It is assumed that the weights add to 1.
+
+    The scalarization is defined as follows:
+
+    \begin{equation}
+        \begin{aligned}
+        & \mathcal{S}_\text{WS}(F(\mathbf{x});\mathbf{w}) = \sum_{i=1}^{k} w_i f_i(\mathbf{x}) \\
+        & \text{s.t.} \sum_{i=1}^{k} w_i = 1,
+        \end{aligned}
+    \end{equation}
+
+    where $\mathbf{w} = [w_1,\dots,w_k]$ are the weights and $k$ is the number of
+    objective functions.
 
     Warning:
         The weighted sums scalarization is often not capable of finding most Pareto optimal
@@ -284,7 +353,15 @@ def add_weighted_sums(problem: Problem, symbol: str, weights: dict[str, float]) 
 
 
 def add_objective_as_scalarization(problem: Problem, symbol: str, objective_symbol: str) -> tuple[Problem, str]:
-    """Creates a scalarization where one of the problem's objective functions is optimized.
+    r"""Creates a scalarization where one of the problem's objective functions is optimized.
+
+    The scalarization is defined as follows:
+
+    \begin{equation}
+        \operatorname{min}_{\mathbf{x} \in S} f_t(\mathbf{x}),
+    \end{equation}
+
+    where $f_t(\mathbf{x})$ is the objective function to be minimized.
 
     Args:
         problem (Problem): the problem to which the scalarization should be added.
@@ -386,6 +463,9 @@ def create_epsilon_constraints_json(
 
     It is assumed that epsilon have been given in a format where each objective is to be minimized.
 
+    Warning:
+        To be deprecated.
+
     Args:
         problem (Problem): the problem to scalarize.
         objective_symbol (str): the objective used as the objective in the epsilon constraint scalarization.
@@ -397,7 +477,7 @@ def create_epsilon_constraints_json(
 
     Returns:
         tuple[list, list]: the first element is the expression of the scalarized objective expressed in MathJSON format.
-        The second element is a list of expressions of the constraints expressed in MathJSON format.
+            The second element is a list of expressions of the constraints expressed in MathJSON format.
             The constraints are in less than or equal format.
     """
     correct_symbols = [objective.symbol for objective in problem.objectives]

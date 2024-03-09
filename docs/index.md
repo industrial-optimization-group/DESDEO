@@ -20,7 +20,7 @@ hide:
 
     ---
 
-    Learn about central topics about DESDEO and how to contribute to it
+    Learn about the central topics in DESDEO and how to contribute
     
 
     [:octicons-arrow-right-24: Tutorials](./tutorials/moo_primer.md)
