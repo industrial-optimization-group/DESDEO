@@ -4,7 +4,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from desdeo.api.routers import NIMBUS, UserAuth, problems, test, NAUTILUS_navigator
+from desdeo.api.routers import NIMBUS, NAUTILUS_navigator, UserAuth, problems, test
 
 app = FastAPI(
     title="DESDEO (fast)API",

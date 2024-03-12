@@ -27,9 +27,11 @@ class InitRequest(BaseModel):
     """The request to initialize the NAUTILUS Navigator."""
 
     problem_id: int = Field(description="The ID of the problem to navigate.")
+    """The ID of the problem to navigate."""
     total_steps: int | None = Field(
-        description=("The total number of steps in the NAUTILUS Navigator. The default value is 100."), default=100
+        description="The total number of steps in the NAUTILUS Navigator. The default value is 100.", default=100
     )
+    "The total number of steps in the NAUTILUS Navigator. The default value is 100."
 
 
 class NavigateRequest(BaseModel):
@@ -93,6 +95,8 @@ def init_navigator(
         raise HTTPException(status_code=404, detail="Problem not found.")
     if problem.owner != user.index and problem.owner is not None:
         raise HTTPException(status_code=403, detail="Unauthorized to access chosen problem.")
+    if problem.value is None:
+        raise HTTPException(status_code=500, detail="Problem not found.")
     try:
         problem = Problem.model_validate(problem.value)
     except ValidationError:

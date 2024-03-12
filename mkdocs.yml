@@ -29,10 +29,10 @@ nav:
       - "How to use the NAUTILUS Navigator method": "howtoguides/nautilus_navigator.md"
   - "API Reference":
       - "desdeo-problem": "api/desdeo_problem.md"
-      - "desdeo-tools": "api/desdeo_tools.md"
-      - "desdeo-mcdm": "api/desdeo_mcdm.md"
-      - "desdeo-emo": "api/desdeo_emo.md"
-      - "desdeo-api": "api/desdeo_api.md"
+      - "MCDM": "api/desdeo_mcdm.md"
+      - "EMO": "api/desdeo_emo.md"
+      - "Miscellaneous tools": "api/desdeo_tools.md"
+      - "DESDEO REST API": "api/desdeo_api.md"
 
 theme:
   name: material
@@ -82,7 +82,7 @@ plugins:
             show_symbol_type_doc: true
             filters: none
           docstring_options:
-           ignore_init_summary: true
+            ignore_init_summary: true
 
 markdown_extensions:
   - admonition
@@ -104,4 +104,4 @@ markdown_extensions:
           format: !!python/name:pymdownx.superfences.fence_code_format
 
 extra_css:
-  - stylesheets/extra.css 
+  - stylesheets/extra.css
