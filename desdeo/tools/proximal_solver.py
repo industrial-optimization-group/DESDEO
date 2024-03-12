@@ -1,4 +1,4 @@
-"""Defines solvers meant to be utilized with Problems with pre-defined solutions."""
+"""Defines solvers meant to be utilized with Problems with discrete representations."""
 from collections.abc import Callable
 
 import polars as pl

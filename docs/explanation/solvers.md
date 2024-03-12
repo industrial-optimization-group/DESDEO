@@ -6,18 +6,19 @@ Instead, DESDEO provides interfaces to many existing solvers.
 How these interfaces work in general is explained in the 
 section [Solver interfaces](#solver-interfaces), while
 a couple of examples on how to use the solvers are
-given in the section[Solver examples](#solver-examples).
+given in the section [Solver examples](#solver-examples).
 
 ## Solver interfaces
 
-The solver interfaces make rely internally heavily on the evaluators discussed
+The solver interfaces rely internally heavily on the evaluators discussed
 in the section [Parsing and evaluating](./parsing_and_evaluating.md). It is
 the evaluators that make sure the `Problem` being solved is in a format that
-can be evaluated by a solver. The job of the solver interfaces discussed here are
-in charge of making sure that when a solver evaluates a problem, the information
+can be evaluated by a solver. The solver interfaces discussed here are
+in charge of making sure that when an outside solver evaluates a problem, the information
 from the solver is passed to the evaluator in a correct format, and that the
 output of the solver is then processed in a way that it can be utilized elsewhere
-in DESDEO. To put it simply, the solver interfaces are translators between the
+in DESDEO. The interfaces also pass information from DESDEO to solvers
+in a compatible format. To put it simply, the solver interfaces are translators between the
 evaluators in DESDEO and the solvers found outside of DESDEO.
 
 ## Solver examples
@@ -57,11 +58,32 @@ dataclass of type [SolverResults][desdeo.tools.generics.SolverResults] with the 
 is important to know that whichever function we request the solver to optimize, will be minimized. Therefore,
 in the example, if `f_1` was to be maximized instead, we should have called `solver` with the argument `f_1_min`.
 The results contained in SolverResults will then correspond to the original maximized function `f_1`. It is
-the jobs of the evaluators to make sure that `f_1_min` is available.
+the jobs of the evaluators to make sure that `f_1_min` is available. Likewise, if we have
+[Scalarized](./scalarization.md) the problem, we can give the solver the symbol of the added
+scalarization function.
 
 !!! note
     Whichever function we request a solver to optimize, it will be minimized.
 
-### Naive solver
+### Proximal solver
+
+The [proximal solver][desdeo.tools.proximal_solver.create_proximal_solver] is useful when a `Problem` has been defines such that all of
+its objective functions have been defined with a
+[DiscreteRepresentation][desdeo.problem.schema.DiscreteRepresentation]. The
+proximal solver takes a symbol to optimize, and will return the decision
+variable values that correspond to the lowest value found for the symbol in the
+data. It works identically to the scipy solver in the previous example:
+
+```python
+from desdeo.tools import create_proximal_solver
+
+problem: Problem  # a problem with the objectives f_1, f_2, and f_3, and a discrete definition available
+
+solver = create_proximal_solver(problem)
+
+results: SolverResults = solver("f_1")
+```
 
 ### Pyomo solvers
+
+WIP.

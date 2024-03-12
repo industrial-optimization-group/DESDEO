@@ -13,7 +13,12 @@
     options:
         heading_level: 3
 
-## Pyomo solver interfaces
+## Proximal solver
+::: desdeo.tools.proximal_solver
+    options:
+        heading_level: 3
+
+## Generics
 ::: desdeo.tools.generics
     options:
         heading_level: 3
