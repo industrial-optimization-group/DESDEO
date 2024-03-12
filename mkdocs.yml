@@ -7,23 +7,26 @@ site_dir: "site"
 nav:
   - Home: "index.md"
   - "DESDEO":
-      - "DESDEO": "home/index.md"
+      - "": "home/index.md"
       - "About": "home/about.md"
       - "The structure": "home/structure.md"
       - "Citing DESDEO": "home/citing.md"
   - "Tutorials":
+      - "": "tutorials/index.md"
       - "A primer on interactive multiobjective optimization": "tutorials/moo_primer.md"
       - "Installing DESDEO": "tutorials/installing.md"
       - "Contributing to DESDEO": "tutorials/contributing.md"
   - "Explanation":
+      - "": "explanation/index.md"
       - "The problem format": "explanation/problem_format.md"
       - "Parsing and evaluating": "explanation/parsing_and_evaluating.md"
       - "Scalarization": "explanation/scalarization.md"
       - "Solvers": "explanation/solvers.md"
-  - "User Guide":
-      - "How to define multiobjective optimization problems": "howtoguides/problem.md"
+  - "Guides":
+      - "": "howtoguides/index.md"
+      - "How to define a multiobjective optimization problem": "howtoguides/problem.md"
       - "How to run DESDEO's web API": "howtoguides/api.md"
-      - "How to use the NAUTILUS Navigator method": "howtoguides/NAUTILUS Navigator.md"
+      - "How to use the NAUTILUS Navigator method": "howtoguides/nautilus_navigator.md"
   - "API Reference":
       - "desdeo-problem": "api/desdeo_problem.md"
       - "desdeo-tools": "api/desdeo_tools.md"
@@ -37,10 +40,13 @@ theme:
     - navigation.instant
     - navigation.tabs
     - palette.switch
+    - navigation.tabs
+    - navigation.tabs.sticky
   nav_style: dark
   highlightjs: true
   hljs_languages:
     - python
+    - json
   locale: en
   palette:
     scheme: slate

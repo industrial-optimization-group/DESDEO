@@ -21,7 +21,6 @@ hide:
     ---
 
     Learn about the central topics in DESDEO and how to contribute
-    
 
     [:octicons-arrow-right-24: Tutorials](./tutorials/moo_primer.md)
 
@@ -33,13 +32,13 @@ hide:
 
     [:octicons-arrow-right-24: Explanation](./explanation/problem_format.md)
 
--   :octicons-checklist-24:{ .lg .middle } __How to guides__
+-   :octicons-checklist-24:{ .lg .middle } __Guides__
 
     ---
 
     Get stuff done with DESDEO
 
-    [:octicons-arrow-right-24: How to guides](./howtoguides/problem.md)
+    [:octicons-arrow-right-24: Guides](./howtoguides/problem.md)
 
 </div>
 

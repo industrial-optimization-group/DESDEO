@@ -6,8 +6,13 @@ optimization is. This is by no means meant to be a comprehensive tutorial,
 but rather a gentle introduction to the topic so that the reader can
 get a better idea on what DESDEO is about.
 
-We start by defining what a multiobjective optimization problem is in
-section [The multiobjective optimization problem](#the-multiobjective-optimization-problem).
+The reader with no prior knowledge on multiobjective optimization is advised to read
+the sections in this tutorial in order. The more seasoned reader may jump to a section
+of interest, skipping the sections they feel to be already familiar with. Each section
+in this tutorial is also prefaced with a short motivation on why
+each section is important to understand in the context of DESDEO. To support
+a non-linear approach to reading this tutorial, the notation used has been
+collected in the section [Notation summary](#notation-summary).
 
 ## The multiobjective optimization problem
 
@@ -28,7 +33,7 @@ which denote an upper and lower bound for each decision variable.
 The objective functions and constraints are functions of the decision variables, e.g.,
 $f_i \to f_i(\mathbf{x})$, where $i \in [1, k]$; $g \to g(\mathbf{x})$, and $h \to h(\mathbf{x})$.
 
-We can put all the above together to define a multiobjective optimization problem as:
+We can put the above together to define a multiobjective optimization problem as:
 <span id="def:moo"></span>
 !!! Note "Definition: a multiobjective optimization problem"
     \begin{align}
@@ -65,7 +70,7 @@ _integer problem_.
 
 Furthermore, depending on the characteristics of the objective functions, a problem
 may be _convex_ or _non-convex_, and _differentiable_ or _non-differentiable_. These
-details become important when choosing an appropriate solve to solve, e.g.,
+details become important when choosing an appropriate solver to solve, e.g.,
 a scalarized version of a multiobjective optimization problem. Scalarization
 and scalarized problems will be discussed in the section [Scalarization](#scalarization).
 
@@ -82,7 +87,7 @@ to multiobjective optimization problems next.
     choosing a solver. See [Solvers and solver interfaces](../explanation/solvers.md#solvers-and-solver-interfaces).
 
     In evolutionary multiobjective optimization, the discussed concept of dominance plays a key role, and understanding
-    it is important when operating evolutionary methods. See TOBEADDED!
+    it is important when operating evolutionary methods. See [Evolutionary multiobjective optimization](#evolutionary-multiobjective-optimization).
 
 In multiobjective optimization, the optimality of the solutions to multiobjective optimization
 problems is defined utilizing the concept of _Pareto optimality_. Pareto optimality is defined
@@ -102,7 +107,7 @@ $\mathbf{z}' = [f_1(x'), f_2(x'), \dots, f_k(x')] = [z'_1, z'_2, \dots, z'_k]$. 
 of Pareto optimality that when comparing two objective vectors $\mathbf{z}^1$ and $\mathbf{z}^2$,
 that correspond to Pareto optimal solutions, we cannot switch from one vector to the other
 in hopes of improving one objective function's value without having to deteriorate at least
-another objective function's value. That is, when comparing the objective vectors corresponding to
+one other objective function value. That is, when comparing the objective vectors corresponding to
 Pareto optimal solutions, we have to make _trade-offs_.
 
 If we furthermore define the set of the images of all the feasible solutions to a multiobjective
@@ -110,7 +115,7 @@ optimization problem to be $Z$, then we can also define the image set of all Par
 to be $Z^\text{Pareto}$. We then readily see that $Z^\text{Pareto} \subset Z$. The set of all Pareto
 optimal solutions can also be defined as $S^\text{Pareto}$, which is known as the
 _Pareto optimal set_. Likewise, the set $Z^\text{Pareto}$ is known as the _Pareto front_. The Pareto
-optimal set and the Pareto front are often very large, often uncountable, and they are
+optimal set and the Pareto front are often very large, usually uncountable, and they are
 therefore seldom fully known for a multiobjective optimization problem. As
 such, the Pareto optimal solution set and the Pareto front should be understood as
 theoretical concepts.
@@ -129,7 +134,7 @@ optimizing each objective function individually and taking their optimal values,
 which then correspond to the elements of the ideal point. On the other hand, the
 nadir point is less trivial to compute, and is therefore often approximated.
 
-A concept similar to Pareto optimality is _dominance_. Dominance is usually
+Another important concept, which is similar to Pareto optimality, is _dominance_. Dominance is usually
 defined using objective vectors as:
 
 <span id="def:dominance"></span> 
@@ -137,7 +142,7 @@ defined using objective vectors as:
     An objective vector $\mathbf{z}^1$ is said to dominate another objective
     vector $\mathbf{z}^2$ if, and only if,
 
-    - $z^1_i \leq z^1_i\,\forall i \in [1, k]$, and
+    - $z^1_i \leq z^1_i\,\text{for all} i \in [1, k]$, and
     - $z^1_j < z^1_j$ for at least one $j \in [1,k]$.
     
 To notate domination, the following syntax can be used: $\mathbf{z}^1 \succ \mathbf{z}^2$,
@@ -147,7 +152,8 @@ problem that are not necessarily Pareto optimal.
 It allows the identification of solutions that fulfill the properties of Pareto
 optimality _in the solution set_ being studied. Domination is a central concept when
 generating approximations and representations of Pareto optimal solution sets and their
-images. We will return to this topic when discussing about evolutionary multiobjective 
+images for computationally demanding problems.
+We will return to this topic when discussing about evolutionary multiobjective 
 optimization in the section
 [Evolutionary multiobjective optimization](#evolutionary-multiobjective-optimization).
 
@@ -155,17 +161,19 @@ optimization in the section
 
 !!! question "Why and where is this relevant in DESDEO?"
     Preference information plays a key role in interactive multiobjective 
-    optimization methods found throughout DESDEO. 
+    optimization methods found throughout DESDEO. Preference information is utilized
+    in many methods to rank and order Pareto optimal and non-dominated solutions. 
 
 We now have an idea what an optimal solution to a [multiobjective optimization problem](#def:moo)
 is, and we know that there are [many such solutions](#def:pareto_optimality). But which
 of the Pareto optimal solutions is the _best_?
 
-Without any further information, it is not possible to fully order Pareto optimal solutions.
-One way to break away from this ambiguity on which solution is the best, is to utilize
-_preference information_. Preference information is usually supplied by a _decision maker_
-who is an expert, and consequently has adequate domain expertise, in the application
-domain of a considered multiobjective optimization problem. This preference
+Without any further information, it is not possible to fully order Pareto optimal solutions,
+because their images are represented by vectors.
+One way to break this ambiguity, is to utilize
+_preference information_. Preference information is almost always supplied by a _decision maker_
+who is a domain expert in the application
+domain of the considered multiobjective optimization problem being solved. This preference
 information can then be utilized to find the solution that best matches it
 among the Pareto optimal solutions to a multiobjective optimization problem.
 
@@ -173,17 +181,18 @@ There are a couple of important assumptions that are made when considering
 preference information from a decision maker. First, we assume that a decision
 maker will always prefer a Pareto optimal solution over a non-Pareto optimal one,
 or consequently a [non-dominated solution](#def:dominance) over a dominated when. Second,
-we assume the decision maker to provide their preferences in such a way that they can be
-used to identify the decision maker's best, or most preferred, solution.
+we assume that the decision maker can provide their preferences in such a way that they can be
+used to identify the decision maker's best, or most preferred, solution. This often means
+that preference information must be somehow quantifiable.
 
-As an example of what preference information can consists of, consider the
+As an example of what preference information is, consider the
 _reference point_. A reference point is a vector consisting of
 _aspiration levels_. These aspiration levels are objective function
 values that a decision maker wishes, or aspires, to achieve when searching
 for a solution to a multiobjective optimization problem. An aspiration
 level is defined as $\mathbf{q} = [q_1, q_2, \dots, q_k]$, where the
 aspiration levels $q_1, \dots, q_k$ are often assumed to be bounded by
-a problem's ideal and nadir points.
+the problem's ideal and nadir points.
 
 Naturally, utilizing preferences provided by a decision maker causes the _best_
 solution to be very subjective. This observation underlines that multiobjective 
@@ -197,7 +206,12 @@ to support decision maker's in finding their most preferred solution.
 ## Scalarization
 
 !!! question "Why and where is this relevant in DESDEO?"
-    Scalarization plays a central role in many of the methods found in DESDEO.
+    Scalarization plays a central role in many of the methods found in DESDEO. It allows
+    transforming multiobjective optimization problems into single-objective
+    optimization problems, which we know how to solve. Scalarization often
+    integrates preference information. This means that once solved,
+    scalarized problems lead to solutions that
+    match, as best as possible, the included preferences.
     Especially the introduced reference points are a recurring element in many scalarization
     functions. See [Scalarization](../explanation/scalarization.md#scalarization).
 
@@ -207,7 +221,7 @@ approach, which utilizes _scalarization_.
 
 By scalarizing a [multiobjective optimization problem](#def:moo), we transform it from
 a multiobjective optimization problem to a single-objective optimization problem. 
-Formally, we can define a scalarization function to be be a mapping:
+Formally, we can define a scalarization function to be the following mapping:
 $\mathcal{S}:\,\mathbb{R}^k \to \mathbb{R}$. We can then define a _scalarized problem_
 to be:
 
@@ -261,13 +275,13 @@ when solving a [scalarized problem](#def:scalarized_problem). For example, the
 [achievement scalarizing function](#def:asf) is not differentiable due to the _max_-term
 present in it. This means that when choosing a solver, a solver that does not
 require gradient information should be utilized. Alternatively, the achievement scalarizing
-function can also be formulated in such a way that is is equivalent to the original formulation, but
+function can also be formulated in such a way that is equivalent to the original formulation, but
 retains its differentiability. Of course, this assumes that the original objective functions,
-and constraint functions, are also differentiable. In the contrary case, reformulating the
+and the constraint functions, are also differentiable. In the contrary case, reformulating the
 achievement scalarizing function is unnecessary, since we would be utilizing a gradient free
-solver in any case. The [epsilon-constraints scalarization](#def:epsilon), on the other
-hand, retains the differentiability of the objective functions, but it introduced
-constraints, which requires then a solver than can handle them.
+solver anyway. The [epsilon-constraints scalarization](#def:epsilon), on the other
+hand, retains the differentiability of the objective functions, but it introduces
+constraints, which then requires a solver than can handle them.
 
 There are other considerations to be made when choosing an appropriate solver, such as the type
 of the variables (continuous or integer), the convexity of the objective functions and constraints; and the
@@ -276,20 +290,20 @@ choosing an appropriate solver to guarantee the Pareto optimality of the solutio
 This primer will not delve deeper into these topics, but leaves the finer
 details to other literature[^1][^2].
 
-## Types of multiobjective optimization methods
+## Interactive methods
 
 !!! question "Why and where is this relevant in DESDEO?"
     It is important to understand what interactive multiobjective optimization
     methods are, and how they differ from other types of multiobjective optimization methods.
-    DESDEO specialized in interactive methods, which are found throughout
-    the framework. See the section HOWTO for examples on how to
+    DESDEO specializes in interactive methods, which are found throughout
+    the framework. See the section [Guides](../howtoguides/index.md) for examples on how to
     implement and utilize various interactive multiobjective optimization methods.
 
 Multiobjective optimization methods can be categorized into different
 types based on _when_ preference information is incorporated in the optimization,
-i.e., the search of Pareto optimal solutions. To start, methods that do not
+i.e., the search of Pareto optimal solutions. Methods that do not
 use preference information at all are known as _no-preference_ methods, and
-will not be discussed further. DESDEO focused on the decision-support
+will not be discussed further. DESDEO focuses on the decision-support
 aspect of multiobjective optimization, therefore only methods that make
 use of preferences are relevant.
 
@@ -298,7 +312,7 @@ is known as an _a priori_ method. These methods require preference information
 to be available _before_ any optimization is done. This means that a
 decision maker is required to provide, for instance, a reference point
 before any optimization can take place. When preference information is given, then
-optimization can take place, and an a priori method then terminates after
+optimization can take place. An a priori method is considered terminated after
 one or more solutions to a multiobjective optimization problem have been found
 based on the provided preferences.
 
@@ -306,21 +320,22 @@ The second type of method that makes use of preference information is known
 as an _a posteriori_ method. In these methods, preference information is utilized
 _after_ optimization has taken place. Many evolutionary multiobjective optimization
 methods, discusses later in the section
-[Evolutionary multiobjective optimization methods](#evolutionary-multiobjective-optimization-methods),
-are a posteriori methods, because they are capable of generating non-dominated solution
-sets, which approximate Pareto optimal solutions. Therefore, in an a posteriori method, it is
+[Evolutionary multiobjective optimization](#evolutionary-multiobjective-optimization),
+are a posteriori methods, because they are capable of generating non-dominated solutions,
+which approximate Pareto optimal solutions. Therefore, in an a posteriori method, it is
 often the case that a large number of solutions is generated first, then the preferences of
 a decision maker are utilized to explore the solutions and find the solution that is
 most preferred by the decision maker.
 
 The third type method, and the most relevant type of method in DESDEO, is
 known as an _interactive method_. In interactive methods, preferences are provided
-by the decision maker, and utilized in the method, _during_ optimization. This means
+by the decision maker, and are then utilized in the method _during_ optimization. This means
 that the decision maker iteratively provides preference information, which is then utilized
 to compute new solution. The decision maker can then inspect these solutions, and provide
 further preferences, which are again utilized to compute further new solutions.
 
-While all the types of method discussed have their own pros and cons, interactive methods
+While all the types of method discussed have their own advantages and
+disadvantages, interactive methods
 shine especially in their ability to _support_ a decision maker to learn about
 the solutions available to a multiobjective optimization problem. For example,
 interactive methods can support a decision maker to learn about the trade-offs
@@ -330,33 +345,34 @@ preferences, and therefore allows a decision maker to change and fine-tune their
 preferences to find more interesting solutions. 
 However, interactive methods are challenging to implement because of their
 interactive nature. The methods often require specialized user interfaces to be
-able to shine.
+able to truly shine.
 
 DESDEO focuses on interactive multiobjective optimization, and provides tools
-and means to implement some of the most popular interactive methods, and allows
-users to also implement their own. Because of DESDEO, there is no need to 
+and means to implement many existing interactive methods, and allows
+users to implement their own methods as well. Because of DESDEO, there is no need to 
 reinvent the wheel when it comes to interactive methods. Instead, components of
 existing methods can be re-used and combined to create new methods, saving
-researchers and developers time.
+researchers', practitioners', and developers' time.
 
 Interactive multiobjective optimization methods can be further classified
-into _exact_ and _inexact_ methods, roughly speaking. Exact methods
-will be discussed in the section [Exact methods](#exact-methods),
-and inexact methods will be introduced in the section [Evolutionary multiobjective optimization methods](#evolutionary-multiobjective-optimization-methods).
+into _scalarization-based_ and _population-based_ methods, roughly speaking.
+Scalarization-based methods
+will be discussed in the section [Scalarization-based methods](#scalarization-based-methods),
+and population-based methods will be introduced in the section [Population-based method](#population-based methods).
 
-## Exact methods
+## Scalarization-based methods
 
 !!! question "Why and where is this relevant in DESDEO?"
-    The `desdeo-mcdm` module contains many exact interactive multiobjective optimization methods.
+    The `desdeo-mcdm` module contains many scalarization-based
+    interactive multiobjective optimization methods.
     It is important to know when these methods are appropriate to be used, and what are their
     limitations.
 
-Exact methods, sometimes called _MCDM methods_, are methods that employ [scalarization](#scalarization)
-and exact solvers, such as gradient-based optimization. To apply exact methods, it is 
+Scalarization-based methods, also called _MCDM methods_, are methods that employ [scalarization](#scalarization)
+and deterministic solvers, such as gradient-based optimization. To apply these methods, it is 
 necessary that the problem formulation is known, i.e., the problem is defined
-_analytically_. In this case, many exact solvers can exploit the problem's mathematical
-properties to guarantee the Pareto optimality of the solutions found. Hence, the term
-_exact methods_.
+_analytically_. In this case, many solvers can exploit the problem's mathematical
+properties to guarantee the Pareto optimality of the solutions found.
 
 !!! note
     The name _MCDM method_ comes from the field of _multiple criteria decision making_.
@@ -375,13 +391,18 @@ A more suitable approach would be to utilize heuristics-based methods. One such
 category of methods is evolutionary multiobjective optimization, which will
 be discussed next.
 
+!!! TODO
+    Add more examples. Links to guides.
+
+## Population-based methods
+
+!!! TODO
+    Write once we have something in `desdeo-emo`.
+
 ## Evolutionary multiobjective optimization
 
-TODO
-
-## Evolutionary multiobjective optimization methods
-
-TODO
+!!! TODO
+    Write once we have something in `desdeo-emo`.
 
 ## Notation summary
 
