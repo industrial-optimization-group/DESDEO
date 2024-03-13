@@ -28,6 +28,7 @@ poetry install
 - Install DESDEO with Poetry (`poetry install -E standard` or `poetry install -E legacy`)
   - Note that the `standard` extra includes the `polars` dependency which may not work on older CPUs or in an Apple
     Silicon environment under Rosseta 2. In this case, use the `legacy` extra instead.
+  - Not that the `api` extra includes the API dependencies needed to run the API.
 - Run tests? Run Notebooks? Profit?
 
 
