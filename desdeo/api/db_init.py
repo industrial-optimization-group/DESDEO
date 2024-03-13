@@ -9,7 +9,7 @@ from desdeo.api import db_models
 from desdeo.api.db import SessionLocal, engine
 from desdeo.api.routers.UserAuth import get_password_hash
 from desdeo.api.schema import ObjectiveKind, ProblemKind, UserPrivileges, UserRole
-from desdeo.problem.schema import DiscreteDefinition, Objective, Problem, Variable
+from desdeo.problem.schema import DiscreteRepresentation, Objective, Problem, Variable
 from desdeo.problem.testproblems import binh_and_korn
 
 TEST_USER = "test"
@@ -81,8 +81,9 @@ def fakeProblemDontLook():
     )
 
     npv = Objective(
-        name="NPV",
+        name="Net present value",
         symbol="NPV",
+        unit="Million EUR",
         func=None,
         objective_type="data_based",
         maximize=True,
@@ -91,8 +92,9 @@ def fakeProblemDontLook():
     )
 
     sv30 = Objective(
-        name="SV30",
+        name="Change in standing volume",
         symbol="SV30",
+        unit="Million cubic meters",
         func=None,
         objective_type="data_based",
         maximize=True,
@@ -101,8 +103,9 @@ def fakeProblemDontLook():
     )
 
     removal1 = Objective(
-        name="Removal1",
+        name="Yearly removal during first period",
         symbol="Removal1",
+        unit="Million cubic meters",
         func=None,
         objective_type="data_based",
         maximize=True,
@@ -111,8 +114,9 @@ def fakeProblemDontLook():
     )
 
     removal2 = Objective(
-        name="Removal2",
+        name="Yearly removal during second period",
         symbol="Removal2",
+        unit="Million cubic meters",
         func=None,
         objective_type="data_based",
         maximize=True,
@@ -121,8 +125,9 @@ def fakeProblemDontLook():
     )
 
     removal3 = Objective(
-        name="Removal3",
+        name="Yearly removal during third period",
         symbol="Removal3",
+        unit="Million cubic meters",
         func=None,
         objective_type="data_based",
         maximize=True,
@@ -138,7 +143,7 @@ def fakeProblemDontLook():
         "Removal3": ((data["removal3"]) / divisor_removal).to_list(),
     }
 
-    dis_def = DiscreteDefinition(
+    dis_def = DiscreteRepresentation(
         variable_values={"index": data["index"].to_list()},
         objective_values=obj_data,
     )
@@ -147,7 +152,7 @@ def fakeProblemDontLook():
         description="None yet.",
         variables=[index_var],
         objectives=[npv, sv30, removal1, removal2, removal3],
-        discrete_definition=dis_def,
+        discrete_representation=dis_def,
     )
 
 

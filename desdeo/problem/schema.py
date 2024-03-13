@@ -227,6 +227,15 @@ class Objective(BaseModel):
     """ Symbol to represent the objective function. This will be used in the
     rest of the problem definition.  It may also be used in UIs and
     visualizations. Example: 'f_1'."""
+    unit: str | None = Field(
+        description=(
+            "The unit of the objective function. This is optional. Used in UIs and visualizations. Example: 'seconds'"
+            " or 'millions of hectares'."
+        ),
+        default=None,
+    )
+    """The unit of the objective function. This is optional. Used in UIs and visualizations. Example: 'seconds' or
+    'millions of hectares'. Defaults to `None`."""
     func: list | None = Field(
         description=(
             "The objective function. This is a JSON object that can be parsed into a function."

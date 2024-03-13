@@ -28,7 +28,7 @@ class InitRequest(BaseModel):
 
     problem_id: int = Field(description="The ID of the problem to navigate.")
     """The ID of the problem to navigate."""
-    total_steps: int | None = Field(
+    total_steps: int = Field(
         description="The total number of steps in the NAUTILUS Navigator. The default value is 100.", default=100
     )
     "The total number of steps in the NAUTILUS Navigator. The default value is 100."
@@ -47,7 +47,9 @@ class NavigateRequest(BaseModel):
 class InitialResponse(BaseModel):
     """The response from the initial endpoint of NAUTILUS Navigator."""
 
-    objective_names: list[str] = Field(description="The names of the objectives.")
+    objective_symbols: list[str] = Field(description="The symbols of the objectives.")
+    objective_long_names: list[str] = Field(description="Long/descriptive names of the objectives.")
+    units: list[str] | None = Field(description="The units of the objectives.")
     is_maximized: list[bool] = Field(description="Whether the objectives are to be maximized or minimized.")
     ideal: list[float] = Field(description="The ideal values of the objectives.")
     nadir: list[float] = Field(description="The nadir values of the objectives.")
@@ -60,7 +62,9 @@ class Response(BaseModel):
     Contains information about the full navigation process.
     """
 
-    objective_names: list[str] = Field(description="The names of the objectives.")
+    objective_symbols: list[str] = Field(description="The symbols of the objectives.")
+    objective_long_names: list[str] = Field(description="Long/descriptive names of the objectives.")
+    units: list[str] | None = Field(description="The units of the objectives.")
     is_maximized: list[bool] = Field(description="Whether the objectives are to be maximized or minimized.")
     ideal: list[float] = Field(description="The ideal values of the objectives.")
     nadir: list[float] = Field(description="The nadir values of the objectives.")
@@ -98,7 +102,7 @@ def init_navigator(
     if problem.value is None:
         raise HTTPException(status_code=500, detail="Problem not found.")
     try:
-        problem = Problem.model_validate(problem.value)
+        problem = Problem.model_validate(problem.value)  # Ignore the mypy error here for now.
     except ValidationError:
         raise HTTPException(status_code=500, detail="Error in parsing the problem.") from ValidationError
 
@@ -119,7 +123,9 @@ def init_navigator(
     db.commit()
 
     return InitialResponse(
-        objective_names=[obj.name for obj in problem.objectives],
+        objective_symbols=[obj.symbol for obj in problem.objectives],
+        objective_long_names=[obj.name for obj in problem.objectives],
+        units=[obj.unit for obj in problem.objectives],
         is_maximized=[obj.maximize for obj in problem.objectives],
         ideal=[obj.ideal for obj in problem.objectives],
         nadir=[obj.nadir for obj in problem.objectives],
@@ -162,7 +168,7 @@ def navigate(
     if problem.owner != user.index and problem.owner is not None:
         raise HTTPException(status_code=403, detail="Unauthorized to access chosen problem.")
     try:
-        problem = Problem.model_validate(problem.value)
+        problem = Problem.model_validate(problem.value)  # Ignore the mypy error here for now.
     except ValidationError:
         raise HTTPException(status_code=500, detail="Error in parsing the problem.") from ValidationError
 
@@ -183,7 +189,7 @@ def navigate(
             bounds=bounds,
         )
     except IndexError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        raise HTTPException(status_code=400, detail="Possible reason for error: bounds are too restrictive.") from e
 
     for response in new_responses:
         new_result = Results(
@@ -202,13 +208,19 @@ def navigate(
     preferences = {}
     bounds = {}
     for obj in problem.objectives:
-        lower_bounds[obj.name] = [response.reachable_bounds["lower_bounds"][obj.name] for response in active_responses]
-        upper_bounds[obj.name] = [response.reachable_bounds["upper_bounds"][obj.name] for response in active_responses]
-        preferences[obj.name] = [response.reference_point[obj.name] for response in active_responses[1:]]
-        bounds[obj.name] = [response.bounds[obj.name] for response in active_responses[1:]]
+        lower_bounds[obj.symbol] = [
+            response.reachable_bounds["lower_bounds"][obj.symbol] for response in active_responses
+        ]
+        upper_bounds[obj.symbol] = [
+            response.reachable_bounds["upper_bounds"][obj.symbol] for response in active_responses
+        ]
+        preferences[obj.symbol] = [response.reference_point[obj.symbol] for response in active_responses[1:]]
+        bounds[obj.symbol] = [response.bounds[obj.symbol] for response in active_responses[1:]]
 
     return Response(
-        objective_names=[obj.name for obj in problem.objectives],
+        objective_symbols=[obj.symbol for obj in problem.objectives],
+        objective_long_names=[obj.name for obj in problem.objectives],
+        units=[obj.unit for obj in problem.objectives],
         is_maximized=[obj.maximize for obj in problem.objectives],
         ideal=[obj.ideal for obj in problem.objectives],
         nadir=[obj.nadir for obj in problem.objectives],

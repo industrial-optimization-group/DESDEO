@@ -363,7 +363,7 @@ def navigator_step(  # NOQA: PLR0913
     bounds: dict | None = None,
     create_solver: CreateSolverType | None = None,
     reference_point: dict | None = None,
-    reachable_solution: dict | None = None,
+    reachable_solution: dict[str, float] | None = None,
 ) -> NAUTILUS_Response:
     """Performs a step of the NAUTILUS method.
 
@@ -396,7 +396,7 @@ def navigator_step(  # NOQA: PLR0913
     if reference_point is not None:
         opt_result = solve_reachable_solution(problem, reference_point, nav_point, create_solver, bounds=bounds)
         reachable_point = opt_result.optimal_objectives
-    else:
+    elif reachable_solution is not None:
         reachable_point = reachable_solution
 
     # update nav point
