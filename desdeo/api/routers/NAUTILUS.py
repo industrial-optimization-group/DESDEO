@@ -1,4 +1,4 @@
-"""Endpoints for NAUTILUS 1."""
+"""Endpoints for NAUTILUS ."""
 
 from typing import Annotated
 
@@ -11,29 +11,28 @@ from desdeo.api.db_models import Problem as ProblemInDB
 from desdeo.api.db_models import Results
 from desdeo.api.routers.UserAuth import get_current_user
 from desdeo.api.schema import User
-#TODO: needs these below ! CHANGE TO real function names if different. Following the naming of nautilus1_* instead of navigator_*
-from desdeo.mcdm.nautilus1 import (
+from desdeo.mcdm.nautilus import (
     NAUTILUS_Response,
     get_current_path,
-    nautilus1_all_steps,
-    nautilus1_init,
+    nautilus_all_steps,
+    nautilus_init,
     step_back_index,
 )
 from desdeo.problem.schema import Problem
 
-router = APIRouter(prefix="/naut1")
+router = APIRouter(prefix="/nautilus")
 
 class InitRequest(BaseModel):
-    """The request to initialize the NAUTILUS 1."""
+    """The request to initialize the NAUTILUS."""
 
     problem_id: int = Field(description="The ID of the problem to navigate.")
-    # TODO: IS total_steps needed for NAUTILUS 1, what is good default? now its 5.
+    # TODO: IS total_steps needed for NAUTILUS, what is good default? now its 5.
     total_steps: int | None = Field(
-        description=("The total number of steps in the NAUTILUS 1. The default value is 5."), default=5
+        description=("The total number of steps in the NAUTILUS. The default value is 5."), default=5
     )
 
 class NavigateRequest(BaseModel):
-    """The request to navigate the NAUTILUS 1."""
+    """The request to navigate the NAUTILUS."""
 
     problem_id: int = Field(description="The ID of the problem to navigate.")
     preference: dict[str, float] = Field(description="The preference of the DM.")
@@ -42,7 +41,7 @@ class NavigateRequest(BaseModel):
     steps_remaining: int = Field(description="The number of steps remaining. Should be total_steps - go_back_step.")
 
 class InitialResponse(BaseModel):
-    """The response from the initial endpoint of NAUTILUS 1."""
+    """The response from the initial endpoint of NAUTILUS."""
 
     objective_names: list[str] = Field(description="The names of the objectives.")
     is_maximized: list[bool] = Field(description="Whether the objectives are to be maximized or minimized.")
@@ -51,7 +50,7 @@ class InitialResponse(BaseModel):
     total_steps: int = Field(description="The total number of steps in the NAUTILUS 1.")
 
 class Response(BaseModel):
-    """The response from most NAUTILUS 1 endpoints.
+    """The response from most NAUTILUS endpoints.
 
     Contains information about the full navigation process.
     """
@@ -70,20 +69,20 @@ class Response(BaseModel):
     # TODO: ALL ABOVE SHOULD BE FINE
 
 @router.post("/initialize")
-def init_nautilus1(
+def init_nautilus(
     init_request: InitRequest,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> InitialResponse:
-    """Initialize the NAUTILUS 1.
+    """Initialize the NAUTILUS.
 
     Args:
-        init_request (InitRequest): The request to initialize the NAUTILUS 1.
+        init_request (InitRequest): The request to initialize the NAUTILUS.
         user (Annotated[User, Depends(get_current_user)]): The current user.
         db (Annotated[Session, Depends(get_db)]): The database session.
 
     Returns:
-        InitialResponse: The initial response from the NAUTILUS 1.
+        InitialResponse: The initial response from the NAUTILUS.
     """
     problem_id = init_request.problem_id
     problem = db.query(ProblemInDB).filter(ProblemInDB.id == problem_id).first()
@@ -97,10 +96,9 @@ def init_nautilus1(
     except ValidationError:
         raise HTTPException(status_code=500, detail="Error in parsing the problem.") from ValidationError
 
-    # TODO: CHANGE NAME Of inits to the real one.
-    response = nautilus1_init(problem)
+    response = nautilus_init(problem)
 
-     # Get and delete all Results from previous runs of NAUTILUS 1
+     # Get and delete all Results from previous runs of NAUTILUS
     results = db.query(Results).filter(Results.problem == problem_id).filter(Results.user == user.index).all()
     for result in results:
         db.delete(result)
@@ -129,7 +127,7 @@ def navigate(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> Response:
-    """Navigate the NAUTILUS 1.
+    """Navigate the NAUTILUS.
 
     Runs the entire navigation process.
 
@@ -166,13 +164,12 @@ def navigate(
     if not results:
         raise HTTPException(status_code=404, detail="NAUTILUS 1 not initialized.")
 
-    # TODO: possibly need to change the NAUTILUS_Response object?
     responses = [NAUTILUS_Response.model_validate(result.value) for result in results]
 
     responses.append(responses[step_back_index(responses, go_back_step)])
 
     try:
-        new_responses = nautilus1_all_steps(
+        new_responses = nautilus_all_steps(
             problem,
             steps_remaining=steps_remaining,
             reference_point=preference, # TODO: is this reference point in NAUTILUS 1 or something else at this point?

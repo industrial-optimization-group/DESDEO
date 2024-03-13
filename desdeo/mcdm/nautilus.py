@@ -26,6 +26,7 @@ from desdeo.tools.scalarization import (
     add_lte_constraints,
     add_scalarization_function,
     create_asf,
+    create_asf_generic,
     create_epsilon_constraints_json,
 )
 from desdeo.tools.utils import guess_best_solver
@@ -43,7 +44,8 @@ class NAUTILUS_Response(BaseModel):  # NOQA: N801
             "the nadir and the reachable objective vector. The distance is given in percentage."
         )
     )
-    reference_point: dict | None = Field(description="The reference point used in the step.")
+    preference: dict | None = Field(description="The preference used in the step. For now assumed that it is a reference point")
+    #preference_method: dict | None = Field(description="The preference method used in the step.")
     #improvement_direction: dict | None = Field(description="The improvement direction.")
     navigation_point: dict = Field(description="The navigation point used in the step.")
     reachable_solution: dict | None = Field(description="The reachable solution found in the step.")
@@ -57,8 +59,7 @@ class NautilusError(Exception):
 
 def solve_reachable_solution(
     problem: Problem,
-    # TODO: which is needed? or are they the same?
-    reference_point: dict[str, float],
+    preference: dict[str, float],
     #improvement_direction: dict[str, float],
     previous_nav_point: dict[str, float],
     create_solver: CreateSolverType | None = None,
@@ -74,7 +75,7 @@ def solve_reachable_solution(
 
     Args:
         problem (Problem): the problem being solved.
-        reference_point (dict[str, float]): the reference point to project on the Pareto optimal front.
+        preference (dict[str, float]): the reference point to project on the Pareto optimal front.
         previous_nav_point (dict[str, float]): the previous navigation point. The reachable solution found
             is always better than the previous navigation point.
         create_solver (CreateSolverType | None, optional): a function of type CreateSolverType that returns a solver.
@@ -87,8 +88,10 @@ def solve_reachable_solution(
     # check solver
     _create_solver = guess_best_solver(problem) if create_solver is None else create_solver
 
+    # need to convert the preferences to preferential factors?
+
     # create and add scalarization function
-    sf = create_asf(problem, reference_point, reference_in_aug=True)
+    sf = create_asf(problem, preference, reference_in_aug=True)
     problem_w_asf, target = add_scalarization_function(problem, sf, "asf")
 
     # Note: We do not solve the global problem. Instead, we solve this constrained problem:
@@ -127,7 +130,7 @@ def nautilus_init(problem: Problem, create_solver: CreateSolverType | None = Non
         navigation_point=nav_point,
         reachable_bounds={"lower_bounds": lower_bounds, "upper_bounds": upper_bounds},
         reachable_solution=None,
-        reference_point=None,
+        preference=None,
         step_number=0,
     )
 
@@ -138,7 +141,7 @@ def nautilus_step(  # NOQA: PLR0913
     step_number: int,
     nav_point: dict,
     create_solver: CreateSolverType | None = None,
-    reference_point: dict | None = None,
+    preference: dict | None = None,
     reachable_solution: dict | None = None,
 ) -> NAUTILUS_Response:
     """Performs a step of the NAUTILUS method.
@@ -149,7 +152,7 @@ def nautilus_step(  # NOQA: PLR0913
         step_number (int): The current step number. Just used for the response.
         nav_point (dict): The current navigation point.
         create_solver (CreateSolverType | None, optional): The solver to use. Defaults to None.
-        reference_point (dict | None, optional): The reference point provided by the DM. Defaults to None, in which
+        preference (dict | None, optional): The reference point provided by the DM. Defaults to None, in which
         case it is assumed that the DM has not changed their preference. The algorithm uses the last reachable solution,
         which must be provided in this case.
         bounds (dict | None, optional): The bounds of the problem provided by the DM. Defaults to None.
@@ -157,20 +160,20 @@ def nautilus_step(  # NOQA: PLR0913
         has not changed their preference. Defaults to None.
 
     Raises:
-        NautilusNavigatorError: If neither reference_point nor reachable_solution is provided.
-        NautilusNavigatorError: If both reference_point and reachable_solution are provided.
+        NautilusError: If neither preference nor reachable_solution is provided.
+        NautilusError: If both preference and reachable_solution are provided.
 
     Returns:
         NAUTILUS_Response: The response of the method after the step.
     """
-    if reference_point is None and reachable_solution is None:
-        raise NautilusError("Either reference_point or reachable_solution must be provided.")
+    if preference is None and reachable_solution is None:
+        raise NautilusError("Either preference or reachable_solution must be provided.")
 
-    if reference_point is not None and reachable_solution is not None:
-        raise NautilusError("Only one of reference_point or reachable_solution should be provided.")
+    if preference is not None and reachable_solution is not None:
+        raise NautilusError("Only one of preference or reachable_solution should be provided.")
 
-    if reference_point is not None:
-        opt_result = solve_reachable_solution(problem, reference_point, nav_point, create_solver)
+    if preference is not None:
+        opt_result = solve_reachable_solution(problem, preference, nav_point, create_solver)
         reachable_point = opt_result.optimal_objectives
     else:
         reachable_point = reachable_solution
@@ -179,7 +182,6 @@ def nautilus_step(  # NOQA: PLR0913
     new_nav_point = calculate_navigation_point(problem, nav_point, reachable_point, steps_remaining)
 
     # update_bounds
-
     lower_bounds, upper_bounds = solve_reachable_bounds(
         problem, new_nav_point, create_solver=create_solver,
     )
@@ -191,7 +193,7 @@ def nautilus_step(  # NOQA: PLR0913
         distance_to_front=distance,
         navigation_point=new_nav_point,
         reachable_solution=reachable_point,
-        reference_point=reference_point,
+        preference=preference,
         reachable_bounds={"lower_bounds": lower_bounds, "upper_bounds": upper_bounds},
     )
 
@@ -199,7 +201,7 @@ def nautilus_step(  # NOQA: PLR0913
 def nautilus_all_steps(
     problem: Problem,
     steps_remaining: int,
-    reference_point: dict,
+    preference: dict,
     previous_responses: list[NAUTILUS_Response],
     create_solver: CreateSolverType | None = None,
 ):
@@ -215,7 +217,7 @@ def nautilus_all_steps(
     Args:
         problem (Problem): The problem to be solved.
         steps_remaining (int): The number of steps remaining.
-        reference_point (dict): The reference point provided by the DM.
+        preference (dict): The reference point provided by the DM.
         bounds (dict): The bounds of the problem provided by the DM.
         previous_responses (list[NAUTILUS_Response]): The previous responses of the method.
         create_solver (CreateSolverType | None, optional): The solver to use. Defaults to None, in which case the
@@ -238,7 +240,7 @@ def nautilus_all_steps(
                 steps_remaining=steps_remaining,
                 step_number=step_number,
                 nav_point=nav_point,
-                reference_point=reference_point,
+                preference=preference,
                 create_solver=create_solver,
             )
             first_iteration = False
@@ -251,7 +253,7 @@ def nautilus_all_steps(
                 reachable_solution=reachable_solution,
                 create_solver=create_solver,
             )
-        response.reference_point = reference_point
+        response.preference = preference
         responses.append(response)
         reachable_solution = response.reachable_solution
         nav_point = response.navigation_point
@@ -259,6 +261,10 @@ def nautilus_all_steps(
         step_number += 1
     return responses
 
+# implement preferential factors for other preference types
+def calculate_preferential_factors():
+    """ TODO: implement """
+    pass
 
 def step_back_index(responses: list[NAUTILUS_Response], step_number: int) -> int:
     """Find the index of the response with the given step number.
@@ -325,10 +331,15 @@ if __name__ == "__main__":
     steps_remaining = 100
 
     # get reference point
-    reference_point = {"f_1": 100.0, "f_2": 8.0}
+    preference = {"f_1": 100.0, "f_2": 8.0}
+
+    # get ranking       
+    #  "preference_method": 1,
+    # "preference_info": np.array([2, 2, 1, 1]),
+    #preference = {"f_1": 100.0, "f_2": 8.0}
 
     # calculate reachable solution (direction)
-    opt_result = solve_reachable_solution(problem, reference_point, nav_point)
+    opt_result = solve_reachable_solution(problem, preference, nav_point)
 
     assert opt_result.success
 
@@ -360,10 +371,10 @@ if __name__ == "__main__":
     steps_remaining -= 1
 
     # new reference point
-    reference_point = {"f_1": 80.0, "f_2": 9.0}
+    preference = {"f_1": 80.0, "f_2": 9.0}
 
     # calculate reachable solution (direction)
-    opt_result = solve_reachable_solution(problem, reference_point, nav_point)
+    opt_result = solve_reachable_solution(problem, preference, nav_point)
 
     assert opt_result.success
 
