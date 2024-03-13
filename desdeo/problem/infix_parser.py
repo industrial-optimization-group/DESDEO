@@ -2,21 +2,18 @@
 
 Currently, mostly parses to MathJSON, e.g., "n / (1 + n)" -> ['Divide', 'n', ['Add', 1, 'n']].
 """
-from functools import reduce
-from operator import or_
 from typing import ClassVar
 
 from pyparsing import (
     Forward,
     Group,
-    Keyword,
     Literal,
     ParserElement,
     Suppress,
-    delimitedList,
-    infixNotation,
+    DelimitedList,
+    infix_notation,
     one_of,
-    opAssoc,
+    OpAssoc,
     pyparsing_common,
     Regex,
 )
@@ -94,8 +91,8 @@ class InfixExpressionParser:
         rparen = Suppress(")")
 
         # Define keywords (Note that binary operators must be defined manually)
-        symbols_variadic = set(InfixExpressionParser.VARIADIC_OPERATORS.keys())
-        symbols_unary = set(InfixExpressionParser.UNARY_OPERATORS.keys())
+        symbols_variadic = set(InfixExpressionParser.VARIADIC_OPERATORS)
+        symbols_unary = set(InfixExpressionParser.UNARY_OPERATORS)
 
         # Define binary operation symbols (this is the manual part)
         # If new binary operators are to be added, they must be defined here.
@@ -114,10 +111,10 @@ class InfixExpressionParser:
         unary_func_names = Regex(unary_pattern)
 
         # Define operands
-        integer = pyparsing_common.integer.set_parse_action(pyparsing_common.convertToInteger)
+        integer = pyparsing_common.integer
 
         # Scientific notation
-        scientific = pyparsing_common.sci_real.set_parse_action(pyparsing_common.convert_to_float)
+        scientific = pyparsing_common.sci_real
 
         # Complete regex pattern with exclusions and identifier pattern
         exclude = f"{'|'.join([*symbols_variadic, *symbols_unary])}"
@@ -137,19 +134,19 @@ class InfixExpressionParser:
         #
         # Note that the order of the operators in the second argument (the list) of infixNotation matters!
         # The operation with the highest precedence is listed first.
-        infix_expn = infixNotation(
+        infix_expn = infix_notation(
             operands | variadic_call | unary_call,
             [
-                (expop, 2, opAssoc.LEFT),
-                (signop, 1, opAssoc.RIGHT),
-                (multop, 2, opAssoc.LEFT),
-                (plusop, 2, opAssoc.LEFT),
+                (expop, 2, OpAssoc.LEFT),
+                (signop, 1, OpAssoc.RIGHT),
+                (multop, 2, OpAssoc.LEFT),
+                (plusop, 2, OpAssoc.LEFT),
             ],
         )
 
         # These are recursive definitions of the forward declarations of the two type of function calls.
         # In essence, the recursion continues until a singleton operand is encountered.
-        variadic_call <<= Group(variadic_func_names + lparen + Group(delimitedList(infix_expn)) + rparen)
+        variadic_call <<= Group(variadic_func_names + lparen + Group(DelimitedList(infix_expn)) + rparen)
         unary_call <<= Group(unary_func_names + lparen + Group(infix_expn) + rparen)
 
         self.expn = infix_expn
