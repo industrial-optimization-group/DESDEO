@@ -63,7 +63,7 @@ def solve_reachable_bounds(
             If None, then a solver is utilized bases on the problem's properties. Defaults to None.
 
     Raises:
-        NautilusNavigationError: when optimization of an epsilon constraint problem is not successful.
+        NautiliError: when optimization of an epsilon constraint problem is not successful.
 
     Returns:
         tuple[dict[str, float], dict[str, float]]: a tuple of dicts, where the first dict are the lower bounds and the
@@ -117,7 +117,7 @@ def solve_reachable_bounds(
 
         # solver upper bounds
         # the lower bounds is set as in the NAUTILUS method, e.g., taken from
-        # the current itration/navigation point
+        # the current iteration/navigation point
         if isinstance(navigation_point[objective.symbol], list):
             # It should never be a list accordint to the type hints
             upper_bound = navigation_point[objective.symbol][0]
@@ -139,7 +139,7 @@ def solve_reachable_solution(
 ) -> SolverResults:
     """Calculates the reachable solution on the Pareto optimal front.
 
-    For the calculation to make sense in the context of NAUTILUS Navigator, the reference point
+    For the calculation to make sense in the context of NAUTILI, the reference point
     should be bounded by the reachable bounds present at the navigation step the
     reference point has been given.
 

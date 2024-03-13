@@ -25,7 +25,7 @@ def test_solve_reachable_solution():
     """Test the solving of a new reachable solution."""
     problem = binh_and_korn()
     prev_nav_point = {"f_1": 80.0, "f_2": 30.0}
-    group_improvement_direction = {"f_1": 60.0, "f_2": 20.0}
+    group_improvement_direction = {"f_1": 50, "f_2": 30}
 
     res_1 = solve_reachable_solution(problem, group_improvement_direction, prev_nav_point)
 
@@ -33,7 +33,7 @@ def test_solve_reachable_solution():
 
     objective_vector_1 = objective_dict_to_numpy_array(problem, res_1.optimal_objectives)
 
-    group_improvement_direction_2 = {"f_1": 20.0, "f_2": 28.0}
+    group_improvement_direction_2 = {"f_1": 25, "f_2": 50}
 
     res_2 = solve_reachable_solution(problem, group_improvement_direction_2, prev_nav_point)
 
@@ -45,7 +45,7 @@ def test_solve_reachable_solution():
     # than the second and vice versa
 
     group_improvement_direction = objective_dict_to_numpy_array(problem, group_improvement_direction)
-    group_improvement_direction_2 = objective_dict_to_numpy_array(problem, group_improvement_direction)
+    group_improvement_direction_2 = objective_dict_to_numpy_array(problem, group_improvement_direction_2)
 
     distance_1 = np.linalg.norm(group_improvement_direction - objective_vector_1)
     distance_2 = np.linalg.norm(group_improvement_direction - objective_vector_2)
