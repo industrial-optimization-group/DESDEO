@@ -1,16 +1,11 @@
 """Tests related to the NAUTILUS method."""
+
 import numpy as np
 import numpy.testing as npt
 import pytest
 
-from desdeo.mcdm.nautilus import (
-    calculate_distance_to_front,
-    calculate_navigation_point,
-    solve_reachable_solution
-)
-from desdeo.mcdm.nautili import (
-    solve_reachable_bounds
-)
+from desdeo.mcdm.nautilus import calculate_distance_to_front, calculate_navigation_point, solve_reachable_solution
+from desdeo.mcdm.nautili import solve_reachable_bounds
 from desdeo.problem import (
     binh_and_korn,
     river_pollution_problem,

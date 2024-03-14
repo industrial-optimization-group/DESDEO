@@ -12,9 +12,7 @@ from desdeo.mcdm.nautilus_navigator import (
     calculate_distance_to_front,
     calculate_navigation_point,
 )
-from desdeo.mcdm.nautili import (
-    solve_reachable_bounds
-)
+from desdeo.mcdm.nautili import solve_reachable_bounds
 from desdeo.problem import (
     Problem,
     get_nadir_dict,
@@ -25,9 +23,7 @@ from desdeo.tools.generics import CreateSolverType, SolverResults
 from desdeo.tools.scalarization import (
     add_lte_constraints,
     add_scalarization_function,
-    create_asf,
-    create_asf_generic,
-    create_epsilon_constraints_json,
+    # create_asf, should be add_asf_nondiff probably
 )
 from desdeo.tools.utils import guess_best_solver
 
@@ -44,9 +40,11 @@ class NAUTILUS_Response(BaseModel):  # NOQA: N801
             "the nadir and the reachable objective vector. The distance is given in percentage."
         )
     )
-    preference: dict | None = Field(description="The preference used in the step. For now assumed that it is a reference point")
-    #preference_method: dict | None = Field(description="The preference method used in the step.")
-    #improvement_direction: dict | None = Field(description="The improvement direction.")
+    preference: dict | None = Field(
+        description="The preference used in the step. For now assumed that it is a reference point"
+    )
+    # preference_method: dict | None = Field(description="The preference method used in the step.")
+    # improvement_direction: dict | None = Field(description="The improvement direction.")
     navigation_point: dict = Field(description="The navigation point used in the step.")
     reachable_solution: dict | None = Field(description="The reachable solution found in the step.")
     reachable_bounds: dict = Field(description="The reachable bounds found in the step.")
@@ -56,11 +54,10 @@ class NautilusError(Exception):
     """Raised when an exception is encountered with procedures related to NAUTILUS."""
 
 
-
 def solve_reachable_solution(
     problem: Problem,
     preference: dict[str, float],
-    #improvement_direction: dict[str, float],
+    # improvement_direction: dict[str, float],
     previous_nav_point: dict[str, float],
     create_solver: CreateSolverType | None = None,
 ) -> SolverResults:
@@ -109,6 +106,7 @@ def solve_reachable_solution(
 
 
 # NAUTILUS initializer and steppers
+
 
 def nautilus_init(problem: Problem, create_solver: CreateSolverType | None = None) -> NAUTILUS_Response:
     """Initializes the NAUTILUS method.
@@ -183,7 +181,9 @@ def nautilus_step(  # NOQA: PLR0913
 
     # update_bounds
     lower_bounds, upper_bounds = solve_reachable_bounds(
-        problem, new_nav_point, create_solver=create_solver,
+        problem,
+        new_nav_point,
+        create_solver=create_solver,
     )
 
     distance = calculate_distance_to_front(problem, new_nav_point, reachable_point)
@@ -261,10 +261,12 @@ def nautilus_all_steps(
         step_number += 1
     return responses
 
+
 # implement preferential factors for other preference types
 def calculate_preferential_factors():
-    """ TODO: implement """
+    """TODO: implement"""
     pass
+
 
 def step_back_index(responses: list[NAUTILUS_Response], step_number: int) -> int:
     """Find the index of the response with the given step number.
@@ -333,10 +335,10 @@ if __name__ == "__main__":
     # get reference point
     preference = {"f_1": 100.0, "f_2": 8.0}
 
-    # get ranking       
+    # get ranking
     #  "preference_method": 1,
     # "preference_info": np.array([2, 2, 1, 1]),
-    #preference = {"f_1": 100.0, "f_2": 8.0}
+    # preference = {"f_1": 100.0, "f_2": 8.0}
 
     # calculate reachable solution (direction)
     opt_result = solve_reachable_solution(problem, preference, nav_point)
