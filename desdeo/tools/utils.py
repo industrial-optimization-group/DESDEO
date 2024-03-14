@@ -1,4 +1,5 @@
 """General utilities related to solvers."""
+
 from desdeo.problem import Problem, ObjectiveTypeEnum
 from desdeo.tools.generics import CreateSolverType
 from desdeo.tools.scipy_solver_interfaces import create_scipy_de_solver, create_scipy_minimize_solver
@@ -53,11 +54,20 @@ def get_corrected_ideal_and_nadir(problem: Problem) -> tuple[dict[str, float | N
     Args:
         problem (Problem): the problem with the ideal and nadir points.
 
+    Raises:
+        ValueError: some of the ideal or nadir point components have not been defined
+            for some of the objectives.
+
     Returns:
         tuple[list[float], list[float]]: a list with the corrected ideal point
             and a list with the corrected nadir point. Will return None for missing
             elements.
     """
+    # check that ideal and nadir points are actually defined
+    if any(obj.ideal is None for obj in problem.objectives) or any(obj.nadir is None for obj in problem.objectives):
+        msg = "Some of the objectives have not a defined ideal or nadir value."
+        raise ValueError(msg)
+
     ideal_point = {
         objective.symbol: objective.ideal if not objective.maximize else -objective.ideal
         for objective in problem.objectives

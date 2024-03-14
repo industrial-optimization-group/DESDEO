@@ -5,7 +5,7 @@ docs is to use the Swagger/Redoc UI provided by the API. You can access the Swag
 
 ## The Main Application
 ::: desdeo.api.app
-    optioms:
+    options:
         heading_level: 3
 
 ## Database initializer

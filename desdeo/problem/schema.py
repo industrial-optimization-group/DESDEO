@@ -11,7 +11,6 @@ The problem definition is a JSON file that contains the following information:
 
 """
 
-
 from collections import Counter
 from enum import Enum
 
@@ -521,6 +520,123 @@ class Problem(BaseModel):
                 "constraints": new_constraints if self.constraints is None else [*self.constraints, *new_constraints]
             }
         )
+
+    def add_variables(self, new_variables: list[Variable]) -> "Problem":
+        """Adds new variables to the problem model.
+
+        Does not modify the original problem model, but instead returns a copy of it with
+        the added variables. The symbols of the new variables to be added must be
+        unique.
+
+        Args:
+            new_variables (list[Variable]): the new `Variable`s to be added to the model.
+
+        Raises:
+            TypeError: when the `new_variables` is not a list.
+            ValueError: when duplicate symbols are found among the new_variables, or
+                any of the new variables utilized an existing symbol in the problem's model.
+
+        Returns:
+            Problem: a copy of the problem with the added variables.
+        """
+        if not isinstance(new_variables, list):
+            # not a list
+            msg = "The argument `new_variables` must be a list."
+            raise TypeError(msg)
+
+        all_symbols = self.get_all_symbols()
+        new_symbols = [const.symbol for const in new_variables]
+
+        if len(new_symbols) > len(set(new_symbols)):
+            # duplicate symbols in the new variables
+            msg = "Duplicate symbols found in the new variables to be added."
+            raise ValueError(msg)
+
+        for s in new_symbols:
+            if s in all_symbols:
+                # symbol already exists
+                msg = "A symbol was provided for a new variable that already exists in the problem definition."
+                raise ValueError(msg)
+
+        # proceed to add the new variables, assumed existing variables are defined
+        return self.model_copy(update={"variables": [*self.variables, *new_variables]})
+
+    def get_constraint(self, symbol: str) -> Constraint | None:
+        """Return a copy of a `Constant` with the given symbol.
+
+        Args:
+            symbol (str): the symbol of the constraint.
+
+        Returns:
+            Constant | None: the copy of the constraint with the given symbol, or `None` if the constraint is not found.
+                Also return `None` if no constraints have been defined for the problem.
+        """
+        if self.constraints is None:
+            # no constraints defined
+            return None
+        for constraint in self.constraints:
+            if constraint.symbol == symbol:
+                return constraint.model_copy()
+
+        # did not find symbol
+        return None
+
+    def get_variable(self, symbol: str) -> Variable | None:
+        """Return a copy of a `Variable` with the given symbol.
+
+        Args:
+            symbol (str): the symbol of the variable.
+
+        Returns:
+            Variable | None: the copy of the variable with the given symbol, or `None` if the variable is not found.
+        """
+        for variable in self.variables:
+            if variable.symbol == symbol:
+                # variable found
+                return variable.model_copy()
+
+        # variable not found
+        return None
+
+    def get_objective(self, symbol: str) -> Objective | None:
+        """Return a copy of an `Objective` with the given symbol.
+
+        Args:
+            symbol (str): the symbol of the objective.
+
+        Returns:
+            Objective | None: the copy of the objective with the given symbol, or `None` if the objective is not found.
+        """
+        for objective in self.objectives:
+            if objective.symbol == symbol:
+                # objective found
+                return objective.model_copy()
+
+        # objective not found
+        return None
+
+    def get_scalarization(self, symbol: str) -> ScalarizationFunction | None:
+        """Return a copy of a `ScalarizationFunction` with the given symbol.
+
+        Args:
+            symbol (str): the symbol of the scalarization function.
+
+        Returns:
+            ScalarizationFunction | None: the copy of the scalarization function with the given symbol, or `None` if the
+                scalarization function is not found. Returns `None` also when no scalarization functions have been
+                defined for the problem.
+        """
+        if self.scalarization_funcs is None:
+            # no scalarization functions defined
+            return None
+
+        for scal in self.scalarization_funcs:
+            if scal.symbol == symbol:
+                # scalarization function found
+                return scal.model_copy()
+
+        # scalarization function is not found
+        return None
 
     name: str = Field(
         description="Name of the problem.",

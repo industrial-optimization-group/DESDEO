@@ -1,12 +1,15 @@
 """Test for adding and utilizing scalarization functions."""
+
 import numpy as np
 import pytest
 
 from desdeo.problem import ConstraintTypeEnum, river_pollution_problem, simple_test_problem
 from desdeo.tools.scalarization import (
+    ScalarizationError,
     add_asf_nondiff,
     add_asf_generic_nondiff,
     add_epsilon_constraints,
+    add_nimbus_sf_diff,
     add_weighted_sums,
 )
 from desdeo.tools.scipy_solver_interfaces import create_scipy_minimize_solver
@@ -181,3 +184,83 @@ def test_add_epsilon_constraints():
     assert problem.constraints[3].cons_type == ConstraintTypeEnum.LTE
 
     assert _problem.constraints is None
+
+
+@pytest.mark.scalarization
+@pytest.mark.nimbus
+def test_nimbus_sf_init():
+    """Test that the scalarization function is build correctly."""
+    problem = river_pollution_problem()
+
+    classifications = {
+        "f_1": ("<", None),
+        "f_2": ("<=", 42.1),
+        "f_3": (">=", 22.2),
+        "f_4": ("0", None),
+        "f_5": ("=", None),
+    }
+
+    current_objective_vector = {"f_1": 69, "f_2": 111, "f_3": 999, "f_4": 0, "f_5": 123}
+
+    problem_w_sf, target = add_nimbus_sf_diff(problem, "target", classifications, current_objective_vector)
+
+    # six constraints should have been added in total (originally no constraints)
+    assert len(problem_w_sf.constraints) == 6
+
+    # check for correct constraint symbols
+    constraint_symbols = [c.symbol for c in problem_w_sf.constraints]
+
+    assert "f_1_lt" in constraint_symbols
+    assert "f_1_eq" in constraint_symbols
+    assert "f_2_lte" in constraint_symbols
+    assert "f_2_eq" in constraint_symbols
+    assert "f_3_gte" in constraint_symbols
+    assert "f_5_eq" in constraint_symbols
+
+    assert "_alpha" in flatten(problem_w_sf.get_constraint("f_1_lt").func)
+    assert "f_1_min" in flatten(problem_w_sf.get_constraint("f_1_lt").func)
+
+    assert "f_1_min" in flatten(problem_w_sf.get_constraint("f_1_eq").func)
+    assert 69 in flatten(problem_w_sf.get_constraint("f_1_eq").func)
+
+    assert "_alpha" in flatten(problem_w_sf.get_constraint("f_2_lte").func)
+    assert "f_2_min" in flatten(problem_w_sf.get_constraint("f_2_lte").func)
+    assert 42.1 in flatten(problem_w_sf.get_constraint("f_2_lte").func)
+
+    assert "f_2_min" in flatten(problem_w_sf.get_constraint("f_2_eq").func)
+    assert 111 in flatten(problem_w_sf.get_constraint("f_2_eq").func)
+
+    assert "f_3_min" in flatten(problem_w_sf.get_constraint("f_3_gte").func)
+    assert 22.2 in flatten(problem_w_sf.get_constraint("f_3_gte").func)
+
+    assert "f_5_min" in flatten(problem_w_sf.get_constraint("f_5_eq").func)
+    assert 123 in flatten(problem_w_sf.get_constraint("f_5_eq").func)
+
+    assert problem_w_sf.get_variable("_alpha") is not None
+
+    assert problem_w_sf.get_scalarization("target") is not None
+
+    assert all(
+        f"{obj.symbol}_min" in flatten(problem_w_sf.get_scalarization("target").func) for obj in problem_w_sf.objectives
+    )
+
+    # should raise error, missing classification
+    classifications = {
+        "f_1": ("<", None),
+        "f_2": ("<=", 42.1),
+        "f_4": ("0", None),
+        "f_5": ("=", None),
+    }
+    with pytest.raises(ScalarizationError):
+        _ = add_nimbus_sf_diff(problem, "target", classifications, current_objective_vector)
+
+    # should raise error, invalid classifications
+    classifications = {
+        "f_1": ("<", None),
+        "f_2": ("<=", 42.1),
+        "f_3": ("<=", 22.2),
+        "f_4": ("<", None),
+        "f_5": ("<", None),
+    }
+    with pytest.raises(ScalarizationError):
+        _ = add_nimbus_sf_diff(problem, "target", classifications, current_objective_vector)

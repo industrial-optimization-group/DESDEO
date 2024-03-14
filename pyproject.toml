@@ -181,7 +181,9 @@ markers = [
     "infix_parser: tests related to the infix parser.",
     "pyomo: tests related to pyomo models, their parsing, and evaluation.",
     "nautili: tests related to the NAUTILI method",
-    "nautilus: tests related to the NAUTILUS method"
+    "nautilus: tests related to the NAUTILUS method",
+    "scalarization: tests related to scalarization functions",
+    "nimbus: tests related to the NIMBUS method"
 ]
 addopts = "-m 'not performance' -m 'not nautilus'"
 

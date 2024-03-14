@@ -1,4 +1,5 @@
 """Tests related to the schemas representing multiobjective optimization problems."""
+
 import numpy.testing as npt
 import polars as pl
 import pytest  # noqa: F401
@@ -13,6 +14,7 @@ from desdeo.problem.schema import (
     Problem,
     ScalarizationFunction,
     Variable,
+    VariableTypeEnum,
 )
 from desdeo.problem.testproblems import river_pollution_problem
 from desdeo.problem.evaluator import GenericEvaluator
@@ -393,3 +395,67 @@ def test_add_constraints():
     with pytest.raises(ValueError):
         cons_x = Constraint(name="con 1", symbol="x_1", func="x_1 + x_2", linear=False, cons_type=ConstraintTypeEnum.EQ)
         new_problem.add_constraints([cons_x])
+
+
+def test_add_variables():
+    """Test that new variables are added to a problem model correctly."""
+    problem = river_pollution_problem()
+    assert len(problem.variables) == 2
+
+    var_1 = Variable(
+        name="y_1", symbol="y_1", variable_type=VariableTypeEnum.integer, lowerbound=0, upperbound=10, initial_value=5
+    )
+    var_2 = Variable(
+        name="y_2", symbol="y_2", variable_type=VariableTypeEnum.real, lowerbound=1.1, upperbound=2.2, initial_value=1.5
+    )
+    var_3 = Variable(
+        name="y_3", symbol="y_3", variable_type=VariableTypeEnum.binary, lowerbound=0, upperbound=1, initial_value=1
+    )
+
+    variables = [var_1, var_2, var_3]
+
+    new_problem = problem.add_variables(variables)
+
+    assert len(problem.variables) == 2
+    assert len(new_problem.variables) == 5
+
+    assert new_problem.variables[2].name == "y_1"
+    assert new_problem.variables[2].symbol == "y_1"
+    assert new_problem.variables[2].variable_type == VariableTypeEnum.integer
+    assert new_problem.variables[2].lowerbound == 0
+    assert new_problem.variables[2].upperbound == 10
+    assert new_problem.variables[2].initial_value == 5
+
+    assert new_problem.variables[3].name == "y_2"
+    assert new_problem.variables[3].symbol == "y_2"
+    assert new_problem.variables[3].variable_type == VariableTypeEnum.real
+    assert new_problem.variables[3].lowerbound == 1.1
+    assert new_problem.variables[3].upperbound == 2.2
+    assert new_problem.variables[3].initial_value == 1.5
+
+    assert new_problem.variables[4].name == "y_3"
+    assert new_problem.variables[4].symbol == "y_3"
+    assert new_problem.variables[4].variable_type == VariableTypeEnum.binary
+    assert new_problem.variables[4].lowerbound == 0
+    assert new_problem.variables[4].upperbound == 1
+    assert new_problem.variables[4].initial_value == 1
+
+    # check that only list is accepted
+    with pytest.raises(TypeError):
+        problem.add_variables(var_1)
+
+    # check that we cannot add a variable with an existing symbol
+    with pytest.raises(ValueError):
+        new_problem.add_variables([var_1])
+
+    # check that symbol duplicate is checked in other fields as well
+    with pytest.raises(ValueError):
+        var_x = Variable(
+            name="var 1",
+            symbol="f_1",
+            variable_type=VariableTypeEnum.real,
+            lowerbound=0.0,
+            upperbound=1.1,
+            initial_value=0.5,
+        )
+        new_problem.add_variables([var_x])
