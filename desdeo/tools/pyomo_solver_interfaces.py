@@ -26,7 +26,7 @@ class BonminOptions:
     https://www.coin-or.org/Bonmin/options_list.html
 
     Note:
-        Add options as they are needed.
+        Please add options as they are needed and make a pull request.
     """
 
     tol: float = 1e-8
@@ -35,8 +35,15 @@ class BonminOptions:
     bonmin_integer_tolerance: float = 1e-6
     """Numbers within this value of an integer are considered integers. Defaults to 1e-6."""
 
+    bonmin_algorithm: str = "B-BB"
+    """Presets some of the options in Bonmin based on the algorithm choice. Defaults to 'B-BB'."""
+
     def asdict(self) -> dict[str, float]:
-        """Converts the dataclass in a dict so that Bonmin specific options are in the correct format."""
+        """Converts the dataclass in a dict so that Bonmin specific options are in the correct format.
+
+        This means that the attributes starting with `bonmin.optionname` will be
+        converted to keys in the format `bonmin_optionname` in the returned dict.
+        """
         output = {}
         for field in fields(self):
             if (rest := field.name.split(sep="_"))[0] == "bonmin":

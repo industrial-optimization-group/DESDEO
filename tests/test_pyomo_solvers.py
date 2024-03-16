@@ -85,17 +85,16 @@ def test_bonmin_w_momip_ti17():
     """TODO: Finish. Test the bonmin solver with a known problem."""
     problem = momip_ti17()
 
-    sol_options = BonminOptions(tol=1e-6)
+    sol_options = BonminOptions(tol=1e-6, bonmin_algorithm="B-BB")
     solver = create_pyomo_bonmin_solver(problem, sol_options)
 
     results = solver("f_2_min")
 
     # check the result is Pareto optimal
     assert results.success
-    """
     xs = results.optimal_variables
-    npt.assert_almost_equal(xs["x_1"] ** 2 + xs["x_2"] ** 2 + xs["x_3"], 1.0)
-    assert (xs["x_3"], xs["x_4"], xs["x_5"]) in [(0, 0, -1), (0, -1, 0), (-1, 0, 0)]
+    npt.assert_almost_equal(xs["x_1"] ** 2 + xs["x_2"] ** 2 + xs["x_3"] ** 2, 1.0)
+    assert (xs["x_4"], xs["x_5"], xs["x_6"]) in [(0, 0, -1), (0, -1, 0), (-1, 0, 0)]
 
     # check constraints
     gs = results.constraint_values
@@ -105,12 +104,11 @@ def test_bonmin_w_momip_ti17():
     results = solver("f_2")
 
     # check the result is Pareto optimal
-    # optimal solutions: x_1^2 + x_^2 = 0.25 and (x_3, x_4) = {(0, -1), (-1, 0)}
     assert results.success
 
     xs = results.optimal_variables
-    npt.assert_almost_equal(xs["x_1"] ** 2 + xs["x_2"] ** 2, 0.25)
-    assert (xs["x_3"], xs["x_4"]) in [(0, -1), (-1, 0)]
+    npt.assert_almost_equal(xs["x_1"] ** 2 + xs["x_2"] ** 2 + xs["x_3"] ** 2, 1.0)
+    assert (xs["x_4"], xs["x_5"], xs["x_6"]) in [(0, 0, -1), (0, -1, 0), (-1, 0, 0)]
 
     # check constraints
     gs = results.constraint_values
@@ -118,22 +116,22 @@ def test_bonmin_w_momip_ti17():
     assert np.isclose(gs["g_2"], 0, atol=1e-8) or gs["g_2"] < 0
 
     # test with mixed objectives
-    problem_w_scal, target = add_scalarization_function(problem, func="f_1_min + f_2_min", symbol="s_1")
+    problem_w_scal, target = add_scalarization_function(
+        problem, func="0.25*f_1_min + 0.25*f_2_min + 0.5*f_3_min", symbol="s_1"
+    )
 
-    solver = create_pyomo_bonmin_solver(problem_w_scal)
+    solver = create_pyomo_bonmin_solver(problem_w_scal, options=sol_options)
 
     results = solver(target)
 
     # check the result is Pareto optimal
-    # optimal solutions: x_1^2 + x_^2 = 0.25 and (x_3, x_4) = {(0, -1), (-1, 0)}
     assert results.success
 
     xs = results.optimal_variables
-    npt.assert_almost_equal(xs["x_1"] ** 2 + xs["x_2"] ** 2, 0.25)
-    assert (xs["x_3"], xs["x_4"]) in [(0, -1), (-1, 0)]
+    npt.assert_almost_equal(xs["x_1"] ** 2 + xs["x_2"] ** 2 + xs["x_3"] ** 2, 1.0)
+    assert (xs["x_4"], xs["x_5"], xs["x_6"]) in [(0, 0, -1), (0, -1, 0), (-1, 0, 0)]
 
     # check constraints
     gs = results.constraint_values
     assert np.isclose(gs["g_1"], 0, atol=1e-8) or gs["g_1"] < 0
     assert np.isclose(gs["g_2"], 0, atol=1e-8) or gs["g_2"] < 0
-    """
