@@ -1,9 +1,10 @@
 """Test for adding and utilizing scalarization functions."""
 
 import numpy as np
+import numpy.testing as npt
 import pytest
 
-from desdeo.problem import ConstraintTypeEnum, river_pollution_problem, simple_test_problem
+from desdeo.problem import ConstraintTypeEnum, river_pollution_problem, simple_test_problem, momip_ti7
 from desdeo.tools.scalarization import (
     ScalarizationError,
     add_asf_nondiff,
@@ -12,7 +13,7 @@ from desdeo.tools.scalarization import (
     add_nimbus_sf_diff,
     add_weighted_sums,
 )
-from desdeo.tools.scipy_solver_interfaces import create_scipy_minimize_solver
+from desdeo.tools import create_scipy_minimize_solver, create_pyomo_bonmin_solver, BonminOptions
 
 
 def flatten(nested_list: list) -> list:
@@ -264,3 +265,82 @@ def test_nimbus_sf_init():
     }
     with pytest.raises(ScalarizationError):
         _ = add_nimbus_sf_diff(problem, "target", classifications, current_objective_vector)
+
+
+@pytest.mark.scalarization
+@pytest.mark.nimbus
+@pytest.mark.slow
+def test_nimbus_sf_solve():
+    """Check that the NIMBUS scalarization finds Pareto optimal solutions."""
+    problem = momip_ti7()
+    sol_options = BonminOptions(tol=1e-6, bonmin_algorithm="B-Hyb")
+
+    weights = {"f_1": 0.25, "f_2": 0.5, "f_3": 0.25}
+    problem_w_sum, t_sum = add_weighted_sums(problem, "target", weights)
+
+    solver = create_pyomo_bonmin_solver(problem_w_sum, sol_options)
+
+    results = solver(t_sum)
+    assert results.success
+
+    xs = results.optimal_variables
+    npt.assert_almost_equal(xs["x_1"] ** 2 + xs["x_2"] ** 2 + xs["x_3"] ** 2, 1.0)
+    assert (xs["x_4"], xs["x_5"], xs["x_6"]) in [(0, 0, -1), (0, -1, 0), (-1, 0, 0)]
+
+    initial_solution = results.optimal_objectives
+
+    # improve f_1, let f_2 worsen until limit, let f_3 worsen until limit
+    f_2_limit = 1.2
+    f_3_limit = -0.3
+    classifications = {"f_1": ("<", None), "f_2": (">=", f_2_limit), "f_3": (">=", f_3_limit)}
+
+    problem_w_sf, sf_target = add_nimbus_sf_diff(
+        problem, "target", classifications=classifications, current_objective_vector=initial_solution
+    )
+
+    solver = create_pyomo_bonmin_solver(problem_w_sf, sol_options)
+
+    results = solver(sf_target)
+
+    assert results.success
+    xs = results.optimal_variables
+    npt.assert_almost_equal(xs["x_1"] ** 2 + xs["x_2"] ** 2 + xs["x_3"] ** 2, 1.0, decimal=6)
+    assert (xs["x_4"], xs["x_5"], xs["x_6"]) in [(0, 0, -1), (0, -1, 0), (-1, 0, 0)]
+
+    new_solution = results.optimal_objectives
+
+    # check that solution adheres to the classifications
+    assert new_solution["f_1"] < initial_solution["f_1"]  # f_1 has improved
+    # f_2 must be either f_2_limit or better
+    assert np.isclose(new_solution["f_2"], f_2_limit, atol=1e-6) or new_solution["f_2"] < f_2_limit
+    # f_3 must be either f_3_limit or better
+    assert np.isclose(new_solution["f_3"], f_3_limit, atol=1e-6) or new_solution["f_3"] < f_3_limit
+
+    # worsen f_1, let f_2 keep, improve f_3 until -0.5
+    f_1_limit = -0.6
+    f_3_limit = -0.5
+    new_classifications = {"f_1": (">=", f_1_limit), "f_2": ("=", None), "f_3": ("<=", f_3_limit)}
+
+    problem_w_sf, sf_target = add_nimbus_sf_diff(problem, "target", new_classifications, new_solution)
+
+    sol_options = BonminOptions(tol=1e-6, bonmin_algorithm="B-Hyb")
+    solver = create_pyomo_bonmin_solver(problem_w_sf, sol_options)
+
+    results = solver(sf_target)
+
+    assert results.success
+    xs = results.optimal_variables
+    npt.assert_almost_equal(xs["x_1"] ** 2 + xs["x_2"] ** 2 + xs["x_3"] ** 2, 1.0, decimal=6)
+    assert (xs["x_4"], xs["x_5"], xs["x_6"]) in [(0, 0, -1), (0, -1, 0), (-1, 0, 0)]
+
+    new_new_solution = results.optimal_objectives
+
+    # f_1 should be worse
+    assert new_new_solution["f_1"] > new_solution["f_1"]
+    assert np.isclose(new_new_solution["f_1"], f_1_limit, atol=1e-6) or new_new_solution["f_1"] < f_1_limit
+
+    # f_2 should stay the same
+    npt.assert_almost_equal(new_new_solution["f_2"], new_solution["f_2"], decimal=6)
+
+    # f_3 must have improved
+    assert new_new_solution["f_3"] < new_solution["f_3"]

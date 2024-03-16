@@ -4,7 +4,7 @@ import numpy.testing as npt
 import numpy as np
 import pytest
 
-from desdeo.problem import binh_and_korn, momip_ti2, momip_ti17
+from desdeo.problem import binh_and_korn, momip_ti2, momip_ti7
 from desdeo.tools.scalarization import add_scalarization_function
 from desdeo.tools.pyomo_solver_interfaces import BonminOptions, create_pyomo_bonmin_solver
 
@@ -81,9 +81,9 @@ def test_bonmin_w_momip_ti2():
 
 @pytest.mark.slow
 @pytest.mark.pyomo
-def test_bonmin_w_momip_ti17():
+def test_bonmin_w_momip_ti7():
     """TODO: Finish. Test the bonmin solver with a known problem."""
-    problem = momip_ti17()
+    problem = momip_ti7()
 
     sol_options = BonminOptions(tol=1e-6, bonmin_algorithm="B-BB")
     solver = create_pyomo_bonmin_solver(problem, sol_options)

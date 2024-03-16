@@ -312,8 +312,8 @@ def momip_ti2() -> Problem:
     )
 
 
-def momip_ti17() -> Problem:
-    r"""Defines the mixed-integer multiobjective optimization problem test instance 17 (T17).
+def momip_ti7() -> Problem:
+    r"""Defines the mixed-integer multiobjective optimization problem test instance 7 (T7).
 
     The problem is defined as follows:
 
@@ -347,20 +347,38 @@ def momip_ti17() -> Problem:
     x_6 = Variable(name="x_6", symbol="x_6", variable_type=VariableTypeEnum.integer, lowerbound=-1, upperbound=1)
 
     f_1 = Objective(
-        name="f_1", symbol="f_1", func="x_1 + x_4", objective_type=ObjectiveTypeEnum.analytical, maximize=False
+        name="f_1",
+        symbol="f_1",
+        func="x_1 + x_4",
+        objective_type=ObjectiveTypeEnum.analytical,
+        ideal=-3,
+        nadir=3,
+        maximize=False,
     )
     f_2 = Objective(
-        name="f_2", symbol="f_2", func="-(x_2 + x_5)", objective_type=ObjectiveTypeEnum.analytical, maximize=True
+        name="f_2",
+        symbol="f_2",
+        func="-(x_2 + x_5)",
+        objective_type=ObjectiveTypeEnum.analytical,
+        ideal=3,
+        nadir=-3,
+        maximize=True,
     )
     f_3 = Objective(
-        name="f_3", symbol="f_3", func="x_3 + x_6", objective_type=ObjectiveTypeEnum.analytical, maximize=False
+        name="f_3",
+        symbol="f_3",
+        func="x_3 + x_6",
+        objective_type=ObjectiveTypeEnum.analytical,
+        ideal=-3,
+        nadir=3,
+        maximize=False,
     )
 
     con_1 = Constraint(name="g_1", symbol="g_1", cons_type=ConstraintTypeEnum.LTE, func="x_1**2 + x_2**2 + x_3**2 - 1")
     con_2 = Constraint(name="g_2", symbol="g_2", cons_type=ConstraintTypeEnum.LTE, func="x_4**2 + x_5**2 + x_6**2 - 1")
 
     return Problem(
-        name="MOMIP Test Instance 17",
+        name="MOMIP Test Instance 7",
         description="Test instance 17",
         variables=[x_1, x_2, x_3, x_4, x_5, x_6],
         constraints=[con_1, con_2],
@@ -369,5 +387,5 @@ def momip_ti17() -> Problem:
 
 
 if __name__ == "__main__":
-    problem = momip_ti17()
+    problem = momip_ti7()
     print(problem.model_dump_json(indent=2))
