@@ -499,13 +499,42 @@ def add_nimbus_sf_diff(
             case ("0", _):
                 # not relevant for this scalarization
                 pass
-            case _:
-                pass
+            case (c, _):
+                msg = (
+                    f"Warning! The classification {c} was supplied, but it is not supported."
+                    "Must be one of ['<', '<=', '0', '=', '>=']"
+                )
 
     # add the auxiliary variable, scalarization, and constraints
     _problem = problem.add_variables([alpha])
     _problem = _problem.add_scalarization(scalarization)
     return _problem.add_constraints(constraints), symbol
+
+
+def add_stom_sf_diff(
+    problem: Problem, target: str, reference_point: dict[str, float], rho: float = 1e-6, delta=1e-6
+) -> tuple[Problem, str]:
+    """Adds the differentiable variant of the STOM scalarizing function.
+
+    WIP
+
+    Args:
+        problem (Problem): _description_
+        target (str): _description_
+        reference_point (dict[str, float]): _description_
+        rho (float, optional): _description_. Defaults to 1e-6.
+        delta (_type_, optional): _description_. Defaults to 1e-6.
+
+    Returns:
+        tuple[Problem, str]: a tuple with the copy of the problem with the added
+            scalarization and the symbol of the added scalarization.
+
+    References:
+        H. Nakayama, Y. Sawaragi, Satisficing trade-off method for
+            multiobjective programming, in: M. Grauer, A.P. Wierzbicki (Eds.),
+            Interactive Decision Analysis, Springer Verlag, Berlin, 1984, pp.
+            113-122.
+    """
 
 
 def add_weighted_sums(problem: Problem, symbol: str, weights: dict[str, float]) -> tuple[Problem, str]:

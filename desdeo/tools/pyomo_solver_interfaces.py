@@ -36,7 +36,9 @@ class BonminOptions:
     """Numbers within this value of an integer are considered integers. Defaults to 1e-6."""
 
     bonmin_algorithm: str = "B-BB"
-    """Presets some of the options in Bonmin based on the algorithm choice. Defaults to 'B-BB'."""
+    """Presets some of the options in Bonmin based on the algorithm choice. Defaults to 'B-BB'.
+    A good first option to try is 'B-Hyb'.
+    """
 
     def asdict(self) -> dict[str, float]:
         """Converts the dataclass in a dict so that Bonmin specific options are in the correct format.
@@ -127,10 +129,7 @@ def create_pyomo_bonmin_solver(
         evaluator.set_optimization_target(target)
 
         opt = pyomo.SolverFactory("bonmin", tee=True)
-        # OBS! 'tol' is passes to ipopt, while bonmin options must be
-        # prefixed with bonmin. see for a list of options: https://www.coin-or.org/Bonmin/options_list.html
-        # opt.set_options("bonmin.integer_tolerance=1e-4")
-        # TODO: create a dataclass to pass options to bonmin
+
         # set solver options
         for key, value in options.asdict().items():
             opt.options[key] = value

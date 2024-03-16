@@ -8,6 +8,7 @@ __all__ = [
     "add_epsilon_constraints",
     "add_nimbus_sf_diff",
     "add_objective_as_scalarization",
+    "add_stom_sf_diff",
     "add_weighted_sums",
     "create_pyomo_bonmin_solver",
     "create_scipy_de_solver",
@@ -25,5 +26,6 @@ from desdeo.tools.scalarization import (
     add_epsilon_constraints,
     add_nimbus_sf_diff,
     add_objective_as_scalarization,
+    add_stom_sf_diff,
     add_weighted_sums,
 )
