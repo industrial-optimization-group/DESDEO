@@ -1,9 +1,10 @@
 """Tests for the pyomo solver interfaces."""
+
 import numpy.testing as npt
 import numpy as np
 import pytest
 
-from desdeo.problem import binh_and_korn, momip_ti2
+from desdeo.problem import binh_and_korn, momip_ti2, momip_ti17
 from desdeo.tools.scalarization import add_scalarization_function
 from desdeo.tools.pyomo_solver_interfaces import create_pyomo_bonmin_solver
 
@@ -76,3 +77,61 @@ def test_bonmin_w_momip_ti2():
     gs = results.constraint_values
     assert np.isclose(gs["g_1"], 0, atol=1e-8) or gs["g_1"] < 0
     assert np.isclose(gs["g_2"], 0, atol=1e-8) or gs["g_2"] < 0
+
+
+@pytest.mark.slow
+@pytest.mark.pyomo
+def test_bonmin_w_momip_ti17():
+    """TODO: Finish. Test the bonmin solver with a known problem.
+    problem = momip_ti17()
+
+    solver = create_pyomo_bonmin_solver(problem)
+
+    results = solver("f_2_min")
+
+    # check the result is Pareto optimal
+    assert results.success
+    xs = results.optimal_variables
+    npt.assert_almost_equal(xs["x_1"] ** 2 + xs["x_2"] ** 2 + xs["x_3"], 1.0)
+    assert (xs["x_3"], xs["x_4"], xs["x_5"]) in [(0, 0, -1), (0, -1, 0), (-1, 0, 0)]
+
+    # check constraints
+    gs = results.constraint_values
+    assert np.isclose(gs["g_1"], 0, atol=1e-8) or gs["g_1"] < 0
+    assert np.isclose(gs["g_2"], 0, atol=1e-8) or gs["g_2"] < 0
+
+    results = solver("f_2")
+
+    # check the result is Pareto optimal
+    # optimal solutions: x_1^2 + x_^2 = 0.25 and (x_3, x_4) = {(0, -1), (-1, 0)}
+    assert results.success
+
+    xs = results.optimal_variables
+    npt.assert_almost_equal(xs["x_1"] ** 2 + xs["x_2"] ** 2, 0.25)
+    assert (xs["x_3"], xs["x_4"]) in [(0, -1), (-1, 0)]
+
+    # check constraints
+    gs = results.constraint_values
+    assert np.isclose(gs["g_1"], 0, atol=1e-8) or gs["g_1"] < 0
+    assert np.isclose(gs["g_2"], 0, atol=1e-8) or gs["g_2"] < 0
+
+    # test with mixed objectives
+    problem_w_scal, target = add_scalarization_function(problem, func="f_1_min + f_2_min", symbol="s_1")
+
+    solver = create_pyomo_bonmin_solver(problem_w_scal)
+
+    results = solver(target)
+
+    # check the result is Pareto optimal
+    # optimal solutions: x_1^2 + x_^2 = 0.25 and (x_3, x_4) = {(0, -1), (-1, 0)}
+    assert results.success
+
+    xs = results.optimal_variables
+    npt.assert_almost_equal(xs["x_1"] ** 2 + xs["x_2"] ** 2, 0.25)
+    assert (xs["x_3"], xs["x_4"]) in [(0, -1), (-1, 0)]
+
+    # check constraints
+    gs = results.constraint_values
+    assert np.isclose(gs["g_1"], 0, atol=1e-8) or gs["g_1"] < 0
+    assert np.isclose(gs["g_2"], 0, atol=1e-8) or gs["g_2"] < 0
+    """

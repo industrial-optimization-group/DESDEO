@@ -1,4 +1,5 @@
 """Defines solver interfaces for pyomo."""
+
 from collections.abc import Callable
 
 import pyomo.environ as pyomo
@@ -77,7 +78,12 @@ def create_pyomo_bonmin_solver(problem: Problem) -> Callable[[str], SolverResult
     def solver(target: str) -> SolverResults:
         evaluator.set_optimization_target(target)
 
-        opt = pyomo.SolverFactory("bonmin")
+        opt = pyomo.SolverFactory("bonmin", tee=True)
+        # OBS! 'tol' is passes to ipopt, while bonmin options must be
+        # prefixed with bonmin. see for a list of options: https://www.coin-or.org/Bonmin/options_list.html
+        # opt.set_options("bonmin.integer_tolerance=1e-4")
+        # TODO: create a dataclass to pass options to bonmin
+        opt.options["tol"] = 1e-6
         opt_res = opt.solve(evaluator.model)
 
         return parse_pyomo_optimizer_results(opt_res, problem, evaluator)

@@ -34,6 +34,9 @@ nav:
       - "desdeo-tools": "api/desdeo_tools.md"
       - "DESDEO REST API": "api/desdeo_api.md"
 
+watch:
+  - desdeo
+
 theme:
   name: material
   features:

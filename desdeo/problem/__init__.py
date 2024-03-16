@@ -1,4 +1,5 @@
 """Imports available from the desdeo-problem package."""
+
 __all__ = [
     "binh_and_korn",
     "Constant",
@@ -14,6 +15,7 @@ __all__ = [
     "InfixExpressionParser",
     "MathParser",
     "momip_ti2",
+    "momip_ti17",
     "numpy_array_to_objective_dict",
     "objective_dict_to_numpy_array",
     "Objective",
@@ -58,6 +60,7 @@ from .testproblems import (
     simple_test_problem,
     zdt1,
     momip_ti2,
+    momip_ti17,
 )
 
 from .utils import get_ideal_dict, get_nadir_dict, numpy_array_to_objective_dict, objective_dict_to_numpy_array

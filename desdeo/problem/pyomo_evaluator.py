@@ -1,4 +1,5 @@
 """Defines an evaluator compatible with the Problem JSON format and transforms it into a Pyomo model."""
+
 from operator import le as _le
 from operator import eq as _eq
 
@@ -106,9 +107,20 @@ class PyomoEvaluator:
                     msg = f"Could not figure out the type for variable {var}."
                     raise PyomoEvaluatorError(msg)
 
-            # take the bound directly from var here so that float('inf')s are None when passed to pyomo
+            # if a variable's initial value is set, use it. Otherwise, check if the lower and upper bounds
+            # are defined, if they are, use the mid-point of the bounds, otherwise use the initial value, which is
+            # None.
+            if var.initial_value is not None:
+                initial_value = var.initial_value
+            else:
+                initial_value = (
+                    var.initial_value
+                    if var.lowerbound is None and var.upperbound is None
+                    else (var.lowerbound + var.upperbound) / 2
+                )
+
             pyomo_var = pyomo.Var(
-                name=var.name, initialize=var.initial_value, bounds=(var.lowerbound, var.upperbound), domain=domain
+                name=var.name, initialize=initial_value, bounds=(var.lowerbound, var.upperbound), domain=domain
             )
 
             # add and then construct the variable
