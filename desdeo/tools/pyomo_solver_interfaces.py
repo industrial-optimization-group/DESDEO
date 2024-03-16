@@ -1,6 +1,7 @@
 """Defines solver interfaces for pyomo."""
 
 from collections.abc import Callable
+from dataclasses import fields, dataclass
 
 import pyomo.environ as pyomo
 from pyomo.opt import SolverResults as _pyomo_SolverResults
@@ -13,6 +14,41 @@ from desdeo.tools.generics import SolverResults, CreateSolverType
 
 # forward typehints
 create_pyomo_bonmin_solver: CreateSolverType
+
+
+@dataclass
+class BonminOptions:
+    """Defines a dataclass to store and pass options to the Bonmin solver.
+
+    Because Bonmin utilizes many sub-solver, the options specific to Bonmin
+    must be prefixed in their name with 'bonmin.{option_name}',
+    e.g., `bonmin.integer_tolerance`. For a list of options, see
+    https://www.coin-or.org/Bonmin/options_list.html
+
+    Note:
+        Add options as they are needed.
+    """
+
+    tol: float = 1e-8
+    """Sets the convergence tolerance of ipopt. Defaults to 1e-8."""
+
+    bonmin_integer_tolerance: float = 1e-6
+    """Numbers within this value of an integer are considered integers. Defaults to 1e-6."""
+
+    def asdict(self) -> dict[str, float]:
+        """Converts the dataclass in a dict so that Bonmin specific options are in the correct format."""
+        output = {}
+        for field in fields(self):
+            if (rest := field.name.split(sep="_"))[0] == "bonmin":
+                output[f"bonmin.{'_'.join(rest[1:])}"] = getattr(self, field.name)
+            else:
+                output[f"{field.name}"] = getattr(self, field.name)
+
+        return output
+
+
+_default_bonmin_options = BonminOptions()
+"""Defines Bonmin options with the default values."""
 
 
 def parse_pyomo_optimizer_results(
@@ -51,7 +87,9 @@ def parse_pyomo_optimizer_results(
     )
 
 
-def create_pyomo_bonmin_solver(problem: Problem) -> Callable[[str], SolverResults]:
+def create_pyomo_bonmin_solver(
+    problem: Problem, options: BonminOptions = _default_bonmin_options
+) -> Callable[[str], SolverResults]:
     """Creates a pyomo solver that utilizes bonmin.
 
     Suitable for mixed-integer problems. The objective function being minimized
@@ -67,6 +105,9 @@ def create_pyomo_bonmin_solver(problem: Problem) -> Callable[[str], SolverResult
 
     Args:
         problem (Problem): the problem to be solved.
+        options (BonminOptions): options to be passed to the Bonmin solver.
+            Defaults to `default_bonmin_options` defined in this source
+            file.
 
     Returns:
         Callable[[str], SolverResults]: returns a callable function that takes
@@ -83,7 +124,9 @@ def create_pyomo_bonmin_solver(problem: Problem) -> Callable[[str], SolverResult
         # prefixed with bonmin. see for a list of options: https://www.coin-or.org/Bonmin/options_list.html
         # opt.set_options("bonmin.integer_tolerance=1e-4")
         # TODO: create a dataclass to pass options to bonmin
-        opt.options["tol"] = 1e-6
+        # set solver options
+        for key, value in options.asdict().items():
+            opt.options[key] = value
         opt_res = opt.solve(evaluator.model)
 
         return parse_pyomo_optimizer_results(opt_res, problem, evaluator)

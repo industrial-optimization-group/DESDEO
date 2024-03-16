@@ -6,7 +6,7 @@ import pytest
 
 from desdeo.problem import binh_and_korn, momip_ti2, momip_ti17
 from desdeo.tools.scalarization import add_scalarization_function
-from desdeo.tools.pyomo_solver_interfaces import create_pyomo_bonmin_solver
+from desdeo.tools.pyomo_solver_interfaces import BonminOptions, create_pyomo_bonmin_solver
 
 
 @pytest.mark.slow
@@ -82,15 +82,17 @@ def test_bonmin_w_momip_ti2():
 @pytest.mark.slow
 @pytest.mark.pyomo
 def test_bonmin_w_momip_ti17():
-    """TODO: Finish. Test the bonmin solver with a known problem.
+    """TODO: Finish. Test the bonmin solver with a known problem."""
     problem = momip_ti17()
 
-    solver = create_pyomo_bonmin_solver(problem)
+    sol_options = BonminOptions(tol=1e-6)
+    solver = create_pyomo_bonmin_solver(problem, sol_options)
 
     results = solver("f_2_min")
 
     # check the result is Pareto optimal
     assert results.success
+    """
     xs = results.optimal_variables
     npt.assert_almost_equal(xs["x_1"] ** 2 + xs["x_2"] ** 2 + xs["x_3"], 1.0)
     assert (xs["x_3"], xs["x_4"], xs["x_5"]) in [(0, 0, -1), (0, -1, 0), (-1, 0, 0)]
