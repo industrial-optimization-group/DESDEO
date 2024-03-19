@@ -354,6 +354,11 @@ def add_nimbus_sf_diff(
     that may change freely), the right element is either `None` or an aspiration or a reservation level
     depending on the classification.
 
+    References:
+        Miettinen, K., & Mäkelä, M. M. (2002). On scalarizing functions in
+            multiobjective optimization. OR Spectrum, 24(2), 193–213.
+
+
     Args:
         problem (Problem): the problem to be scalarized.
         symbol (str): the symbol given to the scalarization function, i.e., target of the optimization.
@@ -512,28 +517,41 @@ def add_nimbus_sf_diff(
 
 
 def add_stom_sf_diff(
-    problem: Problem, target: str, reference_point: dict[str, float], rho: float = 1e-6, delta=1e-6
+    problem: Problem, target: str, reference_point: dict[str, float], rho: float = 1e-6, delta: float = 1e-6
 ) -> tuple[Problem, str]:
-    """Adds the differentiable variant of the STOM scalarizing function.
+    r"""Adds the differentiable variant of the STOM scalarizing function.
 
-    WIP
+    \begin{align*}
+        \min \quad & \alpha + \rho \sum_{i=1}^k \frac{f_i(\mathbf{x})}{\bar{z}_i - z_i^{\star\star}} \\
+        \text{s.t.} \quad & \frac{f_i(\mathbf{x}) - z_i^{\star\star}}{\bar{z}_i
+        - z_i^{\star\star}} - \alpha \leq 0 \quad & \forall i = 1,\dots,k\\
+        & \mathbf{x} \in S,
+    \end{align*}
 
-    Args:
-        problem (Problem): _description_
-        target (str): _description_
-        reference_point (dict[str, float]): _description_
-        rho (float, optional): _description_. Defaults to 1e-6.
-        delta (_type_, optional): _description_. Defaults to 1e-6.
-
-    Returns:
-        tuple[Problem, str]: a tuple with the copy of the problem with the added
-            scalarization and the symbol of the added scalarization.
+    where $f_i$ are objective functions, $z_i^{\star\star} = z_i^\star - \delta$ is
+    a component of the utopian point, $\bar{z}_i$ is a component of the reference point,
+    $\rho$ and $\delta$ are small scalar values, $S$ is the feasible solution
+    space of the original problem,  and $\alpha$ is an auxiliary variable.
 
     References:
         H. Nakayama, Y. Sawaragi, Satisficing trade-off method for
             multiobjective programming, in: M. Grauer, A.P. Wierzbicki (Eds.),
             Interactive Decision Analysis, Springer Verlag, Berlin, 1984, pp.
             113-122.
+
+    Args:
+        problem (Problem): the problem the scalarization is added to.
+        target (str): the symbol given to the added scalarization.
+        reference_point (dict[str, float]): a dict with keys corresponding to objective
+            function symbols and values to reference point components, i.e.,
+            aspiration levels.
+        rho (float, optional): a small scalar value to scale the sum in the objective
+            function of the scalarization. Defaults to 1e-6.
+        delta (float, optional): a small scalar value to define the utopian point. Defaults to 1e-6.
+
+    Returns:
+        tuple[Problem, str]: a tuple with the copy of the problem with the added
+            scalarization and the symbol of the added scalarization.
     """
 
 
