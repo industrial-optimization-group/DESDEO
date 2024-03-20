@@ -85,7 +85,7 @@ plugins:
             show_symbol_type_doc: true
             filters: none
           docstring_options:
-            ignore_init_summary: true
+            ignore_init_summary: false
 
 markdown_extensions:
   - admonition
