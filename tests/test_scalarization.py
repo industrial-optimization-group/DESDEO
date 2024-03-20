@@ -11,6 +11,7 @@ from desdeo.tools.scalarization import (
     add_asf_generic_nondiff,
     add_epsilon_constraints,
     add_nimbus_sf_diff,
+    add_stom_sf_diff,
     add_weighted_sums,
 )
 from desdeo.tools import create_scipy_minimize_solver, create_pyomo_bonmin_solver, BonminOptions
@@ -344,3 +345,51 @@ def test_nimbus_sf_solve():
 
     # f_3 must have improved
     assert new_new_solution["f_3"] < new_solution["f_3"]
+
+
+@pytest.mark.scalarization
+@pytest.mark.nimbus
+@pytest.mark.slow
+def test_stom_sf_diff():
+    """Test that STOM results in correct solutions."""
+    problem = momip_ti7()
+
+    first_reference_point = {"f_1": -2.0, "f_2": 2.0, "f_3": 0.0}
+
+    problem_w_sf, target = add_stom_sf_diff(problem, "target", first_reference_point)
+
+    sol_options = BonminOptions(tol=1e-6, bonmin_algorithm="B-Hyb")
+    solver = create_pyomo_bonmin_solver(problem_w_sf, sol_options)
+
+    results = solver(target)
+
+    assert results.success
+
+    xs = results.optimal_variables
+    npt.assert_almost_equal(xs["x_1"] ** 2 + xs["x_2"] ** 2 + xs["x_3"] ** 2, 1.0, decimal=6)
+    assert (xs["x_4"], xs["x_5"], xs["x_6"]) in [(0, 0, -1), (0, -1, 0), (-1, 0, 0)]
+
+    first_solution = results.optimal_objectives
+
+    assert results.success
+
+    second_reference_point = {"f_1": -1.0, "f_2": -1.0, "f_3": -1.5}
+
+    problem_w_sf, target = add_stom_sf_diff(problem, "target", second_reference_point)
+
+    sol_options = BonminOptions(tol=1e-6, bonmin_algorithm="B-Hyb")
+    solver = create_pyomo_bonmin_solver(problem_w_sf, sol_options)
+
+    results = solver(target)
+
+    assert results.success
+
+    xs = results.optimal_variables
+    npt.assert_almost_equal(xs["x_1"] ** 2 + xs["x_2"] ** 2 + xs["x_3"] ** 2, 1.0, decimal=6)
+    assert (xs["x_4"], xs["x_5"], xs["x_6"]) in [(0, 0, -1), (0, -1, 0), (-1, 0, 0)]
+
+    second_solution = results.optimal_objectives
+
+    assert first_solution["f_1"] < second_solution["f_1"]  # f_1 should have worsened
+    assert first_solution["f_2"] > second_solution["f_2"]  # f_2 should have worsened
+    assert first_solution["f_3"] > second_solution["f_3"]  # f_3 should have improved

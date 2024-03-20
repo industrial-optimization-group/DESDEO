@@ -78,3 +78,22 @@ def get_corrected_ideal_and_nadir(problem: Problem) -> tuple[dict[str, float | N
     }
 
     return ideal_point, nadir_point
+
+
+def get_corrected_reference_point(problem: Problem, reference_point: dict[str, float]) -> dict[str, float]:
+    """Correct the components of a reference point.
+
+    Correct the components of a reference point by multiplying the components
+    related to maximized objective functions by -1.
+
+    Args:
+        problem (Problem): the problem the reference point is related to.
+        reference_point (dict[str, float]): the reference point to be corrected.
+
+    Returns:
+        dict[str, float]: the corrected reference point.
+    """
+    return {
+        obj.symbol: reference_point[obj.symbol] * -1 if obj.maximize else reference_point[obj.symbol]
+        for obj in problem.objectives
+    }

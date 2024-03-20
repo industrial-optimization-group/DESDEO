@@ -6,19 +6,15 @@ or minimization of the corresponding objective functions may be correctly
 accounted for when computing scalarization function values.
 """
 
-import json
-import pprint
-
 from desdeo.problem import (
     Constraint,
     ConstraintTypeEnum,
-    InfixExpressionParser,
     Problem,
     ScalarizationFunction,
     Variable,
     VariableTypeEnum,
 )
-from desdeo.tools.utils import get_corrected_ideal_and_nadir
+from desdeo.tools.utils import get_corrected_ideal_and_nadir, get_corrected_reference_point
 
 
 class ScalarizationError(Exception):
@@ -76,6 +72,19 @@ class Op:
     # Other operators
     MAX = "Max"
     RATIONAL = "Rational"
+
+
+def objective_dict_has_all_symbols(problem: Problem, obj_dict: dict[str, float]) -> bool:
+    """Check that a dict has all the objective function symbols of a problem as its keys.
+
+    Args:
+        problem (Problem): the problem with the objective symbols.
+        obj_dict (dict[str, float]): a dict that should have a key for each objective symbol.
+
+    Returns:
+        bool: whether all the symbols are present or not.
+    """
+    return all(obj.symbol in obj_dict for obj in problem.objectives)
 
 
 def add_asf_nondiff(
@@ -139,7 +148,7 @@ def add_asf_nondiff(
             and the symbol of the added scalarization function.
     """
     # check that the reference point has all the objective components
-    if not all(obj.symbol in reference_point for obj in problem.objectives):
+    if not objective_dict_has_all_symbols(problem, reference_point):
         msg = f"The given reference point {reference_point} does not have a component defined for all the objectives."
         raise ScalarizationError(msg)
 
@@ -250,21 +259,17 @@ def add_asf_generic_nondiff(
             and the symbol of the added scalarization function.
     """
     # check that the reference point has all the objective components
-    if not all(obj.symbol in reference_point for obj in problem.objectives):
+    if not objective_dict_has_all_symbols(problem, reference_point):
         msg = f"The given reference point {reference_point} does not have a component defined for all the objectives."
         raise ScalarizationError(msg)
 
     # check that the weights have all the objective components
-    if not all(obj.symbol in weights for obj in problem.objectives):
+    if not objective_dict_has_all_symbols(problem, weights):
         msg = f"The given weight vector {weights} does not have a component defined for all the objectives."
         raise ScalarizationError(msg)
 
     # check if minimizing or maximizing and adjust ideal and nadir values correspondingly
     ideal_point, nadir_point = get_corrected_ideal_and_nadir(problem)
-
-    if any(value is None for value in ideal_point.values()) or any(value is None for value in nadir_point.values()):
-        msg = f"There are undefined values in either the ideal ({ideal_point}) or the nadir point ({nadir_point})."
-        raise ScalarizationError(msg)
 
     # Build the max term
     max_operands = [
@@ -377,7 +382,7 @@ def add_nimbus_sf_diff(
             symbol of the scalarization.
     """
     # check that classifications have been provided for all objective functions
-    if not all(obj.symbol in classifications for obj in problem.objectives):
+    if not objective_dict_has_all_symbols(problem, classifications):
         msg = (
             f"The given classifications {classifications} do not define "
             "a classification for all the objective functions."
@@ -397,10 +402,6 @@ def add_nimbus_sf_diff(
 
     # check ideal and nadir exist
     ideal_point, nadir_point = get_corrected_ideal_and_nadir(problem)
-
-    if any(value is None for value in ideal_point.values()) or any(value is None for value in nadir_point.values()):
-        msg = f"There are undefined values in either the ideal ({ideal_point}) or the nadir point ({nadir_point})."
-        raise ScalarizationError(msg)
 
     # define the auxiliary variable
     alpha = Variable(name="alpha", symbol="_alpha", variable_type=VariableTypeEnum.real, initial_value=1.0)
@@ -517,7 +518,11 @@ def add_nimbus_sf_diff(
 
 
 def add_stom_sf_diff(
-    problem: Problem, target: str, reference_point: dict[str, float], rho: float = 1e-6, delta: float = 1e-6
+    problem: Problem,
+    symbol: str,
+    reference_point: dict[str, float],
+    rho: float = 1e-6,
+    delta: float = 1e-6,
 ) -> tuple[Problem, str]:
     r"""Adds the differentiable variant of the STOM scalarizing function.
 
@@ -541,7 +546,7 @@ def add_stom_sf_diff(
 
     Args:
         problem (Problem): the problem the scalarization is added to.
-        target (str): the symbol given to the added scalarization.
+        symbol (str): the symbol given to the added scalarization.
         reference_point (dict[str, float]): a dict with keys corresponding to objective
             function symbols and values to reference point components, i.e.,
             aspiration levels.
@@ -553,6 +558,48 @@ def add_stom_sf_diff(
         tuple[Problem, str]: a tuple with the copy of the problem with the added
             scalarization and the symbol of the added scalarization.
     """
+    # check reference point
+    if not objective_dict_has_all_symbols(problem, reference_point):
+        msg = f"The give reference point {reference_point} is missing value for one or more objectives."
+        raise ScalarizationError(msg)
+
+    ideal_point, _ = get_corrected_ideal_and_nadir(problem)
+    corrected_rp = get_corrected_reference_point(problem, reference_point)
+
+    # define the auxiliary variable
+    alpha = Variable(name="alpha", symbol="_alpha", variable_type=VariableTypeEnum.real, initial_value=1.0)
+
+    # define the objective function of the scalarization
+    aug_expr = " + ".join(
+        [
+            f"{obj.symbol}_min / ({reference_point[obj.symbol]} - {ideal_point[obj.symbol] - delta})"
+            for obj in problem.objectives
+        ]
+    )
+
+    target_expr = f"_alpha + {rho}*" + f"({aug_expr})"
+    scalarization = ScalarizationFunction(name="STOM scalarization objective function", symbol=symbol, func=target_expr)
+
+    constraints = []
+
+    for obj in problem.objectives:
+        expr = (
+            f"({obj.symbol}_min - {ideal_point[obj.symbol] - delta}) / "
+            f"({corrected_rp[obj.symbol] - (ideal_point[obj.symbol] - delta)}) - _alpha"
+        )
+        constraints.append(
+            Constraint(
+                name=f"Max constraint for {obj.symbol}",
+                symbol=f"{obj.symbol}_maxcon",
+                func=expr,
+                cons_type=ConstraintTypeEnum.LTE,
+                linear=False,  # TODO: check!
+            )
+        )
+
+    _problem = problem.add_variables([alpha])
+    _problem = _problem.add_scalarization(scalarization)
+    return _problem.add_constraints(constraints), symbol
 
 
 def add_weighted_sums(problem: Problem, symbol: str, weights: dict[str, float]) -> tuple[Problem, str]:
