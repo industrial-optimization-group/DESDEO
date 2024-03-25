@@ -57,9 +57,6 @@ theme:
   logo: assets/desdeo_logo.png
   favicon: assets/desdeo_logo.png
 
-extra_javascript:
-  - https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=TeX-AMS-MML_HTMLorMML
-  - extrajs/extra.js
 
 plugins:
   - search
@@ -108,3 +105,9 @@ markdown_extensions:
 
 extra_css:
   - stylesheets/extra.css
+
+extra_javascript:
+  - extrajs/extra.js
+  - extrajs/mathjax.js
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js 
