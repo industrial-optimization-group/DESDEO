@@ -7,6 +7,7 @@ import pytest
 from desdeo.problem import ConstraintTypeEnum, river_pollution_problem, simple_test_problem, momip_ti7
 from desdeo.tools.scalarization import (
     ScalarizationError,
+    add_achievement_sf_diff,
     add_asf_nondiff,
     add_asf_generic_nondiff,
     add_guess_sf_diff,
@@ -449,6 +450,67 @@ def test_guess_sf_diff():
     second_reference_point = {"f_1": -1.0, "f_2": -1.0, "f_3": -1.5}
 
     problem_w_sf, target = add_guess_sf_diff(problem, "target", second_reference_point)
+
+    sol_options = BonminOptions(tol=1e-6, bonmin_algorithm="B-Hyb")
+    solver = create_pyomo_bonmin_solver(problem_w_sf, sol_options)
+
+    results = solver(target)
+
+    assert results.success
+
+    xs = results.optimal_variables
+    npt.assert_almost_equal(xs["x_1"] ** 2 + xs["x_2"] ** 2 + xs["x_3"] ** 2, 1.0, decimal=6)
+    assert (xs["x_4"], xs["x_5"], xs["x_6"]) in [(0, 0, -1), (0, -1, 0), (-1, 0, 0)]
+
+    second_solution = results.optimal_objectives
+
+    assert first_solution["f_1"] < second_solution["f_1"]  # f_1 should have worsened
+    assert first_solution["f_2"] > second_solution["f_2"]  # f_2 should have worsened
+    assert first_solution["f_3"] > second_solution["f_3"]  # f_3 should have improved
+
+
+@pytest.mark.nimbus
+def test_achievement_sf_init():
+    """Test that the achievement scalarization is initialized correctly."""
+    problem = river_pollution_problem()
+
+    rp = {"f_1": -5.0, "f_2": -3.0, "f_3": 2.5, "f_4": -5.0, "f_5": 0.35}
+
+    problem_w_sf, target = add_achievement_sf_diff(problem, "target", rp)
+
+    # one for each objective function
+    assert len(problem_w_sf.constraints) == 5
+
+
+@pytest.mark.scalarization
+@pytest.mark.nimbus
+@pytest.mark.slow
+def test_achievement_sf_diff():
+    """Test that GUESS results in correct solutions."""
+    problem = momip_ti7()
+
+    first_reference_point = {"f_1": -2.0, "f_2": 2.0, "f_3": 0.0}
+
+    problem_w_sf, target = add_achievement_sf_diff(problem, "target", first_reference_point)
+
+    sol_options = BonminOptions(tol=1e-6, bonmin_algorithm="B-Hyb")
+    solver = create_pyomo_bonmin_solver(problem_w_sf, sol_options)
+
+    results = solver(target)
+
+    assert results.success
+
+    xs = results.optimal_variables
+    npt.assert_almost_equal(xs["x_1"] ** 2 + xs["x_2"] ** 2 + xs["x_3"] ** 2, 1.0, decimal=6)
+    assert (xs["x_4"], xs["x_5"], xs["x_6"]) in [(0, 0, -1), (0, -1, 0), (-1, 0, 0)]
+
+    first_solution = results.optimal_objectives
+
+    assert results.success
+
+    second_reference_point = {"f_1": -1.0, "f_2": -1.0, "f_3": -1.5}
+
+    problem_w_sf, target = add_achievement_sf_diff(problem, "target", second_reference_point)
 
     sol_options = BonminOptions(tol=1e-6, bonmin_algorithm="B-Hyb")
     solver = create_pyomo_bonmin_solver(problem_w_sf, sol_options)

@@ -3,6 +3,7 @@
 __all__ = [
     "BonminOptions",
     "ScalarizationError",
+    "add_achievement_sf_diff",
     "add_asf_generic_nondiff",
     "add_asf_nondiff",
     "add_epsilon_constraints",
@@ -22,6 +23,7 @@ from desdeo.tools.scipy_solver_interfaces import create_scipy_de_solver, create_
 
 from desdeo.tools.scalarization import (
     ScalarizationError,
+    add_achievement_sf_diff,
     add_asf_generic_nondiff,
     add_asf_nondiff,
     add_epsilon_constraints,
