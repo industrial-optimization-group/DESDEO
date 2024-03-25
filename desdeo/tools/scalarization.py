@@ -6,6 +6,8 @@ or minimization of the corresponding objective functions may be correctly
 accounted for when computing scalarization function values.
 """
 
+import numpy as np
+
 from desdeo.problem import (
     Constraint,
     ConstraintTypeEnum,
@@ -587,6 +589,116 @@ def add_stom_sf_diff(
             f"({obj.symbol}_min - {ideal_point[obj.symbol] - delta}) / "
             f"({corrected_rp[obj.symbol] - (ideal_point[obj.symbol] - delta)}) - _alpha"
         )
+        constraints.append(
+            Constraint(
+                name=f"Max constraint for {obj.symbol}",
+                symbol=f"{obj.symbol}_maxcon",
+                func=expr,
+                cons_type=ConstraintTypeEnum.LTE,
+                linear=False,  # TODO: check!
+            )
+        )
+
+    _problem = problem.add_variables([alpha])
+    _problem = _problem.add_scalarization(scalarization)
+    return _problem.add_constraints(constraints), symbol
+
+
+def add_guess_sf_diff(
+    problem: Problem,
+    symbol: str,
+    reference_point: dict[str, float],
+    rho: float = 1e-6,
+    delta: float = 1e-6,
+) -> tuple[Problem, str]:
+    r"""Adds the differentiable variant of the GUESS scalarizing function.
+
+    \begin{align*}
+        \min \quad & \alpha + \rho \sum_{i=1}^k \frac{f_i(\mathbf{x})}{d_i} \\
+        \text{s.t.} \quad & \frac{f_i(\mathbf{x}) - z_i^{\star\star}}{\bar{z}_i
+        - z_i^{\star\star}} - \alpha \leq 0 \quad & \forall i \notin I^{\diamond},\\
+        & d_i =
+        \begin{cases}
+        z^\text{nad}_i - \bar{z}_i,\quad \forall i \notin I^\diamond,\\
+        z^\text{nad}_i - z^{\star\star}_i,\quad \forall i \in I^\diamond,\\
+        \end{cases}\\
+        & \mathbf{x} \in S,
+    \end{align*}
+
+    where $f_i$ are objective functions, $z_i^{\star\star} = z_i^\star - \delta$ is
+    a component of the utopian point, $\bar{z}_i$ is a component of the reference point,
+    $\rho$ and $\delta$ are small scalar values, $S$ is the feasible solution
+    space of the original problem, and $\alpha$ is an auxiliary variable. The index
+    set $I^\diamond$ represents objective vectors whose values are free to change. The indices
+    belonging to this set are interpreted as those objective vectors whose components in
+    the reference point is set to be the the respective nadir point component of the problem.
+
+    References:
+        Buchanan, J. T. (1997). A naive approach for solving MCDM problems: The
+        GUESS method. Journal of the Operational Research Society, 48, 202-206.
+
+    Args:
+        problem (Problem): the problem the scalarization is added to.
+        symbol (str): the symbol given to the added scalarization.
+        reference_point (dict[str, float]): a dict with keys corresponding to objective
+            function symbols and values to reference point components, i.e.,
+            aspiration levels.
+        rho (float, optional): a small scalar value to scale the sum in the objective
+            function of the scalarization. Defaults to 1e-6.
+        delta (float, optional): a small scalar to define the utopian point. Defaults to 1e-6.
+
+    Returns:
+        tuple[Problem, str]: a tuple with the copy of the problem with the added
+            scalarization and the symbol of the added scalarization.
+    """
+    # check reference point
+    if not objective_dict_has_all_symbols(problem, reference_point):
+        msg = f"The give reference point {reference_point} is missing value for one or more objectives."
+        raise ScalarizationError(msg)
+
+    ideal_point, nadir_point = get_corrected_ideal_and_nadir(problem)
+    corrected_rp = get_corrected_reference_point(problem, reference_point)
+
+    # the indices that are free to change, set if component of reference point
+    # has the corresponding nadir value, or if it is greater than the nadir value
+    free_to_change = [
+        sym
+        for sym in corrected_rp
+        if np.isclose(corrected_rp[sym], nadir_point[sym]) or corrected_rp[sym] > nadir_point[sym]
+    ]
+
+    # define the auxiliary variable
+    alpha = Variable(name="alpha", symbol="_alpha", variable_type=VariableTypeEnum.real, initial_value=1.0)
+
+    # define the objective function of the scalarization
+    aug_expr = " + ".join(
+        [
+            (
+                f"{obj.symbol}_min / ({nadir_point[obj.symbol]} - "
+                f"{reference_point[obj.symbol] if obj.symbol not in free_to_change else ideal_point[obj.symbol] - delta})"
+            )
+            for obj in problem.objectives
+        ]
+    )
+
+    target_expr = f"_alpha + {rho}*" + f"({aug_expr})"
+    scalarization = ScalarizationFunction(
+        name="GUESS scalarization objective function", symbol=symbol, func=target_expr
+    )
+
+    constraints = []
+
+    for obj in problem.objectives:
+        if obj.symbol in free_to_change:
+            # if free to change, then do not add a constraint
+            continue
+
+        # not free to change, add constraint
+        expr = (
+            f"({obj.symbol}_min - {nadir_point[obj.symbol]}) / "
+            f"({nadir_point[obj.symbol]} - {corrected_rp[obj.symbol]}) - _alpha"
+        )
+
         constraints.append(
             Constraint(
                 name=f"Max constraint for {obj.symbol}",
