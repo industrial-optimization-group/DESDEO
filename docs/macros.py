@@ -3,7 +3,7 @@ import inspect
 import json
 import re
 
-from desdeo.problem.schema import (
+from desdeo.problem import (
     Constant,
     Constraint,
     DiscreteRepresentation,

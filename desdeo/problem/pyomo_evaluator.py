@@ -1,11 +1,16 @@
 """Defines an evaluator compatible with the Problem JSON format and transforms it into a Pyomo model."""
 
-from operator import le as _le
 from operator import eq as _eq
+from operator import le as _le
 
 import pyomo.environ as pyomo
 
-from desdeo.problem import ConstraintTypeEnum, Problem, VariableTypeEnum, FormatEnum, MathParser
+from desdeo.problem.json_parser import FormatEnum, MathParser
+from desdeo.problem.schema import (
+    ConstraintTypeEnum,
+    Problem,
+    VariableTypeEnum,
+)
 
 
 class PyomoEvaluatorError(Exception):

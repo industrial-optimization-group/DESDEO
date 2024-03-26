@@ -80,7 +80,7 @@ plugins:
             show_category_heading: false
             show_symbol_type_heading: true
             show_symbol_type_doc: true
-            filters: none
+            filters: []
           docstring_options:
             ignore_init_summary: false
 
