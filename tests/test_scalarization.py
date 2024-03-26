@@ -4,19 +4,31 @@ import numpy as np
 import numpy.testing as npt
 import pytest
 
-from desdeo.problem import ConstraintTypeEnum, river_pollution_problem, simple_test_problem, momip_ti7
+from desdeo.problem import (
+    ConstraintTypeEnum,
+    dtlz2,
+    momip_ti7,
+    river_pollution_problem,
+    simple_test_problem,
+)
+from desdeo.tools import (
+    BonminOptions,
+    create_pyomo_bonmin_solver,
+    create_scipy_minimize_solver,
+    create_scipy_de_solver,
+)
 from desdeo.tools.scalarization import (
     ScalarizationError,
     add_achievement_sf_diff,
-    add_asf_nondiff,
     add_asf_generic_nondiff,
-    add_guess_sf_diff,
+    add_asf_nondiff,
     add_epsilon_constraints,
+    add_guess_sf_diff,
     add_nimbus_sf_diff,
+    add_nimbus_sf_nondiff,
     add_stom_sf_diff,
     add_weighted_sums,
 )
-from desdeo.tools import create_scipy_minimize_solver, create_pyomo_bonmin_solver, BonminOptions
 
 
 def flatten(nested_list: list) -> list:
@@ -528,3 +540,50 @@ def test_achievement_sf_diff():
     assert first_solution["f_1"] < second_solution["f_1"]  # f_1 should have worsened
     assert first_solution["f_2"] > second_solution["f_2"]  # f_2 should have worsened
     assert first_solution["f_3"] > second_solution["f_3"]  # f_3 should have improved
+
+
+@pytest.mark.scalarization
+@pytest.mark.nimbus
+@pytest.mark.slow
+def test_nimbus_sf_nondiff_solve():
+    """Check that the non-differentiable NIMBUS scalarization finds Pareto optimal solutions."""
+    n_variables = 6
+    n_objectives = 3
+    problem = dtlz2(n_variables, n_objectives)
+
+    weights = {"f_1": 0.25, "f_2": 0.5, "f_3": 0.25}
+    problem_w_sum, t_sum = add_weighted_sums(problem, "target", weights)
+
+    solver = create_scipy_de_solver(problem_w_sum)
+
+    results = solver(t_sum)
+    assert results.success
+
+    xs = results.optimal_variables
+    assert all(np.isclose(xs[f"x_{i}"], 0.5, atol=1e-4) for i in range(n_objectives, n_variables + 1))
+    assert np.isclose(sum(results.optimal_objectives[obj.symbol] ** 2 for obj in problem.objectives), 1.0, atol=1e-6)
+
+    initial_solution = results.optimal_objectives
+
+    # improve f_3, let others change freely
+    classifications = {"f_1": ("0", None), "f_2": ("0", None), "f_3": ("<", None)}
+
+    problem_w_sf, sf_target = add_nimbus_sf_nondiff(
+        problem, "target", classifications=classifications, current_objective_vector=initial_solution
+    )
+
+    assert len(problem_w_sf.constraints) == 1
+
+    solver = create_scipy_de_solver(problem_w_sf)
+
+    results = solver(sf_target)
+
+    assert results.success
+    # no point in checking the variables, they will be crap because DE does not handle
+    # constraints very well at all
+    # atol is crap here as well
+    assert np.isclose(sum(results.optimal_objectives[obj.symbol] ** 2 for obj in problem.objectives), 1.0, atol=1e-1)
+
+    second_solution = results.optimal_objectives
+
+    assert initial_solution["f_3"] > second_solution["f_3"]  # f_3 must have improved

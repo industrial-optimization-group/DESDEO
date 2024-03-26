@@ -519,6 +519,202 @@ def add_nimbus_sf_diff(
     return _problem.add_constraints(constraints), symbol
 
 
+def add_nimbus_sf_nondiff(
+    problem: Problem,
+    symbol: str,
+    classifications: dict[str, tuple[str, float | None]],
+    current_objective_vector: dict[str, float],
+    delta: float = 0.000001,
+    rho: float = 0.000001,
+) -> Problem:
+    r"""Implements the non-differentiable variant of the NIMBUS scalarization function.
+
+    \begin{align*}
+        \underset{\mathbf{x}}{\min}
+        \underset{\substack{j \in I^\leq \\i \in I^<}}{\max}
+        &\left[ \frac{f_i(\mathbf{x}) - z_i^\star}{z_i^\text{nad} - z_i^{\star\star}},
+        \frac{f_j(\mathbf{x}) - \hat{z}_j}{z_j^\text{nad} - x_j^{\star\star}} \right]
+        +\rho \sum_{i =1}^k \frac{f_i(\mathbf{x})}{z_i^{nad} - z_i^{\star\star}} \\
+        \text{s.t.} \quad & f_i(\mathbf{x}) - f_i(\mathbf{x}^c) \leq 0\quad&\forall i \in I^< \cup I^\leq \cup I^=,\\
+        & f_i(\mathbf{x}) - \epsilon_i \leq 0\quad&\forall i \in I^\geq,\\
+        & \mathbf{x} \in S,
+    \end{align*}
+
+    where $f_i$ are objective functions, $f_i(\mathbf{x_c})$ is a component of
+    the current objective function, $\hat{z}_i$ is an aspiration level,
+    $\varepsilon_i$ is a reservation level, $z_i^\star$ is a component of the
+    ideal point, $z_i^{\star\star} = z_i^\star - \delta$ is a component of the
+    utopian point, $z_i^\text{nad}$ is a component of the nadir point, $\rho$ is
+    a small scalar, and $S$ is the feasible solution space of the problem (i.e., it
+    means the other constraints of the problem being solved should be accounted
+    for as well).
+
+    The $I$-sets are related to the classifications given to each objective function value
+    in respect to  the current objective vector (e.g., by a decision maker). They
+    are as follows:
+
+    - $I^{<}$: values that should improve,
+    - $I^{\leq}$: values that should improve until a given aspiration level $\hat{z}_i$,
+    - $I^{=}$: values that are fine as they are,
+    - $I^{\geq}$: values that can be impaired until some reservation level $\varepsilon_i$, and
+    - $I^{\diamond}$: values that are allowed to change freely (not present explicitly in this scalarization function).
+
+    The aspiration levels and the reservation levels are supplied for each classification, when relevant, in
+    the argument `classifications` as follows:
+
+    ```python
+    classifications = {
+        "f_1": ("<", None),
+        "f_2": ("<=", 42.1),
+        "f_3": (">=", 22.2),
+        "f_4": ("0", None)
+        }
+    ```
+
+    Here, we have assumed four objective functions. The key of the dict is a function's symbol, and the tuple
+    consists of a pair where the left element is the classification (self explanatory, '0' is for objective values
+    that may change freely), the right element is either `None` or an aspiration or a reservation level
+    depending on the classification.
+
+    References:
+        Miettinen, K., & Mäkelä, M. M. (2002). On scalarizing functions in
+            multiobjective optimization. OR Spectrum, 24(2), 193–213.
+
+
+    Args:
+        problem (Problem): the problem to be scalarized.
+        symbol (str): the symbol given to the scalarization function, i.e., target of the optimization.
+        classifications (dict[str, tuple[str, float  |  None]]): a dict, where the key is a symbol
+            of an objective function, and the value is a tuple with a classification and an aspiration
+            or a reservation level, or `None`, depending on the classification. See above for an
+            explanation.
+        current_objective_vector (dict[str, float]): the current objective vector that corresponds to
+            a Pareto optimal solution. The classifications are assumed to been given in respect to
+            this vector.
+        delta (float, optional): a small scalar used to define the utopian point. Defaults to 0.000001.
+        rho (float, optional): a small scalar used in the augmentation term. Defaults to 0.000001.
+
+    Returns:
+        tuple[Problem, str]: a tuple with a copy of the problem with the added scalarizations and the
+            symbol of the scalarization.
+    """
+    # check that classifications have been provided for all objective functions
+    if not objective_dict_has_all_symbols(problem, classifications):
+        msg = (
+            f"The given classifications {classifications} do not define "
+            "a classification for all the objective functions."
+        )
+        raise ScalarizationError(msg)
+
+    # check that at least one objective function is allowed to be improved and one is
+    # allowed to worsen
+    if not any(classifications[obj.symbol][0] in ["<", "<="] for obj in problem.objectives) or not any(
+        classifications[obj.symbol][0] in [">=", "0"] for obj in problem.objectives
+    ):
+        msg = (
+            f"The given classifications {classifications} should allow at least one objective function value "
+            "to improve and one to worsen."
+        )
+        raise ScalarizationError(msg)
+
+    # check ideal and nadir exist
+    ideal_point, nadir_point = get_corrected_ideal_and_nadir(problem)
+    corrected_current_point = get_corrected_reference_point(problem, current_objective_vector)
+
+    # max term and constraints
+    max_args = []
+    constraints = []
+
+    for obj in problem.objectives:
+        _symbol = obj.symbol
+        match classifications[_symbol]:
+            case ("<", _):
+                max_expr = (
+                    f"({_symbol}_min - {ideal_point[_symbol]}) / "
+                    f"({nadir_point[_symbol]} - {ideal_point[_symbol] - delta})"
+                )
+                max_args.append(max_expr)
+
+                con_expr = f"{_symbol}_min - {corrected_current_point[_symbol]}"
+                constraints.append(
+                    Constraint(
+                        name=f"improvement constraint for {_symbol}",
+                        symbol=f"{_symbol}_lt",
+                        func=con_expr,
+                        cons_type=ConstraintTypeEnum.LTE,
+                        linear=False,  # TODO: check!
+                    )
+                )
+
+            case ("<=", aspiration):
+                # if obj is to be maximized, then the current reservation value needs to be multiplied by -1
+                max_expr = (
+                    f"({_symbol}_min - {aspiration * -1 if obj.maximize else aspiration}) / "
+                    f"({nadir_point[_symbol]} - {ideal_point[_symbol] - delta})"
+                )
+                max_args.append(max_expr)
+
+                con_expr = f"{_symbol}_min - {corrected_current_point[_symbol]}"
+                constraints.append(
+                    Constraint(
+                        name=f"improvement until constraint for {_symbol}",
+                        symbol=f"{_symbol}_lte",
+                        func=con_expr,
+                        cons_type=ConstraintTypeEnum.LTE,
+                        linear=False,  # TODO: check!
+                    )
+                )
+
+            case ("=", _):
+                con_expr = f"{_symbol}_min - {corrected_current_point[_symbol]}"
+                constraints.append(
+                    Constraint(
+                        name=f"Stay at least as good constraint for {_symbol}",
+                        symbol=f"{_symbol}_eq",
+                        func=con_expr,
+                        cons_type=ConstraintTypeEnum.LTE,
+                        linear=False,  # TODO: check!
+                    )
+                )
+            case (">=", reservation):
+                con_expr = f"{_symbol}_min - {-1 * reservation if obj.maximize else reservation}"
+                constraints.append(
+                    Constraint(
+                        name=f"Worsen until constriant for {_symbol}",
+                        symbol=f"{_symbol}_gte",
+                        func=con_expr,
+                        cons_type=ConstraintTypeEnum.LTE,
+                        linear=False,  # TODO: check!
+                    )
+                )
+            case ("0", _):
+                # not relevant for this scalarization
+                pass
+            case (c, _):
+                msg = (
+                    f"Warning! The classification {c} was supplied, but it is not supported."
+                    "Must be one of ['<', '<=', '0', '=', '>=']"
+                )
+
+    max_expr = f"Max({','.join(max_args)})"
+
+    # define the objective function of the scalarization
+    aug_expr = " + ".join(
+        [
+            f"{obj.symbol}_min / ({nadir_point[obj.symbol]} - {ideal_point[obj.symbol] - delta})"
+            for obj in problem.objectives
+        ]
+    )
+
+    target_expr = f"{max_expr} + {rho}*({aug_expr})"
+    scalarization = ScalarizationFunction(
+        name="NIMBUS scalarization objective function", symbol=symbol, func=target_expr
+    )
+
+    _problem = problem.add_scalarization(scalarization)
+    return _problem.add_constraints(constraints), symbol
+
+
 def add_stom_sf_diff(
     problem: Problem,
     symbol: str,

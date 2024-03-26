@@ -9,6 +9,7 @@ __all__ = [
     "add_epsilon_constraints",
     "add_guess_sf_diff",
     "add_nimbus_sf_diff",
+    "add_nimbus_sf_nondiff",
     "add_objective_as_scalarization",
     "add_stom_sf_diff",
     "add_weighted_sums",
@@ -17,10 +18,10 @@ __all__ = [
     "create_scipy_minimize_solver",
 ]
 
-from desdeo.tools.pyomo_solver_interfaces import BonminOptions, create_pyomo_bonmin_solver
-
-from desdeo.tools.scipy_solver_interfaces import create_scipy_de_solver, create_scipy_minimize_solver
-
+from desdeo.tools.pyomo_solver_interfaces import (
+    BonminOptions,
+    create_pyomo_bonmin_solver,
+)
 from desdeo.tools.scalarization import (
     ScalarizationError,
     add_achievement_sf_diff,
@@ -29,7 +30,12 @@ from desdeo.tools.scalarization import (
     add_epsilon_constraints,
     add_guess_sf_diff,
     add_nimbus_sf_diff,
+    add_nimbus_sf_nondiff,
     add_objective_as_scalarization,
     add_stom_sf_diff,
     add_weighted_sums,
+)
+from desdeo.tools.scipy_solver_interfaces import (
+    create_scipy_de_solver,
+    create_scipy_minimize_solver,
 )
