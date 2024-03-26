@@ -265,7 +265,7 @@ def create_scipy_minimize_solver(
 
     def solver(target: str) -> SolverResults:
         # add constraints if there are any
-        constraints = create_scipy_dict_constraints(problem, evaluator) if problem.constants is not None else None
+        constraints = create_scipy_dict_constraints(problem, evaluator) if problem.constraints is not None else None
 
         optimization_result: _ScipyOptimizeResult = _scipy_minimize(
             get_scipy_eval(problem, evaluator, target, EvalTargetEnum.objective),
