@@ -14,10 +14,20 @@ def test_ngopt_solver():
     """Tests the NGOpt solver interface."""
     problem = dtlz2(5, 3)
 
-    rp = {"f_1": 0.6, "f_2": 0.6, "f_3": 0.6}
+    rp = {"f_1": 0.8, "f_2": 0.8, "f_3": 0.76}
 
-    solver_opts = NgOptOptions(budget=1000)
+    solver_opts = NgOptOptions(budget=200, num_workers=50)
 
+    # without constraints
+    problem_w_sf, target = add_asf_nondiff(problem, "target", rp)
+
+    solver = create_ng_ngopt_solver(problem_w_sf, options=solver_opts)
+
+    res = solver(target)
+
+    assert res.constraint_values is None
+
+    # with constraints
     problem_w_sf, target, _ = add_epsilon_constraints(
         problem, "target", {"f_1": "f_1_eps", "f_2": "f_2_eps", "f_3": "f_3_eps"}, "f_1", rp
     )
@@ -26,4 +36,5 @@ def test_ngopt_solver():
 
     res = solver(target)
 
-    return
+    assert "f_2_eps" in res.constraint_values
+    assert "f_3_eps" in res.constraint_values

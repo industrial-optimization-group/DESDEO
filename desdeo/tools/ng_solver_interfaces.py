@@ -1,10 +1,9 @@
 """Solver interfaces to the optimization routines found in nevergrad."""
 
 from collections.abc import Callable
-from concurrent import futures
 
 import nevergrad as ng
-import numpy as np
+import polars as pl
 from pydantic import BaseModel, Field
 
 from desdeo.problem import GenericEvaluator, Problem
@@ -79,9 +78,6 @@ def create_ng_ngopt_solver(
     evaluator = GenericEvaluator(problem)
 
     def solver(target: str) -> SolverResults:
-        def ng_evaluator(xs: np.array, target: str) -> float:
-            return evaluator.evaluate(xs).to_dict(as_series=False)[target][0]
-
         parametrization = ng.p.Dict(
             **{
                 var.symbol: ng.p.Array(
@@ -96,34 +92,45 @@ def create_ng_ngopt_solver(
 
         optimizer = ng.optimizers.NGOpt(parametrization=parametrization, **options.model_dump())
 
-        try:
-            if optimizer.num_workers > 1:
-                # use several workers
-                with futures.ThreadPoolExecutor(max_workers=optimizer.num_workers) as executor:
-                    recommendation = optimizer.minimize(
-                        lambda xs: ng_evaluator(xs, target=target), executor=executor, batch_mode=False, verbosity=2
-                    )
-            else:
-                # just a single worker
-                recommendation = optimizer.minimize(
-                    lambda xs: ng_evaluator(xs, target=target),
-                    constraint_violation=[
-                        lambda xs, const=const: ng_evaluator(xs, target=const.symbol) for const in problem.constraints
-                    ]
-                    if problem.constraints is not None
-                    else None,
-                )
+        # optimize in batches
+        batch_size = optimizer.num_workers
+        constraint_symbols = None if problem.constraints is None else [con.symbol for con in problem.constraints]
 
+        try:
+            for _ in range(optimizer.budget // batch_size):
+                # Generate a batch of candidates
+                candidates = [optimizer.ask() for _ in range(batch_size)]
+
+                # Extract arguments from candidates for evaluation
+                xs = {key: [candidate.args[0][key][0] for candidate in candidates] for key in candidates[0].args[0]}
+
+                # Evaluate the batch and find the best candidate
+                evaluations = evaluator.evaluate(xs).with_columns(pl.arange(0, batch_size).alias("index"))
+
+                # Find the row with the minimum target value
+                min_row = evaluations.sort(target).head(1)
+
+                # Retrieve the original index of the best candidate
+                best_index = min_row["index"][0]
+
+                # Constraints values
+                if constraint_symbols is not None:
+                    best_constraints = list(evaluations[constraint_symbols][best_index].rows()[0])
+                else:
+                    best_constraints = None
+                best_candidate = candidates[best_index]
+
+                optimizer.tell(best_candidate, evaluations[target][best_index], constraint_violation=best_constraints)
+
+            # Done, it is what it is
             msg = "Recommendation found by NgOpt."
             success = True
+
         except Exception as e:
             msg = str(f"NgOpt failed. Possible reason: {e}")
             success = False
-        finally:
-            if not success:
-                recommendation = parametrization
 
-        result = {"recommendation": recommendation, "message": msg, "success": success}
+        result = {"recommendation": optimizer.provide_recommendation(), "message": msg, "success": success}
 
         return parse_ng_results(result, problem, evaluator)
 
