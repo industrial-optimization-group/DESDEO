@@ -24,6 +24,7 @@ __all__ = [
     "PyomoEvaluator",
     "river_pollution_problem",
     "simple_data_problem",
+    "simple_linear_test_problem",
     "simple_test_problem",
     "ScalarizationFunction",
     "Variable",
@@ -57,10 +58,11 @@ from .testproblems import (
     binh_and_korn,
     river_pollution_problem,
     simple_data_problem,
+    simple_linear_test_problem,
     simple_test_problem,
     zdt1,
     momip_ti2,
-    momip_ti7,
+    momip_ti7
 )
 
 from .utils import get_ideal_dict, get_nadir_dict, numpy_array_to_objective_dict, objective_dict_to_numpy_array
