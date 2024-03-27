@@ -2,8 +2,8 @@
 import pytest
 
 from desdeo.problem import binh_and_korn
-from desdeo.tools.scipy_solver_interfaces import create_scipy_de_solver
 from desdeo.tools.scalarization import add_scalarization_function
+from desdeo.tools.scipy_solver_interfaces import create_scipy_de_solver
 
 
 def test_scipy_de_with_constraints():

@@ -2,21 +2,19 @@
 import numpy as np
 import numpy.testing as npt
 import pytest
+from fixtures import dtlz2_5x_3f_data_based  # noqa: F401
 
 from desdeo.mcdm.nautili import (
-    calculate_navigation_point,
     calculate_distance_to_front,
+    calculate_navigation_point,
     solve_reachable_bounds,
     solve_reachable_solution,
 )
 from desdeo.problem import (
     binh_and_korn,
-    river_pollution_problem,
     objective_dict_to_numpy_array,
+    river_pollution_problem,
 )
-
-from fixtures import dtlz2_5x_3f_data_based  # noqa: F401
-
 
 
 @pytest.mark.slow

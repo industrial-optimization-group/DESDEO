@@ -1,5 +1,6 @@
 """Defines generic classes, functions, and objects utilized in the tools module."""
 from typing import Callable, TypeVar
+
 from pydantic import BaseModel, Field
 
 from desdeo.problem import Problem

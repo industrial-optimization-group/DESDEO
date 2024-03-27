@@ -14,8 +14,8 @@ from desdeo.problem import (
 from desdeo.tools import (
     BonminOptions,
     create_pyomo_bonmin_solver,
-    create_scipy_minimize_solver,
     create_scipy_de_solver,
+    create_scipy_minimize_solver,
 )
 from desdeo.tools.scalarization import (
     ScalarizationError,

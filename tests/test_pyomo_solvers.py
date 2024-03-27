@@ -1,12 +1,21 @@
 """Tests for the pyomo solver interfaces."""
 
-import numpy.testing as npt
 import numpy as np
+import numpy.testing as npt
 import pytest
 
-from desdeo.problem import binh_and_korn, momip_ti2, momip_ti7, simple_linear_test_problem
+from desdeo.problem import (
+    binh_and_korn,
+    momip_ti2,
+    momip_ti7,
+    simple_linear_test_problem,
+)
+from desdeo.tools import (
+    BonminOptions,
+    create_pyomo_bonmin_solver,
+    create_pyomo_gurobi_solver,
+)
 from desdeo.tools.scalarization import add_scalarization_function
-from desdeo.tools import BonminOptions, create_pyomo_bonmin_solver, create_pyomo_gurobi_solver
 
 
 @pytest.mark.slow

@@ -1,7 +1,7 @@
 """Tests for the MathJSON parser."""
 import copy
-import math
 import json
+import math
 from pathlib import Path
 
 import numpy.testing as npt

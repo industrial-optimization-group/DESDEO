@@ -2,7 +2,11 @@
 import numpy.testing as npt
 import polars as pl
 
-from desdeo.problem import GenericEvaluator, river_pollution_problem, simple_test_problem
+from desdeo.problem import (
+    GenericEvaluator,
+    river_pollution_problem,
+    simple_test_problem,
+)
 from desdeo.problem.evaluator import find_closest_points
 
 

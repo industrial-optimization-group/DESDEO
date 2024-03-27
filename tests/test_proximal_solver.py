@@ -2,8 +2,12 @@
 import numpy.testing as npt
 
 from desdeo.problem import simple_data_problem
-from desdeo.tools.scalarization import add_scalarization_function, add_asf_nondiff, add_weighted_sums
 from desdeo.tools.proximal_solver import create_proximal_solver
+from desdeo.tools.scalarization import (
+    add_asf_nondiff,
+    add_scalarization_function,
+    add_weighted_sums,
+)
 
 
 def test_proximal_with_simple_data_problem():

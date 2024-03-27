@@ -3,7 +3,9 @@
 import numpy.testing as npt
 import polars as pl
 import pytest  # noqa: F401
+from fixtures import dtlz2_5x_3f_data_based  # noqa: F401
 
+from desdeo.problem.evaluator import GenericEvaluator
 from desdeo.problem.json_parser import MathParser
 from desdeo.problem.schema import (
     Constraint,
@@ -17,11 +19,7 @@ from desdeo.problem.schema import (
     VariableTypeEnum,
 )
 from desdeo.problem.testproblems import river_pollution_problem
-from desdeo.problem.evaluator import GenericEvaluator
-
 from desdeo.tools.scalarization import add_scalarization_function
-
-from fixtures import dtlz2_5x_3f_data_based  # noqa: F401
 
 
 def test_objective_from_infix():

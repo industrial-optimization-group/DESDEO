@@ -21,10 +21,10 @@ from desdeo.problem import (
 )
 from desdeo.tools.generics import CreateSolverType, SolverResults
 from desdeo.tools.scalarization import (
-    add_lte_constraints,
-    add_scalarization_function,
     add_asf_nondiff,
     add_epsilon_constraints,
+    add_lte_constraints,
+    add_scalarization_function,
 )
 from desdeo.tools.utils import guess_best_solver
 

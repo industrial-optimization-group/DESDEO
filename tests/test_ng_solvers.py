@@ -2,11 +2,11 @@
 
 from desdeo.problem import dtlz2
 from desdeo.tools import (
-    create_ng_ngopt_solver,
-    add_weighted_sums,
     NgOptOptions,
     add_asf_nondiff,
     add_epsilon_constraints,
+    add_weighted_sums,
+    create_ng_ngopt_solver,
 )
 
 

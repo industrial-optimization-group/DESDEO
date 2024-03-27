@@ -1,7 +1,7 @@
 """Defines solver interfaces for pyomo."""
 
 from collections.abc import Callable
-from dataclasses import fields, dataclass
+from dataclasses import dataclass, fields
 
 import pyomo.environ as pyomo
 from pyomo.opt import SolverResults as _pyomo_SolverResults
@@ -9,8 +9,7 @@ from pyomo.opt import SolverStatus as _pyomo_SolverStatus
 from pyomo.opt import TerminationCondition as _pyomo_TerminationCondition
 
 from desdeo.problem import Problem, PyomoEvaluator
-from desdeo.tools.generics import SolverResults, CreateSolverType
-
+from desdeo.tools.generics import CreateSolverType, SolverResults
 
 # forward typehints
 create_pyomo_bonmin_solver: CreateSolverType

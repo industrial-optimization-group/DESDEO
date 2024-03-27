@@ -3,7 +3,7 @@ from collections.abc import Callable
 
 import polars as pl
 
-from desdeo.problem import GenericEvaluator, EvaluatorModesEnum, Problem
+from desdeo.problem import EvaluatorModesEnum, GenericEvaluator, Problem
 from desdeo.tools.generics import CreateSolverType, SolverResults
 
 # forward typehints

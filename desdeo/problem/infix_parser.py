@@ -5,17 +5,17 @@ Currently, mostly parses to MathJSON, e.g., "n / (1 + n)" -> ['Divide', 'n', ['A
 from typing import ClassVar
 
 from pyparsing import (
+    DelimitedList,
     Forward,
     Group,
     Literal,
+    OpAssoc,
     ParserElement,
+    Regex,
     Suppress,
-    DelimitedList,
     infix_notation,
     one_of,
-    OpAssoc,
     pyparsing_common,
-    Regex,
 )
 
 # Enable Packrat for better performance in recursive parsing

@@ -6,11 +6,7 @@ from operator import le as _le
 import pyomo.environ as pyomo
 
 from desdeo.problem.json_parser import FormatEnum, MathParser
-from desdeo.problem.schema import (
-    ConstraintTypeEnum,
-    Problem,
-    VariableTypeEnum,
-)
+from desdeo.problem.schema import ConstraintTypeEnum, Problem, VariableTypeEnum
 
 
 class PyomoEvaluatorError(Exception):

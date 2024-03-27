@@ -8,11 +8,11 @@ TODO: update
 import numpy as np
 from pydantic import BaseModel, Field
 
+from desdeo.mcdm.nautili import solve_reachable_bounds
 from desdeo.mcdm.nautilus_navigator import (
     calculate_distance_to_front,
     calculate_navigation_point,
 )
-from desdeo.mcdm.nautili import solve_reachable_bounds
 from desdeo.problem import (
     Problem,
     get_nadir_dict,
@@ -20,10 +20,9 @@ from desdeo.problem import (
     objective_dict_to_numpy_array,
 )
 from desdeo.tools.generics import CreateSolverType, SolverResults
-from desdeo.tools.scalarization import (
+from desdeo.tools.scalarization import (  # create_asf, should be add_asf_nondiff probably
     add_lte_constraints,
     add_scalarization_function,
-    # create_asf, should be add_asf_nondiff probably
 )
 from desdeo.tools.utils import guess_best_solver
 

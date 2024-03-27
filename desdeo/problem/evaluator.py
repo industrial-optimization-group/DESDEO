@@ -5,7 +5,7 @@ from enum import Enum
 import polars as pl
 
 from desdeo.problem.json_parser import MathParser, replace_str
-from desdeo.problem.schema import Problem, ObjectiveTypeEnum
+from desdeo.problem.schema import ObjectiveTypeEnum, Problem
 
 SUPPORTED_EVALUATOR_MODES = ["variables", "discrete"]
 

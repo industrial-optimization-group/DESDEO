@@ -16,7 +16,10 @@ from desdeo.problem import (
     Variable,
     VariableTypeEnum,
 )
-from desdeo.tools.utils import get_corrected_ideal_and_nadir, get_corrected_reference_point
+from desdeo.tools.utils import (
+    get_corrected_ideal_and_nadir,
+    get_corrected_reference_point,
+)
 
 
 class ScalarizationError(Exception):

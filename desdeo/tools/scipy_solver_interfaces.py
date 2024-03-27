@@ -5,16 +5,15 @@ These solvers can solve various scalarized problems of multiobjective optimizati
 
 from enum import Enum
 from typing import Callable
-import numpy as np
 
-from scipy.optimize import minimize as _scipy_minimize
-from scipy.optimize import differential_evolution as _scipy_de
-from scipy.optimize import OptimizeResult as _ScipyOptimizeResult
+import numpy as np
 from scipy.optimize import NonlinearConstraint
+from scipy.optimize import OptimizeResult as _ScipyOptimizeResult
+from scipy.optimize import differential_evolution as _scipy_de
+from scipy.optimize import minimize as _scipy_minimize
 
 from desdeo.problem import ConstraintTypeEnum, GenericEvaluator, Problem
 from desdeo.tools.generics import CreateSolverType, SolverError, SolverResults
-
 
 # forward typehints
 create_scipy_de_solver: CreateSolverType

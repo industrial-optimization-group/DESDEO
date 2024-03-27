@@ -14,7 +14,14 @@ The problem definition is a JSON file that contains the following information:
 from collections import Counter
 from enum import Enum
 
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    PrivateAttr,
+    field_validator,
+    model_validator,
+)
 
 from desdeo.problem.infix_parser import InfixExpressionParser
 

@@ -2,7 +2,14 @@
 import polars as pl
 import pytest
 
-from desdeo.problem import Problem, Variable, VariableTypeEnum, Objective, ObjectiveTypeEnum, DiscreteRepresentation
+from desdeo.problem import (
+    DiscreteRepresentation,
+    Objective,
+    ObjectiveTypeEnum,
+    Problem,
+    Variable,
+    VariableTypeEnum,
+)
 
 
 @pytest.fixture

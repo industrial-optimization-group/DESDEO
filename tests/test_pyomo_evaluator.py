@@ -1,10 +1,15 @@
 """Tests for testing the PyomoEvaluator."""
-from desdeo.problem.pyomo_evaluator import PyomoEvaluator
-from desdeo.problem import binh_and_korn, ExtraFunction, ScalarizationFunction, simple_test_problem
-
 import numpy.testing as npt
 import pyomo.environ as pyomo
 import pytest
+
+from desdeo.problem import (
+    ExtraFunction,
+    ScalarizationFunction,
+    binh_and_korn,
+    simple_test_problem,
+)
+from desdeo.problem.pyomo_evaluator import PyomoEvaluator
 
 
 @pytest.fixture

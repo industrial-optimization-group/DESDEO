@@ -1,5 +1,9 @@
 """Tests various utils found in the desdeo.problem pacakge."""
-from desdeo.problem import objective_dict_to_numpy_array, numpy_array_to_objective_dict, river_pollution_problem
+from desdeo.problem import (
+    numpy_array_to_objective_dict,
+    objective_dict_to_numpy_array,
+    river_pollution_problem,
+)
 
 
 def test_objective_dict_to_numpy_array_and_back():

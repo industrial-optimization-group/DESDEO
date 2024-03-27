@@ -3,13 +3,13 @@ import numpy as np
 import numpy.testing as npt
 import polars as pl
 import pytest
+from fixtures.utils import timer  # noqa: F401
 
 from desdeo.problem.evaluator import GenericEvaluator
 from desdeo.problem.infix_parser import InfixExpressionParser
 from desdeo.problem.json_parser import MathParser
 from desdeo.problem.schema import Constant, Constraint, Objective, Problem, Variable
 from desdeo.problem.testproblems import binh_and_korn
-from fixtures.utils import timer  # noqa: F401
 
 
 @pytest.mark.infix_parser
