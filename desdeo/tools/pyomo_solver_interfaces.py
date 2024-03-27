@@ -14,6 +14,7 @@ from desdeo.tools.generics import SolverResults, CreateSolverType
 
 # forward typehints
 create_pyomo_bonmin_solver: CreateSolverType
+create_pyomo_gurobi_solver: CreateSolverType
 
 
 @dataclass
@@ -136,5 +137,44 @@ def create_pyomo_bonmin_solver(
         opt_res = opt.solve(evaluator.model)
 
         return parse_pyomo_optimizer_results(opt_res, problem, evaluator)
+
+    return solver
+
+def create_pyomo_gurobi_solver(
+    problem: Problem, options: dict = dict()
+) -> Callable[[str], SolverResults]:
+    """Creates a pyomo solver that utilizes gurobi. You need to have gurobi
+    installed on your system for this to work.
+
+    Suitable for solving mixed-integer linear and quadratic optimization 
+    problems.
+
+    Args:
+        problem (Problem): the problem to be solved.
+        options (GurobiOptions): Dictionary of Gurobi parameters to set.
+            This is passed to pyomo as is, so it works the same as options
+            would for calling pyomo SolverFactory directly.
+
+    Returns:
+        Callable[[str], SolverResults]: returns a callable function that takes
+            as its argument one of the symbols defined for a function expression in
+            problem.
+    """
+    evaluator = PyomoEvaluator(problem)
+
+    def solver(target: str) -> SolverResults:
+        evaluator.set_optimization_target(target)
+
+        opt = pyomo.SolverFactory('gurobi', solver_io='python', options=options)
+
+        # set solver options
+        #for key, value in options.asdict().items():
+        #    opt.options[key] = value
+
+        with pyomo.SolverFactory(
+            'gurobi', solver_io='python'
+        ) as opt:
+            opt_res = opt.solve(evaluator.model)
+            return parse_pyomo_optimizer_results(opt_res, problem, evaluator)
 
     return solver

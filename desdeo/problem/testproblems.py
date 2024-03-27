@@ -465,6 +465,33 @@ def pareto_navigator_test_problem() -> Problem:
         discrete_representation=representation,
     )
 
+def simple_linear_test_problem() -> Problem:
+    """Defines a simple single objective linear problem suitable for testing purposes."""
+    variables = [
+        Variable(name="x_1", symbol="x_1", variable_type="real", lowerbound=-10, upperbound=10, initial_value=5),
+        Variable(name="x_2", symbol="x_2", variable_type="real", lowerbound=-10, upperbound=10, initial_value=5),
+    ]
+
+    constants = [Constant(name="c", symbol="c", value=4.2)]
+
+    f_1 = "x_1 + x_2"
+
+    objectives = [
+        Objective(name="f_1", symbol="f_1", func=f_1, maximize=False),  # min!
+    ]
+
+    con_1 = Constraint(name="g_1", symbol="g_1", cons_type=ConstraintTypeEnum.LTE, func="c - x_1")
+    con_2 = Constraint(name="g_2", symbol="g_2", cons_type=ConstraintTypeEnum.LTE, func="0.5*x_1 - x_2")
+
+    return Problem(
+        name="Simple linear test problem.",
+        description="A simple problem for testing purposes.",
+        constants=constants,
+        variables=variables,
+        constraints=[con_1, con_2],
+        objectives=objectives,
+    )
+
 
 if __name__ == "__main__":
     problem = pareto_navigator_test_problem()
