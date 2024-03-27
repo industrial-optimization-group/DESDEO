@@ -4,9 +4,9 @@ import numpy.testing as npt
 import numpy as np
 import pytest
 
-from desdeo.problem import binh_and_korn, momip_ti2, momip_ti7
+from desdeo.problem import binh_and_korn, momip_ti2, momip_ti7, simple_linear_test_problem
 from desdeo.tools.scalarization import add_scalarization_function
-from desdeo.tools.pyomo_solver_interfaces import BonminOptions, create_pyomo_bonmin_solver
+from desdeo.tools import BonminOptions, create_pyomo_bonmin_solver, create_pyomo_gurobi_solver
 
 
 @pytest.mark.slow
@@ -135,3 +135,18 @@ def test_bonmin_w_momip_ti7():
     gs = results.constraint_values
     assert np.isclose(gs["g_1"], 0, atol=1e-8) or gs["g_1"] < 0
     assert np.isclose(gs["g_2"], 0, atol=1e-8) or gs["g_2"] < 0
+
+@pytest.mark.slow
+@pytest.mark.pyomo
+def test_gurobi_solver():
+    """Tests the bonmin solver."""
+    problem = simple_linear_test_problem()
+    solver = create_pyomo_gurobi_solver(problem)
+
+    results = solver("f_1")
+
+    assert results.success
+    
+    xs = results.optimal_variables
+    assert np.isclose(xs["x_1"], 4.2, atol=1e-8)
+    assert np.isclose(xs["x_2"], 2.1, atol=1e-8)

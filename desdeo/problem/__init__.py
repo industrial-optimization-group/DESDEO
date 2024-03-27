@@ -25,6 +25,7 @@ __all__ = [
     "PyomoEvaluator",
     "river_pollution_problem",
     "simple_data_problem",
+    "simple_linear_test_problem",
     "simple_test_problem",
     "ScalarizationFunction",
     "Variable",
@@ -56,6 +57,7 @@ from .testproblems import (
     momip_ti7,
     river_pollution_problem,
     simple_data_problem,
+    simple_linear_test_problem,
     simple_test_problem,
     zdt1,
 )
