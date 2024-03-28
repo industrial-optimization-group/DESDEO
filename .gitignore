@@ -143,3 +143,5 @@ cython_debug/
 .vscode
 
 experiment/
+
+debug.py
