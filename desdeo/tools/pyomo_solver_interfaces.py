@@ -153,6 +153,8 @@ def create_pyomo_gurobi_solver(
         options (GurobiOptions): Dictionary of Gurobi parameters to set.
             This is passed to pyomo as is, so it works the same as options
             would for calling pyomo SolverFactory directly.
+            See https://www.gurobi.com/documentation/current/refman/parameters.html
+            for information on the available options
 
     Returns:
         Callable[[str], SolverResults]: returns a callable function that takes

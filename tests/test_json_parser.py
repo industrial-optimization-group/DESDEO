@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy.testing as npt
 import polars as pl
 import pyomo.environ as pyomo
+import gurobipy as gp
 import pytest
 
 from desdeo.problem.evaluator import GenericEvaluator
@@ -949,4 +950,59 @@ def test_parse_pyomo_max():
                 f"Test failed for {str_expr=}, with "
                 f"{pyomo_expr.to_string() if isinstance(pyomo_expr, pyomo.Expression) else pyomo_expr}"
             ),
+        )
+
+@pytest.mark.gurobipy
+def test_parse_gurobipy_basic_arithmetics():
+    """Test the JSON parser for correctly parsing MathJSON into pyomo expressions."""
+    gp_model = gp.Model("Test model")
+
+    x_1 = 6.9
+    x_2 = 0.1
+    x_3 = 11.1
+    gp_model.addConstr(gp_model.addVar(name='x_1',obj=1)>=x_1)
+    gp_model.addConstr(gp_model.addVar(name='x_2',obj=1)>=x_2)
+    gp_model.addConstr(gp_model.addVar(name='x_3',obj=1)>=x_3)
+
+    c_1 = 4.2
+    gp_model.addConstr(gp_model.addVar(name='c_1',obj=1)>=c_1)
+    c_2 = 2.2
+    gp_model.addConstr(gp_model.addVar(name='c_2',obj=1)>=c_2)
+    gp_model.update()
+    gp_model.optimize()
+
+    tests = [
+        ("x_1 + x_2 + x_3", x_1 + x_2 + x_3),
+        ("x_1 + x_2 + x_3 - c_1 - c_2", x_1 + x_2 + x_3 - c_1 - c_2),
+        ("x_1 - x_2 + c_1", x_1 - x_2 + c_1),
+        ("x_1 * c_2", x_1 * c_2),
+        ("x_2 / 4.2", x_2 / 4.2),
+        ("(x_1 + x_2) * c_1", (x_1 + x_2) * c_1),
+        ("((x_1 + x_2) - x_3) / 4.2", ((x_1 + x_2) - x_3) / 4.2),
+        ("x_1 + 2 * x_2 - 3", x_1 + 2 * x_2 - 3),
+        ("(x_1 + (x_2 * c_2) / (4.2 - 11.1)) * 2", (x_1 + (x_2 * c_2) / (4.2 - 11.1)) * 2),
+        ("x_3 * c_2 / 2", x_3 * c_2 / 2),
+        ("(x_1 + 10) - (c_2 - 5)", (x_1 + 10) - (c_2 - 5)),
+        ("((x_1 * 2) + (x_2 / 0.5)) - (c_1 * (x_3 + 3))", ((x_1 * 2) + (x_2 / 0.5)) - (c_1 * (x_3 + 3))),
+        ("(x_1 - (x_2 * 2) + (11.1 + 5.5) + c_1) + (c_2 + 4.4)", (x_1 - (x_2 * 2) + (11.1 + 5.5) + c_1) + (c_2 + 4.4)),
+        ("x_1 - ((x_2 + 2.1) * (c_1 - 3))", x_1 - ((x_2 + 2.1) * (c_1 - 3))),
+        ("(x_1 + (x_2 * (c_1 + 3.3) + (x_3 - 2))) * 1.5", (x_1 + (x_2 * (c_1 + 3.3) + (x_3 - 2))) * 1.5),
+        ("(x_1 - (x_2 + (2.5 * c_1))) - (c_2 - (x_3 * 0.5))", (x_1 - (x_2 + (2.5 * c_1))) - (c_2 - (x_3 * 0.5))),
+        (
+            "((x_1 * c_1) + (x_2 - c_2) / 2.0) + (x_3 + 3.5) * (1 + c_1)",
+            ((x_1 * c_1) + (x_2 - c_2) / 2.0) + (x_3 + 3.5) * (1 + c_1),
+        ),
+        ("(x_1 ** 2 + x_2 ** 2) - c_1 * 3 + (x_3 - c_2)", (x_1**2 + x_2**2) - c_1 * 3 + (x_3 - c_2)),
+    ]
+
+    infix_parser = InfixExpressionParser()
+    gurobipy_parser = MathParser(to_format=FormatEnum.gurobipy)
+
+    for str_expr, result in tests:
+        json_expr = infix_parser.parse(str_expr)
+        gurobipy_expr = gurobipy_parser.parse(json_expr, gp_model)
+        print(str_expr)
+
+        npt.assert_array_almost_equal(
+            gurobipy_expr.getValue(), result, err_msg=f"Test failed for {str_expr}, with {gurobipy_expr}"
         )
