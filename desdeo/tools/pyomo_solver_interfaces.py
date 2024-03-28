@@ -166,10 +166,6 @@ def create_pyomo_gurobi_solver(
 
         opt = pyomo.SolverFactory('gurobi', solver_io='python', options=options)
 
-        # set solver options
-        #for key, value in options.asdict().items():
-        #    opt.options[key] = value
-
         with pyomo.SolverFactory(
             'gurobi', solver_io='python'
         ) as opt:
