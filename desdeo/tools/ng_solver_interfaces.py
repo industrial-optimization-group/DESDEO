@@ -1,29 +1,44 @@
-"""Solver interfaces to the optimization routines found in nevergrad."""
+"""Solver interfaces to the optimization routines found in nevergrad.
+
+For more info, see https://facebookresearch.github.io/nevergrad/index.html
+"""
 
 from collections.abc import Callable
 
 import nevergrad as ng
-import polars as pl
 from pydantic import BaseModel, Field
 
 from desdeo.problem import GenericEvaluator, Problem
 from desdeo.tools.generics import CreateSolverType, SolverResults
 
 # forward typehints
-create_ng_ngopt_solver: CreateSolverType
+create_ng_generic_solver: CreateSolverType
 
 
-class NgOptOptions(BaseModel):
+class NevergradGenericOptions(BaseModel):
     """Defines options to be passed to nevergrad's NgOpt optimization routine."""
 
-    budget: int | None = Field(description="The maximum number of allowed function evaluations.", default=100)
+    budget: int = Field(description="The maximum number of allowed function evaluations.", default=100)
     """"The maximum number of allowed function evaluations. Defaults to 100."""
 
-    num_workers: int | None = Field(description="The maximum number of allowed parallel evaluations.", default=1)
-    """The maximum number of allowed parallel evaluations. Defaults to 1."""
+    num_workers: int = Field(description="The maximum number of allowed parallel evaluations.", default=1)
+    """The maximum number of allowed parallel evaluations. This is currently
+    used to define the batch size when evaluating problems. Defaults to 1."""
+
+    optimizer: str = Field(
+        descriptions=(
+            "The optimizer to be used. Must be one of `NGOpt`, `TwoPointDE`, `PortfolioDiscreteOnePlusOne`, "
+            "`OnePlusOne`, `CMA`, `TBPSA`, `PSO`, `ScrHammersleySearchPlusMiddlePoint`, or `RandomSearch`. "
+            "Defaults to `NGOpt`."
+        ),
+        default="NGOpt",
+    )
+    """The optimizer to be used. Must be one of `NGOpt`, `TwoPointsDE`, `PortfolioDiscreteOnePlusOne`, "
+    "`OnePlusOne`, `CMA`, `TBPSA`, `PSO`, `ScrHammersleySearchPlusMiddlePoint`, or `RandomSearch`. "
+    "Defaults to `NGOpt`."""
 
 
-_default_ng_ngopt_options = NgOptOptions()
+_default_nevergrad_generic_options = NevergradGenericOptions()
 """The set of default options for nevergrad's NgOpt optimizer."""
 
 
@@ -61,8 +76,8 @@ def parse_ng_results(results: dict, problem: Problem, evaluator: GenericEvaluato
     )
 
 
-def create_ng_ngopt_solver(
-    problem: Problem, options: NgOptOptions = _default_ng_ngopt_options
+def create_ng_generic_solver(
+    problem: Problem, options: NevergradGenericOptions = _default_nevergrad_generic_options
 ) -> Callable[[str], SolverResults]:
     """Creates a solver that utilizes the `ng.optimizers.NGOpt` routine.
 
@@ -90,7 +105,10 @@ def create_ng_ngopt_solver(
             }
         )
 
-        optimizer = ng.optimizers.NGOpt(parametrization=parametrization, **options.model_dump())
+        # ng.optimizers.registry["NGOpt"]
+        optimizer = ng.optimizers.registry[options.optimizer](
+            parametrization=parametrization, **options.model_dump(exclude="optimizer")
+        )
 
         # optimize in batches
         batch_size = optimizer.num_workers
@@ -105,29 +123,29 @@ def create_ng_ngopt_solver(
                 xs = {key: [candidate.args[0][key][0] for candidate in candidates] for key in candidates[0].args[0]}
 
                 # Evaluate the batch and find the best candidate
-                evaluations = evaluator.evaluate(xs).with_columns(pl.arange(0, batch_size).alias("index"))
-
-                # Find the row with the minimum target value
-                min_row = evaluations.sort(target).head(1)
-
-                # Retrieve the original index of the best candidate
-                best_index = min_row["index"][0]
+                eval_df = evaluator.evaluate(xs)
+                target_values = eval_df[target].to_list()
 
                 # Constraints values
-                if constraint_symbols is not None:
-                    best_constraints = list(evaluations[constraint_symbols][best_index].rows()[0])
-                else:
-                    best_constraints = None
-                best_candidate = candidates[best_index]
+                constraint_values = (
+                    [list(t) for t in eval_df[constraint_symbols].rows()] if constraint_symbols is not None else None
+                )
 
-                optimizer.tell(best_candidate, evaluations[target][best_index], constraint_violation=best_constraints)
+                if constraint_values is not None:
+                    for candidate, loss_value, constraint_violations in zip(
+                        candidates, target_values, constraint_values, strict=True
+                    ):
+                        optimizer.tell(candidate, loss_value, constraint_violations)
+                else:
+                    for candidate, loss_value in zip(candidates, target_values, strict=True):
+                        optimizer.tell(candidate, loss_value)
 
             # Done, it is what it is
-            msg = "Recommendation found by NgOpt."
+            msg = f"Recommendation found by {options.optimizer}."
             success = True
 
         except Exception as e:
-            msg = str(f"NgOpt failed. Possible reason: {e}")
+            msg = str(f"{options.optimizer} failed. Possible reason: {e}")
             success = False
 
         result = {"recommendation": optimizer.provide_recommendation(), "message": msg, "success": success}

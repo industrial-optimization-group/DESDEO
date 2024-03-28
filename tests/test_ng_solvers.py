@@ -2,11 +2,10 @@
 
 from desdeo.problem import dtlz2
 from desdeo.tools import (
-    NgOptOptions,
+    NevergradGenericOptions,
     add_asf_nondiff,
     add_epsilon_constraints,
-    add_weighted_sums,
-    create_ng_ngopt_solver,
+    create_ng_generic_solver,
 )
 
 
@@ -16,12 +15,12 @@ def test_ngopt_solver():
 
     rp = {"f_1": 0.8, "f_2": 0.8, "f_3": 0.76}
 
-    solver_opts = NgOptOptions(budget=200, num_workers=50)
+    solver_opts = NevergradGenericOptions(budget=200, num_workers=50, optimizer="TBPSA")
 
     # without constraints
     problem_w_sf, target = add_asf_nondiff(problem, "target", rp)
 
-    solver = create_ng_ngopt_solver(problem_w_sf, options=solver_opts)
+    solver = create_ng_generic_solver(problem_w_sf, options=solver_opts)
 
     res = solver(target)
 
@@ -32,7 +31,7 @@ def test_ngopt_solver():
         problem, "target", {"f_1": "f_1_eps", "f_2": "f_2_eps", "f_3": "f_3_eps"}, "f_1", rp
     )
 
-    solver = create_ng_ngopt_solver(problem_w_sf, options=solver_opts)
+    solver = create_ng_generic_solver(problem_w_sf, options=solver_opts)
 
     res = solver(target)
 
