@@ -22,7 +22,7 @@ hide:
 
     Learn about the central topics in DESDEO and how to contribute
 
-    [:octicons-arrow-right-24: Tutorials](./tutorials/moo_primer.md)
+    [:octicons-arrow-right-24: Tutorials](./tutorials/index.md)
 
 -   :octicons-book-24:{ .lg .middle } __Explanation__
 
@@ -30,7 +30,7 @@ hide:
 
     Understand how DESDEO works and what it offers
 
-    [:octicons-arrow-right-24: Explanation](./explanation/problem_format.md)
+    [:octicons-arrow-right-24: Explanation](./explanation/index.md)
 
 -   :octicons-checklist-24:{ .lg .middle } __Guides__
 
@@ -38,7 +38,7 @@ hide:
 
     Get stuff done with DESDEO
 
-    [:octicons-arrow-right-24: Guides](./howtoguides/problem.md)
+    [:octicons-arrow-right-24: Guides](./howtoguides/index.md)
 
 </div>
 
