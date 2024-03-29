@@ -1,5 +1,7 @@
 """Test some of the test problems found in DESDEO."""
 
+import numpy as np
+
 from desdeo.problem import GenericEvaluator, dtlz2
 
 
@@ -20,7 +22,7 @@ def test_dtlz2():
 
         res = evaluator.evaluate(xs)
 
-        assert sum(res[obj.symbol][0] ** 2 for obj in problem.objectives) == 1.0
+        assert np.isclose(sum(res[obj.symbol][0] ** 2 for obj in problem.objectives), 1.0)
 
     problem = dtlz2(n_variables=5, n_objectives=3)
 
