@@ -45,6 +45,7 @@ theme:
     - palette.switch
     - navigation.tabs
     - navigation.tabs.sticky
+    - content.code.annotate
   nav_style: dark
   highlightjs: true
   hljs_languages:
@@ -97,7 +98,7 @@ markdown_extensions:
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.highlight:
       anchor_linenums: true
-  - pymdownx.superfences:
+  - pymdownx.superfences
   - pymdownx.tabbed:
       alternate_style: true
 
