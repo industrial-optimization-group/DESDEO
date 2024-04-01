@@ -4,6 +4,12 @@ hide:
  - toc
 ---
 
+[Jump to shortcuts](#start-learning-about-desdeo)
+
+{%
+   include-markdown "../README.md"
+%}
+
 # Start learning about DESDEO 
 
 <div class="grid cards" markdown>

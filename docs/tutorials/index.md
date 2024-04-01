@@ -16,14 +16,6 @@ hide:
 
     [:octicons-arrow-right-24: Primer](./moo_primer.md)
 
--   :octicons-info-24:{ .lg .middle } __Installing DESDEO__
-
-    ---
-
-    How to install DESDEO
-
-    [:octicons-arrow-right-24: Installation](./installing.md)
-
 -   :octicons-info-24:{ .lg .middle } __Contributing__
 
     ---

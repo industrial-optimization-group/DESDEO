@@ -19,7 +19,6 @@ on mathematics and optimization quickly up to date about interactive multiobject
 and interactive methods are. The primer can be accessed [here](../tutorials/moo_primer.md).
 
 **If you are a seasoned veteran on multiobjective optimization**, and you
-want to start utilizing DESDEO right away, then check the installation guide
-[here](../tutorials/installing.md). On the other hand, if you want to contribute
-to DESDEO, this documentation provides a tutorial on [that as
-well](../tutorials/contributing.md).
+want to start contributing
+to DESDEO right away, this documentation provides a tutorial on that
+[here](../tutorials/contributing.md).

@@ -14,7 +14,6 @@ nav:
   - "Tutorials":
       - "": "tutorials/index.md"
       - "A primer on interactive multiobjective optimization": "tutorials/moo_primer.md"
-      - "Installing DESDEO": "tutorials/installing.md"
       - "Contributing to DESDEO": "tutorials/contributing.md"
   - "Explanation":
       - "": "explanation/index.md"
@@ -84,6 +83,7 @@ plugins:
             filters: []
           docstring_options:
             ignore_init_summary: false
+  - include-markdown
 
 markdown_extensions:
   - admonition

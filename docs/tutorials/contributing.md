@@ -1,8 +1,22 @@
 # Contributing to DESDEO
 
 In this tutorial, step-by-step instructions are given on how to begin
-contributing to DESDEO, and what one should considers when developing DESDEO,
-such as coding practices and typical workflows. 
+contributing to DESDEO, and what one should consider when developing DESDEO,
+such as coding practices and typical workflows. We first cover the required
+software to be installed in the section [Installing required
+sotware](#installing-required-software).  Then, we discuss how to download
+DESDEO's source code and setup a virtual environment in the section [Setting up
+a virtual environment and installing
+DESDEO](#setting-up-a-virtual-environment-and-installing-desdeo).  A typical git
+workflow is then described in the section [Typical git workflow for contributing
+to DESDEO](#typical-git-workflow-for-contributing-to-desdeo).  Development
+practices and utilized tools are discussed in the section [Development
+practices](#development-practices), and how to integrate some of these into an
+integrated development environment are discussed in the section [Integrated
+development environments](#integrated-development-environments).  Lastly, a
+checklist for contributing and conclusions are given in sections
+[Checklist](#checklist) and [Conclusions, where to go next, and our Discord
+server](#conclusions-where-to-go-next-and-our-discord-server), respectively.
 
 ## Installing required software
 
@@ -21,20 +35,20 @@ for each platform can be found in the following sections:
 - [macOS platforms](#macos)
 
 Lastly, we also assume that we have a GitHub account setup. If not,
-we can visit (GitHub)[https://github.com/] to setup a new account.
+we can visit [GitHub](https://github.com/) to setup a new account.
 
 ### Windows
 
 Here, we assume to be operating in a __powershell__ environment. The first step
 is to install Python on the system, unless it is already installed. To check
 which version of Python are supported, check the section
-[Requirements](./installing.md#requirements). If utilizing the `.exe.`
+[Requirements](../index.md#installation-instructions). If utilizing the `.exe`
 installer for installing Python, we should ensure that the installer also sets the
 necessary `Path` environment variables. There should be a check-box for this
-during the installation. Python binaries for Windows platforms can be found (on
-the Python website)[https://www.python.org/downloads/].
+during the installation. Python binaries for Windows platforms can be found [on
+the Python website](https://www.python.org/downloads/).
 
-!!! Note
+!!! Note "Ensuring Path variables are updated"
     To ensure changes in `Path` variables are in effect, it is advisable to logout
     of the current Windows session, and then log back in.
 
@@ -49,12 +63,12 @@ this should report the version of the currently installed Python interpreter.
 
 Next, we need to install _git_ for version control and _poetry_ for managing
 packages and the virtual environment for developing DESDEO. To facilitate this,
-it is recommended to install (scoop)[https://scoop.sh/]. Installation
+it is recommended to install [scoop](https://scoop.sh/). Installation
 instructions are provided on scoop's webpage. Using scoop is optional, but we
 will assume that it has been installed for the remainder of this section.
 
-To install poetry, we will follow the (recommended way and use _pipx_)[https://python-poetry.org/docs/#installation].
-To install pipx, in a powershell, we run (the commands)[https://pipx.pypa.io/stable/installation/]
+To install poetry, we will follow the [recommended way and use _pipx_](https://python-poetry.org/docs/#installation).
+To install pipx, in a powershell, we run [the commands](https://pipx.pypa.io/stable/installation/)
 
 ```shell
 $ scoop install pipx
@@ -73,9 +87,9 @@ It might be a good idea to run
 $ pipx ensurepath
 ```
 
-once more after installing poetry. After this, we should log out and back in into a Windows session.
+once more after installing poetry. After this, we should log out and back into a Windows session.
 
-Finally, we can install git utilizing scoop:
+Finally, we can install git utilizing scoop
 
 ```bash
 $ scoop install git
@@ -93,7 +107,9 @@ poetry. After this, we should be set to begin developing on Linux-based systems.
 
 ### macOS
 
-Homebrew something something. I have no idea. Just follow
+(this section should be written by somebody who has access to a Mac.)
+
+Homebrew something something. I have no idea. Just follow and adapt
 the instructions for [Linux-based systems](#linux).
 
 ## Setting up a virtual environment and installing DESDEO
@@ -142,10 +158,12 @@ We should remember to replace _ourusername_ with our actual GitHub username.
 <span id="note:ssh"></span> 
 !!! Note "On SSH and keys"
     It is recommended to utilize the SSH (secure shell) url when
-    cloning DESDEO. This, however, requires that an SSH public key
-    has been generated and added to one's GitHub user account.
+    cloning DESDEO. This, however, requires that an SSH key-pairs has been
+    generated, and
+    that a public key
+    has been added to one's GitHub user account.
     For instructions on how to setup and SSH key,
-    see [Adding a new SSH key to your GitHub account](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account?platform=windows)
+    see [Adding a new SSH key to your GitHub account](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account?platform=windows).
 
 Lastly, we should change to the newly cloned directory with the source code
 
@@ -174,13 +192,15 @@ We are now in a position to setup our virtual environment.
 There are many ways to setup a virtual environment. Here, we will
 be utilizing poetry (c.f., section [Required software](#required-software))
 for the task. First, we should ensure
-that we are utilizing a correct version of Python. Run
+that we are utilizing a correct version of Python
 
 ```bash
 $ python --version
 ```
 
-to check the version. If the version is correct, then we can proceed. If not,
+This prints the version of the current
+Python interpreter installed on our system.
+If the version is correct, then we can proceed. If not,
 we should point poetry to the Python binary of the version we wish to utilize,
 e.g.,
 
@@ -188,14 +208,14 @@ e.g.,
 $ poetry env use /usr/bin/python
 ```
 
-!!! Note "Multiple Python versions"
+!!! Note "Managing multiple Python versions"
     For managing multiple Python versions, a tool, such
     as [pyenv](https://github.com/pyenv/pyenv?tab=readme-ov-file)
     is recommended.
 
 Before proceeding, it is useful to set the poetry configuration
 `virtualenvs.in-project` to `true`. This will ensure that our
-virtual environemnt will be created in the `.venv/` directory
+virtual environment will be created in the `.venv/` directory
 in our project's directory. To configure poetry to do this,
 we run
 
@@ -221,8 +241,9 @@ $ poetry install -E standard --with-group dev # (1)!
 ```
 
 1.  The option `-E standard` install the regular version of polars. If we are on an
-    older CPU, we might want to install the legacy version with the option `-E legacy`
-    The `-E` flag is used to indicate to polars extra dependencies. Likewise, the `--with-group dev`
+    older CPU, we might want to install the legacy version with the option `-E legacy`.
+    The `-E` flag is used to indicate to poetry extra dependencies
+    we wish to install. Likewise, the `--with-group dev`
     tells poetry that we want to install the dependencies listed as development
     dependencies.
 
@@ -236,7 +257,8 @@ $ pytest
 which runs all the tests present in DESDEO. Not all of them
 will be passing, but a majority of them should. This should indicate
 to us now that DESDEO has been correctly installed, and our
-virtual environment is now setup correctly.
+virtual environment is now setup correctly. Pytest and tests
+are discussed in more detail in the section [Testing](#testing).
 
 To exit the virtual environment, simply run
 
@@ -252,6 +274,8 @@ $ poetry shell
 
 Activating the environment requires that our current working
 directory is set to be the DESDEO directory with the source code.
+The command `poetry shell` will not re-create the virtual environment
+if it already exists, only reactivate it.
 
 ## Typical git workflow for contributing to DESDEO
 
@@ -265,7 +289,7 @@ request.
 ### Forking the DESDEO repository
 
 A fork is a copy of a repository that we manage and that is a completely
-separeate entity from the original repository, often referred to as the
+separate entity from the original repository, which is often referred to as the
 _upstream_. Forking a repository allows us to freely experiment with changes
 without affecting the original project.
 
@@ -275,7 +299,7 @@ To fork a repository:
 - In the top-right corner of the page, click the __Fork__ button.
 - This action creates a copy of the DESDEO repository in your GitHub account.
 - To ensure we are working on a fork, the url to our repository should be of the form _https://github.com/ourusername/DESDEO_. We might
-have a different name for the forked reposiotry if we chose one when making the fork.
+have a different name for the forked repository if we chose one when making the fork.
 
 ### Cloning the fork
 
@@ -286,7 +310,7 @@ and its history to our machine.
 To clone our fork:
 
 - On GitHub, we navigate to our fork of the DESDEO repository.
-- Above the file list, there should be a green button labeled "Code". Clicling the button should
+- Above the file list, there should be a green button labeled "Code". Clicking the button should
 reveal a smaller window. We should select the "SSH" tab and copy the given url.
 - In a terminal, we then navigate to where we want to place the local repository.
 - Then we clone the fork using the command:
@@ -297,7 +321,7 @@ $ git clone <URL-of-the-fork>
 $ cd DESDEO
 ```
 
-1.  _workspace_ is just a directory where we want to store the direcotry
+1.  _workspace_ is just a directory where we want to store the directory
     containing our fork. this is just an example, we can use any directory we want.
 
 It is highly recommended to use the SSH url. This requires setting up a
@@ -307,8 +331,8 @@ SSH key pair on our local machine and uploading the public key to GitHub.
 ### Setting the upstream repository
 
 It is beneficial that we periodically check the upstream, e.g., the original
-reposiotry of DESDEO for changes, and update our fork. This ensures
-that our local version of DESDEO is up to date with new canges, and
+repository of DESDEO for changes, and update our fork. This ensures
+that our local version of DESDEO is up to date with new changes, and
 allows us to fix any potential conflicts between the two versions as they
 emerge.
 
@@ -340,7 +364,7 @@ relevant to the changes we plan to make.
     1. The output should be "On branch desdeo2... etc."
 
 Before making a branch, we should update the `desdeo2` branch first
-(once DESDEO 2.0 is released, this would be the `main` branch). We
+(once DESDEO 2.0 is released, this would be the `main` branch instead). We
 issue the commands
 
 ```bash
@@ -379,7 +403,16 @@ $ git add . # (1)!
 ```
 
 1.  This assumed we are in the root directory of the project, i.e., the
-    directory containing our fork.
+    directory containing our fork. Otherwise we can stage all files
+    with changes with the command `git add -A`.
+
+!!! Note "What files to commit?"
+    In general, we should commit only source files, not
+    compiled files. This means that no Python byte-code
+    should ever be committed (i.e., `__pycache__` directories and their
+    contents). Luckily, rules for Git to ignore the most common
+    types of files that should not be committed have been defined in the
+    `.gitignore` file defined at the root level of the DESDEO project.
 
 We can always check which files are staged, and which are not, with the command
 
@@ -431,7 +464,7 @@ is no such thing!
 Actually, the more commits the better. Committing can be understood as "saving"
 our changes to the version control system, which also creates a "checkpoint" we
 can roll our project back to at any point in time. The changes in the commits
-are still only local, i.e., on our own machine. To integrate them into our fork
+are still only local, i.e., on our own local machine. To integrate them into our fork
 on GitHub, or the DESDEO upstream, we would have to push them first.
 
 ### Pushing changes to our fork
@@ -442,34 +475,36 @@ After committing our changes, we can push them to our fork on GitHub:
 $ git push origin feature-x # (1)!
 ```
 
-1.  `origin` refers to the GitHub repository with out fork, it points
+1.  `origin` refers to the GitHub repository with our fork, it points
     to the repository we originally cloned from, which in this case is
     our fork.
     `feature-x` is the branch name we have been working on and committing to.
+    To check where `origin` point to, we can issue the command
+    `git remote -v`, which lists all the remotes and their urls.
 
 This does not make any changes to the original upstream repository of
 DESDEO. For our changes to be integrated in the upstream, we
-need to make a pull request.
+have to make a pull request.
 
 ### Creating a pull request
 
-A pull request is a GitHub feature were we can notify the maintainers of an
-upstream repository, usually the one we originally cloned (in this case DESDEO),
-that we have made changes that we would like to integrate in upstream. When
+A pull request is a GitHub feature where we can notify the maintainers of an
+upstream repository, usually the one we originally forked (in this case DESDEO),
+that we have made changes that we would like to integrate into the upstream. When
 making a pull request, it is assumed that a feature, or features, to be added
-are complete and not work in progress.  One a pull request has been made, the
-maintainers of DESDEO will be notified.  They will then check the changes, and
+are complete and not work in progress. Once a pull request has been made, the
+maintainers of DESDEO will be notified. They will then check the changes, and
 either accept them as they are and pull them into the upstream, or they can give
-some feedback on what needs to be changed for the pull request to be accepted.
-The more commits in a pull request, the easier it is for a maintainter to review
+feedback on what needs to be changed for the pull request to be accepted.
+The more commits in a pull request, the easier it is for a maintainer to review
 the changes.
 
 In practice, making a pull request consists of the following steps:
 
 1. Go to the fork on GitHub.
-2. Swith to the branch with our new feature, e.g., `feature-x`.
+2. Switch to the branch with our new feature, e.g., `feature-x`.
 3. There should be a green "Pull request" button next to our branch. Click it.
-4. We can then review the changes in the pull request againts the upstream. We can also
+4. We can then review the changes in the pull request against the upstream. We can also
 provide additional information about the contents of the pull request.
 5. Once we are done creating the pull request and describing it, we can then create it.
 
@@ -482,7 +517,7 @@ While working on our fork, it is a good practice to keep it up to
 date with the upstream. This is important because, for example,
 a pull request from another contributor might have been accepted into the
 mainstream while we have been working on our local fork. Some of these changes might also
-affect the code we have been working, and we should make sure our changes are
+affect the code we have been working on, and we should make sure our changes are
 based on the latest code in the upstream. This can avoid overly complicated 
 merge conflicts in the repository when making a pull request.
 
@@ -497,9 +532,9 @@ $ git push origin desdeo2 # (4)!
 ```
 
 1.  The `fetch` command downloads all the changes made to the upstream but does not apply them, unlike the `pull` command would.
-2.  Remember, this is the main branch ofthe upstream, which we forked and which we want to keep up with.
+2.  Remember, this is the main branch of the upstream, which we forked and which we want to keep up with.
 3.  This adds all the changes made in the upstream to our local fork. The `desdeo2` branch of our __local__ fork is now up to date.
-4.  Lastly, we want to update the fork in our repository, or remote as well, __which is on GitHub__. This command pushesh the updated
+4.  Lastly, we want to update the fork in our repository, or remote as well, __which is on GitHub__. This command pushes the updated
     version of the main working branch to our fork on GitHub as well.
 
 If we have work in progress in our feature branch (e.g., `feature-x`), we can then change back to it and attempt to merge the most recent
@@ -513,27 +548,34 @@ $ git merge desdeo2 # (2)!
 1.  We are now in our feature branch again.
 2.  This will attempt to merge all the changes in the upstream with our feature branch.
 
-If we have made changes in our code to part of the code that has also been
+If we have made changes in our code to parts of the code that have also been
 changed in the upstream, then we would have a _merge conflict_. The output of
-the command `git status` should give us plenty of information on how to proceed.
-For further instuctions on how to resolve merge conflicts, see the section
+the command `git status` should give us plenty of information on how to proceed
+to resolve the conflict.
+For further instructions on how to resolve merge conflicts, see the section
 [Further resources](#further-resources).
 
 ### Further resources
 
 Git is a very powerful tool for version control. What we have covered in this tutorial
-thus far barely scratches the surface of what git is capable of, and how to use it.
+thus far barely scratches the surface of what Git is capable of, and how to use it.
 The interested reader is encouraged to checkout further resources, such as the official
-[documentation for git](https://git-scm.com/doc) and references therein.
+[documentation for Git](https://git-scm.com/doc) and the references therein.
 
-The process of learning git has also been gamified by many. Two popular examples
-for learning a git are:
+The process of learning Git has also been gamified by many. Two popular examples
+for learning a Git are:
 
 - [Learn Git Branching](https://learngitbranching.js.org/), and
 - [Oh My Git!](https://ohmygit.org/).
 
 Combined with the official documentation, these games can supplement one's
-learning journey on coming a proficient git user.
+learning journey on coming a proficient Git user.
+
+Lastly, there is a seminar talk by Giovanni Misitano, where the Git workflow
+discussed in this section is presented in more detail. While the talk
+references an older version of DESDEO, the contents relevant to Git
+and GitHub are still very much relevant. A recording of Giovanni's talk
+can be found on [YouTube](https://www.youtube.com/watch?v=JCZRBx55KBQ).
 
 ## Development practices
 
@@ -558,16 +600,16 @@ These topics are discussed in their respective sections
 
 The practices we should adhere to while writing code, such
 as line length, quotation style, and such, are determined by
-the choden _code style_. Luckily, we do not have to remember
+the _code style_. Luckily, we do not have to remember
 each detail ourselves each time we type a new line of code,
 instead, we can rely on _linters_. Linters are external tools that,
 once run, will check the code we have written to ensure
 it follows the code style we have chosen, and also that
 our code is syntactically valid. If not, the linter will
-alert of or any discrepancies. Instead of manually correcting
+alert us of any discrepancies. Instead of manually correcting
 each discrepancy, we can also utilize _code formatters_, which
 can be combined with a linter to automatically format our
-code such that it follows the estabilished code style.
+code such that it follows the established code style.
 
 In DESDEO, we have chosen to utilize [Ruff](https://docs.astral.sh/ruff/) which
 is _both_ a linter and code formatter. If we have installed DESDEO utilizing
@@ -600,7 +642,7 @@ We can also ask Ruff to try and fix the found errors in the same file with the c
 $ ruff check desdeo/problem/schema.py --fix
 ```
 
-This will autmatically fix the errors, if possible. If not, we will have to
+This will automatically fix the errors, if possible. If not, we will have to
 manually address them. Luckily, Ruff's output is very rich, and the fix is often
 easy to implement.
 
@@ -630,7 +672,8 @@ return type of the function, in this a case `float`.
 Python itself does not enforce the types of variables or functions based on the
 typehints, but rather, they can help users and developers to reason about the code.
 Moreover, tools have been implemented to do static type checking for
-Python code enhanced with typehints. One such tool is _mypy_.
+Python code enhanced with typehints. One such tool is _mypy_, and it is
+utilized in DESDEO as well.
 
 As was the case
 with Ruff, mypy should be already installed on our machine if we installed
@@ -641,7 +684,7 @@ a file with mypy, we can run the command
 $ mypy desdeo/problem/utils.py 
 ```
 
-and the output could look as
+As an example, the output of `mypy` could look like
 
 ```bash
 desdeo/problem/utils.py:26: error: Argument 1 to "len" has incompatible type "float"; expected "Sized"  [arg-type]
@@ -657,8 +700,8 @@ It is important to keep in mind that mypy does not guarantee any form or
 type of type safety. It may enhance it, but it relies heavily on the typehints
 provided by users, which may be wrong or only partially correct. Moreover,
 mypy does not remove the need for runtime type checks. Nevertheless,
-mypy is an usefull tool to check the consistency and correctness of user
-provided typeints in DESDEO, which improves the overall quality of the code.
+mypy is a useful tool to check the consistency and correctness of user
+provided typehints in DESDEO, which can improve the overall quality of the code.
 
 For more information on mypy, the reader is encouraged to check [its official
 documentation](https://mypy.readthedocs.io/en/stable/index.html).
@@ -670,9 +713,9 @@ DESDEO utilizes _pytest_ as its testing library, which should
 come installed with the project if we installed DESDEO with its
 [development dependencies](#bash:poetry_install_dev).
 
-Tests should be located in the `tests` directory found at the root of the
-directory. Tests are written iniside `.py` files with the `test_` prefix, e.g.,
-`test_feature.py`. Tests themselves should be defines as test cases, each in its
+Tests should be located in the `tests/` directory found at the root of the
+directory. Tests are written inside `.py` files with the `test_` prefix, e.g.,
+`test_feature.py`. Tests themselves should be defined as test cases, each in its
 own Python function with its name starting with the prefix `test_`, e.g., `def
 test_feature():`.  It is important that these naming conventions are followed
 because pytest relies on them during test discovery (i.e., when it tries to
@@ -696,23 +739,70 @@ def test_feature_correct_output():
 3.  An `assert` statement will raise an `AssertionError` whenever the expression following
     it resolves to be `False`.
 
+!!! Note "What should a test test?"
+    Because DESDEO is currently mainly developed my researchers, we do not
+    have the time or resources to implement tests in a systematic fashion.
+    I.e., unit tests for every single feature, and then more comprehensive
+    tests. Instead, we have taken a code-coverage approach, where
+    out goal is to write at least _some_ tests for all the code
+    found in the code base that visits each line in the code at least once.
+    It is better to write a test that at least checks that a piece of code
+    executes without error with some input. Even better if the output can be
+    checked to be _logically correct_. And even even better,
+    if multiple input and outputs of a piece of code and be checked.
+
+    A bare minimum test would look something like the following
+
+    ```python
+    def test_no_error():
+        double(5)
+    ```
+
+    An optimal test like this:
+
+    ```python
+    def test_correct_output():
+        output = double(5)
+        expected = 10
+
+        assert output == expected
+    ```
+
+    And in an ideal case we would have multiple tests like the above
+    for other inputs as well, and more logical checks, e.g.,
+
+    ```python
+    def test_sign():
+        output = double(-4)
+        expected = 8
+
+        assert is_positive(output) # (1)!
+        assert output == expected
+    ```
+
+    1.  This is just some function that checks that a number is positive,
+        returning `True` if it is, otherwise it returns `False`.
+
 In the example, we have defined a test case `test_feature_correct_output`,
 where we check that the output of `double` given the argument `5` is
 `10`. If not, the test will raise and `AssertionError` and the test will not pass.
-A passing test is such that it does not raise _any_ erros. We have also utilized the
+A passing test is such that it does not raise _any_ errors. We have also utilized the
 _decorator_ `@pytest.mark.feature`, which tells pytest that this test has been marked
 with the mark `feature`. Marks should be registered in the configuration of pytest,
-which can be found in the `pyproject.toml` file's section `[tool.pytest.ini_options]`.
+which can be found in the `pyproject.toml` file's section `[tool.pytest.ini_options]`. Each mark should be registerered only once, and can be
+re-utilized as many times as needed.
 Multiple test cases can have the same mark, or multiple marks. Marks are a useful
 way to not run all tests each time we run pytest, but to run only a subset of them, which
-are relevant to the changes we have made when implementing a new feature, for instance.
+are relevant to the changes we have made when implementing for a new feature, for instance.
 We can then run the test with the command
 
 ```bash
 $ pytest -m feature # (1)!
 ```
 
-1.  The option `-m feature` tells pytest to only run tests with the mark `feature`.
+1.  The option `-m feature` tells pytest to only run tests with the mark `feature`. To exclude tests with mark, and run every other test instead,
+we can, for instance, issue the command `pytest -m "not feature"`, which would
+run all tests that are _not_ marked with the mark `feature`.
 
 The output of pytest will be very explicit whether the test is passing or not. We can
 also run all the tests (that have not been explicitly marked to be skipped), with the
