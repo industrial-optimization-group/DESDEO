@@ -612,7 +612,7 @@ starting with `[tool.ruff...]`.
 For more information on Ruff, the reader is encouraged to check [its official
 documentation](https://docs.astral.sh/ruff/).
 
-# Typechecking
+### Typechecking
 
 While Python is not a typed language, it still offers the options
 to provide _typehints_ in function and variable declarations. For example
@@ -937,4 +937,137 @@ the documentation for [mkdocs](https://www.mkdocs.org/),
 and [Materials for mkdocs](https://squidfunk.github.io/mkdocs-material/),
 are offer good reference material. 
 
-## Further resources
+## Integrated development environments 
+
+Thus far, we have separately discussed the tools utilized
+when developing DESDEO. While these tools can be used
+separately as demonstrated, it is often too inconvenient
+from a practica point of view. In practice, many of the 
+discussed tools are run automatically, or managed though
+other, arguably more user friendly tools, such as various
+grpahical user interfaces.
+
+Integrated development environments, or IDEs, are
+progrmas that offer an environment for developing code,
+often integrating many other tools, such as git and different
+linters. They also offer a text, or rather code, editor for
+editing the source code found in a project.
+
+Many different IDEs exists, and the choice of the
+right IDE is very subjective. For this reason, we have
+introduced the tools for developing DESDEO on their own,
+without making assumptions regarding use of any IDE. It is
+also perfectly fine to not use IDEs, but with modern code bases
+and tools, IDEs can streamline an otherwise complicated
+tool chain and development process, and thus significantly saving
+a developer's time.
+Than being said, we will briefly mention one IDE and
+some recommended extensions for easing the development
+and contribution to DESDEO.
+
+### Visual studio code
+
+One of the most popular IDEs currently being used, is [Visual studio
+code](https://code.visualstudio.com/) (vscode for short). 
+It is available on all major platforms,
+making it a portable solution. Its development is backed by a major company, and
+it is based on mostly open source software. Vscode is also very
+customizable, and has a plethora of different extensions available, both
+official and user made. [A more open source version is also
+available](https://vscodium.com/), which mainly disables Microsoft's telemetry
+and strips the build of the application of other proprietry parts. Whichever
+version we use, they are virtually the same, but the propietary version does
+come with some extensions that are otherwise not available in the open source
+version. However, these are not relevant for developing DESDEO.
+
+Vscode comes with git support out of the box and [is nicely
+documented](https://code.visualstudio.com/docs/sourcecontrol/overview).
+To manage GitHub specific aspects from Vscode, we need to install the
+extension [GitHub Pull Requests](https://marketplace.visualstudio.com/items?itemName=GitHub.vscode-pull-request-github).
+This extension allows us to make pull request form Vscode, open and browse issues, and much
+more.
+
+For better Python support, including support for enabling code auto-completiong, running
+tests, and debugging,
+the [Python extension](https://marketplace.visualstudio.com/items?itemName=ms-python.python)
+is recommended. This extension also support virtual environments,
+which are automatically activated if they reside in the project itself.
+
+For linting and code formatting, [the Ruff extension for Vscode](https://marketplace.visualstudio.com/items?itemName=charliermarsh.ruff)
+is very useful. This extension allows to run Ruff automatically on
+our code whenever we, for instance, save our changes. Auto-fixable
+issues will be fixed automatically, while other issues will be
+highlighted and reported inside Vscode.
+
+To help with documentation, the
+[autoDocstring](https://marketplace.visualstudio.com/items?itemName=njpwerner.autodocstring)
+extension is useful. It will automatically
+generate docstrings templates, populating them
+intelligently with relevant sections, e.g.,
+`Arguments` by picking the arguments from the
+function definition.
+
+To avoid most typos, the extension [Code Spell Checker](https://marketplace.visualstudio.com/items?itemName=streetsidesoftware.code-spell-checker)
+can be useful. It is smart enough to identify typographical error
+in source code despite Python's syntax. Perhpaps most importantly, it will
+point out errors in docstrings and markdown files as well.
+
+All of these extensions can be configured to further match one's needs,
+but we are not going to to discuss these aspects in this tutorial.
+Many other extensions exist as well that can prove to be useful. What
+we have listed here is a bare minimum to get us started. And as said,
+the choice of, or lack of, the best IDE is personal and subjective.
+One is free to explore the many other alternatives available as well.
+
+## Checklist
+
+We have covered many topics in this tutorial, and at first,
+its contents may feel overwhelming. However, despite first
+impression, most of the discussed steps and practices will 
+become almost second nature fairly quickly. To support
+the reader's endeavors in contributing to DESDEO, we have
+summarized the main steps to take into account when contributing
+to DESDEO in this last section of this tutorial.
+
+### Setting up
+
+1.  Install the required software.
+2.  Clone the DESDEO repository.
+3.  Create and activate a virtual environment.
+
+### Contribution workflow
+
+1.  Fork the DESDEO repository.
+2.  Clone the fork.
+    1.   Make sure the fork is up to date with the upstream, or main repository, of DESDEO.
+3.  Run tests and make sure at least most of them are passing.
+4.  Create or switch to a local branch.
+5.  Make changes to the code. Keep committing the changes and running tests now and then.
+    1.  Remember to write tests and documentation, including comments, docstrings, and external documentation,
+        when relevant.
+    2.  Me mindful of the outputs of Ruff and mypy. Fix errors and warning whenever possible. 
+6.  Make a pull request on GitHub. 
+7.  Goto 2.1.
+
+## Conclusions, where to go next, and our Discord server
+
+Many of the topics covered in this tutorial are not
+unique to DESDEO, but rather adhere to some common modern
+practices in developing Python software. By investing a little
+bit of our time in familizarizing ourselves with the various tools
+discussed, we will be able to save a lot of time in the future. Moreover,
+a lot of the information covered is applicable to other open source
+projects as well.
+
+We are now in a position to start contributing to DESDEO. If
+we do not know where to start, we can check the
+[open issues](https://github.com/industrial-optimization-group/DESDEO/issues)
+found on DESDEO's GitHub repository.
+
+For further support, feel free to join the MCDM Community's Discord server.
+It has dedicated channels for DESDEO as well. There, you may ask for further assistance
+and discuss DESDEO and its development in general.
+
+To join the Discord server, [click here!](https://discord.gg/TgSnUmzv5M)
+
+Happy coding!
