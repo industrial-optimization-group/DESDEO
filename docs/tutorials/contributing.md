@@ -13,10 +13,12 @@ to DESDEO](#typical-git-workflow-for-contributing-to-desdeo).  Development
 practices and utilized tools are discussed in the section [Development
 practices](#development-practices), and how to integrate some of these into an
 integrated development environment are discussed in the section [Integrated
-development environments](#integrated-development-environments).  Lastly, a
-checklist for contributing and conclusions are given in sections
-[Checklist](#checklist) and [Conclusions, where to go next, and our Discord
-server](#conclusions-where-to-go-next-and-our-discord-server), respectively.
+development environments](#integrated-development-environments).
+The main points of this tutorial are then summarized in
+the section [Summary](#summary). Lastly, conclusions and potential
+next steps in contributing to DESDEO are outlined in the
+section [Conclusions, where to go next, and our Discord
+server](#conclusions-where-to-go-next-and-our-discord-server).
 
 ## Installing required software
 
