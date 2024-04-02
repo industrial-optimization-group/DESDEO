@@ -138,7 +138,7 @@ class PyomoEvaluator:
             model (pyomo.Model): the pyomo model to add the constants to.
 
         Raises:
-            PyomoEvaluatorError: when the domain of a constant cannot be figure out.
+            PyomoEvaluatorError: when the domain of a constant cannot be figured out.
 
         Returns:
             pyomo.Model: the pyomo model with the constants added as attributes.

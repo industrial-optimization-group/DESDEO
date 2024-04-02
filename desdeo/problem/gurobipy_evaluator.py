@@ -3,43 +3,55 @@
 from operator import eq as _eq
 from operator import le as _le
 
-import pyomo.environ as pyomo
+import gurobipy as gp
+
+import warnings
 
 from desdeo.problem.json_parser import FormatEnum, MathParser
 from desdeo.problem.schema import ConstraintTypeEnum, Problem, VariableTypeEnum
 
 
-class PyomoEvaluatorError(Exception):
-    """Raised when an error within the PyomoEvaluator class is encountered."""
+class GurobipyEvaluatorError(Exception):
+    """Raised when an error within the GurobipyEvaluator class is encountered."""
 
+class GurobipyEvaluatorWarning(UserWarning):
+    """Raised when the problem contains features that are poorly supported in gurobipy."""
 
-class PyomoEvaluator:
-    """Defines as evaluator that transforms an instance of Problem into a pyomo model."""
+class GurobipyEvaluator:
+    """Defines as evaluator that transforms an instance of Problem into a gurobipy model."""
 
     def __init__(self, problem: Problem):
         """Initialized the evaluator.
 
         Args:
-            problem (Problem): the problem to be transformed in a pyomo model.
+            problem (Problem): the problem to be transformed in a gurobipy model.
         """
-        model = pyomo.ConcreteModel()
+        model = gp.Model(problem.name)
 
         # set the parser
-        self.parse = MathParser(to_format=FormatEnum.pyomo).parse
+        self.parse = MathParser(to_format=FormatEnum.gurobipy).parse
 
         # Add variables
         model = self.init_variables(problem, model)
 
         # Add constants, if any
         if problem.constants is not None:
+            warnings.warn(
+                "Gurobipy does not really support constants. Adding them as variables.",
+                GurobipyEvaluatorWarning
+            )
             model = self.init_constants(problem, model)
 
         # Add extra expressions, if any
         if problem.extra_funcs is not None:
+            warnings.warn(
+                "Gurobipy does not really support extra expressions. Adding them as variables.",
+                GurobipyEvaluatorWarning
+            )
             model = self.init_extras(problem, model)
 
         # Add objective function expressions
-        model = self.init_objectives(problem, model)
+        objectives = self.init_objectives(problem, model)
 
         # Add constraints, if any
         if problem.constraints is not None:
@@ -51,193 +63,171 @@ class PyomoEvaluator:
 
         self.model = model
         self.problem = problem
+        self.objectives = objectives
 
-    def init_variables(self, problem: Problem, model: pyomo.Model) -> pyomo.Model:
-        """Add variables to the pyomo model.
+    def init_variables(self, problem: Problem, model: gp.Model) -> gp.Model:
+        """Add variables to the gurobipy model.
 
         Args:
             problem (Problem): problem from which to extract the variables.
-            model (pyomo.Model): the pyomo model to add the variables to.
+            model (gp.Model): the gurobipy model to add the variables to.
 
         Raises:
-            PyomoEvaluator: when a problem in extracting the variables is encountered.
-                I.e., the bounds of the variables are incorrect or of a non supported type.
+            GurobipyEvaluatorError: when a problem in extracting the variables is encountered.
+                I.e., the variables are of a non supported type.
 
         Returns:
-            pyomo.Model: the pyomo model with the variables added as attributes.
+            gp.Model: the gurobipy model with the variables added as attributes.
         """
         for var in problem.variables:
             lowerbound = var.lowerbound if var.lowerbound is not None else float("-inf")
             upperbound = var.upperbound if var.upperbound is not None else float("inf")
 
             # figure out the variable type
-            match (lowerbound >= 0, upperbound >= 0, var.variable_type):
-                case (True, True, VariableTypeEnum.integer):
-                    # variable is positive integer
-                    domain = pyomo.NonNegativeIntegers
-                case (False, False, VariableTypeEnum.integer):
-                    # variable is negative integer
-                    domain = pyomo.NegativeIntegers
-                case (False, True, VariableTypeEnum.integer):
-                    # variable can be both negative an positive integer
-                    domain = pyomo.Integers
-                case (True, False, VariableTypeEnum.integer):
-                    # error! lower bound is greater than upper bound
-                    msg = (
-                        f"The lower bound {var.lowerbound} for variable {var.symbol} is greater than the "
-                        f"upper bound {var.upperbound}"
-                    )
-                    raise PyomoEvaluatorError(msg)
-                case (True, True, VariableTypeEnum.real):
-                    # variable is positive real
-                    domain = pyomo.NonNegativeReals
-                case (False, False, VariableTypeEnum.real):
-                    # variable is negative real
-                    domain = pyomo.NegativeReals
-                case (False, True, VariableTypeEnum.real):
-                    # variable can be both negative and positive real
-                    domain = pyomo.Reals
-                case (True, False, VariableTypeEnum.real):
-                    # eror! lower bound is greater than upper bound
-                    msg = (
-                        f"The lower bound {var.lowerbound} for variable {var.symbol} is greater than the "
-                        f"upper bound {var.upperbound}"
-                    )
-                    raise PyomoEvaluatorError(msg)
+            match (var.variable_type):
+                case (VariableTypeEnum.integer):
+                    # variable is integer
+                    domain = gp.GRB.INTEGER
+                case (VariableTypeEnum.real):
+                    # variable is real
+                    domain = gp.GRB.CONTINUOUS
+                case (VariableTypeEnum.binary):
+                    domain = gp.GRB.BINARY
                 case _:
                     msg = f"Could not figure out the type for variable {var}."
-                    raise PyomoEvaluatorError(msg)
+                    raise GurobipyEvaluatorError(msg)
 
-            # if a variable's initial value is set, use it. Otherwise, check if the lower and upper bounds
-            # are defined, if they are, use the mid-point of the bounds, otherwise use the initial value, which is
-            # None.
+            # add the variable to the model
+            gvar = model.addVar(lb=lowerbound, ub=upperbound, vtype=domain, name=var.symbol)
+            # set the initial value, if one has been defined
             if var.initial_value is not None:
-                initial_value = var.initial_value
-            else:
-                initial_value = (
-                    var.initial_value
-                    if var.lowerbound is None and var.upperbound is None
-                    else (var.lowerbound + var.upperbound) / 2
-                )
-
-            pyomo_var = pyomo.Var(
-                name=var.name, initialize=initial_value, bounds=(var.lowerbound, var.upperbound), domain=domain
-            )
-
-            # add and then construct the variable
-            setattr(model, var.symbol, pyomo_var)
-            getattr(model, var.symbol).construct()
+                gvar.setAttr("Start", var.initial_value)
 
         return model
 
-    def init_constants(self, problem: Problem, model: pyomo.Model) -> pyomo.Model:
-        """Add constants to a pyomo model.
+    def init_constants(self, problem: Problem, model: gp.Model) -> gp.Model:
+        """Add constants to a gurobipy model. 
+        
+        Gurobi does not really have constants, so this function instead adds 
+        variables whose upper and lower bounds match the constant's value. 
+        This is necessary to get the MathParser to understand the constants
+        used in the problem, but Gurobi presolve should be able to remove all
+        these unnecessary variables when it comes time to solve the problem.
+        Still, it might be best to avoid using constants if you are intending
+        to use the gurobipy solver. 
 
         Args:
             problem (Problem): problem from which to extract the constants.
-            model (pyomo.Model): the pyomo model to add the constants to.
+            model (gp.Model): the gurobipy model to add the constants to.
 
         Raises:
-            PyomoEvaluatorError: when the domain of a constant cannot be figure out.
+            GurobipyEvaluatorError: when the domain of a constant cannot be figured out.
 
         Returns:
-            pyomo.Model: the pyomo model with the constants added as attributes.
+            gp.Model: the gurobipy model with the constants added as variables.
         """
         for con in problem.constants:
             # figure out the domain of the constant
-            match (isinstance(con.value, int), isinstance(con.value, float), con.value >= 0):
-                case (True, False, True):
-                    # positive integer
-                    domain = pyomo.NonNegativeIntegers
-                case (True, False, False):
-                    # negative integer
-                    domain = pyomo.NegativeIntegers
-                case (False, True, True):
-                    # positive real
-                    domain = pyomo.NonNegativeReals
-                case (False, True, False):
-                    # negative real
-                    domain = pyomo.NegativeReals
+            match (isinstance(con.value, int), isinstance(con.value, float)):
+                case (True, False):
+                    # integer
+                    domain = gp.GRB.INTEGER
+                case (False, True):
+                    # real
+                    domain = gp.GRB.CONTINUOUS
                 case _:
                     # not possible, something went wrong
                     msg = f"Failed to figure out the domain for the constant {con.symbol}."
-                    raise PyomoEvaluatorError(msg)
+                    raise GurobipyEvaluatorError(msg)
 
-            pyomo_param = pyomo.Param(name=con.name, default=con.value, domain=domain)
-            setattr(model, con.symbol, pyomo_param)
+
+            # add the variable to the model
+            gvar = model.addVar(lb=con.value, ub=con.value, vtype=domain, name=con.symbol)
+            # set the initial value
+            gvar.setAttr("Start", con.value)
 
         return model
 
-    def init_extras(self, problem: Problem, model: pyomo.Model) -> pyomo.Model:
-        """Add extra function expressions to a pyomo model.
+    def init_extras(self, problem: Problem, model: gp.Model) -> gp.Model:
+        """Add extra function expressions to a gurobipy model. Because gurobipy does not
+        support extra expressions natively, this function adds the expressions as variables
+        and adds a constraint that forces that variable to match the expression.
 
         Args:
             problem (Problem): problem from which the extract the extra function expressions.
-            model (pyomo.Model): the pyomo model to add the extra function expressions to.
+            model (gp.Model): the gurobipy model to add the extra function expressions to.
 
         Returns:
-            pyomo.Model: the pyomo model with the expressions added as attributes.
+            gp.Model: the gurobipy model with the expressions added as attributes.
         """
         for extra in problem.extra_funcs:
-            pyomo_expr = self.parse(extra.func, model)
-
-            setattr(model, extra.symbol, pyomo_expr)
+            gp_expr = self.parse(extra.func, model)
+            gp_var = model.addVar(lb=float("-inf"), name=extra.symbol)
+            model.addConstr(gp_var == gp_expr)
 
         return model
 
-    def init_objectives(self, problem: Problem, model: pyomo.Model) -> pyomo.Model:
-        """Add objective function expressions to a pyomo model.
+    def init_objectives(self, problem: Problem, model: gp.Model) -> (
+            dict[str, gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr]):
+        """Add objective function expressions to a gurobipy model.
 
-        Does not yet add any actual pyomo objectives, only the expressions of the objectives.
-        A pyomo solved must add the appropiate pyomo objective before solving.
+        Does not yet add any actual gurobipy objectives, only creates a dict containing the 
+        expressions of the objectives. The objective expressions are stored in the 
+        GurobipyEvaluator and the evaluator must add the appropiate gurobipy objective before solving.
 
         Args:
             problem (Problem): problem from which to extract the objective function expresions.
-            model (pyomo.Model): the pyomo model to add the expressions to.
+            model (gp.Model): the gurobipy model containing the variables that the expressions reference.
 
         Returns:
-            pyomo.Model: the pyomo model with the objective expressions added as pyomo Objectives.
-                The objectives are deactivated by default.
+            dict: dictionary containing the objectives as gurobipy expressions indexed by objective symbols.
         """
+        objectives = dict()
         for obj in problem.objectives:
-            pyomo_expr = self.parse(obj.func, model)
+            gp_expr = self.parse(obj.func, model)
+            if isinstance(gp_expr, int) or isinstance(gp_expr, float):
+                warnings.warn(
+                    "One or more of the problem objectives seems to be a constant.",
+                    GurobipyEvaluatorWarning
+                )
+            if isinstance(gp.GenExpr, int):
+                msg = f"Gurobi does not support objective functions that are not linear or quadratic {gp_expr}"
+                raise GurobipyEvaluatorError(msg)
 
-            setattr(model, obj.symbol, pyomo_expr)
+            objectives[obj.symbol] = gp_expr
 
             # the obj.symbol_min objectives are used when optimizing and building scalarizations etc...
-            setattr(model, f"{obj.symbol}_min", -pyomo_expr if obj.maximize else pyomo_expr)
+            objectives[f"{obj.symbol}_min"] = (-gp_expr if obj.maximize else gp_expr)
 
-        return model
+        return objectives
 
-    def init_constraints(self, problem: Problem, model: pyomo.Model) -> pyomo.Model:
-        """Add constraint expressions to a pyomo model.
+    def init_constraints(self, problem: Problem, model: gp.Model) -> gp.Model:
+        """Add constraint expressions to a gurobipy model.
 
         Args:
             problem (Problem): the problem from which to extract the constraint function expressions.
-            model (pyomo.Model): the pyomo model to add the exprssions to.
+            model (gp.Model): the gurobipy model to add the exprssions to.
 
         Raises:
-            PyomoEvaluatorError: when an unsupported constraint type is encountered.
+            GurobipyEvaluatorError: when an unsupported constraint type is encountered.
 
         Returns:
-            pyomo.Model: the pyomo model with the constraint expressions added as pyomo Constraints.
+            gp.Model: the gurobipy model with the constraint expressions added.
         """
         for cons in problem.constraints:
-            pyomo_expr = self.parse(cons.func, model)
+            gp_expr = self.parse(cons.func, model)
 
             match con_type := cons.cons_type:
                 case ConstraintTypeEnum.LTE:
                     # constraints in DESDEO are defined such that they must be less than zero
-                    pyomo_expr = _le(pyomo_expr, 0)
+                    gp_expr = _le(gp_expr, 0)
                 case ConstraintTypeEnum.EQ:
-                    pyomo_expr = _eq(pyomo_expr, 0)
+                    gp_expr = _eq(gp_expr, 0)
                 case _:
                     msg = f"Constraint type of {con_type} not supported. Must be one of {ConstraintTypeEnum}."
-                    raise PyomoEvaluatorError(msg)
+                    raise GurobipyEvaluatorError(msg)
 
-            cons_expr = pyomo.Constraint(expr=pyomo_expr, name=cons.name)
-
-            setattr(model, cons.symbol, cons_expr)
+            model.addConstr(gp_expr, name=cons.symbol)
 
         return model
 
@@ -259,28 +249,8 @@ class PyomoEvaluator:
 
         return model
 
-    def evaluate(self, xs: dict[str, float | int | bool]) -> pyomo.Model:
-        """Evaluate the current pyomo model with the given decision variable values.
-
-        Warning:
-            This should not be used for actually solving the pyomo model! For debugging mostly.
-
-        Args:
-            xs (dict[str, list[float | int | bool]]): a dict with the decision variable symbols
-                as the keys followed by the corresponding decision variable values. The symbols
-                must match the symbols defined for the decision variables defined in the `Problem` being solved.
-                Each list in the dict should contain the same number of values.
-
-        Returns:
-            pyomo.Model: the pyomo model with its variable values set to the values found in xs.
-        """
-        for var in self.problem.variables:
-            setattr(self.model, var.symbol, xs[var.symbol])
-
-        return self.model
-
     def get_values(self) -> dict[str, float | int | bool]:
-        """Get the values from the pyomo model in dict.
+        """Get the values from the gurobipy model in dict.
 
         The keys of the dict will be the symbols defined in the problem utilized to initialize the evaluator.
 
@@ -290,22 +260,22 @@ class PyomoEvaluator:
         result_dict = {}
 
         for var in self.problem.variables:
-            result_dict[var.symbol] = pyomo.value(getattr(self.model, var.symbol))
+            result_dict[var.symbol] = self.model.getVarByName(var.symbol).getAttr(gp.GRB.Attr.X)
 
         for obj in self.problem.objectives:
-            result_dict[obj.symbol] = pyomo.value(getattr(self.model, obj.symbol))
+            result_dict[obj.symbol] = self.objectives[obj.symbol].getValue()
 
         if self.problem.constants is not None:
             for con in self.problem.constants:
-                result_dict[con.symbol] = pyomo.value(getattr(self.model, con.symbol))
+                result_dict[con.symbol] = self.model.getVarByName(con.symbol).getAttr(gp.GRB.Attr.X)
 
         if self.problem.extra_funcs is not None:
             for extra in self.problem.extra_funcs:
-                result_dict[extra.symbol] = pyomo.value(getattr(self.model, extra.symbol))
+                result_dict[extra.symbol] = self.model.getVarByName(extra.symbol).getAttr(gp.GRB.Attr.X)
 
         if self.problem.constraints is not None:
             for const in self.problem.constraints:
-                result_dict[const.symbol] = pyomo.value(getattr(self.model, const.symbol))
+                result_dict[const.symbol] = -self.model.getConstrByName(const.symbol).getAttr("Slack")
 
         if self.problem.scalarization_funcs is not None:
             for scal in self.problem.scalarization_funcs:

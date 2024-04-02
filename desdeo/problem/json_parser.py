@@ -332,7 +332,7 @@ class MathParser:
         Args:
             expr (list | str | int | float): a list with a Polish notation expression that describes a, e.g.,
                 ["Multiply", ["Sqrt", 2], "x2"]
-            model (gurobipy.Model): a gurobipy model with the symbols defined appearing in the expression.
+            model (gp.Model): a gurobipy model with the symbols defined appearing in the expression.
                 E.g., "x2" -> model.x2 must be defined.
 
         Returns:

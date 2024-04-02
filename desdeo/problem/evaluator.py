@@ -46,7 +46,7 @@ class GenericEvaluator:
     ### Evaluating (we have decision variables to evaluate problem)
     # 1. Evaluate the extra functions (if any) in the dataframe with the decision variables. Store the results
     #    in new columns of the dataframe.
-    # 2. Evaluate the objectie functions based on the decision variables and the extra function values (if any).
+    # 2. Evaluate the objective functions based on the decision variables and the extra function values (if any).
     #    Store the results in the dataframe in their own columns.
     # 3. Evaluate the constraints (if any) based on the decision variables and extra function values (if any).
     #    Store the results in the dataframe in their own columns.
