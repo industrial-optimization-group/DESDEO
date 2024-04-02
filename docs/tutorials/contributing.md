@@ -1,3 +1,8 @@
+---
+hide:
+- navigation
+---
+
 # Contributing to DESDEO
 
 In this tutorial, step-by-step instructions are given on how to begin

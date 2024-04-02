@@ -1,3 +1,8 @@
+---
+hide:
+- navigation
+---
+
 # A primer on interactive multiobjective optimization
 
 This tutorial provides a primer to get anyone with a basic knowledge
