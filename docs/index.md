@@ -1,16 +1,19 @@
 ---
 hide:
- - navigation
- - toc
+- navigation
 ---
 
-[Jump to shortcuts](#start-learning-about-desdeo)
+# DESDEO documentation
+
+Welcome to DESDEO's documentation! If you are new, keep reading.
+Otherwise, [you may jump to the quick-start section](#quick-start).
 
 {%
    include-markdown "../README.md"
+   heading-offset=1
 %}
 
-# Start learning about DESDEO 
+## Quick-start
 
 <div class="grid cards" markdown>
 
@@ -48,7 +51,7 @@ hide:
 
 </div>
 
-# API references
+## API references
 
 <div class="grid cards" markdown>
 

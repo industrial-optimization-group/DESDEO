@@ -124,3 +124,48 @@ uvicorn app:app --reload
 ```
 
 Follow the console output to see on address and port the web API is running.
+
+## Documentation
+
+Care has been taken to make sure DESDEO is well docmumented, making
+it accessible to both newcomes and seasoned users.
+
+[The documentation of DESDEO is available online.](https://desdeo.readthedocs.io/en/desdeo2/)
+
+## Contributing
+
+As DESDEO is an open source project, anybody is welcome to contribute.
+An extensive tutorial to get started contributing to DESDEO
+[is available in the documentation](https://desdeo.readthedocs.io/en/desdeo2/tutorials/contributing/).
+Be sure to check it out!
+
+For additional support for contributing to DESDEO,
+be sure to check out the DESDEO channels
+in the MCDM Community's Discord server. You may join the server
+[through this invite](https://discord.gg/TgSnUmzv5M).
+
+## License
+
+DESDEO is licensed under the MIT license. For more information,
+check the `LICENSE` file.
+
+## Citing DESDEO
+
+To cite DESDEO, please include the following reference:
+
+[Misitano, G., Saini, B. S., Afsar, B., Shavazipour, B., & Miettinen, K. (2021). DESDEO: The modular and open source framework for interactive multiobjective optimization. IEEE Access, 9, 148277-148295.](https://doi.org/10.1109/ACCESS.2021.3123825)
+
+```
+@article{misitano2021desdeo,
+  title={DESDEO: The modular and open source framework for interactive multiobjective optimization},
+  author={Misitano, Giovanni and Saini, Bhupinder Singh and Afsar, Bekir and Shavazipour, Babooshka and Miettinen, Kaisa},
+  journal={IEEE Access},
+  volume={9},
+  pages={148277--148295},
+  year={2021},
+  publisher={IEEE}
+}
+```
+
+
+
