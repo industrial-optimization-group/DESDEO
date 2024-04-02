@@ -7,8 +7,8 @@ software to be installed in the section [Installing required
 sotware](#installing-required-software).  Then, we discuss how to download
 DESDEO's source code and setup a virtual environment in the section [Setting up
 a virtual environment and installing
-DESDEO](#setting-up-a-virtual-environment-and-installing-desdeo).  A typical git
-workflow is then described in the section [Typical git workflow for contributing
+DESDEO](#setting-up-a-virtual-environment-and-installing-desdeo).  A typical Git
+workflow is then described in the section [Typical Git workflow for contributing
 to DESDEO](#typical-git-workflow-for-contributing-to-desdeo).  Development
 practices and utilized tools are discussed in the section [Development
 practices](#development-practices), and how to integrate some of these into an
@@ -61,7 +61,7 @@ $ python --version
 
 this should report the version of the currently installed Python interpreter.
 
-Next, we need to install _git_ for version control and _poetry_ for managing
+Next, we need to install _Git_ for version control and _poetry_ for managing
 packages and the virtual environment for developing DESDEO. To facilitate this,
 it is recommended to install [scoop](https://scoop.sh/). Installation
 instructions are provided on scoop's webpage. Using scoop is optional, but we
@@ -89,7 +89,7 @@ $ pipx ensurepath
 
 once more after installing poetry. After this, we should log out and back into a Windows session.
 
-Finally, we can install git utilizing scoop
+Finally, we can install Git utilizing scoop
 
 ```bash
 $ scoop install git
@@ -277,7 +277,7 @@ directory is set to be the DESDEO directory with the source code.
 The command `poetry shell` will not re-create the virtual environment
 if it already exists, only reactivate it.
 
-## Typical git workflow for contributing to DESDEO
+## Typical Git workflow for contributing to DESDEO
 
 This section outlines the standard process for contributing to DESDEO using Git
 and GitHub. This workflow assumes that we have a GitHub account. If this is not
@@ -420,9 +420,9 @@ We can always check which files are staged, and which are not, with the command
 $ git status
 ```
 
-!!! Note "On git status"
+!!! Note "On Git status"
     The command `git status` will 99% of the time tell us exactly
-    what we should in case of errors related to git. Carefully reading the
+    what we should in case of errors related to Git. Carefully reading the
     output of the command is important and can save us a lot of troubles.
 
 Once we have staged all our changes, we can add then to the branch by
@@ -856,10 +856,10 @@ in DESDEO can be roughly divided into three main types:
 Comments are found in the files containing Python source code
 found across DESDEO. These are often pieces of very specific information
 related to a line or block of code. They are often present to
-help a developer unserstand what a specific part of the code does.
-Comments are often highly technical and depend on the context.
+help a developer understand what a specific part of the code does.
+Comments are often specific and technical, and depend on the context.
 They are not meant to be understandable outside the source code.
-Example of a comments would be:
+An example of a comment could be:
 
 ```python
 def log2(x: float) -> float:
@@ -882,7 +882,7 @@ As we can see, comments start with a hash `#`. Taken out of their context, the
 comments do not make much sense, but in the code, they provide valuable information.
 
 !!! Note "Write informative comments"
-    When writing comments, avoid redundant comments
+    When writing comments, avoid redundant comments, such as:
 
     ```python
     # the value '5' is stored in the variable 'a' (1)
@@ -893,7 +893,7 @@ comments do not make much sense, but in the code, they provide valuable informat
 
     instead, try and provide additional information that helps a
     reader understand _why_ a particular piece of code has been written,
-    for instance. E.g.,
+    for instance. For instance:
 
     ```python
     # this value is used to determine an important multiplier in a later
@@ -903,20 +903,21 @@ comments do not make much sense, but in the code, they provide valuable informat
 
     1.  This is not obvious and provides valuable information for understanding the rest of the code.
 
-Docstrings, on the other hand, are the next from comments are a lot more self-contained.
+Docstrings, on the other hand, are a lot more self-contained and informative
+than comments.
 Docstrings are Python literals (they start and end with thee double quotation marks `"""`)
 that are often used to describe Python functions and classes, though they can also be used
-to describe, e.g., class and module level variables as well. To illustrate a docstring,
+to describe many other things as well, e.g., class and module level variables. To illustrate a docstring,
 let us return to the previous example:
 
 ```python
-def log2(x: float) -> float:
-    """Computes the base-2 logarithm of given number.
+def log2(x: float, useless: str) -> float:
+    """Computes the base-2 logarithm of a given number.
 
     Computes the base-2 logarithm of a given non-zero and positive number.
-    Utilized a base-10 logarithm and the change of base formula. The formula
+    Utilizes a base-10 logarithm and the change of base formula. The formula
     is defined as `y = log10(x) / log10(b)`, where `x` is the
-    number for which the logarithms is computed, `y` is the logarithm
+    number for which the logarithm is computed, `y` is the logarithm
     of `x` in the base `b`, and `log10` is the base-10 logarithm. In
     this case, `b=2` since we are computing the base-2 logarithm.
 
@@ -930,7 +931,9 @@ def log2(x: float) -> float:
     Arguments:
         x (float): the number for which the base-2 logarithm should be computed.
             Must be non-zero and positive.
-    
+        useless (str): an unused variable to just showcase how we can have
+            multiple entries in a section.
+        
     Returns:
         float: the base-2 logarithm of `x`.
     """ # (1)!
@@ -950,8 +953,8 @@ def log2(x: float) -> float:
     The more detailed description is then followed by sections. The
     section `References` can be used to list one or more references
     related to the function, for example, when it is based on the
-    work of others. Each entry in any section starts on an
-    intended line. Following lines must be further intended if they
+    works of others. Each entry in any section starts on an
+    indented line. Following lines must be further indented if they
     are related to the entry. A new entry would start on a new line with
     an indentation level one lower than the section name, in this case `References`.
 
@@ -978,10 +981,10 @@ here follows the docstring format described in
 which is also the style for docstrings utilized in DESDEO.
 
 Lastly, we have _external_ or _project documentation_. This is easy
-to illustrate since you we are reading it right now! In other words,
+to illustrate since we are reading it right now! In other words,
 this refers to the part of the documentation that does not
 reside in the Python source code itself, but it, as the name
-suggests, external, and other documents larger entities related
+suggests, external, and documents larger entities related
 to DESDEO, such as different concepts, or like in this 
 tutorial, how to contribute to DESDEO.
 
@@ -994,10 +997,10 @@ theme for mkdocs. As with the other tools
 discussed in this section, mkdocs is installed on our local machine
 if we installed DESDEO with its development dependencies.
 
-The external documentation of DESDEO is found in the directory
-`docs` found in the root of the project. The overall structure and
+The external documentation of DESDEO resides in the directory
+`docs` found at the root of the project. The overall structure and
 the configuration related to mkdocs, and the other documentation tools 
-used, are found in the file `mkdocs.yml`, which is found at the root
+used, are found in the file `mkdocs.yml`, which is also found at the root
 level of the project.
 
 To build and view the current documentation, we can issue the command
@@ -1007,7 +1010,7 @@ $ mkdocs serve
 ```
 
 This will build the documentation and create a local server, allowing
-us to view the build documentation by opening the url `http://localhost:8000/`
+us to view the built documentation by opening the url `http://localhost:8000/`
 in a web browser.
 
 To better understand the structure of DESDEO's documentation, it is 
@@ -1016,72 +1019,77 @@ its top-level contents, and especially the contents in the section `nav:`,
 which describes the structure of the generated web page containing this 
 documentation. The actual contents of the documentation are written in a rich
 markdown format, and are logically arranged in the sub-folders found in `docs/`.
-For instance, the contents of this tutorial can be found in the file
+Rich here just refers to the fact that we are using extensions of
+the markdown language that support $\LaTeX$, for instance. 
+To given an example of the structure, the
+contents of this tutorial can be found in the file
 `docs/tutorials/contributing.md`.
 
 We will not discuss mkdocs and its extensions further in this tutorial.
-A novice contributor will find it easiest by following how 
-the existing documentation has been written. For further reading
+A novice contributor will find the easiest time by studying how 
+the existing documentation has been written, and
+working by example. For further reading resources,
 the documentation for [mkdocs](https://www.mkdocs.org/),
 [mkdocstrings-python](https://mkdocstrings.github.io/python/),
 and [Materials for mkdocs](https://squidfunk.github.io/mkdocs-material/),
-are offer good reference material. 
+are good reference material. 
 
 ## Integrated development environments 
 
 Thus far, we have separately discussed the tools utilized
 when developing DESDEO. While these tools can be used
-separately as demonstrated, it is often too inconvenient
-from a practica point of view. In practice, many of the 
+as demonstrated, it is often too inconvenient
+from a practical point of view. In practice, many of the 
 discussed tools are run automatically, or managed though
 other, arguably more user friendly tools, such as various
-grpahical user interfaces.
+graphical user interfaces.
 
 Integrated development environments, or IDEs, are
-progrmas that offer an environment for developing code,
-often integrating many other tools, such as git and different
+programs that offer an environment for developing code,
+often integrating many other tools, such as Git and different
 linters. They also offer a text, or rather code, editor for
 editing the source code found in a project.
 
-Many different IDEs exists, and the choice of the
+Many different IDEs exist, and the choice of the
 right IDE is very subjective. For this reason, we have
 introduced the tools for developing DESDEO on their own,
 without making assumptions regarding use of any IDE. It is
 also perfectly fine to not use IDEs, but with modern code bases
 and tools, IDEs can streamline an otherwise complicated
-tool chain and development process, and thus significantly saving
+tool chain and development process, and thus significantly save
 a developer's time.
-Than being said, we will briefly mention one IDE and
-some recommended extensions for easing the development
-and contribution to DESDEO.
+That being said, we will briefly mention one IDE and
+some recommended extensions for easing the process of developing
+and contributing to DESDEO.
 
 ### Visual studio code
 
 One of the most popular IDEs currently being used, is [Visual studio
-code](https://code.visualstudio.com/) (vscode for short). 
+code](https://code.visualstudio.com/) (Vscode for short). 
 It is available on all major platforms,
 making it a portable solution. Its development is backed by a major company, and
 it is based on mostly open source software. Vscode is also very
 customizable, and has a plethora of different extensions available, both
-official and user made. [A more open source version is also
+official and user made. [A more open source version of Vscode is also
 available](https://vscodium.com/), which mainly disables Microsoft's telemetry
-and strips the build of the application of other proprietry parts. Whichever
-version we use, they are virtually the same, but the propietary version does
+and strips the application of other proprietary parts. Whichever
+version we use, they are virtually the same, but the proprietary version does
 come with some extensions that are otherwise not available in the open source
-version. However, these are not relevant for developing DESDEO.
+version. However, these are not required or necessary for developing DESDEO.
 
-Vscode comes with git support out of the box and [is nicely
+Vscode comes with Git support out of the box and [is nicely
 documented](https://code.visualstudio.com/docs/sourcecontrol/overview).
 To manage GitHub specific aspects from Vscode, we need to install the
 extension [GitHub Pull Requests](https://marketplace.visualstudio.com/items?itemName=GitHub.vscode-pull-request-github).
 This extension allows us to make pull request form Vscode, open and browse issues, and much
 more.
 
-For better Python support, including support for enabling code auto-completiong, running
+For better Python support, including support for enabling code auto-completion, running
 tests, and debugging,
 the [Python extension](https://marketplace.visualstudio.com/items?itemName=ms-python.python)
-is recommended. This extension also support virtual environments,
-which are automatically activated if they reside in the project itself.
+is recommended. This extension also supports virtual environments,
+which are automatically activated if they reside in the project's
+directory.
 
 For linting and code formatting, [the Ruff extension for Vscode](https://marketplace.visualstudio.com/items?itemName=charliermarsh.ruff)
 is very useful. This extension allows to run Ruff automatically on
@@ -1098,9 +1106,10 @@ intelligently with relevant sections, e.g.,
 function definition.
 
 To avoid most typos, the extension [Code Spell Checker](https://marketplace.visualstudio.com/items?itemName=streetsidesoftware.code-spell-checker)
-can be useful. It is smart enough to identify typographical error
-in source code despite Python's syntax. Perhpaps most importantly, it will
-point out errors in docstrings and markdown files as well.
+can be useful. It is smart enough to identify typographical errors
+in source code despite Python's syntax. Perhaps most importantly, it will
+point out errors in docstrings and markdown files as well when writing
+documentation.
 
 All of these extensions can be configured to further match one's needs,
 but we are not going to to discuss these aspects in this tutorial.
@@ -1109,7 +1118,7 @@ we have listed here is a bare minimum to get us started. And as said,
 the choice of, or lack of, the best IDE is personal and subjective.
 One is free to explore the many other alternatives available as well.
 
-## Checklist
+## Summary
 
 We have covered many topics in this tutorial, and at first,
 its contents may feel overwhelming. However, despite first
@@ -1117,34 +1126,46 @@ impression, most of the discussed steps and practices will
 become almost second nature fairly quickly. To support
 the reader's endeavors in contributing to DESDEO, we have
 summarized the main steps to take into account when contributing
-to DESDEO in this last section of this tutorial.
-
-### Setting up
-
-1.  Install the required software.
-2.  Clone the DESDEO repository.
-3.  Create and activate a virtual environment.
+to DESDEO in this last section.
 
 ### Contribution workflow
 
-1.  Fork the DESDEO repository.
-2.  Clone the fork.
-    1.   Make sure the fork is up to date with the upstream, or main repository, of DESDEO.
-3.  Run tests and make sure at least most of them are passing.
-4.  Create or switch to a local branch.
-5.  Make changes to the code. Keep committing the changes and running tests now and then.
-    1.  Remember to write tests and documentation, including comments, docstrings, and external documentation,
-        when relevant.
-    2.  Me mindful of the outputs of Ruff and mypy. Fix errors and warning whenever possible. 
-6.  Make a pull request on GitHub. 
-7.  Goto 2.1.
+1.  Fork the DESDEO repository. This is done on GitHub.
+2.  Clone the fork (`$ git clone urltofork`)
+3.  Make sure the fork is up to date with the upstream, or main repository, of DESDEO. 
+    ```bash
+    $ git remote add upstream \ # (1)!
+        git@github.com:industrial-optimization-group/DESDEO.git
+    ```
+
+    1.  This just indicates that the line continues on a new row.
+
+3.   If no virtual environment exists, create and activate a virtual environment. (`$ poetry shell`)
+4.   Else activate an existing virtual environment. (`$ poetry shell`)
+5.  Run tests and make sure at least most of them are passing. (`$ pytest`) 
+6.  Create or switch to a local branch. 
+    ```bash
+    $ git branch feature-x
+    $ git checkout feature-x
+    ```
+7.  Make changes to the code. Stage them, and  keep committing the changes and running tests now and then.
+    ```bash
+    $ git add -A
+    $ git commit
+    ```
+8.  Remember to write tests and documentation, including comments, docstrings, and external documentation,
+    when relevant.
+9.  Me mindful of the outputs of Ruff and mypy. Fix errors and warnings whenever possible.
+10.  Push your commits to your fork on GitHub. (`$ git push origin feature-x`)
+11.  Make a pull request on GitHub. 
+12.  Goto 3.
 
 ## Conclusions, where to go next, and our Discord server
 
 Many of the topics covered in this tutorial are not
 unique to DESDEO, but rather adhere to some common modern
 practices in developing Python software. By investing a little
-bit of our time in familizarizing ourselves with the various tools
+bit of our time in familiarizing ourselves with the various tools
 discussed, we will be able to save a lot of time in the future. Moreover,
 a lot of the information covered is applicable to other open source
 projects as well.
