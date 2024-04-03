@@ -1,9 +1,11 @@
 """Defines a parser to parse multiobjective optimziation problems defined in a JSON foramt."""
+
 from enum import Enum
 from functools import reduce
 
 import polars as pl
 import pyomo.environ as pyomo
+import sympy as sp
 from pyomo.core.expr.numeric_expr import MaxExpression as _PyomoMax
 
 
@@ -12,6 +14,7 @@ class FormatEnum(str, Enum):
 
     polars = "polars"
     pyomo = "pyomo"
+    sympy = "sympy"
 
 
 class ParserError(Exception):
@@ -85,6 +88,9 @@ class MathParser:
         def to_expr(x: self.literals | pl.Expr):
             """Helper function to convert literals to polars expressions."""
             return pl.lit(x) if isinstance(x, self.literals) else x
+
+        def to_sympy_expr(x):
+            return sp.sympify(x, evaluate=False) if isinstance(x, self.literals) else x
 
         polars_env = {
             # Define the operations for the different operators.
@@ -166,6 +172,46 @@ class MathParser:
             self.MAX: lambda *args: _PyomoMax(args),
         }
 
+        sympy_env = {
+            # Basic arithmetic operations
+            self.NEGATE: lambda x: -to_sympy_expr(x),
+            self.ADD: lambda *args: reduce(lambda x, y: to_sympy_expr(x) + to_sympy_expr(y), args),
+            self.SUB: lambda *args: reduce(lambda x, y: to_sympy_expr(x) - to_sympy_expr(y), args),
+            self.MUL: lambda *args: reduce(lambda x, y: to_sympy_expr(x) * to_sympy_expr(y), args),
+            self.DIV: lambda *args: reduce(lambda x, y: to_sympy_expr(x) / to_sympy_expr(y), args),
+            # Exponentiation and logarithms
+            self.EXP: lambda x: sp.exp(to_sympy_expr(x)),
+            self.LN: lambda x: sp.log(to_sympy_expr(x)),
+            self.LB: lambda x: sp.log(to_sympy_expr(x), 2),
+            self.LG: lambda x: sp.log(to_sympy_expr(x), 10),
+            self.LOP: lambda x: sp.log(1 + to_sympy_expr(x)),
+            self.SQRT: lambda x: sp.sqrt(to_sympy_expr(x)),
+            self.SQUARE: lambda x: to_sympy_expr(x) ** 2,
+            self.POW: lambda x, y: to_sympy_expr(x) ** to_sympy_expr(y),
+            # Trigonometric operations
+            self.SIN: lambda x: sp.sin(to_sympy_expr(x)),
+            self.COS: lambda x: sp.cos(to_sympy_expr(x)),
+            self.TAN: lambda x: sp.tan(to_sympy_expr(x)),
+            self.ARCSIN: lambda x: sp.asin(to_sympy_expr(x)),
+            self.ARCCOS: lambda x: sp.acos(to_sympy_expr(x)),
+            self.ARCTAN: lambda x: sp.atan(to_sympy_expr(x)),
+            # Hyperbolic functions
+            self.SINH: lambda x: sp.sinh(to_sympy_expr(x)),
+            self.COSH: lambda x: sp.cosh(to_sympy_expr(x)),
+            self.TANH: lambda x: sp.tanh(to_sympy_expr(x)),
+            self.ARCSINH: lambda x: sp.asinh(to_sympy_expr(x)),
+            self.ARCCOSH: lambda x: sp.acosh(to_sympy_expr(x)),
+            self.ARCTANH: lambda x: sp.atanh(to_sympy_expr(x)),
+            # Other
+            self.ABS: lambda x: sp.Abs(to_sympy_expr(x)),
+            self.CEIL: lambda x: sp.ceiling(to_sympy_expr(x)),
+            self.FLOOR: lambda x: sp.floor(to_sympy_expr(x)),
+            # Note: Max and Min in sympy take any number of arguments
+            self.MAX: lambda *args: sp.Max(*args),
+            # Rational numbers, for now assuming two-element list for numerator and denominator
+            self.RATIONAL: lambda x, y: sp.Rational(x, y),
+        }
+
         match to_format:
             case FormatEnum.polars:
                 self.env = polars_env
@@ -173,6 +219,9 @@ class MathParser:
             case FormatEnum.pyomo:
                 self.env = pyomo_env
                 self.parse = self._parse_to_pyomo
+            case FormatEnum.sympy:
+                self.env = sympy_env
+                self.parse = self._parse_to_sympy
             case _:
                 msg = f"Given target format {to_format} not supported. Must be one of {FormatEnum}."
                 raise ParserError(msg)
@@ -184,13 +233,12 @@ class MathParser:
             expr (list): A list with a Polish notation expression that describes a, e.g.,
                 ["Multiply", ["Sqrt", 2], "x2"]
 
+        Raises:
+            ParserError: when a unsupported operator type is encountered.
+
         Returns:
             pl.Expr: A polars expression that may be evaluated further.
 
-        Raises:
-            ParserError: If the type of the text neither str,list nor int,float, it will
-                raise type error; If the operation in expr not found, it means we currently
-                don't support such function operation.
         """
         if isinstance(expr, pl.Expr):
             # Terminal case: polars expression
@@ -233,6 +281,9 @@ class MathParser:
             model (pyomo.Model): a pyomo model with the symbols defined appearing in the expression.
                 E.g., "x2" -> model.x2 must be defined.
 
+        Raises:
+            ParserError: when a unsupported operator type is encountered.
+
         Returns:
             pyomo.Expression: returns a pyomo expression equivalent to the original expressions.
         """
@@ -268,21 +319,68 @@ class MathParser:
         msg = f"Encountered unsupported type '{type(expr)}' during parsing."
         raise ParserError(msg)
 
+    def _parse_to_sympy(self, expr: list | str | int | float | sp.Basic) -> sp.Basic:
+        """Parse the MathJSON format recursively into a sympy expression.
+
+        Args:
+            expr (list | str | int | float | sp.Basic): base call should be a list in Polish
+                notation representing a mathematical expression. Recursion calls can be of various
+                types.
+
+        Raises:
+            ParserError: when a unsupported operator type is encountered.
+
+        Returns:
+            sp.Basic: a sympy expression that represents the original mathematical
+                expression in the supplied MathJSON format.
+        """
+        if isinstance(expr, sp.Basic):
+            # Terminal case: sympy expression
+            return expr
+        if isinstance(expr, str):
+            # Terminal case: represents a variable
+            return sp.sympify(expr, evaluate=False)
+        if isinstance(expr, self.literals):
+            # Terminal case: numeric literal
+            return sp.sympify(expr, evaluate=False)
+
+        if isinstance(expr, list):
+            # Extract the operation name
+            if isinstance(expr[0], str) and expr[0] in self.env:
+                op_name = expr[0]
+                # Parse the operands
+                operands = [self.parse(e) for e in expr[1:]]
+
+                if isinstance(operands, list) and len(operands) == 1:
+                    # if the operands have redundant brackets, remove them
+                    operands = operands[0]
+
+                if isinstance(operands, list):
+                    return self.env[op_name](*operands)
+
+                return self.env[op_name](operands)
+
+            # else, assume the list contents are parseable expressions
+            return [self.parse(e) for e in expr]
+
+        msg = f"Encountered unsupported type '{type(expr)}' during parsing."
+        raise ParserError(msg)
+
 
 def replace_str(lst: list | str, target: str, sub: list | str | float | int) -> list:
     """Replace a target in list with a substitution recursively.
 
     Arguments:
-    lst (list or str): The list where the substitution is to be made.
-    target (str): The target of the substitution.
-    sub (list or str): The content to substitute the target.
+        lst (list or str): The list where the substitution is to be made.
+        target (str): The target of the substitution.
+        sub (list or str): The content to substitute the target.
 
     Return:
-    list or str: The list or str with the substitution.
+        list or str: The list or str with the substitution.
 
     Example:
-    replace_str("["Max", "g_i", ["Add","g_i","f_i"]]]", "_i", "_1") --->
-    ["Max", "g_1", ["Add","g_1","f_1"]]]
+        replace_str("["Max", "g_i", ["Add","g_i","f_i"]]]", "_i", "_1") --->
+        ["Max", "g_1", ["Add","g_1","f_1"]]]
     """
     if isinstance(lst, list):
         return [replace_str(item, target, sub) for item in lst]

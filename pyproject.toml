@@ -181,6 +181,7 @@ markers = [
     "performance: tests that are related to performance. Skipped by default.",
     "infix_parser: tests related to the infix parser.",
     "pyomo: tests related to pyomo models, their parsing, and evaluation.",
+    "sympy: tests related to sympy expressions, their parsing, and evaluation.",
     "nautili: tests related to the NAUTILI method",
     "nautilus: tests related to the NAUTILUS method",
     "scalarization: tests related to scalarization functions",

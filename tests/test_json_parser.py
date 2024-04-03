@@ -1,4 +1,5 @@
 """Tests for the MathJSON parser."""
+
 import copy
 import json
 import math
@@ -8,6 +9,7 @@ import numpy.testing as npt
 import polars as pl
 import pyomo.environ as pyomo
 import pytest
+import sympy as sp
 
 from desdeo.problem.evaluator import GenericEvaluator
 from desdeo.problem.infix_parser import InfixExpressionParser
@@ -949,4 +951,352 @@ def test_parse_pyomo_max():
                 f"Test failed for {str_expr=}, with "
                 f"{pyomo_expr.to_string() if isinstance(pyomo_expr, pyomo.Expression) else pyomo_expr}"
             ),
+        )
+
+
+@pytest.mark.sympy
+def test_parse_sympy_basic_arithmetics():
+    """Check that the JSON parser correctly parses MathJSON to sympy expressions."""
+    x_1 = 4.2
+    x_2 = 6
+    x_3 = -9.9
+    variables = [x_1, x_2, x_3]
+    variable_symbols = ["x_1", "x_2", "x_3"]
+
+    c_1 = 1.9
+    c_2 = -9.2
+    constants = [c_1, c_2]
+    constant_symbols = ["c_1", "c_2"]
+
+    tests = [
+        ("x_1 + x_2 + x_3", x_1 + x_2 + x_3),
+        ("x_1 + x_2 + x_3 - c_1 - c_2", x_1 + x_2 + x_3 - c_1 - c_2),
+        ("x_1 - x_2 + c_1", x_1 - x_2 + c_1),
+        ("x_1 * c_2", x_1 * c_2),
+        ("x_2 / c_1", x_2 / c_1),
+        ("(x_1 + x_2) * c_1", (x_1 + x_2) * c_1),
+        ("((x_1 + x_2) - x_3) / c_1", ((x_1 + x_2) - x_3) / c_1),
+        ("x_1 + 2 * x_2 - 3", x_1 + 2 * x_2 - 3),
+        ("(x_1 + (x_2 * c_2) / (c_1 - x_3)) * 2", (x_1 + (x_2 * c_2) / (c_1 - x_3)) * 2),
+        ("x_3 * c_2 / 2", x_3 * c_2 / 2),
+        ("(x_1 + 10) - (c_2 - 5)", (x_1 + 10) - (c_2 - 5)),
+        ("((x_1 * 2) + (x_2 / 0.5)) - (c_1 * (x_3 + 3))", ((x_1 * 2) + (x_2 / 0.5)) - (c_1 * (x_3 + 3))),
+        ("(x_1 - (x_2 * 2) / (x_3 + 5.5) + c_1) * (c_2 + 4.4)", (x_1 - (x_2 * 2) / (x_3 + 5.5) + c_1) * (c_2 + 4.4)),
+        ("x_1 / ((x_2 + 2.1) * (c_1 - 3))", x_1 / ((x_2 + 2.1) * (c_1 - 3))),
+        ("(x_1 + (x_2 * (c_1 + 3.3) / (x_3 - 2))) * 1.5", (x_1 + (x_2 * (c_1 + 3.3) / (x_3 - 2))) * 1.5),
+        ("(x_1 - (x_2 / (2.5 * c_1))) / (c_2 - (x_3 * 0.5))", (x_1 - (x_2 / (2.5 * c_1))) / (c_2 - (x_3 * 0.5))),
+        (
+            "((x_1 * c_1) + (x_2 - c_2) / 2.0) * (x_3 + 3.5) / (1 + c_1)",
+            ((x_1 * c_1) + (x_2 - c_2) / 2.0) * (x_3 + 3.5) / (1 + c_1),
+        ),
+        ("(x_1 ** 2 + x_2 ** 2) ** 0.5 - c_1 * 3 + (x_3 / c_2)", (x_1**2 + x_2**2) ** 0.5 - c_1 * 3 + (x_3 / c_2)),
+    ]
+
+    infix_parser = InfixExpressionParser()
+    sympy_parser = MathParser(to_format=FormatEnum.sympy)
+
+    for str_expr, result in tests:
+        json_expr = infix_parser.parse(str_expr)
+        sympy_expr = sympy_parser.parse(json_expr)
+
+        f = sp.lambdify([*variable_symbols, *constant_symbols], sympy_expr)
+
+        npt.assert_almost_equal(
+            f(*variables, *constants), result, err_msg=(f"Test failed for {str_expr=}, with " f"{sympy_expr=}.")
+        )
+
+
+@pytest.mark.sympy
+def test_parse_sympy_exponentation_and_logarithms():
+    """Test the JSON parser for correctly parsing MathJSON into sympy expressions, with exponentation and logarithms."""
+    x = -6.9
+    y = 1
+    garlic = 11.1
+    variables = [x, y, garlic]
+    variable_symbols = ["x", "y", "garlic"]
+
+    cosmic = 4.2
+    potato = -2
+    constants = [cosmic, potato]
+    constant_symbols = ["cosmic", "potato"]
+
+    tests = [
+        ("garlic**2", garlic**2),
+        ("Ln(cosmic)", math.log(cosmic)),
+        ("Lb(garlic)", math.log(garlic, 2)),
+        ("Lg(cosmic)", math.log10(cosmic)),
+        ("LogOnePlus(y)", math.log1p(y)),
+        ("Sqrt(garlic)", math.sqrt(garlic)),
+        ("Square(x)", x**2),
+        ("garlic**potato", garlic**potato),
+        ("(garlic**2 + Ln(cosmic))", garlic**2 + math.log(cosmic)),
+        ("Lb(garlic) * Lg(cosmic) - y", math.log(garlic, 2) * math.log10(cosmic) - y),
+        ("Ln(cosmic + garlic**potato)", math.log(cosmic + garlic**potato)),
+        ("Sqrt(garlic) * Ln(cosmic)", math.sqrt(garlic) * math.log(cosmic)),
+        ("garlic**y + LogOnePlus(cosmic)", garlic**y + math.log1p(cosmic)),
+        ("(Sqrt(garlic) + Square(x)) / Lg(cosmic)", (math.sqrt(garlic) + x**2) / math.log10(cosmic)),
+        ("Ln(cosmic**2) + garlic**(Lb(cosmic))", math.log(cosmic**2) + garlic ** (math.log(cosmic, 2))),
+        ("Lb(garlic**2) * (Lg(cosmic) + Sqrt(y))", math.log(garlic**2, 2) * (math.log10(cosmic) + math.sqrt(y))),
+        ("Square(x) - Sqrt(y) + Ln(garlic + 1)", x**2 - math.sqrt(y) + math.log(garlic + 1)),
+        (
+            "Ln((garlic**2 + cosmic) / (1 + Lg(-x))) * (Sqrt(-potato + Square(y)))",
+            math.log((garlic**2 + cosmic) / (1 + math.log10(-x))) * math.sqrt(-potato + y**2),
+        ),
+        (
+            "((garlic**3 - 2**Lb(cosmic)) + Ln(x**2 + 1)) / (Sqrt(Square(y) + LogOnePlus(potato + 3.1)))",
+            ((garlic**3 - 2 ** math.log(cosmic, 2)) + math.log(x**2 + 1)) / math.sqrt(y**2 + math.log1p(potato + 3.1)),
+        ),
+        (
+            "Square(Ln(cosmic) + garlic**2) - (Lb(garlic) * Lg(-x) / Sqrt(y + 3))",
+            (math.log(cosmic) + garlic**2) ** 2 - (math.log(garlic, 2) * math.log10(-x) / math.sqrt(y + 3)),
+        ),
+        (
+            "Lg(cosmic**2 + Lb(garlic * -x)) * (Sqrt(Square(potato) + y) - LogOnePlus(garlic))",
+            math.log10(cosmic**2 + math.log(garlic * -x, 2)) * (math.sqrt(potato**2 + y) - math.log1p(garlic)),
+        ),
+        (
+            "(Ln(Lg(cosmic**2) + Sqrt(garlic)) ** 2) / (garlic**(-potato) + 3**y)",
+            (math.log(math.log10(cosmic**2) + math.sqrt(garlic)) ** 2) / (garlic ** (-potato) + 3**y),
+        ),
+        (
+            "(Lb(garlic + Lg(cosmic + Square(x))) - Sqrt(LogOnePlus(y))) * (x**2 + garlic**Lg(cosmic))",
+            (math.log(garlic + math.log10(cosmic + x**2), 2) - math.sqrt(math.log1p(y)))
+            * (x**2 + garlic ** math.log10(cosmic)),
+        ),
+    ]
+
+    infix_parser = InfixExpressionParser()
+    sympy_parser = MathParser(to_format=FormatEnum.sympy)
+
+    for str_expr, result in tests:
+        json_expr = infix_parser.parse(str_expr)
+        sympy_expr = sympy_parser.parse(json_expr)
+
+        f = sp.lambdify([*variable_symbols, *constant_symbols], sympy_expr)
+
+        npt.assert_almost_equal(
+            f(*variables, *constants), result, err_msg=(f"Test failed for {str_expr=}, with " f"{sympy_expr=}.")
+        )
+
+
+@pytest.mark.sympy
+def test_parse_sympy_trigonometrics():
+    """Test the JSON parser for correctly parsing MathJSON into sympy expressions, with trigonometric operators."""
+    x = 0.8
+    y = 1.4
+    garlic = 4.2
+    variables = [x, y, garlic]
+    variable_symbols = ["x", "y", "garlic"]
+
+    cosmic = 0.42
+    potato = 0.22
+    constants = [cosmic, potato]
+    constant_symbols = ["cosmic", "potato"]
+
+    tests = [
+        ("Arccos(x)", math.acos(x)),
+        ("Arccosh(y)", math.acosh(y)),
+        ("Arcsin(x)", math.asin(x)),
+        ("Arcsinh(y)", math.asinh(y)),
+        ("Arctan(garlic)", math.atan(garlic)),
+        ("Arctanh(x)", math.atanh(x)),
+        ("Cos(garlic)", math.cos(garlic)),
+        ("Cosh(x)", math.cosh(x)),
+        ("Sin(garlic)", math.sin(garlic)),
+        ("Sinh(x)", math.sinh(x)),
+        ("Tan(garlic)", math.tan(garlic)),
+        ("Tanh(x)", math.tanh(x)),
+        ("Sin(garlic) + Cos(x)", math.sin(garlic) + math.cos(x)),
+        ("Tan(Arccos(y / Sqrt(y**2 + 1)))", math.tan(math.acos(y / math.sqrt(y**2 + 1)))),
+        ("Sinh(x) * Cos(garlic) - Tanh(x)", math.sinh(x) * math.cos(garlic) - math.tanh(x)),
+        ("Arctan(garlic**2) + Arctanh(x / 2)", math.atan(garlic**2) + math.atanh(x / 2)),
+        ("Cos(Sin(garlic)) + Tanh(Arccosh(y))", math.cos(math.sin(garlic)) + math.tanh(math.acosh(y))),
+        (
+            "Arcsinh(y) * Arctan(garlic) - Arccosh(Sqrt(y**2 + 1))",
+            math.asinh(y) * math.atan(garlic) - math.acosh(math.sqrt(y**2 + 1)),
+        ),
+        ("Sin(garlic) * Cos(x) + Tanh(x)", math.sin(garlic) * math.cos(x) + math.tanh(x)),
+        ("Sqrt(Sin(garlic)**2 + Cos(x)**2)", math.sqrt(math.sin(garlic) ** 2 + math.cos(x) ** 2)),
+        (
+            "Cosh(Arctan(garlic)) - Sinh(Arccos(y / Sqrt(y**2 + 1)))",
+            math.cosh(math.atan(garlic)) - math.sinh(math.acos(y / math.sqrt(y**2 + 1))),
+        ),
+        ("Sin(garlic) + Cos(x)", math.sin(garlic) + math.cos(x)),
+        ("Tan(Arccos(y / Sqrt(y**2 + 1)))", math.tan(math.acos(y / math.sqrt(y**2 + 1)))),
+        ("Sinh(x) * Cos(garlic) - Tanh(x)", math.sinh(x) * math.cos(garlic) - math.tanh(x)),
+        ("Arctan(garlic**2) + Arctanh(x / 2)", math.atan(garlic**2) + math.atanh(x / 2)),
+        ("Cos(Sin(garlic)) + Tanh(Arccosh(y))", math.cos(math.sin(garlic)) + math.tanh(math.acosh(y))),
+        (
+            "Arcsinh(y) * Arctan(garlic) - Arccosh(Sqrt(y**2 + 1))",
+            math.asinh(y) * math.atan(garlic) - math.acosh(math.sqrt(y**2 + 1)),
+        ),
+        ("Sin(garlic) * Cos(x) + Tanh(x)", math.sin(garlic) * math.cos(x) + math.tanh(x)),
+        ("Sqrt(Sin(garlic)**2 + Cos(x)**2)", math.sqrt(math.sin(garlic) ** 2 + math.cos(x) ** 2)),
+        (
+            "Cosh(Arctan(garlic)) - Sinh(Arccos(y / Sqrt(y**2 + 1)))",
+            math.cosh(math.atan(garlic)) - math.sinh(math.acos(y / math.sqrt(y**2 + 1))),
+        ),
+    ]
+
+    infix_parser = InfixExpressionParser()
+    sympy_parser = MathParser(to_format=FormatEnum.sympy)
+
+    for str_expr, result in tests:
+        json_expr = infix_parser.parse(str_expr)
+        sympy_expr = sympy_parser.parse(json_expr)
+
+        f = sp.lambdify([*variable_symbols, *constant_symbols], sympy_expr)
+
+        npt.assert_almost_equal(
+            f(*variables, *constants), result, err_msg=(f"Test failed for {str_expr=}, with " f"{sympy_expr=}.")
+        )
+
+
+@pytest.mark.sympy
+def test_parse_sympy_rounding():
+    """Test the JSON parser for correctly parsing MathJSON into sympy expressions, with rounding operators."""
+    x = 2.8
+    y = -1.4
+    garlic = 4.2
+    variables = [x, y, garlic]
+    variable_symbols = ["x", "y", "garlic"]
+
+    cosmic = -69.42
+    potato = 99.22
+    constants = [cosmic, potato]
+    constant_symbols = ["cosmic", "potato"]
+
+    tests = [
+        ("Abs(y)", abs(y)),
+        ("Ceil(potato)", math.ceil(potato)),
+        ("Floor(cosmic)", math.floor(cosmic)),
+        ("Ceil(x + garlic)", math.ceil(x + garlic)),
+        ("Floor(x - cosmic)", math.floor(x - cosmic)),
+        ("Abs(cosmic + potato)", abs(cosmic + potato)),
+        ("Ceil(Floor(garlic) + Abs(x))", math.ceil(math.floor(garlic) + abs(x))),
+        (
+            "Abs(Ceil(x) - Floor(y)) + Floor(garlic - Ceil(potato))",
+            abs(math.ceil(x) - math.floor(y)) + math.floor(garlic - math.ceil(potato)),
+        ),
+        ("Ceil(Abs(x) + Abs(cosmic))", math.ceil(abs(x) + abs(cosmic))),
+        (
+            "Floor(Ceil(x) + Abs(Ceil(y) + Floor(garlic)))",
+            math.floor(math.ceil(x) + abs(math.ceil(y) + math.floor(garlic))),
+        ),
+        (
+            "Ceil(Sin(garlic)**2 + Cos(x)**2) + Floor(LogOnePlus(Abs(x)))",
+            math.ceil(math.sin(garlic) ** 2 + math.cos(x) ** 2) + math.floor(math.log1p(abs(x))),
+        ),
+        (
+            "Abs(Tanh(x) - Sinh(y)) + Lb(Ceil(Abs(garlic)) + 1) * Sqrt(Abs(Floor(potato)))",
+            abs(math.tanh(x) - math.sinh(y))
+            + math.log(math.ceil(abs(garlic)) + 1, 2) * math.sqrt(abs(math.floor(potato))),
+        ),
+        (
+            "Floor(Cosh(Abs(x)) + Sin(Arctan(Abs(garlic)))) * Ln(Ceil(Abs(y)) + 1)",
+            math.floor(math.cosh(abs(x)) + math.sin(math.atan(abs(garlic)))) * math.log(math.ceil(abs(y)) + 1),
+        ),
+        (
+            "Ln(Ceil(Abs(Sin(garlic) * Tanh(x)) + Floor(Cosh(Abs(y))))) + Sqrt(Abs(Floor(Abs(cosmic))))",
+            math.log(math.ceil(abs(math.sin(garlic) * math.tanh(x)) + math.floor(math.cosh(abs(y)))))
+            + math.sqrt(abs(math.floor(abs(cosmic)))),
+        ),
+        (
+            "Ceil(Lg(Abs(Cos(x) * Sin(garlic)))) + Arctan(Floor(Abs(Tanh(Abs(potato)))))",
+            math.ceil(math.log10(abs(math.cos(x) * math.sin(garlic))))
+            + math.atan(math.floor(abs(math.tanh(abs(potato))))),
+        ),
+    ]
+
+    infix_parser = InfixExpressionParser()
+    sympy_parser = MathParser(to_format=FormatEnum.sympy)
+
+    for str_expr, result in tests:
+        json_expr = infix_parser.parse(str_expr)
+        sympy_expr = sympy_parser.parse(json_expr)
+
+        f = sp.lambdify([*variable_symbols, *constant_symbols], sympy_expr)
+
+        npt.assert_almost_equal(
+            f(*variables, *constants), result, err_msg=(f"Test failed for {str_expr=}, with " f"{sympy_expr=}.")
+        )
+
+
+@pytest.mark.sympy
+def test_parse_sympy_max():
+    """Test the JSON parser for correctly parsing MathJSON into sympy expressions, with the max operator."""
+    x = 2.8
+    y = -1.4
+    garlic = 4.2
+    variables = [x, y, garlic]
+    variable_symbols = ["x", "y", "garlic"]
+
+    cosmic = -69.42
+    potato = 99.22
+    constants = [cosmic, potato]
+    constant_symbols = ["cosmic", "potato"]
+
+    tests = [
+        ("Max(x)", max((x,))),
+        ("Max(x, y)", max((x, y))),
+        ("Max(x, y, potato)", max((x, y, potato))),
+        ("Max(Abs(cosmic), x)", max((abs(cosmic), x))),
+        ("Max(x + 2, y - 3, garlic)", max((x + 2, y - 3, garlic))),
+        ("Max(Abs(x), Abs(y), Abs(cosmic))", max((abs(x), abs(y), abs(cosmic)))),
+        ("Max(potato, cosmic, x, y)", max((potato, cosmic, x, y))),
+        ("Max(Max(x, y), Max(garlic, cosmic))", max((max((x, y)), max((garlic, cosmic))))),
+        ("Max(x * 2 - 3, Abs(cosmic) + 4, y / 2)", max((x * 2 - 3, abs(cosmic) + 4, y / 2))),
+        ("Max(x, y, garlic, cosmic, potato)", max((x, y, garlic, cosmic, potato))),
+        (
+            "Max(Abs(x - y), garlic + 10, cosmic * 2, potato / 2)",
+            max((abs(x - y), garlic + 10, cosmic * 2, potato / 2)),
+        ),
+        (
+            "Max(Ceil(Sin(garlic) + Tanh(x)), Floor(Ln(Abs(cosmic)) + 1), x ** 2, Sqrt(potato))",
+            max(
+                (
+                    math.ceil(math.sin(garlic) + math.tanh(x)),
+                    math.floor(math.log(abs(cosmic)) + 1),
+                    x**2,
+                    math.sqrt(potato),
+                )
+            ),
+        ),
+        (
+            "Max(Ln(x) + Lb(Abs(y)), Ceil(Sqrt(garlic) * 3), (potato ** 2) / 4, Abs(cosmic) + 10)",
+            max(
+                (math.log(x) + math.log(abs(y), 2), math.ceil(math.sqrt(garlic) * 3), (potato**2) / 4, abs(cosmic) + 10)
+            ),
+        ),
+        (
+            "Max(Abs(x - y), Max(Sin(x), Cos(garlic)), Tanh(potato) + 1)",
+            max((abs(x - y), max((math.sin(x), math.cos(garlic))), math.tanh(potato) + 1)),
+        ),
+        (
+            "Max(Abs(Max(cosmic, x) + Sin(garlic)), Floor(Abs(y) + Ceil(garlic)))",
+            max((abs(max((cosmic, x)) + math.sin(garlic)), math.floor(abs(y) + math.ceil(garlic)))),
+        ),
+        (
+            "Max(Sqrt(Abs(x) + y ** 2), Lg(Max(cosmic, potato)), Ceil(Tanh(x) + Arctan(garlic)))",
+            max(
+                (
+                    math.sqrt(abs(x) + y**2),
+                    math.log10(max((cosmic, potato))),
+                    math.ceil(math.tanh(x) + math.atan(garlic)),
+                )
+            ),
+        ),
+    ]
+
+    infix_parser = InfixExpressionParser()
+    sympy_parser = MathParser(to_format=FormatEnum.sympy)
+
+    for str_expr, result in tests:
+        json_expr = infix_parser.parse(str_expr)
+        sympy_expr = sympy_parser.parse(json_expr)
+
+        f = sp.lambdify([*variable_symbols, *constant_symbols], sympy_expr)
+
+        npt.assert_almost_equal(
+            f(*variables, *constants), result, err_msg=(f"Test failed for {str_expr=}, with " f"{sympy_expr=}.")
         )
