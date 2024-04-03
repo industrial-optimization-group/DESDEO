@@ -5,7 +5,9 @@ from functools import reduce
 import polars as pl
 import pyomo.environ as pyomo
 from pyomo.core.expr.numeric_expr import MaxExpression as _PyomoMax
+
 import gurobipy as gp
+from gurobipy_model_extension import GurobipyModel
 
 
 class FormatEnum(str, Enum):
@@ -322,7 +324,7 @@ class MathParser:
         msg = f"Encountered unsupported type '{type(expr)}' during parsing."
         raise ParserError(msg)
     
-    def _parse_to_gurobipy( self, expr: list | str | int | float, model: gp.Model ) -> ( 
+    def _parse_to_gurobipy( self, expr: list | str | int | float, model: GurobipyModel ) -> ( 
             gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr | gp.GenExpr | int | float):
         """Parses the MathJSON format recursively into a gurobipy expression.
         Gurobi only fundamentally supports linear and quadratic expressions, and this parser
@@ -332,7 +334,7 @@ class MathParser:
         Args:
             expr (list | str | int | float): a list with a Polish notation expression that describes a, e.g.,
                 ["Multiply", ["Sqrt", 2], "x2"]
-            model (gp.Model): a gurobipy model with the symbols defined appearing in the expression.
+            model (GurobipyModel): a gurobipy model with the symbols defined appearing in the expression.
                 E.g., "x2" -> model.x2 must be defined.
 
         Returns:
@@ -355,7 +357,7 @@ class MathParser:
             return expr
         if isinstance(expr, str):
             # Terminal case: str expression, represent a variable or expression
-            return model.getVarByName(expr)
+            return model.getExpressionByName(expr)
         if isinstance(expr, self.literals):
             # Terminal case: numeric literal
             return expr

@@ -1,9 +1,10 @@
-"""Defines an evaluator compatible with the Problem JSON format and transforms it into a gurobipy model."""
+"""Defines an evaluator compatible with the Problem JSON format and transforms it into a GurobipyModel."""
 
 from operator import eq as _eq
 from operator import le as _le
 
 import gurobipy as gp
+from gurobipy_model_extension import GurobipyModel
 
 import warnings
 
@@ -18,15 +19,15 @@ class GurobipyEvaluatorWarning(UserWarning):
     """Raised when the problem contains features that are poorly supported in gurobipy."""
 
 class GurobipyEvaluator:
-    """Defines as evaluator that transforms an instance of Problem into a gurobipy model."""
+    """Defines as evaluator that transforms an instance of Problem into a GurobipyModel."""
 
     def __init__(self, problem: Problem):
         """Initialized the evaluator.
 
         Args:
-            problem (Problem): the problem to be transformed in a gurobipy model.
+            problem (Problem): the problem to be transformed in a GurobipyModel.
         """
-        model = gp.Model(problem.name)
+        model = GurobipyModel(problem.name)
 
         # set the parser
         self.parse = MathParser(to_format=FormatEnum.gurobipy).parse
@@ -51,7 +52,7 @@ class GurobipyEvaluator:
             model = self.init_extras(problem, model)
 
         # Add objective function expressions
-        objectives = self.init_objectives(problem, model)
+        model = self.init_objectives(problem, model)
 
         # Add constraints, if any
         if problem.constraints is not None:
@@ -63,21 +64,20 @@ class GurobipyEvaluator:
 
         self.model = model
         self.problem = problem
-        self.objectives = objectives
 
-    def init_variables(self, problem: Problem, model: gp.Model) -> gp.Model:
-        """Add variables to the gurobipy model.
+    def init_variables(self, problem: Problem, model: GurobipyModel) -> GurobipyModel:
+        """Add variables to the GurobipyModel.
 
         Args:
             problem (Problem): problem from which to extract the variables.
-            model (gp.Model): the gurobipy model to add the variables to.
+            model (GurobipyModel): the GurobipyModel to add the variables to.
 
         Raises:
             GurobipyEvaluatorError: when a problem in extracting the variables is encountered.
                 I.e., the variables are of a non supported type.
 
         Returns:
-            gp.Model: the gurobipy model with the variables added as attributes.
+            GurobipyModel: the GurobipyModel with the variables added as attributes.
         """
         for var in problem.variables:
             lowerbound = var.lowerbound if var.lowerbound is not None else float("-inf")
@@ -103,10 +103,13 @@ class GurobipyEvaluator:
             if var.initial_value is not None:
                 gvar.setAttr("Start", var.initial_value)
 
+        #update the model before returning, so that other expressions can reference the variables
+        model.update()
+
         return model
 
-    def init_constants(self, problem: Problem, model: gp.Model) -> gp.Model:
-        """Add constants to a gurobipy model. 
+    def init_constants(self, problem: Problem, model: GurobipyModel) -> GurobipyModel:
+        """Add constants to a GurobipyModel. 
         
         Gurobi does not really have constants, so this function instead adds 
         variables whose upper and lower bounds match the constant's value. 
@@ -118,58 +121,38 @@ class GurobipyEvaluator:
 
         Args:
             problem (Problem): problem from which to extract the constants.
-            model (gp.Model): the gurobipy model to add the constants to.
+            model (GurobipyModel): the GurobipyModel to add the constants to.
 
         Raises:
             GurobipyEvaluatorError: when the domain of a constant cannot be figured out.
 
         Returns:
-            gp.Model: the gurobipy model with the constants added as variables.
+            GurobipyModel: the GurobipyModel with the constants added as variables.
         """
         for con in problem.constants:
-            # figure out the domain of the constant
-            match (isinstance(con.value, int), isinstance(con.value, float)):
-                case (True, False):
-                    # integer
-                    domain = gp.GRB.INTEGER
-                case (False, True):
-                    # real
-                    domain = gp.GRB.CONTINUOUS
-                case _:
-                    # not possible, something went wrong
-                    msg = f"Failed to figure out the domain for the constant {con.symbol}."
-                    raise GurobipyEvaluatorError(msg)
-
-
-            # add the variable to the model
-            gvar = model.addVar(lb=con.value, ub=con.value, vtype=domain, name=con.symbol)
-            # set the initial value
-            gvar.setAttr("Start", con.value)
+            model.addConstant(con.value,name=con.symbol)
 
         return model
 
-    def init_extras(self, problem: Problem, model: gp.Model) -> gp.Model:
-        """Add extra function expressions to a gurobipy model. Because gurobipy does not
+    def init_extras(self, problem: Problem, model: GurobipyModel) -> GurobipyModel:
+        """Add extra function expressions to a GurobipyModel. Because gurobipy does not
         support extra expressions natively, this function adds the expressions as variables
         and adds a constraint that forces that variable to match the expression.
 
         Args:
             problem (Problem): problem from which the extract the extra function expressions.
-            model (gp.Model): the gurobipy model to add the extra function expressions to.
+            model (GurobipyModel): the GurobipyModel to add the extra function expressions to.
 
         Returns:
-            gp.Model: the gurobipy model with the expressions added as attributes.
+            GurobipyModel: the GurobipyModel with the expressions added as attributes.
         """
         for extra in problem.extra_funcs:
-            gp_expr = self.parse(extra.func, model)
-            gp_var = model.addVar(lb=float("-inf"), name=extra.symbol)
-            model.addConstr(gp_var == gp_expr)
+            model.addExtraFunction(self.parse(extra.func, model), name=extra.symbol)
 
         return model
 
-    def init_objectives(self, problem: Problem, model: gp.Model) -> (
-            dict[str, gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr]):
-        """Add objective function expressions to a gurobipy model.
+    def init_objectives(self, problem: Problem, model: GurobipyModel) -> GurobipyModel:
+        """Add objective function expressions to a GurobipyModel.
 
         Does not yet add any actual gurobipy objectives, only creates a dict containing the 
         expressions of the objectives. The objective expressions are stored in the 
@@ -177,12 +160,11 @@ class GurobipyEvaluator:
 
         Args:
             problem (Problem): problem from which to extract the objective function expresions.
-            model (gp.Model): the gurobipy model containing the variables that the expressions reference.
+            model (GurobipyModel): the GurobipyModel containing the variables that the expressions reference.
 
         Returns:
-            dict: dictionary containing the objectives as gurobipy expressions indexed by objective symbols.
+            GurobipyModel: the GurobipyModel with the objectives added.
         """
-        objectives = dict()
         for obj in problem.objectives:
             gp_expr = self.parse(obj.func, model)
             if isinstance(gp_expr, int) or isinstance(gp_expr, float):
@@ -201,18 +183,18 @@ class GurobipyEvaluator:
 
         return objectives
 
-    def init_constraints(self, problem: Problem, model: gp.Model) -> gp.Model:
-        """Add constraint expressions to a gurobipy model.
+    def init_constraints(self, problem: Problem, model: GurobipyModel) -> GurobipyModel:
+        """Add constraint expressions to a GurobipyModel.
 
         Args:
             problem (Problem): the problem from which to extract the constraint function expressions.
-            model (gp.Model): the gurobipy model to add the exprssions to.
+            model (GurobipyModel): the GurobipyModel to add the exprssions to.
 
         Raises:
             GurobipyEvaluatorError: when an unsupported constraint type is encountered.
 
         Returns:
-            gp.Model: the gurobipy model with the constraint expressions added.
+            GurobipyModel: the GurobipyModel with the constraint expressions added.
         """
         for cons in problem.constraints:
             gp_expr = self.parse(cons.func, model)
@@ -250,7 +232,7 @@ class GurobipyEvaluator:
         return model
 
     def get_values(self) -> dict[str, float | int | bool]:
-        """Get the values from the gurobipy model in dict.
+        """Get the values from the GurobipyModel in dict.
 
         The keys of the dict will be the symbols defined in the problem utilized to initialize the evaluator.
 
