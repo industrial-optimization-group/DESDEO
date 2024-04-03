@@ -4,6 +4,7 @@ For more info, see https://facebookresearch.github.io/nevergrad/index.html
 """
 
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 
 import nevergrad as ng
 from pydantic import BaseModel, Field
@@ -76,6 +77,48 @@ def parse_ng_results(results: dict, problem: Problem, evaluator: GenericEvaluato
     )
 
 
+def evaluate_candidate(candidate, evaluator, target, constraint_symbols=None):
+    """Evaluate a single candidate."""
+    # Extract arguments for evaluation
+    xs = {key: candidate.args[0][key][0] for key in candidate.args[0]}
+
+    # Evaluate the candidate using the evaluator function which should return a Polars DataFrame
+    eval_df = evaluator.evaluate(xs)
+    target_value = eval_df[target].to_list()[0]
+
+    # Evaluate constraints if any
+    constraint_violations = None
+    if constraint_symbols is not None:
+        constraint_violations = eval_df.select(constraint_symbols).to_list()[0]
+
+    return candidate, target_value, constraint_violations
+
+
+def parallel_optimize(optimizer, evaluator, target, batch_size, constraint_symbols):
+    """Parallel optimize."""
+    with ThreadPoolExecutor(max_workers=optimizer.num_workers) as executor:
+        for _ in range(optimizer.budget // batch_size):
+            # Generate a batch of candidates
+            candidates = [optimizer.ask() for _ in range(batch_size)]
+
+            # Use ProcessPoolExecutor to evaluate candidates in parallel
+            futures = [
+                executor.submit(evaluate_candidate, candidate, evaluator, target, constraint_symbols)
+                for candidate in candidates
+            ]
+            results = [f.result() for f in futures]
+
+            # Inform the optimizer of the results
+            for candidate, target_value, constraint_violations in results:
+                if constraint_violations is not None:
+                    optimizer.tell(candidate, target_value, constraint_violations)
+                else:
+                    optimizer.tell(candidate, target_value)
+
+    msg = f"Recommendation found by {optimizer}."
+    return msg, True
+
+
 def create_ng_generic_solver(
     problem: Problem, options: NevergradGenericOptions = _default_nevergrad_generic_options
 ) -> Callable[[str], SolverResults]:
@@ -105,7 +148,6 @@ def create_ng_generic_solver(
             }
         )
 
-        # ng.optimizers.registry["NGOpt"]
         optimizer = ng.optimizers.registry[options.optimizer](
             parametrization=parametrization, **options.model_dump(exclude="optimizer")
         )
@@ -115,34 +157,48 @@ def create_ng_generic_solver(
         constraint_symbols = None if problem.constraints is None else [con.symbol for con in problem.constraints]
 
         try:
-            for _ in range(optimizer.budget // batch_size):
-                # Generate a batch of candidates
-                candidates = [optimizer.ask() for _ in range(batch_size)]
+            if optimizer.num_workers == 1:
+                # use a single thread
+                for _ in range(optimizer.budget // batch_size):
+                    # Generate a batch of candidates
+                    candidates = [optimizer.ask() for _ in range(batch_size)]
 
-                # Extract arguments from candidates for evaluation
-                xs = {key: [candidate.args[0][key][0] for candidate in candidates] for key in candidates[0].args[0]}
+                    # Extract arguments from candidates for evaluation
+                    xs = {key: [candidate.args[0][key][0] for candidate in candidates] for key in candidates[0].args[0]}
 
-                # Evaluate the batch and find the best candidate
-                eval_df = evaluator.evaluate(xs)
-                target_values = eval_df[target].to_list()
+                    # Evaluate the batch and find the best candidate
+                    eval_df = evaluator.evaluate(xs)
+                    target_values = eval_df[target].to_list()
 
-                # Constraints values
-                constraint_values = (
-                    [list(t) for t in eval_df[constraint_symbols].rows()] if constraint_symbols is not None else None
-                )
+                    # Constraints values
+                    constraint_values = (
+                        [list(t) for t in eval_df[constraint_symbols].rows()]
+                        if constraint_symbols is not None
+                        else None
+                    )
 
-                if constraint_values is not None:
-                    for candidate, loss_value, constraint_violations in zip(
-                        candidates, target_values, constraint_values, strict=True
-                    ):
-                        optimizer.tell(candidate, loss_value, constraint_violations)
-                else:
-                    for candidate, loss_value in zip(candidates, target_values, strict=True):
-                        optimizer.tell(candidate, loss_value)
+                    if constraint_values is not None:
+                        for candidate, loss_value, constraint_violations in zip(
+                            candidates, target_values, constraint_values, strict=True
+                        ):
+                            optimizer.tell(candidate, loss_value, constraint_violations)
+                    else:
+                        for candidate, loss_value in zip(candidates, target_values, strict=True):
+                            optimizer.tell(candidate, loss_value)
 
-            # Done, it is what it is
-            msg = f"Recommendation found by {options.optimizer}."
-            success = True
+                # Done, it is what it is
+                msg = f"Recommendation found by {options.optimizer}."
+                success = True
+
+            elif optimizer.num_workers > 1:
+                # multiprocessing
+                optimizer.batch_mode = False
+                msg, success = parallel_optimize(optimizer, evaluator, target, batch_size, constraint_symbols)
+
+            else:
+                # number of workers is invalid
+                msg = f"The number of workers must be equal or greater to one. Now {optimizer.num_workers}."
+                success = False
 
         except Exception as e:
             msg = str(f"{options.optimizer} failed. Possible reason: {e}")

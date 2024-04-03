@@ -15,7 +15,7 @@ def test_ngopt_solver():
 
     rp = {"f_1": 0.8, "f_2": 0.8, "f_3": 0.76}
 
-    solver_opts = NevergradGenericOptions(budget=200, num_workers=50, optimizer="TBPSA")
+    solver_opts = NevergradGenericOptions(budget=200, num_workers=8, optimizer="CMA")
 
     # without constraints
     problem_w_sf, target = add_asf_nondiff(problem, "target", rp)
