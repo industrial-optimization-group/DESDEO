@@ -14,10 +14,10 @@ class PyomoEvaluatorError(Exception):
 
 
 class PyomoEvaluator:
-    """Defines as evaluator that transforms an instance of Problem into a pyomo model."""
+    """Defines an evaluator that transforms an instance of Problem into a pyomo model."""
 
     def __init__(self, problem: Problem):
-        """Initialized the evaluator.
+        """Initializes the evaluator.
 
         Args:
             problem (Problem): the problem to be transformed in a pyomo model.
