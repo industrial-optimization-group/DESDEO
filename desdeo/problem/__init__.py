@@ -24,6 +24,7 @@ __all__ = [
     "Problem",
     "PyomoEvaluator",
     "river_pollution_problem",
+    "SympyEvaluator",
     "simple_data_problem",
     "simple_linear_test_problem",
     "simple_test_problem",
@@ -50,6 +51,7 @@ from .schema import (
     Variable,
     VariableTypeEnum,
 )
+from .sympy_evaluator import SympyEvaluator
 from .testproblems import (
     binh_and_korn,
     dtlz2,
