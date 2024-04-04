@@ -2,14 +2,10 @@
 
 from copy import deepcopy
 
-from desdeo.problem.json_parser import MathParser, FormatEnum
-from desdeo.problem.schema import Problem
-
 import sympy as sp
 
-
-class SympyEvaluatorError(Exception):
-    """Raised when an error withing the SympyEvaluator class is encountered."""
+from desdeo.problem.json_parser import FormatEnum, MathParser
+from desdeo.problem.schema import Problem
 
 
 class SympyEvaluator:
@@ -197,7 +193,7 @@ class SympyEvaluator:
         self.parser = parser
 
     def evaluate(self, xs: dict[str, float | int | bool]) -> dict[str, float | int | bool]:
-        """Evaluate the problem with a given decision variable dict.
+        """Evaluate the the whole problem with a given decision variable dict.
 
         Args:
             xs (dict[str, float  |  int  |  bool]): a dict with keys representing decision variable
@@ -209,3 +205,29 @@ class SympyEvaluator:
                 value.
         """
         return {k: self.lambda_exprs[k](**xs) for k in self.lambda_exprs} | xs
+
+    def evaluate_target(self, xs: dict[str, float | int | bool], target: str) -> float:
+        """Evaluates only the specified target with given decision variables.
+
+        Args:
+            xs (dict[str, float  |  int  |  bool]): a dict with keys representing decision variable
+                symbols and values with the decision variable value.
+            target (str): the symbol of the function expressions to be evaluated.
+
+        Returns:
+            float: the value of the target once evaluated.
+        """
+        return self.lambda_exprs[target](**xs)
+
+    def evaluate_constraints(self, xs: dict[str, float | int | bool]) -> dict[str, float | int | bool]:
+        """Evaluates the constraints of the problem with given decision variables.
+
+        Args:
+            xs (dict[str, float  |  int  |  bool]): a dict with keys representing decision variable
+                symbols and values with the decision variable value.
+
+        Returns:
+            dict[str, float | int | bool]: a dict with keys being the constraints symbols
+                and values being the value of the corresponding constraint.
+        """
+        return {k: self.lambda_exprs[k](**xs) for k in [constr.symbol for constr in self.problem.constraints]}

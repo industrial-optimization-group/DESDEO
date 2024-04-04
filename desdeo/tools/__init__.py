@@ -14,6 +14,7 @@ __all__ = [
     "add_objective_as_scalarization",
     "add_stom_sf_diff",
     "add_weighted_sums",
+    "available_nevergrad_optimizers",
     "create_ng_generic_solver",
     "create_pyomo_bonmin_solver",
     "create_pyomo_gurobi_solver",
@@ -21,7 +22,11 @@ __all__ = [
     "create_scipy_minimize_solver",
 ]
 
-from desdeo.tools.ng_solver_interfaces import NevergradGenericOptions, create_ng_generic_solver
+from desdeo.tools.ng_solver_interfaces import (
+    NevergradGenericOptions,
+    available_nevergrad_optimizers,
+    create_ng_generic_solver,
+)
 from desdeo.tools.pyomo_solver_interfaces import (
     BonminOptions,
     create_pyomo_bonmin_solver,

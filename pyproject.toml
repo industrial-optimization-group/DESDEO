@@ -177,13 +177,14 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 markers = [
     "slow: mark test as slow",
-    "nautilus_navigator: tests related to the NAUTILUS Navigator method.",
-    "performance: tests that are related to performance. Skipped by default.",
-    "infix_parser: tests related to the infix parser.",
-    "pyomo: tests related to pyomo models, their parsing, and evaluation.",
-    "sympy: tests related to sympy expressions, their parsing, and evaluation.",
+    "nautilus_navigator: tests related to the NAUTILUS Navigator method",
+    "performance: tests that are related to performance. Skipped by default",
+    "infix_parser: tests related to the infix parser",
+    "pyomo: tests related to pyomo models, their parsing, and evaluation",
+    "sympy: tests related to sympy expressions, their parsing, and evaluatio.",
     "nautili: tests related to the NAUTILI method",
     "nautilus: tests related to the NAUTILUS method",
+    "nevergrad: tests related to the nevergrad solvers and their interfaces",
     "scalarization: tests related to scalarization functions",
     "nimbus: tests related to the NIMBUS method"
 ]

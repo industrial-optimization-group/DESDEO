@@ -1,10 +1,16 @@
 """Tests related to the sympy evaluator."""
 
-import pytest
-import sympy as sp
 import numpy.testing as npt
+import pytest
 
-from desdeo.problem import SympyEvaluator, binh_and_korn, MathParser, FormatEnum, zdt1, river_pollution_problem
+from desdeo.problem import (
+    FormatEnum,
+    MathParser,
+    SympyEvaluator,
+    binh_and_korn,
+    river_pollution_problem,
+    zdt1,
+)
 from desdeo.tools import add_achievement_sf_diff, add_weighted_sums
 
 
