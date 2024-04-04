@@ -7,7 +7,7 @@ import pyomo.environ as pyomo
 from pyomo.core.expr.numeric_expr import MaxExpression as _PyomoMax
 
 import gurobipy as gp
-from gurobipy_model_extension import GurobipyModel
+from desdeo.problem.gurobipy_model_extension import GurobipyModel
 
 
 class FormatEnum(str, Enum):

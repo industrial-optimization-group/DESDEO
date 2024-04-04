@@ -176,12 +176,12 @@ class GurobipyEvaluator:
                 msg = f"Gurobi does not support objective functions that are not linear or quadratic {gp_expr}"
                 raise GurobipyEvaluatorError(msg)
 
-            objectives[obj.symbol] = gp_expr
+            model.addObjectiveFunction(gp_expr,name=obj.symbol)
 
             # the obj.symbol_min objectives are used when optimizing and building scalarizations etc...
-            objectives[f"{obj.symbol}_min"] = (-gp_expr if obj.maximize else gp_expr)
+            model.addObjectiveFunction((-gp_expr if obj.maximize else gp_expr),name=f"{obj.symbol}_min")
 
-        return objectives
+        return model
 
     def init_constraints(self, problem: Problem, model: GurobipyModel) -> GurobipyModel:
         """Add constraint expressions to a GurobipyModel.
@@ -213,26 +213,23 @@ class GurobipyEvaluator:
 
         return model
 
-    def init_scalarizations(self, problem: Problem, model: pyomo.Model) -> pyomo.Model:
-        """Add scalrization expressions to a pyomo model.
+    def init_scalarizations(self, problem: Problem, model: GurobipyModel) -> GurobipyModel:
+        """Add scalrization expressions to a gurobipy model.
 
         Args:
             problem (Problem): the problem from which to extract thescalarization function expressions.
-            model (pyomo.Model): the pyomo model to add the expressions to.
+            model (GurobipyModel): the GurobipyModel to add the expressions to.
 
         Returns:
-            pyomo.Model: the pyomo model with the scalarization expressions addedd as pyomo Objectives.
-                The objectives are deactivated by default. Scalarization functions are always minimized.
+            GurobipyModel: the GurobipyModel with the scalarization expressions. Scalarization functions are always minimized.
         """
         for scal in problem.scalarization_funcs:
-            pyomo_expr = self.parse(scal.func, model)
-
-            setattr(model, scal.symbol, pyomo_expr)
+            model.addScalarization(self.parse(scal.func, model),scal.symbol)
 
         return model
 
     def get_values(self) -> dict[str, float | int | bool]:
-        """Get the values from the GurobipyModel in dict.
+        """Get the values from the GurobipyModel in a dict.
 
         The keys of the dict will be the symbols defined in the problem utilized to initialize the evaluator.
 
@@ -245,15 +242,15 @@ class GurobipyEvaluator:
             result_dict[var.symbol] = self.model.getVarByName(var.symbol).getAttr(gp.GRB.Attr.X)
 
         for obj in self.problem.objectives:
-            result_dict[obj.symbol] = self.objectives[obj.symbol].getValue()
+            result_dict[obj.symbol] = self.model.objectiveFunctions[obj.symbol].getValue()
 
         if self.problem.constants is not None:
             for con in self.problem.constants:
-                result_dict[con.symbol] = self.model.getVarByName(con.symbol).getAttr(gp.GRB.Attr.X)
+                result_dict[con.symbol] = self.model.constants[con.symbol]
 
         if self.problem.extra_funcs is not None:
             for extra in self.problem.extra_funcs:
-                result_dict[extra.symbol] = self.model.getVarByName(extra.symbol).getAttr(gp.GRB.Attr.X)
+                result_dict[extra.symbol] = self.model.extraFunctions[extra.symbol].getValue()
 
         if self.problem.constraints is not None:
             for const in self.problem.constraints:
@@ -261,30 +258,25 @@ class GurobipyEvaluator:
 
         if self.problem.scalarization_funcs is not None:
             for scal in self.problem.scalarization_funcs:
-                result_dict[scal.symbol] = pyomo.value(getattr(self.model, scal.symbol))
+                result_dict[scal.symbol] = self.model.scalarizations[scal.symbol]
 
         return result_dict
 
     def set_optimization_target(self, target: str):
-        """Creates a minimization objective from the target attribute of the pyomo model.
-
-        The attribute name of the pyomo objective will be target + _objective, e.g.,
-        'f_1' will become 'f_1_objective'. This is done so that the original f_1 expressions
-        attribute does not get reassigned.
+        """Sets a minimization objective to match the target objective or scalarization of the gurobipy model.
 
         Args:
-            target (str): an str representing a symbol.
+            target (str): an str representing a symbol. Needs to match an objective function or scaralization
+            function already found in the model.
 
         Raises:
-            PyomoEvaluatorError: the given target was not an attribute of the pyomo model.
+            GurobipyEvaluatorError: the given target was not an attribute of the gurobipy model.
         """
-        if not hasattr(self.model, target):
-            msg = f"The pyomo model has no attribute {target}."
-            raise PyomoEvaluatorError(msg)
+        if not ((target in self.model.objectiveFunctions) or (target in self.model.scalarizations)):
+            msg = f"The gurobipy model has no objective or scalarization named {target}."
+            raise GurobipyEvaluatorError(msg)
 
-        obj_expr = getattr(self.model, target)
+        obj_expr = self.model.getExpressionByName(target)
 
-        objective = pyomo.Objective(expr=obj_expr, sense=pyomo.minimize, name=target)
+        self.model.setObjective(obj_expr)
 
-        # add the postfix '_objective' to the attribute name of the pyomo objective
-        setattr(self.model, f"{target}_objective", objective)

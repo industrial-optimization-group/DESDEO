@@ -7,10 +7,10 @@ from pathlib import Path
 import numpy.testing as npt
 import polars as pl
 import pyomo.environ as pyomo
-import gurobipy as gp
 import pytest
 
 from desdeo.problem.evaluator import GenericEvaluator
+from desdeo.problem.gurobipy_model_extension import GurobipyModel
 from desdeo.problem.infix_parser import InfixExpressionParser
 from desdeo.problem.json_parser import FormatEnum, MathParser, replace_str
 from desdeo.problem.schema import (
@@ -955,7 +955,7 @@ def test_parse_pyomo_max():
 @pytest.mark.gurobipy
 def test_parse_gurobipy_basic_arithmetics():
     """Test the JSON parser for correctly parsing MathJSON into pyomo expressions."""
-    gp_model = gp.Model("Test model")
+    gp_model = GurobipyModel("Test model")
 
     x_1 = 6.9
     x_2 = 0.1
@@ -965,9 +965,9 @@ def test_parse_gurobipy_basic_arithmetics():
     gp_model.addConstr(gp_model.addVar(name='x_3',obj=1)>=x_3)
 
     c_1 = 4.2
-    gp_model.addConstr(gp_model.addVar(name='c_1',obj=1)>=c_1)
+    gp_model.addConstant(4.2, name="c_1")
     c_2 = 2.2
-    gp_model.addConstr(gp_model.addVar(name='c_2',obj=1)>=c_2)
+    gp_model.addConstant(2.2, name="c_2")
     gp_model.update()
     gp_model.optimize()
 
@@ -1001,7 +1001,7 @@ def test_parse_gurobipy_basic_arithmetics():
     for str_expr, result in tests:
         json_expr = infix_parser.parse(str_expr)
         gurobipy_expr = gurobipy_parser.parse(json_expr, gp_model)
-        print(str_expr)
+        #print(str_expr)
 
         npt.assert_array_almost_equal(
             gurobipy_expr.getValue(), result, err_msg=f"Test failed for {str_expr}, with {gurobipy_expr}"
