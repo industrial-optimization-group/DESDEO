@@ -63,7 +63,7 @@ def create_gurobipy_solver(
 
     Args:
         problem (Problem): the problem to be solved.
-        options (GurobiOptions): Dictionary of Gurobi parameters to set.
+        options (dict[str,any]): Dictionary of Gurobi parameters to set.
             You probably don't need to set any of these and can just use the defaults.
             For available parameters see https://www.gurobi.com/documentation/current/refman/parameters.html
 
