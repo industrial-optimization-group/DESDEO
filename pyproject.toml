@@ -184,9 +184,11 @@ markers = [
     "nautili: tests related to the NAUTILI method",
     "nautilus: tests related to the NAUTILUS method",
     "scalarization: tests related to scalarization functions",
-    "nimbus: tests related to the NIMBUS method"
+    "nimbus: tests related to the NIMBUS method",
+    "gurobipy: tests related to the gurobipy solver"
 ]
 addopts = "-m 'not performance' -m 'not nautilus'"
+pythonpath = "."
 
 [build-system]
 requires = ["poetry-core"]
