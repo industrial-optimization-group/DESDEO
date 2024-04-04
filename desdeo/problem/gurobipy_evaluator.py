@@ -37,18 +37,10 @@ class GurobipyEvaluator:
 
         # Add constants, if any
         if problem.constants is not None:
-            warnings.warn(
-                "Gurobipy does not really support constants. Adding them as variables.",
-                GurobipyEvaluatorWarning
-            )
             model = self.init_constants(problem, model)
 
         # Add extra expressions, if any
         if problem.extra_funcs is not None:
-            warnings.warn(
-                "Gurobipy does not really support extra expressions. Adding them as variables.",
-                GurobipyEvaluatorWarning
-            )
             model = self.init_extras(problem, model)
 
         # Add objective function expressions
@@ -111,12 +103,14 @@ class GurobipyEvaluator:
     def init_constants(self, problem: Problem, model: GurobipyModel) -> GurobipyModel:
         """Add constants to a GurobipyModel. 
         
-        Gurobi does not really have constants, so this function instead adds 
-        variables whose upper and lower bounds match the constant's value. 
+        Gurobi does not really have constants, so this function instead  
+        stores them in the GurobipyModel object. 
         This is necessary to get the MathParser to understand the constants
-        used in the problem, but Gurobi presolve should be able to remove all
-        these unnecessary variables when it comes time to solve the problem.
-        Still, it might be best to avoid using constants if you are intending
+        used in the problem, but updating them at a later point will not update
+        any expression referencing them. The expressions that have been defined
+        using these constants will keep using the numeric value of the constant
+        at the time when the expression was created.
+        Thus, it might be best to avoid using constants if you are intending
         to use the gurobipy solver. 
 
         Args:
@@ -135,9 +129,17 @@ class GurobipyEvaluator:
         return model
 
     def init_extras(self, problem: Problem, model: GurobipyModel) -> GurobipyModel:
-        """Add extra function expressions to a GurobipyModel. Because gurobipy does not
-        support extra expressions natively, this function adds the expressions as variables
-        and adds a constraint that forces that variable to match the expression.
+        """Add extra function expressions to a GurobipyModel. 
+        
+        Gurobi does not support extra expressions natively, so this function instead  
+        stores them in the GurobipyModel object. 
+        This is necessary to get the MathParser to understand the extra expressions
+        used in the problem, but updating them at a later point will not update
+        any expression referencing them. The expressions that have been defined
+        using these extra expressions will keep using the value of the extra expression
+        at the time when the expression was created.
+        Thus, it might be best to avoid using extra expressions if you are intending
+        to use the gurobipy solver. 
 
         Args:
             problem (Problem): problem from which the extract the extra function expressions.
@@ -154,9 +156,9 @@ class GurobipyEvaluator:
     def init_objectives(self, problem: Problem, model: GurobipyModel) -> GurobipyModel:
         """Add objective function expressions to a GurobipyModel.
 
-        Does not yet add any actual gurobipy objectives, only creates a dict containing the 
+        Does not yet add any actual gurobipy optimization objectives, only creates a dict containing the 
         expressions of the objectives. The objective expressions are stored in the 
-        GurobipyEvaluator and the evaluator must add the appropiate gurobipy objective before solving.
+        GurobipyModel and the evaluator must add the appropiate gurobipy objective before solving.
 
         Args:
             problem (Problem): problem from which to extract the objective function expresions.
@@ -215,6 +217,10 @@ class GurobipyEvaluator:
 
     def init_scalarizations(self, problem: Problem, model: GurobipyModel) -> GurobipyModel:
         """Add scalrization expressions to a gurobipy model.
+
+        Scalarizations work identically to objectives, except they are stored in a different
+        dict in the GurobipyModel. If you want to solve the problem using a scalarization, the
+        evaluator needs to set it as an optimization target first.
 
         Args:
             problem (Problem): the problem from which to extract thescalarization function expressions.
