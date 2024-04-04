@@ -14,6 +14,7 @@ __all__ = [
     "add_objective_as_scalarization",
     "add_stom_sf_diff",
     "add_weighted_sums",
+    "create_gurobipy_solver",
     "create_ng_ngopt_solver",
     "create_pyomo_bonmin_solver",
     "create_pyomo_gurobi_solver",
@@ -21,6 +22,7 @@ __all__ = [
     "create_scipy_minimize_solver",
 ]
 
+from desdeo.tools.gurobipy_solver_interfaces import create_gurobipy_solver
 from desdeo.tools.ng_solver_interfaces import NgOptOptions, create_ng_ngopt_solver
 from desdeo.tools.pyomo_solver_interfaces import (
     BonminOptions,

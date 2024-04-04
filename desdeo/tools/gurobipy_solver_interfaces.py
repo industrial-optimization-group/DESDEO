@@ -5,21 +5,20 @@ from dataclasses import dataclass, fields
 
 import gurobipy as gp
 
-from desdeo.problem import Problem, PyomoEvaluator
+from desdeo.problem import Problem, GurobipyEvaluator
 from desdeo.tools.generics import CreateSolverType, SolverResults
 
 # forward typehints
 create_gurobipy_solver: CreateSolverType
 
-def parse_pyomo_optimizer_results(
-    opt_res: _pyomo_SolverResults, problem: Problem, evaluator: PyomoEvaluator
+def parse_gurobipy_optimizer_results(
+    problem: Problem, evaluator: GurobipyEvaluator
 ) -> SolverResults:
-    """Parses pyomo SolverResults into DESDEO SolverResutls.
+    """Parses results from GurobipyEvaluator's model into DESDEO SolverResutls.
 
     Args:
-        opt_res (_pyomo_SolverResults): the pyomo solver results.
         problem (Problem): the problem being solved.
-        evaluator (PyomoEvaluator): the evalutor utilized to get the pyomo solver results.
+        evaluator (GurobipyEvaluator): the evalutor utilized to solve the problem.
 
     Returns:
         SolverResults: DESDEO solver results.
@@ -29,13 +28,19 @@ def parse_pyomo_optimizer_results(
     variable_values = {var.symbol: results[var.symbol] for var in problem.variables}
     objective_values = {obj.symbol: results[obj.symbol] for obj in problem.objectives}
     constraint_values = {con.symbol: results[con.symbol] for con in problem.constraints}
-    success = (
-        opt_res.solver.status == _pyomo_SolverStatus.ok
-        and opt_res.solver.termination_condition == _pyomo_TerminationCondition.optimal
-    )
+    success = ( evaluator.model.status == gp.GRB.OPTIMAL )
+    if evaluator.model.status == gp.GRB.OPTIMAL:
+        status = "Optimal solution found."
+    elif evaluator.model.status == gp.GRB.INFEASIBLE:
+        status = "Model is infeasible."
+    elif evaluator.model.status == gp.GRB.UNBOUNDED:
+        status = "Model is unbounded."
+    elif evaluator.model.status == gp.GRB.INF_OR_UNBD:
+        status = "Model is either infeasible or unbounded."
+    else:
+        status = f"Optimization ended with status: {evaluator.model.status}"
     msg = (
-        f"Pyomo solver status is: '{opt_res.solver.status}', with termination condition: "
-        f"'{opt_res.solver.termination_condition}'."
+        f"Gurobipy solver status is: '{status}'"
     )
 
     return SolverResults(
@@ -47,7 +52,7 @@ def parse_pyomo_optimizer_results(
     )
 
 def create_gurobipy_solver(
-    problem: Problem, options: dict = dict()
+    problem: Problem, options: dict[str,any] = dict()
 ) -> Callable[[str], SolverResults]:
     """Creates a gurobipy solver that utilizes gurobi's own python implementation. 
     Unlike with Pyomo you do not need to have gurobi installed on your system 
@@ -59,25 +64,21 @@ def create_gurobipy_solver(
     Args:
         problem (Problem): the problem to be solved.
         options (GurobiOptions): Dictionary of Gurobi parameters to set.
-            This is passed to pyomo as is, so it works the same as options
-            would for calling pyomo SolverFactory directly.
+            You probably don't need to set any of these and can just use the defaults.
+            For available parameters see https://www.gurobi.com/documentation/current/refman/parameters.html
 
     Returns:
         Callable[[str], SolverResults]: returns a callable function that takes
             as its argument one of the symbols defined for a function expression in
             problem.
     """
-    evaluator = PyomoEvaluator(problem)
+    evaluator = GurobipyEvaluator(problem)
+    for key, value in options.items():
+        evaluator.model.setParam(key,value)
 
     def solver(target: str) -> SolverResults:
         evaluator.set_optimization_target(target)
-
-        opt = pyomo.SolverFactory('gurobi', solver_io='python', options=options)
-
-        with pyomo.SolverFactory(
-            'gurobi', solver_io='python'
-        ) as opt:
-            opt_res = opt.solve(evaluator.model)
-            return parse_pyomo_optimizer_results(opt_res, problem, evaluator)
+        evaluator.model.optimize()
+        return parse_gurobipy_optimizer_results(problem, evaluator)
 
     return solver

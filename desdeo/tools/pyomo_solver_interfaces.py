@@ -140,7 +140,7 @@ def create_pyomo_bonmin_solver(
     return solver
 
 def create_pyomo_gurobi_solver(
-    problem: Problem, options: dict = dict()
+    problem: Problem, options: dict[str,any] = dict()
 ) -> Callable[[str], SolverResults]:
     """Creates a pyomo solver that utilizes gurobi. You need to have gurobi
     installed on your system for this to work.

@@ -9,7 +9,7 @@ class GurobipyModel(gp.Model):
     constants: dict[str, int|float] = {}
 
     def getExpressionByName(self, name:str) -> (
-            gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr | gp.GenExpr
+            gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr | gp.GenExpr | int | float
     ):
         expression = self.getVarByName(name)
         if expression is None:
