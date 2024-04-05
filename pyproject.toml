@@ -72,6 +72,7 @@ mypy = "^1.8.0"
 mkdocstrings = { extras = ["python"], version = "^0.24.1" }
 mkdocs-material = "^9.5.12"
 pytest-xdist = "^3.5.0"
+pytest-testmon = "^2.1.1"
 
 
 [tool.ruff]
@@ -176,6 +177,7 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 markers = [
+    "skip: stests marked to be skipped",
     "slow: mark test as slow",
     "nautilus_navigator: tests related to the NAUTILUS Navigator method",
     "performance: tests that are related to performance. Skipped by default",
@@ -188,7 +190,6 @@ markers = [
     "scalarization: tests related to scalarization functions",
     "nimbus: tests related to the NIMBUS method"
 ]
-addopts = "-m 'not performance' -m 'not nautilus'"
 
 [build-system]
 requires = ["poetry-core"]

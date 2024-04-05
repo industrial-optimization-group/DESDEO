@@ -13,6 +13,7 @@ __all__ = [
     "add_nimbus_sf_nondiff",
     "add_objective_as_scalarization",
     "add_stom_sf_diff",
+    "add_stom_sf_nondiff",
     "add_weighted_sums",
     "available_nevergrad_optimizers",
     "create_ng_generic_solver",
@@ -43,6 +44,7 @@ from desdeo.tools.scalarization import (
     add_nimbus_sf_nondiff,
     add_objective_as_scalarization,
     add_stom_sf_diff,
+    add_stom_sf_nondiff,
     add_weighted_sums,
 )
 from desdeo.tools.scipy_solver_interfaces import (

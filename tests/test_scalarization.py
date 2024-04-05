@@ -13,9 +13,10 @@ from desdeo.problem import (
 )
 from desdeo.tools import (
     BonminOptions,
+    NevergradGenericOptions,
     create_pyomo_bonmin_solver,
-    create_scipy_de_solver,
     create_scipy_minimize_solver,
+    create_ng_generic_solver,
 )
 from desdeo.tools.scalarization import (
     ScalarizationError,
@@ -27,6 +28,7 @@ from desdeo.tools.scalarization import (
     add_nimbus_sf_diff,
     add_nimbus_sf_nondiff,
     add_stom_sf_diff,
+    add_stom_sf_nondiff,
     add_weighted_sums,
 )
 
@@ -498,7 +500,7 @@ def test_achievement_sf_init():
 @pytest.mark.nimbus
 @pytest.mark.slow
 def test_achievement_sf_diff():
-    """Test that GUESS results in correct solutions."""
+    """Test that ASF results in correct solutions."""
     problem = momip_ti7()
 
     first_reference_point = {"f_1": -2.0, "f_2": 2.0, "f_3": 0.0}
@@ -547,26 +549,29 @@ def test_achievement_sf_diff():
 @pytest.mark.slow
 def test_nimbus_sf_nondiff_solve():
     """Check that the non-differentiable NIMBUS scalarization finds Pareto optimal solutions."""
-    n_variables = 6
+    n_variables = 3
     n_objectives = 3
     problem = dtlz2(n_variables, n_objectives)
 
-    weights = {"f_1": 0.25, "f_2": 0.5, "f_3": 0.25}
+    weights = {"f_1": 0.1, "f_2": 0.1, "f_3": 0.8}
     problem_w_sum, t_sum = add_weighted_sums(problem, "target", weights)
 
-    solver = create_scipy_de_solver(problem_w_sum)
+    solver_options = NevergradGenericOptions(budget=250, num_workers=1, optimizer="NGOpt")
+
+    solver = create_ng_generic_solver(problem_w_sum, solver_options)
 
     results = solver(t_sum)
     assert results.success
 
     xs = results.optimal_variables
-    assert all(np.isclose(xs[f"x_{i}"], 0.5, atol=1e-4) for i in range(n_objectives, n_variables + 1))
-    assert np.isclose(sum(results.optimal_objectives[obj.symbol] ** 2 for obj in problem.objectives), 1.0, atol=1e-6)
+    # quite high atol to keep budget and time to compute low
+    assert all(np.isclose(xs[f"x_{i}"], 0.5, atol=1e-2) for i in range(n_objectives, n_variables + 1))
+    assert np.isclose(sum(results.optimal_objectives[obj.symbol] ** 2 for obj in problem.objectives), 1.0, atol=1e-2)
 
     initial_solution = results.optimal_objectives
 
-    # improve f_3, let others change freely
-    classifications = {"f_1": ("0", None), "f_2": ("0", None), "f_3": ("<", None)}
+    # improve f_2, let others change freely
+    classifications = {"f_1": ("0", None), "f_2": ("<", None), "f_3": ("0", None)}
 
     problem_w_sf, sf_target = add_nimbus_sf_nondiff(
         problem, "target", classifications=classifications, current_objective_vector=initial_solution
@@ -574,16 +579,54 @@ def test_nimbus_sf_nondiff_solve():
 
     assert len(problem_w_sf.constraints) == 1
 
-    solver = create_scipy_de_solver(problem_w_sf)
+    solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="NGOpt")
+
+    solver = create_ng_generic_solver(problem_w_sf, solver_options)
 
     results = solver(sf_target)
 
+    xs = results.optimal_variables
     assert results.success
-    # no point in checking the variables, they will be crap because DE does not handle
-    # constraints very well at all
     # atol is crap here as well
-    assert np.isclose(sum(results.optimal_objectives[obj.symbol] ** 2 for obj in problem.objectives), 1.0, atol=1e-1)
+    assert all(np.isclose(xs[f"x_{i}"], 0.5, atol=1e-2) for i in range(n_objectives, n_variables + 1))
+    assert np.isclose(sum(results.optimal_objectives[obj.symbol] ** 2 for obj in problem.objectives), 1.0, atol=1e-2)
+
+    # solution is feasible
+    for c in (r := results.constraint_values):
+        assert r[c] <= 0
 
     second_solution = results.optimal_objectives
 
-    assert initial_solution["f_3"] > second_solution["f_3"]  # f_3 must have improved
+    assert initial_solution["f_2"] > second_solution["f_2"]  # f_2 must have improved
+
+
+@pytest.mark.scalarization
+@pytest.mark.nimbus
+@pytest.mark.slow
+def test_stom_sf_nondiff_solve():
+    """Test that the non-differentiable variant of STOM works."""
+    n_variables = 3
+    n_objectives = 3
+    problem = dtlz2(n_variables, n_objectives)
+
+    rp = {"f_1": 0.2, "f_2": 0.5, "f_3": 0.7}
+
+    problem_w_sf, target = add_stom_sf_nondiff(problem, "target", rp)
+
+    solver_options = NevergradGenericOptions(budget=250, num_workers=1, optimizer="NGOpt")
+
+    solver = create_ng_generic_solver(problem_w_sf, solver_options)
+
+    result = solver(target)
+
+    assert result.success
+
+    xs = result.optimal_variables
+    assert result.success
+    # atol is crap here as well
+    assert all(np.isclose(xs[f"x_{i}"], 0.5, atol=1e-1) for i in range(n_objectives, n_variables + 1))
+    assert np.isclose(sum(result.optimal_objectives[obj.symbol] ** 2 for obj in problem.objectives), 1.0, atol=1e-2)
+
+    # f_1 should be the lowest value
+    assert result.optimal_objectives["f_1"] < result.optimal_objectives["f_2"]
+    assert result.optimal_objectives["f_1"] < result.optimal_objectives["f_3"]

@@ -3,6 +3,11 @@
     options:
         heading_level: 3
 
+## Nevergrad solver interfaces
+::: desdeo.tools.ng_solver_interfaces
+    options:
+        heading_level: 3
+
 ## Scipy solver interfaces
 ::: desdeo.tools.scipy_solver_interfaces
     options:

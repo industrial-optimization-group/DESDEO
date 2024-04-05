@@ -30,10 +30,10 @@ available_nevergrad_optimizers = [
 
 
 class NevergradGenericOptions(BaseModel):
-    """Defines options to be passed to nevergrad's NgOpt optimization routine."""
+    """Defines options to be passed to nevergrad's optimization routines."""
 
     budget: int = Field(description="The maximum number of allowed function evaluations.", default=100)
-    """"The maximum number of allowed function evaluations. Defaults to 100."""
+    """The maximum number of allowed function evaluations. Defaults to 100."""
 
     num_workers: int = Field(description="The maximum number of allowed parallel evaluations.", default=1)
     """The maximum number of allowed parallel evaluations. This is currently
@@ -47,9 +47,9 @@ class NevergradGenericOptions(BaseModel):
         ),
         default="NGOpt",
     )
-    """The optimizer to be used. Must be one of `NGOpt`, `TwoPointsDE`, `PortfolioDiscreteOnePlusOne`, "
-    "`OnePlusOne`, `CMA`, `TBPSA`, `PSO`, `ScrHammersleySearchPlusMiddlePoint`, or `RandomSearch`. "
-    "Defaults to `NGOpt`."""
+    """The optimizer to be used. Must be one of `NGOpt`, `TwoPointsDE`, `PortfolioDiscreteOnePlusOne`,
+    `OnePlusOne`, `CMA`, `TBPSA`, `PSO`, `ScrHammersleySearchPlusMiddlePoint`, or `RandomSearch`.
+    Defaults to `NGOpt`."""
 
 
 _default_nevergrad_generic_options = NevergradGenericOptions()
@@ -93,7 +93,19 @@ def parse_ng_results(results: dict, problem: Problem, evaluator: SympyEvaluator)
 def create_ng_generic_solver(
     problem: Problem, options: NevergradGenericOptions = _default_nevergrad_generic_options
 ) -> Callable[[str], SolverResults]:
-    """Creates a solver that utilizes the `ng.optimizers.NGOpt` routine.
+    """Creates a solver that utilizes optimizations routines found in the nevergrad library.
+
+    These solvers are best utilized for black-box, gradient free optimization with
+    computationally expensive function calls. Utilizing multiple workers is recommended
+    (see `NevergradGenericOptions`) when function calls are heavily I/O bound.
+
+    See https://facebookresearch.github.io/nevergrad/getting_started.html for further information
+    on nevergrad and its solvers.
+
+    References:
+        Rapin, J., & Teytaud, O. (2018). Nevergrad - A gradient-free
+            optimization platform. GitHub.
+            https://GitHub.com/FacebookResearch/Nevergrad
 
     Args:
         problem (Problem): the problem to be solved.

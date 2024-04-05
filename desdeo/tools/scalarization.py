@@ -803,6 +803,79 @@ def add_stom_sf_diff(
     return _problem.add_constraints(constraints), symbol
 
 
+def add_stom_sf_nondiff(
+    problem: Problem,
+    symbol: str,
+    reference_point: dict[str, float],
+    rho: float = 1e-6,
+    delta: float = 1e-6,
+) -> tuple[Problem, str]:
+    r"""Adds the non-differentiable variant of the STOM scalarizing function.
+
+    \begin{align*}
+        \underset{\mathbf{x}}{\min} \quad & \underset{i=1,\dots,k}{\max}\left[
+            \frac{f_i(\mathbf{x}) - z_i^{\star\star}}{\bar{z}_i - z_i^{\star\star}}
+            \right]
+            + \rho \sum_{i=1}^k \frac{f_i(\mathbf{x})}{\bar{z}_i - z_i^{\star\star}} \\
+        \text{s.t.}\quad & \mathbf{x} \in S,
+    \end{align*}
+
+    where $f_i$ are objective functions, $z_i^{\star\star} = z_i^\star - \delta$ is
+    a component of the utopian point, $\bar{z}_i$ is a component of the reference point,
+    $\rho$ and $\delta$ are small scalar values, and $S$ is the feasible solution
+    space of the original problem.
+
+    References:
+        H. Nakayama, Y. Sawaragi, Satisficing trade-off method for
+            multiobjective programming, in: M. Grauer, A.P. Wierzbicki (Eds.),
+            Interactive Decision Analysis, Springer Verlag, Berlin, 1984, pp.
+            113-122.
+
+    Args:
+        problem (Problem): the problem the scalarization is added to.
+        symbol (str): the symbol given to the added scalarization.
+        reference_point (dict[str, float]): a dict with keys corresponding to objective
+            function symbols and values to reference point components, i.e.,
+            aspiration levels.
+        rho (float, optional): a small scalar value to scale the sum in the objective
+            function of the scalarization. Defaults to 1e-6.
+        delta (float, optional): a small scalar value to define the utopian point. Defaults to 1e-6.
+
+    Returns:
+        tuple[Problem, str]: a tuple with the copy of the problem with the added
+            scalarization and the symbol of the added scalarization.
+    """
+    # check reference point
+    if not objective_dict_has_all_symbols(problem, reference_point):
+        msg = f"The give reference point {reference_point} is missing value for one or more objectives."
+        raise ScalarizationError(msg)
+
+    ideal_point, _ = get_corrected_ideal_and_nadir(problem)
+    corrected_rp = get_corrected_reference_point(problem, reference_point)
+
+    # define the objective function of the scalarization
+    max_expr = ", ".join(
+        [
+            (
+                f"({obj.symbol}_min - {ideal_point[obj.symbol] - delta}) / "
+                f"({corrected_rp[obj.symbol]} - {ideal_point[obj.symbol] - delta})"
+            )
+            for obj in problem.objectives
+        ]
+    )
+    aug_expr = " + ".join(
+        [
+            f"{obj.symbol}_min / ({reference_point[obj.symbol]} - {ideal_point[obj.symbol] - delta})"
+            for obj in problem.objectives
+        ]
+    )
+
+    target_expr = f"{Op.MAX}({max_expr}) + {rho}*" + f"({aug_expr})"
+    scalarization = ScalarizationFunction(name="STOM scalarization objective function", symbol=symbol, func=target_expr)
+
+    return problem.add_scalarization(scalarization), symbol
+
+
 def add_guess_sf_diff(
     problem: Problem,
     symbol: str,
