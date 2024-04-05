@@ -10,6 +10,8 @@ from desdeo.mcdm.nautilus import (
     calculate_distance_to_front,
     calculate_navigation_point,
     solve_reachable_solution,
+    ranks_to_weights,
+    points_to_weights,
 )
 from desdeo.problem import (
     binh_and_korn,
@@ -55,37 +57,25 @@ def test_solve_reachable_solution():
     # TODO: update to test other pref types when they are implemented
     problem = binh_and_korn()
     prev_nav_point = {"f_1": 80.0, "f_2": 30.0}
-    reference_point_1 = {"f_1": 60.0, "f_2": 20.0}
+    ranks = {"f_1": 1, "f_2": 2}
+    weights = ranks_to_weights(ranks, problem)
 
-    res_1 = solve_reachable_solution(problem, reference_point_1, prev_nav_point)
+    res_1 = solve_reachable_solution(problem, weights, prev_nav_point)
 
     assert res_1.success
 
-    objective_vector_1 = objective_dict_to_numpy_array(problem, res_1.optimal_objectives)
+    ranks = {"f_1": 2, "f_2": 1}
+    weights = ranks_to_weights(ranks, problem)
 
-    reference_point_2 = {"f_1": 20.0, "f_2": 28.0}
-
-    res_2 = solve_reachable_solution(problem, reference_point_2, prev_nav_point)
+    res_2 = solve_reachable_solution(problem, weights, prev_nav_point)
 
     assert res_2.success
 
-    objective_vector_2 = objective_dict_to_numpy_array(problem, res_2.optimal_objectives)
+    # the first solution should attain a better value for the second objective
+    assert res_1.optimal_objectives["f_2"] < res_2.optimal_objectives["f_2"]
 
-    # the first objective vector computed should be closer to the first reference point
-    # than the second and vice versa
-
-    reference_point_1 = objective_dict_to_numpy_array(problem, reference_point_1)
-    reference_point_2 = objective_dict_to_numpy_array(problem, reference_point_2)
-
-    distance_1 = np.linalg.norm(reference_point_1 - objective_vector_1)
-    distance_2 = np.linalg.norm(reference_point_1 - objective_vector_2)
-
-    assert distance_1 < distance_2
-
-    distance_1 = np.linalg.norm(reference_point_2 - objective_vector_1)
-    distance_2 = np.linalg.norm(reference_point_2 - objective_vector_2)
-
-    assert distance_2 < distance_1
+    # the second solution should attain a better value for the first objective
+    assert res_2.optimal_objectives["f_1"] < res_1.optimal_objectives["f_1"]
 
 
 @pytest.mark.nautilus
@@ -94,34 +84,25 @@ def test_solve_reachable_solution_discrete(dtlz2_5x_3f_data_based):  # noqa: F81
     problem = dtlz2_5x_3f_data_based
 
     prev_nav_point = {"f1": 1.0, "f2": 1.0, "f3": 1.0}
-    reference_point_1 = {"f1": 0.8, "f2": 0.8, "f3": 0.01}
+    points = {"f1": 30, "f2": 50, "f3": 20}
+    weights = points_to_weights(points, problem)
 
-    res_1 = solve_reachable_solution(problem, reference_point_1, prev_nav_point)
+    res_1 = solve_reachable_solution(problem, weights, prev_nav_point)
 
     assert res_1.success
 
-    objective_vector_1 = objective_dict_to_numpy_array(problem, res_1.optimal_objectives)
+    points = {"f1": 90, "f2": 2, "f3": 8}
+    weights = points_to_weights(points, problem)
 
-    reference_point_2 = {"f1": 0.05, "f2": 0.02, "f3": 0.98}
-
-    res_2 = solve_reachable_solution(problem, reference_point_2, prev_nav_point)
+    res_2 = solve_reachable_solution(problem, weights, prev_nav_point)
 
     assert res_2.success
 
-    objective_vector_2 = objective_dict_to_numpy_array(problem, res_2.optimal_objectives)
+    # the first solution should attain a better value for the second objective
+    assert res_1.optimal_objectives["f2"] < res_2.optimal_objectives["f2"]
 
-    reference_point_1 = objective_dict_to_numpy_array(problem, reference_point_1)
-    reference_point_2 = objective_dict_to_numpy_array(problem, reference_point_2)
-
-    distance_1 = np.linalg.norm(reference_point_1 - objective_vector_1)
-    distance_2 = np.linalg.norm(reference_point_1 - objective_vector_2)
-
-    assert distance_1 < distance_2
-
-    distance_1 = np.linalg.norm(reference_point_2 - objective_vector_1)
-    distance_2 = np.linalg.norm(reference_point_2 - objective_vector_2)
-
-    assert distance_2 < distance_1
+    # the second solution should attain a better value for the first objective
+    assert res_2.optimal_objectives["f1"] < res_1.optimal_objectives["f1"]
 
 
 @pytest.mark.slow

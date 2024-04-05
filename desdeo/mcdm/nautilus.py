@@ -16,13 +16,13 @@ from desdeo.mcdm.nautilus_navigator import (
 from desdeo.problem import (
     Problem,
     get_nadir_dict,
-    numpy_array_to_objective_dict,
+    get_ideal_dict,
     objective_dict_to_numpy_array,
 )
 from desdeo.tools.generics import CreateSolverType, SolverResults
 from desdeo.tools.scalarization import (  # create_asf, should be add_asf_nondiff probably
     add_lte_constraints,
-    add_scalarization_function,
+    add_asf_generic_nondiff,
 )
 from desdeo.tools.utils import guess_best_solver
 
@@ -55,7 +55,7 @@ class NautilusError(Exception):
 
 def solve_reachable_solution(
     problem: Problem,
-    preference: dict[str, float],
+    weights: dict[str, float],
     # improvement_direction: dict[str, float],
     previous_nav_point: dict[str, float],
     create_solver: CreateSolverType | None = None,
@@ -71,7 +71,8 @@ def solve_reachable_solution(
 
     Args:
         problem (Problem): the problem being solved.
-        preference (dict[str, float]): the reference point to project on the Pareto optimal front.
+        preference (dict[str, float]): the weights defining the direction of improvement. Must be calculated
+            from the preference provided by the DM (weights, ranks, or reference point).
         previous_nav_point (dict[str, float]): the previous navigation point. The reachable solution found
             is always better than the previous navigation point.
         create_solver (CreateSolverType | None, optional): a function of type CreateSolverType that returns a solver.
@@ -87,9 +88,13 @@ def solve_reachable_solution(
     # need to convert the preferences to preferential factors?
 
     # create and add scalarization function
-    sf = create_asf(problem, preference, reference_in_aug=True)
-    problem_w_asf, target = add_scalarization_function(problem, sf, "asf")
-
+    problem_w_asf, target = add_asf_generic_nondiff(
+        problem,
+        symbol="asf",
+        reference_point=previous_nav_point,
+        weights=weights,
+        reference_in_aug=True,
+    )
     # Note: We do not solve the global problem. Instead, we solve this constrained problem:
     const_exprs = [
         f"{obj.symbol}_min - {previous_nav_point[obj.symbol] * (-1 if obj.maximize else 1)}"
@@ -318,8 +323,60 @@ def get_current_path(all_responses: list[NAUTILUS_Response]) -> list[int]:
     return list(reversed(path))
 
 
+def ranks_to_weights(ranks: dict[str, int], problem: Problem) -> dict[str, float]:
+    """Convert ranks to weights.
+
+    The ranks are converted to weights using the following formula:
+    weight = rank * (nadir - utopian). Note that this means that a lower rank is worse.
+
+    Args:
+        ranks (dict[str, int]): The ranks of the objectives.
+        problem (Problem): The problem being solved.
+
+    Returns:
+        dict[str, float]: The weights calculated from the ranks.
+    """
+    nadir = get_nadir_dict(problem)
+    ideal = get_ideal_dict(problem)
+    tol = 1e-10
+    weights = {}
+    for key, rank in ranks.items():
+        max_mult = [obj.maximize for obj in problem.objectives if obj.symbol == key][0]
+        max_mult = -1 if max_mult else 1
+        weights[key] = rank * (nadir[key] * max_mult - ideal[key] * max_mult + tol)
+    return weights
+
+
+def points_to_weights(points: dict[str, float], problem: Problem) -> dict[str, float]:
+    """Convert points to weights.
+
+    The points are converted to weights using the following formula:
+    weight = point * (nadir - utopian).
+
+    Args:
+        points (dict[str, float]): The points of the objectives.
+        problem (Problem): The problem being solved.
+
+    Returns:
+        dict[str, float]: The weights calculated from the points.
+    """
+    nadir = get_nadir_dict(problem)
+    ideal = get_ideal_dict(problem)
+    tol = 1e-6
+    weights = {}
+    check_sum = 0
+    for key, point in points.items():
+        max_mult = [obj.maximize for obj in problem.objectives if obj.symbol == key][0]
+        max_mult = -1 if max_mult else 1
+        weights[key] = point / 100 * (nadir[key] * max_mult - ideal[key] * max_mult + tol)
+        check_sum += point
+    if check_sum != 100:
+        raise ValueError(f"The sum of the points must be 100. The sum is {check_sum}.")
+    return weights
+
+
 if __name__ == "__main__":
-    from desdeo.problem import binh_and_korn, get_ideal_dict
+    from desdeo.problem import binh_and_korn
 
     problem = binh_and_korn()
 
@@ -332,7 +389,8 @@ if __name__ == "__main__":
     steps_remaining = 100
 
     # get reference point
-    preference = {"f_1": 100.0, "f_2": 8.0}
+    ranks = {"f_1": 1, "f_2": 2}
+    weights = ranks_to_weights(ranks, problem)
 
     # get ranking
     #  "preference_method": 1,
@@ -340,7 +398,7 @@ if __name__ == "__main__":
     # preference = {"f_1": 100.0, "f_2": 8.0}
 
     # calculate reachable solution (direction)
-    opt_result = solve_reachable_solution(problem, preference, nav_point)
+    opt_result = solve_reachable_solution(problem, weights, nav_point)
 
     assert opt_result.success
 
@@ -358,7 +416,7 @@ if __name__ == "__main__":
     step += 1
     steps_remaining -= 1
 
-    # no new reference point, reachable point (direction) stays the same
+    # no new preference, reachable point (direction) stays the same
     # update nav point
     nav_point = calculate_navigation_point(problem, nav_point, reachable_point, steps_remaining)
     print(f"{nav_point=}")
@@ -372,10 +430,11 @@ if __name__ == "__main__":
     steps_remaining -= 1
 
     # new reference point
-    preference = {"f_1": 80.0, "f_2": 9.0}
+    points = {"f_1": 80, "f_2": 20}  # Now f_1 is more important
+    weights = points_to_weights(points, problem)
 
     # calculate reachable solution (direction)
-    opt_result = solve_reachable_solution(problem, preference, nav_point)
+    opt_result = solve_reachable_solution(problem, weights, nav_point)
 
     assert opt_result.success
 
