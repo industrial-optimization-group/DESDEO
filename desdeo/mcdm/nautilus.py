@@ -25,6 +25,7 @@ from desdeo.tools.scalarization import (  # create_asf, should be add_asf_nondif
     add_asf_generic_nondiff,
 )
 from desdeo.tools.utils import guess_best_solver
+from warnings import warn
 
 
 # TODO: check if need all of these, eg. distance to front? and do I need to change some of them?
@@ -143,8 +144,8 @@ def nautilus_step(  # NOQA: PLR0913
     step_number: int,
     nav_point: dict,
     create_solver: CreateSolverType | None = None,
-    preference: dict | None = None,
-    reachable_solution: dict | None = None,
+    points: dict[str, float] | None = None,
+    ranks: dict[str, int] | None = None,
 ) -> NAUTILUS_Response:
     """Performs a step of the NAUTILUS method.
 
@@ -154,12 +155,8 @@ def nautilus_step(  # NOQA: PLR0913
         step_number (int): The current step number. Just used for the response.
         nav_point (dict): The current navigation point.
         create_solver (CreateSolverType | None, optional): The solver to use. Defaults to None.
-        preference (dict | None, optional): The reference point provided by the DM. Defaults to None, in which
-        case it is assumed that the DM has not changed their preference. The algorithm uses the last reachable solution,
-        which must be provided in this case.
-        bounds (dict | None, optional): The bounds of the problem provided by the DM. Defaults to None.
-        reachable_solution (dict | None, optional): The previous reachable solution. Must only be provided if the DM
-        has not changed their preference. Defaults to None.
+        points (dict[str, float] | None, optional): The points of the objectives. Defaults to None.
+        ranks (dict[str, int] | None, optional): The ranks of the objectives. Defaults to None.
 
     Raises:
         NautilusError: If neither preference nor reachable_solution is provided.
@@ -168,27 +165,31 @@ def nautilus_step(  # NOQA: PLR0913
     Returns:
         NAUTILUS_Response: The response of the method after the step.
     """
-    if preference is None and reachable_solution is None:
-        raise NautilusError("Either preference or reachable_solution must be provided.")
+    if points is None and ranks is None:
+        raise NautilusError("Either points or ranks must be provided.")
+    if points is not None and ranks is not None:
+        raise NautilusError("Both points and ranks cannot be provided.")
 
-    if preference is not None and reachable_solution is not None:
-        raise NautilusError("Only one of preference or reachable_solution should be provided.")
-
-    if preference is not None:
-        opt_result = solve_reachable_solution(problem, preference, nav_point, create_solver)
-        reachable_point = opt_result.optimal_objectives
+    # get weights
+    if points is not None:  # noqa: SIM108
+        weights = points_to_weights(points, problem)
     else:
-        reachable_point = reachable_solution
+        weights = ranks_to_weights(ranks, problem)
+
+    # calculate reachable solution (direction).
+    # This is inefficient as it is recalculated even if preferences do not change.
+    opt_result = solve_reachable_solution(problem, weights, nav_point, create_solver)
+
+    if not opt_result.success:
+        warn(message="The solver did not converge.", stacklevel=2)
+
+    reachable_point = opt_result.optimal_objectives
 
     # update nav point
     new_nav_point = calculate_navigation_point(problem, nav_point, reachable_point, steps_remaining)
 
     # update_bounds
-    lower_bounds, upper_bounds = solve_reachable_bounds(
-        problem,
-        new_nav_point,
-        create_solver=create_solver,
-    )
+    lower_bounds, upper_bounds = solve_reachable_bounds(problem, new_nav_point, create_solver)
 
     distance = calculate_distance_to_front(problem, new_nav_point, reachable_point)
 
@@ -197,12 +198,12 @@ def nautilus_step(  # NOQA: PLR0913
         distance_to_front=distance,
         navigation_point=new_nav_point,
         reachable_solution=reachable_point,
-        preference=preference,
+        preference=ranks if ranks is not None else points,
         reachable_bounds={"lower_bounds": lower_bounds, "upper_bounds": upper_bounds},
     )
 
 
-def nautilus_all_steps(
+def __nautilus_all_steps(
     problem: Problem,
     steps_remaining: int,
     preference: dict,
