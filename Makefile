@@ -27,7 +27,7 @@ test-all:
 	pytest
 
 test-changes:
-	pytest --testmon -m "not nautilus and not performance and not skip"
+	pytest --testmon
 
 requirements-rtd:
 	poetry export --format requirements.txt --with=dev --extras "standard" --without-hashes --output docs/requirements.txt
