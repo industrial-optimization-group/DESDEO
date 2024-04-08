@@ -9,7 +9,15 @@ from gurobipy_model_extension import GurobipyModel
 import warnings
 
 from desdeo.problem.json_parser import FormatEnum, MathParser
-from desdeo.problem.schema import ConstraintTypeEnum, Problem, VariableTypeEnum
+from desdeo.problem.schema import (
+    Constraint, 
+    ConstraintTypeEnum, 
+    Objective, 
+    Problem, 
+    ScalarizationFunction, 
+    Variable, 
+    VariableTypeEnum
+)
 
 
 class GurobipyEvaluatorError(Exception):
@@ -213,6 +221,7 @@ class GurobipyEvaluator:
 
             model.addConstr(gp_expr, name=cons.symbol)
 
+        model.update()
         return model
 
     def init_scalarizations(self, problem: Problem, model: GurobipyModel) -> GurobipyModel:
@@ -223,7 +232,7 @@ class GurobipyEvaluator:
         evaluator needs to set it as an optimization target first.
 
         Args:
-            problem (Problem): the problem from which to extract thescalarization function expressions.
+            problem (Problem): the problem from which to extract the scalarization function expressions.
             model (GurobipyModel): the GurobipyModel to add the expressions to.
 
         Returns:
@@ -233,6 +242,116 @@ class GurobipyEvaluator:
             model.addScalarization(self.parse(scal.func, model),scal.symbol)
 
         return model
+    
+    def addConstraint(self, constraint: Constraint) -> gp.Constr:
+        """Add a constraint expression to a GurobipyModel.
+
+        If adding a lot of constraints, this function may end up being very slow compared
+        to adding the constraints to the stored model directly, because of the model.update() calls.
+
+        Args:
+            constraint (Constraint): the constraint function expression.
+
+        Raises:
+            GurobipyEvaluatorError: when an unsupported constraint type is encountered.
+
+        Returns:
+            gurobipy.Constr: The gurobipy constraint that was added.
+        """
+        gp_expr = self.parse(constraint.func, self.model)
+
+        match con_type := constraint.cons_type:
+            case ConstraintTypeEnum.LTE:
+                # constraints in DESDEO are defined such that they must be less than zero
+                gp_expr = _le(gp_expr, 0)
+            case ConstraintTypeEnum.EQ:
+                gp_expr = _eq(gp_expr, 0)
+            case _:
+                msg = f"Constraint type of {con_type} not supported. Must be one of {ConstraintTypeEnum}."
+                raise GurobipyEvaluatorError(msg)
+        
+        return_cons = self.model.addConstr(gp_expr, name=constraint.symbol)
+        self.model.update()
+        return return_cons
+        
+    def addObjective(self, obj: Objective):
+        """Adds an objective function expression to a GurobipyModel.
+
+        Does not yet add any actual gurobipy optimization objectives, only adds them to the dict 
+        containing the expressions of the objectives. The objective expressions are stored in the 
+        GurobipyModel and the evaluator must add the appropiate gurobipy objective before solving.
+
+        Args:
+            obj (Objective): the objective function expression to be added.
+        """
+        gp_expr = self.parse(obj.func, self.model)
+        if isinstance(gp_expr, int) or isinstance(gp_expr, float):
+            warnings.warn(
+                "One or more of the problem objectives seems to be a constant.",
+                GurobipyEvaluatorWarning
+            )
+        if isinstance(gp.GenExpr, int):
+            msg = f"Gurobi does not support objective functions that are not linear or quadratic {gp_expr}"
+            raise GurobipyEvaluatorError(msg)
+
+        self.model.addObjectiveFunction(gp_expr,name=obj.symbol)
+
+        # the obj.symbol_min objectives are used when optimizing and building scalarizations etc...
+        self.model.addObjectiveFunction((-gp_expr if obj.maximize else gp_expr),name=f"{obj.symbol}_min")
+
+    def addScalarizationFunction(self, scal: ScalarizationFunction):
+        """Adds a scalrization expression to a gurobipy model.
+
+        Scalarizations work identically to objectives, except they are stored in a different
+        dict in the GurobipyModel. If you want to solve the problem using a scalarization, the
+        evaluator needs to set it as an optimization target first.
+
+        Args:
+            scal (ScalarizationFunction): The scalarization function to be added.
+        """
+        self.model.addScalarization(self.parse(scal.func, self.model),scal.symbol)
+
+    def addVariable(self, var: Variable) -> gp.Var:
+        """Add variables to the GurobipyModel.
+
+        If adding a lot of variables, this function may end up being very slow compared
+        to adding the variables to the stored model directly, because of the model.update() calls.
+
+        Args:
+            var (Variable): The definition of the variable to be added.
+
+        Raises:
+            GurobipyEvaluatorError: when a problem in extracting the variables is encountered.
+                I.e., the variables are of a non supported type.
+
+        Returns:
+            gp.Var: the variable that was added to the model.
+        """
+        lowerbound = var.lowerbound if var.lowerbound is not None else float("-inf")
+        upperbound = var.upperbound if var.upperbound is not None else float("inf")
+
+        # figure out the variable type
+        match (var.variable_type):
+            case (VariableTypeEnum.integer):
+                # variable is integer
+                domain = gp.GRB.INTEGER
+            case (VariableTypeEnum.real):
+                # variable is real
+                domain = gp.GRB.CONTINUOUS
+            case (VariableTypeEnum.binary):
+                domain = gp.GRB.BINARY
+            case _:
+                msg = f"Could not figure out the type for variable {var}."
+                raise GurobipyEvaluatorError(msg)
+
+        # add the variable to the model
+        gvar = self.model.addVar(lb=lowerbound, ub=upperbound, vtype=domain, name=var.symbol)
+        # set the initial value, if one has been defined
+        if var.initial_value is not None:
+            gvar.setAttr("Start", var.initial_value)
+        
+        self.model.update()
+        return gvar
 
     def get_values(self) -> dict[str, float | int | bool]:
         """Get the values from the GurobipyModel in a dict.
@@ -267,6 +386,32 @@ class GurobipyEvaluator:
                 result_dict[scal.symbol] = self.model.scalarizations[scal.symbol]
 
         return result_dict
+    
+    def removeConstraint(self, symbol: str):
+        """Removes a constraint from the model.
+
+        If removing a lot of constraints or dealing with a very large model this function 
+        may be slow because of the model.update() calls. Accessing the stored model directly
+        may be faster.
+        
+        Args:
+            symbol (str): a str representing the symbol of the constraint to be removed.
+        """
+        self.model.remove(self.model.getConstrByName(symbol))
+        self.model.update()
+
+    def removeVariable(self, symbol: str):
+        """Removes a variable from the model.
+
+        If removing a lot of variables or dealing with a very large model this function 
+        may be slow because of the model.update() calls. Accessing the stored model directly
+        may be faster.
+        
+        Args:
+            symbol (str): a str representing the symbol of the variable to be removed.
+        """
+        self.model.remove(self.model.getVarByName(symbol))
+        self.model.update()
 
     def set_optimization_target(self, target: str):
         """Sets a minimization objective to match the target objective or scalarization of the gurobipy model.
