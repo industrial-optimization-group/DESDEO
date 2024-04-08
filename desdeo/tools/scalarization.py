@@ -986,7 +986,108 @@ def add_guess_sf_diff(
     return _problem.add_constraints(constraints), symbol
 
 
-def add_achievement_sf_diff(
+def add_guess_sf_nondiff(
+    problem: Problem,
+    symbol: str,
+    reference_point: dict[str, float],
+    rho: float = 1e-6,
+    delta: float = 1e-6,
+) -> tuple[Problem, str]:
+    r"""Adds the non-differentiable variant of the GUESS scalarizing function.
+
+    \begin{align*}
+        \underset{\mathbf{x}}{\min}\quad & \underset{i \notin I^\diamond}{\max}
+        \left[
+        \frac{f_i(\mathbf{x}) - z_i^{\star\star}}{\bar{z}_i - z_i^{\star\star}}
+        \right]
+        + \rho \sum_{j=1}^k \frac{f_j(\mathbf{x})}{d_j},
+        \quad & \\
+        \text{s.t.}\quad
+        & d_j =
+        \begin{cases}
+        z^\text{nad}_j - \bar{z}_j,\quad \forall j \notin I^\diamond,\\
+        z^\text{nad}_j - z^{\star\star}_j,\quad \forall j \in I^\diamond,\\
+        \end{cases}\\
+        & \mathbf{x} \in S,
+    \end{align*}
+
+    where $f_{i/j}$ are objective functions, $z_{i/j}^{\star\star} =
+    z_{i/j}^\star - \delta$ is a component of the utopian point, $\bar{z}_{i/j}$
+    is a component of the reference point, $\rho$ and $\delta$ are small scalar
+    values, and $S$ is the feasible solution space of the original problem. The
+    index set $I^\diamond$ represents objective vectors whose values are free to
+    change. The indices belonging to this set are interpreted as those objective
+    vectors whose components in the reference point is set to be the the
+    respective nadir point component of the problem.
+
+    References:
+        Buchanan, J. T. (1997). A naive approach for solving MCDM problems: The
+        GUESS method. Journal of the Operational Research Society, 48, 202-206.
+
+    Args:
+        problem (Problem): the problem the scalarization is added to.
+        symbol (str): the symbol given to the added scalarization.
+        reference_point (dict[str, float]): a dict with keys corresponding to objective
+            function symbols and values to reference point components, i.e.,
+            aspiration levels.
+        rho (float, optional): a small scalar value to scale the sum in the objective
+            function of the scalarization. Defaults to 1e-6.
+        delta (float, optional): a small scalar to define the utopian point. Defaults to 1e-6.
+
+    Returns:
+        tuple[Problem, str]: a tuple with the copy of the problem with the added
+            scalarization and the symbol of the added scalarization.
+    """
+    # check reference point
+    if not objective_dict_has_all_symbols(problem, reference_point):
+        msg = f"The give reference point {reference_point} is missing value for one or more objectives."
+        raise ScalarizationError(msg)
+
+    ideal_point, nadir_point = get_corrected_ideal_and_nadir(problem)
+    corrected_rp = get_corrected_reference_point(problem, reference_point)
+
+    # the indices that are free to change, set if component of reference point
+    # has the corresponding nadir value, or if it is greater than the nadir value
+    free_to_change = [
+        sym
+        for sym in corrected_rp
+        if np.isclose(corrected_rp[sym], nadir_point[sym]) or corrected_rp[sym] > nadir_point[sym]
+    ]
+
+    # define the max expression of the scalarization
+    # if the objective symbol belongs to the class I^diamond, then do not add it
+    # to the max expression
+    max_expr = ", ".join(
+        [
+            (
+                f"({obj.symbol}_min - {(ideal_point[obj.symbol] - delta)}) / "
+                f"({reference_point[obj.symbol]} - {(ideal_point[obj.symbol] - delta)})"
+            )
+            for obj in problem.objectives
+            if obj.symbol not in free_to_change
+        ]
+    )
+
+    # define the augmentation term
+    aug_expr = " + ".join(
+        [
+            (
+                f"{obj.symbol}_min / ({nadir_point[obj.symbol]} - "
+                f"{reference_point[obj.symbol] if obj.symbol not in free_to_change else ideal_point[obj.symbol] - delta})"
+            )
+            for obj in problem.objectives
+        ]
+    )
+
+    target_expr = f"{Op.MAX}({max_expr}) + {rho}*({aug_expr})"
+    scalarization = ScalarizationFunction(
+        name="GUESS scalarization objective function", symbol=symbol, func=target_expr
+    )
+
+    return problem.add_scalarization(scalarization), symbol
+
+
+def add_asf_diff(
     problem: Problem,
     symbol: str,
     reference_point: dict[str, float],

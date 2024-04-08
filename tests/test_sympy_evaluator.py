@@ -11,7 +11,7 @@ from desdeo.problem import (
     river_pollution_problem,
     zdt1,
 )
-from desdeo.tools import add_achievement_sf_diff, add_weighted_sums
+from desdeo.tools import add_asf_diff, add_weighted_sums
 
 
 @pytest.mark.sympy
@@ -55,7 +55,7 @@ def test_initialization():
     assert problem.scalarization_funcs is None
 
     rp = {"f_1": 2.5, "f_2": 5.2}
-    problem_w_asf, target = add_achievement_sf_diff(problem, "target", rp)
+    problem_w_asf, target = add_asf_diff(problem, "target", rp)
 
     assert len(problem_w_asf.scalarization_funcs) == 1
 

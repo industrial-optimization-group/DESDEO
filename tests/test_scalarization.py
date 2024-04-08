@@ -20,11 +20,12 @@ from desdeo.tools import (
 )
 from desdeo.tools.scalarization import (
     ScalarizationError,
-    add_achievement_sf_diff,
+    add_asf_diff,
     add_asf_generic_nondiff,
     add_asf_nondiff,
     add_epsilon_constraints,
     add_guess_sf_diff,
+    add_guess_sf_nondiff,
     add_nimbus_sf_diff,
     add_nimbus_sf_nondiff,
     add_stom_sf_diff,
@@ -490,7 +491,7 @@ def test_achievement_sf_init():
 
     rp = {"f_1": -5.0, "f_2": -3.0, "f_3": 2.5, "f_4": -5.0, "f_5": 0.35}
 
-    problem_w_sf, target = add_achievement_sf_diff(problem, "target", rp)
+    problem_w_sf, target = add_asf_diff(problem, "target", rp)
 
     # one for each objective function
     assert len(problem_w_sf.constraints) == 5
@@ -505,7 +506,7 @@ def test_achievement_sf_diff():
 
     first_reference_point = {"f_1": -2.0, "f_2": 2.0, "f_3": 0.0}
 
-    problem_w_sf, target = add_achievement_sf_diff(problem, "target", first_reference_point)
+    problem_w_sf, target = add_asf_diff(problem, "target", first_reference_point)
 
     sol_options = BonminOptions(tol=1e-6, bonmin_algorithm="B-Hyb")
     solver = create_pyomo_bonmin_solver(problem_w_sf, sol_options)
@@ -524,7 +525,7 @@ def test_achievement_sf_diff():
 
     second_reference_point = {"f_1": -1.0, "f_2": -1.0, "f_3": -1.5}
 
-    problem_w_sf, target = add_achievement_sf_diff(problem, "target", second_reference_point)
+    problem_w_sf, target = add_asf_diff(problem, "target", second_reference_point)
 
     sol_options = BonminOptions(tol=1e-6, bonmin_algorithm="B-Hyb")
     solver = create_pyomo_bonmin_solver(problem_w_sf, sol_options)
@@ -630,3 +631,35 @@ def test_stom_sf_nondiff_solve():
     # f_1 should be the lowest value
     assert result.optimal_objectives["f_1"] < result.optimal_objectives["f_2"]
     assert result.optimal_objectives["f_1"] < result.optimal_objectives["f_3"]
+
+
+@pytest.mark.scalarization
+@pytest.mark.nimbus
+@pytest.mark.slow
+def test_guess_sf_nondiff_solve():
+    """Test that the non-differentiable variant of GUESS works."""
+    n_variables = 3
+    n_objectives = 3
+    problem = dtlz2(n_variables, n_objectives)
+
+    rp = {"f_1": 0.6, "f_2": 0.2, "f_3": 0.7}
+
+    problem_w_sf, target = add_guess_sf_nondiff(problem, "target", rp)
+
+    solver_options = NevergradGenericOptions(budget=250, num_workers=1, optimizer="NGOpt")
+
+    solver = create_ng_generic_solver(problem_w_sf, solver_options)
+
+    result = solver(target)
+
+    assert result.success
+
+    xs = result.optimal_variables
+    assert result.success
+    # atol is crap here as well
+    assert all(np.isclose(xs[f"x_{i}"], 0.5, atol=1e-1) for i in range(n_objectives, n_variables + 1))
+    assert np.isclose(sum(result.optimal_objectives[obj.symbol] ** 2 for obj in problem.objectives), 1.0, atol=1e-2)
+
+    # f_2 should be the lowest value
+    assert result.optimal_objectives["f_2"] < result.optimal_objectives["f_1"]
+    assert result.optimal_objectives["f_2"] < result.optimal_objectives["f_3"]
