@@ -1,4 +1,5 @@
 """Various utilities used accross the framework related to the Problem formulation."""
+
 import numpy as np
 
 from desdeo.problem import Problem
@@ -7,12 +8,10 @@ from desdeo.problem import Problem
 def objective_dict_to_numpy_array(problem: Problem, objective_dict: dict[str, float]) -> np.ndarray:
     """Takes a dict with an objective vector and returns a numpy array.
 
-    Takes a dict with the keys being obejctive function symbols and the values
+    Takes a dict with the keys being objective function symbols and the values
     being the corresponding objective function values. Returns a numpy array
-    with the objective function valeus in order.
-
-    Because the order of the keys in a Python dicts varies across implementation (of Python),
-    it is important that we do not assume any order in the keys found in objective_dict.
+    with the objective function values in the same order they have been defined
+    in the original problem.
 
     Args:
         problem (Problem): the problem the objective dict belongs to.
@@ -44,6 +43,29 @@ def numpy_array_to_objective_dict(problem: Problem, numpy_array: np.ndarray) -> 
             objective function values.
     """
     return {objective.symbol: np.squeeze(numpy_array).tolist()[i] for i, objective in enumerate(problem.objectives)}
+
+
+def variable_dict_to_numpy_array(problem: Problem, variable_dict: dict[str, float]) -> np.ndarray:
+    """Takes a dict with a decision variable vector and returns a numpy array.
+
+    Takes a dict with the keys being decision variable symbols and the values
+    being the corresponding variable values. Returns a numpy array
+    with the decision variable values in the same order they have been defined in
+    the original problem.
+
+    Args:
+        problem (Problem): the problem the objective dict belongs to.
+        variable_dict (dict[str, float]): the dict with the decision variable values.
+
+    Returns:
+        np.ndarray: a numpy array with the decision variable values in the order they are
+            present in problem.
+    """
+    if isinstance(variable_dict[problem.variables[0].symbol], list):
+        if len(variable_dict[problem.variables[0].symbol]) != 1:
+            raise ValueError("The variable_dict has multiple values for a decision variable.")
+        return np.array([variable_dict[variable.symbol][0] for variable in problem.variables])
+    return np.array([variable_dict[variable.symbol] for variable in problem.variables])
 
 
 def get_nadir_dict(problem: Problem) -> dict[str, float]:

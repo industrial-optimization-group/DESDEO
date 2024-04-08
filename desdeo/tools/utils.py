@@ -1,9 +1,9 @@
 """General utilities related to solvers."""
 
 from desdeo.problem import ObjectiveTypeEnum, Problem
-from desdeo.tools.generics import CreateSolverType
-from desdeo.tools.proximal_solver import create_proximal_solver
-from desdeo.tools.scipy_solver_interfaces import (
+from .generics import CreateSolverType
+from .proximal_solver import create_proximal_solver
+from .scipy_solver_interfaces import (
     create_scipy_de_solver,
     create_scipy_minimize_solver,
 )

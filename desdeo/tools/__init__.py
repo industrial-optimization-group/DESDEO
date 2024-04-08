@@ -2,6 +2,8 @@
 
 __all__ = [
     "BonminOptions",
+    "CreateSolverType",
+    "SolverResults",
     "NevergradGenericOptions",
     "ScalarizationError",
     "add_asf_diff",
@@ -22,6 +24,9 @@ __all__ = [
     "create_pyomo_gurobi_solver",
     "create_scipy_de_solver",
     "create_scipy_minimize_solver",
+    "get_corrected_ideal_and_nadir",
+    "get_corrected_reference_point",
+    "guess_best_solver",
 ]
 
 from desdeo.tools.ng_solver_interfaces import (
@@ -53,3 +58,7 @@ from desdeo.tools.scipy_solver_interfaces import (
     create_scipy_de_solver,
     create_scipy_minimize_solver,
 )
+
+from desdeo.tools.generics import CreateSolverType, SolverResults
+
+from desdeo.tools.utils import get_corrected_ideal_and_nadir, get_corrected_reference_point, guess_best_solver

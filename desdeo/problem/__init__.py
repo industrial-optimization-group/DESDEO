@@ -17,6 +17,7 @@ __all__ = [
     "MathParser",
     "momip_ti2",
     "momip_ti7",
+    "nimbus_test_problem",
     "numpy_array_to_objective_dict",
     "objective_dict_to_numpy_array",
     "Objective",
@@ -30,7 +31,9 @@ __all__ = [
     "simple_test_problem",
     "ScalarizationFunction",
     "Variable",
+    "VariableType",
     "VariableTypeEnum",
+    "variable_dict_to_numpy_array",
     "zdt1",
 ]
 
@@ -49,6 +52,7 @@ from .schema import (
     Problem,
     ScalarizationFunction,
     Variable,
+    VariableType,
     VariableTypeEnum,
 )
 from .sympy_evaluator import SympyEvaluator
@@ -57,6 +61,7 @@ from .testproblems import (
     dtlz2,
     momip_ti2,
     momip_ti7,
+    nimbus_test_problem,
     river_pollution_problem,
     simple_data_problem,
     simple_linear_test_problem,
@@ -68,4 +73,5 @@ from .utils import (
     get_nadir_dict,
     numpy_array_to_objective_dict,
     objective_dict_to_numpy_array,
+    variable_dict_to_numpy_array,
 )
