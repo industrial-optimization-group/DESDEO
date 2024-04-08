@@ -244,13 +244,13 @@ environment, we can now run
 
 <span id="bash:poetry_install_dev"></span>
 ```shell
-$ poetry install -E standard --with-group dev # (1)!
+$ poetry install -E standard --group=dev # (1)!
 ```
 
 1.  The option `-E standard` install the regular version of polars. If we are on an
     older CPU, we might want to install the legacy version with the option `-E legacy`.
     The `-E` flag is used to indicate to poetry extra dependencies
-    we wish to install. Likewise, the `--with-group dev`
+    we wish to install. Likewise, the `--group=dev`
     tells poetry that we want to install the dependencies listed as development
     dependencies.
 
