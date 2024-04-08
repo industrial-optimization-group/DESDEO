@@ -1,5 +1,7 @@
 """Defines generic classes, functions, and objects utilized in the tools module."""
-from typing import Callable, TypeVar
+
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 from pydantic import BaseModel, Field
 
@@ -28,5 +30,5 @@ class SolverResults(BaseModel):
     message: str = Field(description="Description of the cause of termination.")
 
 
-Kwargs = TypeVar("Kwargs", bound=dict)
-CreateSolverType = Callable[[Problem, Kwargs], Callable[[str], SolverResults]]
+SolverOptions = TypeVar("SolverOptions", bound=Any)
+CreateSolverType = Callable[[Problem, SolverOptions], Callable[[str], SolverResults]]

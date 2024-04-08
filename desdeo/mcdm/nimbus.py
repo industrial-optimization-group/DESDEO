@@ -8,9 +8,11 @@ References:
 
 import numpy as np
 
-from desdeo.problem import Problem, VariableType, variable_dict_to_numpy_array
+from desdeo.problem import Problem, VariableType, variable_dict_to_numpy_array, GenericEvaluator
 from desdeo.tools import (
     CreateSolverType,
+    SolverOptions,
+    SolverResults,
     add_asf_diff,
     add_asf_nondiff,
     add_nimbus_sf_diff,
@@ -33,6 +35,7 @@ def solve_intermediate_solutions(
     solution_2: dict[str, VariableType],
     num_desired: int,
     create_solver: CreateSolverType | None = None,
+    solver_options: SolverOptions | None = None,
 ) -> list[dict[str, VariableType | float]]:
     """Generates a desired number of intermediate solutions between two given solutions.
 
@@ -55,6 +58,9 @@ def solve_intermediate_solutions(
         create_solver (CreateSolverType | None, optional): a function that given a problem, will return a solver.
             If not given, an appropriate solver will be automatically determined based on the features of `problem`.
             Defaults to None.
+        solver_options (SolverOptions | None, optional): optional options passed
+            to the `create_solver` routine. Ignored if `create_solver` is `None`.
+            Defaults to None.
 
     Returns:
         list[dict[str, VariableType | float]]: a list with the projected intermediate solutions, including
@@ -66,7 +72,45 @@ def solve_intermediate_solutions(
         msg = f"The given number of desired intermediate ({num_desired=}) solutions must be at least 1."
         raise NimbusError(msg)
 
+    _create_solver = guess_best_solver(problem) if create_solver is None else create_solver
+    _solver_options = None if solver_options is None else solver_options
+
     # compute the element-wise difference between each solution (in the decision space)
     solution_1_arr = variable_dict_to_numpy_array(problem, solution_1)
     solution_2_arr = variable_dict_to_numpy_array(problem, solution_2)
     delta = solution_1_arr - solution_2_arr
+
+    # the '2' is in the denominator because we want to calculate the steps
+    # between the two given points; we are not interested in the given points themselves.
+    step_size = delta / (2 + num_desired)
+
+    intermediate_points = np.array([solution_2_arr + i * step_size for i in range(1, num_desired + 1)])
+
+    xs = {f"{variable.symbol}": intermediate_points[:, i].tolist() for (i, variable) in enumerate(problem.variables)}
+
+    # evaluate the intermediate points to get reference points
+    # TODO(gialmisi): an evaluator might have to be selected depending on the problem
+    evaluator = GenericEvaluator(problem)
+
+    reference_points: list[dict[str, float]] = (
+        evaluator.evaluate(xs).select([obj.symbol for obj in problem.objectives]).to_dicts()
+    )
+
+    # for each reference point, add and solve the ASF scalarization problem
+    # projecting the reference point onto the Pareto optimal front of the problem.
+    # TODO(gialmisi): this can be done in parallel.
+    intermediate_solutions = []
+    for rp in reference_points:
+        # add scalarization
+        # TODO(gialmisi): add logic that selects correct variant of the ASF
+        # depending on problem properties (either diff or non-diff)
+        asf_problem, target = add_asf_nondiff(problem, "target", rp, reference_in_aug=False)
+
+        solver = _create_solver(asf_problem, _solver_options)
+
+        # solve and store results
+        result: SolverResults = solver(target)
+
+        intermediate_solutions.append(result.optimal_variables | result.optimal_objectives)
+
+    return intermediate_solutions

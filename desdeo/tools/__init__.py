@@ -3,6 +3,7 @@
 __all__ = [
     "BonminOptions",
     "CreateSolverType",
+    "SolverOptions",
     "SolverResults",
     "NevergradGenericOptions",
     "ScalarizationError",
@@ -59,6 +60,6 @@ from desdeo.tools.scipy_solver_interfaces import (
     create_scipy_minimize_solver,
 )
 
-from desdeo.tools.generics import CreateSolverType, SolverResults
+from desdeo.tools.generics import CreateSolverType, SolverOptions, SolverResults
 
 from desdeo.tools.utils import get_corrected_ideal_and_nadir, get_corrected_reference_point, guess_best_solver
