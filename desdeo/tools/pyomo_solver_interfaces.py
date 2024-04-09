@@ -56,8 +56,19 @@ class BonminOptions:
         return output
 
 
+class IpoptOptions:
+    """Defines a pydantic dataclass to pass options to the ipopt solver.
+
+    Returns:
+        _type_: _description_
+    """
+
+
 _default_bonmin_options = BonminOptions()
-"""Defines Bonmin options with the default values."""
+"""Defines Bonmin options with default values."""
+
+_default_ipopt_options = IpoptOptions()
+"""Defines Ipopt optins with default values."""
 
 
 def parse_pyomo_optimizer_results(
@@ -139,40 +150,53 @@ def create_pyomo_bonmin_solver(
 
     return solver
 
-def create_pyomo_gurobi_solver(
-    problem: Problem, options: dict = dict()
-) -> Callable[[str], SolverResults]:
-    """Creates a pyomo solver that utilizes gurobi. You need to have gurobi
-    installed on your system for this to work.
 
-    Suitable for solving mixed-integer linear and quadratic optimization 
-    problems.
+def create_pyomo_ipopt_solver(
+    problem: Problem, options: IpoptOptions = _default_ipopt_options
+) -> Callable[[str], SolverResults]:
+    """Creates a pyomo solver that utilizes ipopt.
+
+    Args:
+        problem (Problem): _description_
+        options (IpoptOptions, optional): _description_. Defaults to _default_ipopt_options.
+
+    Returns:
+        Callable[[str], SolverResults]: _description_
+    """
+
+
+def create_pyomo_gurobi_solver(problem: Problem, options: dict | None = None) -> Callable[[str], SolverResults]:
+    """Creates a pyomo solver that utilizes gurobi.
+
+    You need to have gurobi installed on your system for this to work.  Suitable
+    for solving mixed-integer linear and quadratic optimization problems.
 
     Args:
         problem (Problem): the problem to be solved.
-        options (GurobiOptions): Dictionary of Gurobi parameters to set.
+        options (GurobiOptions, optional): Dictionary of Gurobi parameters to set.
             This is passed to pyomo as is, so it works the same as options
-            would for calling pyomo SolverFactory directly.
+            would for calling pyomo SolverFactory directly. Defaults to None.
 
     Returns:
-        Callable[[str], SolverResults]: returns a callable function that takes
+        Callable[[str], SolverResults]: a callable function that takes
             as its argument one of the symbols defined for a function expression in
             problem.
     """
     evaluator = PyomoEvaluator(problem)
 
+    if options is None:
+        options = {}
+
     def solver(target: str) -> SolverResults:
         evaluator.set_optimization_target(target)
 
-        opt = pyomo.SolverFactory('gurobi', solver_io='python', options=options)
+        opt = pyomo.SolverFactory("gurobi", solver_io="python", options=options)
 
         # set solver options
-        #for key, value in options.asdict().items():
+        # for key, value in options.asdict().items():
         #    opt.options[key] = value
 
-        with pyomo.SolverFactory(
-            'gurobi', solver_io='python'
-        ) as opt:
+        with pyomo.SolverFactory("gurobi", solver_io="python") as opt:
             opt_res = opt.solve(evaluator.model)
             return parse_pyomo_optimizer_results(opt_res, problem, evaluator)
 
