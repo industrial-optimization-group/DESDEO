@@ -5,6 +5,7 @@ import numpy.testing as npt
 import pytest
 
 from desdeo.problem import (
+    dtlz2,
     binh_and_korn,
     momip_ti2,
     momip_ti7,
@@ -12,10 +13,12 @@ from desdeo.problem import (
 )
 from desdeo.tools import (
     BonminOptions,
+    IpoptOptions,
     create_pyomo_bonmin_solver,
+    create_pyomo_ipopt_solver,
     create_pyomo_gurobi_solver,
 )
-from desdeo.tools.scalarization import add_scalarization_function
+from desdeo.tools.scalarization import add_scalarization_function, add_asf_diff
 
 
 @pytest.mark.slow
@@ -91,7 +94,7 @@ def test_bonmin_w_momip_ti2():
 @pytest.mark.slow
 @pytest.mark.pyomo
 def test_bonmin_w_momip_ti7():
-    """TODO: Finish. Test the bonmin solver with a known problem."""
+    """Finish. Test the bonmin solver with a known problem."""
     problem = momip_ti7()
 
     sol_options = BonminOptions(tol=1e-6, bonmin_algorithm="B-BB")
@@ -145,17 +148,39 @@ def test_bonmin_w_momip_ti7():
     assert np.isclose(gs["g_1"], 0, atol=1e-8) or gs["g_1"] < 0
     assert np.isclose(gs["g_2"], 0, atol=1e-8) or gs["g_2"] < 0
 
+
 @pytest.mark.slow
 @pytest.mark.pyomo
 def test_gurobi_solver():
-    """Tests the bonmin solver."""
+    """Tests the Gurobi solver."""
     problem = simple_linear_test_problem()
     solver = create_pyomo_gurobi_solver(problem)
 
     results = solver("f_1")
 
     assert results.success
-    
+
     xs = results.optimal_variables
     assert np.isclose(xs["x_1"], 4.2, atol=1e-8)
     assert np.isclose(xs["x_2"], 2.1, atol=1e-8)
+
+
+def test_ipopt_solver():
+    """Tests that the Ipopt solver works as expected."""
+    n_variables = 8
+    n_objectives = 3
+    problem = dtlz2(n_variables, n_objectives)
+
+    rp = {"f_1": 0.4, "f_2": 0.7, "f_3": 0.5}
+
+    problem_w_asf, target = add_asf_diff(problem, "target", rp)
+
+    solver = create_pyomo_ipopt_solver(problem_w_asf)
+
+    result = solver(target)
+
+    xs = result.optimal_variables
+    fs = result.optimal_objectives
+
+    npt.assert_allclose([xs[f"x_{i+1}"] for i in range(n_objectives - 1, n_variables)], 0.5)
+    npt.assert_almost_equal(sum(fs[obj.symbol] ** 2 for obj in problem.objectives), 1.0)
