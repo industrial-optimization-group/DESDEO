@@ -98,7 +98,7 @@ def parse_pyomo_optimizer_results(
     """Parses pyomo SolverResults into DESDEO SolverResutls.
 
     Args:
-        opt_res (_pyomo_SolverResults): the pyomo solver results.
+        opt_res (SolverResults): the pyomo solver results.
         problem (Problem): the problem being solved.
         evaluator (PyomoEvaluator): the evalutor utilized to get the pyomo solver results.
 
@@ -109,7 +109,9 @@ def parse_pyomo_optimizer_results(
 
     variable_values = {var.symbol: results[var.symbol] for var in problem.variables}
     objective_values = {obj.symbol: results[obj.symbol] for obj in problem.objectives}
-    constraint_values = {con.symbol: results[con.symbol] for con in problem.constraints}
+    constraint_values = (
+        {con.symbol: results[con.symbol] for con in problem.constraints} if problem.constraints else None
+    )
     success = (
         opt_res.solver.status == _pyomo_SolverStatus.ok
         and opt_res.solver.termination_condition == _pyomo_TerminationCondition.optimal

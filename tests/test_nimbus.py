@@ -1,11 +1,12 @@
 """Tests related to the Synchronous NIMBUS method."""
 
 import numpy as np
+import numpy.testing as npt
 import pytest
 
 from desdeo.mcdm import infer_classifications, solve_intermediate_solutions, solve_sub_problems
-from desdeo.problem import nimbus_test_problem
-from desdeo.tools import IpoptOptions, create_pyomo_ipopt_solver
+from desdeo.problem import dtlz2, nimbus_test_problem
+from desdeo.tools import IpoptOptions, add_asf_diff, create_pyomo_ipopt_solver
 
 
 @pytest.mark.nimbus
@@ -31,8 +32,9 @@ def test_solve_intermediate_solutions():
     assert len(results) == num_desired
 
     for res in results:
-        assert all(obj.symbol in res for obj in problem.objectives)
-        assert all(var.symbol in res for var in problem.variables)
+        assert res.success
+        assert all(obj.symbol in res.optimal_objectives for obj in problem.objectives)
+        assert all(var.symbol in res.optimal_variables for var in problem.variables)
 
 
 @pytest.mark.nimbus
@@ -75,3 +77,63 @@ def test_infer_classifications():
     # f_6: improve until
     assert classifications["f_6"][0] == "<="
     assert np.isclose(classifications["f_6"][1], reference_point["f_6"])
+
+
+@pytest.mark.nimbus
+@pytest.mark.slow
+def test_solve_sub_problems():
+    """Test that the scalarization problems in NIMBUS are solved as expected."""
+    n_variables = 8
+    n_objectives = 3
+
+    problem = dtlz2(n_variables, n_objectives)
+
+    solver_options = IpoptOptions()
+
+    # get some initial solution
+    initial_rp = {"f_1": 0.4, "f_2": 0.3, "f_3": 0.8}
+    problem_w_sf, target = add_asf_diff(problem, "target", initial_rp)
+    solver = create_pyomo_ipopt_solver(problem_w_sf, solver_options)
+    initial_result = solver(target)
+
+    # f1: 0.4355, f2: 0.3355, f3: 0.8355
+    initial_fs = initial_result.optimal_objectives
+
+    # let f1 worsen until 0.6, keep f2, improve f3 until 0.6
+    first_rp = {"f_1": 0.6, "f_2": initial_fs["f_2"], "f_3": 0.6}
+
+    num_desired = 4
+    solutions = solve_sub_problems(
+        problem, initial_fs, first_rp, num_desired, create_pyomo_ipopt_solver, solver_options
+    )
+
+    assert len(solutions) == num_desired
+
+    # check that the solutions are Pareto optimal
+    for solution in solutions:
+        assert solution.success
+        npt.assert_almost_equal(
+            [solution.optimal_variables[f"x_{i+1}"] for i in range(n_objectives - 1, n_variables)], 0.5
+        )
+        npt.assert_almost_equal(
+            sum(solution.optimal_objectives[f"{obj.symbol}"] ** 2 for obj in problem.objectives), 1.0
+        )
+
+    # check that solutions make sense
+    for i, solution in enumerate(solutions):
+        fs = solution.optimal_objectives
+
+        # f1 should have worsened, but only until 0.6
+        assert fs["f_1"] > initial_fs["f_1"]
+        assert np.isclose(fs["f_1"], 0.6) or fs["f_1"] > 0.6
+
+        # f2 should be same or better
+        if i == 0:
+            # NIMBUS scalarization, f_2 must be either as good or better
+            assert np.isclose(fs["f_2"], initial_fs["f_2"]) or fs["f_2"] < initial_fs["f_2"]
+        else:
+            # other scalarization functions are more lenient, f2 is close to current point
+            assert abs(fs["f_2"] - initial_fs["f_2"]) < 0.1
+
+        # f3 should have improved
+        assert fs["f_3"] < initial_fs["f_3"]

@@ -267,7 +267,7 @@ def solve_sub_problems(
         list[SolverResults]: a list of `SolverResults` objects. Contains as many elements
             as defined in `num_desired`.
     """
-    if problem.ideal is None or problem.nadir is None:
+    if None in problem.get_ideal_point() or None in problem.get_nadir_point():
         msg = "The given problem must have both an ideal and nadir point defined."
         raise NimbusError(msg)
 
@@ -279,38 +279,51 @@ def solve_sub_problems(
         msg = f"The current point {reference_point} is missing entries " "for one or more of the objective functions."
         raise NimbusError(msg)
 
+    _create_solver = create_solver if create_solver is not None else guess_best_solver(problem)
+    _solver_options = solver_options if solver_options is not None else None
+
     # derive the classifications based on the reference point and and previous
     # objective function values
-    classifications = {}
+    classifications = infer_classifications(problem, current_objectives, reference_point)
 
-    for obj in problem.objectives:
-        if np.isclose(reference_point[obj.symbol], obj.nadir):
-            # the objective is free to change
-            classification = {obj.symbol: ("0", None)}
-        elif np.isclose(reference_point[obj.symbol], obj.ideal):
-            # the objective should improve
-            classification = {obj.symbol: ("<", None)}
-        elif np.isclose(reference_point[obj.symbol], current_objectives[obj.symbol]):
-            # the objective should stay as it is
-            classification = {obj.symbol: ("=", None)}
-        elif not obj.maximize and reference_point[obj.symbol] < current_objectives[obj.symbol]:
-            # minimizing objective, reference value smaller, this is an aspiration level
-            # improve until
-            classification = {obj.symbol: ("<=", reference_point[obj.symbol])}
-        elif not obj.maximize and reference_point[obj.symbol] > current_objectives[obj.symbol]:
-            # minimizing objective, reference value is greater, this is a reservations level
-            # impair until
-            classification = {obj.symbol: (">=", reference_point[obj.symbol])}
-        elif obj.maximize and reference_point[obj.symbol] < current_objectives[obj.symbol]:
-            # maximizing objective, reference value is smaller, this is a reservation level
-            # impair until
-            classification = {obj.symbol: (">=", reference_point[obj.symbol])}
-        elif obj.maximize and reference_point[obj.symbol > current_objectives[obj.symbol]]:
-            # maximizing objective, reference value is greater, this is an aspiration level
-            # improve until
-            classification = {obj.symbol: ("<=", reference_point[obj.symbol])}
-        else:
-            # could not figure classification
-            msg = f"Warning: NIMBUS could not figure out the classification for objective {obj.symbol}."
+    # TODO(gialmisi): this info should come from the problem
+    is_smooth = True
 
-        classifications |= classification
+    solutions = []
+
+    # solve the nimbus scalarization problem, this is done always
+    add_nimbus_sf = add_nimbus_sf_diff if is_smooth else add_nimbus_sf_nondiff
+
+    problem_w_nimbus, nimbus_target = add_nimbus_sf(problem, "nimbus_sf", classifications, current_objectives)
+    nimbus_solver = _create_solver(problem_w_nimbus, _solver_options)
+
+    solutions.append(nimbus_solver(nimbus_target))
+
+    if num_desired > 1:
+        # solve STOM
+        add_stom_sf = add_stom_sf_diff if is_smooth else add_stom_sf_nondiff
+
+        problem_w_stom, stom_target = add_stom_sf(problem, "stom_sf", reference_point)
+        stom_solver = _create_solver(problem_w_stom, _solver_options)
+
+        solutions.append(stom_solver(stom_target))
+
+    if num_desired > 2:
+        # solve ASF
+        add_asf = add_asf_diff if is_smooth else add_asf_nondiff
+
+        problem_w_asf, asf_target = add_asf(problem, "asf", reference_point)
+        asf_solver = _create_solver(problem_w_asf, _solver_options)
+
+        solutions.append(asf_solver(asf_target))
+
+    if num_desired > 3:
+        # solve GUESS
+        add_guess_sf = add_guess_sf_diff if is_smooth else add_guess_sf_nondiff
+
+        problem_w_guess, guess_target = add_guess_sf(problem, "guess_sf", reference_point)
+        guess_solver = _create_solver(problem_w_guess, _solver_options)
+
+        solutions.append(guess_solver(guess_target))
+
+    return solutions
