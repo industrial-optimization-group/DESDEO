@@ -18,7 +18,7 @@ from desdeo.problem.schema import (
     Variable,
     VariableTypeEnum,
 )
-from desdeo.problem.testproblems import river_pollution_problem
+from desdeo.problem.testproblems import nimbus_test_problem, river_pollution_problem
 from desdeo.tools.scalarization import add_scalarization_function
 
 
@@ -457,3 +457,21 @@ def test_add_variables():
             initial_value=0.5,
         )
         new_problem.add_variables([var_x])
+
+
+def test_get_ideal_point():
+    """Test that the ideal point is returned correctly."""
+    problem = nimbus_test_problem()
+    ideal_point = problem.get_ideal_point()
+
+    for obj in problem.objectives:
+        npt.assert_almost_equal(obj.ideal, ideal_point[obj.symbol])
+
+
+def test_get_nadir_point():
+    """Test that the nadir point is returned correctly."""
+    problem = nimbus_test_problem()
+    nadir_point = problem.get_nadir_point()
+
+    for obj in problem.objectives:
+        npt.assert_almost_equal(obj.nadir, nadir_point[obj.symbol])

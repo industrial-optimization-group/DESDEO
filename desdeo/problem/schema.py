@@ -645,6 +645,30 @@ class Problem(BaseModel):
         # scalarization function is not found
         return None
 
+    def get_ideal_point(self) -> dict[str, float | None]:
+        """Get the ideal point of the problem as an objective dict.
+
+        Returns an objective dict containing the ideal values of the
+        the problem for each objective function. These values may be `None`.
+
+        Returns:
+            dict[str, float | None] | None: an objective dict with the ideal
+                point values (which may be `None`), or `None`.
+        """
+        return {f"{obj.symbol}": obj.ideal for obj in self.objectives}
+
+    def get_nadir_point(self) -> dict[str, float | None]:
+        """Get the nadir point of the problem as an objective dict.
+
+        Returns an objective dict containing the nadir values of the
+        the problem for each objective function. These values may be `None`.
+
+        Returns:
+            dict[str, float | None] | None: an objective dict with the nadir
+                point values (which may be `None`), or `None`.
+        """
+        return {f"{obj.symbol}": obj.nadir for obj in self.objectives}
+
     name: str = Field(
         description="Name of the problem.",
     )

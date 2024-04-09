@@ -129,7 +129,7 @@ def parse_pyomo_optimizer_results(
 
 
 def create_pyomo_bonmin_solver(
-    problem: Problem, options: BonminOptions = _default_bonmin_options
+    problem: Problem, options: BonminOptions | None = _default_bonmin_options
 ) -> Callable[[str], SolverResults]:
     """Creates a pyomo solver that utilizes bonmin.
 
@@ -147,15 +147,18 @@ def create_pyomo_bonmin_solver(
 
     Args:
         problem (Problem): the problem to be solved.
-        options (BonminOptions): options to be passed to the Bonmin solver.
-            Defaults to `default_bonmin_options` defined in this source
-            file.
+        options (BonminOptions, optional): options to be passed to the Bonmin solver.
+            If `None` is passed, defaults to `_default_bonmin_options` defined in
+            this source file. Defaults to `None`.
 
     Returns:
         Callable[[str], SolverResults]: a callable function that takes
             as its argument one of the symbols defined for a function expression in
             problem.
     """
+    if options is None:
+        options = _default_bonmin_options
+
     evaluator = PyomoEvaluator(problem)
 
     def solver(target: str) -> SolverResults:
@@ -174,7 +177,7 @@ def create_pyomo_bonmin_solver(
 
 
 def create_pyomo_ipopt_solver(
-    problem: Problem, options: IpoptOptions = _default_ipopt_options
+    problem: Problem, options: IpoptOptions | None = _default_ipopt_options
 ) -> Callable[[str], SolverResults]:
     """Creates a pyomo solver that utilizes Ipopt.
 
@@ -189,13 +192,18 @@ def create_pyomo_ipopt_solver(
 
     Args:
         problem (Problem): the problem being solved.
-        options (IpoptOptions, optional): options passed to the Ipopt solver. Defaults to `_default_ipopt_options`.
+        options (IpoptOptions, optional): options to be passed to the Ipopt solver.
+            If `None` is passed, defaults to `_default_ipopt_options` defined in
+            this source file. Defaults to `None`.
 
     Returns:
         Callable[[str], SolverResults]: a callable function that takes
             as its argument one of the symbols defined for a function expression in
             problem.
     """
+    if options is None:
+        options = _default_ipopt_options
+
     evaluator = PyomoEvaluator(problem)
 
     def solver(target: str) -> SolverResults:

@@ -36,7 +36,7 @@ def solve_intermediate_solutions(
     num_desired: int,
     create_solver: CreateSolverType | None = None,
     solver_options: SolverOptions | None = None,
-) -> list[dict[str, VariableType | float]]:
+) -> list[SolverResults]:
     """Generates a desired number of intermediate solutions between two given solutions.
 
     Generates a desires number of intermediate solutions given two Pareto optimal solutions.
@@ -63,10 +63,8 @@ def solve_intermediate_solutions(
             Defaults to None.
 
     Returns:
-        list[dict[str, VariableType | float]]: a list with the projected intermediate solutions, including
-            the decision variable values and the respective objective functions values. Each element is a dict
-            with keys corresponding to the symbols of the decision variables and objective functions defined
-            for the given `problem`.
+        list[SolverResults]: a list with the projected intermediate solutions as
+            `SolverResults` objects.
     """
     if int(num_desired) < 1:
         msg = f"The given number of desired intermediate ({num_desired=}) solutions must be at least 1."
@@ -104,13 +102,215 @@ def solve_intermediate_solutions(
         # add scalarization
         # TODO(gialmisi): add logic that selects correct variant of the ASF
         # depending on problem properties (either diff or non-diff)
-        asf_problem, target = add_asf_nondiff(problem, "target", rp, reference_in_aug=False)
+        asf_problem, target = add_asf_diff(problem, "target", rp)
 
         solver = _create_solver(asf_problem, _solver_options)
 
         # solve and store results
         result: SolverResults = solver(target)
 
-        intermediate_solutions.append(result.optimal_variables | result.optimal_objectives)
+        intermediate_solutions.append(result)
 
     return intermediate_solutions
+
+
+def infer_classifications(
+    problem: Problem, current_objectives: dict[str, float], reference_point: dict[str, float]
+) -> dict[str, tuple[str, float | None]]:
+    r"""Infers NIMBUS classifications based on a reference point and current objective values.
+
+    Infers the classifications based on a given reference point and current objective function
+    values. The following classifications are inferred for each objective:
+
+    - $I^{<}$: values that should improve, the reference point value of an objective
+        function is equal to its ideal value;
+    - $I^{\leq}$: values that should improve until a given aspiration level, the reference point
+        value of an objective function is better than the current value;
+    - $I^{=}$: values that should stay as they are, the reference point value of an objective
+        function is equal to the current value;
+    - $I^{\geq}$: values that can be impaired until some reservation level, the reference point
+        value of an objective function is worse than the current value; and
+    - $I^{\diamond}$: values that are allowed to change freely, the reference point value of
+        and objective function is equal to its nadir value.
+
+    The aspiration levels and the reservation levels are then given for each classification, when relevant, in
+    the return value of this function as the following example demonstrates:
+
+    ```python
+    classifications = {
+        "f_1": ("<", None),
+        "f_2": ("<=", 42.1),
+        "f_3": (">=", 22.2),
+        "f_4": ("0", None)
+        }
+    ```
+
+    Raises:
+        NimbusError: the ideal or nadir point, or both, of the given
+            problem are undefined.
+        NimbusError: the reference point or current objectives are missing
+            entries for one or more of the objective functions defined in
+            the problem.
+
+    Args:
+        problem (Problem): the problem the current objectives and the reference point
+            are related to.
+        current_objectives (dict[str, float]): an objective dictionary with the current
+            objective functions values.
+        reference_point (dict[str, float]): an objective dictionary with the reference point
+            values.
+
+    Returns:
+        dict[str, tuple[str, float | None]]: a dict with keys corresponding to the
+            symbols of the objective functions defined for the problem and with values
+            of tuples, where the first element is the classification (str) and the second
+            element is either a reservation level (in case of classification `>=`) or an
+            aspiration level (in case of classification `<=`).
+    """
+    if None in problem.get_ideal_point() or None in problem.get_nadir_point():
+        msg = "The given problem must have both an ideal and nadir point defined."
+        raise NimbusError(msg)
+
+    if not all(obj.symbol in reference_point for obj in problem.objectives):
+        msg = f"The reference point {reference_point} is missing entries " "for one or more of the objective functions."
+        raise NimbusError(msg)
+
+    if not all(obj.symbol in current_objectives for obj in problem.objectives):
+        msg = f"The current point {reference_point} is missing entries " "for one or more of the objective functions."
+        raise NimbusError(msg)
+
+    # derive the classifications based on the reference point and and previous
+    # objective function values
+    classifications = {}
+
+    for obj in problem.objectives:
+        if np.isclose(reference_point[obj.symbol], obj.nadir):
+            # the objective is free to change
+            classification = {obj.symbol: ("0", None)}
+        elif np.isclose(reference_point[obj.symbol], obj.ideal):
+            # the objective should improve
+            classification = {obj.symbol: ("<", None)}
+        elif np.isclose(reference_point[obj.symbol], current_objectives[obj.symbol]):
+            # the objective should stay as it is
+            classification = {obj.symbol: ("=", None)}
+        elif not obj.maximize and reference_point[obj.symbol] < current_objectives[obj.symbol]:
+            # minimizing objective, reference value smaller, this is an aspiration level
+            # improve until
+            classification = {obj.symbol: ("<=", reference_point[obj.symbol])}
+        elif not obj.maximize and reference_point[obj.symbol] > current_objectives[obj.symbol]:
+            # minimizing objective, reference value is greater, this is a reservations level
+            # impair until
+            classification = {obj.symbol: (">=", reference_point[obj.symbol])}
+        elif obj.maximize and reference_point[obj.symbol] < current_objectives[obj.symbol]:
+            # maximizing objective, reference value is smaller, this is a reservation level
+            # impair until
+            classification = {obj.symbol: (">=", reference_point[obj.symbol])}
+        elif obj.maximize and reference_point[obj.symbol] > current_objectives[obj.symbol]:
+            # maximizing objective, reference value is greater, this is an aspiration level
+            # improve until
+            classification = {obj.symbol: ("<=", reference_point[obj.symbol])}
+        else:
+            # could not figure classification
+            msg = f"Warning: NIMBUS could not figure out the classification for objective {obj.symbol}."
+
+        classifications |= classification
+
+    return classifications
+
+
+def solve_sub_problems(
+    problem: Problem,
+    current_objectives: dict[str, float],
+    reference_point: dict[str, float],
+    num_desired: int,
+    create_solver: CreateSolverType,
+    solver_options: SolverOptions,
+) -> list[SolverResults]:
+    r"""Solves a desired number of sub-problems as defined in the NIMBUS methods.
+
+    Solves 1-4 scalarized problems utilizing different scalarization
+    functions. The scalarizations are based on the classification of a
+    solutions provided by a decision maker. The classifications
+    are represented by a reference point. Returns a number of new solutions
+    corresponding to the number of scalarization functions solved.
+
+    Depending on `num_desired`, solves the following scalarized problems corresponding
+    the the following scalarization functions:
+
+    1.  the NIMBUS scalarization function,
+    2.  the STOM scalarization function,
+    3.  the achievement scalarizing function, and
+    4.  the GUESS scalarization function.
+
+    Raises:
+        NimbusError: the given problem has an undefined ideal or nadir point, or both.
+        NimbusError: either the reference point of current objective functions value are
+            missing entries for one or more of the objective functions defined in the problem.
+
+    Args:
+        problem (Problem): the problem being solved.
+        current_objectives (dict[str, float]): an objective dictionary with the objective functions values
+            the classifications have been given with respect to.
+        reference_point (dict[str, float]): an objective dictionary with a reference point.
+            The classifications utilized in the sub problems are derived from
+            the reference point.
+        num_desired (int): the number of desired solutions to be solved. Solves as
+            many scalarized problems. The value must be in the range 1-4.
+        create_solver (CreateSolverType | None, optional): a function that given a problem, will return a solver.
+            If not given, an appropriate solver will be automatically determined based on the features of `problem`.
+            Defaults to None.
+        solver_options (SolverOptions | None, optional): optional options passed
+            to the `create_solver` routine. Ignored if `create_solver` is `None`.
+            Defaults to None.
+
+    Returns:
+        list[SolverResults]: a list of `SolverResults` objects. Contains as many elements
+            as defined in `num_desired`.
+    """
+    if problem.ideal is None or problem.nadir is None:
+        msg = "The given problem must have both an ideal and nadir point defined."
+        raise NimbusError(msg)
+
+    if not all(obj.symbol in reference_point for obj in problem.objectives):
+        msg = f"The reference point {reference_point} is missing entries " "for one or more of the objective functions."
+        raise NimbusError(msg)
+
+    if not all(obj.symbol in current_objectives for obj in problem.objectives):
+        msg = f"The current point {reference_point} is missing entries " "for one or more of the objective functions."
+        raise NimbusError(msg)
+
+    # derive the classifications based on the reference point and and previous
+    # objective function values
+    classifications = {}
+
+    for obj in problem.objectives:
+        if np.isclose(reference_point[obj.symbol], obj.nadir):
+            # the objective is free to change
+            classification = {obj.symbol: ("0", None)}
+        elif np.isclose(reference_point[obj.symbol], obj.ideal):
+            # the objective should improve
+            classification = {obj.symbol: ("<", None)}
+        elif np.isclose(reference_point[obj.symbol], current_objectives[obj.symbol]):
+            # the objective should stay as it is
+            classification = {obj.symbol: ("=", None)}
+        elif not obj.maximize and reference_point[obj.symbol] < current_objectives[obj.symbol]:
+            # minimizing objective, reference value smaller, this is an aspiration level
+            # improve until
+            classification = {obj.symbol: ("<=", reference_point[obj.symbol])}
+        elif not obj.maximize and reference_point[obj.symbol] > current_objectives[obj.symbol]:
+            # minimizing objective, reference value is greater, this is a reservations level
+            # impair until
+            classification = {obj.symbol: (">=", reference_point[obj.symbol])}
+        elif obj.maximize and reference_point[obj.symbol] < current_objectives[obj.symbol]:
+            # maximizing objective, reference value is smaller, this is a reservation level
+            # impair until
+            classification = {obj.symbol: (">=", reference_point[obj.symbol])}
+        elif obj.maximize and reference_point[obj.symbol > current_objectives[obj.symbol]]:
+            # maximizing objective, reference value is greater, this is an aspiration level
+            # improve until
+            classification = {obj.symbol: ("<=", reference_point[obj.symbol])}
+        else:
+            # could not figure classification
+            msg = f"Warning: NIMBUS could not figure out the classification for objective {obj.symbol}."
+
+        classifications |= classification
