@@ -137,3 +137,72 @@ def test_solve_sub_problems():
 
         # f3 should have improved
         assert fs["f_3"] < initial_fs["f_3"]
+
+
+@pytest.mark.nimbus
+def test_article_example():
+    """Check that we get similar results for NIMBUS as in the original article.
+
+    References:
+         Miettinen, K., & Mäkelä, M. M. (2006). Synchronous approach in
+            interactive multiobjective optimization. European Journal of Operational Research, 170(3), 909-922.
+
+
+    """
+    problem = nimbus_test_problem()
+
+    # From Fig. 2
+    starting_point = {
+        "f_1": 5.437906,
+        "f_2": 9.124742,
+        "f_3": -4.669013,
+        "f_4": -0.2192304,
+        "f_5": 1582.05,
+        "f_6": 1788.815,
+    }
+
+    # From Fig. 2
+    """
+    starting_classifications = {
+        "f_1": (">=", 3.0),
+        "f_2": ("<=", 4.0),
+        "f_3": (">=", -3.0),
+        "f_4": (">=", 1.0),
+        "f_5": ("<", None),
+        "f_6": ("<", None),
+    }
+    """
+
+    starting_rp = {
+        "f_1": 3.0,
+        "f_2": 4.0,
+        "f_3": -3.0,
+        "f_4": 1.0,
+        "f_5": problem.get_ideal_point()["f_5"],
+        "f_6": problem.get_ideal_point()["f_6"],
+    }
+
+    num_desired_start = 2
+    results = solve_sub_problems(
+        problem, starting_point, starting_rp, num_desired_start, create_pyomo_ipopt_solver, IpoptOptions()
+    )
+
+    fs = results[0].optimal_objectives
+
+    # f1 worsened until 3.0
+    assert fs["f_1"] < starting_point["f_1"] and (np.isclose(fs["f_1"], 3.0) or fs["f_1"] > 3.0)
+
+    # f2 improved until 4.0
+    assert fs["f_2"] < starting_point["f_2"] and (np.isclose(fs["f_2"], 4.0) or fs["f_2"] > 4.0)
+
+    # f3 worsened unti -3.0
+    assert fs["f_3"] > starting_point["f_3"] and (np.isclose(fs["f_3"], -3.0) or fs["f_3"] < -3.0)
+
+    # f4 worsened until 1.0
+    assert fs["f_4"] > starting_point["f_4"] and (np.isclose(fs["f_4"], 1.0) or fs["f_3"] < 1.0)
+
+    # f5 improved
+    assert fs["f_5"] < starting_point["f_5"] or np.isclose(fs["f_5"], starting_point["f_5"])
+
+    # f6 improved
+    assert fs["f_6"] < starting_point["f_6"] or np.isclose(fs["f_6"], starting_point["f_6"])
