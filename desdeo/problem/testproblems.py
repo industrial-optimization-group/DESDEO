@@ -705,6 +705,89 @@ def nimbus_test_problem() -> Problem:
     )
 
 
+def simple_knapsack() -> Problem:
+    r"""Defines a simple multiobjective knapsack problem.
+
+    Given a set of 4 items, each with a weight and three values corresponding to
+    different objectives, the problem is defined as follows:
+
+    -   Item 1: weight = 2, values = (5, 10, 15)
+    -   Item 2: weight = 3, values = (4, 7, 9)
+    -   Item 3: weight = 1, values = (3, 5, 8)
+    -   Item 4: weight = 4, values = (2, 3, 5)
+
+    The problem is then to maximize the following functions:
+
+    \begin{align*}
+    f_1(x) &= 5x_1 + 4x_2 + 3x_3 + 2x_4 \\
+    f_2(x) &= 10x_1 + 7x_2 + 5x_3 + 3x_4 \\
+    f_3(x) &= 15x_1 + 9x_2 + 8x_3 + 5x_4 \\
+    \text{s.t.}\quad & 2x_1 + 3x_2 + 1x_3 + 4x_4 \leq 7 \\
+    & x_i \in \{0,1\} \quad \text{for} \quad i = 1, 2, 3, 4,
+    \end{align*}
+
+    where the inequality constraint is a weight constraint. The problem is a binary variable problem.
+
+    Returns:
+        Problem: the simple knapsack problem.
+    """
+    variables = [
+        Variable(
+            name=f"x_{i}",
+            symbol=f"x_{i}",
+            variable_type=VariableTypeEnum.binary,
+            lowerbound=0,
+            upperbound=1,
+            initial_value=0,
+        )
+        for i in range(1, 5)
+    ]
+
+    exprs = {
+        "f1": "5*x_1 + 4*x_2 + 3*x_3 + 2*x_4",
+        "f2": "10*x_1 + 7*x_2 + 5*x_3 + 3*x_4",
+        "f3": "15*x_1 + 9*x_2 + 8*x_3 + 5*x_4",
+    }
+
+    ideals = {"f1": 15, "f2": 25, "f3": 37}
+
+    objectives = [
+        Objective(
+            name=f"f_{i}",
+            symbol=f"f_{i}",
+            func=exprs[f"f{i}"],
+            maximize=True,
+            ideal=ideals[f"f{i}"],
+            nadir=0,
+            objective_type=ObjectiveTypeEnum.analytical,
+            is_linear=True,
+            is_convex=True,
+            is_twice_differentiable=True,
+        )
+        for i in range(1, 4)
+    ]
+
+    constraints = [
+        Constraint(
+            name="Weight constraint",
+            symbol="g_w",
+            cons_type=ConstraintTypeEnum.LTE,
+            func="2*x_1 + 3*x_2 + 1*x_3 + 4*x_4 - 7",
+            is_linear=True,
+            is_convex=True,
+            is_twice_differentiable=True,
+        )
+    ]
+
+    return Problem(
+        name="Simple knapsack",
+        description="A simple knapsack problem with three objectives to be maximized.",
+        variables=variables,
+        objectives=objectives,
+        constraints=constraints,
+    )
+
+
 if __name__ == "__main__":
-    problem = nimbus_test_problem()
+    problem = simple_knapsack()
     print(problem.model_dump_json(indent=2))

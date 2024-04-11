@@ -13,6 +13,8 @@
 # 	have not broke anything, and running the tests that are specific to the
 # 	changes made.
 #
+# test-failures: rerun the last falures only.
+#
 # requirements-rtd: Exports the current requiremetns into a requirements.txt
 # 	file and ouputs it into the docs folder. This file is needed when the DESDEO
 # 	docs are built on readthedocs.org.
@@ -28,6 +30,9 @@ test-all:
 
 test-changes:
 	pytest --testmon
+
+test-failures:
+	pytest --lf
 
 requirements-rtd:
 	poetry export --format requirements.txt --with=dev --extras "standard" --without-hashes --output docs/requirements.txt

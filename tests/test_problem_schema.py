@@ -16,9 +16,10 @@ from desdeo.problem.schema import (
     Problem,
     ScalarizationFunction,
     Variable,
+    VariableDomainTypeEnum,
     VariableTypeEnum,
 )
-from desdeo.problem.testproblems import nimbus_test_problem, river_pollution_problem
+from desdeo.problem.testproblems import momip_ti7, nimbus_test_problem, river_pollution_problem, simple_knapsack
 from desdeo.tools.scalarization import add_scalarization_function
 
 
@@ -352,9 +353,9 @@ def test_add_constraints():
     problem = river_pollution_problem()
     assert problem.constraints is None
 
-    cons_1 = Constraint(name="con 1", symbol="g_1", func="x_1 + x_2", linear=False, cons_type=ConstraintTypeEnum.EQ)
-    cons_2 = Constraint(name="con 2", symbol="g_2", func="x_1 - x_2", linear=True, cons_type=ConstraintTypeEnum.LTE)
-    cons_3 = Constraint(name="con 3", symbol="g_3", func="x_1 * x_2", linear=True, cons_type=ConstraintTypeEnum.EQ)
+    cons_1 = Constraint(name="con 1", symbol="g_1", func="x_1 + x_2", is_linear=False, cons_type=ConstraintTypeEnum.EQ)
+    cons_2 = Constraint(name="con 2", symbol="g_2", func="x_1 - x_2", is_linear=True, cons_type=ConstraintTypeEnum.LTE)
+    cons_3 = Constraint(name="con 3", symbol="g_3", func="x_1 * x_2", is_linear=True, cons_type=ConstraintTypeEnum.EQ)
 
     constraints = [cons_1, cons_2, cons_3]
 
@@ -366,19 +367,19 @@ def test_add_constraints():
     assert new_problem.constraints[0].name == "con 1"
     assert new_problem.constraints[0].symbol == "g_1"
     assert new_problem.constraints[0].func == ["Add", "x_1", "x_2"]
-    assert not new_problem.constraints[0].linear
+    assert not new_problem.constraints[0].is_linear
     assert new_problem.constraints[0].cons_type == ConstraintTypeEnum.EQ
 
     assert new_problem.constraints[1].name == "con 2"
     assert new_problem.constraints[1].symbol == "g_2"
     assert new_problem.constraints[1].func == ["Add", "x_1", ["Negate", "x_2"]]
-    assert new_problem.constraints[1].linear
+    assert new_problem.constraints[1].is_linear
     assert new_problem.constraints[1].cons_type == ConstraintTypeEnum.LTE
 
     assert new_problem.constraints[2].name == "con 3"
     assert new_problem.constraints[2].symbol == "g_3"
     assert new_problem.constraints[2].func == ["Multiply", "x_1", "x_2"]
-    assert new_problem.constraints[2].linear
+    assert new_problem.constraints[2].is_linear
     assert new_problem.constraints[2].cons_type == ConstraintTypeEnum.EQ
 
     # check that only list is accepted
@@ -475,3 +476,18 @@ def test_get_nadir_point():
 
     for obj in problem.objectives:
         npt.assert_almost_equal(obj.nadir, nadir_point[obj.symbol])
+
+
+def test_variable_domain():
+    """Test that the variable domain of a problem is inferred correctly."""
+    problem_continuous = river_pollution_problem()
+
+    assert problem_continuous.variable_domain() == VariableDomainTypeEnum.continuous
+
+    problem_mixed = momip_ti7()
+
+    assert problem_mixed.variable_domain() == VariableDomainTypeEnum.mixed
+
+    integer_problem = simple_knapsack()
+
+    assert integer_problem.variable_domain() == VariableDomainTypeEnum.integer

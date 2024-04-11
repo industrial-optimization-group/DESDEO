@@ -35,6 +35,7 @@ def parse_infix_to_func(cls, v: str | list) -> list:
     is parsed in the validator. If list, then the func is assumed to be represented in Math JSON format.
 
     Args:
+        cls: the class of the pydantic model the validator is applied to.
         v (str | list): The func to be validated.
 
     Raises:
@@ -67,6 +68,17 @@ class VariableTypeEnum(str, Enum):
     """An integer variable."""
     binary = "binary"
     """A binary variable."""
+
+
+class VariableDomainTypeEnum(str, Enum):
+    """An enumerator for the possible variable type domains of a problem."""
+
+    continuous = "continuous"
+    """All variables are real valued."""
+    integer = "integer"
+    """All variables are integer or binary valued."""
+    mixed = "mixed"
+    """Some variables are continuos, some are integer or binary."""
 
 
 class ConstraintTypeEnum(str, Enum):
@@ -178,6 +190,18 @@ class ExtraFunction(BaseModel):
     parsed into a function.  Must be a valid MathJSON object.  The symbols in
     the function must match symbols defined for objective/variable/constant.
     """
+    is_linear: bool = Field(
+        description="Whether the function expression is linear or not. Defaults to `False`.", default=False
+    )
+    """Whether the function expression is linear or not. Defaults to `False`."""
+    is_convex: bool = Field(
+        description="Whether the function expression is convex or not (non-convex). Defaults to `False`.", default=False
+    )
+    """Whether the function expression is convex or not (non-convex). Defaults to `False`."""
+    is_twice_differentiable: bool = Field(
+        description="Whether the function expression is twice differentiable or not. Defaults to `False`", default=False
+    )
+    """Whether the function expression is twice differentiable or not. Defaults to `False`"""
 
     _parse_infix_to_func = field_validator("func", mode="before")(parse_infix_to_func)
 
@@ -206,9 +230,25 @@ class ScalarizationFunction(BaseModel):
         frozen=True,
     )
     """ Function representation of the scalarization. This is a JSON object that
-    can be parsed into a function.  Must be a valid MathJSON object.  The
+    can be parsed into a function.  Must be a valid MathJSON object. The
     symbols in the function must match the symbols defined for
     objective/variable/constant/extra function."""
+    is_linear: bool = Field(
+        description="Whether the function expression is linear or not. Defaults to `False`.", default=False, frozen=True
+    )
+    """Whether the function expression is linear or not. Defaults to `False`."""
+    is_convex: bool = Field(
+        description="Whether the function expression is convex or not (non-convex). Defaults to `False`.",
+        default=False,
+        frozen=True,
+    )
+    """Whether the function expression is convex or not (non-convex). Defaults to `False`."""
+    is_twice_differentiable: bool = Field(
+        description="Whether the function expression is twice differentiable or not. Defaults to `False`",
+        default=False,
+        frozen=True,
+    )
+    """Whether the function expression is twice differentiable or not. Defaults to `False`"""
 
     _parse_infix_to_func = field_validator("func", mode="before")(parse_infix_to_func)
 
@@ -276,6 +316,18 @@ class Objective(BaseModel):
     objective function value should be retrieved from a table.  In case of
     'data_based' objective function, the 'func' field is ignored. Defaults to
     'analytical'. Defaults to 'analytical'."""
+    is_linear: bool = Field(
+        description="Whether the function expression is linear or not. Defaults to `False`.", default=False
+    )
+    """Whether the function expression is linear or not. Defaults to `False`."""
+    is_convex: bool = Field(
+        description="Whether the function expression is convex or not (non-convex). Defaults to `False`.", default=False
+    )
+    """Whether the function expression is convex or not (non-convex). Defaults to `False`."""
+    is_twice_differentiable: bool = Field(
+        description="Whether the function expression is twice differentiable or not. Defaults to `False`", default=False
+    )
+    """Whether the function expression is twice differentiable or not. Defaults to `False`"""
 
     _parse_infix_to_func = field_validator("func", mode="before")(parse_infix_to_func)
 
@@ -326,12 +378,20 @@ class Constraint(BaseModel):
     into a function.  Must be a valid MathJSON object.  The symbols in the
     function must match objective/variable/constant symbols."""
 
-    linear: bool = Field(
+    is_linear: bool = Field(
         description="Whether the constraint is linear or not. Defaults to True, e.g., a linear constraint is assumed.",
         default=True,
     )
     """Whether the constraint is linear or not. Defaults to True, e.g., a linear
     constraint is assumed. Defaults to `True`."""
+    is_convex: bool = Field(
+        description="Whether the function expression is convex or not (non-convex). Defaults to `False`.", default=False
+    )
+    """Whether the function expression is convex or not (non-convex). Defaults to `False`."""
+    is_twice_differentiable: bool = Field(
+        description="Whether the function expression is twice differentiable or not. Defaults to `False`", default=False
+    )
+    """Whether the function expression is twice differentiable or not. Defaults to `False`"""
 
     _parse_infix_to_func = field_validator("func", mode="before")(parse_infix_to_func)
 
@@ -668,6 +728,28 @@ class Problem(BaseModel):
                 point values (which may be `None`), or `None`.
         """
         return {f"{obj.symbol}": obj.nadir for obj in self.objectives}
+
+    def variable_domain(self) -> VariableDomainTypeEnum:
+        """Check the variables defined for the problem and returns the type of their domain.
+
+        Checks the variable types defined for the problem and tells if the
+        problem is continuous, integer, binary, or mixed-integer.
+
+        Returns:
+            VariableDomainEnum: whether the problem is continuous, integer, binary, or mixed-integer.
+        """
+        variable_types = [var.variable_type for var in self.variables]
+
+        if all(t == VariableTypeEnum.real for t in variable_types):
+            # all variables are real valued -> continuous problem
+            return VariableDomainTypeEnum.continuous
+
+        if all(t in [VariableTypeEnum.integer, VariableTypeEnum.binary] for t in variable_types):
+            # all variables are integer or binary -> integer problem
+            return VariableDomainTypeEnum.integer
+
+        # mixed problem
+        return VariableDomainTypeEnum.mixed
 
     name: str = Field(
         description="Name of the problem.",
