@@ -1,14 +1,10 @@
 """Defines solver interfaces for gurobipy."""
 
 from collections.abc import Callable
-from dataclasses import dataclass, fields
-from typing_extensions import Unpack
 
 import gurobipy as gp
-from pydantic import ConfigDict
 
-from desdeo.problem import Problem, GurobipyEvaluator
-from desdeo.problem.schema import Constraint, Objective, ScalarizationFunction, Variable
+from desdeo.problem import Constraint, GurobipyEvaluator, Objective, Problem, ScalarizationFunction, Variable
 from desdeo.tools.generics import CreateSolverType, PersistentSolver, SolverResults
 
 # forward typehints
@@ -55,13 +51,12 @@ def parse_gurobipy_optimizer_results(
     )
 
 def create_gurobipy_solver(
-    problem: Problem, options: dict[str,any] = dict()
+    problem: Problem, options: dict[str,any]|None = None
 ) -> Callable[[str], SolverResults]:
-    """Creates a gurobipy solver that utilizes gurobi's own python implementation. 
-    Unlike with Pyomo you do not need to have gurobi installed on your system 
-    for this to work.
+    """Creates a gurobipy solver that utilizes gurobi's own python implementation.
 
-    Suitable for solving mixed-integer linear and quadratic optimization 
+    Unlike with Pyomo you do not need to have gurobi installed on your system
+    for this to work. Suitable for solving mixed-integer linear and quadratic optimization
     problems.
 
     Args:
@@ -76,8 +71,9 @@ def create_gurobipy_solver(
             problem.
     """
     evaluator = GurobipyEvaluator(problem)
-    for key, value in options.items():
-        evaluator.model.setParam(key,value)
+    if options is not None:
+        for key, value in options.items():
+            evaluator.model.setParam(key,value)
 
     def solver(target: str) -> SolverResults:
         evaluator.set_optimization_target(target)
@@ -87,13 +83,17 @@ def create_gurobipy_solver(
     return solver
 
 class PersistentGurobipySolver(PersistentSolver):
-    """A persistent solver class utlizing gurobipy. Use this instead of create_gurobipy_solver 
-    when reinitializing the solver every time the problem is changed is not practical."""
+    """A persistent solver class utlizing gurobipy.
+
+    Use this instead of create_gurobipy_solver when reinitializing the
+    solver every time the problem is changed is not practical.
+    """
+
     evaluator: GurobipyEvaluator
 
-    def __init__(self, problem: Problem, options):
-        """Initializer for the persistent solver
-        
+    def __init__(self, problem: Problem, options: dict[str,any]|None = None):
+        """Initializer for the persistent solver.
+
         Args:
             problem (Problem): the problem to be transformed in a GurobipyModel.
             options (dict[str,any]): Dictionary of Gurobi parameters to set.
@@ -102,14 +102,15 @@ class PersistentGurobipySolver(PersistentSolver):
         """
         self.problem = problem
         self.evaluator = GurobipyEvaluator(problem)
-        for key, value in options.items():
-            self.evaluator.model.setParam(key,value)
-        
-    def addConstraint(self, constraint: Constraint|list[Constraint]) -> gp.Constr|list[gp.Constr]:
+        if options is not None:
+            for key, value in options.items():
+                self.evaluator.model.setParam(key,value)
+
+    def add_constraint(self, constraint: Constraint|list[Constraint]) -> gp.Constr|list[gp.Constr]:
         """Add one or more constraint expressions to the solver.
 
-        If adding a lot of constraints or dealing with a large model, this function 
-        may end up being very slow compared to adding the constraints to the model 
+        If adding a lot of constraints or dealing with a large model, this function
+        may end up being very slow compared to adding the constraints to the model
         stored in the evaluator directly.
 
         Args:
@@ -128,18 +129,18 @@ class PersistentGurobipySolver(PersistentSolver):
             for cons in constraint:
                 cons_list.append(self.evaluator.addConstraint(cons))
             return cons_list
-        else:
-            return self.evaluator.addConstraint(constraint)
-    
-    def addObjective(self, objective: Objective|list[Objective]):
+
+        return self.evaluator.addConstraint(constraint)
+
+    def add_objective(self, objective: Objective|list[Objective]):
         """Adds an objective function expression to the solver.
 
-        Does not yet add any actual gurobipy optimization objectives, only adds them to the dict 
-        containing the expressions of the objectives. The objective expressions are stored in the 
+        Does not yet add any actual gurobipy optimization objectives, only adds them to the dict
+        containing the expressions of the objectives. The objective expressions are stored in the
         GurobipyModel and the evaluator must add the appropiate gurobipy objective before solving.
 
         Args:
-            objectve (Objective): an objective function expression or a list of objective function
+            objective (Objective): an objective function expression or a list of objective function
                 expressions to be added.
         """
         if not isinstance(objective,list):
@@ -148,7 +149,7 @@ class PersistentGurobipySolver(PersistentSolver):
         for obj in objective:
             self.evaluator.addObjective(obj)
 
-    def addScalarizationFunction(self, scalarization: ScalarizationFunction|list[ScalarizationFunction]):
+    def add_scalarization_function(self, scalarization: ScalarizationFunction|list[ScalarizationFunction]):
         """Adds a scalrization expression to the solver.
 
         Scalarizations work identically to objectives, except they are stored in a different
@@ -156,7 +157,7 @@ class PersistentGurobipySolver(PersistentSolver):
         evaluator needs to set it as an optimization target first.
 
         Args:
-            scalarization (ScalarizationFunction): A scalarization function or a list of 
+            scalarization (ScalarizationFunction): A scalarization function or a list of
                 scalarization functions to be added.
         """
         if not isinstance(scalarization, list):
@@ -165,11 +166,11 @@ class PersistentGurobipySolver(PersistentSolver):
         for scal in scalarization:
             self.evaluator.addScalarizationFunction(scal)
 
-    def addVariable(self, variable: Variable|list[Variable]) -> gp.Var|list[gp.Var]:
+    def add_variable(self, variable: Variable|list[Variable]) -> gp.Var|list[gp.Var]:
         """Add one or more variables to the solver.
 
-        If adding a lot of variables or dealing with a large model, this function 
-        may end up being very slow compared to adding the variables to the model 
+        If adding a lot of variables or dealing with a large model, this function
+        may end up being very slow compared to adding the variables to the model
         stored in the evaluator directly.
 
         Args:
@@ -188,16 +189,16 @@ class PersistentGurobipySolver(PersistentSolver):
             for var in variable:
                 var_list.append(self.evaluator.addVariable(var))
             return var_list
-        else:
-            return self.evaluator.addVariable(variable)
 
-    def removeConstraint(self, symbol: str|list[str]):
+        return self.evaluator.addVariable(variable)
+
+    def remove_constraint(self, symbol: str|list[str]):
         """Removes a constraint from the solver.
 
-        If removing a lot of constraints or dealing with a very large model this function 
-        may be slow because of the model.update() calls. Accessing the model stored in the 
+        If removing a lot of constraints or dealing with a very large model this function
+        may be slow because of the model.update() calls. Accessing the model stored in the
         evaluator directly may be faster.
-        
+
         Args:
             symbol (str): a str representing the symbol of the constraint to be removed.
                 Can also be a list of multiple symbols.
@@ -207,13 +208,13 @@ class PersistentGurobipySolver(PersistentSolver):
         for s in symbol:
             self.evaluator.removeConstraint(s)
 
-    def removeVariable(self, symbol: str|list[str]):
+    def remove_variable(self, symbol: str|list[str]):
         """Removes a variable from the model.
 
-        If removing a lot of variables or dealing with a very large model this function 
-        may be slow because of the model.update() calls. Accessing the model stored in 
+        If removing a lot of variables or dealing with a very large model this function
+        may be slow because of the model.update() calls. Accessing the model stored in
         the evaluator directly may be faster.
-        
+
         Args:
             symbol (str): a str representing the symbol of the variable to be removed.
                 Can also be a list of multiple symbols.
@@ -225,7 +226,7 @@ class PersistentGurobipySolver(PersistentSolver):
 
         Args:
             target (str): a str representing the symbol of the target function.
-        
+
         Returns:
             SolverResults: The results of the solver
         """

@@ -468,6 +468,7 @@ def pareto_navigator_test_problem() -> Problem:
         discrete_representation=representation,
     )
 
+
 def simple_linear_test_problem() -> Problem:
     """Defines a simple single objective linear problem suitable for testing purposes."""
     variables = [

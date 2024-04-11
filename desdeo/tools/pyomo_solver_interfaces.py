@@ -140,12 +140,13 @@ def create_pyomo_bonmin_solver(
     return solver
 
 def create_pyomo_gurobi_solver(
-    problem: Problem, options: dict[str,any] = dict()
+    problem: Problem, options: dict[str,any]|None = None
 ) -> Callable[[str], SolverResults]:
-    """Creates a pyomo solver that utilizes gurobi. You need to have gurobi
-    installed on your system for this to work.
+    """Creates a pyomo solver that utilizes gurobi.
 
-    Suitable for solving mixed-integer linear and quadratic optimization 
+    You need to have gurobi installed on your system for this to work.
+
+    Suitable for solving mixed-integer linear and quadratic optimization
     problems.
 
     Args:
@@ -162,6 +163,8 @@ def create_pyomo_gurobi_solver(
             problem.
     """
     evaluator = PyomoEvaluator(problem)
+    if options is None:
+        options = {}
 
     def solver(target: str) -> SolverResults:
         evaluator.set_optimization_target(target)

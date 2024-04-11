@@ -279,7 +279,7 @@ class PyomoEvaluator:
 
         return self.model
 
-    def get_values(self) -> dict[str, float | int | bool]:
+    def get_values(self) -> dict[str, float | int | bool]:  # noqa: C901
         """Get the values from the pyomo model in dict.
 
         The keys of the dict will be the symbols defined in the problem utilized to initialize the evaluator.

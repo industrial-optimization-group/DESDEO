@@ -1,4 +1,5 @@
 """Various utilities used accross the framework related to the Problem formulation."""
+
 import numpy as np
 
 from desdeo.problem import Problem

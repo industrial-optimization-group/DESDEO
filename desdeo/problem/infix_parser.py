@@ -2,6 +2,7 @@
 
 Currently, mostly parses to MathJSON, e.g., "n / (1 + n)" -> ['Divide', 'n', ['Add', 1, 'n']].
 """
+
 from typing import ClassVar
 
 from pyparsing import (

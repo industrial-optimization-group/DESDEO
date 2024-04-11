@@ -20,9 +20,10 @@ __all__ = [
     "create_pyomo_gurobi_solver",
     "create_scipy_de_solver",
     "create_scipy_minimize_solver",
+    "PersistentGurobipySolver"
 ]
 
-from desdeo.tools.gurobipy_solver_interfaces import create_gurobipy_solver
+from desdeo.tools.gurobipy_solver_interfaces import create_gurobipy_solver, PersistentGurobipySolver
 from desdeo.tools.ng_solver_interfaces import NgOptOptions, create_ng_ngopt_solver
 from desdeo.tools.pyomo_solver_interfaces import (
     BonminOptions,

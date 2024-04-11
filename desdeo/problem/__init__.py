@@ -11,7 +11,6 @@ __all__ = [
     "FormatEnum",
     "GenericEvaluator",
     "GurobipyEvaluator",
-    "GurobipyModel",
     "dtlz2",
     "get_nadir_dict",
     "get_ideal_dict",
@@ -37,7 +36,6 @@ __all__ = [
 
 from .evaluator import EvaluatorModesEnum, GenericEvaluator
 from .gurobipy_evaluator import GurobipyEvaluator
-from .gurobipy_model_extension import GurobipyModel
 from .infix_parser import InfixExpressionParser
 from .json_parser import FormatEnum, MathParser
 from .pyomo_evaluator import PyomoEvaluator

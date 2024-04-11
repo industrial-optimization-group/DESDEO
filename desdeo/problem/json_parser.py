@@ -1,14 +1,16 @@
 """Defines a parser to parse multiobjective optimziation problems defined in a JSON foramt."""
+
 from enum import Enum
 from functools import reduce
+from typing import Callable
 
+import gurobipy as gp
 import polars as pl
 import pyomo.environ as pyomo
 from pyomo.core.expr.numeric_expr import MaxExpression as _PyomoMax
 
-import gurobipy as gp
-from desdeo.problem.gurobipy_model_extension import GurobipyModel
-
+# Mathematical objects in gurobipy can take many types
+gpexpression = gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr | gp.GenExpr
 
 class FormatEnum(str, Enum):
     """Enumerates the supported formats the JSON format may be parsed to."""
@@ -172,7 +174,7 @@ class MathParser:
 
         def gp_error():
             msg = "The gurobipy model format only supports linear and quadratic expressions."
-            ParserError(msg) 
+            ParserError(msg)
 
         gurobipy_env = {
             # Define the operations for the different operators.
@@ -182,7 +184,6 @@ class MathParser:
             self.SUB: lambda *args: reduce(lambda x, y: x - y, args),
             self.MUL: lambda *args: reduce(lambda x, y: x * y, args),
             self.DIV: lambda *args: reduce(lambda x, y: x / y, args),
-
             # Exponentiation and logarithms
             # it would be possible to implement some of these with the special functions that
             # gurobi has to offer, but they would only work under specific circumstances
@@ -193,8 +194,7 @@ class MathParser:
             self.LOP: lambda x: gp_error(),
             self.SQRT: lambda x: gp_error(),
             self.SQUARE: lambda x: x**2,
-            self.POW: lambda x, y: x**y, #this will likely cause an error at some point for most y
-
+            self.POW: lambda x, y: x**y,  # this will likely cause an error at some point for most y
             # Trigonometric operations
             # it would be possible to implement some of these with the special functions that
             # gurobi has to offer, but they would only work under specific circumstances
@@ -323,10 +323,12 @@ class MathParser:
 
         msg = f"Encountered unsupported type '{type(expr)}' during parsing."
         raise ParserError(msg)
-    
-    def _parse_to_gurobipy( self, expr: list | str | int | float, model: GurobipyModel ) -> ( 
-            gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr | gp.GenExpr | int | float):
+
+    def _parse_to_gurobipy(
+        self, expr: list | str | int | float, callback:Callable[[str], gpexpression | int | float]
+    ) -> gpexpression | int | float:
         """Parses the MathJSON format recursively into a gurobipy expression.
+
         Gurobi only fundamentally supports linear and quadratic expressions, and this parser
         does not check that the inputs are valid. If you try to input something else, you will
         likely encounter an error at some point.
@@ -334,30 +336,21 @@ class MathParser:
         Args:
             expr (list | str | int | float): a list with a Polish notation expression that describes a, e.g.,
                 ["Multiply", ["Sqrt", 2], "x2"]
-            model (GurobipyModel): a gurobipy model with the symbols defined appearing in the expression.
-                E.g., "x2" -> model.x2 must be defined.
+            callback (Callable): A function that can return a gurobipy expression associated with the
+                correct model when called with symbol str.
 
         Returns:
-            Returns a gurobipy expression (that can belong into one of multiple types) equivalent to the original expressions.
-            All possible output types should be supported as parts of gurobipy constraints. gurobipy.GenExpr at least isn't 
-            supported as an objective function.
+            Returns a gurobipy expression (that can belong into one of multiple types) equivalent to the original
+            expressions.
+            All possible output types should be supported as parts of gurobipy constraints. gurobipy.GenExpr at
+            least isn't supported as an objective function.
         """
-        gpexpression = ( 
-            gp.Var | 
-            gp.MVar | 
-            gp.LinExpr | 
-            gp.QuadExpr | 
-            gp.MLinExpr | 
-            gp.MQuadExpr | 
-            gp.GenExpr 
-        )
-
         if isinstance(expr, gpexpression):
             # Terminal case: gurobipy expression
             return expr
         if isinstance(expr, str):
             # Terminal case: str expression, represent a variable or expression
-            return model.getExpressionByName(expr)
+            return callback(expr)
         if isinstance(expr, self.literals):
             # Terminal case: numeric literal
             return expr
@@ -367,7 +360,7 @@ class MathParser:
             if isinstance(expr[0], str) and expr[0] in self.env:
                 op_name = expr[0]
                 # Parse the operands
-                operands = [self._parse_to_gurobipy(e, model) for e in expr[1:]]
+                operands = [self._parse_to_gurobipy(e, callback) for e in expr[1:]]
 
                 if isinstance(operands, list) and len(operands) == 1:
                     # if the operands have redundant brackets, remove them
@@ -379,7 +372,7 @@ class MathParser:
                 return self.env[op_name](operands)
 
             # else, assume the list contents are parseable expressions
-            return [self._parse_to_gurobipy(e, model) for e in expr]
+            return [self._parse_to_gurobipy(e, callback) for e in expr]
 
         msg = f"Encountered unsupported type '{type(expr)}' during parsing."
         raise ParserError(msg)
