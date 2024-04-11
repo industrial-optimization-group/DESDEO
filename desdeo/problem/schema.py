@@ -771,6 +771,50 @@ class Problem(BaseModel):
 
         return all(is_convex_values)
 
+    def is_linear(self) -> bool:
+        """Check if all the functions expressions in the problem are linear.
+
+        Note:
+            This method just checks all the functions expressions present in the problem
+            and return true if all of them are linear. For complicated problems, this might
+            result in an incorrect results. User discretion is advised.
+
+        Returns:
+            bool: whether the problem is linear or not.
+        """
+        is_linear_values = (
+            [obj.is_linear for obj in self.objectives]
+            + ([con.is_linear for con in self.constraints] if self.constraints is not None else [])
+            + ([extra.is_linear for extra in self.extra_funcs] if self.extra_funcs is not None else [])
+            + ([scal.is_linear for scal in self.scalarization_funcs] if self.scalarization_funcs is not None else [])
+        )
+
+        return all(is_linear_values)
+
+    def is_twice_differentiable(self) -> bool:
+        """Check if all the functions expressions in the problem are twice differentiable.
+
+        Note:
+            This method just checks all the functions expressions present in the problem
+            and return true if all of them are twice differentiable. For complicated problems, this might
+            result in an incorrect results. User discretion is advised.
+
+        Returns:
+            bool: whether the problem is twice differentiable or not.
+        """
+        is_diff_values = (
+            [obj.is_twice_differentiable for obj in self.objectives]
+            + ([con.is_twice_differentiable for con in self.constraints] if self.constraints is not None else [])
+            + ([extra.is_twice_differentiable for extra in self.extra_funcs] if self.extra_funcs is not None else [])
+            + (
+                [scal.is_twice_differentiable for scal in self.scalarization_funcs]
+                if self.scalarization_funcs is not None
+                else []
+            )
+        )
+
+        return all(is_diff_values)
+
     name: str = Field(
         description="Name of the problem.",
     )

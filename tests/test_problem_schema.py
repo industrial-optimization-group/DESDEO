@@ -502,3 +502,25 @@ def test_is_convex():
     problem_non_convex = river_pollution_problem()
 
     assert not problem_non_convex.is_convex()
+
+
+def test_is_linear():
+    """Test whether the linearity of a problem is inferred correctly."""
+    problem_linear = simple_knapsack()
+
+    assert problem_linear.is_linear()
+
+    problem_nonlinear = river_pollution_problem()
+
+    assert not problem_nonlinear.is_linear()
+
+
+def test_is_twice_diff():
+    """Test whether the twice differentiability of a problem is inferred correctly."""
+    problem_diff = simple_knapsack()
+
+    assert problem_diff.is_twice_differentiable()
+
+    problem_nondiff = river_pollution_problem()
+
+    assert not problem_nondiff.is_twice_differentiable()
