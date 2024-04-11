@@ -491,3 +491,14 @@ def test_variable_domain():
     integer_problem = simple_knapsack()
 
     assert integer_problem.variable_domain() == VariableDomainTypeEnum.integer
+
+
+def test_is_convex():
+    """Test whether the convexity of a problem is inferred correctly."""
+    problem_convex = simple_knapsack()
+
+    assert problem_convex.is_convex()
+
+    problem_non_convex = river_pollution_problem()
+
+    assert not problem_non_convex.is_convex()

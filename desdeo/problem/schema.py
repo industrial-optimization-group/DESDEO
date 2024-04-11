@@ -751,6 +751,26 @@ class Problem(BaseModel):
         # mixed problem
         return VariableDomainTypeEnum.mixed
 
+    def is_convex(self) -> bool:
+        """Check if all the functions expressions in the problem are convex.
+
+        Note:
+            This method just checks all the functions expressions present in the problem
+            and return true if all of them are convex. For complicated problems, this might
+            result in an incorrect results. User discretion is advised.
+
+        Returns:
+            bool: whether the problem is convex or not.
+        """
+        is_convex_values = (
+            [obj.is_convex for obj in self.objectives]
+            + ([con.is_convex for con in self.constraints] if self.constraints is not None else [])
+            + ([extra.is_convex for extra in self.extra_funcs] if self.extra_funcs is not None else [])
+            + ([scal.is_convex for scal in self.scalarization_funcs] if self.scalarization_funcs is not None else [])
+        )
+
+        return all(is_convex_values)
+
     name: str = Field(
         description="Name of the problem.",
     )

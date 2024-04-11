@@ -90,12 +90,25 @@ def binh_and_korn(maximize: tuple[bool] = (False, False)) -> Problem:
 
 
 def river_pollution_problem(five_objective_variant: bool = True) -> Problem:
-    """Create a pydantic dataclass representation of the river pollution problem with either five or four variables.
+    r"""Create a pydantic dataclass representation of the river pollution problem with either five or four variables.
 
     The objective functions "DO city", "DO municipality", and
     "BOD deviation" are to be minimized, while "ROI fishery" and "ROI city" are to be
     maximized. If the four variant problem is used, the the "BOD deviation" objective
-    function is not present.
+    function is not present. The problem is defined as follows:
+
+    \begin{align*}
+    \min f_1(x) &= -4.07 - 2.27 x_1 \\
+    \min f_2(x) &= -2.60 - 0.03 x_1 - 0.02 x_2 - \frac{0.01}{1.39 - x_1^2} - \frac{0.30}{1.39 - x_2^2} \\
+    \max f_3(x) &= 8.21 - \frac{0.71}{1.09 - x_1^2} \\
+    \max f_4(x) &= 0.96 - \frac{0.96}{1.09 - x_2^2} \\
+    \min f_5(x) &= \max(|x_1 - 0.65|, |x_2 - 0.65|) \\
+    \text{s.t.}\quad    & 0.3 \leq x_1 \leq 1.0,\\
+                        & 0.3 \leq x_2 \leq 1.0,\\
+    \end{align*}
+
+    where the fifth objective is part of the problem definition only if
+    `five_objective_variant = True`.
 
     Args:
         five_objective_variant (bool, optional): Whether to use to five
@@ -111,7 +124,7 @@ def river_pollution_problem(five_objective_variant: bool = True) -> Problem:
 
         Miettinen, Kaisa, and Marko M. Mäkelä. "Interactive method NIMBUS for
             nondifferentiable multiobjective optimization problems." Multicriteria
-            Analysis: Proceedings of the XIth International Conference on MCDM, 1–6
+            Analysis: Proceedings of the XIth International Conference on MCDM, 1-6
             August 1994, Coimbra, Portugal. Berlin, Heidelberg: Springer Berlin
             Heidelberg, 1997.
     """
@@ -128,11 +141,61 @@ def river_pollution_problem(five_objective_variant: bool = True) -> Problem:
     f_4 = "0.96 - 0.96 / (1.09 - x_2**2)"
     f_5 = "Max(Abs(x_1 - 0.65), Abs(x_2 - 0.65))"
 
-    objective_1 = Objective(name="DO city", symbol="f_1", func=f_1, maximize=False, ideal=-6.34, nadir=-4.75)
-    objective_2 = Objective(name="DO municipality", symbol="f_2", func=f_2, maximize=False, ideal=-3.44, nadir=-2.85)
-    objective_3 = Objective(name="ROI fishery", symbol="f_3", func=f_3, maximize=True, ideal=7.5, nadir=0.32)
-    objective_4 = Objective(name="ROI city", symbol="f_4", func=f_4, maximize=True, ideal=0, nadir=-9.70)
-    objective_5 = Objective(name="BOD deviation", symbol="f_5", func=f_5, maximize=False, ideal=0, nadir=0.35)
+    objective_1 = Objective(
+        name="DO city",
+        symbol="f_1",
+        func=f_1,
+        maximize=False,
+        ideal=-6.34,
+        nadir=-4.75,
+        is_convex=True,
+        is_linear=True,
+        is_twice_differentiable=True,
+    )
+    objective_2 = Objective(
+        name="DO municipality",
+        symbol="f_2",
+        func=f_2,
+        maximize=False,
+        ideal=-3.44,
+        nadir=-2.85,
+        is_convex=False,
+        is_linear=False,
+        is_twice_differentiable=True,
+    )
+    objective_3 = Objective(
+        name="ROI fishery",
+        symbol="f_3",
+        func=f_3,
+        maximize=True,
+        ideal=7.5,
+        nadir=0.32,
+        is_convex=True,
+        is_linear=False,
+        is_twice_differentiable=True,
+    )
+    objective_4 = Objective(
+        name="ROI city",
+        symbol="f_4",
+        func=f_4,
+        maximize=True,
+        ideal=0,
+        nadir=-9.70,
+        is_convex=True,
+        is_linear=False,
+        is_twice_differentiable=True,
+    )
+    objective_5 = Objective(
+        name="BOD deviation",
+        symbol="f_5",
+        func=f_5,
+        maximize=False,
+        ideal=0,
+        nadir=0.35,
+        is_convex=False,
+        is_linear=False,
+        is_twice_differentiable=False,
+    )
 
     objectives = (
         [objective_1, objective_2, objective_3, objective_4, objective_5]
