@@ -7,7 +7,8 @@ import warnings
 import gurobipy as gp
 
 from desdeo.problem.json_parser import FormatEnum, MathParser
-from desdeo.problem.schema import Constraint, ConstraintTypeEnum, Problem, Objective, ScalarizationFunction, Variable, VariableTypeEnum
+from desdeo.problem.schema import Constraint, ConstraintTypeEnum, Objective, Problem, ScalarizationFunction, Variable, VariableTypeEnum
+
 
 class GurobipyEvaluatorError(Exception):
     """Raised when an error within the GurobipyEvaluator class is encountered."""
@@ -368,6 +369,9 @@ class GurobipyEvaluator:
     ) -> gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr | gp.GenExpr | int | float:
         """Returns a gurobipy expression corresponding to the name.
 
+        Only looks for variables, objective functions, scalarizations, extra functions, and constants.
+        This will not find constraints.
+
         Args:
             name (str): The symbol of the expression.
 
@@ -386,8 +390,8 @@ class GurobipyEvaluator:
                 expression = self.constants[name]
         return expression
 
-    def get_values(self) -> dict[str, float | int | bool]:  # noqa: C901
-        """Get the values from the GurobipyModel in a dict.
+    def get_values(self) -> dict[str, float | int | bool]:   # noqa: C901
+        """Get the values from the Gurobipy Model in a dict.
 
         The keys of the dict will be the symbols defined in the problem utilized to initialize the evaluator.
 
@@ -446,12 +450,13 @@ class GurobipyEvaluator:
         self.model.remove(self.model.getVarByName(symbol))
         self.model.update()
 
-    def set_optimization_target(self, target: str):
+    def set_optimization_target(self, target: str, maximize: bool = False):  # noqa: FBT001, FBT002
         """Sets a minimization objective to match the target objective or scalarization of the gurobipy model.
 
         Args:
             target (str): an str representing a symbol. Needs to match an objective function or scaralization
             function already found in the model.
+            maximize (bool): If true, the target function is maximized instead of minimized
 
         Raises:
             GurobipyEvaluatorError: the given target was not an attribute of the gurobipy model.
@@ -462,4 +467,7 @@ class GurobipyEvaluator:
 
         obj_expr = self.get_expression_by_name(target)
 
-        self.model.setObjective(obj_expr)
+        if maximize:
+            self.model.setObjective(obj_expr, sense=gp.GRB.MAXIMIZE)
+        else:
+            self.model.setObjective(obj_expr)

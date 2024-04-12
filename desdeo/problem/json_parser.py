@@ -362,7 +362,7 @@ class MathParser:
                 # Parse the operands
                 operands = [self._parse_to_gurobipy(e, callback) for e in expr[1:]]
 
-                if isinstance(operands, list) and len(operands) == 1:
+                while isinstance(operands, list) and len(operands) == 1:
                     # if the operands have redundant brackets, remove them
                     operands = operands[0]
 

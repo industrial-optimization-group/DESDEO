@@ -127,10 +127,10 @@ class PersistentGurobipySolver(PersistentSolver):
         if isinstance(constraint,list):
             cons_list = list[gp.Constr]
             for cons in constraint:
-                cons_list.append(self.evaluator.addConstraint(cons))
+                cons_list.append(self.evaluator.add_constraint(cons))
             return cons_list
 
-        return self.evaluator.addConstraint(constraint)
+        return self.evaluator.add_constraint(constraint)
 
     def add_objective(self, objective: Objective|list[Objective]):
         """Adds an objective function expression to the solver.
@@ -147,7 +147,7 @@ class PersistentGurobipySolver(PersistentSolver):
             objective = [objective]
 
         for obj in objective:
-            self.evaluator.addObjective(obj)
+            self.evaluator.add_objective(obj)
 
     def add_scalarization_function(self, scalarization: ScalarizationFunction|list[ScalarizationFunction]):
         """Adds a scalrization expression to the solver.
@@ -164,7 +164,7 @@ class PersistentGurobipySolver(PersistentSolver):
             scalarization = [scalarization]
 
         for scal in scalarization:
-            self.evaluator.addScalarizationFunction(scal)
+            self.evaluator.add_scalarization_function(scal)
 
     def add_variable(self, variable: Variable|list[Variable]) -> gp.Var|list[gp.Var]:
         """Add one or more variables to the solver.
@@ -187,10 +187,10 @@ class PersistentGurobipySolver(PersistentSolver):
         if isinstance(variable, list):
             var_list = list[gp.Var]
             for var in variable:
-                var_list.append(self.evaluator.addVariable(var))
+                var_list.append(self.evaluator.add_variable(var))
             return var_list
 
-        return self.evaluator.addVariable(variable)
+        return self.evaluator.add_variable(variable)
 
     def remove_constraint(self, symbol: str|list[str]):
         """Removes a constraint from the solver.
@@ -206,7 +206,7 @@ class PersistentGurobipySolver(PersistentSolver):
         if not isinstance(symbol,list):
             symbol = [symbol]
         for s in symbol:
-            self.evaluator.removeConstraint(s)
+            self.evaluator.remove_constraint(s)
 
     def remove_variable(self, symbol: str|list[str]):
         """Removes a variable from the model.
@@ -219,7 +219,7 @@ class PersistentGurobipySolver(PersistentSolver):
             symbol (str): a str representing the symbol of the variable to be removed.
                 Can also be a list of multiple symbols.
         """
-        self.evaluator.removeVariable(symbol)
+        self.evaluator.remove_variable(symbol)
 
     def solve(self, target: str) -> SolverResults:
         """Solves the current problem with the specified target.
