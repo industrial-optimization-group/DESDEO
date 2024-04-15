@@ -10,6 +10,7 @@ __all__ = [
     "ExtraFunction",
     "FormatEnum",
     "GenericEvaluator",
+    "GurobipyEvaluator",
     "dtlz2",
     "get_nadir_dict",
     "get_ideal_dict",
@@ -40,6 +41,7 @@ __all__ = [
 ]
 
 from .evaluator import EvaluatorModesEnum, GenericEvaluator
+from .gurobipy_evaluator import GurobipyEvaluator
 from .infix_parser import InfixExpressionParser
 from .json_parser import FormatEnum, MathParser
 from .pyomo_evaluator import PyomoEvaluator

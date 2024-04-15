@@ -146,3 +146,4 @@ experiment/
 
 # testmondata
 .testmondata*
+debug.py

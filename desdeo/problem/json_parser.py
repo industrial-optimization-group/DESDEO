@@ -1,12 +1,17 @@
-"""Defines a parser to parse multiobjective optimziation problems defined in a JSON foramt."""
+"""Defines a parser to parse multiobjective optimziation problems defined in a JSON format."""
 
+from collections.abc import Callable
 from enum import Enum
 from functools import reduce
 
+import gurobipy as gp
 import polars as pl
 import pyomo.environ as pyomo
 import sympy as sp
 from pyomo.core.expr.numeric_expr import MaxExpression as _PyomoMax
+
+# Mathematical objects in gurobipy can take many types
+gpexpression = gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr | gp.GenExpr
 
 
 class FormatEnum(str, Enum):
@@ -15,6 +20,7 @@ class FormatEnum(str, Enum):
     polars = "polars"
     pyomo = "pyomo"
     sympy = "sympy"
+    gurobipy = "gurobipy"
 
 
 class ParserError(Exception):
@@ -91,6 +97,10 @@ class MathParser:
 
         def to_sympy_expr(x):
             return sp.sympify(x, evaluate=False) if isinstance(x, self.literals) else x
+
+        def gp_error():
+            msg = "The gurobipy model format only supports linear and quadratic expressions."
+            ParserError(msg)
 
         polars_env = {
             # Define the operations for the different operators.
@@ -212,6 +222,49 @@ class MathParser:
             self.RATIONAL: lambda x, y: sp.Rational(x, y),
         }
 
+        gurobipy_env = {
+            # Define the operations for the different operators.
+            # Basic arithmetic operations
+            self.NEGATE: lambda x: -x,
+            self.ADD: lambda *args: reduce(lambda x, y: x + y, args),
+            self.SUB: lambda *args: reduce(lambda x, y: x - y, args),
+            self.MUL: lambda *args: reduce(lambda x, y: x * y, args),
+            self.DIV: lambda *args: reduce(lambda x, y: x / y, args),
+            # Exponentiation and logarithms
+            # it would be possible to implement some of these with the special functions that
+            # gurobi has to offer, but they would only work under specific circumstances
+            self.EXP: lambda x: gp_error(),
+            self.LN: lambda x: gp_error(),
+            self.LB: lambda x: gp_error(),
+            self.LG: lambda x: gp_error(),
+            self.LOP: lambda x: gp_error(),
+            self.SQRT: lambda x: gp_error(),
+            self.SQUARE: lambda x: x**2,
+            self.POW: lambda x, y: x**y,  # this will likely cause an error at some point for most y
+            # Trigonometric operations
+            # it would be possible to implement some of these with the special functions that
+            # gurobi has to offer, but they would only work under specific circumstances
+            self.ARCCOS: lambda x: gp_error(),
+            self.ARCCOSH: lambda x: gp_error(),
+            self.ARCSIN: lambda x: gp_error(),
+            self.ARCSINH: lambda x: gp_error(),
+            self.ARCTAN: lambda x: gp_error(),
+            self.ARCTANH: lambda x: gp_error(),
+            self.COS: lambda x: gp_error(),
+            self.COSH: lambda x: gp_error(),
+            self.SIN: lambda x: gp_error(),
+            self.SINH: lambda x: gp_error(),
+            self.TAN: lambda x: gp_error(),
+            self.TANH: lambda x: gp_error(),
+            # Rounding operations
+            self.ABS: lambda x: gp.abs_(x),
+            self.CEIL: lambda x: gp_error(),
+            self.FLOOR: lambda x: gp_error(),
+            # Other operations
+            self.RATIONAL: lambda lst: reduce(lambda x, y: x / y, lst),  # not supported
+            self.MAX: lambda *args: gp.max_(args),
+        }
+
         match to_format:
             case FormatEnum.polars:
                 self.env = polars_env
@@ -222,6 +275,9 @@ class MathParser:
             case FormatEnum.sympy:
                 self.env = sympy_env
                 self.parse = self._parse_to_sympy
+            case FormatEnum.gurobipy:
+                self.env = gurobipy_env
+                self.parse = self._parse_to_gurobipy
             case _:
                 msg = f"Given target format {to_format} not supported. Must be one of {FormatEnum}."
                 raise ParserError(msg)
@@ -362,6 +418,59 @@ class MathParser:
 
             # else, assume the list contents are parseable expressions
             return [self.parse(e) for e in expr]
+
+        msg = f"Encountered unsupported type '{type(expr)}' during parsing."
+        raise ParserError(msg)
+
+    def _parse_to_gurobipy(
+        self, expr: list | str | int | float, callback: Callable[[str], gpexpression | int | float]
+    ) -> gpexpression | int | float:
+        """Parses the MathJSON format recursively into a gurobipy expression.
+
+        Gurobi only fundamentally supports linear and quadratic expressions, and this parser
+        does not check that the inputs are valid. If you try to input something else, you will
+        likely encounter an error at some point.
+
+        Args:
+            expr (list | str | int | float): a list with a Polish notation expression that describes a, e.g.,
+                ["Multiply", ["Sqrt", 2], "x2"]
+            callback (Callable): A function that can return a gurobipy expression associated with the
+                correct model when called with symbol str.
+
+        Returns:
+            Returns a gurobipy expression (that can belong into one of multiple types) equivalent to the original
+            expressions.
+            All possible output types should be supported as parts of gurobipy constraints. gurobipy.GenExpr at
+            least isn't supported as an objective function.
+        """
+        if isinstance(expr, gpexpression):
+            # Terminal case: gurobipy expression
+            return expr
+        if isinstance(expr, str):
+            # Terminal case: str expression, represent a variable or expression
+            return callback(expr)
+        if isinstance(expr, self.literals):
+            # Terminal case: numeric literal
+            return expr
+
+        if isinstance(expr, list):
+            # Extract the operation name
+            if isinstance(expr[0], str) and expr[0] in self.env:
+                op_name = expr[0]
+                # Parse the operands
+                operands = [self._parse_to_gurobipy(e, callback) for e in expr[1:]]
+
+                while isinstance(operands, list) and len(operands) == 1:
+                    # if the operands have redundant brackets, remove them
+                    operands = operands[0]
+
+                if isinstance(operands, list):
+                    return self.env[op_name](*operands)
+
+                return self.env[op_name](operands)
+
+            # else, assume the list contents are parseable expressions
+            return [self._parse_to_gurobipy(e, callback) for e in expr]
 
         msg = f"Encountered unsupported type '{type(expr)}' during parsing."
         raise ParserError(msg)

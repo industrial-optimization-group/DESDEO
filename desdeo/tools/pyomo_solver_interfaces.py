@@ -1,7 +1,6 @@
 """Defines solver interfaces for pyomo."""
 
 from collections.abc import Callable
-from dataclasses import dataclass, fields
 
 import pyomo.environ as pyomo
 from pydantic import BaseModel, Field
@@ -207,33 +206,36 @@ def create_pyomo_ipopt_solver(
         options = _default_ipopt_options
 
     evaluator = PyomoEvaluator(problem)
+    if options is None:
+        options = {}
 
     def solver(target: str) -> SolverResults:
         evaluator.set_optimization_target(target)
 
         opt = pyomo.SolverFactory("ipopt", tee=True)
-
-        # set solver options
-        for key, value in options.model_dump().items():
-            opt.options[key] = value
         opt_res = opt.solve(evaluator.model)
-
         return parse_pyomo_optimizer_results(opt_res, problem, evaluator)
 
     return solver
 
 
-def create_pyomo_gurobi_solver(problem: Problem, options: dict | None = None) -> Callable[[str], SolverResults]:
+def create_pyomo_gurobi_solver(
+    problem: Problem, options: dict[str, any] | None = None
+) -> Callable[[str], SolverResults]:
     """Creates a pyomo solver that utilizes gurobi.
 
-    You need to have gurobi installed on your system for this to work.  Suitable
-    for solving mixed-integer linear and quadratic optimization problems.
+    You need to have gurobi installed on your system for this to work.
+
+    Suitable for solving mixed-integer linear and quadratic optimization
+    problems.
 
     Args:
         problem (Problem): the problem to be solved.
-        options (GurobiOptions, optional): Dictionary of Gurobi parameters to set.
+        options (GurobiOptions): Dictionary of Gurobi parameters to set.
             This is passed to pyomo as is, so it works the same as options
-            would for calling pyomo SolverFactory directly. Defaults to None.
+            would for calling pyomo SolverFactory directly.
+            See https://www.gurobi.com/documentation/current/refman/parameters.html
+            for information on the available options
 
     Returns:
         Callable[[str], SolverResults]: a callable function that takes
