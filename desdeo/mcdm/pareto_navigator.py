@@ -69,16 +69,16 @@ def get_polyhedral_set(problem: Problem) -> tuple[np.ndarray, np.ndarray]:
     representation = np.array([objective_values[obj.symbol] for obj in problem.objectives])
 
     convex_hull = ConvexHull(representation.T)
-    A = convex_hull.equations[:, 0:-1]
+    matrix_a = convex_hull.equations[:, 0:-1]
     b = -convex_hull.equations[:, -1]
-    return A, b
+    return matrix_a, b
 
-def construct_A_matrix(problem: Problem, A: np.ndarray) -> np.ndarray:
+def construct_matrix_a(problem: Problem, matrix_a: np.ndarray) -> np.ndarray:
     """Construct the A' matrix in the linear parametric programming problem from the article.
 
     Args:
         problem (Problem): The problem being solved.
-        A (np.ndarray): The A matrix from the polyhedral set equation.
+        matrix_a (np.ndarray): The A matrix from the polyhedral set equation.
 
     Returns:
         np.ndarray: The A' matrix in the linear parametric programming problem from the article.
@@ -89,44 +89,37 @@ def construct_A_matrix(problem: Problem, A: np.ndarray) -> np.ndarray:
 
     weights_inverse = np.reshape(np.vectorize(lambda w: -1 / w)(weights), (len(weights), 1))
     identity = np.identity(len(weights))
-    A_upper = np.c_[weights_inverse, identity]
+    a_upper = np.c_[weights_inverse, identity]
 
-    zeros = np.zeros((len(A), 1))
-    A_lower = np.c_[zeros, A]
+    zeros = np.zeros((len(matrix_a), 1))
+    a_lower = np.c_[zeros, matrix_a]
 
-    return np.concatenate((A_upper, A_lower))
+    return np.concatenate((a_upper, a_lower))
 
-#def pareto_navigator_init(problem: Problem, starting_point: dict[str, float]):
-#    A, b = get_polyhedral_set(problem)
-#
-#    A_new = construct_A_matrix(problem, A)
-#    return
-
-
-def calculate_next_solution(
+def calculate_next_solution( # NOQA: PLR0913
     problem: Problem,
     search_direction: dict[str, float],
-    current_point: dict[str, float],
-    alpha: float
+    current_solution: dict[str, float],
+    alpha: float,
+    matrix_a: np.ndarray,
+    b: np.ndarray
 ) -> dict[str, float]:
     """Calculate the next solution.
 
     Args:
         problem (Problem): The problem being solved.
         search_direction (dict[str, float]): The search direction.
-        current_point (dict[str, float]): The currently navigated point.
+        current_solution (dict[str, float]): The currently navigated point.
         alpha (float): Step size. Between 0 and 1.
+        matrix_a (np.ndarray): The A' matrix.
+        b (np.ndarray): The b vector.
 
     Returns:
         dict[str, float]: The next solution.
     """
-    z = objective_dict_to_numpy_array(problem, current_point)
+    z = objective_dict_to_numpy_array(problem, current_solution)
     k = len(z)
     d = objective_dict_to_numpy_array(problem, search_direction)
-
-    A, b = get_polyhedral_set(problem)
-
-    A_new = construct_A_matrix(problem, A)
 
     q = z + alpha * d
     q = np.reshape(q, ((k, 1)))
@@ -143,10 +136,44 @@ def calculate_next_solution(
     for x, y in obj_bounds.T:
         bounds.append((x, y))
 
-    z_new = linprog(c=c, A_ub=A_new, b_ub=b_new, bounds=bounds)
+    z_new = linprog(c=c, A_ub=matrix_a, b_ub=b_new, bounds=bounds)
     if z_new["success"]:
         return numpy_array_to_objective_dict(problem, z_new["x"][1:])
     return ""
+
+def calculate_all_solutions(
+    problem: Problem,
+    search_direction: dict[str, float],
+    current_solution: dict[str, float],
+    alpha: float,
+    num_solutions: int
+) -> list[dict[str, float]]:
+    """Performs a set number of steps in the current direction.
+
+    Args:
+        problem (Problem): The problem being solved.
+        search_direction (dict[str, float]): The current search direction.
+        current_solution (dict[str, float]): The current solution.
+        alpha (float): Step size. Between 0 and 1.
+        num_solutions (int): Number of solutions calculated.
+
+    Returns:
+        list[dict[str, float]]: A list of the computed solutions.
+    """
+    solution = current_solution
+    d = search_direction
+
+    # the A matrix and b vector from the polyhedral set equation
+    matrix_a, b = get_polyhedral_set(problem)
+
+    # the A' matrix from the linear parametric programming problem
+    matrix_a_new = construct_matrix_a(problem, matrix_a)
+
+    solutions = []
+    while len(solutions) < num_solutions:
+        solution = calculate_next_solution(problem, d, solution, alpha, matrix_a_new, b)
+        solutions.append(solution)
+    return solutions
 
 # Testing
 if __name__ == "__main__":
@@ -164,39 +191,38 @@ if __name__ == "__main__":
 
     d = calculate_search_direction(problem, reference_point, starting_point)
 
-    navigated_point = calculate_next_solution(problem, d, starting_point, adjusted_speed)
+    #navigated_point = calculate_next_solution(problem, d, starting_point, adjusted_speed)
 
-    max_it = 200
+    num_solutions = 200
     acc = 0.15
-    step_n = 0
-    while step_n < max_it:
-        navigated_point = calculate_next_solution(problem, d, navigated_point, adjusted_speed)
-        step_n += 1
-        if np.all(np.abs(objective_dict_to_numpy_array(problem, navigated_point)
+    solutions = calculate_all_solutions(problem, d, starting_point, adjusted_speed, num_solutions)
+    navigated_point = starting_point
+
+    for i in range(len(solutions)):
+        if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i])
                          - np.array([0.35, -0.51, -26.26])) < acc):
-            print("Values close enough to the ones in the article reached. ", navigated_point)
+            print("Values close enough to the ones in the article reached. ", solutions[i])
+            navigated_point = solutions[i]
             break
 
     reference_point = {'f_1': ideal['f_1'], 'f_2': nadir['f_2'], 'f_3': navigated_point['f_3']}
     d = calculate_search_direction(problem, reference_point, navigated_point)
-    step_n = 0
+    solutions = calculate_all_solutions(problem, d, navigated_point, adjusted_speed, num_solutions)
 
-    while step_n < max_it:
-        navigated_point = calculate_next_solution(problem, d, navigated_point, adjusted_speed)
-        step_n += 1
-        if np.all(np.abs(objective_dict_to_numpy_array(problem, navigated_point)
+    for i in range(len(solutions)):
+        if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i])
                          - np.array([-0.89, 2.91, -24.98])) < acc):
-            print("Values close enough to the ones in the article reached. ", navigated_point)
+            print("Values close enough to the ones in the article reached. ", solutions[i])
+            navigated_point = solutions[i]
             break
 
     reference_point = {'f_1': nadir['f_1'], 'f_2': ideal['f_2'], 'f_3': ideal['f_3']}
     d = calculate_search_direction(problem, reference_point, navigated_point)
-    step_n = 0
+    solutions = calculate_all_solutions(problem, d, navigated_point, adjusted_speed, num_solutions)
 
-    while step_n < max_it:
-        navigated_point = calculate_next_solution(problem, d, navigated_point, adjusted_speed)
-        step_n += 1
-        if np.all(np.abs(objective_dict_to_numpy_array(problem, navigated_point)
+    for i in range(len(solutions)):
+        if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i])
                          - np.array([-0.32, 2.33, -27.85])) < acc):
-            print("Values close enough to the ones in the article reached. ", navigated_point)
+            print("Values close enough to the ones in the article reached. ", solutions[i])
+            navigated_point = solutions[i]
             break
