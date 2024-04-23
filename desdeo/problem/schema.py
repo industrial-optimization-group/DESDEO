@@ -55,7 +55,34 @@ def parse_infix_to_func(cls, v: str | list) -> list:
         return v
 
     # Raise an error if v is neither a string nor a list
-    msg = f"func must be a string (infix expression) or a list, got {type(v)}"
+    msg = f"The function expressions must be a string (infix expression) or a list. Got {type(v)}."
+    raise ValueError(msg)
+
+
+def parse_scenario_key_singleton_to_list(cls, v: str | list[str]) -> list[str]:
+    """Validator that checks the type of a scenario key.
+
+    If the type is a list, it will be returned as it is. If it is a string,
+    then a list with the single string is returned. Else, a ValueError is raised.
+
+    Args:
+        cls: the class fo the pydantic model the validtor is applied to.
+        v (str | list[str]): the scenario key, or keys, to be validted.
+
+    Raises:
+        ValueError: raised when `v` it neither a string or a list.
+
+    Returns:
+        list[str]: a list with scenario keys.
+    """
+    if v is None:
+        return v
+    if isinstance(v, str):
+        return [v]
+    if isinstance(v, list):
+        return v
+
+    msg = f"The scenario keys must be either a list of strings, or a single string. Got {type(v)}."
     raise ValueError(msg)
 
 
@@ -202,8 +229,15 @@ class ExtraFunction(BaseModel):
         description="Whether the function expression is twice differentiable or not. Defaults to `False`", default=False
     )
     """Whether the function expression is twice differentiable or not. Defaults to `False`"""
+    scenario_keys: list[str] | None = Field(
+        description="Optional. The keys of the scenario the extra functions belongs to.", default=None
+    )
+    """Optional. The keys of the scenarios the extra functions belongs to."""
 
     _parse_infix_to_func = field_validator("func", mode="before")(parse_infix_to_func)
+    _parse_scenario_key_singleton_to_list = field_validator("scenario_keys", mode="before")(
+        parse_scenario_key_singleton_to_list
+    )
 
 
 class ScalarizationFunction(BaseModel):
@@ -249,8 +283,15 @@ class ScalarizationFunction(BaseModel):
         frozen=True,
     )
     """Whether the function expression is twice differentiable or not. Defaults to `False`"""
+    scenario_keys: list[str] = Field(
+        description="Optional. The keys of the scenarios the scalarization function belongs to.", default=False
+    )
+    """Optional. The keys of the scenarios the scalarization function belongs to."""
 
     _parse_infix_to_func = field_validator("func", mode="before")(parse_infix_to_func)
+    _parse_scenario_key_singleton_to_list = field_validator("scenario_keys", mode="before")(
+        parse_scenario_key_singleton_to_list
+    )
 
 
 class Objective(BaseModel):
@@ -328,8 +369,15 @@ class Objective(BaseModel):
         description="Whether the function expression is twice differentiable or not. Defaults to `False`", default=False
     )
     """Whether the function expression is twice differentiable or not. Defaults to `False`"""
+    scenario_keys: list[str] | None = Field(
+        description="Optional. The keys of the scenarios the objective function belongs to.", default=None
+    )
+    """Optional. The keys of the scenarios the objective function belongs to."""
 
     _parse_infix_to_func = field_validator("func", mode="before")(parse_infix_to_func)
+    _parse_scenario_key_singleton_to_list = field_validator("scenario_keys", mode="before")(
+        parse_scenario_key_singleton_to_list
+    )
 
 
 class Constraint(BaseModel):
@@ -392,8 +440,15 @@ class Constraint(BaseModel):
         description="Whether the function expression is twice differentiable or not. Defaults to `False`", default=False
     )
     """Whether the function expression is twice differentiable or not. Defaults to `False`"""
+    scenario_keys: list[str] | None = Field(
+        description="Optional. The keys of the scenarios the constraint belongs to.", default=None
+    )
+    """Optional. The keys of the scenarios the constraint belongs to."""
 
     _parse_infix_to_func = field_validator("func", mode="before")(parse_infix_to_func)
+    _parse_scenario_key_singleton_to_list = field_validator("scenario_keys", mode="before")(
+        parse_scenario_key_singleton_to_list
+    )
 
 
 class DiscreteRepresentation(BaseModel):
@@ -815,6 +870,68 @@ class Problem(BaseModel):
 
         return all(is_diff_values)
 
+    def scenario(self, scenario_key: str) -> "Problem":
+        """Returns a new Problem with fields belonging to a specified scenario.
+
+        The new problem will have the fields `objectives`, `constraints`, `extra_funcs`,
+        and `scalarization_funcs` with only the entries that belong to the specified
+        scenario. The other entries will remain unchanged.
+
+        Note:
+            Fields with their `scenario_key` being `None` are assumed to belong to all scenarios,
+            and are thus always included in each scenario.
+
+        Args:
+            scenario_key (str): the key of the scenario we wish to get.
+
+        Raises:
+            ValueError: the given `scenario_key` has not been defined to be a scenario.
+
+        Returns:
+            Problem: a new problem with only the field that belong to the specified scenario.
+        """
+        if self.scenario_keys is None or scenario_key not in self.scenario_keys:
+            # invalid scenario
+            msg = (
+                f"The scenario '{scenario_key} has not been defined to be a valid scenario, or the problem has no "
+                "scenarios defined."
+            )
+            raise ValueError(msg)
+
+        # add the fields if the field has the given scenario_key in its scenario_keys, or if the
+        # scenario_keys is None
+        scenario_objectives = [
+            obj for obj in self.objectives if obj.scenario_keys is None or scenario_key in obj.scenario_keys
+        ]
+        scenario_constraints = (
+            [cons for cons in self.constraints if cons.scenario_keys is None or scenario_key in cons.scenario_keys]
+            if self.constraints is not None
+            else None
+        )
+        scenario_extras = (
+            [extra for extra in self.extra_funcs if extra.scenario_keys is None or scenario_key in extra.scenario_keys]
+            if self.extra_funcs is not None
+            else None
+        )
+        scenario_scals = (
+            [
+                scal
+                for scal in self.scalarization_funcs
+                if scal.scenario_keys is None or scenario_key in scal.scenario_keys
+            ]
+            if self.scalarization_funcs is not None
+            else None
+        )
+
+        return self.model_copy(
+            update={
+                "objectives": scenario_objectives,
+                "constraints": scenario_constraints,
+                "extra_funcs": scenario_extras,
+                "scalarization_funcs": scenario_scals,
+            }
+        )
+
     name: str = Field(
         description="Name of the problem.",
     )
@@ -857,11 +974,23 @@ class Problem(BaseModel):
         ),
         default=None,
     )
-    """ Optional. Required when there are one or more 'data_based' Objectives.
+    """Optional. Required when there are one or more 'data_based' Objectives.
     The corresponding values of the 'data_based' objective function will be
     fetched from this with the given variable values.  Is also utilized for
     methods which require both an analytical and discrete representation of a
     problem. Defaults to `None`."""
+    scenario_keys: list[str] | None = Field(
+        description=(
+            "Optional. The scenario keys defined for the problem. Each key will point to a subset of objectives, "
+            "constraints, extra functions, and scalarization functions that have the same scenario key defined to them."
+            "If None, then the problem is assumed to not contain scenarios."
+        ),
+        default=None,
+    )
+    """Optional. The scenario keys defined for the problem. Each key will point
+    to a subset of objectives, " "constraints, extra functions, and
+    scalarization functions that have the same scenario key defined to them."
+    "If None, then the problem is assumed to not contain scenarios."""
 
 
 if __name__ == "__main__":

@@ -851,6 +851,169 @@ def simple_knapsack() -> Problem:
     )
 
 
+def simple_scenario_test_problem():
+    """Returns a simple, scenario-based multiobjective optimization test problem."""
+    constants = [Constant(name="c_1", symbol="c_1", value=3)]
+    variables = [
+        Variable(
+            name="x_1",
+            symbol="x_1",
+            lowerbound=-5.1,
+            upperbound=6.2,
+            initial_value=0,
+            variable_type=VariableTypeEnum.real,
+        ),
+        Variable(
+            name="x_2",
+            symbol="x_2",
+            lowerbound=-5.2,
+            upperbound=6.1,
+            initial_value=0,
+            variable_type=VariableTypeEnum.real,
+        ),
+    ]
+
+    constraints = [
+        Constraint(
+            name="con_1",
+            symbol="con_1",
+            cons_type=ConstraintTypeEnum.LTE,
+            func="x_1 + x_2 - 15",
+            is_linear=True,
+            is_convex=True,
+            is_twice_differentiable=True,
+            scenario_keys="s_1",
+        ),
+        Constraint(
+            name="con_2",
+            symbol="con_2",
+            cons_type=ConstraintTypeEnum.LTE,
+            func="x_1 + x_2 - 65",
+            is_linear=True,
+            is_convex=True,
+            is_twice_differentiable=True,
+            scenario_keys="s_2",
+        ),
+        Constraint(
+            name="con_3",
+            symbol="con_3",
+            cons_type=ConstraintTypeEnum.LTE,
+            func="x_2 - 50",
+            is_linear=True,
+            is_convex=True,
+            is_twice_differentiable=True,
+            scenario_keys=None,
+        ),
+        Constraint(
+            name="con_4",
+            symbol="con_4",
+            cons_type=ConstraintTypeEnum.LTE,
+            func="x_1 - 5",
+            is_linear=True,
+            is_convex=True,
+            is_twice_differentiable=True,
+            scenario_keys=["s_1", "s_2"],
+        ),
+    ]
+
+    expr_1 = "x_1 + x_2"
+    expr_2 = "x_1 - x_2"
+    expr_3 = "(x_1 - 3)**2 + x_2"
+    expr_4 = "c_1 + x_2**2 - x_1"
+    expr_5 = "-x_1 - x_2"
+
+    objectives = [
+        Objective(
+            name="f_1",
+            symbol="f_1",
+            func=expr_1,
+            maximize=False,
+            ideal=-100,
+            nadir=100,
+            objective_type=ObjectiveTypeEnum.analytical,
+            is_linear=True,
+            is_convex=True,
+            is_twice_differentiable=True,
+            scenario_keys="s_1",
+        ),
+        Objective(
+            name="f_2",
+            symbol="f_2",
+            func=expr_2,
+            maximize=False,
+            ideal=-100,
+            nadir=100,
+            objective_type=ObjectiveTypeEnum.analytical,
+            is_linear=True,
+            is_convex=True,
+            is_twice_differentiable=True,
+            scenario_keys=["s_1", "s_2"],
+        ),
+        Objective(
+            name="f_3",
+            symbol="f_3",
+            func=expr_3,
+            maximize=False,
+            ideal=-100,
+            nadir=100,
+            objective_type=ObjectiveTypeEnum.analytical,
+            is_linear=True,
+            is_convex=True,
+            is_twice_differentiable=True,
+            scenario_keys=None,
+        ),
+        Objective(
+            name="f_4",
+            symbol="f_4",
+            func=expr_4,
+            maximize=False,
+            ideal=-100,
+            nadir=100,
+            objective_type=ObjectiveTypeEnum.analytical,
+            is_linear=True,
+            is_convex=True,
+            is_twice_differentiable=True,
+            scenario_keys="s_2",
+        ),
+        Objective(
+            name="f_5",
+            symbol="f_5",
+            func=expr_5,
+            maximize=False,
+            ideal=-100,
+            nadir=100,
+            objective_type=ObjectiveTypeEnum.analytical,
+            is_linear=True,
+            is_convex=True,
+            is_twice_differentiable=True,
+            scenario_keys="s_2",
+        ),
+    ]
+
+    extra_funcs = [
+        ExtraFunction(
+            name="extra_1",
+            symbol="extra_1",
+            func="5*x_1",
+            is_linear=True,
+            is_convex=True,
+            is_twice_differentiable=True,
+            scenario_keys="s_2",
+        )
+    ]
+
+    return Problem(
+        name="Simple scenario test problem",
+        description="For testing the implementation of scenario-based problems.",
+        variables=variables,
+        constants=constants,
+        constraints=constraints,
+        objectives=objectives,
+        extra_funcs=extra_funcs,
+        scenario_keys=["s_1", "s_2"],
+    )
+
+
 if __name__ == "__main__":
-    problem = simple_knapsack()
+    problem = simple_scenario_test_problem()
     print(problem.model_dump_json(indent=2))
