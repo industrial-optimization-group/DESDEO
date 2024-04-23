@@ -28,7 +28,7 @@ from desdeo.problem.infix_parser import InfixExpressionParser
 VariableType = float | int | bool
 
 
-def parse_infix_to_func(cls, v: str | list) -> list:
+def parse_infix_to_func(cls: "Problem", v: str | list) -> list:
     """Validator that checks if the 'func' field is of type str or list.
 
     If str, then it is assumed the string represents the func in infix notation. The string
@@ -59,7 +59,7 @@ def parse_infix_to_func(cls, v: str | list) -> list:
     raise ValueError(msg)
 
 
-def parse_scenario_key_singleton_to_list(cls, v: str | list[str]) -> list[str]:
+def parse_scenario_key_singleton_to_list(cls: "Problem", v: str | list[str]) -> list[str]:
     """Validator that checks the type of a scenario key.
 
     If the type is a list, it will be returned as it is. If it is a string,
@@ -284,7 +284,7 @@ class ScalarizationFunction(BaseModel):
     )
     """Whether the function expression is twice differentiable or not. Defaults to `False`"""
     scenario_keys: list[str] = Field(
-        description="Optional. The keys of the scenarios the scalarization function belongs to.", default=False
+        description="Optional. The keys of the scenarios the scalarization function belongs to.", default=None
     )
     """Optional. The keys of the scenarios the scalarization function belongs to."""
 
