@@ -46,7 +46,7 @@ def classification_to_reference_point(
             ref.append(nadir[i])
         elif pref_info["classification"][i] == "=":
             ref.append(sol[i])
-    return numpy_array_to_objective_dict(problem, ref)
+    return numpy_array_to_objective_dict(problem, np.array(ref))
 
 def calculate_adjusted_speed(allowed_speeds: np.ndarray, speed: float) -> float:
     """Calculate an adjusted speed from a given float.
@@ -94,6 +94,7 @@ def get_polyhedral_set(problem: Problem) -> tuple[np.ndarray, np.ndarray]:
     Returns:
         tuple[np.ndarray, np.ndarray]: The A matrix and b vector from the polyhedral set equation.
     """
+    # should add checking if dicrete_representation doesn't exist and handle it
     objective_values = problem.discrete_representation.objective_values
     representation = np.array([objective_values[obj.symbol] for obj in problem.objectives])
 
@@ -168,7 +169,7 @@ def calculate_next_solution( # NOQA: PLR0913
     z_new = linprog(c=c, A_ub=matrix_a, b_ub=b_new, bounds=bounds)
     if z_new["success"]:
         return numpy_array_to_objective_dict(problem, z_new["x"][1:])
-    return ""
+    return current_solution # should raise an exception instead
 
 def calculate_all_solutions(
     problem: Problem,
@@ -206,7 +207,7 @@ def calculate_all_solutions(
     # the A' matrix from the linear parametric programming problem
     matrix_a_new = construct_matrix_a(problem, matrix_a)
 
-    solutions = []
+    solutions: list[dict[str, float]] = []
     while len(solutions) < num_solutions:
         solution = calculate_next_solution(problem, d, solution, alpha, matrix_a_new, b)
         solutions.append(solution)
