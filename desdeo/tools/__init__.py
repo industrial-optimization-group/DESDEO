@@ -22,7 +22,7 @@ __all__ = [
     "add_stom_sf_nondiff",
     "add_weighted_sums",
     "available_nevergrad_optimizers",
-    "create_gurobipy_solver",
+    "GurobipySolver",
     "create_ng_generic_solver",
     "create_pyomo_bonmin_solver",
     "create_pyomo_ipopt_solver",
@@ -37,7 +37,7 @@ __all__ = [
 from desdeo.tools.generics import CreateSolverType, SolverOptions, SolverResults
 from desdeo.tools.gurobipy_solver_interfaces import (
     PersistentGurobipySolver,
-    create_gurobipy_solver,
+    GurobipySolver,
 )
 from desdeo.tools.ng_solver_interfaces import (
     NevergradGenericOptions,

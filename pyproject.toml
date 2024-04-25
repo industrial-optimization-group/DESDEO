@@ -196,7 +196,6 @@ markers = [
     "nimbus: tests related to the NIMBUS method",
     "gurobipy: tests related to the gurobipy solver"
 ]
-addopts = "-m 'not performance' -m 'not nautilus'"
 pythonpath = "."
 
 [build-system]

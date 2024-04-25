@@ -3,6 +3,11 @@
     options:
         heading_level: 3
 
+## Gurobipy solver interfaces
+::: desdeo.tools.gurobipy_solver_interfaces
+    options:
+        heading_level: 3
+
 ## Nevergrad solver interfaces
 ::: desdeo.tools.ng_solver_interfaces
     options:
