@@ -870,7 +870,7 @@ class Problem(BaseModel):
 
         return all(is_diff_values)
 
-    def scenario(self, scenario_key: str) -> "Problem":
+    def scenario(self, target_keys: str | list[str]) -> "Problem":
         """Returns a new Problem with fields belonging to a specified scenario.
 
         The new problem will have the fields `objectives`, `constraints`, `extra_funcs`,
@@ -882,34 +882,50 @@ class Problem(BaseModel):
             and are thus always included in each scenario.
 
         Args:
-            scenario_key (str): the key of the scenario we wish to get.
+            target_keys (str | list[str]): the key or keys of the scenario(s) we wish to get.
 
         Raises:
-            ValueError: the given `scenario_key` has not been defined to be a scenario.
+            ValueError: (some of) the given `target_keys` has not been defined to be a scenario
+                in the problem.
 
         Returns:
             Problem: a new problem with only the field that belong to the specified scenario.
         """
-        if self.scenario_keys is None or scenario_key not in self.scenario_keys:
+        if isinstance(target_keys, str):
+            # if just a single key is given, make a list out of it.abs
+            target_keys = [target_keys]
+
+        # the any matches any keys
+        if self.scenario_keys is None or not any(element in target_keys for element in self.scenario_keys):
             # invalid scenario
             msg = (
-                f"The scenario '{scenario_key} has not been defined to be a valid scenario, or the problem has no "
+                f"The scenario '{target_keys}' has not been defined to be a valid scenario, or the problem has no "
                 "scenarios defined."
             )
             raise ValueError(msg)
 
-        # add the fields if the field has the given scenario_key in its scenario_keys, or if the
-        # scenario_keys is None
+        # add the fields if the field has the given target_keys in its scenario_keys, or if the
+        # target_keys is None
         scenario_objectives = [
-            obj for obj in self.objectives if obj.scenario_keys is None or scenario_key in obj.scenario_keys
+            obj
+            for obj in self.objectives
+            if obj.scenario_keys is None or any(element in target_keys for element in obj.scenario_keys)
         ]
         scenario_constraints = (
-            [cons for cons in self.constraints if cons.scenario_keys is None or scenario_key in cons.scenario_keys]
+            [
+                cons
+                for cons in self.constraints
+                if cons.scenario_keys is None or any(element in target_keys for element in cons.scenario_keys)
+            ]
             if self.constraints is not None
             else None
         )
         scenario_extras = (
-            [extra for extra in self.extra_funcs if extra.scenario_keys is None or scenario_key in extra.scenario_keys]
+            [
+                extra
+                for extra in self.extra_funcs
+                if extra.scenario_keys is None or any(element in target_keys for element in extra.scenario_keys)
+            ]
             if self.extra_funcs is not None
             else None
         )
@@ -917,7 +933,7 @@ class Problem(BaseModel):
             [
                 scal
                 for scal in self.scalarization_funcs
-                if scal.scenario_keys is None or scenario_key in scal.scenario_keys
+                if scal.scenario_keys is None or any(element in target_keys for element in scal.scenario_keys)
             ]
             if self.scalarization_funcs is not None
             else None

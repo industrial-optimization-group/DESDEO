@@ -587,3 +587,10 @@ def test_scenario_problem():
     assert "x_1" in symbols_s2
     assert "x_2" in symbols_s2
     assert "c_1" in symbols_s2
+
+    # get all scenarios
+    problem_all = problem.scenario(["s_1", "s_2"])
+
+    assert len(problem_all.objectives) == 5
+    assert len(problem_all.constraints) == 4
+    assert len(problem_all.extra_funcs) == 1
