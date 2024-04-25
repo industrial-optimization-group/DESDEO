@@ -16,7 +16,7 @@ from desdeo.tools import (
     NevergradGenericOptions,
     NevergradGenericSolver,
     PyomoBonminSolver,
-    create_scipy_minimize_solver,
+    ScipyMinimizeSolver,
 )
 from desdeo.tools.scalarization import (
     ScalarizationError,
@@ -156,9 +156,9 @@ def test_add_epsilon_constraint_and_solve():
         problem, target, eps_symbols, objective_symbol, epsilons
     )
 
-    solver = create_scipy_minimize_solver(problem_w_cons)
+    solver = ScipyMinimizeSolver(problem_w_cons)
 
-    res = solver(target)
+    res = solver.solve(target)
 
     # check that constraints are ok
     cons_values = [res.constraint_values[s] for s in eps_symbols]

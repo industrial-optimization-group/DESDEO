@@ -3,8 +3,8 @@
 These solvers can solve various scalarized problems of multiobjective optimization problems.
 """
 
+from collections.abc import Callable
 from enum import Enum
-from typing import Callable
 
 import numpy as np
 from scipy.optimize import NonlinearConstraint
@@ -13,11 +13,7 @@ from scipy.optimize import differential_evolution as _scipy_de
 from scipy.optimize import minimize as _scipy_minimize
 
 from desdeo.problem import ConstraintTypeEnum, GenericEvaluator, Problem
-from desdeo.tools.generics import CreateSolverType, SolverError, SolverResults
-
-# forward typehints
-create_scipy_de_solver: CreateSolverType
-create_scipy_minimize_solver: CreateSolverType
+from desdeo.tools.generics import SolverError, SolverResults
 
 
 class EvalTargetEnum(str, Enum):
@@ -217,141 +213,173 @@ def parse_scipy_optimization_result(
     )
 
 
-def create_scipy_minimize_solver(
-    problem: Problem,
-    initial_guess: dict[str, float | None] | None = None,
-    method: str | None = None,
-    method_kwargs: dict | None = None,
-    tol: float | None = None,
-    options: dict | None = None,
-    subscriber: str | None = None,
-) -> Callable[[str], SolverResults]:
-    """Creates a solver that utilizes the `scipy.optimize.minimize` routine.
+class ScipyMinimizeSolver:
+    """Creates a scipy solver that utilizes the `minimization` routine."""
 
-    The `scipy.optimize.minimze` routine is fully accessible through this function.
-    For additional details and explanation of some of the argumetns, see
-    https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html#scipy.optimize.minimize
+    def __init__(
+        self,
+        problem: Problem,
+        initial_guess: dict[str, float | None] | None = None,
+        method: str | None = None,
+        method_kwargs: dict | None = None,
+        tol: float | None = None,
+        options: dict | None = None,
+    ):
+        """Initializes a solver that utilizes the `scipy.optimize.minimize` routine.
 
-    Args:
-        problem (Problem): the multiobjective optimization problem to be solved.
-        initial_guess (dict[str, float, None] | None, optional): The initial
-            guess to be utilized in the solver. For variables with a None as their
-            initial guess, the mid-point of the variable's lower and upper bound is
-            utilzied as the initial guess. If None, it is assumed that there are
-            no initial guesses for any of the variables. Defaults to None.
-        method (str | None, optional): the scipy.optimize.minimize method to be
-            used. If None, a method is selected automatically based on the
-            properties of the objective (does it have constraints?). Defaults to
-            None.
-        method_kwargs (dict | None, optional): the keyword arguments passed to
-            the scipy.optimize.minimize method. Defaults to None.
-        tol (float | None, optional): the tolerance for termination. Defaults to None.
-        subscriber (str | None, optional): not used right now. WIP. Defaults to None.
+        The `scipy.optimize.minimze` routine is fully accessible through this function.
+        For additional details and explanation of some of the argumetns, see
+        https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html#scipy.optimize.minimize
 
-    Returns:
-        Callable[[str], SolverResults]: results a callable function that can be
-            called with a target specifying the scalarization function to be used as
-            the objective of the single-objective optimization.
-    """
-    # variables bounds as (min, max pairs)
-    bounds = get_variable_bounds_pairs(problem)
+        Args:
+            problem (Problem): the multiobjective optimization problem to be solved.
+            initial_guess (dict[str, float, None] | None, optional): The initial
+                guess to be utilized in the solver. For variables with a None as their
+                initial guess, the mid-point of the variable's lower and upper bound is
+                utilzied as the initial guess. If None, it is assumed that there are
+                no initial guesses for any of the variables. Defaults to None.
+            method (str | None, optional): the scipy.optimize.minimize method to be
+                used. If None, a method is selected automatically based on the
+                properties of the objective (does it have constraints?). Defaults to
+                None.
+            method_kwargs (dict | None, optional): the keyword arguments passed to
+                the scipy.optimize.minimize method. Defaults to None.
+            tol (float | None, optional): the tolerance for termination. Defaults to None.
+            subscriber (str | None, optional): not used right now. WIP. Defaults to None.
 
-    # the initial guess as a simple sequence. If no initial value is set for some variable,
-    # then the initial value defaults to middle of the upper and lower bounds.
-    x0 = set_initial_guess(problem)
+        """
+        self.problem = problem
+        self.method = method
+        self.method_kwargs = method_kwargs
+        self.tol = tol
+        self.options = options
 
-    evaluator = GenericEvaluator(problem)
+        # variables bounds as (min, max pairs)
+        self.bounds = get_variable_bounds_pairs(problem)
 
-    def solver(target: str) -> SolverResults:
-        # add constraints if there are any
-        constraints = create_scipy_dict_constraints(problem, evaluator) if problem.constraints is not None else None
+        # the initial guess as a simple sequence. If no initial value is set for some variable,
+        # then the initial value defaults to middle of the upper and lower bounds.
+        if initial_guess is not None:
+            self.initial_guess = initial_guess
+        else:
+            self.initial_guess = set_initial_guess(problem)
 
-        optimization_result: _ScipyOptimizeResult = _scipy_minimize(
-            get_scipy_eval(problem, evaluator, target, EvalTargetEnum.objective),
-            x0,
-            method=method,
-            bounds=bounds,
-            constraints=constraints,
-            options=options,
-            tol=tol,
+        self.evaluator = GenericEvaluator(problem)
+
+        self.constraints = (
+            create_scipy_dict_constraints(self.problem, self.evaluator)
+            if self.problem.constraints is not None
+            else None
         )
 
-        # grab the results
-        return parse_scipy_optimization_result(optimization_result, problem, evaluator)
+    def solve(self, target: str) -> SolverResults:
+        """Solves the problem for a given target.
 
-    return solver
+        Args:
+            target (str): the sumbol of the objective function to be optimized.
 
-
-def create_scipy_de_solver(
-    problem: Problem,
-    initial_guess: dict[str, float | None] | None = None,
-    de_kwargs: dict | None = None,
-    subscriber: str | None = None,
-) -> Callable[[str], SolverResults]:
-    """Creates a solver that utilizes the `scipy.optimize.differential_evolution` routine.
-
-    The `scipy.optimize.differential_evolution` routine is fully accessible through this function.
-    For additional details and explanation of some of the argumetns, see
-    https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.differential_evolution.html
-
-    Args:
-        problem (Problem): the multiobjective optimization problem to be solved.
-        initial_guess (dict[str, float, None] | None, optional): The initial
-            guess to be utilized in the solver. For variables with a None as their
-            initial guess, the mid-point of the variable's lower and upper bound is
-            utilzied as the initial guess. If None, it is assumed that there are
-            no initial guesses for any of the variables. Defaults to None.
-        de_kwargs (dict | None, optional): custom keyword arguments to be forwarded to
-            `scipy.optimize.differential_evolution`. Defaults to None.
-        subscriber (str | None, optional): not used right now. WIP. Defaults to None.
-
-    Returns:
-        Callable[[str], SolverResults]: results a callable function that can be
-            called with a target specifying the scalarization function to be used as
-            the objective of the single-objective optimization.
-    """
-    if de_kwargs is None:
-        de_kwargs = {
-            "strategy": "best1bin",
-            "maxiter": 1000,
-            "popsize": 15,
-            "tol": 0.01,
-            "mutation": (0.5, 1),
-            "recombination": 0.7,
-            "seed": None,
-            "callback": None,
-            "disp": False,
-            "polish": True,
-            "init": "latinhypercube",
-            "atol": 0,
-            "updating": "deferred",
-            "workers": 1,
-            "integrality": None,
-            "vectorized": True,  # the constraints for scipy_de need to be fixed first for this to work
-        }
-
-    # variable bounds
-    bounds = get_variable_bounds_pairs(problem)
-
-    # initial guess. If no guess is present for a variable, said variable's mid point of its
-    # lower abd upper bound is used instead
-    x0 = set_initial_guess(problem)
-
-    evaluator = GenericEvaluator(problem)
-
-    def solver(target: str) -> SolverResults:
+        Returns:
+            SolverResults: results of the optimization.
+        """
         # add constraints if there are any
-        constraints = create_scipy_object_constraints(problem, evaluator) if problem.constraints is not None else ()
+
+        optimization_result: _ScipyOptimizeResult = _scipy_minimize(
+            get_scipy_eval(self.problem, self.evaluator, target, EvalTargetEnum.objective),
+            self.initial_guess,
+            method=self.method,
+            bounds=self.bounds,
+            constraints=self.constraints,
+            options=self.options,
+            tol=self.tol,
+        )
+
+        # pare and return the results
+        return parse_scipy_optimization_result(optimization_result, self.problem, self.evaluator)
+
+
+class ScipyDeSolver:
+    """Creates a scipy solver that utilizes differential evolution."""
+
+    def __init__(
+        self,
+        problem: Problem,
+        initial_guess: dict[str, float | None] | None = None,
+        de_kwargs: dict | None = None,
+    ):
+        """Creates a solver that utilizes the `scipy.optimize.differential_evolution` routine.
+
+        The `scipy.optimize.differential_evolution` routine is fully accessible through this function.
+        For additional details and explanation of some of the argumetns, see
+        https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.differential_evolution.html
+
+        Args:
+            problem (Problem): the multiobjective optimization problem to be solved.
+            initial_guess (dict[str, float, None] | None, optional): The initial
+                guess to be utilized in the solver. For variables with a None as their
+                initial guess, the mid-point of the variable's lower and upper bound is
+                utilzied as the initial guess. If None, it is assumed that there are
+                no initial guesses for any of the variables. Defaults to None.
+            de_kwargs (dict | None, optional): custom keyword arguments to be forwarded to
+                `scipy.optimize.differential_evolution`. Defaults to None.
+            subscriber (str | None, optional): not used right now. WIP. Defaults to None.
+        """
+        self.problem = problem
+        if de_kwargs is None:
+            de_kwargs = {
+                "strategy": "best1bin",
+                "maxiter": 1000,
+                "popsize": 15,
+                "tol": 0.01,
+                "mutation": (0.5, 1),
+                "recombination": 0.7,
+                "seed": None,
+                "callback": None,
+                "disp": False,
+                "polish": True,
+                "init": "latinhypercube",
+                "atol": 0,
+                "updating": "deferred",
+                "workers": 1,
+                "integrality": None,
+                "vectorized": True,  # the constraints for scipy_de need to be fixed first for this to work
+            }
+        self.de_kwargs = de_kwargs
+
+        # variable bounds
+        self.bounds = get_variable_bounds_pairs(problem)
+
+        # initial guess. If no guess is present for a variable, said variable's mid point of its
+        # lower abd upper bound is used instead
+        if initial_guess is None:
+            self.initial_guess = set_initial_guess(problem)
+        else:
+            self.initial_guess = initial_guess
+
+        self.evaluator = GenericEvaluator(problem)
+        self.constraints = (
+            create_scipy_object_constraints(self.problem, self.evaluator)
+            if self.problem.constraints is not None
+            else ()
+        )
+
+    def solve(self, target: str) -> SolverResults:
+        """Solve the problem for a given target.
+
+        Args:
+            target (str): the symbol of the objective function to be optimized.
+
+        Returns:
+            SolverResults: results of the optimization.
+        """
+        # add constraints if there are any
 
         optimization_result: _ScipyOptimizeResult = _scipy_de(
-            get_scipy_eval(problem, evaluator, target, EvalTargetEnum.objective),
-            bounds=bounds,
-            x0=x0,
-            constraints=constraints,
-            **de_kwargs,
+            get_scipy_eval(self.problem, self.evaluator, target, EvalTargetEnum.objective),
+            bounds=self.bounds,
+            x0=self.initial_guess,
+            constraints=self.constraints,
+            **self.de_kwargs,
         )
 
         # parse the results
-        return parse_scipy_optimization_result(optimization_result, problem, evaluator)
-
-    return solver
+        return parse_scipy_optimization_result(optimization_result, self.problem, self.evaluator)
