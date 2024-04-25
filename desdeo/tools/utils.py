@@ -1,17 +1,27 @@
 """General utilities related to solvers."""
 
-from desdeo.problem import ObjectiveTypeEnum, Problem
+from desdeo.problem import ObjectiveTypeEnum, Problem, VariableDomainTypeEnum
+
 from .generics import CreateSolverType
+from .gurobipy_solver_interfaces import GurobipySolver
+from .ng_solver_interfaces import NevergradGenericSolver
 from .proximal_solver import ProximalSolver
-from .scipy_solver_interfaces import (
-    ScipyDeSolver,
-    ScipyMinimizeSolver,
+from .pyomo_solver_interfaces import (
+    PyomoBonminSolver,
+    PyomoGurobiSolver,
+    PyomoIpoptSolver,
 )
+from .scipy_solver_interfaces import ScipyDeSolver, ScipyMinimizeSolver
 
 available_solvers = {
     "scipy_minimize": ScipyMinimizeSolver,
     "scipy_de": ScipyDeSolver,
     "proximal": ProximalSolver,
+    "nevergrad": NevergradGenericSolver,
+    "pyomo_bonmin": PyomoBonminSolver,
+    "pyomo_ipopt": PyomoIpoptSolver,
+    "pyomo_gurobi": PyomoGurobiSolver,
+    "gurobipy": GurobipySolver,
 }
 
 
@@ -42,8 +52,19 @@ def guess_best_solver(problem: Problem) -> CreateSolverType:
         # guess proximal solver is best
         return available_solvers["proximal"]
 
-    # else, guess scipy differential evolution is best
-    return available_solvers["scipy_de"]
+    # check if the problem is differentiable and if it is mixed integer
+    if problem.is_twice_differentiable and problem.variable_domain in [
+        VariableDomainTypeEnum.integer,
+        VariableDomainTypeEnum.mixed,
+    ]:
+        return available_solvers["pyomo_bonmin"]
+
+    # check if the problem is differentiable and continuous
+    if problem.is_twice_differentiable and problem.variable_domain in [VariableDomainTypeEnum.continuous]:
+        return available_solvers["pyomo_ipopt"]
+
+    # else, guess nevergrad heuristics to be the best
+    return available_solvers["nevergrad"]
 
     # thigs to check: variable types, does the problem have constraint, constraint types, etc...
 
