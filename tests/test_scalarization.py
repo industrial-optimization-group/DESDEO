@@ -14,9 +14,9 @@ from desdeo.problem import (
 from desdeo.tools import (
     BonminOptions,
     NevergradGenericOptions,
+    NevergradGenericSolver,
     create_pyomo_bonmin_solver,
     create_scipy_minimize_solver,
-    create_ng_generic_solver,
 )
 from desdeo.tools.scalarization import (
     ScalarizationError,
@@ -559,9 +559,9 @@ def test_nimbus_sf_nondiff_solve():
 
     solver_options = NevergradGenericOptions(budget=250, num_workers=1, optimizer="NGOpt")
 
-    solver = create_ng_generic_solver(problem_w_sum, solver_options)
+    solver = NevergradGenericSolver(problem_w_sum, solver_options)
 
-    results = solver(t_sum)
+    results = solver.solve(t_sum)
     assert results.success
 
     xs = results.optimal_variables
@@ -582,9 +582,9 @@ def test_nimbus_sf_nondiff_solve():
 
     solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="NGOpt")
 
-    solver = create_ng_generic_solver(problem_w_sf, solver_options)
+    solver = NevergradGenericSolver(problem_w_sf, solver_options)
 
-    results = solver(sf_target)
+    results = solver.solve(sf_target)
 
     xs = results.optimal_variables
     assert results.success
@@ -616,9 +616,9 @@ def test_stom_sf_nondiff_solve():
 
     solver_options = NevergradGenericOptions(budget=250, num_workers=1, optimizer="NGOpt")
 
-    solver = create_ng_generic_solver(problem_w_sf, solver_options)
+    solver = NevergradGenericSolver(problem_w_sf, solver_options)
 
-    result = solver(target)
+    result = solver.solve(target)
 
     assert result.success
 
@@ -648,9 +648,9 @@ def test_guess_sf_nondiff_solve():
 
     solver_options = NevergradGenericOptions(budget=250, num_workers=1, optimizer="NGOpt")
 
-    solver = create_ng_generic_solver(problem_w_sf, solver_options)
+    solver = NevergradGenericSolver(problem_w_sf, solver_options)
 
-    result = solver(target)
+    result = solver.solve(target)
 
     assert result.success
 
