@@ -1,11 +1,11 @@
 """Tests the proximal solver."""
+
 import numpy.testing as npt
 
 from desdeo.problem import simple_data_problem
-from desdeo.tools.proximal_solver import create_proximal_solver
+from desdeo.tools.proximal_solver import ProximalSolver
 from desdeo.tools.scalarization import (
     add_asf_nondiff,
-    add_scalarization_function,
     add_weighted_sums,
 )
 
@@ -32,9 +32,9 @@ def test_proximal_with_simple_data_problem():
 
     problem, target = add_weighted_sums(problem, symbol="ws_1", weights={"g_1": 1, "g_2": 0, "g_3": 0})
 
-    solver = create_proximal_solver(problem)
+    solver = ProximalSolver(problem)
 
-    res = solver(target)
+    res = solver.solve(target)
 
     npt.assert_array_almost_equal([res.optimal_objectives[symbol] for symbol in objective_symbols], obj_should_be)
     npt.assert_array_almost_equal(res.constraint_values[const_symbol], const_should_be)
@@ -46,9 +46,9 @@ def test_proximal_with_simple_data_problem():
 
     problem, target = add_weighted_sums(problem, symbol="ws_2", weights={"g_1": 0, "g_2": 1, "g_3": 0})
 
-    solver = create_proximal_solver(problem)
+    solver = ProximalSolver(problem)
 
-    res = solver(target)
+    res = solver.solve(target)
 
     npt.assert_array_almost_equal([res.optimal_objectives[symbol] for symbol in objective_symbols], obj_should_be)
     npt.assert_array_almost_equal(res.constraint_values[const_symbol], const_should_be)
@@ -60,9 +60,9 @@ def test_proximal_with_simple_data_problem():
 
     problem, target = add_weighted_sums(problem, symbol="ws_3", weights={"g_1": 0, "g_2": 0, "g_3": 1})
 
-    solver = create_proximal_solver(problem)
+    solver = ProximalSolver(problem)
 
-    res = solver(target)
+    res = solver.solve(target)
 
     npt.assert_array_almost_equal([res.optimal_objectives[symbol] for symbol in objective_symbols], obj_should_be)
     npt.assert_array_almost_equal(res.constraint_values[const_symbol], const_should_be)
@@ -75,9 +75,9 @@ def test_proximal_with_simple_data_problem():
 
     problem, target = add_asf_nondiff(problem, symbol="asf", reference_point=reference_point)
 
-    solver = create_proximal_solver(problem)
+    solver = ProximalSolver(problem)
 
-    res = solver(target)
+    res = solver.solve(target)
 
     npt.assert_array_almost_equal([res.optimal_objectives[symbol] for symbol in objective_symbols], obj_should_be)
     npt.assert_array_almost_equal(res.constraint_values[const_symbol], const_should_be)

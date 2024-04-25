@@ -3,10 +3,7 @@
 import gurobipy as gp
 
 from desdeo.problem import Constraint, GurobipyEvaluator, Objective, Problem, ScalarizationFunction, Variable
-from desdeo.tools.generics import CreateSolverType, PersistentSolver, SolverResults
-
-# forward typehints
-create_gurobipy_solver: CreateSolverType
+from desdeo.tools.generics import PersistentSolver, SolverResults
 
 
 def parse_gurobipy_optimizer_results(problem: Problem, evaluator: GurobipyEvaluator) -> SolverResults:

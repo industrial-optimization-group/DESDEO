@@ -79,7 +79,7 @@ def solve_reachable_bounds(
     }
 
     # if a solver creator was provided, use that, else, guess the best one
-    _create_solver = guess_best_solver(problem) if create_solver is None else create_solver
+    solver_init = guess_best_solver(problem) if create_solver is None else create_solver
 
     lower_bounds = {}
     upper_bounds = {}
@@ -93,8 +93,8 @@ def solve_reachable_bounds(
         )
 
         # solve
-        solver = _create_solver(eps_problem)
-        res = solver(target)
+        solver = solver_init(eps_problem)
+        res = solver.solve(target)
 
         if not res.success:
             # could not optimize eps problem
@@ -152,7 +152,7 @@ def solve_reachable_solution(
         SolverResults: the results of the projection.
     """
     # check solver
-    _create_solver = guess_best_solver(problem) if create_solver is None else create_solver
+    init_solver = guess_best_solver(problem) if create_solver is None else create_solver
 
     # create and add scalarization function
     # previous_nav_point = objective_dict_to_numpy_array(problem, previous_nav_point).tolist()
@@ -175,8 +175,8 @@ def solve_reachable_solution(
     )
 
     # solve the problem
-    solver = _create_solver(problem_w_asf)
-    return solver(target)
+    solver = init_solver(problem_w_asf)
+    return solver.solve(target)
 
 
 def nautili_init(problem: Problem, create_solver: CreateSolverType | None = None) -> NAUTILI_Response:

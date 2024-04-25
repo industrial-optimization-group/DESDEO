@@ -11,10 +11,7 @@ import nevergrad as ng
 from pydantic import BaseModel, Field
 
 from desdeo.problem import Problem, SympyEvaluator
-from desdeo.tools.generics import CreateSolverType, SolverResults
-
-# forward typehints
-NevergradGenericSolver: CreateSolverType
+from desdeo.tools.generics import SolverResults
 
 available_nevergrad_optimizers = [
     "NGOpt",

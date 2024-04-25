@@ -5,11 +5,12 @@ __all__ = [
     "IpoptOptions",
     "CreateSolverType",
     "GurobipySolver",
+    "NevergradGenericOptions",
     "NevergradGenericSolver",
     "PersistentGurobipySolver",
+    "ProximalSolver",
     "SolverOptions",
     "SolverResults",
-    "NevergradGenericOptions",
     "ScalarizationError",
     "add_asf_diff",
     "add_asf_generic_nondiff",
@@ -44,6 +45,7 @@ from desdeo.tools.ng_solver_interfaces import (
     NevergradGenericSolver,
     available_nevergrad_optimizers,
 )
+from desdeo.tools.proximal_solver import ProximalSolver
 from desdeo.tools.pyomo_solver_interfaces import (
     BonminOptions,
     IpoptOptions,

@@ -2,7 +2,7 @@
 
 from desdeo.problem import ObjectiveTypeEnum, Problem
 from .generics import CreateSolverType
-from .proximal_solver import create_proximal_solver
+from .proximal_solver import ProximalSolver
 from .scipy_solver_interfaces import (
     create_scipy_de_solver,
     create_scipy_minimize_solver,
@@ -11,7 +11,7 @@ from .scipy_solver_interfaces import (
 available_solvers = {
     "scipy_minimize": create_scipy_minimize_solver,
     "scipy_de": create_scipy_de_solver,
-    "proximal": create_proximal_solver,
+    "proximal": ProximalSolver,
 }
 
 
