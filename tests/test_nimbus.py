@@ -103,7 +103,9 @@ def test_solve_sub_problems():
     first_rp = {"f_1": 0.6, "f_2": initial_fs["f_2"], "f_3": 0.6}
 
     num_desired = 4
-    solutions = solve_sub_problems(problem, initial_fs, first_rp, num_desired, PyomoIpoptSolver, solver_options)
+    solutions = solve_sub_problems(
+        problem, initial_fs, first_rp, num_desired, create_solver=PyomoIpoptSolver, solver_options=solver_options
+    )
 
     assert len(solutions) == num_desired
 
@@ -182,7 +184,12 @@ def test_article_example():
 
     num_desired_start = 2
     results = solve_sub_problems(
-        problem, starting_point, starting_rp, num_desired_start, PyomoIpoptSolver, IpoptOptions()
+        problem,
+        starting_point,
+        starting_rp,
+        num_desired_start,
+        create_solver=PyomoIpoptSolver,
+        solver_options=IpoptOptions(),
     )
 
     fs = results[0].optimal_objectives

@@ -34,6 +34,7 @@ def solve_intermediate_solutions(
     solution_1: dict[str, VariableType],
     solution_2: dict[str, VariableType],
     num_desired: int,
+    scalarization_options: dict | None = None,
     create_solver: CreateSolverType | None = None,
     solver_options: SolverOptions | None = None,
 ) -> list[SolverResults]:
@@ -55,6 +56,8 @@ def solve_intermediate_solutions(
         solution_2 (dict[str, VariableType]): the second of the solutions between which the intermediate
             solutions are to be generated.
         num_desired (int): the number of desired intermediate solutions to be generated. Must be at least `1`.
+        scalarization_options (dict | None, optional): optional kwargs passed to the scalarization function.
+            Defaults to None.
         create_solver (CreateSolverType | None, optional): a function that given a problem, will return a solver.
             If not given, an appropriate solver will be automatically determined based on the features of `problem`.
             Defaults to None.
@@ -71,7 +74,7 @@ def solve_intermediate_solutions(
         raise NimbusError(msg)
 
     init_solver = guess_best_solver(problem) if create_solver is None else create_solver
-    _solver_options = None if solver_options is None else solver_options
+    _solver_options = None if solver_options is None or create_solver is None else solver_options
 
     # compute the element-wise difference between each solution (in the decision space)
     solution_1_arr = variable_dict_to_numpy_array(problem, solution_1)
@@ -102,7 +105,7 @@ def solve_intermediate_solutions(
         # add scalarization
         # TODO(gialmisi): add logic that selects correct variant of the ASF
         # depending on problem properties (either diff or non-diff)
-        asf_problem, target = add_asf_diff(problem, "target", rp)
+        asf_problem, target = add_asf_diff(problem, "target", rp, **(scalarization_options or {}))
 
         solver = init_solver(asf_problem, _solver_options)
 
@@ -223,8 +226,9 @@ def solve_sub_problems(
     current_objectives: dict[str, float],
     reference_point: dict[str, float],
     num_desired: int,
-    create_solver: CreateSolverType,
-    solver_options: SolverOptions,
+    scalarization_options: dict | None = None,
+    create_solver: CreateSolverType | None = None,
+    solver_options: SolverOptions | None = None,
 ) -> list[SolverResults]:
     r"""Solves a desired number of sub-problems as defined in the NIMBUS methods.
 
@@ -256,6 +260,8 @@ def solve_sub_problems(
             the reference point.
         num_desired (int): the number of desired solutions to be solved. Solves as
             many scalarized problems. The value must be in the range 1-4.
+        scalarization_options (dict | None, optional): optional kwargs passed to the scalarization function.
+            Defaults to None.
         create_solver (CreateSolverType | None, optional): a function that given a problem, will return a solver.
             If not given, an appropriate solver will be automatically determined based on the features of `problem`.
             Defaults to None.
@@ -294,7 +300,9 @@ def solve_sub_problems(
     # solve the nimbus scalarization problem, this is done always
     add_nimbus_sf = add_nimbus_sf_diff if is_smooth else add_nimbus_sf_nondiff
 
-    problem_w_nimbus, nimbus_target = add_nimbus_sf(problem, "nimbus_sf", classifications, current_objectives)
+    problem_w_nimbus, nimbus_target = add_nimbus_sf(
+        problem, "nimbus_sf", classifications, current_objectives, **(scalarization_options or {})
+    )
     nimbus_solver = init_solver(problem_w_nimbus, _solver_options)
 
     solutions.append(nimbus_solver.solve(nimbus_target))
@@ -303,7 +311,7 @@ def solve_sub_problems(
         # solve STOM
         add_stom_sf = add_stom_sf_diff if is_smooth else add_stom_sf_nondiff
 
-        problem_w_stom, stom_target = add_stom_sf(problem, "stom_sf", reference_point)
+        problem_w_stom, stom_target = add_stom_sf(problem, "stom_sf", reference_point, **(scalarization_options or {}))
         stom_solver = init_solver(problem_w_stom, _solver_options)
 
         solutions.append(stom_solver.solve(stom_target))
@@ -312,7 +320,7 @@ def solve_sub_problems(
         # solve ASF
         add_asf = add_asf_diff if is_smooth else add_asf_nondiff
 
-        problem_w_asf, asf_target = add_asf(problem, "asf", reference_point)
+        problem_w_asf, asf_target = add_asf(problem, "asf", reference_point, **(scalarization_options or {}))
         asf_solver = init_solver(problem_w_asf, _solver_options)
 
         solutions.append(asf_solver.solve(asf_target))
@@ -321,7 +329,9 @@ def solve_sub_problems(
         # solve GUESS
         add_guess_sf = add_guess_sf_diff if is_smooth else add_guess_sf_nondiff
 
-        problem_w_guess, guess_target = add_guess_sf(problem, "guess_sf", reference_point)
+        problem_w_guess, guess_target = add_guess_sf(
+            problem, "guess_sf", reference_point, **(scalarization_options or {})
+        )
         guess_solver = init_solver(problem_w_guess, _solver_options)
 
         solutions.append(guess_solver.solve(guess_target))
