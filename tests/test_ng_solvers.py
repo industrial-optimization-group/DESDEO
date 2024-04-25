@@ -5,10 +5,10 @@ import pytest
 from desdeo.problem import zdt1
 from desdeo.tools import (
     NevergradGenericOptions,
+    NevergradGenericSolver,
     add_asf_nondiff,
     add_epsilon_constraints,
     available_nevergrad_optimizers,
-    create_ng_generic_solver,
 )
 
 
@@ -26,9 +26,9 @@ def test_ngopt_solver():
         # without constraints
         problem_w_sf, target = add_asf_nondiff(problem, "target", rp, reference_in_aug=True)
 
-        solver = create_ng_generic_solver(problem_w_sf, options=solver_opts)
+        solver = NevergradGenericSolver(problem_w_sf, options=solver_opts)
 
-        res = solver(target)
+        res = solver.solve(target)
 
         assert res.success
 
@@ -37,8 +37,8 @@ def test_ngopt_solver():
             problem, "target", {"f_1": "f_1_eps", "f_2": "f_2_eps"}, "f_1", rp
         )
 
-        solver = create_ng_generic_solver(problem_w_sf, options=solver_opts)
+        solver = NevergradGenericSolver(problem_w_sf, options=solver_opts)
 
-        res = solver(target)
+        res = solver.solve(target)
 
         assert res.success

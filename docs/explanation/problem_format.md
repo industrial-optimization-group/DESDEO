@@ -6,13 +6,13 @@ they can be readily transformed into JSON objects, which makes passing
 them from DESDEO's web-API to various frontend applications seamless. This
 also facilitates the parsing of the problem format into other formats as well.
 While representing problems as pydantic dataclasses comes with some overhead,
-this justified by the utility and robustness of the pydantic dataclasses.
+this is justified by the utility and robustness of the pydantic dataclasses.
 
 One of the challenges with this kind of representation is representing function
 expression. These have been taken care by exploiting the MathJSON format, which
 is described in more details in the section
-[The MathJSONformat](#the-mathjson-format).  The pydantic dataclass for representing a
-multiobjective optimization problem in DESDEO is detailed in the section
+[The MathJSONformat](#the-mathjson-format). The pydantic dataclass for representing a
+multiobjective optimization problem in DESDEO is discussed in the section
 [The Problem schema](#the-problem-schema), where the structure, or schema, of the
 dataclass is described in detail.
 
@@ -76,26 +76,53 @@ Some symbol names are reserved in DESDEO, and users should avoid defining
 variables or function expression with these symbols. Reserved symbols
 are discussed in the section [Symbols and expressions](#symbols-and-expressions).
 
+### The scenario keys field
+
+As with the `symbol` field, the `scenario_keys` is also a recurring field
+across the `Problem` model. This field is used to indicate to which scenario,
+or scenarios, a field (e.g., representing an objective function) belongs to.
+The `scenario_keys` is a list of strings and is optional. When its value
+is `None` is means that it belongs to all defined scenarios, or no
+scenarios at all if the problem has no defined scenarios. The `Problem`
+model itself has also the field `scenario_keys`, which is used indicate
+which scenarios haven been defined for the `Problem`. When this field
+is `None`, it means the `Problem` has no defined scenarios.
+
+### Common field for computable models
+
+The computable models that are used to construct a `Problem` all have some common
+fields defined for them. The computable models are `Objective`, `Constraint`,
+`ExtraFunction`, and `ScalarizationFunction`. These fields generally
+represent something that can be evaluated, and is likely to be optimized at some
+point, either directly, or indirectly, e.g., as part of a scalarization.
+The common fields are:
+
+  - `is_linear`: is the model linear?
+  - `is_convex`: is the model convex?
+  - `is_twice_differentiable`: is the model twice continuously differentiable?
+
+These are all assumed to be `False` by default. The listed fields play an important
+role in the selection of optimizer when the `Problem` model is being solved.
+
 ### Problem
 
 The main dataclass storing information related to a multiobjective optimization is the
-`Problem` model, which consists of other models. The relational map of the
-`Problem` model, and the models contained therein, has been visualized below:
+`Problem` model, which consists of other models. 
+The `Problem` model itself consists of the following fields:
 
-![Relational map of problem](../assets/problem_map.png "The relational map of the Problem model.")
-
-The `Problem` model consists of various fields: the name of the problem (**name**), the
-description of the problem (**description**), a list of constant utilized in the definition of the
-problem (**constants**), a list of the variables of the problem (**variables**), a list of the
-objective functions of the problem (**objectives**), an optional list of the constraints of the problem
-(**constraints**), an optional list of extra functions utilized in defining the problem (**extra_funcs**),
-an optional list of scalarized representations of the problem (**scalarization_funcs**), an optional
-representation of the problem as discrete decision variable vector and objective
-vector pairs (**discrete_representation**), and an optional list of evaluated
-solutions of the problem (**evaluated_solutions**).
+  - `name`: the name of the problem,
+  - `description`: the description of the problem,
+  - `constants`: a list of constant utilized in the definition of the problem,
+  - `variables`: a list of the variables of the problem,
+  - `objectives`: a list of the objective functions of the problem,
+  - `constraints`: an optional list of the constraints of the problem,
+  - `extra_funcs`: an optional list of extra functions utilized in defining the problem, 
+  - `scalarization_funcs`: an optional list of scalarized representations of the problem,
+  - `discrete_representation`: an optional representation of the problem as discrete decision variable vector and objective vector pairs, and
+  - `scenario_keys`: an optional list of scenario keys.
 
 The **name** and **description** of the problem are just strings. The other fields consist of one or
-more additional models, which will be described next.
+more additional models, or Python types, such as lists. These will be described next.
 
 !!! Note
     The `symbol` entries across all fields must be unique. If one or more non-unique symbols are
@@ -216,8 +243,7 @@ The `Constraint` model defines a constraint function with the fields `name`,
 the constraint's name and mathematical symbol, respectively. The field
 `cons_type` represents the type of constraint. Currently, the type can be
 either "<=" for inequality constraints, or "=" for equality constraints.
-The field `linear` indicates whether the constraint is linear, which defaults to
-true. Lastly, `func` is the mathematical representation of the constraint function.
+Lastly, `func` is the mathematical representation of the constraint function.
 This can be supplied either in the MathJSON format or in "normal" infix format.
 As for how the constraint should be defined, see the note below.
 

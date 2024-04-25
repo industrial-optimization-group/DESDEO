@@ -74,7 +74,7 @@ plugins:
             show_root_heading: true
             separate_signature: true
             heading_level: 2
-            merge_init_into_class: true
+            merge_init_into_class: false
             show_root_toc_entry: false
             group_by_category: true
             show_category_heading: false

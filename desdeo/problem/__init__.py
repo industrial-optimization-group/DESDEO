@@ -31,6 +31,7 @@ __all__ = [
     "simple_data_problem",
     "simple_knapsack",
     "simple_linear_test_problem",
+    "simple_scenario_test_problem",
     "simple_test_problem",
     "ScalarizationFunction",
     "Variable",
@@ -73,6 +74,7 @@ from .testproblems import (
     simple_data_problem,
     simple_knapsack,
     simple_linear_test_problem,
+    simple_scenario_test_problem,
     simple_test_problem,
     zdt1,
 )

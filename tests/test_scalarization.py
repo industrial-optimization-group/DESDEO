@@ -14,9 +14,9 @@ from desdeo.problem import (
 from desdeo.tools import (
     BonminOptions,
     NevergradGenericOptions,
-    create_pyomo_bonmin_solver,
-    create_scipy_minimize_solver,
-    create_ng_generic_solver,
+    NevergradGenericSolver,
+    PyomoBonminSolver,
+    ScipyMinimizeSolver,
 )
 from desdeo.tools.scalarization import (
     ScalarizationError,
@@ -156,9 +156,9 @@ def test_add_epsilon_constraint_and_solve():
         problem, target, eps_symbols, objective_symbol, epsilons
     )
 
-    solver = create_scipy_minimize_solver(problem_w_cons)
+    solver = ScipyMinimizeSolver(problem_w_cons)
 
-    res = solver(target)
+    res = solver.solve(target)
 
     # check that constraints are ok
     cons_values = [res.constraint_values[s] for s in eps_symbols]
@@ -296,9 +296,9 @@ def test_nimbus_sf_solve():
     weights = {"f_1": 0.25, "f_2": 0.5, "f_3": 0.25}
     problem_w_sum, t_sum = add_weighted_sums(problem, "target", weights)
 
-    solver = create_pyomo_bonmin_solver(problem_w_sum, sol_options)
+    solver = PyomoBonminSolver(problem_w_sum, sol_options)
 
-    results = solver(t_sum)
+    results = solver.solve(t_sum)
     assert results.success
 
     xs = results.optimal_variables
@@ -316,9 +316,9 @@ def test_nimbus_sf_solve():
         problem, "target", classifications=classifications, current_objective_vector=initial_solution
     )
 
-    solver = create_pyomo_bonmin_solver(problem_w_sf, sol_options)
+    solver = PyomoBonminSolver(problem_w_sf, sol_options)
 
-    results = solver(sf_target)
+    results = solver.solve(sf_target)
 
     assert results.success
     xs = results.optimal_variables
@@ -342,9 +342,9 @@ def test_nimbus_sf_solve():
     problem_w_sf, sf_target = add_nimbus_sf_diff(problem, "target", new_classifications, new_solution)
 
     sol_options = BonminOptions(tol=1e-6, bonmin_algorithm="B-Hyb")
-    solver = create_pyomo_bonmin_solver(problem_w_sf, sol_options)
+    solver = PyomoBonminSolver(problem_w_sf, sol_options)
 
-    results = solver(sf_target)
+    results = solver.solve(sf_target)
 
     assert results.success
     xs = results.optimal_variables
@@ -376,9 +376,9 @@ def test_stom_sf_diff():
     problem_w_sf, target = add_stom_sf_diff(problem, "target", first_reference_point)
 
     sol_options = BonminOptions(tol=1e-6, bonmin_algorithm="B-Hyb")
-    solver = create_pyomo_bonmin_solver(problem_w_sf, sol_options)
+    solver = PyomoBonminSolver(problem_w_sf, sol_options)
 
-    results = solver(target)
+    results = solver.solve(target)
 
     assert results.success
 
@@ -395,9 +395,9 @@ def test_stom_sf_diff():
     problem_w_sf, target = add_stom_sf_diff(problem, "target", second_reference_point)
 
     sol_options = BonminOptions(tol=1e-6, bonmin_algorithm="B-Hyb")
-    solver = create_pyomo_bonmin_solver(problem_w_sf, sol_options)
+    solver = PyomoBonminSolver(problem_w_sf, sol_options)
 
-    results = solver(target)
+    results = solver.solve(target)
 
     assert results.success
 
@@ -448,9 +448,9 @@ def test_guess_sf_diff():
     problem_w_sf, target = add_guess_sf_diff(problem, "target", first_reference_point)
 
     sol_options = BonminOptions(tol=1e-6, bonmin_algorithm="B-Hyb")
-    solver = create_pyomo_bonmin_solver(problem_w_sf, sol_options)
+    solver = PyomoBonminSolver(problem_w_sf, sol_options)
 
-    results = solver(target)
+    results = solver.solve(target)
 
     assert results.success
 
@@ -467,9 +467,9 @@ def test_guess_sf_diff():
     problem_w_sf, target = add_guess_sf_diff(problem, "target", second_reference_point)
 
     sol_options = BonminOptions(tol=1e-6, bonmin_algorithm="B-Hyb")
-    solver = create_pyomo_bonmin_solver(problem_w_sf, sol_options)
+    solver = PyomoBonminSolver(problem_w_sf, sol_options)
 
-    results = solver(target)
+    results = solver.solve(target)
 
     assert results.success
 
@@ -509,9 +509,9 @@ def test_achievement_sf_diff():
     problem_w_sf, target = add_asf_diff(problem, "target", first_reference_point)
 
     sol_options = BonminOptions(tol=1e-6, bonmin_algorithm="B-Hyb")
-    solver = create_pyomo_bonmin_solver(problem_w_sf, sol_options)
+    solver = PyomoBonminSolver(problem_w_sf, sol_options)
 
-    results = solver(target)
+    results = solver.solve(target)
 
     assert results.success
 
@@ -528,9 +528,9 @@ def test_achievement_sf_diff():
     problem_w_sf, target = add_asf_diff(problem, "target", second_reference_point)
 
     sol_options = BonminOptions(tol=1e-6, bonmin_algorithm="B-Hyb")
-    solver = create_pyomo_bonmin_solver(problem_w_sf, sol_options)
+    solver = PyomoBonminSolver(problem_w_sf, sol_options)
 
-    results = solver(target)
+    results = solver.solve(target)
 
     assert results.success
 
@@ -559,9 +559,9 @@ def test_nimbus_sf_nondiff_solve():
 
     solver_options = NevergradGenericOptions(budget=250, num_workers=1, optimizer="NGOpt")
 
-    solver = create_ng_generic_solver(problem_w_sum, solver_options)
+    solver = NevergradGenericSolver(problem_w_sum, solver_options)
 
-    results = solver(t_sum)
+    results = solver.solve(t_sum)
     assert results.success
 
     xs = results.optimal_variables
@@ -582,9 +582,9 @@ def test_nimbus_sf_nondiff_solve():
 
     solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="NGOpt")
 
-    solver = create_ng_generic_solver(problem_w_sf, solver_options)
+    solver = NevergradGenericSolver(problem_w_sf, solver_options)
 
-    results = solver(sf_target)
+    results = solver.solve(sf_target)
 
     xs = results.optimal_variables
     assert results.success
@@ -616,9 +616,9 @@ def test_stom_sf_nondiff_solve():
 
     solver_options = NevergradGenericOptions(budget=250, num_workers=1, optimizer="NGOpt")
 
-    solver = create_ng_generic_solver(problem_w_sf, solver_options)
+    solver = NevergradGenericSolver(problem_w_sf, solver_options)
 
-    result = solver(target)
+    result = solver.solve(target)
 
     assert result.success
 
@@ -648,9 +648,9 @@ def test_guess_sf_nondiff_solve():
 
     solver_options = NevergradGenericOptions(budget=250, num_workers=1, optimizer="NGOpt")
 
-    solver = create_ng_generic_solver(problem_w_sf, solver_options)
+    solver = NevergradGenericSolver(problem_w_sf, solver_options)
 
-    result = solver(target)
+    result = solver.solve(target)
 
     assert result.success
 

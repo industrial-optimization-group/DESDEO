@@ -11,10 +11,7 @@ import nevergrad as ng
 from pydantic import BaseModel, Field
 
 from desdeo.problem import Problem, SympyEvaluator
-from desdeo.tools.generics import CreateSolverType, SolverResults
-
-# forward typehints
-create_ng_generic_solver: CreateSolverType
+from desdeo.tools.generics import SolverResults
 
 available_nevergrad_optimizers = [
     "NGOpt",
@@ -90,35 +87,46 @@ def parse_ng_results(results: dict, problem: Problem, evaluator: SympyEvaluator)
     )
 
 
-def create_ng_generic_solver(
-    problem: Problem, options: NevergradGenericOptions = _default_nevergrad_generic_options
-) -> Callable[[str], SolverResults]:
-    """Creates a solver that utilizes optimizations routines found in the nevergrad library.
+class NevergradGenericSolver:
+    """Creates a solver that utilizes optimizations routines found in the nevergrad library."""
 
-    These solvers are best utilized for black-box, gradient free optimization with
-    computationally expensive function calls. Utilizing multiple workers is recommended
-    (see `NevergradGenericOptions`) when function calls are heavily I/O bound.
+    def __init__(self, problem: Problem, options: NevergradGenericOptions = _default_nevergrad_generic_options):
+        """Creates a solver that utilizes optimizations routines found in the nevergrad library.
 
-    See https://facebookresearch.github.io/nevergrad/getting_started.html for further information
-    on nevergrad and its solvers.
+        These solvers are best utilized for black-box, gradient free optimization with
+        computationally expensive function calls. Utilizing multiple workers is recommended
+        (see `NevergradGenericOptions`) when function calls are heavily I/O bound.
 
-    References:
-        Rapin, J., & Teytaud, O. (2018). Nevergrad - A gradient-free
-            optimization platform. GitHub.
-            https://GitHub.com/FacebookResearch/Nevergrad
+        See https://facebookresearch.github.io/nevergrad/getting_started.html for further information
+        on nevergrad and its solvers.
 
-    Args:
-        problem (Problem): the problem to be solved.
-        options (NgOptOptions): options to be passes to the solver. Defaults to `_default_ng_ngopt_options`.
+        References:
+            Rapin, J., & Teytaud, O. (2018). Nevergrad - A gradient-free
+                optimization platform. GitHub.
+                https://GitHub.com/FacebookResearch/Nevergrad
 
-    Returns:
-        Callable[[str], SolverResults]: returns a callable function that takes
-            as its argument one of the symbols defined for a function expression in
-            problem.
-    """
-    evaluator = SympyEvaluator(problem)
+        Args:
+            problem (Problem): the problem to be solved.
+            options (NgOptOptions): options to be passes to the solver. Defaults to `_default_ng_ngopt_options`.
 
-    def solver(target: str) -> SolverResults:
+        Returns:
+            Callable[[str], SolverResults]: returns a callable function that takes
+                as its argument one of the symbols defined for a function expression in
+                problem.
+        """
+        self.problem = problem
+        self.options = options
+        self.evaluator = SympyEvaluator(problem)
+
+    def solve(self, target: str) -> SolverResults:
+        """Solve the problem for the given target.
+
+        Args:
+            target (str): the symbol of the objective function to be optimized.
+
+        Returns:
+            SolverResults: the results of the optimization.
+        """
         parametrization = ng.p.Dict(
             **{
                 var.symbol: ng.p.Scalar(
@@ -127,23 +135,25 @@ def create_ng_generic_solver(
                     # initial value.
                     init=var.initial_value if var.initial_value is not None else (var.lowerbound + var.upperbound) / 2
                 ).set_bounds(var.lowerbound, var.upperbound)
-                for var in problem.variables
+                for var in self.problem.variables
             }
         )
 
-        optimizer = ng.optimizers.registry[options.optimizer](
-            parametrization=parametrization, **options.model_dump(exclude="optimizer")
+        optimizer = ng.optimizers.registry[self.options.optimizer](
+            parametrization=parametrization, **self.options.model_dump(exclude="optimizer")
         )
 
-        constraint_symbols = None if problem.constraints is None else [con.symbol for con in problem.constraints]
+        constraint_symbols = (
+            None if self.problem.constraints is None else [con.symbol for con in self.problem.constraints]
+        )
 
         try:
             if optimizer.num_workers == 1:
                 # single thread
                 recommendation = optimizer.minimize(
-                    lambda xs, t=target: evaluator.evaluate_target(xs, t),
+                    lambda xs, t=target: self.evaluator.evaluate_target(xs, t),
                     constraint_violation=[
-                        lambda xs, t=con_t: evaluator.evaluate_target(xs, t) for con_t in constraint_symbols
+                        lambda xs, t=con_t: self.evaluator.evaluate_target(xs, t) for con_t in constraint_symbols
                     ]
                     if constraint_symbols is not None
                     else None,
@@ -153,9 +163,9 @@ def create_ng_generic_solver(
                 # multiple processors
                 with ThreadPoolExecutor(max_workers=optimizer.num_workers) as executor:
                     recommendation = optimizer.minimize(
-                        lambda xs, t=target: evaluator.evaluate_target(xs, t),
+                        lambda xs, t=target: self.evaluator.evaluate_target(xs, t),
                         constraint_violation=[
-                            lambda xs, t=con_t: evaluator.evaluate_target(xs, t) for con_t in constraint_symbols
+                            lambda xs, t=con_t: self.evaluator.evaluate_target(xs, t) for con_t in constraint_symbols
                         ]
                         if constraint_symbols is not None
                         else None,
@@ -163,15 +173,13 @@ def create_ng_generic_solver(
                         batch_mode=False,
                     )
 
-            msg = f"Recommendation found by {options.optimizer}."
+            msg = f"Recommendation found by {self.options.optimizer}."
             success = True
 
         except Exception as e:
-            msg = f"{options.optimizer} failed. Possible reason: {e}"
+            msg = f"{self.options.optimizer} failed. Possible reason: {e}"
             success = False
 
         result = {"recommendation": recommendation, "message": msg, "success": success}
 
-        return parse_ng_results(result, problem, evaluator)
-
-    return solver
+        return parse_ng_results(result, self.problem, self.evaluator)

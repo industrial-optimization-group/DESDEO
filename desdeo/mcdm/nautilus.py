@@ -84,7 +84,7 @@ def solve_reachable_solution(
         SolverResults: the results of the projection.
     """
     # check solver
-    _create_solver = guess_best_solver(problem) if create_solver is None else create_solver
+    init_solver = guess_best_solver(problem) if create_solver is None else create_solver
 
     # need to convert the preferences to preferential factors?
 
@@ -106,8 +106,8 @@ def solve_reachable_solution(
     )
 
     # solve the problem
-    solver = _create_solver(problem_w_asf)
-    return solver(target)
+    solver = init_solver(problem_w_asf)
+    return solver.solve(target)
 
 
 # NAUTILUS initializer and steppers

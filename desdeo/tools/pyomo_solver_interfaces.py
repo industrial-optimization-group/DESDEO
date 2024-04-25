@@ -9,11 +9,7 @@ from pyomo.opt import SolverStatus as _pyomo_SolverStatus
 from pyomo.opt import TerminationCondition as _pyomo_TerminationCondition
 
 from desdeo.problem import Problem, PyomoEvaluator
-from desdeo.tools.generics import CreateSolverType, SolverResults
-
-# forward typehints
-create_pyomo_bonmin_solver: CreateSolverType
-create_pyomo_gurobi_solver: CreateSolverType
+from desdeo.tools.generics import SolverResults
 
 
 class BonminOptions(BaseModel):
@@ -94,12 +90,12 @@ _default_ipopt_options = IpoptOptions()
 def parse_pyomo_optimizer_results(
     opt_res: _pyomo_SolverResults, problem: Problem, evaluator: PyomoEvaluator
 ) -> SolverResults:
-    """Parses pyomo SolverResults into DESDEO SolverResutls.
+    """Parses pyomo SolverResults into DESDEO SolverResults.
 
     Args:
         opt_res (SolverResults): the pyomo solver results.
         problem (Problem): the problem being solved.
-        evaluator (PyomoEvaluator): the evalutor utilized to get the pyomo solver results.
+        evaluator (PyomoEvaluator): the evaluator utilized to get the pyomo solver results.
 
     Returns:
         SolverResults: DESDEO solver results.
@@ -129,135 +125,144 @@ def parse_pyomo_optimizer_results(
     )
 
 
-def create_pyomo_bonmin_solver(
-    problem: Problem, options: BonminOptions | None = _default_bonmin_options
-) -> Callable[[str], SolverResults]:
-    """Creates a pyomo solver that utilizes bonmin.
+class PyomoBonminSolver:
+    """Creates pyomo solvers that utilize bonmin."""
 
-    Suitable for mixed-integer problems. The objective function being minimized
-    (target) and the constraint functions must be twice continuously
-    differentiable. When the objective functions and constraints are convex, the
-    solution is exact. When the objective or any of the constraints, or both,
-    are non-convex, then the solution is based on heuristics.
+    def __init__(self, problem: Problem, options: BonminOptions | None = _default_bonmin_options):
+        """The solver is initialized with a problem and solver options.
 
-    For more info about bonmin, see: https://www.coin-or.org/Bonmin/
+        Suitable for mixed-integer problems. The objective function being minimized
+        (target) and the constraint functions must be twice continuously
+        differentiable. When the objective functions and constraints are convex, the
+        solution is exact. When the objective or any of the constraints, or both,
+        are non-convex, then the solution is based on heuristics.
 
-    Note:
-        Bonmin must be installed on the system running DESDEO, and its executable
-            must be defined in the PATH.
+        For more info about bonmin, see: https://www.coin-or.org/Bonmin/
 
-    Args:
-        problem (Problem): the problem to be solved.
-        options (BonminOptions, optional): options to be passed to the Bonmin solver.
-            If `None` is passed, defaults to `_default_bonmin_options` defined in
-            this source file. Defaults to `None`.
+        Note:
+            Bonmin must be installed on the system running DESDEO, and its executable
+                must be defined in the PATH.
 
-    Returns:
-        Callable[[str], SolverResults]: a callable function that takes
-            as its argument one of the symbols defined for a function expression in
-            problem.
-    """
-    if options is None:
-        options = _default_bonmin_options
+        Args:
+            problem (Problem): the problem to be solved.
+            options (BonminOptions, optional): options to be passed to the Bonmin solver.
+                If `None` is passed, defaults to `_default_bonmin_options` defined in
+                this source file. Defaults to `None`.
+        """
+        self.problem = problem
+        self.evaluator = PyomoEvaluator(problem)
 
-    evaluator = PyomoEvaluator(problem)
+        if options is None:
+            self.options = _default_bonmin_options
+        else:
+            self.options = options
 
-    def solver(target: str) -> SolverResults:
-        evaluator.set_optimization_target(target)
+    def solve(self, target: str) -> SolverResults:
+        """Solve the problem for a given target.
+
+        Args:
+            target (str): the symbol of the objective function to be optimized.
+
+        Returns:
+            SolverResults: the results of the optimization.
+        """
+        self.evaluator.set_optimization_target(target)
 
         opt = pyomo.SolverFactory("bonmin", tee=True)
 
         # set solver options
-        for key, value in options.asdict().items():
+        for key, value in self.options.asdict().items():
             opt.options[key] = value
-        opt_res = opt.solve(evaluator.model)
+        opt_res = opt.solve(self.evaluator.model)
 
-        return parse_pyomo_optimizer_results(opt_res, problem, evaluator)
-
-    return solver
+        return parse_pyomo_optimizer_results(opt_res, self.problem, self.evaluator)
 
 
-def create_pyomo_ipopt_solver(
-    problem: Problem, options: IpoptOptions | None = _default_ipopt_options
-) -> Callable[[str], SolverResults]:
-    """Creates a pyomo solver that utilizes Ipopt.
+class PyomoIpoptSolver:
+    """Create a pyomo solver that utilizes Ipopt."""
 
-    Suitable for non-linear, twice differentiable constrained problems.
-    The problem may be convex or non-convex.
+    def __init__(self, problem: Problem, options: IpoptOptions | None = _default_ipopt_options):
+        """The solver is initialized with a problem and solver options.
 
-    For more information, see https://coin-or.github.io/Ipopt/
+        Suitable for non-linear, twice differentiable constrained problems.
+        The problem may be convex or non-convex.
 
-    Note:
-        Ipopt must be installed on the system running DESDEO, and its executable
-            must be defined in the PATH.
+        For more information, see https://coin-or.github.io/Ipopt/
 
-    Args:
-        problem (Problem): the problem being solved.
-        options (IpoptOptions, optional): options to be passed to the Ipopt solver.
-            If `None` is passed, defaults to `_default_ipopt_options` defined in
-            this source file. Defaults to `None`.
+        Note:
+            Ipopt must be installed on the system running DESDEO, and its executable
+                must be defined in the PATH.
 
-    Returns:
-        Callable[[str], SolverResults]: a callable function that takes
-            as its argument one of the symbols defined for a function expression in
-            problem.
-    """
-    if options is None:
-        options = _default_ipopt_options
+        Args:
+            problem (Problem): the problem being solved.
+            options (IpoptOptions, optional): options to be passed to the Ipopt solver.
+                If `None` is passed, defaults to `_default_ipopt_options` defined in
+                this source file. Defaults to `None`.
+        """
+        self.problem = problem
+        self.evaluator = PyomoEvaluator(problem)
 
-    evaluator = PyomoEvaluator(problem)
-    if options is None:
-        options = {}
+        if options is None:
+            self.options = _default_ipopt_options
+        else:
+            self.options = options
 
-    def solver(target: str) -> SolverResults:
-        evaluator.set_optimization_target(target)
+    def solve(self, target: str) -> SolverResults:
+        """Solve the problem for a given target.
+
+        Args:
+            target (str): the symbol of the objective function to be optimized.
+
+        Returns:
+            SolverResults: results of the Optimization.
+        """
+        self.evaluator.set_optimization_target(target)
 
         opt = pyomo.SolverFactory("ipopt", tee=True)
-        opt_res = opt.solve(evaluator.model)
-        return parse_pyomo_optimizer_results(opt_res, problem, evaluator)
-
-    return solver
+        opt_res = opt.solve(self.evaluator.model)
+        return parse_pyomo_optimizer_results(opt_res, self.problem, self.evaluator)
 
 
-def create_pyomo_gurobi_solver(
-    problem: Problem, options: dict[str, any] | None = None
-) -> Callable[[str], SolverResults]:
-    """Creates a pyomo solver that utilizes gurobi.
+class PyomoGurobiSolver:
+    """Creates a pyomo solver that utilized Gurobi."""
 
-    You need to have gurobi installed on your system for this to work.
+    def __init__(self, problem: Problem, options: dict[str, any] | None = None):
+        """Creates a pyomo solver that utilizes gurobi.
 
-    Suitable for solving mixed-integer linear and quadratic optimization
-    problems.
+        You need to have gurobi installed on your system for this to work.
 
-    Args:
-        problem (Problem): the problem to be solved.
-        options (GurobiOptions): Dictionary of Gurobi parameters to set.
-            This is passed to pyomo as is, so it works the same as options
-            would for calling pyomo SolverFactory directly.
-            See https://www.gurobi.com/documentation/current/refman/parameters.html
-            for information on the available options
+        Suitable for solving mixed-integer linear and quadratic optimization
+        problems.
 
-    Returns:
-        Callable[[str], SolverResults]: a callable function that takes
-            as its argument one of the symbols defined for a function expression in
-            problem.
-    """
-    evaluator = PyomoEvaluator(problem)
+        Args:
+            problem (Problem): the problem to be solved.
+            options (GurobiOptions): Dictionary of Gurobi parameters to set.
+                This is passed to pyomo as is, so it works the same as options
+                would for calling pyomo SolverFactory directly.
+                See https://www.gurobi.com/documentation/current/refman/parameters.html
+                for information on the available options
+        """
+        self.problem = problem
+        self.evaluator = PyomoEvaluator(problem)
 
-    if options is None:
-        options = {}
+        if options is None:
+            self.options = {}
+        else:
+            self.options = options
 
-    def solver(target: str) -> SolverResults:
-        evaluator.set_optimization_target(target)
+    def solve(self, target: str) -> SolverResults:
+        """Solve the problem for a given target.
 
-        opt = pyomo.SolverFactory("gurobi", solver_io="python", options=options)
+        Args:
+            target (str): the symbol of the objective function to be optimized.
 
-        # set solver options
-        # for key, value in options.asdict().items():
-        #    opt.options[key] = value
+        Returns:
+            SolverResults: the results of the optimization.
+        """
+        self.evaluator.set_optimization_target(target)
+
+        opt = pyomo.SolverFactory("gurobi", solver_io="python", options=self.options)
 
         with pyomo.SolverFactory("gurobi", solver_io="python") as opt:
-            opt_res = opt.solve(evaluator.model)
-            return parse_pyomo_optimizer_results(opt_res, problem, evaluator)
-
-    return solver
+            opt_res = opt.solve(self.evaluator.model)
+            return parse_pyomo_optimizer_results(opt_res, self.problem, self.evaluator)

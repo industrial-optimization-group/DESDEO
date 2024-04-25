@@ -6,7 +6,7 @@ import pytest
 
 from desdeo.mcdm import infer_classifications, solve_intermediate_solutions, solve_sub_problems
 from desdeo.problem import dtlz2, nimbus_test_problem
-from desdeo.tools import IpoptOptions, add_asf_diff, create_pyomo_ipopt_solver
+from desdeo.tools import IpoptOptions, PyomoIpoptSolver, add_asf_diff
 
 
 @pytest.mark.nimbus
@@ -25,7 +25,7 @@ def test_solve_intermediate_solutions():
         solution_1,
         solution_2,
         num_desired,
-        create_solver=create_pyomo_ipopt_solver,
+        create_solver=PyomoIpoptSolver,
         solver_options=solver_options,
     )
 
@@ -93,8 +93,8 @@ def test_solve_sub_problems():
     # get some initial solution
     initial_rp = {"f_1": 0.4, "f_2": 0.3, "f_3": 0.8}
     problem_w_sf, target = add_asf_diff(problem, "target", initial_rp)
-    solver = create_pyomo_ipopt_solver(problem_w_sf, solver_options)
-    initial_result = solver(target)
+    solver = PyomoIpoptSolver(problem_w_sf, solver_options)
+    initial_result = solver.solve(target)
 
     # f1: 0.4355, f2: 0.3355, f3: 0.8355
     initial_fs = initial_result.optimal_objectives
@@ -104,7 +104,7 @@ def test_solve_sub_problems():
 
     num_desired = 4
     solutions = solve_sub_problems(
-        problem, initial_fs, first_rp, num_desired, create_pyomo_ipopt_solver, solver_options
+        problem, initial_fs, first_rp, num_desired, create_solver=PyomoIpoptSolver, solver_options=solver_options
     )
 
     assert len(solutions) == num_desired
@@ -184,7 +184,12 @@ def test_article_example():
 
     num_desired_start = 2
     results = solve_sub_problems(
-        problem, starting_point, starting_rp, num_desired_start, create_pyomo_ipopt_solver, IpoptOptions()
+        problem,
+        starting_point,
+        starting_rp,
+        num_desired_start,
+        create_solver=PyomoIpoptSolver,
+        solver_options=IpoptOptions(),
     )
 
     fs = results[0].optimal_objectives

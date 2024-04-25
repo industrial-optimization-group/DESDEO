@@ -4,10 +4,18 @@ __all__ = [
     "BonminOptions",
     "IpoptOptions",
     "CreateSolverType",
+    "GurobipySolver",
+    "NevergradGenericOptions",
+    "NevergradGenericSolver",
     "PersistentGurobipySolver",
+    "ProximalSolver",
+    "PyomoBonminSolver",
+    "PyomoGurobiSolver",
+    "PyomoIpoptSolver",
+    "ScipyDeSolver",
+    "ScipyMinimizeSolver",
     "SolverOptions",
     "SolverResults",
-    "NevergradGenericOptions",
     "ScalarizationError",
     "add_asf_diff",
     "add_asf_generic_nondiff",
@@ -22,13 +30,6 @@ __all__ = [
     "add_stom_sf_nondiff",
     "add_weighted_sums",
     "available_nevergrad_optimizers",
-    "create_gurobipy_solver",
-    "create_ng_generic_solver",
-    "create_pyomo_bonmin_solver",
-    "create_pyomo_ipopt_solver",
-    "create_pyomo_gurobi_solver",
-    "create_scipy_de_solver",
-    "create_scipy_minimize_solver",
     "get_corrected_ideal_and_nadir",
     "get_corrected_reference_point",
     "guess_best_solver",
@@ -36,20 +37,21 @@ __all__ = [
 
 from desdeo.tools.generics import CreateSolverType, SolverOptions, SolverResults
 from desdeo.tools.gurobipy_solver_interfaces import (
+    GurobipySolver,
     PersistentGurobipySolver,
-    create_gurobipy_solver,
 )
 from desdeo.tools.ng_solver_interfaces import (
     NevergradGenericOptions,
+    NevergradGenericSolver,
     available_nevergrad_optimizers,
-    create_ng_generic_solver,
 )
+from desdeo.tools.proximal_solver import ProximalSolver
 from desdeo.tools.pyomo_solver_interfaces import (
     BonminOptions,
     IpoptOptions,
-    create_pyomo_bonmin_solver,
-    create_pyomo_gurobi_solver,
-    create_pyomo_ipopt_solver,
+    PyomoBonminSolver,
+    PyomoGurobiSolver,
+    PyomoIpoptSolver,
 )
 from desdeo.tools.scalarization import (
     ScalarizationError,
@@ -67,8 +69,8 @@ from desdeo.tools.scalarization import (
     add_weighted_sums,
 )
 from desdeo.tools.scipy_solver_interfaces import (
-    create_scipy_de_solver,
-    create_scipy_minimize_solver,
+    ScipyDeSolver,
+    ScipyMinimizeSolver,
 )
 from desdeo.tools.utils import (
     get_corrected_ideal_and_nadir,

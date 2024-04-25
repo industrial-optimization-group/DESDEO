@@ -1,4 +1,5 @@
 """Macros for dynamically adding content to the documentation."""
+
 import inspect
 import json
 import re
@@ -45,7 +46,15 @@ def get_variable_info():
 
 def get_extra_function_info():
     """Gets information for an ExtraFunction model."""
-    example = ExtraFunction(name="example extra function", symbol="m", func=["Divide", "f_1", 100])
+    example = ExtraFunction(
+        name="example extra function",
+        symbol="m",
+        func=["Divide", "f_1", 100],
+        is_linear=True,
+        is_convex=True,
+        is_twice_differentiable=True,
+        scenario_keys="Scenario_1",
+    )
     return generate_schema_and_example(ExtraFunction, example)
 
 
