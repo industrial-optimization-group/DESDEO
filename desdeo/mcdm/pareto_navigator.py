@@ -43,15 +43,7 @@ def classification_to_reference_point(
             ref.append(nadir[pref])
         elif pref_info[pref] == "=":
             ref.append(current_solution[pref])
-    """
-    for i in range(len(pref_info["classification"])):
-        if pref_info["classification"][i] == "<":
-            ref.append(ideal[i])
-        elif pref_info["classification"][i] == ">":
-            ref.append(nadir[i])
-        elif pref_info["classification"][i] == "=":
-            ref.append(sol[i])
-    """
+
     return numpy_array_to_objective_dict(problem, np.array(ref))
 
 def calculate_adjusted_speed(allowed_speeds: np.ndarray, speed: float, scalar: float | None = 20) -> float:
