@@ -9,6 +9,9 @@ __all__ = [
     "NevergradGenericSolver",
     "PersistentGurobipySolver",
     "ProximalSolver",
+    "PyomoBonminSolver",
+    "PyomoGurobiSolver",
+    "PyomoIpoptSolver",
     "SolverOptions",
     "SolverResults",
     "ScalarizationError",
@@ -49,9 +52,9 @@ from desdeo.tools.proximal_solver import ProximalSolver
 from desdeo.tools.pyomo_solver_interfaces import (
     BonminOptions,
     IpoptOptions,
-    create_pyomo_bonmin_solver,
-    create_pyomo_gurobi_solver,
-    create_pyomo_ipopt_solver,
+    PyomoBonminSolver,
+    PyomoGurobiSolver,
+    PyomoIpoptSolver,
 )
 from desdeo.tools.scalarization import (
     ScalarizationError,

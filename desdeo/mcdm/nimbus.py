@@ -70,7 +70,7 @@ def solve_intermediate_solutions(
         msg = f"The given number of desired intermediate ({num_desired=}) solutions must be at least 1."
         raise NimbusError(msg)
 
-    _create_solver = guess_best_solver(problem) if create_solver is None else create_solver
+    init_solver = guess_best_solver(problem) if create_solver is None else create_solver
     _solver_options = None if solver_options is None else solver_options
 
     # compute the element-wise difference between each solution (in the decision space)
@@ -104,10 +104,10 @@ def solve_intermediate_solutions(
         # depending on problem properties (either diff or non-diff)
         asf_problem, target = add_asf_diff(problem, "target", rp)
 
-        solver = _create_solver(asf_problem, _solver_options)
+        solver = init_solver(asf_problem, _solver_options)
 
         # solve and store results
-        result: SolverResults = solver(target)
+        result: SolverResults = solver.solve(target)
 
         intermediate_solutions.append(result)
 
@@ -279,7 +279,7 @@ def solve_sub_problems(
         msg = f"The current point {reference_point} is missing entries " "for one or more of the objective functions."
         raise NimbusError(msg)
 
-    _create_solver = create_solver if create_solver is not None else guess_best_solver(problem)
+    init_solver = create_solver if create_solver is not None else guess_best_solver(problem)
     _solver_options = solver_options if solver_options is not None else None
 
     # derive the classifications based on the reference point and and previous
@@ -295,35 +295,35 @@ def solve_sub_problems(
     add_nimbus_sf = add_nimbus_sf_diff if is_smooth else add_nimbus_sf_nondiff
 
     problem_w_nimbus, nimbus_target = add_nimbus_sf(problem, "nimbus_sf", classifications, current_objectives)
-    nimbus_solver = _create_solver(problem_w_nimbus, _solver_options)
+    nimbus_solver = init_solver(problem_w_nimbus, _solver_options)
 
-    solutions.append(nimbus_solver(nimbus_target))
+    solutions.append(nimbus_solver.solve(nimbus_target))
 
     if num_desired > 1:
         # solve STOM
         add_stom_sf = add_stom_sf_diff if is_smooth else add_stom_sf_nondiff
 
         problem_w_stom, stom_target = add_stom_sf(problem, "stom_sf", reference_point)
-        stom_solver = _create_solver(problem_w_stom, _solver_options)
+        stom_solver = init_solver(problem_w_stom, _solver_options)
 
-        solutions.append(stom_solver(stom_target))
+        solutions.append(stom_solver.solve(stom_target))
 
     if num_desired > 2:
         # solve ASF
         add_asf = add_asf_diff if is_smooth else add_asf_nondiff
 
         problem_w_asf, asf_target = add_asf(problem, "asf", reference_point)
-        asf_solver = _create_solver(problem_w_asf, _solver_options)
+        asf_solver = init_solver(problem_w_asf, _solver_options)
 
-        solutions.append(asf_solver(asf_target))
+        solutions.append(asf_solver.solve(asf_target))
 
     if num_desired > 3:
         # solve GUESS
         add_guess_sf = add_guess_sf_diff if is_smooth else add_guess_sf_nondiff
 
         problem_w_guess, guess_target = add_guess_sf(problem, "guess_sf", reference_point)
-        guess_solver = _create_solver(problem_w_guess, _solver_options)
+        guess_solver = init_solver(problem_w_guess, _solver_options)
 
-        solutions.append(guess_solver(guess_target))
+        solutions.append(guess_solver.solve(guess_target))
 
     return solutions

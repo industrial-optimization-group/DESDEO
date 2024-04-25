@@ -15,7 +15,7 @@ from desdeo.tools import (
     BonminOptions,
     NevergradGenericOptions,
     NevergradGenericSolver,
-    create_pyomo_bonmin_solver,
+    PyomoBonminSolver,
     create_scipy_minimize_solver,
 )
 from desdeo.tools.scalarization import (
@@ -296,9 +296,9 @@ def test_nimbus_sf_solve():
     weights = {"f_1": 0.25, "f_2": 0.5, "f_3": 0.25}
     problem_w_sum, t_sum = add_weighted_sums(problem, "target", weights)
 
-    solver = create_pyomo_bonmin_solver(problem_w_sum, sol_options)
+    solver = PyomoBonminSolver(problem_w_sum, sol_options)
 
-    results = solver(t_sum)
+    results = solver.solve(t_sum)
     assert results.success
 
     xs = results.optimal_variables
@@ -316,9 +316,9 @@ def test_nimbus_sf_solve():
         problem, "target", classifications=classifications, current_objective_vector=initial_solution
     )
 
-    solver = create_pyomo_bonmin_solver(problem_w_sf, sol_options)
+    solver = PyomoBonminSolver(problem_w_sf, sol_options)
 
-    results = solver(sf_target)
+    results = solver.solve(sf_target)
 
     assert results.success
     xs = results.optimal_variables
@@ -342,9 +342,9 @@ def test_nimbus_sf_solve():
     problem_w_sf, sf_target = add_nimbus_sf_diff(problem, "target", new_classifications, new_solution)
 
     sol_options = BonminOptions(tol=1e-6, bonmin_algorithm="B-Hyb")
-    solver = create_pyomo_bonmin_solver(problem_w_sf, sol_options)
+    solver = PyomoBonminSolver(problem_w_sf, sol_options)
 
-    results = solver(sf_target)
+    results = solver.solve(sf_target)
 
     assert results.success
     xs = results.optimal_variables
@@ -376,9 +376,9 @@ def test_stom_sf_diff():
     problem_w_sf, target = add_stom_sf_diff(problem, "target", first_reference_point)
 
     sol_options = BonminOptions(tol=1e-6, bonmin_algorithm="B-Hyb")
-    solver = create_pyomo_bonmin_solver(problem_w_sf, sol_options)
+    solver = PyomoBonminSolver(problem_w_sf, sol_options)
 
-    results = solver(target)
+    results = solver.solve(target)
 
     assert results.success
 
@@ -395,9 +395,9 @@ def test_stom_sf_diff():
     problem_w_sf, target = add_stom_sf_diff(problem, "target", second_reference_point)
 
     sol_options = BonminOptions(tol=1e-6, bonmin_algorithm="B-Hyb")
-    solver = create_pyomo_bonmin_solver(problem_w_sf, sol_options)
+    solver = PyomoBonminSolver(problem_w_sf, sol_options)
 
-    results = solver(target)
+    results = solver.solve(target)
 
     assert results.success
 
@@ -448,9 +448,9 @@ def test_guess_sf_diff():
     problem_w_sf, target = add_guess_sf_diff(problem, "target", first_reference_point)
 
     sol_options = BonminOptions(tol=1e-6, bonmin_algorithm="B-Hyb")
-    solver = create_pyomo_bonmin_solver(problem_w_sf, sol_options)
+    solver = PyomoBonminSolver(problem_w_sf, sol_options)
 
-    results = solver(target)
+    results = solver.solve(target)
 
     assert results.success
 
@@ -467,9 +467,9 @@ def test_guess_sf_diff():
     problem_w_sf, target = add_guess_sf_diff(problem, "target", second_reference_point)
 
     sol_options = BonminOptions(tol=1e-6, bonmin_algorithm="B-Hyb")
-    solver = create_pyomo_bonmin_solver(problem_w_sf, sol_options)
+    solver = PyomoBonminSolver(problem_w_sf, sol_options)
 
-    results = solver(target)
+    results = solver.solve(target)
 
     assert results.success
 
@@ -509,9 +509,9 @@ def test_achievement_sf_diff():
     problem_w_sf, target = add_asf_diff(problem, "target", first_reference_point)
 
     sol_options = BonminOptions(tol=1e-6, bonmin_algorithm="B-Hyb")
-    solver = create_pyomo_bonmin_solver(problem_w_sf, sol_options)
+    solver = PyomoBonminSolver(problem_w_sf, sol_options)
 
-    results = solver(target)
+    results = solver.solve(target)
 
     assert results.success
 
@@ -528,9 +528,9 @@ def test_achievement_sf_diff():
     problem_w_sf, target = add_asf_diff(problem, "target", second_reference_point)
 
     sol_options = BonminOptions(tol=1e-6, bonmin_algorithm="B-Hyb")
-    solver = create_pyomo_bonmin_solver(problem_w_sf, sol_options)
+    solver = PyomoBonminSolver(problem_w_sf, sol_options)
 
-    results = solver(target)
+    results = solver.solve(target)
 
     assert results.success
 
