@@ -43,7 +43,6 @@ def test_pareto_navigator_reference_point():
     for i in range(len(solutions)):
         if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i])
                          - np.array([0.35, -0.51, -26.26])) < acc):
-            print("Values close enough to the ones in the article reached. ", solutions[i])
             navigated_point = solutions[i]
             break
 
@@ -56,7 +55,6 @@ def test_pareto_navigator_reference_point():
     for i in range(len(solutions)):
         if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i])
                          - np.array([-0.89, 2.91, -24.98])) < acc):
-            print("Values close enough to the ones in the article reached. ", solutions[i])
             navigated_point = solutions[i]
             break
 
@@ -68,7 +66,6 @@ def test_pareto_navigator_reference_point():
     for i in range(len(solutions)):
         if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i])
                          - np.array([-0.32, 2.33, -27.85])) < acc):
-            print("Values close enough to the ones in the article reached. ", solutions[i])
             navigated_point = solutions[i]
             break
 
@@ -97,7 +94,6 @@ def test_pareto_navigator_classification():
     for i in range(len(solutions)):
         if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i])
                          - np.array([0.35, -0.51, -26.26])) < acc):
-            print("Values close enough to the ones in the article reached. ", solutions[i])
             navigated_point = solutions[i]
             break
 
@@ -110,7 +106,6 @@ def test_pareto_navigator_classification():
     for i in range(len(solutions)):
         if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i])
                          - np.array([-0.89, 2.91, -24.98])) < acc):
-            print("Values close enough to the ones in the article reached. ", solutions[i])
             navigated_point = solutions[i]
             break
 
@@ -122,7 +117,6 @@ def test_pareto_navigator_classification():
     for i in range(len(solutions)):
         if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i])
                          - np.array([-0.32, 2.33, -27.85])) < acc):
-            print("Values close enough to the ones in the article reached. ", solutions[i])
             navigated_point = solutions[i]
             break
 
