@@ -194,7 +194,8 @@ markers = [
     "nevergrad: tests related to the nevergrad solvers and their interfaces",
     "scalarization: tests related to scalarization functions",
     "nimbus: tests related to the NIMBUS method",
-    "gurobipy: tests related to the gurobipy solver"
+    "gurobipy: tests related to the gurobipy solver",
+    "pareto_navigator: tests related to the Pareto Navigator method"
 ]
 pythonpath = "."
 
