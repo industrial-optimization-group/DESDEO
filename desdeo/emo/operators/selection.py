@@ -5,6 +5,8 @@ from typing import Callable
 
 import numpy as np
 from numba import njit
+
+from desdeo.tools.non_dominated_sorting import fast_non_dominated_sort
 from desdeo.tools.patterns import Subscriber
 
 
@@ -148,9 +150,13 @@ class RVEASelector(BaseSelector):
                     selection = np.hstack((selection, np.transpose(selx[0])))
                 else:
                     selection = np.vstack((selection, np.transpose(selx[0])))
-        self.selection = selection
+        self.selection = (
+            solutions[selection.flatten()],
+            targets[selection.flatten()],
+            (constraints[selection.flatten()] if constraints is not None else None),
+        )
         self.notify()
-        return solutions[selection.flatten()], targets[selection.flatten()], (constraints[selection.flatten()] if constraints is not None else None)
+        return self.selection
 
     def _partial_penalty_factor(self) -> float:
         """Calculate and return the partial penalty factor for APD calculation.
@@ -213,3 +219,277 @@ class RVEASelector(BaseSelector):
                     angle = np.arccos(np.dot(self.adapted_reference_vectors[i], self.adapted_reference_vectors[j]))
                     if angle < self.reference_vectors_gamma[i]:
                         self.reference_vectors_gamma[i] = angle
+
+
+class NSGAIII_select(BaseSelector):
+    """The NSGA-III selection operator. Code is heavily based on the version of nsga3 in
+        the pymoo package by msu-coinlab.
+
+    Parameters
+    ----------
+    pop : Population
+        [description]
+    n_survive : int, optional
+        [description], by default None
+
+    """
+
+    def __init__(
+        self,
+        reference_vectors: np.ndarray,
+        publisher: Callable,
+        n_survive: int,
+        ideal: np.ndarray = None,
+        nadir: np.ndarray = None,
+    ):
+        super().__init__(publisher)
+        self.reference_vectors = reference_vectors
+        self.adapted_reference_vectors = None
+        self.worst_fitness: np.ndarray = nadir
+        self.extreme_points: np.ndarray = None
+        self.n_survive = n_survive
+        self.ideal: np.ndarray = ideal
+        self.selection: tuple[np.ndarray, np.ndarray] = None
+
+    def do(
+        self,
+        parents: tuple[np.ndarray, np.ndarray, np.ndarray | None],
+        offsprings: tuple[np.ndarray, np.ndarray, np.ndarray | None],
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Select individuals for mating for NSGA-III.
+
+        Parameters
+        ----------
+        pop : Population
+            The current population.
+
+        Returns
+        -------
+        List[int]
+            List of indices of the selected individuals
+        """
+
+        solutions = np.vstack((parents[0], offsprings[0]))
+        targets = np.vstack((parents[1], offsprings[1]))
+        if parents[2] is None:
+            constraints = None
+        else:
+            constraints = np.vstack((parents[2], offsprings[2]))
+        ref_dirs = self.reference_vectors
+
+        if self.ideal is None:
+            self.ideal = np.min(targets, axis=0)
+        else:
+            self.ideal = np.min(np.vstack((self.ideal, np.min(targets, axis=0))), axis=0)
+        fitness = targets
+        # Calculating fronts and ranks
+        # fronts, dl, dc, rank = nds(fitness)
+        fronts = fast_non_dominated_sort(fitness)
+        fronts = [np.where(fronts[i])[0] for i in range(len(fronts))]
+        non_dominated = fronts[0]
+
+        if self.worst_fitness is None:
+            self.worst_fitness = np.max(fitness, axis=0)
+        else:
+            self.worst_fitness = np.amax(np.vstack((self.worst_fitness, fitness)), axis=0)
+
+        # Calculating worst points
+        worst_of_population = np.amax(fitness, axis=0)
+        worst_of_front = np.max(fitness[non_dominated, :], axis=0)
+        self.extreme_points = self.get_extreme_points_c(
+            fitness[non_dominated, :], self.ideal, extreme_points=self.extreme_points
+        )
+        nadir_point = self.get_nadir_point(
+            self.extreme_points,
+            self.ideal,
+            self.worst_fitness,
+            worst_of_population,
+            worst_of_front,
+        )
+
+        # Finding individuals in first 'n' fronts
+        selection = np.asarray([], dtype=int)
+        for front_id in range(len(fronts)):
+            if len(np.concatenate(fronts[: front_id + 1])) < self.n_survive:
+                continue
+            else:
+                fronts = fronts[: front_id + 1]
+                selection = np.concatenate(fronts)
+                break
+        F = fitness[selection]
+
+        last_front = fronts[-1]
+
+        # Selecting individuals from the last acceptable front.
+        if len(selection) > self.n_survive:
+            niche_of_individuals, dist_to_niche = self.associate_to_niches(F, ref_dirs, self.ideal, nadir_point)
+            # if there is only one front
+            if len(fronts) == 1:
+                n_remaining = self.n_survive
+                until_last_front = np.array([], dtype=int)
+                niche_count = np.zeros(len(ref_dirs), dtype=int)
+
+            # if some individuals already survived
+            else:
+                until_last_front = np.concatenate(fronts[:-1])
+                id_until_last_front = list(range(len(until_last_front)))
+                niche_count = self.calc_niche_count(len(ref_dirs), niche_of_individuals[id_until_last_front])
+                n_remaining = self.n_survive - len(until_last_front)
+
+            last_front_selection_id = list(range(len(until_last_front), len(selection)))
+            if np.any(selection[last_front_selection_id] != last_front):
+                print("error!!!")
+            selected_from_last_front = self.niching(
+                fitness[last_front, :],
+                n_remaining,
+                niche_count,
+                niche_of_individuals[last_front_selection_id],
+                dist_to_niche[last_front_selection_id],
+            )
+            final_selection = np.concatenate((until_last_front, last_front[selected_from_last_front]))
+            if self.extreme_points is None:
+                print("Error")
+            if final_selection is None:
+                print("Error")
+        else:
+            final_selection = selection
+
+        self.selection = (
+            solutions[final_selection],
+            targets[final_selection],
+            (constraints[final_selection] if constraints is not None else None),
+        )
+        self.notify()
+        return self.selection
+
+    def get_extreme_points_c(self, F, ideal_point, extreme_points=None):
+        """Taken from pymoo"""
+        # calculate the asf which is used for the extreme point decomposition
+        asf = np.eye(F.shape[1])
+        asf[asf == 0] = 1e6
+
+        # add the old extreme points to never loose them for normalization
+        _F = F
+        if extreme_points is not None:
+            _F = np.concatenate([extreme_points, _F], axis=0)
+
+        # use __F because we substitute small values to be 0
+        __F = _F - ideal_point
+        __F[__F < 1e-3] = 0
+
+        # update the extreme points for the normalization having the highest asf value
+        # each
+        F_asf = np.max(__F * asf[:, None, :], axis=2)
+        I = np.argmin(F_asf, axis=1)
+        extreme_points = _F[I, :]
+        return extreme_points
+
+    def get_nadir_point(
+        self,
+        extreme_points,
+        ideal_point,
+        worst_point,
+        worst_of_front,
+        worst_of_population,
+    ):
+        LinAlgError = np.linalg.LinAlgError
+        try:
+            # find the intercepts using gaussian elimination
+            M = extreme_points - ideal_point
+            b = np.ones(extreme_points.shape[1])
+            plane = np.linalg.solve(M, b)
+            intercepts = 1 / plane
+
+            nadir_point = ideal_point + intercepts
+
+            if not np.allclose(np.dot(M, plane), b) or np.any(intercepts <= 1e-6) or np.any(nadir_point > worst_point):
+                raise LinAlgError()
+
+        except LinAlgError:
+            nadir_point = worst_of_front
+
+        b = nadir_point - ideal_point <= 1e-6
+        nadir_point[b] = worst_of_population[b]
+        return nadir_point
+
+    def niching(self, F, n_remaining, niche_count, niche_of_individuals, dist_to_niche):
+        survivors = []
+
+        # boolean array of elements that are considered for each iteration
+        mask = np.full(F.shape[0], True)
+
+        while len(survivors) < n_remaining:
+            # all niches where new individuals can be assigned to
+            next_niches_list = np.unique(niche_of_individuals[mask])
+
+            # pick a niche with minimum assigned individuals - break tie if necessary
+            next_niche_count = niche_count[next_niches_list]
+            next_niche = np.where(next_niche_count == next_niche_count.min())[0]
+            next_niche = next_niches_list[next_niche]
+            next_niche = next_niche[np.random.randint(0, len(next_niche))]
+
+            # indices of individuals that are considered and assign to next_niche
+            next_ind = np.where(np.logical_and(niche_of_individuals == next_niche, mask))[0]
+
+            # shuffle to break random tie (equal perp. dist) or select randomly
+            np.random.shuffle(next_ind)
+
+            if niche_count[next_niche] == 0:
+                next_ind = next_ind[np.argmin(dist_to_niche[next_ind])]
+            else:
+                # already randomized through shuffling
+                next_ind = next_ind[0]
+
+            mask[next_ind] = False
+            survivors.append(int(next_ind))
+
+            niche_count[next_niche] += 1
+
+        return survivors
+
+    def associate_to_niches(self, F, ref_dirs, ideal_point, nadir_point, utopian_epsilon=0.0):
+        utopian_point = ideal_point - utopian_epsilon
+
+        denom = nadir_point - utopian_point
+        denom[denom == 0] = 1e-12
+
+        # normalize by ideal point and intercepts
+        N = (F - utopian_point) / denom
+        dist_matrix = self.calc_perpendicular_distance(N, ref_dirs)
+
+        niche_of_individuals = np.argmin(dist_matrix, axis=1)
+        dist_to_niche = dist_matrix[np.arange(F.shape[0]), niche_of_individuals]
+
+        return niche_of_individuals, dist_to_niche
+
+    def calc_niche_count(self, n_niches, niche_of_individuals):
+        niche_count = np.zeros(n_niches, dtype=int)
+        index, count = np.unique(niche_of_individuals, return_counts=True)
+        niche_count[index] = count
+        return niche_count
+
+    def calc_perpendicular_distance(self, N, ref_dirs):
+        u = np.tile(ref_dirs, (len(N), 1))
+        v = np.repeat(N, len(ref_dirs), axis=0)
+
+        norm_u = np.linalg.norm(u, axis=1)
+
+        scalar_proj = np.sum(v * u, axis=1) / norm_u
+        proj = scalar_proj[:, None] * u / norm_u[:, None]
+        val = np.linalg.norm(proj - v, axis=1)
+        matrix = np.reshape(val, (len(N), len(ref_dirs)))
+
+        return matrix
+
+    def state(self) -> dict:
+        return {
+            "reference_vectors": self.reference_vectors,
+            "ideal": self.ideal,
+            "nadir": self.worst_fitness,
+            "extreme_points": self.extreme_points,
+            "n_survive": self.n_survive,
+            "selection": self.selection,
+        }
+
+    def update(self, msg: dict) -> None:
+        pass
