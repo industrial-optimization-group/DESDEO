@@ -195,7 +195,8 @@ markers = [
     "scalarization: tests related to scalarization functions",
     "nimbus: tests related to the NIMBUS method",
     "gurobipy: tests related to the gurobipy solver",
-    "pareto_navigator: tests related to the Pareto Navigator method"
+    "pareto_navigator: tests related to the Pareto Navigator method",
+    "patterns: tests related to the publisher-subscriber pattern",
 ]
 pythonpath = "."
 
