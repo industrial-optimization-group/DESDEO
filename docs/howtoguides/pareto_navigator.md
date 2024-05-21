@@ -2,7 +2,9 @@
 
 ## Introduction
 
-Information.
+This is a how to guide to use the Pareto Navigator method.
+The method is implemented according to the description in
+Eskelinen, P., Miettinen, K., Klamroth, K., & Hakanen, J. (2010). Pareto navigator for interactive nonlinear multiobjective optimization. OR spectrum, 32, 211-227.
 
 ## Setting up the problem
 
