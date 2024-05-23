@@ -18,6 +18,8 @@ from desdeo.tools.scalarization import (
     get_corrected_ideal_and_nadir
 )
 
+from desdeo.tools.paint import PAINT
+
 def paint():
     return
 
@@ -125,4 +127,16 @@ if __name__ == "__main__":
     reference_point = {"f_1": ideal["f_1"], "f_2": ideal["f_2"], "f_3": nadir["f_3"]}
     #solutions = calculate_all_solutions(problem, preference_information)
     #print(calculate_all_solutions(problem, preference_information))
-    print(calculate_next_solution(problem, reference_point, starting_point, 1/200))
+    #print(calculate_next_solution(problem, reference_point, starting_point, 1/200))
+
+    #objective_values = problem.discrete_representation.objective_values
+    #po_solutions = objective_dict_to_numpy_array(problem, objective_values)
+    po_solutions = np.array([[-2.0, -1.0, 0.0, 1.38, 1.73, 2.48, 5.0],
+                            [0.0, 4.6, -3.1, 0.62, 1.72, 1.45, 2.2],
+                            [-18.0, -25.0, -14.25, -35.33, -38.64, -42.41, -55.0]]).T
+    #print(po_solutions)
+
+    test_paint = PAINT(po_solutions)
+    test_approx = test_paint.approximate()
+
+    print(test_approx)
