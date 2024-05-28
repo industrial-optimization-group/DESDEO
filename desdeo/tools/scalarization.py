@@ -202,6 +202,118 @@ def add_asf_nondiff(
     return problem.add_scalarization(scalarization_function), symbol
 
 
+def add_asf_generic_diff(
+    problem: Problem,
+    symbol: str,
+    reference_point: dict[str, float],
+    weights: dict[str, float],
+    reference_in_aug=False,
+    rho: float = 1e-6,
+) -> tuple[Problem, str]:
+    r"""Adds the differentiable variant of the generic achievement scalarizing function.
+
+    \begin{align*}
+        \min \quad & \alpha + \rho \sum_{i=1}^k \frac{f_i(\mathbf{x})}{w_i} \\
+        \text{s.t.} \quad & \frac{f_i(\mathbf{x}) - q_i}{w_i} - \alpha \leq 0,\\
+        & \mathbf{x} \in S,
+    \end{align*}
+
+    where $f_i$ are objective functions, $q_i$ is a component of the reference point,
+    and $w_i$ are components of the weight vector (which are assumed to be positive),
+    $\rho$ and $\delta$ are small scalar values, $S$ is the feasible solution
+    space of the original problem, and $\alpha$ is an auxiliary variable.
+    The summation term in the scalarization is known as the _augmentation term_.
+    If the reference point is chosen to be used in the augmentation term
+    (`reference_in_aug=True`), then the reference point components are
+    subtracted from the objective function values in the nominator of the
+    augmentation term. That is:
+
+    \begin{align*}
+        \min \quad & \alpha + \rho \sum_{i=1}^k \frac{f_i(\mathbf{x}) - q_i}{w_i} \\
+        \text{s.t.} \quad & \frac{f_i(\mathbf{x}) - q_i}{w_i} - \alpha \leq 0,\\
+        & \mathbf{x} \in S,
+    \end{align*}
+
+    References:
+        Wierzbicki, A. P. (1982). A mathematical basis for satisficing decision
+            making. Mathematical modelling, 3(5), 391-405.
+
+    Args:
+        problem (Problem): the problem the scalarization is added to.
+        symbol (str): the symbol given to the added scalarization.
+        reference_point (dict[str, float]): a dict with keys corresponding to objective
+            function symbols and values to reference point components, i.e.,
+            aspiration levels.
+        weights (dict[str, float]): the weights to be used in the scalarization function. Must be positive.
+        reference_in_aug (bool, optional): Whether the reference point should be used in the augmentation term.
+            Defaults to False.
+        rho (float, optional): a small scalar value to scale the sum in the objective
+            function of the scalarization. Defaults to 1e-6.
+
+    Returns:
+        tuple[Problem, str]: a tuple with the copy of the problem with the added
+            scalarization and the symbol of the added scalarization.
+    """
+    # check reference point
+    if not objective_dict_has_all_symbols(problem, reference_point):
+        msg = f"The give reference point {reference_point} is missing a value for one or more objectives."
+        raise ScalarizationError(msg)
+
+    # check the weight vector
+    if not objective_dict_has_all_symbols(problem, weights):
+        msg = f"The given weight vector {weights} is missing a value for one or more objectives."
+
+    ideal_point, nadir_point = get_corrected_ideal_and_nadir(problem)
+    corrected_rp = get_corrected_reference_point(problem, reference_point)
+
+    # define the auxiliary variable
+    alpha = Variable(name="alpha", symbol="_alpha", variable_type=VariableTypeEnum.real, initial_value=1.0)
+
+    # define the augmentation term
+    if not reference_in_aug:
+        # no reference point in augmentation term
+        aug_expr = " + ".join([f"({obj.symbol}_min / {weights[obj.symbol]})" for obj in problem.objectives])
+    else:
+        # reference point in augmentation term
+        aug_expr = " + ".join(
+            [f"(({obj.symbol}_min - {corrected_rp[obj.symbol]}) / {weights[obj.symbol]})" for obj in problem.objectives]
+        )
+
+    target_expr = f"_alpha + {rho}*" + f"({aug_expr})"
+    scalarization = ScalarizationFunction(
+        name="Generic ASF scalarization objective function",
+        symbol=symbol,
+        func=target_expr,
+        is_convex=problem.is_convex(),
+        is_linear=problem.is_linear(),
+        is_twice_differentiable=problem.is_twice_differentiable(),
+    )
+
+    constraints = []
+
+    for obj in problem.objectives:
+        expr = f"({obj.symbol}_min - {corrected_rp[obj.symbol]}) / {weights[obj.symbol]} - _alpha"
+
+        # since we are subtracting a constant value, the linearity, convexity,
+        # and differentiability of the objective function, and hence the
+        # constraint, should not change.
+        constraints.append(
+            Constraint(
+                name=f"Constraint for {obj.symbol}",
+                symbol=f"{obj.symbol}_con",
+                func=expr,
+                cons_type=ConstraintTypeEnum.LTE,
+                is_linear=obj.is_linear,
+                is_convex=obj.is_convex,
+                is_twice_differentiable=obj.is_twice_differentiable,
+            )
+        )
+
+    _problem = problem.add_variables([alpha])
+    _problem = _problem.add_scalarization(scalarization)
+    return _problem.add_constraints(constraints), symbol
+
+
 def add_asf_generic_nondiff(
     problem: Problem,
     symbol: str,

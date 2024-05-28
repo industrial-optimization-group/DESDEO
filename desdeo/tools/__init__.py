@@ -19,6 +19,7 @@ __all__ = [
     "ScalarizationError",
     "add_asf_diff",
     "add_asf_generic_nondiff",
+    "add_asf_generic_diff",
     "add_asf_nondiff",
     "add_epsilon_constraints",
     "add_guess_sf_diff",
@@ -56,6 +57,7 @@ from desdeo.tools.pyomo_solver_interfaces import (
 from desdeo.tools.scalarization import (
     ScalarizationError,
     add_asf_diff,
+    add_asf_generic_diff,
     add_asf_generic_nondiff,
     add_asf_nondiff,
     add_epsilon_constraints,
