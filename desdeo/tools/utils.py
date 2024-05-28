@@ -53,14 +53,14 @@ def guess_best_solver(problem: Problem) -> CreateSolverType:
         return available_solvers["proximal"]
 
     # check if the problem is differentiable and if it is mixed integer
-    if problem.is_twice_differentiable and problem.variable_domain in [
+    if problem.is_twice_differentiable() and problem.variable_domain() in [
         VariableDomainTypeEnum.integer,
         VariableDomainTypeEnum.mixed,
     ]:
         return available_solvers["pyomo_bonmin"]
 
     # check if the problem is differentiable and continuous
-    if problem.is_twice_differentiable and problem.variable_domain in [VariableDomainTypeEnum.continuous]:
+    if problem.is_twice_differentiable() and problem.variable_domain() in [VariableDomainTypeEnum.continuous]:
         return available_solvers["pyomo_ipopt"]
 
     # else, guess nevergrad heuristics to be the best

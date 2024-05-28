@@ -13,6 +13,7 @@ from desdeo.problem import (
 )
 from desdeo.tools import (
     BonminOptions,
+    guess_best_solver,
     NevergradGenericOptions,
     NevergradGenericSolver,
     PyomoBonminSolver,
@@ -21,6 +22,7 @@ from desdeo.tools import (
 from desdeo.tools.scalarization import (
     ScalarizationError,
     add_asf_diff,
+    add_asf_generic_diff,
     add_asf_generic_nondiff,
     add_asf_nondiff,
     add_epsilon_constraints,
@@ -108,6 +110,46 @@ def test_add_asf_generic_nondiff(river_w_fake_ideal_and_nadir):
     for key, value in weights.items():
         assert f"{key}_min" in flatten(problem.scalarization_funcs[0].func)
         assert value in flatten(problem.scalarization_funcs[0].func)
+
+
+def test_add_asf_generic_diff():
+    """Test that the differentiable variant of the generic achievement scalarizing function produced Pareto optimal solutions."""
+    n_objectives = 4
+    n_variables = 5
+    problem = dtlz2(n_variables=n_variables, n_objectives=n_objectives)
+    reference_point = {"f_1": 0.4, "f_2": 0.8, "f_3": 0.7, "f_4": 0.75}
+    weights = {"f_1": 0.3, "f_2": 0.2, "f_3": 0.1, "f_4": 0.4}
+
+    problem_w_asf, target = add_asf_generic_diff(
+        problem, symbol="asf", reference_point=reference_point, weights=weights, reference_in_aug=False
+    )
+
+    create_solver = guess_best_solver(problem_w_asf)
+    solver = create_solver(problem_w_asf)
+
+    res = solver.solve(target)
+    xs = res.optimal_variables
+    fs = res.optimal_objectives
+
+    # check optimality of solution
+    assert all(np.isclose(xs[f"x_{i}"], 0.5) for i in range(n_objectives, n_variables + 1))
+    npt.assert_almost_equal(sum(fs[obj.symbol] ** 2 for obj in problem_w_asf.objectives) ** 0.5, 1.0)
+
+    # test with reference point in the aug as well
+    problem_w_asf, target = add_asf_generic_diff(
+        problem, symbol="asf", reference_point=reference_point, weights=weights, reference_in_aug=True
+    )
+
+    create_solver = guess_best_solver(problem_w_asf)
+    solver = create_solver(problem_w_asf)
+
+    res = solver.solve(target)
+    xs = res.optimal_variables
+    fs = res.optimal_objectives
+
+    # check optimality of solution
+    assert all(np.isclose(xs[f"x_{i}"], 0.5) for i in range(n_objectives, n_variables + 1))
+    npt.assert_almost_equal(sum(fs[obj.symbol] ** 2 for obj in problem_w_asf.objectives) ** 0.5, 1.0)
 
 
 def test_create_ws():

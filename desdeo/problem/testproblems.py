@@ -640,7 +640,9 @@ def dtlz2(n_variables: int, n_objectives: int) -> Problem:
     ]
 
     extras = [
-        ExtraFunction(name="g", symbol=g_symbol, func=g_expr),
+        ExtraFunction(
+            name="g", symbol=g_symbol, func=g_expr, is_convex=False, is_linear=False, is_twice_differentiable=True
+        ),
     ]
 
     return Problem(
