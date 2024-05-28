@@ -21,6 +21,7 @@ from desdeo.problem import (
 )
 from desdeo.tools.generics import CreateSolverType, SolverResults
 from desdeo.tools.scalarization import (
+    add_asf_diff,
     add_asf_nondiff,
     add_epsilon_constraints,
     add_lte_constraints,
@@ -94,6 +95,7 @@ def solve_reachable_bounds(
     navigation_point: dict[str, float],
     bounds: dict[str, float] | None = None,
     create_solver: CreateSolverType | None = None,
+    bound_th: float = 1e-3,
 ) -> tuple[dict[str, float], dict[str, float]]:
     """Computes the current reachable (upper and lower) bounds of the solutions in the objective space.
 
@@ -108,6 +110,7 @@ def solve_reachable_bounds(
         bounds (dict[str, float]): the user provided bounds preference.
         create_solver (CreateSolverType | None, optional): a function of type CreateSolverType that returns a solver.
             If None, then a solver is utilized bases on the problem's properties. Defaults to None.
+        bound_th (float, optional): a threshold for comparing the bounds to the set epsilon constraints.
 
     Raises:
         NautilusNavigationError: when optimization of an epsilon constraint problem is not successful.
@@ -227,7 +230,9 @@ def solve_reachable_bounds(
         if isinstance(upper_bound, list):
             upper_bound = upper_bound[0]
 
-        if upper_bound * (-1 if objective.maximize else 1) > const_bounds[objective.symbol]:
+        if not (abs(upper_bound * (-1 if objective.maximize else 1) - const_bounds[objective.symbol]) < bound_th) and (
+            upper_bound * (-1 if objective.maximize else 1) > const_bounds[objective.symbol]
+        ):
             msg = "The upper bound is worse than the navigation point. This should not happen."
             raise NautilusNavigatorError(msg)
 
@@ -270,9 +275,18 @@ def solve_reachable_solution(
     init_solver = guess_best_solver(problem) if create_solver is None else create_solver
 
     # create and add scalarization function
-    problem_w_asf, target = add_asf_nondiff(
-        problem, symbol="asf", reference_point=reference_point, reference_in_aug=True
-    )
+    if problem.is_twice_differentiable:
+        # differentiable problem
+        problem_w_asf, target = add_asf_diff(
+            problem,
+            symbol="asf",
+            reference_point=reference_point,  # TODO: reference_in_aug=True
+        )
+    else:
+        # non-differentiable problem
+        problem_w_asf, target = add_asf_nondiff(
+            problem, symbol="asf", reference_point=reference_point, reference_in_aug=True
+        )
 
     # Note: We do not solve the global problem. Instead, we solve this constrained problem:
     const_exprs = [

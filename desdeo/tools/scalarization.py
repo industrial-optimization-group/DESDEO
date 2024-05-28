@@ -198,6 +198,9 @@ def add_asf_nondiff(
         name="Achievement scalarizing function",
         symbol=symbol,
         func=asf_function,
+        is_linear=False,
+        is_convex=False,
+        is_twice_differentiable=False,
     )
     return problem.add_scalarization(scalarization_function), symbol
 
@@ -284,9 +287,9 @@ def add_asf_generic_diff(
         name="Generic ASF scalarization objective function",
         symbol=symbol,
         func=target_expr,
-        is_convex=problem.is_convex(),
-        is_linear=problem.is_linear(),
-        is_twice_differentiable=problem.is_twice_differentiable(),
+        is_convex=problem.is_convex,
+        is_linear=problem.is_linear,
+        is_twice_differentiable=problem.is_twice_differentiable,
     )
 
     constraints = []
@@ -385,25 +388,24 @@ def add_asf_generic_nondiff(
         msg = f"The given weight vector {weights} does not have a component defined for all the objectives."
         raise ScalarizationError(msg)
 
+    # get the corrected reference point
+    corrected_rp = get_corrected_reference_point(problem, reference_point)
+
     # check if minimizing or maximizing and adjust ideal and nadir values correspondingly
     ideal_point, nadir_point = get_corrected_ideal_and_nadir(problem)
 
     # Build the max term
     max_operands = [
-        (f"({obj.symbol}_min - {reference_point[obj.symbol]} * {-1 if obj.maximize else 1}) / ({weights[obj.symbol]})")
-        for obj in problem.objectives
+        (f"({obj.symbol}_min - {corrected_rp[obj.symbol]}) / ({weights[obj.symbol]})") for obj in problem.objectives
     ]
     max_term = f"{Op.MAX}({', '.join(max_operands)})"
 
     # Build the augmentation term
     if not reference_in_aug:
-        aug_operands = [f"{obj.symbol}_min / ({weights[obj.symbol]})" for obj in problem.objectives]
+        aug_operands = [f"{obj.symbol}_min / {weights[obj.symbol]}" for obj in problem.objectives]
     else:
         aug_operands = [
-            (
-                f"({obj.symbol}_min - {reference_point[obj.symbol]}) * {-1 if obj.maximize else 1} / "
-                f"({weights[obj.symbol]})"
-            )
+            (f"({obj.symbol}_min - {corrected_rp[obj.symbol]}) / " f"{weights[obj.symbol]}")
             for obj in problem.objectives
         ]
 
@@ -417,6 +419,9 @@ def add_asf_generic_nondiff(
         name="Generic achievement scalarizing function",
         symbol=symbol,
         func=sf,
+        is_linear=False,
+        is_convex=False,
+        is_twice_differentiable=False,
     )
     return problem.add_scalarization(scalarization_function), symbol
 
@@ -553,7 +558,6 @@ def add_nimbus_sf_diff(
                         symbol=f"{_symbol}_lt",
                         func=expr,
                         cons_type=ConstraintTypeEnum.LTE,
-                        linear=False,  # TODO: check!
                     )
                 )
 
@@ -565,7 +569,6 @@ def add_nimbus_sf_diff(
                         symbol=f"{_symbol}_eq",
                         func=expr,
                         cons_type=ConstraintTypeEnum.LTE,
-                        linear=False,  # TODO: check!
                     )
                 )
             case ("<=", aspiration):
@@ -580,7 +583,6 @@ def add_nimbus_sf_diff(
                         symbol=f"{_symbol}_lte",
                         func=expr,
                         cons_type=ConstraintTypeEnum.LTE,
-                        linear=False,  # TODO: check!
                     )
                 )
 
@@ -592,7 +594,6 @@ def add_nimbus_sf_diff(
                         symbol=f"{_symbol}_eq",
                         func=expr,
                         cons_type=ConstraintTypeEnum.LTE,
-                        linear=False,  # TODO: check!
                     )
                 )
             case ("=", _):
@@ -604,7 +605,6 @@ def add_nimbus_sf_diff(
                         symbol=f"{_symbol}_eq",
                         func=expr,
                         cons_type=ConstraintTypeEnum.LTE,
-                        linear=False,  # TODO: check!
                     )
                 )
             case (">=", reservation):
@@ -616,7 +616,6 @@ def add_nimbus_sf_diff(
                         symbol=f"{_symbol}_gte",
                         func=expr,
                         cons_type=ConstraintTypeEnum.LTE,
-                        linear=False,  # TODO: check!
                     )
                 )
             case ("0", _):
@@ -757,7 +756,6 @@ def add_nimbus_sf_nondiff(
                         symbol=f"{_symbol}_lt",
                         func=con_expr,
                         cons_type=ConstraintTypeEnum.LTE,
-                        linear=False,  # TODO: check!
                     )
                 )
 
@@ -776,7 +774,6 @@ def add_nimbus_sf_nondiff(
                         symbol=f"{_symbol}_lte",
                         func=con_expr,
                         cons_type=ConstraintTypeEnum.LTE,
-                        linear=False,  # TODO: check!
                     )
                 )
 
@@ -799,7 +796,6 @@ def add_nimbus_sf_nondiff(
                         symbol=f"{_symbol}_gte",
                         func=con_expr,
                         cons_type=ConstraintTypeEnum.LTE,
-                        linear=False,  # TODO: check!
                     )
                 )
             case ("0", _):
@@ -823,7 +819,12 @@ def add_nimbus_sf_nondiff(
 
     target_expr = f"{max_expr} + {rho}*({aug_expr})"
     scalarization = ScalarizationFunction(
-        name="NIMBUS scalarization objective function", symbol=symbol, func=target_expr
+        name="NIMBUS scalarization objective function",
+        symbol=symbol,
+        func=target_expr,
+        is_linear=False,
+        is_convex=False,
+        is_twice_differentiable=False,
     )
 
     _problem = problem.add_scalarization(scalarization)
@@ -891,7 +892,14 @@ def add_stom_sf_diff(
     )
 
     target_expr = f"_alpha + {rho}*" + f"({aug_expr})"
-    scalarization = ScalarizationFunction(name="STOM scalarization objective function", symbol=symbol, func=target_expr)
+    scalarization = ScalarizationFunction(
+        name="STOM scalarization objective function",
+        symbol=symbol,
+        func=target_expr,
+        is_twice_differentiable=problem.is_twice_differentiable,
+        is_linear=problem.is_linear,
+        is_convex=problem.is_convex,
+    )
 
     constraints = []
 
@@ -906,7 +914,9 @@ def add_stom_sf_diff(
                 symbol=f"{obj.symbol}_maxcon",
                 func=expr,
                 cons_type=ConstraintTypeEnum.LTE,
-                linear=False,  # TODO: check!
+                is_twice_differentiable=obj.is_twice_differentiable,
+                is_linear=obj.is_linear,
+                is_convex=obj.is_convex,
             )
         )
 
@@ -983,7 +993,14 @@ def add_stom_sf_nondiff(
     )
 
     target_expr = f"{Op.MAX}({max_expr}) + {rho}*" + f"({aug_expr})"
-    scalarization = ScalarizationFunction(name="STOM scalarization objective function", symbol=symbol, func=target_expr)
+    scalarization = ScalarizationFunction(
+        name="STOM scalarization objective function",
+        symbol=symbol,
+        func=target_expr,
+        is_linear=False,
+        is_convex=False,
+        is_twice_differentiable=False,
+    )
 
     return problem.add_scalarization(scalarization), symbol
 
@@ -1067,7 +1084,12 @@ def add_guess_sf_diff(
 
     target_expr = f"_alpha + {rho}*" + f"({aug_expr})"
     scalarization = ScalarizationFunction(
-        name="GUESS scalarization objective function", symbol=symbol, func=target_expr
+        name="GUESS scalarization objective function",
+        symbol=symbol,
+        func=target_expr,
+        is_convex=problem.is_convex,
+        is_linear=problem.is_linear,
+        is_twice_differentiable=problem.is_twice_differentiable,
     )
 
     constraints = []
@@ -1089,7 +1111,9 @@ def add_guess_sf_diff(
                 symbol=f"{obj.symbol}_con",
                 func=expr,
                 cons_type=ConstraintTypeEnum.LTE,
-                linear=False,  # TODO: check!
+                is_linear=obj.is_linear,
+                is_convex=obj.is_convex,
+                is_twice_differentiable=obj.is_twice_differentiable,
             )
         )
 
@@ -1193,7 +1217,12 @@ def add_guess_sf_nondiff(
 
     target_expr = f"{Op.MAX}({max_expr}) + {rho}*({aug_expr})"
     scalarization = ScalarizationFunction(
-        name="GUESS scalarization objective function", symbol=symbol, func=target_expr
+        name="GUESS scalarization objective function",
+        symbol=symbol,
+        func=target_expr,
+        is_linear=False,
+        is_convex=False,
+        is_twice_differentiable=False,
     )
 
     return problem.add_scalarization(scalarization), symbol
@@ -1237,6 +1266,9 @@ def add_asf_diff(
     Returns:
         tuple[Problem, str]: a tuple with the copy of the problem with the added
             scalarization and the symbol of the added scalarization.
+
+    Todo:
+        Add reference in augmentation term option!
     """
     # check reference point
     if not objective_dict_has_all_symbols(problem, reference_point):
@@ -1274,7 +1306,9 @@ def add_asf_diff(
                 symbol=f"{obj.symbol}_con",
                 func=expr,
                 cons_type=ConstraintTypeEnum.LTE,
-                linear=False,  # TODO: check!
+                is_linear=obj.is_linear,
+                is_convex=obj.is_convex,
+                is_twice_differentiable=obj.is_twice_differentiable,
             )
         )
 
@@ -1334,6 +1368,9 @@ def add_weighted_sums(problem: Problem, symbol: str, weights: dict[str, float]) 
         name="Weighted sums scalarization function",
         symbol=symbol,
         func=sf,
+        is_linear=problem.is_linear,
+        is_convex=problem.is_convex,
+        is_twice_differentiable=problem.is_twice_differentiable,
     )
     return problem.add_scalarization(scalarization_function), symbol
 
@@ -1432,6 +1469,9 @@ def add_epsilon_constraints(
             symbol=constraint_symbols[obj.symbol],
             func=["Add", f"{obj.symbol}_min", ["Negate", epsilons[obj.symbol]]],
             cons_type=ConstraintTypeEnum.LTE,
+            is_linear=obj.is_linear,
+            is_convex=obj.is_convex,
+            is_twice_differentiable=obj.is_twice_differentiable,
         )
         for obj in problem.objectives
         if obj.symbol != objective_symbol

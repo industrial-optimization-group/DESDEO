@@ -1,4 +1,5 @@
 """Fixtures used across tests are defined here."""
+
 import polars as pl
 import pytest
 
@@ -53,4 +54,7 @@ def dtlz2_5x_3f_data_based():
         variables=variables,
         objectives=objectives,
         discrete_representation=DiscreteRepresentation(variable_values=variable_dict, objective_values=objective_dict),
+        is_convex=False,
+        is_linear=False,
+        is_twice_differentiable=False,
     )

@@ -1,4 +1,5 @@
 """Tests related to the NAUTILUS Navigator method."""
+
 import numpy as np
 import numpy.testing as npt
 import pytest
@@ -167,9 +168,9 @@ def test_solve_reachable_bounds():
     assert lower_bounds["f_1"] < nav_point["f_1"]
     assert lower_bounds["f_2"] < nav_point["f_2"]
 
-    # upper bound should be less than or equel to nav point, for both
-    assert upper_bounds["f_1"] <= nav_point["f_1"]
-    assert upper_bounds["f_2"] <= nav_point["f_2"]
+    # upper bound should be less than or almost equal to nav point, for both
+    assert (abs(upper_bounds["f_1"] - nav_point["f_1"]) < 1e-3) or (upper_bounds["f_1"] <= nav_point["f_1"])
+    assert (abs(upper_bounds["f_2"] - nav_point["f_2"]) < 1e-3) or (upper_bounds["f_2"] <= nav_point["f_2"])
 
     # check than bounds make sense
     for symbol in [objective.symbol for objective in problem.objectives]:
@@ -185,10 +186,10 @@ def test_solve_reachable_bounds():
     # lower bound should be lower (better) than the navigation point for min objective
     assert lower_bounds["f_1"] < nav_point["f_1"]
     # lower bound should be higher or equal to the nav point for max objective
-    assert lower_bounds["f_2"] >= nav_point["f_2"]
+    assert (abs(lower_bounds["f_2"] - nav_point["f_2"]) < 1e-3) or (lower_bounds["f_2"] >= nav_point["f_2"])
 
     # upper bound should be less than or equel to nav point for min objective
-    assert upper_bounds["f_1"] <= nav_point["f_1"]
+    assert (abs(upper_bounds["f_1"] - nav_point["f_1"]) < 1e-3) or (upper_bounds["f_1"] <= nav_point["f_1"])
     # upper bound should be higher (better) than nav point for max objective
     assert upper_bounds["f_2"] > nav_point["f_2"]
 

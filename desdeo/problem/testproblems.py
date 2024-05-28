@@ -54,6 +54,9 @@ def binh_and_korn(maximize: tuple[bool] = (False, False)) -> Problem:
         maximize=maximize[0],
         ideal=0,
         nadir=140 if not maximize[0] else -140,
+        is_linear=False,
+        is_convex=True,
+        is_twice_differentiable=True,
     )
     objective_2 = Objective(
         name="Objective 2",
@@ -63,6 +66,9 @@ def binh_and_korn(maximize: tuple[bool] = (False, False)) -> Problem:
         maximize=maximize[1],
         ideal=0,
         nadir=50 if not maximize[0] else -50,
+        is_linear=False,
+        is_convex=True,
+        is_twice_differentiable=True,
     )
 
     constraint_1 = Constraint(
@@ -70,6 +76,9 @@ def binh_and_korn(maximize: tuple[bool] = (False, False)) -> Problem:
         symbol="g_1",
         cons_type="<=",
         func=["Add", ["Square", ["Subtract", "x_1", "c_2"]], ["Square", "x_2"], -25],
+        is_linear=False,
+        is_convex=True,
+        is_twice_differentiable=True,
     )
 
     constraint_2 = Constraint(
@@ -77,6 +86,9 @@ def binh_and_korn(maximize: tuple[bool] = (False, False)) -> Problem:
         symbol="g_2",
         cons_type="<=",
         func=["Add", ["Negate", ["Square", ["Subtract", "x_1", 8]]], ["Negate", ["Square", ["Add", "x_2", 3]]], 7.7],
+        is_linear=False,
+        is_convex=True,
+        is_twice_differentiable=True,
     )
 
     return Problem(
@@ -244,7 +256,22 @@ def simple_test_problem() -> Problem:
 
 
 def zdt1(number_of_variables: int) -> Problem:
-    """Defines the ZDT1 test problem."""
+    r"""Defines the ZDT1 test problem.
+
+    The problem has a variable number of decision variables and two objective functions to be minimized as 
+    follows:
+
+    \begin{align*}
+        \min\quad f_1(\textbf{x}) &= x_1 \\
+        \min\quad f_2(\textbf{x}) &= g(\textbf{x}) \cdot h(f_1(\textbf{x}), g(\textbf{x}))\\
+        g(\textbf{x}) &= 1 + \frac{9}{n-1} \sum_{i=2}^{n} x_i \\
+        h(f_1, g) &= 1 - \sqrt{\frac{f_1}{g}}, \\
+    \end{align*}
+
+    where $f_1$ and $f_2$ are objective functions, $x_1,\dots,x_n$ are decision variable, $n$
+    is the number of decision variables,
+    and $g$ and $h$ are auxiliary functions.
+    """
     n = number_of_variables
 
     # function f_1

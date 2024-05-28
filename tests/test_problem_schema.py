@@ -488,48 +488,48 @@ def test_variable_domain():
     """Test that the variable domain of a problem is inferred correctly."""
     problem_continuous = river_pollution_problem()
 
-    assert problem_continuous.variable_domain() == VariableDomainTypeEnum.continuous
+    assert problem_continuous.variable_domain == VariableDomainTypeEnum.continuous
 
     problem_mixed = momip_ti7()
 
-    assert problem_mixed.variable_domain() == VariableDomainTypeEnum.mixed
+    assert problem_mixed.variable_domain == VariableDomainTypeEnum.mixed
 
     integer_problem = simple_knapsack()
 
-    assert integer_problem.variable_domain() == VariableDomainTypeEnum.integer
+    assert integer_problem.variable_domain == VariableDomainTypeEnum.integer
 
 
 def test_is_convex():
     """Test whether the convexity of a problem is inferred correctly."""
     problem_convex = simple_knapsack()
 
-    assert problem_convex.is_convex()
+    assert problem_convex.is_convex
 
     problem_non_convex = river_pollution_problem()
 
-    assert not problem_non_convex.is_convex()
+    assert not problem_non_convex.is_convex
 
 
 def test_is_linear():
     """Test whether the linearity of a problem is inferred correctly."""
     problem_linear = simple_knapsack()
 
-    assert problem_linear.is_linear()
+    assert problem_linear.is_linear
 
     problem_nonlinear = river_pollution_problem()
 
-    assert not problem_nonlinear.is_linear()
+    assert not problem_nonlinear.is_linear
 
 
 def test_is_twice_diff():
     """Test whether the twice differentiability of a problem is inferred correctly."""
     problem_diff = simple_knapsack()
 
-    assert problem_diff.is_twice_differentiable()
+    assert problem_diff.is_twice_differentiable
 
     problem_nondiff = river_pollution_problem()
 
-    assert not problem_nondiff.is_twice_differentiable()
+    assert not problem_nondiff.is_twice_differentiable
 
 
 def test_scenario_problem():
@@ -539,7 +539,7 @@ def test_scenario_problem():
     assert len(problem.scenario_keys) == 2
 
     # get scenario 1
-    problem_s1 = problem.scenario("s_1")
+    problem_s1 = problem.get_scenario_problem("s_1")
 
     assert len(problem_s1.objectives) == 3
     assert len(problem_s1.constraints) == 3
@@ -564,7 +564,7 @@ def test_scenario_problem():
     assert "c_1" in symbols_s1
 
     # get scenario 2
-    problem_s2 = problem.scenario("s_2")
+    problem_s2 = problem.get_scenario_problem("s_2")
 
     assert len(problem_s2.objectives) == 4
     assert len(problem_s2.constraints) == 3
@@ -589,7 +589,7 @@ def test_scenario_problem():
     assert "c_1" in symbols_s2
 
     # get all scenarios
-    problem_all = problem.scenario(["s_1", "s_2"])
+    problem_all = problem.get_scenario_problem(["s_1", "s_2"])
 
     assert len(problem_all.objectives) == 5
     assert len(problem_all.constraints) == 4

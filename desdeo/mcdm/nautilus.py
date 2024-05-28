@@ -17,11 +17,11 @@ from desdeo.problem import (
     Problem,
     get_nadir_dict,
     get_ideal_dict,
-    objective_dict_to_numpy_array,
 )
 from desdeo.tools.generics import CreateSolverType, SolverResults
 from desdeo.tools.scalarization import (  # create_asf, should be add_asf_nondiff probably
     add_lte_constraints,
+    add_asf_generic_diff,
     add_asf_generic_nondiff,
 )
 from desdeo.tools.utils import guess_best_solver
@@ -89,13 +89,25 @@ def solve_reachable_solution(
     # need to convert the preferences to preferential factors?
 
     # create and add scalarization function
-    problem_w_asf, target = add_asf_generic_nondiff(
-        problem,
-        symbol="asf",
-        reference_point=previous_nav_point,
-        weights=weights,
-        reference_in_aug=True,
-    )
+    if problem.is_twice_differentiable:
+        # differentiable problem
+        problem_w_asf, target = add_asf_generic_diff(
+            problem,
+            symbol="asf",
+            reference_point=previous_nav_point,
+            weights=weights,
+            reference_in_aug=True,
+        )
+    else:
+        # non-differentiable problem
+        problem_w_asf, target = add_asf_generic_nondiff(
+            problem,
+            symbol="asf",
+            reference_point=previous_nav_point,
+            weights=weights,
+            reference_in_aug=True,
+        )
+
     # Note: We do not solve the global problem. Instead, we solve this constrained problem:
     const_exprs = [
         f"{obj.symbol}_min - {previous_nav_point[obj.symbol] * (-1 if obj.maximize else 1)}"

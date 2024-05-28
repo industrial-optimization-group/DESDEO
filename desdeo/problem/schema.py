@@ -784,6 +784,7 @@ class Problem(BaseModel):
         """
         return {f"{obj.symbol}": obj.nadir for obj in self.objectives}
 
+    @property
     def variable_domain(self) -> VariableDomainTypeEnum:
         """Check the variables defined for the problem and returns the type of their domain.
 
@@ -806,6 +807,7 @@ class Problem(BaseModel):
         # mixed problem
         return VariableDomainTypeEnum.mixed
 
+    @property
     def is_convex(self) -> bool:
         """Check if all the functions expressions in the problem are convex.
 
@@ -826,6 +828,7 @@ class Problem(BaseModel):
 
         return all(is_convex_values)
 
+    @property
     def is_linear(self) -> bool:
         """Check if all the functions expressions in the problem are linear.
 
@@ -846,6 +849,7 @@ class Problem(BaseModel):
 
         return all(is_linear_values)
 
+    @property
     def is_twice_differentiable(self) -> bool:
         """Check if all the functions expressions in the problem are twice differentiable.
 
@@ -870,7 +874,7 @@ class Problem(BaseModel):
 
         return all(is_diff_values)
 
-    def scenario(self, target_keys: str | list[str]) -> "Problem":
+    def get_scenario_problem(self, target_keys: str | list[str]) -> "Problem":
         """Returns a new Problem with fields belonging to a specified scenario.
 
         The new problem will have the fields `objectives`, `constraints`, `extra_funcs`,
