@@ -2,9 +2,8 @@
 
 ## Introduction
 
-This is a how to guide to use the Pareto Navigator method.
-The method is implemented according to the description in
-Eskelinen, P., Miettinen, K., Klamroth, K., & Hakanen, J. (2010). Pareto navigator for interactive nonlinear multiobjective optimization. OR spectrum, 32, 211-227.
+This is a how-to guide to use the Pareto Navigator method.
+The method is implemented according to the description in [1].
 
 ## Setting up the problem
 
@@ -81,3 +80,7 @@ preference_information = {
 # Run the method
 solutions = calculate_all_solutions(problem, current_solution, adjusted_speed, num_solutions, preference_information)
 ```
+
+## References
+
+[1]: Eskelinen, P., Miettinen, K., Klamroth, K., & Hakanen, J. (2010). Pareto Navigator for Interactive Nonlinear Multiobjective Optimization. OR Spectrum, 32, 211-227.
