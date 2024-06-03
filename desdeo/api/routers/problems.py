@@ -43,8 +43,10 @@ def get_all_problems(
     Returns:
         list[ProblemFormat]: A list of problems.
     """
-    user_id = db.query(UserInDB).filter(UserInDB.username == user.username).first().id
-    problems = db.query(ProblemInDB).filter(ProblemInDB.owner == user_id).all()
+    if user.role != UserRole.ANALYST:
+        problems = db.query(ProblemInDB).filter(ProblemInDB.permission.any(user.role)).all()
+    else:
+        problems = db.query(ProblemInDB).all()
 
     all_problems = []
     for problem in problems:

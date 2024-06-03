@@ -35,6 +35,7 @@ class Problem(Base):
     # kind and obj_kind are also in value, but we need them as columns for querying. Maybe?
     kind: Mapped[schema.ProblemKind] = mapped_column(nullable=False)
     obj_kind: Mapped[schema.ObjectiveKind] = mapped_column(nullable=False)
+    permission: Mapped[list[schema.UserRole]] = mapped_column(ARRAY(Enum(schema.UserRole)), nullable=True)
     # Mapped doesn't work with JSON, so we use JSON directly.
     value = mapped_column(JSON, nullable=False)  # desdeo.problem.schema.Problem
 
