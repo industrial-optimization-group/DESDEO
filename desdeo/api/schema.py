@@ -76,3 +76,10 @@ class User(BaseModel):
     user_group: str = Field(description="User group of the user. Used for group decision making.")
     # To allows for User to be initialized from database instead of just dicts.
     model_config = ConfigDict(from_attributes=True)
+
+
+class GuestUser(BaseModel):
+    """Model for a guest user. Temporary."""
+
+    username: str
+    role: UserRole

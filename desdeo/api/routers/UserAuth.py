@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from desdeo.api.db import get_db
 from desdeo.api.db_models import User as UserModel
-from desdeo.api.schema import User
+from desdeo.api.schema import User, GuestUser, UserRole
 
 router = APIRouter()
 
@@ -83,7 +83,7 @@ def create_access_token(data: dict, expires_delta: timedelta = timedelta(hours=2
 
 def get_current_user(
     token: Annotated[str, Depends(oauth2_scheme)], db: Annotated[Session, Depends(get_db)]
-) -> UserModel | dict:
+) -> UserModel | GuestUser:
     """Get the current user. This function is a dependency for other functions that need to get the current user.
 
     Args:
@@ -111,10 +111,10 @@ def get_current_user(
         raise credentials_exception from JWTError
 
     if username == 'guest':
-        return {
-            "username": "guest",
-            "role": "guest",
-        }
+        return GuestUser(
+            username="guest",
+            role=UserRole.GUEST,
+        )
 
     user = get_user(db, username=username)
     if user is None:
