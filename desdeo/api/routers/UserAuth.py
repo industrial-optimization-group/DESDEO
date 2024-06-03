@@ -22,6 +22,7 @@ ALGORITHM = AuthConfig._algorithm
 ACCESS_TOKEN_EXPIRE_MINUTES = AuthConfig._access_token_expires
 SALT = bcrypt.gensalt()
 
+REFRESH_TOKEN_EXPIRE_MINUTES = AuthConfig._refresh_token_expires
 
 class Token(BaseModel):
     """A model for the authentication token."""
