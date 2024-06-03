@@ -83,7 +83,7 @@ def create_access_token(data: dict, expires_delta: timedelta = timedelta(hours=2
 
 def get_current_user(
     token: Annotated[str, Depends(oauth2_scheme)], db: Annotated[Session, Depends(get_db)]
-) -> UserModel:
+) -> UserModel | dict:
     """Get the current user. This function is a dependency for other functions that need to get the current user.
 
     Args:
@@ -109,6 +109,13 @@ def get_current_user(
             raise credentials_exception
     except JWTError:
         raise credentials_exception from JWTError
+
+    if username == 'guest':
+        return {
+            "username": "guest",
+            "role": "guest",
+        }
+
     user = get_user(db, username=username)
     if user is None:
         raise credentials_exception
@@ -145,3 +152,7 @@ async def login(
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(data={"sub": user.username}, expires_delta=access_token_expires)
     return Token(access_token=access_token, token_type="bearer")  # NOQA:S106
+
+@router.get("/guest/create")
+async def guestToken() -> Token:
+    return await generate_tokens({"sub": "guest"}, True)

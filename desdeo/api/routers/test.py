@@ -11,6 +11,6 @@ router = APIRouter(prefix="/test")
 
 
 @router.get("/userdetails")
-def get_user(current_user: Annotated[User, Depends(get_current_user)]) -> User:
+def get_user(current_user: Annotated[User, Depends(get_current_user)]) -> User | dict:
     """Get information about the current user."""
     return current_user
