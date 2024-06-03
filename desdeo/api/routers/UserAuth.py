@@ -8,6 +8,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from typing import Dict
 
 from desdeo.api.db import get_db
 from desdeo.api.db_models import User as UserModel
