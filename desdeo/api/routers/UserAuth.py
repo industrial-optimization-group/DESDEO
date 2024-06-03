@@ -27,7 +27,7 @@ REFRESH_TOKEN_EXPIRE_MINUTES = 30
 class Token(BaseModel):
     """A model for the authentication token."""
     access_token: str
-    refresh_token: str|None = ''
+    refresh_token: str
     token_type: str
 
 
@@ -122,10 +122,12 @@ async def create_refresh_token(data: Dict) -> str:
 
     return refresh_token
 
-async def generate_tokens(data: Dict) -> Dict:
+async def generate_tokens(data: Dict, refresh_token_needed: bool = False) -> Dict:
     """Generates Access and Refresh Token with `data`"""
     access_token: str = await create_access_token(data)
-    refresh_token: str = await create_refresh_token(data)
+    refresh_token = ''
+    if refresh_token_needed:
+        refresh_token: str = await create_refresh_token(data)
     return Token(access_token=access_token, refresh_token=refresh_token, token_type="bearer")
 
 @router.post("/token")
