@@ -1,0 +1,181 @@
+{
+    "constants": [
+        {
+            "longname": "Force",
+            "shortname": "F",
+            "value": 10
+        },
+        {
+            "longname": "Force",
+            "shortname": "E",
+            "value": 2e5
+        },
+        {
+            "shortname": "L",
+            "value": 200,
+            "__description": "Length, unit: cm"
+        },
+        {
+            "shortname": "sigma",
+            "value": 10,
+            "__description": "Length, unit: kN/cm^2"
+        },
+        {
+            "shortname": "a",
+            "value": 1.0,
+            "__description": "use for Variable bounds "
+        }
+    ],
+    "variables": [
+        {
+            "shortname": "x1",
+            "lowerbound": "a",
+            "upperbound": [
+                "Multiply",
+                3,
+                "a"
+            ],
+            "type": "RealNumber",
+            "initialvalue": null
+        },
+        {
+            "longname": "Decision variable 2",
+            "shortname": "x2",
+            "lowerbound": [
+                "Multiply",
+                [
+                    "Sqrt",
+                    2
+                ],
+                "a"
+            ],
+            "upperbound": [
+                "Multiply",
+                3,
+                "a"
+            ],
+            "type": "RealNumber",
+            "initialvalue": null
+        },
+        {
+            "shortname": "x3",
+            "lowerbound": [
+                "Multiply",
+                [
+                    "Sqrt",
+                    2
+                ],
+                "a"
+            ],
+            "upperbound": [
+                "Multiply",
+                3,
+                "a"
+            ],
+            "type": "RealNumber",
+            "initialvalue": null
+        },
+        {
+            "shortname": "x4",
+            "lowerbound": "a",
+            "upperbound": [
+                "Multiply",
+                3,
+                "a"
+            ],
+            "type": "RealNumber",
+            "initialvalue": null
+        }
+    ],
+    "extra_func": [],
+    "objectives": [
+        {
+            "longname": "minimize structural volume",
+            "shortname": "f1",
+            "func": [
+                "Multiply",
+                "L",
+                [
+                    "Add",
+                    [
+                        "Multiply",
+                        [
+                            "Sqrt",
+                            2
+                        ],
+                        "x2"
+                    ],
+                    [
+                        "Multiply",
+                        2,
+                        "x1"
+                    ],
+                    [
+                        "Sqrt",
+                        "x3"
+                    ],
+                    "x4"
+                ]
+            ],
+            "max": false,
+            "lowerbound": null,
+            "upperbound": null
+        },
+        {
+            "longname": "minimize the joint displacement",
+            "shortname": "f2",
+            "func": [
+                "Divide",
+                [
+                    "Multiply",
+                    "F",
+                    "L",
+                    [
+                        "Add",
+                        [
+                            "Divide",
+                            2,
+                            "x1"
+                        ],
+                        [
+                            "Divide",
+                            2,
+                            "x4"
+                        ],
+                        [
+                            "Divide",
+                            [
+                                "Multiply",
+                                2,
+                                [
+                                    "Sqrt",
+                                    2
+                                ]
+                            ],
+                            "x2"
+                        ],
+                        [
+                            "Divide",
+                            [
+                                "Multiply",
+                                -2,
+                                [
+                                    "Sqrt",
+                                    2
+                                ]
+                            ],
+                            "x2"
+                        ]
+                    ]
+                ],
+                "E"
+            ],
+            "max": false,
+            "lowerbound": null,
+            "upperbound": null
+        }
+    ],
+    "constraints": [],
+    "__problemName": "Four bar truss design problem",
+    "__problemDescription": "This problem is from DESDEO example Engineering real-world test problems on https://desdeo-problem.readthedocs.io/en/latest/problems/engineering_real_world.html#re-21-four-bar-truss-design-problem"
+}

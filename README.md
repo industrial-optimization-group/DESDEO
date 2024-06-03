@@ -1,86 +1,171 @@
-# <img alt="DESDEO" src="https://github.com/industrial-optimization-group/DESDEO/blob/migrate-to-new/assets/desdeo_logo.png" height="80">
+# DESDEO: the open source software framework for interactive multiobjective optimization
 
-[![PyPI version](https://badge.fury.io/py/desdeo.svg)](https://badge.fury.io/py/desdeo)
-[![Documentation Status](https://readthedocs.org/projects/desdeo/badge/?version=latest)](https://desdeo.readthedocs.io/en/latest/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/desdeo/badge/?version=desdeo2)](https://desdeo.readthedocs.io/en/desdeo2)
 
-# DESDEO
+[![Discord server](https://dcbadge.vercel.app/api/server/TgSnUmzv5M)](https://discord.gg/TgSnUmzv5M)
 
-## About
+__Everything in this repository is currently subject to change. Stay tuned for updates.__
 
-DESDEO is an open source framework for interactive multiobjective
-optimization methods. DESDEO contains implementations of some interactive
-methods and modules that can be utilized to implement further methods.
+## Introduction
 
-The mission of DESDEO is to increase awarenss of the benefits of interactive
-methods make interactive methods more easily available and applicable. Thanks
-to the open architecture, interactive methods are easier to be utilized and
-further developed. The framework consists of reusable components that can be
-utilized for implementing new methods or modifying the existing methods. The
-framework is released under a permissive open source license.
+DESDEO is an open source framework for interactive multiobjective optimization
+methods. The framework contains implementations of both scalarization- and
+population-based methods interactive methods. There are currently no other
+software frameworks that focus solely on the the implementation of
+interactive multiobjective optimization methods.
 
-This repository contains the main DESDEO module aggregating together all of
-the modules in the DESDEO framework.
+The mission of DESDEO is to increase awareness of the benefits of interactive
+multiobjective optimization methods, make interactive methods openly available,
+and to function as _the_ central hub for implementations of various interactive
+methods. Apart from existing methods, DESDEO offers various tools to facilitate
+the development of new methods and their application as well.
 
-For an overlook and for information on how DESDEO is structured and how it can be used, we suggest
-reading our article about DESDEO published in IEEE Access 
-[DESDEO: The Modular and Open Source Framework for Interactive Multiobjective Optimization](https://doi.org/10.1109/ACCESS.2021.3123825).
+DESDEO is an open source project and everybody is welcome to contribute!
 
-## Research and website
+## Key features
 
-### Research
+DESDEO offers various features that can facilitate the application and
+development of new interactive multiobjective optimization methods. Some
+of the key features include, but are not limited to,
 
-The [Multiobjective Optimization Group](http://www.mit.jyu.fi/optgroup/)
-residing at the University of Jyväskylä is the main force behind the DESDEO
-framework. The research group develops theory, methodology and open-source
-computer implementations for solving real-world decision-making problems.
-Most of the research concentrates on multiobjective optimization (MO) in
-which multiple conflicting objectives are optimized simultaneously and a
-decision maker (DM) is supported in finding a preferred compromise.
+-   A powerful, pydantic-based, schema for modeling multiobjective optimization problem of various kinds. Including, analytically defined problems, data-based problems, surrogate-based problems (WIP), and simulation-based problems (WIP). Both continuous and (mixed-)integer problems are supported as well.
+-   Support to interface to many popular and powerful optimization software for solving multiobjective optimization problems. Including Gurobi, various solvers
+from the COIN-OR project, and nevergrad, for instance. 
+-   A wide assortment of modular software components for implementing existing
+and new interactive multiobjective optimization methods. For example, many scalarization functions and evolutionary operators for multiobjective optimization are available.
+-   A web application programming interface (API), which allows utilizing the
+interactive multiobjective optimization methods found in DESDEO in virtually any application. The web API also implements a database, and user authentication and session management, allowing DESDEO to be used in building modern web applications as well.
+-   An extensive documentation suitable for both newcomers to DESDEO and interactive multiobjective optimization in general, and seasoned veterans.
 
-### Website
+## Installation instructions
 
-To learn more about DESDEO and the Multiobjective Optimization Research
-group, visit the official [homepage](https://desdeo.it.jyu.fi).
+### Pre-requisites
 
-## Installation
+DESDEO is currently being developed and supported on __Python versions 3.12 and
+newer__. Otherwise, DESDEO is mostly a Python-based framework, depending mostly
+on other Python packages. However, it does offer interfaces to many powerful
+existing optimizers. It is recommended to have at least some of these installed
+and available on the system DESDEO is utilized on to help ensure timely and
+accurate optimization results.
 
-### Requirements
+Some optimizers to consider are:
 
-The packages belonging to the DESDEO framework require Python 3.7 or newer.
+-   Optimizers from the COIN-OR project, such as Bonmin and Couenne
+-   Gurobi
 
-### Using DESDEO as a software library
+For running the web API, the following external dependencies should be installed
+and made available to DESDEO:
 
-The DESDEO package can be found on [PyPI](https://pypi.org/project/desdeo/), and can be installed by invoking pip:
+-   Postgres (https://www.postgresql.org/download/) to run the API.
 
-`pip install desdeo`
+Since this version of DESDEO is not currently available in any public
+repositories (such as PyPI) as a Python package, it is highly recommended
+to utilize a Python package management tool to install DESDEO. For this,
 
-### For development (on \*nix systems)
+-   [Poetry](https://python-poetry.org/docs/#installation) is recommended.
 
-Requires [poetry](https://python-poetry.org/). See `pyproject.toml` for Python package requirements.
+### Installation
 
-1. `git clone https://github.com/industrial-optimization-group/DESDEO`
-2. `mkdir desdeo`
-3. `cd desdeo`
-4. `poetry init`
-5. `poetry install`
+This version of DESDEO is currently under heavy development and thus is not
+available in any Python package repositories. DESDEO will be available
+on PyPI once it reaches a stable version.
 
-**NOTE**: This repository does not contain any code implementing the different features in DESDEO. Instead, this
-repository contains the main documentation of the framework, and is used to build and define the DESDEO framework
-software package combining all of the Python subpackages in the framework.
+We will assume for the reamainder of these instruction that the
+[Poetry](https://python-poetry.org/docs/#installation) is available
+on the system DESDEO is being installed on.
+
+To intall DESDEO:
+
+-   Clone this repository
+    ```bash
+    git clone https://github.com/industrial-optimization-group/DESDEO.git
+    ```
+-   Create a virtual environment for DESDEO
+    ```bash
+    python -m venv .venv
+    ``` 
+    or with Poetry
+    ```bash
+    poetry shell
+    ```
+-   Activate the virtual environment
+    ```bash
+    source .venv/bin/activate
+    ```
+    or with poetry
+    ```bash
+    poetry shell
+    ```
+-   Install DESDEO
+    ```bash
+    poetry install -E standard  # for relatively modern CPUs
+    ```
+    or
+    ```bash
+    poetry install -E legacy  # for older or certain Apple CPUs, slower
+    ```
+-   For installing web API dependencies as well, run
+    ```bash
+    # replace 'standard' with 'legacy' if needed
+    poetry install -E "standard api"  
+
+DESDEO should now be installed and available on your local machine inside the activated virtual environmnet.
+
+### Running the web API
+
+Make sure the dependencies of the web API have been installed first. See the previous section.
+
+To run the DESDEO web API, run the following commands,
+
+```bash
+# assuming the present working directory is the root of the project
+cd desdeo/api/
+uvicorn app:app --reload
+```
+
+Follow the console output to see on address and port the web API is running.
 
 ## Documentation
 
-The DESDEO framework's documentation can be found [here](https://desdeo.readthedocs.io/en/latest/)
+Care has been taken to make sure DESDEO is well docmumented, making
+it accessible to both newcomes and seasoned users.
+
+[The documentation of DESDEO is available online.](https://desdeo.readthedocs.io/en/desdeo2/)
 
 ## Contributing
 
-Contributions to the DESDEO framework and its different modules is warmly welcome! See the documentation's [contributing](https://desdeo.readthedocs.io/en/latest/contributing.html) for further details.
+As DESDEO is an open source project, anybody is welcome to contribute.
+An extensive tutorial to get started contributing to DESDEO
+[is available in the documentation](https://desdeo.readthedocs.io/en/desdeo2/tutorials/contributing/).
+Be sure to check it out!
 
-## Citation
+For additional support for contributing to DESDEO,
+be sure to check out the DESDEO channels
+in the MCDM Community's Discord server. You may join the server
+[through this invite](https://discord.gg/TgSnUmzv5M).
 
-If you decide to use DESDEO is any of your works or research, we would appreciate you citing the appropiate paper published in [IEEE Access](https://doi.org/10.1109/ACCESS.2021.3123825) (open access).
+## License
 
-## Legacy code
-The old version of DESDEO, which is no longer maintained, can be found [here](https://github.com/industrial-optimization-group/DESDEO/tree/legacy)
-alongside with its [documentation](https://desdeo.readthedocs.io/en/legacy/). The support for this version of DESDEO ceased
-June 2020, and is no longer supported.
+DESDEO is licensed under the MIT license. For more information,
+check the `LICENSE` file.
+
+## Citing DESDEO
+
+To cite DESDEO, please include the following reference:
+
+[Misitano, G., Saini, B. S., Afsar, B., Shavazipour, B., & Miettinen, K. (2021). DESDEO: The modular and open source framework for interactive multiobjective optimization. IEEE Access, 9, 148277-148295.](https://doi.org/10.1109/ACCESS.2021.3123825)
+
+```
+@article{misitano2021desdeo,
+  title={DESDEO: The modular and open source framework for interactive multiobjective optimization},
+  author={Misitano, Giovanni and Saini, Bhupinder Singh and Afsar, Bekir and Shavazipour, Babooshka and Miettinen, Kaisa},
+  journal={IEEE Access},
+  volume={9},
+  pages={148277--148295},
+  year={2021},
+  publisher={IEEE}
+}
+```
+
+
+

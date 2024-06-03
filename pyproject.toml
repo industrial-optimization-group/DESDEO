@@ -1,28 +1,204 @@
 [tool.poetry]
 name = "desdeo"
-version = "1.2"
-description = "Open source framework for interactive multiobjective optimization."
-authors = ["Giovanni Misitano <giovanni.a.misitano@jyu.fi>",
-            "Bhupinder Singh Saini <bhupinder.s.saini@jyu.fi>"]
+version = "2.0.0"
+description = "DESDEO is a modular and open source framework for interactive multiobjective optimization."
+authors = [
+    "Giovanni Misitano <giovanni.a.misitano@jyu.fi>",
+    "Bhupinder Saini <bhupinder.s.saini@jyu.fi>",
+]
 license = "MIT"
+readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.9, <3.11"
-desdeo-problem = ">=1.5.0"
-desdeo-tools = ">=1.8.0"
-desdeo-mcdm = ">=1.3.0"
-desdeo-emo = ">=1.5.0"
+python = "^3.12"
+# Math stuff
+numpy = "^1.26.2"
+scipy = "^1.11.4"
+polars = { version = "^0.19.19", optional = true }
+polars-lts-cpu = { version = "^0.19.19", optional = true }
+pyarrow = "^15.0.0"
+numba = "^0.59.0"
+# Visualization
+seaborn = "^0.13.0"
+plotly = "^5.18.0"
+# Data handling/parsing
+pydantic = "^2.5.2"
+sympy = "^1.12"
+pyparsing = "^3.1.1"
+# Optimization
+nevergrad = "^1.0.1"
+pyomo = "^6.7.0"
+# Miscellaneous
+jupyter = "^1.0.0"
+jupyterlab = "^4.0.9"
+# API packages
+fastapi = { version = "^0.106.0", optional = true }
+uvicorn = { extras = ["standard"], version = "^0.25.0", optional = true }
+sqlalchemy = { version = "^2.0.23", optional = true }
+passlib = { version = "^1.7.4", optional = true }
+psycopg2-binary = { version = "^2.9.9", optional = true }
+sqlalchemy-utils = { version = "^0.41.1", optional = true }
+python-multipart = { version = "^0.0.9", optional = true }
+python-jose = { extras = ["cryptography"], version = "^3.3.0", optional = true }
+bcrypt = { version = "^4.1.2", optional = true }
+mkdocs-include-markdown-plugin = {extras = ["cache"], version = "^6.0.5"}
+gurobipy = "^11.0.1"
 
-[tool.poetry.dev-dependencies]
-sphinx = "^6.1.0"
-rstcheck = "^3.3.1"
-flake8 = "^3.8.2"
-black = "^19.10b0"
-sphinx_rtd_theme = "^1.2.0"
-# jupyter = "^1.0.0"
-nbsphinx = "^0.8.11"
-matplotlib = "^3.4.3"
+[tool.poetry.extras]
+standard = ["polars"]
+legacy = ["polars-lts-cpu"]
+viz = ["seaborn", "plotly"] # We could make viz packages optional in the future.
+api = [
+    "fastapi",
+    "uvicorn",
+    "sqlalchemy",
+    "passlib",
+    "psycopg2-binary",
+    "sqlalchemy-utils",
+    "python-multipart",
+    "python-jose",
+    "bcrypt",
+] # We could make API packages optional in the future.
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.3.0"
+pytest = "^7.4.3"
+mkdocs = "^1.5.3"
+python-markdown-math = "^0.8"
+mkdocs-macros-plugin = "^1.0.5"
+djlint = "^1.34.1"
+pyparsing = { extras = ["diagrams"], version = "^3.1.1" }
+isort = "^5.13.2"
+mypy = "^1.8.0"
+mkdocstrings = { extras = ["python"], version = "^0.24.1" }
+mkdocs-material = "^9.5.12"
+pytest-xdist = "^3.5.0"
+pytest-testmon = "^2.1.1"
+
+
+[tool.ruff]
+# Enable the pycodestyle (`E`) and Pyflakes (`F`) rules by default.
+# Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
+# McCabe complexity (`C901`) by default.
+lint.select = [
+    "E",
+    "F",
+    "W",
+    "C901",
+    "D",
+    "UP",
+    "S",
+    "FBT",
+    "B",
+    "A",
+    "COM",
+    "C4",
+    "T20",
+    "PIE",
+    "RET",
+    "PTH",
+    "TD",   # Comment this out if too annoying
+    "FIX",  # Comment this out if too annoying
+    "SIM",
+    "PL",
+    "TRY",
+    "FURB",
+    "LOG",
+    "NPY",
+    "RUF",
+    "I",
+    "N",
+]
+lint.ignore = [
+    "COM812",  # Enforcing trailing commas is too annoying.
+    "PLR0915", # "too many statements (>50)"
+    "T201",    # TODO: remove? it allow print statements
+    "TRY003",  # allow long error messages
+]
+lint.pydocstyle.convention = "google"
+
+
+# Allow autofix for all enabled rules (when `--fix`) is provided.
+lint.fixable = []
+lint.unfixable = []
+
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+]
+
+line-length = 120
+
+# Allow unused variables when underscore-prefixed.
+lint.dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+# Assume Python 3.12.
+target-version = "py312"
+
+[tool.ruff.lint.mccabe]
+max-complexity = 15
+
+[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
+# Ignore certain rules in test files
+"tests/**/*.py" = [
+    "S101",    # asserts allowed in tests...
+    "ARG",     # Unused function args -> fixtures nevertheless are functionally relevant...
+    "FBT",     # Don't care about booleans as positional arguments in tests, e.g. via @pytest.mark.parametrize()
+    "PLR2004", # Magic value used in comparison, ...
+]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.djlint]
+profile = "jinja"
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+markers = [
+    "skip: stests marked to be skipped",
+    "slow: mark test as slow",
+    "nautilus_navigator: tests related to the NAUTILUS Navigator method",
+    "performance: tests that are related to performance. Skipped by default",
+    "infix_parser: tests related to the infix parser",
+    "pyomo: tests related to pyomo models, their parsing, and evaluation",
+    "sympy: tests related to sympy expressions, their parsing, and evaluatio.",
+    "nautili: tests related to the NAUTILI method",
+    "nautilus: tests related to the NAUTILUS method",
+    "nevergrad: tests related to the nevergrad solvers and their interfaces",
+    "scalarization: tests related to scalarization functions",
+    "nimbus: tests related to the NIMBUS method",
+    "gurobipy: tests related to the gurobipy solver",
+    "pareto_navigator: tests related to the Pareto Navigator method"
+]
+pythonpath = "."
 
 [build-system]
-requires = ["poetry>=0.12"]
-build-backend = "poetry.masonry.api"
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
