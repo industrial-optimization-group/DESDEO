@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.optimize import milp
 
 from desdeo.problem import (
     Constraint,
@@ -68,9 +69,9 @@ def calculate_next_solution(
             Constraint(
                 name="",
                 symbol=f"{obj.symbol}_con",
-                func=constr,
+                func=[constr],
                 cons_type=ConstraintTypeEnum.LTE,
-                linear=True,
+                is_linear=True,
             )
     )
 
@@ -139,4 +140,12 @@ if __name__ == "__main__":
     test_paint = PAINT(po_solutions)
     test_approx = test_paint.approximate()
 
-    print(test_approx)
+    matrix = []
+    for p in test_approx:
+        row = []
+        for i in p:
+            row.append(po_solutions[i])
+        matrix.append(row)
+
+    print(np.shape(matrix))
+    #print(test_approx)
