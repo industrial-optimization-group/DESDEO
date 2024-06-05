@@ -1,7 +1,8 @@
 from pydantic import (
     BaseModel,
     StrictStr,
-    StrictInt
+    StrictInt,
+    StrictBool
 )
 from typing import Optional, Union
 from datetime import timedelta
