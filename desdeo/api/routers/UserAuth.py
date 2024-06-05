@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from desdeo.api.db import get_db
-from desdeo.api.db_models import User as UserModel
+from desdeo.api.db_models import User as UserModel, Invite
 from desdeo.api.schema import User
 from desdeo.api.utils.database import (
     database_dependency,
