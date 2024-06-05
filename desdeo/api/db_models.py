@@ -130,3 +130,14 @@ class Log(Base):
     action: Mapped[str] = mapped_column(nullable=False)
     value = mapped_column(JSON, nullable=False)
     timestamp: Mapped[str] = mapped_column(nullable=False)
+
+class Invite(Base):
+    """A model to store dm-specific invitations to problems."""
+
+    __tablename__ = "invite"
+    id: Mapped[int] = mapped_column(primary_key=True, unique=True, index = True)
+    inviter= mapped_column(Integer,ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    invitee= mapped_column(Integer,ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    problem_id: Mapped[int] = mapped_column(Integer, ForeignKey("problem.id"), nullable=False)
+    code: Mapped[str]  = mapped_column(nullable=False)
+    date_created: Mapped[str]  = mapped_column(nullable=False, default=str(datetime.now()))
