@@ -12,3 +12,13 @@ class LoadConfig(BaseModel):
     authjwt_algorithm: Optional[StrictStr] = "HS256"
     authjwt_access_token_expires: Optional[StrictInt] = 15 # in minutes
     authjwt_refresh_token_expires: Optional[StrictInt] = 30 # in minutes
+
+class LoadDBConfig(BaseModel):
+    db_host: Optional[StrictStr] = "localhost"
+    db_port: Optional[StrictStr] = "5432"
+    db_database: Optional[StrictStr] = "DESDEO3"
+    db_username: Optional[StrictStr] = "bhupindersaini"
+    db_password: Optional[StrictStr] = ""
+    db_pool_size: Optional[StrictInt] = 20
+    db_max_overflow: Optional[StrictInt] = 20
+    db_pool: Optional[StrictBool] = True
