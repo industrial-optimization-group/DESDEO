@@ -24,6 +24,11 @@ def select(entity) -> Select:
     return sa_select(entity)
 
 
+def filter(cls, *args, **kwargs) -> Select:
+    """Shortcut for :meth:`sqlalchemy.sql.expression.Select.filter`"""
+    return select(cls, *args).filter(**kwargs)
+
+
 def filter_by(cls, *args, **kwargs) -> Select:
     """Shortcut for :meth:`sqlalchemy.future.Select.filter_by`"""
     return select(cls, *args).filter_by(**kwargs)
