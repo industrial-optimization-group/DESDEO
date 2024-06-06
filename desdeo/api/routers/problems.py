@@ -5,12 +5,17 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from desdeo.api.db import get_db
-from desdeo.api.db_models import Problem as ProblemInDB
+from desdeo.api.db_models import Problem as ProblemInDB, UserProblemAccess
 from desdeo.api.db_models import User as UserInDB
 from desdeo.api.routers.UserAuth import get_current_user
 from desdeo.api.schema import User
 from desdeo.problem.schema import Problem
 from desdeo.problem.utils import get_ideal_dict, get_nadir_dict
+from desdeo.api.utils.database import (
+    database_dependency,
+    select,
+    filter_by
+)
 
 router = APIRouter(prefix="/problem")
 
@@ -30,8 +35,8 @@ class ProblemFormat(BaseModel):
 
 
 @router.get("/access/all")
-def get_all_problems(
-    db: Annotated[Session, Depends(get_db)],
+async def get_all_problems(
+    db: Annotated[database_dependency, Depends()],
     user: Annotated[User, Depends(get_current_user)],
 ) -> list[ProblemFormat]:
     """Get all problems for the current user.
@@ -44,12 +49,16 @@ def get_all_problems(
         list[ProblemFormat]: A list of problems.
     """
     if user.role != UserRole.ANALYST:
-        problems = db.query(ProblemInDB).filter(ProblemInDB.permission.any(user.role)).all()
+        problems = await db.all(select(ProblemInDB).filter(ProblemInDB.role_permission.any(user.role)))
+        extra_problems = await db.all(select(UserProblemAccess).filter_by(user_id = user.index))
+        problems += extra_problems
     else:
-        problems = db.query(ProblemInDB).all()
+        problems = await db.all(select(ProblemInDB))
 
     all_problems = []
     for problem in problems:
+        if type(problem) == UserProblemAccess:
+            problem = problem.problem
         temp_problem: Problem = Problem.model_validate(problem.value)
         all_problems.append(
             ProblemFormat(
