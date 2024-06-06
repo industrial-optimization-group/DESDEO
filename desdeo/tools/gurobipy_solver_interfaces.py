@@ -136,7 +136,7 @@ class PersistentGurobipySolver(PersistentSolver):
 
         Does not yet add any actual gurobipy optimization objectives, only adds them to the dict
         containing the expressions of the objectives. The objective expressions are stored in the
-        GurobipyModel and the evaluator must add the appropiate gurobipy objective before solving.
+        evaluator and the evaluator must add the appropiate gurobipy objective before solving.
 
         Args:
             objective (Objective): an objective function expression or a list of objective function
@@ -152,7 +152,7 @@ class PersistentGurobipySolver(PersistentSolver):
         """Adds a scalrization expression to the solver.
 
         Scalarizations work identically to objectives, except they are stored in a different
-        dict in the GurobipyModel. If you want to solve the problem using a scalarization, the
+        dict in the evaluator. If you want to solve the problem using a scalarization, the
         evaluator needs to set it as an optimization target first.
 
         Args:
