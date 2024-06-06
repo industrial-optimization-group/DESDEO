@@ -24,6 +24,7 @@ nav:
   - "Guides":
       - "": "howtoguides/index.md"
       - "How to define a multiobjective optimization problem": "howtoguides/problem.md"
+      - "How to host a DESDEO web application on Kubernetes": "howtoguides/kubernetes.md"
       - "How to run DESDEO's web API": "howtoguides/api.md"
       - "How to use the NAUTILUS Navigator method": "howtoguides/nautilus_navigator.md"
   - "API Reference":
