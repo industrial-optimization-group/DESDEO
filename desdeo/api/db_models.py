@@ -3,7 +3,7 @@
 # TODO: ADD TIMESTAMP COLUMNS TO ALL TABLES
 
 from sqlalchemy import ARRAY, FLOAT, JSON, Enum, ForeignKey, Integer
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from desdeo.api import schema
 from desdeo.api.db import Base
