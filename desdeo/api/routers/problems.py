@@ -50,8 +50,9 @@ async def get_all_problems(
     """
     if user.role != UserRole.ANALYST:
         problems = await db.all(select(ProblemInDB).filter(ProblemInDB.role_permission.any(user.role)))
-        extra_problems = await db.all(select(UserProblemAccess).filter_by(user_id = user.index))
-        problems += extra_problems
+        if type(user) == User:
+            extra_problems = await db.all(select(UserProblemAccess).filter_by(user_id = user.index))
+            problems += extra_problems
     else:
         problems = await db.all(select(ProblemInDB))
 
