@@ -20,9 +20,7 @@ from desdeo.tools.scalarization import (
     get_corrected_ideal_and_nadir
 )
 
-from desdeo.tools.utils import guess_best_solver
 from desdeo.tools.gurobipy_solver_interfaces import GurobipySolver
-from desdeo.tools.pyomo_solver_interfaces import PyomoBonminSolver
 
 from desdeo.tools.paint import PAINT
 
@@ -35,11 +33,33 @@ def calculate_moved_reference_point(
     reference_point: dict[str, float],
     step_size: float
 ) -> np.ndarray:
+    """Calculates a moved reference point.
+
+    Args:
+        problem (Problem): The problem being solved.
+        current_solution (dict[str, float]): The current solution.
+        reference_point (dict[str, float]): The reference point.
+        step_size (float): The step size.
+
+    Returns:
+        np.ndarray: The moved reference point as a numpy array.
+    """
     z = objective_dict_to_numpy_array(problem, current_solution)
     q = objective_dict_to_numpy_array(problem, reference_point)
     return z + step_size*(q - z)
 
-def create_milp(problem: Problem, approximation, a: int, b: int) -> Problem:
+def create_milp(problem: Problem, approximation: np.ndarray, a: int, b: int) -> Problem:
+    """Form the mixed integer linear problem from <citation here> to replace the original problem.
+
+    Args:
+        problem (Problem): The original problem.
+        approximation (np.ndarray): The PAINT approximation to use in the surrogate.
+        a (int): Number of polytopes (rows) in the PAINT approximation.
+        b (int): Number of columns in the PAINT approximation.
+
+    Returns:
+        Problem: A mixed integer linear problem to act as a surrogate problem for the original.
+    """
     variables = []
     for i in range(a):
         y = Variable(
@@ -139,15 +159,26 @@ def create_milp(problem: Problem, approximation, a: int, b: int) -> Problem:
         constraints=constraints
     )
     milp = milp.add_variables(problem.variables)
-    milp = milp.add_constraints(problem.constraints)
-    return milp
+    return milp.add_constraints(problem.constraints)
 
 def solve_next_solution(
     problem: Problem,
     reference_point: dict[str, float],
     current_solution: dict[str, float],
     step_size: float
-):
+) -> dict[str, float | list[float]]:
+    """Solve the next solution.
+
+    Args:
+        problem (Problem): The problem being solved.
+        reference_point (dict[str, float]): The reference point.
+        current_solution (dict[str, float]): The current solution.
+        step_size (float): The step size.
+
+    Returns:
+        dict[str, float | list[float]]: The next solution.
+    """
+    # get the moved reference point
     moved_reference_point = calculate_moved_reference_point(problem, current_solution, reference_point, step_size)
     moved_reference_point_dict = numpy_array_to_objective_dict(problem, moved_reference_point)
 
@@ -181,21 +212,8 @@ def solve_next_solution(
     problem_w_t = problem_w_t.add_scalarization(scalarization)
     problem_w_t = problem_w_t.add_constraints(constraints)
 
-    #init_solver = guess_best_solver(problem_w_t)
-    #solver = PyomoBonminSolver(problem_w_t)
     solver = GurobipySolver(problem_w_t)
     res = solver.solve("t_func")
-    # define new problem (and scalarization function?) to solve,
-    # with min max (z - moved_ref), z in Ne and z vector of variables
-    # min t, where z - moved_ref <= t --> z - moved_ref - t <= 0
-    # new variable t, new constraint ^
-    # extra_func or scalarization function min t
-
-    # add two new variables, l and y
-    # sum of matrix l is 1
-    # sum of y is 1, meaning all but 1 of y_j are 0
-
-    # max min z - z_ref, with z from surrogate
     return res.optimal_objectives
 
 def calculate_all_solutions(
@@ -204,7 +222,19 @@ def calculate_all_solutions(
     preference_information: dict[dict[str, float]],
     step_size: float,
     num_solutions: int
-):
+) -> list[dict[str, float | list[float]]]:
+    """Calculate a set number of solutions.
+
+    Args:
+        problem (Problem): The problem being solved.
+        current_solution (dict[str, float]): the current solution.
+        preference_information (dict[dict[str, float]]): The preference information as a reference point and bounds.
+        step_size (float): The step size.
+        num_solutions (int): The number of solutions to be computed.
+
+    Returns:
+        list[dict[str, float | list[float]]]: A list of a set number of solutions.
+    """
     bounds = []
     if "bounds" in preference_information:
         b = preference_information["bounds"]
@@ -242,6 +272,7 @@ def calculate_all_solutions(
         solutions.append(current_solution)
     return solutions
 
+# test the method
 if __name__ == "__main__":
     problem = pareto_navigator_test_problem()
     ideal = problem.get_ideal_point()
