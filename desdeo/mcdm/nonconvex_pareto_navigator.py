@@ -1,3 +1,11 @@
+"""Functions related to the Nonconvex Pareto Navigator method are defined here.
+
+Reference of the method:
+
+Hartikainen, M., Miettinen, K., & Klamroth, K. (2019). Interactive nonconvex pareto navigator
+for multiobjective optimization. European Journal of Operational Research, 275(1), 238-251.
+"""
+
 import numpy as np
 from scipy.optimize import milp
 
@@ -24,8 +32,19 @@ from desdeo.tools.gurobipy_solver_interfaces import GurobipySolver
 
 from desdeo.tools.paint import PAINT
 
-def e_cones():
-    return
+def e_cones(problem: Problem):
+    k = len(problem.objectives)
+    epsilon = [0.01, 0.02, 0.03]
+    epsilons = np.ones(k)
+    epsilons = epsilon * epsilons
+
+    matrix_v = np.identity(k)
+    for i in range(k):
+        for j in range(k):
+            if i != j:
+                matrix_v[i][j] = -epsilons[i]
+    inv_matrix_v = np.linalg.inv(matrix_v)
+    return matrix_v
 
 def calculate_moved_reference_point(
     problem: Problem,
@@ -49,7 +68,10 @@ def calculate_moved_reference_point(
     return z + step_size*(q - z)
 
 def create_milp(problem: Problem, approximation: np.ndarray, a: int, b: int) -> Problem:
-    """Form the mixed integer linear problem from <citation here> to replace the original problem.
+    """Form the mixed integer linear problem to replace the original problem.
+
+    The problem was defined in Hartikainen, M., Miettinen, K., & Wiecek, M. M. (2012). PAINT: Pareto front interpolation
+    for nonlinear multiobjective optimization. Computational optimization and applications, 52, 845-867.
 
     Args:
         problem (Problem): The original problem.
@@ -61,7 +83,9 @@ def create_milp(problem: Problem, approximation: np.ndarray, a: int, b: int) -> 
         Problem: A mixed integer linear problem to act as a surrogate problem for the original.
     """
     variables = []
+    # a loop to form the decision variables
     for i in range(a):
+        # form and add the y variables
         y = Variable(
             name=f"y_{i}",
             symbol=f"y_{i}",
@@ -71,7 +95,8 @@ def create_milp(problem: Problem, approximation: np.ndarray, a: int, b: int) -> 
             initial_value=0
         )
         variables.append(y)
-    for i in range(a):
+
+        # form and add the lambda variables from the lambda matrix
         for j in range(b):
             lbd = Variable(
                 name=f"l_{i}_{j}",
@@ -82,10 +107,22 @@ def create_milp(problem: Problem, approximation: np.ndarray, a: int, b: int) -> 
             )
             variables.append(lbd)
 
+    """for i in range(a):
+        for j in range(b):
+            lbd = Variable(
+                name=f"l_{i}_{j}",
+                symbol=f"l_{i}_{j}",
+                variable_type=VariableTypeEnum.real,
+                lowerbound=0.0,
+                upperbound=1.0
+            )
+            variables.append(lbd)"""
+
     objectives =  []
-    ind = 1
+    ind = 1 # as of now, an index to get the objective values from the polytopes of the approximation
+    # a loop to form the objective funtions
     for obj in problem.objectives:
-        # form the sum of sums for each z_k
+        # form the sum of sums for each z_i
         sums = []
         for k in range(a):
             exprs = []
@@ -96,6 +133,7 @@ def create_milp(problem: Problem, approximation: np.ndarray, a: int, b: int) -> 
             sums.append(expr)
         sums = " + ".join(sums)
 
+        # form the sums into objectives
         func = Objective(
             name = f"f_{ind}",
             symbol = f"f_{ind}",
@@ -109,22 +147,12 @@ def create_milp(problem: Problem, approximation: np.ndarray, a: int, b: int) -> 
         ind += 1
 
     constraints = []
-    const_exprs = []
-    for i in range(a):
-        for j in range(b):
-            expr = f"l_{i}_{j}"
-            const_exprs.append(expr)
-    const_exprs = " + ".join(const_exprs) + " - 1"
-    lambda_const = Constraint(
-        name="lambda_con",
-        symbol="lambda_con",
-        cons_type=ConstraintTypeEnum.EQ,
-        func=const_exprs
-    )
-    constraints.append(lambda_const)
-
+    lambda_exprs = []
+    y_exprs = []
+    # a loop to form the constraints
     for i in range(a):
         exprs = []
+        # form and add the inequality constraints involving lambda and y variables
         for j in range(b):
             expr = f"l_{i}_{j}"
             exprs.append(expr)
@@ -138,18 +166,61 @@ def create_milp(problem: Problem, approximation: np.ndarray, a: int, b: int) -> 
         )
         constraints.append(const)
 
-    const_exprs = []
-    for i in range(a):
-        expr = f"y_{i}"
-        const_exprs.append(expr)
-    exprs = " + ".join(const_exprs) + " - 1"
+        # form the lambda sum equality constraint
+        for j in range(b):
+            lambda_expr = f"l_{i}_{j}"
+            lambda_exprs.append(lambda_expr)
+
+        # form the y sum equality constraint
+        y_expr = f"y_{i}"
+        y_exprs.append(y_expr)
+    # form and add the lambda sum equality constraint
+    lambda_exprs = " + ".join(lambda_exprs) + " - 1"
+    lambda_const = Constraint(
+        name="lambda_con",
+        symbol="lambda_con",
+        cons_type=ConstraintTypeEnum.EQ,
+        func=lambda_exprs
+    )
+    constraints.append(lambda_const)
+
+    # form and add the y sum equality constraint
+    y_exprs = " + ".join(y_exprs) + " - 1"
     y_const = Constraint(
         name="y_con",
         symbol="y_con",
         cons_type=ConstraintTypeEnum.EQ,
-        func=exprs
+        func=y_exprs
     )
     constraints.append(y_const)
+
+    """for i in range(a):
+        exprs = []
+        for j in range(b):
+            expr = f"l_{i}_{j}"
+            exprs.append(expr)
+        expr = " + ".join(exprs)
+        expr = f"{expr} - y_{j}"
+        const = Constraint(
+            name=f"lte_con_{i}",
+            symbol=f"lte_con_{i}",
+            cons_type=ConstraintTypeEnum.LTE,
+            func=expr
+        )
+        constraints.append(const)"""
+
+    """y_exprs = []
+    for i in range(a):
+        y_expr = f"y_{i}"
+        y_exprs.append(y_expr)
+    y_exprs = " + ".join(y_exprs) + " - 1"
+    y_const = Constraint(
+        name="y_con",
+        symbol="y_con",
+        cons_type=ConstraintTypeEnum.EQ,
+        func=y_exprs
+    )
+    constraints.append(y_const)"""
 
     milp = Problem(
         name="milp",
@@ -284,17 +355,10 @@ if __name__ == "__main__":
 #        "bounds": {"f_1": 1, "f_2": 2},
         "reference_point": {"f_1": ideal["f_1"], "f_2": ideal["f_2"], "f_3": nadir["f_3"]}
     }
-    reference_point = {"f_1": ideal["f_1"], "f_2": ideal["f_2"], "f_3": nadir["f_3"]}
-    #solutions = calculate_all_solutions(problem, preference_information)
-    #print(calculate_all_solutions(problem, preference_information))
-    #print(calculate_next_solution(problem, reference_point, starting_point, 1/200))
 
-    #objective_values = problem.discrete_representation.objective_values
-    #po_solutions = objective_dict_to_numpy_array(problem, objective_values)
     po_solutions = np.array([[-2.0, -1.0, 0.0, 1.38, 1.73, 2.48, 5.0],
                             [0.0, 4.6, -3.1, 0.62, 1.72, 1.45, 2.2],
                             [-18.0, -25.0, -14.25, -35.33, -38.64, -42.41, -55.0]]).T
-    #print(po_solutions)
 
     test_paint = PAINT(po_solutions)
     test_approx = test_paint.approximate()
@@ -306,11 +370,11 @@ if __name__ == "__main__":
             row.append(po_solutions[i])
         matrix.append(row)
 
-    #print(test_approx)
+    #print(e_cones(problem))
+
     milp = create_milp(problem, matrix, np.shape(matrix)[0], np.shape(matrix)[1])
-    #print(milp)
     solutions = calculate_all_solutions(milp, starting_point, preference_information, 1/200, 10)
-    #print(solutions)
+    print(solutions)
     for i in range(len(solutions)):
         if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i])
                          - np.array([0.35, -0.51, -26.26])) < acc):
