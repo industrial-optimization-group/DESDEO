@@ -30,7 +30,7 @@ from desdeo.tools.scalarization import (
 
 from desdeo.tools.gurobipy_solver_interfaces import GurobipySolver
 
-from desdeo.tools.paint import PAINT
+from desdeo.tools.paint import paint
 
 def e_cones(problem: Problem):
     k = len(problem.objectives)
@@ -44,6 +44,9 @@ def e_cones(problem: Problem):
             if i != j:
                 matrix_v[i][j] = -epsilons[i]
     inv_matrix_v = np.linalg.inv(matrix_v)
+
+    # z included in B_e as constraint: V_inv^T * z >= 0 <=> -V_inv^T * z <= 0, z in R^k (or feasible)
+
     return matrix_v
 
 def calculate_moved_reference_point(
@@ -360,8 +363,7 @@ if __name__ == "__main__":
                             [0.0, 4.6, -3.1, 0.62, 1.72, 1.45, 2.2],
                             [-18.0, -25.0, -14.25, -35.33, -38.64, -42.41, -55.0]]).T
 
-    test_paint = PAINT(po_solutions)
-    test_approx = test_paint.approximate()
+    test_approx = paint(po_solutions)
 
     matrix = []
     for p in test_approx:
