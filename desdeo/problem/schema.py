@@ -218,7 +218,11 @@ class TensorVariable(BaseModel):
     """Type of the variable. Can be real, integer, or binary.
     Note that each element of a TensorVariable is assumed to be of the same type."""
 
+    # shape
+    # values
     # lowerbound: need to figure out, maybe just max 3 dimensions for now.
+    # upperbound
+    # initialvalues
 
 
 class ExtraFunction(BaseModel):
