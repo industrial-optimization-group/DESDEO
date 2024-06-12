@@ -1,3 +1,5 @@
+"""Db configuration loader."""
+
 from desdeo.api.config import LoadDBConfig
 from typing import Callable, List
 from pydantic import ValidationError
@@ -15,6 +17,14 @@ class DbConfig:
 
     @classmethod
     def load_config(cls, settings: Optional[Callable[...,List[tuple]]] = None) -> "DbConfig":
+        """Initialize configuration loading.
+
+        Args:
+            settings Optional[Callable[...,List[tuple]]]: configurations to overwrite global configs.
+
+        Returns:
+            DbConfig: DbConfig class object
+        """"
         try:
             if settings:
                 config = LoadDBConfig(**{key.lower():value for key,value in settings()})

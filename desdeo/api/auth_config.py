@@ -1,3 +1,5 @@
+"""Authorization configuration loader."""
+
 from desdeo.api.config import LoadConfig
 from typing import Callable, List
 from pydantic import ValidationError
@@ -11,6 +13,14 @@ class AuthConfig:
 
     @classmethod
     def load_config(cls, settings: Optional[Callable[...,List[tuple]]] = None) -> "AuthConfig":
+        """Initialize configuration loading.
+
+        Args:
+            settings Optional[Callable[...,List[tuple]]]: configurations to overwrite global configs.
+
+        Returns:
+            AuthConfig: AuthConfig class object
+        """
         try:
             if settings:
                 config = LoadConfig(**{key.lower():value for key,value in settings()})
