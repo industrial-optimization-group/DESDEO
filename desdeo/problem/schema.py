@@ -184,6 +184,43 @@ class Variable(BaseModel):
     """Initial value of the variable. This is optional. Defaults to `None`."""
 
 
+class TensorVariable(BaseModel):
+    """Model for a tensor, e.g., vector variable."""
+
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+
+    name: str = Field(
+        description="Descriptive name of the variable. This can be used in UI and visualizations. Example: 'velocity'."
+    )
+    """Descriptive name of the variable. This can be used in UI and visualizations. Example: 'velocity'."""
+    symbol: str = Field(
+        description=(
+            "Symbol to represent the variable. This will be used in the rest of the problem definition."
+            " Notice that the elements of the tensor will be represented with the symbol followed by"
+            " indices. E.g., the first element of the third element of a 2-dimensional tensor,"
+            " is represented by 'x_1_3', where 'x' is the symbol given to the TensorVariable."
+            " Note that indexing starts from 1."
+        )
+    )
+    """
+    Symbol to represent the variable. This will be used in the rest of the problem definition.
+    Notice that the elements of the tensor will be represented with the symbol followed by
+    indices. E.g., the first element of the third element of a 2-dimensional tensor,
+    is represented by 'x_1_3', where 'x' is the symbol given to the TensorVariable.
+    Note that indexing starts from 1.
+    """
+    variable_type: VariableDomainTypeEnum = Field(
+        description=(
+            "Type of the variable. Can be real, integer, or binary. "
+            "Note that each element of a TensorVariable is assumed to be of the same type."
+        )
+    )
+    """Type of the variable. Can be real, integer, or binary.
+    Note that each element of a TensorVariable is assumed to be of the same type."""
+
+    # lowerbound: need to figure out, maybe just max 3 dimensions for now.
+
+
 class ExtraFunction(BaseModel):
     """Model for extra functions.
 
