@@ -9,7 +9,7 @@ from pydantic import (
 from typing import Optional, Union
 from datetime import timedelta
 
-class LoadConfig(BaseModel):
+class AuthConfig(BaseModel):
     """General configurations."""
 
     # openssl rand -hex 32
@@ -18,7 +18,7 @@ class LoadConfig(BaseModel):
     authjwt_access_token_expires: Optional[StrictInt] = 15 # in minutes
     authjwt_refresh_token_expires: Optional[StrictInt] = 30 # in minutes
 
-class LoadDBConfig(BaseModel):
+class DBConfig(BaseModel):
     """Database configurations."""
 
     db_host: Optional[StrictStr] = "localhost"

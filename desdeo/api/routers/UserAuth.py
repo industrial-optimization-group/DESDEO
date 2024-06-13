@@ -9,20 +9,19 @@ from jose import JWTError, jwt
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from desdeo.api import AuthConfig
 from desdeo.api.db import get_db
 from desdeo.api.db_models import User as UserModel
 from desdeo.api.schema import User
-from desdeo.api.auth_config import AuthConfig
 
 router = APIRouter()
-AuthConfig.load_config()
 
-SECRET_KEY = AuthConfig._secret_key
-ALGORITHM = AuthConfig._algorithm
-ACCESS_TOKEN_EXPIRE_MINUTES = AuthConfig._access_token_expires
+SECRET_KEY = AuthConfig.authjwt_secret_key
+ALGORITHM = AuthConfig.authjwt_algorithm
+ACCESS_TOKEN_EXPIRE_MINUTES = AuthConfig.authjwt_access_token_expires
 SALT = bcrypt.gensalt()
 
-REFRESH_TOKEN_EXPIRE_MINUTES = AuthConfig._refresh_token_expires
+REFRESH_TOKEN_EXPIRE_MINUTES = AuthConfig.authjwt_refresh_token_expires
 
 class Token(BaseModel):
     """A model for the authentication token."""
