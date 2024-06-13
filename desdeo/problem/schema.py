@@ -13,19 +13,54 @@ The problem definition is a JSON file that contains the following information:
 
 from collections import Counter
 from enum import Enum
+from typing import Annotated, Any, Literal, TypeAliasType
 
 from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
     PrivateAttr,
+    ValidationError,
+    ValidationInfo,
+    ValidatorFunctionWrapHandler,
+    WrapValidator,
     field_validator,
     model_validator,
 )
+from pydantic_core import PydanticCustomError
 
 from desdeo.problem.infix_parser import InfixExpressionParser
 
 VariableType = float | int | bool
+
+
+def tensor_custom_error_validator(value: Any, handler: ValidatorFunctionWrapHandler, _info: ValidationInfo) -> Any:
+    """Custom error handler to simplify error messages related to recursive tensor types.
+
+    Args:
+        value (Any): input value to be validated.
+        handler (ValidatorFunctionWrapHandler): handler to check the values.
+        _info (ValidationInfo): info related to the validation of the value.
+
+    Raises:
+        PydanticCustomError: when the value is an invalid tensor type.
+
+    Returns:
+        Any: a valid tensor.
+    """
+    try:
+        return handler(value)
+    except ValidationError as exc:
+        raise PydanticCustomError("invalid tensor", "Input is not a valid tensor") from exc
+
+
+Tensor = TypeAliasType(
+    "Tensor",
+    Annotated[
+        list["Tensor"] | list[VariableType] | VariableType | Literal["List"],
+        WrapValidator(tensor_custom_error_validator),
+    ],
+)
 
 
 def parse_infix_to_func(cls: "Problem", v: str | list) -> list:
@@ -59,15 +94,15 @@ def parse_infix_to_func(cls: "Problem", v: str | list) -> list:
     raise ValueError(msg)
 
 
-def parse_scenario_key_singleton_to_list(cls: "Problem", v: str | list[str]) -> list[str]:
+def parse_scenario_key_singleton_to_list(cls: "Problem", v: str | list[str]) -> list[str] | None:
     """Validator that checks the type of a scenario key.
 
     If the type is a list, it will be returned as it is. If it is a string,
     then a list with the single string is returned. Else, a ValueError is raised.
 
     Args:
-        cls: the class fo the pydantic model the validtor is applied to.
-        v (str | list[str]): the scenario key, or keys, to be validted.
+        cls: the class of the pydantic model the validator is applied to.
+        v (str | list[str]): the scenario key, or keys, to be validated.
 
     Raises:
         ValueError: raised when `v` it neither a string or a list.
@@ -83,6 +118,35 @@ def parse_scenario_key_singleton_to_list(cls: "Problem", v: str | list[str]) -> 
         return v
 
     msg = f"The scenario keys must be either a list of strings, or a single string. Got {type(v)}."
+    raise ValueError(msg)
+
+
+def parse_list_to_mathjson(cls: "TensorVariable", v: Tensor | None) -> list:
+    """Validator that makes sure a nested Python list is represented as tensor following the MathJSON convention.
+
+    Args:
+        cls (TensorVariable): the class of the pydantic model the validator is applied to.
+        v (Tensor | None): the nested lists to be validated.
+
+    Returns:
+        list: a tensor following the MathJSON conventions.
+    """
+    if v is None:
+        return v
+    # recursively parse into a MathJSON representation
+    if isinstance(v, list) and len(v) > 0:
+        if isinstance(v[0], list):
+            # recursive case, encountered list
+            return ["List", *[parse_list_to_mathjson(TensorVariable, v_element) for v_element in v]]
+        if isinstance(v[0], VariableType):
+            # terminal case, encountered a VariableType
+            return ["List", *v]
+
+        # if anything else is encountered, raise an error
+        msg = "Encountered value that is not a valid VariableType nor a list."
+        raise ValueError(msg)
+
+    msg = f"The tensor must a Python list (of lists). Got {type(v)}."
     raise ValueError(msg)
 
 
@@ -218,12 +282,48 @@ class TensorVariable(BaseModel):
     """Type of the variable. Can be real, integer, or binary.
     Note that each element of a TensorVariable is assumed to be of the same type."""
 
-    # shape
-    # values
-    # lowerbound: need to figure out, maybe just max 3 dimensions for now.
-    # upperbound
-    # initialvalues
-    # https://docs.pydantic.dev/latest/concepts/types/#named-recursive-types
+    shape: list[int] = Field(
+        description=(
+            "A list of the dimensions of the tensor, "
+            "e.g., `[2, 3]` would indicate a matrix with 2 rows and 3 columns."
+        )
+    )
+    """A list of the dimensions of the tensor,
+    e.g., `[2, 3]` would indicate a matrix with 2 rows and 3 columns.
+    """
+    lowerbounds: Tensor | None = Field(
+        description=(
+            "A list of lists, with the elements representing the lower bounds of each element. "
+            "E.g., `[[1, 2, 3], [4, 5, 6]]`. Defaults to None."
+        ),
+        default=None,
+    )
+    """A list of lists, with the elements representing the lower bounds of each element.
+    E.g., `[[1, 2, 3], [4, 5, 6]]`. Defaults to None.
+    """
+    upperbounds: Tensor | None = Field(
+        description=(
+            "A list of lists, with the elements representing the upper bounds of each element. "
+            "E.g., `[[10, 20, 30], [40, 50, 60]]`. Defaults to None."
+        ),
+        default=None,
+    )
+    """A list of lists, with the elements representing the lower bounds of each element.
+    E.g., `[[1, 2, 3], [4, 5, 6]]`. Defaults to None.
+    """
+    initialvalues: Tensor | None = Field(
+        description=(
+            "A list of lists, with the elements representing the initial values of each element. "
+            "E.g., `[[5, 22, 0], [14, 5, 44]]`. Defaults to None."
+        ),
+        default=None,
+    )
+    """A list of lists, with the elements representing the initial values of each element.
+    E.g., `[[5, 22, 0], [14, 5, 44]]`. Defaults to None."""
+
+    _parse_list_to_mathjson = field_validator("lowerbounds", "upperbounds", "initialvalues", mode="before")(
+        parse_list_to_mathjson
+    )
 
 
 class ExtraFunction(BaseModel):
