@@ -130,7 +130,7 @@ def paint(
     po_outcomes: np.ndarray,
     print_info: bool | None = None,
     epsilon: float = 1e-06,
-    method: str = 'highs'
+    method: str = "highs"
 ) -> np.ndarray:
     """Form a PAINT approximation based on a set of Pareto optimal outcomes.
 
@@ -138,17 +138,18 @@ def paint(
     for nonlinear multiobjective optimization. Computational optimization and applications, 52, 845-867.
 
     Args:
-        po_outcomes (np.ndarray): _description_
-        print_info (bool | None, optional): _description_. Defaults to None.
-        epsilon (float, optional): _description_. Defaults to 1e-06.
-        method (str, optional): _description_. Defaults to 'highs'.
+        po_outcomes (np.ndarray): A set of Pareto optimal solutions.
+        print_info (bool | None, optional): Whether or not some information of the generation
+            should be printed. Defaults to None.
+        epsilon (float, optional): A small coefficient. Defaults to 1e-06.
+        method (str, optional): Method used in optimization. Defaults to "highs".
 
     Raises:
-        PAINTError: _description_
-        PAINTError: _description_
+        PAINTError: When there are too few Pareto optimal solutions.
+        PAINTError: If the construction of Delaunay triangulation fails.
 
     Returns:
-        np.ndarray: _description_
+        np.ndarray: An array consisting of the PAINT approximation.
     """
     rows, cols = po_outcomes.shape
     if cols >= rows:
