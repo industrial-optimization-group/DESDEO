@@ -20,11 +20,11 @@ class DbConfig:
         """Initialize configuration loading.
 
         Args:
-            settings Optional[Callable[...,List[tuple]]]: configurations to overwrite global configs.
+            settings Optional[Callable[...,List[tuple]]]: configurations to overwrite db configs.
 
         Returns:
             DbConfig: DbConfig class object
-        """"
+        """
         try:
             if settings:
                 config = LoadDBConfig(**{key.lower():value for key,value in settings()})
