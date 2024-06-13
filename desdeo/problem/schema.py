@@ -218,6 +218,50 @@ class Constant(BaseModel):
     """The value of the constant."""
 
 
+class TensorConstant(BaseModel):
+    """Model for a tensor containing constant values."""
+
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+
+    name: str = Field(description="Descriptive name of the tensor representing the values. E.g., 'distances'")
+    """Descriptive name of the tensor representing the values. E.g., 'distances'"""
+    symbol: str = Field(
+        description=(
+            "Symbol to represent the constant. This will be used in the rest of the problem definition."
+            " Notice that the elements of the tensor will be represented with the symbol followed by"
+            " indices. E.g., the first element of the third element of a 2-dimensional tensor,"
+            " is represented by 'x_1_3', where 'x' is the symbol given to the TensorVariable."
+            " Note that indexing starts from 1."
+        )
+    )
+    """
+    Symbol to represent the constant. This will be used in the rest of the problem definition.
+    Notice that the elements of the tensor will be represented with the symbol followed by
+    indices. E.g., the first element of the third element of a 2-dimensional tensor,
+    is represented by 'x_1_3', where 'x' is the symbol given to the TensorVariable.
+    Note that indexing starts from 1.
+    """
+    shape: list[int] = Field(
+        description=(
+            "A list of the dimensions of the tensor, "
+            "e.g., `[2, 3]` would indicate a matrix with 2 rows and 3 columns."
+        )
+    )
+    """A list of the dimensions of the tensor, e.g., `[2, 3]` would indicate a matrix with 2 rows and 3 columns.
+    """
+    values: Tensor | None = Field(
+        description=(
+            "A list of lists, with the elements representing the values of each constant element in the tensor. "
+            "E.g., `[[5, 22, 0], [14, 5, 44]]`. Defaults to None."
+        ),
+        default=None,
+    )
+    """A list of lists, with the elements representing the initial values of each constant element in the tensor.
+    E.g., `[[5, 22, 0], [14, 5, 44]]`. Defaults to None."""
+
+    _parse_list_to_mathjson = field_validator("values", mode="before")(parse_list_to_mathjson)
+
+
 class Variable(BaseModel):
     """Model for a variable."""
 

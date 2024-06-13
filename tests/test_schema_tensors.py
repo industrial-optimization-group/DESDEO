@@ -1,4 +1,4 @@
-from desdeo.problem import TensorVariable
+from desdeo.problem import TensorConstant, TensorVariable
 
 
 def test_tensor_variable_init():
@@ -79,3 +79,48 @@ def test_tensor_variable_init():
     ]
 
     # by """induction""", other dimensions should work juuust fine!
+
+
+def test_tensor_constant_init():
+    """Tests that tensor constants are created and represented correctly in the MathJSON format."""
+    # Test 1D
+    xs = TensorConstant(
+        name="A",
+        symbol="A",
+        shape=[3],
+        values=[1, 2, 3],
+    )
+
+    assert xs.name == "A"
+    assert xs.symbol == "A"
+    assert xs.shape[0] == 3
+    assert xs.values == ["List", 1, 2, 3]
+
+    # Test 2D
+    xs = TensorConstant(
+        name="B",
+        symbol="B",
+        shape=[2, 2],
+        values=[[1, 2], [3, 4]],
+    )
+
+    assert xs.name == "B"
+    assert xs.symbol == "B"
+    assert xs.shape[0] == 2
+    assert xs.shape[1] == 2
+    assert xs.values == ["List", ["List", 1, 2], ["List", 3, 4]]
+
+    # Test 3D
+    xs = TensorConstant(
+        name="C",
+        symbol="C",
+        shape=[2, 2, 2],
+        values=[[[1, 2], [3, 4]], [[5, 6], [7, 8]]],
+    )
+
+    assert xs.name == "C"
+    assert xs.symbol == "C"
+    assert xs.shape[0] == 2
+    assert xs.shape[1] == 2
+    assert xs.shape[2] == 2
+    assert xs.values == ["List", ["List", ["List", 1, 2], ["List", 3, 4]], ["List", ["List", 5, 6], ["List", 7, 8]]]
