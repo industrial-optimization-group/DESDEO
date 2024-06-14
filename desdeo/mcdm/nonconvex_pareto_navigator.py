@@ -12,6 +12,7 @@ from scipy.optimize import milp
 from desdeo.problem import (
     Constraint,
     ConstraintTypeEnum,
+    DiscreteRepresentation,
     Objective,
     ObjectiveTypeEnum,
     Problem,
@@ -27,6 +28,7 @@ from desdeo.tools.scalarization import (
     add_lte_constraints,
     get_corrected_ideal_and_nadir
 )
+from desdeo.mcdm.pareto_navigator import calculate_search_direction
 
 from desdeo.tools.gurobipy_solver_interfaces import GurobipySolver
 
@@ -56,6 +58,7 @@ def e_cones(problem: Problem, solutions: list[dict[str, float]]):
         if value < 1 / (k - 1) and value > 0:
             admissible.append(value)
     epsilon = min(admissible) # or max?
+    print(epsilon)
 
     epsilons = np.ones(k)
     epsilons = epsilon * epsilons
@@ -65,33 +68,9 @@ def e_cones(problem: Problem, solutions: list[dict[str, float]]):
         for j in range(k):
             if i != j:
                 matrix_v[i][j] = -epsilons[i]
-    inv_matrix_v = np.linalg.inv(matrix_v).T
-
-    # for all f_i in milp
-    # inv_matrix_v[i] * f_i
+    inv_matrix_v = -np.linalg.inv(matrix_v).T
 
     return inv_matrix_v
-
-def calculate_moved_reference_point(
-    problem: Problem,
-    current_solution: dict[str, float],
-    reference_point: dict[str, float],
-    step_size: float
-) -> np.ndarray:
-    """Calculates a moved reference point.
-
-    Args:
-        problem (Problem): The problem being solved.
-        current_solution (dict[str, float]): The current solution.
-        reference_point (dict[str, float]): The reference point.
-        step_size (float): The step size.
-
-    Returns:
-        np.ndarray: The moved reference point as a numpy array.
-    """
-    z = objective_dict_to_numpy_array(problem, current_solution)
-    q = objective_dict_to_numpy_array(problem, reference_point)
-    return z + step_size*(q - z)
 
 def create_milp(problem: Problem, approximation: np.ndarray, cones: np.ndarray | None = None) -> Problem:
     """Form the mixed integer linear problem to replace the original problem.
@@ -167,7 +146,7 @@ def create_milp(problem: Problem, approximation: np.ndarray, cones: np.ndarray |
             for k in range(a):
                 exprs = []
                 for j in range(b):
-                    expr = f"l_{k}_{j} * {approximation[k][j][ind-1]} * {cones[ind-1]}"
+                    expr = f"l_{k}_{j} * {approximation[k][j][ind-1]}"
                     exprs.append(expr)
                 expr = " + ".join(exprs)
                 sums.append(expr)
@@ -180,7 +159,7 @@ def create_milp(problem: Problem, approximation: np.ndarray, cones: np.ndarray |
                 func = sums,
                 objective_type = ObjectiveTypeEnum.analytical,
                 maximize = False,
-                ideal = obj.ideal,
+                ideal = -float("inf"), # if there are e-cones, ideal is not assigned here but as separate constraints
                 nadir = obj.nadir
             )
             objectives.append(func)
@@ -234,6 +213,21 @@ def create_milp(problem: Problem, approximation: np.ndarray, cones: np.ndarray |
     )
     constraints.append(y_const)
 
+    # add the constraints coming from the e-cones
+    if cones is not None:
+        for i in range(len(problem.objectives)):
+            e_cone_exprs = []
+            for j in range(len(problem.objectives)):
+                e_cone_exprs.append(f"{cones[i][j]} * f_{j+1} + {problem.objectives[j].ideal}")
+            e_cone_expr = " + ".join(e_cone_exprs)
+            e_cone_con = Constraint(
+                name=f"e_cone_con_{i}",
+                symbol=f"e_cone_con_{i}",
+                cons_type=ConstraintTypeEnum.LTE,
+                func=e_cone_expr
+            )
+            constraints.append(e_cone_con)
+
     milp = Problem(
         name="milp",
         description="milp",
@@ -241,12 +235,11 @@ def create_milp(problem: Problem, approximation: np.ndarray, cones: np.ndarray |
         objectives=objectives,
         constraints=constraints
     )
-    milp = milp.add_variables(problem.variables)
-    return milp.add_constraints(problem.constraints)
+    return milp
 
 def solve_next_solution(
     problem: Problem,
-    reference_point: dict[str, float],
+    search_direction: dict[str, float],
     current_solution: dict[str, float],
     step_size: float
 ) -> dict[str, float | list[float]]:
@@ -254,7 +247,7 @@ def solve_next_solution(
 
     Args:
         problem (Problem): The problem being solved.
-        reference_point (dict[str, float]): The reference point.
+        search_direction (dict[str, float]): The current search direction.
         current_solution (dict[str, float]): The current solution.
         step_size (float): The step size.
 
@@ -262,7 +255,9 @@ def solve_next_solution(
         dict[str, float | list[float]]: The next solution.
     """
     # get the moved reference point
-    moved_reference_point = calculate_moved_reference_point(problem, current_solution, reference_point, step_size)
+    z = objective_dict_to_numpy_array(problem, current_solution)
+    d = objective_dict_to_numpy_array(problem, search_direction)
+    moved_reference_point = z + step_size * d
     moved_reference_point_dict = numpy_array_to_objective_dict(problem, moved_reference_point)
 
     t = Variable(name="t", symbol="t", variable_type=VariableTypeEnum.real, initial_value = 1.0)
@@ -320,6 +315,7 @@ def calculate_all_solutions(
         list[dict[str, float | list[float]]]: A list of a set number of solutions.
     """
     bounds = []
+    # TODO: check if lower or upper bounds
     if "bounds" in preference_information:
         b = preference_information["bounds"]
         for obj in problem.objectives:
@@ -341,10 +337,11 @@ def calculate_all_solutions(
 
     bounds_dict = numpy_array_to_objective_dict(problem, np.array(bounds))
     references_dict = numpy_array_to_objective_dict(problem, np.array(references))
+    d = calculate_search_direction(problem, references_dict, current_solution)
 
     # form the bounds into constraints
     const_exprs = [
-        f"{obj.symbol}_min - {bounds_dict[obj.symbol] * (-1 if obj.maximize else 1)}" for obj in problem.objectives
+        f"{obj.symbol}_min - {bounds_dict[obj.symbol]}" for obj in problem.objectives
     ]
     # add the bounds as constraints to the original problem
     problem_w_bounds = add_lte_constraints(problem, const_exprs, [f"const_{i}" for i in range(1, len(const_exprs) + 1)])
@@ -352,7 +349,7 @@ def calculate_all_solutions(
     # compute all the solutions in the current direction
     solutions = []
     while len(solutions) < num_solutions:
-        current_solution = solve_next_solution(problem_w_bounds, references_dict, current_solution, step_size)
+        current_solution = solve_next_solution(problem_w_bounds, d, current_solution, step_size)
         solutions.append(current_solution)
     return solutions
 
@@ -361,12 +358,12 @@ if __name__ == "__main__":
     problem = pareto_navigator_test_problem()
     ideal = problem.get_ideal_point()
     nadir = problem.get_nadir_point()
-    acc = 0.15
+    acc = 0.10
 
-    starting_point = {"f_1": 1.38, "f_2": 0.62, "f_3": -35.33}
+    """starting_point = {"f_1": 1.38, "f_2": 0.62, "f_3": -35.33}
     preference_information = {
 #        "bounds": {"f_1": 1, "f_2": 2},
-        "reference_point": {"f_1": ideal["f_1"], "f_2": ideal["f_2"], "f_3": nadir["f_3"]}
+        "reference_point": {"f_1": ideal["f_1"], "f_2": ideal["f_2"], "f_3": ideal["f_3"]}
     }
 
     po_solutions = np.array([[-2.0, -1.0, 0.0, 1.38, 1.73, 2.48, 5.0],
@@ -385,25 +382,132 @@ if __name__ == "__main__":
     #print(e_cones(problem))
 
     milp = create_milp(problem, matrix)
-    solutions = calculate_all_solutions(milp, starting_point, preference_information, 1/200, 5)
+    solutions = calculate_all_solutions(milp, starting_point, preference_information, 1/10, 100)
     cones = e_cones(milp, solutions)
-    #milp = create_milp(problem, matrix, cones)
-    #solutions = calculate_all_solutions(milp, starting_point, preference_information, 1/200, 5)
+    milp = create_milp(problem, matrix, cones)
+    preference_information = {
+#        "bounds": {"f_1": 1, "f_2": 2},
+        "reference_point": {"f_1": ideal["f_1"], "f_2": ideal["f_2"], "f_3": nadir["f_3"]}
+    }
+    solutions = calculate_all_solutions(milp, starting_point, preference_information, 1/200, 5)
     print(solutions)
     for i in range(len(solutions)):
         if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i])
                          - np.array([0.35, -0.51, -26.26])) < acc):
             print("Values close enough to the ones in the article reached. ", solutions[i])
             navigated_point = solutions[i]
-            break
+            break"""
 
     """preference_info = {
         "reference_point": {"f_1": ideal["f_1"], "f_2": nadir["f_2"], "f_3": navigated_point["f_3"]}
     }
-    solutions = calculate_all_solutions(milp, navigated_point, preference_info, 1/200, 10)
+    solutions = calculate_all_solutions(milp, navigated_point, preference_info, 1/200, 200)
     for i in range(len(solutions)):
         if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i])
                             - np.array([-0.89, 2.91, -24.98])) < acc):
             print("Values close enough to the ones in the article reached. ", solutions[i])
             navigated_point = solutions[i]
             break"""
+
+    x_1 = Variable(name="x_1", symbol="x_1", variable_type=VariableTypeEnum.real, lowerbound=0, upperbound=4)
+
+    f_1 = Objective(
+        name="f_1",
+        symbol="f_1",
+        func="(5 - x_1) * (x_2 - 11)",
+        objective_type=ObjectiveTypeEnum.analytical,
+        ideal=14.9,
+        nadir=17.8,
+        maximize=False,
+    )
+    f_2 = Objective(
+        name="f_2",
+        symbol="f_2",
+        func="(5 - x_1) * (x_2 - 11)",
+        objective_type=ObjectiveTypeEnum.analytical,
+        ideal=404,
+        nadir=451,
+        maximize=False,
+    )
+    f_3 = Objective(
+        name="f_3",
+        symbol="f_3",
+        func="(5 - x_1) * (x_2 - 11)",
+        objective_type=ObjectiveTypeEnum.analytical,
+        ideal=0.26,
+        nadir=48.9,
+        maximize=False,
+    )
+    f_4 = Objective(
+        name="f_4",
+        symbol="f_4",
+        func="(5 - x_1) * (x_2 - 11)",
+        objective_type=ObjectiveTypeEnum.analytical,
+        ideal=14400,
+        nadir=15900,
+        maximize=False,
+    )
+    f_5 = Objective(
+        name="f_5",
+        symbol="f_5",
+        func="(5 - x_1) * (x_2 - 11)",
+        objective_type=ObjectiveTypeEnum.analytical,
+        ideal=10300,
+        nadir=8900,
+        maximize=True,
+    )
+    representation = DiscreteRepresentation(
+        variable_values={"x_1": [0, 0, 0, 0, 0, 0, 0]},
+        objective_values={
+            "f_1": [15.98, 16.11, 16.47, 16.85, 17.4, 16.01, 16.08],
+            "f_2": [417.5, 426.6, 422.0, 415.5, 416.8, 425.2, 425.2],
+            "f_3": [22.82, 1.52, 21.0, 22.75, 17.51, 8.04, 11.0],
+            "f_4": [15030, 14440, 14980, 15000, 14970, 14590, 14700],
+            "f_5": [9656, 8947, 9730, 9721, 9763, 9132, 9265]
+        },
+        non_dominated=True,
+    )
+
+    test_problem = Problem(
+        name="Nonconvex Pareto Navigator test problem",
+        description="The test problem used in the nonconvex Pareto navigator paper.",
+        variables=[x_1],
+        objectives=[f_1, f_2, f_3, f_4, f_5],
+        discrete_representation=representation
+    )
+
+    problem = test_problem
+    ideal = problem.get_ideal_point()
+    nadir = problem.get_nadir_point()
+
+    po_solutions = np.array([[15.98, 16.11, 16.47, 16.85, 17.4, 16.01, 16.08],
+                    [417.5, 426.6, 422.0, 415.5, 416.8, 425.2, 425.2],
+                    [22.82, 1.52, 21.0, 22.75, 17.51, 8.04, 11.0],
+                    [15030, 14440, 14980, 15000, 14970, 14590, 14700],
+                    [9656, 8947, 9730, 9721, 9763, 9132, 9265]]).T
+
+    test_approx = paint(po_solutions)
+
+    matrix = []
+    for p in test_approx:
+        row = []
+        for i in p:
+            row.append(po_solutions[i])
+        matrix.append(row)
+
+    starting_point = {"f_1": 16.1, "f_2": 421, "f_3": 42, "f_4": 15320, "f_5": 9852}
+    preference_information = {
+#        "bounds": {"f_1": 1, "f_2": 2},
+        "reference_point": {"f_1": ideal["f_1"], "f_2": ideal["f_2"], "f_3": ideal["f_3"], "f_4": ideal["f_4"], "f_5": ideal["f_5"]}
+    }
+
+    milp = create_milp(problem, matrix)
+    solutions = calculate_all_solutions(milp, starting_point, preference_information, 1/10, 100)
+    cones = e_cones(milp, solutions)
+
+    milp = create_milp(problem, matrix, cones)
+    preference_information = {
+#        "bounds": {"f_1": 1, "f_2": 2},
+        "reference_point": {"f_1": 15.1, "f_2": 427, "f_3": 43, "f_4": 15150, "f_5": 8920}
+    }
+
