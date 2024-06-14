@@ -141,13 +141,23 @@ class MathParser:
             self.MAX: lambda *args: reduce(lambda x, y: pl.max_horizontal(to_expr(x), to_expr(y)), args),
         }
 
+        def _pyomo_multiply(*args):
+            def _multiply(x, y):
+                if hasattr(x, "is_indexed") and x.is_indexed() and hasattr(y, "is_indexed") and y.is_indexed():
+                    # both are indexed
+                    return pyomo.sum_product(x, y)
+
+                return x * y
+
+            return reduce(_multiply, args)
+
         pyomo_env = {
             # Define the operations for the different operators.
             # Basic arithmetic operations
             self.NEGATE: lambda x: -x,
             self.ADD: lambda *args: reduce(lambda x, y: x + y, args),
             self.SUB: lambda *args: reduce(lambda x, y: x - y, args),
-            self.MUL: lambda *args: reduce(lambda x, y: x * y, args),
+            self.MUL: _pyomo_multiply,
             self.DIV: lambda *args: reduce(lambda x, y: x / y, args),
             # Exponentiation and logarithms
             self.EXP: lambda x: pyomo.exp(x),
@@ -328,7 +338,9 @@ class MathParser:
         msg = f"Encountered unsupported type '{type(expr)}' during parsing."
         raise ParserError(msg)
 
-    def _parse_to_pyomo(self, expr: list | str | int | float, model: pyomo.Model) -> pyomo.Expression:
+    def _parse_to_pyomo(
+        self, expr: list | str | int | float | pyomo.Expression, model: pyomo.Model
+    ) -> pyomo.Expression:
         """Parses the MathJSON format recursively into a Pyomo expression.
 
         Args:

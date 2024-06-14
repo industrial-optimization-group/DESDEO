@@ -6,7 +6,15 @@ from operator import le as _le
 import pyomo.environ as pyomo
 
 from desdeo.problem.json_parser import FormatEnum, MathParser
-from desdeo.problem.schema import ConstraintTypeEnum, Problem, VariableTypeEnum
+from desdeo.problem.schema import (
+    Constant,
+    ConstraintTypeEnum,
+    Problem,
+    TensorConstant,
+    TensorVariable,
+    Variable,
+    VariableTypeEnum,
+)
 
 
 class PyomoEvaluatorError(Exception):
@@ -52,6 +60,34 @@ class PyomoEvaluator:
         self.model = model
         self.problem = problem
 
+    def _bounds_rule(self, lowerbounds, upperbounds):
+        def bounds_rule(model, *args) -> tuple:
+            indices = tuple(arg - 1 for arg in args)
+
+            lower_value = lowerbounds
+            upper_value = upperbounds
+
+            for index in indices:
+                lower_value = lower_value[index]
+                upper_value = upper_value[index]
+
+            return (lower_value, upper_value)
+
+        return bounds_rule
+
+    def _init_rule(self, initial_values):
+        def init_rule(model, *args):
+            indices = tuple(arg - 1 for arg in args)
+
+            initial_value = initial_values
+
+            for index in indices:
+                initial_value = initial_value[index]
+
+            return initial_value
+
+        return init_rule
+
     def init_variables(self, problem: Problem, model: pyomo.Model) -> pyomo.Model:
         """Add variables to the pyomo model.
 
@@ -67,62 +103,91 @@ class PyomoEvaluator:
             pyomo.Model: the pyomo model with the variables added as attributes.
         """
         for var in problem.variables:
-            lowerbound = var.lowerbound if var.lowerbound is not None else float("-inf")
-            upperbound = var.upperbound if var.upperbound is not None else float("inf")
+            if isinstance(var, Variable):
+                # handle regular variables
+                lowerbound = var.lowerbound if var.lowerbound is not None else float("-inf")
+                upperbound = var.upperbound if var.upperbound is not None else float("inf")
 
-            # figure out the variable type
-            match (lowerbound >= 0, upperbound >= 0, var.variable_type):
-                case (True, True, VariableTypeEnum.integer):
-                    # variable is positive integer
-                    domain = pyomo.NonNegativeIntegers
-                case (False, False, VariableTypeEnum.integer):
-                    # variable is negative integer
-                    domain = pyomo.NegativeIntegers
-                case (False, True, VariableTypeEnum.integer):
-                    # variable can be both negative an positive integer
-                    domain = pyomo.Integers
-                case (True, False, VariableTypeEnum.integer):
-                    # error! lower bound is greater than upper bound
-                    msg = (
-                        f"The lower bound {var.lowerbound} for variable {var.symbol} is greater than the "
-                        f"upper bound {var.upperbound}"
-                    )
-                    raise PyomoEvaluatorError(msg)
-                case (True, True, VariableTypeEnum.real):
-                    # variable is positive real
-                    domain = pyomo.NonNegativeReals
-                case (False, False, VariableTypeEnum.real):
-                    # variable is negative real
-                    domain = pyomo.NegativeReals
-                case (False, True, VariableTypeEnum.real):
-                    # variable can be both negative and positive real
-                    domain = pyomo.Reals
-                case (True, False, VariableTypeEnum.real):
-                    # eror! lower bound is greater than upper bound
-                    msg = (
-                        f"The lower bound {var.lowerbound} for variable {var.symbol} is greater than the "
-                        f"upper bound {var.upperbound}"
-                    )
-                    raise PyomoEvaluatorError(msg)
-                case _:
-                    msg = f"Could not figure out the type for variable {var}."
-                    raise PyomoEvaluatorError(msg)
+                # figure out the variable type
+                match (lowerbound >= 0, upperbound >= 0, var.variable_type):
+                    case (True, True, VariableTypeEnum.integer):
+                        # variable is positive integer
+                        domain = pyomo.NonNegativeIntegers
+                    case (False, False, VariableTypeEnum.integer):
+                        # variable is negative integer
+                        domain = pyomo.NegativeIntegers
+                    case (False, True, VariableTypeEnum.integer):
+                        # variable can be both negative an positive integer
+                        domain = pyomo.Integers
+                    case (True, False, VariableTypeEnum.integer):
+                        # error! lower bound is greater than upper bound
+                        msg = (
+                            f"The lower bound {var.lowerbound} for variable {var.symbol} is greater than the "
+                            f"upper bound {var.upperbound}"
+                        )
+                        raise PyomoEvaluatorError(msg)
+                    case (True, True, VariableTypeEnum.real):
+                        # variable is positive real
+                        domain = pyomo.NonNegativeReals
+                    case (False, False, VariableTypeEnum.real):
+                        # variable is negative real
+                        domain = pyomo.NegativeReals
+                    case (False, True, VariableTypeEnum.real):
+                        # variable can be both negative and positive real
+                        domain = pyomo.Reals
+                    case (True, False, VariableTypeEnum.real):
+                        # error! lower bound is greater than upper bound
+                        msg = (
+                            f"The lower bound {var.lowerbound} for variable {var.symbol} is greater than the "
+                            f"upper bound {var.upperbound}"
+                        )
+                        raise PyomoEvaluatorError(msg)
+                    # TODO: check binary type!
+                    case _:
+                        msg = f"Could not figure out the type for variable {var}."
+                        raise PyomoEvaluatorError(msg)
 
-            # if a variable's initial value is set, use it. Otherwise, check if the lower and upper bounds
-            # are defined, if they are, use the mid-point of the bounds, otherwise use the initial value, which is
-            # None.
-            if var.initial_value is not None:
-                initial_value = var.initial_value
-            else:
-                initial_value = (
-                    var.initial_value
-                    if var.lowerbound is None and var.upperbound is None
-                    else (var.lowerbound + var.upperbound) / 2
+                # if a variable's initial value is set, use it. Otherwise, check if the lower and upper bounds
+                # are defined, if they are, use the mid-point of the bounds, otherwise use the initial value, which is
+                # None.
+                if var.initial_value is not None:
+                    initial_value = var.initial_value
+                else:
+                    initial_value = (
+                        var.initial_value
+                        if var.lowerbound is None and var.upperbound is None
+                        else (var.lowerbound + var.upperbound) / 2
+                    )
+
+                pyomo_var = pyomo.Var(
+                    name=var.name, initialize=initial_value, bounds=(var.lowerbound, var.upperbound), domain=domain
                 )
 
-            pyomo_var = pyomo.Var(
-                name=var.name, initialize=initial_value, bounds=(var.lowerbound, var.upperbound), domain=domain
-            )
+            elif isinstance(var, TensorVariable):
+                # handle tensor variables, i.e., vectors etc..
+                # create the needed range sets
+                index_sets = [pyomo.RangeSet(1, dim_size) for dim_size in var.shape]
+
+                # TODO: check domain properly
+                if var.variable_type == VariableTypeEnum.binary:
+                    domain = pyomo.Binary
+                elif var.variable_type == VariableTypeEnum.integer:
+                    domain = pyomo.Integers
+                else:
+                    domain = pyomo.Reals
+
+                # create the Var
+                pyomo_var = pyomo.Var(
+                    *index_sets,
+                    name=var.name,
+                    initialize=self._init_rule(var.get_initial_values()),
+                    bounds=self._bounds_rule(var.get_lowerbound_values(), var.get_upperbound_values()),
+                    domain=domain,
+                )
+
+            else:
+                msg = f"Unsupported variable type '{type(var)} encountered."
+                raise PyomoEvaluatorError(msg)
 
             # add and then construct the variable
             setattr(model, var.symbol, pyomo_var)
@@ -144,26 +209,49 @@ class PyomoEvaluator:
             pyomo.Model: the pyomo model with the constants added as attributes.
         """
         for con in problem.constants:
-            # figure out the domain of the constant
-            match (isinstance(con.value, int), isinstance(con.value, float), con.value >= 0):
-                case (True, False, True):
-                    # positive integer
-                    domain = pyomo.NonNegativeIntegers
-                case (True, False, False):
-                    # negative integer
-                    domain = pyomo.NegativeIntegers
-                case (False, True, True):
-                    # positive real
-                    domain = pyomo.NonNegativeReals
-                case (False, True, False):
-                    # negative real
-                    domain = pyomo.NegativeReals
-                case _:
-                    # not possible, something went wrong
-                    msg = f"Failed to figure out the domain for the constant {con.symbol}."
-                    raise PyomoEvaluatorError(msg)
+            # Handle regular constnants
+            if isinstance(con, Constant):
+                # figure out the domain of the constant
+                match (isinstance(con.value, int), isinstance(con.value, float), con.value >= 0):
+                    case (True, False, True):
+                        # positive integer
+                        domain = pyomo.NonNegativeIntegers
+                    case (True, False, False):
+                        # negative integer
+                        domain = pyomo.NegativeIntegers
+                    case (False, True, True):
+                        # positive real
+                        domain = pyomo.NonNegativeReals
+                    case (False, True, False):
+                        # negative real
+                        domain = pyomo.NegativeReals
+                    case _:
+                        # not possible, something went wrong
+                        msg = f"Failed to figure out the domain for the constant {con.symbol}."
+                        raise PyomoEvaluatorError(msg)
 
-            pyomo_param = pyomo.Param(name=con.name, default=con.value, domain=domain)
+                pyomo_param = pyomo.Param(name=con.name, default=con.value, domain=domain)
+
+            elif isinstance(con, TensorConstant):
+                # handle TensorConstants, like vectors
+                # create the needed range sets
+                index_sets = [pyomo.RangeSet(1, dim_size) for dim_size in con.shape]
+
+                # TODO: check domain properly
+                # for now, constants are always assumed to be real (which is quite safe to do...)
+                domain = pyomo.Reals
+
+                # create the Con
+                pyomo_param = pyomo.Param(
+                    *index_sets,
+                    name=con.name,
+                    initialize=self._init_rule(con.get_values()),
+                    domain=domain,
+                )
+            else:
+                msg = f"Unsupported constant type '{type(con)}' encountered."
+                raise PyomoEvaluatorError(msg)
+
             setattr(model, con.symbol, pyomo_param)
 
         return model

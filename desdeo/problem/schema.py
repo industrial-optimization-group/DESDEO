@@ -12,6 +12,7 @@ The problem definition is a JSON file that contains the following information:
 """
 
 from collections import Counter
+from collections.abc import Iterable
 from enum import Enum
 from typing import Annotated, Any, Literal, TypeAliasType
 
@@ -150,6 +151,40 @@ def parse_list_to_mathjson(cls: "TensorVariable", v: Tensor | None) -> list:
     raise ValueError(msg)
 
 
+def get_tensor_values(
+    values: Iterable[VariableType | Iterable[VariableType]] | None,
+) -> Iterable[VariableType | Iterable[VariableType]] | None:
+    """Return the values for a given attribute as a nested Python list with shape `self.shape`.
+
+    Removes the 'List' entries from the JSON format to give a Python compatible list.
+
+    Arguments:
+        values (Iterable[VariableType | Iterable[VariableType]] | None): the values that should be extracted as a
+            Python list.
+
+    Returns:
+        list[VariableType] | Iterable[list[VariableType]] | None: a list with shape `self.shape` with the
+            values defined for the variable.
+    """
+    if values is None:
+        return values
+
+    if isinstance(values, list) and len(values) > 1:
+        if values[0] == "List" and isinstance(values[1], list):
+            # recursive case, encountered list
+            return [get_tensor_values(v_element) for v_element in values[1:]]
+        if values[0] == "List":
+            # terminal case, encountered a VariableType
+            return [*values[1:]]
+
+        # if anything else is encountered, raise an error
+        msg = "Encountered value that is not a valid VariableType nor a list."
+        raise ValueError(msg)
+
+    msg = f"Values must be a valid MathJSON vector. Got {type(values)}."
+    raise ValueError(msg)
+
+
 class VariableTypeEnum(str, Enum):
     """An enumerator for possible variable types."""
 
@@ -261,6 +296,10 @@ class TensorConstant(BaseModel):
 
     _parse_list_to_mathjson = field_validator("values", mode="before")(parse_list_to_mathjson)
 
+    def get_values(self) -> Iterable[VariableType | Iterable[VariableType]] | None:
+        """Return the constant values as a Python iterable (e.g., list of list)."""
+        return get_tensor_values(self.values)
+
 
 class Variable(BaseModel):
     """Model for a variable."""
@@ -317,7 +356,7 @@ class TensorVariable(BaseModel):
     is represented by 'x_1_3', where 'x' is the symbol given to the TensorVariable.
     Note that indexing starts from 1.
     """
-    variable_type: VariableDomainTypeEnum = Field(
+    variable_type: VariableTypeEnum = Field(
         description=(
             "Type of the variable. Can be real, integer, or binary. "
             "Note that each element of a TensorVariable is assumed to be of the same type."
@@ -368,6 +407,18 @@ class TensorVariable(BaseModel):
     _parse_list_to_mathjson = field_validator("lowerbounds", "upperbounds", "initialvalues", mode="before")(
         parse_list_to_mathjson
     )
+
+    def get_lowerbound_values(self) -> Iterable[VariableType | Iterable[VariableType]] | None:
+        """Return the lowerbounds values, if any, as a Python iterable (list of list)."""
+        return get_tensor_values(self.lowerbounds)
+
+    def get_upperbound_values(self) -> Iterable[VariableType | Iterable[VariableType]] | None:
+        """Return the upperbounds values, if any, as a Python iterable (list of list)."""
+        return get_tensor_values(self.upperbounds)
+
+    def get_initial_values(self) -> Iterable[VariableType | Iterable[VariableType]] | None:
+        """Return the initial values, if any, as a Python iterable (list of list)."""
+        return get_tensor_values(self.initialvalues)
 
 
 class ExtraFunction(BaseModel):
@@ -829,7 +880,7 @@ class Problem(BaseModel):
             }
         )
 
-    def add_variables(self, new_variables: list[Variable]) -> "Problem":
+    def add_variables(self, new_variables: list[Variable | TensorVariable]) -> "Problem":
         """Adds new variables to the problem model.
 
         Does not modify the original problem model, but instead returns a copy of it with
@@ -837,7 +888,7 @@ class Problem(BaseModel):
         unique.
 
         Args:
-            new_variables (list[Variable]): the new `Variable`s to be added to the model.
+            new_variables (list[Variable | TensorVariable]): the new variables to be added to the model.
 
         Raises:
             TypeError: when the `new_variables` is not a list.
@@ -889,14 +940,15 @@ class Problem(BaseModel):
         # did not find symbol
         return None
 
-    def get_variable(self, symbol: str) -> Variable | None:
+    def get_variable(self, symbol: str) -> Variable | TensorVariable | None:
         """Return a copy of a `Variable` with the given symbol.
 
         Args:
             symbol (str): the symbol of the variable.
 
         Returns:
-            Variable | None: the copy of the variable with the given symbol, or `None` if the variable is not found.
+            Variable | TensorVariable | None: the copy of the variable with the given symbol,
+                or `None` if the variable is not found.
         """
         for variable in self.variables:
             if variable.symbol == symbol:
@@ -1146,11 +1198,11 @@ class Problem(BaseModel):
         description="Description of the problem.",
     )
     """Description of the problem."""
-    constants: list[Constant] | None = Field(
+    constants: list[Constant | TensorConstant] | None = Field(
         description="Optional list of the constants present in the problem.", default=None
     )
     """List of the constants present in the problem. Defaults to `None`."""
-    variables: list[Variable] = Field(
+    variables: list[Variable | TensorVariable] = Field(
         description="List of variables present in the problem.",
     )
     """List of variables present in the problem."""
