@@ -1,3 +1,5 @@
+"""Database utils for the API."""
+
 from os import getenv
 from typing import TypeVar, Dict
 
@@ -11,23 +13,18 @@ from sqlalchemy.sql.expression import exists as sa_exists, delete as sa_delete, 
 from sqlalchemy.sql.functions import count
 from sqlalchemy.sql.selectable import Select, Exists
 
-from desdeo.api.db_config import DbConfig
+from desdeo.api import DBConfig
 from .logger import get_logger
 
-DbConfig.load_config()
-
 T = TypeVar("T")
-
 
 def select(entity) -> Select:
     """Shortcut for :meth:`sqlalchemy.future.select`"""
     return sa_select(entity)
 
-
-def filter(cls, *args, **kwargs) -> Select:
-    """Shortcut for :meth:`sqlalchemy.sql.expression.Select.filter`"""
-    return select(cls, *args).filter(**kwargs)
-
+'''def filter(cls, *args, **kwargs) -> Select:
+    """Shortcut for :meth:`sqlalchemy.future.Select.filter`"""
+    return select(cls, *args).filter(**kwargs)'''
 
 def filter_by(cls, *args, **kwargs) -> Select:
     """Shortcut for :meth:`sqlalchemy.future.Select.filter_by`"""
@@ -103,14 +100,14 @@ class DB:
 
 logger = get_logger(__name__)
 
-DB_HOST = DbConfig._host
-DB_PORT = DbConfig._port
-DB_DATABASE = DbConfig._database
-DB_USERNAME = DbConfig._username
-DB_PASSWORD = DbConfig._password
-DB_POOL_SIZE = DbConfig._pool_size
-DB_MAX_OVERFLOW = DbConfig._max_overflow
-DB_POOL = DbConfig._pool
+DB_HOST = DBConfig.db_host
+DB_PORT = DBConfig.db_port
+DB_DATABASE = DBConfig.db_database
+DB_USERNAME = DBConfig.db_username
+DB_PASSWORD = DBConfig.db_password
+DB_POOL_SIZE = DBConfig.db_pool_size
+DB_MAX_OVERFLOW = DBConfig.db_max_overflow
+DB_POOL = DBConfig.db_pool
 
 
 class DatabaseDependency:
