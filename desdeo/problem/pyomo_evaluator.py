@@ -378,14 +378,26 @@ class PyomoEvaluator:
         result_dict = {}
 
         for var in self.problem.variables:
-            result_dict[var.symbol] = pyomo.value(getattr(self.model, var.symbol))
+            if isinstance(var, Variable):
+                result_dict[var.symbol] = pyomo.value(getattr(self.model, var.symbol))
+            elif isinstance(var, TensorVariable):
+                result_dict[var.symbol] = getattr(self.model, var.symbol).get_values()
+            else:
+                msg = f"Unsupported variable type {type(var)} encountered."
+                raise PyomoEvaluatorError(msg)
 
         for obj in self.problem.objectives:
             result_dict[obj.symbol] = pyomo.value(getattr(self.model, obj.symbol))
 
         if self.problem.constants is not None:
             for con in self.problem.constants:
-                result_dict[con.symbol] = pyomo.value(getattr(self.model, con.symbol))
+                if isinstance(con, Constant):
+                    result_dict[con.symbol] = pyomo.value(getattr(self.model, con.symbol))
+                elif isinstance(con, TensorConstant):
+                    result_dict[con.symbol] = getattr(self.model, con.symbol).extract_values()
+                else:
+                    msg = f"Unsupported variable type {type(var)} encountered."
+                    raise PyomoEvaluatorError(msg)
 
         if self.problem.extra_funcs is not None:
             for extra in self.problem.extra_funcs:

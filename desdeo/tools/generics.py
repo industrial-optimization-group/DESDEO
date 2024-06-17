@@ -15,7 +15,9 @@ class SolverError(Exception):
 class SolverResults(BaseModel):
     """Defines a schema for a dataclass to store the results of a solver."""
 
-    optimal_variables: dict[str, float | list[float]] = Field(description="The optimal decision variables found.")
+    optimal_variables: dict[str, float | list[float] | dict[str | int, float]] = Field(
+        description="The optimal decision variables found."
+    )
     optimal_objectives: dict[str, float | list[float]] = Field(
         description="The objective function values corresponding to the optimal decision variables found."
     )
@@ -29,15 +31,17 @@ class SolverResults(BaseModel):
     success: bool = Field(description="A boolean flag indicating whether the optimization was successful or not.")
     message: str = Field(description="Description of the cause of termination.")
 
+
 class PersistentSolver:
     """Defines a schema for a persistent solver class.
 
     Can be used when reinitializing the solver every time the problem is changed is not practical.
     """
+
     evaluator: object
     problem: Problem
 
-    def __init__(self, problem: Problem, options: dict[str,any]|None = None):
+    def __init__(self, problem: Problem, options: dict[str, any] | None = None):
         """Initializer for the persistent solver.
 
         Args:
@@ -47,7 +51,7 @@ class PersistentSolver:
         """
         self.problem = problem
 
-    def add_constraint(self, constraint: Constraint|list[Constraint]):
+    def add_constraint(self, constraint: Constraint | list[Constraint]):
         """Add a constraint expression to the solver.
 
         Args:
