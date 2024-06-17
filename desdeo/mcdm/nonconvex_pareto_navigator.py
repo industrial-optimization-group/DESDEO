@@ -57,8 +57,7 @@ def e_cones(problem: Problem, solutions: list[dict[str, float]]):
     for value in values:
         if value < 1 / (k - 1) and value > 0:
             admissible.append(value)
-    epsilon = min(admissible) # or max?
-    print(epsilon)
+    epsilon = max(admissible) # min or max?
 
     epsilons = np.ones(k)
     epsilons = epsilon * epsilons
@@ -68,7 +67,7 @@ def e_cones(problem: Problem, solutions: list[dict[str, float]]):
         for j in range(k):
             if i != j:
                 matrix_v[i][j] = -epsilons[i]
-    inv_matrix_v = -np.linalg.inv(matrix_v).T
+    inv_matrix_v = np.linalg.inv(matrix_v).T
 
     return inv_matrix_v
 
@@ -87,6 +86,7 @@ def create_milp(problem: Problem, approximation: np.ndarray, cones: np.ndarray |
         Problem: A mixed integer linear problem to act as a surrogate problem for the original.
     """
     a, b = np.shape(approximation)[0], np.shape(approximation)[1]
+    ideal, nadir = get_corrected_ideal_and_nadir(problem)
 
     variables = []
     # a loop to form the decision variables
@@ -136,8 +136,8 @@ def create_milp(problem: Problem, approximation: np.ndarray, cones: np.ndarray |
                 func = sums,
                 objective_type = ObjectiveTypeEnum.analytical,
                 maximize = False,
-                ideal = obj.ideal,
-                nadir = obj.nadir
+                ideal = ideal[obj.symbol],
+                nadir = nadir[obj.symbol]
             )
             objectives.append(func)
             ind += 1
@@ -160,7 +160,7 @@ def create_milp(problem: Problem, approximation: np.ndarray, cones: np.ndarray |
                 objective_type = ObjectiveTypeEnum.analytical,
                 maximize = False,
                 ideal = -float("inf"), # if there are e-cones, ideal is not assigned here but as separate constraints
-                nadir = obj.nadir
+                nadir = nadir[obj.symbol]
             )
             objectives.append(func)
             ind += 1
@@ -218,8 +218,9 @@ def create_milp(problem: Problem, approximation: np.ndarray, cones: np.ndarray |
         for i in range(len(problem.objectives)):
             e_cone_exprs = []
             for j in range(len(problem.objectives)):
-                e_cone_exprs.append(f"{cones[i][j]} * f_{j+1} + {problem.objectives[j].ideal}")
+                e_cone_exprs.append(f"{-cones[i][j]} * f_{j+1} + {ideal[problem.objectives[j].symbol]}")
             e_cone_expr = " + ".join(e_cone_exprs)
+            print(e_cone_expr)
             e_cone_con = Constraint(
                 name=f"e_cone_con_{i}",
                 symbol=f"e_cone_con_{i}",
@@ -286,7 +287,7 @@ def solve_next_solution(
                 cons_type=ConstraintTypeEnum.LTE,
                 is_linear=True,
             )
-    )
+        )
 
     problem_w_t = problem_w_t.add_scalarization(scalarization)
     problem_w_t = problem_w_t.add_constraints(constraints)
@@ -480,11 +481,11 @@ if __name__ == "__main__":
     ideal = problem.get_ideal_point()
     nadir = problem.get_nadir_point()
 
-    po_solutions = np.array([[15.98, 16.11, 16.47, 16.85, 17.4, 16.01, 16.08],
-                    [417.5, 426.6, 422.0, 415.5, 416.8, 425.2, 425.2],
-                    [22.82, 1.52, 21.0, 22.75, 17.51, 8.04, 11.0],
-                    [15030, 14440, 14980, 15000, 14970, 14590, 14700],
-                    [9656, 8947, 9730, 9721, 9763, 9132, 9265]]).T
+    po_solutions = np.array([[15.98, 16.11, 16.47, 16.85, 17.4, 16.01, 16.08, 16.80, 17.10],
+                    [417.5, 426.6, 422.0, 415.5, 416.8, 425.2, 425.2, 414.1, 411.6],
+                    [22.82, 1.52, 21.0, 22.75, 17.51, 8.04, 11.0, 18.24, 15.10],
+                    [15030, 14440, 14980, 15000, 14970, 14590, 14700, 14960, 14860],
+                    [-9656, -8947, -9730, -9721, -9763, -9132, -9265, -9626, -9529]]).T
 
     test_approx = paint(po_solutions)
 
@@ -497,17 +498,39 @@ if __name__ == "__main__":
 
     starting_point = {"f_1": 16.1, "f_2": 421, "f_3": 42, "f_4": 15320, "f_5": 9852}
     preference_information = {
-#        "bounds": {"f_1": 1, "f_2": 2},
-        "reference_point": {"f_1": ideal["f_1"], "f_2": ideal["f_2"], "f_3": ideal["f_3"], "f_4": ideal["f_4"], "f_5": ideal["f_5"]}
+        "bounds": {"f_1": 16.1, "f_2": 452, "f_3": 49, "f_4": 15500, "f_5": 8860},
+        "reference_point": {"f_1": 15.1, "f_2": 427, "f_3": 43, "f_4": 15150, "f_5": 8920}
     }
+    for obj in problem.objectives:
+        if obj.maximize:
+            starting_point[obj.symbol] = -starting_point[obj.symbol]
+            preference_information["bounds"][obj.symbol] = -preference_information["bounds"][obj.symbol]
+            preference_information["reference_point"][obj.symbol] = -preference_information["reference_point"][obj.symbol]
 
     milp = create_milp(problem, matrix)
-    solutions = calculate_all_solutions(milp, starting_point, preference_information, 1/10, 100)
+    solutions = calculate_all_solutions(milp, starting_point, preference_information, 1/200, 100)
+
     cones = e_cones(milp, solutions)
 
     milp = create_milp(problem, matrix, cones)
     preference_information = {
-#        "bounds": {"f_1": 1, "f_2": 2},
-        "reference_point": {"f_1": 15.1, "f_2": 427, "f_3": 43, "f_4": 15150, "f_5": 8920}
+        "bounds": {"f_1": 16.1, "f_2": 452, "f_3": 49, "f_4": 15500, "f_5": -8860},
+        "reference_point": {"f_1": 15.1, "f_2": 427, "f_3": 43, "f_4": 15150, "f_5": -8920}
     }
 
+    solutions = calculate_all_solutions(milp, starting_point, preference_information, 1/100, 100)
+    corrected_solutions = []
+    for solution in solutions:
+        sol = {
+            objective.symbol: solution[objective.symbol] if not objective.maximize else -solution[objective.symbol]
+            for objective in problem.objectives
+        }
+        corrected_solutions.append(sol)
+    print(corrected_solutions)
+
+    for i in range(len(corrected_solutions)):
+        if np.all(np.abs(objective_dict_to_numpy_array(problem, corrected_solutions[i])
+                            - np.array([16.1, 421, 42, 15320, 9652])) < acc):
+            print("Values close enough to the ones in the article reached. ", corrected_solutions[i])
+            navigated_point = corrected_solutions[i]
+            break
