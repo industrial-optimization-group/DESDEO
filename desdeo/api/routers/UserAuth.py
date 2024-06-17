@@ -159,6 +159,16 @@ async def loginWithInvite(
     data: dict,
     db: Annotated[database_dependency, Depends()]
 ) -> dict:
+    """Login with invitation code.
+
+    Args:
+        data (dict): Data to authenticate the user.
+        db (Annotated[database_dependency, Depends()]): The database session.
+
+    Returns:
+        Token: The authentication token.
+    """
+
     try:
         invite = await db.first(select(Invite).filter_by(code=data['code']))
         user = await get_user_by_id(db, invite.invitee)

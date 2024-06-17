@@ -1,3 +1,4 @@
+"""Router for admin actions."""
 import time
 from typing import Annotated
 from hashlib import blake2b
@@ -15,6 +16,8 @@ from desdeo.api.utils.database import (
 router = APIRouter()
 
 def create_invite_code(data: dict) -> str:
+    """Create unique invite code."""
+
     data = data.copy()
     code = blake2b(str.encode(str(data)), digest_size=8).hexdigest() + str(time.time())
     return code
@@ -25,6 +28,17 @@ async def createInvite(
     db: Annotated[database_dependency, Depends()],
     user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
+    """Create an invitation with unique code.
+
+    Args:
+        form_data (Annotated[InviteForm, Depends()]): The form data for the invitation.
+        db (Annotated[database_dependency, Depends()]): The database session.
+        user (Annotated[User, Depends(get_current_user)]): The user details
+
+    Returns:
+        dict: Dictionary with invitation code
+    """
+
     code = create_invite_code({"invitee": form_data.invitee, "problem_id": form_data.problem_id})
     new_invite = Invite(
         inviter = user.index,
