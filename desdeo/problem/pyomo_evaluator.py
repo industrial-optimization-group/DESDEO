@@ -60,7 +60,8 @@ class PyomoEvaluator:
         self.model = model
         self.problem = problem
 
-    def _bounds_rule(self, lowerbounds, upperbounds):
+    @classmethod
+    def _bounds_rule(cls, lowerbounds, upperbounds):
         def bounds_rule(model, *args) -> tuple:
             indices = tuple(arg - 1 for arg in args)
 
@@ -75,7 +76,8 @@ class PyomoEvaluator:
 
         return bounds_rule
 
-    def _init_rule(self, initial_values):
+    @classmethod
+    def _init_rule(cls, initial_values):
         def init_rule(model, *args):
             indices = tuple(arg - 1 for arg in args)
 

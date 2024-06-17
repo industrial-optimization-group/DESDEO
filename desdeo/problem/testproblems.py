@@ -1076,7 +1076,7 @@ def simple_knapsack_vectors():
     profit_objective = Objective(
         name="max profit",
         symbol="f_1",
-        func="P*X",
+        func="P.X",
         maximize=True,
         ideal=8,
         nadir=0,
@@ -1088,7 +1088,7 @@ def simple_knapsack_vectors():
     efficiency_objective = Objective(
         name="max efficiency",
         symbol="f_2",
-        func="E*X",
+        func="E.X",
         maximize=True,
         ideal=7,
         nadir=0,
@@ -1101,7 +1101,7 @@ def simple_knapsack_vectors():
         name="Weight constraint",
         symbol="g_1",
         cons_type="<=",
-        func="W*X - w_max",
+        func="W.X - w_max",
         is_linear=True,
         is_convex=False,
         is_twice_differentiable=False,

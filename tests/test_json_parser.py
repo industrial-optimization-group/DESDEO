@@ -6,13 +6,14 @@ import math
 from pathlib import Path
 
 import gurobipy as gp
+import numpy as np
 import numpy.testing as npt
 import polars as pl
 import pyomo.environ as pyomo
 import pytest
 import sympy as sp
 
-from desdeo.problem.evaluator import GenericEvaluator
+from desdeo.problem import GenericEvaluator, PyomoEvaluator
 from desdeo.problem.infix_parser import InfixExpressionParser
 from desdeo.problem.json_parser import FormatEnum, MathParser, replace_str
 from desdeo.problem.schema import (
@@ -951,6 +952,52 @@ def test_parse_pyomo_max():
             err_msg=(
                 f"Test failed for {str_expr=}, with "
                 f"{pyomo_expr.to_string() if isinstance(pyomo_expr, pyomo.Expression) else pyomo_expr}"
+            ),
+        )
+
+
+@pytest.mark.pyomo
+def test_pyomo_basic_matrix_arithmetics():
+    """Check that matrix arithmetics are parsed correctly from MathJSON format to Pyomo expression."""
+    pyomo_model = pyomo.ConcreteModel()
+
+    X_dims = (5,)
+    Y_dims = (5,)
+    X_values = [1, 2, 3, 4, 5]
+    Y_values = [-1, 1, 0, 1, -1]
+    x = 2.8
+    c = 0.5
+
+    pyomo_model.X = pyomo.Var(
+        pyomo.RangeSet(1, X_dims[0]), domain=pyomo.Reals, initialize=PyomoEvaluator._init_rule(X_values)
+    )
+    pyomo_model.Y = pyomo.Param(
+        pyomo.RangeSet(1, Y_dims[0]), domain=pyomo.Reals, initialize=PyomoEvaluator._init_rule(Y_values)
+    )
+    pyomo_model.x = pyomo.Var(domain=pyomo.Reals, initialize=x)
+    pyomo_model.c = pyomo.Param(domain=pyomo.Reals, default=c)
+
+    tests = [
+        ("X.Y", np.dot(X_values, Y_values)),
+        ("Y.X", np.dot(Y_values, X_values)),
+        ("X*c", c * np.array(X_values)),
+    ]
+
+    pyomo_parser = MathParser(to_format="pyomo")
+    infix_parser = InfixExpressionParser()
+
+    for str_expr, result in tests:
+        json_expr = infix_parser.parse(str_expr)
+        pyomo_expr = pyomo_parser.parse(json_expr, pyomo_model)
+
+        npt.assert_array_almost_equal(
+            [pyomo.value(pyomo_expr[i]) for i in pyomo_expr.index_set()]
+            if hasattr(pyomo_expr, "is_indexed") and pyomo_expr.is_indexed()
+            else pyomo.value(pyomo_expr),
+            result,
+            err_msg=(
+                f"Test failed for {str_expr=}, with "
+                f"{str(pyomo_expr) if isinstance(pyomo_expr, pyomo.Expression) else pyomo_expr}"
             ),
         )
 

@@ -48,6 +48,9 @@ class MathParser:
         self.MUL: str = "Multiply"
         self.DIV: str = "Divide"
 
+        # Vector and matrix operations
+        self.DOT: str = "DotProduct"
+
         # Exponentation and logarithms
         self.EXP: str = "Exp"
         self.LN: str = "Ln"
@@ -142,14 +145,42 @@ class MathParser:
         }
 
         def _pyomo_multiply(*args):
-            def _multiply(x, y):
-                if hasattr(x, "is_indexed") and x.is_indexed() and hasattr(y, "is_indexed") and y.is_indexed():
-                    # both are indexed
-                    return pyomo.sum_product(x, y)
+            """Multiply tensor with a scalar."""
 
+            def _expr_multiply_rule(scalar_value, to_multiply):
+                def _inner(_, *indices):
+                    return to_multiply[indices] * scalar_value
+
+                return _inner
+
+            def _multiply(x, y):
+                if hasattr(x, "is_indexed") and x.is_indexed():
+                    # x is a tensor
+                    expr = pyomo.Expression(x.index_set(), rule=_expr_multiply_rule(y, x))
+                    expr.construct()
+                    return expr
+                if hasattr(y, "is_indexed") and y.is_indexed():
+                    # y is a tensor
+                    expr = pyomo.Expression(y.index_set(), rule=_expr_multiply_rule(x, y))
+                    expr.construct()
+                    return expr
+
+                # both are scalars
                 return x * y
 
             return reduce(_multiply, args)
+
+        def _pyomo_dot_product(*args):
+            """Take the dot product of two tensors representing vectors."""
+
+            def _dot_product(x, y):
+                if hasattr(x, "is_indexed") and x.is_indexed() and hasattr(y, "is_indexed") and y.is_indexed():
+                    # both are indexed
+                    return pyomo.sum_product(x, y, index=x.index_set())
+
+                return x * y
+
+            return reduce(_dot_product, args)
 
         pyomo_env = {
             # Define the operations for the different operators.
@@ -159,6 +190,8 @@ class MathParser:
             self.SUB: lambda *args: reduce(lambda x, y: x - y, args),
             self.MUL: _pyomo_multiply,
             self.DIV: lambda *args: reduce(lambda x, y: x / y, args),
+            # Vector and matrix operations
+            self.DOT: _pyomo_dot_product,
             # Exponentiation and logarithms
             self.EXP: lambda x: pyomo.exp(x),
             self.LN: lambda x: pyomo.log(x),
