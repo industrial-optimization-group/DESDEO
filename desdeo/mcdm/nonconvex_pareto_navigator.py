@@ -25,11 +25,66 @@ from desdeo.tools.scalarization import (
     add_lte_constraints,
     get_corrected_ideal_and_nadir
 )
-from desdeo.mcdm.pareto_navigator import calculate_search_direction
+from desdeo.mcdm.pareto_navigator import (
+    calculate_adjusted_speed,
+    calculate_search_direction
+)
 
 from desdeo.tools.gurobipy_solver_interfaces import GurobipySolver
 
 from desdeo.tools.paint import paint
+
+def get_corrected_solutions(problem: Problem, solutions: list[dict[str, float]]) -> list[dict[str, float]]:
+    """Correct the objective values of the objectives that are to be maximized for a set of solutions.
+
+    Args:
+        problem (Problem): The original problem.
+        solutions (list[dict[str, float]]): A list of solutions.
+
+    Returns:
+        list[dict[str, float]]: A list of corrected solutions.
+    """
+    corrected_solutions = []
+    for solution in solutions:
+        sol = {
+            objective.symbol: solution[objective.symbol] if not objective.maximize else -solution[objective.symbol]
+            for objective in problem.objectives
+        }
+        corrected_solutions.append(sol)
+    return corrected_solutions
+
+def get_paint_approximation(problem: Problem, paint_approx: np.ndarray | None = None) -> np.ndarray:
+    """Compute the PAINT approximation and reformulate it.
+
+    Args:
+        problem (Problem): The problem being solved.
+        paint_approx (np.ndarray | None, optional): A precomputed PAINT approximation (for tests). Defaults to None.
+
+    Returns:
+        np.ndarray: The PAINT approximation as a matrix with each node as a Pareto optimal solution instead of an index.
+    """
+    po_solutions = []
+    for obj in problem.objectives:
+        if not obj.maximize:
+            po_solutions.append(problem.discrete_representation.objective_values[obj.symbol])
+        else:
+            values = []
+            for value in problem.discrete_representation.objective_values[obj.symbol]:
+                values.append(-value)
+            po_solutions.append(values)
+    po_solutions = np.array(po_solutions).T
+
+    # run PAINT to get the approximation
+    approximation = paint(po_solutions) if paint_approx is None else paint_approx
+
+    # form the PAINT approximation into a matrix
+    matrix = []
+    for p in approximation:
+        row = []
+        for i in p:
+            row.append(po_solutions[i])
+        matrix.append(row)
+    return np.array(matrix)
 
 def e_cones(problem: Problem, solutions: list[dict[str, float]]) -> np.ndarray:
     """Create the matrix V to form the e-cones.
@@ -306,7 +361,7 @@ def calculate_all_solutions(
         list[dict[str, float | list[float]]]: A list of a set number of solutions.
     """
     bounds = []
-    # TODO: check if lower or upper bounds
+    # TODO: check if lower or upper bounds, check maximization
     if "bounds" in preference_information:
         b = preference_information["bounds"]
         for obj in problem.objectives:
@@ -347,6 +402,9 @@ def calculate_all_solutions(
 # test the method
 if __name__ == "__main__":
     acc = 0.10
+    allowed_speeds = [1, 2, 3, 4, 5]
+    speed = 1
+    adjusted_speed = calculate_adjusted_speed(allowed_speeds, speed)
     x_1 = Variable(name="x_1", symbol="x_1", variable_type=VariableTypeEnum.real, lowerbound=0, upperbound=4)
 
     f_1 = Objective(
@@ -406,7 +464,7 @@ if __name__ == "__main__":
         non_dominated=True,
     )
 
-    test_problem = Problem(
+    problem = Problem(
         name="Nonconvex Pareto Navigator test problem",
         description="The test problem used in the nonconvex Pareto navigator paper.",
         variables=[x_1],
@@ -414,18 +472,8 @@ if __name__ == "__main__":
         discrete_representation=representation
     )
 
-    problem = test_problem
     ideal = problem.get_ideal_point()
     nadir = problem.get_nadir_point()
-
-    # from discrete representation check maximization
-    po_solutions = np.array([[15.98, 16.11, 16.47, 16.85, 17.4, 16.01, 16.08, 16.80, 17.10],
-                    [417.5, 426.6, 422.0, 415.5, 416.8, 425.2, 425.2, 414.1, 411.6],
-                    [22.82, 1.52, 21.0, 22.75, 17.51, 8.04, 11.0, 18.24, 15.10],
-                    [15030, 14440, 14980, 15000, 14970, 14590, 14700, 14960, 14860],
-                    [-9656, -8947, -9730, -9721, -9763, -9132, -9265, -9626, -9529]]).T
-
-    #test_approx = paint(po_solutions)
 
     # read this into a file next time
     test_approx = np.array([[0, 0, 0, 0, 0, 0],
@@ -568,12 +616,7 @@ if __name__ == "__main__":
                             [3, 4, 5, 6, 8, 3],
                             [3, 4, 6, 7, 8, 3]])
 
-    matrix = []
-    for p in test_approx:
-        row = []
-        for i in p:
-            row.append(po_solutions[i])
-        matrix.append(row)
+    matrix = get_paint_approximation(problem, test_approx)
 
     starting_point = {"f_1": 16.1, "f_2": 421, "f_3": 42, "f_4": 15320, "f_5": 9852}
     preference_information = {
@@ -583,12 +626,13 @@ if __name__ == "__main__":
     reference_point = preference_information["reference_point"]
     for obj in problem.objectives:
         if obj.maximize:
+            if "bounds" in preference_information:
+                preference_information["bounds"][obj.symbol] = -preference_information["bounds"][obj.symbol]
             starting_point[obj.symbol] = -starting_point[obj.symbol]
-            preference_information["bounds"][obj.symbol] = -preference_information["bounds"][obj.symbol] # TODO: check if None
             reference_point[obj.symbol] = -reference_point[obj.symbol]
 
     milp = create_milp(problem, matrix)
-    solutions = calculate_all_solutions(milp, starting_point, preference_information, 1/100, 100)
+    solutions = calculate_all_solutions(milp, starting_point, preference_information, adjusted_speed, 100)
 
     cones = e_cones(milp, solutions)
 
@@ -601,18 +645,15 @@ if __name__ == "__main__":
     reference_point = preference_information["reference_point"]
     for obj in problem.objectives:
         if obj.maximize:
+            if "bounds" in preference_information:
+                preference_information["bounds"][obj.symbol] = -preference_information["bounds"][obj.symbol]
             starting_point[obj.symbol] = -starting_point[obj.symbol]
-            preference_information["bounds"][obj.symbol] = -preference_information["bounds"][obj.symbol] # TODO: check if None
             reference_point[obj.symbol] = -reference_point[obj.symbol]
 
-    solutions = calculate_all_solutions(milp, starting_point, preference_information, 1/100, 10)
-    corrected_solutions = []
-    for solution in solutions:
-        sol = {
-            objective.symbol: solution[objective.symbol] if not objective.maximize else -solution[objective.symbol]
-            for objective in problem.objectives
-        }
-        corrected_solutions.append(sol)
+    solutions = calculate_all_solutions(milp, starting_point, preference_information, adjusted_speed, 10)
+
+    # a separate function for this?
+    corrected_solutions = get_corrected_solutions(problem, solutions)
     print(corrected_solutions)
 
     for i in range(len(corrected_solutions)):
