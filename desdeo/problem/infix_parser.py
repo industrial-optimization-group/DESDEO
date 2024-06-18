@@ -37,6 +37,7 @@ class InfixExpressionParser:
         "/": "Divide",
         "**": "Power",
         ".": "DotProduct",
+        "@": "MatMul",
     }
 
     # Supported infix unary operators, i.e., 'Cos(90)'. The key is the notation of the operator in infix format,
@@ -105,7 +106,7 @@ class InfixExpressionParser:
         # Define binary operation symbols (this is the manual part)
         # If new binary operators are to be added, they must be defined here.
         signop = one_of("+ -")
-        multop = one_of("* / .")
+        multop = one_of("* / . @")
         plusop = one_of("+ -")
         expop = Literal("**")
 

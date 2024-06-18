@@ -1,5 +1,6 @@
 """Tests for the MathJSON parser."""
 
+from collections.abc import Iterable
 import copy
 import json
 import math
@@ -965,6 +966,16 @@ def test_pyomo_basic_matrix_arithmetics():
     Y_dims = (5,)
     X_values = [1, 2, 3, 4, 5]
     Y_values = [-1, 1, 0, 1, -1]
+
+    xmat_dims = (3, 3)
+    ymat_dims = (3, 3)
+    zmat_dims = (4, 3)
+    vmat_dims = (1, 4)
+    Xmat_values = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+    Ymat_values = [[1, -2, 3.1], [-3.3, 5, -6], [7.1, 4.2, 6.9]]
+    Zmat_values = [[1.5, -2.3, 3.8], [-3.7, 5.2, -6.1], [7.4, 4.5, 6.2], [0.1, -0.4, 1.3]]
+    Vmat_values = [[1.5, -2.3, 3.8, 0.9]]
+
     x = 2.8
     c = 0.5
 
@@ -974,13 +985,50 @@ def test_pyomo_basic_matrix_arithmetics():
     pyomo_model.Y = pyomo.Param(
         pyomo.RangeSet(1, Y_dims[0]), domain=pyomo.Reals, initialize=PyomoEvaluator._init_rule(Y_values)
     )
+    pyomo_model.Xmat = pyomo.Var(
+        pyomo.RangeSet(1, xmat_dims[0]),
+        pyomo.RangeSet(1, xmat_dims[1]),
+        domain=pyomo.Reals,
+        initialize=PyomoEvaluator._init_rule(Xmat_values),
+    )
+    pyomo_model.Ymat = pyomo.Param(
+        pyomo.RangeSet(1, ymat_dims[0]),
+        pyomo.RangeSet(1, ymat_dims[1]),
+        domain=pyomo.Reals,
+        initialize=PyomoEvaluator._init_rule(Ymat_values),
+    )
+    pyomo_model.Zmat = pyomo.Var(
+        pyomo.RangeSet(1, zmat_dims[0]),
+        pyomo.RangeSet(1, zmat_dims[1]),
+        domain=pyomo.Reals,
+        initialize=PyomoEvaluator._init_rule(Zmat_values),
+    )
+    pyomo_model.Vmat = pyomo.Param(
+        pyomo.RangeSet(1, vmat_dims[0]),
+        pyomo.RangeSet(1, vmat_dims[1]),
+        domain=pyomo.Reals,
+        initialize=PyomoEvaluator._init_rule(Vmat_values),
+    )
     pyomo_model.x = pyomo.Var(domain=pyomo.Reals, initialize=x)
     pyomo_model.c = pyomo.Param(domain=pyomo.Reals, default=c)
 
     tests = [
-        ("X.Y", np.dot(X_values, Y_values)),
+        ("X.Y", np.dot(X_values, Y_values)),  # dot product
         ("Y.X", np.dot(Y_values, X_values)),
-        ("X*c", c * np.array(X_values)),
+        ("X*c", c * np.array(X_values)),  # product by or with constant
+        ("c*X", c * np.array(X_values)),
+        ("Y*c", c * np.array(Y_values)),
+        ("c*Y", c * np.array(Y_values)),
+        ("x*X", x * np.array(X_values)),  # product by or with scalar
+        ("X*x", x * np.array(X_values)),
+        ("x*Y", x * np.array(Y_values)),
+        ("Y*x", x * np.array(Y_values)),
+        ("Xmat@Ymat", np.array(Xmat_values) @ np.array(Ymat_values)),  # matrix product
+        ("Ymat@Xmat", np.array(Ymat_values) @ np.array(Xmat_values)),
+        ("Zmat@Xmat", np.array(Zmat_values) @ np.array(Xmat_values)),
+        ("Vmat@Zmat", np.array(Vmat_values) @ np.array(Zmat_values)),
+        ("Vmat@Zmat@Xmat", np.array(Vmat_values) @ np.array(Zmat_values) @ np.array(Xmat_values)),
+        ("Xmat + Ymat", np.array(Xmat_values) + np.array(Ymat_values)),  # matrix addition
     ]
 
     pyomo_parser = MathParser(to_format="pyomo")
@@ -992,7 +1040,12 @@ def test_pyomo_basic_matrix_arithmetics():
 
         npt.assert_array_almost_equal(
             [pyomo.value(pyomo_expr[i]) for i in pyomo_expr.index_set()]
-            if hasattr(pyomo_expr, "is_indexed") and pyomo_expr.is_indexed()
+            if hasattr(pyomo_expr, "index_set") and pyomo_expr.index_set().dimen == 1
+            else [
+                [pyomo.value(pyomo_expr[i, j]) for j in pyomo_expr.index_set().set_tuple[1]]
+                for i in pyomo_expr.index_set().set_tuple[0]
+            ]
+            if hasattr(pyomo_expr, "index_set") and pyomo_expr.index_set().dimen == 2
             else pyomo.value(pyomo_expr),
             result,
             err_msg=(

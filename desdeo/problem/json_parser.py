@@ -50,6 +50,7 @@ class MathParser:
 
         # Vector and matrix operations
         self.DOT: str = "DotProduct"
+        self.MATMUL: str = "MatMul"
 
         # Exponentation and logarithms
         self.EXP: str = "Exp"
@@ -144,6 +145,45 @@ class MathParser:
             self.MAX: lambda *args: reduce(lambda x, y: pl.max_horizontal(to_expr(x), to_expr(y)), args),
         }
 
+        def _pyomo_addition(*args):
+            """Add scalars or tensors to each other."""
+
+            def _expr_matrix_addition_rule(x, y):
+                def _inner(_, i, j):
+                    return x[i, j] + y[i, j]
+
+                return _inner
+
+            def _add(x, y):
+                # if both are indexed, try matrix addition
+                if (hasattr(x, "index_set") and x.is_indexed()) and (hasattr(y, "index_set") and y.is_indexed()):
+                    # try matrix addition
+                    # check that the dimensions of x and y matches
+                    if x.index_set().set_tuple != y.index_set().set_tuple:
+                        msg = (
+                            f"The dimensions of x {x.index_set().set_tuple} must match that"
+                            f" of y {y.index_set().set_tuple} for matrix addition."
+                        )
+                        raise ParserError(msg)
+
+                    expr = pyomo.Expression(x.index_set(), rule=_expr_matrix_addition_rule(x, y))
+                    expr.construct()
+
+                    return expr
+
+                # if neither is indexed, do normal addition
+                if not (hasattr(x, "index_set") and x.is_indexed()) and not (
+                    hasattr(y, "index_set") and y.is_indexed()
+                ):
+                    # try regular addition
+                    return x + y
+
+                # if only one of the operands is indexed, then addition is not supported. Throw error.
+                msg = "For addition, both operands must be either scalars or matrices with matching dimensions."
+                raise ParserError(msg)
+
+            return reduce(_add, args)
+
         def _pyomo_multiply(*args):
             """Multiply tensor with a scalar."""
 
@@ -176,22 +216,70 @@ class MathParser:
             def _dot_product(x, y):
                 if hasattr(x, "is_indexed") and x.is_indexed() and hasattr(y, "is_indexed") and y.is_indexed():
                     # both are indexed
+                    # TODO: make sure x and y are of the same shape.
                     return pyomo.sum_product(x, y, index=x.index_set())
 
                 return x * y
 
             return reduce(_dot_product, args)
 
+        def _pyomo_matrix_multiplication(*args):
+            """Multiply two matrices together."""
+
+            def _expr_matmul_rule(mat_a, mat_b, j_indices):
+                def _inner(_, i_index, k_index):
+                    return sum(mat_a[i_index, j] * mat_b[j, k_index] for j in j_indices)
+
+                return _inner
+
+            def _matmul(mat_a, mat_b):
+                if not (hasattr(mat_a, "is_indexed") and mat_a.is_indexed) or not (
+                    hasattr(mat_b, "is_indexed") and mat_b.is_indexed
+                ):
+                    # either mat_a or mat_b is not tensor
+                    msg = "Either mat_a or mat_b, or both, is not indexed. Cannot perform matrix multiplication."
+                    raise ParserError(msg)
+
+                # assuming mat_a has dimensions i,j; and mat_b j,k;
+                # then the j dimension is squeezed and the i and k dimensions are kept.
+
+                # check that we are dealing with matrices
+                min_dimension = 2
+                if len(mat_a.index_set().set_tuple) < min_dimension or len(mat_b.index_set().set_tuple) < min_dimension:
+                    msg = "Both mat_a and mat_b must have at least two dimensions."
+                    raise ParserError(msg)
+
+                # check that the outer dimensions (the one to be squeezed) matches
+                if len(mat_a.index_set().set_tuple[-1]) != len(mat_b.index_set().set_tuple[0]):
+                    msg = (
+                        f"The last dimension size of mat_a ({mat_a.index_set().set_tuple[-1]}) must "
+                        f"match the first dimension of mat_b ({mat_b.index_set().set_tuple[0]})"
+                    )
+                    raise ParserError(msg)
+
+                expr = pyomo.Expression(
+                    mat_a.index_set().set_tuple[0],
+                    mat_b.index_set().set_tuple[1],
+                    rule=_expr_matmul_rule(mat_a, mat_b, mat_a.index_set().set_tuple[1]),
+                )
+                expr.construct()
+
+                return expr
+
+            return reduce(_matmul, args)
+
         pyomo_env = {
             # Define the operations for the different operators.
             # Basic arithmetic operations
             self.NEGATE: lambda x: -x,
-            self.ADD: lambda *args: reduce(lambda x, y: x + y, args),
+            # self.ADD: lambda *args: reduce(lambda x, y: x + y, args),
+            self.ADD: _pyomo_addition,
             self.SUB: lambda *args: reduce(lambda x, y: x - y, args),
             self.MUL: _pyomo_multiply,
             self.DIV: lambda *args: reduce(lambda x, y: x / y, args),
             # Vector and matrix operations
             self.DOT: _pyomo_dot_product,
+            self.MATMUL: _pyomo_matrix_multiplication,
             # Exponentiation and logarithms
             self.EXP: lambda x: pyomo.exp(x),
             self.LN: lambda x: pyomo.log(x),
