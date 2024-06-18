@@ -7,7 +7,6 @@ for multiobjective optimization. European Journal of Operational Research, 275(1
 """
 
 import numpy as np
-from scipy.optimize import milp
 
 from desdeo.problem import (
     Constraint,
@@ -20,11 +19,9 @@ from desdeo.problem import (
     Variable,
     VariableTypeEnum,
     numpy_array_to_objective_dict,
-    pareto_navigator_test_problem,
     objective_dict_to_numpy_array
 )
 from desdeo.tools.scalarization import (
-    add_asf_nondiff,
     add_lte_constraints,
     get_corrected_ideal_and_nadir
 )
@@ -34,7 +31,16 @@ from desdeo.tools.gurobipy_solver_interfaces import GurobipySolver
 
 from desdeo.tools.paint import paint
 
-def e_cones(problem: Problem, solutions: list[dict[str, float]]):
+def e_cones(problem: Problem, solutions: list[dict[str, float]]) -> np.ndarray:
+    """Create the matrix V to form the e-cones.
+
+    Args:
+        problem (Problem): The problem being solved.
+        solutions (list[dict[str, float]]): A list of approximated solutions given by the PAINT approximation.
+
+    Returns:
+        np.ndarray: The matrix V to form the e-cones.
+    """
     k = len(problem.objectives)
 
     values = []
@@ -67,9 +73,8 @@ def e_cones(problem: Problem, solutions: list[dict[str, float]]):
         for j in range(k):
             if i != j:
                 matrix_v[i][j] = -epsilons[i]
-    inv_matrix_v = np.linalg.inv(matrix_v).T
 
-    return inv_matrix_v
+    return np.linalg.inv(matrix_v).T
 
 def create_milp(problem: Problem, approximation: np.ndarray, cones: np.ndarray | None = None) -> Problem:
     """Form the mixed integer linear problem to replace the original problem.
@@ -117,18 +122,18 @@ def create_milp(problem: Problem, approximation: np.ndarray, cones: np.ndarray |
     ind = 1 # as of now, an index to get the objective values from the polytopes of the approximation
     # a loop to form the objective funtions
     for obj in problem.objectives:
+        sums = []
+        for k in range(a):
+            exprs = []
+            for j in range(b):
+                expr = f"l_{k}_{j} * {approximation[k][j][ind-1]}"
+                exprs.append(expr)
+            expr = " + ".join(exprs)
+            sums.append(expr)
+        sums = " + ".join(sums)
+
         # form the sum of sums for each f_i
         if cones is None:
-            sums = []
-            for k in range(a):
-                exprs = []
-                for j in range(b):
-                    expr = f"l_{k}_{j} * {approximation[k][j][ind-1]}"
-                    exprs.append(expr)
-                expr = " + ".join(exprs)
-                sums.append(expr)
-            sums = " + ".join(sums)
-
             # form the sums into objectives
             func = Objective(
                 name = f"f_{ind}",
@@ -142,16 +147,6 @@ def create_milp(problem: Problem, approximation: np.ndarray, cones: np.ndarray |
             objectives.append(func)
             ind += 1
         else:
-            sums = []
-            for k in range(a):
-                exprs = []
-                for j in range(b):
-                    expr = f"l_{k}_{j} * {approximation[k][j][ind-1]}"
-                    exprs.append(expr)
-                expr = " + ".join(exprs)
-                sums.append(expr)
-            sums = " + ".join(sums)
-
             # form the sums into objectives
             func = Objective(
                 name = f"f_{ind}",
@@ -160,7 +155,7 @@ def create_milp(problem: Problem, approximation: np.ndarray, cones: np.ndarray |
                 objective_type = ObjectiveTypeEnum.analytical,
                 maximize = False,
                 ideal = -float("inf"), # if there are e-cones, ideal is not assigned here but as separate constraints
-                nadir = nadir[obj.symbol]
+                nadir = float("inf")
             )
             objectives.append(func)
             ind += 1
@@ -174,6 +169,7 @@ def create_milp(problem: Problem, approximation: np.ndarray, cones: np.ndarray |
         # form and add the inequality constraints involving lambda and y variables
         for j in range(b):
             expr = f"l_{i}_{j}"
+            lambda_exprs.append(expr)
             exprs.append(expr)
         expr = " + ".join(exprs)
         expr = f"{expr} - y_{j}"
@@ -184,11 +180,6 @@ def create_milp(problem: Problem, approximation: np.ndarray, cones: np.ndarray |
             func=expr
         )
         constraints.append(const)
-
-        # form the lambda sum equality constraint
-        for j in range(b):
-            lambda_expr = f"l_{i}_{j}"
-            lambda_exprs.append(lambda_expr)
 
         # form the y sum equality constraint
         y_expr = f"y_{i}"
@@ -220,7 +211,6 @@ def create_milp(problem: Problem, approximation: np.ndarray, cones: np.ndarray |
             for j in range(len(problem.objectives)):
                 e_cone_exprs.append(f"{-cones[i][j]} * f_{j+1} + {ideal[problem.objectives[j].symbol]}")
             e_cone_expr = " + ".join(e_cone_exprs)
-            print(e_cone_expr)
             e_cone_con = Constraint(
                 name=f"e_cone_con_{i}",
                 symbol=f"e_cone_con_{i}",
@@ -229,14 +219,13 @@ def create_milp(problem: Problem, approximation: np.ndarray, cones: np.ndarray |
             )
             constraints.append(e_cone_con)
 
-    milp = Problem(
+    return Problem(
         name="milp",
         description="milp",
         variables=variables,
         objectives=objectives,
         constraints=constraints
     )
-    return milp
 
 def solve_next_solution(
     problem: Problem,
@@ -294,6 +283,7 @@ def solve_next_solution(
 
     solver = GurobipySolver(problem_w_t)
     res = solver.solve("t_func")
+    print(moved_reference_point, d)
     return res.optimal_objectives
 
 def calculate_all_solutions(
@@ -356,60 +346,7 @@ def calculate_all_solutions(
 
 # test the method
 if __name__ == "__main__":
-    problem = pareto_navigator_test_problem()
-    ideal = problem.get_ideal_point()
-    nadir = problem.get_nadir_point()
     acc = 0.10
-
-    """starting_point = {"f_1": 1.38, "f_2": 0.62, "f_3": -35.33}
-    preference_information = {
-#        "bounds": {"f_1": 1, "f_2": 2},
-        "reference_point": {"f_1": ideal["f_1"], "f_2": ideal["f_2"], "f_3": ideal["f_3"]}
-    }
-
-    po_solutions = np.array([[-2.0, -1.0, 0.0, 1.38, 1.73, 2.48, 5.0],
-                            [0.0, 4.6, -3.1, 0.62, 1.72, 1.45, 2.2],
-                            [-18.0, -25.0, -14.25, -35.33, -38.64, -42.41, -55.0]]).T
-
-    test_approx = paint(po_solutions)
-
-    matrix = []
-    for p in test_approx:
-        row = []
-        for i in p:
-            row.append(po_solutions[i])
-        matrix.append(row)
-
-    #print(e_cones(problem))
-
-    milp = create_milp(problem, matrix)
-    solutions = calculate_all_solutions(milp, starting_point, preference_information, 1/10, 100)
-    cones = e_cones(milp, solutions)
-    milp = create_milp(problem, matrix, cones)
-    preference_information = {
-#        "bounds": {"f_1": 1, "f_2": 2},
-        "reference_point": {"f_1": ideal["f_1"], "f_2": ideal["f_2"], "f_3": nadir["f_3"]}
-    }
-    solutions = calculate_all_solutions(milp, starting_point, preference_information, 1/200, 5)
-    print(solutions)
-    for i in range(len(solutions)):
-        if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i])
-                         - np.array([0.35, -0.51, -26.26])) < acc):
-            print("Values close enough to the ones in the article reached. ", solutions[i])
-            navigated_point = solutions[i]
-            break"""
-
-    """preference_info = {
-        "reference_point": {"f_1": ideal["f_1"], "f_2": nadir["f_2"], "f_3": navigated_point["f_3"]}
-    }
-    solutions = calculate_all_solutions(milp, navigated_point, preference_info, 1/200, 200)
-    for i in range(len(solutions)):
-        if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i])
-                            - np.array([-0.89, 2.91, -24.98])) < acc):
-            print("Values close enough to the ones in the article reached. ", solutions[i])
-            navigated_point = solutions[i]
-            break"""
-
     x_1 = Variable(name="x_1", symbol="x_1", variable_type=VariableTypeEnum.real, lowerbound=0, upperbound=4)
 
     f_1 = Objective(
@@ -460,11 +397,11 @@ if __name__ == "__main__":
     representation = DiscreteRepresentation(
         variable_values={"x_1": [0, 0, 0, 0, 0, 0, 0]},
         objective_values={
-            "f_1": [15.98, 16.11, 16.47, 16.85, 17.4, 16.01, 16.08],
-            "f_2": [417.5, 426.6, 422.0, 415.5, 416.8, 425.2, 425.2],
-            "f_3": [22.82, 1.52, 21.0, 22.75, 17.51, 8.04, 11.0],
-            "f_4": [15030, 14440, 14980, 15000, 14970, 14590, 14700],
-            "f_5": [9656, 8947, 9730, 9721, 9763, 9132, 9265]
+            "f_1": [15.98, 16.11, 16.47, 16.85, 17.4, 16.01, 16.08, 16.80, 17.10],
+            "f_2": [417.5, 426.6, 422.0, 415.5, 416.8, 425.2, 425.2, 414.1, 411.6],
+            "f_3": [22.82, 1.52, 21.0, 22.75, 17.51, 8.04, 11.0, 18.24, 15.10],
+            "f_4": [15030, 14440, 14980, 15000, 14970, 14590, 14700, 14960, 14860],
+            "f_5": [9656, 8947, 9730, 9721, 9763, 9132, 9265, 9626, 9529]
         },
         non_dominated=True,
     )
@@ -481,13 +418,155 @@ if __name__ == "__main__":
     ideal = problem.get_ideal_point()
     nadir = problem.get_nadir_point()
 
+    # from discrete representation check maximization
     po_solutions = np.array([[15.98, 16.11, 16.47, 16.85, 17.4, 16.01, 16.08, 16.80, 17.10],
                     [417.5, 426.6, 422.0, 415.5, 416.8, 425.2, 425.2, 414.1, 411.6],
                     [22.82, 1.52, 21.0, 22.75, 17.51, 8.04, 11.0, 18.24, 15.10],
                     [15030, 14440, 14980, 15000, 14970, 14590, 14700, 14960, 14860],
                     [-9656, -8947, -9730, -9721, -9763, -9132, -9265, -9626, -9529]]).T
 
-    test_approx = paint(po_solutions)
+    #test_approx = paint(po_solutions)
+
+    # read this into a file next time
+    test_approx = np.array([[0, 0, 0, 0, 0, 0],
+                            [1, 1, 1, 1, 1, 1],
+                            [2, 2, 2, 2, 2, 2],
+                            [3, 3, 3, 3, 3, 3],
+                            [4, 4, 4, 4, 4, 4],
+                            [5, 5, 5, 5, 5, 5],
+                            [6, 6, 6, 6, 6, 6],
+                            [7, 7, 7, 7, 7, 7],
+                            [8, 8, 8, 8, 8, 8],
+                            [0, 3, 0, 0, 0, 0],
+                            [0, 4, 0, 0, 0, 0],
+                            [0, 5, 0, 0, 0, 0],
+                            [0, 6, 0, 0 ,0, 0],
+                            [0, 7, 0, 0, 0, 0],
+                            [0, 8, 0, 0, 0, 0],
+                            [0, 2, 0, 0, 0, 0],
+                            [0, 1, 0, 0, 0, 0],
+                            [1, 2, 1, 1, 1, 1],
+                            [1, 4, 1, 1, 1, 1],
+                            [1, 5, 1, 1, 1, 1],
+                            [1, 6, 1, 1, 1, 1],
+                            [1, 7, 1, 1, 1, 1],
+                            [1, 8, 1, 1, 1, 1],
+                            [2, 3, 2, 2, 2, 2],
+                            [2, 4, 2, 2, 2, 2],
+                            [2, 6, 2, 2, 2, 2],
+                            [2, 7, 2, 2, 2, 2],
+                            [3, 4, 3, 3, 3, 3],
+                            [3, 5, 3, 3, 3, 3],
+                            [3, 6, 3, 3, 3, 3],
+                            [3, 7, 3, 3, 3, 3],
+                            [3, 8, 3, 3, 3, 3],
+                            [4, 5, 4, 4, 4, 4],
+                            [4, 6, 4, 4, 4, 4],
+                            [4, 7, 4, 4, 4, 4],
+                            [4, 8, 4, 4, 4, 4],
+                            [5, 6, 5, 5, 5, 5],
+                            [5, 8, 5, 5, 5, 5],
+                            [6, 7, 6, 6, 6, 6],
+                            [6, 8, 6, 6, 6, 6],
+                            [7, 8, 7, 7, 7, 7],
+                            [0, 2, 4, 0, 0, 0],
+                            [0, 2, 6, 0, 0, 0],
+                            [0, 2, 7, 0, 0, 0],
+                            [0, 3, 4, 0, 0, 0],
+                            [0, 3, 5, 0, 0, 0],
+                            [0, 3, 7, 0, 0, 0],
+                            [0, 3, 8, 0, 0, 0],
+                            [0, 4, 6, 0, 0, 0],
+                            [0, 4, 7, 0, 0, 0],
+                            [0, 5, 6, 0, 0, 0],
+                            [0, 5, 8, 0, 0, 0],
+                            [0, 6, 7, 0, 0, 0],
+                            [0, 6, 8, 0, 0, 0],
+                            [0, 7, 8, 0, 0, 0],
+                            [0, 1, 6, 0, 0, 0],
+                            [0, 1, 7, 0, 0, 0],
+                            [0, 1, 8, 0, 0, 0],
+                            [0, 2, 3, 0, 0, 0],
+                            [0, 1, 5, 0, 0, 0],
+                            [1, 2, 4, 1, 1, 1],
+                            [1, 2, 6, 1, 1, 1],
+                            [1, 4, 5, 1, 1, 1],
+                            [1, 4, 6, 1, 1, 1],
+                            [1, 4, 7, 1, 1, 1],
+                            [1, 4, 8, 1, 1, 1],
+                            [1, 5, 6, 1, 1, 1],
+                            [1, 5, 8, 1, 1, 1],
+                            [1, 6, 7, 1, 1, 1],
+                            [1, 6, 8, 1, 1, 1],
+                            [1, 7, 8, 1, 1, 1],
+                            [2, 3, 4, 2, 2, 2],
+                            [2, 3, 6, 2, 2, 2],
+                            [2, 3, 7, 2, 2, 2],
+                            [2, 4, 6, 2, 2, 2],
+                            [2, 4, 7, 2, 2, 2],
+                            [2, 6, 7, 2, 2, 2],
+                            [3, 4, 5, 3, 3, 3],
+                            [3, 4, 6, 3, 3, 3],
+                            [3, 4, 7, 3, 3, 3],
+                            [3, 4, 8, 3, 3, 3],
+                            [3, 5, 6, 3, 3, 3],
+                            [3, 5, 8, 3, 3, 3],
+                            [3, 6, 7, 3, 3, 3],
+                            [3, 6, 8, 3, 3 ,3],
+                            [3, 7, 8, 3, 3, 3],
+                            [4, 5, 6, 4, 4, 4],
+                            [4, 5, 8, 4, 4, 4],
+                            [4, 6, 7, 4, 4, 4],
+                            [4, 6, 8, 4, 4, 4],
+                            [4, 7, 8, 4, 4, 4],
+                            [5, 6, 8, 5, 5, 5],
+                            [6, 7, 8, 6, 6, 6],
+                            [0, 2, 4, 6, 0, 0],
+                            [0, 2, 4, 7, 0, 0],
+                            [0, 1, 5, 6, 0, 0],
+                            [0, 2, 6, 7, 0, 0],
+                            [0, 3, 4, 7, 0, 0],
+                            [0, 3, 5, 8, 0, 0],
+                            [0, 3, 7, 8, 0, 0],
+                            [0, 4, 6, 7, 0, 0],
+                            [0, 5, 6, 8, 0, 0],
+                            [0, 6, 7, 8, 0, 0],
+                            [0, 1, 5, 8, 0, 0],
+                            [0, 1, 6, 7, 0, 0],
+                            [0, 1, 6, 8, 0, 0],
+                            [0, 1, 7, 8, 0, 0],
+                            [0, 2, 3, 4, 0, 0],
+                            [0, 2, 3, 7, 0, 0],
+                            [1, 2, 4, 6, 1, 1],
+                            [1, 4, 5, 6, 1, 1],
+                            [1, 4, 5, 8, 1, 1],
+                            [1, 4, 6, 7, 1, 1],
+                            [1, 4, 6, 8, 1, 1],
+                            [1, 4, 7, 8, 1, 1],
+                            [1, 5, 6, 8, 1, 1],
+                            [1, 6, 7, 8, 1, 1],
+                            [2, 3, 4, 6, 2, 2],
+                            [2, 3, 4, 7, 2, 2],
+                            [2, 3, 6, 7, 2, 2],
+                            [2, 4, 6, 7, 2, 2],
+                            [3, 4, 5, 6, 3, 3],
+                            [3, 4, 5, 8, 3, 3],
+                            [3, 4, 6, 7, 3, 3],
+                            [3, 4, 6, 8, 3, 3],
+                            [3, 4, 7, 8, 3, 3],
+                            [3, 5, 6, 8, 3, 3],
+                            [3, 6, 7, 8, 3, 3],
+                            [4, 5, 6, 8, 4, 4],
+                            [4, 6, 7, 8, 4, 4],
+                            [0, 2, 4, 6, 7, 0],
+                            [0, 1, 5, 6, 8, 0],
+                            [0, 1, 6, 7, 8, 0],
+                            [0, 2, 3, 4, 7, 0],
+                            [1, 4, 5, 6, 8, 1],
+                            [1, 4, 6, 7, 8, 1],
+                            [2, 3, 4, 6, 7, 2],
+                            [3, 4, 5, 6, 8, 3],
+                            [3, 4, 6, 7, 8, 3]])
 
     matrix = []
     for p in test_approx:
@@ -501,24 +580,32 @@ if __name__ == "__main__":
         "bounds": {"f_1": 16.1, "f_2": 452, "f_3": 49, "f_4": 15500, "f_5": 8860},
         "reference_point": {"f_1": 15.1, "f_2": 427, "f_3": 43, "f_4": 15150, "f_5": 8920}
     }
+    reference_point = preference_information["reference_point"]
     for obj in problem.objectives:
         if obj.maximize:
             starting_point[obj.symbol] = -starting_point[obj.symbol]
-            preference_information["bounds"][obj.symbol] = -preference_information["bounds"][obj.symbol]
-            preference_information["reference_point"][obj.symbol] = -preference_information["reference_point"][obj.symbol]
+            preference_information["bounds"][obj.symbol] = -preference_information["bounds"][obj.symbol] # TODO: check if None
+            reference_point[obj.symbol] = -reference_point[obj.symbol]
 
     milp = create_milp(problem, matrix)
-    solutions = calculate_all_solutions(milp, starting_point, preference_information, 1/200, 100)
+    solutions = calculate_all_solutions(milp, starting_point, preference_information, 1/100, 100)
 
     cones = e_cones(milp, solutions)
 
-    milp = create_milp(problem, matrix, cones)
+    milp = create_milp(milp, matrix, cones)
+    starting_point = {"f_1": 16.08, "f_2": 425.2, "f_3": 11.0, "f_4": 14590, "f_5": 9132}
     preference_information = {
-        "bounds": {"f_1": 16.1, "f_2": 452, "f_3": 49, "f_4": 15500, "f_5": -8860},
-        "reference_point": {"f_1": 15.1, "f_2": 427, "f_3": 43, "f_4": 15150, "f_5": -8920}
+        "bounds": {"f_1": 16.1, "f_2": 452, "f_3": 49, "f_4": 15500, "f_5": 8860},
+        "reference_point": {"f_1": 15.1, "f_2": 427, "f_3": 43, "f_4": 15150, "f_5": 8920}
     }
+    reference_point = preference_information["reference_point"]
+    for obj in problem.objectives:
+        if obj.maximize:
+            starting_point[obj.symbol] = -starting_point[obj.symbol]
+            preference_information["bounds"][obj.symbol] = -preference_information["bounds"][obj.symbol] # TODO: check if None
+            reference_point[obj.symbol] = -reference_point[obj.symbol]
 
-    solutions = calculate_all_solutions(milp, starting_point, preference_information, 1/100, 100)
+    solutions = calculate_all_solutions(milp, starting_point, preference_information, 1/100, 10)
     corrected_solutions = []
     for solution in solutions:
         sol = {
