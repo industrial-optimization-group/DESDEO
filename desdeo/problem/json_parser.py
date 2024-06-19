@@ -145,16 +145,39 @@ class MathParser:
             self.MAX: lambda *args: reduce(lambda x, y: pl.max_horizontal(to_expr(x), to_expr(y)), args),
         }
 
-        def _pyomo_addition(*args):
-            """Add scalars or tensors to each other."""
+        def _pyomo_negate(x):
+            """Negates the given operand."""
 
-            def _expr_matrix_addition_rule(x, y):
-                def _inner(_, i, j):
-                    return x[i, j] + y[i, j]
+            def _expr_negate_rule(x):
+                def _inner(_, *indices):
+                    return -x[indices]
 
                 return _inner
 
-            def _add(x, y):
+            def _negate(x):
+                # check if operand in indexed
+                if hasattr(x, "index_set") and x.is_indexed():
+                    # indexed, return new pyomo expression
+                    expr = pyomo.Expression(x.index_set(), rule=_expr_negate_rule(x))
+                    expr.construct()
+
+                    return expr
+
+                # not indexed, just regular negate
+                return -x
+
+            return _negate(x)
+
+        def _pyomo_addition(*args, subtraction=False):
+            """Add (subtract) scalars or tensors to (from) each other."""
+
+            def _expr_matrix_addition_rule(x, y, subtraction=subtraction):
+                def _inner(_, i, j):
+                    return x[i, j] + y[i, j] if not subtraction else x[i, j] - y[i, j]
+
+                return _inner
+
+            def _add(x, y, subtraction=subtraction):
                 # if both are indexed, try matrix addition
                 if (hasattr(x, "index_set") and x.is_indexed()) and (hasattr(y, "index_set") and y.is_indexed()):
                     # try matrix addition
@@ -166,7 +189,9 @@ class MathParser:
                         )
                         raise ParserError(msg)
 
-                    expr = pyomo.Expression(x.index_set(), rule=_expr_matrix_addition_rule(x, y))
+                    expr = pyomo.Expression(
+                        x.index_set(), rule=_expr_matrix_addition_rule(x, y, subtraction=subtraction)
+                    )
                     expr.construct()
 
                     return expr
@@ -175,14 +200,20 @@ class MathParser:
                 if not (hasattr(x, "index_set") and x.is_indexed()) and not (
                     hasattr(y, "index_set") and y.is_indexed()
                 ):
-                    # try regular addition
-                    return x + y
+                    if not subtraction:
+                        # try regular addition
+                        return x + y
+                    # try regular subtraction
+                    return x - y
 
                 # if only one of the operands is indexed, then addition is not supported. Throw error.
                 msg = "For addition, both operands must be either scalars or matrices with matching dimensions."
                 raise ParserError(msg)
 
             return reduce(_add, args)
+
+        def _pyomo_subtraction(*args):
+            return _pyomo_addition(*args, subtraction=True)
 
         def _pyomo_multiply(*args):
             """Multiply tensor with a scalar."""
@@ -233,8 +264,8 @@ class MathParser:
                 return _inner
 
             def _matmul(mat_a, mat_b):
-                if not (hasattr(mat_a, "is_indexed") and mat_a.is_indexed) or not (
-                    hasattr(mat_b, "is_indexed") and mat_b.is_indexed
+                if not (hasattr(mat_a, "is_indexed") and mat_a.is_indexed()) or not (
+                    hasattr(mat_b, "is_indexed") and mat_b.is_indexed()
                 ):
                     # either mat_a or mat_b is not tensor
                     msg = "Either mat_a or mat_b, or both, is not indexed. Cannot perform matrix multiplication."
@@ -271,10 +302,12 @@ class MathParser:
         pyomo_env = {
             # Define the operations for the different operators.
             # Basic arithmetic operations
-            self.NEGATE: lambda x: -x,
+            # self.NEGATE: lambda x: -x,
+            self.NEGATE: _pyomo_negate,
             # self.ADD: lambda *args: reduce(lambda x, y: x + y, args),
             self.ADD: _pyomo_addition,
-            self.SUB: lambda *args: reduce(lambda x, y: x - y, args),
+            # self.SUB: lambda *args: reduce(lambda x, y: x - y, args),
+            self.SUB: _pyomo_subtraction,
             self.MUL: _pyomo_multiply,
             self.DIV: lambda *args: reduce(lambda x, y: x / y, args),
             # Vector and matrix operations

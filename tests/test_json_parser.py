@@ -1029,6 +1029,13 @@ def test_pyomo_basic_matrix_arithmetics():
         ("Vmat@Zmat", np.array(Vmat_values) @ np.array(Zmat_values)),
         ("Vmat@Zmat@Xmat", np.array(Vmat_values) @ np.array(Zmat_values) @ np.array(Xmat_values)),
         ("Xmat + Ymat", np.array(Xmat_values) + np.array(Ymat_values)),  # matrix addition
+        ("Ymat + Xmat", np.array(Ymat_values) + np.array(Xmat_values)),  # matrix addition
+        ("Xmat - Ymat", np.array(Xmat_values) - np.array(Ymat_values)),  # matrix subtraction
+        ("Ymat - Xmat", np.array(Ymat_values) - np.array(Xmat_values)),  # matrix subtraction
+        ("x*Xmat", x * np.array(Xmat_values)),  # matrix scalar product
+        ("c*Xmat", c * np.array(Xmat_values)),
+        ("x*Ymat", x * np.array(Ymat_values)),
+        ("c*Ymat", c * np.array(Ymat_values)),
     ]
 
     pyomo_parser = MathParser(to_format="pyomo")
