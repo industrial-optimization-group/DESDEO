@@ -1045,6 +1045,96 @@ def simple_scenario_test_problem():
         scenario_keys=["s_1", "s_2"],
     )
 
+def re21() -> Problem:
+    r"""Defines the four bar truss design problem.
+
+    The objective functions and constraints for the four bar truss design problem are defined as follows:
+
+    \begin{align}
+        &\min_{\mathbf{x}} & f_1(\mathbf{x}) & = L(2x_1 + \sqrt{2}x_2 + \sqrt{x_3} + x_4) \\
+        &\min_{\mathbf{x}} & f_2(\mathbf{x}) & = \frac{FL}{E}\left(\frac{2}{x_1} + \frac{2\sqrt{2}}{x_2} - \frac{2\sqrt{2}}{x_3} + \frac{2}{x_4}\right) \\
+        &\text{s.t.,}   & \frac{F}{\sigma} \leq x_1 & \leq 3\frac{F}{\sigma},\\
+        & & \sqrt{2}\frac{F}{\sigma} \leq x_2 & \leq 3\frac{F}{\sigma},\\
+        & & \sqrt{2}\frac{F}{\sigma} \leq x_3 & \leq 3\frac{F}{\sigma},\\
+        & & \frac{F}{\sigma} \leq x_4 & \leq 3\frac{F}{\sigma}.\\
+    \end{align}
+
+    References:
+        Cheng, F. Y., & Li, X. S. (1999). Generalized center method for multiobjective engineering optimization.
+            Engineering Optimization, 31(5), 641-661.
+
+        Tanabe, R. & Ishibuchi, H. (2020). An easy-to-use real-world multi-objective
+            optimization problem suite. Applied soft computing, 89, 106078.
+            https://doi.org/10.1016/j.asoc.2020.106078.
+
+        https://github.com/ryojitanabe/reproblems/blob/master/reproblem_python_ver/reproblem.py
+
+    Returns:
+        Problem: an instance of the four bar truss design problem.
+    """
+    # should these be hardcoded here or given as optional arguments for the problem?
+    f = 10.0
+    sigma = 10.0
+    e = 2.0 * 1e5
+    l = 200.0
+    a = f / sigma
+
+    x_1 = Variable(
+        name="x_1",
+        symbol="x_1",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=a,
+        upperbound=3*a,
+        initial_value=2*a
+    )
+    x_2 = Variable(
+        name="x_2",
+        symbol="x_2",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=np.sqrt(2.0)*a,
+        upperbound=3*a,
+        initial_value=2*a
+    )
+    x_3 = Variable(
+        name="x_3",
+        symbol="x_3",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=np.sqrt(2.0)*a,
+        upperbound=3*a,
+        initial_value=2*a
+    )
+    x_4 = Variable(
+        name="x_4",
+        symbol="x_4",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=a,
+        upperbound=3*a,
+        initial_value=2*a
+    )
+
+    f_1 = Objective(
+        name="f_1",
+        symbol="f_1",
+        func=f"{l} * ((2 * x_1) + {np.sqrt(2.0)} * x_2 + x_3**0.5 + x_4)",
+        #func=f"{l} * ((2 * x_1) + {np.sqrt(2.0)} * x_2 + {np.sqrt(2.0)} * x_3 + x_4)", how it was implemented in the article
+        objective_type=ObjectiveTypeEnum.analytical,
+        is_convex=True
+    )
+    f_2 = Objective(
+        name="f_2",
+        symbol="f_2",
+        func=f"({(f * l) / e} * ((2.0 / x_1) + (2.0 * {np.sqrt(2.0)} / x_2) - (2.0 * {np.sqrt(2.0)} / x_3) + (2.0 / x_4)))",
+        objective_type=ObjectiveTypeEnum.analytical,
+        is_convex=True
+    )
+
+    return Problem(
+        name="RE21",
+        description="",
+        variables=[x_1, x_2, x_3, x_4],
+        objectives=[f_1, f_2]
+    )
+
 
 if __name__ == "__main__":
     problem = simple_scenario_test_problem()

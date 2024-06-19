@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from desdeo.problem import GenericEvaluator, dtlz2
+from desdeo.problem import GenericEvaluator, dtlz2, re21
 
 
 def test_dtlz2():
@@ -29,3 +29,18 @@ def test_dtlz2():
     xs = {f"{var.symbol}": [0.55] for var in problem.variables}
 
     assert sum(res[obj.symbol][0] ** 2 for obj in problem.objectives) != 1.0
+
+def test_re21():
+    """Test that the four bar truss design problem evaluates correctly."""
+    problem = re21()
+
+    from desdeo.problem import GenericEvaluator
+    evaluator = GenericEvaluator(problem)
+
+    xs = {f"{var.symbol}": [2] for var in problem.variables}
+
+    res = evaluator.evaluate(xs)
+    obj_symbols = [obj.symbol for obj in problem.objectives]
+
+    objective_values = res[obj_symbols].to_numpy()[0]
+    assert np.allclose(objective_values, np.array([2048.528137, 0.02]))
