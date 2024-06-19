@@ -662,3 +662,4 @@ if __name__ == "__main__":
             print("Values close enough to the ones in the article reached. ", corrected_solutions[i])
             navigated_point = corrected_solutions[i]
             break
+
