@@ -67,6 +67,7 @@ class InfixExpressionParser:
         "Tanh": "Tanh",
         "Rational": "Rational",
         "-": "Negate",
+        "Sum": "Sum",
     }
 
     # Supported infix variadic operators (operators that take one or more comma separated arguments),

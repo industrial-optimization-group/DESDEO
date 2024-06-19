@@ -1036,14 +1036,16 @@ def test_pyomo_basic_matrix_arithmetics():
         ("c*Xmat", c * np.array(Xmat_values)),
         ("x*Ymat", x * np.array(Ymat_values)),
         ("c*Ymat", c * np.array(Ymat_values)),
+        ("Sum(Ymat)", np.sum(np.array(Ymat_values))),  # Summing
         ("Cos(c) * (Ymat + Xmat)", np.cos(c) * (np.array(Ymat_values) + np.array(Xmat_values))),  # advanced expressions
         (
             "Cos(x) * (Ymat + 2*Xmat - Ymat)",
             np.cos(x) * (np.array(Ymat_values) + 2 * np.array(Xmat_values) - np.array(Ymat_values)),
         ),  # advanced expressions
         (
-            "3 * (Zmat @ (Xmat + 3*Ymat) @ -Xmat)",
-            3 * (np.array(Zmat_values) @ (np.array(Xmat_values) + 3 * np.array(Ymat_values)) @ -np.array(Xmat_values)),
+            "Sum(Vmat) * (Zmat @ (Xmat + 3*Ymat) @ -Xmat)",
+            np.sum(Vmat_values)
+            * (np.array(Zmat_values) @ (np.array(Xmat_values) + 3 * np.array(Ymat_values)) @ -np.array(Xmat_values)),
         ),  # advanced expressions
     ]
 

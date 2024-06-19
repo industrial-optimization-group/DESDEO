@@ -1,8 +1,10 @@
 """Defines a parser to parse multiobjective optimziation problems defined in a JSON format."""
 
 from collections.abc import Callable
+import copy
 from enum import Enum
 from functools import reduce
+import itertools
 
 import gurobipy as gp
 import polars as pl
@@ -51,6 +53,7 @@ class MathParser:
         # Vector and matrix operations
         self.DOT: str = "DotProduct"
         self.MATMUL: str = "MatMul"
+        self.SUM: str = "Sum"
 
         # Exponentation and logarithms
         self.EXP: str = "Exp"
@@ -299,20 +302,22 @@ class MathParser:
 
             return reduce(_matmul, args)
 
+        def _pyomo_summation(summand):
+            """Sum an indexed Pyomo object."""
+            return pyomo.sum_product(summand, index=summand.index_set())
+
         pyomo_env = {
             # Define the operations for the different operators.
             # Basic arithmetic operations
-            # self.NEGATE: lambda x: -x,
             self.NEGATE: _pyomo_negate,
-            # self.ADD: lambda *args: reduce(lambda x, y: x + y, args),
             self.ADD: _pyomo_addition,
-            # self.SUB: lambda *args: reduce(lambda x, y: x - y, args),
             self.SUB: _pyomo_subtraction,
             self.MUL: _pyomo_multiply,
             self.DIV: lambda *args: reduce(lambda x, y: x / y, args),
             # Vector and matrix operations
             self.DOT: _pyomo_dot_product,
             self.MATMUL: _pyomo_matrix_multiplication,
+            self.SUM: _pyomo_summation,
             # Exponentiation and logarithms
             self.EXP: lambda x: pyomo.exp(x),
             self.LN: lambda x: pyomo.log(x),
