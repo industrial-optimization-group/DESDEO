@@ -34,7 +34,6 @@ def test_re21():
     """Test that the four bar truss design problem evaluates correctly."""
     problem = re21()
 
-    from desdeo.problem import GenericEvaluator
     evaluator = GenericEvaluator(problem)
 
     xs = {f"{var.symbol}": [2] for var in problem.variables}

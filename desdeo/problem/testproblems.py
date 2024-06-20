@@ -1052,7 +1052,8 @@ def re21() -> Problem:
 
     \begin{align}
         &\min_{\mathbf{x}} & f_1(\mathbf{x}) & = L(2x_1 + \sqrt{2}x_2 + \sqrt{x_3} + x_4) \\
-        &\min_{\mathbf{x}} & f_2(\mathbf{x}) & = \frac{FL}{E}\left(\frac{2}{x_1} + \frac{2\sqrt{2}}{x_2} - \frac{2\sqrt{2}}{x_3} + \frac{2}{x_4}\right) \\
+        &\min_{\mathbf{x}} & f_2(\mathbf{x}) & = \frac{FL}{E}\left(\frac{2}{x_1} + \frac{2\sqrt{2}}{x_2}
+        - \frac{2\sqrt{2}}{x_3} + \frac{2}{x_4}\right) \\
         &\text{s.t.,}   & \frac{F}{\sigma} \leq x_1 & \leq 3\frac{F}{\sigma},\\
         & & \sqrt{2}\frac{F}{\sigma} \leq x_2 & \leq 3\frac{F}{\sigma},\\
         & & \sqrt{2}\frac{F}{\sigma} \leq x_3 & \leq 3\frac{F}{\sigma},\\
@@ -1115,8 +1116,7 @@ def re21() -> Problem:
     f_1 = Objective(
         name="f_1",
         symbol="f_1",
-        func=f"{l} * ((2 * x_1) + {np.sqrt(2.0)} * x_2 + x_3**0.5 + x_4)",
-        #func=f"{l} * ((2 * x_1) + {np.sqrt(2.0)} * x_2 + {np.sqrt(2.0)} * x_3 + x_4)", how it was implemented in the article
+        func=f"{l} * ((2 * x_1) + {np.sqrt(2.0)} * x_2 + Sqrt(x_3) + x_4)",
         objective_type=ObjectiveTypeEnum.analytical,
         is_convex=True
     )
