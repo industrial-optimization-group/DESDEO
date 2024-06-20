@@ -1045,7 +1045,144 @@ def simple_scenario_test_problem():
         scenario_keys=["s_1", "s_2"],
     )
 
+def re22() -> Problem:
+    r"""The reinforced concrete beam design problem.
+
+    The objective functions and constraints for the reinforced concrete beam design problem are defined as follows:
+
+    \begin{align}
+        &\min_{\mathbf{x}} & f_1(\mathbf{x}) & = 29.4x_1 + 0.6x_2x_3 \\
+        &\min_{\mathbf{x}} & f_2(\mathbf{x}) & = \sum_{i=1}^2 \max\{g_i(\mathbf{x}), 0\} \\
+        &\text{s.t.,}   & g_1(\mathbf{x}) & = x_1x_3 - 7.735\frac{x_1^2}{x_2} - 180 \geq 0,\\
+        & & g_2(\mathbf{x}) & = 4 - \frac{x_3}{x_2} \geq 0.
+    \end{align}
+
+    References:
+        Tanabe, R. & Ishibuchi, H. (2020). An easy-to-use real-world multi-objective
+            optimization problem suite. Applied soft computing, 89, 106078.
+            https://doi.org/10.1016/j.asoc.2020.106078.
+
+        https://github.com/ryojitanabe/reproblems/blob/master/reproblem_python_ver/reproblem.py
+
+    Returns:
+        Problem: an instance of the reinforced concrete beam design problem.
+    """
+    x_2 = Variable(
+        name="x_2",
+        symbol="x_2",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=0,
+        upperbound=20,
+        initial_value=10
+    )
+    x_3 = Variable(
+        name="x_3",
+        symbol="x_3",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=0,
+        upperbound=40,
+        initial_value=20
+    )
+
+    # x_1 pre-defined discrete values
+    feasible_values = np.array([0.20, 0.31, 0.40, 0.44, 0.60, 0.62, 0.79, 0.80, 0.88, 0.93,
+                            1.0, 1.20, 1.24, 1.32, 1.40, 1.55, 1.58, 1.60, 1.76, 1.80,
+                            1.86, 2.0, 2.17, 2.20, 2.37, 2.40, 2.48, 2.60, 2.64, 2.79,
+                            2.80, 3.0, 3.08, 3.10, 3.16, 3.41, 3.52, 3.60, 3.72, 3.95,
+                            3.96, 4.0, 4.03, 4.20, 4.34, 4.40, 4.65, 4.74, 4.80, 4.84,
+                            5.0, 5.28, 5.40, 5.53, 5.72, 6.0, 6.16, 6.32, 6.60, 7.11,
+                            7.20, 7.80, 7.90, 8.0, 8.40, 8.69, 9.0, 9.48, 10.27, 11.0,
+                            11.06, 11.85, 12.0, 13.0, 14.0, 15.0])
+
+    variables = [x_2, x_3]
+
+    # forming a set of variables and a constraint to make sure x_1 is from the set of feasible values
+    x_1_eprs = []
+    for i in range(len(feasible_values)):
+        x = Variable(
+            name=f"x_1_{i}",
+            symbol=f"x_1_{i}",
+            variable_type=VariableTypeEnum.binary,
+            lowerbound=0,
+            upperbound=1
+        )
+        variables.append(x)
+        expr = f"x_1_{i} * {feasible_values[i]}"
+        x_1_eprs.append(expr)
+    x_1_eprs = " + ".join(x_1_eprs)
+
+    sum_expr = [f"x_1_{i}" for i in range(len(feasible_values))]
+    sum_expr = " + ".join(sum_expr) + " - 1"
+
+    x_1_con = Constraint(
+        name="x_1_con",
+        symbol="x_1_con",
+        cons_type=ConstraintTypeEnum.EQ,
+        func=sum_expr
+    )
+
+    g_1 = Constraint(
+        name="g_1",
+        symbol="g_1",
+        cons_type=ConstraintTypeEnum.EQ,
+        func=f"({x_1_eprs}) * x_3 - 7.735 * (({x_1_eprs})**2 / x_2) - 180"
+    )
+    g_2 = Constraint(
+        name="g_2",
+        symbol="g_2",
+        cons_type=ConstraintTypeEnum.EQ,
+        func="4 - x_3 / x_2"
+    )
+    g_3 = Constraint(
+        name="g_3",
+        symbol="g_3",
+        cons_type=ConstraintTypeEnum.LTE,
+        func=f"- (({x_1_eprs}) * x_3 - 7.735 * (({x_1_eprs})**2 / x_2) - 180)"
+    )
+    g_4 = Constraint(
+        name="g_4",
+        symbol="g_4",
+        cons_type=ConstraintTypeEnum.LTE,
+        func="-(4 - x_3 / x_2)"
+    )
+
+    f_1 = Objective(
+        name="f_1",
+        symbol="f_1",
+        func=f"29.4 * ({x_1_eprs}) + 0.6 * x_2 * x_3",
+        objective_type=ObjectiveTypeEnum.analytical
+    )
+    f_2 = Objective(
+        name="f_2",
+        symbol="f_2",
+        func=f"Max(({x_1_eprs}) * x_3 - 7.735 * (({x_1_eprs})**2 / x_2) - 180, 0) + Max(4 - x_3 / x_2, 0)",
+        objective_type=ObjectiveTypeEnum.analytical
+    )
+    return Problem(
+        name="re22",
+        description="",
+        variables=variables,
+        objectives=[f_1, f_2],
+        constraints=[g_1, g_2, g_3, g_4, x_1_con]
+    )
 
 if __name__ == "__main__":
-    problem = simple_scenario_test_problem()
-    print(problem.model_dump_json(indent=2))
+    #problem = simple_scenario_test_problem()
+    #print(problem.model_dump_json(indent=2))
+
+    problem = re22()
+
+    from desdeo.problem import GenericEvaluator
+    evaluator = GenericEvaluator(problem)
+
+    xs = {"x_2": [10], "x_3": [20]}
+    for i in range(len(problem.variables) - 2):
+        if i == 68:
+            xs[f"x_1_{i}"] = [1.0]
+        else:
+            xs[f"x_1_{i}"] = [0.0]
+
+    res = evaluator.evaluate(xs)
+
+    obj_values = [res[obj.symbol][0] for obj in problem.objectives]
+    print(obj_values)
