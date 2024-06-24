@@ -24,7 +24,7 @@ Here is an approximation of the four bar truss design problem's Pareto front (ta
 
 ## The reinforced concrete beam design problem (RE22)
 
-In the reinforced concrete beam design problem, the first objective is to minimize the total cost of concrete and reinforcing steel of the beam. The second object is to minimize the sum of the two constraint violations. The decision variable $x_1$ has a predefined discrete value[^1] from 0.2 to 15.
+In the reinforced concrete beam design problem, the first objective is to minimize the total cost of concrete and reinforcing steel of the beam. The second object is to minimize the sum of the two constraint violations. The decision variable $x_1$ has a predefined discrete value[^1] from 0.2 to 15. That makes the decision variables a mix of continuous and discrete variables.
 
 The objective functions and constraints for the reinforced concrete beam design problem are defined as follows:
 
@@ -32,6 +32,10 @@ $$\min_{\mathbf{x}}  f_1(\mathbf{x})  = 29.4x_1 + 0.6x_2x_3$$
 $$\min_{\mathbf{x}}  f_2(\mathbf{x}) = \sum_{i=1}^2 \max\{g_i(\mathbf{x}), 0\}$$
 $$\text{s.t., }    g_1(\mathbf{x}) = x_1x_3 - 7.735\frac{x_1^2}{x_2} - 180 \geq 0,$$
 $$g_2(\mathbf{x})  = 4 - \frac{x_3}{x_2} \geq 0.$$
+
+Here is an approximation of the reinforced concrete beam design problem's Pareto front (taken from [2]), where the $x$ and $y$ axes represent the values of the objective functions $f_1$ and $f_2$ respectively:
+
+<img src="../assets/re22_pf_ss.png" alt="A picture of the Pareto front" width="400"/>
 
 ## References
 [1]: Cheng, F. Y., & Li, X. S. (1999). Generalized center method for multiobjective engineering optimization. Engineering Optimization, 31(5), 641-661.
