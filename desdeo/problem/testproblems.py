@@ -1148,6 +1148,9 @@ def re22() -> Problem:
     \end{align}
 
     References:
+        Amir, H. M., & Hasegawa, T. (1989). Nonlinear mixed-discrete structural optimization.
+            Journal of Structural Engineering, 115(3), 626-646.
+
         Tanabe, R. & Ishibuchi, H. (2020). An easy-to-use real-world multi-objective
             optimization problem suite. Applied soft computing, 89, 106078.
             https://doi.org/10.1016/j.asoc.2020.106078.
