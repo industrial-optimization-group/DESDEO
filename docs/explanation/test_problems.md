@@ -16,10 +16,10 @@ $$\begin{align}
     &\text{s.t.,}   & \frac{F}{\sigma} \leq x_1 & \leq 3\frac{F}{\sigma},\\
     & & \sqrt{2}\frac{F}{\sigma} \leq x_2 & \leq 3\frac{F}{\sigma},\\
     & & \sqrt{2}\frac{F}{\sigma} \leq x_3 & \leq 3\frac{F}{\sigma},\\
-    & & \frac{F}{\sigma} \leq x_4 & \leq 3\frac{F}{\sigma}.\\
+    & & \frac{F}{\sigma} \leq x_4 & \leq 3\frac{F}{\sigma},\\
 \end{align}$$
 
-where $F = 10$ $kN$, $E = 2e^5$ $kN/cm^2$, $L = 200$ $cm$, and $\sigma = 10$ $kN/cm^2$.
+where $x_1, x_4 \in [a, 3a]$, $x_2, x_3 \in [\sqrt{2}a, 3a]$, and $a = F/\sigma$. The parameters are defined as $F = 10$ $kN$, $E = 2e^5$ $kN/cm^2$, $L = 200$ $cm$, and $\sigma = 10$ $kN/cm^2$.
 
 Here is an approximation of the four bar truss design problem's Pareto front (taken from [2]), where the $x$ and $y$ axes represent the values of the objective functions $f_1$ and $f_2$ respectively:
 
@@ -35,9 +35,10 @@ $$\begin{align}
     &\min_{\mathbf{x}} & f_1(\mathbf{x}) & = 29.4x_1 + 0.6x_2x_3 \\
     &\min_{\mathbf{x}} & f_2(\mathbf{x}) & = \sum_{i=1}^2 \max\{g_i(\mathbf{x}), 0\} \\
     &\text{s.t.,}   & g_1(\mathbf{x}) & = x_1x_3 - 7.735\frac{x_1^2}{x_2} - 180 \geq 0,\\
-    & & g_2(\mathbf{x}) & = 4 - \frac{x_3}{x_2} \geq 0.
+    & & g_2(\mathbf{x}) & = 4 - \frac{x_3}{x_2} \geq 0,
 \end{align}$$
 
+where $x_2 \in [0,20]$ and $x_3 \in [0,40].$
 
 Here is an approximation of the reinforced concrete beam design problem's Pareto front (taken from [2]), where the $x$ and $y$ axes represent the values of the objective functions $f_1$ and $f_2$ respectively:
 
