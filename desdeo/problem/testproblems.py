@@ -1130,7 +1130,7 @@ def re21() -> Problem:
 
     return Problem(
         name="RE21",
-        description="",
+        description="the four bar truss design problem",
         variables=[x_1, x_2, x_3, x_4],
         objectives=[f_1, f_2]
     )
@@ -1217,24 +1217,12 @@ def re22() -> Problem:
     g_1 = Constraint(
         name="g_1",
         symbol="g_1",
-        cons_type=ConstraintTypeEnum.EQ,
-        func=f"({x_1_eprs}) * x_3 - 7.735 * (({x_1_eprs})**2 / x_2) - 180"
+        cons_type=ConstraintTypeEnum.LTE,
+        func=f"- (({x_1_eprs}) * x_3 - 7.735 * (({x_1_eprs})**2 / x_2) - 180)"
     )
     g_2 = Constraint(
         name="g_2",
         symbol="g_2",
-        cons_type=ConstraintTypeEnum.EQ,
-        func="4 - x_3 / x_2"
-    )
-    g_3 = Constraint(
-        name="g_3",
-        symbol="g_3",
-        cons_type=ConstraintTypeEnum.LTE,
-        func=f"- (({x_1_eprs}) * x_3 - 7.735 * (({x_1_eprs})**2 / x_2) - 180)"
-    )
-    g_4 = Constraint(
-        name="g_4",
-        symbol="g_4",
         cons_type=ConstraintTypeEnum.LTE,
         func="-(4 - x_3 / x_2)"
     )
@@ -1253,10 +1241,10 @@ def re22() -> Problem:
     )
     return Problem(
         name="re22",
-        description="",
+        description="The reinforced concrete beam design problem",
         variables=variables,
         objectives=[f_1, f_2],
-        constraints=[g_1, g_2, g_3, g_4, x_1_con]
+        constraints=[g_1, g_2, x_1_con]
     )
 
 if __name__ == "__main__":
