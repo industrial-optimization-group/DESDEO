@@ -43,7 +43,7 @@ hide:
 
     ---
 
-    Learn how DESDEO can be used to interface to different optimizers
+    Learn about different testproblems implemented in DESDEO
 
     [:octicons-arrow-right-24: Test problems](./test_problems.md)
 
