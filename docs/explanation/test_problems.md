@@ -28,10 +28,13 @@ In the reinforced concrete beam design problem, the first objective is to minimi
 
 The objective functions and constraints for the reinforced concrete beam design problem are defined as follows:
 
-$$\min_{\mathbf{x}}  f_1(\mathbf{x})  = 29.4x_1 + 0.6x_2x_3$$
-$$\min_{\mathbf{x}}  f_2(\mathbf{x}) = \sum_{i=1}^2 \max\{g_i(\mathbf{x}), 0\}$$
-$$\text{s.t., }    g_1(\mathbf{x}) = x_1x_3 - 7.735\frac{x_1^2}{x_2} - 180 \geq 0,$$
-$$g_2(\mathbf{x})  = 4 - \frac{x_3}{x_2} \geq 0.$$
+$$\begin{align}
+    &\min_{\mathbf{x}} & f_1(\mathbf{x}) & = 29.4x_1 + 0.6x_2x_3 \\
+    &\min_{\mathbf{x}} & f_2(\mathbf{x}) & = \sum_{i=1}^2 \max\{g_i(\mathbf{x}), 0\} \\
+    &\text{s.t.,}   & g_1(\mathbf{x}) & = x_1x_3 - 7.735\frac{x_1^2}{x_2} - 180 \geq 0,\\
+    & & g_2(\mathbf{x}) & = 4 - \frac{x_3}{x_2} \geq 0.
+\end{align}$$
+
 
 Here is an approximation of the reinforced concrete beam design problem's Pareto front (taken from [2]), where the $x$ and $y$ axes represent the values of the objective functions $f_1$ and $f_2$ respectively:
 
