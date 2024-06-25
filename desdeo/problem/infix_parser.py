@@ -36,7 +36,6 @@ class InfixExpressionParser:
         "*": "Multiply",
         "/": "Divide",
         "**": "Power",
-        ".": "DotProduct",
         "@": "MatMul",
     }
 

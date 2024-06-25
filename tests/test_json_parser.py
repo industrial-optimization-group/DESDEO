@@ -1013,8 +1013,10 @@ def test_pyomo_basic_matrix_arithmetics():
     pyomo_model.c = pyomo.Param(domain=pyomo.Reals, default=c)
 
     tests = [
-        ("X.Y", np.dot(X_values, Y_values)),  # dot product
-        ("Y.X", np.dot(Y_values, X_values)),
+        ("X@Y", np.dot(X_values, Y_values)),  # dot product
+        ("Y@X", np.dot(Y_values, X_values)),
+        ("5*Y@X", 5 * np.dot(Y_values, X_values)),
+        ("X@Y - 3", np.dot(X_values, Y_values) - 3),  # dot product
         ("X*c", c * np.array(X_values)),  # product by or with constant
         ("c*X", c * np.array(X_values)),
         ("Y*c", c * np.array(Y_values)),

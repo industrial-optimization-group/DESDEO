@@ -51,7 +51,6 @@ class MathParser:
         self.DIV: str = "Divide"
 
         # Vector and matrix operations
-        self.DOT: str = "DotProduct"
         self.MATMUL: str = "MatMul"
         self.SUM: str = "Sum"
 
@@ -109,6 +108,21 @@ class MathParser:
             msg = "The gurobipy model format only supports linear and quadratic expressions."
             ParserError(msg)
 
+        def _polars_matmul(*args):
+            """Polars matrix multiplication."""
+            msg = (
+                "Matrix multiplication '@' has not been implemented for the Polars parser yet."
+                " Feel free to contribute!"
+            )
+            raise NotImplementedError(msg)
+
+        def _polars_summation(summand):
+            """Polars matrix summation."""
+            msg = (
+                "Matrix summation 'Sum' has not been implemented for the Polars parser yet." " Feel free to contribute!"
+            )
+            raise NotImplementedError(msg)
+
         polars_env = {
             # Define the operations for the different operators.
             # Basic arithmetic operations
@@ -117,6 +131,9 @@ class MathParser:
             self.SUB: lambda *args: reduce(lambda x, y: to_expr(x) - to_expr(y), args),
             self.MUL: lambda *args: reduce(lambda x, y: to_expr(x) * to_expr(y), args),
             self.DIV: lambda *args: reduce(lambda x, y: to_expr(x) / to_expr(y), args),
+            # Vector and matrix operations
+            self.MATMUL: _polars_matmul,
+            self.SUM: _polars_summation,
             # Exponentiation and logarithms
             self.EXP: lambda x: pl.Expr.exp(to_expr(x)),
             self.LN: lambda x: pl.Expr.log(to_expr(x)),
@@ -244,19 +261,6 @@ class MathParser:
 
             return reduce(_multiply, args)
 
-        def _pyomo_dot_product(*args):
-            """Take the dot product of two tensors representing vectors."""
-
-            def _dot_product(x, y):
-                if hasattr(x, "is_indexed") and x.is_indexed() and hasattr(y, "is_indexed") and y.is_indexed():
-                    # both are indexed
-                    # TODO: make sure x and y are of the same shape.
-                    return pyomo.sum_product(x, y, index=x.index_set())
-
-                return x * y
-
-            return reduce(_dot_product, args)
-
         def _pyomo_matrix_multiplication(*args):
             """Multiply two matrices together."""
 
@@ -274,12 +278,25 @@ class MathParser:
                     msg = "Either mat_a or mat_b, or both, is not indexed. Cannot perform matrix multiplication."
                     raise ParserError(msg)
 
+                # check for regular vectors, then do dot product
+                if mat_a.dim() == 1 and mat_b.dim() == 1:
+                    if (len_a := len(mat_a.index_set())) != (len_b := len(mat_b.index_set())):
+                        msg = (
+                            "For dot product, the sizes of the vectors must match."
+                            f" Sizes mat_a = {len_a} and mat_b = {len_b}."
+                        )
+                        raise ParserError(msg)
+
+                    return pyomo.sum_product(mat_a, mat_b, index=mat_a.index_set())
+
                 # assuming mat_a has dimensions i,j; and mat_b j,k;
                 # then the j dimension is squeezed and the i and k dimensions are kept.
 
                 # check that we are dealing with matrices
                 min_dimension = 2
-                if len(mat_a.index_set().set_tuple) < min_dimension or len(mat_b.index_set().set_tuple) < min_dimension:
+                if (
+                    not hasattr(mat_a.index_set(), "set_tuple") or len(mat_a.index_set().set_tuple) < min_dimension
+                ) or (not hasattr(mat_b.index_set(), "set_tuple") and len(mat_b.index_set().set_tuple) < min_dimension):
                     msg = "Both mat_a and mat_b must have at least two dimensions."
                     raise ParserError(msg)
 
@@ -315,7 +332,6 @@ class MathParser:
             self.MUL: _pyomo_multiply,
             self.DIV: lambda *args: reduce(lambda x, y: x / y, args),
             # Vector and matrix operations
-            self.DOT: _pyomo_dot_product,
             self.MATMUL: _pyomo_matrix_multiplication,
             self.SUM: _pyomo_summation,
             # Exponentiation and logarithms
@@ -351,6 +367,21 @@ class MathParser:
             self.MAX: lambda *args: _PyomoMax(args),
         }
 
+        def _sympy_matmul(*args):
+            """Sympy matrix multiplication."""
+            msg = (
+                "Matrix multiplication '@' has not been implemented for the Sympy parser yet."
+                " Feel free to contribute!"
+            )
+            raise NotImplementedError(msg)
+
+        def _sympy_summation(summand):
+            """Sympy matrix summation."""
+            msg = (
+                "Matrix summation 'Sum' has not been implemented for the Sympy parser yet." " Feel free to contribute!"
+            )
+            raise NotImplementedError(msg)
+
         sympy_env = {
             # Basic arithmetic operations
             self.NEGATE: lambda x: -to_sympy_expr(x),
@@ -358,6 +389,9 @@ class MathParser:
             self.SUB: lambda *args: reduce(lambda x, y: to_sympy_expr(x) - to_sympy_expr(y), args),
             self.MUL: lambda *args: reduce(lambda x, y: to_sympy_expr(x) * to_sympy_expr(y), args),
             self.DIV: lambda *args: reduce(lambda x, y: to_sympy_expr(x) / to_sympy_expr(y), args),
+            # Vector and matrix operations
+            self.MATMUL: _sympy_matmul,
+            self.SUM: _sympy_summation,
             # Exponentiation and logarithms
             self.EXP: lambda x: sp.exp(to_sympy_expr(x)),
             self.LN: lambda x: sp.log(to_sympy_expr(x)),
@@ -391,6 +425,22 @@ class MathParser:
             self.RATIONAL: lambda x, y: sp.Rational(x, y),
         }
 
+        def _gurobipy_matmul(*args):
+            """Gurobipy matrix multiplication."""
+            msg = (
+                "Matrix multiplication '@' has not been implemented for the Gurobipy parser yet."
+                " Feel free to contribute!"
+            )
+            raise NotImplementedError(msg)
+
+        def _gurobipy_summation(summand):
+            """Gurobipy matrix summation."""
+            msg = (
+                "Matrix summation 'Sum' has not been implemented for the Gurobipy parser yet."
+                " Feel free to contribute!"
+            )
+            raise NotImplementedError(msg)
+
         gurobipy_env = {
             # Define the operations for the different operators.
             # Basic arithmetic operations
@@ -399,6 +449,9 @@ class MathParser:
             self.SUB: lambda *args: reduce(lambda x, y: x - y, args),
             self.MUL: lambda *args: reduce(lambda x, y: x * y, args),
             self.DIV: lambda *args: reduce(lambda x, y: x / y, args),
+            # Vector and matrix operations
+            self.MATMUL: _gurobipy_matmul,
+            self.SUM: _gurobipy_summation,
             # Exponentiation and logarithms
             # it would be possible to implement some of these with the special functions that
             # gurobi has to offer, but they would only work under specific circumstances
