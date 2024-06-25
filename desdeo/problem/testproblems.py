@@ -1269,7 +1269,7 @@ def re23() -> Problem:
             https://doi.org/10.1016/j.asoc.2020.106078.
 
     Returns:
-        Problem: an instance of the p design problem.
+        Problem: an instance of the pressure vessel design problem.
     """
     x_1 = Variable(
         name="x_1",
@@ -1337,7 +1337,7 @@ def re23() -> Problem:
     )
     return Problem(
         name="re23",
-        description="",
+        description="The pressure vessel design problem",
         variables=[x_1, x_2, x_3, x_4],
         objectives=[f_1, f_2],
         constraints=[g_1, g_2, g_3]
