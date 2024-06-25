@@ -1057,8 +1057,11 @@ def re21() -> Problem:
         &\text{s.t.,}   & \frac{F}{\sigma} \leq x_1 & \leq 3\frac{F}{\sigma},\\
         & & \sqrt{2}\frac{F}{\sigma} \leq x_2 & \leq 3\frac{F}{\sigma},\\
         & & \sqrt{2}\frac{F}{\sigma} \leq x_3 & \leq 3\frac{F}{\sigma},\\
-        & & \frac{F}{\sigma} \leq x_4 & \leq 3\frac{F}{\sigma}.\\
+        & & \frac{F}{\sigma} \leq x_4 & \leq 3\frac{F}{\sigma},
     \end{align}
+
+    where $x_1, x_4 \in [a, 3a]$, $x_2, x_3 \in [\sqrt{2}a, 3a]$, and $a = F/\sigma$.
+    The parameters are defined as $F = 10$ $kN$, $E = 2e^5$ $kN/cm^2$, $L = 200$ $cm$, and $\sigma = 10$ $kN/cm^2$.
 
     References:
         Cheng, F. Y., & Li, X. S. (1999). Generalized center method for multiobjective engineering optimization.
@@ -1255,9 +1258,9 @@ def re23() -> Problem:
     \begin{align}
         &\min_{\mathbf{x}} & f_1(\mathbf{x}) & = 0.6224x_1x_3x_4 + 1.7781x_2x_3^2 + 3.1661x_1^2x_4 + 19.84x_1^2x_3 \\
         &\min_{\mathbf{x}} & f_2(\mathbf{x}) & = \sum_{i=1}^3 \max\{g_i(\mathbf{x}), 0\} \\
-        &\text{s.t.,}   & g_1(\mathbf{x}) & = x_1 - 0.0193x_3 \geq 0,\\
-        & & g_2(\mathbf{x}) & = x_2 - 0.00954x_3 \geq 0, \\
-        & & g_3(\mathbf{x}) & = \pi x_3^2x_4 + \frac{4}{3}\pi x_3^3 - 1\,296\,000 \geq 0.
+        &\text{s.t.,}   & g_1(\mathbf{x}) & = -x_1 + 0.0193x_3 \leq 0,\\
+        & & g_2(\mathbf{x}) & = -x_2 + 0.00954x_3 \leq 0, \\
+        & & g_3(\mathbf{x}) & = -\pi x_3^2x_4 - \frac{4}{3}\pi x_3^3 + 1\,296\,000 \leq 0.
     \end{align}
 
     References:
@@ -1343,6 +1346,105 @@ def re23() -> Problem:
         constraints=[g_1, g_2, g_3]
     )
 
+def re24() -> Problem:
+    r"""The hatch cover design problem.
+
+    \begin{align}
+        &\min_{\mathbf{x}} & f_1(\mathbf{x}) & = x_1 + 120x_2 \\
+        &\min_{\mathbf{x}} & f_2(\mathbf{x}) & = \sum_{i=1}^4 \max\{g_i(\mathbf{x}), 0\} \\
+        &\text{s.t.,}   & g_1(\mathbf{x}) & = 1.0 - \frac{\sigma_b}{\sigma_{b,max}} \geq 0,\\
+        & & g_2(\mathbf{x}) & = 1.0 - \frac{\tau}{\tau_{max}} \geq 0, \\
+        & & g_3(\mathbf{x}) & = 1.0 - \frac{\delta}{\delta_{max}} \geq 0, \\
+        & & g_3(\mathbf{x}) & = 1.0 - \frac{\sigma_b}{\sigma_{k}} \geq 0,
+    \end{align}
+
+    where $x_1 \in [0.5, 4]$ and $x_2 \in [4, 50]$. The parameters are defined as $\sigma_{b,max} = 700$ kg/cm$^2$,
+    $\tau_{max} = 450$ kg/cm, $\delta_{max} = 1.5$ cm, $\sigma_k = Ex_1^2/100$ kg/cm$^2$,
+    $\sigma_b = 4500/(x_1x_2)$ kg/cm$^2$, $\tau = 1800/x_2$ kg/cm$^2$,
+    $\delta = 56.2 \times 10^4/(Ex_1x_2^2)$, and $E = 700\,000$ kg/cm$^2$.
+
+    Returns:
+        Problem: an instance of the hatch cover design problem.
+    """
+    x_1 = Variable(
+        name="x_1",
+        symbol="x_1",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=0.5,
+        upperbound=4
+    )
+    x_2 = Variable(
+        name="x_2",
+        symbol="x_2",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=4,
+        upperbound=50
+    )
+
+    sigma_b = "(4500 / (x_1 * x_2))"
+    sigma_k = "((700000 * x_1**2) / 100)"
+    tau = "(1800 / x_2)"
+    delta = "(56.2 * 10**4 / (700000 * x_1 * x_2**2))"
+
+    g_1 = Constraint(
+        name="g_1",
+        symbol="g_1",
+        cons_type=ConstraintTypeEnum.LTE,
+        func=f"-(1 - {sigma_b} / 700)"
+    )
+    g_2 = Constraint(
+        name="g_2",
+        symbol="g_2",
+        cons_type=ConstraintTypeEnum.LTE,
+        func=f"-(1 - {tau} / 450)"
+    )
+    g_3 = Constraint(
+        name="g_3",
+        symbol="g_3",
+        cons_type=ConstraintTypeEnum.LTE,
+        func=f"-(1 - {delta} / 1.5)"
+    )
+    g_4 = Constraint(
+        name="g_4",
+        symbol="g_4",
+        cons_type=ConstraintTypeEnum.LTE,
+        func=f"-(1 - {sigma_b} / {sigma_k})"
+    )
+
+    f_1 = Objective(
+        name="f_1",
+        symbol="f_1",
+        func="x_1 + 120 * x_2",
+        objective_type=ObjectiveTypeEnum.analytical
+    )
+    f_2 = Objective(
+        name="f_2",
+        symbol="f_2",
+        func=f"Max(1 - {sigma_b} / 700, 0) + Max(1 - {tau} / 450, 0) + Max(1 - {delta} / 1.5, 0) + Max(1 - {sigma_b} / {sigma_k}, 0)",
+        objective_type=ObjectiveTypeEnum.analytical
+    )
+    return Problem(
+        name="re24",
+        description="The hatch cover design problem",
+        variables=[x_1, x_2],
+        objectives=[f_1, f_2],
+        constraints=[g_1, g_2, g_3, g_4]
+    )
+
 if __name__ == "__main__":
-    problem = simple_scenario_test_problem()
-    print(problem.model_dump_json(indent=2))
+    #problem = simple_scenario_test_problem()
+    #print(problem.model_dump_json(indent=2))
+
+    problem = re24()
+
+    from desdeo.problem import GenericEvaluator
+    evaluator = GenericEvaluator(problem)
+
+    xs = [{"x_1": 2, "x_2": 20}, {"x_1": 3.3, "x_2": 41.7}]
+    expected_result = np.array([[2402, 3.63459881], [5007.3, 3.8568386109]])
+
+    res = evaluator.evaluate(xs)
+
+    for i in range(len(res)):
+        obj_values = np.array([res[obj.symbol][i] for obj in problem.objectives])
+        print(np.allclose(obj_values, expected_result[i]))

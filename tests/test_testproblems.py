@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from desdeo.problem import GenericEvaluator, dtlz2, re21, re22, re23
+from desdeo.problem import GenericEvaluator, dtlz2, re21, re22, re23, re24
 
 
 def test_dtlz2():
@@ -66,11 +66,25 @@ def test_re23():
     """Test that the pressure vessel design problem evaluates correctly."""
     problem = re23()
 
-    from desdeo.problem import GenericEvaluator
     evaluator = GenericEvaluator(problem)
 
     xs = [{"x_1": 50, "x_2": 50, "x_3": 10, "x_4": 10}, {"x_1": 11, "x_2": 63, "x_3": 78, "x_4": 187}]
     expected_result = np.array([[2996.845703, 5.9616],[49848.35467, 4266017.057]])
+
+    res = evaluator.evaluate(xs)
+
+    for i in range(len(res)):
+        obj_values = np.array([res[obj.symbol][i] for obj in problem.objectives])
+        assert np.allclose(obj_values, expected_result[i])
+
+def test_re24():
+    """Test that the hatch cover design problem evaluates correctly."""
+    problem = re24()
+
+    evaluator = GenericEvaluator(problem)
+
+    xs = [{"x_1": 2, "x_2": 20}, {"x_1": 3.3, "x_2": 41.7}]
+    expected_result = np.array([[2402, 3.63459881], [5007.3, 3.8568386109]])
 
     res = evaluator.evaluate(xs)
 

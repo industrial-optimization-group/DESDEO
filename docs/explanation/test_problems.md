@@ -62,6 +62,19 @@ Here is an approximation of the pressure vessel design problem's Pareto front (t
 
 <img src="../assets/re23_pf_ss.png" alt="A picture of the Pareto front" width="400"/>
 
+## (RE24)
+
+$$\begin{align}
+    &\min_{\mathbf{x}} & f_1(\mathbf{x}) & = x_1 + 120x_2 \\
+    &\min_{\mathbf{x}} & f_2(\mathbf{x}) & = \sum_{i=1}^4 \max\{g_i(\mathbf{x}), 0\} \\
+    &\text{s.t.,}   & g_1(\mathbf{x}) & = 1.0 - \frac{\sigma_b}{\sigma_{b,max}} \geq 0,\\
+    & & g_2(\mathbf{x}) & = 1.0 - \frac{\tau}{\tau_{max}} \geq 0, \\
+    & & g_3(\mathbf{x}) & = 1.0 - \frac{\delta}{\delta_{max}} \geq 0, \\
+    & & g_3(\mathbf{x}) & = 1.0 - \frac{\sigma_b}{\sigma_{k}} \geq 0,
+\end{align}$$
+
+where $x_1 \in [0.5, 4]$ and $x_2 \in [4, 50]$. The parameters are defined as $\sigma_{b,max} = 700$ kg/cm$^2$, $\tau_{max} = 450$ kg/cm, $\delta_{max} = 1.5$ cm, $\sigma_k = Ex_1^2/100$ kg/cm$^2$, $\sigma_b = 4500/(x_1x_2)$ kg/cm$^2$, $\tau = 1800/x_2$ kg/cm$^2$, $\delta = 56.2 \times 10^4/(Ex_1x_2^2)$, and $E = 700\,000$ kg/cm$^2$.
+
 ## References
 [1]: Cheng, F. Y., & Li, X. S. (1999). Generalized center method for multiobjective engineering optimization. Engineering Optimization, 31(5), 641-661.
 
