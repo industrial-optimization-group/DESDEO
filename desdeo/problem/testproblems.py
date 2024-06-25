@@ -1247,6 +1247,102 @@ def re22() -> Problem:
         constraints=[g_1, g_2, x_1_con]
     )
 
+def re23() -> Problem:
+    r"""The pressure vessel design problem.
+
+    The objective functions and constraints for the reinforced concrete beam design problem are defined as follows:
+
+    \begin{align}
+        &\min_{\mathbf{x}} & f_1(\mathbf{x}) & = 0.6224x_1x_3x_4 + 1.7781x_2x_3^2 + 3.1661x_1^2x_4 + 19.84x_1^2x_3 \\
+        &\min_{\mathbf{x}} & f_2(\mathbf{x}) & = \sum_{i=1}^3 \max\{g_i(\mathbf{x}), 0\} \\
+        &\text{s.t.,}   & g_1(\mathbf{x}) & = x_1 - 0.0193x_3 \geq 0,\\
+        & & g_2(\mathbf{x}) & = x_2 - 0.00954x_3 \geq 0, \\
+        & & g_3(\mathbf{x}) & = \pi x_3^2x_4 + \frac{4}{3}\pi x_3^3 - 1\,296\,000 \geq 0.
+    \end{align}
+
+    References:
+        Kannan, B. K., & Kramer, S. N. (1994). An augmented Lagrange multiplier based method
+            for mixed integer discrete continuous optimization and its applications to mechanical design.
+
+        Tanabe, R. & Ishibuchi, H. (2020). An easy-to-use real-world multi-objective
+            optimization problem suite. Applied soft computing, 89, 106078.
+            https://doi.org/10.1016/j.asoc.2020.106078.
+
+    Returns:
+        Problem: an instance of the p design problem.
+    """
+    x_1 = Variable(
+        name="x_1",
+        symbol="x_1",
+        variable_type=VariableTypeEnum.integer,
+        lowerbound=1,
+        upperbound=100
+    )
+    x_2 = Variable(
+        name="x_2",
+        symbol="x_2",
+        variable_type=VariableTypeEnum.integer,
+        lowerbound=1,
+        upperbound=100
+    )
+    x_3 = Variable(
+        name="x_3",
+        symbol="x_3",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=10,
+        upperbound=200
+    )
+    x_4 = Variable(
+        name="x_4",
+        symbol="x_4",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=10,
+        upperbound=240
+    )
+
+    # variables x_1 and x_2 are integer multiples of 0.0625
+    x_1_exprs = "(0.0625 * x_1)"
+    x_2_exprs = "(0.0625 * x_2)"
+
+    g_1 = Constraint(
+        name="g_1",
+        symbol="g_1",
+        cons_type=ConstraintTypeEnum.LTE,
+        func=f"-({x_1_exprs} - 0.0193 * x_3)"
+    )
+    g_2 = Constraint(
+        name="g_2",
+        symbol="g_2",
+        cons_type=ConstraintTypeEnum.LTE,
+        func=f"-({x_2_exprs} - 0.00954 * x_3)"
+    )
+    g_3 = Constraint(
+        name="g_3",
+        symbol="g_3",
+        cons_type=ConstraintTypeEnum.LTE,
+        func=f"-({np.pi} * x_3**2 * x_4 + (4/3) * {np.pi} * x_3**3 - 1296000)"
+    )
+
+    f_1 = Objective(
+        name="f_1",
+        symbol="f_1",
+        func=f"0.6224 * {x_1_exprs} * x_3 * x_4 + (1.7781 * {x_2_exprs} * x_3**2) + (3.1661 * {x_1_exprs}**2 * x_4) + (19.84 * {x_1_exprs}**2 * x_3)",
+        objective_type=ObjectiveTypeEnum.analytical
+    )
+    f_2 = Objective(
+        name="f_2",
+        symbol="f_2",
+        func=f"Max({x_1_exprs} - 0.0193 * x_3, 0) + Max({x_2_exprs} - 0.00954 * x_3, 0) + Max({np.pi} * x_3**2 * x_4 + (4/3) * {np.pi} * x_3**3 - 1296000, 0)",
+        objective_type=ObjectiveTypeEnum.analytical
+    )
+    return Problem(
+        name="re23",
+        description="",
+        variables=[x_1, x_2, x_3, x_4],
+        objectives=[f_1, f_2],
+        constraints=[g_1, g_2, g_3]
+    )
+
 if __name__ == "__main__":
     problem = simple_scenario_test_problem()
     print(problem.model_dump_json(indent=2))
