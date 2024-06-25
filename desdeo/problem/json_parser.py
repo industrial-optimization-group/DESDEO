@@ -192,8 +192,8 @@ class MathParser:
             """Add (subtract) scalars or tensors to (from) each other."""
 
             def _expr_matrix_addition_rule(x, y, subtraction=subtraction):
-                def _inner(_, i, j):
-                    return x[i, j] + y[i, j] if not subtraction else x[i, j] - y[i, j]
+                def _inner(_, *args):
+                    return x[*args] + y[*args] if not subtraction else x[*args] - y[*args]
 
                 return _inner
 
@@ -238,22 +238,59 @@ class MathParser:
         def _pyomo_multiply(*args):
             """Multiply tensor with a scalar."""
 
-            def _expr_multiply_rule(scalar_value, to_multiply):
+            def _expr_multiply_with_scalar_rule(scalar_value, to_multiply):
                 def _inner(_, *indices):
                     return to_multiply[indices] * scalar_value
 
                 return _inner
 
+            def _expr_matrix_multiply_rule(x, y):
+                def _inner(_, *args):
+                    return x[*args] * y[*args]
+
+                return _inner
+
             def _multiply(x, y):
-                if hasattr(x, "is_indexed") and x.is_indexed():
-                    # x is a tensor
-                    expr = pyomo.Expression(x.index_set(), rule=_expr_multiply_rule(y, x))
+                if not hasattr(x, "is_indexed") and not hasattr(y, "is_indexed"):
+                    # x and y are scalars
+                    return x * y
+
+                # check if x or y is scalar
+                if (
+                    hasattr(x, "is_indexed")
+                    and x.is_indexed()
+                    and x.dim() > 0
+                    and (not hasattr(y, "is_indexed") or not y.is_indexed() or y.is_indexed() and y.dim() == 0)
+                ):
+                    # x is a tensor, y is scalar
+                    expr = pyomo.Expression(x.index_set(), rule=_expr_multiply_with_scalar_rule(y, x))
                     expr.construct()
                     return expr
-                if hasattr(y, "is_indexed") and y.is_indexed():
-                    # y is a tensor
-                    expr = pyomo.Expression(y.index_set(), rule=_expr_multiply_rule(x, y))
+                if (
+                    hasattr(y, "is_indexed")
+                    and y.is_indexed()
+                    and y.dim() > 0
+                    and (not hasattr(x, "is_indexed") or not x.is_indexed() or x.is_indexed() and x.dim() == 0)
+                ):
+                    # y is a tensor, x is scalar
+                    expr = pyomo.Expression(y.index_set(), rule=_expr_multiply_with_scalar_rule(x, y))
                     expr.construct()
+                    return expr
+
+                # check if both are indexed
+                if hasattr(x, "index_set") and hasattr(y, "index_set"):
+                    # both are indexed, neither is a scalar, check dims and sized, if match,
+                    # multiply together element-wise
+                    if x.index_set() != y.index_set():
+                        msg = (
+                            f"The dimensions of x {x.index_set().set_tuple} must match that"
+                            f" of y {y.index_set().set_tuple} for element-wise matrix multiplication."
+                        )
+                        raise ParserError(msg)
+
+                    expr = pyomo.Expression(x.index_set(), rule=_expr_matrix_multiply_rule(x, y))
+                    expr.construct()
+
                     return expr
 
                 # both are scalars

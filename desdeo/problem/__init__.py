@@ -34,6 +34,7 @@ __all__ = [
     "simple_linear_test_problem",
     "simple_scenario_test_problem",
     "simple_test_problem",
+    "tensor_constant_from_dataframe",
     "ScalarizationFunction",
     "TensorConstant",
     "TensorVariable",
@@ -89,5 +90,6 @@ from .utils import (
     get_nadir_dict,
     numpy_array_to_objective_dict,
     objective_dict_to_numpy_array,
+    tensor_constant_from_dataframe,
     variable_dict_to_numpy_array,
 )

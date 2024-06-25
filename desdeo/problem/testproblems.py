@@ -1070,7 +1070,7 @@ def simple_knapsack_vectors():
         variable_type="binary",
         lowerbounds=n_items * [0],
         upperbounds=n_items * [1],
-        initialvalues=n_items * [1],
+        initial_values=n_items * [1],
     )
 
     profit_objective = Objective(

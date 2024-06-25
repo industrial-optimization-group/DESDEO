@@ -20,7 +20,7 @@ def test_tensor_variable_init():
         shape=[3],
         lowerbounds=[1, 2, 3],
         upperbounds=[10, 20, 30],
-        initialvalues=[1, 1, 1],
+        initial_values=[1, 1, 1],
     )
 
     assert xs.name == "A"
@@ -28,7 +28,7 @@ def test_tensor_variable_init():
     assert xs.shape[0] == 3
     assert xs.lowerbounds == ["List", 1, 2, 3]
     assert xs.upperbounds == ["List", 10, 20, 30]
-    assert xs.initialvalues == ["List", 1, 1, 1]
+    assert xs.initial_values == ["List", 1, 1, 1]
 
     # Test 2D
     xs = TensorVariable(
@@ -38,7 +38,7 @@ def test_tensor_variable_init():
         shape=[2, 3],
         lowerbounds=[[1, 2, 3], [4, 5, 6]],
         upperbounds=[[10, 20, 30], [40, 50, 60]],
-        initialvalues=[[1, 1, 1], [2, 2, 2]],
+        initial_values=[[1, 1, 1], [2, 2, 2]],
     )
 
     assert xs.name == "X"
@@ -47,7 +47,7 @@ def test_tensor_variable_init():
     assert xs.shape[1] == 3
     assert xs.lowerbounds == ["List", ["List", 1, 2, 3], ["List", 4, 5, 6]]
     assert xs.upperbounds == ["List", ["List", 10, 20, 30], ["List", 40, 50, 60]]
-    assert xs.initialvalues == ["List", ["List", 1, 1, 1], ["List", 2, 2, 2]]
+    assert xs.initial_values == ["List", ["List", 1, 1, 1], ["List", 2, 2, 2]]
 
     # Test 3D
     xs = TensorVariable(
@@ -63,7 +63,7 @@ def test_tensor_variable_init():
             [[10, 20, 30, 40], [50, 60, 70, 80], [90, 100, 110, 120]],
             [[130, 140, 150, 160], [170, 180, 190, 200], [210, 220, 230, 240]],
         ],
-        initialvalues=[[[1, 1, 1, 1], [2, 2, 2, 2], [3, 3, 3, 3]], [[4, 4, 4, 4], [5, 5, 5, 5], [6, 6, 6, 6]]],
+        initial_values=[[[1, 1, 1, 1], [2, 2, 2, 2], [3, 3, 3, 3]], [[4, 4, 4, 4], [5, 5, 5, 5], [6, 6, 6, 6]]],
     )
 
     assert xs.name == "B"
@@ -81,7 +81,7 @@ def test_tensor_variable_init():
         ["List", ["List", 10, 20, 30, 40], ["List", 50, 60, 70, 80], ["List", 90, 100, 110, 120]],
         ["List", ["List", 130, 140, 150, 160], ["List", 170, 180, 190, 200], ["List", 210, 220, 230, 240]],
     ]
-    assert xs.initialvalues == [
+    assert xs.initial_values == [
         "List",
         ["List", ["List", 1, 1, 1, 1], ["List", 2, 2, 2, 2], ["List", 3, 3, 3, 3]],
         ["List", ["List", 4, 4, 4, 4], ["List", 5, 5, 5, 5], ["List", 6, 6, 6, 6]],
@@ -100,16 +100,16 @@ def test_get_values_list():
         shape=[3],
         lowerbounds=[1, 2, 3],
         upperbounds=[10, 20, 30],
-        initialvalues=[1, 1, 1],
+        initial_values=[1, 1, 1],
     )
 
     lowerbounds = xs.get_lowerbound_values()
     upperbounds = xs.get_upperbound_values()
-    initialvalues = xs.get_initial_values()
+    initial_values = xs.get_initial_values()
 
     assert lowerbounds == [1, 2, 3]
     assert upperbounds == [10, 20, 30]
-    assert initialvalues == [1, 1, 1]
+    assert initial_values == [1, 1, 1]
 
     # Test 2D
     xs = TensorVariable(
@@ -119,16 +119,16 @@ def test_get_values_list():
         shape=[2, 3],
         lowerbounds=[[1, 2, 3], [4, 5, 6]],
         upperbounds=[[10, 20, 30], [40, 50, 60]],
-        initialvalues=[[1, 1, 1], [2, 2, 2]],
+        initial_values=[[1, 1, 1], [2, 2, 2]],
     )
 
     lowerbounds = xs.get_lowerbound_values()
     upperbounds = xs.get_upperbound_values()
-    initialvalues = xs.get_initial_values()
+    initial_values = xs.get_initial_values()
 
     assert lowerbounds == [[1, 2, 3], [4, 5, 6]]
     assert upperbounds == [[10, 20, 30], [40, 50, 60]]
-    assert initialvalues == [[1, 1, 1], [2, 2, 2]]
+    assert initial_values == [[1, 1, 1], [2, 2, 2]]
 
     # Test 3D
     xs = TensorVariable(
@@ -144,12 +144,12 @@ def test_get_values_list():
             [[10, 20, 30, 40], [50, 60, 70, 80], [90, 100, 110, 120]],
             [[130, 140, 150, 160], [170, 180, 190, 200], [210, 220, 230, 240]],
         ],
-        initialvalues=[[[1, 1, 1, 1], [2, 2, 2, 2], [3, 3, 3, 3]], [[4, 4, 4, 4], [5, 5, 5, 5], [6, 6, 6, 6]]],
+        initial_values=[[[1, 1, 1, 1], [2, 2, 2, 2], [3, 3, 3, 3]], [[4, 4, 4, 4], [5, 5, 5, 5], [6, 6, 6, 6]]],
     )
 
     lowerbounds = xs.get_lowerbound_values()
     upperbounds = xs.get_upperbound_values()
-    initialvalues = xs.get_initial_values()
+    initial_values = xs.get_initial_values()
 
     assert lowerbounds == [
         [[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]],
@@ -159,7 +159,7 @@ def test_get_values_list():
         [[10, 20, 30, 40], [50, 60, 70, 80], [90, 100, 110, 120]],
         [[130, 140, 150, 160], [170, 180, 190, 200], [210, 220, 230, 240]],
     ]
-    assert initialvalues == [[[1, 1, 1, 1], [2, 2, 2, 2], [3, 3, 3, 3]], [[4, 4, 4, 4], [5, 5, 5, 5], [6, 6, 6, 6]]]
+    assert initial_values == [[[1, 1, 1, 1], [2, 2, 2, 2], [3, 3, 3, 3]], [[4, 4, 4, 4], [5, 5, 5, 5], [6, 6, 6, 6]]]
 
     # test for constraint as well
     xs = TensorConstant(

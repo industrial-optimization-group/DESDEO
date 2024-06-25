@@ -1025,6 +1025,11 @@ def test_pyomo_basic_matrix_arithmetics():
         ("X*x", x * np.array(X_values)),
         ("x*Y", x * np.array(Y_values)),
         ("Y*x", x * np.array(Y_values)),
+        ("X*Y", np.array(X_values) * np.array(Y_values)),  # element-wise multiplication
+        ("Y*X", np.array(Y_values) * np.array(X_values)),
+        ("Xmat*Ymat", np.array(Xmat_values) * np.array(Ymat_values)),
+        ("Ymat*Xmat*4", np.array(Ymat_values) * np.array(Xmat_values) * 4),
+        ("Ymat*Xmat*4*Ymat", np.array(Ymat_values) * np.array(Xmat_values) * 4 * np.array(Ymat_values)),
         ("Xmat@Ymat", np.array(Xmat_values) @ np.array(Ymat_values)),  # matrix product
         ("Ymat@Xmat", np.array(Ymat_values) @ np.array(Xmat_values)),
         ("Zmat@Xmat", np.array(Zmat_values) @ np.array(Xmat_values)),
@@ -1041,8 +1046,8 @@ def test_pyomo_basic_matrix_arithmetics():
         ("Sum(Ymat)", np.sum(np.array(Ymat_values))),  # Summing
         ("Cos(c) * (Ymat + Xmat)", np.cos(c) * (np.array(Ymat_values) + np.array(Xmat_values))),  # advanced expressions
         (
-            "Cos(x) * (Ymat + 2*Xmat - Ymat)",
-            np.cos(x) * (np.array(Ymat_values) + 2 * np.array(Xmat_values) - np.array(Ymat_values)),
+            "Cos(x) * (Ymat + 2*Xmat - Ymat) * Sin(x)",
+            np.cos(x) * (np.array(Ymat_values) + 2 * np.array(Xmat_values) - np.array(Ymat_values)) * np.sin(x),
         ),  # advanced expressions
         (
             "Sum(Vmat) * (Zmat @ (Xmat + 3*Ymat) @ -Xmat)",

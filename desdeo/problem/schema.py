@@ -284,15 +284,14 @@ class TensorConstant(BaseModel):
     )
     """A list of the dimensions of the tensor, e.g., `[2, 3]` would indicate a matrix with 2 rows and 3 columns.
     """
-    values: Tensor | None = Field(
+    values: Tensor = Field(
         description=(
             "A list of lists, with the elements representing the values of each constant element in the tensor. "
-            "E.g., `[[5, 22, 0], [14, 5, 44]]`. Defaults to None."
+            "E.g., `[[5, 22, 0], [14, 5, 44]]`."
         ),
-        default=None,
     )
     """A list of lists, with the elements representing the initial values of each constant element in the tensor.
-    E.g., `[[5, 22, 0], [14, 5, 44]]`. Defaults to None."""
+    E.g., `[[5, 22, 0], [14, 5, 44]]`."""
 
     _parse_list_to_mathjson = field_validator("values", mode="before")(parse_list_to_mathjson)
 
@@ -394,7 +393,7 @@ class TensorVariable(BaseModel):
     """A list of lists, with the elements representing the lower bounds of each element.
     E.g., `[[1, 2, 3], [4, 5, 6]]`. Defaults to None.
     """
-    initialvalues: Tensor | None = Field(
+    initial_values: Tensor | None = Field(
         description=(
             "A list of lists, with the elements representing the initial values of each element. "
             "E.g., `[[5, 22, 0], [14, 5, 44]]`. Defaults to None."
@@ -404,7 +403,7 @@ class TensorVariable(BaseModel):
     """A list of lists, with the elements representing the initial values of each element.
     E.g., `[[5, 22, 0], [14, 5, 44]]`. Defaults to None."""
 
-    _parse_list_to_mathjson = field_validator("lowerbounds", "upperbounds", "initialvalues", mode="before")(
+    _parse_list_to_mathjson = field_validator("lowerbounds", "upperbounds", "initial_values", mode="before")(
         parse_list_to_mathjson
     )
 
@@ -418,7 +417,7 @@ class TensorVariable(BaseModel):
 
     def get_initial_values(self) -> Iterable[VariableType | Iterable[VariableType]] | None:
         """Return the initial values, if any, as a Python iterable (list of list)."""
-        return get_tensor_values(self.initialvalues)
+        return get_tensor_values(self.initial_values)
 
 
 class ExtraFunction(BaseModel):
