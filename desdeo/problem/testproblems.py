@@ -1253,7 +1253,7 @@ def re22() -> Problem:
 def re23() -> Problem:
     r"""The pressure vessel design problem.
 
-    The objective functions and constraints for the reinforced concrete beam design problem are defined as follows:
+    The objective functions and constraints for the pressure vessel design problem are defined as follows:
 
     \begin{align}
         &\min_{\mathbf{x}} & f_1(\mathbf{x}) & = 0.6224x_1x_3x_4 + 1.7781x_2x_3^2 + 3.1661x_1^2x_4 + 19.84x_1^2x_3 \\
@@ -1270,6 +1270,8 @@ def re23() -> Problem:
         Tanabe, R. & Ishibuchi, H. (2020). An easy-to-use real-world multi-objective
             optimization problem suite. Applied soft computing, 89, 106078.
             https://doi.org/10.1016/j.asoc.2020.106078.
+
+        https://github.com/ryojitanabe/reproblems/blob/master/reproblem_python_ver/reproblem.py
 
     Returns:
         Problem: an instance of the pressure vessel design problem.
@@ -1349,6 +1351,8 @@ def re23() -> Problem:
 def re24() -> Problem:
     r"""The hatch cover design problem.
 
+    The objective functions and constraints for the hatch cover design problem are defined as follows:
+
     \begin{align}
         &\min_{\mathbf{x}} & f_1(\mathbf{x}) & = x_1 + 120x_2 \\
         &\min_{\mathbf{x}} & f_2(\mathbf{x}) & = \sum_{i=1}^4 \max\{g_i(\mathbf{x}), 0\} \\
@@ -1358,10 +1362,20 @@ def re24() -> Problem:
         & & g_3(\mathbf{x}) & = 1.0 - \frac{\sigma_b}{\sigma_{k}} \geq 0,
     \end{align}
 
-    where $x_1 \in [0.5, 4]$ and $x_2 \in [4, 50]$. The parameters are defined as $\sigma_{b,max} = 700$ kg/cm$^2$,
-    $\tau_{max} = 450$ kg/cm, $\delta_{max} = 1.5$ cm, $\sigma_k = Ex_1^2/100$ kg/cm$^2$,
-    $\sigma_b = 4500/(x_1x_2)$ kg/cm$^2$, $\tau = 1800/x_2$ kg/cm$^2$,
-    $\delta = 56.2 \times 10^4/(Ex_1x_2^2)$, and $E = 700\,000$ kg/cm$^2$.
+    where $x_1 \in [0.5, 4]$ and $x_2 \in [4, 50]$. The parameters are defined as $\sigma_{b,max} = 700 kg/cm^2$,
+    $\tau_{max} = 450 kg/cm$, $\delta_{max} = 1.5 cm$, $\sigma_k = Ex_1^2/100 kg/cm^2$,
+    $\sigma_b = 4500/(x_1x_2) kg/cm^2$, $\tau = 1800/x_2 kg/cm^2$, $\delta = 56.2 \times 10^4/(Ex_1x_2^2)$,
+    and $E = 700\,000 kg/cm^2$.
+
+    References:
+        Amir, H. M., & Hasegawa, T. (1989). Nonlinear mixed-discrete structural optimization.
+            Journal of Structural Engineering, 115(3), 626-646.
+
+        Tanabe, R. & Ishibuchi, H. (2020). An easy-to-use real-world multi-objective
+            optimization problem suite. Applied soft computing, 89, 106078.
+            https://doi.org/10.1016/j.asoc.2020.106078.
+
+        https://github.com/ryojitanabe/reproblems/blob/master/reproblem_python_ver/reproblem.py
 
     Returns:
         Problem: an instance of the hatch cover design problem.
@@ -1432,19 +1446,5 @@ def re24() -> Problem:
     )
 
 if __name__ == "__main__":
-    #problem = simple_scenario_test_problem()
-    #print(problem.model_dump_json(indent=2))
-
-    problem = re24()
-
-    from desdeo.problem import GenericEvaluator
-    evaluator = GenericEvaluator(problem)
-
-    xs = [{"x_1": 2, "x_2": 20}, {"x_1": 3.3, "x_2": 41.7}]
-    expected_result = np.array([[2402, 3.63459881], [5007.3, 3.8568386109]])
-
-    res = evaluator.evaluate(xs)
-
-    for i in range(len(res)):
-        obj_values = np.array([res[obj.symbol][i] for obj in problem.objectives])
-        print(np.allclose(obj_values, expected_result[i]))
+    problem = simple_scenario_test_problem()
+    print(problem.model_dump_json(indent=2))

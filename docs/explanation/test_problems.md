@@ -62,7 +62,11 @@ Here is an approximation of the pressure vessel design problem's Pareto front (t
 
 <img src="../assets/re23_pf_ss.png" alt="A picture of the Pareto front" width="400"/>
 
-## (RE24)
+## The hatch cover design problem (RE24)
+
+In the hatch cover design problem [3], the first objective is to minimize the weight of the hatch cover. The second objective is to minimize the sum of the two constraint violations. The two decision variables $x_1$ and $x_2$ represent the flange thickness and the beam height of the hatch cover.
+
+The objective functions and constraints for the hatch cover design problem are defined as follows:
 
 $$\begin{align}
     &\min_{\mathbf{x}} & f_1(\mathbf{x}) & = x_1 + 120x_2 \\
@@ -73,7 +77,11 @@ $$\begin{align}
     & & g_3(\mathbf{x}) & = 1.0 - \frac{\sigma_b}{\sigma_{k}} \geq 0,
 \end{align}$$
 
-where $x_1 \in [0.5, 4]$ and $x_2 \in [4, 50]$. The parameters are defined as $\sigma_{b,max} = 700$ kg/cm$^2$, $\tau_{max} = 450$ kg/cm, $\delta_{max} = 1.5$ cm, $\sigma_k = Ex_1^2/100$ kg/cm$^2$, $\sigma_b = 4500/(x_1x_2)$ kg/cm$^2$, $\tau = 1800/x_2$ kg/cm$^2$, $\delta = 56.2 \times 10^4/(Ex_1x_2^2)$, and $E = 700\,000$ kg/cm$^2$.
+where $x_1 \in [0.5, 4]$ and $x_2 \in [4, 50]$. The parameters are defined as $\sigma_{b,max} = 700 kg/cm^2$, $\tau_{max} = 450 kg/cm$, $\delta_{max} = 1.5 cm$, $\sigma_k = Ex_1^2/100 kg/cm^2$, $\sigma_b = 4500/(x_1x_2) kg/cm^2$, $\tau = 1800/x_2 kg/cm^2$, $\delta = 56.2 \times 10^4/(Ex_1x_2^2)$, and $E = 700\,000 kg/cm^2$.
+
+Here is an approximation of the hatch cover design problem's Pareto front (taken from [2]), where the $x$ and $y$ axes represent the values of the objective functions $f_1$ and $f_2$ respectively:
+
+<img src="../assets/re24_pf_ss.png" alt="A picture of the Pareto front" width="400"/>
 
 ## References
 [1]: Cheng, F. Y., & Li, X. S. (1999). Generalized center method for multiobjective engineering optimization. Engineering Optimization, 31(5), 641-661.
