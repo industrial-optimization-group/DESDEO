@@ -64,7 +64,7 @@ Here is an approximation of the pressure vessel design problem's Pareto front (t
 
 ## The hatch cover design problem (RE24)
 
-In the hatch cover design problem [3], the first objective is to minimize the weight of the hatch cover. The second objective is to minimize the sum of the two constraint violations. The two decision variables $x_1$ and $x_2$ represent the flange thickness and the beam height of the hatch cover.
+In the hatch cover design problem [3], the first objective is to minimize the weight of the hatch cover. The second objective is to minimize the sum of the two constraint violations. The two decision variables $x_1$ and $x_2$ represent the flange thickness and the beam height of the hatch cover. Both decision variables are continuous and the Pareto front for the problem is convex.
 
 The objective functions and constraints for the hatch cover design problem are defined as follows:
 
