@@ -15,6 +15,8 @@ from desdeo.problem.schema import (
     Objective,
     ObjectiveTypeEnum,
     Problem,
+    TensorConstant,
+    TensorVariable,
     Variable,
     VariableTypeEnum,
 )
@@ -1043,6 +1045,75 @@ def simple_scenario_test_problem():
         objectives=objectives,
         extra_funcs=extra_funcs,
         scenario_keys=["s_1", "s_2"],
+    )
+
+
+def simple_knapsack_vectors():
+    """Define a simpl variant of the knapsack problem that utilizes vectors (TensorVaribale and TensorConstant)."""
+    n_items = 4
+    weight_values = [2, 3, 4, 5]
+    profit_values = [3, 5, 6, 8]
+    efficiency_values = [4, 2, 7, 3]
+
+    max_weight = Constant(name="Maximum weights", symbol="w_max", value=5)
+
+    weights = TensorConstant(name="Weights of the items", symbol="W", shape=[len(weight_values)], values=weight_values)
+    profits = TensorConstant(name="Profits", symbol="P", shape=[len(profit_values)], values=profit_values)
+    efficiencies = TensorConstant(
+        name="Efficiencies", symbol="E", shape=[len(efficiency_values)], values=efficiency_values
+    )
+
+    choices = TensorVariable(
+        name="Chosen items",
+        symbol="X",
+        shape=[n_items],
+        variable_type="binary",
+        lowerbounds=n_items * [0],
+        upperbounds=n_items * [1],
+        initial_values=n_items * [1],
+    )
+
+    profit_objective = Objective(
+        name="max profit",
+        symbol="f_1",
+        func="P@X",
+        maximize=True,
+        ideal=8,
+        nadir=0,
+        is_linear=True,
+        is_convex=False,
+        is_twice_differentiable=False,
+    )
+
+    efficiency_objective = Objective(
+        name="max efficiency",
+        symbol="f_2",
+        func="E@X",
+        maximize=True,
+        ideal=7,
+        nadir=0,
+        is_linear=True,
+        is_convex=False,
+        is_twice_differentiable=False,
+    )
+
+    weight_constraint = Constraint(
+        name="Weight constraint",
+        symbol="g_1",
+        cons_type="<=",
+        func="W@X - w_max",
+        is_linear=True,
+        is_convex=False,
+        is_twice_differentiable=False,
+    )
+
+    return Problem(
+        name="Simple two-objective Knapsack problem",
+        description="A simple variant of the classic combinatorial problem.",
+        constants=[max_weight, weights, profits, efficiencies],
+        variables=[choices],
+        objectives=[profit_objective, efficiency_objective],
+        constraints=[weight_constraint],
     )
 
 

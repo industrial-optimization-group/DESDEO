@@ -87,3 +87,7 @@ results: SolverResults = solver("f_1")
 ### Pyomo solvers
 
 WIP.
+
+### Summary of Solvers
+
+TODO.

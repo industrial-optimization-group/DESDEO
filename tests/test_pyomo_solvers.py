@@ -10,10 +10,12 @@ from desdeo.problem import (
     momip_ti2,
     momip_ti7,
     simple_linear_test_problem,
+    simple_knapsack_vectors,
 )
 from desdeo.tools import (
     BonminOptions,
     PyomoBonminSolver,
+    PyomoCBCSolver,
     PyomoIpoptSolver,
     PyomoGurobiSolver,
 )
@@ -183,3 +185,18 @@ def test_ipopt_solver():
 
     npt.assert_allclose([xs[f"x_{i+1}"] for i in range(n_objectives - 1, n_variables)], 0.5)
     npt.assert_almost_equal(sum(fs[obj.symbol] ** 2 for obj in problem.objectives), 1.0)
+
+
+def test_combinatorial_problem():
+    """Test that CBC can be used to solve a simple combinatorial problem."""
+    problem = simple_knapsack_vectors()
+
+    rp = {"f_1": 8, "f_2": 3}
+
+    problem_w_asf, target = add_asf_diff(problem, "target", rp)
+
+    solver = PyomoCBCSolver(problem_w_asf)
+
+    result = solver.solve(target)
+
+    assert result.success
