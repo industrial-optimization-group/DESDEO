@@ -1045,7 +1045,12 @@ def simple_scenario_test_problem():
         scenario_keys=["s_1", "s_2"],
     )
 
-def re21() -> Problem:
+def re21(
+    f: float = 10.0,
+    sigma: float = 10.0,
+    e: float = 2.0 * 1e5,
+    l: float = 200.0
+) -> Problem:
     r"""Defines the four bar truss design problem.
 
     The objective functions and constraints for the four bar truss design problem are defined as follows:
@@ -1073,14 +1078,15 @@ def re21() -> Problem:
 
         https://github.com/ryojitanabe/reproblems/blob/master/reproblem_python_ver/reproblem.py
 
+    Args:
+        f (float): Force (kN). Defaults to 10.0.
+        sigma (float): Stress (kN/cm^2). Defaults to 10.0.
+        e (float): Young modulus? (kN/cm^2). Defaults to 2.0 * 1e5.
+        l (float): Length (cm). Defaults to 200.0.
+
     Returns:
         Problem: an instance of the four bar truss design problem.
     """
-    # should these be hardcoded here or given as optional arguments for the problem?
-    f = 10.0
-    sigma = 10.0
-    e = 2.0 * 1e5
-    l = 200.0
     a = f / sigma
 
     x_1 = Variable(
@@ -1120,15 +1126,13 @@ def re21() -> Problem:
         name="f_1",
         symbol="f_1",
         func=f"{l} * ((2 * x_1) + {np.sqrt(2.0)} * x_2 + Sqrt(x_3) + x_4)",
-        objective_type=ObjectiveTypeEnum.analytical,
-        is_convex=True
+        objective_type=ObjectiveTypeEnum.analytical
     )
     f_2 = Objective(
         name="f_2",
         symbol="f_2",
         func=f"({(f * l) / e} * ((2.0 / x_1) + (2.0 * {np.sqrt(2.0)} / x_2) - (2.0 * {np.sqrt(2.0)} / x_3) + (2.0 / x_4)))",
-        objective_type=ObjectiveTypeEnum.analytical,
-        is_convex=True
+        objective_type=ObjectiveTypeEnum.analytical
     )
 
     return Problem(
