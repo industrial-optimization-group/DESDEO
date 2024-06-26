@@ -121,7 +121,7 @@ def test_add_asf_generic_diff():
     weights = {"f_1": 0.3, "f_2": 0.2, "f_3": 0.1, "f_4": 0.4}
 
     problem_w_asf, target = add_asf_generic_diff(
-        problem, symbol="asf", reference_point=reference_point, weights=weights, reference_in_aug=False
+        problem, symbol="asf", reference_point=reference_point, weights=weights
     )
 
     create_solver = guess_best_solver(problem_w_asf)
