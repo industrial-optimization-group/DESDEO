@@ -1079,10 +1079,10 @@ def re21(
         https://github.com/ryojitanabe/reproblems/blob/master/reproblem_python_ver/reproblem.py
 
     Args:
-        f (float): Force (kN). Defaults to 10.0.
-        sigma (float): Stress (kN/cm^2). Defaults to 10.0.
-        e (float): Young modulus? (kN/cm^2). Defaults to 2.0 * 1e5.
-        l (float): Length (cm). Defaults to 200.0.
+        f (float, optional): Force (kN). Defaults to 10.0.
+        sigma (float. optional): Stress (kN/cm^2). Defaults to 10.0.
+        e (float, optional): Young modulus? (kN/cm^2). Defaults to 2.0 * 1e5.
+        l (float, optional): Length (cm). Defaults to 200.0.
 
     Returns:
         Problem: an instance of the four bar truss design problem.

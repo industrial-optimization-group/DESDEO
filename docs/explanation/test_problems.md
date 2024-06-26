@@ -21,9 +21,7 @@ $$\begin{align}
 
 where $x_1, x_4 \in [a, 3a]$, $x_2, x_3 \in [\sqrt{2}a, 3a]$, and $a = F/\sigma$. The parameters are defined as $F = 10$ $kN$, $E = 2e^5$ $kN/cm^2$, $L = 200$ $cm$, and $\sigma = 10$ $kN/cm^2$.
 
-Here is an approximation of the four bar truss design problem's Pareto front (taken from [2]), where the $x$ and $y$ axes represent the values of the objective functions $f_1$ and $f_2$ respectively:
-
-<img src="../assets/re21_pf_ss.png" alt="A picture of the Pareto front" width="400"/>
+Here is an approximation of the four bar truss design problem's Pareto front:
 
 ## The reinforced concrete beam design problem (RE22)
 
@@ -40,9 +38,7 @@ $$\begin{align}
 
 where $x_2 \in [0,20]$ and $x_3 \in [0,40].$
 
-Here is an approximation of the reinforced concrete beam design problem's Pareto front (taken from [2]), where the $x$ and $y$ axes represent the values of the objective functions $f_1$ and $f_2$ respectively:
-
-<img src="../assets/re22_pf_ss.png" alt="A picture of the Pareto front" width="400"/>
+Here is an approximation of the reinforced concrete beam design problem's Pareto front:
 
 ## The pressure vessel design problem (RE23)
 
@@ -58,9 +54,7 @@ $$\begin{align}
     & & g_3(\mathbf{x}) & = -\pi x_3^2x_4 - \frac{4}{3}\pi x_3^3 + 1\ 296\ 000 \leq 0.
 \end{align}$$
 
-Here is an approximation of the pressure vessel design problem's Pareto front (taken from [2]), where the $x$ and $y$ axes represent the values of the objective functions $f_1$ and $f_2$ respectively:
-
-<img src="../assets/re23_pf_ss.png" alt="A picture of the Pareto front" width="400"/>
+Here is an approximation of the pressure vessel design problem's Pareto front:
 
 ## The hatch cover design problem (RE24)
 
@@ -79,9 +73,7 @@ $$\begin{align}
 
 where $x_1 \in [0.5, 4]$ and $x_2 \in [4, 50]$. The parameters are defined as $\sigma_{b,max} = 700 kg/cm^2$, $\tau_{max} = 450 kg/cm$, $\delta_{max} = 1.5 cm$, $\sigma_k = Ex_1^2/100 kg/cm^2$, $\sigma_b = 4500/(x_1x_2) kg/cm^2$, $\tau = 1800/x_2 kg/cm^2$, $\delta = 56.2 \times 10^4/(Ex_1x_2^2)$, and $E = 700\ 000 kg/cm^2$.
 
-Here is an approximation of the hatch cover design problem's Pareto front (taken from [2]), where the $x$ and $y$ axes represent the values of the objective functions $f_1$ and $f_2$ respectively:
-
-<img src="../assets/re24_pf_ss.png" alt="A picture of the Pareto front" width="400"/>
+Here is an approximation of the hatch cover design problem's Pareto front:
 
 ## References
 [1]: Cheng, F. Y., & Li, X. S. (1999). Generalized center method for multiobjective engineering optimization. Engineering Optimization, 31(5), 641-661.
