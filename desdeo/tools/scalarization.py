@@ -15,12 +15,10 @@ from desdeo.problem import (
     ScalarizationFunction,
     Variable,
     VariableTypeEnum,
-    dtlz2
 )
 from desdeo.tools.utils import (
     get_corrected_ideal_and_nadir,
     get_corrected_reference_point,
-    guess_best_solver
 )
 
 
