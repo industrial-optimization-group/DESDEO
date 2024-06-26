@@ -1126,13 +1126,15 @@ def re21(
         name="f_1",
         symbol="f_1",
         func=f"{l} * ((2 * x_1) + {np.sqrt(2.0)} * x_2 + Sqrt(x_3) + x_4)",
-        objective_type=ObjectiveTypeEnum.analytical
+        objective_type=ObjectiveTypeEnum.analytical,
+        is_linear=False
     )
     f_2 = Objective(
         name="f_2",
         symbol="f_2",
         func=f"({(f * l) / e} * ((2.0 / x_1) + (2.0 * {np.sqrt(2.0)} / x_2) - (2.0 * {np.sqrt(2.0)} / x_3) + (2.0 / x_4)))",
-        objective_type=ObjectiveTypeEnum.analytical
+        objective_type=ObjectiveTypeEnum.analytical,
+        is_linear=False
     )
 
     return Problem(
@@ -1218,33 +1220,38 @@ def re22() -> Problem:
         name="x_1_con",
         symbol="x_1_con",
         cons_type=ConstraintTypeEnum.EQ,
-        func=sum_expr
+        func=sum_expr,
+        is_linear=True
     )
 
     g_1 = Constraint(
         name="g_1",
         symbol="g_1",
         cons_type=ConstraintTypeEnum.LTE,
-        func=f"- (({x_1_eprs}) * x_3 - 7.735 * (({x_1_eprs})**2 / x_2) - 180)"
+        func=f"- (({x_1_eprs}) * x_3 - 7.735 * (({x_1_eprs})**2 / x_2) - 180)",
+        is_linear=False
     )
     g_2 = Constraint(
         name="g_2",
         symbol="g_2",
         cons_type=ConstraintTypeEnum.LTE,
-        func="-(4 - x_3 / x_2)"
+        func="-(4 - x_3 / x_2)",
+        is_linear=False
     )
 
     f_1 = Objective(
         name="f_1",
         symbol="f_1",
         func=f"29.4 * ({x_1_eprs}) + 0.6 * x_2 * x_3",
-        objective_type=ObjectiveTypeEnum.analytical
+        objective_type=ObjectiveTypeEnum.analytical,
+        is_linear=False
     )
     f_2 = Objective(
         name="f_2",
         symbol="f_2",
         func=f"Max(({x_1_eprs}) * x_3 - 7.735 * (({x_1_eprs})**2 / x_2) - 180, 0) + Max(4 - x_3 / x_2, 0)",
-        objective_type=ObjectiveTypeEnum.analytical
+        objective_type=ObjectiveTypeEnum.analytical,
+        is_linear=False
     )
     return Problem(
         name="re22",
@@ -1317,32 +1324,37 @@ def re23() -> Problem:
         name="g_1",
         symbol="g_1",
         cons_type=ConstraintTypeEnum.LTE,
-        func=f"-({x_1_exprs} - 0.0193 * x_3)"
+        func=f"-({x_1_exprs} - 0.0193 * x_3)",
+        is_linear=True
     )
     g_2 = Constraint(
         name="g_2",
         symbol="g_2",
         cons_type=ConstraintTypeEnum.LTE,
-        func=f"-({x_2_exprs} - 0.00954 * x_3)"
+        func=f"-({x_2_exprs} - 0.00954 * x_3)",
+        is_linear=True
     )
     g_3 = Constraint(
         name="g_3",
         symbol="g_3",
         cons_type=ConstraintTypeEnum.LTE,
-        func=f"-({np.pi} * x_3**2 * x_4 + (4/3) * {np.pi} * x_3**3 - 1296000)"
+        func=f"-({np.pi} * x_3**2 * x_4 + (4/3) * {np.pi} * x_3**3 - 1296000)",
+        is_linear=False
     )
 
     f_1 = Objective(
         name="f_1",
         symbol="f_1",
         func=f"0.6224 * {x_1_exprs} * x_3 * x_4 + (1.7781 * {x_2_exprs} * x_3**2) + (3.1661 * {x_1_exprs}**2 * x_4) + (19.84 * {x_1_exprs}**2 * x_3)",
-        objective_type=ObjectiveTypeEnum.analytical
+        objective_type=ObjectiveTypeEnum.analytical,
+        is_linear=False
     )
     f_2 = Objective(
         name="f_2",
         symbol="f_2",
         func=f"Max({x_1_exprs} - 0.0193 * x_3, 0) + Max({x_2_exprs} - 0.00954 * x_3, 0) + Max({np.pi} * x_3**2 * x_4 + (4/3) * {np.pi} * x_3**3 - 1296000, 0)",
-        objective_type=ObjectiveTypeEnum.analytical
+        objective_type=ObjectiveTypeEnum.analytical,
+        is_linear=False
     )
     return Problem(
         name="re23",
@@ -1408,38 +1420,44 @@ def re24() -> Problem:
         name="g_1",
         symbol="g_1",
         cons_type=ConstraintTypeEnum.LTE,
-        func=f"-(1 - {sigma_b} / 700)"
+        func=f"-(1 - {sigma_b} / 700)",
+        is_linear=False
     )
     g_2 = Constraint(
         name="g_2",
         symbol="g_2",
         cons_type=ConstraintTypeEnum.LTE,
-        func=f"-(1 - {tau} / 450)"
+        func=f"-(1 - {tau} / 450)",
+        is_linear=False
     )
     g_3 = Constraint(
         name="g_3",
         symbol="g_3",
         cons_type=ConstraintTypeEnum.LTE,
-        func=f"-(1 - {delta} / 1.5)"
+        func=f"-(1 - {delta} / 1.5)",
+        is_linear=False
     )
     g_4 = Constraint(
         name="g_4",
         symbol="g_4",
         cons_type=ConstraintTypeEnum.LTE,
-        func=f"-(1 - {sigma_b} / {sigma_k})"
+        func=f"-(1 - {sigma_b} / {sigma_k})",
+        is_linear=False
     )
 
     f_1 = Objective(
         name="f_1",
         symbol="f_1",
         func="x_1 + 120 * x_2",
-        objective_type=ObjectiveTypeEnum.analytical
+        objective_type=ObjectiveTypeEnum.analytical,
+        is_linear=True
     )
     f_2 = Objective(
         name="f_2",
         symbol="f_2",
         func=f"Max(1 - {sigma_b} / 700, 0) + Max(1 - {tau} / 450, 0) + Max(1 - {delta} / 1.5, 0) + Max(1 - {sigma_b} / {sigma_k}, 0)",
-        objective_type=ObjectiveTypeEnum.analytical
+        objective_type=ObjectiveTypeEnum.analytical,
+        is_linear=False
     )
     return Problem(
         name="re24",
