@@ -15,10 +15,12 @@ from desdeo.problem import (
     ScalarizationFunction,
     Variable,
     VariableTypeEnum,
+    dtlz2
 )
-from .utils import (
+from desdeo.tools.utils import (
     get_corrected_ideal_and_nadir,
     get_corrected_reference_point,
+    guess_best_solver
 )
 
 
@@ -96,7 +98,7 @@ def add_asf_nondiff(
     problem: Problem,
     symbol: str,
     reference_point: dict[str, float],
-    reference_in_aug=False,
+    reference_point_aug: dict[str, float] | None = None,
     delta: float = 0.000001,
     rho: float = 0.000001,
 ) -> tuple[Problem, str]:
@@ -120,9 +122,9 @@ def add_asf_nondiff(
     where $\mathbf{q} = [q_1,\dots,q_k]$ is a reference point, $\mathbf{z^\star} = [z_1^\star,\dots,z_k^\star]$
     is the ideal point, $\mathbf{z}^\text{nad} = [z_1^\text{nad},\dots,z_k^\text{nad}]$ is the nadir point, $k$
     is the number of objective functions, and $\delta$ and $\rho$ are small scalar values. The summation term
-    in the scalarization is known as the _augmentation term_. If the reference point is chosen to
-    be used in the augmentation term (`reference_in_aug=True`), then
-    the reference point components are subtracted from the objective function values in the nominator
+    in the scalarization is known as the _augmentation term_. If the reference point is chosen to be used in the
+    augmentation term, as in a separate reference point for the augmentation term is given (`reference_point_aug`),
+    then the reference point components are subtracted from the objective function values in the nominator
     of the augmentation term. That is:
 
     \begin{equation}
@@ -138,8 +140,8 @@ def add_asf_nondiff(
         problem (Problem): the problem to which the scalarization function should be added.
         symbol (str): the symbol to reference the added scalarization function.
         reference_point (dict[str, float]): a reference point as an objective dict.
-        reference_in_aug (bool): whether the reference point should be used in
-            the augmentation term as well. Defaults to False.
+        reference_point_aug (dict[str, float], optional): a separate reference point for the augmentation
+            in case a reference point is to be included there. Defaults to None.
         delta (float, optional): the scalar value used to define the utopian point (ideal - delta).
             Defaults to 0.000001.
         rho (float, optional): the weight factor used in the augmentation term. Defaults to 0.000001.
@@ -155,6 +157,9 @@ def add_asf_nondiff(
     # check that the reference point has all the objective components
     if not objective_dict_has_all_symbols(problem, reference_point):
         msg = f"The given reference point {reference_point} does not have a component defined for all the objectives."
+        raise ScalarizationError(msg)
+    if reference_point_aug is not None and not objective_dict_has_all_symbols(problem, reference_point_aug):
+        msg = f"The given reference point for the augmentation term {reference_point_aug} does not have a component defined for all the objectives."
         raise ScalarizationError(msg)
 
     # check if minimizing or maximizing and adjust ideal and nadir values correspondingly
@@ -175,7 +180,7 @@ def add_asf_nondiff(
     max_term = f"{Op.MAX}({', '.join(max_operands)})"
 
     # Build the augmentation term
-    if not reference_in_aug:
+    if reference_point_aug is None:
         aug_operands = [
             f"{obj.symbol}_min / ({nadir_point[obj.symbol]} - ({ideal_point[obj.symbol]} - {delta}))"
             for obj in problem.objectives
@@ -183,7 +188,7 @@ def add_asf_nondiff(
     else:
         aug_operands = [
             (
-                f"({obj.symbol}_min - {reference_point[obj.symbol]}{" * -1" if obj.maximize else 1}) "
+                f"({obj.symbol}_min - {reference_point_aug[obj.symbol]}{" * -1" if obj.maximize else 1}) "
                 f"/ ({nadir_point[obj.symbol]} - ({ideal_point[obj.symbol]} - {delta}))"
             )
             for obj in problem.objectives
@@ -208,9 +213,8 @@ def add_asf_nondiff(
 def add_asf_generic_diff(
     problem: Problem,
     symbol: str,
-    reference_point: dict[str, float],
-    weights: dict[str, float],
-    reference_in_aug=False,
+    reference_points: list[dict[str, float]],
+    weights: list[dict[str, float]],
     rho: float = 1e-6,
 ) -> tuple[Problem, str]:
     r"""Adds the differentiable variant of the generic achievement scalarizing function.
@@ -258,28 +262,39 @@ def add_asf_generic_diff(
             scalarization and the symbol of the added scalarization.
     """
     # check reference point
-    if not objective_dict_has_all_symbols(problem, reference_point):
-        msg = f"The give reference point {reference_point} is missing a value for one or more objectives."
-        raise ScalarizationError(msg)
+    for reference_point in reference_points:
+        if not objective_dict_has_all_symbols(problem, reference_point):
+            msg = f"The give reference point {reference_point} is missing a value for one or more objectives."
+            raise ScalarizationError(msg)
 
     # check the weight vector
-    if not objective_dict_has_all_symbols(problem, weights):
-        msg = f"The given weight vector {weights} is missing a value for one or more objectives."
+    for w in weights:
+        if not objective_dict_has_all_symbols(problem, w):
+            msg = f"The given weight vector {w} is missing a value for one or more objectives."
 
     ideal_point, nadir_point = get_corrected_ideal_and_nadir(problem)
-    corrected_rp = get_corrected_reference_point(problem, reference_point)
+    corrected_rps = [get_corrected_reference_point(problem, reference_point) for reference_point in reference_points]
+    print(corrected_rps)
 
     # define the auxiliary variable
     alpha = Variable(name="alpha", symbol="_alpha", variable_type=VariableTypeEnum.real, initial_value=1.0)
 
     # define the augmentation term
-    if not reference_in_aug:
+    if not len(reference_points) > 1 and not len(weights) > 1:
         # no reference point in augmentation term
-        aug_expr = " + ".join([f"({obj.symbol}_min / {weights[obj.symbol]})" for obj in problem.objectives])
-    else:
+        # same weights for both terms
+        aug_expr = " + ".join([f"({obj.symbol}_min / {weights[0][obj.symbol]})" for obj in problem.objectives])
+    elif not len(reference_points) > 1 and len(weights) > 1:
+        # different weights provided for augmentation term
+        aug_expr = " + ".join([f"({obj.symbol}_min / {weights[1][obj.symbol]})" for obj in problem.objectives])
+    elif len(reference_points) > 1 and not len(weights) > 1:
         # reference point in augmentation term
         aug_expr = " + ".join(
-            [f"(({obj.symbol}_min - {corrected_rp[obj.symbol]}) / {weights[obj.symbol]})" for obj in problem.objectives]
+            [f"(({obj.symbol}_min - {corrected_rps[1][obj.symbol]}) / {weights[0][obj.symbol]})" for obj in problem.objectives]
+        )
+    else:
+        aug_expr = " + ".join(
+            [f"(({obj.symbol}_min - {corrected_rps[1][obj.symbol]}) / {weights[1][obj.symbol]})" for obj in problem.objectives]
         )
 
     target_expr = f"_alpha + {rho}*" + f"({aug_expr})"
@@ -295,7 +310,7 @@ def add_asf_generic_diff(
     constraints = []
 
     for obj in problem.objectives:
-        expr = f"({obj.symbol}_min - {corrected_rp[obj.symbol]}) / {weights[obj.symbol]} - _alpha"
+        expr = f"({obj.symbol}_min - {corrected_rps[0][obj.symbol]}) / {weights[0][obj.symbol]} - _alpha"
 
         # since we are subtracting a constant value, the linearity, convexity,
         # and differentiability of the objective function, and hence the
@@ -1603,3 +1618,18 @@ def add_lte_constraints(
             ]
         }
     )
+
+if __name__ == "__main__":
+    n_objectives = 4
+    n_variables = 5
+    problem = dtlz2(n_variables=n_variables, n_objectives=n_objectives)
+    reference_point = {"f_1": 0.4, "f_2": 0.8, "f_3": 0.7, "f_4": 0.75}
+    reference_point2 = {"f_1": 0, "f_2": 0, "f_3": 0, "f_4": 0}
+    weights = {"f_1": 0.3, "f_2": 0.2, "f_3": 0.1, "f_4": 0.4}
+    weights2 = {"f_1": 1, "f_2": 1, "f_3": 1, "f_4": 1}
+
+    problem_w_asf, target = add_asf_generic_diff(
+        problem, symbol="asf", reference_points=[reference_point, reference_point2], weights=[weights, weights2]
+    )
+
+    print(problem_w_asf.scalarization_funcs)
