@@ -4,23 +4,23 @@ References:
     Miettinen, K., & Mäkelä, M. M. (2006). Synchronous approach in interactive
         multiobjective optimization. European Journal of Operational Research,
         170(3), 909–922.
-"""
+"""  # noqa: RUF002
 
 import numpy as np
 
-from desdeo.problem import Problem, VariableType, variable_dict_to_numpy_array, GenericEvaluator
+from desdeo.problem import GenericEvaluator, Problem, VariableType, variable_dict_to_numpy_array
 from desdeo.tools import (
     CreateSolverType,
     SolverOptions,
     SolverResults,
     add_asf_diff,
     add_asf_nondiff,
+    add_guess_sf_diff,
+    add_guess_sf_nondiff,
     add_nimbus_sf_diff,
     add_nimbus_sf_nondiff,
     add_stom_sf_diff,
     add_stom_sf_nondiff,
-    add_guess_sf_diff,
-    add_guess_sf_nondiff,
     guess_best_solver,
 )
 
@@ -29,7 +29,7 @@ class NimbusError(Exception):
     """Raised when an error with a NIMBUS method is encountered."""
 
 
-def solve_intermediate_solutions(
+def solve_intermediate_solutions(  # noqa: PLR0913
     problem: Problem,
     solution_1: dict[str, VariableType],
     solution_2: dict[str, VariableType],
@@ -221,7 +221,7 @@ def infer_classifications(
     return classifications
 
 
-def solve_sub_problems(
+def solve_sub_problems(  # noqa: PLR0913
     problem: Problem,
     current_objectives: dict[str, float],
     reference_point: dict[str, float],
@@ -316,7 +316,7 @@ def solve_sub_problems(
 
         solutions.append(stom_solver.solve(stom_target))
 
-    if num_desired > 2:
+    if num_desired > 2:  # noqa: PLR2004
         # solve ASF
         add_asf = add_asf_diff if is_smooth else add_asf_nondiff
 
@@ -325,7 +325,7 @@ def solve_sub_problems(
 
         solutions.append(asf_solver.solve(asf_target))
 
-    if num_desired > 3:
+    if num_desired > 3:  # noqa: PLR2004
         # solve GUESS
         add_guess_sf = add_guess_sf_diff if is_smooth else add_guess_sf_nondiff
 
