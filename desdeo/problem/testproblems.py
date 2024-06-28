@@ -22,10 +22,6 @@ from desdeo.problem.schema import (
     VariableTypeEnum,
 )
 
-from desdeo.problem.utils import (
-    tensor_constant_from_csv
-)
-
 
 def binh_and_korn(maximize: tuple[bool] = (False, False)) -> Problem:
     """Create a pydantic dataclass representation of the Binh and Korn problem.
@@ -1159,10 +1155,7 @@ def forest_problem() -> Problem:
 
     #print(w_array)
     #print(np.shape(w_array))
-    """w = TensorConstant(
-        name="w", symbol="w", shape=[np.shape(w_array)[0], np.shape(w_array)[1]], values=w_array.tolist()
-    )"""
-
+    
     constants = []
     for i in range(np.shape(w_array)[0]):
         w = TensorConstant(
@@ -1190,16 +1183,12 @@ def forest_problem() -> Problem:
             name=f"X_{i+1}",
             symbol=f"X_{i+1}",
             variable_type=VariableTypeEnum.binary,
-            shape=[np.shape(p_array)[1], 1]
+            shape=[np.shape(p_array)[1], 1],
+            lowerbounds=np.shape(p_array)[1] * [0],
+            upperbounds=np.shape(p_array)[1] * [1]
         )
         variables.append(x)
 
-    """x = TensorVariable(
-        name="X",
-        symbol="X",
-        variable_type=VariableTypeEnum.binary,
-        shape=[np.shape(p_array)[1], np.shape(p_array)[0]]
-    )"""
     constraints = []
     for i in range(np.shape(p_array)[0]):
         con = Constraint(
