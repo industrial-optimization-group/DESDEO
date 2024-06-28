@@ -5,6 +5,7 @@ testing and illustration purposed are defined here.
 """
 
 import numpy as np
+import polars as pl
 
 from desdeo.problem.schema import (
     Constant,
@@ -19,6 +20,10 @@ from desdeo.problem.schema import (
     TensorVariable,
     Variable,
     VariableTypeEnum,
+)
+
+from desdeo.problem.utils import (
+    tensor_constant_from_csv
 )
 
 
@@ -1116,7 +1121,133 @@ def simple_knapsack_vectors():
         constraints=[weight_constraint],
     )
 
+def forest_problem() -> Problem:
+    df = pl.read_csv("./assets/alternatives_290124.csv", dtypes={"unit": pl.Float64})
+    selected_df_p = df.select(["unit", "schedule", "harvest_value_period_2025", "harvest_value_period_2030", "harvest_value_period_2035"])
+    unique_units = selected_df_p.unique(["unit"], maintain_order=True).get_column("unit")
+    selected_df_p.group_by(["unit", "schedule"])
+    rows_by_key = selected_df_p.rows_by_key(key=["unit", "schedule"])
+    p_array = np.zeros((selected_df_p["unit"].n_unique(), selected_df_p["schedule"].n_unique()))
+    for i in range(np.shape(p_array)[0]):
+        for j in range(np.shape(p_array)[1]):
+            #print(selected_df["harvest_value_period_2035"][i])
+            if (unique_units[i], j) in rows_by_key:
+                p_array[i][j] = sum(rows_by_key[(unique_units[i], j)][0])
+
+    #print(np.shape(p_array))
+    #print(p_array)
+    p = TensorConstant(
+        name="p", symbol="p", shape=[np.shape(p_array)[0], np.shape(p_array)[1]], values=p_array.tolist()
+    )
+
+    df_key = pl.read_csv("./assets/alternatives_key_290124.csv", dtypes={"unit": pl.Float64})
+    selected_df_w = df.select(["unit", "schedule", "stock_2025", "stock_2030", "stock_2035"])
+    selected_df_w.group_by(["unit", "schedule"])
+    rows_by_key = selected_df_w.rows_by_key(key=["unit", "schedule"])
+    selected_df_key_w = df_key.select(["unit", "schedule", "treatment"])
+    selected_df_key_w.group_by(["unit", "schedule"])
+    rows_by_key_df_key = selected_df_key_w.rows_by_key(key=["unit", "schedule"])
+    w_array = np.zeros((selected_df_w["unit"].n_unique(), selected_df_w["schedule"].n_unique()))
+    for i in range(np.shape(p_array)[0]):
+        for j in range(np.shape(p_array)[1]):
+            if (unique_units[i], j) in rows_by_key and "2035" in rows_by_key_df_key[(unique_units[i], j)][0]:
+                w_array[i][j] = rows_by_key[(unique_units[i], j)][0][2]
+            elif (unique_units[i], j) in rows_by_key and "2030" in rows_by_key_df_key[(unique_units[i], j)][0]:
+                w_array[i][j] = rows_by_key[(unique_units[i], j)][0][1]
+            elif (unique_units[i], j) in rows_by_key and "2025" in rows_by_key_df_key[(unique_units[i], j)][0]:
+                w_array[i][j] = rows_by_key[(unique_units[i], j)][0][0]
+
+    #print(w_array)
+    #print(np.shape(w_array))
+    """w = TensorConstant(
+        name="w", symbol="w", shape=[np.shape(w_array)[0], np.shape(w_array)[1]], values=w_array.tolist()
+    )"""
+
+    constants = []
+    for i in range(np.shape(w_array)[0]):
+        w = TensorConstant(
+            name=f"W_{i+1}",
+            symbol=f"W_{i+1}",
+            shape=[1, np.shape(w_array)[1]],
+            values=w_array[i].tolist()
+        )
+        constants.append(w)
+
+    for i in range(np.shape(p_array)[0]):
+        p = TensorConstant(
+            name=f"P_{i+1}",
+            symbol=f"P_{i+1}",
+            shape=[1, np.shape(p_array)[1]],
+            values=p_array[i].tolist()
+        )
+        constants.append(p)
+
+    print(np.sum(p_array @ w_array.T), np.sum(w_array @ p_array.T))
+
+    variables = []
+    for i in range(np.shape(p_array)[0]):
+        x = TensorVariable(
+            name=f"X_{i+1}",
+            symbol=f"X_{i+1}",
+            variable_type=VariableTypeEnum.binary,
+            shape=[np.shape(p_array)[1], 1]
+        )
+        variables.append(x)
+
+    """x = TensorVariable(
+        name="X",
+        symbol="X",
+        variable_type=VariableTypeEnum.binary,
+        shape=[np.shape(p_array)[1], np.shape(p_array)[0]]
+    )"""
+    constraints = []
+    for i in range(np.shape(p_array)[0]):
+        con = Constraint(
+            name=f"x_con{i+1}",
+            symbol=f"x_con_{i+1}",
+            cons_type=ConstraintTypeEnum.EQ,
+            func=f"Sum(x_{i+1}) - 1"
+        )
+        constraints.append(con)
+
+    f_2_func = []
+    for i in range(np.shape(w_array)[0]):
+        exprs = f"W_{i+1}@X_{i+1}"
+        f_2_func.append(exprs)
+    f_2_func = " + ".join(f_2_func)
+
+    f_2 = Objective(
+        name="f_2",
+        symbol="f_2",
+        func=f_2_func,
+        objective_type=ObjectiveTypeEnum.analytical
+    )
+
+    f_3_func = []
+    for i in range(np.shape(p_array)[0]):
+        exprs = f"P_{i+1}@X_{i+1}"
+        f_3_func.append(exprs)
+    f_3_func = " + ".join(f_3_func)
+
+    f_3 = Objective(
+        name="f_3",
+        symbol="f_3",
+        func=f_3_func,
+        objective_type=ObjectiveTypeEnum.analytical
+    )
+
+    return Problem(
+        name="",
+        description="",
+        constants=constants,
+        variables=variables,
+        objectives=[f_2, f_3],
+        constraints=constraints
+    )
+
 
 if __name__ == "__main__":
-    problem = simple_scenario_test_problem()
-    print(problem.model_dump_json(indent=2))
+    #problem = simple_scenario_test_problem()
+    #print(problem.model_dump_json(indent=2))
+    problem = forest_problem()
+    print(problem)
