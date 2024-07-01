@@ -287,7 +287,7 @@ def add_asf_generic_diff(
         corrected_rp_aug = get_corrected_reference_point(problem, reference_point_aug)
 
     # define the auxiliary variable
-    alpha = Variable(name="alpha", symbol="_alpha", variable_type=VariableTypeEnum.real, lowerbound=0, upperbound=1, initial_value=1.0)
+    alpha = Variable(name="alpha", symbol="_alpha", variable_type=VariableTypeEnum.real, lowerbound=-float("Inf"), upperbound=float("Inf"), initial_value=1.0)
 
     # define the augmentation term
     if reference_point_aug is None and weights_aug is None:
@@ -443,7 +443,6 @@ def add_asf_generic_nondiff(
     max_term = f"{Op.MAX}({', '.join(max_operands)})"
 
     # Build the augmentation term
-    # define the augmentation term
     if reference_point_aug is None and weights_aug is None:
         # no reference point in augmentation term
         # same weights for both terms
@@ -1653,36 +1652,3 @@ def add_lte_constraints(
             ]
         }
     )
-
-if __name__ == "__main__":
-    from desdeo.problem import dtlz2
-    from desdeo.tools import ScipyMinimizeSolver
-    n_objectives = 4
-    n_variables = 5
-    problem = dtlz2(n_variables=n_variables, n_objectives=n_objectives)
-    reference_point = {"f_1": 0.4, "f_2": 0.8, "f_3": 0.7, "f_4": 0.75}
-    reference_point_aug = {"f_1": 1.4, "f_2": 1.8, "f_3": 1.7, "f_4": 1.75}
-    weights = {"f_1": 0.3, "f_2": 0.2, "f_3": 0.1, "f_4": 0.4}
-    weights_aug = {"f_1": 0.2, "f_2": 0.3, "f_3": 0.4, "f_4": 0.1}
-
-    problem_w_asf, target = add_asf_generic_diff(
-        problem, symbol="asf", reference_point=reference_point, weights=weights
-    )
-    problem_w_asf_aug, target = add_asf_generic_diff(
-        problem, symbol="asf",
-        reference_point=reference_point,
-        weights=weights,
-        reference_point_aug=reference_point_aug,
-        weights_aug=weights_aug
-    )
-    print(problem_w_asf.objectives)
-    solver = ScipyMinimizeSolver(problem_w_asf, initial_guess={"x_1": 0.5, "x_2": 0.5, "x_3": 0.5, "x_4": 0.5, "x_5": 0.5, "_alpha": 0.5})
-    #solver = create_solver(problem_w_asf)
-    #solver_aug = create_solver(problem_w_asf_aug)
-    res = solver.solve(target)
-    xs = res.optimal_variables
-    fs = res.optimal_objectives
-    print(xs, fs)
-    #res = solver_aug.solve(target)
-    xs = res.optimal_variables
-    fs = res.optimal_objectives
