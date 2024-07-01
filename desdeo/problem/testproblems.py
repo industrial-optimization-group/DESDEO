@@ -1119,6 +1119,8 @@ def simple_knapsack_vectors():
 
 def forest_problem() -> Problem:
     df = pl.read_csv("./assets/alternatives_290124.csv", dtypes={"unit": pl.Float64})
+    df_key = pl.read_csv("./assets/alternatives_key_290124.csv", dtypes={"unit": pl.Float64})
+
     selected_df_p = df.select(["unit", "schedule", "harvest_value_period_2025", "harvest_value_period_2030", "harvest_value_period_2035"])
     unique_units = selected_df_p.unique(["unit"], maintain_order=True).get_column("unit")
     selected_df_p.group_by(["unit", "schedule"])
@@ -1136,7 +1138,6 @@ def forest_problem() -> Problem:
         name="p", symbol="p", shape=[np.shape(p_array)[0], np.shape(p_array)[1]], values=p_array.tolist()
     )
 
-    df_key = pl.read_csv("./assets/alternatives_key_290124.csv", dtypes={"unit": pl.Float64})
     selected_df_w = df.select(["unit", "schedule", "stock_2025", "stock_2030", "stock_2035"])
     selected_df_w.group_by(["unit", "schedule"])
     rows_by_key = selected_df_w.rows_by_key(key=["unit", "schedule"])
@@ -1155,7 +1156,7 @@ def forest_problem() -> Problem:
 
     #print(w_array)
     #print(np.shape(w_array))
-    
+
     constants = []
     for i in range(np.shape(w_array)[0]):
         w = TensorConstant(
