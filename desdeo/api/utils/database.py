@@ -3,8 +3,8 @@
 from os import getenv
 from typing import TypeVar, Dict
 
-from sqlalchemy.engine import URL
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine, AsyncSession
+from sqlalchemy.engine import URL, Result
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine, AsyncSession, AsyncScalarResult
 from sqlalchemy.future import select as sa_select
 from sqlalchemy.orm import DeclarativeMeta, declarative_base, sessionmaker
 from sqlalchemy.pool import NullPool
@@ -19,25 +19,52 @@ from .logger import get_logger
 T = TypeVar("T")
 
 def select(entity) -> Select:
-    """Shortcut for :meth:`sqlalchemy.future.select`"""
+    """Shortcut for :meth:`sqlalchemy.future.select`
+
+    Args:
+        entity (sqlalchemy.sql.expression.FromClause): Entities / DB model to SELECT from.
+
+    Returns:
+        Select: A Select class object
+    """
     return sa_select(entity)
 
-'''def filter(cls, *args, **kwargs) -> Select:
-    """Shortcut for :meth:`sqlalchemy.future.Select.filter`"""
-    return select(cls, *args).filter(**kwargs)'''
-
 def filter_by(cls, *args, **kwargs) -> Select:
-    """Shortcut for :meth:`sqlalchemy.future.Select.filter_by`"""
+    """Shortcut for :meth:`sqlalchemy.future.Select.filter_by`
+
+    Args:
+        cls (sqlalchemy.sql.expression.FromClause): Entities / DB model to SELECT from.
+        *args (tuple): Positional arguments.
+        **kwargs (dict): Keyword arguments.
+
+    Returns:
+        Select: A Select class object with a WHERE clause
+    """
     return select(cls, *args).filter_by(**kwargs)
 
 
 def exists(*entities, **kwargs) -> Exists:
-    """Shortcut for :meth:`sqlalchemy.sql.expression.exists`"""
+    """Shortcut for :meth:`sqlalchemy.sql.expression.exists`
+
+    Args:
+        *entities (tuple): Positional arguments.
+        **kwargs (dict): Keyword arguments.
+
+    Returns:
+        Exists: A new Exists construct
+    """
     return sa_exists(*entities, **kwargs)
 
 
 def delete(table) -> Delete:
-    """Shortcut for :meth:`sqlalchemy.sql.expression.delete`"""
+    """Shortcut for :meth:`sqlalchemy.sql.expression.delete`
+
+    Args:
+        table (sqlalchemy.sql.expression.FromClause): Entities / DB model.
+
+    Returns:
+        Delete: A Delete object
+    """
     return sa_delete(table)
 
 
@@ -49,6 +76,12 @@ class DB:
     _session: AsyncSession
 
     def __init__(self, driver: str, options: Dict = {"pool_size": 20, "max_overflow": 20}, **kwargs):
+        """
+        Args:
+            driver (str): Drivername for db url.
+            options (Dict, optional): Options for AsyncEngine instance.
+            **kwargs (dict): Keyword arguments.
+        """
         url: str = URL.create(drivername=driver, **kwargs)
         self._engine = create_async_engine(url, echo=True, pool_pre_ping=True, pool_recycle=300, **options)
         self.Base = declarative_base()
@@ -60,37 +93,102 @@ class DB:
             await conn.run_sync(self.Base.metadata.create_all)
 
     async def add(self, obj: T) -> T:
-        """Adds an Row to the Database"""
+        """Adds an Row to the Database.
+
+        Args:
+            obj (T): Object to add.
+
+        Returns:
+            T: Added object.
+        """
         self._session.add(obj)
         return obj
 
     async def delete(self, obj: T) -> T:
-        """Deletes a Row from the Database"""
+        """Deletes a Row from the Database
+
+        Args:
+            obj (T): Object to delete.
+
+        Returns:
+            T: Deleted object.
+        """
         await self._session.delete(obj)
         return obj
 
-    async def exec(self, statement: Executable, *args, **kwargs):
-        """Executes a SQL Statement"""
+    async def exec(self, statement: Executable, *args, **kwargs) -> Result:
+        """Executes a SQL Statement
+
+        Args:
+            statement (Executable): SQL statement.
+            *args (tuple): Positional arguments.
+            **kwargs (dict): Keyword arguments.
+
+        Returns:
+            Result: A buffered Result object.
+        """
         return await self._session.execute(statement, *args, **kwargs)
 
-    async def stream(self, statement: Executable, *args, **kwargs):
-        """Returns an Stream of Query Results"""
+    async def stream(self, statement: Executable, *args, **kwargs) -> AsyncScalarResult:
+        """Returns an Stream of Query Results
+
+        Args:
+            statement (Executable): SQL statement.
+            *args (tuple): Positional arguments.
+            **kwargs (dict): Keyword arguments.
+
+        Returns:
+            AsyncScalarResult: An AsyncScalarResult filtering object.
+        """
         return (await self._session.stream(statement, *args, **kwargs)).scalars()
 
     async def all(self, statement: Executable, *args, **kwargs) -> list[T]:
-        """Returns all matches for a Query"""
+        """Returns all matches for a Query
+
+        Args:
+            statement (Executable): SQL statement.
+            *args (tuple): Positional arguments.
+            **kwargs (dict): Keyword arguments.
+
+        Returns:
+            list[T]: List of rows.
+        """
         return [x async for x in await self.stream(statement, *args, **kwargs)]
 
     async def first(self, *args, **kwargs):
-        """Returns first match for a Query"""
+        """Returns first match for a Query
+
+        Args:
+            *args (tuple): Positional arguments.
+            **kwargs (dict): Keyword arguments.
+
+        Returns:
+            First match for the Query
+        """
         return (await self.exec(*args, **kwargs)).scalar()
 
-    async def exists(self, *args, **kwargs):
-        """Checks if there is a match for this Query"""
+    async def exists(self, *args, **kwargs) -> bool:
+        """Checks if there is a match for this Query
+
+        Args:
+            *args (tuple): Positional arguments.
+            **kwargs (dict): Keyword arguments.
+
+        Returns:
+            bool: Whether there is a match for this Query
+        """
         return await self.first(exists(*args, **kwargs).select())
 
-    async def count(self, *args, **kwargs):
-        """Counts matches for a Query"""
+    async def count(self, *args, **kwargs) -> int:
+        """Counts matches for a Query
+
+        Args:
+            *args (tuple): Positional arguments.
+            **kwargs (dict): Keyword arguments.
+
+        Returns:
+            int: Number of matches for a Query
+        """
         return await self.first(select(count()).select_from(*args, **kwargs))
 
     async def commit(self):

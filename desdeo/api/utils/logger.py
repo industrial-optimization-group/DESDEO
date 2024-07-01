@@ -13,7 +13,14 @@ logging_handler.setFormatter(logging_formatter)
 
 
 def get_logger(name: str) -> logging.Logger:
-    """Get a logger with a given name."""
+    """Get a logger with a given name.
+
+    Args:
+        name (str): Logger name.
+
+    Returns:
+        logging.Logger: logging.Logger object.
+    """
 
     logger: logging.Logger = logging.getLogger(name)
     logger.addHandler(logging_handler)
