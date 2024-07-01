@@ -110,7 +110,7 @@ async def create_jwt_token(data: dict, expires_delta: timedelta) -> str:
 
     Args:
         data (dict): The data to encode in the token.
-        expires_delta (timedelta): The time after which the token will expire. Defaults to 2 hours.
+        expires_delta (timedelta): The time after which the token will expire.
 
     Returns:
         str: JWT token
@@ -150,7 +150,7 @@ async def generate_tokens(data: Dict, refresh_token_needed: bool = False) -> Tok
 
     Args:
         data (dict): The data to encode in the token.
-        refresh_token_needed (bool): Indicate whether the refresh token is generated
+        refresh_token_needed (bool, optional): Indicate whether the refresh token is generated. Defaults to False
 
     Returns:
         Token: a Token class object
