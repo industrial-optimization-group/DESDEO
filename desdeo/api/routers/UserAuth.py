@@ -106,7 +106,15 @@ def get_current_user(
     )
 
 async def create_jwt_token(data: dict, expires_delta: timedelta) -> str:
-    """Creates an JWT Token with `data` and `expire_delta`"""
+    """Creates an JWT Token with `data` and `expire_delta`
+
+    Args:
+        data (dict): The data to encode in the token.
+        expires_delta (timedelta): The time after which the token will expire. Defaults to 2 hours.
+
+    Returns:
+        str: JWT token
+    """
     data = data.copy()
     expire = datetime.utcnow() + expires_delta
     data.update({"exp": expire})
@@ -114,17 +122,39 @@ async def create_jwt_token(data: dict, expires_delta: timedelta) -> str:
     return encoded_jwt
 
 async def create_access_token(data: Dict) -> str:
-    """Creates an JWT Access Token with `data` and expires after `ACCESS_TOKEN_EXPIRE_MINUTES`"""
+    """Creates an JWT Access Token with `data` and expires after `ACCESS_TOKEN_EXPIRE_MINUTES`
+
+    Args:
+        data (dict): The data to encode in the token.
+
+    Returns:
+        str: JWT access token
+    """
     return await create_jwt_token(data, timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
 
 async def create_refresh_token(data: Dict) -> str:
-    """Creates an Refresh Token with user `data`"""
+    """Creates an Refresh Token with user `data`
+
+    Args:
+        data (dict): The data to encode in the token.
+
+    Returns:
+        str: JWT refresh token
+    """
     refresh_token: str = await create_jwt_token(data, timedelta(minutes=REFRESH_TOKEN_EXPIRE_MINUTES))
 
     return refresh_token
 
-async def generate_tokens(data: Dict, refresh_token_needed: bool = False) -> Dict:
-    """Generates Access and Refresh Token with `data`"""
+async def generate_tokens(data: Dict, refresh_token_needed: bool = False) -> Token:
+    """Generates Access and Refresh Token with `data`
+
+    Args:
+        data (dict): The data to encode in the token.
+        refresh_token_needed (bool): Indicate whether the refresh token is generated
+
+    Returns:
+        Token: a Token class object
+    """
     access_token: str = await create_access_token(data)
     refresh_token = ''
     if refresh_token_needed:
