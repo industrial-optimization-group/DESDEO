@@ -155,7 +155,7 @@ class DB:
         """
         return [x async for x in await self.stream(statement, *args, **kwargs)]
 
-    async def first(self, *args, **kwargs):
+    async def first(self, *args, **kwargs) -> dict | None:
         """Returns first match for a Query
 
         Args:
@@ -163,7 +163,7 @@ class DB:
             **kwargs (dict): Keyword arguments.
 
         Returns:
-            First match for the Query
+            dict | None: First match for the Query, or None if there is no match.
         """
         return (await self.exec(*args, **kwargs)).scalar()
 
