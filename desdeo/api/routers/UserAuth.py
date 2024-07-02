@@ -56,8 +56,16 @@ def get_user(db: Session, username: str):
     """Get a user from the database."""
     return db.query(UserModel).filter(UserModel.username == username).first()
 
-async def get_user_by_id(db: database_dependency, id: int):
-    """Get a user from the database by id."""
+async def get_user_by_id(db: database_dependency, id: int) -> dict | None:
+    """Get a user from the database by id.
+
+    Args:
+        db (database_dependency): The database session.
+        id (int): User id.
+
+    Returns:
+        dict | None: Data of user with given id, or None if the user id does not exist.
+    """
     return await db.first(select(UserModel).filter_by(id=id))
 
 def authenticate_user(db: Session, username: str, password: str):

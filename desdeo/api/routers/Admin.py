@@ -16,7 +16,14 @@ from desdeo.api.utils.database import (
 router = APIRouter()
 
 def create_invite_code(data: dict) -> str:
-    """Create unique invite code."""
+    """Create unique invite code.
+
+    Args:
+        data (dict): The data to encode in the code.
+
+    Returns:
+        str: Invite code.
+    """
 
     data = data.copy()
     code = blake2b(str.encode(str(data)), digest_size=8).hexdigest() + str(time.time())
