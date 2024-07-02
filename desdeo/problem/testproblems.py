@@ -1118,8 +1118,8 @@ def simple_knapsack_vectors():
     )
 
 def forest_problem() -> Problem:
-    df = pl.read_csv("./assets/alternatives_290124.csv", dtypes={"unit": pl.Float64})
-    df_key = pl.read_csv("./assets/alternatives_key_290124.csv", dtypes={"unit": pl.Float64})
+    df = pl.read_csv("./data/alternatives_290124.csv", dtypes={"unit": pl.Float64})
+    df_key = pl.read_csv("./data/alternatives_key_290124.csv", dtypes={"unit": pl.Float64})
 
     selected_df_p = df.select(["unit", "schedule", "harvest_value_period_2025", "harvest_value_period_2030", "harvest_value_period_2035"])
     unique_units = selected_df_p.unique(["unit"], maintain_order=True).get_column("unit")
@@ -1132,11 +1132,8 @@ def forest_problem() -> Problem:
             if (unique_units[i], j) in rows_by_key:
                 p_array[i][j] = sum(rows_by_key[(unique_units[i], j)][0])
 
-    #print(np.shape(p_array))
+    print(np.shape(p_array))
     #print(p_array)
-    p = TensorConstant(
-        name="p", symbol="p", shape=[np.shape(p_array)[0], np.shape(p_array)[1]], values=p_array.tolist()
-    )
 
     selected_df_w = df.select(["unit", "schedule", "stock_2025", "stock_2030", "stock_2035"])
     selected_df_w.group_by(["unit", "schedule"])
@@ -1145,8 +1142,8 @@ def forest_problem() -> Problem:
     selected_df_key_w.group_by(["unit", "schedule"])
     rows_by_key_df_key = selected_df_key_w.rows_by_key(key=["unit", "schedule"])
     w_array = np.zeros((selected_df_w["unit"].n_unique(), selected_df_w["schedule"].n_unique()))
-    for i in range(np.shape(p_array)[0]):
-        for j in range(np.shape(p_array)[1]):
+    for i in range(np.shape(w_array)[0]):
+        for j in range(np.shape(w_array)[1]):
             if (unique_units[i], j) in rows_by_key and "2035" in rows_by_key_df_key[(unique_units[i], j)][0]:
                 w_array[i][j] = rows_by_key[(unique_units[i], j)][0][2]
             elif (unique_units[i], j) in rows_by_key and "2030" in rows_by_key_df_key[(unique_units[i], j)][0]:
@@ -1155,14 +1152,26 @@ def forest_problem() -> Problem:
                 w_array[i][j] = rows_by_key[(unique_units[i], j)][0][0]
 
     #print(w_array)
-    #print(np.shape(w_array))
+    print(np.shape(w_array))
+
+    selected_df_v = df.select(["unit", "schedule", "npv_5_percent"])
+    selected_df_v.group_by(["unit", "schedule"])
+    rows_by_key = selected_df_v.rows_by_key(key=["unit", "schedule"])
+    v_array = np.zeros((selected_df_v["unit"].n_unique(), selected_df_v["schedule"].n_unique()))
+    for i in range(np.shape(v_array)[0]):
+        for j in range(np.shape(v_array)[1]):
+            if (unique_units[i], j) in rows_by_key:
+                v_array[i][j] = rows_by_key[(unique_units[i], j)][0]
+
+    #print(v_array)
+    print(np.shape(v_array))
 
     constants = []
     for i in range(np.shape(w_array)[0]):
         w = TensorConstant(
             name=f"W_{i+1}",
             symbol=f"W_{i+1}",
-            shape=[1, np.shape(w_array)[1]],
+            shape=[np.shape(w_array)[1]],
             values=w_array[i].tolist()
         )
         constants.append(w)
@@ -1171,12 +1180,19 @@ def forest_problem() -> Problem:
         p = TensorConstant(
             name=f"P_{i+1}",
             symbol=f"P_{i+1}",
-            shape=[1, np.shape(p_array)[1]],
+            shape=[np.shape(p_array)[1]],
             values=p_array[i].tolist()
         )
         constants.append(p)
 
-    print(np.sum(p_array @ w_array.T), np.sum(w_array @ p_array.T))
+    for i in range(np.shape(v_array)[0]):
+        v = TensorConstant(
+            name=f"V_{i+1}",
+            symbol=f"V_{i+1}",
+            shape=[np.shape(p_array)[1]],
+            values=v_array[i].tolist()
+        )
+        constants.append(v)
 
     variables = []
     for i in range(np.shape(p_array)[0]):
@@ -1184,9 +1200,10 @@ def forest_problem() -> Problem:
             name=f"X_{i+1}",
             symbol=f"X_{i+1}",
             variable_type=VariableTypeEnum.binary,
-            shape=[np.shape(p_array)[1], 1],
+            shape=[np.shape(p_array)[1]],
             lowerbounds=np.shape(p_array)[1] * [0],
-            upperbounds=np.shape(p_array)[1] * [1]
+            upperbounds=np.shape(p_array)[1] * [1],
+            initial_values=np.shape(p_array)[1] * [0]
         )
         variables.append(x)
 
@@ -1196,7 +1213,7 @@ def forest_problem() -> Problem:
             name=f"x_con{i+1}",
             symbol=f"x_con_{i+1}",
             cons_type=ConstraintTypeEnum.EQ,
-            func=f"Sum(x_{i+1}) - 1"
+            func=f"Sum(X_{i+1}) - 1"
         )
         constraints.append(con)
 
@@ -1239,5 +1256,19 @@ def forest_problem() -> Problem:
 if __name__ == "__main__":
     #problem = simple_scenario_test_problem()
     #print(problem.model_dump_json(indent=2))
+    from desdeo.problem import PyomoEvaluator, GurobipyEvaluator
     problem = forest_problem()
-    print(problem)
+    evaluator = GurobipyEvaluator(problem)
+
+    xs = {}
+    for i in range(len(problem.variables)):
+        x = []
+        for j in range(83):
+            if j == 82:
+                x.append(1)
+            else:
+                x.append(0)
+        xs[f"X_{i+1}"] = x
+    #print(xs)
+    #res = evaluator.evaluate(xs)
+    #print(res)

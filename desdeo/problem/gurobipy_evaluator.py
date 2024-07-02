@@ -5,9 +5,21 @@ from operator import le as _le
 import warnings
 
 import gurobipy as gp
+import numpy as np
 
 from desdeo.problem.json_parser import FormatEnum, MathParser
-from desdeo.problem.schema import Constraint, ConstraintTypeEnum, Objective, Problem, ScalarizationFunction, Variable, VariableTypeEnum
+from desdeo.problem.schema import (
+    Constant,
+    Constraint,
+    ConstraintTypeEnum,
+    Objective,
+    Problem,
+    ScalarizationFunction,
+    TensorConstant,
+    TensorVariable,
+    Variable,
+    VariableTypeEnum
+)
 
 
 class GurobipyEvaluatorError(Exception):
@@ -84,28 +96,56 @@ class GurobipyEvaluator:
             GurobipyModel: the GurobipyModel with the variables added as attributes.
         """
         for var in problem.variables:
-            lowerbound = var.lowerbound if var.lowerbound is not None else float("-inf")
-            upperbound = var.upperbound if var.upperbound is not None else float("inf")
+            if isinstance(var, Variable):
+                # handle regular variables
+                lowerbound = var.lowerbound if var.lowerbound is not None else float("-inf")
+                upperbound = var.upperbound if var.upperbound is not None else float("inf")
 
-            # figure out the variable type
-            match var.variable_type:
-                case VariableTypeEnum.integer:
-                    # variable is integer
-                    domain = gp.GRB.INTEGER
-                case VariableTypeEnum.real:
-                    # variable is real
-                    domain = gp.GRB.CONTINUOUS
-                case VariableTypeEnum.binary:
-                    domain = gp.GRB.BINARY
-                case _:
-                    msg = f"Could not figure out the type for variable {var}."
-                    raise GurobipyEvaluatorError(msg)
+                # figure out the variable type
+                match var.variable_type:
+                    case VariableTypeEnum.integer:
+                        # variable is integer
+                        domain = gp.GRB.INTEGER
+                    case VariableTypeEnum.real:
+                        # variable is real
+                        domain = gp.GRB.CONTINUOUS
+                    case VariableTypeEnum.binary:
+                        domain = gp.GRB.BINARY
+                    case _:
+                        msg = f"Could not figure out the type for variable {var}."
+                        raise GurobipyEvaluatorError(msg)
 
-            # add the variable to the model
-            gvar = self.model.addVar(lb=lowerbound, ub=upperbound, vtype=domain, name=var.symbol)
-            # set the initial value, if one has been defined
-            if var.initial_value is not None:
-                gvar.setAttr("Start", var.initial_value)
+                # add the variable to the model
+                gvar = self.model.addVar(lb=lowerbound, ub=upperbound, vtype=domain, name=var.symbol)
+                # set the initial value, if one has been defined
+                if var.initial_value is not None:
+                    gvar.setAttr("Start", var.initial_value)
+
+            elif isinstance(var, TensorVariable):
+                # handle tensor variables, i.e., vectors etc..
+                lowerbounds = var.lowerbounds if var.lowerbounds is not None else np.full(var.shape, float("-inf")).tolist()
+                upperbounds = var.upperbounds if var.upperbounds is not None else np.full(var.shape, float("inf")).tolist()
+
+                # figure out the variable type
+                match var.variable_type:
+                    case VariableTypeEnum.integer:
+                        # variable is integer
+                        domain = gp.GRB.INTEGER
+                    case VariableTypeEnum.real:
+                        # variable is real
+                        domain = gp.GRB.CONTINUOUS
+                    case VariableTypeEnum.binary:
+                        domain = gp.GRB.BINARY
+                    case _:
+                        msg = f"Could not figure out the type for variable {var}."
+                        raise GurobipyEvaluatorError(msg)
+
+                # add the variable to the model
+                gvar = self.model.addMVar(shape=tuple(var.shape), lb=np.array(lowerbounds[1:]), ub=np.array(upperbounds[1:]), vtype=domain, name=var.symbol)
+                # set the initial value, if one has been defined
+                if var.initial_values is not None:
+                    gvar.setAttr("Start", var.initial_values[1:])
+
 
         # update the model before returning, so that other expressions can reference the variables
         self.model.update()
@@ -136,7 +176,10 @@ class GurobipyEvaluator:
         """
         constants: dict[str, int | float] = {}
         for con in problem.constants:
-            constants[con.symbol] = con.value
+            if isinstance(con, Constant):
+                constants[con.symbol] = con.value
+            elif isinstance(con, TensorConstant):
+                constants[con.symbol] = con.values
 
         return constants
 
@@ -185,6 +228,7 @@ class GurobipyEvaluator:
         """
         objective_functions: dict[str, gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr] = {}
         for obj in problem.objectives:
+            #print(obj.func)
             gp_expr = self.parse(obj.func, callback=self.get_expression_by_name)
             if isinstance(gp_expr, int | float):
                 warnings.warn(
@@ -379,6 +423,7 @@ class GurobipyEvaluator:
             gurobipy expression: A mathematical expression that gp.Model can use either as a constraint or an objective
         """
         expression = self.model.getVarByName(name)
+        print(expression)
         if expression is None:
             if name in self.objective_functions:
                 expression = self.objective_functions[name]
