@@ -54,6 +54,7 @@ class GurobipyEvaluator:
         self.scalarizations = {}
         self.extra_functions = {}
         self.constants = {}
+        self.mvars = {}
 
         # set the parser
         self.parse = MathParser(to_format=FormatEnum.gurobipy).parse
@@ -123,8 +124,8 @@ class GurobipyEvaluator:
 
             elif isinstance(var, TensorVariable):
                 # handle tensor variables, i.e., vectors etc..
-                lowerbounds = var.lowerbounds if var.lowerbounds is not None else np.full(var.shape, float("-inf")).tolist()
-                upperbounds = var.upperbounds if var.upperbounds is not None else np.full(var.shape, float("inf")).tolist()
+                lowerbounds = var.get_lowerbound_values() if var.lowerbounds is not None else np.full(var.shape, float("-inf")).tolist()
+                upperbounds = var.get_upperbound_values() if var.upperbounds is not None else np.full(var.shape, float("inf")).tolist()
 
                 # figure out the variable type
                 match var.variable_type:
@@ -141,10 +142,11 @@ class GurobipyEvaluator:
                         raise GurobipyEvaluatorError(msg)
 
                 # add the variable to the model
-                gvar = self.model.addMVar(shape=tuple(var.shape), lb=np.array(lowerbounds[1:]), ub=np.array(upperbounds[1:]), vtype=domain, name=var.symbol)
+                gvar = self.model.addMVar(shape=tuple(var.shape), lb=np.array(lowerbounds), ub=np.array(upperbounds), vtype=domain, name=var.symbol)
                 # set the initial value, if one has been defined
                 if var.initial_values is not None:
-                    gvar.setAttr("Start", var.initial_values[1:])
+                    gvar.setAttr("Start", np.array(var.get_initial_values()))
+                self.mvars[var.symbol] = gvar
 
 
         # update the model before returning, so that other expressions can reference the variables
@@ -179,7 +181,7 @@ class GurobipyEvaluator:
             if isinstance(con, Constant):
                 constants[con.symbol] = con.value
             elif isinstance(con, TensorConstant):
-                constants[con.symbol] = con.values
+                constants[con.symbol] = con.get_values()
 
         return constants
 
@@ -228,7 +230,6 @@ class GurobipyEvaluator:
         """
         objective_functions: dict[str, gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr] = {}
         for obj in problem.objectives:
-            #print(obj.func)
             gp_expr = self.parse(obj.func, callback=self.get_expression_by_name)
             if isinstance(gp_expr, int | float):
                 warnings.warn(
@@ -423,9 +424,12 @@ class GurobipyEvaluator:
             gurobipy expression: A mathematical expression that gp.Model can use either as a constraint or an objective
         """
         expression = self.model.getVarByName(name)
-        print(expression)
         if expression is None:
-            if name in self.objective_functions:
+            # using gurobi.MVars stored in the evaluator directly,
+            # which results in terms multiplied by zero being removed from the equations:
+            if name in self.mvars:
+                expression = self.mvars[name]
+            elif name in self.objective_functions:
                 expression = self.objective_functions[name]
             elif name in self.scalarizations:
                 expression = self.scalarizations[name]
@@ -446,7 +450,11 @@ class GurobipyEvaluator:
         result_dict = {}
 
         for var in self.problem.variables:
-            result_dict[var.symbol] = self.model.getVarByName(var.symbol).getAttr(gp.GRB.Attr.X)
+            # if var is type MVar, get the values of MVar
+            if var.symbol in self.mvars:
+                result_dict[var.symbol] = self.mvars[var.symbol].getAttr(gp.GRB.Attr.X)
+            else:
+                result_dict[var.symbol] = self.model.getVarByName(var.symbol).getAttr(gp.GRB.Attr.X)
 
         for obj in self.problem.objectives:
             result_dict[obj.symbol] = self.objective_functions[obj.symbol].getValue()

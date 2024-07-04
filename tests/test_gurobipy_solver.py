@@ -8,9 +8,11 @@ import numpy as np
 from desdeo.problem import (
     Constraint,
     ConstraintTypeEnum,
+    forest_problem,
     Objective,
     ScalarizationFunction,
     simple_linear_test_problem,
+    simple_knapsack_vectors,
     Variable,
     VariableTypeEnum,
 )
@@ -84,3 +86,29 @@ def test_gurobipy_persistent_solver():
     xs = results.optimal_variables
     assert np.isclose(xs["x_1"], 4.2, atol=1e-8)
     assert np.isclose(xs["x_2"], 2.1, atol=1e-8)
+
+
+@pytest.mark.slow
+@pytest.mark.gurobipy
+def test_gurobipy_solver_with_tensors():
+    """Test gurobipy solver with a problem with TensorVariables."""
+    problem = simple_knapsack_vectors()
+    solver = GurobipySolver(problem)
+
+    results = solver.solve("f_1_min")
+
+    assert results.success
+    xs, ys = results.optimal_variables, results.optimal_objectives
+
+    assert np.allclose(xs["X"], [1.0, 1.0, 0.0, 0.0])
+    assert np.isclose(ys["f_1"], 8.0)
+    assert np.isclose(ys["f_2"], 6.0)
+
+    results = solver.solve("f_2_min")
+
+    assert results.success
+    xs, ys = results.optimal_variables, results.optimal_objectives
+
+    assert np.allclose(xs["X"], [0.0, 0.0, 1.0, 0.0])
+    assert np.isclose(ys["f_1"], 6.0)
+    assert np.isclose(ys["f_2"], 7.0)

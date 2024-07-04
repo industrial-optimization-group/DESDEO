@@ -7,6 +7,7 @@ from functools import reduce
 import itertools
 
 import gurobipy as gp
+import numpy as np
 import polars as pl
 import pyomo.environ as pyomo
 import sympy as sp
@@ -464,6 +465,15 @@ class MathParser:
 
         def _gurobipy_matmul(*args):
             """Gurobipy matrix multiplication."""
+            def _matmul(a, b):
+                if isinstance(a, list):
+                    a = np.array(a)
+                if isinstance(b, list):
+                    b = np.array(b)
+                if len(np.shape(a@b)) == 1:
+                    return a@b
+                return (a@b).sum()
+            return reduce(_matmul, args)
             msg = (
                 "Matrix multiplication '@' has not been implemented for the Gurobipy parser yet."
                 " Feel free to contribute!"
@@ -472,6 +482,11 @@ class MathParser:
 
         def _gurobipy_summation(summand):
             """Gurobipy matrix summation."""
+            def _sum(summand):
+                if isinstance(summand, list):
+                    summand = np.array(summand)
+                return summand.sum()
+            return _sum(summand)
             msg = (
                 "Matrix summation 'Sum' has not been implemented for the Gurobipy parser yet."
                 " Feel free to contribute!"
@@ -487,8 +502,8 @@ class MathParser:
             self.MUL: lambda *args: reduce(lambda x, y: x * y, args),
             self.DIV: lambda *args: reduce(lambda x, y: x / y, args),
             # Vector and matrix operations
-            self.MATMUL: lambda x, y: x@y,
-            self.SUM: lambda x: x.sum(),
+            self.MATMUL: _gurobipy_matmul,
+            self.SUM: _gurobipy_summation,
             # Exponentiation and logarithms
             # it would be possible to implement some of these with the special functions that
             # gurobi has to offer, but they would only work under specific circumstances
