@@ -49,7 +49,7 @@ class InitialResponse(BaseModel):
 
     objective_symbols: list[str] = Field(description="The symbols of the objectives.")
     objective_long_names: list[str] = Field(description="Long/descriptive names of the objectives.")
-    units: list[str] | None = Field(description="The units of the objectives.")
+    units: list[str | None] | None = Field(description="The units of the objectives.")
     is_maximized: list[bool] = Field(description="Whether the objectives are to be maximized or minimized.")
     ideal: list[float] = Field(description="The ideal values of the objectives.")
     nadir: list[float] = Field(description="The nadir values of the objectives.")
@@ -64,7 +64,7 @@ class Response(BaseModel):
 
     objective_symbols: list[str] = Field(description="The symbols of the objectives.")
     objective_long_names: list[str] = Field(description="Long/descriptive names of the objectives.")
-    units: list[str] | None = Field(description="The units of the objectives.")
+    units: list[str] | list[None] = Field(description="The units of the objectives.")
     is_maximized: list[bool] = Field(description="Whether the objectives are to be maximized or minimized.")
     ideal: list[float] = Field(description="The ideal values of the objectives.")
     nadir: list[float] = Field(description="The nadir values of the objectives.")
@@ -122,15 +122,7 @@ def init_navigator(
     db.add(new_result)
     db.commit()
 
-    return InitialResponse(
-        objective_symbols=[obj.symbol for obj in problem.objectives],
-        objective_long_names=[obj.name for obj in problem.objectives],
-        units=[obj.unit for obj in problem.objectives],
-        is_maximized=[obj.maximize for obj in problem.objectives],
-        ideal=[obj.ideal for obj in problem.objectives],
-        nadir=[obj.nadir for obj in problem.objectives],
-        total_steps=init_request.total_steps,
-    )
+    return buildInitResponse(problem, init_request)
 
 
 @router.post("/navigate")
@@ -201,6 +193,47 @@ def navigate(
     db.commit()
 
     responses = [*responses, *new_responses]
+
+    return buildResponse(problem, responses)
+
+def buildInitResponse(
+    problem: Problem,
+    init_request: InitRequest
+) -> InitialResponse:
+    """Build initial response.
+
+    Args:
+        problem (Problem): The problem to navigate.
+        init_request (InitRequest): The request to initialize the NAUTILUS Navigator.
+
+    Returns:
+        InitialResponse: The initial response from the NAUTILUS Navigator.
+    """
+
+    return InitialResponse(
+        objective_symbols=[obj.symbol for obj in problem.objectives],
+        objective_long_names=[obj.name for obj in problem.objectives],
+        units=[obj.unit for obj in problem.objectives],
+        is_maximized=[obj.maximize for obj in problem.objectives],
+        ideal=[obj.ideal for obj in problem.objectives],
+        nadir=[obj.nadir for obj in problem.objectives],
+        total_steps=init_request.total_steps,
+    )
+
+def buildResponse(
+    problem: Problem,
+    responses: list[NAUTILUS_Response]
+) -> Response:
+    """Build response.
+
+    Args:
+        problem (Problem): The problem to navigate.
+        responses (list[NAUTILUS_Response]): List of responses.
+
+    Returns:
+        Response: The result of process.
+    """
+
     current_path = get_current_path(responses)
     active_responses = [responses[i] for i in current_path]
     lower_bounds = {}

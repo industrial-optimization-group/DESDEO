@@ -72,7 +72,7 @@ class MethodState(Base):
     id: Mapped[int] = mapped_column(primary_key=True, unique=True)
     user = mapped_column(Integer, ForeignKey("user.id"), nullable=False)
     problem = mapped_column(Integer, ForeignKey("problem.id"), nullable=False)
-    method = mapped_column(Integer, ForeignKey("method.id"), nullable=False)  # Honestly, this can just be a string.
+    method = mapped_column(Integer, ForeignKey("method.id"), nullable=True)  # Honestly, this can just be a string.
     preference = mapped_column(Integer, ForeignKey("preference.id"), nullable=True)
     value = mapped_column(JSON, nullable=False)  # Depends on the method.
 
