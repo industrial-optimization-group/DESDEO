@@ -12,7 +12,6 @@ __all__ = [
     "GenericEvaluator",
     "GurobipyEvaluator",
     "dtlz2",
-    "forest_problem",
     "get_nadir_dict",
     "get_ideal_dict",
     "InfixExpressionParser",
@@ -73,7 +72,6 @@ from .sympy_evaluator import SympyEvaluator
 from .testproblems import (
     binh_and_korn,
     dtlz2,
-    forest_problem,
     momip_ti2,
     momip_ti7,
     nimbus_test_problem,

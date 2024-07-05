@@ -8,7 +8,6 @@ import numpy as np
 from desdeo.problem import (
     Constraint,
     ConstraintTypeEnum,
-    forest_problem,
     Objective,
     ScalarizationFunction,
     simple_linear_test_problem,
