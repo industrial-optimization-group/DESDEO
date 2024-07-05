@@ -1118,6 +1118,34 @@ def simple_knapsack_vectors():
     )
 
 def forest_problem() -> Problem:
+    r"""Defines a test forest problem that has TensorConstants and TensorVariables.
+
+    The problem has TensorConstants V, W and P as vectors taking values from a data file and
+    TensorVariables X_n, where n is the number of units in the data, as vectors matching the constants in shape.
+    The variables are binary and each variable vector X_i has one variable with the value 1 while others have value 0.
+    The variable with the value 1 for each vector X_i represents the optimal plan for the corresponding unit i.
+    The three objective functions f_1, f_2, f_3 represent the net present value, wood volume at the end of
+    the planning period, and the profit from harvesting.
+    All of the objective functions are to be maximized.
+    The problem is defined as follows:
+
+    \begin{align}
+        \mbox{maximize~} & \sum_{j=1}^N\sum_{i \in I_j} v_{ij} x_{ij} & \\
+        \mbox{maximize~} & \sum_{j=1}^N\sum_{i \in I_j} w_{ij} x_{ij} & \\
+        \mbox{maximize~} & \sum_{j=1}^N\sum_{i \in I_j} p_{ij} x_{ij} & \\
+        \nonumber\\
+        \mbox{subject to~} &  \sum\limits_{i \in I_j} x_{ij} = 1, & \forall j = 1 \ldots N \\
+        & x_{ij}\in \{0,1\}& \forall j = 1 \ldots N, ~\forall i\in I_j,
+    \end{align}
+
+    where $x_{ij}$ are decision variables representing the choice of implementing management plan $i$ in stand $j$,
+    and $I_j$ is the set of available management plans for stand $j$. For each plan $i$ in stand $j$
+    the net present value, wood volume at the end of the planning period, and the profit from harvesting
+    are represented by $v_{ij}$, $w_{ij}$, and $p_{ij}$ respectively.
+
+    Returns:
+        Problem: An instance of the test forest problem.
+    """
     df = pl.read_csv("./data/alternatives_290124.csv", dtypes={"unit": pl.Float64}, n_rows=10)
     df_key = pl.read_csv("./data/alternatives_key_290124.csv", dtypes={"unit": pl.Float64}, n_rows=10)
 
@@ -1214,10 +1242,14 @@ def forest_problem() -> Problem:
     f_1_func = " + ".join(f_1_func)
 
     f_1 = Objective(
-        name="f_1",
+        name="Net present value",
         symbol="f_1",
         func=f_1_func,
-        objective_type=ObjectiveTypeEnum.analytical
+        maximize=True,
+        objective_type=ObjectiveTypeEnum.analytical,
+        is_linear=True,
+        is_convex=False, # not checked
+        is_twice_differentiable=True
     )
 
     f_2_func = []
@@ -1230,7 +1262,11 @@ def forest_problem() -> Problem:
         name="f_2",
         symbol="f_2",
         func=f_2_func,
-        objective_type=ObjectiveTypeEnum.analytical
+        maximize=True,
+        objective_type=ObjectiveTypeEnum.analytical,
+        is_linear=True,
+        is_convex=False, # not checked
+        is_twice_differentiable=True
     )
 
     f_3_func = []
@@ -1243,12 +1279,16 @@ def forest_problem() -> Problem:
         name="f_3",
         symbol="f_3",
         func=f_3_func,
-        objective_type=ObjectiveTypeEnum.analytical
+        maximize=True,
+        objective_type=ObjectiveTypeEnum.analytical,
+        is_linear=True,
+        is_convex=False, # not checked
+        is_twice_differentiable=True
     )
 
     return Problem(
-        name="",
-        description="",
+        name="Forest problem",
+        description="A test forest problem.",
         constants=constants,
         variables=variables,
         objectives=[f_1, f_2, f_3],
@@ -1265,5 +1305,5 @@ if __name__ == "__main__":
     problem = simple_knapsack_vectors()
     #problem = simple_linear_test_problem()
     evaluator = GurobipySolver(problem)
-    res = evaluator.solve("f_2_min")
+    res = evaluator.solve("f_1_min")
     print(res.optimal_variables, res.optimal_objectives, res.constraint_values)
