@@ -1116,6 +1116,7 @@ def simple_knapsack_vectors():
         constraints=[weight_constraint],
     )
 
+
 if __name__ == "__main__":
     problem = simple_scenario_test_problem()
     print(problem.model_dump_json(indent=2))
