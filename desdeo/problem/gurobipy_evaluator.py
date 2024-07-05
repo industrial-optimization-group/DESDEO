@@ -154,7 +154,7 @@ class GurobipyEvaluator:
 
         return self.model
 
-    def init_constants(self, problem: Problem) -> dict[str, int | float]:
+    def init_constants(self, problem: Problem) -> dict[str, int | float | list[int] | list[float]]:
         """Add constants to a GurobipyEvaluator.
 
         Gurobi does not really have constants, so this function instead
@@ -367,7 +367,7 @@ class GurobipyEvaluator:
         """
         self.scalarizations[scal.symbol] = self.parse(scal.func,self.get_expression_by_name)
 
-    def add_variable(self, var: Variable | TensorVariable) -> gp.Var:
+    def add_variable(self, var: Variable | TensorVariable) -> gp.Var | gp.MVar:
         """Add variables to the GurobipyModel.
 
         If adding a lot of variables, this function may end up being very slow compared
@@ -466,7 +466,7 @@ class GurobipyEvaluator:
                 expression = self.constants[name]
         return expression
 
-    def get_values(self) -> dict[str, float | int | bool]:   # noqa: C901
+    def get_values(self) -> dict[str, float | int | bool | list[float] | list[int]]:   # noqa: C901
         """Get the values from the Gurobipy Model in a dict.
 
         The keys of the dict will be the symbols defined in the problem utilized to initialize the evaluator.
@@ -527,7 +527,10 @@ class GurobipyEvaluator:
         Args:
             symbol (str): a str representing the symbol of the variable to be removed.
         """
-        self.model.remove(self.model.getVarByName(symbol))
+        if symbol in self.mvars:
+            self.mvars.pop(symbol)
+        else:
+            self.model.remove(self.model.getVarByName(symbol))
         self.model.update()
 
     def set_optimization_target(self, target: str, maximize: bool = False):  # noqa: FBT001, FBT002

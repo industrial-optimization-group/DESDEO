@@ -12,6 +12,7 @@ from desdeo.problem import (
     ScalarizationFunction,
     simple_linear_test_problem,
     simple_knapsack_vectors,
+    TensorVariable,
     Variable,
     VariableTypeEnum,
 )
@@ -85,6 +86,20 @@ def test_gurobipy_persistent_solver():
     xs = results.optimal_variables
     assert np.isclose(xs["x_1"], 4.2, atol=1e-8)
     assert np.isclose(xs["x_2"], 2.1, atol=1e-8)
+
+    testvar = TensorVariable(
+        name="test_y",
+        symbol="y",
+        variable_type=VariableTypeEnum.integer,
+        shape=(2,2),
+        lowerbound=[[-20, -20], [-20, -20]],
+        upperbound=[[30, 30], [30, 30]]
+    )
+    solver.add_variable(testvar)
+    assert isinstance(solver.evaluator.get_expression_by_name("y"), gp.MVar)
+
+    solver.remove_variable("y")
+    assert solver.evaluator.get_expression_by_name("y") is None
 
 
 @pytest.mark.slow
