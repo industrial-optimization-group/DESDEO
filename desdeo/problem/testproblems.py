@@ -1147,10 +1147,10 @@ def forest_problem() -> Problem:
     Returns:
         Problem: An instance of the test forest problem.
     """
-    df = pl.read_csv("./data/alternatives_290124.csv", dtypes={"unit": pl.Float64}, n_rows=10)
-    df_key = pl.read_csv("./data/alternatives_key_290124.csv", dtypes={"unit": pl.Float64}, n_rows=10)
+    df = pl.read_csv("./data/alternatives_290124.csv", dtypes={"unit": pl.Float64})
+    df_key = pl.read_csv("./data/alternatives_key_290124.csv", dtypes={"unit": pl.Float64})
 
-    selected_df_p = df.select(["unit", "schedule", "harvest_value_period_2025", "harvest_value_period_2030", "harvest_value_period_2035"])
+    selected_df_p = df.filter(pl.col("holding") == 2).select(["unit", "schedule", "harvest_value_period_2025", "harvest_value_period_2030", "harvest_value_period_2035"])
     unique_units = selected_df_p.unique(["unit"], maintain_order=True).get_column("unit")
     selected_df_p.group_by(["unit", "schedule"])
     rows_by_key = selected_df_p.rows_by_key(key=["unit", "schedule"])
@@ -1160,7 +1160,7 @@ def forest_problem() -> Problem:
             if (unique_units[i], j) in rows_by_key:
                 p_array[i][j] = sum(rows_by_key[(unique_units[i], j)][0])
 
-    selected_df_w = df.select(["unit", "schedule", "stock_2025", "stock_2030", "stock_2035"])
+    selected_df_w = df.filter(pl.col("holding") == 2).select([ "unit", "schedule", "stock_2025", "stock_2030", "stock_2035"])
     selected_df_w.group_by(["unit", "schedule"])
     rows_by_key = selected_df_w.rows_by_key(key=["unit", "schedule"])
     selected_df_key_w = df_key.select(["unit", "schedule", "treatment"])
@@ -1176,7 +1176,7 @@ def forest_problem() -> Problem:
             elif (unique_units[i], j) in rows_by_key and "2025" in rows_by_key_df_key[(unique_units[i], j)][0]:
                 w_array[i][j] = rows_by_key[(unique_units[i], j)][0][0]
 
-    selected_df_v = df.select(["unit", "schedule", "npv_5_percent"])
+    selected_df_v = df.filter(pl.col("holding") == 2).select(["unit", "schedule", "npv_5_percent"])
     selected_df_v.group_by(["unit", "schedule"])
     rows_by_key = selected_df_v.rows_by_key(key=["unit", "schedule"])
     v_array = np.zeros((selected_df_v["unit"].n_unique(), selected_df_v["schedule"].n_unique()))
@@ -1303,8 +1303,9 @@ if __name__ == "__main__":
     from desdeo.problem import PyomoEvaluator, GurobipyEvaluator
     from desdeo.tools import GurobipySolver
     problem = forest_problem()
-    problem = simple_knapsack_vectors()
+    #problem = simple_knapsack_vectors()
     #problem = simple_linear_test_problem()
     evaluator = GurobipySolver(problem)
-    res = evaluator.solve("f_1_min")
+    res = evaluator.solve("f_2_min")
     print(res.optimal_variables, res.optimal_objectives, res.constraint_values)
+    #print(res.optimal_objectives)
