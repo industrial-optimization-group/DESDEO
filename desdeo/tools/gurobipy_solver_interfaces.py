@@ -186,16 +186,10 @@ class PersistentGurobipySolver(PersistentSolver):
                 variable argument was a list.
         """
         if isinstance(variable, list):
-            if len(variable) > 0 and isinstance(variable[0], Variable):
-                var_list = list[gp.Var]
-                for var in variable:
-                    var_list.append(self.evaluator.add_variable(var))
-                return var_list
-            if len(variable) > 0 and isinstance(variable[0], TensorVariable):
-                var_list = list[gp.MVar]
-                for var in variable:
-                    var_list.append(self.evaluator.add_variable(var))
-                return var_list
+            var_list = list[gp.Var | gp.MVar]
+            for var in variable:
+                var_list.append(self.evaluator.add_variable(var))
+            return var_list
 
         return self.evaluator.add_variable(variable)
 

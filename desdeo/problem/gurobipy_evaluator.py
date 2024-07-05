@@ -528,6 +528,7 @@ class GurobipyEvaluator:
             symbol (str): a str representing the symbol of the variable to be removed.
         """
         if symbol in self.mvars:
+            self.model.remove(self.mvars[symbol])
             self.mvars.pop(symbol)
         else:
             self.model.remove(self.model.getVarByName(symbol))
