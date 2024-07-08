@@ -102,7 +102,7 @@ def init_navigator(
         raise HTTPException(status_code=500, detail="Error in parsing the problem.") from ValidationError
 
     # Get all Results from previous runs of NAUTILUS Navigator
-    results = db.query(Results).filter(Results.problem == problem_id).all()
+    results = db.query(Results).filter(Results.problem == problem_id).order_by(Results.id.asc()).all()
 
     if len(results) > 0:
         if len(results) == 1:
@@ -145,17 +145,22 @@ async def navigate(
         Response: The result of navigation process
     """
 
-    requestRows = await db.all(select(MethodState).filter(MethodState.id.in_(navigateRequest.request_ids)))
-    requests = [SingleNavigateRequest.model_validate(requestRow.value) for requestRow in requestRows]
-    request = requests[0]
+    if not navigateRequest.cached:
+        requestRows = await db.all(select(MethodState).filter(MethodState.id.in_(navigateRequest.request_ids)))
+        requests = [SingleNavigateRequest.model_validate(requestRow.value) for requestRow in requestRows]
+        request = requests[0]
 
-    problem_id, preference, go_back_step, steps_remaining, bounds = (
-        request.problem_id,
-        request.preference,
-        request.go_back_step,
-        request.steps_remaining,
-        request.bounds,
-    )
+        problem_id, preference, go_back_step, steps_remaining, bounds = (
+            request.problem_id,
+            request.preference,
+            request.go_back_step,
+            request.steps_remaining,
+            request.bounds,
+        )
+    else :
+        requestRow = await db.first(select(MethodState).filter_by(id=navigateRequest.request_ids[0]))
+        problem_id = requestRow.problem
+
     problem = await db.first(select(ProblemInDB).filter_by(id=problem_id))
     if problem is None:
         raise HTTPException(status_code=404, detail="Problem not found.")
@@ -165,7 +170,7 @@ async def navigate(
     except ValidationError:
         raise HTTPException(status_code=500, detail="Error in parsing the problem.") from ValidationError
 
-    results = await db.all(select(Results).filter_by(problem=problem_id))
+    results = await db.all(select(Results).filter_by(problem=problem_id).order_by(Results.id.asc()))
 
     if not results:
         raise HTTPException(status_code=404, detail="NAUTILUS Navigator not initialized.")
