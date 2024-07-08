@@ -473,16 +473,6 @@ def save(
     # Get the solutions from database.
     problem_id = request.problem_id
 
-    problem = db.query(ProblemInDB).filter(ProblemInDB.id == problem_id).first()
-    if problem is None:
-        raise HTTPException(status_code=404, detail="Problem not found.")
-    if problem.owner != user.index and problem.owner is not None:
-        raise HTTPException(status_code=403, detail="Unauthorized to access chosen problem.")
-    try:
-        problem = Problem.model_validate(problem.value)
-    except ValidationError:
-        raise HTTPException(status_code=500, detail="Error in parsing the problem.") from ValidationError
-
     previous_solutions = (
         db.query(SolutionArchive)
         .filter(SolutionArchive.problem == problem_id, SolutionArchive.user == user.index)
@@ -530,16 +520,6 @@ def choose(
     """
     # Get the solutions from database.
     problem_id = request.problem_id
-
-    problem = db.query(ProblemInDB).filter(ProblemInDB.id == problem_id).first()
-    if problem is None:
-        raise HTTPException(status_code=404, detail="Problem not found.")
-    if problem.owner != user.index and problem.owner is not None:
-        raise HTTPException(status_code=403, detail="Unauthorized to access chosen problem.")
-    try:
-        problem = Problem.model_validate(problem.value)
-    except ValidationError:
-        raise HTTPException(status_code=500, detail="Error in parsing the problem.") from ValidationError
 
     previous_solutions = (
         db.query(SolutionArchive)
