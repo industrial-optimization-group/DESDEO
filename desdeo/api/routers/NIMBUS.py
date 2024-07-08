@@ -8,13 +8,12 @@ from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import Session
 
 from desdeo.api.db import get_db
+from desdeo.api.db_models import Preference, SolutionArchive
 from desdeo.api.db_models import Problem as ProblemInDB
-from desdeo.api.db_models import SolutionArchive, Preference
 from desdeo.api.routers.UserAuth import get_current_user
 from desdeo.api.schema import User
 from desdeo.mcdm.nimbus import generate_starting_point, solve_intermediate_solutions, solve_sub_problems
 from desdeo.problem.schema import Problem
-from desdeo.tools import SolverResults
 
 router = APIRouter(prefix="/nimbus")
 
@@ -87,7 +86,16 @@ class SaveRequest(BaseModel):
     """The request to save the solutions."""
 
     problem_id: int = Field(description="The ID of the problem to be solved.")
+    method_id: int = Field(description="The ID of the method being used.")
     solutions: list[list[float]] = Field(description="The solutions to be saved.")
+
+
+class ChooseRequest(BaseModel):
+    """The request to choose the final solution."""
+
+    problem_id: int = Field(description="The ID of the problem to be solved.")
+    method_id: int = Field(description="The ID of the method being used.")
+    solution: list[float] = Field(description="The chosen solution.")
 
 
 @router.post("/initialize")
@@ -447,33 +455,107 @@ def intermediate(
 
 
 @router.post("/save")
-def save(request: SaveRequest) -> NIMBUSResponse | FakeNIMBUSResponse:
+def save(
+    request: SaveRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> NIMBUSResponse | FakeNIMBUSResponse:
     """Save the solutions to the database.
 
     Args:
         request: The request body for saving solutions.
+        user (Annotated[User, Depends(get_current_user)]): The current user.
+        db (Annotated[Session, Depends(get_db)]): The database session.
 
     Returns:
         The response from the NIMBUS algorithm.
     """
-    # Do database stuff here.
-    # Do NIMBUS stuff here.
-    # Do database stuff again.
-    return FakeNIMBUSResponse(message="Solutions saved.")
+    # Get the solutions from database.
+    problem_id = request.problem_id
+
+    problem = db.query(ProblemInDB).filter(ProblemInDB.id == problem_id).first()
+    if problem is None:
+        raise HTTPException(status_code=404, detail="Problem not found.")
+    if problem.owner != user.index and problem.owner is not None:
+        raise HTTPException(status_code=403, detail="Unauthorized to access chosen problem.")
+    try:
+        problem = Problem.model_validate(problem.value)
+    except ValidationError:
+        raise HTTPException(status_code=500, detail="Error in parsing the problem.") from ValidationError
+
+    previous_solutions = (
+        db.query(SolutionArchive)
+        .filter(SolutionArchive.problem == problem_id, SolutionArchive.user == user.index)
+        .all()
+    )
+    if not previous_solutions:
+        raise HTTPException(status_code=404, detail="Problem not found in the database.")
+
+    # Find the requested solutions and mark them as saved.
+    for sol in request.solutions:
+        for prev in previous_solutions:
+            if allclose(sol, prev.objectives):
+                prev.saved = True
+    db.commit()
+
+    return NIMBUSResponse(
+        objective_symbols=[],
+        objective_long_names=[],
+        units=[],
+        is_maximized=[],
+        lower_bounds=[],
+        upper_bounds=[],
+        previous_preference=[],
+        current_solutions=[],
+        saved_solutions=[sol.objectives for sol in previous_solutions if sol.saved],
+        all_solutions=[],
+    )
 
 
 @router.post("/choose")
-def choose(problem_id: int, solution: list[float]) -> NIMBUSResponse | FakeNIMBUSResponse:
+def choose(
+    request: ChooseRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> NIMBUSResponse | FakeNIMBUSResponse:
     """Choose a solution as the final solution for NIMBUS.
 
     Args:
-        problem_id: The ID of the problem to be solved.
-        solution: The solution to be chosen.
+        request: The request body for saving solutions.
+        user (Annotated[User, Depends(get_current_user)]): The current user.
+        db (Annotated[Session, Depends(get_db)]): The database session.
 
     Returns:
         The response from the NIMBUS algorithm.
     """
-    # Do database stuff here.
-    # Do NIMBUS stuff here.
-    # Do database stuff again.
+    # Get the solutions from database.
+    problem_id = request.problem_id
+
+    problem = db.query(ProblemInDB).filter(ProblemInDB.id == problem_id).first()
+    if problem is None:
+        raise HTTPException(status_code=404, detail="Problem not found.")
+    if problem.owner != user.index and problem.owner is not None:
+        raise HTTPException(status_code=403, detail="Unauthorized to access chosen problem.")
+    try:
+        problem = Problem.model_validate(problem.value)
+    except ValidationError:
+        raise HTTPException(status_code=500, detail="Error in parsing the problem.") from ValidationError
+
+    previous_solutions = (
+        db.query(SolutionArchive)
+        .filter(SolutionArchive.problem == problem_id, SolutionArchive.user == user.index)
+        .all()
+    )
+    if not previous_solutions:
+        raise HTTPException(status_code=404, detail="Problem not found in the database.")
+
+    # Find the requested solution and mark it as chosen.
+    for prev in previous_solutions:
+        if allclose(request.solution, prev.objectives):
+            prev.chosen = True
+            db.commit()
+            break
+    else:
+        raise HTTPException(status_code=404, detail="The chosen solution was not found in the database.")
+
     return FakeNIMBUSResponse(message="Solution chosen.")
