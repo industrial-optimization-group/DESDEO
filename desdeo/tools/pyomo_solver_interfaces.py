@@ -7,7 +7,7 @@ from pyomo.opt import SolverStatus as _pyomo_SolverStatus
 from pyomo.opt import TerminationCondition as _pyomo_TerminationCondition
 
 from desdeo.problem import Problem, PyomoEvaluator
-from desdeo.tools.generics import SolverResults
+from desdeo.tools.generics import BaseSolver, SolverResults
 
 
 class BonminOptions(BaseModel):
@@ -239,7 +239,7 @@ def parse_pyomo_optimizer_results(
     )
 
 
-class PyomoBonminSolver:
+class PyomoBonminSolver(BaseSolver):
     """Creates pyomo solvers that utilize bonmin."""
 
     def __init__(self, problem: Problem, options: BonminOptions | None = _default_bonmin_options):
@@ -292,7 +292,7 @@ class PyomoBonminSolver:
         return parse_pyomo_optimizer_results(opt_res, self.problem, self.evaluator)
 
 
-class PyomoIpoptSolver:
+class PyomoIpoptSolver(BaseSolver):
     """Create a pyomo solver that utilizes Ipopt."""
 
     def __init__(self, problem: Problem, options: IpoptOptions | None = _default_ipopt_options):
@@ -337,7 +337,7 @@ class PyomoIpoptSolver:
         return parse_pyomo_optimizer_results(opt_res, self.problem, self.evaluator)
 
 
-class PyomoGurobiSolver:
+class PyomoGurobiSolver(BaseSolver):
     """Creates a pyomo solver that utilized Gurobi."""
 
     def __init__(self, problem: Problem, options: dict[str, any] | None = None):
@@ -382,7 +382,7 @@ class PyomoGurobiSolver:
             return parse_pyomo_optimizer_results(opt_res, self.problem, self.evaluator)
 
 
-class PyomoCBCSolver:
+class PyomoCBCSolver(BaseSolver):
     """Create a pyomo solver that utilizes CBC."""
 
     def __init__(self, problem: Problem, options: CbcOptions | None = _default_cbc_options):
