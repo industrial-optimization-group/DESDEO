@@ -205,6 +205,52 @@ def add_asf_nondiff(
     return problem.add_scalarization(scalarization_function), symbol
 
 
+def add_group_asf(
+    problem: Problem,
+    symbol: str,
+    reference_points: list[dict[str, float]],
+    rho: float = 1e-6
+) -> tuple[Problem, str]:
+    for reference_point in reference_points:
+        if not objective_dict_has_all_symbols(problem, reference_point):
+            msg = f"The give reference point {reference_point} is missing a value for one or more objectives."
+            raise ScalarizationError(msg)
+
+    ideal, nadir = get_corrected_ideal_and_nadir(problem)
+
+    weights = {
+        obj.symbol: 1 / (nadir[obj.symbol] - (ideal[obj.symbol] - 1e-6))
+        for obj in problem.objectives
+    }
+
+    max_terms = []
+    aug_exprs = []
+    for i in range(len(reference_points)):
+        corrected_rp = get_corrected_reference_point(problem, reference_points[i])
+        print(corrected_rp)
+        for obj in problem.objectives:
+            max_terms.append(f"({weights[obj.symbol]}) * ({obj.symbol}_min - {corrected_rp[obj.symbol]})")
+
+        aug_expr = " + ".join([f"({weights[obj.symbol]} * {obj.symbol}_min)" for obj in problem.objectives])
+        aug_exprs.append(aug_expr)
+    max_terms = ", ".join(max_terms)
+    aug_exprs = " + ".join(aug_exprs)
+
+    func = f"{Op.MAX}({max_terms}) + {rho} * {aug_exprs}"
+
+    print(func)
+
+    scalarization_function = ScalarizationFunction(
+        name="Group asf",
+        symbol=symbol,
+        func=func,
+        is_convex=problem.is_convex,
+        is_linear=problem.is_linear,
+        is_twice_differentiable=problem.is_twice_differentiable,
+    )
+    return problem.add_scalarization(scalarization_function), symbol
+
+
 def add_asf_generic_diff(
     problem: Problem,
     symbol: str,
@@ -1652,3 +1698,16 @@ def add_lte_constraints(
             ]
         }
     )
+
+if __name__ == "__main__":
+    from desdeo.problem import simple_knapsack_vectors, simple_linear_test_problem, pareto_navigator_test_problem
+    problem = simple_knapsack_vectors()
+    #asf, symbol = add_group_asf(problem, "asf", [{"f_1": 2, "f_2": 3}, {"f_1": 3, "f_2": 4}, {"f_1": 4, "f_2": 2}])
+    asf, symbol = add_group_asf(problem, "asf", [{"f_1": 2, "f_2": 3}])
+    print(asf.scalarization_funcs)
+
+    from desdeo.tools import GurobipySolver
+    from desdeo.tools import ScipyMinimizeSolver
+
+    solver = GurobipySolver(asf)
+    res = solver.solve("asf")
