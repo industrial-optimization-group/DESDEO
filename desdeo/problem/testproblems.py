@@ -1318,14 +1318,5 @@ def forest_problem(holding: int = 1, comparing: bool = False) -> Problem:
 
 
 if __name__ == "__main__":
-    #problem = simple_scenario_test_problem()
-    #print(problem.model_dump_json(indent=2))
-    from desdeo.tools import GurobipySolver
-
-    problem = forest_problem(holding=3, comparing=True)
-    #problem = simple_knapsack_vectors()
-    #problem = simple_linear_test_problem()
-    evaluator = GurobipySolver(problem)
-    res = evaluator.solve("f_3_min")
-    print(res.optimal_variables, res.optimal_objectives, res.constraint_values)
-    #print(res.optimal_objectives)
+    problem = simple_scenario_test_problem()
+    print(problem.model_dump_json(indent=2))
