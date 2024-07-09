@@ -88,6 +88,8 @@ def test_add_asf_nondiff(river_w_fake_ideal_and_nadir):
         assert value in flatten(problem.scalarization_funcs[0].func)
 
 
+@pytest.mark.scalarization
+@pytest.mark.asf
 def test_add_asf_generic_nondiff(river_w_fake_ideal_and_nadir):
     """Tests that the generic achievement scalarization function is added correctly."""
     problem = river_w_fake_ideal_and_nadir
@@ -111,45 +113,206 @@ def test_add_asf_generic_nondiff(river_w_fake_ideal_and_nadir):
         assert f"{key}_min" in flatten(problem.scalarization_funcs[0].func)
         assert value in flatten(problem.scalarization_funcs[0].func)
 
+    n_objectives = 4
+    n_variables = 5
+    problem = dtlz2(n_variables=n_variables, n_objectives=n_objectives)
+    reference_point = {"f_1": 0.4, "f_2": 0.8, "f_3": 0.7, "f_4": 0.75}
+    reference_point_aug = {"f_1": 1.4, "f_2": 0.2, "f_3": 1.7, "f_4": 0.075}
+    weights = {"f_1": 0.3, "f_2": 0.2, "f_3": 0.1, "f_4": 0.4}
+    weights_aug = {"f_1": 0.2, "f_2": 0.3, "f_3": 0.4, "f_4": 0.1}
 
+    problem_w_asf, target = add_asf_generic_nondiff(
+        problem,
+        symbol="asf",
+        reference_point=reference_point,
+        weights=weights,
+        rho=1.0 # set rho as a greater scalar to be able to see the differences in values for these tests
+    )
+    # asf with a different reference point and different weights used in the augmentation term
+    problem_w_asf_aug, target_aug = add_asf_generic_nondiff(
+        problem, symbol="asf",
+        reference_point=reference_point,
+        weights=weights,
+        reference_point_aug=reference_point_aug,
+        weights_aug=weights_aug,
+        rho=1.0 # set rho as a greater scalar to be able to see the differences in values for these tests
+    )
+    # asf with different weights used in the augmentation term
+    problem_w_asf_diff_w, target_diff_w = add_asf_generic_nondiff(
+        problem, symbol="asf",
+        reference_point=reference_point,
+        weights=weights,
+        weights_aug=weights_aug,
+        rho=1.0 # set rho as a greater scalar to be able to see the differences in values for these tests
+    )
+    # asf with a different reference point used in the augmentation term
+    problem_w_asf_diff_r, target_diff_r = add_asf_generic_nondiff(
+        problem, symbol="asf",
+        reference_point=reference_point,
+        weights=weights,
+        reference_point_aug=reference_point_aug,
+        rho=1.0 # set rho as a greater scalar to be able to see the differences in values for these tests
+    )
+    # asf with the same reference point used in the augmentation term
+    problem_w_asf_same_r, target_same_r = add_asf_generic_nondiff(
+        problem, symbol="asf",
+        reference_point=reference_point,
+        weights=weights,
+        reference_point_aug=reference_point,
+        rho=1.0 # set rho as a greater scalar to be able to see the differences in values for these tests
+    )
+
+    solver = ScipyMinimizeSolver(problem_w_asf)
+    solver_aug = ScipyMinimizeSolver(problem_w_asf_aug)
+    solver_diff_w = ScipyMinimizeSolver(problem_w_asf_diff_w)
+    solver_diff_r = ScipyMinimizeSolver(problem_w_asf_diff_r)
+    solver_same_r = ScipyMinimizeSolver(problem_w_asf_same_r)
+
+    res = solver.solve(target)
+    xs = res.optimal_variables
+    fs = res.optimal_objectives
+
+    res_aug = solver_aug.solve(target_aug)
+    xs_aug = res_aug.optimal_variables
+    fs_aug = res_aug.optimal_objectives
+
+    res_diff_w = solver_diff_w.solve(target_diff_w)
+    xs_diff_w = res_diff_w.optimal_variables
+    fs_diff_w = res_diff_w.optimal_objectives
+
+    res_diff_r = solver_diff_r.solve(target_diff_r)
+    xs_diff_r = res_diff_r.optimal_variables
+    fs_diff_r = res_diff_r.optimal_objectives
+
+    res_same_r = solver_same_r.solve(target_same_r)
+    xs_same_r = res_same_r.optimal_variables
+    fs_same_r = res_same_r.optimal_objectives
+
+    # check optimality of solutions
+    assert all(np.isclose(xs[f"x_{i}"], 0.5) for i in range(n_objectives, n_variables + 1))
+    npt.assert_almost_equal(sum(fs[obj.symbol] ** 2 for obj in problem_w_asf.objectives) ** 0.5, 1.0)
+
+    assert all(np.isclose(xs_aug[f"x_{i}"], 0.5) for i in range(n_objectives, n_variables + 1))
+    npt.assert_almost_equal(sum(fs_aug[obj.symbol] ** 2 for obj in problem_w_asf.objectives) ** 0.5, 1.0)
+
+    assert all(np.isclose(xs_diff_w[f"x_{i}"], 0.5) for i in range(n_objectives, n_variables + 1))
+    npt.assert_almost_equal(sum(fs_diff_w[obj.symbol] ** 2 for obj in problem_w_asf.objectives) ** 0.5, 1.0)
+
+    assert all(np.isclose(xs_diff_r[f"x_{i}"], 0.5) for i in range(n_objectives, n_variables + 1))
+    npt.assert_almost_equal(sum(fs_diff_r[obj.symbol] ** 2 for obj in problem_w_asf.objectives) ** 0.5, 1.0)
+
+    assert all(np.isclose(xs_same_r[f"x_{i}"], 0.5) for i in range(n_objectives, n_variables + 1))
+    npt.assert_almost_equal(sum(fs_same_r[obj.symbol] ** 2 for obj in problem_w_asf.objectives) ** 0.5, 1.0)
+
+    # check that reference point and/or different weights in augmentation term returns a different solution
+    xs = [xs[var.symbol] for var in problem_w_asf.variables]
+    xs_aug = [xs_aug[var.symbol] for var in problem_w_asf.variables]
+    xs_diff_w = [xs_diff_w[var.symbol] for var in problem_w_asf.variables]
+    xs_diff_r = [xs_diff_r[var.symbol] for var in problem_w_asf.variables]
+    xs_same_r = [xs_same_r[var.symbol] for var in problem_w_asf.variables]
+
+    assert xs != xs_aug != xs_diff_w != xs_diff_r != xs_same_r
+
+
+@pytest.mark.scalarization
+@pytest.mark.asf
 def test_add_asf_generic_diff():
     """Test that the differentiable variant of the generic achievement scalarizing function produced Pareto optimal solutions."""
     n_objectives = 4
     n_variables = 5
     problem = dtlz2(n_variables=n_variables, n_objectives=n_objectives)
     reference_point = {"f_1": 0.4, "f_2": 0.8, "f_3": 0.7, "f_4": 0.75}
+    reference_point_aug = {"f_1": 1.4, "f_2": 0.2, "f_3": 1.7, "f_4": 0.075}
     weights = {"f_1": 0.3, "f_2": 0.2, "f_3": 0.1, "f_4": 0.4}
+    weights_aug = {"f_1": 0.2, "f_2": 0.3, "f_3": 0.4, "f_4": 0.1}
 
     problem_w_asf, target = add_asf_generic_diff(
-        problem, symbol="asf", reference_point=reference_point, weights=weights, reference_in_aug=False
+        problem, symbol="asf", reference_point=reference_point, weights=weights
+    )
+    # asf with a different reference point and different weights used in the augmentation term
+    problem_w_asf_aug, target = add_asf_generic_diff(
+        problem,
+        symbol="asf",
+        reference_point=reference_point,
+        weights=weights,
+        reference_point_aug=reference_point_aug,
+        weights_aug=weights_aug
+    )
+    # asf with different weights used in the augmentation term
+    problem_w_asf_diff_w, target = add_asf_generic_diff(
+        problem,
+        symbol="asf",
+        reference_point=reference_point,
+        weights=weights,
+        weights_aug=weights_aug
+    )
+    # asf with a different reference point used in the augmentation term
+    problem_w_asf_diff_r, target = add_asf_generic_diff(
+        problem,
+        symbol="asf",
+        reference_point=reference_point,
+        weights=weights,
+        reference_point_aug=reference_point_aug
+    )
+    # asf with the same reference point used in the augmentation term
+    problem_w_asf_same_r, target = add_asf_generic_diff(
+        problem,
+        symbol="asf",
+        reference_point=reference_point,
+        weights=weights,
+        reference_point_aug=reference_point
     )
 
-    create_solver = guess_best_solver(problem_w_asf)
-    solver = create_solver(problem_w_asf)
+    solver = ScipyMinimizeSolver(problem_w_asf)
+    solver_aug = ScipyMinimizeSolver(problem_w_asf_aug)
+    solver_diff_w = ScipyMinimizeSolver(problem_w_asf_diff_w)
+    solver_diff_r = ScipyMinimizeSolver(problem_w_asf_diff_r)
+    solver_same_r = ScipyMinimizeSolver(problem_w_asf_same_r)
 
     res = solver.solve(target)
     xs = res.optimal_variables
     fs = res.optimal_objectives
 
-    # check optimality of solution
+    res_aug = solver_aug.solve(target)
+    xs_aug = res_aug.optimal_variables
+    fs_aug = res_aug.optimal_objectives
+
+    res_diff_w = solver_diff_w.solve(target)
+    xs_diff_w = res_diff_w.optimal_variables
+    fs_diff_w = res_diff_w.optimal_objectives
+
+    res_diff_r = solver_diff_r.solve(target)
+    xs_diff_r = res_diff_r.optimal_variables
+    fs_diff_r = res_diff_r.optimal_objectives
+
+    res_same_r = solver_same_r.solve(target)
+    xs_same_r = res_same_r.optimal_variables
+    fs_same_r = res_same_r.optimal_objectives
+
+    # check optimality of solutions
     assert all(np.isclose(xs[f"x_{i}"], 0.5) for i in range(n_objectives, n_variables + 1))
     npt.assert_almost_equal(sum(fs[obj.symbol] ** 2 for obj in problem_w_asf.objectives) ** 0.5, 1.0)
 
-    # test with reference point in the aug as well
-    problem_w_asf, target = add_asf_generic_diff(
-        problem, symbol="asf", reference_point=reference_point, weights=weights, reference_in_aug=True
-    )
+    assert all(np.isclose(xs_aug[f"x_{i}"], 0.5) for i in range(n_objectives, n_variables + 1))
+    npt.assert_almost_equal(sum(fs_aug[obj.symbol] ** 2 for obj in problem_w_asf.objectives) ** 0.5, 1.0)
 
-    create_solver = guess_best_solver(problem_w_asf)
-    solver = create_solver(problem_w_asf)
+    assert all(np.isclose(xs_diff_w[f"x_{i}"], 0.5) for i in range(n_objectives, n_variables + 1))
+    npt.assert_almost_equal(sum(fs_diff_w[obj.symbol] ** 2 for obj in problem_w_asf.objectives) ** 0.5, 1.0)
 
-    res = solver.solve(target)
-    xs = res.optimal_variables
-    fs = res.optimal_objectives
+    assert all(np.isclose(xs_diff_r[f"x_{i}"], 0.5) for i in range(n_objectives, n_variables + 1))
+    npt.assert_almost_equal(sum(fs_diff_r[obj.symbol] ** 2 for obj in problem_w_asf.objectives) ** 0.5, 1.0)
 
-    # check optimality of solution
-    assert all(np.isclose(xs[f"x_{i}"], 0.5) for i in range(n_objectives, n_variables + 1))
-    npt.assert_almost_equal(sum(fs[obj.symbol] ** 2 for obj in problem_w_asf.objectives) ** 0.5, 1.0)
+    assert all(np.isclose(xs_same_r[f"x_{i}"], 0.5) for i in range(n_objectives, n_variables + 1))
+    npt.assert_almost_equal(sum(fs_same_r[obj.symbol] ** 2 for obj in problem_w_asf.objectives) ** 0.5, 1.0)
+
+    # check that reference point and/or different weights in augmentation term returns a different solution
+    fs = [res.optimal_objectives[obj.symbol] for obj in problem_w_asf.objectives]
+    fs_aug = [res_aug.optimal_objectives[obj.symbol] for obj in problem_w_asf.objectives]
+    fs_diff_w = [res_diff_w.optimal_objectives[obj.symbol] for obj in problem_w_asf.objectives]
+    fs_diff_r = [res_diff_r.optimal_objectives[obj.symbol] for obj in problem_w_asf.objectives]
+    fs_diff_r = [res_diff_r.optimal_objectives[obj.symbol] for obj in problem_w_asf.objectives]
+
+    assert fs != fs_aug != fs_diff_w != fs_diff_r != fs_same_r
 
 
 def test_create_ws():
