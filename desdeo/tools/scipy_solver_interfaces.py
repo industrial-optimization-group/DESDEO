@@ -260,7 +260,7 @@ class ScipyMinimizeSolver:
         # the initial guess as a simple sequence. If no initial value is set for some variable,
         # then the initial value defaults to middle of the upper and lower bounds.
         if initial_guess is not None:
-            self.initial_guess = initial_guess
+            self.initial_guess = [initial_guess[var.symbol] for var in self.problem.variables]
         else:
             self.initial_guess = set_initial_guess(problem)
 
