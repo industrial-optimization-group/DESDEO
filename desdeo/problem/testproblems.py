@@ -1170,7 +1170,7 @@ def forest_problem(holding: int = 1, comparing: bool = False) -> Problem:
     # if compared, the stock values are calculated by substacting the value after 2025 period from
     # the value after the 2035 period (in other words, last value - first value)
     if comparing:
-        selected_df_w = df.filter(pl.col("holding") == holding).select([ "unit", "schedule", "stock_2025", "stock_2030", "stock_2035"])
+        selected_df_w = df.filter(pl.col("holding") == holding).select([ "unit", "schedule", "stock_2025", "stock_2035"])
         selected_df_w.group_by(["unit", "schedule"])
         rows_by_key = selected_df_w.rows_by_key(key=["unit", "schedule"])
         selected_df_key_w = df_key.select(["unit", "schedule", "treatment"])
@@ -1182,9 +1182,9 @@ def forest_problem(holding: int = 1, comparing: bool = False) -> Problem:
                 if len(rows_by_key_df_key[(unique_units[i], j)]) == 0:
                     continue
                 if (unique_units[i], j) in rows_by_key:
-                    w_array[i][j] = rows_by_key[(unique_units[i], j)][0][2] - rows_by_key[(unique_units[i], j)][0][0]
+                    w_array[i][j] = rows_by_key[(unique_units[i], j)][0][1] - rows_by_key[(unique_units[i], j)][0][0]
     else:
-        selected_df_w = df.filter(pl.col("holding") == holding).select([ "unit", "schedule", "stock_2025", "stock_2030", "stock_2035"])
+        selected_df_w = df.filter(pl.col("holding") == holding).select([ "unit", "schedule", "stock_2035"])
         selected_df_w.group_by(["unit", "schedule"])
         rows_by_key = selected_df_w.rows_by_key(key=["unit", "schedule"])
         selected_df_key_w = df_key.select(["unit", "schedule", "treatment"])
@@ -1195,12 +1195,8 @@ def forest_problem(holding: int = 1, comparing: bool = False) -> Problem:
             for j in range(np.shape(w_array)[1]):
                 if len(rows_by_key_df_key[(unique_units[i], j)]) == 0:
                     continue
-                if (unique_units[i], j) in rows_by_key and "2035" in rows_by_key_df_key[(unique_units[i], j)][0]:
-                    w_array[i][j] = rows_by_key[(unique_units[i], j)][0][2]
-                elif (unique_units[i], j) in rows_by_key and "2030" in rows_by_key_df_key[(unique_units[i], j)][0]:
-                    w_array[i][j] = rows_by_key[(unique_units[i], j)][0][1]
-                elif (unique_units[i], j) in rows_by_key and "2025" or "donothing" in rows_by_key_df_key[(unique_units[i], j)][0]:
-                    w_array[i][j] = rows_by_key[(unique_units[i], j)][0][0]
+                if (unique_units[i], j) in rows_by_key:
+                    w_array[i][j] = rows_by_key[(unique_units[i], j)][0]
 
     selected_df_p = df.filter(pl.col("holding") == holding).select(["unit", "schedule", "harvest_value_period_2025", "harvest_value_period_2030", "harvest_value_period_2035"])
     selected_df_p.group_by(["unit", "schedule"])
@@ -1223,7 +1219,7 @@ def forest_problem(holding: int = 1, comparing: bool = False) -> Problem:
         v = TensorConstant(
             name=f"V_{i+1}",
             symbol=f"V_{i+1}",
-            shape=[np.shape(p_array)[1]], # NOTE: vectors have to be of form [2] instead of [2,1] or [1,2]
+            shape=[np.shape(v_array)[1]], # NOTE: vectors have to be of form [2] instead of [2,1] or [1,2]
             values=v_array[i].tolist()
         )
         constants.append(v)
@@ -1326,7 +1322,7 @@ if __name__ == "__main__":
     #print(problem.model_dump_json(indent=2))
     from desdeo.tools import GurobipySolver
 
-    problem = forest_problem(holding=5)
+    problem = forest_problem(holding=3, comparing=True)
     #problem = simple_knapsack_vectors()
     #problem = simple_linear_test_problem()
     evaluator = GurobipySolver(problem)
