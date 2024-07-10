@@ -42,6 +42,25 @@ user = db_models.User(
 db.add(user)
 db.commit()
 db.refresh(user)
+
+dmUser = db_models.User(
+    username="dm",
+    password_hash=get_password_hash("test"),
+    role=UserRole.DM,
+    privilages=[],
+    user_group="",
+)
+db.add(dmUser)
+
+dmUser2 = db_models.User(
+    username="dm2",
+    password_hash=get_password_hash("test"),
+    role=UserRole.DM,
+    privilages=[],
+    user_group="",
+)
+db.add(dmUser2)
+
 problem = binh_and_korn()
 
 problem_in_db = db_models.Problem(
