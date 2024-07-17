@@ -1,0 +1,949 @@
+holding,unit,schedule,treatment
+1,25,0,donothing
+1,26,0,donothing
+1,42,0,donothing
+1,44,0,donothing
+1,44,1,below_2035
+1,44,2,above_2035
+1,44,3,even_2035
+1,44,4,clearcut_2035
+1,44,5,below_2030
+1,44,6,below_2030 + clearcut_2035
+1,44,7,above_2030
+1,44,8,above_2030 + clearcut_2035
+1,44,9,even_2030
+1,44,10,even_2030 + clearcut_2035
+1,44,11,clearcut_2030
+1,44,12,clearcut_2025
+1,27,0,donothing
+1,27,1,below_2035
+1,27,2,above_2035
+1,27,3,even_2035
+1,28,0,donothing
+1,28,1,below_2035
+1,28,2,above_2035
+1,28,3,even_2035
+1,28,4,clearcut_2035
+1,28,5,below_2030
+1,28,6,below_2030 + clearcut_2035
+1,28,7,above_2030
+1,28,8,above_2030 + clearcut_2035
+1,28,9,even_2030
+1,28,10,even_2030 + clearcut_2035
+1,28,11,clearcut_2030
+1,29,0,donothing
+1,14,0,donothing
+1,14,1,below_2035
+1,14,2,above_2035
+1,14,3,even_2035
+1,11,0,donothing
+1,13,0,donothing
+1,12,0,donothing
+1,12,1,below_2035
+1,12,2,above_2035
+1,12,3,even_2035
+1,15,0,donothing
+1,16,0,donothing
+2,21,0,donothing
+2,21,1,below_2035
+2,21,2,above_2035
+2,21,3,even_2035
+2,21,4,clearcut_2035
+2,21,5,below_2030
+2,21,6,below_2030 + clearcut_2035
+2,21,7,above_2030
+2,21,8,even_2030
+2,21,9,even_2030 + clearcut_2035
+2,21,10,clearcut_2030
+2,10,0,donothing
+2,10,1,below_2035
+2,10,2,above_2035
+2,10,3,even_2035
+2,10,4,below_2030
+2,10,5,above_2030
+2,10,6,above_2030 + below_2035
+2,10,7,above_2030 + above_2035
+2,10,8,above_2030 + even_2035
+2,10,9,even_2030
+2,10,10,even_2030 + below_2035
+2,10,11,even_2030 + above_2035
+2,10,12,even_2030 + even_2035
+2,10,13,below_2025
+2,10,14,below_2025 + below_2035
+2,10,15,below_2025 + above_2035
+2,10,16,below_2025 + even_2035
+2,10,17,above_2025
+2,10,18,above_2025 + below_2035
+2,10,19,above_2025 + above_2035
+2,10,20,above_2025 + even_2035
+2,10,21,above_2025 + below_2030
+2,10,22,above_2025 + below_2030 + below_2035
+2,10,23,above_2025 + below_2030 + above_2035
+2,10,24,above_2025 + below_2030 + even_2035
+2,10,25,above_2025 + above_2030
+2,10,26,above_2025 + above_2030 + below_2035
+2,10,27,above_2025 + above_2030 + above_2035
+2,10,28,above_2025 + above_2030 + even_2035
+2,10,29,above_2025 + even_2030
+2,10,30,above_2025 + even_2030 + below_2035
+2,10,31,above_2025 + even_2030 + above_2035
+2,10,32,above_2025 + even_2030 + even_2035
+2,10,33,even_2025
+2,10,34,even_2025 + below_2035
+2,10,35,even_2025 + above_2035
+2,10,36,even_2025 + even_2035
+2,10,37,even_2025 + below_2030
+2,10,38,even_2025 + above_2030
+2,10,39,even_2025 + above_2030 + below_2035
+2,10,40,even_2025 + above_2030 + above_2035
+2,10,41,even_2025 + above_2030 + even_2035
+2,10,42,even_2025 + even_2030
+2,10,43,even_2025 + even_2030 + below_2035
+2,10,44,even_2025 + even_2030 + above_2035
+2,10,45,even_2025 + even_2030 + even_2035
+2,8,0,donothing
+2,8,1,below_2035
+2,8,2,above_2035
+2,8,3,even_2035
+2,9,0,donothing
+2,17,0,donothing
+2,17,1,below_2035
+2,17,2,above_2035
+2,17,3,even_2035
+2,17,4,below_2030
+2,17,5,above_2030
+2,17,6,even_2030
+2,20,0,donothing
+2,20,1,clearcut_2035
+2,18,0,donothing
+2,18,1,below_2035
+2,18,2,above_2035
+2,18,3,even_2035
+2,18,4,below_2030
+2,18,5,above_2030
+2,18,6,even_2030
+2,19,0,donothing
+2,6,0,donothing
+2,7,0,donothing
+2,7,1,below_2035
+2,7,2,above_2035
+2,7,3,even_2035
+2,7,4,clearcut_2035
+2,7,5,clearcut_2030
+2,7,6,clearcut_2025
+2,5,0,donothing
+2,5,1,clearcut_2035
+2,5,2,clearcut_2030
+2,5,3,clearcut_2025
+3,5,0,donothing
+3,5,1,below_2035
+3,5,2,above_2035
+3,5,3,even_2035
+3,5,4,clearcut_2035
+3,5,5,below_2030
+3,5,6,below_2030 + clearcut_2035
+3,5,7,above_2030
+3,5,8,above_2030 + clearcut_2035
+3,5,9,even_2030
+3,5,10,even_2030 + clearcut_2035
+3,5,11,clearcut_2030
+3,5,12,clearcut_2025
+3,6,0,donothing
+3,6,1,below_2035
+3,6,2,above_2035
+3,6,3,even_2035
+3,6,4,clearcut_2035
+3,6,5,below_2030
+3,6,6,below_2030 + clearcut_2035
+3,6,7,above_2030
+3,6,8,above_2030 + clearcut_2035
+3,6,9,even_2030
+3,6,10,even_2030 + clearcut_2035
+3,6,11,clearcut_2030
+3,6,12,below_2025
+3,6,13,below_2025 + clearcut_2035
+3,6,14,below_2025 + clearcut_2030
+3,6,15,above_2025
+3,6,16,above_2025 + clearcut_2035
+3,6,17,above_2025 + clearcut_2030
+3,6,18,even_2025
+3,6,19,even_2025 + clearcut_2035
+3,6,20,even_2025 + clearcut_2030
+3,6,21,clearcut_2025
+3,7,0,donothing
+3,4,0,donothing
+3,4,1,below_2035
+3,4,2,above_2035
+3,4,3,even_2035
+3,4,4,clearcut_2035
+3,4,5,below_2030
+3,4,6,below_2030 + clearcut_2035
+3,4,7,above_2030
+3,4,8,above_2030 + clearcut_2035
+3,4,9,even_2030
+3,4,10,even_2030 + clearcut_2035
+3,4,11,clearcut_2030
+3,1,0,donothing
+3,1,1,clearcut_2035
+3,1,2,clearcut_2030
+3,17,0,donothing
+3,17,1,below_2035
+3,17,2,above_2035
+3,17,3,even_2035
+3,17,4,below_2030
+3,17,5,above_2030
+3,17,6,even_2030
+3,19,0,donothing
+3,19,1,below_2035
+3,19,2,above_2035
+3,19,3,even_2035
+3,19,4,clearcut_2035
+3,19,5,below_2030
+3,19,6,below_2030 + clearcut_2035
+3,19,7,above_2030
+3,19,8,above_2030 + clearcut_2035
+3,19,9,even_2030
+3,19,10,even_2030 + clearcut_2035
+3,19,11,clearcut_2030
+3,19,12,below_2025
+3,19,13,below_2025 + clearcut_2035
+3,19,14,below_2025 + clearcut_2030
+3,19,15,above_2025
+3,19,16,above_2025 + clearcut_2035
+3,19,17,above_2025 + clearcut_2030
+3,19,18,even_2025
+3,19,19,even_2025 + clearcut_2035
+3,19,20,even_2025 + clearcut_2030
+3,19,21,clearcut_2025
+3,21,0,donothing
+3,8,0,donothing
+3,8,1,below_2035
+3,8,2,above_2035
+3,8,3,even_2035
+3,8,4,clearcut_2035
+3,8,5,below_2030
+3,8,6,below_2030 + clearcut_2035
+3,8,7,above_2030
+3,8,8,above_2030 + clearcut_2035
+3,8,9,even_2030
+3,8,10,even_2030 + clearcut_2035
+3,8,11,clearcut_2030
+3,8,12,below_2025
+3,8,13,below_2025 + clearcut_2035
+3,8,14,below_2025 + clearcut_2030
+3,8,15,above_2025
+3,8,16,above_2025 + clearcut_2035
+3,8,17,above_2025 + clearcut_2030
+3,8,18,even_2025
+3,8,19,even_2025 + clearcut_2035
+3,8,20,even_2025 + clearcut_2030
+3,8,21,clearcut_2025
+3,16,0,donothing
+3,16,1,below_2035
+3,16,2,above_2035
+3,16,3,even_2035
+3,2,0,donothing
+3,3,0,donothing
+3,3,1,below_2035
+3,3,2,above_2035
+3,3,3,even_2035
+3,3,4,clearcut_2035
+3,3,5,below_2030
+3,3,6,below_2030 + clearcut_2035
+3,3,7,above_2030
+3,3,8,above_2030 + clearcut_2035
+3,3,9,even_2030
+3,3,10,even_2030 + clearcut_2035
+3,3,11,clearcut_2030
+3,3,12,below_2025
+3,3,13,below_2025 + clearcut_2035
+3,3,14,below_2025 + clearcut_2030
+3,3,15,above_2025
+3,3,16,above_2025 + clearcut_2035
+3,3,17,above_2025 + clearcut_2030
+3,3,18,even_2025
+3,3,19,even_2025 + clearcut_2035
+3,3,20,even_2025 + clearcut_2030
+3,3,21,clearcut_2025
+3,5.1,0,donothing
+3,5.1,1,below_2035
+3,5.1,2,above_2035
+3,5.1,3,even_2035
+3,5.1,4,clearcut_2035
+3,5.1,5,below_2030
+3,5.1,6,below_2030 + clearcut_2035
+3,5.1,7,above_2030
+3,5.1,8,above_2030 + clearcut_2035
+3,5.1,9,even_2030
+3,5.1,10,even_2030 + clearcut_2035
+3,5.1,11,clearcut_2030
+3,5.1,12,below_2025
+3,5.1,13,below_2025 + clearcut_2035
+3,5.1,14,below_2025 + clearcut_2030
+3,5.1,15,above_2025
+3,5.1,16,above_2025 + clearcut_2035
+3,5.1,17,above_2025 + clearcut_2030
+3,5.1,18,even_2025
+3,5.1,19,even_2025 + clearcut_2035
+3,5.1,20,even_2025 + clearcut_2030
+3,5.1,21,clearcut_2025
+4,22,0,donothing
+4,22,1,below_2035
+4,22,2,above_2035
+4,22,3,even_2035
+4,22,4,clearcut_2035
+4,22,5,below_2030
+4,22,6,below_2030 + clearcut_2035
+4,22,7,above_2030
+4,22,8,above_2030 + clearcut_2035
+4,22,9,even_2030
+4,22,10,even_2030 + clearcut_2035
+4,22,11,clearcut_2030
+4,22,12,below_2025
+4,22,13,below_2025 + clearcut_2035
+4,22,14,below_2025 + clearcut_2030
+4,22,15,above_2025
+4,22,16,above_2025 + clearcut_2035
+4,22,17,above_2025 + clearcut_2030
+4,22,18,even_2025
+4,22,19,even_2025 + clearcut_2035
+4,22,20,even_2025 + clearcut_2030
+4,16,0,donothing
+4,15,0,donothing
+4,17,0,donothing
+4,17,1,below_2035
+4,17,2,above_2035
+4,17,3,even_2035
+4,17,4,clearcut_2035
+4,17,5,below_2030
+4,17,6,below_2030 + clearcut_2035
+4,17,7,above_2030
+4,17,8,above_2030 + clearcut_2035
+4,17,9,even_2030
+4,17,10,even_2030 + clearcut_2035
+4,19,0,donothing
+4,19,1,below_2035
+4,19,2,above_2035
+4,19,3,even_2035
+4,9,0,donothing
+4,9,1,clearcut_2035
+4,9,2,clearcut_2030
+4,11,0,donothing
+4,11,1,below_2035
+4,11,2,above_2035
+4,11,3,even_2035
+4,11,4,clearcut_2035
+4,11,5,clearcut_2030
+4,11,6,clearcut_2025
+4,13,0,donothing
+4,13,1,below_2035
+4,13,2,above_2035
+4,13,3,even_2035
+4,13,4,below_2030
+4,13,5,above_2030
+4,13,6,even_2030
+4,13,7,below_2025
+4,13,8,above_2025
+4,13,9,even_2025
+4,3,0,donothing
+4,3,1,clearcut_2035
+4,3,2,clearcut_2030
+4,10,0,donothing
+4,14,0,donothing
+4,14,1,below_2035
+4,14,2,above_2035
+4,14,3,even_2035
+4,14,4,clearcut_2035
+4,14,5,clearcut_2030
+4,14,6,clearcut_2025
+4,12,0,donothing
+4,5,0,donothing
+4,4,0,donothing
+4,4,1,clearcut_2035
+4,4,2,clearcut_2030
+5,10,0,donothing
+5,10,1,below_2035
+5,10,2,above_2035
+5,10,3,even_2035
+5,10,4,clearcut_2035
+5,10,5,below_2030
+5,10,6,below_2030 + clearcut_2035
+5,10,7,above_2030
+5,10,8,above_2030 + clearcut_2035
+5,10,9,even_2030
+5,10,10,even_2030 + clearcut_2035
+5,10,11,clearcut_2030
+5,10,12,below_2025
+5,10,13,below_2025 + clearcut_2035
+5,10,14,below_2025 + clearcut_2030
+5,10,15,above_2025
+5,10,16,above_2025 + clearcut_2035
+5,10,17,above_2025 + clearcut_2030
+5,10,18,even_2025
+5,10,19,even_2025 + clearcut_2035
+5,10,20,even_2025 + clearcut_2030
+5,10,21,clearcut_2025
+5,25,0,donothing
+5,25,1,below_2035
+5,25,2,above_2035
+5,25,3,even_2035
+5,25,4,clearcut_2035
+5,25,5,below_2030
+5,25,6,below_2030 + clearcut_2035
+5,25,7,above_2030
+5,25,8,above_2030 + clearcut_2035
+5,25,9,even_2030
+5,25,10,even_2030 + clearcut_2035
+5,25,11,clearcut_2030
+5,25,12,below_2025
+5,25,13,below_2025 + clearcut_2035
+5,25,14,below_2025 + clearcut_2030
+5,25,15,above_2025
+5,25,16,above_2025 + clearcut_2035
+5,25,17,above_2025 + clearcut_2030
+5,25,18,even_2025
+5,25,19,even_2025 + clearcut_2035
+5,25,20,even_2025 + clearcut_2030
+5,25,21,clearcut_2025
+5,11,0,donothing
+5,11,1,below_2035
+5,11,2,above_2035
+5,11,3,even_2035
+5,11,4,clearcut_2035
+5,11,5,below_2030
+5,11,6,below_2030 + clearcut_2035
+5,11,7,above_2030
+5,11,8,above_2030 + clearcut_2035
+5,11,9,even_2030
+5,11,10,even_2030 + clearcut_2035
+5,11,11,clearcut_2030
+5,11,12,below_2025
+5,11,13,below_2025 + clearcut_2035
+5,11,14,below_2025 + clearcut_2030
+5,11,15,above_2025
+5,11,16,above_2025 + clearcut_2035
+5,11,17,above_2025 + clearcut_2030
+5,11,18,even_2025
+5,11,19,even_2025 + clearcut_2035
+5,11,20,even_2025 + clearcut_2030
+5,11,21,clearcut_2025
+5,40,0,donothing
+5,40,1,clearcut_2035
+5,40,2,clearcut_2030
+5,38,0,donothing
+5,38,1,below_2035
+5,38,2,above_2035
+5,38,3,even_2035
+5,37,0,donothing
+5,37,1,below_2035
+5,37,2,above_2035
+5,37,3,even_2035
+5,37,4,clearcut_2035
+5,37,5,below_2030
+5,37,6,below_2030 + clearcut_2035
+5,37,7,above_2030
+5,37,8,above_2030 + clearcut_2035
+5,37,9,even_2030
+5,37,10,even_2030 + clearcut_2035
+5,37,11,clearcut_2030
+5,36,0,donothing
+5,36,1,below_2035
+5,36,2,above_2035
+5,36,3,even_2035
+5,36,4,clearcut_2035
+5,36,5,below_2030
+5,36,6,below_2030 + clearcut_2035
+5,36,7,above_2030
+5,36,8,above_2030 + clearcut_2035
+5,36,9,even_2030
+5,36,10,even_2030 + clearcut_2035
+5,36,11,clearcut_2030
+5,36,12,clearcut_2025
+5,39,0,donothing
+5,39,1,clearcut_2035
+5,39,2,clearcut_2030
+5,39,3,clearcut_2025
+5,7,0,donothing
+5,7,1,below_2035
+5,7,2,above_2035
+5,7,3,even_2035
+5,7,4,below_2030
+5,7,5,below_2030 + below_2035
+5,7,6,below_2030 + above_2035
+5,7,7,below_2030 + even_2035
+5,7,8,above_2030
+5,7,9,above_2030 + below_2035
+5,7,10,above_2030 + above_2035
+5,7,11,above_2030 + even_2035
+5,7,12,even_2030
+5,7,13,even_2030 + below_2035
+5,7,14,even_2030 + above_2035
+5,7,15,even_2030 + even_2035
+5,7,16,first_2025
+5,7,17,first_2025 + below_2035
+5,7,18,first_2025 + above_2035
+5,7,19,first_2025 + even_2035
+5,8,0,donothing
+5,8,1,below_2035
+5,8,2,above_2035
+5,8,3,even_2035
+5,8,4,clearcut_2035
+5,8,5,below_2030
+5,8,6,above_2030
+5,8,7,above_2030 + clearcut_2035
+5,8,8,even_2030
+5,8,9,even_2030 + clearcut_2035
+5,8,10,clearcut_2030
+5,6,0,donothing
+5,6,1,below_2035
+5,6,2,above_2035
+5,6,3,even_2035
+5,6,4,clearcut_2035
+5,6,5,below_2030
+5,6,6,below_2030 + clearcut_2035
+5,6,7,above_2030
+5,6,8,above_2030 + clearcut_2035
+5,6,9,even_2030
+5,6,10,even_2030 + clearcut_2035
+5,6,11,below_2025
+5,6,12,below_2025 + clearcut_2035
+5,6,13,above_2025
+5,6,14,above_2025 + clearcut_2035
+5,6,15,even_2025
+5,6,16,even_2025 + clearcut_2035
+5,2,0,donothing
+5,2,1,below_2035
+5,2,2,above_2035
+5,2,3,even_2035
+5,2,4,clearcut_2035
+5,2,5,below_2030
+5,2,6,below_2030 + clearcut_2035
+5,2,7,above_2030
+5,2,8,above_2030 + clearcut_2035
+5,2,9,even_2030
+5,2,10,even_2030 + clearcut_2035
+5,2,11,clearcut_2030
+5,2,12,below_2025
+5,2,13,below_2025 + clearcut_2035
+5,2,14,below_2025 + clearcut_2030
+5,2,15,above_2025
+5,2,16,above_2025 + clearcut_2035
+5,2,17,above_2025 + clearcut_2030
+5,2,18,even_2025
+5,2,19,even_2025 + clearcut_2035
+5,2,20,even_2025 + clearcut_2030
+5,2,21,clearcut_2025
+5,29,0,donothing
+5,29,1,below_2035
+5,29,2,above_2035
+5,29,3,even_2035
+5,29,4,below_2030
+5,29,5,above_2030
+5,29,6,even_2030
+6,4,0,donothing
+6,4,1,below_2035
+6,4,2,above_2035
+6,4,3,even_2035
+6,15,0,donothing
+6,15,1,below_2035
+6,15,2,above_2035
+6,15,3,even_2035
+6,15,4,below_2030
+6,15,5,below_2030 + below_2035
+6,15,6,below_2030 + above_2035
+6,15,7,below_2030 + even_2035
+6,15,8,above_2030
+6,15,9,above_2030 + below_2035
+6,15,10,above_2030 + above_2035
+6,15,11,above_2030 + even_2035
+6,15,12,even_2030
+6,15,13,even_2030 + below_2035
+6,15,14,even_2030 + above_2035
+6,15,15,even_2030 + even_2035
+6,15,16,first_2025
+6,15,17,first_2025 + below_2035
+6,15,18,first_2025 + above_2035
+6,15,19,first_2025 + even_2035
+6,15,20,first_2025 + below_2030
+6,15,21,first_2025 + below_2030 + below_2035
+6,15,22,first_2025 + below_2030 + above_2035
+6,15,23,first_2025 + below_2030 + even_2035
+6,15,24,first_2025 + above_2030
+6,15,25,first_2025 + above_2030 + below_2035
+6,15,26,first_2025 + above_2030 + above_2035
+6,15,27,first_2025 + above_2030 + even_2035
+6,15,28,first_2025 + even_2030
+6,15,29,first_2025 + even_2030 + below_2035
+6,15,30,first_2025 + even_2030 + above_2035
+6,15,31,first_2025 + even_2030 + even_2035
+6,6,0,donothing
+6,6,1,below_2035
+6,6,2,above_2035
+6,6,3,even_2035
+6,6,4,clearcut_2035
+6,6,5,below_2030
+6,6,6,below_2030 + clearcut_2035
+6,6,7,above_2030
+6,6,8,above_2030 + clearcut_2035
+6,6,9,even_2030
+6,6,10,even_2030 + clearcut_2035
+6,6,11,clearcut_2030
+6,6,12,clearcut_2025
+6,5,0,donothing
+6,5,1,below_2035
+6,5,2,above_2035
+6,5,3,even_2035
+6,5,4,below_2030
+6,5,5,above_2030
+6,5,6,above_2030 + below_2035
+6,5,7,above_2030 + above_2035
+6,5,8,above_2030 + even_2035
+6,5,9,first_2030
+6,5,10,even_2030
+6,5,11,even_2030 + below_2035
+6,5,12,even_2030 + above_2035
+6,5,13,even_2030 + even_2035
+6,7,0,donothing
+6,7,1,below_2035
+6,7,2,above_2035
+6,7,3,even_2035
+6,7,4,clearcut_2035
+6,7,5,below_2030
+6,7,6,below_2030 + clearcut_2035
+6,7,7,above_2030
+6,7,8,above_2030 + clearcut_2035
+6,7,9,even_2030
+6,7,10,even_2030 + clearcut_2035
+6,7,11,clearcut_2030
+6,7,12,clearcut_2025
+6,8,0,donothing
+6,8,1,below_2035
+6,8,2,above_2035
+6,8,3,even_2035
+6,8,4,clearcut_2035
+6,8,5,below_2030
+6,8,6,below_2030 + clearcut_2035
+6,8,7,above_2030
+6,8,8,above_2030 + clearcut_2035
+6,8,9,even_2030
+6,8,10,even_2030 + clearcut_2035
+6,9,0,donothing
+6,9,1,below_2035
+6,9,2,above_2035
+6,9,3,first_2035
+6,9,4,even_2035
+6,9,5,below_2030
+6,9,6,below_2030 + below_2035
+6,9,7,below_2030 + above_2035
+6,9,8,below_2030 + first_2035
+6,9,9,below_2030 + even_2035
+6,9,10,above_2030
+6,9,11,above_2030 + below_2035
+6,9,12,above_2030 + above_2035
+6,9,13,above_2030 + first_2035
+6,9,14,above_2030 + even_2035
+6,9,15,first_2030
+6,9,16,even_2030
+6,9,17,even_2030 + below_2035
+6,9,18,even_2030 + above_2035
+6,9,19,even_2030 + first_2035
+6,9,20,even_2030 + even_2035
+6,9,21,below_2025
+6,9,22,below_2025 + below_2035
+6,9,23,below_2025 + above_2035
+6,9,24,below_2025 + first_2035
+6,9,25,below_2025 + even_2035
+6,9,26,below_2025 + below_2030
+6,9,27,below_2025 + below_2030 + below_2035
+6,9,28,below_2025 + below_2030 + above_2035
+6,9,29,below_2025 + below_2030 + even_2035
+6,9,30,below_2025 + above_2030
+6,9,31,below_2025 + above_2030 + below_2035
+6,9,32,below_2025 + above_2030 + above_2035
+6,9,33,below_2025 + above_2030 + even_2035
+6,9,34,below_2025 + first_2030
+6,9,35,below_2025 + first_2030 + below_2035
+6,9,36,below_2025 + first_2030 + above_2035
+6,9,37,below_2025 + first_2030 + even_2035
+6,9,38,below_2025 + even_2030
+6,9,39,below_2025 + even_2030 + below_2035
+6,9,40,below_2025 + even_2030 + above_2035
+6,9,41,below_2025 + even_2030 + even_2035
+6,9,42,above_2025
+6,9,43,above_2025 + below_2035
+6,9,44,above_2025 + above_2035
+6,9,45,above_2025 + first_2035
+6,9,46,above_2025 + even_2035
+6,9,47,above_2025 + below_2030
+6,9,48,above_2025 + below_2030 + below_2035
+6,9,49,above_2025 + below_2030 + above_2035
+6,9,50,above_2025 + below_2030 + even_2035
+6,9,51,above_2025 + above_2030
+6,9,52,above_2025 + above_2030 + below_2035
+6,9,53,above_2025 + above_2030 + above_2035
+6,9,54,above_2025 + above_2030 + even_2035
+6,9,55,above_2025 + first_2030
+6,9,56,above_2025 + even_2030
+6,9,57,above_2025 + even_2030 + below_2035
+6,9,58,above_2025 + even_2030 + above_2035
+6,9,59,above_2025 + even_2030 + even_2035
+6,9,60,even_2025
+6,9,61,even_2025 + below_2035
+6,9,62,even_2025 + above_2035
+6,9,63,even_2025 + first_2035
+6,9,64,even_2025 + even_2035
+6,9,65,even_2025 + below_2030
+6,9,66,even_2025 + below_2030 + below_2035
+6,9,67,even_2025 + below_2030 + above_2035
+6,9,68,even_2025 + below_2030 + even_2035
+6,9,69,even_2025 + above_2030
+6,9,70,even_2025 + above_2030 + below_2035
+6,9,71,even_2025 + above_2030 + above_2035
+6,9,72,even_2025 + above_2030 + even_2035
+6,9,73,even_2025 + first_2030
+6,9,74,even_2025 + even_2030
+6,9,75,even_2025 + even_2030 + below_2035
+6,9,76,even_2025 + even_2030 + above_2035
+6,9,77,even_2025 + even_2030 + even_2035
+6,16,0,donothing
+6,16,1,below_2035
+6,16,2,above_2035
+6,16,3,even_2035
+6,17,0,donothing
+6,17,1,below_2035
+6,17,2,above_2035
+6,17,3,even_2035
+6,17,4,clearcut_2035
+6,17,5,clearcut_2030
+6,17,6,clearcut_2025
+6,11,0,donothing
+6,11,1,below_2035
+6,11,2,above_2035
+6,11,3,even_2035
+6,11,4,clearcut_2035
+6,11,5,below_2030
+6,11,6,below_2030 + clearcut_2035
+6,11,7,above_2030
+6,11,8,above_2030 + clearcut_2035
+6,11,9,even_2030
+6,11,10,even_2030 + clearcut_2035
+6,11,11,clearcut_2030
+6,11,12,below_2025
+6,11,13,below_2025 + clearcut_2035
+6,11,14,below_2025 + clearcut_2030
+6,11,15,above_2025
+6,11,16,above_2025 + clearcut_2035
+6,11,17,above_2025 + clearcut_2030
+6,11,18,even_2025
+6,11,19,even_2025 + clearcut_2035
+6,11,20,even_2025 + clearcut_2030
+6,11,21,clearcut_2025
+6,13,0,donothing
+6,13,1,below_2035
+6,13,2,above_2035
+6,13,3,even_2035
+6,12,0,donothing
+6,12,1,below_2035
+6,12,2,above_2035
+6,12,3,first_2035
+6,12,4,even_2035
+6,12,5,below_2030
+6,12,6,below_2030 + below_2035
+6,12,7,below_2030 + above_2035
+6,12,8,below_2030 + first_2035
+6,12,9,below_2030 + even_2035
+6,12,10,above_2030
+6,12,11,above_2030 + below_2035
+6,12,12,above_2030 + above_2035
+6,12,13,above_2030 + first_2035
+6,12,14,above_2030 + even_2035
+6,12,15,even_2030
+6,12,16,even_2030 + below_2035
+6,12,17,even_2030 + above_2035
+6,12,18,even_2030 + first_2035
+6,12,19,even_2030 + even_2035
+6,12,20,below_2025
+6,12,21,below_2025 + below_2035
+6,12,22,below_2025 + above_2035
+6,12,23,below_2025 + first_2035
+6,12,24,below_2025 + even_2035
+6,12,25,below_2025 + below_2030
+6,12,26,below_2025 + below_2030 + below_2035
+6,12,27,below_2025 + below_2030 + above_2035
+6,12,28,below_2025 + below_2030 + even_2035
+6,12,29,below_2025 + above_2030
+6,12,30,below_2025 + above_2030 + below_2035
+6,12,31,below_2025 + above_2030 + above_2035
+6,12,32,below_2025 + above_2030 + even_2035
+6,12,33,below_2025 + first_2030
+6,12,34,below_2025 + first_2030 + below_2035
+6,12,35,below_2025 + first_2030 + above_2035
+6,12,36,below_2025 + first_2030 + even_2035
+6,12,37,below_2025 + even_2030
+6,12,38,below_2025 + even_2030 + below_2035
+6,12,39,below_2025 + even_2030 + above_2035
+6,12,40,below_2025 + even_2030 + even_2035
+6,12,41,above_2025
+6,12,42,above_2025 + below_2035
+6,12,43,above_2025 + above_2035
+6,12,44,above_2025 + first_2035
+6,12,45,above_2025 + even_2035
+6,12,46,above_2025 + below_2030
+6,12,47,above_2025 + below_2030 + below_2035
+6,12,48,above_2025 + below_2030 + above_2035
+6,12,49,above_2025 + below_2030 + even_2035
+6,12,50,above_2025 + above_2030
+6,12,51,above_2025 + above_2030 + below_2035
+6,12,52,above_2025 + above_2030 + above_2035
+6,12,53,above_2025 + above_2030 + even_2035
+6,12,54,above_2025 + first_2030
+6,12,55,above_2025 + first_2030 + below_2035
+6,12,56,above_2025 + first_2030 + above_2035
+6,12,57,above_2025 + first_2030 + even_2035
+6,12,58,above_2025 + even_2030
+6,12,59,above_2025 + even_2030 + below_2035
+6,12,60,above_2025 + even_2030 + above_2035
+6,12,61,above_2025 + even_2030 + even_2035
+6,12,62,even_2025
+6,12,63,even_2025 + below_2035
+6,12,64,even_2025 + above_2035
+6,12,65,even_2025 + first_2035
+6,12,66,even_2025 + even_2035
+6,12,67,even_2025 + below_2030
+6,12,68,even_2025 + below_2030 + below_2035
+6,12,69,even_2025 + below_2030 + above_2035
+6,12,70,even_2025 + below_2030 + even_2035
+6,12,71,even_2025 + above_2030
+6,12,72,even_2025 + above_2030 + below_2035
+6,12,73,even_2025 + above_2030 + above_2035
+6,12,74,even_2025 + above_2030 + even_2035
+6,12,75,even_2025 + first_2030
+6,12,76,even_2025 + first_2030 + below_2035
+6,12,77,even_2025 + first_2030 + above_2035
+6,12,78,even_2025 + first_2030 + even_2035
+6,12,79,even_2025 + even_2030
+6,12,80,even_2025 + even_2030 + below_2035
+6,12,81,even_2025 + even_2030 + above_2035
+6,12,82,even_2025 + even_2030 + even_2035
+6,14,0,donothing
+6,2,0,donothing
+6,2,1,below_2035
+6,2,2,above_2035
+6,2,3,even_2035
+6,2,4,clearcut_2035
+6,2,5,clearcut_2030
+6,2,6,clearcut_2025
+6,3,0,donothing
+6,3,1,below_2035
+6,3,2,above_2035
+6,3,3,even_2035
+6,10,0,donothing
+6,10,1,below_2035
+6,10,2,above_2035
+6,10,3,first_2035
+6,10,4,even_2035
+6,10,5,below_2030
+6,10,6,below_2030 + below_2035
+6,10,7,below_2030 + above_2035
+6,10,8,below_2030 + first_2035
+6,10,9,below_2030 + even_2035
+6,10,10,above_2030
+6,10,11,above_2030 + below_2035
+6,10,12,above_2030 + above_2035
+6,10,13,above_2030 + first_2035
+6,10,14,above_2030 + even_2035
+6,10,15,first_2030
+6,10,16,even_2030
+6,10,17,even_2030 + below_2035
+6,10,18,even_2030 + above_2035
+6,10,19,even_2030 + first_2035
+6,10,20,even_2030 + even_2035
+6,10,21,below_2025
+6,10,22,below_2025 + below_2035
+6,10,23,below_2025 + above_2035
+6,10,24,below_2025 + first_2035
+6,10,25,below_2025 + even_2035
+6,10,26,below_2025 + below_2030
+6,10,27,below_2025 + below_2030 + below_2035
+6,10,28,below_2025 + below_2030 + above_2035
+6,10,29,below_2025 + below_2030 + even_2035
+6,10,30,below_2025 + above_2030
+6,10,31,below_2025 + above_2030 + below_2035
+6,10,32,below_2025 + above_2030 + above_2035
+6,10,33,below_2025 + above_2030 + even_2035
+6,10,34,below_2025 + first_2030
+6,10,35,below_2025 + first_2030 + below_2035
+6,10,36,below_2025 + first_2030 + above_2035
+6,10,37,below_2025 + first_2030 + even_2035
+6,10,38,below_2025 + even_2030
+6,10,39,below_2025 + even_2030 + below_2035
+6,10,40,below_2025 + even_2030 + above_2035
+6,10,41,below_2025 + even_2030 + even_2035
+6,10,42,above_2025
+6,10,43,above_2025 + below_2035
+6,10,44,above_2025 + above_2035
+6,10,45,above_2025 + first_2035
+6,10,46,above_2025 + even_2035
+6,10,47,above_2025 + below_2030
+6,10,48,above_2025 + below_2030 + below_2035
+6,10,49,above_2025 + below_2030 + above_2035
+6,10,50,above_2025 + below_2030 + even_2035
+6,10,51,above_2025 + above_2030
+6,10,52,above_2025 + above_2030 + below_2035
+6,10,53,above_2025 + above_2030 + above_2035
+6,10,54,above_2025 + above_2030 + even_2035
+6,10,55,above_2025 + first_2030
+6,10,56,above_2025 + even_2030
+6,10,57,above_2025 + even_2030 + below_2035
+6,10,58,above_2025 + even_2030 + above_2035
+6,10,59,above_2025 + even_2030 + even_2035
+6,10,60,even_2025
+6,10,61,even_2025 + below_2035
+6,10,62,even_2025 + above_2035
+6,10,63,even_2025 + first_2035
+6,10,64,even_2025 + even_2035
+6,10,65,even_2025 + below_2030
+6,10,66,even_2025 + below_2030 + below_2035
+6,10,67,even_2025 + below_2030 + above_2035
+6,10,68,even_2025 + below_2030 + even_2035
+6,10,69,even_2025 + above_2030
+6,10,70,even_2025 + above_2030 + below_2035
+6,10,71,even_2025 + above_2030 + above_2035
+6,10,72,even_2025 + above_2030 + even_2035
+6,10,73,even_2025 + first_2030
+6,10,74,even_2025 + even_2030
+6,10,75,even_2025 + even_2030 + below_2035
+6,10,76,even_2025 + even_2030 + above_2035
+6,10,77,even_2025 + even_2030 + even_2035
+6,15.1,0,donothing
+6,15.1,1,below_2035
+6,15.1,2,above_2035
+6,15.1,3,even_2035
+6,15.1,4,below_2030
+6,15.1,5,below_2030 + below_2035
+6,15.1,6,below_2030 + above_2035
+6,15.1,7,below_2030 + even_2035
+6,15.1,8,above_2030
+6,15.1,9,above_2030 + below_2035
+6,15.1,10,above_2030 + above_2035
+6,15.1,11,above_2030 + even_2035
+6,15.1,12,even_2030
+6,15.1,13,even_2030 + below_2035
+6,15.1,14,even_2030 + above_2035
+6,15.1,15,even_2030 + even_2035
+6,15.1,16,first_2025
+6,15.1,17,first_2025 + below_2035
+6,15.1,18,first_2025 + above_2035
+6,15.1,19,first_2025 + even_2035
+6,15.1,20,first_2025 + below_2030
+6,15.1,21,first_2025 + below_2030 + below_2035
+6,15.1,22,first_2025 + below_2030 + above_2035
+6,15.1,23,first_2025 + below_2030 + even_2035
+6,15.1,24,first_2025 + above_2030
+6,15.1,25,first_2025 + above_2030 + below_2035
+6,15.1,26,first_2025 + above_2030 + above_2035
+6,15.1,27,first_2025 + above_2030 + even_2035
+6,15.1,28,first_2025 + even_2030
+6,15.1,29,first_2025 + even_2030 + below_2035
+6,15.1,30,first_2025 + even_2030 + above_2035
+6,15.1,31,first_2025 + even_2030 + even_2035
