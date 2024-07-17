@@ -4,23 +4,23 @@ References:
     Miettinen, K., & Mäkelä, M. M. (2006). Synchronous approach in interactive
         multiobjective optimization. European Journal of Operational Research,
         170(3), 909–922.
-"""
+"""  # noqa: RUF002
 
 import numpy as np
 
-from desdeo.problem import Problem, VariableType, variable_dict_to_numpy_array, GenericEvaluator
+from desdeo.problem import GenericEvaluator, Problem, VariableType, variable_dict_to_numpy_array
 from desdeo.tools import (
     CreateSolverType,
     SolverOptions,
     SolverResults,
     add_asf_diff,
     add_asf_nondiff,
+    add_guess_sf_diff,
+    add_guess_sf_nondiff,
     add_nimbus_sf_diff,
     add_nimbus_sf_nondiff,
     add_stom_sf_diff,
     add_stom_sf_nondiff,
-    add_guess_sf_diff,
-    add_guess_sf_nondiff,
     guess_best_solver,
 )
 
@@ -29,7 +29,7 @@ class NimbusError(Exception):
     """Raised when an error with a NIMBUS method is encountered."""
 
 
-def solve_intermediate_solutions(
+def solve_intermediate_solutions(  # noqa: PLR0913
     problem: Problem,
     solution_1: dict[str, VariableType],
     solution_2: dict[str, VariableType],
@@ -221,7 +221,7 @@ def infer_classifications(
     return classifications
 
 
-def solve_sub_problems(
+def solve_sub_problems(  # noqa: PLR0913
     problem: Problem,
     current_objectives: dict[str, float],
     reference_point: dict[str, float],
@@ -303,7 +303,11 @@ def solve_sub_problems(
     problem_w_nimbus, nimbus_target = add_nimbus_sf(
         problem, "nimbus_sf", classifications, current_objectives, **(scalarization_options or {})
     )
-    nimbus_solver = init_solver(problem_w_nimbus, _solver_options)
+
+    if _solver_options:
+        nimbus_solver = init_solver(problem_w_nimbus, _solver_options)
+    else:
+        nimbus_solver = init_solver(problem_w_nimbus)
 
     solutions.append(nimbus_solver.solve(nimbus_target))
 
@@ -312,28 +316,104 @@ def solve_sub_problems(
         add_stom_sf = add_stom_sf_diff if is_smooth else add_stom_sf_nondiff
 
         problem_w_stom, stom_target = add_stom_sf(problem, "stom_sf", reference_point, **(scalarization_options or {}))
-        stom_solver = init_solver(problem_w_stom, _solver_options)
+        if _solver_options:
+            stom_solver = init_solver(problem_w_stom, _solver_options)
+        else:
+            stom_solver = init_solver(problem_w_stom)
 
         solutions.append(stom_solver.solve(stom_target))
 
-    if num_desired > 2:
+    if num_desired > 2:  # noqa: PLR2004
         # solve ASF
         add_asf = add_asf_diff if is_smooth else add_asf_nondiff
 
         problem_w_asf, asf_target = add_asf(problem, "asf", reference_point, **(scalarization_options or {}))
-        asf_solver = init_solver(problem_w_asf, _solver_options)
+
+        if _solver_options:
+            asf_solver = init_solver(problem_w_asf, _solver_options)
+        else:
+            asf_solver = init_solver(problem_w_asf)
 
         solutions.append(asf_solver.solve(asf_target))
 
-    if num_desired > 3:
+    if num_desired > 3:  # noqa: PLR2004
         # solve GUESS
         add_guess_sf = add_guess_sf_diff if is_smooth else add_guess_sf_nondiff
 
         problem_w_guess, guess_target = add_guess_sf(
             problem, "guess_sf", reference_point, **(scalarization_options or {})
         )
-        guess_solver = init_solver(problem_w_guess, _solver_options)
+
+        if _solver_options:
+            guess_solver = init_solver(problem_w_guess, _solver_options)
+        else:
+            guess_solver = init_solver(problem_w_guess)
 
         solutions.append(guess_solver.solve(guess_target))
 
     return solutions
+
+
+def generate_starting_point(
+    problem: Problem,
+    reference_point: dict[str, float] | None = None,
+    scalarization_options: dict | None = None,
+    create_solver: CreateSolverType | None = None,
+    solver_options: SolverOptions | None = None,
+) -> SolverResults:
+    r"""Generates a starting point for the NIMBUS method.
+
+    Using the given reference point and achievement scalarizing function, finds one pareto
+    optimal solution that can be used as a starting point for the NIMBUS method.
+    If no reference point is given, ideal is used as the reference point.
+
+    Instead of using this function, the user can provide a starting point.
+
+    Raises:
+        NimbusError: the given problem has an undefined ideal or nadir point, or both.
+
+    Args:
+        problem (Problem): the problem being solved.
+        reference_point (dict[str, float]|None): an objective dictionary with a reference point.
+            If not given, ideal will be used as reference point.
+        scalarization_options (dict | None, optional): optional kwargs passed to the scalarization function.
+            Defaults to None.
+        create_solver (CreateSolverType | None, optional): a function that given a problem, will return a solver.
+            If not given, an appropriate solver will be automatically determined based on the features of `problem`.
+            Defaults to None.
+        solver_options (SolverOptions | None, optional): optional options passed
+            to the `create_solver` routine. Ignored if `create_solver` is `None`.
+            Defaults to None.
+
+    Returns:
+        list[SolverResults]: a list of `SolverResults` objects. Contains as many elements
+            as defined in `num_desired`.
+    """
+    ideal = problem.get_ideal_point()
+    nadir = problem.get_nadir_point()
+    if None in ideal or None in nadir:
+        msg = "The given problem must have both an ideal and nadir point defined."
+        raise NimbusError(msg)
+
+    if reference_point is None:
+        reference_point = {}
+    for obj in problem.objectives:
+        if obj.symbol not in reference_point:
+            reference_point[obj.symbol] = ideal[obj.symbol]
+
+    init_solver = create_solver if create_solver is not None else guess_best_solver(problem)
+    _solver_options = solver_options if solver_options is not None else None
+
+    # TODO(gialmisi): this info should come from the problem
+    is_smooth = True
+
+    # solve ASF
+    add_asf = add_asf_diff if is_smooth else add_asf_nondiff
+
+    problem_w_asf, asf_target = add_asf(problem, "asf", reference_point, **(scalarization_options or {}))
+    if _solver_options:
+        asf_solver = init_solver(problem_w_asf, _solver_options)
+    else:
+        asf_solver = init_solver(problem_w_asf)
+
+    return asf_solver.solve(asf_target)
