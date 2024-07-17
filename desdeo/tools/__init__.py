@@ -10,6 +10,7 @@ __all__ = [
     "PersistentGurobipySolver",
     "ProximalSolver",
     "PyomoBonminSolver",
+    "PyomoCBCSolver",
     "PyomoGurobiSolver",
     "PyomoIpoptSolver",
     "ScipyDeSolver",
@@ -51,6 +52,7 @@ from desdeo.tools.pyomo_solver_interfaces import (
     BonminOptions,
     IpoptOptions,
     PyomoBonminSolver,
+    PyomoCBCSolver,
     PyomoGurobiSolver,
     PyomoIpoptSolver,
 )

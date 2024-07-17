@@ -1,18 +1,20 @@
 """Tests for the MathJSON parser."""
 
+from collections.abc import Iterable
 import copy
 import json
 import math
 from pathlib import Path
 
 import gurobipy as gp
+import numpy as np
 import numpy.testing as npt
 import polars as pl
 import pyomo.environ as pyomo
 import pytest
 import sympy as sp
 
-from desdeo.problem.evaluator import GenericEvaluator
+from desdeo.problem import GenericEvaluator, PyomoEvaluator
 from desdeo.problem.infix_parser import InfixExpressionParser
 from desdeo.problem.json_parser import FormatEnum, MathParser, replace_str
 from desdeo.problem.schema import (
@@ -951,6 +953,129 @@ def test_parse_pyomo_max():
             err_msg=(
                 f"Test failed for {str_expr=}, with "
                 f"{pyomo_expr.to_string() if isinstance(pyomo_expr, pyomo.Expression) else pyomo_expr}"
+            ),
+        )
+
+
+@pytest.mark.pyomo
+def test_pyomo_basic_matrix_arithmetics():
+    """Check that matrix arithmetics are parsed correctly from MathJSON format to Pyomo expression."""
+    pyomo_model = pyomo.ConcreteModel()
+
+    X_dims = (5,)
+    Y_dims = (5,)
+    X_values = [1, 2, 3, 4, 5]
+    Y_values = [-1, 1, 0, 1, -1]
+
+    xmat_dims = (3, 3)
+    ymat_dims = (3, 3)
+    zmat_dims = (4, 3)
+    vmat_dims = (1, 4)
+    Xmat_values = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+    Ymat_values = [[1, -2, 3.1], [-3.3, 5, -6], [7.1, 4.2, 6.9]]
+    Zmat_values = [[1.5, -2.3, 3.8], [-3.7, 5.2, -6.1], [7.4, 4.5, 6.2], [0.1, -0.4, 1.3]]
+    Vmat_values = [[1.5, -2.3, 3.8, 0.9]]
+
+    x = 2.8
+    c = 0.5
+
+    pyomo_model.X = pyomo.Var(
+        pyomo.RangeSet(1, X_dims[0]), domain=pyomo.Reals, initialize=PyomoEvaluator._init_rule(X_values)
+    )
+    pyomo_model.Y = pyomo.Param(
+        pyomo.RangeSet(1, Y_dims[0]), domain=pyomo.Reals, initialize=PyomoEvaluator._init_rule(Y_values)
+    )
+    pyomo_model.Xmat = pyomo.Var(
+        pyomo.RangeSet(1, xmat_dims[0]),
+        pyomo.RangeSet(1, xmat_dims[1]),
+        domain=pyomo.Reals,
+        initialize=PyomoEvaluator._init_rule(Xmat_values),
+    )
+    pyomo_model.Ymat = pyomo.Param(
+        pyomo.RangeSet(1, ymat_dims[0]),
+        pyomo.RangeSet(1, ymat_dims[1]),
+        domain=pyomo.Reals,
+        initialize=PyomoEvaluator._init_rule(Ymat_values),
+    )
+    pyomo_model.Zmat = pyomo.Var(
+        pyomo.RangeSet(1, zmat_dims[0]),
+        pyomo.RangeSet(1, zmat_dims[1]),
+        domain=pyomo.Reals,
+        initialize=PyomoEvaluator._init_rule(Zmat_values),
+    )
+    pyomo_model.Vmat = pyomo.Param(
+        pyomo.RangeSet(1, vmat_dims[0]),
+        pyomo.RangeSet(1, vmat_dims[1]),
+        domain=pyomo.Reals,
+        initialize=PyomoEvaluator._init_rule(Vmat_values),
+    )
+    pyomo_model.x = pyomo.Var(domain=pyomo.Reals, initialize=x)
+    pyomo_model.c = pyomo.Param(domain=pyomo.Reals, default=c)
+
+    tests = [
+        ("X@Y", np.dot(X_values, Y_values)),  # dot product
+        ("Y@X", np.dot(Y_values, X_values)),
+        ("5*Y@X", 5 * np.dot(Y_values, X_values)),
+        ("X@Y - 3", np.dot(X_values, Y_values) - 3),  # dot product
+        ("X*c", c * np.array(X_values)),  # product by or with constant
+        ("c*X", c * np.array(X_values)),
+        ("Y*c", c * np.array(Y_values)),
+        ("c*Y", c * np.array(Y_values)),
+        ("x*X", x * np.array(X_values)),  # product by or with scalar
+        ("X*x", x * np.array(X_values)),
+        ("x*Y", x * np.array(Y_values)),
+        ("Y*x", x * np.array(Y_values)),
+        ("X*Y", np.array(X_values) * np.array(Y_values)),  # element-wise multiplication
+        ("Y*X", np.array(Y_values) * np.array(X_values)),
+        ("Xmat*Ymat", np.array(Xmat_values) * np.array(Ymat_values)),
+        ("Ymat*Xmat*4", np.array(Ymat_values) * np.array(Xmat_values) * 4),
+        ("Ymat*Xmat*4*Ymat", np.array(Ymat_values) * np.array(Xmat_values) * 4 * np.array(Ymat_values)),
+        ("Xmat@Ymat", np.array(Xmat_values) @ np.array(Ymat_values)),  # matrix product
+        ("Ymat@Xmat", np.array(Ymat_values) @ np.array(Xmat_values)),
+        ("Zmat@Xmat", np.array(Zmat_values) @ np.array(Xmat_values)),
+        ("Vmat@Zmat", np.array(Vmat_values) @ np.array(Zmat_values)),
+        ("Vmat@Zmat@Xmat", np.array(Vmat_values) @ np.array(Zmat_values) @ np.array(Xmat_values)),
+        ("Xmat + Ymat", np.array(Xmat_values) + np.array(Ymat_values)),  # matrix addition
+        ("Ymat + Xmat", np.array(Ymat_values) + np.array(Xmat_values)),  # matrix addition
+        ("Xmat - Ymat", np.array(Xmat_values) - np.array(Ymat_values)),  # matrix subtraction
+        ("Ymat - Xmat", np.array(Ymat_values) - np.array(Xmat_values)),  # matrix subtraction
+        ("x*Xmat", x * np.array(Xmat_values)),  # matrix scalar product
+        ("c*Xmat", c * np.array(Xmat_values)),
+        ("x*Ymat", x * np.array(Ymat_values)),
+        ("c*Ymat", c * np.array(Ymat_values)),
+        ("Sum(Ymat)", np.sum(np.array(Ymat_values))),  # Summing
+        ("Cos(c) * (Ymat + Xmat)", np.cos(c) * (np.array(Ymat_values) + np.array(Xmat_values))),  # advanced expressions
+        (
+            "Cos(x) * (Ymat + 2*Xmat - Ymat) * Sin(x)",
+            np.cos(x) * (np.array(Ymat_values) + 2 * np.array(Xmat_values) - np.array(Ymat_values)) * np.sin(x),
+        ),  # advanced expressions
+        (
+            "Sum(Vmat) * (Zmat @ (Xmat + 3*Ymat) @ -Xmat)",
+            np.sum(Vmat_values)
+            * (np.array(Zmat_values) @ (np.array(Xmat_values) + 3 * np.array(Ymat_values)) @ -np.array(Xmat_values)),
+        ),  # advanced expressions
+    ]
+
+    pyomo_parser = MathParser(to_format="pyomo")
+    infix_parser = InfixExpressionParser()
+
+    for str_expr, result in tests:
+        json_expr = infix_parser.parse(str_expr)
+        pyomo_expr = pyomo_parser.parse(json_expr, pyomo_model)
+
+        npt.assert_array_almost_equal(
+            [pyomo.value(pyomo_expr[i]) for i in pyomo_expr.index_set()]
+            if hasattr(pyomo_expr, "index_set") and pyomo_expr.index_set().dimen == 1
+            else [
+                [pyomo.value(pyomo_expr[i, j]) for j in pyomo_expr.index_set().set_tuple[1]]
+                for i in pyomo_expr.index_set().set_tuple[0]
+            ]
+            if hasattr(pyomo_expr, "index_set") and pyomo_expr.index_set().dimen == 2
+            else pyomo.value(pyomo_expr),
+            result,
+            err_msg=(
+                f"Test failed for {str_expr=}, with "
+                f"{str(pyomo_expr) if isinstance(pyomo_expr, pyomo.Expression) else pyomo_expr}"
             ),
         )
 

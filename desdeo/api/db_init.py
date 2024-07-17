@@ -1,4 +1,5 @@
 """This module initializes the database."""
+
 import warnings
 
 import numpy as np
@@ -156,15 +157,15 @@ def fakeProblemDontLook():
     )
 
 
-luke_problem = fakeProblemDontLook()
+# luke_problem = fakeProblemDontLook()
 
-luke_problem_in_db = db_models.Problem(
-    owner=user.id,
-    name="LUKE Problem",
-    kind=ProblemKind.DISCRETE,
-    obj_kind=ObjectiveKind.ANALYTICAL,
-    value=luke_problem.model_dump(mode="json"),
-)
-db.add(luke_problem_in_db)
+# luke_problem_in_db = db_models.Problem(
+#    owner=user.id,
+#    name="LUKE Problem",
+#    kind=ProblemKind.DISCRETE,
+#    obj_kind=ObjectiveKind.ANALYTICAL,
+#    value=luke_problem.model_dump(mode="json"),
+# )
+# db.add(luke_problem_in_db)
 db.commit()
 db.close()

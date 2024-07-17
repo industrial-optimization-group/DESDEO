@@ -1,9 +1,7 @@
 """Defines solver interfaces for pyomo."""
 
-from collections.abc import Callable
-
 import pyomo.environ as pyomo
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from pyomo.opt import SolverResults as _pyomo_SolverResults
 from pyomo.opt import SolverStatus as _pyomo_SolverStatus
 from pyomo.opt import TerminationCondition as _pyomo_TerminationCondition
@@ -79,6 +77,122 @@ class IpoptOptions(BaseModel):
     max_iter: int = Field(description="Maximum number of iterations. Must be >1. Defaults to 3000.", default=3000)
     """Maximum number of iterations. Must be >1. Defaults to 3000."""
 
+
+class CbcOptions(BaseModel):
+    """Defines a pydantic dataclass to pass options to the CBC solver.
+
+    For more information and documentation on the options,
+    see https://github.com/coin-or/Cbc
+
+    Note:
+        Not all options are available through this model.
+        Please add options as they are needed and make a pull request.
+    """
+
+    model_config = ConfigDict(frozen=True, allow_population_by_field_name=True)
+
+    sec: int = Field(
+        description="The maximum amount of time (in seconds) the solver should run. Defaults to None.", default=None
+    )
+    """The maximum amount of time (in seconds) the solver should run. Defaults to None."""
+
+    threads: int = Field(
+        description="Number of threads (cores) to use for solving the problem. Defaults to 1.", default=1
+    )
+    """Number of threads (cores) to use for solving the problem. Defaults to 1."""
+
+    log_level: int = Field(
+        alias="logLevel",
+        description=(
+            "Controls the level of logging output. Values range from 0 (no output) to 5 (very detailed output)."
+            " Defaults to 1."
+        ),
+        default=1,
+    )
+    """Controls the level of logging output. Values range from 0 (no output) to 5 (very detailed output).
+    Defaults to 1.
+    """
+
+    max_solutions: int = Field(
+        alias="maxSolutions",
+        description="Limits the number of feasible solutions found by the solver. Defaults to None.",
+        default=None,
+    )
+    """Limits the number of feasible solutions found by the solver. Defaults to None."""
+
+    max_nodes: int = Field(
+        alias="maxNodes",
+        description="Sets the maximum number of branch-and-bound nodes to explore. Defaults to None.",
+        default=None,
+    )
+    """Sets the maximum number of branch-and-bound nodes to explore. Defaults to None."""
+
+    ratio_gap: float = Field(
+        alias="ratioGap",
+        description=(
+            "Sets the relative MIP gap (as a fraction of the optimal solution value) at which the solver will"
+            " terminate. Defaults to None."
+        ),
+        default=None,
+    )
+    """Sets the relative MIP gap (as a fraction of the optimal solution value) at which the solver will terminate.
+    Defaults to None.
+    """
+
+    absolute_gap: float = Field(
+        alias="absoluteGap",
+        description=(
+            "Sets the absolute MIP gap (an absolute value) at which the solver will terminate. " " Defaults to None."
+        ),
+        default=None,
+    )
+    """Sets the absolute MIP gap (an absolute value) at which the solver will terminate. Defaults to None."""
+
+    solve: str = Field(
+        description=(
+            "Determines the strategy to use for solving the problem (e.g., 'branchAndCut', 'tree', 'trunk')."
+            " Defaults to 'branchAndCut'."
+        ),
+        default="branchAndCut",
+    )
+    """Determines the strategy to use for solving the problem (e.g., 'branchAndCut', 'tree', 'trunk').
+    Defaults to 'branchAndCut'.
+    """
+
+    presolve: int = Field(
+        description="Controls the presolve level (0: no presolve, 1: default, 2: aggressive). Defaults to 1.", default=1
+    )
+    """Controls the presolve level (0: no presolve, 1: default, 2: aggressive). Defaults to 1."""
+
+    feasibility_tolerance: float = Field(
+        alias="feasibilityTolerance",
+        description="Sets the feasibility tolerance for constraints. Defaults to 1e-6.",
+        default=1e-6,
+    )
+    """Sets the feasibility tolerance for constraints. Defaults to 1e-6."""
+
+    integer_tolerance: float = Field(
+        alias="integerTolerance",
+        description="Sets the tolerance for integrality of integer variables. Defaults to 1e-5.",
+        default=1e-5,
+    )
+    """Sets the tolerance for integrality of integer variables. Defaults to 1e-5."""
+
+
+_default_cbc_options = CbcOptions(
+    sec=600,
+    threads=4,
+    logLevel=2,
+    maxSolutions=10,
+    maxNodes=1000,
+    ratioGap=0.01,
+    absoluteGap=1.0,
+    solve="branchAndCut",
+    presolve=2,
+    feasibilityTolerance=1e-6,
+    integerTolerance=1e-5,
+)
+"""Defines CBC options with default values."""
 
 _default_bonmin_options = BonminOptions()
 """Defines Bonmin options with default values."""
@@ -266,3 +380,47 @@ class PyomoGurobiSolver:
         with pyomo.SolverFactory("gurobi", solver_io="python") as opt:
             opt_res = opt.solve(self.evaluator.model)
             return parse_pyomo_optimizer_results(opt_res, self.problem, self.evaluator)
+
+
+class PyomoCBCSolver:
+    """Create a pyomo solver that utilizes CBC."""
+
+    def __init__(self, problem: Problem, options: CbcOptions | None = _default_cbc_options):
+        """The solver is initialized with a problem and solver options.
+
+        Suitable for combinatorial and large-scale mixed-integer linear problems.
+
+        For more information, see https://coin-or.github.io/Ipopt/
+
+        Note:
+            CBC must be installed on the system running DESDEO, and its executable
+                must be defined in the PATH.
+
+        Args:
+            problem (Problem): the problem being solved.
+            options (CbcOptions, optional): options to be passed to the CBC solver.
+                If `None` is passed, defaults to `_default_cbc_options` defined in
+                this source file. Defaults to `None`.
+        """
+        self.problem = problem
+        self.evaluator = PyomoEvaluator(problem)
+
+        if options is None:
+            self.options = _default_cbc_options
+        else:
+            self.options = options
+
+    def solve(self, target: str) -> SolverResults:
+        """Solve the problem for a given target.
+
+        Args:
+            target (str): the symbol of the objective function to be optimized.
+
+        Returns:
+            SolverResults: results of the Optimization.
+        """
+        self.evaluator.set_optimization_target(target)
+
+        opt = pyomo.SolverFactory("cbc", tee=True)
+        opt_res = opt.solve(self.evaluator.model)
+        return parse_pyomo_optimizer_results(opt_res, self.problem, self.evaluator)

@@ -15,6 +15,14 @@ hide:
 
     [:octicons-arrow-right-24: Defining a problem](./problem.md)
 
+-   :octicons-info-24:{ .lg .middle } __Hosting on Kubernetes__
+
+    ---
+
+    How to host a DESDEO web application on Kubernetes
+
+    [:octicons-arrow-right-24: How to host a web application](./kubernetes.md)
+
 -   :octicons-info-24:{ .lg .middle } __Running the web API__
 
     ---
