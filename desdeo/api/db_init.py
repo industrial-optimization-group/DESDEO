@@ -11,7 +11,7 @@ from desdeo.api.db import SessionLocal, engine
 from desdeo.api.routers.UserAuth import get_password_hash
 from desdeo.api.schema import ObjectiveKind, ProblemKind, UserPrivileges, UserRole
 from desdeo.problem.schema import DiscreteRepresentation, Objective, Problem, Variable
-from desdeo.problem.testproblems import binh_and_korn
+from desdeo.problem.testproblems import binh_and_korn, nimbus_test_problem
 
 TEST_USER = "test"
 TEST_PASSWORD = "test"  # NOQA: S105 # TODO: Remove this line and create a proper user creation system.
@@ -53,6 +53,19 @@ problem_in_db = db_models.Problem(
     value=problem.model_dump(mode="json"),
 )
 db.add(problem_in_db)
+
+problem = nimbus_test_problem()
+problem_in_db = db_models.Problem(
+    owner=user.id,
+    name="Test 4",
+    kind=ProblemKind.CONTINUOUS,
+    obj_kind=ObjectiveKind.ANALYTICAL,
+    value=problem.model_dump(mode="json"),
+    role_permission=[],
+)
+
+db.add(problem_in_db)
+
 db.commit()
 
 
