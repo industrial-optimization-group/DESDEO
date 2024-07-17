@@ -1699,9 +1699,11 @@ def add_lte_constraints(
 
 if __name__ == "__main__":
     from desdeo.problem import simple_knapsack_vectors, pareto_navigator_test_problem
+    from desdeo.tools import ScipyMinimizeSolver
+
     problem = pareto_navigator_test_problem()
     ideal, nadir = problem.get_ideal_point(), problem.get_nadir_point()
-    #asf, symbol = add_asf_generic_diff(problem, "asf", {"f_1": 2, "f_2": 3}, {"f_1": 0.5, "f_2": 0.5})
+    #asf, symbol = add_asf_generic_diff(problem, "asf", {"f_1": 1.38, "f_2": 0.62, "f_3": -35.33}, {"f_1": 0.5, "f_2": 0.4, "f_3": 0.1})
     #asf, symbol = add_asf_nondiff(problem, "asf", {"f_1": 1.38, "f_2": 0.62, "f_3": -35.33})
     asf, symbol = add_group_asf(
         problem,
@@ -1710,9 +1712,6 @@ if __name__ == "__main__":
          {"f_1": -0.89, "f_2": 2.91, "f_3": -24.98},
          {"f_1": 5, "f_2": 5, "f_3": -55}],
     )
-
-    from desdeo.tools import GurobipySolver
-    from desdeo.tools import ScipyMinimizeSolver
 
     solver = ScipyMinimizeSolver(asf)
     res = solver.solve("asf")
