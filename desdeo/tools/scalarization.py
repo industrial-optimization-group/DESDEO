@@ -227,7 +227,6 @@ def add_group_asf(
     aug_exprs = []
     for i in range(len(reference_points)):
         corrected_rp = get_corrected_reference_point(problem, reference_points[i])
-        print(corrected_rp)
         for obj in problem.objectives:
             max_terms.append(f"({weights[obj.symbol]}) * ({obj.symbol}_min - {corrected_rp[obj.symbol]})")
 
@@ -236,8 +235,7 @@ def add_group_asf(
     max_terms = ", ".join(max_terms)
     aug_exprs = " + ".join(aug_exprs)
 
-    func = f"{Op.MAX}({max_terms}) + {rho} * {aug_exprs}"
-
+    func = f"{Op.MAX}({max_terms}) + {rho} * ({aug_exprs})"
     print(func)
 
     scalarization_function = ScalarizationFunction(
@@ -1700,14 +1698,22 @@ def add_lte_constraints(
     )
 
 if __name__ == "__main__":
-    from desdeo.problem import simple_knapsack_vectors, simple_linear_test_problem
-    problem = simple_knapsack_vectors()
-    #asf, symbol = add_group_asf(problem, "asf", [{"f_1": 2, "f_2": 3}, {"f_1": 3, "f_2": 4}, {"f_1": 4, "f_2": 2}])
-    asf, symbol = add_group_asf(problem, "asf", [{"f_1": 2, "f_2": 3}])
-    print(asf.scalarization_funcs)
+    from desdeo.problem import simple_knapsack_vectors, pareto_navigator_test_problem
+    problem = pareto_navigator_test_problem()
+    ideal, nadir = problem.get_ideal_point(), problem.get_nadir_point()
+    #asf, symbol = add_asf_generic_diff(problem, "asf", {"f_1": 2, "f_2": 3}, {"f_1": 0.5, "f_2": 0.5})
+    #asf, symbol = add_asf_nondiff(problem, "asf", {"f_1": 1.38, "f_2": 0.62, "f_3": -35.33})
+    asf, symbol = add_group_asf(
+        problem,
+        "asf",
+        [{"f_1": 1.38, "f_2": 0.62, "f_3": -35.33},
+         {"f_1": -0.89, "f_2": 2.91, "f_3": -24.98},
+         {"f_1": 5, "f_2": 5, "f_3": -55}],
+    )
 
     from desdeo.tools import GurobipySolver
     from desdeo.tools import ScipyMinimizeSolver
 
-    solver = GurobipySolver(asf)
+    solver = ScipyMinimizeSolver(asf)
     res = solver.solve("asf")
+    print(res)
