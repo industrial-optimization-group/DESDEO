@@ -1700,7 +1700,7 @@ def add_lte_constraints(
     )
 
 if __name__ == "__main__":
-    from desdeo.problem import simple_knapsack_vectors, simple_linear_test_problem, pareto_navigator_test_problem
+    from desdeo.problem import simple_knapsack_vectors, simple_linear_test_problem
     problem = simple_knapsack_vectors()
     #asf, symbol = add_group_asf(problem, "asf", [{"f_1": 2, "f_2": 3}, {"f_1": 3, "f_2": 4}, {"f_1": 4, "f_2": 2}])
     asf, symbol = add_group_asf(problem, "asf", [{"f_1": 2, "f_2": 3}])
