@@ -119,6 +119,7 @@ class SolutionArchive(Base):
     saved: Mapped[bool] = mapped_column(nullable=False)
     current: Mapped[bool] = mapped_column(nullable=False)
     chosen: Mapped[bool] = mapped_column(nullable=False)
+    to_vote: Mapped[bool] = mapped_column(nullable=False, default=False)
 
 
 class Log(Base):
