@@ -265,8 +265,9 @@ async def getMostSelectedSolutions(
     """
 
     reference_solutions = {request.reference_solution_id: request.reference_solution for request in requests}
-    selected_ref_solution_ids = getMostSelected(list(reference_solutions.keys()))
-
+    reference_solutions_ids = [request.reference_solution_id for request in requests]
+    selected_ref_solution_ids = getMostSelected(reference_solutions_ids)
+    
     if len(selected_ref_solution_ids) > 1:
         await db.update(
             update(SolutionArchive)
