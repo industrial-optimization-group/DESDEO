@@ -268,7 +268,7 @@ async def getMostSelectedSolutions(
     selected_ref_solution_ids = getMostSelected(list(reference_solutions.keys()))
 
     if len(selected_ref_solution_ids) > 1:
-        await db.exec2(
+        await db.update(
             update(SolutionArchive)
             .where(SolutionArchive.id.in_(selected_ref_solution_ids))
             .values(to_vote=True)
@@ -308,14 +308,14 @@ async def solutionVote(
         selected_ref_solution_id = list(reference_solutions.keys())[0]
 
         # Mark all the old solutions as not to_vote
-        vote_solutions = await db.exec2(
+        vote_solutions = await db.update(
             update(SolutionArchive)
             .where(SolutionArchive.problem==requests[0].problem_id, SolutionArchive.to_vote==True)
             .values(to_vote=False)
             .returning(SolutionArchive)
         )
 
-        await db.exec2(
+        await db.update(
             update(SolutionArchive)
             .where(SolutionArchive.problem==requests[0].problem_id, SolutionArchive.id!=selected_ref_solution_id)
             .values(chosen=False, current=False)
@@ -432,7 +432,7 @@ async def iterate(
             results.pop(index)
 
         # Mark all the old solutions as not current
-        await db.exec2(
+        await db.update(
             update(SolutionArchive)
             .where(SolutionArchive.problem==problem_id, SolutionArchive.current==True)
             .values(current=False)
@@ -467,7 +467,7 @@ async def iterate(
                     )
                 )
 
-        await db.exec2(
+        await db.update(
             update(SolutionArchive)
             .where(SolutionArchive.id.in_(solutionsToUpdate))
             .values(current=True)
@@ -517,7 +517,7 @@ async def save(
     problem_id = request.problem_id
 
     # Get the solutions from database.
-    await db.exec2(
+    await db.update(
         update(SolutionArchive)
         .where(SolutionArchive.id.in_(request.solution_ids))
         .values(saved=True)
@@ -560,13 +560,13 @@ async def choose(
         reference_solutions = await getMostSelectedSolutions(db, requests)
         selected_solution_ids = list(reference_solutions.keys())
 
-        await db.exec2(
+        await db.update(
             update(SolutionArchive)
             .where(SolutionArchive.problem==problem_id, SolutionArchive.current==True)
             .values(current=False)
         )
 
-        solutions = await db.exec2(
+        solutions = await db.update(
             update(SolutionArchive)
             .where(SolutionArchive.id.in_(selected_solution_ids))
             .values(chosen=True, current=True)
