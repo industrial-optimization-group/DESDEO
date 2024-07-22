@@ -211,6 +211,31 @@ def add_group_asf(
     reference_points: list[dict[str, float]],
     rho: float = 1e-6
 ) -> tuple[Problem, str]:
+    r"""Add the achievement scalarizing function for multiple decision makers.
+
+    The scalarization function is defined as follows:
+
+    \begin{align}
+        &\mbox{minimize} &&\max_{i,d} [w_{id}(f_{id}(\mathbf{x})-\overline{z}_{id})] +
+        \rho \sum^k_{i=1} \sum^{n_d}_{d=1} w_{id}f_{id}(\mathbf{x}) \\
+        &\mbox{subject to} &&\mathbf{x} \in \mathbf{X},
+    \end{align}
+
+    where $w_{id} = \frac{1}{z^{nad}_{id} - z^{uto}_{id}}$.
+
+    Args:
+        problem (Problem): the problem to which the scalarization function should be added.
+        symbol (str): the symbol to reference the added scalarization function.
+        reference_points (list[dict[str, float]]): a list of reference points as objective dicts.
+        rho (float, optional): the weight factor used in the augmentation term. Defaults to 1e-6.
+
+    Raises:
+        ScalarizationError: there are missing elements in any reference point.
+
+    Returns:
+        tuple[Problem, str]: A tuple containing a copy of the problem with the scalarization function added,
+            and the symbol of the added scalarization function.
+    """
     for reference_point in reference_points:
         if not objective_dict_has_all_symbols(problem, reference_point):
             msg = f"The give reference point {reference_point} is missing a value for one or more objectives."
