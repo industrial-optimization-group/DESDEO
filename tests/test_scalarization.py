@@ -28,6 +28,10 @@ from desdeo.tools.scalarization import (
     add_epsilon_constraints,
     add_guess_sf_diff,
     add_guess_sf_nondiff,
+    add_group_asf,
+    add_group_guess_sf,
+    add_group_nimbus_sf,
+    add_group_stom_sf,
     add_nimbus_sf_diff,
     add_nimbus_sf_nondiff,
     add_stom_sf_diff,
@@ -868,3 +872,119 @@ def test_guess_sf_nondiff_solve():
     # f_2 should be the lowest value
     assert result.optimal_objectives["f_2"] < result.optimal_objectives["f_1"]
     assert result.optimal_objectives["f_2"] < result.optimal_objectives["f_3"]
+
+
+@pytest.mark.scalarization
+@pytest.mark.group_scalarization
+@pytest.mark.slow
+def test_add_group_asf():
+    """Test that the multiple decision maker achievement scalarizing function works with one reference point."""
+    n_variables = 3
+    n_objectives = 3
+    problem = dtlz2(n_variables, n_objectives)
+    rp = {"f_1": 0.6, "f_2": 0.2, "f_3": 0.7}
+
+    problem_w_sf, sf = add_asf_nondiff(problem, "sf", rp)
+    problem_w_group_sf, group_sf = add_group_asf(problem, "group_sf", [rp])
+
+    solver_sf = ScipyMinimizeSolver(problem_w_sf)
+    res_sf = solver_sf.solve(sf)
+    assert res_sf.success
+
+    solver_group_sf = ScipyMinimizeSolver(problem_w_group_sf)
+    res_group_sf = solver_group_sf.solve(group_sf)
+    assert res_group_sf.success
+
+    fs_sf = res_sf.optimal_objectives
+    fs_group_sf = res_group_sf.optimal_objectives
+
+    # optimal objective values should be close
+    for obj in problem.objectives:
+        assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol])
+
+
+@pytest.mark.scalarization
+@pytest.mark.group_scalarization
+@pytest.mark.slow
+def test_add_group_guess_sf():
+    """Test that the multiple decision maker GUESS scalarization function works with one reference point."""
+    n_variables = 3
+    n_objectives = 3
+    problem = dtlz2(n_variables, n_objectives)
+    rp = {"f_1": 0.6, "f_2": 0.2, "f_3": 0.7}
+    problem_w_sf, sf = add_guess_sf_nondiff(problem, "sf", rp)
+    problem_w_group_sf, group_sf = add_group_guess_sf(problem, "group_sf", [rp])
+
+    solver_sf = ScipyMinimizeSolver(problem_w_sf)
+    res_sf = solver_sf.solve(sf)
+    assert res_sf.success
+
+    solver_group_sf = ScipyMinimizeSolver(problem_w_group_sf)
+    res_group_sf = solver_group_sf.solve(group_sf)
+    assert res_group_sf.success
+
+    fs_sf = res_sf.optimal_objectives
+    fs_group_sf = res_group_sf.optimal_objectives
+
+    # optimal objective values should be close
+    for obj in problem.objectives:
+        assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol])
+
+
+@pytest.mark.scalarization
+@pytest.mark.group_scalarization
+@pytest.mark.slow
+def test_add_group_nimbus_sf():
+    """Test that the multiple decision maker NIMBUS scalarization function works with one reference point."""
+    n_variables = 3
+    n_objectives = 3
+    problem = dtlz2(n_variables, n_objectives)
+    rp = {"f_1": 0.6, "f_2": 0.2, "f_3": 0.7}
+
+    classifications = {"f_1": ("0", None), "f_2": ("<", None), "f_3": ("0", None)}
+    problem_w_sf, sf = add_nimbus_sf_nondiff(problem, "sf", classifications, rp)
+    problem_w_group_sf, group_sf = add_group_nimbus_sf(problem, "group_sf", [classifications], rp)
+
+    solver_sf = ScipyMinimizeSolver(problem_w_sf)
+    res_sf = solver_sf.solve(sf)
+    assert res_sf.success
+
+    solver_group_sf = ScipyMinimizeSolver(problem_w_group_sf)
+    res_group_sf = solver_group_sf.solve(group_sf)
+    assert res_group_sf.success
+
+    fs_sf = res_sf.optimal_objectives
+    fs_group_sf = res_group_sf.optimal_objectives
+
+    # optimal objective values should be close
+    for obj in problem.objectives:
+        assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol])
+
+
+@pytest.mark.scalarization
+@pytest.mark.group_scalarization
+@pytest.mark.slow
+def test_add_group_stom_sf():
+    """Test that the multiple decision maker STOM scalarization function works with one reference point."""
+    n_variables = 3
+    n_objectives = 3
+    problem = dtlz2(n_variables, n_objectives)
+    rp = {"f_1": 0.6, "f_2": 0.2, "f_3": 0.7}
+
+    problem_w_sf, sf = add_stom_sf_nondiff(problem, "sf", rp)
+    problem_w_group_sf, group_sf = add_group_stom_sf(problem, "group_sf", [rp])
+
+    solver_sf = ScipyMinimizeSolver(problem_w_sf)
+    res_sf = solver_sf.solve(sf)
+    assert res_sf.success
+
+    solver_group_sf = ScipyMinimizeSolver(problem_w_group_sf)
+    res_group_sf = solver_group_sf.solve(group_sf)
+    assert res_group_sf.success
+
+    fs_sf = res_sf.optimal_objectives
+    fs_group_sf = res_group_sf.optimal_objectives
+
+    # optimal objective values should be close
+    for obj in problem.objectives:
+        assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol])

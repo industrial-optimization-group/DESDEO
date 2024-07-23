@@ -209,6 +209,7 @@ def add_group_asf(
     problem: Problem,
     symbol: str,
     reference_points: list[dict[str, float]],
+    delta: float = 1e-6,
     rho: float = 1e-6
 ) -> tuple[Problem, str]:
     r"""Add the achievement scalarizing function for multiple decision makers.
@@ -227,6 +228,7 @@ def add_group_asf(
         problem (Problem): the problem to which the scalarization function should be added.
         symbol (str): the symbol to reference the added scalarization function.
         reference_points (list[dict[str, float]]): a list of reference points as objective dicts.
+        delta (float, optional): a small scalar used to define the utopian point. Defaults to 1e-6.
         rho (float, optional): the weight factor used in the augmentation term. Defaults to 1e-6.
 
     Raises:
@@ -236,6 +238,7 @@ def add_group_asf(
         tuple[Problem, str]: A tuple containing a copy of the problem with the scalarization function added,
             and the symbol of the added scalarization function.
     """
+    # check reference points
     for reference_point in reference_points:
         if not objective_dict_has_all_symbols(problem, reference_point):
             msg = f"The give reference point {reference_point} is missing a value for one or more objectives."
@@ -243,11 +246,13 @@ def add_group_asf(
 
     ideal, nadir = get_corrected_ideal_and_nadir(problem)
 
+    # calculate the weights
     weights = {
-        obj.symbol: 1 / (nadir[obj.symbol] - (ideal[obj.symbol] - 1e-6))
+        obj.symbol: 1 / (nadir[obj.symbol] - (ideal[obj.symbol] - delta))
         for obj in problem.objectives
     }
 
+    # form the max and augmentation terms
     max_terms = []
     aug_exprs = []
     for i in range(len(reference_points)):
@@ -261,10 +266,9 @@ def add_group_asf(
     aug_exprs = " + ".join(aug_exprs)
 
     func = f"{Op.MAX}({max_terms}) + {rho} * ({aug_exprs})"
-    print(func)
 
     scalarization_function = ScalarizationFunction(
-        name="Group asf",
+        name="Achievement scalarizing function for multiple decision makers",
         symbol=symbol,
         func=func,
         is_convex=problem.is_convex,
@@ -949,6 +953,202 @@ def add_nimbus_sf_nondiff(
     return _problem.add_constraints(constraints), symbol
 
 
+def add_group_nimbus_sf(
+    problem: Problem,
+    symbol: str,
+    classifications_list: list[dict[str, tuple[str, float | None]]],
+    current_objective_vector: dict[str, float],
+    delta: float = 0.000001,
+    rho: float = 0.000001,
+):
+    r"""Implements the multiple decision maker variant of the NIMBUS scalarization function.
+
+    The scalarization function is defined as follows:
+
+    \begin{align}
+        &\mbox{minimize} &&\max_{i\in I^<,j\in I^\leq,d} [w_{id}(f_{id}(\mathbf{x})-z^{ideal}_{id}), w_{jd}(f_{jd}(\mathbf{x})-\hat{z}_{jd})] +
+        \rho \sum^k_{i=1} \sum^{n_d}_{d=1} w_{id}f_{id}(\mathbf{x}) \\
+        &\mbox{subject to} &&\mathbf{x} \in \mathbf{X},
+    \end{align}
+
+    where $w_{id} = \frac{1}{z^{nad}_{id} - z^{uto}_{id}}$, and $w_{jd} = \frac{1}{z^{nad}_{jd} - z^{uto}_{jd}}$.
+
+    The $I$-sets are related to the classifications given to each objective function value
+    in respect to  the current objective vector (e.g., by a decision maker). They
+    are as follows:
+
+    - $I^{<}$: values that should improve,
+    - $I^{\leq}$: values that should improve until a given aspiration level $\hat{z}_i$,
+    - $I^{=}$: values that are fine as they are,
+    - $I^{\geq}$: values that can be impaired until some reservation level $\varepsilon_i$, and
+    - $I^{\diamond}$: values that are allowed to change freely (not present explicitly in this scalarization function).
+
+    The aspiration levels and the reservation levels are supplied for each classification, when relevant, in
+    the argument `classifications` as follows:
+
+    ```python
+    classifications = {
+        "f_1": ("<", None),
+        "f_2": ("<=", 42.1),
+        "f_3": (">=", 22.2),
+        "f_4": ("0", None)
+        }
+    ```
+
+    Here, we have assumed four objective functions. The key of the dict is a function's symbol, and the tuple
+    consists of a pair where the left element is the classification (self explanatory, '0' is for objective values
+    that may change freely), the right element is either `None` or an aspiration or a reservation level
+    depending on the classification.
+
+    Args:
+        problem (Problem): the problem to be scalarized.
+        symbol (str): the symbol given to the scalarization function, i.e., target of the optimization.
+        classifications_list (list[dict[str, tuple[str, float  |  None]]]): a list of dicts, where the key is a symbol
+            of an objective function, and the value is a tuple with a classification and an aspiration
+            or a reservation level, or `None`, depending on the classification. See above for an
+            explanation.
+        current_objective_vector (dict[str, float]): the current objective vector that corresponds to
+            a Pareto optimal solution. The classifications are assumed to been given in respect to
+            this vector.
+        delta (float, optional): a small scalar used to define the utopian point. Defaults to 0.000001.
+        rho (float, optional): a small scalar used in the augmentation term. Defaults to 0.000001.
+
+    Raises:
+        ScalarizationError: any of the given classifications do not define a classification
+            for all the objective functions or any of the given classifications do not allow at
+            least one objective function value to improve and one to worsen.
+
+    Returns:
+        tuple[Problem, str]: a tuple with the copy of the problem with the added
+            scalarization and the symbol of the added scalarization.
+    """
+    # check that classifications have been provided for all objective functions
+    for classifications in classifications_list:
+        if not objective_dict_has_all_symbols(problem, classifications):
+            msg = (
+                f"The given classifications {classifications} do not define "
+                "a classification for all the objective functions."
+            )
+            raise ScalarizationError(msg)
+
+        # check that at least one objective function is allowed to be improved and one is
+        # allowed to worsen
+        if not any(classifications[obj.symbol][0] in ["<", "<="] for obj in problem.objectives) or not any(
+            classifications[obj.symbol][0] in [">=", "0"] for obj in problem.objectives
+        ):
+            msg = (
+                f"The given classifications {classifications} should allow at least one objective function value "
+                "to improve and one to worsen."
+            )
+            raise ScalarizationError(msg)
+
+    # check ideal and nadir exist
+    ideal, nadir = get_corrected_ideal_and_nadir(problem)
+    corrected_current_point = get_corrected_reference_point(problem, current_objective_vector)
+
+    # calculate the weights
+    weights = {
+        obj.symbol: 1 / (nadir[obj.symbol] - (ideal[obj.symbol] - delta))
+        for obj in problem.objectives
+    }
+
+    # max term and constraints
+    max_args = []
+    constraints = []
+
+    for i in range(len(classifications_list)):
+        classifications = classifications_list[i]
+        for obj in problem.objectives:
+            _symbol = obj.symbol
+            match classifications[_symbol]:
+                case ("<", _):
+                    max_expr = (
+                        f"{weights[_symbol]} * ({_symbol}_min - {ideal[_symbol]})"
+                    )
+                    max_args.append(max_expr)
+
+                    con_expr = f"{_symbol}_min - {corrected_current_point[_symbol]}"
+                    constraints.append(
+                        Constraint(
+                            name=f"improvement constraint for {_symbol}",
+                            symbol=f"{_symbol}_{i+1}_lt",
+                            func=con_expr,
+                            cons_type=ConstraintTypeEnum.LTE,
+                        )
+                    )
+                case ("<=", aspiration):
+                    # if obj is to be maximized, then the current reservation value needs to be multiplied by -1
+                    max_expr = (
+                        f"{weights[_symbol]} * ({_symbol}_min - {aspiration * -1 if obj.maximize else aspiration})"
+                    )
+                    max_args.append(max_expr)
+
+                    con_expr = f"{_symbol}_min - {corrected_current_point[_symbol]}"
+                    constraints.append(
+                        Constraint(
+                            name=f"improvement until constraint for {_symbol}",
+                            symbol=f"{_symbol}_{i+1}_lte",
+                            func=con_expr,
+                            cons_type=ConstraintTypeEnum.LTE,
+                        )
+                    )
+                case ("=", _):
+                    con_expr = f"{_symbol}_min - {corrected_current_point[_symbol]}"
+                    constraints.append(
+                        Constraint(
+                            name=f"Stay at least as good constraint for {_symbol}",
+                            symbol=f"{_symbol}_{i+1}_eq",
+                            func=con_expr,
+                            cons_type=ConstraintTypeEnum.LTE,
+                            linear=False,  # TODO: check!
+                        )
+                    )
+                case (">=", reservation):
+                    con_expr = f"{_symbol}_min - {-1 * reservation if obj.maximize else reservation}"
+                    constraints.append(
+                        Constraint(
+                            name=f"Worsen until constraint for {_symbol}",
+                            symbol=f"{_symbol}_{i+1}_gte",
+                            func=con_expr,
+                            cons_type=ConstraintTypeEnum.LTE,
+                        )
+                    )
+                case ("0", _):
+                    # not relevant for this scalarization
+                    pass
+                case (c, _):
+                    msg = (
+                        f"Warning! The classification {c} was supplied, but it is not supported."
+                        "Must be one of ['<', '<=', '0', '=', '>=']"
+                    )
+    max_expr = f"Max({','.join(max_args)})"
+
+    # form the augmentation term
+    aug_exprs = []
+    for _ in range(len(classifications_list)):
+        aug_expr = " + ".join(
+            [
+                f"({weights[obj.symbol]} * {obj.symbol}_min)"
+                for obj in problem.objectives
+            ]
+        )
+        aug_exprs.append(aug_expr)
+    aug_exprs = " + ".join(aug_exprs)
+
+    func = f"{max_expr} + {rho} * ({aug_exprs})"
+    scalarization = ScalarizationFunction(
+        name="NIMBUS scalarization objective function for multiple decision makers",
+        symbol=symbol,
+        func=func,
+        is_linear=False,
+        is_convex=False,
+        is_twice_differentiable=False,
+    )
+
+    _problem = problem.add_scalarization(scalarization)
+    return _problem.add_constraints(constraints), symbol
+
+
 def add_stom_sf_diff(
     problem: Problem,
     symbol: str,
@@ -1120,6 +1320,85 @@ def add_stom_sf_nondiff(
         is_twice_differentiable=False,
     )
 
+    return problem.add_scalarization(scalarization), symbol
+
+
+def add_group_stom_sf(
+    problem: Problem,
+    symbol: str,
+    reference_points: list[dict[str, float]],
+    rho: float = 1e-6,
+    delta: float = 1e-6,
+):
+    r"""Adds the multiple decision maker variant of the STOM scalarizing function.
+
+    The scalarization function is defined as follows:
+
+    \begin{align}
+        &\mbox{minimize} &&\max_{i,d} [w_{id}(f_{id}(\mathbf{x})-z^{uto}_{id})] +
+        \rho \sum^k_{i=1} \sum^{n_d}_{d=1} w_{id}f_{id}(\mathbf{x}) \\
+        &\mbox{subject to} &&\mathbf{x} \in \mathbf{X},
+    \end{align}
+
+    where $w_{id} = \frac{1}{\overline{z}_{id} - z^{uto}_{id}}$.
+
+    Args:
+        problem (Problem): the problem the scalarization is added to.
+        symbol (str): the symbol given to the added scalarization.
+        reference_points (list[dict[str, float]]): a list of dicts with keys corresponding to objective
+            function symbols and values to reference point components, i.e.,
+            aspiration levels.
+        rho (float, optional): a small scalar value to scale the sum in the objective
+            function of the scalarization. Defaults to 1e-6.
+        delta (float, optional): a small scalar value to define the utopian point. Defaults to 1e-6.
+
+    Raises:
+        ScalarizationError: there are missing elements in any reference point.
+
+    Returns:
+        tuple[Problem, str]: a tuple with the copy of the problem with the added
+            scalarization and the symbol of the added scalarization.
+    """
+    # check reference points
+    for reference_point in reference_points:
+        if not objective_dict_has_all_symbols(problem, reference_point):
+            msg = f"The give reference point {reference_point} is missing value for one or more objectives."
+            raise ScalarizationError(msg)
+
+    ideal, _ = get_corrected_ideal_and_nadir(problem)
+
+    # calculate the weights
+    weights = []
+    for reference_point in reference_points:
+        corrected_rp = get_corrected_reference_point(problem, reference_point)
+        weights.append({
+            obj.symbol: 1 / (corrected_rp[obj.symbol] - (ideal[obj.symbol] - delta))
+            for obj in problem.objectives
+        })
+
+    # form the max term
+    max_terms = []
+    for i in range(len(reference_points)):
+        for obj in problem.objectives:
+            max_terms.append(f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {ideal[obj.symbol] - delta})")
+    max_terms = ", ".join(max_terms)
+
+    # form the augmentation term
+    aug_exprs = []
+    for i in range(len(reference_points)):
+        aug_expr = " + ".join([f"({weights[i][obj.symbol]} * {obj.symbol}_min)" for obj in problem.objectives])
+        aug_exprs.append(aug_expr)
+    aug_exprs = " + ".join(aug_exprs)
+
+    func = f"{Op.MAX}({max_terms}) + {rho}*" + f"({aug_exprs})"
+    scalarization = ScalarizationFunction(
+        name="STOM scalarization objective function for multiple decision makers",
+        symbol=symbol,
+        func=func,
+        is_linear=False,
+        is_convex=False,
+        is_twice_differentiable=False,
+    )
     return problem.add_scalarization(scalarization), symbol
 
 
@@ -1343,6 +1622,84 @@ def add_guess_sf_nondiff(
         is_twice_differentiable=False,
     )
 
+    return problem.add_scalarization(scalarization), symbol
+
+
+def add_group_guess_sf(
+    problem: Problem,
+    symbol: str,
+    reference_points: list[dict[str, float]],
+    rho: float = 1e-6
+):
+    r"""Adds the multiple decision maker variant of the GUESS scalarizing function.
+
+    The scalarization function is defined as follows:
+
+    \begin{align}
+        &\mbox{minimize} &&\max_{i,d} [w_{id}(f_{id}(\mathbf{x})-z^{nad}_{id})] +
+        \rho \sum^k_{i=1} \sum^{n_d}_{d=1} w_{id}f_{id}(\mathbf{x}) \\
+        &\mbox{subject to} &&\mathbf{x} \in \mathbf{X},
+    \end{align}
+
+    where $w_{id} = \frac{1}{z^{nad}_{id} - \overline{z}_{id}}$.
+
+    Args:
+        problem (Problem): the problem the scalarization is added to.
+        symbol (str): the symbol given to the added scalarization.
+        reference_points (list[dict[str, float]]): a list of dicts with keys corresponding to objective
+            function symbols and values to reference point components, i.e.,
+            aspiration levels.
+        rho (float, optional): a small scalar value to scale the sum in the objective
+            function of the scalarization. Defaults to 1e-6.
+
+    Raises:
+        ScalarizationError: there are missing elements in any reference point.
+
+    Returns:
+        tuple[Problem, str]: a tuple with the copy of the problem with the added
+            scalarization and the symbol of the added scalarization.
+    """
+    # check reference points
+    for reference_point in reference_points:
+        if not objective_dict_has_all_symbols(problem, reference_point):
+            msg = f"The give reference point {reference_point} is missing value for one or more objectives."
+            raise ScalarizationError(msg)
+
+    _, nadir = get_corrected_ideal_and_nadir(problem)
+
+    # calculate the weights
+    weights = []
+    for reference_point in reference_points:
+        corrected_rp = get_corrected_reference_point(problem, reference_point)
+        weights.append({
+            obj.symbol: 1 / (nadir[obj.symbol] - (corrected_rp[obj.symbol]))
+            for obj in problem.objectives
+        })
+
+    # form the max term
+    max_terms = []
+    for i in range(len(reference_points)):
+        corrected_rp = get_corrected_reference_point(problem, reference_points[i])
+        for obj in problem.objectives:
+            max_terms.append(f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {nadir[obj.symbol]})")
+    max_terms = ", ".join(max_terms)
+
+    # form the augmentation term
+    aug_exprs = []
+    for i in range(len(reference_points)):
+        aug_expr = " + ".join([f"({weights[i][obj.symbol]} * {obj.symbol}_min)" for obj in problem.objectives])
+        aug_exprs.append(aug_expr)
+    aug_exprs = " + ".join(aug_exprs)
+
+    func = f"{Op.MAX}({max_terms}) + {rho}*" + f"({aug_exprs})"
+    scalarization = ScalarizationFunction(
+        name="GUESS scalarization objective function for multiple decision makers",
+        symbol=symbol,
+        func=func,
+        is_linear=False,
+        is_convex=False,
+        is_twice_differentiable=False,
+    )
     return problem.add_scalarization(scalarization), symbol
 
 
@@ -1721,23 +2078,3 @@ def add_lte_constraints(
             ]
         }
     )
-
-if __name__ == "__main__":
-    from desdeo.problem import simple_knapsack_vectors, pareto_navigator_test_problem
-    from desdeo.tools import ScipyMinimizeSolver
-
-    problem = pareto_navigator_test_problem()
-    ideal, nadir = problem.get_ideal_point(), problem.get_nadir_point()
-    #asf, symbol = add_asf_generic_diff(problem, "asf", {"f_1": 1.38, "f_2": 0.62, "f_3": -35.33}, {"f_1": 0.5, "f_2": 0.4, "f_3": 0.1})
-    #asf, symbol = add_asf_nondiff(problem, "asf", {"f_1": 1.38, "f_2": 0.62, "f_3": -35.33})
-    asf, symbol = add_group_asf(
-        problem,
-        "asf",
-        [{"f_1": 1.38, "f_2": 0.62, "f_3": -35.33},
-         {"f_1": -0.89, "f_2": 2.91, "f_3": -24.98},
-         {"f_1": 5, "f_2": 5, "f_3": -55}],
-    )
-
-    solver = ScipyMinimizeSolver(asf)
-    res = solver.solve("asf")
-    print(res)
