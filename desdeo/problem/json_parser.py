@@ -502,8 +502,8 @@ class MathParser:
             self.MUL: lambda *args: reduce(lambda x, y: x * y, args),
             self.DIV: lambda *args: reduce(lambda x, y: x / y, args),
             # Vector and matrix operations
-            self.MATMUL: lambda x, y: x @ y,
-            self.SUM: lambda x: x.sum(),
+            self.MATMUL: _gurobipy_matmul,
+            self.SUM: _gurobipy_summation,
             # Exponentiation and logarithms
             # it would be possible to implement some of these with the special functions that
             # gurobi has to offer, but they would only work under specific circumstances
