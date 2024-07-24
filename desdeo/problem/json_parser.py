@@ -111,6 +111,16 @@ class MathParser:
 
         def _polars_matmul(*args):
             """Polars matrix multiplication."""
+            def _matmul(a, b):
+                print(a,b)
+                if isinstance(a, list):
+                    a = np.array(a)
+                if isinstance(b, list):
+                    b = np.array(b)
+                if len(np.shape(a@b)) == 1:
+                    return a@b
+                return (a@b).sum()
+            return reduce(_matmul, args)
             msg = (
                 "Matrix multiplication '@' has not been implemented for the Polars parser yet."
                 " Feel free to contribute!"
@@ -133,7 +143,8 @@ class MathParser:
             self.MUL: lambda *args: reduce(lambda x, y: to_expr(x) * to_expr(y), args),
             self.DIV: lambda *args: reduce(lambda x, y: to_expr(x) / to_expr(y), args),
             # Vector and matrix operations
-            self.MATMUL: _polars_matmul,
+            #self.MATMUL: _polars_matmul,
+            self.MATMUL: lambda x, y: print(x,y),
             self.SUM: _polars_summation,
             # Exponentiation and logarithms
             self.EXP: lambda x: pl.Expr.exp(to_expr(x)),
@@ -575,6 +586,7 @@ class MathParser:
             return expr
         if isinstance(expr, str):
             # Terminal case: str expression (represents a column name)
+            print(expr)
             return pl.col(expr)
         if isinstance(expr, self.literals):
             # Terminal case: numeric literal

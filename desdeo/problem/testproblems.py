@@ -1573,5 +1573,12 @@ def simple_knapsack_vectors():
 
 
 if __name__ == "__main__":
-    problem = simple_scenario_test_problem()
-    print(problem.model_dump_json(indent=2))
+    #problem = simple_scenario_test_problem()
+    #print(problem.model_dump_json(indent=2))
+    from desdeo.tools import ProximalSolver, ScipyMinimizeSolver, ScipyDeSolver
+    from desdeo.problem import GenericEvaluator
+    problem = simple_knapsack_vectors()
+
+    solver = ProximalSolver(problem)
+    res = solver.solve("f_1")
+

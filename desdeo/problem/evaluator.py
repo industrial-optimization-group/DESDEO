@@ -5,7 +5,7 @@ from enum import Enum
 import polars as pl
 
 from desdeo.problem.json_parser import MathParser, replace_str
-from desdeo.problem.schema import ObjectiveTypeEnum, Problem
+from desdeo.problem.schema import Constant, ObjectiveTypeEnum, Problem, TensorConstant, TensorVariable, Variable
 
 SUPPORTED_EVALUATOR_MODES = ["variables", "discrete"]
 
@@ -132,7 +132,7 @@ class GenericEvaluator:
                     # if analytical proceed with replacing the symbols.
                     tmp = obj.func
                     for c in self.problem_constants:
-                        tmp = replace_str(tmp, c.symbol, c.value)
+                        tmp = replace_str(tmp, c.symbol, c.value) if isinstance(c, Constant) else replace_str(tmp, c.symbol, c.values)
                     parsed_obj_funcs[f"{obj.symbol}"] = tmp
                 elif obj.objective_type == ObjectiveTypeEnum.data_based:
                     # data-based objective
@@ -150,7 +150,7 @@ class GenericEvaluator:
                 for con in self.problem_constraints:
                     tmp = con.func
                     for c in self.problem_constants:
-                        tmp = replace_str(tmp, c.symbol, c.value)
+                        tmp = replace_str(tmp, c.symbol, c.value) if isinstance(c, Constant) else replace_str(tmp, c.symbol, c.values)
                     parsed_cons_funcs[f"{con.symbol}"] = tmp
             else:
                 parsed_cons_funcs = None
