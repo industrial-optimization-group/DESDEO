@@ -284,7 +284,7 @@ async def solutionVote(
         db: Annotated[DB, Depends(database_dependency)]: The database session.
 
     Returns:
-        NIMBUSVoteResponse | FakeNIMBUSResponse: The response from the GNIMBUS vote endpoint.
+        NIMBUSBasicResponse | FakeNIMBUSResponse: The response from the GNIMBUS vote endpoint.
     """
 
     requestRows = await processGroupRequest(grequest, db)
@@ -336,7 +336,7 @@ async def iterate(
     grequest: GroupRequest,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[DB, Depends(database_dependency)],
-) -> NIMBUSIterateResponse | FakeNIMBUSResponse | NIMBUSVoteResponse:
+) -> NIMBUSIterateResponse | FakeNIMBUSResponse:
     """Iterate the GNIMBUS algorithm.
 
     Args:
@@ -345,7 +345,7 @@ async def iterate(
         db: Annotated[DB, Depends(database_dependency)]: The database session.
 
     Returns:
-        NIMBUSIterateResponse | FakeNIMBUSResponse | NIMBUSVoteResponse: The response from the NIMBUS algorithm.
+        NIMBUSIterateResponse | FakeNIMBUSResponse: The response from the NIMBUS algorithm.
     """
 
     requestRows = await processGroupRequest(grequest, db)
@@ -514,7 +514,7 @@ async def choose(
     grequest: GroupRequest,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[DB, Depends(database_dependency)],
-) -> NIMBUSChosenResponse | NIMBUSVoteResponse | FakeNIMBUSResponse:
+) -> NIMBUSChosenResponse | FakeNIMBUSResponse:
     """Choose a solution as the final solution for NIMBUS.
 
     Args:
@@ -523,7 +523,7 @@ async def choose(
         db: Annotated[DB, Depends(database_dependency)]: The database session.
 
     Returns:
-        NIMBUSChooseResponse | NIMBUSVoteResponse | FakeNIMBUSResponse: The response from the NIMBUS algorithm.
+        NIMBUSChooseResponse | FakeNIMBUSResponse: The response from the NIMBUS algorithm.
     """
 
     requestRows = await processGroupRequest(grequest, db)
