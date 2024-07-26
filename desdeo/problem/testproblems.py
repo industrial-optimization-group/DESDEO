@@ -1578,7 +1578,13 @@ if __name__ == "__main__":
     from desdeo.tools import ProximalSolver, ScipyMinimizeSolver, ScipyDeSolver
     from desdeo.problem import GenericEvaluator
     problem = simple_knapsack_vectors()
+    #problem = simple_linear_test_problem()
 
-    solver = ProximalSolver(problem)
-    res = solver.solve("f_1")
+    #solver = ProximalSolver(problem)
+    #res = solver.solve("f_1")
 
+    xs = {"X": [0.0, 0.0, 1.0, 0.0]}
+    #xs = {"x_1": 4.2, "x_2": 2.1}
+    evaluator = GenericEvaluator(problem)
+    res = evaluator.evaluate(xs)
+    print(res)

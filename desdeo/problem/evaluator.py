@@ -132,7 +132,7 @@ class GenericEvaluator:
                     # if analytical proceed with replacing the symbols.
                     tmp = obj.func
                     for c in self.problem_constants:
-                        tmp = replace_str(tmp, c.symbol, c.value) if isinstance(c, Constant) else replace_str(tmp, c.symbol, c.values)
+                        tmp = replace_str(tmp, c.symbol, c.value) if isinstance(c, Constant) else replace_str(tmp, c.symbol, c.get_values())
                     parsed_obj_funcs[f"{obj.symbol}"] = tmp
                 elif obj.objective_type == ObjectiveTypeEnum.data_based:
                     # data-based objective
@@ -150,7 +150,7 @@ class GenericEvaluator:
                 for con in self.problem_constraints:
                     tmp = con.func
                     for c in self.problem_constants:
-                        tmp = replace_str(tmp, c.symbol, c.value) if isinstance(c, Constant) else replace_str(tmp, c.symbol, c.values)
+                        tmp = replace_str(tmp, c.symbol, c.value) if isinstance(c, Constant) else replace_str(tmp, c.symbol, c.get_values())
                     parsed_cons_funcs[f"{con.symbol}"] = tmp
             else:
                 parsed_cons_funcs = None
@@ -194,6 +194,8 @@ class GenericEvaluator:
                 parsed_scal_funcs = {f"{scal.symbol}": scal.func for scal in self.problem_scalarization}
             else:
                 parsed_scal_funcs = None
+        for symbol, expression in parsed_obj_funcs.items():
+            print(expression, self.parser.parse(expression))
 
         # Parse all functions into expressions. These are stored as tuples, as (symbol, parsed expression)
         # parse objectives
@@ -202,6 +204,7 @@ class GenericEvaluator:
             (symbol, self.parser.parse(expression)) if expression is not None else (symbol, None)
             for symbol, expression in parsed_obj_funcs.items()
         ]
+        print(self.objective_expressions)
 
         # parse constraints, if any
         if parsed_cons_funcs is not None:
@@ -273,6 +276,7 @@ class GenericEvaluator:
         for symbol, expr in self.objective_expressions:
             if expr is not None:
                 # expression given
+                print(agg_df, expr.alias(symbol))
                 obj_col = agg_df.select(expr.alias(symbol))
                 agg_df = agg_df.hstack(obj_col)
             else:
@@ -378,7 +382,6 @@ def find_closest_points(
     results = []
 
     for row in xs_vars_only.rows(named=True):
-        print(row)
         distance_expr = (
             sum((pl.col(var_symbol) - row[var_symbol]) ** 2 for var_symbol in variable_symbols).sqrt().alias("distance")
         )
