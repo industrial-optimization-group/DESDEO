@@ -1741,7 +1741,7 @@ def forest_problem(holding: int = 1, comparing: bool = False) -> Problem:
     )
 
     f_2 = Objective(
-        name="f_2",
+        name="Wood stock volume",
         symbol="f_2",
         func=f_2_func,
         maximize=True,
@@ -1752,7 +1752,7 @@ def forest_problem(holding: int = 1, comparing: bool = False) -> Problem:
     )
 
     f_3 = Objective(
-        name="f_3",
+        name="Harvest value",
         symbol="f_3",
         func=f_3_func,
         maximize=True,
