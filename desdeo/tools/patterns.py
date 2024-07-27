@@ -61,6 +61,14 @@ class Subscriber(ABC):
             verbosity (int, optional): the verbosity level of the messages. Defaults to 1, which may mean differing
                 amounts of information depending on the message sender. A value of 0 means no messages at all.
         """
+        if topics is not None:
+            if isinstance(topics, list):
+                if not all(isinstance(elem, str) for elem in topics):
+                    raise TypeError("Topics must be a list of strings.")
+            else:
+                raise TypeError("Topics must be a list of strings.")
+        if not isinstance(verbosity, int):
+            raise TypeError("Verbosity must be an integer.")
         self.publisher = publisher
         self.topics = topics if topics is not None else []
         self.verbosity = verbosity

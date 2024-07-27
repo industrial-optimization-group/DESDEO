@@ -1,7 +1,6 @@
 """The base class for selection operators."""
 
 from abc import abstractmethod
-from collections.abc import Callable
 from enum import Enum
 
 import numpy as np
