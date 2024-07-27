@@ -17,17 +17,17 @@ class BaseEvaluator(Subscriber):
     """
 
     def __init__(
-        self, problem: Problem, obj_evaluator: Callable, cons_evaluator: Callable, verbosity: int = 1, *args, **kwargs
+        self, problem: Problem, obj_evaluator: Callable, cons_evaluator: Callable, verbosity: int = 1, **kwargs
     ):
         """Initialize the BaseEvaluator class."""
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
         self.problem = problem
         self.obj_evaluator = obj_evaluator
         self.cons_evaluator = cons_evaluator
         self.population: Iterable = None
         self.objs: np.ndarray = None
         self.cons: np.ndarray = None
-        self.verbosity: int = 1
+        self.verbosity: int = verbosity
 
     def evaluate(self, population: Iterable) -> tuple[np.ndarray, np.ndarray]:
         """Evaluate and return the objectives.
@@ -40,7 +40,7 @@ class BaseEvaluator(Subscriber):
                 the members of population.
         """
         self.population = population
-        # TODO: Replace the code below with calls to the Problem object.
+        # TODO(@light-weaver): Replace the code below with calls to the Problem object.
         # For now, this is a hack.
         self.objs = self.obj_evaluator(population)
         self.cons = self.cons_evaluator(population)
@@ -50,13 +50,12 @@ class BaseEvaluator(Subscriber):
     def state(self) -> dict | None:
         """The state of the evaluator sent to the Publisher."""
         if self.verbosity == 0:
-            return
+            return {}
         return {
             "decision vectors": self.population,
             "objective vectors": self.objs,
             "constraint vectors": self.cons,
         }
 
-    def update(self, *args, **kwargs):
+    def update(self, *_, **__):
         """Update the parameters of the evaluator."""
-        pass

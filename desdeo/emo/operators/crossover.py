@@ -15,9 +15,9 @@ from desdeo.tools.patterns import Subscriber
 class BaseCrossover(Subscriber):
     """A base class for crossover operators."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, **kwargs):
         """Initialize a crossover operator."""
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
 
     @abstractmethod
     def do(self, population: np.ndarray, to_mate: list[int] | None = None) -> np.ndarray:
@@ -37,9 +37,9 @@ class BaseCrossover(Subscriber):
 class TestCrossover(BaseCrossover):
     """Just a test crossover operator."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, **kwargs):
         """Initialize a test crossover operator."""
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
 
     def do(self, population: np.ndarray, to_mate: list[int] | None = None) -> np.ndarray:
         """Perform the test crossover operation.
@@ -71,16 +71,20 @@ class SimulatedBinaryCrossover(BaseCrossover):
             Complex Systems 9, 2 (1995), 115-148.
     """
 
-    def __init__(self, xover_probability: float = 1.0, xover_distribution: float = 30, *args, **kwargs):
+    def __init__(self, *, seed: int, xover_probability: float = 1.0, xover_distribution: float = 30, **kwargs):
         """Initialize a simulated binary crossover operator.
 
         Args:
+            seed (int): the seed for the random number generator.
             xover_probability (float, optional): the crossover probability
                 parameter. Ranges between 0 and 1.0. Defaults to 1.0.
             xover_distribution (float, optional): the crossover distribution
                 parameter. Must be positive. Defaults to 30.
+            kwargs: Additional keyword arguments. These are passed to the Subscriber class. At the very least, the
+                publisher must be passed. See the Subscriber class for more information.
         """
-        super().__init__(*args, **kwargs)
+        # Subscribes to no topics, so no need to stroe/pass the topics to the super class.
+        super().__init__(**kwargs)
         if not 0 <= xover_probability <= 1:
             raise ValueError("Crossover probability must be between 0 and 1.")
         if xover_distribution <= 0:
@@ -89,20 +93,22 @@ class SimulatedBinaryCrossover(BaseCrossover):
         self.xover_distribution = xover_distribution
         self.parent_population: tuple[np.ndarray, np.ndarray] = None
         self.offspring_population: np.ndarray = None
+        self.rng = np.random.default_rng(seed)
+        self.seed = seed
 
     def do(
         self,
         parent_population: tuple[np.ndarray, np.ndarray, np.ndarray],
         to_mate: list[int] | None = None,
-        *args,
-        **kwargs,
+        *_,
+        **__,
     ) -> np.ndarray:
         """Perform the simulated binary crossover operation.
 
         Args:
-            parent_population tuple[np.ndarray, np.ndarray]: the population to perform the crossover with. The first
-                element of the tuple are the decision vectors, the second element is the corresponding objective
-                    vectors, the third element is the corresponding constraint vectors.
+            parent_population (tuple[np.ndarray, np.ndarray, np.ndarray]): the population to perform the crossover with.
+                The first element of the tuple are the decision vectors, the second element is the corresponding
+                objective vectors, the third element is the corresponding constraint vectors.
             to_mate (list[int] | None): the indices of the population members that should
                 participate in the crossover. If `None`, the whole population is subject
                 to the crossover.
@@ -127,13 +133,14 @@ class SimulatedBinaryCrossover(BaseCrossover):
 
         offspring = np.zeros_like(mating_pop)
 
+        # TODO(@light-weaver): Extract into a numba jitted function.
         for i in range(0, mate_size, 2):
             beta = np.zeros(num_var)
-            miu = np.random.rand(num_var)
+            miu = self.rng.random(num_var)
             beta[miu <= 0.5] = (2 * miu[miu <= 0.5]) ** (1 / (self.xover_distribution + 1))
             beta[miu > 0.5] = (2 - 2 * miu[miu > 0.5]) ** (-1 / (self.xover_distribution + 1))
-            beta = beta * ((-1) ** np.random.randint(0, high=2, size=num_var))
-            beta[np.random.rand(num_var) > self.xover_probability] = 1
+            beta = beta * ((-1) ** self.rng.integers(low=0, high=2, size=num_var))
+            beta[self.rng.random(num_var) > self.xover_probability] = 1
             avg = (mating_pop[i] + mating_pop[i + 1]) / 2
             diff = (mating_pop[i] - mating_pop[i + 1]) / 2
             offspring[i] = avg + beta * diff
@@ -144,7 +151,7 @@ class SimulatedBinaryCrossover(BaseCrossover):
 
         return offspring
 
-    def update(self, *args, **kwargs):
+    def update(self, *_, **__):
         """Do nothing. This is just the basic SBX operator."""
 
     def state(self) -> dict:

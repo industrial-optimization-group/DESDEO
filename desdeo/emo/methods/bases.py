@@ -25,7 +25,7 @@ def baseEA1(
 ):
     solutions, targets, cons_violations = generator.do()
 
-    while not termination.check((solutions, targets)):
+    while not termination.check():
         offspring = crossover.do((solutions, targets, cons_violations))
         offspring = mutation.do(offspring, solutions)
         offspring_targets, offspring_constraints = evaluator.evaluate(offspring)
@@ -40,6 +40,4 @@ def baseEA1(
         crossover.state(),
         mutation.state(),
         selection.state(),
-        solutions,
-        targets,
     )

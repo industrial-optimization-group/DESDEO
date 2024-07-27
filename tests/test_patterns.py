@@ -26,7 +26,7 @@ def test_sub_unsub():
     sub = BlankSubscriber(pub, topics=INTERESTED_TOPICS)
 
     # Test subscribing to topics
-    pub.subscribe_multiple(sub, sub.topics)
+    pub.auto_subscribe(sub, sub.topics)
     assert sub in pub.subscribers[sub.topics[0]]
     assert sub in pub.subscribers[sub.topics[1]]
 
@@ -47,7 +47,7 @@ def test_message_send():
     pub = Publisher()
     sub = BlankSubscriber(pub, topics=INTERESTED_TOPICS)
 
-    pub.subscribe_multiple(sub, sub.topics)
+    pub.auto_subscribe(sub, sub.topics)
 
     message = {"topic1": "message1", "topic2": "message2"}
     # Test direct message from publisher
@@ -65,7 +65,7 @@ def test_message_send():
     assert sub.messages_received == {}
 
     # Test messages originating from a subscriber
-    pub.subscribe_multiple(sub, sub.topics)
+    pub.auto_subscribe(sub, sub.topics)
     sub.messages_to_send = {"topic1": "message1", "topic2": "message2", "topic3": "message3"}
 
     sub.notify()

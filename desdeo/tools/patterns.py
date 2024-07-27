@@ -49,18 +49,20 @@ class Subscriber(ABC):
     messages and send them to the publisher, which then forwards the messages to the other subscribers.
     """
 
-    def __init__(self, publisher: Callable, topics: list[str], verbosity: int = 1) -> None:
+    def __init__(self, publisher: Callable, topics: list[str] | None = None, verbosity: int = 1) -> None:
         """Initialize a subscriber.
 
         Args:
             publisher (Callable): the publisher to send messages to.
-            topics (list[str]): the topics the subscriber is interested in. Check the documentation to see available
-                topics. If the subscriber is interested in all topics, the list should contain "ALL".
+            topics (list[str] | None): the topics the subscriber is interested in. Check the documentation to see
+                available topics. If the subscriber is interested in all topics, the list should contain "ALL".
+                A user should not need to provide topics, as the operators provide default topics. Defaults to None,
+                in which case the subscriber will not receive any messages.
             verbosity (int, optional): the verbosity level of the messages. Defaults to 1, which may mean differing
                 amounts of information depending on the message sender. A value of 0 means no messages at all.
         """
         self.publisher = publisher
-        self.topics = topics
+        self.topics = topics if topics is not None else []
         self.verbosity = verbosity
 
     def notify(self) -> None:
@@ -76,7 +78,8 @@ class Subscriber(ABC):
         """Update self as a result of messages from the publisher.
 
         Args:
-            message (dict): the message from the publisher. Note that each message is a dictionary with a single key-value pair.
+            message (dict): the message from the publisher. Note that each message is a dictionary with a single
+            key-value pair.
         """
 
     @abstractmethod
@@ -100,7 +103,9 @@ class Publisher:
     def subscribe(self, subscriber: Subscriber, topic: str) -> None:
         """Store a subscriber for a given message key.
 
-        Whenever the publisher receives a message with the given key, it will notify the subscriber.
+        Whenever the publisher receives a message with the given key, it will notify the subscriber. This method can
+        be used to subscribe to multiple topics by calling it multiple times. Moreover, the user can force the
+        subscriber to receive all messages by setting the topic to "ALL".
 
         Args:
             subscriber (Subscriber): the subscriber to notify.
@@ -114,16 +119,15 @@ class Publisher:
             self.subscribers[topic] = []
         self.subscribers[topic].append(subscriber)
 
-    def subscribe_multiple(self, subscriber: Subscriber, topics: list[str]) -> None:
-        """Store a subscriber for multiple message keys.
+    def auto_subscribe(self, subscriber: Subscriber) -> None:
+        """Store a subscriber for multiple message keys. The subscriber must have the topics attribute.
 
         Whenever the publisher receives a message with the given key, it will notify the subscriber.
 
         Args:
             subscriber (Subscriber): the subscriber to notify.
-            topics (list[str]): the message topics (keys in message dictionary) to subscribe to.
         """
-        for topic in topics:
+        for topic in subscriber.topics:
             self.subscribe(subscriber, topic)
 
     def unsubscribe(self, subscriber: Subscriber, topic: str) -> None:

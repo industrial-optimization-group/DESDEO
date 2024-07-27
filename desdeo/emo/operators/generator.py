@@ -18,9 +18,9 @@ class BaseGenerator(Subscriber):
 
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, **kwargs):
         """Initialize the BaseGenerator class."""
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
         self.population: np.ndarray | None = None
         self.targets: np.ndarray | None = None
         self.cons: np.ndarray | None = None
@@ -34,15 +34,6 @@ class BaseGenerator(Subscriber):
         Returns:
             Tuple[np.ndarray, np.ndarray, np.ndarray | None]: The initial population, the corresponding targets, and
                 the constraint violations.
-        """
-
-    def update(self, msg: dict) -> None:
-        """Update the state of the generator.
-
-        This method is called by the Publisher to update the state of the generator.
-
-        Args:
-            msg (dict): The message from the Publisher.
         """
 
     def state(self) -> dict:
@@ -73,6 +64,7 @@ class TestGenerator(BaseGenerator):
             n_points (int): The number of points to generate for the initial population.
             n_vars (int): The number of variables in the problem.
             n_objs (int): The number of objectives in the problem.
+            n_cons (int, optional): The number of constraints in the problem. Defaults to 0.
         """
         super().__init__()
         self.n_points = n_points
@@ -102,20 +94,21 @@ class RandomGenerator(BaseGenerator):
     distribution of the points is uniform. If the seed is not provided, the seed is set to 0.
     """
 
-    def __init__(self, problem: Problem, evaluator: BaseEvaluator, n_points: int, seed: int = 0, *args, **kwargs):
+    def __init__(self, problem: Problem, evaluator: BaseEvaluator, n_points: int, seed: int, **kwargs):
         """Initialize the RandomGenerator class.
 
         Args:
             problem (Problem): The problem to solve.
             evaluator (BaseEvaluator): The evaluator to evaluate the population.
             n_points (int): The number of points to generate for the initial population.
-            seed (int, optional): The seed for the random number generator. Defaults to 0.
+            seed (int): The seed for the random number generator.
         """
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
         self.n_points = n_points
         self.bounds = np.array([[var.lowerbound, var.upperbound] for var in problem.variables])
         self.evaluator = evaluator
         self.rng = np.random.default_rng(seed)
+        self.seed = seed
 
     def do(self) -> tuple[np.ndarray, np.ndarray]:
         """Generate the initial population.
@@ -126,11 +119,16 @@ class RandomGenerator(BaseGenerator):
         if self.population is not None and self.targets is not None:
             self.notify()
             return self.population, self.targets, self.cons
-        population = self.rng.uniform(self.bounds[:, 0], self.bounds[:, 1], (self.n_points, self.bounds.shape[0]))
+        population = self.rng.uniform(
+            low=self.bounds[:, 0], high=self.bounds[:, 1], size=(self.n_points, self.bounds.shape[0])
+        )
         targets, cons = self.evaluator.evaluate(population)
         self.population, self.targets, self.cons = population, targets, cons
         self.notify()
         return self.population, self.targets, self.cons
+
+    def update(self, message) -> None:
+        pass
 
 
 class LHSGenerator(RandomGenerator):
@@ -140,17 +138,18 @@ class LHSGenerator(RandomGenerator):
     If the seed is not provided, the seed is set to 0.
     """
 
-    def __init__(self, problem: Problem, evaluator: BaseEvaluator, n_points: int, seed: int = 0, *args, **kwargs):
+    def __init__(self, problem: Problem, evaluator: BaseEvaluator, n_points: int, seed: int, *args, **kwargs):
         """Initialize the LHSGenerator class.
 
         Args:
             problem (Problem): The problem to solve.
             evaluator (BaseEvaluator): The evaluator to evaluate the population.
             n_points (int): The number of points to generate for the initial population.
-            seed (int, optional): The seed for the random number generator. Defaults to 0.
+            seed (int): The seed for the random number generator.
         """
         super().__init__(problem, evaluator, n_points, seed, *args, **kwargs)
         self.rng = LatinHypercube(d=len(problem.variables), seed=seed)
+        self.seed = seed
 
     def do(self) -> tuple[np.ndarray, np.ndarray]:
         """Generate the initial population.

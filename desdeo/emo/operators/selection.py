@@ -1,10 +1,10 @@
 """The base class for selection operators."""
 
-from abc import ABC, abstractmethod
-from typing import Callable
+from abc import abstractmethod
+from collections.abc import Callable
+from enum import Enum
 
 import numpy as np
-from numba import njit
 
 from desdeo.tools.non_dominated_sorting import fast_non_dominated_sort
 from desdeo.tools.patterns import Subscriber
@@ -13,16 +13,15 @@ from desdeo.tools.patterns import Subscriber
 class BaseSelector(Subscriber):
     """A base class for selection operators."""
 
-    def __init__(self, publisher, *args, **kwargs):
+    def __init__(self, **kwargs):
         """Initialize a selection operator."""
-        super().__init__(publisher, *args, **kwargs)
+        super().__init__(**kwargs)
 
     @abstractmethod
     def do(
         self,
         parents: tuple[np.ndarray, np.ndarray, np.ndarray | None],
         offsprings: tuple[np.ndarray, np.ndarray, np.ndarray | None],
-        termination_criteria_state: dict | None = None,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Perform the selection operation.
 
@@ -30,26 +29,39 @@ class BaseSelector(Subscriber):
             parents (tuple[np.ndarray, np.ndarray]): the parent population, their targets, and constraint violations.
             offsprings (tuple[np.ndarray, np.ndarray]): the offspring population and their targets and constraint
                 violations.
-            termination_criteria_state (dict): the state of the termination criteria. Includes information
-                about the current generation and other relevant information.
 
         Returns:
             tuple[np.ndarray, np.ndarray]: the selected population and their targets.
         """
 
 
+class ParameterAdaptationStrategy(Enum):
+    """The parameter adaptation strategies for the RVEA selector."""
+
+    GENERATION_BASED = 1  # Based on the current generation and the maximum generation.
+    FUNCTION_EVALUATION_BASED = 2  # Based on the current function evaluation and the maximum function evaluation.
+    OTHER = 3  # As of yet undefined strategies.
+
+
 class RVEASelector(BaseSelector):
     def __init__(
         self,
         reference_vectors: np.ndarray,
-        publisher: Callable,
         alpha: float = 2.0,
         ideal: np.ndarray = None,
         nadir: np.ndarray = None,
-        *args,
+        parameter_adaptation_strategy: ParameterAdaptationStrategy = ParameterAdaptationStrategy.GENERATION_BASED,
         **kwargs,
     ):
-        super().__init__(publisher, *args, **kwargs)
+        if not isinstance(parameter_adaptation_strategy, ParameterAdaptationStrategy):
+            raise TypeError(f"Parameter adaptation strategy must be of Type {type(ParameterAdaptationStrategy)}")
+        if parameter_adaptation_strategy == ParameterAdaptationStrategy.OTHER:
+            raise ValueError("Other parameter adaptation strategies are not yet implemented.")
+        if parameter_adaptation_strategy == ParameterAdaptationStrategy.GENERATION_BASED:
+            topics = ["current_generation", "max_generation"]
+        elif parameter_adaptation_strategy == ParameterAdaptationStrategy.FUNCTION_EVALUATION_BASED:
+            topics = ["current_evaluation", "max_evaluation"]
+        super().__init__(topics=topics, **kwargs)
         self.reference_vectors = reference_vectors
         self.adapted_reference_vectors = None
         self.reference_vectors_gamma = None
@@ -57,8 +69,9 @@ class RVEASelector(BaseSelector):
         self.denominator = None
         self.alpha = alpha
         self.ideal = ideal
-        self.nadir = None
+        self.nadir = nadir
         self.selection = None
+        self.penalty = None
 
     def do(
         self,
@@ -67,7 +80,7 @@ class RVEASelector(BaseSelector):
     ) -> tuple[np.ndarray, np.ndarray]:
         solutions = np.vstack((parents[0], offsprings[0]))
         targets = np.vstack((parents[1], offsprings[1]))
-        if parents[2] is None:
+        if parents[2] is None:  # noqa: SIM108
             constraints = None
         else:
             constraints = np.vstack((parents[2], offsprings[2]))
@@ -174,10 +187,10 @@ class RVEASelector(BaseSelector):
             penalty = 0
         if penalty > 1:
             penalty = 1
-        penalty = (penalty**self.alpha) * self.reference_vectors.shape[1]
-        return penalty
+        self.penalty = (penalty**self.alpha) * self.reference_vectors.shape[1]
+        return self.penalty
 
-    def update(self, message: dict):
+    def update(self, message: dict) -> None:
         if "current_evaluation" in message:
             self.numerator = message["current_evaluation"]
             return
@@ -237,12 +250,12 @@ class NSGAIII_select(BaseSelector):
     def __init__(
         self,
         reference_vectors: np.ndarray,
-        publisher: Callable,
         n_survive: int,
         ideal: np.ndarray = None,
         nadir: np.ndarray = None,
+        **kwargs,
     ):
-        super().__init__(publisher)
+        super().__init__(**kwargs)
         self.reference_vectors = reference_vectors
         self.adapted_reference_vectors = None
         self.worst_fitness: np.ndarray = nadir
@@ -491,5 +504,5 @@ class NSGAIII_select(BaseSelector):
             "selection": self.selection,
         }
 
-    def update(self, msg: dict) -> None:
+    def update(self, message: dict) -> None:
         pass
