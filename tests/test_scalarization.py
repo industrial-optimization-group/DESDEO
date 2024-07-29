@@ -882,25 +882,32 @@ def test_add_group_asf():
     n_variables = 3
     n_objectives = 3
     problem = dtlz2(n_variables, n_objectives)
-    rp = {"f_1": 0.6, "f_2": 0.2, "f_3": 0.7}
+    rp = {"f_1": 0.1, "f_2": 0.1, "f_3": 0.8}
 
     problem_w_sf, sf = add_asf_nondiff(problem, "sf", rp)
     problem_w_group_sf, group_sf = add_group_asf(problem, "group_sf", [rp])
+    problem_w_group_sf_3rp, group_sf_3rp = add_group_asf(problem, "group_sf", [rp, rp, rp])
 
-    solver_sf = ScipyMinimizeSolver(problem_w_sf)
+    solver_sf = NevergradGenericSolver(problem_w_sf)
     res_sf = solver_sf.solve(sf)
     assert res_sf.success
 
-    solver_group_sf = ScipyMinimizeSolver(problem_w_group_sf)
+    solver_group_sf = NevergradGenericSolver(problem_w_group_sf)
     res_group_sf = solver_group_sf.solve(group_sf)
     assert res_group_sf.success
 
+    solver_group_sf_3rp = NevergradGenericSolver(problem_w_group_sf_3rp)
+    res_group_sf_3rp = solver_group_sf_3rp.solve(group_sf_3rp)
+    assert res_group_sf_3rp.success
+
     fs_sf = res_sf.optimal_objectives
     fs_group_sf = res_group_sf.optimal_objectives
+    fs_group_sf_3rp = res_group_sf_3rp.optimal_objectives
 
     # optimal objective values should be close
     for obj in problem.objectives:
-        assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol])
+        assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
+        assert np.isclose(fs_group_sf_3rp[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
 
 
 @pytest.mark.scalarization
@@ -911,24 +918,32 @@ def test_add_group_guess_sf():
     n_variables = 3
     n_objectives = 3
     problem = dtlz2(n_variables, n_objectives)
-    rp = {"f_1": 0.6, "f_2": 0.2, "f_3": 0.7}
+    rp = {"f_1": 0.1, "f_2": 0.1, "f_3": 0.8}
+
     problem_w_sf, sf = add_guess_sf_nondiff(problem, "sf", rp)
     problem_w_group_sf, group_sf = add_group_guess_sf(problem, "group_sf", [rp])
+    problem_w_group_sf_3rp, group_sf_3rp = add_group_guess_sf(problem, "group_sf", [rp, rp, rp])
 
-    solver_sf = ScipyMinimizeSolver(problem_w_sf)
+    solver_sf = NevergradGenericSolver(problem_w_sf)
     res_sf = solver_sf.solve(sf)
     assert res_sf.success
 
-    solver_group_sf = ScipyMinimizeSolver(problem_w_group_sf)
+    solver_group_sf = NevergradGenericSolver(problem_w_group_sf)
     res_group_sf = solver_group_sf.solve(group_sf)
     assert res_group_sf.success
 
+    solver_group_sf_3rp = NevergradGenericSolver(problem_w_group_sf_3rp)
+    res_group_sf_3rp = solver_group_sf_3rp.solve(group_sf_3rp)
+    assert res_group_sf_3rp.success
+
     fs_sf = res_sf.optimal_objectives
     fs_group_sf = res_group_sf.optimal_objectives
+    fs_group_sf_3rp = res_group_sf_3rp.optimal_objectives
 
     # optimal objective values should be close
     for obj in problem.objectives:
-        assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol])
+        assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
+        assert np.isclose(fs_group_sf_3rp[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
 
 
 @pytest.mark.scalarization
@@ -939,26 +954,33 @@ def test_add_group_nimbus_sf():
     n_variables = 3
     n_objectives = 3
     problem = dtlz2(n_variables, n_objectives)
-    rp = {"f_1": 0.6, "f_2": 0.2, "f_3": 0.7}
+    rp = {"f_1": 0.1, "f_2": 0.1, "f_3": 0.8}
 
     classifications = {"f_1": ("0", None), "f_2": ("<", None), "f_3": ("0", None)}
     problem_w_sf, sf = add_nimbus_sf_nondiff(problem, "sf", classifications, rp)
     problem_w_group_sf, group_sf = add_group_nimbus_sf(problem, "group_sf", [classifications], rp)
+    problem_w_group_sf_3rp, group_sf_3rp = add_group_nimbus_sf(problem, "group_sf", [classifications, classifications, classifications], rp)
 
-    solver_sf = ScipyMinimizeSolver(problem_w_sf)
+    solver_sf = NevergradGenericSolver(problem_w_sf)
     res_sf = solver_sf.solve(sf)
     assert res_sf.success
 
-    solver_group_sf = ScipyMinimizeSolver(problem_w_group_sf)
+    solver_group_sf = NevergradGenericSolver(problem_w_group_sf)
     res_group_sf = solver_group_sf.solve(group_sf)
     assert res_group_sf.success
 
+    solver_group_sf_3rp = NevergradGenericSolver(problem_w_group_sf_3rp)
+    res_group_sf_3rp = solver_group_sf_3rp.solve(group_sf_3rp)
+    assert res_group_sf_3rp.success
+
     fs_sf = res_sf.optimal_objectives
     fs_group_sf = res_group_sf.optimal_objectives
+    fs_group_sf_3rp = res_group_sf_3rp.optimal_objectives
 
     # optimal objective values should be close
     for obj in problem.objectives:
-        assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol])
+        assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
+        assert np.isclose(fs_group_sf_3rp[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
 
 
 @pytest.mark.scalarization
@@ -969,22 +991,29 @@ def test_add_group_stom_sf():
     n_variables = 3
     n_objectives = 3
     problem = dtlz2(n_variables, n_objectives)
-    rp = {"f_1": 0.6, "f_2": 0.2, "f_3": 0.7}
+    rp = {"f_1": 0.1, "f_2": 0.1, "f_3": 0.8}
 
     problem_w_sf, sf = add_stom_sf_nondiff(problem, "sf", rp)
     problem_w_group_sf, group_sf = add_group_stom_sf(problem, "group_sf", [rp])
+    problem_w_group_sf_3rp, group_sf_3rp = add_group_stom_sf(problem, "group_sf", [rp, rp, rp])
 
-    solver_sf = ScipyMinimizeSolver(problem_w_sf)
+    solver_sf = NevergradGenericSolver(problem_w_sf)
     res_sf = solver_sf.solve(sf)
     assert res_sf.success
 
-    solver_group_sf = ScipyMinimizeSolver(problem_w_group_sf)
+    solver_group_sf = NevergradGenericSolver(problem_w_group_sf)
     res_group_sf = solver_group_sf.solve(group_sf)
     assert res_group_sf.success
 
+    solver_group_sf_3rp = NevergradGenericSolver(problem_w_group_sf_3rp)
+    res_group_sf_3rp = solver_group_sf_3rp.solve(group_sf_3rp)
+    assert res_group_sf_3rp.success
+
     fs_sf = res_sf.optimal_objectives
     fs_group_sf = res_group_sf.optimal_objectives
+    fs_group_sf_3rp = res_group_sf_3rp.optimal_objectives
 
     # optimal objective values should be close
     for obj in problem.objectives:
-        assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol])
+        assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
+        assert np.isclose(fs_group_sf_3rp[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
