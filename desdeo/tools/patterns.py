@@ -38,7 +38,9 @@ This decoupling allows for a more modular design and easier extensibility of the
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Sequence
+
+from desdeo.tools.message import Message, MessageTopics
 
 
 class Subscriber(ABC):
@@ -49,7 +51,7 @@ class Subscriber(ABC):
     messages and send them to the publisher, which then forwards the messages to the other subscribers.
     """
 
-    def __init__(self, publisher: Callable, topics: list[str] | None = None, verbosity: int = 1) -> None:
+    def __init__(self, publisher: Callable, topics: list[MessageTopics] | None = None, verbosity: int = 1) -> None:
         """Initialize a subscriber.
 
         Args:
@@ -63,14 +65,15 @@ class Subscriber(ABC):
         """
         if topics is not None:
             if isinstance(topics, list):
-                if not all(isinstance(elem, str) for elem in topics):
-                    raise TypeError("Topics must be a list of strings.")
+                if not all(isinstance(elem, MessageTopics) for elem in topics):
+                    raise TypeError("Topics must be a list of predefined topics.")
             else:
-                raise TypeError("Topics must be a list of strings.")
+                raise TypeError("Topics must be a list of predefined topics.")
         if not isinstance(verbosity, int):
             raise TypeError("Verbosity must be an integer.")
         self.publisher = publisher
         self.topics = topics if topics is not None else []
+        self.provided_topics: list[MessageTopics] = []
         self.verbosity = verbosity
 
     def notify(self) -> None:
@@ -82,17 +85,17 @@ class Subscriber(ABC):
         self.publisher.notify(messages=self.state())
 
     @abstractmethod
-    def update(self, message: dict) -> None:
+    def update(self, message: Message) -> None:
         """Update self as a result of messages from the publisher.
 
         Args:
-            message (dict): the message from the publisher. Note that each message is a dictionary with a single
-            key-value pair.
+            message (Message): the message from the publisher. Note that each message is a pydantic model with a topic,
+                value, and a source.
         """
 
     @abstractmethod
-    def state(self) -> dict[str, Any]:
-        """Return the state of the subject. This is the dictionary of messages to be sent to the subscribers."""
+    def state(self) -> Sequence[Message] | None:
+        """Return the state of the subject. This is the list of messages to send to the publisher."""
 
 
 class Publisher:
@@ -107,6 +110,7 @@ class Publisher:
         """Initialize a blank publisher."""
         self.subscribers = {}
         self.global_subscribers = []
+        self.registered_topics: dict[MessageTopics, [str]] = {}
 
     def subscribe(self, subscriber: Subscriber, topic: str) -> None:
         """Store a subscriber for a given message key.
@@ -171,22 +175,62 @@ class Publisher:
             if subscriber in self.subscribers[topic]:
                 self.subscribers[topic].remove(subscriber)
 
-    def notify(self, messages: dict) -> None:
+    def register_topics(self, topics: list[MessageTopics], source: str) -> None:
+        """Register topics provided to the publisher.
+
+        Args:
+            topics (list[MessageTopics]): the topics to register.
+            source (str): the source of the topics.
+        """
+        for topic in topics:
+            if topic not in self.registered_topics:
+                self.registered_topics[topic] = [source]
+            else:
+                self.registered_topics[topic].append(source)
+
+    def check_consistency(self) -> bool | tuple[bool, dict[MessageTopics, list[str]]]:
+        """Check if all subscribed topics have also been registered by a source.
+
+        Returns:
+            bool | tuple[bool, dict[MessageTopics, list[str]]]: True if all subscribed topics have been registered by a
+                source. False otherwise. If False, also return the unregistered topics that have been subscribed to.
+        """
+        unregistered_topics = {}
+        for topic in self.subscribers:
+            if topic not in self.registered_topics:
+                unregistered_topics[topic] = [x.__class__.__name__ for x in self.subscribers[topic]]
+        if unregistered_topics:
+            return False, unregistered_topics
+        return True
+
+    def relationship_map(self):
+        """Make a diagram connecting sources to subscribers based on topics."""
+        relationships = {}
+        for topic in self.subscribers:
+            for subscriber in self.subscribers[topic]:
+                if topic.value not in relationships:
+                    relationships[topic.value] = [(subscriber.__class__.__name__, self.registered_topics[topic])]
+                else:
+                    relationships[topic.value].append((subscriber.__class__.__name__, self.registered_topics[topic]))
+        return relationships
+
+    def notify(self, messages: list[Message] | None) -> None:
         """Notify subcribers of the received message/messages.
 
         Args:
-            messages (dict): the messages to send to the subscribers. The keys of the message dictacte which subscribers
-                are notified. Note that `messages` may contain multiple messages. The publisher will notify the
-                subscribers of each message, one by one.
+            messages (list[BaseMessage]): the messages to send to the subscribers. Each message is a pydantic model
+                with a topic, value, and a source.
         """
-        for topic in messages:
+        if messages is None:
+            return
+        for message in messages:
             # Notify global subscribers
             for subscriber in self.global_subscribers:
-                subscriber.update({topic: messages[topic]})
+                subscriber.update(message)
             # Notify subscribers of the given key
-            if topic in self.subscribers:
-                for subscriber in self.subscribers[topic]:
-                    subscriber.update({topic: messages[topic]})
+            if message.topic in self.subscribers:
+                for subscriber in self.subscribers[message.topic]:
+                    subscriber.update(message)
 
 
 class BlankSubscriber(Subscriber):

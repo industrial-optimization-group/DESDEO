@@ -1,10 +1,12 @@
 """The base class for selection operators."""
 
 from abc import abstractmethod
+from collections.abc import Sequence
 from enum import Enum
 
 import numpy as np
 
+from desdeo.tools.message import Array2DMessage, DictMessage, Message, SelectorMessageTopics, TerminatorMessageTopics
 from desdeo.tools.non_dominated_sorting import fast_non_dominated_sort
 from desdeo.tools.patterns import Subscriber
 
@@ -21,7 +23,7 @@ class BaseSelector(Subscriber):
         self,
         parents: tuple[np.ndarray, np.ndarray, np.ndarray | None],
         offsprings: tuple[np.ndarray, np.ndarray, np.ndarray | None],
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
         """Perform the selection operation.
 
         Args:
@@ -30,7 +32,8 @@ class BaseSelector(Subscriber):
                 violations.
 
         Returns:
-            tuple[np.ndarray, np.ndarray]: the selected population and their targets.
+            tuple[np.ndarray, np.ndarray, np.ndarray | None]: the selected population, their targets and constraint
+                violations.
         """
 
 
@@ -57,9 +60,9 @@ class RVEASelector(BaseSelector):
         if parameter_adaptation_strategy == ParameterAdaptationStrategy.OTHER:
             raise ValueError("Other parameter adaptation strategies are not yet implemented.")
         if parameter_adaptation_strategy == ParameterAdaptationStrategy.GENERATION_BASED:
-            topics = ["current_generation", "max_generation"]
+            topics = [TerminatorMessageTopics.GENERATION, TerminatorMessageTopics.MAX_GENERATIONS]
         elif parameter_adaptation_strategy == ParameterAdaptationStrategy.FUNCTION_EVALUATION_BASED:
-            topics = ["current_evaluation", "max_evaluation"]
+            topics = [TerminatorMessageTopics.EVALUATION, TerminatorMessageTopics.MAX_EVALUATIONS]
         super().__init__(topics=topics, **kwargs)
         self.reference_vectors = reference_vectors
         self.adapted_reference_vectors = None
@@ -71,6 +74,7 @@ class RVEASelector(BaseSelector):
         self.nadir = nadir
         self.selection = None
         self.penalty = None
+        self.parameter_adaptation_strategy = parameter_adaptation_strategy
 
     def do(
         self,
@@ -189,30 +193,42 @@ class RVEASelector(BaseSelector):
         self.penalty = (penalty**self.alpha) * self.reference_vectors.shape[1]
         return self.penalty
 
-    def update(self, message: dict) -> None:
-        if "current_evaluation" in message:
-            self.numerator = message["current_evaluation"]
-            return
-        if "max_evaluation" in message:
-            self.denominator = message["max_evaluation"]
-            return
-        if "current_generation" in message:
-            self.numerator = message["current_generation"]
-            return
-        if "max_generation" in message:
-            self.denominator = message["max_generation"]
-            return
+    def update(self, message: Message) -> None:
+        """Update the parameters of the RVEA APD calculation.
 
-    def state(self) -> dict:
-        return {
-            "reference_vectors": self.reference_vectors,
+        Args:
+            message (Message): The message to update the parameters. The message should be coming from the
+                Terminator operator (via the Publisher).
+        """
+        if not isinstance(message.topic, TerminatorMessageTopics):
+            return
+        if self.parameter_adaptation_strategy == ParameterAdaptationStrategy.GENERATION_BASED:
+            if message.topic == TerminatorMessageTopics.GENERATION:
+                self.numerator = message.value
+            if message.topic == TerminatorMessageTopics.MAX_GENERATIONS:
+                self.denominator = message.value
+        elif self.parameter_adaptation_strategy == ParameterAdaptationStrategy.FUNCTION_EVALUATION_BASED:
+            if message.topic == TerminatorMessageTopics.EVALUATION:
+                self.numerator = message.value
+            if message.topic == TerminatorMessageTopics.MAX_EVALUATIONS:
+                self.denominator = message.value
+        return
+
+    def state(self) -> Sequence[Message] | None:
+        if self.verbosity == 0 or self.selection is None:
+            return None
+        return [
+            Array2DMessage(
+                topic=SelectorMessageTopics.SELECTION, value=self.selection.tolist(), source=self.__class__.__name__
+            ),
+            """ "reference_vectors": self.reference_vectors,
             "adapted_reference_vectors": self.adapted_reference_vectors,
             "gamma": self.reference_vectors_gamma,
             "alpha": self.alpha,
             "ideal": self.ideal,
             "partial_penalty_factor": self._partial_penalty_factor(),
-            "selection": self.selection,
-        }
+            "selection": self.selection, """,
+        ]
 
     def _adapt(self):
         self.adapted_reference_vectors = self.reference_vectors
@@ -261,29 +277,45 @@ class NSGAIII_select(BaseSelector):
         self.extreme_points: np.ndarray = None
         self.n_survive = n_survive
         self.ideal: np.ndarray = ideal
-        self.selection: tuple[np.ndarray, np.ndarray] = None
+        self.selection: tuple[np.ndarray, np.ndarray, np.ndarray | None] = None
+
+        match self.verbosity:
+            case 0:
+                self.provided_topics = []
+            case 1:
+                self.provided_topics = [
+                    SelectorMessageTopics.REFERENCE_VECTORS,
+                    SelectorMessageTopics.STATE,
+                ]
+            case 2:
+                self.provided_topics = [
+                    SelectorMessageTopics.REFERENCE_VECTORS,
+                    SelectorMessageTopics.STATE,
+                    SelectorMessageTopics.SELECTED_INDIVIDUALS,
+                    SelectorMessageTopics.SELECTED_TARGETS,
+                    SelectorMessageTopics.SELECTED_CONSTRAINTS,
+                ]
 
     def do(
         self,
         parents: tuple[np.ndarray, np.ndarray, np.ndarray | None],
         offsprings: tuple[np.ndarray, np.ndarray, np.ndarray | None],
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """Select individuals for mating for NSGA-III.
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
+        """Perform the selection operation for NSGA-III.
 
-        Parameters
-        ----------
-        pop : Population
-            The current population.
+        Args:
+            parents (tuple[np.ndarray, np.ndarray, np.ndarray  |  None]): The parent population, their targets, and
+                constraint violations.
+            offsprings (tuple[np.ndarray, np.ndarray, np.ndarray  |  None]): The offspring population and their targets
+                and constraint violations.
 
-        Returns
-        -------
-        List[int]
-            List of indices of the selected individuals
+        Returns:
+            tuple[np.ndarray, np.ndarray, np.ndarray | None]: The selected population, their targets and constraint
+                violations.
         """
-
         solutions = np.vstack((parents[0], offsprings[0]))
         targets = np.vstack((parents[1], offsprings[1]))
-        if parents[2] is None:
+        if parents[2] is None:  # noqa: SIM108
             constraints = None
         else:
             constraints = np.vstack((parents[2], offsprings[2]))
@@ -493,15 +525,65 @@ class NSGAIII_select(BaseSelector):
 
         return matrix
 
-    def state(self) -> dict:
-        return {
-            "reference_vectors": self.reference_vectors,
-            "ideal": self.ideal,
-            "nadir": self.worst_fitness,
-            "extreme_points": self.extreme_points,
-            "n_survive": self.n_survive,
-            "selection": self.selection,
-        }
+    def state(self) -> Sequence[Message] | None:
+        if self.verbosity == 0 or self.selection is None:
+            return None
+        if self.verbosity == 1:
+            return [
+                Array2DMessage(
+                    topic=SelectorMessageTopics.REFERENCE_VECTORS,
+                    value=self.reference_vectors.tolist(),
+                    source=self.__class__.__name__,
+                ),
+                DictMessage(
+                    topic=SelectorMessageTopics.STATE,
+                    value={
+                        "ideal": self.ideal,
+                        "nadir": self.worst_fitness,
+                        "extreme_points": self.extreme_points,
+                        "n_survive": self.n_survive,
+                    },
+                    source=self.__class__.__name__,
+                ),
+            ]
+        # verbosity == 2
+        state_verbose = [
+            Array2DMessage(
+                topic=SelectorMessageTopics.REFERENCE_VECTORS,
+                value=self.reference_vectors.tolist(),
+                source=self.__class__.__name__,
+            ),
+            DictMessage(
+                topic=SelectorMessageTopics.STATE,
+                value={
+                    "ideal": self.ideal,
+                    "nadir": self.worst_fitness,
+                    "extreme_points": self.extreme_points,
+                    "n_survive": self.n_survive,
+                },
+                source=self.__class__.__name__,
+            ),
+            Array2DMessage(
+                topic=SelectorMessageTopics.SELECTED_INDIVIDUALS,
+                value=self.selection[0].tolist(),
+                source=self.__class__.__name__,
+            ),
+            Array2DMessage(
+                topic=SelectorMessageTopics.SELECTED_TARGETS,
+                value=self.selection[1].tolist(),
+                source=self.__class__.__name__,
+            ),
+        ]
 
-    def update(self, message: dict) -> None:
+        if self.selection[2] is not None:
+            state_verbose.append(
+                Array2DMessage(
+                    topic=SelectorMessageTopics.SELECTED_CONSTRAINTS,
+                    value=self.selection[2].tolist(),
+                    source=self.__class__.__name__,
+                )
+            )
+        return state_verbose
+
+    def update(self, message: Message) -> None:
         pass

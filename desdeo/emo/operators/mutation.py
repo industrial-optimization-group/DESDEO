@@ -4,10 +4,12 @@ Various evolutionary operators for mutation in multiobjective optimization are d
 """
 
 from abc import abstractmethod
+from collections.abc import Sequence
 
 import numpy as np
 
-from desdeo.problem import Problem
+from desdeo.problem import Problem, TensorVariable
+from desdeo.tools.message import Array2DMessage, FloatMessage, Message, MutationMessageTopics, StringMessage
 from desdeo.tools.patterns import Subscriber
 
 
@@ -56,9 +58,9 @@ class TestMutation(BaseMutation):
     def update(self, *_, **__):
         """Do nothing. This is just the test mutation operator."""
 
-    def state(self) -> dict:
+    def state(self) -> Sequence[Message] | None:
         """Return the state of the mutation operator."""
-        return {"Test mutation": "Called"}
+        return [StringMessage(topic=MutationMessageTopics.TEST, value="Called", source=self.__class__.__name__)]
 
 
 class BoundedPolynomialMutation(BaseMutation):
@@ -89,6 +91,8 @@ class BoundedPolynomialMutation(BaseMutation):
                 publisher must be passed. See the Subscriber class for more information.
         """
         super().__init__(**kwargs)
+        if any(isinstance(var, TensorVariable) for var in problem.variables):
+            raise TypeError("Crossover does not support tensor variables yet.")
         self.bounds = np.array([[var.lowerbound, var.upperbound] for var in problem.variables])
         self.lower_limits = self.bounds[:, 0]
         self.upper_limits = self.bounds[:, 1]
@@ -99,8 +103,23 @@ class BoundedPolynomialMutation(BaseMutation):
         self.distribution_index = distribution_index
         self.rng = np.random.default_rng(seed)
         self.seed = seed
-        self.offspring_original: np.ndarray = None
-        self.offspring: np.ndarray = None
+        self.offspring_original: np.ndarray | None = None
+        self.offspring: np.ndarray | None = None
+        match self.verbosity:
+            case 0:
+                self.provided_topics = []
+            case 1:
+                self.provided_topics = [
+                    MutationMessageTopics.MUTATION_PROBABILITY,
+                    MutationMessageTopics.MUTATION_DISTRIBUTION,
+                ]
+            case 2:
+                self.provided_topics = [
+                    MutationMessageTopics.MUTATION_PROBABILITY,
+                    MutationMessageTopics.MUTATION_DISTRIBUTION,
+                    MutationMessageTopics.OFFSPRING_ORIGINAL,
+                    MutationMessageTopics.OFFSPRINGS,
+                ]
 
     def do(self, offspring: np.ndarray, *_, **__) -> np.ndarray:
         """Conduct bounded polynomial mutation. Return the mutated individuals.
@@ -152,18 +171,45 @@ class BoundedPolynomialMutation(BaseMutation):
     def update(self, *_, **__):
         """Do nothing. This is just the basic polynomial mutation operator."""
 
-    def state(self) -> dict:
+    def state(self) -> Sequence[Message] | None:
         """Return the state of the mutation operator."""
+        if self.offspring_original is None or self.offspring is None:
+            return None
         if self.verbosity == 0:
-            return {}
+            return None
         if self.verbosity == 1:
-            return {
-                "mutation_probability": self.mutation_probability,
-                "distribution_index": self.distribution_index,
-            }
-        return {
-            "mutation_probability": self.mutation_probability,
-            "distribution_index": self.distribution_index,
-            "offspring_original": self.offspring_original,
-            "offspring_mutated": self.offspring,
-        }
+            return [
+                FloatMessage(
+                    topic=MutationMessageTopics.MUTATION_PROBABILITY,
+                    source=self.__class__.__name__,
+                    value=self.mutation_probability,
+                ),
+                FloatMessage(
+                    topic=MutationMessageTopics.MUTATION_DISTRIBUTION,
+                    source=self.__class__.__name__,
+                    value=self.distribution_index,
+                ),
+            ]
+        # verbosity == 2
+        return [
+            Array2DMessage(
+                topic=MutationMessageTopics.OFFSPRING_ORIGINAL,
+                source=self.__class__.__name__,
+                value=self.offspring_original.tolist(),
+            ),
+            Array2DMessage(
+                topic=MutationMessageTopics.OFFSPRINGS,
+                source=self.__class__.__name__,
+                value=self.offspring.tolist(),
+            ),
+            FloatMessage(
+                topic=MutationMessageTopics.MUTATION_PROBABILITY,
+                source=self.__class__.__name__,
+                value=self.mutation_probability,
+            ),
+            FloatMessage(
+                topic=MutationMessageTopics.MUTATION_DISTRIBUTION,
+                source=self.__class__.__name__,
+                value=self.distribution_index,
+            ),
+        ]

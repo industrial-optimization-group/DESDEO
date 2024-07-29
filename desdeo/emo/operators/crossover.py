@@ -5,10 +5,12 @@ in multiobjective optimization are defined here.
 """
 
 from abc import abstractmethod
+from collections.abc import Sequence
 from random import shuffle
 
 import numpy as np
 
+from desdeo.tools.message import Array2DMessage, CrossoverMessageTopics, FloatMessage, Message, StringMessage
 from desdeo.tools.patterns import Subscriber
 
 
@@ -20,11 +22,15 @@ class BaseCrossover(Subscriber):
         super().__init__(**kwargs)
 
     @abstractmethod
-    def do(self, population: np.ndarray, to_mate: list[int] | None = None) -> np.ndarray:
+    def do(
+        self, *, population: tuple[np.ndarray, np.ndarray, np.ndarray], to_mate: list[int] | None = None
+    ) -> np.ndarray:
         """Perform the crossover operation.
 
         Args:
-            population (np.ndarray): the population to perform the crossover with.
+            population (tuple[np.ndarray, np.ndarray, np.ndarray]): the population to perform the crossover with.
+                The first element of the tuple are the decision vectors, the second element is the corresponding
+                target vectors, the third element is the corresponding constraint vectors.
             to_mate (list[int] | None): the indices of the population members that should
                 participate in the crossover. If `None`, the whole population is subject
                 to the crossover.
@@ -41,11 +47,15 @@ class TestCrossover(BaseCrossover):
         """Initialize a test crossover operator."""
         super().__init__(**kwargs)
 
-    def do(self, population: np.ndarray, to_mate: list[int] | None = None) -> np.ndarray:
+    def do(
+        self, *, population: tuple[np.ndarray, np.ndarray, np.ndarray], to_mate: list[int] | None = None
+    ) -> np.ndarray:
         """Perform the test crossover operation.
 
         Args:
-            population (np.ndarray): the population to perform the crossover with.
+            population (np.ndarray): the population to perform the crossover with. The first element of the tuple are
+                the decision vectors, the second element is the corresponding target vectors, the third element is
+                the corresponding constraint vectors.
             to_mate (list[int] | None): the indices of the population members that should
                 participate in the crossover. If `None`, the whole population is subject
                 to the crossover.
@@ -53,14 +63,16 @@ class TestCrossover(BaseCrossover):
         Returns:
             np.ndarray: the offspring resulting from the crossover.
         """
-        return population
+        return population[0]
 
-    def update(self, *args, **kwargs):
+    def update(self, *_, **__):
         """Do nothing. This is just the test crossover operator."""
 
-    def state(self) -> dict:
+    def state(self) -> Sequence[StringMessage]:
         """Return the state of the crossover operator."""
-        return {"Test Crossover": "Called"}
+        return [
+            StringMessage(topic=CrossoverMessageTopics.TEST, source="TestCrossover", value="Test crossover operator.")
+        ]
 
 
 class SimulatedBinaryCrossover(BaseCrossover):
@@ -91,22 +103,36 @@ class SimulatedBinaryCrossover(BaseCrossover):
             raise ValueError("Crossover distribution must be positive.")
         self.xover_probability = xover_probability
         self.xover_distribution = xover_distribution
-        self.parent_population: tuple[np.ndarray, np.ndarray] = None
-        self.offspring_population: np.ndarray = None
+        self.parent_population: tuple[np.ndarray, np.ndarray, np.ndarray | None] | None = None
+        self.offspring_population: np.ndarray | None = None
         self.rng = np.random.default_rng(seed)
         self.seed = seed
+        match self.verbosity:
+            case 0:
+                self.provided_topics = []
+            case 1:
+                self.provided_topics = [
+                    CrossoverMessageTopics.XOVER_PROBABILITY,
+                    CrossoverMessageTopics.XOVER_DISTRIBUTION,
+                ]
+            case 2:
+                self.provided_topics = [
+                    CrossoverMessageTopics.XOVER_PROBABILITY,
+                    CrossoverMessageTopics.XOVER_DISTRIBUTION,
+                    CrossoverMessageTopics.PARENTS,
+                    CrossoverMessageTopics.OFFSPRINGS,
+                ]
 
     def do(
         self,
-        parent_population: tuple[np.ndarray, np.ndarray, np.ndarray],
+        *,
+        population: tuple[np.ndarray, np.ndarray, np.ndarray],
         to_mate: list[int] | None = None,
-        *_,
-        **__,
     ) -> np.ndarray:
         """Perform the simulated binary crossover operation.
 
         Args:
-            parent_population (tuple[np.ndarray, np.ndarray, np.ndarray]): the population to perform the crossover with.
+            population (tuple[np.ndarray, np.ndarray, np.ndarray]): the population to perform the crossover with.
                 The first element of the tuple are the decision vectors, the second element is the corresponding
                 objective vectors, the third element is the corresponding constraint vectors.
             to_mate (list[int] | None): the indices of the population members that should
@@ -116,7 +142,7 @@ class SimulatedBinaryCrossover(BaseCrossover):
         Returns:
             np.ndarray: the offspring resulting from the crossover.
         """
-        self.parent_population = parent_population
+        self.parent_population = population
         pop_size, num_var = self.parent_population[0].shape
 
         if to_mate is None:
@@ -154,19 +180,45 @@ class SimulatedBinaryCrossover(BaseCrossover):
     def update(self, *_, **__):
         """Do nothing. This is just the basic SBX operator."""
 
-    def state(self) -> dict:
-        """Return the state of the crossover operator."""
+    def state(self) -> Sequence[Message] | None:
+        """Return the s2tate of the crossover operator."""
+        if self.parent_population is None or self.offspring_population is None:
+            return None
         if self.verbosity == 0:
-            return {}
+            return None
         if self.verbosity == 1:
-            return {
-                "xover_probability": self.xover_probability,
-                "xover_distribution": self.xover_distribution,
-            }
+            return [
+                FloatMessage(
+                    topic=CrossoverMessageTopics.XOVER_PROBABILITY,
+                    source="SimulatedBinaryCrossover",
+                    value=self.xover_probability,
+                ),
+                FloatMessage(
+                    topic=CrossoverMessageTopics.XOVER_DISTRIBUTION,
+                    source="SimulatedBinaryCrossover",
+                    value=self.xover_distribution,
+                ),
+            ]
         # verbosity == 2 or higher
-        return {
-            "xover_probability": self.xover_probability,
-            "xover_distribution": self.xover_distribution,
-            "parent_population": self.parent_population,
-            "offspring_population": self.offspring_population,
-        }
+        return [
+            FloatMessage(
+                topic=CrossoverMessageTopics.XOVER_PROBABILITY,
+                source="SimulatedBinaryCrossover",
+                value=self.xover_probability,
+            ),
+            FloatMessage(
+                topic=CrossoverMessageTopics.XOVER_DISTRIBUTION,
+                source="SimulatedBinaryCrossover",
+                value=self.xover_distribution,
+            ),
+            Array2DMessage(
+                topic=CrossoverMessageTopics.PARENTS,
+                source="SimulatedBinaryCrossover",
+                value=self.parent_population[0].tolist(),
+            ),
+            Array2DMessage(
+                topic=CrossoverMessageTopics.OFFSPRINGS,
+                source="SimulatedBinaryCrossover",
+                value=self.offspring_population.tolist(),
+            ),
+        ]
