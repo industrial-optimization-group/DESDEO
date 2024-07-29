@@ -17,6 +17,7 @@ from .GNIMBUS import (
     NIMBUSIterateRequest,
     ChooseRequest,
     VoteRequest,
+    FinalVoteRequest,
 )
 
 router = APIRouter(prefix="/gmethod")
@@ -30,6 +31,7 @@ REQUEST_MODELS = {
         "iterate": NIMBUSIterateRequest,
         "choose": ChooseRequest,
         "vote": VoteRequest,
+        "vote_as_final": FinalVoteRequest,
     }
 }
 
