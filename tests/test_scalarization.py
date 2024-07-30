@@ -886,7 +886,7 @@ def test_add_group_asf():
 
     problem_w_sf, sf = add_asf_nondiff(problem, "sf", rp)
     problem_w_group_sf, group_sf = add_group_asf(problem, "group_sf", [rp])
-    problem_w_group_sf_3rp, group_sf_3rp = add_group_asf(problem, "group_sf", [rp, rp, rp])
+    problem_w_group_sf_3rp, group_sf_3rp = add_group_asf(problem, "group_sf", [rp, rp, rp, rp, rp])
 
     solver_sf = NevergradGenericSolver(problem_w_sf)
     res_sf = solver_sf.solve(sf)
@@ -922,7 +922,7 @@ def test_add_group_guess_sf():
 
     problem_w_sf, sf = add_guess_sf_nondiff(problem, "sf", rp)
     problem_w_group_sf, group_sf = add_group_guess_sf(problem, "group_sf", [rp])
-    problem_w_group_sf_3rp, group_sf_3rp = add_group_guess_sf(problem, "group_sf", [rp, rp, rp])
+    problem_w_group_sf_3rp, group_sf_3rp = add_group_guess_sf(problem, "group_sf", [rp, rp, rp, rp, rp])
 
     solver_sf = NevergradGenericSolver(problem_w_sf)
     res_sf = solver_sf.solve(sf)
@@ -942,7 +942,7 @@ def test_add_group_guess_sf():
 
     # optimal objective values should be close
     for obj in problem.objectives:
-        assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
+        assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3) # fails
         assert np.isclose(fs_group_sf_3rp[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
 
 
@@ -959,7 +959,9 @@ def test_add_group_nimbus_sf():
     classifications = {"f_1": ("0", None), "f_2": ("<", None), "f_3": ("0", None)}
     problem_w_sf, sf = add_nimbus_sf_nondiff(problem, "sf", classifications, rp)
     problem_w_group_sf, group_sf = add_group_nimbus_sf(problem, "group_sf", [classifications], rp)
-    problem_w_group_sf_3rp, group_sf_3rp = add_group_nimbus_sf(problem, "group_sf", [classifications, classifications, classifications], rp)
+    problem_w_group_sf_3rp, group_sf_3rp = add_group_nimbus_sf(
+        problem, "group_sf", [classifications, classifications, classifications, classifications, classifications], rp
+    )
 
     solver_sf = NevergradGenericSolver(problem_w_sf)
     res_sf = solver_sf.solve(sf)
@@ -995,7 +997,7 @@ def test_add_group_stom_sf():
 
     problem_w_sf, sf = add_stom_sf_nondiff(problem, "sf", rp)
     problem_w_group_sf, group_sf = add_group_stom_sf(problem, "group_sf", [rp])
-    problem_w_group_sf_3rp, group_sf_3rp = add_group_stom_sf(problem, "group_sf", [rp, rp, rp])
+    problem_w_group_sf_3rp, group_sf_3rp = add_group_stom_sf(problem, "group_sf", [rp, rp, rp, rp, rp])
 
     solver_sf = NevergradGenericSolver(problem_w_sf)
     res_sf = solver_sf.solve(sf)
