@@ -14,7 +14,7 @@ from desdeo.api.db_models import Preference, SolutionArchive, MethodState
 from desdeo.api.db_models import Problem as ProblemInDB
 from desdeo.api.routers.UserAuth import get_current_user
 from desdeo.api.schema import User
-from desdeo.mcdm.nimbus import generate_starting_point, solve_intermediate_solutions, solve_sub_problems
+from desdeo.mcdm.gnimbus import generate_starting_point, solve_intermediate_solutions, solve_sub_problems
 from desdeo.problem.schema import Problem
 
 from desdeo.api.utils.database import (
@@ -509,8 +509,6 @@ async def iterate(
     problem_id = requests[0].problem_id
     method_id = requests[0].method_id
 
-    request = requests[0]
-
     problem = await db.first(select(ProblemInDB).filter_by(id=problem_id))
     if problem is None:
         raise HTTPException(status_code=404, detail="Problem not found.")
@@ -549,7 +547,7 @@ async def iterate(
         results = solve_sub_problems(
             problem=problem,
             current_objectives=dict(zip([obj.symbol for obj in problem.objectives], reference_solution, strict=True)),
-            reference_point=dict(zip([obj.symbol for obj in problem.objectives], request.preference, strict=True)),
+            reference_points=[dict(zip([obj.symbol for obj in problem.objectives], request.preference, strict=True)) for request in requests],
             num_desired=len(requests) - 1 if len(requests) > 2 else 2,
         )
 
@@ -630,7 +628,7 @@ async def iterate(
             current_solutions = {sol.id: sol.objectives for sol in old_current_solutions if sol.current}
 
     return NIMBUSIterateResponse(
-        previous_preference=request.preference,
+        previous_preference=requests[0].preference,
         new_solutions={sol.id: sol.objectives for sol in solutions if sol.new},
         current_solutions=current_solutions,
         all_solutions=all_solutions,
@@ -782,11 +780,16 @@ async def save(
         The response from the NIMBUS algorithm.
     """
 
-    saved_solutions = await db.update(
+    await db.update(
         update(SolutionArchive)
         .where(SolutionArchive.id.in_(request.solution_ids))
         .values(saved=True)
-        .returning(SolutionArchive)
+    )
+
+    saved_solutions = (
+        await db.all(select(SolutionArchive)
+            .filter_by(problem=problem_id, saved=True)
+            .order_by(SolutionArchive.id.asc()))
     )
 
     return NIMBUSSaveResponse(
