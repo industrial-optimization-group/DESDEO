@@ -147,7 +147,7 @@ def iterate(
 ) -> Response:
     """Navigate the NAUTILUS.
 
-    Runs the entire navigation process.
+    Runs the NAUTILUS algorithm one step at a time.
 
     Args:
         request (NavigateRequest): The request to navigate the NAUTILUS 1.
