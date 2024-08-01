@@ -1729,11 +1729,26 @@ def forest_problem(holding: int = 1, comparing: bool = False) -> Problem:
     f_2_func = " + ".join(f_2_func)
     f_3_func = " + ".join(f_3_func)
 
+    match holding:
+        case 1:
+            ideals = {"f_1": 45654.952, "f_2": 2302.167, "f_3": 36780.631}
+        case 2:
+            ideals = {"f_1": 42937.004, "f_2": 2489.819, "f_3": 53632.887}
+        case 3:
+            ideals = {"f_1": 82195.014, "f_2": 3866.168, "f_3": 152149.555}
+        case 4:
+            ideals = {"f_1": 70547.896, "f_2": 3422.758, "f_3": 122271.740}
+        case 5:
+            ideals = {"f_1": 78183.469, "f_2": 3703.603, "f_3": 154240.330}
+        case 6:
+            ideals = {"f_1": 69121.380, "f_2": 3867.108, "f_3": 103018.541}
+
     f_1 = Objective(
         name="Net present value",
         symbol="f_1",
         func=f_1_func,
         maximize=True,
+        ideal=ideals["f_1"],
         objective_type=ObjectiveTypeEnum.analytical,
         is_linear=True,
         is_convex=False, # not checked
@@ -1745,6 +1760,7 @@ def forest_problem(holding: int = 1, comparing: bool = False) -> Problem:
         symbol="f_2",
         func=f_2_func,
         maximize=True,
+        ideal=ideals["f_2"],
         objective_type=ObjectiveTypeEnum.analytical,
         is_linear=True,
         is_convex=False, # not checked
@@ -1756,6 +1772,7 @@ def forest_problem(holding: int = 1, comparing: bool = False) -> Problem:
         symbol="f_3",
         func=f_3_func,
         maximize=True,
+        ideal=ideals["f_3"],
         objective_type=ObjectiveTypeEnum.analytical,
         is_linear=True,
         is_convex=False, # not checked
