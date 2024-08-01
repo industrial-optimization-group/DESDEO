@@ -1,4 +1,8 @@
-"""The base class for selection operators."""
+"""The base class for selection operators.
+
+This whole file should be rewritten. Everything is a mess.
+TODO:@light-weaver
+"""
 
 from abc import abstractmethod
 from collections.abc import Sequence

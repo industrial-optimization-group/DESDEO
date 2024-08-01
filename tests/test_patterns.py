@@ -2,11 +2,12 @@
 
 import pytest
 
+from desdeo.tools.message import GeneratorMessageTopics, GenericMessage
 from desdeo.tools.patterns import BlankSubscriber, Publisher
 
 
-INTERESTED_TOPICS = ["topic1", "topic2"]
-NOT_INTERESTED_TOPICS = ["topic3", "topic4"]
+INTERESTED_TOPICS = [GeneratorMessageTopics.OBJECTIVES, GeneratorMessageTopics.TARGETS]
+NOT_INTERESTED_TOPICS = [GeneratorMessageTopics.NEW_EVALUATIONS, GeneratorMessageTopics.POPULATION]
 
 
 @pytest.mark.patterns
@@ -15,7 +16,7 @@ def test_publisher_subscriber():
     pub = Publisher()
     assert pub is not None
 
-    sub = BlankSubscriber(pub, topics=INTERESTED_TOPICS)
+    sub = BlankSubscriber(publisher=pub, topics=INTERESTED_TOPICS)
     assert sub is not None
 
 
@@ -23,10 +24,10 @@ def test_publisher_subscriber():
 def test_sub_unsub():
     """Test whether a subscriber can subscribe to and unsubscribe from a topic."""
     pub = Publisher()
-    sub = BlankSubscriber(pub, topics=INTERESTED_TOPICS)
+    sub = BlankSubscriber(publisher=pub, topics=INTERESTED_TOPICS)
 
     # Test subscribing to topics
-    pub.auto_subscribe(sub, sub.topics)
+    pub.auto_subscribe(sub)
     assert sub in pub.subscribers[sub.topics[0]]
     assert sub in pub.subscribers[sub.topics[1]]
 
@@ -47,9 +48,12 @@ def test_message_send():
     pub = Publisher()
     sub = BlankSubscriber(pub, topics=INTERESTED_TOPICS)
 
-    pub.auto_subscribe(sub, sub.topics)
+    pub.auto_subscribe(sub)
 
-    message = {"topic1": "message1", "topic2": "message2"}
+    message = [
+        GenericMessage(topic=GeneratorMessageTopics.OBJECTIVES, value="message1", source="pytest"),
+        GenericMessage(topic=GeneratorMessageTopics.TARGETS, value="message2", source="pytest"),
+    ]
     # Test direct message from publisher
     pub.notify(message)
 
@@ -57,18 +61,30 @@ def test_message_send():
 
     # Test no message received when not subscribed
     pub.force_unsubscribe(sub)
-    sub.messages_received = {}
+    sub.messages_received = []
 
-    message = {"topic1": "message1", "topic2": "message2"}
+    message = [
+        GenericMessage(topic=GeneratorMessageTopics.OBJECTIVES, value="message1", source="pytest"),
+        GenericMessage(topic=GeneratorMessageTopics.TARGETS, value="message2", source="pytest"),
+    ]
     pub.notify(message)
 
-    assert sub.messages_received == {}
+    assert sub.messages_received == []
 
-    # Test messages originating from a subscriber
-    pub.auto_subscribe(sub, sub.topics)
-    sub.messages_to_send = {"topic1": "message1", "topic2": "message2", "topic3": "message3"}
+    # Test messages originating from a  (kinda circular here)
+    pub.auto_subscribe(sub)
+    sub.messages_to_send = [
+        GenericMessage(topic=GeneratorMessageTopics.OBJECTIVES, value="message1", source="pytest"),
+        GenericMessage(topic=GeneratorMessageTopics.TARGETS, value="message2", source="pytest"),
+        GenericMessage(topic=GeneratorMessageTopics.NEW_EVALUATIONS, value="message3", source="pytest"),
+    ]
+
+    message = [
+        GenericMessage(topic=GeneratorMessageTopics.OBJECTIVES, value="message1", source="pytest"),
+        GenericMessage(topic=GeneratorMessageTopics.TARGETS, value="message2", source="pytest"),
+    ]
 
     sub.notify()
-    assert "topic3" not in sub.messages_received
+    assert GeneratorMessageTopics.NEW_EVALUATIONS not in [x.topic for x in sub.messages_received]
 
-    assert sub.messages_received == {"topic1": "message1", "topic2": "message2"}
+    assert sub.messages_received == message

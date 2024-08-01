@@ -51,7 +51,7 @@ class Subscriber(ABC):
     messages and send them to the publisher, which then forwards the messages to the other subscribers.
     """
 
-    def __init__(self, publisher: Callable, topics: list[MessageTopics] | None = None, verbosity: int = 1) -> None:
+    def __init__(self, publisher: Callable, topics: Sequence[MessageTopics] | None = None, verbosity: int = 1) -> None:
         """Initialize a subscriber.
 
         Args:
@@ -214,11 +214,11 @@ class Publisher:
                     relationships[topic.value].append((subscriber.__class__.__name__, self.registered_topics[topic]))
         return relationships
 
-    def notify(self, messages: list[Message] | None) -> None:
+    def notify(self, messages: Sequence[Message] | None) -> None:
         """Notify subcribers of the received message/messages.
 
         Args:
-            messages (list[BaseMessage]): the messages to send to the subscribers. Each message is a pydantic model
+            messages (Sequence[BaseMessage]): the messages to send to the subscribers. Each message is a pydantic model
                 with a topic, value, and a source.
         """
         if messages is None:
@@ -236,16 +236,16 @@ class Publisher:
 class BlankSubscriber(Subscriber):
     """A simple subscriber for testing purposes."""
 
-    def __init__(self, publisher: Callable, topics: list[str], verbosity: int = 1) -> None:
+    def __init__(self, publisher: Callable, topics: Sequence[MessageTopics], verbosity: int = 1) -> None:
         """Initialize a subscriber."""
         super().__init__(publisher, topics, verbosity)
-        self.messages_to_send = {}
-        self.messages_received = {}
+        self.messages_to_send: list[Message] = []
+        self.messages_received: list[Message] = []
 
-    def update(self, message: dict) -> None:
+    def update(self, message: Message) -> None:
         """Update the internal state of the subscriber."""
-        self.messages_received.update(message)
+        self.messages_received.append(message)
 
-    def state(self) -> dict[str, Any]:
+    def state(self) -> list[Message]:
         """Return the internal state of the subscriber."""
         return self.messages_to_send
