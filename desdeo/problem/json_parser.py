@@ -113,12 +113,12 @@ class MathParser:
             """Polars matrix multiplication."""
             def _matmul(a, b):
                 if isinstance(a, list):
-                    a = np.array(a)
-                if isinstance(b, list):
-                    b = np.array(b)
-                if len(np.shape(a@b)) == 1:
-                    return a@b
-                return (a@b).sum()
+                    for i in range(len(a)):
+                        a[i] = pl.select(a[i]).item()
+                df = pl.DataFrame({"a": a})
+                print(df.with_columns())
+                print(df.select("a"))
+                print(df.with_columns(A = pl.col("a")*b))
             return reduce(_matmul, args)
             msg = (
                 "Matrix multiplication '@' has not been implemented for the Polars parser yet."
@@ -143,7 +143,8 @@ class MathParser:
             self.DIV: lambda *args: reduce(lambda x, y: to_expr(x) / to_expr(y), args),
             # Vector and matrix operations
             #self.MATMUL: _polars_matmul,
-            self.MATMUL: lambda x, y: np.matmul(to_expr(x), to_expr(y)),
+            #self.MATMUL: lambda x, y: np.matmul(to_expr(x), y),
+            self.MATMUL: lambda x, y: x*y,
             self.SUM: _polars_summation,
             # Exponentiation and logarithms
             self.EXP: lambda x: pl.Expr.exp(to_expr(x)),
@@ -602,9 +603,15 @@ class MathParser:
                     operands = operands[0]
 
                 if isinstance(operands, list):
+                    #print(expr, op_name, operands)
                     return self.env[op_name](*operands)
 
                 return self.env[op_name](operands)
+
+            # if expr is a list of literals (a vector), return it as is
+            # TODO: how to do it with matrices?
+            if isinstance(expr[0], self.literals):
+                return expr
 
             # else, assume the list contents are parseable expressions
             return [self.parse(e) for e in expr]

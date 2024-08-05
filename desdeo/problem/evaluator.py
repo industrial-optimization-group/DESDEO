@@ -276,7 +276,6 @@ class GenericEvaluator:
         for symbol, expr in self.objective_expressions:
             if expr is not None:
                 # expression given
-                print(agg_df, expr.alias(symbol))
                 obj_col = agg_df.select(expr.alias(symbol))
                 agg_df = agg_df.hstack(obj_col)
             else:

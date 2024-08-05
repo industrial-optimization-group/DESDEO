@@ -1505,7 +1505,7 @@ def re24() -> Problem:
 
 def simple_knapsack_vectors():
     """Define a simpl variant of the knapsack problem that utilizes vectors (TensorVaribale and TensorConstant)."""
-    n_items = 4
+    """n_items = 4
     weight_values = [2, 3, 4, 5]
     profit_values = [3, 5, 6, 8]
     efficiency_values = [4, 2, 7, 3]
@@ -1560,6 +1560,62 @@ def simple_knapsack_vectors():
         is_linear=True,
         is_convex=False,
         is_twice_differentiable=False,
+    )"""
+    n_items = 4
+    weight_values = [[2, 3, 4, 5], [2, 3, 4, 5]]
+    profit_values = [[3, 5, 6, 8], [3, 5, 6, 8]]
+    efficiency_values = [[4, 2, 7, 3], [4, 2, 7, 3]]
+
+    max_weight = Constant(name="Maximum weights", symbol="w_max", value=5)
+
+    weights = TensorConstant(name="Weights of the items", symbol="W", shape=[len(weight_values), len(weight_values)], values=weight_values)
+    profits = TensorConstant(name="Profits", symbol="P", shape=[len(profit_values), len(profit_values)], values=profit_values)
+    efficiencies = TensorConstant(
+        name="Efficiencies", symbol="E", shape=[len(efficiency_values), len(efficiency_values)], values=efficiency_values
+    )
+
+    choices = TensorVariable(
+        name="Chosen items",
+        symbol="X",
+        shape=[n_items, n_items],
+        variable_type="binary",
+        lowerbounds=[[0,0,0,0], [0,0,0,0]],
+        upperbounds=[[1,1,1,1], [1,1,1,1]],
+        initial_values=[[1,1,1,1], [1,1,1,1]],
+    )
+
+    profit_objective = Objective(
+        name="max profit",
+        symbol="f_1",
+        func="P@X",
+        maximize=True,
+        ideal=8,
+        nadir=0,
+        is_linear=True,
+        is_convex=False,
+        is_twice_differentiable=False,
+    )
+
+    efficiency_objective = Objective(
+        name="max efficiency",
+        symbol="f_2",
+        func="E@X",
+        maximize=True,
+        ideal=7,
+        nadir=0,
+        is_linear=True,
+        is_convex=False,
+        is_twice_differentiable=False,
+    )
+
+    weight_constraint = Constraint(
+        name="Weight constraint",
+        symbol="g_1",
+        cons_type="<=",
+        func="W@X - w_max",
+        is_linear=True,
+        is_convex=False,
+        is_twice_differentiable=False,
     )
 
     return Problem(
@@ -1580,10 +1636,12 @@ if __name__ == "__main__":
     problem = simple_knapsack_vectors()
     #problem = simple_linear_test_problem()
 
-    #solver = ProximalSolver(problem)
-    #res = solver.solve("f_1")
+    #solver = ScipyMinimizeSolver(problem)
+    #res = solver.solve("f_1_min")
+    #print(res)
 
-    xs = {"X": [0.0, 0.0, 1.0, 0.0]}
+    xs = {"X": [[0, 0, 1, 0], [0, 0, 1, 0]]}
+    #xs = {"X": [0.0, 0.0, 1.0, 0.0]}
     #xs = {"x_1": 4.2, "x_2": 2.1}
     evaluator = GenericEvaluator(problem)
     res = evaluator.evaluate(xs)
