@@ -64,7 +64,7 @@ def set_initial_guess(problem: Problem) -> list[float | int]:
         elif variable.initial_values is not None:
             initial_guess.append(variable.get_initial_values())
         else:
-            initial_guess.append((variable.get_upperbound_values() - variable.get_lowerbound_values) / 2 + variable.get_lowerbound_values) # may not be this
+            initial_guess.append((variable.get_upperbound_values() - variable.get_lowerbound_values()) / 2 + variable.get_lowerbound_values()) # may not be this
     return initial_guess
 
 
