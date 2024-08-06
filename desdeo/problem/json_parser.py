@@ -112,13 +112,36 @@ class MathParser:
         def _polars_matmul(*args):
             """Polars matrix multiplication."""
             def _matmul(a, b):
-                if isinstance(a, list):
-                    for i in range(len(a)):
-                        a[i] = pl.select(a[i]).item()
-                df = pl.DataFrame({"a": a})
-                print(df.with_columns())
-                print(df.select("a"))
-                print(df.with_columns(A = pl.col("a")*b))
+                if isinstance(a, list) and isinstance(a[0], self.literals):
+                    if isinstance(b, list) and isinstance(b[0], list):
+                        sums = []
+                        for i in range(len(b)):
+                            sums.append(_matmul(a, b[i]))
+                        return sum(sums)
+                elif isinstance(a, list) and isinstance(a[0], list):
+                    if isinstance(b, list) and isinstance(b[0], self.literals):
+                        sums = []
+                        for i in range(len(b)):
+                            sums.append(_matmul(a[i], b))
+                        return sum(sums)
+                    if isinstance(b, list) and isinstance(b[0], list):
+                        sums = []
+                        for i in range(len(a)):
+                            for j in range(len(b)):
+                                sums.append(_matmul(a[i], b[j]))
+                        return sum(sums)
+                    if isinstance(b, pl.Expr):
+                        sums = []
+                        for i in range(len(a)):
+                            sums.append(_matmul(a[i], b))
+                        return sum(sums)
+                elif isinstance(b, list) and isinstance(b[0], list):
+                    sums = []
+                    for i in range(len(b)):
+                        sums.append(_matmul(a, b[i]))
+                    return sum(sums)
+                return a*b
+
             return reduce(_matmul, args)
             msg = (
                 "Matrix multiplication '@' has not been implemented for the Polars parser yet."
@@ -144,7 +167,7 @@ class MathParser:
             # Vector and matrix operations
             #self.MATMUL: _polars_matmul,
             #self.MATMUL: lambda x, y: np.matmul(to_expr(x), y),
-            self.MATMUL: lambda x, y: x*y,
+            self.MATMUL: _polars_matmul,
             self.SUM: _polars_summation,
             # Exponentiation and logarithms
             self.EXP: lambda x: pl.Expr.exp(to_expr(x)),

@@ -1505,7 +1505,7 @@ def re24() -> Problem:
 
 def simple_knapsack_vectors():
     """Define a simpl variant of the knapsack problem that utilizes vectors (TensorVaribale and TensorConstant)."""
-    """n_items = 4
+    n_items = 4
     weight_values = [2, 3, 4, 5]
     profit_values = [3, 5, 6, 8]
     efficiency_values = [4, 2, 7, 3]
@@ -1560,8 +1560,8 @@ def simple_knapsack_vectors():
         is_linear=True,
         is_convex=False,
         is_twice_differentiable=False,
-    )"""
-    n_items = 4
+    )
+    """n_items = 4
     weight_values = [[2, 3, 4, 5], [2, 3, 4, 5]]
     profit_values = [[3, 5, 6, 8], [3, 5, 6, 8]]
     efficiency_values = [[4, 2, 7, 3], [4, 2, 7, 3]]
@@ -1577,7 +1577,7 @@ def simple_knapsack_vectors():
     choices = TensorVariable(
         name="Chosen items",
         symbol="X",
-        shape=[n_items, n_items],
+        shape=[n_items, 2],
         variable_type="binary",
         lowerbounds=[[0,0,0,0], [0,0,0,0]],
         upperbounds=[[1,1,1,1], [1,1,1,1]],
@@ -1616,7 +1616,7 @@ def simple_knapsack_vectors():
         is_linear=True,
         is_convex=False,
         is_twice_differentiable=False,
-    )
+    )"""
 
     return Problem(
         name="Simple two-objective Knapsack problem",
@@ -1640,7 +1640,7 @@ if __name__ == "__main__":
     #res = solver.solve("f_1_min")
     #print(res)
 
-    xs = {"X": [[0, 0, 1, 0], [0, 0, 1, 0]]}
+    xs = {"X": [0, 0, 1, 0]}
     #xs = {"X": [0.0, 0.0, 1.0, 0.0]}
     #xs = {"x_1": 4.2, "x_2": 2.1}
     evaluator = GenericEvaluator(problem)
