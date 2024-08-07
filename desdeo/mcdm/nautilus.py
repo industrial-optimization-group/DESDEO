@@ -96,7 +96,7 @@ def solve_reachable_solution(
             symbol="asf",
             reference_point=previous_nav_point,
             weights=weights,
-            reference_in_aug=True,
+            reference_point_aug=previous_nav_point
         )
     else:
         # non-differentiable problem
@@ -105,7 +105,7 @@ def solve_reachable_solution(
             symbol="asf",
             reference_point=previous_nav_point,
             weights=weights,
-            reference_in_aug=True,
+            reference_point_aug=previous_nav_point
         )
 
     # Note: We do not solve the global problem. Instead, we solve this constrained problem:
