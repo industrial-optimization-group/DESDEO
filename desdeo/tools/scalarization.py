@@ -1826,7 +1826,7 @@ def add_asf_diff(
     corrected_rp = get_corrected_reference_point(problem, reference_point)
 
     # define the auxiliary variable
-    alpha = Variable(name="alpha", symbol="_alpha", variable_type=VariableTypeEnum.real, initial_value=1.0)
+    alpha = Variable(name="alpha", symbol="_alpha", variable_type=VariableTypeEnum.real, lowerbound=float("-Inf"), upperbound=float("Inf"), initial_value=1.0)
 
     # define the objective function of the scalarization
     aug_expr = " + ".join(
@@ -2150,3 +2150,31 @@ def add_lte_constraints(
             ]
         }
     )
+
+if __name__ == "__main__":
+    from desdeo.problem import dtlz2, simple_linear_test_problem
+    from desdeo.tools import GurobipySolver, NevergradGenericSolver
+
+    n_variables = 3
+    n_objectives = 3
+    problem = dtlz2(n_variables, n_objectives)
+    #problem = simple_linear_test_problem()
+    rp = {"f_1": 0.1, "f_2": 0.1, "f_3": 0.8}
+    #rp = {"f_1": 5}
+
+    problem_w_sf, sf = add_asf_diff(problem, "sf", rp)
+    problem_w_group_sf, group_sf = add_group_asf_diff(problem, "group_sf", [rp])
+    problem_w_group_sf_3rp, group_sf_3rp = add_group_asf_diff(problem, "group_sf", [rp, rp, rp, rp, rp])
+
+    solver_sf = NevergradGenericSolver(problem_w_sf)
+    res_sf = solver_sf.solve(sf)
+
+    solver_group_sf = NevergradGenericSolver(problem_w_group_sf)
+    res_group_sf = solver_group_sf.solve(group_sf)
+
+    solver_group_sf_3rp = NevergradGenericSolver(problem_w_group_sf_3rp)
+    res_group_sf_3rp = solver_group_sf_3rp.solve(group_sf_3rp)
+
+    print(res_sf)
+    print(res_group_sf)
+    print(res_group_sf_3rp)

@@ -29,6 +29,7 @@ from desdeo.tools.scalarization import (
     add_guess_sf_diff,
     add_guess_sf_nondiff,
     add_group_asf,
+    add_group_asf_diff,
     add_group_guess_sf,
     add_group_nimbus_sf,
     add_group_stom_sf,
@@ -1019,3 +1020,31 @@ def test_add_group_stom_sf():
     for obj in problem.objectives:
         assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
         assert np.isclose(fs_group_sf_3rp[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
+
+
+@pytest.mark.scalarization
+@pytest.mark.group_scalarization
+@pytest.mark.slow
+def test_add_group_asf_diff():
+    n_variables = 3
+    n_objectives = 3
+    problem = dtlz2(n_variables, n_objectives)
+    rp = {"f_1": 0.1, "f_2": 0.1, "f_3": 0.8}
+
+    problem_w_sf, sf = add_asf_diff(problem, "sf", rp)
+    problem_w_group_sf, group_sf = add_group_asf_diff(problem, "group_sf", [rp])
+
+    solver_sf = NevergradGenericSolver(problem_w_sf)
+    res_sf = solver_sf.solve(sf)
+    assert res_sf.success
+
+    solver_group_sf = NevergradGenericSolver(problem_w_group_sf)
+    res_group_sf = solver_group_sf.solve(group_sf)
+    assert res_group_sf.success
+
+    fs_sf = res_sf.optimal_objectives
+    fs_group_sf = res_group_sf.optimal_objectives
+
+    # optimal objective values should be close
+    for obj in problem.objectives:
+        assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
