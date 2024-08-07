@@ -278,6 +278,78 @@ def add_group_asf(
     return problem.add_scalarization(scalarization_function), symbol
 
 
+def add_group_asf_diff(
+    problem: Problem,
+    symbol: str,
+    reference_points: list[dict[str, float]],
+    delta: float = 1e-6,
+    rho: float = 1e-6
+) -> tuple[Problem, str]:
+    # check reference points
+    for reference_point in reference_points:
+        if not objective_dict_has_all_symbols(problem, reference_point):
+            msg = f"The give reference point {reference_point} is missing a value for one or more objectives."
+            raise ScalarizationError(msg)
+
+    ideal, nadir = get_corrected_ideal_and_nadir(problem)
+
+    # define the auxiliary variable
+    alpha = Variable(name="alpha", symbol="_alpha", variable_type=VariableTypeEnum.real, lowerbound=-float("Inf"), upperbound=float("Inf"), initial_value=1.0)
+
+    # calculate the weights
+    weights = {
+        obj.symbol: 1 / (nadir[obj.symbol] - (ideal[obj.symbol] - delta))
+        for obj in problem.objectives
+    }
+
+    # form the max and augmentation terms
+    max_terms = []
+    aug_exprs = []
+    for i in range(len(reference_points)):
+        corrected_rp = get_corrected_reference_point(problem, reference_points[i])
+        rp = []
+        for obj in problem.objectives:
+            rp.append(f"(({weights[obj.symbol]}) * ({obj.symbol}_min - {corrected_rp[obj.symbol]})) - _alpha")
+        max_terms.append(rp)
+        aug_expr = " + ".join([f"({weights[obj.symbol]} * {obj.symbol}_min)" for obj in problem.objectives])
+        aug_exprs.append(aug_expr)
+    #max_terms = ", ".join(max_terms)
+    aug_exprs = " + ".join(aug_exprs)
+
+    func = f"_alpha + {rho} * ({aug_exprs})"
+
+    scalarization_function = ScalarizationFunction(
+        name="Achievement scalarizing function for multiple decision makers",
+        symbol=symbol,
+        func=func,
+        is_convex=problem.is_convex,
+        is_linear=problem.is_linear,
+        is_twice_differentiable=problem.is_twice_differentiable,
+    )
+
+    constraints = []
+    for i in range(len(reference_points)):
+        for j in range(len(problem.objectives)):
+            # since we are subtracting a constant value, the linearity, convexity,
+            # and differentiability of the objective function, and hence the
+            # constraint, should not change.
+            sym = problem.objectives[j].symbol
+            constraints.append(
+                Constraint(
+                    name=f"Constraint for {sym}",
+                    symbol=f"{sym}_con_{i+1}",
+                    func=max_terms[i][j],
+                    cons_type=ConstraintTypeEnum.LTE,
+                    is_linear=obj.is_linear,
+                    is_convex=obj.is_convex,
+                    is_twice_differentiable=obj.is_twice_differentiable,
+                )
+            )
+    _problem = problem.add_variables([alpha])
+    _problem = _problem.add_scalarization(scalarization_function)
+    return _problem.add_constraints(constraints), symbol
+
+
 def add_asf_generic_diff(
     problem: Problem,
     symbol: str,
