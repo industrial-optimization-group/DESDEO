@@ -1,6 +1,6 @@
 """Defines generic classes, functions, and objects utilized in the tools module."""
 
-from collections.abc import Callable
+from abc import ABC, abstractmethod
 from typing import Any, TypeVar
 
 from pydantic import BaseModel, Field
@@ -30,6 +30,34 @@ class SolverResults(BaseModel):
     )
     success: bool = Field(description="A boolean flag indicating whether the optimization was successful or not.")
     message: str = Field(description="Description of the cause of termination.")
+
+
+class BaseSolver(ABC):
+    """Defines a schema for a solver base class."""
+
+    evaluator: object
+    problem: Problem
+
+    def __init__(self, problem: Problem, options: dict[str, any] | None = None):
+        """Initializer for the persistent solver.
+
+        Args:
+            problem (Problem): The problem for the solver.
+            options (dict[str,any]): Dictionary of parameters to set.
+                What these should be depends on the solver used.
+        """
+        self.problem = problem
+
+    @abstractmethod
+    def solve(self, target: str) -> SolverResults:
+        """Solves the current problem with the specified target.
+
+        Args:
+            target (str): a str representing the symbol of the target function.
+
+        Returns:
+            SolverResults: The results of the solver
+        """
 
 
 class PersistentSolver:
@@ -105,4 +133,3 @@ class PersistentSolver:
 
 
 SolverOptions = TypeVar("SolverOptions", bound=Any)
-CreateSolverType = Callable[[Problem, SolverOptions], Callable[[str], SolverResults]]

@@ -3,10 +3,10 @@
 import polars as pl
 
 from desdeo.problem import EvaluatorModesEnum, GenericEvaluator, Problem
-from desdeo.tools.generics import SolverResults
+from desdeo.tools.generics import BaseSolver, SolverResults
 
 
-class ProximalSolver:
+class ProximalSolver(BaseSolver):
     """Creates a solver that finds the closest solution given a fully discrete problem.
 
     Note:

@@ -13,7 +13,7 @@ from scipy.optimize import differential_evolution as _scipy_de
 from scipy.optimize import minimize as _scipy_minimize
 
 from desdeo.problem import ConstraintTypeEnum, GenericEvaluator, Problem
-from desdeo.tools.generics import SolverError, SolverResults
+from desdeo.tools.generics import BaseSolver, SolverError, SolverResults
 
 
 class EvalTargetEnum(str, Enum):
@@ -213,7 +213,7 @@ def parse_scipy_optimization_result(
     )
 
 
-class ScipyMinimizeSolver:
+class ScipyMinimizeSolver(BaseSolver):
     """Creates a scipy solver that utilizes the `minimization` routine."""
 
     def __init__(
@@ -297,7 +297,7 @@ class ScipyMinimizeSolver:
         return parse_scipy_optimization_result(optimization_result, self.problem, self.evaluator)
 
 
-class ScipyDeSolver:
+class ScipyDeSolver(BaseSolver):
     """Creates a scipy solver that utilizes differential evolution."""
 
     def __init__(
