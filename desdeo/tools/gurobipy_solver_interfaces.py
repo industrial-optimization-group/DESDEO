@@ -3,7 +3,7 @@
 import gurobipy as gp
 
 from desdeo.problem import Constraint, GurobipyEvaluator, Objective, Problem, ScalarizationFunction, TensorVariable, Variable
-from desdeo.tools.generics import PersistentSolver, SolverResults
+from desdeo.tools.generics import BaseSolver, PersistentSolver, SolverResults
 
 
 def parse_gurobipy_optimizer_results(problem: Problem, evaluator: GurobipyEvaluator) -> SolverResults:
@@ -43,7 +43,7 @@ def parse_gurobipy_optimizer_results(problem: Problem, evaluator: GurobipyEvalua
     )
 
 
-class GurobipySolver:
+class GurobipySolver(BaseSolver):
     """Creates a gurobipy solver that utilizes gurobi's own Python implementation."""
 
     def __init__(self, problem: Problem, options: dict[str, any] | None = None):
