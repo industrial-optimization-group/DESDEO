@@ -335,9 +335,9 @@ def add_group_asf_diff(
     aug_exprs = []
     for i in range(len(reference_points)):
         corrected_rp = get_corrected_reference_point(problem, reference_points[i])
-        rp = []
+        rp = {}
         for obj in problem.objectives:
-            rp.append(f"(({weights[obj.symbol]}) * ({obj.symbol}_min - {corrected_rp[obj.symbol]})) - _alpha")
+            rp[obj.symbol] = f"(({weights[obj.symbol]}) * ({obj.symbol}_min - {corrected_rp[obj.symbol]})) - _alpha"
         con_terms.append(rp)
         aug_expr = " + ".join([f"({weights[obj.symbol]} * {obj.symbol}_min)" for obj in problem.objectives])
         aug_exprs.append(aug_expr)
@@ -357,16 +357,15 @@ def add_group_asf_diff(
     constraints = []
     # loop to create a constraint for every objective of every reference point given
     for i in range(len(reference_points)):
-        for j in range(len(problem.objectives)):
+        for obj in problem.objectives:
             # since we are subtracting a constant value, the linearity, convexity,
             # and differentiability of the objective function, and hence the
             # constraint, should not change.
-            sym = problem.objectives[j].symbol
             constraints.append(
                 Constraint(
-                    name=f"Constraint for {sym}",
-                    symbol=f"{sym}_con_{i+1}",
-                    func=con_terms[i][j],
+                    name=f"Constraint for {obj.symbol}",
+                    symbol=f"{obj.symbol}_con_{i+1}",
+                    func=con_terms[i][obj.symbol],
                     cons_type=ConstraintTypeEnum.LTE,
                     is_linear=obj.is_linear,
                     is_convex=obj.is_convex,
@@ -1177,7 +1176,7 @@ def add_group_nimbus_sf(
                         )
                     )
                 case ("<=", aspiration):
-                    # if obj is to be maximized, then the current reservation value needs to be multiplied by -1
+                    # if obj is to be maximized, then the current aspiration value needs to be multiplied by -1
                     max_expr = (
                         f"{weights[_symbol]} * ({_symbol}_min - {aspiration * -1 if obj.maximize else aspiration})"
                     )
@@ -1204,6 +1203,7 @@ def add_group_nimbus_sf(
                         )
                     )
                 case (">=", reservation):
+                    # if obj is to be maximized, then the current reservation value needs to be multiplied by -1
                     con_expr = f"{_symbol}_min - {-1 * reservation if obj.maximize else reservation}"
                     constraints.append(
                         Constraint(
@@ -1385,7 +1385,7 @@ def add_group_nimbus_sf_diff(
                         )
                     )
                 case ("<=", aspiration):
-                    # if obj is to be maximized, then the current reservation value needs to be multiplied by -1
+                    # if obj is to be maximized, then the current aspiration value needs to be multiplied by -1
                     max_expr = (
                         f"{weights[_symbol]} * ({_symbol}_min - {aspiration * -1 if obj.maximize else aspiration}) - _alpha"
                     )
@@ -1418,6 +1418,7 @@ def add_group_nimbus_sf_diff(
                         )
                     )
                 case (">=", reservation):
+                    # if obj is to be maximized, then the current reservation value needs to be multiplied by -1
                     con_expr = f"{_symbol}_min - {-1 * reservation if obj.maximize else reservation}"
                     constraints.append(
                         Constraint(
@@ -1775,9 +1776,9 @@ def add_group_stom_sf_diff(
     # form the max term
     con_terms = []
     for i in range(len(reference_points)):
-        rp = []
+        rp = {}
         for obj in problem.objectives:
-            rp.append(f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {ideal[obj.symbol] - delta}) - _alpha")
+            rp[obj.symbol] = f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {ideal[obj.symbol] - delta}) - _alpha"
         con_terms.append(rp)
 
     # form the augmentation term
@@ -1790,16 +1791,15 @@ def add_group_stom_sf_diff(
     constraints = []
     # loop to create a constraint for every objective of every reference point given
     for i in range(len(reference_points)):
-        for j in range(len(problem.objectives)):
+        for obj in problem.objectives:
             # since we are subtracting a constant value, the linearity, convexity,
             # and differentiability of the objective function, and hence the
             # constraint, should not change.
-            sym = problem.objectives[j].symbol
             constraints.append(
                 Constraint(
-                    name=f"Constraint for {sym}",
-                    symbol=f"{sym}_con_{i+1}",
-                    func=con_terms[i][j],
+                    name=f"Constraint for {obj.symbol}",
+                    symbol=f"{obj.symbol}_con_{i+1}",
+                    func=con_terms[i][obj.symbol],
                     cons_type=ConstraintTypeEnum.LTE,
                     is_linear=obj.is_linear,
                     is_convex=obj.is_convex,
@@ -2181,9 +2181,9 @@ def add_group_guess_sf_diff(
     con_terms = []
     for i in range(len(reference_points)):
         corrected_rp = get_corrected_reference_point(problem, reference_points[i])
-        rp = []
+        rp = {}
         for obj in problem.objectives:
-            rp.append(f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {nadir[obj.symbol]}) - _alpha")
+            rp[obj.symbol] = f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {nadir[obj.symbol]}) - _alpha"
         con_terms.append(rp)
 
     # form the augmentation term
@@ -2196,16 +2196,15 @@ def add_group_guess_sf_diff(
     constraints = []
     # loop to create a constraint for every objective of every reference point given
     for i in range(len(reference_points)):
-        for j in range(len(problem.objectives)):
+        for obj in problem.objectives:
             # since we are subtracting a constant value, the linearity, convexity,
             # and differentiability of the objective function, and hence the
             # constraint, should not change.
-            sym = problem.objectives[j].symbol
             constraints.append(
                 Constraint(
-                    name=f"Constraint for {sym}",
-                    symbol=f"{sym}_con_{i+1}",
-                    func=con_terms[i][j],
+                    name=f"Constraint for {obj.symbol}",
+                    symbol=f"{obj.symbol}_con_{i+1}",
+                    func=con_terms[i][obj.symbol],
                     cons_type=ConstraintTypeEnum.LTE,
                     is_linear=obj.is_linear,
                     is_convex=obj.is_convex,
