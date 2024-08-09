@@ -573,7 +573,7 @@ def simple_linear_test_problem() -> Problem:
     f_1 = "x_1 + x_2"
 
     objectives = [
-        Objective(name="f_1", symbol="f_1", func=f_1, maximize=False),  # min!
+        Objective(name="f_1", symbol="f_1", func=f_1, maximize=False, ideal=6.3, nadir=20),  # min!
     ]
 
     con_1 = Constraint(name="g_1", symbol="g_1", cons_type=ConstraintTypeEnum.LTE, func="c - x_1")
