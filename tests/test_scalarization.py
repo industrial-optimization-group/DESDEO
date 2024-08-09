@@ -926,7 +926,7 @@ def test_add_group_asf_diff():
 
     problem_w_sf, sf = add_asf_diff(problem, "sf", rp)
     problem_w_group_sf, group_sf = add_group_asf_diff(problem, "group_sf", [rp])
-    problem_w_group_sf_3rp, group_sf_3rp = add_group_guess_sf(problem, "group_sf", [rp, rp, rp])
+    problem_w_group_sf_3rp, group_sf_3rp = add_group_asf_diff(problem, "group_sf", [rp, rp, rp])
 
     solver_sf = NevergradGenericSolver(problem_w_sf)
     res_sf = solver_sf.solve(sf)
@@ -947,7 +947,7 @@ def test_add_group_asf_diff():
     # optimal objective values should be close
     for obj in problem.objectives:
         assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
-        # assert np.isclose(fs_group_sf_3rp[obj.symbol], fs_group_sf[obj.symbol], atol=1e-1) # NOTE: fails
+        assert np.isclose(fs_group_sf_3rp[obj.symbol], fs_group_sf[obj.symbol], atol=1e-2)
 
 
 @pytest.mark.scalarization
@@ -1097,7 +1097,8 @@ def test_add_group_nimbus_sf_diff():
     # optimal objective values should be close
     for obj in problem.objectives:
         assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
-        # assert np.isclose(fs_group_sf_3rp[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3) NOTE: fails
+        # for some reason needs very high atol
+        assert np.isclose(fs_group_sf_3rp[obj.symbol], fs_group_sf[obj.symbol], atol=1e-1)
 
 
 @pytest.mark.scalarization
@@ -1169,4 +1170,5 @@ def test_add_group_stom_sf_diff():
     # optimal objective values should be close
     for obj in problem.objectives:
         assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
-        # assert np.isclose(fs_group_sf_3rp[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3) NOTE: Fails
+        # for some reason needs very high atol
+        assert np.isclose(fs_group_sf_3rp[obj.symbol], fs_group_sf[obj.symbol], atol=1e-1)
