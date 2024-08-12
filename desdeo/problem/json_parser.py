@@ -1,10 +1,13 @@
 """Defines a parser to parse multiobjective optimziation problems defined in a JSON format."""
 
 from collections.abc import Callable
+import copy
 from enum import Enum
 from functools import reduce
+import itertools
 
 import gurobipy as gp
+import numpy as np
 import polars as pl
 import pyomo.environ as pyomo
 import sympy as sp
@@ -47,6 +50,10 @@ class MathParser:
         self.SUB: str = "Subtract"
         self.MUL: str = "Multiply"
         self.DIV: str = "Divide"
+
+        # Vector and matrix operations
+        self.MATMUL: str = "MatMul"
+        self.SUM: str = "Sum"
 
         # Exponentation and logarithms
         self.EXP: str = "Exp"
@@ -102,6 +109,21 @@ class MathParser:
             msg = "The gurobipy model format only supports linear and quadratic expressions."
             ParserError(msg)
 
+        def _polars_matmul(*args):
+            """Polars matrix multiplication."""
+            msg = (
+                "Matrix multiplication '@' has not been implemented for the Polars parser yet."
+                " Feel free to contribute!"
+            )
+            raise NotImplementedError(msg)
+
+        def _polars_summation(summand):
+            """Polars matrix summation."""
+            msg = (
+                "Matrix summation 'Sum' has not been implemented for the Polars parser yet." " Feel free to contribute!"
+            )
+            raise NotImplementedError(msg)
+
         polars_env = {
             # Define the operations for the different operators.
             # Basic arithmetic operations
@@ -110,6 +132,9 @@ class MathParser:
             self.SUB: lambda *args: reduce(lambda x, y: to_expr(x) - to_expr(y), args),
             self.MUL: lambda *args: reduce(lambda x, y: to_expr(x) * to_expr(y), args),
             self.DIV: lambda *args: reduce(lambda x, y: to_expr(x) / to_expr(y), args),
+            # Vector and matrix operations
+            self.MATMUL: _polars_matmul,
+            self.SUM: _polars_summation,
             # Exponentiation and logarithms
             self.EXP: lambda x: pl.Expr.exp(to_expr(x)),
             self.LN: lambda x: pl.Expr.log(to_expr(x)),
@@ -141,14 +166,212 @@ class MathParser:
             self.MAX: lambda *args: reduce(lambda x, y: pl.max_horizontal(to_expr(x), to_expr(y)), args),
         }
 
+        def _pyomo_negate(x):
+            """Negates the given operand."""
+
+            def _expr_negate_rule(x):
+                def _inner(_, *indices):
+                    return -x[indices]
+
+                return _inner
+
+            def _negate(x):
+                # check if operand in indexed
+                if hasattr(x, "index_set") and x.is_indexed():
+                    # indexed, return new pyomo expression
+                    expr = pyomo.Expression(x.index_set(), rule=_expr_negate_rule(x))
+                    expr.construct()
+
+                    return expr
+
+                # not indexed, just regular negate
+                return -x
+
+            return _negate(x)
+
+        def _pyomo_addition(*args, subtraction=False):
+            """Add (subtract) scalars or tensors to (from) each other."""
+
+            def _expr_matrix_addition_rule(x, y, subtraction=subtraction):
+                def _inner(_, *args):
+                    return x[*args] + y[*args] if not subtraction else x[*args] - y[*args]
+
+                return _inner
+
+            def _add(x, y, subtraction=subtraction):
+                # if both are indexed, try matrix addition
+                if (hasattr(x, "index_set") and x.is_indexed()) and (hasattr(y, "index_set") and y.is_indexed()):
+                    # try matrix addition
+                    # check that the dimensions of x and y matches
+                    if x.index_set().set_tuple != y.index_set().set_tuple:
+                        msg = (
+                            f"The dimensions of x {x.index_set().set_tuple} must match that"
+                            f" of y {y.index_set().set_tuple} for matrix addition."
+                        )
+                        raise ParserError(msg)
+
+                    expr = pyomo.Expression(
+                        x.index_set(), rule=_expr_matrix_addition_rule(x, y, subtraction=subtraction)
+                    )
+                    expr.construct()
+
+                    return expr
+
+                # if neither is indexed, do normal addition
+                if not (hasattr(x, "index_set") and x.is_indexed()) and not (
+                    hasattr(y, "index_set") and y.is_indexed()
+                ):
+                    if not subtraction:
+                        # try regular addition
+                        return x + y
+                    # try regular subtraction
+                    return x - y
+
+                # if only one of the operands is indexed, then addition is not supported. Throw error.
+                msg = "For addition, both operands must be either scalars or matrices with matching dimensions."
+                raise ParserError(msg)
+
+            return reduce(_add, args)
+
+        def _pyomo_subtraction(*args):
+            return _pyomo_addition(*args, subtraction=True)
+
+        def _pyomo_multiply(*args):
+            """Multiply tensor with a scalar."""
+
+            def _expr_multiply_with_scalar_rule(scalar_value, to_multiply):
+                def _inner(_, *indices):
+                    return to_multiply[indices] * scalar_value
+
+                return _inner
+
+            def _expr_matrix_multiply_rule(x, y):
+                def _inner(_, *args):
+                    return x[*args] * y[*args]
+
+                return _inner
+
+            def _multiply(x, y):
+                if not hasattr(x, "is_indexed") and not hasattr(y, "is_indexed"):
+                    # x and y are scalars
+                    return x * y
+
+                # check if x or y is scalar
+                if (
+                    hasattr(x, "is_indexed")
+                    and x.is_indexed()
+                    and x.dim() > 0
+                    and (not hasattr(y, "is_indexed") or not y.is_indexed() or y.is_indexed() and y.dim() == 0)
+                ):
+                    # x is a tensor, y is scalar
+                    expr = pyomo.Expression(x.index_set(), rule=_expr_multiply_with_scalar_rule(y, x))
+                    expr.construct()
+                    return expr
+                if (
+                    hasattr(y, "is_indexed")
+                    and y.is_indexed()
+                    and y.dim() > 0
+                    and (not hasattr(x, "is_indexed") or not x.is_indexed() or x.is_indexed() and x.dim() == 0)
+                ):
+                    # y is a tensor, x is scalar
+                    expr = pyomo.Expression(y.index_set(), rule=_expr_multiply_with_scalar_rule(x, y))
+                    expr.construct()
+                    return expr
+
+                # check if both are indexed
+                if hasattr(x, "index_set") and hasattr(y, "index_set"):
+                    # both are indexed, neither is a scalar, check dims and sized, if match,
+                    # multiply together element-wise
+                    if x.index_set() != y.index_set():
+                        msg = (
+                            f"The dimensions of x {x.index_set().set_tuple} must match that"
+                            f" of y {y.index_set().set_tuple} for element-wise matrix multiplication."
+                        )
+                        raise ParserError(msg)
+
+                    expr = pyomo.Expression(x.index_set(), rule=_expr_matrix_multiply_rule(x, y))
+                    expr.construct()
+
+                    return expr
+
+                # both are scalars
+                return x * y
+
+            return reduce(_multiply, args)
+
+        def _pyomo_matrix_multiplication(*args):
+            """Multiply two matrices together."""
+
+            def _expr_matmul_rule(mat_a, mat_b, j_indices):
+                def _inner(_, i_index, k_index):
+                    return sum(mat_a[i_index, j] * mat_b[j, k_index] for j in j_indices)
+
+                return _inner
+
+            def _matmul(mat_a, mat_b):
+                if not (hasattr(mat_a, "is_indexed") and mat_a.is_indexed()) or not (
+                    hasattr(mat_b, "is_indexed") and mat_b.is_indexed()
+                ):
+                    # either mat_a or mat_b is not tensor
+                    msg = "Either mat_a or mat_b, or both, is not indexed. Cannot perform matrix multiplication."
+                    raise ParserError(msg)
+
+                # check for regular vectors, then do dot product
+                if mat_a.dim() == 1 and mat_b.dim() == 1:
+                    if (len_a := len(mat_a.index_set())) != (len_b := len(mat_b.index_set())):
+                        msg = (
+                            "For dot product, the sizes of the vectors must match."
+                            f" Sizes mat_a = {len_a} and mat_b = {len_b}."
+                        )
+                        raise ParserError(msg)
+
+                    return pyomo.sum_product(mat_a, mat_b, index=mat_a.index_set())
+
+                # assuming mat_a has dimensions i,j; and mat_b j,k;
+                # then the j dimension is squeezed and the i and k dimensions are kept.
+
+                # check that we are dealing with matrices
+                min_dimension = 2
+                if (
+                    not hasattr(mat_a.index_set(), "set_tuple") or len(mat_a.index_set().set_tuple) < min_dimension
+                ) or (not hasattr(mat_b.index_set(), "set_tuple") and len(mat_b.index_set().set_tuple) < min_dimension):
+                    msg = "Both mat_a and mat_b must have at least two dimensions."
+                    raise ParserError(msg)
+
+                # check that the outer dimensions (the one to be squeezed) matches
+                if len(mat_a.index_set().set_tuple[-1]) != len(mat_b.index_set().set_tuple[0]):
+                    msg = (
+                        f"The last dimension size of mat_a ({mat_a.index_set().set_tuple[-1]}) must "
+                        f"match the first dimension of mat_b ({mat_b.index_set().set_tuple[0]})"
+                    )
+                    raise ParserError(msg)
+
+                expr = pyomo.Expression(
+                    mat_a.index_set().set_tuple[0],
+                    mat_b.index_set().set_tuple[1],
+                    rule=_expr_matmul_rule(mat_a, mat_b, mat_a.index_set().set_tuple[1]),
+                )
+                expr.construct()
+
+                return expr
+
+            return reduce(_matmul, args)
+
+        def _pyomo_summation(summand):
+            """Sum an indexed Pyomo object."""
+            return pyomo.sum_product(summand, index=summand.index_set())
+
         pyomo_env = {
             # Define the operations for the different operators.
             # Basic arithmetic operations
-            self.NEGATE: lambda x: -x,
-            self.ADD: lambda *args: reduce(lambda x, y: x + y, args),
-            self.SUB: lambda *args: reduce(lambda x, y: x - y, args),
-            self.MUL: lambda *args: reduce(lambda x, y: x * y, args),
+            self.NEGATE: _pyomo_negate,
+            self.ADD: _pyomo_addition,
+            self.SUB: _pyomo_subtraction,
+            self.MUL: _pyomo_multiply,
             self.DIV: lambda *args: reduce(lambda x, y: x / y, args),
+            # Vector and matrix operations
+            self.MATMUL: _pyomo_matrix_multiplication,
+            self.SUM: _pyomo_summation,
             # Exponentiation and logarithms
             self.EXP: lambda x: pyomo.exp(x),
             self.LN: lambda x: pyomo.log(x),
@@ -182,6 +405,21 @@ class MathParser:
             self.MAX: lambda *args: _PyomoMax(args),
         }
 
+        def _sympy_matmul(*args):
+            """Sympy matrix multiplication."""
+            msg = (
+                "Matrix multiplication '@' has not been implemented for the Sympy parser yet."
+                " Feel free to contribute!"
+            )
+            raise NotImplementedError(msg)
+
+        def _sympy_summation(summand):
+            """Sympy matrix summation."""
+            msg = (
+                "Matrix summation 'Sum' has not been implemented for the Sympy parser yet." " Feel free to contribute!"
+            )
+            raise NotImplementedError(msg)
+
         sympy_env = {
             # Basic arithmetic operations
             self.NEGATE: lambda x: -to_sympy_expr(x),
@@ -189,6 +427,9 @@ class MathParser:
             self.SUB: lambda *args: reduce(lambda x, y: to_sympy_expr(x) - to_sympy_expr(y), args),
             self.MUL: lambda *args: reduce(lambda x, y: to_sympy_expr(x) * to_sympy_expr(y), args),
             self.DIV: lambda *args: reduce(lambda x, y: to_sympy_expr(x) / to_sympy_expr(y), args),
+            # Vector and matrix operations
+            self.MATMUL: _sympy_matmul,
+            self.SUM: _sympy_summation,
             # Exponentiation and logarithms
             self.EXP: lambda x: sp.exp(to_sympy_expr(x)),
             self.LN: lambda x: sp.log(to_sympy_expr(x)),
@@ -222,6 +463,36 @@ class MathParser:
             self.RATIONAL: lambda x, y: sp.Rational(x, y),
         }
 
+        def _gurobipy_matmul(*args):
+            """Gurobipy matrix multiplication."""
+            def _matmul(a, b):
+                if isinstance(a, list):
+                    a = np.array(a)
+                if isinstance(b, list):
+                    b = np.array(b)
+                if len(np.shape(a@b)) == 1:
+                    return a@b
+                return (a@b).sum()
+            return reduce(_matmul, args)
+            msg = (
+                "Matrix multiplication '@' has not been implemented for the Gurobipy parser yet."
+                " Feel free to contribute!"
+            )
+            raise NotImplementedError(msg)
+
+        def _gurobipy_summation(summand):
+            """Gurobipy matrix summation."""
+            def _sum(summand):
+                if isinstance(summand, list):
+                    summand = np.array(summand)
+                return summand.sum()
+            return _sum(summand)
+            msg = (
+                "Matrix summation 'Sum' has not been implemented for the Gurobipy parser yet."
+                " Feel free to contribute!"
+            )
+            raise NotImplementedError(msg)
+
         gurobipy_env = {
             # Define the operations for the different operators.
             # Basic arithmetic operations
@@ -230,6 +501,9 @@ class MathParser:
             self.SUB: lambda *args: reduce(lambda x, y: x - y, args),
             self.MUL: lambda *args: reduce(lambda x, y: x * y, args),
             self.DIV: lambda *args: reduce(lambda x, y: x / y, args),
+            # Vector and matrix operations
+            self.MATMUL: _gurobipy_matmul,
+            self.SUM: _gurobipy_summation,
             # Exponentiation and logarithms
             # it would be possible to implement some of these with the special functions that
             # gurobi has to offer, but they would only work under specific circumstances
@@ -328,7 +602,9 @@ class MathParser:
         msg = f"Encountered unsupported type '{type(expr)}' during parsing."
         raise ParserError(msg)
 
-    def _parse_to_pyomo(self, expr: list | str | int | float, model: pyomo.Model) -> pyomo.Expression:
+    def _parse_to_pyomo(
+        self, expr: list | str | int | float | pyomo.Expression, model: pyomo.Model
+    ) -> pyomo.Expression:
         """Parses the MathJSON format recursively into a Pyomo expression.
 
         Args:

@@ -46,7 +46,7 @@ def classification_to_reference_point(
 
     return numpy_array_to_objective_dict(problem, np.array(ref))
 
-def calculate_adjusted_speed(allowed_speeds: np.ndarray, speed: float, scalar: float | None = 20) -> float:
+def calculate_adjusted_speed(allowed_speeds: list[int], speed: float, scalar: float | None = 20) -> float:
     """Calculate an adjusted speed from a given float.
 
     Note:
@@ -219,7 +219,7 @@ if __name__ == "__main__":
     ideal = problem.get_ideal_point()
     nadir = problem.get_nadir_point()
     speed = 1
-    allowed_speeds = np.array([1, 2, 3, 4, 5])
+    allowed_speeds = [1, 2, 3, 4, 5]
     adjusted_speed = calculate_adjusted_speed(allowed_speeds, speed)
 
     starting_point = {"f_1": 1.38, "f_2": 0.62, "f_3": -35.33}

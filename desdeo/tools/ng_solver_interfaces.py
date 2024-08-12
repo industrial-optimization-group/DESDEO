@@ -11,7 +11,7 @@ import nevergrad as ng
 from pydantic import BaseModel, Field
 
 from desdeo.problem import Problem, SympyEvaluator
-from desdeo.tools.generics import SolverResults
+from desdeo.tools.generics import BaseSolver, SolverResults
 
 available_nevergrad_optimizers = [
     "NGOpt",
@@ -87,7 +87,7 @@ def parse_ng_results(results: dict, problem: Problem, evaluator: SympyEvaluator)
     )
 
 
-class NevergradGenericSolver:
+class NevergradGenericSolver(BaseSolver):
     """Creates a solver that utilizes optimizations routines found in the nevergrad library."""
 
     def __init__(self, problem: Problem, options: NevergradGenericOptions = _default_nevergrad_generic_options):

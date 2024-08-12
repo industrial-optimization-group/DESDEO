@@ -12,6 +12,8 @@ from desdeo.problem import (
     Objective,
     Problem,
     ScalarizationFunction,
+    TensorConstant,
+    TensorVariable,
     Variable,
 )
 
@@ -31,6 +33,17 @@ def get_constant_info():
     return generate_schema_and_example(Constant, example)
 
 
+def get_tensor_constant_info():
+    """Gets information for a TensorConstant model."""
+    example = TensorConstant(
+        name="Weights",
+        symbol="A",
+        shape=[2, 3],
+        values=[[1, 2, 3], [4, 5, 6]],
+    )
+    return generate_schema_and_example(TensorConstant, example)
+
+
 def get_variable_info():
     """Gets information for a Variable model."""
     example = Variable(
@@ -42,6 +55,20 @@ def get_variable_info():
         initial_value=4.2,
     )
     return generate_schema_and_example(Variable, example)
+
+
+def get_tensor_variable_info():
+    """Gets information for a TensorVariable model."""
+    example = TensorVariable(
+        name="example variables",
+        symbol="X",
+        variable_type="real",
+        shape=[3, 2],
+        lowerbounds=[[0, 0], [1, 1], [-1, -1]],
+        upperbounds=[[10, 10], [5, 8], [19, 12]],
+        initial_values=[[0.5, 0.5], [1.5, 1.5], [0, 0]],
+    )
+    return generate_schema_and_example(TensorVariable, example)
 
 
 def get_extra_function_info():
@@ -246,7 +273,9 @@ def define_env(env):
     """
     # Schema examples
     env.macro(get_constant_info)
+    env.macro(get_tensor_constant_info)
     env.macro(get_variable_info)
+    env.macro(get_tensor_variable_info)
     env.macro(get_extra_function_info)
     env.macro(get_scalarization_function_info)
     env.macro(get_objective_info)

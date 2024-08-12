@@ -2,8 +2,8 @@
 
 import gurobipy as gp
 
-from desdeo.problem import Constraint, GurobipyEvaluator, Objective, Problem, ScalarizationFunction, Variable
-from desdeo.tools.generics import PersistentSolver, SolverResults
+from desdeo.problem import Constraint, GurobipyEvaluator, Objective, Problem, ScalarizationFunction, TensorVariable, Variable
+from desdeo.tools.generics import BaseSolver, PersistentSolver, SolverResults
 
 
 def parse_gurobipy_optimizer_results(problem: Problem, evaluator: GurobipyEvaluator) -> SolverResults:
@@ -43,7 +43,7 @@ def parse_gurobipy_optimizer_results(problem: Problem, evaluator: GurobipyEvalua
     )
 
 
-class GurobipySolver:
+class GurobipySolver(BaseSolver):
     """Creates a gurobipy solver that utilizes gurobi's own Python implementation."""
 
     def __init__(self, problem: Problem, options: dict[str, any] | None = None):
@@ -136,7 +136,7 @@ class PersistentGurobipySolver(PersistentSolver):
 
         Does not yet add any actual gurobipy optimization objectives, only adds them to the dict
         containing the expressions of the objectives. The objective expressions are stored in the
-        GurobipyModel and the evaluator must add the appropiate gurobipy objective before solving.
+        evaluator and the evaluator must add the appropiate gurobipy objective before solving.
 
         Args:
             objective (Objective): an objective function expression or a list of objective function
@@ -152,7 +152,7 @@ class PersistentGurobipySolver(PersistentSolver):
         """Adds a scalrization expression to the solver.
 
         Scalarizations work identically to objectives, except they are stored in a different
-        dict in the GurobipyModel. If you want to solve the problem using a scalarization, the
+        dict in the evaluator. If you want to solve the problem using a scalarization, the
         evaluator needs to set it as an optimization target first.
 
         Args:
@@ -165,7 +165,9 @@ class PersistentGurobipySolver(PersistentSolver):
         for scal in scalarization:
             self.evaluator.add_scalarization_function(scal)
 
-    def add_variable(self, variable: Variable | list[Variable]) -> gp.Var | list[gp.Var]:
+    def add_variable(
+        self, variable: Variable | TensorVariable | list[Variable] | list[TensorVariable]
+    ) -> gp.Var | gp.MVar | list[gp.Var] | list[gp.MVar]:
         """Add one or more variables to the solver.
 
         If adding a lot of variables or dealing with a large model, this function
@@ -184,7 +186,7 @@ class PersistentGurobipySolver(PersistentSolver):
                 variable argument was a list.
         """
         if isinstance(variable, list):
-            var_list = list[gp.Var]
+            var_list = list[gp.Var | gp.MVar]
             for var in variable:
                 var_list.append(self.evaluator.add_variable(var))
             return var_list

@@ -1,15 +1,16 @@
 """Imports available form the desdeo-tools package."""
 
 __all__ = [
+    "BaseSolver",
     "BonminOptions",
     "IpoptOptions",
-    "CreateSolverType",
     "GurobipySolver",
     "NevergradGenericOptions",
     "NevergradGenericSolver",
     "PersistentGurobipySolver",
     "ProximalSolver",
     "PyomoBonminSolver",
+    "PyomoCBCSolver",
     "PyomoGurobiSolver",
     "PyomoIpoptSolver",
     "ScipyDeSolver",
@@ -36,7 +37,7 @@ __all__ = [
     "guess_best_solver",
 ]
 
-from desdeo.tools.generics import CreateSolverType, SolverOptions, SolverResults
+from desdeo.tools.generics import BaseSolver, SolverOptions, SolverResults
 from desdeo.tools.gurobipy_solver_interfaces import (
     GurobipySolver,
     PersistentGurobipySolver,
@@ -51,6 +52,7 @@ from desdeo.tools.pyomo_solver_interfaces import (
     BonminOptions,
     IpoptOptions,
     PyomoBonminSolver,
+    PyomoCBCSolver,
     PyomoGurobiSolver,
     PyomoIpoptSolver,
 )

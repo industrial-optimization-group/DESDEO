@@ -88,7 +88,7 @@ model itself has also the field `scenario_keys`, which is used indicate
 which scenarios haven been defined for the `Problem`. When this field
 is `None`, it means the `Problem` has no defined scenarios.
 
-### Common field for computable models
+### Common fields for computable models
 
 The computable models that are used to construct a `Problem` all have some common
 fields defined for them. The computable models are `Objective`, `Constraint`,
@@ -161,11 +161,43 @@ and an example of the JSON object corresponding to the schema looks like:
 </details>
 </br>
 
+### TensorConstant
+
+The `TensorConstant` model defines an indexed constant with the fields
+`name`, `symbol`, `shape`, and `values`. The `name is the name of the
+constant, for example "Weights", the `symbol` is the constant's mathematical
+symbol, for example "A", `shape` defines the sizes of the dimensions of the
+constant, and `values` defines the values represented by the constant.
+`TensorConstant` is an indexed value, which means it can represent
+tensors, such as vectors and matrices.
+
+The JSON schema of `TensorConstant` looks as follows:
+
+<details>
+<summary><b>Click to expand</b></summary>
+
+```json
+{{ get_tensor_constant_info()[0] }}
+```
+</details>
+</br>
+
+and an example of the JSON object corresponding to the schema looks like:
+
+<details>
+<summary><b>Click to expand</b></summary>
+
+```json
+{{ get_tensor_constant_info()[1] }}
+```
+</details>
+</br>
+
 ### Variable
 
 The `Variable` model defines a decision variable with the fields
-`name`, `symbol`, `variable_type`, `lowerbounds`,
-`upperbounds`, and `initial_value`.
+`name`, `symbol`, `variable_type`, `lowerbound`,
+`upperbound`, and `initial_value`.
 The `name` and `symbol` represent the name and mathematical symbol of the variable.
 The field `variable_type` represents the variable's type, either "real", "integer",
 or "binary". Lastly, the `initial_value` field is the initial value of the variable. This
@@ -189,6 +221,43 @@ and an example of the JSON object corresponding to the schema looks like:
 
 ```json
 {{ get_variable_info()[1]}}
+```
+</details>
+</br>
+
+### TensorVariable
+
+The `TensorVariable` model defines a decision variable with the fields
+`name`, `symbol`, `variable_type`, `shape`, `lowerbounds`,
+`upperbounds`, and `initial_values`.
+The `name` and `symbol` represent the name and mathematical symbol of the variable.
+The field `variable_type` represents the variable's element types, either "real", "integer",
+or "binary". Lastly, the `initial_values` field defines the initial values contained in the 
+variable. This
+information can be used by some optimizers found in DESDEO in finding an optimal solution
+to, e.g., a scalarized variant of the problem the variable is part of.
+`TensorVariable` is an indexed value, which means it can represent
+tensors, such as vectors and matrices.
+
+The JSON schema
+`TensorVariable` looks as follows:
+
+<details>
+<summary><b>Click to expand</b></summary>
+
+```json
+{{ get_tensor_variable_info()[0]}}
+```
+</details>
+</br>
+
+and an example of the JSON object corresponding to the schema looks like:
+
+<details>
+<summary><b>Click to expand</b></summary>
+
+```json
+{{ get_tensor_variable_info()[1]}}
 ```
 </details>
 </br>
@@ -382,7 +451,7 @@ the `func` field in a `ScalarizationModel` can contain the symbol referencing
 the `func` field of an `ExtraFunction`, or the value of a `Constant`, for instance. This is
 also an important fact to keep in mind when parsing the a `Problem` model from one
 representation to another. This will be discussed in more detail in the 
-section [Parsing and Evaluation](./parsing_and_evaluating.md/#parsing-and-evaluating-problems).
+section [Parsing and Evaluating Problems](./parsing_and_evaluating.md/#parsing-and-evaluating-problems).
 
 It is assumed that any expression in a `func` field, that is not a numerical value,
 refers to either a symbol or a mathematical operation. In what follows, the
@@ -407,11 +476,35 @@ append a `_min` to symbols to indicate that the expression the symbol
  expect these symbols to be available. Users are therefore advised to
  avoid symbols that end in a `_min`.
 
-### Supported expressions
+### Scalar and indexed expressions
+
+DESDEO supports two kinds of expresssions: scalar and indexed ones. A scalar
+expression represents a single value or variable, while an indexed
+expression represents a collection of values or variables. For instance,
+an instance of the `Variable` or `Constant` model would
+represent a scalar expression, and an instance of the `TensorVariable`
+or `TensorConstant` would represent an indexed expression. 
+
+Both scalar and indexed expression may be combined, such
+as taking the dot product of two indexed expressions representing
+vectors and adding a scalar to it. Some operators work only
+with scalar expressions, while others work with only indexed ones.
+Please refer to the table in the next section for further details
+on which operations support which type of expression.
+
+!!! note
+    When modeling a problem that contains indexed expressions,
+    it is important to choose a solver that supports indexed expressions.
+    Please refer to the section 
+    [Summary of Solvers](./solvers.md/#summary-of-solvers)
+    for further details on which solvers support solving problems with
+    indexed expressions and their operators.
+
+### Supported Operations
 
 Expressions representing mathematical operations are
 automatically identified by DESDEO. The expressions
-are case sensitive. Currently supported expressions are listed
+are case sensitive. Currently supported operations are listed
 in the table below:
 
 !!! note
@@ -419,34 +512,36 @@ in the table below:
     For operators without this equivalent, the operator will
     still work in infix notation, e.g., `Sin(x) + 3`.
 
-| Expression  | Explanation                                 |
-|-------------|---------------------------------------------|
-| Negate (-)  | Negates the value (changes its sign).       |
-| Add (+)     | Adds two values.                            |
-| Subtract (-)| Subtracts one value from another.           |
-| Multiply (*)| Multiplies two values.                      |
-| Divide (/)  | Divides one value by another.               |
-| Exp         | Calculates the exponential of a value.      |
-| Ln          | Natural logarithm of a value.               |
-| Lb          | Logarithm base 2 of a value.                |
-| Lg          | Logarithm base 10 of a value.               |
-| LogOnePlus  | Natural logarithm of (1 + value).           |
-| Sqrt        | Square root of a value.                     |
-| Square      | Squares a value.                            |
-| Power (**)  | Raises a value to the power of another.     |
-| Abs         | Absolute value.                             |
-| Ceil        | Rounds a value up to the nearest integer.   |
-| Floor       | Rounds a value down to the nearest integer. |
-| Arccos      | Inverse cosine of a value.                  |
-| Arccosh     | Inverse hyperbolic cosine of a value.       |
-| Arcsin      | Inverse sine of a value.                    |
-| Arcsinh     | Inverse hyperbolic sine of a value.         |
-| Arctan      | Inverse tangent of a value.                 |
-| Arctanh     | Inverse hyperbolic tangent of a value.      |
-| Cos         | Cosine of a value.                          |
-| Cosh        | Hyperbolic cosine of a value.               |
-| Sin         | Sine of a value.                            |
-| Sinh        | Hyperbolic sine of a value.                 |
-| Tan         | Tangent of a value.                         |
-| Tanh        | Hyperbolic tangent of a value.              |
-| Max         | Finds the maximum of values.                |
+| Expression  | Explanation                                 | Notes                               |
+|-------------|---------------------------------------------|-------------------------------------|
+| Negate (-)  | Negates the value (changes its sign).       | Element-wise for indexed expressions. Shapes must match. |
+| Add (+)     | Adds two values.                            | Element-wise for indexed expressions. Shapes must match. |
+| Subtract (-)| Subtracts one value from another.           | Element-wise for indexed expressions. Shapes must match. |
+| Multiply (*)| Multiplies two values.                      | Element-wise for indexed expressions. Shapes must match. Indexed expression can be multiplied with a scalar where each indexed element is multiplied by the scalar's value. |
+| Divide (/)  | Divides one value by another.               | Not supported for indexed expressions (use Multiply)|
+| MatMul (@)  | Matrix multiplication.                      | Matrix multiplication for indexed expressions. Does not support scalar expressions.|
+| Sum         | Indexed component summation.                | Sums the elements of an indexed expressions. Does not support scalar expressions.|
+| Exp         | Calculates the exponential of a value.      | Indexed expressions not supported.|
+| Ln          | Natural logarithm of a value.               | Indexed expressions not supported.|
+| Lb          | Logarithm base 2 of a value.                | Indexed expressions not supported.|
+| Lg          | Logarithm base 10 of a value.               | Indexed expressions not supported.|
+| LogOnePlus  | Natural logarithm of (1 + value).           | Indexed expressions not supported.|
+| Sqrt        | Square root of a value.                     | Indexed expressions not supported.|
+| Square      | Squares a value.                            | Indexed expressions not supported.|
+| Power (**)  | Raises a value to the power of another.     | Indexed expressions not supported.|
+| Abs         | Absolute value.                             | Indexed expressions not supported.|
+| Ceil        | Rounds a value up to the nearest integer.   | Indexed expressions not supported.|
+| Floor       | Rounds a value down to the nearest integer. | Indexed expressions not supported.|
+| Arccos      | Inverse cosine of a value.                  | Indexed expressions not supported.|
+| Arccosh     | Inverse hyperbolic cosine of a value.       | Indexed expressions not supported.|
+| Arcsin      | Inverse sine of a value.                    | Indexed expressions not supported.|
+| Arcsinh     | Inverse hyperbolic sine of a value.         | Indexed expressions not supported.|
+| Arctan      | Inverse tangent of a value.                 | Indexed expressions not supported.|
+| Arctanh     | Inverse hyperbolic tangent of a value.      | Indexed expressions not supported.|
+| Cos         | Cosine of a value.                          | Indexed expressions not supported.|
+| Cosh        | Hyperbolic cosine of a value.               | Indexed expressions not supported.|
+| Sin         | Sine of a value.                            | Indexed expressions not supported.|
+| Sinh        | Hyperbolic sine of a value.                 | Indexed expressions not supported.|
+| Tan         | Tangent of a value.                         | Indexed expressions not supported.|
+| Tanh        | Hyperbolic tangent of a value.              | Indexed expressions not supported.|
+| Max         | Finds the maximum of values.                | Indexed expressions not supported.|
