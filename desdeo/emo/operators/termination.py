@@ -129,7 +129,7 @@ class MaxGenerationsTerminator(BaseTerminator):
         """
         super().check()
         self.notify()
-        return self.current_generation >= self.max_generations
+        return self.current_generation > self.max_generations
 
     def update(self, *_, **__) -> None:
         """Do nothing."""
