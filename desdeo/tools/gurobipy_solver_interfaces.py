@@ -18,9 +18,9 @@ def parse_gurobipy_optimizer_results(problem: Problem, evaluator: GurobipyEvalua
     """
     results = evaluator.get_values()
 
-    variable_values = {var.symbol: results[var.symbol] for var in problem.variables}
-    objective_values = {obj.symbol: results[obj.symbol] for obj in problem.objectives}
-    constraint_values = {con.symbol: results[con.symbol] for con in problem.constraints}
+    variable_values = {var.symbol: results[var.symbol] for var in problem.variables} if len(results) > 0 else {}
+    objective_values = {obj.symbol: results[obj.symbol] for obj in problem.objectives} if len(results) > 0 else {}
+    constraint_values = {con.symbol: results[con.symbol] for con in problem.constraints} if len(results) > 0 else {}
     success = evaluator.model.status == gp.GRB.OPTIMAL
     if evaluator.model.status == gp.GRB.OPTIMAL:
         status = "Optimal solution found."

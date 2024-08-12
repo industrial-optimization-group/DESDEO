@@ -75,6 +75,26 @@ def variable_dict_to_numpy_array(problem: Problem, variable_dict: dict[str, floa
         return np.array([variable_dict[variable.symbol][0] for variable in problem.variables])
     return np.array([variable_dict[variable.symbol] for variable in problem.variables])
 
+def variable_dict_to_numpy_array_as_group(problem: Problem, variable_dict: dict[str, list[float]]) -> np.ndarray:
+    """Takes a dict with a decision variable vector and returns a numpy array.
+
+    Takes a dict with the keys being decision variable symbols and the values
+    being the corresponding variable values. Returns a numpy array
+    with the decision variable values in the same order they have been defined in
+    the original problem.
+
+    Args:
+        problem (Problem): the problem the objective dict belongs to.
+        variable_dict (dict[str, list[float]]): the dict with the decision variable values.
+
+    Returns:
+        np.ndarray: a numpy array with the decision variable values in the order they are
+            present in problem.
+    """
+    if not isinstance(variable_dict[problem.variables[0].symbol], list):
+        raise ValueError("The variable_dict doesn't have multiple values for a decision variable.")
+    return np.array([variable_dict[variable.symbol] for variable in problem.variables])
+
 
 def get_nadir_dict(problem: Problem) -> dict[str, float]:
     """Return a dict representing a problem's nadir point.

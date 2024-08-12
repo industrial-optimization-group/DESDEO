@@ -551,6 +551,9 @@ async def iterate(
             num_desired=len(requests) - 1 if len(requests) > 2 else 2,
         )
 
+        # Move on only with successful results
+        results = [r for r in results if r.success and len(r.optimal_objectives.values()) > 0]
+
         # See if the results include duplicates and remove them
         duplicate_indices = set()
         for i in range(len(results) - 1):
