@@ -19,6 +19,7 @@ from desdeo.problem.schema import (
     TensorVariable,
     Variable,
     VariableTypeEnum
+
 )
 
 
@@ -41,7 +42,7 @@ class GurobipyEvaluator:
     ]
     constants: dict[str, int | float | list[int] | list[float]]
 
-    model:gp.Model
+    model: gp.Model
 
     def __init__(self, problem: Problem):
         """Initialized the evaluator.
@@ -185,8 +186,9 @@ class GurobipyEvaluator:
 
         return constants
 
-    def init_extras(self, problem: Problem) -> dict[str,
-            gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr | gp.GenExpr | int | float]:
+    def init_extras(
+        self, problem: Problem
+    ) -> dict[str, gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr | gp.GenExpr | int | float]:
         """Add extra function expressions to a Gurobipy Model.
 
         Gurobi does not support extra expressions natively, so this function instead
@@ -206,16 +208,17 @@ class GurobipyEvaluator:
             GurobipyModel: the GurobipyModel with the expressions added as attributes.
         """
         extra_functions: dict[
-                str, gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr | gp.GenExpr | int | float
-            ] = {}
+            str, gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr | gp.GenExpr | int | float
+        ] = {}
 
         for extra in problem.extra_funcs:
             extra_functions[extra.symbol] = self.parse(extra.func, callback=self.get_expression_by_name)
 
         return extra_functions
 
-    def init_objectives(self, problem: Problem) -> dict[str,
-                gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr]:
+    def init_objectives(
+        self, problem: Problem
+    ) -> dict[str, gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr]:
         """Add objective function expressions to a Gurobipy Model.
 
         Does not yet add any actual gurobipy optimization objectives, only creates a dict containing the
@@ -244,7 +247,7 @@ class GurobipyEvaluator:
             objective_functions[obj.symbol] = gp_expr
 
             # the obj.symbol_min objectives are used when optimizing and building scalarizations etc...
-            objective_functions[f"{obj.symbol}_min"] = (-gp_expr if obj.maximize else gp_expr)
+            objective_functions[f"{obj.symbol}_min"] = -gp_expr if obj.maximize else gp_expr
 
         return objective_functions
 
@@ -279,8 +282,9 @@ class GurobipyEvaluator:
         self.model.update()
         return self.model
 
-    def init_scalarizations(self, problem: Problem) -> dict[
-        str, gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr]:
+    def init_scalarizations(
+        self, problem: Problem
+    ) -> dict[str, gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr]:
         """Add scalrization expressions to a gurobipy model.
 
         Scalarizations work identically to objectives, except they are stored in a different
@@ -353,7 +357,7 @@ class GurobipyEvaluator:
         self.objective_functions[obj.symbol] = gp_expr
 
         # the obj.symbol_min objectives are used when optimizing and building scalarizations etc...
-        self.objective_functions[f"{obj.symbol}_min"] = (-gp_expr if obj.maximize else gp_expr)
+        self.objective_functions[f"{obj.symbol}_min"] = -gp_expr if obj.maximize else gp_expr
 
     def add_scalarization_function(self, scal: ScalarizationFunction):
         """Adds a scalrization expression to a gurobipy model.
@@ -365,7 +369,7 @@ class GurobipyEvaluator:
         Args:
             scal (ScalarizationFunction): The scalarization function to be added.
         """
-        self.scalarizations[scal.symbol] = self.parse(scal.func,self.get_expression_by_name)
+        self.scalarizations[scal.symbol] = self.parse(scal.func, self.get_expression_by_name)
 
     def add_variable(self, var: Variable | TensorVariable) -> gp.Var | gp.MVar:
         """Add variables to the GurobipyModel.
@@ -465,6 +469,7 @@ class GurobipyEvaluator:
             elif name in self.constants:
                 expression = self.constants[name]
         return expression
+
 
     def get_values(self) -> dict[str, float | int | bool | list[float] | list[int]]:   # noqa: C901
         """Get the values from the Gurobipy Model in a dict.

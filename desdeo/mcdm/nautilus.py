@@ -18,7 +18,7 @@ from desdeo.problem import (
     get_nadir_dict,
     get_ideal_dict,
 )
-from desdeo.tools.generics import CreateSolverType, SolverResults
+from desdeo.tools.generics import BaseSolver, SolverResults
 from desdeo.tools.scalarization import (  # create_asf, should be add_asf_nondiff probably
     add_lte_constraints,
     add_asf_generic_diff,
@@ -59,7 +59,7 @@ def solve_reachable_solution(
     weights: dict[str, float],
     # improvement_direction: dict[str, float],
     previous_nav_point: dict[str, float],
-    create_solver: CreateSolverType | None = None,
+    solver: BaseSolver | None = None,
 ) -> SolverResults:
     """Calculates the reachable solution on the Pareto optimal front.
 
@@ -76,7 +76,7 @@ def solve_reachable_solution(
             from the preference provided by the DM (weights, ranks, or reference point).
         previous_nav_point (dict[str, float]): the previous navigation point. The reachable solution found
             is always better than the previous navigation point.
-        create_solver (CreateSolverType | None, optional): a function of type CreateSolverType that returns a solver.
+        solver (BaseSolver | None, optional): solver to solve the problem.
             If None, then a solver is utilized bases on the problem's properties. Defaults to None.
         bounds (dict[str, float] | None, optional): the bounds of the problem. Defaults to None.
 
@@ -84,7 +84,7 @@ def solve_reachable_solution(
         SolverResults: the results of the projection.
     """
     # check solver
-    init_solver = guess_best_solver(problem) if create_solver is None else create_solver
+    init_solver = guess_best_solver(problem) if solver is None else solver
 
     # need to convert the preferences to preferential factors?
 
@@ -96,7 +96,7 @@ def solve_reachable_solution(
             symbol="asf",
             reference_point=previous_nav_point,
             weights=weights,
-            reference_in_aug=True,
+            reference_point_aug=previous_nav_point
         )
     else:
         # non-differentiable problem
@@ -105,7 +105,7 @@ def solve_reachable_solution(
             symbol="asf",
             reference_point=previous_nav_point,
             weights=weights,
-            reference_in_aug=True,
+            reference_point_aug=previous_nav_point
         )
 
     # Note: We do not solve the global problem. Instead, we solve this constrained problem:
@@ -125,7 +125,7 @@ def solve_reachable_solution(
 # NAUTILUS initializer and steppers
 
 
-def nautilus_init(problem: Problem, create_solver: CreateSolverType | None = None) -> NAUTILUS_Response:
+def nautilus_init(problem: Problem, solver: BaseSolver | None = None) -> NAUTILUS_Response:
     """Initializes the NAUTILUS method.
 
     Creates the initial response of the method, which sets the navigation point to the nadir point
@@ -133,13 +133,13 @@ def nautilus_init(problem: Problem, create_solver: CreateSolverType | None = Non
 
     Args:
         problem (Problem): The problem to be solved.
-        create_solver (CreateSolverType | None, optional): The solver to use. Defaults to ???.
+        solver (BaseSolver | None, optional): The solver to use. Defaults to None.
 
     Returns:
         NAUTILUS_Response: The initial response of the method.
     """
     nav_point = get_nadir_dict(problem)
-    lower_bounds, upper_bounds = solve_reachable_bounds(problem, nav_point, create_solver=create_solver)
+    lower_bounds, upper_bounds = solve_reachable_bounds(problem, nav_point, solver=solver)
     return NAUTILUS_Response(
         distance_to_front=0,
         navigation_point=nav_point,
@@ -155,7 +155,7 @@ def nautilus_step(  # NOQA: PLR0913
     steps_remaining: int,
     step_number: int,
     nav_point: dict,
-    create_solver: CreateSolverType | None = None,
+    solver: BaseSolver | None = None,
     points: dict[str, float] | None = None,
     ranks: dict[str, int] | None = None,
 ) -> NAUTILUS_Response:
@@ -166,7 +166,7 @@ def nautilus_step(  # NOQA: PLR0913
         steps_remaining (int): The number of steps remaining.
         step_number (int): The current step number. Just used for the response.
         nav_point (dict): The current navigation point.
-        create_solver (CreateSolverType | None, optional): The solver to use. Defaults to None.
+        solver (BaseSolver | None, optional): The solver to use. Defaults to None.
         points (dict[str, float] | None, optional): The points of the objectives. Defaults to None.
         ranks (dict[str, int] | None, optional): The ranks of the objectives. Defaults to None.
 
@@ -190,7 +190,7 @@ def nautilus_step(  # NOQA: PLR0913
 
     # calculate reachable solution (direction).
     # This is inefficient as it is recalculated even if preferences do not change.
-    opt_result = solve_reachable_solution(problem, weights, nav_point, create_solver)
+    opt_result = solve_reachable_solution(problem, weights, nav_point, solver)
 
     if not opt_result.success:
         warn(message="The solver did not converge.", stacklevel=2)
@@ -201,7 +201,7 @@ def nautilus_step(  # NOQA: PLR0913
     new_nav_point = calculate_navigation_point(problem, nav_point, reachable_point, steps_remaining)
 
     # update_bounds
-    lower_bounds, upper_bounds = solve_reachable_bounds(problem, new_nav_point, create_solver)
+    lower_bounds, upper_bounds = solve_reachable_bounds(problem, new_nav_point, solver)
 
     distance = calculate_distance_to_front(problem, new_nav_point, reachable_point)
 
@@ -220,7 +220,7 @@ def __nautilus_all_steps(
     steps_remaining: int,
     preference: dict,
     previous_responses: list[NAUTILUS_Response],
-    create_solver: CreateSolverType | None = None,
+    solver: BaseSolver | None = None,
 ):
     """Performs all steps of the NAUTILUS method.
 
@@ -237,7 +237,7 @@ def __nautilus_all_steps(
         preference (dict): The reference point provided by the DM.
         bounds (dict): The bounds of the problem provided by the DM.
         previous_responses (list[NAUTILUS_Response]): The previous responses of the method.
-        create_solver (CreateSolverType | None, optional): The solver to use. Defaults to None, in which case the
+        solver (BaseSolver | None, optional): The solver to use. Defaults to None, in which case the
             algorithm will guess the best solver for the problem.
 
     Returns:
@@ -258,7 +258,7 @@ def __nautilus_all_steps(
                 step_number=step_number,
                 nav_point=nav_point,
                 preference=preference,
-                create_solver=create_solver,
+                solver=solver,
             )
             first_iteration = False
         else:
@@ -268,7 +268,7 @@ def __nautilus_all_steps(
                 step_number=step_number,
                 nav_point=nav_point,
                 reachable_solution=reachable_solution,
-                create_solver=create_solver,
+                solver=solver,
             )
         response.preference = preference
         responses.append(response)

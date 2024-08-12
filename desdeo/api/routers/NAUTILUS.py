@@ -16,9 +16,9 @@ from desdeo.mcdm.nautilus import (
     get_current_path,
     nautilus_init,
     nautilus_step,
-    step_back_index,
     points_to_weights,
     ranks_to_weights,
+    step_back_index,
 )
 from desdeo.problem.schema import Problem
 
@@ -147,7 +147,7 @@ def iterate(
 ) -> Response:
     """Navigate the NAUTILUS.
 
-    Runs the entire navigation process.
+    Runs the NAUTILUS algorithm one step at a time.
 
     Args:
         request (NavigateRequest): The request to navigate the NAUTILUS 1.

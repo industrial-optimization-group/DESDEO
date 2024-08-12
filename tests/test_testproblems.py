@@ -1,8 +1,10 @@
 """Test some of the test problems found in DESDEO."""
 
 import numpy as np
+import pytest
 
-from desdeo.problem import GenericEvaluator, dtlz2, re21, re22, re23, re24
+from desdeo.problem import GenericEvaluator, dtlz2, re21, re22, re23, re24, forest_problem
+from desdeo.tools import GurobipySolver
 
 
 def test_dtlz2():
@@ -91,3 +93,98 @@ def test_re24():
     for i in range(len(res)):
         obj_values = np.array([res[obj.symbol][i] for obj in problem.objectives])
         assert np.allclose(obj_values, expected_result[i])
+
+
+
+@pytest.mark.forest_problem
+def test_forest_problem():
+    """Test the forest problem implementation."""
+    problem = forest_problem(holding=1, comparing=True)
+    solver = GurobipySolver(problem)
+
+    res = solver.solve("f_1_min")
+    assert np.isclose(res.optimal_objectives["f_1"], 45654.952)
+    assert np.isclose(res.optimal_objectives["f_2"], 1043.729)
+    assert np.isclose(res.optimal_objectives["f_3"], 0.0)
+
+    res = solver.solve("f_2_min")
+    assert np.isclose(res.optimal_objectives["f_1"], 45654.952)
+    assert np.isclose(res.optimal_objectives["f_2"], 1043.729)
+    assert np.isclose(res.optimal_objectives["f_3"], 0.0)
+
+    res = solver.solve("f_3_min")
+    assert np.isclose(res.optimal_objectives["f_1"], 29722.469)
+    assert np.isclose(res.optimal_objectives["f_2"], 259.236)
+    assert np.isclose(res.optimal_objectives["f_3"], 36780.631)
+
+    problem = forest_problem(holding = 2, comparing=True)
+    solver = GurobipySolver(problem)
+
+    res = solver.solve("f_1_min")
+    assert np.isclose(res.optimal_objectives["f_1"], 42937.004)
+    assert np.isclose(res.optimal_objectives["f_2"], 1275.250)
+    assert np.isclose(res.optimal_objectives["f_3"], 0.0)
+
+    res = solver.solve("f_2_min")
+    assert np.isclose(res.optimal_objectives["f_1"], 42937.004)
+    assert np.isclose(res.optimal_objectives["f_2"], 1275.250)
+    assert np.isclose(res.optimal_objectives["f_3"], 0.0)
+
+    res = solver.solve("f_3_min")
+    assert np.isclose(res.optimal_objectives["f_1"], 17555.857)
+    assert np.isclose(res.optimal_objectives["f_2"], -169.233)
+    assert np.isclose(res.optimal_objectives["f_3"], 53632.887)
+
+    problem = forest_problem(holding = 3, comparing=True)
+    solver = GurobipySolver(problem)
+
+    res = solver.solve("f_1_min")
+    assert np.isclose(res.optimal_objectives["f_1"], 82195.014)
+    assert np.isclose(res.optimal_objectives["f_2"], 994.578)
+    assert np.isclose(res.optimal_objectives["f_3"], 0.0)
+
+    res = solver.solve("f_2_min")
+    assert np.isclose(res.optimal_objectives["f_1"], 82195.014)
+    assert np.isclose(res.optimal_objectives["f_2"], 994.578)
+    assert np.isclose(res.optimal_objectives["f_3"], 0.0)
+
+    res = solver.solve("f_3_min")
+    assert np.isclose(res.optimal_objectives["f_1"], 18207.905)
+    assert np.isclose(res.optimal_objectives["f_2"], -2014.855)
+    assert np.isclose(res.optimal_objectives["f_3"], 152149.555)
+
+    problem = forest_problem(holding = 4, comparing=True)
+    solver = GurobipySolver(problem)
+
+    res = solver.solve("f_1_min")
+    assert np.isclose(res.optimal_objectives["f_1"], 70547.896)
+    assert np.isclose(res.optimal_objectives["f_2"], 1120.833)
+    assert np.isclose(res.optimal_objectives["f_3"], 0.0)
+
+    res = solver.solve("f_2_min")
+    assert np.isclose(res.optimal_objectives["f_1"], 70547.896)
+    assert np.isclose(res.optimal_objectives["f_2"], 1120.833)
+    assert np.isclose(res.optimal_objectives["f_3"], 0.0)
+
+    res = solver.solve("f_3_min")
+    assert np.isclose(res.optimal_objectives["f_1"], 17379.117)
+    assert np.isclose(res.optimal_objectives["f_2"], -1467.016)
+    assert np.isclose(res.optimal_objectives["f_3"], 122271.740)
+
+    problem = forest_problem(holding = 5, comparing=True)
+    solver = GurobipySolver(problem)
+
+    res = solver.solve("f_1_min")
+    assert np.isclose(res.optimal_objectives["f_1"], 78183.469)
+    assert np.isclose(res.optimal_objectives["f_2"], 961.411)
+    assert np.isclose(res.optimal_objectives["f_3"], 100.783)
+
+    res = solver.solve("f_2_min")
+    assert np.isclose(res.optimal_objectives["f_1"], 75793.429)
+    assert np.isclose(res.optimal_objectives["f_2"], 994.566)
+    assert np.isclose(res.optimal_objectives["f_3"], 0.0)
+
+    res = solver.solve("f_3_min")
+    assert np.isclose(res.optimal_objectives["f_1"], 10885.988)
+    assert np.isclose(res.optimal_objectives["f_2"], -2202.283)
+    assert np.isclose(res.optimal_objectives["f_3"], 154240.330)
