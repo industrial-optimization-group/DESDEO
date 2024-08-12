@@ -1,6 +1,7 @@
 """Router for NIMBUS."""
 
 from typing import Annotated
+import copy
 
 from fastapi import APIRouter, Depends, HTTPException
 from numpy import allclose
@@ -30,7 +31,7 @@ class NIMBUSResponse(BaseModel):
 
     objective_symbols: list[str] = Field(description="The symbols of the objectives.")
     objective_long_names: list[str] = Field(description="The names of the objectives.")
-    units: list[str] | None = Field(description="The units of the objectives.")
+    units: list[str | None] | None = Field(description="The units of the objectives.")
     is_maximized: list[bool] = Field(description="Whether the objectives are to be maximized or minimized.")
     lower_bounds: list[float] = Field(description="The lower bounds of the objectives.")
     upper_bounds: list[float] = Field(description="The upper bounds of the objectives.")
@@ -165,8 +166,8 @@ def init_nimbus(
         # If there is a solution marked as current, use that. Otherwise just use the first solution in the db
         current_solution = next((sol for sol in solutions if sol.current), solutions[0])
 
-    lower_bounds = []
-    upper_bounds = []
+    lower_bounds = [0.0 for x in range(len(problem.objectives))]
+    upper_bounds = [0.0 for x in range(len(problem.objectives))]
     for i in range(len(problem.objectives)):
         if problem.objectives[i].maximize:
             lower_bounds[i] = nadir[problem.objectives[i].symbol]
@@ -236,19 +237,19 @@ def iterate(
     # Do NIMBUS stuff here.
     results = solve_sub_problems(
         problem=problem,
-        current_objectives=dict(zip(problem.objectives, request.reference_solution, strict=True)),
-        reference_point=dict(zip(problem.objectives, request.preference, strict=True)),
+        current_objectives=dict(zip([obj.symbol for obj in problem.objectives], request.reference_solution, strict=True)),
+        reference_point=dict(zip([obj.symbol for obj in problem.objectives], request.preference, strict=True)),
         num_desired=request.num_solutions,
     )
 
     # See if the results include duplicates and remove them
-    duplicate_indices = []
+    duplicate_indices = set()
     for i in range(len(results) - 1):
         for j in range(i + 1, len(results)):
-            if allclose(list(results[i].optimal_objectives.values()), list(results[i].optimal_objectives.values())):
-                duplicate_indices.append(j)
+            if allclose(list(results[i].optimal_objectives.values()), list(results[j].optimal_objectives.values())):
+                duplicate_indices.add(j)
 
-    for index in sorted(duplicate_indices, reverse=True):
+    for index in sorted(list(duplicate_indices), reverse=True):
         results.pop(index)
 
     # Do database stuff again.
@@ -268,14 +269,17 @@ def iterate(
     for old in old_current_solutions:
         old.current = False
 
+    solutions = copy.deepcopy(previous_solutions)
     for res in results:
         # Check if the results already exist in the database
-        for prev in previous_solutions:
-            if allclose(res.optimal_objectives, prev.objectives):
-                prev.current = True
+        i = -1
+        for i, prev in enumerate(solutions):
+            if allclose(list(res.optimal_objectives.values()), list(prev.objectives)):
+                previous_solutions[i].current = True
+                solutions.pop(i)
                 break
         # If the solution was not found in the database, add it
-        if not prev.current:
+        if i < 0 or not previous_solutions[i].current:
             db.add(
                 SolutionArchive(
                     user=user.index,
@@ -296,8 +300,8 @@ def iterate(
         .all()
     )
 
-    lower_bounds = []
-    upper_bounds = []
+    lower_bounds = [0.0 for x in range(len(problem.objectives))]
+    upper_bounds = [0.0 for x in range(len(problem.objectives))]
     for i in range(len(problem.objectives)):
         if problem.objectives[i].maximize:
             lower_bounds[i] = nadir[problem.objectives[i].symbol]
@@ -430,8 +434,8 @@ def intermediate(
         .all()
     )
 
-    lower_bounds = []
-    upper_bounds = []
+    lower_bounds = [0.0 for x in range(len(problem.objectives))]
+    upper_bounds = [0.0 for x in range(len(problem.objectives))]
     for i in range(len(problem.objectives)):
         if problem.objectives[i].maximize:
             lower_bounds[i] = nadir[problem.objectives[i].symbol]

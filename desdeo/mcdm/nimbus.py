@@ -303,7 +303,11 @@ def solve_sub_problems(  # noqa: PLR0913
     problem_w_nimbus, nimbus_target = add_nimbus_sf(
         problem, "nimbus_sf", classifications, current_objectives, **(scalarization_options or {})
     )
-    nimbus_solver = init_solver(problem_w_nimbus, _solver_options)
+
+    if _solver_options:
+        nimbus_solver = init_solver(problem_w_nimbus, _solver_options)
+    else:
+        nimbus_solver = init_solver(problem_w_nimbus)
 
     solutions.append(nimbus_solver.solve(nimbus_target))
 
@@ -312,7 +316,10 @@ def solve_sub_problems(  # noqa: PLR0913
         add_stom_sf = add_stom_sf_diff if is_smooth else add_stom_sf_nondiff
 
         problem_w_stom, stom_target = add_stom_sf(problem, "stom_sf", reference_point, **(scalarization_options or {}))
-        stom_solver = init_solver(problem_w_stom, _solver_options)
+        if _solver_options:
+            stom_solver = init_solver(problem_w_stom, _solver_options)
+        else:
+            stom_solver = init_solver(problem_w_stom)
 
         solutions.append(stom_solver.solve(stom_target))
 
@@ -321,7 +328,11 @@ def solve_sub_problems(  # noqa: PLR0913
         add_asf = add_asf_diff if is_smooth else add_asf_nondiff
 
         problem_w_asf, asf_target = add_asf(problem, "asf", reference_point, **(scalarization_options or {}))
-        asf_solver = init_solver(problem_w_asf, _solver_options)
+
+        if _solver_options:
+            asf_solver = init_solver(problem_w_asf, _solver_options)
+        else:
+            asf_solver = init_solver(problem_w_asf)
 
         solutions.append(asf_solver.solve(asf_target))
 
@@ -332,7 +343,11 @@ def solve_sub_problems(  # noqa: PLR0913
         problem_w_guess, guess_target = add_guess_sf(
             problem, "guess_sf", reference_point, **(scalarization_options or {})
         )
-        guess_solver = init_solver(problem_w_guess, _solver_options)
+
+        if _solver_options:
+            guess_solver = init_solver(problem_w_guess, _solver_options)
+        else:
+            guess_solver = init_solver(problem_w_guess)
 
         solutions.append(guess_solver.solve(guess_target))
 
@@ -396,6 +411,9 @@ def generate_starting_point(
     add_asf = add_asf_diff if is_smooth else add_asf_nondiff
 
     problem_w_asf, asf_target = add_asf(problem, "asf", reference_point, **(scalarization_options or {}))
-    asf_solver = init_solver(problem_w_asf, _solver_options)
+    if _solver_options:
+        asf_solver = init_solver(problem_w_asf, _solver_options)
+    else:
+        asf_solver = init_solver(problem_w_asf)
 
     return asf_solver.solve(asf_target)
