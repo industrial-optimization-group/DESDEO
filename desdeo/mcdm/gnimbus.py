@@ -122,45 +122,42 @@ def solve_sub_problems(  # noqa: PLR0913
 
     solutions.append(nimbus_solver.solve(nimbus_target))
 
-    if num_desired > 1:
-        # solve STOM
-        add_stom_sf = add_group_stom_sf_diff if is_smooth else add_group_stom_sf
+    # solve STOM
+    add_stom_sf = add_group_stom_sf_diff if is_smooth else add_group_stom_sf
 
-        problem_w_stom, stom_target = add_stom_sf(problem, "stom_sf", reference_points, **(scalarization_options or {}))
-        if _solver_options:
-            stom_solver = init_solver(problem_w_stom, _solver_options)
-        else:
-            stom_solver = init_solver(problem_w_stom)
+    problem_w_stom, stom_target = add_stom_sf(problem, "stom_sf", reference_points, **(scalarization_options or {}))
+    if _solver_options:
+        stom_solver = init_solver(problem_w_stom, _solver_options)
+    else:
+        stom_solver = init_solver(problem_w_stom)
 
-        solutions.append(stom_solver.solve(stom_target))
+    solutions.append(stom_solver.solve(stom_target))
 
-    if num_desired > 2:  # noqa: PLR2004
-        # solve ASF
-        add_asf = add_group_asf_diff if is_smooth else add_group_asf
+    # solve ASF
+    add_asf = add_group_asf_diff if is_smooth else add_group_asf
 
-        problem_w_asf, asf_target = add_asf(problem, "asf", reference_points, **(scalarization_options or {}))
+    problem_w_asf, asf_target = add_asf(problem, "asf", reference_points, **(scalarization_options or {}))
 
-        if _solver_options:
-            asf_solver = init_solver(problem_w_asf, _solver_options)
-        else:
-            asf_solver = init_solver(problem_w_asf)
+    if _solver_options:
+        asf_solver = init_solver(problem_w_asf, _solver_options)
+    else:
+        asf_solver = init_solver(problem_w_asf)
 
-        solutions.append(asf_solver.solve(asf_target))
+    solutions.append(asf_solver.solve(asf_target))
 
-    if num_desired > 3:  # noqa: PLR2004
-        # solve GUESS
-        add_guess_sf = add_group_guess_sf_diff if is_smooth else add_group_guess_sf
+    # solve GUESS
+    add_guess_sf = add_group_guess_sf_diff if is_smooth else add_group_guess_sf
 
-        problem_w_guess, guess_target = add_guess_sf(
-            problem, "guess_sf", reference_points, **(scalarization_options or {})
-        )
+    problem_w_guess, guess_target = add_guess_sf(
+        problem, "guess_sf", reference_points, **(scalarization_options or {})
+    )
 
-        if _solver_options:
-            guess_solver = init_solver(problem_w_guess, _solver_options)
-        else:
-            guess_solver = init_solver(problem_w_guess)
+    if _solver_options:
+        guess_solver = init_solver(problem_w_guess, _solver_options)
+    else:
+        guess_solver = init_solver(problem_w_guess)
 
-        solutions.append(guess_solver.solve(guess_target))
+    solutions.append(guess_solver.solve(guess_target))
 
     return solutions
 
