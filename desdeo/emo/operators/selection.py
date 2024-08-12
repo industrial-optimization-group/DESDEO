@@ -79,6 +79,22 @@ class RVEASelector(BaseSelector):
         self.selection = None
         self.penalty = None
         self.parameter_adaptation_strategy = parameter_adaptation_strategy
+        match self.verbosity:
+            case 0:
+                self.provided_topics = []
+            case 1:
+                self.provided_topics = [
+                    SelectorMessageTopics.REFERENCE_VECTORS,
+                    SelectorMessageTopics.STATE,
+                ]
+            case 2:
+                self.provided_topics = [
+                    SelectorMessageTopics.REFERENCE_VECTORS,
+                    SelectorMessageTopics.STATE,
+                    SelectorMessageTopics.SELECTED_INDIVIDUALS,
+                    SelectorMessageTopics.SELECTED_TARGETS,
+                    SelectorMessageTopics.SELECTED_CONSTRAINTS,
+                ]
 
     def do(
         self,
@@ -221,18 +237,60 @@ class RVEASelector(BaseSelector):
     def state(self) -> Sequence[Message] | None:
         if self.verbosity == 0 or self.selection is None:
             return None
-        return [
+        if self.verbosity == 1:
+            return [
+                Array2DMessage(
+                    topic=SelectorMessageTopics.REFERENCE_VECTORS,
+                    value=self.reference_vectors.tolist(),
+                    source=self.__class__.__name__,
+                ),
+                DictMessage(
+                    topic=SelectorMessageTopics.STATE,
+                    value={
+                        "ideal": self.ideal,
+                        "nadir": self.nadir,
+                        "partial_penalty_factor": self._partial_penalty_factor(),
+                    },
+                    source=self.__class__.__name__,
+                ),
+            ]  # verbosity == 2
+        state_verbose = [
             Array2DMessage(
-                topic=SelectorMessageTopics.SELECTION, value=self.selection.tolist(), source=self.__class__.__name__
+                topic=SelectorMessageTopics.REFERENCE_VECTORS,
+                value=self.reference_vectors.tolist(),
+                source=self.__class__.__name__,
             ),
-            """ "reference_vectors": self.reference_vectors,
-            "adapted_reference_vectors": self.adapted_reference_vectors,
-            "gamma": self.reference_vectors_gamma,
-            "alpha": self.alpha,
-            "ideal": self.ideal,
-            "partial_penalty_factor": self._partial_penalty_factor(),
-            "selection": self.selection, """,
+            DictMessage(
+                topic=SelectorMessageTopics.STATE,
+                value={
+                    "ideal": self.ideal,
+                    "nadir": self.nadir,
+                    "partial_penalty_factor": self._partial_penalty_factor(),
+                },
+                source=self.__class__.__name__,
+            ),
+            Array2DMessage(
+                topic=SelectorMessageTopics.SELECTED_INDIVIDUALS,
+                value=self.selection[0].tolist(),
+                source=self.__class__.__name__,
+            ),
+            Array2DMessage(
+                topic=SelectorMessageTopics.SELECTED_TARGETS,
+                value=self.selection[1].tolist(),
+                source=self.__class__.__name__,
+            ),
         ]
+
+        if self.selection[2] is not None:
+            state_verbose.append(
+                Array2DMessage(
+                    topic=SelectorMessageTopics.SELECTED_CONSTRAINTS,
+                    value=self.selection[2].tolist(),
+                    source=self.__class__.__name__,
+                )
+            )
+
+        return state_verbose
 
     def _adapt(self):
         self.adapted_reference_vectors = self.reference_vectors

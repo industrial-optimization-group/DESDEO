@@ -74,6 +74,7 @@ mkdocstrings = { extras = ["python"], version = "^0.24.1" }
 mkdocs-material = "^9.5.12"
 pytest-xdist = "^3.5.0"
 pytest-testmon = "^2.1.1"
+snakeviz = "^2.2.0"
 
 
 [tool.ruff]
