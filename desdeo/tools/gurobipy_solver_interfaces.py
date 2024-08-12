@@ -2,7 +2,7 @@
 
 import gurobipy as gp
 
-from desdeo.problem import Constraint, GurobipyEvaluator, Objective, Problem, ScalarizationFunction, Variable
+from desdeo.problem import Constraint, GurobipyEvaluator, Objective, Problem, ScalarizationFunction, TensorVariable, Variable
 from desdeo.tools.generics import PersistentSolver, SolverResults
 
 
@@ -165,7 +165,9 @@ class PersistentGurobipySolver(PersistentSolver):
         for scal in scalarization:
             self.evaluator.add_scalarization_function(scal)
 
-    def add_variable(self, variable: Variable | list[Variable]) -> gp.Var | list[gp.Var]:
+    def add_variable(
+        self, variable: Variable | TensorVariable | list[Variable] | list[TensorVariable]
+    ) -> gp.Var | gp.MVar | list[gp.Var] | list[gp.MVar]:
         """Add one or more variables to the solver.
 
         If adding a lot of variables or dealing with a large model, this function
@@ -184,7 +186,7 @@ class PersistentGurobipySolver(PersistentSolver):
                 variable argument was a list.
         """
         if isinstance(variable, list):
-            var_list = list[gp.Var]
+            var_list = list[gp.Var | gp.MVar]
             for var in variable:
                 var_list.append(self.evaluator.add_variable(var))
             return var_list
