@@ -19,7 +19,7 @@ from desdeo.problem import (
     numpy_array_to_objective_dict,
     objective_dict_to_numpy_array,
 )
-from desdeo.tools.generics import CreateSolverType, SolverResults
+from desdeo.tools.generics import BaseSolver, SolverResults
 from desdeo.tools.scalarization import (
     add_asf_diff,
     add_asf_nondiff,
@@ -94,7 +94,7 @@ def solve_reachable_bounds(
     problem: Problem,
     navigation_point: dict[str, float],
     bounds: dict[str, float] | None = None,
-    create_solver: CreateSolverType | None = None,
+    solver: BaseSolver | None = None,
     bound_th: float = 1e-3,
 ) -> tuple[dict[str, float], dict[str, float]]:
     """Computes the current reachable (upper and lower) bounds of the solutions in the objective space.
@@ -108,7 +108,7 @@ def solve_reachable_bounds(
             reachable area. The key is the objective function's symbol and the value
             the navigation point.
         bounds (dict[str, float]): the user provided bounds preference.
-        create_solver (CreateSolverType | None, optional): a function of type CreateSolverType that returns a solver.
+        solver (BaseSolver | None, optional): solver used to solve the problem.
             If None, then a solver is utilized bases on the problem's properties. Defaults to None.
         bound_th (float, optional): a threshold for comparing the bounds to the set epsilon constraints.
 
@@ -129,7 +129,7 @@ def solve_reachable_bounds(
     }
 
     # if a solver creator was provided, use that, else, guess the best one
-    solver_init = guess_best_solver(problem) if create_solver is None else create_solver
+    solver_init = guess_best_solver(problem) if solver is None else solver
 
     lower_bounds = {}
     upper_bounds = {}
@@ -247,7 +247,7 @@ def solve_reachable_solution(
     problem: Problem,
     reference_point: dict[str, float],
     previous_nav_point: dict[str, float],
-    create_solver: CreateSolverType | None = None,
+    solver: BaseSolver | None = None,
     bounds: dict[str, float] | None = None,
 ) -> SolverResults:
     """Calculates the reachable solution on the Pareto optimal front.
@@ -264,7 +264,7 @@ def solve_reachable_solution(
         reference_point (dict[str, float]): the reference point to project on the Pareto optimal front.
         previous_nav_point (dict[str, float]): the previous navigation point. The reachable solution found
             is always better than the previous navigation point.
-        create_solver (CreateSolverType | None, optional): a function of type CreateSolverType that returns a solver.
+        solver (BaseSolver | None, optional): solver to solve the problem.
             If None, then a solver is utilized bases on the problem's properties. Defaults to None.
         bounds (dict[str, float] | None, optional): the bounds of the problem. Defaults to None.
 
@@ -272,7 +272,7 @@ def solve_reachable_solution(
         SolverResults: the results of the projection.
     """
     # check solver
-    init_solver = guess_best_solver(problem) if create_solver is None else create_solver
+    init_solver = guess_best_solver(problem) if solver is None else solver
 
     # create and add scalarization function
     if problem.is_twice_differentiable:
@@ -343,7 +343,7 @@ def calculate_distance_to_front(
 # NAUTILUS Navigator initializer and steppers
 
 
-def navigator_init(problem: Problem, create_solver: CreateSolverType | None = None) -> NAUTILUS_Response:
+def navigator_init(problem: Problem, solver: BaseSolver | None = None) -> NAUTILUS_Response:
     """Initializes the NAUTILUS method.
 
     Creates the initial response of the method, which sets the navigation point to the nadir point
@@ -351,13 +351,13 @@ def navigator_init(problem: Problem, create_solver: CreateSolverType | None = No
 
     Args:
         problem (Problem): The problem to be solved.
-        create_solver (CreateSolverType | None, optional): The solver to use. Defaults to ???.
+        solver (BaseSolver | None, optional): The solver to use. Defaults to None.
 
     Returns:
         NAUTILUS_Response: The initial response of the method.
     """
     nav_point = get_nadir_dict(problem)
-    lower_bounds, upper_bounds = solve_reachable_bounds(problem, nav_point, create_solver=create_solver)
+    lower_bounds, upper_bounds = solve_reachable_bounds(problem, nav_point, solver=solver)
     return NAUTILUS_Response(
         distance_to_front=0,
         navigation_point=nav_point,
@@ -375,7 +375,7 @@ def navigator_step(  # NOQA: PLR0913
     step_number: int,
     nav_point: dict,
     bounds: dict | None = None,
-    create_solver: CreateSolverType | None = None,
+    solver: BaseSolver | None = None,
     reference_point: dict | None = None,
     reachable_solution: dict[str, float] | None = None,
 ) -> NAUTILUS_Response:
@@ -386,7 +386,7 @@ def navigator_step(  # NOQA: PLR0913
         steps_remaining (int): The number of steps remaining.
         step_number (int): The current step number. Just used for the response.
         nav_point (dict): The current navigation point.
-        create_solver (CreateSolverType | None, optional): The solver to use. Defaults to None.
+        solver (BaseSolver | None, optional): The solver to use. Defaults to None.
         reference_point (dict | None, optional): The reference point provided by the DM. Defaults to None, in which
         case it is assumed that the DM has not changed their preference. The algorithm uses the last reachable solution,
         which must be provided in this case.
@@ -408,7 +408,7 @@ def navigator_step(  # NOQA: PLR0913
         raise NautilusNavigatorError("Only one of reference_point or reachable_solution should be provided.")
 
     if reference_point is not None:
-        opt_result = solve_reachable_solution(problem, reference_point, nav_point, create_solver, bounds=bounds)
+        opt_result = solve_reachable_solution(problem, reference_point, nav_point, solver, bounds=bounds)
         reachable_point = opt_result.optimal_objectives
     elif reachable_solution is not None:
         reachable_point = reachable_solution
@@ -419,7 +419,7 @@ def navigator_step(  # NOQA: PLR0913
     # update_bounds
 
     lower_bounds, upper_bounds = solve_reachable_bounds(
-        problem, new_nav_point, create_solver=create_solver, bounds=bounds
+        problem, new_nav_point, solver=solver, bounds=bounds
     )
 
     distance = calculate_distance_to_front(problem, new_nav_point, reachable_point)
@@ -444,7 +444,7 @@ def navigator_all_steps(
     reference_point: dict,
     previous_responses: list[NAUTILUS_Response],
     bounds: dict | None = None,
-    create_solver: CreateSolverType | None = None,
+    solver: BaseSolver | None = None,
 ):
     """Performs all steps of the NAUTILUS method.
 
@@ -461,7 +461,7 @@ def navigator_all_steps(
         reference_point (dict): The reference point provided by the DM.
         bounds (dict): The bounds of the problem provided by the DM.
         previous_responses (list[NAUTILUS_Response]): The previous responses of the method.
-        create_solver (CreateSolverType | None, optional): The solver to use. Defaults to None, in which case the
+        solver (BaseSolver | None, optional): The solver to use. Defaults to None, in which case the
             algorithm will guess the best solver for the problem.
 
     Returns:
@@ -483,7 +483,7 @@ def navigator_all_steps(
                 nav_point=nav_point,
                 reference_point=reference_point,
                 bounds=bounds,
-                create_solver=create_solver,
+                solver=solver,
             )
             first_iteration = False
         else:
@@ -494,7 +494,7 @@ def navigator_all_steps(
                 nav_point=nav_point,
                 reachable_solution=reachable_solution,
                 bounds=bounds,
-                create_solver=create_solver,
+                solver=solver,
             )
         response.reference_point = reference_point
         responses.append(response)
