@@ -575,7 +575,7 @@ def add_nimbus_sf_diff(
     ideal_point, nadir_point = get_corrected_ideal_and_nadir(problem)
 
     # define the auxiliary variable
-    alpha = Variable(name="alpha", symbol="_alpha", variable_type=VariableTypeEnum.real, initial_value=1.0, lowerbound=1.0, upperbound=3.0,)
+    alpha = Variable(name="alpha", symbol="_alpha", variable_type=VariableTypeEnum.real, lowerbound=-float("Inf"), upperbound=float("Inf"), initial_value=1.0)
 
     # define the objective function of the scalarization
     aug_expr = " + ".join(
@@ -930,7 +930,7 @@ def add_stom_sf_diff(
     corrected_rp = get_corrected_reference_point(problem, reference_point)
 
     # define the auxiliary variable
-    alpha = Variable(name="alpha", symbol="_alpha", variable_type=VariableTypeEnum.real, initial_value=1.0, lowerbound=1.0, upperbound=3.0,)
+    alpha = Variable(name="alpha", symbol="_alpha", variable_type=VariableTypeEnum.real, lowerbound=-float("Inf"), upperbound=float("Inf"), initial_value=1.0)
 
     # define the objective function of the scalarization
     aug_expr = " + ".join(
@@ -1118,7 +1118,7 @@ def add_guess_sf_diff(
     ]
 
     # define the auxiliary variable
-    alpha = Variable(name="alpha", symbol="_alpha", variable_type=VariableTypeEnum.real, initial_value=1.0, lowerbound=1.0, upperbound=3.0,)
+    alpha = Variable(name="alpha", symbol="_alpha", variable_type=VariableTypeEnum.real, lowerbound=-float("Inf"), upperbound=float("Inf"), initial_value=1.0)
 
     # define the objective function of the scalarization
     aug_expr = " + ".join(
@@ -1328,7 +1328,7 @@ def add_asf_diff(
     corrected_rp = get_corrected_reference_point(problem, reference_point)
 
     # define the auxiliary variable
-    alpha = Variable(name="alpha", symbol="_alpha", variable_type=VariableTypeEnum.real, initial_value=0.0, lowerbound=float('-inf'), upperbound=float('inf'),)
+    alpha = Variable(name="alpha", symbol="_alpha", variable_type=VariableTypeEnum.real, lowerbound=-float("Inf"), upperbound=float("Inf"), initial_value=1.0)
 
     # define the objective function of the scalarization
     aug_expr = " + ".join(
