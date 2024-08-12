@@ -1328,7 +1328,7 @@ def add_asf_diff(
     corrected_rp = get_corrected_reference_point(problem, reference_point)
 
     # define the auxiliary variable
-    alpha = Variable(name="alpha", symbol="_alpha", variable_type=VariableTypeEnum.real, initial_value=1.0, lowerbound=1.0, upperbound=3.0,)
+    alpha = Variable(name="alpha", symbol="_alpha", variable_type=VariableTypeEnum.real, initial_value=0.0, lowerbound=float('-inf'), upperbound=float('inf'),)
 
     # define the objective function of the scalarization
     aug_expr = " + ".join(
