@@ -43,11 +43,6 @@ bcrypt = "^4.1.2"
 mkdocs-include-markdown-plugin = { extras = ["cache"], version = "^6.0.5" }
 gurobipy = "^11.0.1"                                                             #96
 
-[tool.poetry.extras]
-standard = ["polars"]
-legacy = ["polars-lts-cpu"]
-viz = ["seaborn", "plotly"] # We could make viz packages optional in the future.
-
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.3.0"
