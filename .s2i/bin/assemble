@@ -54,12 +54,6 @@ mv /tmp/src/* "$HOME"
 fix-permissions /opt/app-root -P
 
 
-if [[ ! -z "$PIP_INDEX_URL" ]]; then
-  echo "---> Creating pip.ini config file"
-  echo "[global]
-index-url = $PIP_INDEX_URL" >> /opt/app-root/src/pip.ini
-fi
-
 if [[ ! -z "$UPGRADE_PIP_TO_LATEST" ]]; then
   echo "---> Upgrading pip, setuptools and wheel to latest version ..."
   if ! pip install -U pip setuptools wheel; then
@@ -68,38 +62,8 @@ if [[ ! -z "$UPGRADE_PIP_TO_LATEST" ]]; then
   fi
 fi
 
-if [[ ! -z "$ENABLE_PIPENV" ]]; then
-  if [[ ! -z "$PIN_PIPENV_VERSION" ]]; then
-    # Add == as a prefix to pipenv version, if defined
-    PIN_PIPENV_VERSION="==$PIN_PIPENV_VERSION"
-  fi
-  install_tool "pipenv" "$PIN_PIPENV_VERSION"
-  echo "---> Installing dependencies via pipenv ..."
-  if [[ -f Pipfile ]]; then
-    pipenv install --deploy
-  elif [[ -f requirements.txt ]]; then
-    pipenv install -r requirements.txt
-  fi
-  # pipenv check
-elif [[ ! -z "$ENABLE_MICROPIPENV" ]]; then
-  install_tool "micropipenv" "[toml]"
-  echo "---> Installing dependencies via micropipenv ..."
-  # micropipenv detects Pipfile.lock and requirements.txt in this order
-  micropipenv install --deploy
-elif [[ -f requirements.txt ]]; then
-  echo "---> Installing dependencies ..."
-  pip install -r requirements.txt
-fi
+pip install .[standard,api]
 
-if [[ ( -f setup.py || -f setup.cfg ) && -z "$DISABLE_SETUP_PY_PROCESSING" ]]; then
-  echo "---> Installing application (via setup.{py,cfg})..."
-  pip install .[standard,api]
-fi
-
-if [[ -f pyproject.toml && -z "$DISABLE_PYPROJECT_TOML_PROCESSING" ]]; then
-  echo "---> Installing application (via pyproject.toml)..."
-  pip install .
-fi
 
 if should_collectstatic; then
   (
