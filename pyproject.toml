@@ -14,8 +14,7 @@ python = "^3.12"
 # Math stuff
 numpy = "^1.26.2"
 scipy = "^1.11.4"
-polars = { version = "^0.19.19", optional = false }
-polars-lts-cpu = { version = "^0.19.19", optional = true }
+polars = "^0.19.19"
 pyarrow = "^15.0.0"
 numba = "^0.59.0"
 # Visualization
@@ -32,15 +31,15 @@ pyomo = "^6.7.0"
 jupyter = "^1.0.0"
 jupyterlab = "^4.0.9"
 # API packages
-fastapi = { version = "^0.106.0", optional = false }
-uvicorn = { version = "^0.25.0", optional = false }
-sqlalchemy = { version = "^2.0.23", optional = false }
-passlib = { version = "^1.7.4", optional = false }
-psycopg2-binary = { version = "^2.9.9", optional = false }
-sqlalchemy-utils = { version = "^0.41.1", optional = false }
-python-multipart = { version = "^0.0.9", optional = false }
+fastapi = "^0.106.0"
+uvicorn = "^0.25.0"
+sqlalchemy = "^2.0.23"
+passlib = "^1.7.4"
+psycopg2-binary = "^2.9.9"
+sqlalchemy-utils = "^0.41.1"
+python-multipart = "^0.0.9"
 python-jose = { extras = ["cryptography"], version = "^3.3.0", optional = false }
-bcrypt = { version = "^4.1.2", optional = false }
+bcrypt = "^4.1.2"
 mkdocs-include-markdown-plugin = { extras = ["cache"], version = "^6.0.5" }
 gurobipy = "^11.0.1"                                                             #96
 
@@ -48,17 +47,7 @@ gurobipy = "^11.0.1"                                                            
 standard = ["polars"]
 legacy = ["polars-lts-cpu"]
 viz = ["seaborn", "plotly"] # We could make viz packages optional in the future.
-api = [
-    "fastapi",
-    "uvicorn",
-    "sqlalchemy",
-    "passlib",
-    "psycopg2-binary",
-    "sqlalchemy-utils",
-    "python-multipart",
-    "python-jose",
-    "bcrypt",
-] # We could make API packages optional in the future.
+
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.3.0"
