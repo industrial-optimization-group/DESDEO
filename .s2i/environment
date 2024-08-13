@@ -1,4 +1,2 @@
 UPGRADE_PIP_TO_LATEST=1
-DISABLE_PYPROJECT_TOML_PROCESSING=1
-APP_MODULE=app:app
-GUNICORN_CMD_ARGS=--bind=0.0.0.0:8080 --workers=2 --access-logfile=-
+APP_FILE=desdeo/api/app.py
