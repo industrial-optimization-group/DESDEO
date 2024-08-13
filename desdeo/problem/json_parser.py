@@ -514,7 +514,7 @@ class MathParser:
             self.MUL: lambda *args: reduce(lambda x, y: x * y, args),
             self.DIV: lambda *args: reduce(lambda x, y: x / y, args),
             # Vector and matrix operations
-            self.MATMUL: lambda x, y: x @ y,
+            self.MATMUL: lambda x, y: _gurobipy_matmul,
             self.SUM: lambda x: x.sum(),
             # Exponentiation and logarithms
             # it would be possible to implement some of these with the special functions that
