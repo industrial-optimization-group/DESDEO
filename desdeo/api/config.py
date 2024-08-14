@@ -23,7 +23,7 @@ class DBConfig(BaseModel):
 
     db_host: ClassVar[StrictStr] = "86.50.253.131"
     db_port: ClassVar[StrictStr] = "5432"
-    db_database: ClassVar[StrictStr] = "desdeo"
+    db_database: ClassVar[StrictStr] = "test"
     db_username: ClassVar[StrictStr] = "test"
     db_password: ClassVar[StrictStr] = "testpw"
     db_pool_size: ClassVar[StrictInt] = 20
