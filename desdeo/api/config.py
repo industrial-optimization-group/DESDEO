@@ -25,7 +25,7 @@ class DBConfig(BaseModel):
     db_port: ClassVar[StrictStr] = "5432"
     db_database: ClassVar[StrictStr] = "test"
     db_username: ClassVar[StrictStr] = "test"
-    db_password: ClassVar[StrictStr] = "testdb"
+    db_password: ClassVar[StrictStr] = "testpw"
     db_pool_size: ClassVar[StrictInt] = 20
     db_max_overflow: ClassVar[StrictInt] = 20
     db_pool: ClassVar[StrictBool] = True
