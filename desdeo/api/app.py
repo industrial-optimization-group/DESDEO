@@ -19,11 +19,12 @@ app.include_router(problems.router)
 app.include_router(NAUTILUS_navigator.router)
 app.include_router(NAUTILUS.router)
 
-origins = ["*"]
+origins = ["http://localhost", "http://localhost:8080"]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=r"https://.*\.2\.rahtiapp\.fi",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
