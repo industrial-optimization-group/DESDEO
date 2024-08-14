@@ -7,7 +7,7 @@ import polars as pl
 from sqlalchemy_utils import create_database, database_exists, drop_database
 
 from desdeo.api import db_models
-from desdeo.api.db import SessionLocal, engine
+from desdeo.api.db import SessionLocal, engine, get_db
 from desdeo.api.routers.UserAuth import get_password_hash
 from desdeo.api.schema import ObjectiveKind, ProblemKind, UserPrivileges, UserRole
 from desdeo.problem.schema import DiscreteRepresentation, Objective, Problem, Variable
@@ -22,17 +22,18 @@ TEST_PASSWORD = "test"  # NOQA: S105 # TODO: Remove this line and create a prope
 print("Creating database tables.")
 if not database_exists(engine.url):
     create_database(engine.url)
+    db = SessionLocal()
 else:
-    warnings.warn("Database already exists. Dropping and recreating it.", stacklevel=1)
-    drop_database(engine.url)
-    create_database(engine.url)
+    warnings.warn("Database already exists. Clearing it.", stacklevel=1)
+    db = SessionLocal()
+    db.reflect()
+    db.drop_all()
 print("Database tables created.")
 
 # Create the tables in the database.
 db_models.Base.metadata.create_all(bind=engine)
 
 # Create test users
-db = SessionLocal()
 user = db_models.User(
     username="test",
     password_hash=get_password_hash("test"),
