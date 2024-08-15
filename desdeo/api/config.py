@@ -9,23 +9,23 @@ from pydantic import (
 from typing import Optional, Union
 from datetime import timedelta
 
-class AuthConfig:
+class AuthConfig(BaseModel):
     """General configurations."""
 
     # openssl rand -hex 32
     authjwt_secret_key: Optional[StrictStr] = "36b96a23d24cebdeadce6d98fa53356111e6f3e85b8144d7273dcba230b9eb18"
     authjwt_algorithm: Optional[StrictStr] = "HS256"
-    authjwt_access_token_expires: Optional[StrictInt] = 15 # in minutes
-    authjwt_refresh_token_expires: Optional[StrictInt] = 30 # in minutes
+    authjwt_access_token_expires: Optional[StrictInt] = 90 # in minutes
+    authjwt_refresh_token_expires: Optional[StrictInt] = 90 # in minutes
 
-class DBConfig:
+class DBConfig(BaseModel):
     """Database configurations."""
 
     db_host: Optional[StrictStr] = "localhost"
     db_port: Optional[StrictStr] = "5432"
     db_database: Optional[StrictStr] = "DESDEO3"
-    db_username: Optional[StrictStr] = "bhupindersaini"
-    db_password: Optional[StrictStr] = ""
-    db_pool_size: Optional[StrictInt] = 20
-    db_max_overflow: Optional[StrictInt] = 20
+    db_username: Optional[StrictStr] = "postgres"
+    db_password: Optional[StrictStr] = "123456"
+    db_pool_size: Optional[StrictInt] = 100
+    db_max_overflow: Optional[StrictInt] = 100
     db_pool: Optional[StrictBool] = True
