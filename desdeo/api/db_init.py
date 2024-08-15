@@ -51,6 +51,7 @@ problem_in_db = db_models.Problem(
     kind=ProblemKind.CONTINUOUS,
     obj_kind=ObjectiveKind.ANALYTICAL,
     value=problem.model_dump(mode="json"),
+    role_permission=[UserRole.GUEST],
 )
 db.add(problem_in_db)
 
@@ -68,6 +69,18 @@ db.add(problem_in_db)
 
 db.commit()
 
+problem = river_pollution_problem()
+
+problem_in_db = db_models.Problem(
+    owner=user.id,
+    name="Test 2",
+    kind=ProblemKind.CONTINUOUS,
+    obj_kind=ObjectiveKind.ANALYTICAL,
+    value=problem.model_dump(mode="json"),
+    role_permission=[UserRole.DM],
+)
+db.add(problem_in_db)
+db.commit()
 
 # db.close()
 
