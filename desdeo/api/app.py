@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from desdeo.api.routers import NIMBUS, NAUTILUS_navigator, UserAuth, problems, test, NAUTILUS
+from desdeo.api.config import WebUIConfig
 
 app = FastAPI(
     title="DESDEO (fast)API",
@@ -19,7 +20,7 @@ app.include_router(problems.router)
 app.include_router(NAUTILUS_navigator.router)
 app.include_router(NAUTILUS.router)
 
-origins = ["http://localhost", "http://localhost:8080","https://webui-desdeo-test.2.rahtiapp.fi"]
+origins = WebUIConfig.cors_origins
 
 app.add_middleware(
     CORSMiddleware,
