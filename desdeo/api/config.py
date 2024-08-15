@@ -1,4 +1,6 @@
 """Configuration file."""
+import os
+import json
 
 from pydantic import (
     BaseModel,
@@ -21,11 +23,15 @@ class AuthConfig(BaseModel):
 class DBConfig(BaseModel):
     """Database configurations."""
 
-    db_host: ClassVar[StrictStr] = "86.50.253.131"
-    db_port: ClassVar[StrictStr] = "5432"
-    db_database: ClassVar[StrictStr] = "test"
-    db_username: ClassVar[StrictStr] = "test"
-    db_password: ClassVar[StrictStr] = "testpw"
-    db_pool_size: ClassVar[StrictInt] = 20
-    db_max_overflow: ClassVar[StrictInt] = 20
-    db_pool: ClassVar[StrictBool] = True
+    db_host: ClassVar[StrictStr] = os.getenv("POSTGRES_HOST") or "localhost"
+    db_port: ClassVar[StrictStr] = os.getenv("POSTGRES_PORT") or "5432"
+    db_database: ClassVar[StrictStr] = os.getenv("POSTGRES_DB") or "test"
+    db_username: ClassVar[StrictStr] = os.getenv("POSTGRES_USER") or "test"
+    db_password: ClassVar[StrictStr] = os.getenv("POSTGRES_PASSWORD") or "testpw"
+    db_pool_size: ClassVar[StrictInt] = int(os.getenv("POSTGRES_POOLSIZE") or 20)
+    db_max_overflow: ClassVar[StrictInt] = int(os.getenv("POSTGRES_OVERFLOW") or 20)
+    db_pool: ClassVar[StrictBool] = (os.getenv("POSTGRES_POOL") or True) in (True, 'true', '1', 't', 'y', 'yes')
+
+class WebUIConfig(BaseModel):
+    """Webui server configurations."""
+    cors_origins: ClassVar[list] = json.loads(os.getenv("CORS_ORIGINS") or '["http://localhost", "http://localhost:8080"]')
