@@ -39,4 +39,12 @@ hide:
 
     [:octicons-arrow-right-24: Solvers](./solvers.md)
 
+-   :octicons-info-24:{ .lg .middle } __Test problems__
+
+    ---
+
+    Learn about different testproblems implemented in DESDEO
+
+    [:octicons-arrow-right-24: Test problems](./test_problems.md)
+
 </div>

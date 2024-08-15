@@ -25,7 +25,7 @@ def test_solve_intermediate_solutions():
         solution_1,
         solution_2,
         num_desired,
-        create_solver=PyomoIpoptSolver,
+        solver=PyomoIpoptSolver,
         solver_options=solver_options,
     )
 
@@ -104,7 +104,7 @@ def test_solve_sub_problems():
 
     num_desired = 4
     solutions = solve_sub_problems(
-        problem, initial_fs, first_rp, num_desired, create_solver=PyomoIpoptSolver, solver_options=solver_options
+        problem, initial_fs, first_rp, num_desired, solver=PyomoIpoptSolver, solver_options=solver_options
     )
 
     assert len(solutions) == num_desired
@@ -188,7 +188,7 @@ def test_article_example():
         starting_point,
         starting_rp,
         num_desired_start,
-        create_solver=PyomoIpoptSolver,
+        solver=PyomoIpoptSolver,
         solver_options=IpoptOptions(),
     )
 

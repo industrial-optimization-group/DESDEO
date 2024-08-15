@@ -28,6 +28,11 @@
     options:
         heading_level: 3
 
+## Publisher-Subscriber pattern
+::: desdeo.tools.patterns
+    options:
+        heading_level: 3
+
 ## Generics
 ::: desdeo.tools.generics
     options:

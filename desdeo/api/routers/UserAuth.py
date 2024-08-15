@@ -9,19 +9,19 @@ from jose import JWTError, jwt
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from desdeo.api import AuthConfig
 from desdeo.api.db import get_db
 from desdeo.api.db_models import User as UserModel
 from desdeo.api.schema import User
 
 router = APIRouter()
 
-# to get a string like this run:
-# openssl rand -hex 32
-SECRET_KEY = "36b96a23d24cebdeadce6d98fa53356111e6f3e85b8144d7273dcba230b9eb18"  # NOQA:S105 # TODO: How to handle this?
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 10000
+SECRET_KEY = AuthConfig.authjwt_secret_key
+ALGORITHM = AuthConfig.authjwt_algorithm
+ACCESS_TOKEN_EXPIRE_MINUTES = AuthConfig.authjwt_access_token_expires
 SALT = bcrypt.gensalt()
 
+REFRESH_TOKEN_EXPIRE_MINUTES = AuthConfig.authjwt_refresh_token_expires
 
 class Token(BaseModel):
     """A model for the authentication token."""

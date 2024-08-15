@@ -12,20 +12,56 @@ The problem definition is a JSON file that contains the following information:
 """
 
 from collections import Counter
+from collections.abc import Iterable
 from enum import Enum
+from typing import Annotated, Any, Literal, TypeAliasType
 
 from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
     PrivateAttr,
+    ValidationError,
+    ValidationInfo,
+    ValidatorFunctionWrapHandler,
+    WrapValidator,
     field_validator,
     model_validator,
 )
+from pydantic_core import PydanticCustomError
 
 from desdeo.problem.infix_parser import InfixExpressionParser
 
 VariableType = float | int | bool
+
+
+def tensor_custom_error_validator(value: Any, handler: ValidatorFunctionWrapHandler, _info: ValidationInfo) -> Any:
+    """Custom error handler to simplify error messages related to recursive tensor types.
+
+    Args:
+        value (Any): input value to be validated.
+        handler (ValidatorFunctionWrapHandler): handler to check the values.
+        _info (ValidationInfo): info related to the validation of the value.
+
+    Raises:
+        PydanticCustomError: when the value is an invalid tensor type.
+
+    Returns:
+        Any: a valid tensor.
+    """
+    try:
+        return handler(value)
+    except ValidationError as exc:
+        raise PydanticCustomError("invalid tensor", "Input is not a valid tensor") from exc
+
+
+Tensor = TypeAliasType(
+    "Tensor",
+    Annotated[
+        list["Tensor"] | list[VariableType] | VariableType | Literal["List"],
+        WrapValidator(tensor_custom_error_validator),
+    ],
+)
 
 
 def parse_infix_to_func(cls: "Problem", v: str | list) -> list:
@@ -59,15 +95,15 @@ def parse_infix_to_func(cls: "Problem", v: str | list) -> list:
     raise ValueError(msg)
 
 
-def parse_scenario_key_singleton_to_list(cls: "Problem", v: str | list[str]) -> list[str]:
+def parse_scenario_key_singleton_to_list(cls: "Problem", v: str | list[str]) -> list[str] | None:
     """Validator that checks the type of a scenario key.
 
     If the type is a list, it will be returned as it is. If it is a string,
     then a list with the single string is returned. Else, a ValueError is raised.
 
     Args:
-        cls: the class fo the pydantic model the validtor is applied to.
-        v (str | list[str]): the scenario key, or keys, to be validted.
+        cls: the class of the pydantic model the validator is applied to.
+        v (str | list[str]): the scenario key, or keys, to be validated.
 
     Raises:
         ValueError: raised when `v` it neither a string or a list.
@@ -83,6 +119,69 @@ def parse_scenario_key_singleton_to_list(cls: "Problem", v: str | list[str]) -> 
         return v
 
     msg = f"The scenario keys must be either a list of strings, or a single string. Got {type(v)}."
+    raise ValueError(msg)
+
+
+def parse_list_to_mathjson(cls: "TensorVariable", v: Tensor | None) -> list:
+    """Validator that makes sure a nested Python list is represented as tensor following the MathJSON convention.
+
+    Args:
+        cls (TensorVariable): the class of the pydantic model the validator is applied to.
+        v (Tensor | None): the nested lists to be validated.
+
+    Returns:
+        list: a tensor following the MathJSON conventions.
+    """
+    if v is None:
+        return v
+    # recursively parse into a MathJSON representation
+    if isinstance(v, list) and len(v) > 0:
+        if isinstance(v[0], list):
+            # recursive case, encountered list
+            return ["List", *[parse_list_to_mathjson(TensorVariable, v_element) for v_element in v]]
+        if isinstance(v[0], VariableType):
+            # terminal case, encountered a VariableType
+            return ["List", *v]
+
+        # if anything else is encountered, raise an error
+        msg = "Encountered value that is not a valid VariableType nor a list."
+        raise ValueError(msg)
+
+    msg = f"The tensor must a Python list (of lists). Got {type(v)}."
+    raise ValueError(msg)
+
+
+def get_tensor_values(
+    values: Iterable[VariableType | Iterable[VariableType]] | None,
+) -> Iterable[VariableType | Iterable[VariableType]] | None:
+    """Return the values for a given attribute as a nested Python list with shape `self.shape`.
+
+    Removes the 'List' entries from the JSON format to give a Python compatible list.
+
+    Arguments:
+        values (Iterable[VariableType | Iterable[VariableType]] | None): the values that should be extracted as a
+            Python list.
+
+    Returns:
+        list[VariableType] | Iterable[list[VariableType]] | None: a list with shape `self.shape` with the
+            values defined for the variable.
+    """
+    if values is None:
+        return values
+
+    if isinstance(values, list) and len(values) > 1:
+        if values[0] == "List" and isinstance(values[1], list):
+            # recursive case, encountered list
+            return [get_tensor_values(v_element) for v_element in values[1:]]
+        if values[0] == "List":
+            # terminal case, encountered a VariableType
+            return [*values[1:]]
+
+        # if anything else is encountered, raise an error
+        msg = "Encountered value that is not a valid VariableType nor a list."
+        raise ValueError(msg)
+
+    msg = f"Values must be a valid MathJSON vector. Got {type(values)}."
     raise ValueError(msg)
 
 
@@ -154,6 +253,53 @@ class Constant(BaseModel):
     """The value of the constant."""
 
 
+class TensorConstant(BaseModel):
+    """Model for a tensor containing constant values."""
+
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+
+    name: str = Field(description="Descriptive name of the tensor representing the values. E.g., 'distances'")
+    """Descriptive name of the tensor representing the values. E.g., 'distances'"""
+    symbol: str = Field(
+        description=(
+            "Symbol to represent the constant. This will be used in the rest of the problem definition."
+            " Notice that the elements of the tensor will be represented with the symbol followed by"
+            " indices. E.g., the first element of the third element of a 2-dimensional tensor,"
+            " is represented by 'x_1_3', where 'x' is the symbol given to the TensorVariable."
+            " Note that indexing starts from 1."
+        )
+    )
+    """
+    Symbol to represent the constant. This will be used in the rest of the problem definition.
+    Notice that the elements of the tensor will be represented with the symbol followed by
+    indices. E.g., the first element of the third element of a 2-dimensional tensor,
+    is represented by 'x_1_3', where 'x' is the symbol given to the TensorVariable.
+    Note that indexing starts from 1.
+    """
+    shape: list[int] = Field(
+        description=(
+            "A list of the dimensions of the tensor, "
+            "e.g., `[2, 3]` would indicate a matrix with 2 rows and 3 columns."
+        )
+    )
+    """A list of the dimensions of the tensor, e.g., `[2, 3]` would indicate a matrix with 2 rows and 3 columns.
+    """
+    values: Tensor = Field(
+        description=(
+            "A list of lists, with the elements representing the values of each constant element in the tensor. "
+            "E.g., `[[5, 22, 0], [14, 5, 44]]`."
+        ),
+    )
+    """A list of lists, with the elements representing the initial values of each constant element in the tensor.
+    E.g., `[[5, 22, 0], [14, 5, 44]]`."""
+
+    _parse_list_to_mathjson = field_validator("values", mode="before")(parse_list_to_mathjson)
+
+    def get_values(self) -> Iterable[VariableType | Iterable[VariableType]] | None:
+        """Return the constant values as a Python iterable (e.g., list of list)."""
+        return get_tensor_values(self.values)
+
+
 class Variable(BaseModel):
     """Model for a variable."""
 
@@ -182,6 +328,96 @@ class Variable(BaseModel):
         description="Initial value of the variable. This is optional.", default=None
     )
     """Initial value of the variable. This is optional. Defaults to `None`."""
+
+
+class TensorVariable(BaseModel):
+    """Model for a tensor, e.g., vector variable."""
+
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+
+    name: str = Field(
+        description="Descriptive name of the variable. This can be used in UI and visualizations. Example: 'velocity'."
+    )
+    """Descriptive name of the variable. This can be used in UI and visualizations. Example: 'velocity'."""
+    symbol: str = Field(
+        description=(
+            "Symbol to represent the variable. This will be used in the rest of the problem definition."
+            " Notice that the elements of the tensor will be represented with the symbol followed by"
+            " indices. E.g., the first element of the third element of a 2-dimensional tensor,"
+            " is represented by 'x_1_3', where 'x' is the symbol given to the TensorVariable."
+            " Note that indexing starts from 1."
+        )
+    )
+    """
+    Symbol to represent the variable. This will be used in the rest of the problem definition.
+    Notice that the elements of the tensor will be represented with the symbol followed by
+    indices. E.g., the first element of the third element of a 2-dimensional tensor,
+    is represented by 'x_1_3', where 'x' is the symbol given to the TensorVariable.
+    Note that indexing starts from 1.
+    """
+    variable_type: VariableTypeEnum = Field(
+        description=(
+            "Type of the variable. Can be real, integer, or binary. "
+            "Note that each element of a TensorVariable is assumed to be of the same type."
+        )
+    )
+    """Type of the variable. Can be real, integer, or binary.
+    Note that each element of a TensorVariable is assumed to be of the same type."""
+
+    shape: list[int] = Field(
+        description=(
+            "A list of the dimensions of the tensor, "
+            "e.g., `[2, 3]` would indicate a matrix with 2 rows and 3 columns."
+        )
+    )
+    """A list of the dimensions of the tensor,
+    e.g., `[2, 3]` would indicate a matrix with 2 rows and 3 columns.
+    """
+    lowerbounds: Tensor | None = Field(
+        description=(
+            "A list of lists, with the elements representing the lower bounds of each element. "
+            "E.g., `[[1, 2, 3], [4, 5, 6]]`. Defaults to None."
+        ),
+        default=None,
+    )
+    """A list of lists, with the elements representing the lower bounds of each element.
+    E.g., `[[1, 2, 3], [4, 5, 6]]`. Defaults to None.
+    """
+    upperbounds: Tensor | None = Field(
+        description=(
+            "A list of lists, with the elements representing the upper bounds of each element. "
+            "E.g., `[[10, 20, 30], [40, 50, 60]]`. Defaults to None."
+        ),
+        default=None,
+    )
+    """A list of lists, with the elements representing the lower bounds of each element.
+    E.g., `[[1, 2, 3], [4, 5, 6]]`. Defaults to None.
+    """
+    initial_values: Tensor | None = Field(
+        description=(
+            "A list of lists, with the elements representing the initial values of each element. "
+            "E.g., `[[5, 22, 0], [14, 5, 44]]`. Defaults to None."
+        ),
+        default=None,
+    )
+    """A list of lists, with the elements representing the initial values of each element.
+    E.g., `[[5, 22, 0], [14, 5, 44]]`. Defaults to None."""
+
+    _parse_list_to_mathjson = field_validator("lowerbounds", "upperbounds", "initial_values", mode="before")(
+        parse_list_to_mathjson
+    )
+
+    def get_lowerbound_values(self) -> Iterable[VariableType | Iterable[VariableType]] | None:
+        """Return the lowerbounds values, if any, as a Python iterable (list of list)."""
+        return get_tensor_values(self.lowerbounds)
+
+    def get_upperbound_values(self) -> Iterable[VariableType | Iterable[VariableType]] | None:
+        """Return the upperbounds values, if any, as a Python iterable (list of list)."""
+        return get_tensor_values(self.upperbounds)
+
+    def get_initial_values(self) -> Iterable[VariableType | Iterable[VariableType]] | None:
+        """Return the initial values, if any, as a Python iterable (list of list)."""
+        return get_tensor_values(self.initial_values)
 
 
 class ExtraFunction(BaseModel):
@@ -643,7 +879,7 @@ class Problem(BaseModel):
             }
         )
 
-    def add_variables(self, new_variables: list[Variable]) -> "Problem":
+    def add_variables(self, new_variables: list[Variable | TensorVariable]) -> "Problem":
         """Adds new variables to the problem model.
 
         Does not modify the original problem model, but instead returns a copy of it with
@@ -651,7 +887,7 @@ class Problem(BaseModel):
         unique.
 
         Args:
-            new_variables (list[Variable]): the new `Variable`s to be added to the model.
+            new_variables (list[Variable | TensorVariable]): the new variables to be added to the model.
 
         Raises:
             TypeError: when the `new_variables` is not a list.
@@ -703,14 +939,15 @@ class Problem(BaseModel):
         # did not find symbol
         return None
 
-    def get_variable(self, symbol: str) -> Variable | None:
+    def get_variable(self, symbol: str) -> Variable | TensorVariable | None:
         """Return a copy of a `Variable` with the given symbol.
 
         Args:
             symbol (str): the symbol of the variable.
 
         Returns:
-            Variable | None: the copy of the variable with the given symbol, or `None` if the variable is not found.
+            Variable | TensorVariable | None: the copy of the variable with the given symbol,
+                or `None` if the variable is not found.
         """
         for variable in self.variables:
             if variable.symbol == symbol:
@@ -960,11 +1197,11 @@ class Problem(BaseModel):
         description="Description of the problem.",
     )
     """Description of the problem."""
-    constants: list[Constant] | None = Field(
+    constants: list[Constant | TensorConstant] | None = Field(
         description="Optional list of the constants present in the problem.", default=None
     )
     """List of the constants present in the problem. Defaults to `None`."""
-    variables: list[Variable] = Field(
+    variables: list[Variable | TensorVariable] = Field(
         description="List of variables present in the problem.",
     )
     """List of variables present in the problem."""

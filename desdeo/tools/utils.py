@@ -2,7 +2,7 @@
 
 from desdeo.problem import ObjectiveTypeEnum, Problem, VariableDomainTypeEnum
 
-from .generics import CreateSolverType
+from .generics import BaseSolver
 from .gurobipy_solver_interfaces import GurobipySolver
 from .ng_solver_interfaces import NevergradGenericSolver
 from .proximal_solver import ProximalSolver
@@ -25,7 +25,7 @@ available_solvers = {
 }
 
 
-def guess_best_solver(problem: Problem) -> CreateSolverType:
+def guess_best_solver(problem: Problem) -> BaseSolver:
     """Given a problem, tries to guess the best solver to handle it.
 
     Args:
@@ -35,9 +35,7 @@ def guess_best_solver(problem: Problem) -> CreateSolverType:
         Needs to be extended as new solvers are implemented.
 
     Returns:
-        Callable[[Problem, Kwargs], Callable[[str], SolverResults]]: a callable function that returns a function
-            that can be called with a target to optimize and then returns the optimization results in a
-            `SolverResults` dataclass.
+        BaseSolver: a solver class that uses BaseSolver as a base class
     """
     # needs to be extended as new solver are implemented
 
