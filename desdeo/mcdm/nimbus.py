@@ -10,7 +10,7 @@ import numpy as np
 
 from desdeo.problem import GenericEvaluator, Problem, VariableType, variable_dict_to_numpy_array
 from desdeo.tools import (
-    CreateSolverType,
+    BaseSolver,
     SolverOptions,
     SolverResults,
     add_asf_diff,
@@ -35,7 +35,7 @@ def solve_intermediate_solutions(  # noqa: PLR0913
     solution_2: dict[str, VariableType],
     num_desired: int,
     scalarization_options: dict | None = None,
-    create_solver: CreateSolverType | None = None,
+    solver: BaseSolver | None = None,
     solver_options: SolverOptions | None = None,
 ) -> list[SolverResults]:
     """Generates a desired number of intermediate solutions between two given solutions.
@@ -58,11 +58,11 @@ def solve_intermediate_solutions(  # noqa: PLR0913
         num_desired (int): the number of desired intermediate solutions to be generated. Must be at least `1`.
         scalarization_options (dict | None, optional): optional kwargs passed to the scalarization function.
             Defaults to None.
-        create_solver (CreateSolverType | None, optional): a function that given a problem, will return a solver.
+        solver (BaseSolver | None, optional): solver used to solve the problem.
             If not given, an appropriate solver will be automatically determined based on the features of `problem`.
             Defaults to None.
         solver_options (SolverOptions | None, optional): optional options passed
-            to the `create_solver` routine. Ignored if `create_solver` is `None`.
+            to the `solver`. Ignored if `solver` is `None`.
             Defaults to None.
 
     Returns:
@@ -73,8 +73,8 @@ def solve_intermediate_solutions(  # noqa: PLR0913
         msg = f"The given number of desired intermediate ({num_desired=}) solutions must be at least 1."
         raise NimbusError(msg)
 
-    init_solver = guess_best_solver(problem) if create_solver is None else create_solver
-    _solver_options = None if solver_options is None or create_solver is None else solver_options
+    init_solver = guess_best_solver(problem) if solver is None else solver
+    _solver_options = None if solver_options is None or solver is None else solver_options
 
     # compute the element-wise difference between each solution (in the decision space)
     solution_1_arr = variable_dict_to_numpy_array(problem, solution_1)
@@ -227,7 +227,7 @@ def solve_sub_problems(  # noqa: PLR0913
     reference_point: dict[str, float],
     num_desired: int,
     scalarization_options: dict | None = None,
-    create_solver: CreateSolverType | None = None,
+    solver: BaseSolver | None = None,
     solver_options: SolverOptions | None = None,
 ) -> list[SolverResults]:
     r"""Solves a desired number of sub-problems as defined in the NIMBUS methods.
@@ -262,11 +262,11 @@ def solve_sub_problems(  # noqa: PLR0913
             many scalarized problems. The value must be in the range 1-4.
         scalarization_options (dict | None, optional): optional kwargs passed to the scalarization function.
             Defaults to None.
-        create_solver (CreateSolverType | None, optional): a function that given a problem, will return a solver.
+        solver (BaseSolver | None, optional): solver used to solve the problem.
             If not given, an appropriate solver will be automatically determined based on the features of `problem`.
             Defaults to None.
         solver_options (SolverOptions | None, optional): optional options passed
-            to the `create_solver` routine. Ignored if `create_solver` is `None`.
+            to the `solver`. Ignored if `solver` is `None`.
             Defaults to None.
 
     Returns:
@@ -285,7 +285,7 @@ def solve_sub_problems(  # noqa: PLR0913
         msg = f"The current point {reference_point} is missing entries " "for one or more of the objective functions."
         raise NimbusError(msg)
 
-    init_solver = create_solver if create_solver is not None else guess_best_solver(problem)
+    init_solver = solver if solver is not None else guess_best_solver(problem)
     _solver_options = solver_options if solver_options is not None else None
 
     # derive the classifications based on the reference point and and previous
@@ -358,7 +358,7 @@ def generate_starting_point(
     problem: Problem,
     reference_point: dict[str, float] | None = None,
     scalarization_options: dict | None = None,
-    create_solver: CreateSolverType | None = None,
+    solver: BaseSolver | None = None,
     solver_options: SolverOptions | None = None,
 ) -> SolverResults:
     r"""Generates a starting point for the NIMBUS method.
@@ -378,11 +378,11 @@ def generate_starting_point(
             If not given, ideal will be used as reference point.
         scalarization_options (dict | None, optional): optional kwargs passed to the scalarization function.
             Defaults to None.
-        create_solver (CreateSolverType | None, optional): a function that given a problem, will return a solver.
+        solver (BaseSolver | None, optional): solver used to solve the problem.
             If not given, an appropriate solver will be automatically determined based on the features of `problem`.
             Defaults to None.
         solver_options (SolverOptions | None, optional): optional options passed
-            to the `create_solver` routine. Ignored if `create_solver` is `None`.
+            to the `solver`. Ignored if `solver` is `None`.
             Defaults to None.
 
     Returns:
@@ -401,7 +401,7 @@ def generate_starting_point(
         if obj.symbol not in reference_point:
             reference_point[obj.symbol] = ideal[obj.symbol]
 
-    init_solver = create_solver if create_solver is not None else guess_best_solver(problem)
+    init_solver = solver if solver is not None else guess_best_solver(problem)
     _solver_options = solver_options if solver_options is not None else None
 
     # TODO(gialmisi): this info should come from the problem

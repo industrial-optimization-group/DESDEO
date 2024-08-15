@@ -1,9 +1,9 @@
 """Imports available form the desdeo-tools package."""
 
 __all__ = [
+    "BaseSolver",
     "BonminOptions",
     "IpoptOptions",
-    "CreateSolverType",
     "GurobipySolver",
     "NevergradGenericOptions",
     "NevergradGenericSolver",
@@ -25,6 +25,14 @@ __all__ = [
     "add_epsilon_constraints",
     "add_guess_sf_diff",
     "add_guess_sf_nondiff",
+    "add_group_asf",
+    "add_group_asf_diff",
+    "add_group_guess_sf",
+    "add_group_guess_sf_diff",
+    "add_group_nimbus_sf",
+    "add_group_nimbus_sf_diff",
+    "add_group_stom_sf",
+    "add_group_stom_sf_diff",
     "add_nimbus_sf_diff",
     "add_nimbus_sf_nondiff",
     "add_objective_as_scalarization",
@@ -37,7 +45,7 @@ __all__ = [
     "guess_best_solver",
 ]
 
-from desdeo.tools.generics import CreateSolverType, SolverOptions, SolverResults
+from desdeo.tools.generics import BaseSolver, SolverOptions, SolverResults
 from desdeo.tools.gurobipy_solver_interfaces import (
     GurobipySolver,
     PersistentGurobipySolver,
@@ -65,6 +73,14 @@ from desdeo.tools.scalarization import (
     add_epsilon_constraints,
     add_guess_sf_diff,
     add_guess_sf_nondiff,
+    add_group_asf,
+    add_group_asf_diff,
+    add_group_guess_sf,
+    add_group_guess_sf_diff,
+    add_group_nimbus_sf,
+    add_group_nimbus_sf_diff,
+    add_group_stom_sf,
+    add_group_stom_sf_diff,
     add_nimbus_sf_diff,
     add_nimbus_sf_nondiff,
     add_objective_as_scalarization,

@@ -18,8 +18,7 @@ from desdeo.problem.schema import (
     TensorConstant,
     TensorVariable,
     Variable,
-    VariableTypeEnum
-
+    VariableTypeEnum,
 )
 
 
