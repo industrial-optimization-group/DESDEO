@@ -10,7 +10,7 @@ import numpy as np
 
 from desdeo.problem import GenericEvaluator, Problem, VariableType, variable_dict_to_numpy_array, variable_dict_to_numpy_array_as_group
 from desdeo.tools import (
-    CreateSolverType,
+    BaseSolver,
     SolverOptions,
     SolverResults,
     add_group_asf_diff,
@@ -35,7 +35,7 @@ def solve_sub_problems(  # noqa: PLR0913
     reference_points: list[dict[str, float]],
     num_desired: int,
     scalarization_options: dict | None = None,
-    create_solver: CreateSolverType | None = None,
+    create_solver: BaseSolver | None = None,
     solver_options: SolverOptions | None = None,
 ) -> list[SolverResults]:
     r"""Solves a desired number of sub-problems as defined in the NIMBUS methods.
@@ -168,7 +168,7 @@ def solve_intermediate_solutions(  # noqa: PLR0913
     solution_2: dict[str, VariableType | list[VariableType]],
     num_desired: int,
     scalarization_options: dict | None = None,
-    create_solver: CreateSolverType | None = None,
+    create_solver: BaseSolver | None = None,
     solver_options: SolverOptions | None = None,
 ) -> list[SolverResults]:
     """Generates a desired number of intermediate solutions between two given solutions.
