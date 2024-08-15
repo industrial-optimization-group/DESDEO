@@ -2,6 +2,7 @@
 
 from enum import Enum
 
+import numpy as np
 import polars as pl
 
 from desdeo.problem.json_parser import MathParser, replace_str
@@ -161,7 +162,7 @@ class GenericEvaluator:
                 for extra in self.problem_extra:
                     tmp = extra.func
                     for c in self.problem_constants:
-                        tmp = replace_str(tmp, c.symbol, c.value)
+                        tmp = replace_str(tmp, c.symbol, c.value) if isinstance(c, Constant) else replace_str(tmp, c.symbol, c.get_values())
                     parsed_extra_funcs[f"{extra.symbol}"] = tmp
             else:
                 parsed_extra_funcs = None
@@ -172,7 +173,7 @@ class GenericEvaluator:
                 for scal in self.problem_scalarization:
                     tmp = scal.func
                     for c in self.problem_constants:
-                        tmp = replace_str(tmp, c.symbol, c.value)
+                        tmp = replace_str(tmp, c.symbol, c.value) if isinstance(c, Constant) else replace_str(tmp, c.symbol, c.get_values())
                     parsed_scal_funcs[f"{scal.symbol}"] = tmp
             else:
                 parsed_scal_funcs = None
