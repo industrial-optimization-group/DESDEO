@@ -10,7 +10,7 @@ import numpy as np
 
 from desdeo.problem import GenericEvaluator, Problem, VariableType, variable_dict_to_numpy_array, variable_dict_to_numpy_array_as_group
 from desdeo.tools import (
-    CreateSolverType,
+    BaseSolver,
     SolverOptions,
     SolverResults,
     add_group_asf_diff,
@@ -35,7 +35,7 @@ def solve_sub_problems(  # noqa: PLR0913
     reference_points: list[dict[str, float]],
     num_desired: int,
     scalarization_options: dict | None = None,
-    create_solver: CreateSolverType | None = None,
+    create_solver: BaseSolver | None = None,
     solver_options: SolverOptions | None = None,
 ) -> list[SolverResults]:
     r"""Solves a desired number of sub-problems as defined in the NIMBUS methods.
@@ -70,7 +70,7 @@ def solve_sub_problems(  # noqa: PLR0913
             many scalarized problems. The value must be in the range 1-4.
         scalarization_options (dict | None, optional): optional kwargs passed to the scalarization function.
             Defaults to None.
-        create_solver (CreateSolverType | None, optional): a function that given a problem, will return a solver.
+        create_solver (BaseSolver | None, optional): a function that given a problem, will return a solver.
             If not given, an appropriate solver will be automatically determined based on the features of `problem`.
             Defaults to None.
         solver_options (SolverOptions | None, optional): optional options passed
@@ -168,7 +168,7 @@ def solve_intermediate_solutions(  # noqa: PLR0913
     solution_2: dict[str, VariableType | list[VariableType]],
     num_desired: int,
     scalarization_options: dict | None = None,
-    create_solver: CreateSolverType | None = None,
+    create_solver: BaseSolver | None = None,
     solver_options: SolverOptions | None = None,
 ) -> list[SolverResults]:
     """Generates a desired number of intermediate solutions between two given solutions.
@@ -191,7 +191,7 @@ def solve_intermediate_solutions(  # noqa: PLR0913
         num_desired (int): the number of desired intermediate solutions to be generated. Must be at least `1`.
         scalarization_options (dict | None, optional): optional kwargs passed to the scalarization function.
             Defaults to None.
-        create_solver (CreateSolverType | None, optional): a function that given a problem, will return a solver.
+        create_solver (BaseSolver | None, optional): a function that given a problem, will return a solver.
             If not given, an appropriate solver will be automatically determined based on the features of `problem`.
             Defaults to None.
         solver_options (SolverOptions | None, optional): optional options passed
