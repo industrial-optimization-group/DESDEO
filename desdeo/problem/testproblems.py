@@ -1587,12 +1587,11 @@ def forest_problem(holding: int = 1, comparing: bool = False) -> Problem:
     The problem is defined as follows:
 
     \begin{align}
-        \mbox{maximize~} & \sum_{j=1}^N\sum_{i \in I_j} v_{ij} x_{ij} & \\
-        \mbox{maximize~} & \sum_{j=1}^N\sum_{i \in I_j} w_{ij} x_{ij} & \\
-        \mbox{maximize~} & \sum_{j=1}^N\sum_{i \in I_j} p_{ij} x_{ij} & \\
-        \nonumber\\
-        \mbox{subject to~} &  \sum\limits_{i \in I_j} x_{ij} = 1, & \forall j = 1 \ldots N \\
-        & x_{ij}\in \{0,1\}& \forall j = 1 \ldots N, ~\forall i\in I_j,
+        \max_{\mathbf{x}} & \quad \sum_{j=1}^N\sum_{i \in I_j} v_{ij} x_{ij} & \\
+        & \quad \sum_{j=1}^N\sum_{i \in I_j} w_{ij} x_{ij} & \\
+        & \quad \sum_{j=1}^N\sum_{i \in I_j} p_{ij} x_{ij} & \\
+        \text{s.t.} & \quad \sum\limits_{i \in I_j} x_{ij} = 1, & \forall j = 1 \ldots N \\
+        & \quad x_{ij}\in \{0,1\}& \forall j = 1 \ldots N, ~\forall i\in I_j,
     \end{align}
 
     where $x_{ij}$ are decision variables representing the choice of implementing management plan $i$ in stand $j$,
@@ -1603,7 +1602,7 @@ def forest_problem(holding: int = 1, comparing: bool = False) -> Problem:
     Args:
         holding (int, optional): The number of the holding to be optimized. Defaults to 1.
         comparing (bool, optional): Determines if solutions are to be compared to those from the rahti app.
-            Defaults to None.
+            Defaults to False.
 
     Returns:
         Problem: An instance of the test forest problem.
