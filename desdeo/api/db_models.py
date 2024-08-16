@@ -3,7 +3,7 @@
 # TODO: ADD TIMESTAMP COLUMNS TO ALL TABLES
 
 from sqlalchemy import ARRAY, FLOAT, JSON, Enum, ForeignKey, Integer
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import TypeDecorator, VARCHAR
 
 from desdeo.api import schema
@@ -51,8 +51,19 @@ class Problem(Base):
     # kind and obj_kind are also in value, but we need them as columns for querying. Maybe?
     kind: Mapped[schema.ProblemKind] = mapped_column(nullable=False)
     obj_kind: Mapped[schema.ObjectiveKind] = mapped_column(nullable=False)
+    role_permission: Mapped[list[schema.UserRole]] = mapped_column(ARRAY(Enum(schema.UserRole)), nullable=True)
     # Mapped doesn't work with JSON, so we use JSON directly.
     value = mapped_column(JSON, nullable=False)  # desdeo.problem.schema.Problem
+
+
+class UserProblemAccess(Base):
+    """A model to store user's access to problems."""
+
+    __tablename__ = "user_problem_access"
+    id: Mapped[int] = mapped_column(primary_key=True, unique=True)
+    user_id= mapped_column(Integer,ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    problem_access: Mapped[int] = mapped_column(Integer, ForeignKey("problem.id"), nullable=False)
+    problem = relationship("Problem", foreign_keys=[problem_access], lazy="selectin")
 
 
 class Method(Base):

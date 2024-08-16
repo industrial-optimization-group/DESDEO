@@ -8,6 +8,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from typing import Dict
 
 from desdeo.api import AuthConfig
 from desdeo.api.db import get_db
@@ -27,6 +28,7 @@ class Token(BaseModel):
     """A model for the authentication token."""
 
     access_token: str
+    refresh_token: str
     token_type: str
 
 
@@ -61,26 +63,6 @@ def authenticate_user(db: Session, username: str, password: str):
         return False
     return user
 
-
-def create_access_token(data: dict, expires_delta: timedelta = timedelta(hours=2)) -> str:
-    """Create an JWT access token.
-
-    The token will expire after a certain amount of time. If no expiration time is given,
-        the token will expire after 2 hours.
-
-    Args:
-        data (dict): The data to encode in the token.
-        expires_delta (timedelta | None, optional): The time after which the token will expire. Defaults to 2 hours.
-
-    Returns:
-        str: _description_
-    """
-    to_encode = data.copy()
-    expire = datetime.now(UTC) + expires_delta
-    to_encode.update({"exp": expire.timestamp()})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
-
 def get_current_user(
     token: Annotated[str, Depends(oauth2_scheme)], db: Annotated[Session, Depends(get_db)]
 ) -> UserModel:
@@ -105,8 +87,11 @@ def get_current_user(
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         expire_time: datetime = payload.get("exp")
+
         if username is None or expire_time is None or expire_time < datetime.now(UTC).timestamp():
             raise credentials_exception
+    except jwt.exceptions.ExpiredSignatureError:
+        raise credentials_exception
     except JWTError:
         raise credentials_exception from JWTError
     user = get_user(db, username=username)
@@ -121,6 +106,61 @@ def get_current_user(
         password_hash=user.password_hash,
     )
 
+async def create_jwt_token(data: dict, expires_delta: timedelta) -> str:
+    """Creates an JWT Token with `data` and `expire_delta`
+
+    Args:
+        data (dict): The data to encode in the token.
+        expires_delta (timedelta): The time after which the token will expire.
+
+    Returns:
+        str: JWT token
+    """
+    data = data.copy()
+    expire = datetime.utcnow() + expires_delta
+    data.update({"exp": expire})
+    encoded_jwt = jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+async def create_access_token(data: Dict) -> str:
+    """Creates an JWT Access Token with `data` and expires after `ACCESS_TOKEN_EXPIRE_MINUTES`
+
+    Args:
+        data (dict): The data to encode in the token.
+
+    Returns:
+        str: JWT access token
+    """
+    return await create_jwt_token(data, timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+
+async def create_refresh_token(data: Dict) -> str:
+    """Creates an Refresh Token with user `data`
+
+    Args:
+        data (dict): The data to encode in the token.
+
+    Returns:
+        str: JWT refresh token
+    """
+    refresh_token: str = await create_jwt_token(data, timedelta(minutes=REFRESH_TOKEN_EXPIRE_MINUTES))
+
+    return refresh_token
+
+async def generate_tokens(data: Dict, refresh_token_needed: bool = False) -> Token:
+    """Generates Access and Refresh Token with `data`
+
+    Args:
+        data (dict): The data to encode in the token.
+        refresh_token_needed (bool, optional): Indicate whether the refresh token is generated. Defaults to False
+
+    Returns:
+        Token: a Token class object
+    """
+    access_token: str = await create_access_token(data)
+    refresh_token = ''
+    if refresh_token_needed:
+        refresh_token: str = await create_refresh_token(data)
+    return Token(access_token=access_token, refresh_token=refresh_token, token_type="bearer")
 
 @router.post("/token")
 async def login(
@@ -142,6 +182,6 @@ async def login(
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(data={"sub": user.username}, expires_delta=access_token_expires)
-    return Token(access_token=access_token, token_type="bearer")  # NOQA:S106
+
+    return await generate_tokens({"id": user.id, "sub": user.username})
+

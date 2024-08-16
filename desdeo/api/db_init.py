@@ -3,11 +3,11 @@
 import warnings
 
 import numpy as np
-# import polars as pl
+import polars as pl
 from sqlalchemy_utils import create_database, database_exists, drop_database
 
 from desdeo.api import db_models
-from desdeo.api.db import SessionLocal, engine
+from desdeo.api.db import Base, SessionLocal, engine
 from desdeo.api.routers.UserAuth import get_password_hash
 from desdeo.api.schema import ObjectiveKind, ProblemKind, UserPrivileges, UserRole
 from desdeo.problem.schema import DiscreteRepresentation, Objective, Problem, Variable
@@ -23,13 +23,13 @@ print("Creating database tables.")
 if not database_exists(engine.url):
     create_database(engine.url)
 else:
-    warnings.warn("Database already exists. Dropping and recreating it.", stacklevel=1)
-    drop_database(engine.url)
-    create_database(engine.url)
+    warnings.warn("Database already exists. Clearing it.", stacklevel=1)
+    # Drop all tables
+    Base.metadata.drop_all(bind=engine)
 print("Database tables created.")
 
 # Create the tables in the database.
-db_models.Base.metadata.create_all(bind=engine)
+Base.metadata.create_all(bind=engine)
 
 # Create test users
 db = SessionLocal()
@@ -86,7 +86,7 @@ problem_in_db = db_models.Problem(
     kind=ProblemKind.CONTINUOUS,
     obj_kind=ObjectiveKind.ANALYTICAL,
     value=problem.model_dump(mode="json"),
-    # role_permission=[UserRole.GUEST, UserRole.DM],
+    role_permission=[UserRole.GUEST],
 )
 
 db.add(problem_in_db)
@@ -145,11 +145,8 @@ problem_in_db = db_models.Problem(
     value=problem.model_dump(mode="json"),
     # role_permission=[UserRole.DM],
 )
-
 db.add(problem_in_db)
-
 db.commit()
-
 
 # db.close()
 
