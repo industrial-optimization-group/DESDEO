@@ -15,10 +15,10 @@ class AuthConfig(BaseModel):
     """General configurations."""
 
     # openssl rand -hex 32
-    authjwt_secret_key: Optional[StrictStr] = "36b96a23d24cebdeadce6d98fa53356111e6f3e85b8144d7273dcba230b9eb18"
-    authjwt_algorithm: Optional[StrictStr] = "HS256"
-    authjwt_access_token_expires: Optional[StrictInt] = 90 # in minutes
-    authjwt_refresh_token_expires: Optional[StrictInt] = 90 # in minutes
+    authjwt_secret_key: ClassVar[StrictStr] = "36b96a23d24cebdeadce6d98fa53356111e6f3e85b8144d7273dcba230b9eb18"
+    authjwt_algorithm: ClassVar[StrictStr] = "HS256"
+    authjwt_access_token_expires: ClassVar[StrictInt] = 15 # in minutes
+    authjwt_refresh_token_expires: ClassVar[StrictInt] = 30 # in minutes
 
 class DBConfig(BaseModel):
     """Database configurations."""

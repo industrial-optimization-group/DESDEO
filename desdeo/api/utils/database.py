@@ -9,7 +9,7 @@ from sqlalchemy.future import select as sa_select
 from sqlalchemy.orm import DeclarativeMeta, declarative_base, sessionmaker
 from sqlalchemy.pool import NullPool
 from sqlalchemy.sql import Executable
-from sqlalchemy.sql.expression import exists as sa_exists, delete as sa_delete, Delete, update as sa_update, Update
+from sqlalchemy.sql.expression import exists as sa_exists, delete as sa_delete, Delete
 from sqlalchemy.sql.functions import count
 from sqlalchemy.sql.selectable import Select, Exists
 
@@ -28,17 +28,6 @@ def select(entity) -> Select:
         Select: A Select class object
     """
     return sa_select(entity)
-
-def update(entity) -> Update:
-    """Shortcut for :meth:`sqlalchemy.sql.expression.update`
-
-    Args:
-        entity (sqlalchemy.sql.expression.FromClause): Entities / DB model to SELECT from.
-
-    Returns:
-        Update: A Update class object
-    """
-    return sa_update(entity)
 
 def filter_by(cls, *args, **kwargs) -> Select:
     """Shortcut for :meth:`sqlalchemy.future.Select.filter_by`
@@ -85,7 +74,6 @@ class DB:
     Base: DeclarativeMeta
     _engine: AsyncEngine
     _session: AsyncSession
-    _Session: sessionmaker
 
     def __init__(self, driver: str, options: Dict = {"pool_size": 20, "max_overflow": 20}, **kwargs):
         """
@@ -97,8 +85,7 @@ class DB:
         url: str = URL.create(drivername=driver, **kwargs)
         self._engine = create_async_engine(url, echo=True, pool_pre_ping=True, pool_recycle=300, **options)
         self.Base = declarative_base()
-        self._Session = sessionmaker(self._engine, expire_on_commit=False, class_=AsyncSession)
-        self._session: AsyncSession = self._Session()
+        self._session: AsyncSession = sessionmaker(self._engine, expire_on_commit=False, class_=AsyncSession)()
 
     async def create_tables(self):
         """Creates all Model Tables"""
@@ -129,20 +116,6 @@ class DB:
         await self._session.delete(obj)
         return obj
 
-    async def update(self, statement: Executable, *args, **kwargs) -> list[T] | None:
-        """Executes a 'update' SQL Statement
-
-        Args:
-            statement (Executable): SQL statement.
-            *args (tuple): Positional arguments.
-            **kwargs (dict): Keyword arguments.
-
-        Returns:
-            list[T] | None: List of updated rows or None.
-        """
-        async with self._engine.begin() as conn:
-            result = await conn.execute(statement, *args, **kwargs)
-            return [x for x in result.fetchall()] if 'returning' in str(statement).lower() else None
     async def exec(self, statement: Executable, *args, **kwargs) -> Result:
         """Executes a SQL Statement
 
@@ -154,8 +127,20 @@ class DB:
         Returns:
             Result: A buffered Result object.
         """
-        async with self._Session() as session:
-            return await session.execute(statement, *args, **kwargs)
+        return await self._session.execute(statement, *args, **kwargs)
+
+    async def stream(self, statement: Executable, *args, **kwargs) -> AsyncScalarResult:
+        """Returns an Stream of Query Results
+
+        Args:
+            statement (Executable): SQL statement.
+            *args (tuple): Positional arguments.
+            **kwargs (dict): Keyword arguments.
+
+        Returns:
+            AsyncScalarResult: An AsyncScalarResult filtering object.
+        """
+        return (await self._session.stream(statement, *args, **kwargs)).scalars()
 
     async def all(self, statement: Executable, *args, **kwargs) -> list[T]:
         """Returns all matches for a Query
@@ -168,7 +153,7 @@ class DB:
         Returns:
             list[T]: List of rows.
         """
-        return [x for x in (await self.exec(statement, *args, **kwargs)).scalars()]
+        return [x async for x in await self.stream(statement, *args, **kwargs)]
 
     async def first(self, *args, **kwargs) -> dict | None:
         """Returns first match for a Query

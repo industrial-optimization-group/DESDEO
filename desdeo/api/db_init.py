@@ -3,7 +3,7 @@
 import warnings
 
 import numpy as np
-# import polars as pl
+import polars as pl
 from sqlalchemy_utils import create_database, database_exists, drop_database
 
 from desdeo.api import db_models
@@ -11,7 +11,7 @@ from desdeo.api.db import Base, SessionLocal, engine
 from desdeo.api.routers.UserAuth import get_password_hash
 from desdeo.api.schema import ObjectiveKind, ProblemKind, UserPrivileges, UserRole
 from desdeo.problem.schema import DiscreteRepresentation, Objective, Problem, Variable
-from desdeo.problem.testproblems import binh_and_korn, nimbus_test_problem, forest_problem
+from desdeo.problem.testproblems import binh_and_korn, nimbus_test_problem
 
 TEST_USER = "test"
 TEST_PASSWORD = "test"  # NOQA: S105 # TODO: Remove this line and create a proper user creation system.
@@ -34,13 +34,15 @@ Base.metadata.create_all(bind=engine)
 # Create test users
 db = SessionLocal()
 user = db_models.User(
-    username="analyst",
+    username="test",
     password_hash=get_password_hash("test"),
     role=UserRole.ANALYST,
     privilages=[UserPrivileges.EDIT_USERS, UserPrivileges.CREATE_PROBLEMS],
     user_group="",
 )
 db.add(user)
+db.commit()
+db.refresh(user)
 
 dmUser = db_models.User(
     username="dm",
@@ -60,24 +62,6 @@ dmUser2 = db_models.User(
 )
 db.add(dmUser2)
 
-dmUser3 = db_models.User(
-    username="dm3",
-    password_hash=get_password_hash("test"),
-    role=UserRole.DM,
-    privilages=[],
-    user_group="",
-)
-db.add(dmUser3)
-
-dmUser4 = db_models.User(
-    username="dm4",
-    password_hash=get_password_hash("test"),
-    role=UserRole.DM,
-    privilages=[],
-    user_group="",
-)
-db.add(dmUser4)
-
 problem = binh_and_korn()
 
 problem_in_db = db_models.Problem(
@@ -88,16 +72,7 @@ problem_in_db = db_models.Problem(
     value=problem.model_dump(mode="json"),
     role_permission=[UserRole.GUEST],
 )
-
 db.add(problem_in_db)
-
-
-'''userAccess = db_models.UserProblemAccess(
-    user_id=dmUser2.id,
-    problem_access=problem_in_db.id
-)
-db.add(userAccess)
-db.commit()'''
 
 problem = nimbus_test_problem()
 problem_in_db = db_models.Problem(
@@ -107,43 +82,6 @@ problem_in_db = db_models.Problem(
     obj_kind=ObjectiveKind.ANALYTICAL,
     value=problem.model_dump(mode="json"),
     # role_permission=[],
-)
-
-db.add(problem_in_db)
-db.commit()
-
-'''userAccess = db_models.UserProblemAccess(
-    user_id=dmUser2.id,
-    problem_access=problem_in_db.id
-)
-db.add(userAccess)
-
-userAccess = db_models.UserProblemAccess(
-    user_id=dmUser.id,
-    problem_access=problem_in_db.id
-)
-db.add(userAccess)
-
-userAccess = db_models.UserProblemAccess(
-    user_id=dmUser3.id,
-    problem_access=problem_in_db.id
-)
-db.add(userAccess)
-
-userAccess = db_models.UserProblemAccess(
-    user_id=dmUser4.id,
-    problem_access=problem_in_db.id
-)
-db.add(userAccess)'''
-
-problem = forest_problem(holding=1, comparing=True)
-problem_in_db = db_models.Problem(
-    owner=user.id,
-    name="Test 5",
-    kind=ProblemKind.CONTINUOUS,
-    obj_kind=ObjectiveKind.ANALYTICAL,
-    value=problem.model_dump(mode="json"),
-    # role_permission=[UserRole.DM],
 )
 
 db.add(problem_in_db)
@@ -166,7 +104,7 @@ db.commit()
 # db.close()
 
 
-'''def fakeProblemDontLook():
+def fakeProblemDontLook():
     # Data loading
     data = pl.read_csv("./experiment/LUKE best front.csv")
     data = data.drop(["non_dominated", "source"])
@@ -261,7 +199,7 @@ db.commit()
         variables=[index_var],
         objectives=[npv, sv30, removal1, removal2, removal3],
         discrete_representation=dis_def,
-    )'''
+    )
 
 
 # luke_problem = fakeProblemDontLook()
