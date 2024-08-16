@@ -3,11 +3,27 @@
 # TODO: ADD TIMESTAMP COLUMNS TO ALL TABLES
 
 from sqlalchemy import ARRAY, FLOAT, JSON, Enum, ForeignKey, Integer
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.types import TypeDecorator, VARCHAR
 
 from desdeo.api import schema
 from desdeo.api.db import Base
 
+import json
+
+class JSONEncoded(TypeDecorator):
+    impl = VARCHAR
+
+    def process_bind_param(self, value, dialect):
+        if value is not None:
+            value = json.dumps(value)
+
+        return value
+
+    def process_result_value(self, value, dialect):
+        if value is not None:
+            value = json.loads(value)
+        return value
 
 class User(Base):
     """A user with a password, stored problems, role, and user group."""
@@ -71,7 +87,8 @@ class Preference(Base):
     user = mapped_column(Integer, ForeignKey("user.id"), nullable=False)
     problem = mapped_column(Integer, ForeignKey("problem.id"), nullable=False)
     previous_preference = mapped_column(Integer, ForeignKey("preference.id"), nullable=True)
-    method = mapped_column(Integer, ForeignKey("method.id"), nullable=False)
+    #method = mapped_column(Integer, ForeignKey("method.id"), nullable=False)
+    method = mapped_column(Integer, nullable=False)
     kind: Mapped[str]  # Depends on the method
     value = mapped_column(JSON, nullable=False)
 
@@ -83,7 +100,7 @@ class MethodState(Base):
     id: Mapped[int] = mapped_column(primary_key=True, unique=True)
     user = mapped_column(Integer, ForeignKey("user.id"), nullable=False)
     problem = mapped_column(Integer, ForeignKey("problem.id"), nullable=False)
-    method = mapped_column(Integer, ForeignKey("method.id"), nullable=False)  # Honestly, this can just be a string.
+    method = mapped_column(Integer, ForeignKey("method.id"), nullable=True)  # Honestly, this can just be a string.
     preference = mapped_column(Integer, ForeignKey("preference.id"), nullable=True)
     value = mapped_column(JSON, nullable=False)  # Depends on the method.
 
@@ -117,9 +134,10 @@ class SolutionArchive(Base):
     id: Mapped[int] = mapped_column(primary_key=True, unique=True)
     user = mapped_column(Integer, ForeignKey("user.id"), nullable=False)
     problem = mapped_column(Integer, ForeignKey("problem.id"), nullable=False)
-    method = mapped_column(Integer, ForeignKey("method.id"), nullable=False)
+    # method = mapped_column(Integer, ForeignKey("method.id"), nullable=False)
+    method = mapped_column(Integer, nullable=False)
     preference = mapped_column(Integer, ForeignKey("preference.id"), nullable=True)
-    decision_variables = mapped_column(ARRAY(FLOAT), nullable=True)
+    decision_variables = mapped_column(JSONEncoded, nullable=True)
     objectives = mapped_column(ARRAY(FLOAT), nullable=False)
     constraints = mapped_column(ARRAY(FLOAT), nullable=True)
     extra_funcs = mapped_column(ARRAY(FLOAT), nullable=True)
@@ -127,6 +145,7 @@ class SolutionArchive(Base):
         JSON,
         nullable=True,
     )  # Depends on the method. May include things such as scalarization functions value, etc.
+    new: Mapped[bool] = mapped_column(nullable=False, default=False)
     saved: Mapped[bool] = mapped_column(nullable=False)
     current: Mapped[bool] = mapped_column(nullable=False)
     chosen: Mapped[bool] = mapped_column(nullable=False)
