@@ -8,7 +8,7 @@ from desdeo.api.db import get_db
 from desdeo.api.db_models import Problem as ProblemInDB, UserProblemAccess
 from desdeo.api.db_models import User as UserInDB
 from desdeo.api.routers.UserAuth import get_current_user
-from desdeo.api.schema import User
+from desdeo.api.schema import User, UserRole
 from desdeo.problem.schema import Problem
 from desdeo.problem.utils import get_ideal_dict, get_nadir_dict
 from desdeo.api.utils.database import (

@@ -92,12 +92,12 @@ problem_in_db = db_models.Problem(
 db.add(problem_in_db)
 
 
-'''userAccess = db_models.UserProblemAccess(
+userAccess = db_models.UserProblemAccess(
     user_id=dmUser2.id,
     problem_access=problem_in_db.id
 )
 db.add(userAccess)
-db.commit()'''
+db.commit()
 
 problem = nimbus_test_problem()
 problem_in_db = db_models.Problem(
@@ -106,13 +106,13 @@ problem_in_db = db_models.Problem(
     kind=ProblemKind.CONTINUOUS,
     obj_kind=ObjectiveKind.ANALYTICAL,
     value=problem.model_dump(mode="json"),
-    # role_permission=[],
+    role_permission=[],
 )
 
 db.add(problem_in_db)
 db.commit()
 
-'''userAccess = db_models.UserProblemAccess(
+userAccess = db_models.UserProblemAccess(
     user_id=dmUser2.id,
     problem_access=problem_in_db.id
 )
@@ -134,7 +134,7 @@ userAccess = db_models.UserProblemAccess(
     user_id=dmUser4.id,
     problem_access=problem_in_db.id
 )
-db.add(userAccess)'''
+db.add(userAccess)
 
 problem = forest_problem(holding=1, comparing=True)
 problem_in_db = db_models.Problem(
@@ -143,7 +143,7 @@ problem_in_db = db_models.Problem(
     kind=ProblemKind.CONTINUOUS,
     obj_kind=ObjectiveKind.ANALYTICAL,
     value=problem.model_dump(mode="json"),
-    # role_permission=[UserRole.DM],
+    role_permission=[UserRole.DM],
 )
 db.add(problem_in_db)
 db.commit()
