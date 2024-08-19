@@ -116,24 +116,28 @@ userAccess = db_models.UserProblemAccess(
     problem_access=problem_in_db.id
 )
 db.add(userAccess)
+db.commit()
 
 userAccess = db_models.UserProblemAccess(
     user_id=dmUser.id,
     problem_access=problem_in_db.id
 )
 db.add(userAccess)
+db.commit()
 
 userAccess = db_models.UserProblemAccess(
     user_id=dmUser3.id,
     problem_access=problem_in_db.id
 )
 db.add(userAccess)
+db.commit()
 
 userAccess = db_models.UserProblemAccess(
     user_id=dmUser4.id,
     problem_access=problem_in_db.id
 )
 db.add(userAccess)
+db.commit()
 
 problem = forest_problem(holding=1, comparing=True)
 problem_in_db = db_models.Problem(
