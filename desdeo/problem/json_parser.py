@@ -113,8 +113,8 @@ class MathParser:
             def _matmul(a, b):
                 if isinstance(a, list):
                     if isinstance(b, list):
-                        if np.isscalar(np.matmul(np.array(a), np.array(b))):
-                            return np.matmul(np.array(a), np.array(b)).item()
+                        #if np.isscalar(np.matmul(np.array(a), np.array(b))):
+                        #    return np.matmul(np.array(a), np.array(b))
                         return np.matmul(np.array(a), np.array(b))
                     return np.matmul(np.array(a), b)
                 if isinstance(b, list):
@@ -134,11 +134,23 @@ class MathParser:
             )
             raise NotImplementedError(msg)
 
+        def _polars_addition(*args):
+            def _add(a, b):
+                if isinstance(a, list):
+                    if isinstance(b, list):
+                        return np.add(np.array(a), np.array(b))
+                    return np.add(np.array(a), b)
+                if isinstance(b, list):
+                    return np.add(a, np.array(b))
+                return to_expr(a) + to_expr(b)
+            return reduce(_add, args)
+
         polars_env = {
             # Define the operations for the different operators.
             # Basic arithmetic operations
             self.NEGATE: lambda x: -to_expr(x),
-            self.ADD: lambda *args: reduce(lambda x, y: to_expr(x) + to_expr(y), args),
+            #self.ADD: lambda *args: reduce(lambda x, y: to_expr(x) + to_expr(y), args),
+            self.ADD: _polars_addition,
             self.SUB: lambda *args: reduce(lambda x, y: to_expr(x) - to_expr(y), args),
             self.MUL: lambda *args: reduce(lambda x, y: to_expr(x) * to_expr(y), args),
             self.DIV: lambda *args: reduce(lambda x, y: to_expr(x) / to_expr(y), args),

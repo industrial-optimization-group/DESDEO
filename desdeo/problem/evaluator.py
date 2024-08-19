@@ -264,6 +264,7 @@ class GenericEvaluator:
         """
         # An aggregate dataframe to store intermediate evaluation results.
         agg_df = pl.DataFrame(xs)
+        #agg_df = pl.DataFrame(agg_df["X"].explode())
 
         # Evaluate any extra functions and put the results in the aggregate dataframe.
         if self.extra_expressions is not None:

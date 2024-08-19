@@ -1505,7 +1505,7 @@ def re24() -> Problem:
 
 def simple_knapsack_vectors():
     """Define a simpl variant of the knapsack problem that utilizes vectors (TensorVaribale and TensorConstant)."""
-    """n_items = 4
+    n_items = 4
     weight_values = [2, 3, 4, 5]
     profit_values = [3, 5, 6, 8]
     efficiency_values = [4, 2, 7, 3]
@@ -1531,7 +1531,7 @@ def simple_knapsack_vectors():
     profit_objective = Objective(
         name="max profit",
         symbol="f_1",
-        func="P@X",
+        func="(P+E)@X + 1 + 2",
         maximize=True,
         ideal=8,
         nadir=0,
@@ -1560,8 +1560,8 @@ def simple_knapsack_vectors():
         is_linear=True,
         is_convex=False,
         is_twice_differentiable=False,
-    )"""
-    n_items = 4
+    )
+    """n_items = 4
     weight_values = [[2, 3, 4, 5], [2, 3, 4, 5]]
     profit_values = [[3, 5, 6, 8], [3, 5, 6, 8]]
     efficiency_values = [[4, 2, 7, 3], [4, 2, 7, 3]]
@@ -1616,7 +1616,7 @@ def simple_knapsack_vectors():
         is_linear=True,
         is_convex=False,
         is_twice_differentiable=False,
-    )
+    )"""
 
     return Problem(
         name="Simple two-objective Knapsack problem",
@@ -1631,9 +1631,10 @@ def simple_knapsack_vectors():
 if __name__ == "__main__":
     #problem = simple_scenario_test_problem()
     #print(problem.model_dump_json(indent=2))
-    from desdeo.tools import ProximalSolver, ScipyMinimizeSolver, ScipyDeSolver, SolverResults, GurobipySolver, PyomoIpoptSolver
-    from desdeo.problem import GenericEvaluator, GurobipyEvaluator, PyomoEvaluator
     import polars as pl
+
+    from desdeo.problem import GenericEvaluator
+    from desdeo.tools import ScipyMinimizeSolver, SolverResults
     problem = simple_knapsack_vectors()
     #problem = simple_linear_test_problem()
 
@@ -1642,8 +1643,8 @@ if __name__ == "__main__":
     #print(res)
 
     #xs = {"X": [0, 0, 1, 0]}
-    #xs = {"X": [0.0, 0.0, 1.0, 0.0]}
-    xs = {"X": np.array([[1.0, 1.0, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0]])}
+    xs = {"X": [0.0, 0.0, 1.0, 0.0]}
+    #xs = {"X": np.array([[1.0, 1.0, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0]])}
     #xs = np.array([[0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 1.0, 0.0]])
     #xs = {"x_1": 4.2, "x_2": 2.1}
     evaluator = GenericEvaluator(problem)
