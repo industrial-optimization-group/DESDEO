@@ -2,7 +2,6 @@
 
 import warnings
 
-import numpy as np
 import polars as pl
 from sqlalchemy_utils import create_database, database_exists, drop_database
 
@@ -90,7 +89,7 @@ problem_in_db = db_models.Problem(
 )
 
 db.add(problem_in_db)
-
+db.commit()
 
 userAccess = db_models.UserProblemAccess(
     user_id=dmUser2.id,
