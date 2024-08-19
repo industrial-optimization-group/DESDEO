@@ -48,7 +48,6 @@ __all__ = [
     "VariableType",
     "VariableTypeEnum",
     "variable_dict_to_numpy_array",
-    "variable_dict_to_numpy_array_as_group",
     "zdt1",
 ]
 
@@ -103,5 +102,4 @@ from .utils import (
     objective_dict_to_numpy_array,
     tensor_constant_from_dataframe,
     variable_dict_to_numpy_array,
-    variable_dict_to_numpy_array_as_group,
 )

@@ -1,6 +1,7 @@
 """Router for NIMBUS."""
 
 from typing import Annotated
+import copy
 
 from fastapi import APIRouter, Depends, HTTPException
 from numpy import allclose
@@ -268,19 +269,17 @@ def iterate(
     for old in old_current_solutions:
         old.current = False
 
-    solutions = {i: sol for i, sol in enumerate(previous_solutions)}
+    solutions = copy.deepcopy(previous_solutions)
     for res in results:
         # Check if the results already exist in the database
-        solutionIndex = -1
-        for i, prev in solutions.items():
+        i = -1
+        for i, prev in enumerate(solutions):
             if allclose(list(res.optimal_objectives.values()), list(prev.objectives)):
                 previous_solutions[i].current = True
                 solutions.pop(i)
-                solutionIndex = i
                 break
-
         # If the solution was not found in the database, add it
-        if solutionIndex < 0 or not previous_solutions[solutionIndex].current:
+        if i < 0 or not previous_solutions[i].current:
             db.add(
                 SolutionArchive(
                     user=user.index,

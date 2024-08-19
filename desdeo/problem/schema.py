@@ -136,8 +136,6 @@ def parse_list_to_mathjson(cls: "TensorVariable", v: Tensor | None) -> list:
         return v
     # recursively parse into a MathJSON representation
     if isinstance(v, list) and len(v) > 0:
-        if v[0] == "List":
-            return v
         if isinstance(v[0], list):
             # recursive case, encountered list
             return ["List", *[parse_list_to_mathjson(TensorVariable, v_element) for v_element in v]]
