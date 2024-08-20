@@ -3,17 +3,23 @@
 This can be used as a template for the implementation of the EMO methods.
 """
 
+from pydantic import BaseModel, Field
+import numpy as np
+
 from desdeo.emo.operators.crossover import BaseCrossover
 from desdeo.emo.operators.evaluator import BaseEvaluator
 from desdeo.emo.operators.generator import BaseGenerator
 from desdeo.emo.operators.mutation import BaseMutation
 from desdeo.emo.operators.selection import BaseSelector
 from desdeo.emo.operators.termination import BaseTerminator
-from desdeo.problem import Problem
+
+
+class EMOResult(BaseModel):
+    solutions: np.ndarray
+    objectives: np.ndarray
 
 
 def baseEA1(
-    problem: Problem,
     evaluator: BaseEvaluator,
     crossover: BaseCrossover,
     mutation: BaseMutation,
@@ -32,10 +38,4 @@ def baseEA1(
             (offspring, offspring_targets, offspring_constraints),
         )
 
-    return (
-        (solutions, targets),
-        termination.state(),
-        crossover.state(),
-        mutation.state(),
-        selection.state(),
-    )
+    return EMOResult(solutions=solutions, objectives=objectives)

@@ -182,3 +182,9 @@ class GenericMessage(BaseMessage):
 
 
 Message = IntMessage | FloatMessage | DictMessage | Array2DMessage | GenericMessage | StringMessage | BoolMessage
+
+AllowedMessagesAtVerbosity: dict[int, tuple[type[Message], ...]] = {
+    0: (),
+    1: (IntMessage, FloatMessage, StringMessage, BoolMessage),
+    2: (IntMessage, FloatMessage, StringMessage, BoolMessage, DictMessage, Array2DMessage, GenericMessage),
+}

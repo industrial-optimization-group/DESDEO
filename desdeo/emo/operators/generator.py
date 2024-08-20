@@ -52,7 +52,7 @@ class BaseGenerator(Subscriber):
                 the constraint violations, and the targets.
         """
 
-    def state(self) -> Sequence[Message] | None:
+    def state(self) -> Sequence[Message]:
         """Return the state of the generator.
 
         This method should be implemented by the inherited classes.
@@ -61,7 +61,7 @@ class BaseGenerator(Subscriber):
             dict: The state of the generator.
         """
         if self.population is None or self.targets is None or self.objs is None or self.verbosity == 0:
-            return None
+            return []
         if self.verbosity == 1:
             return [
                 IntMessage(
