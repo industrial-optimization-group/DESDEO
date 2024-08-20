@@ -1601,7 +1601,7 @@ def forest_problem(data: list[str], holding: int = 1, comparing: bool = False) -
     are represented by $v_{ij}$, $w_{ij}$, and $p_{ij}$ respectively.
 
     Args:
-        data (list[str]): A list of the data file locations.
+        data (list[str]): A list of the data file locations. In the second position (index 1) should be the key file.
         holding (int, optional): The number of the holding to be optimized. Defaults to 1.
         comparing (bool, optional): Determines if solutions are to be compared to those from the rahti app.
             Defaults to None.
