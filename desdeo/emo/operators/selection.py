@@ -234,9 +234,9 @@ class RVEASelector(BaseSelector):
                 self.denominator = message.value
         return
 
-    def state(self) -> Sequence[Message] | None:
+    def state(self) -> Sequence[Message]:
         if self.verbosity == 0 or self.selection is None:
-            return None
+            return []
         if self.verbosity == 1:
             return [
                 Array2DMessage(
@@ -300,15 +300,21 @@ class RVEASelector(BaseSelector):
         self.adapted_reference_vectors = (
             self.adapted_reference_vectors / np.linalg.norm(self.adapted_reference_vectors, axis=1)[:, None]
         )
-        self.reference_vectors_gamma = np.zeros(self.reference_vectors.shape[0])
-        self.reference_vectors_gamma[:] = np.inf
+        # self.reference_vectors_gamma = np.zeros(self.reference_vectors.shape[0])
+        # self.reference_vectors_gamma[:] = np.inf
 
-        for i in range(self.reference_vectors.shape[0]):
+        """for i in range(self.reference_vectors.shape[0]):
             for j in range(self.reference_vectors.shape[0]):
                 if i != j:
                     angle = np.arccos(np.dot(self.adapted_reference_vectors[i], self.adapted_reference_vectors[j]))
                     if angle < self.reference_vectors_gamma[i]:
-                        self.reference_vectors_gamma[i] = angle
+                        self.reference_vectors_gamma[i] = angle"""
+        # More efficient way to calculate the gamma values
+        self.reference_vectors_gamma = np.arccos(
+            np.dot(self.adapted_reference_vectors, np.transpose(self.adapted_reference_vectors))
+        )
+        self.reference_vectors_gamma[np.where(self.reference_vectors_gamma == 0)] = np.inf
+        self.reference_vectors_gamma = np.min(self.reference_vectors_gamma, axis=1)
 
 
 class NSGAIII_select(BaseSelector):
@@ -587,9 +593,9 @@ class NSGAIII_select(BaseSelector):
 
         return matrix
 
-    def state(self) -> Sequence[Message] | None:
+    def state(self) -> Sequence[Message] :
         if self.verbosity == 0 or self.selection is None:
-            return None
+            return []
         if self.verbosity == 1:
             return [
                 Array2DMessage(

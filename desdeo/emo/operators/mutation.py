@@ -58,7 +58,7 @@ class TestMutation(BaseMutation):
     def update(self, *_, **__):
         """Do nothing. This is just the test mutation operator."""
 
-    def state(self) -> Sequence[Message] | None:
+    def state(self) -> Sequence[Message]:
         """Return the state of the mutation operator."""
         return [StringMessage(topic=MutationMessageTopics.TEST, value="Called", source=self.__class__.__name__)]
 
@@ -171,12 +171,12 @@ class BoundedPolynomialMutation(BaseMutation):
     def update(self, *_, **__):
         """Do nothing. This is just the basic polynomial mutation operator."""
 
-    def state(self) -> Sequence[Message] | None:
+    def state(self) -> Sequence[Message]:
         """Return the state of the mutation operator."""
         if self.offspring_original is None or self.offspring is None:
-            return None
+            return []
         if self.verbosity == 0:
-            return None
+            return []
         if self.verbosity == 1:
             return [
                 FloatMessage(
