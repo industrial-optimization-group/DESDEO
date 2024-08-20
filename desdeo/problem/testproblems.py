@@ -1574,7 +1574,7 @@ def simple_knapsack_vectors():
     )
 
 
-def forest_problem(holding: int = 1, comparing: bool = False) -> Problem:
+def forest_problem(data: list[str], holding: int = 1, comparing: bool = False) -> Problem:
     r"""Defines a test forest problem that has TensorConstants and TensorVariables.
 
     The problem has TensorConstants V, W and P as vectors taking values from a data file and
@@ -1601,6 +1601,7 @@ def forest_problem(holding: int = 1, comparing: bool = False) -> Problem:
     are represented by $v_{ij}$, $w_{ij}$, and $p_{ij}$ respectively.
 
     Args:
+        data (list[str]): A list of the data file locations.
         holding (int, optional): The number of the holding to be optimized. Defaults to 1.
         comparing (bool, optional): Determines if solutions are to be compared to those from the rahti app.
             Defaults to None.
@@ -1610,6 +1611,8 @@ def forest_problem(holding: int = 1, comparing: bool = False) -> Problem:
     """
     df = pl.read_csv(Path(Path(__file__).parent.parent.parent) / "tests" / "data" / "alternatives_290124.csv", dtypes={"unit": pl.Float64})
     df_key = pl.read_csv(Path(Path(__file__).parent.parent.parent) / "tests" / "data" / "alternatives_key_290124.csv", dtypes={"unit": pl.Float64})
+    df = pl.read_csv(data[0], dtypes={"unit": pl.Float64})
+    df_key = pl.read_csv(data[1], dtypes={"unit": pl.Float64})
 
     selected_df_v = df.filter(pl.col("holding") == holding).select(["unit", "schedule", "npv_5_percent"])
     unique_units = selected_df_v.unique(["unit"], maintain_order=True).get_column("unit")
