@@ -21,7 +21,6 @@ from desdeo.problem.schema import (
     Variable,
     VariableTypeEnum,
 )
-from pathlib import Path
 
 
 def binh_and_korn(maximize: tuple[bool] = (False, False)) -> Problem:
@@ -1609,8 +1608,6 @@ def forest_problem(data: list[str], holding: int = 1, comparing: bool = False) -
     Returns:
         Problem: An instance of the test forest problem.
     """
-    df = pl.read_csv(Path(Path(__file__).parent.parent.parent) / "tests" / "data" / "alternatives_290124.csv", dtypes={"unit": pl.Float64})
-    df_key = pl.read_csv(Path(Path(__file__).parent.parent.parent) / "tests" / "data" / "alternatives_key_290124.csv", dtypes={"unit": pl.Float64})
     df = pl.read_csv(data[0], dtypes={"unit": pl.Float64})
     df_key = pl.read_csv(data[1], dtypes={"unit": pl.Float64})
 
