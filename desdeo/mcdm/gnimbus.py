@@ -109,7 +109,7 @@ def solve_sub_problems(  # noqa: PLR0913
     solutions = []
 
     # solve the nimbus scalarization problem, this is done always
-    add_nimbus_sf = add_group_nimbus_sf_diff if is_smooth else add_group_nimbus_sf
+    '''add_nimbus_sf = add_group_nimbus_sf_diff if is_smooth else add_group_nimbus_sf
 
     problem_w_nimbus, nimbus_target = add_nimbus_sf(
         problem, "nimbus_sf", classification_list, current_objectives, **(scalarization_options or {})
@@ -120,7 +120,7 @@ def solve_sub_problems(  # noqa: PLR0913
     else:
         nimbus_solver = init_solver(problem_w_nimbus)
 
-    solutions.append(nimbus_solver.solve(nimbus_target))
+    solutions.append(nimbus_solver.solve(nimbus_target))'''
 
     # solve STOM
     add_stom_sf = add_group_stom_sf_diff if is_smooth else add_group_stom_sf
