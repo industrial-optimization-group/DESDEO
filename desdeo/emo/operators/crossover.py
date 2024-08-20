@@ -23,14 +23,15 @@ class BaseCrossover(Subscriber):
 
     @abstractmethod
     def do(
-        self, *, population: tuple[np.ndarray, np.ndarray, np.ndarray], to_mate: list[int] | None = None
+        self, *, population: tuple[np.ndarray, np.ndarray | None, np.ndarray | None], to_mate: list[int] | None = None
     ) -> np.ndarray:
         """Perform the crossover operation.
 
         Args:
-            population (tuple[np.ndarray, np.ndarray, np.ndarray]): the population to perform the crossover with.
-                The first element of the tuple are the decision vectors, the second element is the corresponding
-                target vectors, the third element is the corresponding constraint vectors.
+            population (tuple[np.ndarray, np.ndarray | None, np.ndarray | None]): the population to perform the
+                crossover with. The first element of the tuple are the decision vectors, the second element is the
+                corresponding target vectors, the third element is the corresponding constraint vectors. The second
+                and third elements may be `None`.
             to_mate (list[int] | None): the indices of the population members that should
                 participate in the crossover. If `None`, the whole population is subject
                 to the crossover.
@@ -48,14 +49,15 @@ class TestCrossover(BaseCrossover):
         super().__init__(**kwargs)
 
     def do(
-        self, *, population: tuple[np.ndarray, np.ndarray, np.ndarray], to_mate: list[int] | None = None
+        self, *, population: tuple[np.ndarray, np.ndarray | None, np.ndarray | None], to_mate: list[int] | None = None
     ) -> np.ndarray:
         """Perform the test crossover operation.
 
         Args:
-            population (np.ndarray): the population to perform the crossover with. The first element of the tuple are
-                the decision vectors, the second element is the corresponding target vectors, the third element is
-                the corresponding constraint vectors.
+            population (tuple[np.ndarray, np.ndarray | None, np.ndarray | None]): the population to perform the
+                crossover with. The first element of the tuple are the decision vectors, the second element is the
+                corresponding target vectors, the third element is the corresponding constraint vectors. The second
+                and third elements may be `None`.
             to_mate (list[int] | None): the indices of the population members that should
                 participate in the crossover. If `None`, the whole population is subject
                 to the crossover.
@@ -103,7 +105,7 @@ class SimulatedBinaryCrossover(BaseCrossover):
             raise ValueError("Crossover distribution must be positive.")
         self.xover_probability = xover_probability
         self.xover_distribution = xover_distribution
-        self.parent_population: tuple[np.ndarray, np.ndarray, np.ndarray | None] | None = None
+        self.parent_population: tuple[np.ndarray, np.ndarray | None, np.ndarray | None] | None = None
         self.offspring_population: np.ndarray | None = None
         self.rng = np.random.default_rng(seed)
         self.seed = seed
@@ -126,15 +128,16 @@ class SimulatedBinaryCrossover(BaseCrossover):
     def do(
         self,
         *,
-        population: tuple[np.ndarray, np.ndarray, np.ndarray],
+        population: tuple[np.ndarray, np.ndarray | None, np.ndarray | None],
         to_mate: list[int] | None = None,
     ) -> np.ndarray:
         """Perform the simulated binary crossover operation.
 
         Args:
-            population (tuple[np.ndarray, np.ndarray, np.ndarray]): the population to perform the crossover with.
-                The first element of the tuple are the decision vectors, the second element is the corresponding
-                objective vectors, the third element is the corresponding constraint vectors.
+            population (tuple[np.ndarray, np.ndarray | None, np.ndarray | None]): the population to perform the
+                crossover with. The first element of the tuple are the decision vectors, the second element is the
+                corresponding target vectors, the third element is the corresponding constraint vectors. The second
+                and third elements may be `None`.
             to_mate (list[int] | None): the indices of the population members that should
                 participate in the crossover. If `None`, the whole population is subject
                 to the crossover.
@@ -180,12 +183,12 @@ class SimulatedBinaryCrossover(BaseCrossover):
     def update(self, *_, **__):
         """Do nothing. This is just the basic SBX operator."""
 
-    def state(self) -> Sequence[Message] | None:
-        """Return the s2tate of the crossover operator."""
+    def state(self) -> Sequence[Message]:
+        """Return the state of the crossover operator."""
         if self.parent_population is None or self.offspring_population is None:
-            return None
+            return []
         if self.verbosity == 0:
-            return None
+            return []
         if self.verbosity == 1:
             return [
                 FloatMessage(
