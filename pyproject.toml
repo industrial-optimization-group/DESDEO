@@ -61,8 +61,7 @@ api = [
     "sqlalchemy-utils",
     "python-multipart",
     "python-jose",
-    "bcrypt",
-    "asyncpg"
+    "bcrypt"
 ] # We could make API packages optional in the future.
 server = ["gunicorn"]
 
