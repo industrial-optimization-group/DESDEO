@@ -62,7 +62,7 @@ if [[ ! -z "$UPGRADE_PIP_TO_LATEST" ]]; then
   fi
 fi
 
-pip install .[standard,api,server,polars]
+pip install .[standard,api,server]
 
 
 if should_collectstatic; then
