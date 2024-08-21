@@ -110,31 +110,23 @@ class MathParser:
             ParserError(msg)
 
         def _polars_matmul(*args):
+            """Polars matrix multiplication."""
             def _matmul(a, b):
                 if isinstance(a, list):
                     if isinstance(b, list):
-                        #if np.isscalar(np.matmul(np.array(a), np.array(b))):
-                        #    return np.matmul(np.array(a), np.array(b))
                         return np.matmul(np.array(a), np.array(b))
                     return np.matmul(np.array(a), b)
                 if isinstance(b, list):
                     return np.matmul(a, np.array(b))
                 return np.matmul(a, b)
             return reduce(_matmul, args)
-            msg = (
-                "Matrix multiplication '@' has not been implemented for the Polars parser yet."
-                " Feel free to contribute!"
-            )
-            raise NotImplementedError(msg)
 
         def _polars_summation(summand):
             """Polars matrix summation."""
-            msg = (
-                "Matrix summation 'Sum' has not been implemented for the Polars parser yet." " Feel free to contribute!"
-            )
-            raise NotImplementedError(msg)
+            return np.sum(summand)
 
         def _polars_addition(*args):
+            """Add tensors (vectors) or scalars to each other."""
             def _add(a, b):
                 if isinstance(a, list):
                     if isinstance(b, list):
@@ -145,19 +137,36 @@ class MathParser:
                 return to_expr(a) + to_expr(b)
             return reduce(_add, args)
 
+        def _polars_negate(a):
+            """Negate a vector or scalar."""
+            def _negate(a):
+                if isinstance(a, list):
+                    return np.negative(np.array(a))
+                return -to_expr(a)
+            return _negate(a)
+
+        def _polars_subtraction(*args):
+            """Subtract tensors (vectors) or scalars from each other."""
+            def _sub(a, b):
+                if isinstance(a, list):
+                    if isinstance(b, list):
+                        return np.subtract(np.array(a), np.array(b))
+                    return np.subtract(np.array(a), b)
+                if isinstance(b, list):
+                    return np.subtract(a, np.array(b))
+                return to_expr(a) - to_expr(b)
+            return reduce(_sub, args)
+
         polars_env = {
             # Define the operations for the different operators.
             # Basic arithmetic operations
-            self.NEGATE: lambda x: -to_expr(x),
-            #self.ADD: lambda *args: reduce(lambda x, y: to_expr(x) + to_expr(y), args),
+            self.NEGATE: _polars_negate,
             self.ADD: _polars_addition,
-            self.SUB: lambda *args: reduce(lambda x, y: to_expr(x) - to_expr(y), args),
+            self.SUB: _polars_subtraction,
             self.MUL: lambda *args: reduce(lambda x, y: to_expr(x) * to_expr(y), args),
             self.DIV: lambda *args: reduce(lambda x, y: to_expr(x) / to_expr(y), args),
             # Vector and matrix operations
             self.MATMUL: _polars_matmul,
-            #self.MATMUL: lambda x, y: np.matmul(np.array(x), y),
-            #self.MATMUL: lambda x, y: x*y,
             self.SUM: _polars_summation,
             # Exponentiation and logarithms
             self.EXP: lambda x: pl.Expr.exp(to_expr(x)),
@@ -615,8 +624,7 @@ class MathParser:
                     # if the operands have redundant brackets, remove them
                     operands = operands[0]
 
-                if isinstance(operands, list):
-                    #print(expr, op_name, operands)
+                if isinstance(operands, list) and not isinstance(operands[0], self.literals):
                     return self.env[op_name](*operands)
 
                 return self.env[op_name](operands)

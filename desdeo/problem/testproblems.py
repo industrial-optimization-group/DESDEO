@@ -1531,7 +1531,7 @@ def simple_knapsack_vectors():
     profit_objective = Objective(
         name="max profit",
         symbol="f_1",
-        func="(P+E)@X + 1 + 2",
+        func="(P-E)@X - 1 / 2",
         maximize=True,
         ideal=8,
         nadir=0,
@@ -1587,7 +1587,7 @@ def simple_knapsack_vectors():
     profit_objective = Objective(
         name="max profit",
         symbol="f_1",
-        func="P@X",
+        func="(P-E)@X - 1 / 2",
         maximize=True,
         ideal=8,
         nadir=0,
@@ -1644,7 +1644,7 @@ if __name__ == "__main__":
 
     #xs = {"X": [0, 0, 1, 0]}
     xs = {"X": [0.0, 0.0, 1.0, 0.0]}
-    #xs = {"X": np.array([[1.0, 1.0, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0]])}
+    #xs = {"X": [[1.0, 1.0, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0]]}
     #xs = np.array([[0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 1.0, 0.0]])
     #xs = {"x_1": 4.2, "x_2": 2.1}
     evaluator = GenericEvaluator(problem)

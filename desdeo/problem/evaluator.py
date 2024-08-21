@@ -205,7 +205,6 @@ class GenericEvaluator:
             (symbol, self.parser.parse(expression)) if expression is not None else (symbol, None)
             for symbol, expression in parsed_obj_funcs.items()
         ]
-        print(self.objective_expressions)
 
         # parse constraints, if any
         if parsed_cons_funcs is not None:
