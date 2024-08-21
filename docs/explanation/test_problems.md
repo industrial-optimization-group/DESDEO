@@ -79,7 +79,7 @@ Here is an approximation of the hatch cover design problem's Pareto front:
 
 In the UTOPIA forest problem
 
-The problem is defined as follows:
+The UTOPIA forest problem is defined as follows:
 
 $$\begin{align}
     \max_{\mathbf{x}} & \quad \sum_{j=1}^N\sum_{i \in I_j} v_{ij} x_{ij} & \\
@@ -96,9 +96,11 @@ are represented by $v_{ij}$, $w_{ij}$, and $p_{ij}$ respectively.
 
 ### Implementation
 
-The implemented problem takes two optional arguments: `holding` and `comparing`.
-The argument `holding` is an integer value representing the number of the holding in question and defaults to 1.
-The second argument `comparing` is a boolean value meant for testing purposes to compare the results gained with this implemetation
+The implemented problem takes one compulsory argument `data` and two optional arguments, `holding` and `comparing`.
+The `data` argument is a list of strings that has the locations of (or paths to) the two data files used in the problem definition.
+In index 1 (as second element in the list) should be the "key" file.
+The second argument `holding` is an integer value representing the number of the holding in question and defaults to 1.
+The third argument `comparing` is a boolean value meant for testing purposes to compare the results gained with this implemetation
 to the ones from a previous implementation.
 This argument is therefore only relevant in testing the formulation and defaults to False.
 
@@ -120,10 +122,11 @@ To use the UTOPIA forest problem, first you need to import and initialize the pr
 ```python
 from desdeo.problem import forest_problem
 
-problem = forest_problem(holding=2)
+problem = forest_problem(data=["./tests/data/alternatives_290124.csv", "./tests/data/alternatives_key_290124.csv"], holding=2)
 ```
 
 Above, we first import the problem and then initialize it for holding number 2.
+The data files in DESDEO are located in the `tests/data` directory.
 
 When using the UTOPIA forest problem, to see if it is used correctly, you can try optimizing one objective at a time
 and see whether the objective values match the ideal values of the objectives.
@@ -149,7 +152,7 @@ from desdeo.problem import objective_dict_to_numpy_array
 from desdeo.tools import GurobipySolver # you can replace this with any solver that supports tensors
 
 # initialize the solver
-solver = GurobipySolver(problem)
+solver = GurobipySolver(problem) # again, replace GurobipySolver with the solver being tested
 
 # optimize each objective separately
 f_1_results = solver.solve("f_1_min").optimal_objectives # always solve using <objective_symbol>_min
