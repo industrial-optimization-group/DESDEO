@@ -207,6 +207,28 @@ class VariableDomainTypeEnum(str, Enum):
     """Some variables are continuos, some are integer or binary."""
 
 
+class VariableDimensionEnum(str, Enum):
+    """An enumerator for the possible dimensions of the variables of a problem."""
+
+    scalar = "scalar"
+    """All variables are scalar valued."""
+    vector = "vector"
+    """Highest dimensional variable is a vector."""
+    tensor = "tensor"
+    """Some variables have more dimensions."""
+
+
+class ConstantDimensionEnum(str, Enum):
+    """An enumerator for the possible dimensions of the constants of a problem."""
+
+    scalar = "scalar"
+    """All constants are scalar valued."""
+    vector = "vector"
+    """Highest dimensional constant is a vector."""
+    tensor = "tensor"
+    """Some constants have more dimensions."""
+
+
 class ConstraintTypeEnum(str, Enum):
     """An enumerator for supported constraint expression types."""
 

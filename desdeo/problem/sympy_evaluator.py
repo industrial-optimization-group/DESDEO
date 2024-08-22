@@ -4,9 +4,11 @@ from copy import deepcopy
 
 import sympy as sp
 
+from desdeo.problem.evaluator import EvaluatorError, variable_dimension_enumerate
 from desdeo.problem.json_parser import FormatEnum, MathParser
 from desdeo.problem.schema import Problem
 
+SUPPORTED_VAR_DIMENSIONS = ["scalar"]
 
 class SympyEvaluator:
     """Defines an evaluator that can be used to evaluate instances of Problem utilizing sympy."""
@@ -17,6 +19,10 @@ class SympyEvaluator:
         Args:
             problem (Problem): the problem to be evaluated.
         """
+        if variable_dimension_enumerate(problem) not in SUPPORTED_VAR_DIMENSIONS:
+            msg = "SymPy evaluator does not yet support tensors."
+            raise EvaluatorError(msg)
+
         # Collect all the symbols and expressions in the problem
         parser = MathParser(to_format=FormatEnum.sympy)
 

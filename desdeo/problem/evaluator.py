@@ -5,9 +5,10 @@ from enum import Enum
 import polars as pl
 
 from desdeo.problem.json_parser import MathParser, replace_str
-from desdeo.problem.schema import ObjectiveTypeEnum, Problem
+from desdeo.problem.schema import ObjectiveTypeEnum, Problem, TensorVariable
 
 SUPPORTED_EVALUATOR_MODES = ["variables", "discrete"]
+SUPPORTED_VAR_DIMENSIONS = ["scalar", "vector"]
 
 
 class EvaluatorModesEnum(str, Enum):
@@ -21,6 +22,42 @@ class EvaluatorModesEnum(str, Enum):
     vector and objective vector pairs and those should be evaluated. In this
     mode, the evaluator does not expect any decision variables as arguments when
     evaluating."""
+
+
+class VariableDimensionEnum(str, Enum):
+    """An enumerator for the possible dimensions of the variables of a problem."""
+
+    scalar = "scalar"
+    """All variables are scalar valued."""
+    vector = "vector"
+    """Highest dimensional variable is a vector."""
+    tensor = "tensor"
+    """Some variables have more dimensions."""
+
+
+def variable_dimension_enumerate(problem: Problem) -> VariableDimensionEnum:
+    """Return a VariableDimensionEnum based on the problems variables' dimensions.
+
+    This is needed as different evaluators and solvers can handle different dimensional variables.
+
+    If there are no TensorVariables in the problem, will return scalar.
+    If there are, at the highest, one dimensional TensorVariables, will return vector.
+    Else, there is at least a TensorVariable with a higher dimension, will return tensor.
+
+    Args:
+        problem (Problem): The problem being solved or evaluated.
+
+    Returns:
+        VariableDimensionEnum: The enumeration of the problems variable dimensions.
+    """
+    enum = VariableDimensionEnum.scalar
+    for var in problem.variables:
+        if isinstance(var, TensorVariable):
+            if len(var.shape) == 1 or len(var.shape) == 2 and not (var.shape[0] > 1 and var.shape[1] > 1):
+                enum = VariableDimensionEnum.vector
+            else:
+                enum = VariableDimensionEnum.tensor
+    return enum
 
 
 class EvaluatorError(Exception):
@@ -78,6 +115,10 @@ class GenericEvaluator:
                 f"The provided 'evaluator_mode' '{evaluator_mode}' is not supported."
                 f" Must be one of {EvaluatorModesEnum}."
             )
+            raise EvaluatorError(msg)
+
+        if variable_dimension_enumerate(problem) not in SUPPORTED_VAR_DIMENSIONS:
+            msg = "Polars evaluator does not yet support more than one dimensional variables."
             raise EvaluatorError(msg)
 
         self.evaluator_mode = evaluator_mode

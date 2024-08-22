@@ -22,6 +22,7 @@ from desdeo.problem.schema import (
 
 )
 
+SUPPORTED_VAR_DIMENSIONS = ["scalar", "vector", "tensor"]
 
 class GurobipyEvaluatorError(Exception):
     """Raised when an error within the GurobipyEvaluator class is encountered."""

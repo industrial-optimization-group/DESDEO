@@ -5,6 +5,7 @@ import gurobipy as gp
 from desdeo.problem import Constraint, GurobipyEvaluator, Objective, Problem, ScalarizationFunction, TensorVariable, Variable
 from desdeo.tools.generics import BaseSolver, PersistentSolver, SolverResults
 
+SUPPORTED_VAR_DIMENSIONS = ["scalar", "vector", "tensor"]
 
 def parse_gurobipy_optimizer_results(problem: Problem, evaluator: GurobipyEvaluator) -> SolverResults:
     """Parses results from GurobipyEvaluator's model into DESDEO SolverResults.

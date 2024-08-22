@@ -1,9 +1,14 @@
 """Tests for the generic evaluator."""
 import numpy.testing as npt
 import polars as pl
+import pytest
 
 from desdeo.problem import (
     GenericEvaluator,
+    Objective,
+    Problem,
+    TensorConstant,
+    TensorVariable,
     river_pollution_problem,
     simple_test_problem,
 )
@@ -130,3 +135,41 @@ def test_find_closest_points():
     npt.assert_array_almost_equal(
         closest_points_df_single_var[objective_symbol_single_var].to_numpy(), expected_single_var
     )
+
+@pytest.mark.skip
+def test_with_tensors():
+    """Test that GenericEvaluator raises an error when trying to initialize the evaluator with a problem with tensors."""
+    # define a modified version of the simple_knapsack_vectors test problem for the purpose
+    profit_values = [[3, 5], [6, 8]]
+    profits = TensorConstant(name="Profits", symbol="P", shape=[2,2], values=profit_values)
+
+    choices = TensorVariable(
+        name="Chosen items",
+        symbol="X",
+        shape=[2,2],
+        variable_type="binary",
+        lowerbounds=[[0,0],[0,0]],
+        upperbounds=[[1,1],[1,1]],
+        initial_values=[[1,1],[1,1]],
+    )
+
+    profit_objective = Objective(
+        name="max profit",
+        symbol="f_1",
+        func="P@X",
+        maximize=True,
+        ideal=8,
+        nadir=0,
+        is_linear=True,
+        is_convex=False,
+        is_twice_differentiable=False,
+    )
+
+    problem = Problem(
+        name="Simple two-objective Knapsack problem",
+        description="A simple variant of the classic combinatorial problem.",
+        constants=[profits],
+        variables=[choices],
+        objectives=[profit_objective])
+
+    GenericEvaluator(problem) # fails

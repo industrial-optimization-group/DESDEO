@@ -9,6 +9,7 @@ from desdeo.problem import (
     SympyEvaluator,
     binh_and_korn,
     river_pollution_problem,
+    simple_knapsack_vectors,
     zdt1,
 )
 from desdeo.tools import add_asf_diff, add_weighted_sums
@@ -145,3 +146,9 @@ def test_evaluate():
 
     npt.assert_almost_equal(res["g_1"], -8.51)
     npt.assert_almost_equal(res["g_2"], -60.99)
+
+@pytest.mark.skip
+def test_with_tensors():
+    """Test that SympyEvaluator raises an error when trying to initialize the evaluator with a problem with tensors."""
+    problem = simple_knapsack_vectors()
+    SympyEvaluator(problem) # fails

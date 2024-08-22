@@ -9,6 +9,7 @@ from pyomo.opt import TerminationCondition as _pyomo_TerminationCondition
 from desdeo.problem import Problem, PyomoEvaluator
 from desdeo.tools.generics import BaseSolver, SolverResults
 
+SUPPORTED_VAR_DIMENSIONS = ["scalar", "vector", "tensor"]
 
 class BonminOptions(BaseModel):
     """Defines a pydantic model to store and pass options to the Bonmin solver.

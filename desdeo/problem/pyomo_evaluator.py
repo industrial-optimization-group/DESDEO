@@ -16,6 +16,7 @@ from desdeo.problem.schema import (
     VariableTypeEnum,
 )
 
+SUPPORTED_VAR_DIMENSIONS = ["scalar", "vector", "tensor"]
 
 class PyomoEvaluatorError(Exception):
     """Raised when an error within the PyomoEvaluator class is encountered."""
