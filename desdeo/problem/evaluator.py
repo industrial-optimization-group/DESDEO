@@ -273,13 +273,9 @@ class GenericEvaluator:
 
         for symbol, expr in self.objective_expressions:
             if expr is not None:
-                # expression given and is a polars expression
-                if isinstance(expr, pl.Expr):
-                    obj_col = agg_df.select(expr.alias(symbol))
-                    agg_df = agg_df.hstack(obj_col)
-                else:
-                    obj_col = pl.DataFrame([expr.item()])
-                    agg_df = agg_df.hstack(obj_col)
+                # expression given
+                obj_col = agg_df.select(expr.alias(symbol))
+                agg_df = agg_df.hstack(obj_col)
             else:
                 # expr is None, therefore we must get the objective function's value somehow else, usually from data
                 obj_col = find_closest_points(agg_df, self.discrete_df, self.problem_variable_symbols, symbol)
@@ -383,6 +379,7 @@ def find_closest_points(
     results = []
 
     for row in xs_vars_only.rows(named=True):
+        print(row)
         distance_expr = (
             sum((pl.col(var_symbol) - row[var_symbol]) ** 2 for var_symbol in variable_symbols).sqrt().alias("distance")
         )

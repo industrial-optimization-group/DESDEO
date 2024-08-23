@@ -12,7 +12,7 @@ from scipy.optimize import OptimizeResult as _ScipyOptimizeResult
 from scipy.optimize import differential_evolution as _scipy_de
 from scipy.optimize import minimize as _scipy_minimize
 
-from desdeo.problem import ConstraintTypeEnum, GenericEvaluator, Problem, TensorVariable, Variable
+from desdeo.problem import ConstraintTypeEnum, GenericEvaluator, Problem
 from desdeo.tools.generics import SolverError, SolverResults
 
 
@@ -34,13 +34,7 @@ def get_variable_bounds_pairs(problem: Problem) -> list[tuple[float | int, float
             element of each tuple is the lower bound of a variable and the second
             its upper bound. Each tuple corresponds to a variable.
     """
-    bounds = []
-    for variable in problem.variables:
-        if isinstance(variable, Variable):
-            bounds.append((variable.lowerbound, variable.upperbound))
-        else:
-            bounds.append((variable.get_lowerbound_values(), variable.get_upperbound_values()))
-    return bounds
+    return [(variable.lowerbound, variable.upperbound) for variable in problem.variables]
 
 
 def set_initial_guess(problem: Problem) -> list[float | int]:
@@ -55,17 +49,12 @@ def set_initial_guess(problem: Problem) -> list[float | int]:
     Returns:
         list[float | int]: a list of numbers, each number represents the initial guess of each variable in the problem.
     """
-    initial_guess = []
-    for variable in problem.variables:
-        if isinstance(variable, Variable) and variable.initial_value is not None:
-            initial_guess.append(variable.initial_value)
-        elif isinstance(variable, Variable):
-            initial_guess.append((variable.upperbound - variable.lowerbound) / 2 + variable.lowerbound)
-        elif variable.initial_values is not None:
-            initial_guess.append(variable.get_initial_values())
-        else:
-            initial_guess.append((variable.get_upperbound_values() - variable.get_lowerbound_values()) / 2 + variable.get_lowerbound_values()) # may not be this
-    return initial_guess
+    return [
+        variable.initial_value
+        if variable.initial_value is not None
+        else ((variable.upperbound - variable.lowerbound) / 2 + variable.lowerbound)
+        for variable in problem.variables
+    ]
 
 
 def create_scipy_dict_constraints(problem: Problem, evaluator: GenericEvaluator) -> dict:
