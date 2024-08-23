@@ -2,8 +2,8 @@
 
 import polars as pl
 
-from desdeo.problem import EvaluatorModesEnum, GenericEvaluator, Problem
-from desdeo.tools.generics import BaseSolver, SolverResults
+from desdeo.problem import EvaluatorModesEnum, GenericEvaluator, ObjectiveTypeEnum, Problem
+from desdeo.tools.generics import BaseSolver, SolverError, SolverResults
 
 
 class ProximalSolver(BaseSolver):
@@ -29,6 +29,11 @@ class ProximalSolver(BaseSolver):
             Callable[[str], SolverResults]: a solver that can be called with a target to be optimized.
                 This function then returns the results of the optimization as in a `SolverResults` dataclass.
         """
+        for obj in problem.objectives:
+            if obj.objective_type is not ObjectiveTypeEnum.data_based:
+                raise SolverError(f"All objectives must be data-based {obj.symbol}.")
+        if problem.discrete_representation is None:
+            raise SolverError("Problem must have a discrete representation defined.")
         self.problem = problem
         self.evaluator = GenericEvaluator(problem, evaluator_mode=EvaluatorModesEnum.discrete)
 

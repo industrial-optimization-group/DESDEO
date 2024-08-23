@@ -1799,5 +1799,10 @@ def forest_problem(holding: int = 1, comparing: bool = False) -> Problem:
 
 
 if __name__ == "__main__":
-    problem = simple_scenario_test_problem()
-    print(problem.model_dump_json(indent=2))
+    #problem = simple_scenario_test_problem()
+    #print(problem.model_dump_json(indent=2))
+
+    from desdeo.tools import GurobipySolver
+
+    problem = dtlz2(3,3)
+    GurobipySolver(problem)
