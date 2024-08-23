@@ -196,9 +196,6 @@ class GenericEvaluator:
             else:
                 parsed_scal_funcs = None
 
-        for symbol, expression in parsed_obj_funcs.items():
-            print(expression, self.parser.parse(expression))
-
         # Parse all functions into expressions. These are stored as tuples, as (symbol, parsed expression)
         # parse objectives
         # If no expression is given (data-based objective, then the expression is set to be 'None')
@@ -264,7 +261,6 @@ class GenericEvaluator:
         """
         # An aggregate dataframe to store intermediate evaluation results.
         agg_df = pl.DataFrame(xs)
-        #agg_df = pl.DataFrame(agg_df["X"].explode())
 
         # Evaluate any extra functions and put the results in the aggregate dataframe.
         if self.extra_expressions is not None:
