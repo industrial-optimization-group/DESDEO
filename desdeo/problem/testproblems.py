@@ -1531,7 +1531,7 @@ def simple_knapsack_vectors():
     profit_objective = Objective(
         name="max profit",
         symbol="f_1",
-        func="(P-E)@X - 1 / 2",
+        func="P@X",
         maximize=True,
         ideal=8,
         nadir=0,
@@ -1636,19 +1636,19 @@ if __name__ == "__main__":
     from desdeo.problem import GenericEvaluator
     from desdeo.tools import ScipyMinimizeSolver, SolverResults
     problem = simple_knapsack_vectors()
-    #problem = simple_linear_test_problem()
+    problem = simple_data_problem()
 
     #solver = ScipyMinimizeSolver(problem)
     #res = solver.solve("f_1_min")
     #print(res)
 
     #xs = {"X": [0, 0, 1, 0]}
-    xs = {"X": [0.0, 0.0, 1.0, 0.0]}
+    xs = {"X": [1.0, 1.0, 0.0, 0.0]}
     #xs = {"X": [[1.0, 1.0, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0]]}
     #xs = np.array([[0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 1.0, 0.0]])
     #xs = {"x_1": 4.2, "x_2": 2.1}
     evaluator = GenericEvaluator(problem)
-    res = evaluator.evaluate(xs)
+    """res = evaluator.evaluate(xs)
     print(res)
 
     ##########################################################################
@@ -1678,4 +1678,4 @@ if __name__ == "__main__":
     solver_res = SolverResults(
         optimal_variables=var_opt, optimal_objectives=obj_opt, constraint_values=const_opt, success=True, message=msg
     )
-    print(solver_res)
+    print(solver_res)"""

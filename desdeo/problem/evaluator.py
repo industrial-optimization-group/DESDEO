@@ -195,6 +195,7 @@ class GenericEvaluator:
                 parsed_scal_funcs = {f"{scal.symbol}": scal.func for scal in self.problem_scalarization}
             else:
                 parsed_scal_funcs = None
+
         for symbol, expression in parsed_obj_funcs.items():
             print(expression, self.parser.parse(expression))
 

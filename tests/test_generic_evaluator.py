@@ -4,7 +4,9 @@ import polars as pl
 
 from desdeo.problem import (
     GenericEvaluator,
+    TensorVariable,
     river_pollution_problem,
+    simple_knapsack_vectors,
     simple_test_problem,
 )
 from desdeo.problem.evaluator import find_closest_points
@@ -130,3 +132,63 @@ def test_find_closest_points():
     npt.assert_array_almost_equal(
         closest_points_df_single_var[objective_symbol_single_var].to_numpy(), expected_single_var
     )
+
+
+def test_with_vectors():
+    """Test that the polars evaluator evaluates correctly with vector valued variables and constants."""
+    problem = simple_knapsack_vectors()
+
+    evaluator = GenericEvaluator(problem)
+    xs = {"X": [0.0, 0.0, 1.0, 0.0]}
+    res = evaluator.evaluate(xs)
+
+    # parse the results from the evaluator (from polars DataFrame form)
+    var_opt = {var.symbol: res[var.symbol].to_list()
+                if isinstance(var, TensorVariable)
+                else res[var.symbol]
+                for var in problem.variables}
+
+    obj_opt = {obj.symbol: res[obj.symbol].to_list()[0]
+                if isinstance(res[obj.symbol], pl.Series)
+                else res[obj.symbol]
+                for obj in problem.objectives}
+
+    if problem.constraints is not None:
+        # has constraints
+        const_opt = {con.symbol: res[con.symbol].to_list()[0]
+                     if isinstance(res[con.symbol], pl.Series)
+                     else res[con.symbol]
+                     for con in problem.constraints}
+    else:
+        const_opt = None
+
+    assert var_opt == xs
+    assert obj_opt == {"f_1": 6.0, "f_2": 7.0}
+    assert const_opt == {"g_1": -1.0}
+
+    xs = {"X": [1.0, 1.0, 0.0, 0.0]}
+    res = evaluator.evaluate(xs)
+
+    # parse the results from the evaluator (from polars DataFrame form)
+    var_opt = {var.symbol: res[var.symbol].to_list()
+                if isinstance(var, TensorVariable)
+                else res[var.symbol]
+                for var in problem.variables}
+
+    obj_opt = {obj.symbol: res[obj.symbol].to_list()[0]
+                if isinstance(res[obj.symbol], pl.Series)
+                else res[obj.symbol]
+                for obj in problem.objectives}
+
+    if problem.constraints is not None:
+        # has constraints
+        const_opt = {con.symbol: res[con.symbol].to_list()[0]
+                     if isinstance(res[con.symbol], pl.Series)
+                     else res[con.symbol]
+                     for con in problem.constraints}
+    else:
+        const_opt = None
+
+    assert var_opt == xs
+    assert obj_opt == {"f_1": 8.0, "f_2": 6.0}
+    assert const_opt == {"g_1": 0.0}
