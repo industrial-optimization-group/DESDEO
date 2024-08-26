@@ -136,6 +136,8 @@ def parse_list_to_mathjson(cls: "TensorVariable", v: Tensor | None) -> list:
         return v
     # recursively parse into a MathJSON representation
     if isinstance(v, list) and len(v) > 0:
+        if isinstance(v[0], str) and v[0] == "List":
+            return v
         if isinstance(v[0], list):
             # recursive case, encountered list
             return ["List", *[parse_list_to_mathjson(TensorVariable, v_element) for v_element in v]]
@@ -144,7 +146,7 @@ def parse_list_to_mathjson(cls: "TensorVariable", v: Tensor | None) -> list:
             return ["List", *v]
 
         # if anything else is encountered, raise an error
-        msg = "Encountered value that is not a valid VariableType nor a list."
+        msg = "Tried to parse to mathjson a value that is not a valid VariableType nor a list."
         raise ValueError(msg)
 
     msg = f"The tensor must a Python list (of lists). Got {type(v)}."
