@@ -32,7 +32,7 @@ class VariableDimensionEnum(str, Enum):
     vector = "vector"
     """Highest dimensional variable is a vector."""
     tensor = "tensor"
-    """Some variables have more dimensions."""
+    """Some variable has more dimensions."""
 
 
 def variable_dimension_enumerate(problem: Problem) -> VariableDimensionEnum:
@@ -56,7 +56,7 @@ def variable_dimension_enumerate(problem: Problem) -> VariableDimensionEnum:
             if len(var.shape) == 1 or len(var.shape) == 2 and not (var.shape[0] > 1 and var.shape[1] > 1):
                 enum = VariableDimensionEnum.vector
             else:
-                enum = VariableDimensionEnum.tensor
+                return VariableDimensionEnum.tensor
     return enum
 
 
