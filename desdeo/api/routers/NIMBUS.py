@@ -1,7 +1,7 @@
 """Router for NIMBUS."""
 
-from typing import Annotated
 import copy
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from numpy import allclose
@@ -15,6 +15,7 @@ from desdeo.api.routers.UserAuth import get_current_user
 from desdeo.api.schema import User
 from desdeo.mcdm.nimbus import generate_starting_point, solve_intermediate_solutions, solve_sub_problems
 from desdeo.problem.schema import Problem
+from desdeo.tools.utils import available_solvers
 
 router = APIRouter(prefix="/nimbus")
 
@@ -127,6 +128,7 @@ def init_nimbus(
     if problem.owner != user.index and problem.owner is not None:
         raise HTTPException(status_code=403, detail="Unauthorized to access chosen problem.")
     try:
+        solver = problem.solver
         problem = Problem.model_validate(problem.value)
     except ValidationError:
         raise HTTPException(status_code=500, detail="Error in parsing the problem.") from ValidationError
@@ -148,7 +150,7 @@ def init_nimbus(
 
     # If there are no solutions, generate a starting point for NIMBUS
     if not solutions:
-        start_result = generate_starting_point(problem=problem)
+        start_result = generate_starting_point(problem=problem, solver=available_solvers[solver] if solver else None)
         current_solution = SolutionArchive(
             user=user.index,
             problem=problem_id,
@@ -217,6 +219,7 @@ def iterate(
     if problem.owner != user.index and problem.owner is not None:
         raise HTTPException(status_code=403, detail="Unauthorized to access chosen problem.")
     try:
+        solver = problem.solver
         problem = Problem.model_validate(problem.value)
     except ValidationError:
         raise HTTPException(status_code=500, detail="Error in parsing the problem.") from ValidationError
@@ -237,9 +240,12 @@ def iterate(
     # Do NIMBUS stuff here.
     results = solve_sub_problems(
         problem=problem,
-        current_objectives=dict(zip([obj.symbol for obj in problem.objectives], request.reference_solution, strict=True)),
+        current_objectives=dict(
+            zip([obj.symbol for obj in problem.objectives], request.reference_solution, strict=True)
+        ),
         reference_point=dict(zip([obj.symbol for obj in problem.objectives], request.preference, strict=True)),
         num_desired=request.num_solutions,
+        solver=available_solvers[solver] if solver else None,
     )
 
     # See if the results include duplicates and remove them
@@ -350,6 +356,7 @@ def intermediate(
     if problem.owner != user.index and problem.owner is not None:
         raise HTTPException(status_code=403, detail="Unauthorized to access chosen problem.")
     try:
+        solver = problem.solver
         problem = Problem.model_validate(problem.value)
     except ValidationError:
         raise HTTPException(status_code=500, detail="Error in parsing the problem.") from ValidationError
@@ -373,6 +380,7 @@ def intermediate(
         solution_1=dict(zip(problem.objectives, request.reference_solution_1, strict=True)),
         solution_2=dict(zip(problem.objectives, request.reference_solution_2, strict=True)),
         num_desired=request.num_solutions,
+        solver=available_solvers[solver] if solver else None,
     )
 
     # See if the results include duplicates and remove them

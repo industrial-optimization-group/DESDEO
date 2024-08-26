@@ -9,9 +9,9 @@ from sqlalchemy_utils import create_database, database_exists, drop_database
 from desdeo.api import db_models
 from desdeo.api.db import Base, SessionLocal, engine
 from desdeo.api.routers.UserAuth import get_password_hash
-from desdeo.api.schema import ObjectiveKind, ProblemKind, UserPrivileges, UserRole
+from desdeo.api.schema import ObjectiveKind, ProblemKind, Solvers, UserPrivileges, UserRole
 from desdeo.problem.schema import DiscreteRepresentation, Objective, Problem, Variable
-from desdeo.problem.testproblems import binh_and_korn, nimbus_test_problem, river_pollution_problem
+from desdeo.problem.testproblems import binh_and_korn, forest_problem, nimbus_test_problem, river_pollution_problem
 
 TEST_USER = "test"
 TEST_PASSWORD = "test"  # NOQA: S105 # TODO: Remove this line and create a proper user creation system.
@@ -86,8 +86,6 @@ problem_in_db = db_models.Problem(
 
 db.add(problem_in_db)
 
-db.commit()
-
 problem = river_pollution_problem()
 
 problem_in_db = db_models.Problem(
@@ -97,6 +95,17 @@ problem_in_db = db_models.Problem(
     obj_kind=ObjectiveKind.ANALYTICAL,
     value=problem.model_dump(mode="json"),
     role_permission=[UserRole.DM],
+)
+db.add(problem_in_db)
+
+problem = forest_problem(holding=1, comparing=False)
+problem_in_db = db_models.Problem(
+    owner=user.id,
+    name="Test 5",
+    kind=ProblemKind.CONTINUOUS,
+    obj_kind=ObjectiveKind.ANALYTICAL,
+    solver=Solvers.GUROBIPY,
+    value=problem.model_dump(mode="json"),
 )
 db.add(problem_in_db)
 db.commit()

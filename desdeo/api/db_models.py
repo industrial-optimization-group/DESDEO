@@ -36,6 +36,9 @@ class Problem(Base):
     kind: Mapped[schema.ProblemKind] = mapped_column(nullable=False)
     obj_kind: Mapped[schema.ObjectiveKind] = mapped_column(nullable=False)
     role_permission: Mapped[list[schema.UserRole]] = mapped_column(ARRAY(Enum(schema.UserRole)), nullable=True)
+    # We need some way to tell the API what solver should be used, and this seems like a good place
+    # This should match one of the available_solvers in desdeo.tools.utils
+    solver: Mapped[schema.Solvers] = mapped_column(nullable=True)
     # Mapped doesn't work with JSON, so we use JSON directly.
     value = mapped_column(JSON, nullable=False)  # desdeo.problem.schema.Problem
 
@@ -45,7 +48,7 @@ class UserProblemAccess(Base):
 
     __tablename__ = "user_problem_access"
     id: Mapped[int] = mapped_column(primary_key=True, unique=True)
-    user_id= mapped_column(Integer,ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    user_id = mapped_column(Integer, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
     problem_access: Mapped[int] = mapped_column(Integer, ForeignKey("problem.id"), nullable=False)
     problem = relationship("Problem", foreign_keys=[problem_access], lazy="selectin")
 
