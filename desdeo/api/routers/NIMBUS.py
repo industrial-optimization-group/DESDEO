@@ -1,6 +1,8 @@
 """Router for NIMBUS."""
 
+from collections.abc import Iterable
 import copy
+import itertools
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -155,7 +157,7 @@ def init_nimbus(
             user=user.index,
             problem=problem_id,
             method=method_id,
-            decision_variables=list(start_result.optimal_variables.values()),
+            decision_variables=flatten(list(start_result.optimal_variables.values())),
             objectives=list(start_result.optimal_objectives.values()),
             saved=False,
             current=True,
@@ -294,7 +296,7 @@ def iterate(
                     user=user.index,
                     problem=problem_id,
                     method=method_id,
-                    decision_variables=list(res.optimal_variables.values()),
+                    decision_variables=flatten(list(res.optimal_variables.values())),
                     objectives=list(res.optimal_objectives.values()),
                     saved=False,
                     current=True,
@@ -430,7 +432,7 @@ def intermediate(
                     user=user.index,
                     problem=problem_id,
                     method=method_id,
-                    decision_variables=list(res.optimal_variables.values()),
+                    decision_variables=flatten(list(res.optimal_variables.values())),
                     objectives=list(res.optimal_objectives.values()),
                     saved=False,
                     current=True,
@@ -554,3 +556,21 @@ def choose(
         raise HTTPException(status_code=404, detail="The chosen solution was not found in the database.")
 
     return FakeNIMBUSResponse(message="Solution chosen.")
+
+
+def flatten(lst):
+    """Takes a nested list and flattens it into a single list.
+
+    Args:
+        lst: The list that needs flattening
+
+    Returns:
+        The flattened list.
+    """
+    flat_list = []
+    for item in lst:
+        if isinstance(item, list):
+            flat_list.extend(flatten(item))
+        else:
+            flat_list.append(item)
+    return flat_list
