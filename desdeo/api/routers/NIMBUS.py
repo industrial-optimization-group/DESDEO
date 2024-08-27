@@ -119,7 +119,7 @@ def init_nimbus(
     # Do database stuff here.
     problem_id = init_request.problem_id
     # The request is supposed to contain method id, but I don't want to deal with frontend code
-    method_id = None
+    method_id = get_nimbus_method_id(db)
     problem = db.query(ProblemInDB).filter(ProblemInDB.id == problem_id).first()
 
     if problem is None:
@@ -214,7 +214,7 @@ def iterate(
     # Do database stuff here.
     problem_id = request.problem_id
     # The request is supposed to contain method id, but I don't want to deal with frontend code
-    method_id = None
+    method_id = get_nimbus_method_id(db)
 
     problem = db.query(ProblemInDB).filter(ProblemInDB.id == problem_id).first()
     if problem is None:
@@ -352,7 +352,7 @@ def intermediate(
     # Do database stuff here.
     problem_id = request.problem_id
     # The request is supposed to contain method id, but I don't want to deal with frontend code
-    method_id = None
+    method_id = get_nimbus_method_id(db)
 
     problem = db.query(ProblemInDB).filter(ProblemInDB.id == problem_id).first()
     if problem is None:

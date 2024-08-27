@@ -9,7 +9,7 @@ from sqlalchemy_utils import create_database, database_exists, drop_database
 from desdeo.api import db_models
 from desdeo.api.db import Base, SessionLocal, engine
 from desdeo.api.routers.UserAuth import get_password_hash
-from desdeo.api.schema import ObjectiveKind, ProblemKind, Solvers, UserPrivileges, UserRole
+from desdeo.api.schema import Methods, ObjectiveKind, ProblemKind, Solvers, UserPrivileges, UserRole
 from desdeo.problem.schema import DiscreteRepresentation, Objective, Problem, Variable
 from desdeo.problem.testproblems import binh_and_korn, forest_problem, nimbus_test_problem, river_pollution_problem
 
@@ -108,6 +108,15 @@ problem_in_db = db_models.Problem(
     value=problem.model_dump(mode="json"),
 )
 db.add(problem_in_db)
+db.commit()
+
+# I guess we need to have methods in the database as well
+nimbus = db_models.Method(
+    kind=Methods.NIMBUS,
+    properties=[],
+    name="NIMBUS",
+)
+db.add(nimbus)
 db.commit()
 
 # db.close()
