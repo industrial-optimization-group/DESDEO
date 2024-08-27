@@ -1,8 +1,6 @@
 """Router for NIMBUS."""
 
-from collections.abc import Iterable
 import copy
-import itertools
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -11,10 +9,10 @@ from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import Session
 
 from desdeo.api.db import get_db
-from desdeo.api.db_models import Preference, SolutionArchive
+from desdeo.api.db_models import Method, Preference, SolutionArchive
 from desdeo.api.db_models import Problem as ProblemInDB
 from desdeo.api.routers.UserAuth import get_current_user
-from desdeo.api.schema import User
+from desdeo.api.schema import Methods, User
 from desdeo.mcdm.nimbus import generate_starting_point, solve_intermediate_solutions, solve_sub_problems
 from desdeo.problem.schema import Problem
 from desdeo.tools.utils import available_solvers
@@ -120,9 +118,8 @@ def init_nimbus(
     """
     # Do database stuff here.
     problem_id = init_request.problem_id
-    # Maybe it's fine if method ID comes from the request.
-    # I guess this code does not need to know what the ID of Nimbus is.
-    method_id = init_request.method_id
+    # The request is supposed to contain method id, but I don't want to deal with frontend code
+    method_id = get_nimbus_method_id(db)
     problem = db.query(ProblemInDB).filter(ProblemInDB.id == problem_id).first()
 
     if problem is None:
@@ -216,7 +213,8 @@ def iterate(
     """
     # Do database stuff here.
     problem_id = request.problem_id
-    method_id = request.method_id
+    # The request is supposed to contain method id, but I don't want to deal with frontend code
+    method_id = get_nimbus_method_id(db)
 
     problem = db.query(ProblemInDB).filter(ProblemInDB.id == problem_id).first()
     if problem is None:
@@ -353,7 +351,8 @@ def intermediate(
     """
     # Do database stuff here.
     problem_id = request.problem_id
-    method_id = request.method_id
+    # The request is supposed to contain method id, but I don't want to deal with frontend code
+    method_id = get_nimbus_method_id(db)
 
     problem = db.query(ProblemInDB).filter(ProblemInDB.id == problem_id).first()
     if problem is None:
@@ -574,3 +573,16 @@ def flatten(lst):
         else:
             flat_list.append(item)
     return flat_list
+
+
+def get_nimbus_method_id(db: Session):
+    """Queries the database to find the id for NIMBUS method.
+
+    Args:
+        db: Database session
+
+    Returns:
+        The method id
+    """
+    nimbus_method = db.query(Method).filter(Method.kind == Methods.NIMBUS).first()
+    return nimbus_method.id
