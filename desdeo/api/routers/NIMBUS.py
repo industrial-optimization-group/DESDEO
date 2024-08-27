@@ -128,7 +128,7 @@ def init_nimbus(
     if problem.owner != user.index and problem.owner is not None:
         raise HTTPException(status_code=403, detail="Unauthorized to access chosen problem.")
     try:
-        solver = problem.solver
+        solver = problem.solver.value
         problem = Problem.model_validate(problem.value)
     except ValidationError:
         raise HTTPException(status_code=500, detail="Error in parsing the problem.") from ValidationError
@@ -219,7 +219,7 @@ def iterate(
     if problem.owner != user.index and problem.owner is not None:
         raise HTTPException(status_code=403, detail="Unauthorized to access chosen problem.")
     try:
-        solver = problem.solver
+        solver = problem.solver.value
         problem = Problem.model_validate(problem.value)
     except ValidationError:
         raise HTTPException(status_code=500, detail="Error in parsing the problem.") from ValidationError
@@ -356,7 +356,7 @@ def intermediate(
     if problem.owner != user.index and problem.owner is not None:
         raise HTTPException(status_code=403, detail="Unauthorized to access chosen problem.")
     try:
-        solver = problem.solver
+        solver = problem.solver.value
         problem = Problem.model_validate(problem.value)
     except ValidationError:
         raise HTTPException(status_code=500, detail="Error in parsing the problem.") from ValidationError
