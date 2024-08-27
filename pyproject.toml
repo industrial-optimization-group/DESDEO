@@ -51,7 +51,6 @@ standard = ["polars"]
 legacy = ["polars-lts-cpu"]
 viz = ["seaborn", "plotly"] # We could make viz packages optional in the future.
 api = [
-    "polars",
     "fastapi",
     "uvicorn",
     "sqlalchemy",

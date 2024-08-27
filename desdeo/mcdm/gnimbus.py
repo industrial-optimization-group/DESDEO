@@ -8,7 +8,7 @@ References:
 
 import numpy as np
 
-from desdeo.problem import GenericEvaluator, Problem, VariableType, variable_dict_to_numpy_array, variable_dict_to_numpy_array_as_group
+from desdeo.problem import GenericEvaluator, Problem, VariableType, variable_dict_to_numpy_array, tensor_variable_to_numpy_array
 from desdeo.tools import (
     BaseSolver,
     SolverOptions,
@@ -210,8 +210,8 @@ def solve_intermediate_solutions(  # noqa: PLR0913
     _solver_options = None if solver_options is None or create_solver is None else solver_options
 
     # compute the element-wise difference between each solution (in the decision space)
-    solution_1_arr = variable_dict_to_numpy_array_as_group(problem, solution_1)
-    solution_2_arr = variable_dict_to_numpy_array_as_group(problem, solution_2)
+    solution_1_arr = tensor_variable_to_numpy_array(problem, solution_1)
+    solution_2_arr = tensor_variable_to_numpy_array(problem, solution_2)
     delta = solution_1_arr - solution_2_arr
 
     # the '2' is in the denominator because we want to calculate the steps

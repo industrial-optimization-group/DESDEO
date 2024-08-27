@@ -75,7 +75,7 @@ def variable_dict_to_numpy_array(problem: Problem, variable_dict: dict[str, floa
         return np.array([variable_dict[variable.symbol][0] for variable in problem.variables])
     return np.array([variable_dict[variable.symbol] for variable in problem.variables])
 
-def variable_dict_to_numpy_array_as_group(problem: Problem, variable_dict: dict[str, float | list[float]]) -> np.ndarray:
+def tensor_variable_to_numpy_array(problem: Problem, variable_dict: dict[str, float | list[float]]) -> np.ndarray:
     """Takes a dict with a decision variable vector and returns a numpy array.
 
     Takes a dict with the keys being decision variable symbols and the values
