@@ -307,6 +307,7 @@ async def getMostSelectedSolutions(
         .where(SolutionArchive.id.in_(selected_ref_solution_ids))
         .values(current=True)
     )
+    await db.commit()
 
     return {id: reference_solutions[id] for id in selected_ref_solution_ids}
 
@@ -360,6 +361,7 @@ async def finalSolutionVote(
                 .values(current=True)
                 .returning(SolutionArchive)
             )
+        await db.commit()
 
         return NIMBUSFinalVoteResponse(
             chosen_solutions={sol.id: sol.objectives for sol in solutions if sol.chosen},
@@ -415,6 +417,7 @@ async def solutionVote(
                     .where(SolutionArchive.id!=selected_ref_solution_id)
                     .values(new=False)
                 )
+                await db.commit()
 
                 return NIMBUSVoteResponse(
                     current_solutions={vote_solution.id: vote_solution.objectives for sol in [vote_solution] if sol.current},
@@ -426,6 +429,7 @@ async def solutionVote(
                 .where(SolutionArchive.id!=selected_ref_solution_id)
                 .values(current=False)
             )
+            await db.commit()
 
             return NIMBUSBasicResponse(
                 current_solutions={selected_ref_solution_id: selected_reference_solution},
@@ -436,6 +440,7 @@ async def solutionVote(
             .where(SolutionArchive.problem==requests[0].problem_id, SolutionArchive.current==True)
             .values(current=False)
         )
+        await db.commit()
 
         reference_solutions = await getMostSelectedSolutions(db, requests)
         if len(reference_solutions) > 1:
@@ -567,9 +572,9 @@ async def iterate(
         # Mark all the old solutions as not current
         await db.update(
             update(SolutionArchive)
-            .where(SolutionArchive.problem==problem_id, SolutionArchive.new==True)
-            .values(new=False)
-            .returning(SolutionArchive)
+            .where(SolutionArchive.problem==problem_id)
+            .where((SolutionArchive.new==True) | (SolutionArchive.current==True))
+            .values(new=False, current=False)
         )
 
         solutions = {i: sol for i, sol in enumerate(previous_solutions)}
@@ -618,7 +623,8 @@ async def iterate(
     all_solutions = {sol.id: sol.objectives for sol in solutions}
     current_solutions = {sol.id: sol.objectives for sol in solutions if sol.current}
 
-    if not grequest.cached:
+    # Case: If the number of all sols is 1, keep it as current
+    '''if not grequest.cached:
         if len(all_solutions) > 1:
             # Mark all the old solutions as not current
             old_current_solutions = await db.update(
@@ -628,7 +634,7 @@ async def iterate(
                 .returning(SolutionArchive)
             )
 
-            current_solutions = {sol.id: sol.objectives for sol in old_current_solutions if sol.current}
+            current_solutions = {sol.id: sol.objectives for sol in old_current_solutions if sol.current}'''
 
     return NIMBUSIterateResponse(
         previous_preference=requests[0].preference,
@@ -788,6 +794,7 @@ async def save(
         .where(SolutionArchive.id.in_(request.solution_ids))
         .values(saved=True)
     )
+    await db.commit()
 
     saved_solutions = (
         await db.all(select(SolutionArchive)
@@ -831,6 +838,7 @@ async def choose(
             .values(chosen=True)
             .returning(SolutionArchive)
         )
+        await db.commit()
     else:
         solutions = (
             await db.all(select(SolutionArchive)

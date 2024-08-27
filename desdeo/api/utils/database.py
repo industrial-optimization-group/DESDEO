@@ -2,9 +2,10 @@
 
 from os import getenv
 from typing import TypeVar, Dict
+from asyncio import current_task
 
 from sqlalchemy.engine import URL, Result
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine, AsyncSession, AsyncScalarResult
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine, AsyncSession, AsyncScalarResult, async_scoped_session
 from sqlalchemy.future import select as sa_select
 from sqlalchemy.orm import DeclarativeMeta, declarative_base, sessionmaker
 from sqlalchemy.pool import NullPool
@@ -85,20 +86,17 @@ class DB:
     Base: DeclarativeMeta
     _engine: AsyncEngine
     _session: AsyncSession
-    _Session: sessionmaker
 
-    def __init__(self, driver: str, options: Dict = {"pool_size": 20, "max_overflow": 20}, **kwargs):
+    def __init__(self, engine):
         """
         Args:
             driver (str): Drivername for db url.
             options (Dict, optional): Options for AsyncEngine instance.
             **kwargs (dict): Keyword arguments.
         """
-        url: str = URL.create(drivername=driver, **kwargs)
-        self._engine = create_async_engine(url, echo=True, pool_pre_ping=True, pool_recycle=300, **options)
+        self._engine = engine
         self.Base = declarative_base()
-        self._Session = sessionmaker(self._engine, expire_on_commit=False, class_=AsyncSession)
-        self._session: AsyncSession = self._Session()
+        self._session: AsyncSession = async_scoped_session(sessionmaker(self._engine, expire_on_commit=False, class_=AsyncSession), scopefunc=current_task)
 
     async def create_tables(self):
         """Creates all Model Tables"""
@@ -140,9 +138,11 @@ class DB:
         Returns:
             list[T] | None: List of updated rows or None.
         """
-        async with self._engine.begin() as conn:
-            result = await conn.execute(statement, *args, **kwargs)
-            return [x for x in result.fetchall()] if 'returning' in str(statement).lower() else None
+
+        if 'returning' in str(statement).lower():
+            return [x async for x in await self.stream(statement, *args, **kwargs)]
+        else:
+            await self.exec(statement, *args, **kwargs)
     async def exec(self, statement: Executable, *args, **kwargs) -> Result:
         """Executes a SQL Statement
 
@@ -154,8 +154,20 @@ class DB:
         Returns:
             Result: A buffered Result object.
         """
-        async with self._Session() as session:
-            return await session.execute(statement, *args, **kwargs)
+
+        return await self._session.execute(statement, *args, **kwargs)
+
+    async def stream(self, statement: Executable, *args, **kwargs) -> AsyncScalarResult:
+        """Returns an Stream of Query Results
+        Args:
+            statement (Executable): SQL statement.
+            *args (tuple): Positional arguments.
+            **kwargs (dict): Keyword arguments.
+        Returns:
+            AsyncScalarResult: An AsyncScalarResult filtering object.
+        """
+
+        return (await self._session.stream(statement, *args, **kwargs)).scalars()
 
     async def all(self, statement: Executable, *args, **kwargs) -> list[T]:
         """Returns all matches for a Query
@@ -168,6 +180,7 @@ class DB:
         Returns:
             list[T]: List of rows.
         """
+
         return [x for x in (await self.exec(statement, *args, **kwargs)).scalars()]
 
     async def first(self, *args, **kwargs) -> dict | None:
@@ -180,6 +193,7 @@ class DB:
         Returns:
             dict | None: First match for the Query, or None if there is no match.
         """
+
         return (await self.exec(*args, **kwargs)).scalar()
 
     async def exists(self, *args, **kwargs) -> bool:
@@ -192,6 +206,7 @@ class DB:
         Returns:
             bool: Whether there is a match for this Query
         """
+
         return await self.first(exists(*args, **kwargs).select())
 
     async def count(self, *args, **kwargs) -> int:
@@ -204,11 +219,18 @@ class DB:
         Returns:
             int: Number of matches for a Query
         """
+
         return await self.first(select(count()).select_from(*args, **kwargs))
 
     async def commit(self):
         """Commits/Saves changes to Database"""
+
         await self._session.commit()
+
+    async def close(self):
+        """Remove the current proxied AsyncSession for the local context"""
+
+        await self._session.remove()
 
 
 logger = get_logger(__name__)
@@ -224,7 +246,7 @@ DB_POOL = DBConfig.db_pool
 
 
 class DatabaseDependency:
-    db: DB
+    db_engine: AsyncEngine
     database_url_options: Dict
     engine_options: Dict
     initialised: bool = False
@@ -248,10 +270,10 @@ class DatabaseDependency:
             self.engine_options["poolclass"] = NullPool
         else:
             del self.engine_options["poolclass"]
-        self.db = DB(
-            getenv("DB_DRIVER", "postgresql+asyncpg"), options=self.engine_options, **self.database_url_options
-        )
-        logger.info("Connected to Database")
+
+        url: str = URL.create(drivername=getenv("DB_DRIVER", "postgresql+asyncpg"), **self.database_url_options)
+        self.db_engine = create_async_engine(url, echo=True, pool_pre_ping=True, pool_recycle=300, **self.engine_options)
+        logger.info("Database Engine created.")
 
     async def init(self) -> None:
         if self.initialised:
@@ -261,10 +283,11 @@ class DatabaseDependency:
         # await self.db.create_tables()
 
     async def __call__(self) -> DB:
-        if not self.initialised:
-            await self.init()
-        return self.db
-
+        db = DB(self.db_engine)
+        try:
+            yield db
+        finally:
+            await db.close()
 
 database_dependency: DatabaseDependency = DatabaseDependency()
-Base: DeclarativeMeta = database_dependency.db.Base
+#Base: DeclarativeMeta = database_dependency.db.Base
