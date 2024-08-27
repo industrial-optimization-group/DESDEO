@@ -120,7 +120,8 @@ class SolutionArchive(Base):
     id: Mapped[int] = mapped_column(primary_key=True, unique=True)
     user = mapped_column(Integer, ForeignKey("user.id"), nullable=False)
     problem = mapped_column(Integer, ForeignKey("problem.id"), nullable=False)
-    method = mapped_column(Integer, ForeignKey("method.id"), nullable=False)
+    # TODO: Until someone figures out what these method ids are used for they can be nullable for testing purposes.
+    method = mapped_column(Integer, ForeignKey("method.id"), nullable=True)
     preference = mapped_column(Integer, ForeignKey("preference.id"), nullable=True)
     decision_variables = mapped_column(ARRAY(FLOAT), nullable=True)
     objectives = mapped_column(ARRAY(FLOAT), nullable=False)
