@@ -162,6 +162,9 @@ def init_nimbus(
             chosen=False,
         )  # Maybe the database should be updated to use dicts
         # Save the generated starting point to the db
+        print(current_solution)
+        print(start_result.optimal_variables)
+        print(start_result.optimal_objectives)
         db.add(current_solution)
         db.commit()
     else:
