@@ -213,6 +213,9 @@ class GurobipyEvaluator:
         ] = {}
 
         for extra in problem.extra_funcs:
+            if not extra.is_linear or not extra.is_twice_differentiable:
+                raise GurobipyEvaluatorError("Nonlinear and nondifferentiable functions not supported.")
+
             extra_functions[extra.symbol] = self.parse(extra.func, callback=self.get_expression_by_name)
 
         return extra_functions
@@ -236,6 +239,7 @@ class GurobipyEvaluator:
         for obj in problem.objectives:
             if not obj.is_linear or not obj.is_twice_differentiable:
                 raise GurobipyEvaluatorError("Nonlinear and nondifferentiable objective functions not supported.")
+
             gp_expr = self.parse(obj.func, callback=self.get_expression_by_name)
             if isinstance(gp_expr, int | float):
                 warnings.warn(
@@ -268,6 +272,9 @@ class GurobipyEvaluator:
             GurobipyModel: the GurobipyModel with the constraint expressions added.
         """
         for cons in problem.constraints:
+            if not cons.is_linear or not cons.is_twice_differentiable:
+                raise GurobipyEvaluatorError("Nonlinear and nondifferentiable constraints not supported.")
+
             gp_expr = self.parse(cons.func, callback=self.get_expression_by_name)
 
             match con_type := cons.cons_type:
@@ -304,7 +311,8 @@ class GurobipyEvaluator:
 
         for scal in problem.scalarization_funcs:
             if not scal.is_linear or not scal.is_twice_differentiable:
-                raise GurobipyEvaluatorError("Nonlinear and nondifferentiable functions not supported in GurobipySolver.")
+                raise GurobipyEvaluatorError("Nonlinear and nondifferentiable functions not supported.")
+
             scalarizations[scal.symbol] = self.parse(scal.func, self.get_expression_by_name)
 
         return scalarizations
@@ -324,6 +332,9 @@ class GurobipyEvaluator:
         Returns:
             gurobipy.Constr: The gurobipy constraint that was added.
         """
+        if not constraint.is_linear or not constraint.is_twice_differentiable:
+            raise GurobipyEvaluatorError("Nonlinear and nondifferentiable constraints not supported.")
+
         gp_expr = self.parse(constraint.func, self.get_expression_by_name)
 
         match con_type := constraint.cons_type:
