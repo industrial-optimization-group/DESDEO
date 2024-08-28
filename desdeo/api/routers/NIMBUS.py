@@ -513,9 +513,9 @@ def save(
         lower_bounds=[],
         upper_bounds=[],
         previous_preference=[],
-        current_solutions=[],
+        current_solutions=[sol.objectives for sol in previous_solutions if sol.current],
         saved_solutions=[sol.objectives for sol in previous_solutions if sol.saved],
-        all_solutions=[],
+        all_solutions=[sol.objectives for sol in previous_solutions],
     )
 
 
