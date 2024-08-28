@@ -282,7 +282,7 @@ def iterate(
         # Check if the results already exist in the database
         for prev in previous_solutions:
             duplicate = False
-            if allclose(res.optimal_objectives, prev.objectives):
+            if allclose(list(res.optimal_objectives.values()), list(prev.objectives)):
                 prev.current = True
                 duplicate = True
                 break
@@ -421,7 +421,7 @@ def intermediate(
         # Check if the results already exist in the database
         for prev in previous_solutions:
             duplicate = False
-            if allclose(res.optimal_objectives, prev.objectives):
+            if allclose(list(res.optimal_objectives.values()), list(prev.objectives)):
                 prev.current = True
                 duplicate = True
                 break
