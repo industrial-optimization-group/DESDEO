@@ -278,17 +278,16 @@ def iterate(
     for old in old_current_solutions:
         old.current = False
 
-    solutions = copy.deepcopy(previous_solutions)
     for res in results:
         # Check if the results already exist in the database
-        i = -1
-        for i, prev in enumerate(solutions):
-            if allclose(list(res.optimal_objectives.values()), list(prev.objectives)):
-                previous_solutions[i].current = True
-                solutions.pop(i)
+        for prev in previous_solutions:
+            duplicate = False
+            if allclose(res.optimal_objectives, prev.objectives):
+                prev.current = True
+                duplicate = True
                 break
         # If the solution was not found in the database, add it
-        if i < 0 or not previous_solutions[i].current:
+        if not duplicate:
             db.add(
                 SolutionArchive(
                     user=user.index,
@@ -421,11 +420,13 @@ def intermediate(
     for res in results:
         # Check if the results already exist in the database
         for prev in previous_solutions:
+            duplicate = False
             if allclose(res.optimal_objectives, prev.objectives):
                 prev.current = True
+                duplicate = True
                 break
         # If the solution was not found in the database, add it
-        if not prev.current:
+        if not duplicate:
             db.add(
                 SolutionArchive(
                     user=user.index,
