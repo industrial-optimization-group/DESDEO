@@ -40,7 +40,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Any, Sequence
 
-from desdeo.tools.message import Message, MessageTopics
+from desdeo.tools.message import Message, MessageTopics, AllowedMessagesAtVerbosity
 
 
 class Subscriber(ABC):
@@ -51,7 +51,9 @@ class Subscriber(ABC):
     messages and send them to the publisher, which then forwards the messages to the other subscribers.
     """
 
-    def __init__(self, publisher: Callable, topics: Sequence[MessageTopics] | None = None, verbosity: int = 1) -> None:
+    def __init__(
+        self, publisher: "Publisher", topics: Sequence[MessageTopics] | None = None, verbosity: int = 1
+    ) -> None:
         """Initialize a subscriber.
 
         Args:
@@ -74,7 +76,7 @@ class Subscriber(ABC):
         self.publisher = publisher
         self.topics = topics if topics is not None else []
         self.provided_topics: list[MessageTopics] = []
-        self.verbosity = verbosity
+        self.verbosity: int = verbosity
 
     def notify(self) -> None:
         """Notify the publisher of changes in the subject.
@@ -82,6 +84,17 @@ class Subscriber(ABC):
         The contents of the message (a dictionary) are defined in the `state` method. The `state` method can return
         different messages depending on the verbosity level.
         """
+        if self.verbosity not in AllowedMessagesAtVerbosity:
+            raise ValueError(f"Verbosity level {self.verbosity} is not allowed.")
+
+        state = self.state()
+
+        if self.verbosity == 0 and len(state) > 0:
+            raise ValueError("Verbosity level 0 should not return any messages.")
+        else:
+            if all(isinstance(x, AllowedMessagesAtVerbosity[self.verbosity]) for x in state):
+                self.publisher.notify(messages=state)
+
         self.publisher.notify(messages=self.state())
 
     @abstractmethod
@@ -94,7 +107,7 @@ class Subscriber(ABC):
         """
 
     @abstractmethod
-    def state(self) -> Sequence[Message] | None:
+    def state(self) -> Sequence[Message]:
         """Return the state of the subject. This is the list of messages to send to the publisher."""
 
 
@@ -110,9 +123,9 @@ class Publisher:
         """Initialize a blank publisher."""
         self.subscribers = {}
         self.global_subscribers = []
-        self.registered_topics: dict[MessageTopics, [str]] = {}
+        self.registered_topics: dict[MessageTopics, list[str]] = {}
 
-    def subscribe(self, subscriber: Subscriber, topic: str) -> None:
+    def subscribe(self, subscriber: Subscriber, topic: MessageTopics) -> None:
         """Store a subscriber for a given message key.
 
         Whenever the publisher receives a message with the given key, it will notify the subscriber. This method can
@@ -236,7 +249,7 @@ class Publisher:
 class BlankSubscriber(Subscriber):
     """A simple subscriber for testing purposes."""
 
-    def __init__(self, publisher: Callable, topics: Sequence[MessageTopics], verbosity: int = 1) -> None:
+    def __init__(self, publisher: "Publisher", topics: Sequence[MessageTopics], verbosity: int = 1) -> None:
         """Initialize a subscriber."""
         super().__init__(publisher, topics, verbosity)
         self.messages_to_send: list[Message] = []

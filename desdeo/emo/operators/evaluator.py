@@ -76,12 +76,12 @@ class BaseEvaluator(Subscriber):
         self.notify()
         return self.objs, self.targets, self.cons
 
-    def state(self) -> Sequence[Message] | None:
+    def state(self) -> Sequence[Message]:
         """The state of the evaluator sent to the Publisher."""
         if self.population is None or self.objs is None or self.cons is None or self.targets is None:
-            return None
+            return []
         if self.verbosity == 0:
-            return None
+            return []
         if self.verbosity == 1:
             return [
                 IntMessage(
