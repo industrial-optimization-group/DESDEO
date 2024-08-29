@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import Session
 
 from desdeo.api.db import get_db
-from desdeo.api.db_models import Preference, SolutionArchive, MethodState
+from desdeo.api.db_models import Preference, GSolutionArchive, MethodState
 from desdeo.api.db_models import Problem as ProblemInDB
 from desdeo.api.routers.UserAuth import get_current_user
 from desdeo.api.schema import User
@@ -184,9 +184,9 @@ def init_nimbus(
 
     # See if there are previous solutions in the database for this problem
     solutions = (
-        db.query(SolutionArchive)
-        .filter(SolutionArchive.problem == problem_id)
-        # .filter(SolutionArchive.user == user.index)
+        db.query(GSolutionArchive)
+        .filter(GSolutionArchive.problem == problem_id)
+        # .filter(GSolutionArchive.user == user.index)
         .all()
     )
 
@@ -199,7 +199,7 @@ def init_nimbus(
     # If there are no solutions, generate a starting point for NIMBUS
     if not solutions:
         start_result = generate_starting_point(problem=problem)
-        current_solution = SolutionArchive(
+        current_solution = GSolutionArchive(
             user=user.index,
             problem=problem_id,
             method=method_id,
@@ -303,8 +303,8 @@ async def getMostSelectedSolutions(
     selected_ref_solution_ids = getMostSelected(reference_solutions_ids)
 
     await db.update(
-        update(SolutionArchive)
-        .where(SolutionArchive.id.in_(selected_ref_solution_ids))
+        update(GSolutionArchive)
+        .where(GSolutionArchive.id.in_(selected_ref_solution_ids))
         .values(current=True)
     )
     await db.commit()
@@ -340,26 +340,26 @@ async def finalSolutionVote(
 
         if len(mostVoted) > 1 or mostVoted[0] == False:
             solutions = await db.update(
-                update(SolutionArchive)
-                .where(SolutionArchive.id==requests[0].reference_solution_id)
+                update(GSolutionArchive)
+                .where(GSolutionArchive.id==requests[0].reference_solution_id)
                 .values(current=True)
-                .returning(SolutionArchive)
+                .returning(GSolutionArchive)
             )
         '''
 
         if len(votes) == 1 and list(votes)[0] == True:
             solutions = await db.update(
-                update(SolutionArchive)
-                .where(SolutionArchive.id==requests[0].reference_solution_id)
+                update(GSolutionArchive)
+                .where(GSolutionArchive.id==requests[0].reference_solution_id)
                 .values(current=True, chosen=True)
-                .returning(SolutionArchive)
+                .returning(GSolutionArchive)
             )
         else:
             solutions = await db.update(
-                update(SolutionArchive)
-                .where(SolutionArchive.id==requests[0].reference_solution_id)
+                update(GSolutionArchive)
+                .where(GSolutionArchive.id==requests[0].reference_solution_id)
                 .values(current=True)
-                .returning(SolutionArchive)
+                .returning(GSolutionArchive)
             )
         await db.commit()
 
@@ -369,10 +369,10 @@ async def finalSolutionVote(
         )
     else:
         solutions = (
-            await db.all(select(SolutionArchive)
+            await db.all(select(GSolutionArchive)
             .filter_by(problem=requests[0].problem_id)
-            .filter((SolutionArchive.current==True) | (SolutionArchive.chosen==True))
-            .order_by(SolutionArchive.id.asc()))
+            .filter((GSolutionArchive.current==True) | (GSolutionArchive.chosen==True))
+            .order_by(GSolutionArchive.id.asc()))
         )
 
         return NIMBUSFinalVoteResponse(
@@ -409,12 +409,12 @@ async def solutionVote(
             selected_ref_solution_id = list(reference_solution_ids)[0]
             selected_reference_solution = reference_solutions[selected_ref_solution_id]
 
-            vote_solution = await db.first(select(SolutionArchive).filter_by(id=selected_ref_solution_id))
+            vote_solution = await db.first(select(GSolutionArchive).filter_by(id=selected_ref_solution_id))
 
             if not vote_solution.current:
                 await db.update(
-                    update(SolutionArchive)
-                    .where(SolutionArchive.id!=selected_ref_solution_id)
+                    update(GSolutionArchive)
+                    .where(GSolutionArchive.id!=selected_ref_solution_id)
                     .values(new=False)
                 )
                 await db.commit()
@@ -425,8 +425,8 @@ async def solutionVote(
                 )
 
             await db.update(
-                update(SolutionArchive)
-                .where(SolutionArchive.id!=selected_ref_solution_id)
+                update(GSolutionArchive)
+                .where(GSolutionArchive.id!=selected_ref_solution_id)
                 .values(current=False)
             )
             await db.commit()
@@ -436,8 +436,8 @@ async def solutionVote(
             )
 
         await db.update(
-            update(SolutionArchive)
-            .where(SolutionArchive.problem==requests[0].problem_id, SolutionArchive.current==True)
+            update(GSolutionArchive)
+            .where(GSolutionArchive.problem==requests[0].problem_id, GSolutionArchive.current==True)
             .values(current=False)
         )
         await db.commit()
@@ -464,12 +464,12 @@ async def solutionVote(
 
         # In case voting is possible for chosen solutions
         '''
-        vote_solution = await db.first(select(SolutionArchive).filter_by(id=selected_ref_solution_id))
+        vote_solution = await db.first(select(GSolutionArchive).filter_by(id=selected_ref_solution_id))
 
         if vote_solution.chosen:
             await db.update(
-                update(SolutionArchive)
-                .where(SolutionArchive.id!=selected_ref_solution_id)
+                update(GSolutionArchive)
+                .where(GSolutionArchive.id!=selected_ref_solution_id)
                 .values(chosen=False)
             )
         '''
@@ -479,10 +479,10 @@ async def solutionVote(
         )
     else:
         solutions = (
-            await db.all(select(SolutionArchive)
+            await db.all(select(GSolutionArchive)
             .filter_by(problem=requests[0].problem_id)
-            .filter((SolutionArchive.current==True) | (SolutionArchive.new==True))
-            .order_by(SolutionArchive.id.asc()))
+            .filter((GSolutionArchive.current==True) | (GSolutionArchive.new==True))
+            .order_by(GSolutionArchive.id.asc()))
         )
 
         return NIMBUSVoteResponse(
@@ -535,9 +535,9 @@ async def iterate(
             await db.add(pref)
 
         previous_solutions = (
-            await db.all(select(SolutionArchive)
+            await db.all(select(GSolutionArchive)
             .filter_by(problem=problem_id)
-            .order_by(SolutionArchive.id.asc()))
+            .order_by(GSolutionArchive.id.asc()))
         )
 
         if not previous_solutions:
@@ -569,55 +569,35 @@ async def iterate(
         for index in sorted(list(duplicate_indices), reverse=True):
             results.pop(index)
 
-        # Mark all the old solutions as not current
+        # Mark all the old solutions as not current, not new
         await db.update(
-            update(SolutionArchive)
-            .where(SolutionArchive.problem==problem_id)
-            .where((SolutionArchive.new==True) | (SolutionArchive.current==True))
+            update(GSolutionArchive)
+            .where(GSolutionArchive.problem==problem_id)
+            .where((GSolutionArchive.new==True) | (GSolutionArchive.current==True))
             .values(new=False, current=False)
         )
 
-        solutions = {i: sol for i, sol in enumerate(previous_solutions)}
-        solutionsToUpdate = set()
         for res in results:
-            # Check if the results already exist in the database
-            solutionIndex = -1
-            for i, prev in solutions.items():
-                if allclose(list(res.optimal_objectives.values()), list(prev.objectives)):
-                    previous_solutions[i].new = True
-                    solutions.pop(i)
-                    solutionsToUpdate.add(previous_solutions[i].id)
-                    solutionIndex = i
-                    break
-
-            # If the solution was not found in the database, add it
-            if solutionIndex < 0 or not previous_solutions[solutionIndex].new:
-                await db.add(
-                    SolutionArchive(
-                        user=user.index,
-                        problem=problem_id,
-                        method=method_id,
-                        decision_variables=list(res.optimal_variables.values()),
-                        objectives=list(res.optimal_objectives.values()),
-                        saved=False,
-                        current=False,
-                        new=True,
-                        chosen=False,
-                    )
+            await db.add(
+                GSolutionArchive(
+                    user=user.index,
+                    problem=problem_id,
+                    method=method_id,
+                    decision_variables=list(res.optimal_variables.values()),
+                    objectives=list(res.optimal_objectives.values()),
+                    saved=False,
+                    current=False,
+                    new=True,
+                    chosen=False,
                 )
-
-        await db.update(
-            update(SolutionArchive)
-            .where(SolutionArchive.id.in_(solutionsToUpdate))
-            .values(new=True)
-        )
+            )
 
         await db.commit()
 
     solutions = (
-        await db.all(select(SolutionArchive)
-                    .filter_by(problem=problem_id)
-                    .order_by(SolutionArchive.id.asc()))
+        await db.all(select(GSolutionArchive)
+            .filter_by(problem=problem_id)
+            .order_by(GSolutionArchive.id.asc()))
     )
 
     all_solutions = {sol.id: sol.objectives for sol in solutions}
@@ -628,10 +608,10 @@ async def iterate(
         if len(all_solutions) > 1:
             # Mark all the old solutions as not current
             old_current_solutions = await db.update(
-                update(SolutionArchive)
-                .where(SolutionArchive.problem==problem_id, SolutionArchive.current==True)
+                update(GSolutionArchive)
+                .where(GSolutionArchive.problem==problem_id, GSolutionArchive.current==True)
                 .values(current=False)
-                .returning(SolutionArchive)
+                .returning(GSolutionArchive)
             )
 
             current_solutions = {sol.id: sol.objectives for sol in old_current_solutions if sol.current}'''
@@ -674,9 +654,9 @@ async def intermediate(
         raise HTTPException(status_code=500, detail="Error in parsing the problem.") from ValidationError
 
     previous_solutions = (
-        await db.all(select(SolutionArchive)
+        await db.all(select(GSolutionArchive)
         .filter_by(problem=problem_id)
-        .order_by(SolutionArchive.id.asc()))
+        .order_by(GSolutionArchive.id.asc()))
     )
 
     if not previous_solutions:
@@ -687,7 +667,7 @@ async def intermediate(
     if None in ideal or None in nadir:
         raise HTTPException(status_code=500, detail="Problem missing ideal or nadir value.")
 
-    solutions = await db.all(select(SolutionArchive).filter(SolutionArchive.id.in_([request.reference_solution_1_id, request.reference_solution_2_id])))
+    solutions = await db.all(select(GSolutionArchive).filter(GSolutionArchive.id.in_([request.reference_solution_1_id, request.reference_solution_2_id])))
 
     # Do NIMBUS stuff here.
     results = solve_intermediate_solutions(
@@ -720,51 +700,31 @@ async def intermediate(
 
     # Mark all the old solutions as not current
     await db.update(
-        update(SolutionArchive)
-        .where(SolutionArchive.problem==problem_id, SolutionArchive.current==True)
+        update(GSolutionArchive)
+        .where(GSolutionArchive.problem==problem_id, GSolutionArchive.current==True)
         .values(current=False)
     )
 
-    solutions = {i: sol for i, sol in enumerate(previous_solutions)}
-    solutionsToUpdate = set()
     for res in results:
-        # Check if the results already exist in the database
-        solutionIndex = -1
-        for i, prev in solutions.items():
-            if allclose(list(res.optimal_objectives.values()), list(prev.objectives)):
-                previous_solutions[i].current = True
-                solutions.pop(i)
-                solutionsToUpdate.add(previous_solutions[i].id)
-                solutionIndex = i
-                break
-
-        # If the solution was not found in the database, add it
-        if solutionIndex < 0 or not previous_solutions[solutionIndex].current:
-            await db.add(
-                SolutionArchive(
-                    user=user.index,
-                    problem=problem_id,
-                    method=method_id,
-                    decision_variables=list(res.optimal_variables.values()),
-                    objectives=list(res.optimal_objectives.values()),
-                    saved=False,
-                    current=True,
-                    chosen=False,
-                )
+        await db.add(
+            GSolutionArchive(
+                user=user.index,
+                problem=problem_id,
+                method=method_id,
+                decision_variables=list(res.optimal_variables.values()),
+                objectives=list(res.optimal_objectives.values()),
+                saved=False,
+                current=True,
+                chosen=False,
             )
-
-    await db.update(
-        update(SolutionArchive)
-        .where(SolutionArchive.id.in_(solutionsToUpdate))
-        .values(current=True)
-    )
+        )
 
     await db.commit()
 
     solutions = (
-        await db.all(select(SolutionArchive)
+        await db.all(select(GSolutionArchive)
             .filter_by(problem=problem_id)
-            .order_by(SolutionArchive.id.asc()))
+            .order_by(GSolutionArchive.id.asc()))
     )
 
     return NIMBUSIntermediateResponse(
@@ -790,16 +750,16 @@ async def save(
     """
 
     await db.update(
-        update(SolutionArchive)
-        .where(SolutionArchive.id.in_(request.solution_ids))
+        update(GSolutionArchive)
+        .where(GSolutionArchive.id.in_(request.solution_ids))
         .values(saved=True)
     )
     await db.commit()
 
     saved_solutions = (
-        await db.all(select(SolutionArchive)
+        await db.all(select(GSolutionArchive)
             .filter_by(problem=problem_id, saved=True)
-            .order_by(SolutionArchive.id.asc()))
+            .order_by(GSolutionArchive.id.asc()))
     )
 
     return NIMBUSSaveResponse(
@@ -833,17 +793,17 @@ async def choose(
         selected_solution_ids = list(reference_solutions.keys())
 
         solutions = await db.update(
-            update(SolutionArchive)
-            .where(SolutionArchive.id.in_(selected_solution_ids))
+            update(GSolutionArchive)
+            .where(GSolutionArchive.id.in_(selected_solution_ids))
             .values(chosen=True)
-            .returning(SolutionArchive)
+            .returning(GSolutionArchive)
         )
         await db.commit()
     else:
         solutions = (
-            await db.all(select(SolutionArchive)
+            await db.all(select(GSolutionArchive)
                 .filter_by(problem=problem_id, chosen=True)
-                .order_by(SolutionArchive.id.asc()))
+                .order_by(GSolutionArchive.id.asc()))
         )
 
     return NIMBUSChosenResponse(

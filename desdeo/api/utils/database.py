@@ -227,6 +227,11 @@ class DB:
 
         await self._session.commit()
 
+    async def flush(self):
+        """Flush changes to Database"""
+
+        await self._session.flush()
+
     async def close(self):
         """Remove the current proxied AsyncSession for the local context"""
 
