@@ -22,6 +22,7 @@ from desdeo.problem.schema import (
 
 )
 
+
 class GurobipyEvaluatorError(Exception):
     """Raised when an error within the GurobipyEvaluator class is encountered."""
 
@@ -232,7 +233,6 @@ class GurobipyEvaluator:
         """
         objective_functions: dict[str, gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr] = {}
         for obj in problem.objectives:
-
             gp_expr = self.parse(obj.func, callback=self.get_expression_by_name)
             if isinstance(gp_expr, int | float):
                 warnings.warn(
