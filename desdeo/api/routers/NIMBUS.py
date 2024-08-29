@@ -541,3 +541,5 @@ def choose(
             break
     else:
         raise HTTPException(status_code=404, detail="The chosen solution was not found in the database.")
+
+    return FakeNIMBUSResponse(message="Solution chosen.")
