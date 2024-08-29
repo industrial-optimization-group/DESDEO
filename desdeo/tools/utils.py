@@ -1,6 +1,6 @@
 """General utilities related to solvers."""
 
-from desdeo.problem import ObjectiveTypeEnum, Problem, VariableDomainTypeEnum, TensorVariable
+from desdeo.problem import ObjectiveTypeEnum, Problem, VariableDomainTypeEnum
 
 from .generics import BaseSolver
 from .gurobipy_solver_interfaces import GurobipySolver
