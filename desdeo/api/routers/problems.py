@@ -56,15 +56,12 @@ async def get_all_problems(
     else:
         problems = await db.all(select(ProblemInDB))
 
-    all_problems = {}
+    all_problems = []
     for problem in problems:
         if type(problem) == UserProblemAccess:
             problem = problem.problem
         temp_problem: Problem = Problem.model_validate(problem.value)
-        if problem.id in all_problems.keys():
-            continue
-
-        all_problems[problem.id] = (
+        all_problems.append(
             ProblemFormat(
                 objective_names=[objective.name for objective in temp_problem.objectives],
                 variable_names=[variable.name for variable in temp_problem.variables],
@@ -80,4 +77,4 @@ async def get_all_problems(
             )
         )
 
-    return list(all_problems.values())
+    return all_problems
