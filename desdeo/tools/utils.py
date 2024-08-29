@@ -48,7 +48,7 @@ def find_compatible_solvers(problem: Problem) -> list[BaseSolver]:
     # This could be also done by just checking if all the variables are Variables instead of TensorVariables
     # as solvers at the moment do not care about the difference between 1D tensors and higher dimensions.
     # This is because the solvers that utilize the polars evaluator (the only evaluator that works with
-    # scalars and 1D tensors) only support scalar valued variables at the moment.
+    # scalars and 1D tensors and not higher dimensions) only support scalar valued variables at the moment.
     var_dim = variable_dimension_enumerate(problem)
 
     # check if problem has only data-based objectives

@@ -1710,7 +1710,10 @@ def forest_problem(holding: int = 1, comparing: bool = False) -> Problem:
             name=f"x_con_{i+1}",
             symbol=f"x_con_{i+1}",
             cons_type=ConstraintTypeEnum.EQ,
-            func=f"Sum(X_{i+1}) - 1"
+            func=f"Sum(X_{i+1}) - 1",
+            is_linear=True,
+            is_convex=False, # not checked
+            is_twice_differentiable=True
         )
         constraints.append(con)
 
