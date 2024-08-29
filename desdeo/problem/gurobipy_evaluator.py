@@ -480,32 +480,34 @@ class GurobipyEvaluator:
         """
         result_dict = {}
 
-        if self.model.SolCount > 0:
-            for var in self.problem.variables:
-                # if var is type MVar, get the values of MVar
-                if var.symbol in self.mvars:
-                    result_dict[var.symbol] = self.mvars[var.symbol].getAttr(gp.GRB.Attr.X)
-                else:
-                    result_dict[var.symbol] = self.model.getVarByName(var.symbol).getAttr(gp.GRB.Attr.X)
+        if self.model.SolCount == 0:
+            return result_dict
 
-            for obj in self.problem.objectives:
-                result_dict[obj.symbol] = self.objective_functions[obj.symbol].getValue()
+        for var in self.problem.variables:
+            # if var is type MVar, get the values of MVar
+            if var.symbol in self.mvars:
+                result_dict[var.symbol] = self.mvars[var.symbol].getAttr(gp.GRB.Attr.X)
+            else:
+                result_dict[var.symbol] = self.model.getVarByName(var.symbol).getAttr(gp.GRB.Attr.X)
 
-            if self.problem.constants is not None:
-                for con in self.problem.constants:
-                    result_dict[con.symbol] = self.constants[con.symbol]
+        for obj in self.problem.objectives:
+            result_dict[obj.symbol] = self.objective_functions[obj.symbol].getValue()
 
-            if self.problem.extra_funcs is not None:
-                for extra in self.problem.extra_funcs:
-                    result_dict[extra.symbol] = self.extra_functions[extra.symbol].getValue()
+        if self.problem.constants is not None:
+            for con in self.problem.constants:
+                result_dict[con.symbol] = self.constants[con.symbol]
 
-            if self.problem.constraints is not None:
-                for const in self.problem.constraints:
-                    result_dict[const.symbol] = -self.model.getConstrByName(const.symbol).getAttr("Slack")
+        if self.problem.extra_funcs is not None:
+            for extra in self.problem.extra_funcs:
+                result_dict[extra.symbol] = self.extra_functions[extra.symbol].getValue()
 
-            if self.problem.scalarization_funcs is not None:
-                for scal in self.problem.scalarization_funcs:
-                    result_dict[scal.symbol] = self.scalarizations[scal.symbol].getValue()
+        if self.problem.constraints is not None:
+            for const in self.problem.constraints:
+                result_dict[const.symbol] = -self.model.getConstrByName(const.symbol).getAttr("Slack")
+
+        if self.problem.scalarization_funcs is not None:
+            for scal in self.problem.scalarization_funcs:
+                result_dict[scal.symbol] = self.scalarizations[scal.symbol].getValue()
 
         return result_dict
 

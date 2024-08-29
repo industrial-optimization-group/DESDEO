@@ -61,12 +61,6 @@ def guess_best_solver(problem: Problem) -> BaseSolver:
     if problem.is_twice_differentiable and problem.variable_domain in [VariableDomainTypeEnum.continuous]:
         return available_solvers["pyomo_ipopt"]
 
-    # TODO: condition for gurobipy solver
-
-    # if isinstance(problem.variables[0].initial_values, list):
-    if isinstance(problem.variables[0], TensorVariable):
-        return available_solvers["gurobipy"]
-
     # else, guess nevergrad heuristics to be the best
     return available_solvers["nevergrad"]
 

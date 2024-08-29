@@ -61,21 +61,23 @@ async def get_all_problems(
         if type(problem) == UserProblemAccess:
             problem = problem.problem
         temp_problem: Problem = Problem.model_validate(problem.value)
-        if not problem.id in all_problems.keys():
-            all_problems[problem.id] = (
-                ProblemFormat(
-                    objective_names=[objective.name for objective in temp_problem.objectives],
-                    variable_names=[variable.name for variable in temp_problem.variables],
-                    ideal=[value for _, value in get_ideal_dict(temp_problem).items()],
-                    nadir=[value for _, value in get_nadir_dict(temp_problem).items()],
-                    n_objectives=len(temp_problem.objectives),
-                    n_variables=len(temp_problem.variables),
-                    n_constraints=len(temp_problem.constraints) if temp_problem.constraints else 0,
-                    minimize=[-1 if objective.maximize else 1 for objective in temp_problem.objectives],
-                    problem_name=temp_problem.name,
-                    problem_type=problem.kind,
-                    problem_id=problem.id,
-                )
+        if problem.id in all_problems.keys():
+            continue
+
+        all_problems[problem.id] = (
+            ProblemFormat(
+                objective_names=[objective.name for objective in temp_problem.objectives],
+                variable_names=[variable.name for variable in temp_problem.variables],
+                ideal=[value for _, value in get_ideal_dict(temp_problem).items()],
+                nadir=[value for _, value in get_nadir_dict(temp_problem).items()],
+                n_objectives=len(temp_problem.objectives),
+                n_variables=len(temp_problem.variables),
+                n_constraints=len(temp_problem.constraints) if temp_problem.constraints else 0,
+                minimize=[-1 if objective.maximize else 1 for objective in temp_problem.objectives],
+                problem_name=temp_problem.name,
+                problem_type=problem.kind,
+                problem_id=problem.id,
             )
+        )
 
     return list(all_problems.values())

@@ -60,7 +60,7 @@ api = [
     "python-multipart",
     "python-jose",
     "bcrypt",
-    "asyncpg",
+    "asyncpg"
 ] # We could make API packages optional in the future.
 server = ["gunicorn"]
 
