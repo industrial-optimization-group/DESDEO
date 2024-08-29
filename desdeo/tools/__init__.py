@@ -40,6 +40,7 @@ __all__ = [
     "add_stom_sf_nondiff",
     "add_weighted_sums",
     "available_nevergrad_optimizers",
+    "find_compatible_solvers",
     "get_corrected_ideal_and_nadir",
     "get_corrected_reference_point",
     "guess_best_solver",
@@ -93,6 +94,7 @@ from desdeo.tools.scipy_solver_interfaces import (
     ScipyMinimizeSolver,
 )
 from desdeo.tools.utils import (
+    find_compatible_solvers,
     get_corrected_ideal_and_nadir,
     get_corrected_reference_point,
     guess_best_solver,

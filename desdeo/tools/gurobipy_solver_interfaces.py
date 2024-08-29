@@ -3,9 +3,8 @@
 import gurobipy as gp
 
 from desdeo.problem import Constraint, GurobipyEvaluator, Objective, Problem, ScalarizationFunction, TensorVariable, Variable
-from desdeo.tools.generics import BaseSolver, PersistentSolver, SolverError, SolverResults
+from desdeo.tools.generics import BaseSolver, PersistentSolver, SolverResults
 
-SUPPORTED_VAR_DIMENSIONS = ["scalar", "vector", "tensor"]
 
 def parse_gurobipy_optimizer_results(problem: Problem, evaluator: GurobipyEvaluator) -> SolverResults:
     """Parses results from GurobipyEvaluator's model into DESDEO SolverResults.
@@ -60,9 +59,6 @@ class GurobipySolver(BaseSolver):
                 You probably don't need to set any of these and can just use the defaults.
                 For available parameters see https://www.gurobi.com/documentation/current/refman/parameters.html
         """
-        if not problem.is_linear or not problem.is_twice_differentiable:
-            raise SolverError("GurobipySolver does not support nonlinear or nondifferentiable problems.")
-
         self.evaluator = GurobipyEvaluator(problem)
         self.problem = problem
 
@@ -103,9 +99,6 @@ class PersistentGurobipySolver(PersistentSolver):
                 You probably don't need to set any of these and can just use the defaults.
                 For available parameters see https://www.gurobi.com/documentation/current/refman/parameters.html
         """
-        if not problem.is_linear or not problem.is_twice_differentiable:
-            raise SolverError("GurobipySolver does not support nonlinear or nondifferentiable problems.")
-
         self.problem = problem
         self.evaluator = GurobipyEvaluator(problem)
         if options is not None:

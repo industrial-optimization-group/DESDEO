@@ -1,6 +1,12 @@
 """General utilities related to solvers."""
 
-from desdeo.problem import ObjectiveTypeEnum, Problem, VariableDomainTypeEnum
+from desdeo.problem import (
+    ObjectiveTypeEnum,
+    Problem,
+    VariableDimensionEnum,
+    VariableDomainTypeEnum,
+    variable_dimension_enumerate,
+)
 
 from .generics import BaseSolver
 from .gurobipy_solver_interfaces import GurobipySolver
@@ -8,6 +14,7 @@ from .ng_solver_interfaces import NevergradGenericSolver
 from .proximal_solver import ProximalSolver
 from .pyomo_solver_interfaces import (
     PyomoBonminSolver,
+    PyomoCBCSolver,
     PyomoGurobiSolver,
     PyomoIpoptSolver,
 )
@@ -19,10 +26,67 @@ available_solvers = {
     "proximal": ProximalSolver,
     "nevergrad": NevergradGenericSolver,
     "pyomo_bonmin": PyomoBonminSolver,
+    "pyomo_cbc": PyomoCBCSolver,
     "pyomo_ipopt": PyomoIpoptSolver,
     "pyomo_gurobi": PyomoGurobiSolver,
     "gurobipy": GurobipySolver,
 }
+
+
+def find_compatible_solvers(problem: Problem) -> list[BaseSolver]:
+    """Find solvers that are compatible with the problem that is being solved.
+
+    Args:
+        problem (Problem): The problem being solved.
+
+    Returns:
+        list[BaseSolver]: A list of solvers that are compatible with the problem.
+    """
+    solvers = []
+
+    # check for variable dimensions
+    # This could be also done by just checking if all the variables are Variables instead of TensorVariables
+    # as solvers at the moment do not care about the difference between 1D tensors and higher dimensions.
+    # This is because the solvers that utilize the polars evaluator (the only evaluator that works with
+    # scalars and 1D tensors) only support scalar valued variables at the moment.
+    var_dim = variable_dimension_enumerate(problem)
+
+    # check if problem has only data-based objectives
+    all_data_based = all(objective.objective_type == ObjectiveTypeEnum.data_based for objective in problem.objectives)
+
+    # check if problem has a discrete definition
+    has_discrete = problem.discrete_representation is not None
+
+    # check if problem is data-based
+    if all_data_based and has_discrete and var_dim == VariableDimensionEnum.scalar:
+        # problem has only data-based objectives and a discrete definition is available
+        # return ProximalSolver as it is the only solver for data-based problems at the moment
+        return [available_solvers["proximal"]]
+
+    # check if the problem is differentiable and if it is mixed integer
+    if problem.is_twice_differentiable and problem.variable_domain in [
+        VariableDomainTypeEnum.integer,
+        VariableDomainTypeEnum.mixed,
+    ]:
+        solvers.append(available_solvers["pyomo_bonmin"]) # bonmin has to be installed
+
+    # check if the problem is differentiable and continuous
+    if problem.is_twice_differentiable and problem.variable_domain in [VariableDomainTypeEnum.continuous]:
+        solvers.append(available_solvers["pyomo_ipopt"]) # ipopt has to be installed
+
+    # check if the problem is linear
+    if problem.is_linear:
+        solvers.append(available_solvers["gurobipy"])
+        solvers.append(available_solvers["pyomo_gurobi"]) # gurobi has to be installed
+        solvers.append(available_solvers["pyomo_cbc"])
+
+    # check if problem's variables are all scalars
+    if var_dim == VariableDimensionEnum.scalar:
+        # nevergrad and scipy solvers work with all(?) problems with only scalar valued variables
+        solvers.append(available_solvers["nevergrad"])
+        solvers.append(available_solvers["scipy_minimize"])
+        solvers.append(available_solvers["scipy_de"])
+    return solvers
 
 
 def guess_best_solver(problem: Problem) -> BaseSolver:
