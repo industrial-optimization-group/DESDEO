@@ -77,7 +77,10 @@ Here is an approximation of the hatch cover design problem's Pareto front:
 
 ## UTOPIA forest problem
 
-In the UTOPIA forest problem
+The UTOPIA forest problem aims to find climate-smart solutions. It is a three-objective problem
+with the objectives representing the net present value, wood volume at the end of the planning
+period and the profit from harvesting. As seen in the following formulation, all these objectives
+are to be maximized.
 
 The UTOPIA forest problem is defined as follows:
 
