@@ -133,7 +133,7 @@ def init_nimbus(
     if not solutions:
         start_result = generate_starting_point(problem=problem, solver=available_solvers[solver] if solver else None)
         save_results_to_db(
-            db=db, user_id=user.index, request=init_request, results=start_result, previous_solutions=solutions
+            db=db, user_id=user.index, request=init_request, results=[start_result], previous_solutions=solutions
         )
     else:
         # If there is a solution marked as current, use that. Otherwise just use the first solution in the db
