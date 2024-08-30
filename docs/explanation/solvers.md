@@ -4,7 +4,8 @@ While DESDEO is a framework for interactive multiobjective
 optimization, it does not implement any optimizers _per se_.
 Instead, DESDEO provides interfaces to many existing solvers.
 How these interfaces work in general is explained in the 
-section [Solver interfaces](#solver-interfaces), while
+section [Solver interfaces](#solver-interfaces), while the
+currently implemented solvers in DESDEO are introduced and
 a couple of examples on how to use the solvers are
 given in the section [Solver examples](#solver-examples).
 
@@ -63,6 +64,19 @@ the jobs of the evaluators to make sure that `f_1_min` is available. Likewise, i
 [Scalarized](./scalarization.md) the problem, we can give the solver the symbol of the added
 scalarization function.
 
+Likewise for [ScipyDeSolver][desdeo.tools.scipy_solver_interfaces.ScipyDeSolver] utilizing
+`differential_evolution`:
+
+```python
+from desdeo.tools import ScipyDeSolver
+
+problem: Problem  # a problem with the objectives f_1, f_2, and f_3 to be minimized
+
+solver = ScipyDeSolver(problem)
+
+results: SolverResults = solver.solve("f_1")
+```
+
 !!! note
     Whichever function we request a solver to optimize, it will be minimized.
 
@@ -73,7 +87,7 @@ its objective functions have been defined with a
 [DiscreteRepresentation][desdeo.problem.schema.DiscreteRepresentation]. The
 proximal solver takes a symbol to optimize, and will return the decision
 variable values that correspond to the lowest value found for the symbol in the
-data. It works identically to the scipy solver in the previous example:
+data. It works identically to the scipy solvers in the previous example:
 
 ```python
 from desdeo.tools import ProximalSolver
