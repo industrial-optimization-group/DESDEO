@@ -1,6 +1,5 @@
 """Router for NIMBUS."""
 
-import copy
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -119,66 +118,26 @@ def init_nimbus(
     # Do database stuff here.
     problem_id = init_request.problem_id
     # The request is supposed to contain method id, but I don't want to deal with frontend code
-    method_id = get_nimbus_method_id(db)
-    problem = db.query(ProblemInDB).filter(ProblemInDB.id == problem_id).first()
+    init_request.method_id = get_nimbus_method_id(db)
+    method_id = init_request.method_id
 
-    if problem is None:
-        raise HTTPException(status_code=404, detail="Problem not found.")
-    if problem.owner != user.index and problem.owner is not None:
-        raise HTTPException(status_code=403, detail="Unauthorized to access chosen problem.")
-    try:
-        solver = problem.solver.value
-        problem = Problem.model_validate(problem.value)
-    except ValidationError:
-        raise HTTPException(status_code=500, detail="Error in parsing the problem.") from ValidationError
+    problem, solver = read_problem_from_db(db=db, problem_id=problem_id, user_id=user.index)
 
     # See if there are previous solutions in the database for this problem
-    solutions = (
-        db.query(SolutionArchive)
-        .filter(SolutionArchive.problem == problem_id)
-        .filter(SolutionArchive.user == user.index)
-        .all()
-    )
+    solutions = read_solutions_from_db(db, problem_id, user.index, method_id)
 
-    # Do NIMBUS stuff here.
-
-    ideal = problem.get_ideal_point()
-    nadir = problem.get_nadir_point()
-    if None in ideal or None in nadir:
-        raise HTTPException(status_code=500, detail="Problem missing ideal or nadir value.")
+    # Calculate bounds here, just to make sure that they have been properly defined in the problem
+    lower_bounds, upper_bounds = calculate_bounds(problem)
 
     # If there are no solutions, generate a starting point for NIMBUS
     if not solutions:
         start_result = generate_starting_point(problem=problem, solver=available_solvers[solver] if solver else None)
-        current_solution = SolutionArchive(
-            user=user.index,
-            problem=problem_id,
-            method=method_id,
-            decision_variables=flatten(list(start_result.optimal_variables.values())),
-            objectives=list(start_result.optimal_objectives.values()),
-            saved=False,
-            current=True,
-            chosen=False,
-        )  # Maybe the database should be updated to use dicts
-        # Save the generated starting point to the db
-        print(current_solution)
-        print(start_result.optimal_variables)
-        print(start_result.optimal_objectives)
-        db.add(current_solution)
-        db.commit()
+        save_results_to_db(
+            db=db, user_id=user.index, request=init_request, results=start_result, previous_solutions=solutions
+        )
     else:
         # If there is a solution marked as current, use that. Otherwise just use the first solution in the db
         current_solution = next((sol for sol in solutions if sol.current), solutions[0])
-
-    lower_bounds = [0.0 for x in range(len(problem.objectives))]
-    upper_bounds = [0.0 for x in range(len(problem.objectives))]
-    for i in range(len(problem.objectives)):
-        if problem.objectives[i].maximize:
-            lower_bounds[i] = nadir[problem.objectives[i].symbol]
-            upper_bounds[i] = ideal[problem.objectives[i].symbol]
-        else:
-            lower_bounds[i] = ideal[problem.objectives[i].symbol]
-            upper_bounds[i] = nadir[problem.objectives[i].symbol]
 
     # return FakeNIMBUSResponse(message="NIMBUS initialized.")
     return NIMBUSResponse(
@@ -214,31 +173,18 @@ def iterate(
     # Do database stuff here.
     problem_id = request.problem_id
     # The request is supposed to contain method id, but I don't want to deal with frontend code
-    method_id = get_nimbus_method_id(db)
+    request.method_id = get_nimbus_method_id(db)
+    method_id = request.method_id
 
-    problem = db.query(ProblemInDB).filter(ProblemInDB.id == problem_id).first()
-    if problem is None:
-        raise HTTPException(status_code=404, detail="Problem not found.")
-    if problem.owner != user.index and problem.owner is not None:
-        raise HTTPException(status_code=403, detail="Unauthorized to access chosen problem.")
-    try:
-        solver = problem.solver.value
-        problem = Problem.model_validate(problem.value)
-    except ValidationError:
-        raise HTTPException(status_code=500, detail="Error in parsing the problem.") from ValidationError
+    problem, solver = read_problem_from_db(db=db, problem_id=problem_id, user_id=user.index)
 
-    previous_solutions = (
-        db.query(SolutionArchive)
-        .filter(SolutionArchive.problem == problem_id, SolutionArchive.user == user.index)
-        .all()
-    )
+    previous_solutions = read_solutions_from_db(db, problem_id, user.index, method_id)
+
     if not previous_solutions:
         raise HTTPException(status_code=404, detail="Problem not found in the database.")
 
-    ideal = problem.get_ideal_point()
-    nadir = problem.get_nadir_point()
-    if None in ideal or None in nadir:
-        raise HTTPException(status_code=500, detail="Problem missing ideal or nadir value.")
+    # Calculate bounds here, just to make sure that they have been properly defined in the problem
+    lower_bounds, upper_bounds = calculate_bounds(problem)
 
     # Do NIMBUS stuff here.
     results = solve_sub_problems(
@@ -251,72 +197,12 @@ def iterate(
         solver=available_solvers[solver] if solver else None,
     )
 
-    # See if the results include duplicates and remove them
-    duplicate_indices = set()
-    for i in range(len(results) - 1):
-        for j in range(i + 1, len(results)):
-            if allclose(list(results[i].optimal_objectives.values()), list(results[j].optimal_objectives.values())):
-                duplicate_indices.add(j)
-
-    for index in sorted(list(duplicate_indices), reverse=True):
-        results.pop(index)
-
     # Do database stuff again.
-    # Save the given preferences
-    pref = Preference(
-        user=user.index, problem=problem_id, method=method_id, kind="NIMBUS", value=request.model_dump(mode="json")
-    )
-    db.add(pref)
-
-    old_current_solutions = (
-        db.query(SolutionArchive)
-        .filter(SolutionArchive.problem == problem_id, SolutionArchive.user == user.index, SolutionArchive.current)
-        .all()
+    save_results_to_db(
+        db=db, user_id=user.index, request=request, results=results, previous_solutions=previous_solutions
     )
 
-    # Mark all the old solutions as not current
-    for old in old_current_solutions:
-        old.current = False
-
-    for res in results:
-        # Check if the results already exist in the database
-        for prev in previous_solutions:
-            duplicate = False
-            if allclose(list(res.optimal_objectives.values()), list(prev.objectives)):
-                prev.current = True
-                duplicate = True
-                break
-        # If the solution was not found in the database, add it
-        if not duplicate:
-            db.add(
-                SolutionArchive(
-                    user=user.index,
-                    problem=problem_id,
-                    method=method_id,
-                    decision_variables=flatten(list(res.optimal_variables.values())),
-                    objectives=list(res.optimal_objectives.values()),
-                    saved=False,
-                    current=True,
-                    chosen=False,
-                )
-            )
-    db.commit()
-
-    solutions = (
-        db.query(SolutionArchive)
-        .filter(SolutionArchive.problem == problem_id, SolutionArchive.user == user.index)
-        .all()
-    )
-
-    lower_bounds = [0.0 for x in range(len(problem.objectives))]
-    upper_bounds = [0.0 for x in range(len(problem.objectives))]
-    for i in range(len(problem.objectives)):
-        if problem.objectives[i].maximize:
-            lower_bounds[i] = nadir[problem.objectives[i].symbol]
-            upper_bounds[i] = ideal[problem.objectives[i].symbol]
-        else:
-            lower_bounds[i] = ideal[problem.objectives[i].symbol]
-            upper_bounds[i] = nadir[problem.objectives[i].symbol]
+    solutions = read_solutions_from_db(db, problem_id, user.index, method_id)
 
     return NIMBUSResponse(
         objective_symbols=[obj.symbol for obj in problem.objectives],
@@ -351,31 +237,18 @@ def intermediate(
     # Do database stuff here.
     problem_id = request.problem_id
     # The request is supposed to contain method id, but I don't want to deal with frontend code
-    method_id = get_nimbus_method_id(db)
+    request.method_id = get_nimbus_method_id(db)
+    method_id = request.method_id
 
-    problem = db.query(ProblemInDB).filter(ProblemInDB.id == problem_id).first()
-    if problem is None:
-        raise HTTPException(status_code=404, detail="Problem not found.")
-    if problem.owner != user.index and problem.owner is not None:
-        raise HTTPException(status_code=403, detail="Unauthorized to access chosen problem.")
-    try:
-        solver = problem.solver.value
-        problem = Problem.model_validate(problem.value)
-    except ValidationError:
-        raise HTTPException(status_code=500, detail="Error in parsing the problem.") from ValidationError
+    problem, solver = read_problem_from_db(db=db, problem_id=problem_id, user_id=user.index)
 
-    previous_solutions = (
-        db.query(SolutionArchive)
-        .filter(SolutionArchive.problem == problem_id, SolutionArchive.user == user.index)
-        .all()
-    )
+    previous_solutions = read_solutions_from_db(db, problem_id, user.index, method_id)
+
     if not previous_solutions:
         raise HTTPException(status_code=404, detail="Problem not found in the database.")
 
-    ideal = problem.get_ideal_point()
-    nadir = problem.get_nadir_point()
-    if None in ideal or None in nadir:
-        raise HTTPException(status_code=500, detail="Problem missing ideal or nadir value.")
+    # Calculate bounds here, just to make sure that they have been properly defined in the problem
+    lower_bounds, upper_bounds = calculate_bounds(problem)
 
     # Do NIMBUS stuff here.
     results = solve_intermediate_solutions(
@@ -386,76 +259,12 @@ def intermediate(
         solver=available_solvers[solver] if solver else None,
     )
 
-    # See if the results include duplicates and remove them
-    duplicate_indices = []
-    for i in range(len(results) - 1):
-        for j in range(i + 1, len(results)):
-            if allclose(list(results[i].optimal_objectives.values()), list(results[i].optimal_objectives.values())):
-                duplicate_indices.append(j)
-
-    for index in sorted(duplicate_indices, reverse=True):
-        results.pop(index)
-
     # Do database stuff again.
-    # Save the given preferences
-    pref = Preference(
-        user=user.index,
-        problem=problem_id,
-        method=method_id,
-        kind="NIMBUS_intermediate",
-        value=request.model_dump(mode="json"),
-    )
-    db.add(pref)
-
-    old_current_solutions = (
-        db.query(SolutionArchive)
-        .filter(SolutionArchive.problem == problem_id, SolutionArchive.user == user.index, SolutionArchive.current)
-        .all()
+    save_results_to_db(
+        db=db, user_id=user.index, request=request, results=results, previous_solutions=previous_solutions
     )
 
-    # Mark all the old solutions as not current
-    for old in old_current_solutions:
-        old.current = False
-
-    for res in results:
-        # Check if the results already exist in the database
-        for prev in previous_solutions:
-            duplicate = False
-            if allclose(list(res.optimal_objectives.values()), list(prev.objectives)):
-                prev.current = True
-                duplicate = True
-                break
-        # If the solution was not found in the database, add it
-        if not duplicate:
-            db.add(
-                SolutionArchive(
-                    user=user.index,
-                    problem=problem_id,
-                    method=method_id,
-                    decision_variables=flatten(list(res.optimal_variables.values())),
-                    objectives=list(res.optimal_objectives.values()),
-                    saved=False,
-                    current=True,
-                    chosen=False,
-                )
-            )
-    db.commit()
-
-    solutions = (
-        db.query(SolutionArchive)
-        .filter(SolutionArchive.problem == problem_id, SolutionArchive.user == user.index)
-        .all()
-    )
-
-    lower_bounds = [0.0 for x in range(len(problem.objectives))]
-    upper_bounds = [0.0 for x in range(len(problem.objectives))]
-    for i in range(len(problem.objectives)):
-        if problem.objectives[i].maximize:
-            lower_bounds[i] = nadir[problem.objectives[i].symbol]
-            upper_bounds[i] = ideal[problem.objectives[i].symbol]
-        else:
-            lower_bounds[i] = ideal[problem.objectives[i].symbol]
-            upper_bounds[i] = nadir[problem.objectives[i].symbol]
+    solutions = read_solutions_from_db(db, problem_id, user.index, method_id)
 
     return NIMBUSResponse(
         objective_symbols=[obj.symbol for obj in problem.objectives],
@@ -489,12 +298,10 @@ def save(
     """
     # Get the solutions from database.
     problem_id = request.problem_id
+    method_id = get_nimbus_method_id(db)
 
-    previous_solutions = (
-        db.query(SolutionArchive)
-        .filter(SolutionArchive.problem == problem_id, SolutionArchive.user == user.index)
-        .all()
-    )
+    previous_solutions = read_solutions_from_db(db, problem_id, user.index, method_id)
+
     if not previous_solutions:
         raise HTTPException(status_code=404, detail="Problem not found in the database.")
 
@@ -537,12 +344,10 @@ def choose(
     """
     # Get the solutions from database.
     problem_id = request.problem_id
+    method_id = get_nimbus_method_id(db)
 
-    previous_solutions = (
-        db.query(SolutionArchive)
-        .filter(SolutionArchive.problem == problem_id, SolutionArchive.user == user.index)
-        .all()
-    )
+    previous_solutions = read_solutions_from_db(db, problem_id, user.index, method_id)
+
     if not previous_solutions:
         raise HTTPException(status_code=404, detail="Problem not found in the database.")
 
@@ -558,7 +363,7 @@ def choose(
     return FakeNIMBUSResponse(message="Solution chosen.")
 
 
-def flatten(lst):
+def flatten(lst) -> list[float]:
     """Takes a nested list and flattens it into a single list.
 
     Args:
@@ -576,7 +381,7 @@ def flatten(lst):
     return flat_list
 
 
-def get_nimbus_method_id(db: Session):
+def get_nimbus_method_id(db: Session) -> int:
     """Queries the database to find the id for NIMBUS method.
 
     Args:
@@ -587,3 +392,163 @@ def get_nimbus_method_id(db: Session):
     """
     nimbus_method = db.query(Method).filter(Method.kind == Methods.NIMBUS).first()
     return nimbus_method.id
+
+
+def read_problem_from_db(db: Session, problem_id: int, user_id: int) -> tuple[Problem, str]:
+    """Reads the problem from database.
+
+    Args:
+        db (Session): Database session to be used
+        problem_id (int): Id of the problem
+        method_id (int): Id of the method
+        user_id (int): Index of the user
+
+    Raises:
+        HTTPException: _description_
+        HTTPException: _description_
+        HTTPException: _description_
+
+    Returns:
+        tuple[Problem, str]: Returns the problem as a desdeo problem class and the name of the solver
+    """
+    problem = db.query(ProblemInDB).filter(ProblemInDB.id == problem_id).first()
+
+    if problem is None:
+        raise HTTPException(status_code=404, detail="Problem not found.")
+    if problem.owner != user_id and problem.owner is not None:
+        raise HTTPException(status_code=403, detail="Unauthorized to access chosen problem.")
+    try:
+        solver = problem.solver.value
+        problem = Problem.model_validate(problem.value)
+    except ValidationError:
+        raise HTTPException(status_code=500, detail="Error in parsing the problem.") from ValidationError
+    return problem, solver
+
+
+def read_solutions_from_db(db: Session, problem_id: int, user_id: int, method_id: int) -> list[SolutionArchive]:
+    """Reads the previous solutions from the database.
+
+    Args:
+        db (Session): _description_
+        problem_id (int): _description_
+        user_id (int): _description_
+        method_id (int): _description_
+
+    Returns:
+        list[SolutionArchive]: _description_
+    """
+    return (
+        db.query(SolutionArchive)
+        .filter(
+            SolutionArchive.problem == problem_id, SolutionArchive.user == user_id, SolutionArchive.method == method_id
+        )
+        .all()
+    )
+
+
+def save_results_to_db(
+    db: Session,
+    user_id: int,
+    request: InitRequest | NIMBUSIterateRequest | NIMBUSIntermediateSolutionRequest,
+    results: list,
+    previous_solutions: list[SolutionArchive],
+):
+    """Saves the results to the database.
+
+    Args:
+        db (Session): _description_
+        user_id (int): _description_
+        request (_type_): _description_
+        results (list): _description_
+        previous_solutions (list[SolutionArchive]): _description_
+    """
+    problem_id = request.problem_id
+    method_id = request.method_id
+
+    if type(request) is InitRequest:
+        pref = None
+    else:
+        pref = Preference(
+            user=user_id,
+            problem=problem_id,
+            method=method_id,
+            kind="NIMBUS" if type(type(request) is NIMBUSIterateRequest) else "NIMBUS_intermediate",
+            value=request.model_dump(mode="json"),
+        )
+        db.add(pref)
+        db.commit()
+
+    # See if the results include duplicates and remove them
+    duplicate_indices = set()
+    for i in range(len(results) - 1):
+        for j in range(i + 1, len(results)):
+            if allclose(list(results[i].optimal_objectives.values()), list(results[j].optimal_objectives.values())):
+                duplicate_indices.add(j)
+
+    for index in sorted(duplicate_indices, reverse=True):
+        results.pop(index)
+
+    old_current_solutions = (
+        db.query(SolutionArchive)
+        .filter(SolutionArchive.problem == problem_id, SolutionArchive.user == user_id, SolutionArchive.current)
+        .all()
+    )
+
+    # Mark all the old solutions as not current
+    for old in old_current_solutions:
+        old.current = False
+
+    for res in results:
+        # Check if the results already exist in the database
+        for prev in previous_solutions:
+            duplicate = False
+            if allclose(list(res.optimal_objectives.values()), list(prev.objectives)):
+                prev.current = True
+                duplicate = True
+                break
+        # If the solution was not found in the database, add it
+        if not duplicate:
+            db.add(
+                SolutionArchive(
+                    user=user_id,
+                    problem=problem_id,
+                    method=method_id,
+                    preference=pref.id,
+                    decision_variables=flatten(list(res.optimal_variables.values())),
+                    objectives=list(res.optimal_objectives.values()),
+                    saved=False,
+                    current=True,
+                    chosen=False,
+                )
+            )
+    db.commit()
+
+
+def calculate_bounds(problem: Problem) -> tuple[list[float, list[float]]]:
+    """Calculates upper and lower bounds for the objectives.
+
+    Args:
+        problem (Problem): _description_
+
+    Raises:
+        HTTPException: _description_
+
+    Returns:
+        tuple[list[float, list[float]]]: tuple containing a list of lower bound values and a list of upper bound values
+    """
+    ideal = problem.get_ideal_point()
+    nadir = problem.get_nadir_point()
+    if None in ideal or None in nadir:
+        raise HTTPException(status_code=500, detail="Problem missing ideal or nadir value.")
+
+    lower_bounds = [0.0 for x in range(len(problem.objectives))]
+    upper_bounds = [0.0 for x in range(len(problem.objectives))]
+    for i in range(len(problem.objectives)):
+        if problem.objectives[i].maximize:
+            lower_bounds[i] = nadir[problem.objectives[i].symbol]
+            upper_bounds[i] = ideal[problem.objectives[i].symbol]
+        else:
+            lower_bounds[i] = ideal[problem.objectives[i].symbol]
+            upper_bounds[i] = nadir[problem.objectives[i].symbol]
+
+    return lower_bounds, upper_bounds
