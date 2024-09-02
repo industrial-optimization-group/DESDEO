@@ -1729,33 +1729,11 @@ def forest_problem(holding: int = 1, comparing: bool = False) -> Problem:
     f_2_func = " + ".join(f_2_func)
     f_3_func = " + ".join(f_3_func)
 
-    match holding:
-        case 1:
-            ideals = {"f_1": 45654.952, "f_2": 2302.167, "f_3": 36780.631}
-            nadirs = {"f_1": 29722.469, "f_2": 1517.674, "f_3": 0.0}
-        case 2:
-            ideals = {"f_1": 42937.004, "f_2": 2489.819, "f_3": 53632.887}
-            nadirs = {"f_1": 17555.857, "f_2": 1045.335, "f_3": 0.0}
-        case 3:
-            ideals = {"f_1": 82195.014, "f_2": 3866.168, "f_3": 152149.555}
-            nadirs = {"f_1": 18207.905, "f_2": 856.735, "f_3": 0.0}
-        case 4:
-            ideals = {"f_1": 70547.896, "f_2": 3422.758, "f_3": 122271.740}
-            nadirs = {"f_1": 17379.117, "f_2": 834.909, "f_3": 0.0}
-        case 5:
-            ideals = {"f_1": 78183.469, "f_2": 3703.603, "f_3": 154240.330}
-            nadirs = {"f_1": 10885.988, "f_2": 506.754, "f_3": 0.0}
-        case 6:
-            ideals = {"f_1": 69121.380, "f_2": 3867.108, "f_3": 103018.541}
-            nadirs = {"f_1": 22254.236, "f_2": 1162.668, "f_3": 0.0}
-
     f_1 = Objective(
         name="Net present value",
         symbol="f_1",
         func=f_1_func,
         maximize=True,
-        ideal=ideals["f_1"],
-        nadir=nadirs["f_1"],
         objective_type=ObjectiveTypeEnum.analytical,
         is_linear=True,
         is_convex=False, # not checked
@@ -1767,8 +1745,6 @@ def forest_problem(holding: int = 1, comparing: bool = False) -> Problem:
         symbol="f_2",
         func=f_2_func,
         maximize=True,
-        ideal=ideals["f_2"],
-        nadir=nadirs["f_3"],
         objective_type=ObjectiveTypeEnum.analytical,
         is_linear=True,
         is_convex=False, # not checked
@@ -1780,8 +1756,6 @@ def forest_problem(holding: int = 1, comparing: bool = False) -> Problem:
         symbol="f_3",
         func=f_3_func,
         maximize=True,
-        ideal=ideals["f_3"],
-        nadir=nadirs["f_3"],
         objective_type=ObjectiveTypeEnum.analytical,
         is_linear=True,
         is_convex=False, # not checked

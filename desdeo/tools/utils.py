@@ -1,6 +1,8 @@
 """General utilities related to solvers."""
 
-from desdeo.problem import ObjectiveTypeEnum, Problem, VariableDomainTypeEnum
+import numpy as np
+
+from desdeo.problem import ObjectiveTypeEnum, Problem, VariableDomainTypeEnum, numpy_array_to_objective_dict
 
 from .generics import BaseSolver
 from .gurobipy_solver_interfaces import GurobipySolver
@@ -67,27 +69,42 @@ def guess_best_solver(problem: Problem) -> BaseSolver:
     # thigs to check: variable types, does the problem have constraint, constraint types, etc...
 
 
-def get_corrected_ideal_and_nadir(problem: Problem) -> tuple[dict[str, float | None], dict[str, float | None] | None]:
+def get_corrected_ideal_and_nadir(
+    problem: Problem,
+    solver: BaseSolver = None
+) -> tuple[dict[str, float], dict[str, float]]:
     """Compute the corrected ideal and nadir points depending if an objective function is to be maximized or not.
 
     I.e., the ideal and nadir point element for objectives to be maximized will be multiplied by -1.
 
     Args:
         problem (Problem): the problem with the ideal and nadir points.
+        solver (BaseSolver): the solver to be used in possibly computing the ideals and nadirs.
 
     Raises:
         ValueError: some of the ideal or nadir point components have not been defined
             for some of the objectives.
 
     Returns:
-        tuple[list[float], list[float]]: a list with the corrected ideal point
-            and a list with the corrected nadir point. Will return None for missing
-            elements.
+        tuple[dict[str, float], dict[str, float]]: a tuple of the corrected ideal and nadir points as dicts.
     """
-    # check that ideal and nadir points are actually defined
+    ideal_point = {}
+    nadir_point = {}
+    # check that ideal and nadir points are actually defined, if not estimate them
+    # and replace the missing ideal or nadir values with the estimated ones
     if any(obj.ideal is None for obj in problem.objectives) or any(obj.nadir is None for obj in problem.objectives):
-        msg = "Some of the objectives have not a defined ideal or nadir value."
-        raise ValueError(msg)
+        solver = solver if solver is not None else guess_best_solver(problem)
+        ideal, nadir = payoff_table_method(problem, solver)
+        for obj in problem.objectives:
+            if obj.ideal is None:
+                ideal_point[obj.symbol] = ideal[obj.symbol] if not obj.maximize else -ideal[obj.symbol]
+            else:
+                ideal_point[obj.symbol] = obj.ideal if not obj.maximize else -obj.ideal
+            if obj.nadir is None:
+                nadir_point[obj.symbol] = nadir[obj.symbol] if not obj.maximize else -nadir[obj.symbol]
+            else:
+                nadir_point[obj.symbol] = obj.nadir if not obj.maximize else -obj.nadir
+        return ideal_point, nadir_point
 
     ideal_point = {
         objective.symbol: objective.ideal if not objective.maximize else -objective.ideal
@@ -118,3 +135,35 @@ def get_corrected_reference_point(problem: Problem, reference_point: dict[str, f
         obj.symbol: reference_point[obj.symbol] * -1 if obj.maximize else reference_point[obj.symbol]
         for obj in problem.objectives
     }
+
+def payoff_table_method(
+    problem: Problem,
+    solver: BaseSolver = None
+) -> tuple[dict[str, float], dict[str, float]]:
+    """Solves a representation for the ideal and nadir points for a multiobjective optimization problem.
+
+    Args:
+        problem (Problem): The problem for which the ideal and nadir are solved.
+        solver (BaseSolver): The solver to be used in solving the points. Defaults to None.
+
+    Returns:
+        tuple[dict[str, float], dict[str, float]]: The estimated ideal and nadir points.
+    """
+    solver = solver if solver is not None else guess_best_solver(problem)
+    solver = solver(problem)
+
+    k = len(problem.objectives)
+    po_table = np.zeros((k, k))
+
+    for i in range(k):
+        res = solver.solve(f"f_{i+1}_min")
+        for j in range(k):
+            po_table[i][j] = res.optimal_objectives[f"f_{j+1}"]
+    ideal = np.diag(po_table)
+    nadir = []
+    for i in range(k):
+        if problem.objectives[i].maximize:
+            nadir.append(np.min(po_table.T[i]))
+        else:
+            nadir.append(np.max(po_table.T[i]))
+    return numpy_array_to_objective_dict(problem, ideal), numpy_array_to_objective_dict(problem, nadir)
