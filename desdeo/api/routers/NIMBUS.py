@@ -332,7 +332,7 @@ def choose(
     request: ChooseRequest,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
-) -> NIMBUSResponse | FakeNIMBUSResponse:
+) -> FakeNIMBUSResponse:
     """Choose a solution as the final solution for NIMBUS.
 
     Args:
