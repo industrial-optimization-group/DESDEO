@@ -364,8 +364,6 @@ class PyomoGurobiSolver(BaseSolver):
                 See https://www.gurobi.com/documentation/current/refman/parameters.html
                 for information on the available options
         """
-        if not problem.is_linear or not problem.is_twice_differentiable:
-            raise SolverError("Nonlinear and nondifferentiable problems not supported.")
         self.problem = problem
         self.evaluator = PyomoEvaluator(problem)
 

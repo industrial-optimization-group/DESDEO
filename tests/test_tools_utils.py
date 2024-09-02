@@ -2,8 +2,6 @@
 
 from fixtures import dtlz2_5x_3f_data_based  # noqa: F401
 
-import pytest
-
 from desdeo.problem import re21, river_pollution_problem
 from desdeo.tools.utils import available_solvers, find_compatible_solvers, guess_best_solver
 
@@ -22,7 +20,6 @@ def test_guess_best_solver(dtlz2_5x_3f_data_based):  # noqa: F811
     assert data_guess is available_solvers["proximal"]
 
 
-@pytest.mark.compatible
 def test_find_compatible_solvers():
     """Test that find_compatible_solvers works as intended."""
     problem = re21()
