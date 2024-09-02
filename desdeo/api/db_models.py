@@ -175,10 +175,11 @@ class GSolutionArchive(Base):
         JSON,
         nullable=True,
     )  # Depends on the method. May include things such as scalarization functions value, etc.
-    new: Mapped[bool] = mapped_column(nullable=False, default=False)
     saved: Mapped[bool] = mapped_column(nullable=False)
     current: Mapped[bool] = mapped_column(nullable=False)
     chosen: Mapped[bool] = mapped_column(nullable=False)
+    # Mark if a solution needs to be voted as final or current
+    to_vote: Mapped[bool] = mapped_column(nullable=False, default=False)
 
 
 class Log(Base):
