@@ -4,10 +4,26 @@
 
 from sqlalchemy import ARRAY, FLOAT, JSON, Enum, ForeignKey, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.types import TypeDecorator, VARCHAR
 
 from desdeo.api import schema
 from desdeo.api.db import Base
 
+import json
+
+class JSONEncoded(TypeDecorator):
+    impl = VARCHAR
+
+    def process_bind_param(self, value, dialect):
+        if value is not None:
+            value = json.dumps(value)
+
+        return value
+
+    def process_result_value(self, value, dialect):
+        if value is not None:
+            value = json.loads(value)
+        return value
 
 class User(Base):
     """A user with a password, stored problems, role, and user group."""
@@ -130,6 +146,37 @@ class SolutionArchive(Base):
     saved: Mapped[bool] = mapped_column(nullable=False)
     current: Mapped[bool] = mapped_column(nullable=False)
     chosen: Mapped[bool] = mapped_column(nullable=False)
+
+
+class GSolutionArchive(Base):
+    """A model to store a solution archive specficially for Gnimbus.
+
+    The archive can be used to store the results of a method run. Note that each entry must be a single,
+    complete solution. This is different from the Results table, which can store partial results.
+    """
+
+    __tablename__ = "group_solution_archive"
+    id: Mapped[int] = mapped_column(primary_key=True, unique=True)
+    user = mapped_column(Integer, ForeignKey("user.id"), nullable=False)
+    problem = mapped_column(Integer, ForeignKey("problem.id"), nullable=False)
+    # Comment out since now there is no records for Method table
+    # method = mapped_column(Integer, ForeignKey("method.id"), nullable=False)
+    method = mapped_column(Integer, nullable=False)
+    preference = mapped_column(Integer, ForeignKey("preference.id"), nullable=True)
+    # To be able to save variables and tensor variables
+    decision_variables = mapped_column(JSONEncoded, nullable=True)
+    objectives = mapped_column(ARRAY(FLOAT), nullable=False)
+    constraints = mapped_column(ARRAY(FLOAT), nullable=True)
+    extra_funcs = mapped_column(ARRAY(FLOAT), nullable=True)
+    other_info = mapped_column(
+        JSON,
+        nullable=True,
+    )  # Depends on the method. May include things such as scalarization functions value, etc.
+    saved: Mapped[bool] = mapped_column(nullable=False)
+    current: Mapped[bool] = mapped_column(nullable=False)
+    chosen: Mapped[bool] = mapped_column(nullable=False)
+    # Mark if a solution needs to be voted as final or current
+    to_vote: Mapped[bool] = mapped_column(nullable=False, default=False)
 
 
 class Log(Base):
