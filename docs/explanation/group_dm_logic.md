@@ -72,8 +72,14 @@ desdeo-webui:server.js
   - 'disconnect': When the client is disconnected from the server
 
 Client:
-- File location: desdeo-webui:src/hooks.client.ts
-- How it is started: Code in client hooks will run when the application starts up
+- File location: 
+```json 
+desdeo-webui:src/hooks.client.ts
+```
+- How it is started:
+```json 
+Code in client hooks will run when the application starts up
+```
 - Emitters:
   ```json
   socket.emit("message", { message: "..." });
