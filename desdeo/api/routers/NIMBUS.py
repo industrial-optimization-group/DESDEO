@@ -513,7 +513,7 @@ def save_results_to_db(
                     user=user_id,
                     problem=problem_id,
                     method=method_id,
-                    preference=pref.id,
+                    preference=pref.id if pref is not None else None,
                     decision_variables=flatten(list(res.optimal_variables.values())),
                     objectives=list(res.optimal_objectives.values()),
                     saved=False,
