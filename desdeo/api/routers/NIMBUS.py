@@ -500,8 +500,8 @@ def save_results_to_db(
 
     for res in results:
         # Check if the results already exist in the database
+        duplicate = False
         for prev in previous_solutions:
-            duplicate = False
             if allclose(list(res.optimal_objectives.values()), list(prev.objectives)):
                 prev.current = True
                 duplicate = True
