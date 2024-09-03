@@ -135,9 +135,10 @@ def init_nimbus(
         save_results_to_db(
             db=db, user_id=user.index, request=init_request, results=[start_result], previous_solutions=solutions
         )
-    else:
-        # If there is a solution marked as current, use that. Otherwise just use the first solution in the db
-        current_solution = next((sol for sol in solutions if sol.current), solutions[0])
+        solutions = read_solutions_from_db(db, problem_id, user.index, method_id)
+
+    # If there is a solution marked as current, use that. Otherwise just use the first solution in the db
+    current_solution = next((sol for sol in solutions if sol.current), solutions[0])
 
     # return FakeNIMBUSResponse(message="NIMBUS initialized.")
     return NIMBUSResponse(
