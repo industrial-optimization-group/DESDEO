@@ -159,9 +159,7 @@ class GSolutionArchive(Base):
     id: Mapped[int] = mapped_column(primary_key=True, unique=True)
     user = mapped_column(Integer, ForeignKey("user.id"), nullable=False)
     problem = mapped_column(Integer, ForeignKey("problem.id"), nullable=False)
-    # Comment out since now there is no records for Method table
-    # method = mapped_column(Integer, ForeignKey("method.id"), nullable=False)
-    method = mapped_column(Integer, nullable=False)
+    method = mapped_column(Integer, ForeignKey("method.id"), nullable=False)
     preference = mapped_column(Integer, ForeignKey("preference.id"), nullable=True)
     # To be able to save variables and tensor variables
     decision_variables = mapped_column(JSONEncoded, nullable=True)
@@ -188,3 +186,4 @@ class Log(Base):
     action: Mapped[str] = mapped_column(nullable=False)
     value = mapped_column(JSON, nullable=False)
     timestamp: Mapped[str] = mapped_column(nullable=False)
+    
