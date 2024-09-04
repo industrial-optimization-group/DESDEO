@@ -1,6 +1,6 @@
 """Defines generic classes, functions, and objects utilized in the tools module."""
 
-from collections.abc import Callable
+from abc import ABC, abstractmethod
 from typing import Any, TypeVar
 
 from pydantic import BaseModel, Field
@@ -15,7 +15,9 @@ class SolverError(Exception):
 class SolverResults(BaseModel):
     """Defines a schema for a dataclass to store the results of a solver."""
 
-    optimal_variables: dict[str, float | list[float]] = Field(description="The optimal decision variables found.")
+    optimal_variables: dict[str, float | list[float] | list[list[float]] | dict[str | int, float]] = Field(
+        description="The optimal decision variables found."
+    )
     optimal_objectives: dict[str, float | list[float]] = Field(
         description="The objective function values corresponding to the optimal decision variables found."
     )
@@ -29,15 +31,14 @@ class SolverResults(BaseModel):
     success: bool = Field(description="A boolean flag indicating whether the optimization was successful or not.")
     message: str = Field(description="Description of the cause of termination.")
 
-class PersistentSolver:
-    """Defines a schema for a persistent solver class.
 
-    Can be used when reinitializing the solver every time the problem is changed is not practical.
-    """
+class BaseSolver(ABC):
+    """Defines a schema for a solver base class."""
+
     evaluator: object
     problem: Problem
 
-    def __init__(self, problem: Problem, options: dict[str,any]|None = None):
+    def __init__(self, problem: Problem, options: dict[str, any] | None = None):
         """Initializer for the persistent solver.
 
         Args:
@@ -47,7 +48,38 @@ class PersistentSolver:
         """
         self.problem = problem
 
-    def add_constraint(self, constraint: Constraint|list[Constraint]):
+    @abstractmethod
+    def solve(self, target: str) -> SolverResults:
+        """Solves the current problem with the specified target.
+
+        Args:
+            target (str): a str representing the symbol of the target function.
+
+        Returns:
+            SolverResults: The results of the solver
+        """
+
+
+class PersistentSolver:
+    """Defines a schema for a persistent solver class.
+
+    Can be used when reinitializing the solver every time the problem is changed is not practical.
+    """
+
+    evaluator: object
+    problem: Problem
+
+    def __init__(self, problem: Problem, options: dict[str, any] | None = None):
+        """Initializer for the persistent solver.
+
+        Args:
+            problem (Problem): The problem for the solver.
+            options (dict[str,any]): Dictionary of parameters to set.
+                What these should be depends on the solver used.
+        """
+        self.problem = problem
+
+    def add_constraint(self, constraint: Constraint | list[Constraint]):
         """Add a constraint expression to the solver.
 
         Args:
@@ -101,4 +133,3 @@ class PersistentSolver:
 
 
 SolverOptions = TypeVar("SolverOptions", bound=Any)
-CreateSolverType = Callable[[Problem, SolverOptions], Callable[[str], SolverResults]]

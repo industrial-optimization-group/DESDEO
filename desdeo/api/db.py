@@ -9,12 +9,14 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy_utils import create_database, database_exists, drop_database
 
+from desdeo.api.config import DBConfig
+
 # TODO: Extract this to a config file.
-DB_USER = "bhupindersaini"
-DB_PASSWORD = ""  # NOQA: S105
-DB_HOST = "localhost"
-DB_PORT = "5432"
-DB_NAME = "DESDEO3"
+DB_USER = DBConfig.db_username
+DB_PASSWORD = DBConfig.db_password
+DB_HOST = DBConfig.db_host
+DB_PORT = DBConfig.db_port
+DB_NAME = DBConfig.db_database
 
 
 SQLALCHEMY_DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"

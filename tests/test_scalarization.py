@@ -28,6 +28,14 @@ from desdeo.tools.scalarization import (
     add_epsilon_constraints,
     add_guess_sf_diff,
     add_guess_sf_nondiff,
+    add_group_asf,
+    add_group_asf_diff,
+    add_group_guess_sf,
+    add_group_guess_sf_diff,
+    add_group_nimbus_sf,
+    add_group_nimbus_sf_diff,
+    add_group_stom_sf,
+    add_group_stom_sf_diff,
     add_nimbus_sf_diff,
     add_nimbus_sf_nondiff,
     add_stom_sf_diff,
@@ -88,6 +96,8 @@ def test_add_asf_nondiff(river_w_fake_ideal_and_nadir):
         assert value in flatten(problem.scalarization_funcs[0].func)
 
 
+@pytest.mark.scalarization
+@pytest.mark.asf
 def test_add_asf_generic_nondiff(river_w_fake_ideal_and_nadir):
     """Tests that the generic achievement scalarization function is added correctly."""
     problem = river_w_fake_ideal_and_nadir
@@ -111,45 +121,206 @@ def test_add_asf_generic_nondiff(river_w_fake_ideal_and_nadir):
         assert f"{key}_min" in flatten(problem.scalarization_funcs[0].func)
         assert value in flatten(problem.scalarization_funcs[0].func)
 
+    n_objectives = 4
+    n_variables = 5
+    problem = dtlz2(n_variables=n_variables, n_objectives=n_objectives)
+    reference_point = {"f_1": 0.4, "f_2": 0.8, "f_3": 0.7, "f_4": 0.75}
+    reference_point_aug = {"f_1": 1.4, "f_2": 0.2, "f_3": 1.7, "f_4": 0.075}
+    weights = {"f_1": 0.3, "f_2": 0.2, "f_3": 0.1, "f_4": 0.4}
+    weights_aug = {"f_1": 0.2, "f_2": 0.3, "f_3": 0.4, "f_4": 0.1}
 
+    problem_w_asf, target = add_asf_generic_nondiff(
+        problem,
+        symbol="asf",
+        reference_point=reference_point,
+        weights=weights,
+        rho=1.0 # set rho as a greater scalar to be able to see the differences in values for these tests
+    )
+    # asf with a different reference point and different weights used in the augmentation term
+    problem_w_asf_aug, target_aug = add_asf_generic_nondiff(
+        problem, symbol="asf",
+        reference_point=reference_point,
+        weights=weights,
+        reference_point_aug=reference_point_aug,
+        weights_aug=weights_aug,
+        rho=1.0 # set rho as a greater scalar to be able to see the differences in values for these tests
+    )
+    # asf with different weights used in the augmentation term
+    problem_w_asf_diff_w, target_diff_w = add_asf_generic_nondiff(
+        problem, symbol="asf",
+        reference_point=reference_point,
+        weights=weights,
+        weights_aug=weights_aug,
+        rho=1.0 # set rho as a greater scalar to be able to see the differences in values for these tests
+    )
+    # asf with a different reference point used in the augmentation term
+    problem_w_asf_diff_r, target_diff_r = add_asf_generic_nondiff(
+        problem, symbol="asf",
+        reference_point=reference_point,
+        weights=weights,
+        reference_point_aug=reference_point_aug,
+        rho=1.0 # set rho as a greater scalar to be able to see the differences in values for these tests
+    )
+    # asf with the same reference point used in the augmentation term
+    problem_w_asf_same_r, target_same_r = add_asf_generic_nondiff(
+        problem, symbol="asf",
+        reference_point=reference_point,
+        weights=weights,
+        reference_point_aug=reference_point,
+        rho=1.0 # set rho as a greater scalar to be able to see the differences in values for these tests
+    )
+
+    solver = ScipyMinimizeSolver(problem_w_asf)
+    solver_aug = ScipyMinimizeSolver(problem_w_asf_aug)
+    solver_diff_w = ScipyMinimizeSolver(problem_w_asf_diff_w)
+    solver_diff_r = ScipyMinimizeSolver(problem_w_asf_diff_r)
+    solver_same_r = ScipyMinimizeSolver(problem_w_asf_same_r)
+
+    res = solver.solve(target)
+    xs = res.optimal_variables
+    fs = res.optimal_objectives
+
+    res_aug = solver_aug.solve(target_aug)
+    xs_aug = res_aug.optimal_variables
+    fs_aug = res_aug.optimal_objectives
+
+    res_diff_w = solver_diff_w.solve(target_diff_w)
+    xs_diff_w = res_diff_w.optimal_variables
+    fs_diff_w = res_diff_w.optimal_objectives
+
+    res_diff_r = solver_diff_r.solve(target_diff_r)
+    xs_diff_r = res_diff_r.optimal_variables
+    fs_diff_r = res_diff_r.optimal_objectives
+
+    res_same_r = solver_same_r.solve(target_same_r)
+    xs_same_r = res_same_r.optimal_variables
+    fs_same_r = res_same_r.optimal_objectives
+
+    # check optimality of solutions
+    assert all(np.isclose(xs[f"x_{i}"], 0.5) for i in range(n_objectives, n_variables + 1))
+    npt.assert_almost_equal(sum(fs[obj.symbol] ** 2 for obj in problem_w_asf.objectives) ** 0.5, 1.0)
+
+    assert all(np.isclose(xs_aug[f"x_{i}"], 0.5) for i in range(n_objectives, n_variables + 1))
+    npt.assert_almost_equal(sum(fs_aug[obj.symbol] ** 2 for obj in problem_w_asf.objectives) ** 0.5, 1.0)
+
+    assert all(np.isclose(xs_diff_w[f"x_{i}"], 0.5) for i in range(n_objectives, n_variables + 1))
+    npt.assert_almost_equal(sum(fs_diff_w[obj.symbol] ** 2 for obj in problem_w_asf.objectives) ** 0.5, 1.0)
+
+    assert all(np.isclose(xs_diff_r[f"x_{i}"], 0.5) for i in range(n_objectives, n_variables + 1))
+    npt.assert_almost_equal(sum(fs_diff_r[obj.symbol] ** 2 for obj in problem_w_asf.objectives) ** 0.5, 1.0)
+
+    assert all(np.isclose(xs_same_r[f"x_{i}"], 0.5) for i in range(n_objectives, n_variables + 1))
+    npt.assert_almost_equal(sum(fs_same_r[obj.symbol] ** 2 for obj in problem_w_asf.objectives) ** 0.5, 1.0)
+
+    # check that reference point and/or different weights in augmentation term returns a different solution
+    xs = [xs[var.symbol] for var in problem_w_asf.variables]
+    xs_aug = [xs_aug[var.symbol] for var in problem_w_asf.variables]
+    xs_diff_w = [xs_diff_w[var.symbol] for var in problem_w_asf.variables]
+    xs_diff_r = [xs_diff_r[var.symbol] for var in problem_w_asf.variables]
+    xs_same_r = [xs_same_r[var.symbol] for var in problem_w_asf.variables]
+
+    assert xs != xs_aug != xs_diff_w != xs_diff_r != xs_same_r
+
+
+@pytest.mark.scalarization
+@pytest.mark.asf
 def test_add_asf_generic_diff():
     """Test that the differentiable variant of the generic achievement scalarizing function produced Pareto optimal solutions."""
     n_objectives = 4
     n_variables = 5
     problem = dtlz2(n_variables=n_variables, n_objectives=n_objectives)
     reference_point = {"f_1": 0.4, "f_2": 0.8, "f_3": 0.7, "f_4": 0.75}
+    reference_point_aug = {"f_1": 1.4, "f_2": 0.2, "f_3": 1.7, "f_4": 0.075}
     weights = {"f_1": 0.3, "f_2": 0.2, "f_3": 0.1, "f_4": 0.4}
+    weights_aug = {"f_1": 0.2, "f_2": 0.3, "f_3": 0.4, "f_4": 0.1}
 
     problem_w_asf, target = add_asf_generic_diff(
-        problem, symbol="asf", reference_point=reference_point, weights=weights, reference_in_aug=False
+        problem, symbol="asf", reference_point=reference_point, weights=weights
+    )
+    # asf with a different reference point and different weights used in the augmentation term
+    problem_w_asf_aug, target = add_asf_generic_diff(
+        problem,
+        symbol="asf",
+        reference_point=reference_point,
+        weights=weights,
+        reference_point_aug=reference_point_aug,
+        weights_aug=weights_aug
+    )
+    # asf with different weights used in the augmentation term
+    problem_w_asf_diff_w, target = add_asf_generic_diff(
+        problem,
+        symbol="asf",
+        reference_point=reference_point,
+        weights=weights,
+        weights_aug=weights_aug
+    )
+    # asf with a different reference point used in the augmentation term
+    problem_w_asf_diff_r, target = add_asf_generic_diff(
+        problem,
+        symbol="asf",
+        reference_point=reference_point,
+        weights=weights,
+        reference_point_aug=reference_point_aug
+    )
+    # asf with the same reference point used in the augmentation term
+    problem_w_asf_same_r, target = add_asf_generic_diff(
+        problem,
+        symbol="asf",
+        reference_point=reference_point,
+        weights=weights,
+        reference_point_aug=reference_point
     )
 
-    create_solver = guess_best_solver(problem_w_asf)
-    solver = create_solver(problem_w_asf)
+    solver = ScipyMinimizeSolver(problem_w_asf)
+    solver_aug = ScipyMinimizeSolver(problem_w_asf_aug)
+    solver_diff_w = ScipyMinimizeSolver(problem_w_asf_diff_w)
+    solver_diff_r = ScipyMinimizeSolver(problem_w_asf_diff_r)
+    solver_same_r = ScipyMinimizeSolver(problem_w_asf_same_r)
 
     res = solver.solve(target)
     xs = res.optimal_variables
     fs = res.optimal_objectives
 
-    # check optimality of solution
+    res_aug = solver_aug.solve(target)
+    xs_aug = res_aug.optimal_variables
+    fs_aug = res_aug.optimal_objectives
+
+    res_diff_w = solver_diff_w.solve(target)
+    xs_diff_w = res_diff_w.optimal_variables
+    fs_diff_w = res_diff_w.optimal_objectives
+
+    res_diff_r = solver_diff_r.solve(target)
+    xs_diff_r = res_diff_r.optimal_variables
+    fs_diff_r = res_diff_r.optimal_objectives
+
+    res_same_r = solver_same_r.solve(target)
+    xs_same_r = res_same_r.optimal_variables
+    fs_same_r = res_same_r.optimal_objectives
+
+    # check optimality of solutions
     assert all(np.isclose(xs[f"x_{i}"], 0.5) for i in range(n_objectives, n_variables + 1))
     npt.assert_almost_equal(sum(fs[obj.symbol] ** 2 for obj in problem_w_asf.objectives) ** 0.5, 1.0)
 
-    # test with reference point in the aug as well
-    problem_w_asf, target = add_asf_generic_diff(
-        problem, symbol="asf", reference_point=reference_point, weights=weights, reference_in_aug=True
-    )
+    assert all(np.isclose(xs_aug[f"x_{i}"], 0.5) for i in range(n_objectives, n_variables + 1))
+    npt.assert_almost_equal(sum(fs_aug[obj.symbol] ** 2 for obj in problem_w_asf.objectives) ** 0.5, 1.0)
 
-    create_solver = guess_best_solver(problem_w_asf)
-    solver = create_solver(problem_w_asf)
+    assert all(np.isclose(xs_diff_w[f"x_{i}"], 0.5) for i in range(n_objectives, n_variables + 1))
+    npt.assert_almost_equal(sum(fs_diff_w[obj.symbol] ** 2 for obj in problem_w_asf.objectives) ** 0.5, 1.0)
 
-    res = solver.solve(target)
-    xs = res.optimal_variables
-    fs = res.optimal_objectives
+    assert all(np.isclose(xs_diff_r[f"x_{i}"], 0.5) for i in range(n_objectives, n_variables + 1))
+    npt.assert_almost_equal(sum(fs_diff_r[obj.symbol] ** 2 for obj in problem_w_asf.objectives) ** 0.5, 1.0)
 
-    # check optimality of solution
-    assert all(np.isclose(xs[f"x_{i}"], 0.5) for i in range(n_objectives, n_variables + 1))
-    npt.assert_almost_equal(sum(fs[obj.symbol] ** 2 for obj in problem_w_asf.objectives) ** 0.5, 1.0)
+    assert all(np.isclose(xs_same_r[f"x_{i}"], 0.5) for i in range(n_objectives, n_variables + 1))
+    npt.assert_almost_equal(sum(fs_same_r[obj.symbol] ** 2 for obj in problem_w_asf.objectives) ** 0.5, 1.0)
+
+    # check that reference point and/or different weights in augmentation term returns a different solution
+    fs = [res.optimal_objectives[obj.symbol] for obj in problem_w_asf.objectives]
+    fs_aug = [res_aug.optimal_objectives[obj.symbol] for obj in problem_w_asf.objectives]
+    fs_diff_w = [res_diff_w.optimal_objectives[obj.symbol] for obj in problem_w_asf.objectives]
+    fs_diff_r = [res_diff_r.optimal_objectives[obj.symbol] for obj in problem_w_asf.objectives]
+    fs_diff_r = [res_diff_r.optimal_objectives[obj.symbol] for obj in problem_w_asf.objectives]
+
+    assert fs != fs_aug != fs_diff_w != fs_diff_r != fs_same_r
 
 
 def test_create_ws():
@@ -705,3 +876,299 @@ def test_guess_sf_nondiff_solve():
     # f_2 should be the lowest value
     assert result.optimal_objectives["f_2"] < result.optimal_objectives["f_1"]
     assert result.optimal_objectives["f_2"] < result.optimal_objectives["f_3"]
+
+
+@pytest.mark.scalarization
+@pytest.mark.group_scalarization
+@pytest.mark.slow
+def test_add_group_asf():
+    """Test that the multiple decision maker achievement scalarizing function works."""
+    n_variables = 3
+    n_objectives = 3
+    problem = dtlz2(n_variables, n_objectives)
+    rp = {"f_1": 0.1, "f_2": 0.1, "f_3": 0.8}
+
+    problem_w_sf, sf = add_asf_nondiff(problem, "sf", rp)
+    problem_w_group_sf, group_sf = add_group_asf(problem, "group_sf", [rp])
+    problem_w_group_sf_3rp, group_sf_3rp = add_group_asf(problem, "group_sf", [rp, rp, rp])
+
+    solver_sf = NevergradGenericSolver(problem_w_sf)
+    res_sf = solver_sf.solve(sf)
+    assert res_sf.success
+
+    solver_group_sf = NevergradGenericSolver(problem_w_group_sf)
+    res_group_sf = solver_group_sf.solve(group_sf)
+    assert res_group_sf.success
+
+    solver_group_sf_3rp = NevergradGenericSolver(problem_w_group_sf_3rp)
+    res_group_sf_3rp = solver_group_sf_3rp.solve(group_sf_3rp)
+    assert res_group_sf_3rp.success
+
+    fs_sf = res_sf.optimal_objectives
+    fs_group_sf = res_group_sf.optimal_objectives
+    fs_group_sf_3rp = res_group_sf_3rp.optimal_objectives
+
+    # optimal objective values should be close
+    for obj in problem.objectives:
+        assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
+        assert np.isclose(fs_group_sf_3rp[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
+
+
+@pytest.mark.scalarization
+@pytest.mark.group_scalarization
+@pytest.mark.slow
+def test_add_group_asf_diff():
+    """Test that the differentiable version of the multiple decision maker achievement scalarizing function works with one reference point."""
+    n_variables = 3
+    n_objectives = 3
+    problem = dtlz2(n_variables, n_objectives)
+    rp = {"f_1": 0.1, "f_2": 0.1, "f_3": 0.8}
+
+    problem_w_sf, sf = add_asf_diff(problem, "sf", rp)
+    problem_w_group_sf, group_sf = add_group_asf_diff(problem, "group_sf", [rp])
+    problem_w_group_sf_3rp, group_sf_3rp = add_group_asf_diff(problem, "group_sf", [rp, rp, rp])
+
+    solver_sf = NevergradGenericSolver(problem_w_sf)
+    res_sf = solver_sf.solve(sf)
+    assert res_sf.success
+
+    solver_group_sf = NevergradGenericSolver(problem_w_group_sf)
+    res_group_sf = solver_group_sf.solve(group_sf)
+    assert res_group_sf.success
+
+    solver_group_sf_3rp = NevergradGenericSolver(problem_w_group_sf_3rp)
+    res_group_sf_3rp = solver_group_sf_3rp.solve(group_sf_3rp)
+    assert res_group_sf_3rp.success
+
+    fs_sf = res_sf.optimal_objectives
+    fs_group_sf = res_group_sf.optimal_objectives
+    fs_group_sf_3rp = res_group_sf_3rp.optimal_objectives
+
+    # optimal objective values should be close
+    for obj in problem.objectives:
+        assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
+        assert np.isclose(fs_group_sf_3rp[obj.symbol], fs_group_sf[obj.symbol], atol=1e-2)
+
+
+@pytest.mark.scalarization
+@pytest.mark.group_scalarization
+@pytest.mark.slow
+def test_add_group_guess_sf():
+    """Test that the multiple decision maker GUESS scalarization function works."""
+    n_variables = 3
+    n_objectives = 3
+    problem = dtlz2(n_variables, n_objectives)
+    rp = {"f_1": 0.1, "f_2": 0.1, "f_3": 0.8}
+
+    problem_w_sf, sf = add_guess_sf_nondiff(problem, "sf", rp)
+    problem_w_group_sf, group_sf = add_group_guess_sf(problem, "group_sf", [rp])
+    problem_w_group_sf_3rp, group_sf_3rp = add_group_guess_sf(problem, "group_sf", [rp, rp, rp])
+
+    solver_sf = NevergradGenericSolver(problem_w_sf)
+    res_sf = solver_sf.solve(sf)
+    assert res_sf.success
+
+    solver_group_sf = NevergradGenericSolver(problem_w_group_sf)
+    res_group_sf = solver_group_sf.solve(group_sf)
+    assert res_group_sf.success
+
+    solver_group_sf_3rp = NevergradGenericSolver(problem_w_group_sf_3rp)
+    res_group_sf_3rp = solver_group_sf_3rp.solve(group_sf_3rp)
+    assert res_group_sf_3rp.success
+
+    fs_sf = res_sf.optimal_objectives
+    fs_group_sf = res_group_sf.optimal_objectives
+    fs_group_sf_3rp = res_group_sf_3rp.optimal_objectives
+
+    # optimal objective values should be close
+    for obj in problem.objectives:
+        assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol], atol=1e-1) # fails
+        assert np.isclose(fs_group_sf_3rp[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
+
+
+@pytest.mark.scalarization
+@pytest.mark.group_scalarization
+@pytest.mark.slow
+def test_add_group_guess_sf_diff():
+    """Test that the differentiable version of the multiple decision maker GUESS scalarization function works."""
+    n_variables = 3
+    n_objectives = 3
+    problem = dtlz2(n_variables, n_objectives)
+    rp = {"f_1": 0.1, "f_2": 0.1, "f_3": 0.8}
+
+    problem_w_sf, sf = add_guess_sf_diff(problem, "sf", rp)
+    problem_w_group_sf, group_sf = add_group_guess_sf_diff(problem, "group_sf", [rp])
+    problem_w_group_sf_3rp, group_sf_3rp = add_group_guess_sf_diff(problem, "group_sf", [rp, rp, rp])
+
+    solver_sf = NevergradGenericSolver(problem_w_sf)
+    res_sf = solver_sf.solve(sf)
+    assert res_sf.success
+
+    solver_group_sf = NevergradGenericSolver(problem_w_group_sf)
+    res_group_sf = solver_group_sf.solve(group_sf)
+    assert res_group_sf.success
+
+    solver_group_sf_3rp = NevergradGenericSolver(problem_w_group_sf_3rp)
+    res_group_sf_3rp = solver_group_sf_3rp.solve(group_sf_3rp)
+    assert res_group_sf_3rp.success
+
+    fs_sf = res_sf.optimal_objectives
+    fs_group_sf = res_group_sf.optimal_objectives
+    fs_group_sf_3rp = res_group_sf_3rp.optimal_objectives
+
+    # optimal objective values should be close
+    for obj in problem.objectives:
+        assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
+        assert np.isclose(fs_group_sf_3rp[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
+
+
+@pytest.mark.scalarization
+@pytest.mark.group_scalarization
+@pytest.mark.slow
+def test_add_group_nimbus_sf():
+    """Test that the multiple decision maker NIMBUS scalarization function works."""
+    n_variables = 3
+    n_objectives = 3
+    problem = dtlz2(n_variables, n_objectives)
+    rp = {"f_1": 0.1, "f_2": 0.1, "f_3": 0.8}
+
+    classifications = {"f_1": ("0", None), "f_2": ("<", None), "f_3": ("0", None)}
+    problem_w_sf, sf = add_nimbus_sf_nondiff(problem, "sf", classifications, rp)
+    problem_w_group_sf, group_sf = add_group_nimbus_sf(problem, "group_sf", [classifications], rp)
+    problem_w_group_sf_3rp, group_sf_3rp = add_group_nimbus_sf(
+        problem, "group_sf", [classifications, classifications, classifications], rp
+    )
+
+    solver_sf = NevergradGenericSolver(problem_w_sf)
+    res_sf = solver_sf.solve(sf)
+    assert res_sf.success
+
+    solver_group_sf = NevergradGenericSolver(problem_w_group_sf)
+    res_group_sf = solver_group_sf.solve(group_sf)
+    assert res_group_sf.success
+
+    solver_group_sf_3rp = NevergradGenericSolver(problem_w_group_sf_3rp)
+    res_group_sf_3rp = solver_group_sf_3rp.solve(group_sf_3rp)
+    assert res_group_sf_3rp.success
+
+    fs_sf = res_sf.optimal_objectives
+    fs_group_sf = res_group_sf.optimal_objectives
+    fs_group_sf_3rp = res_group_sf_3rp.optimal_objectives
+
+    # optimal objective values should be close
+    for obj in problem.objectives:
+        assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
+        assert np.isclose(fs_group_sf_3rp[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
+
+
+@pytest.mark.scalarization
+@pytest.mark.group_scalarization
+@pytest.mark.slow
+def test_add_group_nimbus_sf_diff():
+    """Test that the differentiable version of the multiple decision maker NIMBUS scalarization function works with one set of classification."""
+    n_variables = 3
+    n_objectives = 3
+    problem = dtlz2(n_variables, n_objectives)
+    rp = {"f_1": 0.1, "f_2": 0.1, "f_3": 0.8}
+
+    classifications = {"f_1": ("0", None), "f_2": ("<", None), "f_3": ("0", None)}
+    problem_w_sf, sf = add_nimbus_sf_diff(problem, "sf", classifications, rp)
+    problem_w_group_sf, group_sf = add_group_nimbus_sf_diff(problem, "group_sf", [classifications], rp)
+    problem_w_group_sf_3rp, group_sf_3rp = add_group_nimbus_sf_diff(
+        problem, "group_sf", [classifications, classifications, classifications], rp
+    )
+
+    solver_sf = NevergradGenericSolver(problem_w_sf)
+    res_sf = solver_sf.solve(sf)
+    assert res_sf.success
+
+    solver_group_sf = NevergradGenericSolver(problem_w_group_sf)
+    res_group_sf = solver_group_sf.solve(group_sf)
+    assert res_group_sf.success
+
+    solver_group_sf_3rp = NevergradGenericSolver(problem_w_group_sf_3rp)
+    res_group_sf_3rp = solver_group_sf_3rp.solve(group_sf_3rp)
+    assert res_group_sf_3rp.success
+
+    fs_sf = res_sf.optimal_objectives
+    fs_group_sf = res_group_sf.optimal_objectives
+    fs_group_sf_3rp = res_group_sf_3rp.optimal_objectives
+
+    # optimal objective values should be close
+    for obj in problem.objectives:
+        assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
+        # for some reason needs very high atol
+        assert np.isclose(fs_group_sf_3rp[obj.symbol], fs_group_sf[obj.symbol], atol=1e-1)
+
+
+@pytest.mark.scalarization
+@pytest.mark.group_scalarization
+@pytest.mark.slow
+def test_add_group_stom_sf():
+    """Test that the multiple decision maker STOM scalarization function works."""
+    n_variables = 3
+    n_objectives = 3
+    problem = dtlz2(n_variables, n_objectives)
+    rp = {"f_1": 0.1, "f_2": 0.1, "f_3": 0.8}
+
+    problem_w_sf, sf = add_stom_sf_nondiff(problem, "sf", rp)
+    problem_w_group_sf, group_sf = add_group_stom_sf(problem, "group_sf", [rp])
+    problem_w_group_sf_3rp, group_sf_3rp = add_group_stom_sf(problem, "group_sf", [rp, rp, rp])
+
+    solver_sf = NevergradGenericSolver(problem_w_sf)
+    res_sf = solver_sf.solve(sf)
+    assert res_sf.success
+
+    solver_group_sf = NevergradGenericSolver(problem_w_group_sf)
+    res_group_sf = solver_group_sf.solve(group_sf)
+    assert res_group_sf.success
+
+    solver_group_sf_3rp = NevergradGenericSolver(problem_w_group_sf_3rp)
+    res_group_sf_3rp = solver_group_sf_3rp.solve(group_sf_3rp)
+    assert res_group_sf_3rp.success
+
+    fs_sf = res_sf.optimal_objectives
+    fs_group_sf = res_group_sf.optimal_objectives
+    fs_group_sf_3rp = res_group_sf_3rp.optimal_objectives
+
+    # optimal objective values should be close
+    for obj in problem.objectives:
+        assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
+        assert np.isclose(fs_group_sf_3rp[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
+
+
+@pytest.mark.scalarization
+@pytest.mark.group_scalarization
+@pytest.mark.slow
+def test_add_group_stom_sf_diff():
+    """Test that the differentiable version of the multiple decision maker STOM scalarization function works with one reference point."""
+    n_variables = 3
+    n_objectives = 3
+    problem = dtlz2(n_variables, n_objectives)
+    rp = {"f_1": 0.1, "f_2": 0.1, "f_3": 0.8}
+
+    problem_w_sf, sf = add_stom_sf_diff(problem, "sf", rp)
+    problem_w_group_sf, group_sf = add_group_stom_sf_diff(problem, "group_sf", [rp])
+    problem_w_group_sf_3rp, group_sf_3rp = add_group_stom_sf_diff(problem, "group_sf", [rp, rp, rp])
+
+    solver_sf = NevergradGenericSolver(problem_w_sf)
+    res_sf = solver_sf.solve(sf)
+    assert res_sf.success
+
+    solver_group_sf = NevergradGenericSolver(problem_w_group_sf)
+    res_group_sf = solver_group_sf.solve(group_sf)
+    assert res_group_sf.success
+
+    solver_group_sf_3rp = NevergradGenericSolver(problem_w_group_sf_3rp)
+    res_group_sf_3rp = solver_group_sf_3rp.solve(group_sf_3rp)
+    assert res_group_sf_3rp.success
+
+    fs_sf = res_sf.optimal_objectives
+    fs_group_sf = res_group_sf.optimal_objectives
+    fs_group_sf_3rp = res_group_sf_3rp.optimal_objectives
+
+    # optimal objective values should be close
+    for obj in problem.objectives:
+        assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
+        # for some reason needs very high atol
+        assert np.isclose(fs_group_sf_3rp[obj.symbol], fs_group_sf[obj.symbol], atol=1e-1)
