@@ -3,7 +3,7 @@
 Main branch: https://github.com/industrial-optimization-group/DESDEO/tree/gnimbus-base
 Obstacles for the branch to be able to be merged:
 - Empty `Method`, which leads to error when trying to save records for `GSolutionArchive`, `MethodState`, `Preference`
-- For `Forest Problem`, [utils.py](desdeo%2Ftools%2Futils.py):guess_best_solver() doesn't recommend `gurobi` solver
+- For `Forest Problem`, [utils.py](desdeo%2Ftools%2Futils.py):guess_best_solver() doesn't recommend `gurobi solver
 
 ## SocketIO
 Low-latency, bidirectional and event-based communication between a client and a server.
@@ -181,4 +181,7 @@ Which is the next solving step ?
 Note:
 - Without ``` to_vote ```, the DM, who happens to refresh access token or has to log in again, can't see the voting options if there are any.
 
+## Next version
+- Make socket id as user id -> To avoid 1 same user id being as more than 1 socket ids in the problem room
+- Add special listeners for analyst -> So analyst can have the control over the problem room
 
