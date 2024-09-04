@@ -1,9 +1,9 @@
 # Group of decision makers
 
 Main branch: https://github.com/industrial-optimization-group/DESDEO/tree/gnimbus-base
-Obstacles for the branch to be able to be merged:
+Obstacles for the branch to be able to be merged to desdeo2 branch:
 - Empty `Method`, which leads to error when trying to save records for `GSolutionArchive`, `MethodState`, `Preference`
-- For `Forest Problem`, [utils.py](desdeo%2Ftools%2Futils.py):guess_best_solver() doesn't recommend `gurobi solver
+- For `Forest Problem`, [utils.py](desdeo%2Ftools%2Futils.py):guess_best_solver() doesn't recommend `gurobi` solver
 
 ## SocketIO
 Low-latency, bidirectional and event-based communication between a client and a server.
