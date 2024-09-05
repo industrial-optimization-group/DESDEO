@@ -1,4 +1,5 @@
 import numpy as np
+from pathlib import Path
 import polars as pl
 
 from desdeo.problem.schema import (
@@ -15,7 +16,6 @@ from desdeo.problem.schema import (
     Variable,
     VariableTypeEnum,
 )
-from pathlib import Path
 
 
 def utopia_problem(holding: int = 1) -> tuple[Problem, dict]:
