@@ -43,6 +43,7 @@ __all__ = [
     "get_corrected_ideal_and_nadir",
     "get_corrected_reference_point",
     "guess_best_solver",
+    "payoff_table_method",
 ]
 
 from desdeo.tools.generics import BaseSolver, SolverOptions, SolverResults
@@ -96,4 +97,5 @@ from desdeo.tools.utils import (
     get_corrected_ideal_and_nadir,
     get_corrected_reference_point,
     guess_best_solver,
+    payoff_table_method,
 )

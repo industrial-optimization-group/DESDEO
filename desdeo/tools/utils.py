@@ -69,42 +69,27 @@ def guess_best_solver(problem: Problem) -> BaseSolver:
     # thigs to check: variable types, does the problem have constraint, constraint types, etc...
 
 
-def get_corrected_ideal_and_nadir(
-    problem: Problem,
-    solver: BaseSolver = None
-) -> tuple[dict[str, float], dict[str, float]]:
+def get_corrected_ideal_and_nadir(problem: Problem) -> tuple[dict[str, float | None], dict[str, float | None] | None]:
     """Compute the corrected ideal and nadir points depending if an objective function is to be maximized or not.
 
     I.e., the ideal and nadir point element for objectives to be maximized will be multiplied by -1.
 
     Args:
         problem (Problem): the problem with the ideal and nadir points.
-        solver (BaseSolver): the solver to be used in possibly computing the ideals and nadirs.
 
     Raises:
         ValueError: some of the ideal or nadir point components have not been defined
             for some of the objectives.
 
     Returns:
-        tuple[dict[str, float], dict[str, float]]: a tuple of the corrected ideal and nadir points as dicts.
+        tuple[list[float], list[float]]: a list with the corrected ideal point
+            and a list with the corrected nadir point. Will return None for missing
+            elements.
     """
-    ideal_point = {}
-    nadir_point = {}
-    # check that ideal and nadir points are actually defined, if not estimate them
-    # and replace the missing ideal or nadir values with the estimated ones
+    # check that ideal and nadir points are actually defined
     if any(obj.ideal is None for obj in problem.objectives) or any(obj.nadir is None for obj in problem.objectives):
-        solver = solver if solver is not None else guess_best_solver(problem)
-        ideal, nadir = payoff_table_method(problem, solver)
-        for obj in problem.objectives:
-            if obj.ideal is None:
-                ideal_point[obj.symbol] = ideal[obj.symbol] if not obj.maximize else -ideal[obj.symbol]
-            else:
-                ideal_point[obj.symbol] = obj.ideal if not obj.maximize else -obj.ideal
-            if obj.nadir is None:
-                nadir_point[obj.symbol] = nadir[obj.symbol] if not obj.maximize else -nadir[obj.symbol]
-            else:
-                nadir_point[obj.symbol] = obj.nadir if not obj.maximize else -obj.nadir
-        return ideal_point, nadir_point
+        msg = "Some of the objectives have not a defined ideal or nadir value."
+        raise ValueError(msg)
 
     ideal_point = {
         objective.symbol: objective.ideal if not objective.maximize else -objective.ideal
