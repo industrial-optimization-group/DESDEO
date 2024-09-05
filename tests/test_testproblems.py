@@ -99,8 +99,12 @@ def test_re24():
 @pytest.mark.forest_problem
 def test_forest_problem():
     """Test the forest problem implementation."""
-    data = ["./tests/data/alternatives_290124.csv", "./tests/data/alternatives_key_290124.csv"]
-    problem = forest_problem(data=data, holding=1, comparing=True)
+    problem = forest_problem(
+        simulation_results="./tests/data/alternatives_290124.csv",
+        treatment_key="./tests/data/alternatives_key_290124.csv",
+        holding=1,
+        comparing=True
+    )
     solver = GurobipySolver(problem)
 
     res = solver.solve("f_1_min")
@@ -118,7 +122,12 @@ def test_forest_problem():
     assert np.isclose(res.optimal_objectives["f_2"], 259.236)
     assert np.isclose(res.optimal_objectives["f_3"], 36780.631)
 
-    problem = forest_problem(data=data, holding = 2, comparing=True)
+    problem = forest_problem(
+        simulation_results="./tests/data/alternatives_290124.csv",
+        treatment_key="./tests/data/alternatives_key_290124.csv",
+        holding=2,
+        comparing=True
+    )
     solver = GurobipySolver(problem)
 
     res = solver.solve("f_1_min")
@@ -136,7 +145,12 @@ def test_forest_problem():
     assert np.isclose(res.optimal_objectives["f_2"], -169.233)
     assert np.isclose(res.optimal_objectives["f_3"], 53632.887)
 
-    problem = forest_problem(data=data, holding = 3, comparing=True)
+    problem = forest_problem(
+        simulation_results="./tests/data/alternatives_290124.csv",
+        treatment_key="./tests/data/alternatives_key_290124.csv",
+        holding=3,
+        comparing=True
+    )
     solver = GurobipySolver(problem)
 
     res = solver.solve("f_1_min")
@@ -154,7 +168,12 @@ def test_forest_problem():
     assert np.isclose(res.optimal_objectives["f_2"], -2014.855)
     assert np.isclose(res.optimal_objectives["f_3"], 152149.555)
 
-    problem = forest_problem(data=data, holding = 4, comparing=True)
+    problem = forest_problem(
+        simulation_results="./tests/data/alternatives_290124.csv",
+        treatment_key="./tests/data/alternatives_key_290124.csv",
+        holding=4,
+        comparing=True
+    )
     solver = GurobipySolver(problem)
 
     res = solver.solve("f_1_min")
@@ -172,7 +191,12 @@ def test_forest_problem():
     assert np.isclose(res.optimal_objectives["f_2"], -1467.016)
     assert np.isclose(res.optimal_objectives["f_3"], 122271.740)
 
-    problem = forest_problem(data=data, holding = 5, comparing=True)
+    problem = forest_problem(
+        simulation_results="./tests/data/alternatives_290124.csv",
+        treatment_key="./tests/data/alternatives_key_290124.csv",
+        holding=5,
+        comparing=True
+    )
     solver = GurobipySolver(problem)
 
     res = solver.solve("f_1_min")
