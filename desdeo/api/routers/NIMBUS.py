@@ -401,7 +401,7 @@ def utopia(
 
     # Find the solution from the archive
     for sol in archived_solutions:
-        if allclose(request.solution, sol):
+        if allclose(request.solution, sol.objectives):
             solution = sol
             break
     else:
