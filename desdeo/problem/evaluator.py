@@ -2,6 +2,7 @@
 
 from enum import Enum
 
+import numpy as np
 import polars as pl
 
 from desdeo.problem.json_parser import MathParser, replace_str
@@ -21,6 +22,8 @@ class EvaluatorModesEnum(str, Enum):
     vector and objective vector pairs and those should be evaluated. In this
     mode, the evaluator does not expect any decision variables as arguments when
     evaluating."""
+    simulator = "simulator"
+    """Indicates that the evaluator should expect simulator based objectives."""
 
 
 class EvaluatorError(Exception):
@@ -117,6 +120,8 @@ class GenericEvaluator:
             self.evaluate = self._polars_evaluate
         elif self.evaluator_mode == EvaluatorModesEnum.discrete:
             self.evaluate = self._from_discrete_data
+        elif self.evaluator_mode == EvaluatorModesEnum.simulator:
+            self.evaluate = self._evaluate_simulator
         else:
             msg = f"Provided 'evaluator_mode' {evaluator_mode} not supported. Must be one of {EvaluatorModesEnum}."
 
@@ -345,6 +350,24 @@ class GenericEvaluator:
 
         # no more processing needed, it is assumed a solver will handle the rest
         return agg_df
+
+    def _evaluate_simulator(self, xs: np.ndarray) -> np.ndarray:
+        """Evaluate the objectives for the given decision variables using the simulator.
+
+        If there is a mix of (mutually exclusive and exhaustive) analytical and simulator objectives, this method will
+        use polars to evaluate the analytical objectives and the simulator file to evaluate the simulator objectives,
+        and return the combined results.
+
+        Args:
+            xs (np.ndarray): The decision variables for which the objectives need to be evaluated.
+                The shape of the array is (n, m), where n is the number of decision variables and m is the
+                number of samples. Note that there is no need to support TensorVariables in this evaluator.
+
+        Returns:
+            np.ndarray: The objective values for the given decision variables.
+                The shape of the array is (k, m), where k is the number of objectives and m is the number of samples.
+        """
+        return
 
 
 def find_closest_points(
