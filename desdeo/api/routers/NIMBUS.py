@@ -1,5 +1,6 @@
 """Router for NIMBUS."""
 
+import json
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -8,7 +9,7 @@ from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import Session
 
 from desdeo.api.db import get_db
-from desdeo.api.db_models import Method, Preference, SolutionArchive
+from desdeo.api.db_models import Method, Preference, SolutionArchive, Utopia
 from desdeo.api.db_models import Problem as ProblemInDB
 from desdeo.api.routers.UserAuth import get_current_user
 from desdeo.api.schema import Methods, User
@@ -45,6 +46,22 @@ class FakeNIMBUSResponse(BaseModel):
     """fake response for testing purposes."""
 
     message: str = Field(description="A simple message.")
+
+
+class UtopiaResponse(BaseModel):
+    """The response to an UtopiaRequest."""
+
+    map_name: str = Field(description="Name of the map.")
+    map_json: str = Field(description="MapJSON representation of the geography.")
+    options: dict[dict] = Field(description="A dict with given years as keys containing options for each year.")
+
+
+class UtopiaRequest(BaseModel):
+    """The request for an Utopia map."""
+
+    problem_id: int = Field(description="The ID of the problem to be solved.")
+    solution: list[float] = Field(description="The solution for which the map is generated.")
+    years: list[str] = Field(description="List of years that the map is supposed to represent.")
 
 
 class NIMBUSIterateRequest(BaseModel):
@@ -364,6 +381,152 @@ def choose(
     return FakeNIMBUSResponse(message="Solution chosen.")
 
 
+@router.post("/utopia")
+def utopia(
+    request: UtopiaRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> UtopiaResponse:
+    """Request information necessary to draw the map.
+
+    Args:
+        request: The request body for saving solutions.
+        user (Annotated[User, Depends(get_current_user)]): The current user.
+        db (Annotated[Session, Depends(get_db)]): The database session.
+
+    Returns:
+        The information used to draw the map.
+    """
+    archived_solutions = read_solutions_from_db()
+
+    # Find the solution from the archive
+    for sol in archived_solutions:
+        if allclose(request.solution, sol):
+            solution = sol
+            break
+    else:
+        raise HTTPException(status_code=404, detail="The chosen solution was not found in the database.")
+
+    desicion_variables = json.loads(solution.decision_variables)
+
+    # Get the user's map from the database
+    utopia_data = db.query(Utopia).filter(Utopia.problem == request.problem_id, Utopia.user == user).first()
+
+    # Figure out the treatments from the decision variables and utopia data
+    description_dict = {
+        0: "Do nothing",
+        1: "Clearcut",
+        2: "Thinning from below",
+        3: "Thinning from above",
+        4: "Even thinning",
+        5: "First thinning",
+    }
+
+    def treatment_index(part: str) -> str:
+        if "clearcut" in part:
+            return 1
+        if "below" in part:
+            return 2
+        if "above" in part:
+            return 3
+        if "even" in part:
+            return 4
+        if "first" in part:
+            return 5
+        return -1
+
+    treatments_dict = {}
+    for key in desicion_variables:
+        if key.startswith("_"):
+            continue
+        treatments = utopia_data.schedule_dict[key][desicion_variables[key].index(1)]
+        treatments_dict[key] = {"2025": 0, "2030": 0, "2035": 0}
+        for year in treatments_dict[key]:
+            if year in treatments:
+                for part in treatments.split():
+                    if year in part:
+                        treatments_dict[key][year] = treatment_index(part)
+
+    # Create the options for the webui
+
+    treatment_colors = {
+        0: "#4daf4a",
+        1: "#ff7f00",
+        2: "#984ea3",
+        3: "#ffff33",
+        4: "#e41a1c",
+        5: "#377eb8",
+    }
+
+    options = {}
+    for year in request.years:
+        options[year] = {
+            "tooltip": {
+                "trigger": "item",
+                "showDelay": 0,
+                "transitionDuration": 0.2,
+            },
+            "visualMap": {  # // vis eg. stock levels
+                "left": "right",
+                "showLabel": True,
+                "type": "piecewise",  # // for different plans
+                "pieces": [],
+                "text": ["Management plans"],
+                "calculable": True,
+            },
+            # // predefined symbols for visumap'circle': 'rect': 'roundRect': 'triangle': 'diamond': 'pin':'arrow':
+            # // can give custom svgs also
+            "toolbox": {
+                "show": True,
+                #   //orient: 'vertical',
+                "left": "left",
+                "top": "top",
+                "feature": {
+                    "dataView": {"readOnly": False},
+                    "restore": {},
+                    "saveAsImage": {},
+                },
+            },
+            # // can draw graphic components to indicate different things at least
+            "series": [
+                {
+                    "name": "Forest",
+                    "type": "map",
+                    "roam": True,
+                    "map": "ForestMap",
+                    "nameProperty": "standnumbe",
+                    "colorBy": "data",
+                    "itemStyle": {"symbol": "triangle", "color": "red"},
+                    "data": [],
+                    "nameMap": {},
+                }
+            ],
+        }
+
+        for key in desicion_variables:
+            if key.startswith("_"):
+                continue
+            stand = utopia_data.schedule_dict[key]["unit"]
+            treatment_id = treatments_dict[key][year]
+            options[year]["visualMap"]["pieces"].append(
+                {
+                    "value": treatment_id,
+                    "symbol": "circle",
+                    "label": description_dict[treatment_id],
+                    "color": treatment_colors[treatment_id],
+                }
+            )
+            options[year]["series"][0]["data"].append(
+                {
+                    "name": "Stand " + str(stand) + " " + description_dict[treatment_id],
+                    "value": treatment_id,
+                }
+            )
+            options[year]["series"][0]["nameMap"][stand] = "Stand " + str(stand) + " " + description_dict[treatment_id]
+
+    return UtopiaResponse(map_name=repr(user) + "'s map", options=options, map_json=utopia_data.map_json)
+
+
 def flatten(lst) -> list[float]:
     """Takes a nested list and flattens it into a single list.
 
@@ -515,7 +678,7 @@ def save_results_to_db(
                     problem=problem_id,
                     method=method_id,
                     preference=pref.id if pref is not None else None,
-                    decision_variables=flatten(list(res.optimal_variables.values())),
+                    decision_variables=json.dumps(res.optimal_variables.values()),
                     objectives=list(res.optimal_objectives.values()),
                     saved=False,
                     current=True,
