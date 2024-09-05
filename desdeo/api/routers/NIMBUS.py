@@ -1,7 +1,7 @@
 """Router for NIMBUS."""
 
 import json
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from numpy import allclose
@@ -53,7 +53,7 @@ class UtopiaResponse(BaseModel):
 
     map_name: str = Field(description="Name of the map.")
     map_json: str = Field(description="MapJSON representation of the geography.")
-    options: dict[any] = Field(description="A dict with given years as keys containing options for each year.")
+    options: dict[str, Any] = Field(description="A dict with given years as keys containing options for each year.")
 
 
 class UtopiaRequest(BaseModel):
