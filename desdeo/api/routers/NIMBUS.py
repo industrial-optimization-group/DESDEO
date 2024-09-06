@@ -508,7 +508,7 @@ def utopia(
         for key in decision_variables:
             if key.startswith("_"):
                 continue
-            stand = utopia_data.schedule_dict[key]["unit"]
+            stand = int(utopia_data.schedule_dict[key]["unit"])
             treatment_id = treatments_dict[key][year]
             options[year]["visualMap"]["pieces"].append(
                 {
