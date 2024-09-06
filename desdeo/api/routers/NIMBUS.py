@@ -52,7 +52,7 @@ class UtopiaResponse(BaseModel):
     """The response to an UtopiaRequest."""
 
     map_name: str = Field(description="Name of the map.")
-    map_json: str = Field(description="MapJSON representation of the geography.")
+    map_json: dict[str, Any] = Field(description="MapJSON representation of the geography.")
     options: dict[str, Any] = Field(description="A dict with given years as keys containing options for each year.")
 
 
