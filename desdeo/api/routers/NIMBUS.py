@@ -397,7 +397,8 @@ def utopia(
     Returns:
         The information used to draw the map.
     """
-    archived_solutions = read_solutions_from_db(db, request.problem_id, user.index, request.method_id)
+    method_id = get_nimbus_method_id(db)
+    archived_solutions = read_solutions_from_db(db, request.problem_id, user.index, method_id)
 
     # Find the solution from the archive
     for sol in archived_solutions:
