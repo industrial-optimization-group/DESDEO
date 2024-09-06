@@ -408,7 +408,7 @@ def utopia(
     else:
         raise HTTPException(status_code=404, detail="The chosen solution was not found in the database.")
 
-    desicion_variables = json.loads(solution.decision_variables)
+    decision_variables = json.loads(solution.decision_variables)
 
     # Get the user's map from the database
     utopia_data = db.query(Utopia).filter(Utopia.problem == request.problem_id, Utopia.user == user.index).first()
@@ -437,10 +437,11 @@ def utopia(
         return -1
 
     treatments_dict = {}
-    for key in desicion_variables:
+    for key in decision_variables:
         if key.startswith("_"):
             continue
-        treatments = utopia_data.schedule_dict[key][desicion_variables[key].index(1)]
+        # The dict keys get converted to ints to strings when it's loaded from database
+        treatments = utopia_data.schedule_dict[key][str(decision_variables[key].index(1))]
         treatments_dict[key] = {"2025": 0, "2030": 0, "2035": 0}
         for year in treatments_dict[key]:
             if year in treatments:
@@ -504,7 +505,7 @@ def utopia(
             ],
         }
 
-        for key in desicion_variables:
+        for key in decision_variables:
             if key.startswith("_"):
                 continue
             stand = utopia_data.schedule_dict[key]["unit"]
