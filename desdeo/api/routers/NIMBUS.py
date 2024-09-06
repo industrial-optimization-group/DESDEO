@@ -679,7 +679,7 @@ def save_results_to_db(
                     problem=problem_id,
                     method=method_id,
                     preference=pref.id if pref is not None else None,
-                    decision_variables=json.dumps(res.optimal_variables.values()),
+                    decision_variables=json.dumps(res.optimal_variables),
                     objectives=list(res.optimal_objectives.values()),
                     saved=False,
                     current=True,
