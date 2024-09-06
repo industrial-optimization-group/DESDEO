@@ -99,7 +99,7 @@ problem_in_db = db_models.Problem(
 )
 db.add(problem_in_db)
 
-problem, schedule_dict = utopia_problem(holding=1, comparing=False)
+problem, schedule_dict = utopia_problem(holding=1)
 problem_in_db = db_models.Problem(
     owner=user.id,
     name="Test 5",
