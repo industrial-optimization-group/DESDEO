@@ -526,9 +526,7 @@ def utopia(
             )
             options[year]["series"][0]["nameMap"][stand] = "Stand " + str(stand) + " " + description_dict[treatment_id]
 
-    print(options)
-    print(utopia_data.map_json)
-    return UtopiaResponse(map_name=repr(user) + "'s map", options=options, map_json=utopia_data.map_json)
+    return UtopiaResponse(map_name=user.username + "'s map", options=options, map_json=utopia_data.map_json)
 
 
 def flatten(lst) -> list[float]:
