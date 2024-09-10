@@ -16,6 +16,7 @@ from desdeo.problem.schema import (
     Variable,
     VariableTypeEnum,
 )
+from desdeo.tools.utils import available_solvers, payoff_table_method
 
 
 def utopia_problem(problem_name: str = "Forest problem", holding: int = 1) -> tuple[Problem, dict]:
@@ -213,6 +214,58 @@ def utopia_problem(problem_name: str = "Forest problem", holding: int = 1) -> tu
         symbol="f_3",
         func=f_3_func,
         maximize=True,
+        objective_type=ObjectiveTypeEnum.analytical,
+        is_linear=True,
+        is_convex=False,  # not checked
+        is_twice_differentiable=True,
+    )
+
+    # This is so bad, but we currently don't have a better way
+    ideals, nadirs = payoff_table_method(
+        problem=Problem(
+            name=problem_name,
+            description="A test forest problem.",
+            constants=constants,
+            variables=variables,
+            objectives=[f_1, f_2, f_3],
+            constraints=constraints,
+        ),
+        solver=available_solvers["gurobipy"],
+    )
+
+    f_1 = Objective(
+        name="Net present value",
+        symbol="f_1",
+        func=f_1_func,
+        maximize=True,
+        ideal=ideals["f_1"],
+        nadir=nadirs["f_1"],
+        objective_type=ObjectiveTypeEnum.analytical,
+        is_linear=True,
+        is_convex=False,  # not checked
+        is_twice_differentiable=True,
+    )
+
+    f_2 = Objective(
+        name="Wood stock volume",
+        symbol="f_2",
+        func=f_2_func,
+        maximize=True,
+        ideal=ideals["f_2"],
+        nadir=nadirs["f_2"],
+        objective_type=ObjectiveTypeEnum.analytical,
+        is_linear=True,
+        is_convex=False,  # not checked
+        is_twice_differentiable=True,
+    )
+
+    f_3 = Objective(
+        name="Harvest value",
+        symbol="f_3",
+        func=f_3_func,
+        maximize=True,
+        ideal=ideals["f_3"],
+        nadir=nadirs["f_3"],
         objective_type=ObjectiveTypeEnum.analytical,
         is_linear=True,
         is_convex=False,  # not checked
