@@ -4,11 +4,13 @@ from enum import Enum
 
 import numpy as np
 import polars as pl
+import subprocess
+import sys
 
 from desdeo.problem.json_parser import MathParser, replace_str
 from desdeo.problem.schema import ObjectiveTypeEnum, Problem
 
-SUPPORTED_EVALUATOR_MODES = ["variables", "discrete"]
+SUPPORTED_EVALUATOR_MODES = ["variables", "discrete", "simulator"]
 
 
 class EvaluatorModesEnum(str, Enum):
@@ -367,7 +369,15 @@ class GenericEvaluator:
             np.ndarray: The objective values for the given decision variables.
                 The shape of the array is (k, m), where k is the number of objectives and m is the number of samples.
         """
-        return
+        res_array = []
+        xs_t = xs.T
+        for i in range(len(xs_t)):
+            # TODO: validate
+            # subprocess.run(f"{python_interpreter} {file_name} -d {decision_vars} -p {parameters}")
+            out = subprocess.run(f"{sys.executable} {"./simulator_file.py"} -d {xs_t[i]} -p params", check=True, capture_output=True).stdout.decode()
+            out = np.fromstring(out.replace('[', '').replace(']', ''), sep=',')
+            res_array.append(out)
+        return np.array(res_array)
 
 
 def find_closest_points(
@@ -413,3 +423,8 @@ def find_closest_points(
         results.append(closest[f"{objective_symbol}"][0])
 
     return pl.DataFrame({f"{objective_symbol}": results})
+
+if __name__ == "__main__":
+    from desdeo.problem import simple_linear_test_problem
+    evaluator = GenericEvaluator(simple_linear_test_problem(), evaluator_mode=EvaluatorModesEnum.simulator)
+    _ = evaluator._evaluate_simulator(np.array([[0, 1], [4, 3], [0, 4]]))

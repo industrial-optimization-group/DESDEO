@@ -14,6 +14,7 @@ The problem definition is a JSON file that contains the following information:
 from collections import Counter
 from collections.abc import Iterable
 from enum import Enum
+from pathlib import Path
 from typing import Annotated, Any, Literal, TypeAliasType
 
 from pydantic import (
@@ -530,6 +531,39 @@ class ScalarizationFunction(BaseModel):
     )
 
 
+class Simulator(BaseModel):
+    """Model for simulator data."""
+
+    model_config = ConfigDict(frozen=True)
+
+    name: str = Field(
+        description=(
+            "Descriptive name of the simulator. This can be used in UI and visualizations."
+        ),
+    )
+    """Descriptive name of the simulator. This can be used in UI and visualizations."""
+    """symbol: str = Field(
+        description=(
+            "Symbol to represent the simulator. This will be used in the rest of the problem definition."
+            " It may also be used in UIs and visualizations."
+        ),
+    )"""
+    file: Path = Field(
+        description=(
+            "Path to a python file with the connection to simulators."
+        ),
+    )
+    """Path to a python file with the connection to simulators."""
+    parameter_options: dict | None = Field(
+        description=(
+            "Parameters to the simulator that are not decision variables, but affect the results."
+            "Format is similar to decision variables. Can be 'None'."
+        ),
+    )
+    """Parameters to the simulator that are not decision variables, but affect the results.
+    Format is similar to decision variables. Can be 'None'."""
+
+
 class Objective(BaseModel):
     """Model for an objective function."""
 
@@ -544,10 +578,10 @@ class Objective(BaseModel):
     symbol: str = Field(
         description=(
             "Symbol to represent the objective function. This will be used in the rest of the problem definition."
-            " It may also be used in UIs and visualizations. Example: 'f_1'."
+            "It may also be used in UIs and visualizations. Example: 'f_1'."
         ),
     )
-    """ Symbol to represent the objective function. This will be used in the
+    """Symbol to represent the objective function. This will be used in the
     rest of the problem definition.  It may also be used in UIs and
     visualizations. Example: 'f_1'."""
     unit: str | None = Field(
@@ -563,13 +597,39 @@ class Objective(BaseModel):
         description=(
             "The objective function. This is a JSON object that can be parsed into a function."
             "Must be a valid MathJSON object. The symbols in the function must match the symbols defined for "
-            "variable/constant/extra function. Can be 'None' for 'data_based' objective functions."
+            "variable/constant/extra function. Can be 'None' for 'data_based', 'simulator' or "
+            "'surrogate' objective functions. If 'None', either 'simulator_path' or 'surrogates' must "
+            "not be 'None'."
         ),
+        default=None,
     )
-    """ The objective function. This is a JSON object that can be parsed into a
-    function.  Must be a valid MathJSON object. The symbols in the function must
-    match the symbols defined for variable/constant/extra function. Can be
-    'None' for 'data_based' objective functions."""
+    """ The objective function. This is a JSON object that can be parsed into a function.
+    Must be a valid MathJSON object. The symbols in the function must match the symbols defined for
+    variable/constant/extra function. Can be 'None' for 'data_based', 'simulator' or
+    'surrogate' objective functions. If 'None', either 'simulator_path' or 'surrogates' must
+    not be 'None'."""
+    simulator_path: Path | None = Field(
+        description=(
+            "Path to a python file with the connection to simulators. Must be a valid Path."
+            "Can be 'None' for 'analytical', 'data_based' or 'surrogate' objective functions."
+            "If 'None', either 'func' or 'surrogates' must not be 'None'."
+        ),
+        default=None,
+    )
+    """Path to a python file with the connection to simulators. Must be a valid Path.
+    Can be 'None' for 'analytical', 'data_based' or 'surrogate' objective functions.
+    If 'None', either 'func' or 'surrogates' must not be 'None'."""
+    surrogates: list[Path] | None = Field(
+        description=(
+            "A list of paths to models saved on disk. Can be 'None' for 'analytical', 'data_based "
+            "or 'simulator' objective functions. If 'None', either 'func' or 'simulator_path' must "
+            "not be 'None'."
+        ),
+        default=None,
+    )
+    """A list of paths to models saved on disk. Can be 'None' for 'analytical', 'data_based
+    or 'simulator' objective functions. If 'None', either 'func' or 'simulator_path' must
+    not be 'None'."""
     maximize: bool = Field(
         description="Whether the objective function is to be maximized or minimized.",
         default=False,
