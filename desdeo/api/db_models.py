@@ -40,6 +40,9 @@ class Problem(Base):
     # We need some way to tell the API what solver should be used, and this seems like a good place
     # This should match one of the available_solvers in desdeo.tools.utils
     solver: Mapped[schema.Solvers] = mapped_column(nullable=True)
+    # Other code assumes these ideals and nadirs are dicts with objective symbols as keys
+    presumed_ideal = mapped_column(JSONB, nullable=True)
+    presumed_nadir = mapped_column(JSONB, nullable=True)
     # Mapped doesn't work with JSON, so we use JSON directly.
     value = mapped_column(JSON, nullable=False)  # desdeo.problem.schema.Problem
 
