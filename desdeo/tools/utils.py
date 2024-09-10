@@ -1,6 +1,8 @@
 """General utilities related to solvers."""
 
-from desdeo.problem import ObjectiveTypeEnum, Problem, VariableDomainTypeEnum
+import numpy as np
+
+from desdeo.problem import ObjectiveTypeEnum, Problem, VariableDomainTypeEnum, numpy_array_to_objective_dict
 
 from .generics import BaseSolver
 from .gurobipy_solver_interfaces import GurobipySolver
@@ -118,3 +120,33 @@ def get_corrected_reference_point(problem: Problem, reference_point: dict[str, f
         obj.symbol: reference_point[obj.symbol] * -1 if obj.maximize else reference_point[obj.symbol]
         for obj in problem.objectives
     }
+
+
+def payoff_table_method(problem: Problem, solver: BaseSolver = None) -> tuple[dict[str, float], dict[str, float]]:
+    """Solves a representation for the ideal and nadir points for a multiobjective optimization problem.
+
+    Args:
+        problem (Problem): The problem for which the ideal and nadir are solved.
+        solver (BaseSolver): The solver to be used in solving the points. Defaults to None.
+
+    Returns:
+        tuple[dict[str, float], dict[str, float]]: The estimated ideal and nadir points.
+    """
+    solver = solver if solver is not None else guess_best_solver(problem)
+    solver = solver(problem)
+
+    k = len(problem.objectives)
+    po_table = np.zeros((k, k))
+
+    for i in range(k):
+        res = solver.solve(f"f_{i+1}_min")
+        for j in range(k):
+            po_table[i][j] = res.optimal_objectives[f"f_{j+1}"]
+    ideal = np.diag(po_table)
+    nadir = []
+    for i in range(k):
+        if problem.objectives[i].maximize:
+            nadir.append(np.min(po_table.T[i]))
+        else:
+            nadir.append(np.max(po_table.T[i]))
+    return numpy_array_to_objective_dict(problem, ideal), numpy_array_to_objective_dict(problem, nadir)
