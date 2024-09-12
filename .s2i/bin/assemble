@@ -62,7 +62,7 @@ if [[ ! -z "$UPGRADE_PIP_TO_LATEST" ]]; then
   fi
 fi
 
-if [[ ! -z "$WLSACCESSID" ! -z "$WLSSECRET" ! -z "$LICENSEID" ]]; then
+if [[ ! -z "$WLSACCESSID" && ! -z "$WLSSECRET" && ! -z "$LICENSEID" ]]; then
   echo "---> Installing ca-certificates for checking gurobi license. This will probably fail if you are not using rhel image!"
   yum install -y ca-certificates
   update-ca-certificates
