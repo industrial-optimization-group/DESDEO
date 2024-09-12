@@ -1,3 +1,4 @@
+import math
 import numpy as np
 from pathlib import Path
 import polars as pl
@@ -233,13 +234,16 @@ def utopia_problem(problem_name: str = "Forest problem", holding: int = 1) -> tu
         solver=available_solvers["gurobipy"],
     )
 
+    print(ideals)
+    print(nadirs)
+
     f_1 = Objective(
         name="Net present value",
         symbol="f_1",
         func=f_1_func,
         maximize=True,
-        ideal=ideals["f_1"],
-        nadir=nadirs["f_1"],
+        ideal=math.ceil(ideals["f_1"]),
+        nadir=math.floor(nadirs["f_1"]),
         objective_type=ObjectiveTypeEnum.analytical,
         is_linear=True,
         is_convex=False,  # not checked
@@ -251,8 +255,8 @@ def utopia_problem(problem_name: str = "Forest problem", holding: int = 1) -> tu
         symbol="f_2",
         func=f_2_func,
         maximize=True,
-        ideal=ideals["f_2"],
-        nadir=nadirs["f_2"],
+        ideal=math.ceil(ideals["f_2"]),
+        nadir=math.floor(nadirs["f_2"]),
         objective_type=ObjectiveTypeEnum.analytical,
         is_linear=True,
         is_convex=False,  # not checked
@@ -264,8 +268,8 @@ def utopia_problem(problem_name: str = "Forest problem", holding: int = 1) -> tu
         symbol="f_3",
         func=f_3_func,
         maximize=True,
-        ideal=ideals["f_3"],
-        nadir=nadirs["f_3"],
+        ideal=math.ceil(ideals["f_3"]),
+        nadir=math.floor(nadirs["f_3"]),
         objective_type=ObjectiveTypeEnum.analytical,
         is_linear=True,
         is_convex=False,  # not checked

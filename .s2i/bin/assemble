@@ -62,7 +62,14 @@ if [[ ! -z "$UPGRADE_PIP_TO_LATEST" ]]; then
   fi
 fi
 
-pip install .[standard,api,server]
+if [[ ! -z "$WLSACCESSID" ! -z "$WLSSECRET" ! -z "$LICENSEID" ]]; then
+  echo "---> Installing ca-certificates for checking gurobi license. This will probably fail if you are not using rhel image!"
+  yum install -y ca-certificates
+  update-ca-certificates
+  yum clean all
+fi
+
+pip install $DESDEO_INSTALL
 
 
 if should_collectstatic; then
