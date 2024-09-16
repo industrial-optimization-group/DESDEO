@@ -9,7 +9,7 @@ In this tutorial, step-by-step instructions are given on how to begin
 contributing to DESDEO, and what one should consider when developing DESDEO,
 such as coding practices and typical workflows. We first cover the required
 software to be installed in the section [Installing required
-sotware](#installing-required-software).  Then, we discuss how to download
+software](#installing-required-software).  Then, we discuss how to download
 DESDEO's source code and setup a virtual environment in the section [Setting up
 a virtual environment and installing
 DESDEO](#setting-up-a-virtual-environment-and-installing-desdeo).  A typical Git
@@ -244,11 +244,14 @@ environment, we can now run
 
 <span id="bash:poetry_install_dev"></span>
 ```shell
-$ poetry install -E standard --group=dev # (1)!
+$ poetry install -E standard -E api --group=dev # (1)!
 ```
 
-1.  The option `-E standard` install the regular version of polars. If we are on an
+1.  The option `-E standard` installs the regular version of polars. If we are on an
     older CPU, we might want to install the legacy version with the option `-E legacy`.
+    The option `-E api` install the packages required to run DESDEO's web API. Having the
+    web API dependencies is beneficial when developing the API, database, or both,
+    aspects found in DESDEO.
     The `-E` flag is used to indicate to poetry extra dependencies
     we wish to install. Likewise, the `--group=dev`
     tells poetry that we want to install the dependencies listed as development
@@ -461,9 +464,9 @@ $ git commit -m "Our commit message"
     of the commit should be a short summary, e.g., "Added a few new tests.",
     which is then followed (separated by a blank new line) with more details,
     e.g., "A test was dded to test the correct functioning of the NIMBUS method.
-    A simialr test was also added for the E-NAUTILUS methods. Both of these 
+    A similar test was also added for the E-NAUTILUS methods. Both of these 
     tests should be passing." __There is no such thing as a "too long"
-    commmit message!__
+    commit message!__
 
 We can make as many commits as we like. We do not need to have anything "ready"
 when making a commit. We should not be afraid of committing _too often_; there
@@ -641,7 +644,7 @@ desdeo/problem/schema.py:394:7: FIX002 Line contains TODO, consider resolving th
 Found 4 errors. # (1)!
 ```
 
-1.  In case Ruff finds no erros, its output will read `All checks passed!`
+1.  In case Ruff finds no errors, its output will read `All checks passed!`
 
 We can also ask Ruff to try and fix the found errors in the same file with the command
 
@@ -796,7 +799,8 @@ where we check that the output of `double` given the argument `5` is
 A passing test is such that it does not raise _any_ errors. We have also utilized the
 _decorator_ `@pytest.mark.feature`, which tells pytest that this test has been marked
 with the mark `feature`. Marks should be registered in the configuration of pytest,
-which can be found in the `pyproject.toml` file's section `[tool.pytest.ini_options]`. Each mark should be registerered only once, and can be
+which can be found in the `pyproject.toml` file's section `[tool.pytest.ini_options]`.
+Each mark should be registered only once, and can be
 re-utilized as many times as needed.
 Multiple test cases can have the same mark, or multiple marks. Marks are a useful
 way to not run all tests each time we run pytest, but to run only a subset of them, which
@@ -984,7 +988,7 @@ As we can notice, a docstring is a lot more informative that a mere comment.
 The docstring alone is understandable even without the function definition.
 However, there exist multiple styles for docstrings. The one illustrated
 here follows the docstring format described in
-[Google's styleguide](https://google.github.io/styleguide/pyguide.html),
+[Google's style guide](https://google.github.io/styleguide/pyguide.html),
 which is also the style for docstrings utilized in DESDEO.
 
 Lastly, we have _external_ or _project documentation_. This is easy
@@ -1138,7 +1142,7 @@ to DESDEO in this last section.
 ### Contribution workflow
 
 1.  Fork the DESDEO repository. This is done on GitHub.
-2.  Clone the fork (`$ git clone urltofork`)
+2.  Clone the fork (`$ git clone <url to fork>`)
 3.  Make sure the fork is up to date with the upstream, or main repository, of DESDEO. 
     ```bash
     $ git remote add upstream \ # (1)!

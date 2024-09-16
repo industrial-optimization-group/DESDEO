@@ -202,6 +202,8 @@ markers = [
     "gurobipy: tests related to the gurobipy solver",
     "pareto_navigator: tests related to the Pareto Navigator method",
     "patterns: tests related to the publisher-subscriber pattern",
+    "forest_problem: tests related to the forest problem examples.",
+    "group_scalarization: tests related to group scalarization functions and utilities.",
 ]
 pythonpath = "."
 

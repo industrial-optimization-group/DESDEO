@@ -97,7 +97,6 @@ def test_add_asf_nondiff(river_w_fake_ideal_and_nadir):
 
 
 @pytest.mark.scalarization
-@pytest.mark.asf
 def test_add_asf_generic_nondiff(river_w_fake_ideal_and_nadir):
     """Tests that the generic achievement scalarization function is added correctly."""
     problem = river_w_fake_ideal_and_nadir
@@ -223,7 +222,6 @@ def test_add_asf_generic_nondiff(river_w_fake_ideal_and_nadir):
 
 
 @pytest.mark.scalarization
-@pytest.mark.asf
 def test_add_asf_generic_diff():
     """Test that the differentiable variant of the generic achievement scalarizing function produced Pareto optimal solutions."""
     n_objectives = 4
