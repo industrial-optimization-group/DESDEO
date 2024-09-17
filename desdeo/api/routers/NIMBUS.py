@@ -483,7 +483,8 @@ def utopia(
                 "showLabel": True,
                 "type": "piecewise",  # // for different plans
                 "pieces": [],
-                "text": ["Management plans"],
+                # "text": ["Management plans"],
+                "text": ["Suunnitellut toimenpiteet"],
                 "calculable": True,
             },
             # // predefined symbols for visumap'circle': 'rect': 'roundRect': 'triangle': 'diamond': 'pin':'arrow':
@@ -502,7 +503,7 @@ def utopia(
             # // can draw graphic components to indicate different things at least
             "series": [
                 {
-                    "name": "Forest",
+                    "name": year,
                     "type": "map",
                     "roam": True,
                     "map": map_name,
