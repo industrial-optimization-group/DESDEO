@@ -528,14 +528,15 @@ def utopia(
                     "color": treatment_colors[treatment_id],
                 }
             )
+            # name = "Stand " + str(stand) + " " + description_dict[treatment_id]
+            name = "Kuvio " + str(stand) + " " + description_dict[treatment_id]
             options[year]["series"][0]["data"].append(
                 {
-                    # "name": "Stand " + str(stand) + " " + description_dict[treatment_id],
-                    "name": "Kuvio " + str(stand) + " " + description_dict[treatment_id],
+                    "name": name,
                     "value": treatment_id,
                 }
             )
-            options[year]["series"][0]["nameMap"][stand] = "Stand " + str(stand) + " " + description_dict[treatment_id]
+            options[year]["series"][0]["nameMap"][stand] = name
 
     return UtopiaResponse(map_name=map_name, options=options, map_json=json.loads(utopia_data.map_json))
 
