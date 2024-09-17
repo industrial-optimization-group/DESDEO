@@ -110,10 +110,14 @@ def utopia_problem(problem_name: str = "Forest problem", holding: int = 1) -> tu
     selected_df_p.group_by(["unit", "schedule"])
     rows_by_key = selected_df_p.rows_by_key(key=["unit", "schedule"])
     p_array = np.zeros((selected_df_p["unit"].n_unique(), selected_df_p["schedule"].n_unique()))
+    discounting = [0.95**5, 0.95**10, 0.95**15]
     for i in range(np.shape(p_array)[0]):
         for j in range(np.shape(p_array)[1]):
             if (unique_units[i], j) in rows_by_key:
-                p_array[i][j] = sum(rows_by_key[(unique_units[i], j)][0])
+                p_array[i][j] = (
+                    sum(x * y for x, y in zip(rows_by_key[(unique_units[i], j)][0], discounting, strict=True)) + 1e-6
+                )  # the 1E-6 is to deal with an annoying corner case, don't worry about it
+                v_array[i][j] += p_array[i][j]
 
     constants = []
     variables = []
@@ -238,7 +242,7 @@ def utopia_problem(problem_name: str = "Forest problem", holding: int = 1) -> tu
     print(nadirs)
 
     f_1 = Objective(
-        name="Net present value",
+        name="Nettonykyarvo / €",
         symbol="f_1",
         func=f_1_func,
         maximize=True,
@@ -251,7 +255,7 @@ def utopia_problem(problem_name: str = "Forest problem", holding: int = 1) -> tu
     )
 
     f_2 = Objective(
-        name="Wood stock volume",
+        name="Puuston tilavuus / m^3",
         symbol="f_2",
         func=f_2_func,
         maximize=True,
@@ -264,7 +268,7 @@ def utopia_problem(problem_name: str = "Forest problem", holding: int = 1) -> tu
     )
 
     f_3 = Objective(
-        name="Harvest value",
+        name="Hakkuiden tuotto / €",
         symbol="f_3",
         func=f_3_func,
         maximize=True,

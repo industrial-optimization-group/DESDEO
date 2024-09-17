@@ -414,13 +414,21 @@ def utopia(
     utopia_data = db.query(Utopia).filter(Utopia.problem == request.problem_id, Utopia.user == user.index).first()
 
     # Figure out the treatments from the decision variables and utopia data
-    description_dict = {
+    """description_dict = {
         0: "Do nothing",
         1: "Clearcut",
         2: "Thinning from below",
         3: "Thinning from above",
         4: "Even thinning",
         5: "First thinning",
+    }"""
+    description_dict = {
+        0: "Ei toimenpiteitä",
+        1: "Päätehakkuu",
+        2: "Alaharvennus",
+        3: "Yläharvennus",
+        4: "Tasaharvennus",
+        5: "Ensiharvennus",
     }
 
     def treatment_index(part: str) -> str:
@@ -460,6 +468,8 @@ def utopia(
         5: "#377eb8",
     }
 
+    map_name = "ForestMap"  # This isn't visible anywhere on the ui
+
     options = {}
     for year in request.years:
         options[year] = {
@@ -495,7 +505,7 @@ def utopia(
                     "name": "Forest",
                     "type": "map",
                     "roam": True,
-                    "map": "ForestMap",
+                    "map": map_name,
                     "nameProperty": "standnumbe",
                     "colorBy": "data",
                     "itemStyle": {"symbol": "triangle", "color": "red"},
@@ -520,13 +530,14 @@ def utopia(
             )
             options[year]["series"][0]["data"].append(
                 {
-                    "name": "Stand " + str(stand) + " " + description_dict[treatment_id],
+                    # "name": "Stand " + str(stand) + " " + description_dict[treatment_id],
+                    "name": "Kuvio " + str(stand) + " " + description_dict[treatment_id],
                     "value": treatment_id,
                 }
             )
             options[year]["series"][0]["nameMap"][stand] = "Stand " + str(stand) + " " + description_dict[treatment_id]
 
-    return UtopiaResponse(map_name="ForestMap", options=options, map_json=json.loads(utopia_data.map_json))
+    return UtopiaResponse(map_name=map_name, options=options, map_json=json.loads(utopia_data.map_json))
 
 
 def flatten(lst) -> list[float]:
