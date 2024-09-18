@@ -129,7 +129,7 @@ def utopia_problem(problem_name: str = "Forest problem", holding: int = 1) -> tu
     for i in range(np.shape(p1_array)[0]):
         for j in range(np.shape(p1_array)[1]):
             if (unique_units[i], j) in rows_by_key:
-                p1_array[i][j] = rows_by_key[(unique_units[i], j)][0]
+                p1_array[i][j] = rows_by_key[(unique_units[i], j)][0] + 1e-6
 
     selected_df_p2 = df.filter(pl.col("holding") == holding).select(["unit", "schedule", "harvest_value_period_2030"])
     selected_df_p2.group_by(["unit", "schedule"])
@@ -138,7 +138,7 @@ def utopia_problem(problem_name: str = "Forest problem", holding: int = 1) -> tu
     for i in range(np.shape(p2_array)[0]):
         for j in range(np.shape(p2_array)[1]):
             if (unique_units[i], j) in rows_by_key:
-                p2_array[i][j] = rows_by_key[(unique_units[i], j)][0]
+                p2_array[i][j] = rows_by_key[(unique_units[i], j)][0] + 1e-6
 
     selected_df_p3 = df.filter(pl.col("holding") == holding).select(["unit", "schedule", "harvest_value_period_2035"])
     selected_df_p3.group_by(["unit", "schedule"])
@@ -147,7 +147,7 @@ def utopia_problem(problem_name: str = "Forest problem", holding: int = 1) -> tu
     for i in range(np.shape(p3_array)[0]):
         for j in range(np.shape(p3_array)[1]):
             if (unique_units[i], j) in rows_by_key:
-                p3_array[i][j] = rows_by_key[(unique_units[i], j)][0]
+                p3_array[i][j] = rows_by_key[(unique_units[i], j)][0] + 1e-6
 
     constants = []
     variables = []
