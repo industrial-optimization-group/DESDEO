@@ -549,7 +549,7 @@ def utopia(
     )
 
     return UtopiaResponse(
-        map_name=map_name, options=options, map_json=json.loads(utopia_data.map_json), desdcription=map_description
+        map_name=map_name, options=options, map_json=json.loads(utopia_data.map_json), description=map_description
     )
 
 
