@@ -104,6 +104,7 @@ def utopia_problem(problem_name: str = "Forest problem", holding: int = 1) -> tu
                 if (unique_units[i], j) in rows_by_key:
                     w_array[i][j] = rows_by_key[(unique_units[i], j)][0]
 
+    """
     selected_df_p = df.filter(pl.col("holding") == holding).select(
         ["unit", "schedule", "harvest_value_period_2025", "harvest_value_period_2030", "harvest_value_period_2035"]
     )
@@ -118,13 +119,44 @@ def utopia_problem(problem_name: str = "Forest problem", holding: int = 1) -> tu
                     sum(x * y for x, y in zip(rows_by_key[(unique_units[i], j)][0], discounting, strict=True)) + 1e-6
                 )  # the 1E-6 is to deal with an annoying corner case, don't worry about it
                 v_array[i][j] += p_array[i][j]
+    """
+    discounting = [0.95**5, 0.95**10, 0.95**15]
+
+    selected_df_p1 = df.filter(pl.col("holding") == holding).select(["unit", "schedule", "harvest_value_period_2025"])
+    selected_df_p1.group_by(["unit", "schedule"])
+    rows_by_key = selected_df_p1.rows_by_key(key=["unit", "schedule"])
+    p1_array = np.zeros((selected_df_p1["unit"].n_unique(), selected_df_p1["schedule"].n_unique()))
+    for i in range(np.shape(p1_array)[0]):
+        for j in range(np.shape(p1_array)[1]):
+            if (unique_units[i], j) in rows_by_key:
+                p1_array[i][j] = rows_by_key[(unique_units[i], j)][0]
+
+    selected_df_p2 = df.filter(pl.col("holding") == holding).select(["unit", "schedule", "harvest_value_period_2030"])
+    selected_df_p2.group_by(["unit", "schedule"])
+    rows_by_key = selected_df_p2.rows_by_key(key=["unit", "schedule"])
+    p2_array = np.zeros((selected_df_p2["unit"].n_unique(), selected_df_p2["schedule"].n_unique()))
+    for i in range(np.shape(p2_array)[0]):
+        for j in range(np.shape(p2_array)[1]):
+            if (unique_units[i], j) in rows_by_key:
+                p2_array[i][j] = rows_by_key[(unique_units[i], j)][0]
+
+    selected_df_p3 = df.filter(pl.col("holding") == holding).select(["unit", "schedule", "harvest_value_period_2035"])
+    selected_df_p3.group_by(["unit", "schedule"])
+    rows_by_key = selected_df_p3.rows_by_key(key=["unit", "schedule"])
+    p3_array = np.zeros((selected_df_p3["unit"].n_unique(), selected_df_p3["schedule"].n_unique()))
+    for i in range(np.shape(p3_array)[0]):
+        for j in range(np.shape(p3_array)[1]):
+            if (unique_units[i], j) in rows_by_key:
+                p3_array[i][j] = rows_by_key[(unique_units[i], j)][0]
 
     constants = []
     variables = []
     constraints = []
     f_1_func = []
     f_2_func = []
-    f_3_func = []
+    p1_func = []
+    p2_func = []
+    p3_func = []
     # define the constants V, W and P, decision variable X, constraints, and objective function expressions in one loop
     for i in range(np.shape(v_array)[0]):
         # Constants V, W and P
@@ -142,13 +174,29 @@ def utopia_problem(problem_name: str = "Forest problem", holding: int = 1) -> tu
             values=w_array[i].tolist(),
         )
         constants.append(w)
-        p = TensorConstant(
-            name=f"P_{i+1}",
-            symbol=f"P_{i+1}",
-            shape=[np.shape(p_array)[1]],  # NOTE: vectors have to be of form [2] instead of [2,1] or [1,2]
-            values=p_array[i].tolist(),
+        p1 = TensorConstant(
+            name=f"P1_{i+1}",
+            symbol=f"P1_{i+1}",
+            shape=[np.shape(p1_array)[1]],  # NOTE: vectors have to be of form [2] instead of [2,1] or [1,2]
+            values=p1_array[i].tolist(),
         )
-        constants.append(p)
+        constants.append(p1)
+
+        p2 = TensorConstant(
+            name=f"P2_{i+1}",
+            symbol=f"P2_{i+1}",
+            shape=[np.shape(p2_array)[1]],  # NOTE: vectors have to be of form [2] instead of [2,1] or [1,2]
+            values=p2_array[i].tolist(),
+        )
+        constants.append(p2)
+
+        p3 = TensorConstant(
+            name=f"P3_{i+1}",
+            symbol=f"P3_{i+1}",
+            shape=[np.shape(p3_array)[1]],  # NOTE: vectors have to be of form [2] instead of [2,1] or [1,2]
+            values=p3_array[i].tolist(),
+        )
+        constants.append(p3)
 
         # Decision variable X
         x = TensorVariable(
@@ -184,13 +232,53 @@ def utopia_problem(problem_name: str = "Forest problem", holding: int = 1) -> tu
         exprs = f"W_{i+1}@X_{i+1}"
         f_2_func.append(exprs)
 
-        exprs = f"P_{i+1}@X_{i+1}"
-        f_3_func.append(exprs)
+        exprs = f"P1_{i+1}@X_{i+1}"
+        p1_func.append(exprs)
+
+        exprs = f"P2_{i+1}@X_{i+1}"
+        p2_func.append(exprs)
+
+        exprs = f"P3_{i+1}@X_{i+1}"
+        p3_func.append(exprs)
+
+    for i in range(1, 4):
+        pvar = Variable(name=f"P_{i}", symbol=f"P_{i}", variable_type=VariableTypeEnum.real)
+        variables.append(pvar)
+
+    vvar = Variable(name="V_end", symbol="V_end", variable_type=VariableTypeEnum.real)
+    variables.append(vvar)
+
+    # get the remainder value of the forest into decision variable V_end
+    v_func = "V_end - " + " - ".join(f_1_func)
+    con = Constraint(name="v_con", symbol="v_con", cons_type=ConstraintTypeEnum.EQ, func=v_func)
+    constraints.append(con)
+
+    # These are here, so that we can get the harvesting incomes into decision variables P_i
+    p1_func = "P_1 - " + " - ".join(p1_func)
+    con = Constraint(name="p1_con", symbol="p1_con", cons_type=ConstraintTypeEnum.EQ, func=p1_func)
+    constraints.append(con)
+
+    p2_func = "P_2 - " + " - ".join(p2_func)
+    con = Constraint(name="p2_con", symbol="p2_con", cons_type=ConstraintTypeEnum.EQ, func=p2_func)
+    constraints.append(con)
+
+    p3_func = "P_3 - " + " - ".join(p3_func)
+    con = Constraint(name="p3_con", symbol="p3_con", cons_type=ConstraintTypeEnum.EQ, func=p3_func)
+    constraints.append(con)
+
+    # print(v_func)
+    # print(p1_func)
+    # print(p2_func)
+    # print(p3_func)
 
     # form the objective function sums
-    f_1_func = " + ".join(f_1_func)
     f_2_func = " + ".join(f_2_func)
-    f_3_func = " + ".join(f_3_func)
+    f_3_func = f"{discounting[0]} * P_1 + {discounting[1]} * P_2 + {discounting[2]} * P_3"
+    f_1_func = "V_end + " + f_3_func
+
+    # print(f_1_func)
+    # print(f_2_func)
+    # print(f_3_func)
 
     f_1 = Objective(
         name="Net present value",
