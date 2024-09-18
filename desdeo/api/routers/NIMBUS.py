@@ -542,9 +542,9 @@ def utopia(
 
     # Let's also generate a nice description for the map
     map_description = (
-        f"Tuotto hakkuista ensimmäisellä ajanjaksolla on {int(decision_variables["P1"])}€. "
-        + f"Tuotto hakkuista toisella ajanjaksolla on {int(decision_variables["P2"])}€. "
-        + f"Tuotto hakkuista kolmannella ajanjaksolla on {int(decision_variables["P3"])}€. "
+        f"Tuotto hakkuista ensimmäisellä ajanjaksolla on {int(decision_variables["P_1"])}€. "
+        + f"Tuotto hakkuista toisella ajanjaksolla on {int(decision_variables["P_2"])}€. "
+        + f"Tuotto hakkuista kolmannella ajanjaksolla on {int(decision_variables["P_3"])}€. "
         + f"Metsän diskontattu arvo suunnittelujakson lopussa on {int(decision_variables["V_end"])}€."
     )
 
