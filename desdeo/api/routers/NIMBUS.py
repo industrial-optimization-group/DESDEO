@@ -214,6 +214,7 @@ def iterate(
         reference_point=dict(zip([obj.symbol for obj in problem.objectives], request.preference, strict=True)),
         num_desired=request.num_solutions,
         solver=available_solvers[solver] if solver else None,
+        scalarization_options={"rho": 0.001, "delta": 0.001},
     )
 
     # Do database stuff again.
