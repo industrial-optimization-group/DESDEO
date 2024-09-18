@@ -59,10 +59,19 @@ def utopia_problem(problem_name: str = "Forest problem", holding: int = 1) -> tu
 
     schedule_dict = {}
 
+    discounting_factor = 3  # This can be 1, 2, 3, 4 or 5. It represents %
+    discounting = [
+        (1 - 0.01 * discounting_factor) ** 3,
+        (1 - 0.01 * discounting_factor) ** 8,
+        (1 - 0.01 * discounting_factor) ** 13,
+    ]
+
     df = pl.read_csv(Path("tests/data/alternatives_290124.csv"), dtypes={"unit": pl.Float64})
     df_key = pl.read_csv(Path("tests/data/alternatives_key_290124.csv"), dtypes={"unit": pl.Float64})
 
-    selected_df_v = df.filter(pl.col("holding") == holding).select(["unit", "schedule", "npv_5_percent"])
+    selected_df_v = df.filter(pl.col("holding") == holding).select(
+        ["unit", "schedule", f"npv_{discounting_factor}_percent"]
+    )
     unique_units = selected_df_v.unique(["unit"], maintain_order=True).get_column("unit")
     selected_df_v.group_by(["unit", "schedule"])
     rows_by_key = selected_df_v.rows_by_key(key=["unit", "schedule"])
@@ -120,7 +129,6 @@ def utopia_problem(problem_name: str = "Forest problem", holding: int = 1) -> tu
                 )  # the 1E-6 is to deal with an annoying corner case, don't worry about it
                 v_array[i][j] += p_array[i][j]
     """
-    discounting = [0.95**5, 0.95**10, 0.95**15]
 
     selected_df_p1 = df.filter(pl.col("holding") == holding).select(["unit", "schedule", "harvest_value_period_2025"])
     selected_df_p1.group_by(["unit", "schedule"])
