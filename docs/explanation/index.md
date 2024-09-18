@@ -47,4 +47,12 @@ hide:
 
     [:octicons-arrow-right-24: Test problems](./test_problems.md)
 
+-   :octicons-info-24:{ .lg .middle } __User Authorization__
+
+    ---
+
+    Learn about User Authentication
+
+    [:octicons-arrow-right-24: User Authentication](./user_auth.md)
+
 </div>
