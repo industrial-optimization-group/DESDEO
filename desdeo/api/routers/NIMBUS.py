@@ -54,6 +54,7 @@ class UtopiaResponse(BaseModel):
     map_name: str = Field(description="Name of the map.")
     map_json: dict[str, Any] = Field(description="MapJSON representation of the geography.")
     options: dict[str, Any] = Field(description="A dict with given years as keys containing options for each year.")
+    description: str = Field(description="Description shown above the map.")
 
 
 class UtopiaRequest(BaseModel):
@@ -539,7 +540,17 @@ def utopia(
             )
             options[year]["series"][0]["nameMap"][stand] = name
 
-    return UtopiaResponse(map_name=map_name, options=options, map_json=json.loads(utopia_data.map_json))
+    # Let's also generate a nice description for the map
+    map_description = (
+        f"Tuotto hakkuista ensimmäisellä ajanjaksolla on {int(decision_variables["P1"])}€. "
+        + f"Tuotto hakkuista toisella ajanjaksolla on {int(decision_variables["P2"])}€. "
+        + f"Tuotto hakkuista kolmannella ajanjaksolla on {int(decision_variables["P3"])}€. "
+        + f"Metsän diskontattu arvo suunnittelujakson lopussa on {int(decision_variables["V_end"])}€."
+    )
+
+    return UtopiaResponse(
+        map_name=map_name, options=options, map_json=json.loads(utopia_data.map_json), desdcription=map_description
+    )
 
 
 def flatten(lst) -> list[float]:
