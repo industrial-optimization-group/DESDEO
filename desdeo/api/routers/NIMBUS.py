@@ -447,7 +447,7 @@ def utopia(
 
     treatments_dict = {}
     for key in decision_variables:
-        if key.startswith("_"):
+        if not key.startswith("X"):
             continue
         # The dict keys get converted to ints to strings when it's loaded from database
         treatments = utopia_data.schedule_dict[key][str(decision_variables[key].index(1))]
