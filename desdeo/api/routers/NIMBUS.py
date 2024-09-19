@@ -469,10 +469,10 @@ def utopia(
 
     treatment_colors = {
         0: "#4daf4a",
-        1: "#ff7f00",
+        1: "#e41a1c",
         2: "#984ea3",
-        3: "#ffff33",
-        4: "#e41a1c",
+        3: "#bfb600",
+        4: "#ff7f00",
         5: "#377eb8",
     }
 
@@ -549,9 +549,9 @@ def utopia(
 
     # Let's also generate a nice description for the map
     map_description = (
-        f"Tuotto hakkuista ensimmäisellä ajanjaksolla on {int(decision_variables["P_1"])}€. "
-        + f"Tuotto hakkuista toisella ajanjaksolla on {int(decision_variables["P_2"])}€. "
-        + f"Tuotto hakkuista kolmannella ajanjaksolla on {int(decision_variables["P_3"])}€. "
+        f"Tuotto hakkuista ensimmäisellä ajanjaksolla on {int(decision_variables["P_1"])}€.\n"
+        + f"Tuotto hakkuista toisella ajanjaksolla on {int(decision_variables["P_2"])}€.\n"
+        + f"Tuotto hakkuista kolmannella ajanjaksolla on {int(decision_variables["P_3"])}€.\n"
         + f"Metsän diskontattu arvo suunnittelujakson lopussa on {int(decision_variables["V_end"])}€."
     )
 

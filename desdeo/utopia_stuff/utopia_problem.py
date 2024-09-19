@@ -250,10 +250,10 @@ def utopia_problem(problem_name: str = "Forest problem", holding: int = 1) -> tu
         p3_func.append(exprs)
 
     for i in range(1, 4):
-        pvar = Variable(name=f"P_{i}", symbol=f"P_{i}", variable_type=VariableTypeEnum.real)
+        pvar = Variable(name=f"P_{i}", symbol=f"P_{i}", variable_type=VariableTypeEnum.real, lowerbound=0)
         variables.append(pvar)
 
-    vvar = Variable(name="V_end", symbol="V_end", variable_type=VariableTypeEnum.real)
+    vvar = Variable(name="V_end", symbol="V_end", variable_type=VariableTypeEnum.real, lowerbound=0)
     variables.append(vvar)
 
     # get the remainder value of the forest into decision variable V_end
