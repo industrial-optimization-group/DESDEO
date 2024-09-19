@@ -95,7 +95,7 @@ problem_in_db = db_models.Problem(
     kind=ProblemKind.CONTINUOUS,
     obj_kind=ObjectiveKind.ANALYTICAL,
     value=problem.model_dump(mode="json"),
-    role_permission=[UserRole.DM],
+    # role_permission=[UserRole.DM],
 )
 db.add(problem_in_db)
 
