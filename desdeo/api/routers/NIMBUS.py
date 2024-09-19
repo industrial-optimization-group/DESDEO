@@ -451,7 +451,13 @@ def utopia(
         if not key.startswith("X"):
             continue
         # The dict keys get converted to ints to strings when it's loaded from database
-        treatments = utopia_data.schedule_dict[key][str(decision_variables[key].index(1))]
+        try:
+            treatments = utopia_data.schedule_dict[key][str(decision_variables[key].index(1))]
+        except ValueError as e:
+            # if the optimization didn't choose any decision alternative, it's safe to assume
+            #  that nothing is being done at that forest stand
+            treatments = utopia_data.schedule_dict[key][0]
+            print(e)
         treatments_dict[key] = {"2025": 0, "2030": 0, "2035": 0}
         for year in treatments_dict[key]:
             if year in treatments:
