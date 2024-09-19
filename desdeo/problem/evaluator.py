@@ -2,6 +2,7 @@
 
 from enum import Enum
 
+import json
 import numpy as np
 import polars as pl
 import subprocess
@@ -61,7 +62,12 @@ class GenericEvaluator:
     #    and scalarization function valeus).
     # 6. End.
 
-    def __init__(self, problem: Problem, evaluator_mode: EvaluatorModesEnum = EvaluatorModesEnum.variables):
+    def __init__(
+        self,
+        problem: Problem,
+        params: dict | None = None,
+        evaluator_mode: EvaluatorModesEnum = EvaluatorModesEnum.variables
+    ):
         """Create an evaluator for a multiobjective optimization problem.
 
         By default, the evaluator expects a set of decision variables to
@@ -74,6 +80,7 @@ class GenericEvaluator:
 
         Args:
             problem (Problem): The problem as a pydantic 'Problem' data class.
+            params (dict, optional): Parameters for the simulator to be used. Defaults to None.
             evaluator_mode (str): The mode of evaluator used to parse the problem into a format
                 that can be evaluated. Default 'variables'.
         """
@@ -113,6 +120,10 @@ class GenericEvaluator:
         # Symbol and expression pairs of any scalarization functions
         self.scalarization_expressions = None
 
+        if self.evaluator_mode == EvaluatorModesEnum.simulator:
+            self.params = params
+            self.evaluate = self._evaluate_simulator
+
         # Note: `self.parser` is assumed to be set before continuing the initialization.
         self.parser = MathParser()
         self._polars_init()
@@ -122,8 +133,6 @@ class GenericEvaluator:
             self.evaluate = self._polars_evaluate
         elif self.evaluator_mode == EvaluatorModesEnum.discrete:
             self.evaluate = self._from_discrete_data
-        elif self.evaluator_mode == EvaluatorModesEnum.simulator:
-            self.evaluate = self._evaluate_simulator
         else:
             msg = f"Provided 'evaluator_mode' {evaluator_mode} not supported. Must be one of {EvaluatorModesEnum}."
 
@@ -369,15 +378,10 @@ class GenericEvaluator:
             np.ndarray: The objective values for the given decision variables.
                 The shape of the array is (k, m), where k is the number of objectives and m is the number of samples.
         """
-        res_array = []
-        xs_t = xs.T
-        for i in range(len(xs_t)):
-            # TODO: validate
-            # subprocess.run(f"{python_interpreter} {file_name} -d {decision_vars} -p {parameters}")
-            out = subprocess.run(f"{sys.executable} {"./simulator_file.py"} -d {xs_t[i]} -p params", check=True, capture_output=True).stdout.decode()
-            out = np.fromstring(out.replace('[', '').replace(']', ''), sep=',')
-            res_array.append(out)
-        return np.array(res_array)
+        print(np.shape(xs))
+        xs_json = json.dumps(xs.tolist())
+        res = subprocess.run(f"{sys.executable} {"./simulator_file.py"} -d {xs_json} -p {self.params}", check=True, capture_output=True).stdout.decode()
+        return np.array(json.loads(''.join(res)))
 
 
 def find_closest_points(
@@ -427,4 +431,5 @@ def find_closest_points(
 if __name__ == "__main__":
     from desdeo.problem import simple_linear_test_problem
     evaluator = GenericEvaluator(simple_linear_test_problem(), evaluator_mode=EvaluatorModesEnum.simulator)
-    _ = evaluator._evaluate_simulator(np.array([[0, 1], [4, 3], [0, 4]]))
+    res = evaluator._evaluate_simulator(np.array([[0, 1, 2, 3], [4, 3, 2, 1], [0, 4, 1, 3]]))
+    print(np.shape(res), res)
