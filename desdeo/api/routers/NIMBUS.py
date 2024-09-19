@@ -456,7 +456,7 @@ def utopia(
         except ValueError as e:
             # if the optimization didn't choose any decision alternative, it's safe to assume
             #  that nothing is being done at that forest stand
-            treatments = utopia_data.schedule_dict[key][0]
+            treatments = utopia_data.schedule_dict[key]["0"]
             print(e)
         treatments_dict[key] = {"2025": 0, "2030": 0, "2035": 0}
         for year in treatments_dict[key]:
