@@ -65,7 +65,7 @@ class GenericEvaluator:
     def __init__(
         self,
         problem: Problem,
-        params: dict | None = None,
+        params: dict[str, list] | None = None,
         evaluator_mode: EvaluatorModesEnum = EvaluatorModesEnum.variables
     ):
         """Create an evaluator for a multiobjective optimization problem.
@@ -80,7 +80,10 @@ class GenericEvaluator:
 
         Args:
             problem (Problem): The problem as a pydantic 'Problem' data class.
-            params (dict, optional): Parameters for the simulator to be used. Defaults to None.
+            params (dict[str, list], optional): Parameters for the simulator to be used.
+                A dict with the simulators name and the corresponding parameters as a list.
+                Only needed when the evaluator_mode is 'simulator'.
+                Defaults to None.
             evaluator_mode (str): The mode of evaluator used to parse the problem into a format
                 that can be evaluated. Default 'variables'.
         """
@@ -121,7 +124,17 @@ class GenericEvaluator:
         self.scalarization_expressions = None
 
         if self.evaluator_mode == EvaluatorModesEnum.simulator:
+            # Gather the possible simulators
+            self.simulators = problem.simulators
+            if self.simulators is None:
+                raise EvaluatorError("No simulators defined for the problem.")
             self.params = params
+            if self.params is not None:
+                for name in self.params:
+                    if name not in self.simulators:
+                        raise EvaluatorError(f"{name} not listed in the problem's simulators.")
+            else:
+                self.params = {}
             self.evaluate = self._evaluate_simulator
 
         # Note: `self.parser` is assumed to be set before continuing the initialization.
@@ -378,10 +391,23 @@ class GenericEvaluator:
             np.ndarray: The objective values for the given decision variables.
                 The shape of the array is (k, m), where k is the number of objectives and m is the number of samples.
         """
-        print(np.shape(xs))
         xs_json = json.dumps(xs.tolist())
-        res = subprocess.run(f"{sys.executable} {"./simulator_file.py"} -d {xs_json} -p {self.params}", check=True, capture_output=True).stdout.decode()
-        return np.array(json.loads(''.join(res)))
+        # TODO: add validation?
+
+        # objectives that have been simulated
+        # if not then either data_based, (surrogate) or analytical; use polars evaluator for them
+        sim_objs = []
+        for sim in self.simulators:
+            for obj in self.problem_objectives:
+                if obj.simulator_path == sim.file:
+                    sim_objs.append(obj.symbol)
+            params = self.params.get(sim.name, None)
+            res = subprocess.run(
+                f"{sys.executable} {sim.file} -d {xs_json} -p {params}", check=True, capture_output=True
+            ).stdout.decode()
+        """if len(sim_objs) == len(self.problem_objectives):
+            return np.array(json.loads(''.join(res)))"""
+        return np.array(json.loads(''.join(res))) # TODO: gather other objectives and return once all have values
 
 
 def find_closest_points(
@@ -429,7 +455,7 @@ def find_closest_points(
     return pl.DataFrame({f"{objective_symbol}": results})
 
 if __name__ == "__main__":
-    from desdeo.problem import simple_linear_test_problem
-    evaluator = GenericEvaluator(simple_linear_test_problem(), evaluator_mode=EvaluatorModesEnum.simulator)
+    from desdeo.problem import simulator_problem
+    evaluator = GenericEvaluator(simulator_problem(), evaluator_mode=EvaluatorModesEnum.simulator)
     res = evaluator._evaluate_simulator(np.array([[0, 1, 2, 3], [4, 3, 2, 1], [0, 4, 1, 3]]))
     print(np.shape(res), res)
