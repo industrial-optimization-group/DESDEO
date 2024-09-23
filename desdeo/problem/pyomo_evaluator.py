@@ -1,5 +1,7 @@
 """Defines an evaluator compatible with the Problem JSON format and transforms it into a Pyomo model."""
 
+import copy
+
 from operator import eq as _eq
 from operator import le as _le
 
@@ -295,7 +297,7 @@ class PyomoEvaluator:
             setattr(model, obj.symbol, pyomo_expr)
 
             # the obj.symbol_min objectives are used when optimizing and building scalarizations etc...
-            setattr(model, f"{obj.symbol}_min", -pyomo_expr if obj.maximize else pyomo_expr)
+            setattr(model, f"{obj.symbol}_min", (-1) * pyomo_expr if obj.maximize else pyomo_expr)
 
         return model
 
