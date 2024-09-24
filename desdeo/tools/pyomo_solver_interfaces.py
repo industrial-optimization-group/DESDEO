@@ -1,12 +1,15 @@
 """Defines solver interfaces for pyomo."""
 
+import itertools
+
+import numpy as np
 import pyomo.environ as pyomo
 from pydantic import BaseModel, ConfigDict, Field
 from pyomo.opt import SolverResults as _pyomo_SolverResults
 from pyomo.opt import SolverStatus as _pyomo_SolverStatus
 from pyomo.opt import TerminationCondition as _pyomo_TerminationCondition
 
-from desdeo.problem import Problem, PyomoEvaluator
+from desdeo.problem import Problem, PyomoEvaluator, TensorVariable
 from desdeo.tools.generics import BaseSolver, SolverResults
 
 
@@ -216,7 +219,21 @@ def parse_pyomo_optimizer_results(
     """
     results = evaluator.get_values()
 
-    variable_values = {var.symbol: results[var.symbol] for var in problem.variables}
+    variable_values = {}
+    for var in problem.variables:
+        if isinstance(var, TensorVariable):
+            # handle tensor variables
+            # 1-indexing in Pyomo...
+            values_list = np.zeros(var.shape)
+            for indices in itertools.product(*(range(1, dim + 1) for dim in var.shape)):
+                values_list[*[idx - 1 for idx in indices]] = results[var.symbol][
+                    indices if len(indices) > 1 else indices[0]
+                ]
+            variable_values[var.symbol] = values_list
+        else:
+            # variable_values = {var.symbol: results[var.symbol] for var in problem.variables}
+            variable_values[var.symbol] = results[var.symbol]
+
     objective_values = {obj.symbol: results[obj.symbol] for obj in problem.objectives}
     constraint_values = (
         {con.symbol: results[con.symbol] for con in problem.constraints} if problem.constraints else None
