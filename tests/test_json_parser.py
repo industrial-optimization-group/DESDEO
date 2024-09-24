@@ -967,6 +967,11 @@ def test_pyomo_basic_matrix_arithmetics():
     X_values = [1, 2, 3, 4, 5]
     Y_values = [-1, 1, 0, 1, -1]
 
+    col_vector_dims = (3, 1)
+    row_vector_dims = (1, 3)
+    col_vector_values = [[2], [3], [7]]
+    row_vector_values = [[9, 2, 4]]
+
     xmat_dims = (3, 3)
     ymat_dims = (3, 3)
     zmat_dims = (4, 3)
@@ -984,6 +989,18 @@ def test_pyomo_basic_matrix_arithmetics():
     )
     pyomo_model.Y = pyomo.Param(
         pyomo.RangeSet(1, Y_dims[0]), domain=pyomo.Reals, initialize=PyomoEvaluator._init_rule(Y_values)
+    )
+    pyomo_model.row_vector = pyomo.Param(
+        pyomo.RangeSet(1, row_vector_dims[0]),
+        pyomo.RangeSet(1, row_vector_dims[1]),
+        domain=pyomo.Reals,
+        initialize=PyomoEvaluator._init_rule(row_vector_values),
+    )
+    pyomo_model.col_vector = pyomo.Param(
+        pyomo.RangeSet(1, col_vector_dims[0]),
+        pyomo.RangeSet(1, col_vector_dims[1]),
+        domain=pyomo.Reals,
+        initialize=PyomoEvaluator._init_rule(col_vector_values),
     )
     pyomo_model.Xmat = pyomo.Var(
         pyomo.RangeSet(1, xmat_dims[0]),
@@ -1034,6 +1051,9 @@ def test_pyomo_basic_matrix_arithmetics():
         ("Ymat@Xmat", np.array(Ymat_values) @ np.array(Xmat_values)),
         ("Zmat@Xmat", np.array(Zmat_values) @ np.array(Xmat_values)),
         ("Vmat@Zmat", np.array(Vmat_values) @ np.array(Zmat_values)),
+        ("row_vector @ col_vector", np.array(row_vector_values) @ np.array(col_vector_values)),
+        ("row_vector @ Xmat", np.array(row_vector_values) @ np.array(Xmat_values)),
+        ("Xmat @ col_vector", np.array(Xmat_values) @ np.array(col_vector_values)),
         ("Vmat@Zmat@Xmat", np.array(Vmat_values) @ np.array(Zmat_values) @ np.array(Xmat_values)),
         ("Xmat + Ymat", np.array(Xmat_values) + np.array(Ymat_values)),  # matrix addition
         ("Ymat + Xmat", np.array(Ymat_values) + np.array(Xmat_values)),  # matrix addition

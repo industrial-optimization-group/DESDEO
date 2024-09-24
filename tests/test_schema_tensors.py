@@ -1,13 +1,6 @@
-from desdeo.problem import (
-    Problem,
-    Constant,
-    Constraint,
-    Objective,
-    PyomoEvaluator,
-    simple_knapsack_vectors,
-    TensorConstant,
-    TensorVariable,
-)
+import numpy as np
+
+from desdeo.problem import TensorConstant, TensorVariable, simple_knapsack_vectors
 
 
 def test_tensor_variable_init():
@@ -222,3 +215,79 @@ def test_tensor_constant_init():
 def test_tensor_problem_definition():
     """Test defining a problem with TensorVariable and TensorConstant."""
     problem = simple_knapsack_vectors()  # noqa: F841
+
+
+def test_get_values_list_single():
+    """Test that values can be get correctly from a TensorVariable.
+
+    Test that values can be get correctly from a TensorVariable when the
+    initial value and bounds have been defined using just a single value.
+    """
+    # Test 1D
+    xs = TensorVariable(
+        name="A",
+        symbol="A",
+        variable_type="integer",
+        shape=[3],
+        lowerbounds=4,
+        upperbounds=22,
+        initial_values=8,
+    )
+
+    lowerbounds = xs.get_lowerbound_values()
+    upperbounds = xs.get_upperbound_values()
+    initial_values = xs.get_initial_values()
+
+    assert lowerbounds == [4, 4, 4]
+    assert upperbounds == [22, 22, 22]
+    assert initial_values == [8, 8, 8]
+
+    # Test 2D
+    xs = TensorVariable(
+        name="X",
+        symbol="X",
+        variable_type="integer",
+        shape=[2, 3],
+        lowerbounds=4,
+        upperbounds=6,
+        initial_values=5,
+    )
+
+    lowerbounds = xs.get_lowerbound_values()
+    upperbounds = xs.get_upperbound_values()
+    initial_values = xs.get_initial_values()
+
+    assert lowerbounds == np.full([2, 3], 4).tolist()
+    assert upperbounds == np.full([2, 3], 6).tolist()
+    assert initial_values == np.full([2, 3], 5).tolist()
+
+    # Test 3D
+    xs = TensorVariable(
+        name="B",
+        symbol="B",
+        variable_type="integer",
+        shape=[2, 3, 4],
+        lowerbounds=-10,
+        upperbounds=24,
+        initial_values=12,
+    )
+
+    lowerbounds = xs.get_lowerbound_values()
+    upperbounds = xs.get_upperbound_values()
+    initial_values = xs.get_initial_values()
+
+    assert lowerbounds == np.full([2, 3, 4], -10).tolist()
+    assert upperbounds == np.full([2, 3, 4], 24).tolist()
+    assert initial_values == np.full([2, 3, 4], 12).tolist()
+
+    # test for constraint as well
+    xs = TensorConstant(
+        name="C",
+        symbol="C",
+        shape=[2, 2, 2],
+        values=42,
+    )
+
+    values = xs.get_values()
+
+    assert values == np.full([2, 2, 2], 42).tolist()
