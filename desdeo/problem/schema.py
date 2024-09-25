@@ -14,6 +14,7 @@ The problem definition is a JSON file that contains the following information:
 from collections import Counter
 from collections.abc import Iterable
 from enum import Enum
+from itertools import product
 from typing import Annotated, Any, Literal, TypeAliasType
 
 import numpy as np
@@ -59,7 +60,7 @@ def tensor_custom_error_validator(value: Any, handler: ValidatorFunctionWrapHand
 Tensor = TypeAliasType(
     "Tensor",
     Annotated[
-        list["Tensor"] | list[VariableType] | VariableType | Literal["List"],
+        list["Tensor"] | list[VariableType] | VariableType | Literal["List"] | None,
         WrapValidator(tensor_custom_error_validator),
     ],
 )
@@ -142,7 +143,7 @@ def parse_list_to_mathjson(cls: "TensorVariable", v: Tensor | VariableType | Non
         if isinstance(v[0], list):
             # recursive case, encountered list
             return ["List", *[parse_list_to_mathjson(TensorVariable, v_element) for v_element in v]]
-        if isinstance(v[0], VariableType):
+        if isinstance(v[0], VariableType | None):
             # terminal case, encountered a VariableType
             return ["List", *v]
 
@@ -309,6 +310,49 @@ class TensorConstant(BaseModel):
 
         return values
 
+    def to_constants(self) -> list[Constant]:
+        """Flatten the tensor into a list of Constants.
+
+        Returns:
+            list[Constant]: a list of Constants.
+        """
+        constants = []
+        for indices in list(product(*[range(1, dim + 1) for dim in self.shape])):
+            constants.append(self[*indices])
+
+        return constants
+
+    def __getitem__(self, indices: int | tuple[int]) -> Constant:
+        """Implements random access for TensorConstant.
+
+        Note:
+            Indexing is assumed to start at 1.
+
+        Args:
+            indices (int | Tuple[int]): a single integer or tuple of integers.
+
+        Returns:
+            Constant: A new instance of Constant that has been setup with
+                information found at the specified indices in the TensorConstant.
+        """
+        if isinstance(indices, tuple):
+            # multi-dimensional indexing
+            name = f"{self.name} at position {[*indices]}"
+            symbol = f"{self.symbol}_{"_".join(map(str, indices))}"
+
+            value = self.get_values()
+
+            for idx in indices:
+                value = value[idx - 1]
+
+        else:
+            # single indexing
+            name = f"{self.name} at position [{indices}]"
+            symbol = f"{self.symbol}_{indices}"
+            value = self.get_values()[indices - 1]
+
+        return Constant(name=name, symbol=symbol, value=value)
+
 
 class Variable(BaseModel):
     """Model for a variable."""
@@ -456,6 +500,63 @@ class TensorVariable(BaseModel):
             return np.full(self.shape, values).tolist()
 
         return values
+
+    def to_variables(self) -> list[Variable]:
+        """Flatten the tensor into a list of Variables.
+
+        Returns:
+            list[Constant]: a list of Variables.
+        """
+        variables = []
+        for indices in list(product(*[range(1, dim + 1) for dim in self.shape])):
+            variables.append(self[*indices])
+
+        return variables
+
+    def __getitem__(self, indices: int | tuple[int]) -> Variable:
+        """Implements random access for TensorVariable.
+
+        Note:
+            Indexing is assumed to start at 1.
+
+        Args:
+            indices (int | Tuple[int]): a single integer or tuple of integers.
+
+        Returns:
+            Variable: A new instance of Variable that has been setup with
+                information found at the specified indices in the TensorVariable.
+        """
+        if isinstance(indices, tuple):
+            # multi-dimensional indexing
+            name = f"{self.name} at position {[*indices]}"
+            symbol = f"{self.symbol}_{"_".join(map(str, indices))}"
+
+            lowerbound = self.get_lowerbound_values()
+            upperbound = self.get_upperbound_values()
+            initial_value = self.get_initial_values()
+
+            for idx in indices:
+                lowerbound = lowerbound[idx - 1]
+                upperbound = upperbound[idx - 1]
+                initial_value = initial_value[idx - 1]
+
+        else:
+            # single indexing
+            name = f"{self.name} at position [{indices}]"
+            symbol = f"{self.symbol}_{indices}"
+
+            lowerbound = self.get_lowerbound_values()[indices - 1]
+            upperbound = self.get_upperbound_values()[indices - 1]
+            initial_value = self.get_initial_values()[indices - 1]
+
+        return Variable(
+            name=name,
+            symbol=symbol,
+            variable_type=self.variable_type,
+            lowerbound=lowerbound,
+            upperbound=upperbound,
+            initial_value=initial_value,
+        )
 
 
 class ExtraFunction(BaseModel):

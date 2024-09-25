@@ -54,6 +54,7 @@ class MathParser:
         # Vector and matrix operations
         self.MATMUL: str = "MatMul"
         self.SUM: str = "Sum"
+        self.RANDOM_ACCESS = "At"
 
         # Exponentation and logarithms
         self.EXP: str = "Exp"
@@ -124,6 +125,13 @@ class MathParser:
             )
             raise NotImplementedError(msg)
 
+        def _polars_random_access(*args):
+            msg = (
+                "Tensor random access with 'At' has not been implemented for the Polars parser yet. "
+                "Feel free to contribute!"
+            )
+            raise NotImplementedError(msg)
+
         polars_env = {
             # Define the operations for the different operators.
             # Basic arithmetic operations
@@ -135,6 +143,7 @@ class MathParser:
             # Vector and matrix operations
             self.MATMUL: _polars_matmul,
             self.SUM: _polars_summation,
+            self.RANDOM_ACCESS: _polars_random_access,
             # Exponentiation and logarithms
             self.EXP: lambda x: pl.Expr.exp(to_expr(x)),
             self.LN: lambda x: pl.Expr.log(to_expr(x)),
@@ -361,6 +370,9 @@ class MathParser:
             """Sum an indexed Pyomo object."""
             return pyomo.sum_product(summand, index=summand.index_set())
 
+        def _pyomo_random_access(indexed, *indices):
+            return indexed[*indices]
+
         pyomo_env = {
             # Define the operations for the different operators.
             # Basic arithmetic operations
@@ -372,6 +384,7 @@ class MathParser:
             # Vector and matrix operations
             self.MATMUL: _pyomo_matrix_multiplication,
             self.SUM: _pyomo_summation,
+            self.RANDOM_ACCESS: _pyomo_random_access,
             # Exponentiation and logarithms
             self.EXP: lambda x: pyomo.exp(x),
             self.LN: lambda x: pyomo.log(x),
@@ -420,6 +433,13 @@ class MathParser:
             )
             raise NotImplementedError(msg)
 
+        def _sympy_random_access(*args):
+            msg = (
+                "Tensor random access with 'At' has not been implemented for the Sympy parser yet. "
+                "Feel free to contribute!"
+            )
+            raise NotImplementedError(msg)
+
         sympy_env = {
             # Basic arithmetic operations
             self.NEGATE: lambda x: -to_sympy_expr(x),
@@ -430,6 +450,7 @@ class MathParser:
             # Vector and matrix operations
             self.MATMUL: _sympy_matmul,
             self.SUM: _sympy_summation,
+            self.RANDOM_ACCESS: _sympy_random_access,
             # Exponentiation and logarithms
             self.EXP: lambda x: sp.exp(to_sympy_expr(x)),
             self.LN: lambda x: sp.log(to_sympy_expr(x)),
@@ -465,14 +486,16 @@ class MathParser:
 
         def _gurobipy_matmul(*args):
             """Gurobipy matrix multiplication."""
+
             def _matmul(a, b):
                 if isinstance(a, list):
                     a = np.array(a)
                 if isinstance(b, list):
                     b = np.array(b)
-                if len(np.shape(a@b)) == 1:
-                    return a@b
-                return (a@b).sum()
+                if len(np.shape(a @ b)) == 1:
+                    return a @ b
+                return (a @ b).sum()
+
             return reduce(_matmul, args)
             msg = (
                 "Matrix multiplication '@' has not been implemented for the Gurobipy parser yet."
@@ -482,14 +505,23 @@ class MathParser:
 
         def _gurobipy_summation(summand):
             """Gurobipy matrix summation."""
+
             def _sum(summand):
                 if isinstance(summand, list):
                     summand = np.array(summand)
                 return summand.sum()
+
             return _sum(summand)
             msg = (
                 "Matrix summation 'Sum' has not been implemented for the Gurobipy parser yet."
                 " Feel free to contribute!"
+            )
+            raise NotImplementedError(msg)
+
+        def _gurobipy_random_access(*args):
+            msg = (
+                "Tensor random access with 'At' has not been implemented for the Gurobipy parser yet. "
+                "Feel free to contribute!"
             )
             raise NotImplementedError(msg)
 
@@ -504,6 +536,7 @@ class MathParser:
             # Vector and matrix operations
             self.MATMUL: _gurobipy_matmul,
             self.SUM: _gurobipy_summation,
+            self.RANDOM_ACCESS: _gurobipy_random_access,
             # Exponentiation and logarithms
             # it would be possible to implement some of these with the special functions that
             # gurobi has to offer, but they would only work under specific circumstances

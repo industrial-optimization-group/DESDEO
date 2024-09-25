@@ -1100,6 +1100,138 @@ def test_pyomo_basic_matrix_arithmetics():
         )
 
 
+@pytest.mark.pyomo
+def test_pyomo_tensor_bracket_access():
+    """Test that the "At" operator is parsed correctly in the for pyomo."""
+    pyomo_model = pyomo.ConcreteModel()
+
+    X_dims = (5,)
+    X_values = [1, 2, 3, 4, 5]
+
+    col_vector_dims = (3, 1)
+    row_vector_dims = (1, 3)
+    col_vector_values = [[2], [3], [7]]
+    row_vector_values = [[9, 2, 4]]
+
+    xmat_dims = (3, 3)
+    Xmat_values = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+
+    x = 2.8
+    c = 0.5
+
+    pyomo_model.X = pyomo.Var(
+        pyomo.RangeSet(1, X_dims[0]), domain=pyomo.Reals, initialize=PyomoEvaluator._init_rule(X_values)
+    )
+    pyomo_model.row_vector = pyomo.Param(
+        pyomo.RangeSet(1, row_vector_dims[0]),
+        pyomo.RangeSet(1, row_vector_dims[1]),
+        domain=pyomo.Reals,
+        initialize=PyomoEvaluator._init_rule(row_vector_values),
+    )
+    pyomo_model.col_vector = pyomo.Param(
+        pyomo.RangeSet(1, col_vector_dims[0]),
+        pyomo.RangeSet(1, col_vector_dims[1]),
+        domain=pyomo.Reals,
+        initialize=PyomoEvaluator._init_rule(col_vector_values),
+    )
+    pyomo_model.Xmat = pyomo.Var(
+        pyomo.RangeSet(1, xmat_dims[0]),
+        pyomo.RangeSet(1, xmat_dims[1]),
+        domain=pyomo.Reals,
+        initialize=PyomoEvaluator._init_rule(Xmat_values),
+    )
+    pyomo_model.x = pyomo.Var(domain=pyomo.Reals, initialize=x)
+    pyomo_model.c = pyomo.Param(domain=pyomo.Reals, default=c)
+
+    tests = [
+        ("X[3]", np.array(X_values)[3 - 1]),
+        ("Xmat[3, 2]", np.array(Xmat_values)[3 - 1, 2 - 1]),
+        ("X[1]", np.array(X_values)[1 - 1]),
+        ("X[5]", np.array(X_values)[5 - 1]),
+        ("Xmat[1, 1]", np.array(Xmat_values)[1 - 1, 1 - 1]),
+        ("Xmat[3, 3]", np.array(Xmat_values)[3 - 1, 3 - 1]),
+        ("row_vector[1, 2]", np.array(row_vector_values)[1 - 1, 2 - 1]),
+        ("col_vector[2, 1]", np.array(col_vector_values)[2 - 1, 1 - 1]),
+        ("X[4] + Xmat[2, 2]", np.array(X_values)[4 - 1] + np.array(Xmat_values)[2 - 1, 2 - 1]),
+        ("Xmat[1, 3] * X[2]", np.array(Xmat_values)[1 - 1, 3 - 1] * np.array(X_values)[2 - 1]),
+        (
+            "Sin(X[1]) + Cos(Xmat[2, 2])",
+            np.sin(np.array(X_values)[1 - 1]) + np.cos(np.array(Xmat_values)[2 - 1, 2 - 1]),
+        ),
+        (
+            "Tan(row_vector[1, 3]) * col_vector[1, 1]",
+            np.tan(np.array(row_vector_values)[1 - 1, 3 - 1]) * np.array(col_vector_values)[1 - 1, 1 - 1],
+        ),
+        (
+            "Exp(X[3]) + Ln(Abs(Xmat[1, 2]))",
+            np.exp(np.array(X_values)[3 - 1]) + np.log(np.abs(np.array(Xmat_values)[1 - 1, 2 - 1])),
+        ),
+        (
+            "Sqrt(X[2]**2 + Xmat[3, 1]**2)",
+            np.sqrt(np.array(X_values)[2 - 1] ** 2 + np.array(Xmat_values)[3 - 1, 1 - 1] ** 2),
+        ),
+        (
+            "Max(X[1], Xmat[2, 3], col_vector[3, 1])",
+            np.max(
+                [
+                    np.array(X_values)[1 - 1],
+                    np.array(Xmat_values)[2 - 1, 3 - 1],
+                    np.array(col_vector_values)[3 - 1, 1 - 1],
+                ]
+            ),
+        ),
+        (
+            "Ceil(X[4]) + Floor(Xmat[1, 3])",
+            np.ceil(np.array(X_values)[4 - 1]) + np.floor(np.array(Xmat_values)[1 - 1, 3 - 1]),
+        ),
+        (
+            "Arcsin(X[2] / 10) + Arccos(Xmat[3, 3] / 10)",
+            np.arcsin(np.array(X_values)[2 - 1] / 10) + np.arccos(np.array(Xmat_values)[3 - 1, 3 - 1] / 10),
+        ),
+        (
+            "Sinh(X[5] / 10) * Cosh(row_vector[1, 1] / 10)",
+            np.sinh(np.array(X_values)[5 - 1] / 10) * np.cosh(np.array(row_vector_values)[1 - 1, 1 - 1] / 10),
+        ),
+        (
+            "LogOnePlus(Abs(Xmat[2, 1])) + Lb(Max(X[3], 2))",
+            np.log1p(np.abs(np.array(Xmat_values)[2 - 1, 1 - 1])) + np.log2(np.max([np.array(X_values)[3 - 1], 2])),
+        ),
+        (
+            "Max(Sin(X[1]), Cos(Xmat[2, 2]), Tan(col_vector[1, 1]))",
+            np.max(
+                [
+                    np.sin(np.array(X_values)[1 - 1]),
+                    np.cos(np.array(Xmat_values)[2 - 1, 2 - 1]),
+                    np.tan(np.array(col_vector_values)[1 - 1, 1 - 1]),
+                ]
+            ),
+        ),
+    ]
+
+    pyomo_parser = MathParser(to_format="pyomo")
+    infix_parser = InfixExpressionParser()
+
+    for str_expr, result in tests:
+        json_expr = infix_parser.parse(str_expr)
+        pyomo_expr = pyomo_parser.parse(json_expr, pyomo_model)
+
+        npt.assert_array_almost_equal(
+            [pyomo.value(pyomo_expr[i]) for i in pyomo_expr.index_set()]
+            if hasattr(pyomo_expr, "index_set") and pyomo_expr.index_set().dimen == 1
+            else [
+                [pyomo.value(pyomo_expr[i, j]) for j in pyomo_expr.index_set().set_tuple[1]]
+                for i in pyomo_expr.index_set().set_tuple[0]
+            ]
+            if hasattr(pyomo_expr, "index_set") and pyomo_expr.index_set().dimen == 2
+            else pyomo.value(pyomo_expr),
+            result,
+            err_msg=(
+                f"Test failed for {str_expr=}, with "
+                f"{str(pyomo_expr) if isinstance(pyomo_expr, pyomo.Expression) else pyomo_expr}"
+            ),
+        )
+
+
 @pytest.mark.sympy
 def test_parse_sympy_basic_arithmetics():
     """Check that the JSON parser correctly parses MathJSON to sympy expressions."""
