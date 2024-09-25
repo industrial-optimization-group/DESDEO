@@ -75,6 +75,105 @@ where $x_1 \in [0.5, 4]$ and $x_2 \in [4, 50]$. The parameters are defined as $\
 
 Here is an approximation of the hatch cover design problem's Pareto front:
 
+## UTOPIA forest problem
+
+The UTOPIA forest problem aims to find climate-smart solutions. It is a three-objective problem
+with the objectives representing the net present value, wood volume at the end of the planning
+period and the profit from harvesting. As seen in the following formulation, all these objectives
+are to be maximized.
+
+The UTOPIA forest problem is defined as follows:
+
+$$\begin{align}
+    \max_{\mathbf{x}} & \quad \sum_{j=1}^N\sum_{i \in I_j} v_{ij} x_{ij} & \\
+    & \quad \sum_{j=1}^N\sum_{i \in I_j} w_{ij} x_{ij} & \\
+    & \quad \sum_{j=1}^N\sum_{i \in I_j} p_{ij} x_{ij} & \\
+    \text{s.t.} & \quad \sum\limits_{i \in I_j} x_{ij} = 1, & \forall j = 1 \ldots N \\
+    & \quad x_{ij}\in \{0,1\}& \forall j = 1 \ldots N, ~\forall i\in I_j,
+\end{align}$$
+
+where $x_{ij}$ are decision variables representing the choice of implementing management plan $i$ in stand $j$,
+and $I_j$ is the set of available management plans for stand $j$. For each plan $i$ in stand $j$
+the net present value, wood volume at the end of the planning period, and the profit from harvesting
+are represented by $v_{ij}$, $w_{ij}$, and $p_{ij}$ respectively.
+
+### Implementation
+
+The implemented problem takes one compulsory argument `data` and two optional arguments, `holding` and `comparing`.
+The `data` argument is a list of strings that has the locations of (or paths to) the two data files used in the problem definition.
+In index 1 (as second element in the list) should be the "key" file.
+The second argument `holding` is an integer value representing the number of the holding in question and defaults to 1.
+The third argument `comparing` is a boolean value meant for testing purposes to compare the results gained with this implemetation
+to the ones from a previous implementation.
+This argument is therefore only relevant in testing the formulation and defaults to False.
+
+In the problem implementation, the decision variables are defined as vectors $\mathbf{X}_i$, where $i$ is the number of
+unique units in the holding in question, and the number of elements in each decision variable represents the
+number of unique management schedules in the holding.
+Each element in the decision variables is a binary, that can only have the values 0 or 1.
+As only one plan is ultimately chosen for each unit, only one element can have value 1 in each decision variable.
+A decision variable could look like this:
+
+`X_4 = [0, 0, 0, 1, 0]`,
+
+where the fourth management plan would be executed for the unit with index 4.
+
+### Usage
+
+To use the UTOPIA forest problem, first you need to import and initialize the problem.
+
+```python
+from desdeo.problem import forest_problem
+
+problem = forest_problem(data=["./tests/data/alternatives_290124.csv", "./tests/data/alternatives_key_290124.csv"], holding=2)
+```
+
+Above, we first import the problem and then initialize it for holding number 2.
+The data files in DESDEO are located in the `tests/data` directory.
+
+When using the UTOPIA forest problem, to see if it is used correctly, you can try optimizing one objective at a time
+and see whether the objective values match the ideal values of the objectives.
+The ideal values for each objective can be found in the problem definition and can be accessed in code as follows:
+
+```python
+ideal = problem.get_ideal_point()
+```
+
+The above returns the ideal values as a python dict. For holding 2 the ideal would be
+
+```python
+{'f_1': 42937.004, 'f_2': 2489.819, 'f_3': 53632.887}
+```
+
+You can then test optimizing each objective separately by using one of the solvers in DESDEO (that supports tensors)
+and seeing if the results match each corresponding ideal value.
+If testing a new solver, replace `GurobipySolver` in the following example with the new solver.
+
+```python
+import numpy as np
+from desdeo.problem import objective_dict_to_numpy_array
+from desdeo.tools import GurobipySolver # you can replace this with any solver that supports tensors
+
+# initialize the solver
+solver = GurobipySolver(problem) # again, replace GurobipySolver with the solver being tested
+
+# optimize each objective separately
+f_1_results = solver.solve("f_1_min").optimal_objectives # always solve using <objective_symbol>_min
+f_2_results = solver.solve("f_2_min").optimal_objectives
+f_3_results = solver.solve("f_3_min").optimal_objectives
+
+# gather the results into an array
+results = [f_1_results["f_1"], f_2_results["f_2"], f_3_results["f_3"]]
+
+# turn the ideal dict into a numpy array for comparing purposes
+ideal_array = objective_dict_to_numpy_array(problem, ideal)
+
+# check that the results are close to the ideal values
+np.allclose(results, ideal_array)
+```
+
+If everything works, `np.allclose(results, ideal_array)` returns `True`.
+
 ## References
 [1]: Cheng, F. Y., & Li, X. S. (1999). Generalized center method for multiobjective engineering optimization. Engineering Optimization, 31(5), 641-661.
 
