@@ -7,10 +7,10 @@ the modeled multiobjective optimization problem.
 
 Here, we will first discuss the parsing and the parsers found in DESDEO in
 section [Parsing and parsers](#parsing-and-parsers). Then, we will discuss the
-solvers available in DESDEO for solving multiobjective optimization
+evaluators available in DESDEO for evaluating multiobjective optimization
 problems in section [Evaluating and evaluators](#evaluating-and-evaluators).
 After these sections, the reader should have a basic understanding on how 
-the problems defined in DESDEO are solved.
+the problems defined in DESDEO are evaluated.
 
 ## Parsing and parsers
 
@@ -23,8 +23,9 @@ can understand. These kind of parsers can be found in the [JSON parser][desdeo.p
 module.
 
 The [MathParser][desdeo.problem.json_parser.MathParser] handles parsing of the problem format
-into a polars format or a pyomo format. In the polars format, the problem is represented by
-polars expressions. Likewise, in the pyomo format, the problem is represented as a pyomo model.
+into a polars format, a pyomo format, a sympy format, or a gurobipy format.
+In the polars and sympy formats, the problem is represented by polars and sympy expressions.
+Likewise, in the pyomo and gurobipy formats, the problem is represented as a pyomo or gurobipy model.
 This allows different solvers to handle the problems we have defined in DESDEO.
 
 ### From other formats to the problem format
@@ -117,17 +118,23 @@ If the `variables` mode is used, then a polars evaluator is utilized. As the
 name suggests, the polars evaluator utilizes polars dataframes to represent a
 problem and evaluate it. The function expression found in the problem are parsed
 to polars expression. This allows any Python-based solver to evaluate the
-problem with given decision variable values.
+problem with given decision variable values. The polars evaluator currently
+supports variables that are either scalar valued or 2D-vector valued
+(basically one dimensional TensorVariables).
+Higher dimensions on the decision variables are not supported.
 
 If the `discrete` mode is used, then the problem is expected to be completely
 defined by decision and objective vector pairs. When the problem is then
 evaluated with a given set of decision variable vectors, the closest vectors are
 searched for in the problem's discrete representation, and the corresponding
-objective function values are then returned.
+objective function values are then returned. The discrete evaluator only
+supports scalar valued variables, not TensorVariables, at the moment.
 
 The generic evaluator is utilized by solvers that do not expect, or require, the
 exact formulation of the problem. That is, heuristics based and gradient-free
-solvers.
+solvers. At the moment, these solvers implemented in DESDEO are
+the [`Scipy solvers`][desdeo.tools.scipy_solver_interfaces] and
+the [`ProximalSolver`][desdeo.tools.proximal_solver].
 
 !!! Info
     For more info about polars, see [the polars documentation](https://pola.rs/).
@@ -138,9 +145,13 @@ solvers.
 The [`PyomoEvaluator`][desdeo.problem.pyomo_evaluator.PyomoEvaluator] transforms
 a problem into a pyomo model. This enables the usage of many external solvers,
 such as the ones found in the [COIN-OR project](https://www.coin-or.org/) to be
-utilized in DESDEO.  Unlike the generic evaluator, the pyomo evaluator does not
-expect decision variables, instead, it provided a pyomo model that external
+utilized in DESDEO.
+Unlike the generic evaluator, the pyomo evaluator does not
+expect decision variables, instead, it provides a pyomo model that external
 solvers can then utilize to solve the original problem.
+The pyomo solvers implemented in DESDEO can be found in the
+[pyomo solver interfaces][desdeo.tools.pyomo_solver_interfaces]. The pyomo evaluator
+supports variables that are higher dimensional tensors (TensorVariables) as well.
 
 !!! Note
     Currently, the pyomo evaluator utilized only concrete pyomo models (ConcreteModel).
@@ -148,12 +159,26 @@ solvers can then utilize to solve the original problem.
 !!! Info
     For more info about pyomo, see [the pyomo documentation](https://pyomo.readthedocs.io/en/stable/).
 
+### The sympy evaluator
+
+TODO.
+
+### The gurobipy evaluator
+
+The [`GurobipyEvaluator`][desdeo.problem.gurobipy_evaluator.GurobipyEvaluator]
+transforms a problem into a Gurobipy model. This model is then used in optimization
+through the [`GurobipySolver`][desdeo.tools.gurobipy_solver_interfaces]. The gurobipy evaluator
+supports variables that are higher dimensional tensors (TensorVariables) as well.
+
+!!! Info
+    For more info about gurobi, see [the gurobi documentation](https://www.gurobi.com/documentation/).
 
 ## Where to go next?
 
 You can keep studying the various parsers found
 in the modules [JSON parser][desdeo.problem.json_parser] and [Infix parser][desdeo.problem.infix_parser],
-and the evalutors found in the modules [Generic evaluator][desdeo.problem.evaluator] and
-[Pyomo evaluator][desdeo.problem.pyomo_evaluator]. If you are interested in how to
+and the evalutors found in the modules [Generic evaluator][desdeo.problem.evaluator],
+[Pyomo evaluator][desdeo.problem.pyomo_evaluator] and
+[GurobipyEvaluator][desdeo.problem.gurobipy_evaluator]. If you are interested in how to
 solve a multiobjective optimization problem, then the section [Scalarization](./scalarization.md)
 is a good place to check out.
