@@ -47,4 +47,13 @@ hide:
 
     [:octicons-arrow-right-24: Test problems](./test_problems.md)
 
+-   :octicons-info-24:{ .lg .middle } __Group of decision makers logic__
+
+    ---
+
+    Learn about how group of decision makers server/client set up
+
+    [:octicons-arrow-right-24: Group of decision makers logic](./group_dm_logic.md)
+
+
 </div>
