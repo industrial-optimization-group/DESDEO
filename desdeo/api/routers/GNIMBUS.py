@@ -171,6 +171,7 @@ def init_nimbus(
 
     problem_id = init_request.problem_id
     method_id = init_request.method_id
+    print("AT METHOID_PRINT", method_id)
     problem = db.query(ProblemInDB).filter(ProblemInDB.id == problem_id).first()
 
     if problem is None:
@@ -231,6 +232,22 @@ def init_nimbus(
             upper_bounds[i] = nadir[problem.objectives[i].symbol]
 
     # return FakeNIMBUSResponse(message="NIMBUS initialized.")
+    resp = NIMBUSFullResponse(
+        objective_symbols=[obj.symbol for obj in problem.objectives],
+        objective_long_names=[obj.name for obj in problem.objectives],
+        units=[obj.unit for obj in problem.objectives],
+        is_maximized=[obj.maximize for obj in problem.objectives],
+        lower_bounds=lower_bounds,
+        upper_bounds=upper_bounds,
+        previous_preference=current_solution.objectives,
+        current_solutions={sol.id: sol.objectives for sol in solutions if sol.current},
+        to_vote=len([sol.id for sol in solutions if sol.to_vote and sol.current]) > 0,
+        saved_solutions={sol.id: sol.objectives for sol in solutions if sol.saved},
+        all_solutions={sol.id: sol.objectives for sol in solutions},
+        chosen_solutions={sol.id: sol.objectives for sol in solutions if sol.chosen}
+    )
+    print(resp)
+
     return NIMBUSFullResponse(
         objective_symbols=[obj.symbol for obj in problem.objectives],
         objective_long_names=[obj.name for obj in problem.objectives],
@@ -487,6 +504,8 @@ async def iterate(
     problem_id = requests[0].problem_id
     method_id = requests[0].method_id
 
+    print("at iterate method_id", method_id)
+
     problem = await db.first(select(ProblemInDB).filter_by(id=problem_id))
     if problem is None:
         raise HTTPException(status_code=404, detail="Problem not found.")
@@ -503,7 +522,7 @@ async def iterate(
         # Save the given preferences
         for r in requests:
             pref = Preference(
-                user=user.index, problem=problem_id, method=method_id, kind="NIMBUS", value=r.model_dump(mode="json")
+                user=user.index, problem=problem_id, method=method_id, kind="GNIMBUS", value=r.model_dump(mode="json")
             )
             await db.add(pref)
 
@@ -587,6 +606,13 @@ async def iterate(
 
             current_solutions = {sol.id: sol.objectives for sol in old_current_solutions if sol.current}'''
 
+    res = NIMBUSIterateResponse(
+        previous_preference=requests[0].preference,
+        current_solutions=current_solutions,
+        all_solutions=all_solutions,
+    )
+
+    print(res)
     return NIMBUSIterateResponse(
         previous_preference=requests[0].preference,
         current_solutions=current_solutions,

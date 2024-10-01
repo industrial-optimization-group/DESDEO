@@ -9,7 +9,7 @@ from sqlalchemy_utils import create_database, database_exists, drop_database
 from desdeo.api import db_models
 from desdeo.api.db import Base, SessionLocal, engine
 from desdeo.api.routers.UserAuth import get_password_hash
-from desdeo.api.schema import ObjectiveKind, ProblemKind, UserPrivileges, UserRole
+from desdeo.api.schema import Methods, ObjectiveKind, ProblemKind, UserPrivileges, UserRole
 from desdeo.problem.schema import DiscreteRepresentation, Objective, Problem, Variable
 from desdeo.problem.testproblems import binh_and_korn, nimbus_test_problem, river_pollution_problem
 
@@ -81,7 +81,7 @@ problem_in_db = db_models.Problem(
     kind=ProblemKind.CONTINUOUS,
     obj_kind=ObjectiveKind.ANALYTICAL,
     value=problem.model_dump(mode="json"),
-    # role_permission=[],
+    role_permission=[UserRole.DM],
 )
 
 db.add(problem_in_db)
@@ -200,6 +200,24 @@ def fakeProblemDontLook():
         objectives=[npv, sv30, removal1, removal2, removal3],
         discrete_representation=dis_def,
     )
+
+# I guess we need to have methods in the database as well
+nimbus = db_models.Method(
+    kind=Methods.NIMBUS,
+    properties=[],
+    name="NIMBUS",
+)
+db.add(nimbus)
+db.commit()
+
+# I guess we need to have methods in the database as well
+gnimbus = db_models.Method(
+    kind=Methods.GNIMBUS,
+    properties=[],
+    name="GNIMBUS",
+)
+db.add(gnimbus)
+db.commit()
 
 
 # luke_problem = fakeProblemDontLook()

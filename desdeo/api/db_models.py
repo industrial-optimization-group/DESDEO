@@ -87,7 +87,8 @@ class Preference(Base):
     user = mapped_column(Integer, ForeignKey("user.id"), nullable=False)
     problem = mapped_column(Integer, ForeignKey("problem.id"), nullable=False)
     previous_preference = mapped_column(Integer, ForeignKey("preference.id"), nullable=True)
-    method = mapped_column(Integer, ForeignKey("method.id"), nullable=False)
+    #method = mapped_column(Integer, ForeignKey("method.id"), nullable=False)
+    method = mapped_column(Integer, ForeignKey("method.id"), nullable=True)
     kind: Mapped[str]  # Depends on the method
     value = mapped_column(JSON, nullable=False)
 
@@ -99,7 +100,8 @@ class MethodState(Base):
     id: Mapped[int] = mapped_column(primary_key=True, unique=True)
     user = mapped_column(Integer, ForeignKey("user.id"), nullable=False)
     problem = mapped_column(Integer, ForeignKey("problem.id"), nullable=False)
-    method = mapped_column(Integer, ForeignKey("method.id"), nullable=False)  # Honestly, this can just be a string.
+    #method = mapped_column(Integer, ForeignKey("method.id"), nullable=False)  # Honestly, this can just be a string.
+    method = mapped_column(Integer, ForeignKey("method.id"), nullable=True)
     preference = mapped_column(Integer, ForeignKey("preference.id"), nullable=True)
     value = mapped_column(JSON, nullable=False)  # Depends on the method.
 
@@ -159,7 +161,8 @@ class GSolutionArchive(Base):
     id: Mapped[int] = mapped_column(primary_key=True, unique=True)
     user = mapped_column(Integer, ForeignKey("user.id"), nullable=False)
     problem = mapped_column(Integer, ForeignKey("problem.id"), nullable=False)
-    method = mapped_column(Integer, ForeignKey("method.id"), nullable=False)
+    #method = mapped_column(Integer, ForeignKey("method.id"), nullable=False)
+    method = mapped_column(Integer, ForeignKey("method.id"), nullable=True)
     preference = mapped_column(Integer, ForeignKey("preference.id"), nullable=True)
     # To be able to save variables and tensor variables
     decision_variables = mapped_column(JSONEncoded, nullable=True)

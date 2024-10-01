@@ -55,6 +55,8 @@ async def save_request(
     requestModel = REQUEST_MODELS[requestToSave.method][requestToSave.request_type]
     request = requestModel(**requestToSave.dict())
 
+    print("at requ", request)
+
     row = MethodState(
         user=user.index,
         problem=request.problem_id,

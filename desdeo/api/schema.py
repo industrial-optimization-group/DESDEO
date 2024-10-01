@@ -43,6 +43,7 @@ class Methods(Enum):
     """Enum of methods."""
 
     NIMBUS = "nimbus"
+    GNIMBUS = "gnimbus"
     NAUTILUS = "nautilus"
     NAUT_NAVIGATOR = "NAUTILUS navigator"
     NAUTILUSII = "nautilusII"
