@@ -1,5 +1,7 @@
 """General utilities related to solvers."""
 
+import shutil
+
 from desdeo.problem import (
     ObjectiveTypeEnum,
     Problem,
@@ -8,17 +10,17 @@ from desdeo.problem import (
     variable_dimension_enumerate,
 )
 
-from .generics import BaseSolver
-from .gurobipy_solver_interfaces import GurobipySolver
-from .ng_solver_interfaces import NevergradGenericSolver
-from .proximal_solver import ProximalSolver
-from .pyomo_solver_interfaces import (
+from desdeo.tools.generics import BaseSolver
+from desdeo.tools.gurobipy_solver_interfaces import GurobipySolver
+from desdeo.tools.ng_solver_interfaces import NevergradGenericSolver
+from desdeo.tools.proximal_solver import ProximalSolver
+from desdeo.tools.pyomo_solver_interfaces import (
     PyomoBonminSolver,
     PyomoCBCSolver,
     PyomoGurobiSolver,
     PyomoIpoptSolver,
 )
-from .scipy_solver_interfaces import ScipyDeSolver, ScipyMinimizeSolver
+from desdeo.tools.scipy_solver_interfaces import ScipyDeSolver, ScipyMinimizeSolver
 
 available_solvers = {
     "scipy_minimize": ScipyMinimizeSolver,
@@ -64,20 +66,22 @@ def find_compatible_solvers(problem: Problem) -> list[BaseSolver]:
         return [available_solvers["proximal"]]
 
     # check if the problem is differentiable and if it is mixed integer
-    if problem.is_twice_differentiable and problem.variable_domain in [
+    if problem.is_twice_differentiable and shutil.which("bonmin") and problem.variable_domain in [
         VariableDomainTypeEnum.integer,
         VariableDomainTypeEnum.mixed,
     ]:
         solvers.append(available_solvers["pyomo_bonmin"]) # bonmin has to be installed
 
     # check if the problem is differentiable and continuous
-    if problem.is_twice_differentiable and problem.variable_domain in [VariableDomainTypeEnum.continuous]:
+    if problem.is_twice_differentiable and shutil.which("ipopt") and problem.variable_domain in [VariableDomainTypeEnum.continuous]:
         solvers.append(available_solvers["pyomo_ipopt"]) # ipopt has to be installed
 
     # check if the problem is linear
     if problem.is_linear:
         solvers.append(available_solvers["gurobipy"])
+    if problem.is_linear and shutil.which("gurobi"):
         solvers.append(available_solvers["pyomo_gurobi"]) # gurobi has to be installed
+    if problem.is_linear and shutil.which("cbc"):
         solvers.append(available_solvers["pyomo_cbc"])
 
     # check if problem's variables are all scalars
