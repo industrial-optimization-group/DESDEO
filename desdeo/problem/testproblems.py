@@ -1798,6 +1798,41 @@ def forest_problem(holding: int = 1, comparing: bool = False) -> Problem:
     )
 
 
+def simulator_problem():
+    from desdeo.problem import Simulator
+    vars = [
+        Variable(name="x_1", symbol="x_1", variable_type=VariableTypeEnum.integer),
+        Variable(name="x_2", symbol="x_2", variable_type=VariableTypeEnum.integer),
+        Variable(name="x_3", symbol="x_3", variable_type=VariableTypeEnum.integer),
+    ]
+    f1 = Objective(
+        name="f_1",
+        symbol="f_1",
+        simulator_path="./simulator_file.py",
+        objective_type=ObjectiveTypeEnum.simulator
+    )
+    f2 = Objective(
+        name="f_2",
+        symbol="f_2",
+        simulator_path="./simulator_file2.py",
+        objective_type=ObjectiveTypeEnum.simulator
+    )
+    f3 = Objective(
+        name="f_3",
+        symbol="f_3",
+        simulator_path="./simulator_file.py",
+        objective_type=ObjectiveTypeEnum.simulator
+    )
+    return Problem(
+        name="Simulator problem",
+        description="",
+        variables=vars,
+        objectives=[f1,f2,f3],
+        simulators=[Simulator(name="s1", file=Path("./simulator_file.py"), parameter_options={}),
+                    Simulator(name="s2", file=Path("./simulator_file2.py"), parameter_options={})]
+    )
+
+
 if __name__ == "__main__":
     problem = simple_scenario_test_problem()
     print(problem.model_dump_json(indent=2))

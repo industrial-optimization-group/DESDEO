@@ -228,6 +228,8 @@ class ObjectiveTypeEnum(str, Enum):
     objective is present in a `Problem`, then there is a
     `DiscreteRepresentation` available with values representing the objective
     function."""
+    simulator = "simulator"
+    surrogate = "surrogate"
 
 
 class Constant(BaseModel):
@@ -1308,6 +1310,18 @@ class Problem(BaseModel):
     to a subset of objectives, " "constraints, extra functions, and
     scalarization functions that have the same scenario key defined to them."
     "If None, then the problem is assumed to not contain scenarios."""
+    simulators: list[Simulator] | None = Field(
+        description=(
+            "Optional. The simulators used by the problem. Required when there are one or more "
+            "Objectives defined by simulators. The corresponding values of the 'simulator' objective "
+            "function will be fetched from these simulators with the given variable values."
+        ),
+        default=None
+    )
+    """Optional. The simulators used by the problem. Required when there are one or more
+    Objectives defined by simulators. The corresponding values of the 'simulator' objective
+    function will be fetched from these simulators with the given variable values.
+    Defaults to `None`."""
 
 
 if __name__ == "__main__":

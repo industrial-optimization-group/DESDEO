@@ -5,9 +5,7 @@ import numpy as np
 
 
 def simulator(xs: np.ndarray, params: dict):
-    fun1 = xs[0] * 2 + xs[1]
-    fun2 = xs[1] * 2 + xs[0]
-    return np.array([fun1.tolist(), fun2.tolist()])
+    return xs[0] * 2 - xs[1]
 
 if __name__ == "__main__":
     missing_arg = False

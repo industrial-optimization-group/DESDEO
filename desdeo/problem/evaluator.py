@@ -101,6 +101,10 @@ class GenericEvaluator:
         self.problem_constants = problem.constants
         # Gather the objective functions
         self.problem_objectives = problem.objectives
+        self.analytical_objectives = list(filter(lambda x: x.objective_type == ObjectiveTypeEnum.analytical, problem.objectives))
+        self.data_based_objectives = list(filter(lambda x: x.objective_type == ObjectiveTypeEnum.data_based, problem.objectives))
+        self.simulator_objectives = list(filter(lambda x: x.objective_type == ObjectiveTypeEnum.simulator, problem.objectives))
+        self.surrogate_objectives = list(filter(lambda x: x.objective_type == ObjectiveTypeEnum.surrogate, problem.objectives))
         # Gather any constraints
         self.problem_constraints = problem.constraints
         # Gather any extra functions
@@ -394,20 +398,20 @@ class GenericEvaluator:
         xs_json = json.dumps(xs.tolist())
         # TODO: add validation?
 
-        # objectives that have been simulated
-        # if not then either data_based, (surrogate) or analytical; use polars evaluator for them
-        sim_objs = []
+        results = []
         for sim in self.simulators:
-            for obj in self.problem_objectives:
-                if obj.simulator_path == sim.file:
-                    sim_objs.append(obj.symbol)
             params = self.params.get(sim.name, None)
             res = subprocess.run(
                 f"{sys.executable} {sim.file} -d {xs_json} -p {params}", check=True, capture_output=True
             ).stdout.decode()
-        """if len(sim_objs) == len(self.problem_objectives):
-            return np.array(json.loads(''.join(res)))"""
-        return np.array(json.loads(''.join(res))) # TODO: gather other objectives and return once all have values
+            results.append(np.array(json.loads(''.join(res))))
+        return np.concatenate(results, axis=1)
+
+    def evaluate(self, xs: dict):
+        analytical_objs = self._polars_evaluate(xs['analytical'])
+        data_objs = self._from_discrete_data()
+        simulator_objs = self._evaluate_simulator(xs['simulator'])
+        #surrogate_objs = self._evaluate_surrogate(xs['surrogate'])
 
 
 def find_closest_points(
@@ -458,4 +462,5 @@ if __name__ == "__main__":
     from desdeo.problem import simulator_problem
     evaluator = GenericEvaluator(simulator_problem(), evaluator_mode=EvaluatorModesEnum.simulator)
     res = evaluator._evaluate_simulator(np.array([[0, 1, 2, 3], [4, 3, 2, 1], [0, 4, 1, 3]]))
-    print(np.shape(res), res)
+    #print(np.shape(res), res)
+    print(res)
