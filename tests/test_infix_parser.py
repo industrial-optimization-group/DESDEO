@@ -6,7 +6,7 @@ import polars as pl
 import pytest
 from fixtures.utils import timer  # noqa: F401
 
-from desdeo.problem.evaluator import GenericEvaluator
+from desdeo.problem.evaluator import PolarsEvaluator
 from desdeo.problem.infix_parser import InfixExpressionParser
 from desdeo.problem.json_parser import MathParser
 from desdeo.problem.schema import Constant, Constraint, Objective, Problem, Variable
@@ -290,11 +290,11 @@ def test_infix_binh_and_korn_to_json():
 
     truth_problem = binh_and_korn()
 
-    infix_evaluator = GenericEvaluator(infix_problem)
-    truth_evaluator = GenericEvaluator(truth_problem)
+    infix_evaluator = PolarsEvaluator(infix_problem)
+    truth_evaluator = PolarsEvaluator(truth_problem)
 
     # some test data to evaluate the expressions
-    xs_dict = {"x_1": [1, 2.5, 4.2], "x_2": [0.5, 1.5, 2.5]}
+    xs_dict = {"x_1": [1.0, 2.5, 4.2], "x_2": [0.5, 1.5, 2.5]}
 
     infix_result = infix_evaluator.evaluate(xs_dict).to_dict(as_series=False)
     truth_result = truth_evaluator.evaluate(xs_dict).to_dict(as_series=False)

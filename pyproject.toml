@@ -14,7 +14,7 @@ python = "^3.12"
 # Math stuff
 numpy = "^1.26.2"
 scipy = "^1.11.4"
-polars = { version = "^0.19.19", optional = true }
+polars = "^1.0"
 polars-lts-cpu = { version = "^0.19.19", optional = true }
 pyarrow = "^15.0.0"
 numba = "^0.59.0"
@@ -204,6 +204,7 @@ markers = [
     "patterns: tests related to the publisher-subscriber pattern",
     "forest_problem: tests related to the forest problem examples.",
     "group_scalarization: tests related to group scalarization functions and utilities.",
+    "polars: test related to the polars evaluator and math parser.",
 ]
 pythonpath = "."
 

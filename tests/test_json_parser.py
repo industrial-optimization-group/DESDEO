@@ -1,6 +1,5 @@
 """Tests for the MathJSON parser."""
 
-from collections.abc import Iterable
 import copy
 import json
 import math
@@ -14,7 +13,7 @@ import pyomo.environ as pyomo
 import pytest
 import sympy as sp
 
-from desdeo.problem import GenericEvaluator, PyomoEvaluator
+from desdeo.problem import PolarsEvaluator, PyomoEvaluator
 from desdeo.problem.infix_parser import InfixExpressionParser
 from desdeo.problem.json_parser import FormatEnum, MathParser, replace_str
 from desdeo.problem.schema import (
@@ -194,7 +193,7 @@ def test_binh_and_korn():
     parsed_con2 = parser.parse(con2_expr)
 
     # some test data to evaluate the expressions
-    data = pl.DataFrame({"x_1": [1, 2.5, 4.2], "x_2": [0.5, 1.5, 2.5]})
+    data = pl.DataFrame({"x_1": [1.0, 2.5, 4.2], "x_2": [0.5, 1.5, 2.5]})
 
     result = data.select(
         parsed_f1.alias("f_1"), parsed_f2.alias("f_2"), parsed_con1.alias("g_1"), parsed_con2.alias("g_2")
@@ -213,8 +212,9 @@ def test_binh_and_korn():
     npt.assert_array_almost_equal(result["g_2"], truth["g_2_t"])
 
 
+@pytest.mark.polars
 def test_binh_and_korn_w_evaluator():
-    """Basic test of the Binh and Korn problem with the GenericEvaluator.
+    """Basic test of the Binh and Korn problem with the Polars evaluator.
 
     Test replacement of constants in both objectives and constraints.
     Test correct evaluation results of the Binh and Korn problem.
@@ -223,10 +223,10 @@ def test_binh_and_korn_w_evaluator():
 
     original_problem = copy.deepcopy(problem)
 
-    evaluator = GenericEvaluator(problem)
+    evaluator = PolarsEvaluator(problem)
 
     # some test data to evaluate the expressions
-    xs_dict = {"x_1": [1, 2.5, 4.2], "x_2": [0.5, 1.5, 2.5]}
+    xs_dict = {"x_1": [1.0, 2.5, 4.2], "x_2": [0.5, 1.5, 2.5]}
 
     result = evaluator.evaluate(xs_dict).to_dict(as_series=False)
 
@@ -249,11 +249,12 @@ def test_binh_and_korn_w_evaluator():
     assert original_problem == problem
 
 
+@pytest.mark.polars
 def test_extra_functions_problem_w_evaluator(extra_functions_problem):
-    """Test the GenericEvaluator with polars that it handles extra functions correctly."""
+    """Test the PolarsEvaluator with polars that it handles extra functions correctly."""
     problem = extra_functions_problem
 
-    evaluator = GenericEvaluator(problem)
+    evaluator = PolarsEvaluator(problem)
 
     # to test correct evaluation
     xs_dict = {"x_1": [2.4, -3.0, 5.5], "x_2": [5.2, 1.1, -9.4]}
@@ -1641,4 +1642,138 @@ def test_parse_sympy_max():
 
         npt.assert_almost_equal(
             f(*variables, *constants), result, err_msg=(f"Test failed for {str_expr=}, with " f"{sympy_expr=}.")
+        )
+
+
+@pytest.mark.polars
+def test_polars_random_access():
+    """Test the polars math evaluator with tensor variables and constants, and operations."""
+    x_1 = np.array([20, 30])
+    x_2 = np.array([5, 8])
+    x_3 = np.array([60, 21])
+    X = np.array([[1, 2, 3], [4, 5, 6]])
+    Y = np.array([[[10, 20], [30, 40]], [[50, 60], [70, 80]]])
+
+    data = pl.DataFrame(
+        {
+            "x_1": x_1,
+            "x_2": x_2,
+            "x_3": x_3,
+            "X": X,
+            "Y": Y,
+        }
+    )
+
+    json_parser = MathParser(to_format=FormatEnum.polars)
+    infix_parser = InfixExpressionParser()
+
+    tests = [
+        ("x_1 + x_2 - Y[1, 2]", x_1 + x_2 - Y[:, 0, 1]),
+        ("X[1] * x_3", X[:, 0] * x_3),
+        ("Tan(X[2]) / x_2", np.tan(X[:, 1]) / x_2),
+        ("Y[2, 1] - Y[1, 2]", Y[:, 1, 0] - Y[:, 0, 1]),
+        ("Sqrt(X[1]**2 + X[2]**2)", np.sqrt(X[:, 0] ** 2 + X[:, 1] ** 2)),
+        ("Max(Y[1, 1], Y[2, 2], x_3)", np.maximum(np.maximum(Y[:, 0, 0], Y[:, 1, 1]), x_3)),
+        ("(x_1 + x_2) * (x_3 - X[3])", (x_1 + x_2) * (x_3 - X[:, 2])),
+        ("(X[1] + Y[1, 2]) / (X[2] - Y[2, 1])", (X[:, 0] + Y[:, 0, 1]) / (X[:, 1] - Y[:, 1, 0])),
+    ]
+
+    for infix_expr, result in tests:
+        json_expr = infix_parser.parse(infix_expr)
+        polars_expr = json_parser.parse(json_expr)
+
+        polars_result = data.select(polars_expr).to_numpy().T.squeeze()
+
+        npt.assert_almost_equal(polars_result, result, err_msg=f"Test failed for expression {infix_expr}")
+
+
+@pytest.mark.polars
+def test_polars_matrix_arithmetics():
+    """Test the Polars math evaluator with matrix operations and arithmetics."""
+    X = np.array([[1, 2, 3, 4.0, 5], [6, 7, 8, 9, 10]])
+    Y = np.array([[-1, 1, 0, 1, -1], [2.0, -2, 1, 0, 1]])
+    Xmat = np.array([[[1, 2, 3], [4, 5, 6], [7, 8, 9]], [[2, 3, 4], [5, 6, 7], [8, 9, 10]]])
+    Ymat = np.array([[[1, -2, 3.1], [-3.3, 5, -6], [7.1, 4.2, 6.9]], [[2.1, -3, 4.2], [-4.4, 6, -7], [8.2, 5.3, 7.8]]])
+    Zmat = np.array(
+        [
+            [[1.5, -2.3, 3.8], [-3.7, 5.2, -6.1], [7.4, 4.5, 6.2], [0.1, -0.4, 1.3]],
+            [[2.5, -3.3, 4.8], [-4.7, 6.2, -7.1], [8.4, 5.5, 7.2], [1.1, -1.4, 2.3]],
+        ]
+    )
+    Vmat = np.array([[[1.5, -2.3, 3.8, 0.9]], [[2.5, -3.3, 4.8, 1.9]]])
+
+    data = pl.DataFrame(
+        {
+            "X": X,
+            "Y": Y,
+            "Xmat": Xmat,
+            "Ymat": Ymat,
+            "Zmat": Zmat,
+            "Vmat": Vmat,
+        }
+    )
+
+    tests = [
+        ("X + Y", [np.add(X[i], Y[i]) for i in range(2)]),
+        ("X @ Y", [np.matmul(X[i], Y[i]) for i in range(2)]),
+        ("Y @ X", [np.matmul(Y[i], X[i]) for i in range(2)]),
+        ("5 * (Y @ X)", [5 * np.matmul(Y[i], X[i]) for i in range(2)]),
+        ("X @ Y - 3", [np.matmul(X[i], Y[i]) - 3 for i in range(2)]),
+        ("X * 5", [X[i] * 5 for i in range(2)]),
+        ("5 * X", [5 * X[i] for i in range(2)]),
+        ("Xmat * Ymat", [Xmat[i] * Ymat[i] for i in range(2)]),
+        ("Ymat * Xmat * 4", [Ymat[i] * Xmat[i] * 4 for i in range(2)]),
+        ("Xmat @ Ymat", [Xmat[i] @ Ymat[i] for i in range(2)]),
+        ("Ymat @ Xmat", [Ymat[i] @ Xmat[i] for i in range(2)]),
+        ("Zmat @ Xmat", [Zmat[i] @ Xmat[i] for i in range(2)]),
+        ("Vmat @ Zmat", [Vmat[i] @ Zmat[i] for i in range(2)]),
+        ("Vmat @ Zmat @ Xmat", [Vmat[i] @ Zmat[i] @ Xmat[i] for i in range(2)]),
+        ("Xmat + Ymat", [Xmat[i] + Ymat[i] for i in range(2)]),
+        ("Ymat + Xmat", [Ymat[i] + Xmat[i] for i in range(2)]),
+        ("Xmat - Ymat", [Xmat[i] - Ymat[i] for i in range(2)]),
+        ("Ymat - Xmat", [Ymat[i] - Xmat[i] for i in range(2)]),
+        ("Sum(Ymat)", [np.sum(Ymat[i]) for i in range(2)]),
+        ("Cos(5) * (Ymat + Xmat)", [np.cos(5) * (Ymat[i] + Xmat[i]) for i in range(2)]),
+        (
+            "Cos(7) * (Ymat + 2 * Xmat - Ymat) * Sin(7)",
+            [np.cos(7) * (Ymat[i] + 2 * Xmat[i] - Ymat[i]) * np.sin(7) for i in range(2)],
+        ),
+        (
+            "Sum(Vmat) * (Zmat @ (Xmat + 3 * Ymat) @ -Xmat)",
+            [np.sum(Vmat[i]) * (Zmat[i] @ (Xmat[i] + 3 * Ymat[i]) @ -Xmat[i]) for i in range(2)],
+        ),
+        ("X / 5", [X[i] / 5 for i in range(2)]),
+        ("Xmat / Ymat", [Xmat[i] / Ymat[i] for i in range(2)]),
+        ("1 / (Xmat + Ymat)", [1 / (Xmat[i] + Ymat[i]) for i in range(2)]),
+        ("Xmat / (Xmat @ Ymat)", [Xmat[i] / (Xmat[i] @ Ymat[i]) for i in range(2)]),
+        ("(Xmat @ Ymat) / Ymat", [(Xmat[i] @ Ymat[i]) / Ymat[i] for i in range(2)]),
+        ("Sum(Vmat) / (Zmat @ Xmat)", [np.sum(Vmat[i]) / (Zmat[i] @ Xmat[i]) for i in range(2)]),
+        # More complex operations
+        (
+            "(Xmat @ Ymat) / (Xmat + Ymat) + Sin(Xmat)",
+            [(Xmat[i] @ Ymat[i]) / (Xmat[i] + Ymat[i]) + np.sin(Xmat[i]) for i in range(2)],
+        ),
+        (
+            "Cos(Sum(Vmat)) * (Xmat / Ymat) @ Ymat",
+            [np.cos(np.sum(Vmat[i])) * (Xmat[i] / Ymat[i]) @ Ymat[i] for i in range(2)],
+        ),
+        ("(X @ Y) / (5 * Sum(Zmat))", [(X[i] @ Y[i]) / (5 * np.sum(Zmat[i])) for i in range(2)]),
+        (
+            "(Xmat + Ymat) / (Ymat - Xmat) * Cos(7)",
+            [(Xmat[i] + Ymat[i]) / (Ymat[i] - Xmat[i]) / np.cos(7) for i in range(2)],
+        ),
+    ]
+
+    json_parser = MathParser(to_format=FormatEnum.polars)
+    infix_parser = InfixExpressionParser()
+
+    for infix_expr, expected_result in tests:
+        json_expr = infix_parser.parse(infix_expr)
+        polars_expr = json_parser.parse(json_expr)
+        polars_result = np.array(data.select(polars_expr).to_series().to_numpy())
+
+        np.testing.assert_allclose(
+            polars_result,
+            np.array(expected_result, dtype=float),
+            err_msg=f"Test failed for expression: {infix_expr}",
         )

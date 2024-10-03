@@ -8,7 +8,7 @@ References:
 
 import numpy as np
 
-from desdeo.problem import GenericEvaluator, Problem, VariableType, variable_dict_to_numpy_array
+from desdeo.problem import PolarsEvaluator, Problem, VariableType, variable_dict_to_numpy_array
 from desdeo.tools import (
     BaseSolver,
     SolverOptions,
@@ -91,7 +91,7 @@ def solve_intermediate_solutions(  # noqa: PLR0913
 
     # evaluate the intermediate points to get reference points
     # TODO(gialmisi): an evaluator might have to be selected depending on the problem
-    evaluator = GenericEvaluator(problem)
+    evaluator = PolarsEvaluator(problem)
 
     reference_points: list[dict[str, float]] = (
         evaluator.evaluate(xs).select([obj.symbol for obj in problem.objectives]).to_dicts()

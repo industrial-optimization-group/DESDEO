@@ -2,7 +2,7 @@
 
 import polars as pl
 
-from desdeo.problem import EvaluatorModesEnum, GenericEvaluator, Problem
+from desdeo.problem import PolarsEvaluatorModesEnum, PolarsEvaluator, Problem
 from desdeo.tools.generics import BaseSolver, SolverResults
 
 
@@ -30,7 +30,7 @@ class ProximalSolver(BaseSolver):
                 This function then returns the results of the optimization as in a `SolverResults` dataclass.
         """
         self.problem = problem
-        self.evaluator = GenericEvaluator(problem, evaluator_mode=EvaluatorModesEnum.discrete)
+        self.evaluator = PolarsEvaluator(problem, evaluator_mode=PolarsEvaluatorModesEnum.discrete)
 
     def solve(self, target: str) -> SolverResults:
         """Solve the problem for the given target.

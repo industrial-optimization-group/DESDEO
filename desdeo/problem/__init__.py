@@ -51,7 +51,7 @@ __all__ = [
     "zdt1",
 ]
 
-from .evaluator import EvaluatorModesEnum, GenericEvaluator
+from .evaluator import PolarsEvaluatorModesEnum, PolarsEvaluator
 from .gurobipy_evaluator import GurobipyEvaluator
 from .infix_parser import InfixExpressionParser
 from .json_parser import FormatEnum, MathParser

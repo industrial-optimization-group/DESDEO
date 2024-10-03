@@ -80,6 +80,11 @@ class IpoptOptions(BaseModel):
     max_iter: int = Field(description="Maximum number of iterations. Must be >1. Defaults to 3000.", default=3000)
     """Maximum number of iterations. Must be >1. Defaults to 3000."""
 
+    print_level: str = Field(
+        description="The verbosity level of the solver's output. Ranges between 0 and 12. Defaults to 5.", default=5
+    )
+    """The verbosity level of the solver's output. Ranges between 0 and 12."""
+
 
 class CbcOptions(BaseModel):
     """Defines a pydantic dataclass to pass options to the CBC solver.
@@ -349,7 +354,7 @@ class PyomoIpoptSolver(BaseSolver):
         """
         self.evaluator.set_optimization_target(target)
 
-        opt = pyomo.SolverFactory("ipopt", tee=True)
+        opt = pyomo.SolverFactory("ipopt", tee=True, options=self.options.dict())
         opt_res = opt.solve(self.evaluator.model)
         return parse_pyomo_optimizer_results(opt_res, self.problem, self.evaluator)
 
