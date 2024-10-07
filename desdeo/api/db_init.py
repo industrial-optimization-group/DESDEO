@@ -12,7 +12,7 @@ from desdeo.api.routers.UserAuth import get_password_hash
 from desdeo.api.schema import Methods, ObjectiveKind, ProblemKind, Solvers, UserPrivileges, UserRole
 from desdeo.problem.schema import DiscreteRepresentation, Objective, Problem, Variable
 from desdeo.problem.testproblems import binh_and_korn, forest_problem, nimbus_test_problem, river_pollution_problem
-from desdeo.utopia_stuff.utopia_problem import utopia_problem
+from desdeo.utopia_stuff.utopia_problem_old import utopia_problem_old
 
 TEST_USER = "test"
 TEST_PASSWORD = "test"  # NOQA: S105 # TODO: Remove this line and create a proper user creation system.
@@ -99,7 +99,7 @@ problem_in_db = db_models.Problem(
 )
 db.add(problem_in_db)
 
-problem, schedule_dict = utopia_problem(holding=1)
+problem, schedule_dict = utopia_problem_old(holding=1)
 problem_in_db = db_models.Problem(
     owner=user.id,
     name="Test 5",
@@ -114,7 +114,15 @@ db.commit()
 # The info about the map and decision alternatives now goes into the database
 with open("desdeo/utopia_stuff/data/1.json") as f:  # noqa: PTH123
     forest_map = f.read()
-map_info = db_models.Utopia(problem=problem_in_db.id, user=user.id, map_json=forest_map, schedule_dict=schedule_dict)
+map_info = db_models.Utopia(
+    problem=problem_in_db.id,
+    user=user.id,
+    map_json=forest_map,
+    schedule_dict=schedule_dict,
+    years=["2025", "2030", "2035"],
+    stand_id_field="standnumbe",
+    stand_descriptor="standnumbe",
+)
 db.add(map_info)
 
 # I guess we need to have methods in the database as well

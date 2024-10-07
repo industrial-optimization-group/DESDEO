@@ -2,7 +2,7 @@
 
 # TODO: ADD TIMESTAMP COLUMNS TO ALL TABLES
 
-from sqlalchemy import Enum, ForeignKey, Integer
+from sqlalchemy import Enum, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import ARRAY, FLOAT, JSON, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -155,7 +155,10 @@ class Utopia(Base):
 
     __tablename__ = "utopia"
     id: Mapped[int] = mapped_column(primary_key=True, unique=True)
-    problem = mapped_column(Integer, ForeignKey("problem.id"), nullable=False)
-    user = mapped_column(Integer, ForeignKey("user.id"), nullable=False)
+    problem: Mapped[int] = mapped_column(Integer, ForeignKey("problem.id"), nullable=False)
+    user: Mapped[int] = mapped_column(Integer, ForeignKey("user.id"), nullable=False)
     map_json: Mapped[str] = mapped_column(nullable=False)
     schedule_dict = mapped_column(JSONB, nullable=False)
+    years: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False)
+    stand_id_field: Mapped[str] = mapped_column(String, nullable=False)
+    stand_descriptor: Mapped[str] = mapped_column(String, nullable=False)
