@@ -63,7 +63,6 @@ class UtopiaRequest(BaseModel):
 
     problem_id: int = Field(description="The ID of the problem to be solved.")
     solution: list[float] = Field(description="The solution for which the map is generated.")
-    years: list[str] = Field(description="List of years that the map is supposed to represent.")
 
 
 class NIMBUSIterateRequest(BaseModel):
@@ -480,7 +479,7 @@ def utopia(
     map_name = "ForestMap"  # This isn't visible anywhere on the ui
 
     options = {}
-    for year in request.years:
+    for year in utopia_data.years:
         options[year] = {
             "tooltip": {
                 "trigger": "item",
