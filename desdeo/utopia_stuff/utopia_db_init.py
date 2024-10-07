@@ -128,4 +128,6 @@ for name in fo_dict:
     )
     db.add(problem_access)
 
+    db.commit()
+
 db.close()
