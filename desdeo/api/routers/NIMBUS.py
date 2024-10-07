@@ -55,6 +55,7 @@ class UtopiaResponse(BaseModel):
     map_json: dict[str, Any] = Field(description="MapJSON representation of the geography.")
     options: dict[str, Any] = Field(description="A dict with given years as keys containing options for each year.")
     description: str = Field(description="Description shown above the map.")
+    years: list[str] = Field(description="A list of years for which the maps have been generated.")
 
 
 class UtopiaRequest(BaseModel):
@@ -458,7 +459,7 @@ def utopia(
             #  that nothing is being done at that forest stand
             treatments = utopia_data.schedule_dict[key]["0"]
             print(e)
-        treatments_dict[key] = {"2025": 0, "2030": 0, "2035": 0}
+        treatments_dict[key] = {utopia_data.years[0]: 0, utopia_data.years[1]: 0, utopia_data.years[2]: 0}
         for year in treatments_dict[key]:
             if year in treatments:
                 for part in treatments.split():
@@ -503,7 +504,7 @@ def utopia(
                 "left": "left",
                 "top": "top",
                 "feature": {
-                    "dataView": {"readOnly": False},
+                    "dataView": {"readOnly": True},
                     "restore": {},
                     "saveAsImage": {},
                 },
@@ -515,7 +516,7 @@ def utopia(
                     "type": "map",
                     "roam": True,
                     "map": map_name,
-                    "nameProperty": "standnumbe",
+                    "nameProperty": utopia_data.stand_id_field,
                     "colorBy": "data",
                     "itemStyle": {"symbol": "triangle", "color": "red"},
                     "data": [],
@@ -556,7 +557,11 @@ def utopia(
     )
 
     return UtopiaResponse(
-        map_name=map_name, options=options, map_json=json.loads(utopia_data.map_json), description=map_description
+        map_name=map_name,
+        options=options,
+        map_json=json.loads(utopia_data.map_json),
+        description=map_description,
+        years=utopia_data.years,
     )
 
 
