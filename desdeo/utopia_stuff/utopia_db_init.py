@@ -81,7 +81,7 @@ with open("C:/MyTemp/data/forest_owners.json") as file:  # noqa: PTH123
 def generate_descriptions(mapjson: dict, id: str, descriptor: str) -> dict:
     descriptions = {}
     for feat in mapjson["features"]:
-        descriptions[feat[id]] = "Kuvio numero " + feat[descriptor] + " "
+        descriptions[feat["properties"][id]] = "Kuvio numero " + str(feat["properties"][descriptor]) + " "
     return descriptions
 
 
