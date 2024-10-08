@@ -539,7 +539,7 @@ def utopia(  # noqa: C901, PLR0912
             )
             # name = "Stand " + str(stand) + " " + description_dict[treatment_id]
             if utopia_data.stand_descriptor:
-                name = utopia_data.stand_descriptor[stand] + description_dict[treatment_id]
+                name = utopia_data.stand_descriptor[str(stand)] + description_dict[treatment_id]
             else:
                 name = "Kuvio " + str(stand) + " " + description_dict[treatment_id]
             options[year]["series"][0]["data"].append(
