@@ -5,6 +5,7 @@ import shutil
 from desdeo.problem import (
     ObjectiveTypeEnum,
     Problem,
+    TensorVariable,
     VariableDimensionEnum,
     VariableDomainTypeEnum,
     variable_dimension_enumerate,
@@ -112,6 +113,24 @@ def guess_best_solver(problem: Problem) -> BaseSolver:
 
     # check if problem has a discrete definition
     has_discrete = problem.discrete_representation is not None
+
+    if TensorVariable in problem.variables:
+        if problem.is_linear and shutil.which("cbc"):
+            return available_solvers["pyomo_cbc"]
+
+        if problem.is_linear:
+            return available_solvers["gurobipy"]
+
+        # check if the problem is differentiable and if it is mixed integer
+        if problem.is_twice_differentiable and shutil.which("bonmin") and problem.variable_domain in [
+            VariableDomainTypeEnum.integer,
+            VariableDomainTypeEnum.mixed,
+        ]:
+            return available_solvers["pyomo_bonmin"]
+
+        # check if the problem is differentiable and continuous
+        if problem.is_twice_differentiable and shutil.which("ipopt") and problem.variable_domain in [VariableDomainTypeEnum.continuous]:
+            return available_solvers["pyomo_ipopt"]
 
     if all_data_based and has_discrete:
         # problem has only data-based objectives and a discrete definition is available
