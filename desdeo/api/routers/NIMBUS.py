@@ -548,7 +548,7 @@ def utopia(  # noqa: C901, PLR0912
                     "value": treatment_id,
                 }
             )
-            options[year]["series"][0]["nameMap"][stand] = name
+            options[year]["series"][0]["nameMap"][stand] = description_dict[treatment_id]
 
     # Let's also generate a nice description for the map
     map_description = (
