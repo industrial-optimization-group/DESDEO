@@ -485,6 +485,7 @@ def utopia(
                 "trigger": "item",
                 "showDelay": 0,
                 "transitionDuration": 0.2,
+                "formatter": "{name}",  # Simple formatting can be done here, but complex stuff must happen in frontend
             },
             "visualMap": {  # // vis eg. stock levels
                 "left": "right",
