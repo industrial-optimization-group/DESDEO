@@ -384,7 +384,7 @@ def choose(
 
 
 @router.post("/utopia")
-def utopia(
+def utopia(  # noqa: C901, PLR0912
     request: UtopiaRequest,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -485,7 +485,6 @@ def utopia(
                 "trigger": "item",
                 "showDelay": 0,
                 "transitionDuration": 0.2,
-                "formatter": "{name}",  # Simple formatting can be done here, but complex stuff must happen in frontend
             },
             "visualMap": {  # // vis eg. stock levels
                 "left": "right",
@@ -539,7 +538,10 @@ def utopia(
                 }
             )
             # name = "Stand " + str(stand) + " " + description_dict[treatment_id]
-            name = "Kuvio " + str(stand) + " " + description_dict[treatment_id]
+            if utopia_data.stand_descriptor:
+                name = utopia_data.stand_descriptor[stand] + description_dict[treatment_id]
+            else:
+                name = "Kuvio " + str(stand) + " " + description_dict[treatment_id]
             options[year]["series"][0]["data"].append(
                 {
                     "name": name,

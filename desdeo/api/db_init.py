@@ -121,7 +121,6 @@ map_info = db_models.Utopia(
     schedule_dict=schedule_dict,
     years=["2025", "2030", "2035"],
     stand_id_field="standnumbe",
-    stand_descriptor="standnumbe",
 )
 db.add(map_info)
 

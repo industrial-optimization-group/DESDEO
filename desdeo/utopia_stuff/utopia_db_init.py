@@ -45,7 +45,6 @@ for name in userdict:
         schedule_dict=schedule_dict,
         years=["2025", "2030", "2035"],
         stand_id_field="standnumbe",
-        stand_descriptor="standnumbe",
     )
     db.add(map_info)
 
@@ -77,6 +76,14 @@ The json file contents look something like this
 """
 with open("C:/MyTemp/data/forest_owners.json") as file:  # noqa: PTH123
     fo_dict = json.load(file)
+
+
+def generate_descriptions(mapjson: dict, id: str, descriptor: str) -> dict:
+    descriptions = {}
+    for feat in mapjson["features"]:
+        descriptions[feat[id]] = "Kuvio numero " + feat[descriptor] + " "
+    return descriptions
+
 
 for name in fo_dict:
     print(name)
@@ -118,7 +125,9 @@ for name in fo_dict:
         schedule_dict=schedule_dict,
         years=["5", "10", "20"],
         stand_id_field=fo_dict[name]["stand_id"],
-        stand_descriptor=fo_dict[name]["stand_descriptor"],
+        stand_descriptor=generate_descriptions(
+            json.loads(forest_map), fo_dict[name]["stand_id"], fo_dict[name]["stand_descriptor"]
+        ),
     )
     db.add(map_info)
 

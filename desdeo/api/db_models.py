@@ -161,4 +161,4 @@ class Utopia(Base):
     schedule_dict = mapped_column(JSONB, nullable=False)
     years: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False)
     stand_id_field: Mapped[str] = mapped_column(String, nullable=False)
-    stand_descriptor: Mapped[str] = mapped_column(String, nullable=False)
+    stand_descriptor = mapped_column(JSONB, nullable=True)
