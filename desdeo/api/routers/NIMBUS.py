@@ -516,10 +516,10 @@ def utopia(  # noqa: C901, PLR0912
                     "roam": True,
                     "map": map_name,
                     "nameProperty": utopia_data.stand_id_field,
-                    "colorBy": "data",
-                    "itemStyle": {"symbol": "triangle", "color": "red"},
+                    # "colorBy": "data",
+                    # "itemStyle": {"symbol": "triangle", "color": "red"},
                     "data": [],
-                    # "nameMap": {},
+                    "nameMap": {},
                 }
             ],
         }
@@ -548,7 +548,7 @@ def utopia(  # noqa: C901, PLR0912
                     "value": treatment_id,
                 }
             )
-            # options[year]["series"][0]["nameMap"][stand] = name
+            options[year]["series"][0]["nameMap"][stand] = name
 
     # Let's also generate a nice description for the map
     map_description = (
