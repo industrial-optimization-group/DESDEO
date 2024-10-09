@@ -529,17 +529,17 @@ def utopia(  # noqa: C901, PLR0912
                 continue
             stand = int(utopia_data.schedule_dict[key]["unit"])
             treatment_id = treatments_dict[key][year]
-            options[year]["visualMap"]["pieces"].append(
-                {
-                    "value": treatment_id,
-                    "symbol": "circle",
-                    "label": description_dict[treatment_id],
-                    "color": treatment_colors[treatment_id],
-                }
-            )
+            piece = {
+                "value": treatment_id,
+                "symbol": "circle",
+                "label": description_dict[treatment_id],
+                "color": treatment_colors[treatment_id],
+            }
+            if piece not in options[year]["visualMap"]["pieces"]:
+                options[year]["visualMap"]["pieces"].append(piece)
             # name = "Stand " + str(stand) + " " + description_dict[treatment_id]
             if utopia_data.stand_descriptor:
-                name = utopia_data.stand_descriptor[stand] + description_dict[treatment_id]
+                name = utopia_data.stand_descriptor[str(stand)] + description_dict[treatment_id]
             else:
                 name = "Kuvio " + str(stand) + " " + description_dict[treatment_id]
             options[year]["series"][0]["data"].append(
