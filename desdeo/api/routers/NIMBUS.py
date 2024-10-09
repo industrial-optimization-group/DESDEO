@@ -516,6 +516,9 @@ def utopia(  # noqa: C901, PLR0912
                     "roam": True,
                     "map": map_name,
                     "nameProperty": utopia_data.stand_id_field,
+                    "label": {
+                        "show": False  # Hide text labels on the map
+                    },
                     # "colorBy": "data",
                     # "itemStyle": {"symbol": "triangle", "color": "red"},
                     "data": [],
