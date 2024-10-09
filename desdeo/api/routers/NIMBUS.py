@@ -544,11 +544,11 @@ def utopia(  # noqa: C901, PLR0912
                 name = "Kuvio " + str(stand) + " " + description_dict[treatment_id]
             options[year]["series"][0]["data"].append(
                 {
-                    "name": name,
+                    "name": stand,
                     "value": treatment_id,
                 }
             )
-            options[year]["series"][0]["nameMap"][stand] = description_dict[treatment_id]
+            options[year]["series"][0]["nameMap"][stand] = name
 
     # Let's also generate a nice description for the map
     map_description = (
