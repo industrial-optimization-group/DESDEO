@@ -21,6 +21,7 @@ class EvaluatorModesEnum(str, Enum):
     vector and objective vector pairs and those should be evaluated. In this
     mode, the evaluator does not expect any decision variables as arguments when
     evaluating."""
+    mixed = "mixed"
 
 
 class EvaluatorError(Exception):
@@ -85,7 +86,10 @@ class GenericEvaluator:
         # Gather any constants of the problem definition.
         self.problem_constants = problem.constants
         # Gather the objective functions
-        self.problem_objectives = problem.objectives
+        if evaluator_mode == EvaluatorModesEnum.mixed:
+            self.problem_objectives = list(filter(lambda x: x.objective_type == ObjectiveTypeEnum.analytical, problem.objectives))
+        else:
+            self.problem_objectives = problem.objectives
         # Gather any constraints
         self.problem_constraints = problem.constraints
         # Gather any extra functions
@@ -206,7 +210,8 @@ class GenericEvaluator:
         # parse constraints, if any
         if parsed_cons_funcs is not None:
             self.constraint_expressions = [
-                (symbol, self.parser.parse(expression)) for symbol, expression in parsed_cons_funcs.items()
+                (symbol, self.parser.parse(expression)) if expression is not None else (symbol, None)
+                for symbol, expression in parsed_cons_funcs.items()
             ]
         else:
             self.constraint_expressions = None
@@ -214,7 +219,8 @@ class GenericEvaluator:
         # parse extra functions, if any
         if parsed_extra_funcs is not None:
             self.extra_expressions = [
-                (symbol, self.parser.parse(expression)) for symbol, expression in parsed_extra_funcs.items()
+                (symbol, self.parser.parse(expression)) if expression is not None else (symbol, None)
+                for symbol, expression in parsed_extra_funcs.items()
             ]
         else:
             self.extra_expressions = None
@@ -229,7 +235,8 @@ class GenericEvaluator:
 
         # store the symbol and min or max multiplier as well (symbol, min/max multiplier [1 | -1])
         self.objective_mix_max_mult = [
-            (objective.symbol, -1 if objective.maximize else 1) for objective in self.problem_objectives
+            (objective.symbol, -1 if objective.maximize else 1)
+            for objective in self.problem_objectives
         ]
 
         # create dataframe with the discrete representation, if any exists
@@ -263,8 +270,11 @@ class GenericEvaluator:
 
         # Evaluate any extra functions and put the results in the aggregate dataframe.
         if self.extra_expressions is not None:
-            extra_columns = agg_df.select(*[expr.alias(symbol) for symbol, expr in self.extra_expressions])
-            agg_df = agg_df.hstack(extra_columns)
+            for symbol, expr in self.extra_expressions:
+                if expr is not None:
+                    # expression given
+                    extra_columns = agg_df.select(expr.alias(symbol))
+                    agg_df = agg_df.hstack(extra_columns)
 
         # Evaluate the objective functions and put the results in the aggregate dataframe.
         # obj_columns = agg_df.select(*[expr.alias(symbol) for symbol, expr in self.objective_expressions])
@@ -275,7 +285,7 @@ class GenericEvaluator:
                 # expression given
                 obj_col = agg_df.select(expr.alias(symbol))
                 agg_df = agg_df.hstack(obj_col)
-            else:
+            elif self.evaluator_mode != EvaluatorModesEnum.mixed:
                 # expr is None, therefore we must get the objective function's value somehow else, usually from data
                 obj_col = find_closest_points(agg_df, self.discrete_df, self.problem_variable_symbols, symbol)
                 agg_df = agg_df.hstack(obj_col)
@@ -293,8 +303,11 @@ class GenericEvaluator:
 
         # Evaluate any constraints and put the results in the aggregate dataframe
         if self.constraint_expressions is not None:
-            cons_columns = agg_df.select(*[expr.alias(symbol) for symbol, expr in self.constraint_expressions])
-            agg_df = agg_df.hstack(cons_columns)
+            for symbol, expr in self.constraint_expressions:
+                if expr is not None:
+                    # expression given
+                    cons_columns = agg_df.select(expr.alias(symbol))
+                    agg_df = agg_df.hstack(cons_columns)
 
         # Evaluate any scalarization functions and put the result in the aggregate dataframe
         if self.scalarization_expressions is not None:

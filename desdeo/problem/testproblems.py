@@ -1814,7 +1814,8 @@ def simulator_problem():
     f2 = Objective(
         name="f_2",
         symbol="f_2",
-        func=["x_1 + x_2 + x_3"],
+        func="x_1 + x_2 + x_3",
+        maximize=True,
         objective_type=ObjectiveTypeEnum.analytical
     )
     f3 = Objective(
@@ -1835,18 +1836,29 @@ def simulator_problem():
         cons_type=ConstraintTypeEnum.LTE,
         simulator_path="./simulator_file2.py",
     )
+    g2 = Constraint(
+        name="g_2",
+        symbol="g_2",
+        cons_type=ConstraintTypeEnum.LTE,
+        func="-x_1 - x_2 - x_3",
+    )
     e1 = ExtraFunction(
         name="e_1",
         symbol="e_1",
         simulator_path="./simulator_file.py"
+    )
+    e2 = ExtraFunction(
+        name="e_2",
+        symbol="e_2",
+        func="x_1 * x_2 * x_3"
     )
     return Problem(
         name="Simulator problem",
         description="",
         variables=variables,
         objectives=[f1,f2,f3,f4],
-        constraints=[g1],
-        extra_funcs=[e1],
+        constraints=[g1, g2],
+        extra_funcs=[e1, e2],
         simulators=[Simulator(name="s_1", symbol="s_1", file=Path("./simulator_file.py"), parameter_options={}),
                     Simulator(name="s_2", symbol="s_2", file=Path("./simulator_file2.py"), parameter_options={})]
     )
