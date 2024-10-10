@@ -1800,7 +1800,7 @@ def forest_problem(holding: int = 1, comparing: bool = False) -> Problem:
 
 def simulator_problem():
     from desdeo.problem import Simulator
-    vars = [
+    variables = [
         Variable(name="x_1", symbol="x_1", variable_type=VariableTypeEnum.integer),
         Variable(name="x_2", symbol="x_2", variable_type=VariableTypeEnum.integer),
         Variable(name="x_3", symbol="x_3", variable_type=VariableTypeEnum.integer),
@@ -1814,22 +1814,41 @@ def simulator_problem():
     f2 = Objective(
         name="f_2",
         symbol="f_2",
-        simulator_path="./simulator_file2.py",
-        objective_type=ObjectiveTypeEnum.simulator
+        func=["x_1 + x_2 + x_3"],
+        objective_type=ObjectiveTypeEnum.analytical
     )
     f3 = Objective(
         name="f_3",
         symbol="f_3",
+        simulator_path="./simulator_file2.py",
+        objective_type=ObjectiveTypeEnum.simulator
+    )
+    f4 = Objective(
+        name="f_4",
+        symbol="f_4",
         simulator_path="./simulator_file.py",
         objective_type=ObjectiveTypeEnum.simulator
+    )
+    g1 = Constraint(
+        name="g_1",
+        symbol="g_1",
+        cons_type=ConstraintTypeEnum.LTE,
+        simulator_path="./simulator_file2.py",
+    )
+    e1 = ExtraFunction(
+        name="e_1",
+        symbol="e_1",
+        simulator_path="./simulator_file.py"
     )
     return Problem(
         name="Simulator problem",
         description="",
-        variables=vars,
-        objectives=[f1,f2,f3],
-        simulators=[Simulator(name="s1", file=Path("./simulator_file.py"), parameter_options={}),
-                    Simulator(name="s2", file=Path("./simulator_file2.py"), parameter_options={})]
+        variables=variables,
+        objectives=[f1,f2,f3,f4],
+        constraints=[g1],
+        extra_funcs=[e1],
+        simulators=[Simulator(name="s_1", symbol="s_1", file=Path("./simulator_file.py"), parameter_options={}),
+                    Simulator(name="s_2", symbol="s_2", file=Path("./simulator_file2.py"), parameter_options={})]
     )
 
 

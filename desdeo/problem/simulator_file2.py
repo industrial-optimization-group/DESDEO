@@ -5,7 +5,9 @@ import numpy as np
 
 
 def simulator(xs: np.ndarray, params: dict):
-    return xs[0] * 2 - xs[1]
+    fun1 = xs[0] * 2 - xs[1] - params["epsilon"] / 20
+    fun2 = xs[1] * 2 - xs[0] + params["gamma"] / 100
+    return np.array([fun1.tolist(), fun2.tolist()])
 
 if __name__ == "__main__":
     missing_arg = False
@@ -23,12 +25,14 @@ if __name__ == "__main__":
     if missing_arg is True:
         print("Information")
     else:
-        xs = args[args.index('-d') + 1: p_index]
+        xs = args[d_index + 1: p_index]
 
         # parse the decision variable values
         xs = np.array(json.loads(''.join(xs)))
 
-        parameters = args[args.index('-p') + 1]
+        parameters = args[p_index + 1:]
+        parameters = json.loads(''.join(parameters).replace("\'", "\""))
+        #alpha = parameters["alpha"]
         #print(xs)
         simulator_output = simulator(xs, parameters).tolist()
         #print(xs, parameters)

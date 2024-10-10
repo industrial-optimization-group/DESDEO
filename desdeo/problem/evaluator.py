@@ -2,16 +2,12 @@
 
 from enum import Enum
 
-import json
-import numpy as np
 import polars as pl
-import subprocess
-import sys
 
 from desdeo.problem.json_parser import MathParser, replace_str
 from desdeo.problem.schema import ObjectiveTypeEnum, Problem
 
-SUPPORTED_EVALUATOR_MODES = ["variables", "discrete", "simulator"]
+SUPPORTED_EVALUATOR_MODES = ["variables", "discrete"]
 
 
 class EvaluatorModesEnum(str, Enum):
@@ -25,8 +21,6 @@ class EvaluatorModesEnum(str, Enum):
     vector and objective vector pairs and those should be evaluated. In this
     mode, the evaluator does not expect any decision variables as arguments when
     evaluating."""
-    simulator = "simulator"
-    """Indicates that the evaluator should expect simulator based objectives."""
 
 
 class EvaluatorError(Exception):
@@ -62,12 +56,7 @@ class GenericEvaluator:
     #    and scalarization function valeus).
     # 6. End.
 
-    def __init__(
-        self,
-        problem: Problem,
-        params: dict[str, list] | None = None,
-        evaluator_mode: EvaluatorModesEnum = EvaluatorModesEnum.variables
-    ):
+    def __init__(self, problem: Problem, evaluator_mode: EvaluatorModesEnum = EvaluatorModesEnum.variables):
         """Create an evaluator for a multiobjective optimization problem.
 
         By default, the evaluator expects a set of decision variables to
@@ -80,10 +69,6 @@ class GenericEvaluator:
 
         Args:
             problem (Problem): The problem as a pydantic 'Problem' data class.
-            params (dict[str, list], optional): Parameters for the simulator to be used.
-                A dict with the simulators name and the corresponding parameters as a list.
-                Only needed when the evaluator_mode is 'simulator'.
-                Defaults to None.
             evaluator_mode (str): The mode of evaluator used to parse the problem into a format
                 that can be evaluated. Default 'variables'.
         """
@@ -101,10 +86,6 @@ class GenericEvaluator:
         self.problem_constants = problem.constants
         # Gather the objective functions
         self.problem_objectives = problem.objectives
-        self.analytical_objectives = list(filter(lambda x: x.objective_type == ObjectiveTypeEnum.analytical, problem.objectives))
-        self.data_based_objectives = list(filter(lambda x: x.objective_type == ObjectiveTypeEnum.data_based, problem.objectives))
-        self.simulator_objectives = list(filter(lambda x: x.objective_type == ObjectiveTypeEnum.simulator, problem.objectives))
-        self.surrogate_objectives = list(filter(lambda x: x.objective_type == ObjectiveTypeEnum.surrogate, problem.objectives))
         # Gather any constraints
         self.problem_constraints = problem.constraints
         # Gather any extra functions
@@ -126,20 +107,6 @@ class GenericEvaluator:
         self.extra_expressions = None
         # Symbol and expression pairs of any scalarization functions
         self.scalarization_expressions = None
-
-        if self.evaluator_mode == EvaluatorModesEnum.simulator:
-            # Gather the possible simulators
-            self.simulators = problem.simulators
-            if self.simulators is None:
-                raise EvaluatorError("No simulators defined for the problem.")
-            self.params = params
-            if self.params is not None:
-                for name in self.params:
-                    if name not in self.simulators:
-                        raise EvaluatorError(f"{name} not listed in the problem's simulators.")
-            else:
-                self.params = {}
-            self.evaluate = self._evaluate_simulator
 
         # Note: `self.parser` is assumed to be set before continuing the initialization.
         self.parser = MathParser()
@@ -379,40 +346,6 @@ class GenericEvaluator:
         # no more processing needed, it is assumed a solver will handle the rest
         return agg_df
 
-    def _evaluate_simulator(self, xs: np.ndarray) -> np.ndarray:
-        """Evaluate the objectives for the given decision variables using the simulator.
-
-        If there is a mix of (mutually exclusive and exhaustive) analytical and simulator objectives, this method will
-        use polars to evaluate the analytical objectives and the simulator file to evaluate the simulator objectives,
-        and return the combined results.
-
-        Args:
-            xs (np.ndarray): The decision variables for which the objectives need to be evaluated.
-                The shape of the array is (n, m), where n is the number of decision variables and m is the
-                number of samples. Note that there is no need to support TensorVariables in this evaluator.
-
-        Returns:
-            np.ndarray: The objective values for the given decision variables.
-                The shape of the array is (k, m), where k is the number of objectives and m is the number of samples.
-        """
-        xs_json = json.dumps(xs.tolist())
-        # TODO: add validation?
-
-        results = []
-        for sim in self.simulators:
-            params = self.params.get(sim.name, None)
-            res = subprocess.run(
-                f"{sys.executable} {sim.file} -d {xs_json} -p {params}", check=True, capture_output=True
-            ).stdout.decode()
-            results.append(np.array(json.loads(''.join(res))))
-        return np.concatenate(results, axis=1)
-
-    def evaluate(self, xs: dict):
-        analytical_objs = self._polars_evaluate(xs['analytical'])
-        data_objs = self._from_discrete_data()
-        simulator_objs = self._evaluate_simulator(xs['simulator'])
-        #surrogate_objs = self._evaluate_surrogate(xs['surrogate'])
-
 
 def find_closest_points(
     xs: pl.DataFrame, discrete_df: pl.DataFrame, variable_symbols: list[str], objective_symbol: list[str]
@@ -457,10 +390,3 @@ def find_closest_points(
         results.append(closest[f"{objective_symbol}"][0])
 
     return pl.DataFrame({f"{objective_symbol}": results})
-
-if __name__ == "__main__":
-    from desdeo.problem import simulator_problem
-    evaluator = GenericEvaluator(simulator_problem(), evaluator_mode=EvaluatorModesEnum.simulator)
-    res = evaluator._evaluate_simulator(np.array([[0, 1, 2, 3], [4, 3, 2, 1], [0, 4, 1, 3]]))
-    #print(np.shape(res), res)
-    print(res)

@@ -6,6 +6,7 @@ __all__ = [
     "Constraint",
     "ConstraintTypeEnum",
     "DiscreteRepresentation",
+    "EvaluatorError",
     "EvaluatorModesEnum",
     "ExtraFunction",
     "forest_problem",
@@ -53,7 +54,7 @@ __all__ = [
     "zdt1",
 ]
 
-from .evaluator import EvaluatorModesEnum, GenericEvaluator
+from .evaluator import EvaluatorError, EvaluatorModesEnum, GenericEvaluator
 from .gurobipy_evaluator import GurobipyEvaluator
 from .infix_parser import InfixExpressionParser
 from .json_parser import FormatEnum, MathParser

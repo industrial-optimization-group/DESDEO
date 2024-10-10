@@ -445,17 +445,43 @@ class ExtraFunction(BaseModel):
     """ Symbol to represent the function. This will be used in the rest of the
     problem definition.  It may also be used in UIs and visualizations. Example:
     'avg'."""
-    func: list = Field(
+    func: list | None = Field(
         description=(
             "The string representing the function. This is a JSON object that can be parsed into a function."
             "Must be a valid MathJSON object."
             " The symbols in the function must match symbols defined for objective/variable/constant."
+            "Can be 'None' if either 'simulator_path' or 'surrogates' is not 'None'. "
+            "If 'None', either 'simulator_path' or 'surrogates' must not be 'None'."
         ),
+        default=None,
     )
     """ The string representing the function. This is a JSON object that can be
     parsed into a function.  Must be a valid MathJSON object.  The symbols in
     the function must match symbols defined for objective/variable/constant.
-    """
+    Can be 'None' if either 'simulator_path' or 'surrogates' is not 'None'.
+    If 'None', either 'simulator_path' or 'surrogates' must not be 'None'."""
+    simulator_path: Path | None = Field(
+        description=(
+            "Path to a python file with the connection to simulators. Must be a valid Path."
+            "Can be 'None' for 'analytical', 'data_based' or 'surrogate' functions."
+            "If 'None', either 'func' or 'surrogates' must not be 'None'."
+        ),
+        default=None,
+    )
+    """Path to a python file with the connection to simulators. Must be a valid Path.
+    Can be 'None' for 'analytical', 'data_based' or 'surrogate' functions.
+    If 'None', either 'func' or 'surrogates' must not be 'None'."""
+    surrogates: list[Path] | None = Field(
+        description=(
+            "A list of paths to models saved on disk. Can be 'None' for 'analytical', 'data_based "
+            "or 'simulator' functions. If 'None', either 'func' or 'simulator_path' must "
+            "not be 'None'."
+        ),
+        default=None,
+    )
+    """A list of paths to models saved on disk. Can be 'None' for 'analytical', 'data_based
+    or 'simulator' functions. If 'None', either 'func' or 'simulator_path' must
+    not be 'None'."""
     is_linear: bool = Field(
         description="Whether the function expression is linear or not. Defaults to `False`.", default=False
     )
@@ -544,12 +570,12 @@ class Simulator(BaseModel):
         ),
     )
     """Descriptive name of the simulator. This can be used in UI and visualizations."""
-    """symbol: str = Field(
+    symbol: str = Field(
         description=(
             "Symbol to represent the simulator. This will be used in the rest of the problem definition."
             " It may also be used in UIs and visualizations."
         ),
-    )"""
+    )
     file: Path = Field(
         description=(
             "Path to a python file with the connection to simulators."
@@ -713,17 +739,41 @@ class Constraint(BaseModel):
     constraint's expression, and on the right hand side a zero value is assume.
     The comparison between the left hand side and right hand side is either and
     quality comparison ('=') or lesser than equal comparison ('<=')."""
-    func: list = Field(
+    func: list | None = Field(
         description=(
             "Function of the constraint. This is a JSON object that can be parsed into a function."
             "Must be a valid MathJSON object."
             " The symbols in the function must match objective/variable/constant symbols."
+            "Can be 'None' if either 'simulator_path' or 'surrogates' is not 'None'. "
+            "If 'None', either 'simulator_path' or 'surrogates' must not be 'None'."
         ),
+        default=None,
     )
     """ Function of the constraint. This is a JSON object that can be parsed
     into a function.  Must be a valid MathJSON object.  The symbols in the
-    function must match objective/variable/constant symbols."""
-
+    function must match objective/variable/constant symbols.
+    Can be 'None' if either 'simulator_path' or 'surrogates' is not 'None'.
+    If 'None', either 'simulator_path' or 'surrogates' must not be 'None'."""
+    simulator_path: Path | None = Field(
+        description=(
+            "Path to a python file with the connection to simulators. Must be a valid Path."
+            "Can be 'None' for if either 'func' or 'surrogates' is not 'None'."
+            "If 'None', either 'func' or 'surrogates' must not be 'None'."
+        ),
+        default=None,
+    )
+    """Path to a python file with the connection to simulators. Must be a valid Path.
+    Can be 'None' for if either 'func' or 'surrogates' is not 'None'.
+    If 'None', either 'func' or 'surrogates' must not be 'None'."""
+    surrogates: list[Path] | None = Field(
+        description=(
+            "A list of paths to models saved on disk. Can be 'None' for if either 'func' or 'simulator_path' "
+            "is not 'None'. If 'None', either 'func' or 'simulator_path' must not be 'None'."
+        ),
+        default=None,
+    )
+    """A list of paths to models saved on disk. Can be 'None' for if either 'func' or 'simulator_path'
+    is not 'None'. If 'None', either 'func' or 'simulator_path' must not be 'None'."""
     is_linear: bool = Field(
         description="Whether the constraint is linear or not. Defaults to True, e.g., a linear constraint is assumed.",
         default=True,
