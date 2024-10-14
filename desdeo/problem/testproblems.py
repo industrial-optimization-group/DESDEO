@@ -1801,9 +1801,10 @@ def forest_problem(holding: int = 1, comparing: bool = False) -> Problem:
 def simulator_problem():
     from desdeo.problem import Simulator
     variables = [
-        Variable(name="x_1", symbol="x_1", variable_type=VariableTypeEnum.integer),
-        Variable(name="x_2", symbol="x_2", variable_type=VariableTypeEnum.integer),
-        Variable(name="x_3", symbol="x_3", variable_type=VariableTypeEnum.integer),
+        Variable(name="x_1", symbol="x_1", variable_type=VariableTypeEnum.real),
+        Variable(name="x_2", symbol="x_2", variable_type=VariableTypeEnum.real),
+        Variable(name="x_3", symbol="x_3", variable_type=VariableTypeEnum.real),
+        Variable(name="x_4", symbol="x_4", variable_type=VariableTypeEnum.real),
     ]
     f1 = Objective(
         name="f_1",
@@ -1829,6 +1830,18 @@ def simulator_problem():
         symbol="f_4",
         simulator_path="./simulator_file.py",
         objective_type=ObjectiveTypeEnum.simulator
+    )
+    f5 = Objective(
+        name="f_5",
+        symbol="f_5",
+        surrogate=Path("model.pkl"),
+        objective_type=ObjectiveTypeEnum.surrogate
+    )
+    f6 = Objective(
+        name="f_6",
+        symbol="f_6",
+        surrogate=Path("model2.pkl"),
+        objective_type=ObjectiveTypeEnum.surrogate
     )
     g1 = Constraint(
         name="g_1",
@@ -1856,11 +1869,36 @@ def simulator_problem():
         name="Simulator problem",
         description="",
         variables=variables,
-        objectives=[f1,f2,f3,f4],
+        objectives=[f1,f2,f3,f4,f5,f6],
         constraints=[g1, g2],
         extra_funcs=[e1, e2],
         simulators=[Simulator(name="s_1", symbol="s_1", file=Path("./simulator_file.py"), parameter_options={}),
                     Simulator(name="s_2", symbol="s_2", file=Path("./simulator_file2.py"), parameter_options={})]
+    )
+
+def surrogate_problem():
+    x1 = Variable(
+        name="x_1",
+        symbol="x_1",
+        variable_type=VariableTypeEnum.binary
+    )
+    f1 = Objective(
+        name="f_1",
+        symbol="f_1",
+        surrogate=Path("model.pkl"),
+        objective_type=ObjectiveTypeEnum.surrogate
+    )
+    f2 = Objective(
+        name="f_2",
+        symbol="f_2",
+        surrogate=Path("model2.pkl"),
+        objective_type=ObjectiveTypeEnum.surrogate
+    )
+    return Problem(
+        name="Surrogate problem",
+        description="",
+        variables=[x1],
+        objectives=[f1,f2]
     )
 
 

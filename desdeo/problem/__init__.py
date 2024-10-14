@@ -41,6 +41,7 @@ __all__ = [
     "simple_scenario_test_problem",
     "simple_test_problem",
     "simulator_problem",
+    "surrogate_problem",
     "tensor_constant_from_dataframe",
     "ScalarizationFunction",
     "Simulator",
@@ -98,6 +99,7 @@ from .testproblems import (
     simple_scenario_test_problem,
     simple_test_problem,
     simulator_problem,
+    surrogate_problem,
     zdt1,
 )
 from .utils import (

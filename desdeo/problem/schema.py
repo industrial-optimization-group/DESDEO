@@ -647,15 +647,15 @@ class Objective(BaseModel):
     """Path to a python file with the connection to simulators. Must be a valid Path.
     Can be 'None' for 'analytical', 'data_based' or 'surrogate' objective functions.
     If 'None', either 'func' or 'surrogates' must not be 'None'."""
-    surrogates: list[Path] | None = Field(
+    surrogate: Path | None = Field(
         description=(
-            "A list of paths to models saved on disk. Can be 'None' for 'analytical', 'data_based "
+            "A path to a model saved on disk. Can be 'None' for 'analytical', 'data_based "
             "or 'simulator' objective functions. If 'None', either 'func' or 'simulator_path' must "
             "not be 'None'."
         ),
         default=None,
     )
-    """A list of paths to models saved on disk. Can be 'None' for 'analytical', 'data_based
+    """A path to a model saved on disk. Can be 'None' for 'analytical', 'data_based
     or 'simulator' objective functions. If 'None', either 'func' or 'simulator_path' must
     not be 'None'."""
     maximize: bool = Field(
