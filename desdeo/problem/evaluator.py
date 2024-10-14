@@ -6,9 +6,10 @@ import numpy as np
 import polars as pl
 
 from desdeo.problem.json_parser import MathParser, replace_str
-from desdeo.problem.schema import Constant, ObjectiveTypeEnum, Problem, TensorConstant
+from desdeo.problem.schema import Constant, ObjectiveTypeEnum, Problem, TensorConstant, TensorVariable
 
 SUPPORTED_EVALUATOR_MODES = ["variables", "discrete"]
+SUPPORTED_VAR_DIMENSIONS = ["scalar", "vector"]
 
 
 class PolarsEvaluatorModesEnum(str, Enum):
@@ -26,6 +27,42 @@ class PolarsEvaluatorModesEnum(str, Enum):
 
 class PolarsEvaluatorError(Exception):
     """Error raised when exceptions are encountered in an PolarsEvaluator."""
+
+
+class VariableDimensionEnum(str, Enum):
+    """An enumerator for the possible dimensions of the variables of a problem."""
+
+    scalar = "scalar"
+    """All variables are scalar valued."""
+    vector = "vector"
+    """Highest dimensional variable is a vector."""
+    tensor = "tensor"
+    """Some variable has more dimensions."""
+
+
+def variable_dimension_enumerate(problem: Problem) -> VariableDimensionEnum:
+    """Return a VariableDimensionEnum based on the problems variables' dimensions.
+
+    This is needed as different evaluators and solvers can handle different dimensional variables.
+
+    If there are no TensorVariables in the problem, will return scalar.
+    If there are, at the highest, one dimensional TensorVariables, will return vector.
+    Else, there is at least a TensorVariable with a higher dimension, will return tensor.
+
+    Args:
+        problem (Problem): The problem being solved or evaluated.
+
+    Returns:
+        VariableDimensionEnum: The enumeration of the problems variable dimensions.
+    """
+    enum = VariableDimensionEnum.scalar
+    for var in problem.variables:
+        if isinstance(var, TensorVariable):
+            if len(var.shape) == 1 or len(var.shape) == 2 and not (var.shape[0] > 1 and var.shape[1] > 1):  # noqa: PLR2004
+                enum = VariableDimensionEnum.vector
+            else:
+                return VariableDimensionEnum.tensor
+    return enum
 
 
 class PolarsEvaluator:

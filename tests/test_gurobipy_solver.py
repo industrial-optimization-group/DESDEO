@@ -1,20 +1,19 @@
 """Tests for the gurobipy solver."""
 
-import pytest
-
 import gurobipy as gp
 import numpy as np
+import pytest
 
 from desdeo.problem import (
     Constraint,
     ConstraintTypeEnum,
     Objective,
     ScalarizationFunction,
-    simple_linear_test_problem,
-    simple_knapsack_vectors,
     TensorVariable,
     Variable,
     VariableTypeEnum,
+    simple_knapsack_vectors,
+    simple_linear_test_problem,
 )
 from desdeo.tools import GurobipySolver, PersistentGurobipySolver
 
@@ -91,9 +90,9 @@ def test_gurobipy_persistent_solver():
         name="test_y",
         symbol="y",
         variable_type=VariableTypeEnum.integer,
-        shape=(2,2),
+        shape=(2, 2),
         lowerbound=[[-20, -20], [-20, -20]],
-        upperbound=[[30, 30], [30, 30]]
+        upperbound=[[30, 30], [30, 30]],
     )
     solver.add_variable(testvar)
     assert isinstance(solver.evaluator.get_expression_by_name("y"), gp.MVar)

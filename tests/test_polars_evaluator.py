@@ -2,8 +2,19 @@
 
 import numpy.testing as npt
 import polars as pl
+import pytest
 
-from desdeo.problem import PolarsEvaluator, river_pollution_problem, simple_test_problem, simple_knapsack_vectors
+# from desdeo.problem import PolarsEvaluator, river_pollution_problem, simple_test_problem, simple_knapsack_vectors
+from desdeo.problem import (
+    PolarsEvaluator,
+    Objective,
+    Problem,
+    TensorConstant,
+    TensorVariable,
+    river_pollution_problem,
+    simple_test_problem,
+    simple_knapsack_vectors,
+)
 from desdeo.problem.evaluator import find_closest_points
 
 
@@ -131,6 +142,7 @@ def test_find_closest_points():
     )
 
 
+@pytest.mark.polars
 def test_knapsack_problem():
     """Test the Polars evaluator with a problem with tensors."""
     problem = simple_knapsack_vectors()
@@ -144,3 +156,43 @@ def test_knapsack_problem():
     npt.assert_allclose(result["f_1"].to_numpy(), [0, 22])
     npt.assert_allclose(result["f_2"].to_numpy(), [0, 16])
     npt.assert_allclose(result["g_1"].to_numpy(), [-5, 9])
+
+
+@pytest.mark.polars
+def test_with_tensors():
+    """Test that GenericEvaluator raises an error when trying to initialize the evaluator with a problem with tensors."""
+    # define a modified version of the simple_knapsack_vectors test problem for the purpose
+    profit_values = [[3, 5], [6, 8]]
+    profits = TensorConstant(name="Profits", symbol="P", shape=[2, 2], values=profit_values)
+
+    choices = TensorVariable(
+        name="Chosen items",
+        symbol="X",
+        shape=[2, 2],
+        variable_type="binary",
+        lowerbounds=[[0, 0], [0, 0]],
+        upperbounds=[[1, 1], [1, 1]],
+        initial_values=[[1, 1], [1, 1]],
+    )
+
+    profit_objective = Objective(
+        name="max profit",
+        symbol="f_1",
+        func="P@X",
+        maximize=True,
+        ideal=8,
+        nadir=0,
+        is_linear=True,
+        is_convex=False,
+        is_twice_differentiable=False,
+    )
+
+    problem = Problem(
+        name="Simple two-objective Knapsack problem",
+        description="A simple variant of the classic combinatorial problem.",
+        constants=[profits],
+        variables=[choices],
+        objectives=[profit_objective],
+    )
+
+    PolarsEvaluator(problem)  # fails

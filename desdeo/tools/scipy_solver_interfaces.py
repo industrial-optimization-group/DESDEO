@@ -12,8 +12,10 @@ from scipy.optimize import OptimizeResult as _ScipyOptimizeResult
 from scipy.optimize import differential_evolution as _scipy_de
 from scipy.optimize import minimize as _scipy_minimize
 
-from desdeo.problem import ConstraintTypeEnum, PolarsEvaluator, Problem
+from desdeo.problem import ConstraintTypeEnum, PolarsEvaluator, Problem, variable_dimension_enumerate
 from desdeo.tools.generics import BaseSolver, SolverError, SolverResults
+
+SUPPORTED_VAR_DIMENSIONS = ["scalar"]
 
 
 class EvalTargetEnum(str, Enum):
@@ -251,6 +253,10 @@ class ScipyMinimizeSolver(BaseSolver):
             subscriber (str | None, optional): not used right now. WIP. Defaults to None.
 
         """
+        if variable_dimension_enumerate(problem) not in SUPPORTED_VAR_DIMENSIONS:
+            msg = "ScipyMinimizeSolver only supports scalar variables."
+            raise SolverError(msg)
+
         self.problem = problem
         self.method = method
         self.method_kwargs = method_kwargs
@@ -326,6 +332,10 @@ class ScipyDeSolver(BaseSolver):
                 `scipy.optimize.differential_evolution`. Defaults to None.
             subscriber (str | None, optional): not used right now. WIP. Defaults to None.
         """
+        if variable_dimension_enumerate(problem) not in SUPPORTED_VAR_DIMENSIONS:
+            msg = "ScipyDeSolver only supports scalar variables."
+            raise SolverError(msg)
+
         self.problem = problem
         if de_kwargs is None:
             de_kwargs = {
