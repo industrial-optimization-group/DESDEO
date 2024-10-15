@@ -26,7 +26,6 @@ from desdeo.problem.testproblems import (
     simple_knapsack,
     simple_scenario_test_problem,
 )
-from desdeo.tools.scalarization import add_scalarization_function
 
 
 def test_objective_from_infix():
@@ -341,7 +340,17 @@ def test_data_problem(dtlz2_5x_3f_data_based):  # noqa: F811
         npt.assert_array_almost_equal(objective_values[obj], expected_fs[obj])
 
     # test adding a scalarization function
-    problem, symbol = add_scalarization_function(problem, "f1 + f2 + f3", "simple_sum")
+    symbol = "simple_sum"
+    problem = problem.add_scalarization(
+        ScalarizationFunction(
+            name=symbol,
+            symbol=symbol,
+            func="f1 + f2 + f3",
+            is_linear=problem.is_linear,
+            is_convex=problem.is_convex,
+            is_twice_differentiable=problem.is_twice_differentiable,
+        )
+    )
 
     evaluator = PolarsEvaluator(problem)
 

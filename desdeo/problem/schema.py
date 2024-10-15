@@ -1103,11 +1103,12 @@ class Problem(BaseModel):
         # variable not found
         return None
 
-    def get_objective(self, symbol: str) -> Objective | None:
+    def get_objective(self, symbol: str, *, copy: bool = True) -> Objective | None:
         """Return a copy of an `Objective` with the given symbol.
 
         Args:
             symbol (str): the symbol of the objective.
+            copy (bool): if True, return a copy of the objective, otherwise, return a reference. Defaults to True.
 
         Returns:
             Objective | None: the copy of the objective with the given symbol, or `None` if the objective is not found.
@@ -1115,7 +1116,12 @@ class Problem(BaseModel):
         for objective in self.objectives:
             if objective.symbol == symbol:
                 # objective found
-                return objective.model_copy()
+                if copy:
+                    # return a copy of the objective
+                    return objective.model_copy()
+
+                # return a reference instead
+                return objective
 
         # objective not found
         return None

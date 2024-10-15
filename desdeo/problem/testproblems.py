@@ -390,14 +390,44 @@ def momip_ti2() -> Problem:
     x_4 = Variable(name="x_4", symbol="x_4", variable_type=VariableTypeEnum.integer)
 
     f_1 = Objective(
-        name="f_1", symbol="f_1", func="x_1 + x_3", objective_type=ObjectiveTypeEnum.analytical, maximize=False
+        name="f_1",
+        symbol="f_1",
+        func="x_1 + x_3",
+        objective_type=ObjectiveTypeEnum.analytical,
+        maximize=False,
+        is_linear=True,
+        is_convex=True,
+        is_twice_differentiable=True,
     )
     f_2 = Objective(
-        name="f_2", symbol="f_2", func="x_2 + x_4", objective_type=ObjectiveTypeEnum.analytical, maximize=False
+        name="f_2",
+        symbol="f_2",
+        func="x_2 + x_4",
+        objective_type=ObjectiveTypeEnum.analytical,
+        maximize=False,
+        is_linear=True,
+        is_convex=True,
+        is_twice_differentiable=True,
     )
 
-    con_1 = Constraint(name="g_1", symbol="g_1", cons_type=ConstraintTypeEnum.LTE, func="x_1**2 + x_2**2 - 0.25")
-    con_2 = Constraint(name="g_2", symbol="g_2", cons_type=ConstraintTypeEnum.LTE, func="x_3**2 + x_4**2 - 1")
+    con_1 = Constraint(
+        name="g_1",
+        symbol="g_1",
+        cons_type=ConstraintTypeEnum.LTE,
+        func="x_1**2 + x_2**2 - 0.25",
+        is_linear=False,
+        is_convex=False,
+        is_twice_differentiable=True,
+    )
+    con_2 = Constraint(
+        name="g_2",
+        symbol="g_2",
+        cons_type=ConstraintTypeEnum.LTE,
+        func="x_3**2 + x_4**2 - 1",
+        is_linear=False,
+        is_convex=False,
+        is_twice_differentiable=True,
+    )
 
     return Problem(
         name="MOMIP Test Instance 2",
@@ -450,6 +480,9 @@ def momip_ti7() -> Problem:
         ideal=-3,
         nadir=3,
         maximize=False,
+        is_linear=True,
+        is_convex=True,
+        is_twice_differentiable=True,
     )
     f_2 = Objective(
         name="f_2",
@@ -459,6 +492,9 @@ def momip_ti7() -> Problem:
         ideal=3,
         nadir=-3,
         maximize=True,
+        is_linear=True,
+        is_convex=True,
+        is_twice_differentiable=True,
     )
     f_3 = Objective(
         name="f_3",
@@ -468,10 +504,29 @@ def momip_ti7() -> Problem:
         ideal=-3,
         nadir=3,
         maximize=False,
+        is_linear=True,
+        is_convex=True,
+        is_twice_differentiable=True,
     )
 
-    con_1 = Constraint(name="g_1", symbol="g_1", cons_type=ConstraintTypeEnum.LTE, func="x_1**2 + x_2**2 + x_3**2 - 1")
-    con_2 = Constraint(name="g_2", symbol="g_2", cons_type=ConstraintTypeEnum.LTE, func="x_4**2 + x_5**2 + x_6**2 - 1")
+    con_1 = Constraint(
+        name="g_1",
+        symbol="g_1",
+        cons_type=ConstraintTypeEnum.LTE,
+        func="x_1**2 + x_2**2 + x_3**2 - 1",
+        is_linear=False,
+        is_convex=False,
+        is_twice_differentiable=True,
+    )
+    con_2 = Constraint(
+        name="g_2",
+        symbol="g_2",
+        cons_type=ConstraintTypeEnum.LTE,
+        func="x_4**2 + x_5**2 + x_6**2 - 1",
+        is_linear=False,
+        is_convex=False,
+        is_twice_differentiable=True,
+    )
 
     return Problem(
         name="MOMIP Test Instance 7",
@@ -747,6 +802,9 @@ def nimbus_test_problem() -> Problem:
             objective_type=ObjectiveTypeEnum.analytical,
             ideal=9.0,
             nadir=1.0,
+            is_convex=False,
+            is_linear=False,
+            is_twice_differentiable=True,
         ),
         Objective(
             name="Objective 2",
@@ -756,6 +814,9 @@ def nimbus_test_problem() -> Problem:
             objective_type=ObjectiveTypeEnum.analytical,
             ideal=2.0,
             nadir=18.0,
+            is_convex=False,
+            is_linear=False,
+            is_twice_differentiable=True,
         ),
         Objective(
             name="Objective 3",
@@ -765,6 +826,9 @@ def nimbus_test_problem() -> Problem:
             objective_type=ObjectiveTypeEnum.analytical,
             ideal=-6.0,
             nadir=-2.0,
+            is_convex=True,
+            is_linear=True,
+            is_twice_differentiable=True,
         ),
         Objective(
             name="Objective 4",
@@ -774,6 +838,9 @@ def nimbus_test_problem() -> Problem:
             objective_type=ObjectiveTypeEnum.analytical,
             ideal=-2.0,
             nadir=2.0,
+            is_convex=True,
+            is_linear=True,
+            is_twice_differentiable=True,
         ),
         Objective(
             name="Objective 5",
@@ -783,6 +850,9 @@ def nimbus_test_problem() -> Problem:
             objective_type=ObjectiveTypeEnum.analytical,
             ideal=60.0,
             nadir=4860.0,
+            is_convex=False,
+            is_linear=False,
+            is_twice_differentiable=True,
         ),
         Objective(
             name="Objective 6",
@@ -792,6 +862,9 @@ def nimbus_test_problem() -> Problem:
             objective_type=ObjectiveTypeEnum.analytical,
             ideal=480.0,
             nadir=9280.0,
+            is_convex=False,
+            is_linear=False,
+            is_twice_differentiable=True,
         ),
     ]
 

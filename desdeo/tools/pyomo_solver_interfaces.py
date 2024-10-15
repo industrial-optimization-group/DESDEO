@@ -285,10 +285,8 @@ class PyomoBonminSolver(BaseSolver):
                 If `None` is passed, defaults to `_default_bonmin_options` defined in
                 this source file. Defaults to `None`.
         """
-        if problem.constraints is not None:
-            for const in problem.constraints:
-                if not const.is_twice_differentiable:
-                    raise SolverError("Constraints must be twice differentiable.")
+        if not problem.is_twice_differentiable:
+            raise SolverError("Problem must be twice differentiable.")
         self.problem = problem
         self.evaluator = PyomoEvaluator(problem)
 
@@ -306,8 +304,6 @@ class PyomoBonminSolver(BaseSolver):
         Returns:
             SolverResults: the results of the optimization.
         """
-        if not self.problem.get_objective(target).is_twice_differentiable:
-            raise SolverError("Target objective must be twice differentiable.")
         self.evaluator.set_optimization_target(target)
 
         opt = pyomo.SolverFactory("bonmin", tee=True)
