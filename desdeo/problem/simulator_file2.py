@@ -5,8 +5,10 @@ import numpy as np
 
 
 def simulator(xs: np.ndarray, params: dict):
-    fun1 = xs[0] * 2 - xs[1] - params["epsilon"] / 20
-    fun2 = xs[1] * 2 - xs[0] + params["gamma"] / 100
+    epsilon = params.get("epsilon", 1)
+    gamma = params.get("gamma", 1)
+    fun1 = xs[0] * 2 - xs[1] - epsilon / 20
+    fun2 = xs[1] * 2 - xs[0] + gamma / 100
     return np.array([fun1.tolist(), fun2.tolist()])
 
 if __name__ == "__main__":

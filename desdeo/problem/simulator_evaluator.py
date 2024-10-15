@@ -7,8 +7,9 @@ import sys
 from inspect import getfullargspec
 from pathlib import Path
 
+import joblib
 import numpy as np
-from sklearn import datasets, svm
+import skops.io as sio
 
 from desdeo.problem import (
     EvaluatorError,
@@ -41,37 +42,39 @@ class Evaluator:
                 extra functions in the problem JSON.
         """
         self.problem = problem
-        """if evaluator_mode not in EvaluatorModesEnum:
-            msg = (
-                f"The provided 'evaluator_mode' '{evaluator_mode}' is not supported."
-                f" Must be one of {EvaluatorModesEnum}."
-            )
-            raise EvaluatorError(msg)
-
-        self.evaluator_mode = evaluator_mode"""
         # Gather the problem's objectives
         self.problem_objectives = problem.objectives
+        self.objective_symbols = [obj.symbol for obj in problem.objectives]
         # Gather objectives of different types into their own lists
         self.analytical_objectives = list(filter(lambda x: x.objective_type == ObjectiveTypeEnum.analytical, problem.objectives))
-        self.data_based_objectives = list(filter(lambda x: x.objective_type == ObjectiveTypeEnum.data_based, problem.objectives))
+        #self.data_based_objectives = list(filter(lambda x: x.objective_type == ObjectiveTypeEnum.data_based, problem.objectives))
         self.simulator_objectives = list(filter(lambda x: x.objective_type == ObjectiveTypeEnum.simulator, problem.objectives))
         self.surrogate_objectives = list(filter(lambda x: x.objective_type == ObjectiveTypeEnum.surrogate, problem.objectives))
         # Gather any constraints
         self.analytical_constraints = []
+        self.simulator_constraints = []
+        self.surrogate_constraints = []
         self.constraint_symbols = []
         self.problem_constraints = problem.constraints
         if problem.constraints is not None:
             self.analytical_constraints = list(filter(lambda x: x.func is not None, problem.constraints))
+            self.simulator_constraints = list(filter(lambda x: x.simulator_path is not None, problem.constraints))
+            self.surrogate_constraints = list(filter(lambda x: x.surrogate is not None, problem.constraints))
             self.constraint_symbols = [con.symbol for con in problem.constraints]
+
         # Gather any extra functions
-        self.analytical_extra = []
+        self.analytical_extras = []
+        self.simulator_extras = []
+        self.surrogate_extras = []
         self.extra_symbols = []
-        self.problem_extra = problem.extra_funcs
+        self.problem_extras = problem.extra_funcs
         if problem.extra_funcs is not None:
-            self.analytical_extra = list(filter(lambda x: x.func is not None, problem.extra_funcs))
+            self.analytical_extras = list(filter(lambda x: x.func is not None, problem.extra_funcs))
+            self.simulator_extras = list(filter(lambda x: x.simulator_path is not None, problem.extra_funcs))
+            self.surrogate_extras = list(filter(lambda x: x.surrogate is not None, problem.extra_funcs))
             self.extra_symbols = [extra.symbol for extra in problem.extra_funcs]
+
         # Gather all the symbols of objectives, constraints and extra functions
-        self.objective_symbols = [obj.symbol for obj in problem.objectives]
         self.problem_symbols = self.objective_symbols + self.constraint_symbols + self.extra_symbols
 
         # Gather the possible simulators
@@ -85,20 +88,6 @@ class Evaluator:
         self.surrogates = {}
         if len(self.surrogate_objectives) > 0:
             self._load_surrogates()
-
-        """if self.evaluator_mode == EvaluatorModesEnum.simulator:
-            # Gather the possible simulators
-            self.simulators = problem.simulators
-            if self.simulators is None:
-                raise EvaluatorError("No simulators defined for the problem.")
-            self.params = params
-            if self.params is not None:
-                for name in self.params:
-                    if name not in self.simulators:
-                        raise EvaluatorError(f"{name} not listed in the problem's simulators.")
-            else:
-                self.params = {}
-            self.evaluate = self._evaluate_simulator"""
 
     def _evaluate_simulator(self, xs: np.ndarray, return_as_dict: bool = True) -> np.ndarray:
         """Evaluate the problem for the given decision variables using the simulator.
@@ -139,12 +128,12 @@ class Evaluator:
                     if con.simulator_path == sim.file:
                         sim_symbols.append(con.symbol)
 
-            if self.problem_extra is not None:
-                for extra in self.problem_extra:
+            if self.problem_extras is not None:
+                for extra in self.problem_extras:
                     if extra.simulator_path == sim.file:
                         sim_symbols.append(extra.symbol)
 
-            params = self.params.get(sim.name, None)
+            params = self.params.get(sim.name, {})
             res = subprocess.run(
                 f"{sys.executable} {sim.file} -d {xs_json} -p {params}", check=True, capture_output=True
             ).stdout.decode()
@@ -159,7 +148,11 @@ class Evaluator:
             results_dict[sim_symbols[i]] = results_stack[i]
         return results_dict
 
-    def _evaluate_surrogates(self, xs: np.ndarray, return_as_dict: bool = True) -> tuple[np.ndarray, np.ndarray]:
+    def _evaluate_surrogates(
+        self,
+        xs: np.ndarray,
+        return_as_dict: bool = True
+    ) -> dict[str, tuple[np.ndarray, np.ndarray]] | tuple[np.ndarray, np.ndarray]:
         """Evaluate the problem for the given decision variables using the surrogate models.
 
         If there is a mix of (mutually exclusive and exhaustive) analytical and surrogate objectives, this method will
@@ -170,6 +163,10 @@ class Evaluator:
             xs (np.ndarray): The decision variables for which the objectives need to be evaluated.
                 The shape of the array is (n, m), where n is the number of decision variables and m is the number
                 of samples. Note that there is no need to support TensorVariables in this evaluator.
+            return_as_dict (bool, optional): Determines in what form the objective, constraint and extra function
+                values are returned. The options at the moment are 'dict' (a python dict) and 'ndarray' (numpy array).
+                If returned as a dict, the dict will contain the objective, constraint and extra function symbols
+                and their corresponding values. Defaults to 'True'.
 
         Returns:
             tuple[np.ndarray, np.ndarray]: The objective values for the given decision variables. The shape of
@@ -215,9 +212,32 @@ class Evaluator:
         """
         for obj in self.surrogate_objectives:
             with Path.open(f"{obj.surrogate}", 'rb') as file:
-                # TODO: some validation here as well?
-                # From python's pickle docs: "Warning: The pickle module is not secure. Only unpickle data you trust."
-                self.surrogates[obj.symbol] = pickle.load(file)
+                #self.surrogates[obj.symbol] = joblib.load(file)
+                unknown_types = sio.get_untrusted_types(file=file)
+                if len(unknown_types) == 0:
+                    self.surrogates[obj.symbol] = sio.load(file, unknown_types)
+                else: # TODO: if there are unknown types they should be checked
+                    self.surrogates[obj.symbol] = sio.load(file, unknown_types)
+                    #raise EvaluatorError(f"Untrusted types found in the model of {obj.symbol}: {unknown_types}")
+        for con in self.surrogate_constraints:
+            with Path.open(f"{con.surrogate}", 'rb') as file:
+                #self.surrogates[con.symbol] = joblib.load(file)
+                unknown_types = sio.get_untrusted_types(file=file)
+                if len(unknown_types) == 0:
+                    self.surrogates[con.symbol] = sio.load(file, unknown_types)
+                else: # TODO: if there are unknown types they should be checked
+                    self.surrogates[con.symbol] = sio.load(file, unknown_types)
+                    #raise EvaluatorError(f"Untrusted types found in the model of {con.symbol}: {unknown_types}")
+
+        for extra in self.surrogate_extras:
+            with Path.open(f"{extra.surrogate}", 'rb') as file:
+                #self.surrogates[extra.symbol] = joblib.load(file)
+                unknown_types = sio.get_untrusted_types(file=file)
+                if len(unknown_types) == 0:
+                    self.surrogates[extra.symbol] = sio.load(file, unknown_types)
+                else: # TODO: if there are unknown types they should be checked
+                    self.surrogates[extra.symbol] = sio.load(file, unknown_types)
+                    #raise EvaluatorError(f"Untrusted types found in the model of {extra.symbol}: {unknown_types}")
 
     def evaluate(self, xs: dict, return_type: str = "dict") -> dict[str, int | float | np.ndarray] | np.ndarray:
         # possible return types are "dict" and "ndarray"
@@ -225,14 +245,14 @@ class Evaluator:
             raise EvaluatorError(f"{return_type} is not a valid return type.")
         if return_type == "dict":
             res = {}
-            if len(self.analytical_objectives) > 0:
+            if len(self.analytical_objectives + self.analytical_constraints + self.analytical_extras) > 0:
                 polars_evaluator = GenericEvaluator(self.problem, evaluator_mode=EvaluatorModesEnum.mixed)
                 analytical_values = polars_evaluator._polars_evaluate(xs["analytical"])
                 for obj in self.analytical_objectives:
                     res[obj.symbol] = analytical_values[obj.symbol][0]
                 for con in self.analytical_constraints:
                     res[con.symbol] = analytical_values[con.symbol][0]
-                for extra in self.analytical_extra:
+                for extra in self.analytical_extras:
                     res[extra.symbol] = analytical_values[extra.symbol][0]
 
             """data_evaluator = GenericEvaluator(self.problem, evaluator_mode=EvaluatorModesEnum.mixed)
@@ -240,25 +260,31 @@ class Evaluator:
             obj_values.append(data_values)"""
             #data_objs = self._from_discrete_data()
 
-            if len(self.simulator_objectives) > 0:
+            if len(self.simulator_objectives + self.simulator_constraints + self.simulator_extras) > 0:
                 simulator_values = self._evaluate_simulator(xs=xs["simulator"], return_as_dict=True)
                 for obj in self.simulator_objectives:
                     res[obj.symbol] = simulator_values[obj.symbol].tolist()
 
-                if self.problem_constraints is not None:
-                    for con in self.problem_constraints:
-                        if con.symbol in simulator_values:
-                            res[con.symbol] = simulator_values[con.symbol].tolist()
+                if len(self.simulator_constraints) > 0:
+                    for con in self.simulator_constraints:
+                        res[con.symbol] = simulator_values[con.symbol].tolist()
 
-                if self.problem_extra is not None:
-                    for extra in self.problem_extra:
-                        if extra.symbol in simulator_values:
-                            res[extra.symbol] = simulator_values[extra.symbol].tolist()
+                if len(self.simulator_extras) > 0:
+                    for extra in self.simulator_extras:
+                        res[extra.symbol] = simulator_values[extra.symbol].tolist()
 
-            if len(self.surrogate_objectives) > 0:
+            if len(self.surrogate_objectives + self.surrogate_constraints + self.simulator_extras) > 0:
                 surrogate_values = self._evaluate_surrogates(xs=xs["surrogate"])
                 for obj in self.surrogate_objectives:
                     res[obj.symbol] = surrogate_values[obj.symbol][0].tolist(), surrogate_values[obj.symbol][1].tolist()
+                if len(self.surrogate_constraints) > 0:
+                    for con in self.surrogate_constraints:
+                        res[con.symbol] = surrogate_values[con.symbol][0].tolist(), surrogate_values[con.symbol][1].tolist()
+
+                if len(self.surrogate_extras) > 0:
+                    for extra in self.surrogate_extras:
+                        res[extra.symbol] = surrogate_values[extra.symbol][0].tolist(), surrogate_values[extra.symbol][1].tolist()
+
             #surrogate_objs = self._evaluate_surrogate(xs['surrogate'])
             for symbol in self.problem_symbols:
                 if symbol not in res:

@@ -4,9 +4,11 @@ import sys
 import numpy as np
 
 
-def simulator(xs: np.ndarray, params):
-    fun1 = xs[0] * 2 + xs[1] * params["alpha"]
-    fun2 = xs[1] * 2 + xs[0] * params["beta"]
+def simulator(xs: np.ndarray, params: dict):
+    alpha = params.get("alpha", 1)
+    beta = params.get("beta", 1)
+    fun1 = xs[0] * 2 + xs[1] * alpha
+    fun2 = xs[1] * 2 + xs[0] * beta
     fun3 = xs[1]
     return np.array([fun1.tolist(), fun2.tolist(), fun3.tolist()])
 

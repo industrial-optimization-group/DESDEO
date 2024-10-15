@@ -1834,13 +1834,13 @@ def simulator_problem():
     f5 = Objective(
         name="f_5",
         symbol="f_5",
-        surrogate=Path("model.pkl"),
+        surrogate=Path("model.skops"),
         objective_type=ObjectiveTypeEnum.surrogate
     )
     f6 = Objective(
         name="f_6",
         symbol="f_6",
-        surrogate=Path("model2.pkl"),
+        surrogate=Path("model2.skops"),
         objective_type=ObjectiveTypeEnum.surrogate
     )
     g1 = Constraint(
@@ -1855,6 +1855,12 @@ def simulator_problem():
         cons_type=ConstraintTypeEnum.LTE,
         func="-x_1 - x_2 - x_3",
     )
+    g3 = Constraint(
+        name="g_3",
+        symbol="g_3",
+        cons_type=ConstraintTypeEnum.LTE,
+        surrogate=Path("model.skops"),
+    )
     e1 = ExtraFunction(
         name="e_1",
         symbol="e_1",
@@ -1865,13 +1871,18 @@ def simulator_problem():
         symbol="e_2",
         func="x_1 * x_2 * x_3"
     )
+    e3 = ExtraFunction(
+        name="e_3",
+        symbol="e_3",
+        surrogate=Path("model2.skops"),
+    )
     return Problem(
         name="Simulator problem",
         description="",
         variables=variables,
         objectives=[f1,f2,f3,f4,f5,f6],
-        constraints=[g1, g2],
-        extra_funcs=[e1, e2],
+        constraints=[g1,g2,g3],
+        extra_funcs=[e1,e2,e3],
         simulators=[Simulator(name="s_1", symbol="s_1", file=Path("./simulator_file.py"), parameter_options={}),
                     Simulator(name="s_2", symbol="s_2", file=Path("./simulator_file2.py"), parameter_options={})]
     )

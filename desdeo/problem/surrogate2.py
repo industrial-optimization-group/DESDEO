@@ -2,6 +2,8 @@
 import pickle
 from pathlib import Path
 
+import joblib
+import skops.io as sio
 from sklearn.datasets import make_gaussian_quantiles
 from sklearn.linear_model import LogisticRegression
 
@@ -10,5 +12,6 @@ if __name__ == "__main__":
     gpr = LogisticRegression(
             random_state=0).fit(X, y)
     #gpr.fit(X, y)
-    with Path.open('model2.pkl', 'wb') as file:
-        pickle.dump(gpr, file)
+    #with Path.open('model2.pkl', 'wb') as file:
+    #joblib.dump(gpr, 'model2.pkl')
+    sio.dump(gpr, "model2.skops")
