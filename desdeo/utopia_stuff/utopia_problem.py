@@ -21,10 +21,10 @@ from desdeo.tools.utils import available_solvers, payoff_table_method
 
 
 def utopia_problem(
-    simulation_results: str, # when ran from the same place always, these can be replaced with just the dir name
+    simulation_results: str,  # when ran from the same place always, these can be replaced with just the dir name
     treatment_key: str,
     problem_name: str = "Forest problem",
-    holding: int = 1
+    holding: int = 1,
 ) -> tuple[Problem, dict]:
     r"""Defines a test forest problem that has TensorConstants and TensorVariables.
 
@@ -66,10 +66,14 @@ def utopia_problem(
         (1 - 0.01 * discounting_factor) ** 17,
     ]
 
-    #df = pl.read_csv(Path("tests/data/alternatives_290124.csv"), dtypes={"unit": pl.Float64})
+    # df = pl.read_csv(Path("tests/data/alternatives_290124.csv"), dtypes={"unit": pl.Float64})
     df = pl.read_csv(Path(simulation_results), dtypes={"unit": pl.Float64})
-    #df_key = pl.read_csv(Path("tests/data/alternatives_key_290124.csv"), dtypes={"unit": pl.Float64})
+    # df_key = pl.read_csv(Path("tests/data/alternatives_key_290124.csv"), dtypes={"unit": pl.Float64})
     df_key = pl.read_csv(Path(treatment_key), dtypes={"unit": pl.Float64})
+
+    # Calculate the total wood volume at the start
+    selected_df_v0 = df.filter(pl.col("holding") == holding).select(["unit", "stock_0"]).unique()
+    wood_volume_0 = int(selected_df_v0["stock_0"].sum())
 
     selected_df_v = df.filter(pl.col("holding") == holding).select(
         ["unit", "schedule", f"npv_{discounting_factor}_percent"]
@@ -335,7 +339,7 @@ def utopia_problem(
     )
 
     f_2 = Objective(
-        name="Puuston tilavuus / m^3",
+        name=f"Puuston tilavuus / m^3\n(alussa {wood_volume_0}m^3)",
         symbol="f_2",
         func=f_2_func,
         maximize=True,
