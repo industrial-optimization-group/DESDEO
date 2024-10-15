@@ -82,7 +82,6 @@ problem_in_db = db_models.Problem(
     obj_kind=ObjectiveKind.ANALYTICAL,
     value=problem.model_dump(mode="json"),
     role_permission=[UserRole.DM],
-    role_permission=[UserRole.DM],
 )
 
 db.add(problem_in_db)
@@ -96,14 +95,13 @@ problem_in_db = db_models.Problem(
     name="Test 2",
     kind=ProblemKind.CONTINUOUS,
     obj_kind=ObjectiveKind.ANALYTICAL,
-    solver=Solvers.PYOMO_IPOPT,
+    #solver=Solvers.PYOMO_IPOPT,
     value=problem.model_dump(mode="json"),
     role_permission=[UserRole.DM],
 )
 db.add(problem_in_db)
 db.commit()
 
-# db.close()
 # I guess we need to have methods in the database as well
 nimbus = db_models.Method(
     kind=Methods.NIMBUS,
@@ -120,134 +118,6 @@ gnimbus = db_models.Method(
     name="GNIMBUS",
 )
 db.add(gnimbus)
-
-
-def fakeProblemDontLook():
-    # Data loading
-    data = pl.read_csv("./experiment/LUKE best front.csv")
-    data = data.drop(["non_dominated", "source"])
-    data = data * -1
-    data = data.with_columns(pl.Series("index", np.arange(1, len(data) + 1)))
-
-    divisor_NPV = 1_000_000
-    divisor_SV30 = 1_000_000
-    divisor_removal = 10_000_000
-
-    # Problem definition
-
-    index_var = Variable(
-        name="index",
-        symbol="index",
-        initial_value=1,
-        lowerbound=1,
-        upperbound=len(data),
-        variable_type="real",
-    )
-
-    npv = Objective(
-        name="Net present value",
-        symbol="NPV",
-        unit="Million EUR",
-        func=None,
-        objective_type="data_based",
-        maximize=True,
-        ideal=data["npv4%"].max() / divisor_NPV,
-        nadir=data["npv4%"].min() / divisor_NPV,
-    )
-
-    sv30 = Objective(
-        name="Change in standing volume",
-        symbol="SV30",
-        unit="Million cubic meters",
-        func=None,
-        objective_type="data_based",
-        maximize=True,
-        ideal=data["SV30"].max() / divisor_SV30,
-        nadir=data["SV30"].min() / divisor_SV30,
-    )
-
-    removal1 = Objective(
-        name="Yearly removal during first period",
-        symbol="Removal1",
-        unit="Million cubic meters",
-        func=None,
-        objective_type="data_based",
-        maximize=True,
-        ideal=data["removal1"].max() / divisor_removal,
-        nadir=data["removal1"].min() / divisor_removal,
-    )
-
-    removal2 = Objective(
-        name="Yearly removal during second period",
-        symbol="Removal2",
-        unit="Million cubic meters",
-        func=None,
-        objective_type="data_based",
-        maximize=True,
-        ideal=data["removal2"].max() / divisor_removal,
-        nadir=data["removal2"].min() / divisor_removal,
-    )
-
-    removal3 = Objective(
-        name="Yearly removal during third period",
-        symbol="Removal3",
-        unit="Million cubic meters",
-        func=None,
-        objective_type="data_based",
-        maximize=True,
-        ideal=data["removal3"].max() / divisor_removal,
-        nadir=data["removal3"].min() / divisor_removal,
-    )
-
-    obj_data = {
-        "NPV": ((data["npv4%"]) / divisor_NPV).to_list(),
-        "SV30": ((data["SV30"]) / divisor_SV30).to_list(),
-        "Removal1": ((data["removal1"]) / divisor_removal).to_list(),
-        "Removal2": ((data["removal2"]) / divisor_removal).to_list(),
-        "Removal3": ((data["removal3"]) / divisor_removal).to_list(),
-    }
-
-    dis_def = DiscreteRepresentation(
-        variable_values={"index": data["index"].to_list()},
-        objective_values=obj_data,
-    )
-    return Problem(
-        name="LUKE Problem",
-        description="None yet.",
-        variables=[index_var],
-        objectives=[npv, sv30, removal1, removal2, removal3],
-        discrete_representation=dis_def,
-    )
-
-# I guess we need to have methods in the database as well
-nimbus = db_models.Method(
-    kind=Methods.NIMBUS,
-    properties=[],
-    name="NIMBUS",
-)
-db.add(nimbus)
-db.commit()
-
-# I guess we need to have methods in the database as well
-gnimbus = db_models.Method(
-    kind=Methods.GNIMBUS,
-    properties=[],
-    name="GNIMBUS",
-)
-db.add(gnimbus)
-db.commit()
-
-
-# luke_problem = fakeProblemDontLook()
-
-# luke_problem_in_db = db_models.Problem(
-#    owner=user.id,
-#    name="LUKE Problem",
-#    kind=ProblemKind.DISCRETE,
-#    obj_kind=ObjectiveKind.ANALYTICAL,
-#    value=luke_problem.model_dump(mode="json"),
-# )
-# db.add(luke_problem_in_db)
 db.commit()
 
 db.close()

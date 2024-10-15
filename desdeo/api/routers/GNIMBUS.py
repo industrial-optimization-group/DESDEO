@@ -879,7 +879,7 @@ def get_gnimbus_method_id(db: Session) -> int:
     gnimbus_method = db.query(Method).filter(Method.kind == Methods.GNIMBUS).first()
     return gnimbus_method.id
 
-# TODO: see if can just import from NIMBUS API
+# TODO: see if can just import from NIMBUS API. Currently does not work with gnimbus becuase problem.owner!
 def read_problem_from_db(db: Session, problem_id: int, user_id: int) -> tuple[Problem, str]:
     """Reads the problem from database.
 
@@ -901,9 +901,8 @@ def read_problem_from_db(db: Session, problem_id: int, user_id: int) -> tuple[Pr
 
     if problem is None:
         raise HTTPException(status_code=404, detail="Problem not found.")
-    #if problem.owner != user_id and problem.owner is not None:
-    #if problem.owner is not None:
-    #    raise HTTPException(status_code=403, detail="Unauthorized to access chosen problem.")
+    if problem.owner != user_id and problem.owner is not None:
+        raise HTTPException(status_code=403, detail="Unauthorized to access chosen problem.")
     try:
         solver = problem.solver.value
         problem = Problem.model_validate(problem.value)
