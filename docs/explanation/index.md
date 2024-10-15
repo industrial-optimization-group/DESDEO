@@ -47,4 +47,12 @@ hide:
 
     [:octicons-arrow-right-24: Test problems](./test_problems.md)
 
+-   :octicons-info-24:{ .lg .middle } __Log in with invite code__
+
+    ---
+
+    Learn about the invite code for easy log-in
+
+    [:octicons-arrow-right-24: Invite code](./invite_code.md)
+
 </div>
