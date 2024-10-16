@@ -91,7 +91,7 @@ class Evaluator:
         if surrogate_paths is not None:
             self._load_surrogates(surrogate_paths)
 
-    def _evaluate_simulator(self, xs: np.ndarray, return_as_dict: bool = True) -> np.ndarray:
+    def _evaluate_simulator(self, xs: dict[str, list], return_as_dict: bool = True) -> np.ndarray:
         """Evaluate the problem for the given decision variables using the simulator.
 
         If there is a mix of (mutually exclusive and exhaustive) analytical and simulator objectives,
@@ -100,7 +100,7 @@ class Evaluator:
         constraints and extra functions, and return the combined results.
 
         Args:
-            xs (np.ndarray): The decision variables for which the objectives need to be evaluated.
+            xs (dict[str, list]): The decision variables for which the objectives need to be evaluated.
                 The shape of the array is (n, m), where n is the number of decision variables and m is the
                 number of samples. Note that there is no need to support TensorVariables in this evaluator.
             return_as_dict (bool, optional): Determines in what form the objective, constraint and extra function
@@ -115,7 +115,8 @@ class Evaluator:
                 Returned as a dict with the objective, constraint and extra function symbols
                 and the corresponding values as numpy arrays. The length of the arrays is the number of samples.
         """
-        xs_json = json.dumps(xs.tolist())
+        xs_json = json.dumps(xs)
+        print(xs_json)
         # TODO: add validation?
         results_dict = {}
         results = []
@@ -137,7 +138,7 @@ class Evaluator:
 
             params = self.params.get(sim.name, {})
             res = subprocess.run(
-                f"{sys.executable} {sim.file} -d {xs_json} -p {params}", check=True, capture_output=True
+                f"{sys.executable} {sim.file} -d {xs} -p {params}", check=True, capture_output=True
             ).stdout.decode()
             results.append(np.array(json.loads(''.join(res))))
 
@@ -152,7 +153,7 @@ class Evaluator:
 
     def _evaluate_surrogates(
         self,
-        xs: np.ndarray,
+        xs: dict[str, list],
         return_as_dict: bool = True
     ) -> dict[str, tuple[np.ndarray, np.ndarray]] | tuple[np.ndarray, np.ndarray]:
         """Evaluate the problem for the given decision variables using the surrogate models.
@@ -162,7 +163,7 @@ class Evaluator:
         and return the combined results.
 
         Args:
-            xs (np.ndarray): The decision variables for which the objectives need to be evaluated.
+            xs (dict[str, list]): The decision variables for which the objectives need to be evaluated.
                 The shape of the array is (n, m), where n is the number of decision variables and m is the number
                 of samples. Note that there is no need to support TensorVariables in this evaluator.
             return_as_dict (bool, optional): Determines in what form the objective, constraint and extra function
@@ -185,12 +186,13 @@ class Evaluator:
         uncertainties = []
         symbols = []
         results_dict = {}
+        var = np.array([value for _, value in xs.items()])
         for obj in self.surrogates:
             accepted_args = getfullargspec(self.surrogates[obj].predict).args
             if "return_std" in accepted_args:
-                objective_value, uncertainty = self.surrogates[obj].predict(xs.T, return_std=True)
+                objective_value, uncertainty = self.surrogates[obj].predict(var, return_std=True)
             else:
-                objective_value = self.surrogates[obj].predict(xs.T)
+                objective_value = self.surrogates[obj].predict(var)
                 uncertainty = np.full(np.shape(objective_value), np.nan)
             objective_values.append(objective_value)
             uncertainties.append(uncertainty)
@@ -236,7 +238,8 @@ class Evaluator:
             res = {}
             if len(self.analytical_objectives + self.analytical_constraints + self.analytical_extras) > 0:
                 polars_evaluator = PolarsEvaluator(self.problem, evaluator_mode=PolarsEvaluatorModesEnum.mixed)
-                analytical_values = polars_evaluator._polars_evaluate(xs["analytical"])
+                #analytical_values = polars_evaluator._polars_evaluate(xs["analytical"])
+                analytical_values = polars_evaluator._polars_evaluate(xs)
                 for obj in self.analytical_objectives:
                     res[obj.symbol] = analytical_values[obj.symbol][0]
                 for con in self.analytical_constraints:
@@ -250,7 +253,8 @@ class Evaluator:
             #data_objs = self._from_discrete_data()
 
             if len(self.simulator_objectives + self.simulator_constraints + self.simulator_extras) > 0:
-                simulator_values = self._evaluate_simulator(xs=xs["simulator"], return_as_dict=True)
+                #simulator_values = self._evaluate_simulator(xs=xs["simulator"], return_as_dict=True)
+                simulator_values = self._evaluate_simulator(xs, return_as_dict=True)
                 for obj in self.simulator_objectives:
                     res[obj.symbol] = simulator_values[obj.symbol].tolist()
 
@@ -263,7 +267,8 @@ class Evaluator:
                         res[extra.symbol] = simulator_values[extra.symbol].tolist()
 
             if len(self.surrogate_objectives + self.surrogate_constraints + self.simulator_extras) > 0:
-                surrogate_values = self._evaluate_surrogates(xs=xs["surrogate"])
+                #surrogate_values = self._evaluate_surrogates(xs=xs["surrogate"])
+                surrogate_values = self._evaluate_surrogates(xs)
                 for obj in self.surrogate_objectives:
                     res[obj.symbol] = surrogate_values[obj.symbol][0].tolist(), surrogate_values[obj.symbol][1].tolist()
                 if len(self.surrogate_constraints) > 0:
@@ -307,10 +312,15 @@ if __name__ == "__main__":
                          "f_6": Path("model2.skops"),
                          "g_3": Path("model.skops"),
                          "e_3": Path("model2.skops")})
-    res = evaluator.evaluate({
+    """res = evaluator.evaluate({
         "analytical": {"x_1": [0, 1, 2, 3, 4], "x_2": [4, 3, 2, 1, 0], "x_3": [0, 4, 1, 3, 2]},
         "simulator": np.array([[0, 1, 2, 3, 4], [4, 3, 2, 1, 0], [0, 4, 1, 3, 2], [3, 1, 3, 2, 3]]),
-        "surrogate": np.array([[0, 1, 2, 3, 4], [4, 3, 2, 1, 0], [0, 4, 1, 3, 2], [3, 1, 3, 2, 3]])})
+        "surrogate": np.array([[0, 1, 2, 3, 4], [4, 3, 2, 1, 0], [0, 4, 1, 3, 2], [3, 1, 3, 2, 3]])})"""
+    res = evaluator.evaluate({
+        "x_1": [0, 1, 2, 3],
+        "x_2": [4, 3, 2, 1],
+        "x_3": [0, 4, 1, 3],
+        "x_4": [3, 1, 3, 2]})
     #res = evaluator._evaluate_simulator(np.array([[0, 1, 2, 3], [4, 3, 2, 1], [0, 4, 1, 3]]))
     #print(np.shape(res), res)
     print(res)

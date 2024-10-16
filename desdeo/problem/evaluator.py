@@ -332,9 +332,7 @@ class PolarsEvaluator:
             At least `self.objective_expressions` must be defined before calling this method.
         """
         # An aggregate dataframe to store intermediate evaluation results.
-        agg_df = pl.DataFrame(xs)
-        print(pl.DataFrame({key: np.array(value) for key,value in xs.items()}))
-        #agg_df = pl.DataFrame({key: np.array(value) for key, value in xs.items()})
+        agg_df = pl.DataFrame({key: np.array(value) for key, value in xs.items()})
 
         # Deal with TensorConstant
         # agg_df.with_columns(pl.Series(np.array(2*[self.tensor_constants["W"]])).alias("W"))

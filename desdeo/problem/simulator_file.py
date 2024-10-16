@@ -4,12 +4,12 @@ import sys
 import numpy as np
 
 
-def simulator(xs: np.ndarray, params: dict):
+def simulator(xs: dict, params: dict):
     alpha = params.get("alpha", 1)
     beta = params.get("beta", 1)
-    fun1 = xs[0] * 2 + xs[1] * alpha
-    fun2 = xs[1] * 2 + xs[0] * beta
-    fun3 = xs[1]
+    fun1 = np.array(xs["x_1"]) * 2 + np.array(xs["x_2"]) * alpha
+    fun2 = np.array(xs["x_2"]) * 2 + np.array(xs["x_1"]) * beta
+    fun3 = np.array(xs["x_2"])
     return np.array([fun1.tolist(), fun2.tolist(), fun3.tolist()])
 
 if __name__ == "__main__":
@@ -31,7 +31,7 @@ if __name__ == "__main__":
         xs = args[d_index + 1: p_index]
 
         # parse the decision variable values
-        xs = np.array(json.loads(''.join(xs)))
+        xs = json.loads(''.join(xs).replace("\'", "\""))
 
         parameters = args[p_index + 1:]
         parameters = json.loads(''.join(parameters).replace("\'", "\""))
