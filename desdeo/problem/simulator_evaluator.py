@@ -1,19 +1,18 @@
 """Evaluators are defined to evaluate simulator based and surrogate based objectives, constraints and extras."""
 
 import json
-import pickle
 import subprocess
 import sys
 from inspect import getfullargspec
 from pathlib import Path
 
-import joblib
 import numpy as np
+import polars as pl
 import skops.io as sio
 
 from desdeo.problem import (
-    PolarsEvaluator,
     ObjectiveTypeEnum,
+    PolarsEvaluator,
     PolarsEvaluatorModesEnum,
     Problem,
 )
@@ -91,7 +90,7 @@ class Evaluator:
         if surrogate_paths is not None:
             self._load_surrogates(surrogate_paths)
 
-    def _evaluate_simulator(self, xs: dict[str, list], return_as_dict: bool = True) -> np.ndarray:
+    def _evaluate_simulator(self, xs: dict[str, list]) -> pl.DataFrame:
         """Evaluate the problem for the given decision variables using the simulator.
 
         If there is a mix of (mutually exclusive and exhaustive) analytical and simulator objectives,
@@ -103,10 +102,6 @@ class Evaluator:
             xs (dict[str, list]): The decision variables for which the objectives need to be evaluated.
                 The shape of the array is (n, m), where n is the number of decision variables and m is the
                 number of samples. Note that there is no need to support TensorVariables in this evaluator.
-            return_as_dict (bool, optional): Determines in what form the objective, constraint and extra function
-                values are returned. The options at the moment are 'dict' (a python dict) and 'ndarray' (numpy array).
-                If returned as a dict, the dict will contain the objective, constraint and extra function symbols
-                and their corresponding values. Defaults to 'True'.
 
         Returns:
             dict[str, np.ndarray]: The objective, constraint and extra function values for the given
@@ -115,11 +110,7 @@ class Evaluator:
                 Returned as a dict with the objective, constraint and extra function symbols
                 and the corresponding values as numpy arrays. The length of the arrays is the number of samples.
         """
-        xs_json = json.dumps(xs)
-        print(xs_json)
-        # TODO: add validation?
-        results_dict = {}
-        results = []
+        results = {}
         sim_symbols = []
         for sim in self.simulators:
             for obj in self.simulator_objectives:
@@ -140,22 +131,15 @@ class Evaluator:
             res = subprocess.run(
                 f"{sys.executable} {sim.file} -d {xs} -p {params}", check=True, capture_output=True
             ).stdout.decode()
-            results.append(np.array(json.loads(''.join(res))))
-
-        # here we are assuming that the simulator file gives outputs (objectives, constraints and extra_functions)
-        # in the "correct" order
-        results_stack = np.vstack(results)
-        if not return_as_dict:
-            return results_stack
-        for i in range(len(sim_symbols)):
-            results_dict[sim_symbols[i]] = results_stack[i]
-        return results_dict
+            res = dict(json.loads(''.join(res)))
+            for key, value in res.items():
+                results[key] = value
+        return pl.DataFrame(results)
 
     def _evaluate_surrogates(
         self,
-        xs: dict[str, list],
-        return_as_dict: bool = True
-    ) -> dict[str, tuple[np.ndarray, np.ndarray]] | tuple[np.ndarray, np.ndarray]:
+        xs: dict[str, list]
+    ) -> pl.DataFrame:
         """Evaluate the problem for the given decision variables using the surrogate models.
 
         If there is a mix of (mutually exclusive and exhaustive) analytical and surrogate objectives, this method will
@@ -166,10 +150,6 @@ class Evaluator:
             xs (dict[str, list]): The decision variables for which the objectives need to be evaluated.
                 The shape of the array is (n, m), where n is the number of decision variables and m is the number
                 of samples. Note that there is no need to support TensorVariables in this evaluator.
-            return_as_dict (bool, optional): Determines in what form the objective, constraint and extra function
-                values are returned. The options at the moment are 'dict' (a python dict) and 'ndarray' (numpy array).
-                If returned as a dict, the dict will contain the objective, constraint and extra function symbols
-                and their corresponding values. Defaults to 'True'.
 
         Returns:
             tuple[np.ndarray, np.ndarray]: The objective values for the given decision variables. The shape of
@@ -200,11 +180,13 @@ class Evaluator:
         res_arrays = np.array(objective_values), np.array(uncertainties)
         objective_values_stack = np.vstack(res_arrays[0])
         uncertainties_stack = np.vstack(res_arrays[1])
-        if not return_as_dict:
-            return objective_values_stack, uncertainties_stack
+        # add the objects, constraints and extra functions into a polars dataframe
+        # values go into columns with the symbol as the column names
+        # uncertainties go into columns with {symbol}_uncert as the column names
         for i in range(len(symbols)):
-            results_dict[symbols[i]] = objective_values_stack[i], uncertainties_stack[i]
-        return results_dict
+            results_dict[symbols[i]] = objective_values_stack[i]
+            results_dict[f"{symbols[i]}_uncert"] = uncertainties_stack[i]
+        return pl.DataFrame(results_dict)
 
     def _load_surrogates(self, surrogate_paths: dict[str, Path]):
         """Load the surrogate models from disk and store them within the evaluator.
@@ -230,77 +212,34 @@ class Evaluator:
                     self.surrogates[symbol] = sio.load(file, unknown_types)
                     #raise EvaluatorError(f"Untrusted types found in the model of {obj.symbol}: {unknown_types}")
 
-    def evaluate(self, xs: dict, return_type: str = "dict") -> dict[str, int | float | np.ndarray] | np.ndarray:
-        # possible return types are "dict" and "ndarray"
-        if return_type not in ["dict", "ndarray"]:
-            raise EvaluatorError(f"{return_type} is not a valid return type.")
-        if return_type == "dict":
-            res = {}
-            if len(self.analytical_objectives + self.analytical_constraints + self.analytical_extras) > 0:
-                polars_evaluator = PolarsEvaluator(self.problem, evaluator_mode=PolarsEvaluatorModesEnum.mixed)
-                #analytical_values = polars_evaluator._polars_evaluate(xs["analytical"])
-                analytical_values = polars_evaluator._polars_evaluate(xs)
-                for obj in self.analytical_objectives:
-                    res[obj.symbol] = analytical_values[obj.symbol][0]
-                for con in self.analytical_constraints:
-                    res[con.symbol] = analytical_values[con.symbol][0]
-                for extra in self.analytical_extras:
-                    res[extra.symbol] = analytical_values[extra.symbol][0]
+    def evaluate(self, xs: dict) -> pl.DataFrame:
+        res = pl.DataFrame()
+        if len(self.analytical_objectives + self.analytical_constraints + self.analytical_extras) > 0:
+            polars_evaluator = PolarsEvaluator(self.problem, evaluator_mode=PolarsEvaluatorModesEnum.mixed)
+            #analytical_values = polars_evaluator._polars_evaluate(xs["analytical"])
+            analytical_values = polars_evaluator._polars_evaluate(xs)
+            res = res.hstack(analytical_values)
 
-            """data_evaluator = GenericEvaluator(self.problem, evaluator_mode=EvaluatorModesEnum.mixed)
-            data_values = data_evaluator._from_discrete_data()
-            obj_values.append(data_values)"""
-            #data_objs = self._from_discrete_data()
-
-            if len(self.simulator_objectives + self.simulator_constraints + self.simulator_extras) > 0:
-                #simulator_values = self._evaluate_simulator(xs=xs["simulator"], return_as_dict=True)
-                simulator_values = self._evaluate_simulator(xs, return_as_dict=True)
-                for obj in self.simulator_objectives:
-                    res[obj.symbol] = simulator_values[obj.symbol].tolist()
-
-                if len(self.simulator_constraints) > 0:
-                    for con in self.simulator_constraints:
-                        res[con.symbol] = simulator_values[con.symbol].tolist()
-
-                if len(self.simulator_extras) > 0:
-                    for extra in self.simulator_extras:
-                        res[extra.symbol] = simulator_values[extra.symbol].tolist()
-
-            if len(self.surrogate_objectives + self.surrogate_constraints + self.simulator_extras) > 0:
-                #surrogate_values = self._evaluate_surrogates(xs=xs["surrogate"])
-                surrogate_values = self._evaluate_surrogates(xs)
-                for obj in self.surrogate_objectives:
-                    res[obj.symbol] = surrogate_values[obj.symbol][0].tolist(), surrogate_values[obj.symbol][1].tolist()
-                if len(self.surrogate_constraints) > 0:
-                    for con in self.surrogate_constraints:
-                        res[con.symbol] = surrogate_values[con.symbol][0].tolist(), surrogate_values[con.symbol][1].tolist()
-
-                if len(self.surrogate_extras) > 0:
-                    for extra in self.surrogate_extras:
-                        res[extra.symbol] = surrogate_values[extra.symbol][0].tolist(), surrogate_values[extra.symbol][1].tolist()
-
-            #surrogate_objs = self._evaluate_surrogate(xs['surrogate'])
-            for symbol in self.problem_symbols:
-                if symbol not in res:
-                    raise EvaluatorError(f"{symbol} not evaluated.")
-            return res
-
-        obj_values = []
-        """polars_evaluator = GenericEvaluator(self.problem)
-        analytical_values = polars_evaluator._polars_evaluate(xs)
-        obj_values.append(analytical_values)"""
-        #analytical_objs = self._polars_evaluate(xs['analytical'])
-        """data_evaluator = GenericEvaluator(self.problem, evaluator_mode=EvaluatorModesEnum.discrete)
+        """data_evaluator = GenericEvaluator(self.problem, evaluator_mode=EvaluatorModesEnum.mixed)
         data_values = data_evaluator._from_discrete_data()
         obj_values.append(data_values)"""
         #data_objs = self._from_discrete_data()
-        simulator_objs = self._evaluate_simulator(xs["simulator"])
-        if len(simulator_objs) != len(self.simulator_objectives):
-            raise EvaluatorError("Some simulator(s) not found.")
-        for obj in simulator_objs:
-            obj_values.append(obj)
+
+        if len(self.simulator_objectives + self.simulator_constraints + self.simulator_extras) > 0:
+            #simulator_values = self._evaluate_simulator(xs=xs["simulator"], return_as_dict=True)
+            simulator_values = self._evaluate_simulator(xs)
+            res = res.hstack(simulator_values)
+
+        if len(self.surrogate_objectives + self.surrogate_constraints + self.simulator_extras) > 0:
+            #surrogate_values = self._evaluate_surrogates(xs=xs["surrogate"])
+            surrogate_values = self._evaluate_surrogates(xs)
+            res = res.hstack(surrogate_values)
+
         #surrogate_objs = self._evaluate_surrogate(xs['surrogate'])
-        return obj_values
+        for symbol in self.problem_symbols:
+            if symbol not in res.columns:
+                raise EvaluatorError(f"{symbol} not evaluated.")
+        return res
 
 if __name__ == "__main__":
     from desdeo.problem import simulator_problem, surrogate_problem

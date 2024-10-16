@@ -5,11 +5,11 @@ import numpy as np
 
 
 def simulator(xs: dict, params: dict):
-    epsilon = params.get("epsilon", 1)
-    gamma = params.get("gamma", 1)
+    epsilon: float = params.get("epsilon", 1)
+    gamma: float = params.get("gamma", 1)
     fun1 = np.array(xs["x_1"]) * 2 - np.array(xs["x_2"]) - epsilon / 20
     fun2 = np.array(xs["x_2"]) * 2 - np.array(xs["x_1"]) + gamma / 100
-    return np.array([fun1.tolist(), fun2.tolist()])
+    return {"f_3": fun1.tolist(), "g_1": fun2.tolist()}
 
 if __name__ == "__main__":
     missing_arg = False
@@ -36,7 +36,7 @@ if __name__ == "__main__":
         parameters = json.loads(''.join(parameters).replace("\'", "\""))
         #alpha = parameters["alpha"]
         #print(xs)
-        simulator_output = simulator(xs, parameters).tolist()
+        simulator_output = simulator(xs, parameters)
         #print(xs, parameters)
         #sys.stdout.write(xs)
         #print(json.dumps(simulator_output))

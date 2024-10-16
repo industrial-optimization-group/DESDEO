@@ -125,7 +125,9 @@ class PolarsEvaluator:
         self.problem_constants = problem.constants
         # Gather the objective functions
         if evaluator_mode == PolarsEvaluatorModesEnum.mixed:
-            self.problem_objectives = list(filter(lambda x: x.objective_type == ObjectiveTypeEnum.analytical, problem.objectives))
+            self.problem_objectives = list(
+                filter(lambda x: x.objective_type == ObjectiveTypeEnum.analytical, problem.objectives)
+            )
         else:
             self.problem_objectives = problem.objectives
         # Gather any constraints
