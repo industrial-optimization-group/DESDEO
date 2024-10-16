@@ -1,7 +1,6 @@
 """Tests for the scipy solver interfaces."""
 
-from desdeo.problem import binh_and_korn
-from desdeo.tools.scalarization import add_scalarization_function
+from desdeo.problem import ScalarizationFunction, binh_and_korn
 from desdeo.tools.scipy_solver_interfaces import ScipyDeSolver
 
 
@@ -9,8 +8,18 @@ def test_scipy_de_with_constraints():
     """Tests the scipy differential evolution solver with constraints."""
     problem = binh_and_korn((False, False))
 
-    problem, target = add_scalarization_function(problem, "1*f_2", "first")
+    target = "first"
+    problem = problem.add_scalarization(
+        ScalarizationFunction(
+            name=target,
+            symbol=target,
+            func="1*f_2",
+            is_linear=problem.is_linear,
+            is_convex=problem.is_convex,
+            is_twice_differentiable=problem.is_twice_differentiable,
+        )
+    )
 
     solver = ScipyDeSolver(problem)
 
-    res = solver.solve(target)
+    solver.solve(target)

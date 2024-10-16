@@ -14,9 +14,11 @@ The problem definition is a JSON file that contains the following information:
 from collections import Counter
 from collections.abc import Iterable
 from enum import Enum
+from itertools import product
 from pathlib import Path
 from typing import Annotated, Any, Literal, TypeAliasType
 
+import numpy as np
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -59,7 +61,7 @@ def tensor_custom_error_validator(value: Any, handler: ValidatorFunctionWrapHand
 Tensor = TypeAliasType(
     "Tensor",
     Annotated[
-        list["Tensor"] | list[VariableType] | VariableType | Literal["List"],
+        list["Tensor"] | list[VariableType] | VariableType | Literal["List"] | None,
         WrapValidator(tensor_custom_error_validator),
     ],
 )
@@ -123,24 +125,33 @@ def parse_scenario_key_singleton_to_list(cls: "Problem", v: str | list[str]) -> 
     raise ValueError(msg)
 
 
-def parse_list_to_mathjson(cls: "TensorVariable", v: Tensor | None) -> list:
+def parse_list_to_mathjson(cls: "TensorVariable", v: Tensor | VariableType | None) -> list:
     """Validator that makes sure a nested Python list is represented as tensor following the MathJSON convention.
 
     Args:
         cls (TensorVariable): the class of the pydantic model the validator is applied to.
-        v (Tensor | None): the nested lists to be validated.
+        v (Tensor | VariableType | None): the nested lists to be validated.
 
     Returns:
-        list: a tensor following the MathJSON conventions.
+        list: a tensor following the MathJSON conventions; or a single value or None,
+            if v was assigned to one of these types.
     """
-    if v is None:
+    if v is None or isinstance(v, VariableType):
         return v
+
+    # Check if the input is already in MathJSON format
+    if isinstance(v, list) and len(v) > 0 and v[0] == "List":
+        return v
+
     # recursively parse into a MathJSON representation
     if isinstance(v, list) and len(v) > 0:
+        if v[0] == "List":
+            # assumed to be already in MathJson format, just return the list
+            return v
         if isinstance(v[0], list):
             # recursive case, encountered list
             return ["List", *[parse_list_to_mathjson(TensorVariable, v_element) for v_element in v]]
-        if isinstance(v[0], VariableType):
+        if isinstance(v[0], VariableType | None):
             # terminal case, encountered a VariableType
             return ["List", *v]
 
@@ -148,26 +159,29 @@ def parse_list_to_mathjson(cls: "TensorVariable", v: Tensor | None) -> list:
         msg = "Encountered value that is not a valid VariableType nor a list."
         raise ValueError(msg)
 
-    msg = f"The tensor must a Python list (of lists). Got {type(v)}."
+    msg = f"The tensor must a Python list (of lists) or a single value of type VariableType. Got {type(v)}."
     raise ValueError(msg)
 
 
 def get_tensor_values(
-    values: Iterable[VariableType | Iterable[VariableType]] | None,
-) -> Iterable[VariableType | Iterable[VariableType]] | None:
-    """Return the values for a given attribute as a nested Python list with shape `self.shape`.
+    values: Iterable[VariableType | Iterable[VariableType]] | VariableType | None,
+) -> Iterable[VariableType | Iterable[VariableType]] | VariableType | None:
+    """Return the values for a given attribute as a nested Python list or single value.
 
     Removes the 'List' entries from the JSON format to give a Python compatible list.
+    If the values are a single value or None, then a single value or None is returned
+    instead, respectively.
 
     Arguments:
-        values (Iterable[VariableType | Iterable[VariableType]] | None): the values that should be extracted as a
-            Python list.
+        values (Iterable[VariableType | Iterable[VariableType]] | VariableType | None):
+            the values that should be extracted as a Python list.
 
     Returns:
-        list[VariableType] | Iterable[list[VariableType]] | None: a list with shape `self.shape` with the
-            values defined for the variable.
+        list[VariableType] | Iterable[list[VariableType]] | VariableType| None: a list with shape `self.shape` with the
+            values defined for the variable. If a single values consisted of a single value or None instead, then
+            a single valuer or None are returned, respectively.
     """
-    if values is None:
+    if values is None or isinstance(values, VariableType):
         return values
 
     if isinstance(values, list) and len(values) > 1:
@@ -298,9 +312,56 @@ class TensorConstant(BaseModel):
 
     _parse_list_to_mathjson = field_validator("values", mode="before")(parse_list_to_mathjson)
 
-    def get_values(self) -> Iterable[VariableType | Iterable[VariableType]] | None:
+    def get_values(self) -> Iterable[VariableType | Iterable[VariableType]] | Iterable[None, Iterable[None]]:
         """Return the constant values as a Python iterable (e.g., list of list)."""
-        return get_tensor_values(self.values)
+        values = get_tensor_values(self.values)
+        if isinstance(values, VariableType | None):
+            return np.full(self.shape, values).tolist()
+
+        return values
+
+    def to_constants(self) -> list[Constant]:
+        """Flatten the tensor into a list of Constants.
+
+        Returns:
+            list[Constant]: a list of Constants.
+        """
+        constants = []
+        for indices in list(product(*[range(1, dim + 1) for dim in self.shape])):
+            constants.append(self[*indices])
+
+        return constants
+
+    def __getitem__(self, indices: int | tuple[int]) -> Constant:
+        """Implements random access for TensorConstant.
+
+        Note:
+            Indexing is assumed to start at 1.
+
+        Args:
+            indices (int | Tuple[int]): a single integer or tuple of integers.
+
+        Returns:
+            Constant: A new instance of Constant that has been setup with
+                information found at the specified indices in the TensorConstant.
+        """
+        if isinstance(indices, tuple):
+            # multi-dimensional indexing
+            name = f"{self.name} at position {[*indices]}"
+            symbol = f"{self.symbol}_{"_".join(map(str, indices))}"
+
+            value = self.get_values()
+
+            for idx in indices:
+                value = value[idx - 1]
+
+        else:
+            # single indexing
+            name = f"{self.name} at position [{indices}]"
+            symbol = f"{self.symbol}_{indices}"
+            value = self.get_values()[indices - 1]
+
+        return Constant(name=name, symbol=symbol, value=value)
 
 
 class Variable(BaseModel):
@@ -379,48 +440,133 @@ class TensorVariable(BaseModel):
     lowerbounds: Tensor | None = Field(
         description=(
             "A list of lists, with the elements representing the lower bounds of each element. "
-            "E.g., `[[1, 2, 3], [4, 5, 6]]`. Defaults to None."
+            "E.g., `[[1, 2, 3], [4, 5, 6]]`. If a single value is supplied, that value is assumed to be the lower "
+            "bound of each element. Defaults to None."
         ),
         default=None,
     )
-    """A list of lists, with the elements representing the lower bounds of each element.
-    E.g., `[[1, 2, 3], [4, 5, 6]]`. Defaults to None.
-    """
-    upperbounds: Tensor | None = Field(
+    """A list of lists, with the elements representing the lower bounds of each
+    element.  E.g., `[[1, 2, 3], [4, 5, 6]]`. If a single value is supplied,
+    that value is assumed to be the lower bound of each element. Defaults to
+    None."""
+    upperbounds: Tensor | VariableType | None = Field(
         description=(
-            "A list of lists, with the elements representing the upper bounds of each element. "
-            "E.g., `[[10, 20, 30], [40, 50, 60]]`. Defaults to None."
+            "A list of lists, with the elements representing the upper bounds of each "
+            "element.  E.g., `[[1, 2, 3], [4, 5, 6]]`. If a single value is supplied, "
+            "that value is assumed to be the upper bound of each element. Defaults to "
+            "None."
         ),
         default=None,
     )
-    """A list of lists, with the elements representing the lower bounds of each element.
-    E.g., `[[1, 2, 3], [4, 5, 6]]`. Defaults to None.
-    """
-    initial_values: Tensor | None = Field(
+    """A list of lists, with the elements representing the upper bounds of each
+    element.  E.g., `[[1, 2, 3], [4, 5, 6]]`. If a single value is supplied,
+    that value is assumed to be the upper bound of each element. Defaults to
+    None."""
+    initial_values: Tensor | VariableType | None = Field(
         description=(
-            "A list of lists, with the elements representing the initial values of each element. "
-            "E.g., `[[5, 22, 0], [14, 5, 44]]`. Defaults to None."
+            "A list of lists, with the elements representing the initial values of "
+            "each element.  E.g., `[[1, 2, 3], [4, 5, 6]]`. If a single value is "
+            "supplied, that value is assumed to be the initial value of each element. "
+            "Defaults to None."
         ),
         default=None,
     )
-    """A list of lists, with the elements representing the initial values of each element.
-    E.g., `[[5, 22, 0], [14, 5, 44]]`. Defaults to None."""
+    """A list of lists, with the elements representing the initial values of
+    each element.  E.g., `[[1, 2, 3], [4, 5, 6]]`. If a single value is
+    supplied, that value is assumed to be the initial value of each element.
+    Defaults to None."""
 
     _parse_list_to_mathjson = field_validator("lowerbounds", "upperbounds", "initial_values", mode="before")(
         parse_list_to_mathjson
     )
 
-    def get_lowerbound_values(self) -> Iterable[VariableType | Iterable[VariableType]] | None:
+    def get_lowerbound_values(
+        self,
+    ) -> Iterable[VariableType | Iterable[VariableType]] | Iterable[None | Iterable[None]]:
         """Return the lowerbounds values, if any, as a Python iterable (list of list)."""
-        return get_tensor_values(self.lowerbounds)
+        lowerbounds = get_tensor_values(self.lowerbounds)
+        if isinstance(lowerbounds, VariableType | None):
+            # single value, construct list with the correct dimensions
+            return np.full(self.shape, lowerbounds).tolist()
 
-    def get_upperbound_values(self) -> Iterable[VariableType | Iterable[VariableType]] | None:
+        return lowerbounds
+
+    def get_upperbound_values(
+        self,
+    ) -> Iterable[VariableType | Iterable[VariableType]] | Iterable[None | Iterable[None]]:
         """Return the upperbounds values, if any, as a Python iterable (list of list)."""
-        return get_tensor_values(self.upperbounds)
+        upperbounds = get_tensor_values(self.upperbounds)
+        if isinstance(upperbounds, VariableType | None):
+            # single value, construct list with the correct dimensions
+            return np.full(self.shape, upperbounds).tolist()
 
-    def get_initial_values(self) -> Iterable[VariableType | Iterable[VariableType]] | None:
+        return upperbounds
+
+    def get_initial_values(self) -> Iterable[VariableType | Iterable[VariableType]] | Iterable[None | Iterable[None]]:
         """Return the initial values, if any, as a Python iterable (list of list)."""
-        return get_tensor_values(self.initial_values)
+        values = get_tensor_values(self.initial_values)
+        if isinstance(values, VariableType | None):
+            # single value, construct list with the correct dimensions
+            return np.full(self.shape, values).tolist()
+
+        return values
+
+    def to_variables(self) -> list[Variable]:
+        """Flatten the tensor into a list of Variables.
+
+        Returns:
+            list[Constant]: a list of Variables.
+        """
+        variables = []
+        for indices in list(product(*[range(1, dim + 1) for dim in self.shape])):
+            variables.append(self[*indices])
+
+        return variables
+
+    def __getitem__(self, indices: int | tuple[int]) -> Variable:
+        """Implements random access for TensorVariable.
+
+        Note:
+            Indexing is assumed to start at 1.
+
+        Args:
+            indices (int | Tuple[int]): a single integer or tuple of integers.
+
+        Returns:
+            Variable: A new instance of Variable that has been setup with
+                information found at the specified indices in the TensorVariable.
+        """
+        if isinstance(indices, tuple):
+            # multi-dimensional indexing
+            name = f"{self.name} at position {[*indices]}"
+            symbol = f"{self.symbol}_{"_".join(map(str, indices))}"
+
+            lowerbound = self.get_lowerbound_values()
+            upperbound = self.get_upperbound_values()
+            initial_value = self.get_initial_values()
+
+            for idx in indices:
+                lowerbound = lowerbound[idx - 1]
+                upperbound = upperbound[idx - 1]
+                initial_value = initial_value[idx - 1]
+
+        else:
+            # single indexing
+            name = f"{self.name} at position [{indices}]"
+            symbol = f"{self.symbol}_{indices}"
+
+            lowerbound = self.get_lowerbound_values()[indices - 1]
+            upperbound = self.get_upperbound_values()[indices - 1]
+            initial_value = self.get_initial_values()[indices - 1]
+
+        return Variable(
+            name=name,
+            symbol=symbol,
+            variable_type=self.variable_type,
+            lowerbound=lowerbound,
+            upperbound=upperbound,
+            initial_value=initial_value,
+        )
 
 
 class ExtraFunction(BaseModel):
@@ -1071,11 +1217,12 @@ class Problem(BaseModel):
         # variable not found
         return None
 
-    def get_objective(self, symbol: str) -> Objective | None:
+    def get_objective(self, symbol: str, *, copy: bool = True) -> Objective | None:
         """Return a copy of an `Objective` with the given symbol.
 
         Args:
             symbol (str): the symbol of the objective.
+            copy (bool): if True, return a copy of the objective, otherwise, return a reference. Defaults to True.
 
         Returns:
             Objective | None: the copy of the objective with the given symbol, or `None` if the objective is not found.
@@ -1083,7 +1230,12 @@ class Problem(BaseModel):
         for objective in self.objectives:
             if objective.symbol == symbol:
                 # objective found
-                return objective.model_copy()
+                if copy:
+                    # return a copy of the objective
+                    return objective.model_copy()
+
+                # return a reference instead
+                return objective
 
         # objective not found
         return None

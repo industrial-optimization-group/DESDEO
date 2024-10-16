@@ -5,21 +5,22 @@ import numpy.testing as npt
 import pytest
 
 from desdeo.problem import (
-    dtlz2,
+    ScalarizationFunction,
     binh_and_korn,
+    dtlz2,
     momip_ti2,
     momip_ti7,
-    simple_linear_test_problem,
     simple_knapsack_vectors,
+    simple_linear_test_problem,
 )
 from desdeo.tools import (
     BonminOptions,
     PyomoBonminSolver,
     PyomoCBCSolver,
-    PyomoIpoptSolver,
     PyomoGurobiSolver,
+    PyomoIpoptSolver,
 )
-from desdeo.tools.scalarization import add_scalarization_function, add_asf_diff
+from desdeo.tools.scalarization import add_asf_diff
 
 
 @pytest.mark.slow
@@ -72,7 +73,17 @@ def test_bonmin_w_momip_ti2():
     assert np.isclose(gs["g_2"], 0, atol=1e-8) or gs["g_2"] < 0
 
     # test with mixed objectives
-    problem_w_scal, target = add_scalarization_function(problem, func="f_1_min + f_2_min", symbol="s_1")
+    target = "s_1"
+    problem_w_scal = problem.add_scalarization(
+        ScalarizationFunction(
+            name="s_1",
+            symbol=target,
+            func="f_1_min + f_2_min",
+            is_linear=False,
+            is_convex=False,
+            is_twice_differentiable=True,
+        )
+    )
 
     solver = PyomoBonminSolver(problem_w_scal)
 
@@ -129,8 +140,16 @@ def test_bonmin_w_momip_ti7():
     assert np.isclose(gs["g_2"], 0, atol=1e-8) or gs["g_2"] < 0
 
     # test with mixed objectives
-    problem_w_scal, target = add_scalarization_function(
-        problem, func="0.25*f_1_min + 0.25*f_2_min + 0.5*f_3_min", symbol="s_1"
+    target = "s_1"
+    problem_w_scal = problem.add_scalarization(
+        ScalarizationFunction(
+            name=target,
+            symbol=target,
+            func="0.25*f_1_min + 0.25*f_2_min + 0.5*f_3_min",
+            is_linear=True,
+            is_convex=False,
+            is_twice_differentiable=True,
+        )
     )
 
     solver = PyomoBonminSolver(problem_w_scal, options=sol_options)

@@ -5,6 +5,8 @@ Reference of the method:
 TODO: update
 """
 
+from warnings import warn
+
 import numpy as np
 from pydantic import BaseModel, Field
 
@@ -14,18 +16,18 @@ from desdeo.mcdm.nautilus_navigator import (
     calculate_navigation_point,
 )
 from desdeo.problem import (
+    Constraint,
+    ConstraintTypeEnum,
     Problem,
-    get_nadir_dict,
     get_ideal_dict,
+    get_nadir_dict,
 )
 from desdeo.tools.generics import BaseSolver, SolverResults
 from desdeo.tools.scalarization import (  # create_asf, should be add_asf_nondiff probably
-    add_lte_constraints,
     add_asf_generic_diff,
     add_asf_generic_nondiff,
 )
 from desdeo.tools.utils import guess_best_solver
-from warnings import warn
 
 
 # TODO: check if need all of these, eg. distance to front? and do I need to change some of them?
@@ -96,7 +98,7 @@ def solve_reachable_solution(
             symbol="asf",
             reference_point=previous_nav_point,
             weights=weights,
-            reference_point_aug=previous_nav_point
+            reference_point_aug=previous_nav_point,
         )
     else:
         # non-differentiable problem
@@ -105,16 +107,23 @@ def solve_reachable_solution(
             symbol="asf",
             reference_point=previous_nav_point,
             weights=weights,
-            reference_point_aug=previous_nav_point
+            reference_point_aug=previous_nav_point,
         )
 
     # Note: We do not solve the global problem. Instead, we solve this constrained problem:
-    const_exprs = [
-        f"{obj.symbol}_min - {previous_nav_point[obj.symbol] * (-1 if obj.maximize else 1)}"
-        for obj in problem.objectives
-    ]
-    problem_w_asf = add_lte_constraints(
-        problem_w_asf, const_exprs, [f"const_{i}" for i in range(1, len(const_exprs) + 1)]
+    problem_w_asf = problem_w_asf.add_constraints(
+        [
+            Constraint(
+                name=f"_const_{i+1}",
+                symbol=f"_const_{i+1}",
+                func=f"{obj.symbol}_min - {previous_nav_point[obj.symbol] * (-1 if obj.maximize else 1)}",
+                cons_type=ConstraintTypeEnum.LTE,
+                is_linear=obj.is_linear,
+                is_convex=obj.is_convex,
+                is_twice_differentiable=obj.is_twice_differentiable,
+            )
+            for i, obj in enumerate(problem_w_asf.objectives)
+        ]
     )
 
     # solve the problem

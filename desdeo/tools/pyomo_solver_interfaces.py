@@ -1,13 +1,16 @@
 """Defines solver interfaces for pyomo."""
 
+import itertools
+
+import numpy as np
 import pyomo.environ as pyomo
 from pydantic import BaseModel, ConfigDict, Field
 from pyomo.opt import SolverResults as _pyomo_SolverResults
 from pyomo.opt import SolverStatus as _pyomo_SolverStatus
 from pyomo.opt import TerminationCondition as _pyomo_TerminationCondition
 
-from desdeo.problem import Problem, PyomoEvaluator
-from desdeo.tools.generics import BaseSolver, SolverResults
+from desdeo.problem import Problem, PyomoEvaluator, TensorVariable
+from desdeo.tools.generics import BaseSolver, SolverError, SolverResults
 
 
 class BonminOptions(BaseModel):
@@ -76,6 +79,11 @@ class IpoptOptions(BaseModel):
 
     max_iter: int = Field(description="Maximum number of iterations. Must be >1. Defaults to 3000.", default=3000)
     """Maximum number of iterations. Must be >1. Defaults to 3000."""
+
+    print_level: str = Field(
+        description="The verbosity level of the solver's output. Ranges between 0 and 12. Defaults to 5.", default=5
+    )
+    """The verbosity level of the solver's output. Ranges between 0 and 12."""
 
 
 class CbcOptions(BaseModel):
@@ -216,7 +224,21 @@ def parse_pyomo_optimizer_results(
     """
     results = evaluator.get_values()
 
-    variable_values = {var.symbol: results[var.symbol] for var in problem.variables}
+    variable_values = {}
+    for var in problem.variables:
+        if isinstance(var, TensorVariable):
+            # handle tensor variables
+            # 1-indexing in Pyomo...
+            values_list = np.zeros(var.shape)
+            for indices in itertools.product(*(range(1, dim + 1) for dim in var.shape)):
+                values_list[*[idx - 1 for idx in indices]] = results[var.symbol][
+                    indices if len(indices) > 1 else indices[0]
+                ]
+            variable_values[var.symbol] = values_list
+        else:
+            # variable_values = {var.symbol: results[var.symbol] for var in problem.variables}
+            variable_values[var.symbol] = results[var.symbol]
+
     objective_values = {obj.symbol: results[obj.symbol] for obj in problem.objectives}
     constraint_values = (
         {con.symbol: results[con.symbol] for con in problem.constraints} if problem.constraints else None
@@ -263,6 +285,8 @@ class PyomoBonminSolver(BaseSolver):
                 If `None` is passed, defaults to `_default_bonmin_options` defined in
                 this source file. Defaults to `None`.
         """
+        if not problem.is_twice_differentiable:
+            raise SolverError("Problem must be twice differentiable.")
         self.problem = problem
         self.evaluator = PyomoEvaluator(problem)
 
@@ -313,6 +337,8 @@ class PyomoIpoptSolver(BaseSolver):
                 If `None` is passed, defaults to `_default_ipopt_options` defined in
                 this source file. Defaults to `None`.
         """
+        if not problem.is_twice_differentiable:
+            raise SolverError("Problem must be twice differentiable.")
         self.problem = problem
         self.evaluator = PyomoEvaluator(problem)
 
@@ -332,7 +358,7 @@ class PyomoIpoptSolver(BaseSolver):
         """
         self.evaluator.set_optimization_target(target)
 
-        opt = pyomo.SolverFactory("ipopt", tee=True)
+        opt = pyomo.SolverFactory("ipopt", tee=True, options=self.options.dict())
         opt_res = opt.solve(self.evaluator.model)
         return parse_pyomo_optimizer_results(opt_res, self.problem, self.evaluator)
 
@@ -375,8 +401,6 @@ class PyomoGurobiSolver(BaseSolver):
         """
         self.evaluator.set_optimization_target(target)
 
-        opt = pyomo.SolverFactory("gurobi", solver_io="python", options=self.options)
-
         with pyomo.SolverFactory("gurobi", solver_io="python") as opt:
             opt_res = opt.solve(self.evaluator.model)
             return parse_pyomo_optimizer_results(opt_res, self.problem, self.evaluator)
@@ -402,6 +426,8 @@ class PyomoCBCSolver(BaseSolver):
                 If `None` is passed, defaults to `_default_cbc_options` defined in
                 this source file. Defaults to `None`.
         """
+        if not problem.is_linear:
+            raise SolverError("Nonlinear problems not supported.")
         self.problem = problem
         self.evaluator = PyomoEvaluator(problem)
 

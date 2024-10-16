@@ -6,12 +6,9 @@ __all__ = [
     "Constraint",
     "ConstraintTypeEnum",
     "DiscreteRepresentation",
-    "EvaluatorError",
-    "EvaluatorModesEnum",
     "ExtraFunction",
     "forest_problem",
     "FormatEnum",
-    "GenericEvaluator",
     "GurobipyEvaluator",
     "dtlz2",
     "get_nadir_dict",
@@ -43,19 +40,28 @@ __all__ = [
     "simulator_problem",
     "surrogate_problem",
     "tensor_constant_from_dataframe",
+    "PolarsEvaluator",
+    "PolarsEvaluatorModesEnum",
     "ScalarizationFunction",
     "Simulator",
     "TensorConstant",
     "TensorVariable",
     "Variable",
+    "VariableDimensionEnum",
     "VariableDomainTypeEnum",
     "VariableType",
     "VariableTypeEnum",
     "variable_dict_to_numpy_array",
+    "variable_dimension_enumerate",
     "zdt1",
 ]
 
-from .evaluator import EvaluatorError, EvaluatorModesEnum, GenericEvaluator
+from .evaluator import (
+    PolarsEvaluator,
+    PolarsEvaluatorModesEnum,
+    VariableDimensionEnum,
+    variable_dimension_enumerate,
+)
 from .gurobipy_evaluator import GurobipyEvaluator
 from .infix_parser import InfixExpressionParser
 from .json_parser import FormatEnum, MathParser

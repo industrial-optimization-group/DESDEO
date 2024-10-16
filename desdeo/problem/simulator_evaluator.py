@@ -12,13 +12,15 @@ import numpy as np
 import skops.io as sio
 
 from desdeo.problem import (
-    EvaluatorError,
-    EvaluatorModesEnum,
-    GenericEvaluator,
+    PolarsEvaluator,
     ObjectiveTypeEnum,
+    PolarsEvaluatorModesEnum,
     Problem,
 )
 
+
+class EvaluatorError(Exception):
+    """Error raised when exceptions are encountered in an Evaluator."""
 
 class Evaluator:
     """A class for creating evaluators for simulator based and surrogate based objectives, constraints and extras."""
@@ -233,7 +235,7 @@ class Evaluator:
         if return_type == "dict":
             res = {}
             if len(self.analytical_objectives + self.analytical_constraints + self.analytical_extras) > 0:
-                polars_evaluator = GenericEvaluator(self.problem, evaluator_mode=EvaluatorModesEnum.mixed)
+                polars_evaluator = PolarsEvaluator(self.problem, evaluator_mode=PolarsEvaluatorModesEnum.mixed)
                 analytical_values = polars_evaluator._polars_evaluate(xs["analytical"])
                 for obj in self.analytical_objectives:
                     res[obj.symbol] = analytical_values[obj.symbol][0]
@@ -306,7 +308,7 @@ if __name__ == "__main__":
                          "g_3": Path("model.skops"),
                          "e_3": Path("model2.skops")})
     res = evaluator.evaluate({
-        "analytical": {"x_1": 1, "x_2": 2, "x_3": 3},
+        "analytical": {"x_1": [0, 1, 2, 3, 4], "x_2": [4, 3, 2, 1, 0], "x_3": [0, 4, 1, 3, 2]},
         "simulator": np.array([[0, 1, 2, 3, 4], [4, 3, 2, 1, 0], [0, 4, 1, 3, 2], [3, 1, 3, 2, 3]]),
         "surrogate": np.array([[0, 1, 2, 3, 4], [4, 3, 2, 1, 0], [0, 4, 1, 3, 2], [3, 1, 3, 2, 3]])})
     #res = evaluator._evaluate_simulator(np.array([[0, 1, 2, 3], [4, 3, 2, 1], [0, 4, 1, 3]]))

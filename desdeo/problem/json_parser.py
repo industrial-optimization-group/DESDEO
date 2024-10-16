@@ -54,6 +54,7 @@ class MathParser:
         # Vector and matrix operations
         self.MATMUL: str = "MatMul"
         self.SUM: str = "Sum"
+        self.RANDOM_ACCESS = "At"
 
         # Exponentation and logarithms
         self.EXP: str = "Exp"
@@ -109,58 +110,98 @@ class MathParser:
             msg = "The gurobipy model format only supports linear and quadratic expressions."
             ParserError(msg)
 
-        def _polars_matmul(*args):
-            """Polars matrix multiplication."""
-            msg = (
-                "Matrix multiplication '@' has not been implemented for the Polars parser yet."
-                " Feel free to contribute!"
-            )
-            raise NotImplementedError(msg)
+        def _polars_reduce(ufunc, exprs):
+            def _reduce_function(acc, x, ufunc=ufunc):
+                acc_numpy = acc.to_numpy()
+                x_numpy = x.to_numpy()
 
-        def _polars_summation(summand):
+                if acc_numpy.shape == x_numpy.shape:
+                    return pl.Series(values=ufunc(acc_numpy, x_numpy))
+
+                expanded_shape = acc_numpy.shape + (1,) * (x_numpy.ndim - acc_numpy.ndim)
+
+                return pl.Series(values=ufunc(acc_numpy.reshape(expanded_shape), x_numpy))
+
+            return pl.reduce(function=_reduce_function, exprs=exprs)
+
+        def _polars_reduce_unary(expr, ufunc):
+            def _reduce_function(acc, _, ufunc=ufunc):
+                return pl.Series(values=ufunc(acc.to_numpy()))
+
+            return pl.reduce(function=_reduce_function, exprs=[expr, None])
+
+        def _polars_reduce_matmul(*exprs):
+            def _reduce_function(acc, x):
+                acc = acc.to_numpy()
+                x = x.to_numpy()
+
+                if len(acc.shape) == 2 and len(x.shape) == 2:
+                    # Row vectors, just return the dot product, polars does not handle
+                    # "column" vectors anyway
+                    return pl.Series(values=np.einsum("ij,ij->i", acc, x, optimize=True))
+
+                # actual matrix product required
+                return pl.Series(values=np.matmul(acc, x))
+
+            return pl.reduce(function=_reduce_function, exprs=exprs)
+
+        def _polars_summation(expr):
             """Polars matrix summation."""
-            msg = (
-                "Matrix summation 'Sum' has not been implemented for the Polars parser yet." " Feel free to contribute!"
-            )
-            raise NotImplementedError(msg)
+
+            def _reduce_function(acc, _):
+                acc_numpy = acc.to_numpy()
+                return pl.Series(values=np.sum(acc_numpy, axis=tuple(range(1, acc_numpy.ndim))))
+
+            return pl.reduce(function=_reduce_function, exprs=[expr, None])
+
+        def _polars_random_access(expr, *indices):
+            """Polars tensor random access."""
+            for index in indices:
+                expr = expr.arr.get(index - 1)  # 1 indexing assumed in JSON format
+
+            return expr
+
+        def _polars_generic_apply(a, b):
+            pass
 
         polars_env = {
             # Define the operations for the different operators.
             # Basic arithmetic operations
-            self.NEGATE: lambda x: -to_expr(x),
-            self.ADD: lambda *args: reduce(lambda x, y: to_expr(x) + to_expr(y), args),
-            self.SUB: lambda *args: reduce(lambda x, y: to_expr(x) - to_expr(y), args),
-            self.MUL: lambda *args: reduce(lambda x, y: to_expr(x) * to_expr(y), args),
-            self.DIV: lambda *args: reduce(lambda x, y: to_expr(x) / to_expr(y), args),
+            self.NEGATE: lambda x: _polars_reduce_unary(x, np.negative),
+            self.ADD: lambda *args: _polars_reduce(np.add, args),
+            self.SUB: lambda *args: _polars_reduce(np.subtract, args),
+            self.MUL: lambda *args: _polars_reduce(np.multiply, args),
+            self.DIV: lambda *args: _polars_reduce(np.divide, args),
             # Vector and matrix operations
-            self.MATMUL: _polars_matmul,
-            self.SUM: _polars_summation,
+            self.MATMUL: _polars_reduce_matmul,
+            self.SUM: lambda x: _polars_summation(x),
+            self.RANDOM_ACCESS: _polars_random_access,
             # Exponentiation and logarithms
-            self.EXP: lambda x: pl.Expr.exp(to_expr(x)),
-            self.LN: lambda x: pl.Expr.log(to_expr(x)),
-            self.LB: lambda x: pl.Expr.log(to_expr(x), 2),
-            self.LG: lambda x: pl.Expr.log10(to_expr(x)),
-            self.LOP: lambda x: pl.Expr.log1p(to_expr(x)),
-            self.SQRT: lambda x: pl.Expr.sqrt(to_expr(x)),
-            self.SQUARE: lambda x: to_expr(x) ** 2,
-            self.POW: lambda x, y: to_expr(x) ** to_expr(y),
+            self.EXP: lambda x: _polars_reduce_unary(x, np.exp),
+            self.LN: lambda x: _polars_reduce_unary(x, np.log),
+            self.LB: lambda x: _polars_reduce_unary(x, np.log2),
+            self.LG: lambda x: _polars_reduce_unary(x, np.log10),
+            self.LOP: lambda x: _polars_reduce_unary(x, np.log1p),
+            self.SQRT: lambda x: _polars_reduce_unary(x, np.sqrt),
+            self.SQUARE: lambda x: _polars_reduce_unary(x, lambda y: np.power(y, 2)),
+            self.POW: lambda *args: _polars_reduce(np.power, args),
             # Trigonometric operations
-            self.ARCCOS: lambda x: pl.Expr.arccos(to_expr(x)),
-            self.ARCCOSH: lambda x: pl.Expr.arccosh(to_expr(x)),
-            self.ARCSIN: lambda x: pl.Expr.arcsin(to_expr(x)),
-            self.ARCSINH: lambda x: pl.Expr.arcsinh(to_expr(x)),
-            self.ARCTAN: lambda x: pl.Expr.arctan(to_expr(x)),
-            self.ARCTANH: lambda x: pl.Expr.arctanh(to_expr(x)),
-            self.COS: lambda x: pl.Expr.cos(to_expr(x)),
-            self.COSH: lambda x: pl.Expr.cosh(to_expr(x)),
-            self.SIN: lambda x: pl.Expr.sin(to_expr(x)),
-            self.SINH: lambda x: pl.Expr.sinh(to_expr(x)),
-            self.TAN: lambda x: pl.Expr.tan(to_expr(x)),
-            self.TANH: lambda x: pl.Expr.tanh(to_expr(x)),
+            self.ARCCOS: lambda x: _polars_reduce_unary(x, np.arccos),
+            self.ARCCOSH: lambda x: _polars_reduce_unary(x, np.arccosh),
+            self.ARCSIN: lambda x: _polars_reduce_unary(x, np.arcsin),
+            self.ARCSINH: lambda x: _polars_reduce_unary(x, np.arcsinh),
+            self.ARCTAN: lambda x: _polars_reduce_unary(x, np.arctan),
+            self.ARCTANH: lambda x: _polars_reduce_unary(x, np.arctanh),
+            self.COS: lambda x: _polars_reduce_unary(x, np.cos),
+            self.COSH: lambda x: _polars_reduce_unary(x, np.cosh),
+            self.SIN: lambda x: _polars_reduce_unary(x, np.sin),
+            self.SINH: lambda x: _polars_reduce_unary(x, np.sinh),
+            self.TAN: lambda x: _polars_reduce_unary(x, np.tan),
+            self.TANH: lambda x: _polars_reduce_unary(x, np.tanh),
             # Rounding operations
-            self.ABS: lambda x: pl.Expr.abs(to_expr(x)),
-            self.CEIL: lambda x: pl.Expr.ceil(to_expr(x)),
-            self.FLOOR: lambda x: pl.Expr.floor(to_expr(x)),
+            self.ABS: lambda x: _polars_reduce_unary(x, np.abs),
+            self.CEIL: lambda x: _polars_reduce_unary(x, np.ceil),
+            self.FLOOR: lambda x: _polars_reduce_unary(x, np.floor),
             # Other operations
             self.RATIONAL: lambda lst: reduce(lambda x, y: x / y, lst),  # Not supported
             self.MAX: lambda *args: reduce(lambda x, y: pl.max_horizontal(to_expr(x), to_expr(y)), args),
@@ -361,6 +402,9 @@ class MathParser:
             """Sum an indexed Pyomo object."""
             return pyomo.sum_product(summand, index=summand.index_set())
 
+        def _pyomo_random_access(indexed, *indices):
+            return indexed[*indices]
+
         pyomo_env = {
             # Define the operations for the different operators.
             # Basic arithmetic operations
@@ -368,10 +412,11 @@ class MathParser:
             self.ADD: _pyomo_addition,
             self.SUB: _pyomo_subtraction,
             self.MUL: _pyomo_multiply,
-            self.DIV: lambda *args: reduce(lambda x, y: x / y, args),
+            self.DIV: lambda *args: reduce(lambda x, y: x / y, args),  # probably does not work, needs to call mul
             # Vector and matrix operations
             self.MATMUL: _pyomo_matrix_multiplication,
             self.SUM: _pyomo_summation,
+            self.RANDOM_ACCESS: _pyomo_random_access,
             # Exponentiation and logarithms
             self.EXP: lambda x: pyomo.exp(x),
             self.LN: lambda x: pyomo.log(x),
@@ -420,6 +465,13 @@ class MathParser:
             )
             raise NotImplementedError(msg)
 
+        def _sympy_random_access(*args):
+            msg = (
+                "Tensor random access with 'At' has not been implemented for the Sympy parser yet. "
+                "Feel free to contribute!"
+            )
+            raise NotImplementedError(msg)
+
         sympy_env = {
             # Basic arithmetic operations
             self.NEGATE: lambda x: -to_sympy_expr(x),
@@ -430,6 +482,7 @@ class MathParser:
             # Vector and matrix operations
             self.MATMUL: _sympy_matmul,
             self.SUM: _sympy_summation,
+            self.RANDOM_ACCESS: _sympy_random_access,
             # Exponentiation and logarithms
             self.EXP: lambda x: sp.exp(to_sympy_expr(x)),
             self.LN: lambda x: sp.log(to_sympy_expr(x)),
@@ -465,14 +518,16 @@ class MathParser:
 
         def _gurobipy_matmul(*args):
             """Gurobipy matrix multiplication."""
+
             def _matmul(a, b):
                 if isinstance(a, list):
                     a = np.array(a)
                 if isinstance(b, list):
                     b = np.array(b)
-                if len(np.shape(a@b)) == 1:
-                    return a@b
-                return (a@b).sum()
+                if len(np.shape(a @ b)) == 1:
+                    return a @ b
+                return (a @ b).sum()
+
             return reduce(_matmul, args)
             msg = (
                 "Matrix multiplication '@' has not been implemented for the Gurobipy parser yet."
@@ -482,14 +537,23 @@ class MathParser:
 
         def _gurobipy_summation(summand):
             """Gurobipy matrix summation."""
+
             def _sum(summand):
                 if isinstance(summand, list):
                     summand = np.array(summand)
                 return summand.sum()
+
             return _sum(summand)
             msg = (
                 "Matrix summation 'Sum' has not been implemented for the Gurobipy parser yet."
                 " Feel free to contribute!"
+            )
+            raise NotImplementedError(msg)
+
+        def _gurobipy_random_access(*args):
+            msg = (
+                "Tensor random access with 'At' has not been implemented for the Gurobipy parser yet. "
+                "Feel free to contribute!"
             )
             raise NotImplementedError(msg)
 
@@ -504,6 +568,7 @@ class MathParser:
             # Vector and matrix operations
             self.MATMUL: _gurobipy_matmul,
             self.SUM: _gurobipy_summation,
+            self.RANDOM_ACCESS: _gurobipy_random_access,
             # Exponentiation and logarithms
             # it would be possible to implement some of these with the special functions that
             # gurobi has to offer, but they would only work under specific circumstances

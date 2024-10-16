@@ -1,11 +1,19 @@
-"""Tests for the generic evaluator."""
+"""Tests for the Polars evaluator."""
+
 import numpy.testing as npt
 import polars as pl
+import pytest
 
+# from desdeo.problem import PolarsEvaluator, river_pollution_problem, simple_test_problem, simple_knapsack_vectors
 from desdeo.problem import (
-    GenericEvaluator,
+    PolarsEvaluator,
+    Objective,
+    Problem,
+    TensorConstant,
+    TensorVariable,
     river_pollution_problem,
     simple_test_problem,
+    simple_knapsack_vectors,
 )
 from desdeo.problem.evaluator import find_closest_points
 
@@ -18,7 +26,7 @@ def test_generic_with_river():
 
     df = pl.DataFrame(data)
 
-    evaluator = GenericEvaluator(problem)
+    evaluator = PolarsEvaluator(problem)
 
     eval_res = evaluator.evaluate(data)
 
@@ -60,7 +68,7 @@ def test_generic_w_mins_and_max():
 
     df = pl.DataFrame(data)
 
-    evaluator = GenericEvaluator(problem)
+    evaluator = PolarsEvaluator(problem)
 
     eval_res = evaluator.evaluate(data)
 
@@ -97,13 +105,15 @@ def test_find_closest_points():
     npt.assert_array_almost_equal(closest_points_df_basic[objective_symbol_basic].to_numpy(), expected_basic)
 
     # more complex data
-    xs_complex = pl.DataFrame({"x_1": [0, 2.5, 3.5, -1.5], "x_2": [-1, 2, -2, 0], "x_3": [1.5, -0.5, 2.5, -3]})
+    xs_complex = pl.DataFrame(
+        {"x_1": [0.0, 2.5, 3.5, -1.5], "x_2": [-1.0, 2.0, -2.0, 0.0], "x_3": [1.5, -0.5, 2.5, -3.0]}
+    )
     discrete_df_complex = pl.DataFrame(
         {
-            "x_1": [0.5, 2, 3, -2, 1],
-            "x_2": [-0.5, 2.5, -1.5, 0.5, -1],
-            "x_3": [1, -1, 3, -2.5, 2],
-            "f_2": [100, 200, 300, 400, 500],
+            "x_1": [0.5, 2.0, 3.0, -2.0, 1.0],
+            "x_2": [-0.5, 2.5, -1.5, 0.5, -1.0],
+            "x_3": [1.0, -1.0, 3.0, -2.5, 2.0],
+            "f_2": [100.0, 200.0, 300.0, 400.0, 500.0],
         }
     )
     variable_symbols_complex = ["x_1", "x_2", "x_3"]
@@ -118,7 +128,7 @@ def test_find_closest_points():
 
     # just one variable
     xs_single_var = pl.DataFrame({"x_1": [3.5, 2.5, -1.5, 0.1]})
-    discrete_df_single_var = pl.DataFrame({"x_1": [0, 2, -2, 0.5], "f_2": [10, 20, 30, 40]})
+    discrete_df_single_var = pl.DataFrame({"x_1": [0.0, 2.0, -2.0, 0.5], "f_2": [10.0, 20.0, 30.0, 40.0]})
     variable_symbols_single_var = ["x_1"]  # Only one variable symbol
     objective_symbol_single_var = "f_2"
     # Expected values should match the closest 'f_2' values in 'discrete_df_single_var' based on 'x_1' distances
@@ -130,3 +140,59 @@ def test_find_closest_points():
     npt.assert_array_almost_equal(
         closest_points_df_single_var[objective_symbol_single_var].to_numpy(), expected_single_var
     )
+
+
+@pytest.mark.polars
+def test_knapsack_problem():
+    """Test the Polars evaluator with a problem with tensors."""
+    problem = simple_knapsack_vectors()
+
+    evaluator = PolarsEvaluator(problem)
+
+    xs = {"X": [[0, 0, 0, 0], [1, 1, 1, 1]]}
+
+    result = evaluator.evaluate(xs)
+
+    npt.assert_allclose(result["f_1"].to_numpy(), [0, 22])
+    npt.assert_allclose(result["f_2"].to_numpy(), [0, 16])
+    npt.assert_allclose(result["g_1"].to_numpy(), [-5, 9])
+
+
+@pytest.mark.polars
+def test_with_tensors():
+    """Test that GenericEvaluator raises an error when trying to initialize the evaluator with a problem with tensors."""
+    # define a modified version of the simple_knapsack_vectors test problem for the purpose
+    profit_values = [[3, 5], [6, 8]]
+    profits = TensorConstant(name="Profits", symbol="P", shape=[2, 2], values=profit_values)
+
+    choices = TensorVariable(
+        name="Chosen items",
+        symbol="X",
+        shape=[2, 2],
+        variable_type="binary",
+        lowerbounds=[[0, 0], [0, 0]],
+        upperbounds=[[1, 1], [1, 1]],
+        initial_values=[[1, 1], [1, 1]],
+    )
+
+    profit_objective = Objective(
+        name="max profit",
+        symbol="f_1",
+        func="P@X",
+        maximize=True,
+        ideal=8,
+        nadir=0,
+        is_linear=True,
+        is_convex=False,
+        is_twice_differentiable=False,
+    )
+
+    problem = Problem(
+        name="Simple two-objective Knapsack problem",
+        description="A simple variant of the classic combinatorial problem.",
+        constants=[profits],
+        variables=[choices],
+        objectives=[profit_objective],
+    )
+
+    PolarsEvaluator(problem)  # fails

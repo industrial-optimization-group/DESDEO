@@ -24,8 +24,6 @@ from desdeo.tools.scalarization import (
     add_asf_diff,
     add_asf_nondiff,
     add_epsilon_constraints,
-    add_lte_constraints,
-    add_scalarization_function,
 )
 from desdeo.tools.utils import guess_best_solver
 
@@ -151,6 +149,9 @@ def solve_reachable_bounds(
                     symbol=f"{obj.symbol}_user",
                     func=f"{obj.symbol}_min - {bounds[obj.symbol] * (-1 if obj.maximize else 1)}",
                     cons_type=ConstraintTypeEnum.LTE,
+                    is_linear=obj.is_linear,
+                    is_convex=obj.is_convex,
+                    is_twice_differentiable=obj.is_twice_differentiable,
                 )
                 for obj in problem.objectives
             ]
@@ -187,7 +188,12 @@ def solve_reachable_bounds(
         # target_expr[1] = -1  # maximize the objective
         target = "target"
         max_objective_scal = ScalarizationFunction(
-            symbol=target, name="Max objective", func=["Negate", f"{objective.symbol}_min"]
+            symbol=target,
+            name="Max objective",
+            func=["Negate", f"{objective.symbol}_min"],
+            is_linear=objective.is_linear,
+            is_convex=objective.is_convex,
+            is_twice_differentiable=objective.is_twice_differentiable,
         )
 
         eps_problem = problem.add_scalarization(max_objective_scal)
@@ -197,6 +203,9 @@ def solve_reachable_bounds(
             name=f"To bound {objective.symbol} to user bounds",
             func=["Add", f"{objective.symbol}_min", ["Negate", const_bounds[objective.symbol]]],
             cons_type=ConstraintTypeEnum.LTE,
+            is_linear=objective.is_linear,
+            is_convex=objective.is_convex,
+            is_twice_differentiable=objective.is_twice_differentiable,
         )
 
         # User bounds, add constraints
@@ -207,6 +216,9 @@ def solve_reachable_bounds(
                     symbol=f"{obj.symbol}_user",
                     func=f"{obj.symbol}_min - {bounds[obj.symbol] * (-1 if obj.maximize else 1)}",
                     cons_type=ConstraintTypeEnum.LTE,
+                    is_linear=obj.is_linear,
+                    is_convex=obj.is_convex,
+                    is_twice_differentiable=obj.is_twice_differentiable,
                 )
                 for obj in problem.objectives
             ]
@@ -289,18 +301,33 @@ def solve_reachable_solution(
         )
 
     # Note: We do not solve the global problem. Instead, we solve this constrained problem:
-    const_exprs = [
-        f"{obj.symbol}_min - {previous_nav_point[obj.symbol] * (-1 if obj.maximize else 1)}"
-        for obj in problem.objectives
+    constraints = [
+        Constraint(
+            name=f"_const_{i+1}",
+            symbol=f"_const_{i+1}",
+            func=f"{obj.symbol}_min - {previous_nav_point[obj.symbol] * (-1 if obj.maximize else 1)}",
+            cons_type=ConstraintTypeEnum.LTE,
+            is_linear=obj.is_linear,
+            is_convex=obj.is_convex,
+            is_twice_differentiable=obj.is_twice_differentiable,
+        )
+        for i, obj in enumerate(problem.objectives)
     ]
 
     if bounds is not None:
-        const_exprs += [
-            f"{obj.symbol}_min - {bounds[obj.symbol] * (-1 if obj.maximize else 1)}" for obj in problem.objectives
+        constraints += [
+            Constraint(
+                name=f"_const_bound_{i+1}",
+                symbol=f"_const_bound_{i+1}",
+                func=f"{obj.symbol}_min - {bounds[obj.symbol] * (-1 if obj.maximize else 1)}",
+                is_linear=obj.is_linear,
+                is_convex=obj.is_convex,
+                is_twice_differentiable=obj.is_twice_differentiable,
+            )
+            for i, obj in problem.objectives
         ]
-    problem_w_asf = add_lte_constraints(
-        problem_w_asf, const_exprs, [f"const_{i}" for i in range(1, len(const_exprs) + 1)]
-    )
+
+    problem_w_asf = problem_w_asf.add_constraints(constraints)
 
     # solve the problem
     solver = init_solver(problem_w_asf)
@@ -418,9 +445,7 @@ def navigator_step(  # NOQA: PLR0913
 
     # update_bounds
 
-    lower_bounds, upper_bounds = solve_reachable_bounds(
-        problem, new_nav_point, solver=solver, bounds=bounds
-    )
+    lower_bounds, upper_bounds = solve_reachable_bounds(problem, new_nav_point, solver=solver, bounds=bounds)
 
     distance = calculate_distance_to_front(problem, new_nav_point, reachable_point)
 

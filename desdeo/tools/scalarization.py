@@ -92,13 +92,14 @@ def objective_dict_has_all_symbols(problem: Problem, obj_dict: dict[str, float])
     return all(obj.symbol in obj_dict for obj in problem.objectives)
 
 
-def add_asf_nondiff(
+def add_asf_nondiff(  # noqa: PLR0913
     problem: Problem,
     symbol: str,
     reference_point: dict[str, float],
-    reference_in_aug=False,
     delta: float = 0.000001,
     rho: float = 0.000001,
+    *,
+    reference_in_aug=False,
 ) -> tuple[Problem, str]:
     r"""Add the achievement scalarizing function for a problem with the reference point.
 
@@ -138,11 +139,11 @@ def add_asf_nondiff(
         problem (Problem): the problem to which the scalarization function should be added.
         symbol (str): the symbol to reference the added scalarization function.
         reference_point (dict[str, float]): a reference point as an objective dict.
-        reference_in_aug (bool): whether the reference point should be used in
-            the augmentation term as well. Defaults to False.
         delta (float, optional): the scalar value used to define the utopian point (ideal - delta).
             Defaults to 0.000001.
         rho (float, optional): the weight factor used in the augmentation term. Defaults to 0.000001.
+        reference_in_aug (bool): whether the reference point should be used in
+            the augmentation term as well. Defaults to False.
 
     Raises:
         ScalarizationError: there are missing elements in the reference point, or if any of the ideal or nadir
@@ -206,11 +207,7 @@ def add_asf_nondiff(
 
 
 def add_group_asf(
-    problem: Problem,
-    symbol: str,
-    reference_points: list[dict[str, float]],
-    delta: float = 1e-6,
-    rho: float = 1e-6
+    problem: Problem, symbol: str, reference_points: list[dict[str, float]], delta: float = 1e-6, rho: float = 1e-6
 ) -> tuple[Problem, str]:
     r"""Add the achievement scalarizing function for multiple decision makers.
 
@@ -247,10 +244,7 @@ def add_group_asf(
     ideal, nadir = get_corrected_ideal_and_nadir(problem)
 
     # calculate the weights
-    weights = {
-        obj.symbol: 1 / (nadir[obj.symbol] - (ideal[obj.symbol] - delta))
-        for obj in problem.objectives
-    }
+    weights = {obj.symbol: 1 / (nadir[obj.symbol] - (ideal[obj.symbol] - delta)) for obj in problem.objectives}
 
     # form the max and augmentation terms
     max_terms = []
@@ -279,11 +273,7 @@ def add_group_asf(
 
 
 def add_group_asf_diff(
-    problem: Problem,
-    symbol: str,
-    reference_points: list[dict[str, float]],
-    delta: float = 1e-6,
-    rho: float = 1e-6
+    problem: Problem, symbol: str, reference_points: list[dict[str, float]], delta: float = 1e-6, rho: float = 1e-6
 ) -> tuple[Problem, str]:
     r"""Add the differentiable variant of the achievement scalarizing function for multiple decision makers.
 
@@ -321,13 +311,17 @@ def add_group_asf_diff(
     ideal, nadir = get_corrected_ideal_and_nadir(problem)
 
     # define the auxiliary variable
-    alpha = Variable(name="alpha", symbol="_alpha", variable_type=VariableTypeEnum.real, lowerbound=-float("Inf"), upperbound=float("Inf"), initial_value=1.0)
+    alpha = Variable(
+        name="alpha",
+        symbol="_alpha",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=-float("Inf"),
+        upperbound=float("Inf"),
+        initial_value=1.0,
+    )
 
     # calculate the weights
-    weights = {
-        obj.symbol: 1 / (nadir[obj.symbol] - (ideal[obj.symbol] - delta))
-        for obj in problem.objectives
-    }
+    weights = {obj.symbol: 1 / (nadir[obj.symbol] - (ideal[obj.symbol] - delta)) for obj in problem.objectives}
 
     # form the constaint and augmentation expressions
     # constraint expressions are formed into a list of lists
@@ -377,7 +371,7 @@ def add_group_asf_diff(
     return _problem.add_constraints(constraints), symbol
 
 
-def add_asf_generic_diff(
+def add_asf_generic_diff(  # noqa: PLR0913
     problem: Problem,
     symbol: str,
     reference_point: dict[str, float],
@@ -440,7 +434,10 @@ def add_asf_generic_diff(
 
     # check augmentation term reference point
     if reference_point_aug is not None and not objective_dict_has_all_symbols(problem, reference_point_aug):
-        msg = f"The given reference point for the augmentation term {reference_point_aug} does not have a component defined for all the objectives."
+        msg = (
+            f"The given reference point for the augmentation term {reference_point_aug} "
+            "does not have a component defined for all the objectives."
+        )
         raise ScalarizationError(msg)
 
     # check the weight vector
@@ -459,7 +456,14 @@ def add_asf_generic_diff(
         corrected_rp_aug = get_corrected_reference_point(problem, reference_point_aug)
 
     # define the auxiliary variable
-    alpha = Variable(name="alpha", symbol="_alpha", variable_type=VariableTypeEnum.real, lowerbound=-float("Inf"), upperbound=float("Inf"), initial_value=1.0)
+    alpha = Variable(
+        name="alpha",
+        symbol="_alpha",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=-float("Inf"),
+        upperbound=float("Inf"),
+        initial_value=1.0,
+    )
 
     # define the augmentation term
     if reference_point_aug is None and weights_aug is None:
@@ -472,11 +476,17 @@ def add_asf_generic_diff(
     elif reference_point_aug is not None and weights_aug is None:
         # reference point in augmentation term
         aug_expr = " + ".join(
-            [f"(({obj.symbol}_min - {corrected_rp_aug[obj.symbol]}) / {weights[obj.symbol]})" for obj in problem.objectives]
+            [
+                f"(({obj.symbol}_min - {corrected_rp_aug[obj.symbol]}) / {weights[obj.symbol]})"
+                for obj in problem.objectives
+            ]
         )
     else:
         aug_expr = " + ".join(
-            [f"(({obj.symbol}_min - {corrected_rp_aug[obj.symbol]}) / {weights_aug[obj.symbol]})" for obj in problem.objectives]
+            [
+                f"(({obj.symbol}_min - {corrected_rp_aug[obj.symbol]}) / {weights_aug[obj.symbol]})"
+                for obj in problem.objectives
+            ]
         )
 
     target_expr = f"_alpha + {rho}*" + f"({aug_expr})"
@@ -514,7 +524,7 @@ def add_asf_generic_diff(
     return _problem.add_constraints(constraints), symbol
 
 
-def add_asf_generic_nondiff(
+def add_asf_generic_nondiff(  # noqa: PLR0913
     problem: Problem,
     symbol: str,
     reference_point: dict[str, float],
@@ -587,7 +597,10 @@ def add_asf_generic_nondiff(
 
     # check augmentation term reference point
     if reference_point_aug is not None and not objective_dict_has_all_symbols(problem, reference_point_aug):
-        msg = f"The given reference point for the augmentation term {reference_point_aug} does not have a component defined for all the objectives."
+        msg = (
+            f"The given reference point for the augmentation term {reference_point_aug} "
+            "does not have a component defined for all the objectives."
+        )
         raise ScalarizationError(msg)
 
     # check the weight vector
@@ -625,11 +638,17 @@ def add_asf_generic_nondiff(
     elif reference_point_aug is not None and weights_aug is None:
         # reference point in augmentation term
         aug_expr = " + ".join(
-            [f"(({obj.symbol}_min - {corrected_rp_aug[obj.symbol]}) / {weights[obj.symbol]})" for obj in problem.objectives]
+            [
+                f"(({obj.symbol}_min - {corrected_rp_aug[obj.symbol]}) / {weights[obj.symbol]})"
+                for obj in problem.objectives
+            ]
         )
     else:
         aug_expr = " + ".join(
-            [f"(({obj.symbol}_min - {corrected_rp_aug[obj.symbol]}) / {weights_aug[obj.symbol]})" for obj in problem.objectives]
+            [
+                f"(({obj.symbol}_min - {corrected_rp_aug[obj.symbol]}) / {weights_aug[obj.symbol]})"
+                for obj in problem.objectives
+            ]
         )
 
     # Collect the terms
@@ -647,7 +666,7 @@ def add_asf_generic_nondiff(
     return problem.add_scalarization(scalarization_function), symbol
 
 
-def add_nimbus_sf_diff(
+def add_nimbus_sf_diff(  # noqa: PLR0913
     problem: Problem,
     symbol: str,
     classifications: dict[str, tuple[str, float | None]],
@@ -659,8 +678,10 @@ def add_nimbus_sf_diff(
 
     \begin{align*}
         \min \quad & \alpha + \rho \sum_{i =1}^k \frac{f_i(\mathbf{x})}{z_i^{nad} - z_i^{\star\star}} \\
-        \text{s.t.} \quad & \frac{f_i(\mathbf{x}) - z_i^*}{z_i^{nad} - z_i^{\star\star}} - \alpha \leq 0 \quad & \forall i \in I^< \\
-        & \frac{f_i(\mathbf{x}) - \hat{z}_i}{z_i^{nad} - z_i^{\star\star}} - \alpha \leq 0 \quad & \forall i \in I^\leq \\
+        \text{s.t.} \quad & \frac{f_i(\mathbf{x}) - z_i^*}{z_i^{nad} - z_i^{\star\star}} -
+            \alpha \leq 0 \quad & \forall i \in I^< \\
+        & \frac{f_i(\mathbf{x}) - \hat{z}_i}{z_i^{nad} - z_i^{\star\star}} - \alpha \leq 0 \quad &
+        \forall i \in I^\leq \\
         & f_i(\mathbf{x}) - f_i(\mathbf{x_c}) \leq 0 \quad & \forall i \in I^< \cup I^\leq \cup I^= \\
         & f_i(\mathbf{x}) - \epsilon_i \leq 0 \quad & \forall i \in I^\geq \\
         & \mathbf{x} \in S,
@@ -704,7 +725,7 @@ def add_nimbus_sf_diff(
 
     References:
         Miettinen, K., & Mäkelä, M. M. (2002). On scalarizing functions in
-            multiobjective optimization. OR Spectrum, 24(2), 193–213.
+            multiobjective optimization. OR Spectrum, 24(2), 193-213.
 
 
     Args:
@@ -747,7 +768,14 @@ def add_nimbus_sf_diff(
     ideal_point, nadir_point = get_corrected_ideal_and_nadir(problem)
 
     # define the auxiliary variable
-    alpha = Variable(name="alpha", symbol="_alpha", variable_type=VariableTypeEnum.real, lowerbound=-float("Inf"), upperbound=float("Inf"), initial_value=1.0)
+    alpha = Variable(
+        name="alpha",
+        symbol="_alpha",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=-float("Inf"),
+        upperbound=float("Inf"),
+        initial_value=1.0,
+    )
 
     # define the objective function of the scalarization
     aug_expr = " + ".join(
@@ -759,7 +787,12 @@ def add_nimbus_sf_diff(
 
     target_expr = f"_alpha + {rho}*" + f"({aug_expr})"
     scalarization = ScalarizationFunction(
-        name="NIMBUS scalarization objective function", symbol=symbol, func=target_expr
+        name="NIMBUS scalarization objective function",
+        symbol=symbol,
+        func=target_expr,
+        is_linear=problem.is_linear,
+        is_convex=problem.is_convex,
+        is_twice_differentiable=problem.is_twice_differentiable,
     )
 
     constraints = []
@@ -779,6 +812,9 @@ def add_nimbus_sf_diff(
                         symbol=f"{_symbol}_lt",
                         func=expr,
                         cons_type=ConstraintTypeEnum.LTE,
+                        is_linear=problem.is_linear,
+                        is_convex=problem.is_convex,
+                        is_twice_differentiable=problem.is_twice_differentiable,
                     )
                 )
 
@@ -790,6 +826,9 @@ def add_nimbus_sf_diff(
                         symbol=f"{_symbol}_eq",
                         func=expr,
                         cons_type=ConstraintTypeEnum.LTE,
+                        is_linear=problem.is_linear,
+                        is_convex=problem.is_convex,
+                        is_twice_differentiable=problem.is_twice_differentiable,
                     )
                 )
             case ("<=", aspiration):
@@ -804,6 +843,9 @@ def add_nimbus_sf_diff(
                         symbol=f"{_symbol}_lte",
                         func=expr,
                         cons_type=ConstraintTypeEnum.LTE,
+                        is_linear=problem.is_linear,
+                        is_convex=problem.is_convex,
+                        is_twice_differentiable=problem.is_twice_differentiable,
                     )
                 )
 
@@ -815,6 +857,9 @@ def add_nimbus_sf_diff(
                         symbol=f"{_symbol}_eq",
                         func=expr,
                         cons_type=ConstraintTypeEnum.LTE,
+                        is_linear=problem.is_linear,
+                        is_convex=problem.is_convex,
+                        is_twice_differentiable=problem.is_twice_differentiable,
                     )
                 )
             case ("=", _):
@@ -826,6 +871,9 @@ def add_nimbus_sf_diff(
                         symbol=f"{_symbol}_eq",
                         func=expr,
                         cons_type=ConstraintTypeEnum.LTE,
+                        is_linear=problem.is_linear,
+                        is_convex=problem.is_convex,
+                        is_twice_differentiable=problem.is_twice_differentiable,
                     )
                 )
             case (">=", reservation):
@@ -837,6 +885,9 @@ def add_nimbus_sf_diff(
                         symbol=f"{_symbol}_gte",
                         func=expr,
                         cons_type=ConstraintTypeEnum.LTE,
+                        is_linear=problem.is_linear,
+                        is_convex=problem.is_convex,
+                        is_twice_differentiable=problem.is_twice_differentiable,
                     )
                 )
             case ("0", _):
@@ -854,7 +905,7 @@ def add_nimbus_sf_diff(
     return _problem.add_constraints(constraints), symbol
 
 
-def add_nimbus_sf_nondiff(
+def add_nimbus_sf_nondiff(  # noqa: PLR0913
     problem: Problem,
     symbol: str,
     classifications: dict[str, tuple[str, float | None]],
@@ -913,7 +964,7 @@ def add_nimbus_sf_nondiff(
 
     References:
         Miettinen, K., & Mäkelä, M. M. (2002). On scalarizing functions in
-            multiobjective optimization. OR Spectrum, 24(2), 193–213.
+            multiobjective optimization. OR Spectrum, 24(2), 193-213.
 
 
     Args:
@@ -977,6 +1028,9 @@ def add_nimbus_sf_nondiff(
                         symbol=f"{_symbol}_lt",
                         func=con_expr,
                         cons_type=ConstraintTypeEnum.LTE,
+                        is_linear=problem.is_linear,
+                        is_convex=problem.is_convex,
+                        is_twice_differentiable=problem.is_twice_differentiable,
                     )
                 )
 
@@ -995,6 +1049,9 @@ def add_nimbus_sf_nondiff(
                         symbol=f"{_symbol}_lte",
                         func=con_expr,
                         cons_type=ConstraintTypeEnum.LTE,
+                        is_linear=problem.is_linear,
+                        is_convex=problem.is_convex,
+                        is_twice_differentiable=problem.is_twice_differentiable,
                     )
                 )
 
@@ -1006,7 +1063,9 @@ def add_nimbus_sf_nondiff(
                         symbol=f"{_symbol}_eq",
                         func=con_expr,
                         cons_type=ConstraintTypeEnum.LTE,
-                        linear=False,  # TODO: check!
+                        is_linear=problem.is_linear,
+                        is_convex=problem.is_convex,
+                        is_twice_differentiable=problem.is_twice_differentiable,
                     )
                 )
             case (">=", reservation):
@@ -1017,6 +1076,9 @@ def add_nimbus_sf_nondiff(
                         symbol=f"{_symbol}_gte",
                         func=con_expr,
                         cons_type=ConstraintTypeEnum.LTE,
+                        is_linear=problem.is_linear,
+                        is_convex=problem.is_convex,
+                        is_twice_differentiable=problem.is_twice_differentiable,
                     )
                 )
             case ("0", _):
@@ -1052,7 +1114,7 @@ def add_nimbus_sf_nondiff(
     return _problem.add_constraints(constraints), symbol
 
 
-def add_group_nimbus_sf(
+def add_group_nimbus_sf(  # noqa: PLR0913
     problem: Problem,
     symbol: str,
     classifications_list: list[dict[str, tuple[str, float | None]]],
@@ -1065,7 +1127,8 @@ def add_group_nimbus_sf(
     The scalarization function is defined as follows:
 
     \begin{align}
-        &\mbox{minimize} &&\max_{i\in I^<,j\in I^\leq,d} [w_{id}(f_{id}(\mathbf{x})-z^{ideal}_{id}), w_{jd}(f_{jd}(\mathbf{x})-\hat{z}_{jd})] +
+        &\mbox{minimize} &&\max_{i\in I^<,j\in I^\leq,d} [w_{id}(f_{id}(\mathbf{x})-z^{ideal}_{id}),
+        w_{jd}(f_{jd}(\mathbf{x})-\hat{z}_{jd})] +
         \rho \sum^k_{i=1} \sum^{n_d}_{d=1} w_{id}f_{id}(\mathbf{x}) \\
         &\mbox{subject to} &&\mathbf{x} \in \mathbf{X},
     \end{align}
@@ -1146,10 +1209,7 @@ def add_group_nimbus_sf(
     corrected_current_point = get_corrected_reference_point(problem, current_objective_vector)
 
     # calculate the weights
-    weights = {
-        obj.symbol: 1 / (nadir[obj.symbol] - (ideal[obj.symbol] - delta))
-        for obj in problem.objectives
-    }
+    weights = {obj.symbol: 1 / (nadir[obj.symbol] - (ideal[obj.symbol] - delta)) for obj in problem.objectives}
 
     # max term and constraints
     max_args = []
@@ -1161,9 +1221,7 @@ def add_group_nimbus_sf(
             _symbol = obj.symbol
             match classifications[_symbol]:
                 case ("<", _):
-                    max_expr = (
-                        f"{weights[_symbol]} * ({_symbol}_min - {ideal[_symbol]})"
-                    )
+                    max_expr = f"{weights[_symbol]} * ({_symbol}_min - {ideal[_symbol]})"
                     max_args.append(max_expr)
 
                     con_expr = f"{_symbol}_min - {corrected_current_point[_symbol]}"
@@ -1173,6 +1231,9 @@ def add_group_nimbus_sf(
                             symbol=f"{_symbol}_{i+1}_lt",
                             func=con_expr,
                             cons_type=ConstraintTypeEnum.LTE,
+                            is_linear=problem.is_linear,
+                            is_convex=problem.is_convex,
+                            is_twice_differentiable=problem.is_twice_differentiable,
                         )
                     )
                 case ("<=", aspiration):
@@ -1189,6 +1250,9 @@ def add_group_nimbus_sf(
                             symbol=f"{_symbol}_{i+1}_lte",
                             func=con_expr,
                             cons_type=ConstraintTypeEnum.LTE,
+                            is_linear=problem.is_linear,
+                            is_convex=problem.is_convex,
+                            is_twice_differentiable=problem.is_twice_differentiable,
                         )
                     )
                 case ("=", _):
@@ -1199,7 +1263,9 @@ def add_group_nimbus_sf(
                             symbol=f"{_symbol}_{i+1}_eq",
                             func=con_expr,
                             cons_type=ConstraintTypeEnum.LTE,
-                            linear=False,  # TODO: check!
+                            is_linear=problem.is_linear,
+                            is_convex=problem.is_convex,
+                            is_twice_differentiable=problem.is_twice_differentiable,
                         )
                     )
                 case (">=", reservation):
@@ -1211,6 +1277,9 @@ def add_group_nimbus_sf(
                             symbol=f"{_symbol}_{i+1}_gte",
                             func=con_expr,
                             cons_type=ConstraintTypeEnum.LTE,
+                            is_linear=problem.is_linear,
+                            is_convex=problem.is_convex,
+                            is_twice_differentiable=problem.is_twice_differentiable,
                         )
                     )
                 case ("0", _):
@@ -1226,12 +1295,7 @@ def add_group_nimbus_sf(
     # form the augmentation term
     aug_exprs = []
     for _ in range(len(classifications_list)):
-        aug_expr = " + ".join(
-            [
-                f"({weights[obj.symbol]} * {obj.symbol}_min)"
-                for obj in problem.objectives
-            ]
-        )
+        aug_expr = " + ".join([f"({weights[obj.symbol]} * {obj.symbol}_min)" for obj in problem.objectives])
         aug_exprs.append(aug_expr)
     aug_exprs = " + ".join(aug_exprs)
 
@@ -1249,7 +1313,7 @@ def add_group_nimbus_sf(
     return _problem.add_constraints(constraints), symbol
 
 
-def add_group_nimbus_sf_diff(
+def add_group_nimbus_sf_diff(  # noqa: PLR0913
     problem: Problem,
     symbol: str,
     classifications_list: list[dict[str, tuple[str, float | None]]],
@@ -1257,7 +1321,7 @@ def add_group_nimbus_sf_diff(
     delta: float = 0.000001,
     rho: float = 0.000001,
 ) -> tuple[Problem, str]:
-    r"""Implements the differentiable variant of the multiple decision maker variant of the NIMBUS scalarization function.
+    r"""Implements the differentiable variant of the multiple decision maker of the group NIMBUS scalarization function.
 
     The scalarization function is defined as follows:
 
@@ -1348,13 +1412,17 @@ def add_group_nimbus_sf_diff(
     corrected_current_point = get_corrected_reference_point(problem, current_objective_vector)
 
     # define the auxiliary variable
-    alpha = Variable(name="alpha", symbol="_alpha", variable_type=VariableTypeEnum.real, lowerbound=-float("Inf"), upperbound=float("Inf"), initial_value=1.0)
+    alpha = Variable(
+        name="alpha",
+        symbol="_alpha",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=-float("Inf"),
+        upperbound=float("Inf"),
+        initial_value=1.0,
+    )
 
     # calculate the weights
-    weights = {
-        obj.symbol: 1 / (nadir[obj.symbol] - (ideal[obj.symbol] - delta))
-        for obj in problem.objectives
-    }
+    weights = {obj.symbol: 1 / (nadir[obj.symbol] - (ideal[obj.symbol] - delta)) for obj in problem.objectives}
 
     constraints = []
 
@@ -1364,15 +1432,16 @@ def add_group_nimbus_sf_diff(
             _symbol = obj.symbol
             match classifications[_symbol]:
                 case ("<", _):
-                    max_expr = (
-                        f"{weights[_symbol]} * ({_symbol}_min - {ideal[_symbol]}) - _alpha"
-                    )
+                    max_expr = f"{weights[_symbol]} * ({_symbol}_min - {ideal[_symbol]}) - _alpha"
                     constraints.append(
                         Constraint(
                             name=f"Max term linearization for {_symbol}",
                             symbol=f"max_con_{_symbol}_{i+1}",
                             func=max_expr,
-                            cons_type=ConstraintTypeEnum.LTE
+                            cons_type=ConstraintTypeEnum.LTE,
+                            is_linear=problem.is_linear,
+                            is_convex=problem.is_convex,
+                            is_twice_differentiable=problem.is_twice_differentiable,
                         )
                     )
                     con_expr = f"{_symbol}_min - {corrected_current_point[_symbol]}"
@@ -1382,19 +1451,26 @@ def add_group_nimbus_sf_diff(
                             symbol=f"{_symbol}_{i+1}_lt",
                             func=con_expr,
                             cons_type=ConstraintTypeEnum.LTE,
+                            is_linear=problem.is_linear,
+                            is_convex=problem.is_convex,
+                            is_twice_differentiable=problem.is_twice_differentiable,
                         )
                     )
                 case ("<=", aspiration):
                     # if obj is to be maximized, then the current aspiration value needs to be multiplied by -1
                     max_expr = (
-                        f"{weights[_symbol]} * ({_symbol}_min - {aspiration * -1 if obj.maximize else aspiration}) - _alpha"
+                        f"{weights[_symbol]} * ({_symbol}_min - {aspiration * -1 if obj.maximize else aspiration}) "
+                        "- _alpha"
                     )
                     constraints.append(
                         Constraint(
                             name=f"Max term linearization for {_symbol}",
                             symbol=f"max_con_{_symbol}_{i+1}",
                             func=max_expr,
-                            cons_type=ConstraintTypeEnum.LTE
+                            cons_type=ConstraintTypeEnum.LTE,
+                            is_linear=problem.is_linear,
+                            is_convex=problem.is_convex,
+                            is_twice_differentiable=problem.is_twice_differentiable,
                         )
                     )
                     con_expr = f"{_symbol}_min - {corrected_current_point[_symbol]}"
@@ -1404,6 +1480,9 @@ def add_group_nimbus_sf_diff(
                             symbol=f"{_symbol}_{i+1}_lte",
                             func=con_expr,
                             cons_type=ConstraintTypeEnum.LTE,
+                            is_linear=problem.is_linear,
+                            is_convex=problem.is_convex,
+                            is_twice_differentiable=problem.is_twice_differentiable,
                         )
                     )
                 case ("=", _):
@@ -1414,7 +1493,9 @@ def add_group_nimbus_sf_diff(
                             symbol=f"{_symbol}_{i+1}_eq",
                             func=con_expr,
                             cons_type=ConstraintTypeEnum.LTE,
-                            linear=False,  # TODO: check!
+                            is_linear=problem.is_linear,
+                            is_convex=problem.is_convex,
+                            is_twice_differentiable=problem.is_twice_differentiable,
                         )
                     )
                 case (">=", reservation):
@@ -1426,6 +1507,9 @@ def add_group_nimbus_sf_diff(
                             symbol=f"{_symbol}_{i+1}_gte",
                             func=con_expr,
                             cons_type=ConstraintTypeEnum.LTE,
+                            is_linear=problem.is_linear,
+                            is_convex=problem.is_convex,
+                            is_twice_differentiable=problem.is_twice_differentiable,
                         )
                     )
                 case ("0", _):
@@ -1440,12 +1524,7 @@ def add_group_nimbus_sf_diff(
     # form the augmentation term
     aug_exprs = []
     for _ in range(len(classifications_list)):
-        aug_expr = " + ".join(
-            [
-                f"({weights[obj.symbol]} * {obj.symbol}_min)"
-                for obj in problem.objectives
-            ]
-        )
+        aug_expr = " + ".join([f"({weights[obj.symbol]} * {obj.symbol}_min)" for obj in problem.objectives])
         aug_exprs.append(aug_expr)
     aug_exprs = " + ".join(aug_exprs)
 
@@ -1513,7 +1592,14 @@ def add_stom_sf_diff(
     corrected_rp = get_corrected_reference_point(problem, reference_point)
 
     # define the auxiliary variable
-    alpha = Variable(name="alpha", symbol="_alpha", variable_type=VariableTypeEnum.real, lowerbound=-float("Inf"), upperbound=float("Inf"), initial_value=1.0)
+    alpha = Variable(
+        name="alpha",
+        symbol="_alpha",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=-float("Inf"),
+        upperbound=float("Inf"),
+        initial_value=1.0,
+    )
 
     # define the objective function of the scalarization
     aug_expr = " + ".join(
@@ -1685,10 +1771,9 @@ def add_group_stom_sf(
     weights = []
     for reference_point in reference_points:
         corrected_rp = get_corrected_reference_point(problem, reference_point)
-        weights.append({
-            obj.symbol: 1 / (corrected_rp[obj.symbol] - (ideal[obj.symbol] - delta))
-            for obj in problem.objectives
-        })
+        weights.append(
+            {obj.symbol: 1 / (corrected_rp[obj.symbol] - (ideal[obj.symbol] - delta)) for obj in problem.objectives}
+        )
 
     # form the max term
     max_terms = []
@@ -1762,16 +1847,22 @@ def add_group_stom_sf_diff(
     ideal, _ = get_corrected_ideal_and_nadir(problem)
 
     # define the auxiliary variable
-    alpha = Variable(name="alpha", symbol="_alpha", variable_type=VariableTypeEnum.real, lowerbound=-float("Inf"), upperbound=float("Inf"), initial_value=1.0)
+    alpha = Variable(
+        name="alpha",
+        symbol="_alpha",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=-float("Inf"),
+        upperbound=float("Inf"),
+        initial_value=1.0,
+    )
 
     # calculate the weights
     weights = []
     for reference_point in reference_points:
         corrected_rp = get_corrected_reference_point(problem, reference_point)
-        weights.append({
-            obj.symbol: 1 / (corrected_rp[obj.symbol] - (ideal[obj.symbol] - delta))
-            for obj in problem.objectives
-        })
+        weights.append(
+            {obj.symbol: 1 / (corrected_rp[obj.symbol] - (ideal[obj.symbol] - delta)) for obj in problem.objectives}
+        )
 
     # form the max term
     con_terms = []
@@ -1885,14 +1976,21 @@ def add_guess_sf_diff(
     ]
 
     # define the auxiliary variable
-    alpha = Variable(name="alpha", symbol="_alpha", variable_type=VariableTypeEnum.real, lowerbound=-float("Inf"), upperbound=float("Inf"), initial_value=1.0)
+    alpha = Variable(
+        name="alpha",
+        symbol="_alpha",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=-float("Inf"),
+        upperbound=float("Inf"),
+        initial_value=1.0,
+    )
 
     # define the objective function of the scalarization
     aug_expr = " + ".join(
         [
             (
                 f"{obj.symbol}_min / ({nadir_point[obj.symbol]} - "
-                f"{reference_point[obj.symbol] if obj.symbol not in free_to_change else ideal_point[obj.symbol] - delta})"
+                f"{reference_point[obj.symbol] if obj.symbol not in free_to_change else ideal_point[obj.symbol] - delta})"  # noqa: E501
             )
             for obj in problem.objectives
         ]
@@ -2025,7 +2123,7 @@ def add_guess_sf_nondiff(
         [
             (
                 f"{obj.symbol}_min / ({nadir_point[obj.symbol]} - "
-                f"{reference_point[obj.symbol] if obj.symbol not in free_to_change else ideal_point[obj.symbol] - delta})"
+                f"{reference_point[obj.symbol] if obj.symbol not in free_to_change else ideal_point[obj.symbol] - delta})"  # noqa: E501
             )
             for obj in problem.objectives
         ]
@@ -2045,10 +2143,7 @@ def add_guess_sf_nondiff(
 
 
 def add_group_guess_sf(
-    problem: Problem,
-    symbol: str,
-    reference_points: list[dict[str, float]],
-    rho: float = 1e-6
+    problem: Problem, symbol: str, reference_points: list[dict[str, float]], rho: float = 1e-6
 ) -> tuple[Problem, str]:
     r"""Adds the multiple decision maker variant of the GUESS scalarizing function.
 
@@ -2090,10 +2185,7 @@ def add_group_guess_sf(
     weights = []
     for reference_point in reference_points:
         corrected_rp = get_corrected_reference_point(problem, reference_point)
-        weights.append({
-            obj.symbol: 1 / (nadir[obj.symbol] - (corrected_rp[obj.symbol]))
-            for obj in problem.objectives
-        })
+        weights.append({obj.symbol: 1 / (nadir[obj.symbol] - (corrected_rp[obj.symbol])) for obj in problem.objectives})
 
     # form the max term
     max_terms = []
@@ -2123,10 +2215,7 @@ def add_group_guess_sf(
 
 
 def add_group_guess_sf_diff(
-    problem: Problem,
-    symbol: str,
-    reference_points: list[dict[str, float]],
-    rho: float = 1e-6
+    problem: Problem, symbol: str, reference_points: list[dict[str, float]], rho: float = 1e-6
 ) -> tuple[Problem, str]:
     r"""Adds the differentiable variant of the multiple decision maker variant of the GUESS scalarizing function.
 
@@ -2166,16 +2255,20 @@ def add_group_guess_sf_diff(
     _, nadir = get_corrected_ideal_and_nadir(problem)
 
     # define the auxiliary variable
-    alpha = Variable(name="alpha", symbol="_alpha", variable_type=VariableTypeEnum.real, lowerbound=-float("Inf"), upperbound=float("Inf"), initial_value=1.0)
+    alpha = Variable(
+        name="alpha",
+        symbol="_alpha",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=-float("Inf"),
+        upperbound=float("Inf"),
+        initial_value=1.0,
+    )
 
     # calculate the weights
     weights = []
     for reference_point in reference_points:
         corrected_rp = get_corrected_reference_point(problem, reference_point)
-        weights.append({
-            obj.symbol: 1 / (nadir[obj.symbol] - (corrected_rp[obj.symbol]))
-            for obj in problem.objectives
-        })
+        weights.append({obj.symbol: 1 / (nadir[obj.symbol] - (corrected_rp[obj.symbol])) for obj in problem.objectives})
 
     # form the max term
     con_terms = []
@@ -2277,7 +2370,14 @@ def add_asf_diff(
     corrected_rp = get_corrected_reference_point(problem, reference_point)
 
     # define the auxiliary variable
-    alpha = Variable(name="alpha", symbol="_alpha", variable_type=VariableTypeEnum.real, lowerbound=-float("Inf"), upperbound=float("Inf"), initial_value=1.0)
+    alpha = Variable(
+        name="alpha",
+        symbol="_alpha",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=-float("Inf"),
+        upperbound=float("Inf"),
+        initial_value=1.0,
+    )
 
     # define the objective function of the scalarization
     aug_expr = " + ".join(
@@ -2288,7 +2388,14 @@ def add_asf_diff(
     )
 
     target_expr = f"_alpha + {rho}*" + f"({aug_expr})"
-    scalarization = ScalarizationFunction(name="ASF scalarization objective function", symbol=symbol, func=target_expr)
+    scalarization = ScalarizationFunction(
+        name="ASF scalarization objective function",
+        symbol=symbol,
+        func=target_expr,
+        is_linear=problem.is_linear,
+        is_convex=problem.is_convex,
+        is_twice_differentiable=problem.is_twice_differentiable,
+    )
 
     constraints = []
 
@@ -2397,17 +2504,22 @@ def add_objective_as_scalarization(problem: Problem, symbol: str, objective_symb
             and the symbol of the added scalarization function.
     """
     # check that symbol exists
-    if objective_symbol not in (correct_symbols := [objective.symbol for objective in problem.objectives]):
-        msg = f"The given objective symbol {objective_symbol} should be one of {correct_symbols}."
+    if problem.get_objective(objective_symbol, copy=False) is None:
+        msg = f"The given objective symbol {objective_symbol} is not defined in the problem.."
         raise ScalarizationError(msg)
 
     sf = ["Multiply", 1, f"{objective_symbol}_min"]
+
+    original_objective = problem.get_objective(objective_symbol, copy=False)
 
     # Add the function to the problem
     scalarization_function = ScalarizationFunction(
         name=f"Objective {objective_symbol}",
         symbol=symbol,
         func=sf,
+        is_linear=original_objective.is_linear,
+        is_convex=original_objective.is_convex,
+        is_twice_differentiable=original_objective.is_twice_differentiable,
     )
     return problem.add_scalarization(scalarization_function), symbol
 
@@ -2460,7 +2572,6 @@ def add_epsilon_constraints(
     _problem, _ = add_objective_as_scalarization(problem, symbol, objective_symbol)
 
     # the epsilons must be given such that each objective function is to be minimized
-    # TODO: check if objective function is linear
     constraints = [
         Constraint(
             name=f"Epsilon for {obj.symbol}",
@@ -2516,88 +2627,3 @@ def create_epsilon_constraints_json(
     constraint_exprs = [["Add", f"{obj}_min", ["Negate", epsilons[obj]]] for obj in correct_symbols]
 
     return scalarization_expr, constraint_exprs
-
-
-def add_scalarization_function(
-    problem: Problem,
-    func: str,
-    symbol: str,
-    name: str | None = None,
-) -> tuple[Problem, str]:
-    """Adds a scalarization function to a Problem.
-
-    Returns a new instance of the Problem with the new scalarization function
-    and the symbol of the scalarization function added.
-
-    Args:
-        problem (Problem): the problem to which the scalarization function should be added.
-        func (str): the scalarization function to be added as a string in infix notation.
-        symbol (str): the symbol reference the added scalarization function.
-            This is important when the added scalarization function should be
-            utilized when optimizing a problem.
-        name (str, optional): the name to be given to the scalarization
-            function. If None, the symbol is used as the name. Defaults to None.
-
-    Returns:
-        tuple[Problem, str]: A tuple with the new Problem with the added
-            scalarization function and the function's symbol.
-    """
-    scalarization_function = ScalarizationFunction(
-        name=symbol if name is None else name,
-        symbol=symbol,
-        func=func,
-    )
-    return problem.add_scalarization(scalarization_function), symbol
-
-
-def add_lte_constraints(
-    problem: Problem, funcs: list[str], symbols: list[str], names: list[str | None] | None = None
-) -> Problem:
-    """Adds constraints to a problem that are defined in the less than or equal format.
-
-    Is is assumed that the constraints expression at position funcs[i] is symbolized by the
-    symbol at position symbols[i] for all i.
-
-    Does not modify problem, but makes a copy of it instead and returns it.
-
-    Args:
-        problem (Problem): the problem to which the constraints are added.
-        funcs (list[str]): the expressions of the constraints.
-        symbols (list[str]): the symbols of the constraints. In order.
-        names (list[str  |  None] | None, optional): The names of the
-            constraints. For any name with 'None' the symbol is used as the name. If
-            names is None, then the symbol is used as the name for all the
-            constraints. Defaults to None.
-
-    Raises:
-        ScalarizationError: if the lengths of the arguments do not match.
-
-    Returns:
-        Problem: a copy of the original problem with the constraints added.
-    """
-    if (len_f := len(funcs)) != (len_s := len(symbols)) and names is not None and (len_n := len(names)) != len(funcs):
-        msg = (
-            f"The lengths of ({len_f=}) and 'symbols' ({len_s=}) must match. "
-            f"If 'names' is not None, then its length ({len_n=}) must also match."
-        )
-        raise ScalarizationError(msg)
-
-    if names is None:
-        names = symbols
-
-    return problem.model_copy(
-        update={
-            "constraints": [
-                *(problem.constraints if problem.constraints is not None else []),
-                *[
-                    Constraint(
-                        name=(name if (name := names[i]) is not None else symbols[i]),
-                        symbol=symbols[i],
-                        cons_type=ConstraintTypeEnum.LTE,
-                        func=funcs[i],
-                    )
-                    for i in range(len(funcs))
-                ],
-            ]
-        }
-    )

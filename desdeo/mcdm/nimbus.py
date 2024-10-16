@@ -8,7 +8,7 @@ References:
 
 import numpy as np
 
-from desdeo.problem import GenericEvaluator, Problem, VariableType, variable_dict_to_numpy_array
+from desdeo.problem import PolarsEvaluator, Problem, VariableType, variable_dict_to_numpy_array
 from desdeo.tools import (
     BaseSolver,
     SolverOptions,
@@ -91,7 +91,7 @@ def solve_intermediate_solutions(  # noqa: PLR0913
 
     # evaluate the intermediate points to get reference points
     # TODO(gialmisi): an evaluator might have to be selected depending on the problem
-    evaluator = GenericEvaluator(problem)
+    evaluator = PolarsEvaluator(problem)
 
     reference_points: list[dict[str, float]] = (
         evaluator.evaluate(xs).select([obj.symbol for obj in problem.objectives]).to_dicts()
@@ -292,53 +292,41 @@ def solve_sub_problems(  # noqa: PLR0913
     # objective function values
     classifications = infer_classifications(problem, current_objectives, reference_point)
 
-    # TODO(gialmisi): this info should come from the problem
-    is_smooth = True
-
     solutions = []
 
     # solve the nimbus scalarization problem, this is done always
-    add_nimbus_sf = add_nimbus_sf_diff if is_smooth else add_nimbus_sf_nondiff
+    add_nimbus_sf = add_nimbus_sf_diff if problem.is_twice_differentiable else add_nimbus_sf_nondiff
 
     problem_w_nimbus, nimbus_target = add_nimbus_sf(
         problem, "nimbus_sf", classifications, current_objectives, **(scalarization_options or {})
     )
 
-    if _solver_options:
-        nimbus_solver = init_solver(problem_w_nimbus, _solver_options)
-    else:
-        nimbus_solver = init_solver(problem_w_nimbus)
+    nimbus_solver = init_solver(problem_w_nimbus, _solver_options) if _solver_options else init_solver(problem_w_nimbus)
 
     solutions.append(nimbus_solver.solve(nimbus_target))
 
     if num_desired > 1:
         # solve STOM
-        add_stom_sf = add_stom_sf_diff if is_smooth else add_stom_sf_nondiff
+        add_stom_sf = add_stom_sf_diff if problem.is_twice_differentiable else add_stom_sf_nondiff
 
         problem_w_stom, stom_target = add_stom_sf(problem, "stom_sf", reference_point, **(scalarization_options or {}))
-        if _solver_options:
-            stom_solver = init_solver(problem_w_stom, _solver_options)
-        else:
-            stom_solver = init_solver(problem_w_stom)
+        stom_solver = init_solver(problem_w_stom, _solver_options) if _solver_options else init_solver(problem_w_stom)
 
         solutions.append(stom_solver.solve(stom_target))
 
     if num_desired > 2:  # noqa: PLR2004
         # solve ASF
-        add_asf = add_asf_diff if is_smooth else add_asf_nondiff
+        add_asf = add_asf_diff if problem.is_twice_differentiable else add_asf_nondiff
 
         problem_w_asf, asf_target = add_asf(problem, "asf", reference_point, **(scalarization_options or {}))
 
-        if _solver_options:
-            asf_solver = init_solver(problem_w_asf, _solver_options)
-        else:
-            asf_solver = init_solver(problem_w_asf)
+        asf_solver = init_solver(problem_w_asf, _solver_options) if _solver_options else init_solver(problem_w_asf)
 
         solutions.append(asf_solver.solve(asf_target))
 
     if num_desired > 3:  # noqa: PLR2004
         # solve GUESS
-        add_guess_sf = add_guess_sf_diff if is_smooth else add_guess_sf_nondiff
+        add_guess_sf = add_guess_sf_diff if problem.is_twice_differentiable else add_guess_sf_nondiff
 
         problem_w_guess, guess_target = add_guess_sf(
             problem, "guess_sf", reference_point, **(scalarization_options or {})
