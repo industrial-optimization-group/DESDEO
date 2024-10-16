@@ -86,8 +86,8 @@ class Evaluator:
             self.params = {}
 
         self.surrogates = {}
-        if len(self.surrogate_objectives) > 0:
-            self._load_surrogates()
+        if surrogate_paths is not None:
+            self._load_surrogates(surrogate_paths)
 
     def _evaluate_simulator(self, xs: np.ndarray, return_as_dict: bool = True) -> np.ndarray:
         """Evaluate the problem for the given decision variables using the simulator.
@@ -202,42 +202,29 @@ class Evaluator:
             results_dict[symbols[i]] = objective_values_stack[i], uncertainties_stack[i]
         return results_dict
 
-    def _load_surrogates(self):
+    def _load_surrogates(self, surrogate_paths: dict[str, Path]):
         """Load the surrogate models from disk and store them within the evaluator.
 
         This is used during initialization of the evaluator or when the analyst wants to replace the current surrogate
         models with other models. However if a new model is trained after initialization of the evaluator, the problem
         JSON should be updated with the new model paths and the evaluator should be re-initialized. This can happen
         with any solver that does model management.
+
+        Args:
+            surrogate_paths (dict[str, Path]): A dictionary where the keys are the names of the objectives and the
+                values are the paths to the surrogate models saved on disk. The names of the objectives should match
+                the names of the objectives in the problem JSON. This Evaluator class must support loading popular
+                file formats. Check documentation of popular libraries like sklearn, pytorch, etc. for more information.
         """
-        for obj in self.surrogate_objectives:
-            with Path.open(f"{obj.surrogate}", 'rb') as file:
+        for symbol in surrogate_paths:
+            with Path.open(f"{surrogate_paths[symbol]}", 'rb') as file:
                 #self.surrogates[obj.symbol] = joblib.load(file)
                 unknown_types = sio.get_untrusted_types(file=file)
                 if len(unknown_types) == 0:
-                    self.surrogates[obj.symbol] = sio.load(file, unknown_types)
+                    self.surrogates[symbol] = sio.load(file, unknown_types)
                 else: # TODO: if there are unknown types they should be checked
-                    self.surrogates[obj.symbol] = sio.load(file, unknown_types)
+                    self.surrogates[symbol] = sio.load(file, unknown_types)
                     #raise EvaluatorError(f"Untrusted types found in the model of {obj.symbol}: {unknown_types}")
-        for con in self.surrogate_constraints:
-            with Path.open(f"{con.surrogate}", 'rb') as file:
-                #self.surrogates[con.symbol] = joblib.load(file)
-                unknown_types = sio.get_untrusted_types(file=file)
-                if len(unknown_types) == 0:
-                    self.surrogates[con.symbol] = sio.load(file, unknown_types)
-                else: # TODO: if there are unknown types they should be checked
-                    self.surrogates[con.symbol] = sio.load(file, unknown_types)
-                    #raise EvaluatorError(f"Untrusted types found in the model of {con.symbol}: {unknown_types}")
-
-        for extra in self.surrogate_extras:
-            with Path.open(f"{extra.surrogate}", 'rb') as file:
-                #self.surrogates[extra.symbol] = joblib.load(file)
-                unknown_types = sio.get_untrusted_types(file=file)
-                if len(unknown_types) == 0:
-                    self.surrogates[extra.symbol] = sio.load(file, unknown_types)
-                else: # TODO: if there are unknown types they should be checked
-                    self.surrogates[extra.symbol] = sio.load(file, unknown_types)
-                    #raise EvaluatorError(f"Untrusted types found in the model of {extra.symbol}: {unknown_types}")
 
     def evaluate(self, xs: dict, return_type: str = "dict") -> dict[str, int | float | np.ndarray] | np.ndarray:
         # possible return types are "dict" and "ndarray"
@@ -313,7 +300,11 @@ if __name__ == "__main__":
 
     evaluator = Evaluator(
         simulator_problem(),
-        params={"s_1": {"alpha": 0.1, "beta": 0.2}, "s_2": {"epsilon": 10, "gamma": 20}})
+        params={"s_1": {"alpha": 0.1, "beta": 0.2}, "s_2": {"epsilon": 10, "gamma": 20}},
+        surrogate_paths={"f_5": Path("model.skops"),
+                         "f_6": Path("model2.skops"),
+                         "g_3": Path("model.skops"),
+                         "e_3": Path("model2.skops")})
     res = evaluator.evaluate({
         "analytical": {"x_1": 1, "x_2": 2, "x_3": 3},
         "simulator": np.array([[0, 1, 2, 3, 4], [4, 3, 2, 1, 0], [0, 4, 1, 3, 2], [3, 1, 3, 2, 3]]),
