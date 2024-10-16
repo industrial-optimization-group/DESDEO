@@ -104,7 +104,7 @@ def binh_and_korn(maximize: tuple[bool] = (False, False)) -> Problem:
     )
 
 
-def river_pollution_problem(five_objective_variant: bool = True) -> Problem:
+def river_pollution_problem(*, five_objective_variant: bool = True) -> Problem:
     r"""Create a pydantic dataclass representation of the river pollution problem with either five or four variables.
 
     The objective functions "DO city", "DO municipality", and
@@ -1596,7 +1596,7 @@ def re24() -> Problem:
 
 
 def simple_knapsack_vectors():
-    """Define a simpl variant of the knapsack problem that utilizes vectors (TensorVaribale and TensorConstant)."""
+    """Define a simple variant of the knapsack problem that utilizes vectors (TensorVariable and TensorConstant)."""
     n_items = 4
     weight_values = [2, 3, 4, 5]
     profit_values = [3, 5, 6, 8]

@@ -205,7 +205,8 @@ markers = [
     "patterns: tests related to the publisher-subscriber pattern",
     "forest_problem: tests related to the forest problem examples.",
     "group_scalarization: tests related to group scalarization functions and utilities.",
-    "polars: test related to the polars evaluator and math parser.",
+    "polars: tests related to the polars evaluator and math parser.",
+    "rpm: tests related to the reference point method.",
 ]
 pythonpath = "."
 
