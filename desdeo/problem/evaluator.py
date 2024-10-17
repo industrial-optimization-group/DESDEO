@@ -1,12 +1,19 @@
 """Defines a Polars-based evaluator."""
 
 from enum import Enum
+from itertools import product
 
 import numpy as np
 import polars as pl
 
 from desdeo.problem.json_parser import MathParser, replace_str
-from desdeo.problem.schema import Constant, ObjectiveTypeEnum, Problem, TensorConstant, TensorVariable
+from desdeo.problem.schema import (
+    Constant,
+    ObjectiveTypeEnum,
+    Problem,
+    TensorConstant,
+    TensorVariable,
+)
 
 SUPPORTED_EVALUATOR_MODES = ["variables", "discrete"]
 SUPPORTED_VAR_DIMENSIONS = ["scalar", "vector"]
@@ -120,6 +127,7 @@ class PolarsEvaluator:
 
         self.evaluator_mode = evaluator_mode
 
+        self.problem = problem
         # Gather any constants of the problem definition.
         self.problem_constants = problem.constants
         # Gather the objective functions
@@ -155,6 +163,7 @@ class PolarsEvaluator:
         # Note, when calling an evaluate method, it is assumed the problem has been fully parsed.
         if self.evaluator_mode == PolarsEvaluatorModesEnum.variables:
             self.evaluate = self._polars_evaluate
+            self.evaluate_flat = self._polars_evaluate_flat
         elif self.evaluator_mode == PolarsEvaluatorModesEnum.discrete:
             self.evaluate = self._from_discrete_data
         else:
@@ -377,6 +386,58 @@ class PolarsEvaluator:
 
         # return the dataframe and let the solver figure it out
         return agg_df
+
+    def _polars_evaluate_flat(
+        self,
+        xs: dict[str, list[float | int | bool]],
+    ) -> pl.DataFrame:
+        """Evaluate the problem with flattened variables.
+
+        Args:
+            xs (dict[str, list[float  |  int  |  bool]]): a dict with flattened variables.
+                E.g., if the original problem has a tensor variable 'X' with shape (2,2),
+                then the dictionary is expected to have entries names 'X_1_1', 'X_1_2',
+                'X_2_1', and 'X_2_2'. The dictionary is rebuilt and passed to
+                `self._evaluate`.
+
+        Note:
+            Each flattened variable is assumed to contain the same number of samples.
+                This means that if the entry 'X_1_1' of `xs` is, for example
+                `[1,2,3]`, this means that 'X_1_1' and all the other flattened
+                variables have three samples. This means also that the original
+                problem will be evaluated with a tensor variable with shape (2,2)
+                and three samples,
+                e.g., 'X=[[[1, 1], [1,1]], [[2, 2], [2, 2]], [[3, 3], [3, 3]]]'.
+
+        Returns:
+            pl.DataFrame: a dataframe with the original problem's evaluated functions.
+        """
+        # Assume all variables have the same number of samples
+        n_samples = len(next(iter(xs.values())))
+
+        fat_xs = {}
+
+        # iterate over the variables of the problem
+        for var in self.problem.variables:
+            if isinstance(var, TensorVariable):
+                # construct the indices
+                index_ranges = [range(upper) for upper in var.shape]
+                indices = product(*index_ranges)
+
+                # create list to be filled
+                tmp = np.ones((n_samples, *var.shape)) * np.nan
+
+                for index in indices:
+                    tmp[:, *(index)] = xs[f"{var.symbol}_{"_".join(str(x+1) for x in index)}"]
+
+                fat_xs[var.symbol] = tmp.tolist()
+
+            else:
+                # else, proceed normally
+                fat_xs[var.symbol] = xs[var.symbol]
+
+        # return result of regular evaluate
+        return self.evaluate(fat_xs)
 
     def _from_discrete_data(self) -> pl.DataFrame:
         """Evaluates the problem based on its discrete representation only.
