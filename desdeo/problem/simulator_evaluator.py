@@ -45,6 +45,11 @@ class Evaluator:
         self.problem = problem
         # Gather the problem's objectives
         self.problem_objectives = problem.objectives
+        # store the symbol and min or max multiplier as well (symbol, min/max multiplier [1 | -1])
+        self.objective_mix_max_mult = [
+            (objective.symbol, -1 if objective.maximize else 1)
+            for objective in self.problem_objectives
+        ]
         self.objective_symbols = [obj.symbol for obj in problem.objectives]
         # Gather objectives of different types into their own lists
         self.analytical_objectives = list(filter(lambda x: x.objective_type == ObjectiveTypeEnum.analytical, problem.objectives))
@@ -134,7 +139,16 @@ class Evaluator:
             res = dict(json.loads(''.join(res)))
             for key, value in res.items():
                 results[key] = value
-        return pl.DataFrame(results)
+        res = pl.DataFrame(results)
+
+        # Evaluate the minimization form of the objective functions
+        min_obj_columns = pl.DataFrame()
+        for symbol, min_max_mult in self.objective_mix_max_mult:
+            if symbol in res.columns:
+                min_obj_columns = min_obj_columns.hstack(
+                    res.select((min_max_mult * pl.col(f"{symbol}")).alias(f"{symbol}_min"))
+                )
+        return res.hstack(min_obj_columns)
 
     def _evaluate_surrogates(
         self,
@@ -166,7 +180,7 @@ class Evaluator:
         uncertainties = []
         symbols = []
         results_dict = {}
-        var = np.array([value for _, value in xs.items()])
+        var = np.array([value for _, value in xs.items()]).T # has to be transpose
         for obj in self.surrogates:
             accepted_args = getfullargspec(self.surrogates[obj].predict).args
             if "return_std" in accepted_args:
@@ -186,7 +200,16 @@ class Evaluator:
         for i in range(len(symbols)):
             results_dict[symbols[i]] = objective_values_stack[i]
             results_dict[f"{symbols[i]}_uncert"] = uncertainties_stack[i]
-        return pl.DataFrame(results_dict)
+        res = pl.DataFrame(results_dict)
+
+        # Evaluate the minimization form of the objective functions
+        min_obj_columns = pl.DataFrame()
+        for symbol, min_max_mult in self.objective_mix_max_mult:
+            if symbol in res.columns:
+                min_obj_columns = min_obj_columns.hstack(
+                    res.select((min_max_mult * pl.col(f"{symbol}")).alias(f"{symbol}_min"))
+                )
+        return res.hstack(min_obj_columns)
 
     def _load_surrogates(self, surrogate_paths: dict[str, Path]):
         """Load the surrogate models from disk and store them within the evaluator.
@@ -212,11 +235,19 @@ class Evaluator:
                     self.surrogates[symbol] = sio.load(file, unknown_types)
                     #raise EvaluatorError(f"Untrusted types found in the model of {obj.symbol}: {unknown_types}")
 
-    def evaluate(self, xs: dict) -> pl.DataFrame:
+    def evaluate(self, xs: dict[str, list[int | float]]) -> pl.DataFrame:
+        """Evaluate the functions for the given decision variables.
+
+        Args:
+            xs (dict[str, list[int | float]]): The decision variables for which the functions are to be evaluated.
+                Given as a dict with the variable symbols and values as a list. The length of the lists is the
+                number of samples and each list should have the same length (same number of samples).
+        """
         res = pl.DataFrame()
+
+        # Evaluate the analytical functions
         if len(self.analytical_objectives + self.analytical_constraints + self.analytical_extras) > 0:
             polars_evaluator = PolarsEvaluator(self.problem, evaluator_mode=PolarsEvaluatorModesEnum.mixed)
-            #analytical_values = polars_evaluator._polars_evaluate(xs["analytical"])
             analytical_values = polars_evaluator._polars_evaluate(xs)
             res = res.hstack(analytical_values)
 
@@ -225,17 +256,17 @@ class Evaluator:
         obj_values.append(data_values)"""
         #data_objs = self._from_discrete_data()
 
+        # Evaluate the simulator based functions
         if len(self.simulator_objectives + self.simulator_constraints + self.simulator_extras) > 0:
-            #simulator_values = self._evaluate_simulator(xs=xs["simulator"], return_as_dict=True)
             simulator_values = self._evaluate_simulator(xs)
             res = res.hstack(simulator_values)
 
+        # Evaluate the surrogate based functions
         if len(self.surrogate_objectives + self.surrogate_constraints + self.simulator_extras) > 0:
-            #surrogate_values = self._evaluate_surrogates(xs=xs["surrogate"])
             surrogate_values = self._evaluate_surrogates(xs)
             res = res.hstack(surrogate_values)
 
-        #surrogate_objs = self._evaluate_surrogate(xs['surrogate'])
+        # Check that everything is evaluated
         for symbol in self.problem_symbols:
             if symbol not in res.columns:
                 raise EvaluatorError(f"{symbol} not evaluated.")
@@ -256,16 +287,11 @@ if __name__ == "__main__":
         "simulator": np.array([[0, 1, 2, 3, 4], [4, 3, 2, 1, 0], [0, 4, 1, 3, 2], [3, 1, 3, 2, 3]]),
         "surrogate": np.array([[0, 1, 2, 3, 4], [4, 3, 2, 1, 0], [0, 4, 1, 3, 2], [3, 1, 3, 2, 3]])})"""
     res = evaluator.evaluate({
-        "x_1": [0, 1, 2, 3],
-        "x_2": [4, 3, 2, 1],
-        "x_3": [0, 4, 1, 3],
-        "x_4": [3, 1, 3, 2]})
+        "x_1": [0, 1, 2, 3, 4],
+        "x_2": [4, 3, 2, 1, 0],
+        "x_3": [0, 4, 1, 3, 2],
+        "x_4": [3, 1, 3, 2, 3]})
     #res = evaluator._evaluate_simulator(np.array([[0, 1, 2, 3], [4, 3, 2, 1], [0, 4, 1, 3]]))
     #print(np.shape(res), res)
-    print(res)
-    """evaluator = Evaluator(surrogate_problem())
-    evaluator._load_surrogates()
-    obj_values, uncertainties = evaluator._evaluate_surrogates(np.array([[0, 1, 2, 3, 4], [4, 3, 2, 1, 0], [0, 4, 1, 3, 2], [3, 1, 3, 2, 3]]))
-    print(np.shape(obj_values), np.shape(uncertainties)) # 4 dec vars and 3 samples
-    print(obj_values)
-    print(uncertainties)"""
+    with pl.Config(tbl_cols=-1):
+        print(res)

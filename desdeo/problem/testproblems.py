@@ -1877,6 +1877,7 @@ def simulator_problem():
         Variable(name="x_2", symbol="x_2", variable_type=VariableTypeEnum.real),
         Variable(name="x_3", symbol="x_3", variable_type=VariableTypeEnum.real),
         Variable(name="x_4", symbol="x_4", variable_type=VariableTypeEnum.real),
+        Variable(name="x_5", symbol="x_5", variable_type=VariableTypeEnum.real),
     ]
     f1 = Objective(
         name="f_1",
@@ -1894,6 +1895,7 @@ def simulator_problem():
     f3 = Objective(
         name="f_3",
         symbol="f_3",
+        maximize=True,
         simulator_path="./simulator_file2.py",
         objective_type=ObjectiveTypeEnum.simulator
     )
