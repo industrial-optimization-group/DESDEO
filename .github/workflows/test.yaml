@@ -24,6 +24,9 @@ jobs:
           chmod +x /tmp/custom_binaries/*
           export PATH=$PATH:/tmp/custom_binaries
 
+      - name: Echo
+        run: echo "got this far"
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
