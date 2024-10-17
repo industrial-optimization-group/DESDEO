@@ -14,6 +14,7 @@ from desdeo.api import AuthConfig
 from desdeo.api.db import get_db
 from desdeo.api.db_models import User as UserModel
 from desdeo.api.schema import User
+from desdeo.api.security.http import HTTPTokenCredentials
 
 router = APIRouter()
 
@@ -63,14 +64,12 @@ def authenticate_user(db: Session, username: str, password: str):
         return False
     return user
 
-def get_current_user(
-    token: Annotated[str, Depends(oauth2_scheme)], db: Annotated[Session, Depends(get_db)]
-) -> UserModel:
-    """Get the current user. This function is a dependency for other functions that need to get the current user.
+def authenticate_token(token: str, db: Session):
+    """Authenticate token and fetch user's data.
 
     Args:
-        token (Annotated[str, Depends(oauth2_scheme)]): The authentication token.
-        db (Annotated[Session, Depends(get_db)]): A database session.
+        token (str): The authentication token.
+        db (Session): A database session.
 
     Returns:
         User: The current user.
@@ -90,8 +89,6 @@ def get_current_user(
 
         if username is None or expire_time is None or expire_time < datetime.now(UTC).timestamp():
             raise credentials_exception
-    except jwt.exceptions.ExpiredSignatureError:
-        raise credentials_exception
     except JWTError:
         raise credentials_exception from JWTError
     user = get_user(db, username=username)
@@ -105,6 +102,23 @@ def get_current_user(
         privilages=user.privilages,
         password_hash=user.password_hash,
     )
+
+def get_current_user(
+    token: Annotated[str, Depends(oauth2_scheme)], db: Annotated[Session, Depends(get_db)]
+) -> UserModel:
+    """Get the current user. This function is a dependency for other functions that need to get the current user.
+
+    Args:
+        token (Annotated[str, Depends(oauth2_scheme)]): The authentication token.
+        db (Annotated[Session, Depends(get_db)]): A database session.
+
+    Returns:
+        User: The current user.
+
+    Raises:
+        HTTPException: If the token is invalid.
+    """
+    return authenticate_token(token, db)
 
 async def create_jwt_token(data: dict, expires_delta: timedelta) -> str:
     """Creates an JWT Token with `data` and `expire_delta`
@@ -183,5 +197,21 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    return await generate_tokens({"id": user.id, "sub": user.username})
+    return await generate_tokens({"id": user.id, "sub": user.username}, True)
 
+@router.post("/refresh")
+async def refresh(
+    form_data: Annotated[HTTPTokenCredentials, Depends()],
+    db: Annotated[Session, Depends(get_db)],
+) -> Token:
+    """Refresh access token.
+
+    Args:
+        form_data (Annotated[HTTPTokenCredentials, Depends()]): The form data to refresh access token.
+        db (Annotated[Session, Depends(get_db)]): The database session.
+
+    Returns:
+        Token: The authentication token.
+    """
+    user = authenticate_token(form_data.code, db)
+    return await generate_tokens({"id": user.index, "sub": user.username})
