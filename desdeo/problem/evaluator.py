@@ -24,6 +24,11 @@ class PolarsEvaluatorModesEnum(str, Enum):
     mode, the evaluator does not expect any decision variables as arguments when
     evaluating."""
     mixed = "mixed"
+    """Indicates that the problem has analytical and simulator and/or surrogate
+    based objectives, constraints and extra functions. In this mode, the evaluator
+    only handles the analytical functions and assumes there are no data based
+    objectives. The evaluator should expect decision variables vectors and evaluate
+    the problem with them."""
 
 
 class PolarsEvaluatorError(Exception):

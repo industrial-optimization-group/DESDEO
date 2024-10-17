@@ -27,20 +27,19 @@ class Evaluator:
         self,
         problem: Problem,
         params: dict[str, dict] | None = None,
-        surrogate_paths: dict[str, Path] | None = None,
-        #evaluator_mode: EvaluatorModesEnum | None = None # TODO: not needed when generic evaluate function works (maybe for init reasons?)
+        surrogate_paths: dict[str, Path] | None = None
     ):
         """Creating an evaluator for simulator based and surrogate based objectives, constraints and extras.
 
         Args:
             problem (Problem): The problem as a pydantic 'Problem' data class.
             params (dict[str, dict], optional): Parameters for the different simulators used in the problem.
-                Given as dict with the simulators' symbols and the corresponding simulator parameters as a dict.
-                Defaults to None.
+                Given as dict with the simulators' symbols as keys and the corresponding simulator parameters
+                as a dict as values. Defaults to None.
             surrogate_paths (dict[str, Path]): A dictionary where the keys are the names of the objectives, constraints
                 and extra functions and the values are the paths to the surrogate models saved on disk. The names of
-                the objectives, constraints and extra functions should match the names of the objectives,constraints and
-                extra functions in the problem JSON.
+                the objectives, constraints and extra functions should match the names of the objectives, constraints and
+                extra functions in the problem JSON. Defaults to None.
         """
         self.problem = problem
         # Gather the problem's objectives
@@ -95,25 +94,20 @@ class Evaluator:
         if surrogate_paths is not None:
             self._load_surrogates(surrogate_paths)
 
-    def _evaluate_simulator(self, xs: dict[str, list]) -> pl.DataFrame:
-        """Evaluate the problem for the given decision variables using the simulator.
-
-        If there is a mix of (mutually exclusive and exhaustive) analytical and simulator objectives,
-        constraints and extra functions, this method will use polars to evaluate the analytical objectives,
-        constraints and extra functions and the simulator file to evaluate the simulator objectives,
-        constraints and extra functions, and return the combined results.
+    def _evaluate_simulator(self, xs: dict[str, list[int | float]]) -> pl.DataFrame:
+        """Evaluate the problem for the given decision variables using the problem's simulators.
 
         Args:
-            xs (dict[str, list]): The decision variables for which the objectives need to be evaluated.
-                The shape of the array is (n, m), where n is the number of decision variables and m is the
-                number of samples. Note that there is no need to support TensorVariables in this evaluator.
+            xs (dict[str, list[int | float]]): The decision variables for which the functions are to be evaluated.
+                Given as a dictionary with the decision variable symbols as keys and a list of decision variable values
+                as the values. The length of the lists is the number of samples and each list should have the same
+                length (same number of samples).
 
         Returns:
-            dict[str, np.ndarray]: The objective, constraint and extra function values for the given
-                decision variables. Will return those objective, constraint and extra function values
-                that are gained from simulators listed in the problem object.
-                Returned as a dict with the objective, constraint and extra function symbols
-                and the corresponding values as numpy arrays. The length of the arrays is the number of samples.
+            pl.DataFrame: The objective, constraint and extra function values for the given decision variables as
+                a polars dataframe. The symbols of the objectives, constraints and extra functions are the column names
+                and the length of the columns is the number of samples. Will return those objective, constraint and
+                extra function values that are gained from simulators listed in the problem object.
         """
         results = {}
         sim_symbols = []
@@ -150,58 +144,39 @@ class Evaluator:
                 )
         return res.hstack(min_obj_columns)
 
-    def _evaluate_surrogates(
-        self,
-        xs: dict[str, list]
-    ) -> pl.DataFrame:
+    def _evaluate_surrogates(self, xs: dict[str, list[int | float]]) -> pl.DataFrame:
         """Evaluate the problem for the given decision variables using the surrogate models.
 
-        If there is a mix of (mutually exclusive and exhaustive) analytical and surrogate objectives, this method will
-        use polars to evaluate the analytical objectives and the surrogate models to evaluate the surrogate objectives,
-        and return the combined results.
-
         Args:
-            xs (dict[str, list]): The decision variables for which the objectives need to be evaluated.
-                The shape of the array is (n, m), where n is the number of decision variables and m is the number
-                of samples. Note that there is no need to support TensorVariables in this evaluator.
+            xs (dict[str, list[int | float]]): The decision variables for which the functions are to be evaluated.
+                Given as a dictionary with the decision variable symbols as keys and a list of decision variable values
+                as the values. The length of the lists is the number of samples and each list should have the same
+                length (same number of samples).
 
         Returns:
-            tuple[np.ndarray, np.ndarray]: The objective values for the given decision variables. The shape of
-                the first array is (k, m), where k is the number of objectives and m is the number of samples.
-                The second array is the uncertainity predictions for the objectives. The shape of the array is (k, m),
-                where k is the number of objectives and m is the number of samples. For objectives that are not
-                surrogates, the uncertainity predictions should be set to 0. For objectives that are surrogates,
-                the uncertainity predictions should be the uncertainity predictions of the surrogate model
-                (see, e.g., sklearn's predict method for gaussian process regressors with return_std=True).
-                For objectives that are surrogates but do not have uncertainity predictions, the uncertainity
-                predictions should be set to np.nan. Maybe a warning should be raised in such cases?
+            pl.DataFrame: The values of the evaluated objectives, constraints and extra functions as a polars
+                dataframe. The uncertainty prediction values are also returned. If a model does not provide
+                uncertainty predictions, then they are set as NaN.
         """
-        objective_values = []
-        uncertainties = []
-        symbols = []
         results_dict = {}
-        var = np.array([value for _, value in xs.items()]).T # has to be transpose
-        for obj in self.surrogates:
-            accepted_args = getfullargspec(self.surrogates[obj].predict).args
+        var = np.array([value for _, value in xs.items()]).T # has to be transpose (m, n) at least for sklearn models
+        for symbol in self.surrogates:
+            # get a list of args accepted by the model's predict function
+            accepted_args = getfullargspec(self.surrogates[symbol].predict).args
+            # if "return_std" accepted, gather the uncertainty predictions as well
             if "return_std" in accepted_args:
-                objective_value, uncertainty = self.surrogates[obj].predict(var, return_std=True)
+                value, uncertainty = self.surrogates[symbol].predict(var, return_std=True)
+            # otherwise, set the uncertainties as NaN
             else:
-                objective_value = self.surrogates[obj].predict(var)
-                uncertainty = np.full(np.shape(objective_value), np.nan)
-            objective_values.append(objective_value)
-            uncertainties.append(uncertainty)
-            symbols.append(obj)
-        res_arrays = np.array(objective_values), np.array(uncertainties)
-        objective_values_stack = np.vstack(res_arrays[0])
-        uncertainties_stack = np.vstack(res_arrays[1])
-        # add the objects, constraints and extra functions into a polars dataframe
-        # values go into columns with the symbol as the column names
-        # uncertainties go into columns with {symbol}_uncert as the column names
-        for i in range(len(symbols)):
-            results_dict[symbols[i]] = objective_values_stack[i]
-            results_dict[f"{symbols[i]}_uncert"] = uncertainties_stack[i]
-        res = pl.DataFrame(results_dict)
+                value = self.surrogates[symbol].predict(var)
+                uncertainty = np.full(np.shape(value), np.nan)
+            # add the objects, constraints and extra functions into a dict that is then turned into a polars dataframe
+            # values go into columns with the symbol as the column names
+            results_dict[symbol] = value
+            # uncertainties go into columns with {symbol}_uncert as the column names
+            results_dict[f"{symbol}_uncert"] = uncertainty
 
+        res = pl.DataFrame(results_dict)
         # Evaluate the minimization form of the objective functions
         min_obj_columns = pl.DataFrame()
         for symbol, min_max_mult in self.objective_mix_max_mult:
@@ -220,14 +195,13 @@ class Evaluator:
         with any solver that does model management.
 
         Args:
-            surrogate_paths (dict[str, Path]): A dictionary where the keys are the names of the objectives and the
-                values are the paths to the surrogate models saved on disk. The names of the objectives should match
-                the names of the objectives in the problem JSON. This Evaluator class must support loading popular
-                file formats. Check documentation of popular libraries like sklearn, pytorch, etc. for more information.
+            surrogate_paths (dict[str, Path]): A dictionary where the keys are the names of the objectives, constraints
+                and extra functions and the values are the paths to the surrogate models saved on disk. The names of
+                the objectives should match the names of the objectives in the problem JSON. At the moment the supported
+                file format is .skops (through skops.io). TODO: if skops.io used, should be added to pyproject.toml.
         """
         for symbol in surrogate_paths:
             with Path.open(f"{surrogate_paths[symbol]}", 'rb') as file:
-                #self.surrogates[obj.symbol] = joblib.load(file)
                 unknown_types = sio.get_untrusted_types(file=file)
                 if len(unknown_types) == 0:
                     self.surrogates[symbol] = sio.load(file, unknown_types)
@@ -238,10 +212,17 @@ class Evaluator:
     def evaluate(self, xs: dict[str, list[int | float]]) -> pl.DataFrame:
         """Evaluate the functions for the given decision variables.
 
+        Evaluates analytical, simulation based and surrogate based functions. For now, the evaluator assumes that there
+        are no data based objectives.
+
         Args:
             xs (dict[str, list[int | float]]): The decision variables for which the functions are to be evaluated.
-                Given as a dict with the variable symbols and values as a list. The length of the lists is the
-                number of samples and each list should have the same length (same number of samples).
+                Given as a dictionary with the decision variable symbols as keys and a list of decision variable values
+                as the values. The length of the lists is the number of samples and each list should have the same
+                length (same number of samples).
+
+        Returns:
+            pl.DataFrame: polars dataframe with the evaluated function values.
         """
         res = pl.DataFrame()
 
