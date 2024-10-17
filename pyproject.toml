@@ -74,12 +74,13 @@ djlint = "^1.34.1"
 pyparsing = { extras = ["diagrams"], version = "^3.1.1" }
 isort = "^5.0"
 mypy = "^1.0"
-mkdocstrings = { extras = ["python"], version = "^0.24.1" }
+mkdocstrings-python = "^1.0"
 mkdocs-material = "^9.5.12"
 pytest-xdist = "^3.5.0"
 pytest-testmon = "^2.1.1"
 snakeviz = "^2.2.0"
 pytest-asyncio = "^0.24.0"
+griffe = "^1.4.1"
 
 
 [tool.ruff]
