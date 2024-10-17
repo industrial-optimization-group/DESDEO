@@ -1,12 +1,10 @@
 """Tests related to the NAUTILI method."""
+
 import numpy as np
-import numpy.testing as npt
 import pytest
 from fixtures import dtlz2_5x_3f_data_based  # noqa: F401
 
 from desdeo.mcdm.nautili import (
-    calculate_distance_to_front,
-    calculate_navigation_point,
     solve_reachable_bounds,
     solve_reachable_solution,
 )
@@ -63,7 +61,7 @@ def test_solve_reachable_solution_discrete(dtlz2_5x_3f_data_based):  # noqa: F81
     problem = dtlz2_5x_3f_data_based
 
     prev_nav_point = {"f1": 1.0, "f2": 1.0, "f3": 1.0}
-    reference_point_1 = {"f1": 0.8, "f2": 0.8, "f3": 0.01} # group improvement direction
+    reference_point_1 = {"f1": 0.8, "f2": 0.8, "f3": 0.01}  # group improvement direction
 
     res_1 = solve_reachable_solution(problem, reference_point_1, prev_nav_point)
 
@@ -191,9 +189,8 @@ def test_solve_reachable_bounds_complicated():
     for symbol in [objective.symbol for objective in problem.objectives]:
         assert upper_bounds[symbol] > lower_bounds[symbol]
 
+
 @pytest.mark.slow
 @pytest.mark.nautili
 def test_nautili_aggregation():
-    """TODO: Test nautili aggregation aggregation """
-
-
+    """TODO: Test nautili aggregation aggregation"""

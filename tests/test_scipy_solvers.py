@@ -1,9 +1,12 @@
 """Tests for the scipy solver interfaces."""
 
+import pytest
+
 from desdeo.problem import ScalarizationFunction, binh_and_korn
 from desdeo.tools.scipy_solver_interfaces import ScipyDeSolver
 
 
+@pytest.mark.scipy
 def test_scipy_de_with_constraints():
     """Tests the scipy differential evolution solver with constraints."""
     problem = binh_and_korn((False, False))

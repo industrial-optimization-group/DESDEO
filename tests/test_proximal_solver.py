@@ -1,15 +1,14 @@
 """Tests the proximal solver."""
 
 import numpy.testing as npt
+import pytest
 
 from desdeo.problem import simple_data_problem
 from desdeo.tools.proximal_solver import ProximalSolver
-from desdeo.tools.scalarization import (
-    add_asf_nondiff,
-    add_weighted_sums,
-)
+from desdeo.tools.scalarization import add_asf_nondiff, add_weighted_sums
 
 
+@pytest.mark.proximal
 def test_proximal_with_simple_data_problem():
     """Test the proximal solver with a simple data problem."""
     problem = simple_data_problem()

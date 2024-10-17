@@ -1,9 +1,13 @@
 """Tests for configuration."""
+
+import pytest
+
 from desdeo.api import AuthConfig, DBConfig
 
+
+@pytest.mark.api
 def test_default_config():
     """Test configs after load_config()."""
-
     assert AuthConfig.authjwt_secret_key is not None
     assert AuthConfig.authjwt_algorithm is not None
     assert AuthConfig.authjwt_access_token_expires is not None

@@ -1,7 +1,8 @@
-"""Tests various utils found in the desdeo.problem pacakge."""
+"""Tests various utils found in the desdeo.problem package."""
 
 import numpy.testing as npt
 import polars as pl
+import pytest
 
 from desdeo.problem import (
     dtlz2,
@@ -13,6 +14,7 @@ from desdeo.problem import (
 )
 
 
+@pytest.mark.utils
 def test_objective_dict_to_numpy_array_and_back():
     """Tests the conversion from an objective dict to a numpy array."""
     problem = river_pollution_problem()
@@ -28,6 +30,7 @@ def test_objective_dict_to_numpy_array_and_back():
     )
 
 
+@pytest.mark.utils
 def test_variable_dict_to_numpy_array():
     """Test the conversion from a variable dict to a numpy array."""
     n_variables = 10
@@ -42,6 +45,7 @@ def test_variable_dict_to_numpy_array():
     npt.assert_array_almost_equal(numpy_arr, var_values)
 
 
+@pytest.mark.utils
 def test_tensor_constant_from_dataframe():
     """Test that a TensorConstant is created properly from a dataframe."""
     df = pl.DataFrame({"A": [1, 2, 3, 4, 5], "B": [10, 20, 30, 40, 50], "C": [100, 200, 300, 400, 500]})

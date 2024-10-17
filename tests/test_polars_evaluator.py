@@ -9,7 +9,6 @@ from desdeo.problem import (
     ObjectiveTypeEnum,
     PolarsEvaluator,
     Problem,
-    TensorConstant,
     TensorVariable,
     Variable,
     VariableTypeEnum,

@@ -1,25 +1,24 @@
 """Tests for db utils."""
-from desdeo.api.db_models import User as UserModel
-from desdeo.api.utils.database import (
-    database_dependency,
-    select,
-    filter_by,
-    exists,
-    delete,
-    DB
-)
-from sqlalchemy.sql.expression import exists as sa_exists, delete as sa_delete
-from sqlalchemy.future import select as sa_select
-from fastapi import Depends
-import pytest
-from typing import Annotated
-from sqlalchemy.dialects import postgresql
-from desdeo.api.db_models import User as UserModel
-from desdeo.api import db_models
-from desdeo.api.schema import UserRole
-from desdeo.api.routers.UserAuth import get_password_hash
+
 from os import getenv
 
+import pytest
+from sqlalchemy.future import select as sa_select
+from sqlalchemy.sql.expression import delete as sa_delete
+from sqlalchemy.sql.expression import exists as sa_exists
+
+from desdeo.api import db_models
+from desdeo.api.db_models import User as UserModel
+from desdeo.api.routers.UserAuth import get_password_hash
+from desdeo.api.schema import UserRole
+from desdeo.api.utils.database import (
+    DB,
+    database_dependency,
+    delete,
+    exists,
+    filter_by,
+    select,
+)
 
 '''@pytest_asyncio.fixture(scope='session', autouse=True)
 def event_loop(request):
@@ -28,11 +27,12 @@ def event_loop(request):
     yield loop
     loop.close()'''
 
-pytestmark = pytest.mark.asyncio(scope='session')
+pytestmark = pytest.mark.asyncio(scope="session")
 
+
+@pytest.mark.api
 async def test_select():
     """Test select()."""
-
     model = UserModel
 
     result = select(model)
@@ -40,9 +40,10 @@ async def test_select():
 
     assert result.compare(result2)
 
+
+@pytest.mark.api
 async def test_filter_by():
     """Test filter_by()."""
-
     model = UserModel
 
     filters = {
@@ -54,9 +55,10 @@ async def test_filter_by():
 
     assert result.compare(result2)
 
+
+@pytest.mark.api
 async def test_exists():
     """Test exists()."""
-
     model = UserModel
 
     filters = {
@@ -69,9 +71,10 @@ async def test_exists():
 
     assert result.compare(result2)
 
+
+@pytest.mark.api
 async def test_delete():
     """Test delete()."""
-
     model = UserModel
 
     result = delete(model)
@@ -79,38 +82,41 @@ async def test_delete():
 
     assert result.compare(result2)
 
+
+@pytest.mark.api
 async def test_add_row():
     """Test db's add()."""
-
     row = db_models.User(
-      username="dummy",
-      password_hash=get_password_hash("test"),
-      role=UserRole.GUEST,
-      privilages=[],
-      user_group="",
+        username="dummy",
+        password_hash=get_password_hash("test"),
+        role=UserRole.GUEST,
+        privilages=[],
+        user_group="",
     )
 
     db: DB = DB(getenv("DB_DRIVER", "postgresql+asyncpg"), {})
-    #db = await database_dependency()
+    # db = await database_dependency()
 
     await db.add(row)
 
-    '''Do not commit for testing purpose'''
+    """Do not commit for testing purpose"""
     # await db.commit()
 
+
+@pytest.mark.api
 async def test_db_count():
     """Test db's count() and all()."""
-
     db: DB = await database_dependency()
 
     user_count: int = await db.count(select(UserModel).subquery())
-    users: List[Dict] = await db.all(select(UserModel))
+    users: list[dict] = await db.all(select(UserModel))
 
     assert len(users) == user_count
 
+
+@pytest.mark.api
 async def test_db_exists():
     """Test db's exists() and first()."""
-
     db: DB = await database_dependency()
 
     exists = await db.exists(select(UserModel).filter_by(id=1))
@@ -119,14 +125,15 @@ async def test_db_exists():
     assert exists
     assert user.id == 1
 
+
+@pytest.mark.api
 async def test_delete_row():
     """Test db's delete()."""
-
     db: DB = await database_dependency()
     query = select(UserModel).filter_by(id=1)
     if not await db.exists(query):
         raise Exception("User doesn't exists")
     await db.delete(await db.first(query))
 
-    '''Do not commit for testing purpose'''
+    """Do not commit for testing purpose"""
     # await db.commit()

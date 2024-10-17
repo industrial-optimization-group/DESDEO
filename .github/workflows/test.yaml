@@ -1,0 +1,33 @@
+on:
+  pull_request:
+    branches:
+      - desdeo2
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+
+      - name: Download and extract custom binaries to run optimizers
+        run: |
+          wget https://github.com/industrial-optimization-group/DESDEO/releases/download/supplementary/solver_binaries.tgz -O /tmp/binaries.tgz
+          mkdir -p /usr/local/bin
+          tar -xzf /tmp/binaries.tgz -C /usr/local/bin
+          chmod +x /usr/local/bin/*
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests
+        run: |
+          pytest -k "not performance and not nautili and not api and not gurobipy and not skip" --disable-warnings --maxfail=5

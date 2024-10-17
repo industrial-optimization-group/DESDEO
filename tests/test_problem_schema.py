@@ -2,7 +2,7 @@
 
 import numpy.testing as npt
 import polars as pl
-import pytest  # noqa: F401
+import pytest
 from fixtures import dtlz2_5x_3f_data_based  # noqa: F401
 
 from desdeo.problem.evaluator import PolarsEvaluator
@@ -28,6 +28,7 @@ from desdeo.problem.testproblems import (
 )
 
 
+@pytest.mark.schema
 def test_objective_from_infix():
     """Test the initialization of an Objective using infix notation."""
     infix = "1 + x_2 - Sin(x_1)"
@@ -47,6 +48,7 @@ def test_objective_from_infix():
     npt.assert_array_almost_equal(res_infix, res_json)
 
 
+@pytest.mark.schema
 def test_constraint_from_infix():
     """Test the initialization of a Constraint using infix notation."""
     infix = "Max(x_1 + 5, 5.0 - x_2)"
@@ -66,6 +68,7 @@ def test_constraint_from_infix():
     npt.assert_array_almost_equal(res_infix, res_json)
 
 
+@pytest.mark.schema
 def test_scalarization_from_infix():
     """Test the initialization of a ScalarizationFunction using infix notation."""
     infix = "5 + Max(x_1 / x_2, x_1 * x_2, x_1**(2))"
@@ -85,6 +88,7 @@ def test_scalarization_from_infix():
     npt.assert_array_almost_equal(res_infix, res_json)
 
 
+@pytest.mark.schema
 def test_extra_from_infix():
     """Test the initialization of an ExtraFunction using infix notation."""
     infix = "Floor(10.1 / x_1) + Ceil(x_2 / 6.5)"
@@ -104,6 +108,7 @@ def test_extra_from_infix():
     npt.assert_array_almost_equal(res_infix, res_json)
 
 
+@pytest.mark.schema
 def test_data_objective():
     """Tests a problem with a data objective."""
     variables = [
@@ -150,6 +155,7 @@ def test_data_objective():
     npt.assert_array_almost_equal([2.5 + -1.5, 0.1 + -0.1, 0.5 + 1.5], eval_res["f_2"])
 
 
+@pytest.mark.schema
 def test_data_problem(dtlz2_5x_3f_data_based):  # noqa: F811
     """Tests the evaluation of a problem with only data objectives."""
     problem = dtlz2_5x_3f_data_based
@@ -363,6 +369,7 @@ def test_data_problem(dtlz2_5x_3f_data_based):  # noqa: F811
     npt.assert_array_almost_equal(should_be, actual)
 
 
+@pytest.mark.schema
 def test_add_constraints():
     """Test that constraints are added properly."""
     problem = river_pollution_problem()
@@ -411,6 +418,7 @@ def test_add_constraints():
         new_problem.add_constraints([cons_x])
 
 
+@pytest.mark.schema
 def test_add_variables():
     """Test that new variables are added to a problem model correctly."""
     problem = river_pollution_problem()
@@ -475,6 +483,7 @@ def test_add_variables():
         new_problem.add_variables([var_x])
 
 
+@pytest.mark.schema
 def test_get_ideal_point():
     """Test that the ideal point is returned correctly."""
     problem = nimbus_test_problem()
@@ -484,6 +493,7 @@ def test_get_ideal_point():
         npt.assert_almost_equal(obj.ideal, ideal_point[obj.symbol])
 
 
+@pytest.mark.schema
 def test_get_nadir_point():
     """Test that the nadir point is returned correctly."""
     problem = nimbus_test_problem()
@@ -493,6 +503,7 @@ def test_get_nadir_point():
         npt.assert_almost_equal(obj.nadir, nadir_point[obj.symbol])
 
 
+@pytest.mark.schema
 def test_variable_domain():
     """Test that the variable domain of a problem is inferred correctly."""
     problem_continuous = river_pollution_problem()
@@ -508,6 +519,7 @@ def test_variable_domain():
     assert integer_problem.variable_domain == VariableDomainTypeEnum.integer
 
 
+@pytest.mark.schema
 def test_is_convex():
     """Test whether the convexity of a problem is inferred correctly."""
     problem_convex = simple_knapsack()
@@ -519,6 +531,7 @@ def test_is_convex():
     assert not problem_non_convex.is_convex
 
 
+@pytest.mark.schema
 def test_is_linear():
     """Test whether the linearity of a problem is inferred correctly."""
     problem_linear = simple_knapsack()
@@ -530,6 +543,7 @@ def test_is_linear():
     assert not problem_nonlinear.is_linear
 
 
+@pytest.mark.schema
 def test_is_twice_diff():
     """Test whether the twice differentiability of a problem is inferred correctly."""
     problem_diff = simple_knapsack()
@@ -541,6 +555,7 @@ def test_is_twice_diff():
     assert not problem_nondiff.is_twice_differentiable
 
 
+@pytest.mark.schema
 def test_scenario_problem():
     """Tests that scenario problems are handled correctly."""
     problem = simple_scenario_test_problem()

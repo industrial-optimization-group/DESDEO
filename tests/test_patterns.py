@@ -5,7 +5,6 @@ import pytest
 from desdeo.tools.message import GeneratorMessageTopics, GenericMessage
 from desdeo.tools.patterns import BlankSubscriber, Publisher
 
-
 INTERESTED_TOPICS = [GeneratorMessageTopics.OBJECTIVES, GeneratorMessageTopics.TARGETS]
 NOT_INTERESTED_TOPICS = [GeneratorMessageTopics.NEW_EVALUATIONS, GeneratorMessageTopics.POPULATION]
 

@@ -207,6 +207,13 @@ markers = [
     "group_scalarization: tests related to group scalarization functions and utilities.",
     "polars: tests related to the polars evaluator and math parser.",
     "rpm: tests related to the reference point method.",
+    "scipy: tests that utilize any of the scipy optimizers.",
+    "proximal: tests related to the proximal evaluator.",
+    "api: tests related to the web API.",
+    "json: tests related to the Math JSON parser.",
+    "schema: tests related to the Problem schema.",
+    "utils: tests related to various utilities.",
+
 ]
 pythonpath = "."
 
