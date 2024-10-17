@@ -590,3 +590,31 @@ def test_to_variables():
             assert var.initial_value is None
             assert var.lowerbound == z_lowerbounds[i - 1][j - 1]
             assert var.upperbound == z_upperbounds[i - 1][j - 1]
+
+
+def test_get_flattened_variables():
+    """Test that variables are flattened as intended."""
+    problem = simple_knapsack_vectors()
+
+    flattened_vars = problem.get_flattened_variables()
+
+    assert len(flattened_vars) == 4
+
+    # for multi-index
+    problem = problem.add_variables(
+        [
+            TensorVariable(
+                name="test",
+                symbol="Y",
+                variable_type=VariableTypeEnum.real,
+                shape=(2, 3),
+                initial_values=[[1, 2, 3], [4, 5, 6]],
+                lowerbounds=10,
+                upperbounds=20,
+            )
+        ]
+    )
+
+    flattened_vars = problem.get_flattened_variables()
+
+    assert len(flattened_vars) == 4 + 6
