@@ -16,12 +16,13 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Download and extract custom binaries to run optimizers
+      - name: Download and extract custom binaries
         run: |
           wget https://github.com/industrial-optimization-group/DESDEO/releases/download/supplementary/solver_binaries.tgz -O /tmp/binaries.tgz
-          mkdir -p /usr/local/bin
-          tar -xzf /tmp/binaries.tgz -C /usr/local/bin
-          chmod +x /usr/local/bin/*
+          mkdir -p /tmp/custom_binaries
+          tar -xzf /tmp/binaries.tgz -C /tmp/custom_binaries
+          chmod +x /tmp/custom_binaries/*
+          export PATH=$PATH:/tmp/custom_binaries
 
       - name: Install dependencies
         run: |
