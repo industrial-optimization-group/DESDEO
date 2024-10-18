@@ -18,6 +18,7 @@ jobs:
 
       - name: Download and extract custom binaries
         run: |
+          mkdir -p $HOME/tmp
           wget https://github.com/industrial-optimization-group/DESDEO/releases/download/supplementary/solver_binaries.tgz -O $HOME/tmp/binaries.tgz
           mkdir -p $HOME/tmp/custom_binaries
           tar -xzf $HOME/tmp/binaries.tgz -C $HOME/tmp/custom_binaries
