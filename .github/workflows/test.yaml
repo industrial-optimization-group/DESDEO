@@ -23,7 +23,7 @@ jobs:
         run: wget https://github.com/industrial-optimization-group/DESDEO/releases/download/supplementary/solver_binaries.tgz -O $HOME/tmp/binaries.tgz
 
       - name: Extract custom binaries
-        run: tar -xzf $HOME/tmp/binaries.tgz -C $HOME/tmp/custom_binaries
+        run: tar --strip-components=1 -xzf $HOME/tmp/binaries.tgz -C $HOME/tmp/custom_binaries
 
       - name: Make binaries executable
         run: chmod +x $HOME/tmp/custom_binaries/*
