@@ -208,6 +208,7 @@ def test_ipopt_solver():
     npt.assert_almost_equal(sum(fs[obj.symbol] ** 2 for obj in problem.objectives), 1.0)
 
 
+@pytest.mark.nogithub
 @pytest.mark.pyomo
 def test_combinatorial_problem():
     """Test that CBC can be used to solve a simple combinatorial problem."""

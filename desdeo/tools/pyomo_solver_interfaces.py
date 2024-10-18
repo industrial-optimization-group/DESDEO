@@ -447,6 +447,6 @@ class PyomoCBCSolver(BaseSolver):
         """
         self.evaluator.set_optimization_target(target)
 
-        opt = pyomo.SolverFactory("cbc", tee=True)
+        opt = pyomo.SolverFactory("cbc", tee=True, options=self.options.dict())
         opt_res = opt.solve(self.evaluator.model)
         return parse_pyomo_optimizer_results(opt_res, self.problem, self.evaluator)

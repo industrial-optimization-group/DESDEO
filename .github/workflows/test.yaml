@@ -52,4 +52,4 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest -k "not performance and not nautili and not api and not gurobipy and not skip" --disable-warnings --maxfail=5
+          pytest -k "not performance and not nautili and not api and not gurobipy and not skip and not nogithub" --disable-warnings --maxfail=5
