@@ -29,7 +29,7 @@ jobs:
         run: chmod +x $HOME/tmp/custom_binaries/*
 
       - name: Add binaries to path
-        run: echo "$HOME/tmp/custom_binaries" >> $GITHUB_ENV
+        run: echo "$HOME/tmp/custom_binaries" >> "$GITHUB_PATH"
 
       - name: Check path
         run: echo $PATH
