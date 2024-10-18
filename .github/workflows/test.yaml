@@ -16,14 +16,23 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Download and extract custom binaries
-        run: |
-          mkdir -p $HOME/tmp
-          wget https://github.com/industrial-optimization-group/DESDEO/releases/download/supplementary/solver_binaries.tgz -O $HOME/tmp/binaries.tgz
-          mkdir -p $HOME/tmp/custom_binaries
-          tar -xzf $HOME/tmp/binaries.tgz -C $HOME/tmp/custom_binaries
-          chmod +x $HOME/tmp/custom_binaries/*
-          echo "$HOME/tmp/custom_binaries" >> $GITHUB_ENV
+      - name: Create needed folders folder
+        run: mkdir -p $HOME/tmp/custom_binaries
+
+      - name: Download custom binaries
+        run: wget https://github.com/industrial-optimization-group/DESDEO/releases/download/supplementary/solver_binaries.tgz -O $HOME/tmp/binaries.tgz
+
+      - name: Extract custom binaries
+        run: tar -xzf $HOME/tmp/binaries.tgz -C $HOME/tmp/custom_binaries
+
+      - name: Make binaries executable
+        run: chmod +x $HOME/tmp/custom_binaries/*
+
+      - name: Add binaries to path
+        run: echo "$HOME/tmp/custom_binaries" >> $GITHUB_ENV
+
+      - name: Check path
+        run: echo $PATH
 
       - name: Check that binaries are available
         run: |
