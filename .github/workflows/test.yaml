@@ -18,19 +18,27 @@ jobs:
 
       - name: Download and extract custom binaries
         run: |
-          wget https://github.com/industrial-optimization-group/DESDEO/releases/download/supplementary/solver_binaries.tgz -O /tmp/binaries.tgz
-          mkdir -p /tmp/custom_binaries
-          tar -xzf /tmp/binaries.tgz -C /tmp/custom_binaries
-          chmod +x /tmp/custom_binaries/*
-          export PATH=$PATH:/tmp/custom_binaries
+          wget https://github.com/industrial-optimization-group/DESDEO/releases/download/supplementary/solver_binaries.tgz -O $HOME/tmp/binaries.tgz
+          mkdir -p $HOME/tmp/custom_binaries
+          tar -xzf $HOME/tmp/binaries.tgz -C $HOME/tmp/custom_binaries
+          chmod +x $HOME/tmp/custom_binaries/*
+          echo "$HOME/tmp/custom_binaries" >> $GITHUB_ENV
 
-      - name: Echo
-        run: echo "got this far"
+      - name: Check that binaries are available
+        run: |
+          ipopt --version
+          bonmin --version
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+
+      - name: Check Python and Pytest paths
+        run: |
+          which python
+          which pytest
+          pytest -k "not performance and not nautili and not api and not gurobipy and not skip" --collect-only
 
       - name: Run tests
         run: |
