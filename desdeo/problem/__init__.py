@@ -38,6 +38,7 @@ __all__ = [
     "simple_linear_test_problem",
     "simple_scenario_test_problem",
     "simple_test_problem",
+    "spanish_sustainability_problem",
     "tensor_constant_from_dataframe",
     "PolarsEvaluator",
     "PolarsEvaluatorModesEnum",
@@ -101,6 +102,7 @@ from .testproblems import (
     simple_linear_test_problem,
     simple_scenario_test_problem,
     simple_test_problem,
+    spanish_sustainability_problem,
     zdt1,
 )
 from .utils import (

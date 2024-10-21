@@ -1870,7 +1870,6 @@ def forest_problem(simulation_results: str, treatment_key: str, holding: int = 1
 
 def spanish_sustainability_problem():
     """Implements the Spanish sustainability problem."""
-
     coefficients_dict = {
         "social_linear": {
             "x_1": -0.0108,
@@ -2074,28 +2073,28 @@ def spanish_sustainability_problem():
     social_linear = TensorConstant(
         name="Linear coefficients for the social indicator",
         symbol="beta_social",
-        shape=(1, n_variables),
+        shape=[n_variables],
         values=list(coefficients.filter(pl.col("column") == "social_linear").row(0)[1:]),
     )
 
     social_quadratic = TensorConstant(
         name="Quadratic coefficients for the social indicator",
         symbol="gamma_social",
-        shape=(1, n_variables),
+        shape=[n_variables],
         values=list(coefficients.filter(pl.col("column") == "social_quadratic").row(0)[1:]),
     )
 
     social_cubic = TensorConstant(
         name="Cubic coefficients for the social indicator",
         symbol="delta_social",
-        shape=(1, n_variables),
+        shape=[n_variables],
         values=list(coefficients.filter(pl.col("column") == "social_cubic").row(0)[1:]),
     )
 
     social_log = TensorConstant(
         name="Logarithmic coefficients for the social indicator",
         symbol="omega_social",
-        shape=(1, n_variables),
+        shape=[n_variables],
         values=list(coefficients.filter(pl.col("column") == "social_log").row(0)[1:]),
     )
 
@@ -2107,28 +2106,28 @@ def spanish_sustainability_problem():
     ecological_linear = TensorConstant(
         name="Linear coefficients for the ecological indicator",
         symbol="beta_ecological",
-        shape=(1, n_variables),
+        shape=[n_variables],
         values=list(coefficients.filter(pl.col("column") == "ecological_linear").row(0)[1:]),
     )
 
     ecological_quadratic = TensorConstant(
         name="Quadratic coefficients for the ecological indicator",
         symbol="gamma_ecological",
-        shape=(1, n_variables),
+        shape=[n_variables],
         values=list(coefficients.filter(pl.col("column") == "ecological_quadratic").row(0)[1:]),
     )
 
     ecological_cubic = TensorConstant(
         name="Cubic coefficients for the ecological indicator",
         symbol="delta_ecological",
-        shape=(1, n_variables),
+        shape=[n_variables],
         values=list(coefficients.filter(pl.col("column") == "ecological_cubic").row(0)[1:]),
     )
 
     ecological_log = TensorConstant(
         name="Logarithmic coefficients for the ecological indicator",
         symbol="omega_ecological",
-        shape=(1, n_variables),
+        shape=[n_variables],
         values=list(coefficients.filter(pl.col("column") == "ecological_log").row(0)[1:]),
     )
 
@@ -2140,28 +2139,28 @@ def spanish_sustainability_problem():
     enviro_linear = TensorConstant(
         name="Linear coefficients for the environmental indicator",
         symbol="beta_enviro",
-        shape=(1, n_variables),
+        shape=[n_variables],
         values=list(coefficients.filter(pl.col("column") == "enviro_linear").row(0)[1:]),
     )
 
     enviro_quadratic = TensorConstant(
         name="Quadratic coefficients for the environmental indicator",
         symbol="gamma_enviro",
-        shape=(1, n_variables),
+        shape=[n_variables],
         values=list(coefficients.filter(pl.col("column") == "enviro_quadratic").row(0)[1:]),
     )
 
     enviro_cubic = TensorConstant(
         name="Cubic coefficients for the environmental indicator",
         symbol="delta_enviro",
-        shape=(1, n_variables),
+        shape=[n_variables],
         values=list(coefficients.filter(pl.col("column") == "enviro_cubic").row(0)[1:]),
     )
 
     enviro_log = TensorConstant(
         name="Logarithmic coefficients for the environmental indicator",
         symbol="omega_enviro",
-        shape=(1, n_variables),
+        shape=[n_variables],
         values=list(coefficients.filter(pl.col("column") == "enviro_log").row(0)[1:]),
     )
 
@@ -2189,10 +2188,10 @@ def spanish_sustainability_problem():
 
     # Define variables
     x = TensorVariable(
-        name="Variables 'x_1' through 'x_11' defined as a colum vector.",
+        name="Variables 'x_1' through 'x_11' defined as a vector.",
         symbol="X",
         variable_type=VariableTypeEnum.real,
-        shape=(n_variables, 1),
+        shape=[n_variables],
         lowerbounds=list(coefficients.filter(pl.col("column") == "lower_bounds").row(0)[1:]),
         upperbounds=list(coefficients.filter(pl.col("column") == "upper_bounds").row(0)[1:]),
         initial_values=1.0,
@@ -2202,7 +2201,56 @@ def spanish_sustainability_problem():
 
     # Define objective functions
     ## Social
-    f1_expr = "-(social_)"
+    f1_expr = "cte_social + beta_social @ X + gamma_social @ (X**2) + delta_social @ (X**3) + omega_social @ Ln(X)"
+
+    ## Ecological
+    f2_expr = (
+        "cte_ecological + beta_ecological @ X + gamma_ecological @ (X**2) + delta_ecological @ (X**3) "
+        "+ omega_ecological @ Ln(X)"
+    )
+
+    ## Environmental
+    f3_expr = "cte_enviro + beta_enviro @ X + gamma_enviro @ (X**2) + delta_enviro @ (X**3) " "+ omega_enviro @ Ln(X)"
+
+    f1 = Objective(
+        name="Societal indicator",
+        symbol="f1",
+        func=f1_expr,
+        objective_type=ObjectiveTypeEnum.analytical,
+        is_linear=False,
+        is_convex=False,
+        is_twice_differentiable=True,
+    )
+
+    f2 = Objective(
+        name="Ecological indicator",
+        symbol="f2",
+        func=f2_expr,
+        objective_type=ObjectiveTypeEnum.analytical,
+        is_linear=False,
+        is_convex=False,
+        is_twice_differentiable=True,
+    )
+
+    f3 = Objective(
+        name="Environmental indicator",
+        symbol="f3",
+        func=f3_expr,
+        objective_type=ObjectiveTypeEnum.analytical,
+        is_linear=False,
+        is_convex=False,
+        is_twice_differentiable=True,
+    )
+
+    objectives = [f1, f2, f3]
+
+    return Problem(
+        name="Spanish sustainability problem.",
+        description="Defines a sustainability problem with three indicators: societal, ecological, and environmental.",
+        constants=constants,
+        variables=variables,
+        objectives=objectives,
+    )
 
 
 spanish_sustainability_problem()

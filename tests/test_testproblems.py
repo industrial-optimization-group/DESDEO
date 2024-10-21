@@ -11,6 +11,7 @@ from desdeo.problem import (
     re22,
     re23,
     re24,
+    spanish_sustainability_problem,
 )
 from desdeo.tools import GurobipySolver
 
@@ -231,3 +232,55 @@ def test_forest_problem():
     assert np.isclose(res.optimal_objectives["f_1"], 10885.988)
     assert np.isclose(res.optimal_objectives["f_2"], -2202.283)
     assert np.isclose(res.optimal_objectives["f_3"], 154240.330)
+
+
+@pytest.mark.testproblem
+def test_spanish_sustainability():
+    """Test the Spanish sustainability problem."""
+    problem = spanish_sustainability_problem()
+
+    evaluator = PolarsEvaluator(problem)
+
+    # row 44 from excel
+    input_1 = {
+        "X_1": [6.4399],
+        "X_2": [89.666],
+        "X_3": [16.517],
+        "X_4": [2.0723],
+        "X_5": [1.0],
+        "X_6": [1.9469],
+        "X_7": [17.206],
+        "X_8": [13.326],
+        "X_9": [70.0],
+        "X_10": [102.49],
+        "X_11": [120.0],
+    }
+    expected_1 = [[1.1573, 0.7149, 2.8989]]
+
+    result_1 = evaluator.evaluate_flat(input_1)
+
+    # rows 102-108
+    input_2 = {
+        "X_1": [6.4344, 6.4344, 6.4344, 6.4344, 6.4344, 6.4918, 6.4344],
+        "X_2": [90, 90.0, 90.0, 90, 90.0, 89.999, 90.0],
+        "X_3": [16.514, 16.515, 16.515, 16.516, 16.514, 16.51, 16.514],
+        "X_4": [2.0723, 2.0723, 2.0723, 2.0723, 2.0723, 2.0723, 2.0723],
+        "X_5": [1, 1.0, 1.0, 1, 1.0, 1, 1.0],
+        "X_6": [1.9443, 1.9443, 1.9443, 1.9443, 1.9443, 1.9639, 1.9443],
+        "X_7": [17.37, 17.249, 17.229, 17.352, 18.465, 18.124, 18.168],
+        "X_8": [13.348, 13.348, 13.348, 13.347, 13.347, 13.348, 13.348],
+        "X_9": [70, 70.0, 70.0, 70, 70.0, 70, 70.0],
+        "X_10": [104.99, 105.0, 105.0, 104.82, 104.99, 104.79, 104.98],
+        "X_11": [82.935, 80.177, 80.0, 80, 82.337, 80.372, 80.181],
+    }
+    expected_2 = [
+        [1.1653, 0.82477, 2.8042],
+        [1.1653, 0.8327, 2.7998],
+        [1.1653, 0.8331, 2.7996],
+        [1.1653, 0.83341, 2.7988],
+        [1.1653, 0.8357, 2.7934],
+        [1.1647, 0.8382, 2.7928],
+        [1.1653, 0.8402, 2.7918],
+    ]
+
+    result_2 = evaluator.evaluate_flat(input_2)
