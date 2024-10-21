@@ -1868,6 +1868,341 @@ def forest_problem(simulation_results: str, treatment_key: str, holding: int = 1
     )
 
 
-if __name__ == "__main__":
-    problem = simple_scenario_test_problem()
-    print(problem.model_dump_json(indent=2))
+def spanish_sustainability_problem():
+    """Implements the Spanish sustainability problem."""
+
+    coefficients_dict = {
+        "social_linear": {
+            "x_1": -0.0108,
+            "x_2": 0.0,
+            "x_3": 0.0,
+            "x_4": 0.185,
+            "x_5": 0.0,
+            "x_6": 0.0,
+            "x_7": 0.0,
+            "x_8": 0.0,
+            "x_9": 0.00855,
+            "x_10": 0.0,
+            "x_11": 0.0,
+        },
+        "social_quadratic": {
+            "x_1": 0.0,
+            "x_2": 0.0,
+            "x_3": 0.0,
+            "x_4": 0.0,
+            "x_5": 0.0,
+            "x_6": 0.0,
+            "x_7": 0.0,
+            "x_8": 0.0,
+            "x_9": 0.0,
+            "x_10": 0.0,
+            "x_11": 0.0,
+        },
+        "social_cubic": {
+            "x_1": 0.0,
+            "x_2": 9.79e-07,
+            "x_3": 0.0,
+            "x_4": 0.0,
+            "x_5": 0.0,
+            "x_6": 0.0,
+            "x_7": 0.0,
+            "x_8": 0.0,
+            "x_9": 0.0,
+            "x_10": 0.0,
+            "x_11": 0.0,
+        },
+        "social_log": {
+            "x_1": 0.0,
+            "x_2": 0.0,
+            "x_3": 0.0,
+            "x_4": 0.0,
+            "x_5": 0.0,
+            "x_6": 0.0,
+            "x_7": 0.0,
+            "x_8": 0.0,
+            "x_9": 0.0,
+            "x_10": 0.0,
+            "x_11": 0.0,
+        },
+        "ecological_linear": {
+            "x_1": 0.0,
+            "x_2": 0.0,
+            "x_3": 0.0,
+            "x_4": 0.38,
+            "x_5": 0.0281,
+            "x_6": 0.0,
+            "x_7": 0.00826,
+            "x_8": 0.0,
+            "x_9": 0.0,
+            "x_10": 0.0,
+            "x_11": 0.0,
+        },
+        "ecological_quadratic": {
+            "x_1": -0.000316,
+            "x_2": 3.18e-05,
+            "x_3": 0.0,
+            "x_4": 0.0,
+            "x_5": 0.0,
+            "x_6": 0.0,
+            "x_7": 0.0,
+            "x_8": 0.000662,
+            "x_9": 0.0,
+            "x_10": 1.81e-05,
+            "x_11": 0.0,
+        },
+        "ecological_cubic": {
+            "x_1": 0.0,
+            "x_2": 0.0,
+            "x_3": 0.0,
+            "x_4": 0.0,
+            "x_5": 0.0,
+            "x_6": 0.0,
+            "x_7": 0.0,
+            "x_8": 0.0,
+            "x_9": 0.0,
+            "x_10": 0.0,
+            "x_11": 0.0,
+        },
+        "ecological_log": {
+            "x_1": 0.0,
+            "x_2": 0.0,
+            "x_3": 0.121,
+            "x_4": 0.0,
+            "x_5": 0.0,
+            "x_6": 0.0,
+            "x_7": 0.0,
+            "x_8": 0.0,
+            "x_9": 0.0,
+            "x_10": 0.0,
+            "x_11": -0.262,
+        },
+        "enviro_linear": {
+            "x_1": 0.0,
+            "x_2": 0.0,
+            "x_3": 0.0,
+            "x_4": 0.0,
+            "x_5": 0.0,
+            "x_6": 0.0,
+            "x_7": 0.0,
+            "x_8": 0.0,
+            "x_9": 0.0,
+            "x_10": -0.00122,
+            "x_11": 0.0,
+        },
+        "enviro_quadratic": {
+            "x_1": 0.0,
+            "x_2": 0.0,
+            "x_3": 0.0,
+            "x_4": 0.0,
+            "x_5": 0.0,
+            "x_6": 0.0,
+            "x_7": -0.000245,
+            "x_8": 0.0,
+            "x_9": 0.0,
+            "x_10": 0.0,
+            "x_11": 1.2e-05,
+        },
+        "enviro_cubic": {
+            "x_1": 0.0,
+            "x_2": 0.0,
+            "x_3": 0.0,
+            "x_4": 0.0,
+            "x_5": 0.0,
+            "x_6": -2.37e-06,
+            "x_7": 0.0,
+            "x_8": 0.0,
+            "x_9": 0.0,
+            "x_10": 0.0,
+            "x_11": 0.0,
+        },
+        "enviro_log": {
+            "x_1": 0.0,
+            "x_2": 0.0,
+            "x_3": 0.0,
+            "x_4": 0.0,
+            "x_5": -0.329,
+            "x_6": 0.0,
+            "x_7": 0.0,
+            "x_8": 0.0,
+            "x_9": 0.0,
+            "x_10": 0.0,
+            "x_11": 0.0,
+        },
+        "lower_bounds": {
+            "x_1": 1,
+            "x_2": 60,
+            "x_3": 1,
+            "x_4": 1,
+            "x_5": 1,
+            "x_6": 1,
+            "x_7": 1,
+            "x_8": 1,
+            "x_9": 40,
+            "x_10": 75,
+            "x_11": 80,
+        },
+        "upper_bounds": {
+            "x_1": 40,
+            "x_2": 90,
+            "x_3": 25,
+            "x_4": 3,
+            "x_5": 40,
+            "x_6": 15,
+            "x_7": 30,
+            "x_8": 25,
+            "x_9": 70,
+            "x_10": 105,
+            "x_11": 120,
+        },
+    }
+
+    social_cte_value = -0.46
+    ecological_cte_value = 0.12
+    enviro_cte_value = 2.92
+
+    coefficients = (
+        pl.DataFrame(coefficients_dict)
+        .transpose(include_header=True, column_names=["coefficients"])
+        .unnest("coefficients")
+    )
+
+    variable_names = [f"x_{i}" for i in range(1, 12)]
+    n_variables = len(variable_names)
+
+    # Define constants
+    ## For the social indicator
+    social_linear = TensorConstant(
+        name="Linear coefficients for the social indicator",
+        symbol="beta_social",
+        shape=(1, n_variables),
+        values=list(coefficients.filter(pl.col("column") == "social_linear").row(0)[1:]),
+    )
+
+    social_quadratic = TensorConstant(
+        name="Quadratic coefficients for the social indicator",
+        symbol="gamma_social",
+        shape=(1, n_variables),
+        values=list(coefficients.filter(pl.col("column") == "social_quadratic").row(0)[1:]),
+    )
+
+    social_cubic = TensorConstant(
+        name="Cubic coefficients for the social indicator",
+        symbol="delta_social",
+        shape=(1, n_variables),
+        values=list(coefficients.filter(pl.col("column") == "social_cubic").row(0)[1:]),
+    )
+
+    social_log = TensorConstant(
+        name="Logarithmic coefficients for the social indicator",
+        symbol="omega_social",
+        shape=(1, n_variables),
+        values=list(coefficients.filter(pl.col("column") == "social_log").row(0)[1:]),
+    )
+
+    social_c = Constant(
+        name="Constant coefficient for the social indicator", symbol="cte_social", value=social_cte_value
+    )
+
+    ## For the ecological indicator
+    ecological_linear = TensorConstant(
+        name="Linear coefficients for the ecological indicator",
+        symbol="beta_ecological",
+        shape=(1, n_variables),
+        values=list(coefficients.filter(pl.col("column") == "ecological_linear").row(0)[1:]),
+    )
+
+    ecological_quadratic = TensorConstant(
+        name="Quadratic coefficients for the ecological indicator",
+        symbol="gamma_ecological",
+        shape=(1, n_variables),
+        values=list(coefficients.filter(pl.col("column") == "ecological_quadratic").row(0)[1:]),
+    )
+
+    ecological_cubic = TensorConstant(
+        name="Cubic coefficients for the ecological indicator",
+        symbol="delta_ecological",
+        shape=(1, n_variables),
+        values=list(coefficients.filter(pl.col("column") == "ecological_cubic").row(0)[1:]),
+    )
+
+    ecological_log = TensorConstant(
+        name="Logarithmic coefficients for the ecological indicator",
+        symbol="omega_ecological",
+        shape=(1, n_variables),
+        values=list(coefficients.filter(pl.col("column") == "ecological_log").row(0)[1:]),
+    )
+
+    ecological_c = Constant(
+        name="Constant coefficient for the ecological indicator", symbol="cte_ecological", value=ecological_cte_value
+    )
+
+    ## For the environmental indicator
+    enviro_linear = TensorConstant(
+        name="Linear coefficients for the environmental indicator",
+        symbol="beta_enviro",
+        shape=(1, n_variables),
+        values=list(coefficients.filter(pl.col("column") == "enviro_linear").row(0)[1:]),
+    )
+
+    enviro_quadratic = TensorConstant(
+        name="Quadratic coefficients for the environmental indicator",
+        symbol="gamma_enviro",
+        shape=(1, n_variables),
+        values=list(coefficients.filter(pl.col("column") == "enviro_quadratic").row(0)[1:]),
+    )
+
+    enviro_cubic = TensorConstant(
+        name="Cubic coefficients for the environmental indicator",
+        symbol="delta_enviro",
+        shape=(1, n_variables),
+        values=list(coefficients.filter(pl.col("column") == "enviro_cubic").row(0)[1:]),
+    )
+
+    enviro_log = TensorConstant(
+        name="Logarithmic coefficients for the environmental indicator",
+        symbol="omega_enviro",
+        shape=(1, n_variables),
+        values=list(coefficients.filter(pl.col("column") == "enviro_log").row(0)[1:]),
+    )
+
+    enviro_c = Constant(
+        name="Constant coefficient for the environmental indicator", symbol="cte_enviro", value=enviro_cte_value
+    )
+
+    constants = [
+        social_linear,
+        social_quadratic,
+        social_cubic,
+        social_log,
+        social_c,
+        ecological_linear,
+        ecological_quadratic,
+        ecological_cubic,
+        ecological_log,
+        ecological_c,
+        enviro_linear,
+        enviro_quadratic,
+        enviro_cubic,
+        enviro_log,
+        enviro_c,
+    ]
+
+    # Define variables
+    x = TensorVariable(
+        name="Variables 'x_1' through 'x_11' defined as a colum vector.",
+        symbol="X",
+        variable_type=VariableTypeEnum.real,
+        shape=(n_variables, 1),
+        lowerbounds=list(coefficients.filter(pl.col("column") == "lower_bounds").row(0)[1:]),
+        upperbounds=list(coefficients.filter(pl.col("column") == "upper_bounds").row(0)[1:]),
+        initial_values=1.0,
+    )
+
+    variables = [x]
+
+    # Define objective functions
+    ## Social
+    f1_expr = "-(social_)"
+
+
+spanish_sustainability_problem()
