@@ -2201,13 +2201,15 @@ def spanish_sustainability_problem():
 
     # Define objective functions
     ## Social
-    f1_expr = "cte_social + beta_social @ X + gamma_social @ (X**2) + delta_social @ (X**3) + omega_social @ Ln(X)"
+    f1_expr = "cte_social + X @ beta_social + (X**2) @ gamma_social + (X**3) @ delta_social + Ln(X) @ omega_social"
 
     f1 = Objective(
         name="Societal indicator",
         symbol="f1",
         func=f1_expr,
         objective_type=ObjectiveTypeEnum.analytical,
+        ideal=1.15,
+        nadir=1.17,
         is_linear=False,
         is_convex=False,
         is_twice_differentiable=True,
@@ -2224,6 +2226,8 @@ def spanish_sustainability_problem():
         symbol="f2",
         func=f2_expr,
         objective_type=ObjectiveTypeEnum.analytical,
+        ideal=0.63,
+        nadir=1.98,
         is_linear=False,
         is_convex=False,
         is_twice_differentiable=True,
@@ -2237,6 +2241,8 @@ def spanish_sustainability_problem():
         symbol="f3",
         func=f3_expr,
         objective_type=ObjectiveTypeEnum.analytical,
+        ideal=1.52,
+        nadir=2.93,
         is_linear=False,
         is_convex=False,
         is_twice_differentiable=True,
@@ -2620,7 +2626,7 @@ def spanish_sustainability_problem():
         is_twice_differentiable=True,
     )
 
-    con_f1_1_expr = "1.0*f1"
+    con_f1_1_expr = "-1.0*f1"
     con_f1_1 = Constraint(
         name="f1 greater than zero",
         symbol="con_f1_1",
@@ -2631,7 +2637,7 @@ def spanish_sustainability_problem():
         is_twice_differentiable=True,
     )
 
-    con_f1_2_expr = "4.0 - f1"
+    con_f1_2_expr = "f1 - 4.0"
     con_f1_2 = Constraint(
         name="f1 less than four",
         symbol="con_f1_2",
@@ -2642,7 +2648,7 @@ def spanish_sustainability_problem():
         is_twice_differentiable=True,
     )
 
-    con_f2_1_expr = "1.0*f2"
+    con_f2_1_expr = "-1.0*f2"
     con_f2_1 = Constraint(
         name="f2 greater than zero",
         symbol="con_f2_1",
@@ -2653,7 +2659,7 @@ def spanish_sustainability_problem():
         is_twice_differentiable=True,
     )
 
-    con_f2_2_expr = "4.0 - f2"
+    con_f2_2_expr = "f2 - 4.0"
     con_f2_2 = Constraint(
         name="f2 less than four",
         symbol="con_f2_2",
@@ -2664,7 +2670,7 @@ def spanish_sustainability_problem():
         is_twice_differentiable=True,
     )
 
-    con_f3_1_expr = "1.0*f3"
+    con_f3_1_expr = "-1.0*f3"
     con_f3_1 = Constraint(
         name="f3 greater than zero",
         symbol="con_f3_1",
@@ -2675,7 +2681,7 @@ def spanish_sustainability_problem():
         is_twice_differentiable=True,
     )
 
-    con_f3_2_expr = "4.0 - f3"
+    con_f3_2_expr = "f3 - 4.0"
     con_f3_2 = Constraint(
         name="f3 less than four",
         symbol="con_f3_2",
