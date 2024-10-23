@@ -2,6 +2,9 @@ on:
   pull_request:
     branches:
       - desdeo2
+  push:
+    branches:
+      - desdeo2
 
 jobs:
   test:
