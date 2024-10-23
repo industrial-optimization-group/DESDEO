@@ -2,6 +2,8 @@
 
 [![Documentation Status](https://readthedocs.org/projects/desdeo/badge/?version=desdeo2)](https://desdeo.readthedocs.io/en/desdeo2)
 
+![Tests](https://img.shields.io/github/actions/workflow/status/industrial-optimization-group/DESDEO/unit_tests.yaml?branch=desdeo2&label=Tests)
+
 [![Discord server](https://dcbadge.vercel.app/api/server/TgSnUmzv5M)](https://discord.gg/TgSnUmzv5M)
 
 __Everything in this repository is currently subject to change. Stay tuned for updates.__
