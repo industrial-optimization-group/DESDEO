@@ -1,15 +1,12 @@
 """Configuration file."""
+
 import os
 import json
 
-from pydantic import (
-    BaseModel,
-    StrictStr,
-    StrictInt,
-    StrictBool
-)
+from pydantic import BaseModel, StrictStr, StrictInt, StrictBool
 from typing import ClassVar, Optional, Union
 from datetime import timedelta
+
 
 class AuthConfig(BaseModel):
     """General configurations."""
@@ -17,11 +14,14 @@ class AuthConfig(BaseModel):
     # openssl rand -hex 32
     authjwt_secret_key: ClassVar[StrictStr] = "36b96a23d24cebdeadce6d98fa53356111e6f3e85b8144d7273dcba230b9eb18"
     authjwt_algorithm: ClassVar[StrictStr] = "HS256"
-    authjwt_access_token_expires: ClassVar[StrictInt] = 15 # in minutes
-    authjwt_refresh_token_expires: ClassVar[StrictInt] = 30 # in minutes
+    authjwt_access_token_expires: ClassVar[StrictInt] = 15  # in minutes
+    authjwt_refresh_token_expires: ClassVar[StrictInt] = 30  # in minutes
+
 
 class DBConfig(BaseModel):
     """Database configurations."""
+
+    """PostgreSQL setup. Better for deployment.
 
     db_host: ClassVar[StrictStr] = os.getenv("POSTGRES_HOST") or "localhost"
     db_port: ClassVar[StrictStr] = os.getenv("POSTGRES_PORT") or "5432"
@@ -31,8 +31,23 @@ class DBConfig(BaseModel):
     db_pool_size: ClassVar[StrictInt] = int(os.getenv("POSTGRES_POOLSIZE") or 20)
     db_max_overflow: ClassVar[StrictInt] = int(os.getenv("POSTGRES_OVERFLOW") or 20)
     db_pool: ClassVar[StrictBool] = (os.getenv("POSTGRES_POOL") or True) in (True, 'true', '1', 't', 'y', 'yes')
+    """
+
+    # SQLite setup for easier local development
+    db_host: ClassVar[StrictStr] = ""
+    db_port: ClassVar[StrictStr] = ""
+    db_database: ClassVar[StrictStr] = "sqlite:///./test.db"
+    db_username: ClassVar[StrictStr] = ""
+    db_password: ClassVar[StrictStr] = ""
+    db_pool_size: ClassVar[StrictInt] = 1  # not used in sqlite
+    db_max_overflow: ClassVar[StrictInt] = 0  # not used in sqlite
+    db_pool: ClassVar[StrictBool] = False  # not used in sqlite
+
 
 class WebUIConfig(BaseModel):
     """Webui server configurations."""
+
     # Below defaults to ["http://localhost", "http://localhost:8080", "http://localhost:5173"] if no env variable is set
-    cors_origins: ClassVar[list] = json.loads(os.getenv("CORS_ORIGINS",'["http://localhost", "http://localhost:8080", "http://localhost:5173"]'))
+    cors_origins: ClassVar[list] = json.loads(
+        os.getenv("CORS_ORIGINS", '["http://localhost", "http://localhost:8080", "http://localhost:5173"]')
+    )

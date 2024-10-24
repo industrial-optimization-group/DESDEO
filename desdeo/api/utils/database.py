@@ -18,6 +18,7 @@ from .logger import get_logger
 
 T = TypeVar("T")
 
+
 def select(entity) -> Select:
     """Shortcut for :meth:`sqlalchemy.future.select`
 
@@ -28,6 +29,7 @@ def select(entity) -> Select:
         Select: A Select class object
     """
     return sa_select(entity)
+
 
 def filter_by(cls, *args, **kwargs) -> Select:
     """Shortcut for :meth:`sqlalchemy.future.Select.filter_by`
@@ -224,8 +226,8 @@ class DatabaseDependency:
         }
         self.database_url_options = dict([(k, v) for k, v in self.database_url_options.items() if v != ""])
         self.engine_options: Dict = {
-            "pool_size": DB_POOL_SIZE,
-            "max_overflow": DB_MAX_OVERFLOW,
+            # "pool_size": DB_POOL_SIZE, ## not used by sqlite
+            # "max_overflow": DB_MAX_OVERFLOW, ## not used by sqlite
             "poolclass": DB_POOL,
         }
         self.engine_options = dict([(k, int(v)) for k, v in self.engine_options.items() if v != ""])
