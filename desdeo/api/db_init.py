@@ -8,7 +8,7 @@ from sqlalchemy_utils import create_database, database_exists, drop_database
 
 from desdeo.api import db_models
 from desdeo.api.db import Base, SessionLocal, engine
-from desdeo.api.routers.UserAuth import get_password_hash
+from desdeo.api.routers.user_authentication import get_password_hash
 from desdeo.api.schema import ObjectiveKind, ProblemKind, UserPrivileges, UserRole
 from desdeo.problem.schema import DiscreteRepresentation, Objective, Problem, Variable
 from desdeo.problem.testproblems import binh_and_korn, nimbus_test_problem, river_pollution_problem
@@ -37,7 +37,7 @@ user = db_models.User(
     username="test",
     password_hash=get_password_hash("test"),
     role=UserRole.ANALYST,
-    privilages=[UserPrivileges.EDIT_USERS, UserPrivileges.CREATE_PROBLEMS],
+    privileges=[UserPrivileges.EDIT_USERS, UserPrivileges.CREATE_PROBLEMS],
     user_group="",
 )
 db.add(user)
@@ -48,7 +48,7 @@ dmUser = db_models.User(
     username="dm",
     password_hash=get_password_hash("test"),
     role=UserRole.DM,
-    privilages=[],
+    privileges=[],
     user_group="",
 )
 db.add(dmUser)
@@ -57,7 +57,7 @@ dmUser2 = db_models.User(
     username="dm2",
     password_hash=get_password_hash("test"),
     role=UserRole.DM,
-    privilages=[],
+    privileges=[],
     user_group="",
 )
 db.add(dmUser2)
