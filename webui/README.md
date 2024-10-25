@@ -1,3 +1,10 @@
+# Environment variables
+
+For the frontend to work correctly, there are some environmental variables
+that should be set in an`.env` file at the root level. These variables are:
+
+- `PUBLIC_API_URL`: the url that points to the DESDEO API.
+
 # create-svelte
 
 Everything you need to build a Svelte project, powered by [`create-svelte`](https://github.com/sveltejs/kit/tree/main/packages/create-svelte).

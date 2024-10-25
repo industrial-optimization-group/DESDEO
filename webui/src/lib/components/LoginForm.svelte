@@ -1,24 +1,22 @@
 <script lang="ts">
-	type AuthorizationTokens = {
-		access: string;
-		refresh: string;
-	};
+	import { login, refreshAccessToken } from '../../api/utils';
 
 	export const tokens = $state({ access: '', refresh: '' });
 
 	let username = $state('');
 	let password = $state('');
 
-	function fauxLogin(username: string, password: string): AuthorizationTokens {
-		// Implement login
-		return { access: 'token_access', refresh: 'token_refresh' };
+	async function handleLogin() {
+		// use real login when implemented
+		const login_response = await login(username, password);
+
+		console.log(login_response);
 	}
 
-	function handleLogin() {
-		// use real login when implemented
-		const new_tokens = fauxLogin(username, password);
-		tokens.access = new_tokens.access;
-		tokens.refresh = new_tokens.refresh;
+	async function _refresh() {
+		const new_access_token = await refreshAccessToken();
+
+		console.log(new_access_token);
 	}
 </script>
 
@@ -37,11 +35,19 @@
 
 		<button
 			type="button"
-			class="btn preset-filled-primary-500 mt-2 uppercase"
+			class="btn mt-2 uppercase preset-filled-primary-500"
 			disabled={!(() => {
 				return username.length > 0 && password.length > 0;
 			})()}
 			onclick={handleLogin}>Log in</button
+		>
+		<button
+			type="button"
+			class="btn mt-2 uppercase preset-filled-primary-500"
+			disabled={!(() => {
+				return username.length > 0 && password.length > 0;
+			})()}
+			onclick={_refresh}>Refresh Access Token</button
 		>
 	</form>
 
