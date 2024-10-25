@@ -19,7 +19,7 @@ class User(Base):
     role: Mapped[schema.UserRole] = mapped_column(nullable=False)
     user_group: Mapped[str] = mapped_column(nullable=True)
     # privilages: Mapped[list[schema.UserPrivileges]] = mapped_column(ARRAY(Enum(schema.UserPrivileges)), nullable=False)
-    privilages: Mapped[list[schema.UserPrivileges]] = mapped_column(JSON, nullable=False)
+    privileges: Mapped[list[schema.UserPrivileges]] = mapped_column(JSON, nullable=False)
 
     def __repr__(self):
         """Return a string representation of the user (username)."""

@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from desdeo.api.db import get_db
 from desdeo.api.db_models import Preference, SolutionArchive
 from desdeo.api.db_models import Problem as ProblemInDB
-from desdeo.api.routers.UserAuth import get_current_user
+from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.api.schema import User
 from desdeo.mcdm.nimbus import generate_starting_point, solve_intermediate_solutions, solve_sub_problems
 from desdeo.problem.schema import Problem
@@ -237,7 +237,9 @@ def iterate(
     # Do NIMBUS stuff here.
     results = solve_sub_problems(
         problem=problem,
-        current_objectives=dict(zip([obj.symbol for obj in problem.objectives], request.reference_solution, strict=True)),
+        current_objectives=dict(
+            zip([obj.symbol for obj in problem.objectives], request.reference_solution, strict=True)
+        ),
         reference_point=dict(zip([obj.symbol for obj in problem.objectives], request.preference, strict=True)),
         num_desired=request.num_solutions,
     )

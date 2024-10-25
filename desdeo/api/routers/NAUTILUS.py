@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from desdeo.api.db import get_db
 from desdeo.api.db_models import Problem as ProblemInDB
 from desdeo.api.db_models import Results
-from desdeo.api.routers.UserAuth import get_current_user
+from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.api.schema import User
 from desdeo.mcdm.nautilus import (
     NAUTILUS_Response,
@@ -222,8 +222,12 @@ def iterate(
     upper_bounds = {}
     preferences = {}
     for obj in problem.objectives:
-        lower_bounds[obj.symbol] = [response.reachable_bounds["lower_bounds"][obj.symbol] for response in active_responses]
-        upper_bounds[obj.symbol] = [response.reachable_bounds["upper_bounds"][obj.symbol] for response in active_responses]
+        lower_bounds[obj.symbol] = [
+            response.reachable_bounds["lower_bounds"][obj.symbol] for response in active_responses
+        ]
+        upper_bounds[obj.symbol] = [
+            response.reachable_bounds["upper_bounds"][obj.symbol] for response in active_responses
+        ]
         preferences[obj.symbol] = [response.preference[obj.symbol] for response in active_responses[1:]]
 
     return Response(
