@@ -2,13 +2,13 @@
 
 import warnings
 
-from sqlalchemy_utils import create_database, database_exists
+from sqlalchemy_utils import database_exists
+from sqlmodel import Session, SQLModel
 
-from desdeo.api import db_models
 from desdeo.api.config import ServerDebugConfig, SettingsConfig
-from desdeo.api.db import Base, SessionLocal, engine
+from desdeo.api.db import engine
+from desdeo.api.models import User, UserRole
 from desdeo.api.routers.user_authentication import get_password_hash
-from desdeo.api.schema import UserPrivileges, UserRole
 
 if __name__ == "__main__":
     if SettingsConfig.debug:
@@ -16,25 +16,26 @@ if __name__ == "__main__":
 
         print("Creating database tables.")
         if not database_exists(engine.url):
-            create_database(engine.url)
+            SQLModel.metadata.create_all(engine)
         else:
             warnings.warn("Database already exists. Clearing it.", stacklevel=1)
             # Drop all tables
-            Base.metadata.drop_all(bind=engine)
+            SQLModel.metadata.drop_all(bind=engine)
         print("Database tables created.")
 
-        # Create the tables in the database.
-        Base.metadata.create_all(bind=engine)
+        with Session(engine) as session:
+            user_analyst = User(
+                username=ServerDebugConfig.test_user_analyst_name,
+                password_hash=get_password_hash(ServerDebugConfig.test_user_analyst_password),
+                role=UserRole.analyst,
+                group="test",
+            )
 
-        # Create analyst test user
-        db = SessionLocal()
-        user_analyst = db_models.User(
-            username=ServerDebugConfig.test_user_analyst_name,
-            password_hash=get_password_hash(ServerDebugConfig.test_user_analyst_password),
-            role=UserRole.ANALYST,
-            privileges=[UserPrivileges.EDIT_USERS, UserPrivileges.CREATE_PROBLEMS],
-            user_group="",
-        )
+            session.add(user_analyst)
+            session.commit()
+            session.refresh(user_analyst)
+
+        """
         db.add(user_analyst)
         db.commit()
         db.refresh(user_analyst)
@@ -64,6 +65,7 @@ if __name__ == "__main__":
         db.refresh(user_dm2)
 
         db.close()
+        """
 
     else:
         # deployment stuff

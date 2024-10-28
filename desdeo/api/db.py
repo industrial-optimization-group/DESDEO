@@ -1,10 +1,6 @@
 """Database configuration file for the API."""
 
-from collections.abc import Generator
-
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlmodel import Session, create_engine
 
 from desdeo.api.config import DatabaseDebugConfig, SettingsConfig
 
@@ -22,14 +18,8 @@ else:
     # SQLALCHEMY_DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
     pass
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
 
-
-def get_db() -> Generator:
-    """Get a database session as a dependency."""
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+def get_session():
+    """Yield the current database session."""
+    with Session(engine) as session:
+        yield session

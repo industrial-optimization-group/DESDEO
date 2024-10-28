@@ -9,12 +9,11 @@ from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import ExpiredSignatureError, JWTError, jwt
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlmodel import Session, select
 
 from desdeo.api import SettingsConfig
-from desdeo.api.db import get_db
-from desdeo.api.db_models import User as UserModel
-from desdeo.api.schema import User
+from desdeo.api.db import get_session
+from desdeo.api.models import User, UserPublic
 
 # AuthConfig
 if SettingsConfig.debug:
@@ -69,39 +68,38 @@ def get_password_hash(password: str) -> str:
     return bcrypt.hashpw(password=pwd_bytes, salt=bcrypt.gensalt()).decode("utf-8")
 
 
-def get_user(db: Session, username: str) -> User | None:
+def get_user(session: Session, username: str) -> User | None:
     """Get the current user.
 
     Get the current user based on the username. If no user if found,
     return None.
 
     Args:
-        db (Session): the database to be queried for the user.
+        session (Session): database session.
         username (str): the username of the user.
 
     Returns:
         User | None: the User. If no user is found, returns None.
     """
-    if user := db.query(UserModel).filter(UserModel.username == username).first():
-        return user
-    return None
+    statement = select(User).where(User.username == username)
+    return session.exec(statement).first()
 
 
-def authenticate_user(db: Session, username: str, password: str) -> User | None:
+def authenticate_user(session: Session, username: str, password: str) -> User | None:
     """Check if a user exists and the password is correct.
 
     Check if a user exists and the password is correct. If the user exists and the password
     is correct, returns the user.
 
     Args:
-        db (Session): the database to query for the user.
+        session (Session): database session.
         username (str): the username of the user.
         password (str): password set for the user.
 
     Returns:
         User | None: the User. If no user if found, returns None.
     """
-    user = get_user(db, username)
+    user = get_user(session, username)
 
     if not user or not verify_password(password, user.password_hash):
         return None
@@ -109,26 +107,21 @@ def authenticate_user(db: Session, username: str, password: str) -> User | None:
     return user
 
 
+@router.get("/userdetails")
 def get_current_user(
     token: Annotated[str, Depends(oauth2_scheme)],
-    db: Annotated[Session, Depends(get_db)],
-    algorithm: str = AuthConfig.authjwt_algorithm,
-    secret_key: str = AuthConfig.authjwt_secret_key,
-) -> UserModel:
+    session: Annotated[Session, Depends(get_session)],
+) -> UserPublic:
     """Get the current user based on a JWT token.
 
     This function is a dependency for other functions that need to get the current user.
 
     Args:
         token (Annotated[str, Depends(oauth2_scheme)]): The authentication token.
-        db (Annotated[Session, Depends(get_db)]): A database session.
-        algorithm (str): the algorithm used to decode the JWT token.
-            Defaults to `AuthConfig.authjwt_algorithm`.
-        secret_key (str): the secret key used to decode the JWT token.
-            Defaults to `AuthConfig.authjwt_secret_key`.
+        session (Annotated[Session, Depends(get_db)]): A database session.
 
     Returns:
-        User: The current user.
+        UserPublic: The public information of the current user.
 
     Raises:
         HTTPException: If the token is invalid.
@@ -139,7 +132,7 @@ def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(token, secret_key, algorithms=[algorithm])
+        payload = jwt.decode(token, AuthConfig.authjwt_secret_key, algorithms=[AuthConfig.authjwt_algorithm])
         username = payload.get("sub")
         expire_time: datetime = payload.get("exp")
 
@@ -152,19 +145,12 @@ def get_current_user(
     except JWTError:
         raise credentials_exception from JWTError
 
-    user = get_user(db, username=username)
+    user = get_user(session, username=username)
 
     if user is None:
         raise credentials_exception
 
-    return User(
-        username=user.username,
-        index=user.id,
-        role=user.role,
-        user_group=user.user_group if user.user_group else "",
-        privileges=user.privileges,
-        password_hash=user.password_hash,
-    )
+    return user
 
 
 async def create_jwt_token(
@@ -247,15 +233,15 @@ async def generate_tokens(data: dict) -> Tokens:
 
 async def validate_refresh_token(
     refresh_token: str,
-    db: Annotated[Session, Depends(get_db)],
+    session: Annotated[Session, Depends(get_session)],
     algorithm: str = AuthConfig.authjwt_algorithm,
     secret_key: str = AuthConfig.authjwt_secret_key,
-) -> UserModel:
+) -> User:
     """Validate a refresh token and return the associated user if valid.
 
     Args:
         refresh_token (str): The refresh token to validate.
-        db (Annotated[Session, Depends(get_db)]): A database session.
+        session (Annotated[Session, Depends(get_db)]): The database session.
         algorithm (str): the algorithm used to decode the JWT token.
             Defaults to `AuthConfig.authjwt_algorithm`.
         secret_key (str): the secret key used to decode the JWT token.
@@ -289,7 +275,7 @@ async def validate_refresh_token(
         raise credentials_exception from None
 
     # Validate the user from the database
-    user = get_user(db, username=username)
+    user = get_user(session, username=username)
     if user is None:
         raise credentials_exception
 
@@ -299,7 +285,7 @@ async def validate_refresh_token(
 @router.post("/login")
 async def login(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-    db: Annotated[Session, Depends(get_db)],
+    session: Annotated[Session, Depends(get_session)],
     cookie_max_age: int = AuthConfig.authjwt_refresh_token_expires,
 ):
     """Login to get an authentication token.
@@ -309,11 +295,11 @@ async def login(
     Args:
         form_data (Annotated[OAuth2PasswordRequestForm, Depends()]):
             The form data to authenticate the user.
-        db (Annotated[Session, Depends(get_db)]): The database of the session.
+        session (Annotated[Session, Depends(get_db)]): The database session.
         cookie_max_age (int): the lifetime of the cookie storing the refresh token.
 
     """
-    user = authenticate_user(db, form_data.username, form_data.password)
+    user = authenticate_user(session, form_data.username, form_data.password)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -338,13 +324,15 @@ async def login(
 
 @router.post("/refresh")
 async def refresh_access_token(
-    request: Response, db: Annotated[Session, Depends(get_db)], refresh_token: Annotated[str | None, Cookie()] = None
+    request: Response,
+    session: Annotated[Session, Depends(get_session)],
+    refresh_token: Annotated[str | None, Cookie()] = None,
 ):
     """Refresh the access token using the refresh token stored in the cookie.
 
     Args:
         request (Request): The request containing the cookie.
-        db (Annotated[Session, Depends(get_db)]): the database session.
+        session (Annotated[Session, Depends(get_db)]): the database session.
         refresh_token (Annotated[Str | None, Cookie()]): the refresh
             token, which is fetched from a cookie included in the response.
 
@@ -358,7 +346,7 @@ async def refresh_access_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    user = await validate_refresh_token(refresh_token, db)
+    user = await validate_refresh_token(refresh_token, session)
 
     # Generate a new access token for the user
     access_token = await create_access_token({"id": user.id, "sub": user.username})

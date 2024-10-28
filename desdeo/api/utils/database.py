@@ -227,7 +227,7 @@ class DatabaseDependency:
     db: DB
     database_url_options: dict
     engine_options: dict
-    initialised: bool = False
+    initialized: bool = False
 
     def __init__(self):
         """Initialize the class."""
