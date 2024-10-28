@@ -1,8 +1,15 @@
 """Exports for desdeo.api."""
 
 __all__ = [
-    "AuthConfig",
-    "DBConfig",
+    "AuthDebugConfig",
+    "DatabaseDebugConfig",
+    "ServerDebugConfig",
+    "SettingsConfig",
 ]
 
-from .config import AuthConfig, DBConfig
+from .config import (
+    AuthDebugConfig,
+    DatabaseDebugConfig,
+    ServerDebugConfig,
+    SettingsConfig,
+)

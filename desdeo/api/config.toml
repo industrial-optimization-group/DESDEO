@@ -1,0 +1,53 @@
+[settings]
+debug = true
+
+# development configs
+[server-debug]
+test_user_analyst_name = "analyst"
+test_user_analyst_password = "analyst"
+test_user_dm1_name = "dm1"
+test_user_dm1_password = "dm1"
+test_user_dm2_name = "dm2"
+test_user_dm2_password = "dm2"
+
+# Auth configuration
+[auth-debug]
+authjwt_secret_key = "36b96a23d24cebdeadce6d98fa53356111e6f3e85b8144d7273dcba230b9eb18"
+authjwt_algorithm = "HS256"
+authjwt_access_token_expires = 15 # in minutes
+authjwt_refresh_token_expires = 30 # in minutes
+cors_origins = [
+    "http://localhost",
+    "http://localhost:8080",
+    "http://localhost:5173",
+]
+
+[auth-deploy]
+# TODO
+# secret key should be read from env DO NOT EXPOSE!!!!
+authjwt_algorithm = "HS256"
+authjwt_access_token_expires = 15  # in minutes
+authjwt_refresh_token_expires = 30 # in minutes
+
+# SQLite setup (enabled for local development)
+[database-debug]
+db_host = ""
+db_port = ""
+db_database = "sqlite:///./test.db"
+db_username = ""
+db_password = ""
+db_pool_size = 1
+db_max_overflow = 0
+db_pool = false
+
+# Database configuration (deployment)
+[database-deploy]
+# READ FROM ENV!!!
+# db_host = "localhost"
+# db_port = "5432"
+# db_database = "test"
+# db_username = "test"
+# db_password = "testpw"
+# db_pool_size = 20
+# db_max_overflow = 20
+# db_pool = true

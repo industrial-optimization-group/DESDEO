@@ -11,10 +11,18 @@ from jose import ExpiredSignatureError, JWTError, jwt
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from desdeo.api import AuthConfig
+from desdeo.api import SettingsConfig
 from desdeo.api.db import get_db
 from desdeo.api.db_models import User as UserModel
 from desdeo.api.schema import User
+
+# AuthConfig
+if SettingsConfig.debug:
+    from desdeo.api import AuthDebugConfig
+
+    AuthConfig = AuthDebugConfig
+else:
+    pass
 
 router = APIRouter()
 
