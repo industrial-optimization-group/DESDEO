@@ -1,16 +1,29 @@
 <script lang="ts">
-	import { login, refreshAccessToken } from '../../api/utils';
+	import { getContext } from 'svelte';
+	import { login, getUserDetails, refreshAccessToken } from '$lib/utils/utils';
+	import type { UserData, UserInfo } from '$lib/utils/utils';
 
-	export const tokens = $state({ access: '', refresh: '' });
+	// import context
+	let user_data: UserData = getContext('user_data');
+
+	let { login_ok = $bindable() }: { login_ok: boolean } = $props();
 
 	let username = $state('');
 	let password = $state('');
+	let access_token = $state('');
 
 	async function handleLogin() {
-		// use real login when implemented
+		// Login and fetch user info and then set user info.
 		const login_response = await login(username, password);
 
-		console.log(login_response);
+		access_token = login_response.access_token;
+
+		let tmp: UserInfo = await getUserDetails(access_token);
+		tmp.access_token = access_token;
+
+		user_data.user_info = tmp;
+
+		login_ok = true;
 	}
 
 	async function _refresh() {
@@ -49,6 +62,7 @@
 			})()}
 			onclick={_refresh}>Refresh Access Token</button
 		>
+		<a href="/">go back</a>
 	</form>
 
 	<div class="flex flex-col items-center">
