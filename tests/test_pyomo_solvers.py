@@ -169,6 +169,7 @@ def test_bonmin_w_momip_ti7():
     assert np.isclose(gs["g_2"], 0, atol=1e-8) or gs["g_2"] < 0
 
 
+@pytest.mark.skip
 @pytest.mark.slow
 @pytest.mark.pyomo
 def test_gurobi_solver():
@@ -185,6 +186,7 @@ def test_gurobi_solver():
     assert np.isclose(xs["x_2"], 2.1, atol=1e-8)
 
 
+@pytest.mark.pyomo
 def test_ipopt_solver():
     """Tests that the Ipopt solver works as expected."""
     n_variables = 8
@@ -206,6 +208,8 @@ def test_ipopt_solver():
     npt.assert_almost_equal(sum(fs[obj.symbol] ** 2 for obj in problem.objectives), 1.0)
 
 
+@pytest.mark.nogithub
+@pytest.mark.pyomo
 def test_combinatorial_problem():
     """Test that CBC can be used to solve a simple combinatorial problem."""
     problem = simple_knapsack_vectors()

@@ -521,7 +521,7 @@ class TensorVariable(BaseModel):
         """Flatten the tensor into a list of Variables.
 
         Returns:
-            list[Constant]: a list of Variables.
+            list[Variable]: a list of Variables.
         """
         variables = []
         for indices in list(product(*[range(1, dim + 1) for dim in self.shape])):
@@ -1182,6 +1182,20 @@ class Problem(BaseModel):
 
         # proceed to add the new variables, assumed existing variables are defined
         return self.model_copy(update={"variables": [*self.variables, *new_variables]})
+
+    def get_flattened_variables(self) -> list[Variable]:
+        """Return a list of the (flattened) variables of the problem.
+
+        Returns a list of the variables defined for the problem so that any TensorVariables are flattened.
+
+        Returns:
+            list[Variable]: list of (flattened) variables.
+        """
+        return [
+            item
+            for var in self.variables
+            for item in (var.to_variables() if isinstance(var, TensorVariable) else [var])
+        ]
 
     def get_constraint(self, symbol: str) -> Constraint | None:
         """Return a copy of a `Constant` with the given symbol.

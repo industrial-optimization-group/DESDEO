@@ -9,12 +9,9 @@ from desdeo.mcdm.pareto_navigator import (
     calculate_next_solution,
     calculate_search_direction,
     construct_matrix_a,
-    get_polyhedral_set
+    get_polyhedral_set,
 )
-from desdeo.problem import (
-    pareto_navigator_test_problem,
-    objective_dict_to_numpy_array
-)
+from desdeo.problem import objective_dict_to_numpy_array, pareto_navigator_test_problem
 
 
 @pytest.mark.pareto_navigator
@@ -31,9 +28,7 @@ def test_pareto_navigator_reference_point():
 
     starting_point = {"f_1": 1.38, "f_2": 0.62, "f_3": -35.33}
 
-    preference_info = {
-        "reference_point": {"f_1": ideal["f_1"], "f_2": ideal["f_2"], "f_3": nadir["f_3"]}
-    }
+    preference_info = {"reference_point": {"f_1": ideal["f_1"], "f_2": ideal["f_2"], "f_3": nadir["f_3"]}}
 
     num_solutions = 200
     acc = 0.15
@@ -41,31 +36,24 @@ def test_pareto_navigator_reference_point():
     navigated_point = starting_point
 
     for i in range(len(solutions)):
-        if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i])
-                         - np.array([0.35, -0.51, -26.26])) < acc):
+        if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i]) - np.array([0.35, -0.51, -26.26])) < acc):
             navigated_point = solutions[i]
             break
 
-    preference_info = {
-        "reference_point": {"f_1": ideal["f_1"], "f_2": nadir["f_2"], "f_3": navigated_point["f_3"]}
-    }
+    preference_info = {"reference_point": {"f_1": ideal["f_1"], "f_2": nadir["f_2"], "f_3": navigated_point["f_3"]}}
 
     solutions = calculate_all_solutions(problem, navigated_point, adjusted_speed, num_solutions, preference_info)
 
     for i in range(len(solutions)):
-        if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i])
-                         - np.array([-0.89, 2.91, -24.98])) < acc):
+        if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i]) - np.array([-0.89, 2.91, -24.98])) < acc):
             navigated_point = solutions[i]
             break
 
-    preference_info = {
-        "reference_point": {"f_1": nadir["f_1"], "f_2": ideal["f_2"], "f_3": ideal["f_3"]}
-    }
+    preference_info = {"reference_point": {"f_1": nadir["f_1"], "f_2": ideal["f_2"], "f_3": ideal["f_3"]}}
     solutions = calculate_all_solutions(problem, navigated_point, adjusted_speed, num_solutions, preference_info)
 
     for i in range(len(solutions)):
-        if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i])
-                         - np.array([-0.32, 2.33, -27.85])) < acc):
+        if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i]) - np.array([-0.32, 2.33, -27.85])) < acc):
             navigated_point = solutions[i]
             break
 
@@ -82,9 +70,7 @@ def test_pareto_navigator_classification():
 
     starting_point = {"f_1": 1.38, "f_2": 0.62, "f_3": -35.33}
 
-    preference_info = {
-        "classification": {"f_1": "<", "f_2": "<", "f_3": ">"}
-    }
+    preference_info = {"classification": {"f_1": "<", "f_2": "<", "f_3": ">"}}
 
     num_solutions = 200
     acc = 0.15
@@ -92,31 +78,24 @@ def test_pareto_navigator_classification():
     navigated_point = starting_point
 
     for i in range(len(solutions)):
-        if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i])
-                         - np.array([0.35, -0.51, -26.26])) < acc):
+        if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i]) - np.array([0.35, -0.51, -26.26])) < acc):
             navigated_point = solutions[i]
             break
 
-    preference_info = {
-        "classification": {"f_1": "<", "f_2": ">", "f_3": "="}
-    }
+    preference_info = {"classification": {"f_1": "<", "f_2": ">", "f_3": "="}}
 
     solutions = calculate_all_solutions(problem, navigated_point, adjusted_speed, num_solutions, preference_info)
 
     for i in range(len(solutions)):
-        if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i])
-                         - np.array([-0.89, 2.91, -24.98])) < acc):
+        if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i]) - np.array([-0.89, 2.91, -24.98])) < acc):
             navigated_point = solutions[i]
             break
 
-    preference_info = {
-        "classification": {"f_1": ">", "f_2": "<", "f_3": "<"}
-    }
+    preference_info = {"classification": {"f_1": ">", "f_2": "<", "f_3": "<"}}
     solutions = calculate_all_solutions(problem, navigated_point, adjusted_speed, num_solutions, preference_info)
 
     for i in range(len(solutions)):
-        if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i])
-                         - np.array([-0.32, 2.33, -27.85])) < acc):
+        if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i]) - np.array([-0.32, 2.33, -27.85])) < acc):
             navigated_point = solutions[i]
             break
 
@@ -137,9 +116,7 @@ def test_calculate_next_solution():
     assert adjusted_speed == 0.01
 
     starting_point = {"f_1": 1.38, "f_2": 0.62, "f_3": -35.33}
-    preference_info = {
-        "reference_point": {"f_1": ideal["f_1"], "f_2": ideal["f_2"], "f_3": nadir["f_3"]}
-    }
+    preference_info = {"reference_point": {"f_1": ideal["f_1"], "f_2": ideal["f_2"], "f_3": nadir["f_3"]}}
 
     d = calculate_search_direction(problem, preference_info["reference_point"], starting_point)
 

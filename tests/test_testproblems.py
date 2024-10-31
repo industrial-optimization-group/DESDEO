@@ -3,10 +3,19 @@
 import numpy as np
 import pytest
 
-from desdeo.problem import PolarsEvaluator, dtlz2, re21, re22, re23, re24, forest_problem
+from desdeo.problem import (
+    PolarsEvaluator,
+    dtlz2,
+    forest_problem,
+    re21,
+    re22,
+    re23,
+    re24,
+)
 from desdeo.tools import GurobipySolver
 
 
+@pytest.mark.testproblem
 def test_dtlz2():
     """Test that the DTLZ2 problem initializes and evaluates correctly."""
     test_variables = [3, 5, 10, 50]
@@ -33,6 +42,7 @@ def test_dtlz2():
     assert sum(res[obj.symbol][0] ** 2 for obj in problem.objectives) != 1.0
 
 
+@pytest.mark.testproblem
 def test_re21():
     """Test that the four bar truss design problem evaluates correctly."""
     problem = re21()
@@ -48,6 +58,7 @@ def test_re21():
     assert np.allclose(objective_values, np.array([2048.528137, 0.02]))
 
 
+@pytest.mark.testproblem
 def test_re22():
     """Test that the reinforced concrete beam design problem evaluates correctly."""
     problem = re22()
@@ -67,6 +78,7 @@ def test_re22():
     assert np.allclose(obj_values, np.array([421.938, 2]))
 
 
+@pytest.mark.testproblem
 def test_re23():
     """Test that the pressure vessel design problem evaluates correctly."""
     problem = re23()
@@ -83,6 +95,7 @@ def test_re23():
         assert np.allclose(obj_values, expected_result[i])
 
 
+@pytest.mark.testproblem
 def test_re24():
     """Test that the hatch cover design problem evaluates correctly."""
     problem = re24()
@@ -99,7 +112,9 @@ def test_re24():
         assert np.allclose(obj_values, expected_result[i])
 
 
+@pytest.mark.testproblem
 @pytest.mark.forest_problem
+@pytest.mark.gurobipy
 def test_forest_problem():
     """Test the forest problem implementation."""
     problem = forest_problem(

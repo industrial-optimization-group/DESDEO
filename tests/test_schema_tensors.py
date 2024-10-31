@@ -1,6 +1,7 @@
 """Tests related to tensor constants and variables."""
 
 import numpy as np
+import pytest
 
 from desdeo.problem import (
     TensorConstant,
@@ -10,6 +11,7 @@ from desdeo.problem import (
 )
 
 
+@pytest.mark.schema
 def test_tensor_variable_init():
     """Tests that tensor variables are created and represented correctly in the MathJSON format."""
     # Test 1D
@@ -90,6 +92,7 @@ def test_tensor_variable_init():
     # by """induction""", other dimensions should work juuust fine!
 
 
+@pytest.mark.schema
 def test_get_values_list():
     """Test that values can be get correctly from a TensorVariable."""
     # Test 1D
@@ -174,6 +177,7 @@ def test_get_values_list():
     assert values == [[[1, 2], [3, 4]], [[5, 6], [7, 8]]]
 
 
+@pytest.mark.schema
 def test_tensor_constant_init():
     """Tests that tensor constants are created and represented correctly in the MathJSON format."""
     # Test 1D
@@ -219,11 +223,13 @@ def test_tensor_constant_init():
     assert xs.values == ["List", ["List", ["List", 1, 2], ["List", 3, 4]], ["List", ["List", 5, 6], ["List", 7, 8]]]
 
 
+@pytest.mark.schema
 def test_tensor_problem_definition():
     """Test defining a problem with TensorVariable and TensorConstant."""
     problem = simple_knapsack_vectors()  # noqa: F841
 
 
+@pytest.mark.schema
 def test_get_values_list_single():
     """Test that values can be get correctly from a TensorVariable.
 
@@ -300,6 +306,7 @@ def test_get_values_list_single():
     assert values == np.full([2, 2, 2], 42).tolist()
 
 
+@pytest.mark.schema
 def test_getitem_tensor_constant():
     """Test the __getitem__ method for TensorConstant."""
     # Test 1D
@@ -339,6 +346,7 @@ def test_getitem_tensor_constant():
     assert constant_2_3.symbol == f"{y_symbol}_2_3"
 
 
+@pytest.mark.schema
 def test_getitem_tensor_variable():
     """Test the __getitem__ method for TensorVariable."""
     # Test 1D
@@ -450,6 +458,7 @@ def test_getitem_tensor_variable():
     assert z_2_2.upperbound == z_upperbounds[2 - 1][2 - 1]
 
 
+@pytest.mark.schema
 def test_to_constants():
     """Test the to_constants method of TensorConstant."""
     # Test 1D
@@ -501,6 +510,7 @@ def test_to_constants():
             assert f"{y_name} at position [{i}, {j}]" in ys_names
 
 
+@pytest.mark.schema
 def test_to_variables():
     """Test the to_variables method of TensorVariable."""
     # Test 1D
@@ -590,3 +600,32 @@ def test_to_variables():
             assert var.initial_value is None
             assert var.lowerbound == z_lowerbounds[i - 1][j - 1]
             assert var.upperbound == z_upperbounds[i - 1][j - 1]
+
+
+@pytest.mark.schema
+def test_get_flattened_variables():
+    """Test that variables are flattened as intended."""
+    problem = simple_knapsack_vectors()
+
+    flattened_vars = problem.get_flattened_variables()
+
+    assert len(flattened_vars) == 4
+
+    # for multi-index
+    problem = problem.add_variables(
+        [
+            TensorVariable(
+                name="test",
+                symbol="Y",
+                variable_type=VariableTypeEnum.real,
+                shape=(2, 3),
+                initial_values=[[1, 2, 3], [4, 5, 6]],
+                lowerbounds=10,
+                upperbounds=20,
+            )
+        ]
+    )
+
+    flattened_vars = problem.get_flattened_variables()
+
+    assert len(flattened_vars) == 4 + 6

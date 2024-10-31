@@ -74,12 +74,13 @@ djlint = "^1.34.1"
 pyparsing = { extras = ["diagrams"], version = "^3.1.1" }
 isort = "^5.0"
 mypy = "^1.0"
-mkdocstrings = { extras = ["python"], version = "^0.24.1" }
+mkdocstrings-python = "^1.0"
 mkdocs-material = "^9.5.12"
 pytest-xdist = "^3.5.0"
 pytest-testmon = "^2.1.1"
 snakeviz = "^2.2.0"
 pytest-asyncio = "^0.24.0"
+griffe = "^1.4.1"
 
 
 [tool.ruff]
@@ -205,7 +206,16 @@ markers = [
     "patterns: tests related to the publisher-subscriber pattern",
     "forest_problem: tests related to the forest problem examples.",
     "group_scalarization: tests related to group scalarization functions and utilities.",
-    "polars: test related to the polars evaluator and math parser.",
+    "polars: tests related to the polars evaluator and math parser.",
+    "rpm: tests related to the reference point method.",
+    "scipy: tests that utilize any of the scipy optimizers.",
+    "proximal: tests related to the proximal evaluator.",
+    "api: tests related to the web API.",
+    "json: tests related to the Math JSON parser.",
+    "schema: tests related to the Problem schema.",
+    "utils: tests related to various utilities.",
+    "nogithub: tests that should not be run in GitHub actions.",
+
 ]
 pythonpath = "."
 

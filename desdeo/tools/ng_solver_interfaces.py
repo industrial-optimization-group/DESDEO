@@ -90,7 +90,7 @@ def parse_ng_results(results: dict, problem: Problem, evaluator: SympyEvaluator)
 class NevergradGenericSolver(BaseSolver):
     """Creates a solver that utilizes optimizations routines found in the nevergrad library."""
 
-    def __init__(self, problem: Problem, options: NevergradGenericOptions = _default_nevergrad_generic_options):
+    def __init__(self, problem: Problem, options: NevergradGenericOptions | None = _default_nevergrad_generic_options):
         """Creates a solver that utilizes optimizations routines found in the nevergrad library.
 
         These solvers are best utilized for black-box, gradient free optimization with
@@ -107,7 +107,8 @@ class NevergradGenericSolver(BaseSolver):
 
         Args:
             problem (Problem): the problem to be solved.
-            options (NgOptOptions): options to be passes to the solver. Defaults to `_default_ng_ngopt_options`.
+            options (NgOptOptions | None): options to be passes to the solver.
+                If none, `_default_ng_ngopt_options` are used. Defaults to None.
 
         Returns:
             Callable[[str], SolverResults]: returns a callable function that takes
@@ -115,7 +116,7 @@ class NevergradGenericSolver(BaseSolver):
                 problem.
         """
         self.problem = problem
-        self.options = options
+        self.options = options if options is not None else _default_nevergrad_generic_options
         self.evaluator = SympyEvaluator(problem)
 
     def solve(self, target: str) -> SolverResults:

@@ -101,6 +101,7 @@ def extra_functions_problem():
     )
 
 
+@pytest.mark.json
 def test_basic():
     """A basic test to test the parsing of Polish notation to polars expressions."""
     math_parser = MathParser()
@@ -121,6 +122,7 @@ def test_basic():
     assert objectives["Objective 1"][1] == 675
 
 
+@pytest.mark.json
 def test_negate():
     """Tests negation."""
     math_parser = MathParser()
@@ -152,6 +154,7 @@ def test_negate():
     print()
 
 
+@pytest.mark.json
 def test_binh_and_korn():
     """Basic test of the Binh and Korn problem.
 
@@ -212,6 +215,7 @@ def test_binh_and_korn():
     npt.assert_array_almost_equal(result["g_2"], truth["g_2_t"])
 
 
+@pytest.mark.json
 @pytest.mark.polars
 def test_binh_and_korn_w_evaluator():
     """Basic test of the Binh and Korn problem with the Polars evaluator.
@@ -249,6 +253,7 @@ def test_binh_and_korn_w_evaluator():
     assert original_problem == problem
 
 
+@pytest.mark.json
 @pytest.mark.polars
 def test_extra_functions_problem_w_evaluator(extra_functions_problem):
     """Test the PolarsEvaluator with polars that it handles extra functions correctly."""
@@ -292,6 +297,7 @@ def test_extra_functions_problem_w_evaluator(extra_functions_problem):
     npt.assert_almost_equal(result["scal_1"], truth["scal_1"])
 
 
+@pytest.mark.json
 def test_problem_unique_symbols():
     """Test that having non-unique symbols in a Problem model raises an error."""
     var_1 = Variable(
@@ -477,6 +483,7 @@ def test_problem_unique_symbols():
     assert "x_2" in str(e.value)
 
 
+@pytest.mark.json
 def test_problem_default_scalarization_names():
     """Test that default scalarization function symbols in a Problem model are assigned correctly."""
     var_1 = Variable(
@@ -585,6 +592,7 @@ def test_problem_default_scalarization_names():
     assert new_problem.scalarization_funcs[0].symbol == "scal_1"
 
 
+@pytest.mark.json
 @pytest.mark.pyomo
 def test_parse_pyomo_basic_arithmetics():
     """Test the JSON parser for correctly parsing MathJSON into pyomo expressions."""
@@ -638,6 +646,7 @@ def test_parse_pyomo_basic_arithmetics():
         )
 
 
+@pytest.mark.json
 @pytest.mark.pyomo
 def test_parse_pyomo_exponentation_and_logarithms():
     """Test the JSON parser for correctly parsing MathJSON into pyomo expressions, with exponentation and logarithms."""
@@ -717,6 +726,7 @@ def test_parse_pyomo_exponentation_and_logarithms():
         )
 
 
+@pytest.mark.json
 @pytest.mark.pyomo
 def test_parse_pyomo_trigonometrics():
     """Test the JSON parser for correctly parsing MathJSON into pyomo expressions, with trigonometric operators."""
@@ -796,6 +806,7 @@ def test_parse_pyomo_trigonometrics():
         )
 
 
+@pytest.mark.json
 @pytest.mark.pyomo
 def test_parse_pyomo_rounding():
     """Test the JSON parser for correctly parsing MathJSON into pyomo expressions, with rounding operators."""
@@ -872,6 +883,7 @@ def test_parse_pyomo_rounding():
         )
 
 
+@pytest.mark.json
 @pytest.mark.pyomo
 def test_parse_pyomo_max():
     """Test the JSON parser for correctly parsing MathJSON into pyomo expressions, with the max operator."""
@@ -958,6 +970,7 @@ def test_parse_pyomo_max():
         )
 
 
+@pytest.mark.json
 @pytest.mark.pyomo
 def test_pyomo_basic_matrix_arithmetics():
     """Check that matrix arithmetics are parsed correctly from MathJSON format to Pyomo expression."""
@@ -1101,6 +1114,7 @@ def test_pyomo_basic_matrix_arithmetics():
         )
 
 
+@pytest.mark.json
 @pytest.mark.pyomo
 def test_pyomo_tensor_bracket_access():
     """Test that the "At" operator is parsed correctly in the for pyomo."""
@@ -1233,6 +1247,7 @@ def test_pyomo_tensor_bracket_access():
         )
 
 
+@pytest.mark.json
 @pytest.mark.sympy
 def test_parse_sympy_basic_arithmetics():
     """Check that the JSON parser correctly parses MathJSON to sympy expressions."""
@@ -1285,6 +1300,7 @@ def test_parse_sympy_basic_arithmetics():
         )
 
 
+@pytest.mark.json
 @pytest.mark.gurobipy
 def test_parse_gurobipy_basic_arithmetics():
     """Test the JSON parser for correctly parsing MathJSON into gurobipy expressions."""
@@ -1349,6 +1365,7 @@ def test_parse_gurobipy_basic_arithmetics():
         )
 
 
+@pytest.mark.json
 @pytest.mark.sympy
 def test_parse_sympy_exponentation_and_logarithms():
     """Test the JSON parser for correctly parsing MathJSON into sympy expressions, with exponentation and logarithms."""
@@ -1422,6 +1439,7 @@ def test_parse_sympy_exponentation_and_logarithms():
         )
 
 
+@pytest.mark.json
 @pytest.mark.sympy
 def test_parse_sympy_trigonometrics():
     """Test the JSON parser for correctly parsing MathJSON into sympy expressions, with trigonometric operators."""
@@ -1495,6 +1513,7 @@ def test_parse_sympy_trigonometrics():
         )
 
 
+@pytest.mark.json
 @pytest.mark.sympy
 def test_parse_sympy_rounding():
     """Test the JSON parser for correctly parsing MathJSON into sympy expressions, with rounding operators."""
@@ -1565,6 +1584,7 @@ def test_parse_sympy_rounding():
         )
 
 
+@pytest.mark.json
 @pytest.mark.sympy
 def test_parse_sympy_max():
     """Test the JSON parser for correctly parsing MathJSON into sympy expressions, with the max operator."""
@@ -1645,6 +1665,7 @@ def test_parse_sympy_max():
         )
 
 
+@pytest.mark.json
 @pytest.mark.polars
 def test_polars_random_access():
     """Test the polars math evaluator with tensor variables and constants, and operations."""
@@ -1687,6 +1708,7 @@ def test_polars_random_access():
         npt.assert_almost_equal(polars_result, result, err_msg=f"Test failed for expression {infix_expr}")
 
 
+@pytest.mark.json
 @pytest.mark.polars
 def test_polars_matrix_arithmetics():
     """Test the Polars math evaluator with matrix operations and arithmetics."""

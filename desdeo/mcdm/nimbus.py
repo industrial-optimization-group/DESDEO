@@ -179,7 +179,9 @@ def infer_classifications(
         raise NimbusError(msg)
 
     if not all(obj.symbol in current_objectives for obj in problem.objectives):
-        msg = f"The current point {reference_point} is missing entries " "for one or more of the objective functions."
+        msg = (
+            f"The current point {current_objectives} is missing entries " "for one or more of the objective functions."
+        )
         raise NimbusError(msg)
 
     # derive the classifications based on the reference point and and previous
