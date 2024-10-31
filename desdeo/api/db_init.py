@@ -7,7 +7,8 @@ from sqlmodel import Session, SQLModel
 
 from desdeo.api.config import ServerDebugConfig, SettingsConfig
 from desdeo.api.db import engine
-from desdeo.api.models import User, UserRole
+from desdeo.api.models import User, UserRole, TensorConstantDB
+from desdeo.problem import TensorConstant
 from desdeo.api.routers.user_authentication import get_password_hash
 
 if __name__ == "__main__":
@@ -21,6 +22,7 @@ if __name__ == "__main__":
             warnings.warn("Database already exists. Clearing it.", stacklevel=1)
             # Drop all tables
             SQLModel.metadata.drop_all(bind=engine)
+            SQLModel.metadata.create_all(engine)
         print("Database tables created.")
 
         with Session(engine) as session:
@@ -30,10 +32,19 @@ if __name__ == "__main__":
                 role=UserRole.analyst,
                 group="test",
             )
-
             session.add(user_analyst)
             session.commit()
             session.refresh(user_analyst)
+
+            t_constant = TensorConstantDB(
+                owner=user_analyst.id, name="tensor", shape=[2, 2], symbol="T", values=[[1, 2.0], [3.0, -4]]
+            )
+
+            TensorConstant.validate(t_constant.model_dump())
+
+            session.add(t_constant)
+            session.commit()
+            session.refresh(t_constant)
 
         """
         db.add(user_analyst)
