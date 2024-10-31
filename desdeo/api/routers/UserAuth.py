@@ -12,8 +12,13 @@ from typing import Dict
 
 from desdeo.api import AuthConfig
 from desdeo.api.db import get_db
-from desdeo.api.db_models import User as UserModel
+from desdeo.api.db_models import User as UserModel, Invite
 from desdeo.api.schema import User
+from desdeo.api.utils.database import (
+    database_dependency,
+    select,
+    filter_by
+)
 
 router = APIRouter()
 
@@ -53,6 +58,17 @@ def get_user(db: Session, username: str):
     """Get a user from the database."""
     return db.query(UserModel).filter(UserModel.username == username).first()
 
+async def get_user_by_id(db: database_dependency, id: int) -> dict | None:
+    """Get a user from the database by id.
+
+    Args:
+        db (database_dependency): The database session.
+        id (int): User id.
+
+    Returns:
+        dict | None: Data of user with given id, or None if the user id does not exist.
+    """
+    return await db.first(select(UserModel).filter_by(id=id))
 
 def authenticate_user(db: Session, username: str, password: str):
     """Check if a user exists and the password is correct."""
@@ -185,3 +201,28 @@ async def login(
 
     return await generate_tokens({"id": user.id, "sub": user.username})
 
+
+@router.post("/login-with-invite")
+async def loginWithInvite(
+    data: dict,
+    db: Annotated[database_dependency, Depends()]
+) -> dict:
+    """Login with invitation code.
+
+    Args:
+        data (dict): Data to authenticate the user.
+        db (Annotated[database_dependency, Depends()]): The database session.
+
+    Returns:
+        Token: The authentication token.
+    """
+
+    try:
+        invite = await db.first(select(Invite).filter_by(code=data['code']))
+        user = await get_user_by_id(db, invite.invitee)
+        username: str = user.username
+        tokens = dict(await generate_tokens({"id": user.id, "sub": user.username}))
+        tokens.update({"username": username, "problem_id": invite.problem_id})
+    except JWTError:
+        raise credentials_exception from JWTError
+    return tokens

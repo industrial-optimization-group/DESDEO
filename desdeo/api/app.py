@@ -4,7 +4,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from desdeo.api.routers import NIMBUS, NAUTILUS_navigator, UserAuth, problems, test, NAUTILUS
+from desdeo.api.routers import NIMBUS, NAUTILUS_navigator, UserAuth, problems, test, NAUTILUS, Admin
 from desdeo.api.config import WebUIConfig
 
 app = FastAPI(
@@ -19,6 +19,7 @@ app.include_router(UserAuth.router)
 app.include_router(problems.router)
 app.include_router(NAUTILUS_navigator.router)
 app.include_router(NAUTILUS.router)
+app.include_router(Admin.router)
 
 origins = WebUIConfig.cors_origins
 
