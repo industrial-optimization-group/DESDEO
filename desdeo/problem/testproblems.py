@@ -4,8 +4,6 @@ Pre-defined problems for, e.g.,
 testing and illustration purposed are defined here.
 """
 
-from pathlib import Path
-
 import numpy as np
 import polars as pl
 

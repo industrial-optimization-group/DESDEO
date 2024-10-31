@@ -72,7 +72,7 @@ class Evaluator:
                 con.symbol for con in list(filter(lambda x: x.simulator_path is not None, problem.constraints))
             ]
             self.surrogate_symbols = self.surrogate_symbols + [
-                con.symbol for con in list(filter(lambda x: x.surrogate is not None, problem.constraints))
+                con.symbol for con in list(filter(lambda x: x.surrogates is not None, problem.constraints))
             ]
 
         # Gather any extra functions' symbols
@@ -84,7 +84,7 @@ class Evaluator:
                 extra.symbol for extra in list(filter(lambda x: x.simulator_path is not None, problem.extra_funcs))
             ]
             self.surrogate_symbols = self.surrogate_symbols + [
-                extra.symbol for extra in list(filter(lambda x: x.surrogate is not None, problem.extra_funcs))
+                extra.symbol for extra in list(filter(lambda x: x.surrogates is not None, problem.extra_funcs))
             ]
 
         # Gather all the symbols of objectives, constraints and extra functions
@@ -101,6 +101,17 @@ class Evaluator:
         self.surrogates = {}
         if surrogate_paths is not None:
             self._load_surrogates(surrogate_paths)
+        else:
+            self._load_surrogates()
+
+        if len(self.surrogate_symbols) > 0:
+            missing_surrogates = []
+            for symbol in self.surrogate_symbols:
+                if symbol not in self.surrogates:
+                    missing_surrogates.append(symbol)
+
+            if len(missing_surrogates) > 0:
+                raise EvaluatorError(f"Some surrogates missing: {missing_surrogates}.")
 
     def _evaluate_simulator(self, xs: dict[str, list[int | float]]) -> pl.DataFrame:
         """Evaluate the problem for the given decision variables using the problem's simulators.
@@ -178,7 +189,7 @@ class Evaluator:
                 )
         return res.hstack(min_obj_columns)
 
-    def _load_surrogates(self, surrogate_paths: dict[str, Path]):
+    def _load_surrogates(self, surrogate_paths: dict[str, Path] | None = None):
         """Load the surrogate models from disk and store them within the evaluator.
 
         This is used during initialization of the evaluator or when the analyst wants to replace the current surrogate
@@ -192,14 +203,44 @@ class Evaluator:
                 the objectives should match the names of the objectives in the problem JSON. At the moment the supported
                 file format is .skops (through skops.io). TODO: if skops.io used, should be added to pyproject.toml.
         """
-        for symbol in surrogate_paths:
-            with Path.open(f"{surrogate_paths[symbol]}", 'rb') as file:
-                unknown_types = sio.get_untrusted_types(file=file)
-                if len(unknown_types) == 0:
-                    self.surrogates[symbol] = sio.load(file, unknown_types)
-                else: # TODO: if there are unknown types they should be checked
-                    self.surrogates[symbol] = sio.load(file, unknown_types)
-                    #raise EvaluatorError(f"Untrusted types found in the model of {obj.symbol}: {unknown_types}")
+        if surrogate_paths is not None:
+            for symbol in surrogate_paths:
+                with Path.open(f"{surrogate_paths[symbol]}", "rb") as file:
+                    unknown_types = sio.get_untrusted_types(file=file)
+                    if len(unknown_types) == 0:
+                        self.surrogates[symbol] = sio.load(file, unknown_types)
+                    else: # TODO: if there are unknown types they should be checked
+                        self.surrogates[symbol] = sio.load(file, unknown_types)
+                        #raise EvaluatorError(f"Untrusted types found in the model of {obj.symbol}: {unknown_types}")
+        else:
+            # check each surrogate based objective, constraint and extra function for surrogate path
+            for obj in self.problem.objectives:
+                if obj.surrogates is not None:
+                    with Path.open(f"{obj.surrogates[0]}", "rb") as file:
+                        unknown_types = sio.get_untrusted_types(file=file)
+                        if len(unknown_types) == 0:
+                            self.surrogates[obj.symbol] = sio.load(file, unknown_types)
+                        else: # TODO: if there are unknown types they should be checked
+                            self.surrogates[obj.symbol] = sio.load(file, unknown_types)
+                            #raise EvaluatorError(f"Untrusted types found in the model of {obj.symbol}: {unknown_types}")
+            for con in self.problem.constraints:
+                if con.surrogates is not None:
+                    with Path.open(f"{con.surrogates[0]}", "rb") as file:
+                        unknown_types = sio.get_untrusted_types(file=file)
+                        if len(unknown_types) == 0:
+                            self.surrogates[con.symbol] = sio.load(file, unknown_types)
+                        else: # TODO: if there are unknown types they should be checked
+                            self.surrogates[con.symbol] = sio.load(file, unknown_types)
+                            #raise EvaluatorError(f"Untrusted types found in the model of {obj.symbol}: {unknown_types}")
+            for extra in self.problem.extra_funcs:
+                if extra.surrogates is not None:
+                    with Path.open(f"{extra.surrogates[0]}", "rb") as file:
+                        unknown_types = sio.get_untrusted_types(file=file)
+                        if len(unknown_types) == 0:
+                            self.surrogates[extra.symbol] = sio.load(file, unknown_types)
+                        else: # TODO: if there are unknown types they should be checked
+                            self.surrogates[extra.symbol] = sio.load(file, unknown_types)
+                            #raise EvaluatorError(f"Untrusted types found in the model of {obj.symbol}: {unknown_types}")
 
     def evaluate(self, xs: dict[str, list[int | float]]) -> pl.DataFrame:
         """Evaluate the functions for the given decision variables.

@@ -243,7 +243,13 @@ class ObjectiveTypeEnum(str, Enum):
     `DiscreteRepresentation` available with values representing the objective
     function."""
     simulator = "simulator"
+    """A simulator based objective function. It is assumed that a Path (str)
+    to a simulator file that connects a simulator to DESDEO is present in
+    the `Objective` and also in the list of simulators in the `Problem`."""
     surrogate = "surrogate"
+    """A surrogate based objective function. It is assumed that a Path (str)
+    to a surrogate saved on the disk is present in the `Objective` and also in
+    the list of simulators in the `Problem`."""
 
 
 class Constant(BaseModel):
@@ -617,8 +623,7 @@ class ExtraFunction(BaseModel):
     """Path to a python file with the connection to simulators. Must be a valid Path.
     Can be 'None' for 'analytical', 'data_based' or 'surrogate' functions.
     If 'None', either 'func' or 'surrogates' must not be 'None'."""
-    # TODO: possibly have to fix this
-    surrogate: Path | None = Field(
+    surrogates: list[Path] | None = Field(
         description=(
             "A list of paths to models saved on disk. Can be 'None' for 'analytical', 'data_based "
             "or 'simulator' functions. If 'None', either 'func' or 'simulator_path' must "
@@ -794,15 +799,15 @@ class Objective(BaseModel):
     """Path to a python file with the connection to simulators. Must be a valid Path.
     Can be 'None' for 'analytical', 'data_based' or 'surrogate' objective functions.
     If 'None', either 'func' or 'surrogates' must not be 'None'."""
-    surrogate: Path | None = Field(
+    surrogates: list[Path] | None = Field(
         description=(
-            "A path to a model saved on disk. Can be 'None' for 'analytical', 'data_based "
+            "A list of paths to models saved on disk. Can be 'None' for 'analytical', 'data_based "
             "or 'simulator' objective functions. If 'None', either 'func' or 'simulator_path' must "
             "not be 'None'."
         ),
         default=None,
     )
-    """A path to a model saved on disk. Can be 'None' for 'analytical', 'data_based
+    """A list of paths to models saved on disk. Can be 'None' for 'analytical', 'data_based
     or 'simulator' objective functions. If 'None', either 'func' or 'simulator_path' must
     not be 'None'."""
     maximize: bool = Field(
@@ -912,8 +917,7 @@ class Constraint(BaseModel):
     """Path to a python file with the connection to simulators. Must be a valid Path.
     Can be 'None' for if either 'func' or 'surrogates' is not 'None'.
     If 'None', either 'func' or 'surrogates' must not be 'None'."""
-    # TODO: possibly have to fix this
-    surrogate: Path | None = Field(
+    surrogates: list[Path] | None = Field(
         description=(
             "A list of paths to models saved on disk. Can be 'None' for if either 'func' or 'simulator_path' "
             "is not 'None'. If 'None', either 'func' or 'simulator_path' must not be 'None'."
