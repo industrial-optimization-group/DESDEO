@@ -753,10 +753,10 @@ class Objective(BaseModel):
     symbol: str = Field(
         description=(
             "Symbol to represent the objective function. This will be used in the rest of the problem definition."
-            "It may also be used in UIs and visualizations. Example: 'f_1'."
+            " It may also be used in UIs and visualizations. Example: 'f_1'."
         ),
     )
-    """Symbol to represent the objective function. This will be used in the
+    """ Symbol to represent the objective function. This will be used in the
     rest of the problem definition.  It may also be used in UIs and
     visualizations. Example: 'f_1'."""
     unit: str | None = Field(

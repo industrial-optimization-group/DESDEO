@@ -281,6 +281,7 @@ class PolarsEvaluator:
         ]
 
         # parse constraints, if any
+        # if a constraint is simulator or surrogate based (expression is None), set the "parsed" expression as None
         if parsed_cons_funcs is not None:
             self.constraint_expressions = [
                 (symbol, self.parser.parse(expression)) if expression is not None else (symbol, None)
@@ -290,6 +291,7 @@ class PolarsEvaluator:
             self.constraint_expressions = None
 
         # parse extra functions, if any
+        # if an extra function is simulator or surrogate based (expression is None), set the "parsed" expression as None
         if parsed_extra_funcs is not None:
             self.extra_expressions = [
                 (symbol, self.parser.parse(expression)) if expression is not None else (symbol, None)
@@ -308,8 +310,7 @@ class PolarsEvaluator:
 
         # store the symbol and min or max multiplier as well (symbol, min/max multiplier [1 | -1])
         self.objective_mix_max_mult = [
-            (objective.symbol, -1 if objective.maximize else 1)
-            for objective in self.problem_objectives
+            (objective.symbol, -1 if objective.maximize else 1) for objective in self.problem_objectives
         ]
 
         # create dataframe with the discrete representation, if any exists
@@ -350,12 +351,13 @@ class PolarsEvaluator:
                 )
 
         # Evaluate any extra functions and put the results in the aggregate dataframe.
+        # If an extra function is simulator or surrogate based (expression None), skip it here
         if self.extra_expressions is not None:
             for symbol, expr in self.extra_expressions:
                 if expr is not None:
                     # expression given
-                    extra_columns = agg_df.select(expr.alias(symbol))
-                    agg_df = agg_df.hstack(extra_columns)
+                    extra_column = agg_df.select(expr.alias(symbol))
+                    agg_df = agg_df.hstack(extra_column)
 
         # Evaluate the objective functions and put the results in the aggregate dataframe.
         # obj_columns = agg_df.select(*[expr.alias(symbol) for symbol, expr in self.objective_expressions])
@@ -367,7 +369,8 @@ class PolarsEvaluator:
                 obj_col = agg_df.select(expr.alias(symbol))
                 agg_df = agg_df.hstack(obj_col)
             elif self.evaluator_mode != PolarsEvaluatorModesEnum.mixed:
-                # expr is None, therefore we must get the objective function's value somehow else, usually from data
+                # expr is None and there are no no simulator or surrogate based objectives,
+                # therefore we must get the objective function's value somehow else, usually from data
                 obj_col = find_closest_points(agg_df, self.discrete_df, self.problem_variable_symbols, symbol)
                 agg_df = agg_df.hstack(obj_col)
 
@@ -383,6 +386,7 @@ class PolarsEvaluator:
         agg_df = agg_df.hstack(min_obj_columns)
 
         # Evaluate any constraints and put the results in the aggregate dataframe
+        # If a constraint is simulator or surrogate based (expression None), skip it here
         if self.constraint_expressions is not None:
             for symbol, expr in self.constraint_expressions:
                 if expr is not None:

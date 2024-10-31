@@ -239,23 +239,3 @@ class Evaluator:
             if symbol not in res.columns:
                 raise EvaluatorError(f"{symbol} not evaluated.")
         return res
-
-if __name__ == "__main__":
-    from desdeo.problem import simple_knapsack_vectors, simple_linear_test_problem, simulator_problem, surrogate_problem
-
-    evaluator = Evaluator(
-        simulator_problem(),
-        params={"s_1": {"alpha": 0.1, "beta": 0.2}, "s_2": {"epsilon": 10, "gamma": 20}},
-        surrogate_paths={"f_5": Path("model.skops"),
-                         "f_6": Path("model2.skops"),
-                         "g_3": Path("model.skops"),
-                         "e_3": Path("model2.skops")})
-    res = evaluator.evaluate({
-        "x_1": [0, 1, 2, 3, 4],
-        "x_2": [4, 3, 2, 1, 0],
-        "x_3": [0, 4, 1, 3, 2],
-        "x_4": [3, 1, 3, 2, 3]})
-    """evaluator = Evaluator(simple_knapsack_vectors())
-    res = evaluator.evaluate(xs={"X": [1,1,1,1]})"""
-    with pl.Config(tbl_cols=-1):
-        print(res)
