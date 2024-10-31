@@ -176,6 +176,13 @@ max-complexity = 15
     "PLR2004", # Magic value used in comparison, ...
 ]
 
+"desdeo/api/tests/**/*.py" = [
+    "S101",    # asserts allowed in tests...
+    "ARG",     # Unused function args -> fixtures nevertheless are functionally relevant...
+    "FBT",     # Don't care about booleans as positional arguments in tests, e.g. via @pytest.mark.parametrize()
+    "PLR2004", # Magic value used in comparison, ...
+]
+
 [tool.ruff.format]
 quote-style = "double"
 
@@ -219,6 +226,7 @@ markers = [
 
 ]
 pythonpath = "."
+asyncio_default_fixture_loop_scope = "loop"
 
 [build-system]
 requires = ["poetry-core"]
