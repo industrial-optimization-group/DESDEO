@@ -35,5 +35,5 @@ class WebUIConfig(BaseModel):
 
     # Below defaults to a python list ["http://localhost", "http://localhost:8080"] if no env variable is set
     cors_origins: ClassVar[list] = json.loads(
-        os.getenv("CORS_ORIGINS", '["http://localhost", "http://localhost:8080"]')
+        os.getenv("CORS_ORIGINS", '["http://localhost", "http://localhost:8080", "http://localhost:5173"]')
     )
