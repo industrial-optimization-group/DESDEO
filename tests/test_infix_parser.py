@@ -1,11 +1,12 @@
 """Tests the infix parser for parsing mathematical expressions in infix format."""
+
 import numpy as np
 import numpy.testing as npt
 import polars as pl
 import pytest
 from fixtures.utils import timer  # noqa: F401
 
-from desdeo.problem.evaluator import GenericEvaluator
+from desdeo.problem.evaluator import PolarsEvaluator
 from desdeo.problem.infix_parser import InfixExpressionParser
 from desdeo.problem.json_parser import MathParser
 from desdeo.problem.schema import Constant, Constraint, Objective, Problem, Variable
@@ -289,11 +290,11 @@ def test_infix_binh_and_korn_to_json():
 
     truth_problem = binh_and_korn()
 
-    infix_evaluator = GenericEvaluator(infix_problem)
-    truth_evaluator = GenericEvaluator(truth_problem)
+    infix_evaluator = PolarsEvaluator(infix_problem)
+    truth_evaluator = PolarsEvaluator(truth_problem)
 
     # some test data to evaluate the expressions
-    xs_dict = {"x_1": [1, 2.5, 4.2], "x_2": [0.5, 1.5, 2.5]}
+    xs_dict = {"x_1": [1.0, 2.5, 4.2], "x_2": [0.5, 1.5, 2.5]}
 
     infix_result = infix_evaluator.evaluate(xs_dict).to_dict(as_series=False)
     truth_result = truth_evaluator.evaluate(xs_dict).to_dict(as_series=False)
@@ -461,6 +462,117 @@ def test_scientific_notation_evaluation():
     for infix_expression, expected in tests:
         result = evaluate_expression_helper(infix_expression, data)
         npt.assert_almost_equal(result, expected, decimal=5, err_msg=f"Failed for expression: {infix_expression}")
+
+
+@pytest.mark.infix_parser
+def test_bracket_access():
+    """Test accessing tensors with brackets."""
+    parser = InfixExpressionParser()
+
+    # Test cases: Each tuple contains the infix expression and the expected result
+    tests = [
+        ("B[2,3] + A[1]", ["Add", ["At", "B", 2, 3], ["At", "A", 1]]),
+        ("T[1]", ["At", "T", 1]),
+        ("T[1,2]", ["At", "T", 1, 2]),
+        ("T[1,2,3]", ["At", "T", 1, 2, 3]),
+        ("Max(X[1], Y[2,3], Z[4,5,6])", ["Max", [["At", "X", 1], ["At", "Y", 2, 3], ["At", "Z", 4, 5, 6]]]),
+        ("tensor_1[1]", ["At", "tensor_1", 1]),
+        ("array_A[1] * matrix_B[2,3]", ["Multiply", ["At", "array_A", 1], ["At", "matrix_B", 2, 3]]),
+        (
+            "complex_tensor_C[1,2] / simple_vector_D[3]",
+            ["Divide", ["At", "complex_tensor_C", 1, 2], ["At", "simple_vector_D", 3]],
+        ),
+        (
+            "data_E[1] + feature_F[2] - target_G[3]",
+            ["Add", ["At", "data_E", 1], ["Add", ["At", "feature_F", 2], ["Negate", ["At", "target_G", 3]]]],
+        ),
+        (
+            "high_dim_tensor_H[1,2,3] ** low_dim_tensor_I[4,5]",
+            ["Power", ["At", "high_dim_tensor_H", 1, 2, 3], ["At", "low_dim_tensor_I", 4, 5]],
+        ),
+        (
+            "Sin(angle_J[1]) + Cos(position_K[2,3])",
+            ["Add", ["Sin", ["At", "angle_J", 1]], ["Cos", ["At", "position_K", 2, 3]]],
+        ),
+        (
+            "Max(list_L[1], matrix_M[2,3], tensor_N[4,5,6])",
+            ["Max", [["At", "list_L", 1], ["At", "matrix_M", 2, 3], ["At", "tensor_N", 4, 5, 6]]],
+        ),
+        (
+            "(point_P[1] - offset_Q[2]) * scale_R[3,4]",
+            ["Multiply", ["Add", ["At", "point_P", 1], ["Negate", ["At", "offset_Q", 2]]], ["At", "scale_R", 3, 4]],
+        ),
+        (
+            "Sqrt(variance_S[1,2]) + Ln(mean_T[3,4,5])",
+            ["Add", ["Sqrt", ["At", "variance_S", 1, 2]], ["Ln", ["At", "mean_T", 3, 4, 5]]],
+        ),
+        (
+            "data_U[1] + (weight_V[2,3] - bias_W[4,5,6]) * input_X[7]",
+            [
+                "Add",
+                ["At", "data_U", 1],
+                [
+                    "Multiply",
+                    ["Add", ["At", "weight_V", 2, 3], ["Negate", ["At", "bias_W", 4, 5, 6]]],
+                    ["At", "input_X", 7],
+                ],
+            ],
+        ),
+        (
+            "matrix_Y[1,2] ** (vector_Z[3,4] + scalar_A[5])",
+            ["Power", ["At", "matrix_Y", 1, 2], ["Add", ["At", "vector_Z", 3, 4], ["At", "scalar_A", 5]]],
+        ),
+        (
+            "(vector_N[1] + matrix_O[2,3]) / (tensor_P[4,5] - scalar_Q[6])",
+            [
+                "Divide",
+                ["Add", ["At", "vector_N", 1], ["At", "matrix_O", 2, 3]],
+                ["Add", ["At", "tensor_P", 4, 5], ["Negate", ["At", "scalar_Q", 6]]],
+            ],
+        ),
+        (
+            "vector_U[1] + matrix_V[2] + tensor_W[3] + hyper_tensor_X[4,5] + mega_tensor_Y[6,7,8]",
+            [
+                "Add",
+                ["At", "vector_U", 1],
+                ["At", "matrix_V", 2],
+                ["At", "tensor_W", 3],
+                ["At", "hyper_tensor_X", 4, 5],
+                ["At", "mega_tensor_Y", 6, 7, 8],
+            ],
+        ),
+        (
+            "data_Z[1] * (weight_A[2] + bias_B[3]) - input_C[4,5] / output_D[6,7,8]",
+            [
+                "Add",
+                ["Multiply", ["At", "data_Z", 1], ["Add", ["At", "weight_A", 2], ["At", "bias_B", 3]]],
+                ["Negate", ["Divide", ["At", "input_C", 4, 5], ["At", "output_D", 6, 7, 8]]],
+            ],
+        ),
+        (
+            "Sin(angle_E[1]) * Cos(position_F[2,3]) + Tan(rotation_G[4,5,6])",
+            [
+                "Add",
+                ["Multiply", ["Sin", ["At", "angle_E", 1]], ["Cos", ["At", "position_F", 2, 3]]],
+                ["Tan", ["At", "rotation_G", 4, 5, 6]],
+            ],
+        ),
+        (
+            "Max(value_H[1], Max(score_I[2,3], rating_J[4,5]), importance_K[6,7,8])",
+            [
+                "Max",
+                [
+                    ["At", "value_H", 1],
+                    ["Max", [["At", "score_I", 2, 3], ["At", "rating_J", 4, 5]]],
+                    ["At", "importance_K", 6, 7, 8],
+                ],
+            ],
+        ),
+    ]
+
+    for infix_expression, json_expression in tests:
+        json_result = parser.parse(infix_expression)
+        assert json_result == json_expression
 
 
 @pytest.mark.slow

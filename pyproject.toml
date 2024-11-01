@@ -12,25 +12,25 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.12"
 # Math stuff
-numpy = "^1.26.2"
+numpy = "^2.0.0"
 scipy = "^1.11.4"
-polars = { version = "^0.19.19", optional = true }
-polars-lts-cpu = { version = "^0.19.19", optional = true }
-pyarrow = "^15.0.0"
-numba = "^0.59.0"
+polars = "^1.0"
+polars-lts-cpu = { version = "^1.0", optional = true }
+pyarrow = "^17.0.0"
+numba = "^0.60.0"
 # Visualization
 seaborn = "^0.13.0"
-plotly = "^5.18.0"
+plotly = "^5.18"
 # Data handling/parsing
-pydantic = "^2.5.2"
-sympy = "^1.12"
-pyparsing = "^3.1.1"
+pydantic = "^2.9"
+sympy = "^1.0"
+pyparsing = "^3.0"
 # Optimization
-nevergrad = "^1.0.1"
-pyomo = "^6.7.0"
+nevergrad = "^1.0"
+pyomo = "^6.0"
 # Miscellaneous
-jupyter = "^1.0.0"
-jupyterlab = "^4.0.9"
+jupyter = "^1.0"
+jupyterlab = "^4.0"
 # API packages
 asyncpg = { version = "^0.29.0", optional = true }
 gunicorn = { version = "^23.0.0", optional = true }
@@ -65,20 +65,22 @@ api = [
 server = ["gunicorn"]
 
 [tool.poetry.group.dev.dependencies]
-ruff = "^0.3.0"
-pytest = "^7.4.3"
-mkdocs = "^1.5.3"
+ruff = "^0.6"
+pytest = "^8.0"
+mkdocs = "^1.0"
 python-markdown-math = "^0.8"
 mkdocs-macros-plugin = "^1.0.5"
 djlint = "^1.34.1"
 pyparsing = { extras = ["diagrams"], version = "^3.1.1" }
-isort = "^5.13.2"
-mypy = "^1.8.0"
-mkdocstrings = { extras = ["python"], version = "^0.24.1" }
+isort = "^5.0"
+mypy = "^1.0"
+mkdocstrings-python = "^1.0"
 mkdocs-material = "^9.5.12"
 pytest-xdist = "^3.5.0"
 pytest-testmon = "^2.1.1"
 snakeviz = "^2.2.0"
+pytest-asyncio = "^0.24.0"
+griffe = "^1.4.1"
 
 
 [tool.ruff]
@@ -202,6 +204,18 @@ markers = [
     "gurobipy: tests related to the gurobipy solver",
     "pareto_navigator: tests related to the Pareto Navigator method",
     "patterns: tests related to the publisher-subscriber pattern",
+    "forest_problem: tests related to the forest problem examples.",
+    "group_scalarization: tests related to group scalarization functions and utilities.",
+    "polars: tests related to the polars evaluator and math parser.",
+    "rpm: tests related to the reference point method.",
+    "scipy: tests that utilize any of the scipy optimizers.",
+    "proximal: tests related to the proximal evaluator.",
+    "api: tests related to the web API.",
+    "json: tests related to the Math JSON parser.",
+    "schema: tests related to the Problem schema.",
+    "utils: tests related to various utilities.",
+    "nogithub: tests that should not be run in GitHub actions.",
+
 ]
 pythonpath = "."
 

@@ -12,8 +12,10 @@ from scipy.optimize import OptimizeResult as _ScipyOptimizeResult
 from scipy.optimize import differential_evolution as _scipy_de
 from scipy.optimize import minimize as _scipy_minimize
 
-from desdeo.problem import ConstraintTypeEnum, GenericEvaluator, Problem
+from desdeo.problem import ConstraintTypeEnum, PolarsEvaluator, Problem, variable_dimension_enumerate
 from desdeo.tools.generics import BaseSolver, SolverError, SolverResults
+
+SUPPORTED_VAR_DIMENSIONS = ["scalar"]
 
 
 class EvalTargetEnum(str, Enum):
@@ -57,7 +59,7 @@ def set_initial_guess(problem: Problem) -> list[float | int]:
     ]
 
 
-def create_scipy_dict_constraints(problem: Problem, evaluator: GenericEvaluator) -> dict:
+def create_scipy_dict_constraints(problem: Problem, evaluator: PolarsEvaluator) -> dict:
     """Creates a dict with scipy compatible constraints.
 
     It is assumed that there are constraints defined in problem.
@@ -78,7 +80,7 @@ def create_scipy_dict_constraints(problem: Problem, evaluator: GenericEvaluator)
     ]
 
 
-def create_scipy_object_constraints(problem: Problem, evaluator: GenericEvaluator) -> list[NonlinearConstraint]:
+def create_scipy_object_constraints(problem: Problem, evaluator: PolarsEvaluator) -> list[NonlinearConstraint]:
     """Creates a list with scipy constraint object `NonLinearConstraints` used by some scipy routines.
 
     For more infor, see https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.NonlinearConstraint.html#scipy-optimize-nonlinearconstraint
@@ -100,7 +102,7 @@ def create_scipy_object_constraints(problem: Problem, evaluator: GenericEvaluato
 
 def get_scipy_eval(
     problem: Problem,
-    evaluator: GenericEvaluator,
+    evaluator: PolarsEvaluator,
     target: str,
     eval_target: EvalTargetEnum,
 ) -> Callable[[list[float | int]], list[float | int]]:
@@ -143,7 +145,10 @@ def get_scipy_eval(
             list[float | int]: an array like.
         """
         # TODO: Consider caching the results of evaluator.evaluate
-        evalutor_args = {problem.variables[i].symbol: x[i] for i in range(len(problem.variables))}
+        evalutor_args = {
+            problem.variables[i].symbol: [x[i]] if isinstance(x[i], float | int) else x[i]
+            for i in range(len(problem.variables))
+        }
 
         if eval_target == EvalTargetEnum.objective:
             evaluator_res = evaluator.evaluate(evalutor_args)
@@ -173,7 +178,7 @@ def get_scipy_eval(
 
 
 def parse_scipy_optimization_result(
-    optimization_result: _ScipyOptimizeResult, problem: Problem, evaluator: GenericEvaluator
+    optimization_result: _ScipyOptimizeResult, problem: Problem, evaluator: PolarsEvaluator
 ) -> SolverResults:
     """Parses the optimization results returned by various scipy methods.
 
@@ -191,7 +196,7 @@ def parse_scipy_optimization_result(
     success_opt = optimization_result.success
     msg_opt = optimization_result.message
 
-    eval_opt = evaluator.evaluate({problem.variables[i].symbol: x_opt[i] for i in range(len(problem.variables))})
+    eval_opt = evaluator.evaluate({problem.variables[i].symbol: [x_opt[i]] for i in range(len(problem.variables))})
 
     objective_symbols = [obj.symbol for obj in problem.objectives]
     f_res = eval_opt[objective_symbols]
@@ -248,6 +253,10 @@ class ScipyMinimizeSolver(BaseSolver):
             subscriber (str | None, optional): not used right now. WIP. Defaults to None.
 
         """
+        if variable_dimension_enumerate(problem) not in SUPPORTED_VAR_DIMENSIONS:
+            msg = "ScipyMinimizeSolver only supports scalar variables."
+            raise SolverError(msg)
+
         self.problem = problem
         self.method = method
         self.method_kwargs = method_kwargs
@@ -264,7 +273,7 @@ class ScipyMinimizeSolver(BaseSolver):
         else:
             self.initial_guess = set_initial_guess(problem)
 
-        self.evaluator = GenericEvaluator(problem)
+        self.evaluator = PolarsEvaluator(problem)
 
         self.constraints = (
             create_scipy_dict_constraints(self.problem, self.evaluator)
@@ -323,6 +332,10 @@ class ScipyDeSolver(BaseSolver):
                 `scipy.optimize.differential_evolution`. Defaults to None.
             subscriber (str | None, optional): not used right now. WIP. Defaults to None.
         """
+        if variable_dimension_enumerate(problem) not in SUPPORTED_VAR_DIMENSIONS:
+            msg = "ScipyDeSolver only supports scalar variables."
+            raise SolverError(msg)
+
         self.problem = problem
         if de_kwargs is None:
             de_kwargs = {
@@ -355,7 +368,7 @@ class ScipyDeSolver(BaseSolver):
         else:
             self.initial_guess = initial_guess
 
-        self.evaluator = GenericEvaluator(problem)
+        self.evaluator = PolarsEvaluator(problem)
         self.constraints = (
             create_scipy_object_constraints(self.problem, self.evaluator)
             if self.problem.constraints is not None

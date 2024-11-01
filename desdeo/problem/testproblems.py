@@ -21,7 +21,6 @@ from desdeo.problem.schema import (
     Variable,
     VariableTypeEnum,
 )
-from pathlib import Path
 
 
 def binh_and_korn(maximize: tuple[bool] = (False, False)) -> Problem:
@@ -105,7 +104,7 @@ def binh_and_korn(maximize: tuple[bool] = (False, False)) -> Problem:
     )
 
 
-def river_pollution_problem(five_objective_variant: bool = True) -> Problem:
+def river_pollution_problem(*, five_objective_variant: bool = True) -> Problem:
     r"""Create a pydantic dataclass representation of the river pollution problem with either five or four variables.
 
     The objective functions "DO city", "DO municipality", and
@@ -391,14 +390,44 @@ def momip_ti2() -> Problem:
     x_4 = Variable(name="x_4", symbol="x_4", variable_type=VariableTypeEnum.integer)
 
     f_1 = Objective(
-        name="f_1", symbol="f_1", func="x_1 + x_3", objective_type=ObjectiveTypeEnum.analytical, maximize=False
+        name="f_1",
+        symbol="f_1",
+        func="x_1 + x_3",
+        objective_type=ObjectiveTypeEnum.analytical,
+        maximize=False,
+        is_linear=True,
+        is_convex=True,
+        is_twice_differentiable=True,
     )
     f_2 = Objective(
-        name="f_2", symbol="f_2", func="x_2 + x_4", objective_type=ObjectiveTypeEnum.analytical, maximize=False
+        name="f_2",
+        symbol="f_2",
+        func="x_2 + x_4",
+        objective_type=ObjectiveTypeEnum.analytical,
+        maximize=False,
+        is_linear=True,
+        is_convex=True,
+        is_twice_differentiable=True,
     )
 
-    con_1 = Constraint(name="g_1", symbol="g_1", cons_type=ConstraintTypeEnum.LTE, func="x_1**2 + x_2**2 - 0.25")
-    con_2 = Constraint(name="g_2", symbol="g_2", cons_type=ConstraintTypeEnum.LTE, func="x_3**2 + x_4**2 - 1")
+    con_1 = Constraint(
+        name="g_1",
+        symbol="g_1",
+        cons_type=ConstraintTypeEnum.LTE,
+        func="x_1**2 + x_2**2 - 0.25",
+        is_linear=False,
+        is_convex=False,
+        is_twice_differentiable=True,
+    )
+    con_2 = Constraint(
+        name="g_2",
+        symbol="g_2",
+        cons_type=ConstraintTypeEnum.LTE,
+        func="x_3**2 + x_4**2 - 1",
+        is_linear=False,
+        is_convex=False,
+        is_twice_differentiable=True,
+    )
 
     return Problem(
         name="MOMIP Test Instance 2",
@@ -451,6 +480,9 @@ def momip_ti7() -> Problem:
         ideal=-3,
         nadir=3,
         maximize=False,
+        is_linear=True,
+        is_convex=True,
+        is_twice_differentiable=True,
     )
     f_2 = Objective(
         name="f_2",
@@ -460,6 +492,9 @@ def momip_ti7() -> Problem:
         ideal=3,
         nadir=-3,
         maximize=True,
+        is_linear=True,
+        is_convex=True,
+        is_twice_differentiable=True,
     )
     f_3 = Objective(
         name="f_3",
@@ -469,10 +504,29 @@ def momip_ti7() -> Problem:
         ideal=-3,
         nadir=3,
         maximize=False,
+        is_linear=True,
+        is_convex=True,
+        is_twice_differentiable=True,
     )
 
-    con_1 = Constraint(name="g_1", symbol="g_1", cons_type=ConstraintTypeEnum.LTE, func="x_1**2 + x_2**2 + x_3**2 - 1")
-    con_2 = Constraint(name="g_2", symbol="g_2", cons_type=ConstraintTypeEnum.LTE, func="x_4**2 + x_5**2 + x_6**2 - 1")
+    con_1 = Constraint(
+        name="g_1",
+        symbol="g_1",
+        cons_type=ConstraintTypeEnum.LTE,
+        func="x_1**2 + x_2**2 + x_3**2 - 1",
+        is_linear=False,
+        is_convex=False,
+        is_twice_differentiable=True,
+    )
+    con_2 = Constraint(
+        name="g_2",
+        symbol="g_2",
+        cons_type=ConstraintTypeEnum.LTE,
+        func="x_4**2 + x_5**2 + x_6**2 - 1",
+        is_linear=False,
+        is_convex=False,
+        is_twice_differentiable=True,
+    )
 
     return Problem(
         name="MOMIP Test Instance 7",
@@ -748,6 +802,9 @@ def nimbus_test_problem() -> Problem:
             objective_type=ObjectiveTypeEnum.analytical,
             ideal=9.0,
             nadir=1.0,
+            is_convex=False,
+            is_linear=False,
+            is_twice_differentiable=True,
         ),
         Objective(
             name="Objective 2",
@@ -757,6 +814,9 @@ def nimbus_test_problem() -> Problem:
             objective_type=ObjectiveTypeEnum.analytical,
             ideal=2.0,
             nadir=18.0,
+            is_convex=False,
+            is_linear=False,
+            is_twice_differentiable=True,
         ),
         Objective(
             name="Objective 3",
@@ -766,6 +826,9 @@ def nimbus_test_problem() -> Problem:
             objective_type=ObjectiveTypeEnum.analytical,
             ideal=-6.0,
             nadir=-2.0,
+            is_convex=True,
+            is_linear=True,
+            is_twice_differentiable=True,
         ),
         Objective(
             name="Objective 4",
@@ -775,6 +838,9 @@ def nimbus_test_problem() -> Problem:
             objective_type=ObjectiveTypeEnum.analytical,
             ideal=-2.0,
             nadir=2.0,
+            is_convex=True,
+            is_linear=True,
+            is_twice_differentiable=True,
         ),
         Objective(
             name="Objective 5",
@@ -784,6 +850,9 @@ def nimbus_test_problem() -> Problem:
             objective_type=ObjectiveTypeEnum.analytical,
             ideal=60.0,
             nadir=4860.0,
+            is_convex=False,
+            is_linear=False,
+            is_twice_differentiable=True,
         ),
         Objective(
             name="Objective 6",
@@ -793,6 +862,9 @@ def nimbus_test_problem() -> Problem:
             objective_type=ObjectiveTypeEnum.analytical,
             ideal=480.0,
             nadir=9280.0,
+            is_convex=False,
+            is_linear=False,
+            is_twice_differentiable=True,
         ),
     ]
 
@@ -1524,7 +1596,7 @@ def re24() -> Problem:
 
 
 def simple_knapsack_vectors():
-    """Define a simpl variant of the knapsack problem that utilizes vectors (TensorVaribale and TensorConstant)."""
+    """Define a simple variant of the knapsack problem that utilizes vectors (TensorVariable and TensorConstant)."""
     n_items = 4
     weight_values = [2, 3, 4, 5]
     profit_values = [3, 5, 6, 8]
@@ -1592,7 +1664,7 @@ def simple_knapsack_vectors():
     )
 
 
-def forest_problem(holding: int = 1, comparing: bool = False) -> Problem:
+def forest_problem(simulation_results: str, treatment_key: str, holding: int = 1, comparing: bool = False) -> Problem:
     r"""Defines a test forest problem that has TensorConstants and TensorVariables.
 
     The problem has TensorConstants V, W and P as vectors taking values from a data file and
@@ -1605,12 +1677,11 @@ def forest_problem(holding: int = 1, comparing: bool = False) -> Problem:
     The problem is defined as follows:
 
     \begin{align}
-        \mbox{maximize~} & \sum_{j=1}^N\sum_{i \in I_j} v_{ij} x_{ij} & \\
-        \mbox{maximize~} & \sum_{j=1}^N\sum_{i \in I_j} w_{ij} x_{ij} & \\
-        \mbox{maximize~} & \sum_{j=1}^N\sum_{i \in I_j} p_{ij} x_{ij} & \\
-        \nonumber\\
-        \mbox{subject to~} &  \sum\limits_{i \in I_j} x_{ij} = 1, & \forall j = 1 \ldots N \\
-        & x_{ij}\in \{0,1\}& \forall j = 1 \ldots N, ~\forall i\in I_j,
+        \max_{\mathbf{x}} & \quad \sum_{j=1}^N\sum_{i \in I_j} v_{ij} x_{ij} & \\
+        & \quad \sum_{j=1}^N\sum_{i \in I_j} w_{ij} x_{ij} & \\
+        & \quad \sum_{j=1}^N\sum_{i \in I_j} p_{ij} x_{ij} & \\
+        \text{s.t.} & \quad \sum\limits_{i \in I_j} x_{ij} = 1, & \forall j = 1 \ldots N \\
+        & \quad x_{ij}\in \{0,1\}& \forall j = 1 \ldots N, ~\forall i\in I_j,
     \end{align}
 
     where $x_{ij}$ are decision variables representing the choice of implementing management plan $i$ in stand $j$,
@@ -1619,15 +1690,17 @@ def forest_problem(holding: int = 1, comparing: bool = False) -> Problem:
     are represented by $v_{ij}$, $w_{ij}$, and $p_{ij}$ respectively.
 
     Args:
+        simulation_results (str): Location of the simulation results file.
+        treatment_key (str): Location of the file with the treatment information.
         holding (int, optional): The number of the holding to be optimized. Defaults to 1.
         comparing (bool, optional): Determines if solutions are to be compared to those from the rahti app.
-            Defaults to None.
+            Defaults to False.
 
     Returns:
         Problem: An instance of the test forest problem.
     """
-    df = pl.read_csv(Path("tests/data/alternatives_290124.csv"), dtypes={"unit": pl.Float64})
-    df_key = pl.read_csv(Path("tests/data/alternatives_key_290124.csv"), dtypes={"unit": pl.Float64})
+    df = pl.read_csv(simulation_results, dtypes={"unit": pl.Float64})
+    df_key = pl.read_csv(treatment_key, dtypes={"unit": pl.Float64})
 
     selected_df_v = df.filter(pl.col("holding") == holding).select(["unit", "schedule", "npv_5_percent"])
     unique_units = selected_df_v.unique(["unit"], maintain_order=True).get_column("unit")
@@ -1727,7 +1800,13 @@ def forest_problem(holding: int = 1, comparing: bool = False) -> Problem:
 
         # Constraints
         con = Constraint(
-            name=f"x_con_{i+1}", symbol=f"x_con_{i+1}", cons_type=ConstraintTypeEnum.EQ, func=f"Sum(X_{i+1}) - 1"
+            name=f"x_con_{i+1}",
+            symbol=f"x_con_{i+1}",
+            cons_type=ConstraintTypeEnum.EQ,
+            func=f"Sum(X_{i+1}) - 1",
+            is_linear=True,
+            is_convex=False,  # not checked
+            is_twice_differentiable=True,
         )
         constraints.append(con)
 
@@ -1746,33 +1825,11 @@ def forest_problem(holding: int = 1, comparing: bool = False) -> Problem:
     f_2_func = " + ".join(f_2_func)
     f_3_func = " + ".join(f_3_func)
 
-    match holding:
-        case 1:
-            ideals = {"f_1": 45654.952, "f_2": 2302.167, "f_3": 36780.631}
-            nadirs = {"f_1": 29722.469, "f_2": 1517.674, "f_3": 0.0}
-        case 2:
-            ideals = {"f_1": 42937.004, "f_2": 2489.819, "f_3": 53632.887}
-            nadirs = {"f_1": 17555.857, "f_2": 1045.335, "f_3": 0.0}
-        case 3:
-            ideals = {"f_1": 82195.014, "f_2": 3866.168, "f_3": 152149.555}
-            nadirs = {"f_1": 18207.905, "f_2": 856.735, "f_3": 0.0}
-        case 4:
-            ideals = {"f_1": 70547.896, "f_2": 3422.758, "f_3": 122271.740}
-            nadirs = {"f_1": 17379.117, "f_2": 834.909, "f_3": 0.0}
-        case 5:
-            ideals = {"f_1": 78183.469, "f_2": 3703.603, "f_3": 154240.330}
-            nadirs = {"f_1": 10885.988, "f_2": 506.754, "f_3": 0.0}
-        case 6:
-            ideals = {"f_1": 69121.380, "f_2": 3867.108, "f_3": 103018.541}
-            nadirs = {"f_1": 22254.236, "f_2": 1162.668, "f_3": 0.0}
-
     f_1 = Objective(
         name="Net present value",
         symbol="f_1",
         func=f_1_func,
         maximize=True,
-        ideal=ideals["f_1"],
-        nadir=nadirs["f_1"],
         objective_type=ObjectiveTypeEnum.analytical,
         is_linear=True,
         is_convex=False,  # not checked
@@ -1784,8 +1841,6 @@ def forest_problem(holding: int = 1, comparing: bool = False) -> Problem:
         symbol="f_2",
         func=f_2_func,
         maximize=True,
-        ideal=ideals["f_2"],
-        nadir=nadirs["f_3"],
         objective_type=ObjectiveTypeEnum.analytical,
         is_linear=True,
         is_convex=False,  # not checked
@@ -1797,8 +1852,6 @@ def forest_problem(holding: int = 1, comparing: bool = False) -> Problem:
         symbol="f_3",
         func=f_3_func,
         maximize=True,
-        ideal=ideals["f_3"],
-        nadir=nadirs["f_3"],
         objective_type=ObjectiveTypeEnum.analytical,
         is_linear=True,
         is_convex=False,  # not checked

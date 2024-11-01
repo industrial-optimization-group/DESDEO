@@ -8,17 +8,15 @@ from desdeo.mcdm.nautilus_navigator import (
     calculate_navigation_point,
 )
 from desdeo.problem import (
+    Constraint,
+    ConstraintTypeEnum,
     Problem,
     get_nadir_dict,
-    numpy_array_to_objective_dict,
-    objective_dict_to_numpy_array,
 )
 from desdeo.tools.generics import BaseSolver, SolverResults
 from desdeo.tools.scalarization import (
     add_asf_generic_nondiff,
     add_epsilon_constraints,
-    add_lte_constraints,
-    add_scalarization_function,
 )
 from desdeo.tools.utils import guess_best_solver
 
@@ -162,16 +160,23 @@ def solve_reachable_solution(
         symbol="asf",
         reference_point=previous_nav_point,
         weights=group_improvement_direction,
-        reference_point_aug=previous_nav_point
+        reference_point_aug=previous_nav_point,
     )
 
     # Note: We do not solve the global problem. Instead, we solve this constrained problem:
-    const_exprs = [
-        f"{obj.symbol}_min - {previous_nav_point[obj.symbol] * (-1 if obj.maximize else 1)}"
-        for obj in problem.objectives
-    ]
-    problem_w_asf = add_lte_constraints(
-        problem_w_asf, const_exprs, [f"const_{i}" for i in range(1, len(const_exprs) + 1)]
+    problem_w_asf = problem_w_asf.add_constraints(
+        [
+            Constraint(
+                name=f"_const_{i+1}",
+                symbol=f"_const_{i+1}",
+                func=f"{obj.symbol}_min - {previous_nav_point[obj.symbol] * (-1 if obj.maximize else 1)}",
+                cons_type=ConstraintTypeEnum.LTE,
+                is_linear=obj.is_linear,
+                is_convex=obj.is_convex,
+                is_twice_differentiable=obj.is_twice_differentiable,
+            )
+            for i, obj in enumerate(problem_w_asf.objectives)
+        ]
     )
 
     # solve the problem

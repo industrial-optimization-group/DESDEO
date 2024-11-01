@@ -1,17 +1,26 @@
-"""Different evaluators are defined for evaluating multiobjective optimization problems."""
+"""Defines a Polars-based evaluator."""
 
 from enum import Enum
+from itertools import product
 
+import numpy as np
 import polars as pl
 
 from desdeo.problem.json_parser import MathParser, replace_str
-from desdeo.problem.schema import ObjectiveTypeEnum, Problem
+from desdeo.problem.schema import (
+    Constant,
+    ObjectiveTypeEnum,
+    Problem,
+    TensorConstant,
+    TensorVariable,
+)
 
 SUPPORTED_EVALUATOR_MODES = ["variables", "discrete"]
+SUPPORTED_VAR_DIMENSIONS = ["scalar", "vector"]
 
 
-class EvaluatorModesEnum(str, Enum):
-    """Defines the supported modes for the GenericEvaluator."""
+class PolarsEvaluatorModesEnum(str, Enum):
+    """Defines the supported modes for the PolarsEvaluator."""
 
     variables = "variables"
     """Indicates that the evaluator should expect decision variables vectors and
@@ -23,18 +32,54 @@ class EvaluatorModesEnum(str, Enum):
     evaluating."""
 
 
-class EvaluatorError(Exception):
-    """Error raised when exceptions are encountered in an Evaluator class."""
+class PolarsEvaluatorError(Exception):
+    """Error raised when exceptions are encountered in an PolarsEvaluator."""
 
 
-class GenericEvaluator:
-    """A class for creating evaluators for multiobjective optimization problems.
+class VariableDimensionEnum(str, Enum):
+    """An enumerator for the possible dimensions of the variables of a problem."""
 
-    The evaluator is to be used with different optimizers. GenericEvaluator is specifically
+    scalar = "scalar"
+    """All variables are scalar valued."""
+    vector = "vector"
+    """Highest dimensional variable is a vector."""
+    tensor = "tensor"
+    """Some variable has more dimensions."""
+
+
+def variable_dimension_enumerate(problem: Problem) -> VariableDimensionEnum:
+    """Return a VariableDimensionEnum based on the problems variables' dimensions.
+
+    This is needed as different evaluators and solvers can handle different dimensional variables.
+
+    If there are no TensorVariables in the problem, will return scalar.
+    If there are, at the highest, one dimensional TensorVariables, will return vector.
+    Else, there is at least a TensorVariable with a higher dimension, will return tensor.
+
+    Args:
+        problem (Problem): The problem being solved or evaluated.
+
+    Returns:
+        VariableDimensionEnum: The enumeration of the problems variable dimensions.
+    """
+    enum = VariableDimensionEnum.scalar
+    for var in problem.variables:
+        if isinstance(var, TensorVariable):
+            if len(var.shape) == 1 or len(var.shape) == 2 and not (var.shape[0] > 1 and var.shape[1] > 1):  # noqa: PLR2004
+                enum = VariableDimensionEnum.vector
+            else:
+                return VariableDimensionEnum.tensor
+    return enum
+
+
+class PolarsEvaluator:
+    """A class for creating Polars-based evaluators for multiobjective optimization problems.
+
+    The evaluator is to be used with different optimizers. PolarsEvaluator is specifically
     for solvers that do not require an exact formulation of the problem, but rather work
     solely on the input and output values of the problem being solved. This evaluator might not
     be suitable for computationally expensive problems, or mixed-integer problems. This
-    evaluator is suitable for many Python-based solvers, such as `scipy.optimize.minimize`.
+    evaluator is suitable for many Python-based solvers.
     """
 
     ### Initialization (no need for decision variables yet)
@@ -56,8 +101,8 @@ class GenericEvaluator:
     #    and scalarization function valeus).
     # 6. End.
 
-    def __init__(self, problem: Problem, evaluator_mode: EvaluatorModesEnum = EvaluatorModesEnum.variables):
-        """Create an evaluator for a multiobjective optimization problem.
+    def __init__(self, problem: Problem, evaluator_mode: PolarsEvaluatorModesEnum = PolarsEvaluatorModesEnum.variables):
+        """Create a Polars-based evaluator for a multiobjective optimization problem.
 
         By default, the evaluator expects a set of decision variables to
         evaluate the given problem.  However, if the problem is purely based on
@@ -73,15 +118,16 @@ class GenericEvaluator:
                 that can be evaluated. Default 'variables'.
         """
         # Create a MathParser of type 'evaluator_type'.
-        if evaluator_mode not in EvaluatorModesEnum:
+        if evaluator_mode not in PolarsEvaluatorModesEnum:
             msg = (
                 f"The provided 'evaluator_mode' '{evaluator_mode}' is not supported."
-                f" Must be one of {EvaluatorModesEnum}."
+                f" Must be one of {PolarsEvaluatorModesEnum}."
             )
-            raise EvaluatorError(msg)
+            raise PolarsEvaluatorError(msg)
 
         self.evaluator_mode = evaluator_mode
 
+        self.problem = problem
         # Gather any constants of the problem definition.
         self.problem_constants = problem.constants
         # Gather the objective functions
@@ -107,18 +153,23 @@ class GenericEvaluator:
         self.extra_expressions = None
         # Symbol and expression pairs of any scalarization functions
         self.scalarization_expressions = None
+        # Store TensorConstants in a dict
+        self.tensor_constants = None
 
         # Note: `self.parser` is assumed to be set before continuing the initialization.
         self.parser = MathParser()
         self._polars_init()
 
         # Note, when calling an evaluate method, it is assumed the problem has been fully parsed.
-        if self.evaluator_mode == EvaluatorModesEnum.variables:
+        if self.evaluator_mode == PolarsEvaluatorModesEnum.variables:
             self.evaluate = self._polars_evaluate
-        elif self.evaluator_mode == EvaluatorModesEnum.discrete:
+            self.evaluate_flat = self._polars_evaluate_flat
+        elif self.evaluator_mode == PolarsEvaluatorModesEnum.discrete:
             self.evaluate = self._from_discrete_data
         else:
-            msg = f"Provided 'evaluator_mode' {evaluator_mode} not supported. Must be one of {EvaluatorModesEnum}."
+            msg = (
+                f"Provided 'evaluator_mode' {evaluator_mode} not supported. Must be one of {PolarsEvaluatorModesEnum}."
+            )
 
     def _polars_init(self):  # noqa: C901, PLR0912
         """Initialization of the evaluator for parser type 'polars'."""
@@ -131,9 +182,14 @@ class GenericEvaluator:
                 if obj.objective_type == ObjectiveTypeEnum.analytical:
                     # if analytical proceed with replacing the symbols.
                     tmp = obj.func
+
+                    # replace regular constants, skip TensorConstants
                     for c in self.problem_constants:
-                        tmp = replace_str(tmp, c.symbol, c.value)
+                        if isinstance(c, Constant):
+                            tmp = replace_str(tmp, c.symbol, c.value)
+
                     parsed_obj_funcs[f"{obj.symbol}"] = tmp
+
                 elif obj.objective_type == ObjectiveTypeEnum.data_based:
                     # data-based objective
                     parsed_obj_funcs[f"{obj.symbol}"] = None
@@ -142,15 +198,19 @@ class GenericEvaluator:
                         f"Incorrect objective-type {obj.objective_type} encountered. "
                         f"Must be one of {ObjectiveTypeEnum}"
                     )
-                    raise EvaluatorError(msg)
+                    raise PolarsEvaluatorError(msg)
 
             # Do the same for any constraint expressions as well.
             if self.problem_constraints is not None:
                 parsed_cons_funcs: dict | None = {}
                 for con in self.problem_constraints:
                     tmp = con.func
+
+                    # replace regular constants, skip TensorConstants
                     for c in self.problem_constants:
-                        tmp = replace_str(tmp, c.symbol, c.value)
+                        if isinstance(c, Constant):
+                            tmp = replace_str(tmp, c.symbol, c.value)
+
                     parsed_cons_funcs[f"{con.symbol}"] = tmp
             else:
                 parsed_cons_funcs = None
@@ -160,8 +220,12 @@ class GenericEvaluator:
             if self.problem_extra is not None:
                 for extra in self.problem_extra:
                     tmp = extra.func
+
+                    # replace regular constants, skip TensorConstants
                     for c in self.problem_constants:
-                        tmp = replace_str(tmp, c.symbol, c.value)
+                        if isinstance(c, Constant):
+                            tmp = replace_str(tmp, c.symbol, c.value)
+
                     parsed_extra_funcs[f"{extra.symbol}"] = tmp
             else:
                 parsed_extra_funcs = None
@@ -171,11 +235,22 @@ class GenericEvaluator:
             if self.problem_scalarization is not None:
                 for scal in self.problem_scalarization:
                     tmp = scal.func
+
+                    # replace regular constants, skip TensorConstants
                     for c in self.problem_constants:
-                        tmp = replace_str(tmp, c.symbol, c.value)
+                        if isinstance(c, Constant):
+                            tmp = replace_str(tmp, c.symbol, c.value)
+
                     parsed_scal_funcs[f"{scal.symbol}"] = tmp
             else:
                 parsed_scal_funcs = None
+
+            # Check for TensorConstants
+            for c in self.problem_constants:
+                if isinstance(c, TensorConstant):
+                    if self.tensor_constants is None:
+                        self.tensor_constants = {}
+                    self.tensor_constants[c.symbol] = np.array(c.get_values())
         else:
             # no constants defined, just collect all expressions as they are
             parsed_obj_funcs = {f"{objective.symbol}": objective.func for objective in self.problem_objectives}
@@ -259,7 +334,15 @@ class GenericEvaluator:
             At least `self.objective_expressions` must be defined before calling this method.
         """
         # An aggregate dataframe to store intermediate evaluation results.
-        agg_df = pl.DataFrame(xs)
+        agg_df = pl.DataFrame({key: np.array(value) for key, value in xs.items()})
+
+        # Deal with TensorConstant
+        # agg_df.with_columns(pl.Series(np.array(2*[self.tensor_constants["W"]])).alias("W"))
+        if self.tensor_constants is not None:
+            for tc_symbol in self.tensor_constants:
+                agg_df = agg_df.with_columns(
+                    pl.Series(np.array(agg_df.height * [self.tensor_constants[tc_symbol]])).alias(tc_symbol)
+                )
 
         # Evaluate any extra functions and put the results in the aggregate dataframe.
         if self.extra_expressions is not None:
@@ -303,6 +386,58 @@ class GenericEvaluator:
 
         # return the dataframe and let the solver figure it out
         return agg_df
+
+    def _polars_evaluate_flat(
+        self,
+        xs: dict[str, list[float | int | bool]],
+    ) -> pl.DataFrame:
+        """Evaluate the problem with flattened variables.
+
+        Args:
+            xs (dict[str, list[float  |  int  |  bool]]): a dict with flattened variables.
+                E.g., if the original problem has a tensor variable 'X' with shape (2,2),
+                then the dictionary is expected to have entries names 'X_1_1', 'X_1_2',
+                'X_2_1', and 'X_2_2'. The dictionary is rebuilt and passed to
+                `self._evaluate`.
+
+        Note:
+            Each flattened variable is assumed to contain the same number of samples.
+                This means that if the entry 'X_1_1' of `xs` is, for example
+                `[1,2,3]`, this means that 'X_1_1' and all the other flattened
+                variables have three samples. This means also that the original
+                problem will be evaluated with a tensor variable with shape (2,2)
+                and three samples,
+                e.g., 'X=[[[1, 1], [1,1]], [[2, 2], [2, 2]], [[3, 3], [3, 3]]]'.
+
+        Returns:
+            pl.DataFrame: a dataframe with the original problem's evaluated functions.
+        """
+        # Assume all variables have the same number of samples
+        n_samples = len(next(iter(xs.values())))
+
+        fat_xs = {}
+
+        # iterate over the variables of the problem
+        for var in self.problem.variables:
+            if isinstance(var, TensorVariable):
+                # construct the indices
+                index_ranges = [range(upper) for upper in var.shape]
+                indices = product(*index_ranges)
+
+                # create list to be filled
+                tmp = np.ones((n_samples, *var.shape)) * np.nan
+
+                for index in indices:
+                    tmp[:, *(index)] = xs[f"{var.symbol}_{"_".join(str(x+1) for x in index)}"]
+
+                fat_xs[var.symbol] = tmp.tolist()
+
+            else:
+                # else, proceed normally
+                fat_xs[var.symbol] = xs[var.symbol]
+
+        # return result of regular evaluate
+        return self.evaluate(fat_xs)
 
     def _from_discrete_data(self) -> pl.DataFrame:
         """Evaluates the problem based on its discrete representation only.
