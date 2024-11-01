@@ -229,7 +229,11 @@ def utopia_problem_old(problem_name: str = "Forest problem", holding: int = 1) -
 
         # Constraints
         con = Constraint(
-            name=f"x_con_{i+1}", symbol=f"x_con_{i+1}", cons_type=ConstraintTypeEnum.EQ, func=f"Sum(X_{i+1}) - 1"
+            name=f"x_con_{i+1}",
+            symbol=f"x_con_{i+1}",
+            cons_type=ConstraintTypeEnum.EQ,
+            func=f"Sum(X_{i+1}) - 1",
+            is_twice_differentiable=True,
         )
         constraints.append(con)
 
@@ -258,20 +262,44 @@ def utopia_problem_old(problem_name: str = "Forest problem", holding: int = 1) -
 
     # get the remainder value of the forest into decision variable V_end
     v_func = "V_end - " + " - ".join(f_1_func)
-    con = Constraint(name="v_con", symbol="v_con", cons_type=ConstraintTypeEnum.EQ, func=v_func)
+    con = Constraint(
+        name="v_con",
+        symbol="v_con",
+        cons_type=ConstraintTypeEnum.EQ,
+        func=v_func,
+        is_twice_differentiable=True,
+    )
     constraints.append(con)
 
     # These are here, so that we can get the harvesting incomes into decision variables P_i
     p1_func = "P_1 - " + " - ".join(p1_func)
-    con = Constraint(name="p1_con", symbol="p1_con", cons_type=ConstraintTypeEnum.EQ, func=p1_func)
+    con = Constraint(
+        name="p1_con",
+        symbol="p1_con",
+        cons_type=ConstraintTypeEnum.EQ,
+        func=p1_func,
+        is_twice_differentiable=True,
+    )
     constraints.append(con)
 
     p2_func = "P_2 - " + " - ".join(p2_func)
-    con = Constraint(name="p2_con", symbol="p2_con", cons_type=ConstraintTypeEnum.EQ, func=p2_func)
+    con = Constraint(
+        name="p2_con",
+        symbol="p2_con",
+        cons_type=ConstraintTypeEnum.EQ,
+        func=p2_func,
+        is_twice_differentiable=True,
+    )
     constraints.append(con)
 
     p3_func = "P_3 - " + " - ".join(p3_func)
-    con = Constraint(name="p3_con", symbol="p3_con", cons_type=ConstraintTypeEnum.EQ, func=p3_func)
+    con = Constraint(
+        name="p3_con",
+        symbol="p3_con",
+        cons_type=ConstraintTypeEnum.EQ,
+        func=p3_func,
+        is_twice_differentiable=True,
+    )
     constraints.append(con)
 
     # print(v_func)
@@ -383,4 +411,5 @@ def utopia_problem_old(problem_name: str = "Forest problem", holding: int = 1) -
         variables=variables,
         objectives=[f_1, f_2, f_3],
         constraints=constraints,
+        is_twice_differentiable=True,
     ), schedule_dict
