@@ -416,21 +416,13 @@ def utopia(  # noqa: C901, PLR0912
     utopia_data = db.query(Utopia).filter(Utopia.problem == request.problem_id, Utopia.user == user.index).first()
 
     # Figure out the treatments from the decision variables and utopia data
-    """description_dict = {
+    description_dict = {
         0: "Do nothing",
         1: "Clearcut",
         2: "Thinning from below",
         3: "Thinning from above",
         4: "Even thinning",
         5: "First thinning",
-    }"""
-    description_dict = {
-        0: "Ei toimenpiteitä",
-        1: "Päätehakkuu",
-        2: "Alaharvennus",
-        3: "Yläharvennus",
-        4: "Tasaharvennus",
-        5: "Ensiharvennus",
     }
 
     def treatment_index(part: str) -> str:
@@ -491,8 +483,7 @@ def utopia(  # noqa: C901, PLR0912
                 "showLabel": True,
                 "type": "piecewise",  # // for different plans
                 "pieces": [],
-                # "text": ["Management plans"],
-                "text": ["Suunnitellut toimenpiteet"],
+                "text": ["Management plans"],
                 "calculable": True,
             },
             # // predefined symbols for visumap'circle': 'rect': 'roundRect': 'triangle': 'diamond': 'pin':'arrow':
@@ -540,11 +531,10 @@ def utopia(  # noqa: C901, PLR0912
             }
             if piece not in options[year]["visualMap"]["pieces"]:
                 options[year]["visualMap"]["pieces"].append(piece)
-            # name = "Stand " + str(stand) + " " + description_dict[treatment_id]
             if utopia_data.stand_descriptor:
                 name = utopia_data.stand_descriptor[str(stand)] + description_dict[treatment_id]
             else:
-                name = "Kuvio " + str(stand) + " " + description_dict[treatment_id]
+                name = "Stand " + str(stand) + " " + description_dict[treatment_id]
             options[year]["series"][0]["data"].append(
                 {
                     "name": name,
@@ -555,10 +545,10 @@ def utopia(  # noqa: C901, PLR0912
 
     # Let's also generate a nice description for the map
     map_description = (
-        f"Tuotto hakkuista ensimmäisellä ajanjaksolla on {int(decision_variables["P_1"])}€.\n"
-        + f"Tuotto hakkuista toisella ajanjaksolla on {int(decision_variables["P_2"])}€.\n"
-        + f"Tuotto hakkuista kolmannella ajanjaksolla on {int(decision_variables["P_3"])}€.\n"
-        + f"Metsän diskontattu arvo suunnittelujakson lopussa on {int(decision_variables["V_end"])}€."
+        f"Income from harvesting in the first period {int(decision_variables["P_1"])}€.\n"
+        + f"Income from harvesting in the second period {int(decision_variables["P_2"])}€.\n"
+        + f"Income from harvesting in the third period {int(decision_variables["P_3"])}€.\n"
+        + f"The discounted value of the remaining forest at the end of the plan {int(decision_variables["V_end"])}€."
     )
 
     return UtopiaResponse(
