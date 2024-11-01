@@ -81,6 +81,8 @@ pytest-testmon = "^2.1.1"
 snakeviz = "^2.2.0"
 pytest-asyncio = "^0.24.0"
 griffe = "^1.4.1"
+mkdocs-jupyter = "^0.25.1"
+jupytext = "^1.16.4"
 
 
 [tool.ruff]

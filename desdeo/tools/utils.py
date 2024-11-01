@@ -244,11 +244,13 @@ def payoff_table_method(problem: Problem, solver: BaseSolver = None) -> tuple[di
     po_table = np.zeros((k, k))
 
     for i in range(k):
-        res = solver.solve(f"f_{i+1}_min")
+        res = solver.solve(f"{problem.objectives[i].symbol}_min")
         for j in range(k):
-            po_table[i][j] = res.optimal_objectives[f"f_{j+1}"]
+            po_table[i][j] = res.optimal_objectives[problem.objectives[j].symbol]
+
     ideal = np.diag(po_table)
     nadir = []
+
     for i in range(k):
         if problem.objectives[i].maximize:
             nadir.append(np.min(po_table.T[i]))

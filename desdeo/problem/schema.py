@@ -717,9 +717,7 @@ class Simulator(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     name: str = Field(
-        description=(
-            "Descriptive name of the simulator. This can be used in UI and visualizations."
-        ),
+        description=("Descriptive name of the simulator. This can be used in UI and visualizations."),
     )
     """Descriptive name of the simulator. This can be used in UI and visualizations."""
     symbol: str = Field(
@@ -729,9 +727,7 @@ class Simulator(BaseModel):
         ),
     )
     file: Path = Field(
-        description=(
-            "Path to a python file with the connection to simulators."
-        ),
+        description=("Path to a python file with the connection to simulators."),
     )
     """Path to a python file with the connection to simulators."""
     parameter_options: dict | None = Field(
@@ -1098,6 +1094,38 @@ class Problem(BaseModel):
             raise ValueError(msg)
 
         return self.model_copy(update={"scalarization_funcs": [*self.scalarization_funcs, new_scal]})
+
+    def update_ideal_and_nadir(
+        self,
+        new_ideal: dict[str, VariableType | None] | None = None,
+        new_nadir: dict[str, VariableType | None] | None = None,
+    ) -> "Problem":
+        """Update the ideal and nadir values of the problem.
+
+        Args:
+            ideal (dict[str, VariableType  |  None] | None): _description_
+            nadir (dict[str, VariableType  |  None] | None): _description_
+        """
+        updated_objectives = []
+        for objective in self.objectives:
+            new_objective = objective.copy(
+                update={
+                    **(
+                        {"ideal": new_ideal[objective.symbol]}
+                        if new_ideal is not None and objective.symbol in new_ideal
+                        else {}
+                    ),
+                    **(
+                        {"nadir": new_nadir[objective.symbol]}
+                        if new_nadir is not None and objective.symbol in new_nadir
+                        else {}
+                    ),
+                }
+            )
+
+            updated_objectives.append(new_objective)
+
+        return self.copy(update={"objectives": updated_objectives})
 
     def add_constraints(self, new_constraints: list[Constraint]) -> "Problem":
         """Adds new constraints to the problem model.
@@ -1538,7 +1566,7 @@ class Problem(BaseModel):
             "Objectives defined by simulators. The corresponding values of the 'simulator' objective "
             "function will be fetched from these simulators with the given variable values."
         ),
-        default=None
+        default=None,
     )
     """Optional. The simulators used by the problem. Required when there are one or more
     Objectives defined by simulators. The corresponding values of the 'simulator' objective
