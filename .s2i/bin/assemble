@@ -62,7 +62,7 @@ if [[ ! -z "$UPGRADE_PIP_TO_LATEST" ]]; then
   fi
 fi
 
-pip install .[standard,api,server]
+pip install $DESDEO_INSTALL
 
 
 if should_collectstatic; then

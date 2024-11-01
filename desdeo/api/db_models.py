@@ -2,7 +2,8 @@
 
 # TODO: ADD TIMESTAMP COLUMNS TO ALL TABLES
 
-from sqlalchemy import ARRAY, FLOAT, JSON, Enum, ForeignKey, Integer
+from sqlalchemy import Enum, ForeignKey, Integer, String
+from sqlalchemy.dialects.postgresql import ARRAY, FLOAT, JSON, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from desdeo.api import schema
@@ -36,6 +37,12 @@ class Problem(Base):
     kind: Mapped[schema.ProblemKind] = mapped_column(nullable=False)
     obj_kind: Mapped[schema.ObjectiveKind] = mapped_column(nullable=False)
     role_permission: Mapped[list[schema.UserRole]] = mapped_column(ARRAY(Enum(schema.UserRole)), nullable=True)
+    # We need some way to tell the API what solver should be used, and this seems like a good place
+    # This should match one of the available_solvers in desdeo.tools.utils
+    solver: Mapped[schema.Solvers] = mapped_column(nullable=True)
+    # Other code assumes these ideals and nadirs are dicts with objective symbols as keys
+    presumed_ideal = mapped_column(JSONB, nullable=True)
+    presumed_nadir = mapped_column(JSONB, nullable=True)
     # Mapped doesn't work with JSON, so we use JSON directly.
     value = mapped_column(JSON, nullable=False)  # desdeo.problem.schema.Problem
 
@@ -45,7 +52,7 @@ class UserProblemAccess(Base):
 
     __tablename__ = "user_problem_access"
     id: Mapped[int] = mapped_column(primary_key=True, unique=True)
-    user_id= mapped_column(Integer,ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    user_id = mapped_column(Integer, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
     problem_access: Mapped[int] = mapped_column(Integer, ForeignKey("problem.id"), nullable=False)
     problem = relationship("Problem", foreign_keys=[problem_access], lazy="selectin")
 
@@ -119,7 +126,7 @@ class SolutionArchive(Base):
     problem = mapped_column(Integer, ForeignKey("problem.id"), nullable=False)
     method = mapped_column(Integer, ForeignKey("method.id"), nullable=False)
     preference = mapped_column(Integer, ForeignKey("preference.id"), nullable=True)
-    decision_variables = mapped_column(ARRAY(FLOAT), nullable=True)
+    decision_variables = mapped_column(JSONB, nullable=True)
     objectives = mapped_column(ARRAY(FLOAT), nullable=False)
     constraints = mapped_column(ARRAY(FLOAT), nullable=True)
     extra_funcs = mapped_column(ARRAY(FLOAT), nullable=True)
@@ -141,3 +148,17 @@ class Log(Base):
     action: Mapped[str] = mapped_column(nullable=False)
     value = mapped_column(JSON, nullable=False)
     timestamp: Mapped[str] = mapped_column(nullable=False)
+
+
+class Utopia(Base):
+    """A model to store user specific information relating to Utopia problems."""
+
+    __tablename__ = "utopia"
+    id: Mapped[int] = mapped_column(primary_key=True, unique=True)
+    problem: Mapped[int] = mapped_column(Integer, ForeignKey("problem.id"), nullable=False)
+    user: Mapped[int] = mapped_column(Integer, ForeignKey("user.id"), nullable=False)
+    map_json: Mapped[str] = mapped_column(nullable=False)
+    schedule_dict = mapped_column(JSONB, nullable=False)
+    years: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False)
+    stand_id_field: Mapped[str] = mapped_column(String, nullable=False)
+    stand_descriptor = mapped_column(JSONB, nullable=True)
