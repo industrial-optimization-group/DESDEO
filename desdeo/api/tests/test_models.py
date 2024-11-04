@@ -8,6 +8,7 @@ from sqlmodel.pool import StaticPool
 from desdeo.api.app import app
 from desdeo.api.models import (
     ConstantDB,
+    ConstraintDB,
     ObjectiveDB,
     ProblemDB,
     TensorConstantDB,
@@ -19,6 +20,8 @@ from desdeo.api.models import (
 from desdeo.api.routers.user_authentication import get_password_hash
 from desdeo.problem.schema import (
     Constant,
+    Constraint,
+    ConstraintTypeEnum,
     Objective,
     ObjectiveTypeEnum,
     TensorConstant,
@@ -210,6 +213,42 @@ def test_objective(session_and_users: dict[str, Session | list[User]]):
     objective_validated = Objective.model_validate(from_db_objective_dump)
 
     assert objective_validated == objective
+
+
+def test_constraint(session_and_users: dict[str, Session | list[User]]):
+    """Test that an constraint can be transformed to an SQLModel and back after adding it to the database."""
+    session = session_and_users["session"]
+
+    constraint = Constraint(
+        name="Test Constraint",
+        symbol="g_1",
+        func="x_1 + x_1 + x_1 - 10",
+        cons_type=ConstraintTypeEnum.LTE,
+        is_convex=True,
+        is_linear=False,
+        is_twice_differentiable=False,
+        scenario_keys=["Abloy", "MasterLock", "MasterLockToOpenMasterLock"],
+        simulator_path="/dev/null/aaaaaaaaaa",
+        surrogates=["/var/log", "/dev/sda/sda1/no"],
+    )
+
+    constraint_dump = constraint.model_dump()
+    constraint_dump["problem_id"] = 72
+
+    db_constraint = ConstraintDB.model_validate(constraint_dump)
+
+    session.add(db_constraint)
+    session.commit()
+    session.refresh(db_constraint)
+
+    from_db_constraint = session.get(ConstraintDB, 1)
+
+    assert db_constraint == from_db_constraint
+
+    from_db_constraint_dump = from_db_constraint.model_dump()
+    constraint_validated = Constraint.model_validate(from_db_constraint_dump)
+
+    assert constraint_validated == constraint
 
 
 def test_problem(session_and_users: dict[str, Session | list[User]]):

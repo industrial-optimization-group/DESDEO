@@ -2,6 +2,7 @@
 
 __all__ = [
     "ConstantDB",
+    "ConstraintDB",
     "User",
     "UserBase",
     "UserPublic",
@@ -13,5 +14,13 @@ __all__ = [
     "VariableDB",
 ]
 
-from .problem_schema import ConstantDB, ObjectiveDB, ProblemDB, TensorConstantDB, TensorVariableDB, VariableDB
+from .problem_schema import (
+    ConstantDB,
+    ConstraintDB,
+    ObjectiveDB,
+    ProblemDB,
+    TensorConstantDB,
+    TensorVariableDB,
+    VariableDB,
+)
 from .user import User, UserBase, UserPublic, UserRole

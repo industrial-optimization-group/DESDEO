@@ -10,6 +10,7 @@ from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
 from desdeo.problem.schema import (
     Constant,
+    Constraint,
     Objective,
     Tensor,
     TensorConstant,
@@ -125,6 +126,7 @@ class ProblemDB(SQLModel, table=True):
     variables: list["VariableDB"] = Relationship(back_populates="problem")
     tensor_variables: list["TensorVariableDB"] = Relationship(back_populates="problem")
     objectives: list["ObjectiveDB"] = Relationship(back_populates="problem")
+    constraints: list["ConstraintDB"] = Relationship(back_populates="problem")
 
     # name: str
     # description: str
@@ -217,7 +219,7 @@ class TensorVariableDB(_TensorVariableDB, table=True):
 
 
 class _Objective(SQLModel):
-    """Helper class to override the fields of nested and list types."""
+    """Helper class to override the fields of nested and list types, and Paths."""
 
     func: list = Field(sa_column=Column(JSON))
     scenario_keys: list[str] = Field(sa_column=Column(JSON))
@@ -241,3 +243,30 @@ class ObjectiveDB(_ObjectiveDB, table=True):
 
     # Back populates
     problem: ProblemDB | None = Relationship(back_populates="objectives")
+
+
+class _Constraint(SQLModel):
+    """Helper class to override the fields of nested and list types, and Paths."""
+
+    func: list = Field(sa_column=Column(JSON))
+    scenario_keys: list[str] = Field(sa_column=Column(JSON))
+    surrogates: list[Path] = Field(sa_column=Column(PathListType))
+    simulator_path: Path = Field(sa_column=Column(PathType))
+
+
+_ConstraintDB = from_pydantic(
+    Constraint,
+    "_ConstraintDB",
+    union_type_conversions={str | None: str | None, float | None: float | None},
+    base_model=_Constraint,
+)
+
+
+class ConstraintDB(_ConstraintDB, table=True):
+    """The SQLModel equivalent to `Constraint`."""
+
+    id: int | None = Field(primary_key=True, default=None)
+    problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
+
+    # Back populates
+    problem: ProblemDB | None = Relationship(back_populates="constraints")
