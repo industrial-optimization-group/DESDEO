@@ -6,9 +6,9 @@ from sqlmodel import Session, SQLModel, create_engine, select
 from sqlmodel.pool import StaticPool
 
 from desdeo.api.app import app
-from desdeo.api.models import ConstantDB, ProblemDB, TensorConstantDB, User, UserRole, VariableDB
+from desdeo.api.models import ConstantDB, ProblemDB, TensorConstantDB, TensorVariableDB, User, UserRole, VariableDB
 from desdeo.api.routers.user_authentication import get_password_hash
-from desdeo.problem.schema import Constant, TensorConstant, Variable, VariableTypeEnum
+from desdeo.problem.schema import Constant, TensorConstant, TensorVariable, Variable, VariableTypeEnum
 
 
 @pytest.fixture(name="session_and_users")
@@ -120,6 +120,39 @@ def test_variable(session_and_users: dict[str, Session | list[User]]):
     variable_validated = Variable.model_validate(from_db_variable_dump)
 
     assert variable_validated == variable
+
+
+def test_tensor_variable(session_and_users: dict[str, Session | list[User]]):
+    """Test that a tensor variable can be transformed to an SQLModel and back after adding it to the database."""
+    session = session_and_users["session"]
+
+    t_variable = TensorVariable(
+        name="test variable",
+        symbol="X",
+        shape=[2, 2],
+        initial_values=[[1, 2], [3, 4]],
+        lowerbounds=[[0, 1], [1, 0]],
+        upperbounds=[[99, 89], [88, 77]],
+        variable_type=VariableTypeEnum.integer,
+    )
+
+    t_variable_dump = t_variable.model_dump()
+    t_variable_dump["problem_id"] = 69
+
+    db_t_variable = TensorVariableDB.model_validate(t_variable_dump)
+
+    session.add(db_t_variable)
+    session.commit()
+    session.refresh(db_t_variable)
+
+    from_db_t_variable = session.get(TensorVariableDB, 1)
+
+    assert db_t_variable == from_db_t_variable
+
+    from_db_t_variable_dump = from_db_t_variable.model_dump()
+    t_variable_validated = TensorVariable.model_validate(from_db_t_variable_dump)
+
+    assert t_variable_validated == t_variable
 
 
 def test_problem(session_and_users: dict[str, Session | list[User]]):

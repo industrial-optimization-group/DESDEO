@@ -5,7 +5,7 @@ from types import UnionType
 from pydantic import BaseModel, create_model
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
-from desdeo.problem.schema import Constant, Tensor, TensorConstant, Variable, VariableType
+from desdeo.problem.schema import Constant, Tensor, TensorConstant, TensorVariable, Variable, VariableType
 
 
 def from_pydantic(
@@ -67,6 +67,7 @@ class ProblemDB(SQLModel, table=True):
     constants: list["ConstantDB"] = Relationship(back_populates="problem")
     tensor_constants: list["TensorConstantDB"] = Relationship(back_populates="problem")
     variables: list["VariableDB"] = Relationship(back_populates="problem")
+    tensor_variables: list["TensorVariableDB"] = Relationship(back_populates="problem")
 
     # name: str
     # description: str
@@ -130,3 +131,30 @@ class VariableDB(_VariableDB, table=True):
 
     # Back populates
     problem: ProblemDB | None = Relationship(back_populates="variables")
+
+
+class _TensorVariable(SQLModel):
+    """Helper class to override the field types of nested and list types."""
+
+    initial_values: Tensor | None = Field(sa_column=Column(JSON))
+    lowerbounds: Tensor | None = Field(sa_column=Column(JSON))
+    upperbounds: Tensor | None = Field(sa_column=Column(JSON))
+    shape: list[int] = Field(sa_column=Column(JSON))
+
+
+_TensorVariableDB = from_pydantic(
+    TensorVariable,
+    "_TensorVariableDB",
+    union_type_conversions={VariableType: float, VariableType | None: float | None},
+    base_model=_TensorVariable,
+)
+
+
+class TensorVariableDB(_TensorVariableDB, table=True):
+    """The SQLModel equivalent to `TensorVariable`."""
+
+    id: int | None = Field(primary_key=True, default=None)
+    problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
+
+    # Back populates
+    problem: ProblemDB | None = Relationship(back_populates="tensor_variables")
