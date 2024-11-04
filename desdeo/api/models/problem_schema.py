@@ -1,9 +1,11 @@
 """."""
 
+import json
 from pathlib import Path
 from types import UnionType
 
 from pydantic import BaseModel, create_model
+from sqlalchemy.types import String, TypeDecorator
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
 from desdeo.problem.schema import (
@@ -15,6 +17,44 @@ from desdeo.problem.schema import (
     Variable,
     VariableType,
 )
+
+
+class PathType(TypeDecorator):
+    """SQLAlchemy custom type to convert Path to string (credit to @strfx on GitHUb!)."""
+
+    impl = String
+
+    def process_bind_param(self, value, dialect):
+        """Path to string."""
+        if isinstance(value, Path):
+            return str(value)
+        return value
+
+    def process_result_value(self, value, dialect):
+        """String to Path."""
+        if value is not None:
+            return Path(value)
+        return value
+
+
+class PathListType(TypeDecorator):
+    """SQLAlchemy custom type to convert list[Path] to JSON."""
+
+    impl = String
+
+    def process_bind_param(self, value, dialect):
+        """list[Path] to JSON."""
+        if isinstance(value, list) and all(isinstance(item, Path) for item in value):
+            return json.dumps([str(item) for item in value])
+        return value  # Handle as a normal string if not a list of Paths
+
+    def process_result_value(self, value, dialect):
+        """JSON to list[Path]."""
+        # Deserialize JSON back to a list of Path objects
+        if value is not None:
+            path_strings = json.loads(value)
+            return [Path(item) for item in path_strings]
+        return None
 
 
 def from_pydantic(
@@ -181,7 +221,8 @@ class _Objective(SQLModel):
 
     func: list = Field(sa_column=Column(JSON))
     scenario_keys: list[str] = Field(sa_column=Column(JSON))
-    # surrogates: list[Path] = Field(sa_column=Column(JSON))
+    surrogates: list[Path] = Field(sa_column=Column(PathListType))
+    simulator_path: Path = Field(sa_column=Column(PathType))
 
 
 _ObjectiveDB = from_pydantic(
