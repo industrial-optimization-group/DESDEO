@@ -6,9 +6,9 @@ from sqlmodel import Session, SQLModel, create_engine, select
 from sqlmodel.pool import StaticPool
 
 from desdeo.api.app import app
-from desdeo.api.models import ConstantDB, ProblemDB, TensorConstantDB, User, UserRole
+from desdeo.api.models import ConstantDB, ProblemDB, TensorConstantDB, User, UserRole, VariableDB
 from desdeo.api.routers.user_authentication import get_password_hash
-from desdeo.problem.schema import Constant, TensorConstant
+from desdeo.problem.schema import Constant, TensorConstant, Variable, VariableTypeEnum
 
 
 @pytest.fixture(name="session_and_users")
@@ -90,6 +90,38 @@ def test_constant(session_and_users: dict[str, Session | list[User]]):
     assert constant_validated == constant
 
 
+def test_variable(session_and_users: dict[str, Session | list[User]]):
+    """Test that a scalar variable can be transformed to an SQLModel and back after adding it to the database."""
+    session = session_and_users["session"]
+
+    variable = Variable(
+        name="test variable",
+        symbol="x_1",
+        initial_value=69,
+        lowerbound=42,
+        upperbound=420,
+        variable_type=VariableTypeEnum.integer,
+    )
+
+    variable_dump = variable.model_dump()
+    variable_dump["problem_id"] = 1
+
+    db_variable = VariableDB.model_validate(variable_dump)
+
+    session.add(db_variable)
+    session.commit()
+    session.refresh(db_variable)
+
+    from_db_variable = session.get(VariableDB, 1)
+
+    assert db_variable == from_db_variable
+
+    from_db_variable_dump = from_db_variable.model_dump()
+    variable_validated = Variable.model_validate(from_db_variable_dump)
+
+    assert variable_validated == variable
+
+
 def test_problem(session_and_users: dict[str, Session | list[User]]):
     """Test that a problem can be added and fetched from the database correctly."""
     session = session_and_users["session"]
@@ -115,5 +147,8 @@ def test_problem(session_and_users: dict[str, Session | list[User]]):
     session.add(db_constant_2)
     session.commit()
 
-    statement = select(ConstantDB).where(ConstantDB.problem_id == problemdb.id)
-    result = session.exec(statement).all()
+    session.refresh(problemdb)
+    session.refresh(db_constant_1)
+    session.refresh(db_constant_2)
+
+    print()

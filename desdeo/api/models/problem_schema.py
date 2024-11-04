@@ -3,9 +3,9 @@
 from types import UnionType
 
 from pydantic import BaseModel, create_model
-from sqlmodel import JSON, Column, Field, SQLModel
+from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
-from desdeo.problem.schema import Constant, Tensor, TensorConstant, VariableType
+from desdeo.problem.schema import Constant, Tensor, TensorConstant, Variable, VariableType
 
 
 def from_pydantic(
@@ -63,6 +63,11 @@ class ProblemDB(SQLModel, table=True):
     id: int | None = Field(primary_key=True, default=None)
     owner: int | None = Field(foreign_key="user.id")
 
+    # Populated by other models
+    constants: list["ConstantDB"] = Relationship(back_populates="problem")
+    tensor_constants: list["TensorConstantDB"] = Relationship(back_populates="problem")
+    variables: list["VariableDB"] = Relationship(back_populates="problem")
+
     # name: str
     # description: str
     # variables: list[Variable | TensorVariable]
@@ -95,6 +100,9 @@ class TensorConstantDB(_BaseTensorConstantDB, table=True):
     id: int | None = Field(primary_key=True, default=None)
     problem_id: int | None = Field(default=None, foreign_key="problemdb.id")
 
+    # Back populates
+    problem: ProblemDB | None = Relationship(back_populates="tensor_constants")
+
 
 _ConstantDB = from_pydantic(Constant, "_ConstantDB", union_type_conversions={VariableType: float})
 
@@ -104,3 +112,21 @@ class ConstantDB(_ConstantDB, table=True):
 
     id: int | None = Field(primary_key=True, default=None)
     problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
+
+    # Back populates
+    problem: ProblemDB | None = Relationship(back_populates="constants")
+
+
+_VariableDB = from_pydantic(
+    Variable, "_VariableDB", union_type_conversions={VariableType: float, VariableType | None: float | None}
+)
+
+
+class VariableDB(_VariableDB, table=True):
+    """The SQLModel equivalent to `Variable`."""
+
+    id: int | None = Field(primary_key=True, default=None)
+    problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
+
+    # Back populates
+    problem: ProblemDB | None = Relationship(back_populates="variables")
