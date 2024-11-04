@@ -6,9 +6,26 @@ from sqlmodel import Session, SQLModel, create_engine, select
 from sqlmodel.pool import StaticPool
 
 from desdeo.api.app import app
-from desdeo.api.models import ConstantDB, ProblemDB, TensorConstantDB, TensorVariableDB, User, UserRole, VariableDB
+from desdeo.api.models import (
+    ConstantDB,
+    ObjectiveDB,
+    ProblemDB,
+    TensorConstantDB,
+    TensorVariableDB,
+    User,
+    UserRole,
+    VariableDB,
+)
 from desdeo.api.routers.user_authentication import get_password_hash
-from desdeo.problem.schema import Constant, TensorConstant, TensorVariable, Variable, VariableTypeEnum
+from desdeo.problem.schema import (
+    Constant,
+    Objective,
+    ObjectiveTypeEnum,
+    TensorConstant,
+    TensorVariable,
+    Variable,
+    VariableTypeEnum,
+)
 
 
 @pytest.fixture(name="session_and_users")
@@ -153,6 +170,46 @@ def test_tensor_variable(session_and_users: dict[str, Session | list[User]]):
     t_variable_validated = TensorVariable.model_validate(from_db_t_variable_dump)
 
     assert t_variable_validated == t_variable
+
+
+def test_objective(session_and_users: dict[str, Session | list[User]]):
+    """Test that an objective can be transformed to an SQLModel and back after adding it to the database."""
+    session = session_and_users["session"]
+
+    objective = Objective(
+        name="Test Objective",
+        symbol="f_1",
+        func="x_1 + x_2 + Sin(y)",
+        objective_type=ObjectiveTypeEnum.analytical,
+        ideal=10.5,
+        nadir=20.0,
+        maximize=False,
+        scenario_keys=["s_1", "s_2"],
+        unit="m",
+        is_convex=False,
+        is_linear=True,
+        is_twice_differentiable=True,
+        simulator_path="/dev/null",
+        surrogates=["/var/log", "/dev/sda/sda1"],
+    )
+
+    objective_dump = objective.model_dump()
+    objective_dump["problem_id"] = 420  # yes
+
+    db_objective = ObjectiveDB.model_validate(objective_dump)
+
+    session.add(db_objective)
+    session.commit()
+    session.refresh(db_objective)
+
+    from_db_objective = session.get(ObjectiveDB, 1)
+
+    assert db_objective == from_db_objective
+
+    from_db_objective_dump = from_db_objective.model_dump()
+    objective_validated = Objective.model_validate(from_db_objective_dump)
+
+    assert objective_validated == objective
 
 
 def test_problem(session_and_users: dict[str, Session | list[User]]):

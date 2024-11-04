@@ -1,27 +1,40 @@
 """."""
 
+from pathlib import Path
 from types import UnionType
 
 from pydantic import BaseModel, create_model
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
-from desdeo.problem.schema import Constant, Tensor, TensorConstant, TensorVariable, Variable, VariableType
+from desdeo.problem.schema import (
+    Constant,
+    Objective,
+    Tensor,
+    TensorConstant,
+    TensorVariable,
+    Variable,
+    VariableType,
+)
 
 
 def from_pydantic(
-    model_class: BaseModel, name: str, union_type_conversions: dict[type, type], base_model: SQLModel = SQLModel
+    model_class: BaseModel,
+    name: str,
+    union_type_conversions: dict[type, type] | None = None,
+    base_model: SQLModel = SQLModel,
 ) -> SQLModel:
     """Creates an SQLModel class from a pydantic model.
 
     Args:
         model_class (BaseClass): the pydantic class to be converted.
         name (str): the name given to the class.
-        union_type_conversions (dict[type, type]): union type conversion table. This is needed, because
+        union_type_conversions (dict[type, type], optional): union type conversion table. This is needed, because
             SQLAlchemy expects all table columns to have a specific value. For example, a field with a type like
             `int | float | bool` cannot be stored in a database table because the field's type
             is ambiguous. In this case, storing whichever value originally stored in a the field as a
             `float` will suffice (because `int` and `bool` can be represented by floats).
             Therefore, a type conversion, such as `{int | float | bool: float}` is expected.
+            Defaults to `None`.
         base_model (SQLModel, optional): a base SQLModel to override problematic fields in the `model_class`, such
             as lists or derived nested types. The base class may have custom validators to help convert
             these values into something more suitable to be stored in a database. Often storing the JSON
@@ -36,6 +49,9 @@ def from_pydantic(
     """
     # collect field in the base model, if defined, do not try to convert the type
     base_fields = base_model.model_fields
+
+    if union_type_conversions is None:
+        union_type_conversions = {}
 
     field_definitions = {}
     for field_name, field_info in model_class.model_fields.items():
@@ -68,10 +84,10 @@ class ProblemDB(SQLModel, table=True):
     tensor_constants: list["TensorConstantDB"] = Relationship(back_populates="problem")
     variables: list["VariableDB"] = Relationship(back_populates="problem")
     tensor_variables: list["TensorVariableDB"] = Relationship(back_populates="problem")
+    objectives: list["ObjectiveDB"] = Relationship(back_populates="problem")
 
     # name: str
     # description: str
-    # variables: list[Variable | TensorVariable]
     # objectives: list[Objective]
     # constraints: list[Constraint] | None
     # extra_funcs: list[ExtraFunction] | None
@@ -158,3 +174,29 @@ class TensorVariableDB(_TensorVariableDB, table=True):
 
     # Back populates
     problem: ProblemDB | None = Relationship(back_populates="tensor_variables")
+
+
+class _Objective(SQLModel):
+    """Helper class to override the fields of nested and list types."""
+
+    func: list = Field(sa_column=Column(JSON))
+    scenario_keys: list[str] = Field(sa_column=Column(JSON))
+    # surrogates: list[Path] = Field(sa_column=Column(JSON))
+
+
+_ObjectiveDB = from_pydantic(
+    Objective,
+    "_ObjectiveDB",
+    union_type_conversions={str | None: str | None, float | None: float | None},
+    base_model=_Objective,
+)
+
+
+class ObjectiveDB(_ObjectiveDB, table=True):
+    """The SQLModel equivalent to `Objective`."""
+
+    id: int | None = Field(primary_key=True, default=None)
+    problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
+
+    # Back populates
+    problem: ProblemDB | None = Relationship(back_populates="objectives")
