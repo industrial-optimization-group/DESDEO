@@ -6,6 +6,13 @@ hide:
 # DESDEO
 
 <div class="grid cards" markdown>
+-   :octicons-info-24:{ .lg .middle } __Installing DESDEO__
+
+    ---
+
+    How to install DESDEO on your system
+
+    [:octicons-arrow-right-24: How to install DESDEO](./installing.md)
 
 -   :octicons-info-24:{ .lg .middle } __Defining a problem__
 
@@ -14,6 +21,14 @@ hide:
     How to define a multiobjective optimization problem
 
     [:octicons-arrow-right-24: Defining a problem](./problem.md)
+
+-   :octicons-info-24:{ .lg .middle } __Worked example__
+
+    ---
+
+    Worked example
+
+    [:octicons-arrow-right-24: Worked example](../notebooks/full_example.ipynb)
 
 -   :octicons-info-24:{ .lg .middle } __Hosting on Kubernetes__
 

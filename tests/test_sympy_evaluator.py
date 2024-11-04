@@ -89,13 +89,13 @@ def test_evaluate():
     for s in problem.get_all_symbols():
         assert s in res
 
-    f_1_res = -5.205
+    f_1_res = 5.205
     npt.assert_almost_equal(res["f_1"], f_1_res)
-    npt.assert_almost_equal(res["f_1_min"], f_1_res)
+    npt.assert_almost_equal(res["f_1_min"], -f_1_res)
 
-    f_2_res = -2.92703406574689
+    f_2_res = 2.92703406574689
     npt.assert_almost_equal(res["f_2"], f_2_res)
-    npt.assert_almost_equal(res["f_2_min"], f_2_res)
+    npt.assert_almost_equal(res["f_2_min"], -f_2_res)
 
     f_3_res = 7.36476190476191
     npt.assert_almost_equal(res["f_3"], f_3_res)
@@ -121,7 +121,7 @@ def test_evaluate():
 
     npt.assert_almost_equal(
         res[target],
-        ws["f_1"] * f_1_res + ws["f_2"] * f_2_res + ws["f_3"] * -f_3_res + ws["f_4"] * -f_4_res + ws["f_5"] * f_5_res,
+        ws["f_1"] * -f_1_res + ws["f_2"] * -f_2_res + ws["f_3"] * -f_3_res + ws["f_4"] * -f_4_res + ws["f_5"] * f_5_res,
     )
 
     # constants and constraints

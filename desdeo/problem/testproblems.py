@@ -107,14 +107,15 @@ def binh_and_korn(maximize: tuple[bool] = (False, False)) -> Problem:
 def river_pollution_problem(*, five_objective_variant: bool = True) -> Problem:
     r"""Create a pydantic dataclass representation of the river pollution problem with either five or four variables.
 
-    The objective functions "DO city", "DO municipality", and
-    "BOD deviation" are to be minimized, while "ROI fishery" and "ROI city" are to be
+    The objective functions "DO city" ($f_1$), "DO municipality" ($f_2), and
+    "ROI fishery" ($f_3$) and "ROI city" ($f_4$) are to be
     maximized. If the four variant problem is used, the the "BOD deviation" objective
-    function is not present. The problem is defined as follows:
+    function ($f_5$) is not present, but if it is, it is to be minimized.
+    The problem is defined as follows:
 
     \begin{align*}
-    \min f_1(x) &= -4.07 - 2.27 x_1 \\
-    \min f_2(x) &= -2.60 - 0.03 x_1 - 0.02 x_2 - \frac{0.01}{1.39 - x_1^2} - \frac{0.30}{1.39 - x_2^2} \\
+    \max f_1(x) &= 4.07 + 2.27 x_1 \\
+    \max f_2(x) &= 2.60 + 0.03 x_1 + 0.02 x_2 + \frac{0.01}{1.39 - x_1^2} + \frac{0.30}{1.39 - x_2^2} \\
     \max f_3(x) &= 8.21 - \frac{0.71}{1.09 - x_1^2} \\
     \max f_4(x) &= 0.96 - \frac{0.96}{1.09 - x_2^2} \\
     \min f_5(x) &= \max(|x_1 - 0.65|, |x_2 - 0.65|) \\
@@ -150,8 +151,8 @@ def river_pollution_problem(*, five_objective_variant: bool = True) -> Problem:
         name="DO", symbol="x_2", variable_type="real", lowerbound=0.3, upperbound=1.0, initial_value=0.65
     )
 
-    f_1 = "-4.07 - 2.27 * x_1"
-    f_2 = "-2.60 - 0.03 * x_1 - 0.02 * x_2 - 0.01 / (1.39 - x_1**2) - 0.30 / (1.39 - x_2**2)"
+    f_1 = "4.07 + 2.27 * x_1"
+    f_2 = "2.60 + 0.03 * x_1 + 0.02 * x_2 + 0.01 / (1.39 - x_1**2) + 0.30 / (1.39 - x_2**2)"
     f_3 = "8.21 - 0.71 / (1.09 - x_1**2)"
     f_4 = "0.96 - 0.96 / (1.09 - x_2**2)"
     f_5 = "Max(Abs(x_1 - 0.65), Abs(x_2 - 0.65))"
@@ -160,9 +161,9 @@ def river_pollution_problem(*, five_objective_variant: bool = True) -> Problem:
         name="DO city",
         symbol="f_1",
         func=f_1,
-        maximize=False,
-        ideal=-6.34,
-        nadir=-4.75,
+        maximize=True,
+        ideal=6.34,
+        nadir=4.75,
         is_convex=True,
         is_linear=True,
         is_twice_differentiable=True,
@@ -171,9 +172,9 @@ def river_pollution_problem(*, five_objective_variant: bool = True) -> Problem:
         name="DO municipality",
         symbol="f_2",
         func=f_2,
-        maximize=False,
-        ideal=-3.44,
-        nadir=-2.85,
+        maximize=True,
+        ideal=3.44,
+        nadir=2.85,
         is_convex=False,
         is_linear=False,
         is_twice_differentiable=True,
@@ -220,7 +221,7 @@ def river_pollution_problem(*, five_objective_variant: bool = True) -> Problem:
 
     return Problem(
         name="The river pollution problem",
-        description="The river pollution problem to maximize return of investments and minimize pollution.",
+        description="The river pollution problem to maximize return of investments (ROI) and dissolved oxygen (DO).",
         variables=[variable_1, variable_2],
         objectives=objectives,
     )

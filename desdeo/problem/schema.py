@@ -15,6 +15,7 @@ from collections import Counter
 from collections.abc import Iterable
 from enum import Enum
 from itertools import product
+from pathlib import Path
 from typing import Annotated, Any, Literal, TypeAliasType
 
 import numpy as np
@@ -241,6 +242,14 @@ class ObjectiveTypeEnum(str, Enum):
     objective is present in a `Problem`, then there is a
     `DiscreteRepresentation` available with values representing the objective
     function."""
+    simulator = "simulator"
+    """A simulator based objective function. It is assumed that a Path (str)
+    to a simulator file that connects a simulator to DESDEO is present in
+    the `Objective` and also in the list of simulators in the `Problem`."""
+    surrogate = "surrogate"
+    """A surrogate based objective function. It is assumed that a Path (str)
+    to a surrogate saved on the disk is present in the `Objective` and also in
+    the list of simulators in the `Problem`."""
 
 
 class Constant(BaseModel):
@@ -588,17 +597,43 @@ class ExtraFunction(BaseModel):
     """ Symbol to represent the function. This will be used in the rest of the
     problem definition.  It may also be used in UIs and visualizations. Example:
     'avg'."""
-    func: list = Field(
+    func: list | None = Field(
         description=(
             "The string representing the function. This is a JSON object that can be parsed into a function."
             "Must be a valid MathJSON object."
             " The symbols in the function must match symbols defined for objective/variable/constant."
+            "Can be 'None' if either 'simulator_path' or 'surrogates' is not 'None'. "
+            "If 'None', either 'simulator_path' or 'surrogates' must not be 'None'."
         ),
+        default=None,
     )
     """ The string representing the function. This is a JSON object that can be
     parsed into a function.  Must be a valid MathJSON object.  The symbols in
     the function must match symbols defined for objective/variable/constant.
-    """
+    Can be 'None' if either 'simulator_path' or 'surrogates' is not 'None'.
+    If 'None', either 'simulator_path' or 'surrogates' must not be 'None'."""
+    simulator_path: Path | None = Field(
+        description=(
+            "Path to a python file with the connection to simulators. Must be a valid Path."
+            "Can be 'None' for 'analytical', 'data_based' or 'surrogate' functions."
+            "If 'None', either 'func' or 'surrogates' must not be 'None'."
+        ),
+        default=None,
+    )
+    """Path to a python file with the connection to simulators. Must be a valid Path.
+    Can be 'None' for 'analytical', 'data_based' or 'surrogate' functions.
+    If 'None', either 'func' or 'surrogates' must not be 'None'."""
+    surrogates: list[Path] | None = Field(
+        description=(
+            "A list of paths to models saved on disk. Can be 'None' for 'analytical', 'data_based "
+            "or 'simulator' functions. If 'None', either 'func' or 'simulator_path' must "
+            "not be 'None'."
+        ),
+        default=None,
+    )
+    """A list of paths to models saved on disk. Can be 'None' for 'analytical', 'data_based
+    or 'simulator' functions. If 'None', either 'func' or 'simulator_path' must
+    not be 'None'."""
     is_linear: bool = Field(
         description="Whether the function expression is linear or not. Defaults to `False`.", default=False
     )
@@ -676,6 +711,35 @@ class ScalarizationFunction(BaseModel):
     )
 
 
+class Simulator(BaseModel):
+    """Model for simulator data."""
+
+    model_config = ConfigDict(frozen=True)
+
+    name: str = Field(
+        description=("Descriptive name of the simulator. This can be used in UI and visualizations."),
+    )
+    """Descriptive name of the simulator. This can be used in UI and visualizations."""
+    symbol: str = Field(
+        description=(
+            "Symbol to represent the simulator. This will be used in the rest of the problem definition."
+            " It may also be used in UIs and visualizations."
+        ),
+    )
+    file: Path = Field(
+        description=("Path to a python file with the connection to simulators."),
+    )
+    """Path to a python file with the connection to simulators."""
+    parameter_options: dict | None = Field(
+        description=(
+            "Parameters to the simulator that are not decision variables, but affect the results."
+            "Format is similar to decision variables. Can be 'None'."
+        ),
+    )
+    """Parameters to the simulator that are not decision variables, but affect the results.
+    Format is similar to decision variables. Can be 'None'."""
+
+
 class Objective(BaseModel):
     """Model for an objective function."""
 
@@ -709,13 +773,39 @@ class Objective(BaseModel):
         description=(
             "The objective function. This is a JSON object that can be parsed into a function."
             "Must be a valid MathJSON object. The symbols in the function must match the symbols defined for "
-            "variable/constant/extra function. Can be 'None' for 'data_based' objective functions."
+            "variable/constant/extra function. Can be 'None' for 'data_based', 'simulator' or "
+            "'surrogate' objective functions. If 'None', either 'simulator_path' or 'surrogates' must "
+            "not be 'None'."
         ),
+        default=None,
     )
-    """ The objective function. This is a JSON object that can be parsed into a
-    function.  Must be a valid MathJSON object. The symbols in the function must
-    match the symbols defined for variable/constant/extra function. Can be
-    'None' for 'data_based' objective functions."""
+    """ The objective function. This is a JSON object that can be parsed into a function.
+    Must be a valid MathJSON object. The symbols in the function must match the symbols defined for
+    variable/constant/extra function. Can be 'None' for 'data_based', 'simulator' or
+    'surrogate' objective functions. If 'None', either 'simulator_path' or 'surrogates' must
+    not be 'None'."""
+    simulator_path: Path | None = Field(
+        description=(
+            "Path to a python file with the connection to simulators. Must be a valid Path."
+            "Can be 'None' for 'analytical', 'data_based' or 'surrogate' objective functions."
+            "If 'None', either 'func' or 'surrogates' must not be 'None'."
+        ),
+        default=None,
+    )
+    """Path to a python file with the connection to simulators. Must be a valid Path.
+    Can be 'None' for 'analytical', 'data_based' or 'surrogate' objective functions.
+    If 'None', either 'func' or 'surrogates' must not be 'None'."""
+    surrogates: list[Path] | None = Field(
+        description=(
+            "A list of paths to models saved on disk. Can be 'None' for 'analytical', 'data_based "
+            "or 'simulator' objective functions. If 'None', either 'func' or 'simulator_path' must "
+            "not be 'None'."
+        ),
+        default=None,
+    )
+    """A list of paths to models saved on disk. Can be 'None' for 'analytical', 'data_based
+    or 'simulator' objective functions. If 'None', either 'func' or 'simulator_path' must
+    not be 'None'."""
     maximize: bool = Field(
         description="Whether the objective function is to be maximized or minimized.",
         default=False,
@@ -797,17 +887,41 @@ class Constraint(BaseModel):
     constraint's expression, and on the right hand side a zero value is assume.
     The comparison between the left hand side and right hand side is either and
     quality comparison ('=') or lesser than equal comparison ('<=')."""
-    func: list = Field(
+    func: list | None = Field(
         description=(
             "Function of the constraint. This is a JSON object that can be parsed into a function."
             "Must be a valid MathJSON object."
             " The symbols in the function must match objective/variable/constant symbols."
+            "Can be 'None' if either 'simulator_path' or 'surrogates' is not 'None'. "
+            "If 'None', either 'simulator_path' or 'surrogates' must not be 'None'."
         ),
+        default=None,
     )
     """ Function of the constraint. This is a JSON object that can be parsed
     into a function.  Must be a valid MathJSON object.  The symbols in the
-    function must match objective/variable/constant symbols."""
-
+    function must match objective/variable/constant symbols.
+    Can be 'None' if either 'simulator_path' or 'surrogates' is not 'None'.
+    If 'None', either 'simulator_path' or 'surrogates' must not be 'None'."""
+    simulator_path: Path | None = Field(
+        description=(
+            "Path to a python file with the connection to simulators. Must be a valid Path."
+            "Can be 'None' for if either 'func' or 'surrogates' is not 'None'."
+            "If 'None', either 'func' or 'surrogates' must not be 'None'."
+        ),
+        default=None,
+    )
+    """Path to a python file with the connection to simulators. Must be a valid Path.
+    Can be 'None' for if either 'func' or 'surrogates' is not 'None'.
+    If 'None', either 'func' or 'surrogates' must not be 'None'."""
+    surrogates: list[Path] | None = Field(
+        description=(
+            "A list of paths to models saved on disk. Can be 'None' for if either 'func' or 'simulator_path' "
+            "is not 'None'. If 'None', either 'func' or 'simulator_path' must not be 'None'."
+        ),
+        default=None,
+    )
+    """A list of paths to models saved on disk. Can be 'None' for if either 'func' or 'simulator_path'
+    is not 'None'. If 'None', either 'func' or 'simulator_path' must not be 'None'."""
     is_linear: bool = Field(
         description="Whether the constraint is linear or not. Defaults to True, e.g., a linear constraint is assumed.",
         default=True,
@@ -980,6 +1094,38 @@ class Problem(BaseModel):
             raise ValueError(msg)
 
         return self.model_copy(update={"scalarization_funcs": [*self.scalarization_funcs, new_scal]})
+
+    def update_ideal_and_nadir(
+        self,
+        new_ideal: dict[str, VariableType | None] | None = None,
+        new_nadir: dict[str, VariableType | None] | None = None,
+    ) -> "Problem":
+        """Update the ideal and nadir values of the problem.
+
+        Args:
+            ideal (dict[str, VariableType  |  None] | None): _description_
+            nadir (dict[str, VariableType  |  None] | None): _description_
+        """
+        updated_objectives = []
+        for objective in self.objectives:
+            new_objective = objective.copy(
+                update={
+                    **(
+                        {"ideal": new_ideal[objective.symbol]}
+                        if new_ideal is not None and objective.symbol in new_ideal
+                        else {}
+                    ),
+                    **(
+                        {"nadir": new_nadir[objective.symbol]}
+                        if new_nadir is not None and objective.symbol in new_nadir
+                        else {}
+                    ),
+                }
+            )
+
+            updated_objectives.append(new_objective)
+
+        return self.copy(update={"objectives": updated_objectives})
 
     def add_constraints(self, new_constraints: list[Constraint]) -> "Problem":
         """Adds new constraints to the problem model.
@@ -1414,6 +1560,18 @@ class Problem(BaseModel):
     to a subset of objectives, " "constraints, extra functions, and
     scalarization functions that have the same scenario key defined to them."
     "If None, then the problem is assumed to not contain scenarios."""
+    simulators: list[Simulator] | None = Field(
+        description=(
+            "Optional. The simulators used by the problem. Required when there are one or more "
+            "Objectives defined by simulators. The corresponding values of the 'simulator' objective "
+            "function will be fetched from these simulators with the given variable values."
+        ),
+        default=None,
+    )
+    """Optional. The simulators used by the problem. Required when there are one or more
+    Objectives defined by simulators. The corresponding values of the 'simulator' objective
+    function will be fetched from these simulators with the given variable values.
+    Defaults to `None`."""
 
 
 if __name__ == "__main__":

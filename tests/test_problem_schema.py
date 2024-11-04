@@ -618,3 +618,37 @@ def test_scenario_problem():
     assert len(problem_all.objectives) == 5
     assert len(problem_all.constraints) == 4
     assert len(problem_all.extra_funcs) == 1
+
+
+@pytest.mark.schema
+def test_update_ideal_and_nadir():
+    """Test that the method update_ideal_and_nadir works correctly."""
+    problem = simple_knapsack()
+
+    orig_ideal = problem.get_ideal_point()
+    orig_nadir = problem.get_nadir_point()
+
+    new_ideal = {"f_1": -100, "f_2": -25.0, "f_3": 41.0}
+    new_nadir = {"f_1": 153.0, "f_2": 255.0, "f_3": 137.0}
+
+    # update just ideal
+    problem_w_new_ideal = problem.update_ideal_and_nadir(new_ideal=new_ideal)
+
+    assert problem_w_new_ideal.get_ideal_point() == new_ideal
+    assert problem_w_new_ideal.get_nadir_point() == orig_nadir
+
+    # update just nadir
+    problem_w_new_nadir = problem.update_ideal_and_nadir(new_nadir=new_nadir)
+
+    assert problem_w_new_nadir.get_nadir_point() == new_nadir
+    assert problem_w_new_nadir.get_ideal_point() == orig_ideal
+
+    # update both
+    problem_w_new_ideal_and_nadir = problem.update_ideal_and_nadir(new_ideal=new_ideal, new_nadir=new_nadir)
+
+    assert problem_w_new_ideal_and_nadir.get_ideal_point() == new_ideal
+    assert problem_w_new_ideal_and_nadir.get_nadir_point() == new_nadir
+
+    # original problem unchanged
+    assert problem.get_ideal_point() == orig_ideal
+    assert problem.get_nadir_point() == orig_nadir

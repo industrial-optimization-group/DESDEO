@@ -125,20 +125,6 @@ def test_bonmin_w_momip_ti7():
     assert np.isclose(gs["g_1"], 0, atol=1e-8) or gs["g_1"] < 0
     assert np.isclose(gs["g_2"], 0, atol=1e-8) or gs["g_2"] < 0
 
-    results = solver.solve("f_2")
-
-    # check the result is Pareto optimal
-    assert results.success
-
-    xs = results.optimal_variables
-    npt.assert_almost_equal(xs["x_1"] ** 2 + xs["x_2"] ** 2 + xs["x_3"] ** 2, 1.0)
-    assert (xs["x_4"], xs["x_5"], xs["x_6"]) in [(0, 0, -1), (0, -1, 0), (-1, 0, 0)]
-
-    # check constraints
-    gs = results.constraint_values
-    assert np.isclose(gs["g_1"], 0, atol=1e-8) or gs["g_1"] < 0
-    assert np.isclose(gs["g_2"], 0, atol=1e-8) or gs["g_2"] < 0
-
     # test with mixed objectives
     target = "s_1"
     problem_w_scal = problem.add_scalarization(

@@ -76,3 +76,18 @@ class User(BaseModel):
     user_group: str = Field(description="User group of the user. Used for group decision making.")
     # To allows for User to be initialized from database instead of just dicts.
     model_config = ConfigDict(from_attributes=True)
+
+
+class Solvers(Enum):
+    """Enum of available solvers."""
+
+    # These should match available_solvers in desdeo.tools.utils
+
+    SCIPY_MIN = "scipy_minimize"
+    SCIPY_DE = "scipy_de"
+    PROXIMAL = "proximal"
+    NEVERGRAD = "nevergrad"
+    PYOMO_BONMIN = "pyomo_bonmin"
+    PYOMO_IPOPT = "pyomo_ipopt"
+    PYOMO_GUROBI = "pyomo_gurobi"
+    GUROBIPY = "gurobipy"

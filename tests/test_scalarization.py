@@ -629,19 +629,19 @@ def test_guess_sf_init():
     """Test that the GUESS scalarization is initialized correctly."""
     problem = river_pollution_problem()
 
-    rp = {"f_1": -5.0, "f_2": -3.0, "f_3": 2.5, "f_4": -5.0, "f_5": 0.35}
+    rp = {"f_1": 5.0, "f_2": 3.0, "f_3": 2.5, "f_4": -5.0, "f_5": 0.35}
 
     problem_w_sf, target = add_guess_sf_diff(problem, "target", rp)
 
     assert len(problem_w_sf.constraints) == 4
 
-    rp = {"f_1": -5.0, "f_2": -3.0, "f_3": 2.5, "f_4": -5.0, "f_5": 0.25}
+    rp = {"f_1": 5.0, "f_2": 3.0, "f_3": 2.5, "f_4": -5.0, "f_5": 0.25}
 
     problem_w_sf, target = add_guess_sf_diff(problem, "target", rp)
 
     assert len(problem_w_sf.constraints) == 5
 
-    rp = {"f_1": -4.75, "f_2": -2.85, "f_3": 0.32, "f_4": -9.70, "f_5": 0.25}
+    rp = {"f_1": 4.75, "f_2": 2.85, "f_3": 0.32, "f_4": -9.70, "f_5": 0.25}
 
     problem_w_sf, target = add_guess_sf_diff(problem, "target", rp)
 

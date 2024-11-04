@@ -30,6 +30,12 @@ class PolarsEvaluatorModesEnum(str, Enum):
     vector and objective vector pairs and those should be evaluated. In this
     mode, the evaluator does not expect any decision variables as arguments when
     evaluating."""
+    mixed = "mixed"
+    """Indicates that the problem has analytical and simulator and/or surrogate
+    based objectives, constraints and extra functions. In this mode, the evaluator
+    only handles the analytical functions and assumes there are no data based
+    objectives. The evaluator should expect decision variables vectors and evaluate
+    the problem with them."""
 
 
 class PolarsEvaluatorError(Exception):
@@ -131,7 +137,12 @@ class PolarsEvaluator:
         # Gather any constants of the problem definition.
         self.problem_constants = problem.constants
         # Gather the objective functions
-        self.problem_objectives = problem.objectives
+        if evaluator_mode == PolarsEvaluatorModesEnum.mixed:
+            self.problem_objectives = list(
+                filter(lambda x: x.objective_type == ObjectiveTypeEnum.analytical, problem.objectives)
+            )
+        else:
+            self.problem_objectives = problem.objectives
         # Gather any constraints
         self.problem_constraints = problem.constraints
         # Gather any extra functions
@@ -279,17 +290,21 @@ class PolarsEvaluator:
         ]
 
         # parse constraints, if any
+        # if a constraint is simulator or surrogate based (expression is None), set the "parsed" expression as None
         if parsed_cons_funcs is not None:
             self.constraint_expressions = [
-                (symbol, self.parser.parse(expression)) for symbol, expression in parsed_cons_funcs.items()
+                (symbol, self.parser.parse(expression)) if expression is not None else (symbol, None)
+                for symbol, expression in parsed_cons_funcs.items()
             ]
         else:
             self.constraint_expressions = None
 
         # parse extra functions, if any
+        # if an extra function is simulator or surrogate based (expression is None), set the "parsed" expression as None
         if parsed_extra_funcs is not None:
             self.extra_expressions = [
-                (symbol, self.parser.parse(expression)) for symbol, expression in parsed_extra_funcs.items()
+                (symbol, self.parser.parse(expression)) if expression is not None else (symbol, None)
+                for symbol, expression in parsed_extra_funcs.items()
             ]
         else:
             self.extra_expressions = None
@@ -345,9 +360,13 @@ class PolarsEvaluator:
                 )
 
         # Evaluate any extra functions and put the results in the aggregate dataframe.
+        # If an extra function is simulator or surrogate based (expression None), skip it here
         if self.extra_expressions is not None:
-            extra_columns = agg_df.select(*[expr.alias(symbol) for symbol, expr in self.extra_expressions])
-            agg_df = agg_df.hstack(extra_columns)
+            for symbol, expr in self.extra_expressions:
+                if expr is not None:
+                    # expression given
+                    extra_column = agg_df.select(expr.alias(symbol))
+                    agg_df = agg_df.hstack(extra_column)
 
         # Evaluate the objective functions and put the results in the aggregate dataframe.
         # obj_columns = agg_df.select(*[expr.alias(symbol) for symbol, expr in self.objective_expressions])
@@ -358,8 +377,9 @@ class PolarsEvaluator:
                 # expression given
                 obj_col = agg_df.select(expr.alias(symbol))
                 agg_df = agg_df.hstack(obj_col)
-            else:
-                # expr is None, therefore we must get the objective function's value somehow else, usually from data
+            elif self.evaluator_mode != PolarsEvaluatorModesEnum.mixed:
+                # expr is None and there are no no simulator or surrogate based objectives,
+                # therefore we must get the objective function's value somehow else, usually from data
                 obj_col = find_closest_points(agg_df, self.discrete_df, self.problem_variable_symbols, symbol)
                 agg_df = agg_df.hstack(obj_col)
 
@@ -375,9 +395,13 @@ class PolarsEvaluator:
         agg_df = agg_df.hstack(min_obj_columns)
 
         # Evaluate any constraints and put the results in the aggregate dataframe
+        # If a constraint is simulator or surrogate based (expression None), skip it here
         if self.constraint_expressions is not None:
-            cons_columns = agg_df.select(*[expr.alias(symbol) for symbol, expr in self.constraint_expressions])
-            agg_df = agg_df.hstack(cons_columns)
+            for symbol, expr in self.constraint_expressions:
+                if expr is not None:
+                    # expression given
+                    cons_columns = agg_df.select(expr.alias(symbol))
+                    agg_df = agg_df.hstack(cons_columns)
 
         # Evaluate any scalarization functions and put the result in the aggregate dataframe
         if self.scalarization_expressions is not None:

@@ -1,0 +1,6 @@
+---
+hide:
+- navigation
+---
+
+# Installing DESDEO

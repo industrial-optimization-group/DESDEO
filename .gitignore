@@ -150,3 +150,6 @@ experiment/
 # testmondata
 .testmondata*
 debug.py
+
+# utopia
+reference_solutions.json

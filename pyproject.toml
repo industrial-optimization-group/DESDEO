@@ -32,6 +32,7 @@ pyomo = "^6.0"
 jupyter = "^1.0"
 jupyterlab = "^4.0"
 # API packages
+asyncpg = { version = "^0.29.0", optional = true }
 gunicorn = { version = "^23.0.0", optional = true }
 fastapi = { version = "^0.106.0", optional = true }
 uvicorn = { extras = ["standard"], version = "^0.25.0", optional = true }
@@ -52,6 +53,7 @@ standard = ["polars"]
 legacy = ["polars-lts-cpu"]
 viz = ["seaborn", "plotly"] # We could make viz packages optional in the future.
 api = [
+    "asyncpg",
     "fastapi",
     "uvicorn",
     "sqlalchemy",
@@ -60,8 +62,7 @@ api = [
     "sqlalchemy-utils",
     "python-multipart",
     "python-jose",
-    "bcrypt",
-    "asyncpg"
+    "bcrypt"
 ] # We could make API packages optional in the future.
 server = ["gunicorn"]
 
@@ -82,6 +83,8 @@ pytest-testmon = "^2.1.1"
 snakeviz = "^2.2.0"
 pytest-asyncio = "^0.24.0"
 griffe = "^1.4.1"
+mkdocs-jupyter = "^0.25.1"
+jupytext = "^1.16.4"
 
 
 [tool.ruff]

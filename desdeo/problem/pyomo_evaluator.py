@@ -434,6 +434,10 @@ class PyomoEvaluator:
             msg = f"The pyomo model has no attribute {target}."
             raise PyomoEvaluatorError(msg)
 
+        # delete any existing objectives, if any
+        for obj in self.model.component_objects(pyomo.Objective, active=True):
+            obj.deactivate()
+
         obj_expr = getattr(self.model, target)
 
         objective = pyomo.Objective(expr=obj_expr, sense=pyomo.minimize, name=target)
