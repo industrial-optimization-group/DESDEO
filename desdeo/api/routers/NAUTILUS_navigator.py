@@ -125,7 +125,7 @@ def init_navigator(
     return InitialResponse(
         objective_symbols=[obj.symbol for obj in problem.objectives],
         objective_long_names=[obj.name for obj in problem.objectives],
-        units=[obj.unit for obj in problem.objectives],
+        units=[obj.unit or "" for obj in problem.objectives],  # For unitless objectives, return an empty string
         is_maximized=[obj.maximize for obj in problem.objectives],
         ideal=[obj.ideal for obj in problem.objectives],
         nadir=[obj.nadir for obj in problem.objectives],
@@ -220,7 +220,7 @@ def navigate(
     return Response(
         objective_symbols=[obj.symbol for obj in problem.objectives],
         objective_long_names=[obj.name for obj in problem.objectives],
-        units=[obj.unit for obj in problem.objectives],
+        units=[obj.unit or "" for obj in problem.objectives],
         is_maximized=[obj.maximize for obj in problem.objectives],
         ideal=[obj.ideal for obj in problem.objectives],
         nadir=[obj.nadir for obj in problem.objectives],

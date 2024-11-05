@@ -27,6 +27,7 @@ sympy = "^1.0"
 pyparsing = "^3.0"
 # Optimization
 nevergrad = "^1.0"
+bayesian-optimization = "^1.0" # They recently released v2 which breaks compatibility with nevergrad 
 pyomo = "^6.0"
 # Miscellaneous
 jupyter = "^1.0"
