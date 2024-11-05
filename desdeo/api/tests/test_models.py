@@ -11,6 +11,7 @@ from desdeo.api.models import (
     ConstraintDB,
     ObjectiveDB,
     ProblemDB,
+    ScalarizationFunctionDB,
     TensorConstantDB,
     TensorVariableDB,
     User,
@@ -24,6 +25,7 @@ from desdeo.problem.schema import (
     ConstraintTypeEnum,
     Objective,
     ObjectiveTypeEnum,
+    ScalarizationFunction,
     TensorConstant,
     TensorVariable,
     Variable,
@@ -249,6 +251,39 @@ def test_constraint(session_and_users: dict[str, Session | list[User]]):
     constraint_validated = Constraint.model_validate(from_db_constraint_dump)
 
     assert constraint_validated == constraint
+
+
+def test_scalarization_function(session_and_users: dict[str, Session | list[User]]):
+    """Test that a scalarization function can be transformed to an SQLModel and back after adding it to the database."""
+    session = session_and_users["session"]
+
+    scalarization = ScalarizationFunction(
+        name="Test ScalarizationFunction",
+        symbol="s_1",
+        func="x_1 + x_1 + x_1 - 10 - 99999 + Sin(y_3)",
+        is_convex=True,
+        is_linear=True,
+        is_twice_differentiable=False,
+        scenario_keys=["Abloy", "MasterLock", "MasterLockToOpenMasterLock", "MyHandsHurt"],
+    )
+
+    scalarization_dump = scalarization.model_dump()
+    scalarization_dump["problem_id"] = 2
+
+    db_scalarization = ScalarizationFunctionDB.model_validate(scalarization_dump)
+
+    session.add(db_scalarization)
+    session.commit()
+    session.refresh(db_scalarization)
+
+    from_db_scalarization = session.get(ScalarizationFunctionDB, 1)
+
+    assert db_scalarization == from_db_scalarization
+
+    from_db_scalarization_dump = from_db_scalarization.model_dump()
+    scalarization_validated = ScalarizationFunction.model_validate(from_db_scalarization_dump)
+
+    assert scalarization_validated == scalarization
 
 
 def test_problem(session_and_users: dict[str, Session | list[User]]):

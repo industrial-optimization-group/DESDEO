@@ -660,14 +660,15 @@ class ExtraFunction(BaseModel):
 class ScalarizationFunction(BaseModel):
     """Model for scalarization of the problem."""
 
-    name: str = Field(description=("Name of the scalarization function."), frozen=True)
+    model_config = ConfigDict(frozen=True)
+
+    name: str = Field(description=("Name of the scalarization function."))
     """Name of the scalarization function."""
     symbol: str | None = Field(
         description=(
             "Optional symbol to represent the scalarization function. This may be used in UIs and visualizations."
         ),
         default=None,
-        frozen=False,
     )
     """Optional symbol to represent the scalarization function. This may be used
     in UIs and visualizations. Defaults to `None`."""
@@ -678,26 +679,23 @@ class ScalarizationFunction(BaseModel):
             " The symbols in the function must match the symbols defined for objective/variable/constant/extra"
             " function."
         ),
-        frozen=True,
     )
     """ Function representation of the scalarization. This is a JSON object that
     can be parsed into a function.  Must be a valid MathJSON object. The
     symbols in the function must match the symbols defined for
     objective/variable/constant/extra function."""
     is_linear: bool = Field(
-        description="Whether the function expression is linear or not. Defaults to `False`.", default=False, frozen=True
+        description="Whether the function expression is linear or not. Defaults to `False`.", default=False
     )
     """Whether the function expression is linear or not. Defaults to `False`."""
     is_convex: bool = Field(
         description="Whether the function expression is convex or not (non-convex). Defaults to `False`.",
         default=False,
-        frozen=True,
     )
     """Whether the function expression is convex or not (non-convex). Defaults to `False`."""
     is_twice_differentiable: bool = Field(
         description="Whether the function expression is twice differentiable or not. Defaults to `False`",
         default=False,
-        frozen=True,
     )
     """Whether the function expression is twice differentiable or not. Defaults to `False`"""
     scenario_keys: list[str] = Field(

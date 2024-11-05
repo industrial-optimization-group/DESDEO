@@ -12,6 +12,7 @@ from desdeo.problem.schema import (
     Constant,
     Constraint,
     Objective,
+    ScalarizationFunction,
     Tensor,
     TensorConstant,
     TensorVariable,
@@ -127,6 +128,7 @@ class ProblemDB(SQLModel, table=True):
     tensor_variables: list["TensorVariableDB"] = Relationship(back_populates="problem")
     objectives: list["ObjectiveDB"] = Relationship(back_populates="problem")
     constraints: list["ConstraintDB"] = Relationship(back_populates="problem")
+    extra_funcs: list["ScalarizationFunctionDB"] = Relationship(back_populates="problem")
 
     # name: str
     # description: str
@@ -270,3 +272,28 @@ class ConstraintDB(_ConstraintDB, table=True):
 
     # Back populates
     problem: ProblemDB | None = Relationship(back_populates="constraints")
+
+
+class _ScalarizationFunction(SQLModel):
+    """Helper class to override the fields of nested and list types, and Paths."""
+
+    func: list = Field(sa_column=Column(JSON))
+    scenario_keys: list[str] = Field(sa_column=Column(JSON))
+
+
+_ScalarizationFunctionDB = from_pydantic(
+    ScalarizationFunction,
+    "_ScalarizationFunctionDB",
+    union_type_conversions={str | None: str | None},
+    base_model=_ScalarizationFunction,
+)
+
+
+class ScalarizationFunctionDB(_ScalarizationFunctionDB, table=True):
+    """The SQLModel equivalent to `ScalarizationFunction`."""
+
+    id: int | None = Field(primary_key=True, default=None)
+    problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
+
+    # Back populates
+    problem: ProblemDB | None = Relationship(back_populates="extra_funcs")
