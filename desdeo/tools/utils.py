@@ -157,15 +157,23 @@ def guess_best_solver(problem: Problem) -> BaseSolver:  # noqa: PLR0911
         # guess proximal solver is best
         return available_solvers["proximal"]
 
+    # check if the problem is linear
+    if problem.is_linear:
+        return available_solvers["gurobipy"]
+
     # check if the problem is differentiable and if it is mixed integer
-    if problem.is_twice_differentiable and problem.variable_domain in [
+    if problem.is_twice_differentiable and shutil.which("bonmin") and problem.variable_domain in [
         VariableDomainTypeEnum.integer,
         VariableDomainTypeEnum.mixed,
     ]:
         return available_solvers["pyomo_bonmin"]
 
     # check if the problem is differentiable and continuous
-    if problem.is_twice_differentiable and problem.variable_domain in [VariableDomainTypeEnum.continuous]:
+    if (
+        problem.is_twice_differentiable
+        and shutil.which("ipopt")
+        and problem.variable_domain in [VariableDomainTypeEnum.continuous]
+    ):
         return available_solvers["pyomo_ipopt"]
 
     # else, guess nevergrad heuristics to be the best
