@@ -3,6 +3,7 @@
 __all__ = [
     "ConstantDB",
     "ConstraintDB",
+    "ExtraFunctionDB",
     "User",
     "UserBase",
     "UserPublic",
@@ -18,6 +19,7 @@ __all__ = [
 from .problem_schema import (
     ConstantDB,
     ConstraintDB,
+    ExtraFunctionDB,
     ObjectiveDB,
     ProblemDB,
     ScalarizationFunctionDB,

@@ -9,6 +9,7 @@ from desdeo.api.app import app
 from desdeo.api.models import (
     ConstantDB,
     ConstraintDB,
+    ExtraFunctionDB,
     ObjectiveDB,
     ProblemDB,
     ScalarizationFunctionDB,
@@ -23,6 +24,7 @@ from desdeo.problem.schema import (
     Constant,
     Constraint,
     ConstraintTypeEnum,
+    ExtraFunction,
     Objective,
     ObjectiveTypeEnum,
     ScalarizationFunction,
@@ -284,6 +286,39 @@ def test_scalarization_function(session_and_users: dict[str, Session | list[User
     scalarization_validated = ScalarizationFunction.model_validate(from_db_scalarization_dump)
 
     assert scalarization_validated == scalarization
+
+
+def test_extra_function(session_and_users: dict[str, Session | list[User]]):
+    """Test that an extra function can be transformed to an SQLModel and back after adding it to the database."""
+    session = session_and_users["session"]
+
+    extra = ExtraFunction(
+        name="Test ExtraFunction",
+        symbol="extra_1",
+        func="x_1 + x_2 + x_9000 - 10 - 99999 + Cos(y_3)",
+        is_convex=False,
+        is_linear=False,
+        is_twice_differentiable=True,
+        scenario_keys=["Abloy", "MasterLock", "MasterLockToOpenMasterLock", "MyHandsHurt", "RunningOutOfIdeas"],
+    )
+
+    extra_dump = extra.model_dump()
+    extra_dump["problem_id"] = 5
+
+    db_extra = ExtraFunctionDB.model_validate(extra_dump)
+
+    session.add(db_extra)
+    session.commit()
+    session.refresh(db_extra)
+
+    from_db_extra = session.get(ExtraFunctionDB, 1)
+
+    assert db_extra == from_db_extra
+
+    from_db_extra_dump = from_db_extra.model_dump()
+    extra_validated = ExtraFunction.model_validate(from_db_extra_dump)
+
+    assert extra_validated == extra
 
 
 def test_problem(session_and_users: dict[str, Session | list[User]]):

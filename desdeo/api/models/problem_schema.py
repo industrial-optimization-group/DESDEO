@@ -11,6 +11,7 @@ from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 from desdeo.problem.schema import (
     Constant,
     Constraint,
+    ExtraFunction,
     Objective,
     ScalarizationFunction,
     Tensor,
@@ -128,7 +129,8 @@ class ProblemDB(SQLModel, table=True):
     tensor_variables: list["TensorVariableDB"] = Relationship(back_populates="problem")
     objectives: list["ObjectiveDB"] = Relationship(back_populates="problem")
     constraints: list["ConstraintDB"] = Relationship(back_populates="problem")
-    extra_funcs: list["ScalarizationFunctionDB"] = Relationship(back_populates="problem")
+    scalarization_funcs: list["ScalarizationFunctionDB"] = Relationship(back_populates="problem")
+    extra_funcs: list["ExtraFunctionDB"] = Relationship(back_populates="problem")
 
     # name: str
     # description: str
@@ -224,9 +226,9 @@ class _Objective(SQLModel):
     """Helper class to override the fields of nested and list types, and Paths."""
 
     func: list = Field(sa_column=Column(JSON))
-    scenario_keys: list[str] = Field(sa_column=Column(JSON))
-    surrogates: list[Path] = Field(sa_column=Column(PathListType))
-    simulator_path: Path = Field(sa_column=Column(PathType))
+    scenario_keys: list[str] | None = Field(sa_column=Column(JSON), default=None)
+    surrogates: list[Path] | None = Field(sa_column=Column(PathListType), default=None)
+    simulator_path: Path | None = Field(sa_column=Column(PathType), default=None)
 
 
 _ObjectiveDB = from_pydantic(
@@ -251,9 +253,9 @@ class _Constraint(SQLModel):
     """Helper class to override the fields of nested and list types, and Paths."""
 
     func: list = Field(sa_column=Column(JSON))
-    scenario_keys: list[str] = Field(sa_column=Column(JSON))
-    surrogates: list[Path] = Field(sa_column=Column(PathListType))
-    simulator_path: Path = Field(sa_column=Column(PathType))
+    scenario_keys: list[str] | None = Field(sa_column=Column(JSON), default=None)
+    surrogates: list[Path] | None = Field(sa_column=Column(PathListType), default=None)
+    simulator_path: Path | None = Field(sa_column=Column(PathType), default=None)
 
 
 _ConstraintDB = from_pydantic(
@@ -291,6 +293,30 @@ _ScalarizationFunctionDB = from_pydantic(
 
 class ScalarizationFunctionDB(_ScalarizationFunctionDB, table=True):
     """The SQLModel equivalent to `ScalarizationFunction`."""
+
+    id: int | None = Field(primary_key=True, default=None)
+    problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
+
+    # Back populates
+    problem: ProblemDB | None = Relationship(back_populates="scalarization_funcs")
+
+
+class _ExtraFunction(SQLModel):
+    """Helper class to override the fields of nested and list types, and Paths."""
+
+    func: list = Field(sa_column=Column(JSON))
+    scenario_keys: list[str] | None = Field(sa_column=Column(JSON), default=None)
+    surrogates: list[Path] | None = Field(sa_column=Column(PathListType), default=None)
+    simulator_path: Path | None = Field(sa_column=Column(PathType), default=None)
+
+
+_ExtraFunctionDB = from_pydantic(
+    ExtraFunction, "_ExtraFunctionDB", union_type_conversions={str | None: str | None}, base_model=_ExtraFunction
+)
+
+
+class ExtraFunctionDB(_ExtraFunctionDB, table=True):
+    """The SQLModel equivalent to `ExtraFunction`."""
 
     id: int | None = Field(primary_key=True, default=None)
     problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
