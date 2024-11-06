@@ -319,12 +319,13 @@ def solve_reachable_solution(
             Constraint(
                 name=f"_const_bound_{i+1}",
                 symbol=f"_const_bound_{i+1}",
+                cons_type=ConstraintTypeEnum.LTE,
                 func=f"{obj.symbol}_min - {bounds[obj.symbol] * (-1 if obj.maximize else 1)}",
                 is_linear=obj.is_linear,
                 is_convex=obj.is_convex,
                 is_twice_differentiable=obj.is_twice_differentiable,
             )
-            for i, obj in problem.objectives
+            for i, obj in enumerate(problem.objectives)
         ]
 
     problem_w_asf = problem_w_asf.add_constraints(constraints)
