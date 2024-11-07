@@ -13,6 +13,7 @@ from desdeo.problem.schema import (
     DiscreteRepresentation,
     ExtraFunction,
     Objective,
+    ObjectiveTypeEnum,
     Problem,
     ScalarizationFunction,
     Variable,
@@ -652,3 +653,102 @@ def test_update_ideal_and_nadir():
     # original problem unchanged
     assert problem.get_ideal_point() == orig_ideal
     assert problem.get_nadir_point() == orig_nadir
+
+
+def test_is_twice_diff_problem():
+    """Test that the explicitly provided "is_twice_differentiable" is returned, if provided."""
+    variable = Variable(name="asdf", symbol="x_1", variable_type=VariableTypeEnum.binary)
+    objective1 = Objective(
+        name="f_1",
+        symbol="f_1",
+        func="x_1 + 1",
+        is_twice_differentiable=True,
+        objective_type=ObjectiveTypeEnum.analytical,
+    )
+    objective2 = Objective(
+        name="f_2",
+        symbol="f_2",
+        func="x_1 + 1",
+        is_twice_differentiable=True,
+        objective_type=ObjectiveTypeEnum.analytical,
+    )
+
+    problem = Problem(name="test", description="", variables=[variable], objectives=[objective1, objective2])
+
+    assert problem.is_twice_differentiable
+
+    problem = Problem(
+        name="test",
+        description="",
+        variables=[variable],
+        objectives=[objective1, objective2],
+        is_twice_differentiable=False,
+    )
+
+    assert not problem.is_twice_differentiable
+
+
+def test_is_convex_problem():
+    """Test that the explicitly provided "is_convex" is returned, if provided."""
+    variable = Variable(name="asdf", symbol="x_1", variable_type=VariableTypeEnum.binary)
+    objective1 = Objective(
+        name="f_1",
+        symbol="f_1",
+        func="x_1 + 1",
+        is_convex=True,
+        objective_type=ObjectiveTypeEnum.analytical,
+    )
+    objective2 = Objective(
+        name="f_2",
+        symbol="f_2",
+        func="x_1 + 1",
+        is_convex=True,
+        objective_type=ObjectiveTypeEnum.analytical,
+    )
+
+    problem = Problem(name="test", description="", variables=[variable], objectives=[objective1, objective2])
+
+    assert problem.is_convex
+
+    problem = Problem(
+        name="test",
+        description="",
+        variables=[variable],
+        objectives=[objective1, objective2],
+        is_convex=False,
+    )
+
+    assert not problem.is_convex
+
+
+def test_is_linear_problem():
+    """Test that the explicitly provided "is_linear" is returned, if provided."""
+    variable = Variable(name="asdf", symbol="x_1", variable_type=VariableTypeEnum.binary)
+    objective1 = Objective(
+        name="f_1",
+        symbol="f_1",
+        func="x_1 + 1",
+        is_linear=True,
+        objective_type=ObjectiveTypeEnum.analytical,
+    )
+    objective2 = Objective(
+        name="f_2",
+        symbol="f_2",
+        func="x_1 + 1",
+        is_linear=True,
+        objective_type=ObjectiveTypeEnum.analytical,
+    )
+
+    problem = Problem(name="test", description="", variables=[variable], objectives=[objective1, objective2])
+
+    assert problem.is_linear
+
+    problem = Problem(
+        name="test",
+        description="",
+        variables=[variable],
+        objectives=[objective1, objective2],
+        is_linear=False,
+    )
+
+    assert not problem.is_linear
