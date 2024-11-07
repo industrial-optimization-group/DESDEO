@@ -9,6 +9,7 @@ from desdeo.api.app import app
 from desdeo.api.models import (
     ConstantDB,
     ConstraintDB,
+    DiscreteRepresentationDB,
     ExtraFunctionDB,
     ObjectiveDB,
     ProblemDB,
@@ -24,6 +25,7 @@ from desdeo.problem.schema import (
     Constant,
     Constraint,
     ConstraintTypeEnum,
+    DiscreteRepresentation,
     ExtraFunction,
     Objective,
     ObjectiveTypeEnum,
@@ -319,6 +321,35 @@ def test_extra_function(session_and_users: dict[str, Session | list[User]]):
     extra_validated = ExtraFunction.model_validate(from_db_extra_dump)
 
     assert extra_validated == extra
+
+
+def test_discrete_representation(session_and_users: dict[str, Session | list[User]]):
+    """Test that a DiscreteRepresentation can be transformed to an SQLModel and back after adding it to the database."""
+    session = session_and_users["session"]
+
+    discrete = DiscreteRepresentation(
+        variable_values={"x_1": [1, 2, 3, 4, 5], "x_2": [6, 7, 8, 9, 10]},
+        objective_values={"f_1": [0.5, 1.0, 2.0, 3.5, 9], "f_2": [-1, -2, -3, -4, -5]},
+        non_dominated=True,
+    )
+
+    discrete_dump = discrete.model_dump()
+    discrete_dump["problem_id"] = 3
+
+    db_discrete = DiscreteRepresentationDB.model_validate(discrete_dump)
+
+    session.add(db_discrete)
+    session.commit()
+    session.refresh(db_discrete)
+
+    from_db_discrete = session.get(DiscreteRepresentationDB, 1)
+
+    assert db_discrete == from_db_discrete
+
+    from_db_discrete_dump = from_db_discrete.model_dump()
+    discrete_validated = DiscreteRepresentation.model_validate(from_db_discrete_dump)
+
+    assert discrete_validated == discrete
 
 
 def test_problem(session_and_users: dict[str, Session | list[User]]):

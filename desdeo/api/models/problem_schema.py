@@ -11,6 +11,7 @@ from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 from desdeo.problem.schema import (
     Constant,
     Constraint,
+    DiscreteRepresentation,
     ExtraFunction,
     Objective,
     ScalarizationFunction,
@@ -131,6 +132,7 @@ class ProblemDB(SQLModel, table=True):
     constraints: list["ConstraintDB"] = Relationship(back_populates="problem")
     scalarization_funcs: list["ScalarizationFunctionDB"] = Relationship(back_populates="problem")
     extra_funcs: list["ExtraFunctionDB"] = Relationship(back_populates="problem")
+    discrete_representation: "DiscreteRepresentationDB" = Relationship(back_populates="problem")
 
     # name: str
     # description: str
@@ -323,3 +325,25 @@ class ExtraFunctionDB(_ExtraFunctionDB, table=True):
 
     # Back populates
     problem: ProblemDB | None = Relationship(back_populates="extra_funcs")
+
+
+class _DiscreteRepresentation(SQLModel):
+    """Helper class to override the fields of nested and list types, and Paths."""
+
+    variable_values: dict[str, list[VariableType]] = Field(sa_column=Column(JSON))
+    objective_values: dict[str, list[float]] = Field(sa_column=Column(JSON))
+
+
+_DiscreteRepresentationDB = from_pydantic(
+    DiscreteRepresentation, "_DiscreteRepresentation", base_model=_DiscreteRepresentation
+)
+
+
+class DiscreteRepresentationDB(_DiscreteRepresentationDB, table=True):
+    """The SQLModel equivalent to `DiscreteRepresentation`."""
+
+    id: int | None = Field(primary_key=True, default=None)
+    problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
+
+    # Back populates
+    problem: ProblemDB | None = Relationship(back_populates="discrete_representation")
