@@ -14,6 +14,7 @@ from desdeo.api.models import (
     ObjectiveDB,
     ProblemDB,
     ScalarizationFunctionDB,
+    SimulatorDB,
     TensorConstantDB,
     TensorVariableDB,
     User,
@@ -30,6 +31,7 @@ from desdeo.problem.schema import (
     Objective,
     ObjectiveTypeEnum,
     ScalarizationFunction,
+    Simulator,
     TensorConstant,
     TensorVariable,
     Variable,
@@ -350,6 +352,36 @@ def test_discrete_representation(session_and_users: dict[str, Session | list[Use
     discrete_validated = DiscreteRepresentation.model_validate(from_db_discrete_dump)
 
     assert discrete_validated == discrete
+
+
+def test_simulator(session_and_users: dict[str, Session | list[User]]):
+    """Test that a Simulator can be transformed to an SQLModel and back after adding it to the database."""
+    session = session_and_users["session"]
+
+    simulator = Simulator(
+        file="/my/favorite/simulator.exe",
+        name="simulator",
+        symbol="simu",
+        parameter_options={"param1": 69, "nice": True},
+    )
+
+    simulator_dump = simulator.model_dump()
+    simulator_dump["problem_id"] = 2
+
+    db_simulator = SimulatorDB.model_validate(simulator_dump)
+
+    session.add(db_simulator)
+    session.commit()
+    session.refresh(db_simulator)
+
+    from_db_simulator = session.get(SimulatorDB, 1)
+
+    assert db_simulator == from_db_simulator
+
+    from_db_simulator_dump = from_db_simulator.model_dump()
+    simulator_validated = Simulator.model_validate(from_db_simulator_dump)
+
+    assert simulator_validated == simulator
 
 
 def test_problem(session_and_users: dict[str, Session | list[User]]):

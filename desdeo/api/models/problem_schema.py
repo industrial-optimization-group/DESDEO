@@ -15,6 +15,7 @@ from desdeo.problem.schema import (
     ExtraFunction,
     Objective,
     ScalarizationFunction,
+    Simulator,
     Tensor,
     TensorConstant,
     TensorVariable,
@@ -133,15 +134,19 @@ class ProblemDB(SQLModel, table=True):
     scalarization_funcs: list["ScalarizationFunctionDB"] = Relationship(back_populates="problem")
     extra_funcs: list["ExtraFunctionDB"] = Relationship(back_populates="problem")
     discrete_representation: "DiscreteRepresentationDB" = Relationship(back_populates="problem")
+    simulators: list["SimulatorDB"] = Relationship(back_populates="problem")
 
     # name: str
     # description: str
+    # variables
+    # constants
     # objectives: list[Objective]
     # constraints: list[Constraint] | None
     # extra_funcs: list[ExtraFunction] | None
     # scalarization_funcs: list[ScalarizationFunction] | None
     # discrete_representation: DiscreteRepresentation | None
     # scenario_keys: list[str] | None
+    # simulators
 
 
 class _TensorConstant(SQLModel):
@@ -347,3 +352,23 @@ class DiscreteRepresentationDB(_DiscreteRepresentationDB, table=True):
 
     # Back populates
     problem: ProblemDB | None = Relationship(back_populates="discrete_representation")
+
+
+class _Simulator(SQLModel):
+    """Helper class to override the fields of nested and list types, and Paths."""
+
+    file: Path = Field(sa_column=Column(PathType))
+    parameter_options: dict | None = Field(sa_column=Column(JSON), default=None)
+
+
+_SimulatorDB = from_pydantic(Simulator, "_SimulatorDB", base_model=_Simulator)
+
+
+class SimulatorDB(_SimulatorDB, table=True):
+    """The SQLModel equivalent to `Simulator`."""
+
+    id: int | None = Field(primary_key=True, default=None)
+    problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
+
+    # Back populates
+    problem: ProblemDB | None = Relationship(back_populates="simulators")
