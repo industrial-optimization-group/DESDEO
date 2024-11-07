@@ -30,6 +30,7 @@ from pydantic import (
     WrapValidator,
     field_validator,
     model_validator,
+    root_validator,
 )
 from pydantic_core import PydanticCustomError
 
@@ -1103,8 +1104,8 @@ class Problem(BaseModel):
         """Update the ideal and nadir values of the problem.
 
         Args:
-            ideal (dict[str, VariableType  |  None] | None): _description_
-            nadir (dict[str, VariableType  |  None] | None): _description_
+            new_ideal (dict[str, VariableType  |  None] | None): _description_
+            new_nadir (dict[str, VariableType  |  None] | None): _description_
         """
         updated_objectives = []
         for objective in self.objectives:
@@ -1361,13 +1362,18 @@ class Problem(BaseModel):
         """Check if all the functions expressions in the problem are convex.
 
         Note:
-            This method just checks all the functions expressions present in the problem
+            If the field "is_convex" is explicitly set, then the provided value is returned.
+
+            Otherwise, this method just checks all the functions expressions present in the problem
             and return true if all of them are convex. For complicated problems, this might
             result in an incorrect results. User discretion is advised.
 
         Returns:
             bool: whether the problem is convex or not.
         """
+        if self.is_convex_ is not None:
+            return self.is_convex_
+
         is_convex_values = (
             [obj.is_convex for obj in self.objectives]
             + ([con.is_convex for con in self.constraints] if self.constraints is not None else [])
@@ -1382,13 +1388,18 @@ class Problem(BaseModel):
         """Check if all the functions expressions in the problem are linear.
 
         Note:
-            This method just checks all the functions expressions present in the problem
+            If the field "is_linear" is explicitly set, then the provided value is returned.
+
+            Otherwise, this method just checks all the functions expressions present in the problem
             and return true if all of them are linear. For complicated problems, this might
             result in an incorrect results. User discretion is advised.
 
         Returns:
             bool: whether the problem is linear or not.
         """
+        if self.is_linear_ is not None:
+            return self.is_linear_
+
         is_linear_values = (
             [obj.is_linear for obj in self.objectives]
             + ([con.is_linear for con in self.constraints] if self.constraints is not None else [])
@@ -1403,13 +1414,18 @@ class Problem(BaseModel):
         """Check if all the functions expressions in the problem are twice differentiable.
 
         Note:
-            This method just checks all the functions expressions present in the problem
+            If the field "is_twice_differentiable" is explicitly set, then the provided value is returned.
+
+            Otherwise, this method just checks all the functions expressions present in the problem
             and return true if all of them are twice differentiable. For complicated problems, this might
             result in an incorrect results. User discretion is advised.
 
         Returns:
             bool: whether the problem is twice differentiable or not.
         """
+        if self.is_twice_differentiable_ is not None:
+            return self.is_twice_differentiable_
+
         is_diff_values = (
             [obj.is_twice_differentiable for obj in self.objectives]
             + ([con.is_twice_differentiable for con in self.constraints] if self.constraints is not None else [])
@@ -1501,6 +1517,30 @@ class Problem(BaseModel):
             }
         )
 
+    @root_validator(pre=True)
+    def set_is_twice_differentiable(cls, values):
+        """If "is_twice_differentiable" is explicitly provided to the model, we set it to that value."""
+        if "is_twice_differentiable" in values and values["is_twice_differentiable"] is not None:
+            values["is_twice_differentiable_"] = values["is_twice_differentiable"]
+
+        return values
+
+    @root_validator(pre=True)
+    def set_is_liear(cls, values):
+        """If "is_linear" is explicitly provided to the model, we set it to that value."""
+        if "is_linear" in values and values["is_linear"] is not None:
+            values["is_linear_"] = values["is_linear"]
+
+        return values
+
+    @root_validator(pre=True)
+    def set_is_convex(cls, values):
+        """If "is_convex" is explicitly provided to the model, we set it to that value."""
+        if "is_convex" in values and values["is_convex"] is not None:
+            values["is_convex_"] = values["is_convex"]
+
+        return values
+
     name: str = Field(
         description="Name of the problem.",
     )
@@ -1572,6 +1612,42 @@ class Problem(BaseModel):
     Objectives defined by simulators. The corresponding values of the 'simulator' objective
     function will be fetched from these simulators with the given variable values.
     Defaults to `None`."""
+    is_convex_: bool | None = Field(
+        description=(
+            "Optional. Used to manually indicate if the problem, as a whole, can be considered to be convex. "
+            "If set to `None`, this property will be automatically inferred from the "
+            "respective properties of other attributes."
+        ),
+        default=None,
+        alias="is_convex",
+    )
+    """Optional. Used to manually indicate if the problem, as a whole, can be considered to be convex. "
+    "If set to `None`, this property will be automatically inferred from the "
+    "respective properties of other attributes."""
+    is_linear_: bool | None = Field(
+        description=(
+            "Optional. Used to manually indicate if the problem, as a whole, can be considered to be linear. "
+            "If set to `None`, this property will be automatically inferred from the "
+            "respective properties of other attributes."
+        ),
+        default=None,
+        alias="is_linear",
+    )
+    """Optional. Used to manually indicate if the problem, as a whole, can be considered to be linear. "
+    "If set to `None`, this property will be automatically inferred from the "
+    "respective properties of other attributes."""
+    is_twice_differentiable_: bool | None = Field(
+        description=(
+            "Optional. Used to manually indicate if the problem, as a whole, can be considered to be twice "
+            "differentiable. If set to `None`, this property will be automatically inferred from the "
+            "respective properties of other attributes."
+        ),
+        default=None,
+        alias="is_twice_differentiable",
+    )
+    """Optional. Used to manually indicate if the problem, as a whole, can be considered to be twice "
+    "differentiable. If set to `None`, this property will be automatically inferred from the "
+    "respective properties of other attributes."""
 
 
 if __name__ == "__main__":
