@@ -11,7 +11,7 @@ from desdeo.api.db import Base, SessionLocal, engine
 from desdeo.api.routers.UserAuth import get_password_hash
 from desdeo.api.schema import Methods, ObjectiveKind, ProblemKind, Solvers, UserPrivileges, UserRole
 from desdeo.problem.schema import DiscreteRepresentation, Objective, Problem, Variable
-from desdeo.problem.testproblems import binh_and_korn, forest_problem, nimbus_test_problem, river_pollution_problem
+from desdeo.problem.testproblems import binh_and_korn, forest_problem, nimbus_test_problem, river_pollution_problem, river_pollution_problem_discrete
 from desdeo.utopia_stuff.utopia_problem_old import utopia_problem_old
 
 TEST_USER = "test"
@@ -99,6 +99,18 @@ problem_in_db = db_models.Problem(
 )
 db.add(problem_in_db)
 
+problem = river_pollution_problem_discrete()
+problem_in_db = db_models.Problem(
+    owner=user.id,
+    name="River Pollution Problem (Discrete)",
+    kind=ProblemKind.DISCRETE,
+    obj_kind=ObjectiveKind.DATABASED,
+    value=problem.model_dump(mode="json"),
+    role_permission=[UserRole.GUEST],
+)
+db.add(problem_in_db)
+db.commit()
+
 problem, schedule_dict = utopia_problem_old(holding=1)
 problem_in_db = db_models.Problem(
     owner=user.id,
@@ -110,6 +122,9 @@ problem_in_db = db_models.Problem(
 )
 db.add(problem_in_db)
 db.commit()
+
+# CAUTION: DO NOT PUT ANY CODE IN BETWEEN THE PREVIOUS AND FOLLOWING BLOCKS OF CODE.
+# UTOPIA MAPS WILL BREAK IF YOU DO.
 
 # The info about the map and decision alternatives now goes into the database
 with open("desdeo/utopia_stuff/data/1.json") as f:  # noqa: PTH123

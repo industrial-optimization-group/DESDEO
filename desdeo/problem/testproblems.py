@@ -22,6 +22,8 @@ from desdeo.problem.schema import (
     VariableTypeEnum,
 )
 
+from pathlib import Path
+
 
 def binh_and_korn(maximize: tuple[bool] = (False, False)) -> Problem:
     """Create a pydantic dataclass representation of the Binh and Korn problem.
@@ -224,6 +226,87 @@ def river_pollution_problem(*, five_objective_variant: bool = True) -> Problem:
         description="The river pollution problem to maximize return of investments (ROI) and dissolved oxygen (DO).",
         variables=[variable_1, variable_2],
         objectives=objectives,
+    )
+
+
+def river_pollution_problem_discrete(*, five_objective_variant: bool = True) -> Problem:
+    """Create a pydantic dataclass representation of the river pollution problem with either five or four variables.
+
+    The objective functions "DO city" ($f_1$), "DO municipality" ($f_2), and
+    "ROI fishery" ($f_3$) and "ROI city" ($f_4$) are to be
+    maximized. If the four variant problem is used, the the "BOD deviation" objective
+    function ($f_5$) is not present, but if it is, it is to be minimized.
+    This version of the problem uses discrete representation of the variables and objectives and does not provide
+    the analytical functions for the objectives.
+
+    Args:
+        five_objective_variant (bool, optional): Whether to use to five
+            objective function variant of the problem or not. Defaults to True.
+
+    Returns:
+        Problem: the river pollution problem.
+
+    References:
+        Narula, Subhash C., and HRoland Weistroffer. "A flexible method for
+            nonlinear multicriteria decision-making problems." IEEE Transactions on
+            Systems, Man, and Cybernetics 19.4 (1989): 883-887.
+
+        Miettinen, Kaisa, and Marko M. Mäkelä. "Interactive method NIMBUS for
+            nondifferentiable multiobjective optimization problems." Multicriteria
+            Analysis: Proceedings of the XIth International Conference on MCDM, 1-6
+            August 1994, Coimbra, Portugal. Berlin, Heidelberg: Springer Berlin
+            Heidelberg, 1997.
+    """
+    filename = "datasets/river_poll_4_objs.csv"
+    trueVarNames = {"x_1": "BOD", "x_2": "DO"}
+    trueObjNames = {"f1": "DO city", "f2": "DO municipality", "f3": "ROI fishery", "f4": "ROI city"}
+    if five_objective_variant:
+        filename = "datasets/river_poll_5_objs.csv"
+        trueObjNames["f5"] = "BOD deviation"
+
+    path = Path(__file__).parent.parent.parent / filename
+    data = pl.read_csv(path, has_header=True)
+
+    variables = [
+        Variable(
+            name=trueVarNames[varName],
+            symbol=varName,
+            variable_type=VariableTypeEnum.real,
+            lowerbound=0.3,
+            upperbound=1.0,
+            initial_value=0.65,
+        )
+        for varName in trueVarNames
+    ]
+    maximize = {"f1": True, "f2": True, "f3": True, "f4": True, "f5": False}
+    ideal = {objName: (data[objName].max() if maximize[objName] else data[objName].min()) for objName in trueObjNames}
+    nadir = {objName: (data[objName].min() if maximize[objName] else data[objName].max()) for objName in trueObjNames}
+    units = {"f1": "mg/L", "f2": "mg/L", "f3": "%", "f4": "%", "f5": "mg/L"}
+
+    objectives = [
+        Objective(
+            name=trueObjNames[objName],
+            symbol=objName,
+            func=None,
+            unit=units[objName],
+            objective_type=ObjectiveTypeEnum.data_based,
+            maximize=maximize[objName],
+            ideal=ideal[objName],
+            nadir=nadir[objName],
+        )
+        for objName in trueObjNames
+    ]
+
+    discrete_def = DiscreteRepresentation(
+        variable_values=data[list(trueVarNames.keys())].to_dict(), objective_values=data[list(trueObjNames.keys())].to_dict()
+    )
+
+    return Problem(
+        name="The river pollution problem (Discrete)",
+        description="The river pollution problem to maximize return of investments (ROI) and dissolved oxygen (DO).",
+        variables=variables,
+        objectives=objectives,
+        discrete_representation=discrete_def,
     )
 
 

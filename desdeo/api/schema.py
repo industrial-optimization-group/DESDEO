@@ -35,6 +35,7 @@ class ObjectiveKind(Enum):
     """Enum of objective kinds."""
 
     ANALYTICAL = "analytical"
+    DATABASED = "databased"
     SIMULATED = "simulated"
     SURROGATE = "surrogate"
 

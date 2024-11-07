@@ -22,9 +22,9 @@ class DBConfig(BaseModel):
 
     db_host: ClassVar[StrictStr] = os.getenv("POSTGRES_HOST") or "localhost"
     db_port: ClassVar[StrictStr] = os.getenv("POSTGRES_PORT") or "5432"
-    db_database: ClassVar[StrictStr] = os.getenv("POSTGRES_DB") or "test"  # postgres
-    db_username: ClassVar[StrictStr] = os.getenv("POSTGRES_USER") or "test"  # postgres
-    db_password: ClassVar[StrictStr] = os.getenv("POSTGRES_PASSWORD") or "testpw"  # test
+    db_database: ClassVar[StrictStr] = os.getenv("POSTGRES_DB") or "postgres"  # postgres
+    db_username: ClassVar[StrictStr] = os.getenv("POSTGRES_USER") or "postgres"  # postgres
+    db_password: ClassVar[StrictStr] = os.getenv("POSTGRES_PASSWORD") or "test"  # test
     db_pool_size: ClassVar[StrictInt] = int(os.getenv("POSTGRES_POOLSIZE") or 20)
     db_max_overflow: ClassVar[StrictInt] = int(os.getenv("POSTGRES_OVERFLOW") or 20)
     db_pool: ClassVar[StrictBool] = (os.getenv("POSTGRES_POOL") or True) in (True, "true", "1", "t", "y", "yes")
