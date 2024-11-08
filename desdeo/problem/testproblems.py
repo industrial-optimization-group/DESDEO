@@ -2827,6 +2827,3 @@ def spanish_sustainability_problem():
         objectives=objectives,
         constraints=constraints,
     )
-
-
-spanish_sustainability_problem()
