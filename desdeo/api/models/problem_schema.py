@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from types import UnionType
 
-from pydantic import BaseModel, create_model
+from pydantic import BaseModel, ConfigDict, create_model
 from sqlalchemy.types import String, TypeDecorator
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
@@ -14,12 +14,14 @@ from desdeo.problem.schema import (
     DiscreteRepresentation,
     ExtraFunction,
     Objective,
+    Problem,
     ScalarizationFunction,
     Simulator,
     Tensor,
     TensorConstant,
     TensorVariable,
     Variable,
+    VariableDomainTypeEnum,
     VariableType,
 )
 
@@ -121,8 +123,17 @@ def from_pydantic(
 class ProblemDB(SQLModel, table=True):
     """."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: int | None = Field(primary_key=True, default=None)
     owner: int | None = Field(foreign_key="user.id")
+
+    name: str = Field()
+    description: str = Field()
+    is_convex: bool = Field()
+    is_linear: bool = Field()
+    is_twice_differentiable: bool = Field()
+    variable_domain: VariableDomainTypeEnum = Field()
 
     # Populated by other models
     constants: list["ConstantDB"] = Relationship(back_populates="problem")
@@ -136,17 +147,21 @@ class ProblemDB(SQLModel, table=True):
     discrete_representation: "DiscreteRepresentationDB" = Relationship(back_populates="problem")
     simulators: list["SimulatorDB"] = Relationship(back_populates="problem")
 
-    # name: str
-    # description: str
-    # variables
-    # constants
-    # objectives: list[Objective]
-    # constraints: list[Constraint] | None
-    # extra_funcs: list[ExtraFunction] | None
-    # scalarization_funcs: list[ScalarizationFunction] | None
-    # discrete_representation: DiscreteRepresentation | None
-    # scenario_keys: list[str] | None
-    # simulators
+    @classmethod
+    def from_problem(cls, problem_instance: Problem, owner: int | None = None) -> "ProblemDB":
+        scalar_constants = [const for const in problem_instance.constants if isinstance(const, Constant)]
+        tensor_constants = [const for const in problem_instance.constants if isinstance(const, TensorConstant)]
+        return cls(
+            name=problem_instance.name,
+            description=problem_instance.description,
+            is_convex=problem_instance.is_convex,
+            is_linear=problem_instance.is_linear,
+            is_twice_differentiable=problem_instance.is_twice_differentiable,
+            variable_domain=problem_instance.variable_domain,
+            owner=owner,
+            constants=[ConstantDB.model_validate(const) for const in scalar_constants],
+            tensor_constants=[TensorConstantDB(const) for const in tensor_constants],
+        )
 
 
 class _TensorConstant(SQLModel):
@@ -179,6 +194,8 @@ _ConstantDB = from_pydantic(Constant, "_ConstantDB", union_type_conversions={Var
 
 class ConstantDB(_ConstantDB, table=True):
     """The SQLModel equivalent to `Constant`."""
+
+    model_config = ConfigDict(from_attributes=True)
 
     id: int | None = Field(primary_key=True, default=None)
     problem_id: int | None = Field(foreign_key="problemdb.id", default=None)

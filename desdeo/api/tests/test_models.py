@@ -37,6 +37,7 @@ from desdeo.problem.schema import (
     Variable,
     VariableTypeEnum,
 )
+from desdeo.problem.testproblems import binh_and_korn
 
 
 @pytest.fixture(name="session_and_users")
@@ -389,28 +390,14 @@ def test_problem(session_and_users: dict[str, Session | list[User]]):
     session = session_and_users["session"]
     user = session_and_users["users"][0]
 
-    problemdb = ProblemDB(owner=user.id)
+    problem_binh = binh_and_korn()
+
+    problemdb = ProblemDB.from_problem(
+        problem_binh,
+        owner=user.id,
+    )
     session.add(problemdb)
     session.commit()
     session.refresh(problemdb)
-
-    constant_1 = Constant(name="constant 1", symbol="c_1", value=69.420)
-    constant_dump_1 = constant_1.model_dump()
-    constant_dump_1["problem_id"] = problemdb.id
-
-    db_constant_1 = ConstantDB.model_validate(constant_dump_1)
-
-    constant_2 = Constant(name="constant 2", symbol="c_2", value=420.69)
-    constant_dump_2 = constant_2.model_dump()
-    constant_dump_2["problem_id"] = problemdb.id
-    db_constant_2 = ConstantDB.model_validate(constant_dump_2)
-
-    session.add(db_constant_1)
-    session.add(db_constant_2)
-    session.commit()
-
-    session.refresh(problemdb)
-    session.refresh(db_constant_1)
-    session.refresh(db_constant_2)
 
     print()
