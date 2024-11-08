@@ -74,7 +74,7 @@ def test_get_values_w_binh_and_korn(binh_and_korn_w_extra):
 
     evaluator.evaluate(input_1)
 
-    res_dict = evaluator.get_values()
+    res_dict = evaluator.evaluate(input_1)
 
     assert res_dict["x_1"] == 2
     assert res_dict["x_2"] == 8

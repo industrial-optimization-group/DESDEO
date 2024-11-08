@@ -1,7 +1,7 @@
 """Defines an evaluator compatible with the Problem JSON format and transforms it into a Pyomo model."""
 
-import copy
-
+import itertools
+from collections.abc import Iterable
 from operator import eq as _eq
 from operator import le as _le
 
@@ -351,25 +351,46 @@ class PyomoEvaluator:
 
         return model
 
-    def evaluate(self, xs: dict[str, float | int | bool]) -> pyomo.Model:
+    def evaluate(
+        self, xs: dict[str, float | int | bool | Iterable[float | int | bool]]
+    ) -> dict[str, float | int | bool | list[dict[str, float | int | bool]]]:
         """Evaluate the current pyomo model with the given decision variable values.
 
         Warning:
             This should not be used for actually solving the pyomo model! For debugging mostly.
 
         Args:
-            xs (dict[str, list[float | int | bool]]): a dict with the decision variable symbols
-                as the keys followed by the corresponding decision variable values. The symbols
+            xs (dict[str, float | int | bool | Iterable[float | int | bool]]): a dict with the decision variable symbols
+                as the keys followed by the corresponding decision variable values, which can also
+                be represented by a list for multiple values. The symbols
                 must match the symbols defined for the decision variables defined in the `Problem` being solved.
                 Each list in the dict should contain the same number of values.
 
         Returns:
-            pyomo.Model: the pyomo model with its variable values set to the values found in xs.
+            dict | list[dict]: the results of evaluating the pyomo model with its variable values set to the values
+                found in xs.
         """
-        for var in self.problem.variables:
-            setattr(self.model, var.symbol, xs[var.symbol])
+        res = []
+        n_samples = len(next(iter(xs.values()))) if isinstance(next(iter(xs.values())), list) else 1
+        for i in range(n_samples):
+            for var in self.problem.variables:
+                x = xs[var.symbol][i]
+                if isinstance(var, Variable):
+                    # scalar variable
+                    setattr(self.model, var.symbol, x)
+                else:
+                    # tensor variable
+                    indices = itertools.product(*[range(1, dim + 1) for dim in var.shape])  # 1-based indexing
+                    for idx in indices:
+                        elem = x
+                        for j in idx:
+                            elem = elem[j - 1]  # 0-based indexing
 
-        return self.model
+                        getattr(self.model, var.symbol)[idx] = elem  # 1-based indexing
+
+            res.append(self.get_values())
+
+        return res if len(res) > 1 else res[0]
 
     def get_values(self) -> dict[str, float | int | bool]:  # noqa: C901
         """Get the values from the pyomo model in dict.
