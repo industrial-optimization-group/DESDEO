@@ -1,16 +1,20 @@
 """Test some of the test problems found in DESDEO."""
 
 import numpy as np
+import numpy.testing as npt
 import pytest
 
+from desdeo.mcdm import rpm_solve_solutions
 from desdeo.problem import (
     PolarsEvaluator,
+    PyomoEvaluator,
     dtlz2,
     forest_problem,
     re21,
     re22,
     re23,
     re24,
+    spanish_sustainability_problem,
 )
 from desdeo.tools import GurobipySolver
 
@@ -231,3 +235,111 @@ def test_forest_problem():
     assert np.isclose(res.optimal_objectives["f_1"], 10885.988)
     assert np.isclose(res.optimal_objectives["f_2"], -2202.283)
     assert np.isclose(res.optimal_objectives["f_3"], 154240.330)
+
+
+@pytest.mark.testproblem
+def test_evaluate_spanish_sustainability():
+    """Test the Spanish sustainability problem."""
+    problem = spanish_sustainability_problem()
+
+    polars_evaluator = PolarsEvaluator(problem)
+    pyomo_evaluator = PyomoEvaluator(problem)
+
+    # row 44 from excel
+    input_1 = {
+        "X": [
+            [6.4399, 89.666, 16.517, 2.0723, 1.0, 1.9469, 17.206, 13.326, 70.0, 102.49, 120.0],
+        ]
+    }
+    expected_1 = {"f1": 1.1573, "f2": 0.7149, "f3": 2.8989}
+
+    result_1_polars = polars_evaluator.evaluate(input_1)
+    result_1_pyomo = pyomo_evaluator.evaluate(input_1)
+
+    npt.assert_allclose(result_1_polars["f1"], result_1_pyomo["f1"])
+    npt.assert_allclose(result_1_polars["f2"], result_1_pyomo["f2"])
+    npt.assert_allclose(result_1_polars["f3"], result_1_pyomo["f3"])
+
+    npt.assert_allclose(result_1_polars["f1"], expected_1["f1"], atol=1e-2)
+    npt.assert_allclose(result_1_polars["f2"], expected_1["f2"], atol=1e-2)
+    npt.assert_allclose(result_1_polars["f3"], expected_1["f3"], atol=1e-2)
+
+    for con in problem.constraints:
+        npt.assert_array_less(result_1_polars[con.symbol], 0.0)
+
+    # rows 102-108
+    input_2 = {
+        "X": [
+            [6.4344, 90.0, 16.514, 2.0723, 1.0, 1.9443, 17.37, 13.348, 70.0, 104.99, 82.935],
+            [6.4344, 90.0, 16.515, 2.0723, 1.0, 1.9443, 17.249, 13.348, 70.0, 105.0, 80.177],
+            [6.4344, 90.0, 16.515, 2.0723, 1.0, 1.9443, 17.229, 13.348, 70.0, 105.0, 80.0],
+            [6.4344, 90.0, 16.516, 2.0723, 1.0, 1.9443, 17.352, 13.347, 70.0, 104.82, 80.0],
+            [6.4344, 90.0, 16.514, 2.0723, 1.0, 1.9443, 18.465, 13.347, 70.0, 104.99, 82.337],
+            [6.4918, 89.999, 16.51, 2.0723, 1.0, 1.9639, 18.124, 13.348, 70.0, 104.79, 80.372],
+            [6.4344, 90.0, 16.514, 2.0723, 1.0, 1.9443, 18.168, 13.348, 70.0, 104.98, 80.181],
+        ]
+    }
+
+    expected_2 = {
+        "f1": [
+            1.1653,
+            1.1653,
+            1.1653,
+            1.1653,
+            1.1653,
+            1.1647,
+            1.1653,
+        ],
+        "f2": [
+            0.82477,
+            0.8327,
+            0.8331,
+            0.83341,
+            0.8357,
+            0.8382,
+            0.8402,
+        ],
+        "f3": [
+            2.8042,
+            2.7998,
+            2.7996,
+            2.7988,
+            2.7934,
+            2.7928,
+            2.7918,
+        ],
+    }
+
+    result_2_polars = polars_evaluator.evaluate(input_2)
+    result_2_pyomo = pyomo_evaluator.evaluate(input_2)
+
+    for i in range(7):
+        npt.assert_allclose(result_2_polars["f1"][i], result_2_pyomo[i]["f1"])
+        npt.assert_allclose(result_2_polars["f2"][i], result_2_pyomo[i]["f2"])
+        npt.assert_allclose(result_2_polars["f3"][i], result_2_pyomo[i]["f3"])
+
+        npt.assert_allclose(result_2_polars["f1"][i], expected_2["f1"][i], atol=1e-2)
+        npt.assert_allclose(result_2_polars["f2"][i], expected_2["f2"][i], atol=1e-2)
+        npt.assert_allclose(result_2_polars["f3"][i], expected_2["f3"][i], atol=1e-2)
+
+        for con in problem.constraints:
+            npt.assert_array_less(result_2_polars[con.symbol][i], 0.0)
+
+
+@pytest.mark.testproblem
+def test_solve_spanish_sustainability_problem():
+    """Test the Spanish sustainability problem."""
+    problem = spanish_sustainability_problem()
+
+    ref_point = {"f1": 1.162, "f2": 0.69, "f3": 2.91}
+
+    # ideal = {"f1": 1.15, "f2": 0.63, "f3": 1.52}
+    # nadir = {"f1": 1.17, "f2": 1.98, "f3": 2.93}
+
+    res = rpm_solve_solutions(problem, ref_point)
+
+    assert len(res) == 4
+
+    for i in range(len(res)):
+        for con in problem.constraints:
+            npt.assert_array_less(res[i].constraint_values[con.symbol], 1e-5)

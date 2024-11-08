@@ -230,12 +230,64 @@ class MathParser:
 
             return _negate(x)
 
+        def _pyomo_pow(base, exp):
+            """Implements a power operator compatible with Pyomo expressions."""
+
+            def _expr_pow_rule(base, exp):
+                def _inner(_, *indices):
+                    return base[indices] ** exp
+
+                return _inner
+
+            def _pow(base, exp=exp):
+                # check if operand in indexed
+                if hasattr(base, "index_set") and base.is_indexed():
+                    # indexed, return new pyomo expression
+                    expr = pyomo.Expression(base.index_set(), rule=_expr_pow_rule(base, exp))
+                    expr.construct()
+
+                    return expr
+
+                # not indexed, just regular power
+                return base**exp
+
+            return _pow(base, exp)
+
+        def _pyomo_unary(x, op):
+            """Implements unary operators to work with indexed expressions."""
+
+            def _expr_rule(x, op):
+                def _inner(_, *indices, op=op):
+                    return op(x[indices])
+
+                return _inner
+
+            def _op(x, op):
+                # check if operand in indexed
+                if hasattr(x, "index_set") and x.is_indexed():
+                    # indexed, return new pyomo expression
+                    expr = pyomo.Expression(x.index_set(), rule=_expr_rule(x, op))
+                    expr.construct()
+
+                    return expr
+
+                # not indexed, just regular power
+                return op(x)
+
+            return _op(x, op)
+
         def _pyomo_addition(*args, subtraction=False):
             """Add (subtract) scalars or tensors to (from) each other."""
 
             def _expr_matrix_addition_rule(x, y, subtraction=subtraction):
                 def _inner(_, *args):
                     return x[*args] + y[*args] if not subtraction else x[*args] - y[*args]
+
+                return _inner
+
+            def _expr_elementwise_with_single_indexed(indexed, not_indexed, subtraction=subtraction):
+                def _inner(_, *indices):
+                    return (indexed[indices] + not_indexed) if not subtraction else (indexed[indices] - not_indexed)
 
                 return _inner
 
@@ -268,6 +320,24 @@ class MathParser:
                     # try regular subtraction
                     return x - y
 
+                # x is indexed, y is not
+                if (hasattr(x, "index_set")) and x.is_indexed():
+                    expr = pyomo.Expression(
+                        x.index_set(), rule=_expr_elementwise_with_single_indexed(x, y, subtraction=subtraction)
+                    )
+
+                    expr.construct()
+                    return expr
+
+                # if y is indexed, x is not
+                if (hasattr(y, "index_set")) and y.is_indexed():
+                    expr = pyomo.Expression(
+                        y.index_set(), rule=_expr_elementwise_with_single_indexed(y, x, subtraction=subtraction)
+                    )
+
+                    expr.construct()
+                    return expr
+
                 # if only one of the operands is indexed, then addition is not supported. Throw error.
                 msg = "For addition, both operands must be either scalars or matrices with matching dimensions."
                 raise ParserError(msg)
@@ -277,25 +347,25 @@ class MathParser:
         def _pyomo_subtraction(*args):
             return _pyomo_addition(*args, subtraction=True)
 
-        def _pyomo_multiply(*args):
+        def _pyomo_multiply(*args, division=False):
             """Multiply tensor with a scalar."""
 
-            def _expr_multiply_with_scalar_rule(scalar_value, to_multiply):
+            def _expr_multiply_with_scalar_rule(scalar_value, to_multiply, division=division):
                 def _inner(_, *indices):
-                    return to_multiply[indices] * scalar_value
+                    return to_multiply[indices] * scalar_value if not division else to_multiply[indices] / scalar_value
 
                 return _inner
 
-            def _expr_matrix_multiply_rule(x, y):
+            def _expr_matrix_multiply_rule(x, y, division=division):
                 def _inner(_, *args):
-                    return x[*args] * y[*args]
+                    return x[*args] * y[*args] if not division else x[*args] / y[*args]
 
                 return _inner
 
-            def _multiply(x, y):
+            def _multiply(x, y, division=division):
                 if not hasattr(x, "is_indexed") and not hasattr(y, "is_indexed"):
                     # x and y are scalars
-                    return x * y
+                    return x * y if not division else x / y
 
                 # check if x or y is scalar
                 if (
@@ -305,7 +375,9 @@ class MathParser:
                     and (not hasattr(y, "is_indexed") or not y.is_indexed() or y.is_indexed() and y.dim() == 0)
                 ):
                     # x is a tensor, y is scalar
-                    expr = pyomo.Expression(x.index_set(), rule=_expr_multiply_with_scalar_rule(y, x))
+                    expr = pyomo.Expression(
+                        x.index_set(), rule=_expr_multiply_with_scalar_rule(y, x, division=division)
+                    )
                     expr.construct()
                     return expr
                 if (
@@ -315,7 +387,9 @@ class MathParser:
                     and (not hasattr(x, "is_indexed") or not x.is_indexed() or x.is_indexed() and x.dim() == 0)
                 ):
                     # y is a tensor, x is scalar
-                    expr = pyomo.Expression(y.index_set(), rule=_expr_multiply_with_scalar_rule(x, y))
+                    expr = pyomo.Expression(
+                        y.index_set(), rule=_expr_multiply_with_scalar_rule(x, y, division=division)
+                    )
                     expr.construct()
                     return expr
 
@@ -330,15 +404,18 @@ class MathParser:
                         )
                         raise ParserError(msg)
 
-                    expr = pyomo.Expression(x.index_set(), rule=_expr_matrix_multiply_rule(x, y))
+                    expr = pyomo.Expression(x.index_set(), rule=_expr_matrix_multiply_rule(x, y, division=division))
                     expr.construct()
 
                     return expr
 
                 # both are scalars
-                return x * y
+                return x * y if not division else x / y
 
             return reduce(_multiply, args)
+
+        def _pyomo_division(*args):
+            return _pyomo_multiply(*args, division=True)
 
         def _pyomo_matrix_multiplication(*args):
             """Multiply two matrices together."""
@@ -412,37 +489,39 @@ class MathParser:
             self.ADD: _pyomo_addition,
             self.SUB: _pyomo_subtraction,
             self.MUL: _pyomo_multiply,
-            self.DIV: lambda *args: reduce(lambda x, y: x / y, args),  # probably does not work, needs to call mul
+            self.DIV: _pyomo_division,
             # Vector and matrix operations
             self.MATMUL: _pyomo_matrix_multiplication,
             self.SUM: _pyomo_summation,
             self.RANDOM_ACCESS: _pyomo_random_access,
             # Exponentiation and logarithms
-            self.EXP: lambda x: pyomo.exp(x),
-            self.LN: lambda x: pyomo.log(x),
-            self.LB: lambda x: pyomo.log(x) / pyomo.log(2),  # change of base, pyomo has no log2
-            self.LG: lambda x: pyomo.log10(x),
-            self.LOP: lambda x: pyomo.log(x + 1),
-            self.SQRT: lambda x: pyomo.sqrt(x),
-            self.SQUARE: lambda x: x**2,
-            self.POW: lambda x, y: x**y,
+            self.EXP: lambda x: _pyomo_unary(x, pyomo.exp),
+            self.LN: lambda x: _pyomo_unary(x, pyomo.log),
+            self.LB: lambda x: _pyomo_unary(
+                x, lambda x: pyomo.log(x) / pyomo.log(2)
+            ),  # change of base, pyomo has no log2
+            self.LG: lambda x: _pyomo_unary(x, pyomo.log10),
+            self.LOP: lambda x: _pyomo_unary(x, lambda x: pyomo.log(x + 1)),
+            self.SQRT: lambda x: _pyomo_unary(x, pyomo.sqrt),
+            self.SQUARE: lambda x: _pyomo_pow(x, 2),
+            self.POW: lambda x, y: _pyomo_pow(x, y),
             # Trigonometric operations
-            self.ARCCOS: lambda x: pyomo.acos(x),
-            self.ARCCOSH: lambda x: pyomo.acosh(x),
-            self.ARCSIN: lambda x: pyomo.asin(x),
-            self.ARCSINH: lambda x: pyomo.asinh(x),
-            self.ARCTAN: lambda x: pyomo.atan(x),
-            self.ARCTANH: lambda x: pyomo.atanh(x),
-            self.COS: lambda x: pyomo.cos(x),
-            self.COSH: lambda x: pyomo.cosh(x),
-            self.SIN: lambda x: pyomo.sin(x),
-            self.SINH: lambda x: pyomo.sinh(x),
-            self.TAN: lambda x: pyomo.tan(x),
-            self.TANH: lambda x: pyomo.tanh(x),
+            self.ARCCOS: lambda x: _pyomo_unary(x, pyomo.acos),
+            self.ARCCOSH: lambda x: _pyomo_unary(x, pyomo.acosh),
+            self.ARCSIN: lambda x: _pyomo_unary(x, pyomo.asin),
+            self.ARCSINH: lambda x: _pyomo_unary(x, pyomo.asinh),
+            self.ARCTAN: lambda x: _pyomo_unary(x, pyomo.atan),
+            self.ARCTANH: lambda x: _pyomo_unary(x, pyomo.atanh),
+            self.COS: lambda x: _pyomo_unary(x, pyomo.cos),
+            self.COSH: lambda x: _pyomo_unary(x, pyomo.cosh),
+            self.SIN: lambda x: _pyomo_unary(x, pyomo.sin),
+            self.SINH: lambda x: _pyomo_unary(x, pyomo.sinh),
+            self.TAN: lambda x: _pyomo_unary(x, pyomo.tan),
+            self.TANH: lambda x: _pyomo_unary(x, pyomo.tanh),
             # Rounding operations
-            self.ABS: lambda x: abs(x),
-            self.CEIL: lambda x: pyomo.ceil(x),
-            self.FLOOR: lambda x: pyomo.floor(x),
+            self.ABS: lambda x: _pyomo_unary(x, abs),
+            self.CEIL: lambda x: _pyomo_unary(x, pyomo.ceil),
+            self.FLOOR: lambda x: _pyomo_unary(x, pyomo.floor),
             # Other operations
             self.RATIONAL: lambda lst: reduce(lambda x, y: x / y, lst),  # not supported
             # probably a better idea to reformulate expressions with a max when utilized with pyomo
