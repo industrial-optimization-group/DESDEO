@@ -413,7 +413,7 @@ def utopia(  # noqa: C901, PLR0912
     decision_variables = json.loads(solution.decision_variables)
 
     # Get the user's map from the database
-    utopia_data = db.query(Utopia).filter(Utopia.problem == request.problem_id, Utopia.user == user.index).first()
+    utopia_data = db.query(Utopia).filter(Utopia.problem == request.problem_id).first()
 
     # Figure out the treatments from the decision variables and utopia data
     description_dict = {

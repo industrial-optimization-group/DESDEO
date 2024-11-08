@@ -11,14 +11,19 @@ from desdeo.api.db import Base, SessionLocal, engine
 from desdeo.api.routers.UserAuth import get_password_hash
 from desdeo.api.schema import Methods, ObjectiveKind, ProblemKind, Solvers, UserPrivileges, UserRole
 from desdeo.problem.schema import DiscreteRepresentation, Objective, Problem, Variable
-from desdeo.problem.testproblems import binh_and_korn, forest_problem, nimbus_test_problem, river_pollution_problem, river_pollution_problem_discrete
+from desdeo.problem.testproblems import (
+    binh_and_korn,
+    forest_problem,
+    nimbus_test_problem,
+    river_pollution_problem,
+    river_pollution_problem_discrete,
+)
 from desdeo.utopia_stuff.utopia_problem_old import utopia_problem_old
 
 TEST_USER = "test"
 TEST_PASSWORD = "test"  # NOQA: S105 # TODO: Remove this line and create a proper user creation system.
 
 # The following line creates the database and tables. This is not ideal, but it is simple for now.
-# It recreates the tables every time the server starts. Any data saved in the database will be lost.
 # TODO: Remove this line and create a proper database migration system.
 print("Creating database tables.")
 if not database_exists(engine.url):
@@ -131,7 +136,6 @@ with open("desdeo/utopia_stuff/data/1.json") as f:  # noqa: PTH123
     forest_map = f.read()
 map_info = db_models.Utopia(
     problem=problem_in_db.id,
-    user=user.id,
     map_json=forest_map,
     schedule_dict=schedule_dict,
     years=["2025", "2030", "2035"],
