@@ -2,15 +2,17 @@
 
 from collections.abc import Callable, Sequence
 
-import numpy as np
+import polars as pl
 
-from desdeo.problem import Problem
-from desdeo.tools.message import Array2DMessage, EvaluatorMessageTopics, IntMessage, Message
+from desdeo.problem import PolarsEvaluator, Problem
+from desdeo.tools.message import (
+    EvaluatorMessageTopics,
+    GenericMessage,
+    IntMessage,
+    Message,
+    PolarsDataFrameMessage,
+)
 from desdeo.tools.patterns import Subscriber
-
-ObjEvaluator = Callable[[Sequence], np.ndarray]
-ConsEvaluator = Callable[[Sequence], np.ndarray | None]
-TargetsEvaluator = Callable[[np.ndarray], np.ndarray]
 
 
 class BaseEvaluator(Subscriber):
@@ -24,22 +26,18 @@ class BaseEvaluator(Subscriber):
     def __init__(
         self,
         problem: Problem,
-        obj_evaluator: ObjEvaluator,
-        cons_evaluator: ConsEvaluator,
-        targets_evaluator: TargetsEvaluator,
         verbosity: int = 1,
         **kwargs,
     ):
         """Initialize the BaseEvaluator class."""
         super().__init__(**kwargs)
         self.problem = problem
-        self.obj_evaluator = obj_evaluator
-        self.cons_evaluator = cons_evaluator
-        self.targets_evaluator = targets_evaluator
-        self.population: Sequence | None = None
-        self.objs: np.ndarray | None = None
-        self.targets: np.ndarray | None = None
-        self.cons: np.ndarray | None = None
+        # TODO: This can be so much more efficient.
+        self.evaluator = lambda x: PolarsEvaluator(problem)._polars_evaluate_flat(
+            {name.symbol: x[name.symbol].to_list() for name in problem.get_flattened_variables()}
+        )
+        self.population: pl.DataFrame
+        self.outs: pl.DataFrame
         self.verbosity: int = verbosity
         self.new_evals: int = 0
         match self.verbosity:
@@ -51,36 +49,29 @@ class BaseEvaluator(Subscriber):
                 self.provided_topics = [
                     EvaluatorMessageTopics.NEW_EVALUATIONS,
                     EvaluatorMessageTopics.POPULATION,
-                    EvaluatorMessageTopics.OBJECTIVES,
-                    EvaluatorMessageTopics.CONSTRAINTS,
-                    EvaluatorMessageTopics.TARGETS,
+                    EvaluatorMessageTopics.OUTPUTS,
                 ]
 
-    def evaluate(self, population: Sequence) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
+    def evaluate(self, population: pl.DataFrame) -> pl.DataFrame:
         """Evaluate and return the objectives.
 
         Args:
-            population (Iterable): The set of decision variables to evaluate.
+            population (pl.Dataframe): The set of decision variables to evaluate.
 
         Returns:
-            tuple[np.ndarray, np.ndarray, np.ndarray | None]: Tuple of objective vectors, target vectors, and
-                constraint vectors.
+            pl.Dataframe: A dataframe of objective vectors, target vectors, and constraint vectors.
         """
         self.population = population
-        # TODO(@light-weaver): Replace the code below with calls to the Problem object.
-        # For now, this is a hack.
-        self.objs = self.obj_evaluator(population)
-        self.cons = self.cons_evaluator(population)
-        self.targets = self.targets_evaluator(self.objs)
+        self.out = self.evaluator(population)
         self.new_evals = len(population)
+        # merge the objectives and targets
+
         self.notify()
-        return self.objs, self.targets, self.cons
+        return self.out
 
     def state(self) -> Sequence[Message]:
         """The state of the evaluator sent to the Publisher."""
-        if self.population is None or self.objs is None or self.cons is None or self.targets is None:
-            return []
-        if self.verbosity == 0:
+        if self.population is None or self.out is None or self.population is None or self.verbosity == 0:
             return []
         if self.verbosity == 1:
             return [
@@ -90,30 +81,29 @@ class BaseEvaluator(Subscriber):
                     source="BaseEvaluator",
                 )
             ]
+
+        if isinstance(self.population, pl.DataFrame):
+            population_message = PolarsDataFrameMessage(
+                topic=EvaluatorMessageTopics.POPULATION,
+                value=self.population,
+                source="BaseEvaluator",
+            )
+        else:
+            population_message = GenericMessage(
+                topic=EvaluatorMessageTopics.POPULATION,
+                value="Population is not a polars DataFrame",
+                source="BaseEvaluator",
+            )
         return [
             IntMessage(
                 topic=EvaluatorMessageTopics.NEW_EVALUATIONS,
                 value=self.new_evals,
                 source="BaseEvaluator",
             ),
-            Array2DMessage(
-                topic=EvaluatorMessageTopics.POPULATION,
-                value=self.population.tolist(),
-                source="BaseEvaluator",
-            ),
-            Array2DMessage(
-                topic=EvaluatorMessageTopics.OBJECTIVES,
-                value=self.objs.tolist(),
-                source="BaseEvaluator",
-            ),
-            Array2DMessage(
-                topic=EvaluatorMessageTopics.CONSTRAINTS,
-                value=self.cons.tolist(),
-                source="BaseEvaluator",
-            ),
-            Array2DMessage(
-                topic=EvaluatorMessageTopics.TARGETS,
-                value=self.targets.tolist(),
+            population_message,
+            PolarsDataFrameMessage(
+                topic=EvaluatorMessageTopics.OUTPUTS,
+                value=self.out,
                 source="BaseEvaluator",
             ),
         ]

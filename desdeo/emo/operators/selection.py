@@ -7,38 +7,378 @@ TODO:@light-weaver
 from abc import abstractmethod
 from collections.abc import Sequence
 from enum import Enum
+from itertools import combinations
+from typing import Literal, TypedDict, TypeVar
 
 import numpy as np
+import polars as pl
+from scipy.special import comb
+from scipy.stats.qmc import LatinHypercube
 
-from desdeo.tools.message import Array2DMessage, DictMessage, Message, SelectorMessageTopics, TerminatorMessageTopics
+from desdeo.problem import Problem
+from desdeo.tools import get_corrected_ideal_and_nadir
+from desdeo.tools.message import (
+    Array2DMessage,
+    DictMessage,
+    Message,
+    PolarsDataFrameMessage,
+    SelectorMessageTopics,
+    TerminatorMessageTopics,
+)
 from desdeo.tools.non_dominated_sorting import fast_non_dominated_sort
-from desdeo.tools.patterns import Subscriber
+from desdeo.tools.patterns import Publisher, Subscriber
+
+SolutionType = TypeVar("SolutionType", list, pl.DataFrame)
 
 
 class BaseSelector(Subscriber):
     """A base class for selection operators."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, problem: Problem, **kwargs):
         """Initialize a selection operator."""
         super().__init__(**kwargs)
+        self.problem = problem
+        self.variable_symbols = [x.symbol for x in problem.get_flattened_variables()]
+        self.objective_symbols = [x.symbol for x in problem.objectives]
+
+        if problem.scalarization_funcs is None:
+            self.target_symbols = [f"{x.symbol}_min" for x in problem.objectives]
+            ideal, nadir = get_corrected_ideal_and_nadir(problem)
+            self.ideal = np.array([ideal[x.symbol] for x in problem.objectives])
+            self.nadir = np.array([nadir[x.symbol] for x in problem.objectives]) if nadir is not None else None
+        else:
+            self.target_symbols = [x.symbol for x in problem.scalarization_funcs if x.symbol is not None]
+            self.ideal: np.ndarray | None = None
+            self.nadir: np.ndarray | None = None
+        if problem.constraints is None:
+            self.constraints_symbols = None
+        else:
+            self.constraints_symbols = [x.symbol for x in problem.constraints]
+        self.num_dims = len(self.target_symbols)
 
     @abstractmethod
     def do(
         self,
-        parents: tuple[np.ndarray, np.ndarray, np.ndarray | None],
-        offsprings: tuple[np.ndarray, np.ndarray, np.ndarray | None],
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
+        parents: tuple[SolutionType, pl.DataFrame],
+        offsprings: tuple[SolutionType, pl.DataFrame],
+    ) -> tuple[SolutionType, pl.DataFrame]:
         """Perform the selection operation.
 
         Args:
-            parents (tuple[np.ndarray, np.ndarray]): the parent population, their targets, and constraint violations.
-            offsprings (tuple[np.ndarray, np.ndarray]): the offspring population and their targets and constraint
-                violations.
+            parents (tuple[SolutionType, pl.DataFrame]): the decision variables as the first element.
+                The second element is the objective values, targets, and constraint violations.
+            offsprings (tuple[SolutionType, pl.DataFrame]): the decision variables as the first element.
+                The second element is the objective values, targets, and constraint violations.
 
         Returns:
-            tuple[np.ndarray, np.ndarray, np.ndarray | None]: the selected population, their targets and constraint
-                violations.
+            tuple[SolutionType, pl.DataFrame]: The selected decision variables and their objective values,
+                targets, and constraint violations.
         """
+
+
+class ReferenceVectorOptions(TypedDict, total=False):
+    """The options for the reference vector based selection operators."""
+
+    adaptation_frequency: int
+    """Number of generations between reference vector adaptation. If set to 0, no adaptation occurs. Defaults to 100.
+    Only used if `interactive_adaptation` is set to "none"."""
+    creation_type: Literal["simplex", "s_energy"]
+    """The method for creating reference vectors. Defaults to "simplex".
+    Currently only "simplex" is implemented. Future versions will include "s_energy".
+
+    If set to "simplex", the reference vectors are created using the simplex lattice design method.
+    This method is generates distributions with specific numbers of reference vectors.
+    Check: https://www.itl.nist.gov/div898/handbook/pri/section5/pri542.htm for more information.
+
+    If set to "s_energy", the reference vectors are created using the Riesz s-energy criterion. This method is used to
+    distribute an arbitrary number of reference vectors in the objective space while minimizing the s-energy.
+    Currently not implemented.
+    """
+    vector_type: Literal["spherical", "planar"]
+    """The method for normalizing the reference vectors. Defaults to "spherical"."""
+    lattice_resolution: int
+    """Number of divisions along an axis when creating the simplex lattice. This is not required/used for the "s_energy"
+    method. If not specified, the lattice resolution is calculated based on the `number_of_vectors`.
+    """
+    number_of_vectors: int
+    """Number of reference vectors to be created. If "simplex" is selected as the `creation_type`, then the closest
+    `lattice_resolution` is calculated based on this value. If "s_energy" is selected, then this value is used directly.
+    Note that if neither `lattice_resolution` nor `number_of_vectors` is specified, the number of vectors defaults to
+    500.
+    """
+    interactive_adaptation: Literal[
+        "preferred_solutions", "non_preferred_solutions", "preferred_ranges", "reference_point", "none"
+    ]
+    """The method for adapting reference vectors based on the Decision maker's preference information.
+    Defaults to "none".
+    """
+    adaptation_distance: float
+    """Distance parameter for the interactive adaptation methods. Defaults to 0.2."""
+    reference_point: dict[str, float]
+    """The reference point for interactive adaptation."""
+    preferred_solutions: dict[str, list[float]]
+    """The preferred solutions for interactive adaptation."""
+    non_preferred_solutions: dict[str, list[float]]
+    """The non-preferred solutions for interactive adaptation."""
+    preferred_ranges: dict[str, list[float]]
+    """The preferred ranges for interactive adaptation."""
+
+
+class BaseDecompositionSelector(BaseSelector):
+    """Base class for decomposition based selection operators."""
+
+    def __init__(self, problem: Problem, reference_vector_options: ReferenceVectorOptions, **kwargs):
+        super().__init__(problem, **kwargs)
+        self.reference_vector_options = reference_vector_options
+        self.reference_vectors: np.ndarray
+        self.reference_vectors_initial: np.ndarray
+
+        # Set default values
+        if "creation_type" not in self.reference_vector_options:
+            self.reference_vector_options["creation_type"] = "simplex"
+        if "vector_type" not in self.reference_vector_options:
+            self.reference_vector_options["vector_type"] = "spherical"
+        if "adaptation_frequency" not in self.reference_vector_options:
+            self.reference_vector_options["adaptation_frequency"] = 100
+        if self.reference_vector_options["creation_type"] == "simplex":
+            self._create_simplex()
+        elif self.reference_vector_options["creation_type"] == "s_energy":
+            raise NotImplementedError("Riesz s-energy criterion is not yet implemented.")
+
+        if "interactive_adaptation" not in self.reference_vector_options:
+            self.reference_vector_options["interactive_adaptation"] = "none"
+        elif self.reference_vector_options["interactive_adaptation"] != "none":
+            self.reference_vector_options["adaptation_frequency"] = 0
+        if "adaptation_distance" not in self.reference_vector_options:
+            self.reference_vector_options["adaptation_distance"] = 0.2
+        self._create_simplex()
+
+        if self.reference_vector_options["interactive_adaptation"] == "reference_point":
+            if "reference_point" not in self.reference_vector_options:
+                raise ValueError("Reference point must be specified for interactive adaptation.")
+            self.interactive_adapt_3(
+                np.array([self.reference_vector_options["reference_point"][x] for x in self.target_symbols]),
+                translation_param=self.reference_vector_options["adaptation_distance"],
+            )
+        elif self.reference_vector_options["interactive_adaptation"] == "preferred_solutions":
+            if "preferred_solutions" not in self.reference_vector_options:
+                raise ValueError("Preferred solutions must be specified for interactive adaptation.")
+            self.interactive_adapt_1(
+                np.array([[self.reference_vector_options["preferred_solutions"][x] for x in self.target_symbols]]).T,
+                translation_param=self.reference_vector_options["adaptation_distance"],
+            )
+        elif self.reference_vector_options["interactive_adaptation"] == "non_preferred_solutions":
+            if "non_preferred_solutions" not in self.reference_vector_options:
+                raise ValueError("Non-preferred solutions must be specified for interactive adaptation.")
+            self.interactive_adapt_2(
+                np.array(
+                    [[self.reference_vector_options["non_preferred_solutions"][x] for x in self.target_symbols]]
+                ).T,
+                predefined_distance=self.reference_vector_options["adaptation_distance"],
+            )
+        elif self.reference_vector_options["interactive_adaptation"] == "preferred_ranges":
+            if "preferred_ranges" not in self.reference_vector_options:
+                raise ValueError("Preferred ranges must be specified for interactive adaptation.")
+            self.interactive_adapt_4(
+                np.array([[self.reference_vector_options["preferred_ranges"][x] for x in self.target_symbols]]).T,
+            )
+
+    def _create_simplex(self):
+        """Create the reference vectors using simplex lattice design."""
+
+        def approx_lattice_resolution(number_of_vectors: int, num_dims: int) -> int:
+            """Approximate the lattice resolution based on the number of vectors."""
+            temp_lattice_resolution = 0
+            while True:
+                temp_lattice_resolution += 1
+                temp_number_of_vectors = comb(
+                    temp_lattice_resolution + num_dims - 1,
+                    num_dims - 1,
+                    exact=True,
+                )
+                if temp_number_of_vectors > number_of_vectors:
+                    break
+            return temp_lattice_resolution - 1
+
+        if "lattice_resolution" in self.reference_vector_options:
+            lattice_resolution = self.reference_vector_options["lattice_resolution"]
+        elif "number_of_vectors" in self.reference_vector_options:
+            lattice_resolution = approx_lattice_resolution(
+                self.reference_vector_options["number_of_vectors"], num_dims=self.num_dims
+            )
+        else:
+            lattice_resolution = approx_lattice_resolution(500, num_dims=self.num_dims)
+
+        number_of_vectors: int = comb(
+            lattice_resolution + self.num_dims - 1,
+            self.num_dims - 1,
+            exact=True,
+        )
+
+        self.reference_vector_options["number_of_vectors"] = number_of_vectors
+        self.reference_vector_options["lattice_resolution"] = lattice_resolution
+
+        temp1 = range(1, self.num_dims + lattice_resolution)
+        temp1 = np.array(list(combinations(temp1, self.num_dims - 1)))
+        temp2 = np.array([range(self.num_dims - 1)] * number_of_vectors)
+        temp = temp1 - temp2 - 1
+        weight = np.zeros((number_of_vectors, self.num_dims), dtype=int)
+        weight[:, 0] = temp[:, 0]
+        for i in range(1, self.num_dims - 1):
+            weight[:, i] = temp[:, i] - temp[:, i - 1]
+        weight[:, -1] = lattice_resolution - temp[:, -1]
+        self.reference_vectors = weight / lattice_resolution
+        self.reference_vectors_initial = np.copy(self.reference_vectors)
+        self._normalize_rvs()
+
+    def _normalize_rvs(self):
+        """Normalize the reference vectors to a unit hypersphere."""
+        if self.reference_vector_options["vector_type"] == "spherical":
+            norm = np.linalg.norm(self.reference_vectors, axis=1).reshape(-1, 1)
+            norm[norm == 0] = np.finfo(float).eps
+        elif self.reference_vector_options["vector_type"] == "planar":
+            norm = np.sum(self.reference_vectors, axis=1).reshape(-1, 1)
+        else:
+            raise ValueError("Invalid vector type. Must be either 'spherical' or 'planar'.")
+        self.reference_vectors = np.divide(self.reference_vectors, norm)
+
+    def interactive_adapt_1(self, z: np.ndarray, translation_param: float) -> None:
+        """Adapt reference vectors using the information about prefererred solution(s) selected by the Decision maker.
+
+        Args:
+            z (np.ndarray): Preferred solution(s).
+            translation_param (float): Parameter determining how close the reference vectors are to the central vector
+            **v** defined by using the selected solution(s) z.
+        """
+        if z.shape[0] == 1:
+            # single preferred solution
+            # calculate new reference vectors
+            self.reference_vectors = translation_param * self.reference_vectors_initial + ((1 - translation_param) * z)
+
+        else:
+            # multiple preferred solutions
+            # calculate new reference vectors for each preferred solution
+            values = [translation_param * self.reference_vectors_initial + ((1 - translation_param) * z_i) for z_i in z]
+
+            # combine arrays of reference vectors into a single array and update reference vectors
+            self.reference_vectors = np.concatenate(values)
+
+        self._normalize_rvs()
+        self.add_edge_vectors()
+
+    def interactive_adapt_2(self, z: np.ndarray, predefined_distance: float) -> None:
+        """Adapt reference vectors by using the information about non-preferred solution(s) selected by the Decision maker.
+
+        After the Decision maker has specified non-preferred solution(s), Euclidian distance between normalized solution
+        vector(s) and each of the reference vectors are calculated. Those reference vectors that are **closer** than a
+        predefined distance are either **removed** or **re-positioned** somewhere else.
+
+        Note:
+            At the moment, only the **removal** of reference vectors is supported. Repositioning of the reference
+            vectors is **not** supported.
+
+        Note:
+            In case the Decision maker specifies multiple non-preferred solutions, the reference vector(s) for which the
+            distance to **any** of the non-preferred solutions is less than predefined distance are removed.
+
+        Note:
+            Future developer should implement a way for a user to say: "Remove some percentage of
+            objecive space/reference vectors" rather than giving a predefined distance value.
+
+        Args:
+            z (np.ndarray): Non-preferred solution(s).
+            predefined_distance (float): The reference vectors that are closer than this distance are either removed or
+            re-positioned somewhere else.
+            Default value: 0.2
+        """
+        # calculate L1 norm of non-preferred solution(s)
+        z = np.atleast_2d(z)
+        norm = np.linalg.norm(z, ord=1, axis=1).reshape(np.shape(z)[0], 1)
+
+        # non-preferred solutions normalized
+        v_c = np.divide(z, norm)
+
+        # distances from non-preferred solution(s) to each reference vector
+        distances = np.array(
+            [
+                list(
+                    map(
+                        lambda solution: np.linalg.norm(solution - value, ord=2),
+                        v_c,
+                    )
+                )
+                for value in self.reference_vectors
+            ]
+        )
+
+        # find out reference vectors that are not closer than threshold value to any non-preferred solution
+        mask = [all(d >= predefined_distance) for d in distances]
+
+        # set those reference vectors that met previous condition as new reference vectors, drop others
+        self.reference_vectors = self.reference_vectors[mask]
+
+        self._normalize_rvs()
+        self.add_edge_vectors()
+
+    def interactive_adapt_3(self, ref_point, translation_param):
+        """Adapt reference vectors linearly towards a reference point. Then normalize.
+
+        The details can be found in the following paper: Hakanen, Jussi &
+        Chugh, Tinkle & Sindhya, Karthik & Jin, Yaochu & Miettinen, Kaisa.
+        (2016). Connections of Reference Vectors and Different Types of
+        Preference Information in Interactive Multiobjective Evolutionary
+        Algorithms.
+
+        Parameters
+        ----------
+        ref_point :
+
+        translation_param :
+            (Default value = 0.2)
+
+        """
+        self.reference_vectors = self.reference_vectors_initial * translation_param + (
+            (1 - translation_param) * ref_point
+        )
+        self._normalize_rvs()
+        self.add_edge_vectors()
+
+    def interactive_adapt_4(self, preferred_ranges: np.ndarray) -> None:
+        """Adapt reference vectors by using the information about the Decision maker's preferred range for each of the objective.
+
+        Using these ranges, Latin hypercube sampling is applied to generate m number of samples between
+        within these ranges, where m is the number of reference vectors. Normalized vectors constructed of these samples
+        are then set as new reference vectors.
+
+        Args:
+            preferred_ranges (np.ndarray): Preferred lower and upper bound for each of the objective function values.
+        """
+        # bounds
+        lower_limits = np.array([ranges[0] for ranges in preferred_ranges])
+        upper_limits = np.array([ranges[1] for ranges in preferred_ranges])
+
+        # generate samples using Latin hypercube sampling
+        lhs = LatinHypercube(d=self.num_dims)
+        w = lhs.random(n=self.reference_vectors_initial.shape[0])
+
+        # scale between bounds
+        w = w * (upper_limits - lower_limits) + lower_limits
+
+        # set new reference vectors and normalize them
+        self.reference_vectors = w
+        self._normalize_rvs()
+        self.add_edge_vectors()
+
+    def add_edge_vectors(self):
+        """Add edge vectors to the list of reference vectors.
+
+        Used to cover the entire orthant when preference information is
+        provided.
+
+        """
+        edge_vectors = np.eye(self.reference_vectors.shape[1])
+        self.reference_vectors = np.vstack([self.reference_vectors, edge_vectors])
+        self._normalize_rvs()
 
 
 class ParameterAdaptationStrategy(Enum):
@@ -50,63 +390,87 @@ class ParameterAdaptationStrategy(Enum):
 
 
 class RVEASelector(BaseSelector):
+    @property
+    def provided_topics(self):
+        return {
+            0: [],
+            1: [
+                SelectorMessageTopics.REFERENCE_VECTORS,
+                SelectorMessageTopics.STATE,
+            ],
+            2: [
+                SelectorMessageTopics.REFERENCE_VECTORS,
+                SelectorMessageTopics.STATE,
+                SelectorMessageTopics.SELECTED_OUTPUTS,
+            ],
+        }
+
+    @property
+    def interested_topics(self):
+        return [
+            TerminatorMessageTopics.GENERATION,
+            TerminatorMessageTopics.MAX_GENERATIONS,
+            TerminatorMessageTopics.EVALUATION,
+            TerminatorMessageTopics.MAX_EVALUATIONS,
+        ]
+
     def __init__(
         self,
-        reference_vectors: np.ndarray,
+        problem: Problem,
+        publisher: Publisher,
         alpha: float = 2.0,
-        ideal: np.ndarray = None,
-        nadir: np.ndarray = None,
         parameter_adaptation_strategy: ParameterAdaptationStrategy = ParameterAdaptationStrategy.GENERATION_BASED,
+        reference_vector_options: ReferenceVectorOptions | None = None,
         **kwargs,
     ):
         if not isinstance(parameter_adaptation_strategy, ParameterAdaptationStrategy):
             raise TypeError(f"Parameter adaptation strategy must be of Type {type(ParameterAdaptationStrategy)}")
         if parameter_adaptation_strategy == ParameterAdaptationStrategy.OTHER:
             raise ValueError("Other parameter adaptation strategies are not yet implemented.")
-        if parameter_adaptation_strategy == ParameterAdaptationStrategy.GENERATION_BASED:
-            topics = [TerminatorMessageTopics.GENERATION, TerminatorMessageTopics.MAX_GENERATIONS]
-        elif parameter_adaptation_strategy == ParameterAdaptationStrategy.FUNCTION_EVALUATION_BASED:
-            topics = [TerminatorMessageTopics.EVALUATION, TerminatorMessageTopics.MAX_EVALUATIONS]
-        super().__init__(topics=topics, **kwargs)
-        self.reference_vectors = reference_vectors
-        self.adapted_reference_vectors = None
-        self.reference_vectors_gamma = None
-        self.numerator = None
-        self.denominator = None
+
+        super().__init__(problem=problem, **kwargs)
+
+        self.reference_vectors_gamma: np.ndarray
+        self.numerator: float
+        self.denominator: float
         self.alpha = alpha
-        self.ideal = ideal
-        self.nadir = nadir
-        self.selection = None
+        self.selected_individuals: list | pl.DataFrame
+        self.selected_targets: pl.DataFrame
+        self.selection: list[int]
         self.penalty = None
         self.parameter_adaptation_strategy = parameter_adaptation_strategy
-        match self.verbosity:
-            case 0:
-                self.provided_topics = []
-            case 1:
-                self.provided_topics = [
-                    SelectorMessageTopics.REFERENCE_VECTORS,
-                    SelectorMessageTopics.STATE,
-                ]
-            case 2:
-                self.provided_topics = [
-                    SelectorMessageTopics.REFERENCE_VECTORS,
-                    SelectorMessageTopics.STATE,
-                    SelectorMessageTopics.SELECTED_INDIVIDUALS,
-                    SelectorMessageTopics.SELECTED_TARGETS,
-                    SelectorMessageTopics.SELECTED_CONSTRAINTS,
-                ]
 
     def do(
         self,
-        parents: tuple[np.ndarray, np.ndarray, np.ndarray | None],
-        offsprings: tuple[np.ndarray, np.ndarray, np.ndarray | None],
-    ) -> tuple[np.ndarray, np.ndarray]:
-        solutions = np.vstack((parents[0], offsprings[0]))
-        targets = np.vstack((parents[1], offsprings[1]))
-        if parents[2] is None:  # noqa: SIM108
+        parents: tuple[SolutionType, pl.DataFrame],
+        offsprings: tuple[SolutionType, pl.DataFrame],
+    ) -> tuple[SolutionType, pl.DataFrame]:
+        """Perform the selection operation.
+
+        Args:
+            parents (tuple[SolutionType, pl.DataFrame]): the decision variables as the first element.
+                The second element is the objective values, targets, and constraint violations.
+            offsprings (tuple[SolutionType, pl.DataFrame]): the decision variables as the first element.
+                The second element is the objective values, targets, and constraint violations.
+
+        Returns:
+            tuple[SolutionType, pl.DataFrame]: The selected decision variables and their objective values,
+                targets, and constraint violations.
+        """
+        if isinstance(parents[0], pl.DataFrame) and isinstance(offsprings[0], pl.DataFrame):
+            solutions = parents[0].vstack(offsprings[0])
+        elif isinstance(parents[0], list) and isinstance(offsprings[0], list):
+            solutions = parents[0] + offsprings[0]
+        else:
+            raise TypeError("The decision variables must be either a list or a polars DataFrame, not both")
+        alltargets = parents[1].vstack(offsprings[1])
+        targets = alltargets[self.target_symbols].to_numpy()
+        if self.constraints_symbols is None:
             constraints = None
         else:
-            constraints = np.vstack((parents[2], offsprings[2]))
+            constraints = (
+                parents[1][self.constraints_symbols].vstack(offsprings[1][self.constraints_symbols]).to_numpy()
+            )
 
         if self.ideal is None:
             self.ideal = np.min(targets, axis=0)
@@ -186,13 +550,12 @@ class RVEASelector(BaseSelector):
                     selection = np.hstack((selection, np.transpose(selx[0])))
                 else:
                     selection = np.vstack((selection, np.transpose(selx[0])))
-        self.selection = (
-            solutions[selection.flatten()],
-            targets[selection.flatten()],
-            (constraints[selection.flatten()] if constraints is not None else None),
-        )
+
+        self.selection = selection.tolist()
+        self.selected_individuals = solutions[selection]
+        self.selected_targets = alltargets[selection]
         self.notify()
-        return self.selection
+        return self.selected_individuals, self.selected_targets
 
     def _partial_penalty_factor(self) -> float:
         """Calculate and return the partial penalty factor for APD calculation.
@@ -206,10 +569,7 @@ class RVEASelector(BaseSelector):
         if self.denominator == 0 or self.numerator is None or self.denominator is None:
             return 0
         penalty = self.numerator / self.denominator
-        if penalty < 0:
-            penalty = 0
-        if penalty > 1:
-            penalty = 1
+        penalty = float(np.clip(penalty, 0, 1))
         self.penalty = (penalty**self.alpha) * self.reference_vectors.shape[1]
         return self.penalty
 
@@ -221,6 +581,8 @@ class RVEASelector(BaseSelector):
                 Terminator operator (via the Publisher).
         """
         if not isinstance(message.topic, TerminatorMessageTopics):
+            return
+        if not isinstance(message.value, int):
             return
         if self.parameter_adaptation_strategy == ParameterAdaptationStrategy.GENERATION_BASED:
             if message.topic == TerminatorMessageTopics.GENERATION:
@@ -269,27 +631,17 @@ class RVEASelector(BaseSelector):
                 },
                 source=self.__class__.__name__,
             ),
-            Array2DMessage(
-                topic=SelectorMessageTopics.SELECTED_INDIVIDUALS,
-                value=self.selection[0].tolist(),
-                source=self.__class__.__name__,
-            ),
-            Array2DMessage(
-                topic=SelectorMessageTopics.SELECTED_TARGETS,
-                value=self.selection[1].tolist(),
+            # DictMessage(
+            #     topic=SelectorMessageTopics.SELECTED_INDIVIDUALS,
+            #     value=self.selection[0].tolist(),
+            #     source=self.__class__.__name__,
+            # ),
+            PolarsDataFrameMessage(
+                topic=SelectorMessageTopics.SELECTED_OUTPUTS,
+                value=self.selected_targets,
                 source=self.__class__.__name__,
             ),
         ]
-
-        if self.selection[2] is not None:
-            state_verbose.append(
-                Array2DMessage(
-                    topic=SelectorMessageTopics.SELECTED_CONSTRAINTS,
-                    value=self.selection[2].tolist(),
-                    source=self.__class__.__name__,
-                )
-            )
-
         return state_verbose
 
     def _adapt(self):
@@ -300,15 +652,7 @@ class RVEASelector(BaseSelector):
         self.adapted_reference_vectors = (
             self.adapted_reference_vectors / np.linalg.norm(self.adapted_reference_vectors, axis=1)[:, None]
         )
-        # self.reference_vectors_gamma = np.zeros(self.reference_vectors.shape[0])
-        # self.reference_vectors_gamma[:] = np.inf
 
-        """for i in range(self.reference_vectors.shape[0]):
-            for j in range(self.reference_vectors.shape[0]):
-                if i != j:
-                    angle = np.arccos(np.dot(self.adapted_reference_vectors[i], self.adapted_reference_vectors[j]))
-                    if angle < self.reference_vectors_gamma[i]:
-                        self.reference_vectors_gamma[i] = angle"""
         # More efficient way to calculate the gamma values
         self.reference_vectors_gamma = np.arccos(
             np.dot(self.adapted_reference_vectors, np.transpose(self.adapted_reference_vectors))
@@ -318,8 +662,7 @@ class RVEASelector(BaseSelector):
 
 
 class NSGAIII_select(BaseSelector):
-    """The NSGA-III selection operator. Code is heavily based on the version of nsga3 in
-        the pymoo package by msu-coinlab.
+    """The NSGA-III selection operator. Code is heavily based on the version of nsga3 in the pymoo package by msu-coinlab.
 
     Parameters
     ----------
@@ -332,21 +675,11 @@ class NSGAIII_select(BaseSelector):
 
     def __init__(
         self,
+        problem: Problem,
         reference_vectors: np.ndarray,
         n_survive: int,
-        ideal: np.ndarray = None,
-        nadir: np.ndarray = None,
         **kwargs,
     ):
-        super().__init__(**kwargs)
-        self.reference_vectors = reference_vectors
-        self.adapted_reference_vectors = None
-        self.worst_fitness: np.ndarray = nadir
-        self.extreme_points: np.ndarray = None
-        self.n_survive = n_survive
-        self.ideal: np.ndarray = ideal
-        self.selection: tuple[np.ndarray, np.ndarray, np.ndarray | None] = None
-
         match self.verbosity:
             case 0:
                 self.provided_topics = []
@@ -360,33 +693,49 @@ class NSGAIII_select(BaseSelector):
                     SelectorMessageTopics.REFERENCE_VECTORS,
                     SelectorMessageTopics.STATE,
                     SelectorMessageTopics.SELECTED_INDIVIDUALS,
-                    SelectorMessageTopics.SELECTED_TARGETS,
-                    SelectorMessageTopics.SELECTED_CONSTRAINTS,
+                    SelectorMessageTopics.SELECTED_OUTPUTS,
                 ]
+        super().__init__(problem, **kwargs)
+        self.reference_vectors = reference_vectors
+        self.adapted_reference_vectors = None
+        self.worst_fitness: np.ndarray | None = None
+        self.extreme_points: np.ndarray | None = None
+        self.n_survive = n_survive
+        self.selection: list[int] | None = None
+        self.selected_individuals: SolutionType | None = None
+        self.selected_targets: pl.DataFrame | None = None
 
     def do(
         self,
-        parents: tuple[np.ndarray, np.ndarray, np.ndarray | None],
-        offsprings: tuple[np.ndarray, np.ndarray, np.ndarray | None],
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
-        """Perform the selection operation for NSGA-III.
+        parents: tuple[SolutionType, pl.DataFrame],
+        offsprings: tuple[SolutionType, pl.DataFrame],
+    ) -> tuple[SolutionType, pl.DataFrame]:
+        """Perform the selection operation.
 
         Args:
-            parents (tuple[np.ndarray, np.ndarray, np.ndarray  |  None]): The parent population, their targets, and
-                constraint violations.
-            offsprings (tuple[np.ndarray, np.ndarray, np.ndarray  |  None]): The offspring population and their targets
-                and constraint violations.
+            parents (tuple[SolutionType, pl.DataFrame]): the decision variables as the first element.
+                The second element is the objective values, targets, and constraint violations.
+            offsprings (tuple[SolutionType, pl.DataFrame]): the decision variables as the first element.
+                The second element is the objective values, targets, and constraint violations.
 
         Returns:
-            tuple[np.ndarray, np.ndarray, np.ndarray | None]: The selected population, their targets and constraint
-                violations.
+            tuple[SolutionType, pl.DataFrame]: The selected decision variables and their objective values,
+                targets, and constraint violations.
         """
-        solutions = np.vstack((parents[0], offsprings[0]))
-        targets = np.vstack((parents[1], offsprings[1]))
-        if parents[2] is None:  # noqa: SIM108
+        if isinstance(parents[0], pl.DataFrame) and isinstance(offsprings[0], pl.DataFrame):
+            solutions = parents[0].vstack(offsprings[0])
+        elif isinstance(parents[0], list) and isinstance(offsprings[0], list):
+            solutions = parents[0] + offsprings[0]
+        else:
+            raise TypeError("The decision variables must be either a list or a polars DataFrame, not both")
+        alltargets = parents[1].vstack(offsprings[1])
+        targets = alltargets[self.target_symbols].to_numpy()
+        if self.constraints_symbols is None:
             constraints = None
         else:
-            constraints = np.vstack((parents[2], offsprings[2]))
+            constraints = (
+                parents[1][self.constraints_symbols].vstack(offsprings[1][self.constraints_symbols]).to_numpy()
+            )
         ref_dirs = self.reference_vectors
 
         if self.ideal is None:
@@ -411,7 +760,7 @@ class NSGAIII_select(BaseSelector):
         self.extreme_points = self.get_extreme_points_c(
             fitness[non_dominated, :], self.ideal, extreme_points=self.extreme_points
         )
-        nadir_point = self.get_nadir_point(
+        self.nadir_point = nadir_point = self.get_nadir_point(
             self.extreme_points,
             self.ideal,
             self.worst_fitness,
@@ -466,13 +815,17 @@ class NSGAIII_select(BaseSelector):
         else:
             final_selection = selection
 
-        self.selection = (
-            solutions[final_selection],
-            targets[final_selection],
-            (constraints[final_selection] if constraints is not None else None),
-        )
+        self.selection = final_selection.tolist()
+        if isinstance(solutions, pl.DataFrame) and self.selection is not None:
+            self.selected_individuals = solutions[self.selection]
+        elif isinstance(solutions, list) and self.selection is not None:
+            self.selected_individuals = [solutions[i] for i in self.selection]
+        else:
+            raise RuntimeError("Something went wrong with the selection")
+        self.selected_targets = alltargets[self.selection]
+
         self.notify()
-        return self.selection
+        return self.selected_individuals, self.selected_targets
 
     def get_extreme_points_c(self, F, ideal_point, extreme_points=None):
         """Taken from pymoo"""
@@ -593,8 +946,8 @@ class NSGAIII_select(BaseSelector):
 
         return matrix
 
-    def state(self) -> Sequence[Message] :
-        if self.verbosity == 0 or self.selection is None:
+    def state(self) -> Sequence[Message]:
+        if self.verbosity == 0 or self.selection is None or self.selected_targets is None:
             return []
         if self.verbosity == 1:
             return [
@@ -631,26 +984,17 @@ class NSGAIII_select(BaseSelector):
                 },
                 source=self.__class__.__name__,
             ),
-            Array2DMessage(
-                topic=SelectorMessageTopics.SELECTED_INDIVIDUALS,
-                value=self.selection[0].tolist(),
-                source=self.__class__.__name__,
-            ),
-            Array2DMessage(
-                topic=SelectorMessageTopics.SELECTED_TARGETS,
-                value=self.selection[1].tolist(),
+            # Array2DMessage(
+            #     topic=SelectorMessageTopics.SELECTED_INDIVIDUALS,
+            #     value=self.selected_individuals,
+            #     source=self.__class__.__name__,
+            # ),
+            PolarsDataFrameMessage(
+                topic=SelectorMessageTopics.SELECTED_OUTPUTS,
+                value=self.selected_targets,
                 source=self.__class__.__name__,
             ),
         ]
-
-        if self.selection[2] is not None:
-            state_verbose.append(
-                Array2DMessage(
-                    topic=SelectorMessageTopics.SELECTED_CONSTRAINTS,
-                    value=self.selection[2].tolist(),
-                    source=self.__class__.__name__,
-                )
-            )
         return state_verbose
 
     def update(self, message: Message) -> None:

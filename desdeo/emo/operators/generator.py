@@ -4,11 +4,12 @@ from abc import abstractmethod
 from collections.abc import Sequence
 
 import numpy as np
+import polars as pl
 from scipy.stats.qmc import LatinHypercube
 
 from desdeo.emo.operators.evaluator import BaseEvaluator
-from desdeo.problem import Problem, TensorVariable
-from desdeo.tools.message import Array2DMessage, GeneratorMessageTopics, Message, IntMessage
+from desdeo.problem import Problem
+from desdeo.tools.message import GeneratorMessageTopics, IntMessage, Message, PolarsDataFrameMessage
 from desdeo.tools.patterns import Subscriber
 
 
@@ -20,13 +21,14 @@ class BaseGenerator(Subscriber):
 
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, problem: Problem, **kwargs):
         """Initialize the BaseGenerator class."""
         super().__init__(**kwargs)
-        self.population: np.ndarray | None = None
-        self.objs: np.ndarray | None = None
-        self.targets: np.ndarray | None = None
-        self.cons: np.ndarray | None = None
+        self.problem = problem
+        self.variable_symbols = [var.name for var in problem.get_flattened_variables()]
+        self.bounds = np.array([[var.lowerbound, var.upperbound] for var in problem.get_flattened_variables()])
+        self.population: pl.DataFrame = None
+        self.out: pl.DataFrame = None
         match self.verbosity:
             case 0:
                 self.provided_topics = []
@@ -36,20 +38,19 @@ class BaseGenerator(Subscriber):
                 self.provided_topics = [
                     GeneratorMessageTopics.NEW_EVALUATIONS,
                     GeneratorMessageTopics.POPULATION,
-                    GeneratorMessageTopics.OBJECTIVES,
-                    GeneratorMessageTopics.CONSTRAINTS,
-                    GeneratorMessageTopics.TARGETS,
+                    GeneratorMessageTopics.OUTPUTS,
                 ]
 
     @abstractmethod
-    def do(self) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray | None]:
+    def do(self) -> tuple[pl.DataFrame, pl.DataFrame]:
         """Generate the initial population.
 
         This method should be implemented by the inherited classes.
 
         Returns:
-            Tuple[np.ndarray, np.ndarray, np.ndarray | None]: The initial population, the corresponding objectives,
-                the constraint violations, and the targets.
+            tuple[pl.DataFrame, pl.DataFrame]: The initial population as the first element,
+                the corresponding objectives, the constraint violations, and the targets as the
+                second element.
         """
 
     def state(self) -> Sequence[Message]:
@@ -60,7 +61,7 @@ class BaseGenerator(Subscriber):
         Returns:
             dict: The state of the generator.
         """
-        if self.population is None or self.targets is None or self.objs is None or self.verbosity == 0:
+        if self.population is None or self.out is None or self.verbosity == 0:
             return []
         if self.verbosity == 1:
             return [
@@ -72,19 +73,14 @@ class BaseGenerator(Subscriber):
             ]
         # verbosity == 2
         state = [
-            Array2DMessage(
+            PolarsDataFrameMessage(
                 topic=GeneratorMessageTopics.POPULATION,
-                value=self.population.tolist(),
+                value=self.population,
                 source=self.__class__.__name__,
             ),
-            Array2DMessage(
-                topic=GeneratorMessageTopics.OBJECTIVES,
-                value=self.objs.tolist(),
-                source=self.__class__.__name__,
-            ),
-            Array2DMessage(
-                topic=GeneratorMessageTopics.TARGETS,
-                value=self.targets.tolist(),
+            PolarsDataFrameMessage(
+                topic=GeneratorMessageTopics.OUTPUTS,
+                value=self.out,
                 source=self.__class__.__name__,
             ),
             IntMessage(
@@ -93,54 +89,7 @@ class BaseGenerator(Subscriber):
                 source=self.__class__.__name__,
             ),
         ]
-        if self.cons is not None:
-            state.append(
-                Array2DMessage(
-                    topic=GeneratorMessageTopics.CONSTRAINTS,
-                    value=self.cons.tolist(),
-                    source=self.__class__.__name__,
-                )
-            )
         return state
-
-
-class TestGenerator(BaseGenerator):
-    """Test Class for generating initial population for the evolutionary optimization algorithms.
-
-    This class generates invalid initial population and targets.
-    """
-
-    def __init__(self, n_points: int, n_vars: int, n_objs: int, n_cons: int = 0):
-        """Initialize the TestGenerator class.
-
-        Args:
-            n_points (int): The number of points to generate for the initial population.
-            n_vars (int): The number of variables in the problem.
-            n_objs (int): The number of objectives in the problem.
-            n_cons (int, optional): The number of constraints in the problem. Defaults to 0.
-        """
-        super().__init__()
-        self.n_points = n_points
-        self.n_vars = n_vars
-        self.n_objs = n_objs
-        self.n_cons = n_cons
-        self.population = np.zeros((n_points, n_vars))
-        self.objs = np.zeros((n_points, n_objs))
-        self.targets = np.ones((n_points, n_objs))
-        self.cons = None
-        if n_cons > 0:
-            self.cons = np.zeros((n_points, 1))
-
-    def do(self) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray | None]:
-        """Generate the initial population.
-
-        Returns:
-            Tuple[np.ndarray, np.ndarray]: The initial population and the corresponding targets.
-        """
-        if self.population is None or self.targets is None or self.objs is None:
-            raise ValueError("Population, objectives, and targets are not set.")
-        self.notify()
-        return self.population, self.objs, self.targets, self.cons
 
 
 class RandomGenerator(BaseGenerator):
@@ -161,32 +110,31 @@ class RandomGenerator(BaseGenerator):
             kwargs: Additional keyword arguments. Check the Subscriber class for more information.
                 At the very least, the publisher argument should be provided.
         """
-        super().__init__(**kwargs)
-        if any(isinstance(var, TensorVariable) for var in problem.variables):
-            raise TypeError("RandomGenerator does not support tensor variables yet.")
+        super().__init__(problem, **kwargs)
         self.n_points = n_points
-        self.bounds = np.array([[var.lowerbound, var.upperbound] for var in problem.variables])
         self.evaluator = evaluator
         self.rng = np.random.default_rng(seed)
         self.seed = seed
 
-    def do(self) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray | None]:
+    def do(self) -> tuple[pl.DataFrame, pl.DataFrame]:
         """Generate the initial population.
 
+        This method should be implemented by the inherited classes.
+
         Returns:
-            Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray | None]: The initial population and the corresponding
-                objectives, targets, and constraint violations.
+            tuple[pl.DataFrame, pl.DataFrame]: The initial population as the first element,
+                the corresponding objectives, the constraint violations, and the targets as the second element.
         """
-        if self.population is not None and self.targets is not None and self.objs is not None:
+        if self.population is not None and self.out is not None:
             self.notify()
-            return self.population, self.objs, self.targets, self.cons
-        population = self.rng.uniform(
-            low=self.bounds[:, 0], high=self.bounds[:, 1], size=(self.n_points, self.bounds.shape[0])
+            return self.population, self.out
+        self.population = pl.from_numpy(
+            self.rng.uniform(low=self.bounds[:, 0], high=self.bounds[:, 1], size=(self.n_points, self.bounds.shape[0])),
+            schema=self.variable_symbols,
         )
-        objs, targets, cons = self.evaluator.evaluate(population)
-        self.population, self.objs, self.targets, self.cons = population, objs, targets, cons
+        self.out = self.evaluator.evaluate(self.population)
         self.notify()
-        return self.population, self.objs, self.targets, self.cons
+        return self.population, self.out
 
     def update(self, message) -> None:
         pass
@@ -214,18 +162,22 @@ class LHSGenerator(RandomGenerator):
         self.lhsrng = LatinHypercube(d=len(problem.variables), seed=seed)
         self.seed = seed
 
-    def do(self) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray | None]:
-        """Generate the initial population with Latin Hypercube Sampling.
+    def do(self) -> tuple[pl.DataFrame, pl.DataFrame]:
+        """Generate the initial population.
+
+        This method should be implemented by the inherited classes.
 
         Returns:
-            Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray | None]: The initial population and the corresponding
-                objectives, targets, and constraint violations.
+            tuple[pl.DataFrame, pl.DataFrame]: The initial population as the first element,
+                the corresponding objectives, the constraint violations, and the targets as the second element.
         """
-        if self.population is not None and self.targets is not None and self.objs is not None:
+        if self.population is not None and self.out is not None:
             self.notify()
-            return self.population, self.objs, self.targets, self.cons
-        population = self.lhsrng.random(n=self.n_points) * (self.bounds[:, 1] - self.bounds[:, 0]) + self.bounds[:, 0]
-        objs, targets, cons = self.evaluator.evaluate(population)
-        self.population, self.objs, self.targets, self.cons = population, objs, targets, cons
+            return self.population, self.out
+        self.population = pl.from_numpy(
+            self.lhsrng.random(n=self.n_points) * (self.bounds[:, 1] - self.bounds[:, 0]) + self.bounds[:, 0],
+            schema=self.variable_symbols,
+        )
+        self.out = self.evaluator.evaluate(self.population)
         self.notify()
-        return self.population, self.objs, self.targets, self.cons
+        return self.population, self.out

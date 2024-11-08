@@ -33,7 +33,7 @@ class BaseTerminator(Subscriber):
     def __init__(self, **kwargs):
         """Initialize a termination criterion."""
         super().__init__(
-            topics=[EvaluatorMessageTopics.NEW_EVALUATIONS, GeneratorMessageTopics.NEW_EVALUATIONS], **kwargs
+            interested_topics=[EvaluatorMessageTopics.NEW_EVALUATIONS, GeneratorMessageTopics.NEW_EVALUATIONS], **kwargs
         )
         self.current_generation: int = 1
         self.current_evaluations: int = 0

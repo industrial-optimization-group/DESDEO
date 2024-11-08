@@ -3,8 +3,9 @@
 This can be used as a template for the implementation of the EMO methods.
 """
 
-from pydantic import BaseModel, Field
 import numpy as np
+import polars as pl
+from pydantic import BaseModel, ConfigDict
 
 from desdeo.emo.operators.crossover import BaseCrossover
 from desdeo.emo.operators.evaluator import BaseEvaluator
@@ -15,8 +16,10 @@ from desdeo.emo.operators.termination import BaseTerminator
 
 
 class EMOResult(BaseModel):
-    solutions: np.ndarray
-    objectives: np.ndarray
+    solutions: pl.DataFrame
+    outputs: pl.DataFrame
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 def baseEA1(
@@ -27,15 +30,12 @@ def baseEA1(
     selection: BaseSelector,
     termination: BaseTerminator,
 ):
-    solutions, objectives, targets, cons_violations = generator.do()
+    solutions, outputs = generator.do()
 
     while not termination.check():
-        offspring = crossover.do(population=(solutions, targets, cons_violations))
+        offspring = crossover.do(population=solutions)
         offspring = mutation.do(offspring, solutions)
-        offspring_objs, offspring_targets, offspring_constraints = evaluator.evaluate(offspring)
-        solutions, targets, cons_violations = selection.do(
-            (solutions, targets, cons_violations),
-            (offspring, offspring_targets, offspring_constraints),
-        )
+        offspring_outputs = evaluator.evaluate(offspring)
+        solutions, outputs = selection.do(parents=(solutions, outputs), offsprings=(offspring, offspring_outputs))
 
-    return EMOResult(solutions=solutions, objectives=objectives)
+    return EMOResult(solutions=solutions, outputs=outputs)
