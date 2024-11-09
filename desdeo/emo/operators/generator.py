@@ -7,7 +7,7 @@ import numpy as np
 import polars as pl
 from scipy.stats.qmc import LatinHypercube
 
-from desdeo.emo.operators.evaluator import BaseEvaluator
+from desdeo.emo.operators.evaluator import EMOEvaluator
 from desdeo.problem import Problem
 from desdeo.tools.message import GeneratorMessageTopics, IntMessage, Message, PolarsDataFrameMessage
 from desdeo.tools.patterns import Subscriber
@@ -21,6 +21,28 @@ class BaseGenerator(Subscriber):
 
     """
 
+    @property
+    def provided_topics(self) -> dict[int, Sequence[GeneratorMessageTopics]]:
+        """Return the topics provided by the generator.
+
+        Returns:
+            dict[int, Sequence[GeneratorMessageTopics]]: The topics provided by the generator.
+        """
+        return {
+            0: [],
+            1: [GeneratorMessageTopics.NEW_EVALUATIONS],
+            2: [
+                GeneratorMessageTopics.NEW_EVALUATIONS,
+                GeneratorMessageTopics.POPULATION,
+                GeneratorMessageTopics.OUTPUTS,
+            ],
+        }
+
+    @property
+    def interested_topics(self):
+        """Return the message topics that the generator is interested in."""
+        return []
+
     def __init__(self, problem: Problem, **kwargs):
         """Initialize the BaseGenerator class."""
         super().__init__(**kwargs)
@@ -29,17 +51,6 @@ class BaseGenerator(Subscriber):
         self.bounds = np.array([[var.lowerbound, var.upperbound] for var in problem.get_flattened_variables()])
         self.population: pl.DataFrame = None
         self.out: pl.DataFrame = None
-        match self.verbosity:
-            case 0:
-                self.provided_topics = []
-            case 1:
-                self.provided_topics = [GeneratorMessageTopics.NEW_EVALUATIONS]
-            case 2:
-                self.provided_topics = [
-                    GeneratorMessageTopics.NEW_EVALUATIONS,
-                    GeneratorMessageTopics.POPULATION,
-                    GeneratorMessageTopics.OUTPUTS,
-                ]
 
     @abstractmethod
     def do(self) -> tuple[pl.DataFrame, pl.DataFrame]:
@@ -72,7 +83,7 @@ class BaseGenerator(Subscriber):
                 ),
             ]
         # verbosity == 2
-        state = [
+        return [
             PolarsDataFrameMessage(
                 topic=GeneratorMessageTopics.POPULATION,
                 value=self.population,
@@ -89,7 +100,6 @@ class BaseGenerator(Subscriber):
                 source=self.__class__.__name__,
             ),
         ]
-        return state
 
 
 class RandomGenerator(BaseGenerator):
@@ -99,7 +109,7 @@ class RandomGenerator(BaseGenerator):
     distribution of the points is uniform. If the seed is not provided, the seed is set to 0.
     """
 
-    def __init__(self, problem: Problem, evaluator: BaseEvaluator, n_points: int, seed: int, **kwargs):
+    def __init__(self, problem: Problem, evaluator: EMOEvaluator, n_points: int, seed: int, **kwargs):
         """Initialize the RandomGenerator class.
 
         Args:
@@ -137,7 +147,7 @@ class RandomGenerator(BaseGenerator):
         return self.population, self.out
 
     def update(self, message) -> None:
-        pass
+        """Update the generator based on the message."""
 
 
 class LHSGenerator(RandomGenerator):
@@ -147,7 +157,7 @@ class LHSGenerator(RandomGenerator):
     If the seed is not provided, the seed is set to 0.
     """
 
-    def __init__(self, problem: Problem, evaluator: BaseEvaluator, n_points: int, seed: int, **kwargs):
+    def __init__(self, problem: Problem, evaluator: EMOEvaluator, n_points: int, seed: int, **kwargs):
         """Initialize the LHSGenerator class.
 
         Args:
@@ -181,3 +191,6 @@ class LHSGenerator(RandomGenerator):
         self.out = self.evaluator.evaluate(self.population)
         self.notify()
         return self.population, self.out
+
+    def update(self, message) -> None:
+        """Update the generator based on the message."""

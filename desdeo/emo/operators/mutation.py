@@ -9,7 +9,7 @@ from collections.abc import Sequence
 import numpy as np
 import polars as pl
 
-from desdeo.problem import Problem, TensorVariable
+from desdeo.problem import Problem, VariableDomainTypeEnum
 from desdeo.tools.message import (
     FloatMessage,
     Message,
@@ -27,10 +27,11 @@ class BaseMutation(Subscriber):
         """Initialize a mu operator."""
         super().__init__(**kwargs)
         self.problem = problem
-        self.bounds = np.array(
-            [[var.lowerbound, var.upperbound] for var in problem.variables if not isinstance(var, TensorVariable)]
-        )
-        self.variable_symbols = [var.name for var in problem.variables if not isinstance(var, TensorVariable)]
+        self.variable_symbols = [var.symbol for var in problem.get_flattened_variables()]
+        self.lower_bounds = [var.lowerbound for var in problem.get_flattened_variables()]
+        self.upper_bounds = [var.upperbound for var in problem.get_flattened_variables()]
+        self.variable_types = [var.variable_type for var in problem.get_flattened_variables()]
+        self.variable_combination: VariableDomainTypeEnum = problem.variable_domain
 
     @abstractmethod
     def do(self, offsprings: pl.DataFrame, parents: pl.DataFrame) -> pl.DataFrame:
@@ -47,12 +48,34 @@ class BaseMutation(Subscriber):
 
 
 class BoundedPolynomialMutation(BaseMutation):
-    """A bounded polynomial mutation operator.
+    """Implements the bounded polynomial mutation operator.
 
-    This operator is based on the polynomial mutation operator described in
-    Deb, K., & Goyal, M. (1996). A combined genetic adaptive search (GeneAS) for
-    engineering design. Computer Science and informatics, 26(4), 30-45, 1996.
+    Reference:
+        Deb, K., & Goyal, M. (1996). A combined genetic adaptive search (GeneAS) for
+        engineering design. Computer Science and informatics, 26(4), 30-45, 1996.
     """
+
+    @property
+    def provided_topics(self) -> dict[int, Sequence[MutationMessageTopics]]:
+        """The message topics provided by the mutation operator."""
+        return {
+            0: [],
+            1: [
+                MutationMessageTopics.MUTATION_PROBABILITY,
+                MutationMessageTopics.MUTATION_DISTRIBUTION,
+            ],
+            2: [
+                MutationMessageTopics.MUTATION_PROBABILITY,
+                MutationMessageTopics.MUTATION_DISTRIBUTION,
+                MutationMessageTopics.OFFSPRING_ORIGINAL,
+                MutationMessageTopics.OFFSPRINGS,
+            ],
+        }
+
+    @property
+    def interested_topics(self):
+        """The message topics that the mutation operator is interested in."""
+        return []
 
     def __init__(
         self,
@@ -74,11 +97,10 @@ class BoundedPolynomialMutation(BaseMutation):
                 publisher must be passed. See the Subscriber class for more information.
         """
         super().__init__(problem, **kwargs)
-        # TODO: Add variable type check assertion (variables must be real)
-        self.lower_limits = self.bounds[:, 0]
-        self.upper_limits = self.bounds[:, 1]
+        if self.variable_combination != VariableDomainTypeEnum.continuous:
+            raise ValueError("This mutation operator only works with continuous variables.")
         if mutation_probability is None:
-            self.mutation_probability = 1 / len(self.lower_limits)
+            self.mutation_probability = 1 / len(self.lower_bounds)
         else:
             self.mutation_probability = mutation_probability
         self.distribution_index = distribution_index
@@ -87,21 +109,6 @@ class BoundedPolynomialMutation(BaseMutation):
         self.offspring_original: pl.DataFrame
         self.parents: pl.DataFrame
         self.offspring: pl.DataFrame
-        match self.verbosity:
-            case 0:
-                self.provided_topics = []
-            case 1:
-                self.provided_topics = [
-                    MutationMessageTopics.MUTATION_PROBABILITY,
-                    MutationMessageTopics.MUTATION_DISTRIBUTION,
-                ]
-            case 2:
-                self.provided_topics = [
-                    MutationMessageTopics.MUTATION_PROBABILITY,
-                    MutationMessageTopics.MUTATION_DISTRIBUTION,
-                    MutationMessageTopics.OFFSPRING_ORIGINAL,
-                    MutationMessageTopics.OFFSPRINGS,
-                ]
 
     def do(self, offsprings: pl.DataFrame, parents: pl.DataFrame) -> pl.DataFrame:
         """Perform the mutation operation.
@@ -118,8 +125,8 @@ class BoundedPolynomialMutation(BaseMutation):
         self.offspring_original = offsprings
         self.parents = parents  # Not used, but kept for consistency
         offspring = offsprings.to_numpy()
-        min_val = np.ones_like(offspring) * self.lower_limits
-        max_val = np.ones_like(offspring) * self.upper_limits
+        min_val = np.ones_like(offspring) * self.lower_bounds
+        max_val = np.ones_like(offspring) * self.upper_bounds
         k = self.rng.random(size=offspring.shape)
         miu = self.rng.random(size=offspring.shape)
         temp = np.logical_and((k <= self.mutation_probability), (miu < 0.5))

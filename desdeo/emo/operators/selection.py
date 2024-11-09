@@ -1,6 +1,6 @@
 """The base class for selection operators.
 
-This whole file should be rewritten. Everything is a mess.
+This whole file should be rewritten. Everything is a mess. Moreover, the selectors do not yet take seeds as input for reproducibility.
 TODO:@light-weaver
 """
 
@@ -164,23 +164,21 @@ class BaseDecompositionSelector(BaseSelector):
             if "preferred_solutions" not in self.reference_vector_options:
                 raise ValueError("Preferred solutions must be specified for interactive adaptation.")
             self.interactive_adapt_1(
-                np.array([[self.reference_vector_options["preferred_solutions"][x] for x in self.target_symbols]]).T,
+                np.array([self.reference_vector_options["preferred_solutions"][x] for x in self.target_symbols]).T,
                 translation_param=self.reference_vector_options["adaptation_distance"],
             )
         elif self.reference_vector_options["interactive_adaptation"] == "non_preferred_solutions":
             if "non_preferred_solutions" not in self.reference_vector_options:
                 raise ValueError("Non-preferred solutions must be specified for interactive adaptation.")
             self.interactive_adapt_2(
-                np.array(
-                    [[self.reference_vector_options["non_preferred_solutions"][x] for x in self.target_symbols]]
-                ).T,
+                np.array([self.reference_vector_options["non_preferred_solutions"][x] for x in self.target_symbols]).T,
                 predefined_distance=self.reference_vector_options["adaptation_distance"],
             )
         elif self.reference_vector_options["interactive_adaptation"] == "preferred_ranges":
             if "preferred_ranges" not in self.reference_vector_options:
                 raise ValueError("Preferred ranges must be specified for interactive adaptation.")
             self.interactive_adapt_4(
-                np.array([[self.reference_vector_options["preferred_ranges"][x] for x in self.target_symbols]]).T,
+                np.array([self.reference_vector_options["preferred_ranges"][x] for x in self.target_symbols]).T,
             )
 
     def _create_simplex(self):
@@ -293,7 +291,7 @@ class BaseDecompositionSelector(BaseSelector):
         """
         # calculate L1 norm of non-preferred solution(s)
         z = np.atleast_2d(z)
-        norm = np.linalg.norm(z, ord=1, axis=1).reshape(np.shape(z)[0], 1)
+        norm = np.linalg.norm(z, ord=2, axis=1).reshape(np.shape(z)[0], 1)
 
         # non-preferred solutions normalized
         v_c = np.divide(z, norm)
@@ -354,8 +352,8 @@ class BaseDecompositionSelector(BaseSelector):
             preferred_ranges (np.ndarray): Preferred lower and upper bound for each of the objective function values.
         """
         # bounds
-        lower_limits = np.array([ranges[0] for ranges in preferred_ranges])
-        upper_limits = np.array([ranges[1] for ranges in preferred_ranges])
+        lower_limits = np.min(preferred_ranges, axis=0)
+        upper_limits = np.max(preferred_ranges, axis=0)
 
         # generate samples using Latin hypercube sampling
         lhs = LatinHypercube(d=self.num_dims)
@@ -389,13 +387,12 @@ class ParameterAdaptationStrategy(Enum):
     OTHER = 3  # As of yet undefined strategies.
 
 
-class RVEASelector(BaseSelector):
+class RVEASelector(BaseDecompositionSelector):
     @property
     def provided_topics(self):
         return {
             0: [],
             1: [
-                SelectorMessageTopics.REFERENCE_VECTORS,
                 SelectorMessageTopics.STATE,
             ],
             2: [
@@ -417,7 +414,6 @@ class RVEASelector(BaseSelector):
     def __init__(
         self,
         problem: Problem,
-        publisher: Publisher,
         alpha: float = 2.0,
         parameter_adaptation_strategy: ParameterAdaptationStrategy = ParameterAdaptationStrategy.GENERATION_BASED,
         reference_vector_options: ReferenceVectorOptions | None = None,
@@ -428,7 +424,15 @@ class RVEASelector(BaseSelector):
         if parameter_adaptation_strategy == ParameterAdaptationStrategy.OTHER:
             raise ValueError("Other parameter adaptation strategies are not yet implemented.")
 
-        super().__init__(problem=problem, **kwargs)
+        if reference_vector_options is None:
+            reference_vector_options: ReferenceVectorOptions = ReferenceVectorOptions(
+                adaptation_frequency=100,
+                creation_type="simplex",
+                vector_type="spherical",
+                number_of_vectors=500,
+            )
+
+        super().__init__(problem=problem, reference_vector_options=reference_vector_options, **kwargs)
 
         self.reference_vectors_gamma: np.ndarray
         self.numerator: float
@@ -552,8 +556,8 @@ class RVEASelector(BaseSelector):
                     selection = np.vstack((selection, np.transpose(selx[0])))
 
         self.selection = selection.tolist()
-        self.selected_individuals = solutions[selection]
-        self.selected_targets = alltargets[selection]
+        self.selected_individuals = solutions[selection.flatten()]
+        self.selected_targets = alltargets[selection.flatten()]
         self.notify()
         return self.selected_individuals, self.selected_targets
 
@@ -661,7 +665,7 @@ class RVEASelector(BaseSelector):
         self.reference_vectors_gamma = np.min(self.reference_vectors_gamma, axis=1)
 
 
-class NSGAIII_select(BaseSelector):
+class NSGAIII_select(BaseDecompositionSelector):
     """The NSGA-III selection operator. Code is heavily based on the version of nsga3 in the pymoo package by msu-coinlab.
 
     Parameters
@@ -673,34 +677,42 @@ class NSGAIII_select(BaseSelector):
 
     """
 
+    @property
+    def provided_topics(self):
+        return {
+            0: [],
+            1: [
+                SelectorMessageTopics.STATE,
+            ],
+            2: [
+                SelectorMessageTopics.REFERENCE_VECTORS,
+                SelectorMessageTopics.STATE,
+                SelectorMessageTopics.SELECTED_OUTPUTS,
+            ],
+        }
+
+    @property
+    def interested_topics(self):
+        return []
+
     def __init__(
         self,
         problem: Problem,
-        reference_vectors: np.ndarray,
-        n_survive: int,
+        reference_vector_options: ReferenceVectorOptions | None = None,
         **kwargs,
     ):
-        match self.verbosity:
-            case 0:
-                self.provided_topics = []
-            case 1:
-                self.provided_topics = [
-                    SelectorMessageTopics.REFERENCE_VECTORS,
-                    SelectorMessageTopics.STATE,
-                ]
-            case 2:
-                self.provided_topics = [
-                    SelectorMessageTopics.REFERENCE_VECTORS,
-                    SelectorMessageTopics.STATE,
-                    SelectorMessageTopics.SELECTED_INDIVIDUALS,
-                    SelectorMessageTopics.SELECTED_OUTPUTS,
-                ]
-        super().__init__(problem, **kwargs)
-        self.reference_vectors = reference_vectors
+        if reference_vector_options is None:
+            reference_vector_options: ReferenceVectorOptions = ReferenceVectorOptions(
+                adaptation_frequency=0,
+                creation_type="simplex",
+                vector_type="planar",
+                number_of_vectors=500,
+            )
+        super().__init__(problem, reference_vector_options=reference_vector_options, **kwargs)
         self.adapted_reference_vectors = None
         self.worst_fitness: np.ndarray | None = None
         self.extreme_points: np.ndarray | None = None
-        self.n_survive = n_survive
+        self.n_survive = self.reference_vectors.shape[0]
         self.selection: list[int] | None = None
         self.selected_individuals: SolutionType | None = None
         self.selected_targets: pl.DataFrame | None = None

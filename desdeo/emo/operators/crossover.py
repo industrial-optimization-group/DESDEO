@@ -11,13 +11,12 @@ from random import shuffle
 import numpy as np
 import polars as pl
 
-from desdeo.problem import Problem
+from desdeo.problem import Problem, VariableDomainTypeEnum
 from desdeo.tools.message import (
     CrossoverMessageTopics,
     FloatMessage,
     Message,
     PolarsDataFrameMessage,
-    StringMessage,
 )
 from desdeo.tools.patterns import Subscriber
 
@@ -32,6 +31,9 @@ class BaseCrossover(Subscriber):
         self.variable_symbols = [var.symbol for var in problem.get_flattened_variables()]
         self.lower_bounds = [var.lowerbound for var in problem.get_flattened_variables()]
         self.upper_bounds = [var.upperbound for var in problem.get_flattened_variables()]
+
+        self.variable_types = [var.variable_type for var in problem.get_flattened_variables()]
+        self.variable_combination: VariableDomainTypeEnum = problem.variable_domain
 
     @abstractmethod
     def do(self, *, population: pl.DataFrame, to_mate: list[int] | None = None) -> pl.DataFrame:
@@ -49,38 +51,6 @@ class BaseCrossover(Subscriber):
         """
 
 
-class TestCrossover(BaseCrossover):
-    """Just a test crossover operator."""
-
-    def __init__(self, **kwargs):
-        """Initialize a test crossover operator."""
-        super().__init__(**kwargs)
-
-    def do(self, *, population: pl.DataFrame, to_mate: list[int] | None = None) -> pl.DataFrame:
-        """Perform the crossover operation.
-
-        Args:
-            population (pl.DataFrame): the population to perform the crossover with. The DataFrame
-                contains the decision vectors, the target vectors, and the constraint vectors.
-            to_mate (list[int] | None): the indices of the population members that should
-                participate in the crossover. If `None`, the whole population is subject
-                to the crossover.
-
-        Returns:
-            pl.DataFrame: the offspring resulting from the crossover.
-        """
-        return population[0]
-
-    def update(self, *_, **__):
-        """Do nothing. This is just the test crossover operator."""
-
-    def state(self) -> Sequence[StringMessage]:
-        """Return the state of the crossover operator."""
-        return [
-            StringMessage(topic=CrossoverMessageTopics.TEST, source="TestCrossover", value="Test crossover operator.")
-        ]
-
-
 class SimulatedBinaryCrossover(BaseCrossover):
     """A class for creating a simulated binary crossover operator.
 
@@ -88,6 +58,25 @@ class SimulatedBinaryCrossover(BaseCrossover):
         Kalyanmoy Deb and Ram Bhushan Agrawal. 1995. Simulated binary crossover for continuous search space.
             Complex Systems 9, 2 (1995), 115-148.
     """
+
+    @property
+    def provided_topics(self) -> dict[str, Sequence[CrossoverMessageTopics]]:
+        """The message topics provided by the crossover operator."""
+        return {
+            0: [],
+            1: [CrossoverMessageTopics.XOVER_PROBABILITY, CrossoverMessageTopics.XOVER_DISTRIBUTION],
+            2: [
+                CrossoverMessageTopics.XOVER_PROBABILITY,
+                CrossoverMessageTopics.XOVER_DISTRIBUTION,
+                CrossoverMessageTopics.PARENTS,
+                CrossoverMessageTopics.OFFSPRINGS,
+            ],
+        }
+
+    @property
+    def interested_topics(self):
+        """The message topics the crossover operator is interested in."""
+        return []
 
     def __init__(
         self, *, problem: Problem, seed: int, xover_probability: float = 1.0, xover_distribution: float = 30, **kwargs
@@ -107,7 +96,6 @@ class SimulatedBinaryCrossover(BaseCrossover):
         # Subscribes to no topics, so no need to stroe/pass the topics to the super class.
         super().__init__(problem, **kwargs)
         self.problem = problem
-        # FIXME: get variable names from the problem object
 
         if not 0 <= xover_probability <= 1:
             raise ValueError("Crossover probability must be between 0 and 1.")
@@ -119,21 +107,6 @@ class SimulatedBinaryCrossover(BaseCrossover):
         self.offspring_population: pl.DataFrame
         self.rng = np.random.default_rng(seed)
         self.seed = seed
-        match self.verbosity:
-            case 0:
-                self.provided_topics = []
-            case 1:
-                self.provided_topics = [
-                    CrossoverMessageTopics.XOVER_PROBABILITY,
-                    CrossoverMessageTopics.XOVER_DISTRIBUTION,
-                ]
-            case 2:
-                self.provided_topics = [
-                    CrossoverMessageTopics.XOVER_PROBABILITY,
-                    CrossoverMessageTopics.XOVER_DISTRIBUTION,
-                    CrossoverMessageTopics.PARENTS,
-                    CrossoverMessageTopics.OFFSPRINGS,
-                ]
 
     def do(
         self,
@@ -173,12 +146,13 @@ class SimulatedBinaryCrossover(BaseCrossover):
 
         offspring = np.zeros_like(mating_pop)
 
+        HALF = 0.5 # NOQA: N806
         # TODO(@light-weaver): Extract into a numba jitted function.
         for i in range(0, mate_size, 2):
             beta = np.zeros(num_var)
             miu = self.rng.random(num_var)
-            beta[miu <= 0.5] = (2 * miu[miu <= 0.5]) ** (1 / (self.xover_distribution + 1))
-            beta[miu > 0.5] = (2 - 2 * miu[miu > 0.5]) ** (-1 / (self.xover_distribution + 1))
+            beta[miu <= HALF] = (2 * miu[miu <= HALF]) ** (1 / (self.xover_distribution + 1))
+            beta[miu > HALF] = (2 - 2 * miu[miu > HALF]) ** (-1 / (self.xover_distribution + 1))
             beta = beta * ((-1) ** self.rng.integers(low=0, high=2, size=num_var))
             beta[self.rng.random(num_var) > self.xover_probability] = 1
             avg = (mating_pop[i] + mating_pop[i + 1]) / 2
