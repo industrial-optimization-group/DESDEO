@@ -43,9 +43,13 @@ class BaseSelector(Subscriber):
 
         if problem.scalarization_funcs is None:
             self.target_symbols = [f"{x.symbol}_min" for x in problem.objectives]
-            ideal, nadir = get_corrected_ideal_and_nadir(problem)
-            self.ideal = np.array([ideal[x.symbol] for x in problem.objectives])
-            self.nadir = np.array([nadir[x.symbol] for x in problem.objectives]) if nadir is not None else None
+            try:
+                ideal, nadir = get_corrected_ideal_and_nadir(problem)
+                self.ideal = np.array([ideal[x.symbol] for x in problem.objectives])
+                self.nadir = np.array([nadir[x.symbol] for x in problem.objectives]) if nadir is not None else None
+            except ValueError:  # in case the ideal and nadir are not provided
+                self.ideal = None
+                self.nadir = None
         else:
             self.target_symbols = [x.symbol for x in problem.scalarization_funcs if x.symbol is not None]
             self.ideal: np.ndarray | None = None
@@ -520,7 +524,7 @@ class RVEASelector(BaseDecompositionSelector):
                 feasible_bool = (violation_values == 0).all(axis=1)
 
                 # Case when entire subpopulation is infeasible
-                if (feasible_bool is False).all():
+                if not feasible_bool.any():
                     violation_values = violation_values.sum(axis=1)
                     sub_population_index = sub_population_index[np.where(violation_values == violation_values.min())]
                 # Case when only some are infeasible

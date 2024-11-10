@@ -298,7 +298,8 @@ def river_pollution_problem_discrete(*, five_objective_variant: bool = True) -> 
     ]
 
     discrete_def = DiscreteRepresentation(
-        variable_values=data[list(trueVarNames.keys())].to_dict(), objective_values=data[list(trueObjNames.keys())].to_dict()
+        variable_values=data[list(trueVarNames.keys())].to_dict(),
+        objective_values=data[list(trueObjNames.keys())].to_dict(),
     )
 
     return Problem(
@@ -1664,7 +1665,7 @@ def re24() -> Problem:
     f_2 = Objective(
         name="f_2",
         symbol="f_2",
-        func=f"Max(1 - {sigma_b} / 700, 0) + Max(1 - {tau} / 450, 0) + Max(1 - {delta} / 1.5, 0) + Max(1 - {sigma_b} / {sigma_k}, 0)",
+        func=f"Max(-(1 - {sigma_b} / 700), 0) + Max(-(1 - {tau} / 450), 0) + Max(-(1 - {delta} / 1.5), 0) + Max(-(1 - {sigma_b} / {sigma_k}), 0)",
         objective_type=ObjectiveTypeEnum.analytical,
         is_linear=False,
         is_convex=False,  # Not checked
@@ -2292,8 +2293,9 @@ def spanish_sustainability_problem():
         symbol="f1",
         func=f1_expr,
         objective_type=ObjectiveTypeEnum.analytical,
-        ideal=1.15,
-        nadir=1.17,
+        nadir=1.15,
+        ideal=1.17,
+        maximize=True,
         is_linear=False,
         is_convex=False,
         is_twice_differentiable=True,
@@ -2310,8 +2312,9 @@ def spanish_sustainability_problem():
         symbol="f2",
         func=f2_expr,
         objective_type=ObjectiveTypeEnum.analytical,
-        ideal=0.63,
-        nadir=1.98,
+        nadir=0.63,
+        ideal=1.98,
+        maximize=True,
         is_linear=False,
         is_convex=False,
         is_twice_differentiable=True,
@@ -2325,8 +2328,9 @@ def spanish_sustainability_problem():
         symbol="f3",
         func=f3_expr,
         objective_type=ObjectiveTypeEnum.analytical,
-        ideal=1.52,
-        nadir=2.93,
+        nadir=1.52,
+        ideal=2.93,
+        maximize=True,
         is_linear=False,
         is_convex=False,
         is_twice_differentiable=True,
@@ -2826,4 +2830,53 @@ def spanish_sustainability_problem():
         variables=variables,
         objectives=objectives,
         constraints=constraints,
+    )
+
+
+def spanish_sustainability_problem_discrete():
+    """Implements the Spanish sustainability problem using Pareto front representation."""
+    filename = "datasets/sustainability_spanish.csv"
+    varnames = [f"x{i}" for i in range(1, 12)]
+    objNames = {"f1": "social", "f2": "economic", "f3": "environmental"}
+
+    path = Path(__file__).parent.parent.parent / filename
+    data = pl.read_csv(path, has_header=True)
+
+    data = data.rename({"social": "f1", "economic": "f2", "environmental": "f3"})
+
+    variables = [
+        Variable(
+            name=varname,
+            symbol=varname,
+            variable_type=VariableTypeEnum.real,
+            lowerbound=data[varname].min(),
+            upperbound=data[varname].max(),
+            initial_value=data[varname].mean(),
+        )
+        for varname in varnames
+    ]
+
+    objectives = [
+        Objective(
+            name=objNames[objname],
+            symbol=objname,
+            objective_type=ObjectiveTypeEnum.data_based,
+            ideal=data[objname].max(),
+            nadir=data[objname].min(),
+            maximize=True,
+        )
+        for objname in objNames
+    ]
+
+    discrete_def = DiscreteRepresentation(
+        variable_values=data[varnames].to_dict(),
+        objective_values=data[[obj.symbol for obj in objectives]].to_dict(),
+    )
+
+    return Problem(
+        name="Spanish sustainability problem (Discrete)",
+        description="Defines a sustainability problem with three indicators: social, ecological, and environmental.",
+        variables=variables,
+        objectives=objectives,
+        discrete_representation=discrete_def,
     )

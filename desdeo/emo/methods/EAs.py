@@ -15,7 +15,11 @@ from desdeo.tools.patterns import Publisher
 
 
 def rvea(
-    *, problem: Problem, seed: int = 0, n_generations=100, reference_vector_options: ReferenceVectorOptions = None
+    *,
+    problem: Problem,
+    seed: int = 0,
+    n_generations=100,
+    reference_vector_options: ReferenceVectorOptions = None,
 ) -> tuple[Callable[[], EMOResult], Publisher]:
     """Implements the Reference Vector Guided Evolutionary Algorithm (RVEA), as well as its interactive version.
 
@@ -90,7 +94,7 @@ def rvea(
             mutation=mutation,
             generator=generator,
             selection=selector,
-            termination=terminator,
+            terminator=terminator,
         ),
         publisher,
     )
@@ -170,7 +174,7 @@ def nsga3(
             mutation=mutation,
             generator=generator,
             selection=selector,
-            termination=terminator,
+            terminator=terminator,
         ),
         publisher,
     )

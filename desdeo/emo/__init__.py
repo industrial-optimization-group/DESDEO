@@ -2,4 +2,4 @@
 
 __all__ = ["rvea", "nsga3"]
 
-from .methods.bases import nsga3, rvea
+from .methods.EAs import nsga3, rvea

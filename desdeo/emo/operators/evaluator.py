@@ -54,7 +54,7 @@ class EMOEvaluator(Subscriber):
         self.evaluator = lambda x: PolarsEvaluator(problem)._polars_evaluate_flat(
             {name.symbol: x[name.symbol].to_list() for name in problem.get_flattened_variables()}
         )
-        self.variable_symbols = [name.symbol for name in problem.get_flattened_variables()]
+        self.variable_symbols = [name.symbol for name in problem.variables]
         self.population: pl.DataFrame
         self.outs: pl.DataFrame
         self.verbosity: int = verbosity

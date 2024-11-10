@@ -47,7 +47,7 @@ class BaseGenerator(Subscriber):
         """Initialize the BaseGenerator class."""
         super().__init__(**kwargs)
         self.problem = problem
-        self.variable_symbols = [var.name for var in problem.get_flattened_variables()]
+        self.variable_symbols = [var.symbol for var in problem.get_flattened_variables()]
         self.bounds = np.array([[var.lowerbound, var.upperbound] for var in problem.get_flattened_variables()])
         self.population: pl.DataFrame = None
         self.out: pl.DataFrame = None
