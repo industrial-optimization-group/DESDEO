@@ -51,6 +51,7 @@ class FakeNIMBUSResponse(BaseModel):
 class UtopiaResponse(BaseModel):
     """The response to an UtopiaRequest."""
 
+    is_utopia: bool = Field(description="True if map exists for this problem.")
     map_name: str = Field(description="Name of the map.")
     map_json: dict[str, Any] = Field(description="MapJSON representation of the geography.")
     options: dict[str, Any] = Field(description="A dict with given years as keys containing options for each year.")
@@ -414,6 +415,15 @@ def utopia(  # noqa: C901, PLR0912
 
     # Get the user's map from the database
     utopia_data = db.query(Utopia).filter(Utopia.problem == request.problem_id).first()
+    if not utopia_data:
+        return UtopiaResponse(
+            is_utopia=False,
+            map_name="",
+            options={},
+            map_json={},
+            description="",
+            years=[],
+        )
 
     # Figure out the treatments from the decision variables and utopia data
     description_dict = {
@@ -552,6 +562,7 @@ def utopia(  # noqa: C901, PLR0912
     )
 
     return UtopiaResponse(
+        is_utopia=True,
         map_name=map_name,
         options=options,
         map_json=json.loads(utopia_data.map_json),
@@ -615,7 +626,7 @@ def read_problem_from_db(db: Session, problem_id: int, user_id: int) -> tuple[Pr
     if problem.owner != user_id and problem.owner is not None:
         raise HTTPException(status_code=403, detail="Unauthorized to access chosen problem.")
     try:
-        solver = problem.solver.value
+        solver = problem.solver.value if problem.solver else None
         problem = Problem.model_validate(problem.value)
     except ValidationError:
         raise HTTPException(status_code=500, detail="Error in parsing the problem.") from ValidationError
