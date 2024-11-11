@@ -157,7 +157,6 @@ class Utopia(Base):
     __tablename__ = "utopia"
     id: Mapped[int] = mapped_column(primary_key=True, unique=True)
     problem: Mapped[int] = mapped_column(Integer, ForeignKey("problem.id"), nullable=False)
-    user: Mapped[int] = mapped_column(Integer, ForeignKey("user.id"), nullable=False)
     map_json: Mapped[str] = mapped_column(nullable=False)
     schedule_dict = mapped_column(JSONB, nullable=False)
     years: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False)
