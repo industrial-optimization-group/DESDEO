@@ -385,19 +385,23 @@ def test_simulator(session_and_users: dict[str, Session | list[User]]):
     assert simulator_validated == simulator
 
 
-def test_problem(session_and_users: dict[str, Session | list[User]]):
+def test_from_pydantic(session_and_users: dict[str, Session | list[User]]):
     """Test that a problem can be added and fetched from the database correctly."""
     session = session_and_users["session"]
     user = session_and_users["users"][0]
 
     problem_binh = binh_and_korn()
 
-    problemdb = ProblemDB.from_problem(
-        problem_binh,
-        owner=user.id,
-    )
+    problemdb = ProblemDB.from_problem(problem_binh, user=user)
     session.add(problemdb)
     session.commit()
     session.refresh(problemdb)
 
-    print()
+    from_db_problem = session.get(ProblemDB, 1)
+
+    assert problemdb == from_db_problem
+
+    from_db_problem_dump = from_db_problem.model_dump()
+    problem_validated = ProblemDB.model_validate(from_db_problem_dump)
+
+    assert problem_validated == problemdb

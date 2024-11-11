@@ -1,6 +1,7 @@
 """."""
 
 import json
+from enum import Enum
 from pathlib import Path
 from types import UnionType
 
@@ -24,6 +25,126 @@ from desdeo.problem.schema import (
     VariableDomainTypeEnum,
     VariableType,
 )
+
+# USER SCHEMAS
+
+
+class UserRole(str, Enum):
+    """Possible user roles."""
+
+    guest = "guest"
+    dm = "dm"
+    analyst = "analyst"
+    admin = "admin"
+
+
+class UserBase(SQLModel):
+    """Base user object."""
+
+    username: str = Field(index=True)
+
+
+class User(UserBase, table=True):
+    """The table model of the user stored in the database."""
+
+    id: int | None = Field(primary_key=True, default=None)
+    password_hash: str = Field()
+    role: UserRole = Field()
+    group: str = Field(default="")
+
+    # Back populates
+    problems: list["ProblemDB"] = Relationship(back_populates="user")
+
+
+class UserPublic(UserBase):
+    """The object to handle public user information."""
+
+    id: int
+    role: UserRole
+    group: str
+
+
+# PROBLEM SCHEMAS
+
+
+class ProblemDB(SQLModel, table=True):
+    """."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    # Database specific
+    id: int | None = Field(primary_key=True, default=None)
+    user_id: int | None = Field(foreign_key="user.id")
+
+    # Back populates
+    user: User = Relationship(back_populates="problems")
+
+    # Model fields
+    name: str = Field()
+    description: str = Field()
+    is_convex: bool = Field()
+    is_linear: bool = Field()
+    is_twice_differentiable: bool = Field()
+    variable_domain: VariableDomainTypeEnum = Field()
+
+    # Populated by other models
+    constants: list["ConstantDB"] = Relationship(back_populates="problem")
+    tensor_constants: list["TensorConstantDB"] = Relationship(back_populates="problem")
+    variables: list["VariableDB"] = Relationship(back_populates="problem")
+    tensor_variables: list["TensorVariableDB"] = Relationship(back_populates="problem")
+    objectives: list["ObjectiveDB"] = Relationship(back_populates="problem")
+    constraints: list["ConstraintDB"] = Relationship(back_populates="problem")
+    scalarization_funcs: list["ScalarizationFunctionDB"] = Relationship(back_populates="problem")
+    extra_funcs: list["ExtraFunctionDB"] = Relationship(back_populates="problem")
+    discrete_representation: "DiscreteRepresentationDB" = Relationship(back_populates="problem")
+    simulators: list["SimulatorDB"] = Relationship(back_populates="problem")
+
+    @classmethod
+    def from_problem(cls, problem_instance: Problem, user: User) -> "ProblemDB":
+        scalar_constants = (
+            [const for const in problem_instance.constants if isinstance(const, Constant)]
+            if problem_instance.constants is not None
+            else []
+        )
+        tensor_constants = (
+            [const for const in problem_instance.constants if isinstance(const, TensorConstant)]
+            if problem_instance.constants is not None
+            else []
+        )
+        scalar_variables = [var for var in problem_instance.variables if isinstance(var, Variable)]
+        tensor_variables = [var for var in problem_instance.variables if isinstance(var, TensorVariable)]
+        return cls(
+            user=user,
+            user_id=user.id,
+            name=problem_instance.name,
+            description=problem_instance.description,
+            is_convex=problem_instance.is_convex,
+            is_linear=problem_instance.is_linear,
+            is_twice_differentiable=problem_instance.is_twice_differentiable,
+            variable_domain=problem_instance.variable_domain,
+            constants=[ConstantDB.model_validate(const) for const in scalar_constants],
+            tensor_constants=[TensorConstantDB.model_validate(const) for const in tensor_constants],
+            variables=[VariableDB.model_validate(var) for var in scalar_variables],
+            tensor_variables=[TensorVariableDB.model_validate(var) for var in tensor_variables],
+            objectives=[ObjectiveDB.model_validate(obj) for obj in problem_instance.objectives],
+            constraints=[ConstraintDB.model_validate(con) for con in problem_instance.constraints]
+            if problem_instance.constraints is not None
+            else [],
+            scalarization_funcs=[
+                ScalarizationFunctionDB.model_validate(scal) for scal in problem_instance.scalarization_funcs
+            ]
+            if problem_instance.scalarization_funcs is not None
+            else [],
+            extra_funcs=[ExtraFunctionDB.model_validate(extra) for extra in problem_instance.extra_funcs]
+            if problem_instance.extra_funcs is not None
+            else [],
+            discrete_representation=DiscreteRepresentationDB.model_validate(problem_instance.discrete_representation)
+            if problem_instance.discrete_representation is not None
+            else None,
+            simulators=[SimulatorDB.model_validate(sim) for sim in problem_instance.simulators]
+            if problem_instance.simulators is not None
+            else [],
+        )
 
 
 class PathType(TypeDecorator):
@@ -120,50 +241,6 @@ def from_pydantic(
     return create_model(name, __base__=base_model, **field_definitions)
 
 
-class ProblemDB(SQLModel, table=True):
-    """."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int | None = Field(primary_key=True, default=None)
-    owner: int | None = Field(foreign_key="user.id")
-
-    name: str = Field()
-    description: str = Field()
-    is_convex: bool = Field()
-    is_linear: bool = Field()
-    is_twice_differentiable: bool = Field()
-    variable_domain: VariableDomainTypeEnum = Field()
-
-    # Populated by other models
-    constants: list["ConstantDB"] = Relationship(back_populates="problem")
-    tensor_constants: list["TensorConstantDB"] = Relationship(back_populates="problem")
-    variables: list["VariableDB"] = Relationship(back_populates="problem")
-    tensor_variables: list["TensorVariableDB"] = Relationship(back_populates="problem")
-    objectives: list["ObjectiveDB"] = Relationship(back_populates="problem")
-    constraints: list["ConstraintDB"] = Relationship(back_populates="problem")
-    scalarization_funcs: list["ScalarizationFunctionDB"] = Relationship(back_populates="problem")
-    extra_funcs: list["ExtraFunctionDB"] = Relationship(back_populates="problem")
-    discrete_representation: "DiscreteRepresentationDB" = Relationship(back_populates="problem")
-    simulators: list["SimulatorDB"] = Relationship(back_populates="problem")
-
-    @classmethod
-    def from_problem(cls, problem_instance: Problem, owner: int | None = None) -> "ProblemDB":
-        scalar_constants = [const for const in problem_instance.constants if isinstance(const, Constant)]
-        tensor_constants = [const for const in problem_instance.constants if isinstance(const, TensorConstant)]
-        return cls(
-            name=problem_instance.name,
-            description=problem_instance.description,
-            is_convex=problem_instance.is_convex,
-            is_linear=problem_instance.is_linear,
-            is_twice_differentiable=problem_instance.is_twice_differentiable,
-            variable_domain=problem_instance.variable_domain,
-            owner=owner,
-            constants=[ConstantDB.model_validate(const) for const in scalar_constants],
-            tensor_constants=[TensorConstantDB(const) for const in tensor_constants],
-        )
-
-
 class _TensorConstant(SQLModel):
     """Helper class to override the field types of nested and list types."""
 
@@ -194,8 +271,6 @@ _ConstantDB = from_pydantic(Constant, "_ConstantDB", union_type_conversions={Var
 
 class ConstantDB(_ConstantDB, table=True):
     """The SQLModel equivalent to `Constant`."""
-
-    model_config = ConfigDict(from_attributes=True)
 
     id: int | None = Field(primary_key=True, default=None)
     problem_id: int | None = Field(foreign_key="problemdb.id", default=None)

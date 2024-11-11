@@ -18,7 +18,7 @@ __all__ = [
     "VariableDB",
 ]
 
-from .problem_schema import (
+from .schemas import (
     ConstantDB,
     ConstraintDB,
     DiscreteRepresentationDB,
@@ -29,6 +29,9 @@ from .problem_schema import (
     SimulatorDB,
     TensorConstantDB,
     TensorVariableDB,
+    User,
+    UserBase,
+    UserPublic,
+    UserRole,
     VariableDB,
 )
-from .user import User, UserBase, UserPublic, UserRole
