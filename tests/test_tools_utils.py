@@ -1,6 +1,7 @@
 """Tests the utils in the desdeo.tools package."""
 
 import pytest
+import shutil
 from fixtures import dtlz2_5x_3f_data_based  # noqa: F401
 
 from desdeo.problem import re21, river_pollution_problem
@@ -41,5 +42,8 @@ def test_find_compatible_solvers():
     ]
 
     # check that the solvers found are the correct ones
-    assert len(solvers) == 4
-    assert all(solver in correct_solvers for solver in solvers) and all(solver in solvers for solver in correct_solvers)
+    if shutil.which("ipopt"):
+        assert len(solvers) == 4
+        assert all(solver in correct_solvers for solver in solvers) and all(solver in solvers for solver in correct_solvers)
+    else:
+        assert len(solvers) == 3
