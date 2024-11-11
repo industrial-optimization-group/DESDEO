@@ -331,15 +331,16 @@ def test_solve_spanish_sustainability_problem():
     """Test the Spanish sustainability problem."""
     problem = spanish_sustainability_problem()
 
-    ref_point = {"f1": 1.162, "f2": 0.69, "f3": 2.91}
+    # ideal = {"f1": 1.17, "f2": 1.98, "f3": 2.93}
+    # nadir = {"f1": 1.15, "f2": 0.63, "f3": 1.52}
 
-    # ideal = {"f1": 1.15, "f2": 0.63, "f3": 1.52}
-    # nadir = {"f1": 1.17, "f2": 1.98, "f3": 2.93}
+    ref_point = {"f1": 1.162, "f2": 0.69, "f3": 2.91}
 
     res = rpm_solve_solutions(problem, ref_point)
 
     assert len(res) == 4
 
     for i in range(len(res)):
+        assert res[i].success
         for con in problem.constraints:
             npt.assert_array_less(res[i].constraint_values[con.symbol], 1e-5)
