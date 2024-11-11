@@ -298,7 +298,8 @@ def river_pollution_problem_discrete(*, five_objective_variant: bool = True) -> 
     ]
 
     discrete_def = DiscreteRepresentation(
-        variable_values=data[list(trueVarNames.keys())].to_dict(), objective_values=data[list(trueObjNames.keys())].to_dict()
+        variable_values=data[list(trueVarNames.keys())].to_dict(),
+        objective_values=data[list(trueObjNames.keys())].to_dict(),
     )
 
     return Problem(
@@ -2007,7 +2008,7 @@ def spanish_sustainability_problem():
             "x_10": 0.0,
             "x_11": 0.0,
         },
-        "ecological_linear": {
+        "economical_linear": {
             "x_1": 0.0,
             "x_2": 0.0,
             "x_3": 0.0,
@@ -2020,7 +2021,7 @@ def spanish_sustainability_problem():
             "x_10": 0.0,
             "x_11": 0.0,
         },
-        "ecological_quadratic": {
+        "economical_quadratic": {
             "x_1": -0.000316,
             "x_2": 3.18e-05,
             "x_3": 0.0,
@@ -2033,7 +2034,7 @@ def spanish_sustainability_problem():
             "x_10": 1.81e-05,
             "x_11": 0.0,
         },
-        "ecological_cubic": {
+        "economical_cubic": {
             "x_1": 0.0,
             "x_2": 0.0,
             "x_3": 0.0,
@@ -2046,7 +2047,7 @@ def spanish_sustainability_problem():
             "x_10": 0.0,
             "x_11": 0.0,
         },
-        "ecological_log": {
+        "economical_log": {
             "x_1": 0.0,
             "x_2": 0.0,
             "x_3": 0.121,
@@ -2140,7 +2141,7 @@ def spanish_sustainability_problem():
     }
 
     social_cte_value = -0.46
-    ecological_cte_value = 0.12
+    economical_cte_value = 0.12
     enviro_cte_value = 2.92
 
     coefficients = (
@@ -2186,37 +2187,37 @@ def spanish_sustainability_problem():
         name="Constant coefficient for the social indicator", symbol="cte_social", value=social_cte_value
     )
 
-    ## For the ecological indicator
-    ecological_linear = TensorConstant(
-        name="Linear coefficients for the ecological indicator",
-        symbol="beta_ecological",
+    ## For the economical indicator
+    economical_linear = TensorConstant(
+        name="Linear coefficients for the economical indicator",
+        symbol="beta_economical",
         shape=[n_variables],
-        values=list(coefficients.filter(pl.col("column") == "ecological_linear").row(0)[1:]),
+        values=list(coefficients.filter(pl.col("column") == "economical_linear").row(0)[1:]),
     )
 
-    ecological_quadratic = TensorConstant(
-        name="Quadratic coefficients for the ecological indicator",
-        symbol="gamma_ecological",
+    economical_quadratic = TensorConstant(
+        name="Quadratic coefficients for the economical indicator",
+        symbol="gamma_economical",
         shape=[n_variables],
-        values=list(coefficients.filter(pl.col("column") == "ecological_quadratic").row(0)[1:]),
+        values=list(coefficients.filter(pl.col("column") == "economical_quadratic").row(0)[1:]),
     )
 
-    ecological_cubic = TensorConstant(
-        name="Cubic coefficients for the ecological indicator",
-        symbol="delta_ecological",
+    economical_cubic = TensorConstant(
+        name="Cubic coefficients for the economical indicator",
+        symbol="delta_economical",
         shape=[n_variables],
-        values=list(coefficients.filter(pl.col("column") == "ecological_cubic").row(0)[1:]),
+        values=list(coefficients.filter(pl.col("column") == "economical_cubic").row(0)[1:]),
     )
 
-    ecological_log = TensorConstant(
-        name="Logarithmic coefficients for the ecological indicator",
-        symbol="omega_ecological",
+    economical_log = TensorConstant(
+        name="Logarithmic coefficients for the economical indicator",
+        symbol="omega_economical",
         shape=[n_variables],
-        values=list(coefficients.filter(pl.col("column") == "ecological_log").row(0)[1:]),
+        values=list(coefficients.filter(pl.col("column") == "economical_log").row(0)[1:]),
     )
 
-    ecological_c = Constant(
-        name="Constant coefficient for the ecological indicator", symbol="cte_ecological", value=ecological_cte_value
+    economical_c = Constant(
+        name="Constant coefficient for the economical indicator", symbol="cte_economical", value=economical_cte_value
     )
 
     ## For the environmental indicator
@@ -2258,11 +2259,11 @@ def spanish_sustainability_problem():
         social_cubic,
         social_log,
         social_c,
-        ecological_linear,
-        ecological_quadratic,
-        ecological_cubic,
-        ecological_log,
-        ecological_c,
+        economical_linear,
+        economical_quadratic,
+        economical_cubic,
+        economical_log,
+        economical_c,
         enviro_linear,
         enviro_quadratic,
         enviro_cubic,
@@ -2292,26 +2293,28 @@ def spanish_sustainability_problem():
         symbol="f1",
         func=f1_expr,
         objective_type=ObjectiveTypeEnum.analytical,
-        ideal=1.15,
-        nadir=1.17,
+        ideal=1.17,
+        nadir=1.15,
+        maximize=True,
         is_linear=False,
         is_convex=False,
         is_twice_differentiable=True,
     )
 
-    ## Ecological
+    ## economical
     f2_expr = (
-        "cte_ecological + beta_ecological @ X + gamma_ecological @ (X**2) + delta_ecological @ (X**3) "
-        "+ omega_ecological @ Ln(X)"
+        "cte_economical + beta_economical @ X + gamma_economical @ (X**2) + delta_economical @ (X**3) "
+        "+ omega_economical @ Ln(X)"
     )
 
     f2 = Objective(
-        name="Ecological indicator",
+        name="economical indicator",
         symbol="f2",
         func=f2_expr,
         objective_type=ObjectiveTypeEnum.analytical,
-        ideal=0.63,
-        nadir=1.98,
+        ideal=1.98,
+        nadir=0.63,
+        maximize=True,
         is_linear=False,
         is_convex=False,
         is_twice_differentiable=True,
@@ -2325,8 +2328,9 @@ def spanish_sustainability_problem():
         symbol="f3",
         func=f3_expr,
         objective_type=ObjectiveTypeEnum.analytical,
-        ideal=1.52,
-        nadir=2.93,
+        ideal=2.93,
+        nadir=1.52,
+        maximize=True,
         is_linear=False,
         is_convex=False,
         is_twice_differentiable=True,
@@ -2821,7 +2825,7 @@ def spanish_sustainability_problem():
 
     return Problem(
         name="Spanish sustainability problem.",
-        description="Defines a sustainability problem with three indicators: societal, ecological, and environmental.",
+        description="Defines a sustainability problem with three indicators: societal, economical, and environmental.",
         constants=constants,
         variables=variables,
         objectives=objectives,

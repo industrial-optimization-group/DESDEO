@@ -70,7 +70,7 @@ def test_get_values_w_binh_and_korn(binh_and_korn_w_extra):
     problem = binh_and_korn_w_extra
     evaluator = PyomoEvaluator(problem)
 
-    input_1 = {"x_1": 2, "x_2": 8}
+    input_1 = {"x_1": [2], "x_2": [8]}
 
     evaluator.evaluate(input_1)
 
