@@ -736,6 +736,7 @@ class Simulator(BaseModel):
             "Parameters to the simulator that are not decision variables, but affect the results."
             "Format is similar to decision variables. Can be 'None'."
         ),
+        default=None,
     )
     """Parameters to the simulator that are not decision variables, but affect the results.
     Format is similar to decision variables. Can be 'None'."""
