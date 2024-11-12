@@ -7,9 +7,15 @@ from abc import abstractmethod
 from collections.abc import Sequence
 
 import numpy as np
+import polars as pl
 
-from desdeo.problem import Problem, TensorVariable
-from desdeo.tools.message import Array2DMessage, FloatMessage, Message, MutationMessageTopics, StringMessage
+from desdeo.problem import Problem, VariableDomainTypeEnum
+from desdeo.tools.message import (
+    FloatMessage,
+    Message,
+    MutationMessageTopics,
+    PolarsDataFrameMessage,
+)
 from desdeo.tools.patterns import Subscriber
 
 
@@ -17,59 +23,59 @@ class BaseMutation(Subscriber):
     """A base class for mutation operators."""
 
     @abstractmethod
-    def __init__(self, **kwargs):
+    def __init__(self, problem: Problem, **kwargs):
         """Initialize a mu operator."""
         super().__init__(**kwargs)
+        self.problem = problem
+        self.variable_symbols = [var.symbol for var in problem.get_flattened_variables()]
+        self.lower_bounds = [var.lowerbound for var in problem.get_flattened_variables()]
+        self.upper_bounds = [var.upperbound for var in problem.get_flattened_variables()]
+        self.variable_types = [var.variable_type for var in problem.get_flattened_variables()]
+        self.variable_combination: VariableDomainTypeEnum = problem.variable_domain
 
     @abstractmethod
-    def do(self, offsprings: np.ndarray, parents: np.ndarray) -> np.ndarray:
+    def do(self, offsprings: pl.DataFrame, parents: pl.DataFrame) -> pl.DataFrame:
         """Perform the mutation operation.
 
         Args:
-            offsprings (np.ndarray): the offspring population to mutate.
-            parents (np.ndarray): the parent population from which the offspring
+            offsprings (pl.DataFrame): the offspring population to mutate.
+            parents (pl.DataFrame): the parent population from which the offspring
                 was generated (via crossover).
 
         Returns:
-            np.ndarray: the offspring resulting from the mutation.
+            pl.DataFrame: the offspring resulting from the mutation.
         """
-
-
-class TestMutation(BaseMutation):
-    """Just a test mutation operator."""
-
-    def __init__(self, problem: Problem, **kwargs):
-        """Initialize a test mutation operator."""
-        super().__init__(**kwargs)
-
-    def do(self, offsprings: np.ndarray, parents: np.ndarray) -> np.ndarray:
-        """Perform the test mutation operation.
-
-        Args:
-            offsprings (np.ndarray): the offspring population to mutate.
-            parents (np.ndarray): the parent population from which the offspring
-                was generated (via crossover).
-
-        Returns:
-            np.ndarray: the offspring resulting from the mutation.
-        """
-        return offsprings
-
-    def update(self, *_, **__):
-        """Do nothing. This is just the test mutation operator."""
-
-    def state(self) -> Sequence[Message]:
-        """Return the state of the mutation operator."""
-        return [StringMessage(topic=MutationMessageTopics.TEST, value="Called", source=self.__class__.__name__)]
 
 
 class BoundedPolynomialMutation(BaseMutation):
-    """A bounded polynomial mutation operator.
+    """Implements the bounded polynomial mutation operator.
 
-    This operator is based on the polynomial mutation operator described in
-    Deb, K., & Goyal, M. (1996). A combined genetic adaptive search (GeneAS) for
-    engineering design. Computer Science and informatics, 26(4), 30-45, 1996.
+    Reference:
+        Deb, K., & Goyal, M. (1996). A combined genetic adaptive search (GeneAS) for
+        engineering design. Computer Science and informatics, 26(4), 30-45, 1996.
     """
+
+    @property
+    def provided_topics(self) -> dict[int, Sequence[MutationMessageTopics]]:
+        """The message topics provided by the mutation operator."""
+        return {
+            0: [],
+            1: [
+                MutationMessageTopics.MUTATION_PROBABILITY,
+                MutationMessageTopics.MUTATION_DISTRIBUTION,
+            ],
+            2: [
+                MutationMessageTopics.MUTATION_PROBABILITY,
+                MutationMessageTopics.MUTATION_DISTRIBUTION,
+                MutationMessageTopics.OFFSPRING_ORIGINAL,
+                MutationMessageTopics.OFFSPRINGS,
+            ],
+        }
+
+    @property
+    def interested_topics(self):
+        """The message topics that the mutation operator is interested in."""
+        return []
 
     def __init__(
         self,
@@ -90,57 +96,40 @@ class BoundedPolynomialMutation(BaseMutation):
             kwargs: Additional keyword arguments. These are passed to the Subscriber class. At the very least, the
                 publisher must be passed. See the Subscriber class for more information.
         """
-        super().__init__(**kwargs)
-        if any(isinstance(var, TensorVariable) for var in problem.variables):
-            raise TypeError("Crossover does not support tensor variables yet.")
-        self.bounds = np.array([[var.lowerbound, var.upperbound] for var in problem.variables])
-        self.lower_limits = self.bounds[:, 0]
-        self.upper_limits = self.bounds[:, 1]
+        super().__init__(problem, **kwargs)
+        if self.variable_combination != VariableDomainTypeEnum.continuous:
+            raise ValueError("This mutation operator only works with continuous variables.")
         if mutation_probability is None:
-            self.mutation_probability = 1 / len(self.lower_limits)
+            self.mutation_probability = 1 / len(self.lower_bounds)
         else:
             self.mutation_probability = mutation_probability
         self.distribution_index = distribution_index
         self.rng = np.random.default_rng(seed)
         self.seed = seed
-        self.offspring_original: np.ndarray | None = None
-        self.offspring: np.ndarray | None = None
-        match self.verbosity:
-            case 0:
-                self.provided_topics = []
-            case 1:
-                self.provided_topics = [
-                    MutationMessageTopics.MUTATION_PROBABILITY,
-                    MutationMessageTopics.MUTATION_DISTRIBUTION,
-                ]
-            case 2:
-                self.provided_topics = [
-                    MutationMessageTopics.MUTATION_PROBABILITY,
-                    MutationMessageTopics.MUTATION_DISTRIBUTION,
-                    MutationMessageTopics.OFFSPRING_ORIGINAL,
-                    MutationMessageTopics.OFFSPRINGS,
-                ]
+        self.offspring_original: pl.DataFrame
+        self.parents: pl.DataFrame
+        self.offspring: pl.DataFrame
 
-    def do(self, offspring: np.ndarray, *_, **__) -> np.ndarray:
-        """Conduct bounded polynomial mutation. Return the mutated individuals.
+    def do(self, offsprings: pl.DataFrame, parents: pl.DataFrame) -> pl.DataFrame:
+        """Perform the mutation operation.
 
-        Parameters:
-        ----------
-        offspring : np.ndarray
-            The array of offsprings to be mutated.
+        Args:
+            offsprings (pl.DataFrame): the offspring population to mutate.
+            parents (pl.DataFrame): the parent population from which the offspring
+                was generated (via crossover).
 
         Returns:
-        -------
-        np.ndarray
-            The mutated offsprings
+            pl.DataFrame: the offspring resulting from the mutation.
         """
         # TODO(@light-weaver): Extract to a numba jitted function
-        min_val = np.ones_like(offspring) * self.lower_limits
-        max_val = np.ones_like(offspring) * self.upper_limits
+        self.offspring_original = offsprings
+        self.parents = parents  # Not used, but kept for consistency
+        offspring = offsprings.to_numpy()
+        min_val = np.ones_like(offspring) * self.lower_bounds
+        max_val = np.ones_like(offspring) * self.upper_bounds
         k = self.rng.random(size=offspring.shape)
         miu = self.rng.random(size=offspring.shape)
         temp = np.logical_and((k <= self.mutation_probability), (miu < 0.5))
-        self.offspring_original = offspring.copy()
         offspring_scaled = (offspring - min_val) / (max_val - min_val)
         offspring[temp] = offspring[temp] + (
             (max_val[temp] - min_val[temp])
@@ -164,7 +153,7 @@ class BoundedPolynomialMutation(BaseMutation):
         )
         offspring[offspring > max_val] = max_val[offspring > max_val]
         offspring[offspring < min_val] = min_val[offspring < min_val]
-        self.offspring = offspring
+        self.offspring = pl.from_numpy(offspring, schema=self.variable_symbols)
         self.notify()
         return self.offspring
 
@@ -192,15 +181,20 @@ class BoundedPolynomialMutation(BaseMutation):
             ]
         # verbosity == 2
         return [
-            Array2DMessage(
+            PolarsDataFrameMessage(
                 topic=MutationMessageTopics.OFFSPRING_ORIGINAL,
                 source=self.__class__.__name__,
-                value=self.offspring_original.tolist(),
+                value=self.offspring_original,
             ),
-            Array2DMessage(
+            PolarsDataFrameMessage(
+                topic=MutationMessageTopics.PARENTS,
+                source=self.__class__.__name__,
+                value=self.parents,
+            ),
+            PolarsDataFrameMessage(
                 topic=MutationMessageTopics.OFFSPRINGS,
                 source=self.__class__.__name__,
-                value=self.offspring.tolist(),
+                value=self.offspring,
             ),
             FloatMessage(
                 topic=MutationMessageTopics.MUTATION_PROBABILITY,

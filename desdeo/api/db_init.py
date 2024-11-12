@@ -14,9 +14,11 @@ from desdeo.problem.schema import DiscreteRepresentation, Objective, Problem, Va
 from desdeo.problem.testproblems import (
     binh_and_korn,
     forest_problem,
+    forest_problem_discrete,
     nimbus_test_problem,
     river_pollution_problem,
     river_pollution_problem_discrete,
+    spanish_sustainability_problem_discrete,
 )
 from desdeo.utopia_stuff.utopia_problem_old import utopia_problem_old
 
@@ -107,7 +109,32 @@ db.add(problem_in_db)
 problem = river_pollution_problem_discrete()
 problem_in_db = db_models.Problem(
     owner=user.id,
-    name="River Pollution Problem (Discrete)",
+    name=problem.name,
+    kind=ProblemKind.DISCRETE,
+    obj_kind=ObjectiveKind.DATABASED,
+    value=problem.model_dump(mode="json"),
+    role_permission=[UserRole.GUEST],
+)
+db.add(problem_in_db)
+db.commit()
+
+problem = spanish_sustainability_problem_discrete()
+problem_in_db = db_models.Problem(
+    owner=user.id,
+    name=problem.name,
+    kind=ProblemKind.DISCRETE,
+    obj_kind=ObjectiveKind.DATABASED,
+    value=problem.model_dump(mode="json"),
+    role_permission=[UserRole.GUEST],
+)
+db.add(problem_in_db)
+db.commit()
+
+
+problem = forest_problem_discrete()
+problem_in_db = db_models.Problem(
+    owner=user.id,
+    name=problem.name,
     kind=ProblemKind.DISCRETE,
     obj_kind=ObjectiveKind.DATABASED,
     value=problem.model_dump(mode="json"),

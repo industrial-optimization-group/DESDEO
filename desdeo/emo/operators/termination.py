@@ -30,21 +30,35 @@ class BaseTerminator(Subscriber):
     termination criterion is called.
     """
 
+    @property
+    def provided_topics(self) -> dict[int, Sequence[TerminatorMessageTopics]]:
+        """Return the topics provided by the terminator.
+
+        Returns:
+            dict[int, Sequence[TerminatorMessageTopics]]: The topics provided by the terminator.
+        """
+        return {
+            0: [],
+            1: [
+                TerminatorMessageTopics.GENERATION,
+                TerminatorMessageTopics.EVALUATION,
+                TerminatorMessageTopics.MAX_GENERATIONS,
+                TerminatorMessageTopics.MAX_EVALUATIONS,
+            ],
+        }
+
+    @property
+    def interested_topics(self):
+        """Return the message topics that the terminator is interested in."""
+        return [EvaluatorMessageTopics.NEW_EVALUATIONS, GeneratorMessageTopics.NEW_EVALUATIONS]
+
     def __init__(self, **kwargs):
         """Initialize a termination criterion."""
-        super().__init__(
-            topics=[EvaluatorMessageTopics.NEW_EVALUATIONS, GeneratorMessageTopics.NEW_EVALUATIONS], **kwargs
-        )
+        super().__init__(**kwargs)
         self.current_generation: int = 1
         self.current_evaluations: int = 0
         self.max_generations: int = 0
         self.max_evaluations: int = 0
-        self.provided_topics = [
-            TerminatorMessageTopics.GENERATION,
-            TerminatorMessageTopics.EVALUATION,
-            TerminatorMessageTopics.MAX_GENERATIONS,
-            TerminatorMessageTopics.MAX_EVALUATIONS,
-        ]
 
     def check(self) -> bool | None:
         """Check if the termination criterion is reached.
@@ -98,7 +112,7 @@ class BaseTerminator(Subscriber):
         if not isinstance(message.topic, EvaluatorMessageTopics) or isinstance(message.topic, GeneratorMessageTopics):
             return
         if (
-            message.topic == EvaluatorMessageTopics.NEW_EVALUATIONS
+            message.topic == EvaluatorMessageTopics.NEW_EVALUATIONS  # NOQA: PLR1714
             or message.topic == GeneratorMessageTopics.NEW_EVALUATIONS
         ):
             self.current_evaluations += message.value

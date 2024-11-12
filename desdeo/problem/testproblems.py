@@ -1665,7 +1665,7 @@ def re24() -> Problem:
     f_2 = Objective(
         name="f_2",
         symbol="f_2",
-        func=f"Max(1 - {sigma_b} / 700, 0) + Max(1 - {tau} / 450, 0) + Max(1 - {delta} / 1.5, 0) + Max(1 - {sigma_b} / {sigma_k}, 0)",
+        func=f"Max(-(1 - {sigma_b} / 700), 0) + Max(-(1 - {tau} / 450), 0) + Max(-(1 - {delta} / 1.5), 0) + Max(-(1 - {sigma_b} / {sigma_k}), 0)",
         objective_type=ObjectiveTypeEnum.analytical,
         is_linear=False,
         is_convex=False,  # Not checked
@@ -2830,4 +2830,108 @@ def spanish_sustainability_problem():
         variables=variables,
         objectives=objectives,
         constraints=constraints,
+    )
+
+
+def spanish_sustainability_problem_discrete():
+    """Implements the Spanish sustainability problem using Pareto front representation."""
+    filename = "datasets/sustainability_spanish.csv"
+    varnames = [f"x{i}" for i in range(1, 12)]
+    objNames = {"f1": "social", "f2": "economic", "f3": "environmental"}
+
+    path = Path(__file__).parent.parent.parent / filename
+    data = pl.read_csv(path, has_header=True)
+
+    data = data.rename({"social": "f1", "economic": "f2", "environmental": "f3"})
+
+    variables = [
+        Variable(
+            name=varname,
+            symbol=varname,
+            variable_type=VariableTypeEnum.real,
+            lowerbound=data[varname].min(),
+            upperbound=data[varname].max(),
+            initial_value=data[varname].mean(),
+        )
+        for varname in varnames
+    ]
+
+    objectives = [
+        Objective(
+            name=objNames[objname],
+            symbol=objname,
+            objective_type=ObjectiveTypeEnum.data_based,
+            ideal=data[objname].max(),
+            nadir=data[objname].min(),
+            maximize=True,
+        )
+        for objname in objNames
+    ]
+
+    discrete_def = DiscreteRepresentation(
+        variable_values=data[varnames].to_dict(),
+        objective_values=data[[obj.symbol for obj in objectives]].to_dict(),
+    )
+
+    return Problem(
+        name="Spanish sustainability problem (Discrete)",
+        description="Defines a sustainability problem with three indicators: social, ecological, and environmental.",
+        variables=variables,
+        objectives=objectives,
+        discrete_representation=discrete_def,
+    )
+
+
+def forest_problem_discrete() -> Problem:
+    """Implements the forest problem using Pareto front representation.
+
+    Returns:
+        Problem: A problem instance representing the forest problem.
+    """
+    filename = "datasets/forest_holding_4.csv"
+
+    path = Path(__file__).parent.parent.parent / filename
+
+    obj_names = ["stock", "harvest_value", "npv"]
+
+    var_name = "index"
+
+    data = pl.read_csv(
+        path, has_header=True, columns=["stock", "harvest_value", "npv"], separator=";", decimal_comma=True
+    )
+
+    variables = [
+        Variable(
+            name=var_name,
+            symbol=var_name,
+            variable_type=VariableTypeEnum.integer,
+            lowerbound=0,
+            upperbound=len(data) - 1,
+            initial_value=0,
+        )
+    ]
+
+    objectives = [
+        Objective(
+            name=obj_name,
+            symbol=obj_name,
+            objective_type=ObjectiveTypeEnum.data_based,
+            ideal=data[obj_name].max(),
+            nadir=data[obj_name].min(),
+            maximize=True,
+        )
+        for obj_name in obj_names
+    ]
+
+    discrete_def = DiscreteRepresentation(
+        variable_values={"index": list(range(len(data)))},
+        objective_values=data[[obj.symbol for obj in objectives]].to_dict(),
+    )
+
+    return Problem(
+        name="Finnish Forest Problem (Discrete)",
+        description="Defines a forest problem with three objectives: stock, harvest value, and net present value.",
+        variables=variables,
+        objectives=objectives,
+        discrete_representation=discrete_def,
     )
