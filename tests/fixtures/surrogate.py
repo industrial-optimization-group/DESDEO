@@ -1,3 +1,4 @@
+"""Make temporary directories and files for two surrogate models for testing."""
 
 import joblib
 import pytest
@@ -24,11 +25,11 @@ def surrogate_file(tmp_path):
 @pytest.fixture
 def surrogate_file2(tmp_path):
     X, y = make_gaussian_quantiles(n_samples=500, n_features=4, random_state=0)
-    gpr = LogisticRegression(
+    lr = LogisticRegression(
             random_state=0).fit(X, y)
     fn = tmp_path / "surr2/model2.pkl"
     fn.parent.mkdir()
     fn.touch()
-    joblib.dump(gpr, fn)
+    joblib.dump(lr, fn)
     return fn
-    #sio.dump(gpr, "model.skops")
+    #sio.dump(lr, "model2.skops")
