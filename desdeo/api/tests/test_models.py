@@ -30,6 +30,7 @@ from desdeo.problem.schema import (
     ExtraFunction,
     Objective,
     ObjectiveTypeEnum,
+    Problem,
     ScalarizationFunction,
     Simulator,
     TensorConstant,
@@ -37,7 +38,16 @@ from desdeo.problem.schema import (
     Variable,
     VariableTypeEnum,
 )
-from desdeo.problem.testproblems import binh_and_korn
+from desdeo.problem.testproblems import (
+    binh_and_korn,
+    river_pollution_problem,
+    simple_knapsack,
+    simple_data_problem,
+    simple_scenario_test_problem,
+    re24,
+    simple_knapsack_vectors,
+    spanish_sustainability_problem,
+)
 
 
 @pytest.fixture(name="session_and_users")
@@ -405,3 +415,36 @@ def test_from_pydantic(session_and_users: dict[str, Session | list[User]]):
     problem_validated = ProblemDB.model_validate(from_db_problem_dump)
 
     assert problem_validated == problemdb
+
+
+def test_from_problem_to_db_and_back(session_and_users: dict[str, Session | list[User]]):
+    """Test that Problem converts to ProblemDB and back."""
+    session = session_and_users["session"]
+    user = session_and_users["users"][0]
+
+    problems = [
+        binh_and_korn(),
+        river_pollution_problem(),
+        simple_knapsack(),
+        simple_data_problem(),
+        simple_scenario_test_problem(),
+        re24(),
+        simple_knapsack_vectors(),
+        spanish_sustainability_problem(),
+    ]
+
+    for problem in problems:
+        # convert to SQLModel
+        problem_db = ProblemDB.from_problem(problem, user=user)
+
+        session.add(problem_db)
+        session.commit()
+        session.refresh(problem_db)
+
+        from_db = session.get(ProblemDB, problem_db.id)
+
+        # Back to pure pydantic
+        problem_db = Problem.from_problemdb(from_db)
+
+        # check that problems are equal
+        assert problem == problem_db

@@ -16,7 +16,7 @@ from collections.abc import Iterable
 from enum import Enum
 from itertools import product
 from pathlib import Path
-from typing import Annotated, Any, Literal, TypeAliasType
+from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeAliasType
 
 import numpy as np
 from pydantic import (
@@ -35,6 +35,9 @@ from pydantic import (
 from pydantic_core import PydanticCustomError
 
 from desdeo.problem.infix_parser import InfixExpressionParser
+
+if TYPE_CHECKING:
+    from desdeo.api.models import ProblemDB
 
 VariableType = float | int | bool
 
@@ -256,7 +259,7 @@ class ObjectiveTypeEnum(str, Enum):
 class Constant(BaseModel):
     """Model for a constant."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, from_attributes=True)
 
     name: str = Field(
         description=(
@@ -280,7 +283,7 @@ class Constant(BaseModel):
 class TensorConstant(BaseModel):
     """Model for a tensor containing constant values."""
 
-    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True, from_attributes=True)
 
     name: str = Field(description="Descriptive name of the tensor representing the values. E.g., 'distances'")
     """Descriptive name of the tensor representing the values. E.g., 'distances'"""
@@ -374,7 +377,7 @@ class TensorConstant(BaseModel):
 class Variable(BaseModel):
     """Model for a variable."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, from_attributes=True)
 
     name: str = Field(
         description="Descriptive name of the variable. This can be used in UI and visualizations. Example: 'velocity'."
@@ -404,7 +407,7 @@ class Variable(BaseModel):
 class TensorVariable(BaseModel):
     """Model for a tensor, e.g., vector variable."""
 
-    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True, from_attributes=True)
 
     name: str = Field(
         description="Descriptive name of the variable. This can be used in UI and visualizations. Example: 'velocity'."
@@ -583,7 +586,7 @@ class ExtraFunction(BaseModel):
     they are needed for other computations related to the problem.
     """
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, from_attributes=True)
 
     name: str = Field(
         description=("Descriptive name of the function. Example: 'normalization'."),
@@ -661,7 +664,7 @@ class ExtraFunction(BaseModel):
 class ScalarizationFunction(BaseModel):
     """Model for scalarization of the problem."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(from_attributes=True)
 
     name: str = Field(description=("Name of the scalarization function."))
     """Name of the scalarization function."""
@@ -713,7 +716,7 @@ class ScalarizationFunction(BaseModel):
 class Simulator(BaseModel):
     """Model for simulator data."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, from_attributes=True)
 
     name: str = Field(
         description=("Descriptive name of the simulator. This can be used in UI and visualizations."),
@@ -742,7 +745,7 @@ class Simulator(BaseModel):
 class Objective(BaseModel):
     """Model for an objective function."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, from_attributes=True)
 
     name: str = Field(
         description=(
@@ -854,7 +857,7 @@ class Objective(BaseModel):
 class Constraint(BaseModel):
     """Model for a constraint function."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, from_attributes=True)
 
     name: str = Field(
         description=(
@@ -958,7 +961,7 @@ class DiscreteRepresentation(BaseModel):
     found at `objective_values['f_i'][j]` for all `i` and some `j`.
     """
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, from_attributes=True)
 
     variable_values: dict[str, list[VariableType]] = Field(
         description=(
@@ -998,10 +1001,45 @@ class Problem(BaseModel):
     """Model for a problem definition."""
 
     model_config = ConfigDict(frozen=True)
-    model_config["from_attributes"] = True
 
     _scalarization_index: int = PrivateAttr(default=1)
     # TODO: make init to communicate the _scalarization_index to a new model
+
+    @classmethod
+    def from_problemdb(cls, db_instance: "ProblemDB") -> "Problem":
+        """."""
+        constants = [Constant.model_validate(const) for const in db_instance.constants] + [
+            TensorConstant.model_validate(const) for const in db_instance.tensor_constants
+        ]
+
+        return cls(
+            name=db_instance.name,
+            description=db_instance.description,
+            is_convex=db_instance.is_convex,
+            is_linear=db_instance.is_linear,
+            is_twice_differentiable=db_instance.is_twice_differentiable,
+            variable_domain=db_instance.variable_domain,
+            scenario_keys=db_instance.scenario_keys,
+            constants=constants if constants != [] else None,
+            variables=[Variable.model_validate(var) for var in db_instance.variables]
+            + [TensorVariable.model_validate(var) for var in db_instance.tensor_variables],
+            objectives=[Objective.model_validate(obj) for obj in db_instance.objectives],
+            constraints=[Constraint.model_validate(const) for const in db_instance.constraints]
+            if db_instance.constraints != []
+            else None,
+            scalarization_funcs=[ScalarizationFunction.model_validate(scal) for scal in db_instance.scalarization_funcs]
+            if db_instance.scalarization_funcs != []
+            else None,
+            extra_funcs=[ExtraFunction.model_validate(extra) for extra in db_instance.extra_funcs]
+            if db_instance.extra_funcs != []
+            else None,
+            discrete_representation=DiscreteRepresentation.model_validate(db_instance.discrete_representation)
+            if db_instance.discrete_representation is not None
+            else None,
+            simulators=[Simulator.model_validate(sim) for sim in db_instance.simulators]
+            if db_instance.simulators != []
+            else None,
+        )
 
     @model_validator(mode="after")
     def set_default_scalarization_names(self) -> "Problem":
@@ -1524,7 +1562,7 @@ class Problem(BaseModel):
         return values
 
     @root_validator(pre=True)
-    def set_is_liear(cls, values):
+    def set_is_linear(cls, values):
         """If "is_linear" is explicitly provided to the model, we set it to that value."""
         if "is_linear" in values and values["is_linear"] is not None:
             values["is_linear_"] = values["is_linear"]

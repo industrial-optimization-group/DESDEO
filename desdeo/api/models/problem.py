@@ -1,9 +1,9 @@
 """."""
 
 import json
-from enum import Enum
 from pathlib import Path
 from types import UnionType
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, create_model
 from sqlalchemy.types import String, TypeDecorator
@@ -26,45 +26,8 @@ from desdeo.problem.schema import (
     VariableType,
 )
 
-# USER SCHEMAS
-
-
-class UserRole(str, Enum):
-    """Possible user roles."""
-
-    guest = "guest"
-    dm = "dm"
-    analyst = "analyst"
-    admin = "admin"
-
-
-class UserBase(SQLModel):
-    """Base user object."""
-
-    username: str = Field(index=True)
-
-
-class User(UserBase, table=True):
-    """The table model of the user stored in the database."""
-
-    id: int | None = Field(primary_key=True, default=None)
-    password_hash: str = Field()
-    role: UserRole = Field()
-    group: str = Field(default="")
-
-    # Back populates
-    problems: list["ProblemDB"] = Relationship(back_populates="user")
-
-
-class UserPublic(UserBase):
-    """The object to handle public user information."""
-
-    id: int
-    role: UserRole
-    group: str
-
-
-# PROBLEM SCHEMAS
+if TYPE_CHECKING:
+    from .user import User
 
 
 class ProblemDB(SQLModel, table=True):
@@ -77,14 +40,15 @@ class ProblemDB(SQLModel, table=True):
     user_id: int | None = Field(foreign_key="user.id")
 
     # Back populates
-    user: User = Relationship(back_populates="problems")
+    user: "User" = Relationship(back_populates="problems")
 
     # Model fields
     name: str = Field()
     description: str = Field()
-    is_convex: bool = Field()
-    is_linear: bool = Field()
-    is_twice_differentiable: bool = Field()
+    is_convex: bool | None = Field(nullable=True, default=None)
+    is_linear: bool | None = Field(nullable=True, default=None)
+    is_twice_differentiable: bool | None = Field(nullable=True, default=None)
+    scenario_keys: list[str] | None = Field(sa_column=Column(JSON, nullable=True), default=None)
     variable_domain: VariableDomainTypeEnum = Field()
 
     # Populated by other models
@@ -100,7 +64,7 @@ class ProblemDB(SQLModel, table=True):
     simulators: list["SimulatorDB"] = Relationship(back_populates="problem")
 
     @classmethod
-    def from_problem(cls, problem_instance: Problem, user: User) -> "ProblemDB":
+    def from_problem(cls, problem_instance: Problem, user: "User") -> "ProblemDB":
         scalar_constants = (
             [const for const in problem_instance.constants if isinstance(const, Constant)]
             if problem_instance.constants is not None
@@ -118,10 +82,11 @@ class ProblemDB(SQLModel, table=True):
             user_id=user.id,
             name=problem_instance.name,
             description=problem_instance.description,
-            is_convex=problem_instance.is_convex,
-            is_linear=problem_instance.is_linear,
-            is_twice_differentiable=problem_instance.is_twice_differentiable,
+            is_convex=problem_instance.is_convex_,
+            is_linear=problem_instance.is_linear_,
+            is_twice_differentiable=problem_instance.is_twice_differentiable_,
             variable_domain=problem_instance.variable_domain,
+            scenario_keys=problem_instance.scenario_keys,
             constants=[ConstantDB.model_validate(const) for const in scalar_constants],
             tensor_constants=[TensorConstantDB.model_validate(const) for const in tensor_constants],
             variables=[VariableDB.model_validate(var) for var in scalar_variables],
@@ -324,7 +289,7 @@ class TensorVariableDB(_TensorVariableDB, table=True):
 class _Objective(SQLModel):
     """Helper class to override the fields of nested and list types, and Paths."""
 
-    func: list = Field(sa_column=Column(JSON))
+    func: list | None = Field(sa_column=Column(JSON, nullable=True))
     scenario_keys: list[str] | None = Field(sa_column=Column(JSON), default=None)
     surrogates: list[Path] | None = Field(sa_column=Column(PathListType), default=None)
     simulator_path: Path | None = Field(sa_column=Column(PathType), default=None)
