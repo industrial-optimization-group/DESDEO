@@ -4,8 +4,9 @@ from typing import TYPE_CHECKING
 
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
+from .preference import PreferenceDB
+
 if TYPE_CHECKING:
-    from .preference import PreferenceDB
     from .problem import ProblemDB
     from .user import User
 
@@ -25,9 +26,9 @@ class ArchiveEntryDB(ArchiveEntryBase, table=True):
     id: int | None = Field(primary_key=True, default=None)
     user_id: int | None = Field(foreign_key="user.id", default=None)
     problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
-    # preference_id: int | None = Field(foreign_key="preferencedb.id", default=None)
+    preference_id: int | None = Field(foreign_key="preferencedb.id", default=None)
 
     # Back populates
     user: "User" = Relationship(back_populates="archive")
-    # preference: "PreferenceDB" = Relationship(back_populates="solutions")
+    preference: "PreferenceDB" = Relationship(back_populates="solutions")
     problem: "ProblemDB" = Relationship(back_populates="solutions")

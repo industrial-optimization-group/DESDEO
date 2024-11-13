@@ -26,6 +26,7 @@ from desdeo.problem.schema import (
     VariableType,
 )
 
+
 if TYPE_CHECKING:
     from .archive import ArchiveEntryDB
     from .preference import PreferenceDB
@@ -44,7 +45,7 @@ class ProblemDB(SQLModel, table=True):
     # Back populates
     user: "User" = Relationship(back_populates="problems")
     solutions: list["ArchiveEntryDB"] = Relationship(back_populates="problem")
-    # preferences: list["PreferenceDB"] = Relationship(back_populates="problem")
+    preferences: list["PreferenceDB"] = Relationship(back_populates="problem")
 
     # Model fields
     name: str = Field()
