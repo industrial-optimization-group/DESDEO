@@ -1,6 +1,8 @@
 """Model exports."""
 
 __all__ = [
+    "ArchiveEntryBase",
+    "ArchiveEntryDB",
     "ConstantDB",
     "ConstraintDB",
     "DiscreteRepresentationDB",
@@ -18,6 +20,7 @@ __all__ = [
     "VariableDB",
 ]
 
+from .archive import ArchiveEntryBase, ArchiveEntryDB
 from .problem import (
     ConstantDB,
     ConstraintDB,

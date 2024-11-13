@@ -7,6 +7,8 @@ from sqlmodel.pool import StaticPool
 
 from desdeo.api.app import app
 from desdeo.api.models import (
+    ArchiveEntryBase,
+    ArchiveEntryDB,
     ConstantDB,
     ConstraintDB,
     DiscreteRepresentationDB,
@@ -41,7 +43,6 @@ from desdeo.problem.schema import (
 from desdeo.problem.testproblems import (
     binh_and_korn,
     dtlz2,
-    forest_problem,
     momip_ti2,
     momip_ti7,
     nimbus_test_problem,
@@ -523,3 +524,48 @@ def test_from_problem_to_db_and_back(session_and_users: dict[str, Session | list
 
         # check that problems are equal
         assert compare_models(problem, problem_db)
+
+
+def test_archive_entry(session_and_users: dict[str, Session | list[User]]):
+    """Test that the archive works as intended."""
+    session = session_and_users["session"]
+    user = session_and_users["users"][0]
+
+    problem = dtlz2(n_variables=5, n_objectives=3)
+    problem_db = ProblemDB.from_problem(problem, user)
+
+    session.add(problem_db)
+    session.commit()
+    session.refresh(problem_db)
+
+    variable_values = {"x_1": 0.3, "x_2": 0.8, "x_3": 0.1, "x_4": 0.6, "x_5": 0.9}
+    objective_values = {"f_1": 1.2, "f_2": 0.9, "f_3": 1.5}
+    constraint_values = {"g_1": 0.1}
+    extra_func_values = {"extra_1": 5000, "extra_2": 600000}
+
+    archive_entry = ArchiveEntryBase(variable_values=variable_values, objective_values=objective_values)
+
+    archive_entry_db = ArchiveEntryDB.model_validate(
+        archive_entry,
+        update={
+            "user_id": user.id,
+            "problem_id": problem_db.id,
+            "constraint_values": constraint_values,
+            "extra_func_values": extra_func_values,
+        },
+    )
+
+    session.add(archive_entry_db)
+    session.commit()
+    session.refresh(archive_entry_db)
+
+    from_db = session.get(ArchiveEntryDB, archive_entry_db.id)
+
+    assert from_db.user_id == user.id
+    assert from_db.problem_id == problem_db.id
+    assert from_db == user.archive[0]
+    assert compare_models(from_db.problem, problem_db)
+    assert from_db.variable_values == variable_values
+    assert from_db.objective_values == objective_values
+    assert from_db.constraint_values == constraint_values
+    assert from_db.extra_func_values == extra_func_values

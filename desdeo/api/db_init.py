@@ -7,8 +7,8 @@ from sqlmodel import Session, SQLModel
 
 from desdeo.api.config import ServerDebugConfig, SettingsConfig
 from desdeo.api.db import engine
-from desdeo.api.models import User, UserRole, TensorConstantDB
-from desdeo.problem import TensorConstant
+from desdeo.api.models import User, UserRole, ProblemDB
+from desdeo.problem import river_pollution_problem
 from desdeo.api.routers.user_authentication import get_password_hash
 
 if __name__ == "__main__":
@@ -36,15 +36,11 @@ if __name__ == "__main__":
             session.commit()
             session.refresh(user_analyst)
 
-            t_constant = TensorConstantDB(
-                owner=user_analyst.id, name="tensor", shape=[2, 2], symbol="T", values=[[1, 2.0], [3.0, -4]]
-            )
+            problem_db = ProblemDB.from_problem(river_pollution_problem(), user_analyst)
 
-            TensorConstant.validate(t_constant.model_dump())
-
-            session.add(t_constant)
+            session.add(problem_db)
             session.commit()
-            session.refresh(t_constant)
+            session.refresh(problem_db)
 
         """
         db.add(user_analyst)
