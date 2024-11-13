@@ -40,14 +40,77 @@ from desdeo.problem.schema import (
 )
 from desdeo.problem.testproblems import (
     binh_and_korn,
-    river_pollution_problem,
-    simple_knapsack,
-    simple_data_problem,
-    simple_scenario_test_problem,
+    dtlz2,
+    forest_problem,
+    momip_ti2,
+    momip_ti7,
+    nimbus_test_problem,
+    pareto_navigator_test_problem,
+    re21,
+    re22,
+    re23,
     re24,
+    river_pollution_problem,
+    river_pollution_problem_discrete,
+    simple_data_problem,
+    simple_knapsack,
     simple_knapsack_vectors,
+    simple_linear_test_problem,
+    simple_scenario_test_problem,
+    simple_test_problem,
     spanish_sustainability_problem,
+    zdt1,
 )
+
+
+def compare_models(
+    model_1,
+    model_2,
+    unordered_fields=None,
+) -> bool:
+    """Compares two Pydantic models.
+
+    Args:
+        model_1 (Any): Pydantic model 1.
+        model_2 (Any): Pydantic model 2.
+        unordered_fields (list[str]): field names that are unordered and should be compared for
+            having the same contents.
+
+    Returns:
+        bool: Whether the two models have identical contents.
+    """
+    if unordered_fields is None:
+        unordered_fields = [
+            "variables",
+            "constants",
+            "objectives",
+            "constraints",
+            "extra_funcs",
+            "simulators",
+            "scenario_keys",
+        ]
+
+    dict_1 = model_1.model_dump()
+    dict_2 = model_2.model_dump()
+
+    for field in unordered_fields:
+        if field in dict_1 and field in dict_2 and isinstance(dict_1[field], list) and isinstance(dict_2[field], list):
+            if len(dict_1[field]) != len(dict_2[field]):
+                return False
+
+            for key_1, key_2 in zip(dict_1, dict_2, strict=True):
+                if key_1 not in dict_2 or key_2 not in dict_1:
+                    return False
+
+                if dict_1[key_1] != dict_1[key_2]:
+                    return False
+
+                if dict_2[key_1] != dict_2[key_2]:
+                    return False
+
+            del dict_1[field], dict_2[field]
+
+    return dict_1 == dict_2
 
 
 @pytest.fixture(name="session_and_users")
@@ -431,6 +494,18 @@ def test_from_problem_to_db_and_back(session_and_users: dict[str, Session | list
         re24(),
         simple_knapsack_vectors(),
         spanish_sustainability_problem(),
+        zdt1(10),
+        dtlz2(5, 3),
+        momip_ti2(),
+        momip_ti7(),
+        nimbus_test_problem(),
+        pareto_navigator_test_problem(),
+        river_pollution_problem_discrete(),
+        simple_test_problem(),
+        simple_linear_test_problem(),
+        re21(),
+        re22(),
+        re23(),
     ]
 
     for problem in problems:
@@ -447,4 +522,4 @@ def test_from_problem_to_db_and_back(session_and_users: dict[str, Session | list
         problem_db = Problem.from_problemdb(from_db)
 
         # check that problems are equal
-        assert problem == problem_db
+        assert compare_models(problem, problem_db)

@@ -65,6 +65,16 @@ class ProblemDB(SQLModel, table=True):
 
     @classmethod
     def from_problem(cls, problem_instance: Problem, user: "User") -> "ProblemDB":
+        """Initialized the model from an instance of `Problem`.
+
+        Args:
+            problem_instance (Problem): the `Problem` instance from which to initialize
+                a `ProblemDB` model.
+            user (User): the user the instance of `ProblemDB` is assigned to.
+
+        Returns:
+            ProblemDB: the new instance of `ProblemDB`.
+        """
         scalar_constants = (
             [const for const in problem_instance.constants if isinstance(const, Constant)]
             if problem_instance.constants is not None

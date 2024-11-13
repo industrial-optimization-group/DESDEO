@@ -1553,7 +1553,8 @@ class Problem(BaseModel):
             }
         )
 
-    @root_validator(pre=True)
+    @model_validator(mode="after")
+    @classmethod
     def set_is_twice_differentiable(cls, values):
         """If "is_twice_differentiable" is explicitly provided to the model, we set it to that value."""
         if "is_twice_differentiable" in values and values["is_twice_differentiable"] is not None:
@@ -1561,7 +1562,8 @@ class Problem(BaseModel):
 
         return values
 
-    @root_validator(pre=True)
+    @model_validator(mode="after")
+    @classmethod
     def set_is_linear(cls, values):
         """If "is_linear" is explicitly provided to the model, we set it to that value."""
         if "is_linear" in values and values["is_linear"] is not None:
@@ -1569,7 +1571,8 @@ class Problem(BaseModel):
 
         return values
 
-    @root_validator(pre=True)
+    @model_validator(mode="after")
+    @classmethod
     def set_is_convex(cls, values):
         """If "is_convex" is explicitly provided to the model, we set it to that value."""
         if "is_convex" in values and values["is_convex"] is not None:
