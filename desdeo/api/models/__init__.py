@@ -3,6 +3,7 @@
 __all__ = [
     "ArchiveEntryBase",
     "ArchiveEntryDB",
+    "Bounds",
     "ConstantDB",
     "ConstraintDB",
     "DiscreteRepresentationDB",
@@ -16,11 +17,15 @@ __all__ = [
     "TensorConstantDB",
     "SimulatorDB",
     "TensorVariableDB",
+    "PreferenceBase",
+    "PreferenceDB",
     "ProblemDB",
+    "ReferencePoint",
     "VariableDB",
 ]
 
 from .archive import ArchiveEntryBase, ArchiveEntryDB
+from .preference import Bounds, PreferenceBase, PreferenceDB, ReferencePoint
 from .problem import (
     ConstantDB,
     ConstraintDB,

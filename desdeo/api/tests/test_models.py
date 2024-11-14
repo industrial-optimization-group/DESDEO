@@ -9,12 +9,15 @@ from desdeo.api.app import app
 from desdeo.api.models import (
     ArchiveEntryBase,
     ArchiveEntryDB,
+    Bounds,
     ConstantDB,
     ConstraintDB,
     DiscreteRepresentationDB,
     ExtraFunctionDB,
     ObjectiveDB,
+    PreferenceDB,
     ProblemDB,
+    ReferencePoint,
     ScalarizationFunctionDB,
     SimulatorDB,
     TensorConstantDB,
@@ -569,3 +572,48 @@ def test_archive_entry(session_and_users: dict[str, Session | list[User]]):
     assert from_db.objective_values == objective_values
     assert from_db.constraint_values == constraint_values
     assert from_db.extra_func_values == extra_func_values
+
+
+def test_preference_models(session_and_users: dict[str, Session | list[User]]):
+    """Test that the archive works as intended."""
+    session = session_and_users["session"]
+    user = session_and_users["users"][0]
+
+    problem = ProblemDB.from_problem(dtlz2(5, 3), user=user)
+
+    session.add(problem)
+    session.commit()
+    session.refresh(problem)
+
+    aspiration_levels = {"f_1": 0.1, "f_2": 5, "f_3": -3.1}
+    lower_bounds = {"f_1": -4.1, "f_2": 0, "f_3": 2.2}
+    upper_bounds = {"f_1": 2.1, "f_2": 0.1, "f_3": 12.2}
+
+    reference_point = ReferencePoint(aspiration_levels=aspiration_levels)
+    bounds = Bounds(lower_bounds=lower_bounds, upper_bounds=upper_bounds)
+
+    reference_point_db = PreferenceDB(user_id=user.id, problem_id=problem.id, preference=reference_point)
+    bounds_db = PreferenceDB(user_id=user.id, problem_id=problem.id, preference=bounds)
+
+    session.add(reference_point_db)
+    session.add(bounds_db)
+    session.commit()
+    session.refresh(reference_point_db)
+    session.refresh(bounds_db)
+
+    from_db_ref_point = session.get(PreferenceDB, reference_point_db.id)
+    from_db_bounds = session.get(PreferenceDB, bounds_db.id)
+
+    assert from_db_ref_point.preference.aspiration_levels == aspiration_levels
+    assert from_db_bounds.preference.lower_bounds == lower_bounds
+    assert from_db_bounds.preference.upper_bounds == upper_bounds
+
+    assert from_db_ref_point.problem == problem
+    assert from_db_ref_point.problem == problem
+    assert from_db_bounds.problem == problem
+
+    assert from_db_bounds.user == user
+    assert from_db_ref_point.user == user
+
+    assert from_db_bounds.solutions == []
+    assert from_db_ref_point.solutions == []
