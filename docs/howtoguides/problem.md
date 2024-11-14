@@ -72,4 +72,75 @@ And we are done! We have now defined an analytical problem in DESDEO.
 WIP.
 
 ## Example: simulation-based problem (WIP)
-WIP.
+
+Simulation based problems are problems with objectives, constraints
+and extra functions whose values are simulated during the solution process.
+Here is an example of defining a simulation based problem in DESDEO:
+
+First, we define the decision variables.
+In this case, we have two variables with symbols `x_1` and `x_2`.
+
+```python
+variables = [
+    Variable(
+        name="Variable 1",
+        symbol="x_1",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=float("-inf"),
+        upperbound=float("inf"),
+        initial_value=0
+    ),
+    Variable(
+        name="Variable 2",
+        symbol="x_2",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=float("-inf"),
+        upperbound=float("inf"),
+        initial_value=0
+    )
+]
+```
+
+!!! NOTE
+    Even though the decision variables used in the simulators are passed to the simulator as lists,
+    the variables are defined here as instances of `Variable` (instead of `TensorVariable`). The list
+    elements represent the value (a scalar) of the variable in the corresponding sample. The variables
+    can also be TensorVariables with each element of the TensorVariable also a list of samples.
+
+Next, we define the objectives. This is similar to analytical objectives but instead of a function
+expression, the objective has a path to the simulator file used to simulate the objective values.
+Here we have two objectives (`f_1`, `f_3`) that get their values from the same simulator file and one that
+has a different simulator file. Additionally, objective `f_3` is maximized.
+
+```python
+objectives = [
+    Objective(
+        name="Objective 1",
+        symbol="f_1",
+        simulator_path=f"{path_to_simulator_file_1}",
+        maximize=False,
+        objective_type=ObjectiveTypeEnum.simulator
+    ),
+    Objective(
+        name="Objective 2",
+        symbol="f_2",
+        simulator_path=f"{path_to_simulator_file_2}",
+        maximize=False,
+        objective_type=ObjectiveTypeEnum.simulator
+    ),
+    Objective(
+        name="Objective 3",
+        symbol="f_3",
+        simulator_path=f"{path_to_simulator_file_1}",
+        maximize=True,
+        objective_type=ObjectiveTypeEnum.simulator
+    ),
+]
+```
+
+!!! NOTE
+    Since there are no function expressions that are given to an optimizer,
+    simulator based objectives do not need linearity, convexity or differentiability
+    to have the value `True` in any case.
+
+Similarly, we can define constraints and extra functions.

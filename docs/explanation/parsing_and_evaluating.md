@@ -173,6 +173,15 @@ supports variables that are higher dimensional tensors (TensorVariables) as well
 !!! Info
     For more info about gurobi, see [the gurobi documentation](https://www.gurobi.com/documentation/).
 
+### The evaluator for simulators and surrogates
+
+The [`Evaluator`][desdeo.problem.simulator_evaluator.Evaluator] adds support for simulator and surrogate
+based objectives, constraints and extra functions. This is done by collecting the simulators and surrogates
+in the evaluator and calling them by providing the decision variables and parameters needed.
+The connection to simulators happens via [simulator files](./simulator_support.md#simulator-files).
+The surrogate models are loaded from disk and then evaluated with the given decision variable values.
+This evaluator also handles analytical functions by calling the [PolarsEvaluator](#the-generic-evaluator).
+
 ## Where to go next?
 
 You can keep studying the various parsers found
