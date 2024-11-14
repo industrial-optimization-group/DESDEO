@@ -5,6 +5,9 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine, select
 from sqlmodel.pool import StaticPool
 
+from desdeo.mcdm import rpm_solve_solutions
+from desdeo.tools import available_solvers
+
 from desdeo.api.app import app
 from desdeo.api.models import (
     ArchiveEntryBase,
@@ -14,12 +17,15 @@ from desdeo.api.models import (
     ConstraintDB,
     DiscreteRepresentationDB,
     ExtraFunctionDB,
+    InteractiveSessionDB,
     ObjectiveDB,
     PreferenceDB,
     ProblemDB,
     ReferencePoint,
+    RPMState,
     ScalarizationFunctionDB,
     SimulatorDB,
+    StateDB,
     TensorConstantDB,
     TensorVariableDB,
     User,
@@ -133,10 +139,17 @@ def session_fixture():
         )
         session.add(user_analyst)
         session.commit()
+        session.refresh(user_analyst)
+
+        problem_db = ProblemDB.from_problem(dtlz2(5, 3), user=user_analyst)
+        session.add(problem_db)
+        session.commit()
+        session.refresh(problem_db)
 
         users = [user_analyst]
+        problems = [problem_db]
 
-        yield {"session": session, "users": users}
+        yield {"session": session, "users": users, "problems": problems}
 
 
 @pytest.fixture(name="client")
@@ -218,7 +231,7 @@ def test_variable(session_and_users: dict[str, Session | list[User]]):
     session.commit()
     session.refresh(db_variable)
 
-    from_db_variable = session.get(VariableDB, 1)
+    from_db_variable = session.get(VariableDB, db_variable.id)
 
     assert db_variable == from_db_variable
 
@@ -251,7 +264,7 @@ def test_tensor_variable(session_and_users: dict[str, Session | list[User]]):
     session.commit()
     session.refresh(db_t_variable)
 
-    from_db_t_variable = session.get(TensorVariableDB, 1)
+    from_db_t_variable = session.get(TensorVariableDB, db_t_variable.id)
 
     assert db_t_variable == from_db_t_variable
 
@@ -291,7 +304,7 @@ def test_objective(session_and_users: dict[str, Session | list[User]]):
     session.commit()
     session.refresh(db_objective)
 
-    from_db_objective = session.get(ObjectiveDB, 1)
+    from_db_objective = session.get(ObjectiveDB, db_objective.id)
 
     assert db_objective == from_db_objective
 
@@ -327,7 +340,7 @@ def test_constraint(session_and_users: dict[str, Session | list[User]]):
     session.commit()
     session.refresh(db_constraint)
 
-    from_db_constraint = session.get(ConstraintDB, 1)
+    from_db_constraint = session.get(ConstraintDB, db_constraint.id)
 
     assert db_constraint == from_db_constraint
 
@@ -360,7 +373,7 @@ def test_scalarization_function(session_and_users: dict[str, Session | list[User
     session.commit()
     session.refresh(db_scalarization)
 
-    from_db_scalarization = session.get(ScalarizationFunctionDB, 1)
+    from_db_scalarization = session.get(ScalarizationFunctionDB, db_scalarization.id)
 
     assert db_scalarization == from_db_scalarization
 
@@ -393,7 +406,7 @@ def test_extra_function(session_and_users: dict[str, Session | list[User]]):
     session.commit()
     session.refresh(db_extra)
 
-    from_db_extra = session.get(ExtraFunctionDB, 1)
+    from_db_extra = session.get(ExtraFunctionDB, db_extra.id)
 
     assert db_extra == from_db_extra
 
@@ -422,7 +435,7 @@ def test_discrete_representation(session_and_users: dict[str, Session | list[Use
     session.commit()
     session.refresh(db_discrete)
 
-    from_db_discrete = session.get(DiscreteRepresentationDB, 1)
+    from_db_discrete = session.get(DiscreteRepresentationDB, db_discrete.id)
 
     assert db_discrete == from_db_discrete
 
@@ -452,7 +465,7 @@ def test_simulator(session_and_users: dict[str, Session | list[User]]):
     session.commit()
     session.refresh(db_simulator)
 
-    from_db_simulator = session.get(SimulatorDB, 1)
+    from_db_simulator = session.get(SimulatorDB, db_simulator.id)
 
     assert db_simulator == from_db_simulator
 
@@ -474,7 +487,7 @@ def test_from_pydantic(session_and_users: dict[str, Session | list[User]]):
     session.commit()
     session.refresh(problemdb)
 
-    from_db_problem = session.get(ProblemDB, 1)
+    from_db_problem = session.get(ProblemDB, problemdb.id)
 
     assert problemdb == from_db_problem
 
@@ -617,3 +630,58 @@ def test_preference_models(session_and_users: dict[str, Session | list[User]]):
 
     assert from_db_bounds.solutions == []
     assert from_db_ref_point.solutions == []
+
+
+def test_rpm_state(session_and_users: dict[str, Session | list[User]]):
+    """Test the RPM state that it works correctly."""
+    session = session_and_users["session"]
+    user = session_and_users["users"][0]
+    problem_db = session_and_users["problems"][0]  # DTLZ2(5, 3)
+
+    # create interactive session
+    isession = InteractiveSessionDB(user_id=user.id)
+
+    # use the reference point method
+    asp_levels = {"f_1": 0.4, "f_2": 0.8, "f_3": 0.6}
+
+    problem = Problem.from_problemdb(problem_db)
+
+    scalarization_options = None
+    solver = "pyomo_bonmin"
+    solver_options = None
+
+    results = rpm_solve_solutions(
+        problem,
+        asp_levels,
+        scalarization_options=scalarization_options,
+        solver=available_solvers[solver],
+        solver_options=solver_options,
+    )
+
+    # create preferences
+
+    reference_point = ReferencePoint(aspiration_levels=asp_levels)
+    preferences = PreferenceDB(user_id=user.id, problem_id=problem_db.id, preference=reference_point)
+
+    session.add(preferences)
+    session.commit()
+    session.refresh(preferences)
+
+    # create state
+
+    rpm_state = RPMState(
+        scalarization_options=scalarization_options,
+        solver=solver,
+        solver_options=solver_options,
+        solver_results=results,
+    )
+
+    state_1 = StateDB(
+        problem_id=problem_db.id, preference_id=preferences.id, session_id=isession.id, parent_id=None, state=rpm_state
+    )
+
+    session.add(state_1)
+    session.commit()
+    session.refresh(state_1)
+
+    print()

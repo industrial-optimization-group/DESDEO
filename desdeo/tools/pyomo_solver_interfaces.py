@@ -52,7 +52,7 @@ class BonminOptions(BaseModel):
         converted to keys in the format `bonmin.optionname` in the returned dict.
         """
         output = {}
-        for field_name, _ in self.__fields__.items():
+        for field_name, _ in self.model_fields.items():
             if (rest := field_name.split(sep="_"))[0] == "bonmin":
                 # Convert to Bonmin specific format
                 output[f"bonmin.{'_'.join(rest[1:])}"] = getattr(self, field_name)
@@ -97,7 +97,7 @@ class CbcOptions(BaseModel):
         Please add options as they are needed and make a pull request.
     """
 
-    model_config = ConfigDict(frozen=True, allow_population_by_field_name=True)
+    model_config = ConfigDict(frozen=True, populate_by_name=True)
 
     sec: int = Field(
         description="The maximum amount of time (in seconds) the solver should run. Defaults to None.", default=None

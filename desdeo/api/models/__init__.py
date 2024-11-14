@@ -22,6 +22,11 @@ __all__ = [
     "ProblemDB",
     "ReferencePoint",
     "VariableDB",
+    "InteractiveSessionBase",
+    "InteractiveSessionDB",
+    "RPMBaseState",
+    "RPMState",
+    "StateDB",
 ]
 
 from .archive import ArchiveEntryBase, ArchiveEntryDB
@@ -39,4 +44,6 @@ from .problem import (
     TensorVariableDB,
     VariableDB,
 )
+from .session import InteractiveSessionBase, InteractiveSessionDB
+from .state import RPMBaseState, RPMState, StateDB
 from .user import User, UserBase, UserPublic, UserRole
