@@ -5,11 +5,11 @@ from typing import TYPE_CHECKING
 
 from sqlmodel import Field, Relationship, SQLModel
 
-from .preference import PreferenceDB
-
 if TYPE_CHECKING:
     from .archive import ArchiveEntryDB
+    from .preference import PreferenceDB
     from .schemas import ProblemDB
+    from .session import InteractiveSessionDB
 
 
 class UserRole(str, Enum):
@@ -39,6 +39,7 @@ class User(UserBase, table=True):
     archive: list["ArchiveEntryDB"] = Relationship(back_populates="user")
     preferences: list["PreferenceDB"] = Relationship(back_populates="user")
     problems: list["ProblemDB"] = Relationship(back_populates="user")
+    sessions: list["InteractiveSessionDB"] = Relationship(back_populates="user")
 
 
 class UserPublic(UserBase):

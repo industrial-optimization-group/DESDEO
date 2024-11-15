@@ -6,6 +6,7 @@ from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from .state import StateDB
+    from .user import User
 
 
 class InteractiveSessionBase(SQLModel):
@@ -20,3 +21,4 @@ class InteractiveSessionDB(SQLModel, table=True):
 
     # Back populates
     states: list["StateDB"] = Relationship(back_populates="session")
+    user: "User" = Relationship(back_populates="sessions")

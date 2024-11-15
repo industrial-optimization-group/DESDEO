@@ -8,6 +8,7 @@ from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 from desdeo.tools import SolverResults
 
 from .preference import PreferenceDB
+from .problem import ProblemDB
 from .session import InteractiveSessionDB
 
 
@@ -88,3 +89,4 @@ class StateDB(SQLModel, table=True):
 
     # Parents
     preference: "PreferenceDB" = Relationship()
+    problem: "ProblemDB" = Relationship()

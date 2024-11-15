@@ -640,8 +640,12 @@ def test_rpm_state(session_and_users: dict[str, Session | list[User]]):
     # create interactive session
     isession = InteractiveSessionDB(user_id=user.id)
 
+    session.add(isession)
+    session.commit()
+    session.refresh(isession)
+
     # use the reference point method
-    asp_levels = {"f_1": 0.4, "f_2": 0.8, "f_3": 0.6}
+    asp_levels_1 = {"f_1": 0.4, "f_2": 0.8, "f_3": 0.6}
 
     problem = Problem.from_problemdb(problem_db)
 
@@ -651,7 +655,7 @@ def test_rpm_state(session_and_users: dict[str, Session | list[User]]):
 
     results = rpm_solve_solutions(
         problem,
-        asp_levels,
+        asp_levels_1,
         scalarization_options=scalarization_options,
         solver=available_solvers[solver],
         solver_options=solver_options,
@@ -659,8 +663,8 @@ def test_rpm_state(session_and_users: dict[str, Session | list[User]]):
 
     # create preferences
 
-    reference_point = ReferencePoint(aspiration_levels=asp_levels)
-    preferences = PreferenceDB(user_id=user.id, problem_id=problem_db.id, preference=reference_point)
+    rp_1 = ReferencePoint(aspiration_levels=asp_levels_1)
+    preferences = PreferenceDB(user_id=user.id, problem_id=problem_db.id, preference=rp_1)
 
     session.add(preferences)
     session.commit()
@@ -683,4 +687,63 @@ def test_rpm_state(session_and_users: dict[str, Session | list[User]]):
     session.commit()
     session.refresh(state_1)
 
-    print()
+    asp_levels_2 = {"f_1": 0.6, "f_2": 0.4, "f_3": 0.5}
+
+    problem = Problem.from_problemdb(problem_db)
+
+    scalarization_options = None
+    solver = "pyomo_bonmin"
+    solver_options = None
+
+    results = rpm_solve_solutions(
+        problem,
+        asp_levels_2,
+        scalarization_options=scalarization_options,
+        solver=available_solvers[solver],
+        solver_options=solver_options,
+    )
+
+    # create preferences
+
+    rp_2 = ReferencePoint(aspiration_levels=asp_levels_2)
+    preferences = PreferenceDB(user_id=user.id, problem_id=problem_db.id, preference=rp_2)
+
+    session.add(preferences)
+    session.commit()
+    session.refresh(preferences)
+
+    # create state
+
+    rpm_state = RPMState(
+        scalarization_options=scalarization_options,
+        solver=solver,
+        solver_options=solver_options,
+        solver_results=results,
+    )
+
+    state_2 = StateDB(
+        problem_id=problem_db.id,
+        preference_id=preferences.id,
+        session_id=isession.id,
+        parent_id=state_1.id,
+        state=rpm_state,
+    )
+
+    session.add(state_2)
+    session.commit()
+    session.refresh(state_2)
+
+    assert state_1.parent is None
+    assert state_2.parent == state_1
+    assert len(state_1.children) == 1
+    assert state_1.children[0] == state_2
+
+    assert state_1.preference.preference == rp_1
+    assert state_2.preference.preference == rp_2
+
+    assert state_2.problem == problem_db
+    assert state_2.session.user == user
+
+    assert state_2.children == []
+    assert state_2.parent.problem == problem_db
+    assert state_2.parent.session.user == user
