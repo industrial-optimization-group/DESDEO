@@ -243,6 +243,16 @@ def parse_pyomo_optimizer_results(
     constraint_values = (
         {con.symbol: results[con.symbol] for con in problem.constraints} if problem.constraints else None
     )
+    extra_func_values = (
+        {extra.symbol: results[extra.symbol] for extra in problem.extra_funcs}
+        if problem.extra_funcs is not None
+        else None
+    )
+    scalarization_values = (
+        {scal.symbol: results[scal.symbol] for scal in problem.scalarization_funcs}
+        if problem.scalarization_funcs is not None
+        else None
+    )
     success = (
         opt_res.solver.status == _pyomo_SolverStatus.ok
         and opt_res.solver.termination_condition == _pyomo_TerminationCondition.optimal
@@ -256,6 +266,8 @@ def parse_pyomo_optimizer_results(
         optimal_variables=variable_values,
         optimal_objectives=objective_values,
         constraint_values=constraint_values,
+        extra_func_values=extra_func_values,
+        scalarization_values=scalarization_values,
         success=success,
         message=msg,
     )

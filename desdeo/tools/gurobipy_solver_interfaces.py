@@ -2,7 +2,15 @@
 
 import gurobipy as gp
 
-from desdeo.problem import Constraint, GurobipyEvaluator, Objective, Problem, ScalarizationFunction, TensorVariable, Variable
+from desdeo.problem import (
+    Constraint,
+    GurobipyEvaluator,
+    Objective,
+    Problem,
+    ScalarizationFunction,
+    TensorVariable,
+    Variable,
+)
 from desdeo.tools.generics import BaseSolver, PersistentSolver, SolverResults
 
 
@@ -20,7 +28,19 @@ def parse_gurobipy_optimizer_results(problem: Problem, evaluator: GurobipyEvalua
 
     variable_values = {var.symbol: results[var.symbol] for var in problem.variables}
     objective_values = {obj.symbol: results[obj.symbol] for obj in problem.objectives}
-    constraint_values = {con.symbol: results[con.symbol] for con in problem.constraints}
+    constraint_values = (
+        {con.symbol: results[con.symbol] for con in problem.constraints} if problem.constraints is not None else None
+    )
+    extra_func_values = (
+        {extra.symbol: results[extra.symbol] for extra in problem.extra_funcs}
+        if problem.extra_funcs is not None
+        else None
+    )
+    scalarization_values = (
+        {scal.symbol: results[scal.symbol] for scal in problem.scalarization_funcs}
+        if problem.scalarization_funcs is not None
+        else None
+    )
     success = evaluator.model.status == gp.GRB.OPTIMAL
     if evaluator.model.status == gp.GRB.OPTIMAL:
         status = "Optimal solution found."
@@ -38,6 +58,8 @@ def parse_gurobipy_optimizer_results(problem: Problem, evaluator: GurobipyEvalua
         optimal_variables=variable_values,
         optimal_objectives=objective_values,
         constraint_values=constraint_values,
+        extra_func_values=extra_func_values,
+        scalarization_values=scalarization_values,
         success=success,
         message=msg,
     )

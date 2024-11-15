@@ -5,9 +5,6 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine, select
 from sqlmodel.pool import StaticPool
 
-from desdeo.mcdm import rpm_solve_solutions
-from desdeo.tools import available_solvers
-
 from desdeo.api.app import app
 from desdeo.api.models import (
     ArchiveEntryBase,
@@ -33,6 +30,7 @@ from desdeo.api.models import (
     VariableDB,
 )
 from desdeo.api.routers.user_authentication import get_password_hash
+from desdeo.mcdm import rpm_solve_solutions
 from desdeo.problem.schema import (
     Constant,
     Constraint,
@@ -71,6 +69,7 @@ from desdeo.problem.testproblems import (
     spanish_sustainability_problem,
     zdt1,
 )
+from desdeo.tools import available_solvers
 
 
 def compare_models(

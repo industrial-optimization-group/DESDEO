@@ -64,12 +64,22 @@ class ProximalSolver(BaseSolver):
         # find the row with the minimum value in the 'target' column
         closest = results_df.sort(target).head(1)
 
-        # extract relevant results, extract them as disc for easier jsonification
+        # extract relevant results, extract them as dict for easier jsonification
         variable_values = {variable.symbol: closest[variable.symbol][0] for variable in self.problem.variables}
         objective_values = {objective.symbol: closest[objective.symbol][0] for objective in self.problem.objectives}
         constraint_values = (
             {constraint.symbol: closest[constraint.symbol][0] for constraint in self.problem.constraints}
             if self.problem.constraints is not None
+            else None
+        )
+        extra_func_values = (
+            {extra.symbol: closest[extra.symbol][0] for extra in self.problem.extra_funcs}
+            if self.problem.extra_funcs is not None
+            else None
+        )
+        scalarization_values = (
+            {scal.symbol: closest[scal.symbol][0] for scal in self.problem.scalarization_funcs}
+            if self.problem.scalarization_funcs is not None
             else None
         )
         message = f"Optimal value found from tabular data minimizing the column '{target}'."
@@ -80,6 +90,8 @@ class ProximalSolver(BaseSolver):
             optimal_variables=variable_values,
             optimal_objectives=objective_values,
             constraint_values=constraint_values,
+            extra_func_values=extra_func_values,
+            scalarization_values=scalarization_values,
             success=success,
             message=message,
         )
