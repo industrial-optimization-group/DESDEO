@@ -1,5 +1,6 @@
 """This module contains the functions for user authentication."""
 
+import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
@@ -7,7 +8,7 @@ import bcrypt
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from jose import ExpiredSignatureError, JWTError, jwt
+from jose import JWTError, jwt
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -153,7 +154,7 @@ def get_current_user(
     return user
 
 
-async def create_jwt_token(
+def create_jwt_token(
     data: dict,
     expires_delta: timedelta,
     algorithm: str = AuthConfig.authjwt_algorithm,
@@ -173,12 +174,35 @@ async def create_jwt_token(
         str: the JWT token.
     """
     data = data.copy()
-    expire = datetime.utcnow() + expires_delta
-    data.update({"exp": expire})
+    expire = datetime.now(UTC) + expires_delta
+    data.update({"exp": expire, "jti": str(uuid.uuid4())})
+    # jti adds an unique identifier so that life is easier (THIS IS WHY YOU TEST
+    # YOUR CODE BHUPINDER! I WAS GETTING IDENTICAL ACCESS TOKENS WHEN RUNNING
+    # THE CODE REGULARLY, BUT IF I USED A DEBUGGER, I GOT DIFFERENT ACCESS
+    # TOKENS???? ONLY TOOK ME A FEW HOURS...
+    # AND WHAT A NICE RED HERRING HAVING THE ACCESS POINTS TO BE ASYNC. WHY? WE
+    # ARE NOT CALLING ANYTHING ASYNCHRONOUS! W. T .F! I THOUGHT THIS WAS AN
+    # EXTREMELY CURSED ASYNC BUG, BUT NO---WE JUST WERE ENCODING THE __SAME__ DATA
+    # TWICE, SINCE THE "EXPIRE" DID NOT HAVE TIME TO UPDATE!
+    # I ASKED CHATGPT TO MAKE ASCII ART TO EXPRESS MY FRUSTRATION WITH THIS. HERE IT IS
+    #  _______
+    # /         \
+    # |  (X   X) |    ARGHHHH!
+    # |     >    |
+    # \   ===   /     WHY WON'T YOU WORK?!
+    #  \_______/
+    #    || ||
+    #    || ||
+    #  __|| ||__
+    # (_________)
+    #
+    # AS YOU CAN SEE IT SUCKS. IT DOES NOT EVEN BEGIN TO CAPTURE THE DEPTHS OF
+    # MY FRUSTRATION!)
+
     return jwt.encode(data, secret_key, algorithm=algorithm)
 
 
-async def create_access_token(data: dict, expiration_time: int = AuthConfig.authjwt_access_token_expires) -> str:
+def create_access_token(data: dict, expiration_time: int = AuthConfig.authjwt_access_token_expires) -> str:
     """Creates a JWT access token.
 
     Creates a JWT access token with `data`, and an
@@ -187,15 +211,15 @@ async def create_access_token(data: dict, expiration_time: int = AuthConfig.auth
     Args:
         data (dict): the data to encode in the token.
         expiration_time (int): the expiration time of the access token
-         in minutes. Defaults to `AuthConfig.authjwt_access_token_expires`.
+            in minutes. Defaults to `AuthConfig.authjwt_access_token_expires`.
 
     Returns:
         str: the JWT access token.
     """
-    return await create_jwt_token(data, timedelta(minutes=expiration_time))
+    return create_jwt_token(data, timedelta(minutes=expiration_time))
 
 
-async def create_refresh_token(data: dict, expiration_time: int = AuthConfig.authjwt_refresh_token_expires) -> str:
+def create_refresh_token(data: dict, expiration_time: int = AuthConfig.authjwt_refresh_token_expires) -> str:
     """Creates a JTW refresh token.
 
     Creates a JWT refresh token with `data and an expiration time.
@@ -208,12 +232,12 @@ async def create_refresh_token(data: dict, expiration_time: int = AuthConfig.aut
     Returns:
         str: the JWT refresh token.
     """
-    refresh_token: str = await create_jwt_token(data, timedelta(minutes=expiration_time))
+    refresh_token: str = create_jwt_token(data, timedelta(minutes=expiration_time))
 
     return refresh_token
 
 
-async def generate_tokens(data: dict) -> Tokens:
+def generate_tokens(data: dict) -> Tokens:
     """Generates a and refresh Tokens with `data`.
 
     Note:
@@ -226,12 +250,12 @@ async def generate_tokens(data: dict) -> Tokens:
     Returns:
         Tokens: the access and refresh tokens.
     """
-    access_token = await create_access_token(data)
-    refresh_token = await create_refresh_token(data)
+    access_token = create_access_token(data)
+    refresh_token = create_refresh_token(data)
     return Tokens(access_token=access_token, refresh_token=refresh_token, token_type="bearer")  # noqa: S106
 
 
-async def validate_refresh_token(
+def validate_refresh_token(
     refresh_token: str,
     session: Annotated[Session, Depends(get_session)],
     algorithm: str = AuthConfig.authjwt_algorithm,
@@ -265,14 +289,11 @@ async def validate_refresh_token(
         username = payload.get("sub")
         expire_time: datetime = payload.get("exp")
 
-        if username is None or expire_time is None or expire_time < datetime.now(UTC).timestamp():
-            raise credentials_exception
-
-    except ExpiredSignatureError:
+    except Exception as _:
         raise credentials_exception from None
 
-    except JWTError:
-        raise credentials_exception from None
+    if username is None or expire_time is None or expire_time < datetime.now(UTC).timestamp():
+        raise credentials_exception
 
     # Validate the user from the database
     user = get_user(session, username=username)
@@ -283,7 +304,7 @@ async def validate_refresh_token(
 
 
 @router.post("/login")
-async def login(
+def login(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     session: Annotated[Session, Depends(get_session)],
     cookie_max_age: int = AuthConfig.authjwt_refresh_token_expires,
@@ -307,7 +328,7 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    tokens = await generate_tokens({"id": user.id, "sub": user.username})
+    tokens = generate_tokens({"id": user.id, "sub": user.username})
 
     response = JSONResponse(content={"access_token": tokens.access_token})
     response.set_cookie(
@@ -323,7 +344,7 @@ async def login(
 
 
 @router.post("/refresh")
-async def refresh_access_token(
+def refresh_access_token(
     request: Response,
     session: Annotated[Session, Depends(get_session)],
     refresh_token: Annotated[str | None, Cookie()] = None,
@@ -346,9 +367,9 @@ async def refresh_access_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    user = await validate_refresh_token(refresh_token, session)
+    user = validate_refresh_token(refresh_token, session)
 
     # Generate a new access token for the user
-    access_token = await create_access_token({"id": user.id, "sub": user.username})
+    access_token = create_access_token({"id": user.id, "sub": user.username})
 
     return {"access_token": access_token}
