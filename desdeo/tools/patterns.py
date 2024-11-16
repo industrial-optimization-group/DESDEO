@@ -242,19 +242,41 @@ class Publisher:
                     subscriber.update(message)
 
 
-class BlankSubscriber(Subscriber):
-    """A simple subscriber for testing purposes."""
+def createblanksubs(interested_topics):
+    """Create a blank subscriber for testing purposes.
 
-    def __init__(self, publisher: "Publisher", topics: Sequence[MessageTopics], verbosity: int = 1) -> None:
-        """Initialize a subscriber."""
-        super().__init__(publisher, topics, verbosity)
-        self.messages_to_send: list[Message] = []
-        self.messages_received: list[Message] = []
+    Args:
+        interested_topics (list[MessageTopics]): the topics the subscriber is interested in.
 
-    def update(self, message: Message) -> None:
-        """Update the internal state of the subscriber."""
-        self.messages_received.append(message)
+    Returns:
+        class: the blank subscriber class.
+    """
 
-    def state(self) -> list[Message]:
-        """Return the internal state of the subscriber."""
-        return self.messages_to_send
+    class BlankSubscriber(Subscriber):
+        """A simple subscriber for testing purposes."""
+
+        @property
+        def interested_topics(self) -> Sequence[MessageTopics]:
+            """Return the topics the subscriber is interested in."""
+            return interested_topics
+
+        @property
+        def provided_topics(self) -> dict[int, Sequence[MessageTopics]]:
+            """Return the topics the subscriber provides to the publisher, grouped by verbosity level."""
+            return {0: []}
+
+        def __init__(self, publisher: "Publisher", verbosity: int = 0) -> None:
+            """Initialize a subscriber."""
+            super().__init__(publisher, verbosity)
+            self.messages_to_send: list[Message] = []
+            self.messages_received: list[Message] = []
+
+        def update(self, message: Message) -> None:
+            """Update the internal state of the subscriber."""
+            self.messages_received.append(message)
+
+        def state(self) -> list[Message]:
+            """Return the internal state of the subscriber."""
+            return self.messages_to_send
+
+    return BlankSubscriber

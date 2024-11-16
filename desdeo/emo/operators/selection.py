@@ -439,8 +439,8 @@ class RVEASelector(BaseDecompositionSelector):
         super().__init__(problem=problem, reference_vector_options=reference_vector_options, **kwargs)
 
         self.reference_vectors_gamma: np.ndarray
-        self.numerator: float
-        self.denominator: float
+        self.numerator: float | None = None
+        self.denominator: float | None = None
         self.alpha = alpha
         self.selected_individuals: list | pl.DataFrame
         self.selected_targets: pl.DataFrame
@@ -574,8 +574,8 @@ class RVEASelector(BaseDecompositionSelector):
         Returns:
             float: The partial penalty factor
         """
-        if self.denominator == 0 or self.numerator is None or self.denominator is None:
-            return 0
+        if self.numerator is None or self.denominator is None or self.denominator == 0:
+            raise RuntimeError("Numerator and denominator must be set before calculating the partial penalty factor.")
         penalty = self.numerator / self.denominator
         penalty = float(np.clip(penalty, 0, 1))
         self.penalty = (penalty**self.alpha) * self.reference_vectors.shape[1]
