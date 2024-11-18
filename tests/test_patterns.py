@@ -27,18 +27,18 @@ def test_sub_unsub():
 
     # Test subscribing to topics
     pub.auto_subscribe(sub)
-    assert sub in pub.subscribers[sub.topics[0]]
-    assert sub in pub.subscribers[sub.topics[1]]
+    assert sub in pub.subscribers[sub.interested_topics[0]]
+    assert sub in pub.subscribers[sub.interested_topics[1]]
 
     # Test unsubscribing from topics one by one
-    pub.unsubscribe(sub, sub.topics[0])
-    assert sub not in pub.subscribers[sub.topics[0]]
-    assert sub in pub.subscribers[sub.topics[1]]
+    pub.unsubscribe(sub, sub.interested_topics[0])
+    assert sub not in pub.subscribers[sub.interested_topics[0]]
+    assert sub in pub.subscribers[sub.interested_topics[1]]
 
     # Test unsubscribing from multiple topics
     pub.force_unsubscribe(sub)
-    assert sub not in pub.subscribers[sub.topics[1]]
-    assert sub not in pub.subscribers[sub.topics[0]]
+    assert sub not in pub.subscribers[sub.interested_topics[1]]
+    assert sub not in pub.subscribers[sub.interested_topics[0]]
 
 
 @pytest.mark.patterns

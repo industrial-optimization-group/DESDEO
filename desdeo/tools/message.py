@@ -3,7 +3,8 @@
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from polars import DataFrame
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 
 class CrossoverMessageTopics(Enum):
@@ -34,6 +35,8 @@ class MutationMessageTopics(Enum):
     """ The original offsprings before mutation. """
     OFFSPRINGS = "OFFSPRINGS"
     """ The offsprings after mutation. """
+    PARENTS = "PARENTS"
+    """ The parents of the offsprings. """
 
 
 class EvaluatorMessageTopics(Enum):
@@ -43,6 +46,8 @@ class EvaluatorMessageTopics(Enum):
     """ A message topic used only for testing the evaluator operators. """
     POPULATION = "POPULATION"
     """ The population to evaluate. """
+    OUTPUTS = "OUTPUTS"
+    """ The outputs of the population. Contains objectives, targets, constraints. """
     OBJECTIVES = "OBJECTIVES"
     """ The true objective values of the population. """
     TARGETS = "TARGETS"
@@ -60,6 +65,8 @@ class GeneratorMessageTopics(Enum):
     """ A message topic used only for testing the evaluator operators. """
     POPULATION = "POPULATION"
     """ The population to evaluate. """
+    OUTPUTS = "OUTPUTS"
+    """ The outputs of the population generation. Contains objectives, targets, and constraints. """
     OBJECTIVES = "OBJECTIVES"
     """ The true objective values of the population. """
     TARGETS = "TARGETS"
@@ -79,16 +86,14 @@ class SelectorMessageTopics(Enum):
     """ The state of the parameters of the selector. """
     INDIVIDUALS = "INDIVIDUALS"
     """ The individuals to select from. """
-    TARGETS = "TARGETS"
-    """ The targets of the individuals. """
+    OUTPUTS = "OUTPUTS"
+    """ The outputs of the individuals. """
     CONSTRAINTS = "CONSTRAINTS"
     """ The constraints of the individuals. """
     SELECTED_INDIVIDUALS = "SELECTED_INDIVIDUALS"
     """ The individuals selected by the selector. """
-    SELECTED_TARGETS = "SELECTED_TARGETS"
+    SELECTED_OUTPUTS = "SELECTED_OUTPUTS"
     """ The targets of the selected individuals. """
-    SELECTED_CONSTRAINTS = "SELECTED_CONSTRAINTS"
-    """ The constraints of the selected individuals. """
     REFERENCE_VECTORS = "REFERENCE_VECTORS"
     """ The reference vectors used in the selection in decomposition-based EMO algorithms. """
 
@@ -110,6 +115,7 @@ class TerminatorMessageTopics(Enum):
     """ The maximum number of generations. """
     MAX_EVALUATIONS = "MAX_EVALUATIONS"
     """ The maximum number of evaluations. """
+
 
 
 MessageTopics = (
@@ -174,6 +180,19 @@ class Array2DMessage(BaseMessage):
     """ The array value of the message. """
 
 
+class PolarsDataFrameMessage(BaseMessage):
+    """A message containing a 2D array value, such as a population or a set of objectives."""
+
+    value: DataFrame = Field(..., description="The array value of the message.")
+    """ The array value of the message. """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    @field_serializer("value")
+    def _serialize_value(self, value: DataFrame) -> dict[str, list[int | float]]:
+        return value.to_dict(as_series=False)
+
+
 class GenericMessage(BaseMessage):
     """A message containing a generic value."""
 
@@ -181,10 +200,28 @@ class GenericMessage(BaseMessage):
     """ The generic value of the message. """
 
 
-Message = IntMessage | FloatMessage | DictMessage | Array2DMessage | GenericMessage | StringMessage | BoolMessage
+Message = (
+    IntMessage
+    | FloatMessage
+    | DictMessage
+    | Array2DMessage
+    | GenericMessage
+    | StringMessage
+    | BoolMessage
+    | PolarsDataFrameMessage
+)
 
 AllowedMessagesAtVerbosity: dict[int, tuple[type[Message], ...]] = {
     0: (),
     1: (IntMessage, FloatMessage, StringMessage, BoolMessage),
-    2: (IntMessage, FloatMessage, StringMessage, BoolMessage, DictMessage, Array2DMessage, GenericMessage),
+    2: (
+        IntMessage,
+        FloatMessage,
+        StringMessage,
+        BoolMessage,
+        DictMessage,
+        Array2DMessage,
+        GenericMessage,
+        PolarsDataFrameMessage,
+    ),
 }
