@@ -71,7 +71,7 @@ And we are done! We have now defined an analytical problem in DESDEO.
 ## Example: data-based problem (WIP)
 WIP.
 
-## Example: simulation-based problem (WIP)
+## Example: simulation-based problem
 
 Simulation based problems are problems with objectives, constraints
 and extra functions whose values are simulated during the solution process.
@@ -107,6 +107,35 @@ variables = [
     elements represent the value (a scalar) of the variable in the corresponding sample. The variables
     can also be TensorVariables with each element of the TensorVariable also a list of samples.
 
+Next, we can define the simulators that define the problem's objectives, constraints and extra
+functions. These simulators are given paths to their [simulator files](../explanation/simulator_support.md#simulator-file)
+that connect DESDEO to the simulators. The file path is given as either a string or a pyhton's
+pathlib.Path object. Optionally, the simulators can be given some parameters as a dict
+as well. These parameters are given to the simulator while evaluating the problem.
+
+!!! NOTE
+    The list of simulators has to be defined when initializing the problem as this list
+    is used when evaluating the problem.
+
+```python
+simulator = [
+    Simulator(
+        name="Simulator 1",
+        symbol="s_1",
+        file=f"{path_to_simulator_file_1}", # either a string path or python's Path object
+        parameter_options={
+            "alpha": 0.5,
+            "beta": 2
+        }
+    ),
+    Simulator(
+        name="Simulator 2",
+        symbol="s_1",
+        file=f"{path_to_simulator_file_2}"
+    )
+]
+```
+
 Next, we define the objectives. This is similar to analytical objectives but instead of a function
 expression, the objective has a path to the simulator file used to simulate the objective values.
 Here we have two objectives (`f_1`, `f_3`) that get their values from the same simulator file and one that
@@ -138,9 +167,43 @@ objectives = [
 ]
 ```
 
+Similarly, we can define constraints and extra functions.
+In this example, we define one constraint `g_1` and one extra function `e_1`.
+
+```python
+constraints = [
+    Constraint(
+        name="Constraint 1",
+        symbol="g_1",
+        cons_type=ConstraintTypeEnum.LTE,
+        simulator_path=f"{path_to_simulator_file_1}",
+    )
+]
+
+extra_functions = [
+    ExtraFunction(
+        name="e_1",
+        symbol="e_1",
+        simulator_path=f"{path_to_simulator_file_2}"
+    )
+]
+```
+
 !!! NOTE
     Since there are no function expressions that are given to an optimizer,
-    simulator based objectives do not need linearity, convexity or differentiability
-    to have the value `True` in any case.
+    simulator based objectives, constraints and extra functions do not need
+    linearity, convexity or differentiability to have the value `True` in any case.
 
-Similarly, we can define constraints and extra functions.
+Now we can define the `Problem` object.
+
+```python
+problem = Problem(
+    name="Example simulator based problem.",
+    description="An example of a simulator based problem.",
+    variables=variables,
+    objectives=objectives,
+    constraints=constraints,
+    extra_funcs=extra_functions,
+    simulators=simulators
+)
+```

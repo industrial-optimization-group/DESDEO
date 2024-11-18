@@ -182,6 +182,97 @@ The connection to simulators happens via [simulator files](./simulator_support.m
 The surrogate models are loaded from disk and then evaluated with the given decision variable values.
 This evaluator also handles analytical functions by calling the [PolarsEvaluator](#the-generic-evaluator).
 
+#### Evaluating simulator and surrogate based problems
+
+[`Evaluator`][desdeo.problem.simulator_evaluator.Evaluator] can be used to evaluate any problems with
+analytical, simulator and surrogate based objectives, constraints and extra functions.
+In what follows, it is explained, how the evaluator works.
+[Here](../howtoguides/problem.md#example-simulation-based-problem)
+is an example of defining a simulator based in DESDEO.
+
+First, we need to initialize the problem we are solving:
+
+```python
+problem = problem_w_simulator_and_surrogate()
+```
+
+The problem we defined has at least some simulator or surrogate based objectives,
+constraints or extra functions. Therefore, we should use `Evaluator` to evaluate it.
+To use the evaluator, we first need to initialize it. When initializing the
+evaluator, we give the problem as an argument. We can also give the valuator some
+optional additional arguments:
+
+- `params`: Some parameters for the simulators as a python dict of dicts. For example,
+
+```python
+{
+    "s_1": {
+        "alpha": 0.1,
+        "beta": 0.2
+    },
+    "s_2": {
+        "epsilon": 10,
+        "gamma": 20
+    }
+}
+```
+
+where `s_1` and `s_2` are symbols of two simulator and the corresponding values
+are dicts with some parameters values for the corresponding simulators.
+These parameter values are passed to the simulators.
+
+- `surrogate_paths`: Paths to surrogate files stored on disk. Given as a python dict
+with objective, constraint or extra function symbols as keys and the corresponding
+surrogate paths as values of the dict. The surrogate file path can be given as
+either a string of the path or a `pathlib.Path` object.
+
+With these arguments we can then import and initialize the evaluator.
+
+```python
+from desdeo.problem import Evaluator
+
+evaluator = Evaluator(
+    problem=problem,
+    params={
+        "s_1": {
+            "alpha": 0.1,
+            "beta": 0.2
+        },
+        "s_2": {
+            "epsilon": 10,
+            "gamma": 20
+        },
+    }
+    surrogate_paths={
+        "f_1": f"{path_to_surrogate_model_1}",
+        "f_2": f"{path_to_surrogate_model_2}"
+    }
+)
+```
+
+Now that the evaluator is initilized, we can call its `evaluate` method.
+The method takes one argument `xs` that is a dict that has the problem's
+decision variables and some values for them that we would like to
+evaluate the problem with. Say we have three decision variables and we
+would like to evaluate four samples. Then, the dict of decision variables
+would have the decision variable symbols as keys and the corresponding
+values would be lists of decision variable values with a single value for
+each sample (length of each list in this example would be four).
+Then we would define the decision variable dict and call the evaluate method as follows.
+
+```python
+xs = {
+    "x_1": [0.2, 0.5, 0.7, 0.1],
+    "x_2": [-1.1, -2.1, -3.1, -4.1],
+    "x_3": [3, 4, 2, 6]
+}
+
+results = evaluator.evaluate(xs)
+```
+
+The evaluator returns a polars Dataframe with each decision variable, objective,
+constraint and extra function as their own column.
+
 ## Where to go next?
 
 You can keep studying the various parsers found
