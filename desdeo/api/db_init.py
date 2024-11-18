@@ -7,9 +7,9 @@ from sqlmodel import Session, SQLModel
 
 from desdeo.api.config import ServerDebugConfig, SettingsConfig
 from desdeo.api.db import engine
-from desdeo.api.models import User, UserRole, ProblemDB
-from desdeo.problem import river_pollution_problem
+from desdeo.api.models import ProblemDB, User, UserRole
 from desdeo.api.routers.user_authentication import get_password_hash
+from desdeo.problem import river_pollution_problem
 
 if __name__ == "__main__":
     if SettingsConfig.debug:

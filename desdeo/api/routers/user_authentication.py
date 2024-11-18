@@ -108,11 +108,10 @@ def authenticate_user(session: Session, username: str, password: str) -> User | 
     return user
 
 
-@router.get("/userdetails")
 def get_current_user(
     token: Annotated[str, Depends(oauth2_scheme)],
     session: Annotated[Session, Depends(get_session)],
-) -> UserPublic:
+) -> User:
     """Get the current user based on a JWT token.
 
     This function is a dependency for other functions that need to get the current user.
@@ -122,7 +121,7 @@ def get_current_user(
         session (Annotated[Session, Depends(get_db)]): A database session.
 
     Returns:
-        UserPublic: The public information of the current user.
+        User: The information of the current user.
 
     Raises:
         HTTPException: If the token is invalid.
@@ -176,28 +175,7 @@ def create_jwt_token(
     data = data.copy()
     expire = datetime.now(UTC) + expires_delta
     data.update({"exp": expire, "jti": str(uuid.uuid4())})
-    # jti adds an unique identifier so that life is easier (THIS IS WHY YOU TEST
-    # YOUR CODE BHUPINDER! I WAS GETTING IDENTICAL ACCESS TOKENS WHEN RUNNING
-    # THE CODE REGULARLY, BUT IF I USED A DEBUGGER, I GOT DIFFERENT ACCESS
-    # TOKENS???? ONLY TOOK ME A FEW HOURS...
-    # AND WHAT A NICE RED HERRING HAVING THE ACCESS POINTS TO BE ASYNC. WHY? WE
-    # ARE NOT CALLING ANYTHING ASYNCHRONOUS! W. T .F! I THOUGHT THIS WAS AN
-    # EXTREMELY CURSED ASYNC BUG, BUT NO---WE JUST WERE ENCODING THE __SAME__ DATA
-    # TWICE, SINCE THE "EXPIRE" DID NOT HAVE TIME TO UPDATE!
-    # I ASKED CHATGPT TO MAKE ASCII ART TO EXPRESS MY FRUSTRATION WITH THIS. HERE IT IS
-    #  _______
-    # /         \
-    # |  (X   X) |    ARGHHHH!
-    # |     >    |
-    # \   ===   /     WHY WON'T YOU WORK?!
-    #  \_______/
-    #    || ||
-    #    || ||
-    #  __|| ||__
-    # (_________)
-    #
-    # AS YOU CAN SEE IT SUCKS. IT DOES NOT EVEN BEGIN TO CAPTURE THE DEPTHS OF
-    # MY FRUSTRATION!)
+    # jti adds an unique identifier so that life is easier
 
     return jwt.encode(data, secret_key, algorithm=algorithm)
 
@@ -300,6 +278,19 @@ def validate_refresh_token(
     if user is None:
         raise credentials_exception
 
+    return user
+
+
+@router.get("/user_info")
+def get_current_user_info(user: Annotated[User, Depends(get_current_user)]) -> UserPublic:
+    """Return information about the current user.
+
+    Args:
+        user (Annotated[User, Depends): user dependency, handled by `get_current_user`.
+
+    Returns:
+        UserPublic: public information about the current user.
+    """
     return user
 
 
