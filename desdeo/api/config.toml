@@ -33,7 +33,7 @@ authjwt_refresh_token_expires = 30 # in minutes
 [database-debug]
 db_host = ""
 db_port = ""
-db_database = "sqlite:///./test.db"
+db_database = "sqlite+aiosqlite:///./test.db"
 db_username = ""
 db_password = ""
 db_pool_size = 1

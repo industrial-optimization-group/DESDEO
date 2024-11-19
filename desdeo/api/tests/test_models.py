@@ -1,9 +1,11 @@
 """Tests related to the SQLModels."""
 
 import pytest
+import pytest_asyncio
 from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine, select
 from sqlmodel.pool import StaticPool
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from desdeo.api.app import app
 from desdeo.api.models import (
@@ -122,10 +124,10 @@ def compare_models(
     return dict_1 == dict_2
 
 
-@pytest.fixture(name="session_and_users")
-def session_fixture():
+@pytest_asyncio.fixture(name="session_and_users", scope="function")
+async def session_fixture():
     """Create a session for testing."""
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    engine = create_async_engine("sqlite+aiosqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
 
     SQLModel.metadata.create_all(engine)
 
@@ -136,14 +138,14 @@ def session_fixture():
             role=UserRole.analyst,
             group="test",
         )
-        session.add(user_analyst)
-        session.commit()
-        session.refresh(user_analyst)
+        await session.add(user_analyst)
+        await session.commit()
+        await session.refresh(user_analyst)
 
         problem_db = ProblemDB.from_problem(dtlz2(5, 3), user=user_analyst)
-        session.add(problem_db)
-        session.commit()
-        session.refresh(problem_db)
+        await session.add(problem_db)
+        await session.commit()
+        await session.refresh(problem_db)
 
         users = [user_analyst]
         problems = [problem_db]
