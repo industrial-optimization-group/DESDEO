@@ -38,84 +38,19 @@ class ProblemBase(SQLModel):
     model_config = ConfigDict(from_attributes=True)
 
     # Model fields
-    name: str = Field()
-    description: str = Field()
+    name: str | None = Field()
+    description: str | None = Field()
     is_convex: bool | None = Field(nullable=True, default=None)
     is_linear: bool | None = Field(nullable=True, default=None)
     is_twice_differentiable: bool | None = Field(nullable=True, default=None)
     scenario_keys: list[str] | None = Field(sa_column=Column(JSON, nullable=True), default=None)
-    variable_domain: VariableDomainTypeEnum = Field()
+    variable_domain: VariableDomainTypeEnum | None = Field()
 
-    # Populated by other models
-    constants: list["ConstantDB"] | None = Field(sa_column=Column(JSON, nullable=True), default=None)
-    tensor_constants: list["TensorConstantDB"] | None = Field(sa_column=Column(JSON, nullable=True), default=None)
-    variables: list["VariableDB"] | None = Field(sa_column=Column(JSON, nullable=True), default=None)
-    tensor_variables: list["TensorVariableDB"] | None = Field(sa_column=Column(JSON, nullable=True), default=None)
-    objectives: list["ObjectiveDB"] = Field(sa_column=Column(JSON, nullable=True), default=None)
-    constraints: list["ConstraintDB"] | None = Field(sa_column=Column(JSON, nullable=True), default=None)
-    scalarization_funcs: list["ScalarizationFunctionDB"] | None = Field(
-        sa_column=Column(JSON, nullable=True), default=None
-    )
-    extra_funcs: list["ExtraFunctionDB"] | None = Field(sa_column=Column(JSON, nullable=True), default=None)
-    discrete_representation: "DiscreteRepresentationDB | None" = Field(
-        sa_column=Column(JSON, nullable=True), default=None
-    )
-    simulators: list["SimulatorDB"] | None = Field(sa_column=Column(JSON, nullable=True), default=None)
 
-    @classmethod
-    def _from_problem(cls, problem_instance: Problem) -> "ProblemBase":
-        """Initialized the model from an instance of `Problem`.
+class ProblemGetRequest(SQLModel):
+    """Model to deal with problem fetching requests."""
 
-        Args:
-            problem_instance (Problem): the `Problem` instance from which to initialize
-                a `ProblemDB` model.
-
-        Returns:
-            ProblemBase: the new instance of `ProblemBase`.
-        """
-        scalar_constants = (
-            [const for const in problem_instance.constants if isinstance(const, Constant)]
-            if problem_instance.constants is not None
-            else []
-        )
-        tensor_constants = (
-            [const for const in problem_instance.constants if isinstance(const, TensorConstant)]
-            if problem_instance.constants is not None
-            else []
-        )
-        scalar_variables = [var for var in problem_instance.variables if isinstance(var, Variable)]
-        tensor_variables = [var for var in problem_instance.variables if isinstance(var, TensorVariable)]
-        return cls(
-            name=problem_instance.name,
-            description=problem_instance.description,
-            is_convex=problem_instance.is_convex_,
-            is_linear=problem_instance.is_linear_,
-            is_twice_differentiable=problem_instance.is_twice_differentiable_,
-            variable_domain=problem_instance.variable_domain,
-            scenario_keys=problem_instance.scenario_keys,
-            constants=[ConstantDB.model_validate(const) for const in scalar_constants],
-            tensor_constants=[TensorConstantDB.model_validate(const) for const in tensor_constants],
-            variables=[VariableDB.model_validate(var) for var in scalar_variables],
-            tensor_variables=[TensorVariableDB.model_validate(var) for var in tensor_variables],
-            objectives=[ObjectiveDB.model_validate(obj) for obj in problem_instance.objectives],
-            constraints=[ConstraintDB.model_validate(con) for con in problem_instance.constraints]
-            if problem_instance.constraints is not None
-            else [],
-            scalarization_funcs=[
-                ScalarizationFunctionDB.model_validate(scal) for scal in problem_instance.scalarization_funcs
-            ]
-            if problem_instance.scalarization_funcs is not None
-            else [],
-            extra_funcs=[ExtraFunctionDB.model_validate(extra) for extra in problem_instance.extra_funcs]
-            if problem_instance.extra_funcs is not None
-            else [],
-            discrete_representation=DiscreteRepresentationDB.model_validate(problem_instance.discrete_representation)
-            if problem_instance.discrete_representation is not None
-            else None,
-            simulators=[SimulatorDB.model_validate(sim) for sim in problem_instance.simulators]
-            if problem_instance.simulators is not None
-            else [],
-        )
+    problem_id: int
 
 
 class ProblemInfo(ProblemBase):
@@ -142,6 +77,21 @@ class ProblemInfo(ProblemBase):
     extra_funcs: list["ExtraFunctionDB"] | None
     discrete_representation: "DiscreteRepresentationDB | None"
     simulators: list["SimulatorDB"] | None
+
+
+class ProblemInfoSmall(ProblemBase):
+    """."""
+
+    id: int
+    user_id: int
+
+    name: str
+    description: str
+    is_convex: bool | None
+    is_linear: bool | None
+    is_twice_differentiable: bool | None
+    scenario_keys: list[str] | None
+    variable_domain: VariableDomainTypeEnum
 
 
 class ProblemDB(ProblemBase, table=True):
@@ -191,27 +141,49 @@ class ProblemDB(ProblemBase, table=True):
         Returns:
             ProblemDB: the new instance of `ProblemDB`.
         """
-        problem = ProblemBase._from_problem(problem_instance)
+        scalar_constants = (
+            [const for const in problem_instance.constants if isinstance(const, Constant)]
+            if problem_instance.constants is not None
+            else []
+        )
+        tensor_constants = (
+            [const for const in problem_instance.constants if isinstance(const, TensorConstant)]
+            if problem_instance.constants is not None
+            else []
+        )
+        scalar_variables = [var for var in problem_instance.variables if isinstance(var, Variable)]
+        tensor_variables = [var for var in problem_instance.variables if isinstance(var, TensorVariable)]
         return cls(
-            user=user,
             user_id=user.id,
-            name=problem.name,
-            description=problem.description,
-            is_convex=problem.is_convex,
-            is_linear=problem.is_linear,
-            is_twice_differentiable=problem.is_twice_differentiable,
-            variable_domain=problem.variable_domain,
-            scenario_keys=problem.scenario_keys,
-            constants=problem.constants,
-            tensor_constants=problem.tensor_constants,
-            variables=problem.variables,
-            tensor_variables=problem.tensor_variables,
-            objectives=problem.objectives,
-            constraints=problem.constraints,
-            scalarization_funcs=problem.scalarization_funcs,
-            extra_funcs=problem.extra_funcs,
-            discrete_representation=problem.discrete_representation,
-            simulators=problem.simulators,
+            name=problem_instance.name,
+            description=problem_instance.description,
+            is_convex=problem_instance.is_convex_,
+            is_linear=problem_instance.is_linear_,
+            is_twice_differentiable=problem_instance.is_twice_differentiable_,
+            variable_domain=problem_instance.variable_domain,
+            scenario_keys=problem_instance.scenario_keys,
+            constants=[ConstantDB.model_validate(const) for const in scalar_constants],
+            tensor_constants=[TensorConstantDB.model_validate(const) for const in tensor_constants],
+            variables=[VariableDB.model_validate(var) for var in scalar_variables],
+            tensor_variables=[TensorVariableDB.model_validate(var) for var in tensor_variables],
+            objectives=[ObjectiveDB.model_validate(obj) for obj in problem_instance.objectives],
+            constraints=[ConstraintDB.model_validate(con) for con in problem_instance.constraints]
+            if problem_instance.constraints is not None
+            else [],
+            scalarization_funcs=[
+                ScalarizationFunctionDB.model_validate(scal) for scal in problem_instance.scalarization_funcs
+            ]
+            if problem_instance.scalarization_funcs is not None
+            else [],
+            extra_funcs=[ExtraFunctionDB.model_validate(extra) for extra in problem_instance.extra_funcs]
+            if problem_instance.extra_funcs is not None
+            else [],
+            discrete_representation=DiscreteRepresentationDB.model_validate(problem_instance.discrete_representation)
+            if problem_instance.discrete_representation is not None
+            else None,
+            simulators=[SimulatorDB.model_validate(sim) for sim in problem_instance.simulators]
+            if problem_instance.simulators is not None
+            else [],
         )
 
 

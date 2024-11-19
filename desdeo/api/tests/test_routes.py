@@ -1,20 +1,20 @@
 """Tests related to routes and routers."""
 
-import asyncio
-import time
-
 import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
-from httpx import ASGITransport, AsyncClient, WSGITransport
+from httpx import ASGITransport, AsyncClient
 from sqlmodel import Session, SQLModel, create_engine
 from sqlmodel.pool import StaticPool
 
 from desdeo.api.app import app
 from desdeo.api.db import get_session
-from desdeo.api.models import ProblemDB, User, UserRole
-from desdeo.api.routers.user_authentication import create_access_token, get_password_hash
-from desdeo.problem import dtlz2
+from desdeo.api.models import ProblemDB, User, UserRole, ProblemGetRequest, ProblemInfo
+from desdeo.api.routers.user_authentication import (
+    create_access_token,
+    get_password_hash,
+)
+from desdeo.problem import dtlz2, river_pollution_problem
 
 
 @pytest.fixture(name="session", scope="session")
@@ -38,7 +38,10 @@ def session_fixture():
         problem_db = ProblemDB.from_problem(dtlz2(5, 3), user=user_analyst)
         session.add(problem_db)
         session.commit()
-        session.refresh(problem_db)
+
+        problem_db = ProblemDB.from_problem(river_pollution_problem(), user=user_analyst)
+        session.add(problem_db)
+        session.commit()
 
         yield session
         session.rollback()
@@ -129,3 +132,36 @@ def test_refresh(client: TestClient):
     assert "access_token" in response_refresh.json()
 
     assert response_good.json()["access_token"] != response_refresh.json()["access_token"]
+
+
+def test_get_problem(client: TestClient):
+    """Test fetching specific problems based on their id."""
+    response_login = client.post(
+        "/login",
+        data={"username": "analyst", "password": "analyst", "grant_type": "password"},
+        headers={"content-type": "application/x-www-form-urlencoded"},
+    ).json()
+
+    access_token = response_login["access_token"]
+
+    response = client.post(
+        "/problem/get",
+        json=ProblemGetRequest(problem_id=1).model_dump(),
+        headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
+    )
+
+    info = ProblemInfo.model_validate(response.json())
+
+    assert info.id == 1
+    assert info.name == "dtlz2"
+
+    response = client.post(
+        "/problem/get",
+        json=ProblemGetRequest(problem_id=2).model_dump(),
+        headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
+    )
+
+    info = ProblemInfo.model_validate(response.json())
+
+    assert info.id == 2
+    assert info.name == "The river pollution problem"
