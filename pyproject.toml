@@ -46,7 +46,6 @@ python-jose = { extras = ["cryptography"], version = "^3.3.0", optional = true }
 bcrypt = { version = "^4.1.2", optional = true }
 mkdocs-include-markdown-plugin = { extras = ["cache"], version = "^6.0.5" }
 gurobipy = "^11.0.1"                                                             #96
-sqlmodel = {version = "^0.0.22", extras = ["asyncio"]}
 
 [tool.poetry.extras]
 standard = ["polars"]
@@ -85,7 +84,6 @@ pytest-asyncio = "^0.24.0"
 griffe = "^1.4.1"
 mkdocs-jupyter = "^0.25.1"
 jupytext = "^1.16.4"
-aiosqlite = "^0.20.0"
 
 
 [tool.ruff]
