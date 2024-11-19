@@ -490,7 +490,12 @@ def test_from_pydantic(session_and_users: dict[str, Session | list[User]]):
 
     from_db_problem = session.get(ProblemDB, problemdb.id)
 
-    assert compare_models(problemdb, from_db_problem)
+    assert problemdb == from_db_problem
+
+    from_db_problem_dump = from_db_problem.model_dump()
+    problem_validated = ProblemDB.model_validate(from_db_problem_dump)
+
+    assert problem_validated == problemdb
 
 
 def test_from_problem_to_db_and_back(session_and_users: dict[str, Session | list[User]]):

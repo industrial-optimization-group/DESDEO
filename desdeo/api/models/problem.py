@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 from types import UnionType
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, create_model
 from sqlalchemy.types import String, TypeDecorator
@@ -26,16 +26,26 @@ from desdeo.problem.schema import (
     VariableType,
 )
 
+
 if TYPE_CHECKING:
     from .archive import ArchiveEntryDB
     from .preference import PreferenceDB
     from .user import User
 
 
-class ProblemBase(SQLModel):
+class ProblemDB(SQLModel, table=True):
     """."""
 
     model_config = ConfigDict(from_attributes=True)
+
+    # Database specific
+    id: int | None = Field(primary_key=True, default=None)
+    user_id: int | None = Field(foreign_key="user.id", default=None)
+
+    # Back populates
+    user: "User" = Relationship(back_populates="problems")
+    solutions: list["ArchiveEntryDB"] = Relationship(back_populates="problem")
+    preferences: list["PreferenceDB"] = Relationship(back_populates="problem")
 
     # Model fields
     name: str = Field()
@@ -47,31 +57,28 @@ class ProblemBase(SQLModel):
     variable_domain: VariableDomainTypeEnum = Field()
 
     # Populated by other models
-    constants: list["ConstantDB"] | None = Field(sa_column=Column(JSON, nullable=True), default=None)
-    tensor_constants: list["TensorConstantDB"] | None = Field(sa_column=Column(JSON, nullable=True), default=None)
-    variables: list["VariableDB"] | None = Field(sa_column=Column(JSON, nullable=True), default=None)
-    tensor_variables: list["TensorVariableDB"] | None = Field(sa_column=Column(JSON, nullable=True), default=None)
-    objectives: list["ObjectiveDB"] = Field(sa_column=Column(JSON, nullable=True), default=None)
-    constraints: list["ConstraintDB"] | None = Field(sa_column=Column(JSON, nullable=True), default=None)
-    scalarization_funcs: list["ScalarizationFunctionDB"] | None = Field(
-        sa_column=Column(JSON, nullable=True), default=None
-    )
-    extra_funcs: list["ExtraFunctionDB"] | None = Field(sa_column=Column(JSON, nullable=True), default=None)
-    discrete_representation: "DiscreteRepresentationDB | None" = Field(
-        sa_column=Column(JSON, nullable=True), default=None
-    )
-    simulators: list["SimulatorDB"] | None = Field(sa_column=Column(JSON, nullable=True), default=None)
+    constants: list["ConstantDB"] = Relationship(back_populates="problem")
+    tensor_constants: list["TensorConstantDB"] = Relationship(back_populates="problem")
+    variables: list["VariableDB"] = Relationship(back_populates="problem")
+    tensor_variables: list["TensorVariableDB"] = Relationship(back_populates="problem")
+    objectives: list["ObjectiveDB"] = Relationship(back_populates="problem")
+    constraints: list["ConstraintDB"] = Relationship(back_populates="problem")
+    scalarization_funcs: list["ScalarizationFunctionDB"] = Relationship(back_populates="problem")
+    extra_funcs: list["ExtraFunctionDB"] = Relationship(back_populates="problem")
+    discrete_representation: "DiscreteRepresentationDB" = Relationship(back_populates="problem")
+    simulators: list["SimulatorDB"] = Relationship(back_populates="problem")
 
     @classmethod
-    def _from_problem(cls, problem_instance: Problem) -> "ProblemBase":
+    def from_problem(cls, problem_instance: Problem, user: "User") -> "ProblemDB":
         """Initialized the model from an instance of `Problem`.
 
         Args:
             problem_instance (Problem): the `Problem` instance from which to initialize
                 a `ProblemDB` model.
+            user (User): the user the instance of `ProblemDB` is assigned to.
 
         Returns:
-            ProblemBase: the new instance of `ProblemBase`.
+            ProblemDB: the new instance of `ProblemDB`.
         """
         scalar_constants = (
             [const for const in problem_instance.constants if isinstance(const, Constant)]
@@ -86,6 +93,8 @@ class ProblemBase(SQLModel):
         scalar_variables = [var for var in problem_instance.variables if isinstance(var, Variable)]
         tensor_variables = [var for var in problem_instance.variables if isinstance(var, TensorVariable)]
         return cls(
+            user=user,
+            user_id=user.id,
             name=problem_instance.name,
             description=problem_instance.description,
             is_convex=problem_instance.is_convex_,
@@ -115,103 +124,6 @@ class ProblemBase(SQLModel):
             simulators=[SimulatorDB.model_validate(sim) for sim in problem_instance.simulators]
             if problem_instance.simulators is not None
             else [],
-        )
-
-
-class ProblemInfo(ProblemBase):
-    """."""
-
-    id: int
-    user_id: int
-
-    name: str
-    description: str
-    is_convex: bool | None
-    is_linear: bool | None
-    is_twice_differentiable: bool | None
-    scenario_keys: list[str] | None
-    variable_domain: VariableDomainTypeEnum
-
-    constants: list["ConstantDB"] | None
-    tensor_constants: list["TensorConstantDB"] | None
-    variables: list["VariableDB"] | None
-    tensor_variables: list["TensorVariableDB"] | None
-    objectives: list["ObjectiveDB"]
-    constraints: list["ConstraintDB"] | None
-    scalarization_funcs: list["ScalarizationFunctionDB"] | None
-    extra_funcs: list["ExtraFunctionDB"] | None
-    discrete_representation: "DiscreteRepresentationDB | None"
-    simulators: list["SimulatorDB"] | None
-
-
-class ProblemDB(ProblemBase, table=True):
-    """."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    # Database specific
-    id: int | None = Field(primary_key=True, default=None)
-    user_id: int | None = Field(foreign_key="user.id", default=None)
-
-    # Model fields
-    name: str = Field()
-    description: str = Field()
-    is_convex: bool | None = Field(nullable=True, default=None)
-    is_linear: bool | None = Field(nullable=True, default=None)
-    is_twice_differentiable: bool | None = Field(nullable=True, default=None)
-    scenario_keys: list[str] | None = Field(sa_column=Column(JSON, nullable=True), default=None)
-    variable_domain: VariableDomainTypeEnum = Field()
-
-    # Back populates
-    user: "User" = Relationship(back_populates="problems")
-    solutions: list["ArchiveEntryDB"] = Relationship(back_populates="problem")
-    preferences: list["PreferenceDB"] = Relationship(back_populates="problem")
-
-    # Populated by other models
-    constants: list["ConstantDB"] = Relationship(back_populates="problem")
-    tensor_constants: list["TensorConstantDB"] = Relationship(back_populates="problem")
-    variables: list["VariableDB"] = Relationship(back_populates="problem")
-    tensor_variables: list["TensorVariableDB"] = Relationship(back_populates="problem")
-    objectives: list["ObjectiveDB"] = Relationship(back_populates="problem")
-    constraints: list["ConstraintDB"] = Relationship(back_populates="problem")
-    scalarization_funcs: list["ScalarizationFunctionDB"] = Relationship(back_populates="problem")
-    extra_funcs: list["ExtraFunctionDB"] = Relationship(back_populates="problem")
-    discrete_representation: "DiscreteRepresentationDB" = Relationship(back_populates="problem")
-    simulators: list["SimulatorDB"] = Relationship(back_populates="problem")
-
-    @classmethod
-    def from_problem(cls, problem_instance: Problem, user: "User") -> "ProblemDB":
-        """Initialized the model from an instance of `Problem`.
-
-        Args:
-            problem_instance (Problem): the `Problem` instance from which to initialize
-                a `ProblemDB` model.
-            user (User): the user the instance of `ProblemDB` is assigned to.
-
-        Returns:
-            ProblemDB: the new instance of `ProblemDB`.
-        """
-        problem = ProblemBase._from_problem(problem_instance)
-        return cls(
-            user=user,
-            user_id=user.id,
-            name=problem.name,
-            description=problem.description,
-            is_convex=problem.is_convex,
-            is_linear=problem.is_linear,
-            is_twice_differentiable=problem.is_twice_differentiable,
-            variable_domain=problem.variable_domain,
-            scenario_keys=problem.scenario_keys,
-            constants=problem.constants,
-            tensor_constants=problem.tensor_constants,
-            variables=problem.variables,
-            tensor_variables=problem.tensor_variables,
-            objectives=problem.objectives,
-            constraints=problem.constraints,
-            scalarization_funcs=problem.scalarization_funcs,
-            extra_funcs=problem.extra_funcs,
-            discrete_representation=problem.discrete_representation,
-            simulators=problem.simulators,
         )
 
 
@@ -495,7 +407,6 @@ class ExtraFunctionDB(_ExtraFunctionDB, table=True):
 class _DiscreteRepresentation(SQLModel):
     """Helper class to override the fields of nested and list types, and Paths."""
 
-    non_dominated: bool = Field(default=False)
     variable_values: dict[str, list[VariableType]] = Field(sa_column=Column(JSON))
     objective_values: dict[str, list[float]] = Field(sa_column=Column(JSON))
 
