@@ -1,11 +1,39 @@
 """Tests related to routes and routers."""
 
+from fastapi import status
 from fastapi.testclient import TestClient
 
 from desdeo.api.models import ProblemGetRequest, ProblemInfo
-from desdeo.api.routers.user_authentication import (
-    create_access_token,
-)
+from desdeo.api.routers.user_authentication import create_access_token
+from desdeo.problem import simple_knapsack_vectors
+
+
+def login(client: TestClient, username="analyst", password="analyst") -> str:  # noqa: S107
+    """Login, returns the access token."""
+    response_login = client.post(
+        "/login",
+        data={"username": username, "password": password, "grant_type": "password"},
+        headers={"content-type": "application/x-www-form-urlencoded"},
+    ).json()
+
+    return response_login["access_token"]
+
+
+def post_json(client: TestClient, endpoint: str, json: dict, access_token: str):
+    """Makes a post request and returns the response."""
+    return client.post(
+        endpoint,
+        json=json,
+        headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
+    )
+
+
+def get_json(client: TestClient, endpoint: str, access_token: str):
+    """Makes a get request and returns the response."""
+    return client.get(
+        endpoint,
+        headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
+    )
 
 
 def test_user_login(client: TestClient):
@@ -67,19 +95,9 @@ def test_refresh(client: TestClient):
 
 def test_get_problem(client: TestClient):
     """Test fetching specific problems based on their id."""
-    response_login = client.post(
-        "/login",
-        data={"username": "analyst", "password": "analyst", "grant_type": "password"},
-        headers={"content-type": "application/x-www-form-urlencoded"},
-    ).json()
+    access_token = login(client)
 
-    access_token = response_login["access_token"]
-
-    response = client.post(
-        "/problem/get",
-        json=ProblemGetRequest(problem_id=1).model_dump(),
-        headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
-    )
+    response = post_json(client, "/problem/get", ProblemGetRequest(problem_id=1).model_dump(), access_token)
 
     assert response.status_code == 200
 
@@ -88,11 +106,7 @@ def test_get_problem(client: TestClient):
     assert info.id == 1
     assert info.name == "dtlz2"
 
-    response = client.post(
-        "/problem/get",
-        json=ProblemGetRequest(problem_id=2).model_dump(),
-        headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
-    )
+    response = post_json(client, "problem/get", ProblemGetRequest(problem_id=2).model_dump(), access_token)
 
     assert response.status_code == 200
 
@@ -100,3 +114,26 @@ def test_get_problem(client: TestClient):
 
     assert info.id == 2
     assert info.name == "The river pollution problem"
+
+
+def test_add_problem(client: TestClient):
+    """Test that adding a problem to the database works."""
+    access_token = login(client)
+
+    problem = simple_knapsack_vectors()
+
+    response = post_json(client, "/problem/add", problem.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_200_OK
+
+    problem_info: ProblemInfo = ProblemInfo.model_validate(response.json())
+
+    assert problem_info.name == "Simple two-objective Knapsack problem"
+
+    response = get_json(client, "problem/all_info", access_token)
+
+    assert response.status_code == status.HTTP_200_OK
+
+    problems = response.json()
+
+    assert len(problems) == 3
