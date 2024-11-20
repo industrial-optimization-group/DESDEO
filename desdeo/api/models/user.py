@@ -34,6 +34,7 @@ class User(UserBase, table=True):
     password_hash: str = Field()
     role: UserRole = Field()
     group: str = Field(default="")
+    active_session_id: int | None = Field(default=None)
 
     # Back populates
     archive: list["ArchiveEntryDB"] = Relationship(back_populates="user")
