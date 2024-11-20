@@ -224,7 +224,9 @@ These parameter values are passed to the simulators.
 - `surrogate_paths`: Paths to surrogate files stored on disk. Given as a python dict
 with objective, constraint or extra function symbols as keys and the corresponding
 surrogate paths as values of the dict. The surrogate file path can be given as
-either a string of the path or a `pathlib.Path` object.
+either a string of the path or a `pathlib.Path` object. This is an optional argument
+and if not defined, the evaluator uses surrogate models in the problem
+object, if available.
 
 With these arguments we can then import and initialize the evaluator.
 
@@ -250,6 +252,11 @@ evaluator = Evaluator(
 )
 ```
 
+As the evaluator is initialized, it calls the `_load_surrogates` method
+that loads the surrogate models from the disk. If no surrogate paths
+are passed to the evaluator, it takes the surrogate paths from the
+problem, if possible.
+
 Now that the evaluator is initilized, we can call its `evaluate` method.
 The method takes one argument `xs` that is a dict that has the problem's
 decision variables and some values for them that we would like to
@@ -259,6 +266,10 @@ would have the decision variable symbols as keys and the corresponding
 values would be lists of decision variable values with a single value for
 each sample (length of each list in this example would be four).
 Then we would define the decision variable dict and call the evaluate method as follows.
+
+!!! NOTE
+    All the decision variable value lists should be the same length, i.e.,
+    same number of samples given of each decision variable.
 
 ```python
 xs = {
