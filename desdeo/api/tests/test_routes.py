@@ -3,7 +3,14 @@
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from desdeo.api.models import ProblemGetRequest, ProblemInfo
+from desdeo.api.models import (
+    CreateSessionRequest,
+    GetSessionRequest,
+    InteractiveSessionDB,
+    ProblemGetRequest,
+    ProblemInfo,
+    User,
+)
 from desdeo.api.routers.user_authentication import create_access_token
 from desdeo.problem import simple_knapsack_vectors
 
@@ -137,3 +144,58 @@ def test_add_problem(client: TestClient):
     problems = response.json()
 
     assert len(problems) == 3
+
+
+def test_new_session(client: TestClient, session_and_user: dict):
+    """Test that creating a new session works as expected."""
+    user: User = session_and_user["user"]
+    session = session_and_user["session"]
+
+    assert user.active_session_id is None
+
+    access_token = login(client)
+
+    request = CreateSessionRequest(info="My session")
+
+    response = post_json(client, "/session/new", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_200_OK
+
+    assert user.active_session_id == 1
+    isession = session.get(InteractiveSessionDB, 1)
+
+    assert isession.info == "My session"
+
+
+def test_get_session(client: TestClient, session_and_user: dict):
+    """Test that getting a session works as intended."""
+    user: User = session_and_user["user"]
+
+    access_token = login(client)
+
+    # no sessions
+    request = GetSessionRequest(session_id=1)
+    response = post_json(client, "/session/get", request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    # add some sessions
+    request = CreateSessionRequest(info="My session")
+    response = post_json(client, "/session/new", request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+
+    assert user.active_session_id == 1
+
+    request = CreateSessionRequest(info="My session")
+    response = post_json(client, "/session/new", request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+
+    assert user.active_session_id == 2
+
+    # sessions with id 1 and 2 should exist
+    request = GetSessionRequest(session_id=1)
+    response = post_json(client, "/session/get", request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+
+    request = GetSessionRequest(session_id=2)
+    response = post_json(client, "/session/get", request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK

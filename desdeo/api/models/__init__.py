@@ -6,8 +6,10 @@ __all__ = [
     "Bounds",
     "ConstantDB",
     "ConstraintDB",
+    "CreateSessionRequest",
     "DiscreteRepresentationDB",
     "ExtraFunctionDB",
+    "GetSessionRequest",
     "User",
     "UserBase",
     "UserPublic",
@@ -27,6 +29,7 @@ __all__ = [
     "VariableDB",
     "InteractiveSessionBase",
     "InteractiveSessionDB",
+    "InteractiveSessionInfo",
     "RPMBaseState",
     "RPMState",
     "StateDB",
@@ -50,6 +53,12 @@ from .problem import (
     TensorVariableDB,
     VariableDB,
 )
-from .session import InteractiveSessionBase, InteractiveSessionDB
+from .session import (
+    CreateSessionRequest,
+    GetSessionRequest,
+    InteractiveSessionBase,
+    InteractiveSessionDB,
+    InteractiveSessionInfo,
+)
 from .state import RPMBaseState, RPMState, StateDB
 from .user import User, UserBase, UserPublic, UserRole
