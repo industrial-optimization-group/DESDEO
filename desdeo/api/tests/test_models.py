@@ -1,11 +1,7 @@
 """Tests related to the SQLModels."""
 
-import pytest
-from fastapi.testclient import TestClient
-from sqlmodel import Session, SQLModel, create_engine, select
-from sqlmodel.pool import StaticPool
+from sqlmodel import Session, select
 
-from desdeo.api.app import app
 from desdeo.api.models import (
     ArchiveEntryBase,
     ArchiveEntryDB,
@@ -26,10 +22,8 @@ from desdeo.api.models import (
     TensorConstantDB,
     TensorVariableDB,
     User,
-    UserRole,
     VariableDB,
 )
-from desdeo.api.routers.user_authentication import get_password_hash
 from desdeo.mcdm import rpm_solve_solutions
 from desdeo.problem.schema import (
     Constant,
@@ -122,46 +116,9 @@ def compare_models(
     return dict_1 == dict_2
 
 
-@pytest.fixture(name="session_and_users")
-def session_fixture():
-    """Create a session for testing."""
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-
-    SQLModel.metadata.create_all(engine)
-
-    with Session(engine) as session:
-        user_analyst = User(
-            username="analyst",
-            password_hash=get_password_hash("analyst"),
-            role=UserRole.analyst,
-            group="test",
-        )
-        session.add(user_analyst)
-        session.commit()
-        session.refresh(user_analyst)
-
-        problem_db = ProblemDB.from_problem(dtlz2(5, 3), user=user_analyst)
-        session.add(problem_db)
-        session.commit()
-        session.refresh(problem_db)
-
-        users = [user_analyst]
-        problems = [problem_db]
-
-        yield {"session": session, "users": users, "problems": problems}
-
-
-@pytest.fixture(name="client")
-def client_fixture(session: Session):
-    """Create a client for testing."""
-    client = TestClient(app)
-
-    yield client
-
-
-def test_tensor_constant(session_and_users: dict[str, Session | list[User]]):
+def test_tensor_constant(session_and_user: dict[str, Session | list[User]]):
     """Test that a tensor constant can be transformed to an SQLModel and back after adding it to the database."""
-    session = session_and_users["session"]
+    session = session_and_user["session"]
 
     t_tensor = TensorConstant(name="tensor", symbol="T", shape=[2, 2], values=[[1, 2], [3, 4]])
     t_tensor_dump = t_tensor.model_dump()
@@ -184,9 +141,9 @@ def test_tensor_constant(session_and_users: dict[str, Session | list[User]]):
     assert t_tensor_validated == t_tensor
 
 
-def test_constant(session_and_users: dict[str, Session | list[User]]):
+def test_constant(session_and_user: dict[str, Session | list[User]]):
     """Test that a scalar constant can be transformed to an SQLModel and back after adding it to the database."""
-    session = session_and_users["session"]
+    session = session_and_user["session"]
 
     constant = Constant(name="constant", symbol="c", value=69.420)
     constant_dump = constant.model_dump()
@@ -208,9 +165,9 @@ def test_constant(session_and_users: dict[str, Session | list[User]]):
     assert constant_validated == constant
 
 
-def test_variable(session_and_users: dict[str, Session | list[User]]):
+def test_variable(session_and_user: dict[str, Session | list[User]]):
     """Test that a scalar variable can be transformed to an SQLModel and back after adding it to the database."""
-    session = session_and_users["session"]
+    session = session_and_user["session"]
 
     variable = Variable(
         name="test variable",
@@ -240,9 +197,9 @@ def test_variable(session_and_users: dict[str, Session | list[User]]):
     assert variable_validated == variable
 
 
-def test_tensor_variable(session_and_users: dict[str, Session | list[User]]):
+def test_tensor_variable(session_and_user: dict[str, Session | list[User]]):
     """Test that a tensor variable can be transformed to an SQLModel and back after adding it to the database."""
-    session = session_and_users["session"]
+    session = session_and_user["session"]
 
     t_variable = TensorVariable(
         name="test variable",
@@ -273,9 +230,9 @@ def test_tensor_variable(session_and_users: dict[str, Session | list[User]]):
     assert t_variable_validated == t_variable
 
 
-def test_objective(session_and_users: dict[str, Session | list[User]]):
+def test_objective(session_and_user: dict[str, Session | list[User]]):
     """Test that an objective can be transformed to an SQLModel and back after adding it to the database."""
-    session = session_and_users["session"]
+    session = session_and_user["session"]
 
     objective = Objective(
         name="Test Objective",
@@ -313,9 +270,9 @@ def test_objective(session_and_users: dict[str, Session | list[User]]):
     assert objective_validated == objective
 
 
-def test_constraint(session_and_users: dict[str, Session | list[User]]):
+def test_constraint(session_and_user: dict[str, Session | list[User]]):
     """Test that an constraint can be transformed to an SQLModel and back after adding it to the database."""
-    session = session_and_users["session"]
+    session = session_and_user["session"]
 
     constraint = Constraint(
         name="Test Constraint",
@@ -349,9 +306,9 @@ def test_constraint(session_and_users: dict[str, Session | list[User]]):
     assert constraint_validated == constraint
 
 
-def test_scalarization_function(session_and_users: dict[str, Session | list[User]]):
+def test_scalarization_function(session_and_user: dict[str, Session | list[User]]):
     """Test that a scalarization function can be transformed to an SQLModel and back after adding it to the database."""
-    session = session_and_users["session"]
+    session = session_and_user["session"]
 
     scalarization = ScalarizationFunction(
         name="Test ScalarizationFunction",
@@ -382,9 +339,9 @@ def test_scalarization_function(session_and_users: dict[str, Session | list[User
     assert scalarization_validated == scalarization
 
 
-def test_extra_function(session_and_users: dict[str, Session | list[User]]):
+def test_extra_function(session_and_user: dict[str, Session | list[User]]):
     """Test that an extra function can be transformed to an SQLModel and back after adding it to the database."""
-    session = session_and_users["session"]
+    session = session_and_user["session"]
 
     extra = ExtraFunction(
         name="Test ExtraFunction",
@@ -415,9 +372,9 @@ def test_extra_function(session_and_users: dict[str, Session | list[User]]):
     assert extra_validated == extra
 
 
-def test_discrete_representation(session_and_users: dict[str, Session | list[User]]):
+def test_discrete_representation(session_and_user: dict[str, Session | list[User]]):
     """Test that a DiscreteRepresentation can be transformed to an SQLModel and back after adding it to the database."""
-    session = session_and_users["session"]
+    session = session_and_user["session"]
 
     discrete = DiscreteRepresentation(
         variable_values={"x_1": [1, 2, 3, 4, 5], "x_2": [6, 7, 8, 9, 10]},
@@ -444,9 +401,9 @@ def test_discrete_representation(session_and_users: dict[str, Session | list[Use
     assert discrete_validated == discrete
 
 
-def test_simulator(session_and_users: dict[str, Session | list[User]]):
+def test_simulator(session_and_user: dict[str, Session | list[User]]):
     """Test that a Simulator can be transformed to an SQLModel and back after adding it to the database."""
-    session = session_and_users["session"]
+    session = session_and_user["session"]
 
     simulator = Simulator(
         file="/my/favorite/simulator.exe",
@@ -474,10 +431,10 @@ def test_simulator(session_and_users: dict[str, Session | list[User]]):
     assert simulator_validated == simulator
 
 
-def test_from_pydantic(session_and_users: dict[str, Session | list[User]]):
+def test_from_pydantic(session_and_user: dict[str, Session | list[User]]):
     """Test that a problem can be added and fetched from the database correctly."""
-    session = session_and_users["session"]
-    user = session_and_users["users"][0]
+    session = session_and_user["session"]
+    user = session_and_user["user"]
 
     problem_binh = binh_and_korn()
 
@@ -491,10 +448,10 @@ def test_from_pydantic(session_and_users: dict[str, Session | list[User]]):
     assert compare_models(problemdb, from_db_problem)
 
 
-def test_from_problem_to_db_and_back(session_and_users: dict[str, Session | list[User]]):
+def test_from_problem_to_d_and_back(session_and_user: dict[str, Session | list[User]]):
     """Test that Problem converts to ProblemDB and back."""
-    session = session_and_users["session"]
-    user = session_and_users["users"][0]
+    session = session_and_user["session"]
+    user = session_and_user["user"]
 
     problems = [
         binh_and_korn(),
@@ -536,10 +493,10 @@ def test_from_problem_to_db_and_back(session_and_users: dict[str, Session | list
         assert compare_models(problem, problem_db)
 
 
-def test_archive_entry(session_and_users: dict[str, Session | list[User]]):
+def test_archive_entry(session_and_user: dict[str, Session | list[User]]):
     """Test that the archive works as intended."""
-    session = session_and_users["session"]
-    user = session_and_users["users"][0]
+    session = session_and_user["session"]
+    user = session_and_user["user"]
 
     problem = dtlz2(n_variables=5, n_objectives=3)
     problem_db = ProblemDB.from_problem(problem, user)
@@ -581,10 +538,10 @@ def test_archive_entry(session_and_users: dict[str, Session | list[User]]):
     assert from_db.extra_func_values == extra_func_values
 
 
-def test_preference_models(session_and_users: dict[str, Session | list[User]]):
+def test_preference_models(session_and_user: dict[str, Session | list[User]]):
     """Test that the archive works as intended."""
-    session = session_and_users["session"]
-    user = session_and_users["users"][0]
+    session = session_and_user["session"]
+    user = session_and_user["user"]
 
     problem = ProblemDB.from_problem(dtlz2(5, 3), user=user)
 
@@ -626,11 +583,11 @@ def test_preference_models(session_and_users: dict[str, Session | list[User]]):
     assert from_db_ref_point.solutions == []
 
 
-def test_rpm_state(session_and_users: dict[str, Session | list[User]]):
+def test_rpm_state(session_and_user: dict[str, Session | list[User]]):
     """Test the RPM state that it works correctly."""
-    session = session_and_users["session"]
-    user = session_and_users["users"][0]
-    problem_db = session_and_users["problems"][0]  # DTLZ2(5, 3)
+    session = session_and_user["session"]
+    user = session_and_user["user"]
+    problem_db = user.problems[0]
 
     # create interactive session
     isession = InteractiveSessionDB(user_id=user.id)

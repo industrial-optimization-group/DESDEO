@@ -1,80 +1,11 @@
 """Tests related to routes and routers."""
 
-import pytest
-import pytest_asyncio
 from fastapi.testclient import TestClient
-from httpx import ASGITransport, AsyncClient
-from sqlmodel import Session, SQLModel, create_engine
-from sqlmodel.pool import StaticPool
 
-from desdeo.api.app import app
-from desdeo.api.db import get_session
-from desdeo.api.models import ProblemDB, User, UserRole, ProblemGetRequest, ProblemInfo
+from desdeo.api.models import ProblemGetRequest, ProblemInfo
 from desdeo.api.routers.user_authentication import (
     create_access_token,
-    get_password_hash,
 )
-from desdeo.problem import dtlz2, river_pollution_problem
-
-
-@pytest.fixture(name="session", scope="session")
-def session_fixture():
-    """Create a session for testing."""
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-
-    SQLModel.metadata.create_all(engine)
-
-    with Session(engine) as session:
-        user_analyst = User(
-            username="analyst",
-            password_hash=get_password_hash("analyst"),
-            role=UserRole.analyst,
-            group="test",
-        )
-        session.add(user_analyst)
-        session.commit()
-        session.refresh(user_analyst)
-
-        problem_db = ProblemDB.from_problem(dtlz2(5, 3), user=user_analyst)
-        session.add(problem_db)
-        session.commit()
-
-        problem_db = ProblemDB.from_problem(river_pollution_problem(), user=user_analyst)
-        session.add(problem_db)
-        session.commit()
-
-        yield session
-        session.rollback()
-
-
-@pytest_asyncio.fixture(name="async_client", scope="function")
-async def client_fixture(session: Session):
-    """Client fixture."""
-
-    def get_session_overdrive():
-        return session
-
-    app.dependency_overrides[get_session] = get_session_overdrive
-
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
-        yield client
-
-    app.dependency_overrides.clear()
-
-
-@pytest_asyncio.fixture(name="client", scope="function")
-def client_fixture_(session: Session):
-    """Client fixture."""
-
-    def get_session_overdrive():
-        return session
-
-    app.dependency_overrides[get_session] = get_session_overdrive
-
-    with TestClient(app) as client:
-        yield client
-
-    app.dependency_overrides.clear()
 
 
 def test_user_login(client: TestClient):
@@ -150,6 +81,8 @@ def test_get_problem(client: TestClient):
         headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
     )
 
+    assert response.status_code == 200
+
     info = ProblemInfo.model_validate(response.json())
 
     assert info.id == 1
@@ -160,6 +93,8 @@ def test_get_problem(client: TestClient):
         json=ProblemGetRequest(problem_id=2).model_dump(),
         headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
     )
+
+    assert response.status_code == 200
 
     info = ProblemInfo.model_validate(response.json())
 
