@@ -9,6 +9,8 @@ from desdeo.api.models import (
     InteractiveSessionDB,
     ProblemGetRequest,
     ProblemInfo,
+    RPMSolveRequest,
+    ReferencePoint,
     User,
 )
 from desdeo.api.routers.user_authentication import create_access_token
@@ -198,4 +200,17 @@ def test_get_session(client: TestClient, session_and_user: dict):
 
     request = GetSessionRequest(session_id=2)
     response = post_json(client, "/session/get", request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+
+
+def test_rpm_solve(client: TestClient):
+    """Test that using the reference point method works as expected."""
+    access_token = login(client)
+
+    request = RPMSolveRequest(
+        problem_id=1, preference=ReferencePoint(aspiration_levels={"f_1": 0.5, "f_2": 0.3, "f_3": 0.4})
+    )
+
+    response = post_json(client, "/method/rpm/solve", request.model_dump(), access_token)
+
     assert response.status_code == status.HTTP_200_OK

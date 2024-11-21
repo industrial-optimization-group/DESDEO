@@ -7,7 +7,7 @@ from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
 from desdeo.tools import SolverResults
 
-from .preference import PreferenceDB
+from .preference import PreferenceDB, ReferencePoint
 from .problem import ProblemDB
 from .session import InteractiveSessionDB
 
@@ -44,18 +44,22 @@ class BaseState(SQLModel):
     """The base model for representing method state."""
 
     method: Literal["unset"] = "unset"
+    phase: Literal["unset"] = "unset"
 
 
 class RPMBaseState(BaseState):
-    """."""
+    """The base sate for the reference point method (RPM).
 
-    phase: Literal["solve_candidates"] = "solve_candidates"
+    Other states of the RPM should inherit from this.
+    """
+
+    method: Literal["reference_point_method"] = "reference_point_method"
 
 
 class RPMState(RPMBaseState):
-    """State for the reference point method."""
+    """State of the reference point method for computing solutions."""
 
-    method: Literal["reference_point_method"] = "reference_point_method"
+    phase: Literal["solve_candidates"] = "solve_candidates"
 
     # to compute k+1 solutions
     scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)

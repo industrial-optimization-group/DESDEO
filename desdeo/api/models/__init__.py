@@ -26,6 +26,7 @@ __all__ = [
     "ProblemInfo",
     "ProblemInfoSmall",
     "ReferencePoint",
+    "RPMSolveRequest",
     "VariableDB",
     "InteractiveSessionBase",
     "InteractiveSessionDB",
@@ -53,6 +54,7 @@ from .problem import (
     TensorVariableDB,
     VariableDB,
 )
+from .reference_point_method import RPMSolveRequest
 from .session import (
     CreateSessionRequest,
     GetSessionRequest,

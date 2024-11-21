@@ -4,7 +4,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from desdeo.api.config import AuthDebugConfig, SettingsConfig
-from desdeo.api.routers import problem, session, user_authentication
+from desdeo.api.routers import (
+    problem,
+    reference_point_method,
+    session,
+    user_authentication,
+)
 
 if SettingsConfig.debug:
     # debug and development stuff
@@ -15,12 +20,10 @@ if SettingsConfig.debug:
         description="A rest API for the DESDEO framework.",
     )
 
-    # app.include_router(NIMBUS.router)
     app.include_router(user_authentication.router)
     app.include_router(problem.router)
     app.include_router(session.router)
-    # app.include_router(NAUTILUS_navigator.router)
-    # app.include_router(NAUTILUS.router)
+    app.include_router(reference_point_method.router)
 
     origins = AuthDebugConfig.cors_origins
 
