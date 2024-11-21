@@ -173,12 +173,12 @@ supports variables that are higher dimensional tensors (TensorVariables) as well
 !!! Info
     For more info about gurobi, see [the gurobi documentation](https://www.gurobi.com/documentation/).
 
-### The evaluator for simulators and surrogates
+### The evaluator for simulator and surrogate based problems
 
 The [`Evaluator`][desdeo.problem.simulator_evaluator.Evaluator] adds support for simulator and surrogate
 based objectives, constraints and extra functions. This is done by collecting the simulators and surrogates
 in the evaluator and calling them by providing the decision variables and parameters needed.
-The connection to simulators happens via [simulator files](./simulator_support.md#simulator-files).
+The connection to simulators happens via [simulator files](./simulator_support.md#simulator-file).
 The surrogate models are loaded from disk and then evaluated with the given decision variable values.
 This evaluator also handles analytical functions by calling the [PolarsEvaluator](#the-generic-evaluator).
 
@@ -289,7 +289,8 @@ constraint and extra function as their own column.
 You can keep studying the various parsers found
 in the modules [JSON parser][desdeo.problem.json_parser] and [Infix parser][desdeo.problem.infix_parser],
 and the evalutors found in the modules [Generic evaluator][desdeo.problem.evaluator],
-[Pyomo evaluator][desdeo.problem.pyomo_evaluator] and
-[GurobipyEvaluator][desdeo.problem.gurobipy_evaluator]. If you are interested in how to
+[Pyomo evaluator][desdeo.problem.pyomo_evaluator],
+[GurobipyEvaluator][desdeo.problem.gurobipy_evaluator],
+and [Evaluator][desdeo.problem.simulator_evaluator]. If you are interested in how to
 solve a multiobjective optimization problem, then the section [Scalarization](./scalarization.md)
 is a good place to check out.

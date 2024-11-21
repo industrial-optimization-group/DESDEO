@@ -31,6 +31,14 @@ hide:
 
     [:octicons-arrow-right-24: Scalarization](./scalarization.md)
 
+-   :octicons-info-24:{ .lg .middle } __Simulator support__
+
+    ---
+
+    Learn about simulator files and how to form them
+
+    [:octicons-arrow-right-24: Simulator support](./simulator_support.md)
+
 -   :octicons-info-24:{ .lg .middle } __Solvers__
 
     ---

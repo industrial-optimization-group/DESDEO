@@ -123,7 +123,9 @@ as well. These parameters are given to the simulator while evaluating the proble
 
 !!! NOTE
     The list of simulators has to be defined when initializing the problem as this list
-    is used when evaluating the problem.
+    is used when evaluating the problem. The parameters for the simulators, on the other
+    hand, may be given when initializing the evaluator and left empty when defining
+    the problem.
 
 ```python
 simulator = [
