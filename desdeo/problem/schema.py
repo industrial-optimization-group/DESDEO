@@ -987,8 +987,8 @@ class DiscreteRepresentation(BaseModel):
     objective functions."""
     non_dominated: bool = Field(
         description=(
-            "Indicates whether the representation consists of non-dominated points or not.",
-            "If False, some method can employ non-dominated sorting, which might slow an interactive method down.",
+            "Indicates whether the representation consists of non-dominated points or not."
+            "If False, some method can employ non-dominated sorting, which might slow an interactive method down."
         ),
         default=False,
     )
