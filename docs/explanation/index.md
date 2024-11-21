@@ -47,4 +47,11 @@ hide:
 
     [:octicons-arrow-right-24: Test problems](./test_problems.md)
 
+-   :octicons-info-24:{ .lg .middle } __Problem access__
+
+    ---
+
+    Learn about how to grant access to problem for users
+
+    [:octicons-arrow-right-24: Test problems](./problem_access.md)
 </div>
