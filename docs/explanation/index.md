@@ -47,4 +47,12 @@ hide:
 
     [:octicons-arrow-right-24: Test problems](./test_problems.md)
 
+-   :octicons-info-24:{ .lg .middle } __Evolutionary Algorithms in DESDEO__
+
+    ---
+
+    Learn about the implementation of evolutionary algorithms in DESDEO
+
+    [:octicons-arrow-right-24: Evolutionary Algorithms](./templates_and_pub_sub.md)
+
 </div>
