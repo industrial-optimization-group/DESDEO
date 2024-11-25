@@ -986,8 +986,8 @@ class DiscreteRepresentation(BaseModel):
     objective functions."""
     non_dominated: bool = Field(
         description=(
-            "Indicates whether the representation consists of non-dominated points or not.",
-            "If False, some method can employ non-dominated sorting, which might slow an interactive method down.",
+            "Indicates whether the representation consists of non-dominated points or not."
+            "If False, some method can employ non-dominated sorting, which might slow an interactive method down."
         ),
         default=False,
     )
@@ -1545,21 +1545,15 @@ class Problem(BaseModel):
         description="Name of the problem.",
     )
     """Name of the problem."""
-    description: str = Field(
-        description="Description of the problem.",
-    )
+    description: str = Field(description="Description of the problem.")
     """Description of the problem."""
     constants: list[Constant | TensorConstant] | None = Field(
         description="Optional list of the constants present in the problem.", default=None
     )
     """List of the constants present in the problem. Defaults to `None`."""
-    variables: list[Variable | TensorVariable] = Field(
-        description="List of variables present in the problem.",
-    )
+    variables: list[Variable | TensorVariable] = Field(description="List of variables present in the problem.")
     """List of variables present in the problem."""
-    objectives: list[Objective] = Field(
-        description="List of the objectives present in the problem.",
-    )
+    objectives: list[Objective] = Field(description="List of the objectives present in the problem.")
     """List of the objectives present in the problem."""
     constraints: list[Constraint] | None = Field(
         description="Optional list of constraints present in the problem.",

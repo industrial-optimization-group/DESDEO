@@ -103,6 +103,7 @@ def binh_and_korn(maximize: tuple[bool] = (False, False)) -> Problem:
         variables=[variable_1, variable_2],
         objectives=[objective_1, objective_2],
         constraints=[constraint_1, constraint_2],
+        is_twice_differentiable=True,
     )
 
 
@@ -2154,7 +2155,7 @@ def spanish_sustainability_problem():
     n_variables = len(variable_names)
 
     # Define constants
-    ## For the social indicator
+    # For the social indicator
     social_linear = TensorConstant(
         name="Linear coefficients for the social indicator",
         symbol="beta_social",
@@ -2187,7 +2188,7 @@ def spanish_sustainability_problem():
         name="Constant coefficient for the social indicator", symbol="cte_social", value=social_cte_value
     )
 
-    ## For the economical indicator
+    # For the economical indicator
     economical_linear = TensorConstant(
         name="Linear coefficients for the economical indicator",
         symbol="beta_economical",
@@ -2220,7 +2221,7 @@ def spanish_sustainability_problem():
         name="Constant coefficient for the economical indicator", symbol="cte_economical", value=economical_cte_value
     )
 
-    ## For the environmental indicator
+    # For the environmental indicator
     enviro_linear = TensorConstant(
         name="Linear coefficients for the environmental indicator",
         symbol="beta_enviro",
@@ -2285,7 +2286,7 @@ def spanish_sustainability_problem():
     variables = [x]
 
     # Define objective functions
-    ## Social
+    # Social
     f1_expr = "cte_social + X @ beta_social + (X**2) @ gamma_social + (X**3) @ delta_social + Ln(X) @ omega_social"
 
     f1 = Objective(
@@ -2301,7 +2302,7 @@ def spanish_sustainability_problem():
         is_twice_differentiable=True,
     )
 
-    ## economical
+    # economical
     f2_expr = (
         "cte_economical + beta_economical @ X + gamma_economical @ (X**2) + delta_economical @ (X**3) "
         "+ omega_economical @ Ln(X)"
@@ -2320,7 +2321,7 @@ def spanish_sustainability_problem():
         is_twice_differentiable=True,
     )
 
-    ## Environmental
+    # Environmental
     f3_expr = "cte_enviro + beta_enviro @ X + gamma_enviro @ (X**2) + delta_enviro @ (X**3) " "+ omega_enviro @ Ln(X)"
 
     f3 = Objective(
