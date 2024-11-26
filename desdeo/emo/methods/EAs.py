@@ -152,6 +152,7 @@ def nsga3(
         problem=problem,
         publisher=publisher,
         verbosity=forced_verbosity if forced_verbosity is not None else 2,
+        reference_vector_options=reference_vector_options,
     )
 
     # Note that the initial population size is equal to the number of reference vectors

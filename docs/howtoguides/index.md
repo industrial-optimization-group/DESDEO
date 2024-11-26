@@ -54,4 +54,12 @@ hide:
 
     [:octicons-arrow-right-24: NAUTILUS Navigator](./nautilus_navigator.md)
 
+-   :octicons-info-24:{ .lg .middle } __Using EAs in DESDEO__
+    
+    ---
+    
+    How to use evolutionary algorithms in DESDEO
+    
+    [:octicons-arrow-right-24: Using EAs in DESDEO](./ea.ipynb)
+
 </div>
