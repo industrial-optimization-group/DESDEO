@@ -28,6 +28,11 @@
     options:
         heading_level: 3
 
+## Simulator evaluator
+::: desdeo.problem.simulator_evaluator
+    options:
+        heading_level: 3
+
 ## Utilities    
 ::: desdeo.problem.utils
     options:
