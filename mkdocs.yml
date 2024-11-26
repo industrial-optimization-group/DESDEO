@@ -20,6 +20,7 @@ nav:
       - "The problem format": "explanation/problem_format.md"
       - "Parsing and evaluating": "explanation/parsing_and_evaluating.md"
       - "Scalarization": "explanation/scalarization.md"
+      - "Simulator support": "explanation/simulator_support.md"
       - "Solvers": "explanation/solvers.md"
   - "Guides":
       - "": "howtoguides/index.md"

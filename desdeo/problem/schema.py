@@ -736,6 +736,7 @@ class Simulator(BaseModel):
             "Parameters to the simulator that are not decision variables, but affect the results."
             "Format is similar to decision variables. Can be 'None'."
         ),
+        default=None,
     )
     """Parameters to the simulator that are not decision variables, but affect the results.
     Format is similar to decision variables. Can be 'None'."""
@@ -1516,6 +1517,30 @@ class Problem(BaseModel):
                 "scalarization_funcs": scenario_scals,
             }
         )
+
+    def save_to_json(self, path: Path) -> None:
+        """Save the Problem model in JSON format to a file.
+
+        Args:
+            path (Path): path to the file the model should be saved to.
+
+        """
+        json_content = self.model_dump_json(indent=4)
+        path.write_text(json_content)
+
+    @classmethod
+    def load_json(cls, path: Path) -> "Problem":
+        """Load a Problem model stored in a JSON file.
+
+        Args:
+            path (Path): path to file storing a Problem model in JSON format.
+
+        Returns:
+            Problem: the as defined in the data.
+        """
+        json_data = path.read_text()
+
+        return cls.model_validate_json(json_data)
 
     @root_validator(pre=True)
     def set_is_twice_differentiable(cls, values):
