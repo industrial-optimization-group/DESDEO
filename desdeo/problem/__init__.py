@@ -6,6 +6,7 @@ __all__ = [
     "Constraint",
     "ConstraintTypeEnum",
     "DiscreteRepresentation",
+    "Evaluator",
     "ExtraFunction",
     "forest_problem",
     "FormatEnum",
@@ -37,6 +38,7 @@ __all__ = [
     "simple_linear_test_problem",
     "simple_scenario_test_problem",
     "simple_test_problem",
+    "simulator_problem",
     "spanish_sustainability_problem",
     "tensor_constant_from_dataframe",
     "PolarsEvaluator",
@@ -83,6 +85,7 @@ from .schema import (
     VariableType,
     VariableTypeEnum,
 )
+from .simulator_evaluator import Evaluator
 from .sympy_evaluator import SympyEvaluator
 from .testproblems import (
     binh_and_korn,
@@ -103,6 +106,7 @@ from .testproblems import (
     simple_linear_test_problem,
     simple_scenario_test_problem,
     simple_test_problem,
+    simulator_problem,
     spanish_sustainability_problem,
     zdt1,
 )
