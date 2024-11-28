@@ -3,19 +3,20 @@
 from contextlib import suppress
 
 import numpy as np
+import numpy.testing as npt
 import polars as pl
 import pytest
 
 from desdeo.emo.hooks.archivers import Archive, FeasibleArchive, NonDominatedArchive
 from desdeo.emo.methods.bases import template1
 from desdeo.emo.methods.EAs import nsga3, rvea
-from desdeo.emo.operators.crossover import SimulatedBinaryCrossover
+from desdeo.emo.operators.crossover import SimulatedBinaryCrossover, SinglePointBinaryCrossover
 from desdeo.emo.operators.evaluator import EMOEvaluator
 from desdeo.emo.operators.generator import LHSGenerator, RandomGenerator
 from desdeo.emo.operators.mutation import BoundedPolynomialMutation
 from desdeo.emo.operators.selection import ParameterAdaptationStrategy, ReferenceVectorOptions, RVEASelector
 from desdeo.emo.operators.termination import MaxEvaluationsTerminator
-from desdeo.problem.testproblems import dtlz2
+from desdeo.problem.testproblems import dtlz2, simple_knapsack, simple_knapsack_vectors
 from desdeo.tools.patterns import Publisher, Subscriber
 
 
@@ -206,3 +207,27 @@ def test_template():
     assert norm.median() < 1.1
     # assert archive.archive.shape[0] <= 5000 # This test will unfortunately fail because the termination check is done
     # after the evaluation has been done. So, there will always be one more generation than expected.
+
+
+@pytest.mark.ea
+def test_single_point_binary_crossover():
+    """Test to check that the single point binary crossover operator works as intended."""
+    publisher = Publisher()
+
+    for problem in [simple_knapsack(), simple_knapsack_vectors()]:
+        crossover = SinglePointBinaryCrossover(problem=problem, publisher=publisher, seed=0)
+        num_vars = len(crossover.variable_symbols)
+
+        population = pl.DataFrame(
+            np.vstack((np.ones((5, num_vars)), np.zeros((5, num_vars)))),
+            schema=crossover.variable_symbols,
+        )
+
+        to_mate = [0, 9, 1, 8, 2, 7, 3, 6, 4, 5]
+
+        result = crossover.do(population=population, to_mate=to_mate)
+
+        assert result.shape == (len(to_mate), num_vars)
+
+        with npt.assert_raises(AssertionError):
+            npt.assert_allclose(population, result)
