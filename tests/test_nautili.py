@@ -9,7 +9,7 @@ from desdeo.mcdm.nautili import (
     solve_reachable_solution,
     nautili_init,
     nautili_all_steps,
-    NAUTILI_Response
+    NAUTILI_Response,
 )
 from desdeo.problem import (
     binh_and_korn,
@@ -197,13 +197,13 @@ def test_solve_reachable_bounds_complicated():
 @pytest.mark.slow
 @pytest.mark.nautili
 def test_nautili_aggregation():
-    """TODO: Test nautili aggregation aggregation"""
+    """TODO: Test nautili aggregation aggregation."""
+
 
 @pytest.mark.slow
 @pytest.mark.nautili
 def test_all_steps():
-    """Test nautili all steps"""
-
+    """Test nautili all steps."""
     problem = binh_and_korn()
 
     prefs = {

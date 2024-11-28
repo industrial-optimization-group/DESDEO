@@ -310,7 +310,13 @@ class InfixExpressionParser:
         Returns:
             list: A list representing the parsed expression.
         """
-        return self._remove_extra_brackets(self.parse_to_target(self.pre_parse(str_expr)))
+        expr = self._remove_extra_brackets(self.parse_to_target(self.pre_parse(str_expr)))
+
+        # if the expression is just a string after removing extra brackets,
+        # wrap it in a list to keep the return type consistent.
+        # simple expressions, like 'x_1', are parsed into just a string after removing any extra
+        # brackets, so we add them back there in case it is needed
+        return expr if isinstance(expr, list) else [expr]
 
 
 if __name__ == "__main__":

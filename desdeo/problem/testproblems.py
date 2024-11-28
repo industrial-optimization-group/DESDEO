@@ -366,7 +366,7 @@ def zdt1(number_of_variables: int) -> Problem:
 
     # function f_1
     f1_symbol = "f_1"
-    f1_expr = "1 * x_1"
+    f1_expr = "x_1"
 
     # function g
     g_symbol = "g"

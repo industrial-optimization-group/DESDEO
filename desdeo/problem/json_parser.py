@@ -725,6 +725,13 @@ class MathParser:
             return pl.lit(expr)
 
         if isinstance(expr, list):
+            if len(expr) == 1 and isinstance(expr[0], str | self.literals):
+                # Terminal case, single symbol expression or literal
+                if isinstance(expr[0], str):
+                    return pl.col(expr)
+                # just a literal
+                return pl.lit(expr[0])
+
             # Extract the operation name
             if isinstance(expr[0], str) and expr[0] in self.env:
                 op_name = expr[0]
@@ -774,6 +781,13 @@ class MathParser:
             return expr
 
         if isinstance(expr, list):
+            if len(expr) == 1 and isinstance(expr[0], str | self.literals):
+                # Terminal case, single symbol expression or literal
+                if isinstance(expr[0], str):
+                    return getattr(model, expr[0])
+                # just a literal
+                return pyomo.Expression(expr=expr[0])
+
             # Extract the operation name
             if isinstance(expr[0], str) and expr[0] in self.env:
                 op_name = expr[0]
@@ -821,6 +835,10 @@ class MathParser:
             return sp.sympify(expr, evaluate=False)
 
         if isinstance(expr, list):
+            if len(expr) == 1 and isinstance(expr[0], str | self.literals):
+                # Terminal case, single symbol expression or literal
+                return sp.sympify(expr[0], evaluate=False)
+
             # Extract the operation name
             if isinstance(expr[0], str) and expr[0] in self.env:
                 op_name = expr[0]
