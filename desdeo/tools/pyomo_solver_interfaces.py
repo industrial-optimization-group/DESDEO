@@ -97,7 +97,7 @@ class CbcOptions(BaseModel):
         Please add options as they are needed and make a pull request.
     """
 
-    model_config = ConfigDict(frozen=True, allow_population_by_field_name=True)
+    model_config = ConfigDict(frozen=True, populate_by_name=True)
 
     sec: int = Field(
         description="The maximum amount of time (in seconds) the solver should run. Defaults to None.", default=None

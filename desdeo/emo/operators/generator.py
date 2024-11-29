@@ -169,7 +169,7 @@ class LHSGenerator(RandomGenerator):
                 At the very least, the publisher argument should be provided.
         """
         super().__init__(problem, evaluator, n_points, seed, **kwargs)
-        self.lhsrng = LatinHypercube(d=len(problem.variables), seed=seed)
+        self.lhsrng = LatinHypercube(d=len(self.variable_symbols), seed=seed)
         self.seed = seed
 
     def do(self) -> tuple[pl.DataFrame, pl.DataFrame]:

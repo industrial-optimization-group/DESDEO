@@ -279,6 +279,7 @@ class SinglePointBinaryCrossover(BaseCrossover):
 
         mating_pop = parent_decision_vars[shuffled_ids]
         mating_pop_size = len(shuffled_ids)
+        original_mating_pop_size = mating_pop_size
 
         if mating_pop_size % 2 != 0:
             # if the number of member to mate is of uneven size, copy the first member to the tail
@@ -317,7 +318,9 @@ class SinglePointBinaryCrossover(BaseCrossover):
         # combine the two offspring populations into one, drop the last member if the number of
         # indices (to_mate) is uneven
         self.offspring_population = pl.from_numpy(
-            np.vstack((offspring1, offspring2))[: (len(to_mate) if len(to_mate) % 2 == 0 else -1)],
+            np.vstack((offspring1, offspring2))[
+                : (original_mating_pop_size if original_mating_pop_size % 2 == 0 else -1)
+            ],
             schema=self.variable_symbols,
         ).select(pl.all().cast(pl.Float64))
         self.notify()
