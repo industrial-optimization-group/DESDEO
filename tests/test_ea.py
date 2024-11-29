@@ -13,7 +13,7 @@ from desdeo.emo.methods.EAs import nsga3, rvea
 from desdeo.emo.operators.crossover import SimulatedBinaryCrossover, SinglePointBinaryCrossover
 from desdeo.emo.operators.evaluator import EMOEvaluator
 from desdeo.emo.operators.generator import LHSGenerator, RandomGenerator
-from desdeo.emo.operators.mutation import BoundedPolynomialMutation
+from desdeo.emo.operators.mutation import BinaryFlipMutation, BoundedPolynomialMutation
 from desdeo.emo.operators.selection import ParameterAdaptationStrategy, ReferenceVectorOptions, RVEASelector
 from desdeo.emo.operators.termination import MaxEvaluationsTerminator
 from desdeo.problem.testproblems import dtlz2, simple_knapsack, simple_knapsack_vectors
@@ -246,3 +246,50 @@ def test_single_point_binary_crossover():
 
         with npt.assert_raises(AssertionError):
             npt.assert_allclose(population, result)
+
+
+@pytest.mark.ea
+def test_binary_flip_mutation():
+    """Test whether the binary flip mutation operator works as intended."""
+    publisher = Publisher()
+
+    problem = simple_knapsack()
+
+    # default mutation probability
+    mutation = BinaryFlipMutation(problem=problem, publisher=publisher, seed=0)
+    num_vars = len(mutation.variable_symbols)
+
+    population = pl.DataFrame(
+        np.ones((10, num_vars)),
+        schema=mutation.variable_symbols,
+    )
+
+    result = mutation.do(offsprings=population, parents=population)
+
+    assert result.shape == (len(population), num_vars)
+
+    with npt.assert_raises(AssertionError):
+        npt.assert_allclose(population, result)
+
+    assert 1.0 in result.to_numpy()
+    assert 0.0 in result.to_numpy()
+
+    # all bits should flip
+    mutation = BinaryFlipMutation(problem=problem, publisher=publisher, seed=0, mutation_probability=1.0)
+    num_vars = len(mutation.variable_symbols)
+
+    result = mutation.do(offsprings=population, parents=population)
+
+    assert result.shape == (len(population), num_vars)
+
+    npt.assert_allclose(np.zeros((10, num_vars)), result)
+
+    # no bit should flip
+    mutation = BinaryFlipMutation(problem=problem, publisher=publisher, seed=0, mutation_probability=0)
+    num_vars = len(mutation.variable_symbols)
+
+    result = mutation.do(offsprings=population, parents=population)
+
+    assert result.shape == (len(population), num_vars)
+
+    npt.assert_allclose(np.ones((10, num_vars)), result)

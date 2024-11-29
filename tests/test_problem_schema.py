@@ -521,7 +521,7 @@ def test_variable_domain():
 
     integer_problem = simple_knapsack()
 
-    assert integer_problem.variable_domain == VariableDomainTypeEnum.integer
+    assert integer_problem.variable_domain == VariableDomainTypeEnum.binary
 
 
 @pytest.mark.schema
