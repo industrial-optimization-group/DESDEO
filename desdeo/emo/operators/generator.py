@@ -231,7 +231,7 @@ class RandomBinaryGenerator(BaseGenerator):
             return self.population, self.out
 
         self.population = pl.from_numpy(
-            self.rng.integers(low=0, high=2, size=(self.n_points, self.bounds.shape[0])),
+            self.rng.integers(low=0, high=2, size=(self.n_points, self.bounds.shape[0])).astype(dtype=np.float64),
             schema=self.variable_symbols,
         )
 
