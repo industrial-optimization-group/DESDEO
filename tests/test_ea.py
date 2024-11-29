@@ -12,7 +12,7 @@ from desdeo.emo.methods.bases import template1
 from desdeo.emo.methods.EAs import nsga3, rvea
 from desdeo.emo.operators.crossover import SimulatedBinaryCrossover, SinglePointBinaryCrossover
 from desdeo.emo.operators.evaluator import EMOEvaluator
-from desdeo.emo.operators.generator import LHSGenerator, RandomGenerator
+from desdeo.emo.operators.generator import LHSGenerator, RandomBinaryGenerator, RandomGenerator
 from desdeo.emo.operators.mutation import BinaryFlipMutation, BoundedPolynomialMutation
 from desdeo.emo.operators.selection import ParameterAdaptationStrategy, ReferenceVectorOptions, RVEASelector
 from desdeo.emo.operators.termination import MaxEvaluationsTerminator
@@ -293,3 +293,39 @@ def test_binary_flip_mutation():
     assert result.shape == (len(population), num_vars)
 
     npt.assert_allclose(np.ones((10, num_vars)), result)
+
+
+@pytest.mark.ea
+def test_binary_generation():
+    """Test the binary generator."""
+    publisher = Publisher()
+    n_points = 20
+
+    problem = simple_knapsack()
+
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher)
+
+    generator = RandomBinaryGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0
+    )
+
+    population, outputs = generator.do()
+
+    assert population.shape == (n_points, len(problem.get_flattened_variables()))
+    assert outputs.shape == (n_points, 3 + 3 + 1)  # three objectives (and targets), one constraint
+
+    problem = simple_knapsack_vectors()
+
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher)
+
+    generator = RandomBinaryGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0
+    )
+
+    population, outputs = generator.do()
+
+    assert population.shape == (n_points, len(problem.get_flattened_variables()))
+    assert outputs.shape == (
+        n_points,
+        2 + 2 + 1 + 3,
+    )  # two objectives (and targets), one constraint, and three constants?
