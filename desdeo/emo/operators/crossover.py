@@ -4,6 +4,7 @@ Various evolutionary operators for recombination
 in multiobjective optimization are defined here.
 """
 
+import copy
 from abc import abstractmethod
 from collections.abc import Sequence
 from random import shuffle
@@ -268,33 +269,57 @@ class SinglePointBinaryCrossover(BaseCrossover):
         pop_size = self.parent_population.shape[0]
         num_var = len(self.variable_symbols)
 
-        parent_decision_vars = self.parent_population[self.variable_symbols].to_numpy()
+        parent_decision_vars = self.parent_population[self.variable_symbols].to_numpy().astype(np.bool)
 
         if to_mate is None:
             shuffled_ids = list(range(pop_size))
             shuffle(shuffled_ids)
         else:
-            shuffled_ids = to_mate
+            shuffled_ids = copy.copy(to_mate)
 
         mating_pop = parent_decision_vars[shuffled_ids]
         mating_pop_size = len(shuffled_ids)
 
-        offspring = np.zeros_like(mating_pop)
+        if mating_pop_size % 2 != 0:
+            # if the number of member to mate is of uneven size, copy the first member to the tail
+            mating_pop = np.vstack((mating_pop, mating_pop[0]))
+            mating_pop_size += 1
+            shuffled_ids.append(shuffled_ids[0])
 
-        for i in range(0, mating_pop_size - 1, 2):
-            parent1 = mating_pop[i]
-            parent2 = mating_pop[i + 1]
+        # split the population into parents, one with members with even numbered indices, the
+        # other with uneven numbered indices
+        parents1 = mating_pop[[shuffled_ids[i] for i in range(0, mating_pop_size, 2)]]
+        parents2 = mating_pop[[shuffled_ids[i] for i in range(1, mating_pop_size, 2)]]
 
-            crossover_point = self.rng.integers(
-                1, num_var - 1
-            )  # avoid choosing the first or last variable as the crossover point
+        cross_over_points = self.rng.integers(1, num_var - 1, mating_pop_size // 2)
 
-            offspring[i, :crossover_point] = parent1[:crossover_point]
-            offspring[i, crossover_point:] = parent2[crossover_point:]
-            offspring[i + 1, :crossover_point] = parent2[:crossover_point]
-            offspring[i + 1, crossover_point:] = parent1[crossover_point:]
+        # create a mask where, on each row, the element is 1 before the crossover point,
+        # and zero after it
+        cross_over_mask = np.zeros_like(parents1, dtype=np.bool)
+        cross_over_mask[np.arange(cross_over_mask.shape[1]) < cross_over_points[:, None]] = 1
 
-        self.offspring_population = pl.from_numpy(offspring, schema=self.variable_symbols)
+        # pick genes from the first parents before the crossover point
+        # pick genes from the second parents after, and including, the crossover point
+        offspring1_first = cross_over_mask & parents1
+        offspring1_second = (~cross_over_mask) & parents2
+
+        # combine into a first half of the whole offspring population
+        offspring1 = offspring1_first | offspring1_second
+
+        # pick genes from the first parents after, and including, the crossover point
+        # pick genes from the second parents before the crossover point
+        offspring2_first = (~cross_over_mask) & parents1
+        offspring2_second = cross_over_mask & parents2
+
+        # combine into the second half of the whole offspring population
+        offspring2 = offspring2_first | offspring2_second
+
+        # combine the two offspring populations into one, drop the last member if the number of
+        # indices (to_mate) is uneven
+        self.offspring_population = pl.from_numpy(
+            np.vstack((offspring1, offspring2))[: (len(to_mate) if len(to_mate) % 2 == 0 else -1)],
+            schema=self.variable_symbols,
+        ).select(pl.all().cast(pl.Float64))
         self.notify()
 
         return self.offspring_population

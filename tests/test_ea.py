@@ -231,3 +231,18 @@ def test_single_point_binary_crossover():
 
         with npt.assert_raises(AssertionError):
             npt.assert_allclose(population, result)
+
+        # test with uneven mating population size as well
+        population = pl.DataFrame(
+            np.vstack((np.ones((4, num_vars)), np.zeros((3, num_vars)))),
+            schema=crossover.variable_symbols,
+        )
+
+        to_mate = [0, 2, 1, 3, 6, 4, 5]
+
+        result = crossover.do(population=population, to_mate=to_mate)
+
+        assert result.shape == (len(to_mate), num_vars)
+
+        with npt.assert_raises(AssertionError):
+            npt.assert_allclose(population, result)
