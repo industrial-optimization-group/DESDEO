@@ -56,6 +56,8 @@ __all__ = [
     "variable_dict_to_numpy_array",
     "variable_dimension_enumerate",
     "zdt1",
+    "zdt2",
+    "zdt3",
 ]
 
 from .evaluator import (
@@ -111,6 +113,8 @@ from .testproblems import (
     simulator_problem,
     spanish_sustainability_problem,
     zdt1,
+    zdt2,
+    zdt3,
 )
 from .utils import (
     get_ideal_dict,
