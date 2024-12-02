@@ -44,7 +44,7 @@ class FeasibleArchive(Subscriber):
             message (Message): Message from the publisher.
         """
         data = message.value
-        feasible_mask = (data[self.cons_symb] < 0).to_numpy().all(axis=1)
+        feasible_mask = (data[self.cons_symb] <= 0).to_numpy().all(axis=1)
         feasible_data = data.filter(feasible_mask)
         if self.feasible_archive is None:
             self.feasible_archive = feasible_data
