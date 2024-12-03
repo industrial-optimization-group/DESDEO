@@ -145,10 +145,9 @@ class MaxGenerationsTerminator(BaseTerminator):
         self.notify()
         return self.current_generation > self.max_generations
 
-    def update(self, *_, **__) -> None:
-        """Do nothing."""
 
-
+# TODO (@light-weaver): This check is done _after_ the evaluations have taken place.
+# This means that the algorithm will run for one more generation than it should.
 class MaxEvaluationsTerminator(BaseTerminator):
     """A class for a termination criterion based on the number of evaluations."""
 
@@ -175,4 +174,5 @@ class MaxEvaluationsTerminator(BaseTerminator):
             bool: True if the termination criterion is reached, False otherwise.
         """
         super().check()
+        self.notify()
         return self.current_evaluations >= self.max_evaluations

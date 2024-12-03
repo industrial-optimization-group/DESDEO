@@ -1,5 +1,7 @@
 """Tests related to the schemas representing multiobjective optimization problems."""
 
+from pathlib import Path
+
 import numpy.testing as npt
 import polars as pl
 import pytest
@@ -24,8 +26,10 @@ from desdeo.problem.testproblems import (
     momip_ti7,
     nimbus_test_problem,
     river_pollution_problem,
+    simple_data_problem,
     simple_knapsack,
     simple_scenario_test_problem,
+    spanish_sustainability_problem,
 )
 
 
@@ -517,7 +521,7 @@ def test_variable_domain():
 
     integer_problem = simple_knapsack()
 
-    assert integer_problem.variable_domain == VariableDomainTypeEnum.integer
+    assert integer_problem.variable_domain == VariableDomainTypeEnum.binary
 
 
 @pytest.mark.schema
@@ -752,3 +756,25 @@ def test_is_linear_problem():
     )
 
     assert not problem.is_linear
+
+
+def test_save_and_load_json(tmp_path):
+    """Test that a problem model is saved and loaded correctly to/from a JSON file."""
+    problems = [
+        momip_ti7(),
+        nimbus_test_problem(),
+        river_pollution_problem(),
+        simple_data_problem(),
+        simple_knapsack(),
+        simple_scenario_test_problem(),
+        spanish_sustainability_problem(),
+    ]
+
+    for problem in problems:
+        file_path = tmp_path / "out.json"
+
+        problem.save_to_json(file_path)
+
+        loaded_problem = Problem.load_json(file_path)
+
+        assert problem == loaded_problem

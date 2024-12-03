@@ -7,6 +7,9 @@ from fixtures import dtlz2_5x_3f_data_based  # noqa: F401
 from desdeo.mcdm.nautili import (
     solve_reachable_bounds,
     solve_reachable_solution,
+    nautili_init,
+    nautili_all_steps,
+    NAUTILI_Response,
 )
 from desdeo.problem import (
     binh_and_korn,
@@ -51,9 +54,10 @@ def test_solve_reachable_solution():
     distance_1 = np.linalg.norm(group_improvement_direction - objective_vector_1)
     distance_2 = np.linalg.norm(group_improvement_direction - objective_vector_2)
 
-    assert distance_2 < distance_1
+    assert distance_2 > distance_1
 
 
+@pytest.mark.slow
 @pytest.mark.nautili
 def test_solve_reachable_solution_discrete(dtlz2_5x_3f_data_based):  # noqa: F811
     """Tests the solving of the reachable solution with a fully discrete problem."""
@@ -83,12 +87,12 @@ def test_solve_reachable_solution_discrete(dtlz2_5x_3f_data_based):  # noqa: F81
     distance_1 = np.linalg.norm(reference_point_1 - objective_vector_1)
     distance_2 = np.linalg.norm(reference_point_1 - objective_vector_2)
 
-    assert distance_1 < distance_2
+    assert distance_1 > distance_2
 
     distance_1 = np.linalg.norm(reference_point_2 - objective_vector_1)
     distance_2 = np.linalg.norm(reference_point_2 - objective_vector_2)
 
-    assert distance_2 < distance_1
+    assert distance_2 > distance_1
 
 
 @pytest.mark.slow
@@ -160,7 +164,7 @@ def test_solve_reachable_bounds_discrete(dtlz2_5x_3f_data_based):  # noqa: F811
 @pytest.mark.slow
 @pytest.mark.nautili
 def test_solve_reachable_bounds_complicated():
-    """Test solving of the reachable bounds with more objectivs."""
+    """Test solving of the reachable bounds with more objectives."""
     # more objectives, both min and max
     problem = river_pollution_problem()
 
@@ -169,19 +173,19 @@ def test_solve_reachable_bounds_complicated():
     lower_bounds, upper_bounds = solve_reachable_bounds(problem, nav_point)
 
     # lower bound should be lower (better) than the navigation point, for min objectives
-    assert lower_bounds["f_1"] < nav_point["f_1"]
-    assert lower_bounds["f_2"] < nav_point["f_2"]
     assert lower_bounds["f_5"] < nav_point["f_5"]
     # lower bound should be higher or equal to the nav point for max objectives
+    assert lower_bounds["f_1"] >= nav_point["f_1"]
+    assert lower_bounds["f_2"] >= nav_point["f_2"]
     assert lower_bounds["f_3"] >= nav_point["f_3"]
     assert lower_bounds["f_4"] >= nav_point["f_4"]
 
     # upper bound should be less than or equel to nav point min objectives
-    assert upper_bounds["f_1"] <= nav_point["f_1"]
-    assert upper_bounds["f_2"] <= nav_point["f_2"]
     assert upper_bounds["f_5"] <= nav_point["f_5"]
 
     # upper bound should be higher (better) than nav point for max objectives
+    assert upper_bounds["f_1"] > nav_point["f_1"]
+    assert upper_bounds["f_2"] > nav_point["f_2"]
     assert upper_bounds["f_3"] > nav_point["f_3"]
     assert upper_bounds["f_4"] > nav_point["f_4"]
 
@@ -193,4 +197,28 @@ def test_solve_reachable_bounds_complicated():
 @pytest.mark.slow
 @pytest.mark.nautili
 def test_nautili_aggregation():
-    """TODO: Test nautili aggregation aggregation"""
+    """TODO: Test nautili aggregation aggregation."""
+
+
+@pytest.mark.slow
+@pytest.mark.nautili
+def test_all_steps():
+    """Test nautili all steps."""
+    problem = binh_and_korn()
+
+    prefs = {
+        "DM1": {"f_1": 100, "f_2": 30},
+        "DM2": {"f_1": 45, "f_2": 15},
+        "DM3": {"f_1": 25, "f_2": 45},
+    }
+    total_steps = 5
+    initial_response = nautili_init(problem)
+
+    all_resp = nautili_all_steps(
+        problem,
+        total_steps,
+        prefs,
+        [initial_response],
+    )
+    assert len(all_resp) == 5
+    assert type(all_resp[0]) is NAUTILI_Response

@@ -6,9 +6,10 @@ import sys
 from inspect import getfullargspec
 from pathlib import Path
 
+import joblib
 import numpy as np
 import polars as pl
-import skops.io as sio
+#import skops.io as sio
 
 from desdeo.problem import (
     ObjectiveTypeEnum,
@@ -91,12 +92,15 @@ class Evaluator:
         self.problem_symbols = self.analytical_symbols + self.simulator_symbols + self.surrogate_symbols
 
         # Gather the possible simulators
-        self.simulators = problem.simulators
+        self.simulators = problem.simulators if problem.simulators is not None else []
         # Gather the possibly given parameters
-        if params is not None:
-            self.params = params
-        else:
-            self.params = {}
+        self.params = {}
+        for sim in self.simulators:
+            sim_params = params.get(sim.name, {}) if params is not None else {}
+            if sim.parameter_options is not None:
+                for key in sim.parameter_options:
+                    sim_params[key] = sim.parameter_options[key]
+            self.params[sim.name] = sim_params
 
         self.surrogates = {}
         if surrogate_paths is not None:
@@ -134,10 +138,15 @@ class Evaluator:
             params = self.params.get(sim.name, {})
             # call the simulator with the decision variable values and parameters as dicts
             res = subprocess.run(
-                f"{sys.executable} {sim.file} -d {xs} -p {params}", check=True, capture_output=True
-            ).stdout.decode()
-            # gather the simulation results (a dict) into the results dataframe
-            res_df = res_df.hstack(pl.DataFrame(json.loads(res)))
+                [sys.executable, sim.file, '-d', str(xs), '-p', str(params)],
+                capture_output=True,
+                text=True
+            )
+            if res.returncode == 0:
+                # gather the simulation results (a dict) into the results dataframe
+                res_df = res_df.hstack(pl.DataFrame(json.loads(res.stdout)))
+            else:
+                raise EvaluatorError(res.stderr)
 
         # Evaluate the minimization form of the objective functions
         min_obj_columns = pl.DataFrame()
@@ -206,41 +215,45 @@ class Evaluator:
         if surrogate_paths is not None:
             for symbol in surrogate_paths:
                 with Path.open(f"{surrogate_paths[symbol]}", "rb") as file:
-                    unknown_types = sio.get_untrusted_types(file=file)
+                    self.surrogates[symbol] = joblib.load(file)
+                    """unknown_types = sio.get_untrusted_types(file=file)
                     if len(unknown_types) == 0:
                         self.surrogates[symbol] = sio.load(file, unknown_types)
                     else: # TODO: if there are unknown types they should be checked
                         self.surrogates[symbol] = sio.load(file, unknown_types)
-                        #raise EvaluatorError(f"Untrusted types found in the model of {obj.symbol}: {unknown_types}")
+                        #raise EvaluatorError(f"Untrusted types found in the model of {obj.symbol}: {unknown_types}")"""
         else:
             # check each surrogate based objective, constraint and extra function for surrogate path
             for obj in self.problem.objectives:
                 if obj.surrogates is not None:
                     with Path.open(f"{obj.surrogates[0]}", "rb") as file:
-                        unknown_types = sio.get_untrusted_types(file=file)
+                        self.surrogates[obj.symbol] = joblib.load(file)
+                        """unknown_types = sio.get_untrusted_types(file=file)
                         if len(unknown_types) == 0:
                             self.surrogates[obj.symbol] = sio.load(file, unknown_types)
                         else: # TODO: if there are unknown types they should be checked
                             self.surrogates[obj.symbol] = sio.load(file, unknown_types)
-                            #raise EvaluatorError(f"Untrusted types found in the model of {obj.symbol}: {unknown_types}")
+                            #raise EvaluatorError(f"Untrusted types found in the model of {obj.symbol}: {unknown_types}")"""
             for con in self.problem.constraints:
                 if con.surrogates is not None:
                     with Path.open(f"{con.surrogates[0]}", "rb") as file:
-                        unknown_types = sio.get_untrusted_types(file=file)
+                        self.surrogates[con.symbol] = joblib.load(file)
+                        """unknown_types = sio.get_untrusted_types(file=file)
                         if len(unknown_types) == 0:
                             self.surrogates[con.symbol] = sio.load(file, unknown_types)
                         else: # TODO: if there are unknown types they should be checked
                             self.surrogates[con.symbol] = sio.load(file, unknown_types)
-                            #raise EvaluatorError(f"Untrusted types found in the model of {obj.symbol}: {unknown_types}")
+                            #raise EvaluatorError(f"Untrusted types found in the model of {obj.symbol}: {unknown_types}")"""
             for extra in self.problem.extra_funcs:
                 if extra.surrogates is not None:
                     with Path.open(f"{extra.surrogates[0]}", "rb") as file:
-                        unknown_types = sio.get_untrusted_types(file=file)
+                        self.surrogates[extra.symbol] = joblib.load(file)
+                        """unknown_types = sio.get_untrusted_types(file=file)
                         if len(unknown_types) == 0:
                             self.surrogates[extra.symbol] = sio.load(file, unknown_types)
                         else: # TODO: if there are unknown types they should be checked
                             self.surrogates[extra.symbol] = sio.load(file, unknown_types)
-                            #raise EvaluatorError(f"Untrusted types found in the model of {obj.symbol}: {unknown_types}")
+                            #raise EvaluatorError(f"Untrusted types found in the model of {obj.symbol}: {unknown_types}")"""
 
     def evaluate(self, xs: dict[str, list[int | float]]) -> pl.DataFrame:
         """Evaluate the functions for the given decision variables.

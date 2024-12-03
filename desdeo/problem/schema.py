@@ -220,6 +220,8 @@ class VariableDomainTypeEnum(str, Enum):
 
     continuous = "continuous"
     """All variables are real valued."""
+    binary = "binary"
+    """All variables are binary valued."""
     integer = "integer"
     """All variables are integer or binary valued."""
     mixed = "mixed"
@@ -737,6 +739,7 @@ class Simulator(BaseModel):
             "Parameters to the simulator that are not decision variables, but affect the results."
             "Format is similar to decision variables. Can be 'None'."
         ),
+        default=None,
     )
     """Parameters to the simulator that are not decision variables, but affect the results.
     Format is similar to decision variables. Can be 'None'."""
@@ -1386,6 +1389,10 @@ class Problem(BaseModel):
             # all variables are real valued -> continuous problem
             return VariableDomainTypeEnum.continuous
 
+        if all(t == VariableTypeEnum.binary for t in variable_types):
+            # all variables are binary valued -> binary problem
+            return VariableDomainTypeEnum.binary
+
         if all(t in [VariableTypeEnum.integer, VariableTypeEnum.binary] for t in variable_types):
             # all variables are integer or binary -> integer problem
             return VariableDomainTypeEnum.integer
@@ -1553,8 +1560,31 @@ class Problem(BaseModel):
             }
         )
 
-    @model_validator(mode="after")
+    def save_to_json(self, path: Path) -> None:
+        """Save the Problem model in JSON format to a file.
+
+        Args:
+            path (Path): path to the file the model should be saved to.
+
+        """
+        json_content = self.model_dump_json(indent=4)
+        path.write_text(json_content)
+
     @classmethod
+    def load_json(cls, path: Path) -> "Problem":
+        """Load a Problem model stored in a JSON file.
+
+        Args:
+            path (Path): path to file storing a Problem model in JSON format.
+
+        Returns:
+            Problem: the as defined in the data.
+        """
+        json_data = path.read_text()
+
+        return cls.model_validate_json(json_data)
+
+    @model_validator(mode="after")
     def set_is_twice_differentiable(cls, values):
         """If "is_twice_differentiable" is explicitly provided to the model, we set it to that value."""
         if "is_twice_differentiable" in values and values["is_twice_differentiable"] is not None:
@@ -1584,21 +1614,15 @@ class Problem(BaseModel):
         description="Name of the problem.",
     )
     """Name of the problem."""
-    description: str = Field(
-        description="Description of the problem.",
-    )
+    description: str = Field(description="Description of the problem.")
     """Description of the problem."""
     constants: list[Constant | TensorConstant] | None = Field(
         description="Optional list of the constants present in the problem.", default=None
     )
     """List of the constants present in the problem. Defaults to `None`."""
-    variables: list[Variable | TensorVariable] = Field(
-        description="List of variables present in the problem.",
-    )
+    variables: list[Variable | TensorVariable] = Field(description="List of variables present in the problem.")
     """List of variables present in the problem."""
-    objectives: list[Objective] = Field(
-        description="List of the objectives present in the problem.",
-    )
+    objectives: list[Objective] = Field(description="List of the objectives present in the problem.")
     """List of the objectives present in the problem."""
     constraints: list[Constraint] | None = Field(
         description="Optional list of constraints present in the problem.",

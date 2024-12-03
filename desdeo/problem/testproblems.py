@@ -4,6 +4,8 @@ Pre-defined problems for, e.g.,
 testing and illustration purposed are defined here.
 """
 
+from pathlib import Path
+
 import numpy as np
 import polars as pl
 
@@ -16,13 +18,12 @@ from desdeo.problem.schema import (
     Objective,
     ObjectiveTypeEnum,
     Problem,
+    Simulator,
     TensorConstant,
     TensorVariable,
     Variable,
     VariableTypeEnum,
 )
-
-from pathlib import Path
 
 
 def binh_and_korn(maximize: tuple[bool] = (False, False)) -> Problem:
@@ -103,6 +104,7 @@ def binh_and_korn(maximize: tuple[bool] = (False, False)) -> Problem:
         variables=[variable_1, variable_2],
         objectives=[objective_1, objective_2],
         constraints=[constraint_1, constraint_2],
+        is_twice_differentiable=True,
     )
 
 
@@ -346,7 +348,7 @@ def simple_test_problem() -> Problem:
 def zdt1(number_of_variables: int) -> Problem:
     r"""Defines the ZDT1 test problem.
 
-    The problem has a variable number of decision variables and two objective functions to be minimized as 
+    The problem has a variable number of decision variables and two objective functions to be minimized as
     follows:
 
     \begin{align*}
@@ -364,7 +366,7 @@ def zdt1(number_of_variables: int) -> Problem:
 
     # function f_1
     f1_symbol = "f_1"
-    f1_expr = "1 * x_1"
+    f1_expr = "x_1"
 
     # function g
     g_symbol = "g"
@@ -386,13 +388,25 @@ def zdt1(number_of_variables: int) -> Problem:
     ]
 
     objectives = [
-        Objective(name="f_1", symbol=f1_symbol, func=f1_expr, maximize=False, ideal=0, nadir=1),
-        Objective(name="f_2", symbol=f2_symbol, func=f2_expr, maximize=False, ideal=0, nadir=1),
+        Objective(name="f_1", symbol=f1_symbol, func=f1_expr, maximize=False, ideal=0, nadir=1,
+                  is_convex=True,
+                  is_linear=True,
+                  is_twice_differentiable=True),
+        Objective(name="f_2", symbol=f2_symbol, func=f2_expr, maximize=False, ideal=0, nadir=1,
+                  is_convex=True,
+                  is_linear=False,
+                  is_twice_differentiable=True),
     ]
 
     extras = [
-        ExtraFunction(name="g", symbol=g_symbol, func=g_expr),
-        ExtraFunction(name="h", symbol=h_symbol, func=h_expr),
+        ExtraFunction(name="g", symbol=g_symbol, func=g_expr,
+                      is_convex=True,
+                      is_linear=True,
+                      is_twice_differentiable=True),
+        ExtraFunction(name="h", symbol=h_symbol, func=h_expr,
+                      is_convex=True,
+                      is_linear=False,
+                      is_twice_differentiable=True),
     ]
 
     return Problem(
@@ -401,8 +415,166 @@ def zdt1(number_of_variables: int) -> Problem:
         variables=variables,
         objectives=objectives,
         extra_funcs=extras,
+        is_convex=True,
+        is_linear=False,
+        is_twice_differentiable=True
     )
 
+
+def zdt2(n_variables: int) -> Problem:
+    r"""Defines the ZDT2 test problem.
+
+    The problem has a variable number of decision variables and two objective functions to be minimized as
+    follows:
+
+    \begin{align*}
+        \min\quad f_1(\textbf{x}) &= x_1 \\
+        \min\quad f_2(\textbf{x}) &= g(\textbf{x}) \cdot h(f_1(\textbf{x}), g(\textbf{x}))\\
+        g(\textbf{x}) &= 1 + \frac{9}{n-1} \sum_{i=2}^{n} x_i \\
+        h(f_1, g) &= 1 - \left({\frac{f_1}{g}}\right)^2, \\
+    \end{align*}
+
+    where $f_1$ and $f_2$ are objective functions, $x_1,\dots,x_n$ are decision variable, $n$
+    is the number of decision variables,
+    and $g$ and $h$ are auxiliary functions.
+    """
+    n = n_variables
+
+    # function f_1
+    f1_symbol = "f_1"
+    f1_expr = "x_1"
+
+    # function g
+    g_symbol = "g"
+    g_expr_1 = f"1 + (9 / ({n} - 1))"
+    g_expr_2 = "(" + " + ".join([f"x_{i}" for i in range(2, n + 1)]) + ")"
+    g_expr = g_expr_1 + " * " + g_expr_2
+
+    # function h(f, g)
+    h_symbol = "h"
+    h_expr = f"1 - (({f1_expr}) / ({g_expr})) ** 2"
+
+    # function f_2
+    f2_symbol = "f_2"
+    f2_expr = f"{g_symbol} * {h_symbol}"
+
+    variables = [
+        Variable(name=f"x_{i}", symbol=f"x_{i}", variable_type="real", lowerbound=0, upperbound=1, initial_value=0.5)
+        for i in range(1, n + 1)
+    ]
+
+    objectives = [
+        Objective(name="f_1", symbol=f1_symbol, func=f1_expr, maximize=False, ideal=0, nadir=1,
+                  is_convex=True,
+                  is_linear=True,
+                  is_twice_differentiable=True
+                  ),
+        Objective(name="f_2", symbol=f2_symbol, func=f2_expr, maximize=False, ideal=0, nadir=1,
+                  is_convex=False,
+                  is_linear=False,
+                  is_twice_differentiable=True),
+    ]
+
+    extras = [
+        ExtraFunction(name="g", symbol=g_symbol, func=g_expr,
+                      is_convex=True,
+                      is_linear=True,
+                      is_twice_differentiable=True
+                      ),
+        ExtraFunction(name="h", symbol=h_symbol, func=h_expr,
+                      is_convex=False,
+                      is_linear=False,
+                      is_twice_differentiable=True
+                      ),
+    ]
+
+    return Problem(
+        name="zdt2",
+        description="The ZDT2 test problem.",
+        variables=variables,
+        objectives=objectives,
+        extra_funcs=extras,
+        is_convex=False,
+        is_linear=False,
+        is_twice_differentiable=True
+    )
+
+def zdt3(n_variables: int,) -> Problem:
+    r"""Defines the ZDT3 test problem.
+
+    The problem has a variable number of decision variables and two objective functions to be minimized as
+    follows:
+
+    \begin{align*}
+        \min\quad f_1(x) &= x_1 \\
+        \min\quad f_2(x) &= g(\textbf{x}) \cdot h(f_1(\textbf{x}), g(\textbf{x}))\\
+        g(\textbf{x}) &= 1 + \frac{9}{n-1} \sum_{i=2}^{n} x_i \\
+         h(f_1, g) &= 1 - \sqrt{\frac{f_1}{g}} - \frac{f_1}{g} \sin(10\pi f_1)), \\
+    \end{align*}
+
+    where $f_2$ and $f_2$ are objective functions, $x_1,\dots,x_n$ are decision variable, $n$
+    is the number of decision variables,
+    and $g$ and $h$ are auxiliary functions.
+    """
+    n = n_variables
+
+    # function f_1
+    f1_symbol = "f_1"
+    f1_expr = "x_1"
+
+    # function g
+    g_symbol = "g"
+    g_expr_1 = f"1 + (9 / ({n} - 1))"
+    g_expr_2 = "(" + " + ".join([f"x_{i}" for i in range(2, n + 1)]) + ")"
+    g_expr = g_expr_1 + " * " + g_expr_2
+
+    # function h(f, g)
+    h_symbol = "h"
+    h_expr = f"1 - Sqrt(({f1_expr}) / ({g_expr})) - (({f1_expr}) / ({g_expr})) * Sin (10 * {np.pi} * {f1_expr}) "
+
+    # function f_2
+    f2_symbol = "f_2"
+    f2_expr = f"{g_symbol} * {h_symbol}"
+
+    variables = [
+        Variable(name=f"x_{i}", symbol=f"x_{i}", variable_type="real", lowerbound=0, upperbound=1, initial_value=0.5)
+        for i in range(1, n + 1)
+    ]
+
+    objectives = [
+        Objective(name="f_1", symbol=f1_symbol, func=f1_expr, maximize=False, ideal=0, nadir=1,
+                  is_convex=True,
+                  is_linear=True,
+                  is_twice_differentiable=True),
+        Objective(name="f_2", symbol=f2_symbol, func=f2_expr, maximize=False, ideal=-1, nadir=1,
+                  is_convex=False,
+                  is_linear=False,
+                  is_twice_differentiable=True),
+    ]
+
+    extras = [
+        ExtraFunction(name="g", symbol=g_symbol, func=g_expr,
+                      is_convex=True,
+                      is_linear=True,
+                      is_twice_differentiable=True
+                      ),
+        ExtraFunction(name="h", symbol=h_symbol, func=h_expr,
+                      is_convex=False,
+                      is_linear=False,
+                      is_twice_differentiable=True
+                      ),
+    ]
+
+    return Problem(
+        name="zdt3",
+        description="The ZDT3 test problem.",
+        variables=variables,
+        objectives=objectives,
+        extra_funcs=extras,
+        is_convex=False,
+        is_linear=False,
+        is_twice_differentiable=True
+    )
 
 def simple_data_problem() -> Problem:
     """Defines a simple problem with only data-based objective functions."""
@@ -2154,7 +2326,7 @@ def spanish_sustainability_problem():
     n_variables = len(variable_names)
 
     # Define constants
-    ## For the social indicator
+    # For the social indicator
     social_linear = TensorConstant(
         name="Linear coefficients for the social indicator",
         symbol="beta_social",
@@ -2187,7 +2359,7 @@ def spanish_sustainability_problem():
         name="Constant coefficient for the social indicator", symbol="cte_social", value=social_cte_value
     )
 
-    ## For the economical indicator
+    # For the economical indicator
     economical_linear = TensorConstant(
         name="Linear coefficients for the economical indicator",
         symbol="beta_economical",
@@ -2220,7 +2392,7 @@ def spanish_sustainability_problem():
         name="Constant coefficient for the economical indicator", symbol="cte_economical", value=economical_cte_value
     )
 
-    ## For the environmental indicator
+    # For the environmental indicator
     enviro_linear = TensorConstant(
         name="Linear coefficients for the environmental indicator",
         symbol="beta_enviro",
@@ -2285,7 +2457,7 @@ def spanish_sustainability_problem():
     variables = [x]
 
     # Define objective functions
-    ## Social
+    # Social
     f1_expr = "cte_social + X @ beta_social + (X**2) @ gamma_social + (X**3) @ delta_social + Ln(X) @ omega_social"
 
     f1 = Objective(
@@ -2301,7 +2473,7 @@ def spanish_sustainability_problem():
         is_twice_differentiable=True,
     )
 
-    ## economical
+    # economical
     f2_expr = (
         "cte_economical + beta_economical @ X + gamma_economical @ (X**2) + delta_economical @ (X**3) "
         "+ omega_economical @ Ln(X)"
@@ -2320,7 +2492,7 @@ def spanish_sustainability_problem():
         is_twice_differentiable=True,
     )
 
-    ## Environmental
+    # Environmental
     f3_expr = "cte_enviro + beta_enviro @ X + gamma_enviro @ (X**2) + delta_enviro @ (X**3) " "+ omega_enviro @ Ln(X)"
 
     f3 = Objective(
@@ -2934,4 +3106,302 @@ def forest_problem_discrete() -> Problem:
         variables=variables,
         objectives=objectives,
         discrete_representation=discrete_def,
+    )
+
+
+def simulator_problem(file_dir: str | Path):
+    """A test problem with analytical, simulator and surrogate based objectives, constraints and extra functions.
+
+    The problem uses two different simulator files. There are also objectives, constraints and extra fucntions that
+    are surrogate based but it is assumed that the surrogate models are given when evaluating (while testing they
+    are stored as temporary directories and files by pytest). There are also analytical functions to test utilizing
+    PolarsEvaluator from the simulator evaluator.
+
+    Args:
+        file_dir (str | Path): path to the directory with the simulator files.
+    """
+    variables = [
+        Variable(name="x_1", symbol="x_1", variable_type=VariableTypeEnum.real),
+        Variable(name="x_2", symbol="x_2", variable_type=VariableTypeEnum.real),
+        Variable(name="x_3", symbol="x_3", variable_type=VariableTypeEnum.real),
+        Variable(name="x_4", symbol="x_4", variable_type=VariableTypeEnum.real),
+        Variable(name="x_5", symbol="x_5", variable_type=VariableTypeEnum.real),
+    ]
+    f1 = Objective(
+        name="f_1",
+        symbol="f_1",
+        simulator_path=Path(f"{file_dir}/simulator_file.py"),
+        objective_type=ObjectiveTypeEnum.simulator,
+    )
+    f2 = Objective(
+        name="f_2", symbol="f_2", func="x_1 + x_2 + x_3", maximize=True, objective_type=ObjectiveTypeEnum.analytical
+    )
+    f3 = Objective(
+        name="f_3",
+        symbol="f_3",
+        maximize=True,
+        simulator_path=f"{file_dir}/simulator_file2.py",
+        objective_type=ObjectiveTypeEnum.simulator,
+    )
+    f4 = Objective(
+        name="f_4",
+        symbol="f_4",
+        simulator_path=f"{file_dir}/simulator_file.py",
+        objective_type=ObjectiveTypeEnum.simulator,
+    )
+    f5 = Objective(name="f_5", symbol="f_5", objective_type=ObjectiveTypeEnum.surrogate)
+    f6 = Objective(name="f_6", symbol="f_6", objective_type=ObjectiveTypeEnum.surrogate)
+    g1 = Constraint(
+        name="g_1",
+        symbol="g_1",
+        cons_type=ConstraintTypeEnum.LTE,
+        simulator_path=f"{file_dir}/simulator_file2.py",
+    )
+    g2 = Constraint(
+        name="g_2",
+        symbol="g_2",
+        cons_type=ConstraintTypeEnum.LTE,
+        func="-x_1 - x_2 - x_3",
+    )
+    g3 = Constraint(
+        name="g_3",
+        symbol="g_3",
+        cons_type=ConstraintTypeEnum.LTE,
+    )
+    e1 = ExtraFunction(name="e_1", symbol="e_1", simulator_path=f"{file_dir}/simulator_file.py")
+    e2 = ExtraFunction(name="e_2", symbol="e_2", func="x_1 * x_2 * x_3")
+    e3 = ExtraFunction(
+        name="e_3",
+        symbol="e_3",
+    )
+    return Problem(
+        name="Simulator problem",
+        description="",
+        variables=variables,
+        objectives=[f1, f2, f3, f4, f5, f6],
+        constraints=[g1, g2, g3],
+        extra_funcs=[e1, e2, e3],
+        simulators=[
+            Simulator(
+                name="s_1", symbol="s_1", file=Path(f"{file_dir}/simulator_file.py"), parameter_options={"delta": 0.5}
+            ),
+            Simulator(name="s_2", symbol="s_2", file=Path(f"{file_dir}/simulator_file2.py")),
+        ],
+    )
+
+
+def river_pollution_scenario() -> Problem:
+    r"""Defines the scenario-based uncertain variant of the river pollution problem.
+
+    The river pollution problem considers a river close to a city.
+    There are two sources of pollution: industrial pollution from a
+    fishery and municipal waste from the city. Two treatment plants
+    (in the fishery and the city) are responsible for managing the pollution.
+    Pollution is reported in pounds of biochemical oxygen demanding material (BOD),
+    and water quality is measured in dissolved oxygen concentration (DO).
+
+    Cleaning water in the city increases the tax rate, and cleaning in the
+    fishery reduces the return on investment. The problem is to improve
+    the DO level in the city and at the municipality border (`f1` and `f2`, respectively),
+    while, at the same time, maximizing the percent return on investment at the fishery (`f3`)
+    and minimizing additions to the city tax (`f4`).
+
+    Decision variables are:
+
+    * `x1`: The proportional amount of BOD removed from water after the fishery (treatment plant 1).
+    * `x2`: The proportional amount of BOD removed from water after the city (treatment plant 2).
+
+    The original problem considered specific values for all parameters. However, in this formulation,
+    some parameters are deeply uncertain, and only a range of plausible values is known for each.
+    These deeply uncertain parameters are as follows:
+
+    * `α ∈ [3, 4.24]`: Water quality index after the fishery.
+    * `β ∈ [2.25, 2.4]`: BOD reduction rate at treatment plant 1 (after the fishery).
+    * `δ ∈ [0.075, 0.092]`: BOD reduction rate at treatment plant 2 (after the city).
+    * `ξ ∈ [0.067, 0.083]`: Effective rate of BOD reduction at treatment plant 1 after the city.
+    * `η ∈ [1.2, 1.50]`: Parameter used to calculate the effective BOD reduction rate at the second treatment plant.
+    * `r ∈ [5.1, 12.5]`: Investment return rate.
+
+    The uncertain version of the river problem is formulated as follows:
+
+    $$ 
+    \\begin{equation}
+    \\begin{array}{rll}
+    \\text{maximize}   & f_1(\\mathbf{x}) = & \\alpha + \\left(\\log\\left(\\left(\\frac{\\beta}{2} - 1.14\\right)^2\\right) + \\beta^3\\right) x_1 \\\\
+    \\text{maximize}   & f_2(\\mathbf{x}) = & \\gamma + \\delta x_1 + \\xi x_2 + \\frac{0.01}{\\eta - x_1^2} + \\frac{0.30}{\\eta - x_2^2} \\\\
+    \\text{maximize}   & f_3(\\mathbf{x}) = & r - \\frac{0.71}{1.09 - x_1^2} \\\\
+    \\text{minimize}   & f_4(\\mathbf{x}) = & -0.96 + \\frac{0.96}{1.09 - x_2^2} \\\\
+    \\text{subject to} & & 0.3 \\leq x_1, x_2 \\leq 1.0.
+    \\end{array}
+    \\end{equation}
+    $$
+
+    where $\\gamma = \\log\\left(\\frac{\\alpha}{2} - 1\\right) + \\frac{\\alpha}{2} + 1.5$.
+
+    Returns:
+        Problem: the scenario-based river pollution problem.
+
+    References:
+        Narula, Subhash C., and HRoland Weistroffer. "A flexible method for
+            nonlinear multicriteria decision-making problems." IEEE Transactions on
+            Systems, Man, and Cybernetics 19.4 (1989): 883-887.
+
+        Miettinen, Kaisa, and Marko M. Mäkelä. "Interactive method NIMBUS for
+            nondifferentiable multiobjective optimization problems." Multicriteria
+            Analysis: Proceedings of the XIth International Conference on MCDM, 1-6
+            August 1994, Coimbra, Portugal. Berlin, Heidelberg: Springer Berlin
+            Heidelberg, 1997.
+    """
+    num_scenarios = 6
+    scenario_key_stub = "scenario"
+
+    # defining scenario parameters
+    alpha_values = [4.070, 3.868, 3.620, 3.372, 3.124, 4.116]
+    beta_values = [2.270, 2.262, 2.278, 2.254, 2.270, 2.286]
+    delta_values = [0.0800, 0.0869, 0.0835, 0.0903, 0.0801, 0.0767]
+    xi_values = [0.0750, 0.0782, 0.0750, 0.0814, 0.0686, 0.0718]
+    eta_values = [1.39, 1.47, 1.23, 1.35, 1.29, 1.41]
+    r_values = [8.21, 10.28, 5.84, 11.76, 7.32, 8.80]
+
+    # each scenario parameter is defined as its own tensor constant
+    alpha_constant = TensorConstant(
+        name="Water quality index after fishery", symbol="alpha", shape=[num_scenarios], values=alpha_values
+    )
+    beta_constant = TensorConstant(
+        name="BOD reduction rate at treatment plant 1 (after the fishery)",
+        symbol="beta",
+        shape=[num_scenarios],
+        values=beta_values,
+    )
+    delta_constant = TensorConstant(
+        name="BOD reduction rate at treatment plant 2 (after the city)",
+        symbol="delta",
+        shape=[num_scenarios],
+        values=delta_values,
+    )
+    xi_constant = TensorConstant(
+        name="The effective rate of BOD reduction at treatment plant 1 (after the city)",
+        symbol="xi",
+        shape=[num_scenarios],
+        values=xi_values,
+    )
+    eta_constant = TensorConstant(
+        name="The effective rate of BOD reduction rate at plant 2 (after the fishery)",
+        symbol="eta",
+        shape=[num_scenarios],
+        values=eta_values,
+    )
+    r_constant = TensorConstant(
+        name="Investment return rate",
+        symbol="r",
+        shape=[num_scenarios],
+        values=r_values,
+    )
+
+    constants = [alpha_constant, beta_constant, delta_constant, xi_constant, eta_constant, r_constant]
+
+    # define variables
+    x1 = Variable(
+        name="BOD removed after fishery",
+        symbol="x_1",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=0.3,
+        upperbound=1.0,
+    )
+
+    x2 = Variable(
+        name="BOD removed after city",
+        symbol="x_2",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=0.3,
+        upperbound=1.0,
+    )
+
+    variables = [x1, x2]
+
+    # define objectives for each scenario
+    objectives = []
+    scenario_keys = []
+
+    for i in range(num_scenarios):
+        scenario_key = f"{scenario_key_stub}_{i+1}"
+        scenario_keys.append(scenario_key)
+
+        gamma_expr = f"Ln(alpha[{i+1}]/2 - 1) + alpha[{i+1}]/2 + 1.5"
+
+        f1_expr = f"alpha[{i+1}] + (Ln((beta[{i+1}]/2 - 1.14)**2) + beta[{i+1}]**3)*x_1"
+        f2_expr = (
+            f"{gamma_expr} + delta[{i+1}]*x_1 + xi[{i+1}]*x_2 + 0.01/(eta[{i+1}] - x_1**2) + 0.3/(eta[{i+1}] - x_2**2)"
+        )
+        f3_expr = f"r[{i+1}]  - 0.71/(1.09 - x_1**2)"
+
+        # f1
+        objectives.append(
+            Objective(
+                name="DO level city",
+                symbol=f"f1_{i+1}",
+                scenario_keys=[scenario_key],
+                func=f1_expr,
+                objective_type=ObjectiveTypeEnum.analytical,
+                maximize=True,
+                is_linear=False,
+                is_convex=False,
+                is_twice_differentiable=True,
+            )
+        )
+
+        # f2
+        objectives.append(
+            Objective(
+                name="DO level fishery",
+                symbol=f"f2_{i+1}",
+                scenario_keys=[scenario_key],
+                func=f2_expr,
+                objective_type=ObjectiveTypeEnum.analytical,
+                maximize=True,
+                is_linear=False,
+                is_convex=False,
+                is_twice_differentiable=True,
+            )
+        )
+
+        # f3
+        objectives.append(
+            Objective(
+                name="Return of investment",
+                symbol=f"f3_{i+1}",
+                scenario_keys=[scenario_key],
+                func=f3_expr,
+                objective_type=ObjectiveTypeEnum.analytical,
+                maximize=True,
+                is_linear=False,
+                is_convex=False,
+                is_twice_differentiable=True,
+            )
+        )
+
+    f4_expr = "-0.96 + 0.96/(1.09 - x_2**2)"
+
+    # f4, by setting the scenario_key to None, the objective function is assumed to be part of all the scenarios.
+    objectives.append(
+        Objective(
+            name="Addition to city tax",
+            symbol="f4",
+            scenario_keys=None,
+            func=f4_expr,
+            objective_type=ObjectiveTypeEnum.analytical,
+            maximize=False,
+            is_linear=False,
+            is_convex=False,
+            is_twice_differentiable=True,
+        )
+    )
+
+    return Problem(
+        name="Scenario-based river pollution problem",
+        description="The scenario-based river pollution problem",
+        constants=constants,
+        variables=variables,
+        objectives=objectives,
+        scenario_keys=scenario_keys,
     )

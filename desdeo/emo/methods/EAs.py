@@ -20,6 +20,7 @@ def rvea(
     seed: int = 0,
     n_generations=100,
     reference_vector_options: ReferenceVectorOptions = None,
+    forced_verbosity: int | None = None,
 ) -> tuple[Callable[[], EMOResult], Publisher]:
     """Implements the Reference Vector Guided Evolutionary Algorithm (RVEA), as well as its interactive version.
 
@@ -40,6 +41,8 @@ def rvea(
         reference_vector_options (ReferenceVectorOptions, optional): The options for the reference vectors. Defaults to
             None. See the ReferenceVectorOptions class for the defaults. This option can be used to run an interactive
             version of the algorithm, using preferences provided by the user.
+        forced_verbosity (int, optional): If not None, the verbosity of the algorithm is forced to this value. Defaults
+            to None.
 
     Returns:
         tuple[Callable[[], EMOResult], Publisher]: A tuple containing the function to run the algorithm and the
@@ -50,13 +53,14 @@ def rvea(
     evaluator = EMOEvaluator(
         problem=problem,
         publisher=publisher,
+        verbosity=forced_verbosity if forced_verbosity is not None else 2,
     )
 
     selector = RVEASelector(
         problem=problem,
         publisher=publisher,
         reference_vector_options=reference_vector_options,
-        verbosity=2,
+        verbosity=forced_verbosity if forced_verbosity is not None else 2,
     )
 
     # Note that the initial population size is equal to the number of reference vectors
@@ -68,16 +72,19 @@ def rvea(
         publisher=publisher,
         n_points=n_points,
         seed=seed,
+        verbosity=forced_verbosity if forced_verbosity is not None else 1,
     )
     crossover = SimulatedBinaryCrossover(
         problem=problem,
         publisher=publisher,
         seed=seed,
+        verbosity=forced_verbosity if forced_verbosity is not None else 1,
     )
     mutation = BoundedPolynomialMutation(
         problem=problem,
         publisher=publisher,
         seed=seed,
+        verbosity=forced_verbosity if forced_verbosity is not None else 1,
     )
 
     terminator = MaxGenerationsTerminator(n_generations, publisher=publisher)
@@ -101,7 +108,12 @@ def rvea(
 
 
 def nsga3(
-    problem: Problem, seed: int = 0, n_generations: int = 100, reference_vector_options: ReferenceVectorOptions = None
+    *,
+    problem: Problem,
+    seed: int = 0,
+    n_generations: int = 100,
+    reference_vector_options: ReferenceVectorOptions = None,
+    forced_verbosity: int | None = None,
 ) -> tuple[Callable[[], EMOResult], Publisher]:
     """Implements the NSGA-III algorithm as well as its interactive version.
 
@@ -121,6 +133,8 @@ def nsga3(
         reference_vector_options (ReferenceVectorOptions, optional): The options for the reference vectors. Defaults to
             None. See the ReferenceVectorOptions class for the defaults. This option can be used to run an interactive
             version of the algorithm, using preferences provided by the user.
+        forced_verbosity (int, optional): If not None, the verbosity of the algorithm is forced to this value. Defaults
+            to None.
 
     Returns:
         tuple[Callable[[], EMOResult], Publisher]: A tuple containing the function to run the algorithm and the
@@ -131,12 +145,14 @@ def nsga3(
     evaluator = EMOEvaluator(
         problem=problem,
         publisher=publisher,
+        verbosity=forced_verbosity if forced_verbosity is not None else 2,
     )
 
     selector = NSGAIII_select(
         problem=problem,
         publisher=publisher,
-        verbosity=2,
+        verbosity=forced_verbosity if forced_verbosity is not None else 2,
+        reference_vector_options=reference_vector_options,
     )
 
     # Note that the initial population size is equal to the number of reference vectors
@@ -148,19 +164,25 @@ def nsga3(
         publisher=publisher,
         n_points=n_points,
         seed=seed,
+        verbosity=forced_verbosity if forced_verbosity is not None else 1,
     )
     crossover = SimulatedBinaryCrossover(
         problem=problem,
         publisher=publisher,
         seed=seed,
+        verbosity=forced_verbosity if forced_verbosity is not None else 1,
     )
     mutation = BoundedPolynomialMutation(
         problem=problem,
         publisher=publisher,
         seed=seed,
+        verbosity=forced_verbosity if forced_verbosity is not None else 1,
     )
 
-    terminator = MaxGenerationsTerminator(n_generations, publisher=publisher)
+    terminator = MaxGenerationsTerminator(
+        n_generations,
+        publisher=publisher,
+    )
 
     components = [evaluator, generator, crossover, mutation, selector, terminator]
     [publisher.auto_subscribe(x) for x in components]
