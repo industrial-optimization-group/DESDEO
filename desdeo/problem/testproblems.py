@@ -345,6 +345,68 @@ def simple_test_problem() -> Problem:
     )
 
 
+def simple_integer_test_problem() -> Problem:
+    """Defines a simple integer problem suitable for testing purposes."""
+    variables = [
+        Variable(
+            name="x_1",
+            symbol="x_1",
+            variable_type=VariableTypeEnum.integer,
+            lowerbound=0,
+            upperbound=10,
+            initial_value=5,
+        ),
+        Variable(
+            name="x_2",
+            symbol="x_2",
+            variable_type=VariableTypeEnum.integer,
+            lowerbound=0,
+            upperbound=10,
+            initial_value=5,
+        ),
+        Variable(
+            name="x_3",
+            symbol="x_3",
+            variable_type=VariableTypeEnum.integer,
+            lowerbound=0,
+            upperbound=10,
+            initial_value=5,
+        ),
+        Variable(
+            name="x_4",
+            symbol="x_4",
+            variable_type=VariableTypeEnum.integer,
+            lowerbound=0,
+            upperbound=10,
+            initial_value=5,
+        ),
+    ]
+
+    constants = [Constant(name="c", symbol="c", value=4.2)]
+
+    f_1 = "x_1 + x_2 + x_3"
+    f_2 = "x_2**x_4 - x_3**x_1"
+    f_3 = "x_1 - x_2 + x_3*x_4"
+    f_4 = "Max(Abs(x_1 - x_2), c) + Max(x_3, x_4)"  # c = 4.2
+    f_5 = "(-x_1) * (-x_2)"
+
+    objectives = [
+        Objective(name="f_1", symbol="f_1", func=f_1, maximize=False),  # min!
+        Objective(name="f_2", symbol="f_2", func=f_2, maximize=True),  # max!
+        Objective(name="f_3", symbol="f_3", func=f_3, maximize=True),  # max!
+        Objective(name="f_4", symbol="f_4", func=f_4, maximize=False),  # min!
+        Objective(name="f_5", symbol="f_5", func=f_5, maximize=True),  # max!
+    ]
+
+    return Problem(
+        name="Simple integer test problem.",
+        description="A simple problem for testing purposes.",
+        constants=constants,
+        variables=variables,
+        objectives=objectives,
+    )
+
+
 def zdt1(number_of_variables: int) -> Problem:
     r"""Defines the ZDT1 test problem.
 
@@ -388,25 +450,37 @@ def zdt1(number_of_variables: int) -> Problem:
     ]
 
     objectives = [
-        Objective(name="f_1", symbol=f1_symbol, func=f1_expr, maximize=False, ideal=0, nadir=1,
-                  is_convex=True,
-                  is_linear=True,
-                  is_twice_differentiable=True),
-        Objective(name="f_2", symbol=f2_symbol, func=f2_expr, maximize=False, ideal=0, nadir=1,
-                  is_convex=True,
-                  is_linear=False,
-                  is_twice_differentiable=True),
+        Objective(
+            name="f_1",
+            symbol=f1_symbol,
+            func=f1_expr,
+            maximize=False,
+            ideal=0,
+            nadir=1,
+            is_convex=True,
+            is_linear=True,
+            is_twice_differentiable=True,
+        ),
+        Objective(
+            name="f_2",
+            symbol=f2_symbol,
+            func=f2_expr,
+            maximize=False,
+            ideal=0,
+            nadir=1,
+            is_convex=True,
+            is_linear=False,
+            is_twice_differentiable=True,
+        ),
     ]
 
     extras = [
-        ExtraFunction(name="g", symbol=g_symbol, func=g_expr,
-                      is_convex=True,
-                      is_linear=True,
-                      is_twice_differentiable=True),
-        ExtraFunction(name="h", symbol=h_symbol, func=h_expr,
-                      is_convex=True,
-                      is_linear=False,
-                      is_twice_differentiable=True),
+        ExtraFunction(
+            name="g", symbol=g_symbol, func=g_expr, is_convex=True, is_linear=True, is_twice_differentiable=True
+        ),
+        ExtraFunction(
+            name="h", symbol=h_symbol, func=h_expr, is_convex=True, is_linear=False, is_twice_differentiable=True
+        ),
     ]
 
     return Problem(
@@ -417,7 +491,7 @@ def zdt1(number_of_variables: int) -> Problem:
         extra_funcs=extras,
         is_convex=True,
         is_linear=False,
-        is_twice_differentiable=True
+        is_twice_differentiable=True,
     )
 
 
@@ -464,28 +538,37 @@ def zdt2(n_variables: int) -> Problem:
     ]
 
     objectives = [
-        Objective(name="f_1", symbol=f1_symbol, func=f1_expr, maximize=False, ideal=0, nadir=1,
-                  is_convex=True,
-                  is_linear=True,
-                  is_twice_differentiable=True
-                  ),
-        Objective(name="f_2", symbol=f2_symbol, func=f2_expr, maximize=False, ideal=0, nadir=1,
-                  is_convex=False,
-                  is_linear=False,
-                  is_twice_differentiable=True),
+        Objective(
+            name="f_1",
+            symbol=f1_symbol,
+            func=f1_expr,
+            maximize=False,
+            ideal=0,
+            nadir=1,
+            is_convex=True,
+            is_linear=True,
+            is_twice_differentiable=True,
+        ),
+        Objective(
+            name="f_2",
+            symbol=f2_symbol,
+            func=f2_expr,
+            maximize=False,
+            ideal=0,
+            nadir=1,
+            is_convex=False,
+            is_linear=False,
+            is_twice_differentiable=True,
+        ),
     ]
 
     extras = [
-        ExtraFunction(name="g", symbol=g_symbol, func=g_expr,
-                      is_convex=True,
-                      is_linear=True,
-                      is_twice_differentiable=True
-                      ),
-        ExtraFunction(name="h", symbol=h_symbol, func=h_expr,
-                      is_convex=False,
-                      is_linear=False,
-                      is_twice_differentiable=True
-                      ),
+        ExtraFunction(
+            name="g", symbol=g_symbol, func=g_expr, is_convex=True, is_linear=True, is_twice_differentiable=True
+        ),
+        ExtraFunction(
+            name="h", symbol=h_symbol, func=h_expr, is_convex=False, is_linear=False, is_twice_differentiable=True
+        ),
     ]
 
     return Problem(
@@ -496,10 +579,13 @@ def zdt2(n_variables: int) -> Problem:
         extra_funcs=extras,
         is_convex=False,
         is_linear=False,
-        is_twice_differentiable=True
+        is_twice_differentiable=True,
     )
 
-def zdt3(n_variables: int,) -> Problem:
+
+def zdt3(
+    n_variables: int,
+) -> Problem:
     r"""Defines the ZDT3 test problem.
 
     The problem has a variable number of decision variables and two objective functions to be minimized as
@@ -542,27 +628,37 @@ def zdt3(n_variables: int,) -> Problem:
     ]
 
     objectives = [
-        Objective(name="f_1", symbol=f1_symbol, func=f1_expr, maximize=False, ideal=0, nadir=1,
-                  is_convex=True,
-                  is_linear=True,
-                  is_twice_differentiable=True),
-        Objective(name="f_2", symbol=f2_symbol, func=f2_expr, maximize=False, ideal=-1, nadir=1,
-                  is_convex=False,
-                  is_linear=False,
-                  is_twice_differentiable=True),
+        Objective(
+            name="f_1",
+            symbol=f1_symbol,
+            func=f1_expr,
+            maximize=False,
+            ideal=0,
+            nadir=1,
+            is_convex=True,
+            is_linear=True,
+            is_twice_differentiable=True,
+        ),
+        Objective(
+            name="f_2",
+            symbol=f2_symbol,
+            func=f2_expr,
+            maximize=False,
+            ideal=-1,
+            nadir=1,
+            is_convex=False,
+            is_linear=False,
+            is_twice_differentiable=True,
+        ),
     ]
 
     extras = [
-        ExtraFunction(name="g", symbol=g_symbol, func=g_expr,
-                      is_convex=True,
-                      is_linear=True,
-                      is_twice_differentiable=True
-                      ),
-        ExtraFunction(name="h", symbol=h_symbol, func=h_expr,
-                      is_convex=False,
-                      is_linear=False,
-                      is_twice_differentiable=True
-                      ),
+        ExtraFunction(
+            name="g", symbol=g_symbol, func=g_expr, is_convex=True, is_linear=True, is_twice_differentiable=True
+        ),
+        ExtraFunction(
+            name="h", symbol=h_symbol, func=h_expr, is_convex=False, is_linear=False, is_twice_differentiable=True
+        ),
     ]
 
     return Problem(
@@ -573,8 +669,9 @@ def zdt3(n_variables: int,) -> Problem:
         extra_funcs=extras,
         is_convex=False,
         is_linear=False,
-        is_twice_differentiable=True
+        is_twice_differentiable=True,
     )
+
 
 def simple_data_problem() -> Problem:
     """Defines a simple problem with only data-based objective functions."""

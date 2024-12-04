@@ -10,13 +10,33 @@ import pytest
 from desdeo.emo.hooks.archivers import Archive, FeasibleArchive, NonDominatedArchive
 from desdeo.emo.methods.bases import template1
 from desdeo.emo.methods.EAs import nsga3, rvea
-from desdeo.emo.operators.crossover import SimulatedBinaryCrossover, SinglePointBinaryCrossover
+from desdeo.emo.operators.crossover import (
+    SimulatedBinaryCrossover,
+    SinglePointBinaryCrossover,
+    UniformIntegerCrossover,
+)
 from desdeo.emo.operators.evaluator import EMOEvaluator
-from desdeo.emo.operators.generator import LHSGenerator, RandomBinaryGenerator, RandomGenerator
-from desdeo.emo.operators.mutation import BinaryFlipMutation, BoundedPolynomialMutation
-from desdeo.emo.operators.selection import ParameterAdaptationStrategy, ReferenceVectorOptions, RVEASelector
+from desdeo.emo.operators.generator import (
+    LHSGenerator,
+    RandomBinaryGenerator,
+    RandomGenerator,
+)
+from desdeo.emo.operators.mutation import (
+    BinaryFlipMutation,
+    BoundedPolynomialMutation,
+)
+from desdeo.emo.operators.selection import (
+    ParameterAdaptationStrategy,
+    ReferenceVectorOptions,
+    RVEASelector,
+)
 from desdeo.emo.operators.termination import MaxEvaluationsTerminator
-from desdeo.problem.testproblems import dtlz2, simple_knapsack, simple_knapsack_vectors
+from desdeo.problem.testproblems import (
+    dtlz2,
+    simple_integer_test_problem,
+    simple_knapsack,
+    simple_knapsack_vectors,
+)
 from desdeo.tools.patterns import Publisher, Subscriber
 
 
@@ -329,3 +349,38 @@ def test_binary_generation():
         n_points,
         2 + 2 + 1 + 3,
     )  # two objectives (and targets), one constraint, and three constants?
+
+
+@pytest.mark.ea
+def test_uniform_integer_crossover():
+    """Test whether the uniform integer crossover operator works as intended."""
+    publisher = Publisher()
+
+    problem = simple_integer_test_problem()
+
+    crossover = UniformIntegerCrossover(problem=problem, publisher=publisher, seed=1)
+    num_vars = len(crossover.variable_symbols)
+
+    population = pl.DataFrame(
+        crossover.rng.integers(problem.variables[0].lowerbound, problem.variables[0].upperbound, (10, num_vars)),
+        schema=crossover.variable_symbols,
+    )
+
+    to_mate = [0, 9, 1, 8, 2, 7, 3, 6, 4]
+
+    result = crossover.do(population=population, to_mate=to_mate)
+
+    assert result.shape == (len(to_mate), num_vars)
+
+    with npt.assert_raises(AssertionError):
+        npt.assert_allclose(population, result)
+
+    # test with no to_mate
+    result = crossover.do(
+        population=population,
+    )
+
+    assert result.shape == (len(population), num_vars)
+
+    with npt.assert_raises(AssertionError):
+        npt.assert_allclose(population, result)
