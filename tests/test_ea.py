@@ -447,3 +447,63 @@ def test_random_integer_generation():
 
     assert population.shape == (n_points, len(problem.get_flattened_variables()))
     assert outputs.shape == (n_points, 2 * 5)  # 5 objectives, both min and max
+
+
+@pytest.mark.ea
+def test_template_integer():
+    """Test whether creating an EA from components and a template works for integer problems."""
+    problem = simple_integer_test_problem()
+    publisher = Publisher()
+
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=2)
+
+    generator = RandomIntegerGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0, verbosity=2
+    )
+
+    crossover = UniformIntegerCrossover(problem=problem, publisher=publisher, seed=0)
+    mutation = IntegerRandomMutation(problem=problem, publisher=publisher, seed=0)
+
+    selector = RVEASelector(
+        problem=problem,
+        publisher=publisher,
+        parameter_adaptation_strategy=ParameterAdaptationStrategy.FUNCTION_EVALUATION_BASED,
+        reference_vector_options=ReferenceVectorOptions(number_of_vectors=20),
+    )
+
+    terminator = MaxEvaluationsTerminator(max_evaluations=100, publisher=publisher)
+
+    non_dom_archive = NonDominatedArchive(problem=problem, publisher=publisher)
+    archive = Archive(problem=problem, publisher=publisher)
+
+    components: list[Subscriber] = [
+        evaluator,
+        generator,
+        crossover,
+        mutation,
+        selector,
+        terminator,
+        non_dom_archive,
+        archive,
+    ]
+
+    [publisher.auto_subscribe(component) for component in components]
+    [
+        publisher.register_topics(
+            topics=component.provided_topics[component.verbosity], source=component.__class__.__name__
+        )
+        for component in components
+    ]
+
+    assert isinstance(publisher.check_consistency(), bool) and publisher.check_consistency()
+
+    results = template1(
+        evaluator=evaluator,
+        generator=generator,
+        crossover=crossover,
+        mutation=mutation,
+        selection=selector,
+        terminator=terminator,
+    )
+
+    assert results is not None

@@ -283,9 +283,8 @@ class RandomIntegerGenerator(BaseGenerator):
                 low=self.bounds[:, 0],
                 high=self.bounds[:, 1],
                 size=(self.n_points, self.bounds.shape[0]),
-                dtype=int,
                 endpoint=True,
-            ),
+            ).astype(dtype=float),
             schema=self.variable_symbols,
         )
 
