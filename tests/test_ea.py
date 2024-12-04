@@ -24,6 +24,7 @@ from desdeo.emo.operators.generator import (
 from desdeo.emo.operators.mutation import (
     BinaryFlipMutation,
     BoundedPolynomialMutation,
+    IntegerRandomMutation,
 )
 from desdeo.emo.operators.selection import (
     ParameterAdaptationStrategy,
@@ -384,3 +385,41 @@ def test_uniform_integer_crossover():
 
     with npt.assert_raises(AssertionError):
         npt.assert_allclose(population, result)
+
+
+@pytest.mark.ea
+def test_integer_random_mutation():
+    """Test whether the integer random mutation operator works as intended."""
+    publisher = Publisher()
+
+    problem = simple_integer_test_problem()
+
+    # default mutation probability
+    mutation = IntegerRandomMutation(problem=problem, publisher=publisher, seed=0)
+    num_vars = len(mutation.variable_symbols)
+
+    population = pl.DataFrame(
+        mutation.rng.integers(0, 10, size=(10, num_vars), endpoint=True),
+        schema=mutation.variable_symbols,
+    )
+
+    result = mutation.do(offsprings=population, parents=population)
+
+    assert result.shape == population.shape
+
+    with npt.assert_raises(AssertionError):
+        npt.assert_allclose(population, result)
+
+    # zero mutation probability
+    mutation = IntegerRandomMutation(problem=problem, publisher=publisher, seed=0, mutation_probability=0.0)
+
+    population = pl.DataFrame(
+        mutation.rng.integers(0, 10, size=(10, num_vars), endpoint=True),
+        schema=mutation.variable_symbols,
+    )
+
+    result = mutation.do(offsprings=population, parents=population)
+
+    assert result.shape == population.shape
+
+    npt.assert_allclose(population, result)
