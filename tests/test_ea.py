@@ -20,6 +20,7 @@ from desdeo.emo.operators.generator import (
     LHSGenerator,
     RandomBinaryGenerator,
     RandomGenerator,
+    RandomIntegerGenerator,
 )
 from desdeo.emo.operators.mutation import (
     BinaryFlipMutation,
@@ -423,3 +424,26 @@ def test_integer_random_mutation():
     assert result.shape == population.shape
 
     npt.assert_allclose(population, result)
+
+
+@pytest.mark.ea
+def test_random_integer_generation():
+    """Test the random integer generator."""
+    publisher = Publisher()
+    n_points = 20
+
+    problem = simple_integer_test_problem()
+
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher)
+
+    generator = RandomIntegerGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0
+    )
+
+    population, outputs = generator.do()
+
+    assert np.all(population.to_numpy() <= 10)
+    assert np.all(population.to_numpy() >= 0)
+
+    assert population.shape == (n_points, len(problem.get_flattened_variables()))
+    assert outputs.shape == (n_points, 2 * 5)  # 5 objectives, both min and max
