@@ -46,6 +46,7 @@ python-jose = { extras = ["cryptography"], version = "^3.3.0", optional = true }
 bcrypt = { version = "^4.1.2", optional = true }
 mkdocs-include-markdown-plugin = { extras = ["cache"], version = "^6.0.5" }
 gurobipy = "^11.0.1"                                                             #96
+shap = "^0.46.0"
 
 [tool.poetry.extras]
 standard = ["polars"]
@@ -219,6 +220,7 @@ markers = [
     "utils: tests related to various utilities.",
     "nogithub: tests that should not be run in GitHub actions.",
     "simulator_support: tests related to simulator and surrogate support",
+    "explainer: tests related to explainers and related functionalities.",
 
 ]
 pythonpath = "."
