@@ -3222,7 +3222,6 @@ def simulator_problem(file_dir: str | Path):
         Variable(name="x_2", symbol="x_2", variable_type=VariableTypeEnum.real),
         Variable(name="x_3", symbol="x_3", variable_type=VariableTypeEnum.real),
         Variable(name="x_4", symbol="x_4", variable_type=VariableTypeEnum.real),
-        Variable(name="x_5", symbol="x_5", variable_type=VariableTypeEnum.real),
     ]
     f1 = Objective(
         name="f_1",
