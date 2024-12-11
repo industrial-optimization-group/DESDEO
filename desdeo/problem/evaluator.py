@@ -349,7 +349,8 @@ class PolarsEvaluator:
             At least `self.objective_expressions` must be defined before calling this method.
         """
         # An aggregate dataframe to store intermediate evaluation results.
-        agg_df = pl.DataFrame({key: np.array(value) for key, value in xs.items()})
+        # agg_df = pl.DataFrame({key: np.array(value) for key, value in xs.items()})
+        agg_df = pl.DataFrame(xs)  # need to make sure to provide schema for tensor variables of type Array
 
         # Deal with TensorConstant
         # agg_df.with_columns(pl.Series(np.array(2*[self.tensor_constants["W"]])).alias("W"))
@@ -413,15 +414,16 @@ class PolarsEvaluator:
 
     def _polars_evaluate_flat(
         self,
-        xs: dict[str, list[float | int | bool]],
+        xs: dict[str, list[float | int | bool]] | pl.DataFrame,
     ) -> pl.DataFrame:
         """Evaluate the problem with flattened variables.
 
         Args:
-            xs (dict[str, list[float  |  int  |  bool]]): a dict with flattened variables.
+            xs (dict[str, list[float  |  int  |  bool]] | pl.DataFrame): a dict
+                or Polars dataframe with flattened variables.
                 E.g., if the original problem has a tensor variable 'X' with shape (2,2),
-                then the dictionary is expected to have entries names 'X_1_1', 'X_1_2',
-                'X_2_1', and 'X_2_2'. The dictionary is rebuilt and passed to
+                then the input is expected to have entries names 'X_1_1', 'X_1_2',
+                'X_2_1', and 'X_2_2'. The input is rebuilt and passed to
                 `self._evaluate`.
 
         Note:
@@ -437,31 +439,26 @@ class PolarsEvaluator:
             pl.DataFrame: a dataframe with the original problem's evaluated functions.
         """
         # Assume all variables have the same number of samples
-        n_samples = len(next(iter(xs.values())))
+        if isinstance(xs, dict):
+            xs = pl.DataFrame(xs)
 
-        fat_xs = {}
+        unflattened_xs = pl.DataFrame()
 
         # iterate over the variables of the problem
         for var in self.problem.variables:
             if isinstance(var, TensorVariable):
-                # construct the indices
-                index_ranges = [range(upper) for upper in var.shape]
-                indices = product(*index_ranges)
+                # construct the tensor variable
 
-                # create list to be filled
-                tmp = np.ones((n_samples, *var.shape)) * np.nan
-
-                for index in indices:
-                    tmp[:, *(index)] = xs[f"{var.symbol}_{"_".join(str(x+1) for x in index)}"]
-
-                fat_xs[var.symbol] = tmp.tolist()
+                unflattened_xs = unflattened_xs.with_columns(
+                    xs.select(pl.concat_arr(f"^{var.symbol}_.*$").alias(var.symbol).reshape((1, *var.shape)))
+                )
 
             else:
                 # else, proceed normally
-                fat_xs[var.symbol] = xs[var.symbol]
+                unflattened_xs = unflattened_xs.with_columns(xs[var.symbol])
 
         # return result of regular evaluate
-        return self.evaluate(fat_xs)
+        return self.evaluate(unflattened_xs)
 
     def _from_discrete_data(self) -> pl.DataFrame:
         """Evaluates the problem based on its discrete representation only.
