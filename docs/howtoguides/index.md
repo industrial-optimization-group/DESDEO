@@ -62,4 +62,12 @@ hide:
     
     [:octicons-arrow-right-24: Using EAs in DESDEO](./ea.ipynb)
 
+-   :octicons-info-24:{ .lg .middle } **Advanced usage of surrogates**
+
+    ---
+
+    Using a combination of multiple surrogates and analytical objectives
+
+    [:octicons-arrow-right-24: Advanced usage of surrogates](./advancedSurrogates.ipynb)
+
 </div>
