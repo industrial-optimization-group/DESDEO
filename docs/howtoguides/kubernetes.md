@@ -98,6 +98,7 @@ sourceStrategy:
 ### Creating your own image
 
 However, if you also need your build image to do something extra, like installing additional solvers, you need to create your own build image.
+
 To be able to do this, you will need to install [Docker](https://www.docker.com/) (and you might find use for [openshift client](https://console-openshift-console.apps.2.rahti.csc.fi/command-line-tools)).
 
 If you just want to add the COIN-OR solvers and/or Gurobipy licence, you can use the `desdeo-s2i-buildimage.Dockerfile` found in the root of DESDEO2 branch. You can also use that file as an example and create your own dockerfile that does exactly what you need, or you can modify it. How to do that is beyond this guide. Ask your favorite AI assistant for help.
@@ -141,7 +142,6 @@ Once you click `Create` the system should download your code, build it, and run 
         limits:
           memory: 2000Mi
     ```
-
 
 ## PostgreSQL database
 
