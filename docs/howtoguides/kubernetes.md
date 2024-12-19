@@ -98,7 +98,7 @@ sourceStrategy:
 ### Creating your own image
 
 However, if you also need your build image to do something extra, like installing additional solvers, you need to create your own build image.
-To be able to do this, you will need to install [Docker](https://www.docker.com/) (and you might find use for [openshift client](https://console-openshift-console.apps.2.rahti.csc.fi/command-line-tools).
+To be able to do this, you will need to install [Docker](https://www.docker.com/) (and you might find use for [openshift client](https://console-openshift-console.apps.2.rahti.csc.fi/command-line-tools)).
 
 If you just want to add the COIN-OR solvers and/or Gurobipy licence, you can use the `desdeo-s2i-buildimage.Dockerfile` found in the root of DESDEO2 branch. You can also use that file as an example and create your own dockerfile that does exactly what you need, or you can modify it. How to do that is beyond this guide. Ask your favorite AI assistant for help.
 
@@ -135,12 +135,12 @@ It is unlikely you will need to touch anything under **Deploy** or **Advanced Op
 Once you click `Create` the system should download your code, build it, and run it.
 
 !!! Note
-  You are likely to encounter error `exit status 137` when building your app. This is because the build node ran out of memory. Luckily, this is not difficult to fix. You will just need to open the **YAML** of your build config and change `spec.resources`. 2000 Mi should be more than enough.
-  ```yaml
-  resources:
-      limits:
-        memory: 2000Mi
-  ```
+    You are likely to encounter error `exit status 137` when building your app. This is because the build node ran out of memory. Luckily, this is not difficult to fix. You will just need to open the **YAML** of your build config and change `spec.resources`. 2000 Mi should be more than enough.
+    ```yaml
+    resources:
+        limits:
+          memory: 2000Mi
+    ```
 
 
 ## PostgreSQL database
