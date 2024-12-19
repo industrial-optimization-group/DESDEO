@@ -199,7 +199,7 @@ We are now in a position to setup our virtual environment.
 There are many ways to setup a virtual environment. Here, we will
 be utilizing poetry (c.f., section [Required software](#required-software))
 for the task. (If you want to some other virtual environment system, 
-see the [DESDEO installation guide](/howtoguides/installing/#setting-up-a-virtual-environment)
+see the [DESDEO installation guide](../howtoguides/installing.md#setting-up-a-virtual-environment)
 for hints.) First, we should ensure
 that we are utilizing a correct version of Python
 
