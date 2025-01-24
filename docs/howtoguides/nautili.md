@@ -103,7 +103,7 @@ total_steps = 5
 
 # Run the method
 all_responses: list[NAUTILI_Response] = nautili_all_steps(
-    problem,
+    forest_problem,
     total_steps,
     reference_points,
     [initial_response] # Note that this is a list of NAUTILI_Response objects
@@ -116,9 +116,10 @@ all_responses = [initial_response, *all_responses]
 At this point, the analyst may use the `all_responses` to visualize the reachable ranges and the reachable solutions of each step to each of the DMs. Even though all steps have been evaluated at this point, the analyst (or the GUI) should only visualize this steps one at a time, at a certain rate (say, 1 step per second). This will allow the DM to think that they are navigating the solution space without it consuming too much time.
 Note, that according to the NAUTILI assumptions, we do not share the prefeferences of any DM to any other DM. HOwever, if sharing of preference information is reasonable in you problem scenario, the analyst can share them e.g., via the GUI as a separate visualization. 
 
-One way to get the information to be visualized: TODO: chagnge for multiple DMs.
+One way to get the information to be visualized: 
 
 ```python
+
 lower_bounds = pl.DataFrame(
     [response.reachable_bounds["lower_bounds"] for response in all_responses]
 )
@@ -126,14 +127,21 @@ upper_bounds = pl.DataFrame(
     [response.reachable_bounds["upper_bounds"] for response in all_responses]
 )
 reference_point = pl.DataFrame(
-    [response.reference_point for response in all_responses[1:]]
+    [response.reference_points for response in all_responses[1:]]
 )
+
+print(f"lower, upper bounds {lower_bounds}, {upper_bounds} and reference_point {reference_point}")
+
 ```
 
 This will give you the lower and upper bounds of the reachable ranges and the reference points used in each step as a DataFrame.
 
 > !!! Note
 > Maximization is already handled in all of these steps. You should provide the real (meaningful) values of the objectives to the method. The method will handle the maximization internally. Similarly, the returned values are already the true objective values and can be visualized to the DM as directly.
+
+
+The analyst can also access the group improvement directions from the NAUTILI_Response:
+
 
 ### Step 4: Take a step back
 
@@ -145,33 +153,32 @@ It does not matter when they make this choice, the `all_responses` list already 
 go_back_to = 3
 steps_remaining = total_steps - go_back_to
 
-# TODO: change these ones.
 # Set preferences and parameters
 reference_points = {
   "DM1": {
-    "stock": 0.5,
-    "harvest_value": 200.5,
-    "npv": -22,
+    "stock": 2800,
+    "harvest_value": 30000,
+    "npv": 80000,
   },
   "DM2": {
-    "stock": 0.5,
-    "harvest_value": 200.5,
-    "npv": -22,
+    "stock": 3000,
+    "harvest_value": 25200.5,
+    "npv": 76500,
   },
   "DM3": {
-    "stock": 0.5,
-    "harvest_value": 200.5,
-    "npv": -22,
+    "stock":2900,
+    "harvest_value": 50005,
+    "npv": 90000,
   },
   "DM4": {
-    "stock": 0.5,
-    "harvest_value": 200.5,
-    "npv": -22,
+    "stock": 3100,
+    "harvest_value": 22000,
+    "npv": 90000,
   },
   "DM5": {
-    "stock": 0.5,
-    "harvest_value": 200.5,
-    "npv": -22,
+    "stock": 3200,
+    "harvest_value": 29000,
+    "npv": 76000,
   },
 }
 
@@ -181,10 +188,12 @@ all_responses = [
 ]
 
 new_responses = nautili_all_steps(
-    problem, steps_remaining, reference_points, all_responses, #create_proximal_solver
+    forest_problem, steps_remaining, reference_points, all_responses, #create_proximal_solver
 )
 
 all_responses = [*all_responses, *new_responses]
+
+
 ```
 
 Note, as all responses are appended to the same list, finding out the index of the step to go back to is not trivial. The `step_back_index` function can be used to find the index of the step to go back to. It finds all responses that have a `step_number` equal to the `go_back_to` and returns the index of the last such response. This is because the last such response is the one that was appended to the `all_responses` list most recently.
@@ -197,5 +206,19 @@ responses_to_visualize = [all_responses[i] for i in current_path]
 ```
 
 
-In the end, the final solution is .. 
+The next iteration after we changed preferences contains the group group_improvement_direction that is used for all subsequent iterations as the DMs do not change their preferences:
+
+```
+gid2 = all_responses[step_back_index(all_responses, go_back_to)+1].group_improvement_direction
+print(f"Group improvement direction {gid2}")
+```
+
+
+Moreover, the Pareto optimal solution reached can be found from the NAUTILI_Response:
+
+```
+fs = all_responses[-1].reachable_solution
+print(f"Final reachable solution {fs}")```
+
+```
 
