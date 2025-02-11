@@ -70,4 +70,12 @@ hide:
 
     [:octicons-arrow-right-24: Advanced usage of surrogates](./advancedSurrogates.ipynb)
 
+
+- :octicons-info-24:{ .lg .middle } **Iterative Pareto Representer**
+
+    ---
+
+    Using a combination of multiple surrogates and analytical objectives
+
+    [:octicons-arrow-right-24: Advanced usage of surrogates](./IPR.ipynb)
 </div>

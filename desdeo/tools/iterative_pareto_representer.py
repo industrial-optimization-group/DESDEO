@@ -27,7 +27,7 @@ class _EvaluatedPoint(BaseModel):
     )
 
 
-def _choose_reference_point(
+def choose_reference_point(
     refp_array: np.ndarray,
     evaluated_points: list[_EvaluatedPoint] | None = None,
 ):
