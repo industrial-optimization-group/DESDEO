@@ -2053,8 +2053,8 @@ def forest_problem(simulation_results: str, treatment_key: str, holding: int = 1
     Returns:
         Problem: An instance of the test forest problem.
     """
-    df = pl.read_csv(simulation_results, dtypes={"unit": pl.Float64})
-    df_key = pl.read_csv(treatment_key, dtypes={"unit": pl.Float64})
+    df = pl.read_csv(simulation_results, schema_overrides={"unit": pl.Float64})
+    df_key = pl.read_csv(treatment_key, schema_overrides={"unit": pl.Float64})
 
     selected_df_v = df.filter(pl.col("holding") == holding).select(["unit", "schedule", "npv_5_percent"])
     unique_units = selected_df_v.unique(["unit"], maintain_order=True).get_column("unit")

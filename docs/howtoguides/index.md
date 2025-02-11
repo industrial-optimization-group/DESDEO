@@ -54,6 +54,15 @@ hide:
 
     [:octicons-arrow-right-24: NAUTILUS Navigator](./nautilus_navigator.md)
 
+-   :octicons-info-24:{ .lg .middle } NAUTILI 
+
+    ---
+
+    How to use the NAUTILI method
+
+    [:octicons-arrow-right-24: NAUTILI](./nautili.md)
+
+
 -   :octicons-info-24:{ .lg .middle } __Using EAs in DESDEO__
     
     ---

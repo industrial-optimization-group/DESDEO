@@ -2143,9 +2143,13 @@ def add_guess_sf_nondiff(
 
 
 def add_group_guess_sf(
-    problem: Problem, symbol: str, reference_points: list[dict[str, float]], rho: float = 1e-6
+    problem: Problem,
+    symbol: str,
+    reference_points: list[dict[str, float]],
+    rho: float = 1e-6,
+    delta: float = 1e-6,
 ) -> tuple[Problem, str]:
-    r"""Adds the multiple decision maker variant of the GUESS scalarizing function.
+    r"""Adds the non-differentiable variant of the multiple decision maker variant of the GUESS scalarizing function.
 
     The scalarization function is defined as follows:
 
@@ -2165,6 +2169,7 @@ def add_group_guess_sf(
             aspiration levels.
         rho (float, optional): a small scalar value to scale the sum in the objective
             function of the scalarization. Defaults to 1e-6.
+        delta (float, optional): a small scalar to define the utopian point. Defaults to 1e-6.
 
     Raises:
         ScalarizationError: there are missing elements in any reference point.
@@ -2185,7 +2190,7 @@ def add_group_guess_sf(
     weights = []
     for reference_point in reference_points:
         corrected_rp = get_corrected_reference_point(problem, reference_point)
-        weights.append({obj.symbol: 1 / (nadir[obj.symbol] - (corrected_rp[obj.symbol])) for obj in problem.objectives})
+        weights.append({obj.symbol: 1 / ((nadir[obj.symbol] + delta) - (corrected_rp[obj.symbol])) for obj in problem.objectives})
 
     # form the max term
     max_terms = []
@@ -2215,7 +2220,11 @@ def add_group_guess_sf(
 
 
 def add_group_guess_sf_diff(
-    problem: Problem, symbol: str, reference_points: list[dict[str, float]], rho: float = 1e-6
+    problem: Problem,
+    symbol: str,
+    reference_points: list[dict[str, float]],
+    rho: float = 1e-6,
+    delta: float = 1e-6,
 ) -> tuple[Problem, str]:
     r"""Adds the differentiable variant of the multiple decision maker variant of the GUESS scalarizing function.
 
@@ -2238,6 +2247,7 @@ def add_group_guess_sf_diff(
             aspiration levels.
         rho (float, optional): a small scalar value to scale the sum in the objective
             function of the scalarization. Defaults to 1e-6.
+        delta (float, optional): a small scalar to define the utopian point. Defaults to 1e-6.
 
     Raises:
         ScalarizationError: there are missing elements in any reference point.
@@ -2252,7 +2262,7 @@ def add_group_guess_sf_diff(
             msg = f"The give reference point {reference_point} is missing value for one or more objectives."
             raise ScalarizationError(msg)
 
-    _, nadir = get_corrected_ideal_and_nadir(problem)
+    ideal, nadir = get_corrected_ideal_and_nadir(problem)
 
     # define the auxiliary variable
     alpha = Variable(
@@ -2268,7 +2278,7 @@ def add_group_guess_sf_diff(
     weights = []
     for reference_point in reference_points:
         corrected_rp = get_corrected_reference_point(problem, reference_point)
-        weights.append({obj.symbol: 1 / (nadir[obj.symbol] - (corrected_rp[obj.symbol])) for obj in problem.objectives})
+        weights.append({obj.symbol: 1 / ((nadir[obj.symbol] + delta) - (corrected_rp[obj.symbol])) for obj in problem.objectives})
 
     # form the max term
     con_terms = []
