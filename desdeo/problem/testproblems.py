@@ -2064,7 +2064,7 @@ def forest_problem(simulation_results: str, treatment_key: str, holding: int = 1
     for i in range(np.shape(v_array)[0]):
         for j in range(np.shape(v_array)[1]):
             if (unique_units[i], j) in rows_by_key:
-                v_array[i][j] = rows_by_key[(unique_units[i], j)][0]
+                v_array[i][j] = rows_by_key[(unique_units[i], j)][0][0]
 
     # determine whether the results are to be compared to those from the rahti app (for testing purposes)
     # if compared, the stock values are calculated by substacting the value after 2025 period from
@@ -2096,7 +2096,7 @@ def forest_problem(simulation_results: str, treatment_key: str, holding: int = 1
                 if len(rows_by_key_df_key[(unique_units[i], j)]) == 0:
                     continue
                 if (unique_units[i], j) in rows_by_key:
-                    w_array[i][j] = rows_by_key[(unique_units[i], j)][0]
+                    w_array[i][j] = rows_by_key[(unique_units[i], j)][0][0]
 
     selected_df_p = df.filter(pl.col("holding") == holding).select(
         ["unit", "schedule", "harvest_value_period_2025", "harvest_value_period_2030", "harvest_value_period_2035"]

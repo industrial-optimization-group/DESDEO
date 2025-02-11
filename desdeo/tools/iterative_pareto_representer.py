@@ -21,18 +21,25 @@ class _EvaluatedPoint(BaseModel):
                     These are the objective function values that have been scaled between the ideal and nadir points,
                     and assumed to be minimized."""
     )
+    objectives: dict[str, float] = Field(
+        description="""The actual objective function values of the evaluated point. These values are not scaled.
+        Not required for the algorithm, but useful for archiving."""
+    )
 
 
 def _choose_reference_point(
     refp_array: np.ndarray,
-    evaluated_points: list[_EvaluatedPoint],
+    evaluated_points: list[_EvaluatedPoint] | None = None,
 ):
     """Choose the next reference point to evaluate using the Iterative Pareto Representer algorithm.
 
     Args:
         refp_array (np.ndarray): The reference points to choose from.
         evaluated_points (list[_EvaluatedPoint]): Already evaluated reference points and their targets.
+            If None, a random reference point is chosen.
     """
+    if evaluated_points is None or len(evaluated_points) == 0:
+        return refp_array[np.random.choice(refp_array.shape[0])], None
     bad_points_mask = _find_bad_RPs(refp_array, evaluated_points)
     available_points_mask = ~bad_points_mask
     solution_projections = _project(np.array([list(eval_result.targets.values()) for eval_result in evaluated_points]))

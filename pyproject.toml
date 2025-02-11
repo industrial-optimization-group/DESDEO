@@ -47,11 +47,12 @@ bcrypt = { version = "^4.1.2", optional = true }
 mkdocs-include-markdown-plugin = { extras = ["cache"], version = "^6.0.5" }
 gurobipy = "^11.0.1"                                                             #96
 shap = "^0.46.0"
+scienceplots = "^2.1.1"
 
 [tool.poetry.extras]
 standard = ["polars"]
 legacy = ["polars-lts-cpu"]
-viz = ["seaborn", "plotly"] # We could make viz packages optional in the future.
+viz = ["seaborn", "plotly", "scienceplots"] # We could make viz packages optional in the future.
 api = [
     "asyncpg",
     "fastapi",
