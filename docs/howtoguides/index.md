@@ -84,7 +84,7 @@ hide:
 
     ---
 
-    Using a combination of multiple surrogates and analytical objectives
+    Generating a representative set of solutions using the Iterative Pareto Representer
 
     [:octicons-arrow-right-24: Advanced usage of surrogates](./IPR.ipynb)
 </div>
