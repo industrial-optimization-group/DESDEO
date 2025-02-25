@@ -1,5 +1,7 @@
 """This module initializes the database."""
 
+import json
+from os import walk
 import warnings
 
 import numpy as np
@@ -170,6 +172,8 @@ map_info = db_models.Utopia(
 )
 db.add(map_info)
 
+# Add all stored problem modesl
+
 # I guess we need to have methods in the database as well
 nimbus = db_models.Method(
     kind=Methods.NIMBUS,
@@ -178,5 +182,25 @@ nimbus = db_models.Method(
 )
 db.add(nimbus)
 db.commit()
+
+root_folder = "datasets/problemModels/"
+# Load all json files within the root folder
+problems = list(walk(root_folder))[0][2]
+problems = [f for f in problems if f.endswith(".json")]
+
+for problem in problems:  # TODO (@light-weaver): get "kind" and "obj_kind" from the problem model
+    with open(root_folder + problem, encoding="utf-8") as f:
+        problem_data = json.load(f)
+    problem_data = Problem.model_validate(problem_data)
+    problem_in_db = db_models.Problem(
+        owner=user.id,
+        name=problem_data.name,
+        kind=ProblemKind.DISCRETE if "discrete_representation" in problem_data else ProblemKind.CONTINUOUS,
+        obj_kind=ObjectiveKind.DATABASED,
+        value=problem_data.model_dump(mode="json"),
+        role_permission=[UserRole.GUEST],
+    )
+    db.add(problem_in_db)
+    db.commit()
 
 db.close()
