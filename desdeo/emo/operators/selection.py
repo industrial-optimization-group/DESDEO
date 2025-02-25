@@ -473,7 +473,7 @@ class RVEASelector(BaseDecompositionSelector):
             raise TypeError("The decision variables must be either a list or a polars DataFrame, not both")
         alltargets = parents[1].vstack(offsprings[1])
         targets = alltargets[self.target_symbols].to_numpy()
-        if self.constraints_symbols is None:
+        if self.constraints_symbols is None or len(self.constraints_symbols) == 0:
             constraints = None
         else:
             constraints = (

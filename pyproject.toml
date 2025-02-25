@@ -48,6 +48,7 @@ mkdocs-include-markdown-plugin = { extras = ["cache"], version = "^6.0.5" }
 gurobipy = "^11.0.1"                                                             #96
 shap = "^0.46.0"
 scienceplots = "^2.1.1"
+tsp-solver = "^0.1"
 
 [tool.poetry.extras]
 standard = ["polars"]
