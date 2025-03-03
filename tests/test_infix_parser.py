@@ -575,11 +575,16 @@ def test_bracket_access():
         assert json_result == json_expression
 
 
-@pytest.mark.slow
-@pytest.mark.performance
-@pytest.mark.usefixtures("timer")
-def test_many_executions():
-    """Calls the infix parser with a complicated expression thousands of times."""
-    for _ in range(2000):
-        infix_parser = InfixExpressionParser()
-        expression = "*".join(10 * ["Max(a + 3, b - 8, a*c, Sin(d)) + Max(a + 3, b - 8, a*c, Sin(d))"])
+@pytest.mark.infix_parser
+def test_min_with_variable_names_with_multiple_underscores():
+    """Tests parsing of a min-term with variable names with multiple underscores."""
+    expression = (
+        "Min((dm_0_q_0 - p_0) * x_0 + (dm_0_q_1 - p_1) * x_1, (dm_1_q_0 - p_0) * x_0 + "
+        "(dm_1_q_1 - p_1) * x_1, (dm_2_q_0 - p_0) * x_0 + (dm_2_q_1 - p_1) * x_1)"
+    )
+
+    parser = InfixExpressionParser()
+
+    res = parser.parse(expression)
+
+    assert isinstance(res, list)

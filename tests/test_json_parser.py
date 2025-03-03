@@ -972,6 +972,93 @@ def test_parse_pyomo_max():
 
 @pytest.mark.json
 @pytest.mark.pyomo
+def test_parse_pyomo_min():
+    """Test the JSON parser for correctly parsing MathJSON into pyomo expressions, with the min operator."""
+    pyomo_model = pyomo.ConcreteModel()
+
+    x = 2.8
+    y = -1.4
+    garlic = 4.2
+    pyomo_model.x = pyomo.Var(domain=pyomo.PositiveReals, initialize=x)
+    pyomo_model.y = pyomo.Var(domain=pyomo.NonNegativeReals, initialize=y)
+    pyomo_model.garlic = pyomo.Var(domain=pyomo.PositiveReals, initialize=garlic)
+
+    cosmic = -69.42
+    pyomo_model.cosmic = pyomo.Param(domain=pyomo.Reals, default=cosmic)
+    potato = 99.22
+    pyomo_model.potato = pyomo.Param(domain=pyomo.Reals, default=potato)
+
+    tests = [
+        ("Min(x)", min((x,))),
+        ("Min(x, y)", min((x, y))),
+        ("Min(x, y, potato)", min((x, y, potato))),
+        ("Min(Abs(cosmic), x)", min((abs(cosmic), x))),
+        ("Min(x + 2, y - 3, garlic)", min((x + 2, y - 3, garlic))),
+        ("Min(Abs(x), Abs(y), Abs(cosmic))", min((abs(x), abs(y), abs(cosmic)))),
+        ("Min(potato, cosmic, x, y)", min((potato, cosmic, x, y))),
+        ("Min(Min(x, y), Min(garlic, cosmic))", min((min((x, y)), min((garlic, cosmic))))),
+        ("Min(x * 2 - 3, Abs(cosmic) + 4, y / 2)", min((x * 2 - 3, abs(cosmic) + 4, y / 2))),
+        ("Min(x, y, garlic, cosmic, potato)", min((x, y, garlic, cosmic, potato))),
+        (
+            "Min(Abs(x - y), garlic + 10, cosmic * 2, potato / 2)",
+            min((abs(x - y), garlic + 10, cosmic * 2, potato / 2)),
+        ),
+        (
+            "Min(Ceil(Sin(garlic) + Tanh(x)), Floor(Ln(Abs(cosmic)) + 1), x ** 2, Sqrt(potato))",
+            min(
+                (
+                    math.ceil(math.sin(garlic) + math.tanh(x)),
+                    math.floor(math.log(abs(cosmic)) + 1),
+                    x**2,
+                    math.sqrt(potato),
+                )
+            ),
+        ),
+        (
+            "Min(Ln(x) + Lb(Abs(y)), Ceil(Sqrt(garlic) * 3), (potato ** 2) / 4, Abs(cosmic) + 10)",
+            min(
+                (math.log(x) + math.log(abs(y), 2), math.ceil(math.sqrt(garlic) * 3), (potato**2) / 4, abs(cosmic) + 10)
+            ),
+        ),
+        (
+            "Min(Abs(x - y), Min(Sin(x), Cos(garlic)), Tanh(potato) + 1)",
+            min((abs(x - y), min((math.sin(x), math.cos(garlic))), math.tanh(potato) + 1)),
+        ),
+        (
+            "Min(Abs(Min(cosmic, x) + Sin(garlic)), Floor(Abs(y) + Ceil(garlic)))",
+            min((abs(min((cosmic, x)) + math.sin(garlic)), math.floor(abs(y) + math.ceil(garlic)))),
+        ),
+        (
+            "Min(Sqrt(Abs(x) + y ** 2), Lg(-Min(cosmic, potato)), Ceil(Tanh(x) + Arctan(garlic)))",
+            min(
+                (
+                    math.sqrt(abs(x) + y**2),
+                    math.log10(-min((cosmic, potato))),
+                    math.ceil(math.tanh(x) + math.atan(garlic)),
+                )
+            ),
+        ),
+    ]
+
+    infix_parser = InfixExpressionParser()
+    pyomo_parser = MathParser(to_format=FormatEnum.pyomo)
+
+    for str_expr, result in tests:
+        json_expr = infix_parser.parse(str_expr)
+        pyomo_expr = pyomo_parser.parse(json_expr, pyomo_model)
+
+        npt.assert_array_almost_equal(
+            pyomo.value(pyomo_expr),
+            result,
+            err_msg=(
+                f"Test failed for {str_expr=}, with "
+                f"{pyomo_expr.to_string() if isinstance(pyomo_expr, pyomo.Expression) else pyomo_expr}"
+            ),
+        )
+
+
+@pytest.mark.json
+@pytest.mark.pyomo
 def test_pyomo_basic_matrix_arithmetics():
     """Check that matrix arithmetics are parsed correctly from MathJSON format to Pyomo expression."""
     pyomo_model = pyomo.ConcreteModel()
@@ -1793,6 +1880,87 @@ def test_parse_sympy_max():
 
 
 @pytest.mark.json
+@pytest.mark.sympy
+def test_parse_sympy_min():
+    """Test the JSON parser for correctly parsing MathJSON into sympy expressions, with the min operator."""
+    x = 2.8
+    y = -1.4
+    garlic = 4.2
+    variables = [x, y, garlic]
+    variable_symbols = ["x", "y", "garlic"]
+
+    cosmic = -69.42
+    potato = 99.22
+    constants = [cosmic, potato]
+    constant_symbols = ["cosmic", "potato"]
+
+    tests = [
+        ("Min(x)", min((x,))),
+        ("Min(x, y)", min((x, y))),
+        ("Min(x, y, potato)", min((x, y, potato))),
+        ("Min(Abs(cosmic), x)", min((abs(cosmic), x))),
+        ("Min(x + 2, y - 3, garlic)", min((x + 2, y - 3, garlic))),
+        ("Min(Abs(x), Abs(y), Abs(cosmic))", min((abs(x), abs(y), abs(cosmic)))),
+        ("Min(potato, cosmic, x, y)", min((potato, cosmic, x, y))),
+        ("Min(Min(x, y), Min(garlic, cosmic))", min((min((x, y)), min((garlic, cosmic))))),
+        ("Min(x * 2 - 3, Abs(cosmic) + 4, y / 2)", min((x * 2 - 3, abs(cosmic) + 4, y / 2))),
+        ("Min(x, y, garlic, cosmic, potato)", min((x, y, garlic, cosmic, potato))),
+        (
+            "Min(Abs(x - y), garlic + 10, cosmic * 2, potato / 2)",
+            min((abs(x - y), garlic + 10, cosmic * 2, potato / 2)),
+        ),
+        (
+            "Min(Ceil(Sin(garlic) + Tanh(x)), Floor(Ln(Abs(cosmic)) + 1), x ** 2, Sqrt(potato))",
+            min(
+                (
+                    math.ceil(math.sin(garlic) + math.tanh(x)),
+                    math.floor(math.log(abs(cosmic)) + 1),
+                    x**2,
+                    math.sqrt(potato),
+                )
+            ),
+        ),
+        (
+            "Min(Ln(x) + Lb(Abs(y)), Ceil(Sqrt(garlic) * 3), (potato ** 2) / 4, Abs(cosmic) + 10)",
+            min(
+                (math.log(x) + math.log(abs(y), 2), math.ceil(math.sqrt(garlic) * 3), (potato**2) / 4, abs(cosmic) + 10)
+            ),
+        ),
+        (
+            "Min(Abs(x - y), Min(Sin(x), Cos(garlic)), Tanh(potato) + 1)",
+            min((abs(x - y), min((math.sin(x), math.cos(garlic))), math.tanh(potato) + 1)),
+        ),
+        (
+            "Min(Abs(Min(cosmic, x) + Sin(garlic)), Floor(Abs(y) + Ceil(garlic)))",
+            min((abs(min((cosmic, x)) + math.sin(garlic)), math.floor(abs(y) + math.ceil(garlic)))),
+        ),
+        (
+            "Min(Sqrt(Abs(x) + y ** 2), Lg(Min(-cosmic, potato)), Ceil(Tanh(x) + Arctan(garlic)))",
+            min(
+                (
+                    math.sqrt(abs(x) + y**2),
+                    math.log10(min((-cosmic, potato))),
+                    math.ceil(math.tanh(x) + math.atan(garlic)),
+                )
+            ),
+        ),
+    ]
+
+    infix_parser = InfixExpressionParser()
+    sympy_parser = MathParser(to_format=FormatEnum.sympy)
+
+    for str_expr, result in tests:
+        json_expr = infix_parser.parse(str_expr)
+        sympy_expr = sympy_parser.parse(json_expr)
+
+        f = sp.lambdify([*variable_symbols, *constant_symbols], sympy_expr)
+
+        npt.assert_almost_equal(
+            f(*variables, *constants), result, err_msg=(f"Test failed for {str_expr=}, with " f"{sympy_expr=}.")
+        )
+
+
+@pytest.mark.json
 @pytest.mark.polars
 def test_polars_random_access():
     """Test the polars math evaluator with tensor variables and constants, and operations."""
@@ -1824,6 +1992,7 @@ def test_polars_random_access():
         ("Max(Y[1, 1], Y[2, 2], x_3)", np.maximum(np.maximum(Y[:, 0, 0], Y[:, 1, 1]), x_3)),
         ("(x_1 + x_2) * (x_3 - X[3])", (x_1 + x_2) * (x_3 - X[:, 2])),
         ("(X[1] + Y[1, 2]) / (X[2] - Y[2, 1])", (X[:, 0] + Y[:, 0, 1]) / (X[:, 1] - Y[:, 1, 0])),
+        ("Min(Y[1, 1], Y[2, 2], x_3)", np.minimum(np.minimum(Y[:, 0, 0], Y[:, 1, 1]), x_3)),
     ]
 
     for infix_expr, result in tests:

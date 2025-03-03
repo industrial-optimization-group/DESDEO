@@ -72,7 +72,7 @@ class InfixExpressionParser:
     # Supported infix variadic operators (operators that take one or more comma separated arguments),
     # i.e., 'Max(1,2, Cos(3)). The key is the notation of the operator in infix format,
     # and the value the notation in parsed format.
-    VARIADIC_OPERATORS: ClassVar[dict] = {"Max": "Max"}
+    VARIADIC_OPERATORS: ClassVar[dict] = {"Max": "Max", "Min": "Min"}
 
     def __init__(self, target="MathJSON"):
         """A parser for infix notation, e.g., the huma readable way of notating mathematical expressions.
