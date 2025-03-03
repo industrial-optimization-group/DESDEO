@@ -4,9 +4,19 @@ import numpy as np
 import numpy.testing as npt
 import pytest
 
-from desdeo.mcdm import infer_classifications, solve_intermediate_solutions, solve_sub_problems
-from desdeo.problem import dtlz2, nimbus_test_problem
-from desdeo.tools import IpoptOptions, PyomoIpoptSolver, add_asf_diff
+from desdeo.mcdm import (
+    infer_classifications,
+    solve_intermediate_solutions,
+    solve_sub_problems,
+)
+from desdeo.problem import dtlz2, nimbus_test_problem, simple_data_problem
+from desdeo.tools import (
+    IpoptOptions,
+    ProximalSolver,
+    PyomoIpoptSolver,
+    add_asf_diff,
+    add_asf_nondiff,
+)
 
 
 @pytest.mark.nimbus
@@ -77,6 +87,30 @@ def test_infer_classifications():
     # f_6: improve until
     assert classifications["f_6"][0] == "<="
     assert np.isclose(classifications["f_6"][1], reference_point["f_6"])
+
+
+@pytest.mark.nimbus
+def test_solve_discrete_sub_problems():
+    """Test that the sub problems are solved correctly for a problem with a discrete representation."""
+    problem = simple_data_problem()
+
+    # get an initial point
+    initial_ref_point = {"g_1": 1500, "g_2": 7.5, "g_3": -29.0}
+
+    problem_w_sf, target = add_asf_nondiff(problem, "target", initial_ref_point)
+    solver = ProximalSolver(problem_w_sf)
+    initial_result = solver.solve(target)
+
+    # {'g_1': 1406.25, 'g_2': 8.5, 'g_3': -37.5}
+    initial_fs = initial_result.optimal_objectives
+
+    ref_point = {"g_1": 2000.0, "g_2": 10.5, "g_3": -40.1}
+
+    num_desired = 4
+
+    solutions = solve_sub_problems(problem, initial_fs, ref_point, num_desired)
+
+    assert len(solutions) == num_desired
 
 
 @pytest.mark.nimbus
