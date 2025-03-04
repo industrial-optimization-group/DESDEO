@@ -248,7 +248,7 @@ class Evaluator:
                             self.surrogates[extra.symbol] = sio.load(file, unknown_types)
                             #raise EvaluatorError(f"Untrusted types found in the model of {obj.symbol}: {unknown_types}")"""
 
-    def evaluate(self, xs: dict[str, list[int | float]]) -> pl.DataFrame:
+    def evaluate(self, xs: dict[str, list[int | float]], flat: bool = False) -> pl.DataFrame:
         """Evaluate the functions for the given decision variables.
 
         Evaluates analytical, simulation based and surrogate based functions. For now, the evaluator assumes that there
@@ -259,16 +259,21 @@ class Evaluator:
                 Given as a dictionary with the decision variable symbols as keys and a list of decision variable values
                 as the values. The length of the lists is the number of samples and each list should have the same
                 length (same number of samples).
+            flat (bool, optional): whether the valuation is done using flattened variables or not. Defaults to False.
 
         Returns:
             pl.DataFrame: polars dataframe with the evaluated function values.
         """
+        # TODO (@gialmisi): Make work with polars dataframes as well in addition to dict.
+        # See, e.g., PolarsEvaluator._polars_evaluate. Then, remove the arg `flat`.
         res = pl.DataFrame()
 
         # Evaluate the analytical functions
         if len(self.analytical_symbols) > 0:
             polars_evaluator = PolarsEvaluator(self.problem, evaluator_mode=PolarsEvaluatorModesEnum.mixed)
-            analytical_values = polars_evaluator._polars_evaluate(xs)
+            analytical_values = (
+                polars_evaluator._polars_evaluate(xs) if not flat else polars_evaluator._polars_evaluate_flat(xs)
+            )
             res = res.hstack(analytical_values)
 
         # Evaluate the simulator based functions

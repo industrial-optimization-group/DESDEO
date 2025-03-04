@@ -172,7 +172,7 @@ class PolarsEvaluator:
         self._polars_init()
 
         # Note, when calling an evaluate method, it is assumed the problem has been fully parsed.
-        if self.evaluator_mode == PolarsEvaluatorModesEnum.variables:
+        if self.evaluator_mode in [PolarsEvaluatorModesEnum.variables, PolarsEvaluatorModesEnum.mixed]:
             self.evaluate = self._polars_evaluate
             self.evaluate_flat = self._polars_evaluate_flat
         elif self.evaluator_mode == PolarsEvaluatorModesEnum.discrete:

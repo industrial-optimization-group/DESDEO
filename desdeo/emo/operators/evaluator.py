@@ -52,7 +52,7 @@ class EMOEvaluator(Subscriber):
         self.problem = problem
         # TODO(@light-weaver, @gialmisi): This can be so much more efficient.
         self.evaluator = lambda x: Evaluator(problem).evaluate(
-            {name.symbol: x[name.symbol].to_list() for name in problem.get_flattened_variables()}
+            {name.symbol: x[name.symbol].to_list() for name in problem.get_flattened_variables()}, flat=True
         )
         self.variable_symbols = [name.symbol for name in problem.variables]
         self.population: pl.DataFrame
