@@ -49,6 +49,7 @@ gurobipy = "^11.0.1"                                                            
 shap = "^0.46.0"
 scienceplots = "^2.1.1"
 tsp-solver = "^0.1"
+greenlet = "^3.1.1"
 
 [tool.poetry.extras]
 standard = ["polars"]
@@ -64,7 +65,8 @@ api = [
     "sqlalchemy-utils",
     "python-multipart",
     "python-jose",
-    "bcrypt"
+    "bcrypt",
+    "greenlet",
 ] # We could make API packages optional in the future.
 server = ["gunicorn"]
 
