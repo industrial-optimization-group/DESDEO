@@ -1,10 +1,8 @@
 """Defines a parser to parse multiobjective optimziation problems defined in a JSON format."""
 
 from collections.abc import Callable
-import copy
 from enum import Enum
 from functools import reduce
-import itertools
 
 import gurobipy as gp
 import numpy as np

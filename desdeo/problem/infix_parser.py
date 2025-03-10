@@ -257,7 +257,14 @@ class InfixExpressionParser:
                 else:
                     # Handle last expression, negate if needed.
                     if op == "-":
-                        return [[current_operator, *operands, ["Negate", *self._to_math_json(parsed[i + 1 :])]]]
+                        return [
+                            [
+                                current_operator,
+                                *operands,
+                                ["Negate", self._to_math_json(parsed[i + 1])],
+                                *(self._to_math_json(parsed[(i + 1) + 2 :]) if parsed[(i + 1) + 2 :] else []),
+                            ]
+                        ]
 
                     return [[current_operator, *operands, *self._to_math_json(parsed[i + 1 :])]]
 
