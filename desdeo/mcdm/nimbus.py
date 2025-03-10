@@ -8,7 +8,12 @@ References:
 
 import numpy as np
 
-from desdeo.problem import PolarsEvaluator, Problem, VariableType, variable_dict_to_numpy_array
+from desdeo.problem import (
+    PolarsEvaluator,
+    Problem,
+    VariableType,
+    variable_dict_to_numpy_array,
+)
 from desdeo.tools import (
     BaseSolver,
     SolverOptions,
@@ -394,16 +399,11 @@ def generate_starting_point(
     init_solver = solver if solver is not None else guess_best_solver(problem)
     _solver_options = solver_options if solver_options is not None else None
 
-    # TODO(gialmisi): this info should come from the problem
-    is_smooth = True
-
     # solve ASF
-    add_asf = add_asf_diff if is_smooth else add_asf_nondiff
+    add_asf = add_asf_diff if problem.is_twice_differentiable else add_asf_nondiff
 
     problem_w_asf, asf_target = add_asf(problem, "asf", reference_point, **(scalarization_options or {}))
-    if _solver_options:
-        asf_solver = init_solver(problem_w_asf, _solver_options)
-    else:
-        asf_solver = init_solver(problem_w_asf)
+
+    asf_solver = init_solver(problem_w_asf, _solver_options) if _solver_options else init_solver(problem_w_asf)
 
     return asf_solver.solve(asf_target)
