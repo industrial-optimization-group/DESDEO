@@ -62,7 +62,7 @@ class Archive(Subscriber):
     @property
     def interested_topics(self) -> Sequence[MessageTopics]:
         """Return the message topics that the archiver is interested in."""
-        return [GeneratorMessageTopics.OUTPUTS, EvaluatorMessageTopics.OUTPUTS]
+        return [GeneratorMessageTopics.VERBOSE_OUTPUTS, EvaluatorMessageTopics.VERBOSE_OUTPUTS]
 
     @property
     def provided_topics(self) -> dict[int, Sequence[MessageTopics]]:
@@ -77,7 +77,7 @@ class Archive(Subscriber):
             publisher (Publisher): The publisher object.
         """
         super().__init__(publisher, verbosity=0)
-        self.archive: pl.DataFrame = None
+        self.solutions: pl.DataFrame = None
         self.problem = problem
 
     def update(self, message: Message) -> None:
@@ -87,10 +87,10 @@ class Archive(Subscriber):
             message (Message): Message from the publisher.
         """
         data = message.value
-        if self.archive is None:
-            self.archive = data
+        if self.solutions is None:
+            self.solutions = data
         else:
-            self.archive = pl.concat([self.archive, data])
+            self.solutions = pl.concat([self.solutions, data])
 
     def state(self) -> dict:
         """Return the state of the archiver."""
@@ -103,7 +103,7 @@ class NonDominatedArchive(Subscriber):
     @property
     def interested_topics(self) -> Sequence[MessageTopics]:
         """Return the message topics that the archiver is interested in."""
-        return [GeneratorMessageTopics.OUTPUTS, EvaluatorMessageTopics.OUTPUTS]
+        return [GeneratorMessageTopics.VERBOSE_OUTPUTS, EvaluatorMessageTopics.VERBOSE_OUTPUTS]
 
     @property
     def provided_topics(self) -> dict[int, Sequence[MessageTopics]]:
@@ -118,7 +118,7 @@ class NonDominatedArchive(Subscriber):
             publisher (Publisher): The publisher object.
         """
         super().__init__(publisher, verbosity=0)
-        self.archive: pl.DataFrame = None
+        self.solutions: pl.DataFrame = None
         self.problem = problem
         self.targets = [f"{x.symbol}_min" for x in problem.objectives]
 
@@ -131,13 +131,13 @@ class NonDominatedArchive(Subscriber):
         data = message.value
         if type(data) is not pl.DataFrame:
             raise ValueError("Data should be a polars DataFrame")
-        if self.archive is None:
+        if self.solutions is None:
             non_dom_mask = non_dominated(data[self.targets].to_numpy())
-            self.archive = data.filter(non_dom_mask)
+            self.solutions = data.filter(non_dom_mask)
         else:
             to_add = data.filter(non_dominated(data[self.targets].to_numpy()))
-            mask1, mask2 = non_dominated_merge(self.archive[self.targets].to_numpy(), to_add[self.targets].to_numpy())
-            self.archive = pl.concat([self.archive.filter(mask1), to_add.filter(mask2)])
+            mask1, mask2 = non_dominated_merge(self.solutions[self.targets].to_numpy(), to_add[self.targets].to_numpy())
+            self.solutions = pl.concat([self.solutions.filter(mask1), to_add.filter(mask2)])
 
     def state(self) -> dict:
         """Return the state of the archiver."""

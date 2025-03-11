@@ -54,6 +54,8 @@ class EvaluatorMessageTopics(Enum):
     """ The targets, i.e., objective values seen by the evolutionary operators."""
     CONSTRAINTS = "CONSTRAINTS"
     """ The constraints of the population. """
+    VERBOSE_OUTPUTS = "VERBOSE_OUTPUTS"
+    """ Same as POPULATION + OUTPUTS."""
     NEW_EVALUATIONS = "NEW_EVALUATIONS"
     """ The number of new evaluations. """
 
@@ -73,6 +75,8 @@ class GeneratorMessageTopics(Enum):
     """ The targets, i.e., objective values seen by the evolutionary operators."""
     CONSTRAINTS = "CONSTRAINTS"
     """ The constraints of the population. """
+    VERBOSE_OUTPUTS = "VERBOSE_OUTPUTS"
+    """ Same as POPULATION + OUTPUTS. """
     NEW_EVALUATIONS = "NEW_EVALUATIONS"
     """ The number of new evaluations. """
 
@@ -115,7 +119,6 @@ class TerminatorMessageTopics(Enum):
     """ The maximum number of generations. """
     MAX_EVALUATIONS = "MAX_EVALUATIONS"
     """ The maximum number of evaluations. """
-
 
 
 MessageTopics = (
