@@ -3,7 +3,7 @@
 import numpy as np
 import polars as pl
 
-from desdeo.problem import Problem, TensorConstant, TensorVariable
+from desdeo.problem import Problem, TensorConstant, TensorVariable, Variable
 
 
 class ProblemUtilsError(Exception):
@@ -53,7 +53,45 @@ def numpy_array_to_objective_dict(problem: Problem, numpy_array: np.ndarray) -> 
     return {objective.symbol: np.squeeze(numpy_array).tolist()[i] for i, objective in enumerate(problem.objectives)}
 
 
-def variable_dict_to_numpy_array(problem: Problem, variable_dict: dict[str, float]) -> np.ndarray:
+def flatten_variable_dict(problem: Problem, variable_dict: dict[str, float | list]) -> dict[str, float]:
+    """_summary_
+
+    Args:
+        problem (Problem): _description_
+        variable_dict (dict[str, float  |  list]): _description_
+
+    Returns:
+        dict[str, float]: _description_
+    """
+    tmp = []
+    for var in problem.variables:
+        if isinstance(var, Variable):
+            # just a regular variable
+            if var.symbol not in variable_dict:
+                msg = f"The variable_dict is missing values for the variable {var.symbol}."
+                raise ValueError(msg)
+            tmp.append(variable_dict[var.symbol])
+            continue
+
+        if isinstance(var, TensorVariable):
+            # tensor variable
+            if var.symbol in variable_dict:
+                # tensor variable is defined in the dict as a tensor
+                continue
+            if (flat_symbols := problem.get_flattened_variables(var.symbol))[0] in variable_dict:
+                # tensor variable flattened in the dict
+                continue
+
+            msg = f"The variable dict is missing values for the variable {var.symbol}."
+            raise ValueError(msg)
+
+        msg = f"Unsupported variable type {type(var)} encountered."
+        raise TypeError(msg)
+
+    return np.squeeze(np.array(tmp))
+
+
+def variable_dict_to_numpy_array(problem: Problem, variable_dict: dict[str, float | list]) -> np.ndarray:
     """Takes a dict with a decision variable vector and returns a numpy array.
 
     Takes a dict with the keys being decision variable symbols and the values

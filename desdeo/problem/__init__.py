@@ -8,6 +8,7 @@ __all__ = [
     "DiscreteRepresentation",
     "Evaluator",
     "ExtraFunction",
+    "flatten_variable_dict",
     "forest_problem",
     "forest_problem_discrete",
     "FormatEnum",
@@ -17,6 +18,7 @@ __all__ = [
     "get_ideal_dict",
     "InfixExpressionParser",
     "MathParser",
+    "mixed_variable_dimensions_problem",
     "momip_ti2",
     "momip_ti7",
     "nimbus_test_problem",
@@ -97,6 +99,7 @@ from .testproblems import (
     dtlz2,
     forest_problem,
     forest_problem_discrete,
+    mixed_variable_dimensions_problem,
     momip_ti2,
     momip_ti7,
     nimbus_test_problem,
@@ -121,6 +124,7 @@ from .testproblems import (
     zdt3,
 )
 from .utils import (
+    flatten_variable_dict,
     get_ideal_dict,
     get_nadir_dict,
     numpy_array_to_objective_dict,

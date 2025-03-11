@@ -6,9 +6,12 @@ import pytest
 
 from desdeo.problem import (
     dtlz2,
+    flatten_variable_dict,
+    mixed_variable_dimensions_problem,
     numpy_array_to_objective_dict,
     objective_dict_to_numpy_array,
     river_pollution_problem,
+    simple_knapsack_vectors,
     tensor_constant_from_dataframe,
     variable_dict_to_numpy_array,
 )
@@ -43,6 +46,35 @@ def test_variable_dict_to_numpy_array():
     numpy_arr = variable_dict_to_numpy_array(problem, variable_dict)
 
     npt.assert_array_almost_equal(numpy_arr, var_values)
+
+
+@pytest.mark.utils
+def test_variable_dict_to_numpy_array_w_tensor_variables():
+    """Test the conversion from a variable dict to a numpy array when the variables are Tensors."""
+    problem = simple_knapsack_vectors()
+
+    var_dict = {"X": [[0, 1, 0, 1]]}
+
+    assert False
+
+    # numpy_arr = variable_dict_to_numpy_array(problem, var_dict)
+
+
+@pytest.mark.utils
+def test_flatten_variable_dict():
+    """Test that flatten variable dict works correctly."""
+    problem = mixed_variable_dimensions_problem()
+
+    var_dict = {
+        "x": 1.0,
+        "Y": [1, 2, 3, 4, 5],
+        "Z": [[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]],
+        "A": [[[7, 7], [7, 7], [1, 4]], [[9, 4], [7, 8], [9, 7]]],
+    }
+
+    res = flatten_variable_dict(problem, var_dict)
+
+    # TODO (gialmisi): test also already flattened stuff, and mixed (flattened, not flattened)
 
 
 @pytest.mark.utils
