@@ -16,7 +16,7 @@ class FeasibleArchive(Subscriber):
     @property
     def interested_topics(self) -> Sequence[MessageTopics]:
         """Return the message topics that the archiver is interested in."""
-        return [GeneratorMessageTopics.OUTPUTS, EvaluatorMessageTopics.OUTPUTS]
+        return [GeneratorMessageTopics.VERBOSE_OUTPUTS, EvaluatorMessageTopics.VERBOSE_OUTPUTS]
 
     @property
     def provided_topics(self) -> dict[int, Sequence[MessageTopics]]:
