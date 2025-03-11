@@ -6,7 +6,7 @@ import polars as pl
 
 from desdeo.problem import Problem
 from desdeo.tools.message import EvaluatorMessageTopics, GeneratorMessageTopics, Message, MessageTopics
-from desdeo.tools.non_dominated_sorting import non_dominated
+from desdeo.tools.non_dominated_sorting import non_dominated, non_dominated_merge
 from desdeo.tools.patterns import Publisher, Subscriber
 
 
@@ -129,13 +129,15 @@ class NonDominatedArchive(Subscriber):
             message (Message): Message from the publisher.
         """
         data = message.value
+        if type(data) is not pl.DataFrame:
+            raise ValueError("Data should be a polars DataFrame")
         if self.archive is None:
-            self.archive = data
+            non_dom_mask = non_dominated(data[self.targets].to_numpy())
+            self.archive = data.filter(non_dom_mask)
         else:
-            self.archive = pl.concat([self.archive, data])
-
-        non_dom_mask = non_dominated(self.archive[self.targets].to_numpy())
-        self.archive = self.archive.filter(non_dom_mask)
+            to_add = data.filter(non_dominated(data[self.targets].to_numpy()))
+            mask1, mask2 = non_dominated_merge(self.archive[self.targets].to_numpy(), to_add[self.targets].to_numpy())
+            self.archive = pl.concat([self.archive.filter(mask1), to_add.filter(mask2)])
 
     def state(self) -> dict:
         """Return the state of the archiver."""
