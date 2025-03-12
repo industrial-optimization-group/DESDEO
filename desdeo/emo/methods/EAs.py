@@ -9,7 +9,7 @@ from desdeo.emo.operators.evaluator import EMOEvaluator
 from desdeo.emo.operators.generator import LHSGenerator
 from desdeo.emo.operators.mutation import BoundedPolynomialMutation
 from desdeo.emo.operators.selection import NSGAIII_select, ReferenceVectorOptions, RVEASelector
-from desdeo.emo.operators.termination import MaxGenerationsTerminator
+from desdeo.emo.operators.termination import MaxEvaluationsTerminator, MaxGenerationsTerminator
 from desdeo.problem import Problem
 from desdeo.tools.patterns import Publisher
 
@@ -19,6 +19,7 @@ def rvea(
     problem: Problem,
     seed: int = 0,
     n_generations=100,
+    max_evaluations: int | None = None,
     reference_vector_options: ReferenceVectorOptions = None,
     forced_verbosity: int | None = None,
 ) -> tuple[Callable[[], EMOResult], Publisher]:
@@ -38,6 +39,9 @@ def rvea(
         problem (Problem): The problem to be solved.
         seed (int, optional): The seed for the random number generator. Defaults to 0.
         n_generations (int, optional): The number of generations to run the algorithm. Defaults to 100.
+        max_evaluations (int, optional): The maximum number of evaluations to run the algorithm. If None, the algorithm
+            will run for n_generations. Defaults to None. If both n_generations and max_evaluations are provided, the
+            algorithm will run until max_evaluations is reached.
         reference_vector_options (ReferenceVectorOptions, optional): The options for the reference vectors. Defaults to
             None. See the ReferenceVectorOptions class for the defaults. This option can be used to run an interactive
             version of the algorithm, using preferences provided by the user.
@@ -87,7 +91,10 @@ def rvea(
         verbosity=forced_verbosity if forced_verbosity is not None else 1,
     )
 
-    terminator = MaxGenerationsTerminator(n_generations, publisher=publisher)
+    if max_evaluations is not None:
+        terminator = MaxEvaluationsTerminator(max_evaluations, publisher=publisher)
+    else:
+        terminator = MaxGenerationsTerminator(n_generations, publisher=publisher)
 
     components = [evaluator, generator, crossover, mutation, selector, terminator]
     [publisher.auto_subscribe(x) for x in components]
@@ -112,6 +119,7 @@ def nsga3(
     problem: Problem,
     seed: int = 0,
     n_generations: int = 100,
+    max_evaluations: int | None = None,
     reference_vector_options: ReferenceVectorOptions = None,
     forced_verbosity: int | None = None,
 ) -> tuple[Callable[[], EMOResult], Publisher]:
@@ -130,6 +138,9 @@ def nsga3(
         problem (Problem): The problem to be solved.
         seed (int, optional): The seed for the random number generator. Defaults to 0.
         n_generations (int, optional): The number of generations to run the algorithm. Defaults to 100.
+        max_evaluations (int, optional): The maximum number of evaluations to run the algorithm. If None, the algorithm
+            will run for n_generations. Defaults to None. If both n_generations and max_evaluations are provided, the
+            algorithm will run until max_evaluations is reached.
         reference_vector_options (ReferenceVectorOptions, optional): The options for the reference vectors. Defaults to
             None. See the ReferenceVectorOptions class for the defaults. This option can be used to run an interactive
             version of the algorithm, using preferences provided by the user.
@@ -179,10 +190,13 @@ def nsga3(
         verbosity=forced_verbosity if forced_verbosity is not None else 1,
     )
 
-    terminator = MaxGenerationsTerminator(
-        n_generations,
-        publisher=publisher,
-    )
+    if max_evaluations is not None:
+        terminator = MaxEvaluationsTerminator(max_evaluations, publisher=publisher)
+    else:
+        terminator = MaxGenerationsTerminator(
+            n_generations,
+            publisher=publisher,
+        )
 
     components = [evaluator, generator, crossover, mutation, selector, terminator]
     [publisher.auto_subscribe(x) for x in components]

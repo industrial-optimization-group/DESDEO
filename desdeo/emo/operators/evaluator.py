@@ -88,7 +88,7 @@ class EMOEvaluator(Subscriber):
                 IntMessage(
                     topic=EvaluatorMessageTopics.NEW_EVALUATIONS,
                     value=self.new_evals,
-                    source="EMOEvaluator",
+                    source=self.__class__.__name__,
                 )
             ]
 
@@ -96,20 +96,20 @@ class EMOEvaluator(Subscriber):
             message = PolarsDataFrameMessage(
                 topic=EvaluatorMessageTopics.VERBOSE_OUTPUTS,
                 value=pl.concat([self.population, self.out], how="horizontal"),
-                source="EMOEvaluator",
+                source=self.__class__.__name__,
             )
         else:
             warnings.warn("Population is not a Polars DataFrame. Defaulting to providing OUTPUTS only.", stacklevel=2)
             message = PolarsDataFrameMessage(
                 topic=EvaluatorMessageTopics.VERBOSE_OUTPUTS,
                 value=self.out,
-                source="EMOEvaluator",
+                source=self.__class__.__name__,
             )
         return [
             IntMessage(
                 topic=EvaluatorMessageTopics.NEW_EVALUATIONS,
                 value=self.new_evals,
-                source="EMOEvaluator",
+                source=self.__class__.__name__,
             ),
             message,
         ]

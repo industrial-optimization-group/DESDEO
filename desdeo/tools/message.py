@@ -98,6 +98,8 @@ class SelectorMessageTopics(Enum):
     """ The individuals selected by the selector. """
     SELECTED_OUTPUTS = "SELECTED_OUTPUTS"
     """ The targets of the selected individuals. """
+    SELECTED_VERBOSE_OUTPUTS = "SELECTED_VERBOSE_OUTPUTS"
+    """ Same as SELECTED_OUTPUTS + SELECTED_INDIVIDUALS"""
     REFERENCE_VECTORS = "REFERENCE_VECTORS"
     """ The reference vectors used in the selection in decomposition-based EMO algorithms. """
 
