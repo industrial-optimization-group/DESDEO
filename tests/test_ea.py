@@ -145,7 +145,7 @@ def test_archives():
 
     results = solver()
 
-    norm_non_dom = non_dom_archive.archive.with_columns(
+    norm_non_dom = non_dom_archive.solutions.with_columns(
         (pl.col("f_1") ** 2 + pl.col("f_2") ** 2 + pl.col("f_3") ** 2).sqrt().alias("norm")
     )["norm"]
 
@@ -153,7 +153,7 @@ def test_archives():
         (pl.col("f_1") ** 2 + pl.col("f_2") ** 2 + pl.col("f_3") ** 2).sqrt().alias("norm")
     )["norm"]
 
-    norm_all = archive.archive.with_columns(
+    norm_all = archive.solutions.with_columns(
         (pl.col("f_1") ** 2 + pl.col("f_2") ** 2 + pl.col("f_3") ** 2).sqrt().alias("norm")
     )["norm"]
 
@@ -183,6 +183,7 @@ def test_template():
         publisher=publisher,
         parameter_adaptation_strategy=ParameterAdaptationStrategy.FUNCTION_EVALUATION_BASED,
         reference_vector_options=ReferenceVectorOptions(number_of_vectors=20),
+        verbosity=2
     )
 
     terminator = MaxEvaluationsTerminator(max_evaluations=5000, publisher=publisher)
@@ -222,7 +223,7 @@ def test_template():
 
     assert results is not None
 
-    norm = non_dom_archive.archive.with_columns(
+    norm = non_dom_archive.solutions.with_columns(
         (pl.col("f_1") ** 2 + pl.col("f_2") ** 2 + pl.col("f_3") ** 2).sqrt().alias("norm")
     )["norm"]
 
@@ -469,6 +470,7 @@ def test_template_integer():
         publisher=publisher,
         parameter_adaptation_strategy=ParameterAdaptationStrategy.FUNCTION_EVALUATION_BASED,
         reference_vector_options=ReferenceVectorOptions(number_of_vectors=20),
+        verbosity=2
     )
 
     terminator = MaxEvaluationsTerminator(max_evaluations=100, publisher=publisher)
