@@ -1,5 +1,7 @@
 """Various utilities used across the framework related to the Problem formulation."""
 
+import itertools
+
 import numpy as np
 import polars as pl
 
@@ -53,7 +55,7 @@ def numpy_array_to_objective_dict(problem: Problem, numpy_array: np.ndarray) -> 
     return {objective.symbol: np.squeeze(numpy_array).tolist()[i] for i, objective in enumerate(problem.objectives)}
 
 
-def flatten_variable_dict(problem: Problem, variable_dict: dict[str, float | list]) -> dict[str, float]:
+def flatten_variable_dict(problem: Problem, variable_dict: dict[str, float | list]) -> np.ndarray:
     """_summary_
 
     Args:
@@ -70,16 +72,20 @@ def flatten_variable_dict(problem: Problem, variable_dict: dict[str, float | lis
             if var.symbol not in variable_dict:
                 msg = f"The variable_dict is missing values for the variable {var.symbol}."
                 raise ValueError(msg)
-            tmp.append(variable_dict[var.symbol])
+            tmp.append([variable_dict[var.symbol]])
             continue
 
         if isinstance(var, TensorVariable):
             # tensor variable
             if var.symbol in variable_dict:
                 # tensor variable is defined in the dict as a tensor
+                tmp = [*tmp, np.array(variable_dict[var.symbol]).flatten(order="C")]
                 continue
-            if (flat_symbols := problem.get_flattened_variables(var.symbol))[0] in variable_dict:
+            if any(key.startswith(f"{var.symbol}_") for key in variable_dict):
                 # tensor variable flattened in the dict
+                indices = itertools.product(*[range(1, s + 1) for s in var.shape])
+                flat_symbols = [f"{var.symbol}_{'_'.join(map(str, index))}" for index in indices]
+                tmp = [*tmp, np.array([variable_dict[s] for s in flat_symbols])]
                 continue
 
             msg = f"The variable dict is missing values for the variable {var.symbol}."
@@ -88,7 +94,7 @@ def flatten_variable_dict(problem: Problem, variable_dict: dict[str, float | lis
         msg = f"Unsupported variable type {type(var)} encountered."
         raise TypeError(msg)
 
-    return np.squeeze(np.array(tmp))
+    return np.concatenate(tmp)
 
 
 def variable_dict_to_numpy_array(problem: Problem, variable_dict: dict[str, float | list]) -> np.ndarray:

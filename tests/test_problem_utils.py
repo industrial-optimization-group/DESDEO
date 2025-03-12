@@ -74,7 +74,59 @@ def test_flatten_variable_dict():
 
     res = flatten_variable_dict(problem, var_dict)
 
+    var_dict_all_flat = {
+        "x": 1.0,
+        "Y_1": 1,
+        "Y_2": 2,
+        "Y_3": 3,
+        "Y_4": 4,
+        "Y_5": 5,
+        "Z_1_1": 1,
+        "Z_1_2": 2,
+        "Z_2_1": 3,
+        "Z_2_2": 4,
+        "Z_3_1": 5,
+        "Z_3_2": 6,
+        "Z_4_1": 7,
+        "Z_4_2": 8,
+        "Z_5_1": 9,
+        "Z_5_2": 10,
+        "A_1_1_1": 7,
+        "A_1_1_2": 7,
+        "A_1_2_1": 7,
+        "A_1_2_2": 7,
+        "A_1_3_1": 1,
+        "A_1_3_2": 4,
+        "A_2_1_1": 9,
+        "A_2_1_2": 4,
+        "A_2_2_1": 7,
+        "A_2_2_2": 8,
+        "A_2_3_1": 9,
+        "A_2_3_2": 7,
+    }
+
+    res_flat = flatten_variable_dict(problem, var_dict_all_flat)
+
+    var_dict_mix = {
+        "x": 1.0,
+        "Y": [1, 2, 3, 4, 5],
+        "Z_1_1": 1,
+        "Z_1_2": 2,
+        "Z_2_1": 3,
+        "Z_2_2": 4,
+        "Z_3_1": 5,
+        "Z_3_2": 6,
+        "Z_4_1": 7,
+        "Z_4_2": 8,
+        "Z_5_1": 9,
+        "Z_5_2": 10,
+        "A": [[[7, 7], [7, 7], [1, 4]], [[9, 4], [7, 8], [9, 7]]],
+    }
+
+    res_mix = flatten_variable_dict(problem, var_dict_mix)
+
     # TODO (gialmisi): test also already flattened stuff, and mixed (flattened, not flattened)
+    print()
 
 
 @pytest.mark.utils
