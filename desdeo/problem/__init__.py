@@ -52,6 +52,7 @@ __all__ = [
     "Simulator",
     "TensorConstant",
     "TensorVariable",
+    "unflatten_variable_array",
     "Variable",
     "VariableDimensionEnum",
     "VariableDomainTypeEnum",
@@ -130,5 +131,6 @@ from .utils import (
     numpy_array_to_objective_dict,
     objective_dict_to_numpy_array,
     tensor_constant_from_dataframe,
+    unflatten_variable_array,
     variable_dict_to_numpy_array,
 )

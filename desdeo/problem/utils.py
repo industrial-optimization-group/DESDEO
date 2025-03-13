@@ -1,6 +1,8 @@
 """Various utilities used across the framework related to the Problem formulation."""
 
 import itertools
+import warnings
+from functools import reduce
 
 import numpy as np
 import polars as pl
@@ -55,15 +57,93 @@ def numpy_array_to_objective_dict(problem: Problem, numpy_array: np.ndarray) -> 
     return {objective.symbol: np.squeeze(numpy_array).tolist()[i] for i, objective in enumerate(problem.objectives)}
 
 
-def flatten_variable_dict(problem: Problem, variable_dict: dict[str, float | list]) -> np.ndarray:
-    """_summary_
+def unflatten_variable_array(problem: Problem, var_array: np.ndarray) -> dict[str, float | list]:
+    """Unflatten a numpy array representing decision variable values.
+
+    Unflatten a numpy array that represent decision variable values. It is assumed
+    that the unflattened values follow a C-like order when it comes to unflattening
+    values for `TensorVariable`s. Note that `var_array` must be of dimension 1.
 
     Args:
-        problem (Problem): _description_
-        variable_dict (dict[str, float  |  list]): _description_
+        problem (Problem): the problem instance the decision variables are associated with.
+        var_array (np.ndarray): a flat 1D array of numerical values representing
+            decision variable values.
+
+    Raises:
+        ValueError: `var_array` is of some other dimension that 1.
+        IndexError: `var_array` has too few elements given the variables defined in
+            the instance of `Problem`.
+        TypeError: unsupported variable type encountered in the variables defined in the
+            instance of `Problem`.
 
     Returns:
-        dict[str, float]: _description_
+        dict[str, float | list]: a dict with keys equal to the symbols of the variables
+            defined in the `Problem` instance, and values equal to the decision variable
+            values as they were defined in `var_array`.
+    """
+    if (dimension := var_array.ndim) != 1:
+        msg = f"The given variable array must have a dimension of 1. Current {dimension=}"
+        raise ValueError(msg)
+
+    var_dict = {}
+    array_i = 0
+    for var in problem.variables:
+        if array_i >= len(var_array):
+            msg = (
+                "End of variable array reached before all variables in the problem were iterated over. "
+                f"The variable array is too short with length={len(var_array)}."
+            )
+            raise IndexError(msg)
+
+        if isinstance(var, Variable):
+            # regular variable, just pick it
+            var_dict[var.symbol] = var_array[array_i].item()
+            array_i += 1
+            continue
+
+        if isinstance(var, TensorVariable):
+            # tensor variable, pick row-wise from var_array
+            slice_length = reduce(lambda x1, x2: x1 * x2, var.shape)  # product of dimensions
+            flat_values = var_array[array_i : array_i + slice_length]
+            var_dict[var.symbol] = np.reshape(flat_values, var.shape, order="C").tolist()
+            array_i += slice_length
+            continue
+
+        msg = f"Unsupported variable type {type(var)} encountered."
+        raise TypeError(msg)
+
+    # check if values remain in var_array
+    if array_i < len(var_array):
+        # some values remain, warn user, but do not raise an error
+        msg = f"Warning, the variable array had some values that were not unflattened: f{["...", *var_array[array_i:]]}"
+        warnings.warn(msg, stacklevel=2)
+
+    # return the variable dict
+    return var_dict
+
+
+def flatten_variable_dict(problem: Problem, variable_dict: dict[str, float | list]) -> np.ndarray:
+    """Flatten a dictionary representing variable values of an instance of `Problem` into a numpy array.
+
+    Flattens a dictionary representing variable values of an instance of `Problem` into a numpy array.
+    The flattening follows a C-like order. Support the flattening of both `Variable` and `TensorVariable`
+    types. Note that it is assumed that no more than one value is defined for each symbol in `variable_dict`
+    that correspond to the required shape of the underlying variable type.
+
+    Args:
+        problem (Problem): the problem instance the decision variables are associated with.
+        variable_dict (dict[str, float  |  list]): a dictionary with its keys being the symbols
+            of the variables defined in the instance of `Problem`, and the values corresponding
+            to the variables' values.
+
+    Raises:
+        ValueError: the `variable_dict` does not contain as its keys one or more of the symbols
+            defined for the variables in the instance of `Problem`.
+        TypeError: unsupported variable type encountered in the variables defined in the
+            instance of `Problem`.
+
+    Returns:
+        np.ndarray: a 1D numpy array with the variable values unflattened in C-like order.
     """
     tmp = []
     for var in problem.variables:

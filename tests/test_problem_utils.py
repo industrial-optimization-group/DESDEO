@@ -13,6 +13,7 @@ from desdeo.problem import (
     river_pollution_problem,
     simple_knapsack_vectors,
     tensor_constant_from_dataframe,
+    unflatten_variable_array,
     variable_dict_to_numpy_array,
 )
 
@@ -49,21 +50,11 @@ def test_variable_dict_to_numpy_array():
 
 
 @pytest.mark.utils
-def test_variable_dict_to_numpy_array_w_tensor_variables():
-    """Test the conversion from a variable dict to a numpy array when the variables are Tensors."""
-    problem = simple_knapsack_vectors()
-
-    var_dict = {"X": [[0, 1, 0, 1]]}
-
-    assert False
-
-    # numpy_arr = variable_dict_to_numpy_array(problem, var_dict)
-
-
-@pytest.mark.utils
-def test_flatten_variable_dict():
-    """Test that flatten variable dict works correctly."""
+def test_flatten_unflatten_variable_dict():
+    """Test that variable dictionaries are flattened correctly, and that variable array are unflattened correctly."""
     problem = mixed_variable_dimensions_problem()
+
+    flat_values = [1.0, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 7, 7, 7, 7, 1, 4, 9, 4, 7, 8, 9, 7]
 
     var_dict = {
         "x": 1.0,
@@ -72,7 +63,13 @@ def test_flatten_variable_dict():
         "A": [[[7, 7], [7, 7], [1, 4]], [[9, 4], [7, 8], [9, 7]]],
     }
 
+    # flatten
     res = flatten_variable_dict(problem, var_dict)
+    npt.assert_almost_equal(res, flat_values)
+
+    # unflatten
+    res_unflatten = unflatten_variable_array(problem, res)
+    assert res_unflatten == var_dict
 
     var_dict_all_flat = {
         "x": 1.0,
@@ -105,7 +102,13 @@ def test_flatten_variable_dict():
         "A_2_3_2": 7,
     }
 
+    # flatten
     res_flat = flatten_variable_dict(problem, var_dict_all_flat)
+    npt.assert_almost_equal(res_flat, flat_values)
+
+    # unflatten
+    res_flat_unflatten = unflatten_variable_array(problem, res_flat)
+    assert res_flat_unflatten == var_dict
 
     var_dict_mix = {
         "x": 1.0,
@@ -123,10 +126,13 @@ def test_flatten_variable_dict():
         "A": [[[7, 7], [7, 7], [1, 4]], [[9, 4], [7, 8], [9, 7]]],
     }
 
+    # flatten
     res_mix = flatten_variable_dict(problem, var_dict_mix)
+    npt.assert_almost_equal(res_mix, flat_values)
 
-    # TODO (gialmisi): test also already flattened stuff, and mixed (flattened, not flattened)
-    print()
+    # unflatten
+    res_mix_unflatten = unflatten_variable_array(problem, res_mix)
+    assert res_mix_unflatten == var_dict
 
 
 @pytest.mark.utils
