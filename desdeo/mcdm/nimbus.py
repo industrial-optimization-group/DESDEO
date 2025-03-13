@@ -7,12 +7,15 @@ References:
 """  # noqa: RUF002
 
 import numpy as np
+import polars as pl
 
 from desdeo.problem import (
     PolarsEvaluator,
     Problem,
+    Variable,
     VariableType,
-    variable_dict_to_numpy_array,
+    flatten_variable_dict,
+    unflatten_variable_array,
 )
 from desdeo.tools import (
     BaseSolver,
@@ -82,8 +85,8 @@ def solve_intermediate_solutions(  # noqa: PLR0913
     _solver_options = None if solver_options is None or solver is None else solver_options
 
     # compute the element-wise difference between each solution (in the decision space)
-    solution_1_arr = variable_dict_to_numpy_array(problem, solution_1)
-    solution_2_arr = variable_dict_to_numpy_array(problem, solution_2)
+    solution_1_arr = flatten_variable_dict(problem, solution_1)
+    solution_2_arr = flatten_variable_dict(problem, solution_2)
     delta = solution_1_arr - solution_2_arr
 
     # the '2' is in the denominator because we want to calculate the steps
@@ -92,14 +95,20 @@ def solve_intermediate_solutions(  # noqa: PLR0913
 
     intermediate_points = np.array([solution_2_arr + i * step_size for i in range(1, num_desired + 1)])
 
-    xs = {f"{variable.symbol}": intermediate_points[:, i].tolist() for (i, variable) in enumerate(problem.variables)}
+    intermediate_var_values = pl.DataFrame(
+        [unflatten_variable_array(problem, x) for x in intermediate_points],
+        schema=[
+            (var.symbol, pl.Float64 if isinstance(var, Variable) else pl.Array(pl.Float64, tuple(var.shape)))
+            for var in problem.variables
+        ],
+    )
 
     # evaluate the intermediate points to get reference points
     # TODO(gialmisi): an evaluator might have to be selected depending on the problem
     evaluator = PolarsEvaluator(problem)
 
-    reference_points: list[dict[str, float]] = (
-        evaluator.evaluate(xs).select([obj.symbol for obj in problem.objectives]).to_dicts()
+    reference_points = (
+        evaluator.evaluate(intermediate_var_values).select([obj.symbol for obj in problem.objectives]).to_dicts()
     )
 
     # for each reference point, add and solve the ASF scalarization problem
@@ -108,9 +117,8 @@ def solve_intermediate_solutions(  # noqa: PLR0913
     intermediate_solutions = []
     for rp in reference_points:
         # add scalarization
-        # TODO(gialmisi): add logic that selects correct variant of the ASF
-        # depending on problem properties (either diff or non-diff)
-        asf_problem, target = add_asf_diff(problem, "target", rp, **(scalarization_options or {}))
+        add_asf = add_asf_diff if problem.is_twice_differentiable else add_asf_nondiff
+        asf_problem, target = add_asf(problem, "target", rp, **(scalarization_options or {}))
 
         solver = init_solver(asf_problem, _solver_options)
 

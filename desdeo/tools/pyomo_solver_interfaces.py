@@ -234,7 +234,7 @@ def parse_pyomo_optimizer_results(
                 values_list[*[idx - 1 for idx in indices]] = results[var.symbol][
                     indices if len(indices) > 1 else indices[0]
                 ]
-            variable_values[var.symbol] = values_list
+            variable_values[var.symbol] = values_list.tolist()
         else:
             # variable_values = {var.symbol: results[var.symbol] for var in problem.variables}
             variable_values[var.symbol] = results[var.symbol]

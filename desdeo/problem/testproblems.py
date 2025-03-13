@@ -3523,9 +3523,9 @@ def mixed_variable_dimensions_problem():
         symbol="Y",
         shape=[5],
         variable_type=VariableTypeEnum.real,
-        lowerbounds=5 * [0],
-        upperbounds=5 * [1],
-        initial_values=5 * [1],
+        lowerbounds=5,
+        upperbounds=5,
+        initial_values=5,
     )
 
     z = TensorVariable(
@@ -3533,7 +3533,9 @@ def mixed_variable_dimensions_problem():
         symbol="Z",
         shape=[5, 2],
         variable_type=VariableTypeEnum.real,
-        initial_values=[[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]],
+        lowerbounds=-100,
+        upperbounds=100,
+        initial_values=1,
     )
 
     a = TensorVariable(
@@ -3541,12 +3543,27 @@ def mixed_variable_dimensions_problem():
         symbol="A",
         shape=[2, 3, 2],
         variable_type=VariableTypeEnum.real,
+        lowerbounds=-100,
+        upperbounds=100,
+        initial_values=1,
     )
 
     dummy = Objective(
         name="dummy objective, not relevant",
         symbol="f_1",
-        func="x + y[1] + z[1,1] + a[1,1,1]",
+        func="x - Y[1]",
+        maximize=False,
+        ideal=-1000,
+        nadir=1000,
+        is_linear=True,
+        is_convex=True,
+        is_twice_differentiable=True,
+    )
+
+    dummy2 = Objective(
+        name="dummy objective, not relevant",
+        symbol="f_2",
+        func="-x + Y[1]",
         maximize=False,
         ideal=-1000,
         nadir=1000,
@@ -3559,5 +3576,5 @@ def mixed_variable_dimensions_problem():
         name="Mixed variable dimensions problem",
         description="A problem with variables with mixed dimensions. For testing.",
         variables=[x, y, z, a],
-        objectives=[dummy],
+        objectives=[dummy, dummy2],
     )

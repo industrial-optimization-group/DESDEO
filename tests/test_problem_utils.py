@@ -5,16 +5,13 @@ import polars as pl
 import pytest
 
 from desdeo.problem import (
-    dtlz2,
     flatten_variable_dict,
     mixed_variable_dimensions_problem,
     numpy_array_to_objective_dict,
     objective_dict_to_numpy_array,
     river_pollution_problem,
-    simple_knapsack_vectors,
     tensor_constant_from_dataframe,
     unflatten_variable_array,
-    variable_dict_to_numpy_array,
 )
 
 
@@ -32,21 +29,6 @@ def test_objective_dict_to_numpy_array_and_back():
     assert all(
         objective_dict[objective.symbol] == objective_dict_again[objective.symbol] for objective in problem.objectives
     )
-
-
-@pytest.mark.utils
-def test_variable_dict_to_numpy_array():
-    """Test the conversion from a variable dict to a numpy array."""
-    n_variables = 10
-    problem = dtlz2(n_variables, 5)
-
-    var_values = [2.5 * (i + 1) for i in range(n_variables)]
-
-    variable_dict = {f"{variable.symbol}": var_values[i] for (i, variable) in enumerate(problem.variables)}
-
-    numpy_arr = variable_dict_to_numpy_array(problem, variable_dict)
-
-    npt.assert_array_almost_equal(numpy_arr, var_values)
 
 
 @pytest.mark.utils

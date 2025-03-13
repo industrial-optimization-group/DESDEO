@@ -58,7 +58,6 @@ __all__ = [
     "VariableDomainTypeEnum",
     "VariableType",
     "VariableTypeEnum",
-    "variable_dict_to_numpy_array",
     "variable_dimension_enumerate",
     "zdt1",
     "zdt2",
@@ -132,5 +131,4 @@ from .utils import (
     objective_dict_to_numpy_array,
     tensor_constant_from_dataframe,
     unflatten_variable_array,
-    variable_dict_to_numpy_array,
 )
