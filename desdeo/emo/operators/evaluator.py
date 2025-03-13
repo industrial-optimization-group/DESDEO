@@ -1,5 +1,6 @@
 """Classes for evaluating the objectives and constraints of the individuals in the population."""
 
+import warnings
 from collections.abc import Sequence
 
 import polars as pl
@@ -31,8 +32,7 @@ class EMOEvaluator(Subscriber):
             1: [EvaluatorMessageTopics.NEW_EVALUATIONS],
             2: [
                 EvaluatorMessageTopics.NEW_EVALUATIONS,
-                EvaluatorMessageTopics.POPULATION,
-                EvaluatorMessageTopics.OUTPUTS,
+                EvaluatorMessageTopics.VERBOSE_OUTPUTS,
             ],
         }
 
@@ -88,34 +88,30 @@ class EMOEvaluator(Subscriber):
                 IntMessage(
                     topic=EvaluatorMessageTopics.NEW_EVALUATIONS,
                     value=self.new_evals,
-                    source="EMOEvaluator",
+                    source=self.__class__.__name__,
                 )
             ]
 
         if isinstance(self.population, pl.DataFrame):
-            population_message = PolarsDataFrameMessage(
-                topic=EvaluatorMessageTopics.POPULATION,
-                value=self.population,
-                source="EMOEvaluator",
+            message = PolarsDataFrameMessage(
+                topic=EvaluatorMessageTopics.VERBOSE_OUTPUTS,
+                value=pl.concat([self.population, self.out], how="horizontal"),
+                source=self.__class__.__name__,
             )
         else:
-            population_message = GenericMessage(
-                topic=EvaluatorMessageTopics.POPULATION,
-                value="Population is not a polars DataFrame",
-                source="EMOEvaluator",
+            warnings.warn("Population is not a Polars DataFrame. Defaulting to providing OUTPUTS only.", stacklevel=2)
+            message = PolarsDataFrameMessage(
+                topic=EvaluatorMessageTopics.VERBOSE_OUTPUTS,
+                value=self.out,
+                source=self.__class__.__name__,
             )
         return [
             IntMessage(
                 topic=EvaluatorMessageTopics.NEW_EVALUATIONS,
                 value=self.new_evals,
-                source="EMOEvaluator",
+                source=self.__class__.__name__,
             ),
-            population_message,
-            PolarsDataFrameMessage(
-                topic=EvaluatorMessageTopics.OUTPUTS,
-                value=self.out,
-                source="EMOEvaluator",
-            ),
+            message,
         ]
 
     def update(self, *_, **__):

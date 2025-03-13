@@ -33,8 +33,7 @@ class BaseGenerator(Subscriber):
             1: [GeneratorMessageTopics.NEW_EVALUATIONS],
             2: [
                 GeneratorMessageTopics.NEW_EVALUATIONS,
-                GeneratorMessageTopics.POPULATION,
-                GeneratorMessageTopics.OUTPUTS,
+                GeneratorMessageTopics.VERBOSE_OUTPUTS,
             ],
         }
 
@@ -85,13 +84,8 @@ class BaseGenerator(Subscriber):
         # verbosity == 2
         return [
             PolarsDataFrameMessage(
-                topic=GeneratorMessageTopics.POPULATION,
-                value=self.population,
-                source=self.__class__.__name__,
-            ),
-            PolarsDataFrameMessage(
-                topic=GeneratorMessageTopics.OUTPUTS,
-                value=self.out,
+                topic=GeneratorMessageTopics.VERBOSE_OUTPUTS,
+                value=pl.concat([self.population, self.out], how="horizontal"),
                 source=self.__class__.__name__,
             ),
             IntMessage(

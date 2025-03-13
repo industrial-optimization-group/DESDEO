@@ -1,4 +1,5 @@
 """This module contains functions for non-dominated sorting of solutions."""
+
 import numpy as np
 from numba import njit  # type: ignore
 
@@ -96,3 +97,36 @@ def fast_non_dominated_sort_indices(data: np.ndarray) -> list[np.ndarray]:
     """
     fronts = fast_non_dominated_sort(data)
     return [np.where(fronts[i])[0] for i in range(len(fronts))]
+
+
+@njit()
+def non_dominated_merge(set1: np.ndarray, set2: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Merge two sets of non-dominated solutions.
+
+    This is a slightly more efficient way to merge two sets of solutions such that the resulting
+    set only contains non-dominated solutions from the two sets. This function assumes that the
+    two sets already only contain non-dominated solutions. I.e., each solution in each set is non-dominated
+    with respect to all other solutions in the same set. However, the solutions in the two sets may not be
+    non-dominated with respect to each other.
+
+    Args:
+        set1 (np.ndarray): 2-D array of solutions, with each row being a single solution.
+        set2 (np.ndarray): 2-D array of solutions, with each row being a single solution.
+
+    Returns:
+        tuple[np.ndarray, np.ndarray]: A tuple of two mask arrays. The first mask array is for set1 and the
+            second mask array is for set2. The value of an element in the mask array is True if the corresponding
+            solution is non-dominated in the merged set. False otherwise.
+    """
+    # Masks to keep track of which solutions are non-dominated. Default is all True.
+    set1_mask = np.ones(len(set1), dtype=np.bool_)
+    set2_mask = np.ones(len(set2), dtype=np.bool_)
+
+    for i in range(len(set1)):
+        for j in range(len(set2)):
+            if dominates(set1[i], set2[j]):
+                set2_mask[j] = False
+            elif dominates(set2[j], set1[i]):
+                set1_mask[i] = False
+
+    return set1_mask, set2_mask
