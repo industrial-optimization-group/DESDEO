@@ -94,35 +94,6 @@ from .schema import (
 )
 from .simulator_evaluator import Evaluator
 from .sympy_evaluator import SympyEvaluator
-from .testproblems import (
-    binh_and_korn,
-    dtlz2,
-    forest_problem,
-    forest_problem_discrete,
-    mixed_variable_dimensions_problem,
-    momip_ti2,
-    momip_ti7,
-    nimbus_test_problem,
-    pareto_navigator_test_problem,
-    re21,
-    re22,
-    re23,
-    re24,
-    river_pollution_problem,
-    river_pollution_scenario,
-    simple_data_problem,
-    simple_integer_test_problem,
-    simple_knapsack,
-    simple_knapsack_vectors,
-    simple_linear_test_problem,
-    simple_scenario_test_problem,
-    simple_test_problem,
-    simulator_problem,
-    spanish_sustainability_problem,
-    zdt1,
-    zdt2,
-    zdt3,
-)
 from .utils import (
     flatten_variable_dict,
     get_ideal_dict,
@@ -132,3 +103,4 @@ from .utils import (
     tensor_constant_from_dataframe,
     unflatten_variable_array,
 )
+from .testproblems import *
