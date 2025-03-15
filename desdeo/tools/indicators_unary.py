@@ -7,7 +7,11 @@ If these conditions are not met, the results of the indicators will not be meani
 
 Additionally, the set may be assumed to only contain mutually non-dominated solutions, depending on the indicator.
 
-For now, we rely on pymoo for the implementation of many of the indicators.
+For now, we rely on pymoo for the implementation of some of the indicators.
+
+Find more information about the indicators in:
+Audet, Charles, et al. "Performance indicators in multiobjective optimization."
+European journal of operational research 292.2 (2021): 397-422.
 """
 
 from warnings import warn
