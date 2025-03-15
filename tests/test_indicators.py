@@ -76,3 +76,24 @@ def test_hv_batch():
     assert (
         hv_vals["boundary"][2] > hv_vals["uniform"][2] > hv_vals["internal"][2]
     ), "Boundary HV is not highest at 10*nadir"
+
+
+@pytest.mark.indicators
+def test_distance_indicators():
+    """Test the distance indicators for a batch of PFs."""
+    num_full_points = 500
+    obj = 3
+    set_uniform = get_reference_directions("energy", obj, n_points=num_full_points)
+    subset = set_uniform[0:250, :]
+
+    distance_inds = distance_indicators(subset, set_uniform)
+
+    assert np.allclose(distance_inds.gd, 0), "GD is not 0 for a subset"
+
+    assert np.allclose(distance_inds.gd_p, 0), "GD_p is not 0 for a subset"
+
+    assert distance_inds.igd > 0, "IGD is not positive for a subset"
+
+    assert distance_inds.igd_p > 0, "IGD_p is not positive for a subset"
+
+    assert distance_inds.ahd == distance_inds.igd_p, "AHD is not equal to IGD_p for a subset"
