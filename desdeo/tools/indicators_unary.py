@@ -14,8 +14,8 @@ from warnings import warn
 
 import numpy as np
 from pydantic import BaseModel, Field
+from pymoo.indicators.hv import Hypervolume
 from scipy.spatial.distance import cdist
-from 
 
 
 def hv(solution_set: np.ndarray, reference_point_component: float) -> float:
@@ -45,11 +45,11 @@ def hv(solution_set: np.ndarray, reference_point_component: float) -> float:
     if ind is None:
         raise ValueError("Hypervolume calculation failed.")
 
-    return ind
+    return float(ind)
 
 
 def hv_batch(
-    solution_sets: dict[str, np.ndarray], reference_points_component: tuple[float]
+    solution_sets: dict[str, np.ndarray], reference_points_component: list[float]
 ) -> dict[str, list[float | None]]:
     """Calculate the hypervolume indicator for a set of solutions over a range of reference points.
 
@@ -61,7 +61,7 @@ def hv_batch(
             ideal and nadir of the set itself can lie within the hypercube, but not outside it. The sets must have the
             same number of objectives/columns but can have different number of solutions/rows.
             The keys of the dict are the names of the sets.
-        reference_points_component (tuple[float]): A tuple of the value of the reference point component. The
+        reference_points_component (list[float]): A list of the value of the reference point component. The
             hypervolume is calculated for each set of solutions for each reference point component. The reference point
             is assumed to be the same for all objectives. The reference point must be at least 1.
 
@@ -73,7 +73,7 @@ def hv_batch(
     hvs = {key: [] for key in solution_sets}
     num_objs = solution_sets[next(iter(solution_sets.keys()))].shape[1]
 
-    for rp in enumerate(reference_points_component):
+    for rp in reference_points_component:
         hv = Hypervolume(
             ref_point=np.full(num_objs, rp, dtype=np.float64),
             ideal=np.zeros(num_objs, dtype=np.float64),
@@ -87,7 +87,7 @@ def hv_batch(
                 warn("Hypervolume calculation failed. Setting value to None", category=RuntimeWarning, stacklevel=2)
                 hvs[set_name].append(None)
             else:
-                hvs[set_name].append(ind)
+                hvs[set_name].append(float(ind))
 
     return hvs
 
