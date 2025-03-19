@@ -33,9 +33,12 @@ class PolarsEvaluatorModesEnum(str, Enum):
     mixed = "mixed"
     """Indicates that the problem has analytical and simulator and/or surrogate
     based objectives, constraints and extra functions. In this mode, the evaluator
-    only handles the analytical functions and assumes there are no data based
-    objectives. The evaluator should expect decision variables vectors and evaluate
-    the problem with them."""
+    only handles data-based and analytical functions. For data-bsed objectives,
+    it assumes that the variables are to be evaluated by finding the closest
+    variables values in the data compare to the input, and evaluating the result
+    to be the matching objective function values that match to the closest
+    variable values found.  The evaluator should expect decision variables
+    vectors and evaluate the problem with them."""
 
 
 class PolarsEvaluatorError(Exception):
@@ -138,9 +141,11 @@ class PolarsEvaluator:
         self.problem_constants = problem.constants
         # Gather the objective functions
         if evaluator_mode == PolarsEvaluatorModesEnum.mixed:
-            self.problem_objectives = list(
-                filter(lambda x: x.objective_type == ObjectiveTypeEnum.analytical, problem.objectives)
-            )
+            self.problem_objectives = [
+                objective
+                for objective in problem.objectives
+                if objective.objective_type in [ObjectiveTypeEnum.analytical, ObjectiveTypeEnum.data_based]
+            ]
         else:
             self.problem_objectives = problem.objectives
         # Gather any constraints
@@ -386,7 +391,8 @@ class PolarsEvaluator:
                 # expression given
                 obj_col = agg_df.select(expr.alias(symbol))
                 agg_df = agg_df.hstack(obj_col)
-            elif self.evaluator_mode != PolarsEvaluatorModesEnum.mixed:
+            # elif self.evaluator_mode != PolarsEvaluatorModesEnum.mixed:
+            else:
                 # expr is None and there are no no simulator or surrogate based objectives,
                 # therefore we must get the objective function's value somehow else, usually from data
                 obj_col = find_closest_points(agg_df, self.discrete_df, self.problem_variable_symbols, symbol)

@@ -2190,7 +2190,9 @@ def add_group_guess_sf(
     weights = []
     for reference_point in reference_points:
         corrected_rp = get_corrected_reference_point(problem, reference_point)
-        weights.append({obj.symbol: 1 / ((nadir[obj.symbol] + delta) - (corrected_rp[obj.symbol])) for obj in problem.objectives})
+        weights.append(
+            {obj.symbol: 1 / ((nadir[obj.symbol] + delta) - (corrected_rp[obj.symbol])) for obj in problem.objectives}
+        )
 
     # form the max term
     max_terms = []
@@ -2278,7 +2280,9 @@ def add_group_guess_sf_diff(
     weights = []
     for reference_point in reference_points:
         corrected_rp = get_corrected_reference_point(problem, reference_point)
-        weights.append({obj.symbol: 1 / ((nadir[obj.symbol] + delta) - (corrected_rp[obj.symbol])) for obj in problem.objectives})
+        weights.append(
+            {obj.symbol: 1 / ((nadir[obj.symbol] + delta) - (corrected_rp[obj.symbol])) for obj in problem.objectives}
+        )
 
     # form the max term
     con_terms = []

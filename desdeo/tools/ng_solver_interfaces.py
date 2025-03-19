@@ -3,7 +3,6 @@
 For more info, see https://facebookresearch.github.io/nevergrad/index.html
 """
 
-from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from typing import Literal
 

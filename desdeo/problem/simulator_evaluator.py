@@ -51,6 +51,9 @@ class Evaluator:
             obj.symbol
             for obj in list(filter(lambda x: x.objective_type == ObjectiveTypeEnum.analytical, problem.objectives))
         ]
+        self.data_based_symbols = [
+            obj.symbol for obj in problem.objectives if obj.objective_type == ObjectiveTypeEnum.data_based
+        ]
         self.simulator_symbols = [
             obj.symbol
             for obj in list(filter(lambda x: x.objective_type == ObjectiveTypeEnum.simulator, problem.objectives))
@@ -84,7 +87,9 @@ class Evaluator:
             ]
 
         # Gather all the symbols of objectives, constraints and extra functions
-        self.problem_symbols = self.analytical_symbols + self.simulator_symbols + self.surrogate_symbols
+        self.problem_symbols = (
+            self.analytical_symbols + self.data_based_symbols + self.simulator_symbols + self.surrogate_symbols
+        )
 
         # Gather the possible simulators
         self.simulators = problem.simulators if problem.simulators is not None else []
@@ -269,7 +274,7 @@ class Evaluator:
         res = pl.DataFrame()
 
         # Evaluate the analytical functions
-        if len(self.analytical_symbols) > 0:
+        if len(self.analytical_symbols + self.data_based_symbols) > 0:
             polars_evaluator = PolarsEvaluator(self.problem, evaluator_mode=PolarsEvaluatorModesEnum.mixed)
             analytical_values = (
                 polars_evaluator._polars_evaluate(xs) if not flat else polars_evaluator._polars_evaluate_flat(xs)
