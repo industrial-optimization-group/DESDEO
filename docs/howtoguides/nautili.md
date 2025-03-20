@@ -18,8 +18,7 @@ Before starting the solution process,
 the group has to agree upon the number of steps they wish to conduct and how many votes are required to conduct a step backwards. For the sake of the example, the group wishes to take 5 steps and majority (3) is required to take a step backwards. 
 ```python
 from desdeo.problem.testproblems import forest_problem_discrete
-TODO: update this
-forest_problem = forest_problem_discrete() # or use forest_problem()
+forest_problem = forest_problem_discrete()
 total_steps = 5
 ```
 
@@ -111,7 +110,8 @@ all_responses: list[NAUTILI_Response] = nautili_all_steps(
 all_responses = [initial_response, *all_responses]
 ```
 
-At this point, the analyst may use the `all_responses` to visualize the reachable ranges and the reachable solutions of each step to each of the DMs. Even though all steps have been evaluated at this point, the analyst (or the GUI) should only visualize this steps one at a time, at a certain rate (say, 1 step per second). This will allow the DM to think that they are navigating the solution space without it consuming too much time.
+At this point, the analyst may use the `all_responses` to visualize the reachable ranges and the reachable solutions of each step to each of the DMs. Even though all steps have been evaluated at this point, the analyst (or the GUI) should only visualize this steps one at a time.
+This will allow the DM to think that they are navigating the solution space without it consuming too much time.
 Note, that according to the NAUTILI assumptions, we do not share the preferences of any DM to any other DM. However, if sharing of preference information is reasonable in you problem scenario, the analyst can share them e.g., via the GUI as a separate visualization. 
 
 One way to get the information to be visualized: 
