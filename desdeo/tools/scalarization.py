@@ -17,7 +17,8 @@ from desdeo.problem import (
     VariableTypeEnum,
 )
 from desdeo.tools.utils import (
-    get_corrected_ideal_and_nadir,
+    get_corrected_ideal,
+    get_corrected_nadir,
     get_corrected_reference_point,
 )
 
@@ -96,6 +97,8 @@ def add_asf_nondiff(  # noqa: PLR0913
     problem: Problem,
     symbol: str,
     reference_point: dict[str, float],
+    ideal: dict[str, float] | None = None,
+    nadir: dict[str, float] | None = None,
     delta: float = 0.000001,
     rho: float = 0.000001,
     *,
@@ -158,8 +161,25 @@ def add_asf_nondiff(  # noqa: PLR0913
         msg = f"The given reference point {reference_point} does not have a component defined for all the objectives."
         raise ScalarizationError(msg)
 
-    # check if minimizing or maximizing and adjust ideal and nadir values correspondingly
-    ideal_point, nadir_point = get_corrected_ideal_and_nadir(problem)
+    # check if ideal point is specified
+    # if not specified, try to calculate corrected ideal point
+    if ideal is not None:
+        ideal_point = ideal
+    elif problem.get_ideal_point() is not None:
+        ideal_point = get_corrected_ideal(problem)
+    else:
+        msg = "Ideal point not defined!"
+        raise ScalarizationError(msg)
+
+    # check if nadir point is specified
+    # if not specified, try to calculate corrected nadir point
+    if nadir is not None:
+        nadir_point = nadir
+    elif problem.get_nadir_point() is not None:
+        nadir_point = get_corrected_nadir(problem)
+    else:
+        msg = "Nadir point not defined!"
+        raise ScalarizationError(msg)
 
     if any(value is None for value in ideal_point.values()) or any(value is None for value in nadir_point.values()):
         msg = f"There are undefined values in either the ideal ({ideal_point}) or the nadir point ({nadir_point})."
@@ -207,7 +227,13 @@ def add_asf_nondiff(  # noqa: PLR0913
 
 
 def add_group_asf(
-    problem: Problem, symbol: str, reference_points: list[dict[str, float]], delta: float = 1e-6, rho: float = 1e-6
+    problem: Problem,
+    symbol: str,
+    reference_points: list[dict[str, float]],
+    ideal: dict[str, float] | None = None,
+    nadir: dict[str, float] | None = None,
+    delta: float = 1e-6,
+    rho: float = 1e-6
 ) -> tuple[Problem, str]:
     r"""Add the achievement scalarizing function for multiple decision makers.
 
@@ -241,10 +267,28 @@ def add_group_asf(
             msg = f"The give reference point {reference_point} is missing a value for one or more objectives."
             raise ScalarizationError(msg)
 
-    ideal, nadir = get_corrected_ideal_and_nadir(problem)
+    # check if ideal point is specified
+    # if not specified, try to calculate corrected ideal point
+    if ideal is not None:
+        ideal_point = ideal
+    elif problem.get_ideal_point() is not None:
+        ideal_point = get_corrected_ideal(problem)
+    else:
+        msg = "Ideal point not defined!"
+        raise ScalarizationError(msg)
+
+    # check if nadir point is specified
+    # if not specified, try to calculate corrected nadir point
+    if nadir is not None:
+        nadir_point = nadir
+    elif problem.get_nadir_point() is not None:
+        nadir_point = get_corrected_nadir(problem)
+    else:
+        msg = "Nadir point not defined!"
+        raise ScalarizationError(msg)
 
     # calculate the weights
-    weights = {obj.symbol: 1 / (nadir[obj.symbol] - (ideal[obj.symbol] - delta)) for obj in problem.objectives}
+    weights = {obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta)) for obj in problem.objectives}
 
     # form the max and augmentation terms
     max_terms = []
@@ -273,7 +317,12 @@ def add_group_asf(
 
 
 def add_group_asf_diff(
-    problem: Problem, symbol: str, reference_points: list[dict[str, float]], delta: float = 1e-6, rho: float = 1e-6
+    problem: Problem, symbol: str,
+    reference_points: list[dict[str, float]],
+    ideal: dict[str, float] | None = None,
+    nadir: dict[str, float] | None = None,
+    delta: float = 1e-6,
+    rho: float = 1e-6
 ) -> tuple[Problem, str]:
     r"""Add the differentiable variant of the achievement scalarizing function for multiple decision makers.
 
@@ -308,7 +357,25 @@ def add_group_asf_diff(
             msg = f"The give reference point {reference_point} is missing a value for one or more objectives."
             raise ScalarizationError(msg)
 
-    ideal, nadir = get_corrected_ideal_and_nadir(problem)
+    # check if ideal point is specified
+    # if not specified, try to calculate corrected ideal point
+    if ideal is not None:
+        ideal_point = ideal
+    elif problem.get_ideal_point() is not None:
+        ideal_point = get_corrected_ideal(problem)
+    else:
+        msg = "Ideal point not defined!"
+        raise ScalarizationError(msg)
+
+    # check if nadir point is specified
+    # if not specified, try to calculate corrected nadir point
+    if nadir is not None:
+        nadir_point = nadir
+    elif problem.get_nadir_point() is not None:
+        nadir_point = get_corrected_nadir(problem)
+    else:
+        msg = "Nadir point not defined!"
+        raise ScalarizationError(msg)
 
     # define the auxiliary variable
     alpha = Variable(
@@ -321,7 +388,7 @@ def add_group_asf_diff(
     )
 
     # calculate the weights
-    weights = {obj.symbol: 1 / (nadir[obj.symbol] - (ideal[obj.symbol] - delta)) for obj in problem.objectives}
+    weights = {obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta)) for obj in problem.objectives}
 
     # form the constaint and augmentation expressions
     # constraint expressions are formed into a list of lists
@@ -450,7 +517,6 @@ def add_asf_generic_diff(  # noqa: PLR0913
         msg = f"The given weight vector {weights_aug} is missing a value for one or more objectives."
         raise ScalarizationError(msg)
 
-    ideal_point, nadir_point = get_corrected_ideal_and_nadir(problem)
     corrected_rp = get_corrected_reference_point(problem, reference_point)
     if reference_point_aug is not None:
         corrected_rp_aug = get_corrected_reference_point(problem, reference_point_aug)
@@ -618,9 +684,6 @@ def add_asf_generic_nondiff(  # noqa: PLR0913
     if reference_point_aug is not None:
         corrected_rp_aug = get_corrected_reference_point(problem, reference_point_aug)
 
-    # check if minimizing or maximizing and adjust ideal and nadir values correspondingly
-    ideal_point, nadir_point = get_corrected_ideal_and_nadir(problem)
-
     # Build the max term
     max_operands = [
         (f"({obj.symbol}_min - {corrected_rp[obj.symbol]}) / ({weights[obj.symbol]})") for obj in problem.objectives
@@ -671,6 +734,8 @@ def add_nimbus_sf_diff(  # noqa: PLR0913
     symbol: str,
     classifications: dict[str, tuple[str, float | None]],
     current_objective_vector: dict[str, float],
+    ideal: dict[str, float] | None = None,
+    nadir: dict[str, float] | None = None,
     delta: float = 0.000001,
     rho: float = 0.000001,
 ) -> Problem:
@@ -764,8 +829,25 @@ def add_nimbus_sf_diff(  # noqa: PLR0913
         )
         raise ScalarizationError(msg)
 
-    # check ideal and nadir exist
-    ideal_point, nadir_point = get_corrected_ideal_and_nadir(problem)
+    # check if ideal point is specified
+    # if not specified, try to calculate corrected ideal point
+    if ideal is not None:
+        ideal_point = ideal
+    elif problem.get_ideal_point() is not None:
+        ideal_point = get_corrected_ideal(problem)
+    else:
+        msg = "Ideal point not defined!"
+        raise ScalarizationError(msg)
+
+    # check if nadir point is specified
+    # if not specified, try to calculate corrected nadir point
+    if nadir is not None:
+        nadir_point = nadir
+    elif problem.get_nadir_point() is not None:
+        nadir_point = get_corrected_nadir(problem)
+    else:
+        msg = "Nadir point not defined!"
+        raise ScalarizationError(msg)
 
     # define the auxiliary variable
     alpha = Variable(
@@ -910,6 +992,8 @@ def add_nimbus_sf_nondiff(  # noqa: PLR0913
     symbol: str,
     classifications: dict[str, tuple[str, float | None]],
     current_objective_vector: dict[str, float],
+    ideal: dict[str, float] | None = None,
+    nadir: dict[str, float] | None = None,
     delta: float = 0.000001,
     rho: float = 0.000001,
 ) -> Problem:
@@ -1003,8 +1087,26 @@ def add_nimbus_sf_nondiff(  # noqa: PLR0913
         )
         raise ScalarizationError(msg)
 
-    # check ideal and nadir exist
-    ideal_point, nadir_point = get_corrected_ideal_and_nadir(problem)
+    # check if ideal point is specified
+    # if not specified, try to calculate corrected ideal point
+    if ideal is not None:
+        ideal_point = ideal
+    elif problem.get_ideal_point() is not None:
+        ideal_point = get_corrected_ideal(problem)
+    else:
+        msg = "Ideal point not defined!"
+        raise ScalarizationError(msg)
+
+    # check if nadir point is specified
+    # if not specified, try to calculate corrected nadir point
+    if nadir is not None:
+        nadir_point = nadir
+    elif problem.get_nadir_point() is not None:
+        nadir_point = get_corrected_nadir(problem)
+    else:
+        msg = "Nadir point not defined!"
+        raise ScalarizationError(msg)
+
     corrected_current_point = get_corrected_reference_point(problem, current_objective_vector)
 
     # max term and constraints
@@ -1119,6 +1221,8 @@ def add_group_nimbus_sf(  # noqa: PLR0913
     symbol: str,
     classifications_list: list[dict[str, tuple[str, float | None]]],
     current_objective_vector: dict[str, float],
+    ideal: dict[str, float] | None = None,
+    nadir: dict[str, float] | None = None,
     delta: float = 0.000001,
     rho: float = 0.000001,
 ) -> tuple[Problem, str]:
@@ -1204,12 +1308,30 @@ def add_group_nimbus_sf(  # noqa: PLR0913
             )
             raise ScalarizationError(msg)
 
-    # check ideal and nadir exist
-    ideal, nadir = get_corrected_ideal_and_nadir(problem)
+    # check if ideal point is specified
+    # if not specified, try to calculate corrected ideal point
+    if ideal is not None:
+        ideal_point = ideal
+    elif problem.get_ideal_point() is not None:
+        ideal_point = get_corrected_ideal(problem)
+    else:
+        msg = "Ideal point not defined!"
+        raise ScalarizationError(msg)
+
+    # check if nadir point is specified
+    # if not specified, try to calculate corrected nadir point
+    if nadir is not None:
+        nadir_point = nadir
+    elif problem.get_nadir_point() is not None:
+        nadir_point = get_corrected_nadir(problem)
+    else:
+        msg = "Nadir point not defined!"
+        raise ScalarizationError(msg)
+
     corrected_current_point = get_corrected_reference_point(problem, current_objective_vector)
 
     # calculate the weights
-    weights = {obj.symbol: 1 / (nadir[obj.symbol] - (ideal[obj.symbol] - delta)) for obj in problem.objectives}
+    weights = {obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta)) for obj in problem.objectives}
 
     # max term and constraints
     max_args = []
@@ -1221,7 +1343,7 @@ def add_group_nimbus_sf(  # noqa: PLR0913
             _symbol = obj.symbol
             match classifications[_symbol]:
                 case ("<", _):
-                    max_expr = f"{weights[_symbol]} * ({_symbol}_min - {ideal[_symbol]})"
+                    max_expr = f"{weights[_symbol]} * ({_symbol}_min - {ideal_point[_symbol]})"
                     max_args.append(max_expr)
 
                     con_expr = f"{_symbol}_min - {corrected_current_point[_symbol]}"
@@ -1318,6 +1440,8 @@ def add_group_nimbus_sf_diff(  # noqa: PLR0913
     symbol: str,
     classifications_list: list[dict[str, tuple[str, float | None]]],
     current_objective_vector: dict[str, float],
+    ideal: dict[str, float] | None = None,
+    nadir: dict[str, float] | None = None,
     delta: float = 0.000001,
     rho: float = 0.000001,
 ) -> tuple[Problem, str]:
@@ -1407,8 +1531,26 @@ def add_group_nimbus_sf_diff(  # noqa: PLR0913
             )
             raise ScalarizationError(msg)
 
-    # check ideal and nadir exist
-    ideal, nadir = get_corrected_ideal_and_nadir(problem)
+    # check if ideal point is specified
+    # if not specified, try to calculate corrected ideal point
+    if ideal is not None:
+        ideal_point = ideal
+    elif problem.get_ideal_point() is not None:
+        ideal_point = get_corrected_ideal(problem)
+    else:
+        msg = "Ideal point not defined!"
+        raise ScalarizationError(msg)
+
+    # check if nadir point is specified
+    # if not specified, try to calculate corrected nadir point
+    if nadir is not None:
+        nadir_point = nadir
+    elif problem.get_nadir_point() is not None:
+        nadir_point = get_corrected_nadir(problem)
+    else:
+        msg = "Nadir point not defined!"
+        raise ScalarizationError(msg)
+
     corrected_current_point = get_corrected_reference_point(problem, current_objective_vector)
 
     # define the auxiliary variable
@@ -1422,7 +1564,7 @@ def add_group_nimbus_sf_diff(  # noqa: PLR0913
     )
 
     # calculate the weights
-    weights = {obj.symbol: 1 / (nadir[obj.symbol] - (ideal[obj.symbol] - delta)) for obj in problem.objectives}
+    weights = {obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta)) for obj in problem.objectives}
 
     constraints = []
 
@@ -1432,7 +1574,7 @@ def add_group_nimbus_sf_diff(  # noqa: PLR0913
             _symbol = obj.symbol
             match classifications[_symbol]:
                 case ("<", _):
-                    max_expr = f"{weights[_symbol]} * ({_symbol}_min - {ideal[_symbol]}) - _alpha"
+                    max_expr = f"{weights[_symbol]} * ({_symbol}_min - {ideal_point[_symbol]}) - _alpha"
                     constraints.append(
                         Constraint(
                             name=f"Max term linearization for {_symbol}",
@@ -1546,6 +1688,7 @@ def add_stom_sf_diff(
     problem: Problem,
     symbol: str,
     reference_point: dict[str, float],
+    ideal: dict[str, float] | None = None,
     rho: float = 1e-6,
     delta: float = 1e-6,
 ) -> tuple[Problem, str]:
@@ -1588,7 +1731,16 @@ def add_stom_sf_diff(
         msg = f"The give reference point {reference_point} is missing value for one or more objectives."
         raise ScalarizationError(msg)
 
-    ideal_point, _ = get_corrected_ideal_and_nadir(problem)
+    # check if ideal point is specified
+    # if not specified, try to calculate corrected ideal point
+    if ideal is not None:
+        ideal_point = ideal
+    elif problem.get_ideal_point() is not None:
+        ideal_point = get_corrected_ideal(problem)
+    else:
+        msg = "Ideal point not defined!"
+        raise ScalarizationError(msg)
+
     corrected_rp = get_corrected_reference_point(problem, reference_point)
 
     # define the auxiliary variable
@@ -1647,6 +1799,7 @@ def add_stom_sf_nondiff(
     problem: Problem,
     symbol: str,
     reference_point: dict[str, float],
+    ideal: dict[str, float] | None = None,
     rho: float = 1e-6,
     delta: float = 1e-6,
 ) -> tuple[Problem, str]:
@@ -1690,7 +1843,16 @@ def add_stom_sf_nondiff(
         msg = f"The give reference point {reference_point} is missing value for one or more objectives."
         raise ScalarizationError(msg)
 
-    ideal_point, _ = get_corrected_ideal_and_nadir(problem)
+    # check if ideal point is specified
+    # if not specified, try to calculate corrected ideal point
+    if ideal is not None:
+        ideal_point = ideal
+    elif problem.get_ideal_point() is not None:
+        ideal_point = get_corrected_ideal(problem)
+    else:
+        msg = "Ideal point not defined!"
+        raise ScalarizationError(msg)
+
     corrected_rp = get_corrected_reference_point(problem, reference_point)
 
     # define the objective function of the scalarization
@@ -1727,6 +1889,7 @@ def add_group_stom_sf(
     problem: Problem,
     symbol: str,
     reference_points: list[dict[str, float]],
+    ideal: dict[str, float] | None = None,
     rho: float = 1e-6,
     delta: float = 1e-6,
 ) -> tuple[Problem, str]:
@@ -1765,21 +1928,29 @@ def add_group_stom_sf(
             msg = f"The give reference point {reference_point} is missing value for one or more objectives."
             raise ScalarizationError(msg)
 
-    ideal, _ = get_corrected_ideal_and_nadir(problem)
+    # check if ideal point is specified
+    # if not specified, try to calculate corrected ideal point
+    if ideal is not None:
+        ideal_point = ideal
+    elif problem.get_ideal_point() is not None:
+        ideal_point = get_corrected_ideal(problem)
+    else:
+        msg = "Ideal point not defined!"
+        raise ScalarizationError(msg)
 
     # calculate the weights
     weights = []
     for reference_point in reference_points:
         corrected_rp = get_corrected_reference_point(problem, reference_point)
         weights.append(
-            {obj.symbol: 1 / (corrected_rp[obj.symbol] - (ideal[obj.symbol] - delta)) for obj in problem.objectives}
+            {obj.symbol: 1 / (corrected_rp[obj.symbol] - (ideal_point[obj.symbol] - delta)) for obj in problem.objectives}
         )
 
     # form the max term
     max_terms = []
     for i in range(len(reference_points)):
         for obj in problem.objectives:
-            max_terms.append(f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {ideal[obj.symbol] - delta})")
+            max_terms.append(f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {ideal_point[obj.symbol] - delta})")
     max_terms = ", ".join(max_terms)
 
     # form the augmentation term
@@ -1805,6 +1976,7 @@ def add_group_stom_sf_diff(
     problem: Problem,
     symbol: str,
     reference_points: list[dict[str, float]],
+    ideal: dict[str, float] | None = None,
     rho: float = 1e-6,
     delta: float = 1e-6,
 ) -> tuple[Problem, str]:
@@ -1844,7 +2016,15 @@ def add_group_stom_sf_diff(
             msg = f"The give reference point {reference_point} is missing value for one or more objectives."
             raise ScalarizationError(msg)
 
-    ideal, _ = get_corrected_ideal_and_nadir(problem)
+    # check if ideal point is specified
+    # if not specified, try to calculate corrected ideal point
+    if ideal is not None:
+        ideal_point = ideal
+    elif problem.get_ideal_point() is not None:
+        ideal_point = get_corrected_ideal(problem)
+    else:
+        msg = "Ideal point not defined!"
+        raise ScalarizationError(msg)
 
     # define the auxiliary variable
     alpha = Variable(
@@ -1861,7 +2041,7 @@ def add_group_stom_sf_diff(
     for reference_point in reference_points:
         corrected_rp = get_corrected_reference_point(problem, reference_point)
         weights.append(
-            {obj.symbol: 1 / (corrected_rp[obj.symbol] - (ideal[obj.symbol] - delta)) for obj in problem.objectives}
+            {obj.symbol: 1 / (corrected_rp[obj.symbol] - (ideal_point[obj.symbol] - delta)) for obj in problem.objectives}
         )
 
     # form the max term
@@ -1869,7 +2049,7 @@ def add_group_stom_sf_diff(
     for i in range(len(reference_points)):
         rp = {}
         for obj in problem.objectives:
-            rp[obj.symbol] = f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {ideal[obj.symbol] - delta}) - _alpha"
+            rp[obj.symbol] = f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {ideal_point[obj.symbol] - delta}) - _alpha"
         con_terms.append(rp)
 
     # form the augmentation term
@@ -1916,6 +2096,8 @@ def add_guess_sf_diff(
     problem: Problem,
     symbol: str,
     reference_point: dict[str, float],
+    ideal: dict[str, float] | None = None,
+    nadir: dict[str, float] | None = None,
     rho: float = 1e-6,
     delta: float = 1e-6,
 ) -> tuple[Problem, str]:
@@ -1964,7 +2146,26 @@ def add_guess_sf_diff(
         msg = f"The give reference point {reference_point} is missing value for one or more objectives."
         raise ScalarizationError(msg)
 
-    ideal_point, nadir_point = get_corrected_ideal_and_nadir(problem)
+    # check if ideal point is specified
+    # if not specified, try to calculate corrected ideal point
+    if ideal is not None:
+        ideal_point = ideal
+    elif problem.get_ideal_point() is not None:
+        ideal_point = get_corrected_ideal(problem)
+    else:
+        msg = "Ideal point not defined!"
+        raise ScalarizationError(msg)
+
+    # check if nadir point is specified
+    # if not specified, try to calculate corrected nadir point
+    if nadir is not None:
+        nadir_point = nadir
+    elif problem.get_nadir_point() is not None:
+        nadir_point = get_corrected_nadir(problem)
+    else:
+        msg = "Nadir point not defined!"
+        raise ScalarizationError(msg)
+
     corrected_rp = get_corrected_reference_point(problem, reference_point)
 
     # the indices that are free to change, set if component of reference point
@@ -2040,6 +2241,8 @@ def add_guess_sf_nondiff(
     problem: Problem,
     symbol: str,
     reference_point: dict[str, float],
+    ideal: dict[str, float] | None = None,
+    nadir: dict[str, float] | None = None,
     rho: float = 1e-6,
     delta: float = 1e-6,
 ) -> tuple[Problem, str]:
@@ -2093,7 +2296,26 @@ def add_guess_sf_nondiff(
         msg = f"The give reference point {reference_point} is missing value for one or more objectives."
         raise ScalarizationError(msg)
 
-    ideal_point, nadir_point = get_corrected_ideal_and_nadir(problem)
+    # check if ideal point is specified
+    # if not specified, try to calculate corrected ideal point
+    if ideal is not None:
+        ideal_point = ideal
+    elif problem.get_ideal_point() is not None:
+        ideal_point = get_corrected_ideal(problem)
+    else:
+        msg = "Ideal point not defined!"
+        raise ScalarizationError(msg)
+
+    # check if nadir point is specified
+    # if not specified, try to calculate corrected nadir point
+    if nadir is not None:
+        nadir_point = nadir
+    elif problem.get_nadir_point() is not None:
+        nadir_point = get_corrected_nadir(problem)
+    else:
+        msg = "Nadir point not defined!"
+        raise ScalarizationError(msg)
+
     corrected_rp = get_corrected_reference_point(problem, reference_point)
 
     # the indices that are free to change, set if component of reference point
@@ -2146,6 +2368,7 @@ def add_group_guess_sf(
     problem: Problem,
     symbol: str,
     reference_points: list[dict[str, float]],
+    nadir: dict[str, float] | None = None,
     rho: float = 1e-6,
     delta: float = 1e-6,
 ) -> tuple[Problem, str]:
@@ -2184,14 +2407,22 @@ def add_group_guess_sf(
             msg = f"The give reference point {reference_point} is missing value for one or more objectives."
             raise ScalarizationError(msg)
 
-    _, nadir = get_corrected_ideal_and_nadir(problem)
+    # check if nadir point is specified
+    # if not specified, try to calculate corrected nadir point
+    if nadir is not None:
+        nadir_point = nadir
+    elif problem.get_nadir_point() is not None:
+        nadir_point = get_corrected_nadir(problem)
+    else:
+        msg = "Nadir point not defined!"
+        raise ScalarizationError(msg)
 
     # calculate the weights
     weights = []
     for reference_point in reference_points:
         corrected_rp = get_corrected_reference_point(problem, reference_point)
         weights.append(
-            {obj.symbol: 1 / ((nadir[obj.symbol] + delta) - (corrected_rp[obj.symbol])) for obj in problem.objectives}
+            {obj.symbol: 1 / ((nadir_point[obj.symbol] + delta) - (corrected_rp[obj.symbol])) for obj in problem.objectives}
         )
 
     # form the max term
@@ -2199,7 +2430,7 @@ def add_group_guess_sf(
     for i in range(len(reference_points)):
         corrected_rp = get_corrected_reference_point(problem, reference_points[i])
         for obj in problem.objectives:
-            max_terms.append(f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {nadir[obj.symbol]})")
+            max_terms.append(f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {nadir_point[obj.symbol]})")
     max_terms = ", ".join(max_terms)
 
     # form the augmentation term
@@ -2225,6 +2456,7 @@ def add_group_guess_sf_diff(
     problem: Problem,
     symbol: str,
     reference_points: list[dict[str, float]],
+    nadir: dict[str, float] | None = None,
     rho: float = 1e-6,
     delta: float = 1e-6,
 ) -> tuple[Problem, str]:
@@ -2264,7 +2496,15 @@ def add_group_guess_sf_diff(
             msg = f"The give reference point {reference_point} is missing value for one or more objectives."
             raise ScalarizationError(msg)
 
-    ideal, nadir = get_corrected_ideal_and_nadir(problem)
+    # check if nadir point is specified
+    # if not specified, try to calculate corrected nadir point
+    if nadir is not None:
+        nadir_point = nadir
+    elif problem.get_nadir_point() is not None:
+        nadir_point = get_corrected_nadir(problem)
+    else:
+        msg = "Nadir point not defined!"
+        raise ScalarizationError(msg)
 
     # define the auxiliary variable
     alpha = Variable(
@@ -2281,7 +2521,7 @@ def add_group_guess_sf_diff(
     for reference_point in reference_points:
         corrected_rp = get_corrected_reference_point(problem, reference_point)
         weights.append(
-            {obj.symbol: 1 / ((nadir[obj.symbol] + delta) - (corrected_rp[obj.symbol])) for obj in problem.objectives}
+            {obj.symbol: 1 / ((nadir_point[obj.symbol] + delta) - (corrected_rp[obj.symbol])) for obj in problem.objectives}
         )
 
     # form the max term
@@ -2290,7 +2530,7 @@ def add_group_guess_sf_diff(
         corrected_rp = get_corrected_reference_point(problem, reference_points[i])
         rp = {}
         for obj in problem.objectives:
-            rp[obj.symbol] = f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {nadir[obj.symbol]}) - _alpha"
+            rp[obj.symbol] = f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {nadir_point[obj.symbol]}) - _alpha"
         con_terms.append(rp)
 
     # form the augmentation term
@@ -2337,6 +2577,8 @@ def add_asf_diff(
     problem: Problem,
     symbol: str,
     reference_point: dict[str, float],
+    ideal: dict[str, float] | None = None,
+    nadir: dict[str, float] | None = None,
     rho: float = 1e-6,
     delta: float = 1e-6,
 ) -> tuple[Problem, str]:
@@ -2380,7 +2622,26 @@ def add_asf_diff(
         msg = f"The give reference point {reference_point} is missing value for one or more objectives."
         raise ScalarizationError(msg)
 
-    ideal_point, nadir_point = get_corrected_ideal_and_nadir(problem)
+    # check if ideal point is specified
+    # if not specified, try to calculate corrected ideal point
+    if ideal is not None:
+        ideal_point = ideal
+    elif problem.get_ideal_point() is not None:
+        ideal_point = get_corrected_ideal(problem)
+    else:
+        msg = "Ideal point not defined!"
+        raise ScalarizationError(msg)
+
+    # check if nadir point is specified
+    # if not specified, try to calculate corrected nadir point
+    if nadir is not None:
+        nadir_point = nadir
+    elif problem.get_nadir_point() is not None:
+        nadir_point = get_corrected_nadir(problem)
+    else:
+        msg = "Nadir point not defined!"
+        raise ScalarizationError(msg)
+
     corrected_rp = get_corrected_reference_point(problem, reference_point)
 
     # define the auxiliary variable
