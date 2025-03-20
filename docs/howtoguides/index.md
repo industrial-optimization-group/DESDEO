@@ -54,7 +54,7 @@ hide:
 
     [:octicons-arrow-right-24: NAUTILUS Navigator](./nautilus_navigator.md)
 
--   :octicons-info-24:{ .lg .middle } NAUTILI 
+-   :octicons-info-24:{ .lg .middle } __NAUTILI__ 
 
     ---
 
