@@ -18,3 +18,4 @@ from .simple_problem import (simple_test_problem, simple_integer_test_problem,
 from .simulator_problem import simulator_problem
 from .spanish_sustainability_problem import spanish_sustainability_problem, spanish_sustainability_problem_discrete
 from .zdt_problem import zdt1, zdt2, zdt3
+from.rocket_injector_design_problem import rocket_injector_design
