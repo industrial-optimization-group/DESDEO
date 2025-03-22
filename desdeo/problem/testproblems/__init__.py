@@ -19,3 +19,4 @@ from .simulator_problem import simulator_problem
 from .spanish_sustainability_problem import spanish_sustainability_problem, spanish_sustainability_problem_discrete
 from .zdt_problem import zdt1, zdt2, zdt3
 from.rocket_injector_design_problem import rocket_injector_design
+from.mixed_variable_dimenrions_problem import mixed_variable_dimensions_problem
