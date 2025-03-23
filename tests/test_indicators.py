@@ -9,7 +9,8 @@ import pytest
 from pymoo.util.ref_dirs import get_reference_directions
 from scipy.special import gamma
 
-from desdeo.tools.indicators_unary import distance_indicators, distance_indicators_batch, hv, hv_batch
+from desdeo.tools.indicators_unary import (distance_indicators, distance_indicators_batch, hv, hv_batch,
+                                           r_metric_indicators, r_metric_batch)
 
 
 @pytest.mark.indicators
@@ -97,3 +98,42 @@ def test_distance_indicators():
     assert distance_inds.igd_p > 0, "IGD_p is not positive for a subset"
 
     assert distance_inds.ahd == distance_inds.igd_p, "AHD is not equal to IGD_p for a subset"
+
+@pytest.mark.indicators
+def test_r_metric_indicators():
+    """Test the R-metric calculator."""
+    num_full_points = 500
+    obj = 3
+    ref_set = get_reference_directions("energy", obj, n_points=num_full_points)
+    subset = ref_set[0:250, :]
+    reference_point_component = 1.1
+
+    r_metrics = r_metric_indicators(subset, ref_set, reference_point_component)
+
+    assert isinstance(r_metrics.r_hv, float), "R-HV is not a float"
+    assert isinstance(r_metrics.r_igd, float), "R-IGD is not a float"
+    assert 0 <= r_metrics.r_hv <= 1, "R-HV is not in [0, 1]"
+    assert np.allclose(r_metrics.r_igd, r_metrics.r_igd), "R-IGD is not close to itself" # non NaN values
+
+
+@pytest.mark.indicators
+def test_r_metric_calculator_batch():
+    """Test the R-metric calculator batch function."""
+    num_full_points = 500
+    obj = 3
+    ref_set = get_reference_directions("energy", obj, n_points=num_full_points)
+    subset1 = ref_set[0:100, :]
+    subset2 = ref_set[100:250, :]
+    reference_point_component = 1.1
+
+    solution_sets = {"subset1": subset1, "subset2": subset2}
+    r_metrics_batch = r_metric_batch(solution_sets, ref_set, reference_point_component)
+
+    assert isinstance(r_metrics_batch, dict), "Result is not a dictionary"
+    assert "subset1" in r_metrics_batch and "subset2" in r_metrics_batch, "Missing subsets in results"
+
+    for set_name, r_metrics in r_metrics_batch.items():
+        assert isinstance(r_metrics.r_hv, float), f"R-HV for {set_name} is not a float"
+        assert isinstance(r_metrics.r_igd, float), f"R-IGD for {set_name} is not a float"
+        assert 0 <= r_metrics.r_hv <= 1, f"R-HV for {set_name} is not in [0, 1]"
+        assert np.allclose(r_metrics.r_igd, r_metrics.r_igd), "R-IGD is not close to itself" # non NaN values

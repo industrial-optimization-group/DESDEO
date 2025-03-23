@@ -182,6 +182,55 @@ def distance_indicators_batch(
     return inds
 
 
+class RMetricIndicators(BaseModel):
+    """A container for R-metric indicators: R-HV and R-IGD."""
+
+    r_hv: float = Field(description="The R-HV indicator value, based on hypervolume.")
+    "The R-HV indicator value, based on hypervolume."
+    r_igd: float = Field(description="The R-IGD indicator value, based on inverted generational distance.")
+    "The R-IGD indicator value, based on inverted generational distance."
+
+
+@staticmethod
+def r_metric_indicators(solution_set: np.ndarray, reference_set: np.ndarray, reference_point_component: float) -> RMetricIndicators:
+    """Computes the R-HV and R-IGD indicators for a given solution set.
+
+    Args:
+        solution_set (np.ndarray): The solution set being evaluated.
+        reference_set (np.ndarray): The reference Pareto front.
+        reference_point_component (float): Reference point component for hypervolume calculation.
+
+    Returns:
+        RMetricIndicators: A Pydantic class containing the R-HV and R-IGD indicator values.
+    """
+    hv_solution = hv(solution_set, reference_point_component)
+    hv_reference = hv(reference_set, reference_point_component)
+    r_hv_value = hv_solution / hv_reference if hv_reference > 0 else 0.0
+
+    indicators = distance_indicators(solution_set, reference_set)
+    r_igd_value = indicators.igd  # Používame IGD ako základ pre R-IGD
+
+    return RMetricIndicators(r_hv=r_hv_value, r_igd=r_igd_value)
+
+@staticmethod
+def r_metric_batch(
+    solution_sets: dict[str, np.ndarray], reference_set: np.ndarray, reference_point_component: float
+) -> dict[str, RMetricIndicators]:
+    """Computes R-HV and R-IGD indicators for multiple solution sets.
+
+    Args:
+        solution_sets (dict[str, np.ndarray]): A dictionary of solution sets.
+        reference_set (np.ndarray): The reference Pareto front.
+        reference_point_component (float): Reference point component for hypervolume.
+
+    Returns:
+        dict[str, RMetricIndicators]: A dictionary of RMetricIndicators.
+    """
+    results = {}
+    for set_name, solution_set in solution_sets.items():
+        results[set_name] = r_metric_indicators(solution_set, reference_set, reference_point_component)
+    return results
+
 # Additional unary indicators can be added here.
 # E.g. The IGD+ indicator, R2 indicator, averaged Hausdorff distance, etc.
 # The function signature should be similar the already implemented functions, if reasonable.
