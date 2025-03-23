@@ -181,6 +181,49 @@ def distance_indicators_batch(
         inds[set_name] = distance_indicators(solution_sets[set_name], reference_set, p=p)
     return inds
 
+class IGDPlusIndicators(BaseModel):
+    """A container for IGD+ indicator."""
+
+    igd_plus: float = Field(description="The IGD+ indicator value.")
+    "The IGD+ indicator value."
+
+
+def igd_plus_indicators(solution_set: np.ndarray, reference_set: np.ndarray, p: float = 2.0) -> IGDPlusIndicators:
+    """Computes the IGD+ indicator for a given solution set.
+
+    Args:
+        solution_set (np.ndarray): The solution set being evaluated.
+        reference_set (np.ndarray): The reference Pareto front.
+        p (float, optional): The power of the Minkowski metric. Defaults to 2.0 (Euclidean distance).
+
+    Returns:
+        IGDPlusIndicators: A Pydantic class containing the IGD+ indicator value.
+    """
+    distance_matrix = cdist(solution_set, reference_set, metric="minkowski", p=p)
+    min_distances = np.min(distance_matrix, axis=0)
+    ref_size = reference_set.shape[0]
+    igd_plus_value = (np.prod(min_distances) ** (1 / ref_size))
+
+    return IGDPlusIndicators(igd_plus=igd_plus_value)
+
+
+def igd_plus_batch(
+    solution_sets: dict[str, np.ndarray], reference_set: np.ndarray, p: float = 2.0
+) -> dict[str, IGDPlusIndicators]:
+    """Computes the IGD+ indicator for multiple solution sets.
+
+    Args:
+        solution_sets (dict[str, np.ndarray]): A dictionary of solution sets.
+        reference_set (np.ndarray): The reference Pareto front.
+        p (float, optional): The power of the Minkowski metric. Defaults to 2.0 (Euclidean distance).
+
+    Returns:
+        dict[str, IGDPlusIndicators]: A dictionary of IGDPlusIndicators.
+    """
+    results = {}
+    for set_name, solution_set in solution_sets.items():
+        results[set_name] = igd_plus_indicators(solution_set, reference_set, p)
+    return results
 
 # Additional unary indicators can be added here.
 # E.g. The IGD+ indicator, R2 indicator, averaged Hausdorff distance, etc.
