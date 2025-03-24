@@ -1,7 +1,6 @@
 """Imports available from the desdeo-problem package."""
 
 __all__ = [
-    "binh_and_korn",
     "Constant",
     "Constraint",
     "ConstraintTypeEnum",
@@ -9,42 +8,19 @@ __all__ = [
     "Evaluator",
     "ExtraFunction",
     "flatten_variable_dict",
-    "forest_problem",
-    "forest_problem_discrete",
     "FormatEnum",
     "GurobipyEvaluator",
-    "dtlz2",
     "get_nadir_dict",
     "get_ideal_dict",
     "InfixExpressionParser",
     "MathParser",
-    "mixed_variable_dimensions_problem",
-    "momip_ti2",
-    "momip_ti7",
-    "nimbus_test_problem",
     "numpy_array_to_objective_dict",
     "objective_dict_to_numpy_array",
     "Objective",
     "ObjectiveTypeEnum",
-    "pareto_navigator_test_problem",
     "Problem",
     "PyomoEvaluator",
-    "re21",
-    "re22",
-    "re23",
-    "re24",
-    "river_pollution_problem",
-    "river_pollution_scenario",
     "SympyEvaluator",
-    "simple_data_problem",
-    "simple_integer_test_problem",
-    "simple_knapsack",
-    "simple_knapsack_vectors",
-    "simple_linear_test_problem",
-    "simple_scenario_test_problem",
-    "simple_test_problem",
-    "simulator_problem",
-    "spanish_sustainability_problem",
     "tensor_constant_from_dataframe",
     "PolarsEvaluator",
     "PolarsEvaluatorModesEnum",
@@ -59,10 +35,8 @@ __all__ = [
     "VariableType",
     "VariableTypeEnum",
     "variable_dimension_enumerate",
-    "zdt1",
-    "zdt2",
-    "zdt3",
 ]
+
 
 from .evaluator import (
     PolarsEvaluator,
@@ -103,4 +77,3 @@ from .utils import (
     tensor_constant_from_dataframe,
     unflatten_variable_array,
 )
-from .testproblems import *

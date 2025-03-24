@@ -2,7 +2,8 @@
 
 import pytest
 
-from desdeo.problem import ScalarizationFunction, binh_and_korn
+from desdeo.problem import ScalarizationFunction
+from desdeo.problem.testproblems import binh_and_korn
 from desdeo.tools.scipy_solver_interfaces import ScipyDeSolver
 
 

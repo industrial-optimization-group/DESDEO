@@ -12,9 +12,8 @@ from desdeo.problem import (
     TensorVariable,
     Variable,
     VariableTypeEnum,
-    simple_knapsack_vectors,
-    simple_linear_test_problem,
 )
+from desdeo.problem.testproblems import simple_knapsack_vectors, simple_linear_test_problem
 from desdeo.tools import GurobipySolver, PersistentGurobipySolver
 
 

@@ -6,6 +6,8 @@ import pytest
 
 from desdeo.problem import (
     ScalarizationFunction,
+)
+from desdeo.problem.testproblems import (
     binh_and_korn,
     dtlz2,
     momip_ti2,

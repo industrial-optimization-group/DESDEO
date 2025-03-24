@@ -8,6 +8,8 @@ from desdeo.mcdm import rpm_solve_solutions
 from desdeo.problem import (
     PolarsEvaluator,
     PyomoEvaluator,
+)
+from desdeo.problem.testproblems import (
     dtlz2,
     forest_problem,
     re21,

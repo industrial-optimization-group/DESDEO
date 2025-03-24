@@ -13,8 +13,8 @@ from desdeo.problem import (
     Problem,
     Variable,
     VariableTypeEnum,
-    simulator_problem,
 )
+from desdeo.problem.testproblems import simulator_problem
 
 
 @pytest.mark.simulator_support

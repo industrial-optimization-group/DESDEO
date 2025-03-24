@@ -2,7 +2,7 @@
 
 import pytest
 
-from desdeo.problem import zdt1
+from desdeo.problem.testproblems import zdt1
 from desdeo.tools import (
     NevergradGenericOptions,
     NevergradGenericSolver,
