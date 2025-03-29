@@ -142,6 +142,10 @@ def add_asf_nondiff(  # noqa: PLR0913
         problem (Problem): the problem to which the scalarization function should be added.
         symbol (str): the symbol to reference the added scalarization function.
         reference_point (dict[str, float]): a reference point as an objective dict.
+        ideal (dict[str, float], optional): ideal point values. If not given, attempt will be made
+            to calculate ideal point from problem.
+        nadir (dict[str, float], optional): nadir point values. If not given, attempt will be made
+            to calculate nadir point from problem.
         delta (float, optional): the scalar value used to define the utopian point (ideal - delta).
             Defaults to 0.000001.
         rho (float, optional): the weight factor used in the augmentation term. Defaults to 0.000001.
@@ -251,6 +255,10 @@ def add_group_asf(
         problem (Problem): the problem to which the scalarization function should be added.
         symbol (str): the symbol to reference the added scalarization function.
         reference_points (list[dict[str, float]]): a list of reference points as objective dicts.
+        ideal (dict[str, float], optional): ideal point values. If not given, attempt will be made
+            to calculate ideal point from problem.
+        nadir (dict[str, float], optional): nadir point values. If not given, attempt will be made
+            to calculate nadir point from problem.
         delta (float, optional): a small scalar used to define the utopian point. Defaults to 1e-6.
         rho (float, optional): the weight factor used in the augmentation term. Defaults to 1e-6.
 
@@ -341,6 +349,10 @@ def add_group_asf_diff(
         problem (Problem): the problem to which the scalarization function should be added.
         symbol (str): the symbol to reference the added scalarization function.
         reference_points (list[dict[str, float]]): a list of reference points as objective dicts.
+        ideal (dict[str, float], optional): ideal point values. If not given, attempt will be made
+            to calculate ideal point from problem.
+        nadir (dict[str, float], optional): nadir point values. If not given, attempt will be made
+            to calculate nadir point from problem.
         delta (float, optional): a small scalar used to define the utopian point. Defaults to 1e-6.
         rho (float, optional): the weight factor used in the augmentation term. Defaults to 1e-6.
 
@@ -803,6 +815,10 @@ def add_nimbus_sf_diff(  # noqa: PLR0913
         current_objective_vector (dict[str, float]): the current objective vector that corresponds to
             a Pareto optimal solution. The classifications are assumed to been given in respect to
             this vector.
+        ideal (dict[str, float], optional): ideal point values. If not given, attempt will be made
+            to calculate ideal point from problem.
+        nadir (dict[str, float], optional): nadir point values. If not given, attempt will be made
+            to calculate nadir point from problem.
         delta (float, optional): a small scalar used to define the utopian point. Defaults to 0.000001.
         rho (float, optional): a small scalar used in the augmentation term. Defaults to 0.000001.
 
@@ -1061,6 +1077,10 @@ def add_nimbus_sf_nondiff(  # noqa: PLR0913
         current_objective_vector (dict[str, float]): the current objective vector that corresponds to
             a Pareto optimal solution. The classifications are assumed to been given in respect to
             this vector.
+        ideal (dict[str, float], optional): optional ideal point values. If not given, attempt will be made
+            to calculate ideal point from problem.
+        nadir (dict[str, float], optional): optional nadir point values. If not given, attempt will be made
+            to calculate nadir point from problem.
         delta (float, optional): a small scalar used to define the utopian point. Defaults to 0.000001.
         rho (float, optional): a small scalar used in the augmentation term. Defaults to 0.000001.
 
@@ -1276,6 +1296,10 @@ def add_group_nimbus_sf(  # noqa: PLR0913
         current_objective_vector (dict[str, float]): the current objective vector that corresponds to
             a Pareto optimal solution. The classifications are assumed to been given in respect to
             this vector.
+        ideal (dict[str, float], optional): ideal point values. If not given, attempt will be made
+            to calculate ideal point from problem.
+        nadir (dict[str, float], optional): nadir point values. If not given, attempt will be made
+            to calculate nadir point from problem.
         delta (float, optional): a small scalar used to define the utopian point. Defaults to 0.000001.
         rho (float, optional): a small scalar used in the augmentation term. Defaults to 0.000001.
 
@@ -1499,6 +1523,10 @@ def add_group_nimbus_sf_diff(  # noqa: PLR0913
         current_objective_vector (dict[str, float]): the current objective vector that corresponds to
             a Pareto optimal solution. The classifications are assumed to been given in respect to
             this vector.
+        ideal (dict[str, float], optional): ideal point values. If not given, attempt will be made
+            to calculate ideal point from problem.
+        nadir (dict[str, float], optional): nadir point values. If not given, attempt will be made
+            to calculate nadir point from problem.
         delta (float, optional): a small scalar used to define the utopian point. Defaults to 0.000001.
         rho (float, optional): a small scalar used in the augmentation term. Defaults to 0.000001.
 
@@ -1718,6 +1746,8 @@ def add_stom_sf_diff(
         reference_point (dict[str, float]): a dict with keys corresponding to objective
             function symbols and values to reference point components, i.e.,
             aspiration levels.
+        ideal (dict[str, float], optional): ideal point values. If not given, attempt will be made
+            to calculate ideal point from problem.
         rho (float, optional): a small scalar value to scale the sum in the objective
             function of the scalarization. Defaults to 1e-6.
         delta (float, optional): a small scalar value to define the utopian point. Defaults to 1e-6.
@@ -1830,6 +1860,8 @@ def add_stom_sf_nondiff(
         reference_point (dict[str, float]): a dict with keys corresponding to objective
             function symbols and values to reference point components, i.e.,
             aspiration levels.
+        ideal (dict[str, float], optional): ideal point values. If not given, attempt will be made
+            to calculate ideal point from problem.
         rho (float, optional): a small scalar value to scale the sum in the objective
             function of the scalarization. Defaults to 1e-6.
         delta (float, optional): a small scalar value to define the utopian point. Defaults to 1e-6.
@@ -1911,6 +1943,8 @@ def add_group_stom_sf(
         reference_points (list[dict[str, float]]): a list of dicts with keys corresponding to objective
             function symbols and values to reference point components, i.e.,
             aspiration levels.
+        ideal (dict[str, float], optional): ideal point values. If not given, attempt will be made
+            to calculate ideal point from problem.
         rho (float, optional): a small scalar value to scale the sum in the objective
             function of the scalarization. Defaults to 1e-6.
         delta (float, optional): a small scalar value to define the utopian point. Defaults to 1e-6.
@@ -1999,6 +2033,8 @@ def add_group_stom_sf_diff(
         reference_points (list[dict[str, float]]): a list of dicts with keys corresponding to objective
             function symbols and values to reference point components, i.e.,
             aspiration levels.
+        ideal (dict[str, float], optional): ideal point values. If not given, attempt will be made
+            to calculate ideal point from problem.
         rho (float, optional): a small scalar value to scale the sum in the objective
             function of the scalarization. Defaults to 1e-6.
         delta (float, optional): a small scalar value to define the utopian point. Defaults to 1e-6.
@@ -2133,6 +2169,10 @@ def add_guess_sf_diff(
         reference_point (dict[str, float]): a dict with keys corresponding to objective
             function symbols and values to reference point components, i.e.,
             aspiration levels.
+        ideal (dict[str, float], optional): ideal point values. If not given, attempt will be made
+            to calculate ideal point from problem.
+        nadir (dict[str, float], optional): nadir point values. If not given, attempt will be made
+            to calculate nadir point from problem.
         rho (float, optional): a small scalar value to scale the sum in the objective
             function of the scalarization. Defaults to 1e-6.
         delta (float, optional): a small scalar to define the utopian point. Defaults to 1e-6.
@@ -2283,6 +2323,10 @@ def add_guess_sf_nondiff(
         reference_point (dict[str, float]): a dict with keys corresponding to objective
             function symbols and values to reference point components, i.e.,
             aspiration levels.
+        ideal (dict[str, float], optional): ideal point values. If not given, attempt will be made
+            to calculate ideal point from problem.
+        nadir (dict[str, float], optional): nadir point values. If not given, attempt will be made
+            to calculate nadir point from problem.
         rho (float, optional): a small scalar value to scale the sum in the objective
             function of the scalarization. Defaults to 1e-6.
         delta (float, optional): a small scalar to define the utopian point. Defaults to 1e-6.
@@ -2390,6 +2434,8 @@ def add_group_guess_sf(
         reference_points (list[dict[str, float]]): a list of dicts with keys corresponding to objective
             function symbols and values to reference point components, i.e.,
             aspiration levels.
+        nadir (dict[str, float], optional): nadir point values. If not given, attempt will be made
+            to calculate nadir point from problem.
         rho (float, optional): a small scalar value to scale the sum in the objective
             function of the scalarization. Defaults to 1e-6.
         delta (float, optional): a small scalar to define the utopian point. Defaults to 1e-6.
@@ -2479,6 +2525,8 @@ def add_group_guess_sf_diff(
         reference_points (list[dict[str, float]]): a list of dicts with keys corresponding to objective
             function symbols and values to reference point components, i.e.,
             aspiration levels.
+        nadir (dict[str, float], optional): nadir point values. If not given, attempt will be made
+            to calculate nadir point from problem.
         rho (float, optional): a small scalar value to scale the sum in the objective
             function of the scalarization. Defaults to 1e-6.
         delta (float, optional): a small scalar to define the utopian point. Defaults to 1e-6.
@@ -2606,6 +2654,10 @@ def add_asf_diff(
         reference_point (dict[str, float]): a dict with keys corresponding to objective
             function symbols and values to reference point components, i.e.,
             aspiration levels.
+        ideal (dict[str, float], optional): ideal point values. If not given, attempt will be made
+            to calculate ideal point from problem.
+        nadir (dict[str, float], optional): nadir point values. If not given, attempt will be made
+            to calculate nadir point from problem.
         rho (float, optional): a small scalar value to scale the sum in the objective
             function of the scalarization. Defaults to 1e-6.
         delta (float, optional): a small scalar to define the utopian point. Defaults to 1e-6.
