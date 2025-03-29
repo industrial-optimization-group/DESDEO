@@ -6,13 +6,12 @@ import pytest
 
 from desdeo.problem import (
     flatten_variable_dict,
-    mixed_variable_dimensions_problem,
     numpy_array_to_objective_dict,
     objective_dict_to_numpy_array,
-    river_pollution_problem,
     tensor_constant_from_dataframe,
     unflatten_variable_array,
 )
+from desdeo.problem.testproblems import mixed_variable_dimensions_problem, river_pollution_problem
 
 
 @pytest.mark.utils

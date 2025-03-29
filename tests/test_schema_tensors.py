@@ -7,8 +7,8 @@ from desdeo.problem import (
     TensorConstant,
     TensorVariable,
     VariableTypeEnum,
-    simple_knapsack_vectors,
 )
+from desdeo.problem.testproblems import simple_knapsack_vectors
 
 
 @pytest.mark.schema

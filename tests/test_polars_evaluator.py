@@ -12,11 +12,13 @@ from desdeo.problem import (
     TensorVariable,
     Variable,
     VariableTypeEnum,
+)
+from desdeo.problem.evaluator import find_closest_points
+from desdeo.problem.testproblems import (
     river_pollution_problem,
     simple_knapsack_vectors,
     simple_test_problem,
 )
-from desdeo.problem.evaluator import find_closest_points
 
 
 def test_generic_with_river():

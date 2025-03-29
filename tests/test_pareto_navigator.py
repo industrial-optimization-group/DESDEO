@@ -11,7 +11,8 @@ from desdeo.mcdm.pareto_navigator import (
     construct_matrix_a,
     get_polyhedral_set,
 )
-from desdeo.problem import objective_dict_to_numpy_array, pareto_navigator_test_problem
+from desdeo.problem import objective_dict_to_numpy_array
+from desdeo.problem.testproblems import pareto_navigator_test_problem
 
 
 @pytest.mark.pareto_navigator

@@ -12,11 +12,8 @@ from desdeo.mcdm.nautilus import (
     ranks_to_weights,
     solve_reachable_solution,
 )
-from desdeo.problem import (
-    binh_and_korn,
-    objective_dict_to_numpy_array,
-    river_pollution_problem,
-)
+from desdeo.problem import objective_dict_to_numpy_array
+from desdeo.problem.testproblems import binh_and_korn, river_pollution_problem
 
 
 @pytest.mark.nautilus

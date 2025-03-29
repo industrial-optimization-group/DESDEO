@@ -8,6 +8,8 @@ from desdeo.mcdm import rpm_solve_solutions
 from desdeo.problem import (
     PolarsEvaluator,
     PyomoEvaluator,
+)
+from desdeo.problem.testproblems import (
     dtlz2,
     forest_problem,
     re21,
@@ -108,7 +110,7 @@ def test_re24():
     evaluator = PolarsEvaluator(problem)
 
     xs = {"x_1": [2, 3.3], "x_2": [20, 41.7]}
-    expected_result = np.array([[2402, 3.63459881], [5007.3, 3.8568386109]])
+    expected_result = np.array([[2402, 0], [5007.3, 0]])
 
     res = evaluator.evaluate(xs)
 

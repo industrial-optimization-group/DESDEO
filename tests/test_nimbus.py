@@ -9,7 +9,12 @@ from desdeo.mcdm import (
     solve_intermediate_solutions,
     solve_sub_problems,
 )
-from desdeo.problem import dtlz2, mixed_variable_dimensions_problem, nimbus_test_problem, simple_data_problem
+from desdeo.problem.testproblems import (
+    dtlz2,
+    mixed_variable_dimensions_problem,
+    nimbus_test_problem,
+    simple_data_problem,
+)
 from desdeo.tools import (
     IpoptOptions,
     ProximalSolver,

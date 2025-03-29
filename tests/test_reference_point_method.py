@@ -6,7 +6,8 @@ import pytest
 from scipy.spatial.distance import pdist
 
 from desdeo.mcdm import rpm_solve_solutions
-from desdeo.problem import dtlz2, objective_dict_to_numpy_array, river_pollution_problem
+from desdeo.problem import objective_dict_to_numpy_array
+from desdeo.problem.testproblems import dtlz2, river_pollution_problem
 
 
 @pytest.mark.rmp

@@ -7,10 +7,8 @@ from desdeo.problem import (
     FormatEnum,
     MathParser,
     SympyEvaluator,
-    binh_and_korn,
-    river_pollution_problem,
-    zdt1,
 )
+from desdeo.problem.testproblems import binh_and_korn, river_pollution_problem, zdt1
 from desdeo.tools import add_asf_diff, add_weighted_sums
 
 
