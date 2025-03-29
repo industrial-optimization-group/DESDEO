@@ -9,7 +9,7 @@ import pytest
 from pymoo.util.ref_dirs import get_reference_directions
 from scipy.special import gamma
 
-from desdeo.tools.indicators_unary import distance_indicators, distance_indicators_batch, hv, hv_batch
+from desdeo.tools.indicators_unary import distance_indicators, distance_indicators_batch, hv, hv_batch, PHI, PhiDecision
 
 
 @pytest.mark.indicators
@@ -97,3 +97,33 @@ def test_distance_indicators():
     assert distance_inds.igd_p > 0, "IGD_p is not positive for a subset"
 
     assert distance_inds.ahd == distance_inds.igd_p, "AHD is not equal to IGD_p for a subset"
+
+
+@pytest.mark.indicators
+def test_get_phi():
+    solution_set = np.array([[0.2, 0.3], [0.4, 0.5], [0.6, 0.7]])
+    reference_point = np.array([0.5, 0.5])
+    nadir = np.array([1.0, 1.0])
+    ideal = np.array([0.0, 0.0])
+
+    phi_instance = PHI(solution_set, reference_point, nadir, ideal)
+    print(type(phi_instance))
+    dominated, metric_vals = phi_instance.get_phi()
+
+    assert dominated
+    assert metric_vals != [0, 0, 0, 0]
+
+
+@pytest.mark.indicators
+def test_assess_decision_phase():
+    indicator_values = (0.5, 0.6, 0.7, 0.8)
+    nadir = np.array([1.0, 1.0])
+
+    set_of_RPs = np.array([[0.2, 0.3], [0.4, 0.5], [0.6, 0.7]])
+    main_RP = np.array([0.5, 0.5])
+
+    decision_instance = PhiDecision(indicator_values, nadir)
+    result, weights = decision_instance.assess_decision_phase(set_of_RPs, main_RP)
+
+    assert isinstance(result, float), "assess_decision_phase() should return a float value as result."
+    assert isinstance(weights, np.ndarray), "Weights should be a numpy array."
