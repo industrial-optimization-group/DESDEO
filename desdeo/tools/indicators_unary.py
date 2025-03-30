@@ -279,7 +279,7 @@ class PHI(object):
 
 class PhiDecision(object):
     def __init__(self, indicator_values: tuple, nadir: np.ndarray):
-        """Initialize with the number of interactions, indicator values, and nadir for hypervolume calculations."""
+        """Initialize with the PHI indicator values, and nadir for hypervolume calculations."""
         self.indicator_values = indicator_values
         self.nadir = nadir
 
@@ -310,21 +310,21 @@ class PhiDecision(object):
             shared_area = ref_point1_hv - extra_area_in_rp1
         return shared_area
 
-    def interactions_areas(self, ref_point_set: np.ndarray, main_ref_point: np.ndarray) -> list[float]:
+    def interactions_areas(self, ref_point_set: np.ndarray, main_ref_point: np.ndarray) -> np.ndarray:
         """Calculate interaction areas for a set of reference points and a main reference point."""
         areas = [self.get_areas(ref_point, main_ref_point) for ref_point in ref_point_set]
-        return areas
+        return np.asarray(areas)
 
-    def get_weights(self, w, main_w) -> np.ndarray:
+    def get_weights(self, shared_areas: np.ndarray, main_w) -> np.ndarray:
         """Calculate the weights for the hypervolume shared areas."""
-        return np.asarray(w) / self.combined_hv
+        return shared_areas / self.combined_hv
 
-    def assess(self, weights, assessment_values):
+    def assess(self, weights: np.ndarray, assessment_values: np.ndarray):
         """Assess the decision phase using weighted mean of assessment values."""
         assessment = np.mean(weights * assessment_values)
         return assessment
 
-    def assess_decision_phase(self, set_of_RPs, main_RP):
+    def assess_decision_phase(self, set_of_RPs: np.ndarray, main_RP: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Assess the decision phase for a set of reference points and a main reference point."""
         # Reshape main_RP to 2D array if it is 1D
         if main_RP.ndim == 1:
