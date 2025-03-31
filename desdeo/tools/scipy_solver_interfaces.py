@@ -30,11 +30,11 @@ class ScipyDeOptions(BaseModel):
                     "guess, the mid-point of the variable's lower and upper bound is utilized as the initial"
                     "guess. If None, it is assumed that there are no initial guesses for any of the variables.",
         default=None
-    ),
+    )
     de_kwargs: dict | None = Field(
         description="Custom keyword arguments to be forwarded to `scipy.optimize.differential_evolution`.",
         default=None
-    ),
+    )
 
 
 class ScipyMinimizeOptions(BaseModel):
@@ -347,7 +347,7 @@ class ScipyDeSolver(BaseSolver):
     def __init__(
         self,
         problem: Problem,
-        options: ScipyDeOptions = ScipyDeOptions,
+        options: ScipyDeOptions = ScipyDeOptions(),
     ):
         """Creates a solver that utilizes the `scipy.optimize.differential_evolution` routine.
 
