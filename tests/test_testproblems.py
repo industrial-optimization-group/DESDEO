@@ -378,20 +378,10 @@ def test_river_scenario():
     npt.assert_allclose(ideal["f3_2"], ideal_2["f3_2"])
     npt.assert_allclose(ideal["f4"], ideal_2["f4"])
 
-def test_mcwb_problem():
+def test_mcwb_solid_rectangular_problem():
     """Test that the MCWB problem initializes and evaluates correctly."""
-
     problem = mcwb_solid_rectangular_problem()
-
-    # Initialize input values (you can set them according to the problem's requirements)
-    xs = {f"{var.symbol}": [0.5] for var in problem.variables}
-
-    # Assuming you have an evaluator similar to PolarsEvaluator for this problem
     evaluator = PolarsEvaluator(problem)
-
-    # Evaluate the problem
+    xs = {f"{var.symbol}": [0.5] for var in problem.variables}
     res = evaluator.evaluate(xs)
-
-    # Assuming that the sum of the objectives squared should be close to a certain value
-    # Adjust the expected value based on your problem's nature (e.g., if it's a minimization problem)
     assert np.isclose(sum(res[obj.symbol][0] ** 2 for obj in problem.objectives), 1.0)
