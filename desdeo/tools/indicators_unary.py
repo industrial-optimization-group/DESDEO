@@ -190,46 +190,73 @@ class RMetricIndicators(BaseModel):
     r_igd: float = Field(description="The R-IGD indicator value, based on inverted generational distance.")
     "The R-IGD indicator value, based on inverted generational distance."
 
+def r_metric_indicator(
+        solution_set: np.ndarray,
+        reference_set: np.ndarray,
+        worst_point: np.ndarray = None,
+        delta: float = 0.1,
+        reference_point: np.ndarray = None
+) -> RMetricIndicators:
+    """Calculate the R-metric (either R-HV or R-IGD)."""
+    # Identify the pivot point (z_p)
+    weight_vector = worst_point - reference_point
 
-@staticmethod
-def r_metric_indicators(solution_set: np.ndarray, reference_set: np.ndarray, reference_point_component: float) -> RMetricIndicators:
-    """Computes the R-HV and R-IGD indicators for a given solution set.
+    asf_values = np.apply_along_axis(
+        lambda x: np.sum(weight_vector * (x - reference_point)),
+        axis=1,
+        arr=solution_set
+    )
+    pivot_idx = np.argmin(asf_values)
+    pivot_point = solution_set[pivot_idx]
 
-    Args:
-        solution_set (np.ndarray): The solution set being evaluated.
-        reference_set (np.ndarray): The reference Pareto front.
-        reference_point_component (float): Reference point component for hypervolume calculation.
+    # Iso-ASF Point Calculation:
+    direction = worst_point - reference_point
+    ratios = np.abs(pivot_point - reference_point) / np.abs(direction)
+    k = np.argmax(ratios)
 
-    Returns:
-        RMetricIndicators: A Pydantic class containing the R-HV and R-IGD indicator values.
-    """
-    hv_solution = hv(solution_set, reference_point_component)
-    hv_reference = hv(reference_set, reference_point_component)
-    r_hv_value = hv_solution / hv_reference if hv_reference > 0 else 0.0
+    z_l = reference_point.copy()
+    num_objectives = len(reference_point)  # Explicitly get the number of objectives
+    for i in range(num_objectives):
+        term = (pivot_point[k] - reference_point[k]) / (worst_point[k] - reference_point[k])
+        z_l[i] = reference_point[i] + term * (worst_point[i] - reference_point[i])
 
-    indicators = distance_indicators(solution_set, reference_set)
-    r_igd_value = indicators.igd  # Používame IGD ako základ pre R-IGD
+    # Trim solutions based on the ROI(cubic region)
+    min_bound = pivot_point - delta / 2
+    max_bound = pivot_point + delta / 2
+    trimmed_solutions = solution_set[
+        np.all(np.logical_and(solution_set >= min_bound, solution_set <= max_bound), axis=1)
+    ]
 
-    return RMetricIndicators(r_hv=r_hv_value, r_igd=r_igd_value)
+    # Transfer solutions to a virtual position
+    direction = z_l - pivot_point
+    transferred_solutions = trimmed_solutions + direction
 
-@staticmethod
-def r_metric_batch(
-    solution_sets: dict[str, np.ndarray], reference_set: np.ndarray, reference_point_component: float
+    if reference_set is None:
+        raise ValueError("reference_set is required for R-IGD calculation.")
+    # Trim Reference set
+    trimmed_reference_set = reference_set[
+        np.all(np.logical_and(reference_set >= min_bound, reference_set <= max_bound), axis=1)
+    ]
+    distances = cdist(transferred_solutions, trimmed_reference_set)
+    r_igd = np.mean(np.min(distances, axis=1))
+
+    r_hv = hv(transferred_solutions, worst_point[0]) #Assumes worst point components are equal.
+
+    return RMetricIndicators(r_hv = r_hv, r_igd=r_igd)
+
+
+def r_metric_indicators_batch(
+        solution_set: dict[str, np.ndarray],
+        reference_point: np.ndarray,
+        worst_point: np.ndarray = None,
+        delta: float = 0.1,
+        reference_set: np.ndarray = None
 ) -> dict[str, RMetricIndicators]:
-    """Computes R-HV and R-IGD indicators for multiple solution sets.
+    inds = {}
+    for set_name in solution_set:
+        inds[set_name] = r_metric_indicator(solution_set[set_name], reference_point, worst_point, delta, reference_set)
+    return inds
 
-    Args:
-        solution_sets (dict[str, np.ndarray]): A dictionary of solution sets.
-        reference_set (np.ndarray): The reference Pareto front.
-        reference_point_component (float): Reference point component for hypervolume.
-
-    Returns:
-        dict[str, RMetricIndicators]: A dictionary of RMetricIndicators.
-    """
-    results = {}
-    for set_name, solution_set in solution_sets.items():
-        results[set_name] = r_metric_indicators(solution_set, reference_set, reference_point_component)
-    return results
 
 # Additional unary indicators can be added here.
 # E.g. The IGD+ indicator, R2 indicator, averaged Hausdorff distance, etc.
