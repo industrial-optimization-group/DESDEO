@@ -273,7 +273,7 @@ class ScipyMinimizeSolver(BaseSolver):
     def __init__(
         self,
         problem: Problem,
-        options: ScipyMinimizeOptions
+        options: ScipyMinimizeOptions = ScipyMinimizeOptions()
     ):
         """Initializes a solver that utilizes the `scipy.optimize.minimize` routine.
 
@@ -347,7 +347,7 @@ class ScipyDeSolver(BaseSolver):
     def __init__(
         self,
         problem: Problem,
-        options: ScipyDeOptions,
+        options: ScipyDeOptions = ScipyDeOptions,
     ):
         """Creates a solver that utilizes the `scipy.optimize.differential_evolution` routine.
 
