@@ -215,6 +215,59 @@ def get_corrected_ideal_and_nadir(problem: Problem) -> tuple[dict[str, float | N
 
     return ideal_point, nadir_point
 
+def get_corrected_ideal(problem: Problem) -> dict[str, float | None]:
+    """Compute the corrected ideal point depending if an objective function is to be maximized or not.
+
+    I.e., the ideal point element for objectives to be maximized will be multiplied by -1.
+
+    Args:
+        problem (Problem): the problem with the ideal point.
+
+    Raises:
+        ValueError: some of the ideal point components have not been defined
+            for some of the objectives.
+
+    Returns:
+        list[float]: a list with the corrected ideal point. Will return None for missing elements.
+    """
+    # check that ideal points are actually defined
+    if any(obj.ideal is None for obj in problem.objectives):
+        msg = "Some of the objectives have not a defined ideal value."
+        raise ValueError(msg)
+
+    ideal_point = {
+    objective.symbol: objective.ideal if not objective.maximize else -objective.ideal
+    for objective in problem.objectives
+    }
+
+    return ideal_point
+
+def get_corrected_nadir(problem: Problem) -> dict[str, float | None]:
+    """Compute the corrected nadir point depending if an objective function is to be maximized or not.
+
+    I.e., the nadir point element for objectives to be maximized will be multiplied by -1.
+
+    Args:
+        problem (Problem): the problem with the nadir points.
+
+    Raises:
+        ValueError: some of the nadir point components have not been defined
+            for some of the objectives.
+
+    Returns:
+        list[float]: a list with the corrected nadir point. Will return None for missing elements.
+    """
+    # check that nadir points are actually defined
+    if any(obj.nadir is None for obj in problem.objectives):
+        msg = "Some of the objectives have not a defined nadir value."
+        raise ValueError(msg)
+
+    nadir_point = {
+        objective.symbol: objective.nadir if not objective.maximize else -objective.nadir
+        for objective in problem.objectives
+    }
+
+    return nadir_point
 
 def get_corrected_reference_point(problem: Problem, reference_point: dict[str, float]) -> dict[str, float]:
     """Correct the components of a reference point.
