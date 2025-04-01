@@ -12,10 +12,59 @@ from scipy.optimize import OptimizeResult as _ScipyOptimizeResult
 from scipy.optimize import differential_evolution as _scipy_de
 from scipy.optimize import minimize as _scipy_minimize
 
+from pydantic import BaseModel, Field
+
 from desdeo.problem import ConstraintTypeEnum, PolarsEvaluator, Problem, variable_dimension_enumerate
 from desdeo.tools.generics import BaseSolver, SolverError, SolverResults
 
 SUPPORTED_VAR_DIMENSIONS = ["scalar"]
+
+
+class ScipyDeOptions(BaseModel):
+    """
+    Defines a pydantic model to store and pass options to the Scipy differential evolution solver.
+    """
+
+    initial_guess: dict[str, float | None] | None = Field(
+        description="The initial guess to be utilized in the solver. For variables with a None as their initial "
+                    "guess, the mid-point of the variable's lower and upper bound is utilized as the initial"
+                    "guess. If None, it is assumed that there are no initial guesses for any of the variables.",
+        default=None
+    )
+    de_kwargs: dict | None = Field(
+        description="Custom keyword arguments to be forwarded to `scipy.optimize.differential_evolution`.",
+        default=None
+    )
+
+
+class ScipyMinimizeOptions(BaseModel):
+    """
+    Defines a pydantic model to store and pass options to the Scipy Minimize solver.
+    """
+
+    initial_guess: dict[str, float | None] | None = Field(
+        description="The initial guess to be utilized in the solver. For variables with a None as their"
+                    "initial guess, the mid-point of the variable's lower and upper bound is utilized as the "
+                    "initial guess. If None, it is assumed that there are no initial guesses for any of the variables.",
+        default=None
+    )
+    method: str | None = Field(
+        description="The scipy.optimize.minimize method to beused. If None, a method is selected "
+                    "automatically based on the properties of the objective (does it have constraints?).",
+        default=None
+    )
+    method_kwargs: dict | None = Field(
+        description="The keyword arguments passed to the scipy.optimize.minimize method.",
+        default=None
+    )
+    tol: float | None = Field(
+        description="Tolerance for termination.",
+        default=None
+    )
+    additional_options: dict | None = Field(
+        description="Additional solver options.",
+        default=None
+    )
 
 
 class EvalTargetEnum(str, Enum):
@@ -224,11 +273,7 @@ class ScipyMinimizeSolver(BaseSolver):
     def __init__(
         self,
         problem: Problem,
-        initial_guess: dict[str, float | None] | None = None,
-        method: str | None = None,
-        method_kwargs: dict | None = None,
-        tol: float | None = None,
-        options: dict | None = None,
+        options: ScipyMinimizeOptions = ScipyMinimizeOptions()
     ):
         """Initializes a solver that utilizes the `scipy.optimize.minimize` routine.
 
@@ -238,18 +283,7 @@ class ScipyMinimizeSolver(BaseSolver):
 
         Args:
             problem (Problem): the multiobjective optimization problem to be solved.
-            initial_guess (dict[str, float, None] | None, optional): The initial
-                guess to be utilized in the solver. For variables with a None as their
-                initial guess, the mid-point of the variable's lower and upper bound is
-                utilzied as the initial guess. If None, it is assumed that there are
-                no initial guesses for any of the variables. Defaults to None.
-            method (str | None, optional): the scipy.optimize.minimize method to be
-                used. If None, a method is selected automatically based on the
-                properties of the objective (does it have constraints?). Defaults to
-                None.
-            method_kwargs (dict | None, optional): the keyword arguments passed to
-                the scipy.optimize.minimize method. Defaults to None.
-            tol (float | None, optional): the tolerance for termination. Defaults to None.
+            options: (ScipyMinimizeOptions): Pydantic model containing args for scipy minimize solver.
             subscriber (str | None, optional): not used right now. WIP. Defaults to None.
 
         """
@@ -257,11 +291,12 @@ class ScipyMinimizeSolver(BaseSolver):
             msg = "ScipyMinimizeSolver only supports scalar variables."
             raise SolverError(msg)
 
+        initial_guess = options.initial_guess
         self.problem = problem
-        self.method = method
-        self.method_kwargs = method_kwargs
-        self.tol = tol
-        self.options = options
+        self.method = options.method
+        self.method_kwargs = options.method_kwargs
+        self.tol = options.tol
+        self.additional_options = options.additional_options
 
         # variables bounds as (min, max pairs)
         self.bounds = get_variable_bounds_pairs(problem)
@@ -298,7 +333,7 @@ class ScipyMinimizeSolver(BaseSolver):
             method=self.method,
             bounds=self.bounds,
             constraints=self.constraints,
-            options=self.options,
+            options=self.additional_options,
             tol=self.tol,
         )
 
@@ -312,8 +347,7 @@ class ScipyDeSolver(BaseSolver):
     def __init__(
         self,
         problem: Problem,
-        initial_guess: dict[str, float | None] | None = None,
-        de_kwargs: dict | None = None,
+        options: ScipyDeOptions = ScipyDeOptions(),
     ):
         """Creates a solver that utilizes the `scipy.optimize.differential_evolution` routine.
 
@@ -328,10 +362,12 @@ class ScipyDeSolver(BaseSolver):
                 initial guess, the mid-point of the variable's lower and upper bound is
                 utilzied as the initial guess. If None, it is assumed that there are
                 no initial guesses for any of the variables. Defaults to None.
-            de_kwargs (dict | None, optional): custom keyword arguments to be forwarded to
-                `scipy.optimize.differential_evolution`. Defaults to None.
-            subscriber (str | None, optional): not used right now. WIP. Defaults to None.
+            options (ScipyDeOptions): Pydantic model containing arguments used by scipy DE solver.
         """
+
+        initial_guess = options.initial_guess
+        de_kwargs = options.de_kwargs
+
         if variable_dimension_enumerate(problem) not in SUPPORTED_VAR_DIMENSIONS:
             msg = "ScipyDeSolver only supports scalar variables."
             raise SolverError(msg)
