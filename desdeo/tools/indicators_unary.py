@@ -182,6 +182,56 @@ def distance_indicators_batch(
     return inds
 
 
+class IGDPlusIndicators(BaseModel):
+    """A container for the IGD+ distance-based indicator."""
+    igd_plus: float = Field(description="The modified inverted generational distance (IGD+) indicator value.")
+
+
+def igd_plus_indicators(solution_set: np.ndarray, reference_set: np.ndarray, p: float = 2.0) -> DistanceIndicators:
+    """Computes the IGD+ indicator for a given solution set.
+
+    Args:
+        solution_set (np.ndarray): The solution set being evaluated.
+        reference_set (np.ndarray): The reference Pareto front.
+
+    Returns:
+        IGDPlusIndicators: A Pydantic class containing the IGD+ indicator value.
+    """
+    num_ref_points = reference_set.shape[0]
+    total_distance = 0.0
+
+    for y_p in reference_set:
+        min_distance = float("inf")
+
+        for y_n in solution_set:
+            # Compute IGD+ distance (only positive differences)
+            distance = np.sum(np.maximum(0, y_n - y_p) ** p)  # Sum over objectives
+            min_distance = min(min_distance, distance)  # Store the closest one
+
+        total_distance += min_distance ** (1 / p)  # Apply the root AFTER summing over objectives
+
+    igd_plus_value = total_distance / num_ref_points
+    return IGDPlusIndicators(igd_plus=igd_plus_value)
+
+
+def igd_plus_batch(
+    solution_sets: dict[str, np.ndarray], reference_set: np.ndarray, p: float = 2.0
+) -> dict[str, DistanceIndicators]:
+    """Computes the IGD+ indicator for multiple solution sets.
+
+    Args:
+        solution_sets (dict[str, np.ndarray]): A dictionary of solution sets.
+        reference_set (np.ndarray): The reference Pareto front.
+        p (float, optional): The power of the Minkowski metric. Defaults to 2.0 (Euclidean distance).
+
+    Returns:
+        dict[str, IGDPlusIndicators]: A dictionary of IGDPlusIndicators.
+    """
+    results = {}
+    for set_name, solution_set in solution_sets.items():
+        results[set_name] = igd_plus_indicators(solution_set, reference_set, p)
+    return results
+
 # Additional unary indicators can be added here.
 # E.g. The IGD+ indicator, R2 indicator, averaged Hausdorff distance, etc.
 # The function signature should be similar the already implemented functions, if reasonable.
