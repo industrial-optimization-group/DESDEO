@@ -4,12 +4,18 @@ from itertools import product
 from math import factorial
 
 import numpy as np
-import pandas as pd
 import pytest
+from pymoo.indicators.igd_plus import IGDPlus
 from pymoo.util.ref_dirs import get_reference_directions
 from scipy.special import gamma
 
-from desdeo.tools.indicators_unary import distance_indicators, distance_indicators_batch, hv, hv_batch
+from desdeo.tools.indicators_unary import (
+    distance_indicators,
+    hv,
+    hv_batch,
+    igd_plus_batch,
+    igd_plus_indicator,
+)
 
 
 @pytest.mark.indicators
@@ -97,3 +103,46 @@ def test_distance_indicators():
     assert distance_inds.igd_p > 0, "IGD_p is not positive for a subset"
 
     assert distance_inds.ahd == distance_inds.igd_p, "AHD is not equal to IGD_p for a subset"
+
+
+@pytest.mark.indicators
+def test_igd_plus():
+    """Test the IGD+ indicator."""
+    num_full_points = 500
+    obj = 3
+    ref_set = get_reference_directions("energy", obj, n_points=num_full_points)
+    subset = ref_set[0:250, :]
+
+    igd_plus_result = igd_plus_indicator(subset, ref_set)
+
+    assert isinstance(igd_plus_result.igd_plus, float), "IGD+ is not a float"
+    assert igd_plus_result.igd_plus >= 0, "IGD+ is negative"
+    assert np.allclose(igd_plus_result.igd_plus, igd_plus_result.igd_plus), "IGD+ result is NaN"
+
+
+@pytest.mark.indicators
+def test_igd_plus_batch():
+    """Test the IGD+ indicator batch function."""
+    num_full_points = 500
+    obj = 3
+    ref_set = get_reference_directions("energy", obj, n_points=num_full_points)
+    subset1 = ref_set[0:100, :]
+    subset2 = ref_set[100:250, :]
+
+    solution_sets = {"subset1": subset1, "subset2": subset2}
+    igd_plus_batch_result = igd_plus_batch(solution_sets, ref_set)
+
+    assert isinstance(igd_plus_batch_result, dict), "Result is not a dictionary"
+    assert "subset1" in igd_plus_batch_result and "subset2" in igd_plus_batch_result, "Missing subsets in results"
+
+    for set_name, igd_plus_indicators in igd_plus_batch_result.items():
+        assert isinstance(igd_plus_indicators.igd_plus, float), f"IGD+ for {set_name} is not a float"
+        assert igd_plus_indicators.igd_plus >= 0, f"IGD+ for {set_name} is negative"
+        assert np.allclose(igd_plus_indicators.igd_plus, igd_plus_indicators.igd_plus), f"IGD+ for {set_name} is NaN"
+
+    # Validate results with pymoo's IGD+
+    for set_name, igd_plus_indicators in igd_plus_batch_result.items():
+        pymoo_igd_plus = IGDPlus(ref_set).do(solution_sets[set_name])
+        assert np.isclose(
+            igd_plus_indicators.igd_plus, pymoo_igd_plus, atol=1e-6
+        ), f"IGD+ for {set_name} does not match pymoo's result"
