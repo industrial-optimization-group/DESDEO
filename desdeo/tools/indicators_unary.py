@@ -159,11 +159,13 @@ def distance_indicators_batch(
 
     Args:
         solution_sets (dict[str, np.ndarray]): A dict of strings mapped to 2D numpy arrays where each array contains a
-            set of solutions. Each row is a solution and each column is an objective value. The solutions are assumed to
-            be normalized within the unit hypercube. The ideal and nadir of the set itself can lie within the hypercube,
-            but not outside it. The solutions are assumed to be non-dominated within their respective sets. The sets must
-            have the same number of objectives/columns but can have different number of solutions/rows. The keys of the
-            dict are the names of the sets.
+            set of solutions. Each row is a solution and each column is an
+            objective value. The solutions are assumed to be normalized within
+            the unit hypercube. The ideal and nadir of the set itself can lie
+            within the hypercube, but not outside it. The solutions are assumed
+            to be non-dominated within their respective sets. The sets must have
+            the same number of objectives/columns but can have different number
+            of solutions/rows. The keys of the dict are the names of the sets.
         reference_set (np.ndarray): A 2D numpy array where each row is a solution and each column is an objective value.
             The solutions are assumed to be normalized within the unit hypercube. The ideal and nadir of the reference
             set should probably be (0, 0, ..., 0) and (1, 1, ..., 1) respectively. The reference set is assumed to be
@@ -184,15 +186,20 @@ def distance_indicators_batch(
 
 class IGDPlusIndicators(BaseModel):
     """A container for the IGD+ distance-based indicator."""
+
     igd_plus: float = Field(description="The modified inverted generational distance (IGD+) indicator value.")
 
 
-def igd_plus_indicators(solution_set: np.ndarray, reference_set: np.ndarray, p: float = 2.0) -> DistanceIndicators:
+def igd_plus_indicator(solution_set: np.ndarray, reference_set: np.ndarray, p: float = 2.0) -> IGDPlusIndicators:
     """Computes the IGD+ indicator for a given solution set.
+
+    Notes:
+        The minimization of the objective function values is assumed.
 
     Args:
         solution_set (np.ndarray): The solution set being evaluated.
         reference_set (np.ndarray): The reference Pareto front.
+        p (float, optional): The power of the Minkowski metric. Defaults to 2.0 (Euclidean distance).
 
     Returns:
         IGDPlusIndicators: A Pydantic class containing the IGD+ indicator value.
@@ -216,8 +223,11 @@ def igd_plus_indicators(solution_set: np.ndarray, reference_set: np.ndarray, p: 
 
 def igd_plus_batch(
     solution_sets: dict[str, np.ndarray], reference_set: np.ndarray, p: float = 2.0
-) -> dict[str, DistanceIndicators]:
+) -> dict[str, IGDPlusIndicators]:
     """Computes the IGD+ indicator for multiple solution sets.
+
+    Notes:
+        The minimization of the objective function values is assumed.
 
     Args:
         solution_sets (dict[str, np.ndarray]): A dictionary of solution sets.
@@ -229,8 +239,9 @@ def igd_plus_batch(
     """
     results = {}
     for set_name, solution_set in solution_sets.items():
-        results[set_name] = igd_plus_indicators(solution_set, reference_set, p)
+        results[set_name] = igd_plus_indicator(solution_set, reference_set, p)
     return results
+
 
 # Additional unary indicators can be added here.
 # E.g. The IGD+ indicator, R2 indicator, averaged Hausdorff distance, etc.

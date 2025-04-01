@@ -4,13 +4,18 @@ from itertools import product
 from math import factorial
 
 import numpy as np
-from pymoo.indicators.igd_plus import IGDPlus
 import pytest
+from pymoo.indicators.igd_plus import IGDPlus
 from pymoo.util.ref_dirs import get_reference_directions
 from scipy.special import gamma
 
-from desdeo.tools.indicators_unary import distance_indicators, distance_indicators_batch, hv, hv_batch, \
-    igd_plus_indicators, igd_plus_batch
+from desdeo.tools.indicators_unary import (
+    distance_indicators,
+    hv,
+    hv_batch,
+    igd_plus_batch,
+    igd_plus_indicator,
+)
 
 
 @pytest.mark.indicators
@@ -108,7 +113,7 @@ def test_igd_plus():
     ref_set = get_reference_directions("energy", obj, n_points=num_full_points)
     subset = ref_set[0:250, :]
 
-    igd_plus_result = igd_plus_indicators(subset, ref_set)
+    igd_plus_result = igd_plus_indicator(subset, ref_set)
 
     assert isinstance(igd_plus_result.igd_plus, float), "IGD+ is not a float"
     assert igd_plus_result.igd_plus >= 0, "IGD+ is negative"
