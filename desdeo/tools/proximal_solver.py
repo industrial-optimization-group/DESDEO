@@ -21,7 +21,7 @@ class ProximalSolver(BaseSolver):
             representative the discrete points are of the original problem.
     """
 
-    def __init__(self, problem: Problem):
+    def __init__(self, problem: Problem, kwargs: dict | None = None):
         """Creates a solver that assumes the problem being a fully discrete one.
 
         Assumes that problem has only data-based objectives and a discrete definition
@@ -29,6 +29,8 @@ class ProximalSolver(BaseSolver):
 
         Args:
             problem (Problem): the problem being solved.
+            kwargs (Optional[dict]): optional keyword arguments. Not used right now, but kept
+                here for compatibility reasons. Defaults to None.
 
         Returns:
             Callable[[str], SolverResults]: a solver that can be called with a target to be optimized.

@@ -6,11 +6,8 @@ import pytest
 
 from desdeo.problem import (
     ConstraintTypeEnum,
-    dtlz2,
-    momip_ti7,
-    river_pollution_problem,
-    simple_test_problem,
 )
+from desdeo.problem.testproblems import dtlz2, momip_ti7, river_pollution_problem, simple_test_problem
 from desdeo.tools import (
     BonminOptions,
     NevergradGenericOptions,
@@ -951,7 +948,9 @@ def test_add_group_asf_diff():
     # optimal objective values should be close
     for obj in problem.objectives:
         assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
-        assert np.isclose(fs_group_sf_3rp[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)  # TODO: CHECK Nevergrad issue or something fishy
+        assert np.isclose(
+            fs_group_sf_3rp[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3
+        )  # TODO: CHECK Nevergrad issue or something fishy
 
 
 @pytest.mark.scalarization

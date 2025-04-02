@@ -217,6 +217,8 @@ class VariableDomainTypeEnum(str, Enum):
 
     continuous = "continuous"
     """All variables are real valued."""
+    binary = "binary"
+    """All variables are binary valued."""
     integer = "integer"
     """All variables are integer or binary valued."""
     mixed = "mixed"
@@ -1350,6 +1352,10 @@ class Problem(BaseModel):
         if all(t == VariableTypeEnum.real for t in variable_types):
             # all variables are real valued -> continuous problem
             return VariableDomainTypeEnum.continuous
+
+        if all(t == VariableTypeEnum.binary for t in variable_types):
+            # all variables are binary valued -> binary problem
+            return VariableDomainTypeEnum.binary
 
         if all(t in [VariableTypeEnum.integer, VariableTypeEnum.binary] for t in variable_types):
             # all variables are integer or binary -> integer problem

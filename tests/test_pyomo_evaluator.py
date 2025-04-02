@@ -4,12 +4,9 @@ import numpy.testing as npt
 import pyomo.environ as pyomo
 import pytest
 
-from desdeo.problem import (
-    ExtraFunction,
-    ScalarizationFunction,
-    binh_and_korn,
-)
+from desdeo.problem import ExtraFunction, ScalarizationFunction
 from desdeo.problem.pyomo_evaluator import PyomoEvaluator
+from desdeo.problem.testproblems import binh_and_korn
 
 
 @pytest.fixture

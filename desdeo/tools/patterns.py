@@ -28,7 +28,7 @@ Instead, we let the mutation operator subscribe to a topic called, e.g., `curren
 responsible for sending the current generation number to the mutation operator, whenever the generation number changes.
 The mutation operator can then update its internal state based on the received generation number.
 
-To be able to send this informatiom, the `Publisher` class has a method called `notify`. Operators can call this method
+To be able to send this information, the `Publisher` class has a method called `notify`. Operators can call this method
 to send messages to the subscribers. The idea is to do this at the end of the `do` method. That way, whenever any
 operator is executed, it can send messages to the other operators (which have subscribed to the topics).
 
@@ -37,8 +37,7 @@ This decoupling allows for a more modular design and easier extensibility of the
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable
-from typing import Any, Sequence
+from collections.abc import Sequence
 
 from desdeo.tools.message import AllowedMessagesAtVerbosity, Message, MessageTopics
 
@@ -46,7 +45,7 @@ from desdeo.tools.message import AllowedMessagesAtVerbosity, Message, MessageTop
 class Subscriber(ABC):
     """Base class for both subscriber and message sender.
 
-    These are used in the evoluationary algorithms to send messages between the different components. The pattern
+    These are used in the evolutionary algorithms to send messages between the different components. The pattern
     closely resembles the publisher-subscriber pattern, with one key difference. The subscribers can also create
     messages and send them to the publisher, which then forwards the messages to the other subscribers.
     """
@@ -224,7 +223,7 @@ class Publisher:
         return relationships
 
     def notify(self, messages: Sequence[Message] | None) -> None:
-        """Notify subcribers of the received message/messages.
+        """Notify subscribers of the received message/messages.
 
         Args:
             messages (Sequence[BaseMessage]): the messages to send to the subscribers. Each message is a pydantic model

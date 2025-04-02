@@ -5,15 +5,15 @@ import pytest
 from fixtures import dtlz2_5x_3f_data_based  # noqa: F401
 
 from desdeo.mcdm.nautili import (
+    NAUTILI_Response,
+    nautili_all_steps,
+    nautili_init,
     solve_reachable_bounds,
     solve_reachable_solution,
-    nautili_init,
-    nautili_all_steps,
-    NAUTILI_Response
 )
-from desdeo.problem import (
+from desdeo.problem import objective_dict_to_numpy_array
+from desdeo.problem.testproblems import (
     binh_and_korn,
-    objective_dict_to_numpy_array,
     river_pollution_problem,
 )
 
@@ -197,13 +197,13 @@ def test_solve_reachable_bounds_complicated():
 @pytest.mark.slow
 @pytest.mark.nautili
 def test_nautili_aggregation():
-    """TODO: Test nautili aggregation aggregation"""
+    """TODO: Test nautili aggregation aggregation."""
+
 
 @pytest.mark.slow
 @pytest.mark.nautili
 def test_all_steps():
-    """Test nautili all steps"""
-
+    """Test nautili all steps."""
     problem = binh_and_korn()
 
     prefs = {

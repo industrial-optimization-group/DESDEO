@@ -97,7 +97,7 @@ class CbcOptions(BaseModel):
         Please add options as they are needed and make a pull request.
     """
 
-    model_config = ConfigDict(frozen=True, allow_population_by_field_name=True)
+    model_config = ConfigDict(frozen=True, populate_by_name=True)
 
     sec: int = Field(
         description="The maximum amount of time (in seconds) the solver should run. Defaults to None.", default=None
@@ -234,7 +234,7 @@ def parse_pyomo_optimizer_results(
                 values_list[*[idx - 1 for idx in indices]] = results[var.symbol][
                     indices if len(indices) > 1 else indices[0]
                 ]
-            variable_values[var.symbol] = values_list
+            variable_values[var.symbol] = values_list.tolist()
         else:
             # variable_values = {var.symbol: results[var.symbol] for var in problem.variables}
             variable_values[var.symbol] = results[var.symbol]

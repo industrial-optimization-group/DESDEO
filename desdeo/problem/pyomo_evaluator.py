@@ -273,7 +273,7 @@ class PyomoEvaluator:
         for extra in problem.extra_funcs:
             pyomo_expr = self.parse(extra.func, model)
 
-            setattr(model, extra.symbol, pyomo_expr)
+            setattr(model, extra.symbol, pyomo.Expression(expr=pyomo_expr))
 
         return model
 
@@ -294,10 +294,11 @@ class PyomoEvaluator:
         for obj in problem.objectives:
             pyomo_expr = self.parse(obj.func, model)
 
-            setattr(model, obj.symbol, pyomo_expr)
+            setattr(model, obj.symbol, pyomo.Expression(expr=pyomo_expr))
 
             # the obj.symbol_min objectives are used when optimizing and building scalarizations etc...
-            setattr(model, f"{obj.symbol}_min", (-1) * pyomo_expr if obj.maximize else pyomo_expr)
+            new_expr = (-1) * pyomo_expr if obj.maximize else pyomo_expr
+            setattr(model, f"{obj.symbol}_min", pyomo.Expression(expr=new_expr))
 
         return model
 
@@ -347,7 +348,7 @@ class PyomoEvaluator:
         for scal in problem.scalarization_funcs:
             pyomo_expr = self.parse(scal.func, model)
 
-            setattr(model, scal.symbol, pyomo_expr)
+            setattr(model, scal.symbol, pyomo.Expression(expr=pyomo_expr))
 
         return model
 
