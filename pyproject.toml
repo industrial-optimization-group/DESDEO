@@ -46,11 +46,12 @@ python-jose = { extras = ["cryptography"], version = "^3.3.0", optional = true }
 bcrypt = { version = "^4.1.2", optional = true }
 mkdocs-include-markdown-plugin = { extras = ["cache"], version = "^6.0.5" }
 gurobipy = "^11.0.1"                                                             #96
-shap = "^0.46.0"
 scienceplots = "^2.1.1"
 tsp-solver = "^0.1"
 greenlet = "^3.1.1"
 pymoo = {git = "https://github.com/anyoptimization/pymoo"}
+shap = "^0.47.0"
+cvxpy = {extras = ["scip"], version = "^1.6.4"}
 
 [tool.poetry.extras]
 standard = ["polars"]
