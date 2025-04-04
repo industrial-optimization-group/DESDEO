@@ -227,6 +227,7 @@ markers = [
     "nogithub: tests that should not be run in GitHub actions.",
     "simulator_support: tests related to simulator and surrogate support",
     "explainer: tests related to explainers and related functionalities.",
+    "explanation_utils: tests related to explanations module utilities.",
 
 ]
 pythonpath = "."
