@@ -170,7 +170,7 @@ def river_pollution_problem_discrete(*, five_objective_variant: bool = True) -> 
         filename = "datasets/river_poll_5_objs.csv"
         trueObjNames["f5"] = "BOD deviation"
 
-    path = Path(__file__).parent.parent.parent / filename
+    path = Path(__file__).parent.parent.parent.parent / filename
     data = pl.read_csv(path, has_header=True)
 
     variables = [
