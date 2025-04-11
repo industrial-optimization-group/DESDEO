@@ -101,36 +101,22 @@ def test_distance_indicators():
 
     assert distance_inds.ahd == distance_inds.igd_p, "AHD is not equal to IGD_p for a subset"
 
-@pytest.mark.indicators
-def test_r_metric_indicators():
-    """Test the R-metric calculator."""
-    num_full_points = 500
-    obj = 3
-    ref_set = get_reference_directions("energy", obj, n_points=num_full_points)
-    subset = ref_set[0:250, :]
-    reference_point_component = 1.1
-
-    r_metrics = r_metric_indicator(subset, ref_set, reference_point_component)
-
-    assert isinstance(r_metrics.r_hv, float), "R-HV is not a float"
-    assert isinstance(r_metrics.r_igd, float), "R-IGD is not a float"
-    assert 0 <= r_metrics.r_hv <= 1, "R-HV is not in [0, 1]"
-    assert np.allclose(r_metrics.r_igd, r_metrics.r_igd), "R-IGD is not close to itself" # non NaN values
-
+from desdeo.problem.testproblems import dtlz2
 
 @pytest.mark.indicators
 def test_r_metric_calculator_batch():
     """Test the R-metric calculator batch function."""
     num_full_points = 500
     obj = 3
-    ref_set = get_reference_directions("energy", obj, n_points=num_full_points)
-    subset1 = ref_set[0:100, :]
-    subset2 = ref_set[100:250, :]
-    reference_point_component = 1.1
-    worst_point = np.ones(obj) * reference_point_component
+    ref_points = get_reference_directions("energy",  obj, n_points=num_full_points)
+    subset1 = ref_points[0:100, :]
+    subset2 = ref_points[100:250, :]
 
     solution_sets = {"subset1": subset1, "subset2": subset2}
-    r_metrics_batch = r_metric_indicators_batch(solution_sets, ref_set, worst_point, reference_point_component, ref_set)
+    r_metrics_batch = r_metric_indicators_batch(
+        solution_set=solution_sets,
+        ref_points =ref_points
+    )
 
     assert isinstance(r_metrics_batch, dict), "Result is not a dictionary"
     assert "subset1" in r_metrics_batch and "subset2" in r_metrics_batch, "Missing subsets in results"

@@ -19,6 +19,7 @@ from warnings import warn
 import numpy as np
 from pydantic import BaseModel, Field
 from pymoo.indicators.hv import Hypervolume
+from pymoo.indicators.rmetric import RMetric
 from scipy.spatial.distance import cdist
 
 
@@ -192,70 +193,64 @@ class RMetricIndicators(BaseModel):
 
 def r_metric_indicator(
         solution_set: np.ndarray,
-        reference_set: np.ndarray,
-        worst_point: np.ndarray = None,
-        delta: float = 0.1,
-        reference_point: np.ndarray = None
+        ref_points : np.ndarray,
+        w: np.ndarray = None,
+        delta: float = 0.2
 ) -> RMetricIndicators:
-    """Calculate the R-metric (either R-HV or R-IGD)."""
-    # Identify the pivot point (z_p)
-    weight_vector = worst_point - reference_point
+    """
+    Calculate the R-metric (either R-HV or R-IGD) for a given solution set.
 
-    asf_values = np.apply_along_axis(
-        lambda x: np.sum(weight_vector * (x - reference_point)),
-        axis=1,
-        arr=solution_set
-    )
-    pivot_idx = np.argmin(asf_values)
-    pivot_point = solution_set[pivot_idx]
+    Parameters:
+    solution_set : np.ndarray
+        The set of solutions.
 
-    # Iso-ASF Point Calculation:
-    direction = worst_point - reference_point
-    ratios = np.abs(pivot_point - reference_point) / np.abs(direction)
-    k = np.argmax(ratios)
+    ref_points : np.ndarray
+        A set of reference points..
 
-    z_l = reference_point.copy()
-    num_objectives = len(reference_point)  # Explicitly get the number of objectives
-    for i in range(num_objectives):
-        term = (pivot_point[k] - reference_point[k]) / (worst_point[k] - reference_point[k])
-        z_l[i] = reference_point[i] + term * (worst_point[i] - reference_point[i])
+    w : np.ndarray, optional
+        Weights for each objective.
 
-    # Trim solutions based on the ROI(cubic region)
-    min_bound = pivot_point - delta / 2
-    max_bound = pivot_point + delta / 2
-    trimmed_solutions = solution_set[
-        np.all(np.logical_and(solution_set >= min_bound, solution_set <= max_bound), axis=1)
-    ]
+    delta : float, optional
+        Region of interest for the metric calculation.
 
-    # Transfer solutions to a virtual position
-    direction = z_l - pivot_point
-    transferred_solutions = trimmed_solutions + direction
+    Returns:
+    RMetricIndicators
+        An object containing the computed R-HV and R-IGD values.
+    """
+    # Calculate the Pareto front
+    pareto_front = get_pareto_front(solution_set)
 
-    if reference_set is None:
-        raise ValueError("reference_set is required for R-IGD calculation.")
-    # Trim Reference set
-    trimmed_reference_set = reference_set[
-        np.all(np.logical_and(reference_set >= min_bound, reference_set <= max_bound), axis=1)
-    ]
-    distances = cdist(transferred_solutions, trimmed_reference_set)
-    r_igd = np.mean(np.min(distances, axis=1))
-
-    r_hv = hv(transferred_solutions, worst_point[0]) #Assumes worst point components are equal.
-
-    return RMetricIndicators(r_hv = r_hv, r_igd=r_igd)
-
+    rmetric = RMetric(problem=None, ref_points=ref_points , w=w, delta=delta, pf=pareto_front)
+    r_igd, r_hv = rmetric.do(solution_set)
+    return RMetricIndicators(r_hv=r_hv, r_igd=r_igd)
 
 def r_metric_indicators_batch(
         solution_set: dict[str, np.ndarray],
-        reference_point: np.ndarray,
-        worst_point: np.ndarray = None,
-        delta: float = 0.1,
-        reference_set: np.ndarray = None
+        ref_points : np.ndarray,
+        w: np.ndarray = None,
+        delta: float = 0.2
 ) -> dict[str, RMetricIndicators]:
+    """Calculate the R-metrics (R-HV and R-IGD) for a batch of solution sets."""
     inds = {}
     for set_name in solution_set:
-        inds[set_name] = r_metric_indicator(solution_set[set_name], reference_point, worst_point, delta, reference_set)
+        inds[set_name] = r_metric_indicator(solution_set[set_name], ref_points, w, delta)
     return inds
+
+def is_dominated(solution, other_solutions):
+    """Check if a solution is dominated by any other solution."""
+    for other in other_solutions:
+        if np.all(other <= solution) and np.any(other < solution):
+            return True
+    return False
+
+def get_pareto_front(solutions):
+    """Extract the Pareto front from a set of solutions."""
+    pareto_front = []
+    for i, solution in enumerate(solutions):
+        remaining_solutions = np.delete(solutions, i, axis=0)
+        if not is_dominated(solution, remaining_solutions):
+            pareto_front.append(solution)
+    return np.array(pareto_front)
 
 
 # Additional unary indicators can be added here.
