@@ -101,7 +101,6 @@ def test_distance_indicators():
 
     assert distance_inds.ahd == distance_inds.igd_p, "AHD is not equal to IGD_p for a subset"
 
-from desdeo.problem.testproblems import dtlz2
 
 @pytest.mark.indicators
 def test_r_metric_calculator_batch():
