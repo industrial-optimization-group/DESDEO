@@ -88,3 +88,6 @@ hide:
 
     [:octicons-arrow-right-24: Iterative Pareto Representer](./IPR.ipynb)
 </div>
+
+# Article Examples
+- **Example 1:** How to define a multiobjective optimization problem
