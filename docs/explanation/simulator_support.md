@@ -3,7 +3,7 @@
 ## Simulator file
 
 A `simulator file` connects an external simulator to DESDEO.
-It is a pyhton script that is called from the [Evaluator][desdeo.problem.simulator_evaluator]
+It is a python script that is called from the [Evaluator][desdeo.problem.simulator_evaluator]
 with python's `subprocess.run` method. The evaluator passes to the simulator file decision
 variable values and whatever parameters the simulator may take. These parameters could
 be, for example, some variables the simulator needs that are not decision variables of the problem.
@@ -60,33 +60,43 @@ First we need to import the necessary modules:
 import argparse
 import ast
 import json
+import os
 import sys
 ```
 
 The modules `argparse` and sys are used to identify and read the argumenets passed to the simulator file.
 The modules `ast` and `json` are used for parsing the arguments.
 
-For this example, we define a simple python function that is acting as the simulator:
+For this example, a python function that runs the actual simulator:
 
 ```python
-import numpy as np
+import characters.fighter
 
-def simulator(xs: dict, params: dict):
-    """The 'simulator' that is used to test connecting to an actual simulator with the arguments."""
-    alpha: float = params.get("alpha", 1)
-    beta: float = params.get("beta", 1)
-    delta: float = params.get("delta", 1)
-    fun1 = np.array(xs["x_1"]) * 2 + np.array(xs["x_2"]) * alpha
-    fun2 = np.array(xs["x_2"]) * 2 + np.array(xs["x_1"]) * beta
-    fun3 = np.array(xs["x_2"]) * delta
-    return {"f_1": fun1.tolist(), "f_4": fun2.tolist(), "e_1": fun3.tolist()}
+from combat import duel
+
+def simulator(variables: dict, parameters: dict) -> dict:
+    """A function used to call the actual simulator."""
+    fighter = characters.fighter.L7_fighter()
+    if parameters["rotation"] == "powerAttack":
+        fighter.rotation = fighter.powerAttack_and_Strike
+
+    fighter.AC = variables["AC"]
+    fighter.AttackProficiency = variables["attack"]
+    fighter.maxDamage = variables["damage"]
+    fighter.maxCritDamage = fighter.maxDamage * 2
+    fighter.initiative = variables["initiative"]
+    fighter._init_distributions()
+
+    enemy = characters.fighter.L7_fighter()
+
+    pWin, pLose = duel(fighter, enemy)
+    return {"pWin": float(pWin[-1])}
 ```
 
-The "simulator" takes the decision variables (`xs`) and parameters (`params`) as
-python dicts as arguments. It then does some computations with them and returns
-the values for two objectives `f_1` and `f_4`, and one extra function value `e_1`.
-The decision variable values are given as lists with each element representing
-a single sample. This makes the returned values lists as well.
+The "simulator" takes the decision variables (`variables`) and parameters (`parameters`) as
+python dicts as arguments. It then does some computations with them and runs the simulator
+through the function `duel`. The simulator gives a value for the objective `pWin` that is then
+returned in a python dict.
 
 Now we need a script that parses the arguments passed from the evaluator into the correct form
 and calls the evaluator. Finally, the script passes the output dict from the simulator back
@@ -121,10 +131,14 @@ if __name__ == "__main__":
     else:
         parser.parse_args(["-h"])
 
+    stdout = sys.stdout
+    sys.stdout = open(os.devnull, "w")
+
     # call the simulator with the given variables and parameters
     simulator_output = simulator(variables, parameters)
 
     # send out the simulator outputs utilizing json.dumps method to keep the output as a dict to be parsed
+    sys.stdout = stdout
     sys.stdout.write(json.dumps(simulator_output))
 ```
 
