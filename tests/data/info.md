@@ -1,0 +1,1 @@
+The file "DTLZ2_5x_3f.csv" contains an approximation of the Pareto optimal front of the DTLZ2 problem variant with 5 variables and 3 objectives. The Pareto optimal solution's objective function values' sum of squares is approximately 1.0 with a tolerance of 0.01. All the objectives are to be minimized.
