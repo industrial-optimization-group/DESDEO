@@ -936,7 +936,7 @@ def replace_str(lst: list | str, target: str, sub: list | str | float | int) -> 
     if isinstance(lst, list):
         return [replace_str(item, target, sub) for item in lst]
     if isinstance(lst, str):
-        if target in lst:
+        if target == lst:
             if isinstance(sub, str):
                 return lst.replace(target, sub)
             return sub
