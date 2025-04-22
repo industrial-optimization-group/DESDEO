@@ -548,7 +548,6 @@ def find_closest_points(
     results = []
 
     for row in xs_vars_only.rows(named=True):
-        print(row)
         distance_expr = (
             sum((pl.col(var_symbol) - row[var_symbol]) ** 2 for var_symbol in variable_symbols).sqrt().alias("distance")
         )

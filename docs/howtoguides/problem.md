@@ -140,7 +140,7 @@ simulator = [
     ),
     Simulator(
         name="Simulator 2",
-        symbol="s_1",
+        symbol="s_2",
         file=f"{path_to_simulator_file_2}"
     )
 ]

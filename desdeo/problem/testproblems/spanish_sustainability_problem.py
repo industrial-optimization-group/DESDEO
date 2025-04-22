@@ -902,7 +902,7 @@ def spanish_sustainability_problem_discrete():
     varnames = [f"x{i}" for i in range(1, 12)]
     objNames = {"f1": "social", "f2": "economic", "f3": "environmental"}
 
-    path = Path(__file__).parent.parent.parent / filename
+    path = Path(__file__).parent.parent.parent.parent / filename
     data = pl.read_csv(path, has_header=True)
 
     data = data.rename({"social": "f1", "economic": "f2", "environmental": "f3"})

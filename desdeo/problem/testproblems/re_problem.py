@@ -10,6 +10,7 @@ from desdeo.problem.schema import (
     VariableTypeEnum,
 )
 
+
 def re21(f: float = 10.0, sigma: float = 10.0, e: float = 2.0 * 1e5, l: float = 200.0) -> Problem:
     r"""Defines the four bar truss design problem.
 
@@ -19,10 +20,6 @@ def re21(f: float = 10.0, sigma: float = 10.0, e: float = 2.0 * 1e5, l: float = 
         &\min_{\mathbf{x}} & f_1(\mathbf{x}) & = L(2x_1 + \sqrt{2}x_2 + \sqrt{x_3} + x_4) \\
         &\min_{\mathbf{x}} & f_2(\mathbf{x}) & = \frac{FL}{E}\left(\frac{2}{x_1} + \frac{2\sqrt{2}}{x_2}
         - \frac{2\sqrt{2}}{x_3} + \frac{2}{x_4}\right) \\
-        &\text{s.t.,}   & \frac{F}{\sigma} \leq x_1 & \leq 3\frac{F}{\sigma},\\
-        & & \sqrt{2}\frac{F}{\sigma} \leq x_2 & \leq 3\frac{F}{\sigma},\\
-        & & \sqrt{2}\frac{F}{\sigma} \leq x_3 & \leq 3\frac{F}{\sigma},\\
-        & & \frac{F}{\sigma} \leq x_4 & \leq 3\frac{F}{\sigma},
     \end{align}
 
     where $x_1, x_4 \in [a, 3a]$, $x_2, x_3 \in [\sqrt{2}a, 3a]$, and $a = F/\sigma$.
@@ -94,7 +91,8 @@ def re21(f: float = 10.0, sigma: float = 10.0, e: float = 2.0 * 1e5, l: float = 
     f_2 = Objective(
         name="f_2",
         symbol="f_2",
-        func=f"({(f * l) / e} * ((2.0 / x_1) + (2.0 * {np.sqrt(2.0)} / x_2) - (2.0 * {np.sqrt(2.0)} / x_3) + (2.0 / x_4)))",
+        func=f"({(f * l) / e} * ((2.0 / x_1) + (2.0 * {np.sqrt(2.0)} / x_2) - "
+             f"(2.0 * {np.sqrt(2.0)} / x_3) + (2.0 / x_4)))",
         objective_type=ObjectiveTypeEnum.analytical,
         is_linear=False,
         is_convex=False,  # Not checked
@@ -120,6 +118,8 @@ def re22() -> Problem:
         &\text{s.t.,}   & g_1(\mathbf{x}) & = x_1x_3 - 7.735\frac{x_1^2}{x_2} - 180 \geq 0,\\
         & & g_2(\mathbf{x}) & = 4 - \frac{x_3}{x_2} \geq 0.
     \end{align}
+
+    where $x_2 \in [0, 20]$ and $x_3 \in [0, 40]$.
 
     References:
         Amir, H. M., & Hasegawa, T. (1989). Nonlinear mixed-discrete structural optimization.
@@ -302,6 +302,12 @@ def re23() -> Problem:
         & & g_3(\mathbf{x}) & = -\pi x_3^2x_4 - \frac{4}{3}\pi x_3^3 + 1\,296\,000 \leq 0.
     \end{align}
 
+        where $x_1, x_2 \in \{1,\dots,100\}$, $x_3 \in [10, 200]$, and $x_4 \in [10, 240]$. $x_1$ and $x_2$ are
+        integer multiples of 0.0625. $x_1$, $x_2$, $x_3$, and $x_4$ represent the thicknesses of
+        the shell, the head of a pressure vessel, the inner radius, and the length of
+        the cylindrical section, respectively. We determined the ranges of $x_2$ and $x_3$
+        according to [S.3].
+
     References:
         Kannan, B. K., & Kramer, S. N. (1994). An augmented Lagrange multiplier based method
             for mixed integer discrete continuous optimization and its applications to mechanical design.
@@ -355,7 +361,8 @@ def re23() -> Problem:
     f_1 = Objective(
         name="f_1",
         symbol="f_1",
-        func=f"0.6224 * {x_1_exprs} * x_3 * x_4 + (1.7781 * {x_2_exprs} * x_3**2) + (3.1661 * {x_1_exprs}**2 * x_4) + (19.84 * {x_1_exprs}**2 * x_3)",
+        func=f"0.6224 * {x_1_exprs} * x_3 * x_4 + (1.7781 * {x_2_exprs} * x_3**2) + "
+             f"(3.1661 * {x_1_exprs}**2 * x_4) + (19.84 * {x_1_exprs}**2 * x_3)",
         objective_type=ObjectiveTypeEnum.analytical,
         is_linear=False,
         is_convex=False,  # Not checked
@@ -364,7 +371,8 @@ def re23() -> Problem:
     f_2 = Objective(
         name="f_2",
         symbol="f_2",
-        func=f"Max({x_1_exprs} - 0.0193 * x_3, 0) + Max({x_2_exprs} - 0.00954 * x_3, 0) + Max({np.pi} * x_3**2 * x_4 + (4/3) * {np.pi} * x_3**3 - 1296000, 0)",
+        func=f"Max({x_1_exprs} - 0.0193 * x_3, 0) + Max({x_2_exprs} - 0.00954 * x_3, 0) + "
+             f"Max({np.pi} * x_3**2 * x_4 + (4/3) * {np.pi} * x_3**3 - 1296000, 0)",
         objective_type=ObjectiveTypeEnum.analytical,
         is_linear=False,
         is_convex=False,  # Not checked
@@ -468,7 +476,8 @@ def re24() -> Problem:
     f_2 = Objective(
         name="f_2",
         symbol="f_2",
-        func=f"Max(-(1 - {sigma_b} / 700), 0) + Max(-(1 - {tau} / 450), 0) + Max(-(1 - {delta} / 1.5), 0) + Max(-(1 - {sigma_b} / {sigma_k}), 0)",
+        func=f"Max(-(1 - {sigma_b} / 700), 0) + Max(-(1 - {tau} / 450), 0) + "
+             f"Max(-(1 - {delta} / 1.5), 0) + Max(-(1 - {sigma_b} / {sigma_k}), 0)",
         objective_type=ObjectiveTypeEnum.analytical,
         is_linear=False,
         is_convex=False,  # Not checked

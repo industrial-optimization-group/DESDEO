@@ -228,7 +228,7 @@ def forest_problem_discrete() -> Problem:
     """
     filename = "datasets/forest_holding_4.csv"
 
-    path = Path(__file__).parent.parent.parent / filename
+    path = Path(__file__).parent.parent.parent.parent / filename
 
     obj_names = ["stock", "harvest_value", "npv"]
 
