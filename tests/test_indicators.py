@@ -15,6 +15,7 @@ from desdeo.tools.indicators_unary import (
     hv_batch,
     igd_plus_batch,
     igd_plus_indicator,
+    r_metric_indicators_batch,
 )
 
 
@@ -146,3 +147,25 @@ def test_igd_plus_batch():
         assert np.isclose(
             igd_plus_indicators.igd_plus, pymoo_igd_plus, atol=1e-6
         ), f"IGD+ for {set_name} does not match pymoo's result"
+
+
+@pytest.mark.indicators
+def test_r_metric_calculator_batch():
+    """Test the R-metric calculator batch function."""
+    num_full_points = 500
+    obj = 3
+    ref_points = get_reference_directions("energy", obj, n_points=num_full_points)
+    subset1 = ref_points[0:100, :]
+    subset2 = ref_points[100:250, :]
+
+    solution_sets = {"subset1": subset1, "subset2": subset2}
+    r_metrics_batch = r_metric_indicators_batch(solution_set=solution_sets, ref_points=ref_points)
+
+    assert isinstance(r_metrics_batch, dict), "Result is not a dictionary"
+    assert "subset1" in r_metrics_batch and "subset2" in r_metrics_batch, "Missing subsets in results"
+
+    for set_name, r_metrics in r_metrics_batch.items():
+        assert isinstance(r_metrics.r_hv, float), f"R-HV for {set_name} is not a float"
+        assert isinstance(r_metrics.r_igd, float), f"R-IGD for {set_name} is not a float"
+        assert 0 <= r_metrics.r_hv, f"R-HV for {set_name} is negative"
+        assert np.allclose(r_metrics.r_igd, r_metrics.r_igd), "R-IGD is not close to itself"  # non NaN values
