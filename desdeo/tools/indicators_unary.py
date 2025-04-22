@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 from pymoo.indicators.hv import Hypervolume
 from pymoo.indicators.rmetric import RMetric
 from scipy.spatial.distance import cdist
+from typing import Dict
 
 
 def hv(solution_set: np.ndarray, reference_point_component: float) -> float:
@@ -243,6 +244,65 @@ def igd_plus_batch(
         results[set_name] = igd_plus_indicator(solution_set, reference_set, p)
     return results
 
+class R2Indicator(BaseModel):
+    r2_value: float
+
+def tchebycheff_utility(fx: np.ndarray, lambd: np.ndarray, z_star: np.ndarray, rho: float = 0.05) -> float:
+    """Calculates the augmented Tchebycheff utility of a solution."""
+    diff = np.abs(z_star - fx)
+    max_term = np.max(lambd * diff)
+    sum_term = np.sum(diff)
+    return - (max_term + rho * sum_term)
+
+def r2_indicator(
+    solution_set: np.ndarray,
+    lambda_set: np.ndarray,
+    z_star: np.ndarray,
+    rho: float = 0.05
+) -> R2Indicator:
+    """Computes the unary R2 indicator for a given solution set.
+
+    Args:
+        solution_set (np.ndarray): The Pareto front approximation.
+        lambda_set (np.ndarray): The set of normalized weight vectors (λ).
+        z_star (np.ndarray): The ideal point (must dominate or weakly dominate all solutions).
+        rho (float, optional): Small positive number for augmented Tchebycheff. Default is 0.05.
+
+    Returns:
+        R2IndicatorResult: Pydantic class with R2 value.
+    """
+    total_score = 0.0
+    for lambd in lambda_set:
+        best_score = max(
+            tchebycheff_utility(fx, lambd, z_star, rho)
+            for fx in solution_set
+        )
+        total_score += best_score
+
+    r2_value = total_score / len(lambda_set)
+    return R2Indicator(r2_value=r2_value)
+
+def r2_batch(
+    solution_sets: Dict[str, np.ndarray],
+    lambda_set: np.ndarray,
+    z_star: np.ndarray,
+    rho: float = 0.05
+) -> Dict[str, R2Indicator]:
+    """Computes the R2 indicator for multiple solution sets.
+
+    Args:
+        solution_sets (dict[str, np.ndarray]): Dictionary of solution sets.
+        lambda_set (np.ndarray): Set of weight vectors.
+        z_star (np.ndarray): Ideal point.
+        rho (float, optional): Augmented Tchebycheff parameter.
+
+    Returns:
+        dict[str, R2IndicatorResult]: Dictionary of results.
+    """
+    return {
+        name: r2_indicator(solution_set, lambda_set, z_star, rho)
+        for name, solution_set in solution_sets.items()
+    }
 
 class RMetricIndicators(BaseModel):
     """A container for R-metric indicators: R-HV and R-IGD."""

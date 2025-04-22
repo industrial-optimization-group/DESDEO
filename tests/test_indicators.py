@@ -15,6 +15,7 @@ from desdeo.tools.indicators_unary import (
     hv_batch,
     igd_plus_batch,
     igd_plus_indicator,
+    r2_batch,
     r_metric_indicators_batch,
 )
 
@@ -169,3 +170,27 @@ def test_r_metric_calculator_batch():
         assert isinstance(r_metrics.r_igd, float), f"R-IGD for {set_name} is not a float"
         assert 0 <= r_metrics.r_hv, f"R-HV for {set_name} is negative"
         assert np.allclose(r_metrics.r_igd, r_metrics.r_igd), "R-IGD is not close to itself"  # non NaN values
+
+
+@pytest.mark.indicators
+def test_r2_batch_with_ref_dirs():
+    """Test the R2 batch function using structured reference directions."""
+    num_full_points = 500
+    obj = 3
+    ref_set = get_reference_directions("energy", obj, n_points=num_full_points)
+    subset1 = ref_set[0:100, :]
+    subset2 = ref_set[100:250, :]
+
+    solution_sets = {"subset1": subset1, "subset2": subset2}
+    lambda_set = get_reference_directions("energy", obj, n_points=100)
+    z_star = np.min(ref_set, axis=0)
+
+    r2_results = r2_batch(solution_sets, lambda_set, z_star)
+
+    assert isinstance(r2_results, dict), "R2 batch output is not a dictionary"
+    assert "subset1" in r2_results and "subset2" in r2_results, "Subset keys missing in R2 batch result"
+
+    for name, result in r2_results.items():
+        assert isinstance(result.r2_value, float), f"{name}'s R2 value is not a float"
+        assert result.r2_value < 0, f"{name}'s R2 value should be negative"
+        assert np.isfinite(result.r2_value), f"{name}'s R2 value is not finite"
