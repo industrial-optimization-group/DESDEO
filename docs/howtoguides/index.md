@@ -6,6 +6,15 @@ hide:
 # DESDEO
 
 <div class="grid cards" markdown>
+
+-   :octicons-info-24:{ .lg .middle } __Simple DESDEO Windows installation__
+
+    ---
+
+    How to install DESDEO on your Windows machine with Anaconda
+
+    [:octicons-arrow-right-24: Simple DESDEO installation guide](./simple_installing.md)
+
 -   :octicons-info-24:{ .lg .middle } __Installing DESDEO__
 
     ---
