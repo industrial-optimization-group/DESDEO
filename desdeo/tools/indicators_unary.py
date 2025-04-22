@@ -19,6 +19,7 @@ from warnings import warn
 import numpy as np
 from pydantic import BaseModel, Field
 from pymoo.indicators.hv import Hypervolume
+from pymoo.indicators.rmetric import RMetric
 from scipy.spatial.distance import cdist
 
 
@@ -241,6 +242,70 @@ def igd_plus_batch(
     for set_name, solution_set in solution_sets.items():
         results[set_name] = igd_plus_indicator(solution_set, reference_set, p)
     return results
+
+
+class RMetricIndicators(BaseModel):
+    """A container for R-metric indicators: R-HV and R-IGD."""
+
+    r_hv: float = Field(description="The R-HV indicator value, based on hypervolume.")
+    "The R-HV indicator value, based on hypervolume."
+    r_igd: float = Field(description="The R-IGD indicator value, based on inverted generational distance.")
+    "The R-IGD indicator value, based on inverted generational distance."
+
+
+def r_metric_indicator(
+    solution_set: np.ndarray, ref_points: np.ndarray, w: np.ndarray = None, delta: float = 0.2
+) -> RMetricIndicators:
+    """Calculate the R-metric (either R-HV or R-IGD) for a given solution set.
+
+    Parameters:
+    solution_set : np.ndarray
+        The set of solutions.
+
+    ref_points : np.ndarray
+        A set of reference points..
+
+    w : np.ndarray, optional
+        Weights for each objective.
+
+    delta : float, optional
+        Region of interest for the metric calculation.
+
+    Returns:
+    RMetricIndicators
+        An object containing the computed R-HV and R-IGD values.
+    """
+    # Calculate the Pareto front
+    pareto_front = get_pareto_front(solution_set)
+
+    rmetric = RMetric(problem=None, ref_points=ref_points, w=w, delta=delta, pf=pareto_front)
+    r_igd, r_hv = rmetric.do(solution_set)
+    return RMetricIndicators(r_hv=r_hv, r_igd=r_igd)
+
+
+def r_metric_indicators_batch(
+    solution_set: dict[str, np.ndarray], ref_points: np.ndarray, w: np.ndarray = None, delta: float = 0.2
+) -> dict[str, RMetricIndicators]:
+    """Calculate the R-metrics (R-HV and R-IGD) for a batch of solution sets."""
+    inds = {}
+    for set_name in solution_set:
+        inds[set_name] = r_metric_indicator(solution_set[set_name], ref_points, w, delta)
+    return inds
+
+
+def is_dominated(solution, other_solutions):
+    """Check if a solution is dominated by any other solution."""
+    return any(np.all(other <= solution) and np.any(other < solution) for other in other_solutions)
+
+
+def get_pareto_front(solutions):
+    """Extract the Pareto front from a set of solutions."""
+    pareto_front = []
+    for i, solution in enumerate(solutions):
+        remaining_solutions = np.delete(solutions, i, axis=0)
+        if not is_dominated(solution, remaining_solutions):
+            pareto_front.append(solution)
+    return np.array(pareto_front)
 
 
 # Additional unary indicators can be added here.
