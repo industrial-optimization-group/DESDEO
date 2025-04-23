@@ -68,7 +68,7 @@ and say yes when asked if you want to proceed.
 
 Once you have git installed, you can use it to download DESDEO. Type
 ```
-git clone -b desdeo2 --single-branch https://github.com/industrial-optimization-group/DESDEO.git
+git clone -b master --single-branch https://github.com/industrial-optimization-group/DESDEO.git
 ```
 That creates a clone of the desdeo2 branch of the DESDEO project. If you want all the branches, just use `git clone https://github.com/industrial-optimization-group/DESDEO.git`.
 
