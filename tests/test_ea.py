@@ -14,6 +14,7 @@ from desdeo.emo.operators.crossover import (
     SimulatedBinaryCrossover,
     SinglePointBinaryCrossover,
     UniformIntegerCrossover,
+    UniformMixedIntegerCrossover,
 )
 from desdeo.emo.operators.evaluator import EMOEvaluator
 from desdeo.emo.operators.generator import (
@@ -532,3 +533,39 @@ def test_mixed_integer_generator():
 
     assert population.shape == (n_points, len(problem.get_flattened_variables()))
     assert outputs.shape == (n_points, 2 * 2 + 2)  # 2 objectives, both min and max, and two constraints
+
+
+@pytest.mark.ea
+def test_uniform_mixed_integer_crossover():
+    """Test whether the uniform mixed-integer crossover operator works as intended."""
+    publisher = Publisher()
+    n_points = 20
+
+    problem = momip_ti2()
+
+    crossover = UniformMixedIntegerCrossover(problem=problem, publisher=publisher, seed=1)
+    num_vars = len(crossover.variable_symbols)
+
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher)
+    generator = RandomMixedInteger(problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0)
+
+    population, _ = generator.do()
+
+    to_mate = [0, 9, 1, 8, 2, 7, 3, 6, 4]
+
+    result = crossover.do(population=population, to_mate=to_mate)
+
+    assert result.shape == (len(to_mate), num_vars)
+
+    with npt.assert_raises(AssertionError):
+        npt.assert_allclose(population, result)
+
+    # test with no to_mate
+    result = crossover.do(
+        population=population,
+    )
+
+    assert result.shape == (len(population), num_vars)
+
+    with npt.assert_raises(AssertionError):
+        npt.assert_allclose(population, result)
