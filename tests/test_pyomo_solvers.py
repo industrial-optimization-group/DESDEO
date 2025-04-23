@@ -43,7 +43,8 @@ def test_bonmin_w_momip_ti2():
     """Test the bonmin solver with a known problem."""
     problem = momip_ti2()
 
-    solver = PyomoBonminSolver(problem)
+    sol_options = BonminOptions(tol=1e-6, bonmin_algorithm="B-BB")
+    solver = PyomoBonminSolver(problem, sol_options)
 
     results = solver.solve("f_1")
 
@@ -58,6 +59,11 @@ def test_bonmin_w_momip_ti2():
     gs = results.constraint_values
     assert np.isclose(gs["g_1"], 0, atol=1e-8) or gs["g_1"] < 0
     assert np.isclose(gs["g_2"], 0, atol=1e-8) or gs["g_2"] < 0
+
+    # needs to reset the solver, if we just change the target, the solver exists
+    # with an error. This is a bug someone should check.
+    sol_options = BonminOptions(tol=1e-6, bonmin_algorithm="B-BB")
+    solver = PyomoBonminSolver(problem, sol_options)
 
     results = solver.solve("f_2")
 

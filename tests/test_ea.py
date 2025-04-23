@@ -28,6 +28,7 @@ from desdeo.emo.operators.mutation import (
     BinaryFlipMutation,
     BoundedPolynomialMutation,
     IntegerRandomMutation,
+    MixedIntegerRandomMutation,
 )
 from desdeo.emo.operators.selection import (
     ParameterAdaptationStrategy,
@@ -569,3 +570,38 @@ def test_uniform_mixed_integer_crossover():
 
     with npt.assert_raises(AssertionError):
         npt.assert_allclose(population, result)
+
+
+@pytest.mark.ea
+def test_mixed_integer_random_mutation():
+    """Test whether the mixed-integer random mutation operator works as intended."""
+    publisher = Publisher()
+    n_points = 20
+
+    problem = momip_ti2()
+
+    # default mutation probability
+    mutation = MixedIntegerRandomMutation(problem=problem, publisher=publisher, seed=0)
+
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher)
+    generator = RandomMixedInteger(problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0)
+
+    population, _ = generator.do()
+
+    result = mutation.do(offsprings=population, parents=population)
+
+    assert result.shape == population.shape
+
+    with npt.assert_raises(AssertionError):
+        npt.assert_allclose(population, result)
+
+    # zero mutation probability
+    mutation = MixedIntegerRandomMutation(problem=problem, publisher=publisher, seed=0, mutation_probability=0.0)
+
+    population, _ = generator.do()
+
+    result = mutation.do(offsprings=population, parents=population)
+
+    assert result.shape == population.shape
+
+    npt.assert_allclose(population, result)

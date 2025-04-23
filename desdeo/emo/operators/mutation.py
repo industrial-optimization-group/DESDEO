@@ -10,7 +10,7 @@ from collections.abc import Sequence
 import numpy as np
 import polars as pl
 
-from desdeo.problem import Problem, VariableDomainTypeEnum
+from desdeo.problem import Problem, VariableDomainTypeEnum, VariableTypeEnum
 from desdeo.tools.message import (
     FloatMessage,
     Message,
@@ -424,6 +424,152 @@ class IntegerRandomMutation(BaseMutation):
         mutated = np.where(
             mutation_mask,
             self.rng.integers(self.lower_bounds, self.upper_bounds, size=population.shape, dtype=int, endpoint=True),
+            population,
+        )
+
+        self.offspring = pl.from_numpy(mutated, schema=self.variable_symbols).select(pl.all()).cast(pl.Float64)
+        self.notify()
+
+        return self.offspring
+
+    def update(self, *_, **__):
+        """Do nothing."""
+
+    def state(self) -> Sequence[Message]:
+        """Return the state of the mutation operator."""
+        if self.offspring_original is None or self.offspring is None:
+            return []
+        if self.verbosity == 0:
+            return []
+        if self.verbosity == 1:
+            return [
+                FloatMessage(
+                    topic=MutationMessageTopics.MUTATION_PROBABILITY,
+                    source=self.__class__.__name__,
+                    value=self.mutation_probability,
+                ),
+            ]
+        # verbosity == 2
+        return [
+            PolarsDataFrameMessage(
+                topic=MutationMessageTopics.OFFSPRING_ORIGINAL,
+                source=self.__class__.__name__,
+                value=self.offspring_original,
+            ),
+            PolarsDataFrameMessage(
+                topic=MutationMessageTopics.PARENTS,
+                source=self.__class__.__name__,
+                value=self.parents,
+            ),
+            PolarsDataFrameMessage(
+                topic=MutationMessageTopics.OFFSPRINGS,
+                source=self.__class__.__name__,
+                value=self.offspring,
+            ),
+            FloatMessage(
+                topic=MutationMessageTopics.MUTATION_PROBABILITY,
+                source=self.__class__.__name__,
+                value=self.mutation_probability,
+            ),
+        ]
+
+
+class MixedIntegerRandomMutation(BaseMutation):
+    """Implements a random mutation operator for mixed-integer variables.
+
+    The mutation will mutate each mixed-integer variable,
+    by changing its value to a random value bounded by the
+    variable's bounds with a provided probability.
+    """
+
+    @property
+    def provided_topics(self) -> dict[int, Sequence[MutationMessageTopics]]:
+        """The message topics provided by the mutation operator."""
+        return {
+            0: [],
+            1: [
+                MutationMessageTopics.MUTATION_PROBABILITY,
+            ],
+            2: [
+                MutationMessageTopics.MUTATION_PROBABILITY,
+                MutationMessageTopics.OFFSPRING_ORIGINAL,
+                MutationMessageTopics.OFFSPRINGS,
+            ],
+        }
+
+    @property
+    def interested_topics(self):
+        """The message topics that the mutation operator is interested in."""
+        return []
+
+    def __init__(
+        self,
+        *,
+        problem: Problem,
+        seed: int,
+        mutation_probability: float | None = None,
+        **kwargs,
+    ):
+        """Initialize a random mixed_integer mutation operator.
+
+        Args:
+            problem (Problem): The problem object.
+            seed (int): The seed for the random number generator.
+            mutation_probability (float | None, optional): The probability of mutation. If None,
+                the probability will be set to be 1/n, where n is the number of decision variables
+                in the problem. Defaults to None.
+            kwargs: Additional keyword arguments. These are passed to the Subscriber class. At the very least, the
+                publisher must be passed. See the Subscriber class for more information.
+        """
+        super().__init__(problem, **kwargs)
+
+        if mutation_probability is None:
+            self.mutation_probability = 1 / len(self.variable_symbols)
+        else:
+            self.mutation_probability = mutation_probability
+
+        self.rng = np.random.default_rng(seed)
+        self.seed = seed
+        self.offspring_original: pl.DataFrame
+        self.parents: pl.DataFrame
+        self.offspring: pl.DataFrame
+
+    def do(self, offsprings: pl.DataFrame, parents: pl.DataFrame) -> pl.DataFrame:
+        """Perform the random integer mutation operation.
+
+        Args:
+            offsprings (pl.DataFrame): the offspring population to mutate.
+            parents (pl.DataFrame): the parent population from which the offspring
+                was generated (via crossover). Not used in the mutation operator.
+
+        Returns:
+            pl.DataFrame: the offspring resulting from the mutation.
+        """
+        self.offspring_original = copy.copy(offsprings)
+        self.parents = parents  # Not used, but kept for consistency
+
+        population = offsprings.to_numpy().astype(float)
+
+        # create a boolean mask based on the mutation probability
+        mutation_mask = self.rng.random(population.shape) < self.mutation_probability
+
+        mutation_pool = np.array(
+            [
+                self.rng.integers(
+                    low=var.lowerbound, high=var.upperbound, size=population.shape[0], endpoint=True
+                ).astype(dtype=float)
+                if var.variable_type in [VariableTypeEnum.binary, VariableTypeEnum.integer]
+                else self.rng.uniform(low=var.lowerbound, high=var.upperbound, size=population.shape[0]).astype(
+                    dtype=float
+                )
+                for var in self.problem.variables
+            ]
+        ).T
+
+        mutated = np.where(
+            mutation_mask,
+            # self.rng.integers(self.lower_bounds, self.upper_bounds, size=population.shape, dtype=int, endpoint=True),
+            mutation_pool,
             population,
         )
 
