@@ -290,7 +290,7 @@ class RandomIntegerGenerator(BaseGenerator):
         """Update the generator based on the message."""
 
 
-class RandomMixedInteger(BaseGenerator):
+class RandomMixedIntegerGenerator(BaseGenerator):
     """Class for generating random initial population for problems with mixed-integer variables.
 
     This class generates an initial population by randomly setting variable

@@ -9,7 +9,7 @@ import pytest
 
 from desdeo.emo.hooks.archivers import Archive, FeasibleArchive, NonDominatedArchive
 from desdeo.emo.methods.bases import template1
-from desdeo.emo.methods.EAs import nsga3, rvea
+from desdeo.emo.methods.EAs import nsga3, nsga3_mixed_integer, rvea, rvea_mixed_integer
 from desdeo.emo.operators.crossover import (
     SimulatedBinaryCrossover,
     SinglePointBinaryCrossover,
@@ -22,7 +22,7 @@ from desdeo.emo.operators.generator import (
     RandomBinaryGenerator,
     RandomGenerator,
     RandomIntegerGenerator,
-    RandomMixedInteger,
+    RandomMixedIntegerGenerator,
 )
 from desdeo.emo.operators.mutation import (
     BinaryFlipMutation,
@@ -525,7 +525,9 @@ def test_mixed_integer_generator():
 
     evaluator = EMOEvaluator(problem=problem, publisher=publisher)
 
-    generator = RandomMixedInteger(problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0)
+    generator = RandomMixedIntegerGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0
+    )
 
     population, outputs = generator.do()
 
@@ -548,7 +550,9 @@ def test_uniform_mixed_integer_crossover():
     num_vars = len(crossover.variable_symbols)
 
     evaluator = EMOEvaluator(problem=problem, publisher=publisher)
-    generator = RandomMixedInteger(problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0)
+    generator = RandomMixedIntegerGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0
+    )
 
     population, _ = generator.do()
 
@@ -584,7 +588,9 @@ def test_mixed_integer_random_mutation():
     mutation = MixedIntegerRandomMutation(problem=problem, publisher=publisher, seed=0)
 
     evaluator = EMOEvaluator(problem=problem, publisher=publisher)
-    generator = RandomMixedInteger(problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0)
+    generator = RandomMixedIntegerGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0
+    )
 
     population, _ = generator.do()
 
@@ -605,3 +611,82 @@ def test_mixed_integer_random_mutation():
     assert result.shape == population.shape
 
     npt.assert_allclose(population, result)
+
+
+@pytest.mark.ea
+def test_template_mixed_integer():
+    """Test whether creating an EA from components and a template works for mixed-integer problems."""
+    problem = momip_ti2()
+    publisher = Publisher()
+
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=2)
+
+    generator = RandomMixedIntegerGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=20, seed=0, verbosity=2
+    )
+
+    crossover = UniformMixedIntegerCrossover(problem=problem, publisher=publisher, seed=0)
+    mutation = MixedIntegerRandomMutation(problem=problem, publisher=publisher, seed=0)
+
+    selector = RVEASelector(
+        problem=problem,
+        publisher=publisher,
+        parameter_adaptation_strategy=ParameterAdaptationStrategy.FUNCTION_EVALUATION_BASED,
+        reference_vector_options=ReferenceVectorOptions(number_of_vectors=20),
+        verbosity=2,
+    )
+
+    terminator = MaxEvaluationsTerminator(max_evaluations=100, publisher=publisher)
+
+    non_dom_archive = NonDominatedArchive(problem=problem, publisher=publisher)
+    archive = Archive(problem=problem, publisher=publisher)
+
+    components: list[Subscriber] = [
+        evaluator,
+        generator,
+        crossover,
+        mutation,
+        selector,
+        terminator,
+        non_dom_archive,
+        archive,
+    ]
+
+    [publisher.auto_subscribe(component) for component in components]
+    [
+        publisher.register_topics(
+            topics=component.provided_topics[component.verbosity], source=component.__class__.__name__
+        )
+        for component in components
+    ]
+
+    assert isinstance(publisher.check_consistency(), bool) and publisher.check_consistency()
+
+    results = template1(
+        evaluator=evaluator,
+        generator=generator,
+        crossover=crossover,
+        mutation=mutation,
+        selection=selector,
+        terminator=terminator,
+    )
+
+    assert results is not None
+
+
+@pytest.mark.ea
+def test_mixed_integer_nsga3():
+    """Test whether the mixed-integer NSGA-III variant can be initialized and run as a whole."""
+    problem = momip_ti2()
+    solver, publisher = nsga3_mixed_integer(problem=problem, n_generations=10)
+
+    _ = solver()
+
+
+@pytest.mark.ea
+def test_mixed_integer_rvea():
+    """Test whether the mixed-integer RVEA variant can be initialized and run as a whole."""
+    problem = momip_ti2()
+    solver, publisher = rvea_mixed_integer(problem=problem, n_generations=10)
+
+    _ = solver()

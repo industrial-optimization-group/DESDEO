@@ -4,6 +4,7 @@ This whole file should be rewritten. Everything is a mess. Moreover, the selecto
 TODO:@light-weaver
 """
 
+import warnings
 from abc import abstractmethod
 from collections.abc import Sequence
 from enum import Enum
@@ -26,7 +27,7 @@ from desdeo.tools.message import (
     TerminatorMessageTopics,
 )
 from desdeo.tools.non_dominated_sorting import fast_non_dominated_sort
-from desdeo.tools.patterns import Publisher, Subscriber
+from desdeo.tools.patterns import Subscriber
 
 SolutionType = TypeVar("SolutionType", list, pl.DataFrame)
 
