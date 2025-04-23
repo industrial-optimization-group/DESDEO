@@ -8,20 +8,21 @@ from desdeo.problem.schema import (
     VariableTypeEnum,
 )
 
+
 def momip_ti2() -> Problem:
     """Defines the mixed-integer multiobjective optimization problem test instance 2 (TI2).
 
     The problem has four variables, two continuous and two integer. The Pareto optimal solutions
-    hold for solutions with x_1^2 + x_^2 = 0.25 and (x_3, x_4) = {(0, -1), (-1, 0)}.
+    hold for solutions with x_1^2 + x_2^2 = 0.25 and (x_3, x_4) = {(0, -1), (-1, 0)}.
 
     References:
         Eichfelder, G., Gerlach, T., & Warnow, L. (n.d.). Test Instances for
             Multiobjective Mixed-Integer Nonlinear Optimization.
     """
-    x_1 = Variable(name="x_1", symbol="x_1", variable_type=VariableTypeEnum.real)
-    x_2 = Variable(name="x_2", symbol="x_2", variable_type=VariableTypeEnum.real)
-    x_3 = Variable(name="x_3", symbol="x_3", variable_type=VariableTypeEnum.integer)
-    x_4 = Variable(name="x_4", symbol="x_4", variable_type=VariableTypeEnum.integer)
+    x_1 = Variable(name="x_1", symbol="x_1", variable_type=VariableTypeEnum.real, lowerbound=-1.0, upperbound=1.0)
+    x_2 = Variable(name="x_2", symbol="x_2", variable_type=VariableTypeEnum.real, lowerbound=-1.0, upperbound=1.0)
+    x_3 = Variable(name="x_3", symbol="x_3", variable_type=VariableTypeEnum.integer, lowerbound=-1, upperbound=1)
+    x_4 = Variable(name="x_4", symbol="x_4", variable_type=VariableTypeEnum.integer, lowerbound=-1, upperbound=1)
 
     f_1 = Objective(
         name="f_1",

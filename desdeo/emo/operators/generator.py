@@ -8,7 +8,7 @@ import polars as pl
 from scipy.stats.qmc import LatinHypercube
 
 from desdeo.emo.operators.evaluator import EMOEvaluator
-from desdeo.problem import Problem
+from desdeo.problem import Problem, VariableTypeEnum
 from desdeo.tools.message import GeneratorMessageTopics, IntMessage, Message, PolarsDataFrameMessage
 from desdeo.tools.patterns import Subscriber
 
@@ -281,6 +281,72 @@ class RandomIntegerGenerator(BaseGenerator):
             ).astype(dtype=float),
             schema=self.variable_symbols,
         )
+
+        self.out = self.evaluator.evaluate(self.population)
+        self.notify()
+        return self.population, self.out
+
+    def update(self, message) -> None:
+        """Update the generator based on the message."""
+
+
+class RandomMixedInteger(BaseGenerator):
+    """Class for generating random initial population for problems with mixed-integer variables.
+
+    This class generates an initial population by randomly setting variable
+    values to be integers or floats between the bounds of the variables.
+    """
+
+    def __init__(self, problem: Problem, evaluator: EMOEvaluator, n_points: int, seed: int, **kwargs):
+        """Initialize the RandomMixedIntegerGenerator class.
+
+        Args:
+            problem (Problem): The problem to solve.
+            evaluator (BaseEvaluator): The evaluator to evaluate the population.
+            n_points (int): The number of points to generate for the initial population.
+            seed (int): The seed for the random number generator.
+            kwargs: Additional keyword arguments. Check the Subscriber class for more information.
+                At the very least, the publisher argument should be provided.
+        """
+        super().__init__(problem, **kwargs)
+        self.var_symbol_types = {
+            VariableTypeEnum.real: [
+                var.symbol for var in problem.variables if var.variable_type == VariableTypeEnum.real
+            ],
+            VariableTypeEnum.integer: [
+                var.symbol
+                for var in problem.variables
+                if var.variable_type in [VariableTypeEnum.integer, VariableTypeEnum.binary]
+            ],
+        }
+        self.n_points = n_points
+        self.evaluator = evaluator
+        self.rng = np.random.default_rng(seed)
+        self.seed = seed
+
+    def do(self) -> tuple[pl.DataFrame, pl.DataFrame]:
+        """Generate the initial population.
+
+        Returns:
+            tuple[pl.DataFrame, pl.DataFrame]: The initial population as the first element,
+                the corresponding objectives, the constraint violations, and the targets as the second element.
+        """
+        if self.population is not None and self.out is not None:
+            self.notify()
+            return self.population, self.out
+
+        tmp = {
+            var.symbol: self.rng.integers(
+                low=var.lowerbound, high=var.upperbound, size=self.n_points, endpoint=True
+            ).astype(dtype=float)
+            if var.variable_type in [VariableTypeEnum.binary, VariableTypeEnum.integer]
+            else self.rng.uniform(low=var.lowerbound, high=var.upperbound, size=self.n_points).astype(dtype=float)
+            for var in self.problem.variables
+        }
+
+        # combine
+        # self.population
+        self.population = pl.DataFrame(tmp)
 
         self.out = self.evaluator.evaluate(self.population)
         self.notify()

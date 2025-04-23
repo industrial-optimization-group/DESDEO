@@ -21,6 +21,7 @@ from desdeo.emo.operators.generator import (
     RandomBinaryGenerator,
     RandomGenerator,
     RandomIntegerGenerator,
+    RandomMixedInteger,
 )
 from desdeo.emo.operators.mutation import (
     BinaryFlipMutation,
@@ -35,6 +36,7 @@ from desdeo.emo.operators.selection import (
 from desdeo.emo.operators.termination import MaxEvaluationsTerminator
 from desdeo.problem.testproblems import (
     dtlz2,
+    momip_ti2,
     simple_integer_test_problem,
     simple_knapsack,
     simple_knapsack_vectors,
@@ -183,7 +185,7 @@ def test_template():
         publisher=publisher,
         parameter_adaptation_strategy=ParameterAdaptationStrategy.FUNCTION_EVALUATION_BASED,
         reference_vector_options=ReferenceVectorOptions(number_of_vectors=20),
-        verbosity=2
+        verbosity=2,
     )
 
     terminator = MaxEvaluationsTerminator(max_evaluations=5000, publisher=publisher)
@@ -470,7 +472,7 @@ def test_template_integer():
         publisher=publisher,
         parameter_adaptation_strategy=ParameterAdaptationStrategy.FUNCTION_EVALUATION_BASED,
         reference_vector_options=ReferenceVectorOptions(number_of_vectors=20),
-        verbosity=2
+        verbosity=2,
     )
 
     terminator = MaxEvaluationsTerminator(max_evaluations=100, publisher=publisher)
@@ -509,3 +511,24 @@ def test_template_integer():
     )
 
     assert results is not None
+
+
+@pytest.mark.ea
+def test_mixed_integer_generator():
+    """Tests that the mixed integer generator works as expected."""
+    publisher = Publisher()
+    n_points = 20
+
+    problem = momip_ti2()
+
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher)
+
+    generator = RandomMixedInteger(problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0)
+
+    population, outputs = generator.do()
+
+    assert np.all(population.to_numpy() <= 1.0)
+    assert np.all(population.to_numpy() >= -1.0)
+
+    assert population.shape == (n_points, len(problem.get_flattened_variables()))
+    assert outputs.shape == (n_points, 2 * 2 + 2)  # 2 objectives, both min and max, and two constraints
