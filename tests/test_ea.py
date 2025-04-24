@@ -39,6 +39,7 @@ from desdeo.emo.operators.termination import MaxEvaluationsTerminator
 from desdeo.problem.testproblems import (
     dtlz2,
     momip_ti2,
+    river_pollution_problem,
     simple_integer_test_problem,
     simple_knapsack,
     simple_knapsack_vectors,
@@ -684,9 +685,27 @@ def test_mixed_integer_nsga3():
 
 
 @pytest.mark.ea
+def test_real_nsga3():
+    """Test whether the 'default' NSGA-III variant can be initialized and run as a whole."""
+    problem = river_pollution_problem()
+    solver, publisher = nsga3(problem=problem, n_generations=10)
+
+    _ = solver()
+
+
+@pytest.mark.ea
 def test_mixed_integer_rvea():
     """Test whether the mixed-integer RVEA variant can be initialized and run as a whole."""
     problem = momip_ti2()
     solver, publisher = rvea_mixed_integer(problem=problem, n_generations=10)
+
+    _ = solver()
+
+
+@pytest.mark.ea
+def test_real_rvea():
+    """Test whether the 'default' RVEA variant can be initialized and run as a whole."""
+    problem = river_pollution_problem()
+    solver, publisher = rvea(problem=problem, n_generations=10)
 
     _ = solver()

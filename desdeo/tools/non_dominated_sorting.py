@@ -76,7 +76,7 @@ def fast_non_dominated_sort(data: np.ndarray) -> np.ndarray:
         fronts[i] = current_front_all
 
         taken = taken + fronts[i]
-        if not fronts[i].any() or taken.all():
+        if not fronts[i].any():
             # if the current front is empty or if all the solutions have been sorted, stop
             break
     return fronts[:i]
