@@ -125,6 +125,12 @@ class TerminatorMessageTopics(Enum):
     """ The maximum number of evaluations. """
 
 
+class ReferenceVectorMessageTopics(Enum):
+    """Topics for messages related to the reference vectors."""
+
+    TEST = "TEST"
+
+
 MessageTopics = (
     CrossoverMessageTopics
     | MutationMessageTopics
@@ -132,6 +138,7 @@ MessageTopics = (
     | GeneratorMessageTopics
     | SelectorMessageTopics
     | TerminatorMessageTopics
+    | ReferenceVectorMessageTopics
     | Literal[
         "ALL"
     ]  # Used to indicate that all topics are of interest to a subscriber.
