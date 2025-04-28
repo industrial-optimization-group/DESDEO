@@ -9,6 +9,7 @@ Constant,
     VariableTypeEnum,
 )
 
+
 def mcwb_solid_rectangular_problem() -> Problem:
     # Variables
     variables = [
@@ -80,7 +81,7 @@ def mcwb_solid_rectangular_problem() -> Problem:
         description="Multi-objective optimization of a welded beam using a solid rectangular cross-section.",
         constants=constants,
         variables=variables,
-        extra_functions=extra_functions,
+        extra_funcs=extra_functions,
         objectives=objectives,
         constraints=constraints,
     )
