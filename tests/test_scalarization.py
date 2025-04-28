@@ -37,6 +37,8 @@ from desdeo.tools.scalarization import (
     add_stom_sf_diff,
     add_stom_sf_nondiff,
     add_weighted_sums,
+    add_group_scenario_sf_diff,
+    add_group_scenario_sf_nondiff,
 )
 
 
@@ -1184,3 +1186,81 @@ def test_add_group_stom_sf_diff():
         assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
         # for some reason needs very high atol
         assert np.isclose(fs_group_sf_3rp[obj.symbol], fs_group_sf[obj.symbol], atol=1e-1)
+
+
+@pytest.mark.scalarization
+@pytest.mark.group_scalarization
+def test_add_group_scenario_sf_nondiff_happy_path():
+    n_variables = 3
+    n_objectives = 3
+    problem = dtlz2(n_variables, n_objectives)
+
+    ref_points = [
+        {"f_1": 0.1, "f_2": 0.2, "f_3": 0.3},
+        {"f_1": 1.1, "f_2": 1.2, "f_3": 1.3}
+    ]
+    weights = [
+        {"f_1": 1.0, "f_2": 2.0, "f_3": 3.0},
+        {"f_1": 0.5, "f_2": 0.4, "f_3": 0.3}
+    ]
+
+    eps = 1e-3
+
+    # add nondiff scalarization
+    problem_w_sf, target = add_group_scenario_sf_nondiff(
+        problem, symbol="ssf_nd",
+        reference_points=ref_points,
+        weights=weights,
+        epsilon=eps
+    )
+
+    solver_opts = NevergradGenericOptions(budget=2500, num_workers=1, optimizer="TwoPointsDE")
+    solver = NevergradGenericSolver(problem_w_sf, solver_opts)
+    result = solver.solve(target)
+
+    assert result.success
+
+    xs = result.optimal_variables
+    # all decision vars on Pareto front ~0.5
+    assert all(np.isclose(xs[f"x_{i}"], 0.5, atol=1e-2) for i in range(n_objectives, n_variables + 1))
+    # objectives satisfy sum of squares ~1
+    total = sum(result.optimal_objectives[obj.symbol]**2 for obj in problem_w_sf.objectives)
+    assert np.isclose(total, 1.0, atol=1e-2)
+
+
+@pytest.mark.scalarization
+@pytest.mark.group_scalarization
+def test_add_group_scenario_sf_diff_happy_path():
+    n_variables = 3
+    n_objectives = 3
+    problem = dtlz2(n_variables, n_objectives)
+
+    ref_points = [
+        {"f_1": 0.1, "f_2": 0.2, "f_3": 0.3},
+        {"f_1": 1.1, "f_2": 1.2, "f_3": 1.3}
+    ]
+    weights = [
+        {"f_1": 1.0, "f_2": 2.0, "f_3": 3.0},
+        {"f_1": 0.5, "f_2": 0.4, "f_3": 0.3}
+    ]
+    eps = 1e-3
+
+    # diff scalarization
+    problem_w_sf, target = add_group_scenario_sf_diff(
+        problem, symbol="ssf_d",
+        reference_points=ref_points,
+        weights=weights,
+        epsilon=eps
+    )
+
+    sol_options = BonminOptions(tol=1e-6, bonmin_algorithm="B-Hyb")
+    solver = PyomoBonminSolver(problem_w_sf, sol_options)
+    result = solver.solve(target)
+
+    assert result.success
+
+    xs = result.optimal_variables
+
+    assert all(np.isclose(xs[f"x_{i}"], 0.5, atol=1e-2) for i in range(n_objectives, n_variables + 1))
+    total = sum(result.optimal_objectives[obj.symbol]**2 for obj in problem_w_sf.objectives)
+    assert np.isclose(total, 1.0, atol=1e-2)

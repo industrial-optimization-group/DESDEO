@@ -2954,3 +2954,161 @@ def create_epsilon_constraints_json(
     constraint_exprs = [["Add", f"{obj}_min", ["Negate", epsilons[obj]]] for obj in correct_symbols]
 
     return scalarization_expr, constraint_exprs
+
+def add_group_scenario_sf_nondiff(
+    problem: Problem,
+    symbol: str,
+    reference_points: list[dict[str, float]],
+    weights: list[dict[str, float]],
+    epsilon: float = 1e-6,
+) -> tuple[Problem, str]:
+    r"""
+    Add the non-differentiable scenario based scalarization function:
+
+    \begin{align}
+      \min_{\mathbf{x}}\quad
+        &\max_{i,p}\bigl[w_{ip}\bigl(f_{ip}(\mathbf{x}) - \bar z_{ip}\bigr)\bigr]
+        \;+\;\varepsilon \sum_{i,p} w_{ip}\bigl(f_{ip}(\mathbf{x}) - \bar z_{ip}\bigr) \\[6pt]
+      \text{s.t.}\quad
+        &\mathbf{x} \in \mathcal{X}\,,
+    \end{align}
+
+    Args:
+        problem (Problem): the problem the scalarization is added to.
+        symbol (str): the symbol given to the added scalarization.
+        reference_points (list[dict[str, float]]): a list of reference points as objective dicts.
+            function symbols and values to reference point components, i.e., aspiration levels.
+        weights (list[dict[str, float]]): the list of weights to be used in the scalarization function.
+            Must be positive.
+        epsilon: small augmentation multiplier ε
+
+    Returns:
+        tuple[Problem, str]: A tuple containing a copy of the problem with the scalarization function added,
+            and the symbol of the added scalarization function.
+    """
+
+    if len(reference_points) != len(weights):
+        raise ScalarizationError("reference_points and weights must have same length")
+
+    for idx, (reference_point, weight) in enumerate(zip(reference_points, weights)):
+        if not objective_dict_has_all_symbols(problem, reference_point):
+            raise ScalarizationError(f"The give reference point {reference_point} "
+                                     f"is missing value for one or more objectives.")
+        if not objective_dict_has_all_symbols(problem, weight):
+            raise ScalarizationError(f"The given weight vector {weight} is missing "
+                                     f"a value for one or more objectives.")
+
+    max_list: list[str] = []
+    sum_list: list[str] = []
+    for i, (reference_point, weight) in enumerate(zip(reference_points, weights)):
+        corrected_ref_point = get_corrected_reference_point(problem, reference_point)
+
+        for obj in problem.objectives:
+            expr = f"{weight[obj.symbol]}*({obj.symbol}_min - {corrected_ref_point[obj.symbol]})"
+            max_list.append(expr)
+            sum_list.append(expr)
+
+    max_part = f"{Op.MAX}({', '.join(max_list)})"
+    sum_part = " + ".join(sum_list)
+    func = f"{max_part} + {epsilon}*({sum_part})"
+
+    scalar = ScalarizationFunction(
+        name="Group non differentiable scalarization function for scenario based problems.",
+        symbol=symbol,
+        func=func,
+        is_linear=problem.is_linear,
+        is_convex=problem.is_convex,
+        is_twice_differentiable=problem.is_twice_differentiable,
+    )
+    return problem.add_scalarization(scalar), symbol
+
+
+def add_group_scenario_sf_diff(
+    problem: Problem,
+    symbol: str,
+    reference_points: list[dict[str, float]],
+    weights: list[dict[str, float]],
+    epsilon: float = 1e-6,
+) -> tuple[Problem, str]:
+    """
+    Add the differentiable scenario‐based scalarization:
+
+    \begin{align}
+      \min_{x,\alpha}\quad
+        & \alpha \;+\; \varepsilon \sum_{i,p} w_{ip}\bigl(f_{ip}(x) - \bar z_{ip}\bigr) \\
+      \text{s.t.}\quad
+        & w_{ip}\bigl(f_{ip}(x) - \bar z_{ip}\bigr)\;-\;\alpha \;\le\;0
+          \quad\forall\,i,p,\\
+        & x \in \mathcal{X}\,,
+    \end{align}
+
+    Args:
+        problem (Problem): the problem the scalarization is added to.
+        symbol (str): the symbol given to the added scalarization.
+        reference_points (list[dict[str, float]]): a list of reference points as objective dicts.
+            function symbols and values to reference point components, i.e., aspiration levels.
+        weights (list[dict[str, float]]): the list of weights to be used in the scalarization function.
+            Must be positive.
+        epsilon: small augmentation multiplier ε
+
+    Returns:
+        tuple[Problem, str]: A tuple containing a copy of the problem with the scalarization function added,
+            and the symbol of the added scalarization function.
+    """
+
+    if len(reference_points) != len(weights):
+        raise ScalarizationError("reference_points and weights must have same length")
+
+    for idx, (ref_point, weight) in enumerate(zip(reference_points, weights)):
+        if not objective_dict_has_all_symbols(problem, ref_point):
+            raise ScalarizationError(f"reference_points[{idx}] missing some objectives")
+        if not objective_dict_has_all_symbols(problem, weight):
+            raise ScalarizationError(f"weights[{idx}] missing some objectives")
+
+    alpha = Variable(
+        name="alpha",
+        symbol="_alpha",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=-float("Inf"),
+        upperbound=float("Inf"),
+        initial_value=0.0,
+    )
+
+    sum_list = []
+    constraints = []
+
+    for idx, (ref_point, weight) in enumerate(zip(reference_points, weights)):
+        corrected_rp = get_corrected_reference_point(problem, ref_point)
+        for obj in problem.objectives:
+            expr = f"{weight[obj.symbol]}*({obj.symbol}_min - {corrected_rp[obj.symbol]})"
+            sum_list.append(expr)
+
+            constraints.append(
+                Constraint(
+                    name=f"ssf_con_{obj.symbol}",
+                    symbol=f"{obj.symbol}_con_{idx}",
+                    func=f"{expr} - {alpha.symbol}",
+                    cons_type=ConstraintTypeEnum.LTE,
+                    is_linear=obj.is_linear,
+                    is_convex=obj.is_convex,
+                    is_twice_differentiable=obj.is_twice_differentiable,
+                )
+            )
+
+    sum_part = " + ".join(sum_list)
+
+    func = f"_alpha + {epsilon}*({sum_part})"
+    scalar = ScalarizationFunction(
+        name="Scenario‐based differentiable ASF",
+        symbol=symbol,
+        func=func,
+        is_linear=problem.is_linear,
+        is_convex=problem.is_convex,
+        is_twice_differentiable=problem.is_twice_differentiable,
+    )
+
+    problem_ = problem.add_variables([alpha])
+    problem_ = problem_.add_constraints(constraints)
+    problem_ = problem_.add_scalarization(scalar)
+
+    return problem_, symbol
