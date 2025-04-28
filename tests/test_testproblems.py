@@ -379,6 +379,7 @@ def test_river_scenario():
     npt.assert_allclose(ideal["f4"], ideal_2["f4"])
 
 
+ mcwb_test_problem
 def test_mcwb_solid_rectangular_problem():
     """Test that the MCWB problem initializes and evaluates correctly."""
     problem = mcwb_solid_rectangular_problem()
