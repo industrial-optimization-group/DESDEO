@@ -73,11 +73,42 @@ CONSTRAINTS = [
 ]
 
 def mcwb_solid_rectangular_problem() -> Problem:
-    """
-    Define a multi-objective cantilever welded beam (MCWB) optimization problem using
-    a solid rectangular cross-section.
+    r"""Defines the multi-objective cantilever welded beam (MCWB) optimization problem.
+
+    The objective functions and constraints for the MCWB design problem are defined as follows:
+
+    Objectives:
+    1. Minimize the total cost, \( f_1 = W_c + B_c \), where \( W_c \) is the weld cost and \( B_c \) is the beam cost.
+    2. Minimize the deflection of the beam, \( f_2 = \frac{P L^3}{3 E I_x} \), where \( P \) is the applied load, \( L \) is the beam length, \( E \) is the Young's modulus, and \( I_x \) is the moment of inertia.
+
+    Constraints:
+    1. Shear stress constraint: \( \tau \leq \tau_{max} \), where \( \tau \) is the combined shear stress and \( \tau_{max} \) is the maximum shear stress.
+    2. Normal stress constraint: \( \sigma_x \leq \sigma_{max} \), where \( \sigma_x \) is the bending stress and \( \sigma_{max} \) is the maximum allowable normal stress.
+    3. Buckling constraint: \( P \leq P_c \), where \( P_c \) is the critical buckling load.
+    4. Weld height constraint: \( x_1 \leq x_4 \), ensuring that the weld height \( x_1 \) is less than or equal to the flange thickness \( x_4 \).
+
+    Where:
+    - \( x_1 \) is the weld height.
+    - \( x_2 \) is the weld length.
+    - \( x_3 \) is the beam height.
+    - \( x_4 \) is the beam width.
+
+    The parameters are defined as:
+    - \( P = 30000 \, \text{N} \) (load),
+    - \( L = 0.5 \, \text{m} \) (beam length),
+    - \( E = 200 \times 10^9 \, \text{Pa} \) (Young's modulus),
+    - \( \tau_{max} = 95 \times 10^6 \, \text{Pa} \) (max shear stress),
+    - \( \sigma_{max} = 200 \times 10^6 \, \text{Pa} \) (max normal stress),
+    - \( C_w = 209600 \, \text{\$/m}^3 \) (welding cost factor),
+    - \( C_s = 0.7 \, \text{\$/kg} \) (price of HRC steel),
+    - \( \rho_s = 7850 \, \text{kg/m}^3 \) (steel density),
+    - \( C_b = 0.7 \times 7850 \, \text{\$/m}^3 \) (beam material cost factor),
+    - \( K = 2 \) (cantilever beam coefficient),
+    - \( \pi = 3.141592653589793 \) (constant for calculations),
+    - \( \delta_t = 0.045 \) (tolerance factor for calculations).
+
     Returns:
-        Problem: A DESDEO problem instance representing this configuration.
+        Problem: An instance of the multi-objective cantilever welded beam optimization problem.
     """
     # Variables
     variables = [
@@ -119,12 +150,44 @@ def mcwb_solid_rectangular_problem() -> Problem:
     )
 
 def mcwb_hollow_rectangular_problem() -> Problem:
-    """
-    Define a multi-objective cantilever welded beam (MCWB) optimization problem using
-    a hollow rectangular cross-section.
+    r"""Defines the multi-objective cantilever welded beam (MCWB) optimization problem using a hollow rectangular cross-section.
+
+    The objective functions and constraints for the MCWB design problem are defined as follows:
+
+    Objectives:
+    1. Minimize the total cost, \( f_1 = W_c + B_c \), where \( W_c \) is the weld cost and \( B_c \) is the beam cost.
+    2. Minimize the deflection of the beam, \( f_2 = \frac{P L^3}{3 E I_x} \), where \( P \) is the applied load, \( L \) is the beam length, \( E \) is the Young's modulus, and \( I_x \) is the moment of inertia.
+
+    Constraints:
+    1. Shear stress constraint: \( \tau \leq \tau_{max} \), where \( \tau \) is the combined shear stress and \( \tau_{max} \) is the maximum shear stress.
+    2. Normal stress constraint: \( \sigma_x \leq \sigma_{max} \), where \( \sigma_x \) is the bending stress and \( \sigma_{max} \) is the maximum allowable normal stress.
+    3. Buckling constraint: \( P \leq P_c \), where \( P_c \) is the critical buckling load.
+    4. Weld height constraint: \( x_1 \leq x_4 \), ensuring that the weld height \( x_1 \) is less than or equal to the flange thickness \( x_4 \).
+    5. Wall thickness constraint: \( t \geq h \), where \( t \) is the wall thickness and \( h \) is the outer height.
+
+    Where:
+    - \( x_1 \) is the weld height.
+    - \( x_2 \) is the weld length.
+    - \( x_3 \) is the outer height of the beam.
+    - \( x_4 \) is the outer width of the beam.
+    - \( x_5 \) is the wall thickness of the hollow beam.
+
+    The parameters are defined as:
+    - \( P = 30000 \, \text{N} \) (load),
+    - \( L = 0.5 \, \text{m} \) (beam length),
+    - \( E = 200 \times 10^9 \, \text{Pa} \) (Young's modulus),
+    - \( \tau_{max} = 95 \times 10^6 \, \text{Pa} \) (max shear stress),
+    - \( \sigma_{max} = 200 \times 10^6 \, \text{Pa} \) (max normal stress),
+    - \( C_w = 209600 \, \text{\$/m}^3 \) (welding cost factor),
+    - \( C_s = 0.7 \, \text{\$/kg} \) (price of HRC steel),
+    - \( \rho_s = 7850 \, \text{kg/m}^3 \) (steel density),
+    - \( C_b = 0.7 \times 7850 \, \text{\$/m}^3 \) (beam material cost factor),
+    - \( K = 2 \) (cantilever beam coefficient),
+    - \( \pi = 3.141592653589793 \) (constant for calculations),
+    - \( \delta_t = 0.045 \) (tolerance factor for calculations).
 
     Returns:
-        Problem: A DESDEO problem instance representing this configuration.
+        Problem: An instance of the multi-objective cantilever welded beam optimization problem using a hollow rectangular cross-section.
     """
     # Constants
     constants = CONSTANTS
@@ -175,12 +238,43 @@ def mcwb_hollow_rectangular_problem() -> Problem:
     )
 
 def mcwb_equilateral_tbeam_problem() -> Problem:
-    """
-       Define a multi-objective cantilever welded beam (MCWB) optimization problem using
-       an equilateral T-beam cross-section.
+    r"""Defines the multi-objective cantilever welded beam (MCWB) optimization problem using an equilateral T-beam cross-section.
 
-       Returns:
-           Problem: A DESDEO problem instance representing this configuration.
+    The objective functions and constraints for the MCWB design problem are defined as follows:
+
+    Objectives:
+    1. Minimize the total cost, \( f_1 = W_c + B_c \), where \( W_c \) is the weld cost and \( B_c \) is the beam cost.
+    2. Minimize the deflection of the beam, \( f_2 = \frac{P L^3}{3 E I_x} \), where \( P \) is the applied load, \( L \) is the beam length, \( E \) is the Young's modulus, and \( I_x \) is the moment of inertia.
+
+    Constraints:
+    1. Shear stress constraint: \( \tau \leq \tau_{max} \), where \( \tau \) is the combined shear stress and \( \tau_{max} \) is the maximum shear stress.
+    2. Normal stress constraint: \( \sigma_x \leq \sigma_{max} \), where \( \sigma_x \) is the bending stress and \( \sigma_{max} \) is the maximum allowable normal stress.
+    3. Buckling constraint: \( P \leq P_c \), where \( P_c \) is the critical buckling load.
+    4. Weld height constraint: \( x_1 \leq x_4 \), ensuring that the weld height \( x_1 \) is less than or equal to the flange/web thickness \( x_4 \).
+    5. Flange thickness constraint: \( x_4 \geq x_3 \), ensuring that the flange thickness \( x_4 \) is greater than or equal to the beam height \( x_3 \).
+
+    Where:
+    - \( x_1 \) is the weld height.
+    - \( x_2 \) is the weld length.
+    - \( x_3 \) is the beam height.
+    - \( x_4 \) is the beam thickness (flange/web thickness).
+
+    The parameters are defined as:
+    - \( P = 30000 \, \text{N} \) (load),
+    - \( L = 0.5 \, \text{m} \) (beam length),
+    - \( E = 200 \times 10^9 \, \text{Pa} \) (Young's modulus),
+    - \( \tau_{max} = 95 \times 10^6 \, \text{Pa} \) (max shear stress),
+    - \( \sigma_{max} = 200 \times 10^6 \, \text{Pa} \) (max normal stress),
+    - \( C_w = 209600 \, \text{\$/m}^3 \) (welding cost factor),
+    - \( C_s = 0.7 \, \text{\$/kg} \) (price of HRC steel),
+    - \( \rho_s = 7850 \, \text{kg/m}^3 \) (steel density),
+    - \( C_b = 0.7 \times 7850 \, \text{\$/m}^3 \) (beam material cost factor),
+    - \( K = 2 \) (cantilever beam coefficient),
+    - \( \pi = 3.141592653589793 \) (constant for calculations),
+    - \( \delta_t = 0.045 \) (tolerance factor for calculations).
+
+    Returns:
+        Problem: An instance of the multi-objective cantilever welded beam optimization problem using an equilateral T-beam cross-section.
     """
     # Variables
     variables = [
@@ -231,12 +325,44 @@ def mcwb_equilateral_tbeam_problem() -> Problem:
     )
 
 def mcwb_square_channel_problem() -> Problem:
-    """
-        Define a multi-objective cantilever welded beam (MCWB) optimization problem using
-        a square channel cross-section.
+    r"""Defines the multi-objective cantilever welded beam (MCWB) optimization problem using a square channel cross-section.
 
-        Returns:
-            Problem: A DESDEO problem instance representing this configuration.
+    The objective functions and constraints for the MCWB design problem are defined as follows:
+
+    Objectives:
+    1. Minimize the total cost, \( f_1 = W_c + B_c \), where \( W_c \) is the weld cost and \( B_c \) is the beam cost.
+    2. Minimize the deflection of the beam, \( f_2 = \frac{P L^3}{3 E I_x} \), where \( P \) is the applied load, \( L \) is the beam length, \( E \) is the Young's modulus, and \( I_x \) is the moment of inertia.
+
+    Constraints:
+    1. Weld height constraint: \( x_1 \leq x_4 \), ensuring that the weld height \( x_1 \) is less than or equal to the flange thickness \( x_4 \).
+    2. Beam width constraint: \( x_4 \geq x_3 \), ensuring that the beam width \( x_4 \) is greater than or equal to the beam height \( x_3 \).
+    3. Web thickness constraint: \( x_6 \geq \frac{x_3}{2} \), ensuring that the web thickness \( x_6 \) is greater than or equal to half the beam height \( x_3 \).
+    4. Flange thickness constraint: \( x_5 \geq x_4 \), ensuring that the flange thickness \( x_5 \) is greater than or equal to the beam width \( x_4 \).
+
+    Where:
+    - \( x_1 \) is the weld height.
+    - \( x_2 \) is the weld length.
+    - \( x_3 \) is the beam height.
+    - \( x_4 \) is the beam width.
+    - \( x_5 \) is the flange thickness.
+    - \( x_6 \) is the web thickness.
+
+    The parameters are defined as:
+    - \( P = 30000 \, \text{N} \) (load),
+    - \( L = 0.5 \, \text{m} \) (beam length),
+    - \( E = 200 \times 10^9 \, \text{Pa} \) (Young's modulus),
+    - \( \tau_{max} = 95 \times 10^6 \, \text{Pa} \) (max shear stress),
+    - \( \sigma_{max} = 200 \times 10^6 \, \text{Pa} \) (max normal stress),
+    - \( C_w = 209600 \, \text{\$/m}^3 \) (welding cost factor),
+    - \( C_s = 0.7 \, \text{\$/kg} \) (price of HRC steel),
+    - \( \rho_s = 7850 \, \text{kg/m}^3 \) (steel density),
+    - \( C_b = 0.7 \times 7850 \, \text{\$/m}^3 \) (beam material cost factor),
+    - \( K = 2 \) (cantilever beam coefficient),
+    - \( \pi = 3.141592653589793 \) (constant for calculations),
+    - \( \delta_t = 0.045 \) (tolerance factor for calculations).
+
+    Returns:
+        Problem: An instance of the multi-objective cantilever welded beam optimization problem using a square channel cross-section.
     """
     # Variables
     variables = [
@@ -301,13 +427,47 @@ def mcwb_square_channel_problem() -> Problem:
     )
 
 def mcwb_tapered_channel_problem() -> Problem:
-    """
-        Define a multi-objective cantilever welded beam (MCWB) optimization problem using
-        a tapered channel cross-section.
+    r"""Defines the multi-objective cantilever welded beam (MCWB) optimization problem using a tapered channel cross-section.
 
-        Returns:
-            Problem: A DESDEO problem instance representing this configuration.
-    """
+    The objective functions and constraints for the MCWB design problem are defined as follows:
+
+    Objectives:
+    1. Minimize the total cost, \( f_1 = W_c + B_c \), where \( W_c \) is the weld cost and \( B_c \) is the beam cost.
+    2. Minimize the deflection of the beam, \( f_2 = \frac{P L^3}{3 E I_x} \), where \( P \) is the applied load, \( L \) is the beam length, \( E \) is the Young's modulus, and \( I_x \) is the moment of inertia.
+
+    Constraints:
+    1. Weld height constraint: \( x_1 \leq x_5 \), ensuring that the weld height \( x_1 \) is less than or equal to the outer flange thickness \( x_5 \).
+    2. Beam width constraint: \( x_4 \geq x_3 \), ensuring that the beam width \( x_4 \) is greater than or equal to the beam height \( x_3 \).
+    3. Inner flange height constraint: \( x_6 \geq \frac{x_3}{2} \), ensuring that the inner flange height \( x_6 \) is greater than or equal to half the beam height \( x_3 \).
+    4. Web thickness constraint: \( x_7 \leq x_4 \), ensuring that the web thickness \( x_7 \) is less than or equal to the beam width \( x_4 \).
+    5. Outer flange thickness constraint: \( x_5 \leq x_6 \), ensuring that the outer flange thickness \( x_5 \) is less than or equal to the inner flange thickness \( x_6 \).
+
+    Where:
+    - \( x_1 \) is the weld height.
+    - \( x_2 \) is the weld length.
+    - \( x_3 \) is the beam height.
+    - \( x_4 \) is the beam width.
+    - \( x_5 \) is the outer flange thickness.
+    - \( x_6 \) is the inner flange thickness.
+    - \( x_7 \) is the web thickness.
+
+    The parameters are defined as:
+    - \( P = 30000 \, \text{N} \) (load),
+    - \( L = 0.5 \, \text{m} \) (beam length),
+    - \( E = 200 \times 10^9 \, \text{Pa} \) (Young's modulus),
+    - \( \tau_{max} = 95 \times 10^6 \, \text{Pa} \) (max shear stress),
+    - \( \sigma_{max} = 200 \times 10^6 \, \text{Pa} \) (max normal stress),
+    - \( C_w = 209600 \, \text{\$/m}^3 \) (welding cost factor),
+    - \( C_s = 0.7 \, \text{\$/kg} \) (price of HRC steel),
+    - \( \rho_s = 7850 \, \text{kg/m}^3 \) (steel density),
+    - \( C_b = 0.7 \times 7850 \, \text{\$/m}^3 \) (beam material cost factor),
+    - \( K = 2 \) (cantilever beam coefficient),
+    - \( \pi = 3.141592653589793 \) (constant for calculations),
+    - \( \delta_t = 0.045 \) (tolerance factor for calculations).
+
+    Returns:
+        Problem: An instance of the multi-objective cantilever welded beam optimization problem using a tapered channel cross-section.
+"""
     # Variables
     variables = [
         Variable(name="x_1", symbol="x_1", variable_type=VariableTypeEnum.real, lowerbound=0.005, upperbound=0.15),  # weld height (a)
@@ -426,12 +586,59 @@ def mcwb_tapered_channel_problem() -> Problem:
     )
 
 def mcwb_ragsdell1976_problem() -> Problem:
-    """
-       Define a multi-objective cantilever welded beam (MCWB) optimization problem based on the framework
-       proposed by Ragsdell (1976). 
+    r"""Defines the multi-objective cantilever welded beam (MCWB) optimization problem based on the framework proposed by Ragsdell (1976).
 
-       Returns:
-           Problem: A DESDEO problem instance representing this configuration based on Ragsdell’s (1976) approach.
+    This problem involves optimizing the design of a welded cantilever beam considering welding costs, material costs, and stress constraints. The goal is to minimize both the total cost and the deflection of the beam, while adhering to the given constraints on material properties, geometry, and loading conditions.
+
+    Objectives:
+    1. Minimize the total cost, \( f_1 = W_c + B_c \), where:
+        - \( W_c \) is the weld cost, calculated as the sum of welding labor cost and material cost.
+        - \( B_c \) is the beam material cost, based on the beam's dimensions and the cost of the steel used.
+    2. Minimize the deflection of the beam, \( f_2 = \frac{P L^3}{3 E I_x} \), where:
+        - \( P \) is the applied load.
+        - \( L \) is the beam length.
+        - \( E \) is the Young's modulus.
+        - \( I_x \) is the moment of inertia of the beam's cross-section.
+
+    Constraints:
+    1. **Weld height constraint**: \( x_1 \leq x_4 \), ensuring that the weld height \( x_1 \) is less than or equal to the beam width \( x_4 \) (flange thickness).
+    2. The problem also considers the material constraints on maximum shear stress and normal stress, but these are not explicitly listed as constraints in this setup.
+
+    Where:
+    - \( x_1 \) is the height of the weld.
+    - \( x_2 \) is the length of the weld.
+    - \( x_3 \) is the height of the beam.
+    - \( x_4 \) is the width of the beam.
+
+    Constants:
+    - \( P = 30000 \, \text{N} \) (load),
+    - \( L = 0.5 \, \text{m} \) (beam length),
+    - \( E = 200 \times 10^9 \, \text{Pa} \) (Young's modulus),
+    - \( \tau_{\text{max}} = 95 \times 10^6 \, \text{Pa} \) (maximum shear stress),
+    - \( \sigma_{\text{max}} = 200 \times 10^6 \, \text{Pa} \) (maximum normal stress),
+    - \( C_{\text{wl}} = 1 \, \text{\$/in} \) (welding labor cost),
+    - \( C_{\text{wm}} = 0.10471 \, \text{\$/in} \) (welding material cost),
+    - \( C_{\text{w}} = 1 \times 0.10471 \, \text{\$/in} \) (total welding cost),
+    - \( C_s = 0.7 \, \text{\$/kg} \) (steel price),
+    - \( \rho_s = 7850 \, \text{kg/m}^3 \) (steel density),
+    - \( C_b = 0.04811 \, \text{\$/in} \) (beam material cost),
+    - \( K = 2 \) (cantilever beam coefficient),
+    - \( \pi = 3.141592653589793 \) (constant),
+    - \( \delta_t = 0.05 - 0.005 \) (tolerance factor).
+
+    Intermediate Functions:
+    1. **Cross-sectional area**: \( A = x_3 \times x_4 \).
+    2. **Moment of inertia**: \( I_x = \frac{x_4 \times x_3^3}{12} \), representing the beam's resistance to bending.
+
+    References:
+        - Ragsdell, K. M. (1976). Engineering Optimization: Methods and Applications. Wiley.
+        - Cheng, F. Y., & Li, X. S. (1999). Generalized center method for multiobjective engineering optimization. Engineering Optimization, 31(5), 641-661.
+
+    Args:
+        None (Constants and variables are predefined within the function).
+
+    Returns:
+        Problem: An instance of the multi-objective cantilever welded beam optimization problem based on Ragsdell's method (1976).
     """
     # Variables (decision variables: weld height, weld length, beam height, beam width)
     variables = [
