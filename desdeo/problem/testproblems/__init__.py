@@ -68,4 +68,6 @@ from .spanish_sustainability_problem import (
 )
 from .zdt_problem import zdt1, zdt2, zdt3
 
-from .mcwb_problem import mcwb_solid_rectangular_problem
+from .mcwb_problem import (mcwb_solid_rectangular_problem, mcwb_hollow_rectangular_problem,
+                           mcwb_equilateral_tbeam_problem, mcwb_square_channel_problem, mcwb_tapered_channel_problem,
+                           mcwb_ragsdell1976_problem)
