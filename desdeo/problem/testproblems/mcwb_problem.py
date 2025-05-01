@@ -630,13 +630,6 @@ def mcwb_ragsdell1976_problem() -> Problem:
     1. **Cross-sectional area**: \( A = x_3 \times x_4 \).
     2. **Moment of inertia**: \( I_x = \frac{x_4 \times x_3^3}{12} \), representing the beam's resistance to bending.
 
-    References:
-        - Ragsdell, K. M. (1976). Engineering Optimization: Methods and Applications. Wiley.
-        - Cheng, F. Y., & Li, X. S. (1999). Generalized center method for multiobjective engineering optimization. Engineering Optimization, 31(5), 641-661.
-
-    Args:
-        None (Constants and variables are predefined within the function).
-
     Returns:
         Problem: An instance of the multi-objective cantilever welded beam optimization problem based on Ragsdell's method (1976).
     """
