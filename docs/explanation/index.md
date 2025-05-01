@@ -13,7 +13,7 @@ hide:
 
     Learn about how multiobjective optimization problems are modeled in DESDEO
 
-    [:octicons-arrow-right-24: Problem format](./problem_format.md)
+    [:octicons-arrow-right-24: Problem format](./problem_format.ipynb)
 
 -   :octicons-info-24:{ .lg .middle } __Parsing and evaluation__
 
@@ -21,7 +21,7 @@ hide:
 
     Learn how the problem models are parsed and evaluated in DESDEO
 
-    [:octicons-arrow-right-24: Parsing and evaluation](./parsing_and_evaluating.md)
+    [:octicons-arrow-right-24: Parsing and evaluation](./parsing_and_evaluating.ipynb)
 
 -   :octicons-info-24:{ .lg .middle } __Scalarization__
 
@@ -29,7 +29,7 @@ hide:
 
     Learn how problems are scalarized in DESDEO
 
-    [:octicons-arrow-right-24: Scalarization](./scalarization.md)
+    [:octicons-arrow-right-24: Scalarization](./scalarization.ipynb)
 
 -   :octicons-info-24:{ .lg .middle } __Simulator support__
 
@@ -37,7 +37,7 @@ hide:
 
     Learn about simulator files and how to form them
 
-    [:octicons-arrow-right-24: Simulator support](./simulator_support.md)
+    [:octicons-arrow-right-24: Simulator support](./simulator_support.ipynb)
 
 -   :octicons-info-24:{ .lg .middle } __Solvers__
 
@@ -45,7 +45,7 @@ hide:
 
     Learn how DESDEO can be used to interface to different optimizers
 
-    [:octicons-arrow-right-24: Solvers](./solvers.md)
+    [:octicons-arrow-right-24: Solvers](./solvers.ipynb)
 
 -   :octicons-info-24:{ .lg .middle } __Test problems__
 
@@ -53,7 +53,7 @@ hide:
 
     Learn about different testproblems implemented in DESDEO
 
-    [:octicons-arrow-right-24: Test problems](./test_problems.md)
+    [:octicons-arrow-right-24: Test problems](./test_problems.ipynb)
 
 -   :octicons-info-24:{ .lg .middle } __Evolutionary Algorithms in DESDEO__
 
@@ -61,6 +61,6 @@ hide:
 
     Learn about the implementation of evolutionary algorithms in DESDEO
 
-    [:octicons-arrow-right-24: Evolutionary Algorithms](./templates_and_pub_sub.md)
+    [:octicons-arrow-right-24: Evolutionary Algorithms](./templates_and_pub_sub.ipynb)
 
 </div>
