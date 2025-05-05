@@ -99,4 +99,4 @@ hide:
 </div>
 
 # Article Examples
-- **Example 1:** How to define a multiobjective optimization problem
+- **Example 1:** How to define a multiobjective optimization problem ([notebook](./how_to_define_a_problem.ipynb))
