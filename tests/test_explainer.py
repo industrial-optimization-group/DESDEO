@@ -3,8 +3,6 @@
 import numpy as np
 import polars as pl
 import pytest
-import shap
-from scipy.spatial import cKDTree
 
 from desdeo.explanations import ShapExplainer, generate_biased_mean_data
 
@@ -26,8 +24,6 @@ def test_explainer():
     z1 = 10
     z2 = 2
     z3 = 4
-    zs = pl.DataFrame({"z1": z1, "z2": z2, "z3": z3})
-    fs = pl.DataFrame({"f1": z1 + z2 + z3, "f2": z1 - z2 - z3, "f3": z3 - z2})
 
     # 2. Generate background based on fs
     # 3. Find outputs that are close to fs
