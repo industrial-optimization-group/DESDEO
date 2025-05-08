@@ -3,31 +3,26 @@
 import numpy as np
 import numpy.testing as npt
 import pytest
-from desdeo.emo.methods.EAs import nsga3
 
 from desdeo.mcdm import rpm_solve_solutions
-from desdeo.problem import (
-    PolarsEvaluator,
-    PyomoEvaluator,
-)
+from desdeo.problem import PolarsEvaluator, PyomoEvaluator
 from desdeo.problem.testproblems import (
     dtlz2,
     forest_problem,
+    mcwb_equilateral_tbeam_problem,
+    mcwb_hollow_rectangular_problem,
+    mcwb_ragsdell1976_problem,
+    mcwb_solid_rectangular_problem,
+    mcwb_square_channel_problem,
+    mcwb_tapered_channel_problem,
     re21,
     re22,
     re23,
     re24,
     river_pollution_scenario,
     spanish_sustainability_problem,
-    mcwb_solid_rectangular_problem,
-    mcwb_hollow_rectangular_problem,
-    mcwb_equilateral_tbeam_problem,
-    mcwb_square_channel_problem,
-    mcwb_tapered_channel_problem,
-    mcwb_ragsdell1976_problem
 )
 from desdeo.tools import GurobipySolver, payoff_table_method
-from scipy.optimize import minimize
 
 
 @pytest.mark.testproblem
@@ -384,6 +379,7 @@ def test_river_scenario():
     npt.assert_allclose(ideal["f3_2"], ideal_2["f3_2"])
     npt.assert_allclose(ideal["f4"], ideal_2["f4"])
 
+
 def test_mcwb_solid_rectangular_problem():
     """Test that the MCWB problem initializes and evaluates correctly."""
     problem = mcwb_solid_rectangular_problem()
@@ -398,6 +394,7 @@ def test_mcwb_solid_rectangular_problem():
     assert np.isclose(f1, 27573.75)
     assert np.isclose(f2, 0.0000012)
 
+
 def test_mcwb_hollow_rectangular_problem():
     """Test that the MCWB problem initializes and evaluates correctly."""
     problem = mcwb_hollow_rectangular_problem()
@@ -410,7 +407,8 @@ def test_mcwb_hollow_rectangular_problem():
 
     # these are the values we are getting now, are they even correct?
     assert np.isclose(f1, 26200.0)
-    assert np.isclose(f2, float('inf'))
+    assert np.isclose(f2, float("inf"))
+
 
 def test_mcwb_equilateral_tbeam_problem():
     """Test that the MCWB problem initializes and evaluates correctly."""
@@ -426,6 +424,7 @@ def test_mcwb_equilateral_tbeam_problem():
     assert np.isclose(f1, 27573.75)
     assert np.isclose(f2, 1.2e-6, rtol=1e-9)
 
+
 def test_mcwb_square_channel_problem():
     """Test that the MCWB problem initializes and evaluates correctly."""
     problem = mcwb_square_channel_problem()
@@ -440,6 +439,7 @@ def test_mcwb_square_channel_problem():
     assert np.isclose(f1, 27573.75)
     assert np.isclose(f2, 1.2e-6, rtol=1e-9)
 
+
 def test_mcwb_tapered_channel_problem():
     """Test that the MCWB problem initializes and evaluates correctly."""
     problem = mcwb_tapered_channel_problem()
@@ -453,6 +453,7 @@ def test_mcwb_tapered_channel_problem():
     # these are the values we are getting now, are they even correct?
     assert np.isclose(f1, 27573.75)
     assert np.isnan(f2)
+
 
 def test_mcwb_ragsdell1976_problem():
     """Test that the MCWB problem initializes and evaluates correctly."""
