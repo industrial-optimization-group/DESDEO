@@ -17,11 +17,11 @@ nav:
       - "Contributing to DESDEO": "tutorials/contributing.md"
   - "Explanation":
       - "": "explanation/index.md"
-      - "The problem format": "explanation/problem_format.md"
-      - "Parsing and evaluating": "explanation/parsing_and_evaluating.md"
-      - "Scalarization": "explanation/scalarization.md"
-      - "Simulator support": "explanation/simulator_support.md"
-      - "Solvers": "explanation/solvers.md"
+      - "The problem format": "explanation/problem_format.ipynb"
+      - "Parsing and evaluating": "explanation/parsing_and_evaluating.ipynb"
+      - "Scalarization": "explanation/scalarization.ipynb"
+      - "Simulator support": "explanation/simulator_support.ipynb"
+      - "Solvers": "explanation/solvers.ipynb"
   - "Guides":
       - "": "howtoguides/index.md"
       - "How to define a multiobjective optimization problem": "howtoguides/problem.md"

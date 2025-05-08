@@ -31,6 +31,14 @@ hide:
 
     [:octicons-arrow-right-24: Scalarization](./scalarization.ipynb)
 
+-   :octicons-info-24:{ .lg .middle } __Scalarization methods__
+
+    ---
+
+    Learn about how scalarization method are used in DESDEO
+
+    [:octicons-arrow-right-24: Scalarization methods](./scalarization_methods.ipynb)
+
 -   :octicons-info-24:{ .lg .middle } __Simulator support__
 
     ---
