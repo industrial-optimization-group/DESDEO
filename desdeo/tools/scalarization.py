@@ -237,7 +237,7 @@ def add_group_asf(
     ideal: dict[str, float] | None = None,
     nadir: dict[str, float] | None = None,
     delta: float = 1e-6,
-    rho: float = 1e-6
+    rho: float = 1e-6,
 ) -> tuple[Problem, str]:
     r"""Add the achievement scalarizing function for multiple decision makers.
 
@@ -296,7 +296,9 @@ def add_group_asf(
         raise ScalarizationError(msg)
 
     # calculate the weights
-    weights = {obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta)) for obj in problem.objectives}
+    weights = {
+        obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta)) for obj in problem.objectives
+    }
 
     # form the max and augmentation terms
     max_terms = []
@@ -325,12 +327,13 @@ def add_group_asf(
 
 
 def add_group_asf_diff(
-    problem: Problem, symbol: str,
+    problem: Problem,
+    symbol: str,
     reference_points: list[dict[str, float]],
     ideal: dict[str, float] | None = None,
     nadir: dict[str, float] | None = None,
     delta: float = 1e-6,
-    rho: float = 1e-6
+    rho: float = 1e-6,
 ) -> tuple[Problem, str]:
     r"""Add the differentiable variant of the achievement scalarizing function for multiple decision makers.
 
@@ -400,7 +403,9 @@ def add_group_asf_diff(
     )
 
     # calculate the weights
-    weights = {obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta)) for obj in problem.objectives}
+    weights = {
+        obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta)) for obj in problem.objectives
+    }
 
     # form the constaint and augmentation expressions
     # constraint expressions are formed into a list of lists
@@ -1355,7 +1360,9 @@ def add_group_nimbus_sf(  # noqa: PLR0913
     corrected_current_point = get_corrected_reference_point(problem, current_objective_vector)
 
     # calculate the weights
-    weights = {obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta)) for obj in problem.objectives}
+    weights = {
+        obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta)) for obj in problem.objectives
+    }
 
     # max term and constraints
     max_args = []
@@ -1592,7 +1599,9 @@ def add_group_nimbus_sf_diff(  # noqa: PLR0913
     )
 
     # calculate the weights
-    weights = {obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta)) for obj in problem.objectives}
+    weights = {
+        obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta)) for obj in problem.objectives
+    }
 
     constraints = []
 
@@ -1977,7 +1986,10 @@ def add_group_stom_sf(
     for reference_point in reference_points:
         corrected_rp = get_corrected_reference_point(problem, reference_point)
         weights.append(
-            {obj.symbol: 1 / (corrected_rp[obj.symbol] - (ideal_point[obj.symbol] - delta)) for obj in problem.objectives}
+            {
+                obj.symbol: 1 / (corrected_rp[obj.symbol] - (ideal_point[obj.symbol] - delta))
+                for obj in problem.objectives
+            }
         )
 
     # form the max term
@@ -2077,7 +2089,10 @@ def add_group_stom_sf_diff(
     for reference_point in reference_points:
         corrected_rp = get_corrected_reference_point(problem, reference_point)
         weights.append(
-            {obj.symbol: 1 / (corrected_rp[obj.symbol] - (ideal_point[obj.symbol] - delta)) for obj in problem.objectives}
+            {
+                obj.symbol: 1 / (corrected_rp[obj.symbol] - (ideal_point[obj.symbol] - delta))
+                for obj in problem.objectives
+            }
         )
 
     # form the max term
@@ -2085,7 +2100,9 @@ def add_group_stom_sf_diff(
     for i in range(len(reference_points)):
         rp = {}
         for obj in problem.objectives:
-            rp[obj.symbol] = f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {ideal_point[obj.symbol] - delta}) - _alpha"
+            rp[obj.symbol] = (
+                f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {ideal_point[obj.symbol] - delta}) - _alpha"
+            )
         con_terms.append(rp)
 
     # form the augmentation term
@@ -2468,7 +2485,10 @@ def add_group_guess_sf(
     for reference_point in reference_points:
         corrected_rp = get_corrected_reference_point(problem, reference_point)
         weights.append(
-            {obj.symbol: 1 / ((nadir_point[obj.symbol] + delta) - (corrected_rp[obj.symbol])) for obj in problem.objectives}
+            {
+                obj.symbol: 1 / ((nadir_point[obj.symbol] + delta) - (corrected_rp[obj.symbol]))
+                for obj in problem.objectives
+            }
         )
 
     # form the max term
@@ -2569,7 +2589,10 @@ def add_group_guess_sf_diff(
     for reference_point in reference_points:
         corrected_rp = get_corrected_reference_point(problem, reference_point)
         weights.append(
-            {obj.symbol: 1 / ((nadir_point[obj.symbol] + delta) - (corrected_rp[obj.symbol])) for obj in problem.objectives}
+            {
+                obj.symbol: 1 / ((nadir_point[obj.symbol] + delta) - (corrected_rp[obj.symbol]))
+                for obj in problem.objectives
+            }
         )
 
     # form the max term
@@ -2955,6 +2978,7 @@ def create_epsilon_constraints_json(
 
     return scalarization_expr, constraint_exprs
 
+
 def add_group_scenario_sf_nondiff(
     problem: Problem,
     symbol: str,
@@ -2962,9 +2986,9 @@ def add_group_scenario_sf_nondiff(
     weights: list[dict[str, float]],
     epsilon: float = 1e-6,
 ) -> tuple[Problem, str]:
-    r"""
-    Add the non-differentiable scenario based scalarization function:
+    r"""Add the non-differentiable scenario based scalarization function.
 
+    Add the following scalarization function:
     \begin{align}
       \min_{\mathbf{x}}\quad
         &\max_{i,p}\bigl[w_{ip}\bigl(f_{ip}(\mathbf{x}) - \bar z_{ip}\bigr)\bigr]
@@ -2986,21 +3010,22 @@ def add_group_scenario_sf_nondiff(
         tuple[Problem, str]: A tuple containing a copy of the problem with the scalarization function added,
             and the symbol of the added scalarization function.
     """
-
     if len(reference_points) != len(weights):
         raise ScalarizationError("reference_points and weights must have same length")
 
-    for idx, (reference_point, weight) in enumerate(zip(reference_points, weights)):
+    for reference_point, weight in zip(reference_points, weights, strict=True):
         if not objective_dict_has_all_symbols(problem, reference_point):
-            raise ScalarizationError(f"The give reference point {reference_point} "
-                                     f"is missing value for one or more objectives.")
+            raise ScalarizationError(
+                f"The give reference point {reference_point} " f"is missing value for one or more objectives."
+            )
         if not objective_dict_has_all_symbols(problem, weight):
-            raise ScalarizationError(f"The given weight vector {weight} is missing "
-                                     f"a value for one or more objectives.")
+            raise ScalarizationError(
+                f"The given weight vector {weight} is missing " f"a value for one or more objectives."
+            )
 
     max_list: list[str] = []
     sum_list: list[str] = []
-    for i, (reference_point, weight) in enumerate(zip(reference_points, weights)):
+    for reference_point, weight in zip(reference_points, weights, strict=True):
         corrected_ref_point = get_corrected_reference_point(problem, reference_point)
 
         for obj in problem.objectives:
@@ -3030,9 +3055,9 @@ def add_group_scenario_sf_diff(
     weights: list[dict[str, float]],
     epsilon: float = 1e-6,
 ) -> tuple[Problem, str]:
-    """
-    Add the differentiable scenario‐based scalarization:
+    r"""Add the differentiable scenario-based scalarization.
 
+    Adds the following scalarization function:
     \begin{align}
       \min_{x,\alpha}\quad
         & \alpha \;+\; \varepsilon \sum_{i,p} w_{ip}\bigl(f_{ip}(x) - \bar z_{ip}\bigr) \\
@@ -3055,11 +3080,10 @@ def add_group_scenario_sf_diff(
         tuple[Problem, str]: A tuple containing a copy of the problem with the scalarization function added,
             and the symbol of the added scalarization function.
     """
-
     if len(reference_points) != len(weights):
         raise ScalarizationError("reference_points and weights must have same length")
 
-    for idx, (ref_point, weight) in enumerate(zip(reference_points, weights)):
+    for idx, (ref_point, weight) in enumerate(zip(reference_points, weights, strict=True)):
         if not objective_dict_has_all_symbols(problem, ref_point):
             raise ScalarizationError(f"reference_points[{idx}] missing some objectives")
         if not objective_dict_has_all_symbols(problem, weight):
@@ -3077,7 +3101,7 @@ def add_group_scenario_sf_diff(
     sum_list = []
     constraints = []
 
-    for idx, (ref_point, weight) in enumerate(zip(reference_points, weights)):
+    for idx, (ref_point, weight) in enumerate(zip(reference_points, weights, strict=True)):
         corrected_rp = get_corrected_reference_point(problem, ref_point)
         for obj in problem.objectives:
             expr = f"{weight[obj.symbol]}*({obj.symbol}_min - {corrected_rp[obj.symbol]})"
@@ -3099,7 +3123,7 @@ def add_group_scenario_sf_diff(
 
     func = f"_alpha + {epsilon}*({sum_part})"
     scalar = ScalarizationFunction(
-        name="Scenario‐based differentiable ASF",
+        name="Scenario-based differentiable ASF",
         symbol=symbol,
         func=func,
         is_linear=problem.is_linear,
