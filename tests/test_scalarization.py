@@ -772,7 +772,7 @@ def test_nimbus_sf_nondiff_solve():
     weights = {"f_1": 0.1, "f_2": 0.1, "f_3": 0.8}
     problem_w_sum, t_sum = add_weighted_sums(problem, "target", weights)
 
-    solver_options = NevergradGenericOptions(budget=250, num_workers=1, optimizer="NGOpt")
+    solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="NGOpt")
 
     solver = NevergradGenericSolver(problem_w_sum, solver_options)
 
@@ -934,15 +934,15 @@ def test_add_group_asf_diff():
     problem_w_group_sf, group_sf = add_group_asf_diff(problem, "group_sf", [rp])
     problem_w_group_sf_3rp, group_sf_3rp = add_group_asf_diff(problem, "group_sf", [rp, rp, rp])
 
-    solver_sf = NevergradGenericSolver(problem_w_sf)
+    solver_sf = PyomoBonminSolver(problem_w_sf)
     res_sf = solver_sf.solve(sf)
     assert res_sf.success
 
-    solver_group_sf = NevergradGenericSolver(problem_w_group_sf)
+    solver_group_sf = PyomoBonminSolver(problem_w_group_sf)
     res_group_sf = solver_group_sf.solve(group_sf)
     assert res_group_sf.success
 
-    solver_group_sf_3rp = NevergradGenericSolver(problem_w_group_sf_3rp)
+    solver_group_sf_3rp = PyomoBonminSolver(problem_w_group_sf_3rp)
     res_group_sf_3rp = solver_group_sf_3rp.solve(group_sf_3rp)
     assert res_group_sf_3rp.success
 
@@ -1168,15 +1168,15 @@ def test_add_group_stom_sf_diff():
     problem_w_group_sf, group_sf = add_group_stom_sf_diff(problem, "group_sf", [rp])
     problem_w_group_sf_3rp, group_sf_3rp = add_group_stom_sf_diff(problem, "group_sf", [rp, rp, rp])
 
-    solver_sf = NevergradGenericSolver(problem_w_sf)
+    solver_sf = PyomoBonminSolver(problem_w_sf)
     res_sf = solver_sf.solve(sf)
     assert res_sf.success
 
-    solver_group_sf = NevergradGenericSolver(problem_w_group_sf)
+    solver_group_sf = PyomoBonminSolver(problem_w_group_sf)
     res_group_sf = solver_group_sf.solve(group_sf)
     assert res_group_sf.success
 
-    solver_group_sf_3rp = NevergradGenericSolver(problem_w_group_sf_3rp)
+    solver_group_sf_3rp = PyomoBonminSolver(problem_w_group_sf_3rp)
     res_group_sf_3rp = solver_group_sf_3rp.solve(group_sf_3rp)
     assert res_group_sf_3rp.success
 

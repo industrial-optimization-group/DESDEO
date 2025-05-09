@@ -23,19 +23,19 @@
 # 	installing DESDEO utilizing pip/pipx.
 
 test:
-	pytest -m "not nautilus and not performance and not skip"
+	pytest -n 4 -m "not nautilus and not performance and not skip"
 
 test-all:
-	pytest
+	pytest -n 4
 
 test-changes:
-	pytest --testmon
+	pytest -n 4 --testmon
 
 test-failures:
-	pytest --lf
+	pytest -n 4 --lf
 
 requirements-rtd:
-	poetry export --format requirements.txt --with=dev --extras "standard" --without-hashes --output docs/requirements.txt
+	poetry export --format requirements.txt --all-extras --without-hashes --output docs/requirements.txt
 
 requirements-pip:
-	poetry export --format requirements.txt --with=dev --extras "standard viz api" --without-hashes --output ./requirements.txt
+	poetry export --format requirements.txt --all-extras --without-hashes --output ./requirements.txt
