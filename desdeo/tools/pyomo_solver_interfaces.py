@@ -52,7 +52,7 @@ class BonminOptions(BaseModel):
         converted to keys in the format `bonmin.optionname` in the returned dict.
         """
         output = {}
-        for field_name, _ in self.model_fields.items():
+        for field_name, _ in BonminOptions.model_fields.items():
             if (rest := field_name.split(sep="_"))[0] == "bonmin":
                 # Convert to Bonmin specific format
                 output[f"bonmin.{'_'.join(rest[1:])}"] = getattr(self, field_name)
@@ -150,7 +150,7 @@ class CbcOptions(BaseModel):
     absolute_gap: float = Field(
         alias="absoluteGap",
         description=(
-            "Sets the absolute MIP gap (an absolute value) at which the solver will terminate. " " Defaults to None."
+            "Sets the absolute MIP gap (an absolute value) at which the solver will terminate.  Defaults to None."
         ),
         default=None,
     )
@@ -370,7 +370,7 @@ class PyomoIpoptSolver(BaseSolver):
         """
         self.evaluator.set_optimization_target(target)
 
-        opt = pyomo.SolverFactory("ipopt", tee=True, options=self.options.dict())
+        opt = pyomo.SolverFactory("ipopt", tee=True, options=self.options.model_dump())
         opt_res = opt.solve(self.evaluator.model)
         return parse_pyomo_optimizer_results(opt_res, self.problem, self.evaluator)
 
@@ -459,6 +459,6 @@ class PyomoCBCSolver(BaseSolver):
         """
         self.evaluator.set_optimization_target(target)
 
-        opt = pyomo.SolverFactory("cbc", tee=True, options=self.options.dict())
+        opt = pyomo.SolverFactory("cbc", tee=True, options=self.options.model_dump())
         opt_res = opt.solve(self.evaluator.model)
         return parse_pyomo_optimizer_results(opt_res, self.problem, self.evaluator)

@@ -30,7 +30,6 @@ from pydantic import (
     WrapValidator,
     field_validator,
     model_validator,
-    root_validator,
 )
 from pydantic_core import PydanticCustomError
 
@@ -265,7 +264,7 @@ class Constant(BaseModel):
 
     name: str = Field(
         description=(
-            "Descriptive name of the constant. This can be used in UI and visualizations." " Example: 'maximum cost'."
+            "Descriptive name of the constant. This can be used in UI and visualizations. Example: 'maximum cost'."
         ),
     )
     """Descriptive name of the constant. This can be used in UI and visualizations." " Example: 'maximum cost'."""
@@ -307,8 +306,7 @@ class TensorConstant(BaseModel):
     """
     shape: list[int] = Field(
         description=(
-            "A list of the dimensions of the tensor, "
-            "e.g., `[2, 3]` would indicate a matrix with 2 rows and 3 columns."
+            "A list of the dimensions of the tensor, e.g., `[2, 3]` would indicate a matrix with 2 rows and 3 columns."
         )
     )
     """A list of the dimensions of the tensor, e.g., `[2, 3]` would indicate a matrix with 2 rows and 3 columns.
@@ -360,7 +358,7 @@ class TensorConstant(BaseModel):
         if isinstance(indices, tuple):
             # multi-dimensional indexing
             name = f"{self.name} at position {[*indices]}"
-            symbol = f"{self.symbol}_{"_".join(map(str, indices))}"
+            symbol = f"{self.symbol}_{'_'.join(map(str, indices))}"
 
             value = self.get_values()
 
@@ -442,8 +440,7 @@ class TensorVariable(BaseModel):
 
     shape: list[int] = Field(
         description=(
-            "A list of the dimensions of the tensor, "
-            "e.g., `[2, 3]` would indicate a matrix with 2 rows and 3 columns."
+            "A list of the dimensions of the tensor, e.g., `[2, 3]` would indicate a matrix with 2 rows and 3 columns."
         )
     )
     """A list of the dimensions of the tensor,
@@ -551,7 +548,7 @@ class TensorVariable(BaseModel):
         if isinstance(indices, tuple):
             # multi-dimensional indexing
             name = f"{self.name} at position {[*indices]}"
-            symbol = f"{self.symbol}_{"_".join(map(str, indices))}"
+            symbol = f"{self.symbol}_{'_'.join(map(str, indices))}"
 
             lowerbound = self.get_lowerbound_values()
             upperbound = self.get_upperbound_values()
@@ -752,7 +749,7 @@ class Objective(BaseModel):
 
     name: str = Field(
         description=(
-            "Descriptive name of the objective function. This can be used in UI and visualizations." " Example: 'time'."
+            "Descriptive name of the objective function. This can be used in UI and visualizations. Example: 'time'."
         ),
     )
     """Descriptive name of the objective function. This can be used in UI and visualizations."""
@@ -864,8 +861,7 @@ class Constraint(BaseModel):
 
     name: str = Field(
         description=(
-            "Descriptive name of the constraint. This can be used in UI and visualizations."
-            " Example: 'maximum length'."
+            "Descriptive name of the constraint. This can be used in UI and visualizations. Example: 'maximum length'."
         ),
     )
     """ Descriptive name of the constraint. This can be used in UI and
@@ -1148,7 +1144,7 @@ class Problem(BaseModel):
         """
         updated_objectives = []
         for objective in self.objectives:
-            new_objective = objective.copy(
+            new_objective = objective.model_copy(
                 update={
                     **(
                         {"ideal": new_ideal[objective.symbol]}
@@ -1165,7 +1161,7 @@ class Problem(BaseModel):
 
             updated_objectives.append(new_objective)
 
-        return self.copy(update={"objectives": updated_objectives})
+        return self.model_copy(update={"objectives": updated_objectives})
 
     def add_constraints(self, new_constraints: list[Constraint]) -> "Problem":
         """Adds new constraints to the problem model.

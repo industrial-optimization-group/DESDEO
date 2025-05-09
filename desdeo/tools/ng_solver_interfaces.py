@@ -36,7 +36,7 @@ class NevergradGenericOptions(BaseModel):
     used to define the batch size when evaluating problems. Defaults to 1."""
 
     optimizer: Literal[*available_nevergrad_optimizers] = Field(
-        descriptions=(
+        description=(
             "The optimizer to be used. Must be one of `NGOpt`, `TwoPointDE`, `PortfolioDiscreteOnePlusOne`, "
             "`OnePlusOne`, `CMA`, `TBPSA`, `PSO`, `ScrHammersleySearchPlusMiddlePoint`, or `RandomSearch`. "
             "Defaults to `NGOpt`."
