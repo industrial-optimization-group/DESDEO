@@ -4,15 +4,29 @@ import numpy as np
 import numpy.testing as npt
 import pytest
 
-from desdeo.mcdm import infer_classifications, solve_intermediate_solutions, solve_sub_problems
-from desdeo.problem import dtlz2, nimbus_test_problem
-from desdeo.tools import IpoptOptions, PyomoIpoptSolver, add_asf_diff
+from desdeo.mcdm import (
+    infer_classifications,
+    solve_intermediate_solutions,
+    solve_sub_problems,
+)
+from desdeo.problem.testproblems import (
+    dtlz2,
+    mixed_variable_dimensions_problem,
+    nimbus_test_problem,
+    simple_data_problem,
+)
+from desdeo.tools import (
+    IpoptOptions,
+    ProximalSolver,
+    PyomoIpoptSolver,
+    add_asf_diff,
+    add_asf_nondiff,
+)
 
 
 @pytest.mark.nimbus
 def test_solve_intermediate_solutions():
     """Tests that intermediate solutions are generated as expected."""
-    # x_3 and x_4 must be 0.5
     problem = nimbus_test_problem()
     solution_1 = {"x_1": 0.0, "x_2": 3.0}
     solution_2 = {"x_1": 3.0, "x_2": 0.0}
@@ -20,6 +34,39 @@ def test_solve_intermediate_solutions():
     solver_options = IpoptOptions(tol=1e-8, max_iter=4000)
 
     num_desired = 5
+    results = solve_intermediate_solutions(
+        problem,
+        solution_1,
+        solution_2,
+        num_desired,
+        solver=PyomoIpoptSolver,
+        solver_options=solver_options,
+    )
+
+    assert len(results) == num_desired
+
+    for res in results:
+        assert res.success
+        assert all(obj.symbol in res.optimal_objectives for obj in problem.objectives)
+        assert all(var.symbol in res.optimal_variables for var in problem.variables)
+
+    # test with problem containing tensor variables as well
+    problem = mixed_variable_dimensions_problem()
+
+    solution_1 = {
+        "x": 1.0,
+        "Y": [1, 2, 3, 4, 5],
+        "Z": [[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]],
+        "A": [[[7, 7], [7, 7], [1, 4]], [[9, 4], [7, 8], [9, 7]]],
+    }
+
+    solution_2 = {
+        "x": 2.0,
+        "Y": [2, 3, 4, 5, 6],
+        "Z": [[11, 12], [13, 14], [15, 16], [17, 18], [19, 110]],
+        "A": [[[17, 17], [17, 17], [11, 14]], [[19, 14], [17, 18], [19, 17]]],
+    }
+
     results = solve_intermediate_solutions(
         problem,
         solution_1,
@@ -77,6 +124,30 @@ def test_infer_classifications():
     # f_6: improve until
     assert classifications["f_6"][0] == "<="
     assert np.isclose(classifications["f_6"][1], reference_point["f_6"])
+
+
+@pytest.mark.nimbus
+def test_solve_discrete_sub_problems():
+    """Test that the sub problems are solved correctly for a problem with a discrete representation."""
+    problem = simple_data_problem()
+
+    # get an initial point
+    initial_ref_point = {"g_1": 1500, "g_2": 7.5, "g_3": -29.0}
+
+    problem_w_sf, target = add_asf_nondiff(problem, "target", initial_ref_point)
+    solver = ProximalSolver(problem_w_sf)
+    initial_result = solver.solve(target)
+
+    # {'g_1': 1406.25, 'g_2': 8.5, 'g_3': -37.5}
+    initial_fs = initial_result.optimal_objectives
+
+    ref_point = {"g_1": 2000.0, "g_2": 10.5, "g_3": -40.1}
+
+    num_desired = 4
+
+    solutions = solve_sub_problems(problem, initial_fs, ref_point, num_desired)
+
+    assert len(solutions) == num_desired
 
 
 @pytest.mark.nimbus

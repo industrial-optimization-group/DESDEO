@@ -4,6 +4,7 @@ This whole file should be rewritten. Everything is a mess. Moreover, the selecto
 TODO:@light-weaver
 """
 
+import warnings
 from abc import abstractmethod
 from collections.abc import Sequence
 from enum import Enum
@@ -26,7 +27,7 @@ from desdeo.tools.message import (
     TerminatorMessageTopics,
 )
 from desdeo.tools.non_dominated_sorting import fast_non_dominated_sort
-from desdeo.tools.patterns import Publisher, Subscriber
+from desdeo.tools.patterns import Subscriber
 
 SolutionType = TypeVar("SolutionType", list, pl.DataFrame)
 
@@ -402,7 +403,7 @@ class RVEASelector(BaseDecompositionSelector):
             2: [
                 SelectorMessageTopics.REFERENCE_VECTORS,
                 SelectorMessageTopics.STATE,
-                SelectorMessageTopics.SELECTED_OUTPUTS,
+                SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
             ],
         }
 
@@ -473,7 +474,7 @@ class RVEASelector(BaseDecompositionSelector):
             raise TypeError("The decision variables must be either a list or a polars DataFrame, not both")
         alltargets = parents[1].vstack(offsprings[1])
         targets = alltargets[self.target_symbols].to_numpy()
-        if self.constraints_symbols is None:
+        if self.constraints_symbols is None or len(self.constraints_symbols) == 0:
             constraints = None
         else:
             constraints = (
@@ -624,6 +625,19 @@ class RVEASelector(BaseDecompositionSelector):
                     source=self.__class__.__name__,
                 ),
             ]  # verbosity == 2
+        if isinstance(self.selected_individuals, pl.DataFrame):
+            message = PolarsDataFrameMessage(
+                topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
+                value=pl.concat([self.selected_individuals, self.selected_targets], how="horizontal"),
+                source=self.__class__.__name__,
+            )
+        else:
+            warnings.warn("Population is not a Polars DataFrame. Defaulting to providing OUTPUTS only.", stacklevel=2)
+            message = PolarsDataFrameMessage(
+                topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
+                value=self.selected_targets,
+                source=self.__class__.__name__,
+            )
         state_verbose = [
             Array2DMessage(
                 topic=SelectorMessageTopics.REFERENCE_VECTORS,
@@ -644,11 +658,7 @@ class RVEASelector(BaseDecompositionSelector):
             #     value=self.selection[0].tolist(),
             #     source=self.__class__.__name__,
             # ),
-            PolarsDataFrameMessage(
-                topic=SelectorMessageTopics.SELECTED_OUTPUTS,
-                value=self.selected_targets,
-                source=self.__class__.__name__,
-            ),
+            message,
         ]
         return state_verbose
 
@@ -691,7 +701,7 @@ class NSGAIII_select(BaseDecompositionSelector):
             2: [
                 SelectorMessageTopics.REFERENCE_VECTORS,
                 SelectorMessageTopics.STATE,
-                SelectorMessageTopics.SELECTED_OUTPUTS,
+                SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
             ],
         }
 
@@ -984,6 +994,19 @@ class NSGAIII_select(BaseDecompositionSelector):
                 ),
             ]
         # verbosity == 2
+        if isinstance(self.selected_individuals, pl.DataFrame):
+            message = PolarsDataFrameMessage(
+                topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
+                value=pl.concat([self.selected_individuals, self.selected_targets], how="horizontal"),
+                source=self.__class__.__name__,
+            )
+        else:
+            warnings.warn("Population is not a Polars DataFrame. Defaulting to providing OUTPUTS only.", stacklevel=2)
+            message = PolarsDataFrameMessage(
+                topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
+                value=self.selected_targets,
+                source=self.__class__.__name__,
+            )
         state_verbose = [
             Array2DMessage(
                 topic=SelectorMessageTopics.REFERENCE_VECTORS,
@@ -1005,11 +1028,7 @@ class NSGAIII_select(BaseDecompositionSelector):
             #     value=self.selected_individuals,
             #     source=self.__class__.__name__,
             # ),
-            PolarsDataFrameMessage(
-                topic=SelectorMessageTopics.SELECTED_OUTPUTS,
-                value=self.selected_targets,
-                source=self.__class__.__name__,
-            ),
+            message,
         ]
         return state_verbose
 

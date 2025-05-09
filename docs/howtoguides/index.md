@@ -6,6 +6,15 @@ hide:
 # DESDEO
 
 <div class="grid cards" markdown>
+
+-   :octicons-info-24:{ .lg .middle } __Simple DESDEO Windows installation__
+
+    ---
+
+    How to install DESDEO on your Windows machine with Anaconda
+
+    [:octicons-arrow-right-24: Simple DESDEO installation guide](./simple_installing.md)
+
 -   :octicons-info-24:{ .lg .middle } __Installing DESDEO__
 
     ---
@@ -54,6 +63,15 @@ hide:
 
     [:octicons-arrow-right-24: NAUTILUS Navigator](./nautilus_navigator.md)
 
+-   :octicons-info-24:{ .lg .middle } __NAUTILI__ 
+
+    ---
+
+    How to use the NAUTILI method
+
+    [:octicons-arrow-right-24: NAUTILI](./nautili.md)
+
+
 -   :octicons-info-24:{ .lg .middle } __Using EAs in DESDEO__
     
     ---
@@ -62,4 +80,23 @@ hide:
     
     [:octicons-arrow-right-24: Using EAs in DESDEO](./ea.ipynb)
 
+-   :octicons-info-24:{ .lg .middle } **Advanced usage of surrogates**
+
+    ---
+
+    Using a combination of multiple surrogates and analytical objectives
+
+    [:octicons-arrow-right-24: Advanced usage of surrogates](./advancedSurrogates.ipynb)
+
+
+- :octicons-info-24:{ .lg .middle } **Iterative Pareto Representer**
+
+    ---
+
+    Generating a representative set of solutions using the Iterative Pareto Representer
+
+    [:octicons-arrow-right-24: Iterative Pareto Representer](./IPR.ipynb)
 </div>
+
+# Article Examples
+- **Example 1:** How to define a multiobjective optimization problem ([notebook](./how_to_define_a_problem.ipynb))

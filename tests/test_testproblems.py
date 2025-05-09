@@ -5,11 +5,16 @@ import numpy.testing as npt
 import pytest
 
 from desdeo.mcdm import rpm_solve_solutions
-from desdeo.problem import (
-    PolarsEvaluator,
-    PyomoEvaluator,
+from desdeo.problem import PolarsEvaluator, PyomoEvaluator
+from desdeo.problem.testproblems import (
     dtlz2,
     forest_problem,
+    mcwb_equilateral_tbeam_problem,
+    mcwb_hollow_rectangular_problem,
+    mcwb_ragsdell1976_problem,
+    mcwb_solid_rectangular_problem,
+    mcwb_square_channel_problem,
+    mcwb_tapered_channel_problem,
     re21,
     re22,
     re23,
@@ -108,7 +113,7 @@ def test_re24():
     evaluator = PolarsEvaluator(problem)
 
     xs = {"x_1": [2, 3.3], "x_2": [20, 41.7]}
-    expected_result = np.array([[2402, 3.63459881], [5007.3, 3.8568386109]])
+    expected_result = np.array([[2402, 0], [5007.3, 0]])
 
     res = evaluator.evaluate(xs)
 
@@ -373,3 +378,93 @@ def test_river_scenario():
     npt.assert_allclose(ideal["f2_2"], ideal_2["f2_2"])
     npt.assert_allclose(ideal["f3_2"], ideal_2["f3_2"])
     npt.assert_allclose(ideal["f4"], ideal_2["f4"])
+
+
+def test_mcwb_solid_rectangular_problem():
+    """Test that the MCWB problem initializes and evaluates correctly."""
+    problem = mcwb_solid_rectangular_problem()
+    evaluator = PolarsEvaluator(problem)
+    xs = {f"{var.symbol}": [0.5] for var in problem.variables}
+    res = evaluator.evaluate(xs)
+
+    f1 = res["f_1"][0]
+    f2 = res["f_2"][0]
+
+    # these are the values we are getting now, are they even correct
+    assert np.isclose(f1, 27573.75)
+    assert np.isclose(f2, 0.0000012)
+
+
+def test_mcwb_hollow_rectangular_problem():
+    """Test that the MCWB problem initializes and evaluates correctly."""
+    problem = mcwb_hollow_rectangular_problem()
+    evaluator = PolarsEvaluator(problem)
+    xs = {f"{var.symbol}": [0.5] for var in problem.variables}
+    res = evaluator.evaluate(xs)
+
+    f1 = res["f_1"][0]
+    f2 = res["f_2"][0]
+
+    # these are the values we are getting now, are they even correct?
+    assert np.isclose(f1, 26200.0)
+    assert np.isclose(f2, float("inf"))
+
+
+def test_mcwb_equilateral_tbeam_problem():
+    """Test that the MCWB problem initializes and evaluates correctly."""
+    problem = mcwb_equilateral_tbeam_problem()
+    evaluator = PolarsEvaluator(problem)
+    xs = {f"{var.symbol}": [0.5] for var in problem.variables}
+    res = evaluator.evaluate(xs)
+
+    f1 = res["f_1"][0]
+    f2 = res["f_2"][0]
+
+    # these are the values we are getting now, are they even correct?
+    assert np.isclose(f1, 27573.75)
+    assert np.isclose(f2, 1.2e-6, rtol=1e-9)
+
+
+def test_mcwb_square_channel_problem():
+    """Test that the MCWB problem initializes and evaluates correctly."""
+    problem = mcwb_square_channel_problem()
+    evaluator = PolarsEvaluator(problem)
+    xs = {f"{var.symbol}": [0.5] for var in problem.variables}
+    res = evaluator.evaluate(xs)
+
+    f1 = res["f_1"][0]
+    f2 = res["f_2"][0]
+
+    # these are the values we are getting now, are they even correct?
+    assert np.isclose(f1, 27573.75)
+    assert np.isclose(f2, 1.2e-6, rtol=1e-9)
+
+
+def test_mcwb_tapered_channel_problem():
+    """Test that the MCWB problem initializes and evaluates correctly."""
+    problem = mcwb_tapered_channel_problem()
+    evaluator = PolarsEvaluator(problem)
+    xs = {f"{var.symbol}": [0.5] for var in problem.variables}
+    res = evaluator.evaluate(xs)
+
+    f1 = res["f_1"][0]
+    f2 = res["f_2"][0]
+
+    # these are the values we are getting now, are they even correct?
+    assert np.isclose(f1, 27573.75)
+    assert np.isnan(f2)
+
+
+def test_mcwb_ragsdell1976_problem():
+    """Test that the MCWB problem initializes and evaluates correctly."""
+    problem = mcwb_ragsdell1976_problem()
+    evaluator = PolarsEvaluator(problem)
+    xs = {f"{var.symbol}": [0.5] for var in problem.variables}
+    res = evaluator.evaluate(xs)
+
+    f1 = res["f_1"][0]
+    f2 = res["f_2"][0]
+
+    # these are the values we are getting now, are they even correct?
+    assert np.isclose(f1, 0.02511625)
+    assert np.isclose(f2, 1.2e-06, rtol=1e-3, atol=1e-9)

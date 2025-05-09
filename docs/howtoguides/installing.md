@@ -118,6 +118,20 @@ poetry install -E "standard"
 
 !!! Note
 
+    If you run into some permission errors while trying to install the dependencies (and you will on JYU managed Windows machine), 
+    this is likely because you don't have the necessary permissions for the folder Poetry is using for caching. This can be fixed
+    by changing that folder by adjusting the associated environment variable: POETRY_CACHE_DIR.
+
+    If you are using conda to manage your virtual environments, you could for example put it in the folder associated with that
+    environment. On a JYU Windows machine the commands you would use are the following (assuming your env is called myenv)
+    ```bash
+    conda env config vars set POETRY_CACHE_DIR=C:/devel/anaconda3/envs/myenv/poetry-cache
+    conda activate myenv
+    ```
+    You need to reactivate the env to make sure that the changes to the environment variables are also applied for the current session.
+
+!!! Note
+
     If the `polars package complains about CPU architecture on your system when trying to run
     DESDEO, try installing DESDEO with the following command instead:
 

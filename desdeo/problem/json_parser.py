@@ -1,10 +1,8 @@
 """Defines a parser to parse multiobjective optimziation problems defined in a JSON format."""
 
 from collections.abc import Callable
-import copy
 from enum import Enum
 from functools import reduce
-import itertools
 
 import gurobipy as gp
 import numpy as np
@@ -12,6 +10,7 @@ import polars as pl
 import pyomo.environ as pyomo
 import sympy as sp
 from pyomo.core.expr.numeric_expr import MaxExpression as _PyomoMax
+from pyomo.core.expr.numeric_expr import MinExpression as _PyomoMin
 
 # Mathematical objects in gurobipy can take many types
 gpexpression = gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr | gp.GenExpr
@@ -95,6 +94,7 @@ class MathParser:
 
         # Other operators
         self.MAX: str = "Max"
+        self.MIN: str = "Min"
         self.RATIONAL: str = "Rational"
 
         self.literals = int | float
@@ -205,6 +205,7 @@ class MathParser:
             # Other operations
             self.RATIONAL: lambda lst: reduce(lambda x, y: x / y, lst),  # Not supported
             self.MAX: lambda *args: reduce(lambda x, y: pl.max_horizontal(to_expr(x), to_expr(y)), args),
+            self.MIN: lambda *args: reduce(lambda x, y: pl.min_horizontal(to_expr(x), to_expr(y)), args),
         }
 
         def _pyomo_negate(x):
@@ -527,6 +528,7 @@ class MathParser:
             # probably a better idea to reformulate expressions with a max when utilized with pyomo
             # self.MAX: lambda *args: reduce(lambda x, y: _PyomoMax((x, y)), args),
             self.MAX: lambda *args: _PyomoMax(args),
+            self.MIN: lambda *args: _PyomoMin(args),
         }
 
         def _sympy_matmul(*args):
@@ -591,6 +593,7 @@ class MathParser:
             self.FLOOR: lambda x: sp.floor(to_sympy_expr(x)),
             # Note: Max and Min in sympy take any number of arguments
             self.MAX: lambda *args: sp.Max(*args),
+            self.MIN: lambda *args: sp.Min(*args),
             # Rational numbers, for now assuming two-element list for numerator and denominator
             self.RATIONAL: lambda x, y: sp.Rational(x, y),
         }
@@ -680,7 +683,8 @@ class MathParser:
             self.FLOOR: lambda x: gp_error(),
             # Other operations
             self.RATIONAL: lambda lst: reduce(lambda x, y: x / y, lst),  # not supported
-            self.MAX: lambda *args: gp.max_(args),
+            self.MAX: lambda *args: gp.max_(args),  ## OBS! max and min are unsupported, but left here for reasons
+            self.MIN: lambda *args: gp.min_(args),
         }
 
         match to_format:
@@ -932,7 +936,7 @@ def replace_str(lst: list | str, target: str, sub: list | str | float | int) -> 
     if isinstance(lst, list):
         return [replace_str(item, target, sub) for item in lst]
     if isinstance(lst, str):
-        if target in lst:
+        if target == lst:
             if isinstance(sub, str):
                 return lst.replace(target, sub)
             return sub

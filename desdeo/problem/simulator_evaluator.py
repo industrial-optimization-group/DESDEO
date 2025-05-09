@@ -9,7 +9,7 @@ from pathlib import Path
 import joblib
 import numpy as np
 import polars as pl
-#import skops.io as sio
+# import skops.io as sio
 
 from desdeo.problem import (
     ObjectiveTypeEnum,
@@ -22,13 +22,12 @@ from desdeo.problem import (
 class EvaluatorError(Exception):
     """Error raised when exceptions are encountered in an Evaluator."""
 
+
 class Evaluator:
     """A class for creating evaluators for simulator based and surrogate based objectives, constraints and extras."""
+
     def __init__(
-        self,
-        problem: Problem,
-        params: dict[str, dict] | None = None,
-        surrogate_paths: dict[str, Path] | None = None
+        self, problem: Problem, params: dict[str, dict] | None = None, surrogate_paths: dict[str, Path] | None = None
     ):
         """Creating an evaluator for simulator based and surrogate based objectives, constraints and extras.
 
@@ -45,24 +44,23 @@ class Evaluator:
         self.problem = problem
         # store the symbol and min or max multiplier as well (symbol, min/max multiplier [1 | -1])
         self.objective_mix_max_mult = [
-            (objective.symbol, -1 if objective.maximize else 1)
-            for objective in problem.objectives
+            (objective.symbol, -1 if objective.maximize else 1) for objective in problem.objectives
         ]
         # Gather symbols objectives of different types into their own lists
         self.analytical_symbols = [
-            obj.symbol for obj in list(
-                filter(lambda x: x.objective_type == ObjectiveTypeEnum.analytical, problem.objectives)
-            )
+            obj.symbol
+            for obj in list(filter(lambda x: x.objective_type == ObjectiveTypeEnum.analytical, problem.objectives))
+        ]
+        self.data_based_symbols = [
+            obj.symbol for obj in problem.objectives if obj.objective_type == ObjectiveTypeEnum.data_based
         ]
         self.simulator_symbols = [
-            obj.symbol for obj in list(
-                filter(lambda x: x.objective_type == ObjectiveTypeEnum.simulator, problem.objectives)
-            )
+            obj.symbol
+            for obj in list(filter(lambda x: x.objective_type == ObjectiveTypeEnum.simulator, problem.objectives))
         ]
         self.surrogate_symbols = [
-            obj.symbol for obj in list(
-                filter(lambda x: x.objective_type == ObjectiveTypeEnum.surrogate, problem.objectives)
-            )
+            obj.symbol
+            for obj in list(filter(lambda x: x.objective_type == ObjectiveTypeEnum.surrogate, problem.objectives))
         ]
         # Gather any constraints' symbols
         if problem.constraints is not None:
@@ -89,7 +87,9 @@ class Evaluator:
             ]
 
         # Gather all the symbols of objectives, constraints and extra functions
-        self.problem_symbols = self.analytical_symbols + self.simulator_symbols + self.surrogate_symbols
+        self.problem_symbols = (
+            self.analytical_symbols + self.data_based_symbols + self.simulator_symbols + self.surrogate_symbols
+        )
 
         # Gather the possible simulators
         self.simulators = problem.simulators if problem.simulators is not None else []
@@ -138,9 +138,7 @@ class Evaluator:
             params = self.params.get(sim.name, {})
             # call the simulator with the decision variable values and parameters as dicts
             res = subprocess.run(
-                [sys.executable, sim.file, '-d', str(xs), '-p', str(params)],
-                capture_output=True,
-                text=True
+                [sys.executable, sim.file, "-d", str(xs), "-p", str(params)], capture_output=True, text=True
             )
             if res.returncode == 0:
                 # gather the simulation results (a dict) into the results dataframe
@@ -172,7 +170,7 @@ class Evaluator:
                 uncertainty predictions, then they are set as NaN.
         """
         res = pl.DataFrame()
-        var = np.array([value for _, value in xs.items()]).T # has to be transpose (at least for sklearn models)
+        var = np.array([value for _, value in xs.items()]).T  # has to be transpose (at least for sklearn models)
         for symbol in self.surrogates:
             # get a list of args accepted by the model's predict function
             accepted_args = getfullargspec(self.surrogates[symbol].predict).args
@@ -234,7 +232,7 @@ class Evaluator:
                         else: # TODO: if there are unknown types they should be checked
                             self.surrogates[obj.symbol] = sio.load(file, unknown_types)
                             #raise EvaluatorError(f"Untrusted types found in the model of {obj.symbol}: {unknown_types}")"""
-            for con in self.problem.constraints:
+            for con in self.problem.constraints or []:  # if there are no constraints, an empty list is used
                 if con.surrogates is not None:
                     with Path.open(f"{con.surrogates[0]}", "rb") as file:
                         self.surrogates[con.symbol] = joblib.load(file)
@@ -244,7 +242,7 @@ class Evaluator:
                         else: # TODO: if there are unknown types they should be checked
                             self.surrogates[con.symbol] = sio.load(file, unknown_types)
                             #raise EvaluatorError(f"Untrusted types found in the model of {obj.symbol}: {unknown_types}")"""
-            for extra in self.problem.extra_funcs:
+            for extra in self.problem.extra_funcs or []:  # if there are no extra functions, an empty list is used
                 if extra.surrogates is not None:
                     with Path.open(f"{extra.surrogates[0]}", "rb") as file:
                         self.surrogates[extra.symbol] = joblib.load(file)
@@ -255,7 +253,7 @@ class Evaluator:
                             self.surrogates[extra.symbol] = sio.load(file, unknown_types)
                             #raise EvaluatorError(f"Untrusted types found in the model of {obj.symbol}: {unknown_types}")"""
 
-    def evaluate(self, xs: dict[str, list[int | float]]) -> pl.DataFrame:
+    def evaluate(self, xs: dict[str, list[int | float]], flat: bool = False) -> pl.DataFrame:
         """Evaluate the functions for the given decision variables.
 
         Evaluates analytical, simulation based and surrogate based functions. For now, the evaluator assumes that there
@@ -266,16 +264,21 @@ class Evaluator:
                 Given as a dictionary with the decision variable symbols as keys and a list of decision variable values
                 as the values. The length of the lists is the number of samples and each list should have the same
                 length (same number of samples).
+            flat (bool, optional): whether the valuation is done using flattened variables or not. Defaults to False.
 
         Returns:
             pl.DataFrame: polars dataframe with the evaluated function values.
         """
+        # TODO (@gialmisi): Make work with polars dataframes as well in addition to dict.
+        # See, e.g., PolarsEvaluator._polars_evaluate. Then, remove the arg `flat`.
         res = pl.DataFrame()
 
         # Evaluate the analytical functions
-        if len(self.analytical_symbols) > 0:
+        if len(self.analytical_symbols + self.data_based_symbols) > 0:
             polars_evaluator = PolarsEvaluator(self.problem, evaluator_mode=PolarsEvaluatorModesEnum.mixed)
-            analytical_values = polars_evaluator._polars_evaluate(xs)
+            analytical_values = (
+                polars_evaluator._polars_evaluate(xs) if not flat else polars_evaluator._polars_evaluate_flat(xs)
+            )
             res = res.hstack(analytical_values)
 
         # Evaluate the simulator based functions

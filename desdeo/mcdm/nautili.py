@@ -33,7 +33,7 @@ class NAUTILI_Response(BaseModel):
             "the nadir and the reachable objective vector. The distance is given in percentage."
         )
     )
-    reference_points: dict | None = Field(description="The reference point used in the step.")
+    reference_points: dict | None = Field(description="The reference points used in the step.")
     improvement_directions: dict | None = Field(description="The improvement directions for each DM.")
     group_improvement_direction: dict | None = Field(description="The group improvement direction.")
     navigation_point: dict = Field(description="The navigation point used in the step.")

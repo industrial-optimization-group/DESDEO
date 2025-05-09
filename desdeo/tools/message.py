@@ -54,6 +54,8 @@ class EvaluatorMessageTopics(Enum):
     """ The targets, i.e., objective values seen by the evolutionary operators."""
     CONSTRAINTS = "CONSTRAINTS"
     """ The constraints of the population. """
+    VERBOSE_OUTPUTS = "VERBOSE_OUTPUTS"
+    """ Same as POPULATION + OUTPUTS."""
     NEW_EVALUATIONS = "NEW_EVALUATIONS"
     """ The number of new evaluations. """
 
@@ -73,6 +75,8 @@ class GeneratorMessageTopics(Enum):
     """ The targets, i.e., objective values seen by the evolutionary operators."""
     CONSTRAINTS = "CONSTRAINTS"
     """ The constraints of the population. """
+    VERBOSE_OUTPUTS = "VERBOSE_OUTPUTS"
+    """ Same as POPULATION + OUTPUTS. """
     NEW_EVALUATIONS = "NEW_EVALUATIONS"
     """ The number of new evaluations. """
 
@@ -94,6 +98,8 @@ class SelectorMessageTopics(Enum):
     """ The individuals selected by the selector. """
     SELECTED_OUTPUTS = "SELECTED_OUTPUTS"
     """ The targets of the selected individuals. """
+    SELECTED_VERBOSE_OUTPUTS = "SELECTED_VERBOSE_OUTPUTS"
+    """ Same as SELECTED_OUTPUTS + SELECTED_INDIVIDUALS"""
     REFERENCE_VECTORS = "REFERENCE_VECTORS"
     """ The reference vectors used in the selection in decomposition-based EMO algorithms. """
 
@@ -115,7 +121,6 @@ class TerminatorMessageTopics(Enum):
     """ The maximum number of generations. """
     MAX_EVALUATIONS = "MAX_EVALUATIONS"
     """ The maximum number of evaluations. """
-
 
 
 MessageTopics = (

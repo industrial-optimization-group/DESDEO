@@ -1,9 +1,13 @@
 """Various utilities used across the framework related to the Problem formulation."""
 
+import itertools
+import warnings
+from functools import reduce
+
 import numpy as np
 import polars as pl
 
-from desdeo.problem import Problem, TensorConstant, TensorVariable
+from desdeo.problem import Problem, TensorConstant, TensorVariable, Variable
 
 
 class ProblemUtilsError(Exception):
@@ -53,27 +57,124 @@ def numpy_array_to_objective_dict(problem: Problem, numpy_array: np.ndarray) -> 
     return {objective.symbol: np.squeeze(numpy_array).tolist()[i] for i, objective in enumerate(problem.objectives)}
 
 
-def variable_dict_to_numpy_array(problem: Problem, variable_dict: dict[str, float]) -> np.ndarray:
-    """Takes a dict with a decision variable vector and returns a numpy array.
+def unflatten_variable_array(problem: Problem, var_array: np.ndarray) -> dict[str, float | list]:
+    """Unflatten a numpy array representing decision variable values.
 
-    Takes a dict with the keys being decision variable symbols and the values
-    being the corresponding variable values. Returns a numpy array
-    with the decision variable values in the same order they have been defined in
-    the original problem.
+    Unflatten a numpy array that represent decision variable values. It is assumed
+    that the unflattened values follow a C-like order when it comes to unflattening
+    values for `TensorVariable`s. Note that `var_array` must be of dimension 1.
 
     Args:
-        problem (Problem): the problem the objective dict belongs to.
-        variable_dict (dict[str, float]): the dict with the decision variable values.
+        problem (Problem): the problem instance the decision variables are associated with.
+        var_array (np.ndarray): a flat 1D array of numerical values representing
+            decision variable values.
+
+    Raises:
+        ValueError: `var_array` is of some other dimension that 1.
+        IndexError: `var_array` has too few elements given the variables defined in
+            the instance of `Problem`.
+        TypeError: unsupported variable type encountered in the variables defined in the
+            instance of `Problem`.
 
     Returns:
-        np.ndarray: a numpy array with the decision variable values in the order they are
-            present in problem.
+        dict[str, float | list]: a dict with keys equal to the symbols of the variables
+            defined in the `Problem` instance, and values equal to the decision variable
+            values as they were defined in `var_array`.
     """
-    if isinstance(variable_dict[problem.variables[0].symbol], list):
-        if len(variable_dict[problem.variables[0].symbol]) != 1:
-            raise ValueError("The variable_dict has multiple values for a decision variable.")
-        return np.array([variable_dict[variable.symbol][0] for variable in problem.variables])
-    return np.array([variable_dict[variable.symbol] for variable in problem.variables])
+    if (dimension := var_array.ndim) != 1:
+        msg = f"The given variable array must have a dimension of 1. Current {dimension=}"
+        raise ValueError(msg)
+
+    var_dict = {}
+    array_i = 0
+    for var in problem.variables:
+        if array_i >= len(var_array):
+            msg = (
+                "End of variable array reached before all variables in the problem were iterated over. "
+                f"The variable array is too short with length={len(var_array)}."
+            )
+            raise IndexError(msg)
+
+        if isinstance(var, Variable):
+            # regular variable, just pick it
+            var_dict[var.symbol] = var_array[array_i].item()
+            array_i += 1
+            continue
+
+        if isinstance(var, TensorVariable):
+            # tensor variable, pick row-wise from var_array
+            slice_length = reduce(lambda x1, x2: x1 * x2, var.shape)  # product of dimensions
+            flat_values = var_array[array_i : array_i + slice_length]
+            var_dict[var.symbol] = np.reshape(flat_values, var.shape, order="C").tolist()
+            array_i += slice_length
+            continue
+
+        msg = f"Unsupported variable type {type(var)} encountered."
+        raise TypeError(msg)
+
+    # check if values remain in var_array
+    if array_i < len(var_array):
+        # some values remain, warn user, but do not raise an error
+        msg = f"Warning, the variable array had some values that were not unflattened: f{["...", *var_array[array_i:]]}"
+        warnings.warn(msg, stacklevel=2)
+
+    # return the variable dict
+    return var_dict
+
+
+def flatten_variable_dict(problem: Problem, variable_dict: dict[str, float | list]) -> np.ndarray:
+    """Flatten a dictionary representing variable values of an instance of `Problem` into a numpy array.
+
+    Flattens a dictionary representing variable values of an instance of `Problem` into a numpy array.
+    The flattening follows a C-like order. Support the flattening of both `Variable` and `TensorVariable`
+    types. Note that it is assumed that no more than one value is defined for each symbol in `variable_dict`
+    that correspond to the required shape of the underlying variable type.
+
+    Args:
+        problem (Problem): the problem instance the decision variables are associated with.
+        variable_dict (dict[str, float  |  list]): a dictionary with its keys being the symbols
+            of the variables defined in the instance of `Problem`, and the values corresponding
+            to the variables' values.
+
+    Raises:
+        ValueError: the `variable_dict` does not contain as its keys one or more of the symbols
+            defined for the variables in the instance of `Problem`.
+        TypeError: unsupported variable type encountered in the variables defined in the
+            instance of `Problem`.
+
+    Returns:
+        np.ndarray: a 1D numpy array with the variable values unflattened in C-like order.
+    """
+    tmp = []
+    for var in problem.variables:
+        if isinstance(var, Variable):
+            # just a regular variable
+            if var.symbol not in variable_dict:
+                msg = f"The variable_dict is missing values for the variable {var.symbol}."
+                raise ValueError(msg)
+            tmp.append([variable_dict[var.symbol]])
+            continue
+
+        if isinstance(var, TensorVariable):
+            # tensor variable
+            if var.symbol in variable_dict:
+                # tensor variable is defined in the dict as a tensor
+                tmp = [*tmp, np.array(variable_dict[var.symbol]).flatten(order="C")]
+                continue
+            if any(key.startswith(f"{var.symbol}_") for key in variable_dict):
+                # tensor variable flattened in the dict
+                indices = itertools.product(*[range(1, s + 1) for s in var.shape])
+                flat_symbols = [f"{var.symbol}_{'_'.join(map(str, index))}" for index in indices]
+                tmp = [*tmp, np.array([variable_dict[s] for s in flat_symbols])]
+                continue
+
+            msg = f"The variable dict is missing values for the variable {var.symbol}."
+            raise ValueError(msg)
+
+        msg = f"Unsupported variable type {type(var)} encountered."
+        raise TypeError(msg)
+
+    return np.concatenate(tmp)
 
 
 def get_nadir_dict(problem: Problem) -> dict[str, float]:

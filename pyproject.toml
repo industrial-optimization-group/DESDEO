@@ -10,81 +10,61 @@ license = "MIT"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"
-# Math stuff
-numpy = "^2.0.0"
+python = "^3.12, <3.13"
+numpy = "^2.2.0"
 scipy = "^1.11.4"
-polars = "^1.0"
-polars-lts-cpu = { version = "^1.0", optional = true }
-pyarrow = "^17.0.0"
-numba = "^0.60.0"
-# Visualization
-seaborn = "^0.13.0"
-plotly = "^5.18"
-# Data handling/parsing
+polars = "^1.17"
+pyarrow = "^20.0.0"
+numba = "^0.61.0"
 pydantic = "^2.9"
 sympy = "^1.0"
 pyparsing = "^3.0"
-# Optimization
-nevergrad = "^1.0"
+nevergrad = "^1.0.12"
 bayesian-optimization = "^1.0" # They recently released v2 which breaks compatibility with nevergrad 
 pyomo = "^6.8"
-# Miscellaneous
-jupyter = "^1.0"
-jupyterlab = "^4.0"
-# API packages
-asyncpg = { version = "^0.29.0", optional = true }
-gunicorn = { version = "^23.0.0", optional = true }
-fastapi = { version = "^0.106", optional = true }
-uvicorn = { extras = ["standard"], version = "^0.25.0", optional = true }
-sqlalchemy = { version = "^2.0.23", optional = true }
-passlib = { version = "^1.7.4", optional = true }
-psycopg2-binary = { version = "^2.9.9", optional = true }
-sqlalchemy-utils = { version = "^0.41.1", optional = true }
-python-multipart = { version = "^0.0.9", optional = true }
-python-jose = { extras = ["cryptography"], version = "^3.3.0", optional = true }
-bcrypt = { version = "^4.1.2", optional = true }
-mkdocs-include-markdown-plugin = { extras = ["cache"], version = "^6.0.5" }
-gurobipy = "^11.0.1"                                                             #96
+gurobipy = "^11.0.1"
+tsp-solver = "^0.1"
+greenlet = "^3.1.1"
+pymoo = {git = "https://github.com/anyoptimization/pymoo"}
+shap = "^0.47.0"
+cvxpy = {extras = ["scip"], version = "^1.6.4"}
 
-[tool.poetry.extras]
-standard = ["polars"]
-legacy = ["polars-lts-cpu"]
-viz = ["seaborn", "plotly"] # We could make viz packages optional in the future.
-api = [
-    "asyncpg",
-    "fastapi",
-    "uvicorn",
-    "sqlalchemy",
-    "passlib",
-    "psycopg2-binary",
-    "sqlalchemy-utils",
-    "python-multipart",
-    "python-jose",
-    "bcrypt"
-] # We could make API packages optional in the future.
-server = ["gunicorn"]
+[tool.poetry.group.viz.dependencies]
+seaborn = "^0.13.0"
+plotly = "^6.0"
+scienceplots = "^2.1.1"
+
+[tool.poetry.group.api.dependencies]
+sqlmodel = "^0.0.24"
+httpx = "^0.28.1"
+fastapi = "^0.115.12"
+bcrypt = "^4.3.0"
+python-jose = {extras = ["cryptography"], version = "^3.4.0"}
+python-multipart = "^0.0.20"
+uvicorn = "^0.34.2"
 
 [tool.poetry.group.dev.dependencies]
-ruff = "^0.6"
+ruff = "^0.11"
 pytest = "^8.0"
 mkdocs = "^1.0"
-python-markdown-math = "^0.8"
+python-markdown-math = "^0.9"
 mkdocs-macros-plugin = "^1.0.5"
 djlint = "^1.34.1"
 pyparsing = { extras = ["diagrams"], version = "^3.1.1" }
-isort = "^5.0"
+isort = "^6.0"
 mypy = "^1.0"
 mkdocstrings-python = "^1.0"
 mkdocs-material = "^9.5.12"
 pytest-xdist = "^3.5.0"
 pytest-testmon = "^2.1.1"
 snakeviz = "^2.2.0"
-pytest-asyncio = "^0.24.0"
+pytest-asyncio = "^0.26.0"
 griffe = "^1.4.1"
 mkdocs-jupyter = "^0.25.1"
 jupytext = "^1.16.4"
-
+mkdocs-include-markdown-plugin = { extras = ["cache"], version = "^7.0.0" }
+jupyter = "^1.0"
+jupyterlab = "^4.0"
 
 [tool.ruff]
 # Enable the pycodestyle (`E`) and Pyflakes (`F`) rules by default.
@@ -219,9 +199,12 @@ markers = [
     "utils: tests related to various utilities.",
     "nogithub: tests that should not be run in GitHub actions.",
     "simulator_support: tests related to simulator and surrogate support",
+    "explainer: tests related to explainers and related functionalities.",
+    "explanation_utils: tests related to explanations module utilities.",
 
 ]
 pythonpath = "."
+asyncio_default_fixture_loop_scope = "function"
 
 [build-system]
 requires = ["poetry-core"]

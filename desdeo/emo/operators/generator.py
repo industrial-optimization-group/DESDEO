@@ -8,7 +8,7 @@ import polars as pl
 from scipy.stats.qmc import LatinHypercube
 
 from desdeo.emo.operators.evaluator import EMOEvaluator
-from desdeo.problem import Problem
+from desdeo.problem import Problem, VariableTypeEnum
 from desdeo.tools.message import GeneratorMessageTopics, IntMessage, Message, PolarsDataFrameMessage
 from desdeo.tools.patterns import Subscriber
 
@@ -33,8 +33,7 @@ class BaseGenerator(Subscriber):
             1: [GeneratorMessageTopics.NEW_EVALUATIONS],
             2: [
                 GeneratorMessageTopics.NEW_EVALUATIONS,
-                GeneratorMessageTopics.POPULATION,
-                GeneratorMessageTopics.OUTPUTS,
+                GeneratorMessageTopics.VERBOSE_OUTPUTS,
             ],
         }
 
@@ -85,13 +84,8 @@ class BaseGenerator(Subscriber):
         # verbosity == 2
         return [
             PolarsDataFrameMessage(
-                topic=GeneratorMessageTopics.POPULATION,
-                value=self.population,
-                source=self.__class__.__name__,
-            ),
-            PolarsDataFrameMessage(
-                topic=GeneratorMessageTopics.OUTPUTS,
-                value=self.out,
+                topic=GeneratorMessageTopics.VERBOSE_OUTPUTS,
+                value=pl.concat([self.population, self.out], how="horizontal"),
                 source=self.__class__.__name__,
             ),
             IntMessage(
@@ -234,6 +228,125 @@ class RandomBinaryGenerator(BaseGenerator):
             self.rng.integers(low=0, high=2, size=(self.n_points, self.bounds.shape[0])).astype(dtype=np.float64),
             schema=self.variable_symbols,
         )
+
+        self.out = self.evaluator.evaluate(self.population)
+        self.notify()
+        return self.population, self.out
+
+    def update(self, message) -> None:
+        """Update the generator based on the message."""
+
+
+class RandomIntegerGenerator(BaseGenerator):
+    """Class for generating random initial population for problems with integer variables.
+
+    This class generates an initial population by randomly setting variable values to be integers between the bounds of
+    the variables.
+    """
+
+    def __init__(self, problem: Problem, evaluator: EMOEvaluator, n_points: int, seed: int, **kwargs):
+        """Initialize the RandomIntegerGenerator class.
+
+        Args:
+            problem (Problem): The problem to solve.
+            evaluator (BaseEvaluator): The evaluator to evaluate the population.
+            n_points (int): The number of points to generate for the initial population.
+            seed (int): The seed for the random number generator.
+            kwargs: Additional keyword arguments. Check the Subscriber class for more information.
+                At the very least, the publisher argument should be provided.
+        """
+        super().__init__(problem, **kwargs)
+        self.n_points = n_points
+        self.evaluator = evaluator
+        self.rng = np.random.default_rng(seed)
+        self.seed = seed
+
+    def do(self) -> tuple[pl.DataFrame, pl.DataFrame]:
+        """Generate the initial population.
+
+        Returns:
+            tuple[pl.DataFrame, pl.DataFrame]: The initial population as the first element,
+                the corresponding objectives, the constraint violations, and the targets as the second element.
+        """
+        if self.population is not None and self.out is not None:
+            self.notify()
+            return self.population, self.out
+
+        self.population = pl.from_numpy(
+            self.rng.integers(
+                low=self.bounds[:, 0],
+                high=self.bounds[:, 1],
+                size=(self.n_points, self.bounds.shape[0]),
+                endpoint=True,
+            ).astype(dtype=float),
+            schema=self.variable_symbols,
+        )
+
+        self.out = self.evaluator.evaluate(self.population)
+        self.notify()
+        return self.population, self.out
+
+    def update(self, message) -> None:
+        """Update the generator based on the message."""
+
+
+class RandomMixedIntegerGenerator(BaseGenerator):
+    """Class for generating random initial population for problems with mixed-integer variables.
+
+    This class generates an initial population by randomly setting variable
+    values to be integers or floats between the bounds of the variables.
+    """
+
+    def __init__(self, problem: Problem, evaluator: EMOEvaluator, n_points: int, seed: int, **kwargs):
+        """Initialize the RandomMixedIntegerGenerator class.
+
+        Args:
+            problem (Problem): The problem to solve.
+            evaluator (BaseEvaluator): The evaluator to evaluate the population.
+            n_points (int): The number of points to generate for the initial population.
+            seed (int): The seed for the random number generator.
+            kwargs: Additional keyword arguments. Check the Subscriber class for more information.
+                At the very least, the publisher argument should be provided.
+        """
+        super().__init__(problem, **kwargs)
+        self.var_symbol_types = {
+            VariableTypeEnum.real: [
+                var.symbol for var in problem.variables if var.variable_type == VariableTypeEnum.real
+            ],
+            VariableTypeEnum.integer: [
+                var.symbol
+                for var in problem.variables
+                if var.variable_type in [VariableTypeEnum.integer, VariableTypeEnum.binary]
+            ],
+        }
+        self.n_points = n_points
+        self.evaluator = evaluator
+        self.rng = np.random.default_rng(seed)
+        self.seed = seed
+
+    def do(self) -> tuple[pl.DataFrame, pl.DataFrame]:
+        """Generate the initial population.
+
+        Returns:
+            tuple[pl.DataFrame, pl.DataFrame]: The initial population as the first element,
+                the corresponding objectives, the constraint violations, and the targets as the second element.
+        """
+        if self.population is not None and self.out is not None:
+            self.notify()
+            return self.population, self.out
+
+        tmp = {
+            var.symbol: self.rng.integers(
+                low=var.lowerbound, high=var.upperbound, size=self.n_points, endpoint=True
+            ).astype(dtype=float)
+            if var.variable_type in [VariableTypeEnum.binary, VariableTypeEnum.integer]
+            else self.rng.uniform(low=var.lowerbound, high=var.upperbound, size=self.n_points).astype(dtype=float)
+            for var in self.problem.variables
+        }
+
+        # combine
+        # self.population
+        self.population = pl.DataFrame(tmp)
 
         self.out = self.evaluator.evaluate(self.population)
         self.notify()

@@ -351,3 +351,255 @@ class SinglePointBinaryCrossover(BaseCrossover):
                 value=self.offspring_population,
             ),
         ]
+
+
+class UniformIntegerCrossover(BaseCrossover):
+    """A class that defines the uniform integer crossover operation."""
+
+    def __init__(self, *, problem: Problem, seed: int, **kwargs):
+        """Initialize the uniform integer crossover operator.
+
+        Args:
+            problem (Problem): the problem object.
+            seed (int): the seed used in the random number generator for choosing the crossover point.
+            kwargs: Additional keyword arguments. These are passed to the Subscriber class. At the very least, the
+                publisher must be passed. See the Subscriber class for more information.
+        """
+        super().__init__(problem, **kwargs)
+        self.seed = seed
+
+        self.parent_population: pl.DataFrame
+        self.offspring_population: pl.DataFrame
+        self.rng = np.random.default_rng(seed)
+        self.seed = seed
+
+    @property
+    def provided_topics(self) -> dict[str, Sequence[CrossoverMessageTopics]]:
+        """The message topics provided by the single point binary crossover operator."""
+        return {
+            0: [],
+            1: [],
+            2: [
+                CrossoverMessageTopics.PARENTS,
+                CrossoverMessageTopics.OFFSPRINGS,
+            ],
+        }
+
+    @property
+    def interested_topics(self):
+        """The message topics the single point binary crossover operator is interested in."""
+        return []
+
+    def do(
+        self,
+        *,
+        population: pl.DataFrame,
+        to_mate: list[int] | None = None,
+    ) -> pl.DataFrame:
+        """Perform single point binary crossover.
+
+        Args:
+            population (pl.DataFrame): the population to perform the crossover with.
+            to_mate (list[int] | None, optional): indices. Defaults to None.
+
+        Returns:
+            pl.DataFrame: the offspring from the crossover.
+        """
+        self.parent_population = population
+        pop_size = self.parent_population.shape[0]
+        num_var = len(self.variable_symbols)
+
+        parent_decision_vars = self.parent_population[self.variable_symbols].to_numpy().astype(int)
+
+        if to_mate is None:
+            shuffled_ids = list(range(pop_size))
+            shuffle(shuffled_ids)
+        else:
+            shuffled_ids = copy.copy(to_mate)
+
+        mating_pop = parent_decision_vars[shuffled_ids]
+        mating_pop_size = len(shuffled_ids)
+        original_mating_pop_size = mating_pop_size
+
+        if mating_pop_size % 2 != 0:
+            # if the number of member to mate is of uneven size, copy the first member to the tail
+            mating_pop = np.vstack((mating_pop, mating_pop[0]))
+            mating_pop_size += 1
+            shuffled_ids.append(shuffled_ids[0])
+
+        # split the population into parents, one with members with even numbered indices, the
+        # other with uneven numbered indices
+        parents1 = mating_pop[[shuffled_ids[i] for i in range(0, mating_pop_size, 2)]]
+        parents2 = mating_pop[[shuffled_ids[i] for i in range(1, mating_pop_size, 2)]]
+
+        mask = self.rng.choice([True, False], size=num_var)
+
+        offspring1 = np.where(mask, parents1, parents2)  # True, pick from parent1, False, pick from parent2
+        offspring2 = np.where(mask, parents2, parents1)  # True, pick from parent2, False, pick from parent1
+
+        # combine the two offspring populations into one, drop the last member if the number of
+        # indices (to_mate) is uneven
+        self.offspring_population = pl.from_numpy(
+            np.vstack((offspring1, offspring2))[
+                : (original_mating_pop_size if original_mating_pop_size % 2 == 0 else -1)
+            ],
+            schema=self.variable_symbols,
+        ).select(pl.all().cast(pl.Float64))
+
+        self.notify()
+
+        return self.offspring_population
+
+    def update(self, *_, **__):
+        """Do nothing. This is just the basic single point binary crossover operator."""
+
+    def state(self) -> Sequence[Message]:
+        """Return the state of the single ponit binary crossover operator."""
+        if self.parent_population is None or self.offspring_population is None:
+            return []
+        if self.verbosity == 0:
+            return []
+        if self.verbosity == 1:
+            return []
+        # verbosity == 2 or higher
+        return [
+            PolarsDataFrameMessage(
+                topic=CrossoverMessageTopics.PARENTS,
+                source="SimulatedBinaryCrossover",
+                value=self.parent_population,
+            ),
+            PolarsDataFrameMessage(
+                topic=CrossoverMessageTopics.OFFSPRINGS,
+                source="SimulatedBinaryCrossover",
+                value=self.offspring_population,
+            ),
+        ]
+
+
+class UniformMixedIntegerCrossover(BaseCrossover):
+    """A class that defines the uniform mixed-integer crossover operation.
+
+    TODO: This is virtually identical to `UniformIntegerCrossover`. The only
+    difference is that the `parent_decision_vars` in `do` are not casted to
+    `int`. This is not an ideal way to implement crossover for mixed-integer
+    stuff...
+    """
+
+    def __init__(self, *, problem: Problem, seed: int, **kwargs):
+        """Initialize the uniform integer crossover operator.
+
+        Args:
+            problem (Problem): the problem object.
+            seed (int): the seed used in the random number generator for choosing the crossover point.
+            kwargs: Additional keyword arguments. These are passed to the Subscriber class. At the very least, the
+                publisher must be passed. See the Subscriber class for more information.
+        """
+        super().__init__(problem, **kwargs)
+        self.seed = seed
+
+        self.parent_population: pl.DataFrame
+        self.offspring_population: pl.DataFrame
+        self.rng = np.random.default_rng(seed)
+        self.seed = seed
+
+    @property
+    def provided_topics(self) -> dict[str, Sequence[CrossoverMessageTopics]]:
+        """The message topics provided by the single point binary crossover operator."""
+        return {
+            0: [],
+            1: [],
+            2: [
+                CrossoverMessageTopics.PARENTS,
+                CrossoverMessageTopics.OFFSPRINGS,
+            ],
+        }
+
+    @property
+    def interested_topics(self):
+        """The message topics the single point binary crossover operator is interested in."""
+        return []
+
+    def do(
+        self,
+        *,
+        population: pl.DataFrame,
+        to_mate: list[int] | None = None,
+    ) -> pl.DataFrame:
+        """Perform single point binary crossover.
+
+        Args:
+            population (pl.DataFrame): the population to perform the crossover with.
+            to_mate (list[int] | None, optional): indices. Defaults to None.
+
+        Returns:
+            pl.DataFrame: the offspring from the crossover.
+        """
+        self.parent_population = population
+        pop_size = self.parent_population.shape[0]
+        num_var = len(self.variable_symbols)
+
+        parent_decision_vars = self.parent_population[self.variable_symbols].to_numpy().astype(float)
+
+        if to_mate is None:
+            shuffled_ids = list(range(pop_size))
+            shuffle(shuffled_ids)
+        else:
+            shuffled_ids = copy.copy(to_mate)
+
+        mating_pop = parent_decision_vars[shuffled_ids]
+        mating_pop_size = len(shuffled_ids)
+        original_mating_pop_size = mating_pop_size
+
+        if mating_pop_size % 2 != 0:
+            # if the number of member to mate is of uneven size, copy the first member to the tail
+            mating_pop = np.vstack((mating_pop, mating_pop[0]))
+            mating_pop_size += 1
+            shuffled_ids.append(shuffled_ids[0])
+
+        # split the population into parents, one with members with even numbered indices, the
+        # other with uneven numbered indices
+        parents1 = mating_pop[[shuffled_ids[i] for i in range(0, mating_pop_size, 2)]]
+        parents2 = mating_pop[[shuffled_ids[i] for i in range(1, mating_pop_size, 2)]]
+
+        mask = self.rng.choice([True, False], size=num_var)
+
+        offspring1 = np.where(mask, parents1, parents2)  # True, pick from parent1, False, pick from parent2
+        offspring2 = np.where(mask, parents2, parents1)  # True, pick from parent2, False, pick from parent1
+
+        # combine the two offspring populations into one, drop the last member if the number of
+        # indices (to_mate) is uneven
+        self.offspring_population = pl.from_numpy(
+            np.vstack((offspring1, offspring2))[
+                : (original_mating_pop_size if original_mating_pop_size % 2 == 0 else -1)
+            ],
+            schema=self.variable_symbols,
+        ).select(pl.all().cast(pl.Float64))
+
+        self.notify()
+
+        return self.offspring_population
+
+    def update(self, *_, **__):
+        """Do nothing. This is just the basic single point binary crossover operator."""
+
+    def state(self) -> Sequence[Message]:
+        """Return the state of the single ponit binary crossover operator."""
+        if self.parent_population is None or self.offspring_population is None:
+            return []
+        if self.verbosity == 0:
+            return []
+        if self.verbosity == 1:
+            return []
+        # verbosity == 2 or higher
+        return [
+            PolarsDataFrameMessage(
+                topic=CrossoverMessageTopics.PARENTS,
+                source="SimulatedBinaryCrossover",
+                value=self.parent_population,
+            ),
+            PolarsDataFrameMessage(
+                topic=CrossoverMessageTopics.OFFSPRINGS,
+                source="SimulatedBinaryCrossover",
+                value=self.offspring_population,
+            ),
+        ]

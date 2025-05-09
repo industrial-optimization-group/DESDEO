@@ -1,6 +1,8 @@
 """This module initializes the database."""
 
+import json
 import warnings
+from os import walk
 
 from sqlalchemy_utils import database_exists
 from sqlmodel import Session, SQLModel

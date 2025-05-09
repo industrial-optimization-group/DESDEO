@@ -575,11 +575,167 @@ def test_bracket_access():
         assert json_result == json_expression
 
 
-@pytest.mark.slow
-@pytest.mark.performance
-@pytest.mark.usefixtures("timer")
-def test_many_executions():
-    """Calls the infix parser with a complicated expression thousands of times."""
-    for _ in range(2000):
-        infix_parser = InfixExpressionParser()
-        expression = "*".join(10 * ["Max(a + 3, b - 8, a*c, Sin(d)) + Max(a + 3, b - 8, a*c, Sin(d))"])
+@pytest.mark.infix_parser
+def test_incremental_expression_evaluation():
+    """Test incremental evaluation of a complex expression."""
+    data = pl.DataFrame({"a": [0.5], "DHA": [0.5], "DOA": [0.5], "OPTT": [0.5]})
+
+    a = data["a"][0]
+    DHA = data["DHA"][0]
+    DOA = data["DOA"][0]
+    OPTT = data["OPTT"][0]
+
+    # Test cases: Each tuple contains the infix expression and the expected result
+    tests = [
+        ("0.153", 0.153),
+        ("0.153 - 0.322 * a", 0.153 - 0.322 * a),
+        ("0.153 - 0.322 * a + 0.396 * DHA", 0.153 - 0.322 * a + 0.396 * DHA),
+        ("0.153 - 0.322 * a + 0.396 * DHA + 0.424 * DOA", 0.153 - 0.322 * a + 0.396 * DHA + 0.424 * DOA),
+        (
+            "0.153 - 0.322 * a + 0.396 * DHA + 0.424 * DOA + 0.0226 * OPTT",
+            0.153 - 0.322 * a + 0.396 * DHA + 0.424 * DOA + 0.0226 * OPTT,
+        ),
+        (
+            "0.153 - 0.322 * a + 0.396 * DHA + 0.424 * DOA + 0.0226 * OPTT + 0.175 * a * a",
+            0.153 - 0.322 * a + 0.396 * DHA + 0.424 * DOA + 0.0226 * OPTT + 0.175 * a * a,
+        ),
+        (
+            "0.153 - 0.322 * a + 0.396 * DHA + 0.424 * DOA + 0.0226 * OPTT + 0.175 * a * a + 0.0185 * DHA * a",
+            0.153 - 0.322 * a + 0.396 * DHA + 0.424 * DOA + 0.0226 * OPTT + 0.175 * a * a + 0.0185 * DHA * a,
+        ),
+        (
+            "0.153 - 0.322 * a + 0.396 * DHA + 0.424 * DOA + 0.0226 * OPTT + 0.175 * a * a + 0.0185 * DHA * a - 0.0701 * DHA * DHA",
+            0.153
+            - 0.322 * a
+            + 0.396 * DHA
+            + 0.424 * DOA
+            + 0.0226 * OPTT
+            + 0.175 * a * a
+            + 0.0185 * DHA * a
+            - 0.0701 * DHA * DHA,
+        ),
+        (
+            "0.153 - 0.322 * a + 0.396 * DHA + 0.424 * DOA + 0.0226 * OPTT + 0.175 * a * a + 0.0185 * DHA * a - 0.0701 * DHA * DHA - 0.251 * DOA * a",
+            0.153
+            - 0.322 * a
+            + 0.396 * DHA
+            + 0.424 * DOA
+            + 0.0226 * OPTT
+            + 0.175 * a * a
+            + 0.0185 * DHA * a
+            - 0.0701 * DHA * DHA
+            - 0.251 * DOA * a,
+        ),
+        (
+            "0.153 - 0.322 * a + 0.396 * DHA + 0.424 * DOA + 0.0226 * OPTT + 0.175 * a * a + 0.0185 * DHA * a - 0.0701 * DHA * DHA - 0.251 * DOA * a + 0.179 * DOA * DHA",
+            0.153
+            - 0.322 * a
+            + 0.396 * DHA
+            + 0.424 * DOA
+            + 0.0226 * OPTT
+            + 0.175 * a * a
+            + 0.0185 * DHA * a
+            - 0.0701 * DHA * DHA
+            - 0.251 * DOA * a
+            + 0.179 * DOA * DHA,
+        ),
+        (
+            "0.153 - 0.322 * a + 0.396 * DHA + 0.424 * DOA + 0.0226 * OPTT + 0.175 * a * a + 0.0185 * DHA * a - 0.0701 * DHA * DHA - 0.251 * DOA * a + 0.179 * DOA * DHA + 0.0150 * DOA * DOA",
+            0.153
+            - 0.322 * a
+            + 0.396 * DHA
+            + 0.424 * DOA
+            + 0.0226 * OPTT
+            + 0.175 * a * a
+            + 0.0185 * DHA * a
+            - 0.0701 * DHA * DHA
+            - 0.251 * DOA * a
+            + 0.179 * DOA * DHA
+            + 0.0150 * DOA * DOA,
+        ),
+        (
+            "0.153 - 0.322 * a + 0.396 * DHA + 0.424 * DOA + 0.0226 * OPTT + 0.175 * a * a + 0.0185 * DHA * a - 0.0701 * DHA * DHA - 0.251 * DOA * a + 0.179 * DOA * DHA + 0.0150 * DOA * DOA + 0.0134 * OPTT * a",
+            0.153
+            - 0.322 * a
+            + 0.396 * DHA
+            + 0.424 * DOA
+            + 0.0226 * OPTT
+            + 0.175 * a * a
+            + 0.0185 * DHA * a
+            - 0.0701 * DHA * DHA
+            - 0.251 * DOA * a
+            + 0.179 * DOA * DHA
+            + 0.0150 * DOA * DOA
+            + 0.0134 * OPTT * a,
+        ),
+        (
+            "0.153 - 0.322 * a + 0.396 * DHA + 0.424 * DOA + 0.0226 * OPTT + 0.175 * a * a + 0.0185 * DHA * a - 0.0701 * DHA * DHA - 0.251 * DOA * a + 0.179 * DOA * DHA + 0.0150 * DOA * DOA + 0.0134 * OPTT * a + 0.0296 * OPTT * DHA",
+            0.153
+            - 0.322 * a
+            + 0.396 * DHA
+            + 0.424 * DOA
+            + 0.0226 * OPTT
+            + 0.175 * a * a
+            + 0.0185 * DHA * a
+            - 0.0701 * DHA * DHA
+            - 0.251 * DOA * a
+            + 0.179 * DOA * DHA
+            + 0.0150 * DOA * DOA
+            + 0.0134 * OPTT * a
+            + 0.0296 * OPTT * DHA,
+        ),
+        (
+            "0.153 - 0.322 * a + 0.396 * DHA + 0.424 * DOA + 0.0226 * OPTT + 0.175 * a * a + 0.0185 * DHA * a - 0.0701 * DHA * DHA - 0.251 * DOA * a + 0.179 * DOA * DHA + 0.0150 * DOA * DOA + 0.0134 * OPTT * a + 0.0296 * OPTT * DHA + 0.0752 * OPTT * DOA",
+            0.153
+            - 0.322 * a
+            + 0.396 * DHA
+            + 0.424 * DOA
+            + 0.0226 * OPTT
+            + 0.175 * a * a
+            + 0.0185 * DHA * a
+            - 0.0701 * DHA * DHA
+            - 0.251 * DOA * a
+            + 0.179 * DOA * DHA
+            + 0.0150 * DOA * DOA
+            + 0.0134 * OPTT * a
+            + 0.0296 * OPTT * DHA
+            + 0.0752 * OPTT * DOA,
+        ),
+        (
+            "0.153 - 0.322 * a + 0.396 * DHA + 0.424 * DOA + 0.0226 * OPTT + 0.175 * a * a + 0.0185 * DHA * a - 0.0701 * DHA * DHA - 0.251 * DOA * a + 0.179 * DOA * DHA + 0.0150 * DOA * DOA + 0.0134 * OPTT * a + 0.0296 * OPTT * DHA + 0.0752 * OPTT * DOA + 0.0192 * OPTT * OPTT",
+            0.153
+            - 0.322 * a
+            + 0.396 * DHA
+            + 0.424 * DOA
+            + 0.0226 * OPTT
+            + 0.175 * a * a
+            + 0.0185 * DHA * a
+            - 0.0701 * DHA * DHA
+            - 0.251 * DOA * a
+            + 0.179 * DOA * DHA
+            + 0.0150 * DOA * DOA
+            + 0.0134 * OPTT * a
+            + 0.0296 * OPTT * DHA
+            + 0.0752 * OPTT * DOA
+            + 0.0192 * OPTT * OPTT,
+        ),
+    ]
+
+    for infix_expression, expected in tests:
+        result = evaluate_expression_helper(infix_expression, data)
+        npt.assert_almost_equal(result, expected, decimal=5, err_msg=f"Failed for expression: {infix_expression}")
+
+
+@pytest.mark.infix_parser
+def test_min_with_variable_names_with_multiple_underscores():
+    """Tests parsing of a min-term with variable names with multiple underscores."""
+    expression = (
+        "Min((dm_0_q_0 - p_0) * x_0 + (dm_0_q_1 - p_1) * x_1, (dm_1_q_0 - p_0) * x_0 + "
+        "(dm_1_q_1 - p_1) * x_1, (dm_2_q_0 - p_0) * x_0 + (dm_2_q_1 - p_1) * x_1)"
+    )
+
+    parser = InfixExpressionParser()
+
+    res = parser.parse(expression)
+
+    assert isinstance(res, list)

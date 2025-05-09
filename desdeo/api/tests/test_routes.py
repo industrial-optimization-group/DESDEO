@@ -14,7 +14,7 @@ from desdeo.api.models import (
     User,
 )
 from desdeo.api.routers.user_authentication import create_access_token
-from desdeo.problem import simple_knapsack_vectors
+from desdeo.problem.testproblems import simple_knapsack_vectors
 
 
 def login(client: TestClient, username="analyst", password="analyst") -> str:  # noqa: S107
