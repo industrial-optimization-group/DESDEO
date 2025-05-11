@@ -606,7 +606,7 @@ class UniformMixedIntegerCrossover(BaseCrossover):
 
 
 class BlendAlphaCrossover(BaseCrossover):
-    """Blend-alpha (BLX-α) crossover for continuous variables."""
+    """Blend-alpha (BLX-α) crossover for continuous problems."""
 
     @property
     def provided_topics(self) -> dict[int, Sequence[CrossoverMessageTopics]]:
@@ -614,11 +614,11 @@ class BlendAlphaCrossover(BaseCrossover):
             0: [],
             1: [
                 CrossoverMessageTopics.XOVER_PROBABILITY,
-                CrossoverMessageTopics.XOVER_DISTRIBUTION,
+                CrossoverMessageTopics.ALPHA,
             ],
             2: [
                 CrossoverMessageTopics.XOVER_PROBABILITY,
-                CrossoverMessageTopics.XOVER_DISTRIBUTION,
+                CrossoverMessageTopics.ALPHA,
                 CrossoverMessageTopics.PARENTS,
                 CrossoverMessageTopics.OFFSPRINGS,
             ],
@@ -637,6 +637,20 @@ class BlendAlphaCrossover(BaseCrossover):
         xover_probability: float = 1.0,
         **kwargs,
     ):
+        """Initialize the blend alpha crossover operator.
+
+        Args:
+            problem (Problem): the problem object.
+            seed (int): the seed used in the random number generator for choosing the crossover point.
+            alpha (float, optional): non-negative blending factor α that controls the extent to which
+                offspring may be sampled outside the interval defined by each pair of parent
+                genes. alpha = 0 restricts children strictly within the
+                parents range, larger alpha allows some outliers. Defaults to 0.5.
+            xover_probability (float, optional): the crossover probability parameter.
+                Ranges between 0 and 1.0. Defaults to 1.0.
+            kwargs: Additional keyword arguments. These are passed to the Subscriber class. At the very least, the
+                publisher must be passed. See the Subscriber class for more information.
+        """
         super().__init__(problem=problem, **kwargs)
 
         if problem.variable_domain is not VariableDomainTypeEnum.continuous:
