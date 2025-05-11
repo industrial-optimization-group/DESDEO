@@ -14,7 +14,7 @@ from desdeo.emo.operators.crossover import (
     SimulatedBinaryCrossover,
     SinglePointBinaryCrossover,
     UniformIntegerCrossover,
-    UniformMixedIntegerCrossover,
+    UniformMixedIntegerCrossover, BlendAlphaCrossover,
 )
 from desdeo.emo.operators.evaluator import EMOEvaluator
 from desdeo.emo.operators.generator import (
@@ -36,13 +36,14 @@ from desdeo.emo.operators.selection import (
     RVEASelector,
 )
 from desdeo.emo.operators.termination import MaxEvaluationsTerminator
+from desdeo.problem import VariableDomainTypeEnum
 from desdeo.problem.testproblems import (
     dtlz2,
     momip_ti2,
     river_pollution_problem,
     simple_integer_test_problem,
     simple_knapsack,
-    simple_knapsack_vectors,
+    simple_knapsack_vectors, simple_test_problem,
 )
 from desdeo.tools.patterns import Publisher, Subscriber
 
@@ -709,3 +710,33 @@ def test_real_rvea():
     solver, publisher = rvea(problem=problem, n_generations=10)
 
     _ = solver()
+
+
+@pytest.mark.ea
+def test_blend_alpha_crossover():
+    """Test whether the BLX-α (blend‐alpha) crossover operator works as intended."""
+    publisher = Publisher()
+    problem = simple_test_problem()
+    # problem must be continuous
+    assert problem.variable_domain is VariableDomainTypeEnum.continuous
+
+    # create operator
+    crossover = BlendAlphaCrossover(
+        problem=problem,
+        publisher=publisher
+    )
+    num_vars = len(crossover.variable_symbols)
+
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher)
+    generator = RandomGenerator(problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0)
+
+    population, outputs = generator.do()
+
+    # pick a custom mating order (odd-length to test padding)
+    to_mate = [0, 9, 1, 8, 2]
+    offspring = crossover.do(population=population, to_mate=to_mate)
+
+    assert offspring.shape == (len(to_mate), num_vars)
+    # offspring must differ from parents
+    with npt.assert_raises(AssertionError):
+        npt.assert_allclose(population, offspring)
