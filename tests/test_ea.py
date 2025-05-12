@@ -12,6 +12,7 @@ from desdeo.emo.methods.bases import template1
 from desdeo.emo.methods.EAs import nsga3, nsga3_mixed_integer, rvea, rvea_mixed_integer
 from desdeo.emo.operators.crossover import (
     BlendAlphaCrossover,
+    LocalCrossover,
     SimulatedBinaryCrossover,
     SingleArithmeticCrossover,
     SinglePointBinaryCrossover,
@@ -759,6 +760,33 @@ def test_single_arithmetic_crossover():
     offspring = crossover.do(population=population, to_mate=to_mate)
 
     assert offspring.shape == (len(to_mate), num_vars)
+
+    with npt.assert_raises(AssertionError):
+        npt.assert_allclose(population[to_mate], offspring)
+
+    for i in range(len(to_mate)):
+        assert not np.allclose(population[to_mate[i]], offspring[i])
+
+
+@pytest.mark.ea
+def test_local_crossover():
+    publisher = Publisher()
+    problem = simple_test_problem()
+    assert problem.variable_domain is VariableDomainTypeEnum.continuous
+
+    crossover = LocalCrossover(problem=problem, publisher=publisher, xover_probability=1.0)
+    num_vars = len(crossover.variable_symbols)
+
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher)
+    generator = RandomGenerator(problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0)
+
+    population, outputs = generator.do()
+
+    to_mate = [0, 9, 1, 8, 2]
+    offspring = crossover.do(population=population, to_mate=to_mate)
+
+    expected_len = len(to_mate) if len(to_mate) % 2 == 0 else len(to_mate) + 1
+    assert offspring.shape == (expected_len, num_vars)
 
     with npt.assert_raises(AssertionError):
         npt.assert_allclose(population[to_mate], offspring)
