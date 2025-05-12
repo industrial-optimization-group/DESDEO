@@ -925,10 +925,11 @@ class SingleArithmeticCrossover(BaseCrossover):
 
 
 class LocalCrossover(BaseCrossover):
-    """Local Arithmetic Crossover for continuous problems."""
+    """Local Crossover for continuous problems."""
 
     @property
     def provided_topics(self) -> dict[int, Sequence[CrossoverMessageTopics]]:
+        """The message topics provided by the local crossover operator."""
         return {
             0: [],
             1: [
@@ -943,9 +944,18 @@ class LocalCrossover(BaseCrossover):
 
     @property
     def interested_topics(self):
+        """The message topics that the local crossover operator is interested in."""
         return []
 
     def __init__(self, problem: Problem, xover_probability: float = 1.0, seed: int = 0, **kwargs):
+        """Initialize the local crossover operator.
+
+        Args:
+            problem (Problem): the problem object.
+            xover_probability (float): probability of performing crossover.
+            seed (int): random seed for reproducibility.
+            kwargs: additional keyword arguments.
+        """
         super().__init__(problem=problem, **kwargs)
 
         if not 0 <= xover_probability <= 1:
@@ -957,6 +967,18 @@ class LocalCrossover(BaseCrossover):
         self.offspring_population: pl.DataFrame | None = None
 
     def do(self, *, population: pl.DataFrame, to_mate: list[int] | None = None) -> pl.DataFrame:
+        """Perform Local Crossover.
+
+        Args:
+            population (pl.DataFrame): the population to perform the crossover with. The DataFrame
+                contains the decision vectors, the target vectors, and the constraint vectors.
+            to_mate (list[int] | None): the indices of the population members that should
+                participate in the crossover. If `None`, the whole population is subject
+                to the crossover.
+
+        Returns:
+            pl.DataFrame: the offspring resulting from the crossover.
+        """
         self.parent_population = population
         pop_size = population.shape[0]
         num_var = len(self.variable_symbols)
@@ -999,9 +1021,11 @@ class LocalCrossover(BaseCrossover):
         return self.offspring_population
 
     def update(self, *_, **__):
+        """Do nothing."""
         pass
 
     def state(self) -> Sequence[Message]:
+        """Return the state of the local crossover operator."""
         if self.parent_population is None:
             return []
 
