@@ -11,10 +11,11 @@ from desdeo.emo.hooks.archivers import Archive, FeasibleArchive, NonDominatedArc
 from desdeo.emo.methods.bases import template1
 from desdeo.emo.methods.EAs import nsga3, nsga3_mixed_integer, rvea, rvea_mixed_integer
 from desdeo.emo.operators.crossover import (
+    BlendAlphaCrossover,
     SimulatedBinaryCrossover,
     SinglePointBinaryCrossover,
     UniformIntegerCrossover,
-    UniformMixedIntegerCrossover, BlendAlphaCrossover,
+    UniformMixedIntegerCrossover,
 )
 from desdeo.emo.operators.evaluator import EMOEvaluator
 from desdeo.emo.operators.generator import (
@@ -43,7 +44,8 @@ from desdeo.problem.testproblems import (
     river_pollution_problem,
     simple_integer_test_problem,
     simple_knapsack,
-    simple_knapsack_vectors, simple_test_problem,
+    simple_knapsack_vectors,
+    simple_test_problem,
 )
 from desdeo.tools.patterns import Publisher, Subscriber
 
@@ -92,7 +94,7 @@ def test_recombination():
     mutation = BoundedPolynomialMutation(problem=problem, publisher=publisher, seed=0)
 
     population = pl.DataFrame(
-        np.vstack((np.zeros((10, 12)), np.zeros((10, 12)) + 1)), schema=[f"x_{i+1}" for i in range(12)]
+        np.vstack((np.zeros((10, 12)), np.zeros((10, 12)) + 1)), schema=[f"x_{i + 1}" for i in range(12)]
     )
 
     to_mate = [(i, i + 10) for i in range(10)]
@@ -714,17 +716,14 @@ def test_real_rvea():
 
 @pytest.mark.ea
 def test_blend_alpha_crossover():
-    """Test whether the BLX-α (blend‐alpha) crossover operator works as intended."""
+    """Test whether the BLX-alpha (blend-alpha) crossover operator works as intended."""
     publisher = Publisher()
     problem = simple_test_problem()
     # problem must be continuous
     assert problem.variable_domain is VariableDomainTypeEnum.continuous
 
     # create operator
-    crossover = BlendAlphaCrossover(
-        problem=problem,
-        publisher=publisher
-    )
+    crossover = BlendAlphaCrossover(problem=problem, publisher=publisher)
     num_vars = len(crossover.variable_symbols)
 
     evaluator = EMOEvaluator(problem=problem, publisher=publisher)

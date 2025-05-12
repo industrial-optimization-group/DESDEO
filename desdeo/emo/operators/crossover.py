@@ -583,7 +583,7 @@ class UniformMixedIntegerCrossover(BaseCrossover):
         """Do nothing. This is just the basic single point binary crossover operator."""
 
     def state(self) -> Sequence[Message]:
-        """Return the state of the single ponit binary crossover operator."""
+        """Return the state of the single point binary crossover operator."""
         if self.parent_population is None or self.offspring_population is None:
             return []
         if self.verbosity == 0:
@@ -606,10 +606,11 @@ class UniformMixedIntegerCrossover(BaseCrossover):
 
 
 class BlendAlphaCrossover(BaseCrossover):
-    """Blend-alpha (BLX-α) crossover for continuous problems."""
+    """Blend-alpha (BLX-alpha) crossover for continuous problems."""
 
     @property
     def provided_topics(self) -> dict[int, Sequence[CrossoverMessageTopics]]:
+        """The message topics provided by the blend alpha crossover operator."""
         return {
             0: [],
             1: [
@@ -626,6 +627,7 @@ class BlendAlphaCrossover(BaseCrossover):
 
     @property
     def interested_topics(self):
+        """The message topics provided by the blend alpha crossover operator."""
         return []
 
     def __init__(
@@ -642,7 +644,7 @@ class BlendAlphaCrossover(BaseCrossover):
         Args:
             problem (Problem): the problem object.
             seed (int): the seed used in the random number generator for choosing the crossover point.
-            alpha (float, optional): non-negative blending factor α that controls the extent to which
+            alpha (float, optional): non-negative blending factor 'alpha' that controls the extent to which
                 offspring may be sampled outside the interval defined by each pair of parent
                 genes. alpha = 0 restricts children strictly within the
                 parents range, larger alpha allows some outliers. Defaults to 0.5.
@@ -668,9 +670,13 @@ class BlendAlphaCrossover(BaseCrossover):
         self.parent_population: pl.DataFrame | None = None
         self.offspring_population: pl.DataFrame | None = None
 
-    def do(self, *, population: pl.DataFrame, to_mate: list[int] | None = None,) -> pl.DataFrame:
-        """
-        Perform BLX-α crossover.
+    def do(
+        self,
+        *,
+        population: pl.DataFrame,
+        to_mate: list[int] | None = None,
+    ) -> pl.DataFrame:
+        """Perform BLX-alpha crossover.
 
         Args:
             population (pl.DataFrame): the population to perform the crossover with. The DataFrame
@@ -713,11 +719,11 @@ class BlendAlphaCrossover(BaseCrossover):
 
         rng = np.random.default_rng(self.seed)
 
-        U1 = rng.random((mating_pop_size // 2, num_var))
-        U2 = rng.random((mating_pop_size // 2, num_var))
+        unoform_1 = rng.random((mating_pop_size // 2, num_var))
+        uniform_2 = rng.random((mating_pop_size // 2, num_var))
 
-        offspring1 = lower + U1 * (upper - lower)
-        offspring2 = lower + U2 * (upper - lower)
+        offspring1 = lower + unoform_1 * (upper - lower)
+        offspring2 = lower + uniform_2 * (upper - lower)
 
         mask = rng.random(mating_pop_size // 2) > self.xover_probability
         offspring1[mask, :] = parents1[mask, :]
@@ -728,7 +734,8 @@ class BlendAlphaCrossover(BaseCrossover):
             offspring = offspring[:-1, :]
 
         self.offspring_population = pl.from_numpy(offspring, schema=self.variable_symbols).select(
-            pl.all().cast(pl.Float64))
+            pl.all().cast(pl.Float64)
+        )
         self.notify()
         return self.offspring_population
 
@@ -736,6 +743,7 @@ class BlendAlphaCrossover(BaseCrossover):
         """Do nothing."""
 
     def state(self) -> Sequence[Message]:
+        """Return the state of the blend-alpha crossover operator."""
         if self.parent_population is None:
             return []
         msgs: list[Message] = []
@@ -754,17 +762,19 @@ class BlendAlphaCrossover(BaseCrossover):
                     value=self.alpha,
                 )
             )
-        if self.verbosity >= 2:
-            msgs.extend([
-                PolarsDataFrameMessage(
-                    topic=CrossoverMessageTopics.PARENTS,
-                    source=self.__class__.__name__,
-                    value=self.parent_population,
-                ),
-                PolarsDataFrameMessage(
-                    topic=CrossoverMessageTopics.OFFSPRINGS,
-                    source=self.__class__.__name__,
-                    value=self.offspring_population,
-                ),
-            ])
+        if self.verbosity >= 2:  # noqa: PLR2004
+            msgs.extend(
+                [
+                    PolarsDataFrameMessage(
+                        topic=CrossoverMessageTopics.PARENTS,
+                        source=self.__class__.__name__,
+                        value=self.parent_population,
+                    ),
+                    PolarsDataFrameMessage(
+                        topic=CrossoverMessageTopics.OFFSPRINGS,
+                        source=self.__class__.__name__,
+                        value=self.offspring_population,
+                    ),
+                ]
+            )
         return msgs
