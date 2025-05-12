@@ -507,11 +507,9 @@ class IntegerRandomMutation(BaseMutation):
 
 
 class UniformMutation(BaseMutation):
-    """Implements the bounded polynomial mutation operator.
-
+    """Implements uniform mutation operator.
     Reference:
-        Deb, K., & Goyal, M. (1996). A combined genetic adaptive search (GeneAS) for
-        engineering design. Computer Science and informatics, 26(4), 30-45, 1996.
+    Back, Thomas. Evolutionary Algorithms in Theory and Practice, 1996
     """
 
     @property

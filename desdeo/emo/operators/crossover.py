@@ -524,6 +524,8 @@ class BLXAlphaCrossover(BaseCrossover):
 
     Reference:
 
+    Larry J. Eshelman, J. David Schaffer, Real-Coded Genetic Algorithms and Interval-Schemata,
+    Foundations of Genetic Algorithms, Elsevier, Volume 2, 1993, Pages 187-202, https://doi.org/10.1016/B978-0-08-094832-4.50018-0.
     """
 
     @property
