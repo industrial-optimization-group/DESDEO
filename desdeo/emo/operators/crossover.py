@@ -778,3 +778,147 @@ class BlendAlphaCrossover(BaseCrossover):
                 ]
             )
         return msgs
+
+
+class SingleArithmeticCrossover(BaseCrossover):
+    """Single Arithmetic Crossover for continuous problems."""
+
+    @property
+    def provided_topics(self) -> dict[int, Sequence[CrossoverMessageTopics]]:
+        """The message topics provided by the single arithmetic crossover operator."""
+        return {
+            0: [],  # No topics for 0
+            1: [
+                CrossoverMessageTopics.XOVER_PROBABILITY,  # Probability of crossover
+            ],
+            2: [
+                CrossoverMessageTopics.XOVER_PROBABILITY,  # Crossover probability
+                CrossoverMessageTopics.PARENTS,  # Parents involved in crossover
+                CrossoverMessageTopics.OFFSPRINGS,  # Offsprings created from crossover
+            ],
+        }
+
+    @property
+    def interested_topics(self):
+        """The message topics that the single arithmetic crossover operator is interested in."""
+        return []
+
+    def __init__(self, problem: Problem, xover_probability: float = 1.0, seed: int = 0, **kwargs):
+        """Initialize the single arithmetic crossover operator.
+
+        Args:
+            problem (Problem): the problem object.
+            xover_probability (float): probability of performing crossover.
+            seed (int): random seed for reproducibility.
+            kwargs: additional keyword arguments.
+        """
+        super().__init__(problem=problem, **kwargs)
+
+        if not 0 <= xover_probability <= 1:
+            raise ValueError("Crossover probability must be in [0, 1].")
+
+        self.xover_probability = xover_probability
+        self.seed = seed
+        self.parent_population: pl.DataFrame | None = None
+        self.offspring_population: pl.DataFrame | None = None
+
+    def do(self, *, population: pl.DataFrame, to_mate: list[int] | None = None) -> pl.DataFrame:
+        """Perform Single Arithmetic Crossover.
+
+        Args:
+            population (pl.DataFrame): the population to perform the crossover with. The DataFrame
+                contains the decision vectors, the target vectors, and the constraint vectors.
+            to_mate (list[int] | None): the indices of the population members that should
+                participate in the crossover. If `None`, the whole population is subject
+                to the crossover.
+
+        Returns:
+            pl.DataFrame: the offspring resulting from the crossover.
+        """
+
+        parent_population = population
+        pop_size = population.shape[0]
+        num_var = len(self.variable_symbols)
+
+        parent_decision_vars = population[self.variable_symbols].to_numpy()
+
+        if to_mate is None:
+            shuffled_ids = list(range(pop_size))
+            np.random.shuffle(shuffled_ids)
+        else:
+            shuffled_ids = to_mate
+
+        mating_pop_size = len(shuffled_ids)
+        if mating_pop_size % 2 == 1:
+            shuffled_ids.append(shuffled_ids[0])
+            mating_pop_size += 1
+
+        mating_pop = parent_decision_vars[shuffled_ids]
+        parents1 = mating_pop[0::2, :]
+        parents2 = mating_pop[1::2, :]
+
+        rng = np.random.default_rng(self.seed)
+
+        offspring = np.empty((mating_pop_size, num_var))
+
+        # Perform crossover with probability xover_probability
+        for i in range(mating_pop_size // 2):
+            if rng.random() < self.xover_probability:
+                crossover_point = rng.integers(0, num_var)
+
+                offspring[2 * i, :crossover_point] = parents1[i, :crossover_point]
+                offspring[2 * i, crossover_point:] = (parents1[i, crossover_point:] + parents2[i, crossover_point:]) / 2
+
+                offspring[2 * i + 1, :crossover_point] = parents2[i, :crossover_point]
+                offspring[2 * i + 1, crossover_point:] = (parents1[i, crossover_point:] + parents2[i,
+                                                                                          crossover_point:]) / 2
+            else:
+                offspring[2 * i] = parents1[i]
+                offspring[2 * i + 1] = parents2[i]
+
+        # Convert offspring to DataFrame
+        self.offspring_population = pl.from_numpy(offspring, schema=self.variable_symbols).select(
+            pl.all().cast(pl.Float64))
+
+        self.notify()
+        return self.offspring_population
+
+    def update(self, *_, **__):
+        """Do nothing."""
+        pass
+
+    def state(self) -> Sequence[Message]:
+        """Return the state of the single arithmetic crossover operator."""
+        if self.parent_population is None:
+            return []
+
+        msgs: list[Message] = []
+
+        # Messages for crossover probability
+        if self.verbosity >= 1:
+            msgs.append(
+                FloatMessage(
+                    topic=CrossoverMessageTopics.XOVER_PROBABILITY,
+                    source=self.__class__.__name__,
+                    value=self.xover_probability,
+                )
+            )
+
+        # Messages for parents and offspring
+        if self.verbosity >= 2:  # More detailed info
+            msgs.extend(
+                [
+                    PolarsDataFrameMessage(
+                        topic=CrossoverMessageTopics.PARENTS,
+                        source=self.__class__.__name__,
+                        value=self.parent_population,
+                    ),
+                    PolarsDataFrameMessage(
+                        topic=CrossoverMessageTopics.OFFSPRINGS,
+                        source=self.__class__.__name__,
+                        value=self.offspring_population,
+                    ),
+                ]
+            )
+
+        return msgs
