@@ -24,7 +24,7 @@ collected in the section [Notation summary](#notation-summary).
 !!! question "Why and where is this relevant in DESDEO?"
     Understanding the definition of a multiobjective optimization problem is
     important when defining problems in DESDEO and to understand how problems are modeled. 
-    See [The problem format](../explanation/problem_format.md#the-problem-format).
+    See [The problem format](../explanation/problem_format.ipynb#the-problem-format).
 
 A multiobjective optimization problem is defined by three main components:
 
@@ -89,7 +89,7 @@ to multiobjective optimization problems next.
 
 !!! question "Why and where is this relevant in DESDEO?"
     It is important to understand what an optimal solution is in multiobjective optimization when
-    choosing a solver. See [Solvers and solver interfaces](../explanation/solvers.md#solvers-and-solver-interfaces).
+    choosing a solver. See [Solvers and solver interfaces](../explanation/solvers.ipynb#solvers-and-solver-interfaces).
 
     In evolutionary multiobjective optimization, the discussed concept of dominance plays a key role, and understanding
     it is important when operating evolutionary methods. See [Evolutionary multiobjective optimization](#evolutionary-multiobjective-optimization).
@@ -218,7 +218,7 @@ to support decision maker's in finding their most preferred solution.
     scalarized problems lead to solutions that
     match, as best as possible, the included preferences.
     Especially the introduced reference points are a recurring element in many scalarization
-    functions. See [Scalarization](../explanation/scalarization.md#scalarization).
+    functions. See [Scalarization](../explanation/scalarization.ipynb#scalarization).
 
 Thus far, we have only defined what optimal solutions to multiobjective optimization problems are.
 However, we have not yet discussed how to find these solutions. We will next discuss one such

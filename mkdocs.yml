@@ -17,11 +17,11 @@ nav:
       - "Contributing to DESDEO": "tutorials/contributing.md"
   - "Explanation":
       - "": "explanation/index.md"
-      - "The problem format": "explanation/problem_format.md"
-      - "Parsing and evaluating": "explanation/parsing_and_evaluating.md"
-      - "Scalarization": "explanation/scalarization.md"
-      - "Simulator support": "explanation/simulator_support.md"
-      - "Solvers": "explanation/solvers.md"
+      - "The problem format": "explanation/problem_format.ipynb"
+      - "Parsing and evaluating": "explanation/parsing_and_evaluating.ipynb"
+      - "Scalarization": "explanation/scalarization.ipynb"
+      - "Simulator support": "explanation/simulator_support.ipynb"
+      - "Solvers": "explanation/solvers.ipynb"
   - "Guides":
       - "": "howtoguides/index.md"
       - "How to define a multiobjective optimization problem": "howtoguides/problem.md"
@@ -90,6 +90,11 @@ plugins:
       execute: false
       include_requirejs: true
       custom_mathjax_url: "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS_CHTML-full,Safe"
+      remove_tag_config:
+        remove_input_tags:
+          - hide_code
+        remove_cell_tags:
+          - remove_cell
 
 markdown_extensions:
   - admonition

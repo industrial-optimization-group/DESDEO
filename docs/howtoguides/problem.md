@@ -2,7 +2,7 @@
 There are multiple types of problems that may be defined in DESDEO. Here,
 examples on how to define each type of problem are provided. To understand
 how problems are modelled in DESDEO, please refer to
-[the problem format explanation](../explanation/problem_format.md).
+[the problem format explanation](../explanation/problem_format.ipynb).
 Problems with different types of objectives, constraints and extra functions
 can also be defined. For example, the same problem can have analytical and simulator
 and surrogate based objectives. These types of problems can be evaluated
@@ -116,7 +116,7 @@ variables = [
     can also be TensorVariables with each element of the TensorVariable also a list of samples.
 
 Next, we can define the simulators that define the problem's objectives, constraints and extra
-functions. These simulators are given paths to their [simulator files](../explanation/simulator_support.md#simulator-file)
+functions. These simulators are given paths to their [simulator files](../explanation/simulator_support.ipynb#simulator-file)
 that connect DESDEO to the simulators. The file path is given as either a string or a pyhton's
 pathlib.Path object. Optionally, the simulators can be given some parameters as a dict
 as well. These parameters are given to the simulator while evaluating the problem.
