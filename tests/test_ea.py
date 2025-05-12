@@ -11,6 +11,7 @@ from desdeo.emo.hooks.archivers import Archive, FeasibleArchive, NonDominatedArc
 from desdeo.emo.methods.bases import template1
 from desdeo.emo.methods.EAs import nsga3, nsga3_mixed_integer, rvea, rvea_mixed_integer
 from desdeo.emo.operators.crossover import (
+    BlendAlphaCrossover,
     SimulatedBinaryCrossover,
     SinglePointBinaryCrossover,
     UniformIntegerCrossover,
@@ -36,6 +37,7 @@ from desdeo.emo.operators.selection import (
     RVEASelector,
 )
 from desdeo.emo.operators.termination import MaxEvaluationsTerminator
+from desdeo.problem import VariableDomainTypeEnum
 from desdeo.problem.testproblems import (
     dtlz2,
     momip_ti2,
@@ -43,6 +45,7 @@ from desdeo.problem.testproblems import (
     simple_integer_test_problem,
     simple_knapsack,
     simple_knapsack_vectors,
+    simple_test_problem,
 )
 from desdeo.tools.patterns import Publisher, Subscriber
 
@@ -91,7 +94,7 @@ def test_recombination():
     mutation = BoundedPolynomialMutation(problem=problem, publisher=publisher, seed=0)
 
     population = pl.DataFrame(
-        np.vstack((np.zeros((10, 12)), np.zeros((10, 12)) + 1)), schema=[f"x_{i+1}" for i in range(12)]
+        np.vstack((np.zeros((10, 12)), np.zeros((10, 12)) + 1)), schema=[f"x_{i + 1}" for i in range(12)]
     )
 
     to_mate = [(i, i + 10) for i in range(10)]
@@ -709,3 +712,30 @@ def test_real_rvea():
     solver, publisher = rvea(problem=problem, n_generations=10)
 
     _ = solver()
+
+
+@pytest.mark.ea
+def test_blend_alpha_crossover():
+    """Test whether the BLX-alpha (blend-alpha) crossover operator works as intended."""
+    publisher = Publisher()
+    problem = simple_test_problem()
+    # problem must be continuous
+    assert problem.variable_domain is VariableDomainTypeEnum.continuous
+
+    # create operator
+    crossover = BlendAlphaCrossover(problem=problem, publisher=publisher)
+    num_vars = len(crossover.variable_symbols)
+
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher)
+    generator = RandomGenerator(problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0)
+
+    population, outputs = generator.do()
+
+    # pick a custom mating order (odd-length to test padding)
+    to_mate = [0, 9, 1, 8, 2]
+    offspring = crossover.do(population=population, to_mate=to_mate)
+
+    assert offspring.shape == (len(to_mate), num_vars)
+    # offspring must differ from parents
+    with npt.assert_raises(AssertionError):
+        npt.assert_allclose(population, offspring)

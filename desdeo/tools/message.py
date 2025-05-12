@@ -20,6 +20,8 @@ class CrossoverMessageTopics(Enum):
     """ The parents selected for crossover. """
     OFFSPRINGS = "OFFSPRINGS"
     """ The offsprings generated from the crossover. """
+    ALPHA = "ALPHA"
+    """ Alpha parameter used in crossover. """
 
 
 class MutationMessageTopics(Enum):
