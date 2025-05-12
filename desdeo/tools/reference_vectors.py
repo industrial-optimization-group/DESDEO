@@ -151,6 +151,7 @@ class ReferenceVectors(Subscriber):
         adaptation_frequency: int = 0,
         verbosity: int = 2,
         lattice_resolution: int | None = None,
+        number_of_objectives: int = 0,
         number_of_vectors: int | None = None,
         creation_type: VectorCreationOptions = VectorCreationOptions.SIMPLEX,
     ):
@@ -191,7 +192,10 @@ class ReferenceVectors(Subscriber):
                 ]
 
         super().__init__(
-            publisher, interested_topics=interested_topics, provided_topics=provided_topics, verbosity=verbosity
+            publisher,
+            interested_topics=interested_topics,
+            provided_topics=provided_topics,
+            verbosity=verbosity,
         )
         self.number_of_objectives = number_of_objectives
         self.lattice_resolution = lattice_resolution
@@ -202,9 +206,13 @@ class ReferenceVectors(Subscriber):
         if creation_type == VectorCreationOptions.S_ENERGY:
             raise NotImplementedError("Riesz s-energy criterion not implemented.")
             if number_of_vectors is None:
-                raise ValueError("Number of vectors must be specified for Riesz s-energy criterion.")
+                raise ValueError(
+                    "Number of vectors must be specified for Riesz s-energy criterion."
+                )
         if not (lattice_resolution or number_of_vectors):
-            raise ValueError("Either lattice_resolution or number_of_vectors must be specified.")
+            raise ValueError(
+                "Either lattice_resolution or number_of_vectors must be specified."
+            )
 
         if number_of_vectors is not None:
             temp_lattice_resolution = 0
@@ -241,9 +249,13 @@ class ReferenceVectors(Subscriber):
         self.number_of_vectors = number_of_vectors
         temp1 = range(1, self.number_of_objectives + self.lattice_resolution)
         temp1 = np.array(list(combinations(temp1, self.number_of_objectives - 1)))
-        temp2 = np.array([range(self.number_of_objectives - 1)] * self.number_of_vectors)
+        temp2 = np.array(
+            [range(self.number_of_objectives - 1)] * self.number_of_vectors
+        )
         temp = temp1 - temp2 - 1
-        weight = np.zeros((self.number_of_vectors, self.number_of_objectives), dtype=int)
+        weight = np.zeros(
+            (self.number_of_vectors, self.number_of_objectives), dtype=int
+        )
         weight[:, 0] = temp[:, 0]
         for i in range(1, self.number_of_objectives - 1):
             weight[:, i] = temp[:, i] - temp[:, i - 1]
@@ -284,7 +296,9 @@ class ReferenceVectors(Subscriber):
 
         self.normalize()
 
-    def interactive_adapt_1(self, z: np.ndarray, translation_param: float = 0.2) -> None:
+    def interactive_adapt_1(
+        self, z: np.ndarray, translation_param: float = 0.2
+    ) -> None:
         """Adapt reference vectors using the information about prefererred solution(s) selected by the Decision maker.
 
         Args:
@@ -295,15 +309,25 @@ class ReferenceVectors(Subscriber):
         if z.shape[0] == 1:
             # single preferred solution
             # calculate new reference vectors
-            self.values = translation_param * self.initial_values + ((1 - translation_param) * z)
-            self.values_planar = translation_param * self.initial_values_planar + ((1 - translation_param) * z)
+            self.values = translation_param * self.initial_values + (
+                (1 - translation_param) * z
+            )
+            self.values_planar = translation_param * self.initial_values_planar + (
+                (1 - translation_param) * z
+            )
 
         else:
             # multiple preferred solutions
             # calculate new reference vectors for each preferred solution
-            values = [translation_param * self.initial_values + ((1 - translation_param) * z_i) for z_i in z]
+            values = [
+                translation_param * self.initial_values
+                + ((1 - translation_param) * z_i)
+                for z_i in z
+            ]
             values_planar = [
-                translation_param * self.initial_values_planar + ((1 - translation_param) * z_i) for z_i in z
+                translation_param * self.initial_values_planar
+                + ((1 - translation_param) * z_i)
+                for z_i in z
             ]
 
             # combine arrays of reference vectors into a single array and update reference vectors
@@ -312,7 +336,9 @@ class ReferenceVectors(Subscriber):
 
         self.normalize()
 
-    def interactive_adapt_2(self, z: np.ndarray, predefined_distance: float = 0.2) -> None:
+    def interactive_adapt_2(
+        self, z: np.ndarray, predefined_distance: float = 0.2
+    ) -> None:
         """Adapt reference vectors by using the information about non-preferred solution(s) selected by the Decision maker.
 
         After the Decision maker has specified non-preferred solution(s), Euclidian distance between normalized solution
@@ -381,8 +407,12 @@ class ReferenceVectors(Subscriber):
             (Default value = 0.2)
 
         """
-        self.values = self.initial_values * translation_param + ((1 - translation_param) * ref_point)
-        self.values_planar = self.initial_values_planar * translation_param + ((1 - translation_param) * ref_point)
+        self.values = self.initial_values * translation_param + (
+            (1 - translation_param) * ref_point
+        )
+        self.values_planar = self.initial_values_planar * translation_param + (
+            (1 - translation_param) * ref_point
+        )
         self.normalize()
 
     def interactive_adapt_4(self, preferred_ranges: np.ndarray) -> None:
