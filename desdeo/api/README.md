@@ -11,7 +11,7 @@ new ones. Except for deployment (TODO).
 
 ## Initializing the database
 
-To initialize the database, run the script `init_db.py` with the following command:
+To initialize the database, run the script `db_init.py` with the following command:
 
 ```shell
 python db_init.py
