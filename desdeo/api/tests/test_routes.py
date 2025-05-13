@@ -9,8 +9,8 @@ from desdeo.api.models import (
     InteractiveSessionDB,
     ProblemGetRequest,
     ProblemInfo,
-    RPMSolveRequest,
     ReferencePoint,
+    RPMSolveRequest,
     User,
 )
 from desdeo.api.routers.user_authentication import create_access_token

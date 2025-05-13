@@ -1,8 +1,6 @@
 """This module initializes the database."""
 
-import json
 import warnings
-from os import walk
 
 from sqlalchemy_utils import database_exists
 from sqlmodel import Session, SQLModel
@@ -11,7 +9,7 @@ from desdeo.api.config import ServerDebugConfig, SettingsConfig
 from desdeo.api.db import engine
 from desdeo.api.models import ProblemDB, User, UserRole
 from desdeo.api.routers.user_authentication import get_password_hash
-from desdeo.problem import river_pollution_problem
+from desdeo.problem.testproblems import river_pollution_problem
 
 if __name__ == "__main__":
     if SettingsConfig.debug:

@@ -40,7 +40,7 @@ class PreferenceType(TypeDecorator):
                 case "bounds":
                     return Bounds.model_validate(value)
                 case _:
-                    msg = f"No preference_type '{value["preference_type"]}' found."
+                    msg = f"No preference_type '{value['preference_type']}' found."
                     print(msg)
 
         return value

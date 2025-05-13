@@ -42,6 +42,7 @@ bcrypt = "^4.3.0"
 python-jose = {extras = ["cryptography"], version = "^3.4.0"}
 python-multipart = "^0.0.20"
 uvicorn = "^0.34.2"
+sqlalchemy-utils = "^0.41.2"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.11"
