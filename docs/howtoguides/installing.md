@@ -91,13 +91,15 @@ There are many ways to setup and activate a virtual environment. Some examples h
     This assumes you already have `poetry` available on your system.
 
     ```bash
-    poetry shell # (1)!
+    poetry env activate # (1)!
     ```
 
     1. This assumes your system's Python version is 3.12. If not, you can use `poetry env use python3.12`, but this requires that version
-        3.12 is available on your system.
+        3.12 is available on your system. 
 
-    You virtual environment should be now active.
+    __This command will print the command you must execute to activate the virtual environment. It does
+    not activate it.__ Copy-paste the command printed by poetry and execute it to activate the virtual
+    environment.
 
 !!! Note
 
@@ -123,7 +125,7 @@ poetry install
 If you wish to install the development dependencies as well, then run the following command instead:
 
 ```bash
-poetry install -E dev
+poetry install --with dev
 ```
 
 And now we should be done! DESDEO should now be available on your system in your current virtual environment.
@@ -280,7 +282,7 @@ You can then install DESDEO and the required packages by typing
 ```bash
 poetry install
 ```
-If you want the development dependencies installed as well, use `poetry install -E dev` instead.
+If you want the development dependencies installed as well, use `poetry install --with dev` instead.
 
 !!! question "Why did I have to do that thing with the env configs?"
 
