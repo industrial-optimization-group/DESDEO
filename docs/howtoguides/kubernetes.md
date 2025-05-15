@@ -1,5 +1,10 @@
 # How to host a DESDEO web application on Kubernetes
 
+!!! Note
+
+    This guide is for the previous version of the web-API and is kept here for documentation (heh!) purposes. It will be updated eventually. The old web-API can be found in the git branch tagged `old_web_api`.
+
+
 This is a how-to guide to setting up a DESDEO web application on Kubernetes. Specifically, the aim is to provide one easy way to get desdeo-webapi, desdeo-webui and a database running on [CSC Rahti](https://docs.csc.fi/cloud/rahti2/). Rahti is running Openshift OKD v4 with Kubernetes v1.28. If you are trying to host your web application somewhere else, all the steps presented here might not be directly applicable, but the process should be similar.
 
 ## Getting started on Rahti

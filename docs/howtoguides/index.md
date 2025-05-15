@@ -3,100 +3,21 @@ hide:
  - navigation
  - toc
 ---
-# DESDEO
+# Guides
 
-<div class="grid cards" markdown>
+- **[Installing DESDEO](installing.md):** How to install DESDEO on your system
+- **[Defining a Problem](problem.md):** How to define a multiobjective optimization problem
+- **[Worked Example](../notebooks/full_example.ipynb):** How to get started using DESDEO
+- **[Hosting on Kubernetes](kubernetes.md) (outdated!):** How to host a DESDEO web application on Kubernetes
+- **[Running the Web API](api.md):** How to run the web API
+- **[NAUTILUS Navigator](nautilus_navigator.md):** How to use the NAUTILUS Navigator method
+- **[NAUTILI](nautili.md):** How to use the NAUTILI method
+- **[Using EAs in DESDEO](ea.ipynb):** How to use evolutionary algorithms in DESDEO
+- **[Advanced Usage of Surrogates](advancedSurrogates.ipynb):** How to a combination of multiple surrogates and analytical objectives
+- **[Iterative Pareto Representer](IPR.ipynb):** How to generate a representative set of solutions using the Iterative Pareto Representer
 
--   :octicons-info-24:{ .lg .middle } __Simple DESDEO Windows installation__
+## Article Examples
 
-    ---
+The following examples are the ones, which are covered in the article describing DESDEO 2.0 (not published yet).
 
-    How to install DESDEO on your Windows machine with Anaconda
-
-    [:octicons-arrow-right-24: Simple DESDEO installation guide](./simple_installing.md)
-
--   :octicons-info-24:{ .lg .middle } __Installing DESDEO__
-
-    ---
-
-    How to install DESDEO on your system
-
-    [:octicons-arrow-right-24: How to install DESDEO](./installing.md)
-
--   :octicons-info-24:{ .lg .middle } __Defining a problem__
-
-    ---
-
-    How to define a multiobjective optimization problem
-
-    [:octicons-arrow-right-24: Defining a problem](./problem.md)
-
--   :octicons-info-24:{ .lg .middle } __Worked example__
-
-    ---
-
-    Worked example
-
-    [:octicons-arrow-right-24: Worked example](../notebooks/full_example.ipynb)
-
--   :octicons-info-24:{ .lg .middle } __Hosting on Kubernetes__
-
-    ---
-
-    How to host a DESDEO web application on Kubernetes
-
-    [:octicons-arrow-right-24: How to host a web application](./kubernetes.md)
-
--   :octicons-info-24:{ .lg .middle } __Running the web API__
-
-    ---
-
-    How to run the web API
-
-    [:octicons-arrow-right-24: Running the web API](./api.md)
-
--   :octicons-info-24:{ .lg .middle } __NAUTILUS Navigator__
-
-    ---
-
-    How to use the NAUTILUS Navigator method
-
-    [:octicons-arrow-right-24: NAUTILUS Navigator](./nautilus_navigator.md)
-
--   :octicons-info-24:{ .lg .middle } __NAUTILI__ 
-
-    ---
-
-    How to use the NAUTILI method
-
-    [:octicons-arrow-right-24: NAUTILI](./nautili.md)
-
-
--   :octicons-info-24:{ .lg .middle } __Using EAs in DESDEO__
-    
-    ---
-    
-    How to use evolutionary algorithms in DESDEO
-    
-    [:octicons-arrow-right-24: Using EAs in DESDEO](./ea.ipynb)
-
--   :octicons-info-24:{ .lg .middle } **Advanced usage of surrogates**
-
-    ---
-
-    Using a combination of multiple surrogates and analytical objectives
-
-    [:octicons-arrow-right-24: Advanced usage of surrogates](./advancedSurrogates.ipynb)
-
-
-- :octicons-info-24:{ .lg .middle } **Iterative Pareto Representer**
-
-    ---
-
-    Generating a representative set of solutions using the Iterative Pareto Representer
-
-    [:octicons-arrow-right-24: Iterative Pareto Representer](./IPR.ipynb)
-</div>
-
-# Article Examples
-- **Example 1:** How to define a multiobjective optimization problem ([notebook](./how_to_define_a_problem.ipynb))
+- **[Example 1](./how_to_define_a_problem.ipynb):** How to define a multiobjective optimization problem
