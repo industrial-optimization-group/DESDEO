@@ -1,6 +1,6 @@
 # DESDEO: the open-source software framework for interactive multiobjective optimization
 
-[![Documentation Status](https://img.shields.io/readthedocs/desdeo.svg?version=desdeo2&label=Documentation)](https://desdeo.readthedocs.io/en/desdeo2) ![Tests](https://img.shields.io/github/actions/workflow/status/industrial-optimization-group/DESDEO/unit_tests.yaml?branch=desdeo2&label=Tests)
+[![Documentation Status](https://img.shields.io/readthedocs/desdeo.svg?version=desdeo2&label=Documentation)](https://desdeo.readthedocs.io/en/latest/) ![Tests](https://img.shields.io/github/actions/workflow/status/industrial-optimization-group/DESDEO/unit_tests.yaml?branch=desdeo2&label=Tests)
 
 [![Discord server](https://dcbadge.vercel.app/api/server/TgSnUmzv5M)](https://discord.gg/TgSnUmzv5M)
 
