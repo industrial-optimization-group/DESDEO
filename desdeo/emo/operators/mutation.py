@@ -627,6 +627,7 @@ class MPTMutation(BaseMutation):
 
     @property
     def provided_topics(self) -> dict[int, Sequence[MutationMessageTopics]]:
+        """The message topics provided by the mutation operator."""
         return {
             0: [],
             1: [MutationMessageTopics.MUTATION_PROBABILITY],
@@ -639,6 +640,7 @@ class MPTMutation(BaseMutation):
 
     @property
     def interested_topics(self):
+        """The message topics that the mutation operator is interested in."""
         return []
 
     def __init__(
@@ -650,7 +652,8 @@ class MPTMutation(BaseMutation):
         mutation_exponent: float = 2.0,
         **kwargs,
     ):
-        """Initialize a small mutation operator.
+        """
+        Initialize a small mutation operator.
 
         Args:
             problem (Problem): Optimization problem.
