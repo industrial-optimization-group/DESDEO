@@ -36,7 +36,7 @@ class NevergradGenericOptions(BaseModel):
     used to define the batch size when evaluating problems. Defaults to 1."""
 
     optimizer: Literal[*available_nevergrad_optimizers] = Field(
-        descriptions=(
+        description=(
             "The optimizer to be used. Must be one of `NGOpt`, `TwoPointDE`, `PortfolioDiscreteOnePlusOne`, "
             "`OnePlusOne`, `CMA`, `TBPSA`, `PSO`, `ScrHammersleySearchPlusMiddlePoint`, or `RandomSearch`. "
             "Defaults to `NGOpt`."
@@ -67,22 +67,36 @@ def parse_ng_results(results: dict, problem: Problem, evaluator: SympyEvaluator)
     Returns:
         SolverResults: a pydantic dataclass withthe relevant optimization results.
     """
-    x_opt = results["recommendation"].value
+    optimal_variables = results["recommendation"].value
     success = results["success"]
-    msg_opt = results["message"]
+    msg = results["message"]
 
-    eval_opt = evaluator.evaluate(x_opt)
+    results = evaluator.evaluate(optimal_variables)
 
-    f_opt = {obj.symbol: eval_opt[obj.symbol] for obj in problem.objectives}
+    optimal_objectives = {obj.symbol: results[obj.symbol] for obj in problem.objectives}
 
-    if problem.constraints is not None:
-        # has constraints
-        const_opt = {con.symbol: eval_opt[con.symbol] for con in problem.constraints}
-    else:
-        const_opt = None
+    constraint_values = (
+        {con.symbol: results[con.symbol] for con in problem.constraints} if problem.constraints is not None else None
+    )
+    extra_func_values = (
+        {extra.symbol: results[extra.symbol] for extra in problem.extra_funcs}
+        if problem.extra_funcs is not None
+        else None
+    )
+    scalarization_values = (
+        {scal.symbol: results[scal.symbol] for scal in problem.scalarization_funcs}
+        if problem.scalarization_funcs is not None
+        else None
+    )
 
     return SolverResults(
-        optimal_variables=x_opt, optimal_objectives=f_opt, constraint_values=const_opt, success=success, message=msg_opt
+        optimal_variables=optimal_variables,
+        optimal_objectives=optimal_objectives,
+        constraint_values=constraint_values,
+        extra_func_values=extra_func_values,
+        scalarization_values=scalarization_values,
+        success=success,
+        message=msg,
     )
 
 

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from desdeo.api.db import get_db
 from desdeo.api.db_models import Problem as ProblemInDB
 from desdeo.api.db_models import Results
-from desdeo.api.routers.UserAuth import get_current_user
+from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.api.schema import User
 from desdeo.mcdm.nautilus_navigator import (
     NAUTILUS_Response,

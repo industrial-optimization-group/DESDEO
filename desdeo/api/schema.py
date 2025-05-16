@@ -5,7 +5,7 @@ from enum import Enum
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class UserRole(Enum):
+class UserRole(str, Enum):
     """Enum of user roles."""
 
     GUEST = "guest"
@@ -13,7 +13,7 @@ class UserRole(Enum):
     ANALYST = "analyst"
 
 
-class UserPrivileges(Enum):
+class UserPrivileges(str, Enum):
     """Enum of user privileges."""
 
     CREATE_PROBLEMS = "Create problems"
@@ -22,7 +22,7 @@ class UserPrivileges(Enum):
     EDIT_USERS = "Change user privileges, roles, groups, etc."
 
 
-class ProblemKind(Enum):
+class ProblemKind(str, Enum):
     """Enum of problem kinds."""
 
     CONTINUOUS = "continuous"
@@ -31,7 +31,7 @@ class ProblemKind(Enum):
     BINARY = "binary"
 
 
-class ObjectiveKind(Enum):
+class ObjectiveKind(str, Enum):
     """Enum of objective kinds."""
 
     ANALYTICAL = "analytical"
@@ -40,7 +40,7 @@ class ObjectiveKind(Enum):
     SURROGATE = "surrogate"
 
 
-class Methods(Enum):
+class Methods(str, Enum):
     """Enum of methods."""
 
     NIMBUS = "nimbus"
@@ -51,7 +51,7 @@ class Methods(Enum):
     NSGAIII = "NSGAIII"
 
 
-class MethodProperties(Enum):
+class MethodProperties(str, Enum):
     """Enum of method properties."""
 
     INTERACTIVE = "interactive"
@@ -73,7 +73,7 @@ class User(BaseModel):
     )
     password_hash: str = Field(description="SHA256 Hash of the user's password.")
     role: UserRole = Field(description="Role of the user.")
-    privilages: list[UserPrivileges] = Field(description="List of privileges the user has.")
+    privileges: list[UserPrivileges] = Field(description="List of privileges the user has.")
     user_group: str = Field(description="User group of the user. Used for group decision making.")
     # To allows for User to be initialized from database instead of just dicts.
     model_config = ConfigDict(from_attributes=True)

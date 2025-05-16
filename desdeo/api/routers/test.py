@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-from desdeo.api.routers.UserAuth import get_current_user
+from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.api.schema import User
 
 router = APIRouter(prefix="/test")

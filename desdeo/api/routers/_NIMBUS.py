@@ -11,8 +11,8 @@ from sqlalchemy.orm import Session
 from desdeo.api.db import get_db
 from desdeo.api.db_models import Method, Preference, SolutionArchive, Utopia
 from desdeo.api.db_models import Problem as ProblemInDB
-from desdeo.api.routers.UserAuth import get_current_user
-from desdeo.api.schema import Methods, User
+from desdeo.api.routers.user_authentication import get_current_user
+from desdeo.api.schema import User
 from desdeo.mcdm.nimbus import generate_starting_point, solve_intermediate_solutions, solve_sub_problems
 from desdeo.problem.schema import Problem
 from desdeo.tools.utils import available_solvers

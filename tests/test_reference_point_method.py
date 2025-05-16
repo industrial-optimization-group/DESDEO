@@ -10,7 +10,7 @@ from desdeo.problem import objective_dict_to_numpy_array
 from desdeo.problem.testproblems import dtlz2, river_pollution_problem
 
 
-@pytest.mark.rmp
+@pytest.mark.rpm
 def test_rpm_solve_solutions_continuous():
     """Test the solve function with a continuous problem."""
     n_variables = 6
@@ -51,7 +51,7 @@ def test_rpm_solve_solutions_continuous():
     assert np.mean(pairwise_distances_far) > np.mean(pairwise_distances_close)
 
 
-@pytest.mark.rmp
+@pytest.mark.rpm
 @pytest.mark.slow
 def test_rpm_solve_solutions_discontinuous():
     """Test the solve function with a discontinuous problem."""

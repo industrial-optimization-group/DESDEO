@@ -16,7 +16,7 @@ from collections.abc import Iterable
 from enum import Enum
 from itertools import product
 from pathlib import Path
-from typing import Annotated, Any, Literal, TypeAliasType
+from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeAliasType
 
 import numpy as np
 from pydantic import (
@@ -30,11 +30,13 @@ from pydantic import (
     WrapValidator,
     field_validator,
     model_validator,
-    root_validator,
 )
 from pydantic_core import PydanticCustomError
 
 from desdeo.problem.infix_parser import InfixExpressionParser
+
+if TYPE_CHECKING:
+    from desdeo.api.models import ProblemDB
 
 VariableType = float | int | bool
 
@@ -258,11 +260,11 @@ class ObjectiveTypeEnum(str, Enum):
 class Constant(BaseModel):
     """Model for a constant."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, from_attributes=True)
 
     name: str = Field(
         description=(
-            "Descriptive name of the constant. This can be used in UI and visualizations." " Example: 'maximum cost'."
+            "Descriptive name of the constant. This can be used in UI and visualizations. Example: 'maximum cost'."
         ),
     )
     """Descriptive name of the constant. This can be used in UI and visualizations." " Example: 'maximum cost'."""
@@ -282,7 +284,7 @@ class Constant(BaseModel):
 class TensorConstant(BaseModel):
     """Model for a tensor containing constant values."""
 
-    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True, from_attributes=True)
 
     name: str = Field(description="Descriptive name of the tensor representing the values. E.g., 'distances'")
     """Descriptive name of the tensor representing the values. E.g., 'distances'"""
@@ -304,8 +306,7 @@ class TensorConstant(BaseModel):
     """
     shape: list[int] = Field(
         description=(
-            "A list of the dimensions of the tensor, "
-            "e.g., `[2, 3]` would indicate a matrix with 2 rows and 3 columns."
+            "A list of the dimensions of the tensor, e.g., `[2, 3]` would indicate a matrix with 2 rows and 3 columns."
         )
     )
     """A list of the dimensions of the tensor, e.g., `[2, 3]` would indicate a matrix with 2 rows and 3 columns.
@@ -357,7 +358,7 @@ class TensorConstant(BaseModel):
         if isinstance(indices, tuple):
             # multi-dimensional indexing
             name = f"{self.name} at position {[*indices]}"
-            symbol = f"{self.symbol}_{"_".join(map(str, indices))}"
+            symbol = f"{self.symbol}_{'_'.join(map(str, indices))}"
 
             value = self.get_values()
 
@@ -376,7 +377,7 @@ class TensorConstant(BaseModel):
 class Variable(BaseModel):
     """Model for a variable."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, from_attributes=True)
 
     name: str = Field(
         description="Descriptive name of the variable. This can be used in UI and visualizations. Example: 'velocity'."
@@ -406,7 +407,7 @@ class Variable(BaseModel):
 class TensorVariable(BaseModel):
     """Model for a tensor, e.g., vector variable."""
 
-    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True, from_attributes=True)
 
     name: str = Field(
         description="Descriptive name of the variable. This can be used in UI and visualizations. Example: 'velocity'."
@@ -439,8 +440,7 @@ class TensorVariable(BaseModel):
 
     shape: list[int] = Field(
         description=(
-            "A list of the dimensions of the tensor, "
-            "e.g., `[2, 3]` would indicate a matrix with 2 rows and 3 columns."
+            "A list of the dimensions of the tensor, e.g., `[2, 3]` would indicate a matrix with 2 rows and 3 columns."
         )
     )
     """A list of the dimensions of the tensor,
@@ -548,7 +548,7 @@ class TensorVariable(BaseModel):
         if isinstance(indices, tuple):
             # multi-dimensional indexing
             name = f"{self.name} at position {[*indices]}"
-            symbol = f"{self.symbol}_{"_".join(map(str, indices))}"
+            symbol = f"{self.symbol}_{'_'.join(map(str, indices))}"
 
             lowerbound = self.get_lowerbound_values()
             upperbound = self.get_upperbound_values()
@@ -585,7 +585,7 @@ class ExtraFunction(BaseModel):
     they are needed for other computations related to the problem.
     """
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, from_attributes=True)
 
     name: str = Field(
         description=("Descriptive name of the function. Example: 'normalization'."),
@@ -663,14 +663,15 @@ class ExtraFunction(BaseModel):
 class ScalarizationFunction(BaseModel):
     """Model for scalarization of the problem."""
 
-    name: str = Field(description=("Name of the scalarization function."), frozen=True)
+    model_config = ConfigDict(from_attributes=True)
+
+    name: str = Field(description=("Name of the scalarization function."))
     """Name of the scalarization function."""
     symbol: str | None = Field(
         description=(
             "Optional symbol to represent the scalarization function. This may be used in UIs and visualizations."
         ),
         default=None,
-        frozen=False,
     )
     """Optional symbol to represent the scalarization function. This may be used
     in UIs and visualizations. Defaults to `None`."""
@@ -681,26 +682,23 @@ class ScalarizationFunction(BaseModel):
             " The symbols in the function must match the symbols defined for objective/variable/constant/extra"
             " function."
         ),
-        frozen=True,
     )
     """ Function representation of the scalarization. This is a JSON object that
     can be parsed into a function.  Must be a valid MathJSON object. The
     symbols in the function must match the symbols defined for
     objective/variable/constant/extra function."""
     is_linear: bool = Field(
-        description="Whether the function expression is linear or not. Defaults to `False`.", default=False, frozen=True
+        description="Whether the function expression is linear or not. Defaults to `False`.", default=False
     )
     """Whether the function expression is linear or not. Defaults to `False`."""
     is_convex: bool = Field(
         description="Whether the function expression is convex or not (non-convex). Defaults to `False`.",
         default=False,
-        frozen=True,
     )
     """Whether the function expression is convex or not (non-convex). Defaults to `False`."""
     is_twice_differentiable: bool = Field(
         description="Whether the function expression is twice differentiable or not. Defaults to `False`",
         default=False,
-        frozen=True,
     )
     """Whether the function expression is twice differentiable or not. Defaults to `False`"""
     scenario_keys: list[str] = Field(
@@ -717,7 +715,7 @@ class ScalarizationFunction(BaseModel):
 class Simulator(BaseModel):
     """Model for simulator data."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, from_attributes=True)
 
     name: str = Field(
         description=("Descriptive name of the simulator. This can be used in UI and visualizations."),
@@ -747,11 +745,11 @@ class Simulator(BaseModel):
 class Objective(BaseModel):
     """Model for an objective function."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, from_attributes=True)
 
     name: str = Field(
         description=(
-            "Descriptive name of the objective function. This can be used in UI and visualizations." " Example: 'time'."
+            "Descriptive name of the objective function. This can be used in UI and visualizations. Example: 'time'."
         ),
     )
     """Descriptive name of the objective function. This can be used in UI and visualizations."""
@@ -859,12 +857,11 @@ class Objective(BaseModel):
 class Constraint(BaseModel):
     """Model for a constraint function."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, from_attributes=True)
 
     name: str = Field(
         description=(
-            "Descriptive name of the constraint. This can be used in UI and visualizations."
-            " Example: 'maximum length'."
+            "Descriptive name of the constraint. This can be used in UI and visualizations. Example: 'maximum length'."
         ),
     )
     """ Descriptive name of the constraint. This can be used in UI and
@@ -963,7 +960,7 @@ class DiscreteRepresentation(BaseModel):
     found at `objective_values['f_i'][j]` for all `i` and some `j`.
     """
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, from_attributes=True)
 
     variable_values: dict[str, list[VariableType]] = Field(
         description=(
@@ -1003,10 +1000,45 @@ class Problem(BaseModel):
     """Model for a problem definition."""
 
     model_config = ConfigDict(frozen=True)
-    model_config["from_attributes"] = True
 
     _scalarization_index: int = PrivateAttr(default=1)
     # TODO: make init to communicate the _scalarization_index to a new model
+
+    @classmethod
+    def from_problemdb(cls, db_instance: "ProblemDB") -> "Problem":
+        """."""
+        constants = [Constant.model_validate(const) for const in db_instance.constants] + [
+            TensorConstant.model_validate(const) for const in db_instance.tensor_constants
+        ]
+
+        return cls(
+            name=db_instance.name,
+            description=db_instance.description,
+            is_convex=db_instance.is_convex,
+            is_linear=db_instance.is_linear,
+            is_twice_differentiable=db_instance.is_twice_differentiable,
+            variable_domain=db_instance.variable_domain,
+            scenario_keys=db_instance.scenario_keys,
+            constants=constants if constants != [] else None,
+            variables=[Variable.model_validate(var) for var in db_instance.variables]
+            + [TensorVariable.model_validate(var) for var in db_instance.tensor_variables],
+            objectives=[Objective.model_validate(obj) for obj in db_instance.objectives],
+            constraints=[Constraint.model_validate(const) for const in db_instance.constraints]
+            if db_instance.constraints != []
+            else None,
+            scalarization_funcs=[ScalarizationFunction.model_validate(scal) for scal in db_instance.scalarization_funcs]
+            if db_instance.scalarization_funcs != []
+            else None,
+            extra_funcs=[ExtraFunction.model_validate(extra) for extra in db_instance.extra_funcs]
+            if db_instance.extra_funcs != []
+            else None,
+            discrete_representation=DiscreteRepresentation.model_validate(db_instance.discrete_representation)
+            if db_instance.discrete_representation is not None
+            else None,
+            simulators=[Simulator.model_validate(sim) for sim in db_instance.simulators]
+            if db_instance.simulators != []
+            else None,
+        )
 
     @model_validator(mode="after")
     def set_default_scalarization_names(self) -> "Problem":
@@ -1112,7 +1144,7 @@ class Problem(BaseModel):
         """
         updated_objectives = []
         for objective in self.objectives:
-            new_objective = objective.copy(
+            new_objective = objective.model_copy(
                 update={
                     **(
                         {"ideal": new_ideal[objective.symbol]}
@@ -1129,7 +1161,7 @@ class Problem(BaseModel):
 
             updated_objectives.append(new_objective)
 
-        return self.copy(update={"objectives": updated_objectives})
+        return self.model_copy(update={"objectives": updated_objectives})
 
     def add_constraints(self, new_constraints: list[Constraint]) -> "Problem":
         """Adds new constraints to the problem model.
@@ -1548,7 +1580,7 @@ class Problem(BaseModel):
 
         return cls.model_validate_json(json_data)
 
-    @root_validator(pre=True)
+    @model_validator(mode="after")
     def set_is_twice_differentiable(cls, values):
         """If "is_twice_differentiable" is explicitly provided to the model, we set it to that value."""
         if "is_twice_differentiable" in values and values["is_twice_differentiable"] is not None:
@@ -1556,15 +1588,17 @@ class Problem(BaseModel):
 
         return values
 
-    @root_validator(pre=True)
-    def set_is_liear(cls, values):
+    @model_validator(mode="after")
+    @classmethod
+    def set_is_linear(cls, values):
         """If "is_linear" is explicitly provided to the model, we set it to that value."""
         if "is_linear" in values and values["is_linear"] is not None:
             values["is_linear_"] = values["is_linear"]
 
         return values
 
-    @root_validator(pre=True)
+    @model_validator(mode="after")
+    @classmethod
     def set_is_convex(cls, values):
         """If "is_convex" is explicitly provided to the model, we set it to that value."""
         if "is_convex" in values and values["is_convex"] is not None:

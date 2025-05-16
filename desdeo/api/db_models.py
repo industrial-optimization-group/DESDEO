@@ -19,7 +19,8 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(nullable=False)
     role: Mapped[schema.UserRole] = mapped_column(nullable=False)
     user_group: Mapped[str] = mapped_column(nullable=True)
-    privilages: Mapped[list[schema.UserPrivileges]] = mapped_column(ARRAY(Enum(schema.UserPrivileges)), nullable=False)
+    # privilages: Mapped[list[schema.UserPrivileges]] = mapped_column(ARRAY(Enum(schema.UserPrivileges)), nullable=False)
+    privileges: Mapped[list[schema.UserPrivileges]] = mapped_column(JSON, nullable=False)
 
     def __repr__(self):
         """Return a string representation of the user (username)."""
@@ -36,13 +37,8 @@ class Problem(Base):
     # kind and obj_kind are also in value, but we need them as columns for querying. Maybe?
     kind: Mapped[schema.ProblemKind] = mapped_column(nullable=False)
     obj_kind: Mapped[schema.ObjectiveKind] = mapped_column(nullable=False)
-    role_permission: Mapped[list[schema.UserRole]] = mapped_column(ARRAY(Enum(schema.UserRole)), nullable=True)
-    # We need some way to tell the API what solver should be used, and this seems like a good place
-    # This should match one of the available_solvers in desdeo.tools.utils
-    solver: Mapped[schema.Solvers] = mapped_column(nullable=True)
-    # Other code assumes these ideals and nadirs are dicts with objective symbols as keys
-    presumed_ideal = mapped_column(JSONB, nullable=True)
-    presumed_nadir = mapped_column(JSONB, nullable=True)
+    # role_permission: Mapped[list[schema.UserRole]] = mapped_column(ARRAY(Enum(schema.UserRole)), nullable=True)
+    role_permission: Mapped[list[schema.UserRole]] = mapped_column(JSON, nullable=True)
     # Mapped doesn't work with JSON, so we use JSON directly.
     value = mapped_column(JSON, nullable=False)  # desdeo.problem.schema.Problem
 
@@ -63,9 +59,10 @@ class Method(Base):
     __tablename__ = "method"
     id: Mapped[int] = mapped_column(primary_key=True, unique=True)
     kind: Mapped[schema.Methods] = mapped_column(Enum(schema.Methods), nullable=False)
-    properties: Mapped[list[schema.MethodProperties]] = mapped_column(
-        ARRAY(Enum(schema.MethodProperties)), nullable=False
-    )
+    # properties: Mapped[list[schema.MethodProperties]] = mapped_column(
+    #    ARRAY(Enum(schema.MethodProperties)), nullable=False
+    # )
+    properties: Mapped[list[schema.MethodProperties]] = mapped_column(JSON, nullable=False)
     name: Mapped[str] = mapped_column(nullable=False)
     parameters = mapped_column(JSON, nullable=True)
 
@@ -126,10 +123,14 @@ class SolutionArchive(Base):
     problem = mapped_column(Integer, ForeignKey("problem.id"), nullable=False)
     method = mapped_column(Integer, ForeignKey("method.id"), nullable=False)
     preference = mapped_column(Integer, ForeignKey("preference.id"), nullable=True)
-    decision_variables = mapped_column(JSONB, nullable=True)
-    objectives = mapped_column(ARRAY(FLOAT), nullable=False)
-    constraints = mapped_column(ARRAY(FLOAT), nullable=True)
-    extra_funcs = mapped_column(ARRAY(FLOAT), nullable=True)
+    # decision_variables = mapped_column(ARRAY(FLOAT), nullable=True)
+    decision_variables = mapped_column(JSON, nullable=True)
+    # objectives = mapped_column(ARRAY(FLOAT), nullable=False)
+    objectives = mapped_column(JSON, nullable=False)
+    # constraints = mapped_column(ARRAY(FLOAT), nullable=True)
+    constraints = mapped_column(JSON, nullable=True)
+    # extra_funcs = mapped_column(ARRAY(FLOAT), nullable=True)
+    extra_funcs = mapped_column(JSON, nullable=True)
     other_info = mapped_column(
         JSON,
         nullable=True,

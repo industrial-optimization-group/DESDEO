@@ -11,6 +11,7 @@ from desdeo.emo.hooks.archivers import Archive, FeasibleArchive, NonDominatedArc
 from desdeo.emo.methods.bases import template1
 from desdeo.emo.methods.EAs import nsga3, nsga3_mixed_integer, rvea, rvea_mixed_integer
 from desdeo.emo.operators.crossover import (
+    BlendAlphaCrossover,
     SimulatedBinaryCrossover,
     SinglePointBinaryCrossover,
     UniformIntegerCrossover,
@@ -29,6 +30,9 @@ from desdeo.emo.operators.mutation import (
     BoundedPolynomialMutation,
     IntegerRandomMutation,
     MixedIntegerRandomMutation,
+    MPTMutation,
+    NonUniformMutation,
+    SelfAdaptiveGaussianMutation,
 )
 from desdeo.emo.operators.selection import (
     ParameterAdaptationStrategy,
@@ -36,6 +40,7 @@ from desdeo.emo.operators.selection import (
     RVEASelector,
 )
 from desdeo.emo.operators.termination import MaxEvaluationsTerminator
+from desdeo.problem import VariableDomainTypeEnum
 from desdeo.problem.testproblems import (
     dtlz2,
     momip_ti2,
@@ -43,6 +48,7 @@ from desdeo.problem.testproblems import (
     simple_integer_test_problem,
     simple_knapsack,
     simple_knapsack_vectors,
+    simple_test_problem,
 )
 from desdeo.tools.patterns import Publisher, Subscriber
 
@@ -91,7 +97,7 @@ def test_recombination():
     mutation = BoundedPolynomialMutation(problem=problem, publisher=publisher, seed=0)
 
     population = pl.DataFrame(
-        np.vstack((np.zeros((10, 12)), np.zeros((10, 12)) + 1)), schema=[f"x_{i+1}" for i in range(12)]
+        np.vstack((np.zeros((10, 12)), np.zeros((10, 12)) + 1)), schema=[f"x_{i + 1}" for i in range(12)]
     )
 
     to_mate = [(i, i + 10) for i in range(10)]
@@ -709,3 +715,148 @@ def test_real_rvea():
     solver, publisher = rvea(problem=problem, n_generations=10)
 
     _ = solver()
+
+
+@pytest.mark.ea
+def test_blend_alpha_crossover():
+    """Test whether the BLX-alpha (blend-alpha) crossover operator works as intended."""
+    publisher = Publisher()
+    problem = simple_test_problem()
+    # problem must be continuous
+    assert problem.variable_domain is VariableDomainTypeEnum.continuous
+
+    # create operator
+    crossover = BlendAlphaCrossover(problem=problem, publisher=publisher)
+    num_vars = len(crossover.variable_symbols)
+
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher)
+    generator = RandomGenerator(problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0)
+
+    population, outputs = generator.do()
+
+    # pick a custom mating order (odd-length to test padding)
+    to_mate = [0, 9, 1, 8, 2]
+    offspring = crossover.do(population=population, to_mate=to_mate)
+
+    assert offspring.shape == (len(to_mate), num_vars)
+    # offspring must differ from parents
+    with npt.assert_raises(AssertionError):
+        npt.assert_allclose(population, offspring)
+
+
+@pytest.mark.ea
+def test_mpt_mutation():
+    """Test whether the MPT mutation operator works as intended."""
+    publisher = Publisher()
+    n_points = 20
+
+    problem = momip_ti2()
+
+    # default mutation probability
+    mutation = MPTMutation(problem=problem, publisher=publisher, seed=0)
+
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher)
+    generator = RandomMixedIntegerGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0
+    )
+
+    population, _ = generator.do()
+
+    result = mutation.do(offsprings=population, parents=population)
+
+    assert result.shape == population.shape
+
+    with npt.assert_raises(AssertionError):
+        npt.assert_allclose(population, result)
+
+    # zero mutation probability
+    mutation = MPTMutation(problem=problem, publisher=publisher, seed=0, mutation_probability=0.0)
+
+    population, _ = generator.do()
+
+    result = mutation.do(offsprings=population, parents=population)
+
+    assert result.shape == population.shape
+
+    npt.assert_allclose(population, result)
+
+
+@pytest.mark.ea
+def test_non_uniform_mutation():
+    """Test whether the Non-Uniform mutation operator works as intended."""
+    publisher = Publisher()
+    n_points = 20
+
+    problem = momip_ti2()
+
+    # default mutation probability
+    mutation = NonUniformMutation(problem=problem, publisher=publisher, seed=0, max_generations=100)
+
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher)
+    generator = RandomMixedIntegerGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0
+    )
+
+    population, _ = generator.do()
+
+    mutation.update(generation=10)
+    result = mutation.do(offsprings=population, parents=population)
+
+    assert result.shape == population.shape
+
+    with npt.assert_raises(AssertionError):
+        npt.assert_allclose(population, result)
+
+    # zero mutation probability
+    mutation = NonUniformMutation(
+        problem=problem, publisher=publisher, seed=0, mutation_probability=0.0, max_generations=100
+    )
+
+    mutation.update(generation=10)
+    population, _ = generator.do()
+
+    result = mutation.do(offsprings=population, parents=population)
+
+    assert result.shape == population.shape
+
+    npt.assert_allclose(population, result)
+
+
+@pytest.mark.ea
+def test_self_adaptive_gaussian_mutation():
+    """Test whether the self-adaptive Gaussian mutation operator works as intended."""
+    publisher = Publisher()
+    problem = dtlz2(n_objectives=3, n_variables=12)
+
+    mutation = SelfAdaptiveGaussianMutation(problem=problem, publisher=publisher, seed=42)
+    num_vars = len(mutation.variable_symbols)
+
+    # Create a dummy population
+    population = pl.DataFrame(
+        mutation.rng.uniform(0, 1, size=(10, num_vars)),
+        schema=mutation.variable_symbols,
+    )
+
+    # Perform mutation
+    mutated, step_sizes = mutation.do(offsprings=population, parents=population)
+
+    # Ensure shape consistency
+    assert mutated.shape == population.shape
+    assert step_sizes.shape == (population.shape[0], population.shape[1])
+
+    # Should not be exactly equal due to mutations
+    with pytest.raises(AssertionError):
+        npt.assert_allclose(mutated.to_numpy(), population.to_numpy())
+
+    # Mutation with probability = 0.0
+    mutation = SelfAdaptiveGaussianMutation(problem=problem, publisher=publisher, seed=42, mutation_probability=0.0)
+
+    population = pl.DataFrame(
+        mutation.rng.uniform(0, 1, size=(10, num_vars)),
+        schema=mutation.variable_symbols,
+    )
+
+    mutated, step_sizes = mutation.do(offsprings=population, parents=population)
+
+    # No change expected
+    npt.assert_allclose(mutated.to_numpy(), population.to_numpy())

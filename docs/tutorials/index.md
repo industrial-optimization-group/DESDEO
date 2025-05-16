@@ -4,24 +4,11 @@ hide:
  - toc
  - path
 ---
+
 # Tutorials
 
-<div class="grid cards" markdown>
-
--   :octicons-info-24:{ .lg .middle } __A primer on multiobjective optimization__
-
-    ---
-
-    __New to multiobjective optimization?__ Start here!
-
-    [:octicons-arrow-right-24: Primer](./moo_primer.md)
-
--   :octicons-info-24:{ .lg .middle } __Contributing__
-
-    ---
-
-    What to know when contributing to DESDEO
-
-    [:octicons-arrow-right-24: Contributing](./contributing.md)
-
-</div>
+- **[A primer on multiobjective optimization](moo_primer.md):** A tutorial on
+the central concepts and ideas central to interactive multiobjective
+optimization
+- **[Contributing](contributing.md):** A tutorial on how to install DESDEO for
+users who wish to contribute to the framework

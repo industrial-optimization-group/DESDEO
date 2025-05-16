@@ -40,6 +40,7 @@ __all__ = [
     "add_stom_sf_nondiff",
     "add_weighted_sums",
     "available_nevergrad_optimizers",
+    "available_solvers",
     "find_compatible_solvers",
     "get_corrected_ideal_and_nadir",
     "get_corrected_reference_point",
@@ -73,8 +74,6 @@ from desdeo.tools.scalarization import (
     add_asf_generic_nondiff,
     add_asf_nondiff,
     add_epsilon_constraints,
-    add_guess_sf_diff,
-    add_guess_sf_nondiff,
     add_group_asf,
     add_group_asf_diff,
     add_group_guess_sf,
@@ -83,6 +82,8 @@ from desdeo.tools.scalarization import (
     add_group_nimbus_sf_diff,
     add_group_stom_sf,
     add_group_stom_sf_diff,
+    add_guess_sf_diff,
+    add_guess_sf_nondiff,
     add_nimbus_sf_diff,
     add_nimbus_sf_nondiff,
     add_objective_as_scalarization,
@@ -90,11 +91,9 @@ from desdeo.tools.scalarization import (
     add_stom_sf_nondiff,
     add_weighted_sums,
 )
-from desdeo.tools.scipy_solver_interfaces import (
-    ScipyDeSolver,
-    ScipyMinimizeSolver,
-)
+from desdeo.tools.scipy_solver_interfaces import ScipyDeSolver, ScipyMinimizeSolver
 from desdeo.tools.utils import (
+    available_solvers,
     find_compatible_solvers,
     get_corrected_ideal_and_nadir,
     get_corrected_reference_point,

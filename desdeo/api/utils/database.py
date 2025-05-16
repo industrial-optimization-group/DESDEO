@@ -1,25 +1,42 @@
 """Database utils for the API."""
 
 from os import getenv
-from typing import TypeVar, Dict
+from typing import TypeVar
 
 from sqlalchemy.engine import URL, Result
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine, AsyncSession, AsyncScalarResult
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncScalarResult,
+    AsyncSession,
+    create_async_engine,
+)
 from sqlalchemy.future import select as sa_select
 from sqlalchemy.orm import DeclarativeMeta, declarative_base, sessionmaker
 from sqlalchemy.pool import NullPool
 from sqlalchemy.sql import Executable
-from sqlalchemy.sql.expression import exists as sa_exists, delete as sa_delete, Delete
+from sqlalchemy.sql.expression import Delete
+from sqlalchemy.sql.expression import delete as sa_delete
+from sqlalchemy.sql.expression import exists as sa_exists
 from sqlalchemy.sql.functions import count
-from sqlalchemy.sql.selectable import Select, Exists
+from sqlalchemy.sql.selectable import Exists, Select
 
-from desdeo.api import DBConfig
+from desdeo.api.config import SettingsConfig
+
 from .logger import get_logger
+
+if SettingsConfig.debug:
+    from desdeo.api.config import DatabaseDebugConfig
+
+    DBConfig = DatabaseDebugConfig
+else:
+    # set development setting, e.g., DBConfig = DatabaseDeployConfig
+    pass
 
 T = TypeVar("T")
 
+
 def select(entity) -> Select:
-    """Shortcut for :meth:`sqlalchemy.future.select`
+    """Shortcut for :meth:`sqlalchemy.future.select`.
 
     Args:
         entity (sqlalchemy.sql.expression.FromClause): Entities / DB model to SELECT from.
@@ -29,8 +46,9 @@ def select(entity) -> Select:
     """
     return sa_select(entity)
 
+
 def filter_by(cls, *args, **kwargs) -> Select:
-    """Shortcut for :meth:`sqlalchemy.future.Select.filter_by`
+    """Shortcut for :meth:`sqlalchemy.future.Select.filter_by`.
 
     Args:
         cls (sqlalchemy.sql.expression.FromClause): Entities / DB model to SELECT from.
@@ -44,7 +62,7 @@ def filter_by(cls, *args, **kwargs) -> Select:
 
 
 def exists(*entities, **kwargs) -> Exists:
-    """Shortcut for :meth:`sqlalchemy.sql.expression.exists`
+    """Shortcut for :meth:`sqlalchemy.sql.expression.exists`.
 
     Args:
         *entities (tuple): Positional arguments.
@@ -57,7 +75,7 @@ def exists(*entities, **kwargs) -> Exists:
 
 
 def delete(table) -> Delete:
-    """Shortcut for :meth:`sqlalchemy.sql.expression.delete`
+    """Shortcut for :meth:`sqlalchemy.sql.expression.delete`.
 
     Args:
         table (sqlalchemy.sql.expression.FromClause): Entities / DB model.
@@ -69,26 +87,30 @@ def delete(table) -> Delete:
 
 
 class DB:
-    """An async SQLAlchemy ORM wrapper"""
+    """An async SQLAlchemy ORM wrapper."""
 
     Base: DeclarativeMeta
     _engine: AsyncEngine
     _session: AsyncSession
 
-    def __init__(self, driver: str, options: Dict = {"pool_size": 20, "max_overflow": 20}, **kwargs):
-        """
+    def __init__(self, driver: str, options: dict | None = None, **kwargs):
+        """Init the class.
+
         Args:
             driver (str): Drivername for db url.
-            options (Dict, optional): Options for AsyncEngine instance.
+            options (dict, optional): Options for AsyncEngine instance.
             **kwargs (dict): Keyword arguments.
         """
+        if options is None:
+            options = {"pool_size": 20, "max_overflow": 20}
+
         url: str = URL.create(drivername=driver, **kwargs)
         self._engine = create_async_engine(url, echo=True, pool_pre_ping=True, pool_recycle=300, **options)
         self.Base = declarative_base()
         self._session: AsyncSession = sessionmaker(self._engine, expire_on_commit=False, class_=AsyncSession)()
 
     async def create_tables(self):
-        """Creates all Model Tables"""
+        """Creates all Model Tables."""
         async with self._engine.begin() as conn:
             await conn.run_sync(self.Base.metadata.create_all)
 
@@ -105,7 +127,7 @@ class DB:
         return obj
 
     async def delete(self, obj: T) -> T:
-        """Deletes a Row from the Database
+        """Deletes a Row from the Database.
 
         Args:
             obj (T): Object to delete.
@@ -117,7 +139,7 @@ class DB:
         return obj
 
     async def exec(self, statement: Executable, *args, **kwargs) -> Result:
-        """Executes a SQL Statement
+        """Executes a SQL Statement.
 
         Args:
             statement (Executable): SQL statement.
@@ -130,7 +152,7 @@ class DB:
         return await self._session.execute(statement, *args, **kwargs)
 
     async def stream(self, statement: Executable, *args, **kwargs) -> AsyncScalarResult:
-        """Returns an Stream of Query Results
+        """Returns an Stream of Query Results.
 
         Args:
             statement (Executable): SQL statement.
@@ -143,7 +165,7 @@ class DB:
         return (await self._session.stream(statement, *args, **kwargs)).scalars()
 
     async def all(self, statement: Executable, *args, **kwargs) -> list[T]:
-        """Returns all matches for a Query
+        """Returns all matches for a Query.
 
         Args:
             statement (Executable): SQL statement.
@@ -156,7 +178,7 @@ class DB:
         return [x async for x in await self.stream(statement, *args, **kwargs)]
 
     async def first(self, *args, **kwargs) -> dict | None:
-        """Returns first match for a Query
+        """Returns first match for a Query.
 
         Args:
             *args (tuple): Positional arguments.
@@ -168,7 +190,7 @@ class DB:
         return (await self.exec(*args, **kwargs)).scalar()
 
     async def exists(self, *args, **kwargs) -> bool:
-        """Checks if there is a match for this Query
+        """Checks if there is a match for this Query.
 
         Args:
             *args (tuple): Positional arguments.
@@ -180,7 +202,7 @@ class DB:
         return await self.first(exists(*args, **kwargs).select())
 
     async def count(self, *args, **kwargs) -> int:
-        """Counts matches for a Query
+        """Counts matches for a Query.
 
         Args:
             *args (tuple): Positional arguments.
@@ -192,43 +214,37 @@ class DB:
         return await self.first(select(count()).select_from(*args, **kwargs))
 
     async def commit(self):
-        """Commits/Saves changes to Database"""
+        """Commits/Saves changes to Database."""
         await self._session.commit()
 
 
 logger = get_logger(__name__)
 
-DB_HOST = DBConfig.db_host
-DB_PORT = DBConfig.db_port
-DB_DATABASE = DBConfig.db_database
-DB_USERNAME = DBConfig.db_username
-DB_PASSWORD = DBConfig.db_password
-DB_POOL_SIZE = DBConfig.db_pool_size
-DB_MAX_OVERFLOW = DBConfig.db_max_overflow
-DB_POOL = DBConfig.db_pool
-
 
 class DatabaseDependency:
+    """A class to represent a database dependency."""
+
     db: DB
-    database_url_options: Dict
-    engine_options: Dict
-    initialised: bool = False
+    database_url_options: dict
+    engine_options: dict
+    initialized: bool = False
 
     def __init__(self):
+        """Initialize the class."""
         self.database_url_options = {
-            "host": DB_HOST,
-            "port": DB_PORT,
-            "database": DB_DATABASE,
-            "username": DB_USERNAME,
-            "password": DB_PASSWORD,
+            "host": DBConfig.db_host,
+            "port": DBConfig.db_port,
+            "database": DBConfig.db_database,
+            "username": DBConfig.db_username,
+            "password": DBConfig.db_password,
         }
-        self.database_url_options = dict([(k, v) for k, v in self.database_url_options.items() if v != ""])
-        self.engine_options: Dict = {
-            "pool_size": DB_POOL_SIZE,
-            "max_overflow": DB_MAX_OVERFLOW,
-            "poolclass": DB_POOL,
+        self.database_url_options = {k: v for k, v in self.database_url_options.items() if v != ""}
+        self.engine_options: dict = {
+            # "pool_size": DB_POOL_SIZE, ## not used by sqlite
+            # "max_overflow": DB_MAX_OVERFLOW, ## not used by sqlite
+            "poolclass": DBConfig.db_pool,
         }
-        self.engine_options = dict([(k, int(v)) for k, v in self.engine_options.items() if v != ""])
+        self.engine_options = {k: int(v) for k, v in self.engine_options.items() if v != ""}
         if self.engine_options["poolclass"] == 0:
             self.engine_options["poolclass"] = NullPool
         else:
@@ -239,14 +255,17 @@ class DatabaseDependency:
         logger.info("Connected to Database")
 
     async def init(self) -> None:
-        if self.initialised:
+        """Set whether the dependency is initialized or not."""
+        if self.initialized:
             return
+
         # logger.info("Create Tables")
-        self.initialised = True
+        self.initialized = True
         # await self.db.create_tables()
 
     async def __call__(self) -> DB:
-        if not self.initialised:
+        """Define __call__."""
+        if not self.initialized:
             await self.init()
         return self.db
 

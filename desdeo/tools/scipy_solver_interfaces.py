@@ -245,23 +245,43 @@ def parse_scipy_optimization_result(
     success_opt = optimization_result.success
     msg_opt = optimization_result.message
 
-    eval_opt = evaluator.evaluate({problem.variables[i].symbol: [x_opt[i]] for i in range(len(problem.variables))})
+    results = evaluator.evaluate({problem.variables[i].symbol: [x_opt[i]] for i in range(len(problem.variables))})
 
+    optimal_objectives = {obj.symbol: results[obj.symbol][0] for obj in problem.objectives}
+    constraint_values = (
+        {con.symbol: results[con.symbol][0] for con in problem.constraints} if problem.constraints is not None else None
+    )
+
+    """
     objective_symbols = [obj.symbol for obj in problem.objectives]
-    f_res = eval_opt[objective_symbols]
-    f_opt = {symbol: f_res[symbol][0] for symbol in objective_symbols}
+    f_res = results[objective_symbols]
+    optimal_objectives = {symbol: f_res[symbol][0] for symbol in objective_symbols}
 
     if problem.constraints is not None:
         const_symbols = [const.symbol for const in problem.constraints]
-        const_res = eval_opt[const_symbols]
-        const_opt = {symbol: const_res[symbol][0] for symbol in const_symbols}
+        const_res = results[const_symbols]
+        constraint_values = {symbol: const_res[symbol][0] for symbol in const_symbols}
     else:
-        const_opt = None
+        constraint_values = None
+    """
+
+    extra_func_values = (
+        {extra.symbol: results[extra.symbol][0] for extra in problem.extra_funcs}
+        if problem.extra_funcs is not None
+        else None
+    )
+    scalarization_values = (
+        {scal.symbol: results[scal.symbol][0] for scal in problem.scalarization_funcs}
+        if problem.scalarization_funcs is not None
+        else None
+    )
 
     return SolverResults(
         optimal_variables={problem.variables[i].symbol: x_opt[i] for i in range(len(problem.variables))},
-        optimal_objectives=f_opt,
-        constraint_values=const_opt,
+        optimal_objectives=optimal_objectives,
+        constraint_values=constraint_values,
+        extra_func_values=extra_func_values,
+        scalarization_values=scalarization_values,
         success=success_opt,
         message=msg_opt,
     )

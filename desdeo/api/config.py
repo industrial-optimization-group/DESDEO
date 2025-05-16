@@ -1,39 +1,69 @@
-"""Configuration file."""
+"""Defines dataclasses to store configurations loaded from 'config.toml'."""
 
-import json
-import os
+import tomllib
+from pathlib import Path
 from typing import ClassVar
 
-from pydantic import BaseModel, StrictBool, StrictInt, StrictStr
+from pydantic import BaseModel
+
+# Load the config data once
+config_path = Path(__file__).resolve().parent / "config.toml"
+with config_path.open("rb") as fp:
+    config_data = tomllib.load(fp)
 
 
-class AuthConfig(BaseModel):
-    """General configurations."""
+class SettingsConfig(BaseModel):
+    """General settings."""
 
-    # openssl rand -hex 32
-    authjwt_secret_key: ClassVar[StrictStr] = "36b96a23d24cebdeadce6d98fa53356111e6f3e85b8144d7273dcba230b9eb18"
-    authjwt_algorithm: ClassVar[StrictStr] = "HS256"
-    authjwt_access_token_expires: ClassVar[StrictInt] = 60  # in minutes
-    authjwt_refresh_token_expires: ClassVar[StrictInt] = 90  # in minutes
+    debug: ClassVar[bool] = config_data["settings"]["debug"]
 
 
-class DBConfig(BaseModel):
-    """Database configurations."""
+class ServerDebugConfig(BaseModel):
+    """Server setup settings (development)."""
 
-    db_host: ClassVar[StrictStr] = os.getenv("POSTGRES_HOST") or "localhost"
-    db_port: ClassVar[StrictStr] = os.getenv("POSTGRES_PORT") or "5432"
-    db_database: ClassVar[StrictStr] = os.getenv("POSTGRES_DB") or "postgres"  # postgres
-    db_username: ClassVar[StrictStr] = os.getenv("POSTGRES_USER") or "postgres"  # postgres
-    db_password: ClassVar[StrictStr] = os.getenv("POSTGRES_PASSWORD") or "test"  # test
-    db_pool_size: ClassVar[StrictInt] = int(os.getenv("POSTGRES_POOLSIZE") or 20)
-    db_max_overflow: ClassVar[StrictInt] = int(os.getenv("POSTGRES_OVERFLOW") or 20)
-    db_pool: ClassVar[StrictBool] = (os.getenv("POSTGRES_POOL") or True) in (True, "true", "1", "t", "y", "yes")
+    test_user_analyst_name: ClassVar[str] = config_data["server-debug"]["test_user_analyst_name"]
+    test_user_analyst_password: ClassVar[str] = config_data["server-debug"]["test_user_analyst_password"]
+    test_user_dm1_name: ClassVar[str] = config_data["server-debug"]["test_user_dm1_name"]
+    test_user_dm1_password: ClassVar[str] = config_data["server-debug"]["test_user_dm1_password"]
+    test_user_dm2_name: ClassVar[str] = config_data["server-debug"]["test_user_dm2_name"]
+    test_user_dm2_password: ClassVar[str] = config_data["server-debug"]["test_user_dm2_password"]
 
 
-class WebUIConfig(BaseModel):
-    """Webui server configurations."""
+class AuthDebugConfig(BaseModel):
+    """Authentication settings (development)."""
 
-    # Below defaults to a python list ["http://localhost", "http://localhost:8080"] if no env variable is set
-    cors_origins: ClassVar[list] = json.loads(
-        os.getenv("CORS_ORIGINS", '["http://localhost", "http://localhost:8080", "http://localhost:5173"]')
-    )
+    authjwt_secret_key: ClassVar[str] = config_data["auth-debug"]["authjwt_secret_key"]
+    authjwt_algorithm: ClassVar[str] = config_data["auth-debug"]["authjwt_algorithm"]
+    authjwt_access_token_expires: ClassVar[int] = config_data["auth-debug"]["authjwt_access_token_expires"]
+    authjwt_refresh_token_expires: ClassVar[int] = config_data["auth-debug"]["authjwt_refresh_token_expires"]
+    cors_origins: ClassVar[list[str]] = config_data["auth-debug"]["cors_origins"]
+
+
+class DatabaseDebugConfig(BaseModel):
+    """Database setting (development)."""
+
+    db_host: ClassVar[str] = config_data["database-debug"]["db_host"]
+    db_port: ClassVar[str] = config_data["database-debug"]["db_port"]
+    db_database: ClassVar[str] = config_data["database-debug"]["db_database"]
+    db_username: ClassVar[str] = config_data["database-debug"]["db_username"]
+    db_password: ClassVar[str] = config_data["database-debug"]["db_password"]
+    db_pool_size: ClassVar[int] = config_data["database-debug"]["db_pool_size"]
+    db_max_overflow: ClassVar[int] = config_data["database-debug"]["db_max_overflow"]
+    db_pool: ClassVar[bool] = config_data["database-debug"]["db_pool"]
+
+
+# class DatabaseDeployConfig(BaseModel):
+# # db_host: str = config_data["database-deploy"]["db_host"]
+# db_port: str = config_data["database-deploy"]["db_port"]
+# db_database: str = config_data["database-deploy"]["db_database"]
+# db_username: str = config_data["database-deploy"]["db_username"]
+# db_password: str = config_data["database-deploy"]["db_password"]
+# db_pool_size: int = config_data["database-deploy"]["db_pool_size"]
+# db_max_overflow: int = config_data["database-deploy"]["db_max_overflow"]
+# db_pool: bool = config_data["database-deploy"]["db_pool"]
+
+# class AuthDeployConfig(BaseModel):
+# authjwt_algorithm: str = config_data["auth-deploy"]["authjwt_algorithm"]
+# authjwt_access_token_expires: int = config_data["auth-deploy"]["authjwt_access_token_expires"]
+# authjwt_refresh_token_expires: int = config_data["auth-deploy"]["authjwt_refresh_token_expires"]
+# Note: authjwt_secret_key should be retrieved securely in production
