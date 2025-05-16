@@ -17,11 +17,14 @@ nav:
       - "Contributing to DESDEO": "tutorials/contributing.md"
   - "Explanation":
       - "": "explanation/index.md"
-      - "The problem format": "explanation/problem_format.md"
-      - "Parsing and evaluating": "explanation/parsing_and_evaluating.md"
-      - "Scalarization": "explanation/scalarization.md"
-      - "Simulator support": "explanation/simulator_support.md"
-      - "Solvers": "explanation/solvers.md"
+      - "The problem format": "explanation/problem_format.ipynb"
+      - "Parsing and evaluating": "explanation/parsing_and_evaluating.ipynb"
+      - "Scalarization": "explanation/scalarization.ipynb"
+      - "Scalarization methods": "explanation/scalarization_methods.ipynb"
+      - "Simulator support": "explanation/simulator_support.ipynb"
+      - "Solvers": "explanation/solvers.ipynb"
+      - "Test problems": "explanation/test_problems.ipynb"
+      - "Evolutionary algorithms": "explanation/templates_and_pub_sub.ipynb"
   - "Guides":
       - "": "howtoguides/index.md"
       - "How to define a multiobjective optimization problem": "howtoguides/problem.md"
@@ -59,7 +62,6 @@ theme:
   logo: assets/desdeo_logo.png
   favicon: assets/desdeo_logo.png
 
-
 plugins:
   - search
   - autorefs
@@ -90,12 +92,17 @@ plugins:
       execute: false
       include_requirejs: true
       custom_mathjax_url: "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS_CHTML-full,Safe"
+      remove_tag_config:
+        remove_input_tags:
+          - hide_code
+        remove_cell_tags:
+          - remove_cell
 
 markdown_extensions:
   - admonition
   - mdx_math
   - pymdownx.arithmatex:
-      generic: true 
+      generic: true
   - footnotes
   - attr_list
   - md_in_html
@@ -115,4 +122,4 @@ extra_javascript:
   - extrajs/extra.js
   - extrajs/mathjax.js
   - https://polyfill.io/v3/polyfill.min.js?features=es6
-  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js 
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
