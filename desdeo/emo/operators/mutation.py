@@ -618,3 +618,140 @@ class MixedIntegerRandomMutation(BaseMutation):
                 value=self.mutation_probability,
             ),
         ]
+
+
+class MPTMutation(BaseMutation):
+    """Makinen, Periaux and Toivanen (MTP) mutation.
+
+    Applies small mutations to mixed-integer variables using a mutation exponent strategy.
+    """
+
+    @property
+    def provided_topics(self) -> dict[int, Sequence[MutationMessageTopics]]:
+        """The message topics provided by the mutation operator."""
+        return {
+            0: [],
+            1: [MutationMessageTopics.MUTATION_PROBABILITY],
+            2: [
+                MutationMessageTopics.MUTATION_PROBABILITY,
+                MutationMessageTopics.OFFSPRING_ORIGINAL,
+                MutationMessageTopics.OFFSPRINGS,
+            ],
+        }
+
+    @property
+    def interested_topics(self):
+        """The message topics that the mutation operator is interested in."""
+        return []
+
+    def __init__(
+        self,
+        *,
+        problem: Problem,
+        seed: int,
+        mutation_probability: float | None = None,
+        mutation_exponent: float = 2.0,
+        **kwargs,
+    ):
+        """Initialize a small mutation operator.
+
+        Args:
+            problem (Problem): Optimization problem.
+            seed (int): RNG seed.
+            mutation_probability (float | None): Probability of mutation per gene.
+            mutation_exponent (float): Controls strength of small mutation (larger means smaller mutations).
+            kwargs: Additional keyword arguments. These are passed to the Subscriber class. At the very least, the
+                publisher must be passed. See the Subscriber class for more information.
+        """
+        super().__init__(problem, **kwargs)
+        self.rng = np.random.default_rng(seed)
+        self.seed = seed
+        self.mutation_exponent = mutation_exponent
+        self.mutation_probability = (
+            1 / len(self.variable_symbols) if mutation_probability is None else mutation_probability
+        )
+
+    def _mutate_value(self, x, lower_bound, upper_bound):
+        """Apply small mutation to a single float value using mutation exponent."""
+        t = (x - lower_bound) / (upper_bound - lower_bound)
+        rnd = self.rng.uniform(0, 1)
+
+        if rnd < t:
+            tm = t - t * ((t - rnd) / t) ** self.mutation_exponent
+        elif rnd > t:
+            tm = t + (1 - t) * ((rnd - t) / (1 - t)) ** self.mutation_exponent
+        else:
+            tm = t
+
+        return (1 - tm) * lower_bound + tm * upper_bound
+
+    def do(self, offsprings: pl.DataFrame, parents: pl.DataFrame) -> pl.DataFrame:
+        """Perform the MPT mutation operation.
+
+        Args:
+            offsprings (pl.DataFrame): the offspring population to mutate.
+            parents (pl.DataFrame): the parent population from which the offspring
+                was generated (via crossover). Not used in the mutation operator.
+
+        Returns:
+            pl.DataFrame: the offspring resulting from the mutation.
+        """
+        self.offspring_original = copy.copy(offsprings)
+        self.parents = parents
+
+        population = offsprings.to_numpy().astype(float)
+
+        for i in range(population.shape[0]):
+            for j, var in enumerate(self.problem.variables):
+                if self.rng.random() < self.mutation_probability:
+                    x = population[i, j]
+                    lower_bound, upper_bound = var.lowerbound, var.upperbound
+                    if var.variable_type in [VariableTypeEnum.binary, VariableTypeEnum.integer]:
+                        # Round after float mutation to keep integer domain
+                        population[i, j] = round(self._mutate_value(x, lower_bound, upper_bound))
+                    else:
+                        population[i, j] = self._mutate_value(x, lower_bound, upper_bound)
+
+        self.offspring = pl.from_numpy(population, schema=self.variable_symbols).select(pl.all()).cast(pl.Float64)
+        self.notify()
+        return self.offspring
+
+    def update(self, *_, **__):
+        """Do nothing."""
+
+    def state(self) -> Sequence[Message]:
+        """Return the state of the mutation operator."""
+        if self.offspring_original is None or self.offspring is None:
+            return []
+        if self.verbosity == 0:
+            return []
+        if self.verbosity == 1:
+            return [
+                FloatMessage(
+                    topic=MutationMessageTopics.MUTATION_PROBABILITY,
+                    source=self.__class__.__name__,
+                    value=self.mutation_probability,
+                ),
+            ]
+        return [
+            PolarsDataFrameMessage(
+                topic=MutationMessageTopics.OFFSPRING_ORIGINAL,
+                source=self.__class__.__name__,
+                value=self.offspring_original,
+            ),
+            PolarsDataFrameMessage(
+                topic=MutationMessageTopics.PARENTS,
+                source=self.__class__.__name__,
+                value=self.parents,
+            ),
+            PolarsDataFrameMessage(
+                topic=MutationMessageTopics.OFFSPRINGS,
+                source=self.__class__.__name__,
+                value=self.offspring,
+            ),
+            FloatMessage(
+                topic=MutationMessageTopics.MUTATION_PROBABILITY,
+                source=self.__class__.__name__,
+                value=self.mutation_probability,
+            ),
+        ]

@@ -30,6 +30,7 @@ from desdeo.emo.operators.mutation import (
     BoundedPolynomialMutation,
     IntegerRandomMutation,
     MixedIntegerRandomMutation,
+    MPTMutation,
 )
 from desdeo.emo.operators.selection import (
     ParameterAdaptationStrategy,
@@ -739,3 +740,40 @@ def test_blend_alpha_crossover():
     # offspring must differ from parents
     with npt.assert_raises(AssertionError):
         npt.assert_allclose(population, offspring)
+
+
+@pytest.mark.ea
+def test_mpt_mutation():
+    """Test whether the MPT mutation operator works as intended."""
+    publisher = Publisher()
+    n_points = 20
+
+    problem = momip_ti2()
+
+    # default mutation probability
+    mutation = MPTMutation(problem=problem, publisher=publisher, seed=0)
+
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher)
+    generator = RandomMixedIntegerGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0
+    )
+
+    population, _ = generator.do()
+
+    result = mutation.do(offsprings=population, parents=population)
+
+    assert result.shape == population.shape
+
+    with npt.assert_raises(AssertionError):
+        npt.assert_allclose(population, result)
+
+    # zero mutation probability
+    mutation = MPTMutation(problem=problem, publisher=publisher, seed=0, mutation_probability=0.0)
+
+    population, _ = generator.do()
+
+    result = mutation.do(offsprings=population, parents=population)
+
+    assert result.shape == population.shape
+
+    npt.assert_allclose(population, result)
