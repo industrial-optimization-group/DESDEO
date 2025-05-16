@@ -890,3 +890,164 @@ class NonUniformMutation(BaseMutation):
                 value=self.mutation_probability,
             ),
         ]
+
+
+class SelfAdaptiveGaussianMutation(BaseMutation):
+    """Self-adaptive Gaussian mutation for real-coded evolutionary algorithms.
+
+    Evolves both solution vector and mutation step sizes (strategy parameters).
+    """
+
+    @property
+    def provided_topics(self) -> dict[int, Sequence[MutationMessageTopics]]:
+        """The message topics provided by the mutation operator."""
+        return {
+            0: [],
+            1: [
+                MutationMessageTopics.MUTATION_PROBABILITY,
+            ],
+            2: [
+                MutationMessageTopics.MUTATION_PROBABILITY,
+                MutationMessageTopics.OFFSPRING_ORIGINAL,
+                MutationMessageTopics.OFFSPRINGS,
+            ],
+        }
+
+    @property
+    def interested_topics(self):
+        """The message topics that the mutation operator is interested in."""
+        return []
+
+    def __init__(
+        self,
+        *,
+        problem: Problem,
+        seed: int,
+        mutation_probability: float | None = None,
+        **kwargs,
+    ):
+        """Initialize the self-adaptive Gaussian mutation operator.
+
+        Args:
+            problem (Problem): The optimization problem definition, including variable bounds and types.
+            seed (int): Seed for the random number generator to ensure reproducibility.
+            mutation_probability (float | None): Probability of mutating each gene.
+                If None, it defaults to 1 divided by the number of variables.
+            **kwargs: Additional keyword arguments passed to the base mutation class.
+
+        Attributes:
+            rng (Generator): NumPy random number generator initialized with the given seed.
+            seed (int): The seed used for reproducibility.
+            num_vars (int): Number of variables in the problem.
+            mutation_probability (float): Probability of mutating each gene.
+            tau_prime (float): Global learning rate, used in step size adaptation.
+            tau (float): Local learning rate, used in step size adaptation.
+        """
+        super().__init__(problem=problem, **kwargs)
+
+        self.rng = np.random.default_rng(seed)
+        self.seed = seed
+        self.num_vars = len(self.variable_symbols)
+
+        self.mutation_probability = 1 / self.num_vars if mutation_probability is None else mutation_probability
+
+        self.tau_prime = 1 / np.sqrt(2 * self.num_vars)
+        self.tau = 1 / np.sqrt(2 * np.sqrt(self.num_vars))
+
+    def do(
+        self,
+        offsprings: pl.DataFrame,
+        parents: pl.DataFrame,
+        step_sizes: np.ndarray | None = None,
+    ) -> tuple[pl.DataFrame, np.ndarray]:
+        """Apply self-adaptive Gaussian mutation.
+
+        Args:
+            offsprings (pl.DataFrame): Current offspring population.
+            parents (pl.DataFrame): Parent population.
+            step_sizes (np.ndarray | None): Step sizes for each gene of each individual.
+
+        Returns:
+            tuple:
+                - Mutated offspring population as a Polars DataFrame.
+                - Updated step sizes as a NumPy array.
+        """
+        self.offspring_original = offsprings
+        self.parents = parents
+
+        offspring_array = offsprings.to_numpy().astype(float)
+
+        if step_sizes is None:
+            step_sizes = np.full_like(offspring_array, fill_value=0.1)
+
+        new_offspring, new_eta = self._mutation(offspring_array, step_sizes)
+
+        mutated_df = pl.from_numpy(new_offspring, schema=self.variable_symbols).cast(pl.Float64)
+        self.offspring = mutated_df
+        self.notify()
+
+        return mutated_df, new_eta
+
+    def _mutation(self, variables: np.ndarray, eta: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Perform the self-adaptive mutation.
+
+        Args:
+            variables (np.ndarray): Current offspring population as a NumPy array.
+            eta (np.ndarray): Current step sizes for mutation.
+
+        Returns:
+            tuple[np.ndarray, np.ndarray]: Mutated population and updated step sizes.
+        """
+        new_variables = variables.copy()
+        new_eta = eta.copy()
+
+        for i in range(variables.shape[0]):
+            common_noise = self.rng.normal()
+            for j in range(variables.shape[1]):
+                if self.rng.random() < self.mutation_probability:
+                    rnd_number = self.rng.normal()  # random number in the interval [0, 1]
+                    new_eta[i, j] *= np.exp(self.tau_prime * common_noise + self.tau * rnd_number)
+                    new_variables[i, j] += new_eta[i, j] * rnd_number
+
+        return new_variables, new_eta
+
+    def update(self, *_, **__):
+        """Do nothing."""
+
+    def state(self) -> Sequence[Message]:
+        """Return the state of the mutation operator."""
+        if self.offspring_original is None or self.offspring is None:
+            return []
+        if self.verbosity == 0:
+            return []
+        if self.verbosity == 1:
+            return [
+                FloatMessage(
+                    topic=MutationMessageTopics.MUTATION_PROBABILITY,
+                    source=self.__class__.__name__,
+                    value=self.mutation_probability,
+                ),
+            ]
+        # verbosity == 2
+        return [
+            PolarsDataFrameMessage(
+                topic=MutationMessageTopics.OFFSPRING_ORIGINAL,
+                source=self.__class__.__name__,
+                value=self.offspring_original,
+            ),
+            PolarsDataFrameMessage(
+                topic=MutationMessageTopics.PARENTS,
+                source=self.__class__.__name__,
+                value=self.parents,
+            ),
+            PolarsDataFrameMessage(
+                topic=MutationMessageTopics.OFFSPRINGS,
+                source=self.__class__.__name__,
+                value=self.offspring,
+            ),
+            FloatMessage(
+                topic=MutationMessageTopics.MUTATION_PROBABILITY,
+                source=self.__class__.__name__,
+                value=self.mutation_probability,
+            ),
+        ]

@@ -32,6 +32,7 @@ from desdeo.emo.operators.mutation import (
     MixedIntegerRandomMutation,
     MPTMutation,
     NonUniformMutation,
+    SelfAdaptiveGaussianMutation,
 )
 from desdeo.emo.operators.selection import (
     ParameterAdaptationStrategy,
@@ -819,3 +820,43 @@ def test_non_uniform_mutation():
     assert result.shape == population.shape
 
     npt.assert_allclose(population, result)
+
+
+@pytest.mark.ea
+def test_self_adaptive_gaussian_mutation():
+    """Test whether the self-adaptive Gaussian mutation operator works as intended."""
+    publisher = Publisher()
+    problem = dtlz2(n_objectives=3, n_variables=12)
+
+    mutation = SelfAdaptiveGaussianMutation(problem=problem, publisher=publisher, seed=42)
+    num_vars = len(mutation.variable_symbols)
+
+    # Create a dummy population
+    population = pl.DataFrame(
+        mutation.rng.uniform(0, 1, size=(10, num_vars)),
+        schema=mutation.variable_symbols,
+    )
+
+    # Perform mutation
+    mutated, step_sizes = mutation.do(offsprings=population, parents=population)
+
+    # Ensure shape consistency
+    assert mutated.shape == population.shape
+    assert step_sizes.shape == (population.shape[0], population.shape[1])
+
+    # Should not be exactly equal due to mutations
+    with pytest.raises(AssertionError):
+        npt.assert_allclose(mutated.to_numpy(), population.to_numpy())
+
+    # Mutation with probability = 0.0
+    mutation = SelfAdaptiveGaussianMutation(problem=problem, publisher=publisher, seed=42, mutation_probability=0.0)
+
+    population = pl.DataFrame(
+        mutation.rng.uniform(0, 1, size=(10, num_vars)),
+        schema=mutation.variable_symbols,
+    )
+
+    mutated, step_sizes = mutation.do(offsprings=population, parents=population)
+
+    # No change expected
+    npt.assert_allclose(mutated.to_numpy(), population.to_numpy())
