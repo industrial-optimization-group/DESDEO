@@ -29,8 +29,8 @@ from desdeo.emo.operators.mutation import (
     BinaryFlipMutation,
     BoundedPolynomialMutation,
     IntegerRandomMutation,
-    MPTMutation,
     MixedIntegerRandomMutation,
+    MPTMutation,
 )
 from desdeo.emo.operators.selection import (
     ParameterAdaptationStrategy,
@@ -743,7 +743,7 @@ def test_blend_alpha_crossover():
 
 
 @pytest.mark.ea
-def test_MPT_mutation():
+def test_mpt_mutation():
     """Test whether the MPT mutation operator works as intended."""
     publisher = Publisher()
     n_points = 20

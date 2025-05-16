@@ -619,9 +619,10 @@ class MixedIntegerRandomMutation(BaseMutation):
             ),
         ]
 
+
 class MPTMutation(BaseMutation):
-    """
-    Makinen, Periaux and Toivanen mutation.
+    """Makinen, Periaux and Toivanen (MTP) mutation.
+
     Applies small mutations to mixed-integer variables using a mutation exponent strategy.
     """
 
@@ -652,14 +653,15 @@ class MPTMutation(BaseMutation):
         mutation_exponent: float = 2.0,
         **kwargs,
     ):
-        """
-        Initialize a small mutation operator.
+        """Initialize a small mutation operator.
 
         Args:
             problem (Problem): Optimization problem.
             seed (int): RNG seed.
             mutation_probability (float | None): Probability of mutation per gene.
             mutation_exponent (float): Controls strength of small mutation (larger means smaller mutations).
+            kwargs: Additional keyword arguments. These are passed to the Subscriber class. At the very least, the
+                publisher must be passed. See the Subscriber class for more information.
         """
         super().__init__(problem, **kwargs)
         self.rng = np.random.default_rng(seed)
@@ -669,9 +671,9 @@ class MPTMutation(BaseMutation):
             1 / len(self.variable_symbols) if mutation_probability is None else mutation_probability
         )
 
-    def _mutate_value(self, x, l, u):
+    def _mutate_value(self, x, lower_bound, upper_bound):
         """Apply small mutation to a single float value using mutation exponent."""
-        t = (x - l) / (u - l)
+        t = (x - lower_bound) / (upper_bound - lower_bound)
         rnd = self.rng.uniform(0, 1)
 
         if rnd < t:
@@ -681,11 +683,10 @@ class MPTMutation(BaseMutation):
         else:
             tm = t
 
-        return (1 - tm) * l + tm * u
+        return (1 - tm) * lower_bound + tm * upper_bound
 
     def do(self, offsprings: pl.DataFrame, parents: pl.DataFrame) -> pl.DataFrame:
-        """
-        Perform the MPT mutation operation.
+        """Perform the MPT mutation operation.
 
         Args:
             offsprings (pl.DataFrame): the offspring population to mutate.
@@ -704,12 +705,12 @@ class MPTMutation(BaseMutation):
             for j, var in enumerate(self.problem.variables):
                 if self.rng.random() < self.mutation_probability:
                     x = population[i, j]
-                    l, u = var.lowerbound, var.upperbound
+                    lower_bound, upper_bound = var.lowerbound, var.upperbound
                     if var.variable_type in [VariableTypeEnum.binary, VariableTypeEnum.integer]:
                         # Round after float mutation to keep integer domain
-                        population[i, j] = round(self._mutate_value(x, l, u))
+                        population[i, j] = round(self._mutate_value(x, lower_bound, upper_bound))
                     else:
-                        population[i, j] = self._mutate_value(x, l, u)
+                        population[i, j] = self._mutate_value(x, lower_bound, upper_bound)
 
         self.offspring = pl.from_numpy(population, schema=self.variable_symbols).select(pl.all()).cast(pl.Float64)
         self.notify()
@@ -717,7 +718,6 @@ class MPTMutation(BaseMutation):
 
     def update(self, *_, **__):
         """Do nothing."""
-        pass
 
     def state(self) -> Sequence[Message]:
         """Return the state of the mutation operator."""
