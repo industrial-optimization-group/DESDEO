@@ -20,8 +20,11 @@ nav:
       - "The problem format": "explanation/problem_format.ipynb"
       - "Parsing and evaluating": "explanation/parsing_and_evaluating.ipynb"
       - "Scalarization": "explanation/scalarization.ipynb"
+      - "Scalarization methods": "explanation/scalarization_methods.ipynb"
       - "Simulator support": "explanation/simulator_support.ipynb"
       - "Solvers": "explanation/solvers.ipynb"
+      - "Test problems": "explanation/test_problems.ipynb"
+      - "Evolutionary algorithms": "explanation/templates_and_pub_sub.ipynb"
   - "Guides":
       - "": "howtoguides/index.md"
       - "How to define a multiobjective optimization problem": "howtoguides/problem.md"
@@ -58,7 +61,6 @@ theme:
     primary: black
   logo: assets/desdeo_logo.png
   favicon: assets/desdeo_logo.png
-
 
 plugins:
   - search
@@ -100,7 +102,7 @@ markdown_extensions:
   - admonition
   - mdx_math
   - pymdownx.arithmatex:
-      generic: true 
+      generic: true
   - footnotes
   - attr_list
   - md_in_html
@@ -120,4 +122,4 @@ extra_javascript:
   - extrajs/extra.js
   - extrajs/mathjax.js
   - https://polyfill.io/v3/polyfill.min.js?features=es6
-  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js 
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
