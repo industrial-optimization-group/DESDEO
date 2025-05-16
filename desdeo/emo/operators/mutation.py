@@ -755,3 +755,138 @@ class MPTMutation(BaseMutation):
                 value=self.mutation_probability,
             ),
         ]
+
+
+class NonUniformMutation(BaseMutation):
+    """Non-uniform mutation operator.
+
+    The mutation strength decays over generations.
+    """
+
+    @property
+    def provided_topics(self) -> dict[int, Sequence[MutationMessageTopics]]:
+        """The message topics provided by the mutation operator."""
+        return {
+            0: [],
+            1: [MutationMessageTopics.MUTATION_PROBABILITY],
+            2: [
+                MutationMessageTopics.MUTATION_PROBABILITY,
+                MutationMessageTopics.OFFSPRING_ORIGINAL,
+                MutationMessageTopics.OFFSPRINGS,
+            ],
+        }
+
+    @property
+    def interested_topics(self):
+        """The message topics that the mutation operator is interested in."""
+        return []
+
+    def __init__(
+        self,
+        *,
+        problem: Problem,
+        seed: int,
+        mutation_probability: float | None = None,
+        b: float = 5.0,  # decay parameter
+        max_generations: int,
+        **kwargs,
+    ):
+        """Initialize a Non-uniform mutation operator.
+
+        Args:
+            problem (Problem): The optimization problem definition.
+            seed (int): Random number generator seed for reproducibility.
+            mutation_probability (float | None): Probability of mutating each
+                gene. If None, defaults to 1 / number of variables.
+            b (float): Non-uniform mutation decay parameter. Higher values cause
+                faster reduction in mutation strength over generations.
+            max_generations (int): Maximum number of generations in the evolutionary run. Used to scale mutation decay.
+            **kwargs: Additional keyword arguments passed to the base mutation class.
+        """
+        super().__init__(problem, **kwargs)
+        self.rng = np.random.default_rng(seed)
+        self.seed = seed
+        self.b = b
+        self.current_generation = 0
+        self.max_generations = max_generations
+        self.mutation_probability = (
+            1 / len(self.variable_symbols) if mutation_probability is None else mutation_probability
+        )
+
+    def _mutate_value(self, x, lower_bound, upper_bound, mutation_threshold=0.5):
+        """Apply non-uniform mutation to a single float value.
+
+        Args:
+            x (float): The current value of the gene to be mutated.
+            lower_bound (float): The lower bound of the gene.
+            upper_bound (float): The upper bound of the gene.
+            mutation_threshold (float): The mutation threshold. Defaults to 0.5.
+
+        Returns:
+            float: The mutated gene value, clipped within the bounds [l, u].
+        """
+        r = self.rng.uniform(0, 1)  # Random number to choose direction
+        t = self.current_generation
+        max_generations = self.max_generations
+        b = self.b
+
+        u_rand = self.rng.uniform(0, 1)  # Random number for mutation strength
+        tau = (1 - t / max_generations) ** b
+
+        if r <= mutation_threshold:
+            y = upper_bound - x
+            delta = y * (1 - u_rand**tau)
+            xm = x + delta
+        else:
+            y = x - lower_bound
+            delta = y * (1 - u_rand**tau)
+            xm = x - delta
+
+        return np.clip(xm, lower_bound, upper_bound)
+
+    def do(self, offsprings: pl.DataFrame, parents: pl.DataFrame) -> pl.DataFrame:
+        """Perform non-uniform mutation.
+
+        Args:
+            offsprings (pl.DataFrame): The current offspring population to
+                mutate. Each row corresponds to one individual.
+            parents (pl.DataFrame): The parent population (not used in mutation but passed for interface consistency).
+
+        Returns:
+            pl.DataFrame: A new offspring population with mutated values applied. Returned as a Polars DataFrame.
+        """
+        self.offspring_original = copy.copy(offsprings)
+        self.parents = parents
+
+        population = offsprings.to_numpy().astype(float)
+
+        for i in range(population.shape[0]):
+            for j, var in enumerate(self.problem.variables):
+                if self.rng.random() < self.mutation_probability:
+                    x = population[i, j]
+                    lower_bound, upper_bound = var.lowerbound, var.upperbound
+                    if var.variable_type in [VariableTypeEnum.binary, VariableTypeEnum.integer]:
+                        population[i, j] = round(self._mutate_value(x, lower_bound, upper_bound))
+                    else:
+                        population[i, j] = self._mutate_value(x, lower_bound, upper_bound)
+
+        self.offspring = pl.from_numpy(population, schema=self.variable_symbols).cast(pl.Float64)
+        self.notify()
+
+        return self.offspring
+
+    def update(self, generation: int, **kwargs):
+        """Update current generation (used to reduce mutation strength over time)."""
+        self.current_generation = generation
+
+    def state(self) -> Sequence[Message]:
+        """Return state messages."""
+        if self.verbosity == 0:
+            return []
+        return [
+            FloatMessage(
+                topic=MutationMessageTopics.MUTATION_PROBABILITY,
+                source=self.__class__.__name__,
+                value=self.mutation_probability,
+            ),
+        ]

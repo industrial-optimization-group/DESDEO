@@ -31,6 +31,7 @@ from desdeo.emo.operators.mutation import (
     IntegerRandomMutation,
     MixedIntegerRandomMutation,
     MPTMutation,
+    NonUniformMutation,
 )
 from desdeo.emo.operators.selection import (
     ParameterAdaptationStrategy,
@@ -770,6 +771,47 @@ def test_mpt_mutation():
     # zero mutation probability
     mutation = MPTMutation(problem=problem, publisher=publisher, seed=0, mutation_probability=0.0)
 
+    population, _ = generator.do()
+
+    result = mutation.do(offsprings=population, parents=population)
+
+    assert result.shape == population.shape
+
+    npt.assert_allclose(population, result)
+
+
+@pytest.mark.ea
+def test_non_uniform_mutation():
+    """Test whether the Non-Uniform mutation operator works as intended."""
+    publisher = Publisher()
+    n_points = 20
+
+    problem = momip_ti2()
+
+    # default mutation probability
+    mutation = NonUniformMutation(problem=problem, publisher=publisher, seed=0, max_generations=100)
+
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher)
+    generator = RandomMixedIntegerGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0
+    )
+
+    population, _ = generator.do()
+
+    mutation.update(generation=10)
+    result = mutation.do(offsprings=population, parents=population)
+
+    assert result.shape == population.shape
+
+    with npt.assert_raises(AssertionError):
+        npt.assert_allclose(population, result)
+
+    # zero mutation probability
+    mutation = NonUniformMutation(
+        problem=problem, publisher=publisher, seed=0, mutation_probability=0.0, max_generations=100
+    )
+
+    mutation.update(generation=10)
     population, _ = generator.do()
 
     result = mutation.do(offsprings=population, parents=population)
