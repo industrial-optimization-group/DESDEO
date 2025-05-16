@@ -28,12 +28,13 @@ nav:
   - "Guides":
       - "": "howtoguides/index.md"
       - "How to install DESDEO": "howtoguides/installing.md"
-      - "How to define a multiobjective optimization problem": "howtoguides/problem.md"
       - "How to get started using DESDEO": "howtoguides/full_example.ipynb"
+      - "How to define a multiobjective optimization problem": "howtoguides/problem.md"
       - "How to host a DESDEO web application on Kubernetes": "howtoguides/kubernetes.md"
       - "How to run DESDEO's web API": "howtoguides/api.md"
       - "How to use the NAUTILUS Navigator method": "howtoguides/nautilus_navigator.md"
       - "How to use the NAUTILI method": "howtoguides/nautili.md"
+      - "How to use the Pareto navigator method": "howtoguides/pareto_navigator.md"
       - "How to user evolutionary algorithms": "howtoguides/ea.ipynb"
       - "How to define problems with surrogates": "howtoguides/advancedSurrogates.ipynb"
       - "How to generate a representative set of solutions": "howtoguides/IPR.ipynb"
@@ -71,8 +72,6 @@ theme:
 plugins:
   - search
   - autorefs
-  - macros:
-      module_name: docs/macros
   - mkdocstrings:
       handlers:
         python:
