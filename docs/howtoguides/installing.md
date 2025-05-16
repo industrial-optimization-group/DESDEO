@@ -300,4 +300,4 @@ If you want the development dependencies installed as well, use `poetry install 
 ## Where to go next?
 
 To get a feel on how DESDEO can be utilized to model and solve multiobjective optimization problems
-in practice, checkout [this guide](../notebooks/full_example.ipynb).
+in practice, checkout [this guide](./full_example.ipynb).

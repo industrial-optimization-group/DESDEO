@@ -25,7 +25,7 @@ pyomo = "^6.8"
 gurobipy = "^12.0.0"
 tsp-solver = "^0.1"
 greenlet = "^3.1.1"
-pymoo = {git = "https://github.com/anyoptimization/pymoo"}
+pymoo = "^0.6.1.2"
 shap = "^0.47.0"
 cvxpy = {extras = ["scip"], version = "^1.6.4"}
 
