@@ -7,7 +7,7 @@ hide:
 
 - **[Installing DESDEO](installing.md):** How to install DESDEO on your system
 - **[Defining a Problem](problem.md):** How to define a multiobjective optimization problem
-- **[Worked Example](../notebooks/full_example.ipynb):** How to get started using DESDEO
+- **[Worked Example](full_example.ipynb):** How to get started using DESDEO
 - **[Hosting on Kubernetes](kubernetes.md) (outdated!):** How to host a DESDEO web application on Kubernetes
 - **[Running the Web API](api.md):** How to run the web API
 - **[NAUTILUS Navigator](nautilus_navigator.md):** How to use the NAUTILUS Navigator method
