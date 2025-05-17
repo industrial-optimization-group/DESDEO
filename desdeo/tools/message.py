@@ -22,6 +22,8 @@ class CrossoverMessageTopics(Enum):
     """ The offsprings generated from the crossover. """
     ALPHA = "ALPHA"
     """ Alpha parameter used in crossover. """
+    LAMBDA = "LAMBDA"
+    """ Lambda parameter used in crossover. """
 
 
 class MutationMessageTopics(Enum):
