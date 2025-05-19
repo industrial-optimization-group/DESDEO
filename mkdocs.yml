@@ -38,12 +38,16 @@ nav:
       - "How to user evolutionary algorithms": "howtoguides/ea.ipynb"
       - "How to define problems with surrogates": "howtoguides/advancedSurrogates.ipynb"
       - "How to generate a representative set of solutions": "howtoguides/IPR.ipynb"
-  - "API Reference":
+  - "Core-Logic Reference":
       - "desdeo-problem": "api/desdeo_problem.md"
       - "desdeo-mcdm": "api/desdeo_mcdm.md"
       - "desdeo-emo": "api/desdeo_emo.md"
       - "desdeo-tools": "api/desdeo_tools.md"
       - "DESDEO REST API": "api/desdeo_api.md"
+  - "Web-API":
+      - "": "web_api/index.md"
+  - "Web-GUI":
+      - "": "web_gui/index.md"
 
 watch:
   - desdeo
