@@ -78,7 +78,15 @@ currently the case with the web-API.
 
 ## Installation instructions
 
-For installing DESDEO, please see the documentation (TODO) for instructions.
+DESDEO is available on PyPI to be installed via pip:
+
+```bash
+pip install desdeo
+```
+
+However, some of DESDEO's features rely on 3rd party optimizers, which should be available on your system.
+To read more on these, and on instructions on how to install the latest version of DESDEO directly form GitHub,
+[check out the documentation](https://desdeo.readthedocs.io/en/latest/howtoguides/installing/).
 
 ## Documentation
 

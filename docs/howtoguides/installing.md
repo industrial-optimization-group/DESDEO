@@ -31,6 +31,21 @@ on your architecture.
 
 ## Installation (general)
 
+!!! Note "Read first"
+
+    This section covers on how to install DESDEO using the source on GitHub.
+    DESDEO is also available on PyPI to be installed via `pip`:
+
+    ```shell
+    pip install desdeo
+    ```
+
+    However, you may still required some of the [third party
+    optimizers](#third-party-optimizers), and [setting up a virtual
+    environment](#setting-up-a-virtual-environment) is never a bad idea.
+
+    If you intend to install DESDEO from its current source on GitHub, read on!
+
 The following instructions assume you have (mostly) full control of your system.
 If you are installing DESDEO on a more restricted Windows environment, such as a work
 laptop, please see [this section](#installation-for-restricted-windows-pcs).
