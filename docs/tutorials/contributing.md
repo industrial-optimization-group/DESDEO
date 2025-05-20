@@ -114,10 +114,9 @@ poetry. After this, we should be set to begin developing on Linux-based systems.
 
 ### macOS
 
-(this section should be written by somebody who has access to a Mac.)
-
-Homebrew something something. I have no idea. Just follow and adapt
-the instructions for [Linux-based systems](#linux).
+Please follow and adapt the instructions for [Linux-based systems](#linux).
+Contributions on more detailed instructions, preferably from a macOS user,
+are more than welcome!
 
 ## Setting up a virtual environment and installing DESDEO
 
@@ -178,18 +177,19 @@ Lastly, we should change to the newly cloned directory with the source code
 $ cd DESDEO
 ```
 
-!!! Note "Ensuring we work on the correct branch"
-    For now, we should also make sure to be checked in the `desdeo2`
+!!! Note "Ensuring we start working on the latest version"
+    We should make sure to be checked in the `master` (the main)
     branch of the project with the command
 
     ```shell
-    $ git checkout desdeo2
+    $ git checkout master
     ```
 
-    pulling changes on the branch might also be necessary
+    which _should_ be the default branch when cloning the repository.
+    Pulling the latest changes for the branch might also be necessary
 
     ```shell
-    $ git pull origin desdeo2
+    $ git pull origin master
     ```
 
 We are now in a position to setup our virtual environment.
@@ -237,33 +237,35 @@ Assuming we are still in the DESDEO's project directory
 a virtual environment with the command
 
 ```shell
-$ poetry shell
+$ poetry env activate
 ```
 
-This should create a virtual environment and activate it. To install
-DESDEO and download all of its software (development) dependencies to the
-environment, we can now run
+!!! Note
+
+    Please note that with an older version of poetry, we could have run the command
+    `poetry shell`, which would both create and activate a virtual environment. The
+    `shell` command can also be used to re-activate the virtual environment once exited.
+    It will not re-create it, if it already exists.
+
+This will print the command that needs to be executed to activate the virtual
+environment.  __Please note that this command does not activate the environment,
+it only shows the command that needs to be executed to do so.__
+
+Once the virtual environment is activated, we can install 
 
 <span id="bash:poetry_install_dev"></span>
 ```shell
-$ poetry install -E standard -E api --group=dev # (1)!
+$ poetry install --all-groups # (1)!
 ```
 
-1.  The option `-E standard` installs the regular version of polars. If we are on an
-    older CPU, we might want to install the legacy version with the option `-E legacy`.
-    The option `-E api` install the packages required to run DESDEO's web API. Having the
-    web API dependencies is beneficial when developing the API, database, or both,
-    aspects found in DESDEO.
-    The `-E` flag is used to indicate to poetry extra dependencies
-    we wish to install. Likewise, the `--group=dev`
-    tells poetry that we want to install the dependencies listed as development
-    dependencies.
+1.  The option `--all-groups` install DESDEO and all its extra dependencies,
+    which are needed for developing the framework.
 
 This might take a while. After poetry is done installing, and there
 are no error messages, we should be able to run
 
 ```shell
-$ pytest
+$ make test
 ```
 
 which runs all the tests present in DESDEO. Not all of them
@@ -271,6 +273,15 @@ will be passing, but a majority of them should. This should indicate
 to us now that DESDEO has been correctly installed, and our
 virtual environment is now setup correctly. Pytest and tests
 are discussed in more detail in the section [Testing](#testing).
+
+If `make` is not available on our system, we may also just run
+
+```shell
+$ pytest
+```
+
+which runs all possible tests and will likely lead to a few test to not pass,
+which is normal.
 
 To exit the virtual environment, simply run
 
@@ -281,13 +292,15 @@ $ exit
 and to re-activate it,
 
 ```bash
-$ poetry shell
+$ poetry env activate
 ```
+
+and follow the printed instructions.
 
 Activating the environment requires that our current working
 directory is set to be the DESDEO directory with the source code.
-The command `poetry shell` will not re-create the virtual environment
-if it already exists, only reactivate it.
+The command `poetry env activate` will not re-create the virtual environment
+if it already exists, only print the instructions on how to activate it.
 
 ## Typical Git workflow for contributing to DESDEO
 
@@ -364,34 +377,30 @@ Before making changes to DESDEO's code, we should create a new branch on our
 local fork of DESDEO. It is a good practice to name the branch something
 relevant to the changes we plan to make.
 
-!!! Warning "DESDEO 2.0 pre-release era"
-    Before making a branch on our fork, we should make sure
-    we are on the `desdeo2` branch of the repository:
-
-    ```bash
-    $ git checkout desdeo2
-    $ git status # (1)!
-    ```
-    
-    1. The output should be "On branch desdeo2... etc."
-
-Before making a branch, we should update the `desdeo2` branch first
-(once DESDEO 2.0 is released, this would be the `main` branch instead). We
-issue the commands
+Before making a branch, we should make sure to reside on the master branch
 
 ```bash
-$ git pull upstream desdeo2 # (1)!
+$ git checkout master
+```
+
+then update the `master` branch with potential changes from the upstream.
+We issue the commands
+
+```bash
+$ git pull upstream master # (1)!
 $ git log # (2)!
 ```
 
-1.  We should make sure we are on the `desdeo2` branch first!
+1.  We should make sure we are on the `master` branch first, otherwise we
+    risk an unwanted merge.
 2.  This will print a log of the most recent changes to the branch.
     We should see fairly recent changes here, if not, we should double
     check we are on the correct branch. To exit the log, we can press 'q'.    
 
-We are now in a position to create our own branch, which branches from
-`desdeo2`. To create a branch with the name `feature-x` and switch to it,
-we issue the command
+We are now in a position to create our own branch, which branches from the
+`master` branch. To create a branch with the name, e.g., `feature-x` (it is recommended
+to use a representative name that matches the feature being implemented for the
+branch) and switch to it, we issue the command
 
 ```bash
 $ git branch feature-x
@@ -468,7 +477,8 @@ $ git commit -m "Our commit message"
     e.g., "A test was dded to test the correct functioning of the NIMBUS method.
     A similar test was also added for the E-NAUTILUS methods. Both of these 
     tests should be passing." __There is no such thing as a "too long"
-    commit message!__
+    commit message!__ We can also refer to any issues our commit addressed by
+    simply including the commits number preceded by a hashtag, e.g., #123.
 
 We can make as many commits as we like. We do not need to have anything "ready"
 when making a commit. We should not be afraid of committing _too often_; there
@@ -504,7 +514,8 @@ A pull request is a GitHub feature where we can notify the maintainers of an
 upstream repository, usually the one we originally forked (in this case DESDEO),
 that we have made changes that we would like to integrate into the upstream. When
 making a pull request, it is assumed that a feature, or features, to be added
-are complete and not work in progress. Once a pull request has been made, the
+are complete and not work in progress (however, one can also make a draft pull request, if
+one desires to get feedback on work in progress). Once a pull request has been made, the
 maintainers of DESDEO will be notified. They will then check the changes, and
 either accept them as they are and pull them into the upstream, or they can give
 feedback on what needs to be changed for the pull request to be accepted.
@@ -538,14 +549,14 @@ own branch (e.g., `feature-x`) first!):
 
 ```bash
 $ git fetch upstream # (1)!
-$ git checkout desdeo2 # (2)!
-$ git merge upstream/desdeo2 # (3)!
-$ git push origin desdeo2 # (4)!
+$ git checkout master # (2)!
+$ git merge upstream/master # (3)!
+$ git push origin master # (4)!
 ```
 
 1.  The `fetch` command downloads all the changes made to the upstream but does not apply them, unlike the `pull` command would.
 2.  Remember, this is the main branch of the upstream, which we forked and which we want to keep up with.
-3.  This adds all the changes made in the upstream to our local fork. The `desdeo2` branch of our __local__ fork is now up to date.
+3.  This adds all the changes made in the upstream to our local fork. The `master` branch of our __local__ fork is now up to date.
 4.  Lastly, we want to update the fork in our repository, or remote as well, __which is on GitHub__. This command pushes the updated
     version of the main working branch to our fork on GitHub as well.
 
@@ -554,7 +565,7 @@ changes in the upstream with our work:
 
 ```bash
 $ git checkout feature-x  # (1)!
-$ git merge desdeo2 # (2)!
+$ git merge master # (2)!
 ```
 
 1.  We are now in our feature branch again.
