@@ -836,50 +836,63 @@ class SingleArithmeticCrossover(BaseCrossover):
             pl.DataFrame: the offspring resulting from the crossover.
         """
 
-        parent_population = population
+        self.parent_population = population
         pop_size = population.shape[0]
-        num_var = len(self.variable_symbols)
+        num_vars = len(self.variable_symbols)
 
-        parent_decision_vars = population[self.variable_symbols].to_numpy()
+        parents = population[self.variable_symbols].to_numpy()
 
         if to_mate is None:
-            shuffled_ids = list(range(pop_size))
-            np.random.shuffle(shuffled_ids)
+            mating_indices = list(range(pop_size))
+            shuffle(mating_indices)
         else:
-            shuffled_ids = to_mate
+            mating_indices = copy.copy(to_mate)
 
-        mating_pop_size = len(shuffled_ids)
+        mating_pop_size = len(mating_indices)
+        original_pop_size = mating_pop_size
+
         if mating_pop_size % 2 == 1:
-            shuffled_ids.append(shuffled_ids[0])
+            mating_indices.append(mating_indices[0])
             mating_pop_size += 1
 
-        mating_pop = parent_decision_vars[shuffled_ids]
-        parents1 = mating_pop[0::2, :]
-        parents2 = mating_pop[1::2, :]
+        mating_pool = parents[mating_indices, :]
+
+        parents1 = mating_pool[0::2, :]
+        parents2 = mating_pool[1::2, :]
 
         rng = np.random.default_rng(self.seed)
 
-        offspring = np.empty((mating_pop_size, num_var))
+        mask = rng.random(mating_pop_size // 2) <= self.xover_probability
+        gene_pos = rng.integers(0, num_vars, size=mating_pop_size // 2)
 
-        # Perform crossover with probability xover_probability
-        for i in range(mating_pop_size // 2):
-            if rng.random() < self.xover_probability:
-                crossover_point = rng.integers(0, num_var)
+        # Initialize offspring as exact copies
+        offspring1 = parents1.copy()
+        offspring2 = parents2.copy()
 
-                offspring[2 * i, :crossover_point] = parents1[i, :crossover_point]
-                offspring[2 * i, crossover_point:] = (parents1[i, crossover_point:] + parents2[i, crossover_point:]) / 2
+        # Apply crossover only for selected pairs
+        row_idx = np.arange(len(mask))[mask]
+        col_idx = gene_pos[mask]
 
-                offspring[2 * i + 1, :crossover_point] = parents2[i, :crossover_point]
-                offspring[2 * i + 1, crossover_point:] = (parents1[i, crossover_point:] + parents2[i,
-                                                                                          crossover_point:]) / 2
-            else:
-                offspring[2 * i] = parents1[i]
-                offspring[2 * i + 1] = parents2[i]
+        avg = 0.5 * (parents1[row_idx, col_idx] + parents2[row_idx, col_idx])
 
-        # Convert offspring to DataFrame
-        self.offspring_population = pl.from_numpy(offspring, schema=self.variable_symbols).select(
-            pl.all().cast(pl.Float64))
+        # Use advanced indexing to set arithmetic crossover gene
+        offspring1[row_idx, col_idx] = avg
+        offspring2[row_idx, col_idx] = avg
 
+        for i, k in zip(row_idx, col_idx):
+            offspring1[i, k + 1:] = parents2[i, k + 1:]
+            offspring2[i, k + 1:] = parents1[i, k + 1:]
+            offspring1[i, :k] = parents1[i, :k]
+            offspring2[i, :k] = parents2[i, :k]
+
+        offspring = np.vstack((offspring1, offspring2))
+        if original_pop_size % 2 == 1:
+            offspring = offspring[:-1, :]
+
+        self.offspring_population = (
+            pl.from_numpy(offspring, schema=self.variable_symbols)
+            .select(pl.all().cast(pl.Float64))
+        )
         self.notify()
         return self.offspring_population
 
