@@ -1,6 +1,13 @@
 from desdeo.adm import BaseADM
 from desdeo.problem.schema import Problem
 
+"""ADMChen.py
+This module implements the ADM proposed by Chen et al.
+
+References:
+Chen, L., Miettinen, K., Xin, B., & Ojalehto, V. (2023). Comparing reference point based interactive multiobjective optimization methods without a human decision maker.
+"""
+
 
 class ADMChen(BaseADM):
     def __init__(
