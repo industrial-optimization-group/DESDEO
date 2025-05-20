@@ -66,6 +66,8 @@ jupytext = "^1.16.4"
 mkdocs-include-markdown-plugin = { extras = ["cache"], version = "^7.0.0" }
 jupyter = "^1.0"
 jupyterlab = "^4.0"
+neoteroi-mkdocs = "^1.1.2"
+eralchemy = {extras = ["pygraphviz"], version = "^1.5.0"}
 
 [tool.ruff]
 # Enable the pycodestyle (`E`) and Pyflakes (`F`) rules by default.

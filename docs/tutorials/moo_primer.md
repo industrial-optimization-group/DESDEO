@@ -363,7 +363,7 @@ Interactive multiobjective optimization methods can be further classified
 into _scalarization-based_ and _population-based_ methods, roughly speaking.
 Scalarization-based methods
 will be discussed in the section [Scalarization-based methods](#scalarization-based-methods),
-and population-based methods will be introduced in the section [Population-based method](#population-based methods).
+and population-based methods will be introduced in the section [Population-based method](#population-based-methods).
 
 ## Scalarization-based methods
 

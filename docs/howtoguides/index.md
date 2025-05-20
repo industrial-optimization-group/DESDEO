@@ -21,3 +21,4 @@ hide:
 The following examples are the ones, which are covered in the article describing DESDEO 2.0 (not published yet).
 
 - **[Example 1](./how_to_define_a_problem.ipynb):** How to define a multiobjective optimization problem
+- **[Example 2](./how_to_utilize_mcdm_methods.ipynb):** How to utilize 'MCDM' methods
