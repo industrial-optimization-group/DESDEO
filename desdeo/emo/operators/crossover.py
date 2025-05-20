@@ -821,6 +821,7 @@ class SingleArithmeticCrossover(BaseCrossover):
         self.seed = seed
         self.parent_population: pl.DataFrame | None = None
         self.offspring_population: pl.DataFrame | None = None
+        self.rng = np.random.default_rng(self.seed)
 
     def do(self, *, population: pl.DataFrame, to_mate: list[int] | None = None) -> pl.DataFrame:
         """Perform Single Arithmetic Crossover.
@@ -860,10 +861,8 @@ class SingleArithmeticCrossover(BaseCrossover):
         parents1 = mating_pool[0::2, :]
         parents2 = mating_pool[1::2, :]
 
-        rng = np.random.default_rng(self.seed)
-
-        mask = rng.random(mating_pop_size // 2) <= self.xover_probability
-        gene_pos = rng.integers(0, num_vars, size=mating_pop_size // 2)
+        mask = self.rng.random(mating_pop_size // 2) <= self.xover_probability
+        gene_pos = self.rng.integers(0, num_vars, size=mating_pop_size // 2)
 
         # Initialize offspring as exact copies
         offspring1 = parents1.copy()
