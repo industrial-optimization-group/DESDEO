@@ -197,7 +197,7 @@ We are now in a position to setup our virtual environment.
 ### Setting up a virtual environment
 
 There are many ways to setup a virtual environment. Here, we will
-be utilizing poetry (c.f., section [Required software](#required-software))
+be utilizing poetry (c.f., section [Required software](#installing-required-software))
 for the task. (If you want to some other virtual environment system, 
 see the [DESDEO installation guide](../howtoguides/installing.md#setting-up-a-virtual-environment)
 for hints.) First, we should ensure
@@ -616,7 +616,7 @@ their usability and reusability, and to support other users in utilizing
 our additions.
 
 These topics are discussed in their respective sections 
-[Code style, linting](#code-style-linting); [Typechecking](#typechecking);
+[Code style, linting](#code-style-and-linting); [Typechecking](#typechecking);
 [Testing](#testing); and [Documenting](#documenting).
 
 ### Code style and linting

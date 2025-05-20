@@ -3,6 +3,7 @@ repo_url: "https://github.com/industrial-optimization-group/DESDEO"
 repo_name: "GitHub"
 docs_dir: "docs"
 site_dir: "site"
+site_url: "https://desdeo.readthedocs.io/en/latest/"
 
 nav:
   - Home: "index.md"
@@ -29,9 +30,10 @@ nav:
       - "": "howtoguides/index.md"
       - "How to install DESDEO": "howtoguides/installing.md"
       - "How to get started using DESDEO": "howtoguides/full_example.ipynb"
-      - "How to define a multiobjective optimization problem": "howtoguides/problem.md"
+      - "How to define a multiobjective optimization problem": "howtoguides/how_to_define_a_problem.ipynb"
       - "How to host a DESDEO web application on Kubernetes": "howtoguides/kubernetes.md"
       - "How to run DESDEO's web API": "howtoguides/api.md"
+      - "How to utilize 'MCDM' methods": "howtoguides/how_to_utilize_mcdm_methods.ipynb"
       - "How to use the NAUTILUS Navigator method": "howtoguides/nautilus_navigator.md"
       - "How to use the NAUTILI method": "howtoguides/nautili.md"
       - "How to use the Pareto navigator method": "howtoguides/pareto_navigator.md"
@@ -46,6 +48,9 @@ nav:
       - "DESDEO REST API": "api/desdeo_api.md"
   - "Web-API":
       - "": "web_api/index.md"
+      - "OpenAPI reference": "web_api/openapi.md"
+      - "Database models": "web_api/models.md"
+      - "Database relations mapping": "web_api/relations.md"
   - "Web-GUI":
       - "": "web_gui/index.md"
 
@@ -106,6 +111,8 @@ plugins:
           - hide_code
         remove_cell_tags:
           - remove_cell
+  - neoteroi.mkdocsoad:
+      use_pymdownx: true
 
 markdown_extensions:
   - admonition
@@ -123,9 +130,11 @@ markdown_extensions:
   - pymdownx.superfences
   - pymdownx.tabbed:
       alternate_style: true
+  - pymdownx.details
 
 extra_css:
   - stylesheets/extra.css
+  - stylesheets/neoteroi-mkdocs.css
 
 extra_javascript:
   - extrajs/extra.js
