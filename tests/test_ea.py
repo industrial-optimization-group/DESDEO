@@ -745,8 +745,10 @@ def test_blend_alpha_crossover():
     with npt.assert_raises(AssertionError):
         npt.assert_allclose(population, offspring)
 
+
 @pytest.mark.ea
 def test_single_arithmetic_crossover():
+    """Tests the single arithmetic crossover operator."""
     publisher = Publisher()
     problem = simple_test_problem()
     assert problem.variable_domain is VariableDomainTypeEnum.continuous
@@ -773,6 +775,7 @@ def test_single_arithmetic_crossover():
 
 @pytest.mark.ea
 def test_local_crossover():
+    """Tests the local crossover operator."""
     publisher = Publisher()
     problem = simple_test_problem()
     assert problem.variable_domain is VariableDomainTypeEnum.continuous
@@ -796,6 +799,7 @@ def test_local_crossover():
 
     for i in range(len(to_mate)):
         assert not np.allclose(population[to_mate[i]], offspring[i])
+
 
 @pytest.mark.ea
 def test_mpt_mutation():

@@ -7,7 +7,6 @@ in multiobjective optimization are defined here.
 import copy
 from abc import abstractmethod
 from collections.abc import Sequence
-from random import shuffle
 
 import numpy as np
 import polars as pl
@@ -135,7 +134,7 @@ class SimulatedBinaryCrossover(BaseCrossover):
 
         if to_mate is None:
             shuffled_ids = list(range(pop_size))
-            shuffle(shuffled_ids)
+            self.rng.shuffle(shuffled_ids)
         else:
             shuffled_ids = to_mate
         mating_pop = parent_decvars[shuffled_ids]
@@ -273,7 +272,7 @@ class SinglePointBinaryCrossover(BaseCrossover):
 
         if to_mate is None:
             shuffled_ids = list(range(pop_size))
-            shuffle(shuffled_ids)
+            self.rng.shuffle(shuffled_ids)
         else:
             shuffled_ids = copy.copy(to_mate)
 
@@ -413,7 +412,7 @@ class UniformIntegerCrossover(BaseCrossover):
 
         if to_mate is None:
             shuffled_ids = list(range(pop_size))
-            shuffle(shuffled_ids)
+            self.rng.shuffle(shuffled_ids)
         else:
             shuffled_ids = copy.copy(to_mate)
 
@@ -542,7 +541,7 @@ class UniformMixedIntegerCrossover(BaseCrossover):
 
         if to_mate is None:
             shuffled_ids = list(range(pop_size))
-            shuffle(shuffled_ids)
+            self.rng.shuffle(shuffled_ids)
         else:
             shuffled_ids = copy.copy(to_mate)
 
@@ -695,7 +694,7 @@ class BlendAlphaCrossover(BaseCrossover):
         parent_decision_vars = population[self.variable_symbols].to_numpy()
         if to_mate is None:
             shuffled_ids = list(range(pop_size))
-            shuffle(shuffled_ids)
+            self.rng.shuffle(shuffled_ids)
         else:
             shuffled_ids = copy.copy(to_mate)
 
@@ -836,7 +835,6 @@ class SingleArithmeticCrossover(BaseCrossover):
         Returns:
             pl.DataFrame: the offspring resulting from the crossover.
         """
-
         self.parent_population = population
         pop_size = population.shape[0]
         num_vars = len(self.variable_symbols)
@@ -845,7 +843,7 @@ class SingleArithmeticCrossover(BaseCrossover):
 
         if to_mate is None:
             mating_indices = list(range(pop_size))
-            shuffle(mating_indices)
+            self.rng.shuffle(mating_indices)
         else:
             mating_indices = copy.copy(to_mate)
 
@@ -878,9 +876,9 @@ class SingleArithmeticCrossover(BaseCrossover):
         offspring1[row_idx, col_idx] = avg
         offspring2[row_idx, col_idx] = avg
 
-        for i, k in zip(row_idx, col_idx):
-            offspring1[i, k + 1:] = parents2[i, k + 1:]
-            offspring2[i, k + 1:] = parents1[i, k + 1:]
+        for i, k in zip(row_idx, col_idx, strict=True):
+            offspring1[i, k + 1 :] = parents2[i, k + 1 :]
+            offspring2[i, k + 1 :] = parents1[i, k + 1 :]
             offspring1[i, :k] = parents1[i, :k]
             offspring2[i, :k] = parents2[i, :k]
 
@@ -888,16 +886,14 @@ class SingleArithmeticCrossover(BaseCrossover):
         if original_pop_size % 2 == 1:
             offspring = offspring[:-1, :]
 
-        self.offspring_population = (
-            pl.from_numpy(offspring, schema=self.variable_symbols)
-            .select(pl.all().cast(pl.Float64))
+        self.offspring_population = pl.from_numpy(offspring, schema=self.variable_symbols).select(
+            pl.all().cast(pl.Float64)
         )
         self.notify()
         return self.offspring_population
 
     def update(self, *_, **__):
         """Do nothing."""
-        pass
 
     def state(self) -> Sequence[Message]:
         """Return the state of the single arithmetic crossover operator."""
@@ -999,7 +995,7 @@ class LocalCrossover(BaseCrossover):
 
         if to_mate is None:
             shuffled_ids = list(range(pop_size))
-            np.random.shuffle(shuffled_ids)
+            self.rng.shuffle(shuffled_ids)
         else:
             shuffled_ids = to_mate.copy()
 
@@ -1034,7 +1030,6 @@ class LocalCrossover(BaseCrossover):
 
     def update(self, *_, **__):
         """Do nothing."""
-        pass
 
     def state(self) -> Sequence[Message]:
         """Return the state of the local crossover operator."""
