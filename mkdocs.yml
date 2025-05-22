@@ -26,6 +26,7 @@ nav:
       - "Solvers": "explanation/solvers.ipynb"
       - "Test problems": "explanation/test_problems.ipynb"
       - "Evolutionary algorithms": "explanation/templates_and_pub_sub.ipynb"
+      - "Web-API models and schema": "explanation/database_models_and_schema.md"
   - "Guides":
       - "": "howtoguides/index.md"
       - "How to install DESDEO": "howtoguides/installing.md"
