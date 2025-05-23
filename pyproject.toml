@@ -8,6 +8,11 @@ authors = [
 ]
 license = "MIT"
 readme = "README.md"
+exclude = [
+    "tests",
+    "desdeo/api",
+    "desdeo/utopia_stuff"
+]
 
 [tool.poetry.dependencies]
 python = "^3.12, <3.13"
@@ -29,10 +34,16 @@ pymoo = "^0.6.1.2"
 shap = "^0.47.0"
 cvxpy = {extras = ["scip"], version = "^1.6.4"}
 
+[tool.poetry.group.viz]
+optional=true
+
 [tool.poetry.group.viz.dependencies]
 seaborn = "^0.13.0"
 plotly = "^6.0"
 scienceplots = "^2.1.1"
+
+[tool.poetry.group.api]
+optional=true
 
 [tool.poetry.group.api.dependencies]
 sqlmodel = "^0.0.24"
@@ -43,6 +54,9 @@ python-jose = {extras = ["cryptography"], version = "^3.4.0"}
 python-multipart = "^0.0.20"
 uvicorn = "^0.34.2"
 sqlalchemy-utils = "^0.41.2"
+
+[tool.poetry.group.dev]
+optional=true
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.11"
