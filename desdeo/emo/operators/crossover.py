@@ -880,23 +880,35 @@ class BoundedExponentialCrossover(BaseCrossover):
         parents1 = mating_pop[0::2, :]
         parents2 = mating_pop[1::2, :]
 
-        c_min = np.minimum(parents1, parents2)
-        c_max = np.maximum(parents1, parents2)
-        span = c_max - c_min
+        x_lower = np.minimum(parents1, parents2)
+        x_upper = np.maximum(parents1, parents2)
+        span = parents2 - parents1
 
         rng = np.random.default_rng(self.seed)
 
         u = rng.random((mating_pop_size // 2, num_var))
         r = rng.random((mating_pop_size // 2, num_var))
-        expm = np.exp(-span / self.lambda_)
-        beta = np.where(
+
+        exp_lower_1 = np.exp((x_lower - parents1) / (self.lambda_ * span))
+        exp_upper_1 = np.exp((parents1 - x_upper) / (self.lambda_ * span))
+
+        exp_lower_2 = np.exp((x_lower - parents2) / (self.lambda_ * span))
+        exp_upper_2 = np.exp((parents2 - x_upper) / (self.lambda_ * span))
+
+        beta_1 = np.where(
             r <= 0.5,
-            self.lambda_ * np.log(expm + u * (1 - expm)),
-            -self.lambda_ * np.log(1 - u * (1 - expm)),
+            self.lambda_ * np.log(exp_lower_1 + u * (1 - exp_lower_1)),
+            -self.lambda_ * np.log(1 - u * (1 - exp_upper_1))
         )
 
-        offspring1 = c_min + beta
-        offspring2 = c_max - beta
+        beta_2 = np.where(
+            r <= 0.5,
+            self.lambda_ * np.log(exp_lower_2 + u * (1 - exp_lower_2)),
+            -self.lambda_ * np.log(1 - u * (1 - exp_upper_2))
+        )
+
+        offspring1 = parents1 + beta_1 * span
+        offspring2 = parents2 + beta_2 * span
 
         mask = rng.random(mating_pop_size // 2) > self.xover_probability
         offspring1[mask, :] = parents1[mask, :]

@@ -15,7 +15,7 @@ from desdeo.emo.operators.crossover import (
     SimulatedBinaryCrossover,
     SinglePointBinaryCrossover,
     UniformIntegerCrossover,
-    UniformMixedIntegerCrossover,
+    UniformMixedIntegerCrossover, BoundedExponentialCrossover,
 )
 from desdeo.emo.operators.evaluator import EMOEvaluator
 from desdeo.emo.operators.generator import (
@@ -724,6 +724,33 @@ def test_blend_alpha_crossover():
 
     # create operator
     crossover = BlendAlphaCrossover(problem=problem, publisher=publisher)
+    num_vars = len(crossover.variable_symbols)
+
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher)
+    generator = RandomGenerator(problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0)
+
+    population, outputs = generator.do()
+
+    # pick a custom mating order (odd-length to test padding)
+    to_mate = [0, 9, 1, 8, 2]
+    offspring = crossover.do(population=population, to_mate=to_mate)
+
+    assert offspring.shape == (len(to_mate), num_vars)
+    # offspring must differ from parents
+    with npt.assert_raises(AssertionError):
+        npt.assert_allclose(population, offspring)
+
+
+@pytest.mark.ea
+def test_bounded_exponential_crossover():
+    """Test whether the bounded exponential crossover (BEX) operator works as intended."""
+    publisher = Publisher()
+    problem = simple_test_problem()
+    # Make sure the problem is continuous
+    assert problem.variable_domain is VariableDomainTypeEnum.continuous
+
+    # create operator
+    crossover = BoundedExponentialCrossover(problem=problem, publisher=publisher, lambda_=1.0)
     num_vars = len(crossover.variable_symbols)
 
     evaluator = EMOEvaluator(problem=problem, publisher=publisher)
