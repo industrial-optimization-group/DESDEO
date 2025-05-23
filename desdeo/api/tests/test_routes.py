@@ -216,6 +216,7 @@ def test_rpm_solve(client: TestClient):
 
     assert response.status_code == status.HTTP_200_OK
 
+
 def test_nimbus_solve(client: TestClient):
     """Test that using the NIMBUS method works as expected."""
     access_token = login(client)
@@ -227,5 +228,5 @@ def test_nimbus_solve(client: TestClient):
     )
 
     response = post_json(client, "/method/nimbus/solve", request.model_dump(), access_token)
-    print(response.json())
+
     assert response.status_code == status.HTTP_200_OK
