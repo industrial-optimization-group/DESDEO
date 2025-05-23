@@ -27,12 +27,15 @@ __all__ = [
     "ProblemInfoSmall",
     "ReferencePoint",
     "RPMSolveRequest",
+    "NIMBUSClassificationRequest",
     "VariableDB",
     "InteractiveSessionBase",
     "InteractiveSessionDB",
     "InteractiveSessionInfo",
     "RPMBaseState",
     "RPMState",
+    "NIMBUSBaseState",
+    "NIMBUSClassificationState",
     "StateDB",
 ]
 
@@ -55,6 +58,8 @@ from .problem import (
     VariableDB,
 )
 from .reference_point_method import RPMSolveRequest
+from .nimbus import NIMBUSClassificationRequest
+
 from .session import (
     CreateSessionRequest,
     GetSessionRequest,
@@ -62,5 +67,5 @@ from .session import (
     InteractiveSessionDB,
     InteractiveSessionInfo,
 )
-from .state import RPMBaseState, RPMState, StateDB
+from .state import RPMBaseState, RPMState, StateDB, NIMBUSBaseState, NIMBUSClassificationState
 from .user import User, UserBase, UserPublic, UserRole
