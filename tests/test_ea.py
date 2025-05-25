@@ -34,7 +34,7 @@ from desdeo.emo.operators.mutation import (
     MixedIntegerRandomMutation,
     MPTMutation,
     NonUniformMutation,
-    SelfAdaptiveGaussianMutation,
+    SelfAdaptiveGaussianMutation, PowerMutation,
 )
 from desdeo.emo.operators.selection import (
     ParameterAdaptationStrategy,
@@ -917,3 +917,39 @@ def test_self_adaptive_gaussian_mutation():
 
     # No change expected
     npt.assert_allclose(mutated.to_numpy(), population.to_numpy())
+
+@pytest.mark.ea
+def test_power_mutation_operator():
+    """Test whether the power mutation operator works as intended."""
+    publisher = Publisher()
+    n_points = 20
+
+    problem = momip_ti2()
+
+    # default mutation probability with power mutation
+    mutation = PowerMutation(problem=problem, publisher=publisher, seed=0, p=5)
+
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher)
+    generator = RandomMixedIntegerGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0
+    )
+
+    population, _ = generator.do()
+
+    result = mutation.do(offsprings=population, parents=population)
+
+    # Ensure shape is preserved
+    assert result.shape == population.shape
+
+    # Ensure some mutation has occurred (not identical to original)
+    with npt.assert_raises(AssertionError):
+        npt.assert_allclose(population, result)
+
+    # mutation probability = 0 → no mutation should happen
+    mutation = PowerMutation(problem=problem, publisher=publisher, seed=0, mutation_probability=0.0, p=5)
+
+    population, _ = generator.do()
+    result = mutation.do(offsprings=population, parents=population)
+
+    assert result.shape == population.shape
+    npt.assert_allclose(population, result)

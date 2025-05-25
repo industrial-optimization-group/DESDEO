@@ -1051,3 +1051,148 @@ class SelfAdaptiveGaussianMutation(BaseMutation):
                 value=self.mutation_probability,
             ),
         ]
+
+class PowerMutation(BaseMutation):
+    """
+    Implements the Power Mutation (PM) operator for real and integer variables.
+    """
+
+    @property
+    def provided_topics(self) -> dict[int, Sequence[MutationMessageTopics]]:
+        """The message topics provided by the mutation operator."""
+        return {
+            0: [],
+            1: [MutationMessageTopics.MUTATION_PROBABILITY],
+            2: [
+                MutationMessageTopics.MUTATION_PROBABILITY,
+                MutationMessageTopics.OFFSPRING_ORIGINAL,
+                MutationMessageTopics.OFFSPRINGS,
+            ],
+        }
+
+    @property
+    def interested_topics(self):
+        """The message topics that the mutation operator listens to (none in this case)."""
+        return []
+
+    def __init__(
+        self,
+        *,
+        problem: Problem,
+        seed: int,
+        p: float = 1.5,
+        mutation_probability: float | None = None,
+        **kwargs,
+    ):
+        """
+        Initialize the PowerMutation operator.
+
+        Args:
+            problem (Problem): The problem definition containing variable bounds and types.
+            seed (int): Random seed for reproducibility.
+            p (float): Power distribution parameter. Controls the perturbation magnitude. Default is 1.5.
+            mutation_probability (float | None): Per-variable mutation probability. Defaults to 1/n.
+            kwargs: Additional keyword arguments passed to the BaseMutation class.
+        """
+        super().__init__(problem, **kwargs)
+        self.p = p
+        self.mutation_probability = mutation_probability if mutation_probability is not None else 1 / len(self.variable_symbols)
+        self.rng = np.random.default_rng(seed)
+        self.seed = seed
+        self.offspring_original: pl.DataFrame
+        self.parents: pl.DataFrame
+        self.offspring: pl.DataFrame
+
+    def do(self, offsprings: pl.DataFrame, parents: pl.DataFrame) -> pl.DataFrame:
+        """
+        Apply Power Mutation to the given offspring population.
+
+        Args:
+            offsprings (pl.DataFrame): The offspring population to mutate.
+            parents (pl.DataFrame): The parent population
+
+        Returns:
+            pl.DataFrame: Mutated offspring population.
+        """
+        self.offspring_original = copy.copy(offsprings)
+        self.parents = parents
+
+        if self.mutation_probability == 0.0:
+            self.offspring = offsprings.clone()
+            self.notify()
+            return self.offspring
+
+        population = offsprings.to_numpy().astype(float)
+        mutation_mask = self.rng.random(population.shape) < self.mutation_probability
+        mutated = population.copy()
+
+        for i, var in enumerate(self.problem.variables):
+            lb, ub = var.lowerbound, var.upperbound
+            xi = population[:, i]
+
+            ui = self.rng.random(len(xi))
+            si = ui ** (1 / self.p)
+
+            ri = self.rng.random(len(xi))
+            direction = ((xi - lb) / (ub - lb)) < ri
+
+            xi_mutated = np.where(
+                direction,
+                xi - si * (xi - lb),
+                xi + si * (ub - xi)
+            )
+
+            # Apply mutation based on mask
+            mutated[:, i] = np.where(mutation_mask[:, i], xi_mutated, xi)
+
+        # Convert back to DataFrame
+        self.offspring = pl.from_numpy(mutated, schema=self.variable_symbols).select(pl.all()).cast(pl.Float64)
+        self.notify()
+        return self.offspring
+
+    def update(self, *_, **__):
+        """No update logic needed."""
+        pass
+
+    def state(self) -> Sequence[Message]:
+        """
+        Return mutation-related state messages based on verbosity level.
+
+        Returns:
+            List of messages reporting mutation probability, input, and output (at higher verbosity).
+        """
+        if self.offspring_original is None or self.offspring is None or self.verbosity == 0:
+            return []
+
+        if self.verbosity == 1:
+            return [
+                FloatMessage(
+                    topic=MutationMessageTopics.MUTATION_PROBABILITY,
+                    source=self.__class__.__name__,
+                    value=self.mutation_probability,
+                ),
+            ]
+
+        # Verbosity == 2
+        return [
+            PolarsDataFrameMessage(
+                topic=MutationMessageTopics.OFFSPRING_ORIGINAL,
+                source=self.__class__.__name__,
+                value=self.offspring_original,
+            ),
+            PolarsDataFrameMessage(
+                topic=MutationMessageTopics.PARENTS,
+                source=self.__class__.__name__,
+                value=self.parents,
+            ),
+            PolarsDataFrameMessage(
+                topic=MutationMessageTopics.OFFSPRINGS,
+                source=self.__class__.__name__,
+                value=self.offspring,
+            ),
+            FloatMessage(
+                topic=MutationMessageTopics.MUTATION_PROBABILITY,
+                source=self.__class__.__name__,
+                value=self.mutation_probability,
+            ),
+        ]
