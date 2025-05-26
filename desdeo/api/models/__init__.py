@@ -36,6 +36,8 @@ __all__ = [
     "RPMState",
     "NIMBUSBaseState",
     "NIMBUSClassificationState",
+    "IntermediateSolutionRequest",
+    "NIMBUSIntermediateState",
     "StateDB",
 ]
 
@@ -59,6 +61,7 @@ from .problem import (
 )
 from .reference_point_method import RPMSolveRequest
 from .nimbus import NIMBUSClassificationRequest
+from .generic import IntermediateSolutionRequest
 
 from .session import (
     CreateSessionRequest,
@@ -67,5 +70,5 @@ from .session import (
     InteractiveSessionDB,
     InteractiveSessionInfo,
 )
-from .state import RPMBaseState, RPMState, StateDB, NIMBUSBaseState, NIMBUSClassificationState
+from .state import RPMBaseState, RPMState, StateDB, NIMBUSBaseState, NIMBUSClassificationState, NIMBUSIntermediateState
 from .user import User, UserBase, UserPublic, UserRole

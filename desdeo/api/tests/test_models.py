@@ -699,3 +699,81 @@ def test_rpm_state(session_and_user: dict[str, Session | list[User]]):
     assert state_2.children == []
     assert state_2.parent.problem == problem_db
     assert state_2.parent.session.user == user
+
+# def test_nimbus_state(session_and_user: dict[str, Session | list[User]]):
+#     """Test that the NIMBUS state works correctly."""
+#     session = session_and_user["session"]
+#     user = session_and_user["user"]
+#     problem_db = user.problems[0]
+
+#     # create interactive session
+#     isession = InteractiveSessionDB(user_id=user.id)
+#     session.add(isession)
+#     session.commit()
+#     session.refresh(isession)
+
+#     # preferences
+#     current_objectives_1 = {"f_1": 0.2, "f_2": 0.5, "f_3": 0.8}
+#     rp_1 = ReferencePoint(aspiration_levels=current_objectives_1)
+#     preference_db_1 = PreferenceDB(user_id=user.id, problem_id=problem_db.id, preference=rp_1)
+
+#     session.add(preference_db_1)
+#     session.commit()
+#     session.refresh(preference_db_1)
+
+    # # simulate dummy solver results
+    # dummy_results_1 = [SolverResults(variable_values={"x_1": 0.5}, objective_values={"f_1": 0.2, "f_2": 0.4, "f_3": 0.9})]
+
+    # nimbus_state_1 = NIMBUSClassificationState(
+    #     scalarization_options=None,
+    #     solver="dummy_solver",
+    #     solver_options=None,
+    #     current_objectives=current_objectives_1,
+    #     num_desired=1,
+    #     solver_results=dummy_results_1,
+    # )
+
+    # state_1 = StateDB(
+    #     problem_id=problem_db.id,
+    #     preference_id=preference_db_1.id,
+    #     session_id=isession.id,
+    #     parent_id=None,
+    #     state=nimbus_state_1,
+    # )
+
+    # session.add(state_1)
+    # session.commit()
+    # session.refresh(state_1)
+
+    # assert state_1.preference.preference == rp_1
+    # assert state_1.problem == problem_db
+    # assert state_1.session.user == user
+    # assert state_1.state.current_objectives == current_objectives_1
+    # assert state_1.state.solver_results == dummy_results_1
+    # assert state_1.state.method == "nimbus"
+
+# def test_nimbus_request_model():
+#     """Test the NIMBUSClassificationRequest model fields and defaults."""
+#     preference = ReferencePoint(aspiration_levels={"f_1": 0.3, "f_2": 0.6})
+
+#     request = NIMBUSClassificationRequest(
+#         problem_id=42,
+#         session_id=None,
+#         parent_state_id=None,
+#         scalarization_options={"option1": True},
+#         solver="dummy_solver",
+#         solver_options={"max_iter": 100},
+#         preference=preference,
+#         current_objectives={"f_1": 0.3, "f_2": 0.6},
+#         num_desired=None,
+#     )
+
+#     assert request.problem_id == 42
+#     assert request.session_id is None
+#     assert request.parent_state_id is None
+#     assert request.scalarization_options == {"option1": True}
+#     assert request.solver == "dummy_solver"
+#     assert request.solver_options == {"max_iter": 100}
+#     assert request.preference == preference
+#     assert request.current_objectives == {"f_1": 0.3, "f_2": 0.6}
+#     assert request.num_desired == 1  # because default is 1
