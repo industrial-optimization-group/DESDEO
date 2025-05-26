@@ -22,9 +22,10 @@ from pymoo.indicators.hv import Hypervolume
 from pymoo.indicators.rmetric import RMetric
 from scipy.spatial.distance import cdist
 from typing import Dict
+from desdeo.tools.non_dominated_sorting import dominates, fast_non_dominated_sort_indices
 
 
-def hv(solution_set: np.ndarray, reference_point_component: float) -> float:
+def hv(solution_set: np.ndarray, reference_point_component: float | np.ndarray) -> float:
     """Calculate the hypervolume indicator for a set of solutions.
 
     Args:
@@ -55,7 +56,7 @@ def hv(solution_set: np.ndarray, reference_point_component: float) -> float:
 
 
 def hv_batch(
-    solution_sets: dict[str, np.ndarray], reference_points_component: list[float]
+        solution_sets: dict[str, np.ndarray], reference_points_component: list[float]
 ) -> dict[str, list[float | None]]:
     """Calculate the hypervolume indicator for a set of solutions over a range of reference points.
 
@@ -155,7 +156,7 @@ def distance_indicators(solution_set: np.ndarray, reference_set: np.ndarray, p: 
 
 
 def distance_indicators_batch(
-    solution_sets: dict[str, np.ndarray], reference_set: np.ndarray, p: float = 2.0
+        solution_sets: dict[str, np.ndarray], reference_set: np.ndarray, p: float = 2.0
 ) -> dict[str, DistanceIndicators]:
     """Calculate the IGD, GD, GD_P, IGD_P, and AHD for a sets of solutions.
 
@@ -367,6 +368,161 @@ def get_pareto_front(solutions):
             pareto_front.append(solution)
     return np.array(pareto_front)
 
+class PHI(object):
+
+    def __init__(self,
+                 solution_set: np.ndarray,
+                 reference_point: np.ndarray,
+                 nadir: np.ndarray,
+                 ideal: np.ndarray = None):
+        """
+        Calculates multiple PHI metrics for solution set and reference point.
+
+        Args:
+            solution_set (np.ndarray): 2D numpy arrays where each array contains a set of solutions.
+                Each row is a solution and each column is an objective value.
+            reference_point (np.ndarray): Numpy array containing a reference point values
+            nadir (np.ndarray): Numpy array containing a nadir point values
+            ideal (np.ndarray): Numpy array containing a ideal point values. 
+                Could be None if we are sure that solution set is non dominated???
+        """
+
+        self.solution_set = solution_set
+        self.reference_point = reference_point
+        self.nadir = nadir
+        self.ideal = ideal
+
+        self.is_rp_dominated, self.dom_indices = self.check_rp_dominated(self.solution_set,
+                                                                         self.reference_point)
+
+        non_dom_indices = fast_non_dominated_sort_indices(
+            np.vstack((self.solution_set, self.reference_point)))[0][0]
+        self.non_dom_sols = np.vstack((self.solution_set, self.reference_point))[non_dom_indices]
+
+    def check_rp_dominated(self, set_of_solutions, reference_point) -> tuple[bool, list]:
+        """Check if the reference point (RP) is dominated by any solution in set_of_s."""
+        dominated = False
+        dom_indices = []
+        for idx, sol in enumerate(set_of_solutions):
+            if dominates(sol, reference_point):
+                dom_indices.append(idx)
+                dominated = True
+        return dominated, dom_indices
+
+    def RP_dom_cal(self, dom_indices):
+        """Calculate hypervolume metrics when RP is dominated."""
+
+        if self.ideal is None:
+            warn("Cannot calculate phi for dominated without ideal point.",
+                 category=RuntimeWarning, stacklevel=2)
+            return None
+
+        max_phv = hv(self.ideal.reshape(1, -1), self.nadir)
+        all_phv = hv(self.non_dom_sols.reshape(1, -1), self.nadir)
+        rp_phv = hv(self.reference_point.reshape(1, -1), self.nadir)
+        pos_phv = hv(self.solution_set[dom_indices], self.nadir) - rp_phv
+        neg_phv = all_phv - pos_phv - rp_phv
+
+        if all_phv == 0:
+            return 0, 0, 0, 0
+        else:
+            return (1 + (pos_phv / all_phv),
+                    (pos_phv + rp_phv) / max_phv,
+                    neg_phv / max_phv,
+                    rp_phv / max_phv)
+
+    def RP_nondom_cal(self):
+        """Calculate hypervolume metrics when RP is non dominated."""
+
+        all_phv = hv(self.non_dom_sols, self.nadir)
+        rp_phv = hv(self.reference_point.reshape(1, -1), self.nadir)
+        s_phv = hv(self.solution_set, self.nadir)
+        nondom_area = all_phv - s_phv
+        pos_phv = rp_phv - nondom_area
+        neg_phv = all_phv - rp_phv
+
+        if all_phv == 0:
+            return 0, 0, 0, 0
+        else:
+            return (pos_phv / rp_phv,
+                    pos_phv / all_phv,
+                    neg_phv / all_phv,
+                    rp_phv)
+
+    def get_phi(self) -> tuple[bool, tuple] | tuple[None, None]:
+        if self.is_rp_dominated:
+            if len(self.dom_indices) == len(self.solution_set):
+                warn("Warning: No non-dominated solutions found.", category=RuntimeWarning, stacklevel=2)
+                return None, None
+
+            results = self.RP_dom_cal(self.dom_indices)
+            return True, results
+        else:
+            results = self.RP_nondom_cal()
+            return False, results
+
+
+class PhiDecision(object):
+    def __init__(self, indicator_values: tuple, nadir: np.ndarray):
+        """Initialize with the PHI indicator values, and nadir for hypervolume calculations."""
+        self.indicator_values = indicator_values
+        self.nadir = nadir
+
+        self.combined_hv = None
+        self.nadir_1d = None
+
+    def get_areas(self, ref_point1: np.ndarray, ref_point2: np.ndarray) -> float:
+        """Calculate the shared hypervolume area between two reference points."""
+        # Ensure rp1 and rp2 are 2D arrays
+        if ref_point1.ndim == 1:
+            ref_point1 = ref_point1.reshape(1, -1)
+        if ref_point2.ndim == 1:
+            ref_point2 = ref_point2.reshape(1, -1)
+
+        dom21 = dominates(ref_point2.flatten(), ref_point1.flatten())
+        dom12 = dominates(ref_point1.flatten(), ref_point2.flatten())
+        ref_point1_hv = hv(ref_point1, self.nadir_1d)
+        ref_point2_hv = hv(ref_point2, self.nadir_1d)
+        combined_hv = hv(np.vstack((ref_point1, ref_point2)), self.nadir_1d)
+        self.combined_hv = combined_hv
+
+        if dom21:
+            shared_area = ref_point1_hv
+        elif dom12:
+            shared_area = ref_point2_hv
+        else:
+            extra_area_in_rp1 = abs(combined_hv - ref_point2_hv)
+            shared_area = ref_point1_hv - extra_area_in_rp1
+        return shared_area
+
+    def interactions_areas(self, ref_point_set: np.ndarray, main_ref_point: np.ndarray) -> np.ndarray:
+        """Calculate interaction areas for a set of reference points and a main reference point."""
+        areas = [self.get_areas(ref_point, main_ref_point) for ref_point in ref_point_set]
+        return np.asarray(areas)
+
+    def get_weights(self, shared_areas: np.ndarray, main_w) -> np.ndarray:
+        """Calculate the weights for the hypervolume shared areas."""
+        return shared_areas / self.combined_hv
+
+    def assess(self, weights: np.ndarray, assessment_values: np.ndarray):
+        """Assess the decision phase using weighted mean of assessment values."""
+        assessment = np.mean(weights * assessment_values)
+        return assessment
+
+    def assess_decision_phase(self, set_of_RPs: np.ndarray, main_RP: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Assess the decision phase for a set of reference points and a main reference point."""
+        # Reshape main_RP to 2D array if it is 1D
+        if main_RP.ndim == 1:
+            main_RP = main_RP.reshape(1, -1)
+
+        # Ensure self.nadir is a 1D array
+        self.nadir_1d = self.nadir.flatten()
+
+        main_area = hv(main_RP, self.nadir_1d)
+        shared_areas = self.interactions_areas(set_of_RPs, main_RP)
+        weights = self.get_weights(shared_areas, main_area)
+        assessment = self.assess(weights, np.asarray(self.indicator_values))
+        return assessment, weights
 
 # Additional unary indicators can be added here.
 # E.g. The IGD+ indicator, R2 indicator, averaged Hausdorff distance, etc.
