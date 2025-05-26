@@ -1046,7 +1046,6 @@ class LocalCrossover(BaseCrossover):
                     value=self.xover_probability,
                 )
             )
-
         if self.verbosity >= 2:
             msgs.extend(
                 [
@@ -1062,5 +1061,189 @@ class LocalCrossover(BaseCrossover):
                     ),
                 ]
             )
+        return msgs
 
+
+class BoundedExponentialCrossover(BaseCrossover):
+    """Bounded‐exponential (BEX) crossover for continuous problems."""
+
+    @property
+    def provided_topics(self) -> dict[int, Sequence[CrossoverMessageTopics]]:
+        """The message topics provided by the bounded exponential crossover operator."""
+        return {
+            0: [],
+            1: [
+                CrossoverMessageTopics.XOVER_PROBABILITY,
+                CrossoverMessageTopics.LAMBDA,
+            ],
+            2: [
+                CrossoverMessageTopics.XOVER_PROBABILITY,
+                CrossoverMessageTopics.LAMBDA,
+                CrossoverMessageTopics.PARENTS,
+                CrossoverMessageTopics.OFFSPRINGS,
+            ],
+        }
+
+    @property
+    def interested_topics(self):
+        """The message topics provided by the bounded exponential crossover operator."""
+        return []
+
+    def __init__(
+        self,
+        *,
+        problem: Problem,
+        seed: int = 0,
+        lambda_: float = 1.0,
+        xover_probability: float = 1.0,
+        **kwargs,
+    ):
+        """Initialize the bounded‐exponential crossover operator.
+
+        Args:
+            problem (Problem): the problem object.
+            seed (int): random seed for the internal generator.
+            lambda_ (float, optional): positive scale λ for the exponential distribution.
+                Defaults to 1.0.
+            xover_probability (float, optional): probability of applying crossover
+                to each pair. Defaults to 1.0.
+            kwargs: passed to Subscriber (e.g. publisher).
+        """
+        super().__init__(problem=problem, **kwargs)
+
+        if problem.variable_domain is not VariableDomainTypeEnum.continuous:
+            raise ValueError("BoundedExponentialCrossover only works on continuous problems.")
+        if lambda_ <= 0:
+            raise ValueError("lambda_ must be positive.")
+        if not 0 <= xover_probability <= 1:
+            raise ValueError("xover_probability must be in [0,1].")
+
+        self.lambda_ = lambda_
+        self.xover_probability = xover_probability
+        self.seed = seed
+        self.rng = np.random.default_rng(self.seed)
+
+        self.parent_population: pl.DataFrame | None = None
+        self.offspring_population: pl.DataFrame | None = None
+
+    def do(
+        self,
+        *,
+        population: pl.DataFrame,
+        to_mate: list[int] | None = None,
+    ) -> pl.DataFrame:
+        """Perform bounded‐exponential crossover.
+
+        Args:
+            population (pl.DataFrame): the population to perform the crossover with. The DataFrame
+                contains the decision vectors, the target vectors, and the constraint vectors.
+            to_mate (list[int] | None): the indices of the population members that should
+                participate in the crossover. If `None`, the whole population is subject
+                to the crossover.
+
+        Returns:
+            pl.DataFrame: the offspring resulting from the crossover.
+        """
+        self.parent_population = population
+        pop_size = population.shape[0]
+        num_var = len(self.variable_symbols)
+
+        parent_decision_vars = population[self.variable_symbols].to_numpy()
+        if to_mate is None:
+            shuffled_ids = list(range(pop_size))
+            self.rng.shuffle(shuffled_ids)
+        else:
+            shuffled_ids = copy.copy(to_mate)
+
+        mating_pop_size = len(shuffled_ids)
+        original_pop_size = mating_pop_size
+        if mating_pop_size % 2 == 1:
+            shuffled_ids.append(shuffled_ids[0])
+            mating_pop_size += 1
+
+        mating_pop = parent_decision_vars[shuffled_ids]
+
+        parents1 = mating_pop[0::2, :]
+        parents2 = mating_pop[1::2, :]
+
+        x_lower = np.minimum(parents1, parents2)  # upper and lower bounds of the variables in the population
+        x_upper = np.maximum(parents1, parents2)  # might have to change to bounds taken from Problem, instead...
+        span = parents2 - parents1  # y_i - x_1
+
+        u_i = self.rng.random((mating_pop_size // 2, num_var))  # random integers
+        r_i = self.rng.random((mating_pop_size // 2, num_var))
+
+        exp_lower_1 = np.exp((x_lower - parents1) / (self.lambda_ * span))
+        exp_upper_1 = np.exp((parents1 - x_upper) / (self.lambda_ * span))
+
+        exp_lower_2 = np.exp((x_lower - parents2) / (self.lambda_ * span))
+        exp_upper_2 = np.exp((parents2 - x_upper) / (self.lambda_ * span))
+
+        beta_1 = np.where(
+            r_i <= 0.5,
+            self.lambda_ * np.log(exp_lower_1 + u_i * (1 - exp_lower_1)),
+            -self.lambda_ * np.log(1 - u_i * (1 - exp_upper_1)),
+        )
+
+        beta_2 = np.where(
+            r_i <= 0.5,
+            self.lambda_ * np.log(exp_lower_2 + u_i * (1 - exp_lower_2)),
+            -self.lambda_ * np.log(1 - u_i * (1 - exp_upper_2)),
+        )
+
+        offspring1 = parents1 + beta_1 * span
+        offspring2 = parents2 + beta_2 * span
+
+        mask = self.rng.random(mating_pop_size // 2) > self.xover_probability
+        offspring1[mask, :] = parents1[mask, :]
+        offspring2[mask, :] = parents2[mask, :]
+
+        children = np.vstack((offspring1, offspring2))
+        if original_pop_size % 2 == 1:
+            children = children[:-1, :]
+
+        self.offspring_population = pl.from_numpy(children, schema=self.variable_symbols).select(
+            pl.all().cast(pl.Float64)
+        )
+        self.notify()
+        return self.offspring_population
+
+    def update(self, *_, **__):
+        """Do nothing."""
+
+    def state(self) -> Sequence[Message]:
+        """Return the state of the crossover operator."""
+        if getattr(self, "parent_population", None) is None:
+            return []
+        msgs: list[Message] = []
+        if self.verbosity >= 1:
+            msgs.append(
+                FloatMessage(
+                    topic=CrossoverMessageTopics.XOVER_PROBABILITY,
+                    source=self.__class__.__name__,
+                    value=self.xover_probability,
+                )
+            )
+            msgs.append(
+                FloatMessage(
+                    topic=CrossoverMessageTopics.LAMBDA,
+                    source=self.__class__.__name__,
+                    value=self.lambda_,
+                )
+            )
+        if self.verbosity >= 2:
+            msgs.extend(
+                [
+                    PolarsDataFrameMessage(
+                        topic=CrossoverMessageTopics.PARENTS,
+                        source=self.__class__.__name__,
+                        value=self.parent_population,
+                    ),
+                    PolarsDataFrameMessage(
+                        topic=CrossoverMessageTopics.OFFSPRINGS,
+                        source=self.__class__.__name__,
+                        value=self.offspring_population,
+                    ),
+                ]
+            )
         return msgs
