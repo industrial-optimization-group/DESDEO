@@ -19,7 +19,7 @@ class StateType(TypeDecorator):
 
     def process_bind_param(self, value, dialect):
         """State to JSON."""
-        if isinstance(value, RPMState):
+        if isinstance(value, RPMState | NIMBUSClassificationState):
             return value.model_dump()
 
         msg = f"No JSON serialization set for ste of type '{type(value)}'."
@@ -33,6 +33,8 @@ class StateType(TypeDecorator):
             match value["method"]:
                 case "reference_point_method":
                     return RPMState.model_validate(value)
+                case "nimbus":
+                    return NIMBUSClassificationState.model_validate(value)
                 case _:
                     msg = f"No method '{value["method"]}' found."
                     print(msg)
@@ -69,6 +71,28 @@ class RPMState(RPMBaseState):
     # results
     solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
 
+class NIMBUSBaseState(BaseState):
+    """The base sate for the reference point method (NIMBUS).
+
+    Other states of the NIMBUS should inherit from this.
+    """
+
+    method: Literal["nimbus"] = "nimbus"
+
+
+class NIMBUSClassificationState(NIMBUSBaseState):
+    """State of the nimbus method for computing solutions."""
+
+    phase: Literal["solve_candidates"] = "solve_candidates"
+
+    scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    solver: str | None = Field(default=None)
+    solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    current_objectives: dict[str, float] = Field(sa_column=Column(JSON))
+    num_desired: int | None = Field(default=1)
+
+    # results
+    solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
 
 class StateDB(SQLModel, table=True):
     """Database model to store interactive method state."""
