@@ -232,11 +232,11 @@ to be:
 
 <span id="def:scalarized_problem"></span>
 !!! Note "Definition: scalarized problem"
-    $$
+    \begin{align}
     \operatorname{min}_{\mathbf{x}\in S} \mathcal{S}(F(\mathbf{x}); \mathbf{p}),
-    $$
-    where $\mathbf{p}$ is a vector of parameters utilized by the scalarization
-    function $\mathcal{S}$. The parameters $\mathbf{p}$ can also be empty.
+    \end{align}
+where $\mathbf{p}$ is a vector of parameters utilized by the scalarization
+function $\mathcal{S}$. The parameters $\mathbf{p}$ can also be empty.
 
 As an example of the scalarization function, consider the _achievement scalarizing function_
 defined as:
@@ -251,8 +251,7 @@ defined as:
     \right]
     + \rho\sum_{i=1}^{k} \frac{f_i(\mathbf{x})}{z_i^\text{nad} - (z_i^\star - \delta)},
     $$
-    where $\delta$ and $\rho$ are small scalar values.
-
+where $\delta$ and $\rho$ are small scalar values.
 By minimizing, e.g., solving, the achievement scalarizing function, we can find
 Pareto optimal solutions that are close to the provided reference point $\mathbf{q}$.
 
@@ -269,9 +268,8 @@ defines as:
         & & f_j(\mathbf{x}) \leq \epsilon_j \text{ for all } j = 1, \ldots ,k, \; j \neq t,
         \end{aligned}
     \end{equation}
-    where $\epsilon_j$ are the epsilon bounds used in the epsilon constraints $f_j(\mathbf{x}) \leq \epsilon_j$,
-    and $k$ is the number of objective functions.
-
+where $\epsilon_j$ are the epsilon bounds used in the epsilon constraints $f_j(\mathbf{x}) \leq \epsilon_j$,
+and $k$ is the number of objective functions.
 In the epsilon-constraints scalarization, one of the objective functions is chosen to be
 optimized, while the other objective functions are constrained.
 
