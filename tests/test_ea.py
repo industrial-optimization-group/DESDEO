@@ -34,7 +34,8 @@ from desdeo.emo.operators.mutation import (
     MixedIntegerRandomMutation,
     MPTMutation,
     NonUniformMutation,
-    SelfAdaptiveGaussianMutation, PowerMutation,
+    PowerMutation,
+    SelfAdaptiveGaussianMutation,
 )
 from desdeo.emo.operators.selection import (
     ParameterAdaptationStrategy,
@@ -917,6 +918,7 @@ def test_self_adaptive_gaussian_mutation():
 
     # No change expected
     npt.assert_allclose(mutated.to_numpy(), population.to_numpy())
+
 
 @pytest.mark.ea
 def test_power_mutation_operator():

@@ -1052,10 +1052,9 @@ class SelfAdaptiveGaussianMutation(BaseMutation):
             ),
         ]
 
+
 class PowerMutation(BaseMutation):
-    """
-    Implements the Power Mutation (PM) operator for real and integer variables.
-    """
+    """Implements the Power Mutation (PM) operator for real and integer variables."""
 
     @property
     def provided_topics(self) -> dict[int, Sequence[MutationMessageTopics]]:
@@ -1084,8 +1083,7 @@ class PowerMutation(BaseMutation):
         mutation_probability: float | None = None,
         **kwargs,
     ):
-        """
-        Initialize the PowerMutation operator.
+        """Initialize the PowerMutation operator.
 
         Args:
             problem (Problem): The problem definition containing variable bounds and types.
@@ -1096,7 +1094,9 @@ class PowerMutation(BaseMutation):
         """
         super().__init__(problem, **kwargs)
         self.p = p
-        self.mutation_probability = mutation_probability if mutation_probability is not None else 1 / len(self.variable_symbols)
+        self.mutation_probability = (
+            mutation_probability if mutation_probability is not None else 1 / len(self.variable_symbols)
+        )
         self.rng = np.random.default_rng(seed)
         self.seed = seed
         self.offspring_original: pl.DataFrame
@@ -1104,8 +1104,7 @@ class PowerMutation(BaseMutation):
         self.offspring: pl.DataFrame
 
     def do(self, offsprings: pl.DataFrame, parents: pl.DataFrame) -> pl.DataFrame:
-        """
-        Apply Power Mutation to the given offspring population.
+        """Apply Power Mutation to the given offspring population.
 
         Args:
             offsprings (pl.DataFrame): The offspring population to mutate.
@@ -1127,36 +1126,31 @@ class PowerMutation(BaseMutation):
         mutated = population.copy()
 
         for i, var in enumerate(self.problem.variables):
-            lb, ub = var.lowerbound, var.upperbound
-            xi = population[:, i]
+            lower_bound, upper_bound = var.lowerbound, var.upperbound
+            x_i = population[:, i]
 
-            ui = self.rng.random(len(xi))
-            si = ui ** (1 / self.p)
+            u_i = self.rng.random(len(x_i))  # uniform random number
+            s_i = u_i ** (1 / self.p)  # random number that follows the power distribution
 
-            ri = self.rng.random(len(xi))
-            direction = ((xi - lb) / (ub - lb)) < ri
+            r_i = self.rng.random(len(x_i))  # another uniform random number
+            direction = ((x_i - lower_bound) / (upper_bound - lower_bound)) < r_i  # used as condition
 
-            xi_mutated = np.where(
-                direction,
-                xi - si * (xi - lb),
-                xi + si * (ub - xi)
-            )
+            xi_mutated = np.where(direction, x_i - s_i * (x_i - lower_bound), x_i + s_i * (upper_bound - x_i))
 
             # Apply mutation based on mask
-            mutated[:, i] = np.where(mutation_mask[:, i], xi_mutated, xi)
+            mutated[:, i] = np.where(mutation_mask[:, i], xi_mutated, x_i)
 
         # Convert back to DataFrame
         self.offspring = pl.from_numpy(mutated, schema=self.variable_symbols).select(pl.all()).cast(pl.Float64)
         self.notify()
+
         return self.offspring
 
     def update(self, *_, **__):
         """No update logic needed."""
-        pass
 
     def state(self) -> Sequence[Message]:
-        """
-        Return mutation-related state messages based on verbosity level.
+        """Return mutation-related state messages based on verbosity level.
 
         Returns:
             List of messages reporting mutation probability, input, and output (at higher verbosity).
