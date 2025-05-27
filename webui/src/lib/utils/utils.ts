@@ -92,7 +92,7 @@ export async function refreshAccessToken(): Promise<string | null> {
 
 export async function getUserDetails(access_token: string): Promise<UserInfo | null> {
     try {
-        const url = PUBLIC_API_URL + "/userdetails";
+        const url = PUBLIC_API_URL + "/user_info";
         const response = await fetch(url, {
             method: "GET",
             headers: {
