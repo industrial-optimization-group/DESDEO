@@ -1,38 +1,59 @@
-[tool.poetry]
+[project]
 name = "desdeo"
 version = "2.0.0"
 description = "DESDEO is a modular and open source framework for interactive multiobjective optimization."
 authors = [
-    "Giovanni Misitano <giovanni.a.misitano@jyu.fi>",
-    "Bhupinder Saini <bhupinder.s.saini@jyu.fi>",
+    {name="Giovanni Misitano",  email="giovanni.a.misitano@jyu.fi"},
+    {name="Bhupinder Saini", email="bhupinder.s.saini@jyu.fi"},
 ]
 license = "MIT"
 readme = "README.md"
+exclude = [
+    "tests",
+    "desdeo/api",
+    "desdeo/utopia_stuff"
+]
+keywords=["optimization", "decision-support", "multiobjective optimization", "evolutionary optimization", "interactive methods"]
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "numpy >= 2.2.0",
+    "scipy >= 1.11.4",
+    "polars >= 1.17",
+    "pyarrow >= 20.0.0",
+    "numba >= 0.61.0",
+    "pydantic >= 2.9",
+    "sympy >= 1.0",
+    "pyparsing >= 3.0",
+    "nevergrad >= 1.0.12",
+    "bayesian-optimization >= 1.0",  # They recently released v2 which breaks compatibility with nevergrad
+    "pyomo >= 6.8",
+    "gurobipy >= 12.0.0",
+    "tsp-solver >= 0.1",
+    "greenlet >= 3.1.1",
+    "pymoo >= 0.6.1.2",
+    "shap >= 0.47.0",
+    "cvxpy[scip] >= 1.6.4"
+]
 
-[tool.poetry.dependencies]
-python = "^3.12, <3.13"
-numpy = "^2.2.0"
-scipy = "^1.11.4"
-polars = "^1.17"
-pyarrow = "^20.0.0"
-numba = "^0.61.0"
-pydantic = "^2.9"
-sympy = "^1.0"
-pyparsing = "^3.0"
-nevergrad = "^1.0.12"
-bayesian-optimization = "^1.0" # They recently released v2 which breaks compatibility with nevergrad 
-pyomo = "^6.8"
-gurobipy = "^12.0.0"
-tsp-solver = "^0.1"
-greenlet = "^3.1.1"
-pymoo = "^0.6.1.2"
-shap = "^0.47.0"
-cvxpy = {extras = ["scip"], version = "^1.6.4"}
+[project.urls]
+homepage="https://github.com/industrial-optimization-group/DESDEO"
+repository="https://github.com/industrial-optimization-group/DESDEO"
+documentation="https://desdeo.readthedocs.io/en/latest/"
+"Bug tracker"="https://github.com/industrial-optimization-group/DESDEO/issues"
+
+[project.optional-dependencies]
+eralchemy = ["eralchemy>=1.5.0"]
+
+[tool.poetry.group.viz]
+optional=true
 
 [tool.poetry.group.viz.dependencies]
 seaborn = "^0.13.0"
 plotly = "^6.0"
 scienceplots = "^2.1.1"
+
+[tool.poetry.group.api]
+optional=true
 
 [tool.poetry.group.api.dependencies]
 sqlmodel = "^0.0.24"
@@ -43,6 +64,9 @@ python-jose = {extras = ["cryptography"], version = "^3.4.0"}
 python-multipart = "^0.0.20"
 uvicorn = "^0.34.2"
 sqlalchemy-utils = "^0.41.2"
+
+[tool.poetry.group.dev]
+optional=true
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.11"
@@ -67,7 +91,6 @@ mkdocs-include-markdown-plugin = { extras = ["cache"], version = "^7.0.0" }
 jupyter = "^1.0"
 jupyterlab = "^4.0"
 neoteroi-mkdocs = "^1.1.2"
-eralchemy = {extras = ["pygraphviz"], version = "^1.5.0"}
 
 [tool.ruff]
 # Enable the pycodestyle (`E`) and Pyflakes (`F`) rules by default.

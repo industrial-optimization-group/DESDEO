@@ -12,6 +12,7 @@ from desdeo.emo.methods.bases import template1
 from desdeo.emo.methods.EAs import nsga3, nsga3_mixed_integer, rvea, rvea_mixed_integer
 from desdeo.emo.operators.crossover import (
     BlendAlphaCrossover,
+    BoundedExponentialCrossover,
     LocalCrossover,
     SimulatedBinaryCrossover,
     SingleArithmeticCrossover,
@@ -34,6 +35,7 @@ from desdeo.emo.operators.mutation import (
     MixedIntegerRandomMutation,
     MPTMutation,
     NonUniformMutation,
+    PowerMutation,
     SelfAdaptiveGaussianMutation,
 )
 from desdeo.emo.operators.selection import (
@@ -917,3 +919,67 @@ def test_self_adaptive_gaussian_mutation():
 
     # No change expected
     npt.assert_allclose(mutated.to_numpy(), population.to_numpy())
+
+
+@pytest.mark.ea
+def test_power_mutation_operator():
+    """Test whether the power mutation operator works as intended."""
+    publisher = Publisher()
+    n_points = 20
+
+    problem = momip_ti2()
+
+    # default mutation probability with power mutation
+    mutation = PowerMutation(problem=problem, publisher=publisher, seed=0, p=5)
+
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher)
+    generator = RandomMixedIntegerGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0
+    )
+
+    population, _ = generator.do()
+
+    result = mutation.do(offsprings=population, parents=population)
+
+    # Ensure shape is preserved
+    assert result.shape == population.shape
+
+    # Ensure some mutation has occurred (not identical to original)
+    with npt.assert_raises(AssertionError):
+        npt.assert_allclose(population, result)
+
+    # mutation probability = 0 → no mutation should happen
+    mutation = PowerMutation(problem=problem, publisher=publisher, seed=0, mutation_probability=0.0, p=5)
+
+    population, _ = generator.do()
+    result = mutation.do(offsprings=population, parents=population)
+
+    assert result.shape == population.shape
+    npt.assert_allclose(population, result)
+
+
+@pytest.mark.ea
+def test_bounded_exponential_crossover():
+    """Test whether the bounded exponential crossover (BEX) operator works as intended."""
+    publisher = Publisher()
+    problem = simple_test_problem()
+    # Make sure the problem is continuous
+    assert problem.variable_domain is VariableDomainTypeEnum.continuous
+
+    # create operator
+    crossover = BoundedExponentialCrossover(problem=problem, publisher=publisher, lambda_=1.0)
+    num_vars = len(crossover.variable_symbols)
+
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher)
+    generator = RandomGenerator(problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0)
+
+    population, outputs = generator.do()
+
+    # pick a custom mating order (odd-length to test padding)
+    to_mate = [0, 9, 1, 8, 2]
+    offspring = crossover.do(population=population, to_mate=to_mate)
+
+    assert offspring.shape == (len(to_mate), num_vars)
+    # offspring must differ from parents
+    with npt.assert_raises(AssertionError):
+        npt.assert_allclose(population, offspring)
