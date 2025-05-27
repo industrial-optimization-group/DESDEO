@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
-	import type { UserData } from '$lib/utils/utils';
+	import type { UserData } from '$lib/core/user_and_login';
 
 	let user_data: UserData = $derived(getContext('user_data'));
 </script>

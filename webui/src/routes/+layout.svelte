@@ -1,16 +1,13 @@
 <script lang="ts">
-	// import { Modal } from '@skeletonlabs/skeleton-svelte';
-	// The application's global stylesheet
-	// import '../app.postcss';
 	import '../app.css';
 
 	import { setContext } from 'svelte';
-	import type { UserData } from '$lib/utils/utils';
+	import type { UserData } from '$lib/core/user_and_login';
 
 	let { children } = $props();
 
 	// Set top-level context
-	let user_data: UserData = $state({});
+	let user_data: UserData = $state({ user_info: null });
 	setContext('user_data', user_data);
 
 	$inspect(user_data);
