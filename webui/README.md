@@ -1,29 +1,47 @@
-# Environment variables
+# DESDEO web-GUI
+## Environment variables
 
 For the frontend to work correctly, there are some environmental variables
 that should be set in an`.env` file at the root level. These variables are:
 
-- `PUBLIC_API_URL`: the url that points to the DESDEO API.
+- `PUBLIC_API_URL`: the url that points to DESDEO's web-API.
 
-# create-svelte
+## Installing
 
-Everything you need to build a Svelte project, powered by [`create-svelte`](https://github.com/sveltejs/kit/tree/main/packages/create-svelte).
-
-## Creating a project
-
-If you're seeing this, you've probably already done this step. Congrats!
+To install the necessary packages to run the web-GUI locally, run
 
 ```bash
-# create a new project in the current directory
-npx sv create
-
-# create a new project in my-app
-npx sv create my-app
+npm install
 ```
+
+## Updating
+
+To update the project's dependencies based on the version specifications in `package.json`, run
+
+```bash
+npm update
+```
+
+## Upgrading
+
+To upgrade the project's dependencies, first install `npm-check-updates`:
+
+```bash
+npm install -g npm-check-updates
+```
+
+then run
+
+```bash
+ncu -u
+```
+
+this will upgrade the project's packages to their latest (mutually) compatible versions. __This can introduce breaking changes!__
+
 
 ## Developing
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+Once the project's dependencies have been installed, start a development server:
 
 ```bash
 npm run dev
@@ -41,5 +59,3 @@ npm run build
 ```
 
 You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
