@@ -21,6 +21,8 @@
 #
 # requirements-pip: Like above, but creates a requirements.txt file for
 # 	installing DESDEO utilizing pip/pipx.
+#
+# fullstack: run the web-API and web-GUI for local develpment.
 
 test:
 	pytest -n 4 -m "not nautilus and not performance and not skip"
@@ -39,3 +41,6 @@ requirements-rtd:
 
 requirements-pip:
 	poetry export --format requirements.txt --all-groups --without-hashes --output ./requirements.txt
+
+fullstack:
+	./run_fullstack.sh
