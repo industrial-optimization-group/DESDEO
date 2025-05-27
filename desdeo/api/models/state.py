@@ -19,7 +19,7 @@ class StateType(TypeDecorator):
 
     def process_bind_param(self, value, dialect):
         """State to JSON."""
-        if isinstance(value, RPMState | NIMBUSClassificationState | NIMBUSIntermediateState):
+        if isinstance(value, RPMState | NIMBUSClassificationState | IntermediateSolutionState):
             return value.model_dump()
 
         msg = f"No JSON serialization set for ste of type '{type(value)}'."
@@ -36,7 +36,7 @@ class StateType(TypeDecorator):
                 case "nimbus":
                     return NIMBUSClassificationState.model_validate(value)
                 case "generic":
-                    return NIMBUSIntermediateState.model_validate(value)
+                    return IntermediateSolutionState.model_validate(value)
                 case _:
                     msg = f"No method '{value["method"]}' found."
                     print(msg)
@@ -96,25 +96,19 @@ class NIMBUSClassificationState(NIMBUSBaseState):
     # results
     solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
 
-# TODO: find out about phase and method literals:
-# intermediate points are calculated in nimbus.py, but the route is general: is method "nimbus", "generic" or "unset"?
-# Also, sth to think: if this is NOT general, could I use NIMBUSClassificationState instead,
-# making current_objectives unrequired and just renaming the model?
-# Is the phase different, eniwei?
-class NIMBUSIntermediateState(BaseState):
+class IntermediateSolutionState(BaseState):
     """State of the nimbus method for computing solutions."""
     method: Literal["generic"] = "generic"
-    phase: Literal["solve_candidates"] = "solve_candidates" # but is this right, now? What is this phase?
-    # check the article if that gives the answer
+    phase: Literal["solve_intermediate"] = "solve_intermediate"
 
     scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
     solver: str | None = Field(default=None)
     solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
     num_desired: int | None = Field(default=1)
-    # results
-    solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
     reference_solution_1: dict[str, float]
     reference_solution_2: dict[str, float]
+    # results
+    solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
 
 class StateDB(SQLModel, table=True):
     """Database model to store interactive method state."""

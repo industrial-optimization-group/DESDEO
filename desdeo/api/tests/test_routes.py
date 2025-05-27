@@ -241,4 +241,4 @@ def test_intermediate_solve(client: TestClient):
     )
 
     response = post_json(client, "/method/generic/intermediate", request.model_dump(), access_token)
-    assert response.status_code == status.HTTP_200_OK #
+    assert response.status_code == status.HTTP_200_OK

@@ -37,7 +37,7 @@ __all__ = [
     "NIMBUSBaseState",
     "NIMBUSClassificationState",
     "IntermediateSolutionRequest",
-    "NIMBUSIntermediateState",
+    "IntermediateSolutionState",
     "StateDB",
 ]
 
@@ -70,5 +70,5 @@ from .session import (
     InteractiveSessionDB,
     InteractiveSessionInfo,
 )
-from .state import RPMBaseState, RPMState, StateDB, NIMBUSBaseState, NIMBUSClassificationState, NIMBUSIntermediateState
+from .state import RPMBaseState, RPMState, StateDB, NIMBUSBaseState, NIMBUSClassificationState, IntermediateSolutionState
 from .user import User, UserBase, UserPublic, UserRole

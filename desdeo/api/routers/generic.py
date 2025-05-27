@@ -9,7 +9,7 @@ from desdeo.api.db import get_session
 from desdeo.api.models import (
     InteractiveSessionDB,
     IntermediateSolutionRequest,
-    NIMBUSIntermediateState,
+    IntermediateSolutionState,
     ProblemDB,
     StateDB,
     User,
@@ -26,7 +26,7 @@ def solve_intermediate(
     request: IntermediateSolutionRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
-) -> NIMBUSIntermediateState: # TODO: generality, rename but also think
+) -> IntermediateSolutionState:
     """Solve intermediate solutions between given two solutions."""
     if request.session_id is not None:
         statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == request.session_id)
@@ -64,13 +64,6 @@ def solve_intermediate(
         solver=request.solver,
         solver_options=request.solver_options,
     )
-
-    # TODO: preference might not exist/be needed? Should not create new preference in DB, right? Make sure.
-    # preference_db = PreferenceDB(user_id=user.id, problem_id=problem_db.id, preference=request.preference)
-    # session.add(preference_db)
-    # session.commit()
-    # session.refresh(preference_db)
-
     # fetch parent state
     if request.parent_state_id is None:
         # parent state is assumed to be the last state added to the session.
@@ -90,7 +83,7 @@ def solve_intermediate(
                 status_code=status.HTTP_404_NOT_FOUND, detail=f"Could not find state with id={request.parent_state_id}"
             )
 
-    intermediate_state = NIMBUSIntermediateState(
+    intermediate_state = IntermediateSolutionState(
         scalarization_options=request.scalarization_options,
         solver=request.solver,
         solver_options=request.solver_options,
@@ -103,7 +96,6 @@ def solve_intermediate(
     # create DB state and add it to the DB
     state = StateDB(
         problem_id=problem_db.id,
-        # preference_id=preference_db.id,
         session_id=interactive_session.id if interactive_session is not None else None,
         parent_id=parent_state.id if parent_state is not None else None,
         state=intermediate_state,
@@ -114,3 +106,4 @@ def solve_intermediate(
     session.refresh(state)
 
     return intermediate_state
+
