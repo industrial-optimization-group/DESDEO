@@ -1,4 +1,4 @@
-""" Defines end-points to access generic functionalities."""
+"""Defines end-points to access generic functionalities."""
 
 from typing import Annotated
 
@@ -20,6 +20,7 @@ from desdeo.problem import Problem
 from desdeo.tools import SolverResults
 
 router = APIRouter(prefix="/method/generic")
+
 
 @router.post("/intermediate")
 def solve_intermediate(
@@ -106,4 +107,3 @@ def solve_intermediate(
     session.refresh(state)
 
     return intermediate_state
-

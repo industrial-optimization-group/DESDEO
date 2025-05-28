@@ -5,12 +5,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from desdeo.api.config import AuthDebugConfig, SettingsConfig
 from desdeo.api.routers import (
+    generic,
+    nimbus,
     problem,
     reference_point_method,
     session,
     user_authentication,
-    nimbus,
-    generic,
 )
 
 if SettingsConfig.debug:

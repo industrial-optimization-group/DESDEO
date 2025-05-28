@@ -2,8 +2,10 @@
 
 from sqlmodel import JSON, Column, Field, SQLModel
 
+
 class IntermediateSolutionRequest(SQLModel):
     """Model of the request to solve intermediate solutions between two solutions."""
+
     problem_id: int
     session_id: int | None = Field(default=None)
     parent_state_id: int | None = Field(default=None)
