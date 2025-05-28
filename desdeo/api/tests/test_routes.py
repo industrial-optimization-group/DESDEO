@@ -7,13 +7,14 @@ from desdeo.api.models import (
     CreateSessionRequest,
     GetSessionRequest,
     InteractiveSessionDB,
+    NIMBUSClassificationRequest,
     ProblemGetRequest,
     ProblemInfo,
     ReferencePoint,
     RPMSolveRequest,
-    NIMBUSClassificationRequest,
     User,
 )
+from desdeo.api.models.generic import IntermediateSolutionRequest
 from desdeo.api.routers.user_authentication import create_access_token
 from desdeo.problem.testproblems import simple_knapsack_vectors
 
@@ -228,5 +229,18 @@ def test_nimbus_solve(client: TestClient):
     )
 
     response = post_json(client, "/method/nimbus/solve", request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
 
+
+def test_intermediate_solve(client: TestClient):
+    """Test that solving intermediate solutions works as expected."""
+    access_token = login(client)
+
+    request = IntermediateSolutionRequest(
+        problem_id=1,
+        reference_solution_1={"x_1": 0.2, "x_2": 0.3, "x_3": 0.1, "x_4": 0.1, "x_5": 0.1},
+        reference_solution_2={"x_1": 0.5, "x_2": 0.6, "x_3": 0.4, "x_4": 0.1, "x_5": 0.1},
+    )
+
+    response = post_json(client, "/method/generic/intermediate", request.model_dump(), access_token)
     assert response.status_code == status.HTTP_200_OK

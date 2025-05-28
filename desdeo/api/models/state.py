@@ -7,7 +7,7 @@ from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
 from desdeo.tools import SolverResults
 
-from .preference import PreferenceDB, ReferencePoint
+from .preference import PreferenceDB
 from .problem import ProblemDB
 from .session import InteractiveSessionDB
 
@@ -19,7 +19,7 @@ class StateType(TypeDecorator):
 
     def process_bind_param(self, value, dialect):
         """State to JSON."""
-        if isinstance(value, RPMState | NIMBUSClassificationState):
+        if isinstance(value, RPMState | NIMBUSClassificationState | IntermediateSolutionState):
             return value.model_dump()
 
         msg = f"No JSON serialization set for ste of type '{type(value)}'."
@@ -35,6 +35,8 @@ class StateType(TypeDecorator):
                     return RPMState.model_validate(value)
                 case "nimbus":
                     return NIMBUSClassificationState.model_validate(value)
+                case "generic":
+                    return IntermediateSolutionState.model_validate(value)
                 case _:
                     msg = f"No method '{value["method"]}' found."
                     print(msg)
@@ -91,6 +93,20 @@ class NIMBUSClassificationState(NIMBUSBaseState):
     current_objectives: dict[str, float] = Field(sa_column=Column(JSON))
     num_desired: int | None = Field(default=1)
 
+    # results
+    solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
+
+class IntermediateSolutionState(BaseState):
+    """State of the nimbus method for computing solutions."""
+    method: Literal["generic"] = "generic"
+    phase: Literal["solve_intermediate"] = "solve_intermediate"
+
+    scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    solver: str | None = Field(default=None)
+    solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    num_desired: int | None = Field(default=1)
+    reference_solution_1: dict[str, float]
+    reference_solution_2: dict[str, float]
     # results
     solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
 
