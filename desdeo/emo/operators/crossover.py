@@ -709,8 +709,8 @@ class BlendAlphaCrossover(BaseCrossover):
         parents1 = mating_pop[0::2, :]
         parents2 = mating_pop[1::2, :]
 
-        c_min = np.tile(np.array([var.lowerbound for var in self.problem.variables]), (parents1.shape[0], 1))
-        c_max = np.tile(np.array([var.upperbound for var in self.problem.variables]), (parents1.shape[0], 1))
+        c_min = np.array(self.lower_bounds)
+        c_max = np.array(self.upper_bounds)
         span = c_max - c_min
 
         lower = c_min - self.alpha * span
@@ -1166,8 +1166,8 @@ class BoundedExponentialCrossover(BaseCrossover):
         parents1 = mating_pop[0::2, :]
         parents2 = mating_pop[1::2, :]
 
-        x_lower = np.tile(np.array([var.lowerbound for var in self.problem.variables]), (parents1.shape[0], 1))
-        x_upper = np.tile(np.array([var.upperbound for var in self.problem.variables]), (parents1.shape[0], 1))
+        x_lower = np.array(self.lower_bounds)
+        x_upper = np.array(self.upper_bounds)
         span = parents2 - parents1  # y_i - x_1
 
         u_i = self.rng.random((mating_pop_size // 2, num_var))  # random integers
