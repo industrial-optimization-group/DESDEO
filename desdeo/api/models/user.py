@@ -8,7 +8,7 @@ from sqlmodel import Field, Relationship, SQLModel
 if TYPE_CHECKING:
     from .archive import ArchiveEntryDB
     from .preference import PreferenceDB
-    from .schemas import ProblemDB
+    from .problem import ProblemDB
     from .session import InteractiveSessionDB
 
 
