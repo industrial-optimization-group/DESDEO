@@ -109,3 +109,54 @@ def calculate_reachable_subset(
         np.ndarray: the reachable subset of non-dominated points.
     """
     return np.array([z for z in non_dominated_points if np.all(lower_bounds <= z) and np.all(z <= z_preferred)])
+
+
+def calculate_lower_bounds(non_dominated_points: np.ndarray, z_intermediate: np.ndarray) -> np.ndarray:
+    """Calculates the lower bounds of reachable solutions from an intermediate point.
+
+    The lower bounds are calculated by solving an epsilon-constraint problem
+    with the epsilon values taken from the intermediate point.
+
+    Args:
+        non_dominated_points (np.ndarray): a set of non-dominated points
+            according to which the reachable values are computed.
+        z_intermediate (np.ndarray): the intermediate point according to which
+            the lower bounds are calculated.
+
+    Returns:
+        np.ndarray: the lower bounds of reachable solutions on the non-dominated
+            set based from the intermediate point.
+    """
+    k = non_dominated_points.shape[1]
+    bounds = []
+
+    for r in range(k):
+        # Indices of objectives other than r
+        other = np.delete(np.arange(k), r)
+
+        # Find points that are no worse than z_intermediate in all objectives except r
+        mask = np.all(non_dominated_points[:, other] <= z_intermediate[other], axis=1)
+        feasible = non_dominated_points[mask]
+
+        if feasible.size > 0:
+            bounds.append(np.min(feasible[:, r]))
+        else:
+            bounds.append(np.inf)  # No feasible point in this projection
+
+    return np.array(bounds)
+
+
+def calculate_closeness(z_intermediate: np.ndarray, z_nadir: np.ndarray, z_representative: np.ndarray) -> float:
+    """Calculate the closeness of an intermediate point to the non-dominated set.
+
+    The greater the closeness is, the close intermediate point is to the non-dominated set.
+
+    Args:
+        z_intermediate (np.ndarray): the intermediate point.
+        z_nadir (np.ndarray): the nadir point of the non-dominated set.
+        z_representative (np.ndarray): the representative solution of `z_intermediate`.
+
+    Returns:
+        float: the closeness measure.
+    """
+    return np.linalg.norm(z_intermediate - z_nadir) / np.linalg.norm(z_representative - z_nadir) * 100
