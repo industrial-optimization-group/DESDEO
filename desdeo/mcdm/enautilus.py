@@ -93,3 +93,19 @@ def calculate_intermediate_points(
         np.ndarray: an array of intermediate points.
     """
     return ((iterations_left - 1) / iterations_left) * z_previous + (1 / iterations_left) * zs_representatives
+
+
+def calculate_reachable_subset(
+    non_dominated_points: np.ndarray, lower_bounds: np.ndarray, z_preferred: np.ndarray
+) -> np.ndarray:
+    """Calculates the reachable subset on a non-dominated set from a selected intermediate point.
+
+    Args:
+        non_dominated_points (np.ndarray): the original set of non-dominated points.
+        lower_bounds (np.ndarray): the lower bounds of the reachable subset of non-dominates points.
+        z_preferred (np.ndarray): the selected intermediate point subject to the reachable subset is calculated.
+
+    Returns:
+        np.ndarray: the reachable subset of non-dominated points.
+    """
+    return np.array([z for z in non_dominated_points if np.all(lower_bounds <= z) and np.all(z <= z_preferred)])
