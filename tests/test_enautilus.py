@@ -5,7 +5,7 @@ import numpy.testing as npt
 import pytest
 from fixtures import dtlz2_5x_3f_data_based  # noqa: F401
 
-from desdeo.mcdm.enautilus import prune_by_average_linkage
+from desdeo.mcdm.enautilus import calculate_intermediate_points, prune_by_average_linkage
 from desdeo.mcdm.nautili import solve_reachable_bounds
 from desdeo.mcdm.nautilus import (
     calculate_navigation_point,
@@ -31,3 +31,23 @@ def test_pruning():
     # Should be close to one point from each cluster
     assert any(np.linalg.norm(p - [0.1, 0.1]) < 0.3 for p in pruned)
     assert any(np.linalg.norm(p - [10.0, 10.0]) < 0.3 for p in pruned)
+
+
+@pytest.mark.enautilus
+def test_calculate_intermediate_points():
+    """Test that intermediate points are calculated correctly."""
+    z_prev = np.array([2.0, 4.0])
+    zs_reps = np.array([[6.0, 8.0], [10.0, 12.0]])
+    iterations_left = 2
+
+    expected = np.array(
+        [
+            [4.0, 6.0],  # (1/2)*z_prev + (1/2)*[6,8]
+            [6.0, 8.0],  # (1/2)*z_prev + (1/2)*[10,12]
+        ]
+    )
+
+    result = calculate_intermediate_points(z_prev, zs_reps, iterations_left)
+
+    assert result.shape == expected.shape
+    np.testing.assert_allclose(result, expected)

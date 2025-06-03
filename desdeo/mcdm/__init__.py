@@ -2,6 +2,7 @@
 
 __all__ = [
     "NimbusError",
+    "calculate_intermediate_points",
     "generate_starting_point",
     "infer_classifications",
     "prune_by_average_linkage",
@@ -10,7 +11,7 @@ __all__ = [
     "rpm_solve_solutions",
 ]
 
-from .enautilus import prune_by_average_linkage
+from .enautilus import calculate_intermediate_points, prune_by_average_linkage
 from .nimbus import (
     NimbusError,
     generate_starting_point,

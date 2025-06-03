@@ -44,8 +44,10 @@ from desdeo.tools.utils import guess_best_solver
 def prune_by_average_linkage(non_dominated_points: np.ndarray, k: int):
     """Prune a set of non-dominated points using average linkage clustering (Morse, 1980).
 
+    This is used to calculate the representative solutions in E-NAUTILUS.
+
     Args:
-        non_dominated_points (np.ndarray): m × n array of non-dominated points in objective space.
+        non_dominated_points (np.ndarray): an array of non-dominated points in objective space.
         k (int): Number of representative points to retain.
 
     Returns:
@@ -73,3 +75,21 @@ def prune_by_average_linkage(non_dominated_points: np.ndarray, k: int):
         representatives.append(cluster_points[closest_idx])
 
     return np.array(representatives)
+
+
+def calculate_intermediate_points(
+    z_previous: np.ndarray, zs_representatives: np.ndarray, iterations_left: int
+) -> np.ndarray:
+    """Calculates the intermediate points to be shown to the decision maker at each iteration.
+
+    The number of returned points depends on how many `zs_representative points` are supplied.
+
+    Args:
+        z_previous (np.ndarray): the point selected by the decision maker in the previous iteration.
+        zs_representatives (np.ndarray): the representative solutions at the current iteration.
+        iterations_left (int): the number of iterations left (including the current one).
+
+    Returns:
+        np.ndarray: an array of intermediate points.
+    """
+    return ((iterations_left - 1) / iterations_left) * z_previous + (1 / iterations_left) * zs_representatives
