@@ -230,6 +230,7 @@ markers = [
     "ea: tests related to evolutionary methods.",
     "indicators: tests related to indicators.",
     "testproblem: tests related to test problems.",
+    "enautilus: tests related to the E-NAUTILUS method.",
 
 ]
 pythonpath = "."

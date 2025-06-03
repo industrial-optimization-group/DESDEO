@@ -4,11 +4,13 @@ __all__ = [
     "NimbusError",
     "generate_starting_point",
     "infer_classifications",
+    "prune_by_average_linkage",
     "solve_intermediate_solutions",
     "solve_sub_problems",
     "rpm_solve_solutions",
 ]
 
+from .enautilus import prune_by_average_linkage
 from .nimbus import (
     NimbusError,
     generate_starting_point,

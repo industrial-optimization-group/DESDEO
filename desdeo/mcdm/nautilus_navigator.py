@@ -303,8 +303,8 @@ def solve_reachable_solution(
     # Note: We do not solve the global problem. Instead, we solve this constrained problem:
     constraints = [
         Constraint(
-            name=f"_const_{i+1}",
-            symbol=f"_const_{i+1}",
+            name=f"_const_{i + 1}",
+            symbol=f"_const_{i + 1}",
             func=f"{obj.symbol}_min - {previous_nav_point[obj.symbol] * (-1 if obj.maximize else 1)}",
             cons_type=ConstraintTypeEnum.LTE,
             is_linear=obj.is_linear,
@@ -317,8 +317,8 @@ def solve_reachable_solution(
     if bounds is not None:
         constraints += [
             Constraint(
-                name=f"_const_bound_{i+1}",
-                symbol=f"_const_bound_{i+1}",
+                name=f"_const_bound_{i + 1}",
+                symbol=f"_const_bound_{i + 1}",
                 cons_type=ConstraintTypeEnum.LTE,
                 func=f"{obj.symbol}_min - {bounds[obj.symbol] * (-1 if obj.maximize else 1)}",
                 is_linear=obj.is_linear,
@@ -416,8 +416,9 @@ def navigator_step(  # NOQA: PLR0913
         nav_point (dict): The current navigation point.
         solver (BaseSolver | None, optional): The solver to use. Defaults to None.
         reference_point (dict | None, optional): The reference point provided by the DM. Defaults to None, in which
-        case it is assumed that the DM has not changed their preference. The algorithm uses the last reachable solution,
-        which must be provided in this case.
+            case it is assumed that the DM has not changed their preference. The
+            algorithm uses the last reachable solution,
+            which must be provided in this case.
         bounds (dict | None, optional): The bounds of the problem provided by the DM. Defaults to None.
         reachable_solution (dict | None, optional): The previous reachable solution. Must only be provided if the DM
         has not changed their preference. Defaults to None.
