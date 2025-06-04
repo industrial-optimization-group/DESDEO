@@ -6,39 +6,20 @@ Ruiz, A. B., Sindhya, K., Miettinen, K., Ruiz, F., & Luque, M. (2015).
 E-NAUTILUS: A decision support system for complex multiobjective optimization
 problems based on the NAUTILUS method. European Journal of Operational Research,
 246(1), 218-231.
-
-Variables:
-- N_I: number of iterations to be carried out.
-- N_S: number of points to investigate at each iteration.
-- h: current iteration number.
-- it_h: the number of iterations left at each iteration (including h)
-- z_h: the selected point by the DM at iteration h.
-- P_h: the subset of reachable solutions at iteration h which can be reached
-    from the previous iteration (h-1) without impairing any of the objective
-    function values.
 """
 
 import numpy as np
+import polars as pl
 from pydantic import BaseModel, Field
 from scipy.cluster.hierarchy import fcluster, linkage
 from scipy.spatial.distance import pdist
 
 from desdeo.problem import (
-    Constraint,
-    ConstraintTypeEnum,
     Problem,
-    ScalarizationFunction,
-    get_nadir_dict,
     numpy_array_to_objective_dict,
     objective_dict_to_numpy_array,
 )
-from desdeo.tools.generics import BaseSolver, SolverResults
-from desdeo.tools.scalarization import (
-    add_asf_diff,
-    add_asf_nondiff,
-    add_epsilon_constraints,
-)
-from desdeo.tools.utils import guess_best_solver
+from desdeo.tools.utils import get_corrected_reference_point
 
 
 class ENautilusResult(BaseModel):
@@ -46,17 +27,22 @@ class ENautilusResult(BaseModel):
 
     current_iteration: int = Field(description="Number of the current iteration.")
     iterations_left: int = Field(description="Number of iterations left.")
-    intermediate_points: list[str[str, float]] = Field(description="New intermediate points")
-    reachable_bounds: list[tuple[float]] = Field(
-        description="Bounds of the solutions reachable from each intermediate point."
+    intermediate_points: list[dict[str, float]] = Field(description="New intermediate points")
+    reachable_best_bounds: list[dict[str, float]] = Field(
+        description="Best bounds of the objective function values reachable from each intermediate point."
+    )
+    reachable_worst_bounds: list[dict[str, float]] = Field(
+        description="Worst bounds of the objective function values reachable from each intermediate point."
     )
     closeness_measures: list[float] = Field(description="Closeness measures of each intermediate point.")
-    reachable_point_indices: list[int] = Field(description="Indices of the reachable points.")
+    reachable_point_indices: list[list[int]] = Field(
+        description="Indices of the reachable points from each intermediate point."
+    )
 
 
-def enautilus_step(
+def enautilus_step(  # noqa: PLR0913
     problem: Problem,
-    non_dominated_points,
+    non_dominated_points: pl.DataFrame,
     current_iteration: int,
     iterations_left: int,
     selected_point: dict[str, float],
@@ -64,10 +50,101 @@ def enautilus_step(
     total_number_of_iterations: int,
     number_of_intermediate_points: int,
 ) -> ENautilusResult:
-    pass
+    """Compute one iteration of the E-NAUTILUS method.
+
+    It is assumed that information from a previous iteration (selected point,
+    etc.) is available either from a previous iteration of E-NAUTILUS, or if
+    this is the first iteration, then the selected (intermediate) point
+    `selected_point` should be the approximated nadir point from
+    `non_dominated_points`. In this case, the `reachable_point_indices` should
+    cover the whole of `non_dominated_points`. After the first iteration, all
+    the information for computing the next iteration is always available from
+    the previous iteration's result of this function (plus the `selected_point`
+    provided by e.g., a decision maker).
+
+    Args:
+        problem (Problem): the problem being solved. Used mainly for manipulating the other arguments.
+        non_dominated_points (pl.DataFrame): a set of non-dominated points
+            approximating the Pareto front of `Problem`. This should be a Polars
+            dataframe with at least columns that match the objective function
+            symbols in `Problem` and the corresponding minimization value column.
+            I.e., for an objective with symbol 'f1' the dataframe should have the
+            symbols 'f1' and 'f1_min', where the column 'f1_min has the
+            corresponding values of 'f1', but assuming minimization (N.B. if 'f1' is
+            minimized, then 'f1_min' would have identical values as 'f1').
+        current_iteration (int): the number of the current iteration. For the first iteration, this should be zero.
+        iterations_left (int): how many iteration are left (counting the current one).
+        selected_point (dict[str, float]): the selected intermediate point in
+            the previous iteration. If this is the first iteration, then this should
+            be the nadir point approximated from `non_dominated_points`.
+        reachable_point_indices (list[int]): the indices of the points in
+            `non_dominated_points` that are reachable from
+            `current_iteration_point`.
+        total_number_of_iterations (int): how many iterations are to be carried in total.
+        number_of_intermediate_points (int): how many intermediate points are generated.
+
+    Returns:
+        ENautilusResult: the result of the iteration.
+    """
+    # treat everything as minimized
+    # selected point as numpy array, correct for minimization
+    z_h = objective_dict_to_numpy_array(problem, get_corrected_reference_point(problem, selected_point))
+
+    # subset of reachable solutions, take _min column
+    non_dom_objectives = non_dominated_points[[f"{obj.symbol}_min" for obj in problem.objectives]].to_numpy()
+    p_h = non_dom_objectives[reachable_point_indices]
+
+    # estimate nadir from non-dominated points, treating as minimized problem
+    z_nadir = non_dom_objectives.max(axis=0)
+
+    # compute representative points
+    representative_points = prune_by_average_linkage(non_dom_objectives, number_of_intermediate_points)
+
+    # calculate intermediate points
+    intermediate_points = calculate_intermediate_points(z_h, representative_points, iterations_left)
+
+    # calculate lower bounds
+    intermediate_lower_bounds = [
+        calculate_lower_bounds(p_h, intermediate_point) for intermediate_point in intermediate_points
+    ]
+
+    # calculate closeness measures
+    closeness_measures = [
+        calculate_closeness(intermediate_point, z_nadir, representative_point)
+        for (intermediate_point, representative_point) in zip(intermediate_points, representative_points, strict=True)
+    ]
+
+    # calculate the indices of the reachable points for each intermediate point
+    reachable_from_intermediate = [
+        calculate_reachable_subset(non_dom_objectives, lower_bounds, z_h) for lower_bounds in intermediate_lower_bounds
+    ]
+
+    best_bounds = [
+        get_corrected_reference_point(problem, numpy_array_to_objective_dict(problem, bounds))
+        for bounds in intermediate_lower_bounds
+    ]
+    worst_bounds = [
+        get_corrected_reference_point(problem, numpy_array_to_objective_dict(problem, point))
+        for point in intermediate_points
+    ]
+
+    corrected_intermediate_points = [
+        get_corrected_reference_point(problem, numpy_array_to_objective_dict(problem, point))
+        for point in intermediate_points
+    ]
+
+    return ENautilusResult(
+        current_iteration=current_iteration + 1,
+        iterations_left=iterations_left - 1,
+        intermediate_points=corrected_intermediate_points,
+        reachable_best_bounds=best_bounds,
+        reachable_worst_bounds=worst_bounds,
+        closeness_measures=closeness_measures,
+        reachable_point_indices=reachable_from_intermediate,
+    )
 
 
-def prune_by_average_linkage(non_dominated_points: np.ndarray, k: int):
+def prune_by_average_linkage(non_dominated_points: np.ndarray, k: int) -> np.ndarray:
     """Prune a set of non-dominated points using average linkage clustering (Morse, 1980).
 
     This is used to calculate the representative solutions in E-NAUTILUS.
@@ -123,7 +200,7 @@ def calculate_intermediate_points(
 
 def calculate_reachable_subset(
     non_dominated_points: np.ndarray, lower_bounds: np.ndarray, z_preferred: np.ndarray
-) -> np.ndarray:
+) -> list[int]:
     """Calculates the reachable subset on a non-dominated set from a selected intermediate point.
 
     Args:
@@ -132,9 +209,9 @@ def calculate_reachable_subset(
         z_preferred (np.ndarray): the selected intermediate point subject to the reachable subset is calculated.
 
     Returns:
-        np.ndarray: the reachable subset of non-dominated points.
+        list[int]: the indices of the reachable solutions
     """
-    return np.array([z for z in non_dominated_points if np.all(lower_bounds <= z) and np.all(z <= z_preferred)])
+    return [i for i, z in enumerate(non_dominated_points) if np.all(lower_bounds <= z) and np.all(z <= z_preferred)]
 
 
 def calculate_lower_bounds(non_dominated_points: np.ndarray, z_intermediate: np.ndarray) -> np.ndarray:

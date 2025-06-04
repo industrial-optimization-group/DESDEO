@@ -1,7 +1,9 @@
 """Imports available from the desdeo-mcdm package."""
 
 __all__ = [
+    "ENautilusResult",
     "NimbusError",
+    "enautilus_step",
     "calculate_closeness",
     "calculate_intermediate_points",
     "calculate_lower_bounds",
@@ -15,10 +17,12 @@ __all__ = [
 ]
 
 from .enautilus import (
+    ENautilusResult,
     calculate_closeness,
     calculate_intermediate_points,
     calculate_lower_bounds,
     calculate_reachable_subset,
+    enautilus_step,
     prune_by_average_linkage,
 )
 from .nimbus import (
