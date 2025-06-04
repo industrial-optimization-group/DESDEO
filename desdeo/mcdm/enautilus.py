@@ -12,7 +12,7 @@ Variables:
 - N_S: number of points to investigate at each iteration.
 - h: current iteration number.
 - it_h: the number of iterations left at each iteration (including h)
-- z_h: the selecte point by the DM at iteration h.
+- z_h: the selected point by the DM at iteration h.
 - P_h: the subset of reachable solutions at iteration h which can be reached
     from the previous iteration (h-1) without impairing any of the objective
     function values.
@@ -39,6 +39,32 @@ from desdeo.tools.scalarization import (
     add_epsilon_constraints,
 )
 from desdeo.tools.utils import guess_best_solver
+
+
+class ENautilusResult(BaseModel):
+    """The result of an iteration of the E-NAUTILUS method."""
+
+    current_iteration: int = Field(description="Number of the current iteration.")
+    iterations_left: int = Field(description="Number of iterations left.")
+    intermediate_points: list[str[str, float]] = Field(description="New intermediate points")
+    reachable_bounds: list[tuple[float]] = Field(
+        description="Bounds of the solutions reachable from each intermediate point."
+    )
+    closeness_measures: list[float] = Field(description="Closeness measures of each intermediate point.")
+    reachable_point_indices: list[int] = Field(description="Indices of the reachable points.")
+
+
+def enautilus_step(
+    problem: Problem,
+    non_dominated_points,
+    current_iteration: int,
+    iterations_left: int,
+    selected_point: dict[str, float],
+    reachable_point_indices: list[int],
+    total_number_of_iterations: int,
+    number_of_intermediate_points: int,
+) -> ENautilusResult:
+    pass
 
 
 def prune_by_average_linkage(non_dominated_points: np.ndarray, k: int):
