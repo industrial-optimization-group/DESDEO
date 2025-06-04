@@ -46,7 +46,7 @@ class ENautilusResult(BaseModel):
 
     current_iteration: int = Field(description="Number of the current iteration.")
     iterations_left: int = Field(description="Number of iterations left.")
-    intermediate_points: list[str[str, float]] = Field(description="New intermediate points")
+    intermediate_points: list[dict[str, float]] = Field(description="New intermediate points")
     reachable_bounds: list[tuple[float]] = Field(
         description="Bounds of the solutions reachable from each intermediate point."
     )

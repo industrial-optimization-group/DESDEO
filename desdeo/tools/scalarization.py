@@ -332,7 +332,8 @@ def add_group_asf_diff(
     reference_points: list[dict[str, float]],
     ideal: dict[str, float] | None = None,
     nadir: dict[str, float] | None = None,
-    delta: float = 1e-6,
+    #delta: float = 1e-6,
+    delta: dict[str, float] | None = None, # TODO: fix none issue
     rho: float = 1e-6,
 ) -> tuple[Problem, str]:
     r"""Add the differentiable variant of the achievement scalarizing function for multiple decision makers.
@@ -404,7 +405,7 @@ def add_group_asf_diff(
 
     # calculate the weights
     weights = {
-        obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta)) for obj in problem.objectives
+        obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta[obj.symbol])) for obj in problem.objectives
     }
 
     # form the constaint and augmentation expressions
@@ -2024,7 +2025,8 @@ def add_group_stom_sf_diff(
     reference_points: list[dict[str, float]],
     ideal: dict[str, float] | None = None,
     rho: float = 1e-6,
-    delta: float = 1e-6,
+    delta: dict[str, float] | None = None, # TODO: fix none issue
+    #delta: float = 1e-6,
 ) -> tuple[Problem, str]:
     r"""Adds the differentiable variant of the multiple decision maker variant of the STOM scalarizing function.
 
@@ -2090,7 +2092,7 @@ def add_group_stom_sf_diff(
         corrected_rp = get_corrected_reference_point(problem, reference_point)
         weights.append(
             {
-                obj.symbol: 1 / (corrected_rp[obj.symbol] - (ideal_point[obj.symbol] - delta))
+                obj.symbol: 1 / (corrected_rp[obj.symbol] - (ideal_point[obj.symbol] - delta[obj.symbol]))
                 for obj in problem.objectives
             }
         )
@@ -2101,7 +2103,7 @@ def add_group_stom_sf_diff(
         rp = {}
         for obj in problem.objectives:
             rp[obj.symbol] = (
-                f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {ideal_point[obj.symbol] - delta}) - _alpha"
+                f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {ideal_point[obj.symbol] - delta[obj.symbol]}) - _alpha"
             )
         con_terms.append(rp)
 
@@ -2524,7 +2526,8 @@ def add_group_guess_sf_diff(
     reference_points: list[dict[str, float]],
     nadir: dict[str, float] | None = None,
     rho: float = 1e-6,
-    delta: float = 1e-6,
+    delta: dict[str, float] | None = None, # TODO: fix none issue
+    #delta: float = 1e-6,
 ) -> tuple[Problem, str]:
     r"""Adds the differentiable variant of the multiple decision maker variant of the GUESS scalarizing function.
 
@@ -2590,7 +2593,7 @@ def add_group_guess_sf_diff(
         corrected_rp = get_corrected_reference_point(problem, reference_point)
         weights.append(
             {
-                obj.symbol: 1 / ((nadir_point[obj.symbol] + delta) - (corrected_rp[obj.symbol]))
+                obj.symbol: 1 / ((nadir_point[obj.symbol] + delta[obj.symbol]) - (corrected_rp[obj.symbol]))
                 for obj in problem.objectives
             }
         )
