@@ -19,7 +19,7 @@ from desdeo.problem import (
     numpy_array_to_objective_dict,
     objective_dict_to_numpy_array,
 )
-from desdeo.tools.utils import get_corrected_reference_point
+from desdeo.tools import SolverResults, get_corrected_reference_point
 
 
 class ENautilusResult(BaseModel):
@@ -38,6 +38,66 @@ class ENautilusResult(BaseModel):
     reachable_point_indices: list[list[int]] = Field(
         description="Indices of the reachable points from each intermediate point."
     )
+
+
+def enautilus_get_representative_solutions(
+    problem: Problem, result: ENautilusResult, non_dominated_points: pl.DataFrame
+) -> list[SolverResults]:
+    """Returns the solution corresponding to the intermediate points.
+
+    The representative points are selected based on the current intermediate points.
+    If the number of iterations left is 0, then the intermediate and representative points
+    are equal.
+
+    Args:
+        problem (Problem): the problem being solved.
+        result (ENautilusResult): an ENautilusResponse returned by `enautilus_step`.
+        non_dominated_points (pl.DataFrame): a dataframe from which the
+            representative solutions are taken.
+
+    Returns:
+        SolverResults: full information about the solutions. If information
+            other than just objective function values are expected, then the
+            supplied `non_dominated_points` should contain this information.
+    """
+    obj_syms = [obj.symbol for obj in problem.objectives]
+    var_syms = [var.symbol for var in problem.variables]
+    const_syms = [con.symbol for con in problem.constraints] if problem.constraints else None
+    extra_syms = [extra.symbol for extra in problem.extra_funcs] if problem.extra_funcs else None
+    scal_syms = [scal.symbol for scal in problem.scalarization_funcs] if problem.scalarization_funcs else None
+
+    # Objective matrix (rows = ND points, cols = objectives, original senses)
+    obj_matrix = non_dominated_points.select(obj_syms).to_numpy()
+
+    solver_results: list[SolverResults] = []
+
+    for interm in result.intermediate_points:
+        interm_vec = np.array([interm[sym] for sym in obj_syms], dtype=float)
+
+        # Find index of closest ND point (Euclidean distance)
+        idx = int(np.argmin(np.linalg.norm(obj_matrix - interm_vec, axis=1)))
+
+        row = non_dominated_points[idx]
+
+        var_dict = {sym: row[sym] for sym in var_syms if sym in row}
+        obj_dict = {sym: row[sym] for sym in obj_syms}
+        const_dict = {sym: row[sym] for sym in const_syms if sym in row} if const_syms is not None else None
+        extra_dict = {sym: row[sym] for sym in extra_syms if sym in row} if extra_syms is not None else None
+        scal_dict = {sym: row[sym] for sym in scal_syms if sym in row} if scal_syms is not None else None
+
+        solver_results.append(
+            SolverResults(
+                optimal_variables=var_dict,
+                optimal_objectives=obj_dict,
+                constraint_values=const_dict,
+                extra_func_values=extra_dict,
+                scalarization_values=scal_dict,
+                success=True,
+                message="E-NAUTILUS: nearest non-dominated point selected for intermediate point.",
+            )
+        )
+
+    return solver_results
 
 
 def enautilus_step(  # noqa: PLR0913
