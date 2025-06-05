@@ -39,6 +39,9 @@ __all__ = [
     "UserPublic",
     "UserRole",
     "VariableDB",
+    "ProblemMetaDataDB",
+    "BaseProblemMetaData",
+    "TestProblemMetaData",
 ]
 
 from .archive import ArchiveEntryBase, ArchiveEntryDB
@@ -60,6 +63,9 @@ from .problem import (
     TensorConstantDB,
     TensorVariableDB,
     VariableDB,
+    ProblemMetaDataDB,
+    BaseProblemMetaData,
+    TestProblemMetaData,
 )
 from .reference_point_method import RPMSolveRequest
 from .session import (

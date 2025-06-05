@@ -1,5 +1,7 @@
 """Tests related to the SQLModels."""
 
+import json
+
 from sqlmodel import Session, select
 
 from desdeo.api.models import (
@@ -23,6 +25,9 @@ from desdeo.api.models import (
     TensorVariableDB,
     User,
     VariableDB,
+    ProblemMetaDataDB,
+    BaseProblemMetaData,
+    TestProblemMetaData,
 )
 from desdeo.mcdm import rpm_solve_solutions
 from desdeo.problem.schema import (
@@ -699,3 +704,67 @@ def test_rpm_state(session_and_user: dict[str, Session | list[User]]):
     assert state_2.children == []
     assert state_2.parent.problem == problem_db
     assert state_2.parent.session.user == user
+
+
+def test_problem_metadata(session_and_user: dict[str, Session | list[User]]):
+    """Test that the problem metadata can be put into database and brought back."""
+
+    session = session_and_user["session"]
+    user = session_and_user["user"]
+
+    # Just some test problem to attach the metadata to
+    problem = ProblemDB.from_problem(dtlz2(5, 3), user=user)
+
+    session.add(problem)
+    session.commit()
+    session.refresh(problem)
+
+    metadata = ProblemMetaDataDB(
+        problem_id=problem.id,
+        data = [
+            TestProblemMetaData(
+                dict_test={
+                    "t1": "lorem ipsum dolor sit amet",
+                    "t2": 2,
+                    "t3": {
+                        "t1": "lorem ipsum dolor sit amet",
+                        "t2": 2
+                    }
+                },
+                int_test = 2112,
+                float_test = 21.12,
+                string_test = "lorem ipsum dolor sit amet",
+                list_test = [2,1,1,2]
+            ),
+            TestProblemMetaData(),
+        ]
+    )
+
+    session.add(metadata)
+    session.commit()
+    session.refresh(metadata)
+
+    statement = select(ProblemMetaDataDB).where(ProblemMetaDataDB.problem_id == problem.id)
+    from_db_metadata = session.exec(statement).first()
+
+    assert from_db_metadata.id != None
+    assert from_db_metadata.problem_id == problem.id
+
+    metadata_0 = from_db_metadata.data[0]
+
+    assert metadata_0.metadata_type == "test_problem_metadata"
+    assert metadata_0.dict_test["t1"] == "lorem ipsum dolor sit amet"
+    assert metadata_0.dict_test["t2"] == 2
+    assert metadata_0.dict_test["t3"]["t1"] == "lorem ipsum dolor sit amet"
+    assert metadata_0.dict_test["t3"]["t2"] == 2
+    assert metadata_0.int_test == 2112
+    assert metadata_0.float_test == 21.12
+    assert metadata_0.string_test == "lorem ipsum dolor sit amet"
+    assert metadata_0.list_test == [2,1,1,2]
+
+    metadata_1 = from_db_metadata.data[1]
+
+    assert metadata_1.metadata_type == "test_problem_metadata"
+    assert metadata_1.dict_test == None
+
+    assert problem.problem_metadata == from_db_metadata
