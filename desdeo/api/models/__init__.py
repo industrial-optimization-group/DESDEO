@@ -41,6 +41,7 @@ __all__ = [
     "VariableDB",
     "ProblemMetaDataDB",
     "BaseProblemMetaData",
+    "ForestProblemMetaData",
     "TestProblemMetaData",
 ]
 
@@ -65,6 +66,7 @@ from .problem import (
     VariableDB,
     ProblemMetaDataDB,
     BaseProblemMetaData,
+    ForestProblemMetaData,
     TestProblemMetaData,
 )
 from .reference_point_method import RPMSolveRequest

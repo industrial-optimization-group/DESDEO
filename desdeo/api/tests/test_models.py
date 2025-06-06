@@ -1,6 +1,5 @@
 """Tests related to the SQLModels."""
 
-import json
 
 from sqlmodel import Session, select
 
@@ -26,7 +25,6 @@ from desdeo.api.models import (
     User,
     VariableDB,
     ProblemMetaDataDB,
-    BaseProblemMetaData,
     TestProblemMetaData,
 )
 from desdeo.mcdm import rpm_solve_solutions
