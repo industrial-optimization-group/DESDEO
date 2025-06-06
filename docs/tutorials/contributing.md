@@ -763,7 +763,7 @@ def test_feature_correct_output():
     it resolves to be `False`.
 
 !!! Note "What should a test test?"
-    Because DESDEO is currently mainly developed my researchers, we do not
+    Because DESDEO is currently mainly developed by researchers, we do not
     have the time or resources to implement tests in a systematic fashion.
     I.e., unit tests for every single feature, and then more comprehensive
     tests. Instead, we have taken a code-coverage approach, where
