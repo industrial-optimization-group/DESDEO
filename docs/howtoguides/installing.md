@@ -164,7 +164,7 @@ to read further.
     if this is not the case, feel free to open an issue, and we will see what
     can be done.
 
-## Anaconda
+### Anaconda
 
 First, install Anaconda. If you are on a JYU (or any other company's) Windows
 machine, you can get it from the Software Center (or equivalent) **without
@@ -177,12 +177,12 @@ prefer or have limited space available on your computer,
 [Miniconda](https://www.anaconda.com/docs/getting-started/miniconda/main) should
 work fine too.
 
-## Installing DESDEO
+### Installing DESDEO
 
 First, you need to open an Anaconda prompt. To find that, press the windows key
 and type `anaconda prompt`.
 
-### Figure out the install location
+#### Figure out the install location
 
 Next, you need to decide where on your computer you want to install DESDEO. If
 you are on a JYU Windows machine, I recommend something like
@@ -209,7 +209,7 @@ That will create the desired folder and navigate there.
     running your own code, so you should store any code you write on your
     computer's hard disk. The `C:\MyTemp\` folder is a good place for that.
 
-### Creating a virtual environment
+#### Creating a virtual environment
 
 DESDEO requires at least Python version `3.12`. To control the version of Python
 we are using and what packages are available, we are first going to create a
@@ -239,7 +239,7 @@ conda activate desdeo
     compatible versions, and you avoid _dependency hell_. You can just change
     the active virtual environment instead.
 
-### Downloading DESDEO
+#### Downloading DESDEO
 
 The best way to download DESDEO is to use git. If you do not know what git is or
 if you have it installed, type in your Anaconda prompt
@@ -272,7 +272,7 @@ Git should have created a new subfolder called DESDEO. Let us navigate there by 
 cd DESDEO
 ```
 
-### Installing dependencies
+#### Installing dependencies
 After setting up a virtual environment and downloading the source code, we next
 need to install DESDEO's dependencies.  For this, we will need to first install
 `poetry` in our virtual environment. Type in your Anaconda prompt
@@ -287,8 +287,8 @@ following commands in your Anaconda prompt:
 
 ```bash
     conda env config vars set POETRY_CACHE_DIR=C:/MyTemp/temp
-    conda env config vars set TEMP=C:\MyTemp\temp
-    conda env config vars set TMP=C:\MyTemp\temp
+    conda env config vars set TEMP=C:/MyTemp/temp
+    conda env config vars set TMP=C:/MyTemp/temp
     conda activate desdeo
 ```
 
