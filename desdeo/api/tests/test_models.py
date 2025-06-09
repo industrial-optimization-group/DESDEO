@@ -25,7 +25,7 @@ from desdeo.api.models import (
     User,
     VariableDB,
     ProblemMetaDataDB,
-    TestProblemMetaData,
+    ForestProblemMetaData
 )
 from desdeo.mcdm import rpm_solve_solutions
 from desdeo.problem.schema import (
@@ -720,22 +720,13 @@ def test_problem_metadata(session_and_user: dict[str, Session | list[User]]):
     metadata = ProblemMetaDataDB(
         problem_id=problem.id,
         data = [
-            TestProblemMetaData(
-                dict_test={
-                    "t1": "lorem ipsum dolor sit amet",
-                    "t2": 2,
-                    "t3": {
-                        "t1": "lorem ipsum dolor sit amet",
-                        "t2": 2
-                    }
-                },
-                int_test = 2112,
-                float_test = 21.12,
-                string_test = "lorem ipsum dolor sit amet",
-                list_test = [2,1,1,2]
+            ForestProblemMetaData(
+                map_json = "type: string",
+                schedule_dict = {"type": "dict"},
+                years = ["type:", "list", "of", "strings"],
+                stand_id_field = "type: string",
             ),
-            TestProblemMetaData(),
-        ]
+        ],
     )
 
     session.add(metadata)
@@ -750,19 +741,10 @@ def test_problem_metadata(session_and_user: dict[str, Session | list[User]]):
 
     metadata_0 = from_db_metadata.data[0]
 
-    assert metadata_0.metadata_type == "test_problem_metadata"
-    assert metadata_0.dict_test["t1"] == "lorem ipsum dolor sit amet"
-    assert metadata_0.dict_test["t2"] == 2
-    assert metadata_0.dict_test["t3"]["t1"] == "lorem ipsum dolor sit amet"
-    assert metadata_0.dict_test["t3"]["t2"] == 2
-    assert metadata_0.int_test == 2112
-    assert metadata_0.float_test == 21.12
-    assert metadata_0.string_test == "lorem ipsum dolor sit amet"
-    assert metadata_0.list_test == [2,1,1,2]
-
-    metadata_1 = from_db_metadata.data[1]
-
-    assert metadata_1.metadata_type == "test_problem_metadata"
-    assert metadata_1.dict_test == None
+    assert metadata_0.metadata_type == "forest_problem_metadata"
+    assert metadata_0.map_json == "type: string"
+    assert metadata_0.schedule_dict == {"type": "dict"}
+    assert metadata_0.years == ["type:", "list", "of", "strings"]
+    assert metadata_0.stand_id_field == "type: string"
 
     assert problem.problem_metadata == from_db_metadata

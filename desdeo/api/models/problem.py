@@ -211,12 +211,9 @@ class ProblemMetaDataListType(TypeDecorator):
             for item in metadata_list:
                 item_dict = json.loads(item)
                 match item_dict["metadata_type"]:
-                    case "unset":
-                        metadata_objects.append(BaseProblemMetaData.model_validate(item_dict))
+                    # Add derived classes here so they can be deserialized
                     case "forest_problem_metadata":
                         metadata_objects.append(ForestProblemMetaData.model_validate(item_dict))
-                    case "test_problem_metadata":
-                        metadata_objects.append(TestProblemMetaData.model_validate(item_dict))
                     case _:
                         print(f"Cannot convert {item_dict["metadata_type"]} into metadata!")
             return metadata_objects
@@ -239,19 +236,6 @@ class ForestProblemMetaData(BaseProblemMetaData):
     stand_id_field: str = Field()
     stand_descriptor: dict | None = Field(sa_column=Column(JSON), default = None)
     compensation: float | None = Field(default = None)
-
-
-class TestProblemMetaData(BaseProblemMetaData):
-    """A problem metadata class to test if serializing stuff works"""
-    __test__ = False # This disables the __init__ constructor warning when running pytest
-
-    metadata_type: Literal["test_problem_metadata"] = "test_problem_metadata"
-
-    dict_test: dict | None = Field(sa_column=Column(JSON), default=None)
-    int_test: int | None = Field(default=None)
-    float_test: float | None = Field(default = None)
-    string_test: str | None = Field(default = None)
-    list_test: list | None = Field(default=None)
 
 
 class ProblemMetaDataDB(SQLModel, table=True):
