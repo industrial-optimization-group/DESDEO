@@ -10,10 +10,12 @@ from desdeo.mcdm.enautilus import (
     calculate_intermediate_points,
     calculate_lower_bounds,
     calculate_reachable_subset,
+    enautilus_get_representative_solutions,
     enautilus_step,
     prune_by_average_linkage,
 )
 from desdeo.problem import Objective, Problem, Variable, VariableTypeEnum
+from desdeo.tools import SolverResults
 
 
 @pytest.mark.enautilus
@@ -367,3 +369,60 @@ def test_enautilus_full_run_dynamic():
 
     # final selected point must coincide with a point on the Pareto front
     assert any(np.allclose(final_vec, row) for row in nd_min_mat)
+
+
+@pytest.mark.enautilus
+def test_get_representative_solutions():
+    """Test that the representative solutions are fetched correctly."""
+    problem = Problem(
+        name="tiny",
+        description="unit-test",
+        variables=[Variable(name="x", symbol="x", variable_type=VariableTypeEnum.real)],
+        objectives=[
+            Objective(name="f1", symbol="f1", maximize=False),
+            Objective(name="f2", symbol="f2", maximize=False),
+        ],
+    )
+
+    nd_df = pl.DataFrame(
+        {
+            "x": [10, 20, 30],
+            "f1": [1.0, 2.0, 3.5],
+            "f2": [1.0, 2.0, 2.5],
+        }
+    )
+
+    intermed = [
+        {"f1": 1.2, "f2": 0.9},  # closest to [1.0, 1.0]
+        {"f1": 3.0, "f2": 2.7},  # closest to [3.5, 2.5]
+    ]
+
+    dummy_bounds = [{"f1": 0.0, "f2": 0.0}] * 2  # not used in this test
+    dummy_meas = [0.0, 0.0]
+    dummy_idx = [[0, 1, 2], [0, 1, 2]]
+
+    result = ENautilusResult(
+        current_iteration=1,
+        iterations_left=1,
+        intermediate_points=intermed,
+        reachable_best_bounds=dummy_bounds,
+        reachable_worst_bounds=dummy_bounds,
+        closeness_measures=dummy_meas,
+        reachable_point_indices=dummy_idx,
+    )
+
+    sols = enautilus_get_representative_solutions(problem, result, nd_df)
+
+    assert isinstance(sols, list) and len(sols) == 2
+    assert all(isinstance(s, SolverResults) for s in sols)
+
+    # Expected mapping indices
+    expected_rows = [0, 2]
+    for sol, idx in zip(sols, expected_rows, strict=True):
+        row = nd_df[idx]
+
+        assert np.isclose(sol.optimal_objectives["f1"], row["f1"])
+        assert np.isclose(sol.optimal_objectives["f2"], row["f2"])
+        assert np.isclose(sol.optimal_variables["x"], row["x"])
+
+        assert sol.success

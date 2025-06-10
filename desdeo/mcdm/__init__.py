@@ -3,6 +3,7 @@
 __all__ = [
     "ENautilusResult",
     "NimbusError",
+    "enautilus_get_representative_solutions",
     "enautilus_step",
     "calculate_closeness",
     "calculate_intermediate_points",
@@ -22,6 +23,7 @@ from .enautilus import (
     calculate_intermediate_points,
     calculate_lower_bounds,
     calculate_reachable_subset,
+    enautilus_get_representative_solutions,
     enautilus_step,
     prune_by_average_linkage,
 )

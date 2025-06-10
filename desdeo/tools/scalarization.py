@@ -234,9 +234,9 @@ def add_group_asf(
     problem: Problem,
     symbol: str,
     reference_points: list[dict[str, float]],
+    delta: dict[str, float] | float = 1e-6,
     ideal: dict[str, float] | None = None,
     nadir: dict[str, float] | None = None,
-    delta: float = 1e-6,
     rho: float = 1e-6,
 ) -> tuple[Problem, str]:
     r"""Add the achievement scalarizing function for multiple decision makers.
@@ -296,9 +296,15 @@ def add_group_asf(
         raise ScalarizationError(msg)
 
     # calculate the weights
-    weights = {
-        obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta)) for obj in problem.objectives
-    }
+    weights = None
+    if type(delta) is dict:
+        weights = {
+            obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta[obj.symbol])) for obj in problem.objectives
+        }
+    else:
+        weights = {
+            obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta)) for obj in problem.objectives
+        }
 
     # form the max and augmentation terms
     max_terms = []
@@ -330,10 +336,9 @@ def add_group_asf_diff(
     problem: Problem,
     symbol: str,
     reference_points: list[dict[str, float]],
+    delta: dict[str, float] | float = 1e6,
     ideal: dict[str, float] | None = None,
     nadir: dict[str, float] | None = None,
-    #delta: float = 1e-6,
-    delta: dict[str, float] | None = None, # TODO: fix none issue
     rho: float = 1e-6,
 ) -> tuple[Problem, str]:
     r"""Add the differentiable variant of the achievement scalarizing function for multiple decision makers.
@@ -404,9 +409,15 @@ def add_group_asf_diff(
     )
 
     # calculate the weights
-    weights = {
-        obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta[obj.symbol])) for obj in problem.objectives
-    }
+    weights = None
+    if type(delta) is dict:
+        weights = {
+            obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta[obj.symbol])) for obj in problem.objectives
+        }
+    else:
+        weights = {
+            obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta)) for obj in problem.objectives
+        }
 
     # form the constaint and augmentation expressions
     # constraint expressions are formed into a list of lists
@@ -1931,9 +1942,9 @@ def add_group_stom_sf(
     problem: Problem,
     symbol: str,
     reference_points: list[dict[str, float]],
+    delta: dict[str, float] | float = 1e-6,
     ideal: dict[str, float] | None = None,
     rho: float = 1e-6,
-    delta: float = 1e-6,
 ) -> tuple[Problem, str]:
     r"""Adds the multiple decision maker variant of the STOM scalarizing function.
 
@@ -1986,18 +1997,29 @@ def add_group_stom_sf(
     weights = []
     for reference_point in reference_points:
         corrected_rp = flip_maximized_objective_values(problem, reference_point)
-        weights.append(
-            {
-                obj.symbol: 1 / (corrected_rp[obj.symbol] - (ideal_point[obj.symbol] - delta))
-                for obj in problem.objectives
-            }
-        )
+        if type(delta) is dict:
+            weights.append(
+                {
+                    obj.symbol: 1 / (corrected_rp[obj.symbol] - (ideal_point[obj.symbol] - delta[obj.symbol]))
+                    for obj in problem.objectives
+                }
+            )
+        else:
+            weights.append(
+                {
+                    obj.symbol: 1 / (corrected_rp[obj.symbol] - (ideal_point[obj.symbol] - delta))
+                    for obj in problem.objectives
+                }
+            )
 
     # form the max term
     max_terms = []
     for i in range(len(reference_points)):
         for obj in problem.objectives:
-            max_terms.append(f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {ideal_point[obj.symbol] - delta})")
+            if type(delta) is dict:
+                max_terms.append(f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {ideal_point[obj.symbol] - delta[obj.symbol]})")
+            else:
+                max_terms.append(f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {ideal_point[obj.symbol] - delta})")
     max_terms = ", ".join(max_terms)
 
     # form the augmentation term
@@ -2023,10 +2045,9 @@ def add_group_stom_sf_diff(
     problem: Problem,
     symbol: str,
     reference_points: list[dict[str, float]],
+    delta: dict[str, float] | float = 1e-6,
     ideal: dict[str, float] | None = None,
     rho: float = 1e-6,
-    delta: dict[str, float] | None = None, # TODO: fix none issue
-    #delta: float = 1e-6,
 ) -> tuple[Problem, str]:
     r"""Adds the differentiable variant of the multiple decision maker variant of the STOM scalarizing function.
 
@@ -2090,21 +2111,34 @@ def add_group_stom_sf_diff(
     weights = []
     for reference_point in reference_points:
         corrected_rp = flip_maximized_objective_values(problem, reference_point)
-        weights.append(
-            {
-                obj.symbol: 1 / (corrected_rp[obj.symbol] - (ideal_point[obj.symbol] - delta[obj.symbol]))
-                for obj in problem.objectives
-            }
-        )
+        if type(delta) is dict:
+            weights.append(
+                {
+                    obj.symbol: 1 / (corrected_rp[obj.symbol] - (ideal_point[obj.symbol] - delta[obj.symbol]))
+                    for obj in problem.objectives
+                }
+            )
+        else:
+            weights.append(
+                {
+                    obj.symbol: 1 / (corrected_rp[obj.symbol] - (ideal_point[obj.symbol] - delta))
+                    for obj in problem.objectives
+                }
+            )
 
     # form the max term
     con_terms = []
     for i in range(len(reference_points)):
         rp = {}
         for obj in problem.objectives:
-            rp[obj.symbol] = (
-                f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {ideal_point[obj.symbol] - delta[obj.symbol]}) - _alpha"
-            )
+            if type(delta) is dict:
+                rp[obj.symbol] = (
+                    f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {ideal_point[obj.symbol] - delta[obj.symbol]}) - _alpha"
+                )
+            else: 
+                rp[obj.symbol] = (
+                    f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {ideal_point[obj.symbol] - delta}) - _alpha"
+                )
         con_terms.append(rp)
 
     # form the augmentation term
@@ -2431,9 +2465,9 @@ def add_group_guess_sf(
     problem: Problem,
     symbol: str,
     reference_points: list[dict[str, float]],
+    delta: dict[str, float] | float = 1e-6,
     nadir: dict[str, float] | None = None,
     rho: float = 1e-6,
-    delta: float = 1e-6,
 ) -> tuple[Problem, str]:
     r"""Adds the non-differentiable variant of the multiple decision maker variant of the GUESS scalarizing function.
 
@@ -2486,19 +2520,30 @@ def add_group_guess_sf(
     weights = []
     for reference_point in reference_points:
         corrected_rp = flip_maximized_objective_values(problem, reference_point)
-        weights.append(
-            {
-                obj.symbol: 1 / ((nadir_point[obj.symbol] + delta) - (corrected_rp[obj.symbol]))
-                for obj in problem.objectives
-            }
-        )
+        if type(delta) is dict:
+            weights.append(
+                {
+                    obj.symbol: 1 / ((nadir_point[obj.symbol] + delta[obj.symbol]) - (corrected_rp[obj.symbol]))
+                    for obj in problem.objectives
+                }
+            )
+        else:
+            weights.append(
+                {
+                    obj.symbol: 1 / ((nadir_point[obj.symbol] + delta) - (corrected_rp[obj.symbol]))
+                    for obj in problem.objectives
+                }
+            )
 
     # form the max term
     max_terms = []
     for i in range(len(reference_points)):
         corrected_rp = flip_maximized_objective_values(problem, reference_points[i])
         for obj in problem.objectives:
-            max_terms.append(f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {nadir_point[obj.symbol]})")
+            if type(delta) is dict:
+                max_terms.append(f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {nadir_point[obj.symbol] + delta[obj.symbol]} )")
+            else:
+                max_terms.append(f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {nadir_point[obj.symbol] + delta})")
     max_terms = ", ".join(max_terms)
 
     # form the augmentation term
@@ -2524,10 +2569,9 @@ def add_group_guess_sf_diff(
     problem: Problem,
     symbol: str,
     reference_points: list[dict[str, float]],
+    delta: dict[str, float] | float = 1e-6,
     nadir: dict[str, float] | None = None,
     rho: float = 1e-6,
-    delta: dict[str, float] | None = None, # TODO: fix none issue
-    #delta: float = 1e-6,
 ) -> tuple[Problem, str]:
     r"""Adds the differentiable variant of the multiple decision maker variant of the GUESS scalarizing function.
 
@@ -2591,12 +2635,21 @@ def add_group_guess_sf_diff(
     weights = []
     for reference_point in reference_points:
         corrected_rp = flip_maximized_objective_values(problem, reference_point)
-        weights.append(
-            {
-                obj.symbol: 1 / ((nadir_point[obj.symbol] + delta[obj.symbol]) - (corrected_rp[obj.symbol]))
-                for obj in problem.objectives
-            }
-        )
+        if type(delta) is dict:
+            weights.append(
+                {
+                    obj.symbol: 1 / ((nadir_point[obj.symbol] + delta[obj.symbol]) - (corrected_rp[obj.symbol]))
+                    for obj in problem.objectives
+                }
+            )
+        else:
+            weights.append(
+                {
+                    obj.symbol: 1 / ((nadir_point[obj.symbol] + delta) - (corrected_rp[obj.symbol]))
+                    for obj in problem.objectives
+                }
+            )
+            
 
     # form the max term
     con_terms = []
@@ -2604,7 +2657,10 @@ def add_group_guess_sf_diff(
         corrected_rp = flip_maximized_objective_values(problem, reference_points[i])
         rp = {}
         for obj in problem.objectives:
-            rp[obj.symbol] = f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {nadir_point[obj.symbol]}) - _alpha"
+            if type(delta) is dict:
+                rp[obj.symbol] = f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {nadir_point[obj.symbol] + delta[obj.symbol]}) - _alpha"
+            else:
+                rp[obj.symbol] = f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {nadir_point[obj.symbol] + delta}) - _alpha"
         con_terms.append(rp)
 
     # form the augmentation term
