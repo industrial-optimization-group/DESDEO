@@ -269,21 +269,21 @@ def get_corrected_nadir(problem: Problem) -> dict[str, float | None]:
 
     return nadir_point
 
-def get_corrected_reference_point(problem: Problem, reference_point: dict[str, float]) -> dict[str, float]:
-    """Correct the components of a reference point.
+def flip_maximized_objective_values(problem: Problem, objective_values: dict[str, float]) -> dict[str, float]:
+    """Flips the objective values if the objective function is to be maximized.
 
-    Correct the components of a reference point by multiplying the components
-    related to maximized objective functions by -1.
+    Flips the objective values if the objective function is to be maximized by multiplying
+    the values related to maximized objective functions by -1.
 
     Args:
-        problem (Problem): the problem the reference point is related to.
-        reference_point (dict[str, float]): the reference point to be corrected.
+        problem (Problem): the problem the objective values are related to.
+        objective_values (dict[str, float]): the objective values to be flipped.
 
     Returns:
-        dict[str, float]: the corrected reference point.
+        dict[str, float]: the flipped objective values.
     """
     return {
-        obj.symbol: reference_point[obj.symbol] * -1 if obj.maximize else reference_point[obj.symbol]
+        obj.symbol: objective_values[obj.symbol] * -1 if obj.maximize else objective_values[obj.symbol]
         for obj in problem.objectives
     }
 
