@@ -24,7 +24,7 @@ def get_pymoo_problem(name: str, n_vars: int, n_objs: int):
     Get a pymoo problem instance by name, number of variables, and number of objectives.
     """
     print(name, type(n_vars), type(n_objs))
-    problem = get_problem(name, n_vars=n_vars, n_objs=n_objs)
+    problem = get_problem(name, n_var=n_vars, n_obj=n_objs)
     return problem
 
 
