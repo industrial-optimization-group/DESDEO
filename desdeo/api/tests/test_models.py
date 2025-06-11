@@ -1,5 +1,6 @@
 """Tests related to the SQLModels."""
 
+
 from sqlmodel import Session, select
 
 from desdeo.api.models import (
@@ -23,6 +24,8 @@ from desdeo.api.models import (
     TensorVariableDB,
     User,
     VariableDB,
+    ProblemMetaDataDB,
+    ForestProblemMetaData
 )
 from desdeo.mcdm import rpm_solve_solutions
 from desdeo.problem.schema import (
@@ -699,3 +702,49 @@ def test_rpm_state(session_and_user: dict[str, Session | list[User]]):
     assert state_2.children == []
     assert state_2.parent.problem == problem_db
     assert state_2.parent.session.user == user
+
+
+def test_problem_metadata(session_and_user: dict[str, Session | list[User]]):
+    """Test that the problem metadata can be put into database and brought back."""
+
+    session = session_and_user["session"]
+    user = session_and_user["user"]
+
+    # Just some test problem to attach the metadata to
+    problem = ProblemDB.from_problem(dtlz2(5, 3), user=user)
+
+    session.add(problem)
+    session.commit()
+    session.refresh(problem)
+
+    metadata = ProblemMetaDataDB(
+        problem_id=problem.id,
+        data = [
+            ForestProblemMetaData(
+                map_json = "type: string",
+                schedule_dict = {"type": "dict"},
+                years = ["type:", "list", "of", "strings"],
+                stand_id_field = "type: string",
+            ),
+        ],
+    )
+
+    session.add(metadata)
+    session.commit()
+    session.refresh(metadata)
+
+    statement = select(ProblemMetaDataDB).where(ProblemMetaDataDB.problem_id == problem.id)
+    from_db_metadata = session.exec(statement).first()
+
+    assert from_db_metadata.id != None
+    assert from_db_metadata.problem_id == problem.id
+
+    metadata_0 = from_db_metadata.data[0]
+
+    assert metadata_0.metadata_type == "forest_problem_metadata"
+    assert metadata_0.map_json == "type: string"
+    assert metadata_0.schedule_dict == {"type": "dict"}
+    assert metadata_0.years == ["type:", "list", "of", "strings"]
+    assert metadata_0.stand_id_field == "type: string"
+
+    assert problem.problem_metadata == from_db_metadata
