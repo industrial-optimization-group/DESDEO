@@ -92,13 +92,13 @@ To read more on these, and on instructions on how to install the latest version 
 
 Care has been taken to make sure DESDEO is well documented, making it accessible
 to both newcomers and seasoned users alike.  [The documentation of DESDEO is
-available online.](https://desdeo.readthedocs.io/en/desdeo2/)
+available online.](https://desdeo.readthedocs.io/en/latest/)
 
 ## Contributing
 
 As DESDEO is an open source-project, anybody is welcome to contribute.
 An extensive tutorial to get started contributing to DESDEO
-[is available in the documentation](https://desdeo.readthedocs.io/en/desdeo2/tutorials/contributing/).
+[is available in the documentation](https://desdeo.readthedocs.io/en/latest/tutorials/contributing/).
 Be sure to check it out!
 
 For additional support for contributing to DESDEO,
