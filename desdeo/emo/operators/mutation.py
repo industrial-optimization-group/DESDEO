@@ -125,7 +125,7 @@ class BoundedPolynomialMutation(BaseMutation):
         # TODO(@light-weaver): Extract to a numba jitted function
         self.offspring_original = offsprings
         self.parents = parents  # Not used, but kept for consistency
-        offspring = offsprings.to_numpy()
+        offspring = offsprings.to_numpy(writable=True)
         min_val = np.ones_like(offspring) * self.lower_bounds
         max_val = np.ones_like(offspring) * self.upper_bounds
         k = self.rng.random(size=offspring.shape)
@@ -284,7 +284,7 @@ class BinaryFlipMutation(BaseMutation):
         """
         self.offspring_original = copy.copy(offsprings)
         self.parents = parents  # Not used, but kept for consistency
-        offspring = offsprings.to_numpy().astype(dtype=np.bool)
+        offspring = offsprings.to_numpy(writable=True).astype(dtype=np.bool)
 
         # create a boolean mask based on the mutation probability
         flip_mask = self.rng.random(offspring.shape) < self.mutation_probability
@@ -416,7 +416,7 @@ class IntegerRandomMutation(BaseMutation):
         self.offspring_original = copy.copy(offsprings)
         self.parents = parents  # Not used, but kept for consistency
 
-        population = offsprings.to_numpy().astype(int)
+        population = offsprings.to_numpy(writable=True).astype(int)
 
         # create a boolean mask based on the mutation probability
         mutation_mask = self.rng.random(population.shape) < self.mutation_probability
@@ -548,7 +548,7 @@ class MixedIntegerRandomMutation(BaseMutation):
         self.offspring_original = copy.copy(offsprings)
         self.parents = parents  # Not used, but kept for consistency
 
-        population = offsprings.to_numpy().astype(float)
+        population = offsprings.to_numpy(writable=True).astype(float)
 
         # create a boolean mask based on the mutation probability
         mutation_mask = self.rng.random(population.shape) < self.mutation_probability
@@ -699,7 +699,7 @@ class MPTMutation(BaseMutation):
         self.offspring_original = copy.copy(offsprings)
         self.parents = parents
 
-        population = offsprings.to_numpy().astype(float)
+        population = offsprings.to_numpy(writable=True).astype(float)
 
         for i in range(population.shape[0]):
             for j, var in enumerate(self.problem.variables):
@@ -858,7 +858,7 @@ class NonUniformMutation(BaseMutation):
         self.offspring_original = copy.copy(offsprings)
         self.parents = parents
 
-        population = offsprings.to_numpy().astype(float)
+        population = offsprings.to_numpy(writable=True).astype(float)
 
         for i in range(population.shape[0]):
             for j, var in enumerate(self.problem.variables):
@@ -975,7 +975,7 @@ class SelfAdaptiveGaussianMutation(BaseMutation):
         self.offspring_original = offsprings
         self.parents = parents
 
-        offspring_array = offsprings.to_numpy().astype(float)
+        offspring_array = offsprings.to_numpy(writable=True).astype(float)
 
         if step_sizes is None:
             step_sizes = np.full_like(offspring_array, fill_value=0.1)
@@ -1121,7 +1121,7 @@ class PowerMutation(BaseMutation):
             self.notify()
             return self.offspring
 
-        population = offsprings.to_numpy().astype(float)
+        population = offsprings.to_numpy(writable=True).astype(float)
         mutation_mask = self.rng.random(population.shape) < self.mutation_probability
         mutated = population.copy()
 
