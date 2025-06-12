@@ -41,6 +41,23 @@ class SolverResults(BaseModel):
     success: bool = Field(description="A boolean flag indicating whether the optimization was successful or not.")
     message: str = Field(description="Description of the cause of termination.")
 
+class UserSavedSolverResults(SolverResults):
+    """Defines a schema for storing archived solutions."""
+    name: str | None = Field(
+        description="An optional name for the solution, useful for archiving purposes.", default=None
+    )
+
+    def to_solver_results(self) -> SolverResults:
+        """Convert to SolverResults without the name field."""
+        return SolverResults(
+            optimal_variables=self.optimal_variables,
+            optimal_objectives=self.optimal_objectives,
+            constraint_values=self.constraint_values,
+            extra_func_values=self.extra_func_values,
+            scalarization_values=self.scalarization_values,
+            success=self.success,
+            message=self.message,
+        )
 
 class BaseSolver(ABC):
     """Defines a schema for a solver base class."""

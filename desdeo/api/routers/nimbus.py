@@ -10,15 +10,19 @@ from desdeo.api.models import (
     InteractiveSessionDB,
     NIMBUSClassificationRequest,
     NIMBUSClassificationState,
+    NIMBUSSaveRequest,
+    NIMBUSSaveState,
     PreferenceDB,
     ProblemDB,
     StateDB,
     User,
 )
+from desdeo.api.models.archive import UserSavedSolutionDB
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.mcdm.nimbus import solve_sub_problems
 from desdeo.problem import Problem
 from desdeo.tools import SolverResults
+from desdeo.tools.generics import UserSavedSolverResults
 
 router = APIRouter(prefix="/method/nimbus")
 
@@ -115,3 +119,95 @@ def solve_solutions(
     session.refresh(state)
 
     return nimbus_state
+
+@router.post("/save")
+def save(
+    request: NIMBUSSaveRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)],
+) -> NIMBUSSaveState:
+    """Save solutions."""
+    if request.session_id is not None:
+        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == request.session_id)
+        interactive_session = session.exec(statement)
+
+        if interactive_session is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Could not find interactive session with id={request.session_id}.",
+            )
+    else:
+        # request.session_id is None:
+        # use active session instead
+        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == user.active_session_id)
+
+        interactive_session = session.exec(statement).first()
+
+    # fetch parent state
+    if request.parent_state_id is None:
+        # parent state is assumed to be the last state added to the session.
+        parent_state = (
+            interactive_session.states[-1]
+            if (interactive_session is not None and len(interactive_session.states) > 0)
+            else None
+        )
+
+    else:
+        # request.parent_state_id is not None
+        statement = session.select(StateDB).where(StateDB.id == request.parent_state_id)
+        parent_state = session.exec(statement).first()
+
+        if parent_state is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail=f"Could not find state with id={request.parent_state_id}"
+            )
+
+    # save solver results for state in SolverResults format just for consistency (dont save name field to state)
+    save_state = NIMBUSSaveState(
+        solver_results=[solution.to_solver_results() for solution in request.solutions]
+    )
+
+    # create DB state and add it to the DB
+    state = StateDB(
+        problem_id=request.problem_id,
+        session_id=interactive_session.id if interactive_session is not None else None,
+        parent_id=parent_state.id if parent_state is not None else None,
+        state=save_state,
+    )
+    session.add(state)
+    session.commit()
+    session.refresh(state)
+    # save solutions to the user's archive
+    user_save_solutions(state, request.solutions, user.id, session)
+
+    return save_state
+
+def user_save_solutions(
+    state_db: StateDB,
+    results: list[UserSavedSolverResults],
+    user_id: int,
+    session: Session,
+):
+    """Save solutions to the user's archive.
+
+    Args:
+        state_db: The state containing the solutions
+        results: List of solutions to save
+        user_id: ID of the user saving the solutions
+        session: Database session
+    """
+    # Create archive entries for selected solutions
+    for solution in results:
+        archive_entry = UserSavedSolutionDB(
+            name=solution.name if solution.name else None,
+            variable_values=solution.optimal_variables,
+            objective_values=solution.optimal_objectives,
+            constraint_values=solution.constraint_values,
+            extra_func_values=solution.extra_func_values,
+            user_id=user_id,
+            problem_id=state_db.problem_id,
+            state_id=state_db.id,
+        )
+        session.add(archive_entry)
+
+    session.commit()

@@ -2,6 +2,8 @@
 
 from sqlmodel import JSON, Column, Field, SQLModel
 
+from desdeo.tools.generics import UserSavedSolverResults
+
 from .preference import ReferencePoint
 
 
@@ -19,3 +21,12 @@ class NIMBUSClassificationRequest(SQLModel):
 
     current_objectives: dict[str, float] = Field(sa_column=Column(JSON))
     num_desired: int | None = Field(default=1)
+
+class NIMBUSSaveRequest(SQLModel):
+    """Request model for saving solutions from any method's state."""
+    # ??:
+    problem_id: int
+    session_id: int | None = Field(default=None)
+    parent_state_id: int | None = Field(default=None)
+
+    solutions: list[UserSavedSolverResults]  # List of solutions to save
