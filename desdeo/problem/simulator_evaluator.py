@@ -9,8 +9,9 @@ from pathlib import Path
 import joblib
 import numpy as np
 import polars as pl
-# import skops.io as sio
+import requests
 
+# import skops.io as sio
 from desdeo.problem import (
     ObjectiveTypeEnum,
     PolarsEvaluator,
@@ -136,6 +137,19 @@ class Evaluator:
         for sim in self.simulators:
             # gather the possible parameters for the simulator
             params = self.params.get(sim.name, {})
+            url = str(sim.file)
+            if "http" in url:  # insane hack to check if the simulator is on a server
+                try:
+                    if "://" not in url:  # Pathlib.Path removes double slashes, so we need to add it back
+                        url = url.replace(":/", "://")
+                    xs = pl.DataFrame(xs).to_dict(as_series=False)  # More insanity
+                    res = requests.get(url, json={"d": xs, "p": params})
+                    res.raise_for_status()
+                except requests.RequestException as e:
+                    raise EvaluatorError(f"Error while calling the simulator at {url}") from e
+                res_df = pl.DataFrame(res.json())
+                break
+            # Back to the sane world.
             # call the simulator with the decision variable values and parameters as dicts
             res = subprocess.run(
                 [sys.executable, sim.file, "-d", str(xs), "-p", str(params)], capture_output=True, text=True
