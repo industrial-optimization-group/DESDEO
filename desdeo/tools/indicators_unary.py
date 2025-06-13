@@ -18,7 +18,7 @@ from warnings import warn
 
 import numpy as np
 from pydantic import BaseModel, Field
-from pymoo.indicators.hv import Hypervolume
+from moocore import Hypervolume
 from pymoo.indicators.rmetric import RMetric
 from scipy.spatial.distance import cdist
 from typing import Dict
@@ -37,15 +37,8 @@ def hv(solution_set: np.ndarray, reference_point_component: float) -> float:
     Returns:
         float: The hypervolume indicator value.
     """
-    rp = np.full(solution_set.shape[1], reference_point_component, dtype=np.float64)
-    ideal = np.zeros(solution_set.shape[1], dtype=np.float64)
-    nadir = np.ones(solution_set.shape[1], dtype=np.float64)
 
-    # Sets the ideal and nadir to (0, 0, ..., 0) and (1, 1, ..., 1) respectively.
-    # Turns of non-domination checks.
-    # Turns of normalization of the reference point
-    hv = Hypervolume(ref_point=rp, ideal=ideal, nadir=nadir, nds=False, norm_ref_point=False)
-
+    hv = Hypervolume(reference_point_component)
     ind = hv(solution_set)
 
     if ind is None:
@@ -80,13 +73,7 @@ def hv_batch(
     num_objs = solution_sets[next(iter(solution_sets.keys()))].shape[1]
 
     for rp in reference_points_component:
-        hv = Hypervolume(
-            ref_point=np.full(num_objs, rp, dtype=np.float64),
-            ideal=np.zeros(num_objs, dtype=np.float64),
-            nadir=np.ones(num_objs, dtype=np.float64),
-            nds=False,
-            norm_ref_point=False,
-        )
+        hv = Hypervolume(rp)
         for set_name in solution_sets:
             ind = hv(solution_sets[set_name])
             if ind is None:
