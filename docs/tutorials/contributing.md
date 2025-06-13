@@ -59,7 +59,7 @@ the Python website](https://www.python.org/downloads/).
     To ensure changes in `Path` variables are in effect, it is advisable to logout
     of the current Windows session, and then log back in.
 
-To check that Python has been installed correctly on you system, we can open powershell
+To check that Python has been installed correctly on your system, we can open powershell
 and run the command
 
 ```shell
@@ -474,7 +474,7 @@ $ git commit -m "Our commit message"
     developer to understand what was changed. Usually the first line
     of the commit should be a short summary, e.g., "Added a few new tests.",
     which is then followed (separated by a blank new line) with more details,
-    e.g., "A test was dded to test the correct functioning of the NIMBUS method.
+    e.g., "A test was added to test the correct functioning of the NIMBUS method.
     A similar test was also added for the E-NAUTILUS methods. Both of these 
     tests should be passing." __There is no such thing as a "too long"
     commit message!__ We can also refer to any issues our commit addressed by
@@ -1179,7 +1179,7 @@ to DESDEO in this last section.
     ```
 8.  Remember to write tests and documentation, including comments, docstrings, and external documentation,
     when relevant.
-9.  Me mindful of the outputs of Ruff and mypy. Fix errors and warnings whenever possible.
+9.  Be mindful of the outputs of Ruff and mypy. Fix errors and warnings whenever possible.
 10.  Push your commits to your fork on GitHub. (`$ git push origin feature-x`)
 11.  Make a pull request on GitHub. 
 12.  Goto 3.
