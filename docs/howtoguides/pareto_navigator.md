@@ -10,7 +10,7 @@ The method is implemented according to the description in [1].
 The implemented Pareto Navigator method is to be used used with a problem with a known approximation of the Pareto front.
 This is because the method assumes a set of Pareto optimal solutions to get started.
 
-To set up a problem, you can start with a problem object as described in ["How to define a problem"](./problem.md). Then you can add the approximation of the Pareto front as follows:
+To set up a problem, you can start with a problem object as described in ["How to define a problem"](./how_to_define_a_problem.ipynb). Then you can add the approximation of the Pareto front as follows:
 
 ```python
 from desdeo.problem.schema import DiscreteDefinition
