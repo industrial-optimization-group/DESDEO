@@ -511,6 +511,7 @@ def test_archive_entry(session_and_user: dict[str, Session | list[User]]):
     session.commit()
     session.refresh(problem_db)
 
+    name = "Test Archive Entry"
     variable_values = {"x_1": 0.3, "x_2": 0.8, "x_3": 0.1, "x_4": 0.6, "x_5": 0.9}
     objective_values = {"f_1": 1.2, "f_2": 0.9, "f_3": 1.5}
     constraint_values = {"g_1": 0.1}
@@ -521,6 +522,7 @@ def test_archive_entry(session_and_user: dict[str, Session | list[User]]):
     archive_entry_db = UserSavedSolutionDB.model_validate(
         archive_entry,
         update={
+            "name": name,
             "user_id": user.id,
             "problem_id": problem_db.id,
             "constraint_values": constraint_values,
@@ -534,6 +536,7 @@ def test_archive_entry(session_and_user: dict[str, Session | list[User]]):
 
     from_db = session.get(UserSavedSolutionDB, archive_entry_db.id)
 
+    assert from_db.name == name
     assert from_db.user_id == user.id
     assert from_db.problem_id == problem_db.id
     assert from_db == user.archive[0]
@@ -543,6 +546,74 @@ def test_archive_entry(session_and_user: dict[str, Session | list[User]]):
     assert from_db.constraint_values == constraint_values
     assert from_db.extra_func_values == extra_func_values
 
+def test_user_save_solutions(session_and_user: dict[str, Session | list[User]]):
+    """Test that user_save_solutions correctly saves solutions to the usersavedsolutiondb in the database."""
+    session = session_and_user["session"]
+    user = session_and_user["user"]
+
+    # Create test solutions with proper dictionary values
+    variable_values = {"x_1": 0.3, "x_2": 0.8}
+    objective_values = {"f_1": 1.2, "f_2": 0.9}
+    constraint_values = {"g_1": 0.1}
+    extra_func_values = {"extra_1": 5000}
+
+    test_solutions = [
+        UserSavedSolverResults(
+            name="Solution 1",
+            optimal_variables=variable_values,
+            optimal_objectives=objective_values,
+            constraint_values=constraint_values,
+            extra_func_values=extra_func_values,
+            success=True,
+            message="This is a test solution saved from the NIMBUS method."
+        ),
+        UserSavedSolverResults(
+            name="Solution 2",
+            optimal_variables=variable_values,
+            optimal_objectives=objective_values,
+            constraint_values=constraint_values,
+            extra_func_values=extra_func_values,
+            success=True,
+            message="This is a test solution saved from the NIMBUS method."
+        )
+    ]
+
+    problem_id = 1
+    # Create NIMBUSSaveState
+    save_state = NIMBUSSaveState(
+        solver_results=[solution.to_solver_results() for solution in test_solutions]
+    )
+
+    # Create StateDB
+    state = StateDB(
+        problem_id=problem_id,
+        state=save_state
+    )
+
+    # Call the function
+    user_save_solutions(state, test_solutions, user.id, session)
+    # Verify the solutions were saved
+    saved_solutions = session.exec(select(UserSavedSolutionDB)).all()
+    if len(saved_solutions) != NUM_TEST_SOLUTIONS:
+        raise ValueError(f"Expected {NUM_TEST_SOLUTIONS} saved solutions, but found {len(saved_solutions)}")
+
+    # Verify the content of the first solution
+    first_solution = saved_solutions[0]
+    assert first_solution.name == "Solution 1"
+    assert first_solution.variable_values == variable_values
+    assert first_solution.objective_values == objective_values
+    assert first_solution.constraint_values == constraint_values
+    assert first_solution.extra_func_values == extra_func_values
+    assert first_solution.user_id == user.id
+    assert first_solution.problem_id == problem_id
+    assert first_solution.state_id == state.id
+
+    # Verify state relationship
+    saved_state = session.exec(
+        select(StateDB).where(StateDB.id == state.id)
+    ).first()
+    assert isinstance(saved_state.state, NIMBUSSaveState)
+    assert len(saved_state.state.solver_results) == NUM_TEST_SOLUTIONS
 
 def test_preference_models(session_and_user: dict[str, Session | list[User]]):
     """Test that the archive works as intended."""
@@ -705,120 +776,3 @@ def test_rpm_state(session_and_user: dict[str, Session | list[User]]):
     assert state_2.children == []
     assert state_2.parent.problem == problem_db
     assert state_2.parent.session.user == user
-
-
-def test_user_save_solutions(session_and_user: dict[str, Session | list[User]]):
-    """Test that user_save_solutions correctly saves solutions to the usersavedsolutiondb in the database."""
-    session = session_and_user["session"]
-    user = session_and_user["user"]
-
-    problem_id = 1
-
-    # Create a test state
-    state = StateDB(
-        problem_id=problem_id,
-        state={"test": "state"}
-    )
-    session.add(state)
-    session.commit()
-
-    # Create test solutions with proper dictionary values
-    variable_values = {"x_1": 0.3, "x_2": 0.8}
-    objective_values = {"f_1": 1.2, "f_2": 0.9}
-    constraint_values = {"g_1": 0.1}
-    extra_func_values = {"extra_1": 5000}
-
-    test_solutions = [
-        UserSavedSolverResults(
-            name="Solution 1",
-            optimal_variables=variable_values,
-            optimal_objectives=objective_values,
-            constraint_values=constraint_values,
-            extra_func_values=extra_func_values,
-            success=True,
-            message="This is a test solution saved from the NIMBUS method."
-        ),
-        UserSavedSolverResults(
-            name="Solution 2",
-            optimal_variables=variable_values,
-            optimal_objectives=objective_values,
-            constraint_values=constraint_values,
-            extra_func_values=extra_func_values,
-            success=True,
-            message="This is a test solution saved from the NIMBUS method."
-        )
-    ]
-
-    # Call the function
-    user_save_solutions(state, test_solutions, user.id, session)
-
-    # Verify the solutions were saved
-    saved_solutions = session.exec(select(UserSavedSolutionDB)).all()
-    if len(saved_solutions) != NUM_TEST_SOLUTIONS:
-        raise ValueError(f"Expected {NUM_TEST_SOLUTIONS} saved solutions, but found {len(saved_solutions)}")
-
-    # Verify the content of the first solution
-    first_solution = saved_solutions[0]
-    if first_solution.name != "Solution 1":
-        raise ValueError(f"Expected solution name 'Solution 1', but found '{first_solution.name}'")
-    if first_solution.variable_values != variable_values:
-        raise ValueError("Variable values do not match")
-    if first_solution.objective_values != objective_values:
-        raise ValueError("Objective values do not match")
-    if first_solution.constraint_values != constraint_values:
-        raise ValueError("Constraint values do not match")
-    if first_solution.extra_func_values != extra_func_values:
-        raise ValueError("Extra function values do not match")
-    if first_solution.user_id != user.id:
-        raise ValueError("User ID does not match")
-    if first_solution.problem_id != problem_id:
-        raise ValueError("Problem ID does not match")
-    if first_solution.state_id != state.id:
-        raise ValueError("State ID does not match")
-
-
-def test_nimbus_save_state(session_and_user: dict[str, Session | list[User]]):
-    """Test that NIMBUSSaveState is saved correctly to StateDB."""
-    session = session_and_user["session"]
-    user = session_and_user["user"]
-    problem_db = user.problems[0]
-
-    # Create test solutions
-    test_solutions = [
-        UserSavedSolverResults(
-            optimal_variables={"x1": 0.5},
-            optimal_objectives={"f1": 1.0},
-            constraint_values={},
-            extra_func_values={},
-            success=True,
-            message="test message",
-        )
-    ]
-
-    # Create state
-    save_state = NIMBUSSaveState(
-        solver_results=[solution.to_solver_results() for solution in test_solutions]
-    )
-
-    # Save to DB
-    state_db = StateDB(
-        problem_id=problem_db.id,
-        state=save_state
-    )
-    session.add(state_db)
-    session.commit()
-    session.refresh(state_db)
-
-    # Verify saved state
-    saved_state = session.exec(
-        select(StateDB).where(StateDB.id == state_db.id)
-    ).first()
-
-    if not isinstance(saved_state.state, NIMBUSSaveState):
-        raise TypeError(f"Expected NIMBUSSaveState but got {type(saved_state.state)}")
-    if len(saved_state.state.solver_results) != 1:
-        raise ValueError(f"Expected 1 solver result but got {len(saved_state.state.solver_results)}")
-    if saved_state.state.solver_results[0].optimal_variables != {"x1": 0.5}:
-        raise ValueError("Optimal variables do not match")
-    if saved_state.state.solver_results[0].optimal_objectives != {"f1": 1.0}:
-        raise ValueError("Optimal objectives do not match")

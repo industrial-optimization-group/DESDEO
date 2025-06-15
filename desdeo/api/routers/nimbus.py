@@ -17,12 +17,11 @@ from desdeo.api.models import (
     StateDB,
     User,
 )
-from desdeo.api.models.archive import UserSavedSolutionDB
 from desdeo.api.routers.user_authentication import get_current_user
+from desdeo.api.utils.database import user_save_solutions
 from desdeo.mcdm.nimbus import solve_sub_problems
 from desdeo.problem import Problem
 from desdeo.tools import SolverResults
-from desdeo.tools.generics import UserSavedSolverResults
 
 router = APIRouter(prefix="/method/nimbus")
 
@@ -167,47 +166,14 @@ def save(
         solver_results=[solution.to_solver_results() for solution in request.solutions]
     )
 
-    # create DB state and add it to the DB
+    # create DB state
     state = StateDB(
         problem_id=request.problem_id,
         session_id=interactive_session.id if interactive_session is not None else None,
         parent_id=parent_state.id if parent_state is not None else None,
         state=save_state,
     )
-    session.add(state)
-    session.commit()
-    session.refresh(state)
-    # save solutions to the user's archive
+    # save solutions to the user's archive and add state to the DB
     user_save_solutions(state, request.solutions, user.id, session)
 
     return save_state
-
-def user_save_solutions(
-    state_db: StateDB,
-    results: list[UserSavedSolverResults],
-    user_id: int,
-    session: Session,
-):
-    """Save solutions to the user's archive.
-
-    Args:
-        state_db: The state containing the solutions
-        results: List of solutions to save
-        user_id: ID of the user saving the solutions
-        session: Database session
-    """
-    # Create archive entries for selected solutions
-    for solution in results:
-        archive_entry = UserSavedSolutionDB(
-            name=solution.name if solution.name else None,
-            variable_values=solution.optimal_variables,
-            objective_values=solution.optimal_objectives,
-            constraint_values=solution.constraint_values,
-            extra_func_values=solution.extra_func_values,
-            user_id=user_id,
-            problem_id=state_db.problem_id,
-            state_id=state_db.id,
-        )
-        session.add(archive_entry)
-
-    session.commit()

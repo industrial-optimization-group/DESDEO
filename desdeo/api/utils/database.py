@@ -19,8 +19,12 @@ from sqlalchemy.sql.expression import delete as sa_delete
 from sqlalchemy.sql.expression import exists as sa_exists
 from sqlalchemy.sql.functions import count
 from sqlalchemy.sql.selectable import Exists, Select
+from sqlmodel import Session
 
 from desdeo.api.config import SettingsConfig
+from desdeo.api.models.archive import UserSavedSolutionDB
+from desdeo.api.models.state import StateDB
+from desdeo.tools.generics import UserSavedSolverResults
 
 from .logger import get_logger
 
@@ -84,6 +88,39 @@ def delete(table) -> Delete:
         Delete: A Delete object
     """
     return sa_delete(table)
+
+
+
+def user_save_solutions(
+    state_db: StateDB,
+    results: list[UserSavedSolverResults],
+    user_id: int,
+    session: Session,
+):
+    """Save solutions to the user's archive and create new state in the database.
+
+    Args:
+        state_db: The state containing the solutions
+        results: List of solutions to save
+        user_id: ID of the user saving the solutions
+        session: Database session
+    """
+    # Create archive entries for selected solutions
+    for solution in results:
+        archive_entry = UserSavedSolutionDB(
+            name=solution.name if solution.name else None,
+            variable_values=solution.optimal_variables,
+            objective_values=solution.optimal_objectives,
+            constraint_values=solution.constraint_values,
+            extra_func_values=solution.extra_func_values,
+            user_id=user_id,
+            problem_id=state_db.problem_id,
+            state=state_db,
+        )
+        # state is already set in UserSavedSolutionDB, so no need to add it explictly
+        session.add(archive_entry)
+
+    session.commit()
 
 
 class DB:

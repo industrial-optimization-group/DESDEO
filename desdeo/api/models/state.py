@@ -28,7 +28,6 @@ class StateType(TypeDecorator):
 
         return value
 
-    # TODO: ask. Should the saving have different method (I dont understand if method is needed in saved info) or sth?
     def process_result_value(self, value, dialect):
         """JSON to state."""
         if "method" in value:
@@ -102,8 +101,8 @@ class NIMBUSClassificationState(NIMBUSBaseState):
 
 class NIMBUSSaveState(NIMBUSBaseState):
     """State of the nimbus method for saving solutions."""
+
     phase: Literal["save_solutions"] = "save_solutions"
-    # results
     solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
 
 class IntermediateSolutionState(BaseState):
@@ -140,7 +139,7 @@ class StateDB(SQLModel, table=True):
     children: list["StateDB"] = Relationship(
         back_populates="parent", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
-    solutions: list["UserSavedSolutionDB"] = Relationship(
+    solutions: list["UserSavedSolutionDB"] | None = Relationship(
         back_populates="state", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
 
