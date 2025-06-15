@@ -8,7 +8,6 @@ from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 from .problem import ProblemDB
 
 if TYPE_CHECKING:
-    from .archive import ArchiveEntryDB
     from .user import User
 
 
@@ -87,4 +86,3 @@ class PreferenceDB(SQLModel, table=True):
     # Back populates
     problem: "ProblemDB" = Relationship(back_populates="preferences")
     user: "User" = Relationship(back_populates="preferences")
-    solutions: list["ArchiveEntryDB"] = Relationship(back_populates="preference")
