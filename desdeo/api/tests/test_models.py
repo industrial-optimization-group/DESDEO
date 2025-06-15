@@ -68,9 +68,6 @@ from desdeo.problem.testproblems import (
 from desdeo.tools import available_solvers
 from desdeo.tools.generics import UserSavedSolverResults
 
-# Number of test solutions used in tests
-NUM_TEST_SOLUTIONS = 2
-
 
 def compare_models(
     model_1,
@@ -577,7 +574,7 @@ def test_user_save_solutions(session_and_user: dict[str, Session | list[User]]):
             message="This is a test solution saved from the NIMBUS method."
         )
     ]
-
+    num_test_solutions = len(test_solutions)
     problem_id = 1
     # Create NIMBUSSaveState
     save_state = NIMBUSSaveState(
@@ -594,8 +591,8 @@ def test_user_save_solutions(session_and_user: dict[str, Session | list[User]]):
     user_save_solutions(state, test_solutions, user.id, session)
     # Verify the solutions were saved
     saved_solutions = session.exec(select(UserSavedSolutionDB)).all()
-    if len(saved_solutions) != NUM_TEST_SOLUTIONS:
-        raise ValueError(f"Expected {NUM_TEST_SOLUTIONS} saved solutions, but found {len(saved_solutions)}")
+    if len(saved_solutions) != num_test_solutions:
+        raise ValueError(f"Expected {num_test_solutions} saved solutions, but found {len(saved_solutions)}")
 
     # Verify the content of the first solution
     first_solution = saved_solutions[0]
@@ -613,7 +610,7 @@ def test_user_save_solutions(session_and_user: dict[str, Session | list[User]]):
         select(StateDB).where(StateDB.id == state.id)
     ).first()
     assert isinstance(saved_state.state, NIMBUSSaveState)
-    assert len(saved_state.state.solver_results) == NUM_TEST_SOLUTIONS
+    assert len(saved_state.state.solver_results) == num_test_solutions
 
 def test_preference_models(session_and_user: dict[str, Session | list[User]]):
     """Test that the archive works as intended."""
@@ -655,9 +652,6 @@ def test_preference_models(session_and_user: dict[str, Session | list[User]]):
 
     assert from_db_bounds.user == user
     assert from_db_ref_point.user == user
-
-    # assert from_db_bounds.solutions == []
-    # assert from_db_ref_point.solutions == []
 
 
 def test_rpm_state(session_and_user: dict[str, Session | list[User]]):
