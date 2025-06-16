@@ -8,6 +8,7 @@ from desdeo.tools.generics import SolverResults
 
 if TYPE_CHECKING:
     from .problem import ProblemDB
+    from .state import StateDB
     from .user import User
 
 
@@ -26,9 +27,11 @@ class UserSavedSolutionDB(UserSavedSolutionBase, table=True):
     name: str | None = Field(default=None, nullable=True)  # Optional name for the solution
     user_id: int | None = Field(foreign_key="user.id", default=None)
     problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
+    state_id: int | None = Field(foreign_key="statedb.id", default=None)
     # Back populates
     user: "User" = Relationship(back_populates="archive")
     problem: "ProblemDB" = Relationship(back_populates="solutions")
+    state: "StateDB" = Relationship(back_populates="saved_solutions")
 
 class UserSavedSolverResults(SolverResults):
     """Defines a schema for storing archived solutions."""

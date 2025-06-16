@@ -603,6 +603,8 @@ def test_user_save_solutions(session_and_user: dict[str, Session | list[User]]):
     assert first_solution.extra_func_values == extra_func_values
     assert first_solution.user_id == user.id
     assert first_solution.problem_id == problem_id
+    assert first_solution.state_id == state.id
+
 
     # Verify state relationship
     saved_state = session.exec(
