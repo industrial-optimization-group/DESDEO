@@ -19,6 +19,8 @@ from desdeo.tools.indicators_unary import (
     r_metric_indicators_batch,
 )
 
+from desdeo.tools.indicators_binary import epsilon_indicator
+
 
 @pytest.mark.indicators
 @pytest.mark.parametrize("obj, shape", list(product([2, 3, 4], ["simplex", "sphere", "inv_simplex", "inv_sphere"])))
@@ -194,3 +196,12 @@ def test_r2_batch_with_ref_dirs():
         assert isinstance(result.r2_value, float), f"{name}'s R2 value is not a float"
         assert result.r2_value < 0, f"{name}'s R2 value should be negative"
         assert np.isfinite(result.r2_value), f"{name}'s R2 value is not finite"
+
+
+@pytest.mark.indicators
+def test_epsilon_indicator():
+    s1 = np.array([0.3, 0.1, 0.5])
+    s2 = np.array([0.5, 0.2, 0.6])
+    assert epsilon_indicator(s1, s1) == 0, f"Epsilon for identical vectors is {epsilon_indicator(s1, s2)}, should be 0"
+    assert np.isclose(epsilon_indicator(s1, s1+0.1), 0.1), f"epsilon should be the amount that a vector is shifted"
+    assert epsilon_indicator(s1, s2) == 0.2, "I_eps({s1}, s{2}) should be 0.2"
