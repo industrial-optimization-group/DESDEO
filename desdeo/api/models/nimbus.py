@@ -2,7 +2,7 @@
 
 from sqlmodel import JSON, Column, Field, SQLModel
 
-from desdeo.tools.generics import UserSavedSolverResults
+from desdeo.api.models.archive import UserSavedSolverResults
 
 from .preference import ReferencePoint
 

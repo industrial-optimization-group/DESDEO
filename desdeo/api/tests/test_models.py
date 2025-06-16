@@ -25,6 +25,7 @@ from desdeo.api.models import (
     UserSavedSolutionDB,
     VariableDB,
 )
+from desdeo.api.models.archive import UserSavedSolverResults
 from desdeo.api.routers.nimbus import user_save_solutions
 from desdeo.mcdm import rpm_solve_solutions
 from desdeo.problem.schema import (
@@ -66,7 +67,6 @@ from desdeo.problem.testproblems import (
     zdt1,
 )
 from desdeo.tools import available_solvers
-from desdeo.tools.generics import UserSavedSolverResults
 
 
 def compare_models(
@@ -603,7 +603,6 @@ def test_user_save_solutions(session_and_user: dict[str, Session | list[User]]):
     assert first_solution.extra_func_values == extra_func_values
     assert first_solution.user_id == user.id
     assert first_solution.problem_id == problem_id
-    assert first_solution.state_id == state.id
 
     # Verify state relationship
     saved_state = session.exec(

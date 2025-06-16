@@ -22,9 +22,8 @@ from sqlalchemy.sql.selectable import Exists, Select
 from sqlmodel import Session
 
 from desdeo.api.config import SettingsConfig
-from desdeo.api.models.archive import UserSavedSolutionDB
+from desdeo.api.models.archive import UserSavedSolutionDB, UserSavedSolverResults
 from desdeo.api.models.state import StateDB
-from desdeo.tools.generics import UserSavedSolverResults
 
 from .logger import get_logger
 
@@ -115,11 +114,10 @@ def user_save_solutions(
             extra_func_values=solution.extra_func_values,
             user_id=user_id,
             problem_id=state_db.problem_id,
-            state=state_db,
         )
-        # state is already set in UserSavedSolutionDB, so no need to add it explictly
         session.add(archive_entry)
-
+    # Create a state for saving the solutions
+    session.add(state_db)
     session.commit()
 
 

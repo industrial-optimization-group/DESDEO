@@ -139,10 +139,6 @@ class StateDB(SQLModel, table=True):
     children: list["StateDB"] = Relationship(
         back_populates="parent", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
-    solutions: list["UserSavedSolutionDB"] | None = Relationship(
-        back_populates="state", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
-    )
-
     # Parents
     preference: "PreferenceDB" = Relationship()
     problem: "ProblemDB" = Relationship()

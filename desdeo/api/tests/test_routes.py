@@ -16,10 +16,10 @@ from desdeo.api.models import (
     RPMSolveRequest,
     User,
 )
+from desdeo.api.models.archive import UserSavedSolverResults
 from desdeo.api.models.generic import IntermediateSolutionRequest
 from desdeo.api.routers.user_authentication import create_access_token
 from desdeo.problem.testproblems import simple_knapsack_vectors
-from desdeo.tools.generics import UserSavedSolverResults
 
 
 def login(client: TestClient, username="analyst", password="analyst") -> str:  # noqa: S107
