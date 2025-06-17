@@ -17,6 +17,8 @@ from desdeo.tools.indicators_unary import (
     igd_plus_indicator,
     r2_batch,
     r_metric_indicators_batch,
+    PHI, 
+    PhiDecision
 )
 
 
@@ -194,3 +196,32 @@ def test_r2_batch_with_ref_dirs():
         assert isinstance(result.r2_value, float), f"{name}'s R2 value is not a float"
         assert result.r2_value < 0, f"{name}'s R2 value should be negative"
         assert np.isfinite(result.r2_value), f"{name}'s R2 value is not finite"
+
+
+def test_get_phi():
+    solution_set = np.array([[0.2, 0.3], [0.4, 0.5], [0.6, 0.7]])
+    reference_point = np.array([0.5, 0.5])
+    nadir = np.array([1.0, 1.0])
+    ideal = np.array([0.0, 0.0])
+
+    phi_instance = PHI(solution_set, reference_point, nadir, ideal)
+    print(type(phi_instance))
+    dominated, metric_vals = phi_instance.get_phi()
+
+    assert dominated
+    assert metric_vals != [0, 0, 0, 0]
+
+
+@pytest.mark.indicators
+def test_assess_decision_phase():
+    indicator_values = (0.5, 0.6, 0.7, 0.8)
+    nadir = np.array([1.0, 1.0])
+
+    set_of_RPs = np.array([[0.2, 0.3], [0.4, 0.5], [0.6, 0.7]])
+    main_RP = np.array([0.5, 0.5])
+
+    decision_instance = PhiDecision(indicator_values, nadir)
+    result, weights = decision_instance.assess_decision_phase(set_of_RPs, main_RP)
+
+    assert isinstance(result, float), "assess_decision_phase() should return a float value as result."
+    assert isinstance(weights, np.ndarray), "Weights should be a numpy array."
