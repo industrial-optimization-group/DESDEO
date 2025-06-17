@@ -1578,7 +1578,7 @@ class Problem(BaseModel):
         """
         json_data = path.read_text()
 
-        return cls.model_validate_json(json_data)
+        return cls.model_validate_json(json_data, by_name=True)
 
     @model_validator(mode="after")
     def set_is_twice_differentiable(cls, values):
