@@ -260,7 +260,7 @@ class ObjectiveTypeEnum(str, Enum):
 class Constant(BaseModel):
     """Model for a constant."""
 
-    model_config = ConfigDict(frozen=True, from_attributes=True)
+    model_config = ConfigDict(frozen=True, from_attributes=True, extra='forbid')
 
     name: str = Field(
         description=(
@@ -284,7 +284,7 @@ class Constant(BaseModel):
 class TensorConstant(BaseModel):
     """Model for a tensor containing constant values."""
 
-    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True, from_attributes=True)
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True, from_attributes=True, extra='forbid')
 
     name: str = Field(description="Descriptive name of the tensor representing the values. E.g., 'distances'")
     """Descriptive name of the tensor representing the values. E.g., 'distances'"""
@@ -377,7 +377,7 @@ class TensorConstant(BaseModel):
 class Variable(BaseModel):
     """Model for a variable."""
 
-    model_config = ConfigDict(frozen=True, from_attributes=True)
+    model_config = ConfigDict(frozen=True, from_attributes=True, extra='forbid')
 
     name: str = Field(
         description="Descriptive name of the variable. This can be used in UI and visualizations. Example: 'velocity'."
@@ -407,7 +407,7 @@ class Variable(BaseModel):
 class TensorVariable(BaseModel):
     """Model for a tensor, e.g., vector variable."""
 
-    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True, from_attributes=True)
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True, from_attributes=True, extra='forbid')
 
     name: str = Field(
         description="Descriptive name of the variable. This can be used in UI and visualizations. Example: 'velocity'."
@@ -585,7 +585,7 @@ class ExtraFunction(BaseModel):
     they are needed for other computations related to the problem.
     """
 
-    model_config = ConfigDict(frozen=True, from_attributes=True)
+    model_config = ConfigDict(frozen=True, from_attributes=True, extra='forbid')
 
     name: str = Field(
         description=("Descriptive name of the function. Example: 'normalization'."),
@@ -663,7 +663,7 @@ class ExtraFunction(BaseModel):
 class ScalarizationFunction(BaseModel):
     """Model for scalarization of the problem."""
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, extra='forbid')
 
     name: str = Field(description=("Name of the scalarization function."))
     """Name of the scalarization function."""
@@ -715,7 +715,7 @@ class ScalarizationFunction(BaseModel):
 class Simulator(BaseModel):
     """Model for simulator data."""
 
-    model_config = ConfigDict(frozen=True, from_attributes=True)
+    model_config = ConfigDict(frozen=True, from_attributes=True, extra='forbid')
 
     name: str = Field(
         description=("Descriptive name of the simulator. This can be used in UI and visualizations."),
@@ -745,7 +745,7 @@ class Simulator(BaseModel):
 class Objective(BaseModel):
     """Model for an objective function."""
 
-    model_config = ConfigDict(frozen=True, from_attributes=True)
+    model_config = ConfigDict(frozen=True, from_attributes=True, extra='forbid')
 
     name: str = Field(
         description=(
@@ -857,7 +857,7 @@ class Objective(BaseModel):
 class Constraint(BaseModel):
     """Model for a constraint function."""
 
-    model_config = ConfigDict(frozen=True, from_attributes=True)
+    model_config = ConfigDict(frozen=True, from_attributes=True, extra='forbid')
 
     name: str = Field(
         description=(
@@ -960,7 +960,7 @@ class DiscreteRepresentation(BaseModel):
     found at `objective_values['f_i'][j]` for all `i` and some `j`.
     """
 
-    model_config = ConfigDict(frozen=True, from_attributes=True)
+    model_config = ConfigDict(frozen=True, from_attributes=True, extra='forbid')
 
     variable_values: dict[str, list[VariableType]] = Field(
         description=(
@@ -999,7 +999,7 @@ class DiscreteRepresentation(BaseModel):
 class Problem(BaseModel):
     """Model for a problem definition."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra='forbid')
 
     _scalarization_index: int = PrivateAttr(default=1)
     # TODO: make init to communicate the _scalarization_index to a new model
