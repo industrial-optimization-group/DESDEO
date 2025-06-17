@@ -138,7 +138,7 @@ def test_tensor_constant(session_and_user: dict[str, Session | list[User]]):
     # check that original added TensorConstant and fetched match
     assert db_tensor == from_db_tensor
 
-    from_db_tensor_dump = from_db_tensor.model_dump()
+    from_db_tensor_dump = from_db_tensor.model_dump(exclude={"id", "problem_id"})
     t_tensor_validated = TensorConstant.model_validate(from_db_tensor_dump)
 
     assert t_tensor_validated == t_tensor
@@ -162,7 +162,7 @@ def test_constant(session_and_user: dict[str, Session | list[User]]):
 
     assert db_constant == from_db_constant
 
-    from_db_constant_dump = from_db_constant.model_dump()
+    from_db_constant_dump = from_db_constant.model_dump(exclude={"id", "problem_id"})
     constant_validated = Constant.model_validate(from_db_constant_dump)
 
     assert constant_validated == constant
@@ -194,7 +194,7 @@ def test_variable(session_and_user: dict[str, Session | list[User]]):
 
     assert db_variable == from_db_variable
 
-    from_db_variable_dump = from_db_variable.model_dump()
+    from_db_variable_dump = from_db_variable.model_dump(exclude={"id", "problem_id"})
     variable_validated = Variable.model_validate(from_db_variable_dump)
 
     assert variable_validated == variable
@@ -227,7 +227,7 @@ def test_tensor_variable(session_and_user: dict[str, Session | list[User]]):
 
     assert db_t_variable == from_db_t_variable
 
-    from_db_t_variable_dump = from_db_t_variable.model_dump()
+    from_db_t_variable_dump = from_db_t_variable.model_dump(exclude={"id", "problem_id"})
     t_variable_validated = TensorVariable.model_validate(from_db_t_variable_dump)
 
     assert t_variable_validated == t_variable
@@ -267,7 +267,7 @@ def test_objective(session_and_user: dict[str, Session | list[User]]):
 
     assert db_objective == from_db_objective
 
-    from_db_objective_dump = from_db_objective.model_dump()
+    from_db_objective_dump = from_db_objective.model_dump(exclude={"id", "problem_id"})
     objective_validated = Objective.model_validate(from_db_objective_dump)
 
     assert objective_validated == objective
@@ -303,7 +303,7 @@ def test_constraint(session_and_user: dict[str, Session | list[User]]):
 
     assert db_constraint == from_db_constraint
 
-    from_db_constraint_dump = from_db_constraint.model_dump()
+    from_db_constraint_dump = from_db_constraint.model_dump(exclude={"id", "problem_id"})
     constraint_validated = Constraint.model_validate(from_db_constraint_dump)
 
     assert constraint_validated == constraint
@@ -336,7 +336,7 @@ def test_scalarization_function(session_and_user: dict[str, Session | list[User]
 
     assert db_scalarization == from_db_scalarization
 
-    from_db_scalarization_dump = from_db_scalarization.model_dump()
+    from_db_scalarization_dump = from_db_scalarization.model_dump(exclude={"id", "problem_id"})
     scalarization_validated = ScalarizationFunction.model_validate(from_db_scalarization_dump)
 
     assert scalarization_validated == scalarization
@@ -369,7 +369,7 @@ def test_extra_function(session_and_user: dict[str, Session | list[User]]):
 
     assert db_extra == from_db_extra
 
-    from_db_extra_dump = from_db_extra.model_dump()
+    from_db_extra_dump = from_db_extra.model_dump(exclude={"id", "problem_id"})
     extra_validated = ExtraFunction.model_validate(from_db_extra_dump)
 
     assert extra_validated == extra
@@ -398,7 +398,7 @@ def test_discrete_representation(session_and_user: dict[str, Session | list[User
 
     assert db_discrete == from_db_discrete
 
-    from_db_discrete_dump = from_db_discrete.model_dump()
+    from_db_discrete_dump = from_db_discrete.model_dump(exclude={"id", "problem_id"})
     discrete_validated = DiscreteRepresentation.model_validate(from_db_discrete_dump)
 
     assert discrete_validated == discrete
@@ -428,7 +428,7 @@ def test_simulator(session_and_user: dict[str, Session | list[User]]):
 
     assert db_simulator == from_db_simulator
 
-    from_db_simulator_dump = from_db_simulator.model_dump()
+    from_db_simulator_dump = from_db_simulator.model_dump(exclude={"id", "problem_id"})
     simulator_validated = Simulator.model_validate(from_db_simulator_dump)
 
     assert simulator_validated == simulator

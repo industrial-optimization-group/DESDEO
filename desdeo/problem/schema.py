@@ -1017,7 +1017,6 @@ class Problem(BaseModel):
             is_convex=db_instance.is_convex,
             is_linear=db_instance.is_linear,
             is_twice_differentiable=db_instance.is_twice_differentiable,
-            variable_domain=db_instance.variable_domain,
             scenario_keys=db_instance.scenario_keys,
             constants=constants if constants != [] else None,
             variables=[Variable.model_validate(var) for var in db_instance.variables]
