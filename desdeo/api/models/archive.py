@@ -4,14 +4,15 @@ from typing import TYPE_CHECKING
 
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
-from .preference import PreferenceDB
+from desdeo.tools.generics import SolverResults
 
 if TYPE_CHECKING:
     from .problem import ProblemDB
+    from .state import StateDB
     from .user import User
 
 
-class ArchiveEntryBase(SQLModel):
+class UserSavedSolutionBase(SQLModel):
     """The base model of an archive entry."""
 
     variable_values: dict[str, float | list] = Field(sa_column=Column(JSON, nullable=False))
@@ -19,16 +20,33 @@ class ArchiveEntryBase(SQLModel):
     constraint_values: dict[str, float] | None = Field(sa_column=Column(JSON), default=None)
     extra_func_values: dict[str, float] | None = Field(sa_column=Column(JSON), default=None)
 
-
-class ArchiveEntryDB(ArchiveEntryBase, table=True):
+class UserSavedSolutionDB(UserSavedSolutionBase, table=True):
     """Database model of an archive entry."""
 
     id: int | None = Field(primary_key=True, default=None)
+    name: str | None = Field(default=None, nullable=True)  # Optional name for the solution
     user_id: int | None = Field(foreign_key="user.id", default=None)
     problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
-    preference_id: int | None = Field(foreign_key="preferencedb.id", default=None)
-
+    state_id: int | None = Field(foreign_key="statedb.id", default=None)
     # Back populates
     user: "User" = Relationship(back_populates="archive")
-    preference: "PreferenceDB" = Relationship(back_populates="solutions")
     problem: "ProblemDB" = Relationship(back_populates="solutions")
+    state: "StateDB" = Relationship(back_populates="saved_solutions")
+
+class UserSavedSolverResults(SolverResults):
+    """Defines a schema for storing archived solutions."""
+    name: str | None = Field(
+        description="An optional name for the solution, useful for archiving purposes.", default=None
+    )
+
+    def to_solver_results(self) -> SolverResults:
+        """Convert to SolverResults without the name field."""
+        return SolverResults(
+            optimal_variables=self.optimal_variables,
+            optimal_objectives=self.optimal_objectives,
+            constraint_values=self.constraint_values,
+            extra_func_values=self.extra_func_values,
+            scalarization_values=self.scalarization_values,
+            success=self.success,
+            message=self.message,
+        )
