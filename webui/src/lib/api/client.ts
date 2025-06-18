@@ -1,50 +1,51 @@
-import { PUBLIC_API_URL } from "$env/static/public";
 import createClient from 'openapi-fetch';
 import type { paths } from './client-types';
 import { auth } from '../../stores/auth';
 import { get } from 'svelte/store';
 
-const BASE_URL = PUBLIC_API_URL
+const BASE_URL = import.meta.env.VITE_API_URL;
 
 export const api = createClient<paths>({baseUrl: BASE_URL});
 
 api.use({
-  async onRequest({ request }) {
-    const token = get(auth).accessToken
+	async onRequest({ request }) {
+        // appends the access token to requests
+		const token = get(auth).accessToken;
+		if (token) {
+			request.headers.set('Authorization', `Bearer ${token}`);
+		}
 
-    if (token) request.headers.set('Authorization', `Bearer ${token}`)
+        // even if no token, just send the request and handle the response
+		return request;
+	},
 
-    return request
-  },
+	async onResponse({ request, response }) {
+		if (response.status === 401) {
+            // if unauthorized, try to get a new access token
+			const refreshRes = await fetch(`${BASE_URL}/refresh`, {
+				method: 'POST',
+				credentials: 'include'
+			});
 
-  async onResponse({ response }) {
-    if (response.status === 401) {
-      const refreshRes = await fetch(`${BASE_URL}/refresh`, {
-        method: 'POST',
-        credentials: 'include'
-      })
+			if (refreshRes.ok) {
+				const { access_token } = await refreshRes.json();
+				auth.setAuth(access_token, get(auth).user);
 
-      if (refreshRes.ok) {
-        const { access_token } = await refreshRes.json()
-        auth.setAuth(access_token, get(auth).user)
+				// Clone original request with new token
+				const retryReq = new Request(request.url, {
+					method: request.method,
+					headers: new Headers(request.headers),
+					body: request.method !== 'GET' && request.method !== 'HEAD' ? await request.clone().text() : undefined
+				});
+				retryReq.headers.set('Authorization', `Bearer ${access_token}`);
 
-        // Retry original request with new token
-        const retryReq = new Request(response.url, {
-          method: response.url.method,
-          headers: {
-            ...Object.fromEntries(response.request.headers),
-            Authorization: `Bearer ${access_token}`
-          },
-          body: await response.clone().text()
-        })
+				return fetch(retryReq);
+			} else {
+				auth.clearAuth();
+			}
+		}
 
-        return fetch(retryReq)
-
-      } else {
-        auth.clearAuth()
-      }
-    }
-
-    return response
-  }
-})
+        // otherwise just return the response
+		return response;
+	}
+});

@@ -9,6 +9,14 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import * as Sheet from '$lib/components/ui/sheet/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
+	import { goto } from '$app/navigation';
+	import { auth } from '../../../../stores/auth';
+
+	function logout() {
+		auth.clearAuth();
+		localStorage.removeItem('authState');
+		goto('/home');
+	}
 </script>
 
 <header class="bg-primary sticky top-0 flex h-14 items-center gap-4 border-b px-4 md:px-6">
@@ -68,7 +76,7 @@
 				<DropdownMenu.Item>Settings</DropdownMenu.Item>
 				<DropdownMenu.Item>Support</DropdownMenu.Item>
 				<DropdownMenu.Separator />
-				<DropdownMenu.Item>Logout</DropdownMenu.Item>
+				<DropdownMenu.Item onSelect={logout}>Logout</DropdownMenu.Item>
 			</DropdownMenu.Content>
 		</DropdownMenu.Root>
 	</nav>

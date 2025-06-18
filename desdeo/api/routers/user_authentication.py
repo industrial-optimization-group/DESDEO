@@ -378,6 +378,7 @@ def login(
         secure=False,  # allow http
         samesite="lax",  # cross-origin requests
         max_age=cookie_max_age * 60,  # convert to minutes
+        path="/",
     )
 
     return response

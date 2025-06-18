@@ -31,7 +31,7 @@ cleanup() {
 trap cleanup SIGINT
 
 # Run Uvicorn from the ./desdeo/api directory and prepend colored (Backend) to its output
-(cd ./desdeo/api && uvicorn app:app --reload --log-level warning) | prepend_backend &
+(cd ./desdeo/api && uvicorn app:app --reload --log-level warning --host 127.0.0.1 --port 8000) | prepend_backend &
 backend_pid=$!
 
 # Run npm command from the ./webgui directory and prepend colored (Frontend) to its output
