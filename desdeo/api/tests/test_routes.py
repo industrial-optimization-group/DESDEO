@@ -374,3 +374,31 @@ def test_add_new_analyst(client: TestClient):
     # Trying to create an analyst with username that is already in use should return 409
     assert bad_response.status_code == status.HTTP_409_CONFLICT
 
+
+def test_login_logout(client: TestClient):
+    """Test that logging out works."""
+    
+    # Login (sets refresh token cookie)
+    login(client=client, username="analyst", password="analyst")
+
+    # Refresh access token
+    response = client.post(
+        "/refresh"
+    )
+    # Access token refreshed
+    assert response.status_code == status.HTTP_200_OK
+
+    # Logout (remove the refresh token cookie)
+    response = client.post(
+        "/logout",
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    # Refresh access token
+    response = client.post(
+        "/refresh",
+        headers={"content-type": "application/x-www-form-urlencoded"},
+    )
+    # Access token NOT refreshed
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    
