@@ -386,7 +386,7 @@ def login(
 
 @router.post("/logout")
 def logout() -> JSONResponse:
-    """Log the current user out. Deletes the refresh token that was set by logging in
+    """Log the current user out. Deletes the refresh token that was set by logging in.
 
     Args:
         None
@@ -395,11 +395,7 @@ def logout() -> JSONResponse:
         JSONResponse: A response in which the cookies are deleted
 
     """
-
-    response = JSONResponse(
-        content={"message": "logged out"},
-        status_code=status.HTTP_200_OK
-    )
+    response = JSONResponse(content={"message": "logged out"}, status_code=status.HTTP_200_OK)
     response.delete_cookie("refresh_token")
     return response
 

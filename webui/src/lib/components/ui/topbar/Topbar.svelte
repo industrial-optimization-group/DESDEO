@@ -12,7 +12,16 @@
 	import { goto } from '$app/navigation';
 	import { auth } from '../../../../stores/auth';
 
-	function logout() {
+	async function logout() {
+		try {
+			await fetch(`${import.meta.env.VITE_API_URL}/logout`, {
+				method: 'POST',
+				credentials: 'include' // ensure cookies are sent
+			});
+		} catch (error) {
+			console.warn('Logout request failed', error);
+		}
+
 		auth.clearAuth();
 		localStorage.removeItem('authState');
 		goto('/home');
