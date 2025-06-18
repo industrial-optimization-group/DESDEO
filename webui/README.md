@@ -50,6 +50,15 @@ npm run dev
 npm run dev -- --open
 ```
 
+### Generating OpenAPI clients
+
+When the web-API is updated, it is important to update the OpenAPI clients, which automatically use the schemas defined in the web-API
+on the GUI side. To generate them, make sure the web-API is running, and issue the command:
+
+```bash
+npm run generate:client
+```
+
 ## Building
 
 To create a production version of your app:

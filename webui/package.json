@@ -16,7 +16,8 @@
 		"test": "npm run test:unit -- --run && npm run test:e2e",
 		"test:e2e": "playwright test",
 		"storybook": "storybook dev -p 6006",
-		"build-storybook": "storybook build"
+		"build-storybook": "storybook build",
+		"generate:client": "openapi-typescript http://localhost:8000/openapi.json -o src/lib/api/client-types.ts"
 	},
 	"devDependencies": {
 		"@chromatic-com/storybook": "^3",
@@ -56,6 +57,7 @@
 		"layerchart": "^2.0.0-next.10",
 		"mdsvex": "^0.12.3",
 		"mode-watcher": "^1.0.7",
+		"openapi-typescript": "^7.8.0",
 		"paneforge": "^1.0.0-next.5",
 		"playwright": "^1.52.0",
 		"prettier": "^3.4.2",
@@ -75,5 +77,8 @@
 		"vaul-svelte": "^1.0.0-next.7",
 		"vite": "^6.2.6",
 		"vitest": "^3.0.0"
+	},
+	"dependencies": {
+		"openapi-fetch": "^0.14.0"
 	}
 }

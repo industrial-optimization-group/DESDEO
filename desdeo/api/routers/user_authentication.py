@@ -280,12 +280,13 @@ def validate_refresh_token(
 
     return user
 
+
 def add_user_to_database(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     role: UserRole,
     session: Annotated[Session, Depends(get_session)],
 ) -> None:
-    """ Add a user to database.
+    """Add a user to database.
 
     Args:
         form_data Annotated[OAuth2PasswordRequestForm, Depends()]: form with username and password to be added to database
@@ -308,7 +309,7 @@ def add_user_to_database(
             status_code=status.HTTP_409_CONFLICT,
             detail="Username already taken.",
         )
-    
+
     # Create the user model and put it into database
     new_user = User(
         username=username,
@@ -327,7 +328,7 @@ def add_user_to_database(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to add user into database.",
         )
-    
+
 
 @router.get("/user_info")
 def get_current_user_info(user: Annotated[User, Depends(get_current_user)]) -> UserPublic:
@@ -342,7 +343,7 @@ def get_current_user_info(user: Annotated[User, Depends(get_current_user)]) -> U
     return user
 
 
-@router.post("/login")
+@router.post("/login", response_model=Tokens)
 def login(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     session: Annotated[Session, Depends(get_session)],
@@ -439,7 +440,7 @@ def add_new_dm(
     )
 
     return JSONResponse(
-        content={"message": "User with role \"decision maker\" created."},
+        content={"message": 'User with role "decision maker" created.'},
         status_code=status.HTTP_201_CREATED,
     )
 
@@ -450,7 +451,7 @@ def add_new_analyst(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     session: Annotated[Session, Depends(get_session)],
 ) -> JSONResponse:
-    """ Add a new user of the role Analyst to the database. Requires a logged in analyst or an admin
+    """Add a new user of the role Analyst to the database. Requires a logged in analyst or an admin
 
     Args:
         user Annotated[User, Depends(get_current_user)]: Logged in user with the role "analyst" or "admin".
@@ -475,11 +476,11 @@ def add_new_analyst(
 
     add_user_to_database(
         form_data=form_data,
-        role = UserRole.analyst,
+        role=UserRole.analyst,
         session=session,
     )
 
     return JSONResponse(
-        content={"message": "User with role \"analyst\" created."},
+        content={"message": 'User with role "analyst" created.'},
         status_code=status.HTTP_201_CREATED,
     )
