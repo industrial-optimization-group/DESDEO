@@ -62,13 +62,21 @@
 				</DropdownMenu.Item>
 			</DropdownMenu.Content>
 		</DropdownMenu.Root>
-		<a
-			href="##"
-			class="text-primary-foreground hover:text-secondary flex items-center gap-1 transition-colors"
-		>
-			<Method class="h-4 w-4" />
-			Methods
-		</a>
+
+		<DropdownMenu.Root>
+			<DropdownMenu.Trigger>
+				<Button variant="ghost" class="text-primary-foreground flex items-center gap-1 px-0">
+					<Problem class="h-4 w-4" />
+					Methods
+				</Button>
+			</DropdownMenu.Trigger>
+			<DropdownMenu.Content align="start">
+				<DropdownMenu.Item onSelect={() => goto('/methods/initialize')}
+					>Initialize a new method</DropdownMenu.Item
+				>
+				<DropdownMenu.Item onSelect={() => goto('/methods/sessions')}>Sessions</DropdownMenu.Item>
+			</DropdownMenu.Content>
+		</DropdownMenu.Root>
 		<a
 			href="##"
 			class="text-primary-foreground hover:text-secondary flex items-center gap-1 transition-colors"
