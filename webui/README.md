@@ -4,7 +4,27 @@
 For the frontend to work correctly, there are some environmental variables
 that should be set in an`.env` file at the root level. These variables are:
 
-- `PUBLIC_API_URL`: the url that points to DESDEO's web-API.
+- `VITE_API_URL` which should be defined to be '/api' for the proxy to work correctly. I.e.:
+
+```bash
+VITE_API_URL="/api"
+```
+
+Check also the file `vite.config.ts`, where in the server setting
+
+```toml
+	server: {
+		proxy: {
+			'/api': {
+				target: 'http://127.0.0.1:8000',
+				changeOrigin: true,
+				secure: false,
+				rewrite: (path) => path.replace(/^\/api/, '')
+			}
+		}
+	}
+```
+the `target` should point to the local URL that can be used to access the DESDEO web-API.
 
 ## Installing
 
