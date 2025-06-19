@@ -11,6 +11,7 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { goto } from '$app/navigation';
 	import { auth } from '../../../../stores/auth';
+	import { derived } from 'svelte/store';
 
 	async function logout() {
 		try {
@@ -26,6 +27,13 @@
 		localStorage.removeItem('authState');
 		goto('/home');
 	}
+
+	const userDisplay = derived(auth, ($auth) => {
+		if ($auth.user) {
+			return `${$auth.user.username} (${$auth.user.role})`;
+		}
+		return '';
+	});
 </script>
 
 <header class="bg-primary sticky top-0 flex h-14 items-center gap-4 border-b px-4 md:px-6">
@@ -76,7 +84,7 @@
 					class="text-primary-foreground hover:text-secondary flex items-center gap-1 transition-colors"
 				>
 					<CircleUser class="h-4 w-4" />
-					User
+					{$userDisplay}
 				</span>
 			</DropdownMenu.Trigger>
 			<DropdownMenu.Content align="end">
