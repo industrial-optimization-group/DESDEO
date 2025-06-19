@@ -2,7 +2,6 @@
 	import Topbar from '$lib/components/ui/topbar/Topbar.svelte';
 	import CircleUser from '@lucide/svelte/icons/user-circle';
 	import Method from '@lucide/svelte/icons/brain-circuit';
-	import Logo from '@lucide/svelte/icons/orbit';
 	import Problem from '@lucide/svelte/icons/puzzle';
 	import Archive from '@lucide/svelte/icons/archive';
 	import HelpCircle from '@lucide/svelte/icons/circle-help';

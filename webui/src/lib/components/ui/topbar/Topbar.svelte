@@ -1,17 +1,15 @@
 <script lang="ts">
 	import CircleUser from '@lucide/svelte/icons/user-circle';
 	import Method from '@lucide/svelte/icons/brain-circuit';
-	import Logo from '@lucide/svelte/icons/orbit';
 	import Problem from '@lucide/svelte/icons/puzzle';
 	import Archive from '@lucide/svelte/icons/archive';
 	import HelpCircle from '@lucide/svelte/icons/circle-help';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
-	import * as Sheet from '$lib/components/ui/sheet/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
 	import { goto } from '$app/navigation';
 	import { auth } from '../../../../stores/auth';
 	import { derived } from 'svelte/store';
+	import desdeo_logo from '$lib/assets/desdeo_logo.svg';
 
 	async function logout() {
 		try {
@@ -39,10 +37,10 @@
 <header class="bg-primary sticky top-0 flex h-14 items-center gap-4 border-b px-4 md:px-6">
 	<!-- Left: DESDEO logo and name -->
 	<a
-		href="/"
+		href="/dashboard"
 		class="text-primary-foreground flex items-center gap-2 text-lg font-semibold md:text-base"
 	>
-		<Logo class="h-6 w-6" />
+		<img src={desdeo_logo} alt="DESDEO Logo" class="h-6 w-6" />
 		<span>DESDEO</span>
 	</a>
 
@@ -50,13 +48,20 @@
 	<nav
 		class="flex flex-1 flex-col justify-end gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6"
 	>
-		<a
-			href="/problem"
-			class="text-primary-foreground hover:text-secondary flex items-center gap-1 transition-colors"
-		>
-			<Problem class="h-4 w-4" />
-			Problems
-		</a>
+		<DropdownMenu.Root>
+			<DropdownMenu.Trigger>
+				<Button variant="ghost" class="text-primary-foreground flex items-center gap-1 px-0">
+					<Problem class="h-4 w-4" />
+					Problems
+				</Button>
+			</DropdownMenu.Trigger>
+			<DropdownMenu.Content align="start">
+				<DropdownMenu.Item onSelect={() => goto('/problems')}>Explore problems</DropdownMenu.Item>
+				<DropdownMenu.Item onSelect={() => goto('/problems/define')}>
+					Define problem
+				</DropdownMenu.Item>
+			</DropdownMenu.Content>
+		</DropdownMenu.Root>
 		<a
 			href="##"
 			class="text-primary-foreground hover:text-secondary flex items-center gap-1 transition-colors"

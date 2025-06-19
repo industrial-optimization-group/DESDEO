@@ -9,7 +9,9 @@ from desdeo.api.config import ServerDebugConfig, SettingsConfig
 from desdeo.api.db import engine
 from desdeo.api.models import ProblemDB, User, UserRole
 from desdeo.api.routers.user_authentication import get_password_hash
-from desdeo.problem.testproblems import river_pollution_problem
+from desdeo.problem.testproblems import dtlz2, river_pollution_problem, simple_knapsack
+
+problems = [dtlz2(10, 3), simple_knapsack(), river_pollution_problem()]
 
 if __name__ == "__main__":
     if SettingsConfig.debug:
@@ -36,9 +38,11 @@ if __name__ == "__main__":
             session.commit()
             session.refresh(user_analyst)
 
-            problem_db = ProblemDB.from_problem(river_pollution_problem(), user_analyst)
+            for problem in problems:
+                problem_db = ProblemDB.from_problem(problem, user_analyst)
 
-            session.add(problem_db)
+                session.add(problem_db)
+
             session.commit()
             session.refresh(problem_db)
 
