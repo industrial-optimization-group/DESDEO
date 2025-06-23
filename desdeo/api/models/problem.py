@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 from types import UnionType
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Literal
 
 from pydantic import BaseModel, ConfigDict, create_model
 from sqlalchemy.types import String, TypeDecorator
@@ -27,7 +27,7 @@ from desdeo.problem.schema import (
 )
 
 if TYPE_CHECKING:
-    from .archive import ArchiveEntryDB
+    from .archive import UserSavedSolutionDB
     from .preference import PreferenceDB
     from .user import User
 
@@ -114,7 +114,7 @@ class ProblemDB(ProblemBase, table=True):
 
     # Back populates
     user: "User" = Relationship(back_populates="problems")
-    solutions: list["ArchiveEntryDB"] = Relationship(back_populates="problem")
+    solutions: list["UserSavedSolutionDB"] = Relationship(back_populates="problem")
     preferences: list["PreferenceDB"] = Relationship(back_populates="problem")
 
     # Populated by other models
@@ -128,6 +128,7 @@ class ProblemDB(ProblemBase, table=True):
     extra_funcs: list["ExtraFunctionDB"] = Relationship(back_populates="problem")
     discrete_representation: "DiscreteRepresentationDB" = Relationship(back_populates="problem")
     simulators: list["SimulatorDB"] = Relationship(back_populates="problem")
+    problem_metadata: "ProblemMetaDataDB" = Relationship(back_populates="problem")
 
     @classmethod
     def from_problem(cls, problem_instance: Problem, user: "User") -> "ProblemDB":
@@ -186,6 +187,67 @@ class ProblemDB(ProblemBase, table=True):
             else [],
         )
 
+### PROBLEM METADATA ###
+
+class ProblemMetaDataListType(TypeDecorator):
+    """SQLAlchemy custom type to convert list of problem metadata to JSON and back."""
+
+    impl = JSON
+
+    def process_bind_param(self, value, dialect):
+        """list of problem metadata to JSON."""
+        if isinstance(value, list):
+            items = []
+            for item in value:
+                if (isinstance(item, BaseProblemMetaData)):
+                    items.append(item.model_dump_json())
+            return json.dumps(items)
+
+    def process_result_value(self, value, dialect):
+        """JSON to list of problem metadata"""
+        if value is not None:
+            metadata_list = json.loads(value)
+            metadata_objects: list[BaseProblemMetaData] = []
+            for item in metadata_list:
+                item_dict = json.loads(item)
+                match item_dict["metadata_type"]:
+                    # Add derived classes here so they can be deserialized
+                    case "forest_problem_metadata":
+                        metadata_objects.append(ForestProblemMetaData.model_validate(item_dict))
+                    case _:
+                        print(f"Cannot convert {item_dict["metadata_type"]} into metadata!")
+            return metadata_objects
+
+
+class BaseProblemMetaData(SQLModel):
+    """Derive other problem metadata classes from this one."""
+
+    metadata_type: Literal["unset"] = "unset"
+
+
+class ForestProblemMetaData(BaseProblemMetaData):
+    """A problem metadata class to hold UTOPIA forest problem specific information"""
+
+    metadata_type: Literal["forest_problem_metadata"] = "forest_problem_metadata"
+
+    map_json: str = Field()
+    schedule_dict: dict = Field(sa_column=Column(JSON))
+    years: list[str] = Field()
+    stand_id_field: str = Field()
+    stand_descriptor: dict | None = Field(sa_column=Column(JSON), default = None)
+    compensation: float | None = Field(default = None)
+
+
+class ProblemMetaDataDB(SQLModel, table=True):
+    """Store Problem MetaData to DB with this class"""
+    id: int | None = Field(primary_key=True, default=None)
+    problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
+    data: list[BaseProblemMetaData] | None = Field(sa_column=Column(ProblemMetaDataListType), default=None)
+
+    problem: ProblemDB | None = Relationship(back_populates="problem_metadata")
+
+
+### PATH TYPES ###
 
 class PathType(TypeDecorator):
     """SQLAlchemy custom type to convert Path to string (credit to @strfx on GitHUb!)."""

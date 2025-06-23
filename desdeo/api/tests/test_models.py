@@ -1,16 +1,16 @@
 """Tests related to the SQLModels."""
 
+
 from sqlmodel import Session, select
 
 from desdeo.api.models import (
-    ArchiveEntryBase,
-    ArchiveEntryDB,
     Bounds,
     ConstantDB,
     ConstraintDB,
     DiscreteRepresentationDB,
     ExtraFunctionDB,
     InteractiveSessionDB,
+    NIMBUSSaveState,
     ObjectiveDB,
     PreferenceDB,
     ProblemDB,
@@ -22,8 +22,14 @@ from desdeo.api.models import (
     TensorConstantDB,
     TensorVariableDB,
     User,
+    UserSavedSolutionBase,
+    UserSavedSolutionDB,
     VariableDB,
+    ProblemMetaDataDB,
+    ForestProblemMetaData
 )
+from desdeo.api.models.archive import UserSavedSolverResults
+from desdeo.api.routers.nimbus import user_save_solutions
 from desdeo.mcdm import rpm_solve_solutions
 from desdeo.problem.schema import (
     Constant,
@@ -505,16 +511,18 @@ def test_archive_entry(session_and_user: dict[str, Session | list[User]]):
     session.commit()
     session.refresh(problem_db)
 
+    name = "Test Archive Entry"
     variable_values = {"x_1": 0.3, "x_2": 0.8, "x_3": 0.1, "x_4": 0.6, "x_5": 0.9}
     objective_values = {"f_1": 1.2, "f_2": 0.9, "f_3": 1.5}
     constraint_values = {"g_1": 0.1}
     extra_func_values = {"extra_1": 5000, "extra_2": 600000}
 
-    archive_entry = ArchiveEntryBase(variable_values=variable_values, objective_values=objective_values)
+    archive_entry = UserSavedSolutionBase(variable_values=variable_values, objective_values=objective_values)
 
-    archive_entry_db = ArchiveEntryDB.model_validate(
+    archive_entry_db = UserSavedSolutionDB.model_validate(
         archive_entry,
         update={
+            "name": name,
             "user_id": user.id,
             "problem_id": problem_db.id,
             "constraint_values": constraint_values,
@@ -526,8 +534,9 @@ def test_archive_entry(session_and_user: dict[str, Session | list[User]]):
     session.commit()
     session.refresh(archive_entry_db)
 
-    from_db = session.get(ArchiveEntryDB, archive_entry_db.id)
+    from_db = session.get(UserSavedSolutionDB, archive_entry_db.id)
 
+    assert from_db.name == name
     assert from_db.user_id == user.id
     assert from_db.problem_id == problem_db.id
     assert from_db == user.archive[0]
@@ -537,6 +546,75 @@ def test_archive_entry(session_and_user: dict[str, Session | list[User]]):
     assert from_db.constraint_values == constraint_values
     assert from_db.extra_func_values == extra_func_values
 
+def test_user_save_solutions(session_and_user: dict[str, Session | list[User]]):
+    """Test that user_save_solutions correctly saves solutions to the usersavedsolutiondb in the database."""
+    session = session_and_user["session"]
+    user = session_and_user["user"]
+
+    # Create test solutions with proper dictionary values
+    variable_values = {"x_1": 0.3, "x_2": 0.8}
+    objective_values = {"f_1": 1.2, "f_2": 0.9}
+    constraint_values = {"g_1": 0.1}
+    extra_func_values = {"extra_1": 5000}
+
+    test_solutions = [
+        UserSavedSolverResults(
+            name="Solution 1",
+            optimal_variables=variable_values,
+            optimal_objectives=objective_values,
+            constraint_values=constraint_values,
+            extra_func_values=extra_func_values,
+            success=True,
+            message="This is a test solution saved from the NIMBUS method."
+        ),
+        UserSavedSolverResults(
+            name="Solution 2",
+            optimal_variables=variable_values,
+            optimal_objectives=objective_values,
+            constraint_values=constraint_values,
+            extra_func_values=extra_func_values,
+            success=True,
+            message="This is a test solution saved from the NIMBUS method."
+        )
+    ]
+    num_test_solutions = len(test_solutions)
+    problem_id = 1
+    # Create NIMBUSSaveState
+    save_state = NIMBUSSaveState(
+        solver_results=[solution.to_solver_results() for solution in test_solutions]
+    )
+
+    # Create StateDB
+    state = StateDB(
+        problem_id=problem_id,
+        state=save_state
+    )
+
+    # Call the function
+    user_save_solutions(state, test_solutions, user.id, session)
+    # Verify the solutions were saved
+    saved_solutions = session.exec(select(UserSavedSolutionDB)).all()
+    if len(saved_solutions) != num_test_solutions:
+        raise ValueError(f"Expected {num_test_solutions} saved solutions, but found {len(saved_solutions)}")
+
+    # Verify the content of the first solution
+    first_solution = saved_solutions[0]
+    assert first_solution.name == "Solution 1"
+    assert first_solution.variable_values == variable_values
+    assert first_solution.objective_values == objective_values
+    assert first_solution.constraint_values == constraint_values
+    assert first_solution.extra_func_values == extra_func_values
+    assert first_solution.user_id == user.id
+    assert first_solution.problem_id == problem_id
+    assert first_solution.state_id == state.id
+
+
+    # Verify state relationship
+    saved_state = session.exec(
+        select(StateDB).where(StateDB.id == state.id)
+    ).first()
+    assert isinstance(saved_state.state, NIMBUSSaveState)
+    assert len(saved_state.state.solver_results) == num_test_solutions
 
 def test_preference_models(session_and_user: dict[str, Session | list[User]]):
     """Test that the archive works as intended."""
@@ -578,9 +656,6 @@ def test_preference_models(session_and_user: dict[str, Session | list[User]]):
 
     assert from_db_bounds.user == user
     assert from_db_ref_point.user == user
-
-    assert from_db_bounds.solutions == []
-    assert from_db_ref_point.solutions == []
 
 
 def test_rpm_state(session_and_user: dict[str, Session | list[User]]):
@@ -699,3 +774,49 @@ def test_rpm_state(session_and_user: dict[str, Session | list[User]]):
     assert state_2.children == []
     assert state_2.parent.problem == problem_db
     assert state_2.parent.session.user == user
+
+
+def test_problem_metadata(session_and_user: dict[str, Session | list[User]]):
+    """Test that the problem metadata can be put into database and brought back."""
+
+    session = session_and_user["session"]
+    user = session_and_user["user"]
+
+    # Just some test problem to attach the metadata to
+    problem = ProblemDB.from_problem(dtlz2(5, 3), user=user)
+
+    session.add(problem)
+    session.commit()
+    session.refresh(problem)
+
+    metadata = ProblemMetaDataDB(
+        problem_id=problem.id,
+        data = [
+            ForestProblemMetaData(
+                map_json = "type: string",
+                schedule_dict = {"type": "dict"},
+                years = ["type:", "list", "of", "strings"],
+                stand_id_field = "type: string",
+            ),
+        ],
+    )
+
+    session.add(metadata)
+    session.commit()
+    session.refresh(metadata)
+
+    statement = select(ProblemMetaDataDB).where(ProblemMetaDataDB.problem_id == problem.id)
+    from_db_metadata = session.exec(statement).first()
+
+    assert from_db_metadata.id != None
+    assert from_db_metadata.problem_id == problem.id
+
+    metadata_0 = from_db_metadata.data[0]
+
+    assert metadata_0.metadata_type == "forest_problem_metadata"
+    assert metadata_0.map_json == "type: string"
+    assert metadata_0.schedule_dict == {"type": "dict"}
+    assert metadata_0.years == ["type:", "list", "of", "strings"]
+    assert metadata_0.stand_id_field == "type: string"
+
+    assert problem.problem_metadata == from_db_metadata

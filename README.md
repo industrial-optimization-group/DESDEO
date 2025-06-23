@@ -85,20 +85,20 @@ pip install desdeo
 ```
 
 However, some of DESDEO's features rely on 3rd party optimizers, which should be available on your system.
-To read more on these, and on instructions on how to install the latest version of DESDEO directly form GitHub,
+To read more on these, and on instructions on how to install the latest version of DESDEO directly from Github,
 [check out the documentation](https://desdeo.readthedocs.io/en/latest/howtoguides/installing/).
 
 ## Documentation
 
 Care has been taken to make sure DESDEO is well documented, making it accessible
 to both newcomers and seasoned users alike.  [The documentation of DESDEO is
-available online.](https://desdeo.readthedocs.io/en/desdeo2/)
+available online.](https://desdeo.readthedocs.io/en/latest/)
 
 ## Contributing
 
 As DESDEO is an open source-project, anybody is welcome to contribute.
 An extensive tutorial to get started contributing to DESDEO
-[is available in the documentation](https://desdeo.readthedocs.io/en/desdeo2/tutorials/contributing/).
+[is available in the documentation](https://desdeo.readthedocs.io/en/latest/tutorials/contributing/).
 Be sure to check it out!
 
 For additional support for contributing to DESDEO,

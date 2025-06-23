@@ -25,7 +25,7 @@ class SolverResults(BaseModel):
     optimal_objectives: dict[str, float | list[float]] = Field(
         description="The objective function values corresponding to the optimal decision variables found."
     )
-    constraint_values: dict[str, float | list[float]] | None = Field(
+    constraint_values: dict[str, float | int | list[float] | list] | None | Any = Field(
         description=(
             "The constraint values of the problem. A negative value means the constraint is respected, "
             "a positive one means it has been breached."
@@ -40,7 +40,6 @@ class SolverResults(BaseModel):
     )
     success: bool = Field(description="A boolean flag indicating whether the optimization was successful or not.")
     message: str = Field(description="Description of the cause of termination.")
-
 
 class BaseSolver(ABC):
     """Defines a schema for a solver base class."""

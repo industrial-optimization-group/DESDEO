@@ -1,8 +1,8 @@
 """Model exports."""
 
 __all__ = [
-    "ArchiveEntryBase",
-    "ArchiveEntryDB",
+    "UserSavedSolutionBase",
+    "UserSavedSolutionDB",
     "Bounds",
     "ConstantDB",
     "ConstraintDB",
@@ -10,36 +10,44 @@ __all__ = [
     "DiscreteRepresentationDB",
     "ExtraFunctionDB",
     "GetSessionRequest",
-    "User",
-    "UserBase",
-    "UserPublic",
-    "UserRole",
+    "InteractiveSessionBase",
+    "InteractiveSessionDB",
+    "InteractiveSessionInfo",
+    "IntermediateSolutionRequest",
+    "IntermediateSolutionState",
+    "NIMBUSBaseState",
+    "NIMBUSClassificationRequest",
+    "NIMBUSClassificationState",
+    "NIMBUSSaveRequest",
+    "NIMBUSSaveState",
     "ObjectiveDB",
-    "ScalarizationFunctionDB",
-    "TensorConstantDB",
-    "SimulatorDB",
-    "TensorVariableDB",
     "PreferenceBase",
     "PreferenceDB",
-    "ProblemGetRequest",
     "ProblemDB",
+    "ProblemGetRequest",
     "ProblemInfo",
     "ProblemInfoSmall",
     "ReferencePoint",
     "RPMSolveRequest",
-    "NIMBUSClassificationRequest",
-    "VariableDB",
-    "InteractiveSessionBase",
-    "InteractiveSessionDB",
-    "InteractiveSessionInfo",
     "RPMBaseState",
     "RPMState",
-    "NIMBUSBaseState",
-    "NIMBUSClassificationState",
+    "ScalarizationFunctionDB",
+    "SimulatorDB",
     "StateDB",
+    "TensorConstantDB",
+    "TensorVariableDB",
+    "User",
+    "UserBase",
+    "UserPublic",
+    "UserRole",
+    "VariableDB",
+    "ProblemMetaDataDB",
+    "ForestProblemMetaData",
 ]
 
-from .archive import ArchiveEntryBase, ArchiveEntryDB
+from .archive import UserSavedSolutionBase, UserSavedSolutionDB
+from .generic import IntermediateSolutionRequest
+from .nimbus import NIMBUSClassificationRequest, NIMBUSSaveRequest
 from .preference import Bounds, PreferenceBase, PreferenceDB, ReferencePoint
 from .problem import (
     ConstantDB,
@@ -56,10 +64,10 @@ from .problem import (
     TensorConstantDB,
     TensorVariableDB,
     VariableDB,
+    ProblemMetaDataDB,
+    ForestProblemMetaData,
 )
 from .reference_point_method import RPMSolveRequest
-from .nimbus import NIMBUSClassificationRequest
-
 from .session import (
     CreateSessionRequest,
     GetSessionRequest,
@@ -67,5 +75,13 @@ from .session import (
     InteractiveSessionDB,
     InteractiveSessionInfo,
 )
-from .state import RPMBaseState, RPMState, StateDB, NIMBUSBaseState, NIMBUSClassificationState
+from .state import (
+    IntermediateSolutionState,
+    NIMBUSBaseState,
+    NIMBUSClassificationState,
+    NIMBUSSaveState,
+    RPMBaseState,
+    RPMState,
+    StateDB,
+)
 from .user import User, UserBase, UserPublic, UserRole

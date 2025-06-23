@@ -43,7 +43,7 @@ __all__ = [
     "available_solvers",
     "find_compatible_solvers",
     "get_corrected_ideal_and_nadir",
-    "get_corrected_reference_point",
+    "flip_maximized_objective_values",
     "guess_best_solver",
     "payoff_table_method",
 ]
@@ -96,7 +96,7 @@ from desdeo.tools.utils import (
     available_solvers,
     find_compatible_solvers,
     get_corrected_ideal_and_nadir,
-    get_corrected_reference_point,
+    flip_maximized_objective_values,
     guess_best_solver,
     payoff_table_method,
 )

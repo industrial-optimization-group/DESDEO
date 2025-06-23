@@ -104,7 +104,7 @@ as follows:
     if, and only if, there exists no other feasible solution $\mathbf{x}$ such that
     
     - $f_i(\mathbf{x}) \leq f_i(\mathbf{x^*})$ for all $i \in [1, k]$, and
-    - $f_j(\mathbf{x}) < f_j(\mathbf{x^*})$ for at leas one $j \in [1, k]$. 
+    - $f_j(\mathbf{x}) < f_j(\mathbf{x^*})$ for at least one $j \in [1, k]$. 
 
 Let us next define the image of a solution to a multiobjective optimization problem
 to be an _objective vector_ $\mathbf{z}$, that is, for some solution $\mathbf{x}'$ we have

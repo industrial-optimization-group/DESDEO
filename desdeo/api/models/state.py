@@ -7,7 +7,8 @@ from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
 from desdeo.tools import SolverResults
 
-from .preference import PreferenceDB, ReferencePoint
+from .archive import UserSavedSolutionDB
+from .preference import PreferenceDB
 from .problem import ProblemDB
 from .session import InteractiveSessionDB
 
@@ -19,7 +20,7 @@ class StateType(TypeDecorator):
 
     def process_bind_param(self, value, dialect):
         """State to JSON."""
-        if isinstance(value, RPMState | NIMBUSClassificationState):
+        if isinstance(value, RPMState | NIMBUSClassificationState | IntermediateSolutionState | NIMBUSSaveState):
             return value.model_dump()
 
         msg = f"No JSON serialization set for ste of type '{type(value)}'."
@@ -30,13 +31,17 @@ class StateType(TypeDecorator):
     def process_result_value(self, value, dialect):
         """JSON to state."""
         if "method" in value:
-            match value["method"]:
-                case "reference_point_method":
+            match (value["method"], value.get("phase")):
+                case ("reference_point_method", _):
                     return RPMState.model_validate(value)
-                case "nimbus":
+                case ("nimbus", "solve_candidates"):
                     return NIMBUSClassificationState.model_validate(value)
+                case ("nimbus", "save_solutions"):
+                    return NIMBUSSaveState.model_validate(value)
+                case ("generic", _):
+                    return IntermediateSolutionState.model_validate(value)
                 case _:
-                    msg = f"No method '{value["method"]}' found."
+                    msg = f"No method '{value["method"]}' with phase '{value.get("phase")}' found."
                     print(msg)
 
         return value
@@ -94,6 +99,26 @@ class NIMBUSClassificationState(NIMBUSBaseState):
     # results
     solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
 
+class NIMBUSSaveState(NIMBUSBaseState):
+    """State of the nimbus method for saving solutions."""
+
+    phase: Literal["save_solutions"] = "save_solutions"
+    solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
+
+class IntermediateSolutionState(BaseState):
+    """State of the nimbus method for computing solutions."""
+    method: Literal["generic"] = "generic"
+    phase: Literal["solve_intermediate"] = "solve_intermediate"
+
+    scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    solver: str | None = Field(default=None)
+    solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    num_desired: int | None = Field(default=1)
+    reference_solution_1: dict[str, float]
+    reference_solution_2: dict[str, float]
+    # results
+    solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
+
 class StateDB(SQLModel, table=True):
     """Database model to store interactive method state."""
 
@@ -114,7 +139,9 @@ class StateDB(SQLModel, table=True):
     children: list["StateDB"] = Relationship(
         back_populates="parent", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
-
+    saved_solutions: list["UserSavedSolutionDB"] | None = Relationship(
+        back_populates="state", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
     # Parents
     preference: "PreferenceDB" = Relationship()
     problem: "ProblemDB" = Relationship()

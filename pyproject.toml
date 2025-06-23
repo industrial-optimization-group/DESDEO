@@ -32,7 +32,8 @@ dependencies = [
     "greenlet >= 3.1.1",
     "pymoo >= 0.6.1.2",
     "shap >= 0.47.0",
-    "cvxpy[scip] >= 1.6.4"
+    "cvxpy[scip] >= 1.6.4",
+    "moocore >= 0.1.7"
 ]
 
 [project.urls]
@@ -230,6 +231,7 @@ markers = [
     "ea: tests related to evolutionary methods.",
     "indicators: tests related to indicators.",
     "testproblem: tests related to test problems.",
+    "enautilus: tests related to the E-NAUTILUS method.",
 
 ]
 pythonpath = "."

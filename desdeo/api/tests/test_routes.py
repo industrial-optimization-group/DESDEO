@@ -7,13 +7,17 @@ from desdeo.api.models import (
     CreateSessionRequest,
     GetSessionRequest,
     InteractiveSessionDB,
+    NIMBUSClassificationRequest,
+    NIMBUSSaveRequest,
+    NIMBUSSaveState,
     ProblemGetRequest,
     ProblemInfo,
     ReferencePoint,
     RPMSolveRequest,
-    NIMBUSClassificationRequest,
     User,
 )
+from desdeo.api.models.archive import UserSavedSolverResults
+from desdeo.api.models.generic import IntermediateSolutionRequest
 from desdeo.api.routers.user_authentication import create_access_token
 from desdeo.problem.testproblems import simple_knapsack_vectors
 
@@ -228,5 +232,145 @@ def test_nimbus_solve(client: TestClient):
     )
 
     response = post_json(client, "/method/nimbus/solve", request.model_dump(), access_token)
-
     assert response.status_code == status.HTTP_200_OK
+
+
+def test_intermediate_solve(client: TestClient):
+    """Test that solving intermediate solutions works as expected."""
+    access_token = login(client)
+
+    request = IntermediateSolutionRequest(
+        problem_id=1,
+        reference_solution_1={"x_1": 0.2, "x_2": 0.3, "x_3": 0.1, "x_4": 0.1, "x_5": 0.1},
+        reference_solution_2={"x_1": 0.5, "x_2": 0.6, "x_3": 0.4, "x_4": 0.1, "x_5": 0.1},
+    )
+
+    response = post_json(client, "/method/generic/intermediate", request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+
+def test_save_solution(client: TestClient):
+    """Test that saving solutions works as expected."""
+    # Login to get access token
+    access_token = login(client)
+
+    # Create test solutions with proper dictionary values
+    variable_values = {"x_1": 0.3, "x_2": 0.8, "x_3": 0.1, "x_4": 0.6, "x_5": 0.9}
+    objective_values = {"f_1": 1.2, "f_2": 0.9, "f_3": 1.5}
+    constraint_values = {"g_1": 0.1}
+    extra_func_values = {"extra_1": 5000, "extra_2": 600000}
+    solution_name = "The most environment friendly solution"
+
+    test_solutions = [
+        UserSavedSolverResults(
+            name=solution_name,
+            optimal_variables=variable_values,
+            optimal_objectives=objective_values,
+            constraint_values=constraint_values,
+            extra_func_values=extra_func_values,
+            success=True,
+            message="This is a test solution saved from the NIMBUS method."
+        )
+    ]
+
+    # Create the save request
+    save_request = NIMBUSSaveRequest(
+        problem_id=1,
+        solutions=test_solutions,
+    )
+
+    # Make the request
+    response = post_json(
+        client,
+        "/method/nimbus/save",
+        save_request.model_dump(),
+        access_token
+    )
+
+    # Verify the response and state
+    assert response.status_code == status.HTTP_200_OK
+    save_state = NIMBUSSaveState.model_validate(response.json())
+    assert len(save_state.solver_results) == 1
+
+    # Verify state contains solver results without name
+    saved_result = save_state.solver_results[0]
+    assert saved_result.optimal_variables == variable_values
+    assert saved_result.optimal_objectives == objective_values
+    assert saved_result.constraint_values == constraint_values
+    assert saved_result.extra_func_values == extra_func_values
+    assert not hasattr(saved_result, "name")  # Name should not be in state
+
+def test_add_new_dm(client: TestClient):
+    """Test that adding a decision maker works"""
+    
+    # Create a new user to the database
+    good_response = client.post(
+        "/add_new_dm",
+        data={"username": "new_dm", "password": "new_dm", "grant_type": "password"},
+        headers={"content-type": "application/x-www-form-urlencoded"},
+    )
+    assert good_response.status_code == status.HTTP_201_CREATED
+
+    # There already should be a user named new_dm, so we shouldn't create another one.
+    bad_response = client.post(
+        "/add_new_dm",
+        data={"username": "new_dm", "password": "new_dm", "grant_type": "password"},
+        headers={"content-type": "application/x-www-form-urlencoded"},
+    )
+    assert bad_response.status_code == status.HTTP_409_CONFLICT
+
+def test_add_new_analyst(client: TestClient):
+    """Test that adding a new analyst works"""
+
+    # Try to create an analyst without logging in
+    nologin_response = client.post(
+        "/add_new_analyst",
+        data={"username": "new_analyst", "password": "new_analyst", "grant_type": "password"},
+        headers={"content-type": "application/x-www-form-urlencoded"},
+    )
+
+    # No user
+    assert nologin_response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    # Try to create an analyst using a dm account.
+    response = client.post(
+        "/add_new_dm",
+        data={"username": "new_dm", "password": "new_dm", "grant_type": "password"},
+        headers={"content-type": "application/x-www-form-urlencoded"},
+    )
+    assert response.status_code == status.HTTP_201_CREATED
+
+    dm_access_token = login(client, username="new_dm", password="new_dm")
+
+    dm_response = client.post(
+        "/add_new_analyst",
+        data={"username": "new_analyst", "password": "new_analyst", "grant_type": "password"},
+        headers={"Authorization": f"Bearer {dm_access_token}",
+                 "content-type": "application/x-www-form-urlencoded"},
+    )
+
+    # Creating an analyst using unauthorized user should return 401 status
+    assert dm_response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    # Login with proper user
+    analyst_access_token = login(client)
+
+    good_response = client.post(
+        "/add_new_analyst",
+        data={"username": "new_analyst", "password": "new_analyst", "grant_type": "password"},
+        headers={"Authorization": f"Bearer {analyst_access_token}",
+                 "content-type": "application/x-www-form-urlencoded"},
+    )
+
+    # Creating a new analyst with an analyst user should return 201
+    assert good_response.status_code == status.HTTP_201_CREATED
+
+    bad_response = client.post(
+        "/add_new_analyst",
+        data={"username": "new_analyst", "password": "new_analyst", "grant_type": "password"},
+        headers={"Authorization": f"Bearer {analyst_access_token}",
+                 "content-type": "application/x-www-form-urlencoded"},
+    )
+
+    # Trying to create an analyst with username that is already in use should return 409
+    assert bad_response.status_code == status.HTTP_409_CONFLICT
+
