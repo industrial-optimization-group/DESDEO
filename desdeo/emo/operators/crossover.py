@@ -646,7 +646,7 @@ class BlendAlphaCrossover(BaseCrossover):
         problem: Problem,
         verbosity: int,
         publisher: Publisher,
-        seed: int = 0,
+        seed: int,
         alpha: float = 0.5,
         xover_probability: float = 1.0,
     ):
@@ -678,6 +678,7 @@ class BlendAlphaCrossover(BaseCrossover):
         self.alpha = alpha
         self.xover_probability = xover_probability
         self.seed = seed
+        self.rng = np.random.default_rng(self.seed)
 
         self.parent_population: pl.DataFrame | None = None
         self.offspring_population: pl.DataFrame | None = None
@@ -729,15 +730,13 @@ class BlendAlphaCrossover(BaseCrossover):
         lower = c_min - self.alpha * span
         upper = c_max + self.alpha * span
 
-        rng = np.random.default_rng(self.seed)
-
-        uniform_1 = rng.random((mating_pop_size // 2, num_var))
-        uniform_2 = rng.random((mating_pop_size // 2, num_var))
+        uniform_1 = self.rng.random((mating_pop_size // 2, num_var))
+        uniform_2 = self.rng.random((mating_pop_size // 2, num_var))
 
         offspring1 = lower + uniform_1 * (upper - lower)
         offspring2 = lower + uniform_2 * (upper - lower)
 
-        mask = rng.random(mating_pop_size // 2) > self.xover_probability
+        mask = self.rng.random(mating_pop_size // 2) > self.xover_probability
         offspring1[mask, :] = parents1[mask, :]
         offspring2[mask, :] = parents2[mask, :]
 
@@ -820,8 +819,8 @@ class SingleArithmeticCrossover(BaseCrossover):
         problem: Problem,
         verbosity: int,
         publisher: Publisher,
+        seed: int,
         xover_probability: float = 1.0,
-        seed: int = 0,
     ):
         """Initialize the single arithmetic crossover operator.
 
@@ -982,8 +981,8 @@ class LocalCrossover(BaseCrossover):
         problem: Problem,
         verbosity: int,
         publisher: Publisher,
+        seed: int,
         xover_probability: float = 1.0,
-        seed: int = 0,
     ):
         """Initialize the local crossover operator.
 
@@ -1002,6 +1001,7 @@ class LocalCrossover(BaseCrossover):
 
         self.xover_probability = xover_probability
         self.seed = seed
+        self.rng = np.random.default_rng(self.seed)
         self.parent_population: pl.DataFrame | None = None
         self.offspring_population: pl.DataFrame | None = None
 
@@ -1039,12 +1039,11 @@ class LocalCrossover(BaseCrossover):
         parents1 = mating_pop[0::2]
         parents2 = mating_pop[1::2]
 
-        rng = np.random.default_rng(self.seed)
         offspring = np.empty((mating_pop_size, num_var))
 
         for i in range(mating_pop_size // 2):
-            if rng.random() < self.xover_probability:
-                alpha = rng.random(num_var)
+            if self.rng.random() < self.xover_probability:
+                alpha = self.rng.random(num_var)
 
                 offspring[2 * i] = alpha * parents1[i] + (1 - alpha) * parents2[i]
                 offspring[2 * i + 1] = (1 - alpha) * parents1[i] + alpha * parents2[i]
@@ -1126,7 +1125,7 @@ class BoundedExponentialCrossover(BaseCrossover):
         problem: Problem,
         verbosity: int,
         publisher: Publisher,
-        seed: int = 0,
+        seed: int,
         lambda_: float = 1.0,
         xover_probability: float = 1.0,
     ):

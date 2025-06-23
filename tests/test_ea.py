@@ -741,7 +741,7 @@ def test_blend_alpha_crossover():
     assert problem.variable_domain is VariableDomainTypeEnum.continuous
 
     # create operator
-    crossover = BlendAlphaCrossover(problem=problem, publisher=publisher, verbosity=1)
+    crossover = BlendAlphaCrossover(problem=problem, publisher=publisher, verbosity=1, seed=0)
     num_vars = len(crossover.variable_symbols)
 
     evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
@@ -768,7 +768,9 @@ def test_single_arithmetic_crossover():
     problem = simple_test_problem()
     assert problem.variable_domain is VariableDomainTypeEnum.continuous
 
-    crossover = SingleArithmeticCrossover(problem=problem, publisher=publisher, xover_probability=1.0, verbosity=1)
+    crossover = SingleArithmeticCrossover(
+        problem=problem, publisher=publisher, xover_probability=1.0, verbosity=1, seed=0
+    )
     num_vars = len(crossover.variable_symbols)
 
     evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
@@ -797,7 +799,7 @@ def test_local_crossover():
     problem = simple_test_problem()
     assert problem.variable_domain is VariableDomainTypeEnum.continuous
 
-    crossover = LocalCrossover(problem=problem, publisher=publisher, xover_probability=1.0, verbosity=1)
+    crossover = LocalCrossover(problem=problem, publisher=publisher, xover_probability=1.0, verbosity=1, seed=0)
     num_vars = len(crossover.variable_symbols)
 
     evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
@@ -998,7 +1000,7 @@ def test_bounded_exponential_crossover():
     assert problem.variable_domain is VariableDomainTypeEnum.continuous
 
     # create operator
-    crossover = BoundedExponentialCrossover(problem=problem, publisher=publisher, lambda_=1.0, verbosity=1)
+    crossover = BoundedExponentialCrossover(problem=problem, publisher=publisher, lambda_=1.0, verbosity=1, seed=0)
     num_vars = len(crossover.variable_symbols)
 
     evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
