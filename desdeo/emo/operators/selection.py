@@ -477,6 +477,10 @@ class RVEASelector(BaseDecompositionSelector):
             solutions = parents[0] + offsprings[0]
         else:
             raise TypeError("The decision variables must be either a list or a polars DataFrame, not both")
+        if len(parents[0]) == 0:
+            raise RuntimeError(
+                "The parents population is empty. Cannot perform selection. This is a known unresolved issue."
+            )
         alltargets = parents[1].vstack(offsprings[1])
         targets = alltargets[self.target_symbols].to_numpy()
         if self.constraints_symbols is None or len(self.constraints_symbols) == 0:
