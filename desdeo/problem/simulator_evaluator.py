@@ -141,7 +141,12 @@ class Evaluator:
             if "http" in url:  # insane hack to check if the simulator is on a server
                 try:
                     if "://" not in url:  # Pathlib.Path removes double slashes, so we need to add it back
-                        url = url.replace(":/", "://")
+                        if ":/" in url:
+                            url = url.replace(":/", "://")
+                        elif ":\\" in url:
+                            url = url.replace(":\\", "://")
+                    # replace all backslashes with forward slashes
+                    url = url.replace("\\", "/")
                     xs = pl.DataFrame(xs).to_dict(as_series=False)  # More insanity
                     res = requests.get(url, json={"d": xs, "p": params})
                     res.raise_for_status()
