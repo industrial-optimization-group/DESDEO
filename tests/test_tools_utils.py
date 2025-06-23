@@ -21,11 +21,11 @@ def test_guess_best_solver(dtlz2_5x_3f_data_based):  # noqa: F811
 
     analytical_guess = guess_best_solver(analytical_problem)
 
-    assert analytical_guess is available_solvers["nevergrad"]
+    assert analytical_guess is available_solvers["nevergrad"]["constructor"]
 
     data_guess = guess_best_solver(data_problem)
 
-    assert data_guess is available_solvers["proximal"]
+    assert data_guess is available_solvers["proximal"]["constructor"]
 
 
 @pytest.mark.utils
@@ -36,10 +36,10 @@ def test_find_compatible_solvers():
     solvers = find_compatible_solvers(problem)
 
     correct_solvers = [
-        available_solvers["pyomo_ipopt"],
-        available_solvers["nevergrad"],
-        available_solvers["scipy_minimize"],
-        available_solvers["scipy_de"],
+        available_solvers["pyomo_ipopt"]["constructor"],
+        available_solvers["nevergrad"]["constructor"],
+        available_solvers["scipy_minimize"]["constructor"],
+        available_solvers["scipy_de"]["constructor"],
     ]
 
     # check that the solvers found are the correct ones
