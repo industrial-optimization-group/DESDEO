@@ -19,7 +19,9 @@ from desdeo.problem import (
     numpy_array_to_objective_dict,
     objective_dict_to_numpy_array,
 )
-from desdeo.tools import SolverResults, get_corrected_reference_point
+
+
+from desdeo.tools import SolverResults, flip_maximized_objective_values
 
 
 class ENautilusResult(BaseModel):
@@ -148,7 +150,7 @@ def enautilus_step(  # noqa: PLR0913
     """
     # treat everything as minimized
     # selected point as numpy array, correct for minimization
-    z_h = objective_dict_to_numpy_array(problem, get_corrected_reference_point(problem, selected_point))
+    z_h = objective_dict_to_numpy_array(problem, flip_maximized_objective_values(problem, selected_point))
 
     # subset of reachable solutions, take _min column
     non_dom_objectives = non_dominated_points[[f"{obj.symbol}_min" for obj in problem.objectives]].to_numpy()
@@ -180,16 +182,16 @@ def enautilus_step(  # noqa: PLR0913
     ]
 
     best_bounds = [
-        get_corrected_reference_point(problem, numpy_array_to_objective_dict(problem, bounds))
+        flip_maximized_objective_values(problem, numpy_array_to_objective_dict(problem, bounds))
         for bounds in intermediate_lower_bounds
     ]
     worst_bounds = [
-        get_corrected_reference_point(problem, numpy_array_to_objective_dict(problem, point))
+        flip_maximized_objective_values(problem, numpy_array_to_objective_dict(problem, point))
         for point in intermediate_points
     ]
 
     corrected_intermediate_points = [
-        get_corrected_reference_point(problem, numpy_array_to_objective_dict(problem, point))
+        flip_maximized_objective_values(problem, numpy_array_to_objective_dict(problem, point))
         for point in intermediate_points
     ]
 

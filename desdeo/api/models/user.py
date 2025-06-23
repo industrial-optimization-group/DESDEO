@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
-    from .archive import ArchiveEntryDB
+    from .archive import UserSavedSolutionDB
     from .preference import PreferenceDB
     from .problem import ProblemDB
     from .session import InteractiveSessionDB
@@ -37,7 +37,7 @@ class User(UserBase, table=True):
     active_session_id: int | None = Field(default=None)
 
     # Back populates
-    archive: list["ArchiveEntryDB"] = Relationship(back_populates="user")
+    archive: list["UserSavedSolutionDB"] = Relationship(back_populates="user")
     preferences: list["PreferenceDB"] = Relationship(back_populates="user")
     problems: list["ProblemDB"] = Relationship(back_populates="user")
     sessions: list["InteractiveSessionDB"] = Relationship(back_populates="user")

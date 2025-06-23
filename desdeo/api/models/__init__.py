@@ -1,8 +1,8 @@
 """Model exports."""
 
 __all__ = [
-    "ArchiveEntryBase",
-    "ArchiveEntryDB",
+    "UserSavedSolutionBase",
+    "UserSavedSolutionDB",
     "Bounds",
     "ConstantDB",
     "ConstraintDB",
@@ -18,6 +18,8 @@ __all__ = [
     "NIMBUSBaseState",
     "NIMBUSClassificationRequest",
     "NIMBUSClassificationState",
+    "NIMBUSSaveRequest",
+    "NIMBUSSaveState",
     "ObjectiveDB",
     "PreferenceBase",
     "PreferenceDB",
@@ -39,11 +41,13 @@ __all__ = [
     "UserPublic",
     "UserRole",
     "VariableDB",
+    "ProblemMetaDataDB",
+    "ForestProblemMetaData",
 ]
 
-from .archive import ArchiveEntryBase, ArchiveEntryDB
+from .archive import UserSavedSolutionBase, UserSavedSolutionDB
 from .generic import IntermediateSolutionRequest
-from .nimbus import NIMBUSClassificationRequest
+from .nimbus import NIMBUSClassificationRequest, NIMBUSSaveRequest
 from .preference import Bounds, PreferenceBase, PreferenceDB, ReferencePoint
 from .problem import (
     ConstantDB,
@@ -60,6 +64,8 @@ from .problem import (
     TensorConstantDB,
     TensorVariableDB,
     VariableDB,
+    ProblemMetaDataDB,
+    ForestProblemMetaData,
 )
 from .reference_point_method import RPMSolveRequest
 from .session import (
@@ -73,6 +79,7 @@ from .state import (
     IntermediateSolutionState,
     NIMBUSBaseState,
     NIMBUSClassificationState,
+    NIMBUSSaveState,
     RPMBaseState,
     RPMState,
     StateDB,
