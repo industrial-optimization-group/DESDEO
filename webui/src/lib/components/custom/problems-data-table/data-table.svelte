@@ -274,7 +274,7 @@
 				class={buttonVariants({
 					variant: 'outline',
 					size: 'icon',
-					class: 'flex h-8 w-8 cursor-pointer p-0'
+					class: 'text-secondary-foreground flex h-8 w-8 cursor-pointer p-0'
 				})}
 			>
 				<a href={`/method?problemId=${encodeURIComponent(problem.id)}`}>
@@ -443,7 +443,7 @@
 					<Table.Row
 						data-state={row.getIsSelected() && 'selected'}
 						onclick={() => handleRowClick(row)}
-						class="data-[state=selected]:bg-muted cursor-pointer"
+						class="data-[state=selected]:bg-primary data-[state=selected]:text-primary-foreground cursor-pointer"
 						aria-label="Select row"
 					>
 						{#each row.getVisibleCells() as cell (cell.id)}
