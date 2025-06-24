@@ -35,7 +35,9 @@ trap cleanup SIGINT
 backend_pid=$!
 
 # Run npm command from the ./webgui directory and prepend colored (Frontend) to its output
-(cd ./webui && npm run dev -- --open) | prepend_frontend &
+# NOTE: Use --host 127.0.0.1 (not localhost) to ensure cookies work between frontend and backend.
+# Browsers treat localhost and 127.0.0.1 as different origins for cookies, and backend uses 127.0.0.1
+(cd ./webui && npm run dev -- --host 127.0.0.1 --open) | prepend_frontend &
 frontend_pid=$!
 
 wait $backend_pid $frontend_pid
