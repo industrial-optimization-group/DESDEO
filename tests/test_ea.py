@@ -57,6 +57,7 @@ from desdeo.problem.testproblems import (
 )
 from desdeo.tools.message import IntMessage, TerminatorMessageTopics
 from desdeo.tools.patterns import Publisher, Subscriber
+from desdeo.tools.utils import repair
 
 
 @pytest.mark.ea
@@ -1100,6 +1101,10 @@ def test_mutation_in_EA():
     for mut in mutations:
         publisher = Publisher()
         problem = dtlz2(n_objectives=3, n_variables=12)
+        repair_func = repair(
+            lower_bounds={v.symbol: v.lowerbound for v in problem.get_flattened_variables()},
+            upper_bounds={v.symbol: v.upperbound for v in problem.get_flattened_variables()},
+        )
 
         evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
         crossover = SimulatedBinaryCrossover(problem=problem, publisher=publisher, seed=0, verbosity=1)
@@ -1147,10 +1152,8 @@ def test_mutation_in_EA():
                 generator=generator,
                 selection=selector,
                 terminator=terminator,
+                repair=repair_func,
             )
+            print(results)
         except Exception as e:
             pytest.fail(f"Failed to run EA with mutation {mut}: {e}")
-
-
-if __name__ == "__main__":
-    test_mutation_in_EA()

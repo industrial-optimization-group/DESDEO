@@ -1,8 +1,10 @@
+from typing import Callable
 """General utilities related to solvers."""
 
 import shutil
 
 import numpy as np
+import polars as pl
 
 from desdeo.problem import (
     ObjectiveTypeEnum,
@@ -357,3 +359,25 @@ def payoff_table_method(problem: Problem, solver: BaseSolver = None) -> tuple[di
         else:
             nadir.append(np.max(po_table.T[i]))
     return numpy_array_to_objective_dict(problem, ideal), numpy_array_to_objective_dict(problem, nadir)
+
+def repair(lower_bounds:dict[str, float], upper_bounds:dict[str, float]) -> Callable[[pl.DataFrame], pl.DataFrame]:
+    """Repairs the offspring by clipping the values to be within the specified bounds.
+
+    Useful in evolutionary algorithms where offspring may go out of bounds due to crossover or mutation operations.
+
+    Args:
+        offspring (pl.DataFrame): The offspring to be repaired.
+        lower_bounds (dict[str, float]): The lower bounds for each variable.
+        upper_bounds (dict[str, float]): The upper bounds for each variable.
+
+    Returns:
+        Callable[[pl.DataFrame], pl.DataFrame]: A function that takes a DataFrame and returns a repaired DataFrame.
+    """
+    def actual_repair(offspring: pl.DataFrame) -> pl.DataFrame:
+        for var in offspring.columns:
+            offspring = offspring.with_columns(
+                pl.col(var).clip(lower_bound=lower_bounds[var], upper_bound=upper_bounds[var])
+            )
+        return offspring
+
+    return actual_repair
