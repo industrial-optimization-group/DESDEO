@@ -684,7 +684,7 @@ def test_rpm_state(session_and_user: dict[str, Session | list[User]]):
         problem,
         asp_levels_1,
         scalarization_options=scalarization_options,
-        solver=available_solvers[solver],
+        solver=available_solvers[solver]["constructor"],
         solver_options=solver_options,
     )
 
@@ -726,7 +726,7 @@ def test_rpm_state(session_and_user: dict[str, Session | list[User]]):
         problem,
         asp_levels_2,
         scalarization_options=scalarization_options,
-        solver=available_solvers[solver],
+        solver=available_solvers[solver]["constructor"],
         solver_options=solver_options,
     )
 
