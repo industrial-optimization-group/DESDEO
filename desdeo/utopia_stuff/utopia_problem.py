@@ -347,7 +347,7 @@ def utopia_problem(
             objectives=[f_1, f_2, f_3],
             constraints=constraints,
         ),
-        solver=available_solvers["gurobipy"],
+        solver=available_solvers["gurobipy"]["constructor"],
     )
 
     print(ideals)
