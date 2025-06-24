@@ -14,27 +14,66 @@ from desdeo.problem import (
     variable_dimension_enumerate,
 )
 from desdeo.tools.generics import BaseSolver
-from desdeo.tools.gurobipy_solver_interfaces import GurobipySolver
-from desdeo.tools.ng_solver_interfaces import NevergradGenericSolver
+from desdeo.tools.gurobipy_solver_interfaces import GurobipySolver, PersistentGurobipySolver
+from desdeo.tools.ng_solver_interfaces import NevergradGenericOptions, NevergradGenericSolver
 from desdeo.tools.proximal_solver import ProximalSolver
 from desdeo.tools.pyomo_solver_interfaces import (
+    BonminOptions,
+    CbcOptions,
+    IpoptOptions,
     PyomoBonminSolver,
     PyomoCBCSolver,
     PyomoGurobiSolver,
     PyomoIpoptSolver,
 )
-from desdeo.tools.scipy_solver_interfaces import ScipyDeSolver, ScipyMinimizeSolver
+from desdeo.tools.scipy_solver_interfaces import (
+    ScipyDeOptions,
+    ScipyDeSolver,
+    ScipyMinimizeOptions,
+    ScipyMinimizeSolver,
+)
 
 available_solvers = {
-    "scipy_minimize": ScipyMinimizeSolver,
-    "scipy_de": ScipyDeSolver,
-    "proximal": ProximalSolver,
-    "nevergrad": NevergradGenericSolver,
-    "pyomo_bonmin": PyomoBonminSolver,
-    "pyomo_cbc": PyomoCBCSolver,
-    "pyomo_ipopt": PyomoIpoptSolver,
-    "pyomo_gurobi": PyomoGurobiSolver,
-    "gurobipy": GurobipySolver,
+    "scipy_minimize": {
+        "constructor": ScipyMinimizeSolver,
+        "options": ScipyMinimizeOptions,
+    },
+    "scipy_de": {
+        "constructor": ScipyDeSolver,
+        "options": ScipyDeOptions,
+    },
+    "proximal": {
+        "constructor": ProximalSolver,
+        "options": None,
+    },
+    "nevergrad": {
+        "constructor": NevergradGenericSolver,
+        "options": NevergradGenericOptions
+    },
+    "pyomo_bonmin": {
+        "constructor": PyomoBonminSolver,
+        "options": BonminOptions,
+    },
+    "pyomo_cbc": {
+        "constructor": PyomoCBCSolver,
+        "options": CbcOptions,
+    },
+    "pyomo_ipopt": {
+        "constructor": PyomoIpoptSolver,
+        "options": IpoptOptions,
+    },
+    "pyomo_gurobi": {
+        "constructor": PyomoGurobiSolver,
+        "options": None
+    },
+    "guropipy": {
+        "constructor": GurobipySolver,
+        "options": None,
+    },
+    "gurobipy_persistent": {
+        "constructor": PersistentGurobipySolver,
+        "options": None,
+    },
 }
 
 
@@ -66,7 +105,7 @@ def find_compatible_solvers(problem: Problem) -> list[BaseSolver]:
     if all_data_based and has_discrete and var_dim == VariableDimensionEnum.scalar:
         # problem has only data-based objectives and a discrete definition is available
         # return ProximalSolver as it is the only solver for data-based problems at the moment
-        return [available_solvers["proximal"]]
+        return [available_solvers["proximal"]["constructor"]]
 
     # check if the problem is differentiable and if it is mixed integer
     if (
@@ -78,7 +117,7 @@ def find_compatible_solvers(problem: Problem) -> list[BaseSolver]:
             VariableDomainTypeEnum.mixed,
         ]
     ):
-        solvers.append(available_solvers["pyomo_bonmin"])  # bonmin has to be installed
+        solvers.append(available_solvers["pyomo_bonmin"]["constructor"])  # bonmin has to be installed
 
     # check if the problem is differentiable and continuous
     if (
@@ -86,22 +125,22 @@ def find_compatible_solvers(problem: Problem) -> list[BaseSolver]:
         and shutil.which("ipopt")
         and problem.variable_domain in [VariableDomainTypeEnum.continuous]
     ):
-        solvers.append(available_solvers["pyomo_ipopt"])  # ipopt has to be installed
+        solvers.append(available_solvers["pyomo_ipopt"]["constructor"])  # ipopt has to be installed
 
     # check if the problem is linear
     if problem.is_linear:
-        solvers.append(available_solvers["gurobipy"])
+        solvers.append(available_solvers["gurobipy"]["constructor"])
     if problem.is_linear and shutil.which("gurobi"):
-        solvers.append(available_solvers["pyomo_gurobi"])  # gurobi has to be installed
+        solvers.append(available_solvers["pyomo_gurobi"]["constructor"])  # gurobi has to be installed
     if problem.is_linear and shutil.which("cbc"):
-        solvers.append(available_solvers["pyomo_cbc"])
+        solvers.append(available_solvers["pyomo_cbc"]["constructor"])
 
     # check if problem's variables are all scalars
     if var_dim == VariableDimensionEnum.scalar:
         # nevergrad and scipy solvers work with all(?) problems with only scalar valued variables
-        solvers.append(available_solvers["nevergrad"])
-        solvers.append(available_solvers["scipy_minimize"])
-        solvers.append(available_solvers["scipy_de"])
+        solvers.append(available_solvers["nevergrad"]["constructor"])
+        solvers.append(available_solvers["scipy_minimize"]["constructor"])
+        solvers.append(available_solvers["scipy_de"]["constructor"])
     return solvers
 
 
@@ -127,10 +166,10 @@ def guess_best_solver(problem: Problem) -> BaseSolver:  # noqa: PLR0911
 
     if TensorVariable in problem.variables:
         if problem.is_linear and shutil.which("cbc"):
-            return available_solvers["pyomo_cbc"]
+            return available_solvers["pyomo_cbc"]["constructor"]
 
         if problem.is_linear:
-            return available_solvers["gurobipy"]
+            return available_solvers["gurobipy"]["constructor"]
 
         # check if the problem is differentiable and if it is mixed integer
         if (
@@ -142,7 +181,7 @@ def guess_best_solver(problem: Problem) -> BaseSolver:  # noqa: PLR0911
                 VariableDomainTypeEnum.mixed,
             ]
         ):
-            return available_solvers["pyomo_bonmin"]
+            return available_solvers["pyomo_bonmin"]["constructor"]
 
         # check if the problem is differentiable and continuous
         if (
@@ -150,23 +189,23 @@ def guess_best_solver(problem: Problem) -> BaseSolver:  # noqa: PLR0911
             and shutil.which("ipopt")
             and problem.variable_domain in [VariableDomainTypeEnum.continuous]
         ):
-            return available_solvers["pyomo_ipopt"]
+            return available_solvers["pyomo_ipopt"]["constructor"]
 
     if all_data_based and has_discrete:
         # problem has only data-based objectives and a discrete definition is available
         # guess proximal solver is best
-        return available_solvers["proximal"]
+        return available_solvers["proximal"]["constructor"]
 
     # check if the problem is linear
     if problem.is_linear:
-        return available_solvers["gurobipy"]
+        return available_solvers["gurobipy"]["constructor"]
 
     # check if the problem is differentiable and if it is mixed integer
     if problem.is_twice_differentiable and shutil.which("bonmin") and problem.variable_domain in [
         VariableDomainTypeEnum.integer,
         VariableDomainTypeEnum.mixed,
     ]:
-        return available_solvers["pyomo_bonmin"]
+        return available_solvers["pyomo_bonmin"]["constructor"]
 
     # check if the problem is differentiable and continuous
     if (
@@ -174,10 +213,10 @@ def guess_best_solver(problem: Problem) -> BaseSolver:  # noqa: PLR0911
         and shutil.which("ipopt")
         and problem.variable_domain in [VariableDomainTypeEnum.continuous]
     ):
-        return available_solvers["pyomo_ipopt"]
+        return available_solvers["pyomo_ipopt"]["constructor"]
 
     # else, guess nevergrad heuristics to be the best
-    return available_solvers["nevergrad"]
+    return available_solvers["nevergrad"]["constructor"]
 
     # thigs to check: variable types, does the problem have constraint, constraint types, etc...
 

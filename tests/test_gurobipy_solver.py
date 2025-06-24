@@ -90,8 +90,8 @@ def test_gurobipy_persistent_solver():
         symbol="y",
         variable_type=VariableTypeEnum.integer,
         shape=(2, 2),
-        lowerbound=[[-20, -20], [-20, -20]],
-        upperbound=[[30, 30], [30, 30]],
+        lowerbounds=[[-20, -20], [-20, -20]],
+        upperbounds=[[30, 30], [30, 30]],
     )
     solver.add_variable(testvar)
     assert isinstance(solver.evaluator.get_expression_by_name("y"), gp.MVar)
