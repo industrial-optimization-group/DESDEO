@@ -50,10 +50,12 @@
 	>
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger>
-				<Button variant="ghost" class="text-primary-foreground flex items-center gap-1 px-0">
+				<span
+					class="text-primary-foreground hover:text-secondary flex items-center gap-1 transition-colors hover:cursor-pointer"
+				>
 					<Problem class="h-4 w-4" />
 					Problems
-				</Button>
+				</span>
 			</DropdownMenu.Trigger>
 			<DropdownMenu.Content align="start">
 				<DropdownMenu.Item onSelect={() => goto('/problems')}>Explore problems</DropdownMenu.Item>
@@ -65,10 +67,12 @@
 
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger>
-				<Button variant="ghost" class="text-primary-foreground flex items-center gap-1 px-0">
+				<span
+					class="text-primary-foreground hover:text-secondary flex items-center gap-1 transition-colors hover:cursor-pointer"
+				>
 					<Problem class="h-4 w-4" />
 					Methods
-				</Button>
+				</span>
 			</DropdownMenu.Trigger>
 			<DropdownMenu.Content align="start">
 				<DropdownMenu.Item onSelect={() => goto('/methods/initialize')}
@@ -78,14 +82,14 @@
 			</DropdownMenu.Content>
 		</DropdownMenu.Root>
 		<a
-			href="##"
+			href="/archive"
 			class="text-primary-foreground hover:text-secondary flex items-center gap-1 transition-colors"
 		>
 			<Archive class="h-4 w-4" />
 			Archive
 		</a>
 		<a
-			href="##"
+			href="/help"
 			class="text-primary-foreground hover:text-secondary flex items-center gap-1 transition-colors"
 		>
 			<HelpCircle class="h-4 w-4" />
@@ -94,7 +98,7 @@
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger>
 				<span
-					class="text-primary-foreground hover:text-secondary flex items-center gap-1 transition-colors"
+					class="text-primary-foreground hover:text-secondary flex items-center gap-1 transition-colors hover:cursor-pointer"
 				>
 					<CircleUser class="h-4 w-4" />
 					{$userDisplay}

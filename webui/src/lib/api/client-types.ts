@@ -58,6 +58,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Logout
+         * @description Log the current user out. Deletes the refresh token that was set by logging in.
+         *
+         *     Args:
+         *         None
+         *
+         *     Returns:
+         *         JSONResponse: A response in which the cookies are deleted
+         */
+        post: operations["logout_logout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/refresh": {
         parameters: {
             query?: never;
@@ -1904,6 +1930,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    logout_logout_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };
