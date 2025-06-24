@@ -1,5 +1,5 @@
 <script lang="ts">
-	import DataTable from '$lib/components/ui/problems-data-table/data-table.svelte';
+	import DataTable from '$lib/components/custom/problems-data-table/data-table.svelte';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
