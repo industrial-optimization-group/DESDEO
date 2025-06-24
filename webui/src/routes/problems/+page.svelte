@@ -39,6 +39,7 @@
 						<Tabs.Trigger value="objectives">Objectives</Tabs.Trigger>
 						<Tabs.Trigger value="variables">Variables</Tabs.Trigger>
 						<Tabs.Trigger value="constraints">Constraints</Tabs.Trigger>
+						<Tabs.Trigger value="extra">Extra Functions</Tabs.Trigger>
 					</Tabs.List>
 					<Tabs.Content value="general" class="w-full">
 						{#if selectedProblem}
@@ -48,6 +49,12 @@
 									<div class="col-span-2 flex">
 										<div class="w-40 font-semibold">Description</div>
 										<div class="flex-1">{selectedProblem.description ?? '—'}</div>
+									</div>
+
+									<div class="col-span-2 border-b border-gray-300"></div>
+									<div class="col-span-2 flex">
+										<div class="w-40 font-semibold">Domain</div>
+										<div class="flex-1">{selectedProblem.variable_domain ?? '—'}</div>
 									</div>
 									<div class="col-span-2 border-b border-gray-300"></div>
 
@@ -207,18 +214,50 @@
 										<Table.Header>
 											<Table.Row>
 												<Table.Head class="font-semibold">Name</Table.Head>
-												<Table.Head class="font-semibold">Maximize</Table.Head>
+												<Table.Head class="font-semibold">Type</Table.Head>
+												<Table.Head class="font-semibold">Direction</Table.Head>
 												<Table.Head class="font-semibold">Ideal</Table.Head>
 												<Table.Head class="font-semibold">Nadir</Table.Head>
+												<Table.Head class="font-semibold">Formulation</Table.Head>
 											</Table.Row>
 										</Table.Header>
 										<Table.Body>
 											{#each selectedProblem.objectives as obj, i}
 												<Table.Row>
-													<Table.Cell class="text-justify">{obj.name ?? '—'}</Table.Cell>
-													<Table.Cell class="text-justify">{obj.maximize ?? '—'}</Table.Cell>
+													<Table.Cell class="text-justify"
+														>{(obj.symbol || obj.name) ?? '_'}</Table.Cell
+													>
+													<Table.Cell class="text-justify">{obj.objective_type ?? '—'}</Table.Cell>
+													<Table.Cell class="text-justify"
+														>{obj.maximize ? 'Maximize' : 'Minimize'}</Table.Cell
+													>
 													<Table.Cell class="text-justify">{obj.ideal ?? '—'}</Table.Cell>
 													<Table.Cell class="text-justify">{obj.nadir ?? '—'}</Table.Cell>
+													<Table.Cell class="text-justify"
+														><Dialog.Root>
+															<Dialog.Trigger
+																class={buttonVariants({ variant: 'outline' })}
+																disabled={!obj.func}
+															>
+																View Details
+															</Dialog.Trigger>
+															<Dialog.Content
+																class="max-h-[80vh] w-full max-w-4xl overflow-x-auto overflow-y-auto"
+															>
+																<Dialog.Header>
+																	<Dialog.Title>Objective Formulation</Dialog.Title>
+																	<Dialog.Description>
+																		View the formulation of the {obj.symbol || obj.name} objective below.
+																	</Dialog.Description>
+																</Dialog.Header>
+																<div class="grid gap-4 py-4">
+																	<div>
+																		<MathExpressionRenderer func={obj.func} />
+																	</div>
+																</div>
+															</Dialog.Content>
+														</Dialog.Root></Table.Cell
+													>
 												</Table.Row>
 											{/each}
 										</Table.Body>
@@ -249,7 +288,9 @@
 										<Table.Body>
 											{#each selectedProblem.variables as variable}
 												<Table.Row>
-													<Table.Cell class="text-justify">{variable.name ?? '—'}</Table.Cell>
+													<Table.Cell class="text-justify"
+														>{(variable.symbol || variable.name) ?? '—'}</Table.Cell
+													>
 													<Table.Cell class="text-justify">{variable.lowerbound ?? '—'}</Table.Cell>
 													<Table.Cell class="text-justify">{variable.upperbound ?? '—'}</Table.Cell>
 													<Table.Cell class="text-justify"
@@ -318,15 +359,17 @@
 												<Table.Head class="font-semibold">Name</Table.Head>
 												<Table.Head class="font-semibold">Type</Table.Head>
 												<Table.Head class="font-semibold">Convex</Table.Head>
-
 												<Table.Head class="font-semibold">Linear</Table.Head>
 												<Table.Head class="font-semibold">Twice Differentiable</Table.Head>
+												<Table.Head class="font-semibold">Formulation</Table.Head>
 											</Table.Row>
 										</Table.Header>
 										<Table.Body>
 											{#each selectedProblem.constraints as constraint}
 												<Table.Row>
-													<Table.Cell class="text-justify">{constraint.name ?? '—'}</Table.Cell>
+													<Table.Cell class="text-justify"
+														>{(constraint.symbol || constraint.name) ?? '—'}</Table.Cell
+													>
 													<Table.Cell class="text-justify">{constraint.cons_type ?? '—'}</Table.Cell
 													>
 													<!-- 													<Table.Cell class="text-justify"
@@ -341,6 +384,33 @@
 													<Table.Cell class="text-justify"
 														>{constraint.is_twice_differentiable ? 'Yes' : 'No'}</Table.Cell
 													>
+													<Table.Cell class="text-justify">
+														<Dialog.Root>
+															<Dialog.Trigger
+																class={buttonVariants({ variant: 'outline' })}
+																disabled={!constraint.func}
+															>
+																View Details
+															</Dialog.Trigger>
+															<Dialog.Content
+																class="max-h-[80vh] w-full max-w-4xl overflow-x-auto overflow-y-auto"
+															>
+																<Dialog.Header>
+																	<Dialog.Title>Constraint Formulation</Dialog.Title>
+																	<Dialog.Description>
+																		View the formulation of the {(constraint.symbol ||
+																			constraint.name) ??
+																			'—'} constraint below.
+																	</Dialog.Description>
+																</Dialog.Header>
+																<div class="grid gap-4 py-4">
+																	<div>
+																		<MathExpressionRenderer func={constraint.func} />
+																	</div>
+																</div>
+															</Dialog.Content>
+														</Dialog.Root>
+													</Table.Cell>
 												</Table.Row>
 											{/each}
 										</Table.Body>
@@ -353,81 +423,66 @@
 							Select a problem to see details.
 						{/if}
 					</Tabs.Content>
+					<Tabs.Content value="extra" class="w-full">
+						{#if selectedProblem}
+							{#if selectedProblem.extra_funcs && Array.isArray(selectedProblem.extra_funcs) && selectedProblem.extra_funcs.length}
+								<div class="my-4 rounded-lg border border-gray-200 bg-gray-50 p-4 shadow-sm">
+									<Table.Root>
+										<Table.Caption>
+											List of extra functions for {selectedProblem.name}.
+										</Table.Caption>
+										<Table.Header>
+											<Table.Row>
+												<Table.Head class="font-semibold">Name</Table.Head>
+												<Table.Head class="font-semibold">Formulation</Table.Head>
+											</Table.Row>
+										</Table.Header>
+										<Table.Body>
+											{#each selectedProblem.extra_funcs as obj}
+												<Table.Row>
+													<Table.Cell class="text-justify"
+														>{(obj.symbol || obj.name) ?? '—'}</Table.Cell
+													>
+													<Table.Cell class="text-justify">
+														<Dialog.Root>
+															<Dialog.Trigger
+																class={buttonVariants({ variant: 'outline' })}
+																disabled={!obj.func}
+															>
+																View Details
+															</Dialog.Trigger>
+															<Dialog.Content
+																class="max-h-[80vh] w-full max-w-4xl overflow-x-auto overflow-y-auto"
+															>
+																<Dialog.Header>
+																	<Dialog.Title>Extra Function Formulation</Dialog.Title>
+																	<Dialog.Description>
+																		View the formulation of the {(obj.symbol || obj.name) ?? '—'} extra
+																		function below.
+																	</Dialog.Description>
+																</Dialog.Header>
+																<div class="grid gap-4 py-4">
+																	<div>
+																		<MathExpressionRenderer func={obj.func} />
+																	</div>
+																</div>
+															</Dialog.Content>
+														</Dialog.Root>
+													</Table.Cell>
+												</Table.Row>
+											{/each}
+										</Table.Body>
+									</Table.Root>
+								</div>
+							{:else}
+								<p>No extra function details available.</p>
+							{/if}
+						{:else}
+							select a problem to see details.
+						{/if}
+					</Tabs.Content>
 				</Tabs.Root>
 			</div>
-			<!-- 			{#each problemList as problem}
-				<li class="rounded-md border bg-white p-4 shadow-sm">
-					<h2 class="text-xl font-bold">{problem.name}</h2>
-
-					{#if problem.description}
-						<p class="mb-2 text-gray-700 italic">{problem.description}</p>
-					{/if}
-
-					<p class="text-sm text-gray-600">Domain: {problem.variable_domain}</p>
-
-					<p class="mt-1 text-sm text-gray-600">
-						{#if problem.is_linear !== null}
-							Linear: {problem.is_linear ? 'Yes' : 'No'} |
-						{/if}
-						{#if problem.is_convex !== null}
-							Convex: {problem.is_convex ? 'Yes' : 'No'} |
-						{/if}
-						{#if problem.is_twice_differentiable !== null}
-							Twice Differentiable: {problem.is_twice_differentiable ? 'Yes' : 'No'}
-						{/if}
-					</p>
-
-					{#if problem.objectives?.length}
-						<h3 class="mt-3 mb-1 text-sm font-semibold text-gray-600">Objectives:</h3>
-						<ul class="list-inside list-disc space-y-1 text-sm text-gray-800">
-							{#each problem.objectives as obj}
-								<li>
-									{obj.symbol || obj.name} - {obj.objective_type}
-									{#if obj.maximize !== null}
-										({obj.maximize ? 'Maximize' : 'Minimize'})
-									{/if}
-									<MathExpressionRenderer func={obj.func} />
-								</li>
-							{/each}
-						</ul>
-					{/if}
-					{#if problem.variables?.length}
-						<h3 class="mt-3 mb-1 text-sm font-semibold text-gray-600">Variables:</h3>
-						<ul class="list-inside list-disc space-y-1 text-sm text-gray-800">
-							{#each problem.variables as variable}
-								<li>
-									{variable.symbol || variable.name}
-								</li>
-							{/each}
-						</ul>
-					{/if}
-
-					{#if problem.constraints?.length}
-						<h3 class="mt-3 mb-1 text-sm font-semibold text-gray-600">Constraints:</h3>
-						<ul class="list-inside list-disc space-y-1 text-sm text-gray-800">
-							{#each problem.constraints as constraint}
-								<li>
-									{constraint.symbol || constraint.name}
-									<MathExpressionRenderer func={constraint.func} />
-								</li>
-							{/each}
-						</ul>
-					{/if}
-					{#if problem.extra_funcs?.length}
-						<h3 class="mt-3 mb-1 text-sm font-semibold text-gray-600">
-							Extra function definitions:
-						</h3>
-						<ul class="list-inside list-disc space-y-1 text-sm text-gray-800">
-							{#each problem.extra_funcs as obj}
-								<li>
-									{obj.symbol || obj.name}
-									<MathExpressionRenderer func={obj.func} />
-								</li>
-							{/each}
-						</ul>
-					{/if}
-				</li>
-			{/each} -->
 		</div>
 	{/if}
 </div>

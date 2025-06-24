@@ -1,4 +1,21 @@
 <script lang="ts">
+	/**
+    Topbar.svelte
+
+    Author: Giomara Larraga
+    Created: June 2025
+
+    This component renders the top navigation bar for the DESDEO web application.
+
+    Features:
+    - Displays the DESDEO logo and name on the left, linking to the dashboard.
+    - Provides navigation for Problems, Methods, Archive, Help, and User Account.
+    - Utilizes dropdown menus for Problems, Methods, and User Account for better organization.
+    - Supports responsive design, adapting to different screen sizes.
+    - Includes logout functionality, clearing user authentication and redirecting to the home page.
+    - Written in Svelte with TypeScript, leveraging shadcn UI components.
+
+	 */
 	import CircleUser from '@lucide/svelte/icons/user-circle';
 	import Method from '@lucide/svelte/icons/brain-circuit';
 	import Problem from '@lucide/svelte/icons/puzzle';
