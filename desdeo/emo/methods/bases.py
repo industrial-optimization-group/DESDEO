@@ -3,6 +3,8 @@
 This can be used as a template for the implementation of the EMO methods.
 """
 
+from collections.abc import Callable
+
 import numpy as np
 import polars as pl
 from pydantic import BaseModel, ConfigDict, Field
@@ -33,6 +35,7 @@ def template1(
     generator: BaseGenerator,
     selection: BaseSelector,
     terminator: BaseTerminator,
+    repair: Callable[[pl.DataFrame], pl.DataFrame] = lambda x: x,  # Default to identity function if no repair is needed
 ) -> EMOResult:
     """Implements a template that many EMO methods, such as RVEA and NSGA-III, follow.
 
@@ -44,6 +47,9 @@ def template1(
         generator (BaseGenerator): A class that generates the initial population.
         selection (BaseSelector): The selection operator.
         terminator (BaseTerminator): The termination operator.
+        repair (Callable, optional): A function that repairs the offspring if they go out of bounds. Defaults to an
+            identity function, meaning no repair is done. See :py:func:`desdeo.tools.utils.repair` as an example of a
+            repair function.
 
     Returns:
         EMOResult: The final population and their objective vectors, constraint vectors, and targets
@@ -53,6 +59,8 @@ def template1(
     while not terminator.check():
         offspring = crossover.do(population=solutions)
         offspring = mutation.do(offspring, solutions)
+        # Repair offspring if they go out of bounds
+        offspring = repair(offspring)
         offspring_outputs = evaluator.evaluate(offspring)
         solutions, outputs = selection.do(parents=(solutions, outputs), offsprings=(offspring, offspring_outputs))
 
