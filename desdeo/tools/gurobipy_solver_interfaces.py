@@ -119,7 +119,7 @@ def parse_gurobipy_optimizer_results(problem: Problem, evaluator: GurobipyEvalua
 class GurobipySolver(BaseSolver):
     """Creates a gurobipy solver that utilizes gurobi's own Python implementation."""
 
-    def __init__(self, problem: Problem, options: dict[str, any] | None = None):
+    def __init__(self, problem: Problem, options: GurobipyOptions | None = _default_gurobipy_options):
         """The solver is initialized by supplying a problem and options.
 
         Unlike with Pyomo you do not need to have gurobi installed on your system
@@ -128,15 +128,19 @@ class GurobipySolver(BaseSolver):
 
         Args:
             problem (Problem): the problem to be solved.
-            options (dict[str,any]): Dictionary of Gurobi parameters to set.
+            options (GurobipyOptions, optional): Options to be passed to the Gurobipy solver.
+                If `None` is passed, defaults to `_default_gurobipy_options` defined in
+                this source file. Defaults to `None`.
                 You probably don't need to set any of these and can just use the defaults.
                 For available parameters see https://www.gurobi.com/documentation/current/refman/parameters.html
         """
         self.evaluator = GurobipyEvaluator(problem)
         self.problem = problem
 
-        if options is not None:
-            for key, value in options.items():
+        if options is None:
+            options = _default_gurobipy_options
+        for key, value in options:
+            if value is not None:
                 self.evaluator.model.setParam(key, value)
 
     def solve(self, target: str) -> SolverResults:
@@ -163,19 +167,24 @@ class PersistentGurobipySolver(PersistentSolver):
 
     evaluator: GurobipyEvaluator
 
-    def __init__(self, problem: Problem, options: dict[str, any] | None = None):
+    def __init__(self, problem: Problem, options: GurobipyOptions | None = _default_gurobipy_options):
         """Initializer for the persistent solver.
 
         Args:
             problem (Problem): the problem to be transformed in a GurobipyModel.
-            options (dict[str,any]): Dictionary of Gurobi parameters to set.
+            options (GurobipyOptions, optional): Options to be passed to the Gurobipy solver.
+                If `None` is passed, defaults to `_default_gurobipy_options` defined in
+                this source file. Defaults to `None`.
                 You probably don't need to set any of these and can just use the defaults.
                 For available parameters see https://www.gurobi.com/documentation/current/refman/parameters.html
         """
         self.problem = problem
         self.evaluator = GurobipyEvaluator(problem)
-        if options is not None:
-            for key, value in options.items():
+
+        if options is None:
+            options = _default_gurobipy_options
+        for key, value in options:
+            if value is not None:
                 self.evaluator.model.setParam(key, value)
 
     def add_constraint(self, constraint: Constraint | list[Constraint]) -> gp.Constr | list[gp.Constr]:

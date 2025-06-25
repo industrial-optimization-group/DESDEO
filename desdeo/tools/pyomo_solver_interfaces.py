@@ -11,6 +11,7 @@ from pyomo.opt import TerminationCondition as _pyomo_TerminationCondition
 
 from desdeo.problem import Problem, PyomoEvaluator, TensorVariable
 from desdeo.tools.generics import BaseSolver, SolverError, SolverResults
+from desdeo.tools.gurobipy_solver_interfaces import GurobipyOptions, _default_gurobipy_options
 
 
 class BonminOptions(BaseModel):
@@ -366,7 +367,7 @@ class PyomoIpoptSolver(BaseSolver):
 class PyomoGurobiSolver(BaseSolver):
     """Creates a pyomo solver that utilized Gurobi."""
 
-    def __init__(self, problem: Problem, options: dict[str, any] | None = None):
+    def __init__(self, problem: Problem, options: GurobipyOptions | None = _default_gurobipy_options):
         """Creates a pyomo solver that utilizes gurobi.
 
         You need to have gurobi installed on your system for this to work.
@@ -376,9 +377,9 @@ class PyomoGurobiSolver(BaseSolver):
 
         Args:
             problem (Problem): the problem to be solved.
-            options (GurobiOptions): Dictionary of Gurobi parameters to set.
-                This is passed to pyomo as is, so it works the same as options
-                would for calling pyomo SolverFactory directly.
+            options (GurobipyOptions): Options to be passed to the Gurobi solver.
+                If `None` is passed, defaults to `_default_gurobipy_options`.
+                Defaults to `None`.
                 See https://www.gurobi.com/documentation/current/refman/parameters.html
                 for information on the available options
         """
@@ -386,7 +387,7 @@ class PyomoGurobiSolver(BaseSolver):
         self.evaluator = PyomoEvaluator(problem)
 
         if options is None:
-            self.options = {}
+            self.options = _default_gurobipy_options
         else:
             self.options = options
 
@@ -402,6 +403,9 @@ class PyomoGurobiSolver(BaseSolver):
         self.evaluator.set_optimization_target(target)
 
         with pyomo.SolverFactory("gurobi", solver_io="python") as opt:
+            for key, value in self.options:
+                if value is not None:
+                    opt.options[key] = value
             opt_res = opt.solve(self.evaluator.model)
             return parse_pyomo_optimizer_results(opt_res, self.problem, self.evaluator)
 
