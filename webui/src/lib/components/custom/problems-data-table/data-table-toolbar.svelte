@@ -1,4 +1,24 @@
 <script lang="ts" generics="TData">
+	/**
+	 * data-table-toolbar.svelte
+	 *
+	 * @author Giomara Larraga <glarragw@jyu.fi>
+	 * @created June 2025
+	 *
+	 * @description
+	 * This component provides a toolbar for the DESDEO problems data table.
+	 * It includes:
+	 *   - Input for filtering problems by name.
+	 *   - Reset button to clear all column filters (visible when filters are active).
+	 *   - "New problem" button.
+	 *
+	 * @prop {Table<TData>} table - TanStack Table instance, passed via $props in Svelte Runes mode.
+	 *
+	 * @usage
+	 * <DataTableToolbar table={table} />
+	 *
+	 * @see https://ui.shadcn.com/examples/tasks (source/example adapted)
+	 */
 	import XIcon from '@lucide/svelte/icons/x';
 	import NewIcon from '@lucide/svelte/icons/plus';
 	import type { Table } from '@tanstack/table-core';

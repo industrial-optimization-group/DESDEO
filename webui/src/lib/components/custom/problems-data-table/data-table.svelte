@@ -1,4 +1,51 @@
 <script lang="ts">
+	/**
+	 * data-table.svelte
+	 *
+	 * @author Giomara Larraga <glarragw@jyu.fi>
+	 * @created June 2025
+	 *
+	 * @description
+	 * This component renders a paginated, filterable, and sortable data table for DESDEO optimization problems.
+	 * It uses TanStack Table for table logic and supports row selection, column visibility, sorting, filtering, and pagination.
+	 * The table is designed to display ProblemInfo objects as defined by the OpenAPI schema.
+	 *
+	 * @prop {ProblemInfo[]} data - Array of problem objects, passed via $props in Svelte Runes mode.
+	 *
+	 * @features
+	 * - Displays problem name, number of objectives, number of variables, and action/solve buttons.
+	 * - Row selection and highlighting.
+	 * - Column sorting and filtering via dropdown menus.
+	 * - Pagination controls with selectable page size.
+	 * - Action menu for each row (details, edit, download, delete).
+	 * - "Solve" button for each row, linking to the method selection page for the problem.
+	 * - Uses zod for runtime schema validation of ProblemInfo.
+	 *
+	 * @dependencies
+	 * - @tanstack/table-core for table logic.
+	 * - $lib/components/ui/table for table UI.
+	 * - $lib/components/ui/button for buttons.
+	 * - $lib/components/ui/dropdown-menu for column and row actions.
+	 * - $lib/components/ui/select for pagination controls.
+	 * - $lib/api/client-types for OpenAPI-generated ProblemInfo type.
+	 * - zod for schema validation.
+	 *
+	 * @usage
+	 * <DataTable data={problemList} />
+	 *
+	 * @events
+	 * - Dispatches 'select' event when a row is clicked, passing the selected problem.
+	 *
+	 * @customization
+	 * - Columns can be customized by editing the `columns` array.
+	 * - Cell rendering can be customized via Svelte snippets.
+	 *
+	 * @notes
+	 * - The problem schema was adapted from the OpenAPI schema for ProblemInfo.
+	 * - However, it would be better to use the OpenAPI type directly.
+	 *
+	 * @see https://ui.shadcn.com/examples/tasks (source/example adapted)
+	 */
 	import {
 		type ColumnDef,
 		type ColumnFiltersState,
@@ -21,7 +68,6 @@
 	import FlexRender from '$lib/components/ui/data-table/flex-render.svelte';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
-	//import { problemSchema, type Problem } from '../../data/schemas.js';
 	import { renderComponent, renderSnippet } from '$lib/components/ui/data-table/render-helpers.js';
 	import { Button, buttonVariants } from '$lib/components/ui/button/index.js';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';

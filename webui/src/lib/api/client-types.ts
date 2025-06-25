@@ -483,27 +483,6 @@ export interface components {
             client_secret?: string | null;
         };
         /**
-         * Constant
-         * @description Model for a constant.
-         */
-        Constant: {
-            /**
-             * Name
-             * @description Descriptive name of the constant. This can be used in UI and visualizations. Example: 'maximum cost'.
-             */
-            name: string;
-            /**
-             * Symbol
-             * @description Symbol to represent the constant. This will be used in the rest of the problem definition. It may also be used in UIs and visualizations. Example: 'c_1'.
-             */
-            symbol: string;
-            /**
-             * Value
-             * @description The value of the constant.
-             */
-            value: number | boolean;
-        };
-        /**
          * ConstantDB
          * @description The SQLModel equivalent to `Constant`.
          */
@@ -527,62 +506,6 @@ export interface components {
             id?: number | null;
             /** Problem Id */
             problem_id?: number | null;
-        };
-        /**
-         * Constraint
-         * @description Model for a constraint function.
-         */
-        Constraint: {
-            /**
-             * Name
-             * @description Descriptive name of the constraint. This can be used in UI and visualizations. Example: 'maximum length'.
-             */
-            name: string;
-            /**
-             * Symbol
-             * @description Symbol to represent the constraint. This will be used in the rest of the problem definition. It may also be used in UIs and visualizations. Example: 'g_1'.
-             */
-            symbol: string;
-            /** @description The type of the constraint. Constraints are assumed to be in a standard form where the supplied 'func' expression is on the left hand side of the constraint's expression, and on the right hand side a zero value is assume. The comparison between the left hand side and right hand side is either and quality comparison ('=') or lesser than equal comparison ('<='). */
-            cons_type: components["schemas"]["ConstraintTypeEnum"];
-            /**
-             * Func
-             * @description Function of the constraint. This is a JSON object that can be parsed into a function.Must be a valid MathJSON object. The symbols in the function must match objective/variable/constant symbols.Can be 'None' if either 'simulator_path' or 'surrogates' is not 'None'. If 'None', either 'simulator_path' or 'surrogates' must not be 'None'.
-             */
-            func?: unknown[] | null;
-            /**
-             * Simulator Path
-             * @description Path to a python file with the connection to simulators. Must be a valid Path.Can be 'None' for if either 'func' or 'surrogates' is not 'None'.If 'None', either 'func' or 'surrogates' must not be 'None'.
-             */
-            simulator_path?: string | null;
-            /**
-             * Surrogates
-             * @description A list of paths to models saved on disk. Can be 'None' for if either 'func' or 'simulator_path' is not 'None'. If 'None', either 'func' or 'simulator_path' must not be 'None'.
-             */
-            surrogates?: string[] | null;
-            /**
-             * Is Linear
-             * @description Whether the constraint is linear or not. Defaults to True, e.g., a linear constraint is assumed.
-             * @default true
-             */
-            is_linear: boolean;
-            /**
-             * Is Convex
-             * @description Whether the function expression is convex or not (non-convex). Defaults to `False`.
-             * @default false
-             */
-            is_convex: boolean;
-            /**
-             * Is Twice Differentiable
-             * @description Whether the function expression is twice differentiable or not. Defaults to `False`
-             * @default false
-             */
-            is_twice_differentiable: boolean;
-            /**
-             * Scenario Keys
-             * @description Optional. The keys of the scenarios the constraint belongs to.
-             */
-            scenario_keys?: string[] | null;
         };
         /**
          * ConstraintDB
@@ -647,40 +570,6 @@ export interface components {
             info?: string | null;
         };
         /**
-         * DiscreteRepresentation
-         * @description Model to represent discrete objective function and decision variable pairs.
-         *
-         *     Can be used alongside an analytical representation as well.
-         *
-         *     Used with Objectives of type 'data_based' by default. Each of the decision
-         *     variable values and objective functions values are ordered in their
-         *     respective dict entries. This means that the decision variable values found
-         *     at `variable_values['x_i'][j]` correspond to the objective function values
-         *     found at `objective_values['f_i'][j]` for all `i` and some `j`.
-         */
-        DiscreteRepresentation: {
-            /**
-             * Variable Values
-             * @description A dictionary with decision variable values. Each dict key points to a list of all the decision variable values available for the decision variable given in the key. The keys must match the 'symbols' defined for the decision variables.
-             */
-            variable_values: {
-                [key: string]: (number | boolean)[];
-            };
-            /**
-             * Objective Values
-             * @description A dictionary with objective function values. Each dict key points to a list of all the objective function values available for the objective function given in the key. The keys must match the 'symbols' defined for the objective functions.
-             */
-            objective_values: {
-                [key: string]: number[];
-            };
-            /**
-             * Non Dominated
-             * @description Indicates whether the representation consists of non-dominated points or not.If False, some method can employ non-dominated sorting, which might slow an interactive method down.
-             * @default false
-             */
-            non_dominated: boolean;
-        };
-        /**
          * DiscreteRepresentationDB
          * @description The SQLModel equivalent to `DiscreteRepresentation`.
          */
@@ -702,63 +591,6 @@ export interface components {
             id?: number | null;
             /** Problem Id */
             problem_id?: number | null;
-        };
-        /**
-         * ExtraFunction
-         * @description Model for extra functions.
-         *
-         *     These functions can, e.g., be functions that are re-used in the problem formulation, or
-         *     they are needed for other computations related to the problem.
-         */
-        ExtraFunction: {
-            /**
-             * Name
-             * @description Descriptive name of the function. Example: 'normalization'.
-             */
-            name: string;
-            /**
-             * Symbol
-             * @description Symbol to represent the function. This will be used in the rest of the problem definition. It may also be used in UIs and visualizations. Example: 'avg'.
-             */
-            symbol: string;
-            /**
-             * Func
-             * @description The string representing the function. This is a JSON object that can be parsed into a function.Must be a valid MathJSON object. The symbols in the function must match symbols defined for objective/variable/constant.Can be 'None' if either 'simulator_path' or 'surrogates' is not 'None'. If 'None', either 'simulator_path' or 'surrogates' must not be 'None'.
-             */
-            func?: unknown[] | null;
-            /**
-             * Simulator Path
-             * @description Path to a python file with the connection to simulators. Must be a valid Path.Can be 'None' for 'analytical', 'data_based' or 'surrogate' functions.If 'None', either 'func' or 'surrogates' must not be 'None'.
-             */
-            simulator_path?: string | null;
-            /**
-             * Surrogates
-             * @description A list of paths to models saved on disk. Can be 'None' for 'analytical', 'data_based or 'simulator' functions. If 'None', either 'func' or 'simulator_path' must not be 'None'.
-             */
-            surrogates?: string[] | null;
-            /**
-             * Is Linear
-             * @description Whether the function expression is linear or not. Defaults to `False`.
-             * @default false
-             */
-            is_linear: boolean;
-            /**
-             * Is Convex
-             * @description Whether the function expression is convex or not (non-convex). Defaults to `False`.
-             * @default false
-             */
-            is_convex: boolean;
-            /**
-             * Is Twice Differentiable
-             * @description Whether the function expression is twice differentiable or not. Defaults to `False`
-             * @default false
-             */
-            is_twice_differentiable: boolean;
-            /**
-             * Scenario Keys
-             * @description Optional. The keys of the scenario the extra functions belongs to.
-             */
-            scenario_keys?: string[] | null;
         };
         /**
          * ExtraFunctionDB
@@ -1015,86 +847,6 @@ export interface components {
             solver_results: components["schemas"]["SolverResults"][];
         };
         /**
-         * Objective
-         * @description Model for an objective function.
-         */
-        Objective: {
-            /**
-             * Name
-             * @description Descriptive name of the objective function. This can be used in UI and visualizations. Example: 'time'.
-             */
-            name: string;
-            /**
-             * Symbol
-             * @description Symbol to represent the objective function. This will be used in the rest of the problem definition. It may also be used in UIs and visualizations. Example: 'f_1'.
-             */
-            symbol: string;
-            /**
-             * Unit
-             * @description The unit of the objective function. This is optional. Used in UIs and visualizations. Example: 'seconds' or 'millions of hectares'.
-             */
-            unit?: string | null;
-            /**
-             * Func
-             * @description The objective function. This is a JSON object that can be parsed into a function.Must be a valid MathJSON object. The symbols in the function must match the symbols defined for variable/constant/extra function. Can be 'None' for 'data_based', 'simulator' or 'surrogate' objective functions. If 'None', either 'simulator_path' or 'surrogates' must not be 'None'.
-             */
-            func?: unknown[] | null;
-            /**
-             * Simulator Path
-             * @description Path to a python file with the connection to simulators. Must be a valid Path.Can be 'None' for 'analytical', 'data_based' or 'surrogate' objective functions.If 'None', either 'func' or 'surrogates' must not be 'None'.
-             */
-            simulator_path?: string | null;
-            /**
-             * Surrogates
-             * @description A list of paths to models saved on disk. Can be 'None' for 'analytical', 'data_based or 'simulator' objective functions. If 'None', either 'func' or 'simulator_path' must not be 'None'.
-             */
-            surrogates?: string[] | null;
-            /**
-             * Maximize
-             * @description Whether the objective function is to be maximized or minimized.
-             * @default false
-             */
-            maximize: boolean;
-            /**
-             * Ideal
-             * @description Ideal value of the objective. This is optional.
-             */
-            ideal?: number | null;
-            /**
-             * Nadir
-             * @description Nadir value of the objective. This is optional.
-             */
-            nadir?: number | null;
-            /**
-             * @description The type of objective function. 'analytical' means the objective function value is calculated based on 'func'. 'data_based' means the objective function value should be retrieved from a table. In case of 'data_based' objective function, the 'func' field is ignored. Defaults to 'analytical'.
-             * @default analytical
-             */
-            objective_type: components["schemas"]["ObjectiveTypeEnum"];
-            /**
-             * Is Linear
-             * @description Whether the function expression is linear or not. Defaults to `False`.
-             * @default false
-             */
-            is_linear: boolean;
-            /**
-             * Is Convex
-             * @description Whether the function expression is convex or not (non-convex). Defaults to `False`.
-             * @default false
-             */
-            is_convex: boolean;
-            /**
-             * Is Twice Differentiable
-             * @description Whether the function expression is twice differentiable or not. Defaults to `False`
-             * @default false
-             */
-            is_twice_differentiable: boolean;
-            /**
-             * Scenario Keys
-             * @description Optional. The keys of the scenarios the objective function belongs to.
-             */
-            scenario_keys?: string[] | null;
-        };
-        /**
          * ObjectiveDB
          * @description The SQLModel equivalent to `Objective`.
          */
@@ -1172,79 +924,6 @@ export interface components {
          * @enum {string}
          */
         ObjectiveTypeEnum: "analytical" | "data_based" | "simulator" | "surrogate";
-        /**
-         * Problem
-         * @description Model for a problem definition.
-         */
-        Problem: {
-            /**
-             * Name
-             * @description Name of the problem.
-             */
-            name: string;
-            /**
-             * Description
-             * @description Description of the problem.
-             */
-            description: string;
-            /**
-             * Constants
-             * @description Optional list of the constants present in the problem.
-             */
-            constants?: (components["schemas"]["Constant"] | components["schemas"]["TensorConstant"])[] | null;
-            /**
-             * Variables
-             * @description List of variables present in the problem.
-             */
-            variables: (components["schemas"]["Variable"] | components["schemas"]["TensorVariable"])[];
-            /**
-             * Objectives
-             * @description List of the objectives present in the problem.
-             */
-            objectives: components["schemas"]["Objective"][];
-            /**
-             * Constraints
-             * @description Optional list of constraints present in the problem.
-             */
-            constraints?: components["schemas"]["Constraint"][] | null;
-            /**
-             * Extra Funcs
-             * @description Optional list of extra functions. Use this if some function is repeated multiple times.
-             */
-            extra_funcs?: components["schemas"]["ExtraFunction"][] | null;
-            /**
-             * Scalarization Funcs
-             * @description Optional list of scalarization functions of the problem.
-             */
-            scalarization_funcs?: components["schemas"]["ScalarizationFunction"][] | null;
-            /** @description Optional. Required when there are one or more 'data_based' Objectives. The corresponding values of the 'data_based' objective function will be fetched from this with the given variable values. Is also utilized for methods which require both an analytical and discrete representation of a problem. */
-            discrete_representation?: components["schemas"]["DiscreteRepresentation"] | null;
-            /**
-             * Scenario Keys
-             * @description Optional. The scenario keys defined for the problem. Each key will point to a subset of objectives, constraints, extra functions, and scalarization functions that have the same scenario key defined to them.If None, then the problem is assumed to not contain scenarios.
-             */
-            scenario_keys?: string[] | null;
-            /**
-             * Simulators
-             * @description Optional. The simulators used by the problem. Required when there are one or more Objectives defined by simulators. The corresponding values of the 'simulator' objective function will be fetched from these simulators with the given variable values.
-             */
-            simulators?: components["schemas"]["Simulator"][] | null;
-            /**
-             * Is Convex
-             * @description Optional. Used to manually indicate if the problem, as a whole, can be considered to be convex. If set to `None`, this property will be automatically inferred from the respective properties of other attributes.
-             */
-            is_convex?: boolean | null;
-            /**
-             * Is Linear
-             * @description Optional. Used to manually indicate if the problem, as a whole, can be considered to be linear. If set to `None`, this property will be automatically inferred from the respective properties of other attributes.
-             */
-            is_linear?: boolean | null;
-            /**
-             * Is Twice Differentiable
-             * @description Optional. Used to manually indicate if the problem, as a whole, can be considered to be twice differentiable. If set to `None`, this property will be automatically inferred from the respective properties of other attributes.
-             */
-            is_twice_differentiable?: boolean | null;
-        };
         /**
          * ProblemGetRequest
          * @description Model to deal with problem fetching requests.
@@ -1388,50 +1067,6 @@ export interface components {
             };
         };
         /**
-         * ScalarizationFunction
-         * @description Model for scalarization of the problem.
-         */
-        ScalarizationFunction: {
-            /**
-             * Name
-             * @description Name of the scalarization function.
-             */
-            name: string;
-            /**
-             * Symbol
-             * @description Optional symbol to represent the scalarization function. This may be used in UIs and visualizations.
-             */
-            symbol?: string | null;
-            /**
-             * Func
-             * @description Function representation of the scalarization. This is a JSON object that can be parsed into a function.Must be a valid MathJSON object. The symbols in the function must match the symbols defined for objective/variable/constant/extra function.
-             */
-            func: unknown[];
-            /**
-             * Is Linear
-             * @description Whether the function expression is linear or not. Defaults to `False`.
-             * @default false
-             */
-            is_linear: boolean;
-            /**
-             * Is Convex
-             * @description Whether the function expression is convex or not (non-convex). Defaults to `False`.
-             * @default false
-             */
-            is_convex: boolean;
-            /**
-             * Is Twice Differentiable
-             * @description Whether the function expression is twice differentiable or not. Defaults to `False`
-             * @default false
-             */
-            is_twice_differentiable: boolean;
-            /**
-             * Scenario Keys
-             * @description Optional. The keys of the scenarios the scalarization function belongs to.
-             */
-            scenario_keys?: string[];
-        };
-        /**
          * ScalarizationFunctionDB
          * @description The SQLModel equivalent to `ScalarizationFunction`.
          */
@@ -1472,35 +1107,6 @@ export interface components {
             id?: number | null;
             /** Problem Id */
             problem_id?: number | null;
-        };
-        /**
-         * Simulator
-         * @description Model for simulator data.
-         */
-        Simulator: {
-            /**
-             * Name
-             * @description Descriptive name of the simulator. This can be used in UI and visualizations.
-             */
-            name: string;
-            /**
-             * Symbol
-             * @description Symbol to represent the simulator. This will be used in the rest of the problem definition. It may also be used in UIs and visualizations.
-             */
-            symbol: string;
-            /**
-             * File
-             * Format: path
-             * @description Path to a python file with the connection to simulators.
-             */
-            file: string;
-            /**
-             * Parameter Options
-             * @description Parameters to the simulator that are not decision variables, but affect the results.Format is similar to decision variables. Can be 'None'.
-             */
-            parameter_options?: {
-                [key: string]: unknown;
-            } | null;
         };
         /**
          * SimulatorDB
@@ -1582,37 +1188,13 @@ export interface components {
              */
             message: string;
         };
-        "Tensor-Input": components["schemas"]["Tensor-Input"][] | (number | boolean)[] | number | boolean | "List" | null;
-        "Tensor-Output": components["schemas"]["Tensor-Output"][] | (number | boolean)[] | number | boolean | "List" | null;
-        /**
-         * TensorConstant
-         * @description Model for a tensor containing constant values.
-         */
-        TensorConstant: {
-            /**
-             * Name
-             * @description Descriptive name of the tensor representing the values. E.g., 'distances'
-             */
-            name: string;
-            /**
-             * Symbol
-             * @description Symbol to represent the constant. This will be used in the rest of the problem definition. Notice that the elements of the tensor will be represented with the symbol followed by indices. E.g., the first element of the third element of a 2-dimensional tensor, is represented by 'x_1_3', where 'x' is the symbol given to the TensorVariable. Note that indexing starts from 1.
-             */
-            symbol: string;
-            /**
-             * Shape
-             * @description A list of the dimensions of the tensor, e.g., `[2, 3]` would indicate a matrix with 2 rows and 3 columns.
-             */
-            shape: number[];
-            /** @description A list of lists, with the elements representing the values of each constant element in the tensor. E.g., `[[5, 22, 0], [14, 5, 44]]`. */
-            values: components["schemas"]["Tensor-Input"];
-        };
+        Tensor: components["schemas"]["Tensor"][] | (number | boolean)[] | number | boolean | "List" | null;
         /**
          * TensorConstantDB
          * @description The SQLModel equivalent to `TensorConstant`.
          */
         TensorConstantDB: {
-            values: components["schemas"]["Tensor-Output"];
+            values: components["schemas"]["Tensor"];
             /** Shape */
             shape: number[];
             /**
@@ -1631,48 +1213,13 @@ export interface components {
             problem_id?: number | null;
         };
         /**
-         * TensorVariable
-         * @description Model for a tensor, e.g., vector variable.
-         */
-        TensorVariable: {
-            /**
-             * Name
-             * @description Descriptive name of the variable. This can be used in UI and visualizations. Example: 'velocity'.
-             */
-            name: string;
-            /**
-             * Symbol
-             * @description Symbol to represent the variable. This will be used in the rest of the problem definition. Notice that the elements of the tensor will be represented with the symbol followed by indices. E.g., the first element of the third element of a 2-dimensional tensor, is represented by 'x_1_3', where 'x' is the symbol given to the TensorVariable. Note that indexing starts from 1.
-             */
-            symbol: string;
-            /** @description Type of the variable. Can be real, integer, or binary. Note that each element of a TensorVariable is assumed to be of the same type. */
-            variable_type: components["schemas"]["VariableTypeEnum"];
-            /**
-             * Shape
-             * @description A list of the dimensions of the tensor, e.g., `[2, 3]` would indicate a matrix with 2 rows and 3 columns.
-             */
-            shape: number[];
-            /** @description A list of lists, with the elements representing the lower bounds of each element. E.g., `[[1, 2, 3], [4, 5, 6]]`. If a single value is supplied, that value is assumed to be the lower bound of each element. Defaults to None. */
-            lowerbounds?: components["schemas"]["Tensor-Input"] | null;
-            /**
-             * Upperbounds
-             * @description A list of lists, with the elements representing the upper bounds of each element.  E.g., `[[1, 2, 3], [4, 5, 6]]`. If a single value is supplied, that value is assumed to be the upper bound of each element. Defaults to None.
-             */
-            upperbounds?: components["schemas"]["Tensor-Input"] | number | boolean | null;
-            /**
-             * Initial Values
-             * @description A list of lists, with the elements representing the initial values of each element.  E.g., `[[1, 2, 3], [4, 5, 6]]`. If a single value is supplied, that value is assumed to be the initial value of each element. Defaults to None.
-             */
-            initial_values?: components["schemas"]["Tensor-Input"] | number | boolean | null;
-        };
-        /**
          * TensorVariableDB
          * @description The SQLModel equivalent to `TensorVariable`.
          */
         TensorVariableDB: {
-            initial_values: components["schemas"]["Tensor-Output"] | null;
-            lowerbounds: components["schemas"]["Tensor-Output"] | null;
-            upperbounds: components["schemas"]["Tensor-Output"] | null;
+            initial_values: components["schemas"]["Tensor"] | null;
+            lowerbounds: components["schemas"]["Tensor"] | null;
+            upperbounds: components["schemas"]["Tensor"] | null;
             /** Shape */
             shape: number[];
             /**
@@ -1787,39 +1334,6 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
-        };
-        /**
-         * Variable
-         * @description Model for a variable.
-         */
-        Variable: {
-            /**
-             * Name
-             * @description Descriptive name of the variable. This can be used in UI and visualizations. Example: 'velocity'.
-             */
-            name: string;
-            /**
-             * Symbol
-             * @description Symbol to represent the variable. This will be used in the rest of the problem definition. It may also be used in UIs and visualizations. Example: 'v_1'.
-             */
-            symbol: string;
-            /** @description Type of the variable. Can be real, integer or binary. */
-            variable_type: components["schemas"]["VariableTypeEnum"];
-            /**
-             * Lowerbound
-             * @description Lower bound of the variable.
-             */
-            lowerbound?: number | boolean | null;
-            /**
-             * Upperbound
-             * @description Upper bound of the variable.
-             */
-            upperbound?: number | boolean | null;
-            /**
-             * Initial Value
-             * @description Initial value of the variable. This is optional.
-             */
-            initial_value?: number | boolean | null;
         };
         /**
          * VariableDB
@@ -2131,11 +1645,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Problem"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -2144,15 +1654,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProblemInfo"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

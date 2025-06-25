@@ -1,9 +1,42 @@
 <script lang="ts">
+	/**
+	 * +page.svelte
+	 *
+	 * @author Giomara Larraga <glarragw@jyu.fi>
+	 * @created June 2025
+	 *
+	 * @description
+	 * This page displays a list of optimization problems in DESDEO and allows users to view details for each problem.
+	 * It features a data table for problem selection and tabbed views for general info, objectives, variables, constraints, and extra functions.
+	 * Each table supports detailed dialogs for mathematical formulations.
+	 *
+	 * @props
+	 * @property {Object} data - Contains a list of optimization problems fetched from the server.
+	 * @property {ProblemInfo[]} data.problemList - List of problems.
+	 *
+	 * @features
+	 * - DataTable for selecting a problem.
+	 * - Tabbed interface for viewing problem details.
+	 * - Dialogs for viewing math expressions for objectives, constraints, and extra functions.
+	 *
+	 * @dependencies
+	 * - DataTable: Custom data table component for problems.
+	 * - Tabs, Table, Dialog: UI components.
+	 * - MathExpressionRenderer: Renders math expressions.
+	 * - OpenAPI-generated ProblemInfo type.
+	 *
+	 * @notes
+	 * - TODO: Add functionality to create, edit, and delete problems.
+	 * - TODO: Add table of available solutions in the general tab (see: https://github.com/giomara-larraga/DESDEO/blob/temp/webui/src/routes/(app)/problem/%2Bpage.svelte).
+	 * - isConvex, isLinear, isTwice differentiable are empty for all the problems available.
+	 * - Properties isSurrogateAvailable, constraint.simulated, and constraint.expensive (or equivalents) are missing in the problem type.
+	 */
+
 	import DataTable from '$lib/components/custom/problems-data-table/data-table.svelte';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
-	import { Button, buttonVariants } from '$lib/components/ui/button';
+	import { buttonVariants } from '$lib/components/ui/button';
 	import type { components } from '$lib/api/client-types';
 
 	type ProblemInfo = components['schemas']['ProblemInfo'];
@@ -41,24 +74,22 @@
 						<Tabs.Trigger value="constraints">Constraints</Tabs.Trigger>
 						<Tabs.Trigger value="extra">Extra Functions</Tabs.Trigger>
 					</Tabs.List>
+
+					<!-- General Tab -->
 					<Tabs.Content value="general" class="w-full">
 						{#if selectedProblem}
 							<div class="my-4 rounded-lg border border-gray-200 bg-gray-50 p-4 shadow-sm">
 								<div class="grid w-full grid-cols-2 gap-x-4 gap-y-2 text-justify">
-									<!-- Description row -->
 									<div class="col-span-2 flex">
 										<div class="w-40 font-semibold">Description</div>
 										<div class="flex-1">{selectedProblem.description ?? '—'}</div>
 									</div>
-
 									<div class="col-span-2 border-b border-gray-300"></div>
 									<div class="col-span-2 flex">
 										<div class="w-40 font-semibold">Domain</div>
 										<div class="flex-1">{selectedProblem.variable_domain ?? '—'}</div>
 									</div>
 									<div class="col-span-2 border-b border-gray-300"></div>
-
-									<!-- Characteristics row -->
 									<div class="col-span-2 flex items-center">
 										<div class="w-40 font-semibold">Characteristics</div>
 										<div class="flex flex-wrap gap-2">
@@ -80,12 +111,6 @@
 													>Twice Differentiable</span
 												>
 											{/if}
-											<!-- 											{#if selectedProblem.isSurrogateAvailable}
-												<span
-													class="inline-block rounded bg-yellow-100 px-2 py-1 text-xs font-semibold text-yellow-800"
-													>Surrogate Available</span
-												>
-											{/if} -->
 											{#if !selectedProblem.is_linear && !selectedProblem.is_convex && !selectedProblem.is_twice_differentiable}
 												<span
 													class="inline-block rounded bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-800"
@@ -95,122 +120,22 @@
 										</div>
 									</div>
 									<div class="col-span-2 border-b border-gray-300"></div>
-
-									<!-- Available solutions row (title) -->
-									<!-- 									<div class="col-span-2 mb-2">
-										<span class="font-semibold text-gray-800">Available solutions</span>
-									</div> -->
-									<!-- Solutions Table -->
-									<!-- <div class="col-span-2">
-										{#if selectedProblem.solutions?.length}
-											<div class="overflow-x-auto">
-												<Table.Root>
-													<Table.Header>
-														<Table.Row>
-															<Table.Head class="px-4 py-2 text-left font-semibold text-gray-700"
-																>Solution ID</Table.Head
-															>
-															<Table.Head class="px-4 py-2 text-left font-semibold text-gray-700"
-																>Details</Table.Head
-															>
-														</Table.Row>
-													</Table.Header>
-													<Table.Body>
-														{#each $selectedProblem.solutions as solution}
-															<Table.Row class="even:bg-gray-50">
-																<Table.Cell class="px-4 py-2">
-																	{solution.id}
-																</Table.Cell>
-																<Table.Cell class="px-4 py-2">
-																	<Dialog.Root>
-																		<Dialog.Trigger class={buttonVariants({ variant: 'outline' })}>
-																			View Details
-																		</Dialog.Trigger>
-																		<Dialog.Content
-																			class="max-h-[80vh] w-full max-w-4xl overflow-x-auto overflow-y-auto"
-																		>
-																			<Dialog.Header>
-																				<Dialog.Title>Details</Dialog.Title>
-																				<Dialog.Description>
-																					View the details of the {solution.id} solution below.
-																				</Dialog.Description>
-																			</Dialog.Header>
-																			<div class="grid gap-4 py-4">
-																				<div>
-																					<span class="font-semibold">ID:</span>
-																					{solution.id}
-																				</div>
-																				<div>
-																					<span class="font-semibold">Created At:</span>
-																					{solution.createdAt}
-																				</div>
-																				<div>
-																					<span class="font-semibold">Method:</span>
-																					{solution.method}
-																				</div>
-
-																				// Objectives Table 
-																				<div>
-																					<span class="font-semibold"
-																						>Objective function values:</span
-																					>
-																					<Table.Root>
-																						<Table.Header>
-																							<Table.Row>
-																								<Table.Head></Table.Head>
-																								{#each $selectedProblem.objectives as o}
-																									<Table.Head>{o.name}</Table.Head>
-																								{/each}
-																							</Table.Row>
-																						</Table.Header>
-																						<Table.Body>
-																							<Table.Row>
-																								<Table.Cell>Value</Table.Cell>
-																								{#each solution.objectives as o}
-																									<Table.Cell>{o}</Table.Cell>
-																								{/each}
-																							</Table.Row>
-																						</Table.Body>
-																					</Table.Root>
-																				</div>
-																			</div>
-																			<p class="mt-4 text-sm text-gray-600">
-																				For more details, go to the
-																				<a
-																					href="/archive"
-																					class="text-blue-600 underline hover:text-blue-800"
-																				>
-																					archive page
-																				</a>
-																				.
-																			</p>
-																		</Dialog.Content>
-																	</Dialog.Root>
-																</Table.Cell>
-															</Table.Row>
-														{/each} -->
-									<!-- 		</Table.Body>
-												</Table.Root> -->
-									<!-- 											</div>
-										{:else}
-											<p class="text-gray-500">—</p>
-										{/if} 
-									</div>-->
 								</div>
 							</div>
 						{:else}
 							Select a problem to see details.
 						{/if}
 					</Tabs.Content>
+
+					<!-- Objectives Tab -->
 					<Tabs.Content value="objectives" class="w-full">
 						{#if selectedProblem}
-							<!-- Objectives Table -->
 							{#if selectedProblem.objectives && Array.isArray(selectedProblem.objectives) && selectedProblem.objectives.length}
 								<div class="my-4 rounded-lg border border-gray-200 bg-gray-50 p-4 shadow-sm">
 									<Table.Root>
-										<Table.Caption
-											>List of objective functions for {selectedProblem.name}.</Table.Caption
-										>
+										<Table.Caption>
+											List of objective functions for {selectedProblem.name}.
+										</Table.Caption>
 										<Table.Header>
 											<Table.Row>
 												<Table.Head class="font-semibold">Name</Table.Head>
@@ -222,7 +147,7 @@
 											</Table.Row>
 										</Table.Header>
 										<Table.Body>
-											{#each selectedProblem.objectives as obj, i}
+											{#each selectedProblem.objectives as obj}
 												<Table.Row>
 													<Table.Cell class="text-justify"
 														>{(obj.symbol || obj.name) ?? '_'}</Table.Cell
@@ -233,8 +158,8 @@
 													>
 													<Table.Cell class="text-justify">{obj.ideal ?? '—'}</Table.Cell>
 													<Table.Cell class="text-justify">{obj.nadir ?? '—'}</Table.Cell>
-													<Table.Cell class="text-justify"
-														><Dialog.Root>
+													<Table.Cell class="text-justify">
+														<Dialog.Root>
 															<Dialog.Trigger
 																class={buttonVariants({ variant: 'outline' })}
 																disabled={!obj.func}
@@ -256,8 +181,8 @@
 																	</div>
 																</div>
 															</Dialog.Content>
-														</Dialog.Root></Table.Cell
-													>
+														</Dialog.Root>
+													</Table.Cell>
 												</Table.Row>
 											{/each}
 										</Table.Body>
@@ -270,9 +195,10 @@
 							Select a problem to see details.
 						{/if}
 					</Tabs.Content>
+
+					<!-- Variables Tab -->
 					<Tabs.Content value="variables" class="w-full">
 						{#if selectedProblem}
-							<!-- Variables Table -->
 							{#if selectedProblem.variables && Array.isArray(selectedProblem.variables) && selectedProblem.variables.length <= 10}
 								<div class="my-4 rounded-lg border border-gray-200 bg-gray-50 p-4 shadow-sm">
 									<Table.Root>
@@ -346,6 +272,8 @@
 							Select a problem to see details.
 						{/if}
 					</Tabs.Content>
+
+					<!-- Constraints Tab -->
 					<Tabs.Content value="constraints" class="w-full">
 						{#if selectedProblem}
 							{#if selectedProblem.constraints && Array.isArray(selectedProblem.constraints) && selectedProblem.constraints.length}
@@ -372,9 +300,6 @@
 													>
 													<Table.Cell class="text-justify">{constraint.cons_type ?? '—'}</Table.Cell
 													>
-													<!-- 													<Table.Cell class="text-justify"
-														>{constraint.simulated ? 'Simulated' : 'Analytical'}</Table.Cell
-													> -->
 													<Table.Cell class="text-justify"
 														>{constraint.is_convex ? 'Yes' : 'No'}</Table.Cell
 													>
@@ -423,6 +348,8 @@
 							Select a problem to see details.
 						{/if}
 					</Tabs.Content>
+
+					<!-- Extra Functions Tab -->
 					<Tabs.Content value="extra" class="w-full">
 						{#if selectedProblem}
 							{#if selectedProblem.extra_funcs && Array.isArray(selectedProblem.extra_funcs) && selectedProblem.extra_funcs.length}
@@ -478,7 +405,7 @@
 								<p>No extra function details available.</p>
 							{/if}
 						{:else}
-							select a problem to see details.
+							Select a problem to see details.
 						{/if}
 					</Tabs.Content>
 				</Tabs.Root>
