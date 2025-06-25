@@ -30,6 +30,7 @@
 	 * - TODO: Add table of available solutions in the general tab (see: https://github.com/giomara-larraga/DESDEO/blob/temp/webui/src/routes/(app)/problem/%2Bpage.svelte).
 	 * - isConvex, isLinear, isTwice differentiable are empty for all the problems available.
 	 * - Properties isSurrogateAvailable, constraint.simulated, and constraint.expensive (or equivalents) are missing in the problem type.
+	 * - There is no way to know if the problem was defined by the user or is a pre-defined problem.
 	 */
 
 	import DataTable from '$lib/components/custom/problems-data-table/data-table.svelte';
