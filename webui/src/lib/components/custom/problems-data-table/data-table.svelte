@@ -323,7 +323,7 @@
 					class: 'text-secondary-foreground flex h-8 w-8 cursor-pointer p-0'
 				})}
 			>
-				<a href={`/method?problemId=${encodeURIComponent(problem.id)}`}>
+				<a href={`/methods/initialize?problemId=${encodeURIComponent(problem.id)}`}>
 					<Play />
 				</a>
 			</Tooltip.Trigger>
