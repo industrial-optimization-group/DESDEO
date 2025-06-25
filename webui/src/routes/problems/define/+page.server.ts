@@ -1,6 +1,9 @@
 import { redirect } from '@sveltejs/kit';
-import type { PageServerLoad } from './$types';
+import type { PageServerLoad, Actions } from './$types';
 import { api } from '$lib/api/client';
+import { problemSchema, type Variable, type TensorVariable } from '$lib/schemas/problem';
+import { superValidate } from 'sveltekit-superforms';
+import { zod } from 'sveltekit-superforms/adapters';
 
 export const load: PageServerLoad = async ({ cookies }) => {
   const refreshToken = cookies.get('refresh_token');
@@ -11,16 +14,23 @@ export const load: PageServerLoad = async ({ cookies }) => {
 };
 
 
-export const actions = {
+export const actions: Actions = {
   create: async ({ request, cookies }) => {
-    const formData = await request.formData();
-    const name = formData.get('name') as string;
-    const description = formData.get('description') as string;
+    const form = await superValidate(request, zod(problemSchema));
+    // const form = await request.formData();
+    console.log('form', form);
+    const name = form.data.name;
+    const description = form.data.description;
+
+    // remove name field from each variable object. It is used for UI but not needed in the API
+    const cleanedVariables = Array.isArray(form.data.variables)
+  ? form.data.variables.map(({ type, ...rest }) => rest)
+  : [];
 
     // 1. Get refresh token from cookies
     const refreshToken = cookies.get('refresh_token');
     if (!refreshToken) {
-      return { error: 'Not authenticated' };
+      return { form, error: 'Not authenticated' };
     }
 
     // 2. Get a new access token from backend
@@ -33,7 +43,7 @@ export const actions = {
     });
 
     if (!refreshRes.ok) {
-      return { error: 'Failed to refresh token' };
+      return { form, error: 'Failed to refresh token' };
     }
 
     const { access_token } = await refreshRes.json();
@@ -44,18 +54,18 @@ export const actions = {
         body: {
           name,
           description,
-          variables: [],
+          variables: cleanedVariables,
           objectives: [],
-          constraints: [],
+          constants: [],
         },
         headers: {
           Authorization: `Bearer ${access_token}`,
           'Content-Type': 'application/json'
         }
       });
-      return { result: res.data };
-    } catch (e) {
-      return { error: 'Failed to add problem' };
+      return { form, result: res.data };
+  } catch (e) {
+      return { form, error: 'Failed to add problem' };
     }
   }
 };
