@@ -15,18 +15,49 @@
   }, { dataType: 'json'});
   const { form: formData, enhance, errors } = form;
 
+    let scalar: Variable = {
+    name: '',
+    symbol: '',
+    variable_type: "real",
+    lowerbound: null,
+    upperbound: null,
+    initial_value: null
+  };
+
+  let tensor: TensorVariable = {
+    name: '',
+    symbol: '',
+    variable_type: "real",
+    shape: [2],
+    lowerbounds: null,
+    upperbounds: null,
+    initial_values: null
+  };
+
+
   // Helper for adding/removing variables
   function addVariable() {
-    $formData.variables = [
-      ...$formData.variables,
-      { type: 'scalar', name: '', symbol: '', variable_type: 'real', lowerbound: null, upperbound: null, initial_value: null }
-    ];
+$formData.variables = [...$formData.variables, { ...scalar }];
+      scalar =  { 
+        name: '', 
+        symbol: '', 
+        variable_type: "real", 
+        lowerbound: null, 
+        upperbound: null, 
+        initial_value: null }
+    
   }
   function addTensorVariable() {
-    $formData.variables = [
-      ...$formData.variables,
-      { type: 'tensor', name: '', symbol: '', variable_type: 'real', shape: [2], lowerbounds: null, upperbounds: null, initial_values: null }
-    ];
+    $formData.variables = [  ...$formData.variables, {...tensor}];
+      tensor = { 
+        name: '', 
+        symbol: '', 
+        variable_type: "real", 
+        shape: [2], 
+        lowerbounds: null, 
+        upperbounds: null, 
+        initial_values: null }
+    
   }
   function removeVariable(idx: number) {
     $formData.variables = $formData.variables.filter((_, i) => i !== idx);
@@ -65,56 +96,106 @@
   </FormField>
 
   <div class="border rounded p-4">
-    <div class="flex gap-2 mb-2">
-      <button type="button" class="border px-2 py-1 rounded" on:click={addVariable}>+ Variable</button>
-      <button type="button" class="border px-2 py-1 rounded" on:click={addTensorVariable}>+ Tensor Variable</button>
-    </div>
-    {#each $formData.variables as variable, idx}
-      <div class="border p-2 mb-2 rounded bg-gray-50">
-        <div class="flex justify-between items-center mb-1">
-          <b>{variable.type === 'tensor' ? 'Tensor Variable' : 'Variable'} #{idx + 1}</b>
-          <button type="button" class="text-red-600" on:click={() => removeVariable(idx)}>Remove</button>
-        </div>
-        <div class="grid grid-cols-2 gap-2">
-          <Input placeholder="Name" bind:value={variable.name} />
-          <Input placeholder="Symbol" bind:value={variable.symbol} />
-          <select bind:value={variable.variable_type} class="border rounded px-2 py-1">
-            <option value="real">real</option>
-            <option value="integer">integer</option>
-            <option value="binary">binary</option>
-          </select>
-          {#if variable.type === 'tensor'}
-            <div class="col-span-2 flex items-center gap-2">
-              <span>Shape:</span>
-              {#each variable.shape as dim, dimIdx}
-                <input
-                  type="number"
-                  min="1"
-                  class="w-16 border rounded px-1 py-0.5"
-                  bind:value={variable.shape[dimIdx]}
-                  on:input={(e) => {
-                    const target = e.target as HTMLInputElement | null;
-                    if (target) {
-                      variable.shape[dimIdx] = Math.max(1, Number(target.value));
-                    }
-                  }}
-                />
-                <button type="button" class="text-red-500" on:click={() => removeShapeDim(variable, dimIdx)} disabled={variable.shape.length === 1}>–</button>
-              {/each}
-              <button type="button" class="text-green-600" on:click={() => addShapeDim(variable)}>+</button>
-            </div>
-            <Input placeholder="Lowerbounds (optional)" bind:value={variable.lowerbounds} />
-            <Input placeholder="Upperbounds (optional)" bind:value={variable.upperbounds} />
-            <Input placeholder="Initial values (optional)" bind:value={variable.initial_values} />
-          {:else}
-            <Input placeholder="Lowerbound (optional)" bind:value={variable.lowerbound} />
-            <Input placeholder="Upperbound (optional)" bind:value={variable.upperbound} />
-            <Input placeholder="Initial value (optional)" bind:value={variable.initial_value} />
-          {/if}
-        </div>
+       <div class="border p-2 rounded bg-gray-50">
+      <b>New Variable</b>
+      <div class="grid grid-cols-2 gap-2 mb-2">
+        <Input placeholder="Name" bind:value={scalar.name} />
+        <Input placeholder="Symbol" bind:value={scalar.symbol} />
+        <select bind:value={scalar.variable_type} class="border rounded px-2 py-1">
+          <option value="real">real</option>
+          <option value="integer">integer</option>
+          <option value="binary">binary</option>
+        </select>
+        <Input placeholder="Lowerbound (optional)" bind:value={scalar.lowerbound} />
+        <Input placeholder="Upperbound (optional)" bind:value={scalar.upperbound} />
+        <Input placeholder="Initial value (optional)" bind:value={scalar.initial_value} />
       </div>
-    {/each}
+      <button type="button" class="border px-2 py-1 rounded w-full" on:click={addVariable}>Add Variable</button>
+    </div>
   </div>
+    <!-- Tensor variable miniform -->
+  <div class="border p-2 rounded bg-gray-50">
+    <b>New Tensor Variable</b>
+    <div class="grid grid-cols-2 gap-2 mb-2">
+      <Input placeholder="Name" bind:value={tensor.name} />
+      <Input placeholder="Symbol" bind:value={tensor.symbol} />
+      <select bind:value={tensor.variable_type} class="border rounded px-2 py-1">
+        <option value="real">real</option>
+        <option value="integer">integer</option>
+        <option value="binary">binary</option>
+      </select>
+      <div class="col-span-2 flex items-center gap-2">
+        <span>Shape:</span>
+        {#each tensor.shape as dim, dimIdx}
+          <input
+            type="number"
+            min="1"
+            class="w-16 border rounded px-1 py-0.5"
+            bind:value={tensor.shape[dimIdx]}
+            on:input={(e) => {
+              const target = e.target as HTMLInputElement | null;
+              if (target) {
+                tensor.shape[dimIdx] = Math.max(1, Number(target.value));
+              }
+            }}
+          />
+          <button type="button" class="text-red-500" on:click={() => removeShapeDim(tensor, dimIdx)} disabled={tensor.shape.length === 1}>–</button>
+        {/each}
+        <button type="button" class="text-green-600" on:click={()=>addShapeDim(tensor)}>+</button>
+      </div>
+      <Input placeholder="Lowerbounds (optional)" bind:value={tensor.lowerbounds} />
+      <Input placeholder="Upperbounds (optional)" bind:value={tensor.upperbounds} />
+      <Input placeholder="Initial values (optional)" bind:value={tensor.initial_values} />
+    </div>
+    <button type="button" class="border px-2 py-1 rounded w-full" on:click={addTensorVariable}>Add Tensor Variable</button>
+  </div>
+  
+  <!-- List of added variables -->
+  {#each $formData.variables as variable, idx}
+    <div class="border p-2 mb-2 rounded bg-gray-50">
+      <div class="flex justify-between items-center mb-1">
+        <b>{'shape' in variable ? 'Tensor Variable' : 'Variable'} #{idx + 1}</b>
+        <button type="button" class="text-red-600" on:click={() => removeVariable(idx)}>Remove</button>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <Input placeholder="Name" bind:value={variable.name} />
+        <Input placeholder="Symbol" bind:value={variable.symbol} />
+        <select bind:value={variable.variable_type} class="border rounded px-2 py-1">
+          <option value="real">real</option>
+          <option value="integer">integer</option>
+          <option value="binary">binary</option>
+        </select>
+        {#if 'shape' in variable}
+          <div class="col-span-2 flex items-center gap-2">
+            <span>Shape:</span>
+            {#each variable.shape as dim, dimIdx}
+              <input
+                type="number"
+                min="1"
+                class="w-16 border rounded px-1 py-0.5"
+                bind:value={variable.shape[dimIdx]}
+                on:input={(e) => {
+                  const target = e.target as HTMLInputElement | null;
+                  if (target) {
+                    variable.shape[dimIdx] = Math.max(1, Number(target.value));
+                  }
+                }}
+              />
+              <button type="button" class="text-red-500" on:click={() => removeShapeDim(variable, dimIdx)} disabled={variable.shape.length === 1}>–</button>
+            {/each}
+            <button type="button" class="text-green-600" on:click={() => addShapeDim(variable)}>+</button>
+          </div>
+          <Input placeholder="Lowerbounds (optional)" bind:value={variable.lowerbounds} />
+          <Input placeholder="Upperbounds (optional)" bind:value={variable.upperbounds} />
+          <Input placeholder="Initial values (optional)" bind:value={variable.initial_values} />
+        {:else}
+          <Input placeholder="Lowerbound (optional)" bind:value={variable.lowerbound} />
+          <Input placeholder="Upperbound (optional)" bind:value={variable.upperbound} />
+          <Input placeholder="Initial value (optional)" bind:value={variable.initial_value} />
+        {/if}
+      </div>
+    </div>
+  {/each}
 
   <FormField form={form} name="constants">
     <FormControl>

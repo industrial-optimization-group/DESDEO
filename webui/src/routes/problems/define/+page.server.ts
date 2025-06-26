@@ -17,15 +17,9 @@ export const load: PageServerLoad = async ({ cookies }) => {
 export const actions: Actions = {
   create: async ({ request, cookies }) => {
     const form = await superValidate(request, zod(problemSchema));
-    // const form = await request.formData();
-    console.log('form', form);
     const name = form.data.name;
     const description = form.data.description;
-
-    // remove name field from each variable object. It is used for UI but not needed in the API
-    const cleanedVariables = Array.isArray(form.data.variables)
-  ? form.data.variables.map(({ type, ...rest }) => rest)
-  : [];
+    const variables = form.data.variables;
 
     // 1. Get refresh token from cookies
     const refreshToken = cookies.get('refresh_token');
@@ -54,7 +48,7 @@ export const actions: Actions = {
         body: {
           name,
           description,
-          variables: cleanedVariables,
+          variables,
           objectives: [],
           constants: [],
         },

@@ -1,7 +1,6 @@
 import { z } from 'zod';
 
 const VariableSchema = z.object({
-  type: z.enum(['scalar']),
   name: z.string(),
   symbol: z.string(),
   variable_type: z.enum(['real', 'integer', 'binary']),
@@ -11,15 +10,27 @@ const VariableSchema = z.object({
 });
 
 const TensorVariableSchema = z.object({
-  type: z.enum(['tensor']),
   name: z.string(),
   symbol: z.string(),
   variable_type: z.enum(['real', 'integer', 'binary']),
   shape: z.array(z.number()),
-  lowerbounds: z.array(z.number()).or(z.number()).or(z.boolean()).nullable().optional(),
-  upperbounds: z.array(z.number()).or(z.number()).or(z.boolean()).nullable().optional(),
-  initial_values: z.array(z.number()).or(z.number()).or(z.boolean()).nullable().optional(),
+  lowerbounds: z.array(z.number())
+    .or(z.number())
+    .or(z.boolean())
+    .nullable()
+    .optional(),
+  upperbounds: z.array(z.number())
+    .or(z.number())
+    .or(z.boolean())
+    .nullable()
+    .optional(),
+  initial_values: z.array(z.number())
+  .or(z.number())
+  .or(z.boolean())
+  .nullable()
+  .optional(),
 });
+
 
 // Zod schema for Problem, matching the OpenAPI Problem type
 // Only name, description, variables, and objectives are required for the minimal form
@@ -29,7 +40,7 @@ export const problemSchema = z.object({
   // Problem description (required, but can be empty string)
   description: z.string(),
   // Variables (required, can be empty array for now)
-  variables: z.array(z.discriminatedUnion('type', [VariableSchema, TensorVariableSchema])),
+  variables: z.array(z.union([TensorVariableSchema, VariableSchema])),
   // Objectives (required, can be empty array for now)
   objectives: z.array(z.unknown()), // TODO: Replace z.any() with a more specific schema as UI grows
   // Optional fields (nullable or optional in OpenAPI)
