@@ -18,15 +18,15 @@ from desdeo.tools.message import (
     Message,
     PolarsDataFrameMessage,
 )
-from desdeo.tools.patterns import Subscriber
+from desdeo.tools.patterns import Publisher, Subscriber
 
 
 class BaseCrossover(Subscriber):
     """A base class for crossover operators."""
 
-    def __init__(self, problem: Problem, **kwargs):
+    def __init__(self, problem: Problem, verbosity: int, publisher: Publisher):
         """Initialize a crossover operator."""
-        super().__init__(**kwargs)
+        super().__init__(verbosity=verbosity, publisher=publisher)
         self.problem = problem
         self.variable_symbols = [var.symbol for var in problem.get_flattened_variables()]
         self.lower_bounds = [var.lowerbound for var in problem.get_flattened_variables()]
@@ -60,7 +60,7 @@ class SimulatedBinaryCrossover(BaseCrossover):
     """
 
     @property
-    def provided_topics(self) -> dict[str, Sequence[CrossoverMessageTopics]]:
+    def provided_topics(self) -> dict[int, Sequence[CrossoverMessageTopics]]:
         """The message topics provided by the crossover operator."""
         return {
             0: [],
@@ -79,22 +79,30 @@ class SimulatedBinaryCrossover(BaseCrossover):
         return []
 
     def __init__(
-        self, *, problem: Problem, seed: int, xover_probability: float = 1.0, xover_distribution: float = 30, **kwargs
+        self,
+        *,
+        problem: Problem,
+        seed: int,
+        verbosity: int,
+        publisher: Publisher,
+        xover_probability: float = 1.0,
+        xover_distribution: float = 30,
     ):
         """Initialize a simulated binary crossover operator.
 
         Args:
             problem (Problem): the problem object.
             seed (int): the seed for the random number generator.
+            verbosity (int): the verbosity level of the component. The keys in `provided_topics` tell what
+                topics are provided by the operator at each verbosity level. Recommended to be set to 1.
+            publisher (Publisher): the publisher to which the operator will publish messages.
             xover_probability (float, optional): the crossover probability
                 parameter. Ranges between 0 and 1.0. Defaults to 1.0.
             xover_distribution (float, optional): the crossover distribution
                 parameter. Must be positive. Defaults to 30.
-            kwargs: Additional keyword arguments. These are passed to the Subscriber class. At the very least, the
-                publisher must be passed. See the Subscriber class for more information.
         """
         # Subscribes to no topics, so no need to stroe/pass the topics to the super class.
-        super().__init__(problem, **kwargs)
+        super().__init__(problem, verbosity=verbosity, publisher=publisher)
         self.problem = problem
 
         if not 0 <= xover_probability <= 1:
@@ -215,16 +223,17 @@ class SimulatedBinaryCrossover(BaseCrossover):
 class SinglePointBinaryCrossover(BaseCrossover):
     """A class that defines the single point binary crossover operation."""
 
-    def __init__(self, *, problem: Problem, seed: int, **kwargs):
+    def __init__(self, *, problem: Problem, seed: int, verbosity: int, publisher: Publisher):
         """Initialize the single point binary crossover operator.
 
         Args:
             problem (Problem): the problem object.
             seed (int): the seed used in the random number generator for choosing the crossover point.
-            kwargs: Additional keyword arguments. These are passed to the Subscriber class. At the very least, the
-                publisher must be passed. See the Subscriber class for more information.
+            verbosity (int): the verbosity level of the component. The keys in `provided_topics` tell what
+                topics are provided by the operator at each verbosity level.
+            publisher (Publisher): the publisher to which the operator will publish messages.
         """
-        super().__init__(problem, **kwargs)
+        super().__init__(problem, verbosity=verbosity, publisher=publisher)
         self.seed = seed
 
         self.parent_population: pl.DataFrame
@@ -233,7 +242,7 @@ class SinglePointBinaryCrossover(BaseCrossover):
         self.seed = seed
 
     @property
-    def provided_topics(self) -> dict[str, Sequence[CrossoverMessageTopics]]:
+    def provided_topics(self) -> dict[int, Sequence[CrossoverMessageTopics]]:
         """The message topics provided by the single point binary crossover operator."""
         return {
             0: [],
@@ -355,16 +364,17 @@ class SinglePointBinaryCrossover(BaseCrossover):
 class UniformIntegerCrossover(BaseCrossover):
     """A class that defines the uniform integer crossover operation."""
 
-    def __init__(self, *, problem: Problem, seed: int, **kwargs):
+    def __init__(self, *, problem: Problem, seed: int, verbosity: int, publisher: Publisher):
         """Initialize the uniform integer crossover operator.
 
         Args:
             problem (Problem): the problem object.
             seed (int): the seed used in the random number generator for choosing the crossover point.
-            kwargs: Additional keyword arguments. These are passed to the Subscriber class. At the very least, the
-                publisher must be passed. See the Subscriber class for more information.
+            verbosity (int): the verbosity level of the component. The keys in `provided_topics` tell what
+                topics are provided by the operator at each verbosity level. Recommended to be set to 1.
+            publisher (Publisher): the publisher to which the operator will publish messages.
         """
-        super().__init__(problem, **kwargs)
+        super().__init__(problem, verbosity=verbosity, publisher=publisher)
         self.seed = seed
 
         self.parent_population: pl.DataFrame
@@ -373,7 +383,7 @@ class UniformIntegerCrossover(BaseCrossover):
         self.seed = seed
 
     @property
-    def provided_topics(self) -> dict[str, Sequence[CrossoverMessageTopics]]:
+    def provided_topics(self) -> dict[int, Sequence[CrossoverMessageTopics]]:
         """The message topics provided by the single point binary crossover operator."""
         return {
             0: [],
@@ -484,16 +494,17 @@ class UniformMixedIntegerCrossover(BaseCrossover):
     stuff...
     """
 
-    def __init__(self, *, problem: Problem, seed: int, **kwargs):
+    def __init__(self, *, problem: Problem, seed: int, verbosity: int, publisher: Publisher):
         """Initialize the uniform integer crossover operator.
 
         Args:
             problem (Problem): the problem object.
             seed (int): the seed used in the random number generator for choosing the crossover point.
-            kwargs: Additional keyword arguments. These are passed to the Subscriber class. At the very least, the
-                publisher must be passed. See the Subscriber class for more information.
+            verbosity (int): the verbosity level of the component. The keys in `provided_topics` tell what
+                topics are provided by the operator at each verbosity level. Recommended to be set to 1.
+            publisher (Publisher): the publisher to which the operator will publish messages.
         """
-        super().__init__(problem, **kwargs)
+        super().__init__(problem, verbosity=verbosity, publisher=publisher)
         self.seed = seed
 
         self.parent_population: pl.DataFrame
@@ -502,7 +513,7 @@ class UniformMixedIntegerCrossover(BaseCrossover):
         self.seed = seed
 
     @property
-    def provided_topics(self) -> dict[str, Sequence[CrossoverMessageTopics]]:
+    def provided_topics(self) -> dict[int, Sequence[CrossoverMessageTopics]]:
         """The message topics provided by the single point binary crossover operator."""
         return {
             0: [],
@@ -633,15 +644,19 @@ class BlendAlphaCrossover(BaseCrossover):
         self,
         *,
         problem: Problem,
-        seed: int = 0,
+        verbosity: int,
+        publisher: Publisher,
+        seed: int,
         alpha: float = 0.5,
         xover_probability: float = 1.0,
-        **kwargs,
     ):
         """Initialize the blend alpha crossover operator.
 
         Args:
             problem (Problem): the problem object.
+            verbosity (int): the verbosity level of the component. The keys in `provided_topics` tell what
+                topics are provided by the operator at each verbosity level. Recommended to be set to 1.
+            publisher (Publisher): the publisher to which the operator will publish messages.
             seed (int): the seed used in the random number generator for choosing the crossover point.
             alpha (float, optional): non-negative blending factor 'alpha' that controls the extent to which
                 offspring may be sampled outside the interval defined by each pair of parent
@@ -649,10 +664,8 @@ class BlendAlphaCrossover(BaseCrossover):
                 parents range, larger alpha allows some outliers. Defaults to 0.5.
             xover_probability (float, optional): the crossover probability parameter.
                 Ranges between 0 and 1.0. Defaults to 1.0.
-            kwargs: Additional keyword arguments. These are passed to the Subscriber class. At the very least, the
-                publisher must be passed. See the Subscriber class for more information.
         """
-        super().__init__(problem=problem, **kwargs)
+        super().__init__(problem=problem, verbosity=verbosity, publisher=publisher)
 
         if problem.variable_domain is not VariableDomainTypeEnum.continuous:
             raise ValueError("BlendAlphaCrossover only works on continuous problems.")
@@ -665,6 +678,7 @@ class BlendAlphaCrossover(BaseCrossover):
         self.alpha = alpha
         self.xover_probability = xover_probability
         self.seed = seed
+        self.rng = np.random.default_rng(self.seed)
 
         self.parent_population: pl.DataFrame | None = None
         self.offspring_population: pl.DataFrame | None = None
@@ -716,15 +730,13 @@ class BlendAlphaCrossover(BaseCrossover):
         lower = c_min - self.alpha * span
         upper = c_max + self.alpha * span
 
-        rng = np.random.default_rng(self.seed)
-
-        uniform_1 = rng.random((mating_pop_size // 2, num_var))
-        uniform_2 = rng.random((mating_pop_size // 2, num_var))
+        uniform_1 = self.rng.random((mating_pop_size // 2, num_var))
+        uniform_2 = self.rng.random((mating_pop_size // 2, num_var))
 
         offspring1 = lower + uniform_1 * (upper - lower)
         offspring2 = lower + uniform_2 * (upper - lower)
 
-        mask = rng.random(mating_pop_size // 2) > self.xover_probability
+        mask = self.rng.random(mating_pop_size // 2) > self.xover_probability
         offspring1[mask, :] = parents1[mask, :]
         offspring2[mask, :] = parents2[mask, :]
 
@@ -802,16 +814,25 @@ class SingleArithmeticCrossover(BaseCrossover):
         """The message topics that the single arithmetic crossover operator is interested in."""
         return []
 
-    def __init__(self, problem: Problem, xover_probability: float = 1.0, seed: int = 0, **kwargs):
+    def __init__(
+        self,
+        problem: Problem,
+        verbosity: int,
+        publisher: Publisher,
+        seed: int,
+        xover_probability: float = 1.0,
+    ):
         """Initialize the single arithmetic crossover operator.
 
         Args:
             problem (Problem): the problem object.
+            verbosity (int): the verbosity level of the component. The keys in `provided_topics` tell what
+                topics are provided by the operator at each verbosity level. Recommended to be set to 1.
+            publisher (Publisher): the publisher to which the operator will publish messages.
             xover_probability (float): probability of performing crossover.
             seed (int): random seed for reproducibility.
-            kwargs: additional keyword arguments.
         """
-        super().__init__(problem=problem, **kwargs)
+        super().__init__(problem=problem, verbosity=verbosity, publisher=publisher)
 
         if not 0 <= xover_probability <= 1:
             raise ValueError("Crossover probability must be in [0, 1].")
@@ -955,22 +976,32 @@ class LocalCrossover(BaseCrossover):
         """The message topics that the local crossover operator is interested in."""
         return []
 
-    def __init__(self, problem: Problem, xover_probability: float = 1.0, seed: int = 0, **kwargs):
+    def __init__(
+        self,
+        problem: Problem,
+        verbosity: int,
+        publisher: Publisher,
+        seed: int,
+        xover_probability: float = 1.0,
+    ):
         """Initialize the local crossover operator.
 
         Args:
             problem (Problem): the problem object.
+            verbosity (int): the verbosity level of the component. The keys in `provided_topics` tell what
+                topics are provided by the operator at each verbosity level. Recommended to be set to 1.
+            publisher (Publisher): the publisher to which the operator will publish messages.
             xover_probability (float): probability of performing crossover.
             seed (int): random seed for reproducibility.
-            kwargs: additional keyword arguments.
         """
-        super().__init__(problem=problem, **kwargs)
+        super().__init__(problem=problem, verbosity=verbosity, publisher=publisher)
 
         if not 0 <= xover_probability <= 1:
             raise ValueError("Crossover probability must be in [0, 1].")
 
         self.xover_probability = xover_probability
         self.seed = seed
+        self.rng = np.random.default_rng(self.seed)
         self.parent_population: pl.DataFrame | None = None
         self.offspring_population: pl.DataFrame | None = None
 
@@ -1008,12 +1039,11 @@ class LocalCrossover(BaseCrossover):
         parents1 = mating_pop[0::2]
         parents2 = mating_pop[1::2]
 
-        rng = np.random.default_rng(self.seed)
         offspring = np.empty((mating_pop_size, num_var))
 
         for i in range(mating_pop_size // 2):
-            if rng.random() < self.xover_probability:
-                alpha = rng.random(num_var)
+            if self.rng.random() < self.xover_probability:
+                alpha = self.rng.random(num_var)
 
                 offspring[2 * i] = alpha * parents1[i] + (1 - alpha) * parents2[i]
                 offspring[2 * i + 1] = (1 - alpha) * parents1[i] + alpha * parents2[i]
@@ -1093,23 +1123,26 @@ class BoundedExponentialCrossover(BaseCrossover):
         self,
         *,
         problem: Problem,
-        seed: int = 0,
+        verbosity: int,
+        publisher: Publisher,
+        seed: int,
         lambda_: float = 1.0,
         xover_probability: float = 1.0,
-        **kwargs,
     ):
         """Initialize the bounded‐exponential crossover operator.
 
         Args:
             problem (Problem): the problem object.
+            verbosity (int): the verbosity level of the component. The keys in `provided_topics` tell what
+                topics are provided by the operator at each verbosity level. Recommended to be set to 1.
+            publisher (Publisher): the publisher to which the operator will publish messages.
             seed (int): random seed for the internal generator.
             lambda_ (float, optional): positive scale λ for the exponential distribution.
                 Defaults to 1.0.
             xover_probability (float, optional): probability of applying crossover
                 to each pair. Defaults to 1.0.
-            kwargs: passed to Subscriber (e.g. publisher).
         """
-        super().__init__(problem=problem, **kwargs)
+        super().__init__(problem=problem, verbosity=verbosity, publisher=publisher)
 
         if problem.variable_domain is not VariableDomainTypeEnum.continuous:
             raise ValueError("BoundedExponentialCrossover only works on continuous problems.")

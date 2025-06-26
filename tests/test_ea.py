@@ -39,11 +39,12 @@ from desdeo.emo.operators.mutation import (
     SelfAdaptiveGaussianMutation,
 )
 from desdeo.emo.operators.selection import (
+    NSGAIII_select,
     ParameterAdaptationStrategy,
     ReferenceVectorOptions,
     RVEASelector,
 )
-from desdeo.emo.operators.termination import MaxEvaluationsTerminator
+from desdeo.emo.operators.termination import MaxEvaluationsTerminator, MaxGenerationsTerminator
 from desdeo.problem import VariableDomainTypeEnum
 from desdeo.problem.testproblems import (
     dtlz2,
@@ -54,7 +55,9 @@ from desdeo.problem.testproblems import (
     simple_knapsack_vectors,
     simple_test_problem,
 )
+from desdeo.tools.message import IntMessage, TerminatorMessageTopics
 from desdeo.tools.patterns import Publisher, Subscriber
+from desdeo.tools.utils import repair
 
 
 @pytest.mark.ea
@@ -97,8 +100,8 @@ def test_recombination():
     publisher = Publisher()
     problem = dtlz2(n_objectives=3, n_variables=12)
 
-    crossover = SimulatedBinaryCrossover(problem=problem, publisher=publisher, seed=0)
-    mutation = BoundedPolynomialMutation(problem=problem, publisher=publisher, seed=0)
+    crossover = SimulatedBinaryCrossover(problem=problem, publisher=publisher, seed=0, verbosity=1)
+    mutation = BoundedPolynomialMutation(problem=problem, publisher=publisher, seed=0, verbosity=1)
 
     population = pl.DataFrame(
         np.vstack((np.zeros((10, 12)), np.zeros((10, 12)) + 1)), schema=[f"x_{i + 1}" for i in range(12)]
@@ -125,16 +128,20 @@ def test_generation():
         n_variables = 12 + n_obj
         problem = dtlz2(n_objectives=n_obj, n_variables=n_variables)
 
-        evaluator = EMOEvaluator(problem=problem, publisher=publisher)
+        evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
 
-        generator = LHSGenerator(problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0)
+        generator = LHSGenerator(
+            problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0, verbosity=1
+        )
 
         solutions, outputs = generator.do()
 
         assert solutions.shape == (10, n_variables)
         assert outputs.shape == (10, n_obj * 2 + 1)  # k objectives, k targets, and 1 extra function
 
-        generator = RandomGenerator(problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0)
+        generator = RandomGenerator(
+            problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0, verbosity=1
+        )
 
         solutions, outputs = generator.do()
 
@@ -190,8 +197,8 @@ def test_template():
         problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0, verbosity=2
     )
 
-    crossover = SimulatedBinaryCrossover(problem=problem, publisher=publisher, seed=0)
-    mutation = BoundedPolynomialMutation(problem=problem, publisher=publisher, seed=0)
+    crossover = SimulatedBinaryCrossover(problem=problem, publisher=publisher, seed=0, verbosity=1)
+    mutation = BoundedPolynomialMutation(problem=problem, publisher=publisher, seed=0, verbosity=1)
 
     selector = RVEASelector(
         problem=problem,
@@ -225,7 +232,7 @@ def test_template():
         for component in components
     ]
 
-    assert isinstance(publisher.check_consistency(), bool) and publisher.check_consistency()
+    assert publisher.check_consistency()[0], "Subscribers are subscribing to unregistered topics."
 
     results = template1(
         evaluator=evaluator,
@@ -253,7 +260,7 @@ def test_single_point_binary_crossover():
     publisher = Publisher()
 
     for problem in [simple_knapsack(), simple_knapsack_vectors()]:
-        crossover = SinglePointBinaryCrossover(problem=problem, publisher=publisher, seed=0)
+        crossover = SinglePointBinaryCrossover(problem=problem, publisher=publisher, seed=0, verbosity=1)
         num_vars = len(crossover.variable_symbols)
 
         population = pl.DataFrame(
@@ -294,7 +301,7 @@ def test_binary_flip_mutation():
     problem = simple_knapsack()
 
     # default mutation probability
-    mutation = BinaryFlipMutation(problem=problem, publisher=publisher, seed=0)
+    mutation = BinaryFlipMutation(problem=problem, publisher=publisher, seed=0, verbosity=1)
     num_vars = len(mutation.variable_symbols)
 
     population = pl.DataFrame(
@@ -313,7 +320,7 @@ def test_binary_flip_mutation():
     assert 0.0 in result.to_numpy()
 
     # all bits should flip
-    mutation = BinaryFlipMutation(problem=problem, publisher=publisher, seed=0, mutation_probability=1.0)
+    mutation = BinaryFlipMutation(problem=problem, publisher=publisher, seed=0, mutation_probability=1.0, verbosity=1)
     num_vars = len(mutation.variable_symbols)
 
     result = mutation.do(offsprings=population, parents=population)
@@ -323,7 +330,7 @@ def test_binary_flip_mutation():
     npt.assert_allclose(np.zeros((10, num_vars)), result)
 
     # no bit should flip
-    mutation = BinaryFlipMutation(problem=problem, publisher=publisher, seed=0, mutation_probability=0)
+    mutation = BinaryFlipMutation(problem=problem, publisher=publisher, seed=0, mutation_probability=0, verbosity=1)
     num_vars = len(mutation.variable_symbols)
 
     result = mutation.do(offsprings=population, parents=population)
@@ -341,10 +348,10 @@ def test_binary_generation():
 
     problem = simple_knapsack()
 
-    evaluator = EMOEvaluator(problem=problem, publisher=publisher)
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
 
     generator = RandomBinaryGenerator(
-        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0, verbosity=1
     )
 
     population, outputs = generator.do()
@@ -354,10 +361,10 @@ def test_binary_generation():
 
     problem = simple_knapsack_vectors()
 
-    evaluator = EMOEvaluator(problem=problem, publisher=publisher)
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
 
     generator = RandomBinaryGenerator(
-        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0, verbosity=1
     )
 
     population, outputs = generator.do()
@@ -376,7 +383,7 @@ def test_uniform_integer_crossover():
 
     problem = simple_integer_test_problem()
 
-    crossover = UniformIntegerCrossover(problem=problem, publisher=publisher, seed=1)
+    crossover = UniformIntegerCrossover(problem=problem, publisher=publisher, seed=1, verbosity=1)
     num_vars = len(crossover.variable_symbols)
 
     population = pl.DataFrame(
@@ -412,7 +419,7 @@ def test_integer_random_mutation():
     problem = simple_integer_test_problem()
 
     # default mutation probability
-    mutation = IntegerRandomMutation(problem=problem, publisher=publisher, seed=0)
+    mutation = IntegerRandomMutation(problem=problem, publisher=publisher, seed=0, verbosity=1)
     num_vars = len(mutation.variable_symbols)
 
     population = pl.DataFrame(
@@ -428,7 +435,9 @@ def test_integer_random_mutation():
         npt.assert_allclose(population, result)
 
     # zero mutation probability
-    mutation = IntegerRandomMutation(problem=problem, publisher=publisher, seed=0, mutation_probability=0.0)
+    mutation = IntegerRandomMutation(
+        problem=problem, publisher=publisher, seed=0, mutation_probability=0.0, verbosity=1
+    )
 
     population = pl.DataFrame(
         mutation.rng.integers(0, 10, size=(10, num_vars), endpoint=True),
@@ -450,10 +459,10 @@ def test_random_integer_generation():
 
     problem = simple_integer_test_problem()
 
-    evaluator = EMOEvaluator(problem=problem, publisher=publisher)
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
 
     generator = RandomIntegerGenerator(
-        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0, verbosity=1
     )
 
     population, outputs = generator.do()
@@ -477,8 +486,8 @@ def test_template_integer():
         problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0, verbosity=2
     )
 
-    crossover = UniformIntegerCrossover(problem=problem, publisher=publisher, seed=0)
-    mutation = IntegerRandomMutation(problem=problem, publisher=publisher, seed=0)
+    crossover = UniformIntegerCrossover(problem=problem, publisher=publisher, seed=0, verbosity=1)
+    mutation = IntegerRandomMutation(problem=problem, publisher=publisher, seed=0, verbosity=1)
 
     selector = RVEASelector(
         problem=problem,
@@ -512,7 +521,7 @@ def test_template_integer():
         for component in components
     ]
 
-    assert isinstance(publisher.check_consistency(), bool) and publisher.check_consistency()
+    assert publisher.check_consistency(), "Subscribers are subscribing to unregistered topics."
 
     results = template1(
         evaluator=evaluator,
@@ -534,10 +543,10 @@ def test_mixed_integer_generator():
 
     problem = momip_ti2()
 
-    evaluator = EMOEvaluator(problem=problem, publisher=publisher)
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
 
     generator = RandomMixedIntegerGenerator(
-        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0, verbosity=1
     )
 
     population, outputs = generator.do()
@@ -557,12 +566,14 @@ def test_uniform_mixed_integer_crossover():
 
     problem = momip_ti2()
 
-    crossover = UniformMixedIntegerCrossover(problem=problem, publisher=publisher, seed=1)
+    crossover: UniformMixedIntegerCrossover = UniformMixedIntegerCrossover(
+        problem=problem, publisher=publisher, seed=1, verbosity=1
+    )
     num_vars = len(crossover.variable_symbols)
 
-    evaluator = EMOEvaluator(problem=problem, publisher=publisher)
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
     generator = RandomMixedIntegerGenerator(
-        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0, verbosity=1
     )
 
     population, _ = generator.do()
@@ -596,11 +607,11 @@ def test_mixed_integer_random_mutation():
     problem = momip_ti2()
 
     # default mutation probability
-    mutation = MixedIntegerRandomMutation(problem=problem, publisher=publisher, seed=0)
+    mutation = MixedIntegerRandomMutation(problem=problem, publisher=publisher, seed=0, verbosity=1)
 
-    evaluator = EMOEvaluator(problem=problem, publisher=publisher)
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
     generator = RandomMixedIntegerGenerator(
-        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0, verbosity=1
     )
 
     population, _ = generator.do()
@@ -613,7 +624,9 @@ def test_mixed_integer_random_mutation():
         npt.assert_allclose(population, result)
 
     # zero mutation probability
-    mutation = MixedIntegerRandomMutation(problem=problem, publisher=publisher, seed=0, mutation_probability=0.0)
+    mutation = MixedIntegerRandomMutation(
+        problem=problem, publisher=publisher, seed=0, mutation_probability=0.0, verbosity=1
+    )
 
     population, _ = generator.do()
 
@@ -636,8 +649,8 @@ def test_template_mixed_integer():
         problem=problem, evaluator=evaluator, publisher=publisher, n_points=20, seed=0, verbosity=2
     )
 
-    crossover = UniformMixedIntegerCrossover(problem=problem, publisher=publisher, seed=0)
-    mutation = MixedIntegerRandomMutation(problem=problem, publisher=publisher, seed=0)
+    crossover = UniformMixedIntegerCrossover(problem=problem, publisher=publisher, seed=0, verbosity=1)
+    mutation = MixedIntegerRandomMutation(problem=problem, publisher=publisher, seed=0, verbosity=1)
 
     selector = RVEASelector(
         problem=problem,
@@ -671,7 +684,7 @@ def test_template_mixed_integer():
         for component in components
     ]
 
-    assert isinstance(publisher.check_consistency(), bool) and publisher.check_consistency()
+    assert publisher.check_consistency(), "Subscribers are subscribing to unregistered topics."
 
     results = template1(
         evaluator=evaluator,
@@ -730,11 +743,13 @@ def test_blend_alpha_crossover():
     assert problem.variable_domain is VariableDomainTypeEnum.continuous
 
     # create operator
-    crossover = BlendAlphaCrossover(problem=problem, publisher=publisher)
+    crossover = BlendAlphaCrossover(problem=problem, publisher=publisher, verbosity=1, seed=0)
     num_vars = len(crossover.variable_symbols)
 
-    evaluator = EMOEvaluator(problem=problem, publisher=publisher)
-    generator = RandomGenerator(problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0)
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
+    generator = RandomGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0, verbosity=1
+    )
 
     population, outputs = generator.do()
 
@@ -755,11 +770,15 @@ def test_single_arithmetic_crossover():
     problem = simple_test_problem()
     assert problem.variable_domain is VariableDomainTypeEnum.continuous
 
-    crossover = SingleArithmeticCrossover(problem=problem, publisher=publisher, xover_probability=1.0)
+    crossover = SingleArithmeticCrossover(
+        problem=problem, publisher=publisher, xover_probability=1.0, verbosity=1, seed=0
+    )
     num_vars = len(crossover.variable_symbols)
 
-    evaluator = EMOEvaluator(problem=problem, publisher=publisher)
-    generator = RandomGenerator(problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0)
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
+    generator = RandomGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0, verbosity=1
+    )
 
     population, outputs = generator.do()
 
@@ -782,11 +801,13 @@ def test_local_crossover():
     problem = simple_test_problem()
     assert problem.variable_domain is VariableDomainTypeEnum.continuous
 
-    crossover = LocalCrossover(problem=problem, publisher=publisher, xover_probability=1.0)
+    crossover = LocalCrossover(problem=problem, publisher=publisher, xover_probability=1.0, verbosity=1, seed=0)
     num_vars = len(crossover.variable_symbols)
 
-    evaluator = EMOEvaluator(problem=problem, publisher=publisher)
-    generator = RandomGenerator(problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0)
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
+    generator = RandomGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0, verbosity=1
+    )
 
     population, outputs = generator.do()
 
@@ -812,11 +833,11 @@ def test_mpt_mutation():
     problem = momip_ti2()
 
     # default mutation probability
-    mutation = MPTMutation(problem=problem, publisher=publisher, seed=0)
+    mutation = MPTMutation(problem=problem, publisher=publisher, seed=0, verbosity=1)
 
-    evaluator = EMOEvaluator(problem=problem, publisher=publisher)
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
     generator = RandomMixedIntegerGenerator(
-        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0, verbosity=1
     )
 
     population, _ = generator.do()
@@ -829,7 +850,7 @@ def test_mpt_mutation():
         npt.assert_allclose(population, result)
 
     # zero mutation probability
-    mutation = MPTMutation(problem=problem, publisher=publisher, seed=0, mutation_probability=0.0)
+    mutation = MPTMutation(problem=problem, publisher=publisher, seed=0, mutation_probability=0.0, verbosity=1)
 
     population, _ = generator.do()
 
@@ -849,16 +870,22 @@ def test_non_uniform_mutation():
     problem = momip_ti2()
 
     # default mutation probability
-    mutation = NonUniformMutation(problem=problem, publisher=publisher, seed=0, max_generations=100)
+    mutation = NonUniformMutation(problem=problem, publisher=publisher, seed=0, max_generations=100, verbosity=1)
 
-    evaluator = EMOEvaluator(problem=problem, publisher=publisher)
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
     generator = RandomMixedIntegerGenerator(
-        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0, verbosity=1
     )
 
     population, _ = generator.do()
 
-    mutation.update(generation=10)
+    mutation.update(
+        IntMessage(
+            topic=TerminatorMessageTopics.GENERATION,
+            value=10,  # Simulate that we are at generation 10
+            source="Just trust me.",
+        )
+    )
     result = mutation.do(offsprings=population, parents=population)
 
     assert result.shape == population.shape
@@ -868,10 +895,16 @@ def test_non_uniform_mutation():
 
     # zero mutation probability
     mutation = NonUniformMutation(
-        problem=problem, publisher=publisher, seed=0, mutation_probability=0.0, max_generations=100
+        problem=problem, publisher=publisher, seed=0, mutation_probability=0.0, max_generations=100, verbosity=1
     )
 
-    mutation.update(generation=10)
+    mutation.update(
+        IntMessage(
+            topic=TerminatorMessageTopics.GENERATION,
+            value=20,  # Simulate that we are at generation 20
+            source="It came to me in a dream.",
+        )
+    )
     population, _ = generator.do()
 
     result = mutation.do(offsprings=population, parents=population)
@@ -887,7 +920,7 @@ def test_self_adaptive_gaussian_mutation():
     publisher = Publisher()
     problem = dtlz2(n_objectives=3, n_variables=12)
 
-    mutation = SelfAdaptiveGaussianMutation(problem=problem, publisher=publisher, seed=42)
+    mutation = SelfAdaptiveGaussianMutation(problem=problem, publisher=publisher, seed=42, verbosity=1)
     num_vars = len(mutation.variable_symbols)
 
     # Create a dummy population
@@ -908,7 +941,9 @@ def test_self_adaptive_gaussian_mutation():
         npt.assert_allclose(mutated.to_numpy(), population.to_numpy())
 
     # Mutation with probability = 0.0
-    mutation = SelfAdaptiveGaussianMutation(problem=problem, publisher=publisher, seed=42, mutation_probability=0.0)
+    mutation = SelfAdaptiveGaussianMutation(
+        problem=problem, publisher=publisher, seed=42, mutation_probability=0.0, verbosity=1
+    )
 
     population = pl.DataFrame(
         mutation.rng.uniform(0, 1, size=(10, num_vars)),
@@ -930,11 +965,11 @@ def test_power_mutation_operator():
     problem = momip_ti2()
 
     # default mutation probability with power mutation
-    mutation = PowerMutation(problem=problem, publisher=publisher, seed=0, p=5)
+    mutation = PowerMutation(problem=problem, publisher=publisher, seed=0, p=5, verbosity=1)
 
-    evaluator = EMOEvaluator(problem=problem, publisher=publisher)
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
     generator = RandomMixedIntegerGenerator(
-        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0, verbosity=1
     )
 
     population, _ = generator.do()
@@ -949,7 +984,7 @@ def test_power_mutation_operator():
         npt.assert_allclose(population, result)
 
     # mutation probability = 0 → no mutation should happen
-    mutation = PowerMutation(problem=problem, publisher=publisher, seed=0, mutation_probability=0.0, p=5)
+    mutation = PowerMutation(problem=problem, publisher=publisher, seed=0, mutation_probability=0.0, p=5, verbosity=1)
 
     population, _ = generator.do()
     result = mutation.do(offsprings=population, parents=population)
@@ -967,11 +1002,13 @@ def test_bounded_exponential_crossover():
     assert problem.variable_domain is VariableDomainTypeEnum.continuous
 
     # create operator
-    crossover = BoundedExponentialCrossover(problem=problem, publisher=publisher, lambda_=1.0)
+    crossover = BoundedExponentialCrossover(problem=problem, publisher=publisher, lambda_=1.0, verbosity=1, seed=0)
     num_vars = len(crossover.variable_symbols)
 
-    evaluator = EMOEvaluator(problem=problem, publisher=publisher)
-    generator = RandomGenerator(problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0)
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
+    generator = RandomGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0, verbosity=1
+    )
 
     population, outputs = generator.do()
 
@@ -983,3 +1020,140 @@ def test_bounded_exponential_crossover():
     # offspring must differ from parents
     with npt.assert_raises(AssertionError):
         npt.assert_allclose(population, offspring)
+
+
+@pytest.mark.slow
+@pytest.mark.ea
+def test_crossover_in_EA():
+    xovers = ["sbx", "bex", "blend", "single_arithmetic", "local"]
+
+    for xover_name in xovers:
+        publisher = Publisher()
+        problem = dtlz2(n_objectives=3, n_variables=12)
+
+        evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
+
+        match xover_name:
+            case "sbx":
+                crossover = SimulatedBinaryCrossover(problem=problem, publisher=publisher, seed=0, verbosity=1)
+            case "bex":
+                crossover = BoundedExponentialCrossover(
+                    problem=problem, publisher=publisher, lambda_=1.0, verbosity=1, seed=0
+                )
+            case "blend":
+                crossover = BlendAlphaCrossover(problem=problem, publisher=publisher, verbosity=1, seed=0)
+            case "single_arithmetic":
+                crossover = SingleArithmeticCrossover(
+                    problem=problem, publisher=publisher, xover_probability=1.0, verbosity=1, seed=0
+                )
+            case "local":
+                crossover = LocalCrossover(
+                    problem=problem, publisher=publisher, xover_probability=1.0, verbosity=1, seed=0
+                )
+            case _:
+                raise ValueError(f"Unknown crossover type: {crossover}")
+
+        selector = NSGAIII_select(
+            problem=problem,
+            publisher=publisher,
+            verbosity=2,
+        )
+
+        n_points = selector.reference_vectors.shape[0]
+
+        generator = RandomGenerator(
+            problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0, verbosity=1
+        )
+
+        mutation = BoundedPolynomialMutation(
+            problem=problem,
+            publisher=publisher,
+            seed=0,
+            verbosity=1,
+        )
+
+        terminator = MaxGenerationsTerminator(
+            30,
+            publisher=publisher,
+        )
+
+        components = [evaluator, generator, crossover, mutation, selector, terminator]
+        [publisher.auto_subscribe(x) for x in components]
+        [publisher.register_topics(x.provided_topics[x.verbosity], x.__class__.__name__) for x in components]
+
+        try:
+            results = template1(
+                evaluator=evaluator,
+                crossover=crossover,
+                mutation=mutation,
+                generator=generator,
+                selection=selector,
+                terminator=terminator,
+            )
+        except Exception as e:
+            pytest.fail(f"Failed to run EA with crossover {crossover}: {e}")
+
+
+@pytest.mark.slow
+@pytest.mark.ea
+def test_mutation_in_EA():
+    mutations = ["bpm", "num", "power", "SAGM"]
+    for mut in mutations:
+        publisher = Publisher()
+        problem = dtlz2(n_objectives=3, n_variables=12)
+        repair_func = repair(
+            lower_bounds={v.symbol: v.lowerbound for v in problem.get_flattened_variables()},
+            upper_bounds={v.symbol: v.upperbound for v in problem.get_flattened_variables()},
+        )
+
+        evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
+        crossover = SimulatedBinaryCrossover(problem=problem, publisher=publisher, seed=0, verbosity=1)
+
+        selector = NSGAIII_select(
+            problem=problem,
+            publisher=publisher,
+            verbosity=2,
+        )
+
+        n_points = selector.reference_vectors.shape[0]
+
+        generator = RandomGenerator(
+            problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=0, verbosity=1
+        )
+
+        match mut:
+            case "bpm":
+                mutation = BoundedPolynomialMutation(problem=problem, publisher=publisher, seed=0, verbosity=1)
+            case "num":
+                mutation = NonUniformMutation(
+                    problem=problem, publisher=publisher, seed=0, max_generations=30, verbosity=1
+                )
+            case "power":
+                mutation = PowerMutation(problem=problem, publisher=publisher, seed=0, p=5, verbosity=1)
+            case "SAGM":
+                mutation = SelfAdaptiveGaussianMutation(problem=problem, publisher=publisher, seed=42, verbosity=1)
+            case _:
+                raise ValueError(f"Unknown mutation type: {mut}")
+
+        terminator = MaxGenerationsTerminator(
+            30,
+            publisher=publisher,
+        )
+
+        components = [evaluator, generator, crossover, mutation, selector, terminator]
+        [publisher.auto_subscribe(x) for x in components]
+        [publisher.register_topics(x.provided_topics[x.verbosity], x.__class__.__name__) for x in components]
+
+        try:
+            results = template1(
+                evaluator=evaluator,
+                crossover=crossover,
+                mutation=mutation,
+                generator=generator,
+                selection=selector,
+                terminator=terminator,
+                repair=repair_func,
+            )
+            print(results)
+        except Exception as e:
+            pytest.fail(f"Failed to run EA with mutation {mut}: {e}")

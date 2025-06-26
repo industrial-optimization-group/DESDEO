@@ -18,7 +18,7 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
     "numpy >= 2.2.0",
     "scipy >= 1.11.4",
-    "polars >= 1.17",
+    "polars == 1.30",
     "pyarrow >= 20.0.0",
     "numba >= 0.61.0",
     "pydantic >= 2.9",

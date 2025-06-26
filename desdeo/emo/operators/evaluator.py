@@ -13,7 +13,7 @@ from desdeo.tools.message import (
     Message,
     PolarsDataFrameMessage,
 )
-from desdeo.tools.patterns import Subscriber
+from desdeo.tools.patterns import Subscriber, Publisher
 
 
 class EMOEvaluator(Subscriber):
@@ -41,14 +41,12 @@ class EMOEvaluator(Subscriber):
         """The topics that the Evaluator is interested in."""
         return []
 
-    def __init__(
-        self,
-        problem: Problem,
-        verbosity: int = 1,
-        **kwargs,
-    ):
+    def __init__(self, problem: Problem, verbosity: int, publisher: Publisher):
         """Initialize the EMOEvaluator class."""
-        super().__init__(**kwargs)
+        super().__init__(
+            verbosity=verbosity,
+            publisher=publisher,
+        )
         self.problem = problem
         # TODO(@light-weaver, @gialmisi): This can be so much more efficient.
         self.evaluator = lambda x: Evaluator(problem).evaluate(
@@ -56,8 +54,7 @@ class EMOEvaluator(Subscriber):
         )
         self.variable_symbols = [name.symbol for name in problem.variables]
         self.population: pl.DataFrame
-        self.outs: pl.DataFrame
-        self.verbosity: int = verbosity
+        self.out: pl.DataFrame
         self.new_evals: int = 0
 
     def evaluate(self, population: pl.DataFrame) -> pl.DataFrame:

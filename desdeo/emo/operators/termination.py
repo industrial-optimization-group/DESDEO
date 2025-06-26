@@ -20,7 +20,7 @@ from desdeo.tools.message import (
     Message,
     TerminatorMessageTopics,
 )
-from desdeo.tools.patterns import Subscriber
+from desdeo.tools.patterns import Subscriber, Publisher
 
 
 class BaseTerminator(Subscriber):
@@ -52,9 +52,9 @@ class BaseTerminator(Subscriber):
         """Return the message topics that the terminator is interested in."""
         return [EvaluatorMessageTopics.NEW_EVALUATIONS, GeneratorMessageTopics.NEW_EVALUATIONS]
 
-    def __init__(self, **kwargs):
+    def __init__(self, publisher: Publisher):
         """Initialize a termination criterion."""
-        super().__init__(**kwargs)
+        super().__init__(publisher=publisher, verbosity=1)
         self.current_generation: int = 1
         self.current_evaluations: int = 0
         self.max_generations: int = 0
@@ -121,15 +121,14 @@ class BaseTerminator(Subscriber):
 class MaxGenerationsTerminator(BaseTerminator):
     """A class for a termination criterion based on the number of generations."""
 
-    def __init__(self, max_generations: int, **kwargs):
+    def __init__(self, max_generations: int, publisher: Publisher):
         """Initialize a termination criterion based on the number of generations.
 
         Args:
             max_generations (int): the maximum number of generations.
-            kwargs: Additional keyword arguments. These are passed to the Subscriber class. At the very least, the
-                publisher must be passed. See the Subscriber class for more information.
+            publisher (Publisher): The publisher to which the terminator will publish its state.
         """
-        super().__init__(**kwargs)
+        super().__init__(publisher=publisher)
         self.max_generations = max_generations
 
     def check(self) -> bool:
@@ -151,17 +150,17 @@ class MaxGenerationsTerminator(BaseTerminator):
 class MaxEvaluationsTerminator(BaseTerminator):
     """A class for a termination criterion based on the number of evaluations."""
 
-    def __init__(self, max_evaluations: int, **kwargs):
+    def __init__(self, max_evaluations: int, publisher: Publisher):
         """Initialize a termination criterion based on the number of evaluations.
 
         Looks for messages with key "num_evaluations" to update the number of evaluations.
 
         Args:
             max_evaluations (int): the maximum number of evaluations.
-            kwargs: Additional keyword arguments. These are passed to the Subscriber class. At the very least, the
+            publisher (Publisher): The publisher to which the terminator will publish its state.
                 publisher must be passed. See the Subscriber class for more information.
         """
-        super().__init__(**kwargs)
+        super().__init__(publisher=publisher)
         if not isinstance(max_evaluations, int) or max_evaluations < 0:
             raise ValueError("max_evaluations must be a non-negative integer")
         self.max_evaluations = max_evaluations
