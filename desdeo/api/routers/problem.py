@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
 from desdeo.api.db import get_session
@@ -11,13 +11,6 @@ from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.problem import Problem
 
 router = APIRouter(prefix="/problem")
-
-
-# This is needed, because otherwise fields ending in an underscore fail to parse.
-async def parse_problem_json(request: Request) -> Problem:
-    """Helper function to pass by_name=True to model_validate when coercing the json object to a Problem object."""
-    data: dict = await request.json()
-    return Problem.model_validate(data, by_name=True)
 
 
 @router.get("/all")
@@ -78,7 +71,7 @@ def get_problem(
 
 @router.post("/add")
 def add_problem(
-    request: Annotated[Problem, Depends(parse_problem_json)],
+    request: Problem,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
 ) -> ProblemInfo:
