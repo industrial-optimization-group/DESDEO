@@ -14,3 +14,7 @@ export function getValueRange(data: { value: number }[], axisRanges?: [number, n
     if (min === max) return [min - 1, max + 1];
     return [min, max];
 }
+
+export function roundToDecimal(val: number, decimals = 2) {
+	return Math.round(val * 10 ** decimals) / 10 ** decimals;
+}

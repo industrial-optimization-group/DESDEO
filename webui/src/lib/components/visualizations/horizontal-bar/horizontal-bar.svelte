@@ -1,87 +1,238 @@
 <script lang="ts">
+	/**
+	 * Horizontal bar
+	 * --------------------------------
+	 * Renders a single horizontal bar visualization using D3.
+	 * Features:
+	 * - Shows a solution bar, selected value (draggable), previous value marker, and ideal/nadir triangles.
+	 * - Supports min/max direction, custom color, and value formatting.
+	 * - Responsive to container width.
+	 * - Calls `onSelect` callback when the selected value changes via drag.
+	 *
+	 * Props:
+	 * - axisRanges: [number, number] — lower and upper bounds of the bar
+	 * - solutionValue?: number — value to fill the bar up to
+	 * - selectedValue?: number — draggable marker value
+	 * - previousValue?: number — previous value marker
+	 * - barColor: string — color of the solution bar
+	 * - direction: 'max' | 'min' — whether lower or higher is better
+	 * - options: { barHeight, decimalPrecision, showPreviousValue, aspectRatio }
+	 * - onSelect?: (value: number) => void — callback when selected value changes
+	 */
+
 	import { onMount, onDestroy } from 'svelte';
+	import { roundToDecimal } from '$lib/components/visualizations/utils/math';
 	import * as d3 from 'd3';
-	import { COLOR_PALETTE } from '../utils/colors';
 
-	export let value: number;
-	export let direction: 'max' | 'min';
-	export let preference: number;
-	export let range: [number, number];
+	// --- Props ---
+	export let axisRanges: [number, number] = [0, 1];
+	export let solutionValue: number | undefined = undefined;
+	export let selectedValue: number | undefined = undefined;
+	export let previousValue: number | undefined = undefined;
+	export let barColor: string = '#4f8cff';
+	export let direction: 'max' | 'min' = 'min';
 
-	export let options: { showLabels: boolean; orientation: string } = {
-		showLabels: true,
-		orientation: 'vertical'
+	export let options: {
+		barHeight: number;
+		decimalPrecision: number;
+		showPreviousValue: boolean;
+		aspectRatio: string;
+	} = {
+		barHeight: 32,
+		decimalPrecision: 2,
+		showPreviousValue: true,
+		aspectRatio: 'aspect-[11/2]'
 	};
 
-	// Remove export let width/height, use internal variables
-	let width = 500;
-	let height = 400;
+	/** Callback called with the new selected value after dragging */
+	export let onSelect: ((value: number) => void) | undefined = undefined;
 
+	// --- Internal state ---
+	let width = 500;
+	let height = 100;
 	let svg: SVGSVGElement;
 	let container: HTMLDivElement;
+	let dragLine: d3.Selection<SVGLineElement, unknown, null, undefined>;
+	let dragCircle: d3.Selection<SVGCircleElement, unknown, null, undefined>;
 	let resizeObserver: ResizeObserver;
 
+	/**
+	 * Draws the horizontal bar chart using D3.
+	 */
 	function drawChart() {
-		const margin = { top: 20, right: 20, bottom: 30, left: 40 };
+		d3.select(svg).selectAll('*').remove();
+
+		const margin = { top: 20, right: 30, bottom: 30, left: 30 };
 		const innerWidth = width - margin.left - margin.right;
 		const innerHeight = height - margin.top - margin.bottom;
 
-		d3.select(svg).selectAll('*').remove();
-
-		const svgElement = d3
-			.select(svg)
-			.attr('width', width)
-			.attr('height', height)
-			.append('g')
-			.attr('transform', `translate(${margin.left}, ${margin.top})`);
-
-		/* 		const y = d3
-			.scaleBand()
-			.domain(data.map((d) => d.name))
-			.range([margin.top, innerHeight - margin.bottom])
-			.padding(0.1);
-
 		const x = d3
 			.scaleLinear()
-			.domain([0, d3.max(data, (d) => d.value) ?? 0])
-			.nice()
-			.range([margin.left, innerWidth - margin.right]);
+			.domain([axisRanges[0], axisRanges[1]])
+			.range([margin.left, width - margin.right]);
 
-		const xMax = x.range()[1];
+		// --- Draw x-axis below the bar ---
+		const xAxis = d3
+			.axisBottom(x)
+			.ticks(6)
+			.tickFormat((d) => d.toString());
 
-		svgElement
+		d3.select(svg)
 			.append('g')
-			.selectAll('rect')
-			.data(data)
-			.join('rect')
-			.attr('y', (d) => y(d.name)!)
-			.attr('height', y.bandwidth())
-			.attr('x', (d) => (d.direction === 'max' ? x(0) : x(d.value)))
-			.attr('width', (d) => (d.direction === 'max' ? x(d.value) - x(0) : xMax - x(d.value)))
-			.attr('fill', (d, i) => color(d.name)); */
+			.attr('transform', `translate(0,${innerHeight / 2 + options.barHeight})`)
+			.call(xAxis);
 
-		svgElement.append('g').attr('transform', `translate(0,${margin.top})`).call(d3.axisTop(x));
-		svgElement.append('g').attr('transform', `translate(${margin.left},0)`).call(d3.axisLeft(y));
+		// --- Draw bar background ---
+		d3.select(svg)
+			.append('rect')
+			.attr('x', x(axisRanges[0]))
+			.attr('y', innerHeight / 2)
+			.attr('width', x(axisRanges[1]) - x(axisRanges[0]))
+			.attr('height', options.barHeight)
+			.attr('fill', direction === 'min' ? '#eee' : barColor)
+			.attr('rx', 1);
+
+		// --- Draw solution bar ---
+		if (solutionValue !== undefined) {
+			const solWidth = x(solutionValue) - x(axisRanges[0]);
+			d3.select(svg)
+				.append('rect')
+				.attr('x', x(axisRanges[0]))
+				.attr('y', innerHeight / 2)
+				.attr('width', Math.max(0, solWidth))
+				.attr('height', options.barHeight)
+				.attr('fill', direction === 'min' ? barColor : '#eee')
+				.attr('rx', 1);
+		}
+
+		// --- Draw lower bound triangle, pointing left ---
+		d3.select(svg)
+			.append('polygon')
+			.attr(
+				'points',
+				[
+					[x(axisRanges[0]) - 10, innerHeight / 2 + options.barHeight / 2], // tip (left)
+					[x(axisRanges[0]), innerHeight / 2 + 2], // top right
+					[x(axisRanges[0]), innerHeight / 2 + options.barHeight - 2] // bottom right
+				]
+					.map((p) => p.join(','))
+					.join(' ')
+			)
+			.attr('fill', '#fff')
+			.attr('stroke', '#888')
+			.attr('stroke-width', 2);
+
+		// --- Draw upper bound triangle, pointing right ---
+		d3.select(svg)
+			.append('polygon')
+			.attr(
+				'points',
+				[
+					[x(axisRanges[1]) + 10, innerHeight / 2 + options.barHeight / 2], // tip (right)
+					[x(axisRanges[1]), innerHeight / 2 + 2], // top left
+					[x(axisRanges[1]), innerHeight / 2 + options.barHeight - 2] // bottom left
+				]
+					.map((p) => p.join(','))
+					.join(' ')
+			)
+			.attr('fill', '#fff')
+			.attr('stroke', '#888')
+			.attr('stroke-width', 2);
+
+		// --- Draw previous value marker (if enabled) ---
+		if (options.showPreviousValue && previousValue !== undefined) {
+			d3.select(svg)
+				.append('circle')
+				.attr('cx', x(previousValue))
+				.attr('cy', innerHeight / 2 + options.barHeight / 2)
+				.attr('r', 6)
+				.attr('fill', '#000')
+				.attr('fill-opacity', 0.5)
+				.attr('stroke', '#000')
+				.attr('stroke-width', 2);
+		}
+
+		// --- Draw selected value marker (draggable) ---
+		if (selectedValue !== undefined) {
+			dragLine = d3
+				.select(svg)
+				.append('line')
+				.attr('x1', x(selectedValue))
+				.attr('x2', x(selectedValue))
+				.attr('y1', innerHeight / 2 - 8)
+				.attr('y2', innerHeight / 2 + options.barHeight + 8)
+				.attr('stroke', '#222')
+				.attr('stroke-width', 2)
+				.attr('cursor', 'ew-resize');
+
+			dragCircle = d3
+				.select(svg)
+				.append('circle')
+				.attr('cx', x(selectedValue))
+				.attr('cy', innerHeight / 2 + options.barHeight / 2)
+				.attr('r', 9)
+				.attr('fill', '#fff')
+				.attr('fill-opacity', 0.9)
+				.attr('stroke', '#222')
+				.attr('stroke-width', 2)
+				.attr('cursor', 'ew-resize')
+				.call(
+					d3.drag<SVGCircleElement, unknown>().on('drag', function (event) {
+						let px = Math.max(x(axisRanges[0]), Math.min(x(axisRanges[1]), event.x));
+						const newValue = roundToDecimal(x.invert(px), options.decimalPrecision);
+						selectedValue = newValue;
+						dragCircle.attr('cx', px);
+						dragLine.attr('x1', px).attr('x2', px);
+						if (onSelect) onSelect(newValue);
+					})
+				);
+		}
+
+		// --- Draw selected value label ---
+		if (selectedValue !== undefined) {
+			d3.select(svg)
+				.append('text')
+				.attr('x', x(selectedValue))
+				.attr('y', innerHeight / 2 - 12)
+				.attr('text-anchor', 'middle')
+				.attr('fill', '#222')
+				.attr('font-size', 13)
+				.text(`Selected: ${roundToDecimal(selectedValue, options.decimalPrecision)}`);
+		}
 	}
 
+	// --- Lifecycle: Responsive redraw ---
 	onMount(() => {
 		resizeObserver = new ResizeObserver((entries) => {
 			for (const entry of entries) {
 				const rect = entry.contentRect;
 				width = rect.width;
-				height = rect.height;
 				drawChart();
 			}
 		});
 		resizeObserver.observe(container);
+		drawChart();
 	});
 	onDestroy(() => {
 		resizeObserver.disconnect();
 	});
 
-	$: value, direction, preference, range, options, width, height, drawChart();
+	// --- Redraw on prop changes ---
+	$: axisRanges,
+		solutionValue,
+		selectedValue,
+		previousValue,
+		barColor,
+		direction,
+		width,
+		options,
+		drawChart();
 </script>
 
-<div bind:this={container} style="aspect-ratio: 5 / 4; width: 100%;">
-	<svg bind:this={svg} style="width: 100%; height: 100%;" />
+<!--
+    Responsive container for the horizontal bar chart.
+    Use the aspect ratio from options.
+-->
+<div class={options.aspectRatio} bind:this={container} style="width: 100%;">
+	<svg bind:this={svg} style="width: 100%; height: 100px;" />
 </div>
