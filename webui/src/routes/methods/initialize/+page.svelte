@@ -63,10 +63,10 @@
 			problemtypes: ['linear', 'nonlinear']
 		},
 		{
-			name: 'Interactive RVEA',
-			path: '/interactive_methods/interactive-rvea',
-			description: 'Interactive RVEA method for MOO.',
-			preferencesType: ['reference point'],
+			name: 'Evolutionary method',
+			path: '/interactive_methods/EMO',
+			description: 'Interactive evolutionary method for MOO.',
+			preferencesType: ['reference point', 'preferred ranges', 'preferred solutions'],
 			problemtypes: ['expensive']
 		},
 		{
@@ -92,7 +92,7 @@
 </script>
 
 <div class="px-8">
-	<h1 class="primary mb-2 pt-4 text-left text-lg font-semibold text-pretty lg:text-xl">
+	<h1 class="primary mb-2 text-pretty pt-4 text-left text-lg font-semibold lg:text-xl">
 		Optimization Methods
 	</h1>
 

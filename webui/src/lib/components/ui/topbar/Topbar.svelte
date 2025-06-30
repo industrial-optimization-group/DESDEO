@@ -51,7 +51,7 @@
 	});
 </script>
 
-<header class="bg-primary sticky top-0 flex h-14 items-center gap-4 border-b px-4 md:px-6">
+<header class="bg-primary sticky top-0 flex h-12 items-center gap-4 border-b px-4 md:px-6">
 	<!-- Left: DESDEO logo and name -->
 	<a
 		href="/dashboard"
