@@ -2,14 +2,14 @@
 	/**
 	 * Horizontal bar
 	 * --------------------------------
-	 * Renders a single horizontal bar visualization using D3.
-	 * Features:
-	 * - Shows a solution bar, selected value (draggable), previous value marker, and ideal/nadir triangles.
-	 * - Supports min/max direction, custom color, and value formatting.
-	 * - Responsive to container width.
-	 * - Calls `onSelect` callback when the selected value changes via drag.
 	 *
-	 * Props:
+	 * @author Giomara Larraga <glarragw@jyu.fi>
+	 * @created June 2025
+	 *
+	 * @description
+	 * Renders a single horizontal bar visualization using D3.
+	 *
+	 * @props
 	 * - axisRanges: [number, number] — lower and upper bounds of the bar
 	 * - solutionValue?: number — value to fill the bar up to
 	 * - selectedValue?: number — draggable marker value
@@ -18,6 +18,22 @@
 	 * - direction: 'max' | 'min' — whether lower or higher is better
 	 * - options: { barHeight, decimalPrecision, showPreviousValue, aspectRatio }
 	 * - onSelect?: (value: number) => void — callback when selected value changes
+	 *
+	 * @features
+	 * - Shows a solution bar, selected value (draggable), previous value marker, and ideal/nadir triangles.
+	 * - Supports min/max direction, custom color, and value formatting.
+	 * - Responsive to container width.
+	 * - Calls `onSelect` callback when the selected value changes via drag.
+	 *
+	 * @notes
+	 * - TODO: Show previousValue text in the top right corner.
+	 * - TODO: Add a marker to the solution value with a click event to set the selected value.
+	 * - TODO: Add tooltip on hover to show exact values.
+	 * - TODO: Add click event to the lower and upper bounds to set the selected value.
+	 * - TODO: Add click event to previous value marker to set the selected value.
+	 * - TODO: Vaidate the lower and upper bounds to ensure they are valid numbers.
+	 * - TODO: Validate the solution value to ensure it is within the bounds.
+	 * - TODO: Validate the text shown in the selected value to not be outside the svg bounds.
 	 */
 
 	import { onMount, onDestroy } from 'svelte';
