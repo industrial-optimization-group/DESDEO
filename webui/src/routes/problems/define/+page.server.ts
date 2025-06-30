@@ -22,6 +22,7 @@ export const actions: Actions = {
     const name = form.data.name;
     const description = form.data.description;
     const variables = form.data.variables;
+    const constants = form.data.constants;
 
     // 1. Get refresh token from cookies
     const refreshToken = cookies.get('refresh_token');
@@ -52,7 +53,7 @@ export const actions: Actions = {
           description,
           variables,
           objectives: [],
-          constants: [],
+          constants,
         },
         headers: {
           Authorization: `Bearer ${access_token}`,
