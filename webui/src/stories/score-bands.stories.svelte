@@ -1,6 +1,6 @@
 <script module>
 	import { defineMeta } from '@storybook/addon-svelte-csf';
-	import SCOREBands from '$lib/components/visualizations/score-bands/score-bands.svelte';
+	import { SCOREBands } from '$lib/components/visualizations/score-bands';
 
 	// [1, 8, 5, 3, 0, 7, 4, 2, 6]
 	const { Story } = defineMeta({

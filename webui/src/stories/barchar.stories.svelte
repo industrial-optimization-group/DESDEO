@@ -1,6 +1,6 @@
 <script module>
 	import { defineMeta } from '@storybook/addon-svelte-csf';
-	import Barchart from '$lib/components/visualizations/barchart/barchart.svelte';
+	import { Barchart } from '$lib/components/visualizations/barchart';
 
 	const { Story } = defineMeta({
 		title: 'Example/Barchart',

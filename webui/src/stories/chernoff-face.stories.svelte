@@ -1,6 +1,6 @@
 <script module>
 	import { defineMeta } from '@storybook/addon-svelte-csf';
-	import ChernoffFace from '$lib/components/visualizations/chernoff-face/chernoff-face.svelte';
+	import { ChernoffFace } from '$lib/components/visualizations/chernoff-face';
 
 	const { Story } = defineMeta({
 		title: 'Example/ChernoffFace',
