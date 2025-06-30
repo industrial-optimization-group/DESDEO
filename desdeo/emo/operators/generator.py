@@ -10,7 +10,7 @@ from scipy.stats.qmc import LatinHypercube
 from desdeo.emo.operators.evaluator import EMOEvaluator
 from desdeo.problem import Problem, VariableTypeEnum
 from desdeo.tools.message import GeneratorMessageTopics, IntMessage, Message, PolarsDataFrameMessage
-from desdeo.tools.patterns import Subscriber
+from desdeo.tools.patterns import Subscriber, Publisher
 
 
 class BaseGenerator(Subscriber):
@@ -42,9 +42,9 @@ class BaseGenerator(Subscriber):
         """Return the message topics that the generator is interested in."""
         return []
 
-    def __init__(self, problem: Problem, **kwargs):
+    def __init__(self, problem: Problem, publisher: Publisher, verbosity: int):
         """Initialize the BaseGenerator class."""
-        super().__init__(**kwargs)
+        super().__init__(publisher=publisher, verbosity=verbosity)
         self.problem = problem
         self.variable_symbols = [var.symbol for var in problem.get_flattened_variables()]
         self.bounds = np.array([[var.lowerbound, var.upperbound] for var in problem.get_flattened_variables()])
@@ -103,7 +103,9 @@ class RandomGenerator(BaseGenerator):
     distribution of the points is uniform. If the seed is not provided, the seed is set to 0.
     """
 
-    def __init__(self, problem: Problem, evaluator: EMOEvaluator, n_points: int, seed: int, **kwargs):
+    def __init__(
+        self, problem: Problem, evaluator: EMOEvaluator, n_points: int, seed: int, verbosity: int, publisher: Publisher
+    ):
         """Initialize the RandomGenerator class.
 
         Args:
@@ -111,10 +113,11 @@ class RandomGenerator(BaseGenerator):
             evaluator (BaseEvaluator): The evaluator to evaluate the population.
             n_points (int): The number of points to generate for the initial population.
             seed (int): The seed for the random number generator.
-            kwargs: Additional keyword arguments. Check the Subscriber class for more information.
-                At the very least, the publisher argument should be provided.
+            verbosity (int): The verbosity level of the generator. A verbosity of 2 is needed if you want to maintain
+                an external archive. Otherwise, a verbosity of 1 is sufficient.
+            publisher (Publisher): The publisher to publish the messages.
         """
-        super().__init__(problem, **kwargs)
+        super().__init__(problem, verbosity=verbosity, publisher=publisher)
         self.n_points = n_points
         self.evaluator = evaluator
         self.rng = np.random.default_rng(seed)
@@ -144,14 +147,16 @@ class RandomGenerator(BaseGenerator):
         """Update the generator based on the message."""
 
 
-class LHSGenerator(RandomGenerator):
+class LHSGenerator(BaseGenerator):
     """Class for generating Latin Hypercube Sampling (LHS) initial population for the MOEAs.
 
     This class generates the initial population by using the Latin Hypercube Sampling (LHS) method.
     If the seed is not provided, the seed is set to 0.
     """
 
-    def __init__(self, problem: Problem, evaluator: EMOEvaluator, n_points: int, seed: int, **kwargs):
+    def __init__(
+        self, problem: Problem, evaluator: EMOEvaluator, n_points: int, seed: int, verbosity: int, publisher: Publisher
+    ):
         """Initialize the LHSGenerator class.
 
         Args:
@@ -159,10 +164,13 @@ class LHSGenerator(RandomGenerator):
             evaluator (BaseEvaluator): The evaluator to evaluate the population.
             n_points (int): The number of points to generate for the initial population.
             seed (int): The seed for the random number generator.
-            kwargs: Additional keyword arguments. Check the Subscriber class for more information.
-                At the very least, the publisher argument should be provided.
+            verbosity (int): The verbosity level of the generator. A verbosity of 2 is needed if you want to maintain
+                an external archive. Otherwise, a verbosity of 1 is sufficient.
+            publisher (Publisher): The publisher to publish the messages.
         """
-        super().__init__(problem, evaluator, n_points, seed, **kwargs)
+        super().__init__(problem, verbosity=verbosity, publisher=publisher)
+        self.n_points = n_points
+        self.evaluator = evaluator
         self.lhsrng = LatinHypercube(d=len(self.variable_symbols), seed=seed)
         self.seed = seed
 
@@ -196,7 +204,9 @@ class RandomBinaryGenerator(BaseGenerator):
     This class generates an initial population by randomly setting variable values to be either 0 or 1.
     """
 
-    def __init__(self, problem: Problem, evaluator: EMOEvaluator, n_points: int, seed: int, **kwargs):
+    def __init__(
+        self, problem: Problem, evaluator: EMOEvaluator, n_points: int, seed: int, verbosity: int, publisher: Publisher
+    ):
         """Initialize the RandomBinaryGenerator class.
 
         Args:
@@ -204,10 +214,11 @@ class RandomBinaryGenerator(BaseGenerator):
             evaluator (BaseEvaluator): The evaluator to evaluate the population.
             n_points (int): The number of points to generate for the initial population.
             seed (int): The seed for the random number generator.
-            kwargs: Additional keyword arguments. Check the Subscriber class for more information.
-                At the very least, the publisher argument should be provided.
+            verbosity (int): The verbosity level of the generator. A verbosity of 2 is needed if you want to maintain
+                an external archive. Otherwise, a verbosity of 1 is sufficient.
+            publisher (Publisher): The publisher to publish the messages.
         """
-        super().__init__(problem, **kwargs)
+        super().__init__(problem, verbosity=verbosity, publisher=publisher)
         self.n_points = n_points
         self.evaluator = evaluator
         self.rng = np.random.default_rng(seed)
@@ -244,7 +255,9 @@ class RandomIntegerGenerator(BaseGenerator):
     the variables.
     """
 
-    def __init__(self, problem: Problem, evaluator: EMOEvaluator, n_points: int, seed: int, **kwargs):
+    def __init__(
+        self, problem: Problem, evaluator: EMOEvaluator, n_points: int, seed: int, verbosity: int, publisher: Publisher
+    ):
         """Initialize the RandomIntegerGenerator class.
 
         Args:
@@ -252,10 +265,11 @@ class RandomIntegerGenerator(BaseGenerator):
             evaluator (BaseEvaluator): The evaluator to evaluate the population.
             n_points (int): The number of points to generate for the initial population.
             seed (int): The seed for the random number generator.
-            kwargs: Additional keyword arguments. Check the Subscriber class for more information.
-                At the very least, the publisher argument should be provided.
+            verbosity (int): The verbosity level of the generator. A verbosity of 2 is needed if you want to maintain
+                an external archive. Otherwise, a verbosity of 1 is sufficient.
+            publisher (Publisher): The publisher to publish the messages.
         """
-        super().__init__(problem, **kwargs)
+        super().__init__(problem, verbosity=verbosity, publisher=publisher)
         self.n_points = n_points
         self.evaluator = evaluator
         self.rng = np.random.default_rng(seed)
@@ -297,7 +311,9 @@ class RandomMixedIntegerGenerator(BaseGenerator):
     values to be integers or floats between the bounds of the variables.
     """
 
-    def __init__(self, problem: Problem, evaluator: EMOEvaluator, n_points: int, seed: int, **kwargs):
+    def __init__(
+        self, problem: Problem, evaluator: EMOEvaluator, n_points: int, seed: int, verbosity: int, publisher: Publisher
+    ):
         """Initialize the RandomMixedIntegerGenerator class.
 
         Args:
@@ -305,10 +321,11 @@ class RandomMixedIntegerGenerator(BaseGenerator):
             evaluator (BaseEvaluator): The evaluator to evaluate the population.
             n_points (int): The number of points to generate for the initial population.
             seed (int): The seed for the random number generator.
-            kwargs: Additional keyword arguments. Check the Subscriber class for more information.
-                At the very least, the publisher argument should be provided.
+            verbosity (int): The verbosity level of the generator. A verbosity of 2 is needed if you want to maintain
+                an external archive. Otherwise, a verbosity of 1 is sufficient.
+            publisher (Publisher): The publisher to publish the messages.
         """
-        super().__init__(problem, **kwargs)
+        super().__init__(problem, verbosity=verbosity, publisher=publisher)
         self.var_symbol_types = {
             VariableTypeEnum.real: [
                 var.symbol for var in problem.variables if var.variable_type == VariableTypeEnum.real
