@@ -1,20 +1,39 @@
 <script lang="ts">
 	/**
-	 * Responsive Barchart component using D3.
+	 * Barchart.svelte
+	 * --------------------------------
+	 * Responsive bar chart component using D3.
 	 *
-	 * Features:
-	 * - Supports both horizontal and vertical bar charts.
-	 * - Each bar can have a different value range (axisRanges).
-	 * - If axisRanges is provided per bar, values are normalized to [0, 1] for plotting.
-	 * - Supports 'max' (bars from axis min) and 'min' (bars from axis max) directions.
-	 * - Custom color palette.
-	 * - Responsive to container size (uses ResizeObserver).
-	 * - Optionally shows value labels.
+	 * @author Giomara Larraga <glarragw@jyu.fi>
+	 * @created June 2025
 	 *
-	 * Props:
+	 * @description
+	 * Renders a responsive bar chart using D3.js.
+	 * Supports both horizontal and vertical orientations, with customizable data ranges and colors.
+	 *
+	 * @props
 	 * - data: Array<{ name: string; value: number; direction: 'max' | 'min' }>
-	 * - axisRanges: Array<[number, number]>; if length === data.length, each bar uses its own range
-	 * - options: { showLabels: boolean; orientation: 'horizontal' | 'vertical' }
+	 *   - name: string — label for the bar
+	 *   - value: number — value for the bar
+	 *   - direction: 'max' | 'min' — if 'max', bar grows from axis min; if 'min', bar grows from axis max
+	 * - axisRanges: Array<[number, number]>
+	 *   - If provided and length === data.length, each bar uses its own range for normalization
+	 * - options: {
+	 *     showLabels: boolean; // show value labels on bars
+	 *     orientation: 'horizontal' | 'vertical'; // chart orientation
+	 *   }
+	 *
+	 * @features
+	 * - Horizontal and vertical bar chart support
+	 * - Each bar can have a different value range (axisRanges)
+	 * - Custom color palette
+	 * - Responsive to container size (ResizeObserver)
+	 * - Optionally shows value labels
+	 *
+	 * @notes
+	 * - TODO: Normalize data values based on axisRanges if provided.
+	 * - TODO: Option to show multiple axes with different ranges.
+	 * - TODO: Option to show min and max values for each bar.
 	 */
 
 	import { onMount, onDestroy } from 'svelte';
@@ -22,6 +41,7 @@
 	import { COLOR_PALETTE } from '../utils/colors';
 	import { normalize, getValueRange } from '../utils/math';
 
+	// --- Props ---
 	export let data: { name: string; value: number; direction: 'max' | 'min' }[] = [];
 	export let axisRanges: [number, number][] = [];
 	export let options: { showLabels: boolean; orientation: 'horizontal' | 'vertical' } = {
@@ -29,18 +49,16 @@
 		orientation: 'horizontal'
 	};
 
-	// TODO: Normalize data values based on axisRanges if provided
-	// TODO: Give option to show multiple axes with different ranges
-	// TODO: Give option to show min and max values for each bar
-
-	// Remove export let width/height, use internal variables
+	// --- Internal state ---
 	let width = 500;
 	let height = 400;
-
 	let svg: SVGSVGElement;
 	let container: HTMLDivElement;
 	let resizeObserver: ResizeObserver;
 
+	/**
+	 * Draws a horizontal bar chart using D3.
+	 */
 	function drawHorizontalChart(
 		svgElement: d3.Selection<SVGGElement, unknown, null, undefined>,
 		color: d3.ScaleOrdinal<string, string, never>,
@@ -52,6 +70,7 @@
 		xMin: number,
 		xMax: number
 	) {
+		// Draw bars
 		svgElement
 			.append('g')
 			.selectAll('rect')
@@ -61,13 +80,13 @@
 			.attr('height', y.bandwidth())
 			.attr('x', (d) => (d.direction === 'min' ? x(0) : x(d.value)))
 			.attr('width', (d) => (d.direction === 'min' ? x(d.value) - x(0) : xMax - x(d.value)))
-			.attr('fill', (d, i) => color(d.name));
+			.attr('fill', (d) => color(d.name));
 
 		// Draw axes
 		svgElement.append('g').attr('transform', `translate(0,${margin.top})`).call(d3.axisTop(x));
 		svgElement.append('g').attr('transform', `translate(${margin.left},0)`).call(d3.axisLeft(y));
 
-		// Optionally show labels
+		// Draw value labels if enabled
 		if (options.showLabels) {
 			svgElement
 				.append('g')
@@ -76,20 +95,14 @@
 				.join('text')
 				.attr('x', (d) => {
 					const valueStr = d.value.toString();
-					const approxTextWidth = valueStr.length * 7; // ~7px per character
+					const approxTextWidth = valueStr.length * 7;
 					let labelX = x(d.value);
 					if (d.direction === 'min') {
-						// For 'min', label is to the right of the bar
 						labelX += 5;
-						if (labelX + approxTextWidth > xMax) {
-							labelX = xMax - approxTextWidth - 2;
-						}
+						if (labelX + approxTextWidth > xMax) labelX = xMax - approxTextWidth - 2;
 					} else {
-						// For 'max', label is to the left of the bar
 						labelX -= 5;
-						if (labelX - approxTextWidth < xMin) {
-							labelX = xMin + approxTextWidth + 2;
-						}
+						if (labelX - approxTextWidth < xMin) labelX = xMin + approxTextWidth + 2;
 					}
 					return labelX;
 				})
@@ -100,6 +113,9 @@
 		}
 	}
 
+	/**
+	 * Draws a vertical bar chart using D3.
+	 */
 	function drawVerticalChart(
 		svgElement: d3.Selection<SVGGElement, unknown, null, undefined>,
 		color: d3.ScaleOrdinal<string, string, never>,
@@ -111,6 +127,7 @@
 		yMin: number,
 		yMax: number
 	) {
+		// Draw bars
 		svgElement
 			.append('g')
 			.selectAll('rect')
@@ -122,15 +139,16 @@
 			.attr('height', (d) =>
 				d.direction === 'min' ? y(0) - y(d.value) : y(0) - yMax - (y(0) - y(d.value))
 			)
-			.attr('fill', (d, i) => color(d.name));
+			.attr('fill', (d) => color(d.name));
 
+		// Draw axes
 		svgElement
 			.append('g')
 			.attr('transform', `translate(0,${innerHeight - margin.bottom})`)
 			.call(d3.axisBottom(x));
-
 		svgElement.append('g').attr('transform', `translate(${margin.left},0)`).call(d3.axisLeft(y));
 
+		// Draw value labels if enabled
 		if (options.showLabels) {
 			svgElement
 				.append('g')
@@ -142,17 +160,11 @@
 					let labelY = y(d.value);
 					let approxTextHeight = 15;
 					if (d.direction === 'min') {
-						// For 'min', label is on the top of the bar
 						labelY -= 3;
-						if (labelY > y(yMax)) {
-							labelY = y(yMax) - approxTextHeight;
-						}
+						if (labelY > y(yMax)) labelY = y(yMax) - approxTextHeight;
 					} else {
-						// For 'max', label is below the bar
 						labelY += approxTextHeight;
-						if (labelY < y(yMin)) {
-							labelY = y(yMin) - approxTextHeight;
-						}
+						if (labelY < y(yMin)) labelY = y(yMin) - approxTextHeight;
 					}
 					return labelY;
 				})
@@ -162,7 +174,7 @@
 	}
 
 	/**
-	 * Draw the chart using D3.
+	 * Draws the bar chart (horizontal or vertical) using D3.
 	 */
 	function drawChart(): void {
 		const margin = { top: 20, right: 20, bottom: 30, left: 40 };
@@ -219,7 +231,7 @@
 			drawVerticalChart(svgElement, color, innerWidth, innerHeight, margin, x, y, yMin, yMax);
 		}
 
-		// Draw border around plot area last (so it's on top)
+		// Draw border around plot area
 		svgElement
 			.append('rect')
 			.attr('x', margin.left)
@@ -231,7 +243,7 @@
 			.attr('stroke-width', 1);
 	}
 
-	// Responsive: update chart on container resize
+	// --- Responsive: update chart on container resize ---
 	onMount(() => {
 		resizeObserver = new ResizeObserver((entries) => {
 			for (const entry of entries) {
@@ -242,16 +254,20 @@
 			}
 		});
 		resizeObserver.observe(container);
+		drawChart();
 	});
 	onDestroy(() => {
 		resizeObserver.disconnect();
 	});
 
-	// Redraw chart on data/options/size change
+	// --- Redraw chart on data/options/size change ---
 	$: data, options, width, height, axisRanges, drawChart();
 </script>
 
-<!-- Responsive container with aspect ratio -->
+<!--
+    Responsive container for the bar chart.
+    Aspect ratio is fixed to 5:4 for now.
+-->
 <div bind:this={container} style="aspect-ratio: 5 / 4; width: 100%;">
 	<svg bind:this={svg} style="width: 100%; height: 100%;" />
 </div>

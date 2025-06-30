@@ -1,14 +1,39 @@
 <script lang="ts">
+	/**
+	 * ChernoffFace.svelte
+	 * --------------------------------
+	 * Renders a Chernoff face visualization using D3.
+	 *
+	 * @author Giomara Larraga <glarragw@jyu.fi>
+	 * @created June 2025
+	 *
+	 * @description
+	 * Maps up to 5 objective values to facial features (face width, eye size, mouth curve, brow slant, nose length).
+	 * Optionally displays labels for each objective.
+	 *
+	 * @props
+	 * - data: Array<{ name: string; value: number }>
+	 *   - name: string — label for the objective
+	 *   - value: number — value in [0, 1] for the objective
+	 * - options: { showLabels: boolean }
+	 *   - showLabels: boolean — whether to show text labels for each objective
+	 *
+	 * @notes
+	 * - Only the first 5 objectives are used (faceWidth, eyeSize, mouthCurve, browSlant, noseLength).
+	 * - Values should be normalized to [0, 1] for meaningful visualization.
+	 */
+
 	import { onMount } from 'svelte';
 	import * as d3 from 'd3';
 
-	// Now data is an array of objects: { name: string, value: number }
+	// --- Props ---
 	export let data: { name: string; value: number }[] = [];
 	export let options: { showLabels: boolean } = { showLabels: true };
 
 	let container: HTMLDivElement;
 	const MAX_OBJECTIVES = 5;
 
+	// Mapping of feature names to their index in the data array
 	const features: Record<string, number> = {
 		faceWidth: 0,
 		eyeSize: 1,
@@ -17,8 +42,14 @@
 		noseLength: 4
 	};
 
+	/**
+	 * Checks if the data is valid (at most MAX_OBJECTIVES).
+	 */
 	const isValid = () => data.length <= MAX_OBJECTIVES;
 
+	/**
+	 * Draws the Chernoff face using D3.
+	 */
 	function drawChart() {
 		if (!isValid()) {
 			console.error('Invalid data: must have at most 5 objectives');
@@ -27,13 +58,13 @@
 		d3.select(container).selectAll('svg').remove();
 
 		const width = 200;
-		const height = width * 1.2; // Keep aspect ratio
+		const height = width * 1.2;
 		const centerX = width / 2;
 		const centerY = height / 2;
 
 		const svg = d3.select(container).append('svg').attr('width', width).attr('height', height);
 
-		// Extract values for features in order
+		// Extract feature values (default to 0.5 if missing)
 		const values = [
 			data[features.faceWidth]?.value ?? 0.5,
 			data[features.eyeSize]?.value ?? 0.5,
@@ -42,7 +73,7 @@
 			data[features.noseLength]?.value ?? 0.5
 		];
 
-		// All features are now relative to width
+		// Feature mappings
 		const faceWidth = d3
 			.scaleLinear()
 			.domain([0, 1])
@@ -65,7 +96,7 @@
 			.domain([0, 1])
 			.range([0.1 * width, 0.25 * width])(values[4]);
 
-		// Draw face
+		// --- Draw face ellipse ---
 		svg
 			.append('ellipse')
 			.attr('cx', centerX)
@@ -75,7 +106,7 @@
 			.attr('fill', 'peachpuff')
 			.attr('stroke', 'black');
 
-		// Draw eyes
+		// --- Draw eyes ---
 		const eyeY = centerY - 0.15 * width;
 		const eyeOffsetX = faceWidth / 4;
 		svg
@@ -91,7 +122,7 @@
 			.attr('r', eyeSize)
 			.attr('fill', 'black');
 
-		// Draw mouth
+		// --- Draw mouth ---
 		const mouthY = centerY + 0.2 * width;
 		const mouthWidth = faceWidth / 2;
 		const mouthPath = d3.path();
@@ -104,7 +135,7 @@
 			.attr('stroke', 'black')
 			.attr('stroke-width', 2);
 
-		// Draw nose
+		// --- Draw nose ---
 		const noseY1 = centerY;
 		const noseY2 = centerY + noseLength / 2;
 		svg
@@ -116,7 +147,7 @@
 			.attr('stroke', 'black')
 			.attr('stroke-width', 2);
 
-		// Draw brows
+		// --- Draw brows ---
 		const browY = eyeY - 0.08 * width;
 		const browLength = 0.15 * width;
 		svg
@@ -136,7 +167,7 @@
 			.attr('stroke', 'black')
 			.attr('stroke-width', 2);
 
-		// Add labels if enabled
+		// --- Draw labels if enabled ---
 		if (options.showLabels) {
 			data.forEach((d, index) => {
 				svg
@@ -153,4 +184,7 @@
 	$: data, options, drawChart();
 </script>
 
+<!--
+    Container for the Chernoff face visualization.
+-->
 <div bind:this={container}></div>
