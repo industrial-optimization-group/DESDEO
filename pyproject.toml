@@ -65,6 +65,7 @@ python-jose = {extras = ["cryptography"], version = "^3.4.0"}
 python-multipart = "^0.0.20"
 uvicorn = "^0.34.2"
 sqlalchemy-utils = "^0.41.2"
+websockets = "^15.0.1"
 
 [tool.poetry.group.dev]
 optional=true
