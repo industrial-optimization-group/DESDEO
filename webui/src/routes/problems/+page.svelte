@@ -59,6 +59,17 @@
 							{/each}
 						</ul>
 					{/if}
+					{#if problem.tensor_variables?.length}
+						<h3 class="mt-3 mb-1 text-sm font-semibold text-gray-600">Tensor variables:</h3>
+						<ul class="list-inside list-disc space-y-1 text-sm text-gray-800">
+							{#each problem.tensor_variables as variable}
+								<li>
+									{variable.symbol || variable.name}
+								</li>
+							{/each}
+						</ul>
+					{/if}
+					
 
 					{#if problem.constraints?.length}
 						<h3 class="mt-3 mb-1 text-sm font-semibold text-gray-600">Constraints:</h3>

@@ -1,9 +1,11 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { api } from '$lib/api/client';
-import { problemSchema, type Variable, type TensorVariable } from '$lib/schemas/problem';
 import { superValidate } from 'sveltekit-superforms';
 import { zod } from 'sveltekit-superforms/adapters';
+import { schemas } from '$lib/api/zod-types';
+
+let problemSchema = schemas.Problem
 
 export const load: PageServerLoad = async ({ cookies }) => {
   const refreshToken = cookies.get('refresh_token');

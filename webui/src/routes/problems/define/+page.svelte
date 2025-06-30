@@ -1,16 +1,23 @@
 <script lang="ts">
-  import { FormField, FormLabel, FormButton, FormControl } from '$lib/components/ui/form';
+  import { FormField, FormLabel, FormButton, FormControl, FormFieldset, FormLegend } from '$lib/components/ui/form';
   import Input from '$lib/components/ui/input/input.svelte';
   import Textarea from '$lib/components/ui/textarea/textarea.svelte';
   import { superForm } from "sveltekit-superforms";
-  import type { Variable, TensorVariable } from '$lib/schemas/problem';
+  import { schemas } from '$lib/api/zod-types';
+  import { z } from 'zod';
+  type Variable = z.infer<typeof schemas.Variable>;
+  type TensorVariable = z.infer<typeof schemas.TensorVariable>;
+  type Constant = z.infer<typeof schemas.Constant>;
+  type TensorConstant = z.infer<typeof schemas.TensorConstant>;
+
+  let editingIndex: number | null = null;
 
   // Minimal form state for now
   const form = superForm({
     name: '',
     description: '',
-    variables: [] as (Variable | TensorVariable)[],
-    constants: [], // JSON string for now
+    variables: [] as (TensorVariable | Variable)[],
+    constants: [], // as (TensorConstant | Constant)[],
     objectives: [] // JSON string for now
   }, { dataType: 'json'});
   const { form: formData, enhance, errors } = form;
@@ -71,6 +78,11 @@ $formData.variables = [...$formData.variables, { ...scalar }];
       variable.shape = variable.shape.filter((_, i) => i !== dimIdx);
     }
   }
+
+  function isTensorVariable(v: Variable | TensorVariable): v is TensorVariable {
+  return Array.isArray((v as any).shape);
+}
+
 </script>
 
 <h1 class="mt-10 text-center text-2xl font-semibold">Problem Definition</h1>
@@ -95,28 +107,27 @@ $formData.variables = [...$formData.variables, { ...scalar }];
     </FormControl>
   </FormField>
 
-  <div class="border rounded p-4">
-       <div class="border p-2 rounded bg-gray-50">
-      <b>New Variable</b>
-      <div class="grid grid-cols-2 gap-2 mb-2">
-        <Input placeholder="Name" bind:value={scalar.name} />
-        <Input placeholder="Symbol" bind:value={scalar.symbol} />
-        <select bind:value={scalar.variable_type} class="border rounded px-2 py-1">
-          <option value="real">real</option>
-          <option value="integer">integer</option>
-          <option value="binary">binary</option>
-        </select>
-        <Input placeholder="Lowerbound (optional)" bind:value={scalar.lowerbound} />
-        <Input placeholder="Upperbound (optional)" bind:value={scalar.upperbound} />
-        <Input placeholder="Initial value (optional)" bind:value={scalar.initial_value} />
-      </div>
+  <FormField form={form} name="variables">
+    <FormControl>
+      <!-- label for should cite to input. Now there are many inputs and label does not point to one. -->
+      <FormLabel for="scalar">New scalar variable</FormLabel> 
+      <Input placeholder="Name" bind:value={scalar.name} />
+      <Input placeholder="Symbol" bind:value={scalar.symbol} />
+      <select bind:value={scalar.variable_type} class="border rounded px-2 py-1">
+        <option value="real">real</option>
+        <option value="integer">integer</option>
+        <option value="binary">binary</option>
+      </select>
+      <Input placeholder="Lowerbound (optional)" bind:value={scalar.lowerbound} />
+      <Input placeholder="Upperbound (optional)" bind:value={scalar.upperbound} />
+      <Input placeholder="Initial value (optional)" bind:value={scalar.initial_value} />
+    </FormControl>
       <button type="button" class="border px-2 py-1 rounded w-full" on:click={addVariable}>Add Variable</button>
-    </div>
-  </div>
-    <!-- Tensor variable miniform -->
-  <div class="border p-2 rounded bg-gray-50">
-    <b>New Tensor Variable</b>
-    <div class="grid grid-cols-2 gap-2 mb-2">
+  </FormField>
+    <!-- Tensor variable -->
+  <FormField form={form} name="variables">
+    <FormControl>
+      <FormLabel for="tensor">New Tensor Variable</FormLabel>
       <Input placeholder="Name" bind:value={tensor.name} />
       <Input placeholder="Symbol" bind:value={tensor.symbol} />
       <select bind:value={tensor.variable_type} class="border rounded px-2 py-1">
@@ -146,12 +157,21 @@ $formData.variables = [...$formData.variables, { ...scalar }];
       <Input placeholder="Lowerbounds (optional)" bind:value={tensor.lowerbounds} />
       <Input placeholder="Upperbounds (optional)" bind:value={tensor.upperbounds} />
       <Input placeholder="Initial values (optional)" bind:value={tensor.initial_values} />
-    </div>
+    </FormControl>
     <button type="button" class="border px-2 py-1 rounded w-full" on:click={addTensorVariable}>Add Tensor Variable</button>
-  </div>
+  </FormField>
   
   <!-- List of added variables -->
+<h2 class="text-lg font-semibold mt-4 mb-2">Lisätyt muuttujat</h2>
+<div class="grid gap-2">
   {#each $formData.variables as variable, idx}
+    {#if editingIndex === idx}
+      <!-- Muokkaustila -->
+      <div class="border p-2 rounded bg-yellow-50">
+        <div class="flex justify-between items-center mb-1">
+          <b>Muokkaa muuttujaa #{idx + 1}</b>
+          <button type="button" class="text-green-600" on:click={() => editingIndex = null}>Valmis</button>
+        </div>
     <div class="border p-2 mb-2 rounded bg-gray-50">
       <div class="flex justify-between items-center mb-1">
         <b>{'shape' in variable ? 'Tensor Variable' : 'Variable'} #{idx + 1}</b>
@@ -165,7 +185,7 @@ $formData.variables = [...$formData.variables, { ...scalar }];
           <option value="integer">integer</option>
           <option value="binary">binary</option>
         </select>
-        {#if 'shape' in variable}
+        {#if isTensorVariable(variable)}
           <div class="col-span-2 flex items-center gap-2">
             <span>Shape:</span>
             {#each variable.shape as dim, dimIdx}
@@ -195,7 +215,24 @@ $formData.variables = [...$formData.variables, { ...scalar }];
         {/if}
       </div>
     </div>
+      </div>
+    {:else}
+      <!-- Korttinäkymä -->
+      <div class="border p-2 rounded bg-gray-100 flex justify-between items-center">
+        <div>
+          <b>{variable.name}</b> ({variable.symbol}) – <i>{variable.variable_type}</i>
+          {#if isTensorVariable(variable)}
+            <div class="text-sm text-gray-600">Shape: [{variable.shape.join(', ')}]</div>
+          {/if}
+        </div>
+        <div class="flex gap-2">
+          <button class="text-blue-600" type="button" on:click={() => editingIndex = idx}>Muokkaa</button>
+          <button class="text-red-600" type="button" on:click={() => removeVariable(idx)}>Poista</button>
+        </div>
+      </div>
+    {/if}
   {/each}
+</div>
 
   <FormField form={form} name="constants">
     <FormControl>
