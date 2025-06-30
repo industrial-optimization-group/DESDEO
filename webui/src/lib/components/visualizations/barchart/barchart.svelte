@@ -20,6 +20,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import * as d3 from 'd3';
 	import { COLOR_PALETTE } from '../utils/colors';
+	import { normalize, getValueRange } from '../utils/math';
 
 	export let data: { name: string; value: number; direction: 'max' | 'min' }[] = [];
 	export let axisRanges: [number, number][] = [];
@@ -40,34 +41,130 @@
 	let container: HTMLDivElement;
 	let resizeObserver: ResizeObserver;
 
-	/**
-	 * Normalize a value to [0, 1] given a min and max.
-	 */
-	function normalize(value: number, min: number, max: number): number {
-		if (max === min) return 0.5;
-		return (value - min) / (max - min);
+	function drawHorizontalChart(
+		svgElement: d3.Selection<SVGGElement, unknown, null, undefined>,
+		color: d3.ScaleOrdinal<string, string, never>,
+		innerWidth: number,
+		innerHeight: number,
+		margin: { top: number; right: number; bottom: number; left: number },
+		x: d3.ScaleLinear<number, number>,
+		y: d3.ScaleBand<string>,
+		xMin: number,
+		xMax: number
+	) {
+		svgElement
+			.append('g')
+			.selectAll('rect')
+			.data(data)
+			.join('rect')
+			.attr('y', (d) => y(d.name)!)
+			.attr('height', y.bandwidth())
+			.attr('x', (d) => (d.direction === 'min' ? x(0) : x(d.value)))
+			.attr('width', (d) => (d.direction === 'min' ? x(d.value) - x(0) : xMax - x(d.value)))
+			.attr('fill', (d, i) => color(d.name));
+
+		// Draw axes
+		svgElement.append('g').attr('transform', `translate(0,${margin.top})`).call(d3.axisTop(x));
+		svgElement.append('g').attr('transform', `translate(${margin.left},0)`).call(d3.axisLeft(y));
+
+		// Optionally show labels
+		if (options.showLabels) {
+			svgElement
+				.append('g')
+				.selectAll('text')
+				.data(data)
+				.join('text')
+				.attr('x', (d) => {
+					const valueStr = d.value.toString();
+					const approxTextWidth = valueStr.length * 7; // ~7px per character
+					let labelX = x(d.value);
+					if (d.direction === 'min') {
+						// For 'min', label is to the right of the bar
+						labelX += 5;
+						if (labelX + approxTextWidth > xMax) {
+							labelX = xMax - approxTextWidth - 2;
+						}
+					} else {
+						// For 'max', label is to the left of the bar
+						labelX -= 5;
+						if (labelX - approxTextWidth < xMin) {
+							labelX = xMin + approxTextWidth + 2;
+						}
+					}
+					return labelX;
+				})
+				.attr('y', (d) => y(d.name)! + y.bandwidth() / 2)
+				.attr('dy', '0.35em')
+				.attr('text-anchor', (d) => (d.direction === 'min' ? 'start' : 'end'))
+				.text((d) => d.value);
+		}
 	}
 
-	/**
-	 * Get the value range for the axis.
-	 * If axisRanges is not per-bar, use the first range or fallback to min/max of all data.
-	 */
-	function getValueRange(): [number, number] {
-		if (axisRanges && axisRanges.length === 1) {
-			const [min, max] = axisRanges[0];
-			if (isFinite(min) && isFinite(max) && min < max) return [min, max];
+	function drawVerticalChart(
+		svgElement: d3.Selection<SVGGElement, unknown, null, undefined>,
+		color: d3.ScaleOrdinal<string, string, never>,
+		innerWidth: number,
+		innerHeight: number,
+		margin: { top: number; right: number; bottom: number; left: number },
+		x: d3.ScaleBand<string>,
+		y: d3.ScaleLinear<number, number>,
+		yMin: number,
+		yMax: number
+	) {
+		svgElement
+			.append('g')
+			.selectAll('rect')
+			.data(data)
+			.join('rect')
+			.attr('x', (d) => x(d.name)!)
+			.attr('width', x.bandwidth())
+			.attr('y', (d) => (d.direction === 'min' ? y(d.value) : yMax))
+			.attr('height', (d) =>
+				d.direction === 'min' ? y(0) - y(d.value) : y(0) - yMax - (y(0) - y(d.value))
+			)
+			.attr('fill', (d, i) => color(d.name));
+
+		svgElement
+			.append('g')
+			.attr('transform', `translate(0,${innerHeight - margin.bottom})`)
+			.call(d3.axisBottom(x));
+
+		svgElement.append('g').attr('transform', `translate(${margin.left},0)`).call(d3.axisLeft(y));
+
+		if (options.showLabels) {
+			svgElement
+				.append('g')
+				.selectAll('text')
+				.data(data)
+				.join('text')
+				.attr('x', (d) => x(d.name)! + x.bandwidth() / 2)
+				.attr('y', (d) => {
+					let labelY = y(d.value);
+					let approxTextHeight = 15;
+					if (d.direction === 'min') {
+						// For 'min', label is on the top of the bar
+						labelY -= 3;
+						if (labelY > y(yMax)) {
+							labelY = y(yMax) - approxTextHeight;
+						}
+					} else {
+						// For 'max', label is below the bar
+						labelY += approxTextHeight;
+						if (labelY < y(yMin)) {
+							labelY = y(yMin) - approxTextHeight;
+						}
+					}
+					return labelY;
+				})
+				.attr('text-anchor', 'middle')
+				.text((d) => d.value);
 		}
-		const values = data.map((d) => d.value);
-		const min = Math.min(...values);
-		const max = Math.max(...values);
-		if (min === max) return [min - 1, max + 1];
-		return [min, max];
 	}
 
 	/**
 	 * Draw the chart using D3.
 	 */
-	function drawChart() {
+	function drawChart(): void {
 		const margin = { top: 20, right: 20, bottom: 30, left: 40 };
 		const innerWidth = width - margin.left - margin.right;
 		const innerHeight = height - margin.top - margin.bottom;
@@ -102,54 +199,8 @@
 			const xMin = x.range()[0];
 			const xMax = x.range()[1];
 
-			svgElement
-				.append('g')
-				.selectAll('rect')
-				.data(data)
-				.join('rect')
-				.attr('y', (d) => y(d.name)!)
-				.attr('height', y.bandwidth())
-				.attr('x', (d) => (d.direction === 'min' ? x(0) : x(d.value)))
-				.attr('width', (d) => (d.direction === 'min' ? x(d.value) - x(0) : xMax - x(d.value)))
-				.attr('fill', (d, i) => color(d.name));
-
-			// Draw axes
-			svgElement.append('g').attr('transform', `translate(0,${margin.top})`).call(d3.axisTop(x));
-			svgElement.append('g').attr('transform', `translate(${margin.left},0)`).call(d3.axisLeft(y));
-
-			// Optionally show labels
-			if (options.showLabels) {
-				svgElement
-					.append('g')
-					.selectAll('text')
-					.data(data)
-					.join('text')
-					.attr('x', (d) => {
-						const valueStr = d.value.toString();
-						const approxTextWidth = valueStr.length * 7; // ~7px per character
-						let labelX = x(d.value);
-						if (d.direction === 'min') {
-							// For 'min', label is to the right of the bar
-							labelX += 5;
-							if (labelX + approxTextWidth > xMax) {
-								labelX = xMax - approxTextWidth - 2;
-							}
-						} else {
-							// For 'max', label is to the left of the bar
-							labelX -= 5;
-							if (labelX - approxTextWidth < xMin) {
-								labelX = xMin + approxTextWidth + 2;
-							}
-						}
-						return labelX;
-					})
-					.attr('y', (d) => y(d.name)! + y.bandwidth() / 2)
-					.attr('dy', '0.35em')
-					.attr('text-anchor', (d) => (d.direction === 'min' ? 'start' : 'end'))
-					.text((d) => d.value);
-			}
+			drawHorizontalChart(svgElement, color, innerWidth, innerHeight, margin, x, y, xMin, xMax);
 		} else {
-			// Vertical bar chart (default)
 			const x = d3
 				.scaleBand()
 				.domain(data.map((d) => d.name))
@@ -165,56 +216,7 @@
 			const yMin = y.range()[0];
 			const yMax = y.range()[1];
 
-			// Draw bars first
-			svgElement
-				.append('g')
-				.selectAll('rect')
-				.data(data)
-				.join('rect')
-				.attr('x', (d) => x(d.name)!)
-				.attr('width', x.bandwidth())
-				.attr('y', (d) => (d.direction === 'min' ? y(d.value) : yMax))
-				.attr('height', (d) =>
-					d.direction === 'min' ? y(0) - y(d.value) : y(0) - yMax - (y(0) - y(d.value))
-				)
-				.attr('fill', (d, i) => color(d.name));
-
-			svgElement
-				.append('g')
-				.attr('transform', `translate(0,${innerHeight - margin.bottom})`)
-				.call(d3.axisBottom(x));
-
-			svgElement.append('g').attr('transform', `translate(${margin.left},0)`).call(d3.axisLeft(y));
-
-			// Optionally show labels
-			if (options.showLabels) {
-				svgElement
-					.append('g')
-					.selectAll('text')
-					.data(data)
-					.join('text')
-					.attr('x', (d) => x(d.name)! + x.bandwidth() / 2)
-					.attr('y', (d) => {
-						let labelY = y(d.value);
-						let approxTextHeight = 15;
-						if (d.direction === 'min') {
-							// For 'min', label is on the top of the bar
-							labelY -= 3;
-							if (labelY > y(yMax)) {
-								labelY = y(yMax) - approxTextHeight;
-							}
-						} else {
-							// For 'max', label is below the bar
-							labelY += approxTextHeight;
-							if (labelY < y(yMin)) {
-								labelY = y(yMin) - approxTextHeight;
-							}
-						}
-						return labelY;
-					})
-					.attr('text-anchor', 'middle')
-					.text((d) => d.value);
-			}
+			drawVerticalChart(svgElement, color, innerWidth, innerHeight, margin, x, y, yMin, yMax);
 		}
 
 		// Draw border around plot area last (so it's on top)
