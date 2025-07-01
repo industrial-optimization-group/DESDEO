@@ -17,6 +17,7 @@
 	type TensorVariable = z.infer<typeof schemas.TensorVariable>;
 	type Constant = z.infer<typeof schemas.Constant>;
 	type TensorConstant = z.infer<typeof schemas.TensorConstant>;
+	type Objective = z.infer< typeof schemas.Objective>;
 
 	// Minimal form state for now
 	const form = superForm(
@@ -25,42 +26,42 @@
 			description: '',
 			variables: [] as (TensorVariable | Variable)[],
 			constants: [] as (Constant | TensorConstant)[],
-			objectives: [] // JSON string for now
+			objectives: [] as Objective[],
 		},
 		{ dataType: 'json' }
 	);
 	const { form: formData, enhance, errors } = form;
 
-  function addVariable(kind: 'scalar' | 'tensor') {
-        if (kind === 'scalar') {
-      let variable: Variable = {
-              name: '',
-              symbol: '',
-              variable_type: 'real',
-              lowerbound: null,
-              upperbound: null,
-              initial_value: null
-          };
-      $formData.variables = [
-        ...$formData.variables,
-        variable
-      ];
-    } else {
-      let variable: TensorVariable = {
-              name: '',
-              symbol: '',
-              shape: [2],
-              variable_type: 'real',
-              lowerbounds: null,
-              upperbounds: null,
-              initial_values: null
-          };
-      $formData.variables = [
-        ...$formData.variables,
-        variable
-      ];
-    }
-  }
+	function addVariable(kind: 'scalar' | 'tensor') {
+			if (kind === 'scalar') {
+		let variable: Variable = {
+				name: '',
+				symbol: '',
+				variable_type: 'real',
+				lowerbound: null,
+				upperbound: null,
+				initial_value: null
+			};
+		$formData.variables = [
+			...$formData.variables,
+			variable
+		];
+		} else {
+		let variable: TensorVariable = {
+				name: '',
+				symbol: '',
+				shape: [2],
+				variable_type: 'real',
+				lowerbounds: null,
+				upperbounds: null,
+				initial_values: null
+			};
+		$formData.variables = [
+			...$formData.variables,
+			variable
+		];
+		}
+	}
 
 	function removeVariable(idx: number) {
 		$formData.variables = $formData.variables.filter((_, i) => i !== idx);
@@ -78,42 +79,65 @@
       $formData.variables = [...$formData.variables];
 		}
 	}
-  function isTensorVariable(v: Variable | TensorVariable): v is TensorVariable {
-    return Array.isArray((v as any).shape);
-  }
+	function isTensorVariable(v: Variable | TensorVariable): v is TensorVariable {
+		return Array.isArray((v as any).shape);
+	}
 
     // Helper to add a new constant
-  function addConstant(kind: 'scalar' | 'tensor') {
-    if (kind === 'scalar') {
-      let constant: Constant = { name: '', symbol: '', value: false };
-      $formData.constants = [
-        ...$formData.constants,
-        constant
-      ];
-    } else {
-      let constant: TensorConstant = { name: '', symbol: '', shape: [2], values: [] };
-      $formData.constants = [
-        ...$formData.constants,
-        constant
-      ];
-    }
-  }
+	function addConstant(kind: 'scalar' | 'tensor') {
+		if (kind === 'scalar') {
+		let constant: Constant = { name: '', symbol: '', value: false };
+		$formData.constants = [
+			...$formData.constants,
+			constant
+		];
+		} else {
+		let constant: TensorConstant = { name: '', symbol: '', shape: [2], values: [] };
+		$formData.constants = [
+			...$formData.constants,
+			constant
+		];
+		}
+	}
 
-  function removeConstant(idx: number) {
-    $formData.constants = $formData.constants.filter((_, i) => i !== idx);
-  }
+	function removeConstant(idx: number) {
+		$formData.constants = $formData.constants.filter((_, i) => i !== idx);
+	}
 
-  function addConstantShapeDim(constant: TensorConstant) {
-    constant.shape = [...constant.shape, 1];
-  }
-  function removeConstantShapeDim(constant: TensorConstant, dimIdx: number) {
-    if (constant.shape.length > 1) {
-      constant.shape = constant.shape.filter((_, i) => i !== dimIdx);
-    }
-  }
-  function isTensorConstant(v: Constant | TensorConstant): v is TensorConstant {
-    return Array.isArray((v as any).shape);
-  }
+	function addConstantShapeDim(constant: TensorConstant) {
+		constant.shape = [...constant.shape, 1];
+	}
+	function removeConstantShapeDim(constant: TensorConstant, dimIdx: number) {
+		if (constant.shape.length > 1) {
+		constant.shape = constant.shape.filter((_, i) => i !== dimIdx);
+		}
+	}
+	function isTensorConstant(v: Constant | TensorConstant): v is TensorConstant {
+		return Array.isArray((v as any).shape);
+	}
+
+	function addObjective() { 
+		const objective: Objective = {
+			name: '',
+			symbol: '',
+			unit: null,
+			func: null,
+			simulator_path: null,
+			surrogates: null,
+			maximize: false,
+			is_linear: false,
+			is_convex: false,
+			is_twice_differentiable: false,
+			ideal: null,
+			nadir: null,
+			objective_type: "analytical",
+			scenario_keys: null
+		};
+		$formData.objectives = [...$formData.objectives, objective];
+	}
+	function removeObjective(idx: number) { 
+		$formData.objectives = $formData.objectives.filter((_, i) => i !== idx);
+	}
 </script>
 
 <section class="mx-10">
@@ -207,10 +231,10 @@
 						<Input placeholder="Initial value (optional)" bind:value={variable.initial_value} />
 					{/if}
 				{/each}
-          <div class="flex gap-2">
-              <button type="button" class="mb-2 rounded border px-2 py-1" onclick={() => addVariable('scalar')}>+ Scalar</button>
-              <button type="button" class="mb-2 rounded border px-2 py-1" onclick={() => addVariable('tensor')}>+ Tensor</button>
-          </div>
+				<div class="flex gap-2">
+					<button type="button" class="mb-2 rounded border px-2 py-1" onclick={() => addVariable('scalar')}>+ Scalar</button>
+					<button type="button" class="mb-2 rounded border px-2 py-1" onclick={() => addVariable('tensor')}>+ Tensor</button>
+				</div>
 			</FormFieldset>
 
 
@@ -219,73 +243,109 @@
 
 
 
-      <FormFieldset {form} name="constants">
-          <FormLegend>Constants</FormLegend>
-          {#each $formData.constants as constant, idx}
-              <div>
-                  <button
-                      type="button"
-                      class="right-2 top-2 rounded border border-red-200 px-2 py-0.5 text-red-500"
-                      onclick={() => removeConstant(idx)}
-                      aria-label="Delete constant">×</button>
-              </div>
-              <Input placeholder="Name" bind:value={constant.name} />
-              <Input placeholder="Symbol" bind:value={constant.symbol} />
-              {#if isTensorConstant(constant)}
-                  <div class="col-span-2 flex items-center gap-2">
-                      <span>Shape:</span>
-                      {#each constant.shape as dim, dimIdx}
-                          <input
-                              type="number"
-                              min="1"
-                              class="w-16 rounded border px-1 py-0.5"
-                              bind:value={constant.shape[dimIdx]}
-                              oninput={(e) => {
-                                  const target = e.target as HTMLInputElement | null;
-                                  if (target) {
-                                      constant.shape = constant.shape.map((v, i) =>
-                                          i === dimIdx ? Math.max(1, Number(target.value)) : v
-                                      );
-                                      $formData.constants = [...$formData.constants];
-                                  }
-                              }}
-                          />
-                          <button
-                              type="button"
-                              class="text-red-500"
-                              onclick={() => removeConstantShapeDim(constant, dimIdx)}
-                              disabled={constant.shape.length === 1}>–</button>
-                      {/each}
-                      <button type="button" class="text-green-600" onclick={() => { addConstantShapeDim(constant); $formData.constants = [...$formData.constants]; }}>+</button>
-                  </div>
-                  <Input placeholder="Values (comma separated)" bind:value={constant.values} />
-              {:else}
-                  <Input type="number" placeholder="Value (number or boolean)" bind:value={constant.value} />
-              {/if}
-          {/each}
-          <div class="flex gap-2">
-              <button type="button" class="mb-2 rounded border px-2 py-1" onclick={() => addConstant('scalar')}>+ Scalar</button>
-              <button type="button" class="mb-2 rounded border px-2 py-1" onclick={() => addConstant('tensor')}>+ Tensor</button>
-          </div>
-      </FormFieldset>
+			<FormFieldset {form} name="constants">
+				<FormLegend>Constants</FormLegend>
+				{#each $formData.constants as constant, idx}
+					<div>
+						<button
+							type="button"
+							class="right-2 top-2 rounded border border-red-200 px-2 py-0.5 text-red-500"
+							onclick={() => removeConstant(idx)}
+							aria-label="Delete constant">×</button>
+					</div>
+					<Input placeholder="Name" bind:value={constant.name} />
+					<Input placeholder="Symbol" bind:value={constant.symbol} />
+					{#if isTensorConstant(constant)}
+						<div class="col-span-2 flex items-center gap-2">
+							<span>Shape:</span>
+							{#each constant.shape as dim, dimIdx}
+								<input
+									type="number"
+									min="1"
+									class="w-16 rounded border px-1 py-0.5"
+									bind:value={constant.shape[dimIdx]}
+									oninput={(e) => {
+										const target = e.target as HTMLInputElement | null;
+										if (target) {
+											constant.shape = constant.shape.map((v, i) =>
+												i === dimIdx ? Math.max(1, Number(target.value)) : v
+											);
+											$formData.constants = [...$formData.constants];
+										}
+									}}
+								/>
+								<button
+									type="button"
+									class="text-red-500"
+									onclick={() => removeConstantShapeDim(constant, dimIdx)}
+									disabled={constant.shape.length === 1}>–</button>
+							{/each}
+							<button type="button" class="text-green-600" onclick={() => { addConstantShapeDim(constant); $formData.constants = [...$formData.constants]; }}>+</button>
+						</div>
+						<Input placeholder="Values (comma separated)" bind:value={constant.values} />
+					{:else}
+						<Input type="number" placeholder="Value (number or boolean)" bind:value={constant.value} />
+					{/if}
+				{/each}
+				<div class="flex gap-2">
+					<button type="button" class="mb-2 rounded border px-2 py-1" onclick={() => addConstant('scalar')}>+ Scalar</button>
+					<button type="button" class="mb-2 rounded border px-2 py-1" onclick={() => addConstant('tensor')}>+ Tensor</button>
+				</div>
+			</FormFieldset>
 
 
 
 
 
 
-			<FormField {form} name="objectives">
-				<FormControl>
-					<FormLabel for="objectives">Objectives (JSON array)</FormLabel>
-					<Textarea
-						id="objectives"
-						name="objectives"
-						bind:value={$formData.objectives}
-						rows={3}
-						placeholder="['f1', 'f2']"
-					/>
-				</FormControl>
-			</FormField>
+			<FormFieldset {form} name="objectives">
+				<FormLegend>Objectives</FormLegend>
+				{#each $formData.objectives as objective, idx}
+					<div>
+						<button
+							type="button"
+							class="right-2 top-2 rounded border border-red-200 px-2 py-0.5 text-red-500"
+							onclick={() => removeObjective(idx)}
+							aria-label="Delete objective">×</button>
+					</div>
+					<Input placeholder="Name" bind:value={objective.name} />
+					<Input placeholder="Symbol" bind:value={objective.symbol} />
+					<Input placeholder="Unit" bind:value={objective.unit} /> <!-- optional -->
+					<Input type="textarea" placeholder="Func" bind:value={objective.func} /> <!-- optional -->
+					<Input placeholder="Simulator path" bind:value={objective.simulator_path} /> <!-- optional -->
+					<Input placeholder="Surrogates (comma separated)" bind:value={objective.surrogates} /> <!-- optional -->
+					<div class="flex items-center gap-2">
+						<label>
+							<input type="checkbox" bind:checked={objective.maximize} />
+							Maximize
+						</label>
+						<label>
+							<input type="checkbox" bind:checked={objective.is_linear} />
+							Is Linear
+						</label>
+						<label>
+							<input type="checkbox" bind:checked={objective.is_convex} />
+							Is Convex
+						</label>
+						<label>
+							<input type="checkbox" bind:checked={objective.is_twice_differentiable} />
+							Is Twice Differentiable
+						</label>
+					</div>
+					<Input type="number" placeholder="Ideal" bind:value={objective.ideal} />
+					<Input type="number" placeholder="Nadir" bind:value={objective.nadir} /> <!-- optional -->
+					<select bind:value={objective.objective_type} class="rounded border px-2 py-1">
+						<option value="analytical">Analytical</option>
+						<option value="data_based">Data Based</option>
+						<option value="simulator">Simulator</option>
+						<option value="surrogate">Surrogate</option>
+					</select>
+					<Input type="text" placeholder="Scenario keys (comma separated)" bind:value={objective.scenario_keys} /> <!-- optional -->
+				{/each}
+				<div class="flex gap-2">
+					<button type="button" class="mb-2 rounded border px-2 py-1" onclick={() => addObjective()}> + </button>
+				</div>
+			</FormFieldset>
 			<FormButton>Add Problem</FormButton
 			>
 		</form>

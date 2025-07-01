@@ -23,6 +23,13 @@ export const actions: Actions = {
     const description = form.data.description;
     const variables = form.data.variables;
     const constants = form.data.constants;
+    
+    // if objectives.objective_type is not defined, define it as "analytical".
+    // This wont happen since it is a dropdown in the UI, but the type checking will complain otherwise
+    const objectives = form.data.objectives.map(obj => ({
+      ...obj,
+      objective_type: obj.objective_type ?? "analytical"
+    }));
 
     // 1. Get refresh token from cookies
     const refreshToken = cookies.get('refresh_token');
@@ -52,7 +59,7 @@ export const actions: Actions = {
           name,
           description,
           variables,
-          objectives: [],
+          objectives,
           constants,
         },
         headers: {
