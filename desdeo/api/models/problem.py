@@ -71,12 +71,14 @@ class ProblemInfo(ProblemBase):
     tensor_constants: list["TensorConstantDB"] | None
     variables: list["VariableDB"] | None
     tensor_variables: list["TensorVariableDB"] | None
-    objectives: list["ObjectiveDB"]
+    objectives: list["ObjectiveDB"] | None
     constraints: list["ConstraintDB"] | None
     scalarization_funcs: list["ScalarizationFunctionDB"] | None
     extra_funcs: list["ExtraFunctionDB"] | None
     discrete_representation: "DiscreteRepresentationDB | None"
     simulators: list["SimulatorDB"] | None
+
+    problem_metadata: "ProblemMetaDataPublic | None"
 
 
 class ProblemInfoSmall(ProblemBase):
@@ -92,6 +94,8 @@ class ProblemInfoSmall(ProblemBase):
     is_twice_differentiable: bool | None
     scenario_keys: list[str] | None
     variable_domain: VariableDomainTypeEnum
+
+    problem_metadata: "ProblemMetaDataPublic | None"
 
 
 class ProblemDB(ProblemBase, table=True):
@@ -211,7 +215,7 @@ class ProblemMetaDataListType(TypeDecorator):
             for item in metadata_list:
                 item_dict = json.loads(item)
                 match item_dict["metadata_type"]:
-                    # Add derived classes here so they can be deserialized
+                    # Add classes derived from BaseProblemMetaData here so they can be deserialized
                     case "forest_problem_metadata":
                         metadata_objects.append(ForestProblemMetaData.model_validate(item_dict))
                     case _:
@@ -222,13 +226,13 @@ class ProblemMetaDataListType(TypeDecorator):
 class BaseProblemMetaData(SQLModel):
     """Derive other problem metadata classes from this one."""
 
-    metadata_type: Literal["unset"] = "unset"
+    metadata_type: str = "unset"
 
 
 class ForestProblemMetaData(BaseProblemMetaData):
     """A problem metadata class to hold UTOPIA forest problem specific information"""
 
-    metadata_type: Literal["forest_problem_metadata"] = "forest_problem_metadata"
+    metadata_type: str = "forest_problem_metadata"
 
     map_json: str = Field()
     schedule_dict: dict = Field(sa_column=Column(JSON))
@@ -240,12 +244,23 @@ class ForestProblemMetaData(BaseProblemMetaData):
 
 class ProblemMetaDataDB(SQLModel, table=True):
     """Store Problem MetaData to DB with this class"""
+
     id: int | None = Field(primary_key=True, default=None)
     problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
     data: list[BaseProblemMetaData] | None = Field(sa_column=Column(ProblemMetaDataListType), default=None)
 
     problem: ProblemDB | None = Relationship(back_populates="problem_metadata")
 
+class ProblemMetaDataPublic(SQLModel):
+    """Response model for ProblemMetaData"""
+
+    data: list[BaseProblemMetaData] | None
+
+class ProblemMetaDataGetRequest(SQLModel):
+    """Request model for getting specific type of metadata from a specific problem"""
+
+    problem_id: int
+    metadata_type: str
 
 ### PATH TYPES ###
 

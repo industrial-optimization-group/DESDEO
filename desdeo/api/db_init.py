@@ -7,7 +7,7 @@ from sqlmodel import Session, SQLModel
 
 from desdeo.api.config import ServerDebugConfig, SettingsConfig
 from desdeo.api.db import engine
-from desdeo.api.models import ProblemDB, User, UserRole
+from desdeo.api.models import ProblemDB, User, UserRole, ProblemMetaDataDB, ForestProblemMetaData
 from desdeo.api.routers.user_authentication import get_password_hash
 from desdeo.problem.testproblems import dtlz2, river_pollution_problem, simple_knapsack
 
@@ -45,6 +45,22 @@ if __name__ == "__main__":
 
             session.commit()
             session.refresh(problem_db)
+
+            # For testing purposes, added some metadata
+            metadata = ProblemMetaDataDB(
+            problem_id=problem_db.id,
+            data = [
+                    ForestProblemMetaData(
+                        map_json = "type: string",
+                        schedule_dict = {"type": "dict"},
+                        years = ["type:", "list", "of", "strings"],
+                        stand_id_field = "type: string",
+                    ),
+                ],
+            )
+            session.add(metadata)
+            session.commit()
+            session.refresh(metadata)
 
         """
         db.add(user_analyst)
