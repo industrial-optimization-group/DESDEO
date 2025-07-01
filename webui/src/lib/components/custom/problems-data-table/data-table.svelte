@@ -85,7 +85,7 @@
 
 	import type { HTMLAttributes } from 'svelte/elements';
 	import { cn } from '$lib/utils.js';
-	import { createEventDispatcher } from 'svelte';
+	//import { createEventDispatcher } from 'svelte';
 	import type { components } from '$lib/api/client-types';
 
 	// Use the OpenAPI type for a problem
@@ -116,7 +116,7 @@
 	});
 	// Use ProblemInfo everywhere you previously used Problem or PageData
 	//let { data }: ProblemInfo[] = $props();
-	const { data } = $props<{ data: ProblemInfo[] }>();
+	const { data, onSelect } = $props<{ data: ProblemInfo[]; onSelect: any }>();
 
 	let rowSelection = $state<RowSelectionState>({});
 	let columnVisibility = $state<VisibilityState>({});
@@ -124,7 +124,7 @@
 	let sorting = $state<SortingState>([]);
 	let pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 5 });
 
-	const dispatch = createEventDispatcher();
+	//const dispatch = createEventDispatcher();
 
 	const columns: ColumnDef<ProblemInfo>[] = [
 		{
@@ -261,7 +261,7 @@
 
 	function handleRowClick(row: any) {
 		row.toggleSelected(true);
-		dispatch('select', row.original);
+		onSelect(row.original);
 	}
 </script>
 
@@ -305,7 +305,7 @@
 			<DropdownMenu.Item class="data-highlighted:bg-muted">Edit</DropdownMenu.Item>
 			<DropdownMenu.Item class="data-highlighted:bg-muted">Download</DropdownMenu.Item>
 			<DropdownMenu.Item
-				class="data-highlighted:bg-muted text-red-500 data-highlighted:text-red-700"
+				class="data-highlighted:bg-muted data-highlighted:text-red-700 text-red-500"
 				>Delete</DropdownMenu.Item
 			>
 		</DropdownMenu.Content>
@@ -322,8 +322,11 @@
 					size: 'icon',
 					class: 'text-secondary-foreground flex h-8 w-8 cursor-pointer p-0'
 				})}
+				onclick={() => {
+					onSelect(problem);
+				}}
 			>
-				<a href={`/methods/initialize?problemId=${encodeURIComponent(problem.id)}`}>
+				<a href={`/methods/initialize`}>
 					<Play />
 				</a>
 			</Tooltip.Trigger>

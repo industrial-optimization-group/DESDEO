@@ -39,8 +39,10 @@
 	 */
 
 	import type { PageProps } from './$types';
+	import { methodSelection } from '../../../stores/methodSelection';
+
 	import { onMount } from 'svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import Settings from '@lucide/svelte/icons/settings';
@@ -48,7 +50,7 @@
 	import type { components } from '$lib/api/client-types';
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 
-	let problemId: string | null = $state(null);
+	let problemId: number | null = $state(null);
 	let problem: ProblemInfo | null = $state(null);
 
 	const { data } = $props<{ data: ProblemInfo[] }>();
@@ -84,7 +86,7 @@
 		}
 	];
 	onMount(() => {
-		problemId = $page.url.searchParams.get('problemId') ?? null;
+		problemId = $methodSelection.selectedProblemId;
 		if (problemId) {
 			problem = problemList.find((p: ProblemInfo) => String(p.id) === String(problemId));
 		}
@@ -137,11 +139,7 @@
 					</div>
 				</Card.Content>
 				<Card.Footer class="mt-auto flex items-center justify-end gap-2">
-					<Button
-						variant="default"
-						disabled={!problem}
-						href={`${method.path}?problemId=${problemId}`}
-					>
+					<Button variant="default" disabled={!problem} href={`${method.path}`}>
 						<Play class="mr-1 inline" />
 						Use {method.name}
 					</Button>

@@ -39,6 +39,7 @@
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import { buttonVariants } from '$lib/components/ui/button';
 	import type { components } from '$lib/api/client-types';
+	import { methodSelection } from '../../stores/methodSelection';
 
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 
@@ -51,7 +52,7 @@
 </script>
 
 <div class="px-8">
-	<h1 class="primary mb-2 pt-4 text-left text-lg font-semibold text-pretty lg:text-xl">
+	<h1 class="primary mb-2 text-pretty pt-4 text-left text-lg font-semibold lg:text-xl">
 		Optimization Problems
 	</h1>
 	<p class="text-md text-justify text-gray-700">
@@ -64,7 +65,14 @@
 	{:else}
 		<div class="mt-4 grid grid-cols-2 gap-8 sm:grid-cols-1 lg:grid-cols-2">
 			<div class="w-full">
-				<DataTable data={problemList} on:select={(e) => (selectedProblem = e.detail)} />
+				<DataTable
+					data={problemList}
+					onSelect={(e: ProblemInfo) => {
+						selectedProblem = e;
+						console.log('Selected problem:', selectedProblem.id);
+						methodSelection.set(selectedProblem?.id ?? null, $methodSelection.selectedMethod); // Update method selection store with the selected problem ID
+					}}
+				/>
 			</div>
 			<div class="w-full">
 				<Tabs.Root value="general" class="w-full">
@@ -262,7 +270,7 @@
 											<span class="text-gray-700">real</span>
 										</li>
 									</ul>
-									<p class="mb-2 text-sm text-gray-600 italic">
+									<p class="mb-2 text-sm italic text-gray-600">
 										Only a summary is shown because this problem has more than 10 variables.
 									</p>
 								</div>
