@@ -6,6 +6,8 @@ or minimization of the corresponding objective functions may be correctly
 accounted for when computing scalarization function values.
 """
 
+from typing import Literal
+
 import numpy as np
 
 from desdeo.problem import (
@@ -17,9 +19,9 @@ from desdeo.problem import (
     VariableTypeEnum,
 )
 from desdeo.tools.utils import (
+    flip_maximized_objective_values,
     get_corrected_ideal,
     get_corrected_nadir,
-    flip_maximized_objective_values,
 )
 
 
@@ -3206,7 +3208,7 @@ def add_group_scenario_sf_diff(
     return problem_, symbol
 
 
-def create_HDF(
+def __create_HDF(
     y: str,
     a: float,
     r: float,
@@ -3270,7 +3272,7 @@ def create_HDF(
     return func
 
 
-def create_MDF(y: str, a: float, r: float, d1: float = 0.9, d2: float = 0.1) -> str:
+def __create_MDF(y: str, a: float, r: float, d1: float = 0.9, d2: float = 0.1) -> str:
     """Create MaoMao's desirability function.
 
     Distinctions form MaoMao's original function:
@@ -3345,7 +3347,7 @@ def add_desirability_funcs(
     aspiration_levels: dict[str, float],
     reservation_levels: dict[str, float],
     desirability_levels: dict[str, tuple[float, float]] | None = None,
-    desirability_func: str = "Harrington",
+    desirability_func: Literal["Harrington", "MaoMao"] = "Harrington",
 ) -> tuple[Problem, list[str]]:
     """Adds desirability functions to the problem based on the given aspiration and reservation levels.
 
@@ -3369,9 +3371,9 @@ def add_desirability_funcs(
         list[str]: A list of symbols of the added desirability functions.
     """
     if desirability_func == "Harrington":
-        create_func = create_HDF
+        create_func = __create_HDF
     elif desirability_func == "MaoMao":
-        create_func = create_MDF
+        create_func = __create_MDF
     else:
         raise ScalarizationError(f"Desirability function {desirability_func} is not supported.")
 
