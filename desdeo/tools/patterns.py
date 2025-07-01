@@ -63,17 +63,18 @@ class Subscriber(ABC):
     def __init__(
         self,
         publisher: "Publisher",
-        verbosity: int = 1,
+        verbosity: int,
     ) -> None:
         """Initialize a subscriber.
 
         Args:
             publisher (Callable): the publisher to send messages to.
-            verbosity (int, optional): the verbosity level of the messages. Defaults to 1, which may mean differing
-                amounts of information depending on the message sender. A value of 0 means no messages at all.
+            verbosity (int, optional): the verbosity level of the messages. A value of 0 means no messages at all.
         """
         if not isinstance(verbosity, int):
             raise TypeError("Verbosity must be an integer.")
+        if verbosity < 0:
+            raise ValueError("Verbosity must be a non-negative integer.")
         self.publisher = publisher
         self.verbosity: int = verbosity
 
@@ -196,12 +197,13 @@ class Publisher:
             else:
                 self.registered_topics[topic].append(source)
 
-    def check_consistency(self) -> bool | tuple[bool, dict[MessageTopics, list[str]]]:
+    def check_consistency(self) -> tuple[bool, dict[MessageTopics, list[str]]]:
         """Check if all subscribed topics have also been registered by a source.
 
         Returns:
-            bool | tuple[bool, dict[MessageTopics, list[str]]]: True if all subscribed topics have been registered by a
-                source. False otherwise. If False, also return the unregistered topics that have been subscribed to.
+            tuple[bool, dict[MessageTopics, list[str]]]: Returns a tuple. The first element is a bool. True if all
+                subscribed topics have been registered by a source. False otherwise. The second element is a dictionary
+                of unregistered topics that have been subscribed to.
         """
         unregistered_topics = {}
         for topic in self.subscribers:
@@ -209,7 +211,7 @@ class Publisher:
                 unregistered_topics[topic] = [x.__class__.__name__ for x in self.subscribers[topic]]
         if unregistered_topics:
             return False, unregistered_topics
-        return True
+        return True, {}
 
     def relationship_map(self):
         """Make a diagram connecting sources to subscribers based on topics."""

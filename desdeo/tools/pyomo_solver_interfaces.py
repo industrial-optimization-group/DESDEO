@@ -100,61 +100,61 @@ class CbcOptions(BaseModel):
     model_config = ConfigDict(frozen=True, populate_by_name=True)
 
     sec: int = Field(
-        description="The maximum amount of time (in seconds) the solver should run. Defaults to None.", default=None
+        description="The maximum amount of time (in seconds) the solver should run. Defaults to 600.", default=600
     )
-    """The maximum amount of time (in seconds) the solver should run. Defaults to None."""
+    """The maximum amount of time (in seconds) the solver should run. Defaults to 600."""
 
     threads: int = Field(
-        description="Number of threads (cores) to use for solving the problem. Defaults to 1.", default=1
+        description="Number of threads (cores) to use for solving the problem. Defaults to 4.", default=4
     )
-    """Number of threads (cores) to use for solving the problem. Defaults to 1."""
+    """Number of threads (cores) to use for solving the problem. Defaults to 4."""
 
     log_level: int = Field(
         alias="logLevel",
         description=(
             "Controls the level of logging output. Values range from 0 (no output) to 5 (very detailed output)."
-            " Defaults to 1."
+            " Defaults to 2."
         ),
-        default=1,
+        default=2,
     )
     """Controls the level of logging output. Values range from 0 (no output) to 5 (very detailed output).
-    Defaults to 1.
+    Defaults to 2.
     """
 
     max_solutions: int = Field(
         alias="maxSolutions",
-        description="Limits the number of feasible solutions found by the solver. Defaults to None.",
-        default=None,
+        description="Limits the number of feasible solutions found by the solver. Defaults to 10.",
+        default=10,
     )
-    """Limits the number of feasible solutions found by the solver. Defaults to None."""
+    """Limits the number of feasible solutions found by the solver. Defaults to 10."""
 
     max_nodes: int = Field(
         alias="maxNodes",
-        description="Sets the maximum number of branch-and-bound nodes to explore. Defaults to None.",
-        default=None,
+        description="Sets the maximum number of branch-and-bound nodes to explore. Defaults to 1000.",
+        default=1000,
     )
-    """Sets the maximum number of branch-and-bound nodes to explore. Defaults to None."""
+    """Sets the maximum number of branch-and-bound nodes to explore. Defaults to 1000."""
 
     ratio_gap: float = Field(
         alias="ratioGap",
         description=(
             "Sets the relative MIP gap (as a fraction of the optimal solution value) at which the solver will"
-            " terminate. Defaults to None."
+            " terminate. Defaults to 0.01."
         ),
-        default=None,
+        default=0.01,
     )
     """Sets the relative MIP gap (as a fraction of the optimal solution value) at which the solver will terminate.
-    Defaults to None.
+    Defaults to 0.01.
     """
 
     absolute_gap: float = Field(
         alias="absoluteGap",
         description=(
-            "Sets the absolute MIP gap (an absolute value) at which the solver will terminate.  Defaults to None."
+            "Sets the absolute MIP gap (an absolute value) at which the solver will terminate.  Defaults to 1.0."
         ),
-        default=None,
+        default=1.0,
     )
-    """Sets the absolute MIP gap (an absolute value) at which the solver will terminate. Defaults to None."""
+    """Sets the absolute MIP gap (an absolute value) at which the solver will terminate. Defaults to 1.0."""
 
     solve: str = Field(
         description=(
@@ -168,9 +168,9 @@ class CbcOptions(BaseModel):
     """
 
     presolve: int = Field(
-        description="Controls the presolve level (0: no presolve, 1: default, 2: aggressive). Defaults to 1.", default=1
+        description="Controls the presolve level (0: no presolve, 1: default, 2: aggressive). Defaults to 2.", default=2
     )
-    """Controls the presolve level (0: no presolve, 1: default, 2: aggressive). Defaults to 1."""
+    """Controls the presolve level (0: no presolve, 1: default, 2: aggressive). Defaults to 2."""
 
     feasibility_tolerance: float = Field(
         alias="feasibilityTolerance",
@@ -187,19 +187,7 @@ class CbcOptions(BaseModel):
     """Sets the tolerance for integrality of integer variables. Defaults to 1e-5."""
 
 
-_default_cbc_options = CbcOptions(
-    sec=600,
-    threads=4,
-    logLevel=2,
-    maxSolutions=10,
-    maxNodes=1000,
-    ratioGap=0.01,
-    absoluteGap=1.0,
-    solve="branchAndCut",
-    presolve=2,
-    feasibilityTolerance=1e-6,
-    integerTolerance=1e-5,
-)
+_default_cbc_options = CbcOptions()
 """Defines CBC options with default values."""
 
 _default_bonmin_options = BonminOptions()

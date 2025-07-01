@@ -27,7 +27,7 @@ from desdeo.tools.message import (
     TerminatorMessageTopics,
 )
 from desdeo.tools.non_dominated_sorting import fast_non_dominated_sort
-from desdeo.tools.patterns import Subscriber
+from desdeo.tools.patterns import Subscriber, Publisher
 
 SolutionType = TypeVar("SolutionType", list, pl.DataFrame)
 
@@ -35,9 +35,9 @@ SolutionType = TypeVar("SolutionType", list, pl.DataFrame)
 class BaseSelector(Subscriber):
     """A base class for selection operators."""
 
-    def __init__(self, problem: Problem, **kwargs):
+    def __init__(self, problem: Problem, verbosity: int, publisher: Publisher):
         """Initialize a selection operator."""
-        super().__init__(**kwargs)
+        super().__init__(verbosity=verbosity, publisher=publisher)
         self.problem = problem
         self.variable_symbols = [x.symbol for x in problem.get_flattened_variables()]
         self.objective_symbols = [x.symbol for x in problem.objectives]
@@ -132,8 +132,10 @@ class ReferenceVectorOptions(TypedDict, total=False):
 class BaseDecompositionSelector(BaseSelector):
     """Base class for decomposition based selection operators."""
 
-    def __init__(self, problem: Problem, reference_vector_options: ReferenceVectorOptions, **kwargs):
-        super().__init__(problem, **kwargs)
+    def __init__(
+        self, problem: Problem, reference_vector_options: ReferenceVectorOptions, verbosity: int, publisher: Publisher
+    ):
+        super().__init__(problem, verbosity=verbosity, publisher=publisher)
         self.reference_vector_options = reference_vector_options
         self.reference_vectors: np.ndarray
         self.reference_vectors_initial: np.ndarray
@@ -419,10 +421,11 @@ class RVEASelector(BaseDecompositionSelector):
     def __init__(
         self,
         problem: Problem,
+        verbosity: int,
+        publisher: Publisher,
         alpha: float = 2.0,
         parameter_adaptation_strategy: ParameterAdaptationStrategy = ParameterAdaptationStrategy.GENERATION_BASED,
         reference_vector_options: ReferenceVectorOptions | None = None,
-        **kwargs,
     ):
         if not isinstance(parameter_adaptation_strategy, ParameterAdaptationStrategy):
             raise TypeError(f"Parameter adaptation strategy must be of Type {type(ParameterAdaptationStrategy)}")
@@ -430,14 +433,16 @@ class RVEASelector(BaseDecompositionSelector):
             raise ValueError("Other parameter adaptation strategies are not yet implemented.")
 
         if reference_vector_options is None:
-            reference_vector_options: ReferenceVectorOptions = ReferenceVectorOptions(
+            reference_vector_options = ReferenceVectorOptions(
                 adaptation_frequency=100,
                 creation_type="simplex",
                 vector_type="spherical",
                 number_of_vectors=500,
             )
 
-        super().__init__(problem=problem, reference_vector_options=reference_vector_options, **kwargs)
+        super().__init__(
+            problem=problem, reference_vector_options=reference_vector_options, verbosity=verbosity, publisher=publisher
+        )
 
         self.reference_vectors_gamma: np.ndarray
         self.numerator: float | None = None
@@ -472,6 +477,10 @@ class RVEASelector(BaseDecompositionSelector):
             solutions = parents[0] + offsprings[0]
         else:
             raise TypeError("The decision variables must be either a list or a polars DataFrame, not both")
+        if len(parents[0]) == 0:
+            raise RuntimeError(
+                "The parents population is empty. Cannot perform selection. This is a known unresolved issue."
+            )
         alltargets = parents[1].vstack(offsprings[1])
         targets = alltargets[self.target_symbols].to_numpy()
         if self.constraints_symbols is None or len(self.constraints_symbols) == 0:
@@ -712,17 +721,20 @@ class NSGAIII_select(BaseDecompositionSelector):
     def __init__(
         self,
         problem: Problem,
+        verbosity: int,
+        publisher: Publisher,
         reference_vector_options: ReferenceVectorOptions | None = None,
-        **kwargs,
     ):
         if reference_vector_options is None:
-            reference_vector_options: ReferenceVectorOptions = ReferenceVectorOptions(
+            reference_vector_options = ReferenceVectorOptions(
                 adaptation_frequency=0,
                 creation_type="simplex",
                 vector_type="planar",
                 number_of_vectors=500,
             )
-        super().__init__(problem, reference_vector_options=reference_vector_options, **kwargs)
+        super().__init__(
+            problem, reference_vector_options=reference_vector_options, verbosity=verbosity, publisher=publisher
+        )
         self.adapted_reference_vectors = None
         self.worst_fitness: np.ndarray | None = None
         self.extreme_points: np.ndarray | None = None
