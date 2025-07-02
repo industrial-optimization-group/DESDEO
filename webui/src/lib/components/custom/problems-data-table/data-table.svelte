@@ -4,13 +4,17 @@
 	 *
 	 * @author Giomara Larraga <glarragw@jyu.fi>
 	 * @created June 2025
+	 * @updated July 2025
 	 *
 	 * @description
 	 * This component renders a paginated, filterable, and sortable data table for DESDEO optimization problems.
 	 * It uses TanStack Table for table logic and supports row selection, column visibility, sorting, filtering, and pagination.
 	 * The table is designed to display ProblemInfo objects as defined by the OpenAPI schema.
+	 * Each row includes action buttons for details, edit, download, delete, and a "Solve" button that triggers a callback and navigates to the method selection page.
 	 *
 	 * @prop {ProblemInfo[]} data - Array of problem objects, passed via $props in Svelte Runes mode.
+	 * @prop {Function} onSelect - Callback fired when a row is selected.
+	 * @prop {Function} onClickSolve - Callback fired when the "Solve" button is clicked for a problem.
 	 *
 	 * @features
 	 * - Displays problem name, number of objectives, number of variables, and action/solve buttons.
@@ -29,12 +33,14 @@
 	 * - $lib/components/ui/select for pagination controls.
 	 * - $lib/api/client-types for OpenAPI-generated ProblemInfo type.
 	 * - zod for schema validation.
+	 * - Svelte Runes mode for reactivity.
 	 *
 	 * @usage
-	 * <DataTable data={problemList} />
+	 * <DataTable data={problemList} onSelect={handleSelect} onClickSolve={handleSolve} />
 	 *
 	 * @events
-	 * - Dispatches 'select' event when a row is clicked, passing the selected problem.
+	 * - Calls onSelect when a row is clicked, passing the selected problem.
+	 * - Calls onClickSolve when the "Solve" button is clicked, passing the problem.
 	 *
 	 * @customization
 	 * - Columns can be customized by editing the `columns` array.
@@ -42,7 +48,9 @@
 	 *
 	 * @notes
 	 * - The problem schema was adapted from the OpenAPI schema for ProblemInfo.
-	 * - However, it would be better to use the OpenAPI type directly.
+	 * - The "Solve" button both triggers the onClickSolve callback and navigates to the method selection page.
+	 * - The table is fully accessible and keyboard-navigable.
+	 * - The component is intended for use in the DESDEO web UI for problem management and selection.
 	 *
 	 * @see https://ui.shadcn.com/examples/tasks (source/example adapted)
 	 */
@@ -92,6 +100,7 @@
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 
 	import { z } from 'zod';
+	import { goto } from '$app/navigation';
 
 	export const problemSchema = z.object({
 		id: z.number(),
@@ -116,7 +125,11 @@
 	});
 	// Use ProblemInfo everywhere you previously used Problem or PageData
 	//let { data }: ProblemInfo[] = $props();
-	const { data, onSelect } = $props<{ data: ProblemInfo[]; onSelect: any }>();
+	const { data, onSelect, onClickSolve } = $props<{
+		data: ProblemInfo[];
+		onSelect: any;
+		onClickSolve: any;
+	}>();
 
 	let rowSelection = $state<RowSelectionState>({});
 	let columnVisibility = $state<VisibilityState>({});
@@ -323,12 +336,11 @@
 					class: 'text-secondary-foreground flex h-8 w-8 cursor-pointer p-0'
 				})}
 				onclick={() => {
-					onSelect(problem);
+					onClickSolve(problem);
+					goto(`/methods/initialize`);
 				}}
 			>
-				<a href={`/methods/initialize`}>
-					<Play />
-				</a>
+				<Play />
 			</Tooltip.Trigger>
 			<Tooltip.Content>
 				<p>Solve this problem</p>

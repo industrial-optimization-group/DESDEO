@@ -4,10 +4,11 @@
 	 *
 	 * @author Giomara Larraga <glarragw@jyu.fi>
 	 * @created June 2025
+	 * @updated July 2025
 	 *
 	 * @description
 	 * This page displays a list of available optimization methods in DESDEO and allows the user to select a method for a specific problem.
-	 * If a problem is selected (via the problemId query parameter), the page highlights methods suitable for that problem.
+	 * If a problem is selected (via the problemId from the methodSelection store), the page highlights methods suitable for that problem.
 	 * Each method card shows its name, description, preference types, and problem types.
 	 * The "Use" button is enabled only if a problem is selected.
 	 *
@@ -25,13 +26,13 @@
 	 * - Card, Button: UI components.
 	 * - Play, Settings: Lucide icons.
 	 * - ProblemInfo: OpenAPI-generated type.
+	 * - methodSelection: Svelte store for the currently selected problem.
 	 *
 	 * @notes
-	 * - The page expects the problemId to be passed as a query parameter.
+	 * - The page expects the selected problemId to be set in the methodSelection store.
 	 * - If the problemId does not match any problem, the user is prompted to select a problem.
 	 * - The method list can be extended by modifying the `methods` array.
-	 * - Giovanni: I backed up the contents of the previous `+page.svelte` into the `initialize/_page_copy.svelte` file.
-	 * - Giovanni: I am not using the `methodSelection` store here, since the problem should not be selected in this page but in /problems.
+	 * - The page does not use the $page store; instead, it relies on the methodSelection store for the selected problem.
 	 * - TODO: Update the methods list dynamically from the server in the future.
 	 * - TODO: Add variants for each method, similar to : https://github.com/giomara-larraga/DESDEO/blob/temp/webui/src/routes/(app)/method/%2Bpage.svelte
 	 * - TODO: Fetch the methods that are suitable for the selected problem from the server (based on the properties of the problem).

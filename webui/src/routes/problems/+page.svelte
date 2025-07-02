@@ -6,24 +6,28 @@
 	 * @created June 2025
 	 *
 	 * @description
-	 * This page displays a list of optimization problems in DESDEO and allows users to view details for each problem.
-	 * It features a data table for problem selection and tabbed views for general info, objectives, variables, constraints, and extra functions.
-	 * Each table supports detailed dialogs for mathematical formulations.
+	 * This page displays a list of optimization problems in DESDEO and allows users to view and interact with details for each problem.
+	 * It features a data table for problem selection and a tabbed interface for viewing general info, objectives, variables, constraints, and extra functions.
+	 * Each table supports detailed dialogs for mathematical formulations, and the UI is responsive to the selected problem.
 	 *
 	 * @props
 	 * @property {Object} data - Contains a list of optimization problems fetched from the server.
 	 * @property {ProblemInfo[]} data.problemList - List of problems.
 	 *
 	 * @features
-	 * - DataTable for selecting a problem.
-	 * - Tabbed interface for viewing problem details.
+	 * - DataTable for selecting a problem, with callbacks for selection and "solve" actions.
+	 * - Tabbed interface for viewing problem details: General, Objectives, Variables, Constraints, Extra Functions.
 	 * - Dialogs for viewing math expressions for objectives, constraints, and extra functions.
+	 * - Responsive UI: shows a message if no problems are available, or if no problem is selected.
+	 * - Summarizes variable types if there are more than 10 variables.
+	 * - Uses Svelte runes mode for reactivity.
 	 *
 	 * @dependencies
 	 * - DataTable: Custom data table component for problems.
 	 * - Tabs, Table, Dialog: UI components.
 	 * - MathExpressionRenderer: Renders math expressions.
 	 * - OpenAPI-generated ProblemInfo type.
+	 * - methodSelection: Svelte store for the currently selected problem and method.
 	 *
 	 * @notes
 	 * - TODO: Add functionality to create, edit, and delete problems.
@@ -31,6 +35,7 @@
 	 * - isConvex, isLinear, isTwice differentiable are empty for all the problems available.
 	 * - Properties isSurrogateAvailable, constraint.simulated, and constraint.expensive (or equivalents) are missing in the problem type.
 	 * - There is no way to know if the problem was defined by the user or is a pre-defined problem.
+	 * - The "Solve" button updates the methodSelection store with the selected problem ID, but it is not updating the name selected method.
 	 */
 
 	import DataTable from '$lib/components/custom/problems-data-table/data-table.svelte';
@@ -68,6 +73,10 @@
 				<DataTable
 					data={problemList}
 					onSelect={(e: ProblemInfo) => {
+						selectedProblem = e;
+						console.log('Selected problem:', selectedProblem.id);
+					}}
+					onClickSolve={(e: ProblemInfo) => {
 						selectedProblem = e;
 						console.log('Selected problem:', selectedProblem.id);
 						methodSelection.set(selectedProblem?.id ?? null, $methodSelection.selectedMethod); // Update method selection store with the selected problem ID
