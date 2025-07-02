@@ -1,23 +1,26 @@
+<script lang="ts" context="module">
+	export type Variable = z.infer<typeof schemas.Variable>;
+	export type TensorVariable = z.infer<typeof schemas.TensorVariable>;
+	export type Constant = z.infer<typeof schemas.Constant>;
+	export type TensorConstant = z.infer<typeof schemas.TensorConstant>;
+	export type Objective = z.infer< typeof schemas.Objective>;
+</script>
+
 <script lang="ts">
 	import {
-		FormField,
-		FormLabel,
 		FormButton,
-		FormControl,
-		FormFieldset,
-		FormLegend
 	} from '$lib/components/ui/form';
-	import Input from '$lib/components/ui/input/input.svelte';
-	import Textarea from '$lib/components/ui/textarea/textarea.svelte';
 	import { superForm } from 'sveltekit-superforms';
 	import { schemas } from '$lib/api/zod-types';
 	import { z } from 'zod';
 	import { Card } from '$lib/components/ui/card';
-	type Variable = z.infer<typeof schemas.Variable>;
-	type TensorVariable = z.infer<typeof schemas.TensorVariable>;
-	type Constant = z.infer<typeof schemas.Constant>;
-	type TensorConstant = z.infer<typeof schemas.TensorConstant>;
-	type Objective = z.infer< typeof schemas.Objective>;
+	import { writable } from 'svelte/store';
+	import Objectives from '$lib/components/ui/define_problem/Objectives.svelte';
+	import Constants from '$lib/components/ui/define_problem/Constants.svelte';
+	import Variables from '$lib/components/ui/define_problem/Variables.svelte';
+	import Name from '$lib/components/ui/define_problem/Name.svelte';
+	import Description from '$lib/components/ui/define_problem/Description.svelte';
+
 
 	// Minimal form state for now
 	const form = superForm(
@@ -67,12 +70,12 @@
 		$formData.variables = $formData.variables.filter((_, i) => i !== idx);
 	}
 	// Helpers for tensor shape
-	function addShapeDim(variable: TensorVariable) {
+	function addVariableShapeDim(variable: TensorVariable) {
 		variable.shape = [...variable.shape, 1];
     // Trigger Svelte reactivity
     $formData.variables = [...$formData.variables];
 	}
-	function removeShapeDim(variable: TensorVariable, dimIdx: number) {
+	function removeVariableShapeDim(variable: TensorVariable, dimIdx: number) {
 		if (variable.shape.length > 1) {
 			variable.shape = variable.shape.filter((_, i) => i !== dimIdx);
       // Trigger Svelte reactivity
@@ -138,214 +141,53 @@
 	function removeObjective(idx: number) { 
 		$formData.objectives = $formData.objectives.filter((_, i) => i !== idx);
 	}
+
+
+	// Error stores for constants
+	let constantValueErrors = writable<string[]>([]);
+	let tensorConstantValueErrors = writable<string[]>([]);
+
+	function parseConstantValue(input: string): number | boolean | null {
+	if (input.trim().toLowerCase() === 'true') return true;
+	if (input.trim().toLowerCase() === 'false') return false;
+	const num = Number(input);
+	if (!isNaN(num) && input.trim() !== '') return num;
+	return null;
+	}
+
+	function parseTensorValues(input: string): (number | boolean)[] | null {
+	if (!input.trim()) return [];
+	const parts = input.split(',').map(s => s.trim());
+	const parsed = [];
+	for (const part of parts) {
+		if (part.toLowerCase() === 'true') parsed.push(true);
+		else if (part.toLowerCase() === 'false') parsed.push(false);
+		else {
+		const num = Number(part);
+		if (!isNaN(num) && part !== '') parsed.push(num);
+		else return null;
+		}
+	}
+	return parsed;
+	}
 </script>
 
 <section class="mx-10">
-  <!-- <div>{JSON.stringify($formData.variables)}</div>
-  <div>{JSON.stringify($formData.constants)}</div> -->
+  <!-- <div>{JSON.stringify($formData.variables)}</div> -->
+  <div>{JSON.stringify($formData.constants)}</div>
+  <div>{JSON.stringify($formData.objectives)}</div>
+
 	<div class="max-w-4xl mx-auto m-6">
 		<h1 class="mt-10 text-center text-2xl font-semibold">Problem Definition</h1>
 		<form class="flex flex-col gap-4" method="POST" action="?/create" use:enhance>
 			<Card class="p-6">
-				<FormField {form} name="name">
-					<FormControl>
-						<FormLabel for="name">Name</FormLabel>
-						<Input id="name" name="name" bind:value={$formData.name} />
-						{#if $errors.name}
-							<p>{$errors.name}</p>
-						{/if}
-					</FormControl>
-				</FormField>
-				<FormField {form} name="description">
-					<FormControl>
-						<FormLabel for="description">Description</FormLabel>
-						<Textarea
-							id="description"
-							name="description"
-							bind:value={$formData.description}
-							rows={3}
-						/>
-						{#if $errors.description}
-							<p>{$errors.description}</p>
-						{/if}
-					</FormControl>
-				</FormField>
+				<Name {form}/>
+				<Description {form}/>
 			</Card>
 
-			<FormFieldset {form} name="variables">
-				<FormLegend>Variables</FormLegend>
-
-				{#each $formData.variables as variable, idx}
-					<div>
-						<button
-							type="button"
-							class="right-2 top-2 rounded border border-red-200 px-2 py-0.5 text-red-500"
-							onclick={() => {removeVariable(idx)}}
-							aria-label="Delete variable">×</button
-						>
-					</div>
-					<Input placeholder="Name" bind:value={variable.name} />
-					<Input placeholder="Symbol" bind:value={variable.symbol} />
-					<select bind:value={variable.variable_type} class="rounded border px-2 py-1">
-						<option value="real">real</option>
-						<option value="integer">integer</option>
-						<option value="binary">binary</option>
-					</select>
-
-					{#if isTensorVariable(variable)}
-						<div class="col-span-2 flex items-center gap-2">
-							<span>Shape:</span>
-							{#each variable.shape as dim, dimIdx}
-								<input
-									type="number"
-									min="1"
-									class="w-16 rounded border px-1 py-0.5"
-									bind:value={variable.shape[dimIdx]}
-									oninput={(e) => {
-										const target = e.target as HTMLInputElement | null;
-										if (target) {
-                      // Create a new array to trigger reactivity
-                      variable.shape = variable.shape.map((v, i) =>
-                          i === dimIdx ? Math.max(1, Number(target.value)) : v
-                      );
-										}
-									}}
-								/>
-								<button
-									type="button"
-									class="text-red-500"
-									onclick={() => removeShapeDim(variable, dimIdx)}
-									disabled={variable.shape.length === 1}>–</button
-								>
-							{/each}
-							<button type="button" class="text-green-600" onclick={() => addShapeDim(variable)}
-								>+</button
-							>
-						</div>
-						<Input placeholder="Lowerbounds (optional)" bind:value={variable.lowerbounds} />
-						<Input placeholder="Upperbounds (optional)" bind:value={variable.upperbounds} />
-						<Input placeholder="Initial values (optional)" bind:value={variable.initial_values} />
-					{:else}
-						<Input placeholder="Lowerbound (optional)" bind:value={variable.lowerbound} />
-						<Input placeholder="Upperbound (optional)" bind:value={variable.upperbound} />
-						<Input placeholder="Initial value (optional)" bind:value={variable.initial_value} />
-					{/if}
-				{/each}
-				<div class="flex gap-2">
-					<button type="button" class="mb-2 rounded border px-2 py-1" onclick={() => addVariable('scalar')}>+ Scalar</button>
-					<button type="button" class="mb-2 rounded border px-2 py-1" onclick={() => addVariable('tensor')}>+ Tensor</button>
-				</div>
-			</FormFieldset>
-
-
-
-
-
-
-
-			<FormFieldset {form} name="constants">
-				<FormLegend>Constants</FormLegend>
-				{#each $formData.constants as constant, idx}
-					<div>
-						<button
-							type="button"
-							class="right-2 top-2 rounded border border-red-200 px-2 py-0.5 text-red-500"
-							onclick={() => removeConstant(idx)}
-							aria-label="Delete constant">×</button>
-					</div>
-					<Input placeholder="Name" bind:value={constant.name} />
-					<Input placeholder="Symbol" bind:value={constant.symbol} />
-					{#if isTensorConstant(constant)}
-						<div class="col-span-2 flex items-center gap-2">
-							<span>Shape:</span>
-							{#each constant.shape as dim, dimIdx}
-								<input
-									type="number"
-									min="1"
-									class="w-16 rounded border px-1 py-0.5"
-									bind:value={constant.shape[dimIdx]}
-									oninput={(e) => {
-										const target = e.target as HTMLInputElement | null;
-										if (target) {
-											constant.shape = constant.shape.map((v, i) =>
-												i === dimIdx ? Math.max(1, Number(target.value)) : v
-											);
-											$formData.constants = [...$formData.constants];
-										}
-									}}
-								/>
-								<button
-									type="button"
-									class="text-red-500"
-									onclick={() => removeConstantShapeDim(constant, dimIdx)}
-									disabled={constant.shape.length === 1}>–</button>
-							{/each}
-							<button type="button" class="text-green-600" onclick={() => { addConstantShapeDim(constant); $formData.constants = [...$formData.constants]; }}>+</button>
-						</div>
-						<Input placeholder="Values (comma separated)" bind:value={constant.values} />
-					{:else}
-						<Input type="number" placeholder="Value (number or boolean)" bind:value={constant.value} />
-					{/if}
-				{/each}
-				<div class="flex gap-2">
-					<button type="button" class="mb-2 rounded border px-2 py-1" onclick={() => addConstant('scalar')}>+ Scalar</button>
-					<button type="button" class="mb-2 rounded border px-2 py-1" onclick={() => addConstant('tensor')}>+ Tensor</button>
-				</div>
-			</FormFieldset>
-
-
-
-
-
-
-			<FormFieldset {form} name="objectives">
-				<FormLegend>Objectives</FormLegend>
-				{#each $formData.objectives as objective, idx}
-					<div>
-						<button
-							type="button"
-							class="right-2 top-2 rounded border border-red-200 px-2 py-0.5 text-red-500"
-							onclick={() => removeObjective(idx)}
-							aria-label="Delete objective">×</button>
-					</div>
-					<Input placeholder="Name" bind:value={objective.name} />
-					<Input placeholder="Symbol" bind:value={objective.symbol} />
-					<Input placeholder="Unit" bind:value={objective.unit} /> <!-- optional -->
-					<Input type="textarea" placeholder="Func" bind:value={objective.func} /> <!-- optional -->
-					<Input placeholder="Simulator path" bind:value={objective.simulator_path} /> <!-- optional -->
-					<Input placeholder="Surrogates (comma separated)" bind:value={objective.surrogates} /> <!-- optional -->
-					<div class="flex items-center gap-2">
-						<label>
-							<input type="checkbox" bind:checked={objective.maximize} />
-							Maximize
-						</label>
-						<label>
-							<input type="checkbox" bind:checked={objective.is_linear} />
-							Is Linear
-						</label>
-						<label>
-							<input type="checkbox" bind:checked={objective.is_convex} />
-							Is Convex
-						</label>
-						<label>
-							<input type="checkbox" bind:checked={objective.is_twice_differentiable} />
-							Is Twice Differentiable
-						</label>
-					</div>
-					<Input type="number" placeholder="Ideal" bind:value={objective.ideal} />
-					<Input type="number" placeholder="Nadir" bind:value={objective.nadir} /> <!-- optional -->
-					<select bind:value={objective.objective_type} class="rounded border px-2 py-1">
-						<option value="analytical">Analytical</option>
-						<option value="data_based">Data Based</option>
-						<option value="simulator">Simulator</option>
-						<option value="surrogate">Surrogate</option>
-					</select>
-					<Input type="text" placeholder="Scenario keys (comma separated)" bind:value={objective.scenario_keys} /> <!-- optional -->
-				{/each}
-				<div class="flex gap-2">
-					<button type="button" class="mb-2 rounded border px-2 py-1" onclick={() => addObjective()}> + </button>
-				</div>
-			</FormFieldset>
+			<Variables {form} {removeVariable} {addVariable} {addVariableShapeDim} {isTensorVariable} {removeVariableShapeDim} />
+			<Constants {form} {removeConstant} {addConstant} {addConstantShapeDim} {isTensorConstant} {removeConstantShapeDim} />
+			<Objectives {form} {addObjective} {removeObjective} />
 			<FormButton>Add Problem</FormButton
 			>
 		</form>
