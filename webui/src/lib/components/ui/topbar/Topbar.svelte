@@ -1,4 +1,21 @@
 <script lang="ts">
+	/**
+    Topbar.svelte
+
+    Author: Giomara Larraga
+    Created: June 2025
+
+    This component renders the top navigation bar for the DESDEO web application.
+
+    Features:
+    - Displays the DESDEO logo and name on the left, linking to the dashboard.
+    - Provides navigation for Problems, Methods, Archive, Help, and User Account.
+    - Utilizes dropdown menus for Problems, Methods, and User Account for better organization.
+    - Supports responsive design, adapting to different screen sizes.
+    - Includes logout functionality, clearing user authentication and redirecting to the home page.
+    - Written in Svelte with TypeScript, leveraging shadcn UI components.
+
+	 */
 	import CircleUser from '@lucide/svelte/icons/user-circle';
 	import Method from '@lucide/svelte/icons/brain-circuit';
 	import Problem from '@lucide/svelte/icons/puzzle';
@@ -34,7 +51,7 @@
 	});
 </script>
 
-<header class="bg-primary sticky top-0 flex h-14 items-center gap-4 border-b px-4 md:px-6">
+<header class="bg-primary sticky top-0 flex h-12 items-center gap-4 border-b px-4 md:px-6">
 	<!-- Left: DESDEO logo and name -->
 	<a
 		href="/dashboard"
@@ -50,10 +67,12 @@
 	>
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger>
-				<Button variant="ghost" class="text-primary-foreground flex items-center gap-1 px-0">
+				<span
+					class="text-primary-foreground hover:text-secondary flex items-center gap-1 transition-colors hover:cursor-pointer"
+				>
 					<Problem class="h-4 w-4" />
 					Problems
-				</Button>
+				</span>
 			</DropdownMenu.Trigger>
 			<DropdownMenu.Content align="start">
 				<DropdownMenu.Item onSelect={() => goto('/problems')}>Explore problems</DropdownMenu.Item>
@@ -65,10 +84,12 @@
 
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger>
-				<Button variant="ghost" class="text-primary-foreground flex items-center gap-1 px-0">
+				<span
+					class="text-primary-foreground hover:text-secondary flex items-center gap-1 transition-colors hover:cursor-pointer"
+				>
 					<Problem class="h-4 w-4" />
 					Methods
-				</Button>
+				</span>
 			</DropdownMenu.Trigger>
 			<DropdownMenu.Content align="start">
 				<DropdownMenu.Item onSelect={() => goto('/methods/initialize')}
@@ -78,14 +99,14 @@
 			</DropdownMenu.Content>
 		</DropdownMenu.Root>
 		<a
-			href="##"
+			href="/archive"
 			class="text-primary-foreground hover:text-secondary flex items-center gap-1 transition-colors"
 		>
 			<Archive class="h-4 w-4" />
 			Archive
 		</a>
 		<a
-			href="##"
+			href="/help"
 			class="text-primary-foreground hover:text-secondary flex items-center gap-1 transition-colors"
 		>
 			<HelpCircle class="h-4 w-4" />
@@ -94,7 +115,7 @@
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger>
 				<span
-					class="text-primary-foreground hover:text-secondary flex items-center gap-1 transition-colors"
+					class="text-primary-foreground hover:text-secondary flex items-center gap-1 transition-colors hover:cursor-pointer"
 				>
 					<CircleUser class="h-4 w-4" />
 					{$userDisplay}
