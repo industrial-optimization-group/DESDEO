@@ -4,7 +4,7 @@
 	import { writable } from 'svelte/store';
 	import type { components } from '$lib/api/client-types';
 	import { HorizontalBar } from '$lib/components/visualizations/horizontal-bar';
-
+	import { Input } from '$lib/components/ui/input/index.js';
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 
 	const {
@@ -33,7 +33,7 @@
 <Sidebar.Root
 	{ref}
 	collapsible="none"
-	class="top-12 flex h-[calc(100vh-6rem)] min-h-[calc(100vh-3rem)]"
+	class="top-12 flex h-[calc(100vh-6rem)] min-h-[calc(100vh-3rem)] w-[25rem]"
 >
 	<Sidebar.Header>
 		{#if preference_types.length > 1}
@@ -55,10 +55,16 @@
 		{/if}
 	</Sidebar.Header>
 	<Sidebar.Content class="h-full px-4">
+		{#if showNumSolutions}
+			<!-- 				<span class="mb-2 text-sm text-gray-500">Number of solutions to be displayed.</span>
+ -->
+			<Input type="number" placeholder="Number of solutions" class="mb-2 w-full" />
+		{/if}
 		{#if $selectedPreference === 'Reference point'}
 			<p class="mb-2 text-sm text-gray-500">Provide one desirable value for each objective.</p>
+
 			{#each problem.objectives as objective}
-				<div class="mb-1">
+				<div>
 					<HorizontalBar
 						axisRanges={[objective.ideal, objective.nadir]}
 						solutionValue={objective.ideal}
