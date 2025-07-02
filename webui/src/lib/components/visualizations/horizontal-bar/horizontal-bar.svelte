@@ -250,5 +250,5 @@
     Use the aspect ratio from options.
 -->
 <div class={options.aspectRatio} bind:this={container} style="width: 100%;">
-	<svg bind:this={svg} style="width: 100%; height: 100px;" />
+	<svg bind:this={svg} style="width: 100%; height: 85px;" />
 </div>
