@@ -19,7 +19,7 @@ from desdeo.tools.indicators_unary import (
     r_metric_indicators_batch,
 )
 
-from desdeo.tools.indicators_binary import epsilon_indicator
+from desdeo.tools.indicators_binary import epsilon_component, epsilon_indicator
 
 
 @pytest.mark.indicators
@@ -199,9 +199,24 @@ def test_r2_batch_with_ref_dirs():
 
 
 @pytest.mark.indicators
-def test_epsilon_indicator():
+def test_epsilon_component():
     s1 = np.array([0.3, 0.1, 0.5])
     s2 = np.array([0.5, 0.2, 0.6])
-    assert epsilon_indicator(s1, s1) == 0, f"Epsilon for identical vectors is {epsilon_indicator(s1, s2)}, should be 0"
-    assert np.isclose(epsilon_indicator(s1, s1+0.1), 0.1), f"epsilon should be the amount that a vector is shifted"
-    assert epsilon_indicator(s1, s2) == 0.2, "I_eps({s1}, s{2}) should be 0.2"
+    assert epsilon_component(s1, s1) == 0, f"Epsilon for identical vectors is {epsilon_component(s1, s2)}, should be 0"
+    assert np.isclose(epsilon_component(s1, s1 - 0.1), 0.1), f"epsilon should be the amount that a vector is shifted"
+    assert epsilon_component(s1, s2) == 0, "I_eps({s1}, s{2}) should be 0, as s1 is not worse than s2 in any component"
+    assert epsilon_component(s2, s1) == 0.2, "I_eps({s2}, s{1}) should be 0.2"
+
+
+@pytest.mark.indicators
+def test_epsilon_indicator():
+    """Test the epsilon indicator for two sets."""
+    set1 = np.random.rand(100, 3)
+    set2 = np.random.rand(100, 3)
+
+    ei1 = epsilon_indicator(set1, set2, kind="additive")
+    ei2 = np.array([[epsilon_component(s1, s2) for s1 in set1] for s2 in set2]).min(axis=1).max()
+
+    assert np.isclose(
+        ei1, ei2
+    ), f"Epsilon indicator results do not match: {ei1} vs {ei2} between our and moocore implementations"
