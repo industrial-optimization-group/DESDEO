@@ -7,6 +7,15 @@ import { schemas } from '$lib/api/zod-types';
 
 let problemSchema = schemas.Problem
 
+function tryParseJSON(text: string): any | null {
+    try {
+        const trimmed = text.trim();
+        return trimmed === '' ? null : JSON.parse(trimmed);
+    } catch {
+        return null;
+    }
+}
+
 export const load: PageServerLoad = async ({ cookies }) => {
   const refreshToken = cookies.get('refresh_token');
   if (!refreshToken) {
@@ -21,9 +30,29 @@ export const actions: Actions = {
     const form = await superValidate(request, zod(problemSchema));
     const name = form.data.name;
     const description = form.data.description;
-    const variables = form.data.variables;
-    const constants = form.data.constants;
-    
+    const variables = form.data.variables.map((variable) => {
+    // For tensor variables, parse lowerbounds, upperbounds, initial_values if they are strings
+    if (Array.isArray(variable.shape)) {
+        return {
+            ...variable,
+            lowerbounds: typeof variable.lowerbounds === 'string' ? tryParseJSON(variable.lowerbounds) : variable.lowerbounds,
+            upperbounds: typeof variable.upperbounds === 'string' ? tryParseJSON(variable.upperbounds) : variable.upperbounds,
+            initial_values: typeof variable.initial_values === 'string' ? tryParseJSON(variable.initial_values) : variable.initial_values,
+        };
+    }
+    return variable;
+});
+
+const constants = form.data.constants?.map((constant) => {
+    // For tensor constants, parse values if it's a string
+    if (Array.isArray(constant.shape)) {
+        return {
+            ...constant,
+            values: typeof constant.values === 'string' ? tryParseJSON(constant.values) : constant.values,
+        };
+    }
+    return constant;
+});
     // if objectives.objective_type is not defined, define it as "analytical".
     // This wont happen since it is a dropdown in the UI, but the type checking will complain otherwise
     const objectives = form.data.objectives.map(obj => ({
