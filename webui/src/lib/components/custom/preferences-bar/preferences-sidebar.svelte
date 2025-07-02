@@ -2,14 +2,13 @@
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import PreferenceSwitcher from './preference-switcher.svelte';
 	import { writable } from 'svelte/store';
+	import type { components } from '$lib/api/client-types';
+
+	type ProblemInfo = components['schemas']['ProblemInfo'];
 
 	export let ref: HTMLElement | null = null;
 	export let preference_types: string[] = ['Reference point', 'Ranges', 'Preferred solution'];
-	export let objectives = [
-		{ name: 'Drag', direction: 'minimize', ideal: 0.1, nadir: 1.0 },
-		{ name: 'Weight', direction: 'minimize', ideal: 100, nadir: 500 },
-		{ name: 'Energy Consumption', direction: 'minimize', ideal: 50, nadir: 300 }
-	];
+	export let problem: ProblemInfo | null = null;
 
 	// Store for the currently selected preference type
 	const selectedPreference = writable(preference_types[0]);
@@ -42,27 +41,28 @@
 	<Sidebar.Content class="h-full px-4">
 		{#if $selectedPreference === 'Reference point'}
 			<p class="mb-2 text-sm text-gray-500">Provide one desirable value for each objective.</p>
-			{#each objectives as item}
+			{problem?.objectives}
+			<!-- 			{#each problem?.objectives as item}
 				<div class="mb-1">
 					<span>{item.name} (Ideal: {item.ideal}, Nadir: {item.nadir})</span>
 				</div>
-			{/each}
+			{/each} -->
 		{:else if $selectedPreference === 'Ranges'}
 			<p class="mb-2 text-sm text-gray-500">
 				Provide a range for each objective, indicating the minimum and maximum acceptable values.
 			</p>
-			{#each objectives as item}
+			<!-- 			{#each objectives as item}
 				<div class="mb-1">
 					<span>{item.name} (Min: {item.ideal}, Max: {item.nadir})</span>
 				</div>
-			{/each}
+			{/each} -->
 		{:else if $selectedPreference === 'Preferred solution'}
 			<p class="mb-2 text-sm text-gray-500">Select one or multiple preferred solutions.</p>
-			{#each objectives as item}
+			<!-- 			{#each objectives as item}
 				<div class="mb-1">
 					<span>{item.name}</span>
 				</div>
-			{/each}
+			{/each} -->
 		{:else}
 			<p>Select a preference type to view options.</p>
 		{/if}

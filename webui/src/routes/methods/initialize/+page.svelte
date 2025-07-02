@@ -62,19 +62,17 @@
 			name: 'E-NAUTILUS',
 			path: '/interactive_methods/E-NAUTILUS',
 			description: 'Evolutionary NAUTILUS method for MOO.',
-			preferencesType: ['reference point'],
-			problemtypes: ['linear', 'nonlinear']
+			preferencesType: ['reference point']
 		},
 		{
 			name: 'Evolutionary method',
 			path: '/interactive_methods/EMO',
 			description: 'Interactive evolutionary method for MOO.',
-			preferencesType: ['reference point', 'preferred ranges', 'preferred solutions'],
-			problemtypes: ['expensive']
+			preferencesType: ['reference point', 'preferred ranges', 'preferred solutions']
 		},
 		{
 			name: 'NIMBUS',
-			path: '/interactive_methods/nimbus',
+			path: '/interactive_methods/NIMBUS',
 			description: 'NIMBUS method for MOO.',
 			preferencesType: ['reference point']
 		},
