@@ -4,16 +4,8 @@
 		FormLegend
 	} from '$lib/components/ui/form';
 	import Input from '$lib/components/ui/input/input.svelte';
-	import type { SuperForm } from 'sveltekit-superforms';
-	import type { TensorConstant, Constant } from '../../../../routes/problems/define/+page.svelte';
-    
-    export let form: SuperForm<any>;
+    let { form, removeConstant, addConstant, addConstantShapeDim, isTensorConstant, removeConstantShapeDim } = $props();
 	const { form: formData } = form;
-    export let removeConstant: (idx: number) => void;
-    export let addConstant: (kind: 'scalar' | 'tensor') => void;
-    export let addConstantShapeDim: (constant: TensorConstant) => void;
-    export let isTensorConstant: (v: Constant | TensorConstant) => v is TensorConstant;
-    export let removeConstantShapeDim: (constant: TensorConstant, dimIdx: number) => void;
 </script>
 
 <FormFieldset {form} name="constants">
@@ -40,7 +32,7 @@
                         oninput={(e) => {
                             const target = e.target as HTMLInputElement | null;
                             if (target) {
-                                constant.shape = constant.shape.map((v, i) =>
+                                constant.shape = constant.shape.map((v: number, i: number) =>
                                     i === dimIdx ? Math.max(1, Number(target.value)) : v
                                 );
                                 $formData.constants = [...$formData.constants];
@@ -55,7 +47,7 @@
                 {/each}
                 <button type="button" class="text-green-600" onclick={() => { addConstantShapeDim(constant); $formData.constants = [...$formData.constants]; }}>+</button>
             </div>
-            <Input placeholder="Values (comma separated)" bind:value={constant.values} />
+            <Input placeholder="Values (e.g. [[2,3],[3,4]])" bind:value={constant.values} />
         {:else}
             <Input placeholder="Value (number or boolean)" bind:value={constant.value} />
         {/if}

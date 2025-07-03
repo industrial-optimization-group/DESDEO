@@ -3,17 +3,10 @@
 		FormFieldset,
 		FormLegend
 	} from '$lib/components/ui/form';
-	import Input from '$lib/components/ui/input/input.svelte';
-	import type { SuperForm } from 'sveltekit-superforms';
-	import type { TensorVariable, Variable } from '../../../../routes/problems/define/+page.svelte';
-    
-    export let form: SuperForm<any>;
+	import Input from '$lib/components/ui/input/input.svelte';    
+    let { form, removeVariable, addVariable, addVariableShapeDim, isTensorVariable, removeVariableShapeDim } = $props();
 	const { form: formData } = form;
-    export let removeVariable: (idx: number) => void;
-    export let addVariable: (kind: 'scalar' | 'tensor') => void;
-    export let addVariableShapeDim: (Variable: TensorVariable) => void;
-    export let isTensorVariable: (v: Variable | TensorVariable) => v is TensorVariable;
-    export let removeVariableShapeDim: (Variable: TensorVariable, dimIdx: number) => void;
+
 </script>
 
 <FormFieldset {form} name="variables">
@@ -49,7 +42,7 @@
                             const target = e.target as HTMLInputElement | null;
                             if (target) {
             // Create a new array to trigger reactivity
-            variable.shape = variable.shape.map((v, i) =>
+            variable.shape = variable.shape.map((v: number, i: number) =>
                 i === dimIdx ? Math.max(1, Number(target.value)) : v
             );
                             }
@@ -66,9 +59,9 @@
                     >+</button
                 >
             </div>
-            <Input placeholder="Lowerbounds (optional)" bind:value={variable.lowerbounds} />
-            <Input placeholder="Upperbounds (optional)" bind:value={variable.upperbounds} />
-            <Input placeholder="Initial values (optional)" bind:value={variable.initial_values} />
+            <Input placeholder="Lowerbounds (optional, e.g. [[2,3],[3,4]])" bind:value={variable.lowerbounds} />
+            <Input placeholder="Upperbounds (optional, e.g. [[2,3],[3,4]])" bind:value={variable.upperbounds} />
+            <Input placeholder="Initial values (optional, e.g. [[2,3],[3,4]])" bind:value={variable.initial_values} />
         {:else}
             <Input placeholder="Lowerbound (optional)" bind:value={variable.lowerbound} />
             <Input placeholder="Upperbound (optional)" bind:value={variable.upperbound} />

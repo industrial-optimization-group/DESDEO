@@ -4,10 +4,8 @@
 		FormLabel,
         FormControl,
 	} from '$lib/components/ui/form';
-	import type { SuperForm } from 'sveltekit-superforms';
 	import Textarea from '$lib/components/ui/textarea/textarea.svelte';
-
-    export let form: SuperForm<any>;
+    let { form } = $props();
 	const { form: formData } = form;
 </script>
 <FormField {form} name="description">

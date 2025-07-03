@@ -4,12 +4,8 @@
 		FormLegend
 	} from '$lib/components/ui/form';
 	import Input from '$lib/components/ui/input/input.svelte';
-	import type { SuperForm } from 'sveltekit-superforms';
-    
-    export let form: SuperForm<any>;
+    let { form, addObjective, removeObjective } = $props();
 	const { form: formData } = form;
-    export let addObjective: () => void;
-    export let removeObjective: (idx: number) => void;
 </script>
             
 <FormFieldset {form} name="objectives">
