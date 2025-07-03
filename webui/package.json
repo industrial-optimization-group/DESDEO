@@ -17,7 +17,8 @@
 		"test:e2e": "playwright test",
 		"storybook": "storybook dev -p 6006",
 		"build-storybook": "storybook build",
-		"generate:client": "openapi-typescript http://localhost:8000/openapi.json -o src/lib/api/client-types.ts"
+		"generate:client": "openapi-typescript http://localhost:8000/openapi.json -o src/lib/api/client-types.ts",
+		"generate:zod-types": "openapi-zod-client http://localhost:8000/openapi.json -o src/lib/api/zod-types.ts"
 	},
 	"devDependencies": {
 		"@chromatic-com/storybook": "^3",
@@ -60,6 +61,7 @@
 		"mdsvex": "^0.12.3",
 		"mode-watcher": "^1.0.7",
 		"openapi-typescript": "^7.8.0",
+		"openapi-zod-client": "^1.18.3",
 		"paneforge": "^1.0.0-next.5",
 		"playwright": "^1.52.0",
 		"prettier": "^3.4.2",
