@@ -7,7 +7,7 @@ from sqlmodel import Session, SQLModel
 
 from desdeo.api.config import ServerDebugConfig, SettingsConfig
 from desdeo.api.db import engine
-from desdeo.api.models import ProblemDB, User, UserRole, ProblemMetaDataDB, ForestProblemMetaData
+from desdeo.api.models import ProblemDB, User, UserRole
 from desdeo.api.routers.user_authentication import get_password_hash
 from desdeo.problem.testproblems import dtlz2, river_pollution_problem, simple_knapsack
 
@@ -45,7 +45,7 @@ if __name__ == "__main__":
 
             session.commit()
             session.refresh(problem_db)
-            
+
         """
         db.add(user_analyst)
         db.commit()
