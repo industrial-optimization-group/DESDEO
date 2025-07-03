@@ -27,10 +27,6 @@
 		handleReferencePointChange?: (idx: number, newValue: number) => void;
 	}>();
 
-	//let ref: HTMLElement | null = $state(null);
-	//let preference_types: string[] = ['Reference point', 'Ranges', 'Preferred solution'];
-	//export let problem: ProblemInfo | null = null;
-
 	// Store for the currently selected preference type
 	const selectedPreference = writable(preference_types[0]);
 	console.log('Problem in preferences sidebar:', problem);
