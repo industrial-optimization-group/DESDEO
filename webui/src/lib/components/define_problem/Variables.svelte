@@ -1,5 +1,5 @@
 <script lang="ts">
-    	import {
+    import {
 		FormFieldset,
 		FormLegend
 	} from '$lib/components/ui/form';
@@ -59,9 +59,9 @@
                     >+</button
                 >
             </div>
-            <Input placeholder="Lowerbounds (optional, e.g. [[2,3],[3,4]])" bind:value={variable.lowerbounds} />
-            <Input placeholder="Upperbounds (optional, e.g. [[2,3],[3,4]])" bind:value={variable.upperbounds} />
-            <Input placeholder="Initial values (optional, e.g. [[2,3],[3,4]])" bind:value={variable.initial_values} />
+            <Input placeholder="Lowerbounds (optional, e.g. [[1,2],[3,4]] or [1,2,3])" bind:value={variable.lowerbounds} />
+            <Input placeholder="Upperbounds (optional, e.g. [[1,2],[3,4]] or [1,2,3])" bind:value={variable.upperbounds} />
+            <Input placeholder="Initial values (optional, e.g. [[1,2],[3,4]] or [1,2,3])" bind:value={variable.initial_values} />
         {:else}
             <Input placeholder="Lowerbound (optional)" bind:value={variable.lowerbound} />
             <Input placeholder="Upperbound (optional)" bind:value={variable.upperbound} />

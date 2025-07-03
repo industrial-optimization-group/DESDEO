@@ -1,5 +1,5 @@
 <script lang="ts">
-    	import {
+    import {
 		FormFieldset,
 		FormLegend
 	} from '$lib/components/ui/form';

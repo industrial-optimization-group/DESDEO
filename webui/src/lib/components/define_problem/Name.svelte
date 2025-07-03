@@ -1,5 +1,5 @@
 <script lang="ts">
-    	import {
+    import {
 		FormField,
 		FormLabel,
         FormControl,
@@ -12,6 +12,6 @@
     <FormControl>
         <FormLabel for="name">Name</FormLabel>
         <Input id="name" name="name" bind:value={$formData.name} />
-        {#if $errors.name}<span class="invalid">{$errors.name}</span>{/if}
+        {#if $errors.name}<span class="invalid text-red-500">{$errors.name}</span>{/if}
     </FormControl>
 </FormField>

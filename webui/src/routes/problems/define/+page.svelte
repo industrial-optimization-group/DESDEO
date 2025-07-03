@@ -11,29 +11,34 @@
 		FormButton,
 	} from '$lib/components/ui/form';
 	import { superForm } from 'sveltekit-superforms';
-	import { schemas } from '$lib/api/zod-types';
+	import { schemas } from '$lib/api/zod-schemas';
 	import { z } from 'zod';
 	import { Card } from '$lib/components/ui/card';
-	import { writable } from 'svelte/store';
-	import Objectives from '$lib/components/ui/define_problem/Objectives.svelte';
-	import Constants from '$lib/components/ui/define_problem/Constants.svelte';
-	import Variables from '$lib/components/ui/define_problem/Variables.svelte';
-	import Name from '$lib/components/ui/define_problem/Name.svelte';
-	import Description from '$lib/components/ui/define_problem/Description.svelte';
+	import Objectives from '$lib/components/define_problem/Objectives.svelte';
+	import Constants from '$lib/components/define_problem/Constants.svelte';
+	import Variables from '$lib/components/define_problem/Variables.svelte';
+	import Name from '$lib/components/define_problem/Name.svelte';
+	import Description from '$lib/components/define_problem/Description.svelte';
+	import SuperDebug from 'sveltekit-superforms';
 
 
 	// Minimal form state for now
 	const form = superForm(
 		{
-			name: '',
-			description: '',
+			name: null,
+			description: null,
 			variables: [] as (TensorVariable | Variable)[],
 			constants: [] as (Constant | TensorConstant)[],
 			objectives: [] as Objective[],
 		},
-		{ dataType: 'json' }
+		{ 
+			dataType: 'json',
+			onError({ result }) {
+				$message = result.error.message || "Unknown error";
+			}
+		}
 	);
-	const { form: formData, enhance, errors } = form;
+	const { form: formData, message, enhance, errors } = form;
 
 	function addVariable(kind: 'scalar' | 'tensor') {
 			if (kind === 'scalar') {
@@ -142,43 +147,14 @@
 		$formData.objectives = $formData.objectives.filter((_, i) => i !== idx);
 	}
 
-
-	// Error stores for constants
-	let constantValueErrors = writable<string[]>([]);
-	let tensorConstantValueErrors = writable<string[]>([]);
-
-	function parseConstantValue(input: string): number | boolean | null {
-	if (input.trim().toLowerCase() === 'true') return true;
-	if (input.trim().toLowerCase() === 'false') return false;
-	const num = Number(input);
-	if (!isNaN(num) && input.trim() !== '') return num;
-	return null;
-	}
-
-	function parseTensorValues(input: string): (number | boolean)[] | null {
-	if (!input.trim()) return [];
-	const parts = input.split(',').map(s => s.trim());
-	const parsed = [];
-	for (const part of parts) {
-		if (part.toLowerCase() === 'true') parsed.push(true);
-		else if (part.toLowerCase() === 'false') parsed.push(false);
-		else {
-		const num = Number(part);
-		if (!isNaN(num) && part !== '') parsed.push(num);
-		else return null;
-		}
-	}
-	return parsed;
-	}
 </script>
 
 <section class="mx-10">
-  <!-- <div>{JSON.stringify($formData.variables)}</div> -->
-  <div>{JSON.stringify($formData.constants)}</div>
-  <div>{JSON.stringify($formData.objectives)}</div>
-
 	<div class="max-w-4xl mx-auto m-6">
 		<h1 class="mt-10 text-center text-2xl font-semibold">Problem Definition</h1>
+
+		{#if $message}<h3 class="text-red-500 mb-4">{$message}</h3>{/if}
+		{#if $errors._errors}<div class="text-red-500 mb-4">{$errors._errors}</div>{/if}
 		<form class="flex flex-col gap-4" method="POST" action="?/create" use:enhance>
 			<Card class="p-6">
 				<Name {form}/>
@@ -192,4 +168,5 @@
 			>
 		</form>
 	</div>
+	<SuperDebug data={$formData} />
 </section>
