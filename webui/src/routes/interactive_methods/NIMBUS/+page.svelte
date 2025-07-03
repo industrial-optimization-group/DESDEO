@@ -1,15 +1,63 @@
 <script lang="ts">
+	/**
+	 * +page.svelte (NIMBUS method)
+	 *
+	 * @author Stina (Functionality) <stina-email@jyu.fi> <--- please replace with your email
+	 * @author Giomara Larraga (Base structure)<glarragw@jyu.fi>
+	 * @created July 2025
+	 *
+	 * @description
+	 * This page implements the NIMBUS interactive multiobjective optimization method in DESDEO.
+	 * It displays a sidebar with problem information, a solution explorer with a combobox to select solution types,
+	 * and a resizable pane layout for visualizing the objective and decision spaces, as well as solution tables.
+	 *
+	 * @props
+	 * @property {Object} data - Contains a list of optimization problems fetched from the server.
+	 * @property {ProblemInfo[]} data.problems - List of problems.
+	 *
+	 * @features
+	 * - Sidebar with problem information and preference types.
+	 * - Solution explorer with a combobox to select between "Current", "Best", and "All" solutions.
+	 * - Responsive, resizable layout using PaneGroup and Pane components.
+	 * - Visualization placeholders for objective and decision spaces.
+	 * - Tabbed interface for numerical values and saved solutions.
+	 *
+	 * @dependencies
+	 * - AppSidebar: Sidebar component for preferences and problem info.
+	 * - Combobox: Custom combobox component for solution type selection.
+	 * - Resizable: UI components for resizable panes.
+	 * - Tabs: UI components for tabbed content.
+	 * - methodSelection: Svelte store for the currently selected problem.
+	 * - OpenAPI-generated ProblemInfo type.
+	 *
+	 * @notes
+	 * - The selected problem is determined from the methodSelection store.
+	 * - Visualization and table content are placeholders and should be implemented as needed.
+	 */
 	import AppSidebar from '$lib/components/custom/preferences-bar/preferences-sidebar.svelte';
 	import { methodSelection } from '../../../stores/methodSelection';
 	import * as Resizable from '$lib/components/ui/resizable/index.js';
 	import type { components } from '$lib/api/client-types';
 	import { onMount } from 'svelte';
+	import { Combobox } from '$lib/components/ui/combobox';
 	type ProblemInfo = components['schemas']['ProblemInfo'];
-	import * as Menubar from '$lib/components/ui/menubar/index.js';
 	let problem: ProblemInfo | null = $state(null);
+	import * as Tabs from '$lib/components/ui/tabs/index.js';
 
 	const { data } = $props<{ data: ProblemInfo[] }>();
 	let problemList = data.problems ?? [];
+	let selectedTypeSolutions = 'current';
+
+	const frameworks = [
+		{ value: 'current', label: 'Current solutions' },
+		{ value: 'best', label: 'Best solutions' },
+		{ value: 'all', label: 'All solutions' }
+	];
+
+	function handleChange(event: { value: string }) {
+		selectedTypeSolutions = event.value;
+		console.log('Selected type of solutions:', selectedTypeSolutions);
+	}
 
 	onMount(() => {
 		if ($methodSelection.selectedProblemId) {
@@ -17,21 +65,27 @@
 				(p: ProblemInfo) => String(p.id) === String($methodSelection.selectedProblemId)
 			);
 		}
-		//console.log('problemList:', problem);
 	});
 </script>
 
 <div class="flex min-h-[calc(100vh-3rem)]">
-	<AppSidebar {problem} preference_types={['Reference point']} />
+	{#if problem}
+		<AppSidebar {problem} preference_types={['Reference point']} showNumSolutions={true} />
+	{/if}
 
 	<div class="flex-1">
 		<Resizable.PaneGroup direction="vertical">
 			<Resizable.Pane class="p-2">
 				<div class="flex-row">
-					<div class="flex flex-row items-center justify-between gap-4">
+					<div class="flex flex-row items-center justify-between gap-4 pb-2">
 						<div class="font-semibold">Solution explorer</div>
 						<div>
 							<span>View: </span>
+							<Combobox
+								options={frameworks}
+								defaultSelected={selectedTypeSolutions}
+								onChange={handleChange}
+							/>
 						</div>
 					</div>
 
@@ -50,7 +104,14 @@
 			</Resizable.Pane>
 			<Resizable.Handle />
 			<Resizable.Pane class="p-2">
-				<span>Best candidates</span>
+				<Tabs.Root value="numerical-values">
+					<Tabs.List>
+						<Tabs.Trigger value="numerical-values">Numerical values</Tabs.Trigger>
+						<Tabs.Trigger value="saved-solutions">Saved solutions</Tabs.Trigger>
+					</Tabs.List>
+					<Tabs.Content value="numerical-values">Table of solutions</Tabs.Content>
+					<Tabs.Content value="saved-solutions">Visualize saved solutions</Tabs.Content>
+				</Tabs.Root>
 			</Resizable.Pane>
 		</Resizable.PaneGroup>
 	</div>

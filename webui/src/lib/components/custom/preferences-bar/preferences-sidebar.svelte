@@ -3,21 +3,37 @@
 	import PreferenceSwitcher from './preference-switcher.svelte';
 	import { writable } from 'svelte/store';
 	import type { components } from '$lib/api/client-types';
-
+	import { HorizontalBar } from '$lib/components/visualizations/horizontal-bar';
+	import { Input } from '$lib/components/ui/input/index.js';
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 
-	export let ref: HTMLElement | null = null;
-	export let preference_types: string[] = ['Reference point', 'Ranges', 'Preferred solution'];
-	export let problem: ProblemInfo | null = null;
+	const {
+		preference_types,
+		problem,
+		onChange,
+		showNumSolutions = false,
+		ref = null
+	} = $props<{
+		preference_types: string[];
+		problem: ProblemInfo;
+		onChange?: (event: { value: string }) => void;
+		showNumSolutions?: boolean;
+		ref?: HTMLElement | null;
+	}>();
+
+	//let ref: HTMLElement | null = $state(null);
+	//let preference_types: string[] = ['Reference point', 'Ranges', 'Preferred solution'];
+	//export let problem: ProblemInfo | null = null;
 
 	// Store for the currently selected preference type
 	const selectedPreference = writable(preference_types[0]);
+	console.log('Problem in preferences sidebar:', problem);
 </script>
 
 <Sidebar.Root
-	bind:ref
+	{ref}
 	collapsible="none"
-	class="top-12 flex h-[calc(100vh-6rem)] min-h-[calc(100vh-3rem)]"
+	class="top-12 flex h-[calc(100vh-6rem)] min-h-[calc(100vh-3rem)] w-[25rem]"
 >
 	<Sidebar.Header>
 		{#if preference_types.length > 1}
@@ -39,14 +55,35 @@
 		{/if}
 	</Sidebar.Header>
 	<Sidebar.Content class="h-full px-4">
+		{#if showNumSolutions}
+			<!-- 				<span class="mb-2 text-sm text-gray-500">Number of solutions to be displayed.</span>
+ -->
+			<Input type="number" placeholder="Number of solutions" class="mb-2 w-full" />
+		{/if}
 		{#if $selectedPreference === 'Reference point'}
 			<p class="mb-2 text-sm text-gray-500">Provide one desirable value for each objective.</p>
-			{problem?.objectives}
-			<!-- 			{#each problem?.objectives as item}
-				<div class="mb-1">
-					<span>{item.name} (Ideal: {item.ideal}, Nadir: {item.nadir})</span>
+
+			{#each problem.objectives as objective}
+				<div>
+					<HorizontalBar
+						axisRanges={[objective.ideal, objective.nadir]}
+						solutionValue={objective.ideal}
+						selectedValue={objective.ideal}
+						barColor="#4f8cff"
+						direction="min"
+						options={{
+							barHeight: 32,
+							decimalPrecision: 2,
+							showPreviousValue: false,
+							aspectRatio: 'aspect-[11/2]'
+						}}
+						onSelect={(value: number) => {
+							console.log('Selected value:', value);
+							onChange?.({ value: String(value) });
+						}}
+					/>
 				</div>
-			{/each} -->
+			{/each}
 		{:else if $selectedPreference === 'Ranges'}
 			<p class="mb-2 text-sm text-gray-500">
 				Provide a range for each objective, indicating the minimum and maximum acceptable values.

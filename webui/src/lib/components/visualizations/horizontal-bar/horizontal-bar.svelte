@@ -65,7 +65,7 @@
 
 	// --- Internal state ---
 	let width = 500;
-	let height = 100;
+	let height = 70;
 	let svg: SVGSVGElement;
 	let container: HTMLDivElement;
 	let dragLine: d3.Selection<SVGLineElement, unknown, null, undefined>;
@@ -78,7 +78,7 @@
 	function drawChart() {
 		d3.select(svg).selectAll('*').remove();
 
-		const margin = { top: 20, right: 30, bottom: 30, left: 30 };
+		const margin = { top: 2, right: 30, bottom: 2, left: 30 };
 		const innerWidth = width - margin.left - margin.right;
 		const innerHeight = height - margin.top - margin.bottom;
 
@@ -250,5 +250,5 @@
     Use the aspect ratio from options.
 -->
 <div class={options.aspectRatio} bind:this={container} style="width: 100%;">
-	<svg bind:this={svg} style="width: 100%; height: 100px;" />
+	<svg bind:this={svg} style="width: 100%; height: 85px;" />
 </div>
