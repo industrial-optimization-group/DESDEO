@@ -4,7 +4,7 @@ import numpy as np
 import numpy.testing as npt
 import pytest
 
-from desdeo.problem import ConstraintTypeEnum
+from desdeo.problem import ConstraintTypeEnum, Evaluator
 from desdeo.problem.testproblems import (
     dtlz2,
     momip_ti7,
@@ -42,6 +42,7 @@ from desdeo.tools.scalarization import (
     add_stom_sf_diff,
     add_stom_sf_nondiff,
     add_weighted_sums,
+    add_desirability_funcs,
 )
 
 
@@ -1251,3 +1252,44 @@ def test_add_group_scenario_sf_diff_happy_path():
     assert all(np.isclose(xs[f"x_{i}"], 0.5, atol=1e-2) for i in range(n_objectives, n_variables + 1))
     total = sum(result.optimal_objectives[obj.symbol] ** 2 for obj in problem_w_sf.objectives)
     assert np.isclose(total, 1.0, atol=1e-2)
+
+
+@pytest.mark.scalarization
+def test_add_desirability_funcs() -> None:
+    """Test that the desirability functions are added correctly."""
+    problem = dtlz2(n_objectives=3, n_variables=10)
+
+    aspiration = {"f_1": 0.1, "f_2": 0.2, "f_3": 0.3}
+    reservation = {"f_1": 0.9, "f_2": 0.3, "f_3": 0.5}
+    # Add Harrington type desirability function
+    problem_, added_funcs = add_desirability_funcs(
+        problem,
+        aspiration_levels=aspiration,
+        reservation_levels=reservation,
+        desirability_func="Harrington",
+    )
+
+    assert len(added_funcs) == 3
+    obj_names = [obj.symbol for obj in problem.objectives]
+    assert all(func[:-2] in obj_names for func in added_funcs), "Desirability functions for all objectives not created"
+
+    inputs = np.random.rand(100, 10)
+    evaluator = Evaluator(problem_)
+    outs = evaluator.evaluate(inputs)[added_funcs].to_numpy()
+    assert np.all(outs <= 0) and np.all(outs >= -1), "Desirability values should be in [-1, 0]"
+
+    problem_, added_funcs = add_desirability_funcs(
+        problem,
+        aspiration_levels=aspiration,
+        reservation_levels=reservation,
+        desirability_func="MaoMao",
+    )
+    assert len(added_funcs) == 3
+    obj_names = [obj.symbol for obj in problem.objectives]
+    assert all(func[:-2] in obj_names for func in added_funcs), "Desirability functions for all objectives not created"
+    inputs = np.random.rand(100, 10)
+    evaluator = Evaluator(problem_)
+    outs = evaluator.evaluate(inputs)[added_funcs].to_numpy()
+    assert np.all(outs <= 0) and np.all(outs >= -1), "Desirability values should be in [-1, 0]"
+
+
