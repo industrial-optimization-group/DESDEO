@@ -511,17 +511,3 @@ Returns:
 		response: UserPublic,
 	},
 ]);
-
-// export const api = new Zodios(endpoints);
-
-// export function createApiClient(baseUrl: string, options?: ZodiosOptions) {
-//     return new Zodios(baseUrl, endpoints, options);
-// }
-
-// const c = createApiClient('kissa.com')
-// const r = await c.add_new_analyst_add_new_analyst_post({
-// 	password: 'kissa',
-// 	username: 'kisa',
-// });
-
-
