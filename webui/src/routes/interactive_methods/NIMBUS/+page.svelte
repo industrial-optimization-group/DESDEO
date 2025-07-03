@@ -70,7 +70,7 @@
 
 <div class="flex min-h-[calc(100vh-3rem)]">
 	{#if problem}
-		<AppSidebar {problem} preference_types={['Reference point']} showNumSolutions={true} />
+		<AppSidebar {problem} preference_types={['Classification']} showNumSolutions={true} />
 	{/if}
 
 	<div class="flex-1">
