@@ -43,6 +43,8 @@ __all__ = [
     "VariableDB",
     "ProblemMetaDataDB",
     "ForestProblemMetaData",
+    "UtopiaRequest",
+    "UtopiaResponse",
 ]
 
 from .archive import UserSavedSolutionBase, UserSavedSolutionDB
@@ -67,6 +69,7 @@ from .problem import (
     ProblemMetaDataDB,
     ForestProblemMetaData,
 )
+from .utopia import UtopiaRequest, UtopiaResponse
 from .reference_point_method import RPMSolveRequest
 from .session import (
     CreateSessionRequest,
