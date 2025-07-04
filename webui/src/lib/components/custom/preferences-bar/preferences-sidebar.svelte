@@ -111,8 +111,8 @@
 			    {@const minValue = Math.min(objective.ideal, objective.nadir)}
   			    {@const maxValue = Math.max(objective.ideal, objective.nadir)}
     
-				<div class="mb-4">
-					<div class="flex items-center justify-between mb-2">
+				<div class="flex items-center justify-between mb-2">
+					<div>
 						<div class="flex-1">
 							<div class="text-sm font-medium">{objective.name} {#if objective.unit}/{objective.unit}{/if} ({objective.maximize ? "max" : "min"})</div>
 						</div>
