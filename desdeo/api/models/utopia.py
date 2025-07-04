@@ -2,7 +2,6 @@
 
 from typing import Any
 from sqlmodel import SQLModel, Field
-from desdeo.tools.generics import SolverResults
 
 
 class UtopiaRequest(SQLModel):
