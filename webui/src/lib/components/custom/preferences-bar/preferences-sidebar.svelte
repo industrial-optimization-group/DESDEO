@@ -21,6 +21,8 @@
 		ref?: HTMLElement | null;
 	}>();
 
+	let values: number[] =  $state(problem.objectives.map((objective: { ideal: any; })=>objective.ideal));
+	
 	//let ref: HTMLElement | null = $state(null);
 	//let preference_types: string[] = ['Reference point', 'Ranges', 'Preferred solution'];
 	//export let problem: ProblemInfo | null = null;
@@ -63,12 +65,27 @@
 		{#if $selectedPreference === 'Reference point'}
 			<p class="mb-2 text-sm text-gray-500">Provide one desirable value for each objective.</p>
 
-			{#each problem.objectives as objective}
+			{#each problem.objectives as objective, idx}
 				<div>
+					<Input 
+						type="number"
+						step="0.01"
+						min={objective.ideal}
+						max={objective.nadir}
+						bind:value={values[idx]}
+						    oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
+								const numValue = Number(e.currentTarget.value);
+								const clampedValue = Math.max(objective.ideal, Math.min(objective.nadir, numValue));
+								if (numValue !== clampedValue) {
+									values[idx] = clampedValue;
+								}
+								onChange?.({ value: e.currentTarget.value });
+						}}
+					/>
 					<HorizontalBar
 						axisRanges={[objective.ideal, objective.nadir]}
 						solutionValue={objective.ideal}
-						selectedValue={objective.ideal}
+						selectedValue={values[idx]}
 						barColor="#4f8cff"
 						direction="min"
 						options={{
@@ -77,9 +94,10 @@
 							showPreviousValue: false,
 							aspectRatio: 'aspect-[11/2]'
 						}}
-						onSelect={(value: number) => {
-							console.log('Selected value:', value);
-							onChange?.({ value: String(value) });
+						onSelect={(newValue: number) => {
+							values[idx] = newValue
+							console.log('Selected value:', newValue);
+							onChange?.({ value: String(newValue) });
 						}}
 					/>
 				</div>

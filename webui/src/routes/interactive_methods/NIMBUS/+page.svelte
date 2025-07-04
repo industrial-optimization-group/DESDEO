@@ -2,7 +2,7 @@
 	/**
 	 * +page.svelte (NIMBUS method)
 	 *
-	 * @author Stina (Functionality) <stina-email@jyu.fi> <--- please replace with your email
+	 * @author Stina (Functionality) <palomakistina@gmail.com>
 	 * @author Giomara Larraga (Base structure)<glarragw@jyu.fi>
 	 * @created July 2025
 	 *
