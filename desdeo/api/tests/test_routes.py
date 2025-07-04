@@ -119,6 +119,7 @@ def test_get_problem(client: TestClient):
 
     assert info.id == 1
     assert info.name == "dtlz2"
+    assert info.problem_metadata == None
 
     response = post_json(client, "problem/get", ProblemGetRequest(problem_id=2).model_dump(), access_token)
 
@@ -128,6 +129,7 @@ def test_get_problem(client: TestClient):
 
     assert info.id == 2
     assert info.name == "The river pollution problem"
+    assert info.problem_metadata.data[0].metadata_type == "forest_problem_metadata"
 
 
 def test_add_problem(client: TestClient):
@@ -402,3 +404,41 @@ def test_login_logout(client: TestClient):
     # Access token NOT refreshed
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
     
+
+def test_get_problem_metadata(client: TestClient):
+    """Test that fetching problem metadata works."""
+    
+    access_token = login(client=client)
+
+    # Problem with no metadata
+    req = {"problem_id": 1, "metadata_type": "forest_problem_metadata"}
+    response = post_json(
+        client=client, 
+        endpoint="/problem/get_metadata", 
+        json=req, 
+        access_token=access_token
+    )
+    assert response.status_code == 200
+    assert response.json() == []
+
+    # Problem with forest metadata
+    req = {"problem_id": 2, "metadata_type": "forest_problem_metadata"}
+    response = post_json(
+        client=client, 
+        endpoint="/problem/get_metadata", 
+        json=req, 
+        access_token=access_token
+    )
+    assert response.status_code == 200
+    assert response.json()[0]["metadata_type"] == "forest_problem_metadata"
+    assert response.json()[0]["schedule_dict"] == {"type": "dict"}
+
+    # No problem
+    req = {"problem_id": 3, "metadata_type": "forest_problem_metadata"}
+    response = post_json(
+        client=client, 
+        endpoint="/problem/get_metadata", 
+        json=req, 
+        access_token=access_token
+    )
+    assert response.status_code == 404
