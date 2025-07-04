@@ -2,6 +2,7 @@
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import PreferenceSwitcher from './preference-switcher.svelte';
 	import { writable } from 'svelte/store';
+	import { Button } from '$lib/components/ui/button/index.js';
 	import type { components } from '$lib/api/client-types';
 	import { HorizontalBar } from '$lib/components/visualizations/horizontal-bar';
 	import { Input } from '$lib/components/ui/input/index.js';
@@ -13,6 +14,8 @@
 		preference_types,
 		problem,
 		onChange,
+		onIterate,
+		onFinish,
 		showNumSolutions = false,
 		ref = null,
 		referencePointValues = writable(problem.objectives.map((obj: any) => obj.ideal)), // default if not provided
@@ -21,6 +24,8 @@
 		preference_types: string[];
 		problem: ProblemInfo;
 		onChange?: (event: { value: string }) => void;
+		onIterate?: () => void;
+		onFinish?: () => void;
 		showNumSolutions?: boolean;
 		ref?: HTMLElement | null;
 		referencePointValues?: typeof writable<number[]>;
@@ -156,5 +161,31 @@
 			<p>Select a preference type to view options.</p>
 		{/if}
 	</Sidebar.Content>
+	<Sidebar.Footer>
+		<div class="items-right flex justify-end gap-2">
+			<Button
+				variant="default"
+				size="sm"
+				onclick={() => {
+					selectedPreference.set(preference_types[0]);
+					referencePointValues.set(problem.objectives.map((obj: any) => obj.ideal));
+					onIterate?.(selectedPreference, referencePointValues);
+				}}
+			>
+				Iterate
+			</Button>
+			<Button
+				variant="secondary"
+				size="sm"
+				onclick={() => {
+					selectedPreference.set(preference_types[0]);
+					referencePointValues.set(problem.objectives.map((obj: any) => obj.ideal));
+					onFinish?.(referencePointValues);
+				}}
+			>
+				Finish
+			</Button>
+		</div>
+	</Sidebar.Footer>
 	<Sidebar.Rail />
 </Sidebar.Root>
