@@ -27,16 +27,16 @@
   	let MAX_NUM_SOLUTIONS = 4;
 
     const classification = {
-        ChangeFreely: "Saa muuttua vapaasti",
-        WorsenUntil: "Saa huonontua tasoon",
-        KeepContant: "Pidä vakiona tasossa",
-        ImproveUntil: "Paranna kunnes tasossa",
-        ImproveFreely: "Saa parantua vapaasti",
+        ChangeFreely: "Change freely",
+        WorsenUntil: "Worsen until",
+        KeepConstant: "Keep constant at",
+        ImproveUntil: "Improve until",
+        ImproveFreely: "Improve freely",
     } as const;
 
     // Create a derived classification array
     // Todo: Idea copied straight from old nimbus, and there was this comment: 
-	// "This only works if lowerIsBetter is false, I think."
+	// "This only works if lowerIsBetter is false, I think." Is that so? I don't get it.
     let classificationValues = $derived(
         problem.objectives.map((objective: {ideal: number, nadir: number}, idx:number) => {
             const selectedValue = values[idx];
@@ -58,7 +58,7 @@
             ) {
                 return classification.ImproveFreely;
             } else if (Math.abs(selectedValue - solutionValue) < precision) {
-                return classification.KeepContant;
+                return classification.KeepConstant;
             } else if (selectedValue < solutionValue) {
                 return classification.WorsenUntil;
             } else if (selectedValue > solutionValue) {
