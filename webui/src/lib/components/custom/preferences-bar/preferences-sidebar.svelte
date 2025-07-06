@@ -22,6 +22,10 @@
 	}>();
 
 	let values: number[] =  $state(problem.objectives.map((objective: { ideal: number; })=>objective.ideal));
+	let numSolutions = $state(1);
+	let MIN_NUM_SOLUTIONS = 1;
+  	let MAX_NUM_SOLUTIONS = 4;
+
     const classification = {
         ChangeFreely: "Saa muuttua vapaasti",
         WorsenUntil: "Saa huonontua tasoon",
@@ -102,7 +106,21 @@
 		{#if showNumSolutions}
 			<!-- 				<span class="mb-2 text-sm text-gray-500">Number of solutions to be displayed.</span>
  -->
-			<Input type="number" placeholder="Number of solutions" class="mb-2 w-full" />
+			<Input 
+				type="number" 
+				placeholder="Number of solutions" 
+				class="mb-2 w-full" 
+				bind:value={numSolutions} 
+				oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
+					const numValue = Number(e.currentTarget.value);
+					const clampedValue = Math.max(MIN_NUM_SOLUTIONS, Math.min(MAX_NUM_SOLUTIONS, numValue));
+					
+					if (numValue !== clampedValue) {
+						numSolutions = clampedValue;
+					}
+					onChange?.({ value: e.currentTarget.value });
+				}}
+			/>
 		{/if}
 		{#if $selectedPreference === 'Reference point'}
 			<p class="mb-2 text-sm text-gray-500">Provide one desirable value for each objective.</p>
