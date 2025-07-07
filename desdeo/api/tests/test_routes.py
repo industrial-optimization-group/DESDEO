@@ -620,3 +620,60 @@ def test_debug_preference_serialization():
     )
 
     print(f"Request model_dump: {request.model_dump()}")
+
+
+def test_nsga3_save_solutions(client: TestClient):
+    """Test saving selected EMO solutions."""
+    access_token = login(client)
+
+    # First, run optimization to get solutions
+    request_data = {
+        "problem_id": 1,
+        "method": "nsga3",
+        "preference": {
+            "preference_type": "reference_point",
+            "aspiration_levels": {"f_1": 0.5, "f_2": 0.3, "f_3": 0.4},
+        },
+        "max_evaluations": 100,
+        "number_of_vectors": 5,
+        "use_archive": True,
+    }
+
+    response = post_json(client, "/method/nsga3/solve", request_data, access_token)
+    assert response.status_code == status.HTTP_200_OK
+
+    emo_state = response.json()
+    solutions = emo_state["results"]["solutions"]
+    outputs = emo_state["results"]["outputs"]
+
+    # Select first 2 solutions to save
+    selected_solutions = []
+    for i in range(min(2, len(solutions))):
+        selected_solutions.append(
+            {
+                "name": f"Selected Solution {i+1}",
+                "variable_values": solutions[i],
+                "objective_values": outputs[i],
+                "method": "nsga3",
+                "generation": 1,
+            }
+        )
+
+    # Save selected solutions
+    save_request = {"problem_id": 1, "solutions": selected_solutions}
+
+    save_response = post_json(client, "/method/nsga3/save", save_request, access_token)
+
+    assert save_response.status_code == status.HTTP_200_OK
+    save_state = save_response.json()
+    assert save_state["total_saved"] == 2
+    assert save_state["method"] == "nsga3"
+
+    # Get saved solutions
+    saved_response = client.get(
+        "/method/nsga3/saved-solutions",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert saved_response.status_code == status.HTTP_200_OK
+    saved_solutions = saved_response.json()
+    assert len(saved_solutions) >= 2

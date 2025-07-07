@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
-    from .archive import UserSavedSolutionDB
+    from .archive import UserSavedSolutionDB, NonDominatedArchiveDB
     from .preference import PreferenceDB
     from .problem import ProblemDB
     from .session import InteractiveSessionDB
@@ -41,6 +41,7 @@ class User(UserBase, table=True):
     preferences: list["PreferenceDB"] = Relationship(back_populates="user")
     problems: list["ProblemDB"] = Relationship(back_populates="user")
     sessions: list["InteractiveSessionDB"] = Relationship(back_populates="user")
+    ndarchive: "NonDominatedArchiveDB" = Relationship(back_populates="user")
 
 
 class UserPublic(UserBase):

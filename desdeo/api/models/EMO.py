@@ -74,3 +74,26 @@ class EMOState(SQLModel):
     results: EMOResults = Field(
         sa_column=Column(JSON), description="Optimization results"
     )
+
+
+class EMOSaveRequest(SQLModel):
+    """Request model for saving selected EMO solutions."""
+
+    problem_id: int
+    session_id: Optional[int] = None
+    parent_state_id: Optional[int] = None
+
+    # List of solutions to save
+    solutions: List["UserSavedEMOResults"] = Field(
+        description="List of EMO solutions to save with optional names"
+    )
+
+
+class EMOSaveState(SQLModel):
+    """State model for saved EMO solutions."""
+
+    saved_solutions: List["UserSavedEMOResults"] = Field(
+        description="List of saved EMO solutions"
+    )
+    total_saved: int = Field(description="Total number of solutions saved")
+    method: str = Field(description="EMO method used")

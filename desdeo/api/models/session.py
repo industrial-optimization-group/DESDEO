@@ -1,12 +1,13 @@
 """Defines Session models to manage user sessions."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from .state import StateDB
     from .user import User
+    from .archive import NonDominatedArchiveDB
 
 
 class CreateSessionRequest(SQLModel):
@@ -44,3 +45,4 @@ class InteractiveSessionDB(InteractiveSessionBase, table=True):
     # Back populates
     states: list["StateDB"] = Relationship(back_populates="session")
     user: "User" = Relationship(back_populates="sessions")
+    archive: Optional["NonDominatedArchiveDB"] = Relationship(back_populates="session")
