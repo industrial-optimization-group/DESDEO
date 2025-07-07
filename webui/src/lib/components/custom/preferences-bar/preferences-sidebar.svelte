@@ -7,24 +7,32 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 
-	const {
+	let {
 		preference_types,
 		problem,
 		onChange,
 		showNumSolutions = false,
-		ref = null
+		ref = null,
+		preference = $bindable(),
+		numSolutions = $bindable(1),
+		minNumSolutions = 1,
+		maxNumSolutions = 4
 	} = $props<{
 		preference_types: string[];
 		problem: ProblemInfo;
-		onChange?: (event: { value: string }) => void;
+		onChange?: (event: { value: string; preference: number[]; numSolutions: number }) => void;
 		showNumSolutions?: boolean;
 		ref?: HTMLElement | null;
+		preference?: number[];
+		numSolutions?: number;
+		minNumSolutions?: number;
+		maxNumSolutions?: number;
 	}>();
 
-	let values: number[] =  $state(problem.objectives.map((objective: { ideal: number; })=>objective.ideal));
-	let numSolutions = $state(1);
-	let MIN_NUM_SOLUTIONS = 1;
-  	let MAX_NUM_SOLUTIONS = 4;
+	// Initialize preference if not provided by parent
+	if (!preference || preference.length === 0) {
+		preference = problem.objectives.map((objective: {ideal:number}) => objective.ideal);
+	}
 
     const classification = {
         ChangeFreely: "Change freely",
@@ -39,7 +47,7 @@
 	// "This only works if lowerIsBetter is false, I think." Is that so? I don't get it.
     let classificationValues = $derived(
         problem.objectives.map((objective: {ideal: number, nadir: number}, idx:number) => {
-            const selectedValue = values[idx];
+            const selectedValue = preference[idx];
             const solutionValue = objective.ideal;
             const lowerBound = Math.min(objective.ideal, objective.nadir);
             const higherBound = Math.max(objective.ideal, objective.nadir);
@@ -113,12 +121,16 @@
 				bind:value={numSolutions} 
 				oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
 					const numValue = Number(e.currentTarget.value);
-					const clampedValue = Math.max(MIN_NUM_SOLUTIONS, Math.min(MAX_NUM_SOLUTIONS, numValue));
+					const clampedValue = Math.max(minNumSolutions, Math.min(maxNumSolutions, numValue));
 					
 					if (numValue !== clampedValue) {
 						numSolutions = clampedValue;
 					}
-					onChange?.({ value: e.currentTarget.value });
+					onChange?.({ 
+						value: e.currentTarget.value,
+						preference: [...preference],
+						numSolutions 
+					});
 				}}
 			/>
 		{/if}
@@ -141,23 +153,27 @@
 							step="0.01"
 							min={minValue}
 							max={maxValue}
-							bind:value={values[idx]}
+							bind:value={preference[idx]}
 							class="w-20 h-8 text-sm"
 							oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
 								const numValue = Number(e.currentTarget.value);
 								const clampedValue = Math.max(minValue, Math.min(maxValue, numValue));
 								
 								if (numValue !== clampedValue) {
-									values[idx] = clampedValue;
+									preference[idx] = clampedValue;
 								}
-								onChange?.({ value: e.currentTarget.value });
+								onChange?.({ 
+									value: e.currentTarget.value,
+									preference: [...preference], // Send the full array
+									numSolutions
+								});
 							}}
 						/>
 					</div>
 					<HorizontalBar
 						axisRanges={[objective.ideal, objective.nadir]}
 						solutionValue={objective.ideal}
-						selectedValue={values[idx]}
+						selectedValue={preference[idx]}
 						barColor="#4f8cff"
 						direction="min"
 						options={{
@@ -167,9 +183,13 @@
 							aspectRatio: 'aspect-[11/2]'
 						}}
 						onSelect={(newValue: number) => {
-							values[idx] = newValue
+							preference[idx] = newValue
 							console.log('Selected value:', newValue);
-							onChange?.({ value: String(newValue) });
+							onChange?.({ 
+								value: String(newValue),
+								preference: [...preference], // Send the full array
+								numSolutions
+							});
 						}}
 					/>
 				</div>

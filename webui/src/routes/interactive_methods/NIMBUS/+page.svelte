@@ -48,6 +48,10 @@
 	let problemList = data.problems ?? [];
 	let selectedTypeSolutions = 'current';
 
+	// State for preferences and numSolutions - ready for your HTTP request button
+	let currentPreference: number[] = $state([]);
+	let currentNumSolutions: number = $state(1);
+
 	const frameworks = [
 		{ value: 'current', label: 'Current solutions' },
 		{ value: 'best', label: 'Best solutions' },
@@ -57,6 +61,14 @@
 	function handleChange(event: { value: string }) {
 		selectedTypeSolutions = event.value;
 		console.log('Selected type of solutions:', selectedTypeSolutions);
+	}
+
+	function handlePreferenceChange(event: { value: string; preference: number[]; numSolutions: number }) {
+		currentPreference = event.preference;
+		currentNumSolutions = event.numSolutions;
+		console.log('Updated preference:', currentPreference);
+		console.log('Updated numSolutions:', currentNumSolutions);
+		// This is where you can add other logic when preferences change
 	}
 
 	onMount(() => {
@@ -70,7 +82,16 @@
 
 <div class="flex min-h-[calc(100vh-3rem)]">
 	{#if problem}
-		<AppSidebar {problem} preference_types={['Reference point']} showNumSolutions={true} />
+		<AppSidebar 
+			{problem} 
+			preference_types={['Reference point']} 
+			showNumSolutions={true} 
+			bind:preference={currentPreference}
+			bind:numSolutions={currentNumSolutions}
+			minNumSolutions={1}
+			maxNumSolutions={4}
+			onChange={handlePreferenceChange}
+		/>
 	{/if}
 
 	<div class="flex-1">
