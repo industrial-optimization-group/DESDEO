@@ -43,12 +43,25 @@ __all__ = [
     "VariableDB",
     "ProblemMetaDataDB",
     "ForestProblemMetaData",
+    "EMOSolveRequest",
+    "EMOState",
+    "PreferredRanges",
+    "PreferedSolutions",
+    "NonPreferredSolutions",
 ]
 
 from .archive import UserSavedSolutionBase, UserSavedSolutionDB
 from .generic import IntermediateSolutionRequest
 from .nimbus import NIMBUSClassificationRequest, NIMBUSSaveRequest
-from .preference import Bounds, PreferenceBase, PreferenceDB, ReferencePoint
+from .preference import (
+    Bounds,
+    PreferenceBase,
+    PreferenceDB,
+    ReferencePoint,
+    PreferredRanges,
+    PreferedSolutions,
+    NonPreferredSolutions,
+)
 from .problem import (
     ConstantDB,
     ConstraintDB,
@@ -68,6 +81,8 @@ from .problem import (
     ForestProblemMetaData,
 )
 from .reference_point_method import RPMSolveRequest
+from .EMO import EMOSolveRequest, EMOState
+
 from .session import (
     CreateSessionRequest,
     GetSessionRequest,

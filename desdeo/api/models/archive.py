@@ -15,16 +15,25 @@ if TYPE_CHECKING:
 class UserSavedSolutionBase(SQLModel):
     """The base model of an archive entry."""
 
-    variable_values: dict[str, float | list] = Field(sa_column=Column(JSON, nullable=False))
+    variable_values: dict[str, float | list] = Field(
+        sa_column=Column(JSON, nullable=False)
+    )
     objective_values: dict[str, float] = Field(sa_column=Column(JSON, nullable=False))
-    constraint_values: dict[str, float] | None = Field(sa_column=Column(JSON), default=None)
-    extra_func_values: dict[str, float] | None = Field(sa_column=Column(JSON), default=None)
+    constraint_values: dict[str, float] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
+    extra_func_values: dict[str, float] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
+
 
 class UserSavedSolutionDB(UserSavedSolutionBase, table=True):
     """Database model of an archive entry."""
 
     id: int | None = Field(primary_key=True, default=None)
-    name: str | None = Field(default=None, nullable=True)  # Optional name for the solution
+    name: str | None = Field(
+        default=None, nullable=True
+    )  # Optional name for the solution
     user_id: int | None = Field(foreign_key="user.id", default=None)
     problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
     state_id: int | None = Field(foreign_key="statedb.id", default=None)
@@ -33,10 +42,13 @@ class UserSavedSolutionDB(UserSavedSolutionBase, table=True):
     problem: "ProblemDB" = Relationship(back_populates="solutions")
     state: "StateDB" = Relationship(back_populates="saved_solutions")
 
+
 class UserSavedSolverResults(SolverResults):
     """Defines a schema for storing archived solutions."""
+
     name: str | None = Field(
-        description="An optional name for the solution, useful for archiving purposes.", default=None
+        description="An optional name for the solution, useful for archiving purposes.",
+        default=None,
     )
 
     def to_solver_results(self) -> SolverResults:
