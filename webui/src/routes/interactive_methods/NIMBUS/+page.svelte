@@ -84,7 +84,7 @@
 	{#if problem}
 		<AppSidebar 
 			{problem} 
-			preference_types={['Reference point']} 
+			preference_types={['Classification']} 
 			showNumSolutions={true} 
 			bind:preference={currentPreference}
 			bind:numSolutions={currentNumSolutions}

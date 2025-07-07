@@ -112,8 +112,6 @@
 	</Sidebar.Header>
 	<Sidebar.Content class="h-full px-4">
 		{#if showNumSolutions}
-			<!-- 				<span class="mb-2 text-sm text-gray-500">Number of solutions to be displayed.</span>
- -->
 			<Input 
 				type="number" 
 				placeholder="Number of solutions" 
@@ -134,7 +132,7 @@
 				}}
 			/>
 		{/if}
-		{#if $selectedPreference === 'Reference point'}
+		{#if $selectedPreference === 'Classification'}
 			<p class="mb-2 text-sm text-gray-500">Provide one desirable value for each objective.</p>
 
 			{#each problem.objectives as objective, idx}
@@ -194,6 +192,10 @@
 					/>
 				</div>
 			{/each}
+		{:else if $selectedPreference === 'Reference point'}
+			<p class="mb-2 text-sm text-gray-500">
+				Provide a range for each objective, indicating the minimum and maximum acceptable values.
+			</p>
 		{:else if $selectedPreference === 'Ranges'}
 			<p class="mb-2 text-sm text-gray-500">
 				Provide a range for each objective, indicating the minimum and maximum acceptable values.
