@@ -2,7 +2,7 @@
 	/**
 	 * +page.svelte (NIMBUS method)
 	 *
-	 * @author Stina (Functionality) <stina-email@jyu.fi> <--- please replace with your email
+	 * @author Stina (Functionality) <palomakistina@gmail.com>
 	 * @author Giomara Larraga (Base structure)<glarragw@jyu.fi>
 	 * @created July 2025
 	 *
@@ -48,6 +48,11 @@
 	let problemList = data.problems ?? [];
 	let selectedTypeSolutions = 'current';
 
+	// State for preferences and numSolutions - will be used in HTTP request button,
+	// currentPreference needs to be initialized with previous_preference from NIMBUSClassificationState
+	let currentPreference: number[] = $state([]);
+	let currentNumSolutions: number = $state(1);
+
 	const frameworks = [
 		{ value: 'current', label: 'Current solutions' },
 		{ value: 'best', label: 'Best solutions' },
@@ -59,18 +64,48 @@
 		console.log('Selected type of solutions:', selectedTypeSolutions);
 	}
 
+	// Handler for preference changes from the sidebar component
+	// Updates local state with new preference values and number of solutions
+	function handlePreferenceChange(event: { value: string; preference: number[]; numSolutions: number }) {
+		currentPreference = event.preference;
+		currentNumSolutions = event.numSolutions;
+	}
+
 	onMount(() => {
 		if ($methodSelection.selectedProblemId) {
 			problem = problemList.find(
 				(p: ProblemInfo) => String(p.id) === String($methodSelection.selectedProblemId)
 			);
+
+			if (problem) {
+			// Initialize preferences with ideal values as fallback
+			// TODO: This should be enhanced to check for existing NIMBUS classification state
+			// This is how I understand this should go:
+            // 1. Check if there's a previous NIMBUSClassificationState with previous_preference, pseudo code:
+            // const nimbusState = getNIMBUSState(problem.id, user.id); // from somewhere
+            // if (nimbusState?.previous_preference) {
+            //     currentPreference = nimbusState.previous_preference;
+            // } else {
+                // 2. Fallback to ideal values when no previous state exists
+                currentPreference = problem.objectives.map((obj) => obj.ideal ?? 0);
+            // }
+        }
 		}
 	});
 </script>
 
 <div class="flex min-h-[calc(100vh-3rem)]">
 	{#if problem}
-		<AppSidebar {problem} preference_types={['Classification']} showNumSolutions={true} />
+		<AppSidebar 
+			{problem} 
+			preference_types={['Classification']} 
+			showNumSolutions={true} 
+			preference={currentPreference}
+			numSolutions={currentNumSolutions}
+			minNumSolutions={1}
+			maxNumSolutions={4}
+			onChange={handlePreferenceChange}
+		/>
 	{/if}
 
 	<div class="flex-1">
