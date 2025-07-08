@@ -47,8 +47,8 @@ __all__ = [
     "PreferredRanges",
     "PreferedSolutions",
     "NonPreferredSolutions",
-    "NSGAIIISaveState",
-    "NSGAIIIState",
+    "EMOSaveState",
+    "EMOState",
     "BaseEMOState",
 ]
 
@@ -100,8 +100,8 @@ from .state import (
     RPMBaseState,
     RPMState,
     StateDB,
-    NSGAIIISaveState,
-    NSGAIIIState,
+    EMOSaveState,
+    EMOState,
     BaseEMOState,
 )
 from .user import User, UserBase, UserPublic, UserRole

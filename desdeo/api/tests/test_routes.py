@@ -24,7 +24,7 @@ from desdeo.api.routers.user_authentication import create_access_token
 from desdeo.problem.testproblems import simple_knapsack_vectors
 from desdeo.api.models.EMO import EMOSaveRequest, EMOSolveRequest
 from desdeo.api.models.preference import PreferredRanges
-from desdeo.api.models.state import NSGAIIIState, NSGAIIISaveState
+from desdeo.api.models.state import EMOState, EMOSaveState
 
 
 def login(
@@ -501,7 +501,7 @@ def test_nsga3_solve_with_reference_point(client: TestClient):
     assert response.status_code == status.HTTP_200_OK
 
     # Validate the response structure
-    emo_state = NSGAIIIState.model_validate(response.json())
+    emo_state = EMOState.model_validate(response.json())
     assert emo_state.method == "NSGAIII"
     assert emo_state.max_evaluations == 1000
     assert emo_state.number_of_vectors == 20
@@ -536,7 +536,7 @@ def test_nsga3_save_solutions(client: TestClient):
     assert response.status_code == status.HTTP_200_OK
 
     # Validate the response structure
-    emo_state = NSGAIIIState.model_validate(response.json())
+    emo_state = EMOState.model_validate(response.json())
 
     solutions = emo_state.solutions
     outputs = emo_state.outputs
@@ -578,7 +578,7 @@ def test_nsga3_save_solutions(client: TestClient):
     # Verify the response and state
     assert response.status_code == status.HTTP_200_OK
     print("Save Response:", response.json())
-    save_state = NSGAIIISaveState.model_validate(response.json())
+    save_state = EMOSaveState.model_validate(response.json())
     # assert len(save_state.solver_results) == 1
 
     # Verify state contains solver results without name

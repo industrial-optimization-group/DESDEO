@@ -28,8 +28,8 @@ class StateType(TypeDecorator):
             | NIMBUSClassificationState
             | IntermediateSolutionState
             | NIMBUSSaveState
-            | NSGAIIIState
-            | NSGAIIISaveState,
+            | EMOState
+            | EMOSaveState,
         ):
             return value.model_dump()
 
@@ -50,11 +50,11 @@ class StateType(TypeDecorator):
                     return NIMBUSSaveState.model_validate(value)
                 case ("generic", _):
                     return IntermediateSolutionState.model_validate(value)
-                case ("NSGAIII", _):
+                case ("EMO", _):
                     if "saved_solutions" in value:
-                        return NSGAIIISaveState.model_validate(value)
+                        return EMOSaveState.model_validate(value)
                     else:
-                        return NSGAIIIState.model_validate(value)
+                        return EMOState.model_validate(value)
                 case _:
                     msg = f"No method '{value["method"]}' with phase '{value.get("phase")}' found."
                     print(msg)
@@ -140,9 +140,10 @@ class NIMBUSSaveState(NIMBUSBaseState):
     solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
 
 
-class NSGAIIIState(BaseEMOState):
-    """State of the NSGA-III method for computing solutions."""
+class EMOState(BaseEMOState):
+    """State for EMO methods."""
 
+    # TODO: Change the method name dynamically
     method: Literal["NSGAIII"] = "NSGAIII"
 
     # results
@@ -150,7 +151,7 @@ class NSGAIIIState(BaseEMOState):
     outputs: list = Field(sa_column=Column(JSON), description="Optimization results")
 
 
-class NSGAIIISaveState(BaseEMOState):
+class EMOSaveState(BaseEMOState):
     """State of the NSGA-III method for saving solutions."""
 
     method: Literal["NSGAIII"] = "NSGAIII"

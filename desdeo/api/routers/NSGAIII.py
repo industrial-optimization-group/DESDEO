@@ -30,7 +30,7 @@ from desdeo.api.models.EMO import (
     EMOSolveRequest,
 )
 
-from desdeo.api.models.state import NSGAIIIState, NSGAIIISaveState
+from desdeo.api.models.state import EMOState, EMOSaveState
 
 from desdeo.api.models.archive import (
     UserSavedEMOResults,
@@ -45,7 +45,7 @@ def start_emo_optimization(
     request: EMOSolveRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
-) -> NSGAIIIState:
+) -> EMOState:
     """Start interactive evolutionary multiobjective optimization."""
 
     # Handle session logic
@@ -138,7 +138,7 @@ def start_emo_optimization(
             )
 
     # Create EMO state
-    emo_state = NSGAIIIState(
+    emo_state = EMOState(
         method="NSGAIII",
         max_evaluations=request.max_evaluations,
         number_of_vectors=request.number_of_vectors,
@@ -168,7 +168,7 @@ def save(
     request: EMOSaveRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
-) -> NSGAIIISaveState:
+) -> EMOSaveState:
     """Save solutions."""
     if request.session_id is not None:
         statement = select(InteractiveSessionDB).where(
@@ -216,12 +216,12 @@ def save(
     number_of_vectors = 20
     use_archive = True
 
-    if parent_state is not None and isinstance(parent_state.state, NSGAIIIState):
+    if parent_state is not None and isinstance(parent_state.state, EMOState):
         max_evaluations = parent_state.state.max_evaluations
         number_of_vectors = parent_state.state.number_of_vectors
         use_archive = parent_state.state.use_archive
 
-    save_state = NSGAIIISaveState(
+    save_state = EMOSaveState(
         max_evaluations=max_evaluations,
         number_of_vectors=number_of_vectors,
         use_archive=use_archive,
