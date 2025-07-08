@@ -68,7 +68,7 @@ available_solvers = {
         "constructor": PyomoGurobiSolver,
         "options": None
     },
-    "guropipy": {
+    "gurobipy": {
         "constructor": GurobipySolver,
         "options": None,
     },
@@ -166,7 +166,7 @@ def guess_best_solver(problem: Problem) -> BaseSolver:  # noqa: PLR0911
     # check if problem has a discrete definition
     has_discrete = problem.discrete_representation is not None
 
-    if TensorVariable in problem.variables:
+    if True in [type(variable) == TensorVariable for variable in problem.variables]:
         if problem.is_linear and shutil.which("cbc"):
             return available_solvers["pyomo_cbc"]["constructor"]
 
