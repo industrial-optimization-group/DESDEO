@@ -27,7 +27,9 @@ class StateType(TypeDecorator):
             RPMState
             | NIMBUSClassificationState
             | IntermediateSolutionState
-            | NIMBUSSaveState,
+            | NIMBUSSaveState
+            | NSGAIIIState
+            | NSGAIIISaveState,
         ):
             return value.model_dump()
 
@@ -48,6 +50,11 @@ class StateType(TypeDecorator):
                     return NIMBUSSaveState.model_validate(value)
                 case ("generic", _):
                     return IntermediateSolutionState.model_validate(value)
+                case ("NSGAIII", _):
+                    if "saved_solutions" in value:
+                        return NSGAIIISaveState.model_validate(value)
+                    else:
+                        return NSGAIIIState.model_validate(value)
                 case _:
                     msg = f"No method '{value["method"]}' with phase '{value.get("phase")}' found."
                     print(msg)
@@ -61,10 +68,13 @@ class BaseState(SQLModel):
     method: Literal["unset"] = "unset"
     phase: Literal["unset"] = "unset"
 
-class BaseEMOState(SQLModel):
-    """The base model for representing method state."""
 
-    method: Literal["unset"] = "unset"
+class BaseEMOState(BaseState):
+    """The base state for EMO methods."""
+
+    max_evaluations: int = Field(default=1000)
+    number_of_vectors: int = Field(default=20)
+    use_archive: bool = Field(default=True)
 
 
 class RPMBaseState(BaseState):
@@ -131,26 +141,27 @@ class NIMBUSSaveState(NIMBUSBaseState):
 
 
 class NSGAIIIState(BaseEMOState):
-    """State of the nimbus method for computing solutions."""
+    """State of the NSGA-III method for computing solutions."""
 
     method: Literal["NSGAIII"] = "NSGAIII"
 
-    max_evaluations: int = Field(default=1000)
-    number_of_vectors: int = Field(default=20)
-    use_archive: bool = Field(default=True)
-
     # results
-    solutions: dict[str, float] = Field(
-        sa_column=Column(JSON), description="Optimization results"
-    )
-    outputs: list[dict[str, float]] = Field(
-        sa_column=Column(JSON), description="Optimization results"
-    )
+    solutions: list = Field(sa_column=Column(JSON), description="Optimization results")
+    outputs: list = Field(sa_column=Column(JSON), description="Optimization results")
 
 
-class NSGAIIISaveState(NSGAIIIState):
-    """State of the nimbus method for saving solutions."""
+class NSGAIIISaveState(BaseEMOState):
+    """State of the NSGA-III method for saving solutions."""
+
+    method: Literal["NSGAIII"] = "NSGAIII"
+    phase: Literal["save_solutions"] = "save_solutions"
+    problem_id: int
     saved_solutions: list[EMOResults] = Field(sa_column=Column(JSON))
+    solutions: list = Field(
+        sa_column=Column(JSON),
+        description="Original solutions from request",
+        default_factory=list,
+    )
 
 
 class IntermediateSolutionState(BaseState):

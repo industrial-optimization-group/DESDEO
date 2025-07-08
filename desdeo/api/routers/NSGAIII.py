@@ -30,9 +30,7 @@ from desdeo.api.models.EMO import (
     EMOSolveRequest,
 )
 
-from desdeo.api.models.state import (
-    NSGAIIIState,
-    NSGAIIISaveState)
+from desdeo.api.models.state import NSGAIIIState, NSGAIIISaveState
 
 from desdeo.api.models.archive import (
     UserSavedEMOResults,
@@ -40,6 +38,7 @@ from desdeo.api.models.archive import (
 from desdeo.api.utils.emo_database import _convert_dataframe_to_dict_list
 
 router = APIRouter(prefix="/method/nsga3", tags=["evolutionary"])
+
 
 @router.post("/solve")
 def start_emo_optimization(
@@ -108,7 +107,9 @@ def start_emo_optimization(
     )
 
     # Convert DataFrames to dictionaries for outputs
-    outputs_dict = _convert_dataframe_to_dict_list(getattr(emo_results, "outputs", None))
+    outputs_dict = _convert_dataframe_to_dict_list(
+        getattr(emo_results, "outputs", None)
+    )
 
     # Create DB preference
     preference_db = PreferenceDB(
@@ -162,16 +163,17 @@ def start_emo_optimization(
     return emo_state
 
 
-
 @router.post("/save")
 def save(
     request: EMOSaveRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
-) -> EMOSaveRequest:
+) -> NSGAIIISaveState:
     """Save solutions."""
     if request.session_id is not None:
-        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == request.session_id)
+        statement = select(InteractiveSessionDB).where(
+            InteractiveSessionDB.id == request.session_id
+        )
         interactive_session = session.exec(statement)
 
         if interactive_session is None:
@@ -182,7 +184,9 @@ def save(
     else:
         # request.session_id is None:
         # use active session instead
-        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == user.active_session_id)
+        statement = select(InteractiveSessionDB).where(
+            InteractiveSessionDB.id == user.active_session_id
+        )
 
         interactive_session = session.exec(statement).first()
 
@@ -202,12 +206,30 @@ def save(
 
         if parent_state is None:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail=f"Could not find state with id={request.parent_state_id}"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Could not find state with id={request.parent_state_id}",
             )
 
     # save solver results for state in SolverResults format just for consistency (dont save name field to state)
+    # Get values from parent state if available, otherwise use defaults
+    max_evaluations = 1000
+    number_of_vectors = 20
+    use_archive = True
+
+    if parent_state is not None and isinstance(parent_state.state, NSGAIIIState):
+        max_evaluations = parent_state.state.max_evaluations
+        number_of_vectors = parent_state.state.number_of_vectors
+        use_archive = parent_state.state.use_archive
+
     save_state = NSGAIIISaveState(
-        saved_solutions=[solution.to_emo_results() for solution in request.solutions]
+        max_evaluations=max_evaluations,
+        number_of_vectors=number_of_vectors,
+        use_archive=use_archive,
+        problem_id=request.problem_id,
+        saved_solutions=[solution.to_emo_results() for solution in request.solutions],
+        solutions=[
+            solution.model_dump() for solution in request.solutions
+        ],  # Original solutions from request
     )
 
     # create DB state
@@ -221,6 +243,39 @@ def save(
     user_save_solutions(state, request.solutions, user.id, session)
 
     return save_state
+
+
+@router.get("/saved-solutions")
+def get_saved_solutions(
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)],
+):
+    """Get all saved solutions for the current user."""
+    from desdeo.api.models.archive import UserSavedSolutionDB
+
+    # Query saved solutions for the current user
+    statement = select(UserSavedSolutionDB).where(
+        UserSavedSolutionDB.user_id == user.id
+    )
+    saved_solutions = session.exec(statement).all()
+
+    # Convert to response format
+    results = []
+    for solution in saved_solutions:
+        results.append(
+            {
+                "id": solution.id,
+                "name": solution.name,
+                "variable_values": solution.variable_values,
+                "objective_values": solution.objective_values,
+                "constraint_values": solution.constraint_values,
+                "extra_func_values": solution.extra_func_values,
+                "problem_id": solution.problem_id,
+            }
+        )
+
+    return results
+
 
 # Helper functions
 def _build_reference_vector_options(

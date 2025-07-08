@@ -44,10 +44,12 @@ __all__ = [
     "ProblemMetaDataDB",
     "ForestProblemMetaData",
     "EMOSolveRequest",
-    "EMOState",
     "PreferredRanges",
     "PreferedSolutions",
     "NonPreferredSolutions",
+    "NSGAIIISaveState",
+    "NSGAIIIState",
+    "BaseEMOState",
 ]
 
 from .archive import UserSavedSolutionBase, UserSavedSolutionDB
@@ -81,7 +83,7 @@ from .problem import (
     ForestProblemMetaData,
 )
 from .reference_point_method import RPMSolveRequest
-from .EMO import EMOSolveRequest, EMOState
+from .EMO import EMOSolveRequest
 
 from .session import (
     CreateSessionRequest,
@@ -98,5 +100,8 @@ from .state import (
     RPMBaseState,
     RPMState,
     StateDB,
+    NSGAIIISaveState,
+    NSGAIIIState,
+    BaseEMOState,
 )
 from .user import User, UserBase, UserPublic, UserRole

@@ -22,8 +22,9 @@ from desdeo.api.models.archive import UserSavedSolverResults, UserSavedEMOResult
 from desdeo.api.models.generic import IntermediateSolutionRequest
 from desdeo.api.routers.user_authentication import create_access_token
 from desdeo.problem.testproblems import simple_knapsack_vectors
-from desdeo.api.models.EMO import EMOSaveRequest, EMOSaveState, EMOSolveRequest, EMOState
+from desdeo.api.models.EMO import EMOSaveRequest, EMOSolveRequest
 from desdeo.api.models.preference import PreferredRanges
+from desdeo.api.models.state import NSGAIIIState, NSGAIIISaveState
 
 
 def login(
@@ -500,14 +501,15 @@ def test_nsga3_solve_with_reference_point(client: TestClient):
     assert response.status_code == status.HTTP_200_OK
 
     # Validate the response structure
-    emo_state = EMOState.model_validate(response.json())
+    emo_state = NSGAIIIState.model_validate(response.json())
     assert emo_state.method == "NSGAIII"
     assert emo_state.max_evaluations == 1000
     assert emo_state.number_of_vectors == 20
     assert emo_state.use_archive is True
-    assert emo_state.results is not None
-    assert len(emo_state.results.solutions) > 0
-    assert len(emo_state.results.outputs) > 0
+    assert emo_state.solutions is not None
+    assert emo_state.outputs is not None
+    assert len(emo_state.solutions) > 0
+    assert len(emo_state.outputs) > 0
 
 
 def test_nsga3_save_solutions(client: TestClient):
@@ -534,10 +536,10 @@ def test_nsga3_save_solutions(client: TestClient):
     assert response.status_code == status.HTTP_200_OK
 
     # Validate the response structure
-    emo_state = EMOState.model_validate(response.json())
+    emo_state = NSGAIIIState.model_validate(response.json())
 
-    solutions = emo_state.results.solutions
-    outputs = emo_state.results.outputs
+    solutions = emo_state.solutions
+    outputs = emo_state.outputs
 
     # Select first 2 solutions to save
     selected_solutions = []
@@ -545,8 +547,18 @@ def test_nsga3_save_solutions(client: TestClient):
         selected_solutions.append(
             UserSavedEMOResults(
                 name="Selected Solution",
-                optimal_variables={'x_1': 0.3625950577165081, 'x_2': 0.5014621638728629, 'x_3': 0.5133986403602678, 'x_4': 0.4971694793667669, 'x_5': 0.4977880432562051},
-                optimal_objectives={'f_1_min': 0.6665403105011645, 'f_2_min': 0.4260369452661199, 'f_3_min': 0.6126011822203475},
+                optimal_variables={
+                    "x_1": 0.3625950577165081,
+                    "x_2": 0.5014621638728629,
+                    "x_3": 0.5133986403602678,
+                    "x_4": 0.4971694793667669,
+                    "x_5": 0.4977880432562051,
+                },
+                optimal_objectives={
+                    "f_1_min": 0.6665403105011645,
+                    "f_2_min": 0.4260369452661199,
+                    "f_3_min": 0.6126011822203475,
+                },
                 constraint_values={},
                 extra_func_values={},
             )
@@ -560,22 +572,18 @@ def test_nsga3_save_solutions(client: TestClient):
 
     # Make the request
     response = post_json(
-        client,
-        "/method/nsga3/save",
-        save_request.model_dump(),
-        access_token
+        client, "/method/nsga3/save", save_request.model_dump(), access_token
     )
 
-   # Verify the response and state
+    # Verify the response and state
     assert response.status_code == status.HTTP_200_OK
     print("Save Response:", response.json())
-    save_state = EMOSaveState.model_validate(response.json())
-    #assert len(save_state.solver_results) == 1
+    save_state = NSGAIIISaveState.model_validate(response.json())
+    # assert len(save_state.solver_results) == 1
 
     # Verify state contains solver results without name
     saved_result = save_state.saved_solutions[0]
     assert not hasattr(saved_result, "name")  # Name should not be in state
-
 
     # Get saved solutions
     saved_response = client.get(
