@@ -49,12 +49,10 @@
 	export let direction: 'max' | 'min' = 'min';
 
 	export let options: {
-		barHeight: number;
 		decimalPrecision: number;
 		showPreviousValue: boolean;
 		aspectRatio: string;
 	} = {
-		barHeight: 32,
 		decimalPrecision: 2,
 		showPreviousValue: true,
 		aspectRatio: 'aspect-[11/2]'
@@ -65,7 +63,7 @@
 
 	// --- Internal state ---
 	let width = 500;
-	let height = 70;
+	let height = 70; // initial value, will be updated dynamically
 	let svg: SVGSVGElement;
 	let container: HTMLDivElement;
 	let dragLine: d3.Selection<SVGLineElement, unknown, null, undefined>;
@@ -78,7 +76,7 @@
 	function drawChart() {
 		d3.select(svg).selectAll('*').remove();
 
-		const margin = { top: 2, right: 30, bottom: 2, left: 30 };
+		const margin = { top: 6, right: 30, bottom: 18, left: 30 };
 		const innerWidth = width - margin.left - margin.right;
 		const innerHeight = height - margin.top - margin.bottom;
 
@@ -95,16 +93,16 @@
 
 		d3.select(svg)
 			.append('g')
-			.attr('transform', `translate(0,${innerHeight / 2 + options.barHeight})`)
+			.attr('transform', `translate(0,${height - margin.bottom})`)
 			.call(xAxis);
 
 		// --- Draw bar background ---
 		d3.select(svg)
 			.append('rect')
 			.attr('x', x(axisRanges[0]))
-			.attr('y', innerHeight / 2)
+			.attr('y', margin.top)
 			.attr('width', x(axisRanges[1]) - x(axisRanges[0]))
-			.attr('height', options.barHeight)
+			.attr('height', innerHeight)
 			.attr('fill', direction === 'min' ? '#eee' : barColor)
 			.attr('rx', 1);
 
@@ -114,9 +112,9 @@
 			d3.select(svg)
 				.append('rect')
 				.attr('x', x(axisRanges[0]))
-				.attr('y', innerHeight / 2)
+				.attr('y', margin.top)
 				.attr('width', Math.max(0, solWidth))
-				.attr('height', options.barHeight)
+				.attr('height', innerHeight)
 				.attr('fill', direction === 'min' ? barColor : '#eee')
 				.attr('rx', 1);
 		}
@@ -127,9 +125,9 @@
 			.attr(
 				'points',
 				[
-					[x(axisRanges[0]) - 10, innerHeight / 2 + options.barHeight / 2], // tip (left)
-					[x(axisRanges[0]), innerHeight / 2 + 2], // top right
-					[x(axisRanges[0]), innerHeight / 2 + options.barHeight - 2] // bottom right
+					[x(axisRanges[0]) - 10, margin.top + innerHeight / 2], // tip (left)
+					[x(axisRanges[0]), margin.top + 2], // top right
+					[x(axisRanges[0]), margin.top + innerHeight - 2] // bottom right
 				]
 					.map((p) => p.join(','))
 					.join(' ')
@@ -144,9 +142,9 @@
 			.attr(
 				'points',
 				[
-					[x(axisRanges[1]) + 10, innerHeight / 2 + options.barHeight / 2], // tip (right)
-					[x(axisRanges[1]), innerHeight / 2 + 2], // top left
-					[x(axisRanges[1]), innerHeight / 2 + options.barHeight - 2] // bottom left
+					[x(axisRanges[1]) + 10, margin.top + innerHeight / 2], // tip (right)
+					[x(axisRanges[1]), margin.top + 2], // top left
+					[x(axisRanges[1]), margin.top + innerHeight - 2] // bottom left
 				]
 					.map((p) => p.join(','))
 					.join(' ')
@@ -160,7 +158,7 @@
 			d3.select(svg)
 				.append('circle')
 				.attr('cx', x(previousValue))
-				.attr('cy', innerHeight / 2 + options.barHeight / 2)
+				.attr('cy', margin.top + innerHeight / 2)
 				.attr('r', 6)
 				.attr('fill', '#000')
 				.attr('fill-opacity', 0.5)
@@ -175,8 +173,8 @@
 				.append('line')
 				.attr('x1', x(selectedValue))
 				.attr('x2', x(selectedValue))
-				.attr('y1', innerHeight / 2 - 8)
-				.attr('y2', innerHeight / 2 + options.barHeight + 8)
+				.attr('y1', margin.top - 8)
+				.attr('y2', margin.top + innerHeight + 8)
 				.attr('stroke', '#222')
 				.attr('stroke-width', 2)
 				.attr('cursor', 'ew-resize');
@@ -185,7 +183,7 @@
 				.select(svg)
 				.append('circle')
 				.attr('cx', x(selectedValue))
-				.attr('cy', innerHeight / 2 + options.barHeight / 2)
+				.attr('cy', margin.top + innerHeight / 2)
 				.attr('r', 9)
 				.attr('fill', '#fff')
 				.attr('fill-opacity', 0.9)
@@ -209,7 +207,7 @@
 			d3.select(svg)
 				.append('text')
 				.attr('x', x(selectedValue))
-				.attr('y', innerHeight / 2 - 12)
+				.attr('y', margin.top - 12)
 				.attr('text-anchor', 'middle')
 				.attr('fill', '#222')
 				.attr('font-size', 13)
@@ -223,6 +221,7 @@
 			for (const entry of entries) {
 				const rect = entry.contentRect;
 				width = rect.width;
+				height = rect.height; // dynamically update height
 				drawChart();
 			}
 		});
@@ -241,6 +240,7 @@
 		barColor,
 		direction,
 		width,
+		height,
 		options,
 		drawChart();
 </script>
@@ -249,6 +249,6 @@
     Responsive container for the horizontal bar chart.
     Use the aspect ratio from options.
 -->
-<div class={options.aspectRatio} bind:this={container} style="width: 100%;">
-	<svg bind:this={svg} style="width: 100%; height: 85px;" />
+<div class={options.aspectRatio} bind:this={container} style="width: 100%; height: 100%;">
+	<svg bind:this={svg} style="width: 100%; height: 100%;" />
 </div>
