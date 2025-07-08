@@ -809,6 +809,7 @@ export interface components {
              * @default 1
              */
             num_desired: number | null;
+            previous_preference?: components["schemas"]["ReferencePoint"];
             /** Solver Results */
             solver_results: components["schemas"]["SolverResults"][];
         };

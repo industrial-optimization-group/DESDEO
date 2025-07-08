@@ -102,6 +102,7 @@ def solve_solutions(
         solver_results=solver_results,
         current_objectives=request.current_objectives,
         num_desired=request.num_desired,
+        previous_preference=request.preference,
     )
 
     # create DB state and add it to the DB
