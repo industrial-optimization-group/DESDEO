@@ -125,6 +125,7 @@
 	</Sidebar.Header>
 	<Sidebar.Content class="h-full px-4">
 		{#if showNumSolutions}
+		<p class="mb-2 text-sm text-gray-500">Provide the maximum number of solutions to generate</p>
 			<Input 
 				type="number" 
 				placeholder="Number of solutions" 
