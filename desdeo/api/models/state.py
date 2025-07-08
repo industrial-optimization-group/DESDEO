@@ -10,7 +10,7 @@ from desdeo.tools import SolverResults
 from desdeo.tools.generics import EMOResults
 
 from .archive import UserSavedSolutionDB
-from .preference import PreferenceDB
+from .preference import PreferenceDB, ReferencePoint
 from .problem import ProblemDB
 from .session import InteractiveSessionDB
 
@@ -117,6 +117,7 @@ class NIMBUSClassificationState(NIMBUSBaseState):
     )
     current_objectives: dict[str, float] = Field(sa_column=Column(JSON))
     num_desired: int | None = Field(default=1)
+    previous_preference: ReferencePoint = Field(Column(JSON))
 
     # results
     solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
