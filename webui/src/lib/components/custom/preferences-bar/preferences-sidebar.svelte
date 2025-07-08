@@ -40,12 +40,14 @@
 	const selectedPreference = writable(preference_types[0]);
 	console.log('Problem in preferences sidebar:', problem);
 
+	// preferences and numSolutions come as props, 
+	// but these states keep them in sync in both input and slider,
+	// so that onChange-function has the latest preference and numSolutions
 	let internalPreference = $state<number[]>(
 		preference && preference.length > 0 
 			? [...preference] 
 			: []
 	);
-	
 	let internalNumSolutions = $state<number>(numSolutions);
 
     const classification = {
@@ -56,15 +58,15 @@
         ImproveFreely: "Improve freely",
     } as const;
 
-    // Create a derived classification array
-    // Todo: Idea copied straight from old nimbus, and there was this comment: 
-	// "This only works if lowerIsBetter is false, I think." Is that so? I don't get it.
+    // Create a derived classification array for nimbus classification
+	// copied almost straight from old nimbus
     let classificationValues = $derived(
 		$selectedPreference === 'Classification' 
 			? problem.objectives.map((objective, idx:number) => {
 				if (objective.ideal == null || objective.nadir == null) {
 					return classification.ChangeFreely;
 				}
+				
 				const selectedValue = internalPreference[idx];
 				const solutionValue = objective.ideal;
 				const lowerBound = Math.min(objective.ideal, objective.nadir);
@@ -130,6 +132,7 @@
 				bind:value={internalNumSolutions} 
 				oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
 					const numValue = Number(e.currentTarget.value);
+					// Clamp value within allowed range
 					const clampedValue = Math.max(minNumSolutions, Math.min(maxNumSolutions, numValue));
 					
 					if (numValue !== clampedValue) {
@@ -167,6 +170,7 @@
 								class="w-20 h-8 text-sm"
 								oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
 									const numValue = Number(e.currentTarget.value);
+									// Clamp value within allowed range
 									const clampedValue = Math.max(minValue, Math.min(maxValue, numValue));
 									
 									if (numValue !== clampedValue) {
@@ -174,7 +178,7 @@
 									}
 									onChange?.({ 
 										value: e.currentTarget.value,
-										preference: [...internalPreference], // Send the full array
+										preference: [...internalPreference],
 										numSolutions: internalNumSolutions
 									});
 								}}
@@ -194,10 +198,9 @@
 							}}
 							onSelect={(newValue: number) => {
 								internalPreference[idx] = newValue
-								console.log('Selected value:', newValue);
 								onChange?.({ 
 									value: String(newValue),
-									preference: [...internalPreference], // Send the full array
+									preference: [...internalPreference],
 									numSolutions: internalNumSolutions
 								});
 							}}

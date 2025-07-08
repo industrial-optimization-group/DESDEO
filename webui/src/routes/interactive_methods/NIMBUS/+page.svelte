@@ -64,12 +64,11 @@
 		console.log('Selected type of solutions:', selectedTypeSolutions);
 	}
 
+	// Handler for preference changes from the sidebar component
+	// Updates local state with new preference values and number of solutions
 	function handlePreferenceChange(event: { value: string; preference: number[]; numSolutions: number }) {
 		currentPreference = event.preference;
 		currentNumSolutions = event.numSolutions;
-		console.log('Updated preference:', currentPreference);
-		console.log('Updated numSolutions:', currentNumSolutions);
-		// This is where you can add other logic when preferences change
 	}
 
 	onMount(() => {
@@ -79,12 +78,15 @@
 			);
 
 			if (problem) {
+			// Initialize preferences with ideal values as fallback
+			// TODO: This should be enhanced to check for existing NIMBUS classification state
+			// This is how I understand this should go:
             // 1. Check if there's a previous NIMBUSClassificationState with previous_preference, pseudo code:
             // const nimbusState = getNIMBUSState(problem.id, user.id); // from somewhere
             // if (nimbusState?.previous_preference) {
             //     currentPreference = nimbusState.previous_preference;
             // } else {
-                // 2. Fallback to ideal values
+                // 2. Fallback to ideal values when no previous state exists
                 currentPreference = problem.objectives.map((obj) => obj.ideal ?? 0);
             // }
         }
