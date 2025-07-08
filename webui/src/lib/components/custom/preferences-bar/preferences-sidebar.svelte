@@ -156,10 +156,14 @@
 		
 					<div class="flex items-center justify-between mb-2">
 						<div>
-							<div class="flex-1">
-								<div class="text-sm font-medium">{objective.name} {#if objective.unit}/{objective.unit}{/if} ({objective.maximize ? "max" : "min"})</div>
+							<!-- Objective name with unit and optimization direction -->
+							<div class="text-sm font-medium mb-1">
+								{objective.name}
+								{#if objective.unit}({objective.unit}){/if}
+								<span class="text-gray-500">({objective.maximize ? "max" : "min"})</span>
 							</div>
-								<label for="input-{idx}" class="text-xs text-gray-500">{classificationValues[idx]}</label>
+							<!-- Current NIMBUS classification label -->
+							<label for="input-{idx}" class="text-xs text-gray-500">{classificationValues[idx]}</label>
 							<Input
 								type="number"
 								id="input-{idx}"
