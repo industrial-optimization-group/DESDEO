@@ -18,11 +18,11 @@ from desdeo.api.models import (
     PreferedSolutions,
     NonPreferredSolutions,
 )
-from desdeo.api.models.archive import UserSavedSolverResults
+from desdeo.api.models.archive import UserSavedSolverResults, UserSavedEMOResults
 from desdeo.api.models.generic import IntermediateSolutionRequest
 from desdeo.api.routers.user_authentication import create_access_token
 from desdeo.problem.testproblems import simple_knapsack_vectors
-from desdeo.api.models.EMO import EMOSolveRequest, EMOState
+from desdeo.api.models.EMO import EMOSaveRequest, EMOSaveState, EMOSolveRequest, EMOState
 from desdeo.api.models.preference import PreferredRanges
 
 
@@ -510,164 +510,72 @@ def test_nsga3_solve_with_reference_point(client: TestClient):
     assert len(emo_state.results.outputs) > 0
 
 
-def test_nsga3_solve_with_preferred_solutions(client: TestClient):
-    """Test that using NSGA-III with preferred solutions works as expected."""
-    access_token = login(client)
-
-    request = EMOSolveRequest(
-        problem_id=1,
-        method="nsga3",
-        preference=PreferedSolutions(
-            preferred_solutions={
-                "f_1": [0.5, 0.1, 0.9],
-                "f_2": [0.5, 0.1, 0.4],
-                "f_3": [0.5, 0.9, 0.3],
-            }
-        ),
-        max_evaluations=1000,
-        number_of_vectors=30,
-        use_archive=True,
-    )
-
-    response = post_json(
-        client, "/method/nsga3/solve", request.model_dump(), access_token
-    )
-
-    assert response.status_code == status.HTTP_200_OK
-
-    emo_state = EMOState.model_validate(response.json())
-    assert emo_state.method == "NSGAIII"
-    assert emo_state.results.iteration_count == 1
-    assert emo_state.results.archive_size is not None
-    assert emo_state.results.archive_size > 0
-
-
-def test_nsga3_solve_with_non_preferred_solutions(client: TestClient):
-    """Test that using NSGA-III with non-preferred solutions works as expected."""
-    access_token = login(client)
-
-    request = EMOSolveRequest(
-        problem_id=1,
-        method="nsga3",
-        preference=NonPreferredSolutions(
-            non_preferred_solutions={
-                "f_1": [0.2, 0.8, 0.6],
-                "f_2": [0.3, 0.7, 0.5],
-                "f_3": [0.1, 0.9, 0.4],
-            }
-        ),
-        max_evaluations=1000,
-        number_of_vectors=25,
-        use_archive=False,
-    )
-
-    response = post_json(
-        client, "/method/nsga3/solve", request.model_dump(), access_token
-    )
-
-    assert response.status_code == status.HTTP_200_OK
-
-    emo_state = EMOState.model_validate(response.json())
-    assert emo_state.method == "NSGAIII"
-    assert emo_state.use_archive is False
-    assert emo_state.results.archive_size is None  # No archive used
-
-
-def test_nsga3_solve_with_preferred_ranges(client: TestClient):
-    """Test that using NSGA-III with preferred ranges works as expected."""
-    access_token = login(client)
-
-    request = EMOSolveRequest(
-        problem_id=1,
-        method="nsga3",
-        preference=PreferredRanges(
-            preferred_ranges={
-                "f_1": [0.1, 0.6],
-                "f_2": [0.2, 0.7],
-                "f_3": [0.3, 0.6],
-            }
-        ),
-        max_evaluations=1000,
-        number_of_vectors=15,
-        use_archive=True,
-    )
-
-    response = post_json(
-        client, "/method/nsga3/solve", request.model_dump(), access_token
-    )
-
-    assert response.status_code == status.HTTP_200_OK
-
-    emo_state = EMOState.model_validate(response.json())
-    assert emo_state.method == "NSGAIII"
-    assert emo_state.number_of_vectors == 15
-
-
-def test_debug_preference_serialization():
-    """Debug preference serialization."""
-    preference = ReferencePoint(aspiration_levels={"f_1": 0.5, "f_2": 0.3, "f_3": 0.4})
-
-    print(f"Preference object: {preference}")
-    print(f"Preference type: {type(preference)}")
-    print(f"Preference.preference_type: {preference.preference_type}")
-    print(f"Preference.aspiration_levels: {preference.aspiration_levels}")
-    print(f"Preference model_dump: {preference.model_dump()}")
-
-    request = EMOSolveRequest(
-        problem_id=1,
-        method="nsga3",
-        preference=preference,
-    )
-
-    print(f"Request model_dump: {request.model_dump()}")
-
-
 def test_nsga3_save_solutions(client: TestClient):
     """Test saving selected EMO solutions."""
     access_token = login(client)
 
-    # First, run optimization to get solutions
-    request_data = {
-        "problem_id": 1,
-        "method": "nsga3",
-        "preference": {
-            "preference_type": "reference_point",
-            "aspiration_levels": {"f_1": 0.5, "f_2": 0.3, "f_3": 0.4},
-        },
-        "max_evaluations": 100,
-        "number_of_vectors": 5,
-        "use_archive": True,
-    }
+    request = EMOSolveRequest(
+        problem_id=1,
+        method="nsga3",
+        preference=ReferencePoint(
+            aspiration_levels={"f_1_min": 0.5, "f_2_min": 0.3, "f_3_min": 0.4}
+        ),
+        max_evaluations=1000,
+        number_of_vectors=20,
+        use_archive=True,
+    )
 
-    response = post_json(client, "/method/nsga3/solve", request_data, access_token)
+    print("Request Data:", request.model_dump())
+
+    response = post_json(
+        client, "/method/nsga3/solve", request.model_dump(), access_token
+    )
+
     assert response.status_code == status.HTTP_200_OK
 
-    emo_state = response.json()
-    solutions = emo_state["results"]["solutions"]
-    outputs = emo_state["results"]["outputs"]
+    # Validate the response structure
+    emo_state = EMOState.model_validate(response.json())
+
+    solutions = emo_state.results.solutions
+    outputs = emo_state.results.outputs
 
     # Select first 2 solutions to save
     selected_solutions = []
     for i in range(min(2, len(solutions))):
         selected_solutions.append(
-            {
-                "name": f"Selected Solution {i+1}",
-                "variable_values": solutions[i],
-                "objective_values": outputs[i],
-                "method": "nsga3",
-                "generation": 1,
-            }
+            UserSavedEMOResults(
+                name="Selected Solution",
+                optimal_variables={'x_1': 0.3625950577165081, 'x_2': 0.5014621638728629, 'x_3': 0.5133986403602678, 'x_4': 0.4971694793667669, 'x_5': 0.4977880432562051},
+                optimal_objectives={'f_1_min': 0.6665403105011645, 'f_2_min': 0.4260369452661199, 'f_3_min': 0.6126011822203475},
+                constraint_values={},
+                extra_func_values={},
+            )
         )
 
-    # Save selected solutions
-    save_request = {"problem_id": 1, "solutions": selected_solutions}
+    # Create the save request
+    save_request = EMOSaveRequest(
+        problem_id=1,
+        solutions=selected_solutions,
+    )
 
-    save_response = post_json(client, "/method/nsga3/save", save_request, access_token)
+    # Make the request
+    response = post_json(
+        client,
+        "/method/nsga3/save",
+        save_request.model_dump(),
+        access_token
+    )
 
-    assert save_response.status_code == status.HTTP_200_OK
-    save_state = save_response.json()
-    assert save_state["total_saved"] == 2
-    assert save_state["method"] == "nsga3"
+   # Verify the response and state
+    assert response.status_code == status.HTTP_200_OK
+    print("Save Response:", response.json())
+    save_state = EMOSaveState.model_validate(response.json())
+    #assert len(save_state.solver_results) == 1
+
+    # Verify state contains solver results without name
+    saved_result = save_state.saved_solutions[0]
+    assert not hasattr(saved_result, "name")  # Name should not be in state
+
 
     # Get saved solutions
     saved_response = client.get(

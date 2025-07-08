@@ -5,9 +5,11 @@ from typing import Literal
 from sqlalchemy.types import TypeDecorator
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
+from desdeo.emo.methods.templates import EMOResult
 from desdeo.tools import SolverResults
+from desdeo.tools.generics import EMOResults
 
-from .archive import UserSavedSolutionDB, NonDominatedArchiveDB
+from .archive import UserSavedSolutionDB
 from .preference import PreferenceDB
 from .problem import ProblemDB
 from .session import InteractiveSessionDB
@@ -58,6 +60,11 @@ class BaseState(SQLModel):
 
     method: Literal["unset"] = "unset"
     phase: Literal["unset"] = "unset"
+
+class BaseEMOState(SQLModel):
+    """The base model for representing method state."""
+
+    method: Literal["unset"] = "unset"
 
 
 class RPMBaseState(BaseState):
@@ -122,6 +129,29 @@ class NIMBUSSaveState(NIMBUSBaseState):
     solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
 
 
+class NSGAIIIState(BaseEMOState):
+    """State of the nimbus method for computing solutions."""
+
+    method: Literal["NSGAIII"] = "NSGAIII"
+
+    max_evaluations: int = Field(default=1000)
+    number_of_vectors: int = Field(default=20)
+    use_archive: bool = Field(default=True)
+
+    # results
+    solutions: dict[str, float] = Field(
+        sa_column=Column(JSON), description="Optimization results"
+    )
+    outputs: list[dict[str, float]] = Field(
+        sa_column=Column(JSON), description="Optimization results"
+    )
+
+
+class NSGAIIISaveState(NSGAIIIState):
+    """State of the nimbus method for saving solutions."""
+    saved_solutions: list[EMOResults] = Field(sa_column=Column(JSON))
+
+
 class IntermediateSolutionState(BaseState):
     """State of the nimbus method for computing solutions."""
 
@@ -171,4 +201,3 @@ class StateDB(SQLModel, table=True):
     # Parents
     preference: "PreferenceDB" = Relationship()
     problem: "ProblemDB" = Relationship()
-    ndarchive: "NonDominatedArchiveDB" = Relationship(back_populates="state")

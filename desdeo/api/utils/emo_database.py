@@ -2,48 +2,43 @@
 
 from typing import List
 from sqlmodel import Session
-from desdeo.api.models.archive import UserSavedEMOResults, UserSavedEMOSolutionDB
+from desdeo.api.models.archive import UserSavedEMOResults
 from desdeo.api.models.state import StateDB
 
+def _convert_dataframe_to_dict_list(df):
+    """Convert DataFrame to list of dictionaries, handling different DataFrame types."""
+    if df is None:
+        return []
 
-def user_save_emo_solutions(
-    state: StateDB,
-    solutions: List[UserSavedEMOResults],
-    user_id: int,
-    session: Session,
-    problem_id: int,
-    session_id: int | None = None,
-    method: str = "nsga3",
-) -> List[UserSavedEMOSolutionDB]:
-    """Save EMO solutions to the user's archive."""
+    # Check if it's a pandas DataFrame
+    if hasattr(df, "iterrows"):
+        return [row.to_dict() for _, row in df.iterrows()]
 
-    saved_solutions = []
+    # Check if it's a Polars DataFrame
+    elif hasattr(df, "iter_rows"):
+        # Get column names
+        columns = df.columns
+        return [dict(zip(columns, row)) for row in df.iter_rows()]
 
-    for solution in solutions:
-        # Create database entry for each solution
-        solution_db = UserSavedEMOSolutionDB(
-            name=solution.name,
-            user_id=user_id,
-            problem_id=problem_id,
-            state_id=state.id,
-            session_id=session_id,
-            variable_values=solution.variable_values,
-            objective_values=solution.objective_values,
-            constraint_values=solution.constraint_values,
-            extra_func_values=solution.extra_func_values,
-            method=method,
-            generation=solution.generation,
-            rank=solution.rank,
-            crowding_distance=solution.crowding_distance,
-        )
+    # Check if it's already a list of dictionaries
+    elif isinstance(df, list):
+        return df
 
-        session.add(solution_db)
-        saved_solutions.append(solution_db)
+    # Check if it has to_dict method (pandas Series)
+    elif hasattr(df, "to_dict"):
+        return [df.to_dict()]
 
-    session.commit()
+    # Try to convert to dict if it's a single row
+    elif hasattr(df, "__iter__") and not isinstance(df, (str, dict)):
+        try:
+            # Assume it's iterable with column names
+            if hasattr(df, "columns"):
+                return [dict(zip(df.columns, row)) for row in df]
+            else:
+                # Generic conversion
+                return [dict(enumerate(row)) for row in df]
+        except Exception:
+            pass
 
-    # Refresh all saved solutions
-    for solution_db in saved_solutions:
-        session.refresh(solution_db)
-
-    return saved_solutions
+    # If all else fails, try to convert to string representation
+    return [{"data": str(df)}]

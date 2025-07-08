@@ -27,7 +27,7 @@ from desdeo.problem.schema import (
 )
 
 if TYPE_CHECKING:
-    from .archive import UserSavedSolutionDB, NonDominatedArchiveDB
+    from .archive import UserSavedSolutionDB
     from .preference import PreferenceDB
     from .user import User
 
@@ -137,7 +137,6 @@ class ProblemDB(ProblemBase, table=True):
     )
     simulators: list["SimulatorDB"] = Relationship(back_populates="problem")
     problem_metadata: "ProblemMetaDataDB" = Relationship(back_populates="problem")
-    ndarchive: "NonDominatedArchiveDB" = Relationship(back_populates="problem")
 
     @classmethod
     def from_problem(cls, problem_instance: Problem, user: "User") -> "ProblemDB":
