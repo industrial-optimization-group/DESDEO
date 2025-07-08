@@ -8,7 +8,7 @@ from sqlmodel import select
 
 from desdeo.api.utils.database import user_save_solutions
 from desdeo.emo.hooks.archivers import NonDominatedArchive
-from desdeo.emo.methods.EAs import nsga3
+from desdeo.emo.methods.EAs import nsga3, rvea
 from desdeo.problem import Problem
 
 from desdeo.api.db import get_session
@@ -37,7 +37,7 @@ from desdeo.api.models.archive import (
 )
 from desdeo.api.utils.emo_database import _convert_dataframe_to_dict_list
 
-router = APIRouter(prefix="/method/nsga3", tags=["evolutionary"])
+router = APIRouter(prefix="/method/emo", tags=["evolutionary"])
 
 
 @router.post("/solve")
@@ -88,9 +88,19 @@ def start_emo_optimization(
     )
 
     # Create solver and publisher
-    solver, publisher = nsga3(
-        problem=problem, reference_vector_options=reference_vector_options
-    )
+    if request.method == "RVEA":
+        solver, publisher = rvea(
+            problem=problem, reference_vector_options=reference_vector_options
+        )
+    elif request.method == "NSGA3":
+        solver, publisher = nsga3(
+            problem=problem, reference_vector_options=reference_vector_options
+        )
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported method: {request.method}. Supported methods are 'NSGA3' and 'RVEA'.",
+        )
 
     # Add archive if requested
     archive = None
@@ -139,7 +149,7 @@ def start_emo_optimization(
 
     # Create EMO state
     emo_state = EMOState(
-        method="NSGAIII",
+        method=request.method,  # Use the method directly (already uppercase)
         max_evaluations=request.max_evaluations,
         number_of_vectors=request.number_of_vectors,
         use_archive=request.use_archive,
@@ -222,6 +232,9 @@ def save(
         use_archive = parent_state.state.use_archive
 
     save_state = EMOSaveState(
+        method=(
+            parent_state.state.method if parent_state else "EMO"
+        ),  # Get from parent or default
         max_evaluations=max_evaluations,
         number_of_vectors=number_of_vectors,
         use_archive=use_archive,

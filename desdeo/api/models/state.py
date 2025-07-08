@@ -50,11 +50,18 @@ class StateType(TypeDecorator):
                     return NIMBUSSaveState.model_validate(value)
                 case ("generic", _):
                     return IntermediateSolutionState.model_validate(value)
-                case ("EMO", _):
-                    if "saved_solutions" in value:
-                        return EMOSaveState.model_validate(value)
-                    else:
-                        return EMOState.model_validate(value)
+                case (method, "save_solutions") if method in [
+                    "NSGA3",  # Changed from NSGAIII to match EMO router output
+                    "RVEA",
+                    "EMO",
+                ]:
+                    return EMOSaveState.model_validate(value)
+                case (method, _) if method in [
+                    "NSGA3",
+                    "RVEA",
+                    "EMO",
+                ]:  # Changed from NSGAIII to NSGA3
+                    return EMOState.model_validate(value)
                 case _:
                     msg = f"No method '{value["method"]}' with phase '{value.get("phase")}' found."
                     print(msg)
@@ -143,8 +150,9 @@ class NIMBUSSaveState(NIMBUSBaseState):
 class EMOState(BaseEMOState):
     """State for EMO methods."""
 
-    # TODO: Change the method name dynamically
-    method: Literal["NSGAIII"] = "NSGAIII"
+    method: str = Field(
+        default="EMO", description="The EMO method name (e.g., NSGA3, RVEA, etc.)"
+    )
 
     # results
     solutions: list = Field(sa_column=Column(JSON), description="Optimization results")
@@ -152,9 +160,11 @@ class EMOState(BaseEMOState):
 
 
 class EMOSaveState(BaseEMOState):
-    """State of the NSGA-III method for saving solutions."""
+    """State of the EMO methods for saving solutions."""
 
-    method: Literal["NSGAIII"] = "NSGAIII"
+    method: str = Field(
+        default="EMO", description="The EMO method name (e.g., NSGA3, RVEA, etc.)"
+    )
     phase: Literal["save_solutions"] = "save_solutions"
     problem_id: int
     saved_solutions: list[EMOResults] = Field(sa_column=Column(JSON))

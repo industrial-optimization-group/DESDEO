@@ -47,9 +47,7 @@ class Methods(str, Enum):
     NAUTILUS = "nautilus"
     NAUT_NAVIGATOR = "NAUTILUS navigator"
     NAUTILUSII = "nautilusII"
-    RVEA = "RVEA"
     EMO = "EMO"
-    NSGAIII = "NSGAIII"
 
 
 class MethodProperties(str, Enum):

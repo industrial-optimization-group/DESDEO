@@ -17,7 +17,9 @@ class EMOSolveRequest(SQLModel):
     """Request model for starting EMO optimization."""
 
     problem_id: int
-    method: str = Field(default="nsga3", description="EMO method: 'nsga3' or 'rvea'")
+    method: str = Field(
+        default="NSGA3", description="EMO method: 'NSGA3' or 'RVEA'"
+    )
     max_evaluations: int = Field(
         default=50000, description="Maximum number of function evaluations"
     )
@@ -38,6 +40,7 @@ class EMOSolveRequest(SQLModel):
     parent_state_id: Optional[int] = Field(
         default=None, description="Parent state ID for continuation"
     )
+
 
 class EMOSaveRequest(SQLModel):
     """Request model for saving selected EMO solutions."""

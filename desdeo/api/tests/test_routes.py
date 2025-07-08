@@ -471,13 +471,13 @@ def test_login_logout(client: TestClient):
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
-def test_nsga3_solve_with_reference_point(client: TestClient):
-    """Test that using NSGA-III with reference point works as expected."""
+def test_emo_solve_with_reference_point(client: TestClient):
+    """Test that using EMO with reference point works as expected."""
     access_token = login(client)
 
     request = EMOSolveRequest(
         problem_id=1,
-        method="nsga3",
+        method="NSGA3",  # Use uppercase method name consistently
         preference=ReferencePoint(
             aspiration_levels={"f_1_min": 0.5, "f_2_min": 0.3, "f_3_min": 0.4}
         ),
@@ -489,20 +489,14 @@ def test_nsga3_solve_with_reference_point(client: TestClient):
     print("Request Data:", request.model_dump())
 
     response = post_json(
-        client, "/method/nsga3/solve", request.model_dump(), access_token
+        client, "/method/emo/solve", request.model_dump(), access_token
     )
-
-    # Debug output
-    print(f"Status Code: {response.status_code}")
-    print(f"Response Headers: {response.headers}")
-    print(f"Response Body: {response.json()}")
-    print(f"Request Data: {request.model_dump()}")
 
     assert response.status_code == status.HTTP_200_OK
 
     # Validate the response structure
     emo_state = EMOState.model_validate(response.json())
-    assert emo_state.method == "NSGAIII"
+    assert emo_state.method == "NSGA3"  # Method name is consistently uppercase
     assert emo_state.max_evaluations == 1000
     assert emo_state.number_of_vectors == 20
     assert emo_state.use_archive is True
@@ -512,13 +506,13 @@ def test_nsga3_solve_with_reference_point(client: TestClient):
     assert len(emo_state.outputs) > 0
 
 
-def test_nsga3_save_solutions(client: TestClient):
+def test_emo_save_solutions(client: TestClient):
     """Test saving selected EMO solutions."""
     access_token = login(client)
 
     request = EMOSolveRequest(
         problem_id=1,
-        method="nsga3",
+        method="NSGA3",  # Use uppercase method name consistently
         preference=ReferencePoint(
             aspiration_levels={"f_1_min": 0.5, "f_2_min": 0.3, "f_3_min": 0.4}
         ),
@@ -530,7 +524,7 @@ def test_nsga3_save_solutions(client: TestClient):
     print("Request Data:", request.model_dump())
 
     response = post_json(
-        client, "/method/nsga3/solve", request.model_dump(), access_token
+        client, "/method/emo/solve", request.model_dump(), access_token
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -572,7 +566,7 @@ def test_nsga3_save_solutions(client: TestClient):
 
     # Make the request
     response = post_json(
-        client, "/method/nsga3/save", save_request.model_dump(), access_token
+        client, "/method/emo/save", save_request.model_dump(), access_token
     )
 
     # Verify the response and state
@@ -587,9 +581,42 @@ def test_nsga3_save_solutions(client: TestClient):
 
     # Get saved solutions
     saved_response = client.get(
-        "/method/nsga3/saved-solutions",
+        "/method/emo/saved-solutions",
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert saved_response.status_code == status.HTTP_200_OK
     saved_solutions = saved_response.json()
     assert len(saved_solutions) >= 2
+
+
+def test_emo_solve_with_rvea(client: TestClient):
+    """Test that using EMO with RVEA method works as expected."""
+    access_token = login(client)
+
+    request = EMOSolveRequest(
+        problem_id=1,
+        method="RVEA",  # Test RVEA method with uppercase
+        preference=ReferencePoint(
+            aspiration_levels={"f_1_min": 0.5, "f_2_min": 0.3, "f_3_min": 0.4}
+        ),
+        max_evaluations=1000,
+        number_of_vectors=20,
+        use_archive=True,
+    )
+
+    response = post_json(
+        client, "/method/emo/solve", request.model_dump(), access_token
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+
+    # Validate the response structure
+    emo_state = EMOState.model_validate(response.json())
+    assert emo_state.method == "RVEA"  # Method name is consistently uppercase
+    assert emo_state.max_evaluations == 1000
+    assert emo_state.number_of_vectors == 20
+    assert emo_state.use_archive is True
+    assert emo_state.solutions is not None
+    assert emo_state.outputs is not None
+    assert len(emo_state.solutions) > 0
+    assert len(emo_state.outputs) > 0
