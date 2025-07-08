@@ -13,8 +13,10 @@ For now, we rely on pymoo for the implementation of many of the indicators.
 from typing import Literal
 
 import numpy as np
-from numba import njit
 from moocore import epsilon_additive, epsilon_mult
+from numba import njit
+from desdeo.tools.non_dominated_sorting import dominates
+from desdeo.tools.indicators_unary import hv
 
 """
 Note that the moocore package includes a more complex implementation for calculating the epsilon_indicator for two
@@ -33,12 +35,27 @@ def epsilon_component(solution1: np.ndarray, solution2: np.ndarray) -> float:
     Returns:
         float: The maximum distance between the values in s1 and s2.
     """
-    eps = 0.0
-    for i in range(solution1.size):
-        value = solution1[i] - solution2[i]
-        if value > eps:
-            eps = value
-    return eps
+    return max(0.0, max(solution1 - solution2))
+
+
+@njit()
+def self_epsilon(solution_set: np.ndarray) -> np.ndarray:
+    """Computes the pairwise additive epsilon-indicator for a solution set.
+
+    Args:
+        solution_set (np.ndarray): Should be a two-dimensional array, where each row is a
+            solution normalized between [0, 1].
+
+    Returns:
+        np.ndarray: A two-dimensional array where the entry at (i, j) is the
+            additive epsilon-indicator between the i-th and j-th solution in the set.
+    """
+    n_solutions = solution_set.shape[0]
+    eps_matrix = np.zeros((n_solutions, n_solutions), dtype=np.float64)
+    for i in range(n_solutions):
+        for j in range(n_solutions):
+            eps_matrix[i, j] = epsilon_component(solution_set[i], solution_set[j])
+    return eps_matrix
 
 
 def epsilon_indicator(
@@ -49,6 +66,7 @@ def epsilon_indicator(
     Args:
         set1 (np.ndarray): Should be a two-dimensional array, where each row is a solution normalized between [0, 1]
         set2 (np.ndarray): Should be a two-dimensional array, where each row is a solution normalized between [0, 1]
+        kind (Literal["additive", "multiplicative"]): The kind of epsilon-indicator to compute. Defaults to "additive".
 
     Returns:
         float: the  epsilon-indicator between the two sets.
@@ -58,3 +76,39 @@ def epsilon_indicator(
     if kind == "multiplicative":
         return epsilon_mult(set1, ref=set2)
     raise ValueError(f"Unknown kind: {kind}. Use 'additive' or 'multiplicative'.")
+
+
+def hv_component(solution1: np.ndarray, solution2: np.ndarray, ref: float = 2.0) -> float:
+    """Computes the hypervolume contribution of solution1 with respect to solution2.
+
+    Args:
+        solution1 (np.ndarray): Should be an one-dimensional array, where each value is normalized between [0, 1]
+        solution2 (np.ndarray): Should be an one-dimensional array, where each value is normalized between [0, 1]
+        ref (float): The reference point for the hypervolume calculation. Defaults to 2.0.
+
+    Returns:
+        float: The hypervolume contribution of solution1 with respect to solution2.
+    """
+    if dominates(solution1, solution2):
+        return np.prod(ref - solution2) - np.prod(ref - solution1)
+    return hv(solution_set=np.array([solution1, solution2]), reference_point_component=ref)
+
+
+def self_hv(solution_set: np.ndarray, ref: float = 2.0) -> np.ndarray:
+    """Computes the pairwise hypervolume contribution for a solution set.
+
+    Args:
+        solution_set (np.ndarray): Should be a two-dimensional array, where each row is a
+            solution normalized between [0, 1].
+        ref (float): The reference point for the hypervolume calculation. Defaults to 2.0.
+
+    Returns:
+        np.ndarray: A two-dimensional array where the entry at (i, j) is the
+            hypervolume contribution of the i-th solution with respect to the j-th solution in the set.
+    """
+    n_solutions = solution_set.shape[0]
+    hv_matrix = np.zeros((n_solutions, n_solutions), dtype=np.float64)
+    for i in range(n_solutions):
+        for j in range(n_solutions):
+            hv_matrix[i, j] = hv_component(solution_set[i], solution_set[j], ref=ref)
+    return hv_matrix
