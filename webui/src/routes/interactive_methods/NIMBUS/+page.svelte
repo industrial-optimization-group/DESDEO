@@ -48,7 +48,8 @@
 	let problemList = data.problems ?? [];
 	let selectedTypeSolutions = 'current';
 
-	// State for preferences and numSolutions - ready for your HTTP request button
+	// State for preferences and numSolutions - will be used in HTTP request button,
+	// currentPreference needs to be initialized with previous_preference from NIMBUSClassificationState
 	let currentPreference: number[] = $state([]);
 	let currentNumSolutions: number = $state(1);
 
@@ -76,6 +77,17 @@
 			problem = problemList.find(
 				(p: ProblemInfo) => String(p.id) === String($methodSelection.selectedProblemId)
 			);
+
+			if (problem) {
+            // 1. Check if there's a previous NIMBUSClassificationState with previous_preference, pseudo code:
+            // const nimbusState = getNIMBUSState(problem.id, user.id); // from somewhere
+            // if (nimbusState?.previous_preference) {
+            //     currentPreference = nimbusState.previous_preference;
+            // } else {
+                // 2. Fallback to ideal values
+                currentPreference = problem.objectives.map((obj) => obj.ideal ?? 0);
+            // }
+        }
 		}
 	});
 </script>
@@ -86,8 +98,8 @@
 			{problem} 
 			preference_types={['Classification']} 
 			showNumSolutions={true} 
-			bind:preference={currentPreference}
-			bind:numSolutions={currentNumSolutions}
+			preference={currentPreference}
+			numSolutions={currentNumSolutions}
 			minNumSolutions={1}
 			maxNumSolutions={4}
 			onChange={handlePreferenceChange}
