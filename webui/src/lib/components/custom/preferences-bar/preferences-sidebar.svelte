@@ -2,17 +2,27 @@
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import PreferenceSwitcher from './preference-switcher.svelte';
 	import { writable } from 'svelte/store';
+	import { Button } from '$lib/components/ui/button/index.js';
 	import type { components } from '$lib/api/client-types';
-	import { HorizontalBar } from '$lib/components/visualizations/horizontal-bar';
+	import {
+		HorizontalBar,
+		HorizontalBarRanges
+	} from '$lib/components/visualizations/horizontal-bar';
 	import { Input } from '$lib/components/ui/input/index.js';
+	import ValidatedTextbox from '../validated-textbox/validated-textbox.svelte';
+	import { COLOR_PALETTE } from '$lib/components/visualizations/utils/colors.js';
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 
 		interface Props {
 		preference_types: string[];
 		problem: ProblemInfo;
 		onChange?: (event: { value: string; preference: number[]; numSolutions: number }) => void;
+		onIterate?: () => void;
+		onFinish?: () => void;
 		showNumSolutions?: boolean;
 		ref?: HTMLElement | null;
+		referencePointValues?: typeof writable<number[]>;
+		handleReferencePointChange?: (idx: number, newValue: number) => void;
 		preference?: number[];
 		numSolutions?: number;
 		minNumSolutions?: number;
@@ -23,18 +33,18 @@
 		preference_types,
 		problem,
 		onChange,
+		onIterate,
+		onFinish,
 		showNumSolutions = false,
 		ref = null,
+		referencePointValues = writable(problem.objectives.map((obj: any) => obj.ideal)), // default if not provided
+		handleReferencePointChange = (idx: number, newValue: number) => {}, // default noop
 		preference = undefined,
 		numSolutions = 1,
 		minNumSolutions = 1,
 		maxNumSolutions = 4
 	}: Props = $props();
 
-
-	//let ref: HTMLElement | null = $state(null);
-	//let preference_types: string[] = ['Reference point', 'Ranges', 'Preferred solution'];
-	//export let problem: ProblemInfo | null = null;
 
 	// Store for the currently selected preference type
 	const selectedPreference = writable(preference_types[0]);
@@ -97,6 +107,15 @@
 			})
 			: []
     );
+
+	function handleReferencePointChangeInternal(idx: number, newValue: number) {
+		referencePointValues.update((values) => {
+			const updated = [...values];
+			updated[idx] = newValue;
+			return updated;
+		});
+		onChange?.({ value: String(newValue) });
+	}
 </script>
 
 <Sidebar.Root
@@ -196,7 +215,6 @@
 							barColor="#4f8cff"
 							direction="min"
 							options={{
-								barHeight: 32,
 								decimalPrecision: 2,
 								showPreviousValue: false,
 								aspectRatio: 'aspect-[11/2]'
@@ -216,18 +234,96 @@
 				{/if}
 			{/each}
 		{:else if $selectedPreference === 'Reference point'}
-			<p class="mb-2 text-sm text-gray-500">
-				Provide a range for each objective, indicating the minimum and maximum acceptable values.
-			</p>
+			{#each problem.objectives as objective, idx}
+				{#if objective.ideal != null && objective.nadir != null}
+					<div class="mb-4 flex flex-col gap-2">
+						<div class="text-sm font-semibold text-gray-700">
+							{objective.name} ({objective.maximize ? "max" : "min"})
+						</div>
+						<div class="flex flex-row">
+							<div class="flex w-1/4 flex-col justify-center">
+								<span class="text-sm text-gray-500">Value</span>
+								<ValidatedTextbox
+									placeholder={''}
+									min={objective.ideal < objective.nadir ? objective.ideal : objective.nadir}
+									max={objective.nadir > objective.ideal ? objective.nadir : objective.ideal}
+									value={String($referencePointValues[idx])}
+									onChange={(value: String) => {
+										const val = Number(value);
+										if (!isNaN(val)) handleReferencePointChangeInternal(idx, val);
+									}}
+								/>
+							</div>
+							<div class="w-3/4">
+								<HorizontalBar
+									axisRanges={[
+										objective.ideal < objective.nadir ? objective.ideal : objective.nadir,
+										objective.nadir > objective.ideal ? objective.nadir : objective.ideal
+									]}
+									solutionValue={$referencePointValues[idx]}
+									selectedValue={$referencePointValues[idx]}
+									barColor={COLOR_PALETTE[idx % COLOR_PALETTE.length]}
+									direction={objective.maximize ? "max" : "min"}
+									options={{
+										decimalPrecision: 2,
+										showPreviousValue: false,
+										aspectRatio: 'aspect-[11/2]'
+									}}
+									onSelect={(value: number) => {
+										handleReferencePointChangeInternal(idx, value);
+									}}
+								/>
+							</div>
+						</div>
+					</div>
+				{:else}
+					<div class="text-sm text-red-500">Objective {objective.name} missing ideal/nadir values</div>
+				{/if}
+			{/each}
 		{:else if $selectedPreference === 'Ranges'}
-			<p class="mb-2 text-sm text-gray-500">
-				Provide a range for each objective, indicating the minimum and maximum acceptable values.
-			</p>
-			<!-- 			{#each objectives as item}
-				<div class="mb-1">
-					<span>{item.name} (Min: {item.ideal}, Max: {item.nadir})</span>
-				</div>
-			{/each} -->
+			{#each problem.objectives as objective, idx}
+				{#if objective.ideal != null && objective.nadir != null}
+					<div class="mb-4 flex flex-col gap-2">
+						<div class="text-sm font-semibold text-gray-700">
+							{objective.name} ({objective.maximize ? "max" : "min"})
+						</div>
+						<div class="flex flex-row">
+							<div class="flex w-1/4 flex-col justify-center">
+								<span class="text-sm text-gray-500">Value</span>
+								<ValidatedTextbox
+									placeholder={''}
+									min={objective.ideal < objective.nadir ? objective.ideal : objective.nadir}
+									max={objective.nadir > objective.ideal ? objective.nadir : objective.ideal}
+									value={String($referencePointValues[idx])}
+									onChange={(value: String) => {
+										const val = Number(value);
+										if (!isNaN(val)) handleReferencePointChangeInternal(idx, val);
+									}}
+								/>
+							</div>
+							<div class="w-3/4">
+								<HorizontalBarRanges
+									axisRanges={[
+										objective.ideal < objective.nadir ? objective.ideal : objective.nadir,
+										objective.nadir > objective.ideal ? objective.nadir : objective.ideal
+									]}
+									lowerBound={$referencePointValues[idx]}
+									upperBound={$referencePointValues[idx]}
+									barColor={COLOR_PALETTE[idx % COLOR_PALETTE.length]}
+									direction={objective.maximize ? "max" : "min"}
+									options={{
+										decimalPrecision: 2,
+										showPreviousValue: false,
+										aspectRatio: 'aspect-[11/2]'
+									}}
+								/>
+							</div>
+						</div>
+					</div>
+				{:else}
+					<div class="text-sm text-red-500">Objective {objective.name} missing ideal/nadir values</div>
+				{/if}
+			{/each}
 		{:else if $selectedPreference === 'Preferred solution'}
 			<p class="mb-2 text-sm text-gray-500">Select one or multiple preferred solutions.</p>
 			<!-- 			{#each objectives as item}
@@ -239,5 +335,31 @@
 			<p>Select a preference type to view options.</p>
 		{/if}
 	</Sidebar.Content>
+	<Sidebar.Footer>
+		<div class="items-right flex justify-end gap-2">
+			<Button
+				variant="default"
+				size="sm"
+				onclick={() => {
+					selectedPreference.set(preference_types[0]);
+					referencePointValues.set(problem.objectives.map((obj: any) => obj.ideal));
+					onIterate?.(selectedPreference, referencePointValues);
+				}}
+			>
+				Iterate
+			</Button>
+			<Button
+				variant="secondary"
+				size="sm"
+				onclick={() => {
+					selectedPreference.set(preference_types[0]);
+					referencePointValues.set(problem.objectives.map((obj: any) => obj.ideal));
+					onFinish?.(referencePointValues);
+				}}
+			>
+				Finish
+			</Button>
+		</div>
+	</Sidebar.Footer>
 	<Sidebar.Rail />
 </Sidebar.Root>
