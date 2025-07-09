@@ -28,6 +28,9 @@ solution *sets*.
 def epsilon_component(solution1: np.ndarray, solution2: np.ndarray) -> float:
     """Computes the additive epsilon-indicator between two solutions.
 
+    Basically, returns the minimum amount by which the values in solution1 must be translated (minimization assumed)
+    such that it (weakly) dominates solution2. If solution1 already dominates solution2, returns 0.0.
+
     Args:
         solution1 (np.ndarray): Should be an one-dimensional array, where each value is normalized between [0, 1]
         solution2 (np.ndarray): Should be an one-dimensional array, where each value is normalized between [0, 1]
