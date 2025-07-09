@@ -15,7 +15,7 @@
 	let problemList = data.problems ?? [];
 	let selectedTypeSolutions = $state('current');
 
-	const frameworks = [
+	const type_solutions_to_visualize = [
 		{ value: 'current', label: 'Current solutions' },
 		{ value: 'best', label: 'Best solutions' },
 		{ value: 'all', label: 'All solutions' }
@@ -53,7 +53,7 @@
 						<div>
 							<span>View: </span>
 							<Combobox
-								options={frameworks}
+								options={type_solutions_to_visualize}
 								defaultSelected={selectedTypeSolutions}
 								onChange={handleChange}
 							/>

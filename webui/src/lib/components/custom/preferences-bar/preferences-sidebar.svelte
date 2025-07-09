@@ -17,7 +17,6 @@
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 
 	interface Props {
-		// Accept only the values from PREFERENCE_TYPES
 		preference_types: PreferenceValue[];
 		problem: ProblemInfo;
 		onChange?: (event: { value: string; preference: number[]; numSolutions: number }) => void;
@@ -68,8 +67,8 @@
 	}
 
 	const selectedPreference = writable<PreferenceValue>(validPreferenceTypes[0]);
-	console.log('Problem in preferences sidebar:', problem);
 
+	// Internal state for preference type and values
 	let internalPreference = $state<number[]>(
 		preference && preference.length > 0 ? [...preference] : []
 	);
