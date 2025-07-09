@@ -11,8 +11,12 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import ValidatedTextbox from '../validated-textbox/validated-textbox.svelte';
 	import { COLOR_PALETTE } from '$lib/components/visualizations/utils/colors.js';
-	import { calculateClassification, type PreferenceValue } from '$lib/helpers/index.js';
-	import { PREFERENCE_TYPES } from '$lib/constants/index.js';
+	import {
+		calculateClassification,
+		type PreferenceValue,
+		formatNumber
+	} from '$lib/helpers/index.js';
+	import { PREFERENCE_TYPES, SIGNIFICANT_DIGITS } from '$lib/constants/index.js';
 
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 
@@ -246,7 +250,7 @@
 							barColor="#4f8cff"
 							direction="min"
 							options={{
-								decimalPrecision: 2,
+								decimalPrecision: SIGNIFICANT_DIGITS,
 								showPreviousValue: false,
 								aspectRatio: 'aspect-[11/2]'
 							}}
@@ -273,7 +277,9 @@
 									placeholder=""
 									min={Math.min(objective.ideal, objective.nadir)}
 									max={Math.max(objective.ideal, objective.nadir)}
-									value={String(internalPreferenceValues[idx] || 0)}
+									value={String(
+										formatNumber(internalPreferenceValues[idx], SIGNIFICANT_DIGITS) || 0
+									)}
 									onChange={(value) => {
 										const val = Number(value);
 										if (!isNaN(val)) handlePreferenceValueChange(idx, val);

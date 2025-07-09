@@ -1,5 +1,5 @@
 import type { components } from '$lib/api/client-types';
-import { CLASSIFICATION_TYPES, PREFERENCE_TYPES } from '$lib/constants';
+import { CLASSIFICATION_TYPES, PREFERENCE_TYPES, SIGNIFICANT_DIGITS } from '$lib/constants';
 
 type ObjectiveInfo = components['schemas']['ProblemInfo']['objectives'][0];
 
@@ -51,3 +51,12 @@ export function clampValue(value: number, min: number, max: number): number {
 
 export type PreferenceType = keyof typeof PREFERENCE_TYPES;
 export type PreferenceValue = typeof PREFERENCE_TYPES[PreferenceType];
+
+
+export function formatNumber(value: number, digits: number = SIGNIFICANT_DIGITS): string {
+  return value.toFixed(digits);
+}
+
+export function formatNumberArray(values: number[], digits: number = SIGNIFICANT_DIGITS): string {
+  return values.map(v => formatNumber(v, digits)).join(', ');
+}

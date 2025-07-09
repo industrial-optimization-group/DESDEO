@@ -13,3 +13,5 @@ export const PREFERENCE_TYPES = {
   PreferredSolution: 'Preferred solution',
   NonPreferredSolution: 'Non-preferred solution',
 };
+
+export const SIGNIFICANT_DIGITS = 2;

@@ -9,6 +9,7 @@
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import { Combobox } from '$lib/components/ui/combobox';
 	import { PREFERENCE_TYPES } from '$lib/constants';
+	import { formatNumber, formatNumberArray } from '$lib/helpers';
 
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 	type PreferenceValue = (typeof PREFERENCE_TYPES)[keyof typeof PREFERENCE_TYPES];
@@ -69,9 +70,15 @@
 
 		console.log('Preference changed:', {
 			num_solutions,
-			current_preference,
-			previous_preference,
-			objective_values
+			current_preference: {
+				type: current_preference.type,
+				values: formatNumberArray(current_preference.values)
+			},
+			previous_preference: {
+				type: previous_preference.type,
+				values: formatNumberArray(previous_preference.values)
+			},
+			objective_values: formatNumberArray(objective_values)
 		});
 	}
 
@@ -81,7 +88,12 @@
 		preference_values: number[];
 		objective_values: number[];
 	}) {
-		console.log('Iterate clicked with data:', data);
+		console.log('Iterate clicked with data:', {
+			num_solutions: data.num_solutions,
+			type_preferences: data.type_preferences,
+			preference_values: formatNumberArray(data.preference_values),
+			objective_values: formatNumberArray(data.objective_values)
+		});
 
 		// Store current preference as previous before updating
 		previous_preference = {
@@ -123,9 +135,15 @@
 
 		console.log('Updated from optimization:', {
 			num_solutions, // unchanged
-			previous_preference, // previous iteration values
-			current_preference, // updated values
-			objective_values // updated
+			previous_preference: {
+				type: previous_preference.type,
+				values: formatNumberArray(previous_preference.values)
+			},
+			current_preference: {
+				type: current_preference.type,
+				values: formatNumberArray(current_preference.values)
+			},
+			objective_values: formatNumberArray(objective_values)
 		});
 	}
 
@@ -135,7 +153,12 @@
 		preference_values: number[];
 		objective_values: number[];
 	}) {
-		console.log('Finish clicked with data:', data);
+		console.log('Finish clicked with data:', {
+			num_solutions: data.num_solutions,
+			type_preferences: data.type_preferences,
+			preference_values: formatNumberArray(data.preference_values),
+			objective_values: formatNumberArray(data.objective_values)
+		});
 
 		// Store final result as previous preference
 		previous_preference = {
@@ -145,9 +168,15 @@
 
 		// Handle finishing the optimization process
 		console.log('Final preferences:', {
-			previous_preference,
-			current_preference,
-			objective_values
+			previous_preference: {
+				type: previous_preference.type,
+				values: formatNumberArray(previous_preference.values)
+			},
+			current_preference: {
+				type: current_preference.type,
+				values: formatNumberArray(current_preference.values)
+			},
+			objective_values: formatNumberArray(objective_values)
 		});
 	}
 
@@ -219,6 +248,26 @@
 						</div>
 					</div>
 
+					<!-- Debug info with formatted numbers -->
+					<div class="mb-4 rounded bg-gray-50 p-2 text-xs">
+						<div><strong>Num Solutions:</strong> {num_solutions}</div>
+						<div><strong>Objective Values:</strong> {formatNumberArray(objective_values)}</div>
+						<div class="mt-2">
+							<strong>Current Preference:</strong>
+							<div class="ml-2">
+								<div>Type: {current_preference.type}</div>
+								<div>Values: {formatNumberArray(current_preference.values)}</div>
+							</div>
+						</div>
+						<div class="mt-2">
+							<strong>Previous Preference:</strong>
+							<div class="ml-2">
+								<div>Type: {previous_preference.type}</div>
+								<div>Values: {formatNumberArray(previous_preference.values)}</div>
+							</div>
+						</div>
+					</div>
+
 					<div class="h-full w-full">
 						<div class="grid h-full w-full gap-4 xl:grid-cols-1">
 							<div class="min-h-[50rem] flex-1 rounded bg-gray-100 p-4">
@@ -239,21 +288,56 @@
 						<div class="space-y-4">
 							<div>Table of solutions</div>
 
-							<!-- Show comparison between current and previous preferences -->
+							<!-- Show comparison between current and previous preferences with formatted numbers -->
 							<div class="grid grid-cols-2 gap-4">
 								<div class="rounded border p-3">
 									<h4 class="font-semibold">Current Preference</h4>
 									<p class="text-sm text-gray-600">Type: {current_preference.type}</p>
 									<p class="text-sm text-gray-600">
-										Values: {current_preference.values.map((v) => v.toFixed(3)).join(', ')}
+										Values: {formatNumberArray(current_preference.values)}
 									</p>
 								</div>
 								<div class="rounded border p-3">
 									<h4 class="font-semibold">Previous Preference</h4>
 									<p class="text-sm text-gray-600">Type: {previous_preference.type}</p>
 									<p class="text-sm text-gray-600">
-										Values: {previous_preference.values.map((v) => v.toFixed(3)).join(', ')}
+										Values: {formatNumberArray(previous_preference.values)}
 									</p>
+								</div>
+							</div>
+
+							<!-- Additional table showing individual values -->
+							<div class="mt-4">
+								<h4 class="mb-2 font-semibold">Detailed Values</h4>
+								<div class="overflow-x-auto">
+									<table class="min-w-full border border-gray-200">
+										<thead class="bg-gray-50">
+											<tr>
+												<th class="border border-gray-200 px-4 py-2 text-left">Objective</th>
+												<th class="border border-gray-200 px-4 py-2 text-left">Current Value</th>
+												<th class="border border-gray-200 px-4 py-2 text-left">Previous Value</th>
+												<th class="border border-gray-200 px-4 py-2 text-left">Objective Value</th>
+											</tr>
+										</thead>
+										<tbody>
+											{#if problem}
+												{#each problem.objectives as objective, idx}
+													<tr class="hover:bg-gray-50">
+														<td class="border border-gray-200 px-4 py-2">{objective.name}</td>
+														<td class="border border-gray-200 px-4 py-2">
+															{formatNumber(current_preference.values[idx] || 0)}
+														</td>
+														<td class="border border-gray-200 px-4 py-2">
+															{formatNumber(previous_preference.values[idx] || 0)}
+														</td>
+														<td class="border border-gray-200 px-4 py-2">
+															{formatNumber(objective_values[idx] || 0)}
+														</td>
+													</tr>
+												{/each}
+											{/if}
+										</tbody>
+									</table>
 								</div>
 							</div>
 						</div>
