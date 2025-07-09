@@ -71,7 +71,7 @@ class ProblemInfo(ProblemBase):
     tensor_constants: list["TensorConstantDB"] | None
     variables: list["VariableDB"] | None
     tensor_variables: list["TensorVariableDB"] | None
-    objectives: list["ObjectiveDB"] | None
+    objectives: list["ObjectiveDB"]
     constraints: list["ConstraintDB"] | None
     scalarization_funcs: list["ScalarizationFunctionDB"] | None
     extra_funcs: list["ExtraFunctionDB"] | None
