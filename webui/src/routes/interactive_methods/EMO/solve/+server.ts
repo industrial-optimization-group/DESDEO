@@ -2,6 +2,10 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import { api } from '$lib/api/client';
+import type { components } from '$lib/api/client-types';
+
+type EMOSolveRequest = components['schemas']['EMOSolveRequest'];
+type EMOState = components['schemas']['EMOState'];
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
   const refreshToken = cookies.get('refresh_token');
@@ -10,23 +14,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
   }
 
   try {
-    const {
-      problemId,
-      method = 'NSGA3',
-      maxEvaluations = 1000,
-      numberOfVectors = 30,
-      useArchive = true,
-      preference = { aspiration_levels: {} }
-    } = await request.json();
-
-    const solveRequest = {
-      problem_id: problemId,
-      method,
-      preference,
-      max_evaluations: maxEvaluations,
-      number_of_vectors: numberOfVectors,
-      use_archive: useArchive
-    };
+    const solveRequest: EMOSolveRequest = await request.json();
 
     const response = await api.POST('/method/emo/solve', {
       body: solveRequest
@@ -41,11 +29,12 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
     return json({
       success: true,
-      data: response.data,
+      data: response.data as EMOState,
       message: 'Problem solved successfully'
     });
 
-  } catch {
+  } catch (error) {
+    console.error('EMO solve error:', error);
     return json({ error: 'Server error' }, { status: 500 });
   }
 };
