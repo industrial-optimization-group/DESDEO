@@ -38,9 +38,23 @@
 		type_solutions_shown.find((f) => f.value === selectedTypeSolutions)
 	);
 
+	let currentPreference: number[] = $state([]);
+	let currentNumSolutions: number = $state(1);
+
 	function handleChange(event: { value: string }) {
 		selectedTypeSolutions = event.value;
 		console.log('Selected type of solutions:', selectedTypeSolutions);
+	}
+
+	function handlePreferenceChange(event: {
+		value: string;
+		preference: number[];
+		numSolutions: number;
+	}) {
+		currentPreference = event.preference;
+		currentNumSolutions = event.numSolutions;
+		console.log('Preference changed:', currentPreference);
+		console.log('Number of solutions:', currentNumSolutions);
 	}
 
 	onMount(() => {
@@ -137,6 +151,9 @@
 			{problem}
 			preference_types={['Reference point', 'Ranges', 'Preferred solution']}
 			showNumSolutions={true}
+			preference={currentPreference}
+			numSolutions={currentNumSolutions}
+			onChange={handlePreferenceChange}
 		/>
 	{/if}
 
