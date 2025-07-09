@@ -1114,9 +1114,27 @@ def _ibea_select_all(fitness_components: np.ndarray, population_size: int, kappa
     """
     current_pop_size = len(fitness_components)
     bad_sols = np.zeros(current_pop_size, dtype=np.bool_)
+    fitness = np.zeros(len(fitness_components))
+    mod_fit_components = np.exp(-fitness_components / kappa)
+    for i in range(len(fitness_components)):
+        for j in range(len(fitness_components)):
+            if i == j:
+                continue
+            fitness[i] -= mod_fit_components[j, i]
     while current_pop_size - sum(bad_sols) > population_size:
-        selected = _ibea_select(fitness_components, bad_sols, kappa)
+        selected = np.argmin(fitness)
+        if fitness[selected] >= 0:
+            if sum(bad_sols) == len(fitness_components) - 1:
+                # If all but one individual is chosen, select the last one
+                selected = np.where(~bad_sols)[0][0]
+            raise RuntimeError("All individuals have non-negative fitness. Cannot select a new individual.")
+        fitness[selected] = np.inf  # Make sure that this individual is not selected again
         bad_sols[selected] = True
+        for i in range(len(mod_fit_components)):
+            if bad_sols[i]:
+                continue
+        # Update fitness of the remaining individuals
+            fitness[i] += mod_fit_components[selected, i]
     return ~bad_sols
 
 
