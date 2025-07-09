@@ -13,7 +13,7 @@
 
 	const { data } = $props<{ data: ProblemInfo[] }>();
 	let problemList = data.problems ?? [];
-	let selectedTypeSolutions = 'current';
+	let selectedTypeSolutions = $state('current');
 
 	const frameworks = [
 		{ value: 'current', label: 'Current solutions' },

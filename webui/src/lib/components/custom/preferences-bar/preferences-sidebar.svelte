@@ -11,18 +11,22 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import ValidatedTextbox from '../validated-textbox/validated-textbox.svelte';
 	import { COLOR_PALETTE } from '$lib/components/visualizations/utils/colors.js';
+	import { calculateClassification, type PreferenceValue } from '$lib/helpers/index.js';
+	import { PREFERENCE_TYPES } from '$lib/constants/index.js';
+
 	type ProblemInfo = components['schemas']['ProblemInfo'];
-	import { CLASSIFICATION_TYPES } from '$lib/constants/index.js';
+
 	interface Props {
-		preference_types: string[];
+		// Accept only the values from PREFERENCE_TYPES
+		preference_types: PreferenceValue[];
 		problem: ProblemInfo;
 		onChange?: (event: { value: string; preference: number[]; numSolutions: number }) => void;
 		onIterate?: (event: {
-			preferenceType: string;
+			preferenceType: PreferenceValue;
 			preferenceValue: any;
 			numSolutions: number;
 		}) => void;
-		onFinish?: (event: { value: string }) => void;
+		onFinish?: (event: { value: PreferenceValue }) => void;
 		showNumSolutions?: boolean;
 		ref?: HTMLElement | null;
 		referencePointValues?: Writable<number[]>;
@@ -41,63 +45,42 @@
 		onFinish,
 		showNumSolutions = false,
 		ref = null,
-		referencePointValues = writable(problem.objectives.map((obj: any) => obj.ideal)), // default if not provided
-		handleReferencePointChange = (idx: number, newValue: number) => {}, // default noop
+		referencePointValues = writable(problem.objectives.map((obj: any) => obj.ideal)),
+		handleReferencePointChange = (idx: number, newValue: number) => {},
 		preference = undefined,
 		numSolutions = 1,
 		minNumSolutions = 1,
 		maxNumSolutions = 4
 	}: Props = $props();
 
-	// Store for the currently selected preference type
-	const selectedPreference = writable(preference_types[0]);
+	// Validate that preference_types only contains valid values
+	const validPreferenceTypes = preference_types.filter((type) =>
+		Object.values(PREFERENCE_TYPES).includes(type as PreferenceValue)
+	);
+
+	if (validPreferenceTypes.length !== preference_types.length) {
+		console.warn(
+			'Invalid preference types detected:',
+			preference_types.filter(
+				(type) => !Object.values(PREFERENCE_TYPES).includes(type as PreferenceValue)
+			)
+		);
+	}
+
+	const selectedPreference = writable<PreferenceValue>(validPreferenceTypes[0]);
 	console.log('Problem in preferences sidebar:', problem);
 
-	// preferences and numSolutions come as props,
-	// but these states keep them in sync in both input and slider,
-	// so that onChange-function has the latest preference and numSolutions
 	let internalPreference = $state<number[]>(
 		preference && preference.length > 0 ? [...preference] : []
 	);
 	let internalNumSolutions = $state<number>(numSolutions);
 
-	// Create a derived classification array for nimbus classification
-	// copied almost straight from old nimbus
+	// Use the constants for comparison
 	let classificationValues = $derived(
-		$selectedPreference === 'Classification'
-			? problem.objectives.map((objective, idx: number) => {
-					if (objective.ideal == null || objective.nadir == null) {
-						return CLASSIFICATION_TYPES.ChangeFreely;
-					}
-
-					const selectedValue = internalPreference[idx];
-					const solutionValue = objective.ideal;
-					const lowerBound = Math.min(objective.ideal, objective.nadir);
-					const higherBound = Math.max(objective.ideal, objective.nadir);
-					const precision = 0.001; // Adjust as needed
-
-					if (selectedValue === undefined || solutionValue === undefined) {
-						return CLASSIFICATION_TYPES.ChangeFreely;
-					} else if (
-						Math.abs(selectedValue - lowerBound) < precision ||
-						selectedValue < lowerBound
-					) {
-						return CLASSIFICATION_TYPES.ChangeFreely;
-					} else if (
-						Math.abs(selectedValue - higherBound) < precision ||
-						selectedValue > higherBound
-					) {
-						return CLASSIFICATION_TYPES.ImproveFreely;
-					} else if (Math.abs(selectedValue - solutionValue) < precision) {
-						return CLASSIFICATION_TYPES.KeepConstant;
-					} else if (selectedValue < solutionValue) {
-						return CLASSIFICATION_TYPES.WorsenUntil;
-					} else if (selectedValue > solutionValue) {
-						return CLASSIFICATION_TYPES.ImproveUntil;
-					}
-
-					return CLASSIFICATION_TYPES.ChangeFreely; // fallback
-				})
+		$selectedPreference === PREFERENCE_TYPES.Classification
+			? problem.objectives.map((objective, idx: number) =>
+					calculateClassification(objective, internalPreference[idx], 0.001)
+				)
 			: []
 	);
 
@@ -121,11 +104,11 @@
 	class="top-12 flex h-[calc(100vh-6rem)] min-h-[calc(100vh-3rem)] w-[25rem]"
 >
 	<Sidebar.Header>
-		{#if preference_types.length > 1}
+		{#if validPreferenceTypes.length > 1}
 			<PreferenceSwitcher
-				preferences={preference_types}
-				defaultPreference={preference_types[0]}
-				onswitch={(e: string) => selectedPreference.set(e)}
+				preferences={validPreferenceTypes}
+				defaultPreference={validPreferenceTypes[0]}
+				onswitch={(e: PreferenceValue) => selectedPreference.set(e)}
 			/>
 		{:else}
 			<Sidebar.MenuButton
@@ -139,6 +122,7 @@
 			</Sidebar.MenuButton>
 		{/if}
 	</Sidebar.Header>
+
 	<Sidebar.Content class="h-full px-4">
 		{#if showNumSolutions}
 			<p class="mb-2 text-sm text-gray-500">Provide the maximum number of solutions to generate</p>
@@ -149,7 +133,6 @@
 				bind:value={internalNumSolutions}
 				oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
 					const numValue = Number(e.currentTarget.value);
-					// Clamp value within allowed range
 					const clampedValue = Math.max(minNumSolutions, Math.min(maxNumSolutions, numValue));
 
 					if (numValue !== clampedValue) {
@@ -163,7 +146,8 @@
 				}}
 			/>
 		{/if}
-		{#if $selectedPreference === 'Classification'}
+
+		{#if $selectedPreference === PREFERENCE_TYPES.Classification}
 			<p class="mb-2 text-sm text-gray-500">Provide one desirable value for each objective.</p>
 
 			{#each problem.objectives as objective, idx}
@@ -234,7 +218,7 @@
 					</div>
 				{/if}
 			{/each}
-		{:else if $selectedPreference === 'Reference point'}
+		{:else if $selectedPreference === PREFERENCE_TYPES.ReferencePoint}
 			{#each problem.objectives as objective, idx}
 				{#if objective.ideal != null && objective.nadir != null}
 					<div class="mb-4 flex flex-col gap-2">
@@ -283,7 +267,7 @@
 					</div>
 				{/if}
 			{/each}
-		{:else if $selectedPreference === 'Ranges'}
+		{:else if $selectedPreference === PREFERENCE_TYPES.PreferredRange}
 			{#each problem.objectives as objective, idx}
 				{#if objective.ideal != null && objective.nadir != null}
 					<div class="mb-4 flex flex-col gap-2">
@@ -329,7 +313,7 @@
 					</div>
 				{/if}
 			{/each}
-		{:else if $selectedPreference === 'Preferred solution'}
+		{:else if $selectedPreference === PREFERENCE_TYPES.PreferredSolution}
 			<p class="mb-2 text-sm text-gray-500">Select one or multiple preferred solutions.</p>
 			<!-- 			{#each objectives as item}
 				<div class="mb-1">
@@ -340,13 +324,14 @@
 			<p>Select a preference type to view options.</p>
 		{/if}
 	</Sidebar.Content>
+
 	<Sidebar.Footer>
 		<div class="items-right flex justify-end gap-2">
 			<Button
 				variant="default"
 				size="sm"
 				onclick={() => {
-					selectedPreference.set(preference_types[0]);
+					selectedPreference.set(validPreferenceTypes[0]);
 					referencePointValues.set(problem.objectives.map((obj: any) => obj.ideal));
 					onIterate?.({
 						preferenceType: $selectedPreference,
@@ -361,7 +346,7 @@
 				variant="secondary"
 				size="sm"
 				onclick={() => {
-					selectedPreference.set(preference_types[0]);
+					selectedPreference.set(validPreferenceTypes[0]);
 					referencePointValues.set(problem.objectives.map((obj: any) => obj.ideal));
 					onFinish?.({
 						value: $selectedPreference
