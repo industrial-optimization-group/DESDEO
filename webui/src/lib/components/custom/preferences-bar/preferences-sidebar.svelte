@@ -1,7 +1,7 @@
 <script lang="ts">
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import PreferenceSwitcher from './preference-switcher.svelte';
-	import { writable } from 'svelte/store';
+	import { writable, type Writable } from 'svelte/store';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import type { components } from '$lib/api/client-types';
 	import {
@@ -12,16 +12,20 @@
 	import ValidatedTextbox from '../validated-textbox/validated-textbox.svelte';
 	import { COLOR_PALETTE } from '$lib/components/visualizations/utils/colors.js';
 	type ProblemInfo = components['schemas']['ProblemInfo'];
-
-		interface Props {
+	import { CLASSIFICATION_TYPES } from '$lib/constants/index.js';
+	interface Props {
 		preference_types: string[];
 		problem: ProblemInfo;
 		onChange?: (event: { value: string; preference: number[]; numSolutions: number }) => void;
-		onIterate?: () => void;
-		onFinish?: () => void;
+		onIterate?: (event: {
+			preferenceType: string;
+			preferenceValue: any;
+			numSolutions: number;
+		}) => void;
+		onFinish?: (event: { value: string }) => void;
 		showNumSolutions?: boolean;
 		ref?: HTMLElement | null;
-		referencePointValues?: typeof writable<number[]>;
+		referencePointValues?: Writable<number[]>;
 		handleReferencePointChange?: (idx: number, newValue: number) => void;
 		preference?: number[];
 		numSolutions?: number;
@@ -45,68 +49,57 @@
 		maxNumSolutions = 4
 	}: Props = $props();
 
-
 	// Store for the currently selected preference type
 	const selectedPreference = writable(preference_types[0]);
 	console.log('Problem in preferences sidebar:', problem);
 
-	// preferences and numSolutions come as props, 
+	// preferences and numSolutions come as props,
 	// but these states keep them in sync in both input and slider,
 	// so that onChange-function has the latest preference and numSolutions
 	let internalPreference = $state<number[]>(
-		preference && preference.length > 0 
-			? [...preference] 
-			: []
+		preference && preference.length > 0 ? [...preference] : []
 	);
 	let internalNumSolutions = $state<number>(numSolutions);
 
-    const classification = {
-        ChangeFreely: "Change freely",
-        WorsenUntil: "Worsen until",
-        KeepConstant: "Keep constant at",
-        ImproveUntil: "Improve until",
-        ImproveFreely: "Improve freely",
-    } as const;
-
-    // Create a derived classification array for nimbus classification
+	// Create a derived classification array for nimbus classification
 	// copied almost straight from old nimbus
-    let classificationValues = $derived(
-		$selectedPreference === 'Classification' 
-			? problem.objectives.map((objective, idx:number) => {
-				if (objective.ideal == null || objective.nadir == null) {
-					return classification.ChangeFreely;
-				}
-				
-				const selectedValue = internalPreference[idx];
-				const solutionValue = objective.ideal;
-				const lowerBound = Math.min(objective.ideal, objective.nadir);
-				const higherBound = Math.max(objective.ideal, objective.nadir);
-				const precision = 0.001; // Adjust as needed
+	let classificationValues = $derived(
+		$selectedPreference === 'Classification'
+			? problem.objectives.map((objective, idx: number) => {
+					if (objective.ideal == null || objective.nadir == null) {
+						return CLASSIFICATION_TYPES.ChangeFreely;
+					}
 
-				if (selectedValue === undefined || solutionValue === undefined) {
-					return classification.ChangeFreely;
-				} else if (
-					Math.abs(selectedValue - lowerBound) < precision ||
-					selectedValue < lowerBound
-				) {
-					return classification.ChangeFreely;
-				} else if (
-					Math.abs(selectedValue - higherBound) < precision ||
-					selectedValue > higherBound
-				) {
-					return classification.ImproveFreely;
-				} else if (Math.abs(selectedValue - solutionValue) < precision) {
-					return classification.KeepConstant;
-				} else if (selectedValue < solutionValue) {
-					return classification.WorsenUntil;
-				} else if (selectedValue > solutionValue) {
-					return classification.ImproveUntil;
-				}
-				
-				return classification.ChangeFreely; // fallback
-			})
+					const selectedValue = internalPreference[idx];
+					const solutionValue = objective.ideal;
+					const lowerBound = Math.min(objective.ideal, objective.nadir);
+					const higherBound = Math.max(objective.ideal, objective.nadir);
+					const precision = 0.001; // Adjust as needed
+
+					if (selectedValue === undefined || solutionValue === undefined) {
+						return CLASSIFICATION_TYPES.ChangeFreely;
+					} else if (
+						Math.abs(selectedValue - lowerBound) < precision ||
+						selectedValue < lowerBound
+					) {
+						return CLASSIFICATION_TYPES.ChangeFreely;
+					} else if (
+						Math.abs(selectedValue - higherBound) < precision ||
+						selectedValue > higherBound
+					) {
+						return CLASSIFICATION_TYPES.ImproveFreely;
+					} else if (Math.abs(selectedValue - solutionValue) < precision) {
+						return CLASSIFICATION_TYPES.KeepConstant;
+					} else if (selectedValue < solutionValue) {
+						return CLASSIFICATION_TYPES.WorsenUntil;
+					} else if (selectedValue > solutionValue) {
+						return CLASSIFICATION_TYPES.ImproveUntil;
+					}
+
+					return CLASSIFICATION_TYPES.ChangeFreely; // fallback
+				})
 			: []
-    );
+	);
 
 	function handleReferencePointChangeInternal(idx: number, newValue: number) {
 		referencePointValues.update((values) => {
@@ -114,7 +107,11 @@
 			updated[idx] = newValue;
 			return updated;
 		});
-		onChange?.({ value: String(newValue) });
+		onChange?.({
+			value: String(newValue),
+			preference: [...internalPreference],
+			numSolutions: internalNumSolutions
+		});
 	}
 </script>
 
@@ -144,24 +141,24 @@
 	</Sidebar.Header>
 	<Sidebar.Content class="h-full px-4">
 		{#if showNumSolutions}
-		<p class="mb-2 text-sm text-gray-500">Provide the maximum number of solutions to generate</p>
-			<Input 
-				type="number" 
-				placeholder="Number of solutions" 
-				class="mb-2 w-full" 
-				bind:value={internalNumSolutions} 
+			<p class="mb-2 text-sm text-gray-500">Provide the maximum number of solutions to generate</p>
+			<Input
+				type="number"
+				placeholder="Number of solutions"
+				class="mb-2 w-full"
+				bind:value={internalNumSolutions}
 				oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
 					const numValue = Number(e.currentTarget.value);
 					// Clamp value within allowed range
 					const clampedValue = Math.max(minNumSolutions, Math.min(maxNumSolutions, numValue));
-					
+
 					if (numValue !== clampedValue) {
 						internalNumSolutions = clampedValue;
 					}
-					onChange?.({ 
+					onChange?.({
 						value: e.currentTarget.value,
 						preference: [...internalPreference],
-						numSolutions: internalNumSolutions 
+						numSolutions: internalNumSolutions
 					});
 				}}
 			/>
@@ -173,17 +170,19 @@
 				{#if objective.ideal != null && objective.nadir != null}
 					{@const minValue = Math.min(objective.ideal, objective.nadir)}
 					{@const maxValue = Math.max(objective.ideal, objective.nadir)}
-		
-					<div class="flex items-center justify-between mb-2">
+
+					<div class="mb-2 flex items-center justify-between">
 						<div>
 							<!-- Objective name with unit and optimization direction -->
-							<div class="text-sm font-medium mb-1">
+							<div class="mb-1 text-sm font-medium">
 								{objective.name}
 								{#if objective.unit}({objective.unit}){/if}
-								<span class="text-gray-500">({objective.maximize ? "max" : "min"})</span>
+								<span class="text-gray-500">({objective.maximize ? 'max' : 'min'})</span>
 							</div>
 							<!-- Current NIMBUS classification label -->
-							<label for="input-{idx}" class="text-xs text-gray-500">{classificationValues[idx]}</label>
+							<label for="input-{idx}" class="text-xs text-gray-500"
+								>{classificationValues[idx]}</label
+							>
 							<Input
 								type="number"
 								id="input-{idx}"
@@ -191,16 +190,16 @@
 								min={minValue}
 								max={maxValue}
 								bind:value={internalPreference[idx]}
-								class="w-20 h-8 text-sm"
+								class="h-8 w-20 text-sm"
 								oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
 									const numValue = Number(e.currentTarget.value);
 									// Clamp value within allowed range
 									const clampedValue = Math.max(minValue, Math.min(maxValue, numValue));
-									
+
 									if (numValue !== clampedValue) {
 										internalPreference[idx] = clampedValue;
 									}
-									onChange?.({ 
+									onChange?.({
 										value: e.currentTarget.value,
 										preference: [...internalPreference],
 										numSolutions: internalNumSolutions
@@ -220,8 +219,8 @@
 								aspectRatio: 'aspect-[11/2]'
 							}}
 							onSelect={(newValue: number) => {
-								internalPreference[idx] = newValue
-								onChange?.({ 
+								internalPreference[idx] = newValue;
+								onChange?.({
 									value: String(newValue),
 									preference: [...internalPreference],
 									numSolutions: internalNumSolutions
@@ -230,7 +229,9 @@
 						/>
 					</div>
 				{:else}
-					<div class="text-sm text-red-500">Objective {objective.name} missing ideal/nadir values</div>
+					<div class="text-sm text-red-500">
+						Objective {objective.name} missing ideal/nadir values
+					</div>
 				{/if}
 			{/each}
 		{:else if $selectedPreference === 'Reference point'}
@@ -238,7 +239,7 @@
 				{#if objective.ideal != null && objective.nadir != null}
 					<div class="mb-4 flex flex-col gap-2">
 						<div class="text-sm font-semibold text-gray-700">
-							{objective.name} ({objective.maximize ? "max" : "min"})
+							{objective.name} ({objective.maximize ? 'max' : 'min'})
 						</div>
 						<div class="flex flex-row">
 							<div class="flex w-1/4 flex-col justify-center">
@@ -263,7 +264,7 @@
 									solutionValue={$referencePointValues[idx]}
 									selectedValue={$referencePointValues[idx]}
 									barColor={COLOR_PALETTE[idx % COLOR_PALETTE.length]}
-									direction={objective.maximize ? "max" : "min"}
+									direction={objective.maximize ? 'max' : 'min'}
 									options={{
 										decimalPrecision: 2,
 										showPreviousValue: false,
@@ -277,7 +278,9 @@
 						</div>
 					</div>
 				{:else}
-					<div class="text-sm text-red-500">Objective {objective.name} missing ideal/nadir values</div>
+					<div class="text-sm text-red-500">
+						Objective {objective.name} missing ideal/nadir values
+					</div>
 				{/if}
 			{/each}
 		{:else if $selectedPreference === 'Ranges'}
@@ -285,7 +288,7 @@
 				{#if objective.ideal != null && objective.nadir != null}
 					<div class="mb-4 flex flex-col gap-2">
 						<div class="text-sm font-semibold text-gray-700">
-							{objective.name} ({objective.maximize ? "max" : "min"})
+							{objective.name} ({objective.maximize ? 'max' : 'min'})
 						</div>
 						<div class="flex flex-row">
 							<div class="flex w-1/4 flex-col justify-center">
@@ -310,7 +313,7 @@
 									lowerBound={$referencePointValues[idx]}
 									upperBound={$referencePointValues[idx]}
 									barColor={COLOR_PALETTE[idx % COLOR_PALETTE.length]}
-									direction={objective.maximize ? "max" : "min"}
+									direction={objective.maximize ? 'max' : 'min'}
 									options={{
 										decimalPrecision: 2,
 										showPreviousValue: false,
@@ -321,7 +324,9 @@
 						</div>
 					</div>
 				{:else}
-					<div class="text-sm text-red-500">Objective {objective.name} missing ideal/nadir values</div>
+					<div class="text-sm text-red-500">
+						Objective {objective.name} missing ideal/nadir values
+					</div>
 				{/if}
 			{/each}
 		{:else if $selectedPreference === 'Preferred solution'}
@@ -343,7 +348,11 @@
 				onclick={() => {
 					selectedPreference.set(preference_types[0]);
 					referencePointValues.set(problem.objectives.map((obj: any) => obj.ideal));
-					onIterate?.(selectedPreference, referencePointValues);
+					onIterate?.({
+						preferenceType: $selectedPreference,
+						preferenceValue: [...internalPreference],
+						numSolutions: internalNumSolutions
+					});
 				}}
 			>
 				Iterate
@@ -354,7 +363,9 @@
 				onclick={() => {
 					selectedPreference.set(preference_types[0]);
 					referencePointValues.set(problem.objectives.map((obj: any) => obj.ideal));
-					onFinish?.(referencePointValues);
+					onFinish?.({
+						value: $selectedPreference
+					});
 				}}
 			>
 				Finish
