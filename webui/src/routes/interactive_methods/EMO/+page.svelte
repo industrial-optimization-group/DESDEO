@@ -10,10 +10,16 @@
 	let problem: ProblemInfo | null = $state(null);
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import { Combobox } from '$lib/components/ui/combobox';
+	import { PREFERENCE_TYPES } from '$lib/constants';
 
 	const { data } = $props<{ data: ProblemInfo[] }>();
+
 	let problemList = data.problems ?? [];
 	let selectedTypeSolutions = $state('current');
+
+	let currentPreference = $state({ type: '', value: [] });
+	let previousPreference = $state({ type: '', value: [] });
+	let selectedSolution = $state<number[]>([]);
 
 	const type_solutions_to_visualize = [
 		{ value: 'current', label: 'Current solutions' },
@@ -24,6 +30,14 @@
 	function handleChange(event: { value: string }) {
 		selectedTypeSolutions = event.value;
 		console.log('Selected type of solutions:', selectedTypeSolutions);
+	}
+
+	function handleIterate(event: { preferenceType: string; preferenceValue: any }) {
+		console.log('Iterate event:', event);
+		previousPreference.type = currentPreference.type;
+		previousPreference.value = currentPreference.value;
+		currentPreference.type = event.preferenceType;
+		currentPreference.value = event.preferenceValue;
 	}
 
 	onMount(() => {
@@ -39,8 +53,13 @@
 	{#if problem}
 		<AppSidebar
 			{problem}
-			preference_types={['Reference point', 'Ranges', 'Preferred solution']}
+			preference_types={[
+				PREFERENCE_TYPES.ReferencePoint,
+				PREFERENCE_TYPES.PreferredRange,
+				PREFERENCE_TYPES.PreferredSolution
+			]}
 			showNumSolutions={true}
+			onIterate={handleIterate}
 		/>
 	{/if}
 

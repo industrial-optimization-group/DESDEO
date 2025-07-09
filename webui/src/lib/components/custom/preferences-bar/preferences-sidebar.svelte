@@ -19,7 +19,11 @@
 	interface Props {
 		preference_types: PreferenceValue[];
 		problem: ProblemInfo;
-		onChange?: (event: { value: string; preference: number[]; numSolutions: number }) => void;
+		onChange?: (event: {
+			preferenceType: string;
+			preference: number[];
+			numSolutions: number;
+		}) => void;
 		onIterate?: (event: {
 			preferenceType: PreferenceValue;
 			preferenceValue: any;
@@ -90,7 +94,7 @@
 			return updated;
 		});
 		onChange?.({
-			value: String(newValue),
+			preferenceType: $selectedPreference,
 			preference: [...internalPreference],
 			numSolutions: internalNumSolutions
 		});
@@ -138,7 +142,7 @@
 						internalNumSolutions = clampedValue;
 					}
 					onChange?.({
-						value: e.currentTarget.value,
+						preferenceType: $selectedPreference,
 						preference: [...internalPreference],
 						numSolutions: internalNumSolutions
 					});
@@ -183,7 +187,7 @@
 										internalPreference[idx] = clampedValue;
 									}
 									onChange?.({
-										value: e.currentTarget.value,
+										preferenceType: $selectedPreference,
 										preference: [...internalPreference],
 										numSolutions: internalNumSolutions
 									});
@@ -204,7 +208,7 @@
 							onSelect={(newValue: number) => {
 								internalPreference[idx] = newValue;
 								onChange?.({
-									value: String(newValue),
+									preferenceType: $selectedPreference,
 									preference: [...internalPreference],
 									numSolutions: internalNumSolutions
 								});
