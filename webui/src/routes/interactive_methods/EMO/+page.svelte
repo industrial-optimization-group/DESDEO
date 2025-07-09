@@ -12,14 +12,31 @@
 	import { Combobox } from '$lib/components/ui/combobox';
 
 	const { data } = $props<{ data: ProblemInfo[] }>();
-	let problemList = data.problems ?? [];
-	let selectedTypeSolutions = 'current';
-
-	const frameworks = [
+	const type_solutions_shown = [
 		{ value: 'current', label: 'Current solutions' },
 		{ value: 'best', label: 'Best solutions' },
 		{ value: 'all', label: 'All solutions' }
 	];
+
+	// Default values for the EMO method
+	const selectedMethod = 'NSGA3';
+	const maxEvaluations = 1000;
+	const numberOfVectors = 50;
+
+	let problemList = data.problems ?? [];
+	let problemId = $methodSelection.selectedProblemId;
+
+	// Your variables
+	let selectedSolutions: any = []; // Array of EMOSolution objects
+	let savedSolutions = [];
+
+	// Reactive state
+	let selectedTypeSolutions = $state('current');
+
+	// Derived/computed values (automatically reactive)
+	let currentFramework = $derived(
+		type_solutions_shown.find((f) => f.value === selectedTypeSolutions)
+	);
 
 	function handleChange(event: { value: string }) {
 		selectedTypeSolutions = event.value;
@@ -33,6 +50,85 @@
 			);
 		}
 	});
+
+	// Save solutions
+	async function saveSolutions() {
+		try {
+			const response = await fetch('/interactive_methods/EMO/save', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					problemId,
+					solutions: selectedSolutions,
+					name: 'My EMO Solutions'
+				})
+			});
+
+			const result = await response.json();
+
+			if (result.success) {
+				console.log('Saved successfully:', result.data);
+				// Optionally refresh saved solutions list
+				await loadSavedSolutions();
+			} else {
+				console.error('Save failed:', result.error);
+			}
+		} catch (error) {
+			console.error('Save error:', error);
+		}
+	}
+
+	// Load saved solutions
+	async function loadSavedSolutions() {
+		try {
+			const response = await fetch(
+				`/interactive_methods/EMO/saved-solutions?problem_id=${problemId}`
+			);
+			const result = await response.json();
+
+			if (result.success) {
+				savedSolutions = result.data;
+			} else {
+				console.error('Load failed:', result.error);
+			}
+		} catch (error) {
+			console.error('Load error:', error);
+		}
+	}
+
+	// Solve EMO problem
+	async function solveEMO() {
+		try {
+			const response = await fetch('/interactive_methods/EMO/solve', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					problemId,
+					method: selectedMethod,
+					maxEvaluations: maxEvaluations,
+					numberOfVectors: numberOfVectors,
+					useArchive: true,
+					preference: {
+						aspiration_levels: {
+							f_1_min: 0.5,
+							f_2_min: 0.3
+						}
+					}
+				})
+			});
+
+			const result = await response.json();
+
+			if (result.success) {
+				console.log('Solve successful:', result.data);
+				// Use the solutions from result.data
+			} else {
+				console.error('Solve failed:', result.error);
+			}
+		} catch (error) {
+			console.error('Solve error:', error);
+		}
+	}
 </script>
 
 <div class="flex min-h-[calc(100vh-3rem)]">
@@ -53,7 +149,7 @@
 						<div>
 							<span>View: </span>
 							<Combobox
-								options={frameworks}
+								options={type_solutions_shown}
 								defaultSelected={selectedTypeSolutions}
 								onChange={handleChange}
 							/>
@@ -85,4 +181,12 @@
 	</div>
 
 	<AdvancedSidebar />
+</div>
+
+<div>
+	<button onclick={solveEMO}>Solve EMO Problem</button>
+	<button onclick={saveSolutions} disabled={selectedSolutions.length === 0}>
+		Save Selected Solutions
+	</button>
+	<button onclick={loadSavedSolutions}>Load Saved Solutions</button>
 </div>
