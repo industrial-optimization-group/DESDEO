@@ -44,7 +44,8 @@ __all__ = [
     "ProblemMetaDataDB",
     "ForestProblemMetaData",
     "Group",
-    "GroupSessionJoinRequest",
+    "GroupAddRequest",
+    "GroupCreateRequest",
 ]
 
 from .archive import UserSavedSolutionBase, UserSavedSolutionDB
@@ -87,4 +88,4 @@ from .state import (
     StateDB,
 )
 from .user import User, UserBase, UserPublic, UserRole
-from .gdm import Group, GroupSessionJoinRequest
+from .gdm import Group, GroupAddRequest, GroupCreateRequest
