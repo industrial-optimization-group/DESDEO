@@ -1,4 +1,5 @@
 """Tests related to routes and routers."""
+import json
 
 from fastapi import status
 from fastapi.testclient import TestClient
@@ -15,6 +16,10 @@ from desdeo.api.models import (
     ReferencePoint,
     RPMSolveRequest,
     User,
+    GroupCreateRequest,
+    GroupModifyRequest,
+    GroupInfoRequest,
+    GroupPublic
 )
 from desdeo.api.models.archive import UserSavedSolverResults
 from desdeo.api.models.generic import IntermediateSolutionRequest
@@ -402,3 +407,93 @@ def test_login_logout(client: TestClient):
     # Access token NOT refreshed
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
     
+
+def test_group_operations(client: TestClient):
+
+    create_endpoint = "/gdm/create_group"
+    add_user_endpoint = "/gdm/add_to_group"
+    remove_user_endpoint = "/gdm/remove_from_group"
+    group_info_endpoint = "/gdm/get_group_info"
+
+    # login to analyst
+    access_token = login(client=client, username="analyst", password="analyst")
+
+    # try to create group with no problem
+    response = post_json(
+        client=client,
+        endpoint=create_endpoint,
+        json=GroupCreateRequest(
+            group_name="testGroup", 
+            problem_id=10
+        ).model_dump(),
+        access_token=access_token
+    )
+    assert response.status_code == 404
+
+    # Create group properly
+    response = post_json(
+        client=client,
+        endpoint=create_endpoint,
+        json=GroupCreateRequest(
+            group_name="testGroup", 
+            problem_id=2
+        ).model_dump(),
+        access_token=access_token
+    )
+    assert response.status_code == 201
+
+    # Add a user to database
+    response = client.post(
+        "/add_new_dm",
+        data={"username": "new_dm", "password": "new_dm", "grant_type": "password"},
+        headers={"content-type": "application/x-www-form-urlencoded"},
+    )
+    assert response.status_code == status.HTTP_201_CREATED
+
+    # Add user to a group
+    response = post_json(
+        client=client,
+        endpoint=add_user_endpoint,
+        json=GroupModifyRequest(
+            group_id=1,
+            user_id=2
+        ).model_dump(),
+        access_token=access_token
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    response = post_json(
+        client=client,
+        endpoint=group_info_endpoint,
+        json=GroupInfoRequest(
+            group_id=1,
+        ).model_dump(),
+        access_token=access_token
+    )
+    assert response.status_code == status.HTTP_200_OK
+    group: GroupPublic = GroupPublic.model_validate(json.loads(response.content.decode("utf-8")))
+    assert 2 in group.user_ids
+
+    # Remove user from a group
+    response = post_json(
+        client=client,
+        endpoint=remove_user_endpoint,
+        json=GroupModifyRequest(
+            group_id=1,
+            user_id=2
+        ).model_dump(),
+        access_token=access_token
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    response = post_json(
+        client=client,
+        endpoint=group_info_endpoint,
+        json=GroupInfoRequest(
+            group_id=1,
+        ).model_dump(),
+        access_token=access_token
+    )
+    assert response.status_code == status.HTTP_200_OK
+    group: GroupPublic = GroupPublic.model_validate(json.loads(response.content.decode("utf-8")))
+    assert 2 not in group.user_ids

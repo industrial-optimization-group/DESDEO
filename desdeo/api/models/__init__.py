@@ -47,6 +47,8 @@ __all__ = [
     "GroupModifyRequest",
     "GroupCreateRequest",
     "GroupIteration",
+    "GroupPublic",
+    "GroupInfoRequest"
 ]
 
 from .archive import UserSavedSolutionBase, UserSavedSolutionDB
@@ -89,4 +91,11 @@ from .state import (
     StateDB,
 )
 from .user import User, UserBase, UserPublic, UserRole
-from .gdm import Group, GroupModifyRequest, GroupCreateRequest, GroupIteration
+from .gdm import (
+    Group, 
+    GroupModifyRequest, 
+    GroupCreateRequest, 
+    GroupIteration,
+    GroupPublic,
+    GroupInfoRequest
+)

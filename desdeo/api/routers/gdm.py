@@ -17,8 +17,10 @@ from desdeo.api.models import (
     Group, 
     GroupModifyRequest, 
     GroupCreateRequest, 
-    GroupIteration, 
-    ProblemDB
+    GroupIteration,
+    GroupInfoRequest,
+    GroupPublic,
+    ProblemDB,
 )
 from desdeo.api.db import get_session
 from desdeo.api.routers.user_authentication import get_current_user
@@ -48,7 +50,8 @@ class GroupManager:
         try:
             iteration = group.group_iterations[-1]
         except IndexError:
-            print("no iterations!")
+            if debug:
+                print("no iterations!")
             iteration = GroupIteration(
                 group_id=group_id,
                 group=group,
@@ -61,18 +64,27 @@ class GroupManager:
             session.commit()
             session.refresh(iteration)
 
-        print("prefs")
-        print(iteration.set_preferences)
+        if debug:
+            print("preferences:")
+            print(iteration.set_preferences)
+            print("-------------")
         # Load iteration-specific existing preferences from database
         for user_id in group.user_ids:
             try:
-                self.active_group_session[user_id] = {"preference": iteration.set_preferences[str(user_id)], "socket": None}
+                self.active_group_session[user_id] = {
+                    "preference": iteration.set_preferences[str(user_id)], 
+                    "socket": None,
+                }
             except KeyError:
-                print("no preferences!")
-                self.active_group_session[user_id] = {"preference": None, "socket": None}
-        print(group.user_ids)
-        print(self.active_group_session)
-
+                if debug:
+                    print("no preferences!")
+                self.active_group_session[user_id] = {
+                    "preference": None,
+                    "socket": None
+                }
+        if debug:
+            print(f"Group user IDs: {group.user_ids}")
+            print(f"Active group session: {self.active_group_session}")
 
 
     async def connect(
@@ -80,6 +92,7 @@ class GroupManager:
         user_id: int,
         websocket: WebSocket
     ):
+        """Connect to websocket"""
         await websocket.accept()
         self.active_group_session[user_id]["socket"] = websocket
 
@@ -89,11 +102,13 @@ class GroupManager:
         user: str,
         websocket: WebSocket
     ):
+        """Disconnect from websocket"""
         if self.active_group_session[user]["socket"] == websocket:
             self.active_group_session[user]["socket"] = None
 
 
     async def broadcast(self, message: str):
+        """Send message to all connected websockets"""
         if self.active_group_session != {}:
             for user, dictionary in self.active_group_session.items():
                 try:
@@ -105,7 +120,8 @@ class GroupManager:
 
     # A dummy for implementing actual optimization
     async def run_optim(self):
-        # Synthesize preferences, details are method specific
+        """A dummy for implementing actual optimization"""
+        # Synthesize preferences, details are method specific I believe
         await asyncio.sleep(1)
         message = ""
         for usr, dictionary in self.active_group_session.items():
@@ -121,6 +137,7 @@ class GroupManager:
 
 
     async def set_preference(self, user_id: int, data: str):
+        """Set preferences of the user"""
         async with self.lock:
             session = next(get_session())
             group = session.exec(select(Group).where(Group.id == self.group_id)).first()
@@ -142,13 +159,15 @@ class GroupManager:
             for user_id in group.user_ids:
                 try:
                     if self.active_group_session[user_id]["preference"] == None:
-                        print("Not all prefs in!")
+                        if debug: print("Not all prefs in!")
                         return
                 except KeyError:
-                    print("Not all prefs in!")
+                    if debug: print("Not all prefs in!")
                     return
             # If all preferences are in
             await self.run_optim()
+
+            # Reset preferences
             for _, dictionary in self.active_group_session.items():
                 dictionary["preference"] = None
             
@@ -180,8 +199,6 @@ class GroupManager:
             session.refresh(group)
 
             
-
-
 class ManagerManager:
     """A class to manage group managers. Spawns them and deletes them."""
 
@@ -206,17 +223,17 @@ class ManagerManager:
         """If no active connections, remove group manager"""
         async with self.lock:
             group_manager = self.group_managers[group_id]
-            empty = True
             for _, dictionary in group_manager.active_group_session.items():
+                # There are active sockets in here!
                 if dictionary["socket"] != None:
-                    empty = False
-            if empty:
-                async with group_manager.lock:
-                    try:
-                        del self.group_managers[group_id]
-                    except:
-                        if debug:
-                            print(f"Group {group_id} already deleted!")
+                    return
+            # No active sockets, proceed with the deletion
+            async with group_manager.lock:
+                try:
+                    del self.group_managers[group_id]
+                except:
+                    if debug:
+                        print(f"Group {group_id} already deleted!")
 
 
 manager = ManagerManager()
@@ -228,12 +245,24 @@ def create_group(
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)]
 ) -> JSONResponse:
-    """Suppose a group is attached to only one problem. Does that make any sense?"""
+    """Create group.
 
-    problem = session.exec(select(ProblemDB).where(ProblemDB.id == request.problem_id))
+    Args:
+        request (GroupCreateRequest): a request that holds information to be used in creation of the group.
+        user (Annotated[User, Depends(get_current_user)]): the current user.
+        session (Annotated[Session, Depends(get_session)]): the database session.
+    
+    Returns:
+        JSONResponse: Aknowledgement that the gourp was created
+
+    Raises:
+        HTTPException
+    """
+
+    problem = session.exec(select(ProblemDB).where(ProblemDB.id == request.problem_id)).first()
     if problem == None:
         raise HTTPException(
-            detail=f"There's no problem with if {request.problem_id}!",
+            detail=f"There's no problem with ID {request.problem_id}!",
             status_code=status.HTTP_404_NOT_FOUND
         )
 
@@ -260,11 +289,24 @@ def create_group(
     )
 
 @router.post("/add_to_group")
-def join_group(
+def add_to_group(
     request: GroupModifyRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)]
 ) -> JSONResponse:
+    """Add a user to a group.
+
+    Args:
+        request (GroupModifyRequest): Request object that has group and user IDs. 
+        user (Annotated[User, Depends(get_current_user)]): the current user.
+        session (Annotated[Session, Depends(get_session)]): the database session.
+
+    Returns:
+        JSONResponse: Aknowledge that user has been added to the group
+
+    Raises:
+        HTTPException: Authorization issues, group or user not found.
+    """
     group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
     # Make sure the group exists
     if group == None:
@@ -279,6 +321,12 @@ def join_group(
             status_code=status.HTTP_401_UNAUTHORIZED
         )
     
+    if request.user_id in group.user_ids:
+        raise HTTPException(
+            detail="User already in this group!",
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
     addee = session.exec(select(User).where(User.id == request.user_id)).first()
     # Make sure the user to be added exists
     if addee == None:
@@ -310,6 +358,81 @@ def join_group(
         status_code=status.HTTP_200_OK
     )
 
+
+@router.post("/remove_from_group")
+def remove_from_group(
+    request: GroupModifyRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)]
+) -> JSONResponse:
+    """Remove user from group.
+
+    Args:
+        request (GroupModifyRequest): Request object that has group and user IDs. 
+        user (Annotated[User, Depends(get_current_user)]): the current user.
+        session (Annotated[Session, Depends(get_session)]): the database session.
+
+    Returns:
+        JSONResponse: Aknowledge that user has been removed from the group.
+
+    Raises:
+        HTTPException: Authorization issues, group or user not found.
+    """
+    group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
+    # Make sure the group exists
+    if group == None:
+        raise HTTPException(
+            detail="There's no such group!",
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    # Make sure of proper authorization 
+    authorized = True if (user.id == group.owner_id or user.id == request.user_id) else False
+
+    if not authorized:
+        raise HTTPException(
+            detail="Unauthorized user",
+            status_code=status.HTTP_401_UNAUTHORIZED
+        )
+    
+    if request.user_id not in group.user_ids:
+        raise HTTPException(
+            detail="User is not in this group!",
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+    
+    user_ids = group.user_ids.copy()
+    user_ids.remove(request.user_id)
+    group.user_ids = user_ids
+    session.add(group)
+    session.commit()
+    session.refresh(group)
+
+    if request.user_id in group.user_ids:
+        raise HTTPException(
+            detail=f"Could not remove User {request.user_id} from group {request.group_id}.",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+    return JSONResponse(
+        content={"message": f"User {request.user_id} removed from group {request.group_id}."},
+        status_code=status.HTTP_200_OK
+    )
+
+@router.post("/get_group_info")
+def get_group_info(
+    request: GroupInfoRequest,
+    session: Annotated[Session, Depends(get_session)],
+) -> GroupPublic:
+    """Get information about the group"""
+    group = session.exec(select(Group).where(Group.id == request.group_id)).first()
+    if group == None:
+        raise HTTPException(
+            detail=f"No group with ID {request.group_id} found!",
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+    
+    return group
+
 @router.post("/get_results")
 def get_results(
     user: Annotated[User, Depends(get_current_user)],
@@ -335,6 +458,8 @@ async def websocket_endpoint(
             status_code=status.HTTP_404_NOT_FOUND
         )
     # Validate user or something.
+
+    # Get the group manager object from the manager of group managers
     group_manager = await manager.get_group_manager(group_id=group_id_int)
     await group_manager.connect(user_id_int, websocket)
     print(group_manager.group_id)

@@ -5,7 +5,10 @@ from sqlmodel import SQLModel, Field, Relationship, JSON, Column
 from desdeo.api.models import User, ProblemDB, PreferenceBase
 from desdeo.tools import SolverResults
 
-class Group(SQLModel, table=True):
+class GroupBase(SQLModel):
+    """Base class for group table model and group response model"""
+
+class Group(GroupBase, table=True):
     """Table model for Group"""
     id: int | None = Field(primary_key=True, default=None)
     name: str | None = Field(default=None)
@@ -17,6 +20,13 @@ class Group(SQLModel, table=True):
 
     group_iterations: list["GroupIteration"] | None = Relationship(back_populates="group")
 
+class GroupPublic(GroupBase):
+    """Response model for Group"""
+    id: int
+    name: str
+    owner_id: int
+    user_ids: list[int]
+    problem_id: int
 
 class GroupIteration(SQLModel, table=True):
     """Table model for Group Iteration"""
@@ -36,6 +46,8 @@ class GroupIteration(SQLModel, table=True):
 
     child: "GroupIteration" = Relationship(back_populates="parent")
 
+class GroupInfoRequest(SQLModel):
+    group_id: int
 
 class GroupResult(SQLModel):
     solver_results: list[SolverResults]
