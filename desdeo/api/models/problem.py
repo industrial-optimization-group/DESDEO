@@ -21,6 +21,7 @@ from desdeo.problem.schema import (
     Tensor,
     TensorConstant,
     TensorVariable,
+    Url,
     Variable,
     VariableDomainTypeEnum,
     VariableType,
@@ -616,11 +617,17 @@ class DiscreteRepresentationDB(_DiscreteRepresentationDB, table=True):
 class _Simulator(SQLModel):
     """Helper class to override the fields of nested and list types, and Paths."""
 
-    file: Path = Field(sa_column=Column(PathType))
+    file: Path | None = Field(sa_column=Column(PathType), default=None)
+    url: str | None = Field(sa_column=Column(String), default=None)
     parameter_options: dict | None = Field(sa_column=Column(JSON), default=None)
 
 
-_SimulatorDB = from_pydantic(Simulator, "_SimulatorDB", base_model=_Simulator)
+_SimulatorDB = from_pydantic(
+    Simulator,
+    "_SimulatorDB",
+    union_type_conversions={Url | None: str | None},
+    base_model=_Simulator,
+)
 
 
 class SimulatorDB(_SimulatorDB, table=True):

@@ -2,6 +2,7 @@
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import PreferenceSwitcher from './preference-switcher.svelte';
 	import { writable, type Writable } from 'svelte/store';
+	import { writable, type Writable } from 'svelte/store';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import type { components } from '$lib/api/client-types';
 	import {
@@ -11,24 +12,42 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import ValidatedTextbox from '../validated-textbox/validated-textbox.svelte';
 	import { COLOR_PALETTE } from '$lib/components/visualizations/utils/colors.js';
+	import {
+		calculateClassification,
+		type PreferenceValue,
+		formatNumber
+	} from '$lib/helpers/index.js';
+	import { PREFERENCE_TYPES, SIGNIFICANT_DIGITS } from '$lib/constants/index.js';
+
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 
 	interface Props {
-		preference_types: string[];
+		preference_types: PreferenceValue[];
 		problem: ProblemInfo;
-		onChange?: (event: { value: string; preference: number[]; numSolutions: number }) => void;
-		onIterate?: (event: {
-			preference_type: string;
-			preference_value: number[];
-			numSolutions: number;
+		num_solutions: number;
+		type_preferences: PreferenceValue;
+		preference_values: number[];
+		objective_values: number[];
+		onPreferenceChange?: (data: {
+			num_solutions: number;
+			type_preferences: PreferenceValue;
+			preference_values: number[];
+			objective_values: number[];
 		}) => void;
-		onFinish?: (event: { selectedSolutionId: number }) => void;
+		onIterate?: (data: {
+			num_solutions: number;
+			type_preferences: PreferenceValue;
+			preference_values: number[];
+			objective_values: number[];
+		}) => void;
+		onFinish?: (data: {
+			num_solutions: number;
+			type_preferences: PreferenceValue;
+			preference_values: number[];
+			objective_values: number[];
+		}) => void;
 		showNumSolutions?: boolean;
 		ref?: HTMLElement | null;
-		referencePointValues?: Writable<number[]>;
-		handleReferencePointChange?: (idx: number, newValue: number) => void;
-		preference?: number[];
-		numSolutions?: number;
 		minNumSolutions?: number;
 		maxNumSolutions?: number;
 	}
@@ -36,15 +55,15 @@
 	let {
 		preference_types,
 		problem,
-		onChange,
+		num_solutions,
+		type_preferences,
+		preference_values,
+		objective_values,
+		onPreferenceChange,
 		onIterate,
 		onFinish,
 		showNumSolutions = false,
 		ref = null,
-		referencePointValues = writable(problem.objectives.map((obj: any) => obj.ideal)), // default if not provided
-		handleReferencePointChange = (idx: number, newValue: number) => {}, // default noop
-		preference = undefined,
-		numSolutions = 1,
 		minNumSolutions = 1,
 		maxNumSolutions = 4
 	}: Props = $props();
@@ -106,20 +125,97 @@
 
 					return classification.ChangeFreely; // fallback
 				})
+
+	// Validate that preference_types only contains valid values
+	const validPreferenceTypes = preference_types.filter((type) =>
+		Object.values(PREFERENCE_TYPES).includes(type as PreferenceValue)
+	);
+
+	if (validPreferenceTypes.length !== preference_types.length) {
+		console.warn(
+			'Invalid preference types detected:',
+			preference_types.filter(
+				(type) => !Object.values(PREFERENCE_TYPES).includes(type as PreferenceValue)
+			)
+		);
+	}
+
+	// Internal state that syncs with props
+	let internalNumSolutions = $state(num_solutions);
+	let internalTypePreferences = $state(type_preferences);
+	let internalPreferenceValues = $state([...preference_values]);
+	let internalObjectiveValues = $state([...objective_values]);
+
+	// Sync internal state with props when they change
+	$effect(() => {
+		internalNumSolutions = num_solutions;
+	});
+
+	$effect(() => {
+		internalTypePreferences = type_preferences;
+	});
+
+	$effect(() => {
+		internalPreferenceValues = [...preference_values];
+	});
+
+	$effect(() => {
+		internalObjectiveValues = [...objective_values];
+	});
+
+	// Classification values for display
+	let classificationValues = $derived(
+		internalTypePreferences === PREFERENCE_TYPES.Classification
+			? problem.objectives.map((objective, idx: number) =>
+					calculateClassification(objective, internalPreferenceValues[idx], 0.001)
+				)
 			: []
 	);
 
-	function handleReferencePointChangeInternal(idx: number, newValue: number) {
-		referencePointValues.update((values) => {
-			const updated = [...values];
-			updated[idx] = newValue;
-			return updated;
+	function notifyChange() {
+		onPreferenceChange?.({
+			num_solutions: internalNumSolutions,
+			type_preferences: internalTypePreferences,
+			preference_values: [...internalPreferenceValues],
+			objective_values: [...internalObjectiveValues]
 		});
-		//Dont know if this is needed, but lets keep it for now
-		onChange?.({
-			value: String(newValue),
-			preference: [...internalPreference],
-			numSolutions: internalNumSolutions
+	}
+
+	function handleNumSolutionsChange(value: number) {
+		internalNumSolutions = value;
+		notifyChange();
+	}
+
+	function handleTypePreferencesChange(type: PreferenceValue) {
+		internalTypePreferences = type;
+		notifyChange();
+	}
+
+	function handlePreferenceValueChange(idx: number, value: number) {
+		internalPreferenceValues[idx] = value;
+		notifyChange();
+	}
+
+	function handleObjectiveValueChange(idx: number, value: number) {
+		internalObjectiveValues[idx] = value;
+		notifyChange();
+	}
+
+	function handleIterate() {
+		onIterate?.({
+			num_solutions: internalNumSolutions,
+			type_preferences: internalTypePreferences,
+			preference_values: [...internalPreferenceValues],
+			objective_values: [...internalObjectiveValues]
+		});
+	}
+
+	function handleFinish() {
+		onFinish?.({
+			num_solutions: internalNumSolutions,
+			type_preferences: internalTypePreferences,
+			preference_values: [...internalPreferenceValues],
+			objective_values: [...internalObjectiveValues]
 		});
 	}
 </script>
@@ -130,11 +226,11 @@
 	class="top-12 flex h-[calc(100vh-6rem)] min-h-[calc(100vh-3rem)] w-[25rem]"
 >
 	<Sidebar.Header>
-		{#if preference_types.length > 1}
+		{#if validPreferenceTypes.length > 1}
 			<PreferenceSwitcher
-				preferences={preference_types}
-				defaultPreference={preference_types[0]}
-				onswitch={(e: string) => selectedPreference.set(e)}
+				preferences={validPreferenceTypes}
+				defaultPreference={internalTypePreferences}
+				onswitch={handleTypePreferencesChange}
 			/>
 		{:else}
 			<Sidebar.MenuButton
@@ -143,11 +239,12 @@
 			>
 				<div class="flex flex-col gap-0.5 leading-none">
 					<span class="font-semibold">Preference information</span>
-					<span class="text-primary-500">{$selectedPreference}</span>
+					<span class="text-primary-500">{internalTypePreferences}</span>
 				</div>
 			</Sidebar.MenuButton>
 		{/if}
 	</Sidebar.Header>
+
 	<Sidebar.Content class="h-full px-4">
 		{#if showNumSolutions}
 			<p class="mb-2 text-sm text-gray-500">Provide the maximum number of solutions to generate</p>
@@ -163,6 +260,20 @@
 
 					if (numValue !== clampedValue) {
 						internalNumSolutions = clampedValue;
+			<p class="mb-2 text-sm text-gray-500">Provide the maximum number of solutions to generate</p>
+			<Input
+				type="number"
+				placeholder="Number of solutions"
+				class="mb-2 w-full"
+				value={internalNumSolutions}
+				min={minNumSolutions}
+				max={maxNumSolutions}
+				oninput={(e) => {
+					const target = e.currentTarget;
+					if (target instanceof HTMLInputElement) {
+						const numValue = Number(target.value);
+						const clampedValue = Math.max(minNumSolutions, Math.min(maxNumSolutions, numValue));
+						handleNumSolutionsChange(clampedValue);
 					}
 					onChange?.({
 						value: e.currentTarget.value,
@@ -172,7 +283,8 @@
 				}}
 			/>
 		{/if}
-		{#if $selectedPreference === 'Classification'}
+
+		{#if internalTypePreferences === PREFERENCE_TYPES.Classification}
 			<p class="mb-2 text-sm text-gray-500">Provide one desirable value for each objective.</p>
 
 			{#each problem.objectives as objective, idx}
@@ -184,6 +296,7 @@
 						<div>
 							<!-- Objective name with unit and optimization direction -->
 							<div class="mb-1 text-sm font-medium">
+							<div class="mb-1 text-sm font-medium">
 								{objective.name}
 								{#if objective.unit}({objective.unit}){/if}
 								<span class="text-gray-500">({objective.maximize ? 'max' : 'min'})</span>
@@ -192,6 +305,9 @@
 							<label for="input-{idx}" class="text-xs text-gray-500"
 								>{classificationValues[idx]}</label
 							>
+							<label for="input-{idx}" class="text-xs text-gray-500">
+								{classificationValues[idx]}
+							</label>
 							<Input
 								type="number"
 								id="input-{idx}"
@@ -207,6 +323,14 @@
 
 									if (numValue !== clampedValue) {
 										internalPreference[idx] = clampedValue;
+								value={internalPreferenceValues[idx] || 0}
+								class="h-8 w-20 text-sm"
+								oninput={(e) => {
+									const target = e.currentTarget;
+									if (target instanceof HTMLInputElement) {
+										const numValue = Number(target.value);
+										const clampedValue = Math.max(minValue, Math.min(maxValue, numValue));
+										handlePreferenceValueChange(idx, clampedValue);
 									}
 									onChange?.({
 										value: e.currentTarget.value,
@@ -218,12 +342,12 @@
 						</div>
 						<HorizontalBar
 							axisRanges={[objective.ideal, objective.nadir]}
-							solutionValue={objective.ideal}
-							selectedValue={internalPreference[idx]}
+							solutionValue={internalObjectiveValues[idx] || objective.ideal}
+							selectedValue={internalPreferenceValues[idx] || 0}
 							barColor="#4f8cff"
 							direction="min"
 							options={{
-								decimalPrecision: 2,
+								decimalPrecision: SIGNIFICANT_DIGITS,
 								showPreviousValue: false,
 								aspectRatio: 'aspect-[11/2]'
 							}}
@@ -235,6 +359,7 @@
 									numSolutions: internalNumSolutions
 								});
 							}}
+							onSelect={(newValue) => handlePreferenceValueChange(idx, newValue)}
 						/>
 					</div>
 				{:else}
@@ -243,7 +368,7 @@
 					</div>
 				{/if}
 			{/each}
-		{:else if $selectedPreference === 'Reference point'}
+		{:else if internalTypePreferences === PREFERENCE_TYPES.ReferencePoint}
 			{#each problem.objectives as objective, idx}
 				{#if objective.ideal != null && objective.nadir != null}
 					<div class="mb-4 flex flex-col gap-2">
@@ -254,24 +379,26 @@
 							<div class="flex w-1/4 flex-col justify-center">
 								<span class="text-sm text-gray-500">Value</span>
 								<ValidatedTextbox
-									placeholder={''}
-									min={objective.ideal < objective.nadir ? objective.ideal : objective.nadir}
-									max={objective.nadir > objective.ideal ? objective.nadir : objective.ideal}
-									value={String($referencePointValues[idx])}
-									onChange={(value: String) => {
+									placeholder=""
+									min={Math.min(objective.ideal, objective.nadir)}
+									max={Math.max(objective.ideal, objective.nadir)}
+									value={String(
+										formatNumber(internalPreferenceValues[idx], SIGNIFICANT_DIGITS) || 0
+									)}
+									onChange={(value) => {
 										const val = Number(value);
-										if (!isNaN(val)) handleReferencePointChangeInternal(idx, val);
+										if (!isNaN(val)) handlePreferenceValueChange(idx, val);
 									}}
 								/>
 							</div>
 							<div class="w-3/4">
 								<HorizontalBar
 									axisRanges={[
-										objective.ideal < objective.nadir ? objective.ideal : objective.nadir,
-										objective.nadir > objective.ideal ? objective.nadir : objective.ideal
+										Math.min(objective.ideal, objective.nadir),
+										Math.max(objective.ideal, objective.nadir)
 									]}
-									solutionValue={$referencePointValues[idx]}
-									selectedValue={$referencePointValues[idx]}
+									solutionValue={internalObjectiveValues[idx] || objective.ideal}
+									selectedValue={internalPreferenceValues[idx] || 0}
 									barColor={COLOR_PALETTE[idx % COLOR_PALETTE.length]}
 									direction={objective.maximize ? 'max' : 'min'}
 									options={{
@@ -279,9 +406,7 @@
 										showPreviousValue: false,
 										aspectRatio: 'aspect-[11/2]'
 									}}
-									onSelect={(value: number) => {
-										handleReferencePointChangeInternal(idx, value);
-									}}
+									onSelect={(value) => handlePreferenceValueChange(idx, value)}
 								/>
 							</div>
 						</div>
@@ -292,7 +417,7 @@
 					</div>
 				{/if}
 			{/each}
-		{:else if $selectedPreference === 'Ranges'}
+		{:else if internalTypePreferences === PREFERENCE_TYPES.PreferredRange}
 			{#each problem.objectives as objective, idx}
 				{#if objective.ideal != null && objective.nadir != null}
 					<div class="mb-4 flex flex-col gap-2">
@@ -303,24 +428,24 @@
 							<div class="flex w-1/4 flex-col justify-center">
 								<span class="text-sm text-gray-500">Value</span>
 								<ValidatedTextbox
-									placeholder={''}
-									min={objective.ideal < objective.nadir ? objective.ideal : objective.nadir}
-									max={objective.nadir > objective.ideal ? objective.nadir : objective.ideal}
-									value={String($referencePointValues[idx])}
-									onChange={(value: String) => {
+									placeholder=""
+									min={Math.min(objective.ideal, objective.nadir)}
+									max={Math.max(objective.ideal, objective.nadir)}
+									value={String(internalPreferenceValues[idx] || 0)}
+									onChange={(value) => {
 										const val = Number(value);
-										if (!isNaN(val)) handleReferencePointChangeInternal(idx, val);
+										if (!isNaN(val)) handlePreferenceValueChange(idx, val);
 									}}
 								/>
 							</div>
 							<div class="w-3/4">
 								<HorizontalBarRanges
 									axisRanges={[
-										objective.ideal < objective.nadir ? objective.ideal : objective.nadir,
-										objective.nadir > objective.ideal ? objective.nadir : objective.ideal
+										Math.min(objective.ideal, objective.nadir),
+										Math.max(objective.ideal, objective.nadir)
 									]}
-									lowerBound={$referencePointValues[idx]}
-									upperBound={$referencePointValues[idx]}
+									lowerBound={internalPreferenceValues[idx] || 0}
+									upperBound={internalPreferenceValues[idx] || 0}
 									barColor={COLOR_PALETTE[idx % COLOR_PALETTE.length]}
 									direction={objective.maximize ? 'max' : 'min'}
 									options={{
@@ -338,47 +463,17 @@
 					</div>
 				{/if}
 			{/each}
-		{:else if $selectedPreference === 'Preferred solution'}
+		{:else if internalTypePreferences === PREFERENCE_TYPES.PreferredSolution}
 			<p class="mb-2 text-sm text-gray-500">Select one or multiple preferred solutions.</p>
-			<!-- 			{#each objectives as item}
-				<div class="mb-1">
-					<span>{item.name}</span>
-				</div>
-			{/each} -->
 		{:else}
 			<p>Select a preference type to view options.</p>
 		{/if}
 	</Sidebar.Content>
+
 	<Sidebar.Footer>
 		<div class="items-right flex justify-end gap-2">
-			<Button
-				variant="default"
-				size="sm"
-				onclick={() => {
-					selectedPreference.set(preference_types[0]);
-					referencePointValues.set(problem.objectives.map((obj: any) => obj.ideal));
-					onIterate?.({
-						preference_type: $selectedPreference,
-						preference_value: [...internalPreference],
-						numSolutions: internalNumSolutions
-					});
-				}}
-			>
-				Iterate
-			</Button>
-			<Button
-				variant="secondary"
-				size="sm"
-				onclick={() => {
-					selectedPreference.set(preference_types[0]);
-					referencePointValues.set(problem.objectives.map((obj: any) => obj.ideal));
-					onFinish?.({
-						selectedSolutionId: -1 // Indicating no solution selected
-					});
-				}}
-			>
-				Finish
-			</Button>
+			<Button variant="default" size="sm" onclick={handleIterate}>Iterate</Button>
+			<Button variant="secondary" size="sm" onclick={handleFinish}>Finish</Button>
 		</div>
 	</Sidebar.Footer>
 	<Sidebar.Rail />
