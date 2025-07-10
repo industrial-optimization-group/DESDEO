@@ -2,7 +2,6 @@
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import PreferenceSwitcher from './preference-switcher.svelte';
 	import { writable, type Writable } from 'svelte/store';
-	import { writable, type Writable } from 'svelte/store';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import type { components } from '$lib/api/client-types';
 	import {
@@ -67,64 +66,6 @@
 		minNumSolutions = 1,
 		maxNumSolutions = 4
 	}: Props = $props();
-
-	// Store for the currently selected preference type
-	const selectedPreference = writable(preference_types[0]);
-	console.log('Problem in preferences sidebar:', problem);
-
-	// preferences and numSolutions come as props,
-	// but these states keep them in sync in both input and slider,
-	// so that onChange-function has the latest preference and numSolutions
-	let internalPreference = $state<number[]>(
-		preference && preference.length > 0 ? [...preference] : []
-	);
-	let internalNumSolutions = $state<number>(numSolutions);
-
-	const classification = {
-		ChangeFreely: 'Change freely',
-		WorsenUntil: 'Worsen until',
-		KeepConstant: 'Keep constant at',
-		ImproveUntil: 'Improve until',
-		ImproveFreely: 'Improve freely'
-	} as const;
-
-	// Create a derived classification array for nimbus classification
-	// copied almost straight from old nimbus
-	let classificationValues = $derived(
-		$selectedPreference === 'Classification'
-			? problem.objectives.map((objective, idx: number) => {
-					if (objective.ideal == null || objective.nadir == null) {
-						return classification.ChangeFreely;
-					}
-
-					const selectedValue = internalPreference[idx];
-					const solutionValue = objective.ideal;
-					const lowerBound = Math.min(objective.ideal, objective.nadir);
-					const higherBound = Math.max(objective.ideal, objective.nadir);
-					const precision = 0.001; // Adjust as needed
-
-					if (selectedValue === undefined || solutionValue === undefined) {
-						return classification.ChangeFreely;
-					} else if (
-						Math.abs(selectedValue - lowerBound) < precision ||
-						selectedValue < lowerBound
-					) {
-						return classification.ChangeFreely;
-					} else if (
-						Math.abs(selectedValue - higherBound) < precision ||
-						selectedValue > higherBound
-					) {
-						return classification.ImproveFreely;
-					} else if (Math.abs(selectedValue - solutionValue) < precision) {
-						return classification.KeepConstant;
-					} else if (selectedValue < solutionValue) {
-						return classification.WorsenUntil;
-					} else if (selectedValue > solutionValue) {
-						return classification.ImproveUntil;
-					}
-
-					return classification.ChangeFreely; // fallback
-				})
 
 	// Validate that preference_types only contains valid values
 	const validPreferenceTypes = preference_types.filter((type) =>
@@ -252,19 +193,6 @@
 				type="number"
 				placeholder="Number of solutions"
 				class="mb-2 w-full"
-				bind:value={internalNumSolutions}
-				oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
-					const numValue = Number(e.currentTarget.value);
-					// Clamp value within allowed range
-					const clampedValue = Math.max(minNumSolutions, Math.min(maxNumSolutions, numValue));
-
-					if (numValue !== clampedValue) {
-						internalNumSolutions = clampedValue;
-			<p class="mb-2 text-sm text-gray-500">Provide the maximum number of solutions to generate</p>
-			<Input
-				type="number"
-				placeholder="Number of solutions"
-				class="mb-2 w-full"
 				value={internalNumSolutions}
 				min={minNumSolutions}
 				max={maxNumSolutions}
@@ -275,11 +203,6 @@
 						const clampedValue = Math.max(minNumSolutions, Math.min(maxNumSolutions, numValue));
 						handleNumSolutionsChange(clampedValue);
 					}
-					onChange?.({
-						value: e.currentTarget.value,
-						preference: [...internalPreference],
-						numSolutions: internalNumSolutions
-					});
 				}}
 			/>
 		{/if}
@@ -294,17 +217,11 @@
 
 					<div class="mb-2 flex items-center justify-between">
 						<div>
-							<!-- Objective name with unit and optimization direction -->
-							<div class="mb-1 text-sm font-medium">
 							<div class="mb-1 text-sm font-medium">
 								{objective.name}
 								{#if objective.unit}({objective.unit}){/if}
 								<span class="text-gray-500">({objective.maximize ? 'max' : 'min'})</span>
 							</div>
-							<!-- Current NIMBUS classification label -->
-							<label for="input-{idx}" class="text-xs text-gray-500"
-								>{classificationValues[idx]}</label
-							>
 							<label for="input-{idx}" class="text-xs text-gray-500">
 								{classificationValues[idx]}
 							</label>
@@ -314,15 +231,6 @@
 								step="0.01"
 								min={minValue}
 								max={maxValue}
-								bind:value={internalPreference[idx]}
-								class="h-8 w-20 text-sm"
-								oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
-									const numValue = Number(e.currentTarget.value);
-									// Clamp value within allowed range
-									const clampedValue = Math.max(minValue, Math.min(maxValue, numValue));
-
-									if (numValue !== clampedValue) {
-										internalPreference[idx] = clampedValue;
 								value={internalPreferenceValues[idx] || 0}
 								class="h-8 w-20 text-sm"
 								oninput={(e) => {
@@ -332,11 +240,6 @@
 										const clampedValue = Math.max(minValue, Math.min(maxValue, numValue));
 										handlePreferenceValueChange(idx, clampedValue);
 									}
-									onChange?.({
-										value: e.currentTarget.value,
-										preference: [...internalPreference],
-										numSolutions: internalNumSolutions
-									});
 								}}
 							/>
 						</div>
@@ -350,14 +253,6 @@
 								decimalPrecision: SIGNIFICANT_DIGITS,
 								showPreviousValue: false,
 								aspectRatio: 'aspect-[11/2]'
-							}}
-							onSelect={(newValue: number) => {
-								internalPreference[idx] = newValue;
-								onChange?.({
-									value: String(newValue),
-									preference: [...internalPreference],
-									numSolutions: internalNumSolutions
-								});
 							}}
 							onSelect={(newValue) => handlePreferenceValueChange(idx, newValue)}
 						/>
@@ -383,7 +278,10 @@
 									min={Math.min(objective.ideal, objective.nadir)}
 									max={Math.max(objective.ideal, objective.nadir)}
 									value={String(
-										formatNumber(internalPreferenceValues[idx], SIGNIFICANT_DIGITS) || 0
+										internalPreferenceValues[idx] !== undefined &&
+											internalPreferenceValues[idx] !== null
+											? formatNumber(internalPreferenceValues[idx], SIGNIFICANT_DIGITS)
+											: '0.00'
 									)}
 									onChange={(value) => {
 										const val = Number(value);

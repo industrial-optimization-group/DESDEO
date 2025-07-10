@@ -10,6 +10,7 @@
 	import { Combobox } from '$lib/components/ui/combobox';
 	import { PREFERENCE_TYPES } from '$lib/constants';
 	import { formatNumber, formatNumberArray } from '$lib/helpers';
+	import { goto } from '$app/navigation';
 
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 	type PreferenceValue = (typeof PREFERENCE_TYPES)[keyof typeof PREFERENCE_TYPES];
@@ -22,13 +23,20 @@
 	let problem: ProblemInfo | null = $state(null);
 
 	const { data } = $props<{ data: ProblemInfo[] }>();
-
+	console.log('Data received:', data.problems);
+	// Fix: data is already the array, not an object with problems property
 	let problemList = data.problems ?? [];
+	console.log('Data received:', data.problems);
+
 	let selectedTypeSolutions = $state('current');
 
 	// State with the required properties
 	let num_solutions = $state(1);
 	let objective_values = $state<number[]>([]);
+
+	let emo_method = $state('NSGA3'); // or "RVEA"
+	let max_evaluations = $state(1000);
+	let use_archive = $state(true);
 
 	// Preference objects with type and values
 	let previous_preference = $state<Preference>({
@@ -46,29 +54,6 @@
 		{ value: 'best', label: 'Best solutions' },
 		{ value: 'all', label: 'All solutions' }
 	];
-
-	// Default values for the EMO method
-	const selectedMethod = 'NSGA3';
-	const maxEvaluations = 1000;
-	const numberOfVectors = 50;
-
-	let problemList = data.problems ?? [];
-	let problemId = $methodSelection.selectedProblemId;
-
-	// Your variables
-	let selectedSolutions: any = []; // Array of EMOSolution objects
-	let savedSolutions = [];
-
-	// Reactive state
-	let selectedTypeSolutions = $state('current');
-
-	// Derived/computed values (automatically reactive)
-	let currentFramework = $derived(
-		type_solutions_shown.find((f) => f.value === selectedTypeSolutions)
-	);
-
-	let currentPreference: number[] = $state([]);
-	let currentNumSolutions: number = $state(1);
 
 	function handleChange(event: { value: string }) {
 		selectedTypeSolutions = event.value;
@@ -129,19 +114,149 @@
 		updateFromOptimizationProcedure(data);
 	}
 
-	function updateFromOptimizationProcedure(data: {
+	type EMOSolveRequest = components['schemas']['EMOSolveRequest'];
+	type ReferencePoint = components['schemas']['ReferencePoint'];
+
+	async function updateFromOptimizationProcedure(data: {
 		num_solutions: number;
 		type_preferences: PreferenceValue;
 		preference_values: number[];
 		objective_values: number[];
 	}) {
-		// This is where you would call your actual optimization backend
-		// For now, we'll simulate updating the values
+		try {
+			console.log('Starting EMO solve with data:', data);
 
-		// Keep num_solutions and preference type the same
-		// Update preference_values and objective_values based on optimization results
+			if (!problem?.id) {
+				throw new Error('No problem ID available');
+			}
 
-		// Simulate new values from optimization
+			// Create the aspiration_levels object
+			const aspiration_levels: { [key: string]: number } = {};
+
+			if (problem.objectives && data.preference_values) {
+				problem.objectives.forEach((objective, index) => {
+					if (index < data.preference_values.length) {
+						// Use the format from the test: "f_1_min", "f_2_min", etc.
+						const key = `f_${index + 1}_min`;
+						aspiration_levels[key] = data.preference_values[index];
+					}
+				});
+			}
+
+			console.log('Created aspiration_levels:', aspiration_levels);
+
+			const preference: ReferencePoint = {
+				preference_type: 'reference_point',
+				aspiration_levels: aspiration_levels
+			};
+
+			const solveRequest: EMOSolveRequest = {
+				problem_id: problem.id,
+				method: emo_method,
+				preference: preference,
+				max_evaluations: max_evaluations,
+				number_of_vectors: data.num_solutions,
+				use_archive: use_archive,
+				session_id: null,
+				parent_state_id: null
+			};
+
+			console.log('Final solve request:', JSON.stringify(solveRequest, null, 2));
+
+			// Call the solve endpoint
+			const response = await fetch('/interactive_methods/EMO/solve', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				credentials: 'include',
+				body: JSON.stringify(solveRequest)
+			});
+
+			console.log('Response status:', response.status);
+			console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				console.error('Error response data:', errorData);
+				throw new Error(
+					`HTTP error! status: ${response.status}, message: ${errorData.error || 'Unknown error'}, details: ${errorData.details || 'No details'}`
+				);
+			}
+
+			const result = await response.json();
+			console.log('Success response:', result);
+
+			if (result.success && result.data) {
+				// Extract the new values from the EMO solve response
+				const emoState = result.data; // This is EMOState type
+
+				console.log('EMO solve response:', emoState);
+
+				// Update based on the EMO response structure
+				if (emoState.solutions && emoState.solutions.length > 0) {
+					// Use the first solution or implement logic to select the best one
+					const selectedSolution = emoState.solutions[0];
+
+					// Extract objective values from the selected solution
+					if (emoState.outputs && emoState.outputs.length > 0) {
+						const selectedOutput = emoState.outputs[0];
+
+						// Convert the objective values object to array
+						const newObjectiveValues: number[] = [];
+						if (problem.objectives) {
+							problem.objectives.forEach((objective) => {
+								if (selectedOutput[objective.name] !== undefined) {
+									newObjectiveValues.push(selectedOutput[objective.name]);
+								}
+							});
+						}
+
+						if (newObjectiveValues.length > 0) {
+							objective_values = newObjectiveValues;
+						}
+					}
+
+					// Update preference values with the solution variables if needed
+					// or keep the current preference values as they represent user input
+				}
+
+				// Update number of solutions if provided
+				if (emoState.number_of_vectors) {
+					num_solutions = emoState.number_of_vectors;
+				}
+
+				console.log('Updated from EMO solve:', {
+					num_solutions,
+					previous_preference: {
+						type: previous_preference.type,
+						values: formatNumberArray(previous_preference.values)
+					},
+					current_preference: {
+						type: current_preference.type,
+						values: formatNumberArray(current_preference.values)
+					},
+					objective_values: formatNumberArray(objective_values)
+				});
+			} else {
+				console.error('EMO solve failed:', result.error || 'Unknown error');
+				throw new Error(result.error || 'EMO solve failed');
+			}
+		} catch (error) {
+			console.error('Error calling EMO solve:', error);
+			alert(`Error solving problem: ${error}`);
+		}
+	}
+
+	// Optional fallback function if you want to keep simulation as backup
+	function fallbackToSimulation(data: {
+		num_solutions: number;
+		type_preferences: PreferenceValue;
+		preference_values: number[];
+		objective_values: number[];
+	}) {
+		console.log('Using simulation fallback');
+
 		const simulatedNewObjectiveValues = objective_values.map(
 			(val) => val + Math.random() * 0.1 - 0.05
 		);
@@ -149,25 +264,11 @@
 			(val) => val + Math.random() * 0.1 - 0.05
 		);
 
-		// Update the state with new values
 		objective_values = simulatedNewObjectiveValues;
 		current_preference = {
-			type: current_preference.type, // Keep the same type
+			type: current_preference.type,
 			values: simulatedNewPreferenceValues
 		};
-
-		console.log('Updated from optimization:', {
-			num_solutions, // unchanged
-			previous_preference: {
-				type: previous_preference.type,
-				values: formatNumberArray(previous_preference.values)
-			},
-			current_preference: {
-				type: current_preference.type,
-				values: formatNumberArray(current_preference.values)
-			},
-			objective_values: formatNumberArray(objective_values)
-		});
 	}
 
 	function handleFinish(data: {
@@ -233,85 +334,6 @@
 			);
 		}
 	});
-
-	// Save solutions
-	async function saveSolutions() {
-		try {
-			const response = await fetch('/interactive_methods/EMO/save', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					problemId,
-					solutions: selectedSolutions,
-					name: 'My EMO Solutions'
-				})
-			});
-
-			const result = await response.json();
-
-			if (result.success) {
-				console.log('Saved successfully:', result.data);
-				// Optionally refresh saved solutions list
-				await loadSavedSolutions();
-			} else {
-				console.error('Save failed:', result.error);
-			}
-		} catch (error) {
-			console.error('Save error:', error);
-		}
-	}
-
-	// Load saved solutions
-	async function loadSavedSolutions() {
-		try {
-			const response = await fetch(
-				`/interactive_methods/EMO/saved-solutions?problem_id=${problemId}`
-			);
-			const result = await response.json();
-
-			if (result.success) {
-				savedSolutions = result.data;
-			} else {
-				console.error('Load failed:', result.error);
-			}
-		} catch (error) {
-			console.error('Load error:', error);
-		}
-	}
-
-	// Solve EMO problem
-	async function solveEMO() {
-		try {
-			const response = await fetch('/interactive_methods/EMO/solve', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					problemId,
-					method: selectedMethod,
-					maxEvaluations: maxEvaluations,
-					numberOfVectors: numberOfVectors,
-					useArchive: true,
-					preference: {
-						aspiration_levels: {
-							f_1_min: 0.5,
-							f_2_min: 0.3
-						}
-					}
-				})
-			});
-
-			const result = await response.json();
-
-			if (result.success) {
-				console.log('Solve successful:', result.data);
-				// Use the solutions from result.data
-			} else {
-				console.error('Solve failed:', result.error);
-			}
-		} catch (error) {
-			console.error('Solve error:', error);
-		}
-	}
 </script>
 
 <div class="flex min-h-[calc(100vh-3rem)]">
@@ -451,12 +473,4 @@
 	</div>
 
 	<AdvancedSidebar />
-</div>
-
-<div>
-	<button onclick={solveEMO}>Solve EMO Problem</button>
-	<button onclick={saveSolutions} disabled={selectedSolutions.length === 0}>
-		Save Selected Solutions
-	</button>
-	<button onclick={loadSavedSolutions}>Load Saved Solutions</button>
 </div>

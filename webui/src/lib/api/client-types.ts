@@ -1423,11 +1423,10 @@ export interface components {
          * @description The SQLModel equivalent to `Simulator`.
          */
         SimulatorDB: {
-            /**
-             * File
-             * Format: path
-             */
-            file: string;
+            /** File */
+            file?: string | null;
+            /** Url */
+            url?: string | null;
             /** Parameter Options */
             parameter_options?: {
                 [key: string]: unknown;
