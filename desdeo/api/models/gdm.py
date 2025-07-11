@@ -37,6 +37,7 @@ class GroupIteration(SQLModel, table=True):
     group: "Group" = Relationship(back_populates="group_iterations")
     
     set_preferences: dict[int, str] = Field(sa_column=Column(JSON))
+    notified: dict[int, bool] = Field(sa_column=Column(JSON))
 
     parent_id: int | None = Field(foreign_key="groupiteration.id", default=None)
     parent: "GroupIteration" = Relationship(
