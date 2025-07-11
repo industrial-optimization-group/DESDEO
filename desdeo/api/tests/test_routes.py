@@ -8,6 +8,7 @@ from desdeo.api.models import (
     GetSessionRequest,
     InteractiveSessionDB,
     NIMBUSClassificationRequest,
+    NIMBUSInitializationRequest,
     NIMBUSSaveRequest,
     NIMBUSSaveState,
     ProblemGetRequest,
@@ -271,6 +272,7 @@ def test_save_solution(client: TestClient):
             message="This is a test solution saved from the NIMBUS method."
         )
     ]
+    
 
     # Create the save request
     save_request = NIMBUSSaveRequest(
@@ -298,6 +300,19 @@ def test_save_solution(client: TestClient):
     assert saved_result.constraint_values == constraint_values
     assert saved_result.extra_func_values == extra_func_values
     assert not hasattr(saved_result, "name")  # Name should not be in state
+
+def test_nimbus_initialize_no_solver(client: TestClient):
+    """Test that initializing NIMBUS works without specifying a solver."""
+    access_token = login(client)
+
+    request = NIMBUSInitializationRequest(
+        problem_id=1,
+        solver=None
+    )
+
+    response = post_json(client, "/method/nimbus/initialize", request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+
 
 def test_add_new_dm(client: TestClient):
     """Test that adding a decision maker works"""

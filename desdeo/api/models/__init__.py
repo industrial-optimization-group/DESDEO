@@ -18,6 +18,8 @@ __all__ = [
     "NIMBUSBaseState",
     "NIMBUSClassificationRequest",
     "NIMBUSClassificationState",
+    "NIMBUSInitializationRequest",
+    "NIMBUSInitializationState",
     "NIMBUSSaveRequest",
     "NIMBUSSaveState",
     "ObjectiveDB",
@@ -47,25 +49,25 @@ __all__ = [
 
 from .archive import UserSavedSolutionBase, UserSavedSolutionDB
 from .generic import IntermediateSolutionRequest
-from .nimbus import NIMBUSClassificationRequest, NIMBUSSaveRequest
+from .nimbus import NIMBUSClassificationRequest, NIMBUSInitializationRequest, NIMBUSSaveRequest
 from .preference import Bounds, PreferenceBase, PreferenceDB, ReferencePoint
 from .problem import (
     ConstantDB,
     ConstraintDB,
     DiscreteRepresentationDB,
     ExtraFunctionDB,
+    ForestProblemMetaData,
     ObjectiveDB,
     ProblemDB,
     ProblemGetRequest,
     ProblemInfo,
     ProblemInfoSmall,
+    ProblemMetaDataDB,
     ScalarizationFunctionDB,
     SimulatorDB,
     TensorConstantDB,
     TensorVariableDB,
     VariableDB,
-    ProblemMetaDataDB,
-    ForestProblemMetaData,
 )
 from .reference_point_method import RPMSolveRequest
 from .session import (
@@ -79,6 +81,7 @@ from .state import (
     IntermediateSolutionState,
     NIMBUSBaseState,
     NIMBUSClassificationState,
+    NIMBUSInitializationState,
     NIMBUSSaveState,
     RPMBaseState,
     RPMState,
