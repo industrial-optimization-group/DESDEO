@@ -120,7 +120,8 @@ class GroupManager:
         await asyncio.sleep(1)
         session = next(get_session())
         group = session.exec(select(Group).where(Group.id == self.group_id)).first()
-        prefs = group.group_iterations[-1].set_preferences
+        iteration = group.group_iterations[-1]
+        prefs = iteration.set_preferences
         message = ""
         for usr, pref in prefs.items():
             message = message + f"{usr} : {pref}; "
@@ -132,6 +133,9 @@ class GroupManager:
         print(f"Optimization for group {self.group_id} done.")
 
         # ADD optimization results into database
+        iteration.results = message
+        session.add(iteration)
+        session.commit()
 
 
     async def set_preference(self, user_id: int, data: str):
@@ -207,14 +211,12 @@ class GroupManager:
             current_iteration.child = next_iteration
             session.add(current_iteration)
             session.commit()
-            session.refresh(current_iteration)
 
             new_group_iterations = group_iterations.copy()  # bruh (perhaps we should just use index list?)
-            new_group_iterations.append(next_iteration)     # seems super inefficient
-            group.group_iterations = new_group_iterations
-            session.add(group)
+            new_group_iterations.append(next_iteration)     # seems super inefficient. maybe linked list from
+            group.group_iterations = new_group_iterations   # parent to child would be more suitable? head would
+            session.add(group)                              # require more iterating when accessed from root
             session.commit()
-            session.refresh(group)
 
             
 class ManagerManager:
@@ -509,7 +511,18 @@ def get_group_info(
     request: GroupInfoRequest,
     session: Annotated[Session, Depends(get_session)],
 ) -> GroupPublic:
-    """Get information about the group"""
+    """Get information about the group
+    
+    Args:
+        request (GroupInfoRequest): the id of the group for which we desire info on
+        session (Annotated[Session, Depends(get_session)]): the database session
+
+    Returns:
+        GroupPublic: public info of the group
+
+    Raises:
+        HTTPException: If there's no group with the requests group id
+    """
     group = session.exec(select(Group).where(Group.id == request.group_id)).first()
     if group == None:
         raise HTTPException(
@@ -521,7 +534,52 @@ def get_group_info(
 
 @router.post("/get_results")
 def get_results(
+    request: GroupInfoRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)]
-) -> Any:
-    pass
+) -> JSONResponse:
+    """Get the latest results from group iteration
+
+    Args:
+        request (GroupInfoRequest): essentially just the ID of the group
+        user (Annotated[User, Depends(get_current_user)]): current user
+        session (Annotated[Session, Depends(get_session)])
+
+    Returns:
+        JSONResponse: A json response containing the latest results
+
+    Raises:
+        HTTPException: Validation errors or no results
+    """
+    group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
+    if group == None:
+        raise HTTPException(
+            detail=f"No group with ID {request.group_id} found",
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    if user.id not in group.user_ids:
+        raise HTTPException(
+            detail="Unauthorized user.",
+            status_code=status.HTTP_401_UNAUTHORIZED
+        )
+
+    try:
+        iteration = group.group_iterations[-2]
+    except IndexError:
+        raise HTTPException(
+            detail="No results found!",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+    
+    if iteration.results == None:
+        raise HTTPException(
+            detail="No results found!",
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+
+    # Dummy results
+    return JSONResponse(
+        content={"results": iteration.results},
+        status_code=status.HTTP_200_OK
+    )
