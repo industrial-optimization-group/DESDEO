@@ -10,6 +10,8 @@ from desdeo.api.models import (
     InteractiveSessionDB,
     NIMBUSClassificationRequest,
     NIMBUSClassificationState,
+    NIMBUSInitializationRequest,
+    NIMBUSInitializationState,
     NIMBUSSaveRequest,
     NIMBUSSaveState,
     PreferenceDB,
@@ -19,7 +21,7 @@ from desdeo.api.models import (
 )
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.api.utils.database import user_save_solutions
-from desdeo.mcdm.nimbus import solve_sub_problems
+from desdeo.mcdm.nimbus import solve_sub_problems, generate_starting_point
 from desdeo.problem import Problem
 from desdeo.tools import SolverResults
 
@@ -178,3 +180,81 @@ def save(
     user_save_solutions(state, request.solutions, user.id, session)
 
     return save_state
+
+@router.post("/initialize")
+def initialize(
+    request: NIMBUSInitializationRequest, # only problem_id
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)],
+) -> NIMBUSInitializationState:
+    """Initialize the problem for the NIMBUS method."""
+    if request.session_id is not None:
+        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == request.session_id)
+        interactive_session = session.exec(statement)
+
+        if interactive_session is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Could not find interactive session with id={request.session_id}.",
+            )
+    else:
+        # request.session_id is None:
+        # use active session instead
+        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == user.active_session_id)
+
+        interactive_session = session.exec(statement).first()
+
+    # fetch the problem from the DB
+    statement = select(ProblemDB).where(ProblemDB.user_id == user.id, ProblemDB.id == request.problem_id)
+    problem_db = session.exec(statement).first()
+
+    if problem_db is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Problem with id={request.problem_id} could not be found."
+        )
+
+    problem = Problem.from_problemdb(problem_db)
+
+    start_result = generate_starting_point(
+                problem=problem,
+                solver=request.solver,
+            )
+
+    # fetch parent state
+    if request.parent_state_id is None:
+        # parent state is assumed to be the last state added to the session.
+        parent_state = (
+            interactive_session.states[-1]
+            if (interactive_session is not None and len(interactive_session.states) > 0)
+            else None
+        )
+
+    else:
+        # request.parent_state_id is not None
+        statement = session.select(StateDB).where(StateDB.id == request.parent_state_id)
+        parent_state = session.exec(statement).first()
+
+        if parent_state is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail=f"Could not find state with id={request.parent_state_id}"
+            )
+
+    nimbus_state = NIMBUSInitializationState(
+        solver=request.solver,
+        solver_results=[start_result],
+    )
+
+    # create DB state and add it to the DB
+    state = StateDB(
+        problem_id=problem_db.id,
+        preference_id=None,
+        session_id=interactive_session.id if interactive_session is not None else None,
+        parent_id=parent_state.id if parent_state is not None else None,
+        state=nimbus_state,
+    )
+
+    session.add(state)
+    session.commit()
+    session.refresh(state)
+
+    return nimbus_state

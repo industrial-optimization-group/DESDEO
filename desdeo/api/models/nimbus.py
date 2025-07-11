@@ -30,3 +30,11 @@ class NIMBUSSaveRequest(SQLModel):
     parent_state_id: int | None = Field(default=None)
 
     solutions: list[UserSavedSolverResults]  # List of solutions to save
+class NIMBUSInitializationRequest(SQLModel):
+    """Model of the request to the nimbus method."""
+
+    problem_id: int
+    session_id: int | None = Field(default=None)
+    parent_state_id: int | None = Field(default=None)
+
+    solver: str | None = Field(default=None)
