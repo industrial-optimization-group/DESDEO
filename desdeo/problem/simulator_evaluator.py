@@ -1,3 +1,5 @@
+from matplotlib.image import resample
+from numpy._core.multiarray import scalar
 """Evaluators are defined to evaluate simulator based and surrogate based objectives, constraints and extras."""
 
 import json
@@ -10,12 +12,14 @@ import joblib
 import numpy as np
 import polars as pl
 # import skops.io as sio
+import requests
 
 from desdeo.problem import (
     ObjectiveTypeEnum,
     PolarsEvaluator,
     PolarsEvaluatorModesEnum,
     Problem,
+    MathParser
 )
 
 
@@ -62,6 +66,13 @@ class Evaluator:
             obj.symbol
             for obj in list(filter(lambda x: x.objective_type == ObjectiveTypeEnum.surrogate, problem.objectives))
         ]
+        if problem.scalarization_funcs is not None:
+            parser = MathParser()
+            self.scalarization_funcs = [
+                (func.symbol, parser.parse(func.func)) for func in problem.scalarization_funcs if func.symbol is not None
+            ]
+        else:
+            self.scalarization_funcs = []
         # Gather any constraints' symbols
         if problem.constraints is not None:
             self.analytical_symbols = self.analytical_symbols + [
@@ -136,15 +147,30 @@ class Evaluator:
         for sim in self.simulators:
             # gather the possible parameters for the simulator
             params = self.params.get(sim.name, {})
-            # call the simulator with the decision variable values and parameters as dicts
-            res = subprocess.run(
-                [sys.executable, sim.file, "-d", str(xs), "-p", str(params)], capture_output=True, text=True
-            )
-            if res.returncode == 0:
-                # gather the simulation results (a dict) into the results dataframe
-                res_df = res_df.hstack(pl.DataFrame(json.loads(res.stdout)))
-            else:
-                raise EvaluatorError(res.stderr)
+            if sim.file is not None:
+                # call the simulator with the decision variable values and parameters as dicts
+                res = subprocess.run(
+                    [sys.executable, sim.file, "-d", str(xs), "-p", str(params)], capture_output=True, text=True
+                )
+                if res.returncode == 0:
+                    # gather the simulation results (a dict) into the results dataframe
+                    res_df = res_df.hstack(pl.DataFrame(json.loads(res.stdout)))
+                else:
+                    raise EvaluatorError(res.stderr)
+            elif sim.url is not None:
+                # call the endpoint
+                try:
+                    if isinstance(xs, pl.DataFrame):
+                        # if xs is a polars dataframe, convert it to a dict
+                        xs = xs.to_dict(as_series=False)
+                    res = requests.get(sim.url.url, auth=sim.url.auth, json={"d": xs, "p": params})
+                    res.raise_for_status()  # raise an error if the request failed
+                except requests.RequestException as e:
+                    raise EvaluatorError(
+                        f"Failed to call the simulator at {sim.url}. Is the simulator server running?"
+                        ) from e
+                res_df = res_df.hstack(pl.DataFrame(res.json()))
+
 
         # Evaluate the minimization form of the objective functions
         min_obj_columns = pl.DataFrame()
@@ -153,7 +179,11 @@ class Evaluator:
                 min_obj_columns = min_obj_columns.hstack(
                     res_df.select((min_max_mult * pl.col(f"{symbol}")).alias(f"{symbol}_min"))
                 )
-        return res_df.hstack(min_obj_columns)
+
+        res_df = res_df.hstack(min_obj_columns)
+        # If there are scalarization functions, evaluate them as well
+        scalarization_columns = res_df.select(*[expr.alias(symbol) for symbol, expr in self.scalarization_funcs])
+        return res_df.hstack(scalarization_columns)
 
     def _evaluate_surrogates(self, xs: dict[str, list[int | float]]) -> pl.DataFrame:
         """Evaluate the problem for the given decision variables using the surrogate models.
@@ -194,7 +224,10 @@ class Evaluator:
                 min_obj_columns = min_obj_columns.hstack(
                     res.select((min_max_mult * pl.col(f"{symbol}")).alias(f"{symbol}_min"))
                 )
-        return res.hstack(min_obj_columns)
+        res_df = res_df.hstack(min_obj_columns)
+        # If there are scalarization functions, evaluate them as well
+        scalarization_columns = res_df.select(*[expr.alias(symbol) for symbol, expr in self.scalarization_funcs])
+        return res_df.hstack(scalarization_columns)
 
     def _load_surrogates(self, surrogate_paths: dict[str, Path] | None = None):
         """Load the surrogate models from disk and store them within the evaluator.

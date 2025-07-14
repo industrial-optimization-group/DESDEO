@@ -42,9 +42,11 @@ __all__ = [
     "UserRole",
     "VariableDB",
     "ProblemMetaDataDB",
+    "BaseProblemMetaData",
     "ForestProblemMetaData",
     "UtopiaRequest",
     "UtopiaResponse",
+    "ProblemMetaDataGetRequest",
 ]
 
 from .archive import UserSavedSolutionBase, UserSavedSolutionDB
@@ -67,7 +69,9 @@ from .problem import (
     TensorVariableDB,
     VariableDB,
     ProblemMetaDataDB,
+    BaseProblemMetaData,
     ForestProblemMetaData,
+    ProblemMetaDataGetRequest,
 )
 from .utopia import UtopiaRequest, UtopiaResponse
 from .reference_point_method import RPMSolveRequest

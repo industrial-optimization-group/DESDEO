@@ -6,6 +6,8 @@ or minimization of the corresponding objective functions may be correctly
 accounted for when computing scalarization function values.
 """
 
+from typing import Literal
+
 import numpy as np
 
 from desdeo.problem import (
@@ -17,9 +19,9 @@ from desdeo.problem import (
     VariableTypeEnum,
 )
 from desdeo.tools.utils import (
+    flip_maximized_objective_values,
     get_corrected_ideal,
     get_corrected_nadir,
-    flip_maximized_objective_values,
 )
 
 
@@ -299,7 +301,8 @@ def add_group_asf(
     weights = None
     if type(delta) is dict:
         weights = {
-            obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta[obj.symbol])) for obj in problem.objectives
+            obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta[obj.symbol]))
+            for obj in problem.objectives
         }
     else:
         weights = {
@@ -412,7 +415,8 @@ def add_group_asf_diff(
     weights = None
     if type(delta) is dict:
         weights = {
-            obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta[obj.symbol])) for obj in problem.objectives
+            obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta[obj.symbol]))
+            for obj in problem.objectives
         }
     else:
         weights = {
@@ -2017,7 +2021,9 @@ def add_group_stom_sf(
     for i in range(len(reference_points)):
         for obj in problem.objectives:
             if type(delta) is dict:
-                max_terms.append(f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {ideal_point[obj.symbol] - delta[obj.symbol]})")
+                max_terms.append(
+                    f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {ideal_point[obj.symbol] - delta[obj.symbol]})"
+                )
             else:
                 max_terms.append(f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {ideal_point[obj.symbol] - delta})")
     max_terms = ", ".join(max_terms)
@@ -2135,7 +2141,7 @@ def add_group_stom_sf_diff(
                 rp[obj.symbol] = (
                     f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {ideal_point[obj.symbol] - delta[obj.symbol]}) - _alpha"
                 )
-            else: 
+            else:
                 rp[obj.symbol] = (
                     f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {ideal_point[obj.symbol] - delta}) - _alpha"
                 )
@@ -2541,7 +2547,9 @@ def add_group_guess_sf(
         corrected_rp = flip_maximized_objective_values(problem, reference_points[i])
         for obj in problem.objectives:
             if type(delta) is dict:
-                max_terms.append(f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {nadir_point[obj.symbol] + delta[obj.symbol]} )")
+                max_terms.append(
+                    f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {nadir_point[obj.symbol] + delta[obj.symbol]} )"
+                )
             else:
                 max_terms.append(f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {nadir_point[obj.symbol] + delta})")
     max_terms = ", ".join(max_terms)
@@ -2649,7 +2657,6 @@ def add_group_guess_sf_diff(
                     for obj in problem.objectives
                 }
             )
-            
 
     # form the max term
     con_terms = []
@@ -2658,9 +2665,13 @@ def add_group_guess_sf_diff(
         rp = {}
         for obj in problem.objectives:
             if type(delta) is dict:
-                rp[obj.symbol] = f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {nadir_point[obj.symbol] + delta[obj.symbol]}) - _alpha"
+                rp[obj.symbol] = (
+                    f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {nadir_point[obj.symbol] + delta[obj.symbol]}) - _alpha"
+                )
             else:
-                rp[obj.symbol] = f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {nadir_point[obj.symbol] + delta}) - _alpha"
+                rp[obj.symbol] = (
+                    f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {nadir_point[obj.symbol] + delta}) - _alpha"
+                )
         con_terms.append(rp)
 
     # form the augmentation term
@@ -3195,3 +3206,211 @@ def add_group_scenario_sf_diff(
     problem_ = problem_.add_scalarization(scalar)
 
     return problem_, symbol
+
+
+def __create_HDF(
+    y: str,
+    a: float,
+    r: float,
+    d1: float = 0.9,
+    d2: float = 0.1,
+) -> str:
+    r"""Create a Harrington's one-sided desirability function.
+
+    Harrington's desirability function is used to compute the desirability of a
+    given value of an objective function based on its aspiration and reservation levels.
+
+    The desirability function is defined as follows:
+    \begin{equation}
+        D(y) = \exp\left(-\exp\left(-b_0 - b_1 y\right)\right),
+    \end{equation}
+
+    where
+    \begin{align*}
+        b_0 &= -\log(-\log(d_1)) - b_1 a, \\
+        b_1 &= \frac{\log(-\log(d_2)) - \log(-\log(d_1))}{r - a}.
+    \end{align*}
+
+    The desirability function returns a value between 0 and 1, where higher values indicate
+    more desirable outcomes. I took the equations from the following source:
+    Wagner, T., and Trautmann, H. Integration of preference in hypervolume-based
+    multiobjective evolutionary algorithms by means of desirability functions.
+    IEEE Transactions on Evolutionary Computation 14, 5 (2010), 688-701.
+
+    Parameters
+    ----------
+    y : str
+        The objective value to compute the desirability for.
+    a : float
+        Aspiration level for the objective.
+    r : float
+        Reservation level for the objective.
+    d1 : float
+        The desirability for the aspiration level.
+    d2 : float
+        The desirability for the reservation level.
+
+    Returns
+    -------
+    callable
+        A function that computes the desirability for a given value.
+    """
+    if not (0 < d1 < 1 and 0 < d2 < 1):
+        raise ValueError("Desirability values must be between 0 and 1 (exclusive).")
+    if not (a < r):
+        raise ValueError("a must be less than r.")
+    if not d2 < d1:
+        raise ValueError("d2 must be less than d1. Higher desirability should correspond to lower values of y.")
+    b1: float = -np.log(-np.log(d2)) + np.log(-np.log(d1)) / (r - a)
+    b0: float = -np.log(-np.log(d1)) - b1 * a
+
+    def __HDF(y: float):
+        """Compute the desirability for a given value."""
+        return np.exp(-np.exp(-(b0 + b1 * y)))
+
+    func = f"Exp(-Exp(-({b0} + {b1} * {y})))"
+    return func
+
+
+def __create_MDF(y: str, a: float, r: float, d1: float = 0.9, d2: float = 0.1) -> str:
+    """Create MaoMao's desirability function.
+
+    Distinctions form MaoMao's original function:
+    - The upper and lower bounds of desirability are fixed to 0 and 1, respectively.
+
+    Parameters
+    ----------
+    y : str
+        The objective value to compute the desirability for.
+    a : float
+        Aspiration level for the objective.
+    r : float
+        Reservation level for the objective.
+    d1 : float
+        The desirability for the aspiration level.
+    d2 : float
+        The desirability for the reservation level.
+
+    Returns
+    -------
+    callable
+        A function that computes the desirability for a given value.
+    """
+    if not (0 < d1 < 1 and 0 < d2 < 1):
+        raise ValueError("Desirability values must be between 0 and 1 (exclusive).")
+    if not (a < r):
+        raise ValueError("a must be less than r.")
+    if not d2 < d1:
+        raise ValueError("d2 must be less than d1. Higher desirability should correspond to lower values of y.")
+    ea = 1 - d1
+    er = d2
+    m1 = -ea * ea * (a - r) / (d1 - d2)
+    b1 = -a + ea * (a - r) / (d1 - d2)
+    m2 = (d1 - d2) / (a - r)
+    b2 = (d2 * a - d1 * r) / (a - r)
+    m3 = -er * er * (a - r) / (d1 - d2)
+    b3 = -r - er * (a - r) / (d1 - d2)
+
+    def MDF1(y):
+        """Compute the desirability for a given value."""
+        if isinstance(y, np.ndarray):
+            return np.array([MDF1(yi) for yi in y])
+        if y < a:
+            return 1 + m1 / (y + b1)
+        elif a <= y <= r:
+            return m2 * y + b2
+        else:
+            return m3 / (y + b3)
+
+    def MDF(y):
+        """Compute the desirability for a given value."""
+        # Same but without the if statements
+        if isinstance(y, np.ndarray):
+            return np.array([MDF(yi) for yi in y])
+        return (
+            max(a - y, 0) * (1 + m1 / (y + b1)) / (a - y)
+            + max(y - r, 0) * (m3 / (y + b3)) / (y - r)
+            + max(y - a, 0) * max(r - y, 0) * (m2 * y + b2) / ((y - a) * (r - y))
+        )
+
+    func = (
+        f"Max({a} - {y}, 0) * (1 + {m1} / ({y} + {b1})) / ({a} - {y}) + "
+        f"Max({y} - {r}, 0) * ({m3} / ({y} + {b3})) / ({y} - {r}) + "
+        f"Max({y} - {a}, 0) * Max({r} - {y}, 0) * ({m2} * {y} + {b2}) / "
+        f"(({y} - {a}) * ({r} - {y}))"
+    )
+    return func
+
+
+def add_desirability_funcs(
+    problem: Problem,
+    aspiration_levels: dict[str, float],
+    reservation_levels: dict[str, float],
+    desirability_levels: dict[str, tuple[float, float]] | None = None,
+    desirability_func: Literal["Harrington", "MaoMao"] = "Harrington",
+) -> tuple[Problem, list[str]]:
+    """Adds desirability functions to the problem based on the given aspiration and reservation levels.
+
+    Note that the desirability functions are added as scalarization functions to the problem. They are also multiplied
+    by -1 to ensure that "desirability" values can be minimized, as is assumed by the optimizers.
+
+    Args:
+        problem (Problem): The problem to which the desirability functions should be added.
+        aspiration_levels (dict[str, float]): A dictionary with keys corresponding to objective function symbols
+            and values to aspiration levels.
+        reservation_levels (dict[str, float]): A dictionary with keys corresponding to objective function symbols
+            and values to reservation levels.
+        desirability_levels (dict[str, tuple[float, float]] | None, optional): A dictionary with keys corresponding to
+            objective function symbols and values to desirability levels, where each value is a tuple of (d1, d2). If
+            not given, the default values for d1 and d2 are used, which are 0.9 and 0.1 respectively. Defaults to None.
+        desirability_func (str, optional): The type of desirability function to use. Currently, only "Harrington" or
+        "MaoMao" is supported. Defaults to "Harrington".
+
+    Returns:
+        Problem: A copy of the problem with the added desirability functions as scalarization functions.
+        list[str]: A list of symbols of the added desirability functions.
+    """
+    if desirability_func == "Harrington":
+        create_func = __create_HDF
+    elif desirability_func == "MaoMao":
+        create_func = __create_MDF
+    else:
+        raise ScalarizationError(f"Desirability function {desirability_func} is not supported.")
+
+    if desirability_levels is None:
+        desirability_levels = {obj.symbol: (0.9, 0.1) for obj in problem.objectives}
+
+    # check that all objectives have aspiration and reservation levels defined
+    for obj in problem.objectives:
+        if obj.symbol not in aspiration_levels or obj.symbol not in reservation_levels:
+            raise ScalarizationError(
+                f"Objective {obj.symbol} does not have both aspiration and reservation levels defined."
+            )
+    maximize: dict[str, int] = {obj.symbol: -1 if obj.maximize else 1 for obj in problem.objectives}
+    symbols = []
+    problem_: Problem = problem.model_copy(deep=True)
+    for obj in problem.objectives:
+        d1, d2 = desirability_levels[obj.symbol]
+        func = (
+            "- ("
+            + create_func(
+                obj.symbol + "_min",
+                aspiration_levels[obj.symbol] * maximize[obj.symbol],
+                reservation_levels[obj.symbol] * maximize[obj.symbol],
+                d1,
+                d2,
+            )
+            + ")"
+        )
+        symbols.append(f"{obj.symbol}_d")
+        scalarization = ScalarizationFunction(
+            name=f"Desirability function for {obj.symbol}",
+            symbol=f"{obj.symbol}_d",
+            func=func,
+            is_linear=False,
+            is_convex=False,
+            is_twice_differentiable=obj.is_twice_differentiable,
+        )
+        problem_ = problem_.add_scalarization(scalarization)
+
+    return problem_, symbols

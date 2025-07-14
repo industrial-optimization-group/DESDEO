@@ -9,25 +9,28 @@ from abc import abstractmethod
 from collections.abc import Sequence
 from enum import Enum
 from itertools import combinations
-from typing import Literal, TypedDict, TypeVar
+from typing import Callable, Literal, TypedDict, TypeVar
 
 import numpy as np
 import polars as pl
+from numba import njit
 from scipy.special import comb
 from scipy.stats.qmc import LatinHypercube
 
 from desdeo.problem import Problem
 from desdeo.tools import get_corrected_ideal_and_nadir
+from desdeo.tools.indicators_binary import self_epsilon
 from desdeo.tools.message import (
     Array2DMessage,
     DictMessage,
     Message,
+    NumpyArrayMessage,
     PolarsDataFrameMessage,
     SelectorMessageTopics,
     TerminatorMessageTopics,
 )
 from desdeo.tools.non_dominated_sorting import fast_non_dominated_sort
-from desdeo.tools.patterns import Subscriber, Publisher
+from desdeo.tools.patterns import Publisher, Subscriber
 
 SolutionType = TypeVar("SolutionType", list, pl.DataFrame)
 
@@ -1043,6 +1046,240 @@ class NSGAIII_select(BaseDecompositionSelector):
             message,
         ]
         return state_verbose
+
+    def update(self, message: Message) -> None:
+        pass
+
+
+@njit
+def _ibea_fitness(fitness_components: np.ndarray, kappa: float) -> np.ndarray:
+    """Calculates the IBEA fitness for each individual based on pairwise fitness components.
+
+    Args:
+        fitness_components (np.ndarray): The pairwise fitness components of the individuals.
+        kappa (float): The kappa value for the IBEA selection.
+
+    Returns:
+        np.ndarray: The IBEA fitness values for each individual.
+    """
+    num_individuals = fitness_components.shape[0]
+    fitness = np.zeros(num_individuals)
+    for i in range(num_individuals):
+        for j in range(num_individuals):
+            if i != j:
+                fitness[i] -= np.exp(-fitness_components[j, i] / kappa)
+    return fitness
+
+
+@njit
+def _ibea_select(fitness_components: np.ndarray, bad_sols: np.ndarray, kappa: float) -> int:
+    """Selects the worst individual based on the IBEA indicator.
+
+    Args:
+        fitness_components (np.ndarray): The pairwise fitness components of the individuals.
+        bad_sols (np.ndarray): A boolean array indicating which individuals are considered "bad".
+        kappa (float): The kappa value for the IBEA selection.
+
+    Returns:
+        int: The index of the selected individual.
+    """
+    fitness = np.zeros(len(fitness_components))
+    for i in range(len(fitness_components)):
+        if bad_sols[i]:
+            continue
+        for j in range(len(fitness_components)):
+            if bad_sols[j] or i == j:
+                continue
+            fitness[i] -= np.exp(-fitness_components[j, i] / kappa)
+    choice = np.argmin(fitness)
+    if fitness[choice] >= 0:
+        if sum(bad_sols) == len(fitness_components) - 1:
+            # If all but one individual is chosen, select the last one
+            return np.where(~bad_sols)[0][0]
+        raise RuntimeError("All individuals have non-negative fitness. Cannot select a new individual.")
+    return choice
+
+
+@njit
+def _ibea_select_all(fitness_components: np.ndarray, population_size: int, kappa: float) -> np.ndarray:
+    """Selects all individuals based on the IBEA indicator.
+
+    Args:
+        fitness_components (np.ndarray): The pairwise fitness components of the individuals.
+        population_size (int): The desired size of the population after selection.
+        kappa (float): The kappa value for the IBEA selection.
+
+    Returns:
+        list[int]: The list of indices of the selected individuals.
+    """
+    current_pop_size = len(fitness_components)
+    bad_sols = np.zeros(current_pop_size, dtype=np.bool_)
+    fitness = np.zeros(len(fitness_components))
+    mod_fit_components = np.exp(-fitness_components / kappa)
+    for i in range(len(fitness_components)):
+        for j in range(len(fitness_components)):
+            if i == j:
+                continue
+            fitness[i] -= mod_fit_components[j, i]
+    while current_pop_size - sum(bad_sols) > population_size:
+        selected = np.argmin(fitness)
+        if fitness[selected] >= 0:
+            if sum(bad_sols) == len(fitness_components) - 1:
+                # If all but one individual is chosen, select the last one
+                selected = np.where(~bad_sols)[0][0]
+            raise RuntimeError("All individuals have non-negative fitness. Cannot select a new individual.")
+        fitness[selected] = np.inf  # Make sure that this individual is not selected again
+        bad_sols[selected] = True
+        for i in range(len(mod_fit_components)):
+            if bad_sols[i]:
+                continue
+        # Update fitness of the remaining individuals
+            fitness[i] += mod_fit_components[selected, i]
+    return ~bad_sols
+
+
+class IBEA_Selector(BaseSelector):
+    """The adaptive IBEA selection operator.
+
+    Reference: Zitzler, E., Künzli, S. (2004). Indicator-Based Selection in Multiobjective Search. In: Yao, X., et al.
+    Parallel Problem Solving from Nature - PPSN VIII. PPSN 2004. Lecture Notes in Computer Science, vol 3242.
+    Springer, Berlin, Heidelberg. https://doi.org/10.1007/978-3-540-30217-9_84
+    """
+
+    @property
+    def provided_topics(self):
+        return {
+            0: [],
+            1: [SelectorMessageTopics.STATE],
+            2: [SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS, SelectorMessageTopics.SELECTED_FITNESS],
+        }
+
+    @property
+    def interested_topics(self):
+        return []
+
+    def __init__(
+        self,
+        problem: Problem,
+        verbosity: int,
+        publisher: Publisher,
+        population_size: int,
+        kappa: float = 0.05,
+        binary_indicator: Callable[[np.ndarray], np.ndarray] = self_epsilon,
+    ):
+        """Initialize the IBEA selector.
+
+        Args:
+            problem (Problem): The problem to solve.
+            verbosity (int): The verbosity level of the selector.
+            publisher (Publisher): The publisher to send messages to.
+            population_size (int): The size of the population to select.
+            kappa (float, optional): The kappa value for the IBEA selection. Defaults to 0.05.
+            binary_indicator (Callable[[np.ndarray], np.ndarray], optional): The binary indicator function to use.
+                Defaults to self_epsilon with uses binary addaptive epsilon indicator.
+        """
+        super().__init__(problem=problem, verbosity=verbosity, publisher=publisher)
+        self.selection: list[int] | None = None
+        self.selected_individuals: SolutionType | None = None
+        self.selected_targets: pl.DataFrame | None = None
+        self.binary_indicator = binary_indicator
+        self.kappa = kappa
+        self.population_size = population_size
+
+    def do(
+        self, parents: tuple[SolutionType, pl.DataFrame], offsprings: tuple[SolutionType, pl.DataFrame]
+    ) -> tuple[SolutionType, pl.DataFrame]:
+        """Perform the selection operation.
+
+        Args:
+            parents (tuple[SolutionType, pl.DataFrame]): the decision variables as the first element.
+                The second element is the objective values, targets, and constraint violations.
+            offsprings (tuple[SolutionType, pl.DataFrame]): the decision variables as the first element.
+                The second element is the objective values, targets, and constraint violations.
+
+        Returns:
+            tuple[SolutionType, pl.DataFrame]: The selected decision variables and their objective values,
+                targets, and constraint violations.
+        """
+        if self.constraints_symbols is not None:
+            raise NotImplementedError("IBEA selector does not support constraints. Please use a different selector.")
+        if isinstance(parents[0], pl.DataFrame) and isinstance(offsprings[0], pl.DataFrame):
+            solutions = parents[0].vstack(offsprings[0])
+        elif isinstance(parents[0], list) and isinstance(offsprings[0], list):
+            solutions = parents[0] + offsprings[0]
+        else:
+            raise TypeError("The decision variables must be either a list or a polars DataFrame, not both")
+        if len(parents[0]) < self.population_size:
+            return parents[0], parents[1]
+        alltargets = parents[1].vstack(offsprings[1])
+
+        # Adaptation
+        target_vals = alltargets[self.target_symbols].to_numpy()
+        target_min = np.min(target_vals, axis=0)
+        target_max = np.max(target_vals, axis=0)
+        # Scale the targets to the range [0, 1]
+        target_vals = (target_vals - target_min) / (target_max - target_min)
+        fitness_components = self.binary_indicator(target_vals)
+        kappa_mult = np.max(np.abs(fitness_components))
+
+        chosen = _ibea_select_all(
+            fitness_components, population_size=self.population_size, kappa=kappa_mult * self.kappa
+        )
+        self.selected_individuals = solutions.filter(chosen)
+        self.selected_targets = alltargets.filter(chosen)
+        self.selection = chosen
+
+        fitness_components = fitness_components[chosen][:, chosen]
+        self.fitness = _ibea_fitness(fitness_components, kappa=self.kappa * np.abs(fitness_components).max())
+
+        self.notify()
+        return self.selected_individuals, self.selected_targets
+
+    def state(self) -> Sequence[Message]:
+        """Return the state of the selector."""
+        if self.verbosity == 0 or self.selection is None or self.selected_targets is None:
+            return []
+        if self.verbosity == 1:
+            return [
+                DictMessage(
+                    topic=SelectorMessageTopics.STATE,
+                    value={
+                        "population_size": self.population_size,
+                        "selected_individuals": self.selection,
+                    },
+                    source=self.__class__.__name__,
+                )
+            ]
+        # verbosity == 2
+        if isinstance(self.selected_individuals, pl.DataFrame):
+            message = PolarsDataFrameMessage(
+                topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
+                value=pl.concat([self.selected_individuals, self.selected_targets], how="horizontal"),
+                source=self.__class__.__name__,
+            )
+        else:
+            warnings.warn("Population is not a Polars DataFrame. Defaulting to providing OUTPUTS only.", stacklevel=2)
+            message = PolarsDataFrameMessage(
+                topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
+                value=self.selected_targets,
+                source=self.__class__.__name__,
+            )
+        return [
+            DictMessage(
+                topic=SelectorMessageTopics.STATE,
+                value={
+                    "population_size": self.population_size,
+                    "selected_individuals": self.selection,
+                },
+                source=self.__class__.__name__,
+            ),
+            message,
+            NumpyArrayMessage(
+                topic=SelectorMessageTopics.SELECTED_FITNESS,
+                value=self.fitness,
+                source=self.__class__.__name__,
+            ),
+        ]
 
     def update(self, message: Message) -> None:
         pass
