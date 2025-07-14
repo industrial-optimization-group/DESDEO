@@ -178,19 +178,6 @@ def initialize(
                     problem=problem,
                     solver=request.solver,
                 )
-        # fetch parent state: TODO: remove from the final commit, you can come back to this. just parent_id = None later.
-        if request.parent_state_id is None:
-            # parent state is NOT assumed to be the last state added to the session, since this is creating init state.
-            parent_state = None
-        else:
-            # request.parent_state_id is not None TODO: can THIS ever happen?
-            statement = session.select(StateDB).where(StateDB.id == request.parent_state_id)
-            parent_state = session.exec(statement).first()
-
-            if parent_state is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail=f"Could not find state with id={request.parent_state_id}"
-                )
 
         nimbus_state = NIMBUSInitializationState(
             solver=request.solver,
@@ -202,7 +189,7 @@ def initialize(
             problem_id=problem_db.id,
             preference_id=None,
             session_id=interactive_session.id if interactive_session is not None else None,
-            parent_id=parent_state.id if parent_state is not None else None,
+            parent_id=None,
             state=nimbus_state,
         )
 

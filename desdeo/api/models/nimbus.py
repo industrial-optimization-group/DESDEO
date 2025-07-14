@@ -35,6 +35,5 @@ class NIMBUSInitializationRequest(SQLModel):
 
     problem_id: int
     session_id: int | None = Field(default=None)
-    parent_state_id: int | None = Field(default=None)
 
     solver: str | None = Field(default=None)
