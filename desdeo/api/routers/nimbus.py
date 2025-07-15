@@ -165,7 +165,6 @@ def initialize(
             StateDB.session_id == (interactive_session.id if interactive_session is not None else None),
             StateDB.state["method"] == "nimbus",
             )
-        .where(or_(StateDB.state["phase"] == "solve_candidates", StateDB.state["phase"] == "initialize"))
         .order_by(StateDB.id.desc())
     )
     last_statedb = session.exec(statement).first()
@@ -178,6 +177,17 @@ def initialize(
                     problem=problem,
                     solver=request.solver,
                 )
+        # fetch parent state if it is given
+        if request.parent_state_id is None:
+            parent_state = None
+        else:
+            statement = session.select(StateDB).where(StateDB.id == request.parent_state_id)
+            parent_state = session.exec(statement).first()
+
+            if parent_state is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail=f"Could not find state with id={request.parent_state_id}"
+                )
 
         nimbus_state = NIMBUSInitializationState(
             solver=request.solver,
@@ -189,7 +199,7 @@ def initialize(
             problem_id=problem_db.id,
             preference_id=None,
             session_id=interactive_session.id if interactive_session is not None else None,
-            parent_id=None,
+            parent_id=parent_state.id if parent_state is not None else None,
             state=nimbus_state,
         )
 
