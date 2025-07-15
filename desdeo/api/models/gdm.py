@@ -18,8 +18,7 @@ class Group(GroupBase, table=True):
     
     problem_id: int = Field(default=None)
 
-    # This could be implemented as a linked list from parent to child
-    group_iterations: list["GroupIteration"] | None = Relationship(back_populates="group")
+    head_iteration: "GroupIteration" = Relationship(back_populates="group")
 
 class GroupPublic(GroupBase):
     """Response model for Group"""
@@ -35,7 +34,7 @@ class GroupIteration(SQLModel, table=True):
     problem_id: int | None = Field(default=None)
     
     group_id: int | None = Field(foreign_key="group.id", default=None)
-    group: "Group" = Relationship(back_populates="group_iterations")
+    group: "Group" = Relationship(back_populates="head_iteration")
     
     set_preferences: dict[int, str] = Field(sa_column=Column(JSON)) # Dummy type
     results: str | None = Field(default=None) # Dummy type
@@ -46,8 +45,11 @@ class GroupIteration(SQLModel, table=True):
         back_populates="child", 
         sa_relationship_kwargs={"remote_side": "GroupIteration.id"}
     )
-
-    child: "GroupIteration" = Relationship(back_populates="parent")
+    # If parent is removed, remove the child too
+    child: "GroupIteration" = Relationship(
+        back_populates="parent", 
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
 
 class GroupInfoRequest(SQLModel):
     group_id: int

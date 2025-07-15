@@ -409,14 +409,26 @@ def test_login_logout(client: TestClient):
     
 
 def test_group_operations(client: TestClient):
+    """Tests for websocket endpoints and websockets"""
 
     create_endpoint = "/gdm/create_group"
+    delete_endpoint = "/gdm/delete_group"
     add_user_endpoint = "/gdm/add_to_group"
     remove_user_endpoint = "/gdm/remove_from_group"
     group_info_endpoint = "/gdm/get_group_info"
 
     # login to analyst
     access_token = login(client=client, username="analyst", password="analyst")
+
+    def get_info(gid: int):
+        return post_json(
+            client=client,
+            endpoint=group_info_endpoint,
+            json=GroupInfoRequest(
+                group_id=gid,
+            ).model_dump(),
+            access_token=access_token
+        )
 
     # try to create group with no problem
     response = post_json(
@@ -461,18 +473,12 @@ def test_group_operations(client: TestClient):
         access_token=access_token
     )
     assert response.status_code == status.HTTP_200_OK
-
-    response = post_json(
-        client=client,
-        endpoint=group_info_endpoint,
-        json=GroupInfoRequest(
-            group_id=1,
-        ).model_dump(),
-        access_token=access_token
-    )
+    response = get_info(1)
     assert response.status_code == status.HTTP_200_OK
     group: GroupPublic = GroupPublic.model_validate(json.loads(response.content.decode("utf-8")))
     assert 2 in group.user_ids
+
+    # TODO: websocket testing and result fetching?
 
     # Remove user from a group
     response = post_json(
@@ -485,15 +491,20 @@ def test_group_operations(client: TestClient):
         access_token=access_token
     )
     assert response.status_code == status.HTTP_200_OK
-
-    response = post_json(
-        client=client,
-        endpoint=group_info_endpoint,
-        json=GroupInfoRequest(
-            group_id=1,
-        ).model_dump(),
-        access_token=access_token
-    )
+    response = get_info(1)
     assert response.status_code == status.HTTP_200_OK
     group: GroupPublic = GroupPublic.model_validate(json.loads(response.content.decode("utf-8")))
     assert 2 not in group.user_ids
+
+    # Delete the group
+    response = post_json(
+        client=client,
+        endpoint=delete_endpoint,
+        json=GroupInfoRequest(
+            group_id=1,
+        ).model_dump(),
+        access_token=access_token,
+    )
+    assert response.status_code == status.HTTP_200_OK
+    response = get_info(1)
+    assert response.status_code == status.HTTP_404_NOT_FOUND

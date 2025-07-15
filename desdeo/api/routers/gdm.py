@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 from fastapi import HTTPException, status
 
 from sqlmodel import Session, select
-from typing import Annotated, Any
+from typing import Annotated
 
 from desdeo.api.models import (
     User, 
@@ -50,9 +50,7 @@ class GroupManager:
             raise ManagerException(f"No group with ID {group_id} found!")
         
         # Make sure first iteration exists
-        try:
-            group.group_iterations[-1]
-        except:
+        if group.head_iteration == None:
             raise ManagerException(f"No iterations found for group {group.name}")
 
 
@@ -77,7 +75,7 @@ class GroupManager:
         session = next(get_session())
         group = session.exec(select(Group).where(Group.id == self.group_id)).first()
         try:
-            prev_iter = group.group_iterations[-1].parent
+            prev_iter = group.head_iteration.parent
             if prev_iter == None:
                 return
             if not prev_iter.notified[str(user_id)]:
@@ -120,7 +118,7 @@ class GroupManager:
         await asyncio.sleep(1)
         session = next(get_session())
         group = session.exec(select(Group).where(Group.id == self.group_id)).first()
-        iteration = group.group_iterations[-1]
+        iteration = group.head_iteration
         prefs = iteration.set_preferences
         message = ""
         for usr, pref in prefs.items():
@@ -130,7 +128,7 @@ class GroupManager:
         # Optimize
         await asyncio.sleep(7)
         await self.broadcast("optimizin' done")
-        print(f"Optimization for group {self.group_id} done.")
+        if debug: print(f"Optimization for group {self.group_id} done.")
 
         # ADD optimization results into database
         iteration.results = message
@@ -147,8 +145,7 @@ class GroupManager:
             # Fetch the current iteration
             session = next(get_session())
             group = session.exec(select(Group).where(Group.id == self.group_id)).first()
-            group_iterations = group.group_iterations
-            current_iteration = group_iterations[-1]
+            current_iteration = group.head_iteration
 
             if debug:
                 print(current_iteration.id)
@@ -180,7 +177,8 @@ class GroupManager:
             notified = {}
             for user_id in group.user_ids:
                 socket: WebSocket = self.sockets[user_id]
-                print(socket)
+                if debug:
+                    print(socket)
                 if socket != None:
                     await self.notify(socket)
                     notified[user_id] = True
@@ -212,10 +210,9 @@ class GroupManager:
             session.add(current_iteration)
             session.commit()
 
-            new_group_iterations = group_iterations.copy()  # bruh (perhaps we should just use index list?)
-            new_group_iterations.append(next_iteration)     # seems super inefficient. maybe linked list from
-            group.group_iterations = new_group_iterations   # parent to child would be more suitable? head would
-            session.add(group)                              # require more iterating when accessed from root
+            # Update head
+            group.head_iteration = next_iteration
+            session.add(group)
             session.commit()
 
             
@@ -290,7 +287,7 @@ async def websocket_endpoint(
             status_code=status.HTTP_401_UNAUTHORIZED
         )
     
-    print(f"{user.username} has joined.")
+    if debug: print(f"{user.username} has joined.")
 
     # Get the group manager object from the manager of group managers
     group_manager = await manager.get_group_manager(group_id=group_id_int)
@@ -304,10 +301,12 @@ async def websocket_endpoint(
             data = await websocket.receive_text()
             await group_manager.broadcast(message=f"{user_id_int}: {data}")
             if data.startswith("pref: "):
-                asyncio.create_task(group_manager.set_preference(user_id_int, data[6:]))
+                asyncio.create_task(
+                    group_manager.set_preference(user_id_int, data[6:])
+                )
     except WebSocketDisconnect:
         await group_manager.disconnect(user_id_int, websocket)
-        await group_manager.broadcast(message=f"{user_id_int} left the chat")
+        await group_manager.broadcast(message=f"{user.username} left.")
         if debug:
             print(group_manager.sockets)
             print(manager.group_managers)
@@ -370,11 +369,82 @@ def create_group(
 
     session.add(first_iteration)
     session.commit()
+    session.refresh(first_iteration)
+
+    group.head_iteration = first_iteration
+    session.add(group)
+    session.commit()
 
     return JSONResponse(
         content={"message": f"Group with ID {group.id} created."},
         status_code=status.HTTP_201_CREATED
     )
+
+@router.post("/delete_group")
+def delete_group(
+    request: GroupInfoRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    session : Annotated[Session, Depends(get_session)]
+) -> JSONResponse:
+    """Delete the group with given ID
+    
+    Args:
+        request (GroupInfoRequest): Contains the ID of the group to be deleted
+        user (Annotated[User, Depends(get_current_user)]): The user (in this case must be owner for anything to happen)
+        session (Annotated[Session, Depends(get_session)]): The database session
+
+    Returns:
+        JSONResponse: Aknowledgement of the deletion
+
+    Raises:
+        HTTPException: Insufficient authorization etc.
+    """
+    group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
+    if group == None:
+        raise HTTPException(
+            detail=f"No group with ID {request.group_id} found.",
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+
+    if user.id != group.owner_id:
+        raise HTTPException(
+            detail="Only the owner of a group may delete the group.",
+            status_code=status.HTTP_401_UNAUTHORIZED
+        )
+    
+    # Get the root iteration
+    head: GroupIteration = group.head_iteration
+    iter_count = 1
+    while head.parent != None:
+        head = head.parent
+        iter_count += 1
+
+    # First delete the corresponding group iterations
+    # This deletes the rest of the iterations due to cascades
+    session.delete(head)
+    session.commit()
+
+    # Then delete the group
+    session.delete(group)
+    session.commit()
+
+    # Make sure that the group IS deleted!
+    group = session.exec(select(Group).where(Group.id == request.group_id)).first()
+    if group != None:
+        raise HTTPException(
+            detail="Couldn't delete group from the database!",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+        
+
+    return JSONResponse(
+        content={
+            "message": 
+            f"Group with ID {request.group_id} and its {iter_count} iterations have been deleted."
+        },
+        status_code=status.HTTP_200_OK
+    )
+    
 
 @router.post("/add_to_group")
 def add_to_group(
@@ -399,7 +469,7 @@ def add_to_group(
     # Make sure the group exists
     if group == None:
         raise HTTPException(
-            detail="There's no such group!",
+            detail=f"There's no group with ID {request.group_id}",
             status_code=status.HTTP_404_NOT_FOUND
         )
     # Make sure of proper authorization 
@@ -411,7 +481,7 @@ def add_to_group(
     
     if request.user_id in group.user_ids:
         raise HTTPException(
-            detail="User already in this group!",
+            detail=f"User with ID {request.user_id} already in this group!",
             status_code=status.HTTP_400_BAD_REQUEST
         )
 
@@ -470,7 +540,7 @@ def remove_from_group(
     # Make sure the group exists
     if group == None:
         raise HTTPException(
-            detail="There's no such group!",
+            detail=f"No group with ID {request.group_id} found.",
             status_code=status.HTTP_404_NOT_FOUND
         )
     # Make sure of proper authorization 
@@ -484,7 +554,7 @@ def remove_from_group(
     
     if request.user_id not in group.user_ids:
         raise HTTPException(
-            detail="User is not in this group!",
+            detail=f"User with ID {request.user_id} is not in this group!",
             status_code=status.HTTP_400_BAD_REQUEST
         )
     
@@ -564,19 +634,21 @@ def get_results(
             status_code=status.HTTP_401_UNAUTHORIZED
         )
 
+    nores_exp = HTTPException(
+        detail="No results found!",
+        status_code=status.HTTP_404_NOT_FOUND
+    )
+
     try:
-        iteration = group.group_iterations[-2]
-    except IndexError:
-        raise HTTPException(
-            detail="No results found!",
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+        iteration = group.head_iteration.parent
+    except:
+        raise nores_exp
+    
+    if iteration == None:
+        raise nores_exp
     
     if iteration.results == None:
-        raise HTTPException(
-            detail="No results found!",
-            status_code=status.HTTP_404_NOT_FOUND
-        )
+        raise nores_exp
 
     # Dummy results
     return JSONResponse(
