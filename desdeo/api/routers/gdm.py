@@ -145,6 +145,8 @@ class GroupManager:
             # Fetch the current iteration
             session = next(get_session())
             group = session.exec(select(Group).where(Group.id == self.group_id)).first()
+            if group == None:
+                await self.broadcast(f"The group with ID {self.group_id} doesn't exist anymore.")
             current_iteration = group.head_iteration
 
             if debug:
