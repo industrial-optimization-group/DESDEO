@@ -3,11 +3,11 @@
 import json
 from pathlib import Path
 from types import UnionType
-from typing import TYPE_CHECKING, Optional, Literal
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, create_model
-from sqlalchemy.types import String, TypeDecorator
-from sqlmodel import JSON, Column, Field, Relationship, SQLModel
+from sqlalchemy.types import JSON, String, TypeDecorator
+from sqlmodel import Column, Field, Relationship, SQLModel
 
 from desdeo.problem.schema import (
     Constant,
@@ -21,6 +21,7 @@ from desdeo.problem.schema import (
     Tensor,
     TensorConstant,
     TensorVariable,
+    Url,
     Variable,
     VariableDomainTypeEnum,
     VariableType,
@@ -191,7 +192,9 @@ class ProblemDB(ProblemBase, table=True):
             else [],
         )
 
+
 ### PROBLEM METADATA ###
+
 
 class ProblemMetaDataListType(TypeDecorator):
     """SQLAlchemy custom type to convert list of problem metadata to JSON and back."""
@@ -199,16 +202,17 @@ class ProblemMetaDataListType(TypeDecorator):
     impl = JSON
 
     def process_bind_param(self, value, dialect):
-        """list of problem metadata to JSON."""
+        """List of problem metadata to JSON."""
         if isinstance(value, list):
             items = []
             for item in value:
-                if (isinstance(item, BaseProblemMetaData)):
+                if isinstance(item, BaseProblemMetaData):
                     items.append(item.model_dump_json())
             return json.dumps(items)
+        return None
 
     def process_result_value(self, value, dialect):
-        """JSON to list of problem metadata"""
+        """JSON to list of problem metadata."""
         if value is not None:
             metadata_list = json.loads(value)
             metadata_objects: list[BaseProblemMetaData] = []
@@ -221,6 +225,7 @@ class ProblemMetaDataListType(TypeDecorator):
                     case _:
                         print(f"Cannot convert {item_dict["metadata_type"]} into metadata!")
             return metadata_objects
+        return None
 
 
 class BaseProblemMetaData(SQLModel):
@@ -230,7 +235,7 @@ class BaseProblemMetaData(SQLModel):
 
 
 class ForestProblemMetaData(BaseProblemMetaData):
-    """A problem metadata class to hold UTOPIA forest problem specific information"""
+    """A problem metadata class to hold UTOPIA forest problem specific information."""
 
     metadata_type: str = "forest_problem_metadata"
 
@@ -238,12 +243,12 @@ class ForestProblemMetaData(BaseProblemMetaData):
     schedule_dict: dict = Field(sa_column=Column(JSON))
     years: list[str] = Field()
     stand_id_field: str = Field()
-    stand_descriptor: dict | None = Field(sa_column=Column(JSON), default = None)
-    compensation: float | None = Field(default = None)
+    stand_descriptor: dict | None = Field(sa_column=Column(JSON), default=None)
+    compensation: float | None = Field(default=None)
 
 
 class ProblemMetaDataDB(SQLModel, table=True):
-    """Store Problem MetaData to DB with this class"""
+    """Store Problem MetaData to DB with this class."""
 
     id: int | None = Field(primary_key=True, default=None)
     problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
@@ -251,55 +256,92 @@ class ProblemMetaDataDB(SQLModel, table=True):
 
     problem: ProblemDB | None = Relationship(back_populates="problem_metadata")
 
+
 class ProblemMetaDataPublic(SQLModel):
-    """Response model for ProblemMetaData"""
+    """Response model for ProblemMetaData."""
 
     data: list[BaseProblemMetaData] | None
 
+
 class ProblemMetaDataGetRequest(SQLModel):
-    """Request model for getting specific type of metadata from a specific problem"""
+    """Request model for getting specific type of metadata from a specific problem."""
 
     problem_id: int
     metadata_type: str
 
+
 ### PATH TYPES ###
 
-class PathType(TypeDecorator):
-    """SQLAlchemy custom type to convert Path to string (credit to @strfx on GitHUb!)."""
 
-    impl = String
+class PathOrUrlType(TypeDecorator):
+    """Helper class for dealing with Paths and Urls."""
 
-    def process_bind_param(self, value, dialect):
-        """Path to string."""
-        if isinstance(value, Path):
-            return str(value)
-        return value
+    impl = JSON
+    cache_ok = True
 
-    def process_result_value(self, value, dialect):
-        """String to Path."""
-        if value is not None:
-            return Path(value)
-        return value
-
-
-class PathListType(TypeDecorator):
-    """SQLAlchemy custom type to convert list[Path] to JSON."""
-
-    impl = String
-
-    def process_bind_param(self, value, dialect):
-        """list[Path] to JSON."""
-        if isinstance(value, list) and all(isinstance(item, Path) for item in value):
-            return json.dumps([str(item) for item in value])
-        return value  # Handle as a normal string if not a list of Paths
+    def process_bind_param(self, value: Path | Url | None, dialect):
+        """Convert to string or JSON."""
+        if value is None:
+            return None
+        elif isinstance(value, Path):  # noqa: RET505
+            return {"_type": "path", "value": str(value)}
+        elif isinstance(value, Url):
+            return {"_type": "url", "value": value.model_dump()}
+        else:
+            raise ValueError(f"Unsupported type: {type(value)}")
 
     def process_result_value(self, value, dialect):
-        """JSON to list[Path]."""
-        # Deserialize JSON back to a list of Path objects
-        if value is not None:
-            path_strings = json.loads(value)
-            return [Path(item) for item in path_strings]
-        return None
+        """Convert back to Path or URL."""
+        if value is None:
+            return None
+        elif isinstance(value, dict) and "_type" in value:  # noqa: RET505
+            if value["_type"] == "path":
+                return Path(value["value"])
+            elif value["_type"] == "url":  # noqa: RET505
+                return Url(**value["value"])
+        raise ValueError(f"Invalid format: {value}")
+
+
+class PathOrUrlListType(TypeDecorator):
+    """SQLAlchemy custom type to convert list[Path | Url] to JSON."""
+
+    impl = String
+    cache_ok = True
+
+    def process_bind_param(self, value: list[Path | Url] | None, dialect):
+        """Serialize list[Path | Url] to JSON."""
+        if value is None:
+            return None
+
+        serialized = []
+        for item in value:
+            if isinstance(item, Path):
+                serialized.append({"_type": "path", "value": str(item)})
+            elif isinstance(item, Url):
+                serialized.append({"_type": "url", "value": item.model_dump()})
+            else:
+                raise TypeError(f"Unsupported item type in list: {type(item)}")
+
+        return json.dumps(serialized)
+
+    def process_result_value(self, value, dialect):
+        """Deserialize JSON to list[Path | Url]."""
+        if value is None:
+            return None
+
+        try:
+            items = json.loads(value)
+            result = []
+            for item in items:
+                if item["_type"] == "path":
+                    result.append(Path(item["value"]))
+                elif item["_type"] == "url":
+                    result.append(Url(**item["value"]))
+                else:
+                    raise ValueError(f"Unknown _type: {item.get('_type')}")
+            return result  # noqa: TRY300
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
+            raise ValueError(f"Invalid format for PathListType: {value}") from e
 
 
 def from_pydantic(
@@ -443,14 +485,18 @@ class _Objective(SQLModel):
 
     func: list | None = Field(sa_column=Column(JSON, nullable=True))
     scenario_keys: list[str] | None = Field(sa_column=Column(JSON), default=None)
-    surrogates: list[Path] | None = Field(sa_column=Column(PathListType), default=None)
-    simulator_path: Path | None = Field(sa_column=Column(PathType), default=None)
+    surrogates: list[Path] | None = Field(sa_column=Column(PathOrUrlListType), default=None)
+    simulator_path: Path | Url | None = Field(sa_column=Column(PathOrUrlType), default=None)
 
 
 _ObjectiveDB = from_pydantic(
     Objective,
     "_ObjectiveDB",
-    union_type_conversions={str | None: str | None, float | None: float | None},
+    union_type_conversions={
+        str | None: str | None,
+        float | None: float | None,
+        Path | Url | None: PathOrUrlType | None,
+    },
     base_model=_Objective,
 )
 
@@ -470,14 +516,18 @@ class _Constraint(SQLModel):
 
     func: list = Field(sa_column=Column(JSON))
     scenario_keys: list[str] | None = Field(sa_column=Column(JSON), default=None)
-    surrogates: list[Path] | None = Field(sa_column=Column(PathListType), default=None)
-    simulator_path: Path | None = Field(sa_column=Column(PathType), default=None)
+    surrogates: list[Path] | None = Field(sa_column=Column(PathOrUrlListType), default=None)
+    simulator_path: Path | Url | None = Field(sa_column=Column(PathOrUrlType), default=None)
 
 
 _ConstraintDB = from_pydantic(
     Constraint,
     "_ConstraintDB",
-    union_type_conversions={str | None: str | None, float | None: float | None},
+    union_type_conversions={
+        str | None: str | None,
+        float | None: float | None,
+        Path | Url | None: PathOrUrlType | None,
+    },
     base_model=_Constraint,
 )
 
@@ -522,12 +572,15 @@ class _ExtraFunction(SQLModel):
 
     func: list = Field(sa_column=Column(JSON))
     scenario_keys: list[str] | None = Field(sa_column=Column(JSON), default=None)
-    surrogates: list[Path] | None = Field(sa_column=Column(PathListType), default=None)
-    simulator_path: Path | None = Field(sa_column=Column(PathType), default=None)
+    surrogates: list[Path] | None = Field(sa_column=Column(PathOrUrlListType), default=None)
+    simulator_path: Path | Url | None = Field(sa_column=Column(PathOrUrlType), default=None)
 
 
 _ExtraFunctionDB = from_pydantic(
-    ExtraFunction, "_ExtraFunctionDB", union_type_conversions={str | None: str | None}, base_model=_ExtraFunction
+    ExtraFunction,
+    "_ExtraFunctionDB",
+    union_type_conversions={str | None: str | None, Path | Url | None: PathOrUrlType | None},
+    base_model=_ExtraFunction,
 )
 
 
@@ -567,11 +620,21 @@ class DiscreteRepresentationDB(_DiscreteRepresentationDB, table=True):
 class _Simulator(SQLModel):
     """Helper class to override the fields of nested and list types, and Paths."""
 
-    file: Path = Field(sa_column=Column(PathType))
+    file: Path | None = Field(sa_column=Column(PathOrUrlType), default=None)
+    url: Url | None = Field(sa_column=Column(PathOrUrlType), default=None)
     parameter_options: dict | None = Field(sa_column=Column(JSON), default=None)
 
 
-_SimulatorDB = from_pydantic(Simulator, "_SimulatorDB", base_model=_Simulator)
+_SimulatorDB = from_pydantic(
+    Simulator,
+    "_SimulatorDB",
+    union_type_conversions={
+        str | None: str | None,
+        Path | None: PathOrUrlType | None,
+        Url | None: PathOrUrlType | None,
+    },
+    base_model=_Simulator,
+)
 
 
 class SimulatorDB(_SimulatorDB, table=True):
