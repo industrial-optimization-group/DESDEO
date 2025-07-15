@@ -1,7 +1,7 @@
 <script lang="ts">
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import PreferenceSwitcher from './preference-switcher.svelte';
-	import { writable } from 'svelte/store';
+	import { writable, type Writable } from 'svelte/store';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import type { components } from '$lib/api/client-types';
 	import {
@@ -16,17 +16,21 @@
 		interface Props {
 		preference_types: string[];
 		problem: ProblemInfo;
-		onChange?: (event: { value: string; preference: number[]; numSolutions: number }) => void;
-		onIterate?: () => void;
-		onFinish?: () => void;
+		onChange?: (event: { value: string; preference?: number[]; numSolutions?: number }) => void;
+		onIterate?: (selectedPreference: Writable<string>, referencePointValues: Writable<number[]>) => void;
+		onFinish?: (referencePointValues?: Writable<number[]>) => void;
 		showNumSolutions?: boolean;
 		ref?: HTMLElement | null;
-		referencePointValues?: typeof writable<number[]>;
+		referencePointValues?: Writable<number[]>;
 		handleReferencePointChange?: (idx: number, newValue: number) => void;
+		isIterationAllowed?: boolean;
+		isFinishAllowed?: boolean;
+		currentObjectives?: Record<string, number>;
 		preference?: number[];
 		numSolutions?: number;
 		minNumSolutions?: number;
 		maxNumSolutions?: number;
+		lastIteratedPreference?: number[];
 	}
 
 	let {
@@ -39,10 +43,14 @@
 		ref = null,
 		referencePointValues = writable(problem.objectives.map((obj: any) => obj.ideal)), // default if not provided
 		handleReferencePointChange = (idx: number, newValue: number) => {}, // default noop
+		isIterationAllowed = true,
+		isFinishAllowed = true,
+		currentObjectives = undefined,
 		preference = undefined,
 		numSolutions = 1,
 		minNumSolutions = 1,
-		maxNumSolutions = 4
+		maxNumSolutions = 4,
+		lastIteratedPreference = []
 	}: Props = $props();
 
 
@@ -78,34 +86,33 @@
 				}
 				
 				const selectedValue = internalPreference[idx];
-				const solutionValue = objective.ideal;
-				const lowerBound = Math.min(objective.ideal, objective.nadir);
-				const higherBound = Math.max(objective.ideal, objective.nadir);
+				const solutionValue = currentObjectives ? currentObjectives[objective.symbol] : undefined;
 				const precision = 0.001; // Adjust as needed
 
-				if (selectedValue === undefined || solutionValue === undefined) {
-					return classification.ChangeFreely;
-				} else if (
-					Math.abs(selectedValue - lowerBound) < precision ||
-					selectedValue < lowerBound
-				) {
-					return classification.ChangeFreely;
-				} else if (
-					Math.abs(selectedValue - higherBound) < precision ||
-					selectedValue > higherBound
-				) {
-					return classification.ImproveFreely;
-				} else if (Math.abs(selectedValue - solutionValue) < precision) {
-					return classification.KeepConstant;
-				} else if (selectedValue < solutionValue) {
-					return classification.WorsenUntil;
-				} else if (selectedValue > solutionValue) {
-					return classification.ImproveUntil;
-				}
-				
-				return classification.ChangeFreely; // fallback
-			})
-			: []
+                if (selectedValue === undefined || solutionValue === undefined) {
+                    return classification.ChangeFreely;
+                }
+
+                // Check if we're at the bounds
+                if (Math.abs(selectedValue - objective.ideal) < precision) {
+                    return classification.ImproveFreely; // At ideal value
+                } else if (Math.abs(selectedValue - objective.nadir) < precision) {
+                    return classification.ChangeFreely; // At nadir (worst) value
+                } else if (Math.abs(selectedValue - solutionValue) < precision) {
+                    return classification.KeepConstant; // Same as current solution
+                }
+
+                // Determine if selectedValue is better or worse than solutionValue
+                // based on the objective's optimization direction
+                const isSelectedBetter = objective.maximize 
+                    ? selectedValue > solutionValue  // For maximization: higher is better
+                    : selectedValue < solutionValue; // For minimization: lower is better
+
+                return isSelectedBetter 
+                    ? classification.ImproveUntil 
+                    : classification.WorsenUntil;
+            })
+            : []
     );
 
 	function handleReferencePointChangeInternal(idx: number, newValue: number) {
@@ -173,6 +180,7 @@
 				{#if objective.ideal != null && objective.nadir != null}
 					{@const minValue = Math.min(objective.ideal, objective.nadir)}
 					{@const maxValue = Math.max(objective.ideal, objective.nadir)}
+					{@const currentValue = currentObjectives ? currentObjectives[objective.symbol] : objective.ideal}
 		
 					<div class="flex items-center justify-between mb-2">
 						<div>
@@ -182,6 +190,7 @@
 								{#if objective.unit}({objective.unit}){/if}
 								<span class="text-gray-500">({objective.maximize ? "max" : "min"})</span>
 							</div>
+							<div class="text-xs text-gray-500"> Previous preference: {lastIteratedPreference && lastIteratedPreference[idx] !== undefined ? lastIteratedPreference[idx] : "-"}</div>
 							<!-- Current NIMBUS classification label -->
 							<label for="input-{idx}" class="text-xs text-gray-500">{classificationValues[idx]}</label>
 							<Input
@@ -210,7 +219,7 @@
 						</div>
 						<HorizontalBar
 							axisRanges={[objective.ideal, objective.nadir]}
-							solutionValue={objective.ideal}
+							solutionValue={currentValue}
 							selectedValue={internalPreference[idx]}
 							barColor="#4f8cff"
 							direction="min"
@@ -339,6 +348,7 @@
 		<div class="items-right flex justify-end gap-2">
 			<Button
 				variant="default"
+				disabled={!isIterationAllowed}
 				size="sm"
 				onclick={() => {
 					selectedPreference.set(preference_types[0]);
@@ -351,6 +361,7 @@
 			<Button
 				variant="secondary"
 				size="sm"
+				disabled={!isFinishAllowed}
 				onclick={() => {
 					selectedPreference.set(preference_types[0]);
 					referencePointValues.set(problem.objectives.map((obj: any) => obj.ideal));

@@ -40,24 +40,73 @@
 	import type { components } from '$lib/api/client-types';
 	import { onMount } from 'svelte';
 	import { Combobox } from '$lib/components/ui/combobox';
-	type ProblemInfo = components['schemas']['ProblemInfo'];
-	let problem: ProblemInfo | null = $state(null);
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 
+	type ProblemInfo = components['schemas']['ProblemInfo'];
+	
+	// Define a general type for any state with solver_results
+	// TODO: This will be limited to NIMBUSClassificationState and NIMBUSInitializationState, after nimbus initialization works.
+	type StateWithResults = {
+		solver_results: Array<{
+			optimal_objectives: Record<string, number | number[]>;
+			[key: string]: any;
+		}>;
+		[key: string]: any;
+	};
+	
+	let problem: ProblemInfo | null = $state(null);
 	const { data } = $props<{ data: ProblemInfo[] }>();
 	let problemList = data.problems ?? [];
-	let selectedTypeSolutions = 'current';
+	let selectedTypeSolutions = $state('current');
 
-	// State for preferences and numSolutions - will be used in HTTP request button,
-	// currentPreference needs to be initialized with previous_preference from NIMBUSClassificationState
+	// State for NIMBUS iteration management
+	let previousState: StateWithResults | null = $state(null);
+	let selectedSolutionIndex: number = $state(0); // Which solution from previous results to use
+
+	// currentPreference is initialized from previous_preference or ideal values
 	let currentPreference: number[] = $state([]);
 	let currentNumSolutions: number = $state(1);
+	// Current objectives for the sidebar - either from selected solution or calculated average
+	let currentObjectives: Record<string, number> = $state({});
+	// Store the last iterated preference values to show as "previous" in UI
+	let lastIteratedPreference: number[] = $state([]);
 
 	const frameworks = [
 		{ value: 'current', label: 'Current solutions' },
 		{ value: 'best', label: 'Best solutions' },
 		{ value: 'all', label: 'All solutions' }
 	];
+
+	// Validation: iteration is allowed when at least one preference is better and one is worse than current objectives
+	let isIterationAllowed = $derived(() => {
+		if (!problem || currentPreference.length === 0 || Object.keys(currentObjectives).length === 0) {
+			return false;
+		}
+
+		let hasImprovement = false;
+		let hasWorsening = false;
+
+		for (let i = 0; i < problem.objectives.length; i++) {
+			const objective = problem.objectives[i];
+			const preferenceValue = currentPreference[i];
+			const currentValue = currentObjectives[objective.symbol];
+
+			if (preferenceValue === undefined || currentValue === undefined) {
+				continue;
+			}
+
+			// Check if preference differs from current value. 
+			// It does not matter what actually is better or worse as long as there is both
+			if (preferenceValue > currentValue) {
+				hasImprovement = true;
+			} else if (preferenceValue < currentValue) {
+				hasWorsening = true;
+			}
+		}
+
+		// Need both improvement and worsening for valid NIMBUS classification
+		return hasImprovement && hasWorsening;
+	});
 
 	function handleChange(event: { value: string }) {
 		selectedTypeSolutions = event.value;
@@ -66,9 +115,138 @@
 
 	// Handler for preference changes from the sidebar component
 	// Updates local state with new preference values and number of solutions
-	function handlePreferenceChange(event: { value: string; preference: number[]; numSolutions: number }) {
-		currentPreference = event.preference;
-		currentNumSolutions = event.numSolutions;
+	// The values are optional, because onChange in AppSidebar component limits what the values can be
+	function handlePreferenceChange(event: { value: string; preference?: number[]; numSolutions?: number }) {
+		currentPreference = event.preference ? event.preference : [];
+		currentNumSolutions = event.numSolutions ? event.numSolutions : 1;
+	}
+
+	// TODO: Handler for finishing the NIMBUS optimization process
+	async function handleFinish(referencePointValues?: any) {
+		console.log("TODO")
+	}
+
+	// The optional unused values are kept for compatibility with the AppSidebar component
+	async function handleIterate(selectedPreference?: any, referencePointValues?: any) {
+		if (!problem) {
+			console.error('No problem selected');
+			return;
+		}
+		if (currentPreference.length === 0) {
+			console.error('No preferences set');
+			return;
+		}
+		if (isIterationAllowed() === false) {
+			console.error('Iteration not allowed based on current preferences and objectives');
+			return;
+		}	
+		// TODO: are sessionId and parentStateId needed in some situations, and where should they come from?
+		const sessionId = null;
+		const parentStateId = null;
+		const preference = {
+			preference_type: "reference_point",
+			aspiration_levels: problem.objectives.reduce((acc, obj, idx) => {
+				acc[obj.symbol] = currentPreference[idx] || 0;
+				return acc;
+			}, {} as Record<string, number>)
+		};
+		try {
+			const response = await fetch('/interactive_methods/NIMBUS/iterate', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({
+					problem_id: problem.id,
+					session_id: sessionId,
+					parent_state_id: parentStateId,
+					current_objectives: currentObjectives,
+					num_desired: currentNumSolutions,
+					preference: preference,
+				})
+			});
+			const result = await response.json();
+			if (result.success) {
+				// Store the preference values that were just used for iteration
+				lastIteratedPreference = [...currentPreference];
+				
+				previousState = result.data
+				updatePreferencesFromState(previousState);
+				updateCurrentObjectivesFromState(previousState);
+				currentNumSolutions = result.data.num_desired;
+				console.log('NIMBUS iteration successful:', result.data);
+			} else {
+				console.error('NIMBUS iteration failed:', result.error);
+			}
+		} catch (error) {
+			console.error('Error calling NIMBUS iterate:', error);
+		}
+	}
+
+	// Helper function to calculate an initial "average" solution for NIMBUS when no previous state exists.
+	// TODO: REMOVE when initialization on load exists
+	function calculateInitialSolution(problem: ProblemInfo): Record<string, number> {
+		const objectives: Record<string, number> = {};
+		
+		for (const obj of problem.objectives) {
+			// Calculate a compromise between ideal and nadir points
+			const ideal = obj.ideal ?? 0;
+			const nadir = obj.nadir;
+			
+			if (nadir !== null && nadir !== undefined) {
+				// Use midpoint between ideal and nadir
+				objectives[obj.symbol] = (ideal + nadir) / 2;
+			} else {
+				// If nadir is not available, use ideal point
+				// TODO: In a real implementation, this should call a solver to calculate
+				// a proper compromise solution or use payoff table method
+				objectives[obj.symbol] = ideal;
+				console.warn(`No nadir point available for objective ${obj.symbol}, using ideal value`);
+			}
+		}
+		return objectives;
+	}
+
+	// Helper function to update current objectives from the current state
+	// TODO: rethink if-statements when state initialization works and StateWithResults changed
+	function updateCurrentObjectivesFromState(state: StateWithResults | null) {
+		if (!problem) return;
+		if (!state || !state.solver_results || state.solver_results.length === 0) return;
+			const selectedSolution = state.solver_results[0];
+			if (selectedSolution && selectedSolution.optimal_objectives) {
+				// Convert optimal_objectives to the format expected by the API
+				const newObjectives: Record<string, number> = {};
+				for (const [key, value] of Object.entries(selectedSolution.optimal_objectives)) {
+					newObjectives[key] = Array.isArray(value) ? value[0] : value;
+				}
+				currentObjectives = newObjectives;
+				console.log(`Updated current objectives from solution 1:`, currentObjectives);
+			} else {
+				// Fallback to calculated average if solution is invalid
+				currentObjectives = calculateInitialSolution(problem);
+				console.warn('Selected solution is invalid, falling back to calculated average');
+			}
+	}
+
+	// Helper function to initialize preferences from previous state or ideal values
+	// TODO: rethink if-statements when state initialization works and StateWithResults changed
+	function updatePreferencesFromState(state: StateWithResults | null) {
+		if (!problem) return;
+		// Try to get previous preference from NIMBUS state
+		if (state && 'previous_preference' in state && state.previous_preference) {
+			// Extract aspiration levels from previous preference
+			const previousPref = state.previous_preference as { aspiration_levels?: Record<string, number> };
+			if (previousPref.aspiration_levels) {
+				currentPreference = problem.objectives.map(obj => 
+					previousPref.aspiration_levels![obj.symbol] ?? obj.ideal ?? 0
+				);
+				console.log('Initialized preferences from previous state:', currentPreference);
+				return;
+			}
+		}
+		// Fallback to ideal values
+		currentPreference = problem.objectives.map((obj) => obj.ideal ?? 0);
+		console.log('Initialized preferences from ideal values:', currentPreference);
 	}
 
 	onMount(() => {
@@ -78,23 +256,17 @@
 			);
 
 			if (problem) {
-			// Initialize preferences with ideal values as fallback
-			// TODO: This should be enhanced to check for existing NIMBUS classification state
-			// This is how I understand this should go:
-            // 1. Check if there's a previous NIMBUSClassificationState with previous_preference, pseudo code:
-            // const nimbusState = getNIMBUSState(problem.id, user.id); // from somewhere
-            // if (nimbusState?.previous_preference) {
-            //     currentPreference = nimbusState.previous_preference;
-            // } else {
-                // 2. Fallback to ideal values when no previous state exists
-                currentPreference = problem.objectives.map((obj) => obj.ideal ?? 0);
-            // }
-        }
+				// TODO: Initialize NIMBUS state from the problem on load
+				// For now, start with mock initialization since we don't have it implemented
+				previousState = null;
+				currentPreference = problem.objectives.map((obj) => obj.ideal ?? 0);
+				currentObjectives = calculateInitialSolution(problem);
+			}
 		}
 	});
 </script>
 
-<div class="flex min-h-[calc(100vh-3rem)]">
+<div class="flex min-h-[calc(100vh-3rem)]">	
 	{#if problem}
 		<AppSidebar 
 			{problem} 
@@ -102,12 +274,16 @@
 			showNumSolutions={true} 
 			preference={currentPreference}
 			numSolutions={currentNumSolutions}
+			currentObjectives={currentObjectives}
+			isIterationAllowed={isIterationAllowed()}
 			minNumSolutions={1}
 			maxNumSolutions={4}
+			lastIteratedPreference={lastIteratedPreference}
 			onChange={handlePreferenceChange}
+			onIterate={handleIterate}
+			onFinish={handleFinish}
 		/>
 	{/if}
-
 	<div class="flex-1">
 		<Resizable.PaneGroup direction="vertical">
 			<Resizable.Pane class="p-2">
