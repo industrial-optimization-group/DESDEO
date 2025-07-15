@@ -113,13 +113,6 @@
 		console.log('Selected type of solutions:', selectedTypeSolutions);
 	}
 
-	// Handler for preference changes from the sidebar component
-	// Updates local state with new preference values and number of solutions
-	// The values are optional, because onChange in AppSidebar component limits what the values can be
-	function handlePreferenceChange(event: { value: string; preference?: number[]; numSolutions?: number }) {
-		currentPreference = event.preference ? event.preference : [];
-		currentNumSolutions = event.numSolutions ? event.numSolutions : 1;
-	}
 
 	// TODO: Handler for finishing the NIMBUS optimization process
 	async function handleFinish(referencePointValues?: any) {
@@ -151,7 +144,7 @@
 			}, {} as Record<string, number>)
 		};
 		try {
-			const response = await fetch('/interactive_methods/NIMBUS/iterate', {
+			const response = await fetch('/interactive_methods/NIMBUS/?type=iterate', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
@@ -169,7 +162,6 @@
 			if (result.success) {
 				// Store the preference values that were just used for iteration
 				lastIteratedPreference = [...currentPreference];
-				
 				previousState = result.data
 				updatePreferencesFromState(previousState);
 				updateCurrentObjectivesFromState(previousState);
@@ -181,30 +173,6 @@
 		} catch (error) {
 			console.error('Error calling NIMBUS iterate:', error);
 		}
-	}
-
-	// Helper function to calculate an initial "average" solution for NIMBUS when no previous state exists.
-	// TODO: REMOVE when initialization on load exists
-	function calculateInitialSolution(problem: ProblemInfo): Record<string, number> {
-		const objectives: Record<string, number> = {};
-		
-		for (const obj of problem.objectives) {
-			// Calculate a compromise between ideal and nadir points
-			const ideal = obj.ideal ?? 0;
-			const nadir = obj.nadir;
-			
-			if (nadir !== null && nadir !== undefined) {
-				// Use midpoint between ideal and nadir
-				objectives[obj.symbol] = (ideal + nadir) / 2;
-			} else {
-				// If nadir is not available, use ideal point
-				// TODO: In a real implementation, this should call a solver to calculate
-				// a proper compromise solution or use payoff table method
-				objectives[obj.symbol] = ideal;
-				console.warn(`No nadir point available for objective ${obj.symbol}, using ideal value`);
-			}
-		}
-		return objectives;
 	}
 
 	// Helper function to update current objectives from the current state
@@ -222,8 +190,6 @@
 				currentObjectives = newObjectives;
 				console.log(`Updated current objectives from solution 1:`, currentObjectives);
 			} else {
-				// Fallback to calculated average if solution is invalid
-				currentObjectives = calculateInitialSolution(problem);
 				console.warn('Selected solution is invalid, falling back to calculated average');
 			}
 	}
@@ -249,21 +215,49 @@
 		console.log('Initialized preferences from ideal values:', currentPreference);
 	}
 
-	onMount(() => {
+	onMount(async () => {
 		if ($methodSelection.selectedProblemId) {
 			problem = problemList.find(
 				(p: ProblemInfo) => String(p.id) === String($methodSelection.selectedProblemId)
 			);
 
 			if (problem) {
-				// TODO: Initialize NIMBUS state from the problem on load
-				// For now, start with mock initialization since we don't have it implemented
-				previousState = null;
-				currentPreference = problem.objectives.map((obj) => obj.ideal ?? 0);
-				currentObjectives = calculateInitialSolution(problem);
+				// Initialize NIMBUS state from the API
+				await initializeNimbusState(problem.id);
 			}
 		}
 	});
+
+	// Initialize NIMBUS state by calling the API endpoint
+	async function initializeNimbusState(problemId: number) {
+		try {
+			const response = await fetch('/interactive_methods/NIMBUS/?type=initialize', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({
+					problem_id: problemId,
+					session_id: null, // Use active session
+					parent_state_id: null, // No parent for initialization
+					solver: null // Use default solver
+				})
+			});
+
+			const result = await response.json();
+			
+			if (result.success) {
+				previousState = result.data;
+				updateCurrentObjectivesFromState(previousState);
+				updatePreferencesFromState(previousState);
+				currentNumSolutions = result.data.num_desired;
+			} else {
+				console.error('NIMBUS initialization failed:', result.error);
+			}
+		} catch (error) {
+			console.error('Error initializing NIMBUS:', error);
+		}
+	}
 </script>
 
 <div class="flex min-h-[calc(100vh-3rem)]">	
@@ -272,14 +266,13 @@
 			{problem} 
 			preference_types={['Classification']} 
 			showNumSolutions={true} 
-			preference={currentPreference}
-			numSolutions={currentNumSolutions}
+			bind:preference={currentPreference}
+			bind:numSolutions={currentNumSolutions}
 			currentObjectives={currentObjectives}
 			isIterationAllowed={isIterationAllowed()}
 			minNumSolutions={1}
 			maxNumSolutions={4}
 			lastIteratedPreference={lastIteratedPreference}
-			onChange={handlePreferenceChange}
 			onIterate={handleIterate}
 			onFinish={handleFinish}
 		/>

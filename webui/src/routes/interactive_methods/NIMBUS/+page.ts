@@ -1,9 +1,8 @@
 import type { PageLoad } from './$types';
 import { api } from '$lib/api/client';
-import type { FetchReturnType } from 'openapi-typescript-fetch';
-import type { paths } from '$lib/api/client-types';
+import type { components } from '$lib/api/client-types';
 
-type ProblemList = FetchReturnType<paths['/problem/all']['get']>;
+type ProblemList = components['schemas']['ProblemInfo'][];
 
 export const load: PageLoad = async () => {
 	const res = await api.GET('/problem/all_info');

@@ -16,7 +16,7 @@
 		interface Props {
 		preference_types: string[];
 		problem: ProblemInfo;
-		onChange?: (event: { value: string; preference?: number[]; numSolutions?: number }) => void;
+		onChange?: (event: { value: string}) => void;
 		onIterate?: (selectedPreference: Writable<string>, referencePointValues: Writable<number[]>) => void;
 		onFinish?: (referencePointValues?: Writable<number[]>) => void;
 		showNumSolutions?: boolean;
@@ -26,8 +26,8 @@
 		isIterationAllowed?: boolean;
 		isFinishAllowed?: boolean;
 		currentObjectives?: Record<string, number>;
-		preference?: number[];
-		numSolutions?: number;
+		preference: number[];
+		numSolutions: number;
 		minNumSolutions?: number;
 		maxNumSolutions?: number;
 		lastIteratedPreference?: number[];
@@ -46,8 +46,8 @@
 		isIterationAllowed = true,
 		isFinishAllowed = true,
 		currentObjectives = undefined,
-		preference = undefined,
-		numSolutions = 1,
+		preference = $bindable([]),
+		numSolutions = $bindable(1),
 		minNumSolutions = 1,
 		maxNumSolutions = 4,
 		lastIteratedPreference = []
@@ -57,16 +57,6 @@
 	// Store for the currently selected preference type
 	const selectedPreference = writable(preference_types[0]);
 	console.log('Problem in preferences sidebar:', problem);
-
-	// preferences and numSolutions come as props, 
-	// but these states keep them in sync in both input and slider,
-	// so that onChange-function has the latest preference and numSolutions
-	let internalPreference = $state<number[]>(
-		preference && preference.length > 0 
-			? [...preference] 
-			: []
-	);
-	let internalNumSolutions = $state<number>(numSolutions);
 
     const classification = {
         ChangeFreely: "Change freely",
@@ -85,7 +75,7 @@
 					return classification.ChangeFreely;
 				}
 				
-				const selectedValue = internalPreference[idx];
+				const selectedValue = preference[idx];
 				const solutionValue = currentObjectives ? currentObjectives[objective.symbol] : undefined;
 				const precision = 0.001; // Adjust as needed
 
@@ -156,19 +146,17 @@
 				type="number" 
 				placeholder="Number of solutions" 
 				class="mb-2 w-full" 
-				bind:value={internalNumSolutions} 
+				bind:value={numSolutions} 
 				oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
 					const numValue = Number(e.currentTarget.value);
 					// Clamp value within allowed range
 					const clampedValue = Math.max(minNumSolutions, Math.min(maxNumSolutions, numValue));
 					
 					if (numValue !== clampedValue) {
-						internalNumSolutions = clampedValue;
+						numSolutions = clampedValue;
 					}
 					onChange?.({ 
 						value: e.currentTarget.value,
-						preference: [...internalPreference],
-						numSolutions: internalNumSolutions 
 					});
 				}}
 			/>
@@ -199,7 +187,7 @@
 								step="0.01"
 								min={minValue}
 								max={maxValue}
-								bind:value={internalPreference[idx]}
+								bind:value={preference[idx]}
 								class="w-20 h-8 text-sm"
 								oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
 									const numValue = Number(e.currentTarget.value);
@@ -207,12 +195,10 @@
 									const clampedValue = Math.max(minValue, Math.min(maxValue, numValue));
 									
 									if (numValue !== clampedValue) {
-										internalPreference[idx] = clampedValue;
+										preference[idx] = clampedValue;
 									}
 									onChange?.({ 
 										value: e.currentTarget.value,
-										preference: [...internalPreference],
-										numSolutions: internalNumSolutions
 									});
 								}}
 							/>
@@ -220,7 +206,7 @@
 						<HorizontalBar
 							axisRanges={[objective.ideal, objective.nadir]}
 							solutionValue={currentValue}
-							selectedValue={internalPreference[idx]}
+							selectedValue={preference[idx]}
 							barColor="#4f8cff"
 							direction="min"
 							options={{
@@ -229,11 +215,9 @@
 								aspectRatio: 'aspect-[11/2]'
 							}}
 							onSelect={(newValue: number) => {
-								internalPreference[idx] = newValue
+								preference[idx] = newValue
 								onChange?.({ 
 									value: String(newValue),
-									preference: [...internalPreference],
-									numSolutions: internalNumSolutions
 								});
 							}}
 						/>
