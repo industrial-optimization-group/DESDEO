@@ -105,6 +105,7 @@ def SCORE_bands(
     bands: bool = False,
     medians: bool = False,
     quantile: float = 0.25,
+    scales: pd.DataFrame = None,
 ) -> go.Figure:
     """Generate SCORE bands figure from the provided data.
 
@@ -170,9 +171,11 @@ def SCORE_bands(
     num_labels = 6
 
     # Scaling the objective values between 0 and 1.
-    scaled_data = data - data.min(axis=0)
-    scaled_data = scaled_data / scaled_data.max(axis=0)
-    scales = pd.DataFrame([data.min(axis=0), data.max(axis=0)], index=["min", "max"]) * axis_signs
+    if scales is None:
+        scales = pd.DataFrame([data.min(axis=0), data.max(axis=0)], index=["min", "max"]) * axis_signs
+    
+    scaled_data = data - scales.loc["min"]
+    scaled_data = scaled_data / (scales.loc["max"] - scales.loc["min"])
 
     fig = go.Figure()
     fig.update_xaxes(showticklabels=False, showgrid=False, zeroline=False)
