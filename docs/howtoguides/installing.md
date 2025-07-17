@@ -190,13 +190,13 @@ you are on a JYU Windows machine, I recommend something like
 
 In your Anaconda prompt, type
 
-```bash
+```cmd
 mkdir C:\MyTemp\code
 ```
 
 and
 
-```bash
+```cmd
 cd C:\MyTemp\code
 ```
 
@@ -227,7 +227,7 @@ probably answer yes.
 
 Then activate your new virtual environment by typing in your Anaconda prompt
 
-```bash
+```cmd
 conda activate desdeo
 ```
 
@@ -244,7 +244,7 @@ conda activate desdeo
 The best way to download DESDEO is to use git. If you do not know what git is or
 if you have it installed, type in your Anaconda prompt
 
-```bash
+```cmd
 git
 ```
 
@@ -252,7 +252,7 @@ If you get a response saying something like `'git' is not recognized as an inter
 
 To install git, type in your Anaconda prompt
 
-```bash
+```cmd
 conda install git
 ```
 
@@ -260,7 +260,7 @@ and say yes when asked if you want to proceed.
 
 Once you have git installed, you can use it to download DESDEO. Type
 
-```bash
+```cmd
 git clone -b master --single-branch https://github.com/industrial-optimization-group/DESDEO.git
 ```
 
@@ -268,7 +268,7 @@ That creates a clone of the master branch of the DESDEO project. If you want all
 
 Git should have created a new subfolder called DESDEO. Let us navigate there by typing
 
-```bash
+```cmd
 cd DESDEO
 ```
 
@@ -277,24 +277,25 @@ After setting up a virtual environment and downloading the source code, we next
 need to install DESDEO's dependencies.  For this, we will need to first install
 `poetry` in our virtual environment. Type in your Anaconda prompt
 
-```bash
+```cmd
 pip install poetry
 ```
 
 Next, we need to set up some environmental variables to make sure that we do not
-run into trouble when installing Python packages using Poetry. Type the four
+run into trouble when installing Python packages using Poetry. Type the five
 following commands in your Anaconda prompt:
 
-```bash
-    conda env config vars set POETRY_CACHE_DIR=C:/MyTemp/temp
-    conda env config vars set TEMP=C:/MyTemp/temp
-    conda env config vars set TMP=C:/MyTemp/temp
-    conda activate desdeo
+```cmd
+conda env config vars set POETRY_VIRTUALENVS_CREATE=false
+conda env config vars set POETRY_CACHE_DIR=C:/MyTemp/temp
+conda env config vars set TEMP=C:/MyTemp/temp
+conda env config vars set TMP=C:/MyTemp/temp
+conda activate desdeo
 ```
 
 You can then install DESDEO and the required packages by typing
 
-```bash
+```cmd
 poetry install
 ```
 If you want the development dependencies installed as well, use `poetry install --with dev` instead.

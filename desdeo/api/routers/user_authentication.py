@@ -8,7 +8,7 @@ import bcrypt
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from jose import JWTError, jwt
+from jose import JWTError, jwt, ExpiredSignatureError
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -139,7 +139,7 @@ def get_current_user(
         if username is None or expire_time is None or expire_time < datetime.now(UTC).timestamp():
             raise credentials_exception
 
-    except jwt.exceptions.ExpiredSignatureError:
+    except ExpiredSignatureError:
         raise credentials_exception from None
 
     except JWTError:

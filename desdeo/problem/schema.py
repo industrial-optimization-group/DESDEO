@@ -1,3 +1,4 @@
+from typing import Self
 """Schema for the problem definition.
 
 The problem definition is a JSON file that contains the following information:
@@ -16,7 +17,7 @@ from collections.abc import Iterable
 from enum import Enum
 from itertools import product
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeAliasType
+from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeAliasType, Self
 
 import numpy as np
 from pydantic import (
@@ -711,9 +712,30 @@ class ScalarizationFunction(BaseModel):
         parse_scenario_key_singleton_to_list
     )
 
+class Url(BaseModel):
+    """Model for a URL."""
+
+    model_config = ConfigDict(frozen=True, from_attributes=True, extra='forbid')
+
+    url: str = Field(
+        description=(
+            "A URL to the simulator. A GET request to this URL should be used to evaluate solutions in batches.")
+    )
+    """A URL to the simulator. A GET request to this URL should be used to evaluate solutions in batches."""
+
+    auth: tuple[str, str] | None = Field(
+        description=(
+            "Optional. A tuple of username and password to be used for authentication when making requests to the URL."
+        ),
+        default=None,
+    )
+    """Optional. A tuple of username and password to be used for authentication when making requests to the URL."""
+    # Add headers and stuff for a proper HTTP request if needed in the future idk
 
 class Simulator(BaseModel):
-    """Model for simulator data."""
+    """Model for simulator data.
+    
+    One of `file` or `url` must be provided, but not both."""
 
     model_config = ConfigDict(frozen=True, from_attributes=True, extra='forbid')
 
@@ -727,10 +749,17 @@ class Simulator(BaseModel):
             " It may also be used in UIs and visualizations."
         ),
     )
-    file: Path = Field(
-        description=("Path to a python file with the connection to simulators."),
+    file: Path | None = Field(
+        description=("Path to a python file with the connection to simulators."), default=None
     )
     """Path to a python file with the connection to simulators."""
+    url: Url | None = Field(
+        description=(
+            "Optional. A URL to the simulator. A GET request to this URL should be used to evaluate solutions in batches."
+        ),
+        default=None,
+    )
+    """Optional. A URL to the simulator. A GET request to this URL should be used to evaluate solutions in batches."""
     parameter_options: dict | None = Field(
         description=(
             "Parameters to the simulator that are not decision variables, but affect the results."
@@ -740,6 +769,16 @@ class Simulator(BaseModel):
     )
     """Parameters to the simulator that are not decision variables, but affect the results.
     Format is similar to decision variables. Can be 'None'."""
+
+    # Check that either file or url is provided, but not both
+    @model_validator(mode="after")
+    def check_file_or_url(self) -> Self:
+        """Ensure that either file or url is provided, but not both."""
+        if self.file is None and self.url is None:
+            raise ValueError("Either 'file' or 'url' must be provided.")
+        if self.file is not None and self.url is not None:
+            raise ValueError("Only one of 'file' or 'url' can be provided.")
+        return self
 
 
 class Objective(BaseModel):
@@ -786,9 +825,9 @@ class Objective(BaseModel):
     variable/constant/extra function. Can be 'None' for 'data_based', 'simulator' or
     'surrogate' objective functions. If 'None', either 'simulator_path' or 'surrogates' must
     not be 'None'."""
-    simulator_path: Path | None = Field(
+    simulator_path: Path | Url |  None = Field(
         description=(
-            "Path to a python file with the connection to simulators. Must be a valid Path."
+            "Path to a python file or http server with the connection to simulators. Must be a valid Path or url."
             "Can be 'None' for 'analytical', 'data_based' or 'surrogate' objective functions."
             "If 'None', either 'func' or 'surrogates' must not be 'None'."
         ),

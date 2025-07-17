@@ -1,2 +1,3 @@
 import HorizontalBar from './horizontal-bar.svelte';
-export { HorizontalBar };
+import HorizontalBarRanges from './horizontal-bar-ranges.svelte';
+export { HorizontalBar, HorizontalBarRanges };

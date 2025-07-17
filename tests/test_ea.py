@@ -8,8 +8,8 @@ import polars as pl
 import pytest
 
 from desdeo.emo.hooks.archivers import Archive, FeasibleArchive, NonDominatedArchive
-from desdeo.emo.methods.bases import template1
-from desdeo.emo.methods.EAs import nsga3, nsga3_mixed_integer, rvea, rvea_mixed_integer
+from desdeo.emo.methods.EAs import ibea, nsga3, nsga3_mixed_integer, rvea, rvea_mixed_integer
+from desdeo.emo.methods.templates import template1, template2
 from desdeo.emo.operators.crossover import (
     BlendAlphaCrossover,
     BoundedExponentialCrossover,
@@ -38,7 +38,9 @@ from desdeo.emo.operators.mutation import (
     PowerMutation,
     SelfAdaptiveGaussianMutation,
 )
+from desdeo.emo.operators.scalar_selection import TournamentSelection
 from desdeo.emo.operators.selection import (
+    IBEA_Selector,
     NSGAIII_select,
     ParameterAdaptationStrategy,
     ReferenceVectorOptions,
@@ -82,6 +84,23 @@ def test_rvea():
     """Test whether the RVEA algorithm can be initialized and run as a whole."""
     problem = dtlz2(n_objectives=3, n_variables=12)
     solver, publisher = rvea(problem=problem, n_generations=100)
+
+    results = solver()
+
+    norm = results.outputs.with_columns(
+        (pl.col("f_1") ** 2 + pl.col("f_2") ** 2 + pl.col("f_3") ** 2).sqrt().alias("norm")
+    )["norm"]
+
+    # Assert that most solutions are on the spherical front
+
+    assert norm.median() < 1.1
+
+
+@pytest.mark.ea
+def test_ibea():
+    """Test whether the IBEA algorithm can be initialized and run as a whole."""
+    problem = dtlz2(n_objectives=3, n_variables=12)
+    solver, publisher = ibea(problem=problem, n_generations=100)
 
     results = solver()
 
@@ -186,7 +205,7 @@ def test_archives():
 
 
 @pytest.mark.ea
-def test_template():
+def test_template1():
     """Test whether creating an EA from components and a template works."""
     problem = dtlz2(n_objectives=3, n_variables=12)
     publisher = Publisher()
@@ -241,6 +260,77 @@ def test_template():
         mutation=mutation,
         selection=selector,
         terminator=terminator,
+    )
+
+    assert results is not None
+
+    norm = non_dom_archive.solutions.with_columns(
+        (pl.col("f_1") ** 2 + pl.col("f_2") ** 2 + pl.col("f_3") ** 2).sqrt().alias("norm")
+    )["norm"]
+
+    assert norm.median() < 1.1
+    # assert archive.archive.shape[0] <= 5000 # This test will unfortunately fail because the termination check is done
+    # after the evaluation has been done. So, there will always be one more generation than expected.
+
+
+@pytest.mark.ea
+def test_template2():
+    """Test whether creating an EA from components and a template works."""
+    problem = dtlz2(n_objectives=3, n_variables=12)
+    publisher = Publisher()
+
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=2)
+
+    generator = LHSGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0, verbosity=2
+    )
+
+    crossover = SimulatedBinaryCrossover(problem=problem, publisher=publisher, seed=0, verbosity=1)
+    mutation = BoundedPolynomialMutation(problem=problem, publisher=publisher, seed=0, verbosity=1)
+
+    selector = IBEA_Selector(
+        problem=problem,
+        publisher=publisher,
+        population_size=10,
+        verbosity=2,
+    )
+
+    terminator = MaxEvaluationsTerminator(max_evaluations=500, publisher=publisher)
+
+    non_dom_archive = NonDominatedArchive(problem=problem, publisher=publisher)
+    archive = Archive(problem=problem, publisher=publisher)
+    scalar_selector = TournamentSelection(publisher=publisher, winner_size=10, verbosity=0)
+
+    components: list[Subscriber] = [
+        evaluator,
+        generator,
+        crossover,
+        mutation,
+        selector,
+        terminator,
+        non_dom_archive,
+        archive,
+        scalar_selector,
+    ]
+
+    [publisher.auto_subscribe(component) for component in components]
+    [
+        publisher.register_topics(
+            topics=component.provided_topics[component.verbosity], source=component.__class__.__name__
+        )
+        for component in components
+    ]
+
+    assert publisher.check_consistency()[0], "Subscribers are subscribing to unregistered topics."
+
+    results = template2(
+        evaluator=evaluator,
+        generator=generator,
+        crossover=crossover,
+        mutation=mutation,
+        selection=selector,
+        terminator=terminator,
+        mate_selection=scalar_selector,
     )
 
     assert results is not None
@@ -1024,7 +1114,8 @@ def test_bounded_exponential_crossover():
 
 @pytest.mark.slow
 @pytest.mark.ea
-def test_crossover_in_EA():
+def test_crossover_in_ea():
+    """Test whether the crossover operators can be used in an EA."""
     xovers = ["sbx", "bex", "blend", "single_arithmetic", "local"]
 
     for xover_name in xovers:
@@ -1096,7 +1187,8 @@ def test_crossover_in_EA():
 
 @pytest.mark.slow
 @pytest.mark.ea
-def test_mutation_in_EA():
+def test_mutation_in_ea():
+    """Test whether the mutation operators can be used in an EA."""
     mutations = ["bpm", "num", "power", "SAGM"]
     for mut in mutations:
         publisher = Publisher()
