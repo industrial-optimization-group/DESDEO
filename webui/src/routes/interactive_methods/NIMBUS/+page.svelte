@@ -41,11 +41,17 @@
 	import { onMount } from 'svelte';
 	import { Combobox } from '$lib/components/ui/combobox';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
+	import Table from '$lib/components/ui/table/table.svelte';
+	import TableBody from '$lib/components/ui/table/table-body.svelte';
+	import TableRow from '$lib/components/ui/table/table-row.svelte';
+	import TableHead from '$lib/components/ui/table/table-head.svelte';
+	import TableCell from '$lib/components/ui/table/table-cell.svelte';
+	import ConfirmationDialog from '$lib/components/custom/confirmation-dialog.svelte';
 
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 	
 	// Define a general type for any state with solver_results
-	// TODO: This will be limited to NIMBUSClassificationState and NIMBUSInitializationState, after nimbus initialization works.
+	// TODO: This - and everything - will be rethought when API has changed again (Vili is supposed to refactor responses).
 	type StateWithResults = {
 		solver_results: Array<{
 			optimal_objectives: Record<string, number | number[]>;
@@ -115,8 +121,38 @@
 
 
 	// TODO: Handler for finishing the NIMBUS optimization process
-	async function handleFinish(referencePointValues?: any) {
-		console.log("TODO")
+	let finalChoiceState: boolean = $state(false);
+	let showConfirmDialog: boolean = $state(false);
+
+
+	function handlePressFinish() {
+		showConfirmDialog = true;
+	}
+
+	async function handleFinish() {
+		try {
+			const response = await fetch('/interactive_methods/NIMBUS/?type=choose', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({
+					problem_id: problem?.id,
+					solution: selectedSolutionIndex,
+				}),
+			});
+
+			const result = await response.json();
+
+			if (result.success) {
+				finalChoiceState = true;
+				console.log(result.message);
+			} else {
+				console.error('Failed to save final choice:', result.error);
+			}
+		} catch (error) {
+			console.error('Error calling mock endpoint:', error);
+		}
 	}
 
 	// The optional unused values are kept for compatibility with the AppSidebar component
@@ -164,8 +200,9 @@
 				lastIteratedPreference = [...currentPreference];
 				previousState = result.data
 				updatePreferencesFromState(previousState);
+				selectedSolutionIndex = 0;
 				updateCurrentObjectivesFromState(previousState);
-				currentNumSolutions = result.data.num_desired;
+				currentNumSolutions = result.data.num_desired? result.data.num_desired : 1; // TODO: this will be just the number of recent solutions
 				console.log('NIMBUS iteration successful:', result.data);
 			} else {
 				console.error('NIMBUS iteration failed:', result.error);
@@ -176,11 +213,11 @@
 	}
 
 	// Helper function to update current objectives from the current state
-	// TODO: rethink if-statements when state initialization works and StateWithResults changed
+	// TODO: rethink and see if changes needed, after StateWithResults has changed (Vili)
 	function updateCurrentObjectivesFromState(state: StateWithResults | null) {
 		if (!problem) return;
 		if (!state || !state.solver_results || state.solver_results.length === 0) return;
-			const selectedSolution = state.solver_results[0];
+			const selectedSolution = state.solver_results[selectedSolutionIndex];
 			if (selectedSolution && selectedSolution.optimal_objectives) {
 				// Convert optimal_objectives to the format expected by the API
 				const newObjectives: Record<string, number> = {};
@@ -188,14 +225,14 @@
 					newObjectives[key] = Array.isArray(value) ? value[0] : value;
 				}
 				currentObjectives = newObjectives;
-				console.log(`Updated current objectives from solution 1:`, currentObjectives);
+				console.log(`Updated current objectives from solution `,selectedSolutionIndex+1,`:`, currentObjectives);
 			} else {
 				console.warn('Selected solution is invalid, falling back to calculated average');
 			}
 	}
 
 	// Helper function to initialize preferences from previous state or ideal values
-	// TODO: rethink if-statements when state initialization works and StateWithResults changed
+	// TODO: rethink and see if changes needed, after StateWithResults has changed (Vili)
 	function updatePreferencesFromState(state: StateWithResults | null) {
 		if (!problem) return;
 		// Try to get previous preference from NIMBUS state
@@ -248,9 +285,10 @@
 			
 			if (result.success) {
 				previousState = result.data;
+				selectedSolutionIndex = 0;
 				updateCurrentObjectivesFromState(previousState);
 				updatePreferencesFromState(previousState);
-				currentNumSolutions = result.data.num_desired;
+				currentNumSolutions = result.data.num_desired ? result.data.num_desired : 1; // TODO: of course this will be just the number of solutions: it always exists
 			} else {
 				console.error('NIMBUS initialization failed:', result.error);
 			}
@@ -260,22 +298,79 @@
 	}
 </script>
 
-<div class="flex min-h-[calc(100vh-3rem)]">	
+{#if finalChoiceState}
+    <div class="card">
+        <div class="card-header">Solution Review</div>
+        {#if problem && previousState?.solver_results[selectedSolutionIndex]}
+            <div class="card-body">
+                <h3>Selected Solution Objectives:</h3>
+                <ul>
+                    {#each problem.objectives as objective}
+                        <li>
+                            {objective.name}: {previousState.solver_results[selectedSolutionIndex].optimal_objectives[objective.symbol]}
+                        </li>
+                    {/each}
+                </ul>
+            </div>
+        {:else}
+            <div class="card-body">
+                <p>Error: Unable to display the selected solution.</p>
+            </div>
+        {/if}
+    </div>
+{:else}
+	<div class="flex min-h-[calc(100vh-3rem)]">	
 	{#if problem}
-		<AppSidebar 
-			{problem} 
-			preference_types={['Classification']} 
-			showNumSolutions={true} 
-			bind:preference={currentPreference}
-			bind:numSolutions={currentNumSolutions}
-			currentObjectives={currentObjectives}
-			isIterationAllowed={isIterationAllowed()}
-			minNumSolutions={1}
-			maxNumSolutions={4}
-			lastIteratedPreference={lastIteratedPreference}
-			onIterate={handleIterate}
-			onFinish={handleFinish}
-		/>
+		<div class="flex flex-col">
+			<AppSidebar 
+				{problem} 
+				preference_types={['Classification']} 
+				showNumSolutions={true} 
+				bind:preference={currentPreference}
+				bind:numSolutions={currentNumSolutions}
+				currentObjectives={currentObjectives}
+				isIterationAllowed={isIterationAllowed()}
+				minNumSolutions={1}
+				maxNumSolutions={4}
+				lastIteratedPreference={lastIteratedPreference}
+				onIterate={handleIterate}
+				onFinish={handlePressFinish}
+			/>
+			<!-- TODO: TABLE BEHAVES DIFFERENTLY IN DIFFERENT VIEWS? I mean, iteration is like this, but saving, intermediate...? 
+			 Also make separate component of this? And the location may not be here? 
+			 Talk to Giomara -->
+			<Table>
+				<TableBody>
+					<!-- Table headers -->
+					<TableRow>
+						{#each problem.objectives as objective}
+							<TableHead>
+								{objective.name} {objective.unit ? `/ ${objective.unit}` : ''}
+							</TableHead>
+						{/each}
+					</TableRow>
+
+					{#if previousState?.solver_results && previousState.solver_results.length > 0}
+						<!-- Table rows for solutions -->
+						{#each previousState?.solver_results as result, index}
+							<TableRow 
+								onclick={() => {
+									selectedSolutionIndex = index
+									updateCurrentObjectivesFromState(previousState)
+									}}
+								class="cursor-pointer {selectedSolutionIndex === index ? 'bg-primary/20' : ''}"
+							>
+								{#each problem.objectives as objective}
+									<TableCell>
+										{result.optimal_objectives[objective.symbol]}
+									</TableCell>
+								{/each}
+							</TableRow>
+						{/each}
+					{/if}
+				</TableBody>
+			</Table>
+		</div>
 	{/if}
 	<div class="flex-1">
 		<Resizable.PaneGroup direction="vertical">
@@ -319,4 +414,15 @@
 			</Resizable.Pane>
 		</Resizable.PaneGroup>
 	</div>
-</div>
+	</div>
+{/if}
+
+<ConfirmationDialog
+	bind:open={showConfirmDialog}
+	title="Confirm Final Choice"
+	description="Are you sure you want to proceed with this solution as your final choice?"
+	confirmText="Yes, Proceed"
+	cancelText="Cancel"
+	onConfirm={handleFinish}
+	onCancel={() => console.log("Cancelled")}
+/>

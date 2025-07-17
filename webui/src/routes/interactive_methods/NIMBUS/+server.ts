@@ -20,6 +20,8 @@ export const POST: RequestHandler = async ({ url, request, cookies }) => {
             case 'iterate':
                 response = await handleIterate(body, refreshToken);
                 break;
+            case 'choose':
+                return json({ success: true, message: 'solution chosen! ...not' });
             default:
                 return json({ success: false, error: 'Invalid operation type' }, { status: 400 });
         }
@@ -53,15 +55,20 @@ async function handleInitialize(body: any, refreshToken: string) {
     });
     console.log('Raw initialization API response:', response);
 
+    // Check if the response has an error
+    if (response.error) {
+        console.error('NIMBUS initialization API error:', response.error);
+        console.error('Response status:', response.response?.status);
+        console.error('Response status text:', response.response?.statusText);
+        throw new Error(`NIMBUS initialize API error: ${response.error} (Status: ${response.response?.status})`);
+    }
+
     if (!response.data) {
+        console.error('No data received from NIMBUS initialize API');
         throw new Error('No data received from NIMBUS initialize API');
     }
 
     return { success: true, data: response.data };
-    // return json({
-    //     success: true,
-    //     data: response.data
-    // });
 }
 
 async function handleIterate(body: any, refreshToken: string) {
@@ -89,13 +96,18 @@ async function handleIterate(body: any, refreshToken: string) {
     console.log('Raw iteration API response:', response);
     console.log('Response data type:', typeof response.data);
 
+    // Check if the response has an error
+    if (response.error) {
+        console.error('NIMBUS solve API error:', response.error);
+        console.error('Response status:', response.response?.status);
+        console.error('Response status text:', response.response?.statusText);
+        throw new Error(`NIMBUS solve API error: ${response.error} (Status: ${response.response?.status})`);
+    }
+
     if (!response.data) {
+        console.error('No data received from NIMBUS solve API');
         throw new Error('No data received from NIMBUS solve API');
     }
 
     return { success: true, data: response.data };
-    // return json({
-    //     success: true,
-    //     data: response.data
-    // });
 }
