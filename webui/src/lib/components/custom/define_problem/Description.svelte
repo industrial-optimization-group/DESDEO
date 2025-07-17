@@ -16,6 +16,7 @@
             name="description"
             bind:value={$formData.description}
             rows={3}
+            required
         />
         {#if $errors.description}<span class="invalid text-red-500">{$errors.description}</span>{/if}
     </FormControl>

@@ -14,11 +14,11 @@
 	import { schemas } from '$lib/api/zod-schemas';
 	import { z } from 'zod';
 	import { Card } from '$lib/components/ui/card';
-	import Objectives from '$lib/components/define_problem/Objectives.svelte';
-	import Constants from '$lib/components/define_problem/Constants.svelte';
-	import Variables from '$lib/components/define_problem/Variables.svelte';
-	import Name from '$lib/components/define_problem/Name.svelte';
-	import Description from '$lib/components/define_problem/Description.svelte';
+	import Objectives from '$lib/components/custom/define_problem/Objectives.svelte';
+	import Constants from '$lib/components/custom/define_problem/Constants.svelte';
+	import Variables from '$lib/components/custom/define_problem/Variables.svelte';
+	import Name from '$lib/components/custom/define_problem/Name.svelte';
+	import Description from '$lib/components/custom/define_problem/Description.svelte';
 	import SuperDebug from 'sveltekit-superforms';
 
 
