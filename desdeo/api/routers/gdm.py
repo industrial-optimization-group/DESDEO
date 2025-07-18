@@ -1,6 +1,21 @@
-"""A very complicated mess"""
+""" A structure for group decision making.
+
+Currently, NIMBUS has been implemented in this system. However, swapping the NIMBUS methods for some other methods, such as
+reference point method should not be exceedingly difficult. I believe that if database models (in models.gdm) are generalized enough, this same
+system could be used for voting for solutions, as I believe is the case with GDM methods. Generalizing, or creating a "method" info field
+could be used to generalize things also.
+
+When preferences are sent through the websockets, they are validated. Currently the validation handles only ReferencePoints.
+Then, the preferences are saved into a database. When all group members have articulated their preferences, system begins optimization.
+The results are then saved into the database and the system notifies all connected users that the solutions are ready to be fetched.
+If a user is not connected to the server, the server will notify the user when they connect next time.
+
+For example, in the case of NIMBUS, the last chosen solution should exist. This could be an index into the solutions.
+
+"""
 
 import asyncio
+import json
 
 from fastapi import (
     APIRouter, 
@@ -12,6 +27,7 @@ from fastapi.responses import JSONResponse
 from fastapi import HTTPException, status
 
 from sqlmodel import Session, select
+from pydantic import ValidationError
 from typing import Annotated
 
 from desdeo.api.models import (
@@ -23,9 +39,13 @@ from desdeo.api.models import (
     GroupInfoRequest,
     GroupPublic,
     ProblemDB,
+    ReferencePoint
 )
 from desdeo.api.db import get_session
 from desdeo.api.routers.user_authentication import get_current_user
+from desdeo.problem import Problem
+from desdeo.mcdm.nimbus import generate_starting_point, solve_sub_problems
+from desdeo.tools import SolverResults
 
 class ManagerException(Exception):
     """If something goes awry with the manager"""
@@ -52,6 +72,10 @@ class GroupManager:
         # Make sure first iteration exists
         if group.head_iteration == None:
             raise ManagerException(f"No iterations found for group {group.name}")
+        
+        # Initialize the socket dict (at the very least to avoid KeyErrors)
+        for user_id in group.user_ids:
+            self.sockets[user_id] = None
 
 
     async def notify(self, websocket: WebSocket):
@@ -115,28 +139,31 @@ class GroupManager:
     async def run_optim(self):
         """A dummy for implementing actual optimization"""
         # Synthesize preferences, details are method specific I believe
-        await asyncio.sleep(1)
         session = next(get_session())
         group = session.exec(select(Group).where(Group.id == self.group_id)).first()
+        problem_db: ProblemDB = session.exec(select(ProblemDB).where(ProblemDB.id == group.problem_id)).first()
+        problem: Problem = Problem.from_problemdb(problem_db)
         iteration = group.head_iteration
         prefs = iteration.set_preferences
-        message = ""
-        for usr, pref in prefs.items():
-            message = message + f"{usr} : {pref}; "
-        await self.broadcast(message)
-
-        # Optimize
-        await asyncio.sleep(7)
-        await self.broadcast("optimizin' done")
-        if debug: print(f"Optimization for group {self.group_id} done.")
+        
+        # Here we choose only one preference as an example
+        pref = prefs[str(group.user_ids[0])].aspiration_levels
+        #NOTE: NIMBUS METHOD
+        results = solve_sub_problems(
+            problem,
+            reference_point=pref,
+            num_desired=4,
+            current_objectives=iteration.parent.results[0].optimal_objectives # just one example, figure out how to switch this
+        )
+        print(f"Optimization for group {self.group_id} done.")
 
         # ADD optimization results into database
-        iteration.results = message
+        iteration.results = results
         session.add(iteration)
         session.commit()
 
 
-    async def set_preference(self, user_id: int, data: str):
+    async def set_preference(self, user_id: int, data: ReferencePoint):
         """Set preferences of the user"""
 
         # Set the lock
@@ -148,6 +175,10 @@ class GroupManager:
             if group == None:
                 await self.broadcast(f"The group with ID {self.group_id} doesn't exist anymore.")
             current_iteration = group.head_iteration
+
+            if current_iteration.parent == None:
+                await self.broadcast("Problem not initialized! Initialize the problem!")
+                return
 
             if debug:
                 print(current_iteration.id)
@@ -178,13 +209,16 @@ class GroupManager:
             # notify connected users that the optimization is done
             notified = {}
             for user_id in group.user_ids:
-                socket: WebSocket = self.sockets[user_id]
-                if debug:
-                    print(socket)
-                if socket != None:
-                    await self.notify(socket)
-                    notified[user_id] = True
-                else:
+                try:
+                    socket: WebSocket = self.sockets[user_id]
+                    if debug:
+                        print(socket)
+                    if socket != None:
+                        await self.notify(socket)
+                        notified[user_id] = True
+                    else:
+                        notified[user_id] = False
+                except KeyError:
                     notified[user_id] = False
             # Update iteration's notifcation database item
             current_iteration.notified = notified
@@ -289,7 +323,8 @@ async def websocket_endpoint(
             status_code=status.HTTP_401_UNAUTHORIZED
         )
     
-    if debug: print(f"{user.username} has joined.")
+    if debug: 
+        print(f"{user.username} has joined.")
 
     # Get the group manager object from the manager of group managers
     group_manager = await manager.get_group_manager(group_id=group_id_int)
@@ -297,22 +332,35 @@ async def websocket_endpoint(
     if debug:
         print(group_manager.group_id)
         print(group_manager.sockets)
-    try:
-        while True:
+    while True:
+        try:
             # Get data from socket
             data = await websocket.receive_text()
-            await group_manager.broadcast(message=f"{user_id_int}: {data}")
-            if data.startswith("pref: "):
-                asyncio.create_task(
-                    group_manager.set_preference(user_id_int, data[6:])
-                )
-    except WebSocketDisconnect:
-        await group_manager.disconnect(user_id_int, websocket)
-        await group_manager.broadcast(message=f"{user.username} left.")
-        if debug:
-            print(group_manager.sockets)
-            print(manager.group_managers)
-        await manager.check_disconnect(group_id=group_id_int)
+            data = ReferencePoint.model_validate(json.loads(data))
+            # await group_manager.broadcast(message=f"{user_id_int}: {data}")
+            # Validation successful, lets set the preferences.
+            asyncio.create_task(
+                group_manager.set_preference(user_id_int, data)
+            )
+        except ValidationError as e:
+            print(f"ValidationError: {e}")
+            continue
+        except KeyError as e:
+            print(f"KeyError: {e}")
+            continue
+        except json.decoder.JSONDecodeError as e:
+            print(f"JSONDecoderError: {e}")
+        except WebSocketDisconnect:
+            await group_manager.disconnect(user_id_int, websocket)
+            await group_manager.broadcast(message=f"{user.username} left.")
+            if debug:
+                print(group_manager.sockets)
+                print(manager.group_managers)
+            await manager.check_disconnect(group_id=group_id_int)
+            break
+        except RuntimeError as e:
+            print(f"RuntimeError: {e}")
+            break
 
 @router.post("/create_group")
 def create_group(
@@ -380,6 +428,73 @@ def create_group(
     return JSONResponse(
         content={"message": f"Group with ID {group.id} created."},
         status_code=status.HTTP_201_CREATED
+    )
+
+@router.post("/initialize")
+def initialize(
+    request: GroupInfoRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)],
+):
+    """Initialize the problem with NIMBUS"""
+    group = session.exec(select(Group).where(Group.id == request.group_id)).first()
+    if user.id != group.owner_id:
+        raise HTTPException(
+            detail=f"Unauthorized user",
+            status_code=status.HTTP_401_UNAUTHORIZED
+        )
+    if group == None:
+        raise HTTPException(
+            detail=f"No group with ID {request.group_id} found!",
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    print(f"Groups head iterations parent: {group.head_iteration.parent}")
+    if group.head_iteration.parent != None:
+        raise HTTPException(
+            detail=f"Group problem already initialized!",
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+    problem_db = session.exec(select(ProblemDB).where(ProblemDB.id == group.problem_id)).first()
+    if problem_db == None:
+        raise HTTPException(
+            detail=f"No problem with id {group.problem_id} found!",
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    problem = Problem.from_problemdb(problem_db)
+
+    #NOTE: NIMBUS METHOD
+    starting_point: SolverResults = generate_starting_point(problem)
+    iteration = group.head_iteration
+    iteration.results = [starting_point]
+    session.add(iteration)
+    session.commit()
+    session.refresh(iteration)
+
+    new_iteration = GroupIteration(
+        problem_id=iteration.problem_id,
+        group_id=iteration.group_id,
+        group=iteration.group,
+        set_preferences={},
+        results=[],
+        notified={},
+        parent_id=iteration.id,
+        parent=iteration,
+        child=None
+    )
+
+    session.add(new_iteration)
+    session.commit()
+    session.refresh(new_iteration)
+
+    iteration.child = new_iteration
+    session.add(iteration)
+    group.head_iteration = new_iteration
+    session.add(group)
+    session.commit()
+
+    return JSONResponse(
+        content={"message": f"Group {group.id} initialized."},
+        status_code=status.HTTP_200_OK
     )
 
 @router.post("/delete_group")
@@ -652,8 +767,9 @@ def get_results(
     if iteration.results == None:
         raise nores_exp
 
-    # Dummy results
     return JSONResponse(
-        content={"results": iteration.results},
+        content={
+            "results": [result.model_dump()["optimal_objectives"] for result in iteration.results]
+        },
         status_code=status.HTTP_200_OK
     )
