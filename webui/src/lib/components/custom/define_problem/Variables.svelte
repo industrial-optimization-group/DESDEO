@@ -5,13 +5,14 @@
 	} from '$lib/components/ui/form';
 	import Input from '$lib/components/ui/input/input.svelte';    
     let { form, removeVariable, addVariable, addVariableShapeDim, isTensorVariable, removeVariableShapeDim } = $props();
-	const { form: formData } = form;
+	const { form: formData, errors } = form;
 
 </script>
 
 <FormFieldset {form} name="variables">
     <FormLegend>Variables</FormLegend>
-
+    {#if $errors.variables}<div class="text-red-500 text-sm mb-2 p-2 bg-red-50 border border-red-200 rounded">{$errors.variables}</div>{/if}
+    {#if $errors.variableErrors}<div class="text-red-500 text-sm mb-2 p-2 bg-red-50 border border-red-200 rounded">{$errors.variableErrors}</div>{/if}
     {#each $formData.variables as variable, idx}
         <div>
             <button

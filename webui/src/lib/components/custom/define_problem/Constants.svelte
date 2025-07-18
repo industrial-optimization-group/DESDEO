@@ -5,11 +5,13 @@
 	} from '$lib/components/ui/form';
 	import Input from '$lib/components/ui/input/input.svelte';
     let { form, removeConstant, addConstant, addConstantShapeDim, isTensorConstant, removeConstantShapeDim } = $props();
-	const { form: formData } = form;
+	const { form: formData, errors } = form;
 </script>
 
 <FormFieldset {form} name="constants">
     <FormLegend>Constants</FormLegend>
+    {#if $errors.constants}<div class="text-red-500 text-sm mb-2 p-2 bg-red-50 border border-red-200 rounded">{$errors.constants}</div>{/if}
+    {#if $errors.constantErrors}<div class="text-red-500 text-sm mb-2 p-2 bg-red-50 border border-red-200 rounded">{$errors.constantErrors}</div>{/if}
     {#each $formData.constants as constant, idx}
         <div>
             <button

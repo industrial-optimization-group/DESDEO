@@ -1,4 +1,40 @@
-<script lang="ts" context="module">
+<script lang="ts" module>
+/**
+ * 	+page.svelte (Problem Definition Form)
+ *	
+ *	@created July 2025
+ *	
+ *	@description
+ *	This page implements a problem definition form for DESDEO optimization problems.
+ *	In addition to problem name and description, it supports adding variables, objectives,
+ *	and constants with both scalar and tensor types.
+ *	
+ *	@features
+ *	- Support for both scalar and tensor variables/constants
+ *	- Basic validation with some structured error display
+ *	- JSON input parsing for complex fields (func, surrogates, scenario_keys, tensor inputs)
+ *	
+ *	@architecture
+ *	- SvelteKit Superforms for form state management and validation
+ *	- Reactive form state through $formData store
+ *	- Basic error propagation and display
+ *	
+ *	@dependencies
+ *	- SvelteKit Superforms: Form state management and validation
+ *	- Zod schemas: Type inference and validation
+ *	- Custom form components: Variables, Constants, Objectives, Name, Description
+ *	- UI components: FormButton, Card
+ *	
+ *	@limitations
+ *	- Constraints, extra functions, scalarization functions etc. not implemented
+ *	- Success message after successful submission not implemented
+ *	- Could benefit from better UX for a lot of inputs
+ *	
+ *	@notes
+ *	- SuperDebug component available for debugging (commented out)
+ *	- Form uses JSON dataType for proper array/object handling
+ *	- Tainted message warns users about unsaved changes
+ */
 	export type Variable = z.infer<typeof schemas.Variable>;
 	export type TensorVariable = z.infer<typeof schemas.TensorVariable>;
 	export type Constant = z.infer<typeof schemas.Constant>;
@@ -19,19 +55,13 @@
 	import Variables from '$lib/components/custom/define_problem/Variables.svelte';
 	import Name from '$lib/components/custom/define_problem/Name.svelte';
 	import Description from '$lib/components/custom/define_problem/Description.svelte';
-	import SuperDebug from 'sveltekit-superforms';
-
-
-	// Minimal form state for now
-	const form = superForm(
-		{
-			name: null,
-			description: null,
-			variables: [] as (TensorVariable | Variable)[],
-			constants: [] as (Constant | TensorConstant)[],
-			objectives: [] as Objective[],
-		},
-		{ 
+	// Uncomment for debugging form state:
+	// import SuperDebug from 'sveltekit-superforms';
+	import type { PageData } from './$types';
+	
+	const { data } = $props<{ data: PageData }>();
+	const form = superForm(data.form, {
+			taintedMessage: "Are you sure you want to leave?",
 			dataType: 'json',
 			onError({ result }) {
 				$message = result.error.message || "Unknown error";
@@ -72,7 +102,7 @@
 	}
 
 	function removeVariable(idx: number) {
-		$formData.variables = $formData.variables.filter((_, i) => i !== idx);
+		$formData.variables = $formData.variables.filter((_:any, i: number) => i !== idx);
 	}
 	// Helpers for tensor shape
 	function addVariableShapeDim(variable: TensorVariable) {
@@ -109,15 +139,19 @@
 	}
 
 	function removeConstant(idx: number) {
-		$formData.constants = $formData.constants.filter((_, i) => i !== idx);
+		$formData.constants = $formData.constants.filter((_:any, i: number) => i !== idx);
 	}
 
 	function addConstantShapeDim(constant: TensorConstant) {
 		constant.shape = [...constant.shape, 1];
+		// Trigger Svelte reactivity
+		$formData.constants = [...$formData.constants];
 	}
 	function removeConstantShapeDim(constant: TensorConstant, dimIdx: number) {
 		if (constant.shape.length > 1) {
 		constant.shape = constant.shape.filter((_, i) => i !== dimIdx);
+		// Trigger Svelte reactivity
+		$formData.constants = [...$formData.constants];
 		}
 	}
 	function isTensorConstant(v: Constant | TensorConstant): v is TensorConstant {
@@ -144,7 +178,7 @@
 		$formData.objectives = [...$formData.objectives, objective];
 	}
 	function removeObjective(idx: number) { 
-		$formData.objectives = $formData.objectives.filter((_, i) => i !== idx);
+		$formData.objectives = $formData.objectives.filter((_:any, i: number) => i !== idx);
 	}
 
 </script>
@@ -160,13 +194,19 @@
 				<Name {form}/>
 				<Description {form}/>
 			</Card>
-
-			<Variables {form} {removeVariable} {addVariable} {addVariableShapeDim} {isTensorVariable} {removeVariableShapeDim} />
-			<Constants {form} {removeConstant} {addConstant} {addConstantShapeDim} {isTensorConstant} {removeConstantShapeDim} />
-			<Objectives {form} {addObjective} {removeObjective} />
+			<Card class="p-6">
+				<Variables {form} {removeVariable} {addVariable} {addVariableShapeDim} {isTensorVariable} {removeVariableShapeDim} />
+			</Card>
+			<Card class="p-6">
+				<Constants {form} {removeConstant} {addConstant} {addConstantShapeDim} {isTensorConstant} {removeConstantShapeDim} />
+			</Card>
+			<Card class="p-6">
+				<Objectives {form} {addObjective} {removeObjective} />
+			</Card>
 			<FormButton>Add Problem</FormButton
 			>
 		</form>
 	</div>
-	<SuperDebug data={$formData} />
+	<!-- Uncomment for debugging form state: -->
+	<!-- <SuperDebug data={$formData} /> -->
 </section>

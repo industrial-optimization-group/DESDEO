@@ -11,7 +11,7 @@
 <FormField {form} name="name">
     <FormControl>
         <FormLabel for="name">Name</FormLabel>
-        <Input id="name" name="name" bind:value={$formData.name} required/>
+        <Input id="name" name="name" bind:value={$formData.name} />
         {#if $errors.name}<span class="invalid text-red-500">{$errors.name}</span>{/if}
     </FormControl>
 </FormField>
