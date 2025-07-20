@@ -150,7 +150,10 @@ def init_nimbus(
 
     # If there are no solutions, generate a starting point for NIMBUS
     if not solutions:
-        start_result = generate_starting_point(problem=problem, solver=available_solvers[solver] if solver else None)
+        start_result = generate_starting_point(
+            problem=problem,
+            solver=available_solvers[solver]["constructor"] if solver else None
+        )
         save_results_to_db(
             db=db, user_id=user.index, request=init_request, results=[start_result], previous_solutions=solutions
         )
@@ -214,7 +217,7 @@ def iterate(
         ),
         reference_point=dict(zip([obj.symbol for obj in problem.objectives], request.preference, strict=True)),
         num_desired=request.num_solutions,
-        solver=available_solvers[solver] if solver else None,
+        solver=available_solvers[solver]["constructor"] if solver else None,
         scalarization_options={"rho": 0.001, "delta": 0.001},
     )
 
@@ -277,7 +280,7 @@ def intermediate(
         solution_1=dict(zip(problem.objectives, request.reference_solution_1, strict=True)),
         solution_2=dict(zip(problem.objectives, request.reference_solution_2, strict=True)),
         num_desired=request.num_solutions,
-        solver=available_solvers[solver] if solver else None,
+        solver=available_solvers[solver]["constructor"] if solver else None,
     )
 
     # Do database stuff again.

@@ -1,16 +1,31 @@
 """Defines end-points to access and manage problems."""
 
-from typing import Annotated
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import Session
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from sqlmodel import Session, select
 
 from desdeo.api.db import get_session
-from desdeo.api.models import ProblemDB, ProblemGetRequest, ProblemInfo, ProblemInfoSmall, User, UserRole
+from desdeo.api.models import (
+    ProblemDB,
+    ProblemGetRequest,
+    ProblemInfo,
+    ProblemInfoSmall,
+    User,
+    UserRole,
+    ProblemMetaDataGetRequest,
+)
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.problem import Problem
 
 router = APIRouter(prefix="/problem")
+
+
+# This is needed, because otherwise fields ending in an underscore fail to parse.
+async def parse_problem_json(request: Request) -> Problem:
+    """Helper function to pass by_name=True to model_validate when coercing the json object to a Problem object."""
+    data: dict = await request.json()
+    return Problem.model_validate(data, by_name=True)
 
 
 @router.get("/all")
@@ -71,7 +86,7 @@ def get_problem(
 
 @router.post("/add")
 def add_problem(
-    request: Problem,
+    request: Annotated[Problem, Depends(parse_problem_json)],
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
 ) -> ProblemInfo:
@@ -108,3 +123,32 @@ def add_problem(
     session.refresh(problem_db)
 
     return problem_db
+
+
+@router.post("/get_metadata")
+def get_metadata(
+    request: ProblemMetaDataGetRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)],
+) -> list[Any]:
+    """Fetch specific metadata for a specific problem. See all the possible metadata types from DESDEO/desdeo/api/models/problem.py Problem Metadata section.
+
+    Args:
+        request (MetaDataGetRequest): requesting certain problem's certain metadata
+        user (Annotated[User, Depends]): the current user
+        session (Annotated[Session, Depends]): the database session
+
+    Returns:
+        list[Any] | None: list of all forest metadata for this problem, or nothing if there's nothing
+    """
+    statement = select(ProblemDB).where(ProblemDB.id == request.problem_id)
+    problem_from_db = session.exec(statement).first()
+    if problem_from_db == None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Problem with ID {request.problem_id} not found!"
+        )
+    problem_metadata = problem_from_db.problem_metadata
+    if problem_metadata == None:
+        return []
+    return [metadata for metadata in problem_metadata.data if metadata.metadata_type == request.metadata_type]
