@@ -11,6 +11,7 @@ from desdeo.api.routers import (
     reference_point_method,
     session,
     user_authentication,
+    utopia,
 )
 
 if SettingsConfig.debug:
@@ -28,6 +29,7 @@ if SettingsConfig.debug:
     app.include_router(reference_point_method.router)
     app.include_router(nimbus.router)
     app.include_router(generic.router)
+    app.include_router(utopia.router)
 
     origins = AuthDebugConfig.cors_origins
 
