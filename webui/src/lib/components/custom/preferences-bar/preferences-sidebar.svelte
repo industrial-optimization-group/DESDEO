@@ -67,7 +67,6 @@
     } as const;
 
     // Create a derived classification array for nimbus classification
-	// copied almost straight from old nimbus
     let classificationValues = $derived(
 		$selectedPreference === 'Classification' 
 			? problem.objectives.map((objective, idx:number) => {
@@ -208,10 +207,11 @@
 							solutionValue={currentValue}
 							selectedValue={preference[idx]}
 							barColor="#4f8cff"
-							direction="min"
+							direction={objective.maximize ? "max" : "min"}
+							previousValue={lastIteratedPreference[idx]}
 							options={{
 								decimalPrecision: 2,
-								showPreviousValue: false,
+								showPreviousValue: true,
 								aspectRatio: 'aspect-[11/2]'
 							}}
 							onSelect={(newValue: number) => {
