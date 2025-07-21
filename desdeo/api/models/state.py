@@ -24,13 +24,18 @@ class StateType(TypeDecorator):
         """State to JSON."""
         if isinstance(
             value,
-            RPMState
-            | NIMBUSClassificationState
-            | IntermediateSolutionState
-            | NIMBUSSaveState
+           
+                      RPMState
+           
+                      | NIMBUSClassificationState
+           
+                      | IntermediateSolutionState
+           
+                      | NIMBUSSaveState
             | EMOState
             | EMOSaveState,
-        ):
+        
+                      | NIMBUSInitializationState):
             return value.model_dump()
 
         msg = f"No JSON serialization set for ste of type '{type(value)}'."
@@ -46,6 +51,8 @@ class StateType(TypeDecorator):
                     return RPMState.model_validate(value)
                 case ("nimbus", "solve_candidates"):
                     return NIMBUSClassificationState.model_validate(value)
+                case ("nimbus", "initialize"):
+                    return NIMBUSInitializationState.model_validate(value)
                 case ("nimbus", "save_solutions"):
                     return NIMBUSSaveState.model_validate(value)
                 case ("generic", _):
@@ -174,6 +181,13 @@ class EMOSaveState(BaseEMOState):
         default_factory=list,
     )
 
+
+class NIMBUSInitializationState(NIMBUSBaseState):
+    """State of the nimbus method for computing solutions."""
+
+    phase: Literal["initialize"] = "initialize"
+    solver: str | None = Field(default=None)
+    solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
 
 class IntermediateSolutionState(BaseState):
     """State of the nimbus method for computing solutions."""

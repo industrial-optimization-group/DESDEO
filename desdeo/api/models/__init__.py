@@ -18,6 +18,8 @@ __all__ = [
     "NIMBUSBaseState",
     "NIMBUSClassificationRequest",
     "NIMBUSClassificationState",
+    "NIMBUSInitializationRequest",
+    "NIMBUSInitializationState",
     "NIMBUSSaveRequest",
     "NIMBUSSaveState",
     "ObjectiveDB",
@@ -42,6 +44,7 @@ __all__ = [
     "UserRole",
     "VariableDB",
     "ProblemMetaDataDB",
+    "BaseProblemMetaData",
     "ForestProblemMetaData",
     "EMOSolveRequest",
     "PreferredRanges",
@@ -50,11 +53,18 @@ __all__ = [
     "EMOSaveState",
     "EMOState",
     "BaseEMOState",
+    "UtopiaRequest",
+    "UtopiaResponse",
+    "ProblemMetaDataGetRequest",
 ]
 
 from .archive import UserSavedSolutionBase, UserSavedSolutionDB
 from .generic import IntermediateSolutionRequest
-from .nimbus import NIMBUSClassificationRequest, NIMBUSSaveRequest
+from .nimbus import (
+    NIMBUSClassificationRequest,
+    NIMBUSInitializationRequest,
+    NIMBUSSaveRequest,
+)
 from .preference import (
     Bounds,
     PreferenceBase,
@@ -69,19 +79,24 @@ from .problem import (
     ConstraintDB,
     DiscreteRepresentationDB,
     ExtraFunctionDB,
+    ForestProblemMetaData,
     ObjectiveDB,
     ProblemDB,
     ProblemGetRequest,
     ProblemInfo,
     ProblemInfoSmall,
+    ProblemMetaDataDB,
     ScalarizationFunctionDB,
     SimulatorDB,
     TensorConstantDB,
     TensorVariableDB,
     VariableDB,
     ProblemMetaDataDB,
+    BaseProblemMetaData,
     ForestProblemMetaData,
+    ProblemMetaDataGetRequest,
 )
+from .utopia import UtopiaRequest, UtopiaResponse
 from .reference_point_method import RPMSolveRequest
 from .EMO import EMOSolveRequest
 
@@ -96,6 +111,7 @@ from .state import (
     IntermediateSolutionState,
     NIMBUSBaseState,
     NIMBUSClassificationState,
+    NIMBUSInitializationState,
     NIMBUSSaveState,
     RPMBaseState,
     RPMState,

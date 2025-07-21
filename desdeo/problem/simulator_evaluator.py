@@ -1,5 +1,6 @@
 from matplotlib.image import resample
 from numpy._core.multiarray import scalar
+
 """Evaluators are defined to evaluate simulator based and surrogate based objectives, constraints and extras."""
 
 import json
@@ -11,16 +12,11 @@ from pathlib import Path
 import joblib
 import numpy as np
 import polars as pl
+
 # import skops.io as sio
 import requests
 
-from desdeo.problem import (
-    ObjectiveTypeEnum,
-    PolarsEvaluator,
-    PolarsEvaluatorModesEnum,
-    Problem,
-    MathParser
-)
+from desdeo.problem import ObjectiveTypeEnum, PolarsEvaluator, PolarsEvaluatorModesEnum, Problem, MathParser
 
 
 class EvaluatorError(Exception):
@@ -69,7 +65,9 @@ class Evaluator:
         if problem.scalarization_funcs is not None:
             parser = MathParser()
             self.scalarization_funcs = [
-                (func.symbol, parser.parse(func.func)) for func in problem.scalarization_funcs if func.symbol is not None
+                (func.symbol, parser.parse(func.func))
+                for func in problem.scalarization_funcs
+                if func.symbol is not None
             ]
         else:
             self.scalarization_funcs = []
@@ -168,9 +166,8 @@ class Evaluator:
                 except requests.RequestException as e:
                     raise EvaluatorError(
                         f"Failed to call the simulator at {sim.url}. Is the simulator server running?"
-                        ) from e
+                    ) from e
                 res_df = res_df.hstack(pl.DataFrame(res.json()))
-
 
         # Evaluate the minimization form of the objective functions
         min_obj_columns = pl.DataFrame()
@@ -224,7 +221,7 @@ class Evaluator:
                 min_obj_columns = min_obj_columns.hstack(
                     res.select((min_max_mult * pl.col(f"{symbol}")).alias(f"{symbol}_min"))
                 )
-        res_df = res_df.hstack(min_obj_columns)
+        res_df = res.hstack(min_obj_columns)
         # If there are scalarization functions, evaluate them as well
         scalarization_columns = res_df.select(*[expr.alias(symbol) for symbol, expr in self.scalarization_funcs])
         return res_df.hstack(scalarization_columns)

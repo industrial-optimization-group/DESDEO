@@ -8,6 +8,7 @@ from desdeo.api.models import (
     GetSessionRequest,
     InteractiveSessionDB,
     NIMBUSClassificationRequest,
+    NIMBUSInitializationRequest,
     NIMBUSSaveRequest,
     NIMBUSSaveState,
     ProblemGetRequest,
@@ -139,6 +140,7 @@ def test_get_problem(client: TestClient):
 
     assert info.id == 1
     assert info.name == "dtlz2"
+    assert info.problem_metadata == None
 
     response = post_json(
         client,
@@ -153,6 +155,7 @@ def test_get_problem(client: TestClient):
 
     assert info.id == 2
     assert info.name == "The river pollution problem"
+    assert info.problem_metadata.data[0].metadata_type == "forest_problem_metadata"
 
 
 def test_add_problem(client: TestClient):
@@ -344,6 +347,18 @@ def test_save_solution(client: TestClient):
     assert saved_result.constraint_values == constraint_values
     assert saved_result.extra_func_values == extra_func_values
     assert not hasattr(saved_result, "name")  # Name should not be in state
+
+
+def test_nimbus_initialize_no_solver(client: TestClient):
+    """Test that initializing NIMBUS works without specifying a solver."""
+    access_token = login(client)
+
+    request = NIMBUSInitializationRequest(problem_id=1, solver=None)
+
+    response = post_json(
+        client, "/method/nimbus/initialize", request.model_dump(), access_token
+    )
+    assert response.status_code == status.HTTP_200_OK
 
 
 def test_add_new_dm(client: TestClient):
@@ -620,3 +635,42 @@ def test_emo_solve_with_rvea(client: TestClient):
     assert emo_state.outputs is not None
     assert len(emo_state.solutions) > 0
     assert len(emo_state.outputs) > 0
+
+
+def test_get_problem_metadata(client: TestClient):
+    """Test that fetching problem metadata works."""
+
+    access_token = login(client=client)
+
+    # Problem with no metadata
+    req = {"problem_id": 1, "metadata_type": "forest_problem_metadata"}
+    response = post_json(
+        client=client,
+        endpoint="/problem/get_metadata",
+        json=req,
+        access_token=access_token,
+    )
+    assert response.status_code == 200
+    assert response.json() == []
+
+    # Problem with forest metadata
+    req = {"problem_id": 2, "metadata_type": "forest_problem_metadata"}
+    response = post_json(
+        client=client,
+        endpoint="/problem/get_metadata",
+        json=req,
+        access_token=access_token,
+    )
+    assert response.status_code == 200
+    assert response.json()[0]["metadata_type"] == "forest_problem_metadata"
+    assert response.json()[0]["schedule_dict"] == {"type": "dict"}
+
+    # No problem
+    req = {"problem_id": 3, "metadata_type": "forest_problem_metadata"}
+    response = post_json(
+        client=client,
+        endpoint="/problem/get_metadata",
+        json=req,
+        access_token=access_token,
+    )
+    assert response.status_code == 404
