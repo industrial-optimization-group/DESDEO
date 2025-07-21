@@ -832,7 +832,7 @@
     Responsive container for the parallel coordinates plot.
     Uses aspect ratio to maintain consistent proportions.
 -->
-<div bind:this={container} style="width: 100%;">
+<div bind:this={container} style="height: 100%;width: 100%;">
 	<svg bind:this={svg} style="width: 100%; height: 100%;" />
 </div>
 

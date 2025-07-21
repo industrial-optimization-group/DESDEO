@@ -31,6 +31,7 @@
 		formatNumber,
 		type PreferenceType
 	} from '$lib/helpers/index.js';
+	import { onMount } from 'svelte';
 
 	// Type definitions from OpenAPI schema
 	type ProblemInfo = components['schemas']['ProblemInfo'];
@@ -164,38 +165,75 @@
 
 	// State for line selection and filtering
 	let selectedIndex = $state<number | null>(null);
+	let brushFilters = $state<{ [dimension: string]: [number, number] }>({});
+
+	// Add container size tracking
+	let containerElement: HTMLDivElement;
+	let containerSize = $state({ width: 0, height: 0 });
+
+	onMount(() => {
+		if (!containerElement) return;
+
+		const resizeObserver = new ResizeObserver((entries) => {
+			for (let entry of entries) {
+				const { width, height } = entry.contentRect;
+				containerSize = { width, height };
+			}
+		});
+
+		resizeObserver.observe(containerElement);
+
+		return () => {
+			resizeObserver.disconnect();
+		};
+	});
+
+	// Calculate dynamic height for ParallelCoordinates
+	const plotHeight = $derived(() => {
+		// Reserve space for header, instructions, and table
+		const reservedSpace = 10; // Adjust based on your layout
+		return Math.max(containerSize.height - reservedSpace, 10);
+	});
+
+	/**
+	 * Handle brush filter changes
+	 */
+	function handleBrushFilter(filters: { [dimension: string]: [number, number] }) {
+		brushFilters = filters;
+		console.log('Brush filters updated:', filters);
+	}
 </script>
 
 <!-- 
 /**
  * Component Template
  * 
- * The template is organized into three main sections:
- * 1. Objective Space Visualization - Shows trade-offs between objectives
- * 2. Decision Space Visualization - Shows decision variable values
- * 3. Solutions Table - Interactive table for detailed inspection and selection
- * 
- * The layout uses responsive design with proper spacing and visual hierarchy.
- * Each section is conditionally rendered based on data availability.
+ * The ParallelCoordinates component handles its own resizing, so we just need
+ * to provide a properly sized container and let it manage the rest.
  */
 -->
 
-<div class="space-y-4">
+<div bind:this={containerElement} class="flex h-full w-full flex-col space-y-4 overflow-hidden">
 	{#if solutions_objective_values.length > 0}
-		<!-- Objective Space Visualization with ParallelCoordinates -->
-		<div>
+		<!-- Objective Space Visualization with dynamic height -->
+		<!-- Use dynamic height that responds to container size -->
+		<div class="w-full" style="height: {plotHeight()}px;">
 			<ParallelCoordinates
 				data={objectiveData()}
 				dimensions={objectiveDimensions()}
 				referenceData={referenceData()}
 				options={plotOptions}
 				{selectedIndex}
+				{brushFilters}
 				onLineSelect={handleLineSelect}
+				onBrushFilter={handleBrushFilter}
 			/>
 		</div>
 	{:else}
-		<div class="rounded border bg-gray-50 p-8 text-center text-gray-500">
-			No solutions available. Iterate to see results.
+		<div
+			class="flex h-full items-center justify-center rounded border bg-gray-50 p-8 text-center text-gray-500"
+		>
+			No solutions available. Run the optimization to see results.
 		</div>
 	{/if}
 </div>

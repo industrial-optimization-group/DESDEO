@@ -287,29 +287,6 @@
 		}
 	}
 
-	// Optional fallback function if you want to keep simulation as backup
-	function fallbackToSimulation(data: {
-		num_solutions: number;
-		type_preferences: PreferenceValue;
-		preference_values: number[];
-		objective_values: number[];
-	}) {
-		console.log('Using simulation fallback');
-
-		const simulatedNewObjectiveValues = objective_values.map(
-			(val) => val + Math.random() * 0.1 - 0.05
-		);
-		const simulatedNewPreferenceValues = current_preference.values.map(
-			(val) => val + Math.random() * 0.1 - 0.05
-		);
-
-		objective_values = simulatedNewObjectiveValues;
-		current_preference = {
-			type: current_preference.type,
-			values: simulatedNewPreferenceValues
-		};
-	}
-
 	function handleFinish(data: {
 		num_solutions: number;
 		type_preferences: PreferenceValue;
@@ -399,10 +376,10 @@
 		/>
 	{/if}
 
-	<div class="flex-1">
-		<Resizable.PaneGroup direction="vertical">
-			<Resizable.Pane class="p-2">
-				<div class="flex-row">
+	<div class="flex min-w-0 flex-1 flex-col">
+		<Resizable.PaneGroup direction="vertical" class="flex-1">
+			<Resizable.Pane class="flex min-h-0 flex-col">
+				<div class="flex-shrink-0 p-2">
 					<div class="flex flex-row items-center justify-between gap-4 pb-2">
 						<div class="font-semibold">Solution explorer</div>
 						<div>
@@ -414,64 +391,38 @@
 							/>
 						</div>
 					</div>
+				</div>
 
-					<!-- Debug info with formatted numbers -->
-					<!-- 					<div class="mb-4 rounded bg-gray-50 p-2 text-xs">
-						<div><strong>Num Solutions:</strong> {num_solutions}</div>
-						<div><strong>Objective Values:</strong> {formatNumberArray(objective_values)}</div>
-						<div class="mt-2">
-							<strong>Current Preference:</strong>
-							<div class="ml-2">
-								<div>Type: {current_preference.type}</div>
-								<div>Values: {formatNumberArray(current_preference.values)}</div>
-							</div>
+				<!-- This container will flex to fill available space -->
+				<div class="mx-2 min-h-0 flex-1 rounded border bg-gray-100 p-2">
+					{#if problem}
+						<VisualizationsPanel
+							{problem}
+							previous_preference_values={previous_preference.values}
+							previous_preference_type={previous_preference.type}
+							current_preference_values={current_preference.values}
+							current_preference_type={current_preference.type}
+							{solutions_objective_values}
+							{solutions_decision_values}
+							onSelectSolution={(index) => {
+								// Update current objective values when user selects a solution
+								if (solutions_objective_values[index]) {
+									objective_values = [...solutions_objective_values[index]];
+									console.log('Selected solution', index, 'with objectives:', objective_values);
+								}
+							}}
+						/>
+					{:else}
+						<div class="flex h-full items-center justify-center text-gray-500">
+							No problem data available for visualization
 						</div>
-						<div class="mt-2">
-							<strong>Previous Preference:</strong>
-							<div class="ml-2">
-								<div>Type: {previous_preference.type}</div>
-								<div>Values: {formatNumberArray(previous_preference.values)}</div>
-							</div>
-						</div>
-					</div> -->
-
-					<div class="h-full w-full">
-						<div class="grid h-full w-full gap-4 xl:grid-cols-1">
-							<div class="min-h-[50rem] flex-1 rounded bg-gray-100 p-4">
-								{#if problem}
-									<VisualizationsPanel
-										{problem}
-										previous_preference_values={previous_preference.values}
-										previous_preference_type={previous_preference.type}
-										current_preference_values={current_preference.values}
-										current_preference_type={current_preference.type}
-										{solutions_objective_values}
-										{solutions_decision_values}
-										onSelectSolution={(index) => {
-											// Update current objective values when user selects a solution
-											if (solutions_objective_values[index]) {
-												objective_values = [...solutions_objective_values[index]];
-												console.log(
-													'Selected solution',
-													index,
-													'with objectives:',
-													objective_values
-												);
-											}
-										}}
-									/>
-								{:else}
-									<div class="flex h-full items-center justify-center text-gray-500">
-										No problem data available for visualization
-									</div>
-								{/if}
-							</div>
-						</div>
-					</div>
+					{/if}
 				</div>
 			</Resizable.Pane>
+
 			<Resizable.Handle />
-			<Resizable.Pane class="p-2">
+
+			<Resizable.Pane class="flex-shrink-0 p-2">
 				<Tabs.Root value="numerical-values">
 					<Tabs.List>
 						<Tabs.Trigger value="numerical-values">Numerical values</Tabs.Trigger>
