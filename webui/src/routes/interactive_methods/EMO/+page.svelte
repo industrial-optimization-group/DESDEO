@@ -11,6 +11,7 @@
 	import { PREFERENCE_TYPES } from '$lib/constants';
 	import { formatNumber, formatNumberArray } from '$lib/helpers';
 	import { goto } from '$app/navigation';
+	import VisualizationsPanel from '$lib/components/custom/visualizations-panel/visualizations-panel.svelte';
 
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 	type PreferenceValue = (typeof PREFERENCE_TYPES)[keyof typeof PREFERENCE_TYPES];
@@ -32,7 +33,10 @@
 
 	// State with the required properties
 	let num_solutions = $state(1);
-	let objective_values = $state<number[]>([]);
+	// Change these to store arrays of solutions instead of single values
+	let solutions_objective_values = $state<number[][]>([]); // Array of objective value arrays
+	let solutions_decision_values = $state<number[][]>([]); // Array of decision variable arrays
+	let objective_values = $state<number[]>([]); // Keep this for current/selected solution
 
 	let emo_method = $state('NSGA3'); // or "RVEA"
 	let max_evaluations = $state(1000);
@@ -188,37 +192,71 @@
 			console.log('Success response:', result);
 
 			if (result.success && result.data) {
-				// Extract the new values from the EMO solve response
 				const emoState = result.data; // This is EMOState type
-
 				console.log('EMO solve response:', emoState);
 
-				// Update based on the EMO response structure
-				if (emoState.solutions && emoState.solutions.length > 0) {
-					// Use the first solution or implement logic to select the best one
-					const selectedSolution = emoState.solutions[0];
+				// Extract ALL solutions and their objective values
+				if (
+					emoState.solutions &&
+					emoState.solutions.length > 0 &&
+					emoState.outputs &&
+					emoState.outputs.length > 0
+				) {
+					// Clear previous solutions
+					solutions_objective_values = [];
+					solutions_decision_values = [];
 
-					// Extract objective values from the selected solution
-					if (emoState.outputs && emoState.outputs.length > 0) {
-						const selectedOutput = emoState.outputs[0];
-
-						// Convert the objective values object to array
-						const newObjectiveValues: number[] = [];
-						if (problem.objectives) {
-							problem.objectives.forEach((objective) => {
-								if (selectedOutput[objective.name] !== undefined) {
-									newObjectiveValues.push(selectedOutput[objective.name]);
-								}
-							});
+					// Process each solution
+					emoState.solutions.forEach((solution: number[], solutionIndex: number) => {
+						// Extract decision variables (solution variables)
+						if (Array.isArray(solution)) {
+							solutions_decision_values.push([...solution]);
+						} else if (typeof solution === 'object') {
+							// If solution is an object, convert to array
+							const decisionVars = Object.values(solution).filter(
+								(val) => typeof val === 'number'
+							) as number[];
+							solutions_decision_values.push(decisionVars);
 						}
 
-						if (newObjectiveValues.length > 0) {
-							objective_values = newObjectiveValues;
+						// Extract corresponding objective values
+						if (emoState.outputs[solutionIndex]) {
+							const output = emoState.outputs[solutionIndex];
+							const objectiveVals: number[] = [];
+
+							if (problem?.objectives) {
+								// Use objective names to extract values in correct order
+								problem.objectives.forEach((objective) => {
+									if (output[objective.name] !== undefined) {
+										objectiveVals.push(output[objective.name]);
+									}
+								});
+							} else {
+								// Fallback: use all numeric values from output
+								Object.values(output).forEach((val) => {
+									if (typeof val === 'number') {
+										objectiveVals.push(val);
+									}
+								});
+							}
+
+							if (objectiveVals.length > 0) {
+								solutions_objective_values.push(objectiveVals);
+							}
 						}
+					});
+
+					// Update the current objective values with the first solution (or best solution)
+					if (solutions_objective_values.length > 0) {
+						objective_values = [...solutions_objective_values[0]];
 					}
 
-					// Update preference values with the solution variables if needed
-					// or keep the current preference values as they represent user input
+					console.log('Extracted solutions:', {
+						numSolutions: solutions_objective_values.length,
+						objectiveValues: solutions_objective_values,
+						decisionValues: solutions_decision_values,
+						currentObjective: objective_values
+					});
 				}
 
 				// Update number of solutions if provided
@@ -228,6 +266,7 @@
 
 				console.log('Updated from EMO solve:', {
 					num_solutions,
+					total_solutions: solutions_objective_values.length,
 					previous_preference: {
 						type: previous_preference.type,
 						values: formatNumberArray(previous_preference.values)
@@ -307,6 +346,10 @@
 	// Initialize values when problem is loaded
 	$effect(() => {
 		if (problem) {
+			// Clear previous solutions
+			solutions_objective_values = [];
+			solutions_decision_values = [];
+
 			// Initialize preference_values and objective_values based on problem
 			const defaultValues = problem.objectives.map((obj) =>
 				typeof obj.ideal === 'number' ? obj.ideal : 0
@@ -373,7 +416,7 @@
 					</div>
 
 					<!-- Debug info with formatted numbers -->
-					<div class="mb-4 rounded bg-gray-50 p-2 text-xs">
+					<!-- 					<div class="mb-4 rounded bg-gray-50 p-2 text-xs">
 						<div><strong>Num Solutions:</strong> {num_solutions}</div>
 						<div><strong>Objective Values:</strong> {formatNumberArray(objective_values)}</div>
 						<div class="mt-2">
@@ -390,12 +433,38 @@
 								<div>Values: {formatNumberArray(previous_preference.values)}</div>
 							</div>
 						</div>
-					</div>
+					</div> -->
 
 					<div class="h-full w-full">
 						<div class="grid h-full w-full gap-4 xl:grid-cols-1">
 							<div class="min-h-[50rem] flex-1 rounded bg-gray-100 p-4">
-								<span>Objective space</span>
+								{#if problem}
+									<VisualizationsPanel
+										{problem}
+										previous_preference_values={previous_preference.values}
+										previous_preference_type={previous_preference.type}
+										current_preference_values={current_preference.values}
+										current_preference_type={current_preference.type}
+										{solutions_objective_values}
+										{solutions_decision_values}
+										onSelectSolution={(index) => {
+											// Update current objective values when user selects a solution
+											if (solutions_objective_values[index]) {
+												objective_values = [...solutions_objective_values[index]];
+												console.log(
+													'Selected solution',
+													index,
+													'with objectives:',
+													objective_values
+												);
+											}
+										}}
+									/>
+								{:else}
+									<div class="flex h-full items-center justify-center text-gray-500">
+										No problem data available for visualization
+									</div>
+								{/if}
 							</div>
 						</div>
 					</div>
@@ -408,64 +477,7 @@
 						<Tabs.Trigger value="numerical-values">Numerical values</Tabs.Trigger>
 						<Tabs.Trigger value="saved-solutions">Saved solutions</Tabs.Trigger>
 					</Tabs.List>
-					<Tabs.Content value="numerical-values">
-						<div class="space-y-4">
-							<div>Table of solutions</div>
-
-							<!-- Show comparison between current and previous preferences with formatted numbers -->
-							<div class="grid grid-cols-2 gap-4">
-								<div class="rounded border p-3">
-									<h4 class="font-semibold">Current Preference</h4>
-									<p class="text-sm text-gray-600">Type: {current_preference.type}</p>
-									<p class="text-sm text-gray-600">
-										Values: {formatNumberArray(current_preference.values)}
-									</p>
-								</div>
-								<div class="rounded border p-3">
-									<h4 class="font-semibold">Previous Preference</h4>
-									<p class="text-sm text-gray-600">Type: {previous_preference.type}</p>
-									<p class="text-sm text-gray-600">
-										Values: {formatNumberArray(previous_preference.values)}
-									</p>
-								</div>
-							</div>
-
-							<!-- Additional table showing individual values -->
-							<div class="mt-4">
-								<h4 class="mb-2 font-semibold">Detailed Values</h4>
-								<div class="overflow-x-auto">
-									<table class="min-w-full border border-gray-200">
-										<thead class="bg-gray-50">
-											<tr>
-												<th class="border border-gray-200 px-4 py-2 text-left">Objective</th>
-												<th class="border border-gray-200 px-4 py-2 text-left">Current Value</th>
-												<th class="border border-gray-200 px-4 py-2 text-left">Previous Value</th>
-												<th class="border border-gray-200 px-4 py-2 text-left">Objective Value</th>
-											</tr>
-										</thead>
-										<tbody>
-											{#if problem}
-												{#each problem.objectives as objective, idx}
-													<tr class="hover:bg-gray-50">
-														<td class="border border-gray-200 px-4 py-2">{objective.name}</td>
-														<td class="border border-gray-200 px-4 py-2">
-															{formatNumber(current_preference.values[idx] || 0)}
-														</td>
-														<td class="border border-gray-200 px-4 py-2">
-															{formatNumber(previous_preference.values[idx] || 0)}
-														</td>
-														<td class="border border-gray-200 px-4 py-2">
-															{formatNumber(objective_values[idx] || 0)}
-														</td>
-													</tr>
-												{/each}
-											{/if}
-										</tbody>
-									</table>
-								</div>
-							</div>
-						</div>
-					</Tabs.Content>
+					<Tabs.Content value="numerical-values">Tables</Tabs.Content>
 					<Tabs.Content value="saved-solutions">Visualize saved solutions</Tabs.Content>
 				</Tabs.Root>
 			</Resizable.Pane>
