@@ -106,12 +106,11 @@
 		highlightOnHover: true,
 		strokeWidth: 2,
 		opacity: 0.7,
-		enableBrushing: true
+		enableBrushing: false
 	};
 
 	// State for line selection and filtering
 	let selectedIndex = $state<number | null>(null);
-	let brushFilters = $state<{ [dimension: string]: [number, number] }>({});
 
 	// Add container size tracking
 	let containerElement: HTMLDivElement;
@@ -140,14 +139,6 @@
 		const reservedSpace = 10; // Adjust based on your layout
 		return Math.max(containerSize.height - reservedSpace, 10);
 	});
-
-	/**
-	 * Handle brush filter changes
-	 */
-	function handleBrushFilter(filters: { [dimension: string]: [number, number] }) {
-		brushFilters = filters;
-		console.log('Brush filters updated:', filters);
-	}
 </script>
 
 <!-- 
@@ -170,9 +161,7 @@
 				referenceData={referenceData()}
 				options={plotOptions}
 				{selectedIndex}
-				{brushFilters}
 				onLineSelect={handleLineSelect}
-				onBrushFilter={handleBrushFilter}
 			/>
 		</div>
 	{:else}
