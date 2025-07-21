@@ -394,7 +394,7 @@
 				</div>
 
 				<!-- This container will flex to fill available space -->
-				<div class="mx-2 min-h-0 flex-1 rounded border bg-gray-100 p-2">
+				<div class="mx-2 min-h-0 flex-1 rounded border bg-gray-100 p-4">
 					{#if problem}
 						<VisualizationsPanel
 							{problem}

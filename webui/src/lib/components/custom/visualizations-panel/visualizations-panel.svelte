@@ -24,13 +24,11 @@
 <script lang="ts">
 	import type { components } from '$lib/api/client-types';
 	import ParallelCoordinates from '$lib/components/visualizations/parallel-coordinates/parallel-coordinates.svelte';
-	import { PREFERENCE_TYPES, SIGNIFICANT_DIGITS } from '$lib/constants/index.js';
+	import { createReferenceData } from '$lib/helpers/preference-data-transforms';
 	import {
-		calculateClassification,
-		type PreferenceValue,
-		formatNumber,
-		type PreferenceType
-	} from '$lib/helpers/index.js';
+		createObjectiveDimensions,
+		transformObjectiveData
+	} from '$lib/helpers/visualization-data-transform';
 	import { onMount } from 'svelte';
 
 	// Type definitions from OpenAPI schema
@@ -75,72 +73,20 @@
 	 * Transform objective values into format expected by ParallelCoordinates
 	 * Each solution becomes an object with named properties for each objective
 	 */
-	const objectiveData = $derived(() => {
-		if (!solutions_objective_values.length || !problem?.objectives) return [];
-
-		return solutions_objective_values.map((solution, index) => {
-			const dataPoint: { [key: string]: number } = {};
-			solution.forEach((value, objIndex) => {
-				if (problem.objectives[objIndex]) {
-					dataPoint[problem.objectives[objIndex].name] = value;
-				}
-			});
-			return dataPoint;
-		});
-	});
-
+	const objectiveData = $derived(() => transformObjectiveData(solutions_objective_values, problem));
 	/**
 	 * Create dimensions array for ParallelCoordinates
 	 * Maps problem objectives to dimension definitions
 	 */
-	const objectiveDimensions = $derived(() => {
-		if (!problem?.objectives) return [];
-
-		return problem.objectives.map((obj) => ({
-			name: obj.name,
-			min: typeof obj.nadir === 'number' ? obj.nadir : undefined,
-			max: typeof obj.ideal === 'number' ? obj.ideal : undefined,
-			direction: obj.maximize ? ('max' as const) : ('min' as const)
-		}));
-	});
+	const objectiveDimensions = $derived(() => createObjectiveDimensions(problem));
 
 	/**
 	 * Create reference data in the format expected by ParallelCoordinates
 	 * Includes reference point and preferred ranges if available
 	 */
-	const referenceData = $derived(() => {
-		if (!problem?.objectives) return undefined;
-
-		// Create reference point from current preferences
-		const referencePoint: { [key: string]: number } = {};
-		if (current_preference_values.length > 0) {
-			current_preference_values.forEach((value, index) => {
-				if (problem.objectives[index]) {
-					referencePoint[problem.objectives[index].name] = value;
-				}
-			});
-		}
-
-		// Optionally create preferred ranges (example: ±10% of reference point)
-		const preferredRanges: { [key: string]: { min: number; max: number } } = {};
-		if (current_preference_values.length > 0) {
-			current_preference_values.forEach((value, index) => {
-				if (problem.objectives[index]) {
-					const objName = problem.objectives[index].name;
-					const tolerance = Math.abs(value * 0.1); // 10% tolerance
-					preferredRanges[objName] = {
-						min: value - tolerance,
-						max: value + tolerance
-					};
-				}
-			});
-		}
-
-		return {
-			referencePoint: Object.keys(referencePoint).length > 0 ? referencePoint : undefined,
-			preferredRanges: Object.keys(preferredRanges).length > 0 ? preferredRanges : undefined
-		};
-	});
+	const referenceData = $derived(() =>
+		createReferenceData(current_preference_values, previous_preference_values, problem)
+	);
 
 	/**
 	 * Handle line selection from ParallelCoordinates
