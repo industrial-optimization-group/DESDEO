@@ -52,7 +52,7 @@
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 	
 	// Define a general type for any state with solver_results
-	// TODO: This - and everything - will be rethought when API has changed again (Vili is supposed to refactor responses).
+	// TODO: This type will be rethought and not needed when API has changed (Vili is supposed to refactor responses).
 	type StateWithResults = {
 		solver_results: Array<{
 			optimal_objectives: Record<string, number | number[]>;
@@ -60,8 +60,7 @@
 		}>;
 		[key: string]: any;
 	};
-	type Phase = 'classify' | 'intermediate' | 'save' | 'finish';
-	let phase: Phase = $state('classify')
+	let finalChoiceState = $state(false);
 	
 	let problem: ProblemInfo | null = $state(null);
 	const { data } = $props<{ data: ProblemInfo[] }>();
@@ -70,17 +69,17 @@
 
 	// State for NIMBUS iteration management
 	let previousState: StateWithResults | null = $state(null);
-	let selectedSolutionIndexes: number[] = $state([0]); // Which solution(s) from previous results to use
+	let currentSolutionIndex: number = $state(0); // Which solution from previous results to use in sidebar
 
 
 	// currentPreference is initialized from previous_preference or ideal values
 	let currentPreference: number[] = $state([]);
 	let currentNumSolutions: number = $state(1);
-	// Selected objectives for the sidebar - either from selected solution or calculated average
-	// TODO: when save and intermediate are introduced, selectedObjectives needs to be a LIST, and AppSidebar is used only when the list has 1 item.
-	// so updateSelectedObjectives needs phase check, selectedSolutions needs to be a list, and phase needs to be changed, of course. 
-	// And AppSidebar props need just the first value of list, and is used only when phase === "classify", so the list has one item. 
-	// And requests need to check how many items the list has.
+	// Selected objectives for the sidebar
+	// TODO: selectedObjectives is used for both AppSidebar and iteration request, 
+	// but when intermediate-button is implemented, they cant be the same, since request needs two and AppSidebar still uses only one.
+	// so updateSelectedObjectives() needs changes, selectedObjectives needs to be both a list for request and one objective for sidebar.
+	// And requests (and button disabling) need to check how many items the list has.
 	let selectedObjectives: Record<string, number> = $state({});
 	// Store the last iterated preference values to show as "previous" in UI
 	let lastIteratedPreference: number[] = $state([]);
@@ -145,14 +144,14 @@
 				},
 				body: JSON.stringify({
 					problem_id: problem?.id,
-					solution: selectedSolutionIndexes[0], // Assuming single selection for final choice, need a check that the list only has one item
+					solution: currentSolutionIndex, // Assuming single selection for final choice, need a check that the list only has one item
 				}),
 			});
 
 			const result = await response.json();
 
 			if (result.success) {
-				phase = 'finish';
+				finalChoiceState = true;
 				console.log(result.message);
 			} else {
 				console.error('Failed to save final choice:', result.error);
@@ -207,7 +206,7 @@
 				lastIteratedPreference = [...currentPreference];
 				previousState = result.data
 				updatePreferencesFromState(previousState);
-				selectedSolutionIndexes = [0];
+				currentSolutionIndex = 0;
 				updateSelectedObjectives(previousState);
 				currentNumSolutions = result.data.num_desired? result.data.num_desired : 1; // TODO: this will be just the number of recent solutions
 				console.log('NIMBUS iteration successful:', result.data);
@@ -224,7 +223,7 @@
 	function updateSelectedObjectives(state: StateWithResults | null) {
 		if (!problem) return;
 		if (!state || !state.solver_results || state.solver_results.length === 0) return;
-			const selectedSolution = state.solver_results[selectedSolutionIndexes[0]]; 
+			const selectedSolution = state.solver_results[currentSolutionIndex]; 
 			if (selectedSolution && selectedSolution.optimal_objectives) {
 				// Convert optimal_objectives to the format expected by the API
 				const newObjectives: Record<string, number> = {};
@@ -232,7 +231,7 @@
 					newObjectives[key] = Array.isArray(value) ? value[0] : value;
 				}
 				selectedObjectives = newObjectives;
-				console.log(`Updated current objectives from solution `,selectedSolutionIndexes[0]+1,`:`, selectedObjectives);
+				console.log(`Updated current objectives from solution `,currentSolutionIndex+1,`:`, selectedObjectives);
 			} else {
 				console.warn('Selected solution is invalid, falling back to calculated average');
 			}
@@ -292,7 +291,7 @@
 			
 			if (result.success) {
 				previousState = result.data;
-				selectedSolutionIndexes = [0];
+				currentSolutionIndex = 0;
 				updateSelectedObjectives(previousState);
 				updatePreferencesFromState(previousState);
 				currentNumSolutions = result.data.num_desired ? result.data.num_desired : 1; // TODO: of course this will be just the number of solutions: it always exists
@@ -305,10 +304,10 @@
 	}
 </script>
 
-{#if phase === 'finish'}
+{#if finalChoiceState}
     <div class="card">
         <div class="card-header">Solution Review</div>
-        {#if problem && previousState?.solver_results[selectedSolutionIndexes[0]]}
+        {#if problem && previousState?.solver_results[currentSolutionIndex]}
             <div class="card-body">
                 <h3>Selected Solution Objectives:</h3>
                 <Table>
@@ -323,7 +322,7 @@
                         <TableRow>
                             {#each problem.objectives as objective}
                                 <TableCell>
-                                    {previousState.solver_results[selectedSolutionIndexes[0]].optimal_objectives[objective.symbol]}
+                                    {previousState.solver_results[currentSolutionIndex].optimal_objectives[objective.symbol]}
                                 </TableCell>
                             {/each}
                         </TableRow>
@@ -344,7 +343,7 @@
             </div>
         {/if}
     </div>
-{:else if phase === 'classify'}
+{:else}
 	<div class="flex min-h-[calc(100vh-3rem)]">	
 	{#if problem}
 		<div class="flex flex-col">
@@ -401,13 +400,12 @@
 						<Tabs.Trigger value="saved-solutions">Saved solutions</Tabs.Trigger>
 					</Tabs.List>
 					<Tabs.Content value="numerical-values">
-						{#if problem && phase ==="classify" && previousState?.solver_results && previousState.solver_results.length > 0}
+						{#if problem && previousState?.solver_results && previousState.solver_results.length > 0}
 							<SolutionTable
-								{phase}
 								{problem}
 								solverResults={previousState.solver_results}
-								bind:selectedSolutions={selectedSolutionIndexes}
-								onSelect={() => updateSelectedObjectives(previousState)}
+								bind:selectedSolution={currentSolutionIndex}
+								onRowClick={() => updateSelectedObjectives(previousState)}
 							/>
 						{/if}
 					</Tabs.Content>

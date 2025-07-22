@@ -12,51 +12,38 @@
 	let {
         problem,
         solverResults,
-        selectedSolutions = $bindable([]),
-        onSelect,
-		phase = "classify" as 'classify' | 'intermediate' | 'save' | 'finish'
+        selectedSolution = $bindable(0),
+        onRowClick
 	}: {
         problem: ProblemInfo;
         solverResults: Array<{
 			optimal_objectives: Record<string, number | number[]>;
 			[key: string]: any;
 		}>;
-        selectedSolutions: number[];
-        onSelect: () => void;
-		phase?: 'classify' | 'intermediate' | 'save' | 'finish';
+        selectedSolution: number;
+        onRowClick: () => void;
 	} = $props();
 
-    // Helper to determine if a row is selected
-    function isSelected(index: number): boolean {
-        return selectedSolutions.includes(index);
+
+    function handleRowClick(index: number) {
+        selectedSolution = index;
+        onRowClick();
     }
 
-    // Handle row selection based on the phase
-    function handleRowClick(index: number) {
-        if (phase === 'classify') {
-            // Allow selecting only one row
-            selectedSolutions = [index];
-        } else if (phase === 'intermediate') {
-            // Allow selecting up to 2 rows
-            if (isSelected(index)) {
-                selectedSolutions = selectedSolutions.filter(i => i !== index)
-            } else if (selectedSolutions.length < 2) {
-                selectedSolutions = [...selectedSolutions, index];
-            }
-        } else if (phase === 'save') {
-            // Allow selecting multiple rows
-            if (isSelected(index)) {
-                selectedSolutions = selectedSolutions.filter(i => i !== index)
-            } else {
-                selectedSolutions = [...selectedSolutions, index];
-            }
-        }
-        onSelect();
-    }
+    // Handle selecting multiple rows, not implemented yet
+    // function handleSelect(index: number) {
+    //         // Allow selecting multiple rows
+    //         if (isSelected(index)) {
+    //             selectedMultipleSolutions = selectedMultipleSolutions.filter(i => i !== index)
+    //         } else {
+    //             selectedMultipleSolutions = [...selectedMultipleSolutions, index];
+    //         }
+    //     onSelect(); // as props
+    // }
 </script>
 
 
-{#if problem && phase ==="classify"}
+{#if problem}
 <Table class="w-auto inline-block">
     <TableBody>
         <!-- Table headers -->
@@ -73,7 +60,7 @@
             {#each solverResults as result, index}
                 <TableRow 
                     onclick={() => handleRowClick(index)}
-                    class="cursor-pointer {isSelected(index) ? 'bg-primary/20' : ''}"
+                    class="cursor-pointer {selectedSolution === index ? 'bg-primary/20' : ''}"
                 >
                     {#each problem.objectives as objective}
                         <TableCell>
