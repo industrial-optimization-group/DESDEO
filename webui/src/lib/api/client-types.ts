@@ -292,6 +292,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/problem/get_metadata": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get Metadata
+         * @description Fetch specific metadata for a specific problem. See all the possible metadata types from DESDEO/desdeo/api/models/problem.py Problem Metadata section.
+         *
+         *     Args:
+         *         request (MetaDataGetRequest): requesting certain problem's certain metadata
+         *         user (Annotated[User, Depends]): the current user
+         *         session (Annotated[Session, Depends]): the database session
+         *
+         *     Returns:
+         *         list[Any] | None: list of all forest metadata for this problem, or nothing if there's nothing
+         */
+        post: operations["get_metadata_problem_get_metadata_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/session/new": {
         parameters: {
             query?: never;
@@ -384,6 +412,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/method/nimbus/initialize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Initialize
+         * @description Initialize the problem for the NIMBUS method.
+         */
+        post: operations["initialize_method_nimbus_initialize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/method/nimbus/save": {
         parameters: {
             query?: never;
@@ -428,6 +476,17 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * BaseProblemMetaData
+         * @description Derive other problem metadata classes from this one.
+         */
+        BaseProblemMetaData: {
+            /**
+             * Metadata Type
+             * @default unset
+             */
+            metadata_type: string;
+        };
         /** Body_add_new_analyst_add_new_analyst_post */
         Body_add_new_analyst_add_new_analyst_post: {
             /** Grant Type */
@@ -814,6 +873,42 @@ export interface components {
             solver_results: components["schemas"]["SolverResults"][];
         };
         /**
+         * NIMBUSInitializationRequest
+         * @description Model of the request to the nimbus method.
+         */
+        NIMBUSInitializationRequest: {
+            /** Problem Id */
+            problem_id: number;
+            /** Session Id */
+            session_id?: number | null;
+            /** Parent State Id */
+            parent_state_id?: number | null;
+            /** Solver */
+            solver?: string | null;
+        };
+        /**
+         * NIMBUSInitializationState
+         * @description State of the nimbus method for computing solutions.
+         */
+        NIMBUSInitializationState: {
+            /**
+             * Method
+             * @default nimbus
+             * @constant
+             */
+            method: "nimbus";
+            /**
+             * Phase
+             * @default initialize
+             * @constant
+             */
+            phase: "initialize";
+            /** Solver */
+            solver?: string | null;
+            /** Solver Results */
+            solver_results: components["schemas"]["SolverResults"][];
+        };
+        /**
          * NIMBUSSaveRequest
          * @description Request model for saving solutions from any method's state.
          */
@@ -974,6 +1069,7 @@ export interface components {
             discrete_representation: components["schemas"]["DiscreteRepresentationDB"] | null;
             /** Simulators */
             simulators: components["schemas"]["SimulatorDB"][] | null;
+            problem_metadata: components["schemas"]["ProblemMetaDataPublic"] | null;
         };
         /**
          * ProblemInfoSmall
@@ -997,6 +1093,25 @@ export interface components {
             id: number;
             /** User Id */
             user_id: number;
+            problem_metadata: components["schemas"]["ProblemMetaDataPublic"] | null;
+        };
+        /**
+         * ProblemMetaDataGetRequest
+         * @description Request model for getting specific type of metadata from a specific problem
+         */
+        ProblemMetaDataGetRequest: {
+            /** Problem Id */
+            problem_id: number;
+            /** Metadata Type */
+            metadata_type: string;
+        };
+        /**
+         * ProblemMetaDataPublic
+         * @description Response model for ProblemMetaData
+         */
+        ProblemMetaDataPublic: {
+            /** Data */
+            data: components["schemas"]["BaseProblemMetaData"][] | null;
         };
         /**
          * RPMSolveRequest
@@ -1659,6 +1774,39 @@ export interface operations {
             };
         };
     };
+    get_metadata_problem_get_metadata_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProblemMetaDataGetRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown[];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_new_session_session_new_post: {
         parameters: {
             query?: never;
@@ -1778,6 +1926,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NIMBUSClassificationState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    initialize_method_nimbus_initialize_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NIMBUSInitializationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NIMBUSInitializationState"] | components["schemas"]["NIMBUSClassificationState"];
                 };
             };
             /** @description Validation Error */

@@ -47,8 +47,11 @@
 		}) => void;
 		showNumSolutions?: boolean;
 		ref?: HTMLElement | null;
+		isIterationAllowed?: boolean;
+		isFinishAllowed?: boolean;
 		minNumSolutions?: number;
 		maxNumSolutions?: number;
+		lastIteratedPreference?: number[];
 	}
 
 	let {
@@ -63,8 +66,11 @@
 		onFinish,
 		showNumSolutions = false,
 		ref = null,
+		isIterationAllowed = true,
+		isFinishAllowed = true,
 		minNumSolutions = 1,
-		maxNumSolutions = 4
+		maxNumSolutions = 4,
+		lastIteratedPreference = []
 	}: Props = $props();
 
 	// Validate that preference_types only contains valid values
@@ -214,6 +220,9 @@
 				{#if objective.ideal != null && objective.nadir != null}
 					{@const minValue = Math.min(objective.ideal, objective.nadir)}
 					{@const maxValue = Math.max(objective.ideal, objective.nadir)}
+					{@const currentValue = currentObjectives
+						? currentObjectives[objective.symbol]
+						: objective.ideal}
 
 					<div class="mb-2 flex items-center justify-between">
 						<div>
@@ -222,24 +231,33 @@
 								{#if objective.unit}({objective.unit}){/if}
 								<span class="text-gray-500">({objective.maximize ? 'max' : 'min'})</span>
 							</div>
-							<label for="input-{idx}" class="text-xs text-gray-500">
-								{classificationValues[idx]}
-							</label>
+							<div class="text-xs text-gray-500">
+								Previous preference: {lastIteratedPreference &&
+								lastIteratedPreference[idx] !== undefined
+									? lastIteratedPreference[idx]
+									: '-'}
+							</div>
+							<!-- Current NIMBUS classification label -->
+							<label for="input-{idx}" class="text-xs text-gray-500"
+								>{classificationValues[idx]}</label
+							>
 							<Input
 								type="number"
 								id="input-{idx}"
 								step="0.01"
 								min={minValue}
 								max={maxValue}
-								value={internalPreferenceValues[idx] || 0}
+								bind:value={internalPreferenceValues[idx]}
 								class="h-8 w-20 text-sm"
-								oninput={(e) => {
-									const target = e.currentTarget;
-									if (target instanceof HTMLInputElement) {
-										const numValue = Number(target.value);
-										const clampedValue = Math.max(minValue, Math.min(maxValue, numValue));
-										handlePreferenceValueChange(idx, clampedValue);
+								oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
+									const numValue = Number(e.currentTarget.value);
+									// Clamp value within allowed range
+									const clampedValue = Math.max(minValue, Math.min(maxValue, numValue));
+
+									if (numValue !== clampedValue) {
+										internalPreferenceValues[idx] = clampedValue;
 									}
+									handlePreferenceValueChange(idx, clampedValue);
 								}}
 							/>
 						</div>
@@ -248,10 +266,11 @@
 							solutionValue={internalObjectiveValues[idx] || objective.ideal}
 							selectedValue={internalPreferenceValues[idx] || 0}
 							barColor="#4f8cff"
-							direction="min"
+							direction={objective.maximize ? 'max' : 'min'}
+							previousValue={lastIteratedPreference[idx]}
 							options={{
 								decimalPrecision: SIGNIFICANT_DIGITS,
-								showPreviousValue: false,
+								showPreviousValue: true,
 								aspectRatio: 'aspect-[11/2]'
 							}}
 							onSelect={(newValue) => handlePreferenceValueChange(idx, newValue)}
@@ -367,8 +386,12 @@
 
 	<Sidebar.Footer>
 		<div class="items-right flex justify-end gap-2">
-			<Button variant="default" size="sm" onclick={handleIterate}>Iterate</Button>
-			<Button variant="secondary" size="sm" onclick={handleFinish}>Finish</Button>
+			<Button variant="default" disabled={!isIterationAllowed} size="sm" onclick={handleIterate}>
+				Iterate
+			</Button>
+			<Button variant="secondary" size="sm" disabled={!isFinishAllowed} onclick={handleFinish}>
+				Finish
+			</Button>
 		</div>
 	</Sidebar.Footer>
 	<Sidebar.Rail />
