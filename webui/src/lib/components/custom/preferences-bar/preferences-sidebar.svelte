@@ -165,6 +165,15 @@
 			objective_values: [...internalObjectiveValues]
 		});
 	}
+
+	// Add a helper function to safely get preference values
+	function getPreferenceValue(idx: number): number {
+		return internalPreferenceValues[idx] ?? 0;
+	}
+
+	function getObjectiveValue(idx: number): number {
+		return internalObjectiveValues[idx] ?? 0;
+	}
 </script>
 
 <Sidebar.Root
@@ -218,12 +227,6 @@
 
 			{#each problem.objectives as objective, idx}
 				{#if objective.ideal != null && objective.nadir != null}
-					{@const minValue = Math.min(objective.ideal, objective.nadir)}
-					{@const maxValue = Math.max(objective.ideal, objective.nadir)}
-					{@const currentValue = currentObjectives
-						? currentObjectives[objective.symbol]
-						: objective.ideal}
-
 					<div class="mb-2 flex items-center justify-between">
 						<div>
 							<div class="mb-1 text-sm font-medium">
@@ -241,33 +244,24 @@
 							<label for="input-{idx}" class="text-xs text-gray-500"
 								>{classificationValues[idx]}</label
 							>
-							<Input
-								type="number"
-								id="input-{idx}"
-								step="0.01"
-								min={minValue}
-								max={maxValue}
-								bind:value={internalPreferenceValues[idx]}
-								class="h-8 w-20 text-sm"
-								oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
-									const numValue = Number(e.currentTarget.value);
-									// Clamp value within allowed range
-									const clampedValue = Math.max(minValue, Math.min(maxValue, numValue));
-
-									if (numValue !== clampedValue) {
-										internalPreferenceValues[idx] = clampedValue;
-									}
-									handlePreferenceValueChange(idx, clampedValue);
+							<ValidatedTextbox
+								placeholder=""
+								min={Math.min(objective.ideal, objective.nadir)}
+								max={Math.max(objective.ideal, objective.nadir)}
+								value={String(formatNumber(getPreferenceValue(idx), SIGNIFICANT_DIGITS))}
+								onChange={(value) => {
+									const val = Number(value);
+									if (!isNaN(val)) handlePreferenceValueChange(idx, val);
 								}}
 							/>
 						</div>
 						<HorizontalBar
 							axisRanges={[objective.ideal, objective.nadir]}
-							solutionValue={internalObjectiveValues[idx] || objective.ideal}
-							selectedValue={internalPreferenceValues[idx] || 0}
+							solutionValue={getObjectiveValue(idx) || objective.ideal}
+							selectedValue={getPreferenceValue(idx)}
 							barColor="#4f8cff"
 							direction={objective.maximize ? 'max' : 'min'}
-							previousValue={lastIteratedPreference[idx]}
+							previousValue={lastIteratedPreference[idx] ?? undefined}
 							options={{
 								decimalPrecision: SIGNIFICANT_DIGITS,
 								showPreviousValue: true,
@@ -296,9 +290,7 @@
 									placeholder=""
 									min={Math.min(objective.ideal, objective.nadir)}
 									max={Math.max(objective.ideal, objective.nadir)}
-									value={String(
-										formatNumber(internalPreferenceValues[idx], SIGNIFICANT_DIGITS) || 0
-									)}
+									value={String(formatNumber(getPreferenceValue(idx), SIGNIFICANT_DIGITS))}
 									onChange={(value) => {
 										const val = Number(value);
 										if (!isNaN(val)) handlePreferenceValueChange(idx, val);
@@ -311,8 +303,8 @@
 										Math.min(objective.ideal, objective.nadir),
 										Math.max(objective.ideal, objective.nadir)
 									]}
-									solutionValue={internalObjectiveValues[idx] || objective.ideal}
-									selectedValue={internalPreferenceValues[idx] || 0}
+									solutionValue={getObjectiveValue(idx) || objective.ideal}
+									selectedValue={getPreferenceValue(idx)}
 									barColor={COLOR_PALETTE[idx % COLOR_PALETTE.length]}
 									direction={objective.maximize ? 'max' : 'min'}
 									options={{
@@ -345,7 +337,7 @@
 									placeholder=""
 									min={Math.min(objective.ideal, objective.nadir)}
 									max={Math.max(objective.ideal, objective.nadir)}
-									value={String(internalPreferenceValues[idx] || 0)}
+									value={String(formatNumber(getPreferenceValue(idx), SIGNIFICANT_DIGITS))}
 									onChange={(value) => {
 										const val = Number(value);
 										if (!isNaN(val)) handlePreferenceValueChange(idx, val);
@@ -358,8 +350,8 @@
 										Math.min(objective.ideal, objective.nadir),
 										Math.max(objective.ideal, objective.nadir)
 									]}
-									lowerBound={internalPreferenceValues[idx] || 0}
-									upperBound={internalPreferenceValues[idx] || 0}
+									lowerBound={getPreferenceValue(idx)}
+									upperBound={getPreferenceValue(idx)}
 									barColor={COLOR_PALETTE[idx % COLOR_PALETTE.length]}
 									direction={objective.maximize ? 'max' : 'min'}
 									options={{

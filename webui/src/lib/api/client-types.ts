@@ -472,6 +472,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/utopia/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get Utopia Data
+         * @description Request and receive the Utopia map corresponding to the decision variables sent. Can be just the optimal_variables form a SolverResult
+         *
+         *     Args:
+         *         request (UtopiaRequest): the set of decision variables and problem for which the utopia forest map is requested for.
+         *         user (Annotated[User, Depend(get_current_user)]) the current user
+         *         session (Annotated[Session, Depends(get_session)]) the current database session
+         *
+         *     Raises:
+         *         HTTPException:
+         *
+         *     Returns:
+         *         UtopiaResponse: the map for the forest, to be rendered in frontend
+         */
+        post: operations["get_utopia_data_utopia__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -493,7 +524,10 @@ export interface components {
             grant_type?: string | null;
             /** Username */
             username: string;
-            /** Password */
+            /**
+             * Password
+             * Format: password
+             */
             password: string;
             /**
              * Scope
@@ -502,7 +536,10 @@ export interface components {
             scope: string;
             /** Client Id */
             client_id?: string | null;
-            /** Client Secret */
+            /**
+             * Client Secret
+             * Format: password
+             */
             client_secret?: string | null;
         };
         /** Body_add_new_dm_add_new_dm_post */
@@ -511,7 +548,10 @@ export interface components {
             grant_type?: string | null;
             /** Username */
             username: string;
-            /** Password */
+            /**
+             * Password
+             * Format: password
+             */
             password: string;
             /**
              * Scope
@@ -520,7 +560,10 @@ export interface components {
             scope: string;
             /** Client Id */
             client_id?: string | null;
-            /** Client Secret */
+            /**
+             * Client Secret
+             * Format: password
+             */
             client_secret?: string | null;
         };
         /** Body_login_login_post */
@@ -529,7 +572,10 @@ export interface components {
             grant_type?: string | null;
             /** Username */
             username: string;
-            /** Password */
+            /**
+             * Password
+             * Format: password
+             */
             password: string;
             /**
              * Scope
@@ -538,7 +584,10 @@ export interface components {
             scope: string;
             /** Client Id */
             client_id?: string | null;
-            /** Client Secret */
+            /**
+             * Client Secret
+             * Format: password
+             */
             client_secret?: string | null;
         };
         /**
@@ -578,7 +627,7 @@ export interface components {
             /** Surrogates */
             surrogates?: string[] | null;
             /** Simulator Path */
-            simulator_path?: string | null;
+            simulator_path?: string | components["schemas"]["Url"] | null;
             /**
              * Name
              * @description Descriptive name of the constraint. This can be used in UI and visualizations. Example: 'maximum length'.
@@ -663,7 +712,7 @@ export interface components {
             /** Surrogates */
             surrogates?: string[] | null;
             /** Simulator Path */
-            simulator_path?: string | null;
+            simulator_path?: string | components["schemas"]["Url"] | null;
             /**
              * Name
              * @description Descriptive name of the function. Example: 'normalization'.
@@ -954,7 +1003,7 @@ export interface components {
             /** Surrogates */
             surrogates?: string[] | null;
             /** Simulator Path */
-            simulator_path?: string | null;
+            simulator_path?: string | components["schemas"]["Url"] | null;
             /**
              * Name
              * @description Descriptive name of the objective function. This can be used in UI and visualizations. Example: 'time'.
@@ -1097,7 +1146,7 @@ export interface components {
         };
         /**
          * ProblemMetaDataGetRequest
-         * @description Request model for getting specific type of metadata from a specific problem
+         * @description Request model for getting specific type of metadata from a specific problem.
          */
         ProblemMetaDataGetRequest: {
             /** Problem Id */
@@ -1107,7 +1156,7 @@ export interface components {
         };
         /**
          * ProblemMetaDataPublic
-         * @description Response model for ProblemMetaData
+         * @description Response model for ProblemMetaData.
          */
         ProblemMetaDataPublic: {
             /** Data */
@@ -1229,11 +1278,9 @@ export interface components {
          * @description The SQLModel equivalent to `Simulator`.
          */
         SimulatorDB: {
-            /**
-             * File
-             * Format: path
-             */
-            file: string;
+            /** File */
+            file?: string | null;
+            url?: components["schemas"]["Url"] | null;
             /** Parameter Options */
             parameter_options?: {
                 [key: string]: unknown;
@@ -1368,6 +1415,25 @@ export interface components {
             token_type: string;
         };
         /**
+         * Url
+         * @description Model for a URL.
+         */
+        Url: {
+            /**
+             * Url
+             * @description A URL to the simulator. A GET request to this URL should be used to evaluate solutions in batches.
+             */
+            url: string;
+            /**
+             * Auth
+             * @description Optional. A tuple of username and password to be used for authentication when making requests to the URL.
+             */
+            auth?: [
+                string,
+                string
+            ] | null;
+        };
+        /**
          * UserPublic
          * @description The object to handle public user information.
          */
@@ -1441,6 +1507,64 @@ export interface components {
              * @description An optional name for the solution, useful for archiving purposes.
              */
             name?: string | null;
+        };
+        /**
+         * UtopiaRequest
+         * @description The request for an Utopia map.
+         */
+        UtopiaRequest: {
+            /**
+             * Problem Id
+             * @description Problem for which the map is generated
+             */
+            problem_id: number;
+            /**
+             * Decision Variables
+             * @description Decision variables with which to generate the map
+             */
+            decision_variables: {
+                [key: string]: number | unknown[];
+            };
+        };
+        /**
+         * UtopiaResponse
+         * @description The response to an UtopiaRequest.
+         */
+        UtopiaResponse: {
+            /**
+             * Is Utopia
+             * @description True if map exists for this problem.
+             */
+            is_utopia: boolean;
+            /**
+             * Map Name
+             * @description Name of the map.
+             */
+            map_name: string;
+            /**
+             * Map Json
+             * @description MapJSON representation of the geography.
+             */
+            map_json: {
+                [key: string]: unknown;
+            };
+            /**
+             * Options
+             * @description A dict with given years as keys containing options for each year.
+             */
+            options: {
+                [key: string]: unknown;
+            };
+            /**
+             * Description
+             * @description Description shown above the map.
+             */
+            description: string;
+            /**
+             * Years
+             * @description A list of years for which the maps have been generated.
+             */
+            years: string[];
         };
         /** ValidationError */
         ValidationError: {
@@ -2025,6 +2149,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IntermediateSolutionState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_utopia_data_utopia__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UtopiaRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UtopiaResponse"];
                 };
             };
             /** @description Validation Error */
