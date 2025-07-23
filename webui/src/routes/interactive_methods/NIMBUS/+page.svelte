@@ -34,9 +34,9 @@
 	 * - The selected problem is determined from the methodSelection store.
 	 * - Visualization and table content are placeholders and should be implemented as needed.
 	 */
+	import { BaseLayout } from '$lib/components/custom/method_layout/index.js';
 	import AppSidebar from '$lib/components/custom/preferences-bar/preferences-sidebar.svelte';
 	import { methodSelection } from '../../../stores/methodSelection';
-	import * as Resizable from '$lib/components/ui/resizable/index.js';
 	import type { components } from '$lib/api/client-types';
 	import { onMount } from 'svelte';
 	import { Combobox } from '$lib/components/ui/combobox';
@@ -396,9 +396,9 @@
 		{/if}
 	</div>
 {:else}
-	<div class="flex min-h-[calc(100vh-3rem)]">
-		{#if problem}
-			<div class="flex flex-col">
+	<BaseLayout showLeftSidebar={!!problem} showRightSidebar={false}>
+		{#snippet leftSidebar()}
+			{#if problem}
 				<AppSidebar
 					{problem}
 					preference_types={[PREFERENCE_TYPES.Classification]}
@@ -414,62 +414,42 @@
 					{lastIteratedPreference}
 					onPreferenceChange={handlePreferenceChange}
 					onIterate={handleIterate}
-					onFinish={handleFinish}
+					onFinish={handlePressFinish}
 				/>
-			</div>
-		{/if}
-		<div class="flex-1">
-			<Resizable.PaneGroup direction="vertical">
-				<Resizable.Pane class="p-2">
-					<div class="flex-row">
-						<div class="flex flex-row items-center justify-between gap-4 pb-2">
-							<div class="font-semibold">Solution explorer</div>
-							<div>
-								<span>View: </span>
-								<Combobox
-									options={frameworks}
-									defaultSelected={selected_type_solutions}
-									onChange={handleChange}
-								/>
-							</div>
-						</div>
+			{/if}
+		{/snippet}
 
-						<div class="h-full w-full">
-							<!-- Desktop: two columns, Mobile: two rows -->
-							<div class="grid h-full w-full gap-4 xl:grid-cols-2">
-								<div class="min-h-[50rem] flex-1 rounded bg-gray-100 p-4">
-									<span>Objective space</span>
-								</div>
-								<div class="min-h-[50rem] flex-1 rounded bg-gray-100 p-4">
-									<span>Decision space</span>
-								</div>
-							</div>
-						</div>
-					</div>
-				</Resizable.Pane>
-				<Resizable.Handle />
-				<Resizable.Pane class="p-2">
-					<Tabs.Root value="numerical-values">
-						<Tabs.List>
-							<Tabs.Trigger value="numerical-values">Numerical values</Tabs.Trigger>
-							<Tabs.Trigger value="saved-solutions">Saved solutions</Tabs.Trigger>
-						</Tabs.List>
-						<Tabs.Content value="numerical-values">
-							{#if problem && previousState?.solver_results && previousState.solver_results.length > 0}
-								<SolutionTable
-									{problem}
-									solverResults={previousState.solver_results}
-									bind:selectedSolution={currentSolutionIndex}
-									onRowClick={() => updateSelectedObjectives(previousState)}
-								/>
-							{/if}
-						</Tabs.Content>
-						<Tabs.Content value="saved-solutions">Visualize saved solutions</Tabs.Content>
-					</Tabs.Root>
-				</Resizable.Pane>
-			</Resizable.PaneGroup>
-		</div>
-	</div>
+		{#snippet explorerControls()}
+			<span>View: </span>
+			<Combobox
+				options={frameworks}
+				defaultSelected={selected_type_solutions}
+				onChange={handleChange}
+			/>
+		{/snippet}
+
+		{#snippet visualizationArea()}
+			<div class="grid h-full w-full grid-cols-2 gap-6">
+				<div class="w-full rounded border bg-gray-50 p-4">
+					<span class="font-medium">Objective space</span>
+				</div>
+				<div class="w-full rounded border bg-gray-50 p-4">
+					<span class="font-medium">Decision space</span>
+				</div>
+			</div>
+		{/snippet}
+
+		{#snippet numericalValues()}
+			{#if problem && previousState?.solver_results && previousState.solver_results.length > 0}
+				<SolutionTable
+					{problem}
+					solverResults={previousState.solver_results}
+					bind:selectedSolution={currentSolutionIndex}
+					onRowClick={() => updateSelectedObjectives(previousState)}
+				/>
+			{/if}
+		{/snippet}
+	</BaseLayout>
 {/if}
 
 <ConfirmationDialog

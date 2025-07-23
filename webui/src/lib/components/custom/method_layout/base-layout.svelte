@@ -2,6 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import * as Resizable from '$lib/components/ui/resizable/index.js';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
+	import ResizableHandle from '$lib/components/ui/resizable/resizable-handle.svelte';
 
 	// Define the interface for your named snippets
 	interface Props {
@@ -52,7 +53,7 @@
 	<div class="flex-1">
 		<Resizable.PaneGroup direction="vertical">
 			<Resizable.Pane class="p-2">
-				<div class="mb-4 flex items-center justify-between border-b pb-2">
+				<div class="flex items-center justify-between border-b pb-2">
 					<div class="text-lg font-semibold">
 						{#if explorerTitle}
 							{@render explorerTitle()}
@@ -75,7 +76,7 @@
 					<!-- Main Visualization Area -->
 					<div class="h-full w-full">
 						<div class="grid h-full w-full gap-4 xl:grid-cols-1">
-							<div class="min-h-[50rem] flex-1 rounded bg-gray-100 p-4">
+							<div class="min-h-[50rem] flex-1 rounded p-2">
 								{#if visualizationArea}
 									{@render visualizationArea()}
 								{/if}
@@ -85,6 +86,7 @@
 				</div>
 			</Resizable.Pane>
 
+			<ResizableHandle />
 			<!-- Bottom Panel: Numerical Values and Tables -->
 			<Resizable.Pane class="p-2">
 				<Tabs.Root value="numerical-values">
