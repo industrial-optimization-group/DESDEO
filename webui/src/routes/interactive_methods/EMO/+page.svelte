@@ -1,65 +1,49 @@
 <!--
-    EMO Interactive Method Page
+    Interactive EMO Method Page
     ===========================
     
     @description
-    Interactive multi-objective optimization page for the Evolutionary Multi-Objective (EMO) method.
-    This page provides an interface for users to iteratively refine their preferences and explore
-    solutions in multi-objective optimization problems.
-    
+    Interactive Evolutionary Multi-Objective (EMO) methods interface.
+    This page provides an interface for EMO methods from the DESDEO framework.
+	The method being used (NSGA-III or RVEA) can be modified in the backend code. 
+	In the future, we plan to let an analyst select the method from the UI.
+
     @author Giomara Larraga <glarragw@jyu.fi>
     @created July 2025
     
-    @architecture
-    ┌─────────────────┬─────────────────────────────────────┬─────────────────┐
-    │   Preferences   │           Main Content              │   Advanced      │
-    │    Sidebar      │                                     │    Sidebar      │
-    │                 │  ┌─────────────────────────────────┐ │                 │
-    │ - Problem Info  │  │        Solution Explorer        │ │ - Settings      │
-    │ - Preference    │  │                                 │ │ - Export        │
-    │   Types         │  │ ┌─────────────────────────────┐ │ │ - Explanations  │
-    │ - Values        │  │ │      Objective Space        │ │ │                 │
-    │ - Actions       │  │ │    (Visualization Area)     │ │ │                 │
-    │   (Iterate,     │  │ │                             │ │ │                 │
-    │    Finish)      │  │ └─────────────────────────────┘ │ │                 │
-    │                 │  ├─────────────────────────────────┤ │                 │
-    │                 │  │        Numerical Values         │ │                 │
-    │                 │  │   - Current vs Previous         │ │                 │
-    │                 │  │   - Detailed Table              │ │                 │
-    │                 │  └─────────────────────────────────┘ │                 │
-    └─────────────────┴─────────────────────────────────────┴─────────────────┘
+    @dependencies
+    - BaseLayout: Main layout component with snippet-based architecture
+    - AppSidebar: Preferences and controls sidebar
+    - AdvancedSidebar: Sidebar with explanations and advanced settings
+    - Combobox: Solution visualization type selector
+     
+    @preference_types
+    Supported preference types:
+    - ReferencePoint: Desirable values for each objective
+    - PreferredRange: Acceptable ranges for each objective
+    - PreferredSolution: Specific solution as preference
+
+    @todo_items
+    1. Add visualizations for the objective space.
+       - Add parallel coordinates plot and bar charts.
+
+    2. Backend Integration:
+       - Replace simulation in _update_from_optimization_procedure with real API calls
+       - Implement proper error handling for network requests
+       - Add loading states during optimization
     
-    @data_flow
-    1. User selects problem → Problem loaded from methodSelection store
-    2. Default preferences initialized based on problem objectives
-    3. User modifies preferences → handlePreferenceChange() called
-    4. User clicks "Iterate" → handleIterate() called → Backend optimization
-    5. New solutions generated → UI updated with new objective values
-    6. User can repeat steps 3-5 or finish the process
-    
-    @state_management
-    - problem: Currently selected optimization problem
-    - current_preference: User's current preference settings
-    - previous_preference: User's previous preference (for comparison)
-    - objective_values: Current objective function values from optimization
-    - num_solutions: Number of solutions to generate
-    
-    @naming_conventions
-    - Internal variables/methods: snake_case (e.g., current_preference, handle_change)
-    - Public callback methods: camelCase (e.g., handlePreferenceChange, handleIterate)
-    - Component props: Match external API naming conventions
+    3. Saved Solutions:
+       - Implement solution saving/loading functionality
+       - Add solution comparison features
 -->
 
 <script lang="ts">
-	// --- Core Imports ---
+	import { BaseLayout } from '$lib/components/custom/method_layout/index.js';
 	import AppSidebar from '$lib/components/custom/preferences-bar/preferences-sidebar.svelte';
 	import AdvancedSidebar from '$lib/components/custom/preferences-bar/advanced-sidebar.svelte';
 	import { methodSelection } from '../../../stores/methodSelection';
-	import * as Menubar from '$lib/components/ui/menubar/index.js';
-	import * as Resizable from '$lib/components/ui/resizable/index.js';
 	import type { components } from '$lib/api/client-types';
 	import { onMount } from 'svelte';
-	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import { Combobox } from '$lib/components/ui/combobox';
 	import { PREFERENCE_TYPES } from '$lib/constants';
 	import { formatNumber, formatNumberArray } from '$lib/helpers';
@@ -455,167 +439,132 @@
     
     The center area is divided vertically into:
     - Top: Solution explorer with visualization area
-    - Bottom: Numerical values with comparison tables
+    - Bottom: Numerical values 
 -->
-<div class="flex min-h-[calc(100vh-3rem)]">
-	<!-- Left Sidebar: Preferences and Controls -->
-	{#if problem}
-		<AppSidebar
-			{problem}
-			preference_types={[
-				PREFERENCE_TYPES.ReferencePoint,
-				PREFERENCE_TYPES.PreferredRange,
-				PREFERENCE_TYPES.PreferredSolution
-			]}
-			{num_solutions}
-			type_preferences={current_preference.type}
-			preference_values={current_preference.values}
-			{objective_values}
-			showNumSolutions={true}
-			onPreferenceChange={handlePreferenceChange}
-			onIterate={handleIterate}
-			onFinish={handleFinish}
+<BaseLayout showLeftSidebar={!!problem} showRightSidebar={true}>
+	{#snippet leftSidebar()}
+		{#if problem}
+			<AppSidebar
+				{problem}
+				preference_types={[
+					PREFERENCE_TYPES.ReferencePoint,
+					PREFERENCE_TYPES.PreferredRange,
+					PREFERENCE_TYPES.PreferredSolution
+				]}
+				{num_solutions}
+				type_preferences={current_preference.type}
+				preference_values={current_preference.values}
+				{objective_values}
+				showNumSolutions={true}
+				onPreferenceChange={handlePreferenceChange}
+				onIterate={handleIterate}
+				onFinish={handleFinish}
+			/>
+		{/if}
+	{/snippet}
+
+	{#snippet explorerControls()}
+		<span>View: </span>
+		<Combobox
+			options={type_solutions_to_visualize}
+			defaultSelected={selected_type_solutions}
+			onChange={handle_change}
 		/>
-	{/if}
+	{/snippet}
 
-	<!-- Main Content Area -->
-	<div class="flex-1">
-		<Resizable.PaneGroup direction="vertical">
-			<!-- Top Panel: Solution Explorer -->
-			<Resizable.Pane class="p-2">
-				<div class="flex-row">
-					<!-- Solution Explorer Header -->
-					<div class="flex flex-row items-center justify-between gap-4 pb-2">
-						<div class="font-semibold">Solution explorer</div>
-						<div>
-							<span>View: </span>
-							<Combobox
-								options={type_solutions_to_visualize}
-								defaultSelected={selected_type_solutions}
-								onChange={handle_change}
-							/>
-						</div>
-					</div>
-
-					<!-- Debug Information Panel -->
-					<!-- Shows current state for development/debugging purposes -->
-					<div class="mb-4 rounded bg-gray-50 p-2 text-xs">
-						<div><strong>Num Solutions:</strong> {num_solutions}</div>
-						<div><strong>Objective Values:</strong> {formatNumberArray(objective_values)}</div>
-						<div class="mt-2">
-							<strong>Current Preference:</strong>
-							<div class="ml-2">
-								<div>Type: {current_preference.type}</div>
-								<div>Values: {formatNumberArray(current_preference.values)}</div>
-							</div>
-						</div>
-						<div class="mt-2">
-							<strong>Previous Preference:</strong>
-							<div class="ml-2">
-								<div>Type: {previous_preference.type}</div>
-								<div>Values: {formatNumberArray(previous_preference.values)}</div>
-							</div>
-						</div>
-					</div>
-
-					<!-- Main Visualization Area -->
-					<div class="h-full w-full">
-						<div class="grid h-full w-full gap-4 xl:grid-cols-1">
-							<div class="min-h-[50rem] flex-1 rounded bg-gray-100 p-4">
-								<span>Objective space</span>
-								<!-- TODO: Add parallel coordinates visualization -->
-								<!-- TODO: Add scatter plot matrix -->
-								<!-- TODO: Add other multi-objective visualization components -->
-							</div>
-						</div>
-					</div>
+	{#snippet debugPanel()}
+		<div class="mb-4 rounded bg-gray-50 p-2 text-xs">
+			<div><strong>Num Solutions:</strong> {num_solutions}</div>
+			<div><strong>Objective Values:</strong> {formatNumberArray(objective_values)}</div>
+			<div class="mt-2">
+				<strong>Current Preference:</strong>
+				<div class="ml-2">
+					<div>Type: {current_preference.type}</div>
+					<div>Values: {formatNumberArray(current_preference.values)}</div>
 				</div>
-			</Resizable.Pane>
+			</div>
+			<div class="mt-2">
+				<strong>Previous Preference:</strong>
+				<div class="ml-2">
+					<div>Type: {previous_preference.type}</div>
+					<div>Values: {formatNumberArray(previous_preference.values)}</div>
+				</div>
+			</div>
+		</div>
+	{/snippet}
 
-			<!-- Resizable Handle -->
-			<Resizable.Handle />
+	{#snippet visualizationArea()}
+		<span>Objective space</span>
+		<!-- TODO: Add parallel coordinates visualization -->
+		<!-- TODO: Add scatter plot matrix -->
+		<!-- TODO: Add other multi-objective visualization components -->
+	{/snippet}
 
-			<!-- Bottom Panel: Numerical Values and Tables -->
-			<Resizable.Pane class="p-2">
-				<Tabs.Root value="numerical-values">
-					<Tabs.List>
-						<Tabs.Trigger value="numerical-values">Numerical values</Tabs.Trigger>
-						<Tabs.Trigger value="saved-solutions">Saved solutions</Tabs.Trigger>
-					</Tabs.List>
+	{#snippet numericalValues()}
+		<div class="space-y-4">
+			<div>Table of solutions</div>
 
-					<!-- Numerical Values Tab -->
-					<Tabs.Content value="numerical-values">
-						<div class="space-y-4">
-							<div>Table of solutions</div>
+			<!-- Preference Comparison Cards -->
+			<div class="grid grid-cols-2 gap-4">
+				<div class="rounded border p-3">
+					<h4 class="font-semibold">Current Preference</h4>
+					<p class="text-sm text-gray-600">Type: {current_preference.type}</p>
+					<p class="text-sm text-gray-600">
+						Values: {formatNumberArray(current_preference.values)}
+					</p>
+				</div>
+				<div class="rounded border p-3">
+					<h4 class="font-semibold">Previous Preference</h4>
+					<p class="text-sm text-gray-600">Type: {previous_preference.type}</p>
+					<p class="text-sm text-gray-600">
+						Values: {formatNumberArray(previous_preference.values)}
+					</p>
+				</div>
+			</div>
 
-							<!-- Preference Comparison Cards -->
-							<!-- Shows side-by-side comparison of current vs previous preferences -->
-							<div class="grid grid-cols-2 gap-4">
-								<div class="rounded border p-3">
-									<h4 class="font-semibold">Current Preference</h4>
-									<p class="text-sm text-gray-600">Type: {current_preference.type}</p>
-									<p class="text-sm text-gray-600">
-										Values: {formatNumberArray(current_preference.values)}
-									</p>
-								</div>
-								<div class="rounded border p-3">
-									<h4 class="font-semibold">Previous Preference</h4>
-									<p class="text-sm text-gray-600">Type: {previous_preference.type}</p>
-									<p class="text-sm text-gray-600">
-										Values: {formatNumberArray(previous_preference.values)}
-									</p>
-								</div>
-							</div>
+			<!-- Detailed Values Table -->
+			<div class="mt-4">
+				<h4 class="mb-2 font-semibold">Detailed Values</h4>
+				<div class="overflow-x-auto">
+					<table class="min-w-full border border-gray-200">
+						<thead class="bg-gray-50">
+							<tr>
+								<th class="border border-gray-200 px-4 py-2 text-left">Objective</th>
+								<th class="border border-gray-200 px-4 py-2 text-left">Current Value</th>
+								<th class="border border-gray-200 px-4 py-2 text-left">Previous Value</th>
+								<th class="border border-gray-200 px-4 py-2 text-left">Objective Value</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#if problem}
+								{#each problem.objectives as objective, idx}
+									<tr class="hover:bg-gray-50">
+										<td class="border border-gray-200 px-4 py-2">{objective.name}</td>
+										<td class="border border-gray-200 px-4 py-2">
+											{formatNumber(current_preference.values[idx] || 0)}
+										</td>
+										<td class="border border-gray-200 px-4 py-2">
+											{formatNumber(previous_preference.values[idx] || 0)}
+										</td>
+										<td class="border border-gray-200 px-4 py-2">
+											{formatNumber(objective_values[idx] || 0)}
+										</td>
+									</tr>
+								{/each}
+							{/if}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+	{/snippet}
 
-							<!-- Detailed Values Table -->
-							<!-- Provides objective-by-objective breakdown of all values -->
-							<div class="mt-4">
-								<h4 class="mb-2 font-semibold">Detailed Values</h4>
-								<div class="overflow-x-auto">
-									<table class="min-w-full border border-gray-200">
-										<thead class="bg-gray-50">
-											<tr>
-												<th class="border border-gray-200 px-4 py-2 text-left">Objective</th>
-												<th class="border border-gray-200 px-4 py-2 text-left">Current Value</th>
-												<th class="border border-gray-200 px-4 py-2 text-left">Previous Value</th>
-												<th class="border border-gray-200 px-4 py-2 text-left">Objective Value</th>
-											</tr>
-										</thead>
-										<tbody>
-											{#if problem}
-												{#each problem.objectives as objective, idx}
-													<tr class="hover:bg-gray-50">
-														<td class="border border-gray-200 px-4 py-2">{objective.name}</td>
-														<td class="border border-gray-200 px-4 py-2">
-															{formatNumber(current_preference.values[idx] || 0)}
-														</td>
-														<td class="border border-gray-200 px-4 py-2">
-															{formatNumber(previous_preference.values[idx] || 0)}
-														</td>
-														<td class="border border-gray-200 px-4 py-2">
-															{formatNumber(objective_values[idx] || 0)}
-														</td>
-													</tr>
-												{/each}
-											{/if}
-										</tbody>
-									</table>
-								</div>
-							</div>
-						</div>
-					</Tabs.Content>
+	{#snippet savedSolutions()}
+		<!-- TODO: Implement saved solutions functionality -->
+		Visualize saved solutions
+	{/snippet}
 
-					<!-- Saved Solutions Tab -->
-					<Tabs.Content value="saved-solutions">
-						<!-- TODO: Implement saved solutions functionality -->
-						<!-- This should show previously saved solution sets -->
-						Visualize saved solutions
-					</Tabs.Content>
-				</Tabs.Root>
-			</Resizable.Pane>
-		</Resizable.PaneGroup>
-	</div>
-
-	<!-- Right Sidebar: Advanced Settings -->
-	<AdvancedSidebar />
-</div>
+	{#snippet rightSidebar()}
+		<AdvancedSidebar />
+	{/snippet}
+</BaseLayout>
