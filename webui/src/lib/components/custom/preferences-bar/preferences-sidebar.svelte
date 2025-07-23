@@ -227,48 +227,53 @@
 
 			{#each problem.objectives as objective, idx}
 				{#if objective.ideal != null && objective.nadir != null}
-					<div class="mb-2 flex items-center justify-between">
-						<div>
-							<div class="mb-1 text-sm font-medium">
-								{objective.name}
-								{#if objective.unit}({objective.unit}){/if}
-								<span class="text-gray-500">({objective.maximize ? 'max' : 'min'})</span>
-							</div>
-							<div class="text-xs text-gray-500">
+					<div class="mb-4 flex flex-col gap-2">
+						<div class="text-sm font-semibold text-gray-700">
+							{objective.name}
+							{#if objective.unit}({objective.unit}){/if}
+							({objective.maximize ? 'max' : 'min'})
+						</div>
+						<!-- 							<div class="text-xs text-gray-500">
 								Previous preference: {lastIteratedPreference &&
 								lastIteratedPreference[idx] !== undefined
 									? lastIteratedPreference[idx]
 									: '-'}
+							</div> -->
+
+						<div class="flex flex-row">
+							<div class="flex w-1/4 flex-col justify-center">
+								<span class="text-sm text-gray-500">{classificationValues[idx]}</span>
+								<ValidatedTextbox
+									placeholder=""
+									min={Math.min(objective.ideal, objective.nadir)}
+									max={Math.max(objective.ideal, objective.nadir)}
+									value={String(formatNumber(getPreferenceValue(idx), SIGNIFICANT_DIGITS))}
+									onChange={(value) => {
+										const val = Number(value);
+										if (!isNaN(val)) handlePreferenceValueChange(idx, val);
+									}}
+								/>
 							</div>
-							<!-- Current NIMBUS classification label -->
-							<label for="input-{idx}" class="text-xs text-gray-500"
-								>{classificationValues[idx]}</label
-							>
-							<ValidatedTextbox
-								placeholder=""
-								min={Math.min(objective.ideal, objective.nadir)}
-								max={Math.max(objective.ideal, objective.nadir)}
-								value={String(formatNumber(getPreferenceValue(idx), SIGNIFICANT_DIGITS))}
-								onChange={(value) => {
-									const val = Number(value);
-									if (!isNaN(val)) handlePreferenceValueChange(idx, val);
-								}}
-							/>
+							<div class="w-3/4">
+								<HorizontalBar
+									axisRanges={[
+										Math.min(objective.ideal, objective.nadir),
+										Math.max(objective.ideal, objective.nadir)
+									]}
+									solutionValue={getObjectiveValue(idx) || objective.ideal}
+									selectedValue={getPreferenceValue(idx)}
+									barColor={COLOR_PALETTE[idx % COLOR_PALETTE.length]}
+									direction={objective.maximize ? 'max' : 'min'}
+									previousValue={lastIteratedPreference[idx] ?? undefined}
+									options={{
+										decimalPrecision: SIGNIFICANT_DIGITS,
+										showPreviousValue: true,
+										aspectRatio: 'aspect-[11/2]'
+									}}
+									onSelect={(newValue) => handlePreferenceValueChange(idx, newValue)}
+								/>
+							</div>
 						</div>
-						<HorizontalBar
-							axisRanges={[objective.ideal, objective.nadir]}
-							solutionValue={getObjectiveValue(idx) || objective.ideal}
-							selectedValue={getPreferenceValue(idx)}
-							barColor="#4f8cff"
-							direction={objective.maximize ? 'max' : 'min'}
-							previousValue={lastIteratedPreference[idx] ?? undefined}
-							options={{
-								decimalPrecision: SIGNIFICANT_DIGITS,
-								showPreviousValue: true,
-								aspectRatio: 'aspect-[11/2]'
-							}}
-							onSelect={(newValue) => handlePreferenceValueChange(idx, newValue)}
-						/>
 					</div>
 				{:else}
 					<div class="text-sm text-red-500">
