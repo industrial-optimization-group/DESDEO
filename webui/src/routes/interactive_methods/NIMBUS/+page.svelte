@@ -49,6 +49,7 @@
 	import ConfirmationDialog from '$lib/components/custom/confirmation-dialog.svelte';
 	import SolutionTable from '$lib/components/custom/solution-table/solution-table.svelte';
 	import { PREFERENCE_TYPES } from '$lib/constants';
+	import { formatNumber, formatNumberArray } from '$lib/helpers';
 
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 
@@ -65,8 +66,8 @@
 
 	let problem: ProblemInfo | null = $state(null);
 	const { data } = $props<{ data: ProblemInfo[] }>();
-	let problemList = data.problems ?? [];
-	let selectedTypeSolutions = $state('current');
+	let problem_list = data.problems ?? [];
+	let selected_type_solutions = $state('current');
 
 	// State for NIMBUS iteration management
 	let previousState: StateWithResults | null = $state(null);
@@ -139,8 +140,8 @@
 	}
 
 	function handleChange(event: { value: string }) {
-		selectedTypeSolutions = event.value;
-		console.log('Selected type of solutions:', selectedTypeSolutions);
+		selected_type_solutions = event.value;
+		console.log('Selected type of solutions:', selected_type_solutions);
 	}
 
 	// TODO: Handler for finishing the NIMBUS optimization process
@@ -292,7 +293,7 @@
 
 	onMount(async () => {
 		if ($methodSelection.selectedProblemId) {
-			problem = problemList.find(
+			problem = problem_list.find(
 				(p: ProblemInfo) => String(p.id) === String($methodSelection.selectedProblemId)
 			);
 
@@ -427,7 +428,7 @@
 								<span>View: </span>
 								<Combobox
 									options={frameworks}
-									defaultSelected={selectedTypeSolutions}
+									defaultSelected={selected_type_solutions}
 									onChange={handleChange}
 								/>
 							</div>
