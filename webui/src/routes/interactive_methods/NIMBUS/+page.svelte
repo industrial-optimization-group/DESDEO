@@ -40,7 +40,6 @@
 	import type { components } from '$lib/api/client-types';
 	import { onMount } from 'svelte';
 	import { Combobox } from '$lib/components/ui/combobox';
-	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import Table from '$lib/components/ui/table/table.svelte';
 	import TableBody from '$lib/components/ui/table/table-body.svelte';
 	import TableRow from '$lib/components/ui/table/table-row.svelte';
@@ -49,7 +48,6 @@
 	import ConfirmationDialog from '$lib/components/custom/confirmation-dialog.svelte';
 	import SolutionTable from '$lib/components/custom/solution-table/solution-table.svelte';
 	import { PREFERENCE_TYPES } from '$lib/constants';
-	import { formatNumber, formatNumberArray } from '$lib/helpers';
 
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 
@@ -62,6 +60,7 @@
 		}>;
 		[key: string]: any;
 	};
+
 	let finalChoiceState = $state(false);
 
 	let problem: ProblemInfo | null = $state(null);
@@ -200,6 +199,7 @@
 		const sessionId = null;
 		const parentStateId = null;
 		const preference = {
+			// TODO: change this to PREFERENCE_TYPES.CLASSIFICATION
 			preference_type: 'reference_point',
 			aspiration_levels: problem.objectives.reduce(
 				(acc, obj, idx) => {
