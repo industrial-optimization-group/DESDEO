@@ -1,4 +1,5 @@
 # DESDEO web-GUI
+
 ## Environment variables
 
 For the frontend to work correctly, there are some environmental variables
@@ -8,6 +9,12 @@ that should be set in an`.env` file at the root level. These variables are:
 
 ```bash
 VITE_API_URL="/api"
+```
+
+- `API_URL` which should be defined to be 'http://localhost:8000 or the path of the server'
+
+```bash
+API_URL=http://localhost:8000
 ```
 
 Check also the file `vite.config.ts`, where in the server setting
@@ -24,6 +31,7 @@ Check also the file `vite.config.ts`, where in the server setting
 		}
 	}
 ```
+
 the `target` should point to the local URL that can be used to access the DESDEO web-API.
 
 ## Installing
@@ -56,8 +64,7 @@ then run
 ncu -u
 ```
 
-this will upgrade the project's packages to their latest (mutually) compatible versions. __This can introduce breaking changes!__
-
+this will upgrade the project's packages to their latest (mutually) compatible versions. **This can introduce breaking changes!**
 
 ## Developing
 

@@ -2,13 +2,13 @@
 
 from sqlmodel import Session
 
-from desdeo.api.models.archive import UserSavedSolutionDB, UserSavedSolverResults
+from desdeo.api.models.archive import UserSavedSolutionDB, UserSavedSolverResults, UserSavedEMOResults
 from desdeo.api.models.state import StateDB
 
 
 def user_save_solutions(
     state_db: StateDB,
-    results: list[UserSavedSolverResults],
+    results: list[UserSavedSolverResults | UserSavedEMOResults],
     user_id: int,
     session: Session,
 ):

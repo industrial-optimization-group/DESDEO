@@ -44,7 +44,9 @@ class ProblemBase(SQLModel):
     is_convex: bool | None = Field(nullable=True, default=None)
     is_linear: bool | None = Field(nullable=True, default=None)
     is_twice_differentiable: bool | None = Field(nullable=True, default=None)
-    scenario_keys: list[str] | None = Field(sa_column=Column(JSON, nullable=True), default=None)
+    scenario_keys: list[str] | None = Field(
+        sa_column=Column(JSON, nullable=True), default=None
+    )
     variable_domain: VariableDomainTypeEnum | None = Field()
 
 
@@ -114,7 +116,9 @@ class ProblemDB(ProblemBase, table=True):
     is_convex: bool | None = Field(nullable=True, default=None)
     is_linear: bool | None = Field(nullable=True, default=None)
     is_twice_differentiable: bool | None = Field(nullable=True, default=None)
-    scenario_keys: list[str] | None = Field(sa_column=Column(JSON, nullable=True), default=None)
+    scenario_keys: list[str] | None = Field(
+        sa_column=Column(JSON, nullable=True), default=None
+    )
     variable_domain: VariableDomainTypeEnum = Field()
 
     # Back populates
@@ -129,9 +133,13 @@ class ProblemDB(ProblemBase, table=True):
     tensor_variables: list["TensorVariableDB"] = Relationship(back_populates="problem")
     objectives: list["ObjectiveDB"] = Relationship(back_populates="problem")
     constraints: list["ConstraintDB"] = Relationship(back_populates="problem")
-    scalarization_funcs: list["ScalarizationFunctionDB"] = Relationship(back_populates="problem")
+    scalarization_funcs: list["ScalarizationFunctionDB"] = Relationship(
+        back_populates="problem"
+    )
     extra_funcs: list["ExtraFunctionDB"] = Relationship(back_populates="problem")
-    discrete_representation: "DiscreteRepresentationDB" = Relationship(back_populates="problem")
+    discrete_representation: "DiscreteRepresentationDB" = Relationship(
+        back_populates="problem"
+    )
     simulators: list["SimulatorDB"] = Relationship(back_populates="problem")
     problem_metadata: "ProblemMetaDataDB" = Relationship(back_populates="problem")
 
@@ -148,17 +156,29 @@ class ProblemDB(ProblemBase, table=True):
             ProblemDB: the new instance of `ProblemDB`.
         """
         scalar_constants = (
-            [const for const in problem_instance.constants if isinstance(const, Constant)]
+            [
+                const
+                for const in problem_instance.constants
+                if isinstance(const, Constant)
+            ]
             if problem_instance.constants is not None
             else []
         )
         tensor_constants = (
-            [const for const in problem_instance.constants if isinstance(const, TensorConstant)]
+            [
+                const
+                for const in problem_instance.constants
+                if isinstance(const, TensorConstant)
+            ]
             if problem_instance.constants is not None
             else []
         )
-        scalar_variables = [var for var in problem_instance.variables if isinstance(var, Variable)]
-        tensor_variables = [var for var in problem_instance.variables if isinstance(var, TensorVariable)]
+        scalar_variables = [
+            var for var in problem_instance.variables if isinstance(var, Variable)
+        ]
+        tensor_variables = [
+            var for var in problem_instance.variables if isinstance(var, TensorVariable)
+        ]
         return cls(
             user_id=user.id,
             name=problem_instance.name,
@@ -169,27 +189,52 @@ class ProblemDB(ProblemBase, table=True):
             variable_domain=problem_instance.variable_domain,
             scenario_keys=problem_instance.scenario_keys,
             constants=[ConstantDB.model_validate(const) for const in scalar_constants],
-            tensor_constants=[TensorConstantDB.model_validate(const) for const in tensor_constants],
+            tensor_constants=[
+                TensorConstantDB.model_validate(const) for const in tensor_constants
+            ],
             variables=[VariableDB.model_validate(var) for var in scalar_variables],
-            tensor_variables=[TensorVariableDB.model_validate(var) for var in tensor_variables],
-            objectives=[ObjectiveDB.model_validate(obj) for obj in problem_instance.objectives],
-            constraints=[ConstraintDB.model_validate(con) for con in problem_instance.constraints]
-            if problem_instance.constraints is not None
-            else [],
-            scalarization_funcs=[
-                ScalarizationFunctionDB.model_validate(scal) for scal in problem_instance.scalarization_funcs
-            ]
-            if problem_instance.scalarization_funcs is not None
-            else [],
-            extra_funcs=[ExtraFunctionDB.model_validate(extra) for extra in problem_instance.extra_funcs]
-            if problem_instance.extra_funcs is not None
-            else [],
-            discrete_representation=DiscreteRepresentationDB.model_validate(problem_instance.discrete_representation)
-            if problem_instance.discrete_representation is not None
-            else None,
-            simulators=[SimulatorDB.model_validate(sim) for sim in problem_instance.simulators]
-            if problem_instance.simulators is not None
-            else [],
+            tensor_variables=[
+                TensorVariableDB.model_validate(var) for var in tensor_variables
+            ],
+            objectives=[
+                ObjectiveDB.model_validate(obj) for obj in problem_instance.objectives
+            ],
+            constraints=(
+                [
+                    ConstraintDB.model_validate(con)
+                    for con in problem_instance.constraints
+                ]
+                if problem_instance.constraints is not None
+                else []
+            ),
+            scalarization_funcs=(
+                [
+                    ScalarizationFunctionDB.model_validate(scal)
+                    for scal in problem_instance.scalarization_funcs
+                ]
+                if problem_instance.scalarization_funcs is not None
+                else []
+            ),
+            extra_funcs=(
+                [
+                    ExtraFunctionDB.model_validate(extra)
+                    for extra in problem_instance.extra_funcs
+                ]
+                if problem_instance.extra_funcs is not None
+                else []
+            ),
+            discrete_representation=(
+                DiscreteRepresentationDB.model_validate(
+                    problem_instance.discrete_representation
+                )
+                if problem_instance.discrete_representation is not None
+                else None
+            ),
+            simulators=(
+                [SimulatorDB.model_validate(sim) for sim in problem_instance.simulators]
+                if problem_instance.simulators is not None
+                else []
+            ),
         )
 
 
@@ -221,9 +266,13 @@ class ProblemMetaDataListType(TypeDecorator):
                 match item_dict["metadata_type"]:
                     # Add classes derived from BaseProblemMetaData here so they can be deserialized
                     case "forest_problem_metadata":
-                        metadata_objects.append(ForestProblemMetaData.model_validate(item_dict))
+                        metadata_objects.append(
+                            ForestProblemMetaData.model_validate(item_dict)
+                        )
                     case _:
-                        print(f"Cannot convert {item_dict["metadata_type"]} into metadata!")
+                        print(
+                            f"Cannot convert {item_dict["metadata_type"]} into metadata!"
+                        )
             return metadata_objects
         return None
 
@@ -252,7 +301,9 @@ class ProblemMetaDataDB(SQLModel, table=True):
 
     id: int | None = Field(primary_key=True, default=None)
     problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
-    data: list[BaseProblemMetaData] | None = Field(sa_column=Column(ProblemMetaDataListType), default=None)
+    data: list[BaseProblemMetaData] | None = Field(
+        sa_column=Column(ProblemMetaDataListType), default=None
+    )
 
     problem: ProblemDB | None = Relationship(back_populates="problem_metadata")
 
@@ -425,7 +476,9 @@ class TensorConstantDB(_BaseTensorConstantDB, table=True):
     problem: ProblemDB | None = Relationship(back_populates="tensor_constants")
 
 
-_ConstantDB = from_pydantic(Constant, "_ConstantDB", union_type_conversions={VariableType: float})
+_ConstantDB = from_pydantic(
+    Constant, "_ConstantDB", union_type_conversions={VariableType: float}
+)
 
 
 class ConstantDB(_ConstantDB, table=True):
@@ -439,7 +492,9 @@ class ConstantDB(_ConstantDB, table=True):
 
 
 _VariableDB = from_pydantic(
-    Variable, "_VariableDB", union_type_conversions={VariableType: float, VariableType | None: float | None}
+    Variable,
+    "_VariableDB",
+    union_type_conversions={VariableType: float, VariableType | None: float | None},
 )
 
 
@@ -485,8 +540,12 @@ class _Objective(SQLModel):
 
     func: list | None = Field(sa_column=Column(JSON, nullable=True))
     scenario_keys: list[str] | None = Field(sa_column=Column(JSON), default=None)
-    surrogates: list[Path] | None = Field(sa_column=Column(PathOrUrlListType), default=None)
-    simulator_path: Path | Url | None = Field(sa_column=Column(PathOrUrlType), default=None)
+    surrogates: list[Path] | None = Field(
+        sa_column=Column(PathOrUrlListType), default=None
+    )
+    simulator_path: Path | Url | None = Field(
+        sa_column=Column(PathOrUrlType), default=None
+    )
 
 
 _ObjectiveDB = from_pydantic(
@@ -516,8 +575,12 @@ class _Constraint(SQLModel):
 
     func: list = Field(sa_column=Column(JSON))
     scenario_keys: list[str] | None = Field(sa_column=Column(JSON), default=None)
-    surrogates: list[Path] | None = Field(sa_column=Column(PathOrUrlListType), default=None)
-    simulator_path: Path | Url | None = Field(sa_column=Column(PathOrUrlType), default=None)
+    surrogates: list[Path] | None = Field(
+        sa_column=Column(PathOrUrlListType), default=None
+    )
+    simulator_path: Path | Url | None = Field(
+        sa_column=Column(PathOrUrlType), default=None
+    )
 
 
 _ConstraintDB = from_pydantic(
@@ -572,14 +635,21 @@ class _ExtraFunction(SQLModel):
 
     func: list = Field(sa_column=Column(JSON))
     scenario_keys: list[str] | None = Field(sa_column=Column(JSON), default=None)
-    surrogates: list[Path] | None = Field(sa_column=Column(PathOrUrlListType), default=None)
-    simulator_path: Path | Url | None = Field(sa_column=Column(PathOrUrlType), default=None)
+    surrogates: list[Path] | None = Field(
+        sa_column=Column(PathOrUrlListType), default=None
+    )
+    simulator_path: Path | Url | None = Field(
+        sa_column=Column(PathOrUrlType), default=None
+    )
 
 
 _ExtraFunctionDB = from_pydantic(
     ExtraFunction,
     "_ExtraFunctionDB",
-    union_type_conversions={str | None: str | None, Path | Url | None: PathOrUrlType | None},
+    union_type_conversions={
+        str | None: str | None,
+        Path | Url | None: PathOrUrlType | None,
+    },
     base_model=_ExtraFunction,
 )
 
@@ -603,7 +673,9 @@ class _DiscreteRepresentation(SQLModel):
 
 
 _DiscreteRepresentationDB = from_pydantic(
-    DiscreteRepresentation, "_DiscreteRepresentation", base_model=_DiscreteRepresentation
+    DiscreteRepresentation,
+    "_DiscreteRepresentation",
+    base_model=_DiscreteRepresentation,
 )
 
 

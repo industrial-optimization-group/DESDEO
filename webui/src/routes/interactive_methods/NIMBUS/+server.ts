@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { api } from '$lib/api/client';
+import { serverApi as api } from '$lib/api/client';
 import type { RequestHandler } from './$types';
+
 
 export const POST: RequestHandler = async ({ url, request, cookies }) => {
     try {
