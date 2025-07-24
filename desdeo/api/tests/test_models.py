@@ -28,7 +28,7 @@ from desdeo.api.models import (
     ProblemMetaDataDB,
     ForestProblemMetaData
 )
-from desdeo.api.models.archive import UserSavedSolverResults
+from desdeo.api.models.archive import UserSavedSolverResults, UserSavedEMOResults
 from desdeo.api.routers.nimbus import user_save_solutions
 from desdeo.mcdm import rpm_solve_solutions
 from desdeo.problem.schema import (

@@ -2,10 +2,16 @@ import createClient from 'openapi-fetch';
 import type { paths } from './client-types';
 import { auth } from '../../stores/auth';
 import { get } from 'svelte/store';
+import { browser } from '$app/environment';
+
 
 const BASE_URL = import.meta.env.VITE_API_URL;
 
 export const api = createClient<paths>({baseUrl: BASE_URL});
+
+export const serverApi = createClient<paths>({
+    baseUrl: browser ? BASE_URL : (process.env.API_BASE_URL || 'http://localhost:8000')  
+});
 
 api.use({
 	async onRequest({ request }) {

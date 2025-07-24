@@ -292,6 +292,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/problem/get_metadata": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get Metadata
+         * @description Fetch specific metadata for a specific problem. See all the possible metadata types from DESDEO/desdeo/api/models/problem.py Problem Metadata section.
+         *
+         *     Args:
+         *         request (MetaDataGetRequest): requesting certain problem's certain metadata
+         *         user (Annotated[User, Depends]): the current user
+         *         session (Annotated[Session, Depends]): the database session
+         *
+         *     Returns:
+         *         list[Any] | None: list of all forest metadata for this problem, or nothing if there's nothing
+         */
+        post: operations["get_metadata_problem_get_metadata_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/session/new": {
         parameters: {
             query?: never;
@@ -384,6 +412,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/method/nimbus/initialize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Initialize
+         * @description Initialize the problem for the NIMBUS method.
+         */
+        post: operations["initialize_method_nimbus_initialize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/method/nimbus/save": {
         parameters: {
             query?: never;
@@ -398,6 +446,66 @@ export interface paths {
          * @description Save solutions.
          */
         post: operations["save_method_nimbus_save_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/method/emo/solve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Emo Optimization
+         * @description Start interactive evolutionary multiobjective optimization.
+         */
+        post: operations["start_emo_optimization_method_emo_solve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/method/emo/save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save
+         * @description Save solutions.
+         */
+        post: operations["save_method_emo_save_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/method/emo/saved-solutions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Saved Solutions
+         * @description Get all saved solutions for the current user.
+         */
+        get: operations["get_saved_solutions_method_emo_saved_solutions_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -424,17 +532,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/utopia/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get Utopia Data
+         * @description Request and receive the Utopia map corresponding to the decision variables sent. Can be just the optimal_variables form a SolverResult
+         *
+         *     Args:
+         *         request (UtopiaRequest): the set of decision variables and problem for which the utopia forest map is requested for.
+         *         user (Annotated[User, Depend(get_current_user)]) the current user
+         *         session (Annotated[Session, Depends(get_session)]) the current database session
+         *
+         *     Raises:
+         *         HTTPException:
+         *
+         *     Returns:
+         *         UtopiaResponse: the map for the forest, to be rendered in frontend
+         */
+        post: operations["get_utopia_data_utopia__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * BaseProblemMetaData
+         * @description Derive other problem metadata classes from this one.
+         */
+        BaseProblemMetaData: {
+            /**
+             * Metadata Type
+             * @default unset
+             */
+            metadata_type: string;
+        };
         /** Body_add_new_analyst_add_new_analyst_post */
         Body_add_new_analyst_add_new_analyst_post: {
             /** Grant Type */
             grant_type?: string | null;
             /** Username */
             username: string;
-            /** Password */
+            /**
+             * Password
+             * Format: password
+             */
             password: string;
             /**
              * Scope
@@ -443,7 +596,10 @@ export interface components {
             scope: string;
             /** Client Id */
             client_id?: string | null;
-            /** Client Secret */
+            /**
+             * Client Secret
+             * Format: password
+             */
             client_secret?: string | null;
         };
         /** Body_add_new_dm_add_new_dm_post */
@@ -452,7 +608,10 @@ export interface components {
             grant_type?: string | null;
             /** Username */
             username: string;
-            /** Password */
+            /**
+             * Password
+             * Format: password
+             */
             password: string;
             /**
              * Scope
@@ -461,7 +620,10 @@ export interface components {
             scope: string;
             /** Client Id */
             client_id?: string | null;
-            /** Client Secret */
+            /**
+             * Client Secret
+             * Format: password
+             */
             client_secret?: string | null;
         };
         /** Body_login_login_post */
@@ -470,7 +632,10 @@ export interface components {
             grant_type?: string | null;
             /** Username */
             username: string;
-            /** Password */
+            /**
+             * Password
+             * Format: password
+             */
             password: string;
             /**
              * Scope
@@ -479,7 +644,10 @@ export interface components {
             scope: string;
             /** Client Id */
             client_id?: string | null;
-            /** Client Secret */
+            /**
+             * Client Secret
+             * Format: password
+             */
             client_secret?: string | null;
         };
         /**
@@ -519,7 +687,7 @@ export interface components {
             /** Surrogates */
             surrogates?: string[] | null;
             /** Simulator Path */
-            simulator_path?: string | null;
+            simulator_path?: string | components["schemas"]["Url"] | null;
             /**
              * Name
              * @description Descriptive name of the constraint. This can be used in UI and visualizations. Example: 'maximum length'.
@@ -593,6 +761,189 @@ export interface components {
             problem_id?: number | null;
         };
         /**
+         * EMOResults
+         * @description Defines a schema for storing results of an evolutionary multi-objective optimization (EMO) solver.
+         */
+        EMOResults: {
+            /**
+             * Optimal Variables
+             * @description The optimal decision variables found.
+             */
+            optimal_variables: {
+                [key: string]: number | unknown[];
+            };
+            /**
+             * Optimal Objectives
+             * @description The objective function values corresponding to the optimal decision variables found.
+             */
+            optimal_objectives: {
+                [key: string]: number | number[];
+            };
+            /**
+             * Constraint Values
+             * @description The constraint values of the problem. A negative value means the constraint is respected, a positive one means it has been breached.
+             */
+            constraint_values?: {
+                [key: string]: number | number[] | unknown[];
+            } | unknown | null;
+            /**
+             * Extra Func Values
+             * @description The extra function values of the problem.
+             */
+            extra_func_values?: {
+                [key: string]: number | number[];
+            } | null;
+        };
+        /**
+         * EMOSaveRequest
+         * @description Request model for saving selected EMO solutions.
+         */
+        EMOSaveRequest: {
+            /** Problem Id */
+            problem_id: number;
+            /** Session Id */
+            session_id?: number | null;
+            /** Parent State Id */
+            parent_state_id?: number | null;
+            /**
+             * Solutions
+             * @description List of EMO solutions to save with optional names
+             */
+            solutions: components["schemas"]["UserSavedEMOResults"][];
+        };
+        /**
+         * EMOSaveState
+         * @description State of the EMO methods for saving solutions.
+         */
+        EMOSaveState: {
+            /**
+             * Method
+             * @description The EMO method name (e.g., NSGA3, RVEA, etc.)
+             * @default EMO
+             */
+            method: string;
+            /**
+             * Phase
+             * @default save_solutions
+             * @constant
+             */
+            phase: "save_solutions";
+            /**
+             * Max Evaluations
+             * @default 1000
+             */
+            max_evaluations: number;
+            /**
+             * Number Of Vectors
+             * @default 20
+             */
+            number_of_vectors: number;
+            /**
+             * Use Archive
+             * @default true
+             */
+            use_archive: boolean;
+            /** Problem Id */
+            problem_id: number;
+            /** Saved Solutions */
+            saved_solutions: components["schemas"]["EMOResults"][];
+            /**
+             * Solutions
+             * @description Original solutions from request
+             */
+            solutions?: unknown[];
+        };
+        /**
+         * EMOSolveRequest
+         * @description Request model for starting EMO optimization.
+         */
+        EMOSolveRequest: {
+            /** Problem Id */
+            problem_id: number;
+            /**
+             * Method
+             * @description EMO method: 'NSGA3' or 'RVEA'
+             * @default NSGA3
+             */
+            method: string;
+            /**
+             * Max Evaluations
+             * @description Maximum number of function evaluations
+             * @default 50000
+             */
+            max_evaluations: number;
+            /**
+             * Number Of Vectors
+             * @description Number of reference vectors
+             * @default 30
+             */
+            number_of_vectors: number;
+            /**
+             * Use Archive
+             * @description Whether to use solution archive
+             * @default true
+             */
+            use_archive: boolean;
+            /**
+             * Preference
+             * @description Preference information for interactive adaptation
+             */
+            preference: components["schemas"]["ReferencePoint"] | components["schemas"]["PreferedSolutions"] | components["schemas"]["NonPreferredSolutions"] | components["schemas"]["PreferredRanges"];
+            /**
+             * Session Id
+             * @description Interactive session ID
+             */
+            session_id?: number | null;
+            /**
+             * Parent State Id
+             * @description Parent state ID for continuation
+             */
+            parent_state_id?: number | null;
+        };
+        /**
+         * EMOState
+         * @description State for EMO methods.
+         */
+        EMOState: {
+            /**
+             * Method
+             * @description The EMO method name (e.g., NSGA3, RVEA, etc.)
+             * @default EMO
+             */
+            method: string;
+            /**
+             * Phase
+             * @default unset
+             * @constant
+             */
+            phase: "unset";
+            /**
+             * Max Evaluations
+             * @default 1000
+             */
+            max_evaluations: number;
+            /**
+             * Number Of Vectors
+             * @default 20
+             */
+            number_of_vectors: number;
+            /**
+             * Use Archive
+             * @default true
+             */
+            use_archive: boolean;
+            /**
+             * Solutions
+             * @description Optimization results
+             */
+            solutions: unknown[];
+            /**
+             * Outputs
+             * @description Optimization results
+             */
+            outputs: unknown[];
+        };
+        /**
          * ExtraFunctionDB
          * @description The SQLModel equivalent to `ExtraFunction`.
          */
@@ -604,7 +955,7 @@ export interface components {
             /** Surrogates */
             surrogates?: string[] | null;
             /** Simulator Path */
-            simulator_path?: string | null;
+            simulator_path?: string | components["schemas"]["Url"] | null;
             /**
              * Name
              * @description Descriptive name of the function. Example: 'normalization'.
@@ -814,6 +1165,42 @@ export interface components {
             solver_results: components["schemas"]["SolverResults"][];
         };
         /**
+         * NIMBUSInitializationRequest
+         * @description Model of the request to the nimbus method.
+         */
+        NIMBUSInitializationRequest: {
+            /** Problem Id */
+            problem_id: number;
+            /** Session Id */
+            session_id?: number | null;
+            /** Parent State Id */
+            parent_state_id?: number | null;
+            /** Solver */
+            solver?: string | null;
+        };
+        /**
+         * NIMBUSInitializationState
+         * @description State of the nimbus method for computing solutions.
+         */
+        NIMBUSInitializationState: {
+            /**
+             * Method
+             * @default nimbus
+             * @constant
+             */
+            method: "nimbus";
+            /**
+             * Phase
+             * @default initialize
+             * @constant
+             */
+            phase: "initialize";
+            /** Solver */
+            solver?: string | null;
+            /** Solver Results */
+            solver_results: components["schemas"]["SolverResults"][];
+        };
+        /**
          * NIMBUSSaveRequest
          * @description Request model for saving solutions from any method's state.
          */
@@ -848,6 +1235,22 @@ export interface components {
             solver_results: components["schemas"]["SolverResults"][];
         };
         /**
+         * NonPreferredSolutions
+         * @description Model for representing a non-preferred solution type of preference.
+         */
+        NonPreferredSolutions: {
+            /**
+             * Preference Type
+             * @default non_preferred_solutions
+             * @constant
+             */
+            preference_type: "non_preferred_solutions";
+            /** Non Preferred Solutions */
+            non_preferred_solutions: {
+                [key: string]: number[];
+            };
+        };
+        /**
          * ObjectiveDB
          * @description The SQLModel equivalent to `Objective`.
          */
@@ -859,7 +1262,7 @@ export interface components {
             /** Surrogates */
             surrogates?: string[] | null;
             /** Simulator Path */
-            simulator_path?: string | null;
+            simulator_path?: string | components["schemas"]["Url"] | null;
             /**
              * Name
              * @description Descriptive name of the objective function. This can be used in UI and visualizations. Example: 'time'.
@@ -926,6 +1329,38 @@ export interface components {
          */
         ObjectiveTypeEnum: "analytical" | "data_based" | "simulator" | "surrogate";
         /**
+         * PreferedSolutions
+         * @description Model for representing a preferred solution type of preference.
+         */
+        PreferedSolutions: {
+            /**
+             * Preference Type
+             * @default preferred_solutions
+             * @constant
+             */
+            preference_type: "preferred_solutions";
+            /** Preferred Solutions */
+            preferred_solutions: {
+                [key: string]: number[];
+            };
+        };
+        /**
+         * PreferredRanges
+         * @description Model for representing desired upper and lower bounds for objective functions.
+         */
+        PreferredRanges: {
+            /**
+             * Preference Type
+             * @default preferred_ranges
+             * @constant
+             */
+            preference_type: "preferred_ranges";
+            /** Preferred Ranges */
+            preferred_ranges: {
+                [key: string]: number[];
+            };
+        };
+        /**
          * ProblemGetRequest
          * @description Model to deal with problem fetching requests.
          */
@@ -974,6 +1409,7 @@ export interface components {
             discrete_representation: components["schemas"]["DiscreteRepresentationDB"] | null;
             /** Simulators */
             simulators: components["schemas"]["SimulatorDB"][] | null;
+            problem_metadata: components["schemas"]["ProblemMetaDataPublic"] | null;
         };
         /**
          * ProblemInfoSmall
@@ -997,6 +1433,25 @@ export interface components {
             id: number;
             /** User Id */
             user_id: number;
+            problem_metadata: components["schemas"]["ProblemMetaDataPublic"] | null;
+        };
+        /**
+         * ProblemMetaDataGetRequest
+         * @description Request model for getting specific type of metadata from a specific problem.
+         */
+        ProblemMetaDataGetRequest: {
+            /** Problem Id */
+            problem_id: number;
+            /** Metadata Type */
+            metadata_type: string;
+        };
+        /**
+         * ProblemMetaDataPublic
+         * @description Response model for ProblemMetaData.
+         */
+        ProblemMetaDataPublic: {
+            /** Data */
+            data: components["schemas"]["BaseProblemMetaData"][] | null;
         };
         /**
          * RPMSolveRequest
@@ -1114,11 +1569,9 @@ export interface components {
          * @description The SQLModel equivalent to `Simulator`.
          */
         SimulatorDB: {
-            /**
-             * File
-             * Format: path
-             */
-            file: string;
+            /** File */
+            file?: string | null;
+            url?: components["schemas"]["Url"] | null;
             /** Parameter Options */
             parameter_options?: {
                 [key: string]: unknown;
@@ -1253,6 +1706,25 @@ export interface components {
             token_type: string;
         };
         /**
+         * Url
+         * @description Model for a URL.
+         */
+        Url: {
+            /**
+             * Url
+             * @description A URL to the simulator. A GET request to this URL should be used to evaluate solutions in batches.
+             */
+            url: string;
+            /**
+             * Auth
+             * @description Optional. A tuple of username and password to be used for authentication when making requests to the URL.
+             */
+            auth?: [
+                string,
+                string
+            ] | null;
+        };
+        /**
          * UserPublic
          * @description The object to handle public user information.
          */
@@ -1271,6 +1743,45 @@ export interface components {
          * @enum {string}
          */
         UserRole: "guest" | "dm" | "analyst" | "admin";
+        /**
+         * UserSavedEMOResults
+         * @description Defines a schema for storing emo solutions.
+         */
+        UserSavedEMOResults: {
+            /**
+             * Optimal Variables
+             * @description The optimal decision variables found.
+             */
+            optimal_variables: {
+                [key: string]: number | unknown[];
+            };
+            /**
+             * Optimal Objectives
+             * @description The objective function values corresponding to the optimal decision variables found.
+             */
+            optimal_objectives: {
+                [key: string]: number | number[];
+            };
+            /**
+             * Constraint Values
+             * @description The constraint values of the problem. A negative value means the constraint is respected, a positive one means it has been breached.
+             */
+            constraint_values?: {
+                [key: string]: number | number[] | unknown[];
+            } | unknown | null;
+            /**
+             * Extra Func Values
+             * @description The extra function values of the problem.
+             */
+            extra_func_values?: {
+                [key: string]: number | number[];
+            } | null;
+            /**
+             * Name
+             * @description An optional name for the solution, useful for archiving purposes.
+             */
+            name?: string | null;
+        };
         /**
          * UserSavedSolverResults
          * @description Defines a schema for storing archived solutions.
@@ -1326,6 +1837,64 @@ export interface components {
              * @description An optional name for the solution, useful for archiving purposes.
              */
             name?: string | null;
+        };
+        /**
+         * UtopiaRequest
+         * @description The request for an Utopia map.
+         */
+        UtopiaRequest: {
+            /**
+             * Problem Id
+             * @description Problem for which the map is generated
+             */
+            problem_id: number;
+            /**
+             * Decision Variables
+             * @description Decision variables with which to generate the map
+             */
+            decision_variables: {
+                [key: string]: number | unknown[];
+            };
+        };
+        /**
+         * UtopiaResponse
+         * @description The response to an UtopiaRequest.
+         */
+        UtopiaResponse: {
+            /**
+             * Is Utopia
+             * @description True if map exists for this problem.
+             */
+            is_utopia: boolean;
+            /**
+             * Map Name
+             * @description Name of the map.
+             */
+            map_name: string;
+            /**
+             * Map Json
+             * @description MapJSON representation of the geography.
+             */
+            map_json: {
+                [key: string]: unknown;
+            };
+            /**
+             * Options
+             * @description A dict with given years as keys containing options for each year.
+             */
+            options: {
+                [key: string]: unknown;
+            };
+            /**
+             * Description
+             * @description Description shown above the map.
+             */
+            description: string;
+            /**
+             * Years
+             * @description A list of years for which the maps have been generated.
+             */
+            years: string[];
         };
         /** ValidationError */
         ValidationError: {
@@ -1659,6 +2228,39 @@ export interface operations {
             };
         };
     };
+    get_metadata_problem_get_metadata_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProblemMetaDataGetRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown[];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_new_session_session_new_post: {
         parameters: {
             query?: never;
@@ -1791,6 +2393,39 @@ export interface operations {
             };
         };
     };
+    initialize_method_nimbus_initialize_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NIMBUSInitializationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NIMBUSInitializationState"] | components["schemas"]["NIMBUSClassificationState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     save_method_nimbus_save_post: {
         parameters: {
             query?: never;
@@ -1824,6 +2459,92 @@ export interface operations {
             };
         };
     };
+    start_emo_optimization_method_emo_solve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EMOSolveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EMOState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_method_emo_save_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EMOSaveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EMOSaveState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_saved_solutions_method_emo_saved_solutions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
     solve_intermediate_method_generic_intermediate_post: {
         parameters: {
             query?: never;
@@ -1844,6 +2565,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IntermediateSolutionState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_utopia_data_utopia__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UtopiaRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UtopiaResponse"];
                 };
             };
             /** @description Validation Error */
