@@ -41,31 +41,31 @@
 	 * @property {ProblemInfo | null} problem - The optimization problem definition including objectives, variables, and constraints
 	 * @property {number[]} previous_preference_values - Previous iteration's preference values for comparison
 	 * @property {string} previous_preference_type - Type of previous preference (reference_point, preferred_solution, etc.)
-	 * @property {number[]} current_preference_values - Current iteration's preference values
-	 * @property {string} current_preference_type - Type of current preference
-	 * @property {number[][]} solutions_objective_values - Array of objective value arrays for each solution from EMO
-	 * @property {number[][]} solutions_decision_values - Array of decision variable arrays for each solution from EMO
+	 * @property {number[]} currentPreferenceValues - Current iteration's preference values
+	 * @property {string} currentPreferenceType - Type of current preference
+	 * @property {number[][]} solutionsObjectiveValues - Array of objective value arrays for each solution from EMO
+	 * @property {number[][]} solutionsDecisionValues - Array of decision variable arrays for each solution from EMO
 	 * @property {function} onSelectSolution - Callback when user selects a solution from the table
 	 */
 	interface Props {
 		problem: ProblemInfo | null;
-		previous_preference_values: number[];
-		previous_preference_type: string;
-		current_preference_values: number[];
-		current_preference_type: string;
-		solutions_objective_values?: number[][];
-		solutions_decision_values?: number[][];
+		previousPreferenceValues: number[];
+		previousPreferenceType: string;
+		currentPreferenceValues: number[];
+		currentPreferenceType: string;
+		solutionsObjectiveValues?: number[][];
+		solutionsDecisionValues?: number[][];
 		onSelectSolution?: (index: number) => void;
 	}
 
 	const {
 		problem,
-		previous_preference_values,
-		previous_preference_type,
-		current_preference_values,
-		current_preference_type,
-		solutions_objective_values = [],
-		solutions_decision_values = [],
+		previousPreferenceValues,
+		previousPreferenceType,
+		currentPreferenceValues,
+		currentPreferenceType,
+		solutionsObjectiveValues = [],
+		solutionsDecisionValues = [],
 		onSelectSolution
 	}: Props = $props();
 
@@ -73,7 +73,7 @@
 	 * Transform objective values into format expected by ParallelCoordinates
 	 * Each solution becomes an object with named properties for each objective
 	 */
-	const objectiveData = $derived(() => transformObjectiveData(solutions_objective_values, problem));
+	const objectiveData = $derived(() => transformObjectiveData(solutionsObjectiveValues, problem));
 	/**
 	 * Create dimensions array for ParallelCoordinates
 	 * Maps problem objectives to dimension definitions
@@ -85,7 +85,7 @@
 	 * Includes reference point and preferred ranges if available
 	 */
 	const referenceData = $derived(() =>
-		createReferenceData(current_preference_values, previous_preference_values, problem)
+		createReferenceData(currentPreferenceValues, previousPreferenceValues, problem)
 	);
 
 	/**
@@ -151,7 +151,7 @@
 -->
 
 <div bind:this={containerElement} class="flex h-full w-full flex-col space-y-4 overflow-hidden">
-	{#if solutions_objective_values.length > 0}
+	{#if solutionsObjectiveValues.length > 0}
 		<!-- Objective Space Visualization with dynamic height -->
 		<!-- Use dynamic height that responds to container size -->
 		<div class="w-full" style="height: {plotHeight()}px;">

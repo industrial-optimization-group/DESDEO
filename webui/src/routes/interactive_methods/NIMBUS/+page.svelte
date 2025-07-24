@@ -61,7 +61,7 @@
 		[key: string]: any;
 	};
 
-	let finalChoiceState = $state(false);
+	let final_choice_state = $state(false);
 
 	let problem: ProblemInfo | null = $state(null);
 	const { data } = $props<{ data: ProblemInfo[] }>();
@@ -69,20 +69,20 @@
 	let selected_type_solutions = $state('current');
 
 	// State for NIMBUS iteration management
-	let previousState: StateWithResults | null = $state(null);
-	let currentSolutionIndex: number = $state(0); // Which solution from previous results to use in sidebar
+	let previous_state: StateWithResults | null = $state(null);
+	let current_solution_index: number = $state(0); // Which solution from previous results to use in sidebar
 
 	// currentPreference is initialized from previous_preference or ideal values
-	let currentPreference: number[] = $state([]);
-	let currentNumSolutions: number = $state(1);
+	let current_preference: number[] = $state([]);
+	let current_num_solutions: number = $state(1);
 	// Selected objectives for the sidebar
 	// TODO: selectedObjectives is used for both AppSidebar and iteration request,
 	// but when intermediate-button is implemented, they cant be the same, since request needs two and AppSidebar still uses only one.
 	// so updateSelectedObjectives() needs changes, selectedObjectives needs to be both a list for request and one objective for sidebar.
 	// And requests (and button disabling) need to check how many items the list has.
-	let selectedObjectives: Record<string, number> = $state({});
+	let selected_objectives: Record<string, number> = $state({});
 	// Store the last iterated preference values to show as "previous" in UI
-	let lastIteratedPreference: number[] = $state([]);
+	let last_iterated_preference: number[] = $state([]);
 
 	const frameworks = [
 		{ value: 'current', label: 'Current solutions' },
@@ -91,66 +91,66 @@
 	];
 
 	// Validation: iteration is allowed when at least one preference is better and one is worse than current objectives
-	function isIterationAllowed(): boolean {
+	function is_iteration_allowed(): boolean {
 		console.log('Validation check:', {
 			problem: !!problem,
 			problemId: problem?.id,
-			currentPreferenceLength: currentPreference.length,
-			currentPreference: currentPreference,
-			selectedObjectivesCount: Object.keys(selectedObjectives).length,
-			selectedObjectives: selectedObjectives
+			currentPreferenceLength: current_preference.length,
+			currentPreference: current_preference,
+			selectedObjectivesCount: Object.keys(selected_objectives).length,
+			selectedObjectives: selected_objectives
 		});
 
 		if (
 			!problem ||
-			currentPreference.length === 0 ||
-			Object.keys(selectedObjectives).length === 0
+			current_preference.length === 0 ||
+			Object.keys(selected_objectives).length === 0
 		) {
 			console.error('Iteration not allowed: problem or preferences are not set');
 			return false;
 		}
 
-		let hasImprovement = false;
-		let hasWorsening = false;
+		let has_improvement = false;
+		let has_worsening = false;
 
 		for (let i = 0; i < problem.objectives.length; i++) {
 			const objective = problem.objectives[i];
-			const preferenceValue = currentPreference[i];
-			const currentValue = selectedObjectives[objective.symbol];
+			const preference_value = current_preference[i];
+			const current_value = selected_objectives[objective.symbol];
 
 			console.log(
-				`Checking preference for ${objective.symbol}: preference=${preferenceValue}, current=${currentValue}`
+				`Checking preference for ${objective.symbol}: preference=${preference_value}, current=${current_value}`
 			);
-			if (preferenceValue === undefined || currentValue === undefined) {
+			if (preference_value === undefined || current_value === undefined) {
 				continue;
 			}
 
 			// Check if preference differs from current value.
 			// It does not matter what actually is better or worse as long as there is both
-			if (preferenceValue > currentValue) {
-				hasImprovement = true;
-			} else if (preferenceValue < currentValue) {
-				hasWorsening = true;
+			if (preference_value > current_value) {
+				has_improvement = true;
+			} else if (preference_value < current_value) {
+				has_worsening = true;
 			}
 		}
 
 		// Need both improvement and worsening for valid NIMBUS classification
-		return hasImprovement && hasWorsening;
+		return has_improvement && has_worsening;
 	}
 
-	function handleChange(event: { value: string }) {
+	function handle_change(event: { value: string }) {
 		selected_type_solutions = event.value;
 		console.log('Selected type of solutions:', selected_type_solutions);
 	}
 
 	// TODO: Handler for finishing the NIMBUS optimization process
-	let showConfirmDialog: boolean = $state(false);
+	let show_confirm_dialog: boolean = $state(false);
 
-	function handlePressFinish() {
-		showConfirmDialog = true;
+	function handle_press_finish() {
+		show_confirm_dialog = true;
 	}
 
-	async function handleFinish() {
+	async function handle_finish() {
 		try {
 			const response = await fetch('/interactive_methods/NIMBUS/?type=choose', {
 				method: 'POST',
@@ -159,14 +159,14 @@
 				},
 				body: JSON.stringify({
 					problem_id: problem?.id,
-					solution: currentSolutionIndex // Assuming single selection for final choice, need a check that the list only has one item
+					solution: current_solution_index // Assuming single selection for final choice, need a check that the list only has one item
 				})
 			});
 
 			const result = await response.json();
 
 			if (result.success) {
-				finalChoiceState = true;
+				final_choice_state = true;
 				console.log(result.message);
 			} else {
 				console.error('Failed to save final choice:', result.error);
@@ -177,33 +177,33 @@
 	}
 
 	// The optional unused values are kept for compatibility with the AppSidebar component
-	async function handleIterate(data: {
-		num_solutions: number;
-		type_preferences: string;
-		preference_values: number[];
-		objective_values: number[];
+	async function handle_iterate(data: {
+		numSolutions: number;
+		typePreferences: string;
+		preferenceValues: number[];
+		objectiveValues: number[];
 	}) {
 		if (!problem) {
 			console.error('No problem selected');
 			return;
 		}
-		if (currentPreference.length === 0) {
+		if (current_preference.length === 0) {
 			console.error('No preferences set');
 			return;
 		}
-		if (!isIterationAllowed()) {
+		if (!is_iteration_allowed()) {
 			console.error('Iteration not allowed based on current preferences and objectives');
 			return;
 		}
 
-		const sessionId = null;
-		const parentStateId = null;
+		const session_id = null;
+		const parent_state_id = null;
 		const preference = {
 			// TODO: change this to PREFERENCE_TYPES.CLASSIFICATION
 			preference_type: 'reference_point',
 			aspiration_levels: problem.objectives.reduce(
 				(acc, obj, idx) => {
-					acc[obj.symbol] = currentPreference[idx] || 0;
+					acc[obj.symbol] = current_preference[idx] || 0;
 					return acc;
 				},
 				{} as Record<string, number>
@@ -218,10 +218,10 @@
 				},
 				body: JSON.stringify({
 					problem_id: problem.id,
-					session_id: sessionId,
-					parent_state_id: parentStateId,
-					current_objectives: selectedObjectives,
-					num_desired: currentNumSolutions,
+					session_id: session_id,
+					parent_state_id: parent_state_id,
+					current_objectives: selected_objectives,
+					num_desired: current_num_solutions,
 					preference: preference
 				})
 			});
@@ -229,12 +229,12 @@
 			const result = await response.json();
 			if (result.success) {
 				// Store the preference values that were just used for iteration
-				lastIteratedPreference = [...currentPreference];
-				previousState = result.data;
-				updatePreferencesFromState(previousState);
-				currentSolutionIndex = 0;
-				updateSelectedObjectives(previousState);
-				currentNumSolutions = result.data.num_desired ? result.data.num_desired : 1; // TODO: this will be just the number of recent solutions
+				last_iterated_preference = [...current_preference];
+				previous_state = result.data;
+				update_preferences_from_state(previous_state);
+				current_solution_index = 0;
+				update_selected_objectives(previous_state);
+				current_num_solutions = result.data.num_desired ? result.data.num_desired : 1; // TODO: this will be just the number of recent solutions
 				console.log('NIMBUS iteration successful:', result.data);
 			} else {
 				console.error('NIMBUS iteration failed:', result.error);
@@ -246,22 +246,22 @@
 
 	// Helper function to update current objectives from the current state
 	// TODO: rethink and see if changes needed, after StateWithResults has changed (Vili)
-	function updateSelectedObjectives(state: StateWithResults | null) {
+	function update_selected_objectives(state: StateWithResults | null) {
 		if (!problem) return;
 		if (!state || !state.solver_results || state.solver_results.length === 0) return;
-		const selectedSolution = state.solver_results[currentSolutionIndex];
-		if (selectedSolution && selectedSolution.optimal_objectives) {
+		const selected_solution = state.solver_results[current_solution_index];
+		if (selected_solution && selected_solution.optimal_objectives) {
 			// Convert optimal_objectives to the format expected by the API
-			const newObjectives: Record<string, number> = {};
-			for (const [key, value] of Object.entries(selectedSolution.optimal_objectives)) {
-				newObjectives[key] = Array.isArray(value) ? value[0] : value;
+			const new_objectives: Record<string, number> = {};
+			for (const [key, value] of Object.entries(selected_solution.optimal_objectives)) {
+				new_objectives[key] = Array.isArray(value) ? value[0] : value;
 			}
-			selectedObjectives = newObjectives;
+			selected_objectives = new_objectives;
 			console.log(
 				`Updated current objectives from solution `,
-				currentSolutionIndex + 1,
+				current_solution_index + 1,
 				`:`,
-				selectedObjectives
+				selected_objectives
 			);
 		} else {
 			console.warn('Selected solution is invalid, falling back to calculated average');
@@ -270,25 +270,25 @@
 
 	// Helper function to initialize preferences from previous state or ideal values
 	// TODO: rethink and see if changes needed, after StateWithResults has changed (Vili)
-	function updatePreferencesFromState(state: StateWithResults | null) {
+	function update_preferences_from_state(state: StateWithResults | null) {
 		if (!problem) return;
 		// Try to get previous preference from NIMBUS state
 		if (state && 'previous_preference' in state && state.previous_preference) {
 			// Extract aspiration levels from previous preference
-			const previousPref = state.previous_preference as {
+			const previous_pref = state.previous_preference as {
 				aspiration_levels?: Record<string, number>;
 			};
-			if (previousPref.aspiration_levels) {
-				currentPreference = problem.objectives.map(
-					(obj) => previousPref.aspiration_levels![obj.symbol] ?? obj.ideal ?? 0
+			if (previous_pref.aspiration_levels) {
+				current_preference = problem.objectives.map(
+					(obj) => previous_pref.aspiration_levels![obj.symbol] ?? obj.ideal ?? 0
 				);
-				console.log('Initialized preferences from previous state:', currentPreference);
+				console.log('Initialized preferences from previous state:', current_preference);
 				return;
 			}
 		}
 		// Fallback to ideal values
-		currentPreference = problem.objectives.map((obj) => obj.ideal ?? 0);
-		console.log('Initialized preferences from ideal values:', currentPreference);
+		current_preference = problem.objectives.map((obj) => obj.ideal ?? 0);
+		console.log('Initialized preferences from ideal values:', current_preference);
 	}
 
 	onMount(async () => {
@@ -299,13 +299,13 @@
 
 			if (problem) {
 				// Initialize NIMBUS state from the API
-				await initializeNimbusState(problem.id);
+				await initialize_nimbus_state(problem.id);
 			}
 		}
 	});
 
 	// Initialize NIMBUS state by calling the API endpoint
-	async function initializeNimbusState(problemId: number) {
+	async function initialize_nimbus_state(problem_id: number) {
 		try {
 			const response = await fetch('/interactive_methods/NIMBUS/?type=initialize', {
 				method: 'POST',
@@ -313,7 +313,7 @@
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({
-					problem_id: problemId,
+					problem_id: problem_id,
 					session_id: null, // Use active session
 					parent_state_id: null, // No parent for initialization
 					solver: null // Use default solver
@@ -323,11 +323,11 @@
 			const result = await response.json();
 
 			if (result.success) {
-				previousState = result.data;
-				currentSolutionIndex = 0;
-				updateSelectedObjectives(previousState);
-				updatePreferencesFromState(previousState);
-				currentNumSolutions = result.data.num_desired ? result.data.num_desired : 1; // TODO: of course this will be just the number of solutions: it always exists
+				previous_state = result.data;
+				current_solution_index = 0;
+				update_selected_objectives(previous_state);
+				update_preferences_from_state(previous_state);
+				current_num_solutions = result.data.num_desired ? result.data.num_desired : 1; // TODO: of course this will be just the number of solutions: it always exists
 			} else {
 				console.error('NIMBUS initialization failed:', result.error);
 			}
@@ -340,23 +340,23 @@
 	let type_preferences = $state(PREFERENCE_TYPES.Classification);
 
 	// Add the missing callback that updates internal state
-	function handlePreferenceChange(data: {
-		num_solutions: number;
-		type_preferences: string;
-		preference_values: number[];
-		objective_values: number[];
+	function handle_preference_change(data: {
+		numSolutions: number;
+		typePreferences: string;
+		preferenceValues: number[];
+		objectiveValues: number[];
 	}) {
-		currentNumSolutions = data.num_solutions;
-		type_preferences = data.type_preferences;
-		currentPreference = [...data.preference_values];
+		current_num_solutions = data.numSolutions;
+		type_preferences = data.typePreferences;
+		current_preference = [...data.preferenceValues];
 		console.log('Preference changed:', data);
 	}
 </script>
 
-{#if finalChoiceState}
+{#if final_choice_state}
 	<div class="card">
 		<div class="card-header">Solution Review</div>
-		{#if problem && previousState?.solver_results[currentSolutionIndex]}
+		{#if problem && previous_state?.solver_results[current_solution_index]}
 			<div class="card-body">
 				<h3>Selected Solution Objectives:</h3>
 				<Table>
@@ -372,7 +372,7 @@
 						<TableRow>
 							{#each problem.objectives as objective}
 								<TableCell>
-									{previousState.solver_results[currentSolutionIndex].optimal_objectives[
+									{previous_state.solver_results[current_solution_index].optimal_objectives[
 										objective.symbol
 									]}
 								</TableCell>
@@ -401,20 +401,20 @@
 			{#if problem}
 				<AppSidebar
 					{problem}
-					preference_types={[PREFERENCE_TYPES.Classification]}
+					preferenceTypes={[PREFERENCE_TYPES.Classification]}
 					showNumSolutions={true}
-					num_solutions={currentNumSolutions}
-					{type_preferences}
-					preference_values={currentPreference}
-					objective_values={Object.values(selectedObjectives)}
-					isIterationAllowed={isIterationAllowed()}
+					numSolutions={current_num_solutions}
+					typePreferences={type_preferences}
+					preferenceValues={current_preference}
+					objectiveValues={Object.values(selected_objectives)}
+					isIterationAllowed={is_iteration_allowed()}
 					isFinishAllowed={true}
 					minNumSolutions={1}
 					maxNumSolutions={4}
-					{lastIteratedPreference}
-					onPreferenceChange={handlePreferenceChange}
-					onIterate={handleIterate}
-					onFinish={handlePressFinish}
+					lastIteratedPreference={last_iterated_preference}
+					onPreferenceChange={handle_preference_change}
+					onIterate={handle_iterate}
+					onFinish={handle_press_finish}
 				/>
 			{/if}
 		{/snippet}
@@ -424,7 +424,7 @@
 			<Combobox
 				options={frameworks}
 				defaultSelected={selected_type_solutions}
-				onChange={handleChange}
+				onChange={handle_change}
 			/>
 		{/snippet}
 
@@ -440,12 +440,12 @@
 		{/snippet}
 
 		{#snippet numericalValues()}
-			{#if problem && previousState?.solver_results && previousState.solver_results.length > 0}
+			{#if problem && previous_state?.solver_results && previous_state.solver_results.length > 0}
 				<SolutionTable
 					{problem}
-					solverResults={previousState.solver_results}
-					bind:selectedSolution={currentSolutionIndex}
-					onRowClick={() => updateSelectedObjectives(previousState)}
+					solverResults={previous_state.solver_results}
+					bind:selectedSolution={current_solution_index}
+					onRowClick={() => update_selected_objectives(previous_state)}
 				/>
 			{/if}
 		{/snippet}
@@ -453,11 +453,11 @@
 {/if}
 
 <ConfirmationDialog
-	bind:open={showConfirmDialog}
+	bind:open={show_confirm_dialog}
 	title="Confirm Final Choice"
 	description="Are you sure you want to proceed with this solution as your final choice?"
 	confirmText="Yes, Proceed"
 	cancelText="Cancel"
-	onConfirm={handleFinish}
+	onConfirm={handle_finish}
 	onCancel={() => console.log('Cancelled')}
 />

@@ -5,8 +5,8 @@
     @description
     Interactive Evolutionary Multi-Objective (EMO) methods interface.
     This page provides an interface for EMO methods from the DESDEO framework.
-	The method being used (NSGA-III or RVEA) can be modified in the backend code. 
-	In the future, we plan to let an analyst select the method from the UI.
+    The method being used (NSGA-III or RVEA) can be modified in the backend code. 
+    In the future, we plan to let an analyst select the method from the UI.
 
     @author Giomara Larraga <glarragw@jyu.fi>
     @created July 2025
@@ -160,25 +160,25 @@
 	 * This is called when users modify preference values in real-time
 	 *
 	 * @param data - Preference data from the sidebar
-	 * @param data.num_solutions - Number of solutions to generate
-	 * @param data.type_preferences - Type of preference (ReferencePoint, etc.)
-	 * @param data.preference_values - Numerical preference values
-	 * @param data.objective_values - Current objective function values
+	 * @param data.numSolutions - Number of solutions to generate
+	 * @param data.typePreferences - Type of preference (ReferencePoint, etc.)
+	 * @param data.preferenceValues - Numerical preference values
+	 * @param data.objectiveValues - Current objective function values
 	 */
-	function handlePreferenceChange(data: {
-		num_solutions: number;
-		type_preferences: PreferenceValue;
-		preference_values: number[];
-		objective_values: number[];
+	function handle_preference_change(data: {
+		numSolutions: number;
+		typePreferences: PreferenceValue;
+		preferenceValues: number[];
+		objectiveValues: number[];
 	}) {
 		// Update internal state with new preference data
-		num_solutions = data.num_solutions;
-		objective_values = [...data.objective_values];
+		num_solutions = data.numSolutions;
+		objective_values = [...data.objectiveValues];
 
 		// Update current preference configuration
 		current_preference = {
-			type: data.type_preferences,
-			values: [...data.preference_values]
+			type: data.typePreferences,
+			values: [...data.preferenceValues]
 		};
 
 		// Log the preference change for debugging
@@ -202,22 +202,22 @@
 	 * This is the main optimization workflow trigger
 	 *
 	 * @param data - Current preference data for optimization
-	 * @param data.num_solutions - Number of solutions to generate
-	 * @param data.type_preferences - Type of preference for optimization
-	 * @param data.preference_values - Preference values to guide optimization
-	 * @param data.objective_values - Current objective values
+	 * @param data.numSolutions - Number of solutions to generate
+	 * @param data.typePreferences - Type of preference for optimization
+	 * @param data.preferenceValues - Preference values to guide optimization
+	 * @param data.objectiveValues - Current objective values
 	 */
-	function handleIterate(data: {
-		num_solutions: number;
-		type_preferences: PreferenceValue;
-		preference_values: number[];
-		objective_values: number[];
+	function handle_iterate(data: {
+		numSolutions: number;
+		typePreferences: PreferenceValue;
+		preferenceValues: number[];
+		objectiveValues: number[];
 	}) {
 		console.log('Iterate clicked with data:', {
-			num_solutions: data.num_solutions,
-			type_preferences: data.type_preferences,
-			preference_values: formatNumberArray(data.preference_values),
-			objective_values: formatNumberArray(data.objective_values)
+			numSolutions: data.numSolutions,
+			typePreferences: data.typePreferences,
+			preferenceValues: formatNumberArray(data.preferenceValues),
+			objectiveValues: formatNumberArray(data.objectiveValues)
 		});
 
 		// Store current preference as previous before updating
@@ -228,7 +228,7 @@
 		};
 
 		// Trigger the optimization process with current preferences
-		_update_from_optimization_procedure(data);
+		update_from_optimization_procedure(data);
 	}
 
 	type EMOSolveRequest = components['schemas']['EMOSolveRequest'];
@@ -239,22 +239,22 @@
 	 * Completes the optimization process and stores final results
 	 *
 	 * @param data - Final preference data
-	 * @param data.num_solutions - Final number of solutions
-	 * @param data.type_preferences - Final preference type
-	 * @param data.preference_values - Final preference values
-	 * @param data.objective_values - Final objective values
+	 * @param data.numSolutions - Final number of solutions
+	 * @param data.typePreferences - Final preference type
+	 * @param data.preferenceValues - Final preference values
+	 * @param data.objectiveValues - Final objective values
 	 */
-	function handleFinish(data: {
-		num_solutions: number;
-		type_preferences: PreferenceValue;
-		preference_values: number[];
-		objective_values: number[];
+	function handle_finish(data: {
+		numSolutions: number;
+		typePreferences: PreferenceValue;
+		preferenceValues: number[];
+		objectiveValues: number[];
 	}) {
 		console.log('Finish clicked with data:', {
-			num_solutions: data.num_solutions,
-			type_preferences: data.type_preferences,
-			preference_values: formatNumberArray(data.preference_values),
-			objective_values: formatNumberArray(data.objective_values)
+			numSolutions: data.numSolutions,
+			typePreferences: data.typePreferences,
+			preferenceValues: formatNumberArray(data.preferenceValues),
+			objectiveValues: formatNumberArray(data.objectiveValues)
 		});
 
 		// Store final result as previous preference for history
@@ -289,10 +289,10 @@
 	 *
 	 * @private
 	 * @param data - Input data for optimization
-	 * @param data.num_solutions - Number of solutions requested
-	 * @param data.type_preferences - Preference type for optimization guidance
-	 * @param data.preference_values - Preference values for optimization
-	 * @param data.objective_values - Current objective values
+	 * @param data.numSolutions - Number of solutions requested
+	 * @param data.typePreferences - Preference type for optimization guidance
+	 * @param data.preferenceValues - Preference values for optimization
+	 * @param data.objectiveValues - Current objective values
 	 *
 	 * @workflow
 	 * 1. Call backend optimization service with current preferences
@@ -301,11 +301,11 @@
 	 * 4. Update current_preference if preferences were adjusted
 	 * 5. Trigger UI updates through reactive statements
 	 */
-	async function _update_from_optimization_procedure(data: {
-		num_solutions: number;
-		type_preferences: PreferenceValue;
-		preference_values: number[];
-		objective_values: number[];
+	async function update_from_optimization_procedure(data: {
+		numSolutions: number;
+		typePreferences: PreferenceValue;
+		preferenceValues: number[];
+		objectiveValues: number[];
 	}) {
 		try {
 			console.log('Starting EMO solve with data:', data);
@@ -317,12 +317,12 @@
 			// Create the aspiration_levels object
 			const aspiration_levels: { [key: string]: number } = {};
 
-			if (problem.objectives && data.preference_values) {
+			if (problem.objectives && data.preferenceValues) {
 				problem.objectives.forEach((objective, index) => {
-					if (index < data.preference_values.length) {
+					if (index < data.preferenceValues.length) {
 						// Use the format from the test: "f_1_min", "f_2_min", etc.
 						const key = `f_${index + 1}_min`;
-						aspiration_levels[key] = data.preference_values[index];
+						aspiration_levels[key] = data.preferenceValues[index];
 					}
 				});
 			}
@@ -334,18 +334,18 @@
 				aspiration_levels: aspiration_levels
 			};
 
-			const solveRequest: EMOSolveRequest = {
+			const solve_request: EMOSolveRequest = {
 				problem_id: problem.id,
 				method: emo_method,
 				preference: preference,
 				max_evaluations: max_evaluations,
-				number_of_vectors: data.num_solutions,
+				number_of_vectors: data.numSolutions,
 				use_archive: use_archive,
 				session_id: null,
 				parent_state_id: null
 			};
 
-			console.log('Final solve request:', JSON.stringify(solveRequest, null, 2));
+			console.log('Final solve request:', JSON.stringify(solve_request, null, 2));
 
 			// Call the solve endpoint
 			const response = await fetch('/interactive_methods/EMO/solve', {
@@ -354,17 +354,17 @@
 					'Content-Type': 'application/json'
 				},
 				credentials: 'include',
-				body: JSON.stringify(solveRequest)
+				body: JSON.stringify(solve_request)
 			});
 
 			console.log('Response status:', response.status);
 			console.log('Response headers:', Object.fromEntries(response.headers.entries()));
 
 			if (!response.ok) {
-				const errorData = await response.json();
-				console.error('Error response data:', errorData);
+				const error_data = await response.json();
+				console.error('Error response data:', error_data);
 				throw new Error(
-					`HTTP error! status: ${response.status}, message: ${errorData.error || 'Unknown error'}, details: ${errorData.details || 'No details'}`
+					`HTTP error! status: ${response.status}, message: ${error_data.error || 'Unknown error'}, details: ${error_data.details || 'No details'}`
 				);
 			}
 
@@ -372,56 +372,56 @@
 			console.log('Success response:', result);
 
 			if (result.success && result.data) {
-				const emoState = result.data; // This is EMOState type
-				console.log('EMO solve response:', emoState);
+				const emo_state = result.data; // This is EMOState type
+				console.log('EMO solve response:', emo_state);
 
 				// Extract ALL solutions and their objective values
 				if (
-					emoState.solutions &&
-					emoState.solutions.length > 0 &&
-					emoState.outputs &&
-					emoState.outputs.length > 0
+					emo_state.solutions &&
+					emo_state.solutions.length > 0 &&
+					emo_state.outputs &&
+					emo_state.outputs.length > 0
 				) {
 					// Clear previous solutions
 					solutions_objective_values = [];
 					solutions_decision_values = [];
 
 					// Process each solution
-					emoState.solutions.forEach((solution: number[], solutionIndex: number) => {
+					emo_state.solutions.forEach((solution: number[], solution_index: number) => {
 						// Extract decision variables (solution variables)
 						if (Array.isArray(solution)) {
 							solutions_decision_values.push([...solution]);
 						} else if (typeof solution === 'object') {
 							// If solution is an object, convert to array
-							const decisionVars = Object.values(solution).filter(
+							const decision_vars = Object.values(solution).filter(
 								(val) => typeof val === 'number'
 							) as number[];
-							solutions_decision_values.push(decisionVars);
+							solutions_decision_values.push(decision_vars);
 						}
 
 						// Extract corresponding objective values
-						if (emoState.outputs[solutionIndex]) {
-							const output = emoState.outputs[solutionIndex];
-							const objectiveVals: number[] = [];
+						if (emo_state.outputs[solution_index]) {
+							const output = emo_state.outputs[solution_index];
+							const objective_vals: number[] = [];
 
 							if (problem?.objectives) {
 								// Use objective names to extract values in correct order
 								problem.objectives.forEach((objective) => {
 									if (output[objective.name] !== undefined) {
-										objectiveVals.push(output[objective.name]);
+										objective_vals.push(output[objective.name]);
 									}
 								});
 							} else {
 								// Fallback: use all numeric values from output
 								Object.values(output).forEach((val) => {
 									if (typeof val === 'number') {
-										objectiveVals.push(val);
+										objective_vals.push(val);
 									}
 								});
 							}
 
-							if (objectiveVals.length > 0) {
-								solutions_objective_values.push(objectiveVals);
+							if (objective_vals.length > 0) {
+								solutions_objective_values.push(objective_vals);
 							}
 						}
 					});
@@ -440,8 +440,8 @@
 				}
 
 				// Update number of solutions if provided
-				if (emoState.number_of_vectors) {
-					num_solutions = emoState.number_of_vectors;
+				if (emo_state.number_of_vectors) {
+					num_solutions = emo_state.number_of_vectors;
 				}
 
 				console.log('Updated from EMO solve:', {
@@ -478,7 +478,7 @@
 	 * 3. Set default preference type to ReferencePoint
 	 * 4. Initialize both current and previous preferences identically
 	 */
-	function _initialize_default_values() {
+	function initialize_default_values() {
 		if (problem) {
 			// Clear previous solutions
 			solutions_objective_values = [];
@@ -521,7 +521,7 @@
 	 * Automatically called when the problem state is updated
 	 */
 	$effect(() => {
-		_initialize_default_values();
+		initialize_default_values();
 	});
 
 	// --- Lifecycle Hooks ---
@@ -568,19 +568,19 @@
 		{#if problem}
 			<AppSidebar
 				{problem}
-				preference_types={[
+				preferenceTypes={[
 					PREFERENCE_TYPES.ReferencePoint,
 					PREFERENCE_TYPES.PreferredRange,
 					PREFERENCE_TYPES.PreferredSolution
 				]}
-				{num_solutions}
-				type_preferences={current_preference.type}
-				preference_values={current_preference.values}
-				{objective_values}
+				numSolutions={num_solutions}
+				typePreferences={current_preference.type}
+				preferenceValues={current_preference.values}
+				objectiveValues={objective_values}
 				showNumSolutions={true}
-				onPreferenceChange={handlePreferenceChange}
-				onIterate={handleIterate}
-				onFinish={handleFinish}
+				onPreferenceChange={handle_preference_change}
+				onIterate={handle_iterate}
+				onFinish={handle_finish}
 			/>
 		{/if}
 	{/snippet}
@@ -599,12 +599,12 @@
 		{#if problem}
 			<VisualizationsPanel
 				{problem}
-				previous_preference_values={previous_preference.values}
-				previous_preference_type={previous_preference.type}
-				current_preference_values={current_preference.values}
-				current_preference_type={current_preference.type}
-				{solutions_objective_values}
-				{solutions_decision_values}
+				previousPreferenceValues={previous_preference.values}
+				previousPreferenceType={previous_preference.type}
+				currentPreferenceValues={current_preference.values}
+				currentPreferenceType={current_preference.type}
+				solutionsObjectiveValues={solutions_objective_values}
+				solutionsDecisionValues={solutions_decision_values}
 				onSelectSolution={(index) => {
 					// Update current objective values when user selects a solution
 					if (solutions_objective_values[index]) {
