@@ -234,7 +234,74 @@
 	type EMOSolveRequest = components['schemas']['EMOSolveRequest'];
 	type ReferencePoint = components['schemas']['ReferencePoint'];
 
-	async function updateFromOptimizationProcedure(data: {
+	/**
+	 * Handles the finish request from the sidebar
+	 * Completes the optimization process and stores final results
+	 *
+	 * @param data - Final preference data
+	 * @param data.num_solutions - Final number of solutions
+	 * @param data.type_preferences - Final preference type
+	 * @param data.preference_values - Final preference values
+	 * @param data.objective_values - Final objective values
+	 */
+	function handleFinish(data: {
+		num_solutions: number;
+		type_preferences: PreferenceValue;
+		preference_values: number[];
+		objective_values: number[];
+	}) {
+		console.log('Finish clicked with data:', {
+			num_solutions: data.num_solutions,
+			type_preferences: data.type_preferences,
+			preference_values: formatNumberArray(data.preference_values),
+			objective_values: formatNumberArray(data.objective_values)
+		});
+
+		// Store final result as previous preference for history
+		previous_preference = {
+			type: current_preference.type,
+			values: [...current_preference.values]
+		};
+
+		// Log final optimization results
+		console.log('Final preferences:', {
+			previous_preference: {
+				type: previous_preference.type,
+				values: formatNumberArray(previous_preference.values)
+			},
+			current_preference: {
+				type: current_preference.type,
+				values: formatNumberArray(current_preference.values)
+			},
+			objective_values: formatNumberArray(objective_values)
+		});
+
+		// TODO: Save results to backend/database
+		// TODO: Navigate to results page or show completion dialog
+	}
+
+	// --- Private Internal Methods ---
+
+	/**
+	 * Updates state with results from the optimization procedure
+	 * This method interfaces with the backend optimization algorithm
+	 * Currently simulates optimization results for testing
+	 *
+	 * @private
+	 * @param data - Input data for optimization
+	 * @param data.num_solutions - Number of solutions requested
+	 * @param data.type_preferences - Preference type for optimization guidance
+	 * @param data.preference_values - Preference values for optimization
+	 * @param data.objective_values - Current objective values
+	 *
+	 * @workflow
+	 * 1. Call backend optimization service with current preferences
+	 * 2. Receive new solution set from optimizer
+	 * 3. Update objective_values with new results
+	 * 4. Update current_preference if preferences were adjusted
+	 * 5. Trigger UI updates through reactive statements
+	 */
+	async function _update_from_optimization_procedure(data: {
 		num_solutions: number;
 		type_preferences: PreferenceValue;
 		preference_values: number[];
@@ -401,121 +468,6 @@
 	}
 
 	/**
-	 * Handles the finish request from the sidebar
-	 * Completes the optimization process and stores final results
-	 *
-	 * @param data - Final preference data
-	 * @param data.num_solutions - Final number of solutions
-	 * @param data.type_preferences - Final preference type
-	 * @param data.preference_values - Final preference values
-	 * @param data.objective_values - Final objective values
-	 */
-	function handleFinish(data: {
-		num_solutions: number;
-		type_preferences: PreferenceValue;
-		preference_values: number[];
-		objective_values: number[];
-	}) {
-		console.log('Finish clicked with data:', {
-			num_solutions: data.num_solutions,
-			type_preferences: data.type_preferences,
-			preference_values: formatNumberArray(data.preference_values),
-			objective_values: formatNumberArray(data.objective_values)
-		});
-
-		// Store final result as previous preference for history
-		previous_preference = {
-			type: current_preference.type,
-			values: [...current_preference.values]
-		};
-
-		// Log final optimization results
-		console.log('Final preferences:', {
-			previous_preference: {
-				type: previous_preference.type,
-				values: formatNumberArray(previous_preference.values)
-			},
-			current_preference: {
-				type: current_preference.type,
-				values: formatNumberArray(current_preference.values)
-			},
-			objective_values: formatNumberArray(objective_values)
-		});
-
-		// TODO: Save results to backend/database
-		// TODO: Navigate to results page or show completion dialog
-	}
-
-	// --- Private Internal Methods ---
-
-	/**
-	 * Updates state with results from the optimization procedure
-	 * This method interfaces with the backend optimization algorithm
-	 * Currently simulates optimization results for testing
-	 *
-	 * @private
-	 * @param data - Input data for optimization
-	 * @param data.num_solutions - Number of solutions requested
-	 * @param data.type_preferences - Preference type for optimization guidance
-	 * @param data.preference_values - Preference values for optimization
-	 * @param data.objective_values - Current objective values
-	 *
-	 * @workflow
-	 * 1. Call backend optimization service with current preferences
-	 * 2. Receive new solution set from optimizer
-	 * 3. Update objective_values with new results
-	 * 4. Update current_preference if preferences were adjusted
-	 * 5. Trigger UI updates through reactive statements
-	 */
-	function _update_from_optimization_procedure(data: {
-		num_solutions: number;
-		type_preferences: PreferenceValue;
-		preference_values: number[];
-		objective_values: number[];
-	}) {
-		// TODO: Replace simulation with actual backend call
-		// Example backend call:
-		// const response = await optimizationAPI.iterate({
-		//     problemId: problem.id,
-		//     preferences: {
-		//         type: data.type_preferences,
-		//         values: data.preference_values
-		//     },
-		//     numSolutions: data.num_solutions
-		// });
-
-		// SIMULATION: Generate new values that simulate optimization results
-		// In real implementation, these values come from the optimization backend
-		const simulated_new_objective_values = objective_values.map(
-			(val) => val + Math.random() * 0.1 - 0.05 // Small random changes
-		);
-		const simulated_new_preference_values = current_preference.values.map(
-			(val) => val + Math.random() * 0.1 - 0.05 // Small random changes
-		);
-
-		// Update state with new optimization results
-		objective_values = simulated_new_objective_values;
-		current_preference = {
-			type: current_preference.type, // Preference type typically stays the same
-			values: simulated_new_preference_values
-		};
-
-		// Log optimization results for debugging
-		console.log('Updated from optimization:', {
-			num_solutions, // This value remains unchanged
-			previous_preference: {
-				type: previous_preference.type,
-				values: formatNumberArray(previous_preference.values)
-			},
-			current_preference: {
-				type: current_preference.type,
-				values: formatNumberArray(current_preference.values)
-			},
-			objective_values: formatNumberArray(objective_values)
-		});
-	}
-
-	/**
 	 * Initializes default values when a problem is loaded
 	 * Sets up initial preferences based on problem characteristics
 	 *
@@ -640,27 +592,6 @@
 			defaultSelected={selected_type_solutions}
 			onChange={handle_change}
 		/>
-	{/snippet}
-
-	{#snippet debugPanel()}
-		<div class="mb-4 rounded bg-gray-50 p-2 text-xs">
-			<div><strong>Num Solutions:</strong> {num_solutions}</div>
-			<div><strong>Objective Values:</strong> {formatNumberArray(objective_values)}</div>
-			<div class="mt-2">
-				<strong>Current Preference:</strong>
-				<div class="ml-2">
-					<div>Type: {current_preference.type}</div>
-					<div>Values: {formatNumberArray(current_preference.values)}</div>
-				</div>
-			</div>
-			<div class="mt-2">
-				<strong>Previous Preference:</strong>
-				<div class="ml-2">
-					<div>Type: {previous_preference.type}</div>
-					<div>Values: {formatNumberArray(previous_preference.values)}</div>
-				</div>
-			</div>
-		</div>
 	{/snippet}
 
 	<!-- This container will flex to fill available space -->
