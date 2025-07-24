@@ -50,33 +50,32 @@
 	{/if}
 
 	<!-- Main Content Area -->
-	<div class="flex-1">
-		<Resizable.PaneGroup direction="vertical">
-			<Resizable.Pane class="p-2">
-				<div class="flex items-center justify-between border-b pb-2">
-					<div class="text-lg font-semibold">
-						{#if explorerTitle}
-							{@render explorerTitle()}
-						{:else}
-							Solution Explorer
-						{/if}
-					</div>
-					<div class="flex items-center gap-2">
-						{#if explorerControls}
-							{@render explorerControls()}
-						{/if}
+	<div class="flex min-w-0 flex-1 flex-col">
+		<Resizable.PaneGroup direction="vertical" class="flex-1">
+			<Resizable.Pane class="flex min-h-0 flex-col">
+				<!-- Top Panel: Explorer Title and Controls -->
+				<div class="flex-shrink-0 p-2">
+					<div class="flex flex-row items-center justify-between gap-4 pb-2">
+						<div class="font-semibold">
+							{#if explorerTitle}
+								{@render explorerTitle()}
+							{:else}
+								Solution Explorer
+							{/if}
+						</div>
+						<div class="flex items-center gap-2">
+							{#if explorerControls}
+								{@render explorerControls()}
+							{/if}
+						</div>
 					</div>
 				</div>
-
-				<div class="flex-row">
-					{#if debugPanel}
-						{@render debugPanel()}
-					{/if}
-
+				<!-- Visualization Area -->
+				<div class="mx-2 min-h-0 flex-1 rounded border bg-gray-100 p-4">
 					<!-- Main Visualization Area -->
 					<div class="h-full w-full">
 						<div class="grid h-full w-full gap-4 xl:grid-cols-1">
-							<div class="min-h-[50rem] flex-1 rounded p-2">
+							<div class="h-full flex-1 rounded">
 								{#if visualizationArea}
 									{@render visualizationArea()}
 								{/if}
@@ -88,7 +87,7 @@
 
 			<ResizableHandle />
 			<!-- Bottom Panel: Numerical Values and Tables -->
-			<Resizable.Pane class="p-2">
+			<Resizable.Pane class="flex-shrink-0 p-2">
 				<Tabs.Root value="numerical-values">
 					<Tabs.List>
 						{#if tabsList}
