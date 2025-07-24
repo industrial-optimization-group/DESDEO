@@ -47,8 +47,7 @@ class Methods(str, Enum):
     NAUTILUS = "nautilus"
     NAUT_NAVIGATOR = "NAUTILUS navigator"
     NAUTILUSII = "nautilusII"
-    RVEA = "RVEA"
-    NSGAIII = "NSGAIII"
+    EMO = "EMO"
 
 
 class MethodProperties(str, Enum):
@@ -57,6 +56,9 @@ class MethodProperties(str, Enum):
     INTERACTIVE = "interactive"
     REFERENCE_POINT = "reference_point"
     CLASSIFICATION = "classification"
+    BOUNDS = "bounds"
+    PREFERRED_SOLUTIONS = "preferred_solutions"
+    NON_PREFERRED_SOLUTIONS = "non_preferred_solutions"
     # TODO: Add more properties as needed.
 
 
@@ -73,8 +75,12 @@ class User(BaseModel):
     )
     password_hash: str = Field(description="SHA256 Hash of the user's password.")
     role: UserRole = Field(description="Role of the user.")
-    privileges: list[UserPrivileges] = Field(description="List of privileges the user has.")
-    user_group: str = Field(description="User group of the user. Used for group decision making.")
+    privileges: list[UserPrivileges] = Field(
+        description="List of privileges the user has."
+    )
+    user_group: str = Field(
+        description="User group of the user. Used for group decision making."
+    )
     # To allows for User to be initialized from database instead of just dicts.
     model_config = ConfigDict(from_attributes=True)
 

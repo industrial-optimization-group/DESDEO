@@ -452,6 +452,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/method/emo/solve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Emo Optimization
+         * @description Start interactive evolutionary multiobjective optimization.
+         */
+        post: operations["start_emo_optimization_method_emo_solve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/method/emo/save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save
+         * @description Save solutions.
+         */
+        post: operations["save_method_emo_save_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/method/emo/saved-solutions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Saved Solutions
+         * @description Get all saved solutions for the current user.
+         */
+        get: operations["get_saved_solutions_method_emo_saved_solutions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/method/generic/intermediate": {
         parameters: {
             query?: never;
@@ -699,6 +759,189 @@ export interface components {
             id?: number | null;
             /** Problem Id */
             problem_id?: number | null;
+        };
+        /**
+         * EMOResults
+         * @description Defines a schema for storing results of an evolutionary multi-objective optimization (EMO) solver.
+         */
+        EMOResults: {
+            /**
+             * Optimal Variables
+             * @description The optimal decision variables found.
+             */
+            optimal_variables: {
+                [key: string]: number | unknown[];
+            };
+            /**
+             * Optimal Objectives
+             * @description The objective function values corresponding to the optimal decision variables found.
+             */
+            optimal_objectives: {
+                [key: string]: number | number[];
+            };
+            /**
+             * Constraint Values
+             * @description The constraint values of the problem. A negative value means the constraint is respected, a positive one means it has been breached.
+             */
+            constraint_values?: {
+                [key: string]: number | number[] | unknown[];
+            } | unknown | null;
+            /**
+             * Extra Func Values
+             * @description The extra function values of the problem.
+             */
+            extra_func_values?: {
+                [key: string]: number | number[];
+            } | null;
+        };
+        /**
+         * EMOSaveRequest
+         * @description Request model for saving selected EMO solutions.
+         */
+        EMOSaveRequest: {
+            /** Problem Id */
+            problem_id: number;
+            /** Session Id */
+            session_id?: number | null;
+            /** Parent State Id */
+            parent_state_id?: number | null;
+            /**
+             * Solutions
+             * @description List of EMO solutions to save with optional names
+             */
+            solutions: components["schemas"]["UserSavedEMOResults"][];
+        };
+        /**
+         * EMOSaveState
+         * @description State of the EMO methods for saving solutions.
+         */
+        EMOSaveState: {
+            /**
+             * Method
+             * @description The EMO method name (e.g., NSGA3, RVEA, etc.)
+             * @default EMO
+             */
+            method: string;
+            /**
+             * Phase
+             * @default save_solutions
+             * @constant
+             */
+            phase: "save_solutions";
+            /**
+             * Max Evaluations
+             * @default 1000
+             */
+            max_evaluations: number;
+            /**
+             * Number Of Vectors
+             * @default 20
+             */
+            number_of_vectors: number;
+            /**
+             * Use Archive
+             * @default true
+             */
+            use_archive: boolean;
+            /** Problem Id */
+            problem_id: number;
+            /** Saved Solutions */
+            saved_solutions: components["schemas"]["EMOResults"][];
+            /**
+             * Solutions
+             * @description Original solutions from request
+             */
+            solutions?: unknown[];
+        };
+        /**
+         * EMOSolveRequest
+         * @description Request model for starting EMO optimization.
+         */
+        EMOSolveRequest: {
+            /** Problem Id */
+            problem_id: number;
+            /**
+             * Method
+             * @description EMO method: 'NSGA3' or 'RVEA'
+             * @default NSGA3
+             */
+            method: string;
+            /**
+             * Max Evaluations
+             * @description Maximum number of function evaluations
+             * @default 50000
+             */
+            max_evaluations: number;
+            /**
+             * Number Of Vectors
+             * @description Number of reference vectors
+             * @default 30
+             */
+            number_of_vectors: number;
+            /**
+             * Use Archive
+             * @description Whether to use solution archive
+             * @default true
+             */
+            use_archive: boolean;
+            /**
+             * Preference
+             * @description Preference information for interactive adaptation
+             */
+            preference: components["schemas"]["ReferencePoint"] | components["schemas"]["PreferedSolutions"] | components["schemas"]["NonPreferredSolutions"] | components["schemas"]["PreferredRanges"];
+            /**
+             * Session Id
+             * @description Interactive session ID
+             */
+            session_id?: number | null;
+            /**
+             * Parent State Id
+             * @description Parent state ID for continuation
+             */
+            parent_state_id?: number | null;
+        };
+        /**
+         * EMOState
+         * @description State for EMO methods.
+         */
+        EMOState: {
+            /**
+             * Method
+             * @description The EMO method name (e.g., NSGA3, RVEA, etc.)
+             * @default EMO
+             */
+            method: string;
+            /**
+             * Phase
+             * @default unset
+             * @constant
+             */
+            phase: "unset";
+            /**
+             * Max Evaluations
+             * @default 1000
+             */
+            max_evaluations: number;
+            /**
+             * Number Of Vectors
+             * @default 20
+             */
+            number_of_vectors: number;
+            /**
+             * Use Archive
+             * @default true
+             */
+            use_archive: boolean;
+            /**
+             * Solutions
+             * @description Optimization results
+             */
+            solutions: unknown[];
+            /**
+             * Outputs
+             * @description Optimization results
+             */
+            outputs: unknown[];
         };
         /**
          * ExtraFunctionDB
@@ -992,6 +1235,22 @@ export interface components {
             solver_results: components["schemas"]["SolverResults"][];
         };
         /**
+         * NonPreferredSolutions
+         * @description Model for representing a non-preferred solution type of preference.
+         */
+        NonPreferredSolutions: {
+            /**
+             * Preference Type
+             * @default non_preferred_solutions
+             * @constant
+             */
+            preference_type: "non_preferred_solutions";
+            /** Non Preferred Solutions */
+            non_preferred_solutions: {
+                [key: string]: number[];
+            };
+        };
+        /**
          * ObjectiveDB
          * @description The SQLModel equivalent to `Objective`.
          */
@@ -1069,6 +1328,38 @@ export interface components {
          * @enum {string}
          */
         ObjectiveTypeEnum: "analytical" | "data_based" | "simulator" | "surrogate";
+        /**
+         * PreferedSolutions
+         * @description Model for representing a preferred solution type of preference.
+         */
+        PreferedSolutions: {
+            /**
+             * Preference Type
+             * @default preferred_solutions
+             * @constant
+             */
+            preference_type: "preferred_solutions";
+            /** Preferred Solutions */
+            preferred_solutions: {
+                [key: string]: number[];
+            };
+        };
+        /**
+         * PreferredRanges
+         * @description Model for representing desired upper and lower bounds for objective functions.
+         */
+        PreferredRanges: {
+            /**
+             * Preference Type
+             * @default preferred_ranges
+             * @constant
+             */
+            preference_type: "preferred_ranges";
+            /** Preferred Ranges */
+            preferred_ranges: {
+                [key: string]: number[];
+            };
+        };
         /**
          * ProblemGetRequest
          * @description Model to deal with problem fetching requests.
@@ -1452,6 +1743,45 @@ export interface components {
          * @enum {string}
          */
         UserRole: "guest" | "dm" | "analyst" | "admin";
+        /**
+         * UserSavedEMOResults
+         * @description Defines a schema for storing emo solutions.
+         */
+        UserSavedEMOResults: {
+            /**
+             * Optimal Variables
+             * @description The optimal decision variables found.
+             */
+            optimal_variables: {
+                [key: string]: number | unknown[];
+            };
+            /**
+             * Optimal Objectives
+             * @description The objective function values corresponding to the optimal decision variables found.
+             */
+            optimal_objectives: {
+                [key: string]: number | number[];
+            };
+            /**
+             * Constraint Values
+             * @description The constraint values of the problem. A negative value means the constraint is respected, a positive one means it has been breached.
+             */
+            constraint_values?: {
+                [key: string]: number | number[] | unknown[];
+            } | unknown | null;
+            /**
+             * Extra Func Values
+             * @description The extra function values of the problem.
+             */
+            extra_func_values?: {
+                [key: string]: number | number[];
+            } | null;
+            /**
+             * Name
+             * @description An optional name for the solution, useful for archiving purposes.
+             */
+            name?: string | null;
+        };
         /**
          * UserSavedSolverResults
          * @description Defines a schema for storing archived solutions.
@@ -2125,6 +2455,92 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_emo_optimization_method_emo_solve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EMOSolveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EMOState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_method_emo_save_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EMOSaveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EMOSaveState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_saved_solutions_method_emo_saved_solutions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };

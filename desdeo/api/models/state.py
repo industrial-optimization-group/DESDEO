@@ -5,7 +5,9 @@ from typing import Literal
 from sqlalchemy.types import TypeDecorator
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
+from desdeo.emo.methods.templates import EMOResult
 from desdeo.tools import SolverResults
+from desdeo.tools.generics import EMOResults
 
 from .archive import UserSavedSolutionDB
 from .preference import PreferenceDB, ReferencePoint
@@ -20,12 +22,16 @@ class StateType(TypeDecorator):
 
     def process_bind_param(self, value, dialect):
         """State to JSON."""
-        if isinstance(value,
-                      RPMState
-                      | NIMBUSClassificationState
-                      | IntermediateSolutionState
-                      | NIMBUSSaveState
-                      | NIMBUSInitializationState):
+        if isinstance(
+            value,
+            RPMState
+            | NIMBUSClassificationState
+            | IntermediateSolutionState
+            | NIMBUSSaveState
+            | EMOState
+            | EMOSaveState
+            | NIMBUSInitializationState,
+        ):
             return value.model_dump()
 
         msg = f"No JSON serialization set for ste of type '{type(value)}'."
@@ -47,6 +53,18 @@ class StateType(TypeDecorator):
                     return NIMBUSSaveState.model_validate(value)
                 case ("generic", _):
                     return IntermediateSolutionState.model_validate(value)
+                case (method, "save_solutions") if method in [
+                    "NSGA3",  # Changed from NSGAIII to match EMO router output
+                    "RVEA",
+                    "EMO",
+                ]:
+                    return EMOSaveState.model_validate(value)
+                case (method, _) if method in [
+                    "NSGA3",
+                    "RVEA",
+                    "EMO",
+                ]:  # Changed from NSGAIII to NSGA3
+                    return EMOState.model_validate(value)
                 case _:
                     msg = f"No method '{value["method"]}' with phase '{value.get("phase")}' found."
                     print(msg)
@@ -59,6 +77,14 @@ class BaseState(SQLModel):
 
     method: Literal["unset"] = "unset"
     phase: Literal["unset"] = "unset"
+
+
+class BaseEMOState(BaseState):
+    """The base state for EMO methods."""
+
+    max_evaluations: int = Field(default=1000)
+    number_of_vectors: int = Field(default=20)
+    use_archive: bool = Field(default=True)
 
 
 class RPMBaseState(BaseState):
@@ -76,12 +102,17 @@ class RPMState(RPMBaseState):
     phase: Literal["solve_candidates"] = "solve_candidates"
 
     # to compute k+1 solutions
-    scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    scalarization_options: dict[str, float | str | bool] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
     solver: str | None = Field(default=None)
-    solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    solver_options: dict[str, float | str | bool] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
 
     # results
     solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
+
 
 class NIMBUSBaseState(BaseState):
     """The base sate for the reference point method (NIMBUS).
@@ -97,9 +128,13 @@ class NIMBUSClassificationState(NIMBUSBaseState):
 
     phase: Literal["solve_candidates"] = "solve_candidates"
 
-    scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    scalarization_options: dict[str, float | str | bool] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
     solver: str | None = Field(default=None)
-    solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    solver_options: dict[str, float | str | bool] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
     current_objectives: dict[str, float] = Field(sa_column=Column(JSON))
     num_desired: int | None = Field(default=1)
     previous_preference: ReferencePoint = Field(Column(JSON))
@@ -107,11 +142,41 @@ class NIMBUSClassificationState(NIMBUSBaseState):
     # results
     solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
 
+
 class NIMBUSSaveState(NIMBUSBaseState):
     """State of the nimbus method for saving solutions."""
 
     phase: Literal["save_solutions"] = "save_solutions"
     solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
+
+
+class EMOState(BaseEMOState):
+    """State for EMO methods."""
+
+    method: str = Field(
+        default="EMO", description="The EMO method name (e.g., NSGA3, RVEA, etc.)"
+    )
+
+    # results
+    solutions: list = Field(sa_column=Column(JSON), description="Optimization results")
+    outputs: list = Field(sa_column=Column(JSON), description="Optimization results")
+
+
+class EMOSaveState(BaseEMOState):
+    """State of the EMO methods for saving solutions."""
+
+    method: str = Field(
+        default="EMO", description="The EMO method name (e.g., NSGA3, RVEA, etc.)"
+    )
+    phase: Literal["save_solutions"] = "save_solutions"
+    problem_id: int
+    saved_solutions: list[EMOResults] = Field(sa_column=Column(JSON))
+    solutions: list = Field(
+        sa_column=Column(JSON),
+        description="Original solutions from request",
+        default_factory=list,
+    )
+
 
 class NIMBUSInitializationState(NIMBUSBaseState):
     """State of the nimbus method for computing solutions."""
@@ -120,19 +185,26 @@ class NIMBUSInitializationState(NIMBUSBaseState):
     solver: str | None = Field(default=None)
     solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
 
+
 class IntermediateSolutionState(BaseState):
     """State of the nimbus method for computing solutions."""
+
     method: Literal["generic"] = "generic"
     phase: Literal["solve_intermediate"] = "solve_intermediate"
 
-    scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    scalarization_options: dict[str, float | str | bool] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
     solver: str | None = Field(default=None)
-    solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    solver_options: dict[str, float | str | bool] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
     num_desired: int | None = Field(default=1)
     reference_solution_1: dict[str, float]
     reference_solution_2: dict[str, float]
     # results
     solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
+
 
 class StateDB(SQLModel, table=True):
     """Database model to store interactive method state."""
@@ -149,10 +221,13 @@ class StateDB(SQLModel, table=True):
 
     # Back populates
     session: "InteractiveSessionDB" = Relationship(back_populates="states")
-    parent: "StateDB" = Relationship(back_populates="children", sa_relationship_kwargs={"remote_side": "StateDB.id"})
+    parent: "StateDB" = Relationship(
+        back_populates="children", sa_relationship_kwargs={"remote_side": "StateDB.id"}
+    )
     # if a parent node is killed, so are all its children (blood for the blood God)
     children: list["StateDB"] = Relationship(
-        back_populates="parent", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+        back_populates="parent",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
     saved_solutions: list["UserSavedSolutionDB"] | None = Relationship(
         back_populates="state", sa_relationship_kwargs={"cascade": "all, delete-orphan"}

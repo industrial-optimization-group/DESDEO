@@ -16,14 +16,21 @@ from desdeo.api.models import (
     ReferencePoint,
     RPMSolveRequest,
     User,
+    PreferedSolutions,
+    NonPreferredSolutions,
 )
-from desdeo.api.models.archive import UserSavedSolverResults
+from desdeo.api.models.archive import UserSavedSolverResults, UserSavedEMOResults
 from desdeo.api.models.generic import IntermediateSolutionRequest
 from desdeo.api.routers.user_authentication import create_access_token
 from desdeo.problem.testproblems import simple_knapsack_vectors
+from desdeo.api.models.EMO import EMOSaveRequest, EMOSolveRequest
+from desdeo.api.models.preference import PreferredRanges
+from desdeo.api.models.state import EMOState, EMOSaveState
 
 
-def login(client: TestClient, username="analyst", password="analyst") -> str:  # noqa: S107
+def login(
+    client: TestClient, username="analyst", password="analyst"
+) -> str:  # noqa: S107
     """Login, returns the access token."""
     response_login = client.post(
         "/login",
@@ -39,7 +46,10 @@ def post_json(client: TestClient, endpoint: str, json: dict, access_token: str):
     return client.post(
         endpoint,
         json=json,
-        headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+        },
     )
 
 
@@ -47,7 +57,10 @@ def get_json(client: TestClient, endpoint: str, access_token: str):
     """Makes a get request and returns the response."""
     return client.get(
         endpoint,
-        headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+        },
     )
 
 
@@ -105,14 +118,21 @@ def test_refresh(client: TestClient):
 
     assert "access_token" in response_refresh.json()
 
-    assert response_good.json()["access_token"] != response_refresh.json()["access_token"]
+    assert (
+        response_good.json()["access_token"] != response_refresh.json()["access_token"]
+    )
 
 
 def test_get_problem(client: TestClient):
     """Test fetching specific problems based on their id."""
     access_token = login(client)
 
-    response = post_json(client, "/problem/get", ProblemGetRequest(problem_id=1).model_dump(), access_token)
+    response = post_json(
+        client,
+        "/problem/get",
+        ProblemGetRequest(problem_id=1).model_dump(),
+        access_token,
+    )
 
     assert response.status_code == 200
 
@@ -122,7 +142,12 @@ def test_get_problem(client: TestClient):
     assert info.name == "dtlz2"
     assert info.problem_metadata == None
 
-    response = post_json(client, "problem/get", ProblemGetRequest(problem_id=2).model_dump(), access_token)
+    response = post_json(
+        client,
+        "problem/get",
+        ProblemGetRequest(problem_id=2).model_dump(),
+        access_token,
+    )
 
     assert response.status_code == 200
 
@@ -216,10 +241,15 @@ def test_rpm_solve(client: TestClient):
     access_token = login(client)
 
     request = RPMSolveRequest(
-        problem_id=1, preference=ReferencePoint(aspiration_levels={"f_1": 0.5, "f_2": 0.3, "f_3": 0.4})
+        problem_id=1,
+        preference=ReferencePoint(
+            aspiration_levels={"f_1": 0.5, "f_2": 0.3, "f_3": 0.4}
+        ),
     )
 
-    response = post_json(client, "/method/rpm/solve", request.model_dump(), access_token)
+    response = post_json(
+        client, "/method/rpm/solve", request.model_dump(), access_token
+    )
 
     assert response.status_code == status.HTTP_200_OK
 
@@ -230,11 +260,15 @@ def test_nimbus_solve(client: TestClient):
 
     request = NIMBUSClassificationRequest(
         problem_id=1,
-        preference=ReferencePoint(aspiration_levels={"f_1": 0.5, "f_2": 0.6, "f_3": 0.4}),
+        preference=ReferencePoint(
+            aspiration_levels={"f_1": 0.5, "f_2": 0.6, "f_3": 0.4}
+        ),
         current_objectives={"f_1": 0.6, "f_2": 0.4, "f_3": 0.5},
     )
 
-    response = post_json(client, "/method/nimbus/solve", request.model_dump(), access_token)
+    response = post_json(
+        client, "/method/nimbus/solve", request.model_dump(), access_token
+    )
     assert response.status_code == status.HTTP_200_OK
 
 
@@ -244,12 +278,27 @@ def test_intermediate_solve(client: TestClient):
 
     request = IntermediateSolutionRequest(
         problem_id=1,
-        reference_solution_1={"x_1": 0.2, "x_2": 0.3, "x_3": 0.1, "x_4": 0.1, "x_5": 0.1},
-        reference_solution_2={"x_1": 0.5, "x_2": 0.6, "x_3": 0.4, "x_4": 0.1, "x_5": 0.1},
+        reference_solution_1={
+            "x_1": 0.2,
+            "x_2": 0.3,
+            "x_3": 0.1,
+            "x_4": 0.1,
+            "x_5": 0.1,
+        },
+        reference_solution_2={
+            "x_1": 0.5,
+            "x_2": 0.6,
+            "x_3": 0.4,
+            "x_4": 0.1,
+            "x_5": 0.1,
+        },
     )
 
-    response = post_json(client, "/method/generic/intermediate", request.model_dump(), access_token)
+    response = post_json(
+        client, "/method/generic/intermediate", request.model_dump(), access_token
+    )
     assert response.status_code == status.HTTP_200_OK
+
 
 def test_save_solution(client: TestClient):
     """Test that saving solutions works as expected."""
@@ -271,10 +320,9 @@ def test_save_solution(client: TestClient):
             constraint_values=constraint_values,
             extra_func_values=extra_func_values,
             success=True,
-            message="This is a test solution saved from the NIMBUS method."
+            message="This is a test solution saved from the NIMBUS method.",
         )
     ]
-    
 
     # Create the save request
     save_request = NIMBUSSaveRequest(
@@ -284,10 +332,7 @@ def test_save_solution(client: TestClient):
 
     # Make the request
     response = post_json(
-        client,
-        "/method/nimbus/save",
-        save_request.model_dump(),
-        access_token
+        client, "/method/nimbus/save", save_request.model_dump(), access_token
     )
 
     # Verify the response and state
@@ -303,22 +348,22 @@ def test_save_solution(client: TestClient):
     assert saved_result.extra_func_values == extra_func_values
     assert not hasattr(saved_result, "name")  # Name should not be in state
 
+
 def test_nimbus_initialize_no_solver(client: TestClient):
     """Test that initializing NIMBUS works without specifying a solver."""
     access_token = login(client)
 
-    request = NIMBUSInitializationRequest(
-        problem_id=1,
-        solver=None
-    )
+    request = NIMBUSInitializationRequest(problem_id=1, solver=None)
 
-    response = post_json(client, "/method/nimbus/initialize", request.model_dump(), access_token)
+    response = post_json(
+        client, "/method/nimbus/initialize", request.model_dump(), access_token
+    )
     assert response.status_code == status.HTTP_200_OK
 
 
 def test_add_new_dm(client: TestClient):
     """Test that adding a decision maker works"""
-    
+
     # Create a new user to the database
     good_response = client.post(
         "/add_new_dm",
@@ -335,13 +380,18 @@ def test_add_new_dm(client: TestClient):
     )
     assert bad_response.status_code == status.HTTP_409_CONFLICT
 
+
 def test_add_new_analyst(client: TestClient):
     """Test that adding a new analyst works"""
 
     # Try to create an analyst without logging in
     nologin_response = client.post(
         "/add_new_analyst",
-        data={"username": "new_analyst", "password": "new_analyst", "grant_type": "password"},
+        data={
+            "username": "new_analyst",
+            "password": "new_analyst",
+            "grant_type": "password",
+        },
         headers={"content-type": "application/x-www-form-urlencoded"},
     )
 
@@ -360,9 +410,15 @@ def test_add_new_analyst(client: TestClient):
 
     dm_response = client.post(
         "/add_new_analyst",
-        data={"username": "new_analyst", "password": "new_analyst", "grant_type": "password"},
-        headers={"Authorization": f"Bearer {dm_access_token}",
-                 "content-type": "application/x-www-form-urlencoded"},
+        data={
+            "username": "new_analyst",
+            "password": "new_analyst",
+            "grant_type": "password",
+        },
+        headers={
+            "Authorization": f"Bearer {dm_access_token}",
+            "content-type": "application/x-www-form-urlencoded",
+        },
     )
 
     # Creating an analyst using unauthorized user should return 401 status
@@ -373,9 +429,15 @@ def test_add_new_analyst(client: TestClient):
 
     good_response = client.post(
         "/add_new_analyst",
-        data={"username": "new_analyst", "password": "new_analyst", "grant_type": "password"},
-        headers={"Authorization": f"Bearer {analyst_access_token}",
-                 "content-type": "application/x-www-form-urlencoded"},
+        data={
+            "username": "new_analyst",
+            "password": "new_analyst",
+            "grant_type": "password",
+        },
+        headers={
+            "Authorization": f"Bearer {analyst_access_token}",
+            "content-type": "application/x-www-form-urlencoded",
+        },
     )
 
     # Creating a new analyst with an analyst user should return 201
@@ -383,9 +445,15 @@ def test_add_new_analyst(client: TestClient):
 
     bad_response = client.post(
         "/add_new_analyst",
-        data={"username": "new_analyst", "password": "new_analyst", "grant_type": "password"},
-        headers={"Authorization": f"Bearer {analyst_access_token}",
-                 "content-type": "application/x-www-form-urlencoded"},
+        data={
+            "username": "new_analyst",
+            "password": "new_analyst",
+            "grant_type": "password",
+        },
+        headers={
+            "Authorization": f"Bearer {analyst_access_token}",
+            "content-type": "application/x-www-form-urlencoded",
+        },
     )
 
     # Trying to create an analyst with username that is already in use should return 409
@@ -394,14 +462,12 @@ def test_add_new_analyst(client: TestClient):
 
 def test_login_logout(client: TestClient):
     """Test that logging out works."""
-    
+
     # Login (sets refresh token cookie)
     login(client=client, username="analyst", password="analyst")
 
     # Refresh access token
-    response = client.post(
-        "/refresh"
-    )
+    response = client.post("/refresh")
     # Access token refreshed
     assert response.status_code == status.HTTP_200_OK
 
@@ -418,20 +484,171 @@ def test_login_logout(client: TestClient):
     )
     # Access token NOT refreshed
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
-    
+
+
+def test_emo_solve_with_reference_point(client: TestClient):
+    """Test that using EMO with reference point works as expected."""
+    access_token = login(client)
+
+    request = EMOSolveRequest(
+        problem_id=1,
+        method="NSGA3",  # Use uppercase method name consistently
+        preference=ReferencePoint(
+            aspiration_levels={"f_1_min": 0.5, "f_2_min": 0.3, "f_3_min": 0.4}
+        ),
+        max_evaluations=1000,
+        number_of_vectors=20,
+        use_archive=True,
+    )
+
+    print("Request Data:", request.model_dump())
+
+    response = post_json(
+        client, "/method/emo/solve", request.model_dump(), access_token
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+
+    # Validate the response structure
+    emo_state = EMOState.model_validate(response.json())
+    assert emo_state.method == "NSGA3"  # Method name is consistently uppercase
+    assert emo_state.max_evaluations == 1000
+    assert emo_state.number_of_vectors == 20
+    assert emo_state.use_archive is True
+    assert emo_state.solutions is not None
+    assert emo_state.outputs is not None
+    assert len(emo_state.solutions) > 0
+    assert len(emo_state.outputs) > 0
+
+
+def test_emo_save_solutions(client: TestClient):
+    """Test saving selected EMO solutions."""
+    access_token = login(client)
+
+    request = EMOSolveRequest(
+        problem_id=1,
+        method="NSGA3",  # Use uppercase method name consistently
+        preference=ReferencePoint(
+            aspiration_levels={"f_1_min": 0.5, "f_2_min": 0.3, "f_3_min": 0.4}
+        ),
+        max_evaluations=1000,
+        number_of_vectors=20,
+        use_archive=True,
+    )
+
+    print("Request Data:", request.model_dump())
+
+    response = post_json(
+        client, "/method/emo/solve", request.model_dump(), access_token
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+
+    # Validate the response structure
+    emo_state = EMOState.model_validate(response.json())
+
+    solutions = emo_state.solutions
+    outputs = emo_state.outputs
+
+    # Select first 2 solutions to save
+    selected_solutions = []
+    for i in range(min(2, len(solutions))):
+        selected_solutions.append(
+            UserSavedEMOResults(
+                name="Selected Solution",
+                optimal_variables={
+                    "x_1": 0.3625950577165081,
+                    "x_2": 0.5014621638728629,
+                    "x_3": 0.5133986403602678,
+                    "x_4": 0.4971694793667669,
+                    "x_5": 0.4977880432562051,
+                },
+                optimal_objectives={
+                    "f_1_min": 0.6665403105011645,
+                    "f_2_min": 0.4260369452661199,
+                    "f_3_min": 0.6126011822203475,
+                },
+                constraint_values={},
+                extra_func_values={},
+            )
+        )
+
+    # Create the save request
+    save_request = EMOSaveRequest(
+        problem_id=1,
+        solutions=selected_solutions,
+    )
+
+    # Make the request
+    response = post_json(
+        client, "/method/emo/save", save_request.model_dump(), access_token
+    )
+
+    # Verify the response and state
+    assert response.status_code == status.HTTP_200_OK
+    print("Save Response:", response.json())
+    save_state = EMOSaveState.model_validate(response.json())
+    # assert len(save_state.solver_results) == 1
+
+    # Verify state contains solver results without name
+    saved_result = save_state.saved_solutions[0]
+    assert not hasattr(saved_result, "name")  # Name should not be in state
+
+    # Get saved solutions
+    saved_response = client.get(
+        "/method/emo/saved-solutions",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert saved_response.status_code == status.HTTP_200_OK
+    saved_solutions = saved_response.json()
+    assert len(saved_solutions) >= 2
+
+
+def test_emo_solve_with_rvea(client: TestClient):
+    """Test that using EMO with RVEA method works as expected."""
+    access_token = login(client)
+
+    request = EMOSolveRequest(
+        problem_id=1,
+        method="RVEA",  # Test RVEA method with uppercase
+        preference=ReferencePoint(
+            aspiration_levels={"f_1_min": 0.5, "f_2_min": 0.3, "f_3_min": 0.4}
+        ),
+        max_evaluations=1000,
+        number_of_vectors=20,
+        use_archive=True,
+    )
+
+    response = post_json(
+        client, "/method/emo/solve", request.model_dump(), access_token
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+
+    # Validate the response structure
+    emo_state = EMOState.model_validate(response.json())
+    assert emo_state.method == "RVEA"  # Method name is consistently uppercase
+    assert emo_state.max_evaluations == 1000
+    assert emo_state.number_of_vectors == 20
+    assert emo_state.use_archive is True
+    assert emo_state.solutions is not None
+    assert emo_state.outputs is not None
+    assert len(emo_state.solutions) > 0
+    assert len(emo_state.outputs) > 0
+
 
 def test_get_problem_metadata(client: TestClient):
     """Test that fetching problem metadata works."""
-    
+
     access_token = login(client=client)
 
     # Problem with no metadata
     req = {"problem_id": 1, "metadata_type": "forest_problem_metadata"}
     response = post_json(
-        client=client, 
-        endpoint="/problem/get_metadata", 
-        json=req, 
-        access_token=access_token
+        client=client,
+        endpoint="/problem/get_metadata",
+        json=req,
+        access_token=access_token,
     )
     assert response.status_code == 200
     assert response.json() == []
@@ -439,10 +656,10 @@ def test_get_problem_metadata(client: TestClient):
     # Problem with forest metadata
     req = {"problem_id": 2, "metadata_type": "forest_problem_metadata"}
     response = post_json(
-        client=client, 
-        endpoint="/problem/get_metadata", 
-        json=req, 
-        access_token=access_token
+        client=client,
+        endpoint="/problem/get_metadata",
+        json=req,
+        access_token=access_token,
     )
     assert response.status_code == 200
     assert response.json()[0]["metadata_type"] == "forest_problem_metadata"
@@ -451,9 +668,9 @@ def test_get_problem_metadata(client: TestClient):
     # No problem
     req = {"problem_id": 3, "metadata_type": "forest_problem_metadata"}
     response = post_json(
-        client=client, 
-        endpoint="/problem/get_metadata", 
-        json=req, 
-        access_token=access_token
+        client=client,
+        endpoint="/problem/get_metadata",
+        json=req,
+        access_token=access_token,
     )
     assert response.status_code == 404

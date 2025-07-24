@@ -47,13 +47,8 @@
 	import { Combobox } from '$lib/components/ui/combobox';
 	import { PREFERENCE_TYPES } from '$lib/constants';
 	import { formatNumber, formatNumberArray } from '$lib/helpers';
+	import VisualizationsPanel from '$lib/components/custom/visualizations-panel/visualizations-panel.svelte';
 
-	// --- Type Definitions ---
-
-	/**
-	 * Type definition for optimization problem information
-	 * Contains objectives, constraints, and problem metadata
-	 */
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 
 	/**
@@ -104,12 +99,14 @@
 	 * Controls the size of the solution set returned by the optimizer
 	 */
 	let num_solutions = $state(1);
+	// Change these to store arrays of solutions instead of single values
+	let solutions_objective_values = $state<number[][]>([]); // Array of objective value arrays
+	let solutions_decision_values = $state<number[][]>([]); // Array of decision variable arrays
+	let objective_values = $state<number[]>([]); // Keep this for current/selected solution
 
-	/**
-	 * Current objective function values from the optimization process
-	 * Updated after each iteration with new solution values
-	 */
-	let objective_values = $state<number[]>([]);
+	let emo_method = $state('NSGA3'); // or "RVEA"
+	let max_evaluations = $state(1000);
+	let use_archive = $state(true);
 
 	/**
 	 * User's previous preference configuration
@@ -232,6 +229,175 @@
 
 		// Trigger the optimization process with current preferences
 		_update_from_optimization_procedure(data);
+	}
+
+	type EMOSolveRequest = components['schemas']['EMOSolveRequest'];
+	type ReferencePoint = components['schemas']['ReferencePoint'];
+
+	async function updateFromOptimizationProcedure(data: {
+		num_solutions: number;
+		type_preferences: PreferenceValue;
+		preference_values: number[];
+		objective_values: number[];
+	}) {
+		try {
+			console.log('Starting EMO solve with data:', data);
+
+			if (!problem?.id) {
+				throw new Error('No problem ID available');
+			}
+
+			// Create the aspiration_levels object
+			const aspiration_levels: { [key: string]: number } = {};
+
+			if (problem.objectives && data.preference_values) {
+				problem.objectives.forEach((objective, index) => {
+					if (index < data.preference_values.length) {
+						// Use the format from the test: "f_1_min", "f_2_min", etc.
+						const key = `f_${index + 1}_min`;
+						aspiration_levels[key] = data.preference_values[index];
+					}
+				});
+			}
+
+			console.log('Created aspiration_levels:', aspiration_levels);
+
+			const preference: ReferencePoint = {
+				preference_type: 'reference_point',
+				aspiration_levels: aspiration_levels
+			};
+
+			const solveRequest: EMOSolveRequest = {
+				problem_id: problem.id,
+				method: emo_method,
+				preference: preference,
+				max_evaluations: max_evaluations,
+				number_of_vectors: data.num_solutions,
+				use_archive: use_archive,
+				session_id: null,
+				parent_state_id: null
+			};
+
+			console.log('Final solve request:', JSON.stringify(solveRequest, null, 2));
+
+			// Call the solve endpoint
+			const response = await fetch('/interactive_methods/EMO/solve', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				credentials: 'include',
+				body: JSON.stringify(solveRequest)
+			});
+
+			console.log('Response status:', response.status);
+			console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				console.error('Error response data:', errorData);
+				throw new Error(
+					`HTTP error! status: ${response.status}, message: ${errorData.error || 'Unknown error'}, details: ${errorData.details || 'No details'}`
+				);
+			}
+
+			const result = await response.json();
+			console.log('Success response:', result);
+
+			if (result.success && result.data) {
+				const emoState = result.data; // This is EMOState type
+				console.log('EMO solve response:', emoState);
+
+				// Extract ALL solutions and their objective values
+				if (
+					emoState.solutions &&
+					emoState.solutions.length > 0 &&
+					emoState.outputs &&
+					emoState.outputs.length > 0
+				) {
+					// Clear previous solutions
+					solutions_objective_values = [];
+					solutions_decision_values = [];
+
+					// Process each solution
+					emoState.solutions.forEach((solution: number[], solutionIndex: number) => {
+						// Extract decision variables (solution variables)
+						if (Array.isArray(solution)) {
+							solutions_decision_values.push([...solution]);
+						} else if (typeof solution === 'object') {
+							// If solution is an object, convert to array
+							const decisionVars = Object.values(solution).filter(
+								(val) => typeof val === 'number'
+							) as number[];
+							solutions_decision_values.push(decisionVars);
+						}
+
+						// Extract corresponding objective values
+						if (emoState.outputs[solutionIndex]) {
+							const output = emoState.outputs[solutionIndex];
+							const objectiveVals: number[] = [];
+
+							if (problem?.objectives) {
+								// Use objective names to extract values in correct order
+								problem.objectives.forEach((objective) => {
+									if (output[objective.name] !== undefined) {
+										objectiveVals.push(output[objective.name]);
+									}
+								});
+							} else {
+								// Fallback: use all numeric values from output
+								Object.values(output).forEach((val) => {
+									if (typeof val === 'number') {
+										objectiveVals.push(val);
+									}
+								});
+							}
+
+							if (objectiveVals.length > 0) {
+								solutions_objective_values.push(objectiveVals);
+							}
+						}
+					});
+
+					// Update the current objective values with the first solution (or best solution)
+					if (solutions_objective_values.length > 0) {
+						objective_values = [...solutions_objective_values[0]];
+					}
+
+					console.log('Extracted solutions:', {
+						numSolutions: solutions_objective_values.length,
+						objectiveValues: solutions_objective_values,
+						decisionValues: solutions_decision_values,
+						currentObjective: objective_values
+					});
+				}
+
+				// Update number of solutions if provided
+				if (emoState.number_of_vectors) {
+					num_solutions = emoState.number_of_vectors;
+				}
+
+				console.log('Updated from EMO solve:', {
+					num_solutions,
+					total_solutions: solutions_objective_values.length,
+					previous_preference: {
+						type: previous_preference.type,
+						values: formatNumberArray(previous_preference.values)
+					},
+					current_preference: {
+						type: current_preference.type,
+						values: formatNumberArray(current_preference.values)
+					},
+					objective_values: formatNumberArray(objective_values)
+				});
+			} else {
+				console.error('EMO solve failed:', result.error || 'Unknown error');
+				throw new Error(result.error || 'EMO solve failed');
+			}
+		} catch (error) {
+			console.error('Error calling EMO solve:', error);
+			alert(`Error solving problem: ${error}`);
+		}
 	}
 
 	/**
@@ -362,6 +528,10 @@
 	 */
 	function _initialize_default_values() {
 		if (problem) {
+			// Clear previous solutions
+			solutions_objective_values = [];
+			solutions_decision_values = [];
+
 			// Extract ideal values from problem objectives as defaults
 			// Fallback to 0 if ideal value is not specified
 			const default_values = problem.objectives.map((obj) =>
@@ -493,13 +663,31 @@
 		</div>
 	{/snippet}
 
+	<!-- This container will flex to fill available space -->
 	{#snippet visualizationArea()}
-		<span>Objective space</span>
-		<!-- TODO: Add parallel coordinates visualization -->
-		<!-- TODO: Add scatter plot matrix -->
-		<!-- TODO: Add other multi-objective visualization components -->
+		{#if problem}
+			<VisualizationsPanel
+				{problem}
+				previous_preference_values={previous_preference.values}
+				previous_preference_type={previous_preference.type}
+				current_preference_values={current_preference.values}
+				current_preference_type={current_preference.type}
+				{solutions_objective_values}
+				{solutions_decision_values}
+				onSelectSolution={(index) => {
+					// Update current objective values when user selects a solution
+					if (solutions_objective_values[index]) {
+						objective_values = [...solutions_objective_values[index]];
+						console.log('Selected solution', index, 'with objectives:', objective_values);
+					}
+				}}
+			/>
+		{:else}
+			<div class="flex h-full items-center justify-center text-gray-500">
+				No problem data available for visualization
+			</div>
+		{/if}
 	{/snippet}
-
 	{#snippet numericalValues()}
 		<div class="space-y-4">
 			<div>Table of solutions</div>
