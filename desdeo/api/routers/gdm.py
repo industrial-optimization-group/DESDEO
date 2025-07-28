@@ -16,16 +16,20 @@ For example, in the case of NIMBUS, the last chosen solution should exist. This 
 
 import asyncio
 import json
+from datetime import UTC, timedelta, datetime
 
 from fastapi import (
     APIRouter, 
     WebSocket, 
     WebSocketDisconnect, 
-    Depends
+    Depends,
+    Query
 )
+
 from fastapi.responses import JSONResponse
 from fastapi import HTTPException, status
 
+from jose import JWTError, jwt, ExpiredSignatureError
 from sqlmodel import Session, select
 from pydantic import ValidationError
 from typing import Annotated
@@ -42,17 +46,27 @@ from desdeo.api.models import (
     ReferencePoint
 )
 from desdeo.api.db import get_session
-from desdeo.api.routers.user_authentication import get_current_user
+from desdeo.api import SettingsConfig
+from desdeo.api.routers.user_authentication import get_current_user, get_user
 from desdeo.problem import Problem
 from desdeo.mcdm.nimbus import generate_starting_point, solve_sub_problems
 from desdeo.tools import SolverResults
+from desdeo.tools.scalarization import ScalarizationError
+
+# AuthConfig
+if SettingsConfig.debug:
+    from desdeo.api import AuthDebugConfig
+
+    AuthConfig = AuthDebugConfig
+else:
+    pass
+
+router = APIRouter(prefix="/gdm")
+debug = True
 
 class ManagerException(Exception):
     """If something goes awry with the manager"""
 
-router = APIRouter(prefix="/gdm")
-
-debug = True
 
 class GroupManager:
     """A group manager. Manages connections, disconnections, optimization and communication to users."""
@@ -91,8 +105,12 @@ class GroupManager:
         user_id: int,
         websocket: WebSocket
     ):
-        """Connect to websocket"""
-        await websocket.accept()
+        """Connect to websocket
+        
+        The connection has been accepted beforehand for sending error messages 
+        back to user, but here we attach it to the manager instance.
+        """
+
         self.sockets[user_id] = websocket
 
         # If there are pending notifications, send notifications
@@ -120,7 +138,11 @@ class GroupManager:
         user_id: int,
         websocket: WebSocket
     ):
-        """Disconnect from websocket"""
+        """Disconnect from websocket
+        
+        The connection has been closed beforehand, but here we detach the WebSocket
+        object from the manager instance.
+        """
         if self.sockets[user_id] == websocket:
             self.sockets[user_id] = None
 
@@ -148,19 +170,32 @@ class GroupManager:
         
         # Here we choose only one preference as an example
         pref = prefs[str(group.user_ids[0])].aspiration_levels
-        #NOTE: NIMBUS METHOD
-        results = solve_sub_problems(
-            problem,
-            reference_point=pref,
-            num_desired=4,
-            current_objectives=iteration.parent.results[0].optimal_objectives # just one example, figure out how to switch this
-        )
-        print(f"Optimization for group {self.group_id} done.")
+        #NOTE: NIMBUS METHOD; Integrate states into this system
+        try:
+            results = solve_sub_problems(
+                problem,
+                reference_point=pref,
+                num_desired=4,
+                current_objectives=iteration.parent.results[0].optimal_objectives # just one example, figure out how to switch this
+            )
+            print(f"Optimization for group {self.group_id} done.")
 
-        # ADD optimization results into database
-        iteration.results = results
-        session.add(iteration)
-        session.commit()
+            # ADD optimization results into database
+            iteration.results = results
+            session.add(iteration)
+            session.commit()
+
+            return True
+        
+        except ScalarizationError:
+            await self.broadcast("Error while scalarizing: classifications must differ from previous iteration!")
+            return False
+
+        except Exception as e:
+            await self.broadcast(f"An error occured while optimizing: {e}")
+            return False
+        
+        return False
 
 
     async def set_preference(self, user_id: int, data: ReferencePoint):
@@ -204,56 +239,59 @@ class GroupManager:
                     return
             
             # If all preferences are in, begin optimization.
-            await self.run_optim()
+            success = await self.run_optim()
 
-            # notify connected users that the optimization is done
-            notified = {}
-            for user_id in group.user_ids:
-                try:
-                    socket: WebSocket = self.sockets[user_id]
-                    if debug:
-                        print(socket)
-                    if socket != None:
-                        await self.notify(socket)
-                        notified[user_id] = True
-                    else:
+            # If the optimization succeeds, update the iteration
+            # TODO: might want to move making new iterations to the optimization functions
+            if success:
+                # notify connected users that the optimization is done
+                notified = {}
+                for user_id in group.user_ids:
+                    try:
+                        socket: WebSocket = self.sockets[user_id]
+                        if debug:
+                            print(socket)
+                        if socket != None:
+                            await self.notify(socket)
+                            notified[user_id] = True
+                        else:
+                            notified[user_id] = False
+                    except KeyError:
                         notified[user_id] = False
-                except KeyError:
-                    notified[user_id] = False
-            # Update iteration's notifcation database item
-            current_iteration.notified = notified
-            session.add(current_iteration)
-            session.commit()
-            session.refresh(current_iteration)
-            
-            # After optimization, add new iteration
-            next_iteration = GroupIteration(
-                group_id=self.group_id,
-                group=group,
-                problem_id=current_iteration.problem_id,
-                set_preferences={},
-                notified={},
-                parent_id=current_iteration.id, # Probably redundant to have
-                parent=current_iteration,       # two connections to parents?
-                child=None,
-            )
-            session.add(next_iteration)
-            session.commit()
-            session.refresh(next_iteration)
+                # Update iteration's notifcation database item
+                current_iteration.notified = notified
+                session.add(current_iteration)
+                session.commit()
+                session.refresh(current_iteration)
+                
+                # After optimization, add new iteration
+                next_iteration = GroupIteration(
+                    group_id=self.group_id,
+                    group=group,
+                    problem_id=current_iteration.problem_id,
+                    set_preferences={},
+                    notified={},
+                    parent_id=current_iteration.id, # Probably redundant to have
+                    parent=current_iteration,       # two connections to parents?
+                    child=None,
+                )
+                session.add(next_iteration)
+                session.commit()
+                session.refresh(next_iteration)
 
-            # Update database 
-            current_iteration.child = next_iteration
-            session.add(current_iteration)
-            session.commit()
+                # Update database 
+                current_iteration.child = next_iteration
+                session.add(current_iteration)
+                session.commit()
 
-            # Update head
-            group.head_iteration = next_iteration
-            session.add(group)
-            session.commit()
+                # Update head
+                group.head_iteration = next_iteration
+                session.add(group)
+                session.commit()
 
             
 class ManagerManager:
-    """A class to manage group managers. Spawns them and deletes them."""
+    """A singleton class to manage group managers. Spawns them and deletes them."""
 
 
     def __init__(self):
@@ -265,7 +303,7 @@ class ManagerManager:
         """Get the group manager for a specific group. If it doesn't exist, create one."""
         async with self.lock:
             try:
-                    return self.group_managers[group_id]
+                return self.group_managers[group_id]
             except KeyError:
                 group_manager = GroupManager(group_id=group_id)
                 self.group_managers[group_id] = group_manager
@@ -291,44 +329,94 @@ class ManagerManager:
 
 manager = ManagerManager()
 
+async def auth_user(
+    token: str,
+    session: Session,
+    websocket: WebSocket
+) -> User:
+    """Authenticate the user
 
-@router.websocket("/ws/{group_id}/{user_id}")
+    token: str: the access token of the user.
+    session: Session: the database session from where the user is received
+    websocket: WebSocket: the websocket that the user has connected with
+    
+    """
+
+    async def error_and_close():
+        await websocket.send_text("Could not validate credencials. Try logging in again.")
+        await websocket.close()
+        return None
+
+    try:
+        payload = jwt.decode(token, AuthConfig.authjwt_secret_key, algorithms=[AuthConfig.authjwt_algorithm])
+        username = payload.get("sub")
+        expire_time: datetime = payload.get("exp")
+
+        if username is None or expire_time is None or expire_time < datetime.now(UTC).timestamp():
+            return await error_and_close()
+
+    except ExpiredSignatureError:
+        return await error_and_close()
+
+    except JWTError:
+        return await error_and_close()
+
+    user = get_user(session, username=username)
+
+    if user is None:
+        return await error_and_close()
+    
+    return user
+
+@router.websocket("/ws")
 async def websocket_endpoint(
-    group_id: str,
-    user_id: str,
     session: Annotated[Session, Depends(get_session)],
     websocket: WebSocket,
+    token: str = Query(),
+    group_id: int = Query()
 ):
-    group_id_int = int(group_id)
-    user_id_int = int(user_id)
+    """ The websocket to which the user connects.
 
-    group = session.exec(select(Group).where(Group.id == group_id_int)).first()
-    if group == None:
-        raise HTTPException(
-            detail=f"No group with ID {group_id} found!",
-            status_code=status.HTTP_404_NOT_FOUND
-        )
+    Both the access token and the group id is given as a query parameter to the endpoint.
+    The call to this endpoint looks like the following:
 
-    # Validate user.
-    user = session.exec(select(User).where(User.id == user_id_int)).first()
+    ws://[DOMAIN]:[PORT]/gdm/ws?token=[TOKEN]&group_id=[GROUP_ID]
+
+    The data sent by the client is validated. If validation as ReferencePoint succeeds,
+    the preferences of this particular user are updated. When all the preferences are in,
+    the system begins the optimization and notifies all connected websockets that the
+    optimization is done and the results are ready for fetching.
+
+    If a user is not connected to the server, they will be notified when they connect next time.
+
+    The server sends its data as text messages.
+
+    """
+
+    # Accept the websocket (to send back stuff if something goes wrong)
+    await websocket.accept()
+
+    user = await auth_user(token, session, websocket)
     if user == None:
-        raise HTTPException(
-            detail=f"User with id {user_id} not found.",
-            status_code=status.HTTP_404_NOT_FOUND
-        )
+        return
+
+    group = session.exec(select(Group).where(Group.id == group_id)).first()
+    if group == None:
+        await websocket.send_text(f"There is no group with ID {group_id}.")
+        await websocket.close()
+        return
     
     if user.id not in group.user_ids:
-        raise HTTPException(
-            detail=f"User {user.username} doesn't belong in group {group.name}!",
-            status_code=status.HTTP_401_UNAUTHORIZED
-        )
+        await websocket.send_text(f"User {user.username} doesn't belong in group {group.name}")
+        await websocket.close()
+        return
     
     if debug: 
         print(f"{user.username} has joined.")
 
     # Get the group manager object from the manager of group managers
-    group_manager = await manager.get_group_manager(group_id=group_id_int)
-    await group_manager.connect(user_id_int, websocket)
+    group_manager: GroupManager = await manager.get_group_manager(group_id=group_id)
+    await group_manager.connect(user.id, websocket)
     if debug:
         print(group_manager.group_id)
         print(group_manager.sockets)
@@ -340,7 +428,7 @@ async def websocket_endpoint(
             # await group_manager.broadcast(message=f"{user_id_int}: {data}")
             # Validation successful, lets set the preferences.
             asyncio.create_task(
-                group_manager.set_preference(user_id_int, data)
+                group_manager.set_preference(user.id, data)
             )
         except ValidationError as e:
             print(f"ValidationError: {e}")
@@ -351,12 +439,12 @@ async def websocket_endpoint(
         except json.decoder.JSONDecodeError as e:
             print(f"JSONDecoderError: {e}")
         except WebSocketDisconnect:
-            await group_manager.disconnect(user_id_int, websocket)
+            await group_manager.disconnect(user.id, websocket)
             await group_manager.broadcast(message=f"{user.username} left.")
             if debug:
                 print(group_manager.sockets)
                 print(manager.group_managers)
-            await manager.check_disconnect(group_id=group_id_int)
+            await manager.check_disconnect(group_id=group_id)
             break
         except RuntimeError as e:
             print(f"RuntimeError: {e}")
