@@ -48,6 +48,8 @@ class ReferencePointDictType(TypeDecorator):
     def process_result_value(self, value, dialect):
         dictionary = json.loads(value)
         for key, item in dictionary.items():
+            if item == None:
+                print("Something's wrong... Database has a NoneType entry.")
             try:
                 dictionary[key] = ReferencePoint.model_validate(json.loads(item))
             except ValidationError as e:
@@ -79,7 +81,7 @@ class GroupPublic(GroupBase):
     problem_id: int
 
 class GroupIteration(SQLModel, table=True):
-    """Table model for Group Iteration"""
+    """Table model for Group Iteration (we could extend this in various ways)"""
     id: int | None = Field(primary_key=True, default=None)
     problem_id: int | None = Field(default=None)
     

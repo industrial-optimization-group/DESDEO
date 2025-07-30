@@ -81,15 +81,19 @@ class GroupManager:
         session = next(get_session())
         group = session.exec(select(Group).where(Group.id == group_id)).first()
         if group == None:
+            session.close()
             raise ManagerException(f"No group with ID {group_id} found!")
         
         # Make sure first iteration exists
         if group.head_iteration == None:
+            session.close()
             raise ManagerException(f"No iterations found for group {group.name}")
         
         # Initialize the socket dict (at the very least to avoid KeyErrors)
         for user_id in group.user_ids:
             self.sockets[user_id] = None
+
+        session.close()
 
 
     async def notify(self, websocket: WebSocket):
@@ -119,6 +123,7 @@ class GroupManager:
         try:
             prev_iter = group.head_iteration.parent
             if prev_iter == None:
+                session.closer()
                 return
             if not prev_iter.notified[str(user_id)]:
                 if debug:
@@ -129,7 +134,9 @@ class GroupManager:
                 prev_iter.notified = notified
                 session.add(prev_iter)
                 session.commit()
+                session.close()
         except:
+            session.close()
             return
 
 
@@ -158,16 +165,16 @@ class GroupManager:
 
 
     # A dummy for implementing actual optimization
-    async def run_optim(self):
+    async def run_optim(self, session: Session):
         """A dummy for implementing actual optimization"""
         # Synthesize preferences, details are method specific I believe
-        session = next(get_session())
         group = session.exec(select(Group).where(Group.id == self.group_id)).first()
         problem_db: ProblemDB = session.exec(select(ProblemDB).where(ProblemDB.id == group.problem_id)).first()
         problem: Problem = Problem.from_problemdb(problem_db)
         iteration = group.head_iteration
         prefs = iteration.set_preferences
         
+        await asyncio.sleep(3)
         # Here we choose only one preference as an example
         pref = prefs[str(group.user_ids[0])].aspiration_levels
         #NOTE: NIMBUS METHOD; Integrate states into this system
@@ -194,14 +201,15 @@ class GroupManager:
         except Exception as e:
             await self.broadcast(f"An error occured while optimizing: {e}")
             return False
-        
-        return False
 
 
     async def set_preference(self, user_id: int, data: ReferencePoint):
         """Set preferences of the user"""
 
-        # Set the lock
+        # Set the lock. Because of this lock the there will be only one 
+        # database connection per manager so the connection pool shouldn't flood.
+        # (Apparently it still floods. I don't know why.) I guess increasing pool
+        # size might solve some issues.
         async with self.lock:
 
             # Fetch the current iteration
@@ -209,10 +217,13 @@ class GroupManager:
             group = session.exec(select(Group).where(Group.id == self.group_id)).first()
             if group == None:
                 await self.broadcast(f"The group with ID {self.group_id} doesn't exist anymore.")
+                session.close()
+                return
             current_iteration = group.head_iteration
 
             if current_iteration.parent == None:
                 await self.broadcast("Problem not initialized! Initialize the problem!")
+                session.close()
                 return
 
             if debug:
@@ -231,15 +242,17 @@ class GroupManager:
                 try:
                     if current_iteration.set_preferences[str(user_id)] == None:
                         if debug: print("Not all prefs in!")
+                        session.close()
                         return
                 except KeyError:
                     if debug: 
                         print("Key error: Not all prefs in!")
                         print(current_iteration.set_preferences)
+                    session.close()
                     return
             
             # If all preferences are in, begin optimization.
-            success = await self.run_optim()
+            success = await self.run_optim(session)
 
             # If the optimization succeeds, update the iteration
             # TODO: might want to move making new iterations to the optimization functions
@@ -288,6 +301,9 @@ class GroupManager:
                 group.head_iteration = next_iteration
                 session.add(group)
                 session.commit()
+
+                # Close the session
+                session.close()
 
             
 class ManagerManager:
@@ -414,6 +430,9 @@ async def websocket_endpoint(
     if debug: 
         print(f"{user.username} has joined.")
 
+    # We don't need the session here any more, so we can just close it.
+    session.close()
+
     # Get the group manager object from the manager of group managers
     group_manager: GroupManager = await manager.get_group_manager(group_id=group_id)
     await group_manager.connect(user.id, websocket)
@@ -424,8 +443,8 @@ async def websocket_endpoint(
         try:
             # Get data from socket
             data = await websocket.receive_text()
+            # A point for modification. Validate, but maybe as somethign else?
             data = ReferencePoint.model_validate(json.loads(data))
-            # await group_manager.broadcast(message=f"{user_id_int}: {data}")
             # Validation successful, lets set the preferences.
             asyncio.create_task(
                 group_manager.set_preference(user.id, data)
