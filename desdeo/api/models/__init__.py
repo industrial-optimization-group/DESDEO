@@ -97,5 +97,8 @@ from .gdm import (
     GroupCreateRequest, 
     GroupIteration,
     GroupPublic,
-    GroupInfoRequest
+    GroupInfoRequest,
+    NIMBUSPreferenceResults,
+    VotingPreferenceResults,
+    BasePreferenceResults
 )

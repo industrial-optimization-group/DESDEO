@@ -16,7 +16,8 @@ For example, in the case of NIMBUS, the last chosen solution should exist. This 
 
 import asyncio
 import json
-from datetime import UTC, timedelta, datetime
+import copy
+from datetime import UTC, datetime
 
 from fastapi import (
     APIRouter, 
@@ -43,7 +44,10 @@ from desdeo.api.models import (
     GroupInfoRequest,
     GroupPublic,
     ProblemDB,
-    ReferencePoint
+    ReferencePoint,
+    NIMBUSPreferenceResults,
+    VotingPreferenceResults,
+    BasePreferenceResults,
 )
 from desdeo.api.db import get_session
 from desdeo.api import SettingsConfig
@@ -84,11 +88,6 @@ class GroupManager:
             session.close()
             raise ManagerException(f"No group with ID {group_id} found!")
         
-        # Make sure first iteration exists
-        if group.head_iteration == None:
-            session.close()
-            raise ManagerException(f"No iterations found for group {group.name}")
-        
         # Initialize the socket dict (at the very least to avoid KeyErrors)
         for user_id in group.user_ids:
             self.sockets[user_id] = None
@@ -96,10 +95,10 @@ class GroupManager:
         session.close()
 
 
-    async def notify(self, websocket: WebSocket):
+    async def send_message(self, message: str, websocket: WebSocket):
         """Notify the user of the existing results that have to be fetched"""
         try:
-            await websocket.send_text("Please fetch results.")
+            await websocket.send_text(message)
         except WebSocketDisconnect:
             return
 
@@ -126,9 +125,7 @@ class GroupManager:
                 session.closer()
                 return
             if not prev_iter.notified[str(user_id)]:
-                if debug:
-                    print("notifying")
-                await self.notify(websocket)
+                await self.send_message("Please fetch results.", websocket)
                 notified = prev_iter.notified.copy()
                 notified[user_id] = True
                 prev_iter.notified = notified
@@ -164,47 +161,34 @@ class GroupManager:
                     continue
 
 
-    # A dummy for implementing actual optimization
-    async def run_optim(self, session: Session):
-        """A dummy for implementing actual optimization"""
-        # Synthesize preferences, details are method specific I believe
-        group = session.exec(select(Group).where(Group.id == self.group_id)).first()
-        problem_db: ProblemDB = session.exec(select(ProblemDB).where(ProblemDB.id == group.problem_id)).first()
-        problem: Problem = Problem.from_problemdb(problem_db)
-        iteration = group.head_iteration
-        prefs = iteration.set_preferences
+    async def optimize(self, user_id: int, data: str):
+        """Derive from this class and implement and "optimize" function.
         
-        await asyncio.sleep(3)
-        # Here we choose only one preference as an example
-        pref = prefs[str(group.user_ids[0])].aspiration_levels
-        #NOTE: NIMBUS METHOD; Integrate states into this system
-        try:
-            results = solve_sub_problems(
-                problem,
-                reference_point=pref,
-                num_desired=4,
-                current_objectives=iteration.parent.results[0].optimal_objectives # just one example, figure out how to switch this
-            )
-            print(f"Optimization for group {self.group_id} done.")
+        The function should handle:
+        * Preference information updates to the database
+        * Optimizing and putting results into database
+            * If optimization is done, new iteration should be created.
+        """
 
-            # ADD optimization results into database
-            iteration.results = results
-            session.add(iteration)
-            session.commit()
+class NIMBUSGroupManager(GroupManager):
+    """The NIMBUS specific GroupManager"""        
 
-            return True
+    async def optimize(self, user_id: int, data: str):
+        """The optimization function.
         
-        except ScalarizationError:
-            await self.broadcast("Error while scalarizing: classifications must differ from previous iteration!")
-            return False
+        Here, the preferences are set (and updated to database). If all preferences are set, optimize and
+        update database with results. Then, create new iteration and assign the correct relationships
+        between the database entries.
 
-        except Exception as e:
-            await self.broadcast(f"An error occured while optimizing: {e}")
-            return False
+        This serves as an example on how this system could be utilized and how the diverging of the 
+        paths could be handled. We could have two types of "paths", first one beign the NIMBUS path
+        and the second one beign the voting path. The execution path taken is determined by the
+        method field of pref_result of the group's head iteration.
 
-
-    async def set_preference(self, user_id: int, data: ReferencePoint):
-        """Set preferences of the user"""
+        The paths can hold whatever code one wants, but if done correctly, should result in updating data
+        in the current iteration with preferences and results and after the "step" is done, the group's head
+        should be updated to a new iteration, where one could the begin attaching new preferences/optimization.
+        """
 
         # Set the lock. Because of this lock the there will be only one 
         # database connection per manager so the connection pool shouldn't flood.
@@ -219,111 +203,184 @@ class GroupManager:
                 await self.broadcast(f"The group with ID {self.group_id} doesn't exist anymore.")
                 session.close()
                 return
-            current_iteration = group.head_iteration
 
-            if current_iteration.parent == None:
+            if group.head_iteration == None:
                 await self.broadcast("Problem not initialized! Initialize the problem!")
                 session.close()
                 return
 
+            current_iteration = group.head_iteration
             if debug:
-                print(current_iteration.id)
+                print(f"Current iteration ID: {current_iteration.id}")
 
-            # Update iteration preferences
-            set_prefs = current_iteration.set_preferences.copy()
-            set_prefs[user_id] = data
-            current_iteration.set_preferences = set_prefs
-            session.add(current_iteration)
-            session.commit()
-            session.refresh(current_iteration)
-
-            # Check if all preferences are in
-            for user_id in group.user_ids:
-                try:
-                    if current_iteration.set_preferences[str(user_id)] == None:
-                        if debug: print("Not all prefs in!")
+            # Diverge into different paths using PreferenceResult method type of the current iteration.
+            match current_iteration.pref_results.method:
+                case "nimbus":
+                    # we know the type of data we need so we'll validate the data as ReferencePoint.
+                    try:
+                        preference = ReferencePoint.model_validate(json.loads(data))
+                    except ValidationError as e:
+                        await self.send_message(f"Unable to validate sent data as reference point: {e}", self.sockets[user_id])
                         session.close()
                         return
-                except KeyError:
-                    if debug: 
-                        print("Key error: Not all prefs in!")
-                        print(current_iteration.set_preferences)
+                    except json.decoder.JSONDecodeError as e:
+                        await self.send_message(f"JSON Decoding failed: {e}", self.sockets[user_id])
+                        session.close()
+                        return
+                    except KeyError as e:
+                        await self.send_message(f"KeyError when validating data: {e}", self.sockets[user_id])
+                        session.close()
+                        return
+
+                    # We need to do a deep copy here, otherwise the db entry won't be updated (stupid)
+                    pref_results: NIMBUSPreferenceResults = copy.deepcopy(current_iteration.pref_results)
+                    pref_results.set_preferences[user_id] = preference
+                    current_iteration.pref_results = pref_results
+
+                    session.add(current_iteration)
+                    session.commit()
+                    session.refresh(current_iteration)
+
+                    # Check if all preferences are in
+                    pref_results: NIMBUSPreferenceResults = current_iteration.pref_results
+                    for user_id in group.user_ids:
+                        try:
+                            if pref_results.set_preferences[user_id] == None:
+                                if debug: 
+                                    print("Not all prefs in!")
+                                session.close()
+                                return
+                        except KeyError:
+                            if debug: 
+                                print("Key error: Not all prefs in!")
+                            session.close()
+                            return
+                    
+                    # If all preferences are in, begin optimization.
+                    problem_db: ProblemDB = session.exec(select(ProblemDB).where(ProblemDB.id == group.problem_id)).first()
+                    problem: Problem = Problem.from_problemdb(problem_db)
+                    prefs = current_iteration.pref_results.set_preferences
+                    
+                    await asyncio.sleep(3)
+                    # Here we choose only one preference as an example.
+                    pref = prefs[group.user_ids[0]].aspiration_levels
+                    # And here we choose the first result of the previous iteration as the current objectives.
+                    # The previous solution could be perhaps voted.
+                    prev_sol = current_iteration.parent.pref_results.results[0].optimal_objectives
+                    try:
+                        results: list[SolverResults] = solve_sub_problems(
+                            problem,
+                            reference_point=pref,
+                            num_desired=4,
+                            current_objectives=prev_sol
+                        )
+                        if debug:
+                            print(f"Optimization for group {self.group_id} done.")
+
+                    except ScalarizationError:
+                        await self.broadcast("Error while scalarizing: classifications must differ from previous iteration!")
+                        session.close()
+                        return
+
+                    except Exception as e:
+                        await self.broadcast(f"An error occured while optimizing: {e}")
+                        session.close()
+                        return
+                    
+                    # ADD optimization results into database
+                    pref_results = copy.deepcopy(current_iteration.pref_results)
+                    pref_results.results = results
+                    current_iteration.pref_results = pref_results
+                    session.add(current_iteration)
+                    session.commit()
+
+                    # If the optimization succeeds, update the iteration and
+                    # notify connected users that the optimization is done
+                    notified = {}
+                    for user_id in group.user_ids:
+                        try:
+                            socket: WebSocket = self.sockets[user_id]
+                            if socket != None:
+                                await self.send_message("Please fetch results.", socket)
+                                notified[user_id] = True
+                            else:
+                                notified[user_id] = False
+                        except KeyError:
+                            notified[user_id] = False
+                    
+                    # Update iteration's notifcation database item
+                    current_iteration.notified = notified
+                    session.add(current_iteration)
+                    session.commit()
+                    session.refresh(current_iteration)
+                    
+                    # TODO: Since this iteration was NIMBUS iteration, next iteration could be "voting"
+                    # That way on the next iteration, the execution would be diverged into the "voting"
+                    # section of this match/case
+                    new_pref_results = NIMBUSPreferenceResults(
+                        set_preferences={},
+                        results=[]
+                    )
+
+                    # After optimization, add new iteration
+                    next_iteration = GroupIteration(
+                        group_id=self.group_id,
+                        group=group,
+                        problem_id=current_iteration.problem_id,
+                        pref_results=new_pref_results,
+                        notified={},
+                        parent_id=current_iteration.id, # Probably redundant to have
+                        parent=current_iteration,       # two connections to parents?
+                        child=None,
+                    )
+                    session.add(next_iteration)
+                    session.commit()
+                    session.refresh(next_iteration)
+
+                    # Update database 
+                    current_iteration.child = next_iteration
+                    session.add(current_iteration)
+                    session.commit()
+
+                    # Update head
+                    group.head_iteration = next_iteration
+                    session.add(group)
+                    session.commit()
+
+                    # Close the session
                     session.close()
                     return
-            
-            # If all preferences are in, begin optimization.
-            success = await self.run_optim(session)
 
-            # If the optimization succeeds, update the iteration
-            # TODO: might want to move making new iterations to the optimization functions
-            if success:
-                # notify connected users that the optimization is done
-                notified = {}
-                for user_id in group.user_ids:
-                    try:
-                        socket: WebSocket = self.sockets[user_id]
-                        if debug:
-                            print(socket)
-                        if socket != None:
-                            await self.notify(socket)
-                            notified[user_id] = True
-                        else:
-                            notified[user_id] = False
-                    except KeyError:
-                        notified[user_id] = False
-                # Update iteration's notifcation database item
-                current_iteration.notified = notified
-                session.add(current_iteration)
-                session.commit()
-                session.refresh(current_iteration)
-                
-                # After optimization, add new iteration
-                next_iteration = GroupIteration(
-                    group_id=self.group_id,
-                    group=group,
-                    problem_id=current_iteration.problem_id,
-                    set_preferences={},
-                    notified={},
-                    parent_id=current_iteration.id, # Probably redundant to have
-                    parent=current_iteration,       # two connections to parents?
-                    child=None,
-                )
-                session.add(next_iteration)
-                session.commit()
-                session.refresh(next_iteration)
-
-                # Update database 
-                current_iteration.child = next_iteration
-                session.add(current_iteration)
-                session.commit()
-
-                # Update head
-                group.head_iteration = next_iteration
-                session.add(group)
-                session.commit()
-
-                # Close the session
-                session.close()
-
+                case "voting":
+                    # Here we could do some voting on the NIMBUS results.
+                    session.close()
+                    return
+                case _:
+                    # throw an error or something
+                    session.close()
+                    return
             
 class ManagerManager:
     """A singleton class to manage group managers. Spawns them and deletes them."""
 
-
     def __init__(self):
-        self.group_managers: dict[int, GroupManager] = {}
+        self.group_managers: dict[int, GroupManager | NIMBUSGroupManager] = {}
         self.lock = asyncio.Lock()
 
 
-    async def get_group_manager(self, group_id: int) -> GroupManager:
+    async def get_group_manager(self, group_id: int, method: str) -> GroupManager:
         """Get the group manager for a specific group. If it doesn't exist, create one."""
-        async with self.lock:
-            try:
-                return self.group_managers[group_id]
-            except KeyError:
-                group_manager = GroupManager(group_id=group_id)
-                self.group_managers[group_id] = group_manager
-                return group_manager
+        match method:
+            case "nimbus":    
+                async with self.lock:   
+                    try:
+                        return self.group_managers[group_id]
+                    except KeyError:
+                        group_manager = NIMBUSGroupManager(group_id=group_id)
+                        self.group_managers[group_id] = group_manager
+                        return group_manager
+            case _:
+                return None
 
         
     async def check_disconnect(self, group_id: int):
@@ -340,7 +397,7 @@ class ManagerManager:
                     del self.group_managers[group_id]
                 except:
                     if debug:
-                        print(f"Group {group_id} already deleted!")
+                        print(f"GroupManager for group {group_id} already deleted!")
 
 
 manager = ManagerManager()
@@ -389,14 +446,15 @@ async def websocket_endpoint(
     session: Annotated[Session, Depends(get_session)],
     websocket: WebSocket,
     token: str = Query(),
-    group_id: int = Query()
+    group_id: int = Query(),
+    method: str = Query()
 ):
     """ The websocket to which the user connects.
 
     Both the access token and the group id is given as a query parameter to the endpoint.
     The call to this endpoint looks like the following:
 
-    ws://[DOMAIN]:[PORT]/gdm/ws?token=[TOKEN]&group_id=[GROUP_ID]
+    ws://[DOMAIN]:[PORT]/gdm/ws?token=[TOKEN]&group_id=[GROUP_ID]&method=[METHOD]
 
     The data sent by the client is validated. If validation as ReferencePoint succeeds,
     the preferences of this particular user are updated. When all the preferences are in,
@@ -404,8 +462,6 @@ async def websocket_endpoint(
     optimization is done and the results are ready for fetching.
 
     If a user is not connected to the server, they will be notified when they connect next time.
-
-    The server sends its data as text messages.
 
     """
 
@@ -426,44 +482,36 @@ async def websocket_endpoint(
         await websocket.send_text(f"User {user.username} doesn't belong in group {group.name}")
         await websocket.close()
         return
-    
-    if debug: 
-        print(f"{user.username} has joined.")
 
-    # We don't need the session here any more, so we can just close it.
+    # We don't need the session here any more, so we can just close it. 
+    # I believe this releases connections to the pool
     session.close()
 
     # Get the group manager object from the manager of group managers
-    group_manager: GroupManager = await manager.get_group_manager(group_id=group_id)
+    group_manager = await manager.get_group_manager(group_id=group_id, method=method)
+    if group_manager == None:
+        await websocket.send_text(f"Unknown method: {method}")
+        await websocket.close()
+        return
+
     await group_manager.connect(user.id, websocket)
     if debug:
-        print(group_manager.group_id)
-        print(group_manager.sockets)
+        print(f"Group ID {group_id} manager's active connections {group_manager.sockets}")
+        print(f"Existing GroupManagers: {manager.group_managers}")
     while True:
         try:
             # Get data from socket
             data = await websocket.receive_text()
-            # A point for modification. Validate, but maybe as somethign else?
-            data = ReferencePoint.model_validate(json.loads(data))
-            # Validation successful, lets set the preferences.
+            # send data for preference setting
             asyncio.create_task(
-                group_manager.set_preference(user.id, data)
+                group_manager.optimize(user.id, data)
             )
-        except ValidationError as e:
-            print(f"ValidationError: {e}")
-            continue
-        except KeyError as e:
-            print(f"KeyError: {e}")
-            continue
-        except json.decoder.JSONDecodeError as e:
-            print(f"JSONDecoderError: {e}")
         except WebSocketDisconnect:
             await group_manager.disconnect(user.id, websocket)
-            await group_manager.broadcast(message=f"{user.username} left.")
-            if debug:
-                print(group_manager.sockets)
-                print(manager.group_managers)
             await manager.check_disconnect(group_id=group_id)
+            if debug:
+                print(f"Group ID {group_id} manager's active connections {group_manager.sockets}")
+                print(f"Existing GroupManagers: {manager.group_managers}")
             break
         except RuntimeError as e:
             print(f"RuntimeError: {e}")
@@ -512,38 +560,21 @@ def create_group(
     session.add(user)
     session.commit()
 
-    # Create base group iteration
-    first_iteration = GroupIteration(
-        problem_id=group.problem_id,
-        group_id=group.id,
-        group=group,
-        set_preferences={},
-        notified={},
-        parent_id=None,
-        parent=None,
-        child=None
-    )
-
-    session.add(first_iteration)
-    session.commit()
-    session.refresh(first_iteration)
-
-    group.head_iteration = first_iteration
-    session.add(group)
-    session.commit()
-
     return JSONResponse(
         content={"message": f"Group with ID {group.id} created."},
         status_code=status.HTTP_201_CREATED
     )
 
-@router.post("/initialize")
-def initialize(
+@router.post("/nimbus_initialize")
+def nimbus_initialize(
     request: GroupInfoRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
 ):
-    """Initialize the problem with NIMBUS"""
+    """Initialize the problem for NIMBUS
+    
+    Different initializations should be used for different methods
+    """
     group = session.exec(select(Group).where(Group.id == request.group_id)).first()
     if user.id != group.owner_id:
         raise HTTPException(
@@ -555,12 +586,13 @@ def initialize(
             detail=f"No group with ID {request.group_id} found!",
             status_code=status.HTTP_404_NOT_FOUND
         )
-    print(f"Groups head iterations parent: {group.head_iteration.parent}")
-    if group.head_iteration.parent != None:
+    
+    if group.head_iteration != None:
         raise HTTPException(
             detail=f"Group problem already initialized!",
             status_code=status.HTTP_400_BAD_REQUEST
         )
+    
     problem_db = session.exec(select(ProblemDB).where(ProblemDB.id == group.problem_id)).first()
     if problem_db == None:
         raise HTTPException(
@@ -569,23 +601,36 @@ def initialize(
         )
     problem = Problem.from_problemdb(problem_db)
 
-    #NOTE: NIMBUS METHOD
-    starting_point: SolverResults = generate_starting_point(problem)
-    iteration = group.head_iteration
-    iteration.results = [starting_point]
-    session.add(iteration)
+    # Create the first iteration for the group
+    start_iteration = GroupIteration(
+        problem_id=group.problem_id,
+        group_id=group.id,
+        group=group,
+        pref_results=NIMBUSPreferenceResults(
+            set_preferences={},
+            results=[generate_starting_point(problem)]
+        ),
+        notified={},
+        parent_id=None,
+        parent=None,
+        child=None
+    )
+
+    session.add(start_iteration)
     session.commit()
-    session.refresh(iteration)
+    session.refresh(start_iteration)
 
     new_iteration = GroupIteration(
-        problem_id=iteration.problem_id,
-        group_id=iteration.group_id,
-        group=iteration.group,
-        set_preferences={},
-        results=[],
+        problem_id=start_iteration.problem_id,
+        group_id=start_iteration.group_id,
+        group=start_iteration.group,
+        pref_results=NIMBUSPreferenceResults(
+            set_preferences={},
+            results=[],
+        ),
         notified={},
-        parent_id=iteration.id,
-        parent=iteration,
+        parent_id=start_iteration.id,
+        parent=start_iteration,
         child=None
     )
 
@@ -593,8 +638,8 @@ def initialize(
     session.commit()
     session.refresh(new_iteration)
 
-    iteration.child = new_iteration
-    session.add(iteration)
+    start_iteration.child = new_iteration
+    session.add(start_iteration)
     group.head_iteration = new_iteration
     session.add(group)
     session.commit()
@@ -871,12 +916,12 @@ def get_results(
     if iteration == None:
         raise nores_exp
     
-    if iteration.results == None:
+    if iteration.pref_results.results == None:
         raise nores_exp
 
     return JSONResponse(
         content={
-            "results": [result.model_dump()["optimal_objectives"] for result in iteration.results]
+            "results": [result.model_dump()["optimal_objectives"] for result in iteration.pref_results.results]
         },
         status_code=status.HTTP_200_OK
     )

@@ -1,6 +1,7 @@
 """Classes for group decision making"""
 
 import json
+from typing import Literal
 
 from sqlalchemy.types import TypeDecorator
 from sqlmodel import SQLModel, Field, Relationship, JSON, Column
@@ -55,7 +56,33 @@ class ReferencePointDictType(TypeDecorator):
             except ValidationError as e:
                 print(f"Validation error when deserializing PreferencePoint: {e}")
         return dictionary
-        
+
+class PreferenceResultType(TypeDecorator):
+    """A converter of Preference/Result types"""
+
+    impl = JSON
+
+    # Serialize
+    def process_bind_param(self, value, dialect):
+        if isinstance(value, BasePreferenceResults):
+            valmd = value.model_dump_json()
+            return valmd
+        return None
+            
+    # Deserialize
+    def process_result_value(self, value, dialect):
+        jsoned = json.loads(value)
+        if jsoned is not None:
+            match jsoned["method"]:
+                case "voting":
+                    valdeser = VotingPreferenceResults.model_validate(jsoned)
+                    return valdeser
+                case "nimbus":
+                    valdeser = NIMBUSPreferenceResults.model_validate(jsoned)
+                    return valdeser
+                case _:
+                    return None
+        return None
 
 class GroupBase(SQLModel):
     """Base class for group table model and group response model"""
@@ -80,6 +107,22 @@ class GroupPublic(GroupBase):
     user_ids: list[int]
     problem_id: int
 
+class BasePreferenceResults(SQLModel):
+    """A base class for a method specific preference and results"""
+    method: str = "unset"
+
+class NIMBUSPreferenceResults(BasePreferenceResults):
+    """A NIMBUS preference and result class"""
+    method: str = "nimbus"
+    set_preferences: dict[int, ReferencePoint] = Field(sa_column=Column(ReferencePointDictType))
+    results: list[SolverResults] = Field(sa_column=Column(SolverResultType))
+
+class VotingPreferenceResults(BasePreferenceResults):
+    """A voting preferences and results"""
+    method: str = "voting"
+    set_preferences: dict[int, int] = Field() # A user votes for an index from the results
+    results: SolverResults = Field() # The winning result
+
 class GroupIteration(SQLModel, table=True):
     """Table model for Group Iteration (we could extend this in various ways)"""
     id: int | None = Field(primary_key=True, default=None)
@@ -88,8 +131,7 @@ class GroupIteration(SQLModel, table=True):
     group_id: int | None = Field(foreign_key="group.id", default=None)
     group: "Group" = Relationship(back_populates="head_iteration")
     
-    set_preferences: dict[int, ReferencePoint] = Field(sa_column=Column(ReferencePointDictType)) # (ERIKOISTA)
-    results: list[SolverResults] = Field(sa_column=Column(SolverResultType)) # (ERIKOISTA)
+    pref_results: BasePreferenceResults = Field(sa_column=Column(PreferenceResultType))
     notified: dict[int, bool] = Field(sa_column=Column(JSON))
 
     parent_id: int | None = Field(foreign_key="groupiteration.id", default=None)
