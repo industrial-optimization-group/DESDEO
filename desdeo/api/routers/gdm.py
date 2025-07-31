@@ -683,15 +683,16 @@ def delete_group(
     
     # Get the root iteration
     head: GroupIteration = group.head_iteration
-    iter_count = 1
-    while head.parent != None:
-        head = head.parent
-        iter_count += 1
+    iter_count = 0
+    if head != None:
+        while head.parent != None:
+            head = head.parent
+            iter_count += 1
 
-    # First delete the corresponding group iterations
-    # This deletes the rest of the iterations due to cascades
-    session.delete(head)
-    session.commit()
+        # First delete the corresponding group iterations
+        # This deletes the rest of the iterations due to cascades
+        session.delete(head)
+        session.commit()
 
     # Then delete the group
     session.delete(group)
