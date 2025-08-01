@@ -420,8 +420,11 @@ class NIMBUSManager(GroupManager):
             session.close()
 
 class ManagerManager:
-    """A singleton class to manage group managers. Spawns them and deletes them."""
-
+    """A singleton class to manage group managers. Spawns them and deletes them.
+    TODO: Also check on manager type! If a Group has a NIMBUSManager, but for
+    example a RPMManager is requested, create it.
+    """
+    
     def __init__(self):
         self.group_managers: dict[int, GroupManager] = {}
         self.lock = asyncio.Lock()
