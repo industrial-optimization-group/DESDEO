@@ -339,11 +339,6 @@ class NIMBUSManager(GroupManager):
         should be updated to a new iteration, where one could the begin attaching new preferences/results.
         """
 
-        # Set the lock. Because of this lock the there sould be only one 
-        # database connection per manager so the connection pool shouldn't flood.
-        # (Apparently it still floods. I don't know why.) I guess increasing pool
-        # size might solve some issues. Or there might be something fundamental I
-        # don't understand...
         async with self.lock:
 
             # Fetch the current iteration
@@ -424,7 +419,7 @@ class ManagerManager:
     TODO: Also check on manager type! If a Group has a NIMBUSManager, but for
     example a RPMManager is requested, create it.
     """
-    
+
     def __init__(self):
         self.group_managers: dict[int, GroupManager] = {}
         self.lock = asyncio.Lock()
