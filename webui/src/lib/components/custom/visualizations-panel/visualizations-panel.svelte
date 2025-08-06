@@ -46,6 +46,7 @@
 	 * @property {number[][]} solutionsObjectiveValues - Array of objective value arrays for each solution from EMO
 	 * @property {number[][]} solutionsDecisionValues - Array of decision variable arrays for each solution from EMO
 	 * @property {function} onSelectSolution - Callback when user selects a solution from the table
+	 * @property {number | null} externalSelectedIndex - Optional index of solution to highlight from external source
 	 */
 	interface Props {
 		problem: ProblemInfo | null;
@@ -56,6 +57,8 @@
 		solutionsObjectiveValues?: number[][];
 		solutionsDecisionValues?: number[][];
 		onSelectSolution?: (index: number) => void;
+		externalSelectedIndex?: number | null;
+		externalSelectedIndexes?: number[] | null;
 	}
 
 	const {
@@ -66,7 +69,9 @@
 		currentPreferenceType,
 		solutionsObjectiveValues = [],
 		solutionsDecisionValues = [],
-		onSelectSolution
+		onSelectSolution,
+		externalSelectedIndex = null,
+		externalSelectedIndexes = null,
 	}: Props = $props();
 
 	/**
@@ -93,6 +98,12 @@
 	 * Adapts the component's callback to match parent expectations
 	 */
 	function handleLineSelect(index: number | null, data: any) {
+		// Only update internal selectedIndex in single-selection mode
+		if (externalSelectedIndexes === null) {
+			selectedIndex = index;
+		}
+    	
+		// Notify parent component if callback provided
 		if (index !== null && onSelectSolution) {
 			onSelectSolution(index);
 		}
@@ -110,7 +121,15 @@
 	};
 
 	// State for line selection and filtering
-	let selectedIndex = $state<number | null>(null);
+	// Initialize with external selection if provided, otherwise null
+	let selectedIndex = $state<number | null>(externalSelectedIndex !== null ? externalSelectedIndex : null);
+
+	// Update internal selection when external selection changes
+	$effect(() => {
+		if (externalSelectedIndex !== null) {
+			selectedIndex = externalSelectedIndex;
+		}
+	});
 
 	// Add container size tracking
 	let containerElement: HTMLDivElement;
@@ -161,6 +180,7 @@
 				referenceData={referenceData()}
 				options={plotOptions}
 				{selectedIndex}
+				multipleSelectedIndexes={externalSelectedIndexes}
 				onLineSelect={handleLineSelect}
 			/>
 		</div>

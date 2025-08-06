@@ -30,6 +30,7 @@
 	 *     enableBrushing: boolean; // enable axis brushing for filtering
 	 *   }
 	 * - selectedIndex: number | null — index of selected line (only one at a time)
+	 * -  multipleSelectedIndexes: number[] | null — indexes of selected lines (multiple selection mode)
 	 * - brushFilters: { [dimension: string]: [number, number] } — brush filter ranges for each dimension
 	 * - onLineSelect?: (index: number | null, data: any | null) => void — callback when line is selected/deselected
 	 * - onBrushFilter?: (filters: { [dimension: string]: [number, number] }) => void — callback when brush filters change
@@ -91,6 +92,21 @@
 
 	// Index of currently selected line (null = no selection)
 	export let selectedIndex: number | null = null;
+	// indexes for the case where multiple lines can be selected
+	export let multipleSelectedIndexes: number[] | null = null;
+
+	/**
+	 * Helper function to check if a data point is selected
+	 * Works with both single selection (selectedIndex) and multi-selection (multipleSelectedIndexes) modes
+	 * 
+	 * @param index - The index of the data point to check
+	 * @returns true if the data point is selected, false otherwise
+	 */
+	function isSelected(index: number): boolean {
+		// Check if we're in single or multi-selection mode and if the point is selected
+		return (multipleSelectedIndexes === null && index === selectedIndex) || 
+			   (multipleSelectedIndexes !== null && multipleSelectedIndexes.includes(index));
+	}
 
 	// Active brush filters - maps dimension name to [y1, y2] pixel coordinates
 	export let brushFilters: { [dimension: string]: [number, number] } = {};
@@ -222,20 +238,20 @@
 				const passes = passesFilters(d);
 				if (!passes) return 0; // Hidden lines have 0 opacity
 
-				if (i === selectedIndex) return 1; // Selected line is fully opaque
-				return options.opacity; // Other lines use configured opacity
-			})
+				if (isSelected(i)) return 1;// Selected line is fully opaque
+					return options.opacity; // Other lines use configured opacity
+				})
 			// Set stroke color - selected line gets theme color, others are gray
 			.attr('stroke', (d, i) => {
 				const passes = passesFilters(d);
 				if (!passes) return '#ccc'; // Hidden lines are gray
 
-				if (i === selectedIndex) return '#3b82f6'; // Selected line uses primary color
+				if (isSelected(i)) return '#3b82f6'; // Selected line uses primary color
 				return '#ccc'; // Non-selected lines are gray
 			})
 			// Set stroke width - selected line is slightly thicker
 			.attr('stroke-width', (d, i) => {
-				if (i === selectedIndex) return options.strokeWidth + 1; // Selected line is thicker
+				if (isSelected(i)) return options.strokeWidth + 1; // Selected line is thicker
 				return options.strokeWidth; // Normal thickness for others
 			});
 	}
@@ -370,12 +386,20 @@
 	 * @param dataPoint - The actual data object for the clicked line
 	 */
 	function handleLineClick(index: number, dataPoint: { [key: string]: number }) {
+		// If we're in multi-selection mode
+		if (multipleSelectedIndexes !== null) {
+			// Let the parent component handle selection/deselection logic
+			onLineSelect?.(index, dataPoint);
+			return;
+		}
+		
+		// Single selection mode
 		if (selectedIndex === index) {
-			// Clicking on already selected line = deselect it
+			// Deselect if already selected
 			selectedIndex = null;
 			onLineSelect?.(null, null);
 		} else {
-			// Clicking on different line = select it
+			// Select new item
 			selectedIndex = index;
 			onLineSelect?.(index, dataPoint);
 		}
@@ -751,7 +775,7 @@
 					// Restore original stroke width
 					d3.select(this).attr(
 						'stroke-width',
-						index === selectedIndex ? options.strokeWidth + 1 : options.strokeWidth
+						isSelected(index) ? options.strokeWidth + 1 : options.strokeWidth
 					);
 				});
 		}
@@ -822,6 +846,7 @@
 		options,
 		referenceData,
 		selectedIndex,
+		multipleSelectedIndexes,
 		brushFilters,
 		width,
 		height,

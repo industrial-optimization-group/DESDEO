@@ -24,6 +24,7 @@ from desdeo.api.utils.database import user_save_solutions
 from desdeo.mcdm.nimbus import generate_starting_point, solve_sub_problems
 from desdeo.problem import Problem
 from desdeo.tools import SolverResults
+from desdeo.tools.gurobipy_solver_interfaces import GurobipySolver
 
 router = APIRouter(prefix="/method/nimbus")
 
@@ -68,7 +69,7 @@ def solve_solutions(
         reference_point=request.preference.aspiration_levels,
         num_desired=request.num_desired,
         scalarization_options=request.scalarization_options,
-        solver=request.solver,
+        solver=GurobipySolver,
         solver_options=request.solver_options,
     )
     # create a new preference in the DB
@@ -175,7 +176,7 @@ def initialize(
     else:
         start_result = generate_starting_point(
                     problem=problem,
-                    solver=request.solver,
+                    solver=GurobipySolver,
                 )
         # fetch parent state if it is given
         if request.parent_state_id is None:
