@@ -1,41 +1,38 @@
 """Router for evolutionary multiobjective optimization (EMO) methods."""
 
-from typing import Dict, Annotated, Optional, List
 from datetime import datetime
+from typing import Annotated, Dict, List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlmodel import select
 
-from desdeo.api.utils.database import user_save_solutions
-from desdeo.emo.hooks.archivers import NonDominatedArchive
-from desdeo.emo.methods.EAs import nsga3, rvea
-from desdeo.problem import Problem
-
 from desdeo.api.db import get_session
-from desdeo.api.routers.user_authentication import get_current_user
-from desdeo.api.models.preference import (
-    PreferenceDB,
-    PreferenceBase,
-    ReferencePoint,
-    PreferredRanges,
-    PreferedSolutions,
-    NonPreferredSolutions,
+from desdeo.api.models.archive import (
+    UserSavedEMOResults,
 )
-from desdeo.api.models.problem import ProblemDB
-from desdeo.api.models.session import InteractiveSessionDB
-from desdeo.api.models.state import StateDB
-from desdeo.api.models.user import User
 from desdeo.api.models.EMO import (
     EMOSaveRequest,
     EMOSolveRequest,
 )
-
-from desdeo.api.models.state import EMOState, EMOSaveState
-
-from desdeo.api.models.archive import (
-    UserSavedEMOResults,
+from desdeo.api.models.preference import (
+    NonPreferredSolutions,
+    PreferenceBase,
+    PreferenceDB,
+    PreferredRanges,
+    PreferredSolutions,
+    ReferencePoint,
 )
+from desdeo.api.models.problem import ProblemDB
+from desdeo.api.models.session import InteractiveSessionDB
+from desdeo.api.models.state import EMOSaveState, EMOState, StateDB
+from desdeo.api.models.user import User
+from desdeo.api.routers.user_authentication import get_current_user
+from desdeo.api.utils.database import user_save_solutions
 from desdeo.api.utils.emo_database import _convert_dataframe_to_dict_list
+from desdeo.emo.hooks.archivers import NonDominatedArchive
+from desdeo.emo.methods.EAs import nsga3, rvea
+from desdeo.problem import Problem
 
 router = APIRouter(prefix="/method/emo", tags=["evolutionary"])
 
@@ -50,9 +47,7 @@ def start_emo_optimization(
 
     # Handle session logic
     if request.session_id is not None:
-        statement = select(InteractiveSessionDB).where(
-            InteractiveSessionDB.id == request.session_id
-        )
+        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == request.session_id)
         interactive_session = session.exec(statement).first()
 
         if interactive_session is None:
@@ -62,15 +57,11 @@ def start_emo_optimization(
             )
     else:
         # Use active session
-        statement = select(InteractiveSessionDB).where(
-            InteractiveSessionDB.id == user.active_session_id
-        )
+        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == user.active_session_id)
         interactive_session = session.exec(statement).first()
 
     # Fetch problem from DB
-    statement = select(ProblemDB).where(
-        ProblemDB.user_id == user.id, ProblemDB.id == request.problem_id
-    )
+    statement = select(ProblemDB).where(ProblemDB.user_id == user.id, ProblemDB.id == request.problem_id)
     problem_db = session.exec(statement).first()
 
     if problem_db is None:
@@ -83,19 +74,13 @@ def start_emo_optimization(
     problem = Problem.from_problemdb(problem_db)
 
     # Build reference vector options based on preference type
-    reference_vector_options = _build_reference_vector_options(
-        request.preference, request.number_of_vectors
-    )
+    reference_vector_options = _build_reference_vector_options(request.preference, request.number_of_vectors)
 
     # Create solver and publisher
     if request.method == "RVEA":
-        solver, publisher = rvea(
-            problem=problem, reference_vector_options=reference_vector_options
-        )
+        solver, publisher = rvea(problem=problem, reference_vector_options=reference_vector_options)
     elif request.method == "NSGA3":
-        solver, publisher = nsga3(
-            problem=problem, reference_vector_options=reference_vector_options
-        )
+        solver, publisher = nsga3(problem=problem, reference_vector_options=reference_vector_options)
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -112,19 +97,13 @@ def start_emo_optimization(
     emo_results = solver()
 
     # Convert DataFrames to dictionaries for solutions
-    solutions_dict = _convert_dataframe_to_dict_list(
-        getattr(emo_results, "solutions", None)
-    )
+    solutions_dict = _convert_dataframe_to_dict_list(getattr(emo_results, "solutions", None))
 
     # Convert DataFrames to dictionaries for outputs
-    outputs_dict = _convert_dataframe_to_dict_list(
-        getattr(emo_results, "outputs", None)
-    )
+    outputs_dict = _convert_dataframe_to_dict_list(getattr(emo_results, "outputs", None))
 
     # Create DB preference
-    preference_db = PreferenceDB(
-        user_id=user.id, problem_id=problem_db.id, preference=request.preference
-    )
+    preference_db = PreferenceDB(user_id=user.id, problem_id=problem_db.id, preference=request.preference)
 
     session.add(preference_db)
     session.commit()
@@ -181,9 +160,7 @@ def save(
 ) -> EMOSaveState:
     """Save solutions."""
     if request.session_id is not None:
-        statement = select(InteractiveSessionDB).where(
-            InteractiveSessionDB.id == request.session_id
-        )
+        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == request.session_id)
         interactive_session = session.exec(statement)
 
         if interactive_session is None:
@@ -194,9 +171,7 @@ def save(
     else:
         # request.session_id is None:
         # use active session instead
-        statement = select(InteractiveSessionDB).where(
-            InteractiveSessionDB.id == user.active_session_id
-        )
+        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == user.active_session_id)
 
         interactive_session = session.exec(statement).first()
 
@@ -232,17 +207,13 @@ def save(
         use_archive = parent_state.state.use_archive
 
     save_state = EMOSaveState(
-        method=(
-            parent_state.state.method if parent_state else "EMO"
-        ),  # Get from parent or default
+        method=(parent_state.state.method if parent_state else "EMO"),  # Get from parent or default
         max_evaluations=max_evaluations,
         number_of_vectors=number_of_vectors,
         use_archive=use_archive,
         problem_id=request.problem_id,
         saved_solutions=[solution.to_emo_results() for solution in request.solutions],
-        solutions=[
-            solution.model_dump() for solution in request.solutions
-        ],  # Original solutions from request
+        solutions=[solution.model_dump() for solution in request.solutions],  # Original solutions from request
     )
 
     # create DB state
@@ -267,9 +238,7 @@ def get_saved_solutions(
     from desdeo.api.models.archive import UserSavedSolutionDB
 
     # Query saved solutions for the current user
-    statement = select(UserSavedSolutionDB).where(
-        UserSavedSolutionDB.user_id == user.id
-    )
+    statement = select(UserSavedSolutionDB).where(UserSavedSolutionDB.user_id == user.id)
     saved_solutions = session.exec(statement).all()
 
     # Convert to response format
@@ -291,9 +260,7 @@ def get_saved_solutions(
 
 
 # Helper functions
-def _build_reference_vector_options(
-    preference: PreferenceBase, number_of_vectors: int
-) -> Dict:
+def _build_reference_vector_options(preference: PreferenceBase, number_of_vectors: int) -> Dict:
     """Build reference vector options based on preference type."""
 
     base_options = {
@@ -308,9 +275,9 @@ def _build_reference_vector_options(
 
             preference = ReferencePoint.model_validate(preference)
         elif preference_type == "preferred_solutions":
-            from desdeo.api.models.preference import PreferedSolutions
+            from desdeo.api.models.preference import PreferredSolutions
 
-            preference = PreferedSolutions.model_validate(preference)
+            preference = PreferredSolutions.model_validate(preference)
         elif preference_type == "non_preferred_solutions":
             from desdeo.api.models.preference import NonPreferredSolutions
 
