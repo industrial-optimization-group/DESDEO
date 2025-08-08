@@ -3,24 +3,9 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import type { components } from '$lib/api/client-types';
 	import { Input } from '$lib/components/ui/input/index.js';
-	type ProblemInfo = components['schemas']['ProblemInfo'];
-	// TODO: hopefully this will disappear, when backend is ready and I can run client-types and use schemas
-	// type OriginalSolution = components['schemas']['UserSavedSolutionAddress'];
-	// type Solution = OriginalSolution & {
-	// 	optimal_variables?: Record<string, number | number[]>; // TODO: this WILL BE REMOVED when I figure out where to get it, and API changes
-	// };
-	type Solution = {
-		objective_values: {
-			[key: string]: number | number[];
-		};
-		address_state: number;
-		address_result: number;
-		name?: string; // Optional name for the solution, used in the table, exists for all saved solutions
-		optimal_variables?: Record<string, number | number[]>; // TODO: this WILL BE REMOVED when I figure out where to get it, and API changes
-	};
+	type Solution = components['schemas']['UserSavedSolutionAddress'];
 
 		interface Props {
-		problem: ProblemInfo;
 		onChange?: (event: { value: string}) => void;
 		ref?: HTMLElement | null;
 		currentSolutions: Solution[];
@@ -31,7 +16,6 @@
 	}
 
 	let {
-		problem,
 		onChange,
 		ref = null,
 		currentSolutions,
@@ -82,9 +66,13 @@
 			<p class="mb-2 text-sm text-gray-500">Select two solutions from table or graph.</p>
 			<!-- Display each selected solution for intermediate mode -->
 			{#if currentSolutions.length > 0}
-				{#each currentSolutions as solution, solutionIndex}
+				{#each currentSolutions as solution}
 					<div class="mb-4 border-b pb-3">
-						<div class="font-medium text-primary">Solution {solution.address_result}</div> <!-- TODO: this will be NAME of solution when I figure ot how-->
+							{#if solution.name}
+                                <div class="font-medium text-primary">{solution.name}</div>
+                            {:else}
+                                <div class="font-medium text-primary">Solution {solution.address_result + 1}</div>
+                            {/if}
 					</div>
 				{/each}
 				

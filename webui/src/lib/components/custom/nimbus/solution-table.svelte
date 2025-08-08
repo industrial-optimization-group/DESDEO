@@ -9,20 +9,7 @@
 	import { Button } from '$lib/components/ui/button';    
 
 	type ProblemInfo = components['schemas']['ProblemInfo'];
-	// type OriginalSolution = components['schemas']['UserSavedSolutionAddress'];
-	// type Solution = OriginalSolution & {
-	// 	optimal_variables?: Record<string, number | number[]>; // TODO: this WILL BE REMOVED when I figure out where to get it, and API changes
-	// };
-    type Solution = {
-		objective_values: {
-			[key: string]: number | number[];
-		};
-		address_state: number;
-		address_result: number;
-		name?: string; // Optional name for the solution, used in the table, exists for all saved solutions
-		optimal_variables?: Record<string, number | number[]>; // TODO: this WILL BE REMOVED when I figure out where to get it, and API changes
-	};
-
+	type Solution = components['schemas']['UserSavedSolutionAddress'];
 	let {
         problem,
         solverResults,
@@ -37,7 +24,7 @@
         selectedSolutions: number[];
         handle_save: (solution: Solution, name:string|undefined) => void;
         handle_row_click: (index:number) => void;
-        has_unsaved_changes: boolean; // Parent can trigger check for unsaved changes
+        has_unsaved_changes: boolean;
         isSaved: (solution: Solution) => boolean;
 	} = $props();
 
@@ -47,10 +34,10 @@
         return selectedSolutions.includes(index);
     }
 
-    // Track names being edited in inputs - simplified state management
+    // Track names being edited in inputs
     let editNames = $state<Record<number, string>>({});
     let inputFocused = $state<Record<number, boolean>>({});
-    let inputChanged = $state<Record<number, boolean>>({});  // Track if input was changed
+    let inputChanged = $state<Record<number, boolean>>({});
 
     // Initialize names from solutions whenever results change
     $effect(() => {
@@ -158,7 +145,7 @@
                                     onclick={(e) => e.stopPropagation()} 
                                     onmousedown={(e) => e.stopPropagation()}
                                     class="transition-all duration-200 {isInputFocused(index) ? 'border-primary shadow-sm' : 'border-gray-200 bg-gray-50 text-gray-600'}"
-                                    placeholder={`Solution ${solution.address_result}`}
+                                    placeholder={`Solution ${solution.address_result + 1}`}
                                     onfocus={() => inputFocused[index] = true}
                                     onblur={() => inputFocused[index] = false}
                                 />
@@ -176,7 +163,7 @@
                             {#if solution.name}
                                 {solution.name}
                             {:else}
-                                <span class="text-gray-400">Solution {solution.address_result}</span>
+                                <span class="text-gray-400">Solution {solution.address_result + 1}</span>
                             {/if}
                         {/if}
                     </TableCell>
