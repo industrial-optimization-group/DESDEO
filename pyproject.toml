@@ -33,7 +33,8 @@ dependencies = [
     "pymoo >= 0.6.1.2",
     "shap >= 0.47.0",
     "cvxpy[scip] >= 1.6.4",
-    "moocore >= 0.1.7"
+    "moocore >= 0.1.7",
+    "marimo (>=0.14.13,<0.15.0)",
 ]
 
 [project.urls]
