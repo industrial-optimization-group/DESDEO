@@ -5,11 +5,12 @@ import shutil
 import pytest
 from fixtures import dtlz2_5x_3f_data_based  # noqa: F401
 
-from desdeo.problem.testproblems import re21, river_pollution_problem
+from desdeo.problem.testproblems import dtlz2, re21, river_pollution_problem
 from desdeo.tools.utils import (
     available_solvers,
     find_compatible_solvers,
     guess_best_solver,
+    payoff_table_method,
 )
 
 
@@ -50,3 +51,11 @@ def test_find_compatible_solvers():
         )
     else:
         assert len(solvers) == 3
+
+
+@pytest.mark.utils
+def test_payoff_dtlz2():
+    """Tests the payoff-table method with the dtlz2 problem."""
+    problem = dtlz2(6, 4)
+
+    ideal, nadir = payoff_table_method(problem)

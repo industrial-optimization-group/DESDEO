@@ -1,3 +1,5 @@
+"""Variants of the river pollution problem are defined here."""
+
 from pathlib import Path
 
 import polars as pl
@@ -11,6 +13,7 @@ from desdeo.problem.schema import (
     Variable,
     VariableTypeEnum,
 )
+
 
 def river_pollution_problem(*, five_objective_variant: bool = True) -> Problem:
     r"""Create a pydantic dataclass representation of the river pollution problem with either five or four variables.
@@ -164,34 +167,34 @@ def river_pollution_problem_discrete(*, five_objective_variant: bool = True) -> 
             Heidelberg, 1997.
     """
     filename = "datasets/river_poll_4_objs.csv"
-    trueVarNames = {"x_1": "BOD", "x_2": "DO"}
-    trueObjNames = {"f1": "DO city", "f2": "DO municipality", "f3": "ROI fishery", "f4": "ROI city"}
+    true_var_names = {"x_1": "BOD", "x_2": "DO"}
+    true_obj_names = {"f1": "DO city", "f2": "DO municipality", "f3": "ROI fishery", "f4": "ROI city"}
     if five_objective_variant:
         filename = "datasets/river_poll_5_objs.csv"
-        trueObjNames["f5"] = "BOD deviation"
+        true_obj_names["f5"] = "BOD deviation"
 
     path = Path(__file__).parent.parent.parent.parent / filename
     data = pl.read_csv(path, has_header=True)
 
     variables = [
         Variable(
-            name=trueVarNames[varName],
+            name=true_var_names[varName],
             symbol=varName,
             variable_type=VariableTypeEnum.real,
             lowerbound=0.3,
             upperbound=1.0,
             initial_value=0.65,
         )
-        for varName in trueVarNames
+        for varName in true_var_names
     ]
     maximize = {"f1": True, "f2": True, "f3": True, "f4": True, "f5": False}
-    ideal = {objName: (data[objName].max() if maximize[objName] else data[objName].min()) for objName in trueObjNames}
-    nadir = {objName: (data[objName].min() if maximize[objName] else data[objName].max()) for objName in trueObjNames}
+    ideal = {objName: (data[objName].max() if maximize[objName] else data[objName].min()) for objName in true_obj_names}
+    nadir = {objName: (data[objName].min() if maximize[objName] else data[objName].max()) for objName in true_obj_names}
     units = {"f1": "mg/L", "f2": "mg/L", "f3": "%", "f4": "%", "f5": "mg/L"}
 
     objectives = [
         Objective(
-            name=trueObjNames[objName],
+            name=true_obj_names[objName],
             symbol=objName,
             func=None,
             unit=units[objName],
@@ -200,12 +203,12 @@ def river_pollution_problem_discrete(*, five_objective_variant: bool = True) -> 
             ideal=ideal[objName],
             nadir=nadir[objName],
         )
-        for objName in trueObjNames
+        for objName in true_obj_names
     ]
 
     discrete_def = DiscreteRepresentation(
-        variable_values=data[list(trueVarNames.keys())].to_dict(),
-        objective_values=data[list(trueObjNames.keys())].to_dict(),
+        variable_values=data[list(true_var_names.keys())].to_dict(),
+        objective_values=data[list(true_obj_names.keys())].to_dict(),
     )
 
     return Problem(
@@ -254,8 +257,10 @@ def river_pollution_scenario() -> Problem:
     $$
     \\begin{equation}
     \\begin{array}{rll}
-    \\text{maximize}   & f_1(\\mathbf{x}) = & \\alpha + \\left(\\log\\left(\\left(\\frac{\\beta}{2} - 1.14\\right)^2\\right) + \\beta^3\\right) x_1 \\\\
-    \\text{maximize}   & f_2(\\mathbf{x}) = & \\gamma + \\delta x_1 + \\xi x_2 + \\frac{0.01}{\\eta - x_1^2} + \\frac{0.30}{\\eta - x_2^2} \\\\
+    \\text{maximize}   & f_1(\\mathbf{x}) = & \\alpha + \\left(\\log\\left(\\left(\\frac{\\beta}{2}
+        - 1.14\\right)^2\\right) + \\beta^3\\right) x_1 \\\\
+    \\text{maximize}   & f_2(\\mathbf{x}) = & \\gamma + \\delta x_1 + \\xi x_2 + \\frac{0.01}{\\eta - x_1^2}
+        + \\frac{0.30}{\\eta - x_2^2} \\\\
     \\text{maximize}   & f_3(\\mathbf{x}) = & r - \\frac{0.71}{1.09 - x_1^2} \\\\
     \\text{minimize}   & f_4(\\mathbf{x}) = & -0.96 + \\frac{0.96}{1.09 - x_2^2} \\\\
     \\text{subject to} & & 0.3 \\leq x_1, x_2 \\leq 1.0.
@@ -278,7 +283,7 @@ def river_pollution_scenario() -> Problem:
             Analysis: Proceedings of the XIth International Conference on MCDM, 1-6
             August 1994, Coimbra, Portugal. Berlin, Heidelberg: Springer Berlin
             Heidelberg, 1997.
-    """
+    """  # noqa: RUF002
     num_scenarios = 6
     scenario_key_stub = "scenario"
 
@@ -351,22 +356,23 @@ def river_pollution_scenario() -> Problem:
     scenario_keys = []
 
     for i in range(num_scenarios):
-        scenario_key = f"{scenario_key_stub}_{i+1}"
+        scenario_key = f"{scenario_key_stub}_{i + 1}"
         scenario_keys.append(scenario_key)
 
-        gamma_expr = f"Ln(alpha[{i+1}]/2 - 1) + alpha[{i+1}]/2 + 1.5"
+        gamma_expr = f"Ln(alpha[{i + 1}]/2 - 1) + alpha[{i + 1}]/2 + 1.5"
 
-        f1_expr = f"alpha[{i+1}] + (Ln((beta[{i+1}]/2 - 1.14)**2) + beta[{i+1}]**3)*x_1"
+        f1_expr = f"alpha[{i + 1}] + (Ln((beta[{i + 1}]/2 - 1.14)**2) + beta[{i + 1}]**3)*x_1"
         f2_expr = (
-            f"{gamma_expr} + delta[{i+1}]*x_1 + xi[{i+1}]*x_2 + 0.01/(eta[{i+1}] - x_1**2) + 0.3/(eta[{i+1}] - x_2**2)"
+            f"{gamma_expr} + delta[{i + 1}]*x_1 + xi[{i + 1}]*x_2 + 0.01/(eta[{i + 1}] - x_1**2) "
+            f"+ 0.3/(eta[{i + 1}] - x_2**2)"
         )
-        f3_expr = f"r[{i+1}]  - 0.71/(1.09 - x_1**2)"
+        f3_expr = f"r[{i + 1}]  - 0.71/(1.09 - x_1**2)"
 
         # f1
         objectives.append(
             Objective(
                 name="DO level city",
-                symbol=f"f1_{i+1}",
+                symbol=f"f1_{i + 1}",
                 scenario_keys=[scenario_key],
                 func=f1_expr,
                 objective_type=ObjectiveTypeEnum.analytical,
@@ -381,7 +387,7 @@ def river_pollution_scenario() -> Problem:
         objectives.append(
             Objective(
                 name="DO level fishery",
-                symbol=f"f2_{i+1}",
+                symbol=f"f2_{i + 1}",
                 scenario_keys=[scenario_key],
                 func=f2_expr,
                 objective_type=ObjectiveTypeEnum.analytical,
@@ -396,7 +402,7 @@ def river_pollution_scenario() -> Problem:
         objectives.append(
             Objective(
                 name="Return of investment",
-                symbol=f"f3_{i+1}",
+                symbol=f"f3_{i + 1}",
                 scenario_keys=[scenario_key],
                 func=f3_expr,
                 objective_type=ObjectiveTypeEnum.analytical,
