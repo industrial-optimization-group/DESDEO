@@ -1,7 +1,6 @@
 """Model exports."""
 
 __all__ = [
-    "UserSavedSolutionBase",
     "UserSavedSolutionDB",
     "Bounds",
     "ConstantDB",
@@ -14,6 +13,7 @@ __all__ = [
     "InteractiveSessionDB",
     "InteractiveSessionInfo",
     "IntermediateSolutionRequest",
+    "IntermediateSolutionResponse",
     "IntermediateSolutionState",
     "NIMBUSBaseState",
     "NIMBUSClassificationRequest",
@@ -21,6 +21,9 @@ __all__ = [
     "NIMBUSInitializationRequest",
     "NIMBUSInitializationState",
     "NIMBUSSaveRequest",
+    "NIMBUSClassificationResponse",
+    "NIMBUSInitializationResponse",
+    "NIMBUSSaveResponse",
     "NIMBUSSaveState",
     "ObjectiveDB",
     "PreferenceBase",
@@ -53,28 +56,35 @@ __all__ = [
     "EMOSaveState",
     "EMOState",
     "BaseEMOState",
+    "SolutionAddress",
+    "UserSavedSolutionAddress",
     "UtopiaRequest",
     "UtopiaResponse",
     "ProblemMetaDataGetRequest",
 ]
 
-from .archive import UserSavedSolutionBase, UserSavedSolutionDB
-from .generic import IntermediateSolutionRequest
+from .archive import SolutionAddress, UserSavedSolutionAddress, UserSavedSolutionDB
+from .EMO import EMOSolveRequest
+from .generic import IntermediateSolutionRequest, IntermediateSolutionResponse
 from .nimbus import (
     NIMBUSClassificationRequest,
+    NIMBUSClassificationResponse,
     NIMBUSInitializationRequest,
+    NIMBUSInitializationResponse,
     NIMBUSSaveRequest,
+    NIMBUSSaveResponse,
 )
 from .preference import (
     Bounds,
+    NonPreferredSolutions,
+    PreferedSolutions,
     PreferenceBase,
     PreferenceDB,
-    ReferencePoint,
     PreferredRanges,
-    PreferedSolutions,
-    NonPreferredSolutions,
+    ReferencePoint,
 )
 from .problem import (
+    BaseProblemMetaData,
     ConstantDB,
     ConstraintDB,
     DiscreteRepresentationDB,
@@ -86,20 +96,14 @@ from .problem import (
     ProblemInfo,
     ProblemInfoSmall,
     ProblemMetaDataDB,
+    ProblemMetaDataGetRequest,
     ScalarizationFunctionDB,
     SimulatorDB,
     TensorConstantDB,
     TensorVariableDB,
     VariableDB,
-    ProblemMetaDataDB,
-    BaseProblemMetaData,
-    ForestProblemMetaData,
-    ProblemMetaDataGetRequest,
 )
-from .utopia import UtopiaRequest, UtopiaResponse
 from .reference_point_method import RPMSolveRequest
-from .EMO import EMOSolveRequest
-
 from .session import (
     CreateSessionRequest,
     GetSessionRequest,
@@ -108,6 +112,9 @@ from .session import (
     InteractiveSessionInfo,
 )
 from .state import (
+    BaseEMOState,
+    EMOSaveState,
+    EMOState,
     IntermediateSolutionState,
     NIMBUSBaseState,
     NIMBUSClassificationState,
@@ -116,8 +123,6 @@ from .state import (
     RPMBaseState,
     RPMState,
     StateDB,
-    EMOSaveState,
-    EMOState,
-    BaseEMOState,
 )
 from .user import User, UserBase, UserPublic, UserRole
+from .utopia import UtopiaRequest, UtopiaResponse

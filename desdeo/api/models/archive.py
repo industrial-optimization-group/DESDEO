@@ -1,35 +1,22 @@
 """Defines models for archiving solutions."""
 
-from typing import TYPE_CHECKING, Optional, List
-from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
-from desdeo.tools.generics import SolverResults, EMOResults
+from desdeo.tools.generics import EMOResults
 
 if TYPE_CHECKING:
     from .problem import ProblemDB
     from .state import StateDB
     from .user import User
-    from .session import InteractiveSessionDB
 
+class SolutionAddress(SQLModel):
+    objective_values: dict[str, float] = Field(sa_column=Column(JSON))
+    address_state: int = Field(sa_column=Column(JSON))
+    address_result: int = Field(sa_column=Column(JSON))
 
-class UserSavedSolutionBase(SQLModel):
-    """The base model of an archive entry."""
-
-    variable_values: dict[str, float | list] = Field(
-        sa_column=Column(JSON, nullable=False)
-    )
-    objective_values: dict[str, float] = Field(sa_column=Column(JSON, nullable=False))
-    constraint_values: dict[str, float] | None = Field(
-        sa_column=Column(JSON), default=None
-    )
-    extra_func_values: dict[str, float] | None = Field(
-        sa_column=Column(JSON), default=None
-    )
-
-
-class UserSavedSolutionDB(UserSavedSolutionBase, table=True):
+class UserSavedSolutionDB(SolutionAddress, table=True):
     """Database model of an archive entry."""
 
     id: int | None = Field(primary_key=True, default=None)
@@ -38,14 +25,13 @@ class UserSavedSolutionDB(UserSavedSolutionBase, table=True):
     )  # Optional name for the solution
     user_id: int | None = Field(foreign_key="user.id", default=None)
     problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
-    state_id: int | None = Field(foreign_key="statedb.id", default=None)
+    state_id: int | None = Field(foreign_key="statedb.id", default=None) # The save state, not the state the solution is found from?
     # Back populates
     user: "User" = Relationship(back_populates="archive")
     problem: "ProblemDB" = Relationship(back_populates="solutions")
     state: "StateDB" = Relationship(back_populates="saved_solutions")
 
-
-class UserSavedSolverResults(SolverResults):
+class UserSavedSolutionAddress(SolutionAddress):
     """Defines a schema for storing archived solutions."""
 
     name: str | None = Field(
@@ -53,16 +39,12 @@ class UserSavedSolverResults(SolverResults):
         default=None,
     )
 
-    def to_solver_results(self) -> SolverResults:
-        """Convert to SolverResults without the name field."""
-        return SolverResults(
-            optimal_variables=self.optimal_variables,
-            optimal_objectives=self.optimal_objectives,
-            constraint_values=self.constraint_values,
-            extra_func_values=self.extra_func_values,
-            scalarization_values=self.scalarization_values,
-            success=self.success,
-            message=self.message,
+    def to_solution_address(self) -> SolutionAddress:
+        """Convert UserSavedSolutionAddress to just SolutionAddress"""
+        return SolutionAddress(
+            objective_values=self.objective_values,
+            address_state=self.address_state,
+            address_result=self.address_result
         )
     
 class UserSavedEMOResults(EMOResults):
