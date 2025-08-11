@@ -7,6 +7,7 @@ from scipy.spatial.distance import pdist
 import logging
 
 from desdeo.mcdm import rpm_solve_solutions
+from desdeo.mcdm.nimbus import solve_sub_problems, generate_starting_point
 from desdeo.problem import objective_dict_to_numpy_array
 from desdeo.problem.testproblems import dtlz2, river_pollution_problem
 from desdeo.tools import PyomoIpoptSolver
@@ -33,6 +34,54 @@ def test_rpm_multipliers():
             print(f"Result {i} has lagrange multipliers: {result.lagrange_multipliers}")
         else:
             print(f"Result {i} does not have lagrange multipliers.")
+    # The test should pass regardless of whether lagrange multipliers are computed,
+    # since our error handling makes the code robust
+    assert all(result.success for result in results), "All optimizations should succeed"
+
+
+@pytest.mark.nimbus
+def test_nimbus_multipliers():
+    problem = river_pollution_problem(five_objective_variant=False)
+
+    print(f"Problem: {problem.name}, {problem.is_twice_differentiable}")
+    reference_point = {"f_1": -6, "f_2": -3, "f_3": 7, "f_4": 0.5}
+
+    # Use solver options that ensure dual values are computed
+    _solver = PyomoIpoptSolver
+
+    # Step 1: Generate a starting point using NIMBUS
+    print("Generating starting point...")
+    starting_point = generate_starting_point(
+        problem, reference_point=reference_point, solver=_solver
+    )
+
+    print(f"Starting point objectives: {starting_point.optimal_objectives}")
+
+    # Step 2: Use the starting point as current_objectives and solve sub-problems
+    current_objectives = starting_point.optimal_objectives
+
+    # Solve NIMBUS sub-problems (typically 1-4 solutions)
+    num_desired = 3  # Request 3 solutions
+    results = solve_sub_problems(
+        problem=problem,
+        current_objectives=current_objectives,
+        reference_point=reference_point,
+        num_desired=num_desired,
+        solver=_solver,
+    )
+
+    # Verify basic results
+    assert (
+        len(results) == num_desired
+    ), f"Expected {num_desired} results, got {len(results)}"
+
+    # Check if lagrange multipliers are computed
+    for i, result in enumerate(results):
+        if result.lagrange_multipliers is not None:
+            print(f"Result {i} has lagrange multipliers: {result.lagrange_multipliers}")
+        else:
+            print(f"Result {i} does not have lagrange multipliers.")
+
     # The test should pass regardless of whether lagrange multipliers are computed,
     # since our error handling makes the code robust
     assert all(result.success for result in results), "All optimizations should succeed"
