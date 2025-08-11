@@ -78,10 +78,9 @@
 		},
 		{
 			name: 'Reference Point',
-			path: '/interactive_methods/reference-point',
+			path: '/interactive_methods/RPM',
 			description: 'Reference Point method for MOO.',
-			preferencesType: ['reference point'],
-			problemtypes: ['linear', 'nonlinear']
+			preferencesType: ['reference point']
 		}
 	];
 	onMount(() => {
