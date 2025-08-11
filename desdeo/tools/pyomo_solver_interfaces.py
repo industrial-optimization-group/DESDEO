@@ -26,11 +26,15 @@ class BonminOptions(BaseModel):
         Please add options as they are needed and make a pull request.
     """
 
-    tol: float = Field(description="Sets the convergence tolerance of ipopt. Defaults to 1e-8.", default=1e-8)
+    tol: float = Field(
+        description="Sets the convergence tolerance of ipopt. Defaults to 1e-8.",
+        default=1e-8,
+    )
     """Sets the convergence tolerance of ipopt. Defaults to 1e-8."""
 
     bonmin_integer_tolerance: float = Field(
-        description="Numbers within this value of an integer are considered integers. Defaults to 1e-6.", default=1e-6
+        description="Numbers within this value of an integer are considered integers. Defaults to 1e-6.",
+        default=1e-6,
     )
     """Numbers within this value of an integer are considered integers. Defaults to 1e-6."""
 
@@ -74,14 +78,21 @@ class IpoptOptions(BaseModel):
         Please add options as they are needed and make a pull request.
     """
 
-    tol: float = Field(description="The desired relative convergence tolerance. Defaults to 1e-8.", default=1e-8)
+    tol: float = Field(
+        description="The desired relative convergence tolerance. Defaults to 1e-8.",
+        default=1e-8,
+    )
     """The desired relative convergence tolerance. Defaults to 1e-8."""
 
-    max_iter: int = Field(description="Maximum number of iterations. Must be >1. Defaults to 3000.", default=3000)
+    max_iter: int = Field(
+        description="Maximum number of iterations. Must be >1. Defaults to 3000.",
+        default=3000,
+    )
     """Maximum number of iterations. Must be >1. Defaults to 3000."""
 
     print_level: int = Field(
-        description="The verbosity level of the solver's output. Ranges between 0 and 12. Defaults to 5.", default=5
+        description="The verbosity level of the solver's output. Ranges between 0 and 12. Defaults to 5.",
+        default=5,
     )
     """The verbosity level of the solver's output. Ranges between 0 and 12."""
 
@@ -100,12 +111,14 @@ class CbcOptions(BaseModel):
     model_config = ConfigDict(frozen=True, populate_by_name=True)
 
     sec: int = Field(
-        description="The maximum amount of time (in seconds) the solver should run. Defaults to 600.", default=600
+        description="The maximum amount of time (in seconds) the solver should run. Defaults to 600.",
+        default=600,
     )
     """The maximum amount of time (in seconds) the solver should run. Defaults to 600."""
 
     threads: int = Field(
-        description="Number of threads (cores) to use for solving the problem. Defaults to 4.", default=4
+        description="Number of threads (cores) to use for solving the problem. Defaults to 4.",
+        default=4,
     )
     """Number of threads (cores) to use for solving the problem. Defaults to 4."""
 
@@ -168,7 +181,8 @@ class CbcOptions(BaseModel):
     """
 
     presolve: int = Field(
-        description="Controls the presolve level (0: no presolve, 1: default, 2: aggressive). Defaults to 2.", default=2
+        description="Controls the presolve level (0: no presolve, 1: default, 2: aggressive). Defaults to 2.",
+        default=2,
     )
     """Controls the presolve level (0: no presolve, 1: default, 2: aggressive). Defaults to 2."""
 
@@ -229,7 +243,9 @@ def parse_pyomo_optimizer_results(
 
     objective_values = {obj.symbol: results[obj.symbol] for obj in problem.objectives}
     constraint_values = (
-        {con.symbol: results[con.symbol] for con in problem.constraints} if problem.constraints else None
+        {con.symbol: results[con.symbol] for con in problem.constraints}
+        if problem.constraints
+        else None
     )
     extra_func_values = (
         {extra.symbol: results[extra.symbol] for extra in problem.extra_funcs}
@@ -241,6 +257,33 @@ def parse_pyomo_optimizer_results(
         if problem.scalarization_funcs is not None
         else None
     )
+
+    # Extract Lagrange multipliers with error handling
+    lagrange_multipliers = None
+    if problem.constraints:
+        try:
+            # Check if dual values are available
+            if hasattr(evaluator.model, "dual") and evaluator.model.dual:
+                lagrange_multipliers = {}
+                for con in problem.constraints:
+                    try:
+                        constraint_obj = getattr(evaluator.model, con.symbol)
+                        if constraint_obj in evaluator.model.dual:
+                            lagrange_multipliers["mu_" + con.symbol] = (
+                                evaluator.model.dual[constraint_obj]
+                            )
+
+                    except (AttributeError, KeyError):
+                        # Skip this constraint if dual value is not available
+                        continue
+
+                # If no dual values were successfully extracted, set to None
+                if not lagrange_multipliers:
+                    lagrange_multipliers = None
+        except (AttributeError, KeyError):
+            # Dual values not available
+            lagrange_multipliers = None
+
     success = (
         opt_res.solver.status == _pyomo_SolverStatus.ok
         and opt_res.solver.termination_condition == _pyomo_TerminationCondition.optimal
@@ -255,6 +298,7 @@ def parse_pyomo_optimizer_results(
         optimal_objectives=objective_values,
         constraint_values=constraint_values,
         extra_func_values=extra_func_values,
+        lagrange_multipliers=lagrange_multipliers,
         scalarization_values=scalarization_values,
         success=success,
         message=msg,
@@ -264,7 +308,9 @@ def parse_pyomo_optimizer_results(
 class PyomoBonminSolver(BaseSolver):
     """Creates pyomo solvers that utilize bonmin."""
 
-    def __init__(self, problem: Problem, options: BonminOptions | None = _default_bonmin_options):
+    def __init__(
+        self, problem: Problem, options: BonminOptions | None = _default_bonmin_options
+    ):
         """The solver is initialized with a problem and solver options.
 
         Suitable for mixed-integer problems. The objective function being minimized
@@ -306,6 +352,9 @@ class PyomoBonminSolver(BaseSolver):
         """
         self.evaluator.set_optimization_target(target)
 
+        # Add suffix to request dual values from Bonmin
+        self.evaluator.model.dual = pyomo.Suffix(direction=pyomo.Suffix.IMPORT)
+
         opt = pyomo.SolverFactory("bonmin", tee=True)
 
         # set solver options
@@ -319,7 +368,11 @@ class PyomoBonminSolver(BaseSolver):
 class PyomoIpoptSolver(BaseSolver):
     """Create a pyomo solver that utilizes Ipopt."""
 
-    def __init__(self, problem: Problem, options: IpoptOptions | None = _default_ipopt_options):
+    def __init__(
+        self,
+        problem: Problem,
+        options: IpoptOptions | dict | None = _default_ipopt_options,
+    ):
         """The solver is initialized with a problem and solver options.
 
         Suitable for non-linear, twice differentiable constrained problems.
@@ -333,9 +386,9 @@ class PyomoIpoptSolver(BaseSolver):
 
         Args:
             problem (Problem): the problem being solved.
-            options (IpoptOptions, optional): options to be passed to the Ipopt solver.
-                If `None` is passed, defaults to `_default_ipopt_options` defined in
-                this source file. Defaults to `None`.
+            options (IpoptOptions | dict, optional): options to be passed to the Ipopt solver.
+                Can be an IpoptOptions object or a dictionary. If `None` is passed,
+                defaults to `_default_ipopt_options` defined in this source file. Defaults to `None`.
         """
         if not problem.is_twice_differentiable:
             raise SolverError("Problem must be twice differentiable.")
@@ -344,6 +397,8 @@ class PyomoIpoptSolver(BaseSolver):
 
         if options is None:
             self.options = _default_ipopt_options
+        elif isinstance(options, dict):
+            self.options = IpoptOptions(**options)
         else:
             self.options = options
 
@@ -357,6 +412,10 @@ class PyomoIpoptSolver(BaseSolver):
             SolverResults: results of the Optimization.
         """
         self.evaluator.set_optimization_target(target)
+
+        # Add suffix to request dual values from Ipopt
+        # This tells Ipopt to compute and return dual values (Lagrange multipliers)
+        self.evaluator.model.dual = pyomo.Suffix(direction=pyomo.Suffix.IMPORT)
 
         opt = pyomo.SolverFactory("ipopt", tee=True, options=self.options.model_dump())
         opt_res = opt.solve(self.evaluator.model)
@@ -409,7 +468,9 @@ class PyomoGurobiSolver(BaseSolver):
 class PyomoCBCSolver(BaseSolver):
     """Create a pyomo solver that utilizes CBC."""
 
-    def __init__(self, problem: Problem, options: CbcOptions | None = _default_cbc_options):
+    def __init__(
+        self, problem: Problem, options: CbcOptions | None = _default_cbc_options
+    ):
         """The solver is initialized with a problem and solver options.
 
         Suitable for combinatorial and large-scale mixed-integer linear problems.

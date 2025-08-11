@@ -17,10 +17,13 @@ from desdeo.problem import (
 class SolverError(Exception):
     """Raised when an error with a solver is encountered."""
 
+
 class EMOResults(BaseModel):
     """Defines a schema for storing results of an evolutionary multi-objective optimization (EMO) solver."""
 
-    optimal_variables: dict[str, int | float | list] = Field(description="The optimal decision variables found.")
+    optimal_variables: dict[str, int | float | list] = Field(
+        description="The optimal decision variables found."
+    )
     optimal_objectives: dict[str, float | list[float]] = Field(
         description="The objective function values corresponding to the optimal decision variables found."
     )
@@ -35,10 +38,13 @@ class EMOResults(BaseModel):
         description=("The extra function values of the problem."), default=None
     )
 
+
 class SolverResults(BaseModel):
     """Defines a schema for a dataclass to store the results of a solver."""
 
-    optimal_variables: dict[str, int | float | list] = Field(description="The optimal decision variables found.")
+    optimal_variables: dict[str, int | float | list] = Field(
+        description="The optimal decision variables found."
+    )
     optimal_objectives: dict[str, float | list[float]] = Field(
         description="The objective function values corresponding to the optimal decision variables found."
     )
@@ -55,8 +61,14 @@ class SolverResults(BaseModel):
     scalarization_values: dict[str, float | list[float]] | None = Field(
         description=("The scalarization function values of the problem."), default=None
     )
-    success: bool = Field(description="A boolean flag indicating whether the optimization was successful or not.")
+    lagrange_multipliers: dict[str, float | list[float]] | None = Field(
+        description=("The Lagrange multipliers of the problem."), default=None
+    )
+    success: bool = Field(
+        description="A boolean flag indicating whether the optimization was successful or not."
+    )
     message: str = Field(description="Description of the cause of termination.")
+
 
 class BaseSolver(ABC):
     """Defines a schema for a solver base class."""
