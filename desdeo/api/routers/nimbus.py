@@ -35,7 +35,6 @@ from desdeo.api.utils.database import user_save_solutions
 from desdeo.mcdm.nimbus import generate_starting_point, solve_sub_problems
 from desdeo.problem import Problem
 from desdeo.tools import SolverResults
-from desdeo.tools.gurobipy_solver_interfaces import GurobipySolver
 
 router = APIRouter(prefix="/method/nimbus")
 
@@ -50,12 +49,11 @@ def filter_duplicates(
         return solutions
 
     # Get the objective values
-    objective_values_list = list(map(lambda sol: sol.objective_values, solutions))
+    objective_values_list = [sol.objective_values for sol in solutions]
     # Get the function symbols
-    objective_keys = [key for key in objective_values_list[0]]
+    objective_keys = list(objective_values_list[0])
     # Get the corresponding values for functions into a list of lists of values
-    valuelists = list(map(lambda dictionary: list(map(lambda key: dictionary[key], objective_keys)), objective_values_list))
-
+    valuelists = [[dictionary[key] for key in objective_keys] for dictionary in objective_values_list]
     # Check duplicate indices
     duplicate_indices = []
     for i in range(len(solutions) - 1):
@@ -109,10 +107,7 @@ def collect_all_solutions(
     statement = (
     select(StateDB)
     .where(
-    or_(
     StateDB.problem_id == problem_id,
-    StateDB.preference_id == problem_id
-    ),
     StateDB.session_id == user.active_session_id
     )
     .order_by(StateDB.id.desc())

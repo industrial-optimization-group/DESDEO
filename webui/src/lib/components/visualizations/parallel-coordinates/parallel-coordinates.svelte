@@ -18,6 +18,7 @@
 	 * - dimensions: Array<{ name: string; min?: number; max?: number; direction?: 'max' | 'min' }> — Dimension definitions
 	 * - referenceData?: {
 	 *     referencePoint?: { [key: string]: number }; // Reference point values for each dimension
+	 *     previousReferencePoint?: { [key: string]: number }; // Reference point values of previous reference point for each dimension
 	 *     preferredRanges?: { [key: string]: { min: number; max: number } }; // Preferred ranges for each dimension
 	 *     preferredSolutions?: Array<{ [key: string]: number }>; // Array of preferred solutions
 	 *     nonPreferredSolutions?: Array<{ [key: string]: number }>; // Array of non-preferred solutions
@@ -59,6 +60,7 @@
 	 */
 	type ReferenceData = {
 		referencePoint?: { [key: string]: number }; // Single reference point across all dimensions
+    	previousReferencePoint?: { [key: string]: number }; // Single reference point across all dimensions, for previous preference
 		preferredRanges?: { [key: string]: { min: number; max: number } }; // Preferred value ranges per dimension
 		preferredSolutions?: Array<{ [key: string]: number }>; // Array of preferred solution points
 		nonPreferredSolutions?: Array<{ [key: string]: number }>; // Array of non-preferred solution points
@@ -458,32 +460,38 @@
 	}
 
 	/**
-	 * Draws the reference point as a dashed line across all dimensions
-	 * Shows a specific target or comparison point
-	 *
+	 * Draws a reference point as a line across all dimensions with configurable styling
+	 * 
 	 * @param svgElement - Parent SVG group element
 	 * @param scales - Scale functions for each dimension
 	 * @param xScale - Scale for positioning dimensions horizontally
 	 * @param line - D3 line generator for drawing the path
+	 * @param pointData - The reference point data to draw
+	 * @param modifiedOptions - Styling options for the reference point
 	 */
-	function drawReferencePoint(
+	function drawGenericReferencePoint(
 		svgElement: d3.Selection<SVGGElement, unknown, null, undefined>,
 		scales: { [key: string]: d3.ScaleLinear<number, number> },
 		xScale: d3.ScalePoint<string>,
-		line: d3.Line<[string, number]>
+		line: d3.Line<[string, number]>,
+		pointData: { [key: string]: number } | undefined,
+		modifiedOptions: {
+			groupClass: string;
+			opacity: number;
+		}
 	) {
-		if (!referenceData?.referencePoint) return; // Skip if no reference point defined
+		if (!pointData) return; // Skip if no point data defined
 
 		// Create group for reference point visualization
-		const referenceGroup = svgElement.append('g').attr('class', 'reference-point');
+		const referenceGroup = svgElement.append('g').attr('class', modifiedOptions.groupClass);
 
 		// Convert reference point data to line format
 		const refLineData: [string, number][] = dimensions
-			.map((dim) => [dim.name, referenceData.referencePoint![dim.name]])
+			.map((dim) => [dim.name, pointData[dim.name]])
 			.filter(([, value]) => value !== undefined && value !== null);
 
 		if (refLineData.length > 0) {
-			// Draw dashed line connecting reference values across all dimensions
+			// Draw line connecting reference values across all dimensions
 			referenceGroup
 				.append('path')
 				.datum(refLineData)
@@ -492,7 +500,7 @@
 				.attr('stroke', '#ff6b6b') // Red color for reference
 				.attr('stroke-width', options.strokeWidth + 1) // Slightly thicker than data lines
 				.attr('stroke-dasharray', '8,4') // Dashed pattern
-				.attr('opacity', 0.9);
+				.attr('opacity', modifiedOptions.opacity);
 
 			// Add circles at each axis to highlight reference values
 			refLineData.forEach(([dimName, value]) => {
@@ -506,10 +514,11 @@
 						.attr('r', 4) // Small circle radius
 						.attr('fill', '#ff6b6b') // Same red as line
 						.attr('stroke', '#fff') // White border for visibility
-						.attr('stroke-width', 2);
+						.attr('stroke-width', 2)
+						.attr('opacity', modifiedOptions.opacity);
 				}
 			});
-
+			
 			// Note: Reference point label is commented out to reduce visual clutter
 			/*referenceGroup
                 .append('text')
@@ -791,9 +800,21 @@
 		});
 
 		// Draw reference visualizations (on top of data lines)
-		drawReferencePoint(svgElement, newScales, xScale, line);
+		// Draw current reference point (red)
+		drawGenericReferencePoint(svgElement, newScales, xScale, line, 
+			referenceData?.referencePoint, {
+				groupClass: 'reference-point',
+				opacity: 0.9,
+			}
+		);
+		// Draw previous reference point (gray or another color)
+		drawGenericReferencePoint(svgElement, newScales, xScale, line, 
+			referenceData?.previousReferencePoint, {
+				groupClass: 'previous-reference-point',
+				opacity: 0.3, // more transparent than current ref point
+			}
+		);
 		drawReferenceSolutions(svgElement, newScales, xScale, line);
-
 		// Add filter status information at the bottom
 		const activeFilters = Object.keys(brushFilters).length;
 		if (activeFilters > 0) {

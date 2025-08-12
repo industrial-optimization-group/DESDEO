@@ -114,7 +114,7 @@
 	let classification_values = $derived(
 		internal_type_preferences === PREFERENCE_TYPES.Classification
 			? problem.objectives.map((objective, idx: number) =>
-					calculateClassification(objective, internal_preference_values[idx], 0.001)
+					calculateClassification(objective, internal_preference_values[idx], internal_objective_values[idx], 0.001)
 				)
 			: []
 	);
@@ -233,13 +233,6 @@
 							{#if objective.unit}({objective.unit}){/if}
 							({objective.maximize ? 'max' : 'min'})
 						</div>
-						<!-- 							<div class="text-xs text-gray-500">
-								Previous preference: {lastIteratedPreference &&
-								lastIteratedPreference[idx] !== undefined
-									? lastIteratedPreference[idx]
-									: '-'}
-							</div> -->
-
 						<div class="flex flex-row">
 							<div class="flex w-1/4 flex-col justify-center">
 								<span class="text-sm text-gray-500">{classification_values[idx]}</span>

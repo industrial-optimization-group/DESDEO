@@ -6,18 +6,20 @@
 	import TableCell from '$lib/components/ui/table/table-cell.svelte';
 	import type { components } from '$lib/api/client-types';
 	import Input from '$lib/components/ui/input/input.svelte';
-	import { Button } from '$lib/components/ui/button';    
+	import { Button } from '$lib/components/ui/button';
+    import { getDisplayAccuracy, formatNumber } from '$lib/helpers';
 
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 	type Solution = components['schemas']['UserSavedSolutionAddress'];
 	let {
         problem,
         solverResults,
-        selectedSolutions = $bindable(),
+        selectedSolutions,
         handle_save,
         handle_row_click: onRowClick,
         has_unsaved_changes = $bindable(false),
         isSaved,
+        previousObjectiveValues = [],
 	}: {
         problem: ProblemInfo;
         solverResults: Array<Solution>;
@@ -26,6 +28,7 @@
         handle_row_click: (index:number) => void;
         has_unsaved_changes: boolean;
         isSaved: (solution: Solution) => boolean;
+        previousObjectiveValues?: { [key: string]: number }[];
 	} = $props();
 
 
@@ -86,6 +89,9 @@
         has_unsaved_changes = anyChanges;
     });
 
+    // Get the display accuracy
+    let displayAccuracy = $derived(() => getDisplayAccuracy(problem)); 
+
     // Update edited name for a solution
     function setEditName(index: number, value: string) {
         editNames[index] = value;
@@ -118,10 +124,29 @@
             </TableHead>
             {#each problem.objectives as objective}
                 <TableHead>
-                    {objective.symbol} {objective.unit ? `/ ${objective.unit}` : ''}
+                    {objective.symbol} {objective.unit ? `/ ${objective.unit}` : ''}({objective.maximize ? 'max' : 'min'})
                 </TableHead>
             {/each}
         </TableRow>
+
+        {#if previousObjectiveValues && previousObjectiveValues.length > 0}
+            <!-- TODO: previous solution, does not work yet -->
+            {#each previousObjectiveValues as previousObjectiveValue}
+                <TableRow >
+                    <TableCell class="italic">
+                        <div class="flex items-center gap-2">
+                            <span class="text-gray-500">Previous solution</span>
+                        </div>
+                    </TableCell>
+                    {#each problem.objectives as objective}
+                        <TableCell class="text-gray-500">
+                            {formatNumber(previousObjectiveValue[objective.symbol], displayAccuracy())}
+                        </TableCell>
+                    {/each}
+                </TableRow>
+                
+            {/each}
+        {/if}
 
         {#if solverResults && solverResults.length > 0}
             <!-- Table rows for solutions -->
@@ -169,7 +194,7 @@
                     </TableCell>
                     {#each problem.objectives as objective}
                         <TableCell>
-                            {solution.objective_values[objective.symbol]}
+                            {formatNumber(solution.objective_values[objective.symbol], displayAccuracy())}
                         </TableCell>
                     {/each}
                 </TableRow>

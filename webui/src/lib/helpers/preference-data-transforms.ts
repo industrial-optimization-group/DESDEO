@@ -7,6 +7,7 @@ type ProblemInfo = components['schemas']['ProblemInfo'];
  */
 export type ReferenceData = {
     referencePoint?: { [key: string]: number };
+    previousReferencePoint?: { [key: string]: number };
     preferredRanges?: { [key: string]: { min: number; max: number } };
     preferredSolutions?: Array<{ [key: string]: number }>;
     nonPreferredSolutions?: Array<{ [key: string]: number }>;
@@ -25,6 +26,7 @@ export function createReferenceData(
     current_preference_values: number[],
     previous_preference_values: number[],
     problem: ProblemInfo | null,
+    previous_objective_values?: number[][],
     tolerancePercent: number = 0.1
 ): ReferenceData | undefined {
     if (!problem?.objectives) return undefined;
@@ -35,6 +37,16 @@ export function createReferenceData(
         current_preference_values.forEach((value, index) => {
             if (problem.objectives[index]) {
                 referencePoint[problem.objectives[index].name] = value;
+            }
+        });
+    }
+
+    // Create reference point from previous preferences
+    const previousReferencePoint: { [key: string]: number } = {};
+    if (previous_preference_values.length > 0) {
+        previous_preference_values.forEach((value, index) => {
+            if (problem.objectives[index]) {
+                previousReferencePoint[problem.objectives[index].name] = value;
             }
         });
     }
@@ -54,9 +66,29 @@ export function createReferenceData(
         });
     }
 
+    // Convert previous objective values to preferred solutions format
+    const preferredSolutions: Array<{ [key: string]: number }> = [];
+    if (previous_objective_values && previous_objective_values.length > 0 && problem.objectives.length > 0) {
+        previous_objective_values.forEach(solutionArray => {
+            if (solutionArray.length === problem.objectives.length) {
+                const solutionObj: { [key: string]: number } = {};
+                solutionArray.forEach((value, index) => {
+                    if (problem.objectives[index]) {
+                        solutionObj[problem.objectives[index].name] = value;
+                    }
+                });
+                if (Object.keys(solutionObj).length > 0) {
+                    preferredSolutions.push(solutionObj);
+                }
+            }
+        });
+    }
+    
     return {
         referencePoint: Object.keys(referencePoint).length > 0 ? referencePoint : undefined,
-        preferredRanges: Object.keys(preferredRanges).length > 0 ? preferredRanges : undefined
+        previousReferencePoint: Object.keys(previousReferencePoint).length > 0 ? previousReferencePoint : undefined,
+        preferredRanges: Object.keys(preferredRanges).length > 0 ? preferredRanges : undefined,
+        preferredSolutions: preferredSolutions.length > 0 ? preferredSolutions : undefined
     };
 }
 

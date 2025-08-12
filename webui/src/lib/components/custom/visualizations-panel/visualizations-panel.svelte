@@ -43,6 +43,7 @@
 	 * @property {string} previous_preference_type - Type of previous preference (reference_point, preferred_solution, etc.)
 	 * @property {number[]} currentPreferenceValues - Current iteration's preference values
 	 * @property {string} currentPreferenceType - Type of current preference
+	 * @property {number[][]} previousObjectiveValues - Optional previous objective values for comparison
 	 * @property {number[][]} solutionsObjectiveValues - Array of objective value arrays for each solution from EMO
 	 * @property {number[][]} solutionsDecisionValues - Array of decision variable arrays for each solution from EMO
 	 * @property {function} onSelectSolution - Callback when user selects a solution from the table
@@ -51,8 +52,9 @@
 	interface Props {
 		problem: ProblemInfo | null;
 		previousPreferenceValues: number[];
-		previousPreferenceType: string;
+		previousObjectiveValues?: number[][];
 		currentPreferenceValues: number[];
+		previousPreferenceType: string;
 		currentPreferenceType: string;
 		solutionsObjectiveValues?: number[][];
 		solutionsDecisionValues?: number[][];
@@ -64,8 +66,9 @@
 	const {
 		problem,
 		previousPreferenceValues,
-		previousPreferenceType,
+		previousObjectiveValues,
 		currentPreferenceValues,
+		previousPreferenceType,
 		currentPreferenceType,
 		solutionsObjectiveValues = [],
 		solutionsDecisionValues = [],
@@ -89,9 +92,7 @@
 	 * Create reference data in the format expected by ParallelCoordinates
 	 * Includes reference point and preferred ranges if available
 	 */
-	const referenceData = $derived(() =>
-		createReferenceData(currentPreferenceValues, previousPreferenceValues, problem)
-	);
+	const referenceData = $derived(() => createReferenceData(currentPreferenceValues, previousPreferenceValues, problem, previousObjectiveValues));
 
 	/**
 	 * Handle line selection from ParallelCoordinates

@@ -67,17 +67,25 @@
 		mapSolutionsToObjectiveValues,
 		updatePreferencesFromState,
 		validateIterationAllowed,
-		callNimbusAPI
+		callNimbusAPI,
+		processPreviousObjectiveValues
 	} from './helper-functions';	
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 	// Define a general type combining all three responses that NIMBUS can return
 	// TODO: NIMBUSIntermediateResponse is in the making
 	type Solution = components['schemas']['UserSavedSolutionAddress'];
-	type NIMBUSClassificationResponse = components['schemas']['NIMBUSClassificationResponse'];
-	type NIMBUSInitializationResponse = components['schemas']['NIMBUSInitializationResponse'];
-	type IntermediateSolutionResponse = components['schemas']['IntermediateSolutionResponse'];
-	type BaseResponse = NIMBUSClassificationResponse | NIMBUSInitializationResponse | IntermediateSolutionResponse;
-	type Response = BaseResponse &{
+	type Response = {
+		state_id: number | null,
+		previous_preference?: components["schemas"]["ReferencePoint"],
+    	previous_objectives?: {
+			[key: string]: number;
+		},
+		reference_solution_1?: {
+			[key: string]: number;
+		},
+		reference_solution_2?: {
+			[key: string]: number;
+		},
 		current_solutions: Solution[],
 		saved_solutions: Solution[],
 		all_solutions: Solution[],
@@ -379,10 +387,10 @@
 
 		if (result.success && result.data) {
 			// Store the preference values that were just used for iteration
-			last_iterated_preference = [...current_preference];
 			current_state = result.data;
 			selected_iteration_index = [0];
 			update_iteration_selection(current_state);
+			update_preferences_from_state(current_state);
 			current_num_iteration_solutions = current_state.current_solutions.length
 		} else {
 			console.error('NIMBUS iteration failed:', result.error);
@@ -459,6 +467,8 @@
 	function update_preferences_from_state(state: Response | null) {
 		if (!problem) return;
 		current_preference = updatePreferencesFromState(state, problem);
+		last_iterated_preference = [...current_preference];
+
 	}
 
 	// Helper function to update current intermediate objectives from the current state
@@ -592,7 +602,7 @@
 					{problem}
 					solverResults={[current_state.current_solutions[selected_iteration_index[0]]]}
 					isSaved={isSaved}
-					bind:selectedSolutions={selected_iteration_index}
+					selectedSolutions={selectedIndexes()}
 					handle_save={handle_save}
 					handle_row_click={() => {}}
 					bind:has_unsaved_changes={has_unsaved_changes}
@@ -659,10 +669,11 @@
 						<VisualizationsPanel
 							{problem}
 							previousPreferenceValues={last_iterated_preference}
-							previousPreferenceType={type_preferences}
 							currentPreferenceValues={current_preference}
+							previousPreferenceType={type_preferences}
 							currentPreferenceType={type_preferences}
 							solutionsObjectiveValues={problem ? mapSolutionsToObjectiveValues(current_state.current_solutions, problem) : []}
+							previousObjectiveValues={processPreviousObjectiveValues(current_state, problem)}
 							externalSelectedIndexes={selectedIndexes()}
 							onSelectSolution={handle_solution_click}
 						/>
@@ -687,27 +698,27 @@
 		{/snippet}
 		{#snippet numericalValues()}
 			{#if problem && current_state?.current_solutions && current_state.current_solutions.length > 0}
-				{#if mode === "iterate"}
-					<SolutionTable
-						{problem}
-						solverResults={current_state.current_solutions}
-						isSaved={isSaved}
-						bind:selectedSolutions={selected_iteration_index}
-						handle_save={handle_save}
-						handle_row_click={handle_solution_click}
-						bind:has_unsaved_changes={has_unsaved_changes}
-					/>
-				{:else if mode === "intermediate"}
-					<SolutionTable
-						{problem}
-						solverResults={current_state.current_solutions}
-						isSaved={isSaved}
-						bind:selectedSolutions={selected_intermediate_indexes}
-						handle_save={handle_save}
-						handle_row_click={handle_solution_click}
-						bind:has_unsaved_changes={has_unsaved_changes}
-					/>
-				{/if}
+				<SolutionTable
+					{problem}
+					solverResults={current_state.current_solutions}
+					isSaved={isSaved}
+					selectedSolutions={selectedIndexes()}
+					handle_save={handle_save}
+					handle_row_click={handle_solution_click}
+					bind:has_unsaved_changes={has_unsaved_changes}
+					previousObjectiveValues={
+						problem ? 
+						[
+							// Add previous_objectives if it exists
+							...(current_state.previous_objectives ? [current_state.previous_objectives] : []),
+							// Add reference_solution_1 if it exists
+							...(current_state.reference_solution_1 ? [current_state.reference_solution_1] : []),
+							// Add reference_solution_2 if it exists
+							...(current_state.reference_solution_2 ? [current_state.reference_solution_2] : [])
+						] : 
+						[]
+					}
+				/>
 			{/if}
 		{/snippet}
 	</BaseLayout>

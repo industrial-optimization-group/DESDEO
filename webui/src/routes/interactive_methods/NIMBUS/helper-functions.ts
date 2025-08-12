@@ -67,6 +67,63 @@ export function updatePreferencesFromState(state: Response | null, problem: Prob
 }
 
 /**
+ * Converts objective values in object format to array format
+ * Used to transform previous objectives for visualization components
+ * 
+ * @param objectiveObj The objective values in object format keyed by symbol
+ * @param problem The problem containing objective definitions
+ * @returns Array of values in the order defined by the problem objectives
+ */
+export function convertObjectiveToArray(
+    objectiveObj: Record<string, number> | undefined | null,
+    problem: ProblemInfo | null
+): number[] {
+    if (!problem || !objectiveObj) {
+        return [];
+    }
+    
+    return problem.objectives.map(obj => {
+        const value = objectiveObj[obj.symbol];
+        return (value !== undefined && value !== null) ? (Array.isArray(value) ? value[0] : value) : 0;
+    });
+}
+
+/**
+ * Processes previous objective values and reference solutions for visualization components
+ * 
+ * @param state The current NIMBUS response state
+ * @param problem The problem containing objective definitions
+ * @returns Array of arrays with previous objective values
+ */
+export function processPreviousObjectiveValues(
+    state: any,
+    problem: ProblemInfo | null
+): number[][] {
+    if (!problem || !state) {
+        return [];
+    }
+    
+    const result: number[][] = [];
+    
+    // Add previous_objectives if it exists
+    if (state.previous_objectives) {
+        result.push(convertObjectiveToArray(state.previous_objectives, problem));
+    }
+    
+    // Add reference_solution_1 if it exists
+    if (state.reference_solution_1) {
+        result.push(convertObjectiveToArray(state.reference_solution_1, problem));
+    }
+    
+    // Add reference_solution_2 if it exists
+    if (state.reference_solution_2) {
+        result.push(convertObjectiveToArray(state.reference_solution_2, problem));
+    }
+    
+    return result;
+}
+
+/**
  * Validates if iteration is allowed based on preferences and objectives
  * Iteration requires at least one preference to be better and one to be worse
  * @param problem The current problem
@@ -95,10 +152,15 @@ export function validateIterationAllowed(
             continue;
         }
 
-        // Check if preference differs from current value
-        if (preferenceValue > currentValue) {
+        // Determine if preference is better than current value, considering optimization direction
+        const isPreferenceBetter = objective.maximize ? 
+            (preferenceValue > currentValue) : 
+            (preferenceValue < currentValue);
+
+        // Update improvement or worsening flags based on comparison
+        if (isPreferenceBetter) {
             hasImprovement = true;
-        } else if (preferenceValue < currentValue) {
+        } else if (preferenceValue !== currentValue) {  // Only mark as worsening if values are actually different
             hasWorsening = true;
         }
     }
