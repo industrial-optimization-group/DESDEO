@@ -69,7 +69,7 @@ class EMOEvaluator(Subscriber):
         self.population = population
         out = self.evaluator(population)
         # remove variable_symbols from the output
-        self.out = out.drop(self.variable_symbols)
+        self.out = out.drop(self.variable_symbols, strict=False)
         self.new_evals = len(population)
         # merge the objectives and targets
 
