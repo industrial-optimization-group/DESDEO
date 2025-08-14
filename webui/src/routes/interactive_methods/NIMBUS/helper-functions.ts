@@ -122,19 +122,20 @@ export function processPreviousObjectiveValues(
     
     return result;
 }
-
 /**
  * Validates if iteration is allowed based on preferences and objectives
  * Iteration requires at least one preference to be better and one to be worse
  * @param problem The current problem
  * @param preferenceValues Current preference values
  * @param objectiveValues Current objective values
+ * @param precision Precision threshold for floating point comparisons
  * @returns Boolean indicating if iteration is allowed
  */
 export function validateIterationAllowed(
     problem: ProblemInfo | null,
     preferenceValues: number[],
-    objectiveValues: Record<string, number>
+    objectiveValues: Record<string, number>,
+    precision: number = 0.001
 ): boolean {
     if (!problem || preferenceValues.length === 0 || Object.keys(objectiveValues).length === 0) {
         return false;
@@ -152,6 +153,14 @@ export function validateIterationAllowed(
             continue;
         }
 
+        // Check if values are approximately equal (within precision)
+        const isEqual = Math.abs(preferenceValue - currentValue) < precision;
+        
+        if (isEqual) {
+            // Values are approximately equal - "keep constant"
+            continue;
+        }
+
         // Determine if preference is better than current value, considering optimization direction
         const isPreferenceBetter = objective.maximize ? 
             (preferenceValue > currentValue) : 
@@ -160,7 +169,7 @@ export function validateIterationAllowed(
         // Update improvement or worsening flags based on comparison
         if (isPreferenceBetter) {
             hasImprovement = true;
-        } else if (preferenceValue !== currentValue) {  // Only mark as worsening if values are actually different
+        } else {
             hasWorsening = true;
         }
     }
@@ -175,6 +184,40 @@ export function validateIterationAllowed(
  * @param data The data to send in the request body
  * @returns Promise with the API response
  */
+/**
+ * Updates solution names from saved solutions
+ * 
+ * @param savedSolutions - Array of saved solutions with names
+ * @param targetSolutions - Array of solutions to update with names
+ * @returns The updated target solutions array
+ */
+export function updateSolutionNames(
+    savedSolutions: Solution[],
+    targetSolutions: Solution[]
+): Solution[] {
+    if (!savedSolutions || !targetSolutions) {
+        return targetSolutions;
+    }
+
+    // Create a copy of the target solutions to avoid mutating the original
+    const updatedSolutions = [...targetSolutions];
+    
+    // Update names for solutions that exist in saved solutions
+    for (let solution of updatedSolutions) {
+        const savedIndex = savedSolutions.findIndex(
+            saved => saved.address_state === solution.address_state && 
+                   saved.address_result === solution.address_result
+        );
+        
+        if (savedIndex !== -1) {
+            // Solution exists in saved_solutions, update the name
+            solution.name = savedSolutions[savedIndex].name;
+        }
+    }
+    
+    return updatedSolutions;
+}
+
 export async function callNimbusAPI<T = Response>(type: string, data: Record<string, any>): Promise<{
     success: boolean;
     data?: T;

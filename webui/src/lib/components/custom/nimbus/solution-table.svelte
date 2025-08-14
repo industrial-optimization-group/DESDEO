@@ -8,10 +8,12 @@
 	import Input from '$lib/components/ui/input/input.svelte';
 	import { Button } from '$lib/components/ui/button';
     import { getDisplayAccuracy, formatNumber } from '$lib/helpers';
+	import { COLOR_PALETTE } from '$lib/components/visualizations/utils/colors.js';
+	import TableHeader from '$lib/components/ui/table/table-header.svelte';
 
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 	type Solution = components['schemas']['UserSavedSolutionAddress'];
-	let {
+    let {
         problem,
         solverResults,
         selectedSolutions,
@@ -30,8 +32,6 @@
         isSaved: (solution: Solution) => boolean;
         previousObjectiveValues?: { [key: string]: number }[];
 	} = $props();
-
-
     // Helper to determine if a row is selected
     function isSelected(index: number): boolean {
         return selectedSolutions.includes(index);
@@ -113,93 +113,97 @@
 
 </script>
 
-
+<!-- TODO: table header does not stick, scrolls with other rows. It should stick-->
 {#if problem}
-<Table class="w-auto inline-block">
-    <TableBody>
-        <!-- Table headers -->
-        <TableRow>
-            <TableHead>
-                Name (optional)
-            </TableHead>
-            {#each problem.objectives as objective}
-                <TableHead>
-                    {objective.symbol} {objective.unit ? `/ ${objective.unit}` : ''}({objective.maximize ? 'max' : 'min'})
-                </TableHead>
-            {/each}
-        </TableRow>
-
-        {#if previousObjectiveValues && previousObjectiveValues.length > 0}
-            <!-- TODO: previous solution, does not work yet -->
-            {#each previousObjectiveValues as previousObjectiveValue}
-                <TableRow >
-                    <TableCell class="italic">
-                        <div class="flex items-center gap-2">
-                            <span class="text-gray-500">Previous solution</span>
-                        </div>
-                    </TableCell>
-                    {#each problem.objectives as objective}
-                        <TableCell class="text-gray-500">
-                            {formatNumber(previousObjectiveValue[objective.symbol], displayAccuracy())}
-                        </TableCell>
+<div class="h-full flex flex-col items-start">
+    <div class="border rounded shadow-sm overflow-auto">
+        <Table>
+            <!-- Table headers - make headers sticky when scrolling -->
+            <TableHeader>
+                <TableRow>
+                    <TableHead >
+                        Name (optional)
+                    </TableHead>
+                    {#each problem.objectives as objective, idx}
+                    <TableHead style="background-color: {COLOR_PALETTE[idx % COLOR_PALETTE.length]}">
+                        {objective.symbol} {objective.unit ? `/ ${objective.unit}` : ''}({objective.maximize ? 'max' : 'min'})
+                    </TableHead>
                     {/each}
                 </TableRow>
-                
-            {/each}
-        {/if}
-
-        {#if solverResults && solverResults.length > 0}
-            <!-- Table rows for solutions -->
-            {#each solverResults as solution, index}
-                <TableRow 
-                    onclick={() => onRowClick(index)}
-                    class="cursor-pointer {isSelected(index) ? 'bg-primary/20' : ''}"
-                >
-                    <TableCell class="flex items-center gap-2">
-                        {#if isSaved(solution)}
-                            <div class="h-2 w-2 rounded-full bg-green-500" title="This solution is saved"></div>
-                        {:else}
-                            <div class="h-2 w-2 opacity-0"></div> <!-- Invisible placeholder to keep alignment -->
-                        {/if}
-                        {#if isSelected(index)}
-                            <div class="flex items-center gap-2">
-                                <Input 
-                                    type="text" 
-                                    value={editNames[index] || ''}
-                                    oninput={(e) => setEditName(index, e.currentTarget.value)}
-                                    onclick={(e) => e.stopPropagation()} 
-                                    onmousedown={(e) => e.stopPropagation()}
-                                    class="transition-all duration-200 {isInputFocused(index) ? 'border-primary shadow-sm' : 'border-gray-200 bg-gray-50 text-gray-600'}"
-                                    placeholder={`Solution ${solution.address_result + 1}`}
-                                    onfocus={() => inputFocused[index] = true}
-                                    onblur={() => inputFocused[index] = false}
-                                />
-                                <Button 
-                                    size="sm" 
-                                    onclick={(e) => {
-                                        e.stopPropagation(); // Prevent row click
-                                        handle_save(solution, editNames[index]);
-                                        clearInputChanges(index); // Mark as saved
-                                    }}
-                                    variant={inputChanged[index] ? "default" : "outline"}
-                                >Save</Button>
-                            </div>
-                        {:else}
-                            {#if solution.name}
-                                {solution.name}
-                            {:else}
-                                <span class="text-gray-400">Solution {solution.address_result + 1}</span>
-                            {/if}
-                        {/if}
-                    </TableCell>
-                    {#each problem.objectives as objective}
-                        <TableCell>
-                            {formatNumber(solution.objective_values[objective.symbol], displayAccuracy())}
-                        </TableCell>
+            </TableHeader>
+            <TableBody > 
+                {#if previousObjectiveValues && previousObjectiveValues.length > 0}
+                    {#each previousObjectiveValues as previousObjectiveValue}
+                        <TableRow >
+                            <TableCell class="italic">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-gray-500">Previous solution</span>
+                                </div>
+                            </TableCell>
+                            {#each problem.objectives as objective}
+                                <TableCell class="text-gray-500 text-right pr-4">
+                                    {formatNumber(previousObjectiveValue[objective.symbol], displayAccuracy())}
+                                </TableCell>
+                            {/each}
+                        </TableRow>
+                        
                     {/each}
-                </TableRow>
-            {/each}
-        {/if}
-    </TableBody>
-</Table>
+                {/if}
+
+                {#if solverResults && solverResults.length > 0}
+                    <!-- Table rows for solutions -->
+                    {#each solverResults as solution, index}
+                        <TableRow 
+                            onclick={() => onRowClick(index)}
+                            class="cursor-pointer {isSelected(index) ? 'bg-primary/20' : ''}"
+                        >
+                            <TableCell class="flex items-center gap-2">
+                                {#if isSaved(solution)}
+                                    <div class="h-2 w-2 rounded-full bg-green-500" title="This solution is saved"></div>
+                                {:else}
+                                    <div class="h-2 w-2 opacity-0"></div> <!-- Invisible placeholder to keep alignment -->
+                                {/if}
+                                {#if isSelected(index)}
+                                    <div class="flex items-center gap-2">
+                                        <Input 
+                                            type="text" 
+                                            value={editNames[index] || ''}
+                                            oninput={(e) => setEditName(index, e.currentTarget.value)}
+                                            onclick={(e) => e.stopPropagation()} 
+                                            onmousedown={(e) => e.stopPropagation()}
+                                            class="transition-all duration-200 {isInputFocused(index) ? 'border-primary shadow-sm' : 'border-gray-200 bg-gray-50 text-gray-600'}"
+                                            placeholder={`Solution ${solution.address_result + 1}`}
+                                            onfocus={() => inputFocused[index] = true}
+                                            onblur={() => inputFocused[index] = false}
+                                        />
+                                        <Button 
+                                            size="sm" 
+                                            onclick={(e) => {
+                                                e.stopPropagation(); // Prevent row click
+                                                handle_save(solution, editNames[index]);
+                                                clearInputChanges(index); // Mark as saved
+                                            }}
+                                            variant={inputChanged[index] ? "default" : "outline"}
+                                        >Save</Button>
+                                    </div>
+                                {:else}
+                                    {#if solution.name}
+                                        {solution.name}
+                                    {:else}
+                                        <span class="text-gray-400">Solution {solution.address_result + 1} ({solution.address_state})</span>
+                                    {/if}
+                                {/if}
+                            </TableCell>
+                            {#each problem.objectives as objective}
+                                <TableCell class="text-right pr-4">
+                                    {formatNumber(solution.objective_values[objective.symbol], displayAccuracy())}
+                                </TableCell>
+                            {/each}
+                        </TableRow>
+                    {/each}
+                {/if}
+            </TableBody>
+        </Table>
+    </div>
+</div>
 {/if}

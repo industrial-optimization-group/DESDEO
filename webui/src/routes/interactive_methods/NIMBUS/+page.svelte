@@ -68,11 +68,11 @@
 		updatePreferencesFromState,
 		validateIterationAllowed,
 		callNimbusAPI,
-		processPreviousObjectiveValues
+		processPreviousObjectiveValues,
+		updateSolutionNames
 	} from './helper-functions';	
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 	// Define a general type combining all three responses that NIMBUS can return
-	// TODO: NIMBUSIntermediateResponse is in the making
 	type Solution = components['schemas']['UserSavedSolutionAddress'];
 	type Response = {
 		state_id: number | null,
@@ -99,7 +99,26 @@
 	let problem_list = data.problems ?? [];
 	// user can choose from three types of solutions: current, best, or all
 	let selected_type_solutions = $state('current');
+	const frameworks = [
+		{ value: 'current', label: 'Current solutions' },
+		{ value: 'best', label: 'Best solutions' },
+		{ value: 'all', label: 'All solutions' }
+	];
+
+	let chosen_solutions = $derived.by(() => {
+	if (!current_state) return [];
 	
+	switch (selected_type_solutions) {
+		case 'current':
+		return current_state.current_solutions || [];
+		case 'best':
+		return current_state.saved_solutions || [];
+		case 'all':
+		return current_state.all_solutions || [];
+		default:
+		return current_state.current_solutions || [];
+	}
+	});
 	// variables for handling different modes (iteration, intermediate, save, finish)
 	// and chosen solutions that are separate for every mode
 	let mode: "iterate" | "final" | "intermediate" = $state("iterate");
@@ -142,12 +161,6 @@
 	let mapName = $state<string | undefined>(undefined);
 	let mapDescription = $state<string | undefined>(undefined);
 	let compensation = $state(0.0);
-
-	const frameworks = [
-		{ value: 'current', label: 'Current solutions' },
-		{ value: 'best', label: 'Best solutions' },
-		{ value: 'all', label: 'All solutions' }
-	];
 	
 	// Variables for handling unsaved changes confirmation
 	let show_save_confirm_dialog: boolean = $state(false);
@@ -161,7 +174,17 @@
 	})
 
 	function handle_type_solutions_change(event: { value: string }) {
-		selected_type_solutions = event.value;
+		change_solution_type_updating_selections(event.value as 'current' | 'best' | 'all');
+	}
+
+	// Helper function to change solution type and update selections
+	function change_solution_type_updating_selections(newType: 'current' | 'best' | 'all') {
+		// Update the internal state
+		selected_type_solutions = newType;
+		
+		// Then update UI and data
+		update_iteration_selection(current_state);
+    	update_intermediate_selection(current_state);
 	}
 	function handle_solution_click(index: number) {
 		// If there are unsaved changes, show confirmation dialog
@@ -171,35 +194,28 @@
 			}
 			if (has_unsaved_changes) {
 				// Store the target index for use after confirmation
-				pending_selection_target = index;
+			pending_selection_target = index;
 				// Show the confirmation dialog
 				show_save_confirm_dialog = true;
 				return;
 			}
-            // Iterate mode: always select just one solution
-            selected_iteration_index = [index];
-			update_iteration_selection(current_state);
+				// Iterate mode: always select just one solution
+				selected_iteration_index = [index];
+				update_iteration_selection(current_state);
         } else if (mode === "intermediate") {
-            // Intermediate mode: allow selecting up to 2 rows
+			// Intermediate mode: allow selecting up to 2 rows
             if (selected_intermediate_indexes.includes(index)) {
                 // If already selected, deselect it, checking unsaved changes first
 				if (has_unsaved_changes) {
 					// Store the target index for use after confirmation
-					pending_selection_target = index;
+				pending_selection_target = index;
 					// Show the confirmation dialog
 					show_save_confirm_dialog = true;
 					return;
 				}
                 selected_intermediate_indexes = selected_intermediate_indexes.filter(i => i !== index);
             } else if (selected_intermediate_indexes.length < 2) {
-                // Only add if we haven't reached the limit of 2, checking unsaved changes first
-				if (has_unsaved_changes) {
-					// Store the target index for use after confirmation
-					pending_selection_target = index;
-					// Show the confirmation dialog
-					show_save_confirm_dialog = true;
-					return;
-				}
+                // Only add if we haven't reached the limit of 2
                 selected_intermediate_indexes = [...selected_intermediate_indexes, index];
             }
 			update_intermediate_selection(current_state);
@@ -226,7 +242,7 @@
 				}
 				update_intermediate_selection(current_state);
 			}
-		}
+		} 
 		// Reset pending selection
 		pending_selection_target = -1;
 	}
@@ -255,37 +271,44 @@
 
 	// Handle intermediate solutions generation
 	async function handle_intermediate() {
-		// Check if we have exactly 2 solutions selected
-		if (selected_solutions_for_intermediate.length !== 2) {
-			console.error('Exactly 2 solutions must be selected for intermediate solutions');
-			return;
-		}
-
-		// Get the two selected solutions
-		const solution1 = selected_solutions_for_intermediate[0];
-		const solution2 = selected_solutions_for_intermediate[1];
-
-		const result = await callNimbusAPI<Response>('intermediate', {
-			problem_id: problem?.id,
-			session_id: null, // Using active session
-			parent_state_id: null, // No specific parent
-			reference_solution_1: solution1,
-			reference_solution_2: solution2,
-			num_desired: current_num_intermediate_solutions
-		});
-
-		if (result.success && result.data) {
-			// Update the current state with the intermediate solutions response
-			current_state = result.data;
-			// Switch back to iterate mode after generating intermediate solutions
-			mode = "iterate";
-			// Select the first solution by default
-			selected_iteration_index = [0];
-			// Update the UI with the selected solution
-			update_iteration_selection(current_state);
-		} else {
-			console.error('Failed to solve intermediate solutions:', result.error);
-		}
+			// Check if we have exactly 2 solutions selected
+			if (selected_solutions_for_intermediate.length !== 2) {
+				console.error('Exactly 2 solutions must be selected for intermediate solutions');
+				return;
+			}
+	
+			// Get the two selected solutions
+			const solution1 = selected_solutions_for_intermediate[0];
+			const solution2 = selected_solutions_for_intermediate[1];
+	
+			const result = await callNimbusAPI<Response>('intermediate', {
+				problem_id: problem?.id,
+				session_id: null, // Using active session
+				parent_state_id: null, // No specific parent
+				reference_solution_1: solution1,
+				reference_solution_2: solution2,
+				num_desired: current_num_intermediate_solutions
+			});
+	
+			if (result.success && result.data) {
+				// Update the current state with the intermediate solutions response
+				current_state = result.data;
+				
+				// Update names from saved solutions (only for all_solutions, current_solutions are new)
+				current_state.all_solutions = updateSolutionNames(
+					current_state.saved_solutions, 
+					current_state.all_solutions
+				);
+				
+				// Switch back to iterate mode after generating intermediate solutions
+				mode = "iterate";
+				// Select the first solution by default
+				selected_iteration_index = [0];
+				// Switch to current solutions view and update UI
+				change_solution_type_updating_selections('current');
+			} else {
+				console.error('Failed to solve intermediate solutions:', result.error);
+			}
 	}
 
 	// Save a solution with an optional name
@@ -352,49 +375,57 @@
 		preferenceValues: number[];
 		objectiveValues: number[];
 	}) {
-		if (!problem) {
-			console.error('No problem selected');
-			return;
-		}
-		if (current_preference.length === 0) {
-			console.error('No preferences set');
-			return;
-		}
-		if (!is_iteration_allowed()) {
-			console.error('Iteration not allowed based on current preferences and objectives');
-			return;
-		}
-
-		const preference = {
-			preference_type: 'reference_point',
-			aspiration_levels: problem.objectives.reduce(
-				(acc, obj, idx) => {
-					acc[obj.symbol] = current_preference[idx];
-					return acc;
-				},
-				{} as Record<string, number>
-			)
-		};
-
-		const result = await callNimbusAPI<Response>('iterate', {
-			problem_id: problem.id,
-			session_id: null,
-			parent_state_id: null,
-			current_objectives: selected_iteration_objectives,
-			num_desired: current_num_iteration_solutions,
-			preference: preference
-		});
-
-		if (result.success && result.data) {
-			// Store the preference values that were just used for iteration
-			current_state = result.data;
-			selected_iteration_index = [0];
-			update_iteration_selection(current_state);
-			update_preferences_from_state(current_state);
-			current_num_iteration_solutions = current_state.current_solutions.length
-		} else {
-			console.error('NIMBUS iteration failed:', result.error);
-		}
+			if (!problem) {
+				console.error('No problem selected');
+				return;
+			}
+			if (current_preference.length === 0) {
+				console.error('No preferences set');
+				return;
+			}
+			if (!is_iteration_allowed()) {
+				console.error('Iteration not allowed based on current preferences and objectives');
+				return;
+			}
+	
+			const preference = {
+				preference_type: 'reference_point',
+				aspiration_levels: problem.objectives.reduce(
+					(acc, obj, idx) => {
+						acc[obj.symbol] = current_preference[idx];
+						return acc;
+					},
+					{} as Record<string, number>
+				)
+			};
+	
+			const result = await callNimbusAPI<Response>('iterate', {
+				problem_id: problem.id,
+				session_id: null,
+				parent_state_id: null,
+				current_objectives: selected_iteration_objectives,
+				num_desired: current_num_iteration_solutions,
+				preference: preference
+			});
+	
+			if (result.success && result.data) {
+				// Store the preference values that were just used for iteration
+				current_state = result.data;
+				
+				// Update names from saved solutions (only for all_solutions, current_solutions are new)
+				current_state.all_solutions = updateSolutionNames(
+					current_state.saved_solutions, 
+					current_state.all_solutions
+				);
+				
+				selected_iteration_index = [0];
+				// Switch to current solutions view after iteration
+				change_solution_type_updating_selections('current');
+				update_preferences_from_state(current_state);
+				current_num_iteration_solutions = current_state.current_solutions.length
+			} else {
+				console.error('NIMBUS iteration failed:', result.error);
+			}
 	}
 
 	// Fetch maps data for UTOPIA visualization for one solution
@@ -453,10 +484,19 @@
 	// Helper function to update current iteration objectives from the current state
 	function update_iteration_selection(state: Response | null) {
 		if (!problem) return;
-		if (!state || !state.current_solutions || state.current_solutions.length === 0) return;
-			const selectedSolution = state.current_solutions[selected_iteration_index[0]]; 
-			selected_iteration_objectives = selectedSolution.objective_values || {};
-					
+		if (!state) return;
+		
+		// Use chosen_solutions instead of hardcoding current_solutions
+		if (chosen_solutions.length === 0) return;
+		
+		// Make sure the selected index is within bounds of the chosen solutions
+		if (selected_iteration_index[0] >= chosen_solutions.length) {
+			selected_iteration_index = [0]; // Reset to first solution if out of bounds
+		}
+		
+		const selectedSolution = chosen_solutions[selected_iteration_index[0]]; 
+		selected_iteration_objectives = selectedSolution.objective_values || {};
+				
 		// Only fetch maps if problem has utopia metadata
 		if (hasUtopiaMetadata) {
 			get_maps(selectedSolution);
@@ -474,8 +514,16 @@
 	// Helper function to update current intermediate objectives from the current state
 	function update_intermediate_selection(state: Response | null) {
 		if (!problem) return;
-		if (!state || !state.current_solutions || state.current_solutions.length === 0) return;
-		selected_solutions_for_intermediate = selected_intermediate_indexes.map((i) => state.current_solutions[i]); 
+		if (!state) return;
+		if (chosen_solutions.length === 0) return;
+		
+		// Filter selected indexes that are within bounds
+		const validIndexes = selected_intermediate_indexes.filter(i => i < chosen_solutions.length);
+		if (validIndexes.length !== selected_intermediate_indexes.length) {
+			selected_intermediate_indexes = validIndexes; // Update if any were out of bounds
+		}
+		
+		selected_solutions_for_intermediate = selected_intermediate_indexes.map(i => chosen_solutions[i]); 
 	}
 
 	// helper function to check if a solution is saved (exists in savedSolutions)
@@ -512,29 +560,24 @@
 		});
 
 		if (result.success && result.data) {
+			// Store response data
 			current_state = result.data;
+			
+			// Update names from saved solutions
+			current_state.current_solutions = updateSolutionNames(
+				current_state.saved_solutions, 
+				current_state.current_solutions
+			);
+			current_state.all_solutions = updateSolutionNames(
+				current_state.saved_solutions, 
+				current_state.all_solutions
+			);
+			
+			// Initialize other state
 			selected_iteration_index = [0];
 			update_iteration_selection(current_state);
 			update_preferences_from_state(current_state);
 			current_num_iteration_solutions = current_state.current_solutions.length;
-			// update names in all current_solutions and all_solutions that are saved
-			for (let solution of current_state.current_solutions) {
-				const savedIndex = current_state.saved_solutions.findIndex(
-					saved => saved.address_state === solution.address_state && saved.address_result === solution.address_result
-				);
-				if (savedIndex !== -1) {
-					// Solution exists in saved_solutions, update the name
-					solution.name = current_state.saved_solutions[savedIndex].name;
-				}
-			}
-			for (let solution of current_state.all_solutions) {
-				const savedIndex = current_state.saved_solutions.findIndex(
-					saved => saved.address_state === solution.address_state && saved.address_result === solution.address_result
-				);
-				if (savedIndex !== -1) {
-					solution.name = current_state.saved_solutions[savedIndex].name;
-				}
-			}
 		} else {
 			console.error('NIMBUS initialization failed:', result.error);
 		}
@@ -560,7 +603,7 @@
 {#if mode === "final"}
 	<BaseLayout showLeftSidebar={false} showRightSidebar={false}>
 		{#snippet visualizationArea()}
-			{#if problem && current_state && current_state.current_solutions && selected_iteration_index.length > 0}
+			{#if problem && selected_iteration_index.length > 0}
 				<!-- Grid layout to place visualizations side by side with fixed height -->
 				<div class="flex gap-4 h-full">
 					<!-- Left side: VisualizationsPanel with constrained height -->
@@ -573,7 +616,7 @@
 							currentPreferenceValues={current_preference}
 							currentPreferenceType={type_preferences}
 							solutionsObjectiveValues={problem ? 
-								mapSolutionsToObjectiveValues([current_state.current_solutions[selected_iteration_index[0]]], problem) : []}
+								mapSolutionsToObjectiveValues([chosen_solutions[selected_iteration_index[0]]], problem) : []}
 							externalSelectedIndexes={selected_iteration_index} 
 							onSelectSolution={() => {}}
 						/>
@@ -597,10 +640,10 @@
 			{/if}
 		{/snippet}
 		{#snippet numericalValues()}
-			{#if problem && current_state?.current_solutions && current_state.current_solutions.length > 0 && selected_iteration_index.length > 0}
+			{#if problem && chosen_solutions.length > 0 && selected_iteration_index.length > 0}
 				<SolutionTable
 					{problem}
-					solverResults={[current_state.current_solutions[selected_iteration_index[0]]]}
+					solverResults={[chosen_solutions[selected_iteration_index[0]]]}
 					isSaved={isSaved}
 					selectedSolutions={selectedIndexes()}
 					handle_save={handle_save}
@@ -613,12 +656,7 @@
 {:else}
 	<BaseLayout showLeftSidebar={!!problem} showRightSidebar={false}>
 		{#snippet leftSidebar()}
-			<div class="mt-4">
-				<ToggleGroup type="single" bind:value={mode}>
-					<ToggleGroupItem value="iterate">Iterate or finish</ToggleGroupItem>
-					<ToggleGroupItem value="intermediate">Find intermediate</ToggleGroupItem>
-				</ToggleGroup>
-			</div>
+
 			{#if problem && mode==="iterate"}
 				<AppSidebar
 					{problem}
@@ -651,6 +689,10 @@
 		{/snippet}
 
 		{#snippet explorerControls()}
+			<ToggleGroup type="single" bind:value={mode} class="mr-10">
+				<ToggleGroupItem value="iterate">Iterate or finish</ToggleGroupItem>
+				<ToggleGroupItem value="intermediate">Find intermediate</ToggleGroupItem>
+			</ToggleGroup>
 			<span>View: </span>
 			<Combobox
 				options={frameworks}
@@ -660,11 +702,11 @@
 		{/snippet}
 
 		{#snippet visualizationArea()}
-			{#if problem && current_state && current_state.current_solutions}
+			{#if problem && current_state }
 				<!-- Grid layout to place visualizations side by side with fixed height -->
 				<div class="flex gap-4 h-full">
 					<!-- Left side: VisualizationsPanel with constrained height -->
-					<div class="flex-1">
+					<div class="flex-2">
 						<!-- Visualization panel that adapts to current mode -->
 						<VisualizationsPanel
 							{problem}
@@ -672,8 +714,12 @@
 							currentPreferenceValues={current_preference}
 							previousPreferenceType={type_preferences}
 							currentPreferenceType={type_preferences}
-							solutionsObjectiveValues={problem ? mapSolutionsToObjectiveValues(current_state.current_solutions, problem) : []}
-							previousObjectiveValues={processPreviousObjectiveValues(current_state, problem)}
+							solutionsObjectiveValues={problem ? mapSolutionsToObjectiveValues(chosen_solutions, problem) : []}
+							previousObjectiveValues={
+								(selected_type_solutions === 'current') ? 
+								processPreviousObjectiveValues(current_state, problem) : 
+								[]
+							}
 							externalSelectedIndexes={selectedIndexes()}
 							onSelectSolution={handle_solution_click}
 						/>
@@ -697,17 +743,18 @@
 			{/if}
 		{/snippet}
 		{#snippet numericalValues()}
-			{#if problem && current_state?.current_solutions && current_state.current_solutions.length > 0}
+			{#if problem && chosen_solutions.length > 0}
 				<SolutionTable
 					{problem}
-					solverResults={current_state.current_solutions}
+					solverResults={chosen_solutions}
 					isSaved={isSaved}
 					selectedSolutions={selectedIndexes()}
 					handle_save={handle_save}
 					handle_row_click={handle_solution_click}
 					bind:has_unsaved_changes={has_unsaved_changes}
 					previousObjectiveValues={
-						problem ? 
+						(selected_type_solutions === 'current') ? 
+						(problem ? 
 						[
 							// Add previous_objectives if it exists
 							...(current_state.previous_objectives ? [current_state.previous_objectives] : []),
@@ -716,6 +763,7 @@
 							// Add reference_solution_2 if it exists
 							...(current_state.reference_solution_2 ? [current_state.reference_solution_2] : [])
 						] : 
+						[]) : 
 						[]
 					}
 				/>
