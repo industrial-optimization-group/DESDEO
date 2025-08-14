@@ -194,7 +194,7 @@ def add_asf_nondiff(  # noqa: PLR0913
     # Build the max term
     max_operands = [
         (
-            f"({obj.symbol}_min - {reference_point[obj.symbol]}{" * -1" if obj.maximize else ''}) "
+            f"({obj.symbol}_min - {reference_point[obj.symbol]}{' * -1' if obj.maximize else ''}) "
             f"/ ({nadir_point[obj.symbol]} - ({ideal_point[obj.symbol]} - {delta}))"
         )
         for obj in problem.objectives
@@ -210,7 +210,7 @@ def add_asf_nondiff(  # noqa: PLR0913
     else:
         aug_operands = [
             (
-                f"({obj.symbol}_min - {reference_point[obj.symbol]}{" * -1" if obj.maximize else 1}) "
+                f"({obj.symbol}_min - {reference_point[obj.symbol]}{' * -1' if obj.maximize else 1}) "
                 f"/ ({nadir_point[obj.symbol]} - ({ideal_point[obj.symbol]} - {delta}))"
             )
             for obj in problem.objectives
@@ -340,7 +340,7 @@ def add_group_asf(
         bounds = flip_maximized_objective_values(problem, agg_bounds)
         constraints = []
         for obj in problem.objectives:
-            expr = (f"({obj.symbol}_min - {bounds[obj.symbol]})")
+            expr = f"({obj.symbol}_min - {bounds[obj.symbol]})"
             constraints.append(
                 Constraint(
                     name=f"Constraint bound for {obj.symbol}",
@@ -355,6 +355,7 @@ def add_group_asf(
         problem = problem.add_constraints(constraints)
 
     return problem, symbol
+
 
 def add_group_asf_agg(
     problem: Problem,
@@ -420,12 +421,13 @@ def add_group_asf_agg(
 
     # Correct the aspirations and hard_constraints
     agg_aspirations = flip_maximized_objective_values(problem, agg_aspirations)
-    agg_bounds = flip_maximized_objective_values(problem, agg_bounds)    # calculate the weights
+    agg_bounds = flip_maximized_objective_values(problem, agg_bounds)  # calculate the weights
 
     weights = None
     if type(delta) is dict:
         weights = {
-            obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta[obj.symbol])) for obj in problem.objectives
+            obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta[obj.symbol]))
+            for obj in problem.objectives
         }
     else:
         weights = {
@@ -457,7 +459,7 @@ def add_group_asf_agg(
     constraints = []
 
     for obj in problem.objectives:
-        expr = (f"({obj.symbol}_min - {agg_bounds[obj.symbol]})")
+        expr = f"({obj.symbol}_min - {agg_bounds[obj.symbol]})"
         constraints.append(
             Constraint(
                 name=f"Constraint for {obj.symbol}",
@@ -599,7 +601,7 @@ def add_group_asf_diff(
             constraints.append(
                 Constraint(
                     name=f"Constraint for {obj.symbol}",
-                    symbol=f"{obj.symbol}_con_{i+1}",
+                    symbol=f"{obj.symbol}_con_{i + 1}",
                     func=con_terms[i][obj.symbol],
                     cons_type=ConstraintTypeEnum.LTE,
                     is_linear=obj.is_linear,
@@ -1397,6 +1399,7 @@ def add_nimbus_sf_nondiff(  # noqa: PLR0913
     _problem = problem.add_scalarization(scalarization)
     return _problem.add_constraints(constraints), symbol
 
+
 def add_group_nimbus(  # noqa: PLR0913
     problem: Problem,
     symbol: str,
@@ -1508,7 +1511,10 @@ def add_group_nimbus(  # noqa: PLR0913
     bounds = flip_maximized_objective_values(problem, agg_bounds)
 
     # calculate the weights
-    weights = {obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta[obj.symbol])) for obj in problem.objectives}
+    weights = {
+        obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta[obj.symbol]))
+        for obj in problem.objectives
+    }
 
     # max term and constraints
     max_args = []
@@ -1530,7 +1536,7 @@ def add_group_nimbus(  # noqa: PLR0913
                     constraints.append(
                         Constraint(
                             name=f"improvement constraint for {_symbol}",
-                            symbol=f"{_symbol}_{i+1}_lt",
+                            symbol=f"{_symbol}_{i + 1}_lt",
                             func=con_expr,
                             cons_type=ConstraintTypeEnum.LTE,
                             is_linear=problem.is_linear,
@@ -1549,7 +1555,7 @@ def add_group_nimbus(  # noqa: PLR0913
                     constraints.append(
                         Constraint(
                             name=f"improvement until constraint for {_symbol}",
-                            symbol=f"{_symbol}_{i+1}_lte",
+                            symbol=f"{_symbol}_{i + 1}_lte",
                             func=con_expr,
                             cons_type=ConstraintTypeEnum.LTE,
                             is_linear=problem.is_linear,
@@ -1568,7 +1574,7 @@ def add_group_nimbus(  # noqa: PLR0913
                     constraints.append(
                         Constraint(
                             name=f"Worsen until constraint for {_symbol}",
-                            symbol=f"{_symbol}_{i+1}_gte",
+                            symbol=f"{_symbol}_{i + 1}_gte",
                             func=con_expr,
                             cons_type=ConstraintTypeEnum.LTE,
                             is_linear=problem.is_linear,
@@ -1605,6 +1611,7 @@ def add_group_nimbus(  # noqa: PLR0913
 
     _problem = problem.add_scalarization(scalarization)
     return _problem.add_constraints(constraints), symbol
+
 
 def add_group_nimbus_sf(  # noqa: PLR0913
     problem: Problem,
@@ -1746,7 +1753,7 @@ def add_group_nimbus_sf(  # noqa: PLR0913
                     constraints.append(
                         Constraint(
                             name=f"improvement constraint for {_symbol}",
-                            symbol=f"{_symbol}_{i+1}_lt",
+                            symbol=f"{_symbol}_{i + 1}_lt",
                             func=con_expr,
                             cons_type=ConstraintTypeEnum.LTE,
                             is_linear=problem.is_linear,
@@ -1765,7 +1772,7 @@ def add_group_nimbus_sf(  # noqa: PLR0913
                     constraints.append(
                         Constraint(
                             name=f"improvement until constraint for {_symbol}",
-                            symbol=f"{_symbol}_{i+1}_lte",
+                            symbol=f"{_symbol}_{i + 1}_lte",
                             func=con_expr,
                             cons_type=ConstraintTypeEnum.LTE,
                             is_linear=problem.is_linear,
@@ -1778,7 +1785,7 @@ def add_group_nimbus_sf(  # noqa: PLR0913
                     constraints.append(
                         Constraint(
                             name=f"Stay at least as good constraint for {_symbol}",
-                            symbol=f"{_symbol}_{i+1}_eq",
+                            symbol=f"{_symbol}_{i + 1}_eq",
                             func=con_expr,
                             cons_type=ConstraintTypeEnum.LTE,
                             is_linear=problem.is_linear,
@@ -1792,7 +1799,7 @@ def add_group_nimbus_sf(  # noqa: PLR0913
                     constraints.append(
                         Constraint(
                             name=f"Worsen until constraint for {_symbol}",
-                            symbol=f"{_symbol}_{i+1}_gte",
+                            symbol=f"{_symbol}_{i + 1}_gte",
                             func=con_expr,
                             cons_type=ConstraintTypeEnum.LTE,
                             is_linear=problem.is_linear,
@@ -1980,7 +1987,7 @@ def add_group_nimbus_sf_diff(  # noqa: PLR0913
                     constraints.append(
                         Constraint(
                             name=f"Max term linearization for {_symbol}",
-                            symbol=f"max_con_{_symbol}_{i+1}",
+                            symbol=f"max_con_{_symbol}_{i + 1}",
                             func=max_expr,
                             cons_type=ConstraintTypeEnum.LTE,
                             is_linear=problem.is_linear,
@@ -1992,7 +1999,7 @@ def add_group_nimbus_sf_diff(  # noqa: PLR0913
                     constraints.append(
                         Constraint(
                             name=f"improvement constraint for {_symbol}",
-                            symbol=f"{_symbol}_{i+1}_lt",
+                            symbol=f"{_symbol}_{i + 1}_lt",
                             func=con_expr,
                             cons_type=ConstraintTypeEnum.LTE,
                             is_linear=problem.is_linear,
@@ -2009,7 +2016,7 @@ def add_group_nimbus_sf_diff(  # noqa: PLR0913
                     constraints.append(
                         Constraint(
                             name=f"Max term linearization for {_symbol}",
-                            symbol=f"max_con_{_symbol}_{i+1}",
+                            symbol=f"max_con_{_symbol}_{i + 1}",
                             func=max_expr,
                             cons_type=ConstraintTypeEnum.LTE,
                             is_linear=problem.is_linear,
@@ -2021,7 +2028,7 @@ def add_group_nimbus_sf_diff(  # noqa: PLR0913
                     constraints.append(
                         Constraint(
                             name=f"improvement until constraint for {_symbol}",
-                            symbol=f"{_symbol}_{i+1}_lte",
+                            symbol=f"{_symbol}_{i + 1}_lte",
                             func=con_expr,
                             cons_type=ConstraintTypeEnum.LTE,
                             is_linear=problem.is_linear,
@@ -2034,7 +2041,7 @@ def add_group_nimbus_sf_diff(  # noqa: PLR0913
                     constraints.append(
                         Constraint(
                             name=f"Stay at least as good constraint for {_symbol}",
-                            symbol=f"{_symbol}_{i+1}_eq",
+                            symbol=f"{_symbol}_{i + 1}_eq",
                             func=con_expr,
                             cons_type=ConstraintTypeEnum.LTE,
                             is_linear=problem.is_linear,
@@ -2048,7 +2055,7 @@ def add_group_nimbus_sf_diff(  # noqa: PLR0913
                     constraints.append(
                         Constraint(
                             name=f"Worsen until constraint for {_symbol}",
-                            symbol=f"{_symbol}_{i+1}_gte",
+                            symbol=f"{_symbol}_{i + 1}_gte",
                             func=con_expr,
                             cons_type=ConstraintTypeEnum.LTE,
                             is_linear=problem.is_linear,
@@ -2402,7 +2409,7 @@ def add_group_stom(
         bounds = flip_maximized_objective_values(problem, agg_bounds)
         constraints = []
         for obj in problem.objectives:
-            expr = (f"({obj.symbol}_min - {bounds[obj.symbol]})")
+            expr = f"({obj.symbol}_min - {bounds[obj.symbol]})"
             constraints.append(
                 Constraint(
                     name=f"Constraint bound for {obj.symbol}",
@@ -2417,6 +2424,7 @@ def add_group_stom(
         problem = problem.add_constraints(constraints)
 
     return problem, symbol
+
 
 def add_group_stom_agg(
     problem: Problem,
@@ -2480,11 +2488,13 @@ def add_group_stom_agg(
     weights = None
     if type(delta) is dict:
         weights = {
-            obj.symbol: 1 / (agg_aspirations[obj.symbol] - (ideal_point[obj.symbol] - delta[obj.symbol])) for obj in problem.objectives
+            obj.symbol: 1 / (agg_aspirations[obj.symbol] - (ideal_point[obj.symbol] - delta[obj.symbol]))
+            for obj in problem.objectives
         }
     else:
         weights = {
-            obj.symbol: 1 / (agg_aspirations[obj.symbol] - (ideal_point[obj.symbol] - delta)) for obj in problem.objectives
+            obj.symbol: 1 / (agg_aspirations[obj.symbol] - (ideal_point[obj.symbol] - delta))
+            for obj in problem.objectives
         }
 
     # form the max and augmentation terms
@@ -2492,7 +2502,9 @@ def add_group_stom_agg(
     aug_exprs = []
     for obj in problem.objectives:
         if type(delta) is dict:
-            max_terms.append(f"({weights[obj.symbol]}) * ({obj.symbol}_min - {ideal_point[obj.symbol] - delta[obj.symbol]} )")
+            max_terms.append(
+                f"({weights[obj.symbol]}) * ({obj.symbol}_min - {ideal_point[obj.symbol] - delta[obj.symbol]} )"
+            )
         else:
             max_terms.append(f"{weights[obj.symbol]} * ({obj.symbol}_min - {ideal_point[obj.symbol] - delta})")
 
@@ -2515,7 +2527,7 @@ def add_group_stom_agg(
     constraints = []
 
     for obj in problem.objectives:
-        expr = (f"({obj.symbol}_min - {agg_bounds[obj.symbol]})")
+        expr = f"({obj.symbol}_min - {agg_bounds[obj.symbol]})"
         constraints.append(
             Constraint(
                 name=f"Constraint bound for {obj.symbol}",
@@ -2651,7 +2663,7 @@ def add_group_stom_sf_diff(
             constraints.append(
                 Constraint(
                     name=f"Constraint for {obj.symbol}",
-                    symbol=f"{obj.symbol}_con_{i+1}",
+                    symbol=f"{obj.symbol}_con_{i + 1}",
                     func=con_terms[i][obj.symbol],
                     cons_type=ConstraintTypeEnum.LTE,
                     is_linear=obj.is_linear,
@@ -2686,28 +2698,32 @@ def add_guess_sf_diff(
     r"""Adds the differentiable variant of the GUESS scalarizing function.
 
     \begin{align*}
-        \min \quad & \alpha + \rho \sum_{i=1}^k \frac{f_i(\mathbf{x})}{d_i} \\
-        \text{s.t.} \quad & \frac{f_i(\mathbf{x}) - z_i^{\star\star}}{\bar{z}_i
-        - z_i^{\star\star}} - \alpha \leq 0 \quad & \forall i \notin I^{\diamond},\\
-        & d_i =
-        \begin{cases}
-        z^\text{nad}_i - \bar{z}_i,\quad \forall i \notin I^\diamond,\\
-        z^\text{nad}_i - z^{\star\star}_i,\quad \forall i \in I^\diamond,\\
-        \end{cases}\\
+        \min \quad & \alpha + \rho \sum_{i=1}^k \frac{f_i(\mathbf{x})}{z_i^{nad} - \bar{z}_i},
+        \quad & \\
+        \text{s.t.} \quad & \frac{f_i(\mathbf{x}) - z_i^{nad}}{z_i^{nad} - \bar{z}_i}
+         - \alpha \leq 0 \quad & \forall i \notin I^{\diamond},\\
         & \mathbf{x} \in S,
     \end{align*}
 
-    where $f_i$ are objective functions, $z_i^{\star\star} = z_i^\star - \delta$ is
-    a component of the utopian point, $\bar{z}_i$ is a component of the reference point,
-    $\rho$ and $\delta$ are small scalar values, $S$ is the feasible solution
-    space of the original problem, and $\alpha$ is an auxiliary variable. The index
-    set $I^\diamond$ represents objective vectors whose values are free to change. The indices
-    belonging to this set are interpreted as those objective vectors whose components in
-    the reference point is set to be the the respective nadir point component of the problem.
+    where $f_{i}$ are objective functions, $z_{i}^{nad}$ is a component of the
+    nadir point, $\bar{z}_{i}$
+    is a component of the reference point, $\rho$ is a small scalar
+    value, and $S$ is the feasible solution space of the original problem. The
+    index set $I^\diamond$ represents objective vectors whose values are free to
+    change. The indices belonging to this set are interpreted as those objective
+    vectors whose components in the reference point is set to be the the
+    respective nadir point component of the problem. Note that in Buchanan (1997),
+    the GUESS method considers all objective functions, i.e. $I^\diamond$ is
+    an empty set. The functionality to have free-to-change objectives was added
+    in Miettinen & Mäkelä (2006).
 
     References:
         Buchanan, J. T. (1997). A naive approach for solving MCDM problems: The
         GUESS method. Journal of the Operational Research Society, 48, 202-206.
+
+        Miettinen, K., & Mäkelä, M. M. (2006). Synchronous approach in interactive
+        multiobjective optimization. European Journal of Operational Research,
+        170(3), 909-922.
 
     Args:
         problem (Problem): the problem the scalarization is added to.
@@ -2775,10 +2791,7 @@ def add_guess_sf_diff(
     # define the objective function of the scalarization
     aug_expr = " + ".join(
         [
-            (
-                f"{obj.symbol}_min / ({nadir_point[obj.symbol]} - "
-                f"{reference_point[obj.symbol] if obj.symbol not in free_to_change else ideal_point[obj.symbol] - delta})"  # noqa: E501
-            )
+            (f"{obj.symbol}_min / ({nadir_point[obj.symbol]} - {(corrected_rp[obj.symbol])})")
             for obj in problem.objectives
         ]
     )
@@ -2830,38 +2843,39 @@ def add_guess_sf_nondiff(
     ideal: dict[str, float] | None = None,
     nadir: dict[str, float] | None = None,
     rho: float = 1e-6,
-    delta: float = 1e-6,
 ) -> tuple[Problem, str]:
     r"""Adds the non-differentiable variant of the GUESS scalarizing function.
 
     \begin{align*}
         \underset{\mathbf{x}}{\min}\quad & \underset{i \notin I^\diamond}{\max}
         \left[
-        \frac{f_i(\mathbf{x}) - z_i^{\star\star}}{\bar{z}_i - z_i^{\star\star}}
+        \frac{f_i(\mathbf{x}) - z_i^{nad}}{z_i^{nad} - \bar{z}_i}
         \right]
-        + \rho \sum_{j=1}^k \frac{f_j(\mathbf{x})}{d_j},
+        + \rho \sum_{i=1}^k \frac{f_i(\mathbf{x})}{z_i^{nad} - \bar{z}_i},
         \quad & \\
         \text{s.t.}\quad
-        & d_j =
-        \begin{cases}
-        z^\text{nad}_j - \bar{z}_j,\quad \forall j \notin I^\diamond,\\
-        z^\text{nad}_j - z^{\star\star}_j,\quad \forall j \in I^\diamond,\\
-        \end{cases}\\
         & \mathbf{x} \in S,
     \end{align*}
 
-    where $f_{i/j}$ are objective functions, $z_{i/j}^{\star\star} =
-    z_{i/j}^\star - \delta$ is a component of the utopian point, $\bar{z}_{i/j}$
-    is a component of the reference point, $\rho$ and $\delta$ are small scalar
-    values, and $S$ is the feasible solution space of the original problem. The
+    where $f_{i}$ are objective functions, $z_{i}^{nad}$ is a component of the
+    nadir point, $\bar{z}_{i}$
+    is a component of the reference point, $\rho$ is a small scalar
+    value, and $S$ is the feasible solution space of the original problem. The
     index set $I^\diamond$ represents objective vectors whose values are free to
     change. The indices belonging to this set are interpreted as those objective
     vectors whose components in the reference point is set to be the the
-    respective nadir point component of the problem.
+    respective nadir point component of the problem. Note that in Buchanan (1997),
+    the GUESS method considers all objective functions, i.e. $I^\diamond$ is
+    an empty set. The functionality to have free-to-change objectives was added
+    in Miettinen & Mäkelä (2006).
 
     References:
         Buchanan, J. T. (1997). A naive approach for solving MCDM problems: The
         GUESS method. Journal of the Operational Research Society, 48, 202-206.
+
+        Miettinen, K., & Mäkelä, M. M. (2006). Synchronous approach in interactive
+        multiobjective optimization. European Journal of Operational Research,
+        170(3), 909-922.
 
     Args:
         problem (Problem): the problem the scalarization is added to.
@@ -2922,8 +2936,8 @@ def add_guess_sf_nondiff(
     max_expr = ", ".join(
         [
             (
-                f"({obj.symbol}_min - {(ideal_point[obj.symbol] - delta)}) / "
-                f"({reference_point[obj.symbol]} - {(ideal_point[obj.symbol] - delta)})"
+                f"({obj.symbol}_min - {(nadir_point[obj.symbol])}) / "
+                f"({nadir_point[obj.symbol]} - {(corrected_rp[obj.symbol])})"
             )
             for obj in problem.objectives
             if obj.symbol not in free_to_change
@@ -2933,10 +2947,7 @@ def add_guess_sf_nondiff(
     # define the augmentation term
     aug_expr = " + ".join(
         [
-            (
-                f"{obj.symbol}_min / ({nadir_point[obj.symbol]} - "
-                f"{reference_point[obj.symbol] if obj.symbol not in free_to_change else ideal_point[obj.symbol] - delta})"  # noqa: E501
-            )
+            (f"{obj.symbol}_min / ({nadir_point[obj.symbol]} - {(corrected_rp[obj.symbol])})")
             for obj in problem.objectives
         ]
     )
@@ -3065,7 +3076,7 @@ def add_group_guess(
         bounds = flip_maximized_objective_values(problem, agg_bounds)
         constraints = []
         for obj in problem.objectives:
-            expr = (f"({obj.symbol}_min - {bounds[obj.symbol]})")
+            expr = f"({obj.symbol}_min - {bounds[obj.symbol]})"
             constraints.append(
                 Constraint(
                     name=f"Constraint bound for {obj.symbol}",
@@ -3168,7 +3179,9 @@ def add_group_guess_agg(
     aug_exprs = []
     for obj in problem.objectives:
         if type(delta) is dict:
-            max_terms.append(f"{weights[obj.symbol]} * ({obj.symbol}_min - {nadir_point[obj.symbol] + delta[obj.symbol]} )")
+            max_terms.append(
+                f"{weights[obj.symbol]} * ({obj.symbol}_min - {nadir_point[obj.symbol] + delta[obj.symbol]} )"
+            )
         else:
             max_terms.append(f"{weights[obj.symbol]} * ({obj.symbol}_min - {nadir_point[obj.symbol] + delta})")
 
@@ -3191,7 +3204,7 @@ def add_group_guess_agg(
     constraints = []
 
     for obj in problem.objectives:
-        expr = (f"({obj.symbol}_min - {agg_bounds[obj.symbol]})")
+        expr = f"({obj.symbol}_min - {agg_bounds[obj.symbol]})"
         constraints.append(
             Constraint(
                 name=f"Constraint for {obj.symbol}",
@@ -3328,7 +3341,7 @@ def add_group_guess_sf_diff(
             constraints.append(
                 Constraint(
                     name=f"Constraint for {obj.symbol}",
-                    symbol=f"{obj.symbol}_con_{i+1}",
+                    symbol=f"{obj.symbol}_con_{i + 1}",
                     func=con_terms[i][obj.symbol],
                     cons_type=ConstraintTypeEnum.LTE,
                     is_linear=obj.is_linear,
@@ -3723,12 +3736,10 @@ def add_group_scenario_sf_nondiff(
     for reference_point, weight in zip(reference_points, weights, strict=True):
         if not objective_dict_has_all_symbols(problem, reference_point):
             raise ScalarizationError(
-                f"The give reference point {reference_point} " f"is missing value for one or more objectives."
+                f"The give reference point {reference_point} is missing value for one or more objectives."
             )
         if not objective_dict_has_all_symbols(problem, weight):
-            raise ScalarizationError(
-                f"The given weight vector {weight} is missing " f"a value for one or more objectives."
-            )
+            raise ScalarizationError(f"The given weight vector {weight} is missing a value for one or more objectives.")
 
     max_list: list[str] = []
     sum_list: list[str] = []
