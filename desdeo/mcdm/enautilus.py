@@ -19,8 +19,6 @@ from desdeo.problem import (
     numpy_array_to_objective_dict,
     objective_dict_to_numpy_array,
 )
-
-
 from desdeo.tools import SolverResults, flip_maximized_objective_values
 
 

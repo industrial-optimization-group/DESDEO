@@ -171,7 +171,7 @@ class PyomoEvaluator:
                 else:
                     initial_value = (
                         var.initial_value
-                        if var.lowerbound is None and var.upperbound is None
+                        if var.lowerbound is None or var.upperbound is None
                         else (var.lowerbound + var.upperbound) / 2
                     )
 

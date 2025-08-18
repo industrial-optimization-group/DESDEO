@@ -11,26 +11,24 @@ from desdeo.api.models import (
     NIMBUSInitializationRequest,
     NIMBUSSaveRequest,
     NIMBUSSaveState,
+    NonPreferredSolutions,
+    PreferredSolutions,
     ProblemGetRequest,
     ProblemInfo,
     ReferencePoint,
     RPMSolveRequest,
     User,
-    PreferedSolutions,
-    NonPreferredSolutions,
 )
-from desdeo.api.models.archive import UserSavedSolverResults, UserSavedEMOResults
+from desdeo.api.models.archive import UserSavedEMOResults, UserSavedSolverResults
+from desdeo.api.models.EMO import EMOSaveRequest, EMOSolveRequest
 from desdeo.api.models.generic import IntermediateSolutionRequest
+from desdeo.api.models.preference import PreferredRanges
+from desdeo.api.models.state import EMOSaveState, EMOState
 from desdeo.api.routers.user_authentication import create_access_token
 from desdeo.problem.testproblems import simple_knapsack_vectors
-from desdeo.api.models.EMO import EMOSaveRequest, EMOSolveRequest
-from desdeo.api.models.preference import PreferredRanges
-from desdeo.api.models.state import EMOState, EMOSaveState
 
 
-def login(
-    client: TestClient, username="analyst", password="analyst"
-) -> str:  # noqa: S107
+def login(client: TestClient, username="analyst", password="analyst") -> str:  # noqa: S107
     """Login, returns the access token."""
     response_login = client.post(
         "/login",
@@ -118,9 +116,7 @@ def test_refresh(client: TestClient):
 
     assert "access_token" in response_refresh.json()
 
-    assert (
-        response_good.json()["access_token"] != response_refresh.json()["access_token"]
-    )
+    assert response_good.json()["access_token"] != response_refresh.json()["access_token"]
 
 
 def test_get_problem(client: TestClient):
@@ -242,14 +238,10 @@ def test_rpm_solve(client: TestClient):
 
     request = RPMSolveRequest(
         problem_id=1,
-        preference=ReferencePoint(
-            aspiration_levels={"f_1": 0.5, "f_2": 0.3, "f_3": 0.4}
-        ),
+        preference=ReferencePoint(aspiration_levels={"f_1": 0.5, "f_2": 0.3, "f_3": 0.4}),
     )
 
-    response = post_json(
-        client, "/method/rpm/solve", request.model_dump(), access_token
-    )
+    response = post_json(client, "/method/rpm/solve", request.model_dump(), access_token)
 
     assert response.status_code == status.HTTP_200_OK
 
@@ -260,15 +252,11 @@ def test_nimbus_solve(client: TestClient):
 
     request = NIMBUSClassificationRequest(
         problem_id=1,
-        preference=ReferencePoint(
-            aspiration_levels={"f_1": 0.5, "f_2": 0.6, "f_3": 0.4}
-        ),
+        preference=ReferencePoint(aspiration_levels={"f_1": 0.5, "f_2": 0.6, "f_3": 0.4}),
         current_objectives={"f_1": 0.6, "f_2": 0.4, "f_3": 0.5},
     )
 
-    response = post_json(
-        client, "/method/nimbus/solve", request.model_dump(), access_token
-    )
+    response = post_json(client, "/method/nimbus/solve", request.model_dump(), access_token)
     assert response.status_code == status.HTTP_200_OK
 
 
@@ -294,9 +282,7 @@ def test_intermediate_solve(client: TestClient):
         },
     )
 
-    response = post_json(
-        client, "/method/generic/intermediate", request.model_dump(), access_token
-    )
+    response = post_json(client, "/method/generic/intermediate", request.model_dump(), access_token)
     assert response.status_code == status.HTTP_200_OK
 
 
@@ -331,9 +317,7 @@ def test_save_solution(client: TestClient):
     )
 
     # Make the request
-    response = post_json(
-        client, "/method/nimbus/save", save_request.model_dump(), access_token
-    )
+    response = post_json(client, "/method/nimbus/save", save_request.model_dump(), access_token)
 
     # Verify the response and state
     assert response.status_code == status.HTTP_200_OK
@@ -355,9 +339,7 @@ def test_nimbus_initialize_no_solver(client: TestClient):
 
     request = NIMBUSInitializationRequest(problem_id=1, solver=None)
 
-    response = post_json(
-        client, "/method/nimbus/initialize", request.model_dump(), access_token
-    )
+    response = post_json(client, "/method/nimbus/initialize", request.model_dump(), access_token)
     assert response.status_code == status.HTTP_200_OK
 
 
@@ -493,9 +475,7 @@ def test_emo_solve_with_reference_point(client: TestClient):
     request = EMOSolveRequest(
         problem_id=1,
         method="NSGA3",  # Use uppercase method name consistently
-        preference=ReferencePoint(
-            aspiration_levels={"f_1_min": 0.5, "f_2_min": 0.3, "f_3_min": 0.4}
-        ),
+        preference=ReferencePoint(aspiration_levels={"f_1_min": 0.5, "f_2_min": 0.3, "f_3_min": 0.4}),
         max_evaluations=1000,
         number_of_vectors=20,
         use_archive=True,
@@ -503,9 +483,7 @@ def test_emo_solve_with_reference_point(client: TestClient):
 
     print("Request Data:", request.model_dump())
 
-    response = post_json(
-        client, "/method/emo/solve", request.model_dump(), access_token
-    )
+    response = post_json(client, "/method/emo/solve", request.model_dump(), access_token)
 
     assert response.status_code == status.HTTP_200_OK
 
@@ -528,9 +506,7 @@ def test_emo_save_solutions(client: TestClient):
     request = EMOSolveRequest(
         problem_id=1,
         method="NSGA3",  # Use uppercase method name consistently
-        preference=ReferencePoint(
-            aspiration_levels={"f_1_min": 0.5, "f_2_min": 0.3, "f_3_min": 0.4}
-        ),
+        preference=ReferencePoint(aspiration_levels={"f_1_min": 0.5, "f_2_min": 0.3, "f_3_min": 0.4}),
         max_evaluations=1000,
         number_of_vectors=20,
         use_archive=True,
@@ -538,9 +514,7 @@ def test_emo_save_solutions(client: TestClient):
 
     print("Request Data:", request.model_dump())
 
-    response = post_json(
-        client, "/method/emo/solve", request.model_dump(), access_token
-    )
+    response = post_json(client, "/method/emo/solve", request.model_dump(), access_token)
 
     assert response.status_code == status.HTTP_200_OK
 
@@ -580,9 +554,7 @@ def test_emo_save_solutions(client: TestClient):
     )
 
     # Make the request
-    response = post_json(
-        client, "/method/emo/save", save_request.model_dump(), access_token
-    )
+    response = post_json(client, "/method/emo/save", save_request.model_dump(), access_token)
 
     # Verify the response and state
     assert response.status_code == status.HTTP_200_OK
@@ -611,17 +583,13 @@ def test_emo_solve_with_rvea(client: TestClient):
     request = EMOSolveRequest(
         problem_id=1,
         method="RVEA",  # Test RVEA method with uppercase
-        preference=ReferencePoint(
-            aspiration_levels={"f_1_min": 0.5, "f_2_min": 0.3, "f_3_min": 0.4}
-        ),
+        preference=ReferencePoint(aspiration_levels={"f_1_min": 0.5, "f_2_min": 0.3, "f_3_min": 0.4}),
         max_evaluations=1000,
         number_of_vectors=20,
         use_archive=True,
     )
 
-    response = post_json(
-        client, "/method/emo/solve", request.model_dump(), access_token
-    )
+    response = post_json(client, "/method/emo/solve", request.model_dump(), access_token)
 
     assert response.status_code == status.HTTP_200_OK
 
