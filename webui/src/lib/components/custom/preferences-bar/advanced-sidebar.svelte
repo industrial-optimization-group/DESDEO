@@ -1,35 +1,55 @@
 <script lang="ts">
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
-	import type { ComponentProps } from 'svelte';
 	import PreferenceSwitcher from './preference-switcher.svelte';
+	import { writable, type Writable } from 'svelte/store';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import type { components } from '$lib/api/client-types';
+	import {
+		HorizontalBar,
+		HorizontalBarRanges
+	} from '$lib/components/visualizations/horizontal-bar';
+	import { Input } from '$lib/components/ui/input/index.js';
+	import ValidatedTextbox from '../validated-textbox/validated-textbox.svelte';
+	import { COLOR_PALETTE } from '$lib/components/visualizations/utils/colors.js';
+	import {
+		calculateClassification,
+		type PreferenceValue,
+		formatNumber
+	} from '$lib/helpers/index.js';
+	import { PREFERENCE_TYPES, SIGNIFICANT_DIGITS } from '$lib/constants/index.js';
 
-	export let ref: HTMLElement | null = null;
-	// Add any other props you want to accept here
+	type ProblemInfo = components['schemas']['ProblemInfo'];
+	type Solution = components['schemas']['UserSavedSolutionAddress'];
 
-	// sample data
-	const data = {};
-	const preference_types = ['Reference point', 'Ranges', 'Preferred solution'];
-	const problem_name = 'Sample Problem';
-	const objectives = [
-		{ name: 'Drag', direction: 'minimize', ideal: 0.1, nadir: 1.0 },
-		{ name: 'Weight', direction: 'minimize', ideal: 100, nadir: 500 },
-		{ name: 'Energy Consumption', direction: 'minimize', ideal: 50, nadir: 300 }
-	];
+	interface Props {
+		problem: ProblemInfo;
+		preferenceValues: number[];
+		results: Array<Solution>;
+		ref?: HTMLElement | null;
+	}
+
+	let {
+		problem,
+		preferenceValues,
+		results,
+		ref = null,
+	}: Props = $props();
 </script>
 
 <Sidebar.Root side="right" class="fixed right-0 top-12 h-[calc(100vh-3rem)]">
 	<Sidebar.Header>
-		<span>Explanations</span>
+		<span>Solution Explanations</span>
 		<p class="mt-1 text-xs font-normal text-gray-500">
-			Here you can review and adjust your preferences for the selected problem and its objectives.
+			Understand why these solutions were generated and their trade-offs.
+			Explanations are only available for solutions from the current iteration.
 		</p>
 	</Sidebar.Header>
 	<Sidebar.Content class="px-4">
-		<!-- We create a Sidebar.Group for each parent. -->
-
-		{#each objectives as item}
-			<span>{item.name}</span>
+		{#each results as result}
+			<span>{result.objective_values}
+			</span>
 		{/each}
+
 	</Sidebar.Content>
 	<Sidebar.Rail />
 </Sidebar.Root>

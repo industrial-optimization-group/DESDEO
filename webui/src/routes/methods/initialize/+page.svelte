@@ -77,9 +77,9 @@
 			preferencesType: ['reference point']
 		},
 		{
-			name: 'Reference Point',
-			path: '/interactive_methods/RPM',
-			description: 'Reference Point method for MOO.',
+			name: 'Explainable NIMBUS',
+			path: '/interactive_methods/XNIMBUS',
+			description: 'Explainable version of NIMBUS.',
 			preferencesType: ['reference point']
 		}
 	];
