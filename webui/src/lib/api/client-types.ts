@@ -604,7 +604,10 @@ export interface components {
             grant_type?: string | null;
             /** Username */
             username: string;
-            /** Password */
+            /**
+             * Password
+             * Format: password
+             */
             password: string;
             /**
              * Scope
@@ -613,7 +616,10 @@ export interface components {
             scope: string;
             /** Client Id */
             client_id?: string | null;
-            /** Client Secret */
+            /**
+             * Client Secret
+             * Format: password
+             */
             client_secret?: string | null;
         };
         /** Body_add_new_dm_add_new_dm_post */
@@ -622,7 +628,10 @@ export interface components {
             grant_type?: string | null;
             /** Username */
             username: string;
-            /** Password */
+            /**
+             * Password
+             * Format: password
+             */
             password: string;
             /**
              * Scope
@@ -631,7 +640,10 @@ export interface components {
             scope: string;
             /** Client Id */
             client_id?: string | null;
-            /** Client Secret */
+            /**
+             * Client Secret
+             * Format: password
+             */
             client_secret?: string | null;
         };
         /** Body_login_login_post */
@@ -640,7 +652,10 @@ export interface components {
             grant_type?: string | null;
             /** Username */
             username: string;
-            /** Password */
+            /**
+             * Password
+             * Format: password
+             */
             password: string;
             /**
              * Scope
@@ -649,7 +664,10 @@ export interface components {
             scope: string;
             /** Client Id */
             client_id?: string | null;
-            /** Client Secret */
+            /**
+             * Client Secret
+             * Format: password
+             */
             client_secret?: string | null;
         };
         /**
@@ -890,7 +908,7 @@ export interface components {
              * Preference
              * @description Preference information for interactive adaptation
              */
-            preference: components["schemas"]["ReferencePoint"] | components["schemas"]["PreferedSolutions"] | components["schemas"]["NonPreferredSolutions"] | components["schemas"]["PreferredRanges"];
+            preference: components["schemas"]["ReferencePoint"] | components["schemas"]["PreferredSolutions"] | components["schemas"]["NonPreferredSolutions"] | components["schemas"]["PreferredRanges"];
             /**
              * Session Id
              * @description Interactive session ID
@@ -1365,22 +1383,6 @@ export interface components {
          */
         ObjectiveTypeEnum: "analytical" | "data_based" | "simulator" | "surrogate";
         /**
-         * PreferedSolutions
-         * @description Model for representing a preferred solution type of preference.
-         */
-        PreferedSolutions: {
-            /**
-             * Preference Type
-             * @default preferred_solutions
-             * @constant
-             */
-            preference_type: "preferred_solutions";
-            /** Preferred Solutions */
-            preferred_solutions: {
-                [key: string]: number[];
-            };
-        };
-        /**
          * PreferredRanges
          * @description Model for representing desired upper and lower bounds for objective functions.
          */
@@ -1393,6 +1395,22 @@ export interface components {
             preference_type: "preferred_ranges";
             /** Preferred Ranges */
             preferred_ranges: {
+                [key: string]: number[];
+            };
+        };
+        /**
+         * PreferredSolutions
+         * @description Model for representing a preferred solution type of preference.
+         */
+        PreferredSolutions: {
+            /**
+             * Preference Type
+             * @default preferred_solutions
+             * @constant
+             */
+            preference_type: "preferred_solutions";
+            /** Preferred Solutions */
+            preferred_solutions: {
                 [key: string]: number[];
             };
         };

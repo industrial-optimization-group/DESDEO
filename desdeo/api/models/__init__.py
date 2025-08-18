@@ -90,7 +90,7 @@ from .nimbus import (
 from .preference import (
     Bounds,
     NonPreferredSolutions,
-    PreferedSolutions,
+    PreferredSolutions,
     PreferenceBase,
     PreferenceDB,
     PreferredRanges,
