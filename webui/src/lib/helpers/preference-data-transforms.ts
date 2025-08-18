@@ -18,7 +18,7 @@ export type ReferenceData = {
  * 
  * @param current_preference_values - Current iteration's preference values
  * @param previous_preference_values - Previous iteration's preference values
- * @param problem - Problem definition with objective names
+ * @param problem - Problem definition with objective symbols
  * @param tolerancePercent - Tolerance percentage for preferred ranges (default: 10%)
  * @returns Reference data object for visualization
  */
@@ -36,7 +36,7 @@ export function createReferenceData(
     if (current_preference_values.length > 0) {
         current_preference_values.forEach((value, index) => {
             if (problem.objectives[index]) {
-                referencePoint[problem.objectives[index].name] = value;
+                referencePoint[problem.objectives[index].symbol] = value;
             }
         });
     }
@@ -46,7 +46,7 @@ export function createReferenceData(
     if (previous_preference_values.length > 0) {
         previous_preference_values.forEach((value, index) => {
             if (problem.objectives[index]) {
-                previousReferencePoint[problem.objectives[index].name] = value;
+                previousReferencePoint[problem.objectives[index].symbol] = value;
             }
         });
     }
@@ -56,9 +56,9 @@ export function createReferenceData(
     if (current_preference_values.length > 0) {
         current_preference_values.forEach((value, index) => {
             if (problem.objectives[index]) {
-                const objName = problem.objectives[index].name;
+                const objSymbol = problem.objectives[index].symbol;
                 const tolerance = Math.abs(value * tolerancePercent);
-                preferredRanges[objName] = {
+                preferredRanges[objSymbol] = {
                     min: value - tolerance,
                     max: value + tolerance
                 };
@@ -74,7 +74,7 @@ export function createReferenceData(
                 const solutionObj: { [key: string]: number } = {};
                 solutionArray.forEach((value, index) => {
                     if (problem.objectives[index]) {
-                        solutionObj[problem.objectives[index].name] = value;
+                        solutionObj[problem.objectives[index].symbol] = value;
                     }
                 });
                 if (Object.keys(solutionObj).length > 0) {
@@ -93,11 +93,11 @@ export function createReferenceData(
 }
 
 /**
- * Convert preference values array to named object
+ * Convert preference values array to named object, symbol as name
  * 
  * @param preference_values - Array of preference values
- * @param problem - Problem definition with objective names
- * @returns Object mapping objective names to preference values
+ * @param problem - Problem definition with objective symbols
+ * @returns Object mapping objective symbols to preference values
  */
 export function preferencesToNamedObject(
     preference_values: number[],
@@ -109,7 +109,7 @@ export function preferencesToNamedObject(
 
     preference_values.forEach((value, index) => {
         if (problem.objectives[index]) {
-            result[problem.objectives[index].name] = value;
+            result[problem.objectives[index].symbol] = value;
         }
     });
 

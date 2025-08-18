@@ -53,7 +53,7 @@
 					</Button>
                 {/if}
 			</div>
-			<div class="h-full flex items-center mb-2 justify-around">   
+			<div class="h-full flex mb-2 justify-around">   
                 <!-- Collapsible description -->
                 {#if showDescription && mapDescription}
                     <div class="text-sm" 
@@ -66,7 +66,7 @@
 					option={mapOptions[selectedPeriod]}
 					{geoJSON}
 					{mapName}
-					customStyle="height: 60%;"
+					customStyle="height: 80%;"
 				/>
 			</div>
 		</div>

@@ -55,6 +55,7 @@
 	import { ToggleGroup, ToggleGroupItem } from '$lib/components/ui/toggle-group';
 
 	import ConfirmationDialog from '$lib/components/custom/confirmation-dialog.svelte';
+	import RenameSolutionDialog from '$lib/components/custom/rename-solution-dialog.svelte';
 	import SolutionTable from '$lib/components/custom/nimbus/solution-table.svelte';
 	import VisualizationsPanel from '$lib/components/custom/visualizations-panel/visualizations-panel.svelte';
 
@@ -162,11 +163,6 @@
 	let mapDescription = $state<string | undefined>(undefined);
 	let compensation = $state(0.0);
 	
-	// Variables for handling unsaved changes confirmation
-	let show_save_confirm_dialog: boolean = $state(false);
-	let pending_selection_target: number = $state(-1); // Store the target row that was clicked
-	let has_unsaved_changes: boolean = $state(false); // Store result from solution table
-	
 	// Validation: iteration is allowed when at least one preference is better and one is worse than current objectives
 	let is_iteration_allowed = $derived(() => {
 		// Use the imported utility function to validate if iteration is allowed
@@ -192,13 +188,6 @@
 			if(selected_iteration_index[0] === index) {
 				return; // Already selected, do nothing
 			}
-			if (has_unsaved_changes) {
-				// Store the target index for use after confirmation
-			pending_selection_target = index;
-				// Show the confirmation dialog
-				show_save_confirm_dialog = true;
-				return;
-			}
 				// Iterate mode: always select just one solution
 				selected_iteration_index = [index];
 				update_iteration_selection(current_state);
@@ -206,13 +195,6 @@
 			// Intermediate mode: allow selecting up to 2 rows
             if (selected_intermediate_indexes.includes(index)) {
                 // If already selected, deselect it, checking unsaved changes first
-				if (has_unsaved_changes) {
-					// Store the target index for use after confirmation
-				pending_selection_target = index;
-					// Show the confirmation dialog
-					show_save_confirm_dialog = true;
-					return;
-				}
                 selected_intermediate_indexes = selected_intermediate_indexes.filter(i => i !== index);
             } else if (selected_intermediate_indexes.length < 2) {
                 // Only add if we haven't reached the limit of 2
@@ -220,31 +202,6 @@
             }
 			update_intermediate_selection(current_state);
         }
-	}
-								
-	// This function handles the selection change after confirmation dialog
-	function handle_solution_click_after_pop_up() {
-		// Apply the pending selection if there was one
-		if (pending_selection_target >= 0) {
-			const index = pending_selection_target;
-			
-			if (mode === "iterate") {
-				selected_iteration_index = [index];
-				update_iteration_selection(current_state);
-			} else if (mode === "intermediate") {
-				// Intermediate mode: allow selecting up to 2 rows
-				if (selected_intermediate_indexes.includes(index)) {
-					// If already selected, deselect
-					selected_intermediate_indexes = selected_intermediate_indexes.filter(i => i !== index);
-				} else if (selected_intermediate_indexes.length < 2) {
-					// Only add if we haven't reached the limit of 2
-					selected_intermediate_indexes = [...selected_intermediate_indexes, index];
-				}
-				update_intermediate_selection(current_state);
-			}
-		} 
-		// Reset pending selection
-		pending_selection_target = -1;
 	}
 
 	let show_confirm_dialog: boolean = $state(false);
@@ -309,6 +266,18 @@
 			} else {
 				console.error('Failed to solve intermediate solutions:', result.error);
 			}
+	}
+
+	// Dialog state for rename solution
+	let show_rename_dialog: boolean = $state(false);
+	let solution_to_rename: Solution | null = $state(null);
+	let solution_initial_name: string = $state("");
+
+	function handle_change(solution: Solution): void {
+		// Open the rename dialog and set the solution to be renamed
+		solution_to_rename = solution;
+		solution_initial_name = solution.name || "";
+		show_rename_dialog = true;
 	}
 
 	// Save a solution with an optional name
@@ -647,9 +616,8 @@
 					isSaved={isSaved}
 					selectedSolutions={selectedIndexes()}
 					handle_save={handle_save}
-					handle_row_click={() => {}}
-					bind:has_unsaved_changes={has_unsaved_changes}
-				/>
+					handle_change={handle_change}
+					handle_row_click={() => {}}				/>
 			{/if}
 		{/snippet}
 	</BaseLayout>
@@ -750,8 +718,8 @@
 					isSaved={isSaved}
 					selectedSolutions={selectedIndexes()}
 					handle_save={handle_save}
+					handle_change={handle_change}
 					handle_row_click={handle_solution_click}
-					bind:has_unsaved_changes={has_unsaved_changes}
 					previousObjectiveValues={
 						(selected_type_solutions === 'current') ? 
 						(problem ? 
@@ -781,17 +749,21 @@
 	onConfirm={handle_finish}
 	onCancel={() => {}}
 />
-<ConfirmationDialog
-	bind:open={show_save_confirm_dialog}
-	title="Unsaved Changes"
-	description="You have unsaved changes to solution names. Do you want to discard these changes and select another solution?"
-	confirmText="Discard Changes"
-	cancelText="Keep Editing"
-	onConfirm={handle_solution_click_after_pop_up}
+
+<RenameSolutionDialog
+	bind:open={show_rename_dialog}
+	title="Rename Solution"
+	description="Enter a name for this solution."
+	confirmText="Save"
+	cancelText="Cancel"
+	initialName={solution_initial_name}
+	onConfirm={(name) => {
+		if (solution_to_rename) {
+			handle_save(solution_to_rename, name);
+		}
+	}}
 	onCancel={() => {
-		// Selection change cancelled, continuing editing
-		show_save_confirm_dialog = false;
-		// Reset pending selection without making any changes
-		pending_selection_target = -1;
+		// Reset the solution to rename
+		solution_to_rename = null;
 	}}
 />

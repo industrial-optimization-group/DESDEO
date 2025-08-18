@@ -15,7 +15,7 @@
 	 *
 	 * @props
 	 * - data: Array<{ [key: string]: number }> — Array of data points where each object has values for each dimension
-	 * - dimensions: Array<{ name: string; min?: number; max?: number; direction?: 'max' | 'min' }> — Dimension definitions
+	 * - dimensions: Array<{ symbol: string; min?: number; max?: number; direction?: 'max' | 'min' }> — Dimension definitions
 	 * - referenceData?: {
 	 *     referencePoint?: { [key: string]: number }; // Reference point values for each dimension
 	 *     previousReferencePoint?: { [key: string]: number }; // Reference point values of previous reference point for each dimension
@@ -71,7 +71,7 @@
 	export let data: { [key: string]: number }[] = [];
 
 	// Dimension definitions - describes each axis with optional constraints
-	export let dimensions: { name: string; min?: number; max?: number; direction?: 'max' | 'min' }[] =
+	export let dimensions: { symbol: string; min?: number; max?: number; direction?: 'max' | 'min' }[] =
 		[];
 
 	// Optional reference data for enhanced visualization
@@ -142,7 +142,7 @@
 
 		dimensions.forEach((dim) => {
 			// Extract all values for this dimension from the dataset
-			const values = data.map((d) => d[dim.name]).filter((v) => v !== undefined && v !== null);
+			const values = data.map((d) => d[dim.symbol]).filter((v) => v !== undefined && v !== null);
 
 			// Determine the domain (data range) for this dimension
 			let domain: [number, number];
@@ -161,7 +161,7 @@
 			}
 
 			// Create linear scale mapping data domain to pixel range
-			newScales[dim.name] = d3
+			newScales[dim.symbol] = d3
 				.scaleLinear()
 				.domain(domain) // Data values
 				.range([innerHeight - margin.bottom, margin.top]); // Pixel coordinates (bottom to top)
@@ -487,7 +487,7 @@
 
 		// Convert reference point data to line format
 		const refLineData: [string, number][] = dimensions
-			.map((dim) => [dim.name, pointData[dim.name]])
+			.map((dim) => [dim.symbol, pointData[dim.symbol]])
 			.filter(([, value]) => value !== undefined && value !== null);
 
 		if (refLineData.length > 0) {
@@ -553,7 +553,7 @@
 			referenceData.preferredSolutions.forEach((solution, index) => {
 				// Convert solution data to line format
 				const solutionData: [string, number][] = dimensions
-					.map((dim) => [dim.name, solution[dim.name]])
+					.map((dim) => [dim.symbol, solution[dim.symbol]])
 					.filter(([, value]) => value !== undefined && value !== null);
 
 				if (solutionData.length > 0) {
@@ -604,7 +604,7 @@
 			referenceData.nonPreferredSolutions.forEach((solution, index) => {
 				// Convert solution data to line format
 				const solutionData: [string, number][] = dimensions
-					.map((dim) => [dim.name, solution[dim.name]])
+					.map((dim) => [dim.symbol, solution[dim.symbol]])
 					.filter(([, value]) => value !== undefined && value !== null);
 
 				if (solutionData.length > 0) {
@@ -684,7 +684,7 @@
 		// Create scale for positioning dimensions horizontally
 		const xScale = d3
 			.scalePoint()
-			.domain(dimensions.map((d) => d.name)) // All dimension names
+			.domain(dimensions.map((d) => d.symbol)) // All dimension names
 			.range([0, innerWidth]) // Spread across available width
 			.padding(0.1); // Small padding between axes
 
@@ -694,7 +694,7 @@
 		// Create color scale for axis identification
 		const axisColorScale = d3
 			.scaleOrdinal<string, string>()
-			.domain(dimensions.map((d) => d.name))
+			.domain(dimensions.map((d) => d.symbol))
 			.range(COLOR_PALETTE); // Use predefined color palette
 
 		// Draw preferred ranges first (behind everything else)
@@ -702,15 +702,15 @@
 
 		// Draw axes and labels
 		dimensions.forEach((dim) => {
-			const x = xScale(dim.name)!; // Get x position for this dimension
-			const axisColor = axisColorScale(dim.name); // Get color for this dimension
+			const x = xScale(dim.symbol)!; // Get x position for this dimension
+			const axisColor = axisColorScale(dim.symbol); // Get color for this dimension
 
 			// Draw axis line with tick marks and labels
 			svgElement
 				.append('g')
-				.attr('class', `axis axis-${dim.name}`)
+				.attr('class', `axis axis-${dim.symbol}`)
 				.attr('transform', `translate(${x}, 0)`) // Position at correct x coordinate
-				.call(d3.axisLeft(newScales[dim.name]).ticks(5)); // Left-aligned axis with 5 ticks
+				.call(d3.axisLeft(newScales[dim.symbol]).ticks(5)); // Left-aligned axis with 5 ticks
 
 			// Draw axis labels and colored identification squares
 			if (options.showAxisLabels) {
@@ -738,7 +738,7 @@
 					.style('font-size', '12px')
 					.style('font-weight', 'bold')
 					.style('fill', '#333')
-					.text(dim.direction ? `${dim.name} (${dim.direction})` : dim.name); // Include direction if specified
+					.text(dim.direction ? `${dim.symbol} (${dim.direction})` : dim.symbol); // Include direction if specified
 			}
 		});
 
@@ -752,7 +752,7 @@
 			.attr('d', (d, i) => {
 				// Convert data point to line coordinates
 				const lineData: [string, number][] = dimensions
-					.map((dim) => [dim.name, d[dim.name]])
+					.map((dim) => [dim.symbol, d[dim.symbol]])
 					.filter(([, value]) => value !== undefined && value !== null);
 				return line(lineData); // Generate SVG path string
 			})
@@ -762,8 +762,8 @@
 
 		// Set up brushing for each axis (must be done before line updates)
 		dimensions.forEach((dim) => {
-			const x = xScale(dim.name)!;
-			setupAxisBrushing(svgElement, dim.name, x, innerHeight, lines);
+			const x = xScale(dim.symbol)!;
+			setupAxisBrushing(svgElement, dim.symbol, x, innerHeight, lines);
 		});
 
 		// Apply initial line styling based on current state
