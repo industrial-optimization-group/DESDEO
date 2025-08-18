@@ -751,7 +751,7 @@
 			{/if}
 		{/snippet}
 		{#snippet rightSidebar()}
-			{#if problem && chosen_solutions.length > 0}
+			{#if problem && chosen_solutions.length > 0 && selected_type_solutions === 'current'}
 			<AdvancedSidebar
 				{problem}
 				preferenceValues={current_preference}

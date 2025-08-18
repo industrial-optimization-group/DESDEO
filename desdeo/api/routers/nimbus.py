@@ -548,3 +548,68 @@ def solve_nimbus_intermediate(
         saved_solutions=saved_solutions,
         all_solutions=all_solutions
     )
+
+
+@router.post("/get_solution_details")
+def get_solution_details(
+    request: dict,  # Expecting {problem_id, address_state, address_result}
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)],
+):
+    """Get detailed solution information including Lagrange multipliers."""
+    problem_id = request.get("problem_id")
+    address_state = request.get("address_state")
+    address_result = request.get("address_result")
+    
+    if not all([problem_id, address_state is not None, address_result is not None]):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing required parameters: problem_id, address_state, address_result"
+        )
+    
+    # Fetch the state from the database
+    statement = select(StateDB).where(StateDB.id == address_state)
+    state = session.exec(statement).first()
+    
+    if state is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"State with id={address_state} not found"
+        )
+    
+    # Check if user has access to this state's problem
+    if state.problem_id != problem_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this solution"
+        )
+    
+    # Extract solver results from the state
+    if hasattr(state.state, 'solver_results') and state.state.solver_results:
+        if address_result >= len(state.state.solver_results):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Solution index {address_result} not found in state"
+            )
+        
+        solver_result = state.state.solver_results[address_result]
+        
+        # Build response with all available solver information
+        response = {
+            "objective_values": solver_result.optimal_objectives,
+            "variable_values": getattr(solver_result, 'optimal_variables', None),
+            "lagrange_multipliers": getattr(solver_result, 'lagrange_multipliers', None),
+            "success": getattr(solver_result, 'success', None),
+            "message": getattr(solver_result, 'message', None),
+            "solver_info": getattr(solver_result, 'additional_information', None),
+        }
+        
+        # Remove None values
+        response = {k: v for k, v in response.items() if v is not None}
+        
+        return response
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No solver results found in this state"
+        )

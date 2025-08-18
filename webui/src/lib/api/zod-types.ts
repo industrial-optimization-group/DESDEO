@@ -40,7 +40,7 @@ const InteractiveSessionBase = z.object({ id: z.union([z.number(), z.null()]), u
 const GetSessionRequest = z.object({ session_id: z.number().int() }).passthrough();
 const ReferencePoint = z.object({ preference_type: z.string().optional().default("reference_point"), aspiration_levels: z.record(z.number()) }).passthrough();
 const RPMSolveRequest = z.object({ problem_id: z.number().int(), session_id: z.union([z.number(), z.null()]).optional(), parent_state_id: z.union([z.number(), z.null()]).optional(), scalarization_options: z.union([z.record(z.union([z.number(), z.string(), z.boolean()])), z.null()]).optional(), solver: z.union([z.string(), z.null()]).optional(), solver_options: z.union([z.record(z.union([z.number(), z.string(), z.boolean()])), z.null()]).optional(), preference: ReferencePoint.optional() }).passthrough();
-const SolverResults = z.object({ optimal_variables: z.record(z.union([z.number(), z.number(), z.array(z.unknown())])), optimal_objectives: z.record(z.union([z.number(), z.array(z.number())])), constraint_values: z.union([z.record(z.union([z.number(), z.number(), z.array(z.number()), z.array(z.unknown())])), z.unknown(), z.null()]).optional(), extra_func_values: z.union([z.record(z.union([z.number(), z.array(z.number())])), z.null()]).optional(), scalarization_values: z.union([z.record(z.union([z.number(), z.array(z.number())])), z.null()]).optional(), success: z.boolean(), message: z.string() }).passthrough();
+const SolverResults = z.object({ optimal_variables: z.record(z.union([z.number(), z.number(), z.array(z.unknown())])), optimal_objectives: z.record(z.union([z.number(), z.array(z.number())])), constraint_values: z.union([z.record(z.union([z.number(), z.number(), z.array(z.number()), z.array(z.unknown())])), z.unknown(), z.null()]).optional(), extra_func_values: z.union([z.record(z.union([z.number(), z.array(z.number())])), z.null()]).optional(), scalarization_values: z.union([z.record(z.union([z.number(), z.array(z.number())])), z.null()]).optional(), lagrange_multipliers: z.union([z.record(z.union([z.number(), z.array(z.number())])), z.null()]).optional(), success: z.boolean(), message: z.string() }).passthrough();
 const RPMState = z.object({ method: z.string().optional().default("reference_point_method"), phase: z.string().optional().default("solve_candidates"), scalarization_options: z.union([z.record(z.union([z.number(), z.string(), z.boolean()])), z.null()]).optional(), solver: z.union([z.string(), z.null()]).optional(), solver_options: z.union([z.record(z.union([z.number(), z.string(), z.boolean()])), z.null()]).optional(), solver_results: z.array(SolverResults) }).passthrough();
 const NIMBUSClassificationRequest = z.object({ problem_id: z.number().int(), session_id: z.union([z.number(), z.null()]).optional(), parent_state_id: z.union([z.number(), z.null()]).optional(), scalarization_options: z.union([z.record(z.union([z.number(), z.string(), z.boolean()])), z.null()]).optional(), solver: z.union([z.string(), z.null()]).optional(), solver_options: z.union([z.record(z.union([z.number(), z.string(), z.boolean()])), z.null()]).optional(), preference: ReferencePoint.optional(), current_objectives: z.record(z.number()), num_desired: z.union([z.number(), z.null()]).optional().default(1) }).passthrough();
 const SolutionAddress = z.object({ objective_values: z.record(z.number()), address_state: z.number().int(), address_result: z.number().int() }).passthrough();
@@ -307,6 +307,28 @@ Returns:
 			},
 		],
 		response: z.array(z.any()).min(2).max(2),
+		errors: [
+			{
+				status: 422,
+				description: `Validation Error`,
+				schema: HTTPValidationError
+			},
+		]
+	},
+	{
+		method: "post",
+		path: "/method/nimbus/get_solution_details",
+		alias: "get_solution_details_method_nimbus_get_solution_details_post",
+		description: `Get detailed solution information including Lagrange multipliers.`,
+		requestFormat: "json",
+		parameters: [
+			{
+				name: "body",
+				type: "Body",
+				schema: z.object({}).partial().passthrough()
+			},
+		],
+		response: z.unknown(),
 		errors: [
 			{
 				status: 422,

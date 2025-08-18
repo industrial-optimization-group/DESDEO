@@ -29,6 +29,9 @@ export const POST: RequestHandler = async ({ url, request, cookies }) => {
             case 'save':
                 response = await handle_save(body, refreshToken);
                 break;
+            case 'get_solution_details':
+                response = await handle_get_solution_details(body, refreshToken);
+                break;
             case 'get_maps':
                 response = await handle_get_maps(body, refreshToken);
                 break;
@@ -46,6 +49,35 @@ export const POST: RequestHandler = async ({ url, request, cookies }) => {
         }, { status: 500 });
     }
 };
+
+async function handle_get_solution_details(body: any, refreshToken: string) {
+    const { problem_id, solution } = body;
+
+    const requestBody = {
+        problem_id: Number(problem_id),
+        solution
+    };
+
+    const response = await api.POST('/method/nimbus/get_solution_details', {
+        body: requestBody,
+        headers: {
+            'Authorization': `Bearer ${refreshToken}`
+        }
+    });
+
+    // Check if the response has an error
+    if (response.error) {
+        console.error(`NIMBUS solution details API error: ${response.error} (Status: ${response.response?.status})`);
+        throw new Error(`NIMBUS solution details API error: ${response.error} (Status: ${response.response?.status})`);
+    }
+
+    if (!response.data) {
+        console.error('No data received from NIMBUS solution details API');
+        throw new Error('No data received from NIMBUS solution details API');
+    }
+
+    return { success: true, data: response.data };
+}
 
 async function handle_save(body: any, refreshToken: string) {
         const {problem_id, solutions} = body;

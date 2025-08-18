@@ -472,6 +472,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/method/nimbus/get_solution_details": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get Solution Details
+         * @description Get detailed solution information including Lagrange multipliers.
+         */
+        post: operations["get_solution_details_method_nimbus_get_solution_details_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/method/emo/solve": {
         parameters: {
             query?: never;
@@ -1697,6 +1717,13 @@ export interface components {
                 [key: string]: number | number[];
             } | null;
             /**
+             * Lagrange Multipliers
+             * @description The Lagrange multipliers of the problem.
+             */
+            lagrange_multipliers?: {
+                [key: string]: number | number[];
+            } | null;
+            /**
              * Success
              * @description A boolean flag indicating whether the optimization was successful or not.
              */
@@ -2502,6 +2529,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IntermediateSolutionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_solution_details_method_nimbus_get_solution_details_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
