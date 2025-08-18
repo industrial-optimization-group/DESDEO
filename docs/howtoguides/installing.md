@@ -102,8 +102,8 @@ There are many ways to setup and activate a virtual environment. Some examples h
     ```
 
 === "Poetry"
-
-    This assumes you already have `poetry` available on your system.
+ 
+    This assumes you already have [`poetry`](https://python-poetry.org/) available on your system.
 
     ```bash
     poetry env activate # (1)!
@@ -116,6 +116,24 @@ There are many ways to setup and activate a virtual environment. Some examples h
     not activate it.__ Copy-paste the command printed by poetry and execute it to activate the virtual
     environment.
 
+=== "uv"
+
+    This assumes you already have [`uv`](https://github.com/astral-sh/uv) available on your system.
+
+    `uv` is handy, as it can be used to manage Python versions as well. To install Python 3.12 and
+    create a virtual environment, run
+
+    ```bash
+    uv venv --python 3.12
+    ```
+
+    This will download the latest version fo Python 3.12 (if not already available) and then create
+    a virtual environment in the current directory under a new folder `.venv`.
+
+    If using the default virtual environment name `.venv`, `uv` will automatically
+    use the virtual environment in subsequent invocations. Otherwise, the environment
+    needs to be activated locally. 
+
 !!! Note
 
     Remember to reactivate your virtual environment if you exit it, and then return to it.
@@ -123,27 +141,69 @@ There are many ways to setup and activate a virtual environment. Some examples h
 ### Installing dependencies
 
 After setting up a virtual environment, we next need to install DESDEO's dependencies.
-For this, we will need to first install `poetry` in our virtual environment:
+For this, we can utilize either `poetry` or `uv`. It is also possible to use `pip` directly,
+but it is not recommended. Make sure your virtual environment
+is activated!
 
-```bash
-pip install poetry # (1)!
-```
+=== "Poetry"
 
-1. If `poetry` is already installed in your virtual environment, you may skip this step.
+    If not already done, we need to first install `poetry`:
 
-After installing poetry, we can use the following command to install DESDEO's dependencies
+    ```bash
+    pip install poetry # (1)!
+    ```
 
-```bash
-poetry install
-```
+    1. If `poetry` is already installed in your virtual environment, you may skip this step.
 
-If you wish to install the development dependencies as well, then run the following command instead:
+    After installing poetry, we can use the following command to install DESDEO's core-logic dependencies
 
-```bash
-poetry install --with dev
-```
+    ```bash
+    poetry install
+    ```
+
+    If you wish to install the development and web dependencies as well, then run the following command instead:
+
+    ```bash
+    poetry install --all-extras
+    ```
+
+=== "uv"
+
+    If not already done, we need to first install `uv`:
+
+    ```bash
+    pip install uv
+    ```
+
+    To install DESDEO's core-logic dependencies, run
+
+    ```bash
+    uv sync
+    ```
+
+    If you wish to install the development and web dependencies as well, then run the following command instead:
+
+    ```bash
+    uv sync --all-extras
+    ```
+
+=== "pip (not recommended)"
+
+    When using `pip`, you will be installing all dependencies by default, including any extra dependencies:
+
+    ```bash
+    pip install -r requirements.txt
+    ```
 
 And now we should be done! DESDEO should now be available on your system in your current virtual environment.
+
+!!! Note "Extra dependencies?"
+
+    By default, an 'poetry install' and 'uv sync' will install just the dependencies of
+    the __core-logic__. This is meant for cases where DESDEO is used like a library, i.e.,
+    you do not intend to develop DESDEO or use the web-API or web-GUI parts of it. In case you
+    wish to develop or utilize DESDEO past what the core-logic has to offer, then it is 
+    recommended to install all the extra dependencies.
 
 ## Installation (for restricted Windows PCs)
 
@@ -298,7 +358,7 @@ You can then install DESDEO and the required packages by typing
 ```cmd
 poetry install
 ```
-If you want the development dependencies installed as well, use `poetry install --with dev` instead.
+If you want the development dependencies installed as well, use `poetry install --all-extras` instead.
 
 !!! question "Why did I have to do that thing with the env configs?"
 

@@ -3,6 +3,11 @@
         toc_label: "Synchronous NIMBUS"
         heading_level: 3
 
+::: desdeo.mcdm.enautilus
+    options:
+        toc_label: "E-NAUTILUS"
+        heading_level: 3
+
 ::: desdeo.mcdm.nautili
     options:
         toc_label: "NAUTILI"

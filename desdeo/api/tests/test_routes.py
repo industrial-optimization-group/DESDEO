@@ -23,7 +23,10 @@ from desdeo.api.models import (
 from desdeo.api.models.archive import UserSavedSolutionAddress, SolutionAddress
 from desdeo.api.models.generic import IntermediateSolutionRequest, IntermediateSolutionResponse
 from desdeo.api.models.archive import UserSavedSolutionAddress, SolutionAddress
+
 from desdeo.api.models.generic import IntermediateSolutionRequest
+from desdeo.api.models.preference import PreferredRanges
+from desdeo.api.models.state import EMOSaveState, EMOState
 from desdeo.api.routers.user_authentication import create_access_token
 from desdeo.problem.testproblems import simple_knapsack_vectors
 
@@ -222,6 +225,7 @@ def test_rpm_solve(client: TestClient):
 
     request = RPMSolveRequest(
         problem_id=1, preference=ReferencePoint(aspiration_levels={"f_1": 0.5, "f_2": 0.3, "f_3": 0.4})
+
     )
 
     response = post_json(client, "/method/rpm/solve", request.model_dump(), access_token)
@@ -286,6 +290,7 @@ def test_nimbus_solve(client: TestClient):
     )
 
     response = post_json(client, "/method/nimbus/solve", request.model_dump(), access_token)
+
     assert response.status_code == status.HTTP_200_OK
     result: NIMBUSClassificationResponse = NIMBUSClassificationResponse.model_validate(json.loads(response.content.decode("utf-8")))
     assert result.previous_preference == preference   
@@ -442,6 +447,7 @@ def test_save_solution(client: TestClient):
         access_token
     )
 
+
     # Verify the response and state
     assert response.status_code == status.HTTP_200_OK
     save_response = NIMBUSSaveResponse.model_validate(response.json())
@@ -563,7 +569,6 @@ def test_login_logout(client: TestClient):
     )
     # Access token NOT refreshed
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
-    
 
 def test_get_problem_metadata(client: TestClient):
     """Test that fetching problem metadata works."""

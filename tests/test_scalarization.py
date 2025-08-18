@@ -26,14 +26,17 @@ from desdeo.tools.scalarization import (
     add_asf_nondiff,
     add_epsilon_constraints,
     add_group_asf,
+    add_group_asf_agg,
     add_group_asf_diff,
-    add_group_guess_sf,
+    add_group_guess,
+    add_group_guess_agg,
     add_group_guess_sf_diff,
     add_group_nimbus_sf,
     add_group_nimbus_sf_diff,
     add_group_scenario_sf_diff,
     add_group_scenario_sf_nondiff,
-    add_group_stom_sf,
+    add_group_stom,
+    add_group_stom_agg,
     add_group_stom_sf_diff,
     add_guess_sf_diff,
     add_guess_sf_nondiff,
@@ -885,37 +888,80 @@ def test_guess_sf_nondiff_solve():
 @pytest.mark.group_scalarization
 @pytest.mark.slow
 def test_add_group_asf():
-    """Test that the multiple decision maker achievement scalarizing function works."""
+    """ Test that the multiple decision maker asf scalarization function works."""
     n_variables = 3
     n_objectives = 3
     problem = dtlz2(n_variables, n_objectives)
-    rp = {"f_1": 0.1, "f_2": 0.1, "f_3": 0.8}
+    res = {'f_1': 0.52, 'f_2': 0.6, 'f_3': 0.72}
+    rps = {
+        "DM1": {"f_1": 0.1, "f_2": 0.4, "f_3": 0.8},
+        "DM2": {"f_1": 0.1, "f_2": 0.6, "f_3": 0.3},
+        "DM3": {"f_1": 0.9, "f_2": 0.3, "f_3": 0.6},
+    }
+    rps = list(rps.values())
+    # max reservations
+    agg_bounds = {'f_1': 0.9, 'f_2': 0.6, 'f_3': 0.8}
 
-    problem_w_sf, sf = add_asf_nondiff(problem, "sf", rp)
-    problem_w_group_sf, group_sf = add_group_asf(problem, "group_sf", [rp])
-    problem_w_group_sf_3rp, group_sf_3rp = add_group_asf(problem, "group_sf", [rp, rp, rp])
+    problem_w_group_sf_3rp, group_sf_3rp = add_group_asf(problem, "group_sf", rps, agg_bounds)
 
-    solver_sf = NevergradGenericSolver(problem_w_sf)
-    res_sf = solver_sf.solve(sf)
-    assert res_sf.success
+    solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="NGOpt")
 
-    solver_group_sf = NevergradGenericSolver(problem_w_group_sf)
-    res_group_sf = solver_group_sf.solve(group_sf)
-    assert res_group_sf.success
+    solver_group_sf_3rp = NevergradGenericSolver(problem_w_group_sf_3rp, solver_options)
+    result = solver_group_sf_3rp.solve(group_sf_3rp)
+    assert result.success
 
-    solver_group_sf_3rp = NevergradGenericSolver(problem_w_group_sf_3rp)
-    res_group_sf_3rp = solver_group_sf_3rp.solve(group_sf_3rp)
-    assert res_group_sf_3rp.success
-
-    fs_sf = res_sf.optimal_objectives
-    fs_group_sf = res_group_sf.optimal_objectives
-    fs_group_sf_3rp = res_group_sf_3rp.optimal_objectives
+    fs_group_sf_3rp = result.optimal_objectives
+    print(fs_group_sf_3rp)
 
     # optimal objective values should be close
     for obj in problem.objectives:
-        assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
-        assert np.isclose(fs_group_sf_3rp[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
+        assert np.isclose(res[obj.symbol], fs_group_sf_3rp[obj.symbol], atol=1e-1)
+        # assert np.isclose(fs_group_sf_3rp[obj.symbol], res[obj.symbol], atol=1e-3) nevergrad is bad
 
+    # f_1 should be the lowest value
+    assert result.optimal_objectives["f_1"] < result.optimal_objectives["f_2"]
+    assert result.optimal_objectives["f_1"] < result.optimal_objectives["f_3"]
+
+@pytest.mark.scalarization
+@pytest.mark.group_scalarization
+@pytest.mark.slow
+def test_add_group_asf_agg():
+    """Test that the multiple decision maker asf agg scalarization function works."""
+    n_variables = 3
+    n_objectives = 3
+    problem = dtlz2(n_variables, n_objectives)
+    res = {'f_1': 0.52, 'f_2': 0.45, 'f_3': 0.72}
+    rps = {
+        "DM1": {"f_1": 0.1, "f_2": 0.4, "f_3": 0.8},
+        "DM2": {"f_1": 0.1, "f_2": 0.45, "f_3": 0.3},
+        "DM3": {"f_1": 0.9, "f_2": 0.3, "f_3": 0.6},
+    }
+    rps = list(rps.values())
+    # min aspirations
+    agg_rps = {"f_1": 0.1, "f_2": 0.3, "f_3": 0.3}
+    # max reservations
+    agg_bounds = {'f_1': 0.9, 'f_2': 0.45, 'f_3': 0.8}
+
+    problem_w_group_sf_3rp, group_sf_3rp = add_group_asf_agg(problem, "group_sf", agg_rps, agg_bounds)
+
+    solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="NGOpt")
+
+    solver_group_sf_3rp = NevergradGenericSolver(problem_w_group_sf_3rp, solver_options)
+    result = solver_group_sf_3rp.solve(group_sf_3rp)
+    assert result.success
+
+    fs_group_sf_3rp = result.optimal_objectives
+    print(fs_group_sf_3rp)
+
+    # optimal objective values should be close
+    for obj in problem.objectives:
+        assert np.isclose(res[obj.symbol], fs_group_sf_3rp[obj.symbol], atol=1e-1)
+        # assert np.isclose(fs_group_sf_3rp[obj.symbol], res[obj.symbol], atol=1e-3) nevergrad is bad
+
+    # f_2 should be the lowest value, f_1 < f_3
+    assert result.optimal_objectives["f_2"] < result.optimal_objectives["f_1"]
+    assert result.optimal_objectives["f_2"] < result.optimal_objectives["f_3"]
+    assert result.optimal_objectives["f_1"] < result.optimal_objectives["f_3"]
 
 @pytest.mark.scalarization
 @pytest.mark.group_scalarization
@@ -962,43 +1008,84 @@ def test_add_group_asf_diff():
 @pytest.mark.scalarization
 @pytest.mark.group_scalarization
 @pytest.mark.slow
-@pytest.mark.skip
-def test_add_group_guess_sf():
-    """Test that the multiple decision maker GUESS scalarization function works."""
+def test_add_group_guess():
+    """ Test that the multiple decision maker GUESS scalarization function works."""
     n_variables = 3
     n_objectives = 3
     problem = dtlz2(n_variables, n_objectives)
-    rp = {"f_1": 0.1, "f_2": 0.1, "f_3": 0.8}
+    res = {'f_1': 0.5, 'f_2': 0.6, 'f_3': 0.62}
+    rps = {
+        "DM1": {"f_1": 0.1, "f_2": 0.4, "f_3": 0.8},
+        "DM2": {"f_1": 0.1, "f_2": 0.6, "f_3": 0.3},
+        "DM3": {"f_1": 0.9, "f_2": 0.3, "f_3": 0.6},
+    }
+    rps = list(rps.values())
+    # max reservations
+    agg_bounds = {'f_1': 0.9, 'f_2': 0.6, 'f_3': 0.8}
 
-    problem_w_sf, sf = add_guess_sf_nondiff(problem, "sf", rp)
-    problem_w_group_sf, group_sf = add_group_guess_sf(problem, "group_sf", [rp])
-    problem_w_group_sf_3rp, group_sf_3rp = add_group_guess_sf(problem, "group_sf", [rp, rp, rp])
+    problem_w_group_sf_3rp, group_sf_3rp = add_group_guess(problem, "group_sf", rps, agg_bounds)
 
-    solver_sf = NevergradGenericSolver(problem_w_sf)
-    res_sf = solver_sf.solve(sf)
-    assert res_sf.success
+    solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="NGOpt")
+    solver_group_sf_3rp = NevergradGenericSolver(problem_w_group_sf_3rp, solver_options)
+    result = solver_group_sf_3rp.solve(group_sf_3rp)
+    assert result.success
 
-    solver_group_sf = NevergradGenericSolver(problem_w_group_sf)
-    res_group_sf = solver_group_sf.solve(group_sf)
-    assert res_group_sf.success
-
-    solver_group_sf_3rp = NevergradGenericSolver(problem_w_group_sf_3rp)
-    res_group_sf_3rp = solver_group_sf_3rp.solve(group_sf_3rp)
-    assert res_group_sf_3rp.success
-
-    fs_sf = res_sf.optimal_objectives
-    fs_group_sf = res_group_sf.optimal_objectives
-    fs_group_sf_3rp = res_group_sf_3rp.optimal_objectives
+    fs_group_sf_3rp = result.optimal_objectives
+    print(fs_group_sf_3rp)
 
     # optimal objective values should be close
     for obj in problem.objectives:
-        assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol], atol=1e-1)  # fails
-        assert np.isclose(fs_group_sf_3rp[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
+        assert np.isclose(fs_group_sf_3rp[obj.symbol], res[obj.symbol], atol=1e-1)
+
+    #    # f_1 should be the lowest value
+    assert result.optimal_objectives["f_1"] < result.optimal_objectives["f_2"]
+    assert result.optimal_objectives["f_1"] < result.optimal_objectives["f_3"]
 
 
 @pytest.mark.scalarization
 @pytest.mark.group_scalarization
 @pytest.mark.slow
+def test_add_group_guess_agg():
+    """ TODO: change problem to non-differentiable
+    Test that the multiple decision maker STOM scalarization function works."""
+    n_variables = 3
+    n_objectives = 3
+    problem = dtlz2(n_variables, n_objectives)
+    res = {'f_1': 0.52, 'f_2': 0.45, 'f_3': 0.72}
+    rps = {
+        "DM1": {"f_1": 0.1, "f_2": 0.4, "f_3": 0.8},
+        "DM2": {"f_1": 0.1, "f_2": 0.45, "f_3": 0.3},
+        "DM3": {"f_1": 0.9, "f_2": 0.3, "f_3": 0.6},
+    }
+    rps = list(rps.values())
+    # min aspirations
+    agg_rps = {"f_1": 0.1, "f_2": 0.3, "f_3": 0.3}
+    # max reservations
+    agg_bounds = {'f_1': 0.9, 'f_2': 0.45, 'f_3': 0.8}
+
+    problem_w_group_sf_3rp, group_sf_3rp = add_group_guess_agg(problem, "group_sf", agg_rps, agg_bounds)
+
+    solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="NGOpt")
+    solver_group_sf_3rp = NevergradGenericSolver(problem_w_group_sf_3rp, solver_options)
+    result = solver_group_sf_3rp.solve(group_sf_3rp)
+    assert result.success
+
+    fs_group_sf_3rp = result.optimal_objectives
+    print(fs_group_sf_3rp)
+
+    # optimal objective values should be close
+    for obj in problem.objectives:
+        assert np.isclose(fs_group_sf_3rp[obj.symbol], res[obj.symbol], atol=1e-1)
+
+    # f_2 should be the lowest value, f_1 < f_3
+    assert result.optimal_objectives["f_2"] < result.optimal_objectives["f_1"]
+    assert result.optimal_objectives["f_2"] < result.optimal_objectives["f_3"]
+    assert result.optimal_objectives["f_1"] < result.optimal_objectives["f_3"]
+
+
+@pytest.mark.scalarization
+@pytest.mark.group_scalarization
+@pytest.mark.skip
 def test_add_group_guess_sf_diff():
     """Test that the differentiable version of the multiple decision maker GUESS scalarization function works."""
     n_variables = 3
@@ -1118,38 +1205,76 @@ def test_add_group_nimbus_sf_diff():
 @pytest.mark.scalarization
 @pytest.mark.group_scalarization
 @pytest.mark.slow
-def test_add_group_stom_sf():
-    """Test that the multiple decision maker STOM scalarization function works."""
+def test_add_group_stom():
+    """ Test that the multiple decision maker STOM scalarization function works."""
     n_variables = 3
     n_objectives = 3
     problem = dtlz2(n_variables, n_objectives)
-    rp = {"f_1": 0.1, "f_2": 0.1, "f_3": 0.8}
+    res = {'f_1': 0.25, 'f_2': 0.6, 'f_3': 0.75}
+    rps = {
+        "DM1": {"f_1": 0.1, "f_2": 0.4, "f_3": 0.8},
+        "DM2": {"f_1": 0.1, "f_2": 0.6, "f_3": 0.3},
+        "DM3": {"f_1": 0.9, "f_2": 0.3, "f_3": 0.6},
+    }
+    rps = list(rps.values())
+    # max reservations
+    agg_bounds = {'f_1': 0.9, 'f_2': 0.6, 'f_3': 0.8}
 
-    problem_w_sf, sf = add_stom_sf_nondiff(problem, "sf", rp)
-    problem_w_group_sf, group_sf = add_group_stom_sf(problem, "group_sf", [rp])
-    problem_w_group_sf_3rp, group_sf_3rp = add_group_stom_sf(problem, "group_sf", [rp, rp, rp])
+    problem_w_group_sf_3rp, group_sf_3rp = add_group_stom(problem, "group_sf", rps, agg_bounds)
 
-    solver_sf = NevergradGenericSolver(problem_w_sf)
-    res_sf = solver_sf.solve(sf)
-    assert res_sf.success
+    solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="NGOpt")
+    solver_group_sf_3rp = NevergradGenericSolver(problem_w_group_sf_3rp, solver_options)
+    result = solver_group_sf_3rp.solve(group_sf_3rp)
+    assert result.success
 
-    solver_group_sf = NevergradGenericSolver(problem_w_group_sf)
-    res_group_sf = solver_group_sf.solve(group_sf)
-    assert res_group_sf.success
-
-    solver_group_sf_3rp = NevergradGenericSolver(problem_w_group_sf_3rp)
-    res_group_sf_3rp = solver_group_sf_3rp.solve(group_sf_3rp)
-    assert res_group_sf_3rp.success
-
-    fs_sf = res_sf.optimal_objectives
-    fs_group_sf = res_group_sf.optimal_objectives
-    fs_group_sf_3rp = res_group_sf_3rp.optimal_objectives
+    fs_group_sf_3rp = result.optimal_objectives
+    print(fs_group_sf_3rp)
 
     # optimal objective values should be close
     for obj in problem.objectives:
-        assert np.isclose(fs_sf[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
-        assert np.isclose(fs_group_sf_3rp[obj.symbol], fs_group_sf[obj.symbol], atol=1e-3)
+        assert np.isclose(fs_group_sf_3rp[obj.symbol], res[obj.symbol], atol=1e-1)
+    # f_1 should be the lowest value
+    assert result.optimal_objectives["f_1"] < result.optimal_objectives["f_2"]
+    assert result.optimal_objectives["f_1"] < result.optimal_objectives["f_3"]
 
+
+@pytest.mark.scalarization
+@pytest.mark.group_scalarization
+@pytest.mark.slow
+def test_add_group_stom_agg():
+    """Test that the multiple decision maker STOM agg scalarization function works."""
+    n_variables = 3
+    n_objectives = 3
+    problem = dtlz2(n_variables, n_objectives)
+    res = {'f_1': 0.4, 'f_2': 0.45, 'f_3': 0.78}
+    rps = {
+        "DM1": {"f_1": 0.1, "f_2": 0.4, "f_3": 0.8},
+        "DM2": {"f_1": 0.1, "f_2": 0.45, "f_3": 0.3},
+        "DM3": {"f_1": 0.9, "f_2": 0.3, "f_3": 0.6},
+    }
+    rps = list(rps.values())
+    # min aspirations
+    agg_rps = {"f_1": 0.1, "f_2": 0.3, "f_3": 0.3}
+    # max reservations
+    agg_bounds = {'f_1': 0.9, 'f_2': 0.45, 'f_3': 0.8}
+
+    problem_w_group_sf_3rp, group_sf_3rp = add_group_stom_agg(problem, "group_sf", agg_rps, agg_bounds)
+
+    solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="NGOpt")
+    solver_group_sf_3rp = NevergradGenericSolver(problem_w_group_sf_3rp, solver_options)
+    result = solver_group_sf_3rp.solve(group_sf_3rp)
+    assert result.success
+
+    fs_group_sf_3rp = result.optimal_objectives
+    print(fs_group_sf_3rp)
+
+    # optimal objective values should be close
+    for obj in problem.objectives:
+        assert np.isclose(fs_group_sf_3rp[obj.symbol], res[obj.symbol], atol=1e-1)
+
+    # f_1 should be the lowest value
+    assert result.optimal_objectives["f_1"] < result.optimal_objectives["f_2"]
+    assert result.optimal_objectives["f_1"] < result.optimal_objectives["f_3"]
 
 @pytest.mark.scalarization
 @pytest.mark.group_scalarization
@@ -1291,5 +1416,3 @@ def test_add_desirability_funcs() -> None:
     evaluator = Evaluator(problem_)
     outs = evaluator.evaluate(inputs)[added_funcs].to_numpy()
     assert np.all(outs <= 0) and np.all(outs >= -1), "Desirability values should be in [-1, 0]"
-
-

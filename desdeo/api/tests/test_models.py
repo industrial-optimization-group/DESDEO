@@ -1,6 +1,5 @@
 """Tests related to the SQLModels."""
 
-
 from sqlmodel import Session, select
 
 from desdeo.api.models import (
@@ -9,12 +8,15 @@ from desdeo.api.models import (
     ConstraintDB,
     DiscreteRepresentationDB,
     ExtraFunctionDB,
+    ForestProblemMetaData,
     InteractiveSessionDB,
     NIMBUSSaveState,
     ObjectiveDB,
     PreferenceDB,
     ProblemDB,
+    ProblemMetaDataDB,
     ReferencePoint,
+    RepresentativeNonDominatedSolutions,
     RPMState,
     ScalarizationFunctionDB,
     SimulatorDB,
@@ -25,10 +27,9 @@ from desdeo.api.models import (
     UserSavedSolutionAddress,
     UserSavedSolutionDB,
     VariableDB,
-    ProblemMetaDataDB,
-    ForestProblemMetaData
 )
 from desdeo.api.models.archive import SolutionAddress
+
 from desdeo.api.routers.nimbus import user_save_solutions
 from desdeo.mcdm import rpm_solve_solutions
 from desdeo.problem.schema import (
@@ -543,6 +544,7 @@ def test_archive_entry(session_and_user: dict[str, Session | list[User]]):
     assert from_db.address_result == address_result
 
 
+
 def test_user_save_solutions(session_and_user: dict[str, Session | list[User]]):
     """Test that user_save_solutions correctly saves solutions to the usersavedsolutiondb in the database."""
     session = session_and_user["session"]
@@ -564,6 +566,7 @@ def test_user_save_solutions(session_and_user: dict[str, Session | list[User]]):
             address_state=1,
             address_result=2,
         )
+
     ]
     num_test_solutions = len(test_solutions)
     problem_id = 1
@@ -572,11 +575,9 @@ def test_user_save_solutions(session_and_user: dict[str, Session | list[User]]):
         solution_addresses=test_solutions
     )
 
+
     # Create StateDB
-    state = StateDB(
-        problem_id=problem_id,
-        state=save_state
-    )
+    state = StateDB(problem_id=problem_id, state=save_state)
 
     # Call the function
     user_save_solutions(state, test_solutions, user.id, session)
@@ -595,13 +596,11 @@ def test_user_save_solutions(session_and_user: dict[str, Session | list[User]]):
     assert first_solution.problem_id == problem_id
     assert first_solution.state_id == state.id
 
-
     # Verify state relationship
-    saved_state = session.exec(
-        select(StateDB).where(StateDB.id == state.id)
-    ).first()
+    saved_state = session.exec(select(StateDB).where(StateDB.id == state.id)).first()
     assert isinstance(saved_state.state, NIMBUSSaveState)
     assert len(saved_state.state.solution_addresses) == num_test_solutions
+
 
 def test_preference_models(session_and_user: dict[str, Session | list[User]]):
     """Test that the archive works as intended."""
@@ -765,7 +764,6 @@ def test_rpm_state(session_and_user: dict[str, Session | list[User]]):
 
 def test_problem_metadata(session_and_user: dict[str, Session | list[User]]):
     """Test that the problem metadata can be put into database and brought back."""
-
     session = session_and_user["session"]
     user = session_and_user["user"]
 
@@ -776,14 +774,29 @@ def test_problem_metadata(session_and_user: dict[str, Session | list[User]]):
     session.commit()
     session.refresh(problem)
 
+    representative_name = "Test solutions"
+    representative_description = "These solutions are used for testing"
+    representative_variables = {"x_1": [1.1, 2.2, 3.3], "x_2": [-1.1, -2.2, -3.3]}
+    representative_objectives = {"f_1": [0.1, 0.5, 0.9], "f_2": [-0.1, 0.2, 199.2]}
+    representative_ideal = {"f_1": 0.1, "f_2": -0.1}
+    representative_nadir = {"f_1": 0.9, "f_2": 199.2}
+
     metadata = ProblemMetaDataDB(
         problem_id=problem.id,
-        data = [
+        data=[
             ForestProblemMetaData(
-                map_json = "type: string",
-                schedule_dict = {"type": "dict"},
-                years = ["type:", "list", "of", "strings"],
-                stand_id_field = "type: string",
+                map_json="type: string",
+                schedule_dict={"type": "dict"},
+                years=["type:", "list", "of", "strings"],
+                stand_id_field="type: string",
+            ),
+            RepresentativeNonDominatedSolutions(
+                name=representative_name,
+                description=representative_description,
+                variable_values=representative_variables,
+                objective_values=representative_objectives,
+                ideal=representative_ideal,
+                nadir=representative_nadir,
             ),
         ],
     )
@@ -795,15 +808,24 @@ def test_problem_metadata(session_and_user: dict[str, Session | list[User]]):
     statement = select(ProblemMetaDataDB).where(ProblemMetaDataDB.problem_id == problem.id)
     from_db_metadata = session.exec(statement).first()
 
-    assert from_db_metadata.id != None
+    assert from_db_metadata.id is not None
     assert from_db_metadata.problem_id == problem.id
 
-    metadata_0 = from_db_metadata.data[0]
+    metadata_forest = from_db_metadata.data[0]
 
-    assert metadata_0.metadata_type == "forest_problem_metadata"
-    assert metadata_0.map_json == "type: string"
-    assert metadata_0.schedule_dict == {"type": "dict"}
-    assert metadata_0.years == ["type:", "list", "of", "strings"]
-    assert metadata_0.stand_id_field == "type: string"
+    assert metadata_forest.metadata_type == "forest_problem_metadata"
+    assert metadata_forest.map_json == "type: string"
+    assert metadata_forest.schedule_dict == {"type": "dict"}
+    assert metadata_forest.years == ["type:", "list", "of", "strings"]
+    assert metadata_forest.stand_id_field == "type: string"
+
+    metadata_representative = from_db_metadata.data[1]
+
+    assert metadata_representative.metadata_type == "representative_non_dominated_solutions"
+    assert metadata_representative.name == representative_name
+    assert metadata_representative.variable_values == representative_variables
+    assert metadata_representative.objective_values == representative_objectives
+    assert metadata_representative.ideal == representative_ideal
+    assert metadata_representative.nadir == representative_nadir
 
     assert problem.problem_metadata == from_db_metadata

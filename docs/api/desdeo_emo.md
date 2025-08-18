@@ -4,7 +4,7 @@
         heading_level: 3
 
 ## Templates
-::: desdeo.emo.methods.bases
+::: desdeo.emo.methods.templates
     options:
         heading_level: 3
 

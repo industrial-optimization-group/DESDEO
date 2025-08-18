@@ -37,10 +37,10 @@ test-failures:
 	pytest -n 4 --lf
 
 requirements-rtd:
-	poetry export --format requirements.txt --all-groups --without-hashes --output docs/requirements.txt
+	poetry export --format requirements.txt --all-extras --without-hashes --output docs/requirements.txt
 
 requirements-pip:
-	poetry export --format requirements.txt --all-groups --without-hashes --output ./requirements.txt
+	poetry export --format requirements.txt --all-extras --without-hashes --output ./requirements.txt
 
 fullstack:
 	./run_fullstack.sh

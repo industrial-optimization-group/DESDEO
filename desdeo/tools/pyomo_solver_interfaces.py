@@ -80,7 +80,7 @@ class IpoptOptions(BaseModel):
     max_iter: int = Field(description="Maximum number of iterations. Must be >1. Defaults to 3000.", default=3000)
     """Maximum number of iterations. Must be >1. Defaults to 3000."""
 
-    print_level: str = Field(
+    print_level: int = Field(
         description="The verbosity level of the solver's output. Ranges between 0 and 12. Defaults to 5.", default=5
     )
     """The verbosity level of the solver's output. Ranges between 0 and 12."""

@@ -1,5 +1,6 @@
 """Model exports."""
 
+
 __all__ = [
     "UserSavedSolutionDB",
     "Bounds",
@@ -7,7 +8,11 @@ __all__ = [
     "ConstraintDB",
     "CreateSessionRequest",
     "DiscreteRepresentationDB",
+    "EMOSaveState",
+    "EMOSolveRequest",
+    "EMOState",
     "ExtraFunctionDB",
+    "ForestProblemMetaData",
     "GetSessionRequest",
     "InteractiveSessionBase",
     "InteractiveSessionDB",
@@ -25,16 +30,22 @@ __all__ = [
     "NIMBUSInitializationResponse",
     "NIMBUSSaveResponse",
     "NIMBUSSaveState",
+    "NonPreferredSolutions",
     "ObjectiveDB",
     "PreferenceBase",
     "PreferenceDB",
+    "PreferredSolutions",
+    "PreferredRanges",
     "ProblemDB",
     "ProblemGetRequest",
     "ProblemInfo",
     "ProblemInfoSmall",
+    "ProblemMetaDataDB",
+    "ProblemMetaDataGetRequest",
     "ReferencePoint",
-    "RPMSolveRequest",
+    "RepresentativeNonDominatedSolutions",
     "RPMBaseState",
+    "RPMSolveRequest",
     "RPMState",
     "ScalarizationFunctionDB",
     "SimulatorDB",
@@ -60,12 +71,14 @@ __all__ = [
     "UserSavedSolutionAddress",
     "UtopiaRequest",
     "UtopiaResponse",
-    "ProblemMetaDataGetRequest",
+    "VariableDB",
 ]
+
 
 from .archive import SolutionAddress, UserSavedSolutionAddress, UserSavedSolutionDB
 from .EMO import EMOSolveRequest
 from .generic import IntermediateSolutionRequest, IntermediateSolutionResponse
+
 from .nimbus import (
     NIMBUSClassificationRequest,
     NIMBUSClassificationResponse,
