@@ -43,15 +43,25 @@ const RPMSolveRequest = z.object({ problem_id: z.number().int(), session_id: z.u
 const SolverResults = z.object({ optimal_variables: z.record(z.union([z.number(), z.number(), z.array(z.unknown())])), optimal_objectives: z.record(z.union([z.number(), z.array(z.number())])), constraint_values: z.union([z.record(z.union([z.number(), z.number(), z.array(z.number()), z.array(z.unknown())])), z.unknown(), z.null()]).optional(), extra_func_values: z.union([z.record(z.union([z.number(), z.array(z.number())])), z.null()]).optional(), scalarization_values: z.union([z.record(z.union([z.number(), z.array(z.number())])), z.null()]).optional(), success: z.boolean(), message: z.string() }).passthrough();
 const RPMState = z.object({ method: z.string().optional().default("reference_point_method"), phase: z.string().optional().default("solve_candidates"), scalarization_options: z.union([z.record(z.union([z.number(), z.string(), z.boolean()])), z.null()]).optional(), solver: z.union([z.string(), z.null()]).optional(), solver_options: z.union([z.record(z.union([z.number(), z.string(), z.boolean()])), z.null()]).optional(), solver_results: z.array(SolverResults) }).passthrough();
 const NIMBUSClassificationRequest = z.object({ problem_id: z.number().int(), session_id: z.union([z.number(), z.null()]).optional(), parent_state_id: z.union([z.number(), z.null()]).optional(), scalarization_options: z.union([z.record(z.union([z.number(), z.string(), z.boolean()])), z.null()]).optional(), solver: z.union([z.string(), z.null()]).optional(), solver_options: z.union([z.record(z.union([z.number(), z.string(), z.boolean()])), z.null()]).optional(), preference: ReferencePoint.optional(), current_objectives: z.record(z.number()), num_desired: z.union([z.number(), z.null()]).optional().default(1) }).passthrough();
-const NIMBUSClassificationState = z.object({ method: z.string().optional().default("nimbus"), phase: z.string().optional().default("solve_candidates"), scalarization_options: z.union([z.record(z.union([z.number(), z.string(), z.boolean()])), z.null()]).optional(), solver: z.union([z.string(), z.null()]).optional(), solver_options: z.union([z.record(z.union([z.number(), z.string(), z.boolean()])), z.null()]).optional(), current_objectives: z.record(z.number()), num_desired: z.union([z.number(), z.null()]).optional().default(1), previous_preference: ReferencePoint.optional(), solver_results: z.array(SolverResults) }).passthrough();
+const SolutionAddress = z.object({ objective_values: z.record(z.number()), address_state: z.number().int(), address_result: z.number().int() }).passthrough();
+const UserSavedSolutionAddress = z.object({ objective_values: z.record(z.number()), address_state: z.number().int(), address_result: z.number().int(), name: z.union([z.string(), z.null()]).optional() }).passthrough();
+const NIMBUSClassificationResponse = z.object({ state_id: z.union([z.number(), z.null()]), previous_preference: ReferencePoint, previous_objectives: z.record(z.number()), current_solutions: z.array(SolutionAddress), saved_solutions: z.array(UserSavedSolutionAddress), all_solutions: z.array(SolutionAddress) }).passthrough();
 const NIMBUSInitializationRequest = z.object({ problem_id: z.number().int(), session_id: z.union([z.number(), z.null()]).optional(), parent_state_id: z.union([z.number(), z.null()]).optional(), solver: z.union([z.string(), z.null()]).optional() }).passthrough();
-const NIMBUSInitializationState = z.object({ method: z.string().optional().default("nimbus"), phase: z.string().optional().default("initialize"), solver: z.union([z.string(), z.null()]).optional(), solver_results: z.array(SolverResults) }).passthrough();
-const UserSavedSolverResults = z.object({ optimal_variables: z.record(z.union([z.number(), z.number(), z.array(z.unknown())])), optimal_objectives: z.record(z.union([z.number(), z.array(z.number())])), constraint_values: z.union([z.record(z.union([z.number(), z.number(), z.array(z.number()), z.array(z.unknown())])), z.unknown(), z.null()]).optional(), extra_func_values: z.union([z.record(z.union([z.number(), z.array(z.number())])), z.null()]).optional(), scalarization_values: z.union([z.record(z.union([z.number(), z.array(z.number())])), z.null()]).optional(), success: z.boolean(), message: z.string(), name: z.union([z.string(), z.null()]).optional() }).passthrough();
-const NIMBUSSaveRequest = z.object({ problem_id: z.number().int(), session_id: z.union([z.number(), z.null()]).optional(), parent_state_id: z.union([z.number(), z.null()]).optional(), solutions: z.array(UserSavedSolverResults) }).passthrough();
-const NIMBUSSaveState = z.object({ method: z.string().optional().default("nimbus"), phase: z.string().optional().default("save_solutions"), solver_results: z.array(SolverResults) }).passthrough();
-const IntermediateSolutionRequest = z.object({ problem_id: z.number().int(), session_id: z.union([z.number(), z.null()]).optional(), parent_state_id: z.union([z.number(), z.null()]).optional(), scalarization_options: z.union([z.record(z.union([z.number(), z.string(), z.boolean()])), z.null()]).optional(), solver: z.union([z.string(), z.null()]).optional(), solver_options: z.union([z.record(z.union([z.number(), z.string(), z.boolean()])), z.null()]).optional(), num_desired: z.union([z.number(), z.null()]).optional().default(1), reference_solution_1: z.record(z.number()), reference_solution_2: z.record(z.number()) }).passthrough();
-const IntermediateSolutionState = z.object({ method: z.string().optional().default("generic"), phase: z.string().optional().default("solve_intermediate"), scalarization_options: z.union([z.record(z.union([z.number(), z.string(), z.boolean()])), z.null()]).optional(), solver: z.union([z.string(), z.null()]).optional(), solver_options: z.union([z.record(z.union([z.number(), z.string(), z.boolean()])), z.null()]).optional(), num_desired: z.union([z.number(), z.null()]).optional().default(1), reference_solution_1: z.record(z.number()), reference_solution_2: z.record(z.number()), solver_results: z.array(SolverResults) }).passthrough();
-const UtopiaRequest = z.object({ problem_id: z.number().int(), decision_variables: z.record(z.union([z.number(), z.number(), z.array(z.unknown())])) }).passthrough();
+const NIMBUSInitializationResponse = z.object({ state_id: z.union([z.number(), z.null()]), current_solutions: z.array(SolutionAddress), saved_solutions: z.array(UserSavedSolutionAddress), all_solutions: z.array(SolutionAddress) }).passthrough();
+const IntermediateSolutionResponse = z.object({ state_id: z.union([z.number(), z.null()]), reference_solution_1: z.record(z.number()), reference_solution_2: z.record(z.number()), current_solutions: z.array(SolutionAddress), saved_solutions: z.array(UserSavedSolutionAddress), all_solutions: z.array(SolutionAddress) }).passthrough();
+const NIMBUSSaveRequest = z.object({ problem_id: z.number().int(), session_id: z.union([z.number(), z.null()]).optional(), parent_state_id: z.union([z.number(), z.null()]).optional(), solutions: z.array(UserSavedSolutionAddress) }).passthrough();
+const NIMBUSSaveResponse = z.object({ state_id: z.union([z.number(), z.null()]) }).passthrough();
+const IntermediateSolutionRequest = z.object({ problem_id: z.number().int(), session_id: z.union([z.number(), z.null()]).optional(), parent_state_id: z.union([z.number(), z.null()]).optional(), context: z.union([z.string(), z.null()]).optional(), scalarization_options: z.union([z.record(z.union([z.number(), z.string(), z.boolean()])), z.null()]).optional(), solver: z.union([z.string(), z.null()]).optional(), solver_options: z.union([z.record(z.union([z.number(), z.string(), z.boolean()])), z.null()]).optional(), num_desired: z.union([z.number(), z.null()]).optional().default(1), reference_solution_1: SolutionAddress, reference_solution_2: SolutionAddress }).passthrough();
+const PreferredSolutions = z.object({ preference_type: z.string().optional().default("preferred_solutions"), preferred_solutions: z.record(z.array(z.number())) }).passthrough();
+const NonPreferredSolutions = z.object({ preference_type: z.string().optional().default("non_preferred_solutions"), non_preferred_solutions: z.record(z.array(z.number())) }).passthrough();
+const PreferredRanges = z.object({ preference_type: z.string().optional().default("preferred_ranges"), preferred_ranges: z.record(z.array(z.number())) }).passthrough();
+const EMOSolveRequest = z.object({ problem_id: z.number().int(), method: z.string().optional().default("NSGA3"), max_evaluations: z.number().int().optional().default(50000), number_of_vectors: z.number().int().optional().default(30), use_archive: z.boolean().optional().default(true), preference: z.union([ReferencePoint, PreferredSolutions, NonPreferredSolutions, PreferredRanges]), session_id: z.union([z.number(), z.null()]).optional(), parent_state_id: z.union([z.number(), z.null()]).optional() }).passthrough();
+const EMOState = z.object({ method: z.string().optional().default("EMO"), phase: z.string().optional().default("unset"), max_evaluations: z.number().int().optional().default(1000), number_of_vectors: z.number().int().optional().default(20), use_archive: z.boolean().optional().default(true), solutions: z.array(z.unknown()), outputs: z.array(z.unknown()) }).passthrough();
+const UserSavedEMOResults = z.object({ optimal_variables: z.record(z.union([z.number(), z.number(), z.array(z.unknown())])), optimal_objectives: z.record(z.union([z.number(), z.array(z.number())])), constraint_values: z.union([z.record(z.union([z.number(), z.number(), z.array(z.number()), z.array(z.unknown())])), z.unknown(), z.null()]).optional(), extra_func_values: z.union([z.record(z.union([z.number(), z.array(z.number())])), z.null()]).optional(), name: z.union([z.string(), z.null()]).optional() }).passthrough();
+const EMOSaveRequest = z.object({ problem_id: z.number().int(), session_id: z.union([z.number(), z.null()]).optional(), parent_state_id: z.union([z.number(), z.null()]).optional(), solutions: z.array(UserSavedEMOResults) }).passthrough();
+const EMOResults = z.object({ optimal_variables: z.record(z.union([z.number(), z.number(), z.array(z.unknown())])), optimal_objectives: z.record(z.union([z.number(), z.array(z.number())])), constraint_values: z.union([z.record(z.union([z.number(), z.number(), z.array(z.number()), z.array(z.unknown())])), z.unknown(), z.null()]).optional(), extra_func_values: z.union([z.record(z.union([z.number(), z.array(z.number())])), z.null()]).optional() }).passthrough();
+const EMOSaveState = z.object({ method: z.string().optional().default("EMO"), phase: z.string().optional().default("save_solutions"), max_evaluations: z.number().int().optional().default(1000), number_of_vectors: z.number().int().optional().default(20), use_archive: z.boolean().optional().default(true), problem_id: z.number().int(), saved_solutions: z.array(EMOResults), solutions: z.array(z.unknown()).optional() }).passthrough();
+const UtopiaRequest = z.object({ problem_id: z.number().int(), solution: SolutionAddress }).passthrough();
 const UtopiaResponse = z.object({ is_utopia: z.boolean(), map_name: z.string(), map_json: z.object({}).partial().passthrough(), options: z.object({}).partial().passthrough(), description: z.string(), years: z.array(z.string()) }).passthrough();
 
 export const schemas = {
@@ -93,14 +103,24 @@ export const schemas = {
 	SolverResults,
 	RPMState,
 	NIMBUSClassificationRequest,
-	NIMBUSClassificationState,
+	SolutionAddress,
+	UserSavedSolutionAddress,
+	NIMBUSClassificationResponse,
 	NIMBUSInitializationRequest,
-	NIMBUSInitializationState,
-	UserSavedSolverResults,
+	NIMBUSInitializationResponse,
+	IntermediateSolutionResponse,
 	NIMBUSSaveRequest,
-	NIMBUSSaveState,
+	NIMBUSSaveResponse,
 	IntermediateSolutionRequest,
-	IntermediateSolutionState,
+	PreferredSolutions,
+	NonPreferredSolutions,
+	PreferredRanges,
+	EMOSolveRequest,
+	EMOState,
+	UserSavedEMOResults,
+	EMOSaveRequest,
+	EMOResults,
+	EMOSaveState,
 	UtopiaRequest,
 	UtopiaResponse,
 };
@@ -223,6 +243,58 @@ Returns:
 	},
 	{
 		method: "post",
+		path: "/method/emo/save",
+		alias: "save_method_emo_save_post",
+		description: `Save solutions.`,
+		requestFormat: "json",
+		parameters: [
+			{
+				name: "body",
+				type: "Body",
+				schema: EMOSaveRequest
+			},
+		],
+		response: EMOSaveState,
+		errors: [
+			{
+				status: 422,
+				description: `Validation Error`,
+				schema: HTTPValidationError
+			},
+		]
+	},
+	{
+		method: "get",
+		path: "/method/emo/saved-solutions",
+		alias: "get_saved_solutions_method_emo_saved_solutions_get",
+		description: `Get all saved solutions for the current user.`,
+		requestFormat: "json",
+		response: z.unknown(),
+	},
+	{
+		method: "post",
+		path: "/method/emo/solve",
+		alias: "start_emo_optimization_method_emo_solve_post",
+		description: `Start interactive evolutionary multiobjective optimization.`,
+		requestFormat: "json",
+		parameters: [
+			{
+				name: "body",
+				type: "Body",
+				schema: EMOSolveRequest
+			},
+		],
+		response: EMOState,
+		errors: [
+			{
+				status: 422,
+				description: `Validation Error`,
+				schema: HTTPValidationError
+			},
+		]
+	},
+	{
+		method: "post",
 		path: "/method/generic/intermediate",
 		alias: "solve_intermediate_method_generic_intermediate_post",
 		description: `Solve intermediate solutions between given two solutions.`,
@@ -234,7 +306,7 @@ Returns:
 				schema: IntermediateSolutionRequest
 			},
 		],
-		response: IntermediateSolutionState,
+		response: z.array(z.any()).min(2).max(2),
 		errors: [
 			{
 				status: 422,
@@ -256,7 +328,29 @@ Returns:
 				schema: NIMBUSInitializationRequest
 			},
 		],
-		response: z.union([NIMBUSInitializationState, NIMBUSClassificationState]),
+		response: z.union([NIMBUSClassificationResponse, NIMBUSInitializationResponse, IntermediateSolutionResponse]),
+		errors: [
+			{
+				status: 422,
+				description: `Validation Error`,
+				schema: HTTPValidationError
+			},
+		]
+	},
+	{
+		method: "post",
+		path: "/method/nimbus/intermediate",
+		alias: "solve_nimbus_intermediate_method_nimbus_intermediate_post",
+		description: `Solve intermediate solutions by forwarding the request to generic intermediate endpoint with context nimbus.`,
+		requestFormat: "json",
+		parameters: [
+			{
+				name: "body",
+				type: "Body",
+				schema: IntermediateSolutionRequest
+			},
+		],
+		response: IntermediateSolutionResponse,
 		errors: [
 			{
 				status: 422,
@@ -278,7 +372,7 @@ Returns:
 				schema: NIMBUSSaveRequest
 			},
 		],
-		response: NIMBUSSaveState,
+		response: NIMBUSSaveResponse,
 		errors: [
 			{
 				status: 422,
@@ -300,7 +394,7 @@ Returns:
 				schema: NIMBUSClassificationRequest
 			},
 		],
-		response: NIMBUSClassificationState,
+		response: NIMBUSClassificationResponse,
 		errors: [
 			{
 				status: 422,

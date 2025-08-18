@@ -1,8 +1,8 @@
 """Model exports."""
 
-__all__ = [  # noqa: RUF022
-    "BaseEMOState",
-    "BaseProblemMetaData",
+
+__all__ = [
+    "UserSavedSolutionDB",
     "Bounds",
     "ConstantDB",
     "ConstraintDB",
@@ -18,6 +18,7 @@ __all__ = [  # noqa: RUF022
     "InteractiveSessionDB",
     "InteractiveSessionInfo",
     "IntermediateSolutionRequest",
+    "IntermediateSolutionResponse",
     "IntermediateSolutionState",
     "NIMBUSBaseState",
     "NIMBUSClassificationRequest",
@@ -25,6 +26,9 @@ __all__ = [  # noqa: RUF022
     "NIMBUSInitializationRequest",
     "NIMBUSInitializationState",
     "NIMBUSSaveRequest",
+    "NIMBUSClassificationResponse",
+    "NIMBUSInitializationResponse",
+    "NIMBUSSaveResponse",
     "NIMBUSSaveState",
     "NonPreferredSolutions",
     "ObjectiveDB",
@@ -52,28 +56,44 @@ __all__ = [  # noqa: RUF022
     "UserBase",
     "UserPublic",
     "UserRole",
-    "UserSavedSolutionBase",
-    "UserSavedSolutionDB",
+    "VariableDB",
+    "ProblemMetaDataDB",
+    "BaseProblemMetaData",
+    "ForestProblemMetaData",
+    "EMOSolveRequest",
+    "PreferredRanges",
+    "PreferedSolutions",
+    "NonPreferredSolutions",
+    "EMOSaveState",
+    "EMOState",
+    "BaseEMOState",
+    "SolutionAddress",
+    "UserSavedSolutionAddress",
     "UtopiaRequest",
     "UtopiaResponse",
     "VariableDB",
 ]
 
-from .archive import UserSavedSolutionBase, UserSavedSolutionDB
+
+from .archive import SolutionAddress, UserSavedSolutionAddress, UserSavedSolutionDB
 from .EMO import EMOSolveRequest
-from .generic import IntermediateSolutionRequest
+from .generic import IntermediateSolutionRequest, IntermediateSolutionResponse
+
 from .nimbus import (
     NIMBUSClassificationRequest,
+    NIMBUSClassificationResponse,
     NIMBUSInitializationRequest,
+    NIMBUSInitializationResponse,
     NIMBUSSaveRequest,
+    NIMBUSSaveResponse,
 )
 from .preference import (
     Bounds,
     NonPreferredSolutions,
+    PreferredSolutions,
     PreferenceBase,
     PreferenceDB,
     PreferredRanges,
-    PreferredSolutions,
     ReferencePoint,
 )
 from .problem import (
@@ -90,7 +110,6 @@ from .problem import (
     ProblemInfoSmall,
     ProblemMetaDataDB,
     ProblemMetaDataGetRequest,
-    RepresentativeNonDominatedSolutions,
     ScalarizationFunctionDB,
     SimulatorDB,
     TensorConstantDB,
