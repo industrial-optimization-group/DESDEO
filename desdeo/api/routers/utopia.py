@@ -1,18 +1,13 @@
 """Utopia router"""
 import json
-
-from sqlmodel import Session, select
-from fastapi import APIRouter, Depends, HTTPException
 from typing import Annotated
 
+from fastapi import APIRouter, Depends, HTTPException
+from sqlmodel import Session, select
+
 from desdeo.api.db import get_session
-from desdeo.api.models import (
-    UtopiaRequest, 
-    UtopiaResponse,
-    ProblemMetaDataDB,
-    User,
-    ForestProblemMetaData
-)
+from desdeo.api.models import ForestProblemMetaData, ProblemMetaDataDB, User, UtopiaRequest, UtopiaResponse
+from desdeo.api.models.state import StateDB
 from desdeo.api.routers.user_authentication import get_current_user
 
 router = APIRouter(prefix="/utopia")
@@ -46,14 +41,29 @@ def get_utopia_data(
             years=[]
         )
 
-    decision_variables = request.decision_variables #expects a list of variables from the requrest, won't work without.
+    state = session.exec(select(StateDB).where(StateDB.id == request.solution.address_state)).first()
+    if state is None or not hasattr(state, 'state'):
+        return empty_response
+
+    # Check if solver_results exists and has the needed index
+    if (not hasattr(state.state, 'solver_results') or
+            request.solution.address_result >= len(state.state.solver_results) or
+            state.state.solver_results[request.solution.address_result] is None):
+        return empty_response
+
+    result = state.state.solver_results[request.solution.address_result]
+    if not hasattr(result, 'optimal_variables') or not result.optimal_variables:
+        return empty_response
+
+    decision_variables = result.optimal_variables #expects a list of variables, won't work without.
+
     from_db_metadata = session.exec(select(ProblemMetaDataDB).where(ProblemMetaDataDB.problem_id == request.problem_id)).first()
-    if from_db_metadata == None:
+    if from_db_metadata is None:
         return empty_response
     
     # Get the last instance of forest related metadata from the database. If for some reason there's more than one forest metadata, return the latest.
     forest_metadata: ForestProblemMetaData = [metadata for metadata in from_db_metadata.data if metadata.metadata_type == "forest_problem_metadata"][-1]
-    if forest_metadata == None:
+    if forest_metadata is None:
         return empty_response
     
     # Figure out the treatments from the decision variables and utopia data

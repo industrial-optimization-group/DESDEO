@@ -33,7 +33,7 @@ nav:
       - "How to get started using DESDEO": "howtoguides/full_example.ipynb"
       - "How to define a multiobjective optimization problem": "howtoguides/how_to_define_a_problem.ipynb"
       - "How to host a DESDEO web application on Kubernetes": "howtoguides/kubernetes.md"
-      - "How to run DESDEO's web API": "howtoguides/api.md"
+      - "How to run DESDEO's web-API and web-GUI": "howtoguides/api_and_gui.md"
       - "How to utilize 'MCDM' methods": "howtoguides/how_to_utilize_mcdm_methods.ipynb"
       - "How to use the NAUTILUS Navigator method": "howtoguides/nautilus_navigator.md"
       - "How to use the NAUTILI method": "howtoguides/nautili.md"

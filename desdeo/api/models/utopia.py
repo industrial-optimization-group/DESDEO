@@ -2,13 +2,14 @@
 
 from typing import Any
 from sqlmodel import SQLModel, Field
+from desdeo.api.models.archive import SolutionAddress
 
 
 class UtopiaRequest(SQLModel):
     """The request for an Utopia map."""
 
     problem_id: int = Field(description="Problem for which the map is generated")
-    decision_variables: dict[str, int | float | list] = Field(description="Decision variables with which to generate the map")
+    solution: SolutionAddress = Field(description="Solution for which to generate the map")
 
 class UtopiaResponse(SQLModel):
     """The response to an UtopiaRequest."""

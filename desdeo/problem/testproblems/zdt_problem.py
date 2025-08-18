@@ -1,9 +1,12 @@
+from math import pi
+
 from desdeo.problem.schema import (
     ExtraFunction,
     Objective,
     Problem,
     Variable,
 )
+
 
 def zdt1(number_of_variables: int) -> Problem:
     r"""Defines the ZDT1 test problem.
@@ -214,7 +217,7 @@ def zdt3(
 
     # function h(f, g)
     h_symbol = "h"
-    h_expr = f"1 - Sqrt(({f1_expr}) / ({g_expr})) - (({f1_expr}) / ({g_expr})) * Sin (10 * {np.pi} * {f1_expr}) "
+    h_expr = f"1 - Sqrt(({f1_expr}) / ({g_expr})) - (({f1_expr}) / ({g_expr})) * Sin (10 * {pi} * {f1_expr}) "
 
     # function f_2
     f2_symbol = "f_2"

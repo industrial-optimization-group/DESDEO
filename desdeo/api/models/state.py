@@ -9,7 +9,7 @@ from desdeo.emo.methods.templates import EMOResult
 from desdeo.tools import SolverResults
 from desdeo.tools.generics import EMOResults
 
-from .archive import UserSavedSolutionDB
+from .archive import UserSavedSolutionDB, SolutionAddress
 from .preference import PreferenceDB, ReferencePoint
 from .problem import ProblemDB
 from .session import InteractiveSessionDB
@@ -147,7 +147,7 @@ class NIMBUSSaveState(NIMBUSBaseState):
     """State of the nimbus method for saving solutions."""
 
     phase: Literal["save_solutions"] = "save_solutions"
-    solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
+    solution_addresses: list[SolutionAddress] = Field(sa_column=Column(JSON))
 
 
 class EMOState(BaseEMOState):
@@ -191,7 +191,10 @@ class IntermediateSolutionState(BaseState):
 
     method: Literal["generic"] = "generic"
     phase: Literal["solve_intermediate"] = "solve_intermediate"
-
+    context: str = Field(
+        default=None,
+        description="The originating method context (e.g., 'nimbus', 'rpm') that requested these solutions"
+    )
     scalarization_options: dict[str, float | str | bool] | None = Field(
         sa_column=Column(JSON), default=None
     )

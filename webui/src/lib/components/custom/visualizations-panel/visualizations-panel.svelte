@@ -43,30 +43,38 @@
 	 * @property {string} previous_preference_type - Type of previous preference (reference_point, preferred_solution, etc.)
 	 * @property {number[]} currentPreferenceValues - Current iteration's preference values
 	 * @property {string} currentPreferenceType - Type of current preference
+	 * @property {number[][]} previousObjectiveValues - Optional previous objective values for comparison
 	 * @property {number[][]} solutionsObjectiveValues - Array of objective value arrays for each solution from EMO
 	 * @property {number[][]} solutionsDecisionValues - Array of decision variable arrays for each solution from EMO
 	 * @property {function} onSelectSolution - Callback when user selects a solution from the table
+	 * @property {number | null} externalSelectedIndex - Optional index of solution to highlight from external source
 	 */
 	interface Props {
 		problem: ProblemInfo | null;
 		previousPreferenceValues: number[];
-		previousPreferenceType: string;
+		previousObjectiveValues?: number[][];
 		currentPreferenceValues: number[];
+		previousPreferenceType: string;
 		currentPreferenceType: string;
 		solutionsObjectiveValues?: number[][];
 		solutionsDecisionValues?: number[][];
 		onSelectSolution?: (index: number) => void;
+		externalSelectedIndex?: number | null;
+		externalSelectedIndexes?: number[] | null;
 	}
 
 	const {
 		problem,
 		previousPreferenceValues,
-		previousPreferenceType,
+		previousObjectiveValues,
 		currentPreferenceValues,
+		previousPreferenceType,
 		currentPreferenceType,
 		solutionsObjectiveValues = [],
 		solutionsDecisionValues = [],
-		onSelectSolution
+		onSelectSolution,
+		externalSelectedIndex = null,
+		externalSelectedIndexes = null,
 	}: Props = $props();
 
 	/**
@@ -84,15 +92,19 @@
 	 * Create reference data in the format expected by ParallelCoordinates
 	 * Includes reference point and preferred ranges if available
 	 */
-	const referenceData = $derived(() =>
-		createReferenceData(currentPreferenceValues, previousPreferenceValues, problem)
-	);
+	const referenceData = $derived(() => createReferenceData(currentPreferenceValues, previousPreferenceValues, problem, previousObjectiveValues));
 
 	/**
 	 * Handle line selection from ParallelCoordinates
 	 * Adapts the component's callback to match parent expectations
 	 */
 	function handleLineSelect(index: number | null, data: any) {
+		// Only update internal selectedIndex in single-selection mode
+		if (externalSelectedIndexes === null) {
+			selectedIndex = index;
+		}
+    	
+		// Notify parent component if callback provided
 		if (index !== null && onSelectSolution) {
 			onSelectSolution(index);
 		}
@@ -110,7 +122,15 @@
 	};
 
 	// State for line selection and filtering
-	let selectedIndex = $state<number | null>(null);
+	// Initialize with external selection if provided, otherwise null
+	let selectedIndex = $state<number | null>(externalSelectedIndex !== null ? externalSelectedIndex : null);
+
+	// Update internal selection when external selection changes
+	$effect(() => {
+		if (externalSelectedIndex !== null) {
+			selectedIndex = externalSelectedIndex;
+		}
+	});
 
 	// Add container size tracking
 	let containerElement: HTMLDivElement;
@@ -161,6 +181,7 @@
 				referenceData={referenceData()}
 				options={plotOptions}
 				{selectedIndex}
+				multipleSelectedIndexes={externalSelectedIndexes}
 				onLineSelect={handleLineSelect}
 			/>
 		</div>

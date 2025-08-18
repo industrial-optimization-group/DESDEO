@@ -452,6 +452,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/method/nimbus/intermediate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Solve Nimbus Intermediate
+         * @description Solve intermediate solutions by forwarding the request to generic intermediate endpoint with context nimbus.
+         */
+        post: operations["solve_nimbus_intermediate_method_nimbus_intermediate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/method/emo/solve": {
         parameters: {
             query?: never;
@@ -584,10 +604,7 @@ export interface components {
             grant_type?: string | null;
             /** Username */
             username: string;
-            /**
-             * Password
-             * Format: password
-             */
+            /** Password */
             password: string;
             /**
              * Scope
@@ -596,10 +613,7 @@ export interface components {
             scope: string;
             /** Client Id */
             client_id?: string | null;
-            /**
-             * Client Secret
-             * Format: password
-             */
+            /** Client Secret */
             client_secret?: string | null;
         };
         /** Body_add_new_dm_add_new_dm_post */
@@ -608,10 +622,7 @@ export interface components {
             grant_type?: string | null;
             /** Username */
             username: string;
-            /**
-             * Password
-             * Format: password
-             */
+            /** Password */
             password: string;
             /**
              * Scope
@@ -620,10 +631,7 @@ export interface components {
             scope: string;
             /** Client Id */
             client_id?: string | null;
-            /**
-             * Client Secret
-             * Format: password
-             */
+            /** Client Secret */
             client_secret?: string | null;
         };
         /** Body_login_login_post */
@@ -632,10 +640,7 @@ export interface components {
             grant_type?: string | null;
             /** Username */
             username: string;
-            /**
-             * Password
-             * Format: password
-             */
+            /** Password */
             password: string;
             /**
              * Scope
@@ -644,10 +649,7 @@ export interface components {
             scope: string;
             /** Client Id */
             client_id?: string | null;
-            /**
-             * Client Secret
-             * Format: password
-             */
+            /** Client Secret */
             client_secret?: string | null;
         };
         /**
@@ -1025,6 +1027,8 @@ export interface components {
             session_id?: number | null;
             /** Parent State Id */
             parent_state_id?: number | null;
+            /** Context */
+            context?: string | null;
             /** Scalarization Options */
             scalarization_options?: {
                 [key: string]: number | string | boolean;
@@ -1040,14 +1044,48 @@ export interface components {
              * @default 1
              */
             num_desired: number | null;
-            /** Reference Solution 1 */
+            reference_solution_1: components["schemas"]["SolutionAddress"];
+            reference_solution_2: components["schemas"]["SolutionAddress"];
+        };
+        /**
+         * IntermediateSolutionResponse
+         * @description The response from NIMBUS classification endpoint.
+         */
+        IntermediateSolutionResponse: {
+            /**
+             * State Id
+             * @description The newly created state id
+             */
+            state_id: number | null;
+            /**
+             * Reference Solution 1
+             * @description The first previous solutions objectives used for intermediate solution.
+             */
             reference_solution_1: {
                 [key: string]: number;
             };
-            /** Reference Solution 2 */
+            /**
+             * Reference Solution 2
+             * @description The second previous solutions objectives used for intermediate solution.
+             */
             reference_solution_2: {
                 [key: string]: number;
             };
+            /**
+             * Current Solutions
+             * @description The solutions from the current interation of nimbus.
+             */
+            current_solutions: components["schemas"]["SolutionAddress"][];
+            /**
+             * Saved Solutions
+             * @description The best candidate solutions saved by the decision maker.
+             */
+            saved_solutions: components["schemas"]["UserSavedSolutionAddress"][];
+            /**
+             * All Solutions
+             * @description All solutions generated by NIMBUS in all iterations.
+             */
+            all_solutions: components["schemas"]["SolutionAddress"][];
         };
         /**
          * IntermediateSolutionState
@@ -1066,6 +1104,11 @@ export interface components {
              * @constant
              */
             phase: "solve_intermediate";
+            /**
+             * Context
+             * @description The originating method context (e.g., 'nimbus', 'rpm') that requested these solutions
+             */
+            context?: string;
             /** Scalarization Options */
             scalarization_options?: {
                 [key: string]: number | string | boolean;
@@ -1114,7 +1157,10 @@ export interface components {
                 [key: string]: number | string | boolean;
             } | null;
             preference?: components["schemas"]["ReferencePoint"];
-            /** Current Objectives */
+            /**
+             * Current Objectives
+             * @description The objectives used for iteration.
+             */
             current_objectives: {
                 [key: string]: number;
             };
@@ -1125,44 +1171,39 @@ export interface components {
             num_desired: number | null;
         };
         /**
-         * NIMBUSClassificationState
-         * @description State of the nimbus method for computing solutions.
+         * NIMBUSClassificationResponse
+         * @description The response from NIMBUS classification endpoint.
          */
-        NIMBUSClassificationState: {
+        NIMBUSClassificationResponse: {
             /**
-             * Method
-             * @default nimbus
-             * @constant
+             * State Id
+             * @description The newly created state id
              */
-            method: "nimbus";
+            state_id: number | null;
+            /** @description The previous preference used. */
+            previous_preference: components["schemas"]["ReferencePoint"];
             /**
-             * Phase
-             * @default solve_candidates
-             * @constant
+             * Previous Objectives
+             * @description The previous solutions objectives used for iteration.
              */
-            phase: "solve_candidates";
-            /** Scalarization Options */
-            scalarization_options?: {
-                [key: string]: number | string | boolean;
-            } | null;
-            /** Solver */
-            solver?: string | null;
-            /** Solver Options */
-            solver_options?: {
-                [key: string]: number | string | boolean;
-            } | null;
-            /** Current Objectives */
-            current_objectives: {
+            previous_objectives: {
                 [key: string]: number;
             };
             /**
-             * Num Desired
-             * @default 1
+             * Current Solutions
+             * @description The solutions from the current interation of nimbus.
              */
-            num_desired: number | null;
-            previous_preference?: components["schemas"]["ReferencePoint"];
-            /** Solver Results */
-            solver_results: components["schemas"]["SolverResults"][];
+            current_solutions: components["schemas"]["SolutionAddress"][];
+            /**
+             * Saved Solutions
+             * @description The best candidate solutions saved by the decision maker.
+             */
+            saved_solutions: components["schemas"]["UserSavedSolutionAddress"][];
+            /**
+             * All Solutions
+             * @description All solutions generated by NIMBUS in all iterations.
+             */
+            all_solutions: components["schemas"]["SolutionAddress"][];
         };
         /**
          * NIMBUSInitializationRequest
@@ -1179,26 +1220,30 @@ export interface components {
             solver?: string | null;
         };
         /**
-         * NIMBUSInitializationState
-         * @description State of the nimbus method for computing solutions.
+         * NIMBUSInitializationResponse
+         * @description The response from NIMBUS classification endpoint.
          */
-        NIMBUSInitializationState: {
+        NIMBUSInitializationResponse: {
             /**
-             * Method
-             * @default nimbus
-             * @constant
+             * State Id
+             * @description The newly created state id
              */
-            method: "nimbus";
+            state_id: number | null;
             /**
-             * Phase
-             * @default initialize
-             * @constant
+             * Current Solutions
+             * @description The solutions from the current interation of nimbus.
              */
-            phase: "initialize";
-            /** Solver */
-            solver?: string | null;
-            /** Solver Results */
-            solver_results: components["schemas"]["SolverResults"][];
+            current_solutions: components["schemas"]["SolutionAddress"][];
+            /**
+             * Saved Solutions
+             * @description The best candidate solutions saved by the decision maker.
+             */
+            saved_solutions: components["schemas"]["UserSavedSolutionAddress"][];
+            /**
+             * All Solutions
+             * @description All solutions generated by NIMBUS in all iterations.
+             */
+            all_solutions: components["schemas"]["SolutionAddress"][];
         };
         /**
          * NIMBUSSaveRequest
@@ -1212,27 +1257,18 @@ export interface components {
             /** Parent State Id */
             parent_state_id?: number | null;
             /** Solutions */
-            solutions: components["schemas"]["UserSavedSolverResults"][];
+            solutions: components["schemas"]["UserSavedSolutionAddress"][];
         };
         /**
-         * NIMBUSSaveState
-         * @description State of the nimbus method for saving solutions.
+         * NIMBUSSaveResponse
+         * @description The response from NIMBUS save endpoint
          */
-        NIMBUSSaveState: {
+        NIMBUSSaveResponse: {
             /**
-             * Method
-             * @default nimbus
-             * @constant
+             * State Id
+             * @description The id of the newest state
              */
-            method: "nimbus";
-            /**
-             * Phase
-             * @default save_solutions
-             * @constant
-             */
-            phase: "save_solutions";
-            /** Solver Results */
-            solver_results: components["schemas"]["SolverResults"][];
+            state_id: number | null;
         };
         /**
          * NonPreferredSolutions
@@ -1591,6 +1627,17 @@ export interface components {
             /** Problem Id */
             problem_id?: number | null;
         };
+        /** SolutionAddress */
+        SolutionAddress: {
+            /** Objective Values */
+            objective_values: {
+                [key: string]: number;
+            };
+            /** Address State */
+            address_state: number;
+            /** Address Result */
+            address_result: number;
+        };
         /**
          * SolverResults
          * @description Defines a schema for a dataclass to store the results of a solver.
@@ -1783,55 +1830,18 @@ export interface components {
             name?: string | null;
         };
         /**
-         * UserSavedSolverResults
+         * UserSavedSolutionAddress
          * @description Defines a schema for storing archived solutions.
          */
-        UserSavedSolverResults: {
-            /**
-             * Optimal Variables
-             * @description The optimal decision variables found.
-             */
-            optimal_variables: {
-                [key: string]: number | unknown[];
+        UserSavedSolutionAddress: {
+            /** Objective Values */
+            objective_values: {
+                [key: string]: number;
             };
-            /**
-             * Optimal Objectives
-             * @description The objective function values corresponding to the optimal decision variables found.
-             */
-            optimal_objectives: {
-                [key: string]: number | number[];
-            };
-            /**
-             * Constraint Values
-             * @description The constraint values of the problem. A negative value means the constraint is respected, a positive one means it has been breached.
-             */
-            constraint_values?: {
-                [key: string]: number | number[] | unknown[];
-            } | unknown | null;
-            /**
-             * Extra Func Values
-             * @description The extra function values of the problem.
-             */
-            extra_func_values?: {
-                [key: string]: number | number[];
-            } | null;
-            /**
-             * Scalarization Values
-             * @description The scalarization function values of the problem.
-             */
-            scalarization_values?: {
-                [key: string]: number | number[];
-            } | null;
-            /**
-             * Success
-             * @description A boolean flag indicating whether the optimization was successful or not.
-             */
-            success: boolean;
-            /**
-             * Message
-             * @description Description of the cause of termination.
-             */
-            message: string;
+            /** Address State */
+            address_state: number;
+            /** Address Result */
+            address_result: number;
             /**
              * Name
              * @description An optional name for the solution, useful for archiving purposes.
@@ -1848,13 +1858,8 @@ export interface components {
              * @description Problem for which the map is generated
              */
             problem_id: number;
-            /**
-             * Decision Variables
-             * @description Decision variables with which to generate the map
-             */
-            decision_variables: {
-                [key: string]: number | unknown[];
-            };
+            /** @description Solution for which to generate the map */
+            solution: components["schemas"]["SolutionAddress"];
         };
         /**
          * UtopiaResponse
@@ -2379,7 +2384,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["NIMBUSClassificationState"];
+                    "application/json": components["schemas"]["NIMBUSClassificationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2412,7 +2417,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["NIMBUSInitializationState"] | components["schemas"]["NIMBUSClassificationState"];
+                    "application/json": components["schemas"]["NIMBUSClassificationResponse"] | components["schemas"]["NIMBUSInitializationResponse"] | components["schemas"]["IntermediateSolutionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2445,7 +2450,40 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["NIMBUSSaveState"];
+                    "application/json": components["schemas"]["NIMBUSSaveResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    solve_nimbus_intermediate_method_nimbus_intermediate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IntermediateSolutionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntermediateSolutionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2564,7 +2602,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["IntermediateSolutionState"];
+                    "application/json": [
+                        components["schemas"]["IntermediateSolutionState"],
+                        number
+                    ];
                 };
             };
             /** @description Validation Error */

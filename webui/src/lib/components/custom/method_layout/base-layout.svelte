@@ -87,9 +87,9 @@
 
 			<ResizableHandle />
 			<!-- Bottom Panel: Numerical Values and Tables -->
-			<Resizable.Pane class="flex-shrink-0 p-2">
-				<Tabs.Root value="numerical-values">
-					<Tabs.List>
+			<Resizable.Pane class="flex min-h-0 flex-col p-2">
+				<Tabs.Root value="numerical-values" class="flex flex-col min-h-0 h-full">
+					<Tabs.List class="flex-shrink-0">
 						{#if tabsList}
 							{@render tabsList()}
 						{:else}
@@ -99,7 +99,7 @@
 					</Tabs.List>
 
 					<!-- Numerical Values Tab Content -->
-					<Tabs.Content value="numerical-values">
+					<Tabs.Content value="numerical-values" class="min-h-0 flex-grow">
 						{#if numericalValues}
 							{@render numericalValues()}
 						{:else}
@@ -108,7 +108,7 @@
 					</Tabs.Content>
 
 					<!-- Saved Solutions Tab Content -->
-					<Tabs.Content value="saved-solutions">
+					<Tabs.Content value="saved-solutions" class="min-h-0 flex-grow">
 						{#if savedSolutions}
 							{@render savedSolutions()}
 						{:else}

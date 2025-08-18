@@ -9,7 +9,7 @@ hide:
 - **[Defining a Problem](problem.md):** How to define a multiobjective optimization problem
 - **[Worked Example](full_example.ipynb):** How to get started using DESDEO
 - **[Hosting on Kubernetes](kubernetes.md) (outdated!):** How to host a DESDEO web application on Kubernetes
-- **[Running the Web API](api.md):** How to run the web API
+- **[Running the web-API and web-GUI](api_and_gui.md):** How to run the web-API and web-GUI
 - **[NAUTILUS Navigator](nautilus_navigator.md):** How to use the NAUTILUS Navigator method
 - **[NAUTILI](nautili.md):** How to use the NAUTILI method
 - **[Using EAs in DESDEO](ea.ipynb):** How to use evolutionary algorithms in DESDEO

@@ -6,8 +6,8 @@ type ProblemInfo = components['schemas']['ProblemInfo'];
  * Transform 2D array of objective values into visualization-ready format
  * 
  * @param solutions_objective_values - Array of objective value arrays for each solution
- * @param problem - Problem definition with objective names
- * @returns Array of objects with named objective properties
+ * @param problem - Problem definition with objective symbols
+ * @returns Array of objects with named objective properties, symbol as name
  */
 export function transformObjectiveData(
     solutions_objective_values: number[][],
@@ -19,7 +19,7 @@ export function transformObjectiveData(
         const dataPoint: { [key: string]: number } = {};
         solution.forEach((value, objIndex) => {
             if (problem.objectives[objIndex]) {
-                dataPoint[problem.objectives[objIndex].name] = value;
+                dataPoint[problem.objectives[objIndex].symbol] = value;
             }
         });
         return dataPoint;
@@ -30,8 +30,8 @@ export function transformObjectiveData(
  * Transform 2D array of decision values into visualization-ready format
  * 
  * @param solutions_decision_values - Array of decision variable arrays for each solution
- * @param problem - Problem definition with variable names
- * @returns Array of objects with named variable properties
+ * @param problem - Problem definition with variable symbols
+ * @returns Array of objects with named variable properties, symbol as name
  */
 export function transformDecisionData(
     solutions_decision_values: number[][],
@@ -43,7 +43,7 @@ export function transformDecisionData(
         const dataPoint: { [key: string]: number } = {};
         solution.forEach((value, varIndex) => {
             if (problem.variables && problem.variables[varIndex]) {
-                dataPoint[problem.variables[varIndex].name] = value;
+                dataPoint[problem.variables[varIndex].symbol] = value;
             } else {
                 dataPoint[`var_${varIndex}`] = value;
             }
@@ -62,7 +62,7 @@ export function createObjectiveDimensions(problem: ProblemInfo | null) {
     if (!problem?.objectives) return [];
 
     return problem.objectives.map((obj) => ({
-        name: obj.name,
+        symbol: obj.symbol,
         min: typeof obj.nadir === 'number' ? obj.nadir : undefined,
         max: typeof obj.ideal === 'number' ? obj.ideal : undefined,
         direction: obj.maximize ? ('max' as const) : ('min' as const)
@@ -79,7 +79,7 @@ export function createDecisionDimensions(problem: ProblemInfo | null) {
     if (!problem?.variables) return [];
 
     return problem.variables.map((variable) => ({
-        name: variable.name,
+        symbol: variable.symbol,
         min: typeof variable.lowerbound === 'number' ? variable.lowerbound : undefined,
         max: typeof variable.upperbound === 'number' ? variable.upperbound : undefined
     }));
