@@ -130,14 +130,9 @@ There are many ways to setup and activate a virtual environment. Some examples h
     This will download the latest version fo Python 3.12 (if not already available) and then create
     a virtual environment in the current directory under a new folder `.venv`.
 
-    If using the default virtual environment name `.venv`, you can activate the environment with the
-    command
-
-    ```bash
-    uv venv
-    ```
-
-    Otherwise, it needs to be activated manually.
+    If using the default virtual environment name `.venv`, `uv` will automatically
+    use the virtual environment in subsequent invocations. Otherwise, the environment
+    needs to be activated locally. 
 
 !!! Note
 
