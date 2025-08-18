@@ -85,6 +85,7 @@
 	"dependencies": {
 		"@cortex-js/compute-engine": "^0.29.1",
 		"d3": "^7.9.0",
+		"echarts": "^6.0.0",
 		"katex": "^0.16.22",
 		"openapi-fetch": "^0.14.0",
 		"openapi-typescript-fetch": "^2.2.0"
