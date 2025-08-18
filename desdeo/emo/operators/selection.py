@@ -456,6 +456,76 @@ def _rvea_selection(
     return selection, apd_fitness
 
 
+@njit
+def _rvea_selection_constrained(
+    fitness: np.ndarray,
+    constraints: np.ndarray,
+    reference_vectors: np.ndarray,
+    ideal: np.ndarray,
+    partial_penalty: float,
+    gamma: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Select individuals based on their fitness and their distance to the reference vectors.
+
+    Args:
+        fitness (np.ndarray): The fitness values of the individuals.
+        constraints (np.ndarray): The constraint violations of the individuals.
+        reference_vectors (np.ndarray): The reference vectors.
+        ideal (np.ndarray): The ideal point.
+        partial_penalty (float): The partial penalty in APD.
+        gamma (np.ndarray): The angle between current and closest reference vector.
+
+    Returns:
+        tuple[np.ndarray, np.ndarray]: The selected individuals and their APD fitness values.
+    """
+    tranlated_fitness = fitness - ideal
+    num_vectors = reference_vectors.shape[0]
+    num_solutions = fitness.shape[0]
+
+    violations = np.maximum(0, constraints)
+
+    cos_matrix = np.zeros((num_solutions, num_vectors))
+
+    for i in range(num_solutions):
+        solution = tranlated_fitness[i]
+        norm = np.linalg.norm(solution)
+        for j in range(num_vectors):
+            cos_matrix[i, j] = np.dot(solution, reference_vectors[j]) / max(1e-10, norm)  # Avoid division by zero
+
+    assignment_matrix = np.zeros((num_solutions, num_vectors), dtype=np.bool_)
+
+    for i in range(num_solutions):
+        assignment_matrix[i, np.argmax(cos_matrix[i])] = True
+
+    selection = np.zeros(num_solutions, dtype=np.bool_)
+    apd_fitness = np.zeros(num_solutions, dtype=np.float64)
+
+    for j in range(num_vectors):
+        min_apd = np.inf
+        min_violation = np.inf
+        select = -1
+        select_violation = -1
+        for i in np.where(assignment_matrix[:, j])[0]:
+            solution = tranlated_fitness[i]
+            apd = (1 + (partial_penalty * np.arccos(cos_matrix[i, j]) / gamma[j])) * np.linalg.norm(solution)
+            apd_fitness[i] = apd
+            feasible = np.all(violations[i] == 0)
+            current_violation = np.sum(violations[i])
+            if feasible:
+                if apd < min_apd:
+                    min_apd = apd
+                    select = i
+            elif current_violation < min_violation:
+                min_violation = current_violation
+                select_violation = i
+        if select != -1:
+            selection[select] = True
+        else:
+            selection[select_violation] = True
+
+    return selection, apd_fitness
+
+
 class RVEASelector(BaseDecompositionSelector):
     @property
     def provided_topics(self):
@@ -547,26 +617,49 @@ class RVEASelector(BaseDecompositionSelector):
         alltargets = parents[1].vstack(offsprings[1])
         targets = alltargets[self.target_symbols].to_numpy()
         if self.constraints_symbols is None or len(self.constraints_symbols) == 0:
-            constraints = None
+            # No constraints :)
+            if self.ideal is None:
+                self.ideal = np.min(targets, axis=0)
+            else:
+                self.ideal = np.min(np.vstack((self.ideal, np.min(targets, axis=0))), axis=0)
+            self.nadir = np.max(targets, axis=0) if self.nadir is None else self.nadir
+            if self.adapted_reference_vectors is None:
+                self._adapt()
+            selection, _ = _rvea_selection(
+                fitness=targets,
+                reference_vectors=self.adapted_reference_vectors,
+                ideal=self.ideal,
+                partial_penalty=self._partial_penalty_factor(),
+                gamma=self.reference_vectors_gamma,
+            )
         else:
+            # Yes constraints :(
             constraints = (
                 parents[1][self.constraints_symbols].vstack(offsprings[1][self.constraints_symbols]).to_numpy()
             )
+            feasible = (constraints <= 0).all(axis=1)
+            # Note that
+            if self.ideal is None:
+                # TODO: This breaks if there are no feasible solutions in the initial population
+                self.ideal = np.min(targets[feasible], axis=0)
+            else:
+                self.ideal = np.min(np.vstack((self.ideal, np.min(targets[feasible], axis=0))), axis=0)
+            try:
+                nadir = np.max(targets[feasible], axis=0)
+                self.nadir = nadir
+            except ValueError:  # No feasible solution in current population
+                pass  # Use previous nadir
+            if self.adapted_reference_vectors is None:
+                self._adapt()
+            selection, _ = _rvea_selection_constrained(
+                fitness=targets,
+                constraints=constraints,
+                reference_vectors=self.adapted_reference_vectors,
+                ideal=self.ideal,
+                partial_penalty=self._partial_penalty_factor(),
+                gamma=self.reference_vectors_gamma,
+            )
 
-        if self.ideal is None:
-            self.ideal = np.min(targets, axis=0)
-        else:
-            self.ideal = np.min(np.vstack((self.ideal, np.min(targets, axis=0))), axis=0)
-        self.nadir = np.max(targets, axis=0) if self.nadir is None else self.nadir
-        if self.adapted_reference_vectors is None:
-            self._adapt()
-        selection, _ = _rvea_selection(
-            fitness=targets,
-            reference_vectors=self.adapted_reference_vectors,
-            ideal=self.ideal,
-            partial_penalty=self._partial_penalty_factor(),
-            gamma=self.reference_vectors_gamma,
-        )
         self.selection = np.where(selection)[0].tolist()
         self.selected_individuals = solutions[self.selection]
         self.selected_targets = alltargets[self.selection]

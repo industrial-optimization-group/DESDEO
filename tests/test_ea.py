@@ -736,7 +736,7 @@ def test_template_mixed_integer():
     evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=2)
 
     generator = RandomMixedIntegerGenerator(
-        problem=problem, evaluator=evaluator, publisher=publisher, n_points=20, seed=0, verbosity=2
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=200, seed=0, verbosity=2
     )
 
     crossover = UniformMixedIntegerCrossover(problem=problem, publisher=publisher, seed=0, verbosity=1)
