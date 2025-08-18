@@ -42,6 +42,11 @@
 	let open = $state(false);
 	let triggerRef: HTMLButtonElement | null = $state(null);
 	let selected = $state(defaultSelected ?? '');
+	
+	// Update selected when defaultSelected changes
+	$effect(() => {
+		selected = defaultSelected ?? '';
+	});
 
 	/**
 	 * Returns the label of the currently selected value.
