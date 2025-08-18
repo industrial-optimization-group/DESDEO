@@ -300,7 +300,7 @@ def ibea(
             publisher=publisher,
         )
 
-    scalar_selector = TournamentSelection(publisher=publisher, verbosity=0, winner_size=population_size)
+    scalar_selector = TournamentSelection(publisher=publisher, verbosity=0, winner_size=population_size, seed=seed)
 
     components = [
         evaluator,

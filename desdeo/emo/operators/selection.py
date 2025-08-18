@@ -38,7 +38,7 @@ SolutionType = TypeVar("SolutionType", list, pl.DataFrame)
 class BaseSelector(Subscriber):
     """A base class for selection operators."""
 
-    def __init__(self, problem: Problem, verbosity: int, publisher: Publisher):
+    def __init__(self, problem: Problem, verbosity: int, publisher: Publisher, seed: int = 0):
         """Initialize a selection operator."""
         super().__init__(verbosity=verbosity, publisher=publisher)
         self.problem = problem
@@ -63,6 +63,8 @@ class BaseSelector(Subscriber):
         else:
             self.constraints_symbols = [x.symbol for x in problem.constraints]
         self.num_dims = len(self.target_symbols)
+        self.seed = seed
+        self.rng = np.random.default_rng(seed)
 
     @abstractmethod
     def do(
@@ -136,9 +138,14 @@ class BaseDecompositionSelector(BaseSelector):
     """Base class for decomposition based selection operators."""
 
     def __init__(
-        self, problem: Problem, reference_vector_options: ReferenceVectorOptions, verbosity: int, publisher: Publisher
+        self,
+        problem: Problem,
+        reference_vector_options: ReferenceVectorOptions,
+        verbosity: int,
+        publisher: Publisher,
+        seed: int = 0,
     ):
-        super().__init__(problem, verbosity=verbosity, publisher=publisher)
+        super().__init__(problem, verbosity=verbosity, publisher=publisher, seed=seed)
         self.reference_vector_options = reference_vector_options
         self.reference_vectors: np.ndarray
         self.reference_vectors_initial: np.ndarray
@@ -366,7 +373,7 @@ class BaseDecompositionSelector(BaseSelector):
         upper_limits = np.max(preferred_ranges, axis=0)
 
         # generate samples using Latin hypercube sampling
-        lhs = LatinHypercube(d=self.num_dims)
+        lhs = LatinHypercube(d=self.num_dims, seed=self.rng)
         w = lhs.random(n=self.reference_vectors_initial.shape[0])
 
         # scale between bounds
@@ -692,16 +699,7 @@ class RVEASelector(BaseDecompositionSelector):
 
 
 class NSGAIII_select(BaseDecompositionSelector):
-    """The NSGA-III selection operator. Code is heavily based on the version of nsga3 in the pymoo package by msu-coinlab.
-
-    Parameters
-    ----------
-    pop : Population
-        [description]
-    n_survive : int, optional
-        [description], by default None
-
-    """
+    """The NSGA-III selection operator, heavily based on the version of nsga3 in the pymoo package by msu-coinlab."""
 
     @property
     def provided_topics(self):
@@ -727,7 +725,17 @@ class NSGAIII_select(BaseDecompositionSelector):
         verbosity: int,
         publisher: Publisher,
         reference_vector_options: ReferenceVectorOptions | None = None,
+        seed: int = 0,
     ):
+        """Initialize the NSGA-III selection operator.
+
+        Args:
+            problem (Problem): The optimization problem to be solved.
+            verbosity (int): The verbosity level of the operator.
+            publisher (Publisher): The publisher to use for communication.
+            reference_vector_options (ReferenceVectorOptions | None, optional): Options for the reference vectors. Defaults to None.
+            seed (int, optional): The random seed to use. Defaults to 0.
+        """
         if reference_vector_options is None:
             reference_vector_options = ReferenceVectorOptions(
                 adaptation_frequency=0,
@@ -736,7 +744,11 @@ class NSGAIII_select(BaseDecompositionSelector):
                 number_of_vectors=500,
             )
         super().__init__(
-            problem, reference_vector_options=reference_vector_options, verbosity=verbosity, publisher=publisher
+            problem,
+            reference_vector_options=reference_vector_options,
+            verbosity=verbosity,
+            publisher=publisher,
+            seed=seed,
         )
         self.adapted_reference_vectors = None
         self.worst_fitness: np.ndarray | None = None
@@ -932,13 +944,13 @@ class NSGAIII_select(BaseDecompositionSelector):
             next_niche_count = niche_count[next_niches_list]
             next_niche = np.where(next_niche_count == next_niche_count.min())[0]
             next_niche = next_niches_list[next_niche]
-            next_niche = next_niche[np.random.randint(0, len(next_niche))]
+            next_niche = next_niche[self.rng.integers(0, len(next_niche))]
 
             # indices of individuals that are considered and assign to next_niche
             next_ind = np.where(np.logical_and(niche_of_individuals == next_niche, mask))[0]
 
             # shuffle to break random tie (equal perp. dist) or select randomly
-            np.random.shuffle(next_ind)
+            self.rng.shuffle(next_ind)
 
             if niche_count[next_niche] == 0:
                 next_ind = next_ind[np.argmin(dist_to_niche[next_ind])]
@@ -1133,7 +1145,7 @@ def _ibea_select_all(fitness_components: np.ndarray, population_size: int, kappa
         for i in range(len(mod_fit_components)):
             if bad_sols[i]:
                 continue
-        # Update fitness of the remaining individuals
+            # Update fitness of the remaining individuals
             fitness[i] += mod_fit_components[selected, i]
     return ~bad_sols
 
