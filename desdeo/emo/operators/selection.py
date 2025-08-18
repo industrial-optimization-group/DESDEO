@@ -16,6 +16,7 @@ import polars as pl
 from numba import njit
 from scipy.special import comb
 from scipy.stats.qmc import LatinHypercube
+from sqlalchemy import false
 
 from desdeo.problem import Problem
 from desdeo.tools import get_corrected_ideal_and_nadir
@@ -404,6 +405,57 @@ class ParameterAdaptationStrategy(Enum):
     OTHER = 3  # As of yet undefined strategies.
 
 
+@njit
+def _rvea_selection(
+    fitness: np.ndarray, reference_vectors: np.ndarray, ideal: np.ndarray, partial_penalty: float, gamma: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Select individuals based on their fitness and their distance to the reference vectors.
+
+    Args:
+        fitness (np.ndarray): The fitness values of the individuals.
+        reference_vectors (np.ndarray): The reference vectors.
+        ideal (np.ndarray): The ideal point.
+        partial_penalty (float): The partial penalty in APD.
+        gamma (np.ndarray): The angle between current and closest reference vector.
+
+    Returns:
+        tuple[np.ndarray, np.ndarray]: The selected individuals and their APD fitness values.
+    """
+    tranlated_fitness = fitness - ideal
+    num_vectors = reference_vectors.shape[0]
+    num_solutions = fitness.shape[0]
+
+    cos_matrix = np.zeros((num_solutions, num_vectors))
+
+    for i in range(num_solutions):
+        solution = tranlated_fitness[i]
+        norm = np.linalg.norm(solution)
+        for j in range(num_vectors):
+            cos_matrix[i, j] = np.dot(solution, reference_vectors[j]) / max(1e-10, norm)  # Avoid division by zero
+
+    assignment_matrix = np.zeros((num_solutions, num_vectors), dtype=np.bool_)
+
+    for i in range(num_solutions):
+        assignment_matrix[i, np.argmax(cos_matrix[i])] = True
+
+    selection = np.zeros(num_solutions, dtype=np.bool_)
+    apd_fitness = np.zeros(num_solutions, dtype=np.float64)
+
+    for j in range(num_vectors):
+        min_apd = np.inf
+        select = -1
+        for i in np.where(assignment_matrix[:, j])[0]:
+            solution = tranlated_fitness[i]
+            apd = (1 + (partial_penalty * np.arccos(cos_matrix[i, j]) / gamma[j])) * np.linalg.norm(solution)
+            apd_fitness[i] = apd
+            if apd < min_apd:
+                min_apd = apd
+                select = i
+        selection[select] = True
+
+    return selection, apd_fitness
+
+
 class RVEASelector(BaseDecompositionSelector):
     @property
     def provided_topics(self):
@@ -447,7 +499,7 @@ class RVEASelector(BaseDecompositionSelector):
                 adaptation_frequency=100,
                 creation_type="simplex",
                 vector_type="spherical",
-                number_of_vectors=500,
+                number_of_vectors=200,
             )
 
         super().__init__(
@@ -463,6 +515,7 @@ class RVEASelector(BaseDecompositionSelector):
         self.selection: list[int]
         self.penalty = None
         self.parameter_adaptation_strategy = parameter_adaptation_strategy
+        self.adapted_reference_vectors = None
 
     def do(
         self,
@@ -504,84 +557,19 @@ class RVEASelector(BaseDecompositionSelector):
             self.ideal = np.min(targets, axis=0)
         else:
             self.ideal = np.min(np.vstack((self.ideal, np.min(targets, axis=0))), axis=0)
-        partial_penalty_factor = self._partial_penalty_factor()
-        self._adapt()
-
-        ref_vectors = self.adapted_reference_vectors
-        # Normalization - There may be problems here
-        translated_targets = targets - self.ideal
-        targets_norm = np.linalg.norm(translated_targets, axis=1)
-        # TODO check if you need the next line
-        # TODO changing the order of the following few operations might be efficient
-        targets_norm = np.repeat(targets_norm, len(translated_targets[0, :])).reshape(translated_targets.shape)
-        # Convert zeros to eps to avoid divide by zero.
-        # Has to be checked!
-        targets_norm[targets_norm == 0] = np.finfo(float).eps
-        normalized_targets = np.divide(translated_targets, targets_norm)  # Checked, works.
-        cosine = np.dot(normalized_targets, np.transpose(ref_vectors))
-        if cosine[np.where(cosine > 1)].size:
-            cosine[np.where(cosine > 1)] = 1
-        if cosine[np.where(cosine < 0)].size:
-            cosine[np.where(cosine < 0)] = 0
-        # Calculation of angles between reference vectors and solutions
-        theta = np.arccos(cosine)
-        # Reference vector assignment
-        assigned_vectors = np.argmax(cosine, axis=1)
-        selection = np.array([], dtype=int)
-        # Selection
-        # Convert zeros to eps to avoid divide by zero.
-        # Has to be checked!
-        ref_vectors[ref_vectors == 0] = np.finfo(float).eps
-        for i in range(len(ref_vectors)):
-            sub_population_index = np.atleast_1d(np.squeeze(np.where(assigned_vectors == i)))
-
-            # Constraint check
-            if len(sub_population_index) > 1 and constraints is not None:
-                violation_values = constraints[sub_population_index]
-                # violation_values = -violation_values
-                violation_values = np.maximum(0, violation_values)
-                # True if feasible
-                feasible_bool = (violation_values == 0).all(axis=1)
-
-                # Case when entire subpopulation is infeasible
-                if not feasible_bool.any():
-                    violation_values = violation_values.sum(axis=1)
-                    sub_population_index = sub_population_index[np.where(violation_values == violation_values.min())]
-                # Case when only some are infeasible
-                else:
-                    sub_population_index = sub_population_index[feasible_bool]
-
-            sub_population_fitness = translated_targets[sub_population_index]
-            # fast tracking singly selected individuals
-            if len(sub_population_index) == 1:
-                selx = sub_population_index
-                if selection.shape[0] == 0:
-                    selection = np.hstack((selection, np.transpose(selx[0])))
-                else:
-                    selection = np.vstack((selection, np.transpose(selx[0])))
-            elif len(sub_population_index) > 1:
-                # APD Calculation
-                angles = theta[sub_population_index, i]
-                angles = np.divide(angles, self.reference_vectors_gamma[i])  # This is correct.
-                # You have done this calculation before. Check with fitness_norm
-                # Remove this horrible line
-                sub_pop_fitness_magnitude = np.sqrt(np.sum(np.power(sub_population_fitness, 2), axis=1))
-                apd = np.multiply(
-                    np.transpose(sub_pop_fitness_magnitude),
-                    (1 + np.dot(partial_penalty_factor, angles)),
-                )
-                minidx = np.where(apd == np.nanmin(apd))
-                if np.isnan(apd).all():
-                    continue
-                selx = sub_population_index[minidx]
-                if selection.shape[0] == 0:
-                    selection = np.hstack((selection, np.transpose(selx[0])))
-                else:
-                    selection = np.vstack((selection, np.transpose(selx[0])))
-
-        self.selection = selection.tolist()
-        self.selected_individuals = solutions[selection.flatten()]
-        self.selected_targets = alltargets[selection.flatten()]
+        self.nadir = np.max(targets, axis=0) if self.nadir is None else self.nadir
+        if self.adapted_reference_vectors is None:
+            self._adapt()
+        selection, _ = _rvea_selection(
+            fitness=targets,
+            reference_vectors=self.adapted_reference_vectors,
+            ideal=self.ideal,
+            partial_penalty=self._partial_penalty_factor(),
+            gamma=self.reference_vectors_gamma,
+        )
+        self.selection = np.where(selection)[0].tolist()
+        self.selected_individuals = solutions[self.selection]
+        self.selected_targets = alltargets[self.selection]
         self.notify()
         return self.selected_individuals, self.selected_targets
 
@@ -615,6 +603,11 @@ class RVEASelector(BaseDecompositionSelector):
         if self.parameter_adaptation_strategy == ParameterAdaptationStrategy.GENERATION_BASED:
             if message.topic == TerminatorMessageTopics.GENERATION:
                 self.numerator = message.value
+                if (
+                    self.reference_vector_options["adaptation_frequency"] > 0
+                    and self.numerator % self.reference_vector_options["adaptation_frequency"] == 0
+                ):
+                    self._adapt()
             if message.topic == TerminatorMessageTopics.MAX_GENERATIONS:
                 self.denominator = message.value
         elif self.parameter_adaptation_strategy == ParameterAdaptationStrategy.FUNCTION_EVALUATION_BASED:
@@ -690,12 +683,20 @@ class RVEASelector(BaseDecompositionSelector):
             self.adapted_reference_vectors / np.linalg.norm(self.adapted_reference_vectors, axis=1)[:, None]
         )
 
-        # More efficient way to calculate the gamma values
-        self.reference_vectors_gamma = np.arccos(
-            np.dot(self.adapted_reference_vectors, np.transpose(self.adapted_reference_vectors))
-        )
-        self.reference_vectors_gamma[np.where(self.reference_vectors_gamma == 0)] = np.inf
-        self.reference_vectors_gamma = np.min(self.reference_vectors_gamma, axis=1)
+        self.reference_vectors_gamma = np.zeros(self.adapted_reference_vectors.shape[0])
+        for i in range(self.adapted_reference_vectors.shape[0]):
+            closest_angle = np.inf
+            for j in range(self.adapted_reference_vectors.shape[0]):
+                if i != j:
+                    angle = np.arccos(
+                        np.clip(np.dot(self.adapted_reference_vectors[i], self.adapted_reference_vectors[j]), -1.0, 1.0)
+                    )
+                    if angle < closest_angle and angle > 0:
+                        # In cases with extreme differences in obj func ranges
+                        # sometimes, the closest reference vectors are so close that
+                        # the angle between them is 0 according to arccos (literally 0)
+                        closest_angle = angle
+            self.reference_vectors_gamma[i] = closest_angle
 
 
 class NSGAIII_select(BaseDecompositionSelector):
@@ -741,7 +742,7 @@ class NSGAIII_select(BaseDecompositionSelector):
                 adaptation_frequency=0,
                 creation_type="simplex",
                 vector_type="planar",
-                number_of_vectors=500,
+                number_of_vectors=200,
             )
         super().__init__(
             problem,
