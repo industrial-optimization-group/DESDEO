@@ -6,12 +6,13 @@ from sqlalchemy.types import TypeDecorator
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
 from desdeo.emo.methods.templates import EMOResult
+from desdeo.mcdm import ENautilusResult
 from desdeo.tools import SolverResults
 from desdeo.tools.generics import EMOResults
 
 from .archive import UserSavedSolutionDB
 from .preference import PreferenceDB, ReferencePoint
-from .problem import ProblemDB
+from .problem import ProblemDB, RepresentativeNonDominatedSolutions
 from .session import InteractiveSessionDB
 
 
@@ -30,7 +31,8 @@ class StateType(TypeDecorator):
             | NIMBUSSaveState
             | EMOState
             | EMOSaveState
-            | NIMBUSInitializationState,
+            | NIMBUSInitializationState
+            | ENautilusState,
         ):
             return value.model_dump()
 
@@ -65,8 +67,10 @@ class StateType(TypeDecorator):
                     "EMO",
                 ]:  # Changed from NSGAIII to NSGA3
                     return EMOState.model_validate(value)
+                case ("e-nautilus", "stepping"):
+                    return ENautilusState.model_validate(value)
                 case _:
-                    msg = f"No method '{value["method"]}' with phase '{value.get("phase")}' found."
+                    msg = f"No method '{value['method']}' with phase '{value.get('phase')}' found."
                     print(msg)
 
         return value
@@ -102,13 +106,9 @@ class RPMState(RPMBaseState):
     phase: Literal["solve_candidates"] = "solve_candidates"
 
     # to compute k+1 solutions
-    scalarization_options: dict[str, float | str | bool] | None = Field(
-        sa_column=Column(JSON), default=None
-    )
+    scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
     solver: str | None = Field(default=None)
-    solver_options: dict[str, float | str | bool] | None = Field(
-        sa_column=Column(JSON), default=None
-    )
+    solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
 
     # results
     solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
@@ -128,13 +128,9 @@ class NIMBUSClassificationState(NIMBUSBaseState):
 
     phase: Literal["solve_candidates"] = "solve_candidates"
 
-    scalarization_options: dict[str, float | str | bool] | None = Field(
-        sa_column=Column(JSON), default=None
-    )
+    scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
     solver: str | None = Field(default=None)
-    solver_options: dict[str, float | str | bool] | None = Field(
-        sa_column=Column(JSON), default=None
-    )
+    solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
     current_objectives: dict[str, float] = Field(sa_column=Column(JSON))
     num_desired: int | None = Field(default=1)
     previous_preference: ReferencePoint = Field(Column(JSON))
@@ -153,9 +149,7 @@ class NIMBUSSaveState(NIMBUSBaseState):
 class EMOState(BaseEMOState):
     """State for EMO methods."""
 
-    method: str = Field(
-        default="EMO", description="The EMO method name (e.g., NSGA3, RVEA, etc.)"
-    )
+    method: str = Field(default="EMO", description="The EMO method name (e.g., NSGA3, RVEA, etc.)")
 
     # results
     solutions: list = Field(sa_column=Column(JSON), description="Optimization results")
@@ -165,9 +159,7 @@ class EMOState(BaseEMOState):
 class EMOSaveState(BaseEMOState):
     """State of the EMO methods for saving solutions."""
 
-    method: str = Field(
-        default="EMO", description="The EMO method name (e.g., NSGA3, RVEA, etc.)"
-    )
+    method: str = Field(default="EMO", description="The EMO method name (e.g., NSGA3, RVEA, etc.)")
     phase: Literal["save_solutions"] = "save_solutions"
     problem_id: int
     saved_solutions: list[EMOResults] = Field(sa_column=Column(JSON))
@@ -192,18 +184,39 @@ class IntermediateSolutionState(BaseState):
     method: Literal["generic"] = "generic"
     phase: Literal["solve_intermediate"] = "solve_intermediate"
 
-    scalarization_options: dict[str, float | str | bool] | None = Field(
-        sa_column=Column(JSON), default=None
-    )
+    scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
     solver: str | None = Field(default=None)
-    solver_options: dict[str, float | str | bool] | None = Field(
-        sa_column=Column(JSON), default=None
-    )
+    solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
     num_desired: int | None = Field(default=1)
     reference_solution_1: dict[str, float]
     reference_solution_2: dict[str, float]
     # results
     solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
+
+
+class ENautilusState(BaseState):
+    """State for the E-NAUTILUS method.
+
+    This state represents a step (iteration) in the E-NAUTILUS method.
+    """
+
+    method: Literal["e-nautilus"] = "e-nautilus"
+    phase: Literal["stepping"] = "stepping"
+
+    # E-NAUTILUS (`e-nautilus_step`) specific
+    non_dominated_points_id: int | None = Field(
+        description=(
+            "Stores the id of the `RepresentatvieNondominatedSolutions` in the DB. "
+            "Use the property `non_dominated_points` to get the actual points."
+        )
+    )
+    current_iteration: int
+    iterations_left: int
+    selected_point: dict[str, float] | None = Field(sa_column=Column(JSON), default=None)
+    reachable_point_indices: list[int]
+    number_of_intermediate_points: int
+
+    enautilus_results: ENautilusResult = Field(sa_column=Column(JSON))
 
 
 class StateDB(SQLModel, table=True):
@@ -221,9 +234,7 @@ class StateDB(SQLModel, table=True):
 
     # Back populates
     session: "InteractiveSessionDB" = Relationship(back_populates="states")
-    parent: "StateDB" = Relationship(
-        back_populates="children", sa_relationship_kwargs={"remote_side": "StateDB.id"}
-    )
+    parent: "StateDB" = Relationship(back_populates="children", sa_relationship_kwargs={"remote_side": "StateDB.id"})
     # if a parent node is killed, so are all its children (blood for the blood God)
     children: list["StateDB"] = Relationship(
         back_populates="parent",
