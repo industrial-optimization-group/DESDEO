@@ -314,7 +314,7 @@ class ProblemMetaDataDB(SQLModel, table=True):
 class ProblemMetaDataPublic(SQLModel):
     """Response model for ProblemMetaData."""
 
-    data: list[BaseProblemMetaData] | None
+    problem_id: int
 
 
 class ProblemMetaDataGetRequest(SQLModel):
