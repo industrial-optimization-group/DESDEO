@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 
 
 class ProblemBase(SQLModel):
-    """."""
+    """The base model for `ProblemDB` and related requests/responses."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -55,7 +55,7 @@ class ProblemGetRequest(SQLModel):
 
 
 class ProblemInfo(ProblemBase):
-    """."""
+    """Problem info request return data."""
 
     id: int
     user_id: int
@@ -83,7 +83,7 @@ class ProblemInfo(ProblemBase):
 
 
 class ProblemInfoSmall(ProblemBase):
-    """."""
+    """Problem info request return data, but smaller."""
 
     id: int
     user_id: int
@@ -100,7 +100,7 @@ class ProblemInfoSmall(ProblemBase):
 
 
 class ProblemDB(ProblemBase, table=True):
-    """."""
+    """The table model to represent the `Problem` class in the database."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -202,62 +202,25 @@ class ProblemDB(ProblemBase, table=True):
 
 
 ### PROBLEM METADATA ###
-
-
-class ProblemMetaDataListType(TypeDecorator):
-    """SQLAlchemy custom type to convert list of problem metadata to JSON and back."""
-
-    impl = JSON
-
-    def process_bind_param(self, value, dialect):
-        """List of problem metadata to JSON."""
-        if isinstance(value, list):
-            items = []
-            for item in value:
-                if isinstance(item, BaseProblemMetaData):
-                    items.append(item.model_dump_json())
-            return json.dumps(items)
-        return None
-
-    def process_result_value(self, value, dialect):
-        """JSON to list of problem metadata."""
-        if value is not None:
-            metadata_list = json.loads(value)
-            metadata_objects: list[BaseProblemMetaData] = []
-            for item in metadata_list:
-                item_dict = json.loads(item)
-                match item_dict["metadata_type"]:
-                    # Add classes derived from BaseProblemMetaData here so they can be deserialized
-                    case "forest_problem_metadata":
-                        metadata_objects.append(ForestProblemMetaData.model_validate(item_dict))
-                    case "representative_non_dominated_solutions":
-                        metadata_objects.append(RepresentativeNonDominatedSolutions.model_validate(item_dict))
-                    case _:
-                        print(f"Cannot convert {item_dict['metadata_type']} into metadata!")
-            return metadata_objects
-        return None
-
-
-class BaseProblemMetaData(SQLModel):
-    """Derive other problem metadata classes from this one."""
-
-    metadata_type: str = "unset"
-
-
-class ForestProblemMetaData(BaseProblemMetaData):
+class ForestProblemMetaData(SQLModel, table=True):
     """A problem metadata class to hold UTOPIA forest problem specific information."""
+
+    id: int | None = Field(primary_key=True, default=None)
+    metadata_id: int | None = Field(foreign_key="problemmetadatadb.id", default=None)
 
     metadata_type: str = "forest_problem_metadata"
 
     map_json: str = Field()
     schedule_dict: dict = Field(sa_column=Column(JSON))
-    years: list[str] = Field()
+    years: list[str] = Field(sa_column=Column(JSON))
     stand_id_field: str = Field()
     stand_descriptor: dict | None = Field(sa_column=Column(JSON), default=None)
     compensation: float | None = Field(default=None)
 
+    metadata_instance: "ProblemMetaDataDB" = Relationship(back_populates="forest_metadata")
 
-class RepresentativeNonDominatedSolutions(BaseProblemMetaData):
+
+class RepresentativeNonDominatedSolutions(SQLModel, table=True):
     """A problem metadata class to store representative solutions sets, i.e., non-dominated sets...
 
     A problem metadata class to store representative solutions sets, i.e., non-dominated sets that
@@ -267,16 +230,30 @@ class RepresentativeNonDominatedSolutions(BaseProblemMetaData):
         It is assumed that the solution set is non-dominated.
     """
 
+    id: int | None = Field(primary_key=True, default=None)
+    metadata_id: int | None = Field(foreign_key="problemmetadatadb.id", default=None)
+
     metadata_type: str = "representative_non_dominated_solutions"
 
     name: str = Field(description="The name of the representative set.")
     description: str | None = Field(description="A description of the representative set. Optional.", default=None)
 
-    variable_values: dict[str, int | float | list] = Field(description="The decision variable values.")
-    objective_values: dict[str, float | list[float]] = Field(description="The objective function values.")
+    solution_data: dict[str, list[float]] = Field(
+        sa_column=Column(JSON),
+        description="The non-dominated solutions. It is assumed that columns "
+        "exist for each variable and objective function. For functions, the "
+        "`_min` variant should be present, and any tensor variables should be "
+        "unrolled.",
+    )
 
-    ideal: dict[str, float] = Field(description="The ideal objective function values of the representative set.")
-    nadir: dict[str, float] = Field(description="The nadir objective function values of the representative set.")
+    ideal: dict[str, float] = Field(
+        sa_column=Column(JSON), description="The ideal objective function values of the representative set."
+    )
+    nadir: dict[str, float] = Field(
+        sa_column=Column(JSON), description="The nadir objective function values of the representative set."
+    )
+
+    metadata_instance: "ProblemMetaDataDB" = Relationship(back_populates="representative_nd_metadata")
 
 
 class ProblemMetaDataDB(SQLModel, table=True):
@@ -284,15 +261,26 @@ class ProblemMetaDataDB(SQLModel, table=True):
 
     id: int | None = Field(primary_key=True, default=None)
     problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
-    data: list[BaseProblemMetaData] | None = Field(sa_column=Column(ProblemMetaDataListType), default=None)
 
-    problem: ProblemDB | None = Relationship(back_populates="problem_metadata")
+    forest_metadata: list[ForestProblemMetaData] = Relationship(back_populates="metadata_instance")
+    representative_nd_metadata: list[RepresentativeNonDominatedSolutions] = Relationship(
+        back_populates="metadata_instance"
+    )
+    problem: ProblemDB = Relationship(back_populates="problem_metadata")
+
+    @property
+    def all_metadata(self) -> list[ForestProblemMetaData | RepresentativeNonDominatedSolutions]:
+        """Return all metadata in one list."""
+        return (self.forest_metadata or []) + (self.representative_nd_metadata or [])
 
 
 class ProblemMetaDataPublic(SQLModel):
     """Response model for ProblemMetaData."""
 
-    data: list[BaseProblemMetaData] | None
+    problem_id: int
+
+    forest_metadata: list[ForestProblemMetaData] | None
+    representative_nd_metadata: list[RepresentativeNonDominatedSolutions] | None
 
 
 class ProblemMetaDataGetRequest(SQLModel):
@@ -303,8 +291,6 @@ class ProblemMetaDataGetRequest(SQLModel):
 
 
 ### PATH TYPES ###
-
-
 class PathOrUrlType(TypeDecorator):
     """Helper class for dealing with Paths and Urls."""
 
