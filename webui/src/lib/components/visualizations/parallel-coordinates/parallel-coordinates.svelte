@@ -15,9 +15,10 @@
 	 *
 	 * @props
 	 * - data: Array<{ [key: string]: number }> — Array of data points where each object has values for each dimension
-	 * - dimensions: Array<{ name: string; min?: number; max?: number; direction?: 'max' | 'min' }> — Dimension definitions
+	 * - dimensions: Array<{ symbol: string; min?: number; max?: number; direction?: 'max' | 'min' }> — Dimension definitions
 	 * - referenceData?: {
 	 *     referencePoint?: { [key: string]: number }; // Reference point values for each dimension
+	 *     previousReferencePoint?: { [key: string]: number }; // Reference point values of previous reference point for each dimension
 	 *     preferredRanges?: { [key: string]: { min: number; max: number } }; // Preferred ranges for each dimension
 	 *     preferredSolutions?: Array<{ [key: string]: number }>; // Array of preferred solutions
 	 *     nonPreferredSolutions?: Array<{ [key: string]: number }>; // Array of non-preferred solutions
@@ -30,6 +31,7 @@
 	 *     enableBrushing: boolean; // enable axis brushing for filtering
 	 *   }
 	 * - selectedIndex: number | null — index of selected line (only one at a time)
+	 * -  multipleSelectedIndexes: number[] | null — indexes of selected lines (multiple selection mode)
 	 * - brushFilters: { [dimension: string]: [number, number] } — brush filter ranges for each dimension
 	 * - onLineSelect?: (index: number | null, data: any | null) => void — callback when line is selected/deselected
 	 * - onBrushFilter?: (filters: { [dimension: string]: [number, number] }) => void — callback when brush filters change
@@ -58,6 +60,7 @@
 	 */
 	type ReferenceData = {
 		referencePoint?: { [key: string]: number }; // Single reference point across all dimensions
+    	previousReferencePoint?: { [key: string]: number }; // Single reference point across all dimensions, for previous preference
 		preferredRanges?: { [key: string]: { min: number; max: number } }; // Preferred value ranges per dimension
 		preferredSolutions?: Array<{ [key: string]: number }>; // Array of preferred solution points
 		nonPreferredSolutions?: Array<{ [key: string]: number }>; // Array of non-preferred solution points
@@ -68,7 +71,7 @@
 	export let data: { [key: string]: number }[] = [];
 
 	// Dimension definitions - describes each axis with optional constraints
-	export let dimensions: { name: string; min?: number; max?: number; direction?: 'max' | 'min' }[] =
+	export let dimensions: { symbol: string; min?: number; max?: number; direction?: 'max' | 'min' }[] =
 		[];
 
 	// Optional reference data for enhanced visualization
@@ -91,6 +94,21 @@
 
 	// Index of currently selected line (null = no selection)
 	export let selectedIndex: number | null = null;
+	// indexes for the case where multiple lines can be selected
+	export let multipleSelectedIndexes: number[] | null = null;
+
+	/**
+	 * Helper function to check if a data point is selected
+	 * Works with both single selection (selectedIndex) and multi-selection (multipleSelectedIndexes) modes
+	 * 
+	 * @param index - The index of the data point to check
+	 * @returns true if the data point is selected, false otherwise
+	 */
+	function isSelected(index: number): boolean {
+		// Check if we're in single or multi-selection mode and if the point is selected
+		return (multipleSelectedIndexes === null && index === selectedIndex) || 
+			   (multipleSelectedIndexes !== null && multipleSelectedIndexes.includes(index));
+	}
 
 	// Active brush filters - maps dimension name to [y1, y2] pixel coordinates
 	export let brushFilters: { [dimension: string]: [number, number] } = {};
@@ -124,7 +142,7 @@
 
 		dimensions.forEach((dim) => {
 			// Extract all values for this dimension from the dataset
-			const values = data.map((d) => d[dim.name]).filter((v) => v !== undefined && v !== null);
+			const values = data.map((d) => d[dim.symbol]).filter((v) => v !== undefined && v !== null);
 
 			// Determine the domain (data range) for this dimension
 			let domain: [number, number];
@@ -143,7 +161,7 @@
 			}
 
 			// Create linear scale mapping data domain to pixel range
-			newScales[dim.name] = d3
+			newScales[dim.symbol] = d3
 				.scaleLinear()
 				.domain(domain) // Data values
 				.range([innerHeight - margin.bottom, margin.top]); // Pixel coordinates (bottom to top)
@@ -222,20 +240,20 @@
 				const passes = passesFilters(d);
 				if (!passes) return 0; // Hidden lines have 0 opacity
 
-				if (i === selectedIndex) return 1; // Selected line is fully opaque
-				return options.opacity; // Other lines use configured opacity
-			})
+				if (isSelected(i)) return 1;// Selected line is fully opaque
+					return options.opacity; // Other lines use configured opacity
+				})
 			// Set stroke color - selected line gets theme color, others are gray
 			.attr('stroke', (d, i) => {
 				const passes = passesFilters(d);
 				if (!passes) return '#ccc'; // Hidden lines are gray
 
-				if (i === selectedIndex) return '#3b82f6'; // Selected line uses primary color
+				if (isSelected(i)) return '#3b82f6'; // Selected line uses primary color
 				return '#ccc'; // Non-selected lines are gray
 			})
 			// Set stroke width - selected line is slightly thicker
 			.attr('stroke-width', (d, i) => {
-				if (i === selectedIndex) return options.strokeWidth + 1; // Selected line is thicker
+				if (isSelected(i)) return options.strokeWidth + 1; // Selected line is thicker
 				return options.strokeWidth; // Normal thickness for others
 			});
 	}
@@ -370,12 +388,20 @@
 	 * @param dataPoint - The actual data object for the clicked line
 	 */
 	function handleLineClick(index: number, dataPoint: { [key: string]: number }) {
+		// If we're in multi-selection mode
+		if (multipleSelectedIndexes !== null) {
+			// Let the parent component handle selection/deselection logic
+			onLineSelect?.(index, dataPoint);
+			return;
+		}
+		
+		// Single selection mode
 		if (selectedIndex === index) {
-			// Clicking on already selected line = deselect it
+			// Deselect if already selected
 			selectedIndex = null;
 			onLineSelect?.(null, null);
 		} else {
-			// Clicking on different line = select it
+			// Select new item
 			selectedIndex = index;
 			onLineSelect?.(index, dataPoint);
 		}
@@ -434,32 +460,38 @@
 	}
 
 	/**
-	 * Draws the reference point as a dashed line across all dimensions
-	 * Shows a specific target or comparison point
-	 *
+	 * Draws a reference point as a line across all dimensions with configurable styling
+	 * 
 	 * @param svgElement - Parent SVG group element
 	 * @param scales - Scale functions for each dimension
 	 * @param xScale - Scale for positioning dimensions horizontally
 	 * @param line - D3 line generator for drawing the path
+	 * @param pointData - The reference point data to draw
+	 * @param modifiedOptions - Styling options for the reference point
 	 */
-	function drawReferencePoint(
+	function drawGenericReferencePoint(
 		svgElement: d3.Selection<SVGGElement, unknown, null, undefined>,
 		scales: { [key: string]: d3.ScaleLinear<number, number> },
 		xScale: d3.ScalePoint<string>,
-		line: d3.Line<[string, number]>
+		line: d3.Line<[string, number]>,
+		pointData: { [key: string]: number } | undefined,
+		modifiedOptions: {
+			groupClass: string;
+			opacity: number;
+		}
 	) {
-		if (!referenceData?.referencePoint) return; // Skip if no reference point defined
+		if (!pointData) return; // Skip if no point data defined
 
 		// Create group for reference point visualization
-		const referenceGroup = svgElement.append('g').attr('class', 'reference-point');
+		const referenceGroup = svgElement.append('g').attr('class', modifiedOptions.groupClass);
 
 		// Convert reference point data to line format
 		const refLineData: [string, number][] = dimensions
-			.map((dim) => [dim.name, referenceData.referencePoint![dim.name]])
+			.map((dim) => [dim.symbol, pointData[dim.symbol]])
 			.filter(([, value]) => value !== undefined && value !== null);
 
 		if (refLineData.length > 0) {
-			// Draw dashed line connecting reference values across all dimensions
+			// Draw line connecting reference values across all dimensions
 			referenceGroup
 				.append('path')
 				.datum(refLineData)
@@ -468,7 +500,7 @@
 				.attr('stroke', '#ff6b6b') // Red color for reference
 				.attr('stroke-width', options.strokeWidth + 1) // Slightly thicker than data lines
 				.attr('stroke-dasharray', '8,4') // Dashed pattern
-				.attr('opacity', 0.9);
+				.attr('opacity', modifiedOptions.opacity);
 
 			// Add circles at each axis to highlight reference values
 			refLineData.forEach(([dimName, value]) => {
@@ -482,10 +514,11 @@
 						.attr('r', 4) // Small circle radius
 						.attr('fill', '#ff6b6b') // Same red as line
 						.attr('stroke', '#fff') // White border for visibility
-						.attr('stroke-width', 2);
+						.attr('stroke-width', 2)
+						.attr('opacity', modifiedOptions.opacity);
 				}
 			});
-
+			
 			// Note: Reference point label is commented out to reduce visual clutter
 			/*referenceGroup
                 .append('text')
@@ -520,7 +553,7 @@
 			referenceData.preferredSolutions.forEach((solution, index) => {
 				// Convert solution data to line format
 				const solutionData: [string, number][] = dimensions
-					.map((dim) => [dim.name, solution[dim.name]])
+					.map((dim) => [dim.symbol, solution[dim.symbol]])
 					.filter(([, value]) => value !== undefined && value !== null);
 
 				if (solutionData.length > 0) {
@@ -571,7 +604,7 @@
 			referenceData.nonPreferredSolutions.forEach((solution, index) => {
 				// Convert solution data to line format
 				const solutionData: [string, number][] = dimensions
-					.map((dim) => [dim.name, solution[dim.name]])
+					.map((dim) => [dim.symbol, solution[dim.symbol]])
 					.filter(([, value]) => value !== undefined && value !== null);
 
 				if (solutionData.length > 0) {
@@ -651,7 +684,7 @@
 		// Create scale for positioning dimensions horizontally
 		const xScale = d3
 			.scalePoint()
-			.domain(dimensions.map((d) => d.name)) // All dimension names
+			.domain(dimensions.map((d) => d.symbol)) // All dimension names
 			.range([0, innerWidth]) // Spread across available width
 			.padding(0.1); // Small padding between axes
 
@@ -661,7 +694,7 @@
 		// Create color scale for axis identification
 		const axisColorScale = d3
 			.scaleOrdinal<string, string>()
-			.domain(dimensions.map((d) => d.name))
+			.domain(dimensions.map((d) => d.symbol))
 			.range(COLOR_PALETTE); // Use predefined color palette
 
 		// Draw preferred ranges first (behind everything else)
@@ -669,15 +702,15 @@
 
 		// Draw axes and labels
 		dimensions.forEach((dim) => {
-			const x = xScale(dim.name)!; // Get x position for this dimension
-			const axisColor = axisColorScale(dim.name); // Get color for this dimension
+			const x = xScale(dim.symbol)!; // Get x position for this dimension
+			const axisColor = axisColorScale(dim.symbol); // Get color for this dimension
 
 			// Draw axis line with tick marks and labels
 			svgElement
 				.append('g')
-				.attr('class', `axis axis-${dim.name}`)
+				.attr('class', `axis axis-${dim.symbol}`)
 				.attr('transform', `translate(${x}, 0)`) // Position at correct x coordinate
-				.call(d3.axisLeft(newScales[dim.name]).ticks(5)); // Left-aligned axis with 5 ticks
+				.call(d3.axisLeft(newScales[dim.symbol]).ticks(5)); // Left-aligned axis with 5 ticks
 
 			// Draw axis labels and colored identification squares
 			if (options.showAxisLabels) {
@@ -705,7 +738,7 @@
 					.style('font-size', '12px')
 					.style('font-weight', 'bold')
 					.style('fill', '#333')
-					.text(dim.direction ? `${dim.name} (${dim.direction})` : dim.name); // Include direction if specified
+					.text(dim.direction ? `${dim.symbol} (${dim.direction})` : dim.symbol); // Include direction if specified
 			}
 		});
 
@@ -719,7 +752,7 @@
 			.attr('d', (d, i) => {
 				// Convert data point to line coordinates
 				const lineData: [string, number][] = dimensions
-					.map((dim) => [dim.name, d[dim.name]])
+					.map((dim) => [dim.symbol, d[dim.symbol]])
 					.filter(([, value]) => value !== undefined && value !== null);
 				return line(lineData); // Generate SVG path string
 			})
@@ -729,8 +762,8 @@
 
 		// Set up brushing for each axis (must be done before line updates)
 		dimensions.forEach((dim) => {
-			const x = xScale(dim.name)!;
-			setupAxisBrushing(svgElement, dim.name, x, innerHeight, lines);
+			const x = xScale(dim.symbol)!;
+			setupAxisBrushing(svgElement, dim.symbol, x, innerHeight, lines);
 		});
 
 		// Apply initial line styling based on current state
@@ -751,7 +784,7 @@
 					// Restore original stroke width
 					d3.select(this).attr(
 						'stroke-width',
-						index === selectedIndex ? options.strokeWidth + 1 : options.strokeWidth
+						isSelected(index) ? options.strokeWidth + 1 : options.strokeWidth
 					);
 				});
 		}
@@ -767,9 +800,21 @@
 		});
 
 		// Draw reference visualizations (on top of data lines)
-		drawReferencePoint(svgElement, newScales, xScale, line);
+		// Draw current reference point (red)
+		drawGenericReferencePoint(svgElement, newScales, xScale, line, 
+			referenceData?.referencePoint, {
+				groupClass: 'reference-point',
+				opacity: 0.9,
+			}
+		);
+		// Draw previous reference point (gray or another color)
+		drawGenericReferencePoint(svgElement, newScales, xScale, line, 
+			referenceData?.previousReferencePoint, {
+				groupClass: 'previous-reference-point',
+				opacity: 0.3, // more transparent than current ref point
+			}
+		);
 		drawReferenceSolutions(svgElement, newScales, xScale, line);
-
 		// Add filter status information at the bottom
 		const activeFilters = Object.keys(brushFilters).length;
 		if (activeFilters > 0) {
@@ -822,6 +867,7 @@
 		options,
 		referenceData,
 		selectedIndex,
+		multipleSelectedIndexes,
 		brushFilters,
 		width,
 		height,

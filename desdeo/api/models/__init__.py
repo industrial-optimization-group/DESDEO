@@ -1,6 +1,7 @@
 """Model exports."""
 
 __all__ = [  # noqa: RUF022
+    "UserSavedSolutionDB",
     "BaseEMOState",
     "Bounds",
     "ConstantDB",
@@ -18,6 +19,7 @@ __all__ = [  # noqa: RUF022
     "InteractiveSessionDB",
     "InteractiveSessionInfo",
     "IntermediateSolutionRequest",
+    "IntermediateSolutionResponse",
     "IntermediateSolutionState",
     "NIMBUSBaseState",
     "NIMBUSClassificationRequest",
@@ -25,6 +27,9 @@ __all__ = [  # noqa: RUF022
     "NIMBUSInitializationRequest",
     "NIMBUSInitializationState",
     "NIMBUSSaveRequest",
+    "NIMBUSClassificationResponse",
+    "NIMBUSInitializationResponse",
+    "NIMBUSSaveResponse",
     "NIMBUSSaveState",
     "NonPreferredSolutions",
     "ObjectiveDB",
@@ -52,20 +57,36 @@ __all__ = [  # noqa: RUF022
     "UserBase",
     "UserPublic",
     "UserRole",
-    "UserSavedSolutionBase",
-    "UserSavedSolutionDB",
+    "VariableDB",
+    "ProblemMetaDataDB",
+    "BaseProblemMetaData",
+    "ForestProblemMetaData",
+    "EMOSolveRequest",
+    "PreferredRanges",
+    "PreferedSolutions",
+    "NonPreferredSolutions",
+    "EMOSaveState",
+    "EMOSaveRequest",
+    "EMOState",
+    "SolutionAddress",
+    "UserSavedEMOResults",
+    "UserSavedSolutionAddress",
     "UtopiaRequest",
     "UtopiaResponse",
     "VariableDB",
 ]
 
-from .archive import UserSavedSolutionBase, UserSavedSolutionDB
-from .EMO import EMOSolveRequest
-from .generic import IntermediateSolutionRequest
+
+from .archive import SolutionAddress, UserSavedEMOResults, UserSavedSolutionAddress, UserSavedSolutionDB
+from .EMO import EMOSaveRequest, EMOSolveRequest
+from .generic import IntermediateSolutionRequest, IntermediateSolutionResponse
 from .nimbus import (
     NIMBUSClassificationRequest,
+    NIMBUSClassificationResponse,
     NIMBUSInitializationRequest,
+    NIMBUSInitializationResponse,
     NIMBUSSaveRequest,
+    NIMBUSSaveResponse,
 )
 from .preference import (
     Bounds,

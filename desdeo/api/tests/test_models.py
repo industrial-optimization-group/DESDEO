@@ -27,11 +27,12 @@ from desdeo.api.models import (
     TensorConstantDB,
     TensorVariableDB,
     User,
-    UserSavedSolutionBase,
+    UserSavedSolutionAddress,
     UserSavedSolutionDB,
     VariableDB,
 )
-from desdeo.api.models.archive import UserSavedSolverResults
+from desdeo.api.models.archive import SolutionAddress
+
 from desdeo.api.routers.nimbus import user_save_solutions
 from desdeo.mcdm import enautilus_step, rpm_solve_solutions
 from desdeo.problem.schema import (
@@ -504,8 +505,8 @@ def test_from_problem_to_d_and_back(session_and_user: dict[str, Session | list[U
 
 def test_archive_entry(session_and_user: dict[str, Session | list[User]]):
     """Test that the archive works as intended."""
-    session = session_and_user["session"]
-    user = session_and_user["user"]
+    session: Session = session_and_user["session"]
+    user: User = session_and_user["user"]
 
     problem = dtlz2(n_variables=5, n_objectives=3)
     problem_db = ProblemDB.from_problem(problem, user)
@@ -515,12 +516,11 @@ def test_archive_entry(session_and_user: dict[str, Session | list[User]]):
     session.refresh(problem_db)
 
     name = "Test Archive Entry"
-    variable_values = {"x_1": 0.3, "x_2": 0.8, "x_3": 0.1, "x_4": 0.6, "x_5": 0.9}
     objective_values = {"f_1": 1.2, "f_2": 0.9, "f_3": 1.5}
-    constraint_values = {"g_1": 0.1}
-    extra_func_values = {"extra_1": 5000, "extra_2": 600000}
+    address_state=1
+    address_result=1
 
-    archive_entry = UserSavedSolutionBase(variable_values=variable_values, objective_values=objective_values)
+    archive_entry = SolutionAddress(objective_values=objective_values, address_state=address_state, address_result=address_result)
 
     archive_entry_db = UserSavedSolutionDB.model_validate(
         archive_entry,
@@ -528,8 +528,6 @@ def test_archive_entry(session_and_user: dict[str, Session | list[User]]):
             "name": name,
             "user_id": user.id,
             "problem_id": problem_db.id,
-            "constraint_values": constraint_values,
-            "extra_func_values": extra_func_values,
         },
     )
 
@@ -544,10 +542,10 @@ def test_archive_entry(session_and_user: dict[str, Session | list[User]]):
     assert from_db.problem_id == problem_db.id
     assert from_db == user.archive[0]
     assert compare_models(from_db.problem, problem_db)
-    assert from_db.variable_values == variable_values
     assert from_db.objective_values == objective_values
-    assert from_db.constraint_values == constraint_values
-    assert from_db.extra_func_values == extra_func_values
+    assert from_db.address_state == address_state
+    assert from_db.address_result == address_result
+
 
 
 def test_user_save_solutions(session_and_user: dict[str, Session | list[User]]):
@@ -556,35 +554,30 @@ def test_user_save_solutions(session_and_user: dict[str, Session | list[User]]):
     user = session_and_user["user"]
 
     # Create test solutions with proper dictionary values
-    variable_values = {"x_1": 0.3, "x_2": 0.8}
     objective_values = {"f_1": 1.2, "f_2": 0.9}
-    constraint_values = {"g_1": 0.1}
-    extra_func_values = {"extra_1": 5000}
 
     test_solutions = [
-        UserSavedSolverResults(
+        UserSavedSolutionAddress(
             name="Solution 1",
-            optimal_variables=variable_values,
-            optimal_objectives=objective_values,
-            constraint_values=constraint_values,
-            extra_func_values=extra_func_values,
-            success=True,
-            message="This is a test solution saved from the NIMBUS method.",
+            objective_values=objective_values,
+            address_state=1,
+            address_result=1,
         ),
-        UserSavedSolverResults(
+        UserSavedSolutionAddress(
             name="Solution 2",
-            optimal_variables=variable_values,
-            optimal_objectives=objective_values,
-            constraint_values=constraint_values,
-            extra_func_values=extra_func_values,
-            success=True,
-            message="This is a test solution saved from the NIMBUS method.",
-        ),
+            objective_values=objective_values,
+            address_state=1,
+            address_result=2,
+        )
+
     ]
     num_test_solutions = len(test_solutions)
     problem_id = 1
     # Create NIMBUSSaveState
-    save_state = NIMBUSSaveState(solver_results=[solution.to_solver_results() for solution in test_solutions])
+    save_state = NIMBUSSaveState(
+        solution_addresses=test_solutions
+    )
+
 
     # Create StateDB
     state = StateDB(problem_id=problem_id, state=save_state)
@@ -599,10 +592,9 @@ def test_user_save_solutions(session_and_user: dict[str, Session | list[User]]):
     # Verify the content of the first solution
     first_solution = saved_solutions[0]
     assert first_solution.name == "Solution 1"
-    assert first_solution.variable_values == variable_values
     assert first_solution.objective_values == objective_values
-    assert first_solution.constraint_values == constraint_values
-    assert first_solution.extra_func_values == extra_func_values
+    assert first_solution.address_state == 1
+    assert first_solution.address_result == 1
     assert first_solution.user_id == user.id
     assert first_solution.problem_id == problem_id
     assert first_solution.state_id == state.id
@@ -610,7 +602,7 @@ def test_user_save_solutions(session_and_user: dict[str, Session | list[User]]):
     # Verify state relationship
     saved_state = session.exec(select(StateDB).where(StateDB.id == state.id)).first()
     assert isinstance(saved_state.state, NIMBUSSaveState)
-    assert len(saved_state.state.solver_results) == num_test_solutions
+    assert len(saved_state.state.solution_addresses) == num_test_solutions
 
 
 def test_preference_models(session_and_user: dict[str, Session | list[User]]):

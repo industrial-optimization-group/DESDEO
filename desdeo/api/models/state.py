@@ -5,14 +5,13 @@ from typing import Literal
 from sqlalchemy.types import TypeDecorator
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
-from desdeo.emo.methods.templates import EMOResult
 from desdeo.mcdm import ENautilusResult
 from desdeo.tools import SolverResults
 from desdeo.tools.generics import EMOResults
 
-from .archive import UserSavedSolutionDB
+from .archive import SolutionAddress, UserSavedSolutionDB
 from .preference import PreferenceDB, ReferencePoint
-from .problem import ProblemDB, RepresentativeNonDominatedSolutions
+from .problem import ProblemDB
 from .session import InteractiveSessionDB
 
 
@@ -41,7 +40,7 @@ class StateType(TypeDecorator):
 
         return value
 
-    def process_result_value(self, value, dialect):
+    def process_result_value(self, value, dialect):  # noqa: PLR0911
         """JSON to state."""
         if "method" in value:
             match (value["method"], value.get("phase")):
@@ -143,7 +142,7 @@ class NIMBUSSaveState(NIMBUSBaseState):
     """State of the nimbus method for saving solutions."""
 
     phase: Literal["save_solutions"] = "save_solutions"
-    solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
+    solution_addresses: list[SolutionAddress] = Field(sa_column=Column(JSON))
 
 
 class EMOState(BaseEMOState):
@@ -183,7 +182,10 @@ class IntermediateSolutionState(BaseState):
 
     method: Literal["generic"] = "generic"
     phase: Literal["solve_intermediate"] = "solve_intermediate"
-
+    context: str = Field(
+        default=None,
+        description="The originating method context (e.g., 'nimbus', 'rpm') that requested these solutions",
+    )
     scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
     solver: str | None = Field(default=None)
     solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
