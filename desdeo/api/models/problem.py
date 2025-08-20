@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 
 
 class ProblemBase(SQLModel):
-    """."""
+    """The base model for `ProblemDB` and related requests/responses."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -55,7 +55,7 @@ class ProblemGetRequest(SQLModel):
 
 
 class ProblemInfo(ProblemBase):
-    """."""
+    """Problem info request return data."""
 
     id: int
     user_id: int
@@ -83,7 +83,7 @@ class ProblemInfo(ProblemBase):
 
 
 class ProblemInfoSmall(ProblemBase):
-    """."""
+    """Problem info request return data, but smaller."""
 
     id: int
     user_id: int
@@ -100,7 +100,7 @@ class ProblemInfoSmall(ProblemBase):
 
 
 class ProblemDB(ProblemBase, table=True):
-    """."""
+    """The table model to represent the `Problem` class in the database."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -202,48 +202,6 @@ class ProblemDB(ProblemBase, table=True):
 
 
 ### PROBLEM METADATA ###
-
-
-class ProblemMetaDataListType(TypeDecorator):
-    """SQLAlchemy custom type to convert list of problem metadata to JSON and back."""
-
-    impl = JSON
-
-    def process_bind_param(self, value, dialect):
-        """List of problem metadata to JSON."""
-        if isinstance(value, list):
-            items = []
-            for item in value:
-                if isinstance(item, BaseProblemMetaData):
-                    items.append(item.model_dump_json())
-            return json.dumps(items)
-        return None
-
-    def process_result_value(self, value, dialect):
-        """JSON to list of problem metadata."""
-        if value is not None:
-            metadata_list = json.loads(value)
-            metadata_objects: list[BaseProblemMetaData] = []
-            for item in metadata_list:
-                item_dict = json.loads(item)
-                match item_dict["metadata_type"]:
-                    # Add classes derived from BaseProblemMetaData here so they can be deserialized
-                    case "forest_problem_metadata":
-                        metadata_objects.append(ForestProblemMetaData.model_validate(item_dict))
-                    case "representative_non_dominated_solutions":
-                        metadata_objects.append(RepresentativeNonDominatedSolutions.model_validate(item_dict))
-                    case _:
-                        print(f"Cannot convert {item_dict['metadata_type']} into metadata!")
-            return metadata_objects
-        return None
-
-
-class BaseProblemMetaData(SQLModel):
-    """Derive other problem metadata classes from this one."""
-
-    metadata_type: str = "unset"
-
-
 class ForestProblemMetaData(SQLModel, table=True):
     """A problem metadata class to hold UTOPIA forest problem specific information."""
 
@@ -333,8 +291,6 @@ class ProblemMetaDataGetRequest(SQLModel):
 
 
 ### PATH TYPES ###
-
-
 class PathOrUrlType(TypeDecorator):
     """Helper class for dealing with Paths and Urls."""
 

@@ -2,7 +2,6 @@
 
 __all__ = [  # noqa: RUF022
     "BaseEMOState",
-    "BaseProblemMetaData",
     "Bounds",
     "ConstantDB",
     "ConstraintDB",
@@ -78,7 +77,6 @@ from .preference import (
     ReferencePoint,
 )
 from .problem import (
-    BaseProblemMetaData,
     ConstantDB,
     ConstraintDB,
     DiscreteRepresentationDB,
