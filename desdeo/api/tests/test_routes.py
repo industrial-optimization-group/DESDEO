@@ -5,14 +5,13 @@ from fastapi.testclient import TestClient
 
 from desdeo.api.models import (
     CreateSessionRequest,
+    ForestProblemMetaData,
     GetSessionRequest,
     InteractiveSessionDB,
     NIMBUSClassificationRequest,
     NIMBUSInitializationRequest,
     NIMBUSSaveRequest,
     NIMBUSSaveState,
-    NonPreferredSolutions,
-    PreferredSolutions,
     ProblemGetRequest,
     ProblemInfo,
     ReferencePoint,
@@ -22,7 +21,6 @@ from desdeo.api.models import (
 from desdeo.api.models.archive import UserSavedEMOResults, UserSavedSolverResults
 from desdeo.api.models.EMO import EMOSaveRequest, EMOSolveRequest
 from desdeo.api.models.generic import IntermediateSolutionRequest
-from desdeo.api.models.preference import PreferredRanges
 from desdeo.api.models.state import EMOSaveState, EMOState
 from desdeo.api.routers.user_authentication import create_access_token
 from desdeo.problem.testproblems import simple_knapsack_vectors
@@ -136,7 +134,7 @@ def test_get_problem(client: TestClient):
 
     assert info.id == 1
     assert info.name == "dtlz2"
-    assert info.problem_metadata == None
+    assert info.problem_metadata is None
 
     response = post_json(
         client,
@@ -151,7 +149,7 @@ def test_get_problem(client: TestClient):
 
     assert info.id == 2
     assert info.name == "The river pollution problem"
-    assert info.problem_metadata.data[0].metadata_type == "forest_problem_metadata"
+    assert isinstance(info.problem_metadata.forest_metadata[0], ForestProblemMetaData)
 
 
 def test_add_problem(client: TestClient):
@@ -344,8 +342,7 @@ def test_nimbus_initialize_no_solver(client: TestClient):
 
 
 def test_add_new_dm(client: TestClient):
-    """Test that adding a decision maker works"""
-
+    """Test that adding a decision maker works."""
     # Create a new user to the database
     good_response = client.post(
         "/add_new_dm",
@@ -364,8 +361,7 @@ def test_add_new_dm(client: TestClient):
 
 
 def test_add_new_analyst(client: TestClient):
-    """Test that adding a new analyst works"""
-
+    """Test that adding a new analyst works."""
     # Try to create an analyst without logging in
     nologin_response = client.post(
         "/add_new_analyst",
@@ -388,7 +384,7 @@ def test_add_new_analyst(client: TestClient):
     )
     assert response.status_code == status.HTTP_201_CREATED
 
-    dm_access_token = login(client, username="new_dm", password="new_dm")
+    dm_access_token = login(client, username="new_dm", password="new_dm")  # noqa: S106
 
     dm_response = client.post(
         "/add_new_analyst",
@@ -444,9 +440,8 @@ def test_add_new_analyst(client: TestClient):
 
 def test_login_logout(client: TestClient):
     """Test that logging out works."""
-
     # Login (sets refresh token cookie)
-    login(client=client, username="analyst", password="analyst")
+    login(client=client, username="analyst", password="analyst")  # noqa: S106
 
     # Refresh access token
     response = client.post("/refresh")
@@ -522,7 +517,6 @@ def test_emo_save_solutions(client: TestClient):
     emo_state = EMOState.model_validate(response.json())
 
     solutions = emo_state.solutions
-    outputs = emo_state.outputs
 
     # Select first 2 solutions to save
     selected_solutions = []
@@ -607,7 +601,6 @@ def test_emo_solve_with_rvea(client: TestClient):
 
 def test_get_problem_metadata(client: TestClient):
     """Test that fetching problem metadata works."""
-
     access_token = login(client=client)
 
     # Problem with no metadata

@@ -310,11 +310,19 @@ class ProblemMetaDataDB(SQLModel, table=True):
     )
     problem: ProblemDB = Relationship(back_populates="problem_metadata")
 
+    @property
+    def all_metadata(self) -> list[ForestProblemMetaData | RepresentativeNonDominatedSolutions]:
+        """Return all metadata in one list."""
+        return (self.forest_metadata or []) + (self.representative_nd_metadata or [])
+
 
 class ProblemMetaDataPublic(SQLModel):
     """Response model for ProblemMetaData."""
 
     problem_id: int
+
+    forest_metadata: list[ForestProblemMetaData] | None
+    representative_nd_metadata: list[RepresentativeNonDominatedSolutions] | None
 
 
 class ProblemMetaDataGetRequest(SQLModel):
