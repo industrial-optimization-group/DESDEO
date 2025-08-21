@@ -1,10 +1,38 @@
 # DESDEO web-GUI
+
 ## Environment variables
 
 For the frontend to work correctly, there are some environmental variables
 that should be set in an`.env` file at the root level. These variables are:
 
-- `PUBLIC_API_URL`: the url that points to DESDEO's web-API.
+- `VITE_API_URL` which should be defined to be '/api' for the proxy to work correctly. I.e.:
+
+```bash
+VITE_API_URL="/api"
+```
+
+- `API_URL` which should be defined to be 'http://localhost:8000 or the path of the server'
+
+```bash
+API_URL=http://localhost:8000
+```
+
+Check also the file `vite.config.ts`, where in the server setting
+
+```toml
+	server: {
+		proxy: {
+			'/api': {
+				target: 'http://127.0.0.1:8000',
+				changeOrigin: true,
+				secure: false,
+				rewrite: (path) => path.replace(/^\/api/, '')
+			}
+		}
+	}
+```
+
+the `target` should point to the local URL that can be used to access the DESDEO web-API.
 
 ## Installing
 
@@ -36,8 +64,7 @@ then run
 ncu -u
 ```
 
-this will upgrade the project's packages to their latest (mutually) compatible versions. __This can introduce breaking changes!__
-
+this will upgrade the project's packages to their latest (mutually) compatible versions. **This can introduce breaking changes!**
 
 ## Developing
 
@@ -48,6 +75,15 @@ npm run dev
 
 # or start the server and open the app in a new browser tab
 npm run dev -- --open
+```
+
+### Generating OpenAPI clients
+
+When the web-API is updated, it is important to update the OpenAPI clients, which automatically use the schemas defined in the web-API
+on the GUI side. To generate them, make sure the web-API is running, and issue the command:
+
+```bash
+npm run generate:client
 ```
 
 ## Building

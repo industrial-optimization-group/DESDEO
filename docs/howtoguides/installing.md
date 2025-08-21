@@ -102,8 +102,8 @@ There are many ways to setup and activate a virtual environment. Some examples h
     ```
 
 === "Poetry"
-
-    This assumes you already have `poetry` available on your system.
+ 
+    This assumes you already have [`poetry`](https://python-poetry.org/) available on your system.
 
     ```bash
     poetry env activate # (1)!
@@ -116,6 +116,24 @@ There are many ways to setup and activate a virtual environment. Some examples h
     not activate it.__ Copy-paste the command printed by poetry and execute it to activate the virtual
     environment.
 
+=== "uv"
+
+    This assumes you already have [`uv`](https://github.com/astral-sh/uv) available on your system.
+
+    `uv` is handy, as it can be used to manage Python versions as well. To install Python 3.12 and
+    create a virtual environment, run
+
+    ```bash
+    uv venv --python 3.12
+    ```
+
+    This will download the latest version fo Python 3.12 (if not already available) and then create
+    a virtual environment in the current directory under a new folder `.venv`.
+
+    If using the default virtual environment name `.venv`, `uv` will automatically
+    use the virtual environment in subsequent invocations. Otherwise, the environment
+    needs to be activated locally. 
+
 !!! Note
 
     Remember to reactivate your virtual environment if you exit it, and then return to it.
@@ -123,27 +141,69 @@ There are many ways to setup and activate a virtual environment. Some examples h
 ### Installing dependencies
 
 After setting up a virtual environment, we next need to install DESDEO's dependencies.
-For this, we will need to first install `poetry` in our virtual environment:
+For this, we can utilize either `poetry` or `uv`. It is also possible to use `pip` directly,
+but it is not recommended. Make sure your virtual environment
+is activated!
 
-```bash
-pip install poetry # (1)!
-```
+=== "Poetry"
 
-1. If `poetry` is already installed in your virtual environment, you may skip this step.
+    If not already done, we need to first install `poetry`:
 
-After installing poetry, we can use the following command to install DESDEO's dependencies
+    ```bash
+    pip install poetry # (1)!
+    ```
 
-```bash
-poetry install
-```
+    1. If `poetry` is already installed in your virtual environment, you may skip this step.
 
-If you wish to install the development dependencies as well, then run the following command instead:
+    After installing poetry, we can use the following command to install DESDEO's core-logic dependencies
 
-```bash
-poetry install --with dev
-```
+    ```bash
+    poetry install
+    ```
+
+    If you wish to install the development and web dependencies as well, then run the following command instead:
+
+    ```bash
+    poetry install --all-extras
+    ```
+
+=== "uv"
+
+    If not already done, we need to first install `uv`:
+
+    ```bash
+    pip install uv
+    ```
+
+    To install DESDEO's core-logic dependencies, run
+
+    ```bash
+    uv sync
+    ```
+
+    If you wish to install the development and web dependencies as well, then run the following command instead:
+
+    ```bash
+    uv sync --all-extras
+    ```
+
+=== "pip (not recommended)"
+
+    When using `pip`, you will be installing all dependencies by default, including any extra dependencies:
+
+    ```bash
+    pip install -r requirements.txt
+    ```
 
 And now we should be done! DESDEO should now be available on your system in your current virtual environment.
+
+!!! Note "Extra dependencies?"
+
+    By default, an 'poetry install' and 'uv sync' will install just the dependencies of
+    the __core-logic__. This is meant for cases where DESDEO is used like a library, i.e.,
+    you do not intend to develop DESDEO or use the web-API or web-GUI parts of it. In case you
+    wish to develop or utilize DESDEO past what the core-logic has to offer, then it is 
+    recommended to install all the extra dependencies.
 
 ## Installation (for restricted Windows PCs)
 
@@ -164,7 +224,7 @@ to read further.
     if this is not the case, feel free to open an issue, and we will see what
     can be done.
 
-## Anaconda
+### Anaconda
 
 First, install Anaconda. If you are on a JYU (or any other company's) Windows
 machine, you can get it from the Software Center (or equivalent) **without
@@ -177,12 +237,12 @@ prefer or have limited space available on your computer,
 [Miniconda](https://www.anaconda.com/docs/getting-started/miniconda/main) should
 work fine too.
 
-## Installing DESDEO
+### Installing DESDEO
 
 First, you need to open an Anaconda prompt. To find that, press the windows key
 and type `anaconda prompt`.
 
-### Figure out the install location
+#### Figure out the install location
 
 Next, you need to decide where on your computer you want to install DESDEO. If
 you are on a JYU Windows machine, I recommend something like
@@ -190,13 +250,13 @@ you are on a JYU Windows machine, I recommend something like
 
 In your Anaconda prompt, type
 
-```bash
+```cmd
 mkdir C:\MyTemp\code
 ```
 
 and
 
-```bash
+```cmd
 cd C:\MyTemp\code
 ```
 
@@ -209,7 +269,7 @@ That will create the desired folder and navigate there.
     running your own code, so you should store any code you write on your
     computer's hard disk. The `C:\MyTemp\` folder is a good place for that.
 
-### Creating a virtual environment
+#### Creating a virtual environment
 
 DESDEO requires at least Python version `3.12`. To control the version of Python
 we are using and what packages are available, we are first going to create a
@@ -227,7 +287,7 @@ probably answer yes.
 
 Then activate your new virtual environment by typing in your Anaconda prompt
 
-```bash
+```cmd
 conda activate desdeo
 ```
 
@@ -239,12 +299,12 @@ conda activate desdeo
     compatible versions, and you avoid _dependency hell_. You can just change
     the active virtual environment instead.
 
-### Downloading DESDEO
+#### Downloading DESDEO
 
 The best way to download DESDEO is to use git. If you do not know what git is or
 if you have it installed, type in your Anaconda prompt
 
-```bash
+```cmd
 git
 ```
 
@@ -252,7 +312,7 @@ If you get a response saying something like `'git' is not recognized as an inter
 
 To install git, type in your Anaconda prompt
 
-```bash
+```cmd
 conda install git
 ```
 
@@ -260,7 +320,7 @@ and say yes when asked if you want to proceed.
 
 Once you have git installed, you can use it to download DESDEO. Type
 
-```bash
+```cmd
 git clone -b master --single-branch https://github.com/industrial-optimization-group/DESDEO.git
 ```
 
@@ -268,36 +328,37 @@ That creates a clone of the master branch of the DESDEO project. If you want all
 
 Git should have created a new subfolder called DESDEO. Let us navigate there by typing
 
-```bash
+```cmd
 cd DESDEO
 ```
 
-### Installing dependencies
+#### Installing dependencies
 After setting up a virtual environment and downloading the source code, we next
 need to install DESDEO's dependencies.  For this, we will need to first install
 `poetry` in our virtual environment. Type in your Anaconda prompt
 
-```bash
+```cmd
 pip install poetry
 ```
 
 Next, we need to set up some environmental variables to make sure that we do not
-run into trouble when installing Python packages using Poetry. Type the four
+run into trouble when installing Python packages using Poetry. Type the five
 following commands in your Anaconda prompt:
 
-```bash
-    conda env config vars set POETRY_CACHE_DIR=C:/MyTemp/temp
-    conda env config vars set TEMP=C:\MyTemp\temp
-    conda env config vars set TMP=C:\MyTemp\temp
-    conda activate desdeo
+```cmd
+conda env config vars set POETRY_VIRTUALENVS_CREATE=false
+conda env config vars set POETRY_CACHE_DIR=C:/MyTemp/temp
+conda env config vars set TEMP=C:/MyTemp/temp
+conda env config vars set TMP=C:/MyTemp/temp
+conda activate desdeo
 ```
 
 You can then install DESDEO and the required packages by typing
 
-```bash
+```cmd
 poetry install
 ```
-If you want the development dependencies installed as well, use `poetry install --with dev` instead.
+If you want the development dependencies installed as well, use `poetry install --all-extras` instead.
 
 !!! question "Why did I have to do that thing with the env configs?"
 

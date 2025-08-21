@@ -8,13 +8,13 @@ import bcrypt
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from jose import JWTError, jwt
+from jose import JWTError, jwt, ExpiredSignatureError
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from desdeo.api import SettingsConfig
 from desdeo.api.db import get_session
-from desdeo.api.models import User, UserPublic
+from desdeo.api.models import User, UserPublic, UserRole
 
 # AuthConfig
 if SettingsConfig.debug:
@@ -139,7 +139,7 @@ def get_current_user(
         if username is None or expire_time is None or expire_time < datetime.now(UTC).timestamp():
             raise credentials_exception
 
-    except jwt.exceptions.ExpiredSignatureError:
+    except ExpiredSignatureError:
         raise credentials_exception from None
 
     except JWTError:
@@ -281,6 +281,55 @@ def validate_refresh_token(
     return user
 
 
+def add_user_to_database(
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    role: UserRole,
+    session: Annotated[Session, Depends(get_session)],
+) -> None:
+    """Add a user to database.
+
+    Args:
+        form_data Annotated[OAuth2PasswordRequestForm, Depends()]: form with username and password to be added to database
+        role UserRole: Role of the user to be added to the database
+        session Annotated[Session, Depends(get_session)]: database session
+
+    Returns:
+        None
+
+    Raises:
+        HTTPException: If username already is in the database or if adding the user to the database failed.
+    """
+
+    username = form_data.username
+    password = form_data.password
+
+    # Check if a user with requested username is already in the database
+    if get_user(session=session, username=username):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Username already taken.",
+        )
+
+    # Create the user model and put it into database
+    new_user = User(
+        username=username,
+        password_hash=get_password_hash(
+            password=password,
+        ),
+        role=role,
+    )
+    session.add(new_user)
+    session.commit()
+    session.refresh(new_user)
+
+    # Verify that the user actually is in the database
+    if not get_user(session=session, username=username):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to add user into database.",
+        )
+
+
 @router.get("/user_info")
 def get_current_user_info(user: Annotated[User, Depends(get_current_user)]) -> UserPublic:
     """Return information about the current user.
@@ -294,7 +343,7 @@ def get_current_user_info(user: Annotated[User, Depends(get_current_user)]) -> U
     return user
 
 
-@router.post("/login")
+@router.post("/login", response_model=Tokens)
 def login(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     session: Annotated[Session, Depends(get_session)],
@@ -329,8 +378,25 @@ def login(
         secure=False,  # allow http
         samesite="lax",  # cross-origin requests
         max_age=cookie_max_age * 60,  # convert to minutes
+        path="/",
     )
 
+    return response
+
+
+@router.post("/logout")
+def logout() -> JSONResponse:
+    """Log the current user out. Deletes the refresh token that was set by logging in.
+
+    Args:
+        None
+
+    Returns:
+        JSONResponse: A response in which the cookies are deleted
+
+    """
+    response = JSONResponse(content={"message": "logged out"}, status_code=status.HTTP_200_OK)
+    response.delete_cookie("refresh_token")
     return response
 
 
@@ -364,3 +430,74 @@ def refresh_access_token(
     access_token = create_access_token({"id": user.id, "sub": user.username})
 
     return {"access_token": access_token}
+
+
+@router.post("/add_new_dm")
+def add_new_dm(
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    session: Annotated[Session, Depends(get_session)],
+) -> JSONResponse:
+    """Add a new user of the role Decision Maker to the database. Requires no login.
+
+    Args:
+        form_data (Annotated[OAuth2PasswordRequestForm, Depends()]): The user credentials to add to the database.
+        session (Annotated[Session, Depends(get_session)]): the database session.
+
+    Returns:
+        JSONResponse: A JSON response
+
+    Raises:
+        HTTPException: if username is already in use or if saving to the database fails for some reason.
+    """
+
+    add_user_to_database(
+        form_data=form_data,
+        role=UserRole.dm,
+        session=session,
+    )
+
+    return JSONResponse(
+        content={"message": 'User with role "decision maker" created.'},
+        status_code=status.HTTP_201_CREATED,
+    )
+
+
+@router.post("/add_new_analyst")
+def add_new_analyst(
+    user: Annotated[User, Depends(get_current_user)],
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    session: Annotated[Session, Depends(get_session)],
+) -> JSONResponse:
+    """Add a new user of the role Analyst to the database. Requires a logged in analyst or an admin
+
+    Args:
+        user Annotated[User, Depends(get_current_user)]: Logged in user with the role "analyst" or "admin".
+        form_data (Annotated[OAuth2PasswordRequestForm, Depends()]): The user credentials to add to the database.
+        session (Annotated[Session, Depends(get_session)]): the database session.
+
+    Returns:
+        JSONResponse: A JSON response
+
+    Raises:
+        HTTPException: if the logged in user is not an analyst or an admin or if
+        username is already in use or if saving to the database fails for some reason.
+
+    """
+
+    # Check if the user who tries to create the user is either an analyst or an admin.
+    if not (user.role == UserRole.analyst or user.role == UserRole.admin):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Logged in user has insufficient rights.",
+        )
+
+    add_user_to_database(
+        form_data=form_data,
+        role=UserRole.analyst,
+        session=session,
+    )
+
+    return JSONResponse(
+        content={"message": 'User with role "analyst" created.'},
+        status_code=status.HTTP_201_CREATED,
+    )

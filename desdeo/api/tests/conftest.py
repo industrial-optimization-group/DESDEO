@@ -7,7 +7,7 @@ from sqlmodel.pool import StaticPool
 
 from desdeo.api.app import app
 from desdeo.api.db import get_session
-from desdeo.api.models import ProblemDB, User, UserRole
+from desdeo.api.models import ProblemDB, User, UserRole, ProblemMetaDataDB, ForestProblemMetaData
 from desdeo.api.routers.user_authentication import get_password_hash
 from desdeo.problem.testproblems import dtlz2, river_pollution_problem
 
@@ -39,6 +39,22 @@ def session_fixture():
         session.add(problem_db_river)
         session.commit()
         session.refresh(problem_db_river)
+
+        metadata = ProblemMetaDataDB(problem_id=problem_db_river.id)
+        session.add(metadata)
+        session.commit()
+        session.refresh(metadata)
+
+        forest_metadata = ForestProblemMetaData(
+            metadata_id=metadata.id,
+            map_json="type: string",
+            schedule_dict={"type": "dict"},
+            years=["type:", "list", "of", "strings"],
+            stand_id_field="type: string",
+        )
+
+        session.add(forest_metadata)
+        session.commit()
 
         yield {"session": session, "user": user_analyst}
         session.rollback()

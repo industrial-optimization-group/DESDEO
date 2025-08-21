@@ -17,6 +17,23 @@ from desdeo.problem import (
 class SolverError(Exception):
     """Raised when an error with a solver is encountered."""
 
+class EMOResults(BaseModel):
+    """Defines a schema for storing results of an evolutionary multi-objective optimization (EMO) solver."""
+
+    optimal_variables: dict[str, int | float | list] = Field(description="The optimal decision variables found.")
+    optimal_objectives: dict[str, float | list[float]] = Field(
+        description="The objective function values corresponding to the optimal decision variables found."
+    )
+    constraint_values: dict[str, float | int | list[float] | list] | None | Any = Field(
+        description=(
+            "The constraint values of the problem. A negative value means the constraint is respected, "
+            "a positive one means it has been breached."
+        ),
+        default=None,
+    )
+    extra_func_values: dict[str, float | list[float]] | None = Field(
+        description=("The extra function values of the problem."), default=None
+    )
 
 class SolverResults(BaseModel):
     """Defines a schema for a dataclass to store the results of a solver."""
@@ -25,7 +42,7 @@ class SolverResults(BaseModel):
     optimal_objectives: dict[str, float | list[float]] = Field(
         description="The objective function values corresponding to the optimal decision variables found."
     )
-    constraint_values: dict[str, float | list[float]] | None = Field(
+    constraint_values: dict[str, float | int | list[float] | list] | None | Any = Field(
         description=(
             "The constraint values of the problem. A negative value means the constraint is respected, "
             "a positive one means it has been breached."
@@ -40,7 +57,6 @@ class SolverResults(BaseModel):
     )
     success: bool = Field(description="A boolean flag indicating whether the optimization was successful or not.")
     message: str = Field(description="Description of the cause of termination.")
-
 
 class BaseSolver(ABC):
     """Defines a schema for a solver base class."""

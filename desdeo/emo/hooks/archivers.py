@@ -104,7 +104,7 @@ class FeasibleArchive(BaseArchive):
         data = message.value
         feasible_mask = (data[self.cons_symb] <= 0).to_numpy().all(axis=1)
         feasible_data = data.filter(feasible_mask)
-        feasible_data = data.with_columns(generation=self.generation_number)
+        feasible_data = feasible_data.with_columns(generation=self.generation_number)
         if self.solutions is None:
             self.solutions = feasible_data
         else:

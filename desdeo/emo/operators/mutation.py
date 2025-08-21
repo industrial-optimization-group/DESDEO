@@ -16,17 +16,18 @@ from desdeo.tools.message import (
     Message,
     MutationMessageTopics,
     PolarsDataFrameMessage,
+    TerminatorMessageTopics,
 )
-from desdeo.tools.patterns import Subscriber
+from desdeo.tools.patterns import Publisher, Subscriber
 
 
 class BaseMutation(Subscriber):
     """A base class for mutation operators."""
 
     @abstractmethod
-    def __init__(self, problem: Problem, **kwargs):
-        """Initialize a mu operator."""
-        super().__init__(**kwargs)
+    def __init__(self, problem: Problem, verbosity: int, publisher: Publisher):
+        """Initialize a mutation operator."""
+        super().__init__(verbosity=verbosity, publisher=publisher)
         self.problem = problem
         self.variable_symbols = [var.symbol for var in problem.get_flattened_variables()]
         self.lower_bounds = [var.lowerbound for var in problem.get_flattened_variables()]
@@ -83,21 +84,23 @@ class BoundedPolynomialMutation(BaseMutation):
         *,
         problem: Problem,
         seed: int,
+        verbosity: int,
+        publisher: Publisher,
         mutation_probability: float | None = None,
         distribution_index: float = 20,
-        **kwargs,
     ):
         """Initialize a bounded polynomial mutation operator.
 
         Args:
             problem (Problem): The problem object.
             seed (int): The seed for the random number generator.
+            verbosity (int): The verbosity level of the operator. See the `provided_topics` attribute to see what
+                messages are provided at each verbosity level. Recommended value is 1.
+            publisher (Publisher): The publisher to which the operator will send messages.
             mutation_probability (float | None, optional): The probability of mutation. Defaults to None.
-            distribution_index (float, optional): The distributaion index for polynomial mutation. Defaults to 20.
-            kwargs: Additional keyword arguments. These are passed to the Subscriber class. At the very least, the
-                publisher must be passed. See the Subscriber class for more information.
+            distribution_index (float, optional): The distribution index for polynomial mutation. Defaults to 20.
         """
-        super().__init__(problem, **kwargs)
+        super().__init__(problem, verbosity=verbosity, publisher=publisher)
         if self.variable_combination != VariableDomainTypeEnum.continuous:
             raise ValueError("This mutation operator only works with continuous variables.")
         if mutation_probability is None:
@@ -125,7 +128,7 @@ class BoundedPolynomialMutation(BaseMutation):
         # TODO(@light-weaver): Extract to a numba jitted function
         self.offspring_original = offsprings
         self.parents = parents  # Not used, but kept for consistency
-        offspring = offsprings.to_numpy()
+        offspring = offsprings.to_numpy(writable=True)
         min_val = np.ones_like(offspring) * self.lower_bounds
         max_val = np.ones_like(offspring) * self.upper_bounds
         k = self.rng.random(size=offspring.shape)
@@ -242,8 +245,9 @@ class BinaryFlipMutation(BaseMutation):
         *,
         problem: Problem,
         seed: int,
+        verbosity: int,
+        publisher: Publisher,
         mutation_probability: float | None = None,
-        **kwargs,
     ):
         """Initialize a binary flip mutation operator.
 
@@ -253,10 +257,11 @@ class BinaryFlipMutation(BaseMutation):
             mutation_probability (float | None, optional): The probability of mutation. If None,
                 the probability will be set to be 1/n, where n is the number of decision variables
                 in the problem. Defaults to None.
-            kwargs: Additional keyword arguments. These are passed to the Subscriber class. At the very least, the
-                publisher must be passed. See the Subscriber class for more information.
+            verbosity (int): The verbosity level of the operator. See the `provided_topics` attribute to see what
+                messages are provided at each verbosity level. Recommended value is 1.
+            publisher (Publisher): The publisher to which the operator will send messages.
         """
-        super().__init__(problem, **kwargs)
+        super().__init__(problem, verbosity=verbosity, publisher=publisher)
 
         if self.variable_combination != VariableDomainTypeEnum.binary:
             raise ValueError("This mutation operator only works with binary variables.")
@@ -284,7 +289,7 @@ class BinaryFlipMutation(BaseMutation):
         """
         self.offspring_original = copy.copy(offsprings)
         self.parents = parents  # Not used, but kept for consistency
-        offspring = offsprings.to_numpy().astype(dtype=np.bool)
+        offspring = offsprings.to_numpy(writable=True).astype(dtype=np.bool)
 
         # create a boolean mask based on the mutation probability
         flip_mask = self.rng.random(offspring.shape) < self.mutation_probability
@@ -373,8 +378,9 @@ class IntegerRandomMutation(BaseMutation):
         *,
         problem: Problem,
         seed: int,
+        verbosity: int,
+        publisher: Publisher,
         mutation_probability: float | None = None,
-        **kwargs,
     ):
         """Initialize a random integer mutation operator.
 
@@ -384,10 +390,11 @@ class IntegerRandomMutation(BaseMutation):
             mutation_probability (float | None, optional): The probability of mutation. If None,
                 the probability will be set to be 1/n, where n is the number of decision variables
                 in the problem. Defaults to None.
-            kwargs: Additional keyword arguments. These are passed to the Subscriber class. At the very least, the
-                publisher must be passed. See the Subscriber class for more information.
+            verbosity (int): The verbosity level of the operator. See the `provided_topics` attribute to see what
+                messages are provided at each verbosity level. Recommended value is 1.
+            publisher (Publisher): The publisher to which the operator will send messages.
         """
-        super().__init__(problem, **kwargs)
+        super().__init__(problem, verbosity=verbosity, publisher=publisher)
 
         if self.variable_combination != VariableDomainTypeEnum.integer:
             raise ValueError("This mutation operator only works with integer variables.")
@@ -416,7 +423,7 @@ class IntegerRandomMutation(BaseMutation):
         self.offspring_original = copy.copy(offsprings)
         self.parents = parents  # Not used, but kept for consistency
 
-        population = offsprings.to_numpy().astype(int)
+        population = offsprings.to_numpy(writable=True).astype(int)
 
         # create a boolean mask based on the mutation probability
         mutation_mask = self.rng.random(population.shape) < self.mutation_probability
@@ -507,8 +514,9 @@ class MixedIntegerRandomMutation(BaseMutation):
         *,
         problem: Problem,
         seed: int,
+        verbosity: int,
+        publisher: Publisher,
         mutation_probability: float | None = None,
-        **kwargs,
     ):
         """Initialize a random mixed_integer mutation operator.
 
@@ -518,10 +526,11 @@ class MixedIntegerRandomMutation(BaseMutation):
             mutation_probability (float | None, optional): The probability of mutation. If None,
                 the probability will be set to be 1/n, where n is the number of decision variables
                 in the problem. Defaults to None.
-            kwargs: Additional keyword arguments. These are passed to the Subscriber class. At the very least, the
-                publisher must be passed. See the Subscriber class for more information.
+            verbosity (int): The verbosity level of the operator. See the `provided_topics` attribute to see what
+                messages are provided at each verbosity level. Recommended value is 1.
+            publisher (Publisher): The publisher to which the operator will send messages.
         """
-        super().__init__(problem, **kwargs)
+        super().__init__(problem, verbosity=verbosity, publisher=publisher)
 
         if mutation_probability is None:
             self.mutation_probability = 1 / len(self.variable_symbols)
@@ -548,7 +557,7 @@ class MixedIntegerRandomMutation(BaseMutation):
         self.offspring_original = copy.copy(offsprings)
         self.parents = parents  # Not used, but kept for consistency
 
-        population = offsprings.to_numpy().astype(float)
+        population = offsprings.to_numpy(writable=True).astype(float)
 
         # create a boolean mask based on the mutation probability
         mutation_mask = self.rng.random(population.shape) < self.mutation_probability
@@ -649,9 +658,10 @@ class MPTMutation(BaseMutation):
         *,
         problem: Problem,
         seed: int,
+        verbosity: int,
+        publisher: Publisher,
         mutation_probability: float | None = None,
         mutation_exponent: float = 2.0,
-        **kwargs,
     ):
         """Initialize a small mutation operator.
 
@@ -660,10 +670,12 @@ class MPTMutation(BaseMutation):
             seed (int): RNG seed.
             mutation_probability (float | None): Probability of mutation per gene.
             mutation_exponent (float): Controls strength of small mutation (larger means smaller mutations).
-            kwargs: Additional keyword arguments. These are passed to the Subscriber class. At the very least, the
+            verbosity (int): The verbosity level of the operator. See the `provided_topics` attribute to see what
+                messages are provided at each verbosity level. Recommended value is 1.
+            publisher (Publisher): The publisher to which the operator will send messages.
                 publisher must be passed. See the Subscriber class for more information.
         """
-        super().__init__(problem, **kwargs)
+        super().__init__(problem, verbosity=verbosity, publisher=publisher)
         self.rng = np.random.default_rng(seed)
         self.seed = seed
         self.mutation_exponent = mutation_exponent
@@ -699,7 +711,7 @@ class MPTMutation(BaseMutation):
         self.offspring_original = copy.copy(offsprings)
         self.parents = parents
 
-        population = offsprings.to_numpy().astype(float)
+        population = offsprings.to_numpy(writable=True).astype(float)
 
         for i in range(population.shape[0]):
             for j, var in enumerate(self.problem.variables):
@@ -779,17 +791,18 @@ class NonUniformMutation(BaseMutation):
     @property
     def interested_topics(self):
         """The message topics that the mutation operator is interested in."""
-        return []
+        return [TerminatorMessageTopics.GENERATION]
 
     def __init__(
         self,
         *,
         problem: Problem,
         seed: int,
+        max_generations: int,
+        verbosity: int,
+        publisher: Publisher,
         mutation_probability: float | None = None,
         b: float = 5.0,  # decay parameter
-        max_generations: int,
-        **kwargs,
     ):
         """Initialize a Non-uniform mutation operator.
 
@@ -801,9 +814,11 @@ class NonUniformMutation(BaseMutation):
             b (float): Non-uniform mutation decay parameter. Higher values cause
                 faster reduction in mutation strength over generations.
             max_generations (int): Maximum number of generations in the evolutionary run. Used to scale mutation decay.
-            **kwargs: Additional keyword arguments passed to the base mutation class.
+            verbosity (int): The verbosity level of the operator. See the `provided_topics` attribute to see what
+                messages are provided at each verbosity level. Recommended value is 1.
+            publisher (Publisher): The publisher to which the operator will send messages.
         """
-        super().__init__(problem, **kwargs)
+        super().__init__(problem, verbosity=verbosity, publisher=publisher)
         self.rng = np.random.default_rng(seed)
         self.seed = seed
         self.b = b
@@ -858,7 +873,7 @@ class NonUniformMutation(BaseMutation):
         self.offspring_original = copy.copy(offsprings)
         self.parents = parents
 
-        population = offsprings.to_numpy().astype(float)
+        population = offsprings.to_numpy(writable=True).astype(float)
 
         for i in range(population.shape[0]):
             for j, var in enumerate(self.problem.variables):
@@ -875,9 +890,17 @@ class NonUniformMutation(BaseMutation):
 
         return self.offspring
 
-    def update(self, generation: int, **kwargs):
+    def update(self, message: Message):
         """Update current generation (used to reduce mutation strength over time)."""
-        self.current_generation = generation
+        if not isinstance(message.topic, TerminatorMessageTopics):
+            return
+        if not isinstance(message.value, int):
+            return
+        if message.topic != TerminatorMessageTopics.GENERATION:
+            raise ValueError(
+                f"Expected message topic {TerminatorMessageTopics.GENERATION}, got {message.topic}."
+            )
+        self.current_generation = message.value
 
     def state(self) -> Sequence[Message]:
         """Return state messages."""
@@ -923,8 +946,9 @@ class SelfAdaptiveGaussianMutation(BaseMutation):
         *,
         problem: Problem,
         seed: int,
+        verbosity: int,
+        publisher: Publisher,
         mutation_probability: float | None = None,
-        **kwargs,
     ):
         """Initialize the self-adaptive Gaussian mutation operator.
 
@@ -933,7 +957,9 @@ class SelfAdaptiveGaussianMutation(BaseMutation):
             seed (int): Seed for the random number generator to ensure reproducibility.
             mutation_probability (float | None): Probability of mutating each gene.
                 If None, it defaults to 1 divided by the number of variables.
-            **kwargs: Additional keyword arguments passed to the base mutation class.
+            verbosity (int): The verbosity level of the operator. See the `provided_topics` attribute to see what
+                messages are provided at each verbosity level. Recommended value is 1.
+            publisher (Publisher): The publisher to which the operator will send messages.
 
         Attributes:
             rng (Generator): NumPy random number generator initialized with the given seed.
@@ -943,7 +969,7 @@ class SelfAdaptiveGaussianMutation(BaseMutation):
             tau_prime (float): Global learning rate, used in step size adaptation.
             tau (float): Local learning rate, used in step size adaptation.
         """
-        super().__init__(problem=problem, **kwargs)
+        super().__init__(problem=problem, verbosity=verbosity, publisher=publisher)
 
         self.rng = np.random.default_rng(seed)
         self.seed = seed
@@ -975,7 +1001,7 @@ class SelfAdaptiveGaussianMutation(BaseMutation):
         self.offspring_original = offsprings
         self.parents = parents
 
-        offspring_array = offsprings.to_numpy().astype(float)
+        offspring_array = offsprings.to_numpy(writable=True).astype(float)
 
         if step_sizes is None:
             step_sizes = np.full_like(offspring_array, fill_value=0.1)
@@ -1079,9 +1105,10 @@ class PowerMutation(BaseMutation):
         *,
         problem: Problem,
         seed: int,
+        verbosity: int,
+        publisher: Publisher,
         p: float = 1.5,
         mutation_probability: float | None = None,
-        **kwargs,
     ):
         """Initialize the PowerMutation operator.
 
@@ -1090,9 +1117,11 @@ class PowerMutation(BaseMutation):
             seed (int): Random seed for reproducibility.
             p (float): Power distribution parameter. Controls the perturbation magnitude. Default is 1.5.
             mutation_probability (float | None): Per-variable mutation probability. Defaults to 1/n.
-            kwargs: Additional keyword arguments passed to the BaseMutation class.
+            verbosity (int): The verbosity level of the operator. See the `provided_topics` attribute to see what
+                messages are provided at each verbosity level. Recommended value is 1.
+            publisher (Publisher): The publisher to which the operator will send messages.
         """
-        super().__init__(problem, **kwargs)
+        super().__init__(problem, verbosity=verbosity, publisher=publisher)
         self.p = p
         self.mutation_probability = (
             mutation_probability if mutation_probability is not None else 1 / len(self.variable_symbols)
@@ -1121,7 +1150,7 @@ class PowerMutation(BaseMutation):
             self.notify()
             return self.offspring
 
-        population = offsprings.to_numpy().astype(float)
+        population = offsprings.to_numpy(writable=True).astype(float)
         mutation_mask = self.rng.random(population.shape) < self.mutation_probability
         mutated = population.copy()
 

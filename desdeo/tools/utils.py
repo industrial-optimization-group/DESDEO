@@ -1,8 +1,10 @@
 """General utilities related to solvers."""
 
 import shutil
+from collections.abc import Callable
 
 import numpy as np
+import polars as pl
 
 from desdeo.problem import (
     ObjectiveTypeEnum,
@@ -14,27 +16,60 @@ from desdeo.problem import (
     variable_dimension_enumerate,
 )
 from desdeo.tools.generics import BaseSolver
-from desdeo.tools.gurobipy_solver_interfaces import GurobipySolver
-from desdeo.tools.ng_solver_interfaces import NevergradGenericSolver
+from desdeo.tools.gurobipy_solver_interfaces import GurobipySolver, PersistentGurobipySolver
+from desdeo.tools.ng_solver_interfaces import NevergradGenericOptions, NevergradGenericSolver
 from desdeo.tools.proximal_solver import ProximalSolver
 from desdeo.tools.pyomo_solver_interfaces import (
+    BonminOptions,
+    CbcOptions,
+    IpoptOptions,
     PyomoBonminSolver,
     PyomoCBCSolver,
     PyomoGurobiSolver,
     PyomoIpoptSolver,
 )
-from desdeo.tools.scipy_solver_interfaces import ScipyDeSolver, ScipyMinimizeSolver
+from desdeo.tools.scipy_solver_interfaces import (
+    ScipyDeOptions,
+    ScipyDeSolver,
+    ScipyMinimizeOptions,
+    ScipyMinimizeSolver,
+)
 
 available_solvers = {
-    "scipy_minimize": ScipyMinimizeSolver,
-    "scipy_de": ScipyDeSolver,
-    "proximal": ProximalSolver,
-    "nevergrad": NevergradGenericSolver,
-    "pyomo_bonmin": PyomoBonminSolver,
-    "pyomo_cbc": PyomoCBCSolver,
-    "pyomo_ipopt": PyomoIpoptSolver,
-    "pyomo_gurobi": PyomoGurobiSolver,
-    "gurobipy": GurobipySolver,
+    "scipy_minimize": {
+        "constructor": ScipyMinimizeSolver,
+        "options": ScipyMinimizeOptions,
+    },
+    "scipy_de": {
+        "constructor": ScipyDeSolver,
+        "options": ScipyDeOptions,
+    },
+    "proximal": {
+        "constructor": ProximalSolver,
+        "options": None,
+    },
+    "nevergrad": {"constructor": NevergradGenericSolver, "options": NevergradGenericOptions},
+    "pyomo_bonmin": {
+        "constructor": PyomoBonminSolver,
+        "options": BonminOptions,
+    },
+    "pyomo_cbc": {
+        "constructor": PyomoCBCSolver,
+        "options": CbcOptions,
+    },
+    "pyomo_ipopt": {
+        "constructor": PyomoIpoptSolver,
+        "options": IpoptOptions,
+    },
+    "pyomo_gurobi": {"constructor": PyomoGurobiSolver, "options": None},
+    "gurobipy": {
+        "constructor": GurobipySolver,
+        "options": None,
+    },
+    "gurobipy_persistent": {
+        "constructor": PersistentGurobipySolver,
+        "options": None,
+    },
 }
 
 
@@ -66,7 +101,7 @@ def find_compatible_solvers(problem: Problem) -> list[BaseSolver]:
     if all_data_based and has_discrete and var_dim == VariableDimensionEnum.scalar:
         # problem has only data-based objectives and a discrete definition is available
         # return ProximalSolver as it is the only solver for data-based problems at the moment
-        return [available_solvers["proximal"]]
+        return [available_solvers["proximal"]["constructor"]]
 
     # check if the problem is differentiable and if it is mixed integer
     if (
@@ -78,7 +113,7 @@ def find_compatible_solvers(problem: Problem) -> list[BaseSolver]:
             VariableDomainTypeEnum.mixed,
         ]
     ):
-        solvers.append(available_solvers["pyomo_bonmin"])  # bonmin has to be installed
+        solvers.append(available_solvers["pyomo_bonmin"]["constructor"])  # bonmin has to be installed
 
     # check if the problem is differentiable and continuous
     if (
@@ -86,22 +121,22 @@ def find_compatible_solvers(problem: Problem) -> list[BaseSolver]:
         and shutil.which("ipopt")
         and problem.variable_domain in [VariableDomainTypeEnum.continuous]
     ):
-        solvers.append(available_solvers["pyomo_ipopt"])  # ipopt has to be installed
+        solvers.append(available_solvers["pyomo_ipopt"]["constructor"])  # ipopt has to be installed
 
     # check if the problem is linear
     if problem.is_linear:
-        solvers.append(available_solvers["gurobipy"])
+        solvers.append(available_solvers["gurobipy"]["constructor"])
     if problem.is_linear and shutil.which("gurobi"):
-        solvers.append(available_solvers["pyomo_gurobi"])  # gurobi has to be installed
+        solvers.append(available_solvers["pyomo_gurobi"]["constructor"])  # gurobi has to be installed
     if problem.is_linear and shutil.which("cbc"):
-        solvers.append(available_solvers["pyomo_cbc"])
+        solvers.append(available_solvers["pyomo_cbc"]["constructor"])
 
     # check if problem's variables are all scalars
     if var_dim == VariableDimensionEnum.scalar:
         # nevergrad and scipy solvers work with all(?) problems with only scalar valued variables
-        solvers.append(available_solvers["nevergrad"])
-        solvers.append(available_solvers["scipy_minimize"])
-        solvers.append(available_solvers["scipy_de"])
+        solvers.append(available_solvers["nevergrad"]["constructor"])
+        solvers.append(available_solvers["scipy_minimize"]["constructor"])
+        solvers.append(available_solvers["scipy_de"]["constructor"])
     return solvers
 
 
@@ -125,12 +160,12 @@ def guess_best_solver(problem: Problem) -> BaseSolver:  # noqa: PLR0911
     # check if problem has a discrete definition
     has_discrete = problem.discrete_representation is not None
 
-    if TensorVariable in problem.variables:
+    if True in [isinstance(variable, TensorVariable) for variable in problem.variables]:
         if problem.is_linear and shutil.which("cbc"):
-            return available_solvers["pyomo_cbc"]
+            return available_solvers["pyomo_cbc"]["constructor"]
 
         if problem.is_linear:
-            return available_solvers["gurobipy"]
+            return available_solvers["gurobipy"]["constructor"]
 
         # check if the problem is differentiable and if it is mixed integer
         if (
@@ -142,7 +177,7 @@ def guess_best_solver(problem: Problem) -> BaseSolver:  # noqa: PLR0911
                 VariableDomainTypeEnum.mixed,
             ]
         ):
-            return available_solvers["pyomo_bonmin"]
+            return available_solvers["pyomo_bonmin"]["constructor"]
 
         # check if the problem is differentiable and continuous
         if (
@@ -150,23 +185,28 @@ def guess_best_solver(problem: Problem) -> BaseSolver:  # noqa: PLR0911
             and shutil.which("ipopt")
             and problem.variable_domain in [VariableDomainTypeEnum.continuous]
         ):
-            return available_solvers["pyomo_ipopt"]
+            return available_solvers["pyomo_ipopt"]["constructor"]
 
     if all_data_based and has_discrete:
         # problem has only data-based objectives and a discrete definition is available
         # guess proximal solver is best
-        return available_solvers["proximal"]
+        return available_solvers["proximal"]["constructor"]
 
     # check if the problem is linear
     if problem.is_linear:
-        return available_solvers["gurobipy"]
+        return available_solvers["gurobipy"]["constructor"]
 
     # check if the problem is differentiable and if it is mixed integer
-    if problem.is_twice_differentiable and shutil.which("bonmin") and problem.variable_domain in [
-        VariableDomainTypeEnum.integer,
-        VariableDomainTypeEnum.mixed,
-    ]:
-        return available_solvers["pyomo_bonmin"]
+    if (
+        problem.is_twice_differentiable
+        and shutil.which("bonmin")
+        and problem.variable_domain
+        in [
+            VariableDomainTypeEnum.integer,
+            VariableDomainTypeEnum.mixed,
+        ]
+    ):
+        return available_solvers["pyomo_bonmin"]["constructor"]
 
     # check if the problem is differentiable and continuous
     if (
@@ -174,10 +214,10 @@ def guess_best_solver(problem: Problem) -> BaseSolver:  # noqa: PLR0911
         and shutil.which("ipopt")
         and problem.variable_domain in [VariableDomainTypeEnum.continuous]
     ):
-        return available_solvers["pyomo_ipopt"]
+        return available_solvers["pyomo_ipopt"]["constructor"]
 
     # else, guess nevergrad heuristics to be the best
-    return available_solvers["nevergrad"]
+    return available_solvers["nevergrad"]["constructor"]
 
     # thigs to check: variable types, does the problem have constraint, constraint types, etc...
 
@@ -215,6 +255,7 @@ def get_corrected_ideal_and_nadir(problem: Problem) -> tuple[dict[str, float | N
 
     return ideal_point, nadir_point
 
+
 def get_corrected_ideal(problem: Problem) -> dict[str, float | None]:
     """Compute the corrected ideal point depending if an objective function is to be maximized or not.
 
@@ -235,12 +276,11 @@ def get_corrected_ideal(problem: Problem) -> dict[str, float | None]:
         msg = "Some of the objectives have not a defined ideal value."
         raise ValueError(msg)
 
-    ideal_point = {
-    objective.symbol: objective.ideal if not objective.maximize else -objective.ideal
-    for objective in problem.objectives
+    return {
+        objective.symbol: objective.ideal if not objective.maximize else -objective.ideal
+        for objective in problem.objectives
     }
 
-    return ideal_point
 
 def get_corrected_nadir(problem: Problem) -> dict[str, float | None]:
     """Compute the corrected nadir point depending if an objective function is to be maximized or not.
@@ -262,28 +302,27 @@ def get_corrected_nadir(problem: Problem) -> dict[str, float | None]:
         msg = "Some of the objectives have not a defined nadir value."
         raise ValueError(msg)
 
-    nadir_point = {
+    return {
         objective.symbol: objective.nadir if not objective.maximize else -objective.nadir
         for objective in problem.objectives
     }
 
-    return nadir_point
 
-def get_corrected_reference_point(problem: Problem, reference_point: dict[str, float]) -> dict[str, float]:
-    """Correct the components of a reference point.
+def flip_maximized_objective_values(problem: Problem, objective_values: dict[str, float]) -> dict[str, float]:
+    """Flips the objective values if the objective function is to be maximized.
 
-    Correct the components of a reference point by multiplying the components
-    related to maximized objective functions by -1.
+    Flips the objective values if the objective function is to be maximized by multiplying
+    the values related to maximized objective functions by -1.
 
     Args:
-        problem (Problem): the problem the reference point is related to.
-        reference_point (dict[str, float]): the reference point to be corrected.
+        problem (Problem): the problem the objective values are related to.
+        objective_values (dict[str, float]): the objective values to be flipped.
 
     Returns:
-        dict[str, float]: the corrected reference point.
+        dict[str, float]: the flipped objective values.
     """
     return {
-        obj.symbol: reference_point[obj.symbol] * -1 if obj.maximize else reference_point[obj.symbol]
+        obj.symbol: objective_values[obj.symbol] * -1 if obj.maximize else objective_values[obj.symbol]
         for obj in problem.objectives
     }
 
@@ -318,3 +357,27 @@ def payoff_table_method(problem: Problem, solver: BaseSolver = None) -> tuple[di
         else:
             nadir.append(np.max(po_table.T[i]))
     return numpy_array_to_objective_dict(problem, ideal), numpy_array_to_objective_dict(problem, nadir)
+
+
+def repair(lower_bounds: dict[str, float], upper_bounds: dict[str, float]) -> Callable[[pl.DataFrame], pl.DataFrame]:
+    """Repairs the offspring by clipping the values to be within the specified bounds.
+
+    Useful in evolutionary algorithms where offspring may go out of bounds due to crossover or mutation operations.
+
+    Args:
+        offspring (pl.DataFrame): The offspring to be repaired.
+        lower_bounds (dict[str, float]): The lower bounds for each variable.
+        upper_bounds (dict[str, float]): The upper bounds for each variable.
+
+    Returns:
+        Callable[[pl.DataFrame], pl.DataFrame]: A function that takes a DataFrame and returns a repaired DataFrame.
+    """
+
+    def actual_repair(offspring: pl.DataFrame) -> pl.DataFrame:
+        for var in offspring.columns:
+            offspring = offspring.with_columns(
+                pl.col(var).clip(lower_bound=lower_bounds[var], upper_bound=upper_bounds[var])
+            )
+        return offspring
+
+    return actual_repair

@@ -3,7 +3,7 @@
 import itertools
 from collections.abc import Iterable
 from operator import eq as _eq
-from operator import le as _le
+from operator import le as _python_le
 
 import pyomo.environ as pyomo
 
@@ -17,6 +17,18 @@ from desdeo.problem.schema import (
     Variable,
     VariableTypeEnum,
 )
+
+
+def _le(expr, rhs, name):
+    # scalar → single constraint
+    if not expr.is_indexed():
+        tmp_expr = _python_le(expr, rhs)
+        return pyomo.Constraint(expr=tmp_expr, name=name)
+
+    # indexed → one row per index
+    tmp = pyomo.Constraint(expr.index_set(), rule=lambda m, *idx: expr[idx] <= rhs)
+    tmp.construct()
+    return tmp
 
 
 class PyomoEvaluatorError(Exception):
@@ -159,7 +171,7 @@ class PyomoEvaluator:
                 else:
                     initial_value = (
                         var.initial_value
-                        if var.lowerbound is None and var.upperbound is None
+                        if var.lowerbound is None or var.upperbound is None
                         else (var.lowerbound + var.upperbound) / 2
                     )
 
@@ -321,16 +333,17 @@ class PyomoEvaluator:
             match con_type := cons.cons_type:
                 case ConstraintTypeEnum.LTE:
                     # constraints in DESDEO are defined such that they must be less than zero
-                    pyomo_expr = _le(pyomo_expr, 0)
+                    pyomo_expr = _le(pyomo_expr, 0, cons.name)
                 case ConstraintTypeEnum.EQ:
                     pyomo_expr = _eq(pyomo_expr, 0)
                 case _:
                     msg = f"Constraint type of {con_type} not supported. Must be one of {ConstraintTypeEnum}."
                     raise PyomoEvaluatorError(msg)
 
-            cons_expr = pyomo.Constraint(expr=pyomo_expr, name=cons.name)
+            # cons_expr = pyomo.Constraint(expr=pyomo_expr, name=cons.name)
 
-            setattr(model, cons.symbol, cons_expr)
+            setattr(model, cons.symbol, pyomo_expr)
+            # getattr(model, cons.symbol).construct()
 
         return model
 
@@ -429,9 +442,15 @@ class PyomoEvaluator:
             for extra in self.problem.extra_funcs:
                 result_dict[extra.symbol] = pyomo.value(getattr(self.model, extra.symbol))
 
+        # TODO: after implementing TensorConstraint, fix this
         if self.problem.constraints is not None:
             for const in self.problem.constraints:
-                result_dict[const.symbol] = pyomo.value(getattr(self.model, const.symbol))
+                obj = getattr(self.model, const.symbol)
+
+                if obj.is_indexed():
+                    result_dict[const.symbol] = {k: pyomo.value(obj[k]) for k in obj}
+                else:
+                    result_dict[const.symbol] = pyomo.value(obj)
 
         if self.problem.scalarization_funcs is not None:
             for scal in self.problem.scalarization_funcs:

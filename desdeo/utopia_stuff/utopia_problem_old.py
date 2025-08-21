@@ -359,7 +359,7 @@ def utopia_problem_old(problem_name: str = "Forest problem", holding: int = 1) -
             objectives=[f_1, f_2, f_3],
             constraints=constraints,
         ),
-        solver=available_solvers["gurobipy"],
+        solver=available_solvers["gurobipy"]["constructor"],
     )
 
     print(ideals)

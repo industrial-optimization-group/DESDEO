@@ -33,6 +33,11 @@
     options:
         heading_level: 3
 
+## Utilities
+::: desdeo.tools.utils
+    options:
+        heading_level: 3
+
 ## Generics
 ::: desdeo.tools.generics
     options:
