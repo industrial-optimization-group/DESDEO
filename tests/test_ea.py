@@ -46,7 +46,12 @@ from desdeo.emo.operators.selection import (
     ReferenceVectorOptions,
     RVEASelector,
 )
-from desdeo.emo.operators.termination import MaxEvaluationsTerminator, MaxGenerationsTerminator, CompositeTerminator
+from desdeo.emo.operators.termination import (
+    MaxEvaluationsTerminator,
+    MaxGenerationsTerminator,
+    CompositeTerminator,
+    ExternalCheckTerminator,
+)
 from desdeo.problem import VariableDomainTypeEnum
 from desdeo.problem.testproblems import (
     dtlz2,
@@ -1288,8 +1293,9 @@ def test_max_eval_terminator():
     assert terminator.current_evaluations < 1057  # The maximum can unfortunately be exceeded
     assert terminator.check() is True
 
-def test_composite_terminator():
 
+def test_composite_terminator():
+    """Test the CompositeTerminator with different modes."""
     # Test that the check works for MaxGenerationsTerminator with "any"
     publisher = Publisher()
     term1 = MaxGenerationsTerminator(10, publisher)
@@ -1363,3 +1369,29 @@ def test_composite_terminator():
     # Make sure that creating composite terminator fails if multiple terminators of the same type are added
     with pytest.raises(ValueError, match="All terminators must be unique."):
         CompositeTerminator([term1, term2, term1], publisher, mode="any")
+
+
+def test_external_terminator():
+    """Test the ExternalCheckTerminator."""
+
+    class extern_check:
+        """Pretend this is an external check."""
+
+        def __init__(self):
+            self.value = False
+
+        def check(self):
+            """If true, the termination condition is met."""
+            return self.value
+
+    publisher = Publisher()
+    checker = extern_check()
+    term = ExternalCheckTerminator(checker.check, publisher)
+
+    for i in range(1, 100):
+        if i == 50:
+            checker.value = True
+        if term.check():
+            break
+
+    assert term.current_generation == 51
