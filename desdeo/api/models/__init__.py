@@ -45,7 +45,6 @@ __all__ = [  # noqa: RUF022
     "ProblemMetaDataGetRequest",
     "ReferencePoint",
     "RepresentativeNonDominatedSolutions",
-    "RPMBaseState",
     "RPMSolveRequest",
     "RPMState",
     "ScalarizationFunctionDB",
@@ -135,7 +134,6 @@ from .state import (
     NIMBUSClassificationState,
     NIMBUSInitializationState,
     NIMBUSSaveState,
-    RPMBaseState,
     RPMState,
     StateDB,
 )

@@ -32,7 +32,6 @@ from desdeo.api.models import (
     VariableDB,
 )
 from desdeo.api.models.archive import SolutionAddress
-
 from desdeo.api.routers.nimbus import user_save_solutions
 from desdeo.mcdm import enautilus_step, rpm_solve_solutions
 from desdeo.problem.schema import (
@@ -517,10 +516,12 @@ def test_archive_entry(session_and_user: dict[str, Session | list[User]]):
 
     name = "Test Archive Entry"
     objective_values = {"f_1": 1.2, "f_2": 0.9, "f_3": 1.5}
-    address_state=1
-    address_result=1
+    address_state = 1
+    address_result = 1
 
-    archive_entry = SolutionAddress(objective_values=objective_values, address_state=address_state, address_result=address_result)
+    archive_entry = SolutionAddress(
+        objective_values=objective_values, address_state=address_state, address_result=address_result
+    )
 
     archive_entry_db = UserSavedSolutionDB.model_validate(
         archive_entry,
@@ -547,7 +548,6 @@ def test_archive_entry(session_and_user: dict[str, Session | list[User]]):
     assert from_db.address_result == address_result
 
 
-
 def test_user_save_solutions(session_and_user: dict[str, Session | list[User]]):
     """Test that user_save_solutions correctly saves solutions to the usersavedsolutiondb in the database."""
     session = session_and_user["session"]
@@ -568,16 +568,12 @@ def test_user_save_solutions(session_and_user: dict[str, Session | list[User]]):
             objective_values=objective_values,
             address_state=1,
             address_result=2,
-        )
-
+        ),
     ]
     num_test_solutions = len(test_solutions)
     problem_id = 1
     # Create NIMBUSSaveState
-    save_state = NIMBUSSaveState(
-        solution_addresses=test_solutions
-    )
-
+    save_state = NIMBUSSaveState()
 
     # Create StateDB
     state = StateDB(problem_id=problem_id, state=save_state)

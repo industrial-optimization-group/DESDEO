@@ -1,224 +1,222 @@
 """Defines models for representing the state of various interactive methods."""
 
-from typing import Literal
+from typing import TYPE_CHECKING
 
-from sqlalchemy.types import TypeDecorator
-from sqlmodel import JSON, Column, Field, Relationship, SQLModel
+from sqlmodel import (
+    JSON,
+    Column,
+    Field,
+    Relationship,
+    SQLModel,
+)
 
-from desdeo.mcdm import ENautilusResult
-from desdeo.tools import SolverResults
-from desdeo.tools.generics import EMOResults
+if TYPE_CHECKING:
+    from desdeo.mcdm import ENautilusResult
+    from desdeo.tools import SolverResults
+    from desdeo.tools.generics import EMOResults
 
-from .archive import SolutionAddress, UserSavedSolutionDB
-from .preference import PreferenceDB, ReferencePoint
-from .problem import ProblemDB
-from .session import InteractiveSessionDB
-
-
-class StateType(TypeDecorator):
-    """SQLAlchemy custom type to convert states to JSON and back."""
-
-    impl = JSON
-
-    def process_bind_param(self, value, dialect):
-        """State to JSON."""
-        if isinstance(
-            value,
-            RPMState
-            | NIMBUSClassificationState
-            | IntermediateSolutionState
-            | NIMBUSSaveState
-            | EMOState
-            | EMOSaveState
-            | NIMBUSInitializationState
-            | ENautilusState,
-        ):
-            return value.model_dump()
-
-        msg = f"No JSON serialization set for ste of type '{type(value)}'."
-        print(msg)
-
-        return value
-
-    def process_result_value(self, value, dialect):  # noqa: PLR0911
-        """JSON to state."""
-        if "method" in value:
-            match (value["method"], value.get("phase")):
-                case ("reference_point_method", _):
-                    return RPMState.model_validate(value)
-                case ("nimbus", "solve_candidates"):
-                    return NIMBUSClassificationState.model_validate(value)
-                case ("nimbus", "initialize"):
-                    return NIMBUSInitializationState.model_validate(value)
-                case ("nimbus", "save_solutions"):
-                    return NIMBUSSaveState.model_validate(value)
-                case ("generic", _):
-                    return IntermediateSolutionState.model_validate(value)
-                case (method, "save_solutions") if method in [
-                    "NSGA3",  # Changed from NSGAIII to match EMO router output
-                    "RVEA",
-                    "EMO",
-                ]:
-                    return EMOSaveState.model_validate(value)
-                case (method, _) if method in [
-                    "NSGA3",
-                    "RVEA",
-                    "EMO",
-                ]:  # Changed from NSGAIII to NSGA3
-                    return EMOState.model_validate(value)
-                case ("e-nautilus", "stepping"):
-                    return ENautilusState.model_validate(value)
-                case _:
-                    msg = f"No method '{value['method']}' with phase '{value.get('phase')}' found."
-                    print(msg)
-
-        return value
+    from .archive import SolutionAddress, UserSavedSolutionDB
+    from .preference import PreferenceDB, ReferencePoint
+    from .problem import ProblemDB
+    from .session import InteractiveSessionDB
 
 
-class BaseState(SQLModel):
-    """The base model for representing method state."""
+class StateBase(SQLModel, table=True):
+    """Base table for all states (polymorphic root)."""
 
-    method: Literal["unset"] = "unset"
-    phase: Literal["unset"] = "unset"
+    __tablename__ = "states"
 
+    id: int | None = Field(default=None, primary_key=True)
 
-class BaseEMOState(BaseState):
-    """The base state for EMO methods."""
+    method: str = Field(index=True)
+    phase: str = Field(index=True)
 
-    max_evaluations: int = Field(default=1000)
-    number_of_vectors: int = Field(default=20)
-    use_archive: bool = Field(default=True)
+    kind: str = Field(
+        index=True,
+        description="Polymorphic discriminator, e.g., 'nimbus.solve_candidates'",
+    )
 
-
-class RPMBaseState(BaseState):
-    """The base sate for the reference point method (RPM).
-
-    Other states of the RPM should inherit from this.
-    """
-
-    method: Literal["reference_point_method"] = "reference_point_method"
+    __mapper_args__ = {
+        "polymorphic_on": "kind",
+        "polymorphic_identity": "base",
+    }
 
 
-class RPMState(RPMBaseState):
+class RPMState(StateBase, table=True):
     """State of the reference point method for computing solutions."""
 
-    phase: Literal["solve_candidates"] = "solve_candidates"
+    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
 
-    # to compute k+1 solutions
+    phase: str = Field(default="solve_candidates", index=True)
+    method: str = Field(default="reference_point_method", index=True)
+
     scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
     solver: str | None = Field(default=None)
     solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
 
-    # results
-    solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
+    # solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
+
+    __mapper_args__ = {
+        "polymorphic_identity": "reference_point_method.solve_candidates",
+    }
 
 
-class NIMBUSBaseState(BaseState):
-    """The base sate for the reference point method (NIMBUS).
+class NIMBUSBaseState(StateBase):
+    """Marker mixin for type hints only (no table)."""
 
-    Other states of the NIMBUS should inherit from this.
-    """
-
-    method: Literal["nimbus"] = "nimbus"
+    method: str = Field(default="nimbus", index=True)
 
 
-class NIMBUSClassificationState(NIMBUSBaseState):
-    """State of the nimbus method for computing solutions."""
+class NIMBUSClassificationState(NIMBUSBaseState, table=True):
+    """State of the NIMBUS method for computing solutions."""
 
-    phase: Literal["solve_candidates"] = "solve_candidates"
+    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
+
+    phase: str = Field(default="solve_candidates", index=True)
 
     scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
     solver: str | None = Field(default=None)
     solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
     current_objectives: dict[str, float] = Field(sa_column=Column(JSON))
     num_desired: int | None = Field(default=1)
-    previous_preference: ReferencePoint = Field(Column(JSON))
+    # previous_preference: ReferencePoint = Field(sa_column=Column(JSON))
 
     # results
-    solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
+    # solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
+
+    __mapper_args__ = {
+        "polymorphic_identity": "nimbus.solve_candidates",
+    }
 
 
-class NIMBUSSaveState(NIMBUSBaseState):
-    """State of the nimbus method for saving solutions."""
+class NIMBUSSaveState(NIMBUSBaseState, table=True):
+    """State of the NIMBUS method for saving solutions."""
 
-    phase: Literal["save_solutions"] = "save_solutions"
-    solution_addresses: list[SolutionAddress] = Field(sa_column=Column(JSON))
+    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
+
+    phase: str = Field(default="save_solutions", index=True)
+    # solution_addresses: list[dict[str, Any]] = Field(sa_column=Column(JSON))
+
+    __mapper_args__ = {
+        "polymorphic_identity": "nimbus.save_solutions",
+    }
 
 
-class EMOState(BaseEMOState):
-    """State for EMO methods."""
+class NIMBUSInitializationState(NIMBUSBaseState, table=True):
+    """State of the NIMBUS method for initialization."""
 
-    method: str = Field(default="EMO", description="The EMO method name (e.g., NSGA3, RVEA, etc.)")
+    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
+
+    phase: str = Field(default="initialize", index=True)
+    solver: str | None = Field(default=None)
+    # solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
+
+    __mapper_args__ = {
+        "polymorphic_identity": "nimbus.initialize",
+    }
+
+
+class BaseEMOState(StateBase):
+    """Common fields for EMO states (not a table)."""
+
+    max_evaluations: int = Field(default=1000)
+    number_of_vectors: int = Field(default=20)
+    use_archive: bool = Field(default=True)
+
+
+class EMOState(BaseEMOState, table=True):
+    """State for EMO methods (execution/run)."""
+
+    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
+
+    # The concrete algorithm flavor (NSGA3, RVEA, etc.) stays a column, not identity.
+    method: str = Field(default="EMO", description="The EMO method family (e.g., EMO)")
+    phase: str = Field(default="run", index=True)
+    method_name: str = Field(description="Algorithm, e.g., NSGA3, RVEA")
 
     # results
-    solutions: list = Field(sa_column=Column(JSON), description="Optimization results")
-    outputs: list = Field(sa_column=Column(JSON), description="Optimization results")
+    # solutions: list = Field(sa_column=Column(JSON), description="Optimization results")
+    outputs: list = Field(sa_column=Column(JSON), description="Optimization outputs")
+
+    __mapper_args__ = {
+        "polymorphic_identity": "EMO.run",
+    }
 
 
-class EMOSaveState(BaseEMOState):
+class EMOSaveState(BaseEMOState, table=True):
     """State of the EMO methods for saving solutions."""
 
-    method: str = Field(default="EMO", description="The EMO method name (e.g., NSGA3, RVEA, etc.)")
-    phase: Literal["save_solutions"] = "save_solutions"
+    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
+
+    method: str = Field(default="EMO", description="The EMO method family (e.g., EMO)")
+    phase: str = Field(default="save_solutions", index=True)
     problem_id: int
-    saved_solutions: list[EMOResults] = Field(sa_column=Column(JSON))
+    # saved_solutions: list[EMOResults] = Field(sa_column=Column(JSON))
     solutions: list = Field(
         sa_column=Column(JSON),
         description="Original solutions from request",
         default_factory=list,
     )
 
-
-class NIMBUSInitializationState(NIMBUSBaseState):
-    """State of the nimbus method for computing solutions."""
-
-    phase: Literal["initialize"] = "initialize"
-    solver: str | None = Field(default=None)
-    solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
+    __mapper_args__ = {
+        "polymorphic_identity": "EMO.save_solutions",
+    }
 
 
-class IntermediateSolutionState(BaseState):
-    """State of the nimbus method for computing solutions."""
+class IntermediateSolutionState(StateBase, table=True):
+    """State for computing intermediate solutions requested by other methods."""
 
-    method: Literal["generic"] = "generic"
-    phase: Literal["solve_intermediate"] = "solve_intermediate"
-    context: str = Field(
+    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
+
+    phase: str = Field(default="solve_intermediate", index=True)
+    method: str = Field(default="generic", index=True)
+
+    context: str | None = Field(
         default=None,
-        description="The originating method context (e.g., 'nimbus', 'rpm') that requested these solutions",
+        description="Originating method context (e.g., 'nimbus', 'rpm')",
     )
     scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
     solver: str | None = Field(default=None)
     solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
     num_desired: int | None = Field(default=1)
-    reference_solution_1: dict[str, float]
-    reference_solution_2: dict[str, float]
+    reference_solution_1: dict[str, float] | None = Field(sa_column=Column(JSON), default=None)
+    reference_solution_2: dict[str, float] | None = Field(sa_column=Column(JSON), default=None)
+
     # results
-    solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
+    # solver_results: list[SolverResults] = Field(sa_column=Column(JSON))
+
+    __mapper_args__ = {
+        "polymorphic_identity": "generic.solve_intermediate",
+    }
 
 
-class ENautilusState(BaseState):
-    """State for the E-NAUTILUS method.
+class ENautilusState(StateBase, table=True):
+    """State for the E-NAUTILUS method (one iteration/step)."""
 
-    This state represents a step (iteration) in the E-NAUTILUS method.
-    """
+    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
 
-    method: Literal["e-nautilus"] = "e-nautilus"
-    phase: Literal["stepping"] = "stepping"
+    method: str = Field(default="e-nautilus", index=True)
+    phase: str = Field(default="stepping", index=True)
 
     # E-NAUTILUS (`e-nautilus_step`) specific
     non_dominated_points_id: int | None = Field(
+        default=None,
         description=(
             "Stores the id of the `RepresentatvieNondominatedSolutions` in the DB. "
-            "Use the property `non_dominated_points` to get the actual points."
-        )
+            "Use a service/repo layer to load the actual points."
+        ),
     )
     current_iteration: int
     iterations_left: int
     selected_point: dict[str, float] | None = Field(sa_column=Column(JSON), default=None)
-    reachable_point_indices: list[int]
+    reachable_point_indices: list[int] = Field(sa_column=Column(JSON), default_factory=list)
     number_of_intermediate_points: int
 
-    enautilus_results: ENautilusResult = Field(sa_column=Column(JSON))
+    # enautilus_results: ENautilusResult = Field(sa_column=Column(JSON))
+
+    __mapper_args__ = {
+        "polymorphic_identity": "e-nautilus.stepping",
+    }
 
 
 class StateDB(SQLModel, table=True):
@@ -232,19 +230,34 @@ class StateDB(SQLModel, table=True):
     # Reference to other StateDB
     parent_id: int | None = Field(foreign_key="statedb.id", default=None)
 
-    state: BaseState | None = Field(sa_column=Column(StateType), default=None)
+    # NEW: One-to-one to the polymorphic hierarchy
+    state_id: int | None = Field(foreign_key="states.id", default=None, index=True)
+
+    state: "StateBase" = Relationship(
+        sa_relationship_kwargs={
+            "cascade": "all, delete-orphan",
+            "single_parent": True,
+            "uselist": False,
+            "foreign_keys": lambda: [StateDB.state_id],
+        }
+    )
 
     # Back populates
     session: "InteractiveSessionDB" = Relationship(back_populates="states")
-    parent: "StateDB" = Relationship(back_populates="children", sa_relationship_kwargs={"remote_side": "StateDB.id"})
+    parent: "StateDB" = Relationship(
+        back_populates="children", sa_relationship_kwargs={"remote_side": lambda: StateDB.id}
+    )
+
     # if a parent node is killed, so are all its children (blood for the blood God)
     children: list["StateDB"] = Relationship(
         back_populates="parent",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
+
     saved_solutions: list["UserSavedSolutionDB"] | None = Relationship(
         back_populates="state", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
+
     # Parents
-    preference: "PreferenceDB" = Relationship()
-    problem: "ProblemDB" = Relationship()
+    # preference: "PreferenceDB" = Relationship()
+    # problem: "ProblemDB" = Relationship()
