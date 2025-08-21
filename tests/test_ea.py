@@ -46,7 +46,7 @@ from desdeo.emo.operators.selection import (
     ReferenceVectorOptions,
     RVEASelector,
 )
-from desdeo.emo.operators.termination import MaxEvaluationsTerminator, MaxGenerationsTerminator
+from desdeo.emo.operators.termination import MaxEvaluationsTerminator, MaxGenerationsTerminator, CompositeTerminator
 from desdeo.problem import VariableDomainTypeEnum
 from desdeo.problem.testproblems import (
     dtlz2,
@@ -57,7 +57,7 @@ from desdeo.problem.testproblems import (
     simple_knapsack_vectors,
     simple_test_problem,
 )
-from desdeo.tools.message import IntMessage, TerminatorMessageTopics
+from desdeo.tools.message import IntMessage, TerminatorMessageTopics, GeneratorMessageTopics, EvaluatorMessageTopics
 from desdeo.tools.patterns import Publisher, Subscriber
 from desdeo.tools.utils import repair
 
@@ -1249,3 +1249,124 @@ def test_mutation_in_ea():
             print(results)
         except Exception as e:
             pytest.fail(f"Failed to run EA with mutation {mut}: {e}")
+
+
+def test_max_gen_terminator():
+    """Test the MaxGenerationsTerminator."""
+    publisher = Publisher()
+    terminator = MaxGenerationsTerminator(100, publisher)
+    publisher.auto_subscribe(terminator)
+
+    assert terminator.current_generation == 1
+    assert terminator.max_generations == 100
+
+    for _ in range(1000):
+        if terminator.check():  # Increments current_generation
+            break
+
+    assert terminator.current_generation == 101
+    assert terminator.check() is True
+
+
+def test_max_eval_terminator():
+    """Test the MaxEvaluationsTerminator."""
+    publisher = Publisher()
+    terminator = MaxEvaluationsTerminator(1000, publisher)
+    publisher.auto_subscribe(terminator)
+
+    assert terminator.current_evaluations == 0
+    assert terminator.max_evaluations == 1000
+
+    publisher.notify([IntMessage(topic=GeneratorMessageTopics.NEW_EVALUATIONS, value=100, source="test")])
+    assert terminator.current_evaluations == 100
+
+    for _ in range(100):
+        if not terminator.check():
+            publisher.notify([IntMessage(topic=EvaluatorMessageTopics.NEW_EVALUATIONS, value=57, source="test")])
+
+    assert terminator.current_evaluations >= 1000
+    assert terminator.current_evaluations < 1057  # The maximum can unfortunately be exceeded
+    assert terminator.check() is True
+
+def test_composite_terminator():
+
+    # Test that the check works for MaxGenerationsTerminator with "any"
+    publisher = Publisher()
+    term1 = MaxGenerationsTerminator(10, publisher)
+    term2 = MaxEvaluationsTerminator(1000, publisher)
+    composite = CompositeTerminator([term1, term2], publisher, mode="any")
+    publisher.auto_subscribe(term1)
+    publisher.auto_subscribe(term2)
+    publisher.auto_subscribe(composite)
+
+    assert composite.current_generation == 1
+    assert composite.current_evaluations == 0
+    assert term1.max_generations == 10
+    assert term2.max_evaluations == 1000
+
+    publisher.notify([IntMessage(topic=GeneratorMessageTopics.NEW_EVALUATIONS, value=100, source="test")])
+
+    assert composite.current_evaluations == 100
+
+    for _ in range(100):
+        if not composite.check():
+            publisher.notify([IntMessage(topic=EvaluatorMessageTopics.NEW_EVALUATIONS, value=57, source="test")])
+        else:
+            break
+
+    assert composite.current_generation == 11
+    assert composite.current_evaluations < term2.max_evaluations
+
+    # Test that the check works for MaxEvaluationsTerminator with "any"
+    publisher = Publisher()
+    term1 = MaxGenerationsTerminator(10, publisher)
+    term2 = MaxEvaluationsTerminator(1000, publisher)
+    composite = CompositeTerminator([term1, term2], publisher, mode="any")
+    publisher.auto_subscribe(term1)
+    publisher.auto_subscribe(term2)
+    publisher.auto_subscribe(composite)
+
+    assert composite.current_generation == 1
+    assert composite.current_evaluations == 0
+    assert term1.max_generations == 10
+    assert term2.max_evaluations == 1000
+
+    publisher.notify([IntMessage(topic=GeneratorMessageTopics.NEW_EVALUATIONS, value=100, source="test")])
+
+    assert composite.current_evaluations == 100
+
+    for _ in range(100):
+        if not composite.check():
+            publisher.notify([IntMessage(topic=EvaluatorMessageTopics.NEW_EVALUATIONS, value=200, source="test")])
+        else:
+            break
+
+    assert composite.current_generation < term1.max_generations
+    assert composite.current_evaluations >= term2.max_evaluations
+
+    # Test that check works for "all"
+    publisher = Publisher()
+    term1 = MaxGenerationsTerminator(10, publisher)
+    term2 = MaxEvaluationsTerminator(1000, publisher)
+    composite = CompositeTerminator([term1, term2], publisher, mode="all")
+    publisher.auto_subscribe(term1)
+    publisher.auto_subscribe(term2)
+    publisher.auto_subscribe(composite)
+
+    assert composite.current_generation == 1
+    assert composite.current_evaluations == 0
+    assert term1.max_generations == 10
+    assert term2.max_evaluations == 1000
+
+    publisher.notify([IntMessage(topic=GeneratorMessageTopics.NEW_EVALUATIONS, value=100, source="test")])
+
+    assert composite.current_evaluations == 100
+
+    for _ in range(100):
+        if not composite.check():
+            publisher.notify([IntMessage(topic=EvaluatorMessageTopics.NEW_EVALUATIONS, value=200, source="test")])
+        else:
+            break
+
+    assert composite.current_generation > term1.max_generations
+    assert composite.current_evaluations >= term2.max_evaluations

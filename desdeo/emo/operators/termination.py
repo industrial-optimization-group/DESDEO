@@ -69,16 +69,6 @@ class BaseTerminator(Subscriber):
         """
         self.current_generation += 1
         self.notify()
-        return self._check()
-
-    @abstractmethod
-    def _check(self) -> bool:
-        """Checking method specific to the terminator.
-
-        Returns:
-            bool: True if the termination criterion is reached, False otherwise.
-        """
-        pass
 
     def state(self) -> Sequence[Message]:
         """Return the state of the termination criterion."""
@@ -143,12 +133,17 @@ class MaxGenerationsTerminator(BaseTerminator):
         super().__init__(publisher=publisher)
         self.max_generations = max_generations
 
-    def _check(self) -> bool:
-        """Check if the termination criterion is reached.
+    def check(self) -> bool:
+        """Check if the termination criterion based on the number of generations is reached.
+
+        Args:
+            new_generation (bool, optional): Increment the generation counter. Defaults to True.
 
         Returns:
             bool: True if the termination criterion is reached, False otherwise.
         """
+        super().check()
+        self.notify()
         return self.current_generation > self.max_generations
 
 
@@ -173,12 +168,17 @@ class MaxEvaluationsTerminator(BaseTerminator):
         self.max_evaluations = max_evaluations
         self.current_evaluations = 0
 
-    def _check(self) -> bool:
-        """Check if the termination criterion is reached.
+    def check(self) -> bool:
+        """Check if the termination criterion based on the number of generations is reached.
+
+        Args:
+            new_generation (bool, optional): Increment the generation counter. Defaults to True.
 
         Returns:
             bool: True if the termination criterion is reached, False otherwise.
         """
+        super().check()
+        self.notify()
         return self.current_evaluations >= self.max_evaluations
 
 
@@ -195,15 +195,18 @@ class CompositeTerminator(BaseTerminator):
         """
         super().__init__(publisher=publisher)
         self.terminators = terminators
+        for t in self.terminators:
+            t.notify = lambda: None
         self.mode = mode
 
-    def _check(self) -> bool:
+    def check(self) -> bool:
         """Check if the termination criterion is reached.
 
         Returns:
             bool: True if the termination criterion is reached, False otherwise.
         """
-        results = [t._check() for t in self.terminators]
+        super().check()
+        results = [t.check() for t in self.terminators]
         if self.mode == "all":
             return all(results)
         return any(results)
