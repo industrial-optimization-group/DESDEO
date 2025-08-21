@@ -11,6 +11,7 @@ Warning:
     super().do method to increment the generation counter _before_ conducting the termination check.
 """
 
+from abc import abstractmethod
 from collections.abc import Sequence
 
 from desdeo.tools.message import (
@@ -20,7 +21,7 @@ from desdeo.tools.message import (
     Message,
     TerminatorMessageTopics,
 )
-from desdeo.tools.patterns import Subscriber, Publisher
+from desdeo.tools.patterns import Publisher, Subscriber
 
 
 class BaseTerminator(Subscriber):
@@ -60,13 +61,24 @@ class BaseTerminator(Subscriber):
         self.max_generations: int = 0
         self.max_evaluations: int = 0
 
-    def check(self) -> bool | None:
+    def check(self) -> bool:
         """Check if the termination criterion is reached.
 
         Returns:
             bool: True if the termination criterion is reached, False otherwise.
         """
         self.current_generation += 1
+        self.notify()
+        return self._check()
+
+    @abstractmethod
+    def _check(self) -> bool:
+        """Checking method specific to the terminator.
+
+        Returns:
+            bool: True if the termination criterion is reached, False otherwise.
+        """
+        pass
 
     def state(self) -> Sequence[Message]:
         """Return the state of the termination criterion."""
@@ -109,7 +121,7 @@ class BaseTerminator(Subscriber):
         """
         if not isinstance(message, IntMessage):
             return
-        if not isinstance(message.topic, EvaluatorMessageTopics) or isinstance(message.topic, GeneratorMessageTopics):
+        if not (isinstance(message.topic, EvaluatorMessageTopics) or isinstance(message.topic, GeneratorMessageTopics)):
             return
         if (
             message.topic == EvaluatorMessageTopics.NEW_EVALUATIONS  # NOQA: PLR1714
@@ -131,17 +143,12 @@ class MaxGenerationsTerminator(BaseTerminator):
         super().__init__(publisher=publisher)
         self.max_generations = max_generations
 
-    def check(self) -> bool:
-        """Check if the termination criterion based on the number of generations is reached.
-
-        Args:
-            new_generation (bool, optional): Increment the generation counter. Defaults to True.
+    def _check(self) -> bool:
+        """Check if the termination criterion is reached.
 
         Returns:
             bool: True if the termination criterion is reached, False otherwise.
         """
-        super().check()
-        self.notify()
         return self.current_generation > self.max_generations
 
 
@@ -166,12 +173,37 @@ class MaxEvaluationsTerminator(BaseTerminator):
         self.max_evaluations = max_evaluations
         self.current_evaluations = 0
 
-    def check(self) -> bool:
-        """Check if the termination criterion based on the number of evaluations is reached.
+    def _check(self) -> bool:
+        """Check if the termination criterion is reached.
 
         Returns:
             bool: True if the termination criterion is reached, False otherwise.
         """
-        super().check()
-        self.notify()
         return self.current_evaluations >= self.max_evaluations
+
+
+class CompositeTerminator(BaseTerminator):
+    """Combines multiple terminators using logical AND or OR."""
+
+    def __init__(self, terminators: list[BaseTerminator], publisher: Publisher, mode: str = "any"):
+        """Initialize a composite termination criterion.
+
+        Args:
+            terminators (list[BaseTerminator]): List of BaseTerminator instances.
+            publisher (Publisher): Publisher for passing messages.
+            mode (str): "any" (terminate if any) or "all" (terminate if all). By default, "any".
+        """
+        super().__init__(publisher=publisher)
+        self.terminators = terminators
+        self.mode = mode
+
+    def _check(self) -> bool:
+        """Check if the termination criterion is reached.
+
+        Returns:
+            bool: True if the termination criterion is reached, False otherwise.
+        """
+        results = [t._check() for t in self.terminators]
+        if self.mode == "all":
+            return all(results)
+        return any(results)
