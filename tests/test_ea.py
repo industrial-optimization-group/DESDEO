@@ -47,10 +47,10 @@ from desdeo.emo.operators.selection import (
     RVEASelector,
 )
 from desdeo.emo.operators.termination import (
-    MaxEvaluationsTerminator,
-    MaxGenerationsTerminator,
     CompositeTerminator,
     ExternalCheckTerminator,
+    MaxEvaluationsTerminator,
+    MaxGenerationsTerminator,
 )
 from desdeo.problem import VariableDomainTypeEnum
 from desdeo.problem.testproblems import (
@@ -62,7 +62,7 @@ from desdeo.problem.testproblems import (
     simple_knapsack_vectors,
     simple_test_problem,
 )
-from desdeo.tools.message import IntMessage, TerminatorMessageTopics, GeneratorMessageTopics, EvaluatorMessageTopics
+from desdeo.tools.message import EvaluatorMessageTopics, GeneratorMessageTopics, IntMessage, TerminatorMessageTopics
 from desdeo.tools.patterns import Publisher, Subscriber
 from desdeo.tools.utils import repair
 
