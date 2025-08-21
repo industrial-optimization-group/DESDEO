@@ -196,7 +196,17 @@ class CompositeTerminator(BaseTerminator):
         super().__init__(publisher=publisher)
         self.terminators = terminators
         for t in self.terminators:
-            t.notify = lambda: None
+            t.notify = lambda: None  # Reset the notify method so that individual terminators do not send notifications
+        types = [type(t) for t in self.terminators]
+        # Assert that all terminators are unique
+        if len(types) != len(set(types)):
+            raise ValueError("All terminators must be unique.")
+        max_generations = [t.max_generations for t in self.terminators if isinstance(t, MaxGenerationsTerminator)]
+        if max_generations:
+            self.max_generations = max(max_generations)
+        max_evaluations = [t.max_evaluations for t in self.terminators if isinstance(t, MaxEvaluationsTerminator)]
+        if max_evaluations:
+            self.max_evaluations = max(max_evaluations)
         self.mode = mode
 
     def check(self) -> bool:
@@ -210,3 +220,27 @@ class CompositeTerminator(BaseTerminator):
         if self.mode == "all":
             return all(results)
         return any(results)
+
+
+class ExternalCheckTerminator(BaseTerminator):
+    """A termination criterion that checks an external condition."""
+
+    def __init__(self, check_function, publisher: Publisher):
+        """Initialize the external check terminator.
+
+        Args:
+            check_function (callable): A function that returns True if the termination condition is met.
+            publisher (Publisher): The publisher to send messages to.
+        """
+        super().__init__(publisher=publisher)
+        self.check_function = check_function
+
+    def check(self) -> bool:
+        """Check if the termination condition is met.
+
+        Returns:
+            bool: True if the termination condition is met, False otherwise.
+        """
+        super().check()
+        self.notify()
+        return self.check_function()

@@ -1301,8 +1301,9 @@ def test_composite_terminator():
 
     assert composite.current_generation == 1
     assert composite.current_evaluations == 0
-    assert term1.max_generations == 10
-    assert term2.max_evaluations == 1000
+    # Composite indicator should get max from children
+    assert composite.max_generations == 10
+    assert composite.max_evaluations == 1000
 
     publisher.notify([IntMessage(topic=GeneratorMessageTopics.NEW_EVALUATIONS, value=100, source="test")])
 
@@ -1326,13 +1327,7 @@ def test_composite_terminator():
     publisher.auto_subscribe(term2)
     publisher.auto_subscribe(composite)
 
-    assert composite.current_generation == 1
-    assert composite.current_evaluations == 0
-    assert term1.max_generations == 10
-    assert term2.max_evaluations == 1000
-
     publisher.notify([IntMessage(topic=GeneratorMessageTopics.NEW_EVALUATIONS, value=100, source="test")])
-
     assert composite.current_evaluations == 100
 
     for _ in range(100):
@@ -1353,13 +1348,7 @@ def test_composite_terminator():
     publisher.auto_subscribe(term2)
     publisher.auto_subscribe(composite)
 
-    assert composite.current_generation == 1
-    assert composite.current_evaluations == 0
-    assert term1.max_generations == 10
-    assert term2.max_evaluations == 1000
-
     publisher.notify([IntMessage(topic=GeneratorMessageTopics.NEW_EVALUATIONS, value=100, source="test")])
-
     assert composite.current_evaluations == 100
 
     for _ in range(100):
@@ -1370,3 +1359,7 @@ def test_composite_terminator():
 
     assert composite.current_generation > term1.max_generations
     assert composite.current_evaluations >= term2.max_evaluations
+
+    # Make sure that creating composite terminator fails if multiple terminators of the same type are added
+    with pytest.raises(ValueError, match="All terminators must be unique."):
+        CompositeTerminator([term1, term2, term1], publisher, mode="any")
