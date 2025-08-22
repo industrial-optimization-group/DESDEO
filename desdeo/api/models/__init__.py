@@ -2,7 +2,6 @@
 
 __all__ = [  # noqa: RUF022
     "UserSavedSolutionDB",
-    "BaseEMOState",
     "Bounds",
     "ConstantDB",
     "ConstraintDB",
@@ -21,7 +20,6 @@ __all__ = [  # noqa: RUF022
     "IntermediateSolutionRequest",
     "IntermediateSolutionResponse",
     "IntermediateSolutionState",
-    "NIMBUSBaseState",
     "NIMBUSClassificationRequest",
     "NIMBUSClassificationState",
     "NIMBUSInitializationRequest",
@@ -125,12 +123,10 @@ from .session import (
     InteractiveSessionInfo,
 )
 from .state import (
-    BaseEMOState,
     EMOSaveState,
     EMOState,
     ENautilusState,
     IntermediateSolutionState,
-    NIMBUSBaseState,
     NIMBUSClassificationState,
     NIMBUSInitializationState,
     NIMBUSSaveState,

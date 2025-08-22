@@ -8,30 +8,33 @@ from desdeo.tools.generics import EMOResults
 
 if TYPE_CHECKING:
     from .problem import ProblemDB
-    from .state import StateDB
     from .user import User
 
 
-class SolutionAddress(SQLModel):
-    objective_values: dict[str, float] | None = Field(sa_column=Column(JSON), default=None)
-    address_state: int = Field(sa_column=Column(JSON))
-    address_result: int = Field(sa_column=Column(JSON))
-
-
-class UserSavedSolutionDB(SolutionAddress, table=True):
-    """Database model of an archive entry."""
+class UserSavedSolutionDB(SQLModel, table=True):
+    """Database model of an archived solution."""
 
     id: int | None = Field(primary_key=True, default=None)
-    name: str | None = Field(default=None, nullable=True)  # Optional name for the solution
+
+    name: str | None = Field(default=None, nullable=True)
+    objective_values: dict[str, float] | None = Field(sa_column=Column(JSON), default=None)
+    variable_values: dict[str, float] | None = Field(sa_column=Column(JSON), default=None)
+    index: int | None
+
+    # Links
     user_id: int | None = Field(foreign_key="user.id", default=None)
     problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
-    state_id: int | None = Field(
-        foreign_key="statedb.id", default=None
-    )  # The save state, not the state the solution is found from?
+    origin_state_id: int | None = Field(foreign_key="states.id", default=None)  # the StateDB holder
+
     # Back populates
     user: "User" = Relationship(back_populates="archive")
     problem: "ProblemDB" = Relationship(back_populates="solutions")
-    state: "StateDB" = Relationship(back_populates="saved_solutions")
+
+
+class SolutionAddress(SQLModel):
+    objective_values: dict[str, float] = Field(sa_column=Column(JSON))
+    address_state: int = Field(sa_column=Column(JSON))
+    address_result: int = Field(sa_column=Column(JSON))
 
 
 class UserSavedSolutionAddress(SolutionAddress):

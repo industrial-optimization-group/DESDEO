@@ -555,50 +555,77 @@ def test_user_save_solutions(session_and_user: dict[str, Session | list[User]]):
 
     # Create test solutions with proper dictionary values
     objective_values = {"f_1": 1.2, "f_2": 0.9}
+    variable_values = {"x_1": 5.2, "x_2": 8.0, "x_3": -4.2}
+
+    user_id = user.id
+    problem_id = 1
+    origin_state_id = 2
 
     test_solutions = [
-        UserSavedSolutionAddress(
+        UserSavedSolutionDB(
             name="Solution 1",
             objective_values=objective_values,
-            address_state=1,
-            address_result=1,
+            variable_values=variable_values,
+            user_id=user_id,
+            problem_id=problem_id,
+            origin_state_id=origin_state_id,
         ),
-        UserSavedSolutionAddress(
+        UserSavedSolutionDB(
             name="Solution 2",
             objective_values=objective_values,
-            address_state=1,
-            address_result=2,
+            variable_values=variable_values,
+            index=2,
+            user_id=user_id,
+            problem_id=problem_id,
         ),
     ]
+
     num_test_solutions = len(test_solutions)
-    problem_id = 1
+
     # Create NIMBUSSaveState
-    save_state = NIMBUSSaveState()
+    save_state = NIMBUSSaveState(solutions=test_solutions)
 
-    # Create StateDB
-    state = StateDB(problem_id=problem_id, state=save_state)
+    # Create StateDB with NIMBUSSaveState
+    state_db = StateDB.create(session, problem_id=problem_id, state=save_state)
 
-    # Call the function
-    user_save_solutions(state, test_solutions, user.id, session)
+    session.add(state_db)
+    session.commit()
+    session.refresh(state_db)
+
     # Verify the solutions were saved
     saved_solutions = session.exec(select(UserSavedSolutionDB)).all()
-    if len(saved_solutions) != num_test_solutions:
-        raise ValueError(f"Expected {num_test_solutions} saved solutions, but found {len(saved_solutions)}")
+    assert len(saved_solutions) == num_test_solutions
 
     # Verify the content of the first solution
     first_solution = saved_solutions[0]
     assert first_solution.name == "Solution 1"
     assert first_solution.objective_values == objective_values
-    assert first_solution.address_state == 1
-    assert first_solution.address_result == 1
+    assert first_solution.variable_values == variable_values
+    assert first_solution.origin_state_id == 1
+    assert first_solution.index is None
     assert first_solution.user_id == user.id
     assert first_solution.problem_id == problem_id
-    assert first_solution.state_id == state.id
+
+    # Verify the content of the second solution
+    second_solution = saved_solutions[1]
+    assert second_solution.name == "Solution 2"
+    assert second_solution.objective_values == objective_values
+    assert second_solution.variable_values == variable_values
+    assert second_solution.origin_state_id == 1
+    assert second_solution.index == 2
+    assert second_solution.user_id == user.id
+    assert second_solution.problem_id == problem_id
 
     # Verify state relationship
-    saved_state = session.exec(select(StateDB).where(StateDB.id == state.id)).first()
+    saved_state = session.exec(select(StateDB).where(StateDB.id == state_db.id)).first()
     assert isinstance(saved_state.state, NIMBUSSaveState)
-    assert len(saved_state.state.solution_addresses) == num_test_solutions
+    assert len(saved_state.state.solutions) == num_test_solutions
+
+    # Check that relationships are formed
+    session.refresh(user)
+
+    assert len(user.archive) == len(test_solutions)
+    assert len(session.get(ProblemDB, problem_id).solutions) == len(test_solutions)
 
 
 def test_preference_models(session_and_user: dict[str, Session | list[User]]):
