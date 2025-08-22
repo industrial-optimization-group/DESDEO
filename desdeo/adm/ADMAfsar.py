@@ -3,6 +3,7 @@ import numpy as np
 from desdeo.tools.reference_vectors import create_simplex
 from desdeo.tools.non_dominated_sorting import non_dominated as nds
 from desdeo.problem.schema import Problem
+from desdeo.tools import payoff_table_method
 
 
 class ADMAfsar(BaseADM):
@@ -11,8 +12,14 @@ class ADMAfsar(BaseADM):
 
     This ADM generates preferences for interactive evolutionary multiobjective optimization
     based on the method described in:
-    Afsar, B., Miettinen, K., & Ruiz, A. B. (2021).
-    An Artificial Decision Maker for Comparing Reference Point Based Interactive Evolutionary Multiobjective Optimization Methods.
+
+    > Afsar, B., Miettinen, K., & Ruiz, A. B. (2021).
+    > An Artificial Decision Maker for Comparing Reference Point Based Interactive Evolutionary Multiobjective Optimization Methods.
+    > In: Ishibuchi, H., et al. Evolutionary Multi-Criterion Optimization. EMO 2021. Lecture Notes in Computer Science, vol 12654. Springer, Cham.
+
+    > Afsar, B., Ruiz, A. B., & Miettinen, K. (2023).
+    > Comparing interactive evolutionary multiobjective optimization methods with an artificial decision maker.
+    > Complex & Intelligent Systems, Volume 9, pages 1165–1181. Springer.
 
     Attributes:
         composite_front (list): Stores the composite front of solutions.
@@ -26,12 +33,11 @@ class ADMAfsar(BaseADM):
         problem: Problem,
         it_learning_phase: int,
         it_decision_phase: int,
-        preference_type: str = "reference_point",
         lattice_resolution: int = None,
         number_of_vectors: int = None,
     ):
         """
-        Initialize the ADMAfsar artificial decision maker.
+        Initialize the artificial decision maker proposed by Afsar et al.
 
         Args:
             problem (Problem): The optimization problem to solve.
@@ -40,41 +46,51 @@ class ADMAfsar(BaseADM):
             lattice_resolution (int, optional): Lattice resolution for reference vectors.
             number_of_vectors (int, optional): Number of reference vectors.
         """
+        self.true_ideal, self.true_nadir = payoff_table_method(problem)
+        problem = problem.update_ideal_and_nadir(
+            new_ideal=self.true_ideal, new_nadir=self.true_nadir
+        )
         super().__init__(problem, it_learning_phase, it_decision_phase)
         self.composite_front = []
         self.max_assigned_vector = None
-        self.preference_type = preference_type
+        self.preference_type = "reference_point"
+        number_of_objectives = len(problem.objectives)
 
         self.reference_vectors = create_simplex(
-            self.number_of_objectives, lattice_resolution, number_of_vectors
+            number_of_objectives, lattice_resolution, number_of_vectors
         )
+        self.true_ideal, self.true_nadir = payoff_table_method(problem)
+
         self.generate_initial_preference()
 
     def generate_initial_preference(self):
         """
         Generate the initial preference as a random point between the ideal and nadir points.
 
-        The preference is stored in self.preference as a dictionary mapping target symbols to values.
+        The preference is stored in self.preference as a numpy array.
         """
-        self.preference = {
-            name: np.random.uniform(min_val, max_val)
-            for name, min_val, max_val in zip(
-                self.target_symbols,
-                self.problem.get_ideal_point().values(),
-                self.problem.get_nadir_point().values(),
-            )
-        }
+        self.preference = np.array(
+            [
+                np.random.uniform(min_val, max_val)
+                for min_val, max_val in zip(
+                    self.problem.get_ideal_point().values(),
+                    self.problem.get_nadir_point().values(),
+                )
+            ]
+        )
 
-    def get_next_preference(self, *fronts):
+    def get_next_preference(self, *fronts, preference_type: str = "reference_point"):
         """
         Generate the next preference based on the current phase and provided solution fronts.
 
         Args:
             *fronts: One or more solution fronts (arrays) to be considered.
+            preference_type (str): The type of preference to generate.
 
         Returns:
             dict: The generated preference information.
         """
+        self.preference_type = preference_type
         if len(self.composite_front) == 0:
             self.composite_front = self.generate_composite_front(*fronts)
         else:
@@ -112,10 +128,6 @@ class ADMAfsar(BaseADM):
 
         Returns:
             np.ndarray: Indices of the assigned reference vectors for each solution.
-
-        Reference:
-            Afsar, B., Miettinen, K., & Ruiz, A. B. (2021).
-            An Artificial Decision Maker for Comparing Reference Point Based Interactive Evolutionary Multiobjective Optimization Methods.
         """
         cosine = np.dot(front, np.transpose(self.reference_vectors))
         if cosine[np.where(cosine > 1)].size:
@@ -136,10 +148,6 @@ class ADMAfsar(BaseADM):
 
         Returns:
             np.ndarray: The normalized solution front.
-
-        Reference:
-            Afsar, B., Miettinen, K., & Ruiz, A. B. (2021).
-            An Artificial Decision Maker for Comparing Reference Point Based Interactive Evolutionary Multiobjective Optimization Methods.
         """
         translated_norm = np.linalg.norm(translated_front, axis=1)
         translated_norm = np.repeat(
@@ -159,10 +167,6 @@ class ADMAfsar(BaseADM):
 
         Returns:
             np.ndarray: The composite non-dominated front.
-
-        Reference:
-            Afsar, B., Miettinen, K., & Ruiz, A. B. (2021).
-            An Artificial Decision Maker for Comparing Reference Point Based Interactive Evolutionary Multiobjective Optimization Methods.
         """
         _fronts = np.vstack(fronts)
         cf = _fronts[nds(_fronts)]
@@ -178,10 +182,6 @@ class ADMAfsar(BaseADM):
 
         Returns:
             np.ndarray: The translated front.
-
-        Reference:
-            Afsar, B., Miettinen, K., & Ruiz, A. B. (2021).
-            An Artificial Decision Maker for Comparing Reference Point Based Interactive Evolutionary Multiobjective Optimization Methods.
         """
         translated_front = np.subtract(front, ideal)
         return translated_front
@@ -194,7 +194,7 @@ class ADMAfsar(BaseADM):
 
         The preference is generated according to the selected preference type:
         - 'reference_point': Returns a reference point.
-        - 'ranges': Returns a preferred range.
+        - 'preferred_ranges': Returns a preferred range.
         - 'preferred_solutions': Returns preferred solutions.
 
         Args:
@@ -203,17 +203,13 @@ class ADMAfsar(BaseADM):
             assigned_vectors (np.ndarray): Indices of assigned reference vectors.
 
         Returns:
-            dict or np.ndarray: The generated preference information.
-
-        Reference:
-            Afsar, B., Miettinen, K., & Ruiz, A. B. (2021).
-            An Artificial Decision Maker for Comparing Reference Point Based Interactive Evolutionary Multiobjective Optimization Methods.
+            np.ndarray: The generated preference information.
         """
         if self.preference_type == "reference_point":
             return self.generate_reference_point_learning(
                 ideal_point, translated_front, assigned_vectors
             )
-        elif self.preference_type == "ranges":
+        elif self.preference_type == "preferred_ranges":
             return self.generate_ranges_learning(
                 ideal_point, translated_front, assigned_vectors
             )
@@ -225,7 +221,7 @@ class ADMAfsar(BaseADM):
         else:
             raise ValueError(
                 f"Invalid preference type: {self.preference_type}. "
-                "Valid options are 'reference_point', 'ranges', 'preferred_solutions', or 'non_preferred_solutions'."
+                "Valid options are 'reference_point', 'preferred_ranges', 'preferred_solutions', or 'non_preferred_solutions'."
             )
 
     def generate_preference_decision(
@@ -236,7 +232,7 @@ class ADMAfsar(BaseADM):
 
         The preference is generated according to the selected preference type:
         - 'reference_point': Returns a reference point.
-        - 'ranges': Returns a preferred range.
+        - 'preferred_ranges': Returns a preferred range.
         - 'preferred_solutions': Returns preferred solutions.
 
         Args:
@@ -246,11 +242,7 @@ class ADMAfsar(BaseADM):
             max_assigned_vector (int): Index of the reference vector with the maximum assigned solutions.
 
         Returns:
-            dict or np.ndarray: The generated preference information.
-
-        Reference:
-            Afsar, B., Miettinen, K., & Ruiz, A. B. (2021).
-            An Artificial Decision Maker for Comparing Reference Point Based Interactive Evolutionary Multiobjective Optimization Methods.
+            np.ndarray: The generated preference information.
         """
         if self.preference_type == "reference_point":
             return self.generate_reference_point_decision(
@@ -259,7 +251,7 @@ class ADMAfsar(BaseADM):
                 assigned_vectors,
                 max_assigned_vector,
             )
-        elif self.preference_type == "ranges":
+        elif self.preference_type == "preferred_ranges":
             return self.generate_ranges_decision(
                 ideal_point, translated_front, assigned_vectors, max_assigned_vector
             )
@@ -270,7 +262,7 @@ class ADMAfsar(BaseADM):
         else:
             raise ValueError(
                 f"Invalid preference type: {self.preference_type}. "
-                "Valid options are 'reference_point', 'ranges', 'preferred_solutions', or 'non_preferred_solutions'."
+                "Valid options are 'reference_point', 'preferred_ranges', 'preferred_solutions', or 'non_preferred_solutions'."
             )
 
     def get_max_assigned_vector(self, assigned_vectors):
@@ -282,10 +274,6 @@ class ADMAfsar(BaseADM):
 
         Returns:
             np.ndarray: Indices of the reference vector(s) with the maximum assignments.
-
-        Reference:
-            Afsar, B., Miettinen, K., & Ruiz, A. B. (2021).
-            An Artificial Decision Maker for Comparing Reference Point Based Interactive Evolutionary Multiobjective Optimization Methods.
         """
         number_assigned = np.bincount(assigned_vectors)
         max_assigned_vector = np.atleast_1d(
@@ -313,11 +301,7 @@ class ADMAfsar(BaseADM):
             assigned_vectors (np.ndarray): Indices of assigned reference vectors.
 
         Returns:
-            dict: The generated reference point.
-
-        Reference:
-            Afsar, B., Miettinen, K., & Ruiz, A. B. (2021).
-            An Artificial Decision Maker for Comparing Reference Point Based Interactive Evolutionary Multiobjective Optimization Methods.
+            np.array: The generated reference point.
         """
         ideal_cf = ideal_point
         translated_cf = translated_front
@@ -345,7 +329,7 @@ class ADMAfsar(BaseADM):
             distance_selected[0] * self.reference_vectors[min_assigned_vector[0]]
         )
         reference_point = np.squeeze(reference_point + ideal_cf)
-        return dict(zip(self.target_symbols, reference_point))
+        return reference_point
 
     def generate_reference_point_decision(
         self, ideal_point, translated_front, assigned_vectors, max_assigned_vector
@@ -364,10 +348,6 @@ class ADMAfsar(BaseADM):
 
         Returns:
             dict: The generated reference point.
-
-        Reference:
-            Afsar, B., Miettinen, K., & Ruiz, A. B. (2021).
-            An Artificial Decision Maker for Comparing Reference Point Based Interactive Evolutionary Multiobjective Optimization Methods.
         """
         ideal_cf = ideal_point
         translated_cf = translated_front
@@ -386,7 +366,7 @@ class ADMAfsar(BaseADM):
             distance_selected[0] * self.reference_vectors[max_assigned_vector]
         )
         reference_point = np.squeeze(reference_point + ideal_cf)
-        return dict(zip(self.target_symbols, reference_point))
+        return reference_point
 
     def generate_ranges_learning(self, ideal_point, translated_front, assigned_vectors):
         """
@@ -398,11 +378,7 @@ class ADMAfsar(BaseADM):
             assigned_vectors (np.ndarray): Indices of assigned reference vectors.
 
         Returns:
-            tuple: (preferred_range, reference_point), where preferred_range is an array of ranges and reference_point is the center.
-
-        Reference:
-            Afsar, B., Miettinen, K., & Ruiz, A. B. (2021).
-            An Artificial Decision Maker for Comparing Reference Point Based Interactive Evolutionary Multiobjective Optimization Methods.
+            np.ndarray: an array of ranges.
         """
         number_assigned = np.bincount(assigned_vectors)
         min_assigned_vector = np.atleast_1d(
@@ -434,8 +410,8 @@ class ADMAfsar(BaseADM):
         temp = reference_point - distance
         temp2 = reference_point + distance
 
-        true_ideal = self.problem.get_ideal_point()
-        true_nadir = self.problem.get_nadir_point()
+        true_ideal = np.array(list(self.problem.get_ideal_point().values()))
+        true_nadir = np.array(list(self.problem.get_nadir_point().values()))
 
         for i in range(reference_point.shape[0]):
             if reference_point[i] < true_ideal[i]:
@@ -452,7 +428,8 @@ class ADMAfsar(BaseADM):
                 temp2[i] = true_nadir[i]
 
         preferred_range = np.vstack((temp, temp2)).T
-        return preferred_range, reference_point
+        # TODO (giomara): return the reference point in some other place
+        return preferred_range
 
     def generate_ranges_decision(
         self, ideal_point, translated_front, assigned_vectors, max_assigned_vector
@@ -467,11 +444,7 @@ class ADMAfsar(BaseADM):
             max_assigned_vector (int): Index of the reference vector with the maximum assigned solutions.
 
         Returns:
-            tuple: (preferred_range, reference_point), where preferred_range is an array of ranges and reference_point is the center.
-
-        Reference:
-            Afsar, B., Miettinen, K., & Ruiz, A. B. (2021).
-            An Artificial Decision Maker for Comparing Reference Point Based Interactive Evolutionary Multiobjective Optimization Methods.
+            np.ndarray: an array of ranges.
         """
         sub_population_index = np.atleast_1d(
             np.squeeze(np.where(assigned_vectors == max_assigned_vector))
@@ -495,8 +468,8 @@ class ADMAfsar(BaseADM):
         temp = reference_point - distance
         temp2 = reference_point + distance
 
-        true_ideal = self.problem.get_ideal_point()
-        true_nadir = self.problem.get_nadir_point()
+        true_ideal = np.array(list(self.problem.get_ideal_point().values()))
+        true_nadir = np.array(list(self.problem.get_nadir_point().values()))
 
         for i in range(reference_point.shape[0]):
             if reference_point[i] < true_ideal[i]:
@@ -513,7 +486,7 @@ class ADMAfsar(BaseADM):
                 temp2[i] = true_nadir[i]
 
         preferred_range = np.vstack((temp, temp2)).T
-        return preferred_range, reference_point
+        return preferred_range
 
     def generate_preferred_solutions_learning(
         self, ideal_point, translated_front, assigned_vectors
@@ -528,10 +501,6 @@ class ADMAfsar(BaseADM):
 
         Returns:
             np.ndarray: The preferred solutions.
-
-        Reference:
-            Afsar, B., Miettinen, K., & Ruiz, A. B. (2021).
-            An Artificial Decision Maker for Comparing Reference Point Based Interactive Evolutionary Multiobjective Optimization Methods.
         """
         number_assigned = np.bincount(assigned_vectors)
         min_assigned_vector = np.atleast_1d(
@@ -551,6 +520,7 @@ class ADMAfsar(BaseADM):
         )
         solution_selected = sub_population_fitness
         preferred_solution = np.squeeze(solution_selected + ideal_point)
+
         return preferred_solution
 
     def generate_preferred_solutions_decision(
@@ -567,10 +537,6 @@ class ADMAfsar(BaseADM):
 
         Returns:
             np.ndarray: The preferred solutions.
-
-        Reference:
-            Afsar, B., Miettinen, K., & Ruiz, A. B. (2021).
-            An Artificial Decision Maker for Comparing Reference Point Based Interactive Evolutionary Multiobjective Optimization Methods.
         """
         sub_population_index = np.atleast_1d(
             np.squeeze(np.where(assigned_vectors == max_assigned_vector))

@@ -11,9 +11,7 @@ an ADM.
         it_decision_phase (int): Number of iterations for the decision phase.
         iteration_counter (int): Counter for the current iteration.
         max_iterations (int): Total number of iterations (learning + decision).
-        number_of_objectives (int): Number of objectives in the problem.
-        target_symbols (List[str]): List of target symbols for each objective.
-
+        
     Methods:
         has_next():
             Check if there are more iterations left to run.
@@ -47,8 +45,6 @@ class BaseADM(ABC):
 
     Properties:
         max_iterations (int): Total number of iterations (learning + decision).
-        number_of_objectives (int): Number of objectives in the problem.
-        target_symbols (List[str]): List of target symbols for each objective.
     """
 
     def __init__(
@@ -76,20 +72,6 @@ class BaseADM(ABC):
         int: Total number of iterations (learning + decision).
         """
         return self.it_learning_phase + self.it_decision_phase
-
-    @property
-    def number_of_objectives(self):
-        """
-        int: Number of objectives in the problem.
-        """
-        return len(self.problem.objectives)
-
-    @property
-    def target_symbols(self):
-        """
-        List[str]: List of target symbols for each objective.
-        """
-        return [f"{x.symbol}_min" for x in self.problem.objectives]
 
     def has_next(self):
         """
