@@ -482,6 +482,7 @@ def add_group_asf_diff(
     problem: Problem,
     symbol: str,
     reference_points: list[dict[str, float]],
+    agg_bounds: dict[str, float] | None = None,
     delta: dict[str, float] | float = 1e6,
     ideal: dict[str, float] | None = None,
     nadir: dict[str, float] | None = None,
@@ -504,6 +505,7 @@ def add_group_asf_diff(
         problem (Problem): the problem to which the scalarization function should be added.
         symbol (str): the symbol to reference the added scalarization function.
         reference_points (list[dict[str, float]]): a list of reference points as objective dicts.
+        agg_bounds dict[str, float]: a dictionary of bounds not to violate.
         ideal (dict[str, float], optional): ideal point values. If not given, attempt will be made
             to calculate ideal point from problem.
         nadir (dict[str, float], optional): nadir point values. If not given, attempt will be made
@@ -603,6 +605,23 @@ def add_group_asf_diff(
                     name=f"Constraint for {obj.symbol}",
                     symbol=f"{obj.symbol}_con_{i + 1}",
                     func=con_terms[i][obj.symbol],
+                    cons_type=ConstraintTypeEnum.LTE,
+                    is_linear=obj.is_linear,
+                    is_convex=obj.is_convex,
+                    is_twice_differentiable=obj.is_twice_differentiable,
+                )
+            )
+
+    #  get corrected bounds if exist
+    if agg_bounds is not None:
+        bounds = flip_maximized_objective_values(problem, agg_bounds)
+        for obj in problem.objectives:
+            expr = f"({obj.symbol}_min - {bounds[obj.symbol]} - _alpha)"
+            constraints.append(
+                Constraint(
+                    name=f"Constraint bound for {obj.symbol}",
+                    symbol=f"{obj.symbol}_con",
+                    func=expr,
                     cons_type=ConstraintTypeEnum.LTE,
                     is_linear=obj.is_linear,
                     is_convex=obj.is_convex,
@@ -1358,7 +1377,7 @@ def add_nimbus_sf_nondiff(  # noqa: PLR0913
                 con_expr = f"{_symbol}_min - {-1 * reservation if obj.maximize else reservation}"
                 constraints.append(
                     Constraint(
-                        name=f"Worsen until constriant for {_symbol}",
+                        name=f"Worsen until constraint for {_symbol}",
                         symbol=f"{_symbol}_gte",
                         func=con_expr,
                         cons_type=ConstraintTypeEnum.LTE,
@@ -1511,10 +1530,16 @@ def add_group_nimbus(  # noqa: PLR0913
     bounds = flip_maximized_objective_values(problem, agg_bounds)
 
     # calculate the weights
-    weights = {
-        obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta[obj.symbol]))
-        for obj in problem.objectives
-    }
+    weights = None
+    if type(delta) is dict:
+        weights = {
+            obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta[obj.symbol]))
+            for obj in problem.objectives
+        }
+    else:
+        weights = {
+            obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta)) for obj in problem.objectives
+        }
 
     # max term and constraints
     max_args = []
@@ -1523,7 +1548,6 @@ def add_group_nimbus(  # noqa: PLR0913
     print(classifications_list)
 
     for i in range(len(classifications_list)):
-        # classifications = classifications_list[dm_class][i]
         classifications = classifications_list[i]
         for obj in problem.objectives:
             _symbol = obj.symbol
@@ -1568,9 +1592,7 @@ def add_group_nimbus(  # noqa: PLR0913
                     pass
 
                 case (">=", reservation):
-                    # if obj is to be maximized, then the current reservation value needs to be multiplied by -1
                     con_expr = f"{_symbol}_min - {bounds[_symbol]} "
-                    # con_expr = f"{_symbol}_min - {-1 * reservation if obj.maximize else reservation}"
                     constraints.append(
                         Constraint(
                             name=f"Worsen until constraint for {_symbol}",
@@ -1838,14 +1860,15 @@ def add_group_nimbus_sf(  # noqa: PLR0913
     return _problem.add_constraints(constraints), symbol
 
 
-def add_group_nimbus_sf_diff(  # noqa: PLR0913
+def add_group_nimbus_diff(  # noqa: PLR0913
     problem: Problem,
     symbol: str,
     classifications_list: list[dict[str, tuple[str, float | None]]],
     current_objective_vector: dict[str, float],
+    agg_bounds: dict[str, float],
+    delta: dict[str, float] | float = 0.000001,
     ideal: dict[str, float] | None = None,
     nadir: dict[str, float] | None = None,
-    delta: float = 0.000001,
     rho: float = 0.000001,
 ) -> tuple[Problem, str]:
     r"""Implements the differentiable variant of the multiple decision maker of the group NIMBUS scalarization function.
@@ -1902,6 +1925,7 @@ def add_group_nimbus_sf_diff(  # noqa: PLR0913
         current_objective_vector (dict[str, float]): the current objective vector that corresponds to
             a Pareto optimal solution. The classifications are assumed to been given in respect to
             this vector.
+        agg_bounds dict[str, float]: a dictionary of bounds not to violate.
         ideal (dict[str, float], optional): ideal point values. If not given, attempt will be made
             to calculate ideal point from problem.
         nadir (dict[str, float], optional): nadir point values. If not given, attempt will be made
@@ -1927,17 +1951,6 @@ def add_group_nimbus_sf_diff(  # noqa: PLR0913
             )
             raise ScalarizationError(msg)
 
-        # check that at least one objective function is allowed to be improved and one is
-        # allowed to worsen
-        if not any(classifications[obj.symbol][0] in ["<", "<="] for obj in problem.objectives) or not any(
-            classifications[obj.symbol][0] in [">=", "0"] for obj in problem.objectives
-        ):
-            msg = (
-                f"The given classifications {classifications} should allow at least one objective function value "
-                "to improve and one to worsen."
-            )
-            raise ScalarizationError(msg)
-
     # check if ideal point is specified
     # if not specified, try to calculate corrected ideal point
     if ideal is not None:
@@ -1959,6 +1972,7 @@ def add_group_nimbus_sf_diff(  # noqa: PLR0913
         raise ScalarizationError(msg)
 
     corrected_current_point = flip_maximized_objective_values(problem, current_objective_vector)
+    bounds = flip_maximized_objective_values(problem, agg_bounds)
 
     # define the auxiliary variable
     alpha = Variable(
@@ -1971,9 +1985,16 @@ def add_group_nimbus_sf_diff(  # noqa: PLR0913
     )
 
     # calculate the weights
-    weights = {
-        obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta)) for obj in problem.objectives
-    }
+    weights = None
+    if type(delta) is dict:
+        weights = {
+            obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta[obj.symbol]))
+            for obj in problem.objectives
+        }
+    else:
+        weights = {
+            obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta)) for obj in problem.objectives
+        }
 
     constraints = []
 
@@ -1995,7 +2016,7 @@ def add_group_nimbus_sf_diff(  # noqa: PLR0913
                             is_twice_differentiable=problem.is_twice_differentiable,
                         )
                     )
-                    con_expr = f"{_symbol}_min - {corrected_current_point[_symbol]}"
+                    con_expr = f"{_symbol}_min - {corrected_current_point[_symbol]} - _alpha"
                     constraints.append(
                         Constraint(
                             name=f"improvement constraint for {_symbol}",
@@ -2024,7 +2045,7 @@ def add_group_nimbus_sf_diff(  # noqa: PLR0913
                             is_twice_differentiable=problem.is_twice_differentiable,
                         )
                     )
-                    con_expr = f"{_symbol}_min - {corrected_current_point[_symbol]}"
+                    con_expr = f"{_symbol}_min - {corrected_current_point[_symbol]} - _alpha"
                     constraints.append(
                         Constraint(
                             name=f"improvement until constraint for {_symbol}",
@@ -2037,21 +2058,10 @@ def add_group_nimbus_sf_diff(  # noqa: PLR0913
                         )
                     )
                 case ("=", _):
-                    con_expr = f"{_symbol}_min - {corrected_current_point[_symbol]}"
-                    constraints.append(
-                        Constraint(
-                            name=f"Stay at least as good constraint for {_symbol}",
-                            symbol=f"{_symbol}_{i + 1}_eq",
-                            func=con_expr,
-                            cons_type=ConstraintTypeEnum.LTE,
-                            is_linear=problem.is_linear,
-                            is_convex=problem.is_convex,
-                            is_twice_differentiable=problem.is_twice_differentiable,
-                        )
-                    )
+                    # not relevant for this group scalarization
+                    pass
                 case (">=", reservation):
-                    # if obj is to be maximized, then the current reservation value needs to be multiplied by -1
-                    con_expr = f"{_symbol}_min - {-1 * reservation if obj.maximize else reservation}"
+                    con_expr = f"{_symbol}_min - {bounds[_symbol]} - _alpha"
                     constraints.append(
                         Constraint(
                             name=f"Worsen until constraint for {_symbol}",
@@ -2546,10 +2556,11 @@ def add_group_stom_agg(
     return problem, symbol
 
 
-def add_group_stom_sf_diff(
+def add_group_stom_diff(
     problem: Problem,
     symbol: str,
     reference_points: list[dict[str, float]],
+    agg_bounds: dict[str, float] | None = None,
     delta: dict[str, float] | float = 1e-6,
     ideal: dict[str, float] | None = None,
     rho: float = 1e-6,
@@ -2575,6 +2586,7 @@ def add_group_stom_sf_diff(
             aspiration levels.
         ideal (dict[str, float], optional): ideal point values. If not given, attempt will be made
             to calculate ideal point from problem.
+        agg_bounds dict[str, float]: a dictionary of bounds not to violate.
         rho (float, optional): a small scalar value to scale the sum in the objective
             function of the scalarization. Defaults to 1e-6.
         delta (float, optional): a small scalar value to define the utopian point. Defaults to 1e-6.
@@ -2671,7 +2683,22 @@ def add_group_stom_sf_diff(
                     is_twice_differentiable=obj.is_twice_differentiable,
                 )
             )
-
+    #  get corrected bounds if exist
+    if agg_bounds is not None:
+        bounds = flip_maximized_objective_values(problem, agg_bounds)
+        for obj in problem.objectives:
+            expr = f"({obj.symbol}_min - {bounds[obj.symbol]} -_alpha)"
+            constraints.append(
+                Constraint(
+                    name=f"Constraint bound for {obj.symbol}",
+                    symbol=f"{obj.symbol}_con",
+                    func=expr,
+                    cons_type=ConstraintTypeEnum.LTE,
+                    is_linear=obj.is_linear,
+                    is_convex=obj.is_convex,
+                    is_twice_differentiable=obj.is_twice_differentiable,
+                )
+            )
     func = f"_alpha + {rho}*({aug_exprs})"
     scalarization = ScalarizationFunction(
         name="Differentiable STOM scalarization objective function for multiple decision makers",
@@ -3223,10 +3250,11 @@ def add_group_guess_agg(
     return problem, symbol
 
 
-def add_group_guess_sf_diff(
+def add_group_guess_diff(
     problem: Problem,
     symbol: str,
     reference_points: list[dict[str, float]],
+    agg_bounds: dict[str, float] | None = None,
     delta: dict[str, float] | float = 1e-6,
     nadir: dict[str, float] | None = None,
     rho: float = 1e-6,
@@ -3252,6 +3280,7 @@ def add_group_guess_sf_diff(
             aspiration levels.
         nadir (dict[str, float], optional): nadir point values. If not given, attempt will be made
             to calculate nadir point from problem.
+        agg_bounds dict[str, float]: a dictionary of bounds not to violate.
         rho (float, optional): a small scalar value to scale the sum in the objective
             function of the scalarization. Defaults to 1e-6.
         delta (float, optional): a small scalar to define the utopian point. Defaults to 1e-6.
@@ -3349,7 +3378,22 @@ def add_group_guess_sf_diff(
                     is_twice_differentiable=obj.is_twice_differentiable,
                 )
             )
-
+    #  get corrected bounds if exist
+    if agg_bounds is not None:
+        bounds = flip_maximized_objective_values(problem, agg_bounds)
+        for obj in problem.objectives:
+            expr = f"({obj.symbol}_min - {bounds[obj.symbol]} - _alpha)"
+            constraints.append(
+                Constraint(
+                    name=f"Constraint bound for {obj.symbol}",
+                    symbol=f"{obj.symbol}_con",
+                    func=expr,
+                    cons_type=ConstraintTypeEnum.LTE,
+                    is_linear=obj.is_linear,
+                    is_convex=obj.is_convex,
+                    is_twice_differentiable=obj.is_twice_differentiable,
+                )
+            )
     func = f"_alpha + {rho}*({aug_exprs})"
     scalarization = ScalarizationFunction(
         name="Differentiable GUESS scalarization objective function for multiple decision makers",
