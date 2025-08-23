@@ -1377,7 +1377,7 @@ def add_nimbus_sf_nondiff(  # noqa: PLR0913
                 con_expr = f"{_symbol}_min - {-1 * reservation if obj.maximize else reservation}"
                 constraints.append(
                     Constraint(
-                        name=f"Worsen until constriant for {_symbol}",
+                        name=f"Worsen until constraint for {_symbol}",
                         symbol=f"{_symbol}_gte",
                         func=con_expr,
                         cons_type=ConstraintTypeEnum.LTE,
@@ -1530,10 +1530,16 @@ def add_group_nimbus(  # noqa: PLR0913
     bounds = flip_maximized_objective_values(problem, agg_bounds)
 
     # calculate the weights
-    weights = {
-        obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta[obj.symbol]))
-        for obj in problem.objectives
-    }
+    weights = None
+    if type(delta) is dict:
+        weights = {
+            obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta[obj.symbol]))
+            for obj in problem.objectives
+        }
+    else:
+        weights = {
+            obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta)) for obj in problem.objectives
+        }
 
     # max term and constraints
     max_args = []
@@ -1860,9 +1866,9 @@ def add_group_nimbus_diff(  # noqa: PLR0913
     classifications_list: list[dict[str, tuple[str, float | None]]],
     current_objective_vector: dict[str, float],
     agg_bounds: dict[str, float],
+    delta: dict[str, float] | float = 0.000001,
     ideal: dict[str, float] | None = None,
     nadir: dict[str, float] | None = None,
-    delta: dict[str, float] | float = 0.000001,
     rho: float = 0.000001,
 ) -> tuple[Problem, str]:
     r"""Implements the differentiable variant of the multiple decision maker of the group NIMBUS scalarization function.
@@ -1945,17 +1951,6 @@ def add_group_nimbus_diff(  # noqa: PLR0913
             )
             raise ScalarizationError(msg)
 
-        # check that at least one objective function is allowed to be improved and one is
-        # allowed to worsen
-        if not any(classifications[obj.symbol][0] in ["<", "<="] for obj in problem.objectives) or not any(
-            classifications[obj.symbol][0] in [">=", "0"] for obj in problem.objectives
-        ):
-            msg = (
-                f"The given classifications {classifications} should allow at least one objective function value "
-                "to improve and one to worsen."
-            )
-            raise ScalarizationError(msg)
-
     # check if ideal point is specified
     # if not specified, try to calculate corrected ideal point
     if ideal is not None:
@@ -2021,7 +2016,7 @@ def add_group_nimbus_diff(  # noqa: PLR0913
                             is_twice_differentiable=problem.is_twice_differentiable,
                         )
                     )
-                    con_expr = f"{_symbol}_min - {corrected_current_point[_symbol]}"
+                    con_expr = f"{_symbol}_min - {corrected_current_point[_symbol]} - _alpha"
                     constraints.append(
                         Constraint(
                             name=f"improvement constraint for {_symbol}",
@@ -2050,7 +2045,7 @@ def add_group_nimbus_diff(  # noqa: PLR0913
                             is_twice_differentiable=problem.is_twice_differentiable,
                         )
                     )
-                    con_expr = f"{_symbol}_min - {corrected_current_point[_symbol]}"
+                    con_expr = f"{_symbol}_min - {corrected_current_point[_symbol]} - _alpha"
                     constraints.append(
                         Constraint(
                             name=f"improvement until constraint for {_symbol}",
