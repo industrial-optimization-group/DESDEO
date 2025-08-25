@@ -1284,6 +1284,11 @@ class IBEA_Selector(BaseSelector):
             binary_indicator (Callable[[np.ndarray], np.ndarray], optional): The binary indicator function to use.
                 Defaults to self_epsilon with uses binary addaptive epsilon indicator.
         """
+        # TODO(@light-weaver): IBEA doesn't perform as good as expected
+        # The distribution of solutions found isn't very uniform
+        # Update 21st August, tested against jmetalpy IBEA. Our version is both faster and better
+        # What is happening???
+        # Results are similar to this https://github.com/Xavier-MaYiMing/IBEA/
         super().__init__(problem=problem, verbosity=verbosity, publisher=publisher)
         self.selection: list[int] | None = None
         self.selected_individuals: SolutionType | None = None
