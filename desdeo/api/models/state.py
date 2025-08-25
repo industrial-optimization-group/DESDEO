@@ -15,20 +15,21 @@ from sqlmodel import (
     select,
 )
 
-from .archive import UserSavedSolutionDB
-from .preference import PreferenceType, ReferencePoint
+from desdeo.mcdm import ENautilusResult
 from desdeo.tools import SolverResults
 
+from .archive import UserSavedSolutionDB
+from .preference import PreferenceType, ReferencePoint
+
 if TYPE_CHECKING:
-    from desdeo.mcdm import ENautilusResult
     from desdeo.tools.generics import EMOResults
 
-    from .problem import ProblemDB
+    from .problem import ProblemDB, RepresentativeNonDominatedSolutions
     from .session import InteractiveSessionDB
 
 
-class SolverResultsType(TypeDecorator):
-    """SQLAlchemy custom type to convert a `SolverResults` to JSON and back."""
+class ResultsType(TypeDecorator):
+    """SQLAlchemy custom type to convert a `SolverResults` and similar to JSON and back."""
 
     impl = JSON
 
@@ -49,13 +50,20 @@ class SolverResultsType(TypeDecorator):
         return value
 
     def process_result_value(self, value, dialect):
-        """JSON to `SolverResults`."""
+        """JSON to `SolverResults` or similar."""
+        # Stupid way to to this, but works for now. Needs to add field
+        # to the corresponding models so that they may be identified in dict form.
+        if "closeness_measures" in value:  # noqa: SIM108
+            model = ENautilusResult
+        else:
+            model = SolverResults
+
         if value is None:
             return None
         if isinstance(value, list):
-            return [SolverResults.model_validate(x) for x in value]
+            return [model.model_validate(x) for x in value]
 
-        return SolverResults.model_validate(value)
+        return model.model_validate(value)
 
 
 class StateKind(str, Enum):
@@ -102,7 +110,7 @@ class RPMState(SQLModel, table=True):
     solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
 
     # results
-    solver_results: list[SolverResults] = Field(sa_column=Column(SolverResultsType))
+    solver_results: list[SolverResults] = Field(sa_column=Column(ResultsType))
 
 
 class NIMBUSClassificationState(SQLModel, table=True):
@@ -208,20 +216,17 @@ class ENautilusState(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
 
-    non_dominated_points_id: int | None = Field(
-        default=None,
-        description=(
-            "Stores the id of the `RepresentativeNondominatedSolutions` in the DB. "
-            "Use a service/repo layer to load the actual points."
-        ),
-    )
+    non_dominated_solutions_id: int | None = Field(foreign_key="representativenondominatedsolutions.id", default=None)
+
     current_iteration: int
     iterations_left: int
     selected_point: dict[str, float] | None = Field(sa_column=Column(JSON), default=None)
     reachable_point_indices: list[int] = Field(sa_column=Column(JSON), default_factory=list)
     number_of_intermediate_points: int
 
-    enautilus_results: "ENautilusResult | None" = Field(sa_column=Column(JSON), default=None)
+    enautilus_results: "ENautilusResult" = Field(sa_column=Column(ResultsType))
+
+    non_dominated_solutions: "RepresentativeNonDominatedSolutions" = Relationship()
 
 
 class StateDB(SQLModel, table=True):
@@ -233,7 +238,6 @@ class StateDB(SQLModel, table=True):
 
     # Optional cross-links (keep as strings in other modules to avoid circulars)
     problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
-    # preference_id: int | None = Field(foreign_key="preferencedb.id", default=None)
     session_id: int | None = Field(foreign_key="interactivesessiondb.id", default=None)
 
     # lineage

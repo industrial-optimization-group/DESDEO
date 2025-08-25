@@ -27,12 +27,10 @@ from desdeo.api.models import (
     TensorConstantDB,
     TensorVariableDB,
     User,
-    UserSavedSolutionAddress,
     UserSavedSolutionDB,
     VariableDB,
 )
 from desdeo.api.models.archive import SolutionAddress
-from desdeo.api.routers.nimbus import user_save_solutions
 from desdeo.mcdm import enautilus_step, rpm_solve_solutions
 from desdeo.problem.schema import (
     Constant,
@@ -948,6 +946,7 @@ def test_enautilus_state(session_and_user: dict[str, Session | list[User]]):
     n_points = 3  # DM wants to see 3 points at first
     current = 0
 
+    # First iteration
     res = enautilus_step(
         problem=dummy_problem,
         non_dominated_points=non_dom_data,
@@ -958,9 +957,8 @@ def test_enautilus_state(session_and_user: dict[str, Session | list[User]]):
         number_of_intermediate_points=n_points,
     )
 
-    # First iteration
     enautilus_state = ENautilusState(
-        non_dominated_points_id=reprdata.id,
+        non_dominated_solutions_id=reprdata.id,
         current_iteration=current,
         iterations_left=total_iters - current,
         selected_point=selected_point,
@@ -969,9 +967,9 @@ def test_enautilus_state(session_and_user: dict[str, Session | list[User]]):
         enautilus_results=res,
     )
 
-    state_1 = StateDB(
+    state_1 = StateDB.create(
+        database_session=session,
         problem_id=problemdb.id,
-        preference_id=None,
         session_id=isession.id,
         parent_id=None,
         state=enautilus_state,
@@ -993,7 +991,7 @@ def test_enautilus_state(session_and_user: dict[str, Session | list[User]]):
     )
 
     enautilus_state_2 = ENautilusState(
-        non_dominated_points_id=reprdata.id,
+        non_dominated_solutions_id=reprdata.id,
         current_iteration=res.current_iteration,
         iterations_left=res.iterations_left,
         selected_point=res.intermediate_points[0],
@@ -1002,14 +1000,27 @@ def test_enautilus_state(session_and_user: dict[str, Session | list[User]]):
         enautilus_results=res_2,
     )
 
-    state_2 = StateDB(
+    state_2 = StateDB.create(
+        database_session=session,
         problem_id=problemdb.id,
-        preference_id=None,
         session_id=isession.id,
-        parent_id=state_1.id,
+        parent_id=enautilus_state.id,
         state=enautilus_state_2,
     )
 
     session.add(state_2)
     session.commit()
     session.refresh(state_2)
+
+    assert state_1.problem_id == problemdb.id
+    assert state_2.problem_id == problemdb.id
+
+    assert state_1.session_id == isession.id
+    assert state_2.session_id == isession.id
+
+    assert state_1.parent is None
+    assert state_2.parent == state_1
+
+    assert len(state_1.children) == 1
+    assert state_1.children[0] == state_2
+    assert state_2.children == []
