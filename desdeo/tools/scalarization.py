@@ -369,7 +369,7 @@ def add_group_asf_agg(
 ) -> tuple[Problem, str]:
     r"""Add the achievement scalarizing function for multiple decision makers.
 
-    Both aggregated aspiration levels (max aspirations) and agg bounds (min bounds) are required.
+    Both aggregated aspiration levels (min aspirations) and agg bounds (max bounds) are required.
 
     The scalarization function is defined as follows:
 
@@ -611,6 +611,154 @@ def add_group_asf_diff(
                     is_twice_differentiable=obj.is_twice_differentiable,
                 )
             )
+
+    #  get corrected bounds if exist
+    if agg_bounds is not None:
+        bounds = flip_maximized_objective_values(problem, agg_bounds)
+        for obj in problem.objectives:
+            expr = f"({obj.symbol}_min - {bounds[obj.symbol]} - _alpha)"
+            constraints.append(
+                Constraint(
+                    name=f"Constraint bound for {obj.symbol}",
+                    symbol=f"{obj.symbol}_con",
+                    func=expr,
+                    cons_type=ConstraintTypeEnum.LTE,
+                    is_linear=obj.is_linear,
+                    is_convex=obj.is_convex,
+                    is_twice_differentiable=obj.is_twice_differentiable,
+                )
+            )
+    _problem = problem.add_variables([alpha])
+    _problem = _problem.add_scalarization(scalarization_function)
+    return _problem.add_constraints(constraints), symbol
+
+def add_group_asf_agg_diff(
+    problem: Problem,
+    symbol: str,
+    agg_aspirations: dict[str, float],
+    agg_bounds: dict[str, float] | None = None,
+    delta: dict[str, float] | float = 1e6,
+    ideal: dict[str, float] | None = None,
+    nadir: dict[str, float] | None = None,
+    rho: float = 1e-6,
+) -> tuple[Problem, str]:
+    r"""Add the differentiable variant of the achievement scalarizing function for multiple decision makers.
+
+    Both aggregated aspiration levels (min aspirations) and agg bounds (max bounds) are required.
+    The scalarization function is defined as follows:
+
+    \begin{align}
+        &\mbox{minimize} &&\alpha +
+        \rho \sum^k_{i=1} \sum^{n_d}_{d=1} w_{id}f_{id}(\mathbf{x}) \\
+        &\mbox{subject to} && w_{id}(f_{id}(\mathbf{x})-\overline{z}_{id}) - \alpha \leq 0,\\
+        &&&\mathbf{x} \in \mathbf{X},
+    \end{align}
+
+    where $w_{id} = \frac{1}{z^{nad}_{id} - z^{uto}_{id}}$.
+
+    Args:
+        problem (Problem): the problem to which the scalarization function should be added.
+        symbol (str): the symbol to reference the added scalarization function.
+        reference_points (list[dict[str, float]]): a list of reference points as objective dicts.
+        agg_bounds dict[str, float]: a dictionary of bounds not to violate.
+        ideal (dict[str, float], optional): ideal point values. If not given, attempt will be made
+            to calculate ideal point from problem.
+        nadir (dict[str, float], optional): nadir point values. If not given, attempt will be made
+            to calculate nadir point from problem.
+        delta (float, optional): a small scalar used to define the utopian point. Defaults to 1e-6.
+        rho (float, optional): the weight factor used in the augmentation term. Defaults to 1e-6.
+
+    Raises:
+        ScalarizationError: there are missing elements in any reference point.
+
+    Returns:
+        tuple[Problem, str]: A tuple containing a copy of the problem with the scalarization function added,
+            and the symbol of the added scalarization function.
+    """
+    # check if ideal point is specified
+    # if not specified, try to calculate corrected ideal point
+    if ideal is not None:
+        ideal_point = ideal
+    elif problem.get_ideal_point() is not None:
+        ideal_point = get_corrected_ideal(problem)
+    else:
+        msg = "Ideal point not defined!"
+        raise ScalarizationError(msg)
+
+    # check if nadir point is specified
+    # if not specified, try to calculate corrected nadir point
+    if nadir is not None:
+        nadir_point = nadir
+    elif problem.get_nadir_point() is not None:
+        nadir_point = get_corrected_nadir(problem)
+    else:
+        msg = "Nadir point not defined!"
+        raise ScalarizationError(msg)
+
+    # define the auxiliary variable
+    alpha = Variable(
+        name="alpha",
+        symbol="_alpha",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=-float("Inf"),
+        upperbound=float("Inf"),
+        initial_value=1.0,
+    )
+    # Correct the aspirations and hard_constraints
+    agg_aspirations = flip_maximized_objective_values(problem, agg_aspirations)
+    # calculate the weights
+    weights = None
+    if type(delta) is dict:
+        weights = {
+            obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta[obj.symbol]))
+            for obj in problem.objectives
+        }
+    else:
+        weights = {
+            obj.symbol: 1 / (nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta)) for obj in problem.objectives
+        }
+
+    # form the constaint and augmentation expressions
+    # constraint expressions are formed into a list of lists
+    con_terms = []
+    for obj in problem.objectives:
+        con_terms.append(
+            f"(({weights[obj.symbol]}) * ({obj.symbol}_min - {agg_aspirations[obj.symbol]})) - _alpha"
+        )
+    aug_exprs = []
+    aug_expr = " + ".join([f"({weights[obj.symbol]} * {obj.symbol}_min)" for obj in problem.objectives])
+    aug_exprs.append(aug_expr)
+    aug_exprs = " + ".join(aug_exprs)
+
+    func = f"_alpha + {rho} * ({aug_exprs})"
+
+    scalarization_function = ScalarizationFunction(
+        name="Differentiable achievement scalarizing function for multiple decision makers",
+        symbol=symbol,
+        func=func,
+        is_convex=problem.is_convex,
+        is_linear=problem.is_linear,
+        is_twice_differentiable=problem.is_twice_differentiable,
+    )
+
+    constraints = []
+    # loop to create a constraint for every objective of every reference point given
+    for obj in problem.objectives:
+        expr = (
+            f"({obj.symbol}_min - {agg_aspirations[obj.symbol]}) / "
+            f"({nadir_point[obj.symbol]} - {ideal_point[obj.symbol] - delta}) - _alpha"
+        )
+        constraints.append(
+            Constraint(
+                name=f"Constraint for {obj.symbol}",
+                symbol=f"{obj.symbol}_maxcon",
+                func=expr,
+                cons_type=ConstraintTypeEnum.LTE,
+                is_linear=obj.is_linear,
+                is_convex=obj.is_convex,
+                is_twice_differentiable=obj.is_twice_differentiable,
+            )
+        )
 
     #  get corrected bounds if exist
     if agg_bounds is not None:
@@ -2447,7 +2595,7 @@ def add_group_stom_agg(
 ) -> tuple[Problem, str]:
     r"""Adds the multiple decision maker variant of the STOM scalarizing function.
 
-    Both aggregated aspiration levels (max aspirations) and agg bounds (min bounds) are required.
+    Both aggregated aspiration levels (min aspirations) and agg bounds (max bounds) are required.
 
     The scalarization function is defined as follows:
 
@@ -2683,6 +2831,151 @@ def add_group_stom_diff(
                     is_twice_differentiable=obj.is_twice_differentiable,
                 )
             )
+    #  get corrected bounds if exist
+    if agg_bounds is not None:
+        bounds = flip_maximized_objective_values(problem, agg_bounds)
+        for obj in problem.objectives:
+            expr = f"({obj.symbol}_min - {bounds[obj.symbol]} -_alpha)"
+            constraints.append(
+                Constraint(
+                    name=f"Constraint bound for {obj.symbol}",
+                    symbol=f"{obj.symbol}_con",
+                    func=expr,
+                    cons_type=ConstraintTypeEnum.LTE,
+                    is_linear=obj.is_linear,
+                    is_convex=obj.is_convex,
+                    is_twice_differentiable=obj.is_twice_differentiable,
+                )
+            )
+    func = f"_alpha + {rho}*({aug_exprs})"
+    scalarization = ScalarizationFunction(
+        name="Differentiable STOM scalarization objective function for multiple decision makers",
+        symbol=symbol,
+        func=func,
+        is_linear=problem.is_linear,
+        is_convex=problem.is_convex,
+        is_twice_differentiable=problem.is_twice_differentiable,
+    )
+    _problem = problem.add_variables([alpha])
+    _problem = _problem.add_scalarization(scalarization)
+    return _problem.add_constraints(constraints), symbol
+
+
+def add_group_stom_agg_diff(
+    problem: Problem,
+    symbol: str,
+    agg_aspirations: dict[str, float],
+    agg_bounds: dict[str, float] | None = None,
+    delta: dict[str, float] | float = 1e-6,
+    ideal: dict[str, float] | None = None,
+    rho: float = 1e-6,
+) -> tuple[Problem, str]:
+    r"""Adds the differentiable variant of the multiple decision maker variant of the STOM scalarizing function.
+
+    Both aggregated aspiration levels (min aspirations) and agg bounds (max bounds) are required.
+    The scalarization function is defined as follows:
+
+    \begin{align}
+        &\mbox{minimize} && \alpha +
+        \rho \sum^k_{i=1} \sum^{n_d}_{d=1} w_{id}f_{id}(\mathbf{x}) \\
+        &\mbox{subject to} && w_{id}(f_{id}(\mathbf{x})-z^{uto}_{id}) - \alpha \leq 0,\\
+        &&&\mathbf{x} \in \mathbf{X},
+    \end{align}
+
+    where $w_{id} = \frac{1}{\overline{z}_{id} - z^{uto}_{id}}$.
+
+    Args:
+        problem (Problem): the problem the scalarization is added to.
+        symbol (str): the symbol given to the added scalarization.
+        reference_points (list[dict[str, float]]): a list of dicts with keys corresponding to objective
+            function symbols and values to reference point components, i.e.,
+            aspiration levels.
+        ideal (dict[str, float], optional): ideal point values. If not given, attempt will be made
+            to calculate ideal point from problem.
+        agg_bounds dict[str, float]: a dictionary of bounds not to violate.
+        rho (float, optional): a small scalar value to scale the sum in the objective
+            function of the scalarization. Defaults to 1e-6.
+        delta (float, optional): a small scalar value to define the utopian point. Defaults to 1e-6.
+
+    Raises:
+        ScalarizationError: there are missing elements in any reference point.
+
+    Returns:
+        tuple[Problem, str]: a tuple with the copy of the problem with the added
+            scalarization and the symbol of the added scalarization.
+    """
+
+    # check if ideal point is specified
+    # if not specified, try to calculate corrected ideal point
+    if ideal is not None:
+        ideal_point = ideal
+    elif problem.get_ideal_point() is not None:
+        ideal_point = get_corrected_ideal(problem)
+    else:
+        msg = "Ideal point not defined!"
+        raise ScalarizationError(msg)
+
+    # define the auxiliary variable
+    alpha = Variable(
+        name="alpha",
+        symbol="_alpha",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=-float("Inf"),
+        upperbound=float("Inf"),
+        initial_value=1.0,
+    )
+    # Correct the aspirations and hard_constraints
+    agg_aspirations = flip_maximized_objective_values(problem, agg_aspirations)
+
+    # calculate the weights
+    weights = {}
+    if type(delta) is dict:
+        weights = {
+            obj.symbol: 1 / (agg_aspirations[obj.symbol] - (ideal_point[obj.symbol] - delta[obj.symbol]))
+            for obj in problem.objectives
+        }
+    else:
+        weights = {
+            obj.symbol: 1 / (agg_aspirations[obj.symbol] - (ideal_point[obj.symbol] - delta))
+            for obj in problem.objectives
+        }
+
+    # form the max term
+    con_terms = []
+    for obj in problem.objectives:
+        if type(delta) is dict:
+            con_terms.append(
+                f"{weights[obj.symbol]} * ({obj.symbol}_min - {ideal_point[obj.symbol] - delta[obj.symbol]}) - _alpha"
+            )
+        else:
+            con_terms.append(
+                f"{weights[obj.symbol]} * ({obj.symbol}_min - {ideal_point[obj.symbol] - delta}) - _alpha"
+            )
+
+    # form the augmentation term
+    aug_exprs = []
+    aug_expr = " + ".join([f"({weights[obj.symbol]} * {obj.symbol}_min)" for obj in problem.objectives])
+    aug_exprs.append(aug_expr)
+    aug_exprs = " + ".join(aug_exprs)
+
+    constraints = []
+    # loop to create a constraint for every objective of every reference point given
+    for obj in problem.objectives:
+        expr = (
+            f"({obj.symbol}_min - {ideal_point[obj.symbol] - delta}) / "
+            f"({agg_aspirations[obj.symbol] - (ideal_point[obj.symbol] - delta)}) - _alpha"
+        )
+        constraints.append(
+            Constraint(
+                name=f"Constraint for {obj.symbol}",
+                symbol=f"{obj.symbol}_maxcon",
+                func=expr,
+                cons_type=ConstraintTypeEnum.LTE,
+                is_linear=obj.is_linear,
+                is_convex=obj.is_convex,
+                is_twice_differentiable=obj.is_twice_differentiable,
+            )
+        )
     #  get corrected bounds if exist
     if agg_bounds is not None:
         bounds = flip_maximized_objective_values(problem, agg_bounds)
@@ -3130,9 +3423,9 @@ def add_group_guess_agg(
     nadir: dict[str, float] | None = None,
     rho: float = 1e-6,
 ) -> tuple[Problem, str]:
-    r"""Adds the multiple decision maker variant of the STOM scalarizing function.
+    r"""Adds the multiple decision maker variant of the GUESS scalarizing function.
 
-    Both aggregated aspiration levels (max aspirations) and agg bounds (min bounds) are required.
+    Both aggregated aspiration levels (min aspirations) and agg bounds (max bounds) are required.
 
     The scalarization function is defined as follows:
 
@@ -3220,7 +3513,7 @@ def add_group_guess_agg(
     func = f"{Op.MAX}({max_terms}) + {rho} * ({aug_exprs})"
 
     scalarization_function = ScalarizationFunction(
-        name="STOM scalarizing function for multiple decision makers",
+        name="GUESS scalarizing function for multiple decision makers",
         symbol=symbol,
         func=func,
         is_convex=problem.is_convex,
@@ -3378,6 +3671,151 @@ def add_group_guess_diff(
                     is_twice_differentiable=obj.is_twice_differentiable,
                 )
             )
+    #  get corrected bounds if exist
+    if agg_bounds is not None:
+        bounds = flip_maximized_objective_values(problem, agg_bounds)
+        for obj in problem.objectives:
+            expr = f"({obj.symbol}_min - {bounds[obj.symbol]} - _alpha)"
+            constraints.append(
+                Constraint(
+                    name=f"Constraint bound for {obj.symbol}",
+                    symbol=f"{obj.symbol}_con",
+                    func=expr,
+                    cons_type=ConstraintTypeEnum.LTE,
+                    is_linear=obj.is_linear,
+                    is_convex=obj.is_convex,
+                    is_twice_differentiable=obj.is_twice_differentiable,
+                )
+            )
+    func = f"_alpha + {rho}*({aug_exprs})"
+    scalarization = ScalarizationFunction(
+        name="Differentiable GUESS scalarization objective function for multiple decision makers",
+        symbol=symbol,
+        func=func,
+        is_linear=problem.is_linear,
+        is_convex=problem.is_convex,
+        is_twice_differentiable=problem.is_twice_differentiable,
+    )
+    _problem = problem.add_variables([alpha])
+    _problem = _problem.add_scalarization(scalarization)
+    return _problem.add_constraints(constraints), symbol
+
+def add_group_guess_agg_diff(
+    problem: Problem,
+    symbol: str,
+    agg_aspirations: dict[str, float],
+    agg_bounds: dict[str, float] | None = None,
+    delta: dict[str, float] | float = 1e-6,
+    nadir: dict[str, float] | None = None,
+    rho: float = 1e-6,
+) -> tuple[Problem, str]:
+    r"""Adds the differentiable variant of the multiple decision maker variant of the GUESS scalarizing function.
+
+    Both aggregated aspiration levels (min aspirations) and agg bounds (max bounds) are required.
+    The scalarization function is defined as follows:
+
+    \begin{align}
+        &\mbox{minimize} &&\alpha +
+        \rho \sum^k_{i=1} \sum^{n_d}_{d=1} w_{id}f_{id}(\mathbf{x}) \\
+        &\mbox{subject to} && w_{id}(f_{id}(\mathbf{x})-z^{nad}_{id}) - \alpha \leq 0,\\
+        &&&\mathbf{x} \in \mathbf{X},
+    \end{align}
+
+    where $w_{id} = \frac{1}{z^{nad}_{id} - \overline{z}_{id}}$.
+
+    Args:
+        problem (Problem): the problem the scalarization is added to.
+        symbol (str): the symbol given to the added scalarization.
+        reference_points (list[dict[str, float]]): a list of dicts with keys corresponding to objective
+            function symbols and values to reference point components, i.e.,
+            aspiration levels.
+        nadir (dict[str, float], optional): nadir point values. If not given, attempt will be made
+            to calculate nadir point from problem.
+        agg_bounds dict[str, float]: a dictionary of bounds not to violate.
+        rho (float, optional): a small scalar value to scale the sum in the objective
+            function of the scalarization. Defaults to 1e-6.
+        delta (float, optional): a small scalar to define the utopian point. Defaults to 1e-6.
+
+    Raises:
+        ScalarizationError: there are missing elements in any reference point.
+
+    Returns:
+        tuple[Problem, str]: a tuple with the copy of the problem with the added
+            scalarization and the symbol of the added scalarization.
+    """
+
+    # check if nadir point is specified
+    # if not specified, try to calculate corrected nadir point
+    if nadir is not None:
+        nadir_point = nadir
+    elif problem.get_nadir_point() is not None:
+        nadir_point = get_corrected_nadir(problem)
+    else:
+        msg = "Nadir point not defined!"
+        raise ScalarizationError(msg)
+
+    # define the auxiliary variable
+    alpha = Variable(
+        name="alpha",
+        symbol="_alpha",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=-float("Inf"),
+        upperbound=float("Inf"),
+        initial_value=1.0,
+    )
+
+    # Correct the aspirations and hard_constraints
+    agg_aspirations = flip_maximized_objective_values(problem, agg_aspirations)
+
+    # calculate the weights
+    weights = None
+    if type(delta) is dict:
+        weights = {
+            obj.symbol: 1 / ((nadir_point[obj.symbol] + delta[obj.symbol]) - (agg_aspirations[obj.symbol]))
+            for obj in problem.objectives
+        }
+    else:
+        weights = {
+            obj.symbol: 1 / ((nadir_point[obj.symbol] + delta) - (agg_aspirations[obj.symbol]))
+            for obj in problem.objectives
+        }
+
+    # form the max term
+    con_terms = []
+    for obj in problem.objectives:
+        if type(delta) is dict:
+            con_terms.append(
+                f"{weights[obj.symbol]} * ({obj.symbol}_min - {nadir_point[obj.symbol] + delta[obj.symbol]}) - _alpha"
+            )
+        else:
+            con_terms.append(
+                f"{weights[obj.symbol]} * ({obj.symbol}_min - {nadir_point[obj.symbol] + delta}) - _alpha"
+            )
+
+    # form the augmentation term
+    aug_exprs = []
+    aug_expr = " + ".join([f"({weights[obj.symbol]} * {obj.symbol}_min)" for obj in problem.objectives])
+    aug_exprs.append(aug_expr)
+    aug_exprs = " + ".join(aug_exprs)
+
+    constraints = []
+    # loop to create a constraint for every objective of every reference point given
+    for obj in problem.objectives:
+        expr = (
+            f"({obj.symbol}_min - {nadir_point[obj.symbol]}) / "
+            f"({nadir_point[obj.symbol]} - {agg_aspirations[obj.symbol]}) - _alpha"
+        )
+        constraints.append(
+            Constraint(
+                name=f"Constraint for {obj.symbol}",
+                symbol=f"{obj.symbol}_maxcon",
+                func=expr,
+                cons_type=ConstraintTypeEnum.LTE,
+                is_linear=obj.is_linear,
+                is_convex=obj.is_convex,
+                is_twice_differentiable=obj.is_twice_differentiable,
+            )
+        )
     #  get corrected bounds if exist
     if agg_bounds is not None:
         bounds = flip_maximized_objective_values(problem, agg_bounds)
