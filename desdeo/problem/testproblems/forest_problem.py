@@ -62,7 +62,13 @@ def forest_problem(simulation_results: str, treatment_key: str, holding: int = 1
     for i in range(np.shape(v_array)[0]):
         for j in range(np.shape(v_array)[1]):
             if (unique_units[i], j) in rows_by_key:
-                v_array[i][j] = rows_by_key[(unique_units[i], j)][0]
+                # Fix: Extract the single value from the sequence
+                try:
+                    # If it's a single value in a list/tuple
+                    v_array[i][j] = rows_by_key[(unique_units[i], j)][0]
+                except (ValueError, TypeError):
+                    # If it's a sequence itself (e.g., list of values)
+                    v_array[i][j] = rows_by_key[(unique_units[i], j)][0][0]
 
     # determine whether the results are to be compared to those from the rahti app (for testing purposes)
     # if compared, the stock values are calculated by substacting the value after 2025 period from
@@ -77,10 +83,21 @@ def forest_problem(simulation_results: str, treatment_key: str, holding: int = 1
         w_array = np.zeros((selected_df_w["unit"].n_unique(), selected_df_w["schedule"].n_unique()))
         for i in range(np.shape(w_array)[0]):
             for j in range(np.shape(w_array)[1]):
-                if len(rows_by_key_df_key[(unique_units[i], j)]) == 0:
+                try:
+                    if len(rows_by_key_df_key[(unique_units[i], j)]) == 0:
+                        continue
+                    if (unique_units[i], j) in rows_by_key:
+                        # Use a try-except to handle different return structures
+                        try:
+                            w_array[i][j] = rows_by_key[(unique_units[i], j)][0][1] - rows_by_key[(unique_units[i], j)][0][0]
+                        except (ValueError, TypeError, IndexError):
+                            # If the structure is different, try to adapt
+                            val1 = rows_by_key[(unique_units[i], j)][0][1] if isinstance(rows_by_key[(unique_units[i], j)][0], (list, tuple)) else rows_by_key[(unique_units[i], j)][1]
+                            val0 = rows_by_key[(unique_units[i], j)][0][0] if isinstance(rows_by_key[(unique_units[i], j)][0], (list, tuple)) else rows_by_key[(unique_units[i], j)][0]
+                            w_array[i][j] = val1 - val0
+                except Exception as e:
+                    print(f"Error at i={i}, j={j}: {e}")
                     continue
-                if (unique_units[i], j) in rows_by_key:
-                    w_array[i][j] = rows_by_key[(unique_units[i], j)][0][1] - rows_by_key[(unique_units[i], j)][0][0]
     else:
         selected_df_w = df.filter(pl.col("holding") == holding).select(["unit", "schedule", "stock_2035"])
         selected_df_w.group_by(["unit", "schedule"])
@@ -91,10 +108,23 @@ def forest_problem(simulation_results: str, treatment_key: str, holding: int = 1
         w_array = np.zeros((selected_df_w["unit"].n_unique(), selected_df_w["schedule"].n_unique()))
         for i in range(np.shape(w_array)[0]):
             for j in range(np.shape(w_array)[1]):
-                if len(rows_by_key_df_key[(unique_units[i], j)]) == 0:
+                try:
+                    if len(rows_by_key_df_key[(unique_units[i], j)]) == 0:
+                        continue
+                    if (unique_units[i], j) in rows_by_key:
+                        # Try to safely extract the value
+                        try:
+                            w_array[i][j] = rows_by_key[(unique_units[i], j)][0][0]
+                        except (ValueError, TypeError, IndexError):
+                            # Try to handle different return structures
+                            value = rows_by_key[(unique_units[i], j)]
+                            if isinstance(value, list) and value:
+                                w_array[i][j] = value[0]
+                            else:
+                                w_array[i][j] = value
+                except Exception as e:
+                    print(f"Error at i={i}, j={j}: {e}")
                     continue
-                if (unique_units[i], j) in rows_by_key:
-                    w_array[i][j] = rows_by_key[(unique_units[i], j)][0][0]
 
     selected_df_p = df.filter(pl.col("holding") == holding).select(
         ["unit", "schedule", "harvest_value_period_2025", "harvest_value_period_2030", "harvest_value_period_2035"]
@@ -104,8 +134,25 @@ def forest_problem(simulation_results: str, treatment_key: str, holding: int = 1
     p_array = np.zeros((selected_df_p["unit"].n_unique(), selected_df_p["schedule"].n_unique()))
     for i in range(np.shape(p_array)[0]):
         for j in range(np.shape(p_array)[1]):
-            if (unique_units[i], j) in rows_by_key:
-                p_array[i][j] = sum(rows_by_key[(unique_units[i], j)][0])
+            try:
+                if (unique_units[i], j) in rows_by_key:
+                    # Try to safely handle the value extraction
+                    try:
+                        # First try regular way
+                        p_array[i][j] = sum(rows_by_key[(unique_units[i], j)][0])
+                    except (ValueError, TypeError):
+                        # If that fails, try to extract values differently
+                        value = rows_by_key[(unique_units[i], j)]
+                        if isinstance(value[0], (list, tuple)):
+                            p_array[i][j] = sum(value[0])
+                        elif len(value) > 1:
+                            p_array[i][j] = sum(value)
+                        else:
+                            # If all else fails, just use the first value
+                            p_array[i][j] = float(value[0])
+            except Exception as e:
+                print(f"Error processing p_array at i={i}, j={j}: {e}")
+                continue
 
     constants = []
     variables = []

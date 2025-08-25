@@ -128,8 +128,8 @@ def test_re24():
 def test_forest_problem():
     """Test the forest problem implementation."""
     problem = forest_problem(
-        simulation_results="./tests/data/alternatives_290124.csv",
-        treatment_key="./tests/data/alternatives_key_290124.csv",
+        simulation_results="./data/alternatives_290124.csv",
+        treatment_key="./data/alternatives_key_290124.csv",
         holding=1,
         comparing=True,
     )
@@ -151,8 +151,8 @@ def test_forest_problem():
     assert np.isclose(res.optimal_objectives["f_3"], 36780.631)
 
     problem = forest_problem(
-        simulation_results="./tests/data/alternatives_290124.csv",
-        treatment_key="./tests/data/alternatives_key_290124.csv",
+        simulation_results="./data/alternatives_290124.csv",
+        treatment_key="./data/alternatives_key_290124.csv",
         holding=2,
         comparing=True,
     )
@@ -174,8 +174,8 @@ def test_forest_problem():
     assert np.isclose(res.optimal_objectives["f_3"], 53632.887)
 
     problem = forest_problem(
-        simulation_results="./tests/data/alternatives_290124.csv",
-        treatment_key="./tests/data/alternatives_key_290124.csv",
+        simulation_results="./data/alternatives_290124.csv",
+        treatment_key="./data/alternatives_key_290124.csv",
         holding=3,
         comparing=True,
     )
@@ -197,8 +197,8 @@ def test_forest_problem():
     assert np.isclose(res.optimal_objectives["f_3"], 152149.555)
 
     problem = forest_problem(
-        simulation_results="./tests/data/alternatives_290124.csv",
-        treatment_key="./tests/data/alternatives_key_290124.csv",
+        simulation_results="./data/alternatives_290124.csv",
+        treatment_key="./data/alternatives_key_290124.csv",
         holding=4,
         comparing=True,
     )
@@ -220,8 +220,8 @@ def test_forest_problem():
     assert np.isclose(res.optimal_objectives["f_3"], 122271.740)
 
     problem = forest_problem(
-        simulation_results="./tests/data/alternatives_290124.csv",
-        treatment_key="./tests/data/alternatives_key_290124.csv",
+        simulation_results="./data/alternatives_290124.csv",
+        treatment_key="./data/alternatives_key_290124.csv",
         holding=5,
         comparing=True,
     )
