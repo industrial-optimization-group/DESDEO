@@ -256,6 +256,7 @@ def test_nimbus_solve(client: TestClient):
     # Save some solutions!
     solution_to_be_saved: SolutionAddress = result.current_solutions[0]
 
+    # START by fixing this (remove UserSavedSolutionAddress)
     request = NIMBUSSaveRequest(
         problem_id=1,
         solutions=[

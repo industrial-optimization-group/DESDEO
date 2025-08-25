@@ -16,6 +16,7 @@ from sqlmodel import (
 )
 
 from desdeo.mcdm import ENautilusResult
+from desdeo.problem import VariableType
 from desdeo.tools import SolverResults
 
 from .archive import UserSavedSolutionDB
@@ -118,15 +119,25 @@ class NIMBUSClassificationState(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
 
+    preferences: ReferencePoint = Field(sa_column=Column(PreferenceType))
     scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
     solver: str | None = None
     solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
     current_objectives: dict[str, float] = Field(sa_column=Column(JSON), default_factory=dict)
     num_desired: int | None = 1
-    previous_preference: "ReferencePoint | None" = Field(sa_column=Column(JSON), default=None)
+    previous_preferences: ReferencePoint = Field(sa_column=Column(PreferenceType))
 
     # results
-    solver_results: list["SolverResults"] = Field(sa_column=Column(JSON), default_factory=list)
+    solver_results: list[SolverResults] = Field(sa_column=Column(ResultsType))
+
+    # TODO: elevate this to an interface, common to all states
+    @property
+    def get_objective_values(self) -> list[dict[str, float]]:
+        return [x.optimal_objectives for x in self.solver_results]
+
+    @property
+    def get_variable_values(self) -> list[dict[str, VariableType]]:
+        return [x.optimal_variables for x in self.solver_results]
 
 
 class NIMBUSSaveState(SQLModel, table=True):

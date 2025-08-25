@@ -1,4 +1,4 @@
-""" Defines end-points to access functionalities related to the NIMBUS method."""
+"""Defines end-points to access functionalities related to the NIMBUS method."""
 
 from typing import Annotated
 
@@ -21,8 +21,8 @@ from desdeo.api.models import (
     NIMBUSSaveRequest,
     NIMBUSSaveResponse,
     NIMBUSSaveState,
-    PreferenceDB,
     ProblemDB,
+    ReferencePoint,
     SolutionAddress,
     StateDB,
     User,
@@ -38,10 +38,9 @@ from desdeo.tools import SolverResults
 
 router = APIRouter(prefix="/method/nimbus")
 
-#helper for collecting solutions
-def filter_duplicates(
-    solutions: list[SolutionAddress]
-) -> list[SolutionAddress]:
+
+# helper for collecting solutions
+def filter_duplicates(solutions: list[SolutionAddress]) -> list[SolutionAddress]:
     """Filters out the duplicate values of objectives."""
 
     # No solutions or only one solution. There can not be any duplicates.
@@ -61,7 +60,7 @@ def filter_duplicates(
             # If all values of the objective functions are (nearly) identical, that's a duplicate
             if allclose(valuelists[i], valuelists[j]):  # TODO: "similarity tolerance" from problem metadata
                 duplicate_indices.append(i)
-    
+
     # Quite the memory hell. See If there's a smarter way to do this
     new_solutions = []
     for i in range(len(solutions)):
@@ -70,17 +69,13 @@ def filter_duplicates(
 
     return new_solutions
 
+
 # for collecting solutions for responses in iterate and initialize endpoints
-def collect_saved_solutions(
-    user: User,
-    problem_id: int,
-    session: Session
-) -> list[UserSavedSolutionAddress]:
+def collect_saved_solutions(user: User, problem_id: int, session: Session) -> list[UserSavedSolutionAddress]:
     """Collects all saved solutions for the user and problem."""
     saved_from_db = session.exec(
         select(UserSavedSolutionDB).where(
-            UserSavedSolutionDB.problem_id == problem_id,
-            UserSavedSolutionDB.user_id == user.id
+            UserSavedSolutionDB.problem_id == problem_id, UserSavedSolutionDB.user_id == user.id
         )
     ).all()
 
@@ -97,35 +92,28 @@ def collect_saved_solutions(
 
     return filter_duplicates(saved_solutions)
 
+
 # for collecting solutions for responses in iterate and initialize endpoints
-def collect_all_solutions(
-    user: User,
-    problem_id: int,
-    session: Session
-) -> list[SolutionAddress]:
+def collect_all_solutions(user: User, problem_id: int, session: Session) -> list[SolutionAddress]:
     """Collects all solutions for the user and problem."""
     statement = (
-    select(StateDB)
-    .where(
-    StateDB.problem_id == problem_id,
-    StateDB.session_id == user.active_session_id
-    )
-    .order_by(StateDB.id.desc())
+        select(StateDB)
+        .where(StateDB.problem_id == problem_id, StateDB.session_id == user.active_session_id)
+        .order_by(StateDB.id.desc())
     )
     states = session.exec(statement).all()
     all_solutions = []
     for state in states:
-        if state.state is not None and hasattr(state.state, 'solver_results'):
+        if state.state is not None and hasattr(state.state, "solver_results"):
             for i, result in enumerate(state.state.solver_results):
                 all_solutions.append(
                     SolutionAddress(
-                        objective_values=result.optimal_objectives,
-                        address_state=state.id,
-                        address_result=i
+                        objective_values=result.optimal_objectives, address_state=state.id, address_result=i
                     )
                 )
 
     return filter_duplicates(all_solutions)
+
 
 @router.post("/solve")
 def solve_solutions(
@@ -161,22 +149,6 @@ def solve_solutions(
 
     problem = Problem.from_problemdb(problem_db)
 
-    solver_results: list[SolverResults] = solve_sub_problems(
-        problem=problem,
-        current_objectives=request.current_objectives,
-        reference_point=request.preference.aspiration_levels,
-        num_desired=request.num_desired,
-        scalarization_options=request.scalarization_options,
-        solver=request.solver,
-        solver_options=request.solver_options,
-    )
-    # create a new preference in the DB
-    preference_db = PreferenceDB(user_id=user.id, problem_id=problem_db.id, preference=request.preference)
-
-    session.add(preference_db)
-    session.commit()
-    session.refresh(preference_db)
-
     # fetch parent state
     if request.parent_state_id is None:
         # parent state is assumed to be the last state added to the session.
@@ -196,20 +168,31 @@ def solve_solutions(
                 status_code=status.HTTP_404_NOT_FOUND, detail=f"Could not find state with id={request.parent_state_id}"
             )
 
+    solver_results: list[SolverResults] = solve_sub_problems(
+        problem=problem,
+        current_objectives=request.current_objectives,
+        reference_point=request.preference.aspiration_levels,
+        num_desired=request.num_desired,
+        scalarization_options=request.scalarization_options,
+        solver=request.solver,
+        solver_options=request.solver_options,
+    )
+
     nimbus_state = NIMBUSClassificationState(
+        preferences=request.preference,
         scalarization_options=request.scalarization_options,
         solver=request.solver,
         solver_options=request.solver_options,
         solver_results=solver_results,
         current_objectives=request.current_objectives,
         num_desired=request.num_desired,
-        previous_preference=request.preference,
+        previous_preferences=request.preference,  # why?
     )
 
     # create DB state and add it to the DB
-    state = StateDB(
+    state = StateDB.create(
+        database_session=session,
         problem_id=problem_db.id,
-        preference_id=preference_db.id,
         session_id=interactive_session.id if interactive_session is not None else None,
         parent_id=parent_state.id if parent_state is not None else None,
         state=nimbus_state,
@@ -223,15 +206,10 @@ def solve_solutions(
     current_solutions: list[SolutionAddress] = []
     for i, result in enumerate(solver_results):
         current_solutions.append(
-            SolutionAddress(
-                objective_values=result.optimal_objectives,
-                address_state=state.id,
-                address_result=i
-            )
+            SolutionAddress(objective_values=result.optimal_objectives, address_state=state.id, address_result=i)
         )
     saved_solutions = collect_saved_solutions(user, request.problem_id, session)
     all_solutions = collect_all_solutions(user, request.problem_id, session)
-    # all_solutions = collect_all_solutions(state)
 
     return NIMBUSClassificationResponse(
         state_id=state.id,
@@ -239,10 +217,8 @@ def solve_solutions(
         previous_objectives=request.current_objectives,
         current_solutions=current_solutions,
         saved_solutions=saved_solutions,
-        all_solutions=all_solutions
+        all_solutions=all_solutions,
     )
-
-
 
 
 @router.post("/initialize")
@@ -285,23 +261,25 @@ def initialize(
         .where(
             StateDB.problem_id == problem_db.id,
             StateDB.session_id == (interactive_session.id if interactive_session is not None else None),
+        )
+        .where(
+            or_(
+                # Normal NIMBUS states
+                and_(
+                    StateDB.state["method"] == "nimbus",
+                    or_(
+                        StateDB.state["phase"] == "solve_candidates",
+                        StateDB.state["phase"] == "initialize",
+                    ),
+                ),
+                # Generic states with NIMBUS context
+                and_(
+                    StateDB.state["method"] == "generic",
+                    StateDB.state["context"] == "nimbus",
+                    StateDB.state["phase"] == "solve_intermediate",
+                ),
             )
-        .where(or_(
-            # Normal NIMBUS states
-            and_(
-                StateDB.state["method"] == "nimbus",
-                or_(
-                    StateDB.state["phase"] == "solve_candidates",
-                    StateDB.state["phase"] == "initialize",
-                )
-            ),
-            # Generic states with NIMBUS context
-            and_(
-                StateDB.state["method"] == "generic",
-                StateDB.state["context"] == "nimbus",
-                StateDB.state["phase"] == "solve_intermediate"
-            )
-        ))
+        )
         .order_by(StateDB.id.desc())
     )
     state = session.exec(statement).first()
@@ -319,9 +297,7 @@ def initialize(
             for i, result in enumerate(intermediate_state.solver_results):
                 current_solutions.append(
                     SolutionAddress(
-                        objective_values=result.optimal_objectives,
-                        address_state=state.id,
-                        address_result=i
+                        objective_values=result.optimal_objectives, address_state=state.id, address_result=i
                     )
                 )
             # Return intermediate solution response
@@ -331,7 +307,7 @@ def initialize(
                 reference_solution_2=intermediate_state.reference_solution_2,
                 current_solutions=current_solutions,
                 saved_solutions=saved_solutions,
-                all_solutions=all_solutions
+                all_solutions=all_solutions,
             )
         # Handle NIMBUS-specific states
         nimbus_state: NIMBUSClassificationState | NIMBUSInitializationState = state.state
@@ -339,34 +315,30 @@ def initialize(
         current_solutions: list[SolutionAddress] = []
         for i, result in enumerate(nimbus_state.solver_results):
             current_solutions.append(
-                SolutionAddress(
-                    objective_values=result.optimal_objectives,
-                    address_state=state.id,
-                    address_result=i
-                )
+                SolutionAddress(objective_values=result.optimal_objectives, address_state=state.id, address_result=i)
             )
         # Check if we have a classification state by checking for previous_preference attribute
-        if hasattr(nimbus_state, 'previous_preference'):
+        if hasattr(nimbus_state, "previous_preference"):
             return NIMBUSClassificationResponse(
                 state_id=state.id,
                 previous_preference=nimbus_state.previous_preference,
                 previous_objectives=nimbus_state.current_objectives,
                 current_solutions=current_solutions,
                 saved_solutions=saved_solutions,
-                all_solutions=all_solutions
+                all_solutions=all_solutions,
             )
 
         return NIMBUSInitializationResponse(
             state_id=state.id,
             current_solutions=current_solutions,
             saved_solutions=saved_solutions,
-            all_solutions=all_solutions
+            all_solutions=all_solutions,
         )
     # if there is no last nimbus state, generate a starting point and create an initialization state
     start_result = generate_starting_point(
-                problem=problem,
-                solver=request.solver,
-            )
+        problem=problem,
+        solver=request.solver,
+    )
     # fetch parent state if it is given
     if request.parent_state_id is None:
         parent_state = None
@@ -400,11 +372,7 @@ def initialize(
     current_solutions: list[SolutionAddress] = []
     for i, result in enumerate(nimbus_state.solver_results):
         current_solutions.append(
-            SolutionAddress(
-                objective_values=result.optimal_objectives,
-                address_state=state.id,
-                address_result=i
-            )
+            SolutionAddress(objective_values=result.optimal_objectives, address_state=state.id, address_result=i)
         )
     # There are no saved solutions, since this is the first state
     saved_solutions = []
@@ -414,8 +382,9 @@ def initialize(
         state_id=state.id,
         current_solutions=current_solutions,
         saved_solutions=saved_solutions,
-        all_solutions=all_solutions
+        all_solutions=all_solutions,
     )
+
 
 @router.post("/save")
 def save(
@@ -485,9 +454,7 @@ def save(
         session.commit()
 
     # save solver results for state in SolverResults format just for consistency (dont save name field to state)
-    save_state = NIMBUSSaveState(
-        solution_addresses=[solution.to_solution_address() for solution in request.solutions]
-    )
+    save_state = NIMBUSSaveState(solution_addresses=[solution.to_solution_address() for solution in request.solutions])
 
     # create DB state
     state = StateDB(
@@ -505,9 +472,7 @@ def save(
         session.commit()
         session.refresh(state)
 
-    return NIMBUSSaveResponse(
-        state_id = state.id
-    )
+    return NIMBUSSaveResponse(state_id=state.id)
 
 
 @router.post("/intermediate")
@@ -520,20 +485,12 @@ def solve_nimbus_intermediate(
     # Add NIMBUS context to request
     request.context = "nimbus"
     # Forward to generic endpoint
-    intermediate_state, state_id = solve_intermediate(
-        request,
-        user,
-        session
-        )
+    intermediate_state, state_id = solve_intermediate(request, user, session)
 
     current_solutions: list[SolutionAddress] = []
     for i, result in enumerate(intermediate_state.solver_results):
         current_solutions.append(
-            SolutionAddress(
-                objective_values=result.optimal_objectives,
-                address_state=state_id,
-                address_result=i
-            )
+            SolutionAddress(objective_values=result.optimal_objectives, address_state=state_id, address_result=i)
         )
     # Get saved solutions for this user and problem
     saved_solutions = collect_saved_solutions(user, request.problem_id, session)
@@ -546,5 +503,5 @@ def solve_nimbus_intermediate(
         reference_solution_2=intermediate_state.reference_solution_2,
         current_solutions=current_solutions,
         saved_solutions=saved_solutions,
-        all_solutions=all_solutions
+        all_solutions=all_solutions,
     )
