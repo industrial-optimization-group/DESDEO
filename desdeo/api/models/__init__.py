@@ -74,7 +74,7 @@ __all__ = [  # noqa: RUF022
 ]
 
 
-from .archive import SolutionAddress, UserSavedEMOResults, UserSavedSolutionAddress, UserSavedSolutionDB
+from .archive import UserSavedEMOResults
 from .EMO import EMOSaveRequest, EMOSolveRequest
 from .generic import IntermediateSolutionRequest, IntermediateSolutionResponse
 from .nimbus import (
@@ -131,7 +131,12 @@ from .state import (
     NIMBUSInitializationState,
     NIMBUSSaveState,
     RPMState,
+)
+from .state_table import (
+    SolutionAddress,
     StateDB,
+    UserSavedSolutionAddress,
+    UserSavedSolutionDB,
 )
 from .user import User, UserBase, UserPublic, UserRole
 from .utopia import UtopiaRequest, UtopiaResponse

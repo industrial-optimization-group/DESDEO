@@ -11,8 +11,6 @@ from desdeo.api.models.preference import (
     PreferredSolutions,
     ReferencePoint,
 )
-from desdeo.api.models.session import InteractiveSessionDB
-from desdeo.api.models.state import StateDB
 
 
 class EMOSolveRequest(SQLModel):

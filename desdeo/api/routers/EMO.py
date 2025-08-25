@@ -25,7 +25,8 @@ from desdeo.api.models.preference import (
 )
 from desdeo.api.models.problem import ProblemDB
 from desdeo.api.models.session import InteractiveSessionDB
-from desdeo.api.models.state import EMOSaveState, EMOState, StateDB
+from desdeo.api.models.state import EMOSaveState, EMOState
+from desdeo.api.models.state_table import StateDB
 from desdeo.api.models.user import User
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.api.utils.database import user_save_solutions

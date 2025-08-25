@@ -30,7 +30,7 @@ from desdeo.api.models import (
     UserSavedSolutionDB,
     VariableDB,
 )
-from desdeo.api.models.archive import SolutionAddress
+from desdeo.api.models.state_table import SolutionAddress
 from desdeo.mcdm import enautilus_step, rpm_solve_solutions
 from desdeo.problem.schema import (
     Constant,

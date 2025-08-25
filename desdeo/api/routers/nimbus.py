@@ -205,9 +205,7 @@ def solve_solutions(
     # Collect all current solutions
     current_solutions: list[SolutionAddress] = []
     for i, result in enumerate(solver_results):
-        current_solutions.append(
-            SolutionAddress(objective_values=result.optimal_objectives, address_state=state.id, address_result=i)
-        )
+        current_solutions.append(SolutionAddress(state=state, solution_index=i))
     saved_solutions = collect_saved_solutions(user, request.problem_id, session)
     all_solutions = collect_all_solutions(user, request.problem_id, session)
 

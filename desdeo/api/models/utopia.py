@@ -2,7 +2,7 @@
 
 from typing import Any
 from sqlmodel import SQLModel, Field
-from desdeo.api.models.archive import SolutionAddress
+from .state_table import SolutionAddress
 
 
 class UtopiaRequest(SQLModel):
@@ -10,6 +10,7 @@ class UtopiaRequest(SQLModel):
 
     problem_id: int = Field(description="Problem for which the map is generated")
     solution: SolutionAddress = Field(description="Solution for which to generate the map")
+
 
 class UtopiaResponse(SQLModel):
     """The response to an UtopiaRequest."""

@@ -2,8 +2,7 @@
 
 from sqlmodel import Session
 
-from desdeo.api.models.archive import UserSavedSolutionDB, UserSavedSolutionAddress
-from desdeo.api.models.state import StateDB
+from desdeo.api.models.state_table import UserSavedSolutionDB, UserSavedSolutionAddress, StateDB
 
 
 def user_save_solutions(

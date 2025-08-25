@@ -24,7 +24,7 @@ from desdeo.api.models import (
     User,
     UserSavedEMOResults,
 )
-from desdeo.api.models.archive import SolutionAddress, UserSavedSolutionAddress
+from desdeo.api.models.state_table import SolutionAddress, UserSavedSolutionAddress
 from desdeo.api.models.generic import (
     IntermediateSolutionRequest,
     IntermediateSolutionResponse,
