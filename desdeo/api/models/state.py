@@ -4,6 +4,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.orm import object_session
+from sqlalchemy.types import TypeDecorator
 from sqlmodel import (
     JSON,
     Column,
@@ -15,15 +16,46 @@ from sqlmodel import (
 )
 
 from .archive import UserSavedSolutionDB
+from .preference import PreferenceType, ReferencePoint
+from desdeo.tools import SolverResults
 
 if TYPE_CHECKING:
     from desdeo.mcdm import ENautilusResult
-    from desdeo.tools import SolverResults
     from desdeo.tools.generics import EMOResults
 
-    from .preference import ReferencePoint
     from .problem import ProblemDB
     from .session import InteractiveSessionDB
+
+
+class SolverResultsType(TypeDecorator):
+    """SQLAlchemy custom type to convert a `SolverResults` to JSON and back."""
+
+    impl = JSON
+
+    def process_bind_param(self, value, dialect):
+        """`SolverResults` to JSON."""
+        if value is None:
+            return None
+
+        if isinstance(value, list):
+            return [x.model_dump() if hasattr(x, "model_dump") else x for x in value]
+
+        if hasattr(value, "model_dump"):
+            return value.model_dump()
+
+        msg = f"No JSON serialization set for '{type(value)}'."
+        print(msg)
+
+        return value
+
+    def process_result_value(self, value, dialect):
+        """JSON to `SolverResults`."""
+        if value is None:
+            return None
+        if isinstance(value, list):
+            return [SolverResults.model_validate(x) for x in value]
+
+        return SolverResults.model_validate(value)
 
 
 class StateKind(str, Enum):
@@ -64,12 +96,13 @@ class RPMState(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
 
     # inputs
+    preferences: ReferencePoint = Field(sa_column=Column(PreferenceType))
     scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
     solver: str | None = None
     solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
 
     # results
-    solver_results: list["SolverResults"] = Field(sa_column=Column(JSON), default_factory=list)
+    solver_results: list[SolverResults] = Field(sa_column=Column(SolverResultsType))
 
 
 class NIMBUSClassificationState(SQLModel, table=True):
@@ -227,10 +260,6 @@ class StateDB(SQLModel, table=True):
     )
 
     session: "InteractiveSessionDB" = Relationship(back_populates="states")
-    # saved_solutions: list["UserSavedSolutionDB"] | None = Relationship(
-    #    back_populates="state", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
-    # )
-    # preference: "PreferenceDB" = Relationship()
     problem: "ProblemDB" = Relationship()
 
     @classmethod
@@ -239,7 +268,6 @@ class StateDB(SQLModel, table=True):
         database_session: Session,
         *,
         problem_id: int | None = None,
-        preference_id: int | None = None,
         session_id: int | None = None,
         parent_id: int | None = None,
         state: SQLModel | None = None,
@@ -261,7 +289,6 @@ class StateDB(SQLModel, table=True):
 
         row = cls(
             problem_id=problem_id,
-            preference_id=preference_id,
             session_id=session_id,
             parent_id=parent_id,
             base_state=base,
