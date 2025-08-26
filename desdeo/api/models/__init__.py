@@ -1,8 +1,8 @@
 """Model exports."""
 
-
-__all__ = [
+__all__ = [  # noqa: RUF022
     "UserSavedSolutionDB",
+    "BaseEMOState",
     "Bounds",
     "ConstantDB",
     "ConstraintDB",
@@ -11,6 +11,7 @@ __all__ = [
     "EMOSaveState",
     "EMOSolveRequest",
     "EMOState",
+    "ENautilusState",
     "ExtraFunctionDB",
     "ForestProblemMetaData",
     "GetSessionRequest",
@@ -65,9 +66,10 @@ __all__ = [
     "PreferedSolutions",
     "NonPreferredSolutions",
     "EMOSaveState",
+    "EMOSaveRequest",
     "EMOState",
-    "BaseEMOState",
     "SolutionAddress",
+    "UserSavedEMOResults",
     "UserSavedSolutionAddress",
     "UtopiaRequest",
     "UtopiaResponse",
@@ -75,10 +77,9 @@ __all__ = [
 ]
 
 
-from .archive import SolutionAddress, UserSavedSolutionAddress, UserSavedSolutionDB
-from .EMO import EMOSolveRequest
+from .archive import SolutionAddress, UserSavedEMOResults, UserSavedSolutionAddress, UserSavedSolutionDB
+from .EMO import EMOSaveRequest, EMOSolveRequest
 from .generic import IntermediateSolutionRequest, IntermediateSolutionResponse
-
 from .nimbus import (
     NIMBUSClassificationRequest,
     NIMBUSClassificationResponse,
@@ -90,14 +91,13 @@ from .nimbus import (
 from .preference import (
     Bounds,
     NonPreferredSolutions,
-    PreferredSolutions,
     PreferenceBase,
     PreferenceDB,
     PreferredRanges,
+    PreferredSolutions,
     ReferencePoint,
 )
 from .problem import (
-    BaseProblemMetaData,
     ConstantDB,
     ConstraintDB,
     DiscreteRepresentationDB,
@@ -110,6 +110,7 @@ from .problem import (
     ProblemInfoSmall,
     ProblemMetaDataDB,
     ProblemMetaDataGetRequest,
+    RepresentativeNonDominatedSolutions,
     ScalarizationFunctionDB,
     SimulatorDB,
     TensorConstantDB,
@@ -128,6 +129,7 @@ from .state import (
     BaseEMOState,
     EMOSaveState,
     EMOState,
+    ENautilusState,
     IntermediateSolutionState,
     NIMBUSBaseState,
     NIMBUSClassificationState,

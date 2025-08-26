@@ -11,6 +11,7 @@ Warning:
     super().do method to increment the generation counter _before_ conducting the termination check.
 """
 
+from abc import abstractmethod
 from collections.abc import Sequence
 
 from desdeo.tools.message import (
@@ -20,7 +21,7 @@ from desdeo.tools.message import (
     Message,
     TerminatorMessageTopics,
 )
-from desdeo.tools.patterns import Subscriber, Publisher
+from desdeo.tools.patterns import Publisher, Subscriber
 
 
 class BaseTerminator(Subscriber):
@@ -60,13 +61,14 @@ class BaseTerminator(Subscriber):
         self.max_generations: int = 0
         self.max_evaluations: int = 0
 
-    def check(self) -> bool | None:
+    def check(self) -> bool:
         """Check if the termination criterion is reached.
 
         Returns:
             bool: True if the termination criterion is reached, False otherwise.
         """
         self.current_generation += 1
+        self.notify()
 
     def state(self) -> Sequence[Message]:
         """Return the state of the termination criterion."""
@@ -109,7 +111,7 @@ class BaseTerminator(Subscriber):
         """
         if not isinstance(message, IntMessage):
             return
-        if not isinstance(message.topic, EvaluatorMessageTopics) or isinstance(message.topic, GeneratorMessageTopics):
+        if not (isinstance(message.topic, EvaluatorMessageTopics) or isinstance(message.topic, GeneratorMessageTopics)):
             return
         if (
             message.topic == EvaluatorMessageTopics.NEW_EVALUATIONS  # NOQA: PLR1714
@@ -167,7 +169,10 @@ class MaxEvaluationsTerminator(BaseTerminator):
         self.current_evaluations = 0
 
     def check(self) -> bool:
-        """Check if the termination criterion based on the number of evaluations is reached.
+        """Check if the termination criterion based on the number of generations is reached.
+
+        Args:
+            new_generation (bool, optional): Increment the generation counter. Defaults to True.
 
         Returns:
             bool: True if the termination criterion is reached, False otherwise.
@@ -175,3 +180,67 @@ class MaxEvaluationsTerminator(BaseTerminator):
         super().check()
         self.notify()
         return self.current_evaluations >= self.max_evaluations
+
+
+class CompositeTerminator(BaseTerminator):
+    """Combines multiple terminators using logical AND or OR."""
+
+    def __init__(self, terminators: list[BaseTerminator], publisher: Publisher, mode: str = "any"):
+        """Initialize a composite termination criterion.
+
+        Args:
+            terminators (list[BaseTerminator]): List of BaseTerminator instances.
+            publisher (Publisher): Publisher for passing messages.
+            mode (str): "any" (terminate if any) or "all" (terminate if all). By default, "any".
+        """
+        super().__init__(publisher=publisher)
+        self.terminators = terminators
+        for t in self.terminators:
+            t.notify = lambda: None  # Reset the notify method so that individual terminators do not send notifications
+        types = [type(t) for t in self.terminators]
+        # Assert that all terminators are unique
+        if len(types) != len(set(types)):
+            raise ValueError("All terminators must be unique.")
+        max_generations = [t.max_generations for t in self.terminators if isinstance(t, MaxGenerationsTerminator)]
+        if max_generations:
+            self.max_generations = max(max_generations)
+        max_evaluations = [t.max_evaluations for t in self.terminators if isinstance(t, MaxEvaluationsTerminator)]
+        if max_evaluations:
+            self.max_evaluations = max(max_evaluations)
+        self.mode = mode
+
+    def check(self) -> bool:
+        """Check if the termination criterion is reached.
+
+        Returns:
+            bool: True if the termination criterion is reached, False otherwise.
+        """
+        super().check()
+        results = [t.check() for t in self.terminators]
+        if self.mode == "all":
+            return all(results)
+        return any(results)
+
+
+class ExternalCheckTerminator(BaseTerminator):
+    """A termination criterion that checks an external condition."""
+
+    def __init__(self, check_function, publisher: Publisher):
+        """Initialize the external check terminator.
+
+        Args:
+            check_function (callable): A function that returns True if the termination condition is met.
+            publisher (Publisher): The publisher to send messages to.
+        """
+        super().__init__(publisher=publisher)
+        self.check_function = check_function
+
+    def check(self) -> bool:
+        """Check if the termination condition is met.
+
+        Returns:
+            bool: True if the termination condition is met, False otherwise.
+        """
+        super().check()
+        self.notify()
+        return self.check_function()

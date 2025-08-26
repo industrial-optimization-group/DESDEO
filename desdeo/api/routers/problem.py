@@ -2,18 +2,20 @@
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session, select
 
 from desdeo.api.db import get_session
 from desdeo.api.models import (
+    ForestProblemMetaData,
     ProblemDB,
     ProblemGetRequest,
     ProblemInfo,
     ProblemInfoSmall,
+    ProblemMetaDataGetRequest,
+    RepresentativeNonDominatedSolutions,
     User,
     UserRole,
-    ProblemMetaDataGetRequest,
 )
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.problem import Problem
@@ -130,25 +132,35 @@ def get_metadata(
     request: ProblemMetaDataGetRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
-) -> list[Any]:
-    """Fetch specific metadata for a specific problem. See all the possible metadata types from DESDEO/desdeo/api/models/problem.py Problem Metadata section.
+) -> list[ForestProblemMetaData | RepresentativeNonDominatedSolutions]:
+    """Fetch specific metadata for a specific problem.
+
+    Fetch specific metadata for a specific problem. See all the possible
+    metadata types from DESDEO/desdeo/api/models/problem.py Problem Metadata
+    section.
 
     Args:
-        request (MetaDataGetRequest): requesting certain problem's certain metadata
-        user (Annotated[User, Depends]): the current user
-        session (Annotated[Session, Depends]): the database session
+        request (MetaDataGetRequest): the requested metadata type.
+        user (Annotated[User, Depends]): the current user.
+        session (Annotated[Session, Depends]): the database session.
 
     Returns:
-        list[Any] | None: list of all forest metadata for this problem, or nothing if there's nothing
+        list[ForestProblemMetadata | RepresentativeNonDominatedSolutions]: list containing all the metadata
+            defined for the problem with the requested metadata type. If no match is found,
+            returns an empty list.
     """
     statement = select(ProblemDB).where(ProblemDB.id == request.problem_id)
     problem_from_db = session.exec(statement).first()
-    if problem_from_db == None:
+    if problem_from_db is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Problem with ID {request.problem_id} not found!"
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Problem with ID {request.problem_id} not found!"
         )
+
     problem_metadata = problem_from_db.problem_metadata
-    if problem_metadata == None:
+
+    if problem_metadata is None:
+        # no metadata define for the problem
         return []
-    return [metadata for metadata in problem_metadata.data if metadata.metadata_type == request.metadata_type]
+
+    # metadata is defined, try to find matching types based on request
+    return [metadata for metadata in problem_metadata.all_metadata if metadata.metadata_type == request.metadata_type]

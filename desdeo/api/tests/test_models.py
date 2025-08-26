@@ -1,5 +1,7 @@
 """Tests related to the SQLModels."""
 
+import numpy as np
+import polars as pl
 from sqlmodel import Session, select
 
 from desdeo.api.models import (
@@ -7,6 +9,7 @@ from desdeo.api.models import (
     ConstantDB,
     ConstraintDB,
     DiscreteRepresentationDB,
+    ENautilusState,
     ExtraFunctionDB,
     ForestProblemMetaData,
     InteractiveSessionDB,
@@ -31,7 +34,7 @@ from desdeo.api.models import (
 from desdeo.api.models.archive import SolutionAddress
 
 from desdeo.api.routers.nimbus import user_save_solutions
-from desdeo.mcdm import rpm_solve_solutions
+from desdeo.mcdm import enautilus_step, rpm_solve_solutions
 from desdeo.problem.schema import (
     Constant,
     Constraint,
@@ -777,33 +780,41 @@ def test_problem_metadata(session_and_user: dict[str, Session | list[User]]):
     representative_name = "Test solutions"
     representative_description = "These solutions are used for testing"
     representative_variables = {"x_1": [1.1, 2.2, 3.3], "x_2": [-1.1, -2.2, -3.3]}
-    representative_objectives = {"f_1": [0.1, 0.5, 0.9], "f_2": [-0.1, 0.2, 199.2]}
+    representative_objectives = {"f_1": [0.1, 0.5, 0.9], "f_2": [-0.1, 0.2, 199.2], "f_1_min": [], "f_2_min": []}
+    solution_data = representative_variables | representative_objectives
     representative_ideal = {"f_1": 0.1, "f_2": -0.1}
     representative_nadir = {"f_1": 0.9, "f_2": 199.2}
 
     metadata = ProblemMetaDataDB(
         problem_id=problem.id,
-        data=[
-            ForestProblemMetaData(
-                map_json="type: string",
-                schedule_dict={"type": "dict"},
-                years=["type:", "list", "of", "strings"],
-                stand_id_field="type: string",
-            ),
-            RepresentativeNonDominatedSolutions(
-                name=representative_name,
-                description=representative_description,
-                variable_values=representative_variables,
-                objective_values=representative_objectives,
-                ideal=representative_ideal,
-                nadir=representative_nadir,
-            ),
-        ],
     )
 
     session.add(metadata)
     session.commit()
     session.refresh(metadata)
+
+    forest_metadata = ForestProblemMetaData(
+        metadata_id=metadata.id,
+        map_json="type: string",
+        schedule_dict={"type": "dict"},
+        years=["type:", "list", "of", "strings"],
+        stand_id_field="type: string",
+    )
+
+    repr_metadata = RepresentativeNonDominatedSolutions(
+        metadata_id=metadata.id,
+        name=representative_name,
+        description=representative_description,
+        solution_data=solution_data,
+        ideal=representative_ideal,
+        nadir=representative_nadir,
+    )
+
+    session.add(forest_metadata)
+    session.add(repr_metadata)
+    session.commit()
+    session.refresh(forest_metadata)
+    session.refresh(repr_metadata)
 
     statement = select(ProblemMetaDataDB).where(ProblemMetaDataDB.problem_id == problem.id)
     from_db_metadata = session.exec(statement).first()
@@ -811,21 +822,172 @@ def test_problem_metadata(session_and_user: dict[str, Session | list[User]]):
     assert from_db_metadata.id is not None
     assert from_db_metadata.problem_id == problem.id
 
-    metadata_forest = from_db_metadata.data[0]
+    metadata_forest = from_db_metadata.forest_metadata[0]
 
-    assert metadata_forest.metadata_type == "forest_problem_metadata"
+    assert isinstance(metadata_forest, ForestProblemMetaData)
     assert metadata_forest.map_json == "type: string"
     assert metadata_forest.schedule_dict == {"type": "dict"}
     assert metadata_forest.years == ["type:", "list", "of", "strings"]
     assert metadata_forest.stand_id_field == "type: string"
 
-    metadata_representative = from_db_metadata.data[1]
+    metadata_representative = from_db_metadata.representative_nd_metadata[0]
 
-    assert metadata_representative.metadata_type == "representative_non_dominated_solutions"
+    assert isinstance(metadata_representative, RepresentativeNonDominatedSolutions)
     assert metadata_representative.name == representative_name
-    assert metadata_representative.variable_values == representative_variables
-    assert metadata_representative.objective_values == representative_objectives
+    assert metadata_representative.solution_data == solution_data
     assert metadata_representative.ideal == representative_ideal
     assert metadata_representative.nadir == representative_nadir
 
     assert problem.problem_metadata == from_db_metadata
+
+
+def test_enautilus_state(session_and_user: dict[str, Session | list[User]]):
+    """Test the E-NAUTILUS state that it works correctly."""
+    session = session_and_user["session"]
+    user = session_and_user["user"]
+
+    # create interactive session
+    isession = InteractiveSessionDB(user_id=user.id)
+
+    session.add(isession)
+    session.commit()
+    session.refresh(isession)
+
+    # use dummy problem
+    dummy_problem = Problem(
+        name="Synthetic-4D",
+        description="Unit-test Problem for E-NAUTILUS",
+        variables=[Variable(name="x", symbol="x", variable_type=VariableTypeEnum.real)],
+        objectives=[
+            Objective(name="f1", symbol="f1", maximize=False),
+            Objective(name="f2", symbol="f2", maximize=True),
+            Objective(name="f3", symbol="f3", maximize=False),
+            Objective(name="f4", symbol="f4", maximize=True),
+        ],
+    )
+
+    x = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0])
+    f1 = np.array([0.40, 0.60, 0.50, 0.70, 0.45, 0.55, 0.65, 0.48])
+    f2 = np.array([4.00, 3.80, 4.10, 3.70, 4.05, 3.90, 3.60, 4.20])
+    f3 = np.array([1.00, 1.30, 1.10, 1.40, 1.05, 1.20, 1.35, 1.15])
+    f4 = np.array([2.50, 2.30, 2.60, 2.20, 2.55, 2.40, 2.10, 2.65])
+
+    nadir = {"f1": np.max(f1), "f2": np.min(f2), "f3": np.max(f3), "f4": np.min(f4)}
+    ideal = {"f1": np.min(f1), "f2": np.max(f2), "f3": np.min(f3), "f4": np.max(f4)}
+
+    non_dom_data = {
+        "x": x.tolist(),
+        "f1": f1.tolist(),
+        "f1_min": f1.tolist(),
+        "f2": f2.tolist(),
+        "f2_min": (-f2).tolist(),
+        "f3": f3.tolist(),
+        "f3_min": f3.tolist(),
+        "f4": f4.tolist(),
+        "f4_min": (-f4).tolist(),
+    }
+
+    # add problem to DB and refresh it
+    problemdb = ProblemDB.from_problem(dummy_problem, user)
+
+    session.add(problemdb)
+    session.commit()
+    session.refresh(problemdb)
+
+    metadata = ProblemMetaDataDB(
+        problem_id=problemdb.id,
+    )
+
+    # add metadata to DB
+    session.add(metadata)
+    session.commit()
+    session.refresh(metadata)
+
+    reprdata = RepresentativeNonDominatedSolutions(
+        metadata_id=metadata.id,
+        name="Dummy data",
+        description="Dummy data for a problem",
+        solution_data=non_dom_data,
+        ideal=ideal,
+        nadir=nadir,
+    )
+
+    # add reprdata to DB
+    session.add(reprdata)
+    session.commit()
+    session.refresh(reprdata)
+
+    # test the nautilus step state
+    # first iteration
+    selected_point = nadir
+    reachable_indices = list(range(len(x)))  # entire front reachable
+
+    total_iters = 2  # DM first thinks 2 iterations are enough
+    n_points = 3  # DM wants to see 3 points at first
+    current = 0
+
+    res = enautilus_step(
+        problem=dummy_problem,
+        non_dominated_points=non_dom_data,
+        current_iteration=current,
+        iterations_left=total_iters - current,
+        selected_point=selected_point,
+        reachable_point_indices=reachable_indices,
+        number_of_intermediate_points=n_points,
+    )
+
+    # First iteration
+    enautilus_state = ENautilusState(
+        non_dominated_points_id=reprdata.id,
+        current_iteration=current,
+        iterations_left=total_iters - current,
+        selected_point=selected_point,
+        reachable_point_indices=reachable_indices,
+        number_of_intermediate_points=n_points,
+        enautilus_results=res,
+    )
+
+    state_1 = StateDB(
+        problem_id=problemdb.id,
+        preference_id=None,
+        session_id=isession.id,
+        parent_id=None,
+        state=enautilus_state,
+    )
+
+    session.add(state_1)
+    session.commit()
+    session.refresh(state_1)
+
+    # Second iteration
+    res_2 = enautilus_step(
+        problem=dummy_problem,
+        non_dominated_points=non_dom_data,
+        current_iteration=res.current_iteration,
+        iterations_left=res.iterations_left,
+        selected_point=res.intermediate_points[0],
+        reachable_point_indices=res.reachable_point_indices[0],
+        number_of_intermediate_points=n_points,
+    )
+
+    enautilus_state_2 = ENautilusState(
+        non_dominated_points_id=reprdata.id,
+        current_iteration=res.current_iteration,
+        iterations_left=res.iterations_left,
+        selected_point=res.intermediate_points[0],
+        reachable_point_indices=res.reachable_point_indices[0],
+        number_of_intermediate_points=n_points,
+        enautilus_results=res_2,
+    )
+
+    state_2 = StateDB(
+        problem_id=problemdb.id,
+        preference_id=None,
+        session_id=isession.id,
+        parent_id=state_1.id,
+        state=enautilus_state_2,
+    )
+
+    session.add(state_2)
+    session.commit()
+    session.refresh(state_2)

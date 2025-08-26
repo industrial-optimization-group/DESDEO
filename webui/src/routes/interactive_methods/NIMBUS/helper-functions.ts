@@ -1,5 +1,17 @@
+/**
+ * NIMBUS Helper Functions
+ * 
+ * This file contains utility functions for the UI of NIMBUS interactive multiobjective optimization method.
+ * These functions handle common operations like data transformation, validation, API calls, and
+ * visualization data preparation.
+ * 
+ * @author Stina <palomakistina@gmail.com>
+ * @created August 2025
+ */
+
 import type { components } from '$lib/api/client-types';
 
+// Type definitions for NIMBUS components
 type ProblemInfo = components['schemas']['ProblemInfo'];
 type Solution = components['schemas']['UserSavedSolutionAddress'];
 

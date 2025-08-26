@@ -14,9 +14,12 @@
 	import {
 		calculateClassification,
 		type PreferenceValue,
-		formatNumber
+		formatNumber,
+
+		getDisplayAccuracy
+
 	} from '$lib/helpers/index.js';
-	import { PREFERENCE_TYPES, SIGNIFICANT_DIGITS } from '$lib/constants/index.js';
+	import { PREFERENCE_TYPES } from '$lib/constants/index.js';
 
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 
@@ -52,6 +55,7 @@
 		minNumSolutions?: number;
 		maxNumSolutions?: number;
 		lastIteratedPreference?: number[];
+		isFinishButton?: boolean;
 	}
 
 	let {
@@ -70,7 +74,8 @@
 		isFinishAllowed = true,
 		minNumSolutions = 1,
 		maxNumSolutions = 4,
-		lastIteratedPreference = []
+		lastIteratedPreference = [],
+		isFinishButton = true,
 	}: Props = $props();
 
 	// Validate that preference_types only contains valid values
@@ -92,6 +97,8 @@
 	let internal_type_preferences = $state(typePreferences);
 	let internal_preference_values = $state([...preferenceValues]);
 	let internal_objective_values = $state([...objectiveValues]);
+	
+	let displayAccuracy = $derived(() => getDisplayAccuracy(problem));
 
 	// Sync internal state with props when they change
 	$effect(() => {
@@ -174,6 +181,7 @@
 	function get_objective_value(idx: number): number {
 		return internal_objective_values[idx] ?? 0;
 	}
+
 </script>
 
 <Sidebar.Root
@@ -228,19 +236,19 @@
 			{#each problem.objectives as objective, idx}
 				{#if objective.ideal != null && objective.nadir != null}
 					<div class="mb-4 flex flex-col gap-2">
-						<div class="text-sm font-semibold text-gray-700">
-							{objective.name}
-							{#if objective.unit}({objective.unit}){/if}
-							({objective.maximize ? 'max' : 'min'})
+						<div class="text-sm font-semibold text-gray-700" title={objective.unit ? `${objective.name} (${objective.unit})` : objective.name}>
+							{objective.symbol} ({objective.maximize ? 'max' : 'min'})
 						</div>
-						<div class="flex flex-row">
-							<div class="flex w-1/4 flex-col justify-center">
-								<span class="text-sm text-gray-500">{classification_values[idx]}</span>
+						<div class="flex flex-row items-start">
+							<div class="flex w-1/4 flex-col">
+								<div class="h-12 overflow-y-auto">
+									<span class="text-sm text-gray-500">{classification_values[idx]}</span>
+								</div>
 								<ValidatedTextbox
 									placeholder=""
 									min={Math.min(objective.ideal, objective.nadir)}
 									max={Math.max(objective.ideal, objective.nadir)}
-									value={String(formatNumber(get_preference_value(idx), SIGNIFICANT_DIGITS))}
+									value={String(formatNumber(get_preference_value(idx), displayAccuracy()))}
 									onChange={(value) => {
 										const val = Number(value);
 										if (!isNaN(val)) handle_preference_value_change(idx, val);
@@ -259,8 +267,9 @@
 									direction={objective.maximize ? 'max' : 'min'}
 									previousValue={lastIteratedPreference[idx] ?? undefined}
 									options={{
-										decimalPrecision: SIGNIFICANT_DIGITS,
+										decimalPrecision: displayAccuracy(),
 										showPreviousValue: true,
+										showSelectedValueLabel: false,
 										aspectRatio: 'aspect-[11/2]'
 									}}
 									onSelect={(newValue) => handle_preference_value_change(idx, newValue)}
@@ -279,7 +288,7 @@
 				{#if objective.ideal != null && objective.nadir != null}
 					<div class="mb-4 flex flex-col gap-2">
 						<div class="text-sm font-semibold text-gray-700">
-							{objective.name} ({objective.maximize ? 'max' : 'min'})
+							{objective.symbol} ({objective.maximize ? 'max' : 'min'})
 						</div>
 						<div class="flex flex-row">
 							<div class="flex w-1/4 flex-col justify-center">
@@ -288,7 +297,7 @@
 									placeholder=""
 									min={Math.min(objective.ideal, objective.nadir)}
 									max={Math.max(objective.ideal, objective.nadir)}
-									value={String(formatNumber(get_preference_value(idx), SIGNIFICANT_DIGITS))}
+									value={String(formatNumber(get_preference_value(idx), displayAccuracy()))}
 									onChange={(value) => {
 										const val = Number(value);
 										if (!isNaN(val)) handle_preference_value_change(idx, val);
@@ -326,7 +335,7 @@
 				{#if objective.ideal != null && objective.nadir != null}
 					<div class="mb-4 flex flex-col gap-2">
 						<div class="text-sm font-semibold text-gray-700">
-							{objective.name} ({objective.maximize ? 'max' : 'min'})
+							{objective.symbol} ({objective.maximize ? 'max' : 'min'})
 						</div>
 						<div class="flex flex-row">
 							<div class="flex w-1/4 flex-col justify-center">
@@ -335,7 +344,7 @@
 									placeholder=""
 									min={Math.min(objective.ideal, objective.nadir)}
 									max={Math.max(objective.ideal, objective.nadir)}
-									value={String(formatNumber(get_preference_value(idx), SIGNIFICANT_DIGITS))}
+									value={String(formatNumber(get_preference_value(idx), displayAccuracy()))}
 									onChange={(value) => {
 										const val = Number(value);
 										if (!isNaN(val)) handle_preference_value_change(idx, val);
@@ -379,9 +388,11 @@
 			<Button variant="default" disabled={!isIterationAllowed} size="sm" onclick={handle_iterate}>
 				Iterate
 			</Button>
-			<Button variant="secondary" size="sm" disabled={!isFinishAllowed} onclick={handle_finish}>
-				Finish
-			</Button>
+			{#if isFinishButton}
+				<Button variant="secondary" size="sm" disabled={!isFinishAllowed} onclick={handle_finish}>
+					Finish
+				</Button>
+			{/if}
 		</div>
 	</Sidebar.Footer>
 	<Sidebar.Rail />

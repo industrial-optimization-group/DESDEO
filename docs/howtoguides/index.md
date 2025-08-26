@@ -1,8 +1,9 @@
 ---
 hide:
- - navigation
- - toc
+  - navigation
+  - toc
 ---
+
 # Guides
 
 - **[Installing DESDEO](installing.md):** How to install DESDEO on your system
@@ -23,3 +24,4 @@ The following examples are the ones, which are covered in the article describing
 - **[Example 1](./how_to_define_a_problem.ipynb):** How to define a multiobjective optimization problem
 - **[Example 2](./how_to_utilize_mcdm_methods.ipynb):** How to utilize 'MCDM' methods
 - **[Example 3](../explanation/simulator_support.ipynb):** Connecting DESDEO to a simulator
+- **[Example 4](../how_to_use_adms.ipynb):** Using Artificial DMs to compare 'EMO' methods.

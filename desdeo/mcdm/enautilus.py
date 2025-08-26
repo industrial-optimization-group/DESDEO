@@ -102,12 +102,11 @@ def enautilus_get_representative_solutions(
 
 def enautilus_step(  # noqa: PLR0913
     problem: Problem,
-    non_dominated_points: pl.DataFrame,
+    non_dominated_points: pl.DataFrame | dict[str, float],
     current_iteration: int,
     iterations_left: int,
     selected_point: dict[str, float],
     reachable_point_indices: list[int],
-    total_number_of_iterations: int,
     number_of_intermediate_points: int,
 ) -> ENautilusResult:
     """Compute one iteration of the E-NAUTILUS method.
@@ -131,7 +130,8 @@ def enautilus_step(  # noqa: PLR0913
             I.e., for an objective with symbol 'f1' the dataframe should have the
             symbols 'f1' and 'f1_min', where the column 'f1_min has the
             corresponding values of 'f1', but assuming minimization (N.B. if 'f1' is
-            minimized, then 'f1_min' would have identical values as 'f1').
+            minimized, then 'f1_min' would have identical values as 'f1'). If provided
+            as a `dict`, this will be converted to a polars dataframe.
         current_iteration (int): the number of the current iteration. For the first iteration, this should be zero.
         iterations_left (int): how many iteration are left (counting the current one).
         selected_point (dict[str, float]): the selected intermediate point in
@@ -140,7 +140,6 @@ def enautilus_step(  # noqa: PLR0913
         reachable_point_indices (list[int]): the indices of the points in
             `non_dominated_points` that are reachable from
             `current_iteration_point`.
-        total_number_of_iterations (int): how many iterations are to be carried in total.
         number_of_intermediate_points (int): how many intermediate points are generated.
 
     Returns:
@@ -151,7 +150,14 @@ def enautilus_step(  # noqa: PLR0913
     z_h = objective_dict_to_numpy_array(problem, flip_maximized_objective_values(problem, selected_point))
 
     # subset of reachable solutions, take _min column
-    non_dom_objectives = non_dominated_points[[f"{obj.symbol}_min" for obj in problem.objectives]].to_numpy()
+    if isinstance(non_dominated_points, dict):
+        # dict converted to Polars dataframe
+        _non_dominated_points = pl.DataFrame(non_dominated_points)
+    else:
+        # already Polars dataframe
+        _non_dominated_points = non_dominated_points
+
+    non_dom_objectives = _non_dominated_points[[f"{obj.symbol}_min" for obj in problem.objectives]].to_numpy()
     p_h = non_dom_objectives[reachable_point_indices]
 
     # estimate nadir from non-dominated points, treating as minimized problem

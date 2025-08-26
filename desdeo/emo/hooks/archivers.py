@@ -104,7 +104,7 @@ class FeasibleArchive(BaseArchive):
         data = message.value
         feasible_mask = (data[self.cons_symb] <= 0).to_numpy().all(axis=1)
         feasible_data = data.filter(feasible_mask)
-        feasible_data = data.with_columns(generation=self.generation_number)
+        feasible_data = feasible_data.with_columns(generation=self.generation_number)
         if self.solutions is None:
             self.solutions = feasible_data
         else:
@@ -135,7 +135,7 @@ class Archive(BaseArchive):
 
 
 class NonDominatedArchive(Archive):
-    """An archiver that stores only the non-dominated solutions evaluated during evolution."""
+    """An archiver that stores only the feasible non-dominated solutions evaluated during evolution."""
 
     def __init__(self, *, problem: Problem, publisher: Publisher):
         """Initialize the archiver.
@@ -146,6 +146,10 @@ class NonDominatedArchive(Archive):
         """
         super().__init__(problem=problem, publisher=publisher)
         self.targets = [f"{x.symbol}_min" for x in problem.objectives]
+        if problem.constraints is None:
+            self.cons_symb = []
+        else:
+            self.cons_symb = [x.symbol for x in problem.constraints]
 
     def update(self, message: Message) -> None:
         """Update the archiver with the new data.
@@ -163,6 +167,9 @@ class NonDominatedArchive(Archive):
         data = data.with_columns(generation=self.generation_number)
         if type(data) is not pl.DataFrame:
             raise ValueError("Data should be a polars DataFrame")
+        if self.cons_symb:
+            feasible_mask = (data[self.cons_symb] <= 0).to_numpy().all(axis=1)
+            data = data.filter(feasible_mask)
         if self.solutions is None:
             non_dom_mask = non_dominated(data[self.targets].to_numpy())
             self.solutions = data.filter(non_dom_mask)

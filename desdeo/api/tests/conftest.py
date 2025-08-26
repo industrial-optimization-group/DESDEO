@@ -40,20 +40,21 @@ def session_fixture():
         session.commit()
         session.refresh(problem_db_river)
 
-        metadata = ProblemMetaDataDB(
-        problem_id=problem_db_river.id,
-        data = [
-                ForestProblemMetaData(
-                    map_json = "type: string",
-                    schedule_dict = {"type": "dict"},
-                    years = ["type:", "list", "of", "strings"],
-                    stand_id_field = "type: string",
-                ),
-            ],
-        )
+        metadata = ProblemMetaDataDB(problem_id=problem_db_river.id)
         session.add(metadata)
         session.commit()
         session.refresh(metadata)
+
+        forest_metadata = ForestProblemMetaData(
+            metadata_id=metadata.id,
+            map_json="type: string",
+            schedule_dict={"type": "dict"},
+            years=["type:", "list", "of", "strings"],
+            stand_id_field="type: string",
+        )
+
+        session.add(forest_metadata)
+        session.commit()
 
         yield {"session": session, "user": user_analyst}
         session.rollback()
