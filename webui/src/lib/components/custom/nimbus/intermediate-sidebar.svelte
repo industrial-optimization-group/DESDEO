@@ -71,7 +71,7 @@
 							{#if solution.name}
                                 <div class="font-medium text-primary">{solution.name}</div>
                             {:else}
-                                <div class="font-medium text-primary">Solution {solution.address_result + 1} ({solution.address_state})</div>
+                                <div class="font-medium text-primary">Solution {solution.address_result + 1} (iteration {solution.address_state})</div>
                             {/if}
 					</div>
 				{/each}

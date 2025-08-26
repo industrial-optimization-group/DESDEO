@@ -5,40 +5,42 @@
 	 * Responsive parallel coordinates plot component using D3.
 	 *
 	 * @author Giomara Larraga <glarragw@jyu.fi>
+	 * @author Stina Palomäki <palomakistina@gmail.com> (Multi-selection support)
 	 * @created June 2025
+	 * @updated August 2025
 	 *
 	 * @description
 	 * Renders a responsive parallel coordinates plot using D3.js.
 	 * Each line represents a solution/data point, and each vertical axis represents a dimension/objective.
 	 * Supports additional reference information like reference points, preferred ranges, and preferred solutions.
-	 * Features line selection and axis brushing for filtering.
+	 * Features both single and multiple line selection modes and axis brushing for filtering.
 	 *
 	 * @props
 	 * - data: Array<{ [key: string]: number }> — Array of data points where each object has values for each dimension
 	 * - dimensions: Array<{ symbol: string; min?: number; max?: number; direction?: 'max' | 'min' }> — Dimension definitions
 	 * - referenceData?: {
-	 *     referencePoint?: { [key: string]: number }; // Reference point values for each dimension
-	 *     previousReferencePoint?: { [key: string]: number }; // Reference point values of previous reference point for each dimension
+	 *     referencePoint?: { [key: string]: number }; // Current reference point values for each dimension
+	 *     previousReferencePoint?: { [key: string]: number }; // Previous reference point values for comparison
 	 *     preferredRanges?: { [key: string]: { min: number; max: number } }; // Preferred ranges for each dimension
 	 *     preferredSolutions?: Array<{ [key: string]: number }>; // Array of preferred solutions
 	 *     nonPreferredSolutions?: Array<{ [key: string]: number }>; // Array of non-preferred solutions
 	 *   }
 	 * - options: {
-	 *     showAxisLabels: boolean; // show dimension names
-	 *     highlightOnHover: boolean; // highlight lines on hover
-	 *     strokeWidth: number; // line thickness
-	 *     opacity: number; // line opacity
-	 *     enableBrushing: boolean; // enable axis brushing for filtering
+	 *     showAxisLabels: boolean; // Whether to show dimension names above axes
+	 *     highlightOnHover: boolean; // Whether to highlight lines on mouse hover
+	 *     strokeWidth: number; // Thickness of data lines
+	 *     opacity: number; // Opacity of non-selected lines
+	 *     enableBrushing: boolean; // Whether to enable axis brushing for filtering
 	 *   }
-	 * - selectedIndex: number | null — index of selected line (only one at a time)
-	 * -  multipleSelectedIndexes: number[] | null — indexes of selected lines (multiple selection mode)
-	 * - brushFilters: { [dimension: string]: [number, number] } — brush filter ranges for each dimension
-	 * - onLineSelect?: (index: number | null, data: any | null) => void — callback when line is selected/deselected
-	 * - onBrushFilter?: (filters: { [dimension: string]: [number, number] }) => void — callback when brush filters change
+	 * - selectedIndex: number | null — Index of selected line in single selection mode
+	 * - multipleSelectedIndexes: number[] | null — Indexes of selected lines in multi-selection mode
+	 * - brushFilters: { [dimension: string]: [number, number] } — Brush filter ranges for each dimension
+	 * - onLineSelect?: (index: number | null, data: any | null) => void — Callback when line is selected/deselected
+	 * - onBrushFilter?: (filters: { [dimension: string]: [number, number] }) => void — Callback when brush filters change
 	 *
 	 * @features
 	 * - Interactive line highlighting on hover
-	 * - Single line selection on click
+	 * - Both single and multiple line selection modes
 	 * - Axis brushing for range filtering
 	 * - Custom color palette for different data points
 	 * - Responsive to container size (ResizeObserver)
@@ -153,11 +155,6 @@
 				// Calculate min/max from actual data
 				const extent = d3.extent(values) as [number, number];
 				domain = extent || [0, 1]; // Fallback to [0,1] if no data
-			}
-
-			// Reverse domain for 'max' direction to show higher values at top
-			if (dim.direction === 'max') {
-				domain = [domain[1], domain[0]];
 			}
 
 			// Create linear scale mapping data domain to pixel range
@@ -447,15 +444,15 @@
 				.attr('stroke-width', 1)
 				.attr('opacity', 0.3);
 
-			// Add "preferred" label next to the range
-			rangesGroup
-				.append('text')
-				.attr('x', x + 15) // Position to the right of the axis
-				.attr('y', yMin + (yMax - yMin) / 2) // Center vertically in the range
-				.attr('text-anchor', 'start')
-				.style('font-size', '9px')
-				.style('fill', '#4a90e2')
-				.text('preferred');
+			// Note: Preferred preference label is commented out to reduce visual clutter
+			// rangesGroup
+			// 	.append('text')
+			// 	.attr('x', x + 15) // Position to the right of the axis
+			// 	.attr('y', yMin + (yMax - yMin) / 2) // Center vertically in the range
+			// 	.attr('text-anchor', 'start')
+			// 	.style('font-size', '9px')
+			// 	.style('fill', '#4a90e2')
+			// 	.text('preferred');
 		});
 	}
 
@@ -738,7 +735,20 @@
 					.style('font-size', '12px')
 					.style('font-weight', 'bold')
 					.style('fill', '#333')
-					.text(dim.direction ? `${dim.symbol} (${dim.direction})` : dim.symbol); // Include direction if specified
+					.text(dim.symbol)
+
+					// Add an arrow if direction is specified
+				if (dim.direction) {
+					const arrowX = x - 5 + dim.symbol.length * 7; // Rough estimate of text width
+					svgElement
+						.append('path')
+						.attr('d', dim.direction === 'max' 
+							? `M${arrowX},-8 L${arrowX+5},-16 L${arrowX+10},-8` // Up arrow
+							: `M${arrowX},-16 L${arrowX+5},-8 L${arrowX+10},-16` // Down arrow
+						)
+						.attr('fill', '#333')
+						.attr('stroke', 'none');
+				}
 			}
 		});
 
