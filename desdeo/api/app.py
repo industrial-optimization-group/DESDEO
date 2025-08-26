@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from desdeo.api.config import AuthDebugConfig, SettingsConfig
 from desdeo.api.routers import (
-    EMO,
+    emo,
     generic,
     nimbus,
     problem,
@@ -29,7 +29,7 @@ if SettingsConfig.debug:
     app.include_router(session.router)
     app.include_router(reference_point_method.router)
     app.include_router(nimbus.router)
-    app.include_router(EMO.router)
+    app.include_router(emo.router)
     app.include_router(generic.router)
     app.include_router(utopia.router)
 
