@@ -25,6 +25,7 @@ from desdeo.api.models import (
     UserSavedEMOResults,
 )
 from desdeo.api.models.state_table import SolutionAddress, UserSavedSolutionAddress
+from desdeo.api.models.nimbus import SaveSolutionInfo
 from desdeo.api.models.generic import (
     IntermediateSolutionRequest,
     IntermediateSolutionResponse,
@@ -253,27 +254,14 @@ def test_nimbus_solve(client: TestClient):
     assert result.previous_preference == preference
     assert len(result.all_solutions) == 3
 
-    # Save some solutions!
-    solution_to_be_saved: SolutionAddress = result.current_solutions[0]
-
-    # START by fixing this (remove UserSavedSolutionAddress)
     request = NIMBUSSaveRequest(
         problem_id=1,
-        solutions=[
-            UserSavedSolutionAddress(
-                name="solution_1",
-                objective_values=solution_to_be_saved.objective_values,
-                address_state=solution_to_be_saved.address_state,
-                address_result=solution_to_be_saved.address_result,
-            ),
-            UserSavedSolutionAddress(
-                name="solution_2",
-                objective_values=solution_to_be_saved.objective_values,
-                address_state=solution_to_be_saved.address_state,
-                address_result=solution_to_be_saved.address_result,
-            ),
-        ],
         parent_state_id=result.state_id,
+        solution_info=[
+            SaveSolutionInfo(state_id=1, solution_index=0, name="Test solution 1"),
+            SaveSolutionInfo(state_id=1, solution_index=2, name="Test solution 3"),
+            SaveSolutionInfo(state_id=1, solution_index=2, name="Test solution 34"),  # saved twice!
+        ],
     )
 
     response = post_json(client, "/method/nimbus/save", request.model_dump(), access_token)
@@ -288,7 +276,7 @@ def test_nimbus_solve(client: TestClient):
         preference=preference,
         current_objectives=result.current_solutions[0].objective_values,
         num_desired=3,
-        parent_state_id=result.state_id,
+        parent_state_id=result2.state_id,
     )
 
     response = post_json(client, "/method/nimbus/solve", request.model_dump(), access_token)
@@ -299,29 +287,14 @@ def test_nimbus_solve(client: TestClient):
     )
     assert result.previous_preference == preference
     # We saved the same solution twice, so the filtering should remove one of those.
-    assert len(result.saved_solutions) == 1
-    assert len(result.all_solutions) == 6
+    assert len(result.saved_solutions) == 2
+    assert len(result.all_solutions) == 6  # should not count saved solutions twice
 
     # Save some more solutions!
-    solution_to_be_saved: SolutionAddress = result.current_solutions[0]
-
     request = NIMBUSSaveRequest(
         problem_id=1,
-        solutions=[
-            UserSavedSolutionAddress(
-                name="solution_1",
-                objective_values=solution_to_be_saved.objective_values,
-                address_state=solution_to_be_saved.address_state,
-                address_result=solution_to_be_saved.address_result,
-            ),
-            UserSavedSolutionAddress(
-                name="solution_2",
-                objective_values=solution_to_be_saved.objective_values,
-                address_state=solution_to_be_saved.address_state,
-                address_result=solution_to_be_saved.address_result,
-            ),
-        ],
         parent_state_id=result.state_id,
+        solution_info=[SaveSolutionInfo(state_id=result.state_id, solution_index=1, name="Test solution 2")],
     )
 
     response = post_json(client, "/method/nimbus/save", request.model_dump(), access_token)
@@ -338,17 +311,17 @@ def test_nimbus_solve(client: TestClient):
         preference=preference,
         current_objectives=result.current_solutions[0].objective_values,
         num_desired=3,
-        parent_state_id=result.state_id,
+        parent_state_id=result2.state_id,
     )
 
     response = post_json(client, "/method/nimbus/solve", request.model_dump(), access_token)
     assert response.status_code == status.HTTP_200_OK
-    result: NIMBUSClassificationResponse = NIMBUSClassificationResponse.model_validate(
+    result3: NIMBUSClassificationResponse = NIMBUSClassificationResponse.model_validate(
         json.loads(response.content.decode("utf-8"))
     )
-    assert result.previous_preference == preference
-    assert len(result.saved_solutions) == 2
-    assert len(result.all_solutions) == 7
+    assert result3.previous_preference == preference
+    assert len(result3.saved_solutions) == 3
+    assert len(result3.all_solutions) == 7
 
 
 def test_intermediate_solve(client: TestClient):

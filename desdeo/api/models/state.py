@@ -2,6 +2,8 @@
 
 from typing import TYPE_CHECKING
 
+import warnings
+
 from sqlalchemy.types import TypeDecorator
 from sqlmodel import (
     JSON,
@@ -49,6 +51,7 @@ class ResultsType(TypeDecorator):
         """JSON to `SolverResults` or similar."""
         # Stupid way to to this, but works for now. Needs to add field
         # to the corresponding models so that they may be identified in dict form.
+        # TODO: see above
         if "closeness_measures" in value:  # noqa: SIM108
             model = ENautilusResult
         else:
@@ -60,6 +63,41 @@ class ResultsType(TypeDecorator):
             return [model.model_validate(x) for x in value]
 
         return model.model_validate(value)
+
+
+class StateInterface:
+    @property
+    def result_objective_values(self) -> list[dict[str, float]]:
+        msg = (
+            f"Calling the method `result_objective_values`, which has not been implemented "
+            f"for the class `{type(self).__name__}`. Returning an empty list..."
+        )
+
+        warnings.warn(msg, category=RuntimeWarning, stacklevel=2)
+
+        return []
+
+    @property
+    def result_variable_values(self) -> list[dict[str, VariableType]]:
+        msg = (
+            f"Calling the method `result_variable_values`, which has not been implemented "
+            f"for the class `{type(self).__name__}`. Returning an empty list..."
+        )
+
+        warnings.warn(msg, category=RuntimeWarning, stacklevel=2)
+
+        return []
+
+    @property
+    def num_solutions(self) -> int:
+        msg = (
+            f"Calling the method `num_solutions`, which has not been implemented "
+            f"for the class `{type(self).__name__}`. Returning a zero."
+        )
+
+        warnings.warn(msg, category=RuntimeWarning, stacklevel=2)
+
+        return 0
 
 
 class RPMState(SQLModel, table=True):
@@ -77,7 +115,7 @@ class RPMState(SQLModel, table=True):
     solver_results: list[SolverResults] = Field(sa_column=Column(ResultsType))
 
 
-class NIMBUSClassificationState(SQLModel, table=True):
+class NIMBUSClassificationState(StateInterface, SQLModel, table=True):
     """NIMBUS: classification / solve candidates."""
 
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
@@ -93,7 +131,6 @@ class NIMBUSClassificationState(SQLModel, table=True):
     # results
     solver_results: list[SolverResults] = Field(sa_column=Column(ResultsType))
 
-    # TODO: elevate this to an interface, common to all states
     @property
     def result_objective_values(self) -> list[dict[str, float]]:
         return [x.optimal_objectives for x in self.solver_results]
@@ -102,8 +139,12 @@ class NIMBUSClassificationState(SQLModel, table=True):
     def result_variable_values(self) -> list[dict[str, VariableType]]:
         return [x.optimal_variables for x in self.solver_results]
 
+    @property
+    def num_solutions(self) -> int:
+        return len(self.solver_results)
 
-class NIMBUSSaveState(SQLModel, table=True):
+
+class NIMBUSSaveState(StateInterface, SQLModel, table=True):
     """NIMBUS: save solutions."""
 
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
@@ -117,6 +158,18 @@ class NIMBUSSaveState(SQLModel, table=True):
             "lazy": "selectin",
         }
     )
+
+    @property
+    def result_objective_values(self) -> list[dict[str, float]]:
+        return [x.objective_values for x in self.solutions]
+
+    @property
+    def result_variable_values(self) -> list[dict[str, VariableType]]:
+        return [x.variable_values for x in self.solutions]
+
+    @property
+    def num_solutions(self) -> int:
+        return len(self.solutions)
 
 
 class NIMBUSInitializationState(SQLModel, table=True):

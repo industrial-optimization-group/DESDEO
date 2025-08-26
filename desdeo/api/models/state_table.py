@@ -3,6 +3,7 @@
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
+from pydantic import ConfigDict, computed_field
 from sqlalchemy.orm import object_session
 from sqlmodel import (
     JSON,
@@ -13,6 +14,8 @@ from sqlmodel import (
     SQLModel,
     select,
 )
+
+from desdeo.problem import VariableType
 
 from .state import (
     EMOSaveState,
@@ -243,9 +246,9 @@ class UserSavedSolutionDB(SQLModel, table=True):
     id: int | None = Field(primary_key=True, default=None)
 
     name: str | None = Field(default=None, nullable=True)
-    objective_values: dict[str, float] | None = Field(sa_column=Column(JSON), default=None)
-    variable_values: dict[str, float] | None = Field(sa_column=Column(JSON), default=None)
-    index: int | None
+    objective_values: dict[str, float] = Field(sa_column=Column(JSON))
+    variable_values: dict[str, VariableType] = Field(sa_column=Column(JSON))
+    index: int
 
     # Links
     user_id: int | None = Field(foreign_key="user.id", default=None)
@@ -256,20 +259,139 @@ class UserSavedSolutionDB(SQLModel, table=True):
     user: "User" = Relationship(back_populates="archive")
     problem: "ProblemDB" = Relationship(back_populates="solutions")
 
+    @classmethod
+    def from_state_info(
+        cls,
+        database_session: Session,
+        user_id: int,
+        problem_id: int,
+        state_id: int,
+        solution_index: int,
+        name: str | None,
+    ) -> "UserSavedSolutionDB | None":
+        state = database_session.exec(
+            select(StateDB).where(
+                StateDB.id == state_id,
+                StateDB.problem_id == problem_id,
+            )
+        ).first()
+
+        if state is None:
+            return None
+
+        objective_values = state.state.result_objective_values[solution_index]
+        variable_values = state.state.result_variable_values[solution_index]
+
+        return cls(
+            name=name,
+            objective_values=objective_values,
+            variable_values=variable_values,
+            index=solution_index,
+            user_id=user_id,
+            problem_id=problem_id,
+            origin_state_id=state_id,
+        )
+
 
 class SolutionAddress(SQLModel):
-    objective_values: dict[str, float] | None = Field(sa_column=Column(JSON), default=None)
-    address_state: int | None = Field(sa_column=Column(JSON), default=None)
-    address_result: int | None = Field(sa_column=Column(JSON), default=None)
+    # objective_values: dict[str, float] | None = Field(sa_column=Column(JSON), default=None)
+    # address_state: int | None = Field(sa_column=Column(JSON), default=None)
+    # address_result: int | None = Field(sa_column=Column(JSON), default=None)
 
-    solution_index: int = Field(
-        description="The index of the referenced solution, if multiple solutions exist in the reference state."
+    name: str | None = Field(description="Optional name to help identify the solution if, e.g., saved.", default=None)
+    solution_index: int | None = Field(
+        description="The index of the referenced solution, if multiple solutions exist in the reference state.",
+        default=None,
     )
-    state: StateDB = Field()
+    state: StateDB = Field(description="The reference state with the solution information.")
 
+    @computed_field
     @property
-    def get_objective_values(self) -> list[dict[str, float]]:
+    def objective_values_all(self) -> list[dict[str, float]]:
         return self.state.state.result_objective_values
+
+    @computed_field
+    @property
+    def variable_values_all(self) -> list[dict[str, VariableType]]:
+        return self.state.state.result_objective_values
+
+    @computed_field
+    @property
+    def objective_values(self) -> dict[str, float] | None:
+        if self.solution_index is not None:
+            return self.state.state.result_objective_values[self.solution_index]
+
+        return None
+
+    @computed_field
+    @property
+    def variable_values(self) -> dict[str, VariableType] | None:
+        if self.solution_index is not None:
+            return self.state.state.result_variable_values[self.solution_index]
+
+        return None
+
+    @computed_field
+    @property
+    def state_id(self) -> int:
+        return self.state.id
+
+    @computed_field
+    @property
+    def num_solutions(self) -> int:
+        return len(self.state.state.solver_results)
+
+
+class SolutionAddressResponse(SQLModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    name: str | None
+    solution_index: int | None
+    state_id: int
+    objective_values: dict[str, float] | None
+    variable_values: dict[str, "VariableType"] | None
+
+
+class SavedSolutionReference(SQLModel):
+    saved_solution: UserSavedSolutionDB = Field(description="The reference object with the solution information.")
+
+    @computed_field
+    @property
+    def name(self) -> str | None:
+        return self.saved_solution.name
+
+    @computed_field
+    @property
+    def objective_values(self) -> dict[str, float]:
+        return self.saved_solution.objective_values
+
+    @computed_field
+    @property
+    def variable_values(self) -> dict[str, VariableType]:
+        return self.saved_solution.variable_values
+
+    @computed_field
+    @property
+    def solution_index(self) -> int | None:
+        return self.saved_solution.index
+
+    @computed_field
+    @property
+    def saved_solution_id(self) -> int:
+        return self.saved_solution.id
+
+    @computed_field
+    @property
+    def state_id(self) -> int | None:
+        return self.saved_solution.origin_state_id
+
+
+class SavedSolutionResponse(SQLModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    name: str | None
+    objective_values: dict[str, float]
+    variable_values: dict[str, VariableType]
 
 
 class UserSavedSolutionAddress(SolutionAddress):
