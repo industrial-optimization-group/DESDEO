@@ -1,27 +1,52 @@
-<!-- 
-/**
- * Solutions Visualization Panel Component
- * 
- * This component displays the results from a multiobjective optimization algorithm
- * in various visual formats. The user can select which visualization to display, and select 
- * solutions from the visualizations for further analysis.
- * 
- * Data Flow:
- * 1. Parent component (EMO page, NIMBUS page, etc.) iterate.
- * 2. The corresponding method returns solutions with objective values, decision values, constaint values, etc.
- * 3. Parent passes solution arrays to this component.
- * 4. Component transforms data for visualization.
- * 5. User interacts with visualizations.
- * 6. Selected solutions are passed back to parent via onSelectSolution.
- * 
- * Author: Giomara Larraga (glarragw@jyu.fi)
- * Created: July 2025
- * 
- * @component VisualizationsPanel
- */
--->
-
 <script lang="ts">
+/**
+ * Visualizations Panel Component
+ * 
+ * @author Giomara Larraga <glarragw@jyu.fi>
+ * @author Stina Palomäki <palomakistina@gmail.com> (Enhancements)
+ * @created July 2025
+ * @updated August 2025
+ * 
+ * @description
+ * A versatile visualization panel for multi-objective optimization solutions in DESDEO.
+ * Provides different visualization types (Parallel Coordinates, Bar Chart) for exploring
+ * solution spaces and comparing different solutions against preferences.
+ * 
+ * @data_flow
+ * 1. Parent component (EMO/NIMBUS page etc.) performs optimization iteration
+ * 2. The corresponding method returns solutions with objective values, decision values, constraint values, etc.
+ * 3. Parent passes data to this component
+ * 4. Component transforms data for appropriate visualization format
+ * 5. User interacts with visualizations (selecting solutions, filtering)
+ * 6. Selected solutions are passed back to parent via onSelectSolution callback
+ * 
+ * @props
+ * @property {ProblemInfo | null} problem - The optimization problem definition
+ * @property {number[]} previousPreferenceValues - Previous iteration's preference values
+ * @property {string} previousPreferenceType - Type of previous preference (e.g., 'reference_point')
+ * @property {number[]} currentPreferenceValues - Current iteration's preference values
+ * @property {string} currentPreferenceType - Type of current preference
+ * @property {number[][]} [previousObjectiveValues] - Previous objective values for comparison
+ * @property {number[][]} [solutionsObjectiveValues] - Array of objective values for each solution
+ * @property {number[][]} [solutionsDecisionValues] - Array of decision variable values for each solution
+ * @property {function} [onSelectSolution] - Callback when user selects a solution
+ * @property {number | null} [externalSelectedIndex] - Index of solution to highlight (single-select mode)
+ * @property {number[] | null} [externalSelectedIndexes] - Indexes of solutions to highlight (multi-select mode)
+ * 
+ * @features
+ * - Visualization type selector (Parallel Coordinates/Bar Chart toggle)
+ * - Dynamic resizing to fit container
+ * - Solution selection with parent component synchronization
+ * - Reference point visualization
+ * - Previous solution comparison
+ * - Empty state handling
+ * 
+ * @dependencies
+ * - ParallelCoordinates component for the parallel coordinates visualization
+ * - SegmentedControl for the visualization type selector
+ * - Helper functions for data transformation
+ */
+
 	import type { components } from '$lib/api/client-types';
 	import ParallelCoordinates from '$lib/components/visualizations/parallel-coordinates/parallel-coordinates.svelte';
 	import { createReferenceData } from '$lib/helpers/preference-data-transforms';
@@ -30,6 +55,7 @@
 		transformObjectiveData
 	} from '$lib/helpers/visualization-data-transform';
 	import { onMount } from 'svelte';
+	import { SegmentedControl } from '$lib/components/custom/segmented-control';
 
 	// Type definitions from OpenAPI schema
 	type ProblemInfo = components['schemas']['ProblemInfo'];
@@ -153,10 +179,16 @@
 		};
 	});
 
-	// Calculate dynamic height for ParallelCoordinates
+	// Visualization type enum
+	type VisualizationType = 'parallel' | 'bar';
+
+	// Current visualization type state
+	let visualizationType = $state<VisualizationType>('parallel');
+
+	// Calculate dynamic height for visualizations
 	const plotHeight = $derived(() => {
-		// Reserve space for header, instructions, and table
-		const reservedSpace = 10; // Adjust based on your layout
+		// Reserve space for header with visualization selector, instructions, and table
+		const reservedSpace = 50; // Increased to accommodate the visualization selector, adjust based on your layout, maybe a prop? TODO
 		return Math.max(containerSize.height - reservedSpace, 10);
 	});
 </script>
@@ -165,25 +197,47 @@
 /**
  * Component Template
  * 
- * The ParallelCoordinates component handles its own resizing, so we just need
- * to provide a properly sized container and let it manage the rest.
+ * The visualization components handle their own internal resizing,
+ * so we provide a container with appropriate dimensions and selector controls.
  */
 -->
 
 <div bind:this={containerElement} class="flex h-full w-full flex-col space-y-4 overflow-hidden">
 	{#if solutionsObjectiveValues.length > 0}
-		<!-- Objective Space Visualization with dynamic height -->
-		<!-- Use dynamic height that responds to container size -->
-		<div class="w-full" style="height: {plotHeight()}px;">
-			<ParallelCoordinates
-				data={objectiveData()}
-				dimensions={objectiveDimensions()}
-				referenceData={referenceData()}
-				options={plotOptions}
-				{selectedIndex}
-				multipleSelectedIndexes={externalSelectedIndexes}
-				onLineSelect={handleLineSelect}
+		<!-- Visualization Type Selector -->
+		<div class="flex items-center justify-between mb-2">
+			<h3 class="text-sm font-medium">Visualization</h3>
+			<SegmentedControl 
+				bind:value={visualizationType}
+				options={[
+					{ value: 'parallel', label: 'Parallel Coordinates' },
+					{ value: 'bar', label: 'Bar Chart' }
+				]} 
+				class="justify-end"
 			/>
+		</div>
+		
+		<!-- Visualization Container with dynamic height -->
+		<div class="w-full border-t border-gray-200" style="height: {plotHeight()}px;">
+			{#if visualizationType === 'parallel'}
+				<ParallelCoordinates
+					data={objectiveData()}
+					dimensions={objectiveDimensions()}
+					referenceData={referenceData()}
+					options={plotOptions}
+					{selectedIndex}
+					multipleSelectedIndexes={externalSelectedIndexes}
+					onLineSelect={handleLineSelect}
+				/>
+			{:else if visualizationType === 'bar'}
+				<!-- Placeholder for Bar Chart Visualization -->
+				<div class="flex h-full items-center justify-center bg-gray-50 text-gray-500">
+					<div class="text-center">
+						<p>Bar Chart visualization coming soon</p>
+						<p class="text-sm mt-2">This will display objective values as interactive bar charts</p>
+					</div>
+				</div>
+			{/if}
 		</div>
 	{:else}
 		<div

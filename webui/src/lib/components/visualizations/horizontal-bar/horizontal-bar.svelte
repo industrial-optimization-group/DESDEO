@@ -16,7 +16,7 @@
 	 * - previousValue?: number — previous value marker
 	 * - barColor: string — color of the solution bar
 	 * - direction: 'max' | 'min' — whether lower or higher is better
-	 * - options: { barHeight, decimalPrecision, showPreviousValue, aspectRatio }
+	 * - options: { decimalPrecision, showPreviousValue, showSelectedValueLabel, aspectRatio }
 	 * - onSelect?: (value: number) => void — callback when selected value changes
 	 *
 	 * @features
@@ -24,14 +24,14 @@
 	 * - Supports min/max direction, custom color, and value formatting.
 	 * - Responsive to container width.
 	 * - Calls `onSelect` callback when the selected value changes via drag.
+	 * - Shows previousValue text in the top right corner.
+	 * - Solution value marker with click event to set the selected value.
+	 * - Click events on lower and upper bounds triangles to set the selected value.
+	 * - Click event on previous value marker to set the selected value.
 	 *
 	 * @notes
-	 * - TODO: Show previousValue text in the top right corner.
-	 * - TODO: Add a marker to the solution value with a click event to set the selected value.
 	 * - TODO: Add tooltip on hover to show exact values.
-	 * - TODO: Add click event to the lower and upper bounds to set the selected value.
-	 * - TODO: Add click event to previous value marker to set the selected value.
-	 * - TODO: Vaidate the lower and upper bounds to ensure they are valid numbers.
+	 * - TODO: Validate the lower and upper bounds to ensure they are valid numbers.
 	 * - TODO: Validate the solution value to ensure it is within the bounds.
 	 * - TODO: Validate the text shown in the selected value to not be outside the svg bounds.
 	 */
@@ -51,10 +51,12 @@
 	export let options: {
 		decimalPrecision: number;
 		showPreviousValue: boolean;
+		showSelectedValueLabel?: boolean;
 		aspectRatio: string;
 	} = {
 		decimalPrecision: 2,
 		showPreviousValue: true,
+		showSelectedValueLabel: true,
 		aspectRatio: 'aspect-[11/2]'
 	};
 
@@ -88,13 +90,20 @@
 		// --- Draw x-axis below the bar ---
 		const xAxis = d3
 			.axisBottom(x)
-			.ticks(6)
+			.ticks(4)
 			.tickFormat((d) => d.toString());
 
-		d3.select(svg)
+		const axisGroup = d3.select(svg)
 			.append('g')
 			.attr('transform', `translate(0,${height - margin.bottom})`)
 			.call(xAxis);
+
+		// Select all text elements within the axis and apply rotation
+		axisGroup.selectAll('text')  
+			.style('text-anchor', 'end')
+			.attr('dx', '-.8em')
+			.attr('dy', '.15em')
+			.attr('transform', 'rotate(-65)');
 
 		// --- Draw bar background ---
 		d3.select(svg)
@@ -119,6 +128,28 @@
 				.attr('rx', 1);
 		}
 
+		// --- Draw a marker for the solution value ---
+		if (solutionValue !== undefined) {
+		d3.select(svg)
+			.append('polygon')
+			.attr(
+			'points',
+			[
+				[x(solutionValue) - 6, margin.top - 6], // bottom left
+				[x(solutionValue) + 6, margin.top - 6], // bottom right
+				[x(solutionValue), margin.top + 2]      // tip (pointing down)
+			]
+				.map((p) => p.join(','))
+				.join(' ')
+			)
+			.attr('fill', '#444')
+			.attr('cursor', 'pointer')
+			.on('click', () => {
+				selectedValue = solutionValue;
+				if (onSelect) onSelect(solutionValue);
+			});
+		}
+
 		// --- Draw lower bound triangle, pointing left ---
 		d3.select(svg)
 			.append('polygon')
@@ -134,7 +165,12 @@
 			)
 			.attr('fill', '#fff')
 			.attr('stroke', '#888')
-			.attr('stroke-width', 2);
+			.attr('stroke-width', 2)
+			.attr('cursor', 'pointer')
+			.on('click', () => {
+				selectedValue = axisRanges[0];
+				if (onSelect) onSelect(axisRanges[0]);
+			});
 
 		// --- Draw upper bound triangle, pointing right ---
 		d3.select(svg)
@@ -151,7 +187,12 @@
 			)
 			.attr('fill', '#fff')
 			.attr('stroke', '#888')
-			.attr('stroke-width', 2);
+			.attr('stroke-width', 2)
+			.attr('cursor', 'pointer')
+			.on('click', () => {
+				selectedValue = axisRanges[1];
+				if (onSelect) onSelect(axisRanges[1]);
+			});
 
 		// --- Draw previous value marker (if enabled) ---
 		if (options.showPreviousValue && previousValue !== undefined) {
@@ -163,7 +204,11 @@
 				.attr('fill', '#000')
 				.attr('fill-opacity', 0.5)
 				.attr('stroke', '#000')
-				.attr('stroke-width', 2);
+				.attr('stroke-width', 2)
+				.on('click', () => {
+					selectedValue = previousValue;
+					if (onSelect) onSelect(previousValue);
+    			});
 		}
 
 		// --- Draw selected value marker (draggable) ---
@@ -203,16 +248,33 @@
 		}
 
 		// --- Draw selected value label ---
-		if (selectedValue !== undefined) {
+		if (options.showSelectedValueLabel && selectedValue !== undefined) {
 			d3.select(svg)
 				.append('text')
 				.attr('x', x(selectedValue))
-				.attr('y', margin.top - 12)
+				.attr('y', margin.bottom + 52)
 				.attr('text-anchor', 'middle')
 				.attr('fill', '#222')
 				.attr('font-size', 13)
 				.text(`Selected: ${roundToDecimal(selectedValue, options.decimalPrecision)}`);
 		}
+
+		// --- Draw previous preference as text in the top right corner ---
+		if (options.showPreviousValue && previousValue !== undefined) {
+			d3.select(svg)
+				.append('text')
+				.attr('x', width - margin.right + 30)
+				.attr('y', margin.top - 25)
+				.attr('text-anchor', 'end')
+				.attr('fill', '#222')
+				.attr('font-size', 13)
+				.text('Previous preference:')
+				.append('tspan') // value to next line
+				.attr('x', width - margin.right + 30) // Same x alignment
+				.attr('dy', '1.2em') // Move down relative to the previous line
+				.attr('text-anchor', 'end')
+				.text(`${roundToDecimal(previousValue, options.decimalPrecision)}`);
+						}
 	}
 
 	// --- Lifecycle: Responsive redraw ---
@@ -250,5 +312,5 @@
     Use the aspect ratio from options.
 -->
 <div class={options.aspectRatio} bind:this={container} style="width: 100%; height: 100%;">
-	<svg bind:this={svg} style="width: 100%; height: 100%;" />
+	<svg bind:this={svg} style="width: 100%; height: 100%; overflow: visible;" />
 </div>
