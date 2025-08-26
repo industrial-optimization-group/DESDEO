@@ -12,6 +12,7 @@ from desdeo.problem.schema import Objective, Problem, Simulator, Url, Variable
 
 class PymooParameters(BaseModel):
     """Parameters for a pymoo problem instance."""
+
     name: str
     n_var: int
     n_obj: int
@@ -19,6 +20,7 @@ class PymooParameters(BaseModel):
 
 class ProblemInfo(BaseModel):
     """Information about a pymoo problem instance."""
+
     lower_bounds: dict[str, float]
     """Lower bounds of the decision variables. Keys are the names of the decision variables, e.g. "x_1", "x_2", etc."""
     upper_bounds: dict[str, float]
@@ -59,6 +61,7 @@ def info(p: PymooParameters) -> ProblemInfo:
         objective_names=[f"f_{i + 1}" for i in range(problem.n_obj)],
     )
 
+
 url = "http://127.0.0.1"
 port = 8000
 
@@ -70,7 +73,7 @@ def server_problem(parameters: PymooParameters) -> Problem:
         info.raise_for_status()
     except requests.RequestException as e:
         raise RuntimeError("Failed to fetch problem info. Is the server running?") from e
-    info: ProblemInfo = ProblemInfo.model_validate(info.model_dump_json())
+    info: ProblemInfo = ProblemInfo.model_validate(info.json())
 
     simulator_url = Url(url=f"{url}:{port}/evaluate")
 
