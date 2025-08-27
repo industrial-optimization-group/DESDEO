@@ -75,7 +75,7 @@ if __name__ == "__main__":
 
             metadata_db = ProblemMetaDataDB(
                 problem_id = problem_db.id,
-                data=[forest_metadata],
+                forest_metadata=[forest_metadata],
                 problem=problem_db
             )
 
