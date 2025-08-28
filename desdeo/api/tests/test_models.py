@@ -500,52 +500,6 @@ def test_from_problem_to_d_and_back(session_and_user: dict[str, Session | list[U
         assert compare_models(problem, problem_db)
 
 
-def test_archive_entry(session_and_user: dict[str, Session | list[User]]):
-    """Test that the archive works as intended."""
-    session: Session = session_and_user["session"]
-    user: User = session_and_user["user"]
-
-    problem = dtlz2(n_variables=5, n_objectives=3)
-    problem_db = ProblemDB.from_problem(problem, user)
-
-    session.add(problem_db)
-    session.commit()
-    session.refresh(problem_db)
-
-    name = "Test Archive Entry"
-    objective_values = {"f_1": 1.2, "f_2": 0.9, "f_3": 1.5}
-    address_state = 1
-    address_result = 1
-
-    archive_entry = SolutionAddress(
-        objective_values=objective_values, address_state=address_state, address_result=address_result
-    )
-
-    archive_entry_db = UserSavedSolutionDB.model_validate(
-        archive_entry,
-        update={
-            "name": name,
-            "user_id": user.id,
-            "problem_id": problem_db.id,
-        },
-    )
-
-    session.add(archive_entry_db)
-    session.commit()
-    session.refresh(archive_entry_db)
-
-    from_db = session.get(UserSavedSolutionDB, archive_entry_db.id)
-
-    assert from_db.name == name
-    assert from_db.user_id == user.id
-    assert from_db.problem_id == problem_db.id
-    assert from_db == user.archive[0]
-    assert compare_models(from_db.problem, problem_db)
-    assert from_db.objective_values == objective_values
-    assert from_db.address_state == address_state
-    assert from_db.address_result == address_result
-
-
 def test_user_save_solutions(session_and_user: dict[str, Session | list[User]]):
     """Test that user_save_solutions correctly saves solutions to the usersavedsolutiondb in the database."""
     session = session_and_user["session"]
@@ -572,7 +526,7 @@ def test_user_save_solutions(session_and_user: dict[str, Session | list[User]]):
             name="Solution 2",
             objective_values=objective_values,
             variable_values=variable_values,
-            index=2,
+            solution_index=2,
             user_id=user_id,
             problem_id=problem_id,
         ),
@@ -600,7 +554,7 @@ def test_user_save_solutions(session_and_user: dict[str, Session | list[User]]):
     assert first_solution.objective_values == objective_values
     assert first_solution.variable_values == variable_values
     assert first_solution.origin_state_id == 1
-    assert first_solution.index is None
+    assert first_solution.solution_index is None
     assert first_solution.user_id == user.id
     assert first_solution.problem_id == problem_id
 
@@ -610,7 +564,7 @@ def test_user_save_solutions(session_and_user: dict[str, Session | list[User]]):
     assert second_solution.objective_values == objective_values
     assert second_solution.variable_values == variable_values
     assert second_solution.origin_state_id == 1
-    assert second_solution.index == 2
+    assert second_solution.solution_index == 2
     assert second_solution.user_id == user.id
     assert second_solution.problem_id == problem_id
 

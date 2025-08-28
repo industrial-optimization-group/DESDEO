@@ -248,7 +248,7 @@ class UserSavedSolutionDB(SQLModel, table=True):
     name: str | None = Field(default=None, nullable=True)
     objective_values: dict[str, float] = Field(sa_column=Column(JSON))
     variable_values: dict[str, VariableType] = Field(sa_column=Column(JSON))
-    index: int
+    solution_index: int | None
 
     # Links
     user_id: int | None = Field(foreign_key="user.id", default=None)
@@ -286,7 +286,7 @@ class UserSavedSolutionDB(SQLModel, table=True):
             name=name,
             objective_values=objective_values,
             variable_values=variable_values,
-            index=solution_index,
+            solution_index=solution_index,
             user_id=user_id,
             problem_id=problem_id,
             origin_state_id=state_id,
@@ -373,7 +373,7 @@ class SavedSolutionReference(SQLModel):
     @computed_field
     @property
     def solution_index(self) -> int | None:
-        return self.saved_solution.index
+        return self.saved_solution.solution_index
 
     @computed_field
     @property
