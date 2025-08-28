@@ -1,11 +1,16 @@
 """Test for generating intermediate solutions between NIMBUS solutions for the forest problem."""
 
 import pytest
+import json
+
 
 from desdeo.mcdm import solve_intermediate_solutions, solve_sub_problems
 from desdeo.mcdm.nimbus import generate_starting_point
 from desdeo.problem.testproblems import forest_problem
 from desdeo.tools import GurobipySolver
+from pathlib import Path
+from desdeo.problem.schema import Problem
+
 
 
 @pytest.mark.forest_problem
@@ -21,12 +26,14 @@ def test_forest_problem_nimbus_to_intermediate():
     3. Generate intermediate solutions between those two NIMBUS solutions
     """
     # Setup the forest problem
-    problem = forest_problem(
-        simulation_results="./data/alternatives_290124.csv",
-        treatment_key="./data/alternatives_key_290124.csv",
-        holding=1,
-        comparing=True,
-    )
+    path = Path(__file__)
+    while not str(path).endswith("/DESDEO"):
+        path = path.parent
+    path = path / "datasets/forestProblemWithMetadata/"
+
+    # load the problem from json
+    with Path(path / "problem.json").open(mode="r") as file:
+        problem = Problem.model_validate(json.load(file), by_name=True)
 
     solver = GurobipySolver(problem)
 
