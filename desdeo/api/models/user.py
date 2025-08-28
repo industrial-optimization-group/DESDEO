@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from .preference import PreferenceDB
     from .problem import ProblemDB
     from .session import InteractiveSessionDB
-    from .gdm import Group
+    from .gdm_base import Group
 
 
 class UserRole(str, Enum):

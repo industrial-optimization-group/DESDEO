@@ -5,13 +5,15 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from desdeo.api.config import AuthDebugConfig, SettingsConfig
 from desdeo.api.routers import (
+    gdm_aggregate,
+    gdm_base,
     generic,
     nimbus,
     problem,
     reference_point_method,
     session,
     user_authentication,
-    gdm,
+    gnimbus
 )
 
 if SettingsConfig.debug:
@@ -29,7 +31,9 @@ if SettingsConfig.debug:
     app.include_router(reference_point_method.router)
     app.include_router(nimbus.router)
     app.include_router(generic.router)
-    app.include_router(gdm.router)
+    app.include_router(gdm_base.router)
+    app.include_router(gnimbus.router)
+    app.include_router(gdm_aggregate.router)
 
     origins = AuthDebugConfig.cors_origins
 

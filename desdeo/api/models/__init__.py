@@ -48,7 +48,10 @@ __all__ = [
     "GroupCreateRequest",
     "GroupIteration",
     "GroupPublic",
-    "GroupInfoRequest"
+    "GroupInfoRequest",
+    "BasePreferenceResults",
+    "ReferencePointDictType",
+    "SolverResultType",
 ]
 
 from .archive import UserSavedSolutionBase, UserSavedSolutionDB
@@ -91,14 +94,16 @@ from .state import (
     StateDB,
 )
 from .user import User, UserBase, UserPublic, UserRole
-from .gdm import (
+from .gdm_base import (
+    BasePreferenceResults,
+    ReferencePointDictType,
+    SolverResultType,
+)
+from .gdm_aggregate import (
     Group, 
     GroupModifyRequest, 
     GroupCreateRequest, 
     GroupIteration,
     GroupPublic,
     GroupInfoRequest,
-    NIMBUSPreferenceResults,
-    VotingPreferenceResults,
-    BasePreferenceResults
 )
