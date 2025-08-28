@@ -338,6 +338,7 @@ def test_nimbus_solve(client: TestClient):
         current_objectives=result.current_solutions[0].objective_values,
         num_desired=3,
         parent_state_id=result.state_id,
+        solver="pyomo_bonmin" # let's try solving with a specified solver
     )
 
     response = post_json(client, "/method/nimbus/solve", request.model_dump(), access_token)
@@ -454,6 +455,16 @@ def test_nimbus_initialize_no_solver(client: TestClient):
     access_token = login(client)
 
     request = NIMBUSInitializationRequest(problem_id=1, solver=None)
+
+    response = post_json(client, "/method/nimbus/initialize", request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+
+
+def test_nimbus_initialize_with_solver(client: TestClient):
+    """Test that initializing NIMBUS works with specifying a solver."""
+    access_token = login(client)
+
+    request = NIMBUSInitializationRequest(problem_id=1, solver="pyomo_bonmin")
 
     response = post_json(client, "/method/nimbus/initialize", request.model_dump(), access_token)
     assert response.status_code == status.HTTP_200_OK
