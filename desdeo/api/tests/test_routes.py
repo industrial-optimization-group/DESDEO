@@ -25,7 +25,12 @@ from desdeo.api.models import (
     UserSavedEMOResults,
 )
 from desdeo.api.models.state_table import SolutionAddress, UserSavedSolutionAddress
-from desdeo.api.models.generic import IntermediateSolutionRequest, IntermediateSolutionResponse, SolutionInfo
+from desdeo.api.models.generic import (
+    GenericIntermediateSolutionResponse,
+    IntermediateSolutionRequest,
+    IntermediateSolutionResponse,
+    SolutionInfo,
+)
 from desdeo.api.models.state import EMOSaveState, EMOState
 from desdeo.api.routers.user_authentication import create_access_token
 from desdeo.problem.testproblems import simple_knapsack_vectors
@@ -341,7 +346,7 @@ def test_intermediate_solve(client: TestClient):
     solution_1 = SolutionInfo(state_id=result.state_id, solution_index=0)
     solution_2 = SolutionInfo(state_id=result.state_id, solution_index=1, name="named solution")
 
-    # Create request for intermediate solutions using soutions created with nimbus solve
+    # Create request for intermediate solutions using solutions created with nimbus solve
     request = IntermediateSolutionRequest(
         problem_id=1,
         context="test",
@@ -353,6 +358,9 @@ def test_intermediate_solve(client: TestClient):
     # Test the generic intermediate endpoint
     response = post_json(client, "/method/generic/intermediate", request.model_dump(), access_token)
     assert response.status_code == status.HTTP_200_OK
+    result: GenericIntermediateSolutionResponse = GenericIntermediateSolutionResponse.model_validate(
+        json.loads(response.content.decode("utf-8"))
+    )
 
     # Test the NIMBUS-specific intermediate endpoint
     nimbus_request = IntermediateSolutionRequest(

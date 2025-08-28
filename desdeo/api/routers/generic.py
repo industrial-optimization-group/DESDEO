@@ -10,10 +10,12 @@ from desdeo.api.models import (
     InteractiveSessionDB,
     IntermediateSolutionRequest,
     IntermediateSolutionState,
+    SolutionAddress,
     ProblemDB,
     StateDB,
     User,
 )
+from desdeo.api.models.generic import SolutionInfo, GenericIntermediateSolutionResponse
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.mcdm.nimbus import solve_intermediate_solutions
 from desdeo.problem import Problem
@@ -27,7 +29,7 @@ def solve_intermediate(
     request: IntermediateSolutionRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
-) -> tuple[IntermediateSolutionState, int]:
+) -> GenericIntermediateSolutionResponse:
     """Solve intermediate solutions between given two solutions."""
     if request.session_id is not None:
         statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == request.session_id)
@@ -48,6 +50,7 @@ def solve_intermediate(
     # query both reference solutions' variable values
     # stored as lit of tuples, first element of each tuple are variables values, second are objective function values
     var_and_obj_values_of_references: list[tuple[dict, dict]] = []
+    reference_states = []
     for solution_info in [request.reference_solution_1, request.reference_solution_2]:
         solution_state = session.exec(select(StateDB).where(StateDB.id == solution_info.state_id)).first()
 
@@ -57,6 +60,8 @@ def solve_intermediate(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Could not find a state with the given id{solution_state.state_id}.",
             )
+
+        reference_states.append(solution_state)
 
         try:
             _var_values = solution_state.state.result_variable_values
@@ -131,12 +136,13 @@ def solve_intermediate(
         solver_options=request.solver_options,
         solver_results=solver_results,
         num_desired=request.num_desired,
-        reference_solution_1=request.reference_solution_1.objective_values,
-        reference_solution_2=request.reference_solution_2.objective_values,
+        reference_solution_1=var_and_obj_values_of_references[0][0],
+        reference_solution_2=var_and_obj_values_of_references[1][0],
     )
 
     # create DB state and add it to the DB
-    state = StateDB(
+    state = StateDB.create(
+        database_session=session,
         problem_id=problem_db.id,
         session_id=interactive_session.id if interactive_session is not None else None,
         parent_id=parent_state.id if parent_state is not None else None,
@@ -147,4 +153,19 @@ def solve_intermediate(
     session.commit()
     session.refresh(state)
 
-    return intermediate_state, state.id
+    return GenericIntermediateSolutionResponse(
+        state_id=state.id,
+        reference_solution_1=SolutionAddress(
+            state=reference_states[0],
+            solution_index=request.reference_solution_1.solution_index,
+            name=request.reference_solution_1.name,
+        ),
+        reference_solution_2=SolutionAddress(
+            state=reference_states[1],
+            solution_index=request.reference_solution_2.solution_index,
+            name=request.reference_solution_2.name,
+        ),
+        intermediate_solutions=[
+            SolutionAddress(state=state, solution_index=i) for i in range(state.state.num_solutions)
+        ],
+    )

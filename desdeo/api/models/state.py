@@ -218,7 +218,7 @@ class EMOSaveState(SQLModel, table=True):
     solutions: list = Field(sa_column=Column(JSON), description="Original solutions from request", default_factory=list)
 
 
-class IntermediateSolutionState(SQLModel, table=True):
+class IntermediateSolutionState(SQLModel, StateInterface, table=True):
     """Generic intermediate solutions requested by other methods."""
 
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
@@ -235,7 +235,19 @@ class IntermediateSolutionState(SQLModel, table=True):
     reference_solution_2: dict[str, float] | None = Field(sa_column=Column(JSON), default=None)
 
     # results
-    solver_results: list["SolverResults"] = Field(sa_column=Column(JSON), default_factory=list)
+    solver_results: list[SolverResults] = Field(sa_column=Column(ResultsType))
+
+    @property
+    def result_objective_values(self) -> list[dict[str, float]]:
+        return [x.optimal_objectives for x in self.solver_results]
+
+    @property
+    def result_variable_values(self) -> list[dict[str, VariableType]]:
+        return [x.optimal_variables for x in self.solver_results]
+
+    @property
+    def num_solutions(self) -> int:
+        return len(self.solver_results)
 
 
 class ENautilusState(SQLModel, table=True):

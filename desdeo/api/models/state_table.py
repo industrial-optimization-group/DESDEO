@@ -313,7 +313,7 @@ class SolutionAddress(SQLModel):
     @computed_field
     @property
     def variable_values_all(self) -> list[dict[str, VariableType]]:
-        return self.state.state.result_objective_values
+        return self.state.state.result_variable_values
 
     @computed_field
     @property

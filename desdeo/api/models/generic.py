@@ -2,7 +2,7 @@
 
 from sqlmodel import JSON, Column, Field, SQLModel
 
-from .state_table import SolutionAddress, UserSavedSolutionAddress
+from .state_table import SolutionAddress, SolutionAddressResponse, UserSavedSolutionAddress
 
 
 class SolutionInfo(SQLModel):
@@ -26,6 +26,21 @@ class IntermediateSolutionRequest(SQLModel):
 
     reference_solution_1: SolutionInfo
     reference_solution_2: SolutionInfo
+
+
+class GenericIntermediateSolutionResponse(SQLModel):
+    """The response from computing intermediate values."""
+
+    state_id: int | None = Field(description="The newly created state id")
+    reference_solution_1: SolutionAddressResponse = Field(
+        sa_column=Column(JSON), description="The first solution used when computing intermediate solutions."
+    )
+    reference_solution_2: SolutionAddressResponse = Field(
+        sa_column=Column(JSON), description="The second solution used when computing intermediate solutions."
+    )
+    intermediate_solutions: list[SolutionAddressResponse] = Field(
+        sa_column=Column(JSON), description="The intermediate solutions computed."
+    )
 
 
 class IntermediateSolutionResponse(SQLModel):
