@@ -35,6 +35,7 @@ from desdeo.api.utils.database import user_save_solutions
 from desdeo.mcdm.nimbus import generate_starting_point, solve_sub_problems
 from desdeo.problem import Problem
 from desdeo.tools import SolverResults
+from desdeo.tools.utils import available_solvers
 
 router = APIRouter(prefix="/method/nimbus")
 
@@ -160,6 +161,7 @@ def solve_solutions(
         )
 
     problem = Problem.from_problemdb(problem_db)
+    solver = available_solvers[request.solver]["constructor"] if request.solver is not None else None
 
     solver_results: list[SolverResults] = solve_sub_problems(
         problem=problem,
@@ -167,7 +169,7 @@ def solve_solutions(
         reference_point=request.preference.aspiration_levels,
         num_desired=request.num_desired,
         scalarization_options=request.scalarization_options,
-        solver=request.solver,
+        solver=solver,
         solver_options=request.solver_options,
     )
     # create a new preference in the DB
@@ -362,10 +364,12 @@ def initialize(
             saved_solutions=saved_solutions,
             all_solutions=all_solutions
         )
+    
+    solver = available_solvers[request.solver]["constructor"] if request.solver is not None else None
     # if there is no last nimbus state, generate a starting point and create an initialization state
     start_result = generate_starting_point(
                 problem=problem,
-                solver=request.solver,
+                solver=solver,
             )
     # fetch parent state if it is given
     if request.parent_state_id is None:

@@ -19,6 +19,7 @@ from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.mcdm import rpm_solve_solutions
 from desdeo.problem import Problem
 from desdeo.tools import SolverResults
+from desdeo.tools.utils import available_solvers
 
 router = APIRouter(prefix="/method/rpm")
 
@@ -57,13 +58,14 @@ def solve_solutions(
         )
 
     problem = Problem.from_problemdb(problem_db)
+    solver = available_solvers[request.solver]["constructor"] if request.solver is not None else None
 
     # optimize for solutions
     solver_results: list[SolverResults] = rpm_solve_solutions(
         problem,
         request.preference.aspiration_levels,
         request.scalarization_options,
-        request.solver,
+        solver,
         request.solver_options,
     )
 

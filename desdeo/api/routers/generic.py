@@ -18,6 +18,7 @@ from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.mcdm.nimbus import solve_intermediate_solutions
 from desdeo.problem import Problem
 from desdeo.tools import SolverResults
+from desdeo.tools.utils import available_solvers
 
 router = APIRouter(prefix="/method/generic")
 
@@ -93,6 +94,7 @@ def solve_intermediate(
     # Get solution variables
     solution_1 = solution1_full.optimal_variables
     solution_2 = solution2_full.optimal_variables
+    solver = available_solvers[request.solver]["constructor"] if request.solver is not None else None
 
     solver_results: list[SolverResults] = solve_intermediate_solutions(
         problem=problem,
@@ -100,7 +102,7 @@ def solve_intermediate(
         solution_2=solution_2,
         num_desired=request.num_desired,
         scalarization_options=request.scalarization_options,
-        solver=request.solver,
+        solver=solver,
         solver_options=request.solver_options,
     )
 
