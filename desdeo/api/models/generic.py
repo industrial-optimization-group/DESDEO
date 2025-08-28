@@ -5,6 +5,12 @@ from sqlmodel import JSON, Column, Field, SQLModel
 from .state_table import SolutionAddress, UserSavedSolutionAddress
 
 
+class SolutionInfo(SQLModel):
+    state_id: int
+    solution_index: int
+    name: str | None = Field(description="Name to be given to the solution. Optional.", default=None)
+
+
 class IntermediateSolutionRequest(SQLModel):
     """Model of the request to solve intermediate solutions between two solutions."""
 
@@ -18,8 +24,8 @@ class IntermediateSolutionRequest(SQLModel):
 
     num_desired: int | None = Field(default=1)
 
-    reference_solution_1: SolutionAddress
-    reference_solution_2: SolutionAddress
+    reference_solution_1: SolutionInfo
+    reference_solution_2: SolutionInfo
 
 
 class IntermediateSolutionResponse(SQLModel):

@@ -422,7 +422,7 @@ def save(
         existing_solution = session.exec(
             select(UserSavedSolutionDB).where(
                 UserSavedSolutionDB.origin_state_id == info.state_id,
-                UserSavedSolutionDB.index == info.solution_index,
+                UserSavedSolutionDB.solution_index == info.solution_index,
             )
         ).first()
 

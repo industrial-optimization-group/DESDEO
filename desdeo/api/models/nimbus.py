@@ -5,6 +5,7 @@ from sqlmodel import JSON, Column, Field, SQLModel
 from .state_table import SavedSolutionResponse, SolutionAddress, SolutionAddressResponse, UserSavedSolutionAddress
 
 from .preference import ReferencePoint
+from .generic import SolutionInfo
 
 
 class NIMBUSClassificationRequest(SQLModel):
@@ -25,12 +26,6 @@ class NIMBUSClassificationRequest(SQLModel):
     num_desired: int | None = Field(default=1)
 
 
-class SaveSolutionInfo(SQLModel):
-    state_id: int
-    solution_index: int
-    name: str | None
-
-
 class NIMBUSSaveRequest(SQLModel):
     """Request model for saving solutions from any method's state."""
 
@@ -38,7 +33,7 @@ class NIMBUSSaveRequest(SQLModel):
     session_id: int | None = Field(default=None)
     parent_state_id: int | None = Field(default=None)
 
-    solution_info: list[SaveSolutionInfo]
+    solution_info: list[SolutionInfo]
 
 
 class NIMBUSClassificationResponse(SQLModel):

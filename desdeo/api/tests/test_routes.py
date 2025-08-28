@@ -25,11 +25,7 @@ from desdeo.api.models import (
     UserSavedEMOResults,
 )
 from desdeo.api.models.state_table import SolutionAddress, UserSavedSolutionAddress
-from desdeo.api.models.nimbus import SaveSolutionInfo
-from desdeo.api.models.generic import (
-    IntermediateSolutionRequest,
-    IntermediateSolutionResponse,
-)
+from desdeo.api.models.generic import IntermediateSolutionRequest, IntermediateSolutionResponse, SolutionInfo
 from desdeo.api.models.state import EMOSaveState, EMOState
 from desdeo.api.routers.user_authentication import create_access_token
 from desdeo.problem.testproblems import simple_knapsack_vectors
@@ -258,9 +254,9 @@ def test_nimbus_solve(client: TestClient):
         problem_id=1,
         parent_state_id=result.state_id,
         solution_info=[
-            SaveSolutionInfo(state_id=1, solution_index=0, name="Test solution 1"),
-            SaveSolutionInfo(state_id=1, solution_index=2, name="Test solution 3"),
-            SaveSolutionInfo(state_id=1, solution_index=2, name="Test solution 34"),  # saved twice!
+            SolutionInfo(state_id=1, solution_index=0, name="Test solution 1"),
+            SolutionInfo(state_id=1, solution_index=2, name="Test solution 3"),
+            SolutionInfo(state_id=1, solution_index=2, name="Test solution 34"),  # saved twice!
         ],
     )
 
@@ -294,7 +290,7 @@ def test_nimbus_solve(client: TestClient):
     request = NIMBUSSaveRequest(
         problem_id=1,
         parent_state_id=result.state_id,
-        solution_info=[SaveSolutionInfo(state_id=result.state_id, solution_index=1, name="Test solution 2")],
+        solution_info=[SolutionInfo(state_id=result.state_id, solution_index=1, name="Test solution 2")],
     )
 
     response = post_json(client, "/method/nimbus/save", request.model_dump(), access_token)
@@ -342,23 +338,15 @@ def test_intermediate_solve(client: TestClient):
     assert len(result.all_solutions) == 2
 
     # Save some solutions!
-    solution_1: SolutionAddress = result.current_solutions[0]
-    solution_2: SolutionAddress = result.current_solutions[1]
+    solution_1 = SolutionInfo(state_id=result.state_id, solution_index=0)
+    solution_2 = SolutionInfo(state_id=result.state_id, solution_index=1, name="named solution")
 
     # Create request for intermediate solutions using soutions created with nimbus solve
     request = IntermediateSolutionRequest(
         problem_id=1,
         context="test",
-        reference_solution_1=SolutionAddress(
-            objective_values=solution_1.objective_values,
-            address_state=solution_1.address_state,
-            address_result=solution_1.address_result,
-        ),
-        reference_solution_2=SolutionAddress(
-            objective_values=solution_2.objective_values,
-            address_state=solution_2.address_state,
-            address_result=solution_2.address_result,
-        ),
+        reference_solution_1=solution_1,
+        reference_solution_2=solution_2,
         num_desired=3,
     )
 
