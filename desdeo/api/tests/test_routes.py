@@ -24,7 +24,7 @@ from desdeo.api.models import (
     User,
     UserSavedEMOResults,
 )
-from desdeo.api.models.state_table import SolutionAddress, UserSavedSolutionAddress
+from desdeo.api.models.nimbus import NIMBUSInitializationResponse
 from desdeo.api.models.generic import (
     GenericIntermediateSolutionResponse,
     IntermediateSolutionRequest,
@@ -383,14 +383,52 @@ def test_intermediate_solve(client: TestClient):
     assert len(nimbus_result.all_solutions) == 7
 
 
-def test_nimbus_initialize_no_solver(client: TestClient):
+def test_nimbus_initialize(client: TestClient):
     """Test that initializing NIMBUS works without specifying a solver."""
     access_token = login(client)
 
+    # test with no starting point
     request = NIMBUSInitializationRequest(problem_id=1, solver=None)
 
     response = post_json(client, "/method/nimbus/initialize", request.model_dump(), access_token)
+
     assert response.status_code == status.HTTP_200_OK
+    init_result = NIMBUSInitializationResponse.model_validate(json.loads(response.content))
+
+    assert init_result.state_id == 1
+    assert len(init_result.current_solutions) == 1
+    assert len(init_result.saved_solutions) == 0
+    assert len(init_result.all_solutions) == 1
+
+    # test with starting point given as solution info
+    request_w_info = NIMBUSInitializationRequest(
+        problem_id=1, starting_point=SolutionInfo(state_id=1, solution_index=0)
+    )
+
+    response_w_info = post_json(client, "/method/nimbus/initialize", request_w_info.model_dump(), access_token)
+
+    assert response_w_info.status_code == status.HTTP_200_OK
+    result_w_info = NIMBUSInitializationResponse.model_validate(json.loads(response_w_info.content))
+
+    assert result_w_info.state_id == 2
+    assert len(result_w_info.current_solutions) == 1
+    assert len(result_w_info.saved_solutions) == 0
+    assert len(result_w_info.all_solutions) == 1  # this is still one because the new solution will be a duplicate.
+
+    # test with starting point given as a reference point
+    request_w_ref = NIMBUSInitializationRequest(
+        problem_id=1, starting_point=ReferencePoint(aspiration_levels={"f_1": 0.2, "f_2": 0.8, "f_3": 0.4})
+    )
+
+    response_w_ref = post_json(client, "/method/nimbus/initialize", request_w_ref.model_dump(), access_token)
+
+    assert response_w_ref.status_code == status.HTTP_200_OK
+    result_w_ref = NIMBUSInitializationResponse.model_validate(json.loads(response_w_ref.content))
+
+    assert result_w_ref.state_id == 3
+    assert len(result_w_ref.current_solutions) == 1
+    assert len(result_w_ref.saved_solutions) == 0
+    assert len(result_w_ref.all_solutions) == 2  # we should have a new one
 
 
 def test_add_new_dm(client: TestClient):

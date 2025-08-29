@@ -172,13 +172,30 @@ class NIMBUSSaveState(StateInterface, SQLModel, table=True):
         return len(self.solutions)
 
 
-class NIMBUSInitializationState(SQLModel, table=True):
+class NIMBUSInitializationState(StateInterface, SQLModel, table=True):
     """NIMBUS: initialization."""
 
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
 
+    reference_point: dict[str, float] | None = Field(sa_column=Column(JSON), default=None)
+    scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
     solver: str | None = None
-    solver_results: list["SolverResults"] = Field(sa_column=Column(JSON), default_factory=list)
+    solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+
+    # Results
+    solver_results: "SolverResults" = Field(sa_column=Column(ResultsType), default_factory=list)
+
+    @property
+    def result_objective_values(self) -> list[dict[str, float]]:
+        return [self.solver_results.optimal_objectives]
+
+    @property
+    def result_variable_values(self) -> list[dict[str, VariableType]]:
+        return [self.solver_results.optimal_variables]
+
+    @property
+    def num_solutions(self) -> int:
+        return 1
 
 
 class EMOState(SQLModel, table=True):
