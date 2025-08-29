@@ -1,35 +1,52 @@
 """Model exports."""
 
-__all__ = [
-    "UserSavedSolutionBase",
+__all__ = [  # noqa: RUF022
     "UserSavedSolutionDB",
+    "BaseEMOState",
     "Bounds",
     "ConstantDB",
     "ConstraintDB",
     "CreateSessionRequest",
     "DiscreteRepresentationDB",
+    "EMOSaveState",
+    "EMOSolveRequest",
+    "EMOState",
+    "ENautilusState",
     "ExtraFunctionDB",
+    "ForestProblemMetaData",
     "GetSessionRequest",
     "InteractiveSessionBase",
     "InteractiveSessionDB",
     "InteractiveSessionInfo",
     "IntermediateSolutionRequest",
+    "IntermediateSolutionResponse",
     "IntermediateSolutionState",
     "NIMBUSBaseState",
     "NIMBUSClassificationRequest",
     "NIMBUSClassificationState",
+    "NIMBUSInitializationRequest",
+    "NIMBUSInitializationState",
     "NIMBUSSaveRequest",
+    "NIMBUSClassificationResponse",
+    "NIMBUSInitializationResponse",
+    "NIMBUSSaveResponse",
     "NIMBUSSaveState",
+    "NonPreferredSolutions",
     "ObjectiveDB",
     "PreferenceBase",
     "PreferenceDB",
+    "PreferredSolutions",
+    "PreferredRanges",
     "ProblemDB",
     "ProblemGetRequest",
     "ProblemInfo",
     "ProblemInfoSmall",
+    "ProblemMetaDataDB",
+    "ProblemMetaDataGetRequest",
     "ReferencePoint",
-    "RPMSolveRequest",
+    "RepresentativeNonDominatedSolutions",
     "RPMBaseState",
+    "RPMSolveRequest",
     "RPMState",
     "ScalarizationFunctionDB",
     "SimulatorDB",
@@ -42,6 +59,7 @@ __all__ = [
     "UserRole",
     "VariableDB",
     "ProblemMetaDataDB",
+    "BaseProblemMetaData",
     "ForestProblemMetaData",
     "Group",
     "GroupModifyRequest",
@@ -52,29 +70,61 @@ __all__ = [
     "BasePreferenceResults",
     "ReferencePointDictType",
     "SolverResultType",
+    "EMOSolveRequest",
+    "PreferredRanges",
+    "PreferedSolutions",
+    "NonPreferredSolutions",
+    "EMOSaveState",
+    "EMOSaveRequest",
+    "EMOState",
+    "SolutionAddress",
+    "UserSavedEMOResults",
+    "UserSavedSolutionAddress",
+    "UtopiaRequest",
+    "UtopiaResponse",
+    "VariableDB",
 ]
 
-from .archive import UserSavedSolutionBase, UserSavedSolutionDB
-from .generic import IntermediateSolutionRequest
-from .nimbus import NIMBUSClassificationRequest, NIMBUSSaveRequest
-from .preference import Bounds, PreferenceBase, PreferenceDB, ReferencePoint
+
+from .archive import SolutionAddress, UserSavedEMOResults, UserSavedSolutionAddress, UserSavedSolutionDB
+from .EMO import EMOSaveRequest, EMOSolveRequest
+from .generic import IntermediateSolutionRequest, IntermediateSolutionResponse
+from .nimbus import (
+    NIMBUSClassificationRequest,
+    NIMBUSClassificationResponse,
+    NIMBUSInitializationRequest,
+    NIMBUSInitializationResponse,
+    NIMBUSSaveRequest,
+    NIMBUSSaveResponse,
+)
+from .preference import (
+    Bounds,
+    NonPreferredSolutions,
+    PreferenceBase,
+    PreferenceDB,
+    PreferredRanges,
+    PreferredSolutions,
+    ReferencePoint,
+)
 from .problem import (
     ConstantDB,
     ConstraintDB,
     DiscreteRepresentationDB,
     ExtraFunctionDB,
+    ForestProblemMetaData,
     ObjectiveDB,
     ProblemDB,
     ProblemGetRequest,
     ProblemInfo,
     ProblemInfoSmall,
+    ProblemMetaDataDB,
+    ProblemMetaDataGetRequest,
+    RepresentativeNonDominatedSolutions,
     ScalarizationFunctionDB,
     SimulatorDB,
     TensorConstantDB,
     TensorVariableDB,
     VariableDB,
-    ProblemMetaDataDB,
-    ForestProblemMetaData,
 )
 from .reference_point_method import RPMSolveRequest
 from .session import (
@@ -85,9 +135,14 @@ from .session import (
     InteractiveSessionInfo,
 )
 from .state import (
+    BaseEMOState,
+    EMOSaveState,
+    EMOState,
+    ENautilusState,
     IntermediateSolutionState,
     NIMBUSBaseState,
     NIMBUSClassificationState,
+    NIMBUSInitializationState,
     NIMBUSSaveState,
     RPMBaseState,
     RPMState,
@@ -107,3 +162,4 @@ from .gdm_aggregate import (
     GroupPublic,
     GroupInfoRequest,
 )
+from .utopia import UtopiaRequest, UtopiaResponse

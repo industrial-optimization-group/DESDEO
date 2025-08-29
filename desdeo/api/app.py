@@ -7,13 +7,15 @@ from desdeo.api.config import AuthDebugConfig, SettingsConfig
 from desdeo.api.routers import (
     gdm_aggregate,
     gdm_base,
+    EMO,
     generic,
     nimbus,
     problem,
     reference_point_method,
     session,
     user_authentication,
-    gnimbus
+    gnimbus,
+    utopia,
 )
 
 if SettingsConfig.debug:
@@ -30,10 +32,12 @@ if SettingsConfig.debug:
     app.include_router(session.router)
     app.include_router(reference_point_method.router)
     app.include_router(nimbus.router)
+    app.include_router(EMO.router)
     app.include_router(generic.router)
     app.include_router(gdm_base.router)
     app.include_router(gnimbus.router)
     app.include_router(gdm_aggregate.router)
+    app.include_router(utopia.router)
 
     origins = AuthDebugConfig.cors_origins
 

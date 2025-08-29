@@ -1,0 +1,1 @@
+export {default as TradeoffHeatmap} from './heatmap.svelte';

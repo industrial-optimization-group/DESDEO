@@ -17,7 +17,8 @@
 		"test:e2e": "playwright test",
 		"storybook": "storybook dev -p 6006",
 		"build-storybook": "storybook build",
-		"generate:client": "openapi-typescript http://localhost:8000/openapi.json -o src/lib/api/client-types.ts"
+		"generate:client": "openapi-typescript http://localhost:8000/openapi.json -o src/lib/api/client-types.ts",
+		"generate:zod-types": "openapi-zod-client http://localhost:8000/openapi.json -o src/lib/api/zod-types.ts"
 	},
 	"devDependencies": {
 		"@chromatic-com/storybook": "^3",
@@ -42,6 +43,7 @@
 		"@tanstack/table-core": "^8.21.3",
 		"@testing-library/jest-dom": "^6.6.3",
 		"@testing-library/svelte": "^5.2.4",
+		"@types/d3": "^7.4.3",
 		"@types/node": "^18.19.112",
 		"@vitest/browser": "^3.1.4",
 		"@vitest/coverage-v8": "^3.1.4",
@@ -59,6 +61,7 @@
 		"mdsvex": "^0.12.3",
 		"mode-watcher": "^1.0.7",
 		"openapi-typescript": "^7.8.0",
+		"openapi-zod-client": "^1.18.3",
 		"paneforge": "^1.0.0-next.5",
 		"playwright": "^1.52.0",
 		"prettier": "^3.4.2",
@@ -81,6 +84,8 @@
 	},
 	"dependencies": {
 		"@cortex-js/compute-engine": "^0.29.1",
+		"d3": "^7.9.0",
+		"echarts": "^6.0.0",
 		"katex": "^0.16.22",
 		"openapi-fetch": "^0.14.0",
 		"openapi-typescript-fetch": "^2.2.0"

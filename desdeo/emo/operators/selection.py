@@ -9,25 +9,29 @@ from abc import abstractmethod
 from collections.abc import Sequence
 from enum import Enum
 from itertools import combinations
-from typing import Literal, TypedDict, TypeVar
+from typing import Callable, Literal, TypedDict, TypeVar
 
 import numpy as np
 import polars as pl
+from numba import njit
 from scipy.special import comb
 from scipy.stats.qmc import LatinHypercube
+from sqlalchemy import false
 
 from desdeo.problem import Problem
 from desdeo.tools import get_corrected_ideal_and_nadir
+from desdeo.tools.indicators_binary import self_epsilon
 from desdeo.tools.message import (
     Array2DMessage,
     DictMessage,
     Message,
+    NumpyArrayMessage,
     PolarsDataFrameMessage,
     SelectorMessageTopics,
     TerminatorMessageTopics,
 )
 from desdeo.tools.non_dominated_sorting import fast_non_dominated_sort
-from desdeo.tools.patterns import Subscriber, Publisher
+from desdeo.tools.patterns import Publisher, Subscriber
 
 SolutionType = TypeVar("SolutionType", list, pl.DataFrame)
 
@@ -35,7 +39,7 @@ SolutionType = TypeVar("SolutionType", list, pl.DataFrame)
 class BaseSelector(Subscriber):
     """A base class for selection operators."""
 
-    def __init__(self, problem: Problem, verbosity: int, publisher: Publisher):
+    def __init__(self, problem: Problem, verbosity: int, publisher: Publisher, seed: int = 0):
         """Initialize a selection operator."""
         super().__init__(verbosity=verbosity, publisher=publisher)
         self.problem = problem
@@ -60,6 +64,8 @@ class BaseSelector(Subscriber):
         else:
             self.constraints_symbols = [x.symbol for x in problem.constraints]
         self.num_dims = len(self.target_symbols)
+        self.seed = seed
+        self.rng = np.random.default_rng(seed)
 
     @abstractmethod
     def do(
@@ -133,9 +139,14 @@ class BaseDecompositionSelector(BaseSelector):
     """Base class for decomposition based selection operators."""
 
     def __init__(
-        self, problem: Problem, reference_vector_options: ReferenceVectorOptions, verbosity: int, publisher: Publisher
+        self,
+        problem: Problem,
+        reference_vector_options: ReferenceVectorOptions,
+        verbosity: int,
+        publisher: Publisher,
+        seed: int = 0,
     ):
-        super().__init__(problem, verbosity=verbosity, publisher=publisher)
+        super().__init__(problem, verbosity=verbosity, publisher=publisher, seed=seed)
         self.reference_vector_options = reference_vector_options
         self.reference_vectors: np.ndarray
         self.reference_vectors_initial: np.ndarray
@@ -363,7 +374,7 @@ class BaseDecompositionSelector(BaseSelector):
         upper_limits = np.max(preferred_ranges, axis=0)
 
         # generate samples using Latin hypercube sampling
-        lhs = LatinHypercube(d=self.num_dims)
+        lhs = LatinHypercube(d=self.num_dims, seed=self.rng)
         w = lhs.random(n=self.reference_vectors_initial.shape[0])
 
         # scale between bounds
@@ -392,6 +403,127 @@ class ParameterAdaptationStrategy(Enum):
     GENERATION_BASED = 1  # Based on the current generation and the maximum generation.
     FUNCTION_EVALUATION_BASED = 2  # Based on the current function evaluation and the maximum function evaluation.
     OTHER = 3  # As of yet undefined strategies.
+
+
+@njit
+def _rvea_selection(
+    fitness: np.ndarray, reference_vectors: np.ndarray, ideal: np.ndarray, partial_penalty: float, gamma: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Select individuals based on their fitness and their distance to the reference vectors.
+
+    Args:
+        fitness (np.ndarray): The fitness values of the individuals.
+        reference_vectors (np.ndarray): The reference vectors.
+        ideal (np.ndarray): The ideal point.
+        partial_penalty (float): The partial penalty in APD.
+        gamma (np.ndarray): The angle between current and closest reference vector.
+
+    Returns:
+        tuple[np.ndarray, np.ndarray]: The selected individuals and their APD fitness values.
+    """
+    tranlated_fitness = fitness - ideal
+    num_vectors = reference_vectors.shape[0]
+    num_solutions = fitness.shape[0]
+
+    cos_matrix = np.zeros((num_solutions, num_vectors))
+
+    for i in range(num_solutions):
+        solution = tranlated_fitness[i]
+        norm = np.linalg.norm(solution)
+        for j in range(num_vectors):
+            cos_matrix[i, j] = np.dot(solution, reference_vectors[j]) / max(1e-10, norm)  # Avoid division by zero
+
+    assignment_matrix = np.zeros((num_solutions, num_vectors), dtype=np.bool_)
+
+    for i in range(num_solutions):
+        assignment_matrix[i, np.argmax(cos_matrix[i])] = True
+
+    selection = np.zeros(num_solutions, dtype=np.bool_)
+    apd_fitness = np.zeros(num_solutions, dtype=np.float64)
+
+    for j in range(num_vectors):
+        min_apd = np.inf
+        select = -1
+        for i in np.where(assignment_matrix[:, j])[0]:
+            solution = tranlated_fitness[i]
+            apd = (1 + (partial_penalty * np.arccos(cos_matrix[i, j]) / gamma[j])) * np.linalg.norm(solution)
+            apd_fitness[i] = apd
+            if apd < min_apd:
+                min_apd = apd
+                select = i
+        selection[select] = True
+
+    return selection, apd_fitness
+
+
+@njit
+def _rvea_selection_constrained(
+    fitness: np.ndarray,
+    constraints: np.ndarray,
+    reference_vectors: np.ndarray,
+    ideal: np.ndarray,
+    partial_penalty: float,
+    gamma: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Select individuals based on their fitness and their distance to the reference vectors.
+
+    Args:
+        fitness (np.ndarray): The fitness values of the individuals.
+        constraints (np.ndarray): The constraint violations of the individuals.
+        reference_vectors (np.ndarray): The reference vectors.
+        ideal (np.ndarray): The ideal point.
+        partial_penalty (float): The partial penalty in APD.
+        gamma (np.ndarray): The angle between current and closest reference vector.
+
+    Returns:
+        tuple[np.ndarray, np.ndarray]: The selected individuals and their APD fitness values.
+    """
+    tranlated_fitness = fitness - ideal
+    num_vectors = reference_vectors.shape[0]
+    num_solutions = fitness.shape[0]
+
+    violations = np.maximum(0, constraints)
+
+    cos_matrix = np.zeros((num_solutions, num_vectors))
+
+    for i in range(num_solutions):
+        solution = tranlated_fitness[i]
+        norm = np.linalg.norm(solution)
+        for j in range(num_vectors):
+            cos_matrix[i, j] = np.dot(solution, reference_vectors[j]) / max(1e-10, norm)  # Avoid division by zero
+
+    assignment_matrix = np.zeros((num_solutions, num_vectors), dtype=np.bool_)
+
+    for i in range(num_solutions):
+        assignment_matrix[i, np.argmax(cos_matrix[i])] = True
+
+    selection = np.zeros(num_solutions, dtype=np.bool_)
+    apd_fitness = np.zeros(num_solutions, dtype=np.float64)
+
+    for j in range(num_vectors):
+        min_apd = np.inf
+        min_violation = np.inf
+        select = -1
+        select_violation = -1
+        for i in np.where(assignment_matrix[:, j])[0]:
+            solution = tranlated_fitness[i]
+            apd = (1 + (partial_penalty * np.arccos(cos_matrix[i, j]) / gamma[j])) * np.linalg.norm(solution)
+            apd_fitness[i] = apd
+            feasible = np.all(violations[i] == 0)
+            current_violation = np.sum(violations[i])
+            if feasible:
+                if apd < min_apd:
+                    min_apd = apd
+                    select = i
+            elif current_violation < min_violation:
+                min_violation = current_violation
+                select_violation = i
+        if select != -1:
+            selection[select] = True
+        else:
+            selection[select_violation] = True
+
+    return selection, apd_fitness
 
 
 class RVEASelector(BaseDecompositionSelector):
@@ -437,7 +569,7 @@ class RVEASelector(BaseDecompositionSelector):
                 adaptation_frequency=100,
                 creation_type="simplex",
                 vector_type="spherical",
-                number_of_vectors=500,
+                number_of_vectors=200,
             )
 
         super().__init__(
@@ -453,6 +585,7 @@ class RVEASelector(BaseDecompositionSelector):
         self.selection: list[int]
         self.penalty = None
         self.parameter_adaptation_strategy = parameter_adaptation_strategy
+        self.adapted_reference_vectors = None
 
     def do(
         self,
@@ -484,94 +617,52 @@ class RVEASelector(BaseDecompositionSelector):
         alltargets = parents[1].vstack(offsprings[1])
         targets = alltargets[self.target_symbols].to_numpy()
         if self.constraints_symbols is None or len(self.constraints_symbols) == 0:
-            constraints = None
+            # No constraints :)
+            if self.ideal is None:
+                self.ideal = np.min(targets, axis=0)
+            else:
+                self.ideal = np.min(np.vstack((self.ideal, np.min(targets, axis=0))), axis=0)
+            self.nadir = np.max(targets, axis=0) if self.nadir is None else self.nadir
+            if self.adapted_reference_vectors is None:
+                self._adapt()
+            selection, _ = _rvea_selection(
+                fitness=targets,
+                reference_vectors=self.adapted_reference_vectors,
+                ideal=self.ideal,
+                partial_penalty=self._partial_penalty_factor(),
+                gamma=self.reference_vectors_gamma,
+            )
         else:
+            # Yes constraints :(
             constraints = (
                 parents[1][self.constraints_symbols].vstack(offsprings[1][self.constraints_symbols]).to_numpy()
             )
+            feasible = (constraints <= 0).all(axis=1)
+            # Note that
+            if self.ideal is None:
+                # TODO: This breaks if there are no feasible solutions in the initial population
+                self.ideal = np.min(targets[feasible], axis=0)
+            else:
+                self.ideal = np.min(np.vstack((self.ideal, np.min(targets[feasible], axis=0))), axis=0)
+            try:
+                nadir = np.max(targets[feasible], axis=0)
+                self.nadir = nadir
+            except ValueError:  # No feasible solution in current population
+                pass  # Use previous nadir
+            if self.adapted_reference_vectors is None:
+                self._adapt()
+            selection, _ = _rvea_selection_constrained(
+                fitness=targets,
+                constraints=constraints,
+                reference_vectors=self.adapted_reference_vectors,
+                ideal=self.ideal,
+                partial_penalty=self._partial_penalty_factor(),
+                gamma=self.reference_vectors_gamma,
+            )
 
-        if self.ideal is None:
-            self.ideal = np.min(targets, axis=0)
-        else:
-            self.ideal = np.min(np.vstack((self.ideal, np.min(targets, axis=0))), axis=0)
-        partial_penalty_factor = self._partial_penalty_factor()
-        self._adapt()
-
-        ref_vectors = self.adapted_reference_vectors
-        # Normalization - There may be problems here
-        translated_targets = targets - self.ideal
-        targets_norm = np.linalg.norm(translated_targets, axis=1)
-        # TODO check if you need the next line
-        # TODO changing the order of the following few operations might be efficient
-        targets_norm = np.repeat(targets_norm, len(translated_targets[0, :])).reshape(translated_targets.shape)
-        # Convert zeros to eps to avoid divide by zero.
-        # Has to be checked!
-        targets_norm[targets_norm == 0] = np.finfo(float).eps
-        normalized_targets = np.divide(translated_targets, targets_norm)  # Checked, works.
-        cosine = np.dot(normalized_targets, np.transpose(ref_vectors))
-        if cosine[np.where(cosine > 1)].size:
-            cosine[np.where(cosine > 1)] = 1
-        if cosine[np.where(cosine < 0)].size:
-            cosine[np.where(cosine < 0)] = 0
-        # Calculation of angles between reference vectors and solutions
-        theta = np.arccos(cosine)
-        # Reference vector assignment
-        assigned_vectors = np.argmax(cosine, axis=1)
-        selection = np.array([], dtype=int)
-        # Selection
-        # Convert zeros to eps to avoid divide by zero.
-        # Has to be checked!
-        ref_vectors[ref_vectors == 0] = np.finfo(float).eps
-        for i in range(len(ref_vectors)):
-            sub_population_index = np.atleast_1d(np.squeeze(np.where(assigned_vectors == i)))
-
-            # Constraint check
-            if len(sub_population_index) > 1 and constraints is not None:
-                violation_values = constraints[sub_population_index]
-                # violation_values = -violation_values
-                violation_values = np.maximum(0, violation_values)
-                # True if feasible
-                feasible_bool = (violation_values == 0).all(axis=1)
-
-                # Case when entire subpopulation is infeasible
-                if not feasible_bool.any():
-                    violation_values = violation_values.sum(axis=1)
-                    sub_population_index = sub_population_index[np.where(violation_values == violation_values.min())]
-                # Case when only some are infeasible
-                else:
-                    sub_population_index = sub_population_index[feasible_bool]
-
-            sub_population_fitness = translated_targets[sub_population_index]
-            # fast tracking singly selected individuals
-            if len(sub_population_index) == 1:
-                selx = sub_population_index
-                if selection.shape[0] == 0:
-                    selection = np.hstack((selection, np.transpose(selx[0])))
-                else:
-                    selection = np.vstack((selection, np.transpose(selx[0])))
-            elif len(sub_population_index) > 1:
-                # APD Calculation
-                angles = theta[sub_population_index, i]
-                angles = np.divide(angles, self.reference_vectors_gamma[i])  # This is correct.
-                # You have done this calculation before. Check with fitness_norm
-                # Remove this horrible line
-                sub_pop_fitness_magnitude = np.sqrt(np.sum(np.power(sub_population_fitness, 2), axis=1))
-                apd = np.multiply(
-                    np.transpose(sub_pop_fitness_magnitude),
-                    (1 + np.dot(partial_penalty_factor, angles)),
-                )
-                minidx = np.where(apd == np.nanmin(apd))
-                if np.isnan(apd).all():
-                    continue
-                selx = sub_population_index[minidx]
-                if selection.shape[0] == 0:
-                    selection = np.hstack((selection, np.transpose(selx[0])))
-                else:
-                    selection = np.vstack((selection, np.transpose(selx[0])))
-
-        self.selection = selection.tolist()
-        self.selected_individuals = solutions[selection.flatten()]
-        self.selected_targets = alltargets[selection.flatten()]
+        self.selection = np.where(selection)[0].tolist()
+        self.selected_individuals = solutions[self.selection]
+        self.selected_targets = alltargets[self.selection]
         self.notify()
         return self.selected_individuals, self.selected_targets
 
@@ -605,6 +696,11 @@ class RVEASelector(BaseDecompositionSelector):
         if self.parameter_adaptation_strategy == ParameterAdaptationStrategy.GENERATION_BASED:
             if message.topic == TerminatorMessageTopics.GENERATION:
                 self.numerator = message.value
+                if (
+                    self.reference_vector_options["adaptation_frequency"] > 0
+                    and self.numerator % self.reference_vector_options["adaptation_frequency"] == 0
+                ):
+                    self._adapt()
             if message.topic == TerminatorMessageTopics.MAX_GENERATIONS:
                 self.denominator = message.value
         elif self.parameter_adaptation_strategy == ParameterAdaptationStrategy.FUNCTION_EVALUATION_BASED:
@@ -680,25 +776,24 @@ class RVEASelector(BaseDecompositionSelector):
             self.adapted_reference_vectors / np.linalg.norm(self.adapted_reference_vectors, axis=1)[:, None]
         )
 
-        # More efficient way to calculate the gamma values
-        self.reference_vectors_gamma = np.arccos(
-            np.dot(self.adapted_reference_vectors, np.transpose(self.adapted_reference_vectors))
-        )
-        self.reference_vectors_gamma[np.where(self.reference_vectors_gamma == 0)] = np.inf
-        self.reference_vectors_gamma = np.min(self.reference_vectors_gamma, axis=1)
+        self.reference_vectors_gamma = np.zeros(self.adapted_reference_vectors.shape[0])
+        for i in range(self.adapted_reference_vectors.shape[0]):
+            closest_angle = np.inf
+            for j in range(self.adapted_reference_vectors.shape[0]):
+                if i != j:
+                    angle = np.arccos(
+                        np.clip(np.dot(self.adapted_reference_vectors[i], self.adapted_reference_vectors[j]), -1.0, 1.0)
+                    )
+                    if angle < closest_angle and angle > 0:
+                        # In cases with extreme differences in obj func ranges
+                        # sometimes, the closest reference vectors are so close that
+                        # the angle between them is 0 according to arccos (literally 0)
+                        closest_angle = angle
+            self.reference_vectors_gamma[i] = closest_angle
 
 
 class NSGAIII_select(BaseDecompositionSelector):
-    """The NSGA-III selection operator. Code is heavily based on the version of nsga3 in the pymoo package by msu-coinlab.
-
-    Parameters
-    ----------
-    pop : Population
-        [description]
-    n_survive : int, optional
-        [description], by default None
-
-    """
+    """The NSGA-III selection operator, heavily based on the version of nsga3 in the pymoo package by msu-coinlab."""
 
     @property
     def provided_topics(self):
@@ -724,16 +819,30 @@ class NSGAIII_select(BaseDecompositionSelector):
         verbosity: int,
         publisher: Publisher,
         reference_vector_options: ReferenceVectorOptions | None = None,
+        seed: int = 0,
     ):
+        """Initialize the NSGA-III selection operator.
+
+        Args:
+            problem (Problem): The optimization problem to be solved.
+            verbosity (int): The verbosity level of the operator.
+            publisher (Publisher): The publisher to use for communication.
+            reference_vector_options (ReferenceVectorOptions | None, optional): Options for the reference vectors. Defaults to None.
+            seed (int, optional): The random seed to use. Defaults to 0.
+        """
         if reference_vector_options is None:
             reference_vector_options = ReferenceVectorOptions(
                 adaptation_frequency=0,
                 creation_type="simplex",
                 vector_type="planar",
-                number_of_vectors=500,
+                number_of_vectors=200,
             )
         super().__init__(
-            problem, reference_vector_options=reference_vector_options, verbosity=verbosity, publisher=publisher
+            problem,
+            reference_vector_options=reference_vector_options,
+            verbosity=verbosity,
+            publisher=publisher,
+            seed=seed,
         )
         self.adapted_reference_vectors = None
         self.worst_fitness: np.ndarray | None = None
@@ -929,13 +1038,13 @@ class NSGAIII_select(BaseDecompositionSelector):
             next_niche_count = niche_count[next_niches_list]
             next_niche = np.where(next_niche_count == next_niche_count.min())[0]
             next_niche = next_niches_list[next_niche]
-            next_niche = next_niche[np.random.randint(0, len(next_niche))]
+            next_niche = next_niche[self.rng.integers(0, len(next_niche))]
 
             # indices of individuals that are considered and assign to next_niche
             next_ind = np.where(np.logical_and(niche_of_individuals == next_niche, mask))[0]
 
             # shuffle to break random tie (equal perp. dist) or select randomly
-            np.random.shuffle(next_ind)
+            self.rng.shuffle(next_ind)
 
             if niche_count[next_niche] == 0:
                 next_ind = next_ind[np.argmin(dist_to_niche[next_ind])]
@@ -1043,6 +1152,245 @@ class NSGAIII_select(BaseDecompositionSelector):
             message,
         ]
         return state_verbose
+
+    def update(self, message: Message) -> None:
+        pass
+
+
+@njit
+def _ibea_fitness(fitness_components: np.ndarray, kappa: float) -> np.ndarray:
+    """Calculates the IBEA fitness for each individual based on pairwise fitness components.
+
+    Args:
+        fitness_components (np.ndarray): The pairwise fitness components of the individuals.
+        kappa (float): The kappa value for the IBEA selection.
+
+    Returns:
+        np.ndarray: The IBEA fitness values for each individual.
+    """
+    num_individuals = fitness_components.shape[0]
+    fitness = np.zeros(num_individuals)
+    for i in range(num_individuals):
+        for j in range(num_individuals):
+            if i != j:
+                fitness[i] -= np.exp(-fitness_components[j, i] / kappa)
+    return fitness
+
+
+@njit
+def _ibea_select(fitness_components: np.ndarray, bad_sols: np.ndarray, kappa: float) -> int:
+    """Selects the worst individual based on the IBEA indicator.
+
+    Args:
+        fitness_components (np.ndarray): The pairwise fitness components of the individuals.
+        bad_sols (np.ndarray): A boolean array indicating which individuals are considered "bad".
+        kappa (float): The kappa value for the IBEA selection.
+
+    Returns:
+        int: The index of the selected individual.
+    """
+    fitness = np.zeros(len(fitness_components))
+    for i in range(len(fitness_components)):
+        if bad_sols[i]:
+            continue
+        for j in range(len(fitness_components)):
+            if bad_sols[j] or i == j:
+                continue
+            fitness[i] -= np.exp(-fitness_components[j, i] / kappa)
+    choice = np.argmin(fitness)
+    if fitness[choice] >= 0:
+        if sum(bad_sols) == len(fitness_components) - 1:
+            # If all but one individual is chosen, select the last one
+            return np.where(~bad_sols)[0][0]
+        raise RuntimeError("All individuals have non-negative fitness. Cannot select a new individual.")
+    return choice
+
+
+@njit
+def _ibea_select_all(fitness_components: np.ndarray, population_size: int, kappa: float) -> np.ndarray:
+    """Selects all individuals based on the IBEA indicator.
+
+    Args:
+        fitness_components (np.ndarray): The pairwise fitness components of the individuals.
+        population_size (int): The desired size of the population after selection.
+        kappa (float): The kappa value for the IBEA selection.
+
+    Returns:
+        list[int]: The list of indices of the selected individuals.
+    """
+    current_pop_size = len(fitness_components)
+    bad_sols = np.zeros(current_pop_size, dtype=np.bool_)
+    fitness = np.zeros(len(fitness_components))
+    mod_fit_components = np.exp(-fitness_components / kappa)
+    for i in range(len(fitness_components)):
+        for j in range(len(fitness_components)):
+            if i == j:
+                continue
+            fitness[i] -= mod_fit_components[j, i]
+    while current_pop_size - sum(bad_sols) > population_size:
+        selected = np.argmin(fitness)
+        if fitness[selected] >= 0:
+            if sum(bad_sols) == len(fitness_components) - 1:
+                # If all but one individual is chosen, select the last one
+                selected = np.where(~bad_sols)[0][0]
+            raise RuntimeError("All individuals have non-negative fitness. Cannot select a new individual.")
+        fitness[selected] = np.inf  # Make sure that this individual is not selected again
+        bad_sols[selected] = True
+        for i in range(len(mod_fit_components)):
+            if bad_sols[i]:
+                continue
+            # Update fitness of the remaining individuals
+            fitness[i] += mod_fit_components[selected, i]
+    return ~bad_sols
+
+
+class IBEA_Selector(BaseSelector):
+    """The adaptive IBEA selection operator.
+
+    Reference: Zitzler, E., Künzli, S. (2004). Indicator-Based Selection in Multiobjective Search. In: Yao, X., et al.
+    Parallel Problem Solving from Nature - PPSN VIII. PPSN 2004. Lecture Notes in Computer Science, vol 3242.
+    Springer, Berlin, Heidelberg. https://doi.org/10.1007/978-3-540-30217-9_84
+    """
+
+    @property
+    def provided_topics(self):
+        return {
+            0: [],
+            1: [SelectorMessageTopics.STATE],
+            2: [SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS, SelectorMessageTopics.SELECTED_FITNESS],
+        }
+
+    @property
+    def interested_topics(self):
+        return []
+
+    def __init__(
+        self,
+        problem: Problem,
+        verbosity: int,
+        publisher: Publisher,
+        population_size: int,
+        kappa: float = 0.05,
+        binary_indicator: Callable[[np.ndarray], np.ndarray] = self_epsilon,
+    ):
+        """Initialize the IBEA selector.
+
+        Args:
+            problem (Problem): The problem to solve.
+            verbosity (int): The verbosity level of the selector.
+            publisher (Publisher): The publisher to send messages to.
+            population_size (int): The size of the population to select.
+            kappa (float, optional): The kappa value for the IBEA selection. Defaults to 0.05.
+            binary_indicator (Callable[[np.ndarray], np.ndarray], optional): The binary indicator function to use.
+                Defaults to self_epsilon with uses binary addaptive epsilon indicator.
+        """
+        # TODO(@light-weaver): IBEA doesn't perform as good as expected
+        # The distribution of solutions found isn't very uniform
+        # Update 21st August, tested against jmetalpy IBEA. Our version is both faster and better
+        # What is happening???
+        # Results are similar to this https://github.com/Xavier-MaYiMing/IBEA/
+        super().__init__(problem=problem, verbosity=verbosity, publisher=publisher)
+        self.selection: list[int] | None = None
+        self.selected_individuals: SolutionType | None = None
+        self.selected_targets: pl.DataFrame | None = None
+        self.binary_indicator = binary_indicator
+        self.kappa = kappa
+        self.population_size = population_size
+
+    def do(
+        self, parents: tuple[SolutionType, pl.DataFrame], offsprings: tuple[SolutionType, pl.DataFrame]
+    ) -> tuple[SolutionType, pl.DataFrame]:
+        """Perform the selection operation.
+
+        Args:
+            parents (tuple[SolutionType, pl.DataFrame]): the decision variables as the first element.
+                The second element is the objective values, targets, and constraint violations.
+            offsprings (tuple[SolutionType, pl.DataFrame]): the decision variables as the first element.
+                The second element is the objective values, targets, and constraint violations.
+
+        Returns:
+            tuple[SolutionType, pl.DataFrame]: The selected decision variables and their objective values,
+                targets, and constraint violations.
+        """
+        if self.constraints_symbols is not None:
+            raise NotImplementedError("IBEA selector does not support constraints. Please use a different selector.")
+        if isinstance(parents[0], pl.DataFrame) and isinstance(offsprings[0], pl.DataFrame):
+            solutions = parents[0].vstack(offsprings[0])
+        elif isinstance(parents[0], list) and isinstance(offsprings[0], list):
+            solutions = parents[0] + offsprings[0]
+        else:
+            raise TypeError("The decision variables must be either a list or a polars DataFrame, not both")
+        if len(parents[0]) < self.population_size:
+            return parents[0], parents[1]
+        alltargets = parents[1].vstack(offsprings[1])
+
+        # Adaptation
+        target_vals = alltargets[self.target_symbols].to_numpy()
+        target_min = np.min(target_vals, axis=0)
+        target_max = np.max(target_vals, axis=0)
+        # Scale the targets to the range [0, 1]
+        target_vals = (target_vals - target_min) / (target_max - target_min)
+        fitness_components = self.binary_indicator(target_vals)
+        kappa_mult = np.max(np.abs(fitness_components))
+
+        chosen = _ibea_select_all(
+            fitness_components, population_size=self.population_size, kappa=kappa_mult * self.kappa
+        )
+        self.selected_individuals = solutions.filter(chosen)
+        self.selected_targets = alltargets.filter(chosen)
+        self.selection = chosen
+
+        fitness_components = fitness_components[chosen][:, chosen]
+        self.fitness = _ibea_fitness(fitness_components, kappa=self.kappa * np.abs(fitness_components).max())
+
+        self.notify()
+        return self.selected_individuals, self.selected_targets
+
+    def state(self) -> Sequence[Message]:
+        """Return the state of the selector."""
+        if self.verbosity == 0 or self.selection is None or self.selected_targets is None:
+            return []
+        if self.verbosity == 1:
+            return [
+                DictMessage(
+                    topic=SelectorMessageTopics.STATE,
+                    value={
+                        "population_size": self.population_size,
+                        "selected_individuals": self.selection,
+                    },
+                    source=self.__class__.__name__,
+                )
+            ]
+        # verbosity == 2
+        if isinstance(self.selected_individuals, pl.DataFrame):
+            message = PolarsDataFrameMessage(
+                topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
+                value=pl.concat([self.selected_individuals, self.selected_targets], how="horizontal"),
+                source=self.__class__.__name__,
+            )
+        else:
+            warnings.warn("Population is not a Polars DataFrame. Defaulting to providing OUTPUTS only.", stacklevel=2)
+            message = PolarsDataFrameMessage(
+                topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
+                value=self.selected_targets,
+                source=self.__class__.__name__,
+            )
+        return [
+            DictMessage(
+                topic=SelectorMessageTopics.STATE,
+                value={
+                    "population_size": self.population_size,
+                    "selected_individuals": self.selection,
+                },
+                source=self.__class__.__name__,
+            ),
+            message,
+            NumpyArrayMessage(
+                topic=SelectorMessageTopics.SELECTED_FITNESS,
+                value=self.fitness,
+                source=self.__class__.__name__,
+            ),
+        ]
 
     def update(self, message: Message) -> None:
         pass

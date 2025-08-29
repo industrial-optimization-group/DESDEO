@@ -43,56 +43,57 @@ documentation="https://desdeo.readthedocs.io/en/latest/"
 "Bug tracker"="https://github.com/industrial-optimization-group/DESDEO/issues"
 
 [project.optional-dependencies]
-eralchemy = ["eralchemy>=1.5.0"]
+dev = [
+    "ruff>=0.11",
+    "isort>=6.0",
+    "mypy>=1.0",
+    "pytest>=8.0",
+    "pytest-xdist>=3.5.0",
+    "pytest-testmon>=2.1.1",
+    "pytest-asyncio>=0.26.0",
+    "snakeviz>=2.2.0",
+]
 
-[tool.poetry.group.viz]
-optional=true
+docs = [
+    "mkdocs>=1.0",
+    "mkdocs-material>=9.5.12",
+    "mkdocstrings-python>=1.0",
+    "mkdocs-macros-plugin>=1.0.5",
+    "mkdocs-jupyter>=0.25.1",
+    "mkdocs-include-markdown-plugin[cache]>=7.0.0",
+    "neoteroi-mkdocs>=1.1.2",
+    "griffe>=1.4.1",
+    "python-markdown-math>=0.9",
+]
 
-[tool.poetry.group.viz.dependencies]
-seaborn = "^0.13.0"
-plotly = "^6.0"
-scienceplots = "^2.1.1"
+jupyter = [
+    "jupyter>=1.0",
+    "jupyterlab>=4.0",
+    "jupytext>=1.16.4"
+]
 
-[tool.poetry.group.api]
-optional=true
+web = [
+    "httpx>=0.28.1",
+    "fastapi>=0.115.12",
+    "python-jose[cryptography]>=3.4.0",
+    "python-multipart>=0.0.20",
+    "uvicorn>=0.34.2",
+    "bcrypt>=4.3.0",
+    "sqlalchemy-utils>=0.41.2",
+    "sqlmodel>=0.0.24",
+]
 
-[tool.poetry.group.api.dependencies]
-sqlmodel = "^0.0.24"
-httpx = "^0.28.1"
-fastapi = "^0.115.12"
-bcrypt = "^4.3.0"
-python-jose = {extras = ["cryptography"], version = "^3.4.0"}
-python-multipart = "^0.0.20"
-uvicorn = "^0.34.2"
-sqlalchemy-utils = "^0.41.2"
-websockets = "^15.0.1"
+viz = [
+    "seaborn>=0.13.0",
+    "plotly>=6.0",
+    "scienceplots>=2.1.1",
+    "pyparsing[diagrams]>=3.1.1"
+]
 
-[tool.poetry.group.dev]
-optional=true
-
-[tool.poetry.group.dev.dependencies]
-ruff = "^0.11"
-pytest = "^8.0"
-mkdocs = "^1.0"
-python-markdown-math = "^0.9"
-mkdocs-macros-plugin = "^1.0.5"
-djlint = "^1.34.1"
-pyparsing = { extras = ["diagrams"], version = "^3.1.1" }
-isort = "^6.0"
-mypy = "^1.0"
-mkdocstrings-python = "^1.0"
-mkdocs-material = "^9.5.12"
-pytest-xdist = "^3.5.0"
-pytest-testmon = "^2.1.1"
-snakeviz = "^2.2.0"
-pytest-asyncio = "^0.26.0"
-griffe = "^1.4.1"
-mkdocs-jupyter = "^0.25.1"
-jupytext = "^1.16.4"
-mkdocs-include-markdown-plugin = { extras = ["cache"], version = "^7.0.0" }
-jupyter = "^1.0"
-jupyterlab = "^4.0"
-neoteroi-mkdocs = "^1.1.2"
+tools = [
+    "djlint>=1.34.1",
+    "eralchemy>=1.5.0"
+]
 
 [tool.ruff]
 # Enable the pycodestyle (`E`) and Pyflakes (`F`) rules by default.
@@ -179,7 +180,7 @@ max-complexity = 15
 [tool.ruff.per-file-ignores]
 [tool.ruff.lint.per-file-ignores]
 # Ignore certain rules in test files
-"tests/**/*.py" = [
+"**/tests/**/*.py" = [
     "S101",    # asserts allowed in tests...
     "ARG",     # Unused function args -> fixtures nevertheless are functionally relevant...
     "FBT",     # Don't care about booleans as positional arguments in tests, e.g. via @pytest.mark.parametrize()

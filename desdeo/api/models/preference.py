@@ -22,7 +22,10 @@ class PreferenceType(TypeDecorator):
 
     def process_bind_param(self, value, dialect):
         """Preference to JSON."""
-        if isinstance(value, Bounds | ReferencePoint):
+        if isinstance(
+            value,
+            Bounds | ReferencePoint | PreferredRanges | PreferredSolutions | NonPreferredSolutions,
+        ):
             return value.model_dump()
 
         msg = f"No JSON serialization set for preference type '{type(value)}'."
@@ -38,6 +41,12 @@ class PreferenceType(TypeDecorator):
                     return ReferencePoint.model_validate(value)
                 case "bounds":
                     return Bounds.model_validate(value)
+                case "preferred_solutions":
+                    return PreferredSolutions.model_validate(value)
+                case "non_preferred_solutions":
+                    return NonPreferredSolutions.model_validate(value)
+                case "preferred_ranges":  # Add this case
+                    return PreferredRanges.model_validate(value)
                 case _:
                     msg = f"No preference_type '{value['preference_type']}' found."
                     print(msg)
@@ -48,15 +57,18 @@ class PreferenceType(TypeDecorator):
 class PreferenceBase(SQLModel):
     """The base model for representing preferences."""
 
-    __mapper_args__: ClassVar[dict[str, str]] = {"polymorphic_on": "type", "polymorphic_identity": "preference_base"}
+    __mapper_args__: ClassVar[dict[str, str]] = {
+        "polymorphic_on": "type",
+        "polymorphic_identity": "preference_base",
+    }
 
-    preference_type: Literal["unset"] = "unset"
+    preference_type: str = "unset"
 
 
 class ReferencePoint(PreferenceBase):
     """Model for representing a reference point type of preference."""
 
-    __mapper_args__: ClassVar[dict[str, str]] = {"polymorphic_identity": "preference_base"}
+    __mapper_args__: ClassVar[dict[str, str]] = {"polymorphic_identity": "reference_point"}
 
     preference_type: Literal["reference_point"] = "reference_point"
     aspiration_levels: dict[str, float] = Field(sa_column=Column(JSON, nullable=False))
@@ -72,6 +84,34 @@ class Bounds(PreferenceBase):
     # Bound can also be None, indicating that it is not bound
     lower_bounds: dict[str, float | None] = Field(sa_column=Column(JSON, nullable=False))
     upper_bounds: dict[str, float | None] = Field(sa_column=Column(JSON, nullable=False))
+
+
+class PreferredRanges(PreferenceBase):
+    """Model for representing desired upper and lower bounds for objective functions."""
+
+    __mapper_args__: ClassVar[dict[str, str]] = {"polymorphic_identity": "preferred_ranges"}
+
+    preference_type: Literal["preferred_ranges"] = "preferred_ranges"
+
+    preferred_ranges: dict[str, list[float]] = Field(sa_column=Column(JSON, nullable=False))
+
+
+class PreferredSolutions(PreferenceBase):
+    """Model for representing a preferred solution type of preference."""
+
+    __mapper_args__: ClassVar[dict[str, str]] = {"polymorphic_identity": "preferred_solutions"}
+
+    preference_type: Literal["preferred_solutions"] = "preferred_solutions"
+    preferred_solutions: dict[str, list[float]] = Field(sa_column=Column(JSON, nullable=False))
+
+
+class NonPreferredSolutions(PreferenceBase):
+    """Model for representing a non-preferred solution type of preference."""
+
+    __mapper_args__: ClassVar[dict[str, str]] = {"polymorphic_identity": "non_preferred_solutions"}
+
+    preference_type: Literal["non_preferred_solutions"] = "non_preferred_solutions"
+    non_preferred_solutions: dict[str, list[float]] = Field(sa_column=Column(JSON, nullable=False))
 
 
 class PreferenceDB(SQLModel, table=True):

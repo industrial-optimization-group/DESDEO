@@ -166,11 +166,8 @@ def test_enautilus_step_basic():
         iterations_left=3,
         selected_point=selected_point,
         reachable_point_indices=list(range(len(nd_points))),
-        total_number_of_iterations=5,
         number_of_intermediate_points=3,
     )
-
-    # --- Assertions ---
 
     assert isinstance(result, ENautilusResult)
     assert result.current_iteration == 3
@@ -243,7 +240,6 @@ def test_enautilus_full_run_boring():
             iterations_left=total_iterations - current_iter,
             selected_point=selected_point,
             reachable_point_indices=reachable_indices,
-            total_number_of_iterations=total_iterations,
             number_of_intermediate_points=2,
         )
 
@@ -333,7 +329,6 @@ def test_enautilus_full_run_dynamic():
             iterations_left=total_iters - current,
             selected_point=selected_point,
             reachable_point_indices=reachable_indices,
-            total_number_of_iterations=total_iters,
             number_of_intermediate_points=n_points,
         )
 

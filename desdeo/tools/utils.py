@@ -1,7 +1,7 @@
-from typing import Callable
 """General utilities related to solvers."""
 
 import shutil
+from collections.abc import Callable
 
 import numpy as np
 import polars as pl
@@ -48,10 +48,7 @@ available_solvers = {
         "constructor": ProximalSolver,
         "options": None,
     },
-    "nevergrad": {
-        "constructor": NevergradGenericSolver,
-        "options": NevergradGenericOptions
-    },
+    "nevergrad": {"constructor": NevergradGenericSolver, "options": NevergradGenericOptions},
     "pyomo_bonmin": {
         "constructor": PyomoBonminSolver,
         "options": BonminOptions,
@@ -64,11 +61,8 @@ available_solvers = {
         "constructor": PyomoIpoptSolver,
         "options": IpoptOptions,
     },
-    "pyomo_gurobi": {
-        "constructor": PyomoGurobiSolver,
-        "options": None
-    },
-    "guropipy": {
+    "pyomo_gurobi": {"constructor": PyomoGurobiSolver, "options": None},
+    "gurobipy": {
         "constructor": GurobipySolver,
         "options": None,
     },
@@ -166,7 +160,7 @@ def guess_best_solver(problem: Problem) -> BaseSolver:  # noqa: PLR0911
     # check if problem has a discrete definition
     has_discrete = problem.discrete_representation is not None
 
-    if TensorVariable in problem.variables:
+    if True in [isinstance(variable, TensorVariable) for variable in problem.variables]:
         if problem.is_linear and shutil.which("cbc"):
             return available_solvers["pyomo_cbc"]["constructor"]
 
@@ -203,10 +197,15 @@ def guess_best_solver(problem: Problem) -> BaseSolver:  # noqa: PLR0911
         return available_solvers["gurobipy"]["constructor"]
 
     # check if the problem is differentiable and if it is mixed integer
-    if problem.is_twice_differentiable and shutil.which("bonmin") and problem.variable_domain in [
-        VariableDomainTypeEnum.integer,
-        VariableDomainTypeEnum.mixed,
-    ]:
+    if (
+        problem.is_twice_differentiable
+        and shutil.which("bonmin")
+        and problem.variable_domain
+        in [
+            VariableDomainTypeEnum.integer,
+            VariableDomainTypeEnum.mixed,
+        ]
+    ):
         return available_solvers["pyomo_bonmin"]["constructor"]
 
     # check if the problem is differentiable and continuous
@@ -256,6 +255,7 @@ def get_corrected_ideal_and_nadir(problem: Problem) -> tuple[dict[str, float | N
 
     return ideal_point, nadir_point
 
+
 def get_corrected_ideal(problem: Problem) -> dict[str, float | None]:
     """Compute the corrected ideal point depending if an objective function is to be maximized or not.
 
@@ -276,12 +276,11 @@ def get_corrected_ideal(problem: Problem) -> dict[str, float | None]:
         msg = "Some of the objectives have not a defined ideal value."
         raise ValueError(msg)
 
-    ideal_point = {
-    objective.symbol: objective.ideal if not objective.maximize else -objective.ideal
-    for objective in problem.objectives
+    return {
+        objective.symbol: objective.ideal if not objective.maximize else -objective.ideal
+        for objective in problem.objectives
     }
 
-    return ideal_point
 
 def get_corrected_nadir(problem: Problem) -> dict[str, float | None]:
     """Compute the corrected nadir point depending if an objective function is to be maximized or not.
@@ -303,12 +302,11 @@ def get_corrected_nadir(problem: Problem) -> dict[str, float | None]:
         msg = "Some of the objectives have not a defined nadir value."
         raise ValueError(msg)
 
-    nadir_point = {
+    return {
         objective.symbol: objective.nadir if not objective.maximize else -objective.nadir
         for objective in problem.objectives
     }
 
-    return nadir_point
 
 def flip_maximized_objective_values(problem: Problem, objective_values: dict[str, float]) -> dict[str, float]:
     """Flips the objective values if the objective function is to be maximized.
@@ -360,7 +358,8 @@ def payoff_table_method(problem: Problem, solver: BaseSolver = None) -> tuple[di
             nadir.append(np.max(po_table.T[i]))
     return numpy_array_to_objective_dict(problem, ideal), numpy_array_to_objective_dict(problem, nadir)
 
-def repair(lower_bounds:dict[str, float], upper_bounds:dict[str, float]) -> Callable[[pl.DataFrame], pl.DataFrame]:
+
+def repair(lower_bounds: dict[str, float], upper_bounds: dict[str, float]) -> Callable[[pl.DataFrame], pl.DataFrame]:
     """Repairs the offspring by clipping the values to be within the specified bounds.
 
     Useful in evolutionary algorithms where offspring may go out of bounds due to crossover or mutation operations.
@@ -373,6 +372,7 @@ def repair(lower_bounds:dict[str, float], upper_bounds:dict[str, float]) -> Call
     Returns:
         Callable[[pl.DataFrame], pl.DataFrame]: A function that takes a DataFrame and returns a repaired DataFrame.
     """
+
     def actual_repair(offspring: pl.DataFrame) -> pl.DataFrame:
         for var in offspring.columns:
             offspring = offspring.with_columns(

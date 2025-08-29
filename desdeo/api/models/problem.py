@@ -3,11 +3,11 @@
 import json
 from pathlib import Path
 from types import UnionType
-from typing import TYPE_CHECKING, Optional, Literal
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, create_model
-from sqlalchemy.types import String, TypeDecorator
-from sqlmodel import JSON, Column, Field, Relationship, SQLModel
+from sqlalchemy.types import JSON, String, TypeDecorator
+from sqlmodel import Column, Field, Relationship, SQLModel
 
 from desdeo.problem.schema import (
     Constant,
@@ -21,6 +21,7 @@ from desdeo.problem.schema import (
     Tensor,
     TensorConstant,
     TensorVariable,
+    Url,
     Variable,
     VariableDomainTypeEnum,
     VariableType,
@@ -33,7 +34,7 @@ if TYPE_CHECKING:
 
 
 class ProblemBase(SQLModel):
-    """."""
+    """The base model for `ProblemDB` and related requests/responses."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -54,7 +55,7 @@ class ProblemGetRequest(SQLModel):
 
 
 class ProblemInfo(ProblemBase):
-    """."""
+    """Problem info request return data."""
 
     id: int
     user_id: int
@@ -78,9 +79,11 @@ class ProblemInfo(ProblemBase):
     discrete_representation: "DiscreteRepresentationDB | None"
     simulators: list["SimulatorDB"] | None
 
+    problem_metadata: "ProblemMetaDataPublic | None"
+
 
 class ProblemInfoSmall(ProblemBase):
-    """."""
+    """Problem info request return data, but smaller."""
 
     id: int
     user_id: int
@@ -93,9 +96,11 @@ class ProblemInfoSmall(ProblemBase):
     scenario_keys: list[str] | None
     variable_domain: VariableDomainTypeEnum
 
+    problem_metadata: "ProblemMetaDataPublic | None"
+
 
 class ProblemDB(ProblemBase, table=True):
-    """."""
+    """The table model to represent the `Problem` class in the database."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -168,123 +173,193 @@ class ProblemDB(ProblemBase, table=True):
             variables=[VariableDB.model_validate(var) for var in scalar_variables],
             tensor_variables=[TensorVariableDB.model_validate(var) for var in tensor_variables],
             objectives=[ObjectiveDB.model_validate(obj) for obj in problem_instance.objectives],
-            constraints=[ConstraintDB.model_validate(con) for con in problem_instance.constraints]
-            if problem_instance.constraints is not None
-            else [],
-            scalarization_funcs=[
-                ScalarizationFunctionDB.model_validate(scal) for scal in problem_instance.scalarization_funcs
-            ]
-            if problem_instance.scalarization_funcs is not None
-            else [],
-            extra_funcs=[ExtraFunctionDB.model_validate(extra) for extra in problem_instance.extra_funcs]
-            if problem_instance.extra_funcs is not None
-            else [],
-            discrete_representation=DiscreteRepresentationDB.model_validate(problem_instance.discrete_representation)
-            if problem_instance.discrete_representation is not None
-            else None,
-            simulators=[SimulatorDB.model_validate(sim) for sim in problem_instance.simulators]
-            if problem_instance.simulators is not None
-            else [],
+            constraints=(
+                [ConstraintDB.model_validate(con) for con in problem_instance.constraints]
+                if problem_instance.constraints is not None
+                else []
+            ),
+            scalarization_funcs=(
+                [ScalarizationFunctionDB.model_validate(scal) for scal in problem_instance.scalarization_funcs]
+                if problem_instance.scalarization_funcs is not None
+                else []
+            ),
+            extra_funcs=(
+                [ExtraFunctionDB.model_validate(extra) for extra in problem_instance.extra_funcs]
+                if problem_instance.extra_funcs is not None
+                else []
+            ),
+            discrete_representation=(
+                DiscreteRepresentationDB.model_validate(problem_instance.discrete_representation)
+                if problem_instance.discrete_representation is not None
+                else None
+            ),
+            simulators=(
+                [SimulatorDB.model_validate(sim) for sim in problem_instance.simulators]
+                if problem_instance.simulators is not None
+                else []
+            ),
         )
 
+
 ### PROBLEM METADATA ###
+class ForestProblemMetaData(SQLModel, table=True):
+    """A problem metadata class to hold UTOPIA forest problem specific information."""
 
-class ProblemMetaDataListType(TypeDecorator):
-    """SQLAlchemy custom type to convert list of problem metadata to JSON and back."""
+    id: int | None = Field(primary_key=True, default=None)
+    metadata_id: int | None = Field(foreign_key="problemmetadatadb.id", default=None)
 
-    impl = JSON
-
-    def process_bind_param(self, value, dialect):
-        """list of problem metadata to JSON."""
-        if isinstance(value, list):
-            items = []
-            for item in value:
-                if (isinstance(item, BaseProblemMetaData)):
-                    items.append(item.model_dump_json())
-            return json.dumps(items)
-
-    def process_result_value(self, value, dialect):
-        """JSON to list of problem metadata"""
-        if value is not None:
-            metadata_list = json.loads(value)
-            metadata_objects: list[BaseProblemMetaData] = []
-            for item in metadata_list:
-                item_dict = json.loads(item)
-                match item_dict["metadata_type"]:
-                    # Add derived classes here so they can be deserialized
-                    case "forest_problem_metadata":
-                        metadata_objects.append(ForestProblemMetaData.model_validate(item_dict))
-                    case _:
-                        print(f"Cannot convert {item_dict["metadata_type"]} into metadata!")
-            return metadata_objects
-
-
-class BaseProblemMetaData(SQLModel):
-    """Derive other problem metadata classes from this one."""
-
-    metadata_type: Literal["unset"] = "unset"
-
-
-class ForestProblemMetaData(BaseProblemMetaData):
-    """A problem metadata class to hold UTOPIA forest problem specific information"""
-
-    metadata_type: Literal["forest_problem_metadata"] = "forest_problem_metadata"
+    metadata_type: str = "forest_problem_metadata"
 
     map_json: str = Field()
     schedule_dict: dict = Field(sa_column=Column(JSON))
-    years: list[str] = Field()
+    years: list[str] = Field(sa_column=Column(JSON))
     stand_id_field: str = Field()
-    stand_descriptor: dict | None = Field(sa_column=Column(JSON), default = None)
-    compensation: float | None = Field(default = None)
+    stand_descriptor: dict | None = Field(sa_column=Column(JSON), default=None)
+    compensation: float | None = Field(default=None)
+
+    metadata_instance: "ProblemMetaDataDB" = Relationship(back_populates="forest_metadata")
+
+
+class RepresentativeNonDominatedSolutions(SQLModel, table=True):
+    """A problem metadata class to store representative solutions sets, i.e., non-dominated sets...
+
+    A problem metadata class to store representative solutions sets, i.e., non-dominated sets that
+    represent/approximate the Pareto optimal solution set of the problem.
+
+    Note:
+        It is assumed that the solution set is non-dominated.
+    """
+
+    id: int | None = Field(primary_key=True, default=None)
+    metadata_id: int | None = Field(foreign_key="problemmetadatadb.id", default=None)
+
+    metadata_type: str = "representative_non_dominated_solutions"
+
+    name: str = Field(description="The name of the representative set.")
+    description: str | None = Field(description="A description of the representative set. Optional.", default=None)
+
+    solution_data: dict[str, list[float]] = Field(
+        sa_column=Column(JSON),
+        description="The non-dominated solutions. It is assumed that columns "
+        "exist for each variable and objective function. For functions, the "
+        "`_min` variant should be present, and any tensor variables should be "
+        "unrolled.",
+    )
+
+    ideal: dict[str, float] = Field(
+        sa_column=Column(JSON), description="The ideal objective function values of the representative set."
+    )
+    nadir: dict[str, float] = Field(
+        sa_column=Column(JSON), description="The nadir objective function values of the representative set."
+    )
+
+    metadata_instance: "ProblemMetaDataDB" = Relationship(back_populates="representative_nd_metadata")
 
 
 class ProblemMetaDataDB(SQLModel, table=True):
-    """Store Problem MetaData to DB with this class"""
+    """Store Problem MetaData to DB with this class."""
+
     id: int | None = Field(primary_key=True, default=None)
     problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
-    data: list[BaseProblemMetaData] | None = Field(sa_column=Column(ProblemMetaDataListType), default=None)
 
-    problem: ProblemDB | None = Relationship(back_populates="problem_metadata")
+    forest_metadata: list[ForestProblemMetaData] = Relationship(back_populates="metadata_instance")
+    representative_nd_metadata: list[RepresentativeNonDominatedSolutions] = Relationship(
+        back_populates="metadata_instance"
+    )
+    problem: ProblemDB = Relationship(back_populates="problem_metadata")
+
+    @property
+    def all_metadata(self) -> list[ForestProblemMetaData | RepresentativeNonDominatedSolutions]:
+        """Return all metadata in one list."""
+        return (self.forest_metadata or []) + (self.representative_nd_metadata or [])
+
+
+class ProblemMetaDataPublic(SQLModel):
+    """Response model for ProblemMetaData."""
+
+    problem_id: int
+
+    forest_metadata: list[ForestProblemMetaData] | None
+    representative_nd_metadata: list[RepresentativeNonDominatedSolutions] | None
+
+
+class ProblemMetaDataGetRequest(SQLModel):
+    """Request model for getting specific type of metadata from a specific problem."""
+
+    problem_id: int
+    metadata_type: str
 
 
 ### PATH TYPES ###
+class PathOrUrlType(TypeDecorator):
+    """Helper class for dealing with Paths and Urls."""
 
-class PathType(TypeDecorator):
-    """SQLAlchemy custom type to convert Path to string (credit to @strfx on GitHUb!)."""
+    impl = JSON
+    cache_ok = True
 
-    impl = String
-
-    def process_bind_param(self, value, dialect):
-        """Path to string."""
-        if isinstance(value, Path):
-            return str(value)
-        return value
-
-    def process_result_value(self, value, dialect):
-        """String to Path."""
-        if value is not None:
-            return Path(value)
-        return value
-
-
-class PathListType(TypeDecorator):
-    """SQLAlchemy custom type to convert list[Path] to JSON."""
-
-    impl = String
-
-    def process_bind_param(self, value, dialect):
-        """list[Path] to JSON."""
-        if isinstance(value, list) and all(isinstance(item, Path) for item in value):
-            return json.dumps([str(item) for item in value])
-        return value  # Handle as a normal string if not a list of Paths
+    def process_bind_param(self, value: Path | Url | None, dialect):
+        """Convert to string or JSON."""
+        if value is None:
+            return None
+        elif isinstance(value, Path):  # noqa: RET505
+            return {"_type": "path", "value": str(value)}
+        elif isinstance(value, Url):
+            return {"_type": "url", "value": value.model_dump()}
+        else:
+            raise ValueError(f"Unsupported type: {type(value)}")
 
     def process_result_value(self, value, dialect):
-        """JSON to list[Path]."""
-        # Deserialize JSON back to a list of Path objects
-        if value is not None:
-            path_strings = json.loads(value)
-            return [Path(item) for item in path_strings]
-        return None
+        """Convert back to Path or URL."""
+        if value is None:
+            return None
+        elif isinstance(value, dict) and "_type" in value:  # noqa: RET505
+            if value["_type"] == "path":
+                return Path(value["value"])
+            elif value["_type"] == "url":  # noqa: RET505
+                return Url(**value["value"])
+        raise ValueError(f"Invalid format: {value}")
+
+
+class PathOrUrlListType(TypeDecorator):
+    """SQLAlchemy custom type to convert list[Path | Url] to JSON."""
+
+    impl = String
+    cache_ok = True
+
+    def process_bind_param(self, value: list[Path | Url] | None, dialect):
+        """Serialize list[Path | Url] to JSON."""
+        if value is None:
+            return None
+
+        serialized = []
+        for item in value:
+            if isinstance(item, Path):
+                serialized.append({"_type": "path", "value": str(item)})
+            elif isinstance(item, Url):
+                serialized.append({"_type": "url", "value": item.model_dump()})
+            else:
+                raise TypeError(f"Unsupported item type in list: {type(item)}")
+
+        return json.dumps(serialized)
+
+    def process_result_value(self, value, dialect):
+        """Deserialize JSON to list[Path | Url]."""
+        if value is None:
+            return None
+
+        try:
+            items = json.loads(value)
+            result = []
+            for item in items:
+                if item["_type"] == "path":
+                    result.append(Path(item["value"]))
+                elif item["_type"] == "url":
+                    result.append(Url(**item["value"]))
+                else:
+                    raise ValueError(f"Unknown _type: {item.get('_type')}")
+            return result  # noqa: TRY300
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
+            raise ValueError(f"Invalid format for PathListType: {value}") from e
 
 
 def from_pydantic(
@@ -382,7 +457,9 @@ class ConstantDB(_ConstantDB, table=True):
 
 
 _VariableDB = from_pydantic(
-    Variable, "_VariableDB", union_type_conversions={VariableType: float, VariableType | None: float | None}
+    Variable,
+    "_VariableDB",
+    union_type_conversions={VariableType: float, VariableType | None: float | None},
 )
 
 
@@ -428,14 +505,18 @@ class _Objective(SQLModel):
 
     func: list | None = Field(sa_column=Column(JSON, nullable=True))
     scenario_keys: list[str] | None = Field(sa_column=Column(JSON), default=None)
-    surrogates: list[Path] | None = Field(sa_column=Column(PathListType), default=None)
-    simulator_path: Path | None = Field(sa_column=Column(PathType), default=None)
+    surrogates: list[Path] | None = Field(sa_column=Column(PathOrUrlListType), default=None)
+    simulator_path: Path | Url | None = Field(sa_column=Column(PathOrUrlType), default=None)
 
 
 _ObjectiveDB = from_pydantic(
     Objective,
     "_ObjectiveDB",
-    union_type_conversions={str | None: str | None, float | None: float | None},
+    union_type_conversions={
+        str | None: str | None,
+        float | None: float | None,
+        Path | Url | None: PathOrUrlType | None,
+    },
     base_model=_Objective,
 )
 
@@ -455,14 +536,18 @@ class _Constraint(SQLModel):
 
     func: list = Field(sa_column=Column(JSON))
     scenario_keys: list[str] | None = Field(sa_column=Column(JSON), default=None)
-    surrogates: list[Path] | None = Field(sa_column=Column(PathListType), default=None)
-    simulator_path: Path | None = Field(sa_column=Column(PathType), default=None)
+    surrogates: list[Path] | None = Field(sa_column=Column(PathOrUrlListType), default=None)
+    simulator_path: Path | Url | None = Field(sa_column=Column(PathOrUrlType), default=None)
 
 
 _ConstraintDB = from_pydantic(
     Constraint,
     "_ConstraintDB",
-    union_type_conversions={str | None: str | None, float | None: float | None},
+    union_type_conversions={
+        str | None: str | None,
+        float | None: float | None,
+        Path | Url | None: PathOrUrlType | None,
+    },
     base_model=_Constraint,
 )
 
@@ -507,12 +592,18 @@ class _ExtraFunction(SQLModel):
 
     func: list = Field(sa_column=Column(JSON))
     scenario_keys: list[str] | None = Field(sa_column=Column(JSON), default=None)
-    surrogates: list[Path] | None = Field(sa_column=Column(PathListType), default=None)
-    simulator_path: Path | None = Field(sa_column=Column(PathType), default=None)
+    surrogates: list[Path] | None = Field(sa_column=Column(PathOrUrlListType), default=None)
+    simulator_path: Path | Url | None = Field(sa_column=Column(PathOrUrlType), default=None)
 
 
 _ExtraFunctionDB = from_pydantic(
-    ExtraFunction, "_ExtraFunctionDB", union_type_conversions={str | None: str | None}, base_model=_ExtraFunction
+    ExtraFunction,
+    "_ExtraFunctionDB",
+    union_type_conversions={
+        str | None: str | None,
+        Path | Url | None: PathOrUrlType | None,
+    },
+    base_model=_ExtraFunction,
 )
 
 
@@ -535,7 +626,9 @@ class _DiscreteRepresentation(SQLModel):
 
 
 _DiscreteRepresentationDB = from_pydantic(
-    DiscreteRepresentation, "_DiscreteRepresentation", base_model=_DiscreteRepresentation
+    DiscreteRepresentation,
+    "_DiscreteRepresentation",
+    base_model=_DiscreteRepresentation,
 )
 
 
@@ -552,11 +645,21 @@ class DiscreteRepresentationDB(_DiscreteRepresentationDB, table=True):
 class _Simulator(SQLModel):
     """Helper class to override the fields of nested and list types, and Paths."""
 
-    file: Path = Field(sa_column=Column(PathType))
+    file: Path | None = Field(sa_column=Column(PathOrUrlType), default=None)
+    url: Url | None = Field(sa_column=Column(PathOrUrlType), default=None)
     parameter_options: dict | None = Field(sa_column=Column(JSON), default=None)
 
 
-_SimulatorDB = from_pydantic(Simulator, "_SimulatorDB", base_model=_Simulator)
+_SimulatorDB = from_pydantic(
+    Simulator,
+    "_SimulatorDB",
+    union_type_conversions={
+        str | None: str | None,
+        Path | None: PathOrUrlType | None,
+        Url | None: PathOrUrlType | None,
+    },
+    base_model=_Simulator,
+)
 
 
 class SimulatorDB(_SimulatorDB, table=True):

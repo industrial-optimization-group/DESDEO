@@ -8,8 +8,8 @@ import polars as pl
 import pytest
 
 from desdeo.emo.hooks.archivers import Archive, FeasibleArchive, NonDominatedArchive
-from desdeo.emo.methods.bases import template1
-from desdeo.emo.methods.EAs import nsga3, nsga3_mixed_integer, rvea, rvea_mixed_integer
+from desdeo.emo.methods.EAs import ibea, nsga3, nsga3_mixed_integer, rvea, rvea_mixed_integer
+from desdeo.emo.methods.templates import template1, template2
 from desdeo.emo.operators.crossover import (
     BlendAlphaCrossover,
     BoundedExponentialCrossover,
@@ -38,13 +38,20 @@ from desdeo.emo.operators.mutation import (
     PowerMutation,
     SelfAdaptiveGaussianMutation,
 )
+from desdeo.emo.operators.scalar_selection import TournamentSelection
 from desdeo.emo.operators.selection import (
+    IBEA_Selector,
     NSGAIII_select,
     ParameterAdaptationStrategy,
     ReferenceVectorOptions,
     RVEASelector,
 )
-from desdeo.emo.operators.termination import MaxEvaluationsTerminator, MaxGenerationsTerminator
+from desdeo.emo.operators.termination import (
+    CompositeTerminator,
+    ExternalCheckTerminator,
+    MaxEvaluationsTerminator,
+    MaxGenerationsTerminator,
+)
 from desdeo.problem import VariableDomainTypeEnum
 from desdeo.problem.testproblems import (
     dtlz2,
@@ -55,7 +62,7 @@ from desdeo.problem.testproblems import (
     simple_knapsack_vectors,
     simple_test_problem,
 )
-from desdeo.tools.message import IntMessage, TerminatorMessageTopics
+from desdeo.tools.message import EvaluatorMessageTopics, GeneratorMessageTopics, IntMessage, TerminatorMessageTopics
 from desdeo.tools.patterns import Publisher, Subscriber
 from desdeo.tools.utils import repair
 
@@ -82,6 +89,23 @@ def test_rvea():
     """Test whether the RVEA algorithm can be initialized and run as a whole."""
     problem = dtlz2(n_objectives=3, n_variables=12)
     solver, publisher = rvea(problem=problem, n_generations=100)
+
+    results = solver()
+
+    norm = results.outputs.with_columns(
+        (pl.col("f_1") ** 2 + pl.col("f_2") ** 2 + pl.col("f_3") ** 2).sqrt().alias("norm")
+    )["norm"]
+
+    # Assert that most solutions are on the spherical front
+
+    assert norm.median() < 1.1
+
+
+@pytest.mark.ea
+def test_ibea():
+    """Test whether the IBEA algorithm can be initialized and run as a whole."""
+    problem = dtlz2(n_objectives=3, n_variables=12)
+    solver, publisher = ibea(problem=problem, n_generations=100)
 
     results = solver()
 
@@ -186,7 +210,7 @@ def test_archives():
 
 
 @pytest.mark.ea
-def test_template():
+def test_template1():
     """Test whether creating an EA from components and a template works."""
     problem = dtlz2(n_objectives=3, n_variables=12)
     publisher = Publisher()
@@ -241,6 +265,77 @@ def test_template():
         mutation=mutation,
         selection=selector,
         terminator=terminator,
+    )
+
+    assert results is not None
+
+    norm = non_dom_archive.solutions.with_columns(
+        (pl.col("f_1") ** 2 + pl.col("f_2") ** 2 + pl.col("f_3") ** 2).sqrt().alias("norm")
+    )["norm"]
+
+    assert norm.median() < 1.1
+    # assert archive.archive.shape[0] <= 5000 # This test will unfortunately fail because the termination check is done
+    # after the evaluation has been done. So, there will always be one more generation than expected.
+
+
+@pytest.mark.ea
+def test_template2():
+    """Test whether creating an EA from components and a template works."""
+    problem = dtlz2(n_objectives=3, n_variables=12)
+    publisher = Publisher()
+
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=2)
+
+    generator = LHSGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0, verbosity=2
+    )
+
+    crossover = SimulatedBinaryCrossover(problem=problem, publisher=publisher, seed=0, verbosity=1)
+    mutation = BoundedPolynomialMutation(problem=problem, publisher=publisher, seed=0, verbosity=1)
+
+    selector = IBEA_Selector(
+        problem=problem,
+        publisher=publisher,
+        population_size=10,
+        verbosity=2,
+    )
+
+    terminator = MaxEvaluationsTerminator(max_evaluations=500, publisher=publisher)
+
+    non_dom_archive = NonDominatedArchive(problem=problem, publisher=publisher)
+    archive = Archive(problem=problem, publisher=publisher)
+    scalar_selector = TournamentSelection(publisher=publisher, winner_size=10, verbosity=0)
+
+    components: list[Subscriber] = [
+        evaluator,
+        generator,
+        crossover,
+        mutation,
+        selector,
+        terminator,
+        non_dom_archive,
+        archive,
+        scalar_selector,
+    ]
+
+    [publisher.auto_subscribe(component) for component in components]
+    [
+        publisher.register_topics(
+            topics=component.provided_topics[component.verbosity], source=component.__class__.__name__
+        )
+        for component in components
+    ]
+
+    assert publisher.check_consistency()[0], "Subscribers are subscribing to unregistered topics."
+
+    results = template2(
+        evaluator=evaluator,
+        generator=generator,
+        crossover=crossover,
+        mutation=mutation,
+        selection=selector,
+        terminator=terminator,
+        mate_selection=scalar_selector,
     )
 
     assert results is not None
@@ -646,7 +741,7 @@ def test_template_mixed_integer():
     evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=2)
 
     generator = RandomMixedIntegerGenerator(
-        problem=problem, evaluator=evaluator, publisher=publisher, n_points=20, seed=0, verbosity=2
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=200, seed=0, verbosity=2
     )
 
     crossover = UniformMixedIntegerCrossover(problem=problem, publisher=publisher, seed=0, verbosity=1)
@@ -1024,7 +1119,8 @@ def test_bounded_exponential_crossover():
 
 @pytest.mark.slow
 @pytest.mark.ea
-def test_crossover_in_EA():
+def test_crossover_in_ea():
+    """Test whether the crossover operators can be used in an EA."""
     xovers = ["sbx", "bex", "blend", "single_arithmetic", "local"]
 
     for xover_name in xovers:
@@ -1096,7 +1192,8 @@ def test_crossover_in_EA():
 
 @pytest.mark.slow
 @pytest.mark.ea
-def test_mutation_in_EA():
+def test_mutation_in_ea():
+    """Test whether the mutation operators can be used in an EA."""
     mutations = ["bpm", "num", "power", "SAGM"]
     for mut in mutations:
         publisher = Publisher()
@@ -1157,3 +1254,144 @@ def test_mutation_in_EA():
             print(results)
         except Exception as e:
             pytest.fail(f"Failed to run EA with mutation {mut}: {e}")
+
+
+def test_max_gen_terminator():
+    """Test the MaxGenerationsTerminator."""
+    publisher = Publisher()
+    terminator = MaxGenerationsTerminator(100, publisher)
+    publisher.auto_subscribe(terminator)
+
+    assert terminator.current_generation == 1
+    assert terminator.max_generations == 100
+
+    for _ in range(1000):
+        if terminator.check():  # Increments current_generation
+            break
+
+    assert terminator.current_generation == 101
+    assert terminator.check() is True
+
+
+def test_max_eval_terminator():
+    """Test the MaxEvaluationsTerminator."""
+    publisher = Publisher()
+    terminator = MaxEvaluationsTerminator(1000, publisher)
+    publisher.auto_subscribe(terminator)
+
+    assert terminator.current_evaluations == 0
+    assert terminator.max_evaluations == 1000
+
+    publisher.notify([IntMessage(topic=GeneratorMessageTopics.NEW_EVALUATIONS, value=100, source="test")])
+    assert terminator.current_evaluations == 100
+
+    for _ in range(100):
+        if not terminator.check():
+            publisher.notify([IntMessage(topic=EvaluatorMessageTopics.NEW_EVALUATIONS, value=57, source="test")])
+
+    assert terminator.current_evaluations >= 1000
+    assert terminator.current_evaluations < 1057  # The maximum can unfortunately be exceeded
+    assert terminator.check() is True
+
+
+def test_composite_terminator():
+    """Test the CompositeTerminator with different modes."""
+    # Test that the check works for MaxGenerationsTerminator with "any"
+    publisher = Publisher()
+    term1 = MaxGenerationsTerminator(10, publisher)
+    term2 = MaxEvaluationsTerminator(1000, publisher)
+    composite = CompositeTerminator([term1, term2], publisher, mode="any")
+    publisher.auto_subscribe(term1)
+    publisher.auto_subscribe(term2)
+    publisher.auto_subscribe(composite)
+
+    assert composite.current_generation == 1
+    assert composite.current_evaluations == 0
+    # Composite indicator should get max from children
+    assert composite.max_generations == 10
+    assert composite.max_evaluations == 1000
+
+    publisher.notify([IntMessage(topic=GeneratorMessageTopics.NEW_EVALUATIONS, value=100, source="test")])
+
+    assert composite.current_evaluations == 100
+
+    for _ in range(100):
+        if not composite.check():
+            publisher.notify([IntMessage(topic=EvaluatorMessageTopics.NEW_EVALUATIONS, value=57, source="test")])
+        else:
+            break
+
+    assert composite.current_generation == 11
+    assert composite.current_evaluations < term2.max_evaluations
+
+    # Test that the check works for MaxEvaluationsTerminator with "any"
+    publisher = Publisher()
+    term1 = MaxGenerationsTerminator(10, publisher)
+    term2 = MaxEvaluationsTerminator(1000, publisher)
+    composite = CompositeTerminator([term1, term2], publisher, mode="any")
+    publisher.auto_subscribe(term1)
+    publisher.auto_subscribe(term2)
+    publisher.auto_subscribe(composite)
+
+    publisher.notify([IntMessage(topic=GeneratorMessageTopics.NEW_EVALUATIONS, value=100, source="test")])
+    assert composite.current_evaluations == 100
+
+    for _ in range(100):
+        if not composite.check():
+            publisher.notify([IntMessage(topic=EvaluatorMessageTopics.NEW_EVALUATIONS, value=200, source="test")])
+        else:
+            break
+
+    assert composite.current_generation < term1.max_generations
+    assert composite.current_evaluations >= term2.max_evaluations
+
+    # Test that check works for "all"
+    publisher = Publisher()
+    term1 = MaxGenerationsTerminator(10, publisher)
+    term2 = MaxEvaluationsTerminator(1000, publisher)
+    composite = CompositeTerminator([term1, term2], publisher, mode="all")
+    publisher.auto_subscribe(term1)
+    publisher.auto_subscribe(term2)
+    publisher.auto_subscribe(composite)
+
+    publisher.notify([IntMessage(topic=GeneratorMessageTopics.NEW_EVALUATIONS, value=100, source="test")])
+    assert composite.current_evaluations == 100
+
+    for _ in range(100):
+        if not composite.check():
+            publisher.notify([IntMessage(topic=EvaluatorMessageTopics.NEW_EVALUATIONS, value=200, source="test")])
+        else:
+            break
+
+    assert composite.current_generation > term1.max_generations
+    assert composite.current_evaluations >= term2.max_evaluations
+
+    # Make sure that creating composite terminator fails if multiple terminators of the same type are added
+    with pytest.raises(ValueError, match="All terminators must be unique."):
+        CompositeTerminator([term1, term2, term1], publisher, mode="any")
+
+
+def test_external_terminator():
+    """Test the ExternalCheckTerminator."""
+
+    class extern_check:
+        """Pretend this is an external check."""
+
+        def __init__(self):
+            self.value = False
+
+        def check(self):
+            """If true, the termination condition is met."""
+            return self.value
+
+    publisher = Publisher()
+    checker = extern_check()
+    term = ExternalCheckTerminator(checker.check, publisher)
+
+    for i in range(1, 100):
+        if i == 50:
+            checker.value = True
+        if term.check():
+            break
+
+    assert term.current_generation == 51

@@ -2,13 +2,13 @@
 
 from sqlmodel import Session
 
-from desdeo.api.models.archive import UserSavedSolutionDB, UserSavedSolverResults
+from desdeo.api.models.archive import UserSavedSolutionDB, UserSavedSolutionAddress
 from desdeo.api.models.state import StateDB
 
 
 def user_save_solutions(
     state_db: StateDB,
-    results: list[UserSavedSolverResults],
+    results: list[UserSavedSolutionAddress],
     user_id: int,
     session: Session,
 ):
@@ -24,10 +24,10 @@ def user_save_solutions(
     for solution in results:
         archive_entry = UserSavedSolutionDB(
             name=solution.name if solution.name else None,
-            variable_values=solution.optimal_variables,
-            objective_values=solution.optimal_objectives,
-            constraint_values=solution.constraint_values,
-            extra_func_values=solution.extra_func_values,
+            objective_values=solution.objective_values,
+            address_state=solution.address_state,
+            state_id=state_db.id,
+            address_result=solution.address_result,
             user_id=user_id,
             problem_id=state_db.problem_id,
             state=state_db,
