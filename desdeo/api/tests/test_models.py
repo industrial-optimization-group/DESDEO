@@ -1,7 +1,6 @@
 """Tests related to the SQLModels."""
 
 import numpy as np
-import polars as pl
 from sqlmodel import Session, select
 
 from desdeo.api.models import (
@@ -30,7 +29,6 @@ from desdeo.api.models import (
     UserSavedSolutionDB,
     VariableDB,
 )
-from desdeo.api.models.state_table import SolutionAddress
 from desdeo.mcdm import enautilus_step, rpm_solve_solutions
 from desdeo.problem.schema import (
     Constant,

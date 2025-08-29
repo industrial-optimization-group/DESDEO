@@ -1,15 +1,17 @@
-"""Request and response models for Utopia endpoint"""
+"""Request and response models for Utopia endpoint."""
 
 from typing import Any
-from sqlmodel import SQLModel, Field
-from .state_table import SolutionAddress
+
+from sqlmodel import Field, SQLModel
+
+from .generic_states import SolutionReference
 
 
 class UtopiaRequest(SQLModel):
     """The request for an Utopia map."""
 
     problem_id: int = Field(description="Problem for which the map is generated")
-    solution: SolutionAddress = Field(description="Solution for which to generate the map")
+    solution: SolutionReference = Field(description="Solution for which to generate the map")
 
 
 class UtopiaResponse(SQLModel):

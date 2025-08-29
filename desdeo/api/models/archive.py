@@ -1,16 +1,8 @@
 """Defines models for archiving solutions."""
 
-from typing import TYPE_CHECKING
-
-from sqlmodel import JSON, Column, Field, Relationship, SQLModel
+from sqlmodel import Field
 
 from desdeo.tools.generics import EMOResults
-
-from .state_table import StateDB
-
-if TYPE_CHECKING:
-    from .problem import ProblemDB
-    from .user import User
 
 
 class UserSavedEMOResults(EMOResults):

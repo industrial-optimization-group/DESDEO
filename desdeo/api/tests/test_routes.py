@@ -10,27 +10,25 @@ from desdeo.api.models import (
     EMOSaveRequest,
     EMOSolveRequest,
     ForestProblemMetaData,
+    GenericIntermediateSolutionResponse,
     GetSessionRequest,
     InteractiveSessionDB,
+    IntermediateSolutionRequest,
     NIMBUSClassificationRequest,
     NIMBUSClassificationResponse,
     NIMBUSInitializationRequest,
+    NIMBUSIntermediateSolutionResponse,
     NIMBUSSaveRequest,
     NIMBUSSaveResponse,
     ProblemGetRequest,
     ProblemInfo,
     ReferencePoint,
     RPMSolveRequest,
+    SolutionInfo,
     User,
     UserSavedEMOResults,
 )
 from desdeo.api.models.nimbus import NIMBUSInitializationResponse
-from desdeo.api.models.generic import (
-    GenericIntermediateSolutionResponse,
-    IntermediateSolutionRequest,
-    NIMBUSIntermediateSolutionResponse,
-    SolutionInfo,
-)
 from desdeo.api.models.state import EMOSaveState, EMOState
 from desdeo.api.routers.user_authentication import create_access_token
 from desdeo.problem.testproblems import simple_knapsack_vectors

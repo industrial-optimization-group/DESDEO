@@ -1,13 +1,13 @@
-"""Utilities related to handling the databse."""
+"""Utilities related to handling the database."""
 
 from sqlmodel import Session
 
-from desdeo.api.models.state_table import UserSavedSolutionDB, UserSavedSolutionAddress, StateDB
+from desdeo.api.models import StateDB, UserSavedSolutionDB
 
 
 def user_save_solutions(
     state_db: StateDB,
-    results: list[UserSavedSolutionAddress],
+    results: list,
     user_id: int,
     session: Session,
 ):

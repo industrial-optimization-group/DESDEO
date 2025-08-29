@@ -1,13 +1,20 @@
-"""Utopia router"""
+"""Utopia router."""
 
 import json
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlmodel import Session, select
 
 from desdeo.api.db import get_session
-from desdeo.api.models import ForestProblemMetaData, ProblemMetaDataDB, User, UtopiaRequest, UtopiaResponse, StateDB
+from desdeo.api.models import (
+    ForestProblemMetaData,
+    ProblemMetaDataDB,
+    StateDB,
+    User,
+    UtopiaRequest,
+    UtopiaResponse,
+)
 from desdeo.api.routers.user_authentication import get_current_user
 
 router = APIRouter(prefix="/utopia")

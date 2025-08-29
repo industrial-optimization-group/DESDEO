@@ -1,7 +1,7 @@
 """Defines models for representing the state of various interactive methods."""
 
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from pydantic import ConfigDict, computed_field
 from sqlalchemy.orm import object_session
@@ -137,7 +137,7 @@ class StateDB(SQLModel, table=True):
         database_session.add(row)
 
         # Persist base and link substate PK=FK
-        attach_substate(database_session, base, state)
+        _attach_substate(database_session, base, state)
 
         return row
 
@@ -187,39 +187,13 @@ SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
 }
 
 
-def normalize_kind(method: str, phase: str) -> StateKind:
-    """Normalize (method, phase) into a StateKind enum."""
-    m = method.lower()
-    p = phase.lower()
-
-    if m in {"emo", "nsga3", "nsga-iii", "rvea"}:
-        m = "emo"
-
-    kind_str = f"{m}.{p}"
-    return StateKind(kind_str)
-
-
 def _method_phase_from_kind(kind: StateKind) -> tuple[str, str]:
     """Split enum value back to (method, phase)."""
     method, phase = kind.value.split(".", 1)
     return method, phase
 
 
-def create_state(
-    method: str,
-    phase: str,
-    *,
-    payload: dict[str, Any] | None = None,
-) -> tuple[State, SQLModel | None]:
-    """Create base State and the proper concrete substate instance (if any)."""
-    kind = normalize_kind(method, phase)
-    base = State(method=method, phase=phase, kind=kind)
-    table = KIND_TO_TABLE.get(kind)
-    sub = table(**(payload or {})) if table else None
-    return base, sub
-
-
-def attach_substate(session, base: State, sub: SQLModel | None) -> None:
+def _attach_substate(session, base: State, sub: SQLModel | None) -> None:
     """Persist base; link sub.id = base.id; persist sub."""
     session.add(base)
     session.flush()  # assigns base.id
@@ -228,16 +202,6 @@ def attach_substate(session, base: State, sub: SQLModel | None) -> None:
         sub.id = base.id
         session.add(sub)
         session.flush()
-
-
-def load_concrete_state(session, base: State) -> SQLModel | None:
-    """Given a base State row, load its concrete substate instance."""
-    table = KIND_TO_TABLE.get(base.kind)
-
-    if not table:
-        return None
-
-    return session.exec(select(table).where(table.id == base.id)).first()
 
 
 class UserSavedSolutionDB(SQLModel, table=True):
@@ -293,10 +257,12 @@ class UserSavedSolutionDB(SQLModel, table=True):
         )
 
 
-class SolutionAddress(SQLModel):
-    # objective_values: dict[str, float] | None = Field(sa_column=Column(JSON), default=None)
-    # address_state: int | None = Field(sa_column=Column(JSON), default=None)
-    # address_result: int | None = Field(sa_column=Column(JSON), default=None)
+class SolutionReference(SQLModel):
+    """A model that functions as a reference to solutions existing in the database.
+
+    Referenced solutions are not necessarily solutions that the user has saved explicitly. For
+    referencing those, see `SavedSolutionReference`.
+    """
 
     name: str | None = Field(description="Optional name to help identify the solution if, e.g., saved.", default=None)
     solution_index: int | None = Field(
@@ -342,7 +308,9 @@ class SolutionAddress(SQLModel):
         return len(self.state.state.solver_results)
 
 
-class SolutionAddressResponse(SQLModel):
+class SolutionReferenceResponse(SQLModel):
+    """The response information provided when `SolutionReference` object are returned from the client."""
+
     model_config = ConfigDict(from_attributes=True)
 
     name: str | None
@@ -353,6 +321,8 @@ class SolutionAddressResponse(SQLModel):
 
 
 class SavedSolutionReference(SQLModel):
+    """A model that functions as a reference to solutions that users have chosen to explicitly save in the database."""
+
     saved_solution: UserSavedSolutionDB = Field(description="The reference object with the solution information.")
 
     @computed_field
@@ -384,26 +354,3 @@ class SavedSolutionReference(SQLModel):
     @property
     def state_id(self) -> int | None:
         return self.saved_solution.origin_state_id
-
-
-class SavedSolutionResponse(SQLModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    name: str | None
-    objective_values: dict[str, float]
-    variable_values: dict[str, VariableType]
-
-
-class UserSavedSolutionAddress(SolutionAddress):
-    """Defines a schema for storing archived solutions."""
-
-    name: str | None = Field(
-        description="An optional name for the solution, useful for archiving purposes.",
-        default=None,
-    )
-
-    def to_solution_address(self) -> SolutionAddress:
-        """Convert UserSavedSolutionAddress to just SolutionAddress"""
-        return SolutionAddress(
-            objective_values=self.objective_values, address_state=self.address_state, address_result=self.address_result
-        )

@@ -10,12 +10,12 @@ from desdeo.api.models import (
     InteractiveSessionDB,
     IntermediateSolutionRequest,
     IntermediateSolutionState,
-    SolutionAddress,
     ProblemDB,
+    SolutionReference,
     StateDB,
     User,
 )
-from desdeo.api.models.generic import SolutionInfo, GenericIntermediateSolutionResponse
+from desdeo.api.models.generic import GenericIntermediateSolutionResponse
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.mcdm.nimbus import solve_intermediate_solutions
 from desdeo.problem import Problem
@@ -155,17 +155,17 @@ def solve_intermediate(
 
     return GenericIntermediateSolutionResponse(
         state_id=state.id,
-        reference_solution_1=SolutionAddress(
+        reference_solution_1=SolutionReference(
             state=reference_states[0],
             solution_index=request.reference_solution_1.solution_index,
             name=request.reference_solution_1.name,
         ),
-        reference_solution_2=SolutionAddress(
+        reference_solution_2=SolutionReference(
             state=reference_states[1],
             solution_index=request.reference_solution_2.solution_index,
             name=request.reference_solution_2.name,
         ),
         intermediate_solutions=[
-            SolutionAddress(state=state, solution_index=i) for i in range(state.state.num_solutions)
+            SolutionReference(state=state, solution_index=i) for i in range(state.state.num_solutions)
         ],
     )

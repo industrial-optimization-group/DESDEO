@@ -22,15 +22,13 @@ from desdeo.api.models import (
     NIMBUSSaveState,
     ProblemDB,
     ReferencePoint,
-    SolutionAddress,
+    SavedSolutionReference,
+    SolutionReference,
     StateDB,
     User,
     UserSavedSolutionDB,
 )
 from desdeo.api.models.generic import SolutionInfo
-from desdeo.api.models.state_table import (
-    SavedSolutionReference,
-)
 from desdeo.api.routers.generic import solve_intermediate
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.mcdm.nimbus import generate_starting_point, solve_sub_problems
@@ -86,7 +84,7 @@ def collect_saved_solutions(user: User, problem_id: int, session: Session) -> li
 
 
 # for collecting solutions for responses in iterate and initialize endpoints
-def collect_all_solutions(user: User, problem_id: int, session: Session) -> list[SolutionAddress]:
+def collect_all_solutions(user: User, problem_id: int, session: Session) -> list[SolutionReference]:
     """Collects all solutions for the user and problem."""
     statement = (
         select(StateDB)
@@ -97,7 +95,7 @@ def collect_all_solutions(user: User, problem_id: int, session: Session) -> list
     all_solutions = []
     for state in states:
         for i in range(state.state.num_solutions):
-            all_solutions.append(SolutionAddress(state=state, solution_index=i))
+            all_solutions.append(SolutionReference(state=state, solution_index=i))
 
     return filter_duplicates(all_solutions)
 
@@ -190,9 +188,9 @@ def solve_solutions(
     session.refresh(state)
 
     # Collect all current solutions
-    current_solutions: list[SolutionAddress] = []
+    current_solutions: list[SolutionReference] = []
     for i, result in enumerate(solver_results):
-        current_solutions.append(SolutionAddress(state=state, solution_index=i))
+        current_solutions.append(SolutionReference(state=state, solution_index=i))
 
     saved_solutions = collect_saved_solutions(user, request.problem_id, session)
     all_solutions = collect_all_solutions(user, request.problem_id, session)
@@ -302,7 +300,7 @@ def initialize(
     session.commit()
     session.refresh(state)
 
-    current_solutions = [SolutionAddress(state=state, solution_index=0)]
+    current_solutions = [SolutionReference(state=state, solution_index=0)]
     saved_solutions = collect_saved_solutions(user, request.problem_id, session)
     all_solutions = collect_all_solutions(user, request.problem_id, session)
 

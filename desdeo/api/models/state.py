@@ -1,8 +1,7 @@
 """Defines models for representing the state of various interactive methods."""
 
-from typing import TYPE_CHECKING
-
 import warnings
+from typing import TYPE_CHECKING
 
 from sqlalchemy.types import TypeDecorator
 from sqlmodel import (
@@ -65,7 +64,7 @@ class ResultsType(TypeDecorator):
         return model.model_validate(value)
 
 
-class StateInterface:
+class ResultInterface:
     @property
     def result_objective_values(self) -> list[dict[str, float]]:
         msg = (
@@ -115,7 +114,7 @@ class RPMState(SQLModel, table=True):
     solver_results: list[SolverResults] = Field(sa_column=Column(ResultsType))
 
 
-class NIMBUSClassificationState(StateInterface, SQLModel, table=True):
+class NIMBUSClassificationState(ResultInterface, SQLModel, table=True):
     """NIMBUS: classification / solve candidates."""
 
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
@@ -144,7 +143,7 @@ class NIMBUSClassificationState(StateInterface, SQLModel, table=True):
         return len(self.solver_results)
 
 
-class NIMBUSSaveState(StateInterface, SQLModel, table=True):
+class NIMBUSSaveState(ResultInterface, SQLModel, table=True):
     """NIMBUS: save solutions."""
 
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
@@ -172,7 +171,7 @@ class NIMBUSSaveState(StateInterface, SQLModel, table=True):
         return len(self.solutions)
 
 
-class NIMBUSInitializationState(StateInterface, SQLModel, table=True):
+class NIMBUSInitializationState(ResultInterface, SQLModel, table=True):
     """NIMBUS: initialization."""
 
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
@@ -235,7 +234,7 @@ class EMOSaveState(SQLModel, table=True):
     solutions: list = Field(sa_column=Column(JSON), description="Original solutions from request", default_factory=list)
 
 
-class IntermediateSolutionState(SQLModel, StateInterface, table=True):
+class IntermediateSolutionState(SQLModel, ResultInterface, table=True):
     """Generic intermediate solutions requested by other methods."""
 
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
