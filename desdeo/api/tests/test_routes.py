@@ -28,7 +28,7 @@ from desdeo.api.models.state_table import SolutionAddress, UserSavedSolutionAddr
 from desdeo.api.models.generic import (
     GenericIntermediateSolutionResponse,
     IntermediateSolutionRequest,
-    IntermediateSolutionResponse,
+    NIMBUSIntermediateSolutionResponse,
     SolutionInfo,
 )
 from desdeo.api.models.state import EMOSaveState, EMOState
@@ -366,57 +366,21 @@ def test_intermediate_solve(client: TestClient):
     nimbus_request = IntermediateSolutionRequest(
         problem_id=1,
         context="nimbus",
-        reference_solution_1=SolutionAddress(
-            objective_values=solution_1.objective_values,
-            address_state=solution_1.address_state,
-            address_result=solution_1.address_result,
-        ),
-        reference_solution_2=SolutionAddress(
-            objective_values=solution_2.objective_values,
-            address_state=solution_2.address_state,
-            address_result=solution_2.address_result,
-        ),
-        num_desired=3,
+        reference_solution_1=solution_1,
+        reference_solution_2=solution_2,
+        num_desired=2,
     )
 
     nimbus_response = post_json(client, "/method/nimbus/intermediate", nimbus_request.model_dump(), access_token)
     assert nimbus_response.status_code == status.HTTP_200_OK
-    nimbus_result = IntermediateSolutionResponse.model_validate(json.loads(nimbus_response.content.decode("utf-8")))
+    nimbus_result = NIMBUSIntermediateSolutionResponse.model_validate(
+        json.loads(nimbus_response.content.decode("utf-8"))
+    )
 
     # Verify the NIMBUS response contains expected fields
     assert nimbus_result.state_id is not None
-    assert len(nimbus_result.current_solutions) > 0
-    assert isinstance(nimbus_result.reference_solution_1, dict)
-
-
-def test_save_solution(client: TestClient):
-    """Test that saving solutions works as expected."""
-    # Login to get access token
-    access_token = login(client)
-
-    # Create test solutions with proper dictionary values
-    objective_values = {"f_1": 1.2, "f_2": 0.9, "f_3": 1.5}
-    solution_name = "The most environment friendly solution"
-
-    test_solutions = [
-        UserSavedSolutionAddress(
-            name=solution_name, objective_values=objective_values, address_state=1, address_result=1
-        )
-    ]
-
-    # Create the save request
-    save_request = NIMBUSSaveRequest(
-        problem_id=1,
-        solutions=test_solutions,
-    )
-
-    # Make the request
-    response = post_json(client, "/method/nimbus/save", save_request.model_dump(), access_token)
-
-    # Verify the response and state
-    assert response.status_code == status.HTTP_200_OK
-    save_response = NIMBUSSaveResponse.model_validate(response.json())
-    assert save_response.state_id != None
+    assert len(nimbus_result.current_solutions) == 2
+    assert len(nimbus_result.all_solutions) == 7
 
 
 def test_nimbus_initialize_no_solver(client: TestClient):

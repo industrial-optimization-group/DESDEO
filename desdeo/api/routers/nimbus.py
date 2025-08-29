@@ -10,7 +10,7 @@ from desdeo.api.db import get_session
 from desdeo.api.models import (
     InteractiveSessionDB,
     IntermediateSolutionRequest,
-    IntermediateSolutionResponse,
+    NIMBUSIntermediateSolutionResponse,
     IntermediateSolutionState,
     NIMBUSClassificationRequest,
     NIMBUSClassificationResponse,
@@ -212,7 +212,7 @@ def initialize(
     request: NIMBUSInitializationRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
-) -> NIMBUSClassificationResponse | NIMBUSInitializationResponse | IntermediateSolutionResponse:
+) -> NIMBUSClassificationResponse | NIMBUSInitializationResponse | NIMBUSIntermediateSolutionResponse:
     """Initialize the problem for the NIMBUS method."""
     if request.session_id is not None:
         statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == request.session_id)
@@ -287,7 +287,7 @@ def initialize(
                     )
                 )
             # Return intermediate solution response
-            return IntermediateSolutionResponse(
+            return NIMBUSIntermediateSolutionResponse(
                 state_id=state.id,
                 reference_solution_1=intermediate_state.reference_solution_1,
                 reference_solution_2=intermediate_state.reference_solution_2,
@@ -472,28 +472,24 @@ def solve_nimbus_intermediate(
     request: IntermediateSolutionRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
-) -> IntermediateSolutionResponse:
+) -> NIMBUSIntermediateSolutionResponse:
     """Solve intermediate solutions by forwarding the request to generic intermediate endpoint with context nimbus."""
     # Add NIMBUS context to request
     request.context = "nimbus"
     # Forward to generic endpoint
-    intermediate_state, state_id = solve_intermediate(request, user, session)
+    intermediate_response = solve_intermediate(request, user, session)
 
-    current_solutions: list[SolutionAddress] = []
-    for i, result in enumerate(intermediate_state.solver_results):
-        current_solutions.append(
-            SolutionAddress(objective_values=result.optimal_objectives, address_state=state_id, address_result=i)
-        )
     # Get saved solutions for this user and problem
     saved_solutions = collect_saved_solutions(user, request.problem_id, session)
+
     # Get all solutions including the newly generated intermediate ones
     all_solutions = collect_all_solutions(user, request.problem_id, session)
 
-    return IntermediateSolutionResponse(
-        state_id=state_id,
-        reference_solution_1=intermediate_state.reference_solution_1,
-        reference_solution_2=intermediate_state.reference_solution_2,
-        current_solutions=current_solutions,
+    return NIMBUSIntermediateSolutionResponse(
+        state_id=intermediate_response.state_id,
+        reference_solution_1=intermediate_response.reference_solution_1,
+        reference_solution_2=intermediate_response.reference_solution_2,
+        current_solutions=intermediate_response.intermediate_solutions,
         saved_solutions=saved_solutions,
         all_solutions=all_solutions,
     )

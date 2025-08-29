@@ -76,7 +76,7 @@ __all__ = [  # noqa: RUF022
 
 from .archive import UserSavedEMOResults
 from .EMO import EMOSaveRequest, EMOSolveRequest
-from .generic import IntermediateSolutionRequest, IntermediateSolutionResponse
+from .generic import IntermediateSolutionRequest, NIMBUSIntermediateSolutionResponse
 from .nimbus import (
     NIMBUSClassificationRequest,
     NIMBUSClassificationResponse,
