@@ -86,7 +86,7 @@ class BaseSelector(Subscriber):
                 targets, and constraint violations.
         """
 
-
+#TODO(@light-weaver): Convert to pydantic?
 class ReferenceVectorOptions(TypedDict, total=False):
     """The options for the reference vector based selection operators."""
 
@@ -400,9 +400,11 @@ class BaseDecompositionSelector(BaseSelector):
 class ParameterAdaptationStrategy(Enum):
     """The parameter adaptation strategies for the RVEA selector."""
 
-    GENERATION_BASED = 1  # Based on the current generation and the maximum generation.
-    FUNCTION_EVALUATION_BASED = 2  # Based on the current function evaluation and the maximum function evaluation.
-    OTHER = 3  # As of yet undefined strategies.
+    GENERATION_BASED = "GENERATION_BASED"  # Based on the current generation and the maximum generation.
+    FUNCTION_EVALUATION_BASED = (
+        "FUNCTION_EVALUATION_BASED"  # Based on the current function evaluation and the maximum function evaluation.
+    )
+    OTHER = "OTHER"  # As of yet undefined strategies.
 
 
 @njit
@@ -792,7 +794,7 @@ class RVEASelector(BaseDecompositionSelector):
             self.reference_vectors_gamma[i] = closest_angle
 
 
-class NSGAIII_select(BaseDecompositionSelector):
+class NSGA3Selector(BaseDecompositionSelector):
     """The NSGA-III selection operator, heavily based on the version of nsga3 in the pymoo package by msu-coinlab."""
 
     @property
@@ -1244,7 +1246,7 @@ def _ibea_select_all(fitness_components: np.ndarray, population_size: int, kappa
     return ~bad_sols
 
 
-class IBEA_Selector(BaseSelector):
+class IBEASelector(BaseSelector):
     """The adaptive IBEA selection operator.
 
     Reference: Zitzler, E., Künzli, S. (2004). Indicator-Based Selection in Multiobjective Search. In: Yao, X., et al.

@@ -5,7 +5,7 @@ __all__ = [
     "nsga3",
     "ibea",
     "template1",
-    "NSGAIII_select",
+    "NSGA3Selector",
     "RVEASelector",
     "SimulatedBinaryCrossover",
     "BoundedPolynomialMutation",
@@ -26,5 +26,5 @@ from .operators.crossover import SimulatedBinaryCrossover
 from .operators.evaluator import EMOEvaluator
 from .operators.generator import LHSGenerator, RandomGenerator
 from .operators.mutation import BoundedPolynomialMutation
-from .operators.selection import NSGAIII_select, RVEASelector
+from .operators.selection import NSGA3Selector, RVEASelector
 from .operators.termination import MaxEvaluationsTerminator, MaxGenerationsTerminator

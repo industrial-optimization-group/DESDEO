@@ -40,8 +40,8 @@ from desdeo.emo.operators.mutation import (
 )
 from desdeo.emo.operators.scalar_selection import TournamentSelection
 from desdeo.emo.operators.selection import (
-    IBEA_Selector,
-    NSGAIII_select,
+    IBEASelector,
+    NSGA3Selector,
     ParameterAdaptationStrategy,
     ReferenceVectorOptions,
     RVEASelector,
@@ -293,7 +293,7 @@ def test_template2():
     crossover = SimulatedBinaryCrossover(problem=problem, publisher=publisher, seed=0, verbosity=1)
     mutation = BoundedPolynomialMutation(problem=problem, publisher=publisher, seed=0, verbosity=1)
 
-    selector = IBEA_Selector(
+    selector = IBEASelector(
         problem=problem,
         publisher=publisher,
         population_size=10,
@@ -1149,7 +1149,7 @@ def test_crossover_in_ea():
             case _:
                 raise ValueError(f"Unknown crossover type: {crossover}")
 
-        selector = NSGAIII_select(
+        selector = NSGA3Selector(
             problem=problem,
             publisher=publisher,
             verbosity=2,
@@ -1206,7 +1206,7 @@ def test_mutation_in_ea():
         evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
         crossover = SimulatedBinaryCrossover(problem=problem, publisher=publisher, seed=0, verbosity=1)
 
-        selector = NSGAIII_select(
+        selector = NSGA3Selector(
             problem=problem,
             publisher=publisher,
             verbosity=2,

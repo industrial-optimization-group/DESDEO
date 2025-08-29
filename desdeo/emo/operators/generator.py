@@ -10,7 +10,7 @@ from scipy.stats.qmc import LatinHypercube
 from desdeo.emo.operators.evaluator import EMOEvaluator
 from desdeo.problem import Problem, VariableTypeEnum
 from desdeo.tools.message import GeneratorMessageTopics, IntMessage, Message, PolarsDataFrameMessage
-from desdeo.tools.patterns import Subscriber, Publisher
+from desdeo.tools.patterns import Publisher, Subscriber
 
 
 class BaseGenerator(Subscriber):
