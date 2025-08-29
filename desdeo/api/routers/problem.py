@@ -1,6 +1,6 @@
 """Defines end-points to access and manage problems."""
 
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session, select

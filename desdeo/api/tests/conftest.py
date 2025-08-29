@@ -7,7 +7,13 @@ from sqlmodel.pool import StaticPool
 
 from desdeo.api.app import app
 from desdeo.api.db import get_session
-from desdeo.api.models import ProblemDB, User, UserRole, ProblemMetaDataDB, ForestProblemMetaData
+from desdeo.api.models import (
+    ForestProblemMetaData,
+    ProblemDB,
+    ProblemMetaDataDB,
+    User,
+    UserRole,
+)
 from desdeo.api.routers.user_authentication import get_password_hash
 from desdeo.problem.testproblems import dtlz2, river_pollution_problem
 

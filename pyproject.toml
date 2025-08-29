@@ -238,6 +238,10 @@ markers = [
 ]
 pythonpath = "."
 asyncio_default_fixture_loop_scope = "function"
+filterwarnings = [
+	"default::RuntimeWarning",
+	"default::UserWarning",
+]
 
 [build-system]
 requires = ["poetry-core"]
