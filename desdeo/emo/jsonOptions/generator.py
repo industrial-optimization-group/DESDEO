@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, Field
 
+from desdeo.emo.operators.evaluator import EMOEvaluator
 from desdeo.emo.operators.generator import (
     BaseGenerator,
     LHSGenerator,
@@ -80,7 +81,12 @@ GeneratorOptions = (
 
 
 def generator_constructor(
-    problem: Problem, options: GeneratorOptions, publisher: Publisher, verbosity: int, seed: int
+    problem: Problem,
+    options: GeneratorOptions,
+    publisher: Publisher,
+    verbosity: int,
+    seed: int,
+    evaluator: EMOEvaluator,
 ) -> BaseGenerator:
     """Construct a generator based on the provided options.
 
@@ -90,6 +96,7 @@ def generator_constructor(
         publisher (Publisher): The publisher for the generator.
         verbosity (int): The verbosity level for the generator.
         seed (int): The random seed for the generator.
+        evaluator (EMOEvaluator): The evaluator to use for evaluating solutions.
 
     Returns:
         BaseGenerator: The constructed generator.
@@ -103,4 +110,6 @@ def generator_constructor(
     }
     options = options.model_dump()
     name = options.pop("name")
-    return generator_types[name](problem, **options, publisher=publisher, verbosity=verbosity, seed=seed)
+    return generator_types[name](
+        problem, **options, publisher=publisher, verbosity=verbosity, seed=seed, evaluator=evaluator
+    )

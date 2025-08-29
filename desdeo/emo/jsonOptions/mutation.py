@@ -235,7 +235,7 @@ MutationOptions = (
 )
 
 
-def mutation_constructer(
+def mutation_constructor(
     problem: Problem, publisher: Publisher, seed: int, verbosity: int, options: MutationOptions
 ) -> BaseMutation:
     """Construct a mutation operator.

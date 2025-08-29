@@ -134,7 +134,7 @@ CrossoverOptions = (
 )
 
 
-def crossover_constructer(
+def crossover_constructor(
     problem: Problem, publisher: Publisher, seed: int, verbosity: int, options: CrossoverOptions
 ) -> BaseCrossover:
     """Construct a crossover operator.
