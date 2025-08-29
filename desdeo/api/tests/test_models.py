@@ -30,6 +30,9 @@ from desdeo.api.models import (
     UserSavedSolutionAddress,
     UserSavedSolutionDB,
     VariableDB,
+    ProblemMetaDataDB,
+    ForestProblemMetaData,
+    Group
 )
 from desdeo.api.models.archive import SolutionAddress
 
@@ -840,6 +843,24 @@ def test_problem_metadata(session_and_user: dict[str, Session | list[User]]):
 
     assert problem.problem_metadata == from_db_metadata
 
+"""
+def test_group(session_and_user: dict[str, Session | list[User]]):
+    session: Session = session_and_user["session"]
+    user: User = session_and_user["user"]
+
+    group = Group(
+        user_ids=[user.id],
+        name="TestGroup"
+    )
+
+    session.add(group)
+    session.commit()
+    session.refresh(group)
+
+    assert group.id == 1
+    assert group.user_ids[0] == user.id
+    assert group.name == "TestGroup"
+"""
 
 def test_enautilus_state(session_and_user: dict[str, Session | list[User]]):
     """Test the E-NAUTILUS state that it works correctly."""
