@@ -76,10 +76,55 @@ class Template2Options(BaseTemplateOptions):
 TemplateOptions = Template1Options | Template2Options
 
 
-def template_constructor(template: TemplateOptions, problem: Problem) -> tuple[Callable[[], EMOResult], Publisher]:
+class ReferencePointOptions(BaseModel):
+    """Options for providing a reference point for an EA."""
+
+    name: Literal["ReferencePoint"] = Field(
+        default="ReferencePoint", frozen=True, description="The name of the reference point option."
+    )
+    """The name of the reference point option."""
+    reference_point: dict[str, float] = Field(
+        description="The reference point as a dictionary with objective function symbols as the keys."
+    )
+    """The reference point as a dictionary with objective function symbols as the keys."""
+    method: Literal["Hakanen", "IOPIS"] = Field(
+        default="Hakanen", description="The method for handling the reference point."
+    )
+    """The method for handling the reference point."""
+
+
+class DesirableRangesOptions(BaseModel):
+    """Options for providing desirable ranges for an EA."""
+
+    name: Literal["DesirableRanges"] = Field(
+        default="DesirableRanges", frozen=True, description="The name of the desirable ranges option."
+    )
+    """The name of the desirable ranges option."""
+    ranges: dict[str, tuple[float, float]] = Field(
+        description="The desirable ranges as a dictionary with objective function symbols as the keys."
+    )
+    """The desirable ranges as a dictionary with objective function symbols as the keys."""
+    method: Literal["Hakanen", "DF transformation"] = Field(
+        default="Hakanen", description="The method for handling the desirable ranges."
+    )
+    """The method for handling the desirable ranges."""
+
+
+class EMOOptions(BaseModel):
+    """Options for configuring the EMO algorithm."""
+
+    preference: ReferencePointOptions | DesirableRangesOptions = Field(
+        description="The preference information for the EMO algorithm."
+    )
+    """The preference information for the EMO algorithm."""
+    template: TemplateOptions = Field(description="The template options for the EMO algorithm.")
+
+
+def template_constructor(emo_options: EMOOptions, problem: Problem) -> tuple[Callable[[], EMOResult], Publisher]:
     """Construct a template from the given options."""
     publisher = Publisher()
 
+    template = emo_options.template
     evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=template.verbosity)
 
     selector = selection_constructor(
