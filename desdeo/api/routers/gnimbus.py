@@ -202,7 +202,7 @@ class GNIMBUSManager(GroupManager):
         # Get the winning results
         winner_result: SolverResults = voting_procedure(
             problem=problem,
-            solutions=current_iteration.parent.pref_results.results,
+            solutions=current_iteration.parent.pref_results.results[-4:], # we vote from the last 4 solutions, aka the common solutions
             votes_idxs=formatted_votes
         )
 
