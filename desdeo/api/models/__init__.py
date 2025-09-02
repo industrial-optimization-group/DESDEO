@@ -69,7 +69,6 @@ __all__ = [  # noqa: RUF022
     "GroupInfoRequest",
     "BasePreferenceResults",
     "ReferencePointDictType",
-    "SolverResultType",
     "EMOSolveRequest",
     "PreferredRanges",
     "PreferedSolutions",
@@ -152,7 +151,6 @@ from .user import User, UserBase, UserPublic, UserRole
 from .gdm_base import (
     BasePreferenceResults,
     ReferencePointDictType,
-    SolverResultType,
 )
 from .gdm_aggregate import (
     Group, 

@@ -10,7 +10,7 @@ from sqlmodel import SQLModel, Field, Relationship, JSON, Column
 from desdeo.api.models import BasePreferenceResults
 from desdeo.api.models.gnimbus import (
     VotingPreferenceResults,
-    GNIMBUSPreferenceResults
+    OptimizationPreferenceResults
 )
 from desdeo.tools import SolverResults
 
@@ -34,11 +34,12 @@ class PreferenceResultType(TypeDecorator):
                 case "voting":
                     valdeser = VotingPreferenceResults.model_validate(jsoned)
                     return valdeser
-                case "gnimbus":
-                    valdeser = GNIMBUSPreferenceResults.model_validate(jsoned)
+                case "optimization":
+                    valdeser = OptimizationPreferenceResults.model_validate(jsoned)
                     return valdeser
                 # As the different methods are implemented, add new types
                 case _:
+                    print(f"Unable to deserialize PreferenceResult with method {jsoned["method"]}.")
                     return None
         return None
 

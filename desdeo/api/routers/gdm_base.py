@@ -172,15 +172,15 @@ class GroupManager:
         return notified
 
 
-    async def optimize(
+    async def run_method(
             self,
             user_id: int,
             data: str,
     ):
-        """The optimization function.
+        """The function to run the method
 
         One could derive different managers from this GroupManager
-        class and implement method and manager-specific "optimize" functions.
+        class and implement method and manager-specific "run_method" functions.
 
         """
 

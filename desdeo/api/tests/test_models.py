@@ -32,7 +32,12 @@ from desdeo.api.models import (
     VariableDB,
     ProblemMetaDataDB,
     ForestProblemMetaData,
-    Group
+    Group,
+    GroupIteration,
+)
+from desdeo.api.models.gnimbus import (
+    OptimizationPreferenceResults,
+    VotingPreferenceResults,
 )
 from desdeo.api.models.archive import SolutionAddress
 
@@ -843,14 +848,15 @@ def test_problem_metadata(session_and_user: dict[str, Session | list[User]]):
 
     assert problem.problem_metadata == from_db_metadata
 
-"""
 def test_group(session_and_user: dict[str, Session | list[User]]):
     session: Session = session_and_user["session"]
     user: User = session_and_user["user"]
 
     group = Group(
+        name="TestGroup",
+        owner_id=user.id,
         user_ids=[user.id],
-        name="TestGroup"
+        problem_id=1,
     )
 
     session.add(group)
@@ -860,7 +866,43 @@ def test_group(session_and_user: dict[str, Session | list[User]]):
     assert group.id == 1
     assert group.user_ids[0] == user.id
     assert group.name == "TestGroup"
-"""
+
+def test_gnimbus_datas(session_and_user: dict[str, Session | list[User]]):
+    session: Session = session_and_user["session"]
+    user: User = session_and_user["user"]
+
+    group = Group(
+        name="TestGroup",
+        owner_id=user.id,
+        user_ids=[user.id],
+        problem_id=1,
+    )
+
+    session.add(group)
+    session.commit()
+    session.refresh(group)
+
+    giter = GroupIteration(
+        problem_id=1,
+        group_id=group.id,
+        group=group,
+        pref_results=OptimizationPreferenceResults(
+            set_preferences={},
+            results=[]
+        ),
+        notified={},
+        parent_id = None,
+        parent=None,
+        child=None,
+    )
+    session.add(giter)
+    session.commit()
+    session.refresh(giter)
+
+    assert type(giter.pref_results) == OptimizationPreferenceResults
+    assert giter.problem_id == 1
+    assert giter.group_id == group.id
+
 
 def test_enautilus_state(session_and_user: dict[str, Session | list[User]]):
     """Test the E-NAUTILUS state that it works correctly."""
