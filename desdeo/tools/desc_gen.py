@@ -1,3 +1,5 @@
+"""An utility function to generate descriptions related to UTOPIA matters"""
+
 def generate_descriptions(mapjson: dict, sid: str, stand: str, holding: str, extension: str) -> dict:
     descriptions = {}
     if holding:

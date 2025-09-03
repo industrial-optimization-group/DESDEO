@@ -12,7 +12,7 @@ from desdeo.api.config import ServerDebugConfig, SettingsConfig
 from desdeo.api.db import engine
 from desdeo.api.models import ProblemDB, User, UserRole, ForestProblemMetaData, ProblemMetaDataDB
 from desdeo.api.routers.user_authentication import get_password_hash
-from desdeo.utopia_stuff.desc_gen import generate_descriptions
+from desdeo.tools.desc_gen import generate_descriptions
 from desdeo.problem.schema import Problem
 
 if __name__ == "__main__":
