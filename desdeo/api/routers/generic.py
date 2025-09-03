@@ -11,9 +11,11 @@ from desdeo.api.models import (
     IntermediateSolutionRequest,
     IntermediateSolutionState,
     ProblemDB,
+    SolutionReference,
     StateDB,
     User,
 )
+from desdeo.api.models.generic import GenericIntermediateSolutionResponse
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.mcdm.nimbus import solve_intermediate_solutions
 from desdeo.problem import Problem
@@ -27,7 +29,7 @@ def solve_intermediate(
     request: IntermediateSolutionRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
-) -> tuple[IntermediateSolutionState, int]:
+) -> GenericIntermediateSolutionResponse:
     """Solve intermediate solutions between given two solutions."""
     if request.session_id is not None:
         statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == request.session_id)
@@ -45,6 +47,48 @@ def solve_intermediate(
 
         interactive_session = session.exec(statement).first()
 
+    # query both reference solutions' variable values
+    # stored as lit of tuples, first element of each tuple are variables values, second are objective function values
+    var_and_obj_values_of_references: list[tuple[dict, dict]] = []
+    reference_states = []
+    for solution_info in [request.reference_solution_1, request.reference_solution_2]:
+        solution_state = session.exec(select(StateDB).where(StateDB.id == solution_info.state_id)).first()
+
+        if solution_state is None:
+            # no StateDB found with the given id
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Could not find a state with the given id{solution_state.state_id}.",
+            )
+
+        reference_states.append(solution_state)
+
+        try:
+            _var_values = solution_state.state.result_variable_values
+            var_values = _var_values[solution_info.solution_index]
+
+        except IndexError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"The index {solution_info.solution_index} is out of bounds for results with len={len(_var_values)}"
+                ),
+            ) from exc
+
+        try:
+            _obj_values = solution_state.state.result_objective_values
+            obj_values = _var_values[solution_info.solution_index]
+
+        except IndexError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"The index {solution_info.solution_index} is out of bounds for results with len={len(_obj_values)}"
+                ),
+            ) from exc
+
+        var_and_obj_values_of_references.append((var_values, obj_values))
+
     # fetch the problem from the DB
     statement = select(ProblemDB).where(ProblemDB.user_id == user.id, ProblemDB.id == request.problem_id)
     problem_db = session.exec(statement).first()
@@ -55,49 +99,11 @@ def solve_intermediate(
         )
 
     problem = Problem.from_problemdb(problem_db)
-    # Get complete solution information from database using the SolutionAddress
-    # For solution 1
-    solution1_state_id = request.reference_solution_1.address_state
-    solution1_result_index = request.reference_solution_1.address_result
-    
-    # For solution 2
-    solution2_state_id = request.reference_solution_2.address_state
-    solution2_result_index = request.reference_solution_2.address_result
-    
-    # Query the database for the states
-    solution1_state = session.exec(select(StateDB).where(StateDB.id == solution1_state_id)).first()
-    solution2_state = session.exec(select(StateDB).where(StateDB.id == solution2_state_id)).first()
-    
-    if not solution1_state or not solution2_state:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Could not find one or both of the referenced solution states"
-        )
-    
-    if not hasattr(solution1_state.state, 'solver_results') or not hasattr(solution2_state.state, 'solver_results'):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="One or both of the referenced states do not contain solver results"
-        )
-    
-    # Extract the full solution information including variables
-    try:
-        solution1_full = solution1_state.state.solver_results[solution1_result_index]
-        solution2_full = solution2_state.state.solver_results[solution2_result_index]
-    except IndexError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Referenced solution result index is out of bounds"
-        )
-    
-    # Get solution variables
-    solution_1 = solution1_full.optimal_variables
-    solution_2 = solution2_full.optimal_variables
 
     solver_results: list[SolverResults] = solve_intermediate_solutions(
         problem=problem,
-        solution_1=solution_1,
-        solution_2=solution_2,
+        solution_1=var_and_obj_values_of_references[0][0],
+        solution_2=var_and_obj_values_of_references[1][0],
         num_desired=request.num_desired,
         scalarization_options=request.scalarization_options,
         solver=request.solver,
@@ -130,12 +136,13 @@ def solve_intermediate(
         solver_options=request.solver_options,
         solver_results=solver_results,
         num_desired=request.num_desired,
-        reference_solution_1=request.reference_solution_1.objective_values,
-        reference_solution_2=request.reference_solution_2.objective_values,
+        reference_solution_1=var_and_obj_values_of_references[0][0],
+        reference_solution_2=var_and_obj_values_of_references[1][0],
     )
 
     # create DB state and add it to the DB
-    state = StateDB(
+    state = StateDB.create(
+        database_session=session,
         problem_id=problem_db.id,
         session_id=interactive_session.id if interactive_session is not None else None,
         parent_id=parent_state.id if parent_state is not None else None,
@@ -146,4 +153,19 @@ def solve_intermediate(
     session.commit()
     session.refresh(state)
 
-    return intermediate_state, state.id
+    return GenericIntermediateSolutionResponse(
+        state_id=state.id,
+        reference_solution_1=SolutionReference(
+            state=reference_states[0],
+            solution_index=request.reference_solution_1.solution_index,
+            name=request.reference_solution_1.name,
+        ),
+        reference_solution_2=SolutionReference(
+            state=reference_states[1],
+            solution_index=request.reference_solution_2.solution_index,
+            name=request.reference_solution_2.name,
+        ),
+        intermediate_solutions=[
+            SolutionReference(state=state, solution_index=i) for i in range(state.state.num_solutions)
+        ],
+    )

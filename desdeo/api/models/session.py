@@ -1,6 +1,6 @@
 """Defines Session models to manage user sessions."""
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from sqlmodel import Field, Relationship, SQLModel
 
