@@ -43,7 +43,7 @@ if __name__ == "__main__":
             path = Path(__file__)
             while not str(path).endswith("/DESDEO"):
                 path = path.parent
-            path = path / "datasets/forestProblemWithMetadata/"
+            path = path / "tests/data/forestProblemWithMetadata/"
 
             # load the problem from json
             with Path(path / "problem.json").open(mode="r") as file:
