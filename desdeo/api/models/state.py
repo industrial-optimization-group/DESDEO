@@ -13,7 +13,7 @@ from sqlmodel import (
 )
 
 from desdeo.mcdm import ENautilusResult
-from desdeo.problem import VariableType
+from desdeo.problem import VariableType, Tensor
 from desdeo.tools import SolverResults
 
 from .preference import PreferenceType, ReferencePoint
@@ -77,7 +77,7 @@ class ResultInterface:
         return []
 
     @property
-    def result_variable_values(self) -> list[dict[str, VariableType]]:
+    def result_variable_values(self) -> list[dict[str, VariableType | Tensor]]:
         msg = (
             f"Calling the method `result_variable_values`, which has not been implemented "
             f"for the class `{type(self).__name__}`. Returning an empty list..."
@@ -135,7 +135,7 @@ class NIMBUSClassificationState(ResultInterface, SQLModel, table=True):
         return [x.optimal_objectives for x in self.solver_results]
 
     @property
-    def result_variable_values(self) -> list[dict[str, VariableType]]:
+    def result_variable_values(self) -> list[dict[str, VariableType | Tensor]]:
         return [x.optimal_variables for x in self.solver_results]
 
     @property
@@ -163,7 +163,7 @@ class NIMBUSSaveState(ResultInterface, SQLModel, table=True):
         return [x.objective_values for x in self.solutions]
 
     @property
-    def result_variable_values(self) -> list[dict[str, VariableType]]:
+    def result_variable_values(self) -> list[dict[str, VariableType | Tensor]]:
         return [x.variable_values for x in self.solutions]
 
     @property
@@ -189,7 +189,7 @@ class NIMBUSInitializationState(ResultInterface, SQLModel, table=True):
         return [self.solver_results.optimal_objectives]
 
     @property
-    def result_variable_values(self) -> list[dict[str, VariableType]]:
+    def result_variable_values(self) -> list[dict[str, VariableType | Tensor]]:
         return [self.solver_results.optimal_variables]
 
     @property

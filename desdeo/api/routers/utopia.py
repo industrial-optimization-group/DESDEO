@@ -14,6 +14,7 @@ from desdeo.api.models import (
     User,
     UtopiaRequest,
     UtopiaResponse,
+    NIMBUSInitializationState
 )
 from desdeo.api.routers.user_authentication import get_current_user
 
@@ -42,21 +43,26 @@ def get_utopia_data(
 
     empty_response = UtopiaResponse(is_utopia=False, map_name="", map_json={}, options={}, description="", years=[])
 
-    state = session.exec(select(StateDB).where(StateDB.id == request.solution.address_state)).first()
+    state = session.exec(select(StateDB).where(StateDB.id == request.solution.state.id)).first()
     if state is None or not hasattr(state, "state"):
         return empty_response
+    
+    print(type(state.state))
 
-    # Check if solver_results exists and has the needed index
-    if (
-        not hasattr(state.state, "solver_results")
-        or request.solution.address_result >= len(state.state.solver_results)
-        or state.state.solver_results[request.solution.address_result] is None
-    ):
-        return empty_response
+    if type(state.state) is not NIMBUSInitializationState:
+        # Check if solver_results exists and has the needed index
+        if (
+            not hasattr(state.state, "solver_results")
+            or request.solution.solution_index >= len(state.state.solver_results)
+            or state.state.solver_results[request.solution.solution_index] is None
+        ):
+            return empty_response
 
-    result = state.state.solver_results[request.solution.address_result]
-    if not hasattr(result, "optimal_variables") or not result.optimal_variables:
-        return empty_response
+        result = state.state.solver_results[request.solution.solution_index]
+        if not hasattr(result, "optimal_variables") or not result.optimal_variables:
+            return empty_response
+    else:
+        result = state.state.solver_results
 
     decision_variables = result.optimal_variables  # expects a list of variables, won't work without.
 
@@ -68,7 +74,7 @@ def get_utopia_data(
 
     # Get the last instance of forest related metadata from the database. If for some reason there's more than one forest metadata, return the latest.
     forest_metadata: ForestProblemMetaData = [
-        metadata for metadata in from_db_metadata.data if metadata.metadata_type == "forest_problem_metadata"
+        metadata for metadata in from_db_metadata.all_metadata if metadata.metadata_type == "forest_problem_metadata"
     ][-1]
     if forest_metadata is None:
         return empty_response
