@@ -90,7 +90,7 @@
 
     // Types matching your original solution-table
     type ProblemInfo = components['schemas']['ProblemInfo'];
-    type Solution = components['schemas']['UserSavedSolutionAddress'];
+    type Solution = components['schemas']['SolutionReferenceResponse'];
     
     // Props matching your original solution-table for compatibility
     let {
@@ -163,7 +163,7 @@
             ...problem.objectives.map((objective, idx) => ({
                 accessorKey: `objective_values.${objective.symbol}`,
                 header: ({ column }: { column: Column<Solution> }) => renderSnippet(ColumnHeader, {column, objective, idx}),
-                cell: ({ row }: { row: Row<Solution> }) => renderSnippet(ObjectiveCell, {value: row.original.objective_values[objective.symbol], accuracy: displayAccuracy()}),
+                cell: ({ row }: { row: Row<Solution> }) => renderSnippet(ObjectiveCell, {value: row.original.objective_values?.[objective.symbol], accuracy: displayAccuracy()}),
                 enableSorting: true
             }))
         ];
@@ -353,7 +353,7 @@
         {#if solution.name}
             {solution.name}
         {:else}
-            <span class="text-gray-400">Solution {solution.address_result + 1}</span>
+            <span class="text-gray-400">Solution {solution.solution_index!== null ? (solution.solution_index+1) : ""}</span>
         {/if}
     </div>
 {/snippet}
@@ -377,12 +377,12 @@
 {/snippet}
 
 {#snippet IterationCell({ solution }: { solution: Solution })}
-        {solution.address_state}
+        {solution.state_id}
 {/snippet}
 
-{#snippet ObjectiveCell({ value, accuracy }: { value: number, accuracy: number })}
+{#snippet ObjectiveCell({ value, accuracy }: { value: number | null | undefined, accuracy: number })}
     <div class="text-right pr-4">
-        {formatNumber(value, accuracy)}
+        {value != null ? formatNumber(value, accuracy) : '-'}
     </div>
 {/snippet}
 
