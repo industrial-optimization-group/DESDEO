@@ -77,7 +77,7 @@ def solve_intermediate(
 
         try:
             _obj_values = solution_state.state.result_objective_values
-            obj_values = _var_values[solution_info.solution_index]
+            obj_values = _obj_values[solution_info.solution_index]
 
         except IndexError as exc:
             raise HTTPException(
@@ -136,8 +136,8 @@ def solve_intermediate(
         solver_options=request.solver_options,
         solver_results=solver_results,
         num_desired=request.num_desired,
-        reference_solution_1=var_and_obj_values_of_references[0][0],
-        reference_solution_2=var_and_obj_values_of_references[1][0],
+        reference_solution_1=var_and_obj_values_of_references[0][1],
+        reference_solution_2=var_and_obj_values_of_references[1][1],
     )
 
     # create DB state and add it to the DB
