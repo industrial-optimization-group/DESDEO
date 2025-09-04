@@ -70,7 +70,6 @@
 	// Layout and core components
 	import { BaseLayout } from '$lib/components/custom/method_layout/index.js';
 	import { methodSelection } from '../../../stores/methodSelection';
-	import type { components } from '$lib/api/client-types';
 	import { onMount } from 'svelte';
 
 	// UI Components
@@ -99,25 +98,9 @@
 		processPreviousObjectiveValues,
 		updateSolutionNames
 	} from './helper-functions';
-	type ProblemInfo = components['schemas']['ProblemInfo'];
-	// Define a general type combining all three responses that NIMBUS can return
-	type Solution = components['schemas']['SolutionReferenceResponse'];
-	type Response = {
-		state_id: number | null;
-		previous_preference?: components['schemas']['ReferencePoint'];
-		previous_objectives?: {
-			[key: string]: number;
-		};
-		reference_solution_1?: {
-			[key: string]: number;
-		};
-		reference_solution_2?: {
-			[key: string]: number;
-		};
-		current_solutions: Solution[];
-		saved_solutions: Solution[];
-		all_solutions: Solution[];
-	};
+
+	import type { ProblemInfo, Solution, SolutionType, MethodMode, PeriodKey } from '$lib/types';
+	import type { Response } from './types';
 
 	// State for NIMBUS iteration management
 	let current_state: Response = $state({} as Response);
@@ -155,7 +138,7 @@
 	});
 	// variables for handling different modes (iteration, intermediate, save, finish)
 	// and chosen solutions that are separate for every mode
-	let mode: 'iterate' | 'final' | 'intermediate' = $state('iterate');
+	let mode: MethodMode = $state('iterate');
 	// iteration mode
 	let selected_iteration_index: number[] = $state([0]); // Index of solution from previous results to use in sidebar. List for consistency, but always has one element
 	let current_num_iteration_solutions: number = $state(1); // how many solutions user wants when making the iteration
@@ -183,7 +166,6 @@
 	let hasUtopiaMetadata = $state(false);
 
 	// Variables for showing the map for UTOPIA
-	type PeriodKey = 'period1' | 'period2' | 'period3';
 	let mapOptions = $state<Record<PeriodKey, Record<string, any>>>({
 		period1: {},
 		period2: {},
@@ -203,11 +185,11 @@
 	});
 
 	function handle_type_solutions_change(event: { value: string }) {
-		change_solution_type_updating_selections(event.value as 'current' | 'best' | 'all');
+		change_solution_type_updating_selections(event.value as SolutionType);
 	}
 
 	// Helper function to change solution type and update selections
-	function change_solution_type_updating_selections(newType: 'current' | 'best' | 'all') {
+	function change_solution_type_updating_selections(newType: SolutionType) {
 		// Update the internal state
 		selected_type_solutions = newType;
 
