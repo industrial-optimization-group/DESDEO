@@ -1,21 +1,17 @@
 /*Types specific for NIMBUS */
 
 import type { components } from "$lib/api/client-types";
-import type {Solution} from "$lib/types";
+import type { BaseMethodResponse } from "$lib/types";
 
-export type Response = {
-	state_id: number | null,
-	previous_preference?: components["schemas"]["ReferencePoint"],
-    previous_objectives?: {
-		[key: string]: number;
-	},
-	reference_solution_1?: {
-		[key: string]: number;
-	},
-	reference_solution_2?: {
-		[key: string]: number;
-	},
-	current_solutions: Solution[],
-	saved_solutions: Solution[],
-	all_solutions: Solution[],
+// Type for objective values in reference points and solutions
+export type ObjectiveValues = {
+    [key: string]: number;
+};
+
+// General response type that includes all possible fields
+export type Response = BaseMethodResponse & {
+    previous_preference?: components["schemas"]["ReferencePoint"];
+    previous_objectives?: ObjectiveValues;
+    reference_solution_1?: ObjectiveValues;
+    reference_solution_2?: ObjectiveValues;
 };

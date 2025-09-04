@@ -94,7 +94,6 @@
 		mapSolutionsToObjectiveValues,
 		updatePreferencesFromState,
 		validateIterationAllowed,
-		callNimbusAPI,
 		processPreviousObjectiveValues,
 		updateSolutionNames
 	} from './helper-functions';
