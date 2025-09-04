@@ -1,6 +1,7 @@
 """Defines solver interfaces for gurobipy."""
 
 import gurobipy as gp
+from pydantic import BaseModel, Field, ConfigDict
 
 from desdeo.problem import (
     Constraint,
@@ -12,6 +13,56 @@ from desdeo.problem import (
     Variable,
 )
 from desdeo.tools.generics import BaseSolver, PersistentSolver, SolverResults
+
+
+class GurobipyOptions(BaseModel):
+    """Defines a pydantic model to store and pass options to the Gurobipy solvers.
+
+    For available parameters see https://www.gurobi.com/documentation/current/refman/parameters.html
+
+    Options with value None will be omitted, and won't be passed to the solver.
+
+    Note:
+        Not all options are available through this model.
+        Please add options as they are needed and make a pull request.
+    """
+    model_config = ConfigDict(extra='forbid')
+
+    time_limit: int = Field(
+        description="The maximum amount of time (in seconds) the solver should run. Defaults to None.", default=None
+    )
+    """The maximum amount of time (in seconds) the solver should run. Defaults to None."""
+    threads: int = Field(
+        description="The number of threads used for solving the problem. 0 means automatic. Defaults to 0", default=0
+    )
+    """The number of threads used for solving the problem. 0 means automatic. Defaults to 0"""
+    cutoff: float = Field(
+        description="Omits the solutions that are worse than the specified value. Deafaults to None", default=None
+    )
+    """Omits the solutions that are worse than the specified value. Deafaults to None"""
+    feasibility_tol: float = Field(
+        description="Sets the feasibility tolerance for constraints. Defaults to 1e-6.", default=1e-6
+    )
+    """Sets the feasibility tolerance for constraints. Defaults to 1e-6."""
+    int_feas_tol: float = Field(
+        description="Sets the tolerance for integrality of integer variables. Defaults to 1e-5.", default=1e-5
+    )
+    """Sets the tolerance for integrality of integer variables. Defaults to 1e-5."""
+    solution_limit: int = Field(
+        description="Limits the number of feasible solutions found by the solver. Defaults to None", default=None
+    )
+    """Limits the number of feasible solutions found by the solver. Defaults to None"""
+    presolve: int = Field(
+        description=(
+            "Controls the presolve level (-1: automatic, 0: no presolve, 1: default, 2: aggressive). Defaults to -1."
+        ),
+        default=-1
+    )
+    """Controls the presolve level (-1: automatic, 0: no presolve, 1: default, 2: aggressive). Defaults to -1."""
+
+
+_default_gurobipy_options = GurobipyOptions()
+"""Defines Gurobipy options with default values."""
 
 
 def parse_gurobipy_optimizer_results(problem: Problem, evaluator: GurobipyEvaluator) -> SolverResults:
@@ -68,7 +119,7 @@ def parse_gurobipy_optimizer_results(problem: Problem, evaluator: GurobipyEvalua
 class GurobipySolver(BaseSolver):
     """Creates a gurobipy solver that utilizes gurobi's own Python implementation."""
 
-    def __init__(self, problem: Problem, options: dict[str, any] | None = None):
+    def __init__(self, problem: Problem, options: GurobipyOptions | None = _default_gurobipy_options):
         """The solver is initialized by supplying a problem and options.
 
         Unlike with Pyomo you do not need to have gurobi installed on your system
@@ -77,15 +128,19 @@ class GurobipySolver(BaseSolver):
 
         Args:
             problem (Problem): the problem to be solved.
-            options (dict[str,any]): Dictionary of Gurobi parameters to set.
+            options (GurobipyOptions, optional): Options to be passed to the Gurobipy solver.
+                If `None` is passed, defaults to `_default_gurobipy_options` defined in
+                this source file. Defaults to `None`.
                 You probably don't need to set any of these and can just use the defaults.
                 For available parameters see https://www.gurobi.com/documentation/current/refman/parameters.html
         """
         self.evaluator = GurobipyEvaluator(problem)
         self.problem = problem
 
-        if options is not None:
-            for key, value in options.items():
+        if options is None:
+            options = _default_gurobipy_options
+        for key, value in options:
+            if value is not None:
                 self.evaluator.model.setParam(key, value)
 
     def solve(self, target: str) -> SolverResults:
@@ -112,19 +167,24 @@ class PersistentGurobipySolver(PersistentSolver):
 
     evaluator: GurobipyEvaluator
 
-    def __init__(self, problem: Problem, options: dict[str, any] | None = None):
+    def __init__(self, problem: Problem, options: GurobipyOptions | None = _default_gurobipy_options):
         """Initializer for the persistent solver.
 
         Args:
             problem (Problem): the problem to be transformed in a GurobipyModel.
-            options (dict[str,any]): Dictionary of Gurobi parameters to set.
+            options (GurobipyOptions, optional): Options to be passed to the Gurobipy solver.
+                If `None` is passed, defaults to `_default_gurobipy_options` defined in
+                this source file. Defaults to `None`.
                 You probably don't need to set any of these and can just use the defaults.
                 For available parameters see https://www.gurobi.com/documentation/current/refman/parameters.html
         """
         self.problem = problem
         self.evaluator = GurobipyEvaluator(problem)
-        if options is not None:
-            for key, value in options.items():
+
+        if options is None:
+            options = _default_gurobipy_options
+        for key, value in options:
+            if value is not None:
                 self.evaluator.model.setParam(key, value)
 
     def add_constraint(self, constraint: Constraint | list[Constraint]) -> gp.Constr | list[gp.Constr]:
