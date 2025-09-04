@@ -1,6 +1,7 @@
 """This module initializes the database."""
 
 import warnings
+import os
 import json
 
 from pathlib import Path
@@ -40,7 +41,8 @@ if __name__ == "__main__":
             session.commit()
             session.refresh(user_analyst)
 
-            path = Path(__file__)
+            current_path = Path(__file__)
+            path = current_path
             while not str(path).endswith("/DESDEO"):
                 path = path.parent
             path = path / "tests/data/forestProblemWithMetadata/"
@@ -81,6 +83,19 @@ if __name__ == "__main__":
 
             session.add(metadata_db)
             session.commit()
+
+            # We need to move the newly created test.db file to desdeo/api/ so that the api can read it.
+            target_path = current_path
+            while not str(target_path).endswith("/DESDEO"):
+                print(target_path)
+                target_path = target_path.parent
+            target_path = target_path / "desdeo/api/test.db"
+            # Remove old test.db
+            # os.remove(target_path / "test.db")
+            # Put new one in.
+            os.rename(current_path.parent / "test.db", target_path)
+
+
             
 
             
