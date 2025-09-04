@@ -92,10 +92,10 @@ class NIMBUSIntermediateSolutionResponse(SQLModel):
     """The response from NIMBUS classification endpoint."""
 
     state_id: int | None = Field(description="The newly created state id")
-    reference_solution_1: SolutionReferenceResponse = Field(
+    reference_solution_1: dict[str, float] = Field(
         sa_column=Column(JSON), description="The first solution used when computing intermediate points."
     )
-    reference_solution_2: SolutionReferenceResponse = Field(
+    reference_solution_2: dict[str, float]= Field(
         sa_column=Column(JSON), description="The second solution used when computing intermediate points."
     )
     current_solutions: list[SolutionReferenceResponse] = Field(

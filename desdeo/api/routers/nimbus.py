@@ -29,6 +29,7 @@ from desdeo.api.models import (
     UserSavedSolutionDB,
 )
 from desdeo.api.models.generic import SolutionInfo
+from desdeo.api.models.state import IntermediateSolutionState
 from desdeo.api.routers.generic import solve_intermediate
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.mcdm.nimbus import generate_starting_point, solve_sub_problems
@@ -427,9 +428,85 @@ def solve_nimbus_intermediate(
 
     return NIMBUSIntermediateSolutionResponse(
         state_id=intermediate_response.state_id,
-        reference_solution_1=intermediate_response.reference_solution_1,
-        reference_solution_2=intermediate_response.reference_solution_2,
+        reference_solution_1=intermediate_response.reference_solution_1.objective_values,
+        reference_solution_2=intermediate_response.reference_solution_2.objective_values,
         current_solutions=intermediate_response.intermediate_solutions,
         saved_solutions=saved_solutions,
         all_solutions=all_solutions,
     )
+
+@router.post("/get-or-initialize")
+def get_or_initialize(
+    request: NIMBUSInitializationRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)],
+) -> NIMBUSInitializationResponse | NIMBUSClassificationResponse | NIMBUSIntermediateSolutionResponse:
+    """Get the latest NIMBUS state if it exists, or initialize a new one if it doesn't."""
+    if request.session_id is not None:
+        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == request.session_id)
+        interactive_session = session.exec(statement)
+
+        if interactive_session is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Could not find interactive session with id={request.session_id}.",
+            )
+    else:
+        # use active session instead
+        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == user.active_session_id)
+        interactive_session = session.exec(statement).first()
+
+    # Look for latest relevant state in the session
+    statement = (
+        select(StateDB)
+        .where(
+            StateDB.problem_id == request.problem_id,
+            StateDB.session_id == (interactive_session.id if interactive_session else user.active_session_id),
+        )
+        .order_by(StateDB.id.desc())
+    )
+    states = session.exec(statement).all()
+
+    # Find the latest relevant state (NIMBUS classification, initialization, or intermediate with NIMBUS context)
+    latest_state = None
+    for state in states:
+        if (isinstance(state.state, (NIMBUSClassificationState | NIMBUSInitializationState)) or
+            (isinstance(state.state, IntermediateSolutionState) and state.state.context == "nimbus")):
+            latest_state = state
+            break
+
+    if latest_state is not None:
+        saved_solutions = collect_saved_solutions(user, request.problem_id, session)
+        all_solutions = collect_all_solutions(user, request.problem_id, session)
+        current_solutions = [SolutionReference(state=latest_state, solution_index=i)
+                           for i in range(len(latest_state.state.solver_results))]
+
+        if isinstance(latest_state.state, NIMBUSClassificationState):
+            return NIMBUSClassificationResponse(
+                state_id=latest_state.id,
+                previous_preference=latest_state.state.preferences,
+                previous_objectives=latest_state.state.current_objectives,
+                current_solutions=current_solutions,
+                saved_solutions=saved_solutions,
+                all_solutions=all_solutions,
+            )
+        elif isinstance(latest_state.state, IntermediateSolutionState):
+
+            return NIMBUSIntermediateSolutionResponse(
+                state_id=latest_state.id,
+                reference_solution_1=latest_state.state.reference_solution_1,
+                reference_solution_2=latest_state.state.reference_solution_2,
+                current_solutions=current_solutions,
+                saved_solutions=saved_solutions,
+                all_solutions=all_solutions,
+            )
+        else:  # NIMBUSInitializationState
+            return NIMBUSInitializationResponse(
+                state_id=latest_state.id,
+                current_solutions=current_solutions,
+                saved_solutions=saved_solutions,
+                all_solutions=all_solutions,
+            )
+
+    # No relevant state found, initialize a new one
+    return initialize(request, user, session)
