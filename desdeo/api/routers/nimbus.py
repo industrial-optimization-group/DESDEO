@@ -478,8 +478,14 @@ def get_or_initialize(
     if latest_state is not None:
         saved_solutions = collect_saved_solutions(user, request.problem_id, session)
         all_solutions = collect_all_solutions(user, request.problem_id, session)
-        current_solutions = [SolutionReference(state=latest_state, solution_index=i)
-                           for i in range(len(latest_state.state.solver_results))]
+        # Handle both single result and list of results cases
+        solver_results = latest_state.state.solver_results
+        if isinstance(solver_results, list):
+            current_solutions = [SolutionReference(state=latest_state, solution_index=i)
+                               for i in range(len(solver_results))]
+        else:
+            # Single result case (NIMBUSInitializationState)
+            current_solutions = [SolutionReference(state=latest_state, solution_index=0)]
 
         if isinstance(latest_state.state, NIMBUSClassificationState):
             return NIMBUSClassificationResponse(
@@ -490,8 +496,9 @@ def get_or_initialize(
                 saved_solutions=saved_solutions,
                 all_solutions=all_solutions,
             )
-        elif isinstance(latest_state.state, IntermediateSolutionState):
 
+
+        if isinstance(latest_state.state, IntermediateSolutionState):
             return NIMBUSIntermediateSolutionResponse(
                 state_id=latest_state.id,
                 reference_solution_1=latest_state.state.reference_solution_1,
@@ -500,13 +507,14 @@ def get_or_initialize(
                 saved_solutions=saved_solutions,
                 all_solutions=all_solutions,
             )
-        else:  # NIMBUSInitializationState
-            return NIMBUSInitializationResponse(
-                state_id=latest_state.id,
-                current_solutions=current_solutions,
-                saved_solutions=saved_solutions,
-                all_solutions=all_solutions,
-            )
+            
+        # NIMBUSInitializationState
+        return NIMBUSInitializationResponse(
+            state_id=latest_state.id,
+            current_solutions=current_solutions,
+            saved_solutions=saved_solutions,
+            all_solutions=all_solutions,
+        )
 
     # No relevant state found, initialize a new one
     return initialize(request, user, session)
