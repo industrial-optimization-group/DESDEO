@@ -15,7 +15,7 @@ from sqlmodel import (
     select,
 )
 
-from desdeo.problem import VariableType
+from desdeo.problem import VariableType, Tensor
 
 from .state import (
     EMOSaveState,
@@ -278,7 +278,7 @@ class SolutionReference(SQLModel):
 
     @computed_field
     @property
-    def variable_values_all(self) -> list[dict[str, VariableType]]:
+    def variable_values_all(self) -> list[dict[str, VariableType | Tensor]]:
         return self.state.state.result_variable_values
 
     @computed_field
@@ -317,7 +317,7 @@ class SolutionReferenceResponse(SQLModel):
     solution_index: int | None
     state_id: int
     objective_values: dict[str, float] | None
-    variable_values: dict[str, "VariableType"] | None
+    variable_values: dict[str, "VariableType | Tensor"] | None
 
 
 class SavedSolutionReference(SQLModel):
@@ -337,7 +337,7 @@ class SavedSolutionReference(SQLModel):
 
     @computed_field
     @property
-    def variable_values(self) -> dict[str, VariableType]:
+    def variable_values(self) -> dict[str, VariableType | Tensor]:
         return self.saved_solution.variable_values
 
     @computed_field
