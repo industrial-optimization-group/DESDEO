@@ -14,7 +14,8 @@ from desdeo.api.models import (
     User,
     UtopiaRequest,
     UtopiaResponse,
-    NIMBUSInitializationState
+    NIMBUSInitializationState,
+    NIMBUSSaveState
 )
 from desdeo.api.routers.user_authentication import get_current_user
 
@@ -27,44 +28,45 @@ def get_utopia_data(
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
 ) -> UtopiaResponse:
-    """Request and receive the Utopia map corresponding to the decision variables sent. Can be just the optimal_variables form a SolverResult
+    """Request and receive the Utopia map corresponding to the decision variables sent. Can be just the optimal_variables form a SolverResult.
 
     Args:
         request (UtopiaRequest): the set of decision variables and problem for which the utopia forest map is requested for.
         user (Annotated[User, Depend(get_current_user)]) the current user
         session (Annotated[Session, Depends(get_session)]) the current database session
-
     Raises:
         HTTPException:
-
     Returns:
         UtopiaResponse: the map for the forest, to be rendered in frontend
     """
-
     empty_response = UtopiaResponse(is_utopia=False, map_name="", map_json={}, options={}, description="", years=[])
 
-    state = session.exec(select(StateDB).where(StateDB.id == request.solution.state.id)).first()
+    state = session.exec(select(StateDB).where(StateDB.id == request.solution.state_id)).first()
     if state is None or not hasattr(state, "state"):
         return empty_response
-    
-    print(type(state.state))
 
-    if type(state.state) is not NIMBUSInitializationState:
+    actual_state = state.state
+
+    if type(actual_state) is NIMBUSSaveState:
+        decision_variables = state.state.result_variable_values[0]
+
+    elif type(actual_state) is NIMBUSInitializationState:
+        decision_variables = state.state.solver_results.optimal_variables
+
+    else:
         # Check if solver_results exists and has the needed index
         if (
-            not hasattr(state.state, "solver_results")
-            or request.solution.solution_index >= len(state.state.solver_results)
-            or state.state.solver_results[request.solution.solution_index] is None
+            not hasattr(actual_state, "solver_results")
+            or request.solution.solution_index >= len(actual_state.solver_results)
+            or actual_state.solver_results[request.solution.solution_index] is None
         ):
             return empty_response
 
-        result = state.state.solver_results[request.solution.solution_index]
+        result = actual_state.solver_results[request.solution.solution_index]
         if not hasattr(result, "optimal_variables") or not result.optimal_variables:
             return empty_response
-    else:
-        result = state.state.solver_results
+        decision_variables = result.optimal_variables  # expects a list of variables, won't work without.
 
-    decision_variables = result.optimal_variables  # expects a list of variables, won't work without.
 
     from_db_metadata = session.exec(
         select(ProblemMetaDataDB).where(ProblemMetaDataDB.problem_id == request.problem_id)

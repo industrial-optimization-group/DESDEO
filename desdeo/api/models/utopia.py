@@ -4,14 +4,14 @@ from typing import Any
 
 from sqlmodel import Field, SQLModel
 
-from .generic_states import SolutionReference
+from desdeo.api.models.generic import SolutionInfo
 
 
 class UtopiaRequest(SQLModel):
     """The request for an Utopia map."""
 
     problem_id: int = Field(description="Problem for which the map is generated")
-    solution: SolutionReference = Field(description="Solution for which to generate the map")
+    solution: SolutionInfo = Field(description="Solution for which to generate the map")
 
 
 class UtopiaResponse(SQLModel):
