@@ -62,6 +62,14 @@ __all__ = [  # noqa: RUF022
     "ProblemMetaDataDB",
     "BaseProblemMetaData",
     "ForestProblemMetaData",
+    "Group",
+    "GroupModifyRequest",
+    "GroupCreateRequest",
+    "GroupIteration",
+    "GroupPublic",
+    "GroupInfoRequest",
+    "BasePreferenceResults",
+    "ReferencePointDictType",
     "EMOSolveRequest",
     "PreferredRanges",
     "PreferedSolutions",
@@ -152,4 +160,16 @@ from .state import (
     RPMState,
 )
 from .user import User, UserBase, UserPublic, UserRole
+from .gdm_base import (
+    BasePreferenceResults,
+    ReferencePointDictType,
+)
+from .gdm_aggregate import (
+    Group, 
+    GroupModifyRequest, 
+    GroupCreateRequest, 
+    GroupIteration,
+    GroupPublic,
+    GroupInfoRequest,
+)
 from .utopia import UtopiaRequest, UtopiaResponse
