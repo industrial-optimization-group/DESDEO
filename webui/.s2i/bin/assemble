@@ -1,0 +1,4 @@
+/usr/libexec/s2i/assemble
+npm install -g npm@10.8.2
+npm run build
+exit
