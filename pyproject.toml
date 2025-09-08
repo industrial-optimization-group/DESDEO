@@ -95,6 +95,10 @@ tools = [
     "eralchemy>=1.5.0"
 ]
 
+server = [
+    "gunicorn>=23.0.0"
+]
+
 [tool.ruff]
 # Enable the pycodestyle (`E`) and Pyflakes (`F`) rules by default.
 # Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
