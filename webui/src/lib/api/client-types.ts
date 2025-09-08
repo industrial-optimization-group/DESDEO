@@ -518,6 +518,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/method/generic/score-bands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Calculate Score Bands
+         * @description Calculate SCORE bands parameters from objective data.
+         */
+        post: operations["calculate_score_bands_method_generic_score_bands_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/utopia/": {
         parameters: {
             query?: never;
@@ -1399,6 +1419,84 @@ export interface components {
             id?: number | null;
             /** Problem Id */
             problem_id?: number | null;
+        };
+        /**
+         * ScoreBandsRequest
+         * @description Model of the request to calculate SCORE bands parameters.
+         */
+        ScoreBandsRequest: {
+            /**
+             * Data
+             * @description Matrix of objective values
+             */
+            data: number[][];
+            /**
+             * Objs
+             * @description Array of objective names for each column
+             */
+            objs: string[];
+            /**
+             * Dist Parameter
+             * @description Distance parameter for axis positioning
+             * @default 0.05
+             */
+            dist_parameter: number;
+            /**
+             * Use Absolute Corr
+             * @description Use absolute correlation values
+             * @default false
+             */
+            use_absolute_corr: boolean;
+            /**
+             * Distance Formula
+             * @description Distance formula (1 or 2)
+             * @default 1
+             */
+            distance_formula: number;
+            /**
+             * Flip Axes
+             * @description Whether to flip axes based on correlation signs
+             * @default true
+             */
+            flip_axes: boolean;
+            /**
+             * Clustering Algorithm
+             * @description Clustering algorithm (DBSCAN or GMM)
+             * @default DBSCAN
+             */
+            clustering_algorithm: string;
+            /**
+             * Clustering Score
+             * @description Clustering score metric
+             * @default silhoutte
+             */
+            clustering_score: string;
+        };
+        /**
+         * ScoreBandsResponse
+         * @description Model of the response containing SCORE bands parameters.
+         */
+        ScoreBandsResponse: {
+            /**
+             * Groups
+             * @description Cluster group assignments for each data point
+             */
+            groups: number[];
+            /**
+             * Axis Dist
+             * @description Normalized axis positions
+             */
+            axis_dist: number[];
+            /**
+             * Axis Signs
+             * @description Axis direction signs (1 or -1)
+             */
+            axis_signs: number[] | null;
+            /**
+             * Obj Order
+             * @description Optimal order of objectives
+             */
+            obj_order: number[];
         };
         /**
          * SimulatorDB
@@ -2316,6 +2414,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GenericIntermediateSolutionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    calculate_score_bands_method_generic_score_bands_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScoreBandsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScoreBandsResponse"];
                 };
             };
             /** @description Validation Error */

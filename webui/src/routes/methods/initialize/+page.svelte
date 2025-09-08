@@ -59,6 +59,18 @@
 
 	export const methods: any[] = [
 		{
+			name: 'NIMBUS',
+			path: '/interactive_methods/NIMBUS',
+			description: 'NIMBUS method for MOO.',
+			preferencesType: ['reference point']
+		},
+		{
+			name: 'GDM-SCORE-bands',
+			path: '/interactive_methods/GDM-SCORE-bands',
+			description: 'SCORE bands for GDM.',
+			preferencesType: ['preferred ranges']
+		},
+		{
 			name: 'E-NAUTILUS',
 			path: '/interactive_methods/E-NAUTILUS',
 			description: 'Evolutionary NAUTILUS method for MOO.',
@@ -69,12 +81,6 @@
 			path: '/interactive_methods/EMO',
 			description: 'Interactive evolutionary method for MOO.',
 			preferencesType: ['reference point', 'preferred ranges', 'preferred solutions']
-		},
-		{
-			name: 'NIMBUS',
-			path: '/interactive_methods/NIMBUS',
-			description: 'NIMBUS method for MOO.',
-			preferencesType: ['reference point']
 		},
 		{
 			name: 'Reference Point',
