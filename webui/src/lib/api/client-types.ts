@@ -303,15 +303,21 @@ export interface paths {
         put?: never;
         /**
          * Get Metadata
-         * @description Fetch specific metadata for a specific problem. See all the possible metadata types from DESDEO/desdeo/api/models/problem.py Problem Metadata section.
+         * @description Fetch specific metadata for a specific problem.
+         *
+         *     Fetch specific metadata for a specific problem. See all the possible
+         *     metadata types from DESDEO/desdeo/api/models/problem.py Problem Metadata
+         *     section.
          *
          *     Args:
-         *         request (MetaDataGetRequest): requesting certain problem's certain metadata
-         *         user (Annotated[User, Depends]): the current user
-         *         session (Annotated[Session, Depends]): the database session
+         *         request (MetaDataGetRequest): the requested metadata type.
+         *         user (Annotated[User, Depends]): the current user.
+         *         session (Annotated[Session, Depends]): the database session.
          *
          *     Returns:
-         *         list[Any] | None: list of all forest metadata for this problem, or nothing if there's nothing
+         *         list[ForestProblemMetadata | RepresentativeNonDominatedSolutions]: list containing all the metadata
+         *             defined for the problem with the requested metadata type. If no match is found,
+         *             returns an empty list.
          */
         post: operations["get_metadata_problem_get_metadata_post"];
         delete?: never;
@@ -472,6 +478,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/method/nimbus/get-or-initialize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get Or Initialize
+         * @description Get the latest NIMBUS state if it exists, or initialize a new one if it doesn't.
+         */
+        post: operations["get_or_initialize_method_nimbus_get_or_initialize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/method/emo/solve": {
         parameters: {
             query?: never;
@@ -587,17 +613,6 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /**
-         * BaseProblemMetaData
-         * @description Derive other problem metadata classes from this one.
-         */
-        BaseProblemMetaData: {
-            /**
-             * Metadata Type
-             * @default unset
-             */
-            metadata_type: string;
-        };
         /** Body_add_new_analyst_add_new_analyst_post */
         Body_add_new_analyst_add_new_analyst_post: {
             /** Grant Type */
@@ -781,40 +796,6 @@ export interface components {
             problem_id?: number | null;
         };
         /**
-         * EMOResults
-         * @description Defines a schema for storing results of an evolutionary multi-objective optimization (EMO) solver.
-         */
-        EMOResults: {
-            /**
-             * Optimal Variables
-             * @description The optimal decision variables found.
-             */
-            optimal_variables: {
-                [key: string]: number | unknown[];
-            };
-            /**
-             * Optimal Objectives
-             * @description The objective function values corresponding to the optimal decision variables found.
-             */
-            optimal_objectives: {
-                [key: string]: number | number[];
-            };
-            /**
-             * Constraint Values
-             * @description The constraint values of the problem. A negative value means the constraint is respected, a positive one means it has been breached.
-             */
-            constraint_values?: {
-                [key: string]: number | number[] | unknown[];
-            } | unknown | null;
-            /**
-             * Extra Func Values
-             * @description The extra function values of the problem.
-             */
-            extra_func_values?: {
-                [key: string]: number | number[];
-            } | null;
-        };
-        /**
          * EMOSaveRequest
          * @description Request model for saving selected EMO solutions.
          */
@@ -833,21 +814,13 @@ export interface components {
         };
         /**
          * EMOSaveState
-         * @description State of the EMO methods for saving solutions.
+         * @description EMO: save solutions.
          */
         EMOSaveState: {
-            /**
-             * Method
-             * @description The EMO method name (e.g., NSGA3, RVEA, etc.)
-             * @default EMO
-             */
-            method: string;
-            /**
-             * Phase
-             * @default save_solutions
-             * @constant
-             */
-            phase: "save_solutions";
+            /** Id */
+            id?: number | null;
+            /** Problem Id */
+            problem_id: number;
             /**
              * Max Evaluations
              * @default 1000
@@ -863,10 +836,8 @@ export interface components {
              * @default true
              */
             use_archive: boolean;
-            /** Problem Id */
-            problem_id: number;
             /** Saved Solutions */
-            saved_solutions: components["schemas"]["EMOResults"][];
+            saved_solutions?: unknown[];
             /**
              * Solutions
              * @description Original solutions from request
@@ -922,21 +893,16 @@ export interface components {
         };
         /**
          * EMOState
-         * @description State for EMO methods.
+         * @description EMO run (NSGA3, RVEA, etc.).
          */
         EMOState: {
+            /** Id */
+            id?: number | null;
             /**
-             * Method
-             * @description The EMO method name (e.g., NSGA3, RVEA, etc.)
-             * @default EMO
+             * Method Name
+             * @description Algorithm, e.g., NSGA3, RVEA
              */
-            method: string;
-            /**
-             * Phase
-             * @default unset
-             * @constant
-             */
-            phase: "unset";
+            method_name: string;
             /**
              * Max Evaluations
              * @default 1000
@@ -956,12 +922,12 @@ export interface components {
              * Solutions
              * @description Optimization results
              */
-            solutions: unknown[];
+            solutions?: unknown[];
             /**
              * Outputs
-             * @description Optimization results
+             * @description Optimization outputs
              */
-            outputs: unknown[];
+            outputs?: unknown[];
         };
         /**
          * ExtraFunctionDB
@@ -1008,6 +974,57 @@ export interface components {
             id?: number | null;
             /** Problem Id */
             problem_id?: number | null;
+        };
+        /**
+         * ForestProblemMetaData
+         * @description A problem metadata class to hold UTOPIA forest problem specific information.
+         */
+        ForestProblemMetaData: {
+            /** Id */
+            id?: number | null;
+            /** Metadata Id */
+            metadata_id?: number | null;
+            /**
+             * Metadata Type
+             * @default forest_problem_metadata
+             */
+            metadata_type: string;
+            /** Map Json */
+            map_json: string;
+            /** Schedule Dict */
+            schedule_dict: {
+                [key: string]: unknown;
+            };
+            /** Years */
+            years: string[];
+            /** Stand Id Field */
+            stand_id_field: string;
+            /** Stand Descriptor */
+            stand_descriptor?: {
+                [key: string]: unknown;
+            } | null;
+            /** Compensation */
+            compensation?: number | null;
+        };
+        /**
+         * GenericIntermediateSolutionResponse
+         * @description The response from computing intermediate values.
+         */
+        GenericIntermediateSolutionResponse: {
+            /**
+             * State Id
+             * @description The newly created state id
+             */
+            state_id: number | null;
+            /** @description The first solution used when computing intermediate solutions. */
+            reference_solution_1: components["schemas"]["SolutionReferenceResponse"];
+            /** @description The second solution used when computing intermediate solutions. */
+            reference_solution_2: components["schemas"]["SolutionReferenceResponse"];
+            /**
+             * Intermediate Solutions
+             * @description The intermediate solutions computed.
+             */
+            intermediate_solutions: components["schemas"]["SolutionReferenceResponse"][];
         };
         /**
          * GetSessionRequest
@@ -1062,96 +1079,8 @@ export interface components {
              * @default 1
              */
             num_desired: number | null;
-            reference_solution_1: components["schemas"]["SolutionAddress"];
-            reference_solution_2: components["schemas"]["SolutionAddress"];
-        };
-        /**
-         * IntermediateSolutionResponse
-         * @description The response from NIMBUS classification endpoint.
-         */
-        IntermediateSolutionResponse: {
-            /**
-             * State Id
-             * @description The newly created state id
-             */
-            state_id: number | null;
-            /**
-             * Reference Solution 1
-             * @description The first previous solutions objectives used for intermediate solution.
-             */
-            reference_solution_1: {
-                [key: string]: number;
-            };
-            /**
-             * Reference Solution 2
-             * @description The second previous solutions objectives used for intermediate solution.
-             */
-            reference_solution_2: {
-                [key: string]: number;
-            };
-            /**
-             * Current Solutions
-             * @description The solutions from the current interation of nimbus.
-             */
-            current_solutions: components["schemas"]["SolutionAddress"][];
-            /**
-             * Saved Solutions
-             * @description The best candidate solutions saved by the decision maker.
-             */
-            saved_solutions: components["schemas"]["UserSavedSolutionAddress"][];
-            /**
-             * All Solutions
-             * @description All solutions generated by NIMBUS in all iterations.
-             */
-            all_solutions: components["schemas"]["SolutionAddress"][];
-        };
-        /**
-         * IntermediateSolutionState
-         * @description State of the nimbus method for computing solutions.
-         */
-        IntermediateSolutionState: {
-            /**
-             * Method
-             * @default generic
-             * @constant
-             */
-            method: "generic";
-            /**
-             * Phase
-             * @default solve_intermediate
-             * @constant
-             */
-            phase: "solve_intermediate";
-            /**
-             * Context
-             * @description The originating method context (e.g., 'nimbus', 'rpm') that requested these solutions
-             */
-            context?: string;
-            /** Scalarization Options */
-            scalarization_options?: {
-                [key: string]: number | string | boolean;
-            } | null;
-            /** Solver */
-            solver?: string | null;
-            /** Solver Options */
-            solver_options?: {
-                [key: string]: number | string | boolean;
-            } | null;
-            /**
-             * Num Desired
-             * @default 1
-             */
-            num_desired: number | null;
-            /** Reference Solution 1 */
-            reference_solution_1: {
-                [key: string]: number;
-            };
-            /** Reference Solution 2 */
-            reference_solution_2: {
-                [key: string]: number;
-            };
-            /** Solver Results */
-            solver_results: components["schemas"]["SolverResults"][];
+            reference_solution_1: components["schemas"]["SolutionInfo"];
+            reference_solution_2: components["schemas"]["SolutionInfo"];
         };
         /**
          * NIMBUSClassificationRequest
@@ -1209,19 +1138,19 @@ export interface components {
             };
             /**
              * Current Solutions
-             * @description The solutions from the current interation of nimbus.
+             * @description The solutions from the current iteration of nimbus.
              */
-            current_solutions: components["schemas"]["SolutionAddress"][];
+            current_solutions: components["schemas"]["SolutionReferenceResponse"][];
             /**
              * Saved Solutions
              * @description The best candidate solutions saved by the decision maker.
              */
-            saved_solutions: components["schemas"]["UserSavedSolutionAddress"][];
+            saved_solutions: components["schemas"]["SolutionReferenceResponse"][];
             /**
              * All Solutions
              * @description All solutions generated by NIMBUS in all iterations.
              */
-            all_solutions: components["schemas"]["SolutionAddress"][];
+            all_solutions: components["schemas"]["SolutionReferenceResponse"][];
         };
         /**
          * NIMBUSInitializationRequest
@@ -1234,8 +1163,18 @@ export interface components {
             session_id?: number | null;
             /** Parent State Id */
             parent_state_id?: number | null;
+            /** Starting Point */
+            starting_point?: components["schemas"]["ReferencePoint"] | components["schemas"]["SolutionInfo"] | null;
+            /** Scalarization Options */
+            scalarization_options?: {
+                [key: string]: number | string | boolean;
+            } | null;
             /** Solver */
             solver?: string | null;
+            /** Solver Options */
+            solver_options?: {
+                [key: string]: number | string | boolean;
+            } | null;
         };
         /**
          * NIMBUSInitializationResponse
@@ -1251,17 +1190,57 @@ export interface components {
              * Current Solutions
              * @description The solutions from the current interation of nimbus.
              */
-            current_solutions: components["schemas"]["SolutionAddress"][];
+            current_solutions: components["schemas"]["SolutionReferenceResponse"][];
             /**
              * Saved Solutions
              * @description The best candidate solutions saved by the decision maker.
              */
-            saved_solutions: components["schemas"]["UserSavedSolutionAddress"][];
+            saved_solutions: components["schemas"]["SolutionReferenceResponse"][];
             /**
              * All Solutions
              * @description All solutions generated by NIMBUS in all iterations.
              */
-            all_solutions: components["schemas"]["SolutionAddress"][];
+            all_solutions: components["schemas"]["SolutionReferenceResponse"][];
+        };
+        /**
+         * NIMBUSIntermediateSolutionResponse
+         * @description The response from NIMBUS classification endpoint.
+         */
+        NIMBUSIntermediateSolutionResponse: {
+            /**
+             * State Id
+             * @description The newly created state id
+             */
+            state_id: number | null;
+            /**
+             * Reference Solution 1
+             * @description The first solution used when computing intermediate points.
+             */
+            reference_solution_1: {
+                [key: string]: number;
+            };
+            /**
+             * Reference Solution 2
+             * @description The second solution used when computing intermediate points.
+             */
+            reference_solution_2: {
+                [key: string]: number;
+            };
+            /**
+             * Current Solutions
+             * @description The solutions from the current iteration of NIMBUS.
+             */
+            current_solutions: components["schemas"]["SolutionReferenceResponse"][];
+            /**
+             * Saved Solutions
+             * @description The best candidate solutions saved by the decision maker.
+             */
+            saved_solutions: components["schemas"]["SolutionReferenceResponse"][];
+            /**
+             * All Solutions
+             * @description All solutions generated by NIMBUS in all iterations.
+             */
+            all_solutions: components["schemas"]["SolutionReferenceResponse"][];
         };
         /**
          * NIMBUSSaveRequest
@@ -1274,12 +1253,12 @@ export interface components {
             session_id?: number | null;
             /** Parent State Id */
             parent_state_id?: number | null;
-            /** Solutions */
-            solutions: components["schemas"]["UserSavedSolutionAddress"][];
+            /** Solution Info */
+            solution_info: components["schemas"]["SolutionInfo"][];
         };
         /**
          * NIMBUSSaveResponse
-         * @description The response from NIMBUS save endpoint
+         * @description The response from NIMBUS save endpoint.
          */
         NIMBUSSaveResponse: {
             /**
@@ -1424,7 +1403,7 @@ export interface components {
         };
         /**
          * ProblemInfo
-         * @description .
+         * @description Problem info request return data.
          */
         ProblemInfo: {
             /** Name */
@@ -1467,7 +1446,7 @@ export interface components {
         };
         /**
          * ProblemInfoSmall
-         * @description .
+         * @description Problem info request return data, but smaller.
          */
         ProblemInfoSmall: {
             /** Name */
@@ -1504,8 +1483,12 @@ export interface components {
          * @description Response model for ProblemMetaData.
          */
         ProblemMetaDataPublic: {
-            /** Data */
-            data: components["schemas"]["BaseProblemMetaData"][] | null;
+            /** Problem Id */
+            problem_id: number;
+            /** Forest Metadata */
+            forest_metadata: components["schemas"]["ForestProblemMetaData"][] | null;
+            /** Representative Nd Metadata */
+            representative_nd_metadata: components["schemas"]["RepresentativeNonDominatedSolutions"][] | null;
         };
         /**
          * RPMSolveRequest
@@ -1532,21 +1515,12 @@ export interface components {
         };
         /**
          * RPMState
-         * @description State of the reference point method for computing solutions.
+         * @description Reference Point Method (k+1 candidates).
          */
         RPMState: {
-            /**
-             * Method
-             * @default reference_point_method
-             * @constant
-             */
-            method: "reference_point_method";
-            /**
-             * Phase
-             * @default solve_candidates
-             * @constant
-             */
-            phase: "solve_candidates";
+            /** Id */
+            id?: number | null;
+            preferences: components["schemas"]["ReferencePoint"];
             /** Scalarization Options */
             scalarization_options?: {
                 [key: string]: number | string | boolean;
@@ -1573,6 +1547,58 @@ export interface components {
             preference_type: "reference_point";
             /** Aspiration Levels */
             aspiration_levels: {
+                [key: string]: number;
+            };
+        };
+        /**
+         * RepresentativeNonDominatedSolutions
+         * @description A problem metadata class to store representative solutions sets, i.e., non-dominated sets...
+         *
+         *     A problem metadata class to store representative solutions sets, i.e., non-dominated sets that
+         *     represent/approximate the Pareto optimal solution set of the problem.
+         *
+         *     Note:
+         *         It is assumed that the solution set is non-dominated.
+         */
+        RepresentativeNonDominatedSolutions: {
+            /** Id */
+            id?: number | null;
+            /** Metadata Id */
+            metadata_id?: number | null;
+            /**
+             * Metadata Type
+             * @default representative_non_dominated_solutions
+             */
+            metadata_type: string;
+            /**
+             * Name
+             * @description The name of the representative set.
+             */
+            name: string;
+            /**
+             * Description
+             * @description A description of the representative set. Optional.
+             */
+            description?: string | null;
+            /**
+             * Solution Data
+             * @description The non-dominated solutions. It is assumed that columns exist for each variable and objective function. For functions, the `_min` variant should be present, and any tensor variables should be unrolled.
+             */
+            solution_data: {
+                [key: string]: number[];
+            };
+            /**
+             * Ideal
+             * @description The ideal objective function values of the representative set.
+             */
+            ideal: {
+                [key: string]: number;
+            };
+            /**
+             * Nadir
+             * @description The nadir objective function values of the representative set.
+             */
+            nadir: {
                 [key: string]: number;
             };
         };
@@ -1645,16 +1671,61 @@ export interface components {
             /** Problem Id */
             problem_id?: number | null;
         };
-        /** SolutionAddress */
-        SolutionAddress: {
+        /**
+         * SolutionInfo
+         * @description Used when we wish to reference a solution in some `StateDB` stored in the database.
+         */
+        SolutionInfo: {
+            /** State Id */
+            state_id: number;
+            /** Solution Index */
+            solution_index: number;
+            /**
+             * Name
+             * @description Name to be given to the solution. Optional.
+             */
+            name?: string | null;
+        };
+        /**
+         * SolutionReference
+         * @description A model that functions as a reference to solutions existing in the database.
+         *
+         *     Referenced solutions are not necessarily solutions that the user has saved explicitly. For
+         *     referencing those, see `SavedSolutionReference`.
+         */
+        SolutionReference: {
+            /**
+             * Name
+             * @description Optional name to help identify the solution if, e.g., saved.
+             */
+            name?: string | null;
+            /**
+             * Solution Index
+             * @description The index of the referenced solution, if multiple solutions exist in the reference state.
+             */
+            solution_index?: number | null;
+            /** @description The reference state with the solution information. */
+            state: components["schemas"]["StateDB"];
+        };
+        /**
+         * SolutionReferenceResponse
+         * @description The response information provided when `SolutionReference` object are returned from the client.
+         */
+        SolutionReferenceResponse: {
+            /** Name */
+            name: string | null;
+            /** Solution Index */
+            solution_index: number | null;
+            /** State Id */
+            state_id: number;
             /** Objective Values */
             objective_values: {
                 [key: string]: number;
-            };
-            /** Address State */
-            address_state: number;
-            /** Address Result */
-            address_result: number;
+            } | null;
+            /** Variable Values */
+            variable_values: {
+                [key: string]: number | boolean;
+            } | null;
         };
         /**
          * SolverResults
@@ -1706,6 +1777,22 @@ export interface components {
              * @description Description of the cause of termination.
              */
             message: string;
+        };
+        /**
+         * StateDB
+         * @description State holder with a single relationship to the base State.
+         */
+        StateDB: {
+            /** Id */
+            id?: number | null;
+            /** Problem Id */
+            problem_id?: number | null;
+            /** Session Id */
+            session_id?: number | null;
+            /** Parent Id */
+            parent_id?: number | null;
+            /** State Id */
+            state_id?: number | null;
         };
         Tensor: components["schemas"]["Tensor"][] | (number | boolean)[] | number | boolean | "List" | null;
         /**
@@ -1848,25 +1935,6 @@ export interface components {
             name?: string | null;
         };
         /**
-         * UserSavedSolutionAddress
-         * @description Defines a schema for storing archived solutions.
-         */
-        UserSavedSolutionAddress: {
-            /** Objective Values */
-            objective_values: {
-                [key: string]: number;
-            };
-            /** Address State */
-            address_state: number;
-            /** Address Result */
-            address_result: number;
-            /**
-             * Name
-             * @description An optional name for the solution, useful for archiving purposes.
-             */
-            name?: string | null;
-        };
-        /**
          * UtopiaRequest
          * @description The request for an Utopia map.
          */
@@ -1877,7 +1945,7 @@ export interface components {
              */
             problem_id: number;
             /** @description Solution for which to generate the map */
-            solution: components["schemas"]["SolutionAddress"];
+            solution: components["schemas"]["SolutionReference"];
         };
         /**
          * UtopiaResponse
@@ -2270,7 +2338,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown[];
+                    "application/json": (components["schemas"]["ForestProblemMetaData"] | components["schemas"]["RepresentativeNonDominatedSolutions"])[];
                 };
             };
             /** @description Validation Error */
@@ -2435,7 +2503,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["NIMBUSClassificationResponse"] | components["schemas"]["NIMBUSInitializationResponse"] | components["schemas"]["IntermediateSolutionResponse"];
+                    "application/json": components["schemas"]["NIMBUSInitializationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2501,7 +2569,40 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["IntermediateSolutionResponse"];
+                    "application/json": components["schemas"]["NIMBUSIntermediateSolutionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_or_initialize_method_nimbus_get_or_initialize_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NIMBUSInitializationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NIMBUSInitializationResponse"] | components["schemas"]["NIMBUSClassificationResponse"] | components["schemas"]["NIMBUSIntermediateSolutionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2620,10 +2721,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": [
-                        components["schemas"]["IntermediateSolutionState"],
-                        number
-                    ];
+                    "application/json": components["schemas"]["GenericIntermediateSolutionResponse"];
                 };
             };
             /** @description Validation Error */
