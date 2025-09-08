@@ -32,7 +32,7 @@ dependencies = [
     "greenlet >= 3.1.1",
     "pymoo >= 0.6.1.2",
     "shap >= 0.47.0",
-	"requests >= ^2.32.0",
+	"requests >= 2.32.0",
     "cvxpy[scip] >= 1.6.4",
     "moocore >= 0.1.7"
 ]
