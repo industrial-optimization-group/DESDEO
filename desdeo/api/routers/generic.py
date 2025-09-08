@@ -13,13 +13,20 @@ from desdeo.api.models import (
     ProblemDB,
     SolutionReference,
     StateDB,
+    ScoreBandsRequest,
+    ScoreBandsResponse,
     User,
 )
+
+from desdeo.tools.score_bands import order_objectives, cluster, calculate_axes_positions
 from desdeo.api.models.generic import GenericIntermediateSolutionResponse
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.mcdm.nimbus import solve_intermediate_solutions
 from desdeo.problem import Problem
 from desdeo.tools import SolverResults
+
+import numpy as np
+import pandas as pd
 
 router = APIRouter(prefix="/method/generic")
 
@@ -32,7 +39,9 @@ def solve_intermediate(
 ) -> GenericIntermediateSolutionResponse:
     """Solve intermediate solutions between given two solutions."""
     if request.session_id is not None:
-        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == request.session_id)
+        statement = select(InteractiveSessionDB).where(
+            InteractiveSessionDB.id == request.session_id
+        )
         interactive_session = session.exec(statement)
 
         if interactive_session is None:
@@ -43,7 +52,9 @@ def solve_intermediate(
     else:
         # request.session_id is None:
         # use active session instead
-        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == user.active_session_id)
+        statement = select(InteractiveSessionDB).where(
+            InteractiveSessionDB.id == user.active_session_id
+        )
 
         interactive_session = session.exec(statement).first()
 
@@ -52,7 +63,9 @@ def solve_intermediate(
     var_and_obj_values_of_references: list[tuple[dict, dict]] = []
     reference_states = []
     for solution_info in [request.reference_solution_1, request.reference_solution_2]:
-        solution_state = session.exec(select(StateDB).where(StateDB.id == solution_info.state_id)).first()
+        solution_state = session.exec(
+            select(StateDB).where(StateDB.id == solution_info.state_id)
+        ).first()
 
         if solution_state is None:
             # no StateDB found with the given id
@@ -90,12 +103,15 @@ def solve_intermediate(
         var_and_obj_values_of_references.append((var_values, obj_values))
 
     # fetch the problem from the DB
-    statement = select(ProblemDB).where(ProblemDB.user_id == user.id, ProblemDB.id == request.problem_id)
+    statement = select(ProblemDB).where(
+        ProblemDB.user_id == user.id, ProblemDB.id == request.problem_id
+    )
     problem_db = session.exec(statement).first()
 
     if problem_db is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Problem with id={request.problem_id} could not be found."
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Problem with id={request.problem_id} could not be found.",
         )
 
     problem = Problem.from_problemdb(problem_db)
@@ -126,7 +142,8 @@ def solve_intermediate(
 
         if parent_state is None:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail=f"Could not find state with id={request.parent_state_id}"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Could not find state with id={request.parent_state_id}",
             )
 
     intermediate_state = IntermediateSolutionState(
@@ -166,6 +183,70 @@ def solve_intermediate(
             name=request.reference_solution_2.name,
         ),
         intermediate_solutions=[
-            SolutionReference(state=state, solution_index=i) for i in range(state.state.num_solutions)
+            SolutionReference(state=state, solution_index=i)
+            for i in range(state.state.num_solutions)
         ],
     )
+
+
+@router.post("/score-bands")
+def calculate_score_bands(
+    request: ScoreBandsRequest,
+) -> ScoreBandsResponse:
+    """Calculate SCORE bands parameters from objective data."""
+    try:
+        # Convert input data to pandas DataFrame
+        data = pd.DataFrame(request.data, columns=request.objs)
+
+        # Calculate correlation matrix and objective order
+        corr, obj_order = order_objectives(
+            data, use_absolute_corr=request.use_absolute_corr
+        )
+
+        # Calculate axis positions and signs
+        ordered_data, axis_dist, axis_signs = calculate_axes_positions(
+            data,
+            obj_order,
+            corr,
+            dist_parameter=request.dist_parameter,
+            distance_formula=request.distance_formula,
+        )
+
+        # Handle flip_axes parameter - if flip_axes is False, don't use axis signs
+        if not request.flip_axes:
+            axis_signs = None
+
+        # Perform clustering
+        groups = cluster(
+            ordered_data,
+            algorithm=request.clustering_algorithm,
+            score=request.clustering_score,
+        )
+
+        # Translate minimum group to 1 (as done in the notebook)
+        groups = groups - np.min(groups) + 1
+
+        # Convert numpy arrays to lists for JSON serialization
+        # Handle potential None values and ensure proper type conversion
+        response = ScoreBandsResponse(
+            groups=groups.tolist() if hasattr(groups, "tolist") else list(groups),
+            axis_dist=(
+                axis_dist.tolist() if hasattr(axis_dist, "tolist") else list(axis_dist)
+            ),
+            axis_signs=(
+                axis_signs.tolist()
+                if axis_signs is not None and hasattr(axis_signs, "tolist")
+                else (list(axis_signs) if axis_signs is not None else None)
+            ),
+            obj_order=(
+                obj_order.tolist() if hasattr(obj_order, "tolist") else list(obj_order)
+            ),
+        )
+
+        return response
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error calculating SCORE bands parameters: {str(e)}",
+        )
