@@ -30,7 +30,7 @@
 				clustering_score
 			});
 
-			const response = await fetch('/interactive_methods/GDM-SCOREbands/calculate', {
+			const response = await fetch('/interactive_methods/GDM-SCORE-bands/calculate', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json'
@@ -125,7 +125,7 @@
 				solutions: raw_data.length
 			});
 
-			const response = await fetch('/interactive_methods/GDM-SCOREbands/calculate', {
+			const response = await fetch('/interactive_methods/GDM-SCORE-bands/calculate', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json'
