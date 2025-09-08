@@ -19,12 +19,8 @@ from desdeo.api.models.EMO import (
     EMOSolveRequest,
 )
 from desdeo.api.models.preference import (
-    NonPreferredSolutions,
     PreferenceBase,
     PreferenceDB,
-    PreferredRanges,
-    PreferredSolutions,
-    ReferencePoint,
 )
 from desdeo.api.models.problem import ProblemDB
 from desdeo.api.models.state import EMOSaveState, EMOState, StateDB

@@ -80,16 +80,16 @@ export function getDisplayAccuracy(problem: ProblemInfo | null): number {
     // Default to 2 significant digits if not specified
     const DEFAULT_ACCURACY = SIGNIFICANT_DIGITS;
     
-    if (!problem || !problem.problem_metadata || !problem.problem_metadata.data) {
+    if (!problem || !problem.problem_metadata ) {
         return DEFAULT_ACCURACY;
     }
 
-    // Check if any metadata has display_accuracy field
-    for (const meta of problem.problem_metadata.data) {
-        if ('display_accuracy' in meta && typeof meta.display_accuracy === 'number') {
-            return meta.display_accuracy;
-        }
-    }
+    // Check if any metadata has display_accuracy field 
+    // TODO: this does not make sense: I dont know where in the metadata the display accuracy would exist, since it doesn't,
+    // and also it should be unique for every objective value.
+      if ('display_accuracy' in problem.problem_metadata && typeof problem.problem_metadata.display_accuracy === 'number') {
+          return problem.problem_metadata.display_accuracy;
+      }
 
     return DEFAULT_ACCURACY;
 }
