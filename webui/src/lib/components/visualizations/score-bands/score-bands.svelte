@@ -44,6 +44,10 @@
 
 	import { onMount } from 'svelte';
 	import * as d3 from 'd3';
+	import { normalize_data } from '$lib/components/visualizations/utils/math';
+	import type { AxisOptions } from './utils/types';
+	import { getAxisOptions } from './utils/helpers';
+	import { drawBand } from './components/band';
 
 	// --- Props ---
 	export let data: number[][] = [];
@@ -65,78 +69,11 @@
 	export let clusterVisibility: Record<number, boolean> | undefined;
 	export let axisOrder: number[] = [];
 	export let clusterColors: Record<number, string> = {};
-	export let axisOptions: Array<{
-		color?: string;
-		strokeWidth?: number;
-		strokeDasharray?: string;
-	}> = [];
+	export let axisOptions: AxisOptions[] = [];
 	export let onBandSelect: ((clusterId: number | null) => void) | undefined = undefined;
 	export let onAxisSelect: ((axisIndex: number | null) => void) | undefined = undefined;
 	export let selectedBand: number | null = null;
 	export let selectedAxis: number | null = null;
-
-	// --- Helper function to get cluster color ---
-	function getClusterColor(clusterId: number): string {
-		return clusterColors[clusterId] || '#999999'; // fallback gray color
-	}
-
-	// --- Helper function to get axis color ---
-	function getAxisColor(axisIndex: number): string {
-		// Get color from axisOptions or use default
-		return axisOptions[axisIndex]?.color || '#333333';
-	}
-
-	// --- Helper function to get axis style options ---
-	function getAxisOptions(axisIndex: number): {
-		color: string;
-		strokeWidth: number;
-		strokeDasharray: string;
-	} {
-		const options = axisOptions[axisIndex] || {};
-		return {
-			color: options.color || '#333333',
-			strokeWidth: options.strokeWidth || 1,
-			strokeDasharray: options.strokeDasharray || 'none'
-		};
-	}
-
-	// --- Internal normalization function ---
-	function normalize_data(input_data: number[][]): number[][] {
-		if (input_data.length === 0) return input_data;
-
-		const num_objectives = input_data[0].length;
-		const normalized_data: number[][] = [];
-
-		// Find min and max for each objective
-		const min_values = new Array(num_objectives).fill(Infinity);
-		const max_values = new Array(num_objectives).fill(-Infinity);
-
-		// Calculate min and max for each column
-		for (const row of input_data) {
-			for (let j = 0; j < num_objectives; j++) {
-				min_values[j] = Math.min(min_values[j], row[j]);
-				max_values[j] = Math.max(max_values[j], row[j]);
-			}
-		}
-
-		// Normalize each row
-		for (const row of input_data) {
-			const normalized_row: number[] = [];
-			for (let j = 0; j < num_objectives; j++) {
-				const range = max_values[j] - min_values[j];
-				if (range === 0) {
-					// If all values are the same, set to 0.5
-					normalized_row.push(0.5);
-				} else {
-					const normalized_value = (row[j] - min_values[j]) / range;
-					normalized_row.push(normalized_value);
-				}
-			}
-			normalized_data.push(normalized_row);
-		}
-
-		return normalized_data;
-	}
 
 	// --- Derived state ---
 	$: defaultAxisOrder = Array.from({ length: axisNames.length }, (_, i) => i);
@@ -177,8 +114,6 @@
 			if (onAxisSelect) onAxisSelect(null);
 		});
 
-		const numAxes = sortedAxisNames.length;
-
 		// Apply axis signs to flip axes if needed
 		const processedData = sortedData.map((row) =>
 			row.map((val, i) => {
@@ -206,138 +141,57 @@
 			(d) => d.group
 		);
 
-		// --- Draw quantile bands for each cluster (unselected bands first) ---
-		if (options.bands) {
-			// First draw unselected bands
-			grouped.forEach((rows, groupId) => {
-				if (!effectiveClusterVisibility[groupId] || selectedBand === groupId) return;
+		// --- Draw all unselected clusters ---
+		grouped.forEach((rows, groupId) => {
+			if (!effectiveClusterVisibility[groupId]) return;
+			if (selectedBand === groupId) return; // skip selected cluster here
 
-				const bandData = d3.transpose(rows.map((d) => d.values));
-				const low = bandData.map((arr) => d3.quantile(arr.sort(d3.ascending), options.quantile)!);
-				const high = bandData.map(
-					(arr) => d3.quantile(arr.sort(d3.ascending), 1 - options.quantile)!
+			drawBand(
+				svg,
+				rows,
+				groupId,
+				xPositions,
+				yScales,
+				clusterColors,
+				{
+					quantile: options.quantile,
+					showMedian: options.medians,
+					showSolutions: options.solutions,
+					bandOpacity: 0.5
+				},
+				false, // not selected
+				onBandSelect
+			);
+		});
+
+		// --- Draw selected cluster on top ---
+		if (selectedBand !== null && effectiveClusterVisibility[selectedBand]) {
+			const selectedRows = grouped.get(selectedBand);
+			if (selectedRows) {
+				drawBand(
+					svg,
+					selectedRows,
+					selectedBand,
+					xPositions,
+					yScales,
+					clusterColors,
+					{
+						quantile: options.quantile,
+						showMedian: options.medians,
+						showSolutions: options.solutions,
+						bandOpacity: 0.5
+					},
+					true, // selected styling
+					onBandSelect
 				);
-
-				const area = d3
-					.area<number>()
-					.x((_, i) => xPositions[i])
-					.y0((_, i) => yScales[i](low[i]))
-					.y1((_, i) => yScales[i](high[i]))
-					.curve(d3.curveMonotoneX);
-
-				const bandElement = svg
-					.append('path')
-					.datum(Array(numAxes).fill(0))
-					.attr('fill', getClusterColor(groupId))
-					.attr('opacity', 0.5)
-					.attr('stroke', 'none')
-					.attr('stroke-width', 0)
-					.attr('d', area)
-					.style('cursor', 'pointer');
-
-				// Add click handler for band selection
-				if (onBandSelect) {
-					bandElement.on('click', (event) => {
-						event.stopPropagation();
-						const newSelection = selectedBand === groupId ? null : groupId;
-						onBandSelect(newSelection);
-					});
-				}
-			});
-
-			// Then draw selected band in front of other bands
-			if (selectedBand !== null && effectiveClusterVisibility[selectedBand]) {
-				const selectedRows = grouped.get(selectedBand);
-				if (selectedRows) {
-					const bandData = d3.transpose(selectedRows.map((d) => d.values));
-					const low = bandData.map((arr) => d3.quantile(arr.sort(d3.ascending), options.quantile)!);
-					const high = bandData.map(
-						(arr) => d3.quantile(arr.sort(d3.ascending), 1 - options.quantile)!
-					);
-
-					const area = d3
-						.area<number>()
-						.x((_, i) => xPositions[i])
-						.y0((_, i) => yScales[i](low[i]))
-						.y1((_, i) => yScales[i](high[i]))
-						.curve(d3.curveMonotoneX);
-
-					const selectedBandElement = svg
-						.append('path')
-						.datum(Array(numAxes).fill(0))
-						.attr('fill', getClusterColor(selectedBand))
-						.attr('opacity', 0.7)
-						.attr('stroke', '#000')
-						.attr('stroke-width', 2)
-						.attr('d', area)
-						.style('cursor', 'pointer');
-
-					// Add click handler for selected band
-					if (onBandSelect) {
-						selectedBandElement.on('click', (event) => {
-							event.stopPropagation();
-							onBandSelect(null);
-						});
-					}
-				}
 			}
-		}
-
-		// --- Draw median line for each cluster (after bands, before axes) ---
-		if (options.medians) {
-			grouped.forEach((rows, groupId) => {
-				if (!effectiveClusterVisibility[groupId]) return;
-
-				const medians = d3
-					.transpose(rows.map((d) => d.values))
-					.map((arr) => d3.median(arr.sort(d3.ascending))!);
-
-				const line = d3
-					.line<number>()
-					.x((_, i) => xPositions[i])
-					.y((_, i) => yScales[i](medians[i]))
-					.curve(d3.curveMonotoneX);
-
-				svg
-					.append('path')
-					.datum(medians)
-					.attr('fill', 'none')
-					.attr('stroke', getClusterColor(groupId))
-					.attr('stroke-width', 3)
-					.attr('opacity', 0.8)
-					.attr('d', line);
-			});
-		}
-
-		// --- Draw individual solutions for each cluster ---
-		if (options.solutions) {
-			grouped.forEach((rows, groupId) => {
-				if (!effectiveClusterVisibility[groupId]) return;
-
-				rows.forEach((d) => {
-					const line = d3
-						.line<number>()
-						.x((_, i) => xPositions[i])
-						.y((val, i) => yScales[i](val))
-						.curve(d3.curveMonotoneX);
-
-					svg
-						.append('path')
-						.datum(d.values)
-						.attr('fill', 'none')
-						.attr('stroke', getClusterColor(groupId))
-						.attr('stroke-opacity', 0.4)
-						.attr('stroke-width', 1)
-						.attr('d', line);
-				});
-			});
 		}
 
 		// --- Draw axis lines and labels (always in front) ---
 		xPositions.forEach((x, sortedIndex) => {
 			const originalAxisIndex = effectiveAxisOrder[sortedIndex];
 			const isSelected = selectedAxis === originalAxisIndex;
-			const axisStyle = getAxisOptions(originalAxisIndex);
+			const axisStyle = getAxisOptions(originalAxisIndex, axisOptions);
 
 			// Axis line
 			const axisLine = svg
