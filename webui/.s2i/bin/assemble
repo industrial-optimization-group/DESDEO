@@ -1,19 +1,13 @@
 #!/bin/bash
-
-cd /opt/app-root/src
-
-
 set -e
 
-# Print current working directory
 echo "Current directory: $(pwd)"
-
-# List all files, including hidden ones
-echo "Contents of current directory:"
 ls -alh
+
+export NODE_OPTIONS="--max-old-space-size=4096"
+
 npm ci
 npm run build
 npm prune --production
-echo "Final node_modules size:"
-du -sh node_modules
+
 exit 0
