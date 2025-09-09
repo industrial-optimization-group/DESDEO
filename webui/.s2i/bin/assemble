@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+cd /tmp/src
+
 echo "Current directory: $(pwd)"
 ls -alh
 
