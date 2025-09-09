@@ -38,8 +38,12 @@ class AuthDebugConfig(BaseModel):
     authjwt_algorithm: ClassVar[str] = config_data["auth-debug"]["authjwt_algorithm"]
     authjwt_access_token_expires: ClassVar[int] = config_data["auth-debug"]["authjwt_access_token_expires"]
     authjwt_refresh_token_expires: ClassVar[int] = config_data["auth-debug"]["authjwt_refresh_token_expires"]
-    cors_origins: ClassVar[list[str]] = json.loads(os.getenv("CORS_ORIGINS")) if os.environ.get(
-        "CORS_ORIGINS") is not None else config_data["auth-debug"]["cors_origins"]
+    cors_origins: ClassVar[list[str]] = (
+        json.loads(os.getenv("CORS_ORIGINS"))
+        if os.environ.get("CORS_ORIGINS") is not None
+        else config_data["auth-debug"]["cors_origins"]
+    )
+    cookie_domain: ClassVar[str] = os.getenv("COOKIE_DOMAIN", "")
 
 
 class DatabaseDebugConfig(BaseModel):
@@ -55,15 +59,18 @@ class DatabaseDebugConfig(BaseModel):
     db_pool: ClassVar[bool] = config_data["database-debug"]["db_pool"]
 
 
-# class DatabaseDeployConfig(BaseModel):
-# # db_host: str = config_data["database-deploy"]["db_host"]
-# db_port: str = config_data["database-deploy"]["db_port"]
-# db_database: str = config_data["database-deploy"]["db_database"]
-# db_username: str = config_data["database-deploy"]["db_username"]
-# db_password: str = config_data["database-deploy"]["db_password"]
-# db_pool_size: int = config_data["database-deploy"]["db_pool_size"]
-# db_max_overflow: int = config_data["database-deploy"]["db_max_overflow"]
-# db_pool: bool = config_data["database-deploy"]["db_pool"]
+class DatabaseDeployConfig(BaseModel):
+    """Database setting (deployment)."""
+
+    db_host: str = os.getenv("DB_HOST")
+    db_port: str = os.getenv("DB_PORT")
+    db_database: str = os.getenv("DB_NAME")
+    db_username: str = os.getenv("DB_USER")
+    db_password: str = os.getenv("DB_PASSWORD")
+    db_pool_size: int = config_data["database-deploy"]["db_pool_size"]
+    db_max_overflow: int = config_data["database-deploy"]["db_max_overflow"]
+    db_pool: bool = config_data["database-deploy"]["db_pool"]
+
 
 # class AuthDeployConfig(BaseModel):
 # authjwt_algorithm: str = config_data["auth-deploy"]["authjwt_algorithm"]

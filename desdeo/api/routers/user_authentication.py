@@ -371,15 +371,28 @@ def login(
     tokens = generate_tokens({"id": user.id, "sub": user.username})
 
     response = JSONResponse(content={"access_token": tokens.access_token})
-    response.set_cookie(
-        key="refresh_token",
-        value=tokens.refresh_token,
-        httponly=True,  # HTTP only cookie, more secure than storing the refresh token in the frontend code.
-        secure=False,  # allow http
-        samesite="lax",  # cross-origin requests
-        max_age=cookie_max_age * 60,  # convert to minutes
-        path="/",
-    )
+
+    if AuthConfig.cookie_domain == "":
+        response.set_cookie(
+            key="refresh_token",
+            value=tokens.refresh_token,
+            httponly=True,  # HTTP only cookie, more secure than storing the refresh token in the frontend code.
+            secure=False,  # allow http
+            samesite="lax",  # cross-origin requests
+            max_age=cookie_max_age * 60,  # convert to minutes
+            path="/",
+        )
+    else:
+        response.set_cookie(
+            key="refresh_token",
+            value=tokens.refresh_token,
+            httponly=True,  # keep this
+            secure=True,  # MUST be true for HTTPS
+            samesite="none",  # required for cross-site subdomains
+            max_age=cookie_max_age * 60,
+            path="/",
+            domain=AuthConfig.cookie_domain,  # <- allow sharing between API + webui
+        )
 
     return response
 
