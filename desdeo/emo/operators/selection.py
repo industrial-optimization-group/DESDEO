@@ -1,6 +1,6 @@
 """The base class for selection operators.
 
-This whole file should be rewritten. Everything is a mess. Moreover, the selectors do not yet take seeds as input for reproducibility.
+Some operators should be rewritten.
 TODO:@light-weaver
 """
 
@@ -14,6 +14,7 @@ from typing import Callable, Literal, TypedDict, TypeVar
 import numpy as np
 import polars as pl
 from numba import njit
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from scipy.special import comb
 from scipy.stats.qmc import LatinHypercube
 from sqlalchemy import false
@@ -86,8 +87,9 @@ class BaseSelector(Subscriber):
                 targets, and constraint violations.
         """
 
-#TODO(@light-weaver): Convert to pydantic?
-class ReferenceVectorOptions(TypedDict, total=False):
+
+# TODO(@light-weaver): Convert to pydantic?
+class __ReferenceVectorOptions(TypedDict, total=False):
     """The options for the reference vector based selection operators."""
 
     adaptation_frequency: int
@@ -135,6 +137,50 @@ class ReferenceVectorOptions(TypedDict, total=False):
     """The preferred ranges for interactive adaptation."""
 
 
+class ReferenceVectorOptions(BaseModel):
+    """Pydantic model for ReferenceVectorOptions TypedDict."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+    adaptation_frequency: int = Field(default=0)
+    """Number of generations between reference vector adaptation. If set to 0, no adaptation occurs. Defaults to 0.
+    Only used if no preference is provided."""
+    creation_type: Literal["simplex", "s_energy"] = Field(default="simplex")
+    """The method for creating reference vectors. Defaults to "simplex".
+    Currently only "simplex" is implemented. Future versions will include "s_energy".
+
+    If set to "simplex", the reference vectors are created using the simplex lattice design method.
+    This method is generates distributions with specific numbers of reference vectors.
+    Check: https://www.itl.nist.gov/div898/handbook/pri/section5/pri542.htm for more information.
+    If set to "s_energy", the reference vectors are created using the Riesz s-energy criterion. This method is used to
+    distribute an arbitrary number of reference vectors in the objective space while minimizing the s-energy.
+    Currently not implemented.
+    """
+    vector_type: Literal["spherical", "planar"] = Field(default="spherical")
+    """The method for normalizing the reference vectors. Defaults to "spherical"."""
+    lattice_resolution: int | None = None
+    """Number of divisions along an axis when creating the simplex lattice. This is not required/used for the "s_energy"
+    method. If not specified, the lattice resolution is calculated based on the `number_of_vectors`. If "spherical" is 
+    selected as the `vector_type`, this value overrides the `number_of_vectors`.
+    """
+    number_of_vectors: int = 200
+    """Number of reference vectors to be created. If "simplex" is selected as the `creation_type`, then the closest
+    `lattice_resolution` is calculated based on this value. If "s_energy" is selected, then this value is used directly.
+    Note that if neither `lattice_resolution` nor `number_of_vectors` is specified, the number of vectors defaults to
+    200. Overridden if "spherical" is selected as the `vector_type` and `lattice_resolution` is provided.
+    """
+    adaptation_distance: float = Field(default=0.2)
+    """Distance parameter for the interactive adaptation methods. Defaults to 0.2."""
+    reference_point: dict[str, float] | None = Field(default=None)
+    """The reference point for interactive adaptation."""
+    preferred_solutions: dict[str, list[float]] | None = Field(default=None)
+    """The preferred solutions for interactive adaptation."""
+    non_preferred_solutions: dict[str, list[float]] | None = Field(default=None)
+    """The non-preferred solutions for interactive adaptation."""
+    preferred_ranges: dict[str, list[float]] | None = Field(default=None)
+    """The preferred ranges for interactive adaptation."""
+
+
 class BaseDecompositionSelector(BaseSelector):
     """Base class for decomposition based selection operators."""
 
@@ -151,52 +197,30 @@ class BaseDecompositionSelector(BaseSelector):
         self.reference_vectors: np.ndarray
         self.reference_vectors_initial: np.ndarray
 
-        # Set default values
-        if "creation_type" not in self.reference_vector_options:
-            self.reference_vector_options["creation_type"] = "simplex"
-        if "vector_type" not in self.reference_vector_options:
-            self.reference_vector_options["vector_type"] = "spherical"
-        if "adaptation_frequency" not in self.reference_vector_options:
-            self.reference_vector_options["adaptation_frequency"] = 100
-        if self.reference_vector_options["creation_type"] == "simplex":
-            self._create_simplex()
-        elif self.reference_vector_options["creation_type"] == "s_energy":
+        if self.reference_vector_options.creation_type == "s_energy":
             raise NotImplementedError("Riesz s-energy criterion is not yet implemented.")
 
-        if "interactive_adaptation" not in self.reference_vector_options:
-            self.reference_vector_options["interactive_adaptation"] = "none"
-        elif self.reference_vector_options["interactive_adaptation"] != "none":
-            self.reference_vector_options["adaptation_frequency"] = 0
-        if "adaptation_distance" not in self.reference_vector_options:
-            self.reference_vector_options["adaptation_distance"] = 0.2
         self._create_simplex()
 
-        if self.reference_vector_options["interactive_adaptation"] == "reference_point":
-            if "reference_point" not in self.reference_vector_options:
-                raise ValueError("Reference point must be specified for interactive adaptation.")
+        if self.reference_vector_options.reference_point:
             self.interactive_adapt_3(
-                np.array([self.reference_vector_options["reference_point"][x] for x in self.target_symbols]),
-                translation_param=self.reference_vector_options["adaptation_distance"],
+                np.array([self.reference_vector_options.reference_point[x] for x in self.target_symbols]),
+                translation_param=self.reference_vector_options.adaptation_distance,
             )
-        elif self.reference_vector_options["interactive_adaptation"] == "preferred_solutions":
-            if "preferred_solutions" not in self.reference_vector_options:
-                raise ValueError("Preferred solutions must be specified for interactive adaptation.")
+        elif self.reference_vector_options.preferred_solutions:
             self.interactive_adapt_1(
-                np.array([self.reference_vector_options["preferred_solutions"][x] for x in self.target_symbols]).T,
-                translation_param=self.reference_vector_options["adaptation_distance"],
+                np.array([self.reference_vector_options.preferred_solutions[x] for x in self.target_symbols]).T,
+                translation_param=self.reference_vector_options.adaptation_distance,
             )
-        elif self.reference_vector_options["interactive_adaptation"] == "non_preferred_solutions":
-            if "non_preferred_solutions" not in self.reference_vector_options:
-                raise ValueError("Non-preferred solutions must be specified for interactive adaptation.")
+        elif self.reference_vector_options.non_preferred_solutions:
             self.interactive_adapt_2(
-                np.array([self.reference_vector_options["non_preferred_solutions"][x] for x in self.target_symbols]).T,
-                predefined_distance=self.reference_vector_options["adaptation_distance"],
+                np.array([self.reference_vector_options.non_preferred_solutions[x] for x in self.target_symbols]).T,
+                predefined_distance=self.reference_vector_options.adaptation_distance,
+                ord=2 if self.reference_vector_options.vector_type == "spherical" else 1,
             )
-        elif self.reference_vector_options["interactive_adaptation"] == "preferred_ranges":
-            if "preferred_ranges" not in self.reference_vector_options:
-                raise ValueError("Preferred ranges must be specified for interactive adaptation.")
+        elif self.reference_vector_options.preferred_ranges:
             self.interactive_adapt_4(
-                np.array([self.reference_vector_options["preferred_ranges"][x] for x in self.target_symbols]).T,
+                np.array([self.reference_vector_options.preferred_ranges[x] for x in self.target_symbols]).T,
             )
 
     def _create_simplex(self):
@@ -216,14 +240,12 @@ class BaseDecompositionSelector(BaseSelector):
                     break
             return temp_lattice_resolution - 1
 
-        if "lattice_resolution" in self.reference_vector_options:
-            lattice_resolution = self.reference_vector_options["lattice_resolution"]
-        elif "number_of_vectors" in self.reference_vector_options:
-            lattice_resolution = approx_lattice_resolution(
-                self.reference_vector_options["number_of_vectors"], num_dims=self.num_dims
-            )
+        if self.reference_vector_options.lattice_resolution:
+            lattice_resolution = self.reference_vector_options.lattice_resolution
         else:
-            lattice_resolution = approx_lattice_resolution(500, num_dims=self.num_dims)
+            lattice_resolution = approx_lattice_resolution(
+                self.reference_vector_options.number_of_vectors, num_dims=self.num_dims
+            )
 
         number_of_vectors: int = comb(
             lattice_resolution + self.num_dims - 1,
@@ -231,8 +253,8 @@ class BaseDecompositionSelector(BaseSelector):
             exact=True,
         )
 
-        self.reference_vector_options["number_of_vectors"] = number_of_vectors
-        self.reference_vector_options["lattice_resolution"] = lattice_resolution
+        self.reference_vector_options.number_of_vectors = number_of_vectors
+        self.reference_vector_options.lattice_resolution = lattice_resolution
 
         temp1 = range(1, self.num_dims + lattice_resolution)
         temp1 = np.array(list(combinations(temp1, self.num_dims - 1)))
@@ -249,12 +271,12 @@ class BaseDecompositionSelector(BaseSelector):
 
     def _normalize_rvs(self):
         """Normalize the reference vectors to a unit hypersphere."""
-        if self.reference_vector_options["vector_type"] == "spherical":
+        if self.reference_vector_options.vector_type == "spherical":
             norm = np.linalg.norm(self.reference_vectors, axis=1).reshape(-1, 1)
             norm[norm == 0] = np.finfo(float).eps
-        elif self.reference_vector_options["vector_type"] == "planar":
+        elif self.reference_vector_options.vector_type == "planar":
             norm = np.sum(self.reference_vectors, axis=1).reshape(-1, 1)
-        else:
+        else:  # Not needed due to pydantic validation
             raise ValueError("Invalid vector type. Must be either 'spherical' or 'planar'.")
         self.reference_vectors = np.divide(self.reference_vectors, norm)
 
@@ -282,7 +304,7 @@ class BaseDecompositionSelector(BaseSelector):
         self._normalize_rvs()
         self.add_edge_vectors()
 
-    def interactive_adapt_2(self, z: np.ndarray, predefined_distance: float) -> None:
+    def interactive_adapt_2(self, z: np.ndarray, predefined_distance: float, ord: int) -> None:
         """Adapt reference vectors by using the information about non-preferred solution(s) selected by the Decision maker.
 
         After the Decision maker has specified non-preferred solution(s), Euclidian distance between normalized solution
@@ -304,12 +326,12 @@ class BaseDecompositionSelector(BaseSelector):
         Args:
             z (np.ndarray): Non-preferred solution(s).
             predefined_distance (float): The reference vectors that are closer than this distance are either removed or
-            re-positioned somewhere else.
-            Default value: 0.2
+                re-positioned somewhere else. Default value: 0.2
+            ord (int): Order of the norm. Default is 2, i.e., Euclidian distance.
         """
         # calculate L1 norm of non-preferred solution(s)
         z = np.atleast_2d(z)
-        norm = np.linalg.norm(z, ord=2, axis=1).reshape(np.shape(z)[0], 1)
+        norm = np.linalg.norm(z, ord=ord, axis=1).reshape(np.shape(z)[0], 1)
 
         # non-preferred solutions normalized
         v_c = np.divide(z, norm)
@@ -567,12 +589,18 @@ class RVEASelector(BaseDecompositionSelector):
             raise ValueError("Other parameter adaptation strategies are not yet implemented.")
 
         if reference_vector_options is None:
-            reference_vector_options = ReferenceVectorOptions(
-                adaptation_frequency=100,
-                creation_type="simplex",
-                vector_type="spherical",
-                number_of_vectors=200,
+            reference_vector_options = ReferenceVectorOptions()
+
+        # Just asserting correct options for RVEA
+        reference_vector_options.vector_type = "spherical"
+        if reference_vector_options.adaptation_frequency == 0:
+            warnings.warn(
+                "Adaptation frequency was set to 0. Setting it to 100 for RVEA selector. "
+                "Set it to 0 only if you provide preference information.",
+                UserWarning,
+                stacklevel=2,
             )
+            reference_vector_options.adaptation_frequency = 100
 
         super().__init__(
             problem=problem, reference_vector_options=reference_vector_options, verbosity=verbosity, publisher=publisher
@@ -699,8 +727,8 @@ class RVEASelector(BaseDecompositionSelector):
             if message.topic == TerminatorMessageTopics.GENERATION:
                 self.numerator = message.value
                 if (
-                    self.reference_vector_options["adaptation_frequency"] > 0
-                    and self.numerator % self.reference_vector_options["adaptation_frequency"] == 0
+                    self.reference_vector_options.adaptation_frequency > 0
+                    and self.numerator % self.reference_vector_options.adaptation_frequency == 0
                 ):
                     self._adapt()
             if message.topic == TerminatorMessageTopics.MAX_GENERATIONS:
@@ -833,12 +861,10 @@ class NSGA3Selector(BaseDecompositionSelector):
             seed (int, optional): The random seed to use. Defaults to 0.
         """
         if reference_vector_options is None:
-            reference_vector_options = ReferenceVectorOptions(
-                adaptation_frequency=0,
-                creation_type="simplex",
-                vector_type="planar",
-                number_of_vectors=200,
-            )
+            reference_vector_options = ReferenceVectorOptions()
+
+        # Just asserting correct options for NSGA-III
+        reference_vector_options.vector_type = "planar"
         super().__init__(
             problem,
             reference_vector_options=reference_vector_options,

@@ -30,11 +30,15 @@ from .scalar_selection import (
     ScalarSelectionOptions,
     scalar_selector_constructor,
 )
-from .selection import SelectorOptions, selection_constructor
+from .selection import ReferenceVectorOptions, SelectorOptions, selection_constructor
 from .termination import (
     TerminatorOptions,
     terminator_constructor,
 )
+
+
+class InvalidTemplateError(Exception):
+    """Exception raised for invalid template configurations."""
 
 
 class BaseTemplateOptions(BaseModel):
@@ -79,11 +83,11 @@ TemplateOptions = Template1Options | Template2Options
 class ReferencePointOptions(BaseModel):
     """Options for providing a reference point for an EA."""
 
-    name: Literal["ReferencePoint"] = Field(
-        default="ReferencePoint", frozen=True, description="The name of the reference point option."
+    name: Literal["reference_point"] = Field(
+        default="reference_point", frozen=True, description="The name of the reference point option."
     )
     """The name of the reference point option."""
-    reference_point: dict[str, float] = Field(
+    preference: dict[str, float] = Field(
         description="The reference point as a dictionary with objective function symbols as the keys."
     )
     """The reference point as a dictionary with objective function symbols as the keys."""
@@ -96,11 +100,11 @@ class ReferencePointOptions(BaseModel):
 class DesirableRangesOptions(BaseModel):
     """Options for providing desirable ranges for an EA."""
 
-    name: Literal["DesirableRanges"] = Field(
-        default="DesirableRanges", frozen=True, description="The name of the desirable ranges option."
+    name: Literal["preferred_ranges"] = Field(
+        default="preferred_ranges", frozen=True, description="The name of the preferred ranges option."
     )
-    """The name of the desirable ranges option."""
-    ranges: dict[str, tuple[float, float]] = Field(
+    """The name of the preferred ranges option."""
+    preference: dict[str, tuple[float, float]] = Field(
         description="The desirable ranges as a dictionary with objective function symbols as the keys."
     )
     """The desirable ranges as a dictionary with objective function symbols as the keys."""
@@ -110,21 +114,80 @@ class DesirableRangesOptions(BaseModel):
     """The method for handling the desirable ranges."""
 
 
+class PreferredSolutionsOptions(BaseModel):
+    """Options for providing preferred solutions for an EA."""
+
+    name: Literal["preferred_solutions"] = Field(
+        default="preferred_solutions", frozen=True, description="The name of the preferred solutions option."
+    )
+    """The name of the preferred solutions option."""
+    preference: dict[str, list[float]] = Field(
+        description="The preferred solutions as a dictionary with objective function symbols as the keys."
+    )
+    """The preferred solutions as a dictionary with objective function symbols as the keys."""
+    method: Literal["Hakanen"] = Field(
+        default="Hakanen", description="The method for handling the preferred solutions."
+    )
+    """The method for handling the preferred solutions."""
+
+
+class NonPreferredSolutionsOptions(BaseModel):
+    """Options for providing non-preferred solutions for an EA."""
+
+    name: Literal["non_preferred_solutions"] = Field(
+        default="non_preferred_solutions", frozen=True, description="The name of the non-preferred solutions option."
+    )
+    """The name of the non-preferred solutions option."""
+    preference: dict[str, list[float]] = Field(
+        description="The non-preferred solutions as a dictionary with objective function symbols as the keys."
+    )
+    """The non-preferred solutions as a dictionary with objective function symbols as the keys."""
+    method: Literal["Hakanen"] = Field(
+        default="Hakanen", description="The method for handling the non-preferred solutions."
+    )
+    """The method for handling the non-preferred solutions."""
+
+
+PreferenceOptions = (
+    ReferencePointOptions | DesirableRangesOptions | PreferredSolutionsOptions | NonPreferredSolutionsOptions
+)
+
+
 class EMOOptions(BaseModel):
     """Options for configuring the EMO algorithm."""
 
-    preference: ReferencePointOptions | DesirableRangesOptions = Field(
-        description="The preference information for the EMO algorithm."
-    )
+    preference: PreferenceOptions | None = Field(description="The preference information for the EMO algorithm.")
     """The preference information for the EMO algorithm."""
     template: TemplateOptions = Field(description="The template options for the EMO algorithm.")
 
+
+def preference_handler(preference: PreferenceOptions | None, problem: Problem, selection: SelectorOptions) -> None:
+    """Handle the preference options for the EMO algorithm."""
+    if preference is None:
+        return
+
+    if preference.method == "Hakanen":
+        if "reference_vector_options" not in type(selection).model_fields:
+            raise InvalidTemplateError(
+                "Preference handling with Hakanen method requires a selection operator with reference vectors."
+            )
+        if selection.reference_vector_options is None:
+            reference_vector_options = ReferenceVectorOptions()  # Use default reference vector options
+        setattr(reference_vector_options, preference.name, preference.preference)
+        selection.reference_vector_options = reference_vector_options
+    elif preference.method == "IOPIS":
+        new_problem = IOPISProblem(problem, preference.preference)
+    elif preference.method == "DF transformation":
+        new_problem = DFTransformedProblem(problem, preference.preference)
+    else:
+        raise InvalidTemplateError(f"Unknown preference handling method: {preference.method}")
 
 def template_constructor(emo_options: EMOOptions, problem: Problem) -> tuple[Callable[[], EMOResult], Publisher]:
     """Construct a template from the given options."""
     publisher = Publisher()
 
     template = emo_options.template
+
     evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=template.verbosity)
 
     selector = selection_constructor(
