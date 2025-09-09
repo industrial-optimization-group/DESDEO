@@ -1,1 +1,2 @@
 NPM_RUN = start:production
+NODE_OPTIONS="--max-old-space-size=2048"
