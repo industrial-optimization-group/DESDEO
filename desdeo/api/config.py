@@ -2,6 +2,7 @@
 
 import tomllib
 import os
+import ast
 from pathlib import Path
 from typing import ClassVar
 
@@ -37,7 +38,7 @@ class AuthDebugConfig(BaseModel):
     authjwt_algorithm: ClassVar[str] = config_data["auth-debug"]["authjwt_algorithm"]
     authjwt_access_token_expires: ClassVar[int] = config_data["auth-debug"]["authjwt_access_token_expires"]
     authjwt_refresh_token_expires: ClassVar[int] = config_data["auth-debug"]["authjwt_refresh_token_expires"]
-    cors_origins: ClassVar[list[str]] = os.getenv("CORS_ORIGINS", config_data["auth-debug"]["cors_origins"])
+    cors_origins: ClassVar[list[str]] = os.getenv("CORS_ORIGINS") if os.environ.get("CORS_ORIGINS") is not None else config_data["auth-debug"]["cors_origins"]
 
 
 class DatabaseDebugConfig(BaseModel):
