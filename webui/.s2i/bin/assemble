@@ -1,4 +1,21 @@
-/usr/libexec/s2i/assemble
-NODE_OPTIONS="--max-old-space-size=4096"
+#!/bin/bash
+set -e
+
+# 1. Use enough memory for Node
+export NODE_OPTIONS="--max-old-space-size=2048"
+
+# 2. Install all dependencies including devDependencies (needed for build)
+npm ci
+
+# 3. Build the SvelteKit app (SSR)
 npm run build
-exit
+
+# 4. Remove devDependencies to keep runtime image lean
+npm prune --production
+
+# 5. Optional: report size of node_modules
+echo "Final node_modules size:"
+du -sh node_modules
+
+# 6. Exit cleanly
+exit 0
