@@ -1,15 +1,37 @@
 #!/bin/bash
 set -e
 
-cd /tmp/src
+# This is where S2I put the uploaded source
+SRC_DIR=/tmp/src
 
+# This is the final runtime location
+APP_DIR=/opt/app-root/src
+
+echo "Copying source from $SRC_DIR to $APP_DIR"
+mkdir -p "$APP_DIR"
+cp -r $SRC_DIR/* $APP_DIR/
+
+# Make sure ownership is correct for the runtime user
+chown -R 1001:0 "$APP_DIR"
+
+# Switch to the application directory
+cd "$APP_DIR"
+
+# Debug: show what's here
 echo "Current directory: $(pwd)"
 ls -alh
 
+# Set Node memory options
 export NODE_OPTIONS="--max-old-space-size=4096"
 
+# Install all dependencies
 npm ci
+
+# Run the build (SSR with adapter-node)
 npm run build
+
+# Remove dev dependencies to save space
 npm prune --production
 
+echo "Assemble finished successfully"
 exit 0
