@@ -6,6 +6,7 @@ import { browser } from '$app/environment';
 
 
 const BASE_URL = import.meta.env.VITE_API_URL;
+console.log(BASE_URL);
 
 export const api = createClient<paths>({baseUrl: BASE_URL});
 
