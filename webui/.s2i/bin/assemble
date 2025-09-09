@@ -1,4 +1,16 @@
+#!/bin/bash
+
 cd /opt/app-root/src
+
+
+set -e
+
+# Print current working directory
+echo "Current directory: $(pwd)"
+
+# List all files, including hidden ones
+echo "Contents of current directory:"
+ls -alh
 npm ci
 npm run build
 npm prune --production
