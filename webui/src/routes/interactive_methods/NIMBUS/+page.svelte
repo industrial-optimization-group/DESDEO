@@ -200,7 +200,8 @@
 	let compensation = $state(0.0);
 
 	// Variables for  for showing that calculations are ongoing
-	let calculating = $state(false);
+	// svelte-ignore non_reactive_update
+	let calculating = false;
 	let error: string | null = null;
 
 	// Validation: iteration is allowed when at least one preference is better and one is worse than current objectives
