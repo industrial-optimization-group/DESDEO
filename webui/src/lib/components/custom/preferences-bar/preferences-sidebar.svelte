@@ -15,9 +15,7 @@
 		calculateClassification,
 		type PreferenceValue,
 		formatNumber,
-
 		getDisplayAccuracy
-
 	} from '$lib/helpers/index.js';
 	import { PREFERENCE_TYPES } from '$lib/constants/index.js';
 
@@ -51,6 +49,7 @@
 		showNumSolutions?: boolean;
 		ref?: HTMLElement | null;
 		isIterationAllowed?: boolean;
+		isCalculating?: boolean;
 		isFinishAllowed?: boolean;
 		minNumSolutions?: number;
 		maxNumSolutions?: number;
@@ -71,11 +70,12 @@
 		showNumSolutions = false,
 		ref = null,
 		isIterationAllowed = true,
+		isCalculating = false,
 		isFinishAllowed = true,
 		minNumSolutions = 1,
 		maxNumSolutions = 4,
 		lastIteratedPreference = [],
-		isFinishButton = true,
+		isFinishButton = true
 	}: Props = $props();
 
 	// Validate that preference_types only contains valid values
@@ -97,7 +97,7 @@
 	let internal_type_preferences = $state(typePreferences);
 	let internal_preference_values = $state([...preferenceValues]);
 	let internal_objective_values = $state([...objectiveValues]);
-	
+
 	let displayAccuracy = $derived(() => getDisplayAccuracy(problem));
 
 	// Sync internal state with props when they change
@@ -121,7 +121,12 @@
 	let classification_values = $derived(
 		internal_type_preferences === PREFERENCE_TYPES.Classification
 			? problem.objectives.map((objective, idx: number) =>
-					calculateClassification(objective, internal_preference_values[idx], internal_objective_values[idx], 0.001)
+					calculateClassification(
+						objective,
+						internal_preference_values[idx],
+						internal_objective_values[idx],
+						0.001
+					)
 				)
 			: []
 	);
@@ -181,7 +186,6 @@
 	function get_objective_value(idx: number): number {
 		return internal_objective_values[idx] ?? 0;
 	}
-
 </script>
 
 <Sidebar.Root
@@ -236,7 +240,10 @@
 			{#each problem.objectives as objective, idx}
 				{#if objective.ideal != null && objective.nadir != null}
 					<div class="mb-4 flex flex-col gap-2">
-						<div class="text-sm font-semibold text-gray-700" title={objective.unit ? `${objective.name} (${objective.unit})` : objective.name}>
+						<div
+							class="text-sm font-semibold text-gray-700"
+							title={objective.unit ? `${objective.name} (${objective.unit})` : objective.name}
+						>
 							{objective.symbol} ({objective.maximize ? 'max' : 'min'})
 						</div>
 						<div class="flex flex-row items-start">
@@ -385,8 +392,13 @@
 
 	<Sidebar.Footer>
 		<div class="items-right flex justify-end gap-2">
-			<Button variant="default" disabled={!isIterationAllowed} size="sm" onclick={handle_iterate}>
-				Iterate
+			<Button
+				variant="default"
+				disabled={!isIterationAllowed || isCalculating}
+				size="sm"
+				onclick={handle_iterate}
+			>
+				{isCalculating ? 'Calculating…' : 'Iterate'}
 			</Button>
 			{#if isFinishButton}
 				<Button variant="secondary" size="sm" disabled={!isFinishAllowed} onclick={handle_finish}>
