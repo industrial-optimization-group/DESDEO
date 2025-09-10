@@ -539,6 +539,7 @@
 			}
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Unknown error';
+			console.log(error);
 		} finally {
 			calculating = false;
 		}
