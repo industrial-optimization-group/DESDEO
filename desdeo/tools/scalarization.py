@@ -632,6 +632,7 @@ def add_group_asf_diff(
     _problem = _problem.add_scalarization(scalarization_function)
     return _problem.add_constraints(constraints), symbol
 
+
 def add_group_asf_agg_diff(
     problem: Problem,
     symbol: str,
@@ -722,9 +723,7 @@ def add_group_asf_agg_diff(
     # constraint expressions are formed into a list of lists
     con_terms = []
     for obj in problem.objectives:
-        con_terms.append(
-            f"(({weights[obj.symbol]}) * ({obj.symbol}_min - {agg_aspirations[obj.symbol]})) - _alpha"
-        )
+        con_terms.append(f"(({weights[obj.symbol]}) * ({obj.symbol}_min - {agg_aspirations[obj.symbol]})) - _alpha")
     aug_exprs = []
     aug_expr = " + ".join([f"({weights[obj.symbol]} * {obj.symbol}_min)" for obj in problem.objectives])
     aug_exprs.append(aug_expr)
@@ -2948,9 +2947,7 @@ def add_group_stom_agg_diff(
                 f"{weights[obj.symbol]} * ({obj.symbol}_min - {ideal_point[obj.symbol] - delta[obj.symbol]}) - _alpha"
             )
         else:
-            con_terms.append(
-                f"{weights[obj.symbol]} * ({obj.symbol}_min - {ideal_point[obj.symbol] - delta}) - _alpha"
-            )
+            con_terms.append(f"{weights[obj.symbol]} * ({obj.symbol}_min - {ideal_point[obj.symbol] - delta}) - _alpha")
 
     # form the augmentation term
     aug_exprs = []
@@ -3700,6 +3697,7 @@ def add_group_guess_diff(
     _problem = _problem.add_scalarization(scalarization)
     return _problem.add_constraints(constraints), symbol
 
+
 def add_group_guess_agg_diff(
     problem: Problem,
     symbol: str,
@@ -3788,9 +3786,7 @@ def add_group_guess_agg_diff(
                 f"{weights[obj.symbol]} * ({obj.symbol}_min - {nadir_point[obj.symbol] + delta[obj.symbol]}) - _alpha"
             )
         else:
-            con_terms.append(
-                f"{weights[obj.symbol]} * ({obj.symbol}_min - {nadir_point[obj.symbol] + delta}) - _alpha"
-            )
+            con_terms.append(f"{weights[obj.symbol]} * ({obj.symbol}_min - {nadir_point[obj.symbol] + delta}) - _alpha")
 
     # form the augmentation term
     aug_exprs = []
@@ -4544,3 +4540,31 @@ def add_desirability_funcs(
         problem_ = problem_.add_scalarization(scalarization)
 
     return problem_, symbols
+
+
+def add_iopis_funcs(
+    problem: Problem,
+    reference_point: dict[str, float],
+    ideal: dict[str, float] | None = None,
+    nadir: dict[str, float] | None = None,
+    rho: float = 1e-6,
+    delta: float = 1e-6,
+) -> tuple[Problem, list[str]]:
+    symbols = ["iopis_guess", "iopis_stom"]
+    _problem, _ = add_guess_sf_nondiff(
+        problem=problem,
+        symbol=symbols[0],
+        reference_point=reference_point,
+        ideal=ideal,
+        nadir=nadir,
+        rho=rho,
+    )
+
+    _problem, _ = add_stom_sf_nondiff(
+        problem=_problem,
+        symbol=symbols[1],
+        reference_point=reference_point,
+        ideal=ideal,
+        delta=delta,
+    )
+    return _problem, symbols

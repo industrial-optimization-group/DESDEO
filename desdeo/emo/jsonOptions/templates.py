@@ -21,6 +21,7 @@ from desdeo.emo.methods.templates import EMOResult, template1, template2
 from desdeo.emo.operators.evaluator import EMOEvaluator
 from desdeo.problem import Problem
 from desdeo.tools.patterns import Publisher
+from desdeo.tools.scalarization import add_desirability_funcs, add_iopis_funcs
 
 from .mutation import (
     MutationOptions,
@@ -104,10 +105,14 @@ class DesirableRangesOptions(BaseModel):
         default="preferred_ranges", frozen=True, description="The name of the preferred ranges option."
     )
     """The name of the preferred ranges option."""
-    preference: dict[str, tuple[float, float]] = Field(
-        description="The desirable ranges as a dictionary with objective function symbols as the keys."
+    aspiration_levels: dict[str, float] = Field(
+        description="The aspiration levels as a dictionary with objective function symbols as the keys."
     )
-    """The desirable ranges as a dictionary with objective function symbols as the keys."""
+    """The aspiration levels as a dictionary with objective function symbols as the keys."""
+    reservation_levels: dict[str, float] = Field(
+        description="The reservation levels as a dictionary with objective function symbols as the keys."
+    )
+    """The reservation levels as a dictionary with objective function symbols as the keys."""
     method: Literal["Hakanen", "DF transformation"] = Field(
         default="Hakanen", description="The method for handling the desirable ranges."
     )
@@ -161,10 +166,12 @@ class EMOOptions(BaseModel):
     template: TemplateOptions = Field(description="The template options for the EMO algorithm.")
 
 
-def preference_handler(preference: PreferenceOptions | None, problem: Problem, selection: SelectorOptions) -> None:
+def preference_handler(
+    preference: PreferenceOptions | None, problem: Problem, selection: SelectorOptions
+) -> tuple[Problem, SelectorOptions]:
     """Handle the preference options for the EMO algorithm."""
     if preference is None:
-        return
+        return problem, selection
 
     if preference.method == "Hakanen":
         if "reference_vector_options" not in type(selection).model_fields:
@@ -175,10 +182,20 @@ def preference_handler(preference: PreferenceOptions | None, problem: Problem, s
             reference_vector_options = ReferenceVectorOptions()  # Use default reference vector options
         setattr(reference_vector_options, preference.name, preference.preference)
         selection.reference_vector_options = reference_vector_options
+        return problem, selection
     elif preference.method == "IOPIS":
-        raise NotImplementedError("IOPIS method is not implemented here yet.")
+        iopis_problem, _ = add_iopis_funcs(
+            problem=problem,
+            reference_point=preference.preference,
+        )
+        return iopis_problem, selection
     elif preference.method == "DF transformation":
-        raise NotImplementedError("DF transformation method is not implemented here yet.")
+        df_problem, _ = add_desirability_funcs(
+            problem=problem,
+            aspiration_levels=preference.aspiration_levels,
+            reservation_levels=preference.reservation_levels,
+        )
+        return df_problem, selection
     else:
         raise InvalidTemplateError(f"Unknown preference handling method: {preference.method}")
 
@@ -260,7 +277,7 @@ def template_constructor(emo_options: EMOOptions, problem: Problem) -> tuple[Cal
     consistency = publisher.check_consistency()
 
     if not consistency[0]:
-        raise ValueError(f"Inconsistent template configuration. See details:\n {consistency[1]}")
+        raise InvalidTemplateError(f"Inconsistent template configuration. See details:\n {consistency[1]}")
     components.pop("archive", None)
     template_funcs = {
         "Template1": template1,

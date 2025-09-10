@@ -88,57 +88,8 @@ class BaseSelector(Subscriber):
         """
 
 
-# TODO(@light-weaver): Convert to pydantic?
-class __ReferenceVectorOptions(TypedDict, total=False):
-    """The options for the reference vector based selection operators."""
-
-    adaptation_frequency: int
-    """Number of generations between reference vector adaptation. If set to 0, no adaptation occurs. Defaults to 100.
-    Only used if `interactive_adaptation` is set to "none"."""
-    creation_type: Literal["simplex", "s_energy"]
-    """The method for creating reference vectors. Defaults to "simplex".
-    Currently only "simplex" is implemented. Future versions will include "s_energy".
-
-    If set to "simplex", the reference vectors are created using the simplex lattice design method.
-    This method is generates distributions with specific numbers of reference vectors.
-    Check: https://www.itl.nist.gov/div898/handbook/pri/section5/pri542.htm for more information.
-
-    If set to "s_energy", the reference vectors are created using the Riesz s-energy criterion. This method is used to
-    distribute an arbitrary number of reference vectors in the objective space while minimizing the s-energy.
-    Currently not implemented.
-    """
-    vector_type: Literal["spherical", "planar"]
-    """The method for normalizing the reference vectors. Defaults to "spherical"."""
-    lattice_resolution: int
-    """Number of divisions along an axis when creating the simplex lattice. This is not required/used for the "s_energy"
-    method. If not specified, the lattice resolution is calculated based on the `number_of_vectors`.
-    """
-    number_of_vectors: int
-    """Number of reference vectors to be created. If "simplex" is selected as the `creation_type`, then the closest
-    `lattice_resolution` is calculated based on this value. If "s_energy" is selected, then this value is used directly.
-    Note that if neither `lattice_resolution` nor `number_of_vectors` is specified, the number of vectors defaults to
-    500.
-    """
-    interactive_adaptation: Literal[
-        "preferred_solutions", "non_preferred_solutions", "preferred_ranges", "reference_point", "none"
-    ]
-    """The method for adapting reference vectors based on the Decision maker's preference information.
-    Defaults to "none".
-    """
-    adaptation_distance: float
-    """Distance parameter for the interactive adaptation methods. Defaults to 0.2."""
-    reference_point: dict[str, float]
-    """The reference point for interactive adaptation."""
-    preferred_solutions: dict[str, list[float]]
-    """The preferred solutions for interactive adaptation."""
-    non_preferred_solutions: dict[str, list[float]]
-    """The non-preferred solutions for interactive adaptation."""
-    preferred_ranges: dict[str, list[float]]
-    """The preferred ranges for interactive adaptation."""
-
-
 class ReferenceVectorOptions(BaseModel):
-    """Pydantic model for ReferenceVectorOptions TypedDict."""
+    """Pydantic model for Reference Vector arguments."""
 
     model_config = ConfigDict(use_attribute_docstrings=True)
 
