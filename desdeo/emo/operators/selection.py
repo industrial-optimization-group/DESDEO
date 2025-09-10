@@ -581,7 +581,8 @@ class RVEASelector(BaseDecompositionSelector):
         publisher: Publisher,
         alpha: float = 2.0,
         parameter_adaptation_strategy: ParameterAdaptationStrategy = ParameterAdaptationStrategy.GENERATION_BASED,
-        reference_vector_options: ReferenceVectorOptions | None = None,
+        reference_vector_options: ReferenceVectorOptions | dict | None = None,
+        seed: int = 0,
     ):
         if not isinstance(parameter_adaptation_strategy, ParameterAdaptationStrategy):
             raise TypeError(f"Parameter adaptation strategy must be of Type {type(ParameterAdaptationStrategy)}")
@@ -590,6 +591,9 @@ class RVEASelector(BaseDecompositionSelector):
 
         if reference_vector_options is None:
             reference_vector_options = ReferenceVectorOptions()
+
+        if isinstance(reference_vector_options, dict):
+            reference_vector_options = ReferenceVectorOptions.model_validate(reference_vector_options)
 
         # Just asserting correct options for RVEA
         reference_vector_options.vector_type = "spherical"
@@ -603,7 +607,11 @@ class RVEASelector(BaseDecompositionSelector):
             reference_vector_options.adaptation_frequency = 100
 
         super().__init__(
-            problem=problem, reference_vector_options=reference_vector_options, verbosity=verbosity, publisher=publisher
+            problem=problem,
+            reference_vector_options=reference_vector_options,
+            verbosity=verbosity,
+            publisher=publisher,
+            seed=seed,
         )
 
         self.reference_vectors_gamma: np.ndarray
@@ -862,6 +870,8 @@ class NSGA3Selector(BaseDecompositionSelector):
         """
         if reference_vector_options is None:
             reference_vector_options = ReferenceVectorOptions()
+        elif isinstance(reference_vector_options, dict):
+            reference_vector_options = ReferenceVectorOptions.model_validate(reference_vector_options)
 
         # Just asserting correct options for NSGA-III
         reference_vector_options.vector_type = "planar"
@@ -1300,6 +1310,7 @@ class IBEASelector(BaseSelector):
         population_size: int,
         kappa: float = 0.05,
         binary_indicator: Callable[[np.ndarray], np.ndarray] = self_epsilon,
+        seed: int = 0,
     ):
         """Initialize the IBEA selector.
 
@@ -1317,7 +1328,7 @@ class IBEASelector(BaseSelector):
         # Update 21st August, tested against jmetalpy IBEA. Our version is both faster and better
         # What is happening???
         # Results are similar to this https://github.com/Xavier-MaYiMing/IBEA/
-        super().__init__(problem=problem, verbosity=verbosity, publisher=publisher)
+        super().__init__(problem=problem, verbosity=verbosity, publisher=publisher, seed=seed)
         self.selection: list[int] | None = None
         self.selected_individuals: SolutionType | None = None
         self.selected_targets: pl.DataFrame | None = None

@@ -176,11 +176,12 @@ def preference_handler(preference: PreferenceOptions | None, problem: Problem, s
         setattr(reference_vector_options, preference.name, preference.preference)
         selection.reference_vector_options = reference_vector_options
     elif preference.method == "IOPIS":
-        new_problem = IOPISProblem(problem, preference.preference)
+        raise NotImplementedError("IOPIS method is not implemented here yet.")
     elif preference.method == "DF transformation":
-        new_problem = DFTransformedProblem(problem, preference.preference)
+        raise NotImplementedError("DF transformation method is not implemented here yet.")
     else:
         raise InvalidTemplateError(f"Unknown preference handling method: {preference.method}")
+
 
 def template_constructor(emo_options: EMOOptions, problem: Problem) -> tuple[Callable[[], EMOResult], Publisher]:
     """Construct a template from the given options."""
@@ -246,7 +247,6 @@ def template_constructor(emo_options: EMOOptions, problem: Problem) -> tuple[Cal
 
     if template.name == "Template2":
         scalar_selector = scalar_selector_constructor(
-            problem=problem,
             options=template.mate_selection,
             publisher=publisher,
             verbosity=template.verbosity,

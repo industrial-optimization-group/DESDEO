@@ -97,9 +97,9 @@ def selection_constructor(
         indi = options.pop("binary_indicator")
         match indi:
             case "eps":
-                options["indicator"] = self_epsilon
+                options["binary_indicator"] = self_epsilon
             case "hv":
-                options["indicator"] = self_hv
+                options["binary_indicator"] = self_hv
             case _:
                 raise ValueError(f"Unknown binary indicator: {indi}")
     return selection_types[name](problem=problem, publisher=publisher, seed=seed, verbosity=verbosity, **dict(options))
