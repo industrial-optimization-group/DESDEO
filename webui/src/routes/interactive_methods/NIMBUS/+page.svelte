@@ -102,6 +102,7 @@
 		processPreviousObjectiveValues,
 		updateSolutionNames
 	} from './helper-functions';
+	import { writable } from 'svelte/store';
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 	// Define a general type combining all three responses that NIMBUS can return
 	type Solution = components['schemas']['SolutionReferenceResponse'];
@@ -201,7 +202,7 @@
 
 	// Variables for  for showing that calculations are ongoing
 	// svelte-ignore non_reactive_update
-	let calculating = false;
+	let calculating = writable(false);
 	let error: string | null = null;
 
 	// Validation: iteration is allowed when at least one preference is better and one is worse than current objectives
@@ -504,7 +505,7 @@
 		};
 
 		try {
-			calculating = true;
+			calculating.set(true);
 			error = null;
 
 			const result = await callNimbusAPI<Response>(
@@ -542,7 +543,7 @@
 			error = err instanceof Error ? err.message : 'Unknown error';
 			console.log(error);
 		} finally {
-			calculating = false;
+			calculating.set(false);
 		}
 	}
 

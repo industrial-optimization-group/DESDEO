@@ -49,7 +49,7 @@
 		showNumSolutions?: boolean;
 		ref?: HTMLElement | null;
 		isIterationAllowed?: boolean;
-		isCalculating?: boolean;
+		isCalculating?: Writable<boolean>;
 		isFinishAllowed?: boolean;
 		minNumSolutions?: number;
 		maxNumSolutions?: number;
@@ -70,7 +70,7 @@
 		showNumSolutions = false,
 		ref = null,
 		isIterationAllowed = true,
-		isCalculating = false,
+		isCalculating = writable(false),
 		isFinishAllowed = true,
 		minNumSolutions = 1,
 		maxNumSolutions = 4,
@@ -394,11 +394,11 @@
 		<div class="items-right flex justify-end gap-2">
 			<Button
 				variant="default"
-				disabled={!isIterationAllowed || isCalculating}
+				disabled={!isIterationAllowed || $isCalculating}
 				size="sm"
 				onclick={handle_iterate}
 			>
-				{isCalculating ? 'Calculating…' : 'Iterate'}
+				{$isCalculating ? 'Calculating…' : 'Iterate'}
 			</Button>
 			{#if isFinishButton}
 				<Button variant="secondary" size="sm" disabled={!isFinishAllowed} onclick={handle_finish}>
