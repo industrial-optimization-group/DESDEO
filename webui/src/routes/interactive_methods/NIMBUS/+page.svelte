@@ -806,7 +806,7 @@
 					preferenceValues={current_preference}
 					objectiveValues={Object.values(selected_iteration_objectives)}
 					isIterationAllowed={is_iteration_allowed()}
-					isCalculating={calculating}
+					isCalculating={$calculating}
 					minNumSolutions={1}
 					maxNumSolutions={4}
 					lastIteratedPreference={last_iterated_preference}
