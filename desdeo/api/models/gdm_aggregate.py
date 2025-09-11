@@ -7,21 +7,21 @@ import json
 from sqlalchemy.types import TypeDecorator
 from sqlmodel import SQLModel, Field, Relationship, JSON, Column
 
-from desdeo.api.models import BasePreferenceResults
+from desdeo.api.models import BasePreferences, StateDB
 from desdeo.api.models.gnimbus import (
-    VotingPreferenceResults,
-    OptimizationPreferenceResults
+    VotingPreference,
+    OptimizationPreference
 )
 from desdeo.tools import SolverResults
 
-class PreferenceResultType(TypeDecorator):
+class PreferenceType(TypeDecorator):
     """A converter of Preference/Result types"""
 
     impl = JSON
 
     # Serialize
     def process_bind_param(self, value, dialect):
-        if isinstance(value, BasePreferenceResults):
+        if isinstance(value, BasePreferences):
             valmd = value.model_dump_json()
             return valmd
         return None
@@ -32,10 +32,10 @@ class PreferenceResultType(TypeDecorator):
         if jsoned is not None:
             match jsoned["method"]:
                 case "voting":
-                    valdeser = VotingPreferenceResults.model_validate(jsoned)
+                    valdeser = VotingPreference.model_validate(jsoned)
                     return valdeser
                 case "optimization":
-                    valdeser = OptimizationPreferenceResults.model_validate(jsoned)
+                    valdeser = OptimizationPreference.model_validate(jsoned)
                     return valdeser
                 # As the different methods are implemented, add new types
                 case _:
@@ -74,8 +74,13 @@ class GroupIteration(SQLModel, table=True):
     group_id: int | None = Field(foreign_key="group.id", default=None)
     group: "Group" = Relationship(back_populates="head_iteration")
     
-    pref_results: BasePreferenceResults = Field(sa_column=Column(PreferenceResultType))
+    # Preferences that are filled as they come (remove the RESULT aspect from this, just put the results to the state.)
+    preferences: BasePreferences = Field(sa_column=Column(PreferenceType))
     notified: dict[int, bool] = Field(sa_column=Column(JSON))
+
+    # TODO: Add a state db item to contain the results. This should allow e.g. UTOPIA endpoints to function.
+    # I don't want a relation to StateDB so I feel this might be the way to do that
+    state_id: int | None = Field()
 
     parent_id: int | None = Field(foreign_key="groupiteration.id", default=None)
     parent: "GroupIteration" = Relationship(

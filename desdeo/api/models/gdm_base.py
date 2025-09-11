@@ -30,6 +30,6 @@ class ReferencePointDictType(TypeDecorator):
                 print(f"Validation error when deserializing PreferencePoint: {e}")
         return dictionary
 
-class BasePreferenceResults(SQLModel):
+class BasePreferences(SQLModel):
     """A base class for a method specific preference and results"""
     method: str = "unset"

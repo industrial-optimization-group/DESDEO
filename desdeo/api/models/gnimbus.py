@@ -6,9 +6,10 @@ from pydantic import ValidationError
 from enum import Enum
 
 from desdeo.api.models import (
-    BasePreferenceResults, 
+    BasePreferences, 
     ReferencePointDictType, 
     ReferencePoint,
+    SolutionReference
 )
 from desdeo.tools import SolverResults
 
@@ -38,7 +39,7 @@ class SolverResultType(TypeDecorator):
             return solver_list
         
 
-class OptimizationPreferenceResults(BasePreferenceResults):
+class OptimizationPreference(BasePreferences):
     """An optimization preference and result class. 
     In results, the last four solutions should be the common solutions
     """
@@ -46,23 +47,31 @@ class OptimizationPreferenceResults(BasePreferenceResults):
     method: str = "optimization"
     phase: str = Field(default="learning")
     set_preferences: dict[int, ReferencePoint] = Field(sa_column=Column(ReferencePointDictType))
-    results: list[SolverResults] = Field(sa_column=Column(JSON))
 
 
-class VotingPreferenceResults(BasePreferenceResults):
+class VotingPreference(BasePreferences):
     """A voting preferences and results. A placeholder, really"""
     method: str = "voting"
     set_preferences: dict[int, int] = Field(sa_column=Column(JSON)) # A user votes for an index from the results (or something)
-    results: list[SolverResults] | None = Field(sa_column=Column(JSON), default = None) # The winning result (or something)
 
 
 class GNIMBUSResultResponse(SQLModel):
     """The response for getting GNIMBUS results"""
     method: str
     phase: str
-    common_results: list[SolverResults]
-    user_results: list[SolverResults]
+    preferences: VotingPreference | OptimizationPreference
+    common_results: list[SolutionReference]
+    user_results: list[SolutionReference]
     personal_result_index: int | None
 
-class GNIMBUSAllResultsResponse(SQLModel):
+class FullIteration(SQLModel):
+    phase: str
+    optimization_preferences: OptimizationPreference
+    voting_preferences: VotingPreference
+    common_results: list[SolutionReference]
+    user_results: list[SolutionReference]
+    chosen_result: SolutionReference
+
+class GNIMBUSAllIterationsResponse(SQLModel):
     """The response model for getting all found solutions among others"""
+    all_full_iterations: list[FullIteration]

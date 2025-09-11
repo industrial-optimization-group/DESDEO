@@ -14,6 +14,8 @@ __all__ = [  # noqa: RUF022
     "ForestProblemMetaData",
     "GenericIntermediateSolutionResponse",
     "GetSessionRequest",
+    "GNIMBUSOptimizationState",
+    "GNIMBUSVotingState",
     "InteractiveSessionBase",
     "InteractiveSessionDB",
     "InteractiveSessionInfo",
@@ -68,7 +70,7 @@ __all__ = [  # noqa: RUF022
     "GroupIteration",
     "GroupPublic",
     "GroupInfoRequest",
-    "BasePreferenceResults",
+    "BasePreferences",
     "ReferencePointDictType",
     "EMOSolveRequest",
     "PreferredRanges",
@@ -157,11 +159,13 @@ from .state import (
     NIMBUSClassificationState,
     NIMBUSInitializationState,
     NIMBUSSaveState,
+    GNIMBUSOptimizationState,
+    GNIMBUSVotingState,
     RPMState,
 )
 from .user import User, UserBase, UserPublic, UserRole
 from .gdm_base import (
-    BasePreferenceResults,
+    BasePreferences,
     ReferencePointDictType,
 )
 from .gdm_aggregate import (

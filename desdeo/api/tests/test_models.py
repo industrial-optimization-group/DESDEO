@@ -34,8 +34,8 @@ from desdeo.api.models import (
     GroupIteration,
 )
 from desdeo.api.models.gnimbus import (
-    OptimizationPreferenceResults,
-    VotingPreferenceResults,
+    OptimizationPreference,
+    VotingPreference,
 )
 from desdeo.mcdm import enautilus_step, rpm_solve_solutions
 from desdeo.problem.schema import (
@@ -858,9 +858,8 @@ def test_gnimbus_datas(session_and_user: dict[str, Session | list[User]]):
         problem_id=1,
         group_id=group.id,
         group=group,
-        pref_results=OptimizationPreferenceResults(
+        preferences=OptimizationPreference(
             set_preferences={},
-            results=[]
         ),
         notified={},
         parent_id = None,
@@ -871,7 +870,7 @@ def test_gnimbus_datas(session_and_user: dict[str, Session | list[User]]):
     session.commit()
     session.refresh(giter)
 
-    assert type(giter.pref_results) == OptimizationPreferenceResults
+    assert type(giter.preferences) == OptimizationPreference
     assert giter.problem_id == 1
     assert giter.group_id == group.id
 

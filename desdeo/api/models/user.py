@@ -50,4 +50,4 @@ class UserPublic(UserBase):
 
     id: int
     role: UserRole
-    group: str
+    group_ids: list[int] | None
