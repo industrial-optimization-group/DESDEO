@@ -32,6 +32,7 @@ dependencies = [
     "greenlet >= 3.1.1",
     "pymoo >= 0.6.1.2",
     "shap >= 0.47.0",
+	"requests >= 2.32.0",
     "cvxpy[scip] >= 1.6.4",
     "moocore >= 0.1.7"
 ]
@@ -93,6 +94,10 @@ viz = [
 tools = [
     "djlint>=1.34.1",
     "eralchemy>=1.5.0"
+]
+
+server = [
+    "gunicorn>=23.0.0"
 ]
 
 [tool.ruff]
@@ -238,6 +243,10 @@ markers = [
 ]
 pythonpath = "."
 asyncio_default_fixture_loop_scope = "function"
+filterwarnings = [
+	"default::RuntimeWarning",
+	"default::UserWarning",
+]
 
 [build-system]
 requires = ["poetry-core"]

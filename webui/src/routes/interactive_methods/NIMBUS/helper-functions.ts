@@ -13,17 +13,13 @@ import type { components } from '$lib/api/client-types';
 
 // Type definitions for NIMBUS components
 type ProblemInfo = components['schemas']['ProblemInfo'];
-type Solution = components['schemas']['UserSavedSolutionAddress'];
+type Solution = components['schemas']['SolutionReferenceResponse'];
+
 
 // Define the Response type needed for our helper functions
 type NIMBUSClassificationResponse = components['schemas']['NIMBUSClassificationResponse'];
 type NIMBUSInitializationResponse = components['schemas']['NIMBUSInitializationResponse'];
-type BaseResponse = NIMBUSClassificationResponse | NIMBUSInitializationResponse;
-type Response = BaseResponse & {
-    current_solutions: Solution[],
-    saved_solutions: Solution[],
-    all_solutions: Solution[],
-};
+type Response = NIMBUSClassificationResponse | NIMBUSInitializationResponse;
 
 /**
  * Checks if a problem has utopia metadata for map visualization
@@ -31,10 +27,15 @@ type Response = BaseResponse & {
  * @returns boolean indicating if the problem has utopia metadata
  */
 export function checkUtopiaMetadata(prob: ProblemInfo | null) {
-    if (!prob || !prob.problem_metadata || !prob.problem_metadata.data) {
+    // Check if the problem and its metadata exist
+    if (!prob || !prob.problem_metadata) {
         return false;
     }
-    return prob.problem_metadata.data.some(meta => meta.metadata_type === "forest_problem_metadata");
+    
+    // Check if forest_metadata exists and is not empty
+    return prob.problem_metadata.forest_metadata !== null && 
+           Array.isArray(prob.problem_metadata.forest_metadata) && 
+           prob.problem_metadata.forest_metadata.length > 0;
 }
 
 /**
@@ -46,7 +47,7 @@ export function checkUtopiaMetadata(prob: ProblemInfo | null) {
 export function mapSolutionsToObjectiveValues(solutions: Solution[], problem: ProblemInfo) {
     return solutions.map(result => {
         return problem.objectives.map(obj => {
-            const value = result.objective_values[obj.symbol];
+            const value = result.objective_values && result.objective_values[obj.symbol];
             return Array.isArray(value) ? value[0] : value;
         });
     });
@@ -217,8 +218,8 @@ export function updateSolutionNames(
     // Update names for solutions that exist in saved solutions
     for (let solution of updatedSolutions) {
         const savedIndex = savedSolutions.findIndex(
-            saved => saved.address_state === solution.address_state && 
-                   saved.address_result === solution.address_result
+            saved => saved.state_id === solution.state_id && 
+                   saved.solution_index === solution.solution_index
         );
         
         if (savedIndex !== -1) {

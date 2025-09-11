@@ -21,13 +21,16 @@ from desdeo.tools import (
     add_group_asf_diff,
     add_group_asf,
     add_group_asf_agg,
+    add_group_asf_agg_diff,
     add_group_guess_diff,
     add_group_guess,
     add_group_guess_agg,
+    add_group_guess_agg_diff,
     add_group_nimbus,
     add_group_nimbus_diff,
     add_group_stom,
     add_group_stom_agg,
+    add_group_stom_agg_diff,
     add_group_stom_diff,
     guess_best_solver,
     add_asf_diff,
@@ -41,50 +44,16 @@ from desdeo.mcdm.nimbus import (
     infer_classifications,
     NimbusError
 )
+from desdeo.gdm.voting_rules import majority_rule, plurality_rule
+from desdeo.gdm.gdmtools import dict_of_rps_to_list_of_rps, list_of_rps_to_dict_of_rps
 import polars as pl
 
 
-def majority_rule(votes: dict[str, int]):
-    """
-        TODO: move to some upcoming GDM tools folder
-    """
-    from collections import Counter
-
-    counts = Counter(votes.values())
-    all_votes = sum(counts.values())
-    for vote, c in counts.items():
-        if c > all_votes // 2:
-            return vote
-    return None
-
-def plurality_rule(votes: dict[str, int]):
-    """
-        TODO: move to some upcoming GDM tools folder
-    """
-    from collections import Counter
-
-    counts = Counter(votes.values())
-    max_votes = max(counts.values())
-    winners = [vote for vote, c in counts.items() if c == max_votes]
-
-    return winners
-
-# Below two are tools for GDM, have needed them in both projects
-def dict_of_rps_to_list_of_rps(reference_points: dict[str, dict[str, float]]) -> list[dict[str, float]]:
-    """
-    Convert dict containing the DM key to an ordered list.
-    """
-    return list(reference_points.values())
-
-def list_of_rps_to_dict_of_rps(reference_points: list[dict[str, float]]) -> dict[str, dict[str, float]]:
-    """
-    Convert the ordered list to a dict contain the DM keys. TODO: Later maybe get these keys from somewhere.
-    """
-    return {f"DM{i+1}": rp for i, rp in enumerate(reference_points)}
 
 
 def voting_procedure(problem: Problem, solutions, votes_idxs: dict[str, int]) -> SolverResults:
-    """
+    """ 
+        Voting procedure for GNIMBUS for 4 DMs.
         CLEAN THIS UP
         Works properly for 4 votes and 4 solutions as per design.
     """
@@ -188,15 +157,9 @@ def solve_intermediate_solutions_only_objs(  # noqa: PLR0913
     # evaluate the intermediate points to get reference points
     # TODO(gialmisi): an evaluator might have to be selected depending on the problem
     evaluator = PolarsEvaluator(problem)
-
-    print("intermediate points:", intermediate_points)
-    print("==")
     reference_points = (
         evaluator.evaluate(intermediate_var_values).select([obj.symbol for obj in problem.objectives]).to_dicts()
     )
-
-    print("==")
-    print("intermediate rps:", reference_points)
     # for each reference point, add and solve the ASF scalarization problem
     # projecting the reference point onto the Pareto optimal front of the problem.
     # TODO(gialmisi): this can be done in parallel.
@@ -216,7 +179,7 @@ def solve_intermediate_solutions_only_objs(  # noqa: PLR0913
     return intermediate_solutions
 
 
-# to tools
+# TODO: move to tools after generalizing a bit
 def find_min_max_values(po_list: list[dict[str, float]], problem: Problem):
     """
         Find min aspirations and upper (max) bounds. Assumes minimization.
@@ -229,7 +192,7 @@ def find_min_max_values(po_list: list[dict[str, float]], problem: Problem):
 
     return min_values, max_values
 
-# TODO: comments
+# TODO: comments and move somewhere else
 def scale_delta(problem, d):
     delta = {}
     ideal = problem.get_ideal_point()
@@ -313,8 +276,6 @@ def solve_sub_problems(  # noqa: PLR0913
     init_solver = create_solver if create_solver is not None else guess_best_solver(problem)
     _solver_options = solver_options if solver_options is not None else None
 
-    print("CURRENT SOLVER", init_solver)
-
     solutions = []
     classification_list = []
     achievable_prefs = []
@@ -322,7 +283,7 @@ def solve_sub_problems(  # noqa: PLR0913
     ind_sols = []
     reference_points_list = dict_of_rps_to_list_of_rps(reference_points)
 
-    # Solve for individual solutions
+    # Solve for individual solutions. TODO: move as own function, should be useful for other methods as well.
     for dm_rp in reference_points:
         classification = infer_classifications(problem, current_objectives, reference_points[dm_rp])
         nimbus_scala = add_nimbus_sf_diff if problem.is_twice_differentiable else add_nimbus_sf_nondiff  # non-diff gnimbus
@@ -345,14 +306,12 @@ def solve_sub_problems(  # noqa: PLR0913
 
     print(achievable_prefs)
     agg_aspirations, agg_bounds = find_min_max_values(achievable_prefs, problem)
-    delta = scale_delta(problem, d=1e-6)
-    # delta = 1e-6 # DTLZ2 has errors when delta 1e-8
+    delta = scale_delta(problem, d=1e-6) # TODO: move somewhere else
 
     if phase == "decision":
         for dm_rp in reference_points:
-            # print("RPS", reference_points[dm_rp])
             classification_list.append(infer_classifications(problem, current_objectives, reference_points[dm_rp]))
-        gnimbus_scala = add_group_nimbus_diff if problem.is_twice_differentiable else add_group_nimbus  # non-diff gnimbus
+        gnimbus_scala = add_group_nimbus_diff if problem.is_twice_differentiable else add_group_nimbus
         add_nimbus_sf = gnimbus_scala
 
         problem_g_nimbus, gnimbus_target = add_nimbus_sf(
@@ -374,15 +333,12 @@ def solve_sub_problems(  # noqa: PLR0913
         # Add individual solutions
         for i in range(len(ind_sols)):
             solutions.append(ind_sols[i])
-        # for i in range(len(achievable_prefs)):
-        #    solutions.append(achievable_prefs[i])
-        #
         """ Group nimbus scalarization with delta and added hard_constraints  """
         classification_list = []
         for dm_rp in reference_points:
             classification_list.append(infer_classifications(problem, current_objectives, reference_points[dm_rp]))
         print(classification_list)
-        gnimbus_scala = add_group_nimbus_diff if problem.is_twice_differentiable else add_group_nimbus  # non-diff gnimbus
+        gnimbus_scala = add_group_nimbus_diff if problem.is_twice_differentiable else add_group_nimbus
         add_nimbus_sf = gnimbus_scala
 
         problem_w_nimbus, nimbus_target = add_nimbus_sf(
@@ -399,9 +355,11 @@ def solve_sub_problems(  # noqa: PLR0913
         """ SOLVING Group Scals with scaled delta, original RPs and hard_constraints """
         # solve STOM
         add_stom_sf = add_group_stom_diff if problem.is_twice_differentiable else add_group_stom
-        problem_w_stom, stom_target = add_stom_sf(problem, "stom_sf", reference_points_list, agg_bounds, delta, **(scalarization_options or {}))
+        problem_w_stom, stom_target = add_stom_sf(
+            problem, "stom_sf", reference_points_list, agg_bounds, delta, **(scalarization_options or {})
+        )
         if _solver_options:
-            stom_solver = init_solver(problem_w_stom, _solver_options)
+            stom_solver = init_solver(problem_w_stom, _solver_options) # type:ignore
         else:
             stom_solver = init_solver(problem_w_stom)
 
@@ -409,9 +367,11 @@ def solve_sub_problems(  # noqa: PLR0913
 
         # solve ASF
         add_asf = add_group_asf_diff if problem.is_twice_differentiable else add_group_asf
-        problem_w_asf, asf_target = add_asf(problem, "asf", reference_points_list, agg_bounds, delta, **(scalarization_options or {}))
+        problem_w_asf, asf_target = add_asf(
+            problem, "asf", reference_points_list, agg_bounds, delta, **(scalarization_options or {})
+        )
         if _solver_options:
-            asf_solver = init_solver(problem_w_asf, _solver_options)
+            asf_solver = init_solver(problem_w_asf, _solver_options) # type:ignore
         else:
             asf_solver = init_solver(problem_w_asf)
 
@@ -423,7 +383,7 @@ def solve_sub_problems(  # noqa: PLR0913
             problem, "guess_sf", reference_points_list, agg_bounds, delta, **(scalarization_options or {})
         )
         if _solver_options:
-            guess_solver = init_solver(problem_w_guess, _solver_options)
+            guess_solver = init_solver(problem_w_guess, _solver_options) # type:ignore
         else:
             guess_solver = init_solver(problem_w_guess)
 
@@ -431,7 +391,6 @@ def solve_sub_problems(  # noqa: PLR0913
 
         return solutions
 
-    # elif phase == "crp":  # phase crp
     else:  # phase is crp
         # Add individual solutions
         for i in range(len(ind_sols)):
@@ -443,7 +402,7 @@ def solve_sub_problems(  # noqa: PLR0913
             print("RPS", reference_points[dm_rp])
             classification_list.append(infer_classifications(problem, current_objectives, reference_points[dm_rp]))
         print(classification_list)
-        gnimbus_scala = add_group_nimbus_diff if problem.is_twice_differentiable else add_group_nimbus  # non-diff gnimbus
+        gnimbus_scala = add_group_nimbus_diff if problem.is_twice_differentiable else add_group_nimbus 
         add_nimbus_sf = gnimbus_scala
 
         problem_w_nimbus, nimbus_target = add_nimbus_sf(
@@ -459,35 +418,37 @@ def solve_sub_problems(  # noqa: PLR0913
 
         """ SOLVING Group Scals with scaled delta, agg. aspirations and hard_constraints """
 
-        add_stom_sf2 = add_group_stom_agg
-        # add_group_stom_sf_diff if problem.is_twice_differentiable else add_group_stom_sf
+        add_stom_sf2 = add_group_stom_agg_diff if problem.is_twice_differentiable else add_group_stom_agg
 
-        problem_g_stom, stomg_target = add_stom_sf2(problem, "stom_sf2", agg_aspirations, agg_bounds, delta, **(scalarization_options or {}))
+        problem_g_stom, stomg_target = add_stom_sf2(
+            problem, "stom_sf2", agg_aspirations, agg_bounds, delta, **(scalarization_options or {})
+        )
         if _solver_options:
-            stomg_solver = init_solver(problem_g_stom, _solver_options)
+            stomg_solver = init_solver(problem_g_stom, _solver_options) # type:ignore
         else:
             stomg_solver = init_solver(problem_g_stom)
 
         solutions.append(stomg_solver.solve(stomg_target))
 
-        add_asf2 = add_group_asf_agg
-        problem_g_asf, asfg_target = add_asf2(problem, "asf2", agg_aspirations, agg_bounds, delta, **(scalarization_options or {}))
+        add_asf2 = add_group_asf_agg_diff if problem.is_twice_differentiable else add_group_asf_agg
+        problem_g_asf, asfg_target = add_asf2(
+            problem, "asf2", agg_aspirations, agg_bounds, delta, **(scalarization_options or {})
+        )
         if _solver_options:
-            asfg_solver = init_solver(problem_g_asf, _solver_options)
+            asfg_solver = init_solver(problem_g_asf, _solver_options) # type:ignore
         else:
             asfg_solver = init_solver(problem_g_asf)
 
         solutions.append(asfg_solver.solve(asfg_target))
 
-        add_guess_sf2 = add_group_guess_agg
-        # add_group_guess_sf_diff if problem.is_twice_differentiable else add_group_guess_sf
+        add_guess_sf2 = add_group_asf_agg_diff if problem.is_twice_differentiable else add_group_guess_agg
 
         problem_g_guess, guess2_target = add_guess_sf2(
-            problem, "guess_sf", agg_aspirations, agg_bounds, delta, **(scalarization_options or {})
+            problem, "guess_sf2", agg_aspirations, agg_bounds, delta, **(scalarization_options or {})
         )
 
         if _solver_options:
-            guess2_solver = init_solver(problem_g_guess, _solver_options)
+            guess2_solver = init_solver(problem_g_guess, _solver_options) # type:ignore
         else:
             guess2_solver = init_solver(problem_g_guess)
 

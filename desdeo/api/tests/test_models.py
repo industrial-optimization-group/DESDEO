@@ -1,7 +1,6 @@
 """Tests related to the SQLModels."""
 
 import numpy as np
-import polars as pl
 from sqlmodel import Session, select
 
 from desdeo.api.models import (
@@ -27,7 +26,6 @@ from desdeo.api.models import (
     TensorConstantDB,
     TensorVariableDB,
     User,
-    UserSavedSolutionAddress,
     UserSavedSolutionDB,
     VariableDB,
     ProblemMetaDataDB,
@@ -39,9 +37,6 @@ from desdeo.api.models.gnimbus import (
     OptimizationPreferenceResults,
     VotingPreferenceResults,
 )
-from desdeo.api.models.archive import SolutionAddress
-
-from desdeo.api.routers.nimbus import user_save_solutions
 from desdeo.mcdm import enautilus_step, rpm_solve_solutions
 from desdeo.problem.schema import (
     Constant,
@@ -511,51 +506,6 @@ def test_from_problem_to_d_and_back(session_and_user: dict[str, Session | list[U
         assert compare_models(problem, problem_db)
 
 
-def test_archive_entry(session_and_user: dict[str, Session | list[User]]):
-    """Test that the archive works as intended."""
-    session: Session = session_and_user["session"]
-    user: User = session_and_user["user"]
-
-    problem = dtlz2(n_variables=5, n_objectives=3)
-    problem_db = ProblemDB.from_problem(problem, user)
-
-    session.add(problem_db)
-    session.commit()
-    session.refresh(problem_db)
-
-    name = "Test Archive Entry"
-    objective_values = {"f_1": 1.2, "f_2": 0.9, "f_3": 1.5}
-    address_state=1
-    address_result=1
-
-    archive_entry = SolutionAddress(objective_values=objective_values, address_state=address_state, address_result=address_result)
-
-    archive_entry_db = UserSavedSolutionDB.model_validate(
-        archive_entry,
-        update={
-            "name": name,
-            "user_id": user.id,
-            "problem_id": problem_db.id,
-        },
-    )
-
-    session.add(archive_entry_db)
-    session.commit()
-    session.refresh(archive_entry_db)
-
-    from_db = session.get(UserSavedSolutionDB, archive_entry_db.id)
-
-    assert from_db.name == name
-    assert from_db.user_id == user.id
-    assert from_db.problem_id == problem_db.id
-    assert from_db == user.archive[0]
-    assert compare_models(from_db.problem, problem_db)
-    assert from_db.objective_values == objective_values
-    assert from_db.address_state == address_state
-    assert from_db.address_result == address_result
-
-
-
 def test_user_save_solutions(session_and_user: dict[str, Session | list[User]]):
     """Test that user_save_solutions correctly saves solutions to the usersavedsolutiondb in the database."""
     session = session_and_user["session"]
@@ -563,54 +513,77 @@ def test_user_save_solutions(session_and_user: dict[str, Session | list[User]]):
 
     # Create test solutions with proper dictionary values
     objective_values = {"f_1": 1.2, "f_2": 0.9}
+    variable_values = {"x_1": 5.2, "x_2": 8.0, "x_3": -4.2}
+
+    user_id = user.id
+    problem_id = 1
+    origin_state_id = 2
 
     test_solutions = [
-        UserSavedSolutionAddress(
+        UserSavedSolutionDB(
             name="Solution 1",
             objective_values=objective_values,
-            address_state=1,
-            address_result=1,
+            variable_values=variable_values,
+            user_id=user_id,
+            problem_id=problem_id,
+            origin_state_id=origin_state_id,
         ),
-        UserSavedSolutionAddress(
+        UserSavedSolutionDB(
             name="Solution 2",
             objective_values=objective_values,
-            address_state=1,
-            address_result=2,
-        )
-
+            variable_values=variable_values,
+            solution_index=2,
+            user_id=user_id,
+            problem_id=problem_id,
+        ),
     ]
+
     num_test_solutions = len(test_solutions)
-    problem_id = 1
+
     # Create NIMBUSSaveState
-    save_state = NIMBUSSaveState(
-        solution_addresses=test_solutions
-    )
+    save_state = NIMBUSSaveState(solutions=test_solutions)
 
+    # Create StateDB with NIMBUSSaveState
+    state_db = StateDB.create(session, problem_id=problem_id, state=save_state)
 
-    # Create StateDB
-    state = StateDB(problem_id=problem_id, state=save_state)
+    session.add(state_db)
+    session.commit()
+    session.refresh(state_db)
 
-    # Call the function
-    user_save_solutions(state, test_solutions, user.id, session)
     # Verify the solutions were saved
     saved_solutions = session.exec(select(UserSavedSolutionDB)).all()
-    if len(saved_solutions) != num_test_solutions:
-        raise ValueError(f"Expected {num_test_solutions} saved solutions, but found {len(saved_solutions)}")
+    assert len(saved_solutions) == num_test_solutions
 
     # Verify the content of the first solution
     first_solution = saved_solutions[0]
     assert first_solution.name == "Solution 1"
     assert first_solution.objective_values == objective_values
-    assert first_solution.address_state == 1
-    assert first_solution.address_result == 1
+    assert first_solution.variable_values == variable_values
+    assert first_solution.origin_state_id == 1
+    assert first_solution.solution_index is None
     assert first_solution.user_id == user.id
     assert first_solution.problem_id == problem_id
-    assert first_solution.state_id == state.id
+
+    # Verify the content of the second solution
+    second_solution = saved_solutions[1]
+    assert second_solution.name == "Solution 2"
+    assert second_solution.objective_values == objective_values
+    assert second_solution.variable_values == variable_values
+    assert second_solution.origin_state_id == 1
+    assert second_solution.solution_index == 2
+    assert second_solution.user_id == user.id
+    assert second_solution.problem_id == problem_id
 
     # Verify state relationship
-    saved_state = session.exec(select(StateDB).where(StateDB.id == state.id)).first()
+    saved_state = session.exec(select(StateDB).where(StateDB.id == state_db.id)).first()
     assert isinstance(saved_state.state, NIMBUSSaveState)
-    assert len(saved_state.state.solution_addresses) == num_test_solutions
+    assert len(saved_state.state.solutions) == num_test_solutions
+
+    # Check that relationships are formed
+    session.refresh(user)
+
+    assert len(user.archive) == len(test_solutions)
+    assert len(session.get(ProblemDB, problem_id).solutions) == len(test_solutions)
 
 
 def test_preference_models(session_and_user: dict[str, Session | list[User]]):
@@ -688,23 +661,19 @@ def test_rpm_state(session_and_user: dict[str, Session | list[User]]):
     # create preferences
 
     rp_1 = ReferencePoint(aspiration_levels=asp_levels_1)
-    preferences = PreferenceDB(user_id=user.id, problem_id=problem_db.id, preference=rp_1)
-
-    session.add(preferences)
-    session.commit()
-    session.refresh(preferences)
 
     # create state
 
     rpm_state = RPMState(
+        preferences=rp_1,
         scalarization_options=scalarization_options,
         solver=solver,
         solver_options=solver_options,
         solver_results=results,
     )
 
-    state_1 = StateDB(
-        problem_id=problem_db.id, preference_id=preferences.id, session_id=isession.id, parent_id=None, state=rpm_state
+    state_1 = StateDB.create(
+        database_session=session, problem_id=problem_db.id, session_id=isession.id, state=rpm_state
     )
 
     session.add(state_1)
@@ -712,8 +681,6 @@ def test_rpm_state(session_and_user: dict[str, Session | list[User]]):
     session.refresh(state_1)
 
     asp_levels_2 = {"f_1": 0.6, "f_2": 0.4, "f_3": 0.5}
-
-    problem = Problem.from_problemdb(problem_db)
 
     scalarization_options = None
     solver = "pyomo_bonmin"
@@ -727,15 +694,6 @@ def test_rpm_state(session_and_user: dict[str, Session | list[User]]):
         solver_options=solver_options,
     )
 
-    # create preferences
-
-    rp_2 = ReferencePoint(aspiration_levels=asp_levels_2)
-    preferences = PreferenceDB(user_id=user.id, problem_id=problem_db.id, preference=rp_2)
-
-    session.add(preferences)
-    session.commit()
-    session.refresh(preferences)
-
     # create state
 
     rpm_state = RPMState(
@@ -745,9 +703,23 @@ def test_rpm_state(session_and_user: dict[str, Session | list[User]]):
         solver_results=results,
     )
 
-    state_2 = StateDB(
+    # create preferences
+
+    rp_2 = ReferencePoint(aspiration_levels=asp_levels_2)
+
+    # create state
+
+    rpm_state = RPMState(
+        preferences=rp_2,
+        scalarization_options=scalarization_options,
+        solver=solver,
+        solver_options=solver_options,
+        solver_results=results,
+    )
+
+    state_2 = StateDB.create(
+        database_session=session,
         problem_id=problem_db.id,
-        preference_id=preferences.id,
         session_id=isession.id,
         parent_id=state_1.id,
         state=rpm_state,
@@ -762,8 +734,8 @@ def test_rpm_state(session_and_user: dict[str, Session | list[User]]):
     assert len(state_1.children) == 1
     assert state_1.children[0] == state_2
 
-    assert state_1.preference.preference == rp_1
-    assert state_2.preference.preference == rp_2
+    assert state_1.state.preferences == rp_1
+    assert state_2.state.preferences == rp_2
 
     assert state_2.problem == problem_db
     assert state_2.session.user == user
@@ -989,6 +961,7 @@ def test_enautilus_state(session_and_user: dict[str, Session | list[User]]):
     n_points = 3  # DM wants to see 3 points at first
     current = 0
 
+    # First iteration
     res = enautilus_step(
         problem=dummy_problem,
         non_dominated_points=non_dom_data,
@@ -999,9 +972,8 @@ def test_enautilus_state(session_and_user: dict[str, Session | list[User]]):
         number_of_intermediate_points=n_points,
     )
 
-    # First iteration
     enautilus_state = ENautilusState(
-        non_dominated_points_id=reprdata.id,
+        non_dominated_solutions_id=reprdata.id,
         current_iteration=current,
         iterations_left=total_iters - current,
         selected_point=selected_point,
@@ -1010,9 +982,9 @@ def test_enautilus_state(session_and_user: dict[str, Session | list[User]]):
         enautilus_results=res,
     )
 
-    state_1 = StateDB(
+    state_1 = StateDB.create(
+        database_session=session,
         problem_id=problemdb.id,
-        preference_id=None,
         session_id=isession.id,
         parent_id=None,
         state=enautilus_state,
@@ -1034,7 +1006,7 @@ def test_enautilus_state(session_and_user: dict[str, Session | list[User]]):
     )
 
     enautilus_state_2 = ENautilusState(
-        non_dominated_points_id=reprdata.id,
+        non_dominated_solutions_id=reprdata.id,
         current_iteration=res.current_iteration,
         iterations_left=res.iterations_left,
         selected_point=res.intermediate_points[0],
@@ -1043,14 +1015,27 @@ def test_enautilus_state(session_and_user: dict[str, Session | list[User]]):
         enautilus_results=res_2,
     )
 
-    state_2 = StateDB(
+    state_2 = StateDB.create(
+        database_session=session,
         problem_id=problemdb.id,
-        preference_id=None,
         session_id=isession.id,
-        parent_id=state_1.id,
+        parent_id=enautilus_state.id,
         state=enautilus_state_2,
     )
 
     session.add(state_2)
     session.commit()
     session.refresh(state_2)
+
+    assert state_1.problem_id == problemdb.id
+    assert state_2.problem_id == problemdb.id
+
+    assert state_1.session_id == isession.id
+    assert state_2.session_id == isession.id
+
+    assert state_1.parent is None
+    assert state_2.parent == state_1
+
+    assert len(state_1.children) == 1
+    assert state_1.children[0] == state_2
+    assert state_2.children == []

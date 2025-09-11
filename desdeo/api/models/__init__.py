@@ -1,8 +1,6 @@
 """Model exports."""
 
 __all__ = [  # noqa: RUF022
-    "UserSavedSolutionDB",
-    "BaseEMOState",
     "Bounds",
     "ConstantDB",
     "ConstraintDB",
@@ -14,6 +12,7 @@ __all__ = [  # noqa: RUF022
     "ENautilusState",
     "ExtraFunctionDB",
     "ForestProblemMetaData",
+    "GenericIntermediateSolutionResponse",
     "GetSessionRequest",
     "InteractiveSessionBase",
     "InteractiveSessionDB",
@@ -21,11 +20,11 @@ __all__ = [  # noqa: RUF022
     "IntermediateSolutionRequest",
     "IntermediateSolutionResponse",
     "IntermediateSolutionState",
-    "NIMBUSBaseState",
     "NIMBUSClassificationRequest",
     "NIMBUSClassificationState",
     "NIMBUSInitializationRequest",
     "NIMBUSInitializationState",
+    "NIMBUSIntermediateSolutionResponse",
     "NIMBUSSaveRequest",
     "NIMBUSClassificationResponse",
     "NIMBUSInitializationResponse",
@@ -45,12 +44,14 @@ __all__ = [  # noqa: RUF022
     "ProblemMetaDataGetRequest",
     "ReferencePoint",
     "RepresentativeNonDominatedSolutions",
-    "RPMBaseState",
     "RPMSolveRequest",
     "RPMState",
+    "SavedSolutionReference",
     "ScalarizationFunctionDB",
     "SimulatorDB",
+    "State",
     "StateDB",
+    "SolutionInfo",
     "TensorConstantDB",
     "TensorVariableDB",
     "User",
@@ -77,22 +78,37 @@ __all__ = [  # noqa: RUF022
     "EMOSaveRequest",
     "EMOState",
     "SolutionAddress",
+    "SolutionAddressReference",
+    "SolutionAddressResponse",
     "UserSavedEMOResults",
-    "UserSavedSolutionAddress",
+    "UserSavedSolutionDB",
     "UtopiaRequest",
     "UtopiaResponse",
     "VariableDB",
 ]
 
 
-from .archive import SolutionAddress, UserSavedEMOResults, UserSavedSolutionAddress, UserSavedSolutionDB
+from .archive import UserSavedEMOResults
 from .EMO import EMOSaveRequest, EMOSolveRequest
-from .generic import IntermediateSolutionRequest, IntermediateSolutionResponse
+from .generic import (
+    GenericIntermediateSolutionResponse,
+    IntermediateSolutionRequest,
+    SolutionInfo,
+)
+from .generic_states import (
+    SavedSolutionReference,
+    SolutionReference,
+    SolutionReferenceResponse,
+    State,
+    StateDB,
+    UserSavedSolutionDB,
+)
 from .nimbus import (
     NIMBUSClassificationRequest,
     NIMBUSClassificationResponse,
     NIMBUSInitializationRequest,
     NIMBUSInitializationResponse,
+    NIMBUSIntermediateSolutionResponse,
     NIMBUSSaveRequest,
     NIMBUSSaveResponse,
 )
@@ -134,18 +150,14 @@ from .session import (
     InteractiveSessionInfo,
 )
 from .state import (
-    BaseEMOState,
     EMOSaveState,
     EMOState,
     ENautilusState,
     IntermediateSolutionState,
-    NIMBUSBaseState,
     NIMBUSClassificationState,
     NIMBUSInitializationState,
     NIMBUSSaveState,
-    RPMBaseState,
     RPMState,
-    StateDB,
 )
 from .user import User, UserBase, UserPublic, UserRole
 from .gdm_base import (

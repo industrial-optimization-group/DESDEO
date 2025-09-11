@@ -77,14 +77,14 @@ export const POST: RequestHandler = async ({ url, request, cookies }) => {
 };
 
 async function handle_save(body: any, refreshToken: string) {
-        const {problem_id, solutions} = body;
+        const {problem_id, solution_info} = body;
         const session_id = null;
         const parent_state_id = null;
         const requestBody = {
             problem_id,
             session_id,
             parent_state_id,
-            solutions
+            solution_info
         }
         const response = await api.POST('/method/nimbus/save', {
             body: requestBody,
@@ -117,7 +117,7 @@ async function handle_initialize(body: any, refreshToken: string) {
         solver
     };
 
-    const response = await api.POST('/method/nimbus/initialize', {
+    const response = await api.POST('/method/nimbus/get-or-initialize', {
         body: requestBody,
         headers: {
             'Authorization': `Bearer ${refreshToken}`

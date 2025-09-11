@@ -104,7 +104,7 @@
 	} from './helper-functions';
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 	// Define a general type combining all three responses that NIMBUS can return
-	type Solution = components['schemas']['UserSavedSolutionAddress'];
+	type Solution = components['schemas']['SolutionReferenceResponse'];
 	type Response = {
 		state_id: number | null,
 		previous_preference?: components["schemas"]["ReferencePoint"],
@@ -373,7 +373,7 @@
 		// Create a copy of the solution with the name
 		const solutionToSave = {
 			...solution,
-			name: name
+			name: name ?? null
 		};
 		
 		// save the solution to the server. Endpoint checks if the exact solution is already saved and changes the name.
@@ -383,20 +383,20 @@
 		
 		const result = await callNimbusAPI<SaveResponse>('save', {
 			problem_id: problem?.id,
-			solutions: [solutionToSave],
+			solution_info: [solutionToSave],
 		});
 
 		if (result.success) {
 			// Update the solution in all lists after it is successfully saved in the backend
 			const updateSolutionInList = (list: Solution[]) => 
 				list.map(item => 
-					(item.address_state === solution.address_state && item.address_result === solution.address_result) 
-						? solutionToSave 
-						: item
+					(item.state_id === solution.state_id && item.solution_index === solution.solution_index) 
+						? { ...solutionToSave, name: solutionToSave.name ?? null }
+						: { ...item, name: item.name ?? null }
 				);
 			// Check if the solution already exists in saved_solutions
 			const existingIndex = current_state.saved_solutions.findIndex(
-				saved => saved.address_state === solution.address_state && saved.address_result === solution.address_result
+				saved => saved.state_id === solution.state_id && saved.solution_index === solution.solution_index
 			);
 			let updatedSavedSolutions;
 			if (existingIndex !== -1) {
@@ -404,7 +404,7 @@
 				updatedSavedSolutions = [...current_state.saved_solutions];
 				updatedSavedSolutions[existingIndex] = {
 					...updatedSavedSolutions[existingIndex],
-					name: name
+					name: name || null
 				};
 			} else {
 				// Add to saved_solutions
@@ -448,7 +448,7 @@
 		if (result.success) {
 			// Remove the solution from saved_solutions
 			const updatedSavedSolutions = current_state.saved_solutions.filter(
-				saved => !(saved.address_state === solution.address_state && saved.address_result === solution.address_result)
+				saved => !(saved.state_id === solution.state_id && saved.solution_index === solution.solution_index)
 			);
 			
 			// Update state with removed solution
@@ -589,7 +589,7 @@
 			selected_iteration_index = [0]; // Reset to first solution if out of bounds
 		}
 		
-		const selectedSolution = chosen_solutions[selected_iteration_index[0]]; 
+		const selectedSolution = chosen_solutions[selected_iteration_index[0]];
 		selected_iteration_objectives = selectedSolution.objective_values || {};
 				
 		// Only fetch maps if problem has utopia metadata
@@ -624,7 +624,7 @@
 	// helper function to check if a solution is saved (exists in savedSolutions)
 	function isSaved(solution: Solution): boolean {
 		return current_state.saved_solutions.some(
-			saved => saved.address_state === solution.address_state && saved.address_result === solution.address_result
+			saved => saved.state_id === solution.state_id && saved.solution_index === solution.solution_index
 		);
 	}
 
