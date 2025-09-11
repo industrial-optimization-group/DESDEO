@@ -14,7 +14,7 @@ from desdeo.api.models import (
 from desdeo.tools import SolverResults
 
 class SolverResultType(TypeDecorator):
-    """Dunno why the solver results wouldn't serialize but this should do the trick"""
+    """Not sure why the solver results wouldn't serialize but this should do the trick"""
     impl = JSON
 
     def process_bind_param(self, value, dialect):
@@ -40,9 +40,7 @@ class SolverResultType(TypeDecorator):
         
 
 class OptimizationPreference(BasePreferences):
-    """An optimization preference and result class. 
-    In results, the last four solutions should be the common solutions
-    """
+    """An optimization preference class. As for the method and phase, see GNIMBUS for details."""
 
     method: str = "optimization"
     phase: str = Field(default="learning")
@@ -50,7 +48,7 @@ class OptimizationPreference(BasePreferences):
 
 
 class VotingPreference(BasePreferences):
-    """A voting preferences and results. A placeholder, really"""
+    """Voting preferences"""
     method: str = "voting"
     set_preferences: dict[int, int] = Field(sa_column=Column(JSON)) # A user votes for an index from the results (or something)
 
