@@ -38,31 +38,37 @@
 	 * - TODO: Fetch the methods that are suitable for the selected problem from the server (based on the properties of the problem).
 	 * - TODO: Enable the settings button to configure method.
 	 */
-
-	import type { PageProps } from './$types';
 	import { methodSelection } from '../../../stores/methodSelection';
-
 	import { onMount } from 'svelte';
-	import { page } from '$app/state';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import Settings from '@lucide/svelte/icons/settings';
 	import Play from '@lucide/svelte/icons/play';
+	import Search from '@lucide/svelte/icons/search';
+	import LayoutGrid from '@lucide/svelte/icons/layout-grid';
+	import LayoutList from '@lucide/svelte/icons/layout-list';
 	import type { components } from '$lib/api/client-types';
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 
-	let problemId: number | null = $state(null);
-	let problem: ProblemInfo | null = $state(null);
+	type PreferenceType =
+		| 'reference point'
+		| 'classification'
+		| 'preferred ranges'
+		| 'preferred solutions';
 
-	const { data } = $props<{ data: ProblemInfo[] }>();
-	let problemList = data.problems ?? [];
+	interface Method {
+		name: string;
+		path: string;
+		description: string;
+		preferencesType: PreferenceType[];
+	}
 
-	export const methods: any[] = [
+	export const methods: Method[] = [
 		{
 			name: 'NIMBUS',
 			path: '/interactive_methods/NIMBUS',
 			description: 'NIMBUS method for MOO.',
-			preferencesType: ['reference point']
+			preferencesType: ['classification']
 		},
 		{
 			name: 'GDM-SCORE-bands',
@@ -86,10 +92,37 @@
 			name: 'Reference Point',
 			path: '/interactive_methods/reference-point',
 			description: 'Reference Point method for MOO.',
-			preferencesType: ['reference point'],
-			problemtypes: ['linear', 'nonlinear']
+			preferencesType: ['reference point']
 		}
-	];
+	] as const;
+
+	type MethodFilterType = PreferenceType | 'all';
+
+	let problemId: number | null = $state(null);
+	let problem: ProblemInfo | null = $state(null);
+	let searchQuery = $state('');
+	let selectedPreferenceType = $state<MethodFilterType>('all');
+	let isCompactView = $state(false);
+
+	const { data } = $props<{ data: { problems: ProblemInfo[] } }>();
+	let problemList = data.problems ?? [];
+
+	const preferenceTypes = [...new Set(methods.flatMap((m) => m.preferencesType))];
+
+	let filteredMethods = $derived(
+		methods.filter((method) => {
+			const matchesSearch =
+				searchQuery === '' ||
+				method.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+				method.description.toLowerCase().includes(searchQuery.toLowerCase());
+
+			const matchesPreference =
+				selectedPreferenceType === 'all' || method.preferencesType.includes(selectedPreferenceType);
+
+			return matchesSearch && matchesPreference;
+		})
+	);
+
 	onMount(() => {
 		problemId = $methodSelection.selectedProblemId;
 		if (problemId) {
@@ -98,62 +131,149 @@
 	});
 </script>
 
-<div class="px-8">
-	<h1 class="primary mb-2 text-pretty pt-4 text-left text-lg font-semibold lg:text-xl">
-		Optimization Methods
-	</h1>
+<div class="container mx-auto px-4 py-8">
+	<div class="mb-8 space-y-4">
+		<div class="flex items-center justify-between">
+			<h1 class="text-3xl font-bold tracking-tight">Optimization Methods</h1>
+			<div class="flex items-center gap-2">
+				<Button
+					variant="ghost"
+					size="icon"
+					class="hover:text-primary"
+					onclick={() => (isCompactView = !isCompactView)}
+				>
+					{#if isCompactView}
+						<LayoutGrid class="size-5" />
+					{:else}
+						<LayoutList class="size-5" />
+					{/if}
+				</Button>
+			</div>
+		</div>
 
-	{#if problem}
-		<p class="text-md mb-2 text-justify text-gray-700">
-			You are currently viewing methods suitable for the selected problem:
-			<span class="text-accent-foreground font-semibold">{problem.name}</span>
-		</p>
-		<Button variant="secondary" href="/problems">Change selected problem</Button>
-	{:else}
-		<p class="text-md mb-2 text-justify text-gray-700">
-			You are seeing the list of methods available in DESDEO. Please select a problem if you want to
-			use any of the methods.
-		</p>
-		<Button variant="secondary" href="/problems">Select a problem</Button>
-	{/if}
+		{#if problem}
+			<div class="bg-secondary/20 flex items-center justify-between rounded-lg px-4 py-2">
+				<p class="text-sm">
+					Selected problem: <span class="text-primary font-bold">{problem.name}</span>
+				</p>
+				<Button variant="outline" size="sm" href="/problems">Change</Button>
+			</div>
+		{:else}
+			<div class="bg-warning/10 flex items-center justify-between rounded-lg px-4 py-2">
+				<p class="text-sm">Please select a problem to see suitable optimization methods</p>
+				<Button variant="default" size="sm" href="/problems">Select problem</Button>
+			</div>
+		{/if}
 
-	<div class="mt-4 grid grid-cols-3 gap-8 sm:grid-cols-1 lg:grid-cols-3">
-		{#each methods as method}
-			<Card.Root>
-				<Card.Header class="flex items-start justify-between pb-1">
-					<h2 class="text-lg font-semibold">{method.name}</h2>
-				</Card.Header>
-				<Card.Content class="text-left">
-					<div>
-						{#if method.preferencesType}
-							<span class="font-medium">Preference types:</span>
-							<ul class="ml-4 list-inside list-disc">
-								{#each method.preferencesType as type}
-									<li>{type}</li>
-								{/each}
-							</ul>
-						{/if}
-						{#if method.problemtypes}
-							<span class="font-medium">Problem types:</span>
-							<ul class="ml-4 list-inside list-disc">
-								{#each method.problemtypes as type}
-									<li>{type}</li>
-								{/each}
-							</ul>
-						{/if}
-					</div>
-				</Card.Content>
-				<Card.Footer class="mt-auto flex items-center justify-end gap-2">
-					<Button variant="default" disabled={!problem} href={`${method.path}`}>
-						<Play class="mr-1 inline" />
-						Use {method.name}
+		<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+			<div class="flex-1/2 max-w-sm">
+				<div class="relative isolate">
+					<!-- Added isolate to create a new stacking context -->
+					<Search
+						class="text-muted-foreground pointer-events-none absolute left-3 top-1/2 z-[1] size-4 -translate-y-1/2"
+					/>
+					<input
+						type="text"
+						placeholder="Search methods..."
+						class="focus:ring-primary relative w-full rounded-md border py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2"
+						bind:value={searchQuery}
+					/>
+				</div>
+			</div>
+			<div class="flex flex-wrap gap-2">
+				<Button
+					variant={selectedPreferenceType === 'all' ? 'default' : 'outline'}
+					size="sm"
+					onclick={() => (selectedPreferenceType = 'all')}
+				>
+					All
+				</Button>
+				{#each preferenceTypes as type}
+					<Button
+						variant={selectedPreferenceType === type ? 'default' : 'outline'}
+						size="sm"
+						onclick={() => (selectedPreferenceType = type)}
+					>
+						{type}
 					</Button>
-
-					<Button variant="ghost" size="icon" aria-label="Settings">
-						<Settings class="size-4" strokeWidth={1} />
-					</Button>
-				</Card.Footer>
-			</Card.Root>
-		{/each}
+				{/each}
+			</div>
+		</div>
 	</div>
+
+	{#if filteredMethods.length === 0}
+		<div class="py-12 text-center">
+			<p class="text-muted-foreground text-lg">No methods found matching your criteria</p>
+		</div>
+	{:else if isCompactView}
+		<div class="space-y-2">
+			{#each filteredMethods as method}
+				<div
+					class="hover:border-primary flex items-center justify-between rounded-lg border p-4 transition-colors"
+				>
+					<div class="flex-1">
+						<h2 class="font-semibold">{method.name}</h2>
+						<p class="text-muted-foreground text-sm">{method.description}</p>
+					</div>
+					<div class="flex items-center gap-2">
+						<Button
+							variant="outline"
+							size="sm"
+							disabled={!problem}
+							href={`${method.path}`}
+							class={!problem ? 'opacity-50' : 'hover:bg-secondary/90'}
+						>
+							<Play class="mr-2 size-4" />
+							Use
+						</Button>
+					</div>
+				</div>
+			{/each}
+		</div>
+	{:else}
+		<div class="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+			{#each filteredMethods as method}
+				<Card.Root class={`flex flex-col transition-all duration-300 hover:shadow-lg`}>
+					<Card.Header class="space-y-2">
+						<div class="flex items-center justify-between">
+							<h2 class="text-primary text-2xl font-semibold">{method.name}</h2>
+							<Button variant="ghost" size="icon" aria-label="Settings" class="hover:text-primary">
+								<Settings class="size-4" strokeWidth={1.5} />
+							</Button>
+						</div>
+						<p class="text-muted-foreground">{method.description}</p>
+					</Card.Header>
+
+					<Card.Content class="flex-grow space-y-4">
+						{#if method.preferencesType}
+							<div class="space-y-2">
+								<h3 class="text-primary/80 font-semibold">Preference Types</h3>
+								<div class="flex flex-wrap gap-2">
+									{#each method.preferencesType as type}
+										<span
+											class="bg-secondary/20 text-secondary-foreground inline-block rounded px-2 py-1 text-xs font-semibold"
+										>
+											{type}
+										</span>
+									{/each}
+								</div>
+							</div>
+						{/if}
+					</Card.Content>
+
+					<Card.Footer class="pt-4">
+						<Button
+							variant="default"
+							disabled={!problem}
+							href={`${method.path}`}
+							class="w-full justify-center {!problem ? 'opacity-50' : 'hover:bg-primary/90'}"
+						>
+							<Play class="mr-2" size={18} />
+							Use {method.name}
+						</Button>
+					</Card.Footer>
+				</Card.Root>
+			{/each}
+		</div>
+	{/if}
 </div>
