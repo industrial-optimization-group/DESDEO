@@ -78,7 +78,7 @@
 		isFinishButton = true
 	}: Props = $props();
 
-	let buttonText = $derived(isCalculating ? 'Calculating…' : 'Iterate');
+	let buttonText = $derived(isCalculating ? 'Calculating…' : '');
 	let isDisabled = $derived(!isIterationAllowed || isCalculating);
 
 	// Validate that preference_types only contains valid values
@@ -394,9 +394,10 @@
 	</Sidebar.Content>
 
 	<Sidebar.Footer>
+		<span class="text-sm text-gray-700">{buttonText}</span>
 		<div class="items-right flex justify-end gap-2">
 			<Button variant="default" disabled={isDisabled} size="sm" onclick={handle_iterate}>
-				{buttonText}
+				Iterate
 			</Button>
 			{#if isFinishButton}
 				<Button variant="secondary" size="sm" disabled={!isFinishAllowed} onclick={handle_finish}>
