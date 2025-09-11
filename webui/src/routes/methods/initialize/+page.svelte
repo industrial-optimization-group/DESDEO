@@ -4,7 +4,7 @@
 	 *
 	 * @author Giomara Larraga <glarragw@jyu.fi>
 	 * @created June 2025
-	 * @updated July 2025
+	 * @updated September 2025
 	 *
 	 * @description
 	 * This page displays a list of available optimization methods in DESDEO and allows the user to select a method for a specific problem.
