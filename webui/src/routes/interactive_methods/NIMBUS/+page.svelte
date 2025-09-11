@@ -202,7 +202,7 @@
 
 	// Variables for  for showing that calculations are ongoing
 	// svelte-ignore non_reactive_update
-	let calculating = writable(false);
+	let calculating = $state(false);
 	let error: string | null = null;
 
 	// Validation: iteration is allowed when at least one preference is better and one is worse than current objectives
@@ -505,7 +505,7 @@
 		};
 
 		try {
-			calculating.set(true);
+			calculating = true;
 			error = null;
 
 			const result = await callNimbusAPI<Response>(
@@ -543,7 +543,7 @@
 			error = err instanceof Error ? err.message : 'Unknown error';
 			console.log(error);
 		} finally {
-			calculating.set(false);
+			calculating = false;
 		}
 	}
 
