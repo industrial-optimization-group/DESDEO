@@ -87,7 +87,7 @@
 				<span
 					class="text-primary-foreground hover:text-secondary flex items-center gap-1 transition-colors hover:cursor-pointer"
 				>
-					<Problem class="h-4 w-4" />
+					<Method class="h-4 w-4" />
 					Methods
 				</span>
 			</DropdownMenu.Trigger>
