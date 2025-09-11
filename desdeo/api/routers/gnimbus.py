@@ -467,6 +467,8 @@ def get_latest_results(
     
     if iteration.pref_results.method == "voting":
         return GNIMBUSResultResponse(
+            method="voting",
+            phase=iteration.parent.pref_results.phase if iteration.parent is not None else "learning",
             common_results=[iteration.pref_results.results[0]],
             user_results=[],
             personal_result_index=None,
@@ -488,6 +490,8 @@ def get_latest_results(
         )
     
     return GNIMBUSResultResponse(
+        method="optimization",
+        phase=iteration.pref_results.phase,
         common_results=results[-4:],
         user_results=results[:-4],
         personal_result_index=personal_result_index,

@@ -58,6 +58,8 @@ class VotingPreferenceResults(BasePreferenceResults):
 
 class GNIMBUSResultResponse(SQLModel):
     """The response for getting GNIMBUS results"""
+    method: str
+    phase: str
     common_results: list[SolverResults]
     user_results: list[SolverResults]
     personal_result_index: int | None
