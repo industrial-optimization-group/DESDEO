@@ -71,7 +71,7 @@
 	import { BaseLayout } from '$lib/components/custom/method_layout/index.js';
 	import { methodSelection } from '../../../stores/methodSelection';
 	import type { components } from '$lib/api/client-types';
-	import { onMount, tick } from 'svelte';
+	import { onMount } from 'svelte';
 
 	// UI Components
 	import { Combobox } from '$lib/components/ui/combobox';
@@ -507,7 +507,6 @@
 		try {
 			calculating = true;
 			error = null;
-			await tick(); // let Svelte update the DOM
 
 			const result = await callNimbusAPI<Response>(
 				'iterate',

@@ -78,6 +78,9 @@
 		isFinishButton = true
 	}: Props = $props();
 
+	let buttonText = $derived(isCalculating ? 'Calculating…' : 'Iterate');
+	let isDisabled = $derived(!isIterationAllowed || isCalculating);
+
 	// Validate that preference_types only contains valid values
 	const valid_preference_types = preferenceTypes.filter((type) =>
 		Object.values(PREFERENCE_TYPES).includes(type as PreferenceValue)
@@ -392,13 +395,8 @@
 
 	<Sidebar.Footer>
 		<div class="items-right flex justify-end gap-2">
-			<Button
-				variant="default"
-				disabled={!isIterationAllowed || isCalculating}
-				size="sm"
-				onclick={handle_iterate}
-			>
-				{isCalculating ? 'Calculating…' : 'Iterate'}
+			<Button variant="default" disabled={isDisabled} size="sm" onclick={handle_iterate}>
+				{buttonText}
 			</Button>
 			{#if isFinishButton}
 				<Button variant="secondary" size="sm" disabled={!isFinishAllowed} onclick={handle_finish}>
