@@ -102,7 +102,6 @@
 		processPreviousObjectiveValues,
 		updateSolutionNames
 	} from './helper-functions';
-	import { writable } from 'svelte/store';
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 	// Define a general type combining all three responses that NIMBUS can return
 	type Solution = components['schemas']['SolutionReferenceResponse'];
@@ -201,7 +200,6 @@
 	let compensation = $state(0.0);
 
 	// Variables for  for showing that calculations are ongoing
-	// svelte-ignore non_reactive_update
 	let calculating = false;
 	let error: string | null = null;
 
@@ -209,10 +207,6 @@
 	let is_iteration_allowed = $derived(() => {
 		// Use the imported utility function to validate if iteration is allowed
 		return validateIterationAllowed(problem, current_preference, selected_iteration_objectives);
-	});
-
-	let is_calculating = $derived(() => {
-		return calculating;
 	});
 
 	function handle_type_solutions_change(event: { value: string }) {
@@ -810,7 +804,6 @@
 					preferenceValues={current_preference}
 					objectiveValues={Object.values(selected_iteration_objectives)}
 					isIterationAllowed={is_iteration_allowed()}
-					isCalculating={is_calculating()}
 					minNumSolutions={1}
 					maxNumSolutions={4}
 					lastIteratedPreference={last_iterated_preference}

@@ -70,18 +70,12 @@
 		showNumSolutions = false,
 		ref = null,
 		isIterationAllowed = true,
-		isCalculating = false,
 		isFinishAllowed = true,
 		minNumSolutions = 1,
 		maxNumSolutions = 4,
 		lastIteratedPreference = [],
 		isFinishButton = true
 	}: Props = $props();
-
-	let buttonText = $derived(() => {
-		return isCalculating ? 'Calculating…' : 'Iterate';
-	});
-	let isDisabled = $derived(!isIterationAllowed || isCalculating);
 
 	// Validate that preference_types only contains valid values
 	const valid_preference_types = preferenceTypes.filter((type) =>
@@ -397,8 +391,8 @@
 
 	<Sidebar.Footer>
 		<div class="items-right flex justify-end gap-2">
-			<Button variant="default" disabled={isDisabled} size="sm" onclick={handle_iterate}>
-				{buttonText}
+			<Button variant="default" disabled={isIterationAllowed} size="sm" onclick={handle_iterate}>
+				Iterate
 			</Button>
 			{#if isFinishButton}
 				<Button variant="secondary" size="sm" disabled={!isFinishAllowed} onclick={handle_finish}>
