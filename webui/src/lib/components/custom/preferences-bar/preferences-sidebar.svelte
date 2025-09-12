@@ -78,7 +78,9 @@
 		isFinishButton = true
 	}: Props = $props();
 
-	let buttonText = $derived(isCalculating ? 'Calculating…' : 'Iterate');
+	let buttonText = $derived(() => {
+		return isCalculating ? 'Calculating…' : 'Iterate';
+	});
 	let isDisabled = $derived(!isIterationAllowed || isCalculating);
 
 	// Validate that preference_types only contains valid values
