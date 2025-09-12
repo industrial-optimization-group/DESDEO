@@ -202,13 +202,17 @@
 
 	// Variables for  for showing that calculations are ongoing
 	// svelte-ignore non_reactive_update
-	let calculating = $state(false);
+	let calculating = false;
 	let error: string | null = null;
 
 	// Validation: iteration is allowed when at least one preference is better and one is worse than current objectives
 	let is_iteration_allowed = $derived(() => {
 		// Use the imported utility function to validate if iteration is allowed
 		return validateIterationAllowed(problem, current_preference, selected_iteration_objectives);
+	});
+
+	let is_calculating = $derived(() => {
+		return calculating;
 	});
 
 	function handle_type_solutions_change(event: { value: string }) {
@@ -806,7 +810,7 @@
 					preferenceValues={current_preference}
 					objectiveValues={Object.values(selected_iteration_objectives)}
 					isIterationAllowed={is_iteration_allowed()}
-					isCalculating={calculating}
+					isCalculating={is_calculating()}
 					minNumSolutions={1}
 					maxNumSolutions={4}
 					lastIteratedPreference={last_iterated_preference}
