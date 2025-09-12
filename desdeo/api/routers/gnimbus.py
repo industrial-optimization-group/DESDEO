@@ -194,6 +194,9 @@ class GNIMBUSManager(GroupManager):
 
         try:
             preference = int(data)
+            if preference > 3 or preference < 0:
+                await self.send_message(f"Voting index out of bounds! Can only vote for 0 to 3.", self.sockets[user_id])
+                return None    
         except Exception as e:
             print(e)
             await self.send_message(f"Unable to validate sent data as an integer!", self.sockets[user_id])
@@ -501,7 +504,7 @@ def get_latest_results(
         session (Annotated[Session, Depends(get_session)])
 
     Returns:
-        JSONResponse: A json response containing the latest gnimbus results
+        GNIMBUSResultResponse: A GNIMBUSResultResponse response containing the latest gnimbus results
 
     Raises:
         HTTPException: Validation errors or no results
@@ -574,13 +577,28 @@ def get_latest_results(
         personal_result_index=personal_result_index,
     )
 
-# TODO: Add some endpoint that traverses GroupIterations to collect solutions, preferences, etc.
+
 @router.post("/all_iterations")
 def full_iteration(
     request: GroupInfoRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
 ) -> GNIMBUSAllIterationsResponse:
+    """Get all results from all iterations of the group.
+
+    Args:
+        request (GroupInfoRequest): essentially just the ID of the group
+        user (Annotated[User, Depends(get_current_user)]): current user
+        session (Annotated[Session, Depends(get_session)])
+
+    Returns:
+        GNIMBUSAllIterationsResponse: A GNIMBUSAllIterationsResponse response
+        containing all the results of the iterations. If last iteration was optimization,
+        the first iteration is incomplete (i.e. the voting preferences and voting results are missing)
+
+    Raises:
+        HTTPException: Validation errors or no results or no states and such.
+    """
 
     group = session.exec(select(Group).where(Group.id == request.group_id)).first()
     if group is None:
@@ -649,8 +667,8 @@ def full_iteration(
 
         if this_state is None or prev_state is None or first_state is None:
             raise HTTPException(
-                detail="Wääääää",
-                status_code=status.HTTP_418_IM_A_TEAPOT
+                detail="All needed states do not exist!",
+                status_code=status.HTTP_404_NOT_FOUND
             )
 
         all_results = []
