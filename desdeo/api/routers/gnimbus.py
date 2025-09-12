@@ -49,6 +49,7 @@ from desdeo.api.models.gnimbus import (
     OptimizationPreference,
     VotingPreference,
     GNIMBUSResultResponse,
+    FullIteration,
     GNIMBUSAllIterationsResponse,
 )
 
@@ -580,7 +581,100 @@ def full_iteration(
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
 ) -> GNIMBUSAllIterationsResponse:
-    response = GNIMBUSAllIterationsResponse()
+
+    group = session.exec(select(Group).where(Group.id == request.group_id)).first()
+    if group is None:
+        raise HTTPException(
+            detail=f"No group with ID {request.group_id}!",
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    if user.id not in group.user_ids:
+        raise HTTPException(
+            detail="Unauthorized user",
+            status_code=status.HTTP_401_UNAUTHORIZED
+        )
+
+    groupiter = group.head_iteration.parent
+
+    if groupiter is None:
+        raise HTTPException(
+            detail="Problem has not been initialized!",
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+    
+    full_iterations: list[FullIteration] = []
+    
+    if groupiter.preferences.method == "optimization":
+        # There are no full results because the latest iteration is optimization,
+        # so add an incomplete entry to the list to be returned.
+        prev_state = session.exec(select(StateDB).where(StateDB.id == groupiter.parent.state_id)).first()
+        if prev_state is None:
+            raise HTTPException(
+                detail="No state for starting results!",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+        
+        this_state = session.exec(select(StateDB).where(StateDB.id == groupiter.state_id)).first()
+        if this_state is None:
+            raise HTTPException(
+                detail="No state in most recent iteration!",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+        
+        all_results = []
+        for i, _ in enumerate(this_state.state.solver_results):
+            all_results.append(SolutionReference(state=this_state, solution_index=i))
+
+        full_iterations.append(
+            FullIteration(
+                phase=groupiter.preferences.phase,
+                optimization_preferences=groupiter.preferences,
+                voting_preferences=None,
+                starting_result=SolutionReference(state=prev_state, solution_index=0),
+                common_results=all_results[-4:],
+                user_results=all_results[:-4],
+                final_result=None,
+            )
+        )
+        
+        groupiter = groupiter.parent
+
+    # We're at voting phase now.
+    while groupiter is not None and groupiter.parent is not None and groupiter.parent.parent is not None:
+
+        this_state = session.exec(select(StateDB).where(StateDB.id == groupiter.state_id)).first()
+        prev_state = session.exec(select(StateDB).where(StateDB.id == groupiter.parent.state_id)).first()
+        first_state = session.exec(select(StateDB).where(StateDB.id == groupiter.parent.parent.state_id)).first()
+
+        if this_state is None or prev_state is None or first_state is None:
+            raise HTTPException(
+                detail="Wääääää",
+                status_code=status.HTTP_418_IM_A_TEAPOT
+            )
+
+        all_results = []
+        for i, _ in enumerate(prev_state.state.solver_results):
+            all_results.append(SolutionReference(state=prev_state, solution_index=i))
+
+        full_iterations.append(
+            FullIteration(
+                phase=groupiter.parent.preferences.phase,
+                optimization_preferences=groupiter.parent.preferences,
+                voting_preferences=groupiter.preferences,
+                starting_result=SolutionReference(state=first_state, solution_index=0),
+                common_results=all_results[-4:],
+                user_results=all_results[:-4],
+                final_result=SolutionReference(state=this_state, solution_index=0)
+            )
+        )
+
+        groupiter = groupiter.parent.parent
+        
+
+    response = GNIMBUSAllIterationsResponse(
+        all_full_iterations=full_iterations
+    )
     return response
 
 

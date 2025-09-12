@@ -65,10 +65,11 @@ class GNIMBUSResultResponse(SQLModel):
 class FullIteration(SQLModel):
     phase: str
     optimization_preferences: OptimizationPreference
-    voting_preferences: VotingPreference
+    voting_preferences: VotingPreference | None
+    starting_result: SolutionReference
     common_results: list[SolutionReference]
     user_results: list[SolutionReference]
-    chosen_result: SolutionReference
+    final_result: SolutionReference | None
 
 class GNIMBUSAllIterationsResponse(SQLModel):
     """The response model for getting all found solutions among others"""
