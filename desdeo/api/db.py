@@ -21,14 +21,22 @@ else:
     pass
 """
 
-# For rahti purposes, read necessary fields from environment.
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-DB_HOST = os.getenv("DB_HOST")
-DB_PORT = os.getenv("DB_PORT")
-DB_NAME = os.getenv("DB_NAME")
+if SettingsConfig.debug:
+    # debug and development stuff
 
-engine = create_engine(f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}")
+    # SQLite setup
+    engine = create_engine(DatabaseDebugConfig.db_database, connect_args={"check_same_thread": False})
+
+else:
+    # For rahti purposes, read necessary fields from environment.
+    DB_USER = os.getenv("DB_USER")
+    DB_PASSWORD = os.getenv("DB_PASSWORD")
+    DB_HOST = os.getenv("DB_HOST")
+    DB_PORT = os.getenv("DB_PORT")
+    DB_NAME = os.getenv("DB_NAME")
+
+    engine = create_engine(f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}")
+
 
 def get_session():
     """Yield the current database session."""
