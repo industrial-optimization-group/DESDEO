@@ -391,7 +391,7 @@
 
 	<Sidebar.Footer>
 		<div class="items-right flex justify-end gap-2">
-			<Button variant="default" disabled={isIterationAllowed} size="sm" onclick={handle_iterate}>
+			<Button variant="default" disabled={!isIterationAllowed} size="sm" onclick={handle_iterate}>
 				Iterate
 			</Button>
 			{#if isFinishButton}
