@@ -12,8 +12,9 @@ from sqlmodel import (
     SQLModel,
 )
 
+from desdeo.emo.options.templates import PreferenceOptions, TemplateOptions
 from desdeo.mcdm import ENautilusResult
-from desdeo.problem import VariableType, Tensor
+from desdeo.problem import Tensor, VariableType
 from desdeo.tools import SolverResults
 
 from .preference import PreferenceType, ReferencePoint
@@ -203,18 +204,25 @@ class EMOState(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
 
     # algorithm flavor
-    method_name: str = Field(description="Algorithm, e.g., NSGA3, RVEA")
-
-    # parameters
-    max_evaluations: int = Field(default=1000)
-    number_of_vectors: int = Field(default=20)
-    use_archive: bool = Field(default=True)
+    template_options: list[TemplateOptions] = Field(
+        sa_column=Column(JSON)
+    )  # TODO: This should probably be ids to another table
+    # preferences
+    preference_options: PreferenceOptions = Field(sa_column=Column(JSON))
 
     # results
-    solutions: list["EMOResults"] = Field(
-        sa_column=Column(JSON), description="Optimization results", default_factory=list
+    decision_variables: list["EMOResults"] = Field(
+        sa_column=Column(JSON), description="Optimization results (decision variables)", default_factory=list
     )
-    outputs: list = Field(sa_column=Column(JSON), description="Optimization outputs", default_factory=list)
+    objective_values: list = Field(sa_column=Column(JSON), description="Optimization outputs", default_factory=list)
+
+
+class EMOFetchRequest(SQLModel):
+    """Request model for fetching EMO solutions."""
+
+    problem_id: int
+    session_id: int | None = None
+    parent_state_id: int | None = None
 
 
 class EMOSaveState(SQLModel, table=True):

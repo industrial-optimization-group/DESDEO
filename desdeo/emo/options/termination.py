@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from desdeo.emo.operators.termination import (
+    BaseTerminator,
     CompositeTerminator,
     ExternalCheckTerminator,
     MaxEvaluationsTerminator,
@@ -68,14 +70,25 @@ class CompositeTerminatorOptions(BaseModel):
     )
     """The name of the termination operator."""
     terminators: list[
-        MaxEvaluationsTerminatorOptions,
-        MaxGenerationsTerminatorOptions,
-        MaxTimeTerminatorOptions,
-        ExternalCheckTerminatorOptions,
+        MaxEvaluationsTerminatorOptions
+        | MaxGenerationsTerminatorOptions
+        | MaxTimeTerminatorOptions
+        | ExternalCheckTerminatorOptions
     ] = Field(default_factory=lambda: [MaxGenerationsTerminatorOptions()], description="List of terminators.")
     """List of terminators."""
     mode: Literal["all", "any"] = Field(default="any", description="Whether to use logical AND or OR.")
     """Whether to use logical AND or OR."""
+
+    @model_validator(mode="after")
+    def check_unique_terminator_types(self):
+        """Ensure that all terminator types in the composite are unique."""
+        types_seen = set()
+        for term in self.terminators:
+            t = type(term)
+            if t in types_seen:
+                raise ValueError(f"Duplicate terminator type: {t.__name__}")
+            types_seen.add(t)
+        return self
 
 
 TerminatorOptions = (
@@ -87,7 +100,24 @@ TerminatorOptions = (
 )
 
 
-def terminator_constructor(options: TerminatorOptions, publisher: Publisher, external_check: callable = None):
+def terminator_constructor(
+    options: TerminatorOptions, publisher: Publisher, external_check: Callable | None = None
+) -> BaseTerminator:
+    """Construct a termination operator.
+
+    Args:
+        options (TerminatorOptions): Options for the termination operator.
+        publisher (Publisher): Publisher instance for the termination operator.
+        external_check (Callable | None, optional): External check function for the termination operator.
+            Defaults to None. Only required if using ExternalCheckTerminator.
+
+    Raises:
+        ValueError: If the options are invalid.
+        ValueError: If the external check function is required but not provided.
+
+    Returns:
+        BaseTerminator: Instance of the termination operator.
+    """
     terminators = {
         "MaxGenerationsTerminator": MaxGenerationsTerminator,
         "MaxEvaluationsTerminator": MaxEvaluationsTerminator,
@@ -95,7 +125,7 @@ def terminator_constructor(options: TerminatorOptions, publisher: Publisher, ext
         "ExternalCheckTerminator": ExternalCheckTerminator,
         "CompositeTerminator": CompositeTerminator,
     }
-    options = options.model_dump()
+    options: dict = options.model_dump()
     name = options.pop("name")
     if name not in ("ExternalCheckTerminator", "CompositeTerminator"):
         return terminators[name](publisher=publisher, **options)
@@ -106,7 +136,8 @@ def terminator_constructor(options: TerminatorOptions, publisher: Publisher, ext
     if name == "CompositeTerminator":
         sub_terminators = []
         for term_options in options.pop("terminators"):
-            sub_name = term_options.pop("name")
-            sub_terminators.append(terminators[sub_name](publisher=publisher, **term_options))
-        return CompositeTerminator(terminators=sub_terminators, publisher=publisher, mode=options.mode)
+            sub_terminators.append(terminator_constructor(term_options, publisher, external_check))
+            # sub_name = term_options.pop("name")
+            # sub_terminators.append(terminators[sub_name](publisher=publisher, **term_options))
+        return CompositeTerminator(terminators=sub_terminators, publisher=publisher, mode=options["mode"])
     raise ValueError(f"Unknown terminator name: {name}")

@@ -108,7 +108,7 @@ def generator_constructor(
         "RandomIntegerGenerator": RandomIntegerGenerator,
         "RandomMixedIntegerGenerator": RandomMixedIntegerGenerator,
     }
-    options = options.model_dump()
+    options: dict = options.model_dump()
     name = options.pop("name")
     return generator_types[name](
         problem, **options, publisher=publisher, verbosity=verbosity, seed=seed, evaluator=evaluator

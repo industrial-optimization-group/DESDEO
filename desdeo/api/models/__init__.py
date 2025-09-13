@@ -81,7 +81,7 @@ __all__ = [  # noqa: RUF022
 
 
 from .archive import UserSavedEMOResults
-from .EMO import EMOSaveRequest, EMOSolveRequest
+from .emo import EMOSaveRequest, EMOSolveRequest
 from .generic import (
     GenericIntermediateSolutionResponse,
     IntermediateSolutionRequest,

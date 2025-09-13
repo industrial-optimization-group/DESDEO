@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from desdeo.emo.operators.selection import (
     BaseSelector,
@@ -23,6 +23,8 @@ if TYPE_CHECKING:
 
 class RVEASelectorOptions(BaseModel):
     """Options for RVEA Selection."""
+
+    model_config = ConfigDict(use_enum_values=True)
 
     name: Literal["RVEASelector"] = Field(
         default="RVEASelector", frozen=True, description="The name of the selection operator."
@@ -85,13 +87,16 @@ def selection_constructor(
 
     Returns:
         BaseSelector: The constructed selection operator.
+
+    Raises:
+        ValueError: If an unknown selection operator name is provided.
     """
     selection_types = {
         "RVEASelector": RVEASelector,
         "NSGA3Selector": NSGA3Selector,
         "IBEASelector": IBEASelector,
     }
-    options = options.model_dump()
+    options: dict = options.model_dump()
     name = options.pop("name")
     if name == "IBEASelector":
         indi = options.pop("binary_indicator")
@@ -102,4 +107,4 @@ def selection_constructor(
                 options["binary_indicator"] = self_hv
             case _:
                 raise ValueError(f"Unknown binary indicator: {indi}")
-    return selection_types[name](problem=problem, publisher=publisher, seed=seed, verbosity=verbosity, **dict(options))
+    return selection_types[name](problem=problem, publisher=publisher, seed=seed, verbosity=verbosity, **options)

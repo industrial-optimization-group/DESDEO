@@ -7,7 +7,7 @@ TODO:@light-weaver
 import warnings
 from abc import abstractmethod
 from collections.abc import Sequence
-from enum import Enum
+from enum import StrEnum
 from itertools import combinations
 from typing import Callable, Literal, TypedDict, TypeVar
 
@@ -46,11 +46,12 @@ class BaseSelector(Subscriber):
         self.problem = problem
         self.variable_symbols = [x.symbol for x in problem.get_flattened_variables()]
         self.objective_symbols = [x.symbol for x in problem.objectives]
+        self.maximization_mult = {x.symbol: -1 if x.maximize else 1 for x in problem.objectives}
 
         if problem.scalarization_funcs is None:
             self.target_symbols = [f"{x.symbol}_min" for x in problem.objectives]
             try:
-                ideal, nadir = get_corrected_ideal_and_nadir(problem)
+                ideal, nadir = get_corrected_ideal_and_nadir(problem)  # This is for the minimized problem
                 self.ideal = np.array([ideal[x.symbol] for x in problem.objectives])
                 self.nadir = np.array([nadir[x.symbol] for x in problem.objectives]) if nadir is not None else None
             except ValueError:  # in case the ideal and nadir are not provided
@@ -154,24 +155,48 @@ class BaseDecompositionSelector(BaseSelector):
         self._create_simplex()
 
         if self.reference_vector_options.reference_point:
+            corrected_rp = np.array(
+                [
+                    self.reference_vector_options.reference_point[x] * self.maximization_mult[x]
+                    for x in self.objective_symbols
+                ]
+            )
             self.interactive_adapt_3(
-                np.array([self.reference_vector_options.reference_point[x] for x in self.target_symbols]),
+                corrected_rp,
                 translation_param=self.reference_vector_options.adaptation_distance,
             )
         elif self.reference_vector_options.preferred_solutions:
+            corrected_sols = np.array(
+                [
+                    np.array(self.reference_vector_options.preferred_solutions[x]) * self.maximization_mult[x]
+                    for x in self.objective_symbols
+                ]
+            ).T
             self.interactive_adapt_1(
-                np.array([self.reference_vector_options.preferred_solutions[x] for x in self.target_symbols]).T,
+                corrected_sols,
                 translation_param=self.reference_vector_options.adaptation_distance,
             )
         elif self.reference_vector_options.non_preferred_solutions:
+            corrected_sols = np.array(
+                [
+                    np.array(self.reference_vector_options.non_preferred_solutions[x]) * self.maximization_mult[x]
+                    for x in self.objective_symbols
+                ]
+            ).T
             self.interactive_adapt_2(
-                np.array([self.reference_vector_options.non_preferred_solutions[x] for x in self.target_symbols]).T,
+                corrected_sols,
                 predefined_distance=self.reference_vector_options.adaptation_distance,
                 ord=2 if self.reference_vector_options.vector_type == "spherical" else 1,
             )
         elif self.reference_vector_options.preferred_ranges:
+            corrected_ranges = np.array(
+                [
+                    np.array(self.reference_vector_options.preferred_ranges[x]) * self.maximization_mult[x]
+                    for x in self.objective_symbols
+                ]
+            ).T
             self.interactive_adapt_4(
-                np.array([self.reference_vector_options.preferred_ranges[x] for x in self.target_symbols]).T,
+                corrected_ranges,
             )
 
     def _create_simplex(self):
@@ -370,7 +395,7 @@ class BaseDecompositionSelector(BaseSelector):
         self._normalize_rvs()
 
 
-class ParameterAdaptationStrategy(Enum):
+class ParameterAdaptationStrategy(StrEnum):
     """The parameter adaptation strategies for the RVEA selector."""
 
     GENERATION_BASED = "GENERATION_BASED"  # Based on the current generation and the maximum generation.

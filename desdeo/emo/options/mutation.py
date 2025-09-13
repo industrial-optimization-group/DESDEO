@@ -6,17 +6,16 @@ from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, Field
 
-from desdeo.emo.operators.crossover import SimulatedBinaryCrossover
 from desdeo.emo.operators.mutation import (
     BaseMutation,
-    BoundedPolynomialMutation,
     BinaryFlipMutation,
+    BoundedPolynomialMutation,
     IntegerRandomMutation,
     MixedIntegerRandomMutation,
     MPTMutation,
     NonUniformMutation,
-    SelfAdaptiveGaussianMutation,
     PowerMutation,
+    SelfAdaptiveGaussianMutation,
 )
 
 if TYPE_CHECKING:
@@ -260,6 +259,6 @@ def mutation_constructor(
         "SelfAdaptiveGaussianMutation": SelfAdaptiveGaussianMutation,
         "PowerMutation": PowerMutation,
     }
-    options = options.model_dump()
+    options: dict = options.model_dump()
     name = options.pop("name")
-    return mutation_types[name](problem=problem, publisher=publisher, seed=seed, verbosity=verbosity, **dict(options))
+    return mutation_types[name](problem=problem, publisher=publisher, seed=seed, verbosity=verbosity, **options)

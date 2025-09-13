@@ -15,7 +15,7 @@ from sqlmodel import select
 from websockets.client import connect
 
 from desdeo.api.db import get_session
-from desdeo.api.models.EMO import (
+from desdeo.api.models.emo import (
     EMOSolveRequest,
 )
 from desdeo.api.models.preference import (
@@ -26,8 +26,6 @@ from desdeo.api.models.problem import ProblemDB
 from desdeo.api.models.state import EMOSaveState, EMOState, StateDB
 from desdeo.api.models.user import User
 from desdeo.api.routers.user_authentication import get_current_user
-from desdeo.api.utils.database import user_save_solutions
-from desdeo.api.utils.emo_database import _convert_dataframe_to_dict_list
 from desdeo.emo.hooks.archivers import NonDominatedArchive
 from desdeo.emo.methods.EAs import nsga3, rvea
 from desdeo.problem import Problem

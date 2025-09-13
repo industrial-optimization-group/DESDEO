@@ -56,7 +56,11 @@ def scalar_selector_constructor(
         )
     if options.name == "RouletteWheelSelection":
         return TournamentSelection(  # It implements both (and more)
-            winner_size=options.winner_size, seed=seed, publisher=publisher, verbosity=verbosity
+            winner_size=options.winner_size,
+            seed=seed,  # By providing seed tournament selection behaves like roulette wheel
+            publisher=publisher,
+            verbosity=verbosity,
+            tournament_size=options.tournament_size,
         )
     else:
         raise ValueError(f"Unknown scalar selection operator: {options.name}")

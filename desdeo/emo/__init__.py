@@ -20,7 +20,7 @@ __all__ = [
 ]
 
 from .hooks.archivers import Archive, FeasibleArchive, NonDominatedArchive
-from .methods.EAs import nsga3, rvea, ibea
+from .methods.EAs import ibea, nsga3, rvea
 from .methods.templates import template1
 from .operators.crossover import SimulatedBinaryCrossover
 from .operators.evaluator import EMOEvaluator

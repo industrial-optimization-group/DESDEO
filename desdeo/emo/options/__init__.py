@@ -55,6 +55,8 @@ from .termination import (
     terminator_constructor,
 )
 
+from .repair import RepairOptions, repair_constructor
+
 __all__ = [
     "BinaryFlipMutationOptions",
     "BlendAlphaCrossoverOptions",
@@ -100,4 +102,6 @@ __all__ = [
     "generator_constructor",
     "mutation_constructor",
     "selection_constructor",
+    "RepairOptions",
+    "repair_constructor",
 ]
