@@ -8,7 +8,7 @@ import numpy.testing as npt
 import pytest
 
 from desdeo.mcdm.gnimbus import (voting_procedure,
-                     solve_intermediate_solutions, solve_sub_problems,
+                     solve_intermediate_solutions, solve_group_sub_problems,
                      find_min_max_values, scale_delta)
 
 from desdeo.gdm.voting_rules import majority_rule, plurality_rule
@@ -80,7 +80,7 @@ def test_voting_procedure():
         "DM3": {"f_1": 0.5, "f_2": 0.6, "f_3": 0.0},  # impair f_1 to 0.5, impair f_2 to 0.6, improve f_3
     }
 
-    solution_results = solve_sub_problems(
+    solution_results = solve_group_sub_problems(
         problem, initial_fs, dms_rps, "learning", create_solver=PyomoIpoptSolver, solver_options=solver_options
     )
     voted_solutions = solution_results
@@ -173,7 +173,7 @@ def test_solve_sub_problems_nondiff():
     }
 
     phase = "learning"
-    solutions = solve_sub_problems(
+    solutions = solve_group_sub_problems(
         problem, initial_fs, dms_rps, phase,  # create_solver=PyomoIpoptSolver,  solver_options=solver_options
     )
 
@@ -219,7 +219,7 @@ def test_solve_sub_problems_diff():
     }
 
     phase = "learning"
-    solutions = solve_sub_problems(
+    solutions = solve_group_sub_problems(
         problem, initial_fs, dms_rps, phase, create_solver=PyomoIpoptSolver, solver_options=solver_options
     )
 
