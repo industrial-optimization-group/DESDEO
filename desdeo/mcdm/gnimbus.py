@@ -203,7 +203,7 @@ def scale_delta(problem, d):
     return delta
 
 
-def solve_sub_problems(  # noqa: PLR0913
+def solve_group_sub_problems(  # noqa: PLR0913
     problem: Problem,
     current_objectives: dict[str, float],
     reference_points: dict[str, dict[str, float]],
