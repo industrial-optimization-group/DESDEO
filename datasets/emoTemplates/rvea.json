@@ -1,6 +1,7 @@
 {
     "preference": null,
     "template": {
+        "algorithm_name": "RVEA",
         "crossover": {
             "name": "SimulatedBinaryCrossover",
             "xover_probability": 0.5,

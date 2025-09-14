@@ -8,7 +8,7 @@ __all__ = [  # noqa: RUF022
     "DiscreteRepresentationDB",
     "EMOSaveState",
     "EMOSolveRequest",
-    "EMOState",
+    "EMOIterateState",
     "ENautilusState",
     "ExtraFunctionDB",
     "ForestProblemMetaData",
@@ -66,13 +66,16 @@ __all__ = [  # noqa: RUF022
     "PreferredRanges",
     "PreferedSolutions",
     "NonPreferredSolutions",
-    "EMOSaveState",
+    "EMOIterateRequest",
+    "EMOFetchRequest",
+    "EMOFetchResponse",
+    "EMOIterateResponse",
     "EMOSaveRequest",
-    "EMOState",
+    "EMOScoreRequest",
+    "EMOScoreResponse",
     "SolutionAddress",
     "SolutionAddressReference",
     "SolutionAddressResponse",
-    "UserSavedEMOResults",
     "UserSavedSolutionDB",
     "UtopiaRequest",
     "UtopiaResponse",
@@ -80,8 +83,16 @@ __all__ = [  # noqa: RUF022
 ]
 
 
-from .archive import UserSavedEMOResults
-from .emo import EMOSaveRequest, EMOSolveRequest
+# from .archive import UserSavedEMOResults
+from .emo import (
+    EMOIterateRequest,
+    EMOFetchRequest,
+    EMOFetchResponse,
+    EMOIterateResponse,
+    EMOSaveRequest,
+    EMOScoreRequest,
+    EMOScoreResponse,
+)
 from .generic import (
     GenericIntermediateSolutionResponse,
     IntermediateSolutionRequest,
@@ -143,7 +154,7 @@ from .session import (
 )
 from .state import (
     EMOSaveState,
-    EMOState,
+    EMOIterateState,
     ENautilusState,
     IntermediateSolutionState,
     NIMBUSClassificationState,

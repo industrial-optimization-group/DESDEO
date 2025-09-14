@@ -29,7 +29,7 @@ if SettingsConfig.debug:
     app.include_router(session.router)
     app.include_router(reference_point_method.router)
     app.include_router(nimbus.router)
-    # app.include_router(EMO.router) #TODO: after EMO stuff works, put it to use again
+    app.include_router(emo.router)  # TODO: after EMO stuff works, put it to use again
     app.include_router(generic.router)
     app.include_router(utopia.router)
 

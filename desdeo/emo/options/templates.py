@@ -65,6 +65,8 @@ class BaseTemplateOptions(BaseModel):
     """The seed for random number generation."""
     verbosity: int = Field(default=2, description="The verbosity level of the operators.")
     """The verbosity level of the operators."""
+    algorithm_name: str
+    """The unique name of the algorithm."""
 
 
 class Template1Options(BaseTemplateOptions):
@@ -242,12 +244,16 @@ class ConstructorExtras:
     """The archive associated with the current solver, if any."""
 
 
-def emo_constructor(emo_options: EMOOptions, problem: Problem) -> tuple[Callable[[], EMOResult], ConstructorExtras]:
+def emo_constructor(
+    emo_options: EMOOptions, problem: Problem, external_check: Callable[[], bool] | None = None
+) -> tuple[Callable[[], EMOResult], ConstructorExtras]:
     """Construct a template from the given options.
 
     Args:
         emo_options (EMOOptions): The options for the EMO algorithm.
         problem (Problem): The optimization problem to solve.
+        external_check (Callable[[], bool] | None): A callable that returns True if the algorithm should stop,
+            False otherwise. By default, None.
 
     Returns:
         tuple[Callable[[], EMOResult], ConstructorExtras]: A tuple containing the template function
@@ -302,6 +308,7 @@ def emo_constructor(emo_options: EMOOptions, problem: Problem) -> tuple[Callable
     terminator = terminator_constructor(
         options=template.termination,
         publisher=publisher,
+        external_check=external_check,
     )
 
     repair = repair_constructor(options=template.repair, problem=problem_)

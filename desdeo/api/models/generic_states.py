@@ -15,11 +15,13 @@ from sqlmodel import (
     select,
 )
 
-from desdeo.problem import VariableType, Tensor
+from desdeo.problem import Tensor, VariableType
 
 from .state import (
+    EMOFetchState,
     EMOSaveState,
-    EMOState,
+    EMOSCOREState,
+    EMOIterateState,
     ENautilusState,
     IntermediateSolutionState,
     NIMBUSClassificationState,
@@ -48,6 +50,8 @@ class StateKind(str, Enum):
     NIMBUS_INIT = "nimbus.initialize"
     EMO_RUN = "emo.run"
     EMO_SAVE = "emo.save_solutions"
+    EMO_FETCH = "emo.fetch_solutions"
+    EMO_SCORE = "emo.score_bands"
     GENERIC_INTERMEDIATE = "generic.solve_intermediate"
     ENAUTILUS_STEP = "e-nautilus.stepping"
 
@@ -169,8 +173,10 @@ KIND_TO_TABLE: dict[StateKind, SQLModel] = {
     StateKind.NIMBUS_SOLVE: NIMBUSClassificationState,
     StateKind.NIMBUS_SAVE: NIMBUSSaveState,
     StateKind.NIMBUS_INIT: NIMBUSInitializationState,
-    StateKind.EMO_RUN: EMOState,
+    StateKind.EMO_RUN: EMOIterateState,
     StateKind.EMO_SAVE: EMOSaveState,
+    StateKind.EMO_FETCH: EMOFetchState,
+    StateKind.EMO_SCORE: EMOSCOREState,
     StateKind.GENERIC_INTERMEDIATE: IntermediateSolutionState,
     StateKind.ENAUTILUS_STEP: ENautilusState,
 }
@@ -180,8 +186,10 @@ SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
     NIMBUSClassificationState: StateKind.NIMBUS_SOLVE,
     NIMBUSSaveState: StateKind.NIMBUS_SAVE,
     NIMBUSInitializationState: StateKind.NIMBUS_INIT,
-    EMOState: StateKind.EMO_RUN,
+    EMOIterateState: StateKind.EMO_RUN,
     EMOSaveState: StateKind.EMO_SAVE,
+    EMOFetchState: StateKind.EMO_FETCH,
+    EMOSCOREState: StateKind.EMO_SCORE,
     IntermediateSolutionState: StateKind.GENERIC_INTERMEDIATE,
     ENautilusState: StateKind.ENAUTILUS_STEP,
 }

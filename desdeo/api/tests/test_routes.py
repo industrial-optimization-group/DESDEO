@@ -29,7 +29,7 @@ from desdeo.api.models import (
     UserSavedEMOResults,
 )
 from desdeo.api.models.nimbus import NIMBUSInitializationResponse
-from desdeo.api.models.state import EMOSaveState, EMOState
+from desdeo.api.models.state import EMOSaveState, EMOIterateState
 from desdeo.api.routers.user_authentication import create_access_token
 from desdeo.problem.testproblems import simple_knapsack_vectors
 
@@ -552,7 +552,7 @@ def test_emo_solve_with_reference_point(client: TestClient):
     assert response.status_code == status.HTTP_200_OK
 
     # Validate the response structure
-    emo_state = EMOState.model_validate(response.json())
+    emo_state = EMOIterateState.model_validate(response.json())
     assert emo_state.method == "NSGA3"  # Method name is consistently uppercase
     assert emo_state.max_evaluations == 1000
     assert emo_state.number_of_vectors == 20
@@ -583,7 +583,7 @@ def test_emo_save_solutions(client: TestClient):
     assert response.status_code == status.HTTP_200_OK
 
     # Validate the response structure
-    emo_state = EMOState.model_validate(response.json())
+    emo_state = EMOIterateState.model_validate(response.json())
 
     solutions = emo_state.solutions
 
@@ -657,7 +657,7 @@ def test_emo_solve_with_rvea(client: TestClient):
     assert response.status_code == status.HTTP_200_OK
 
     # Validate the response structure
-    emo_state = EMOState.model_validate(response.json())
+    emo_state = EMOIterateState.model_validate(response.json())
     assert emo_state.method == "RVEA"  # Method name is consistently uppercase
     assert emo_state.max_evaluations == 1000
     assert emo_state.number_of_vectors == 20
