@@ -14,6 +14,7 @@ __all__ = [
     "prune_by_average_linkage",
     "solve_intermediate_solutions",
     "solve_sub_problems",
+    "solve_sub_problems",
     "rpm_solve_solutions",
 ]
 
@@ -34,4 +35,5 @@ from .nimbus import (
     solve_intermediate_solutions,
     solve_sub_problems,
 )
+from .gnimbus import solve_sub_problems
 from .reference_point_method import rpm_solve_solutions
