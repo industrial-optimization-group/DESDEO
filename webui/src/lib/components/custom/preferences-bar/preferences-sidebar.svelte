@@ -243,7 +243,7 @@
 							class="text-sm font-semibold text-gray-700"
 							title={objective.unit ? `${objective.name} (${objective.unit})` : objective.name}
 						>
-							{objective.symbol} ({objective.maximize ? 'max' : 'min'})
+							{objective.name} ({objective.maximize ? 'max' : 'min'})
 						</div>
 						<div class="flex flex-row items-start">
 							<div class="flex w-1/4 flex-col">
