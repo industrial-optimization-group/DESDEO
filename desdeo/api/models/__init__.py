@@ -87,6 +87,8 @@ __all__ = [  # noqa: RUF022
     "UtopiaRequest",
     "UtopiaResponse",
     "VariableDB",
+    "ScoreBandsRequest",
+    "ScoreBandsResponse",
 ]
 
 
@@ -96,6 +98,8 @@ from .generic import (
     GenericIntermediateSolutionResponse,
     IntermediateSolutionRequest,
     SolutionInfo,
+    ScoreBandsRequest,
+    ScoreBandsResponse,
 )
 from .generic_states import (
     SavedSolutionReference,
