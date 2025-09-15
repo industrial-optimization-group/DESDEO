@@ -8,7 +8,7 @@
 	 * @created June 2025
 	 *
 	 * @description
-	 * Visualizes multi-objective data as parallel axes, with optional bands (quantiles), medians, and individual solutions.
+	 * Visualizes multi-objective data as parallel axes, with bands, medians, and individual solutions.
 	 * Supports axis flipping, custom axis order, cluster coloring, and cluster visibility toggling.
 	 *
 	 * @work-in-progress
@@ -24,7 +24,7 @@
 	 *     bands: boolean;      // show quantile bands
 	 *     solutions: boolean;  // show individual solutions
 	 *     medians: boolean;    // show median line
-	 *     quantile: number;    // quantile for bands (e.g., 0.25 for IQR)
+	 *     quantile: number;    // quantile for bands
 	 *   }
 	 * - clusterVisibility?: Record<number, boolean> — which clusters are visible
 	 * - clusterColors?: Record<number, string> — colors for each cluster
