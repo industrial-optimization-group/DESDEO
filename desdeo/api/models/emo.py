@@ -64,7 +64,7 @@ class EMOScoreRequest(SQLModel):
     """Database ID of the problem to solve."""
     session_id: int | None = Field(default=None)
     parent_state_id: int | None = Field(default=None)
-    """State ID of the parent state, if any. Should be None if this is the first state in a session."""
+    """State ID of the parent state, if any."""
 
     solution_ids: list[int] = Field()
     """List of solution IDs to score."""
