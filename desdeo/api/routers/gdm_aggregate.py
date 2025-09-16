@@ -160,12 +160,7 @@ async def websocket_endpoint(
 
     ws://[DOMAIN]:[PORT]/gdm/ws?token=[TOKEN]&group_id=[GROUP_ID]&method=[METHOD]
 
-    The data sent by the client is validated. If validation as ReferencePoint succeeds,
-    the preferences of this particular user are updated. When all the preferences are in,
-    the system begins the optimization and notifies all connected websockets that the
-    optimization is done and the results are ready for fetching.
-
-    If a user is not connected to the server, they will be notified when they connect next time.
+    See further details in the documentation. (Explanations -> GDM and websockets)
 
     """
 

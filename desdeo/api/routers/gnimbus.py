@@ -39,7 +39,7 @@ from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.problem import Problem
 
 from desdeo.mcdm.nimbus import generate_starting_point
-from desdeo.mcdm.gnimbus import solve_sub_problems, voting_procedure
+from desdeo.mcdm.gnimbus import solve_group_sub_problems, voting_procedure
 
 from desdeo.tools import SolverResults
 from desdeo.tools.scalarization import ScalarizationError
@@ -124,7 +124,7 @@ class GNIMBUSManager(GroupManager):
         logging.info(f"Previous solution: {prev_sol}")
 
         try:
-            results: list[SolverResults] = solve_sub_problems(
+            results: list[SolverResults] = solve_group_sub_problems(
                 problem,
                 current_objectives=prev_sol,
                 reference_points=formatted_prefs,
