@@ -402,7 +402,7 @@ def gnimbus_initialize(
             detail=f"No group with ID {request.group_id} found!",
             status_code=status.HTTP_404_NOT_FOUND
         )
-    if user.id != group.owner_id:
+    if user.id not in group.user_ids:
         raise HTTPException(
             detail=f"Unauthorized user",
             status_code=status.HTTP_401_UNAUTHORIZED
@@ -497,6 +497,7 @@ def get_latest_results(
     session: Annotated[Session, Depends(get_session)]
 ) -> GNIMBUSResultResponse:
     """Get the latest results from group iteration
+    NOTE: This function is likely obsolete as full_iterations does what it does ans more.
 
     Args:
         request (GroupInfoRequest): essentially just the ID of the group
@@ -702,6 +703,29 @@ def full_iteration(
         )
 
         groupiter = groupiter.parent.parent
+
+    # We're at the root, so add the initialization stuff
+    if groupiter is not None and groupiter.parent is None:
+        this_state = session.exec(select(StateDB).where(StateDB.id == groupiter.state_id)).first()
+
+        if this_state is None:
+            raise HTTPException(
+                detail="Initialization state does not exist!",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+        
+        full_iterations.append(
+            FullIteration(
+                phase="init",
+                optimization_preferences=None,
+                voting_preferences=None,
+                starting_result=None,
+                common_results=[],
+                user_results=[],
+                personal_result_index=None,
+                final_result=SolutionReference(state=this_state, solution_index=0),
+            )
+        )
         
 
     response = GNIMBUSAllIterationsResponse(
