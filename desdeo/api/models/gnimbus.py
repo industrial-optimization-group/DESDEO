@@ -69,6 +69,7 @@ class FullIteration(SQLModel):
     starting_result: SolutionReference
     common_results: list[SolutionReference]
     user_results: list[SolutionReference]
+    personal_result_index: int
     final_result: SolutionReference | None
 
 class GNIMBUSAllIterationsResponse(SQLModel):

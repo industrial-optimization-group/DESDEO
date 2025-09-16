@@ -397,15 +397,15 @@ def gnimbus_initialize(
     Different initializations should be used for different methods
     """
     group = session.exec(select(Group).where(Group.id == request.group_id)).first()
-    if user.id != group.owner_id:
-        raise HTTPException(
-            detail=f"Unauthorized user",
-            status_code=status.HTTP_401_UNAUTHORIZED
-        )
     if group == None:
         raise HTTPException(
             detail=f"No group with ID {request.group_id} found!",
             status_code=status.HTTP_404_NOT_FOUND
+        )
+    if user.id != group.owner_id:
+        raise HTTPException(
+            detail=f"Unauthorized user",
+            status_code=status.HTTP_401_UNAUTHORIZED
         )
     
     if group.head_iteration != None:
@@ -640,6 +640,12 @@ def full_iteration(
                 status_code=status.HTTP_404_NOT_FOUND
             )
         
+        personal_result_index = None
+        for i, item in enumerate(groupiter.preferences.set_preferences.items()):
+            if item[0] == user.id:
+                personal_result_index = i
+                break
+
         all_results = []
         for i, _ in enumerate(this_state.state.solver_results):
             all_results.append(SolutionReference(state=this_state, solution_index=i))
@@ -652,6 +658,7 @@ def full_iteration(
                 starting_result=SolutionReference(state=prev_state, solution_index=0),
                 common_results=all_results[-4:],
                 user_results=all_results[:-4],
+                personal_result_index = personal_result_index,
                 final_result=None,
             )
         )
@@ -675,6 +682,12 @@ def full_iteration(
         for i, _ in enumerate(prev_state.state.solver_results):
             all_results.append(SolutionReference(state=prev_state, solution_index=i))
 
+        personal_result_index = None
+        for i, item in enumerate(groupiter.parent.preferences.set_preferences.items()):
+            if item[0] == user.id:
+                personal_result_index = i
+                break
+
         full_iterations.append(
             FullIteration(
                 phase=groupiter.parent.preferences.phase,
@@ -683,6 +696,7 @@ def full_iteration(
                 starting_result=SolutionReference(state=first_state, solution_index=0),
                 common_results=all_results[-4:],
                 user_results=all_results[:-4],
+                personal_result_index=personal_result_index,
                 final_result=SolutionReference(state=this_state, solution_index=0)
             )
         )
