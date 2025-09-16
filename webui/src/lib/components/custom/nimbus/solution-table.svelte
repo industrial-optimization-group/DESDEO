@@ -21,6 +21,7 @@
 	 * @property {Function} isSaved - Function to check if a solution is already saved.
 	 * @property {string} [selected_type_solutions="current"] - The current view mode ("current", "best", "all").
 	 * @property {{ [key: string]: number }[]} [previousObjectiveValues=[]] - Previous objective values for comparison.
+     * @property {string} [previousObjectiveValuesType="previous"] - Type of previous objective values ("previous" in NIMBUS, "user_results" in GNIMBUS. Depending on type, different component is rendered).
 	 *
 	 * @features
 	 * - Displays solution names and objective values in a sortable, filterable table.
@@ -51,7 +52,6 @@
 	 */
     import {
         type ColumnDef,
-        type RowSelectionState,
         type Column,
         type Row,
         type ColumnFiltersState,
@@ -87,6 +87,9 @@
     import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
     import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
 	import DataTableToolbar from './solution-table-toolbar.svelte';
+    import PreviousSolutions from './solution-table-prev-solutions.svelte';
+    import UserResults from './solution-table-gdm-user-results.svelte';
+
 
     // Types matching your original solution-table
     type ProblemInfo = components['schemas']['ProblemInfo'];
@@ -97,26 +100,32 @@
         problem,
         solverResults,
         selectedSolutions,
-        handle_save,
-        handle_change,
+        handle_save = ()=> {},
+        handle_change = () => {},
         handle_row_click,
-        handle_remove_saved,
-        isSaved,
+        handle_remove_saved = () => {},
+        isSaved = () => false,
+        savingEnabled = true,
         selected_type_solutions = "current",
         previousObjectiveValues = [],
+        previousObjectiveValuesType = "previous", // "previous" in nimbus, but in gnimbus it's "user_results"
         isFrozen = false,
+        personalResultIndex,
     }: {
         problem: ProblemInfo;
         solverResults: Array<Solution>;
         selectedSolutions: number[];
-        handle_save: (solution: Solution, name:string|undefined) => void;
-        handle_change: (solution: Solution) => void;
+        handle_save?: (solution: Solution, name:string|undefined) => void;
+        handle_change?: (solution: Solution) => void;
         handle_row_click: (index:number) => void;
         handle_remove_saved?: (solution: Solution) => void;
-        isSaved: (solution: Solution) => boolean;
+        isSaved?: (solution: Solution) => boolean;
+        savingEnabled?: boolean;
         selected_type_solutions?: string;
         previousObjectiveValues?: { [key: string]: number }[];
+        previousObjectiveValuesType?: string;
         isFrozen?: boolean;
+        personalResultIndex?: number | null;
     } = $props();
 
     // Get the display accuracy
@@ -314,36 +323,40 @@
 <!-- Cell rendering snippets -->
 {#snippet SavedCell({ solution, rowIndex }: { solution: Solution, rowIndex: number })}
     <div class="w-10">
-        {#if !isFrozen && isSaved(solution)}
-            <Button 
-                size="icon"
-                variant="ghost"
-                class="flex justify-center text-green-600 hover:text-green-700 transition-colors mx-auto"
-                title="Click to remove from saved solutions"
-                aria-label="Remove from saved solutions"
-                onclick={(e) => {
-                    e.stopPropagation(); // Prevent row click
-                    if (handle_remove_saved) {
-                        handle_remove_saved(solution);
-                    }
-                }}
-            >
-                <BookmarkIcon class="h-4 w-4 fill-current" />
-            </Button>
-        {:else if !isFrozen}
-            <Button
-                size="icon"
-                variant="ghost"
-                class="flex justify-center text-gray-500 hover:text-gray-700 transition-colors mx-auto"
-                title="Click to save this solution"
-                aria-label="Save this solution"
-                onclick={(e) => {
-                    e.stopPropagation(); // Prevent row click
-                    handle_save(solution, undefined);
-                }}
-            >
-                <BookmarkIcon class="h-4 w-4 fill-current" />
-            </Button>
+        {#if savingEnabled}
+            {#if !isFrozen && isSaved(solution)}
+                <Button 
+                    size="icon"
+                    variant="ghost"
+                    class="flex justify-center text-green-600 hover:text-green-700 transition-colors mx-auto"
+                    title="Click to remove from saved solutions"
+                    aria-label="Remove from saved solutions"
+                    onclick={(e) => {
+                        e.stopPropagation(); // Prevent row click
+                        if (handle_remove_saved) {
+                            handle_remove_saved(solution);
+                        }
+                    }}
+                >
+                    <BookmarkIcon class="h-4 w-4 fill-current" />
+                </Button>
+            {:else if !isFrozen}
+                <Button
+                    size="icon"
+                    variant="ghost"
+                    class="flex justify-center text-gray-500 hover:text-gray-700 transition-colors mx-auto"
+                    title="Click to save this solution"
+                    aria-label="Save this solution"
+                    onclick={(e) => {
+                        e.stopPropagation(); // Prevent row click
+                        handle_save(solution, undefined);
+                    }}
+                >
+                    <BookmarkIcon class="h-4 w-4 fill-current" />
+                </Button>
+            {/if}
+        {:else}
+            <div class="w-4 h-4"></div> <!-- Empty div to maintain spacing -->
         {/if}
     </div>
 {/snippet}
@@ -483,27 +496,22 @@
                         </Table.Row>
                     {/each}
 
-                {#if selected_type_solutions === "current" && previousObjectiveValues && previousObjectiveValues.length > 0}
-                        <Table.Row>
-                            <Table.Cell colspan={columns.length}>
-                            </Table.Cell>
-                        </Table.Row>
-                        {#each previousObjectiveValues as previousObjectiveValue}
-                            <Table.Row class='pointer-events-none'>
-                                <Table.Cell class="border-l-10 border-teal-400"></Table.Cell>
-                                <Table.Cell class="italic">
-                                    <div>
-                                        <span class="text-gray-500">Previous solution</span>
-                                    </div>
-                                </Table.Cell>
-                                <Table.Cell></Table.Cell>
-                                {#each problem.objectives as objective}
-                                    <Table.Cell class="text-gray-500 text-right pr-6">
-                                        {formatNumber(previousObjectiveValue[objective.symbol], displayAccuracy())}
-                                    </Table.Cell>
-                                {/each}
-                            </Table.Row>
-                        {/each}
+                {#if previousObjectiveValuesType === "previous" && selected_type_solutions === "current" && previousObjectiveValues.length > 0}
+                    <PreviousSolutions 
+                        {problem} 
+                        {previousObjectiveValues}
+                        displayAccuracy={displayAccuracy()}
+                        columnsLength={columns.length}
+                    />
+                {:else if previousObjectiveValuesType === "user_results"}
+                    <UserResults
+                       {problem} 
+                       {previousObjectiveValues}
+                       displayAccuracy={displayAccuracy()}
+                       columnsLength={columns.length}
+                       personalResultIndex={personalResultIndex? personalResultIndex : 0}
+                    />
+
                 {/if}
                 </Table.Body>
 

@@ -77,9 +77,9 @@
 	 */
 	interface Props {
 		problem: ProblemInfo | null;
-		previousPreferenceValues: number[];
+		previousPreferenceValues?: number[];
 		previousObjectiveValues?: number[][];
-		currentPreferenceValues: number[];
+		currentPreferenceValues?: number[];
 		previousPreferenceType: string;
 		currentPreferenceType: string;
 		solutionsObjectiveValues?: number[][];
@@ -91,9 +91,9 @@
 
 	const {
 		problem,
-		previousPreferenceValues,
+		previousPreferenceValues = [],
 		previousObjectiveValues,
-		currentPreferenceValues,
+		currentPreferenceValues = [],
 		previousPreferenceType,
 		currentPreferenceType,
 		solutionsObjectiveValues = [],

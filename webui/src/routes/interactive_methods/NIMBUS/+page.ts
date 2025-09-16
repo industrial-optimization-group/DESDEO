@@ -1,6 +1,6 @@
-import type { PageLoad } from './$types';
 import { api } from '$lib/api/client';
 import type { components } from '$lib/api/client-types';
+import type { PageLoad } from '../../$types';
 
 type ProblemList = components['schemas']['ProblemInfo'][];
 
