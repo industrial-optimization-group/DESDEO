@@ -167,7 +167,9 @@ class GNIMBUSManager(GroupManager):
 
         # If the optimization succeeds, update the iteration and
         # notify connected users that the optimization is done
-        notified = await self.notify(user_ids=group.user_ids, message="Please fetch results.")
+        g = group.user_ids
+        g.append(group.owner_id)
+        notified = await self.notify(user_ids=g, message="Please fetch results.")
         
         # Update iteration's notifcation database item
         current_iteration.notified = notified
@@ -271,7 +273,9 @@ class GNIMBUSManager(GroupManager):
 
         # If the optimization succeeds, update the iteration and
         # notify connected users that the optimization is done
-        notified = await self.notify(user_ids=group.user_ids, message="Voting has concluded.")
+        g = group.user_ids
+        g.append(group.owner_id)
+        notified = await self.notify(user_ids=g, message="Voting has concluded.")
         
         # Update iteration's notifcation database item
         current_iteration.notified = notified
@@ -402,7 +406,7 @@ def gnimbus_initialize(
             detail=f"No group with ID {request.group_id} found!",
             status_code=status.HTTP_404_NOT_FOUND
         )
-    if user.id not in group.user_ids:
+    if not (user.id in group.user_ids or user.id is group.owner_id):
         raise HTTPException(
             detail=f"Unauthorized user",
             status_code=status.HTTP_401_UNAUTHORIZED
@@ -517,7 +521,7 @@ def get_latest_results(
             status_code=status.HTTP_404_NOT_FOUND
         )
     
-    if user.id not in group.user_ids:
+    if not (user.id in group.user_ids or user.id is group.owner_id):
         raise HTTPException(
             detail="Unauthorized user.",
             status_code=status.HTTP_401_UNAUTHORIZED
@@ -608,7 +612,7 @@ def full_iteration(
             status_code=status.HTTP_404_NOT_FOUND
         )
     
-    if user.id not in group.user_ids:
+    if user.id not in group.user_ids and user.id is not group.owner_id:
         raise HTTPException(
             detail="Unauthorized user",
             status_code=status.HTTP_401_UNAUTHORIZED
@@ -749,7 +753,7 @@ def toggle_phase(
             status_code=status.HTTP_404_NOT_FOUND
         )
     
-    if user.id not in group.user_ids:
+    if user.id is not group.owner_id:
         raise HTTPException(
             detail="Unauthorized user.",
             status_code=status.HTTP_401_UNAUTHORIZED
@@ -773,7 +777,13 @@ def toggle_phase(
         )
     
     old_phase = iteration.preferences.phase
-    new_phase = "decision" if old_phase == "learning" else "learning"
+    match old_phase:
+        case "learning":
+            new_phase = "decision"
+        case "decision":
+            new_phase = "crp"
+        case "crp":
+            new_phase = "learning"
 
     preferences: OptimizationPreference = copy.deepcopy(iteration.preferences)
     preferences.phase = new_phase

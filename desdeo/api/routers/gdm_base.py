@@ -414,7 +414,7 @@ def remove_from_group(
             status_code=status.HTTP_404_NOT_FOUND
         )
     # Make sure of proper authorization 
-    authorized = True if (user.id == group.owner_id or user.id == request.user_id) else False
+    authorized = (user.id == group.owner_id or user.id == request.user_id)
 
     if not authorized:
         raise HTTPException(

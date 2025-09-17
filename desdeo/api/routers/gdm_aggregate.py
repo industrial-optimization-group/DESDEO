@@ -177,7 +177,7 @@ async def websocket_endpoint(
         await websocket.close()
         return
     
-    if user.id not in group.user_ids:
+    if not (user.id in group.user_ids or user.id is group.owner_id):
         await websocket.send_text(f"User {user.username} doesn't belong in group {group.name}")
         await websocket.close()
         return
