@@ -79,6 +79,7 @@ class Op:
 
     # Other operators
     MAX = "Max"
+    MIN = "Min"
     RATIONAL = "Rational"
 
 
@@ -4649,5 +4650,82 @@ def add_group_DF_funcs(
             is_twice_differentiable=False,
         )
         problem_ = problem_.add_scalarization(scalarization)
+
+    return problem_, symbols
+
+
+def add_iopis_fairness(
+    problem: Problem,
+    aspiration_levels: dict[str, dict[str, float]],
+    ideal: dict[str, float] | None = None,
+) -> tuple[Problem, list[str]]:
+    symbols = ["min", "sum", "ratio"]
+    problem_: Problem = problem.model_copy(deep=True)
+    DMs = list(aspiration_levels.keys())
+    maximize: dict[str, int] = {obj.symbol: -1 if obj.maximize else 1 for obj in problem.objectives}
+    if ideal is not None:
+        ideal_point = ideal
+    elif problem.get_ideal_point() is not None:
+        ideal_point = get_corrected_ideal(problem)
+    else:
+        msg = "Ideal point not defined!"
+        raise ScalarizationError(msg)
+    delta = 1e-6
+    rho = 1e-6
+    asfs = []
+    for dm in DMs:
+        corrected_rp = flip_maximized_objective_values(problem, aspiration_levels[dm])
+        max_expr = ", ".join(
+            [
+                (
+                    f"({obj.symbol}_min - {ideal_point[obj.symbol] - delta}) / "
+                    f"({corrected_rp[obj.symbol]} - {ideal_point[obj.symbol] - delta})"
+                )
+                for obj in problem.objectives
+            ]
+        )
+        aug_expr = " + ".join(
+            [
+                f"{obj.symbol}_min / ({corrected_rp[obj.symbol]} - {ideal_point[obj.symbol] - delta})"
+                for obj in problem.objectives
+            ]
+        )
+
+        target_expr = f"({Op.MAX}({max_expr}) + {rho}*" + f"({aug_expr}))"
+        asfs.append(target_expr)
+
+    problem_ = problem.model_copy(deep=True)
+    problem_ = problem_.add_scalarization(
+        ScalarizationFunction(
+            name="Minimum ASF across DMs",
+            symbol=symbols[0],
+            func=f"{Op.MIN}({', '.join(asfs)})",
+            is_linear=False,
+            is_convex=False,
+            is_twice_differentiable=False,
+        )
+    )
+
+    problem_ = problem_.add_scalarization(
+        ScalarizationFunction(
+            name="Sum of ASFs across DMs",
+            symbol=symbols[1],
+            func=f"({' + '.join(asfs)})",
+            is_linear=False,
+            is_convex=False,
+            is_twice_differentiable=False,
+        )
+    )
+
+    problem_ = problem_.add_scalarization(
+        ScalarizationFunction(
+            name="Ratio of min and max ASF across DMs",
+            symbol=symbols[2],
+            func=f"({Op.MIN}({', '.join([asf + '+ 10' for asf in asfs])}) / {Op.MAX}({', '.join([asf + '+ 10' for asf in asfs])}))",
+            is_linear=False,
+            is_convex=False,
+            is_twice_differentiable=False,
+        )
+    )
 
     return problem_, symbols
