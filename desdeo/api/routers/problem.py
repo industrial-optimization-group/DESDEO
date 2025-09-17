@@ -30,6 +30,7 @@ router = APIRouter(prefix="/problem")
 def check_solver(problem_db: ProblemDB):
     """Check if a preferred solver is set in the metadata"""
     metadata: ProblemMetaDataDB = problem_db.problem_metadata
+    solver_metadata = None
     if metadata is not None:
         solver_metadata_list = [metadata for metadata in metadata.all_metadata if metadata.metadata_type == "solver_selection_metadata"]
         if solver_metadata_list is not []:
