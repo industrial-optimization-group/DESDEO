@@ -31,13 +31,13 @@ from desdeo.api.models import (
 from desdeo.api.models.generic import SolutionInfo
 from desdeo.api.models.state import IntermediateSolutionState
 from desdeo.api.routers.generic import solve_intermediate
+from desdeo.api.routers.problem import check_solver
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.mcdm.nimbus import generate_starting_point, solve_sub_problems
 from desdeo.problem import Problem
 from desdeo.tools import SolverResults
 
 router = APIRouter(prefix="/method/nimbus")
-
 
 # helper for collecting solutions
 def filter_duplicates(solutions: list[SavedSolutionReference]) -> list[SavedSolutionReference]:
@@ -132,6 +132,8 @@ def solve_solutions(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Problem with id={request.problem_id} could not be found."
         )
+    
+    solver = check_solver(problem_db=problem_db)
 
     problem = Problem.from_problemdb(problem_db)
 
@@ -160,7 +162,7 @@ def solve_solutions(
         reference_point=request.preference.aspiration_levels,
         num_desired=request.num_desired,
         scalarization_options=request.scalarization_options,
-        solver=request.solver,
+        solver=solver,
         solver_options=request.solver_options,
     )
 
@@ -238,6 +240,8 @@ def initialize(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Problem with id={request.problem_id} could not be found."
         )
 
+    solver = check_solver(problem_db=problem_db)
+
     problem = Problem.from_problemdb(problem_db)
 
     if isinstance(ref_point := request.starting_point, ReferencePoint):
@@ -265,7 +269,7 @@ def initialize(
         problem=problem,
         reference_point=starting_point,
         scalarization_options=request.scalarization_options,
-        solver=request.solver,
+        solver=solver,
         solver_options=request.solver_options,
     )
 
