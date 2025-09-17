@@ -4568,3 +4568,86 @@ def add_iopis_funcs(
         delta=delta,
     )
     return _problem, symbols
+
+
+def add_group_DF_funcs(
+    problem: Problem,
+    aspiration_levels: dict[str, dict[str, float]],
+    reservation_levels: dict[str, dict[str, float]],
+    desirability_levels: dict[str, tuple[float, float]] | None = None,
+    desirability_func: Literal["Harrington", "MaoMao"] = "MaoMao",
+) -> tuple[Problem, list[str]]:
+    """Adds desirability functions to the problem based on the given aspiration and reservation levels.
+
+    Note that the desirability functions are added as scalarization functions to the problem. They are also multiplied
+    by -1 to ensure that "desirability" values can be minimized, as is assumed by the optimizers.
+
+    Args:
+        problem (Problem): The problem to which the desirability functions should be added.
+        aspiration_levels (dict[str, float]): A dictionary with keys corresponding to objective function symbols
+            and values to aspiration levels.
+        reservation_levels (dict[str, float]): A dictionary with keys corresponding to objective function symbols
+            and values to reservation levels.
+        desirability_levels (dict[str, tuple[float, float]] | None, optional): A dictionary with keys corresponding to
+            objective function symbols and values to desirability levels, where each value is a tuple of (d1, d2). If
+            not given, the default values for d1 and d2 are used, which are 0.9 and 0.1 respectively. Defaults to None.
+        desirability_func (str, optional): The type of desirability function to use. Currently, only "Harrington" or
+        "MaoMao" is supported. Defaults to "Harrington".
+
+    Returns:
+        Problem: A copy of the problem with the added desirability functions as scalarization functions.
+        list[str]: A list of symbols of the added desirability functions.
+    """
+    if desirability_func == "Harrington":
+        create_func = __create_HDF
+    elif desirability_func == "MaoMao":
+        create_func = __create_MDF
+    else:
+        raise ScalarizationError(f"Desirability function {desirability_func} is not supported.")
+
+    if desirability_levels is None:
+        desirability_levels = {obj.symbol: (0.9, 0.1) for obj in problem.objectives}
+
+    symbols = []
+    problem_: Problem = problem.model_copy(deep=True)
+    DMs = list(aspiration_levels.keys())
+    for dm in DMs:
+        # check that all objectives have aspiration and reservation levels defined
+        for obj in problem.objectives:
+            if obj.symbol not in aspiration_levels[dm] or obj.symbol not in reservation_levels[dm]:
+                raise ScalarizationError(
+                    f"Objective {obj.symbol} does not have both aspiration and reservation levels defined."
+                )
+
+    maximize: dict[str, int] = {obj.symbol: -1 if obj.maximize else 1 for obj in problem.objectives}
+
+    for dm in DMs:
+        d_funcs = []
+        for obj in problem.objectives:
+            d1, d2 = desirability_levels[obj.symbol]
+            func = (
+                "("
+                + create_func(
+                    obj.symbol + "_min",
+                    aspiration_levels[dm][obj.symbol] * maximize[obj.symbol],
+                    reservation_levels[dm][obj.symbol] * maximize[obj.symbol],
+                    d1,
+                    d2,
+                )
+                + ")"
+            )
+            d_funcs.append(func)
+        df_expr = " * ".join(d_funcs)
+        df_expr = "-(" + df_expr + ")"
+        symbols.append(f"df_{dm}")
+        scalarization = ScalarizationFunction(
+            name=f"Desirability function for DM {dm}",
+            symbol=f"df_{dm}",
+            func=df_expr,
+            is_linear=False,
+            is_convex=False,
+            is_twice_differentiable=False,
+        )
+        problem_ = problem_.add_scalarization(scalarization)
+
+    return problem_, symbols
