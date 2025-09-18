@@ -272,6 +272,7 @@ class SolverSelectionMetadata(SQLModel, table=True):
 
     metadata_type: str = "solver_selection_metadata"
 
+    # The solver's string representation is used in endpoints to fetch the proper solver from available solvers.
     solver_string_representation: str = Field(description="The string representation of the selected solver.")
 
     metadata_instance: "ProblemMetaDataDB" = Relationship(back_populates="solver_selection_metadata")
