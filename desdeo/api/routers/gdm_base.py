@@ -15,7 +15,6 @@ For example, in the case of NIMBUS, the last chosen solution should exist. This 
 """
 
 import asyncio
-
 import logging
 import sys
 logging.basicConfig(
@@ -213,7 +212,7 @@ def create_group(
 
     group = Group(
         owner_id=user.id,
-        user_ids=[user.id],
+        user_ids=[],
         problem_id=request.problem_id,
         name=request.group_name
     )
@@ -264,6 +263,23 @@ def delete_group(
             status_code=status.HTTP_401_UNAUTHORIZED
         )
     
+    # Remove the group from users
+    user_ids = group.user_ids
+    for id in user_ids:
+        group_user = session.exec(select(User).where(User.id == id)).first()
+        ugids = group_user.group_ids.copy()
+        ugids.remove(group.id)
+        group_user.group_ids = ugids
+        session.add(group_user)
+        session.commit()
+
+    ugids = user.group_ids.copy()
+    ugids.remove(group.id)
+    user.group_ids = ugids
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+
     # Get the root iteration
     head: GroupIteration = group.head_iteration
     iter_count = 0
@@ -280,6 +296,7 @@ def delete_group(
     # Then delete the group
     session.delete(group)
     session.commit()
+
 
     # Make sure that the group IS deleted!
     group = session.exec(select(Group).where(Group.id == request.group_id)).first()
@@ -397,7 +414,7 @@ def remove_from_group(
             status_code=status.HTTP_404_NOT_FOUND
         )
     # Make sure of proper authorization 
-    authorized = True if (user.id == group.owner_id or user.id == request.user_id) else False
+    authorized = (user.id == group.owner_id or user.id == request.user_id)
 
     if not authorized:
         raise HTTPException(
@@ -417,6 +434,13 @@ def remove_from_group(
     session.add(group)
     session.commit()
     session.refresh(group)
+
+    removed_user = session.exec(select(User).where(User.id == request.user_id)).first()
+    ugids = removed_user.group_ids.copy()
+    ugids.remove(group.id)
+    removed_user.group_ids = ugids
+    session.add(removed_user)
+    session.commit()
 
     if request.user_id in group.user_ids:
         raise HTTPException(

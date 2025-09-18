@@ -64,11 +64,12 @@ class GNIMBUSResultResponse(SQLModel):
 
 class FullIteration(SQLModel):
     phase: str
-    optimization_preferences: OptimizationPreference
+    optimization_preferences: OptimizationPreference | None
     voting_preferences: VotingPreference | None
-    starting_result: SolutionReference
+    starting_result: SolutionReference | None
     common_results: list[SolutionReference]
     user_results: list[SolutionReference]
+    personal_result_index: int | None
     final_result: SolutionReference | None
 
 class GNIMBUSAllIterationsResponse(SQLModel):

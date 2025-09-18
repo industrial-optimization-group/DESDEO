@@ -35,7 +35,7 @@ class User(UserBase, table=True):
     password_hash: str = Field()
     role: UserRole = Field()
     group: str | None = Field(default="") # TODO: Get rid of this and use proper group systems
-    group_ids: list[int] | None = Field(sa_column=Column(JSON))
+    group_ids: list[int] | None = Field(sa_column=Column(JSON)) # The user is either a member of a group or an owner of a group
     active_session_id: int | None = Field(default=None)
 
     # Back populates

@@ -167,7 +167,9 @@ class GNIMBUSManager(GroupManager):
 
         # If the optimization succeeds, update the iteration and
         # notify connected users that the optimization is done
-        notified = await self.notify(user_ids=group.user_ids, message="Please fetch results.")
+        g = group.user_ids
+        g.append(group.owner_id)
+        notified = await self.notify(user_ids=g, message="Please fetch results.")
         
         # Update iteration's notifcation database item
         current_iteration.notified = notified
@@ -271,7 +273,9 @@ class GNIMBUSManager(GroupManager):
 
         # If the optimization succeeds, update the iteration and
         # notify connected users that the optimization is done
-        notified = await self.notify(user_ids=group.user_ids, message="Voting has concluded.")
+        g = group.user_ids
+        g.append(group.owner_id)
+        notified = await self.notify(user_ids=g, message="Voting has concluded.")
         
         # Update iteration's notifcation database item
         current_iteration.notified = notified
@@ -397,15 +401,15 @@ def gnimbus_initialize(
     Different initializations should be used for different methods
     """
     group = session.exec(select(Group).where(Group.id == request.group_id)).first()
-    if user.id != group.owner_id:
-        raise HTTPException(
-            detail=f"Unauthorized user",
-            status_code=status.HTTP_401_UNAUTHORIZED
-        )
     if group == None:
         raise HTTPException(
             detail=f"No group with ID {request.group_id} found!",
             status_code=status.HTTP_404_NOT_FOUND
+        )
+    if not (user.id in group.user_ids or user.id is group.owner_id):
+        raise HTTPException(
+            detail=f"Unauthorized user",
+            status_code=status.HTTP_401_UNAUTHORIZED
         )
     
     if group.head_iteration != None:
@@ -497,6 +501,7 @@ def get_latest_results(
     session: Annotated[Session, Depends(get_session)]
 ) -> GNIMBUSResultResponse:
     """Get the latest results from group iteration
+    NOTE: This function is likely obsolete as full_iterations does what it does ans more.
 
     Args:
         request (GroupInfoRequest): essentially just the ID of the group
@@ -516,7 +521,7 @@ def get_latest_results(
             status_code=status.HTTP_404_NOT_FOUND
         )
     
-    if user.id not in group.user_ids:
+    if not (user.id in group.user_ids or user.id is group.owner_id):
         raise HTTPException(
             detail="Unauthorized user.",
             status_code=status.HTTP_401_UNAUTHORIZED
@@ -607,7 +612,7 @@ def full_iteration(
             status_code=status.HTTP_404_NOT_FOUND
         )
     
-    if user.id not in group.user_ids:
+    if user.id not in group.user_ids and user.id is not group.owner_id:
         raise HTTPException(
             detail="Unauthorized user",
             status_code=status.HTTP_401_UNAUTHORIZED
@@ -640,6 +645,12 @@ def full_iteration(
                 status_code=status.HTTP_404_NOT_FOUND
             )
         
+        personal_result_index = None
+        for i, item in enumerate(groupiter.preferences.set_preferences.items()):
+            if item[0] == user.id:
+                personal_result_index = i
+                break
+
         all_results = []
         for i, _ in enumerate(this_state.state.solver_results):
             all_results.append(SolutionReference(state=this_state, solution_index=i))
@@ -652,6 +663,7 @@ def full_iteration(
                 starting_result=SolutionReference(state=prev_state, solution_index=0),
                 common_results=all_results[-4:],
                 user_results=all_results[:-4],
+                personal_result_index = personal_result_index,
                 final_result=None,
             )
         )
@@ -675,6 +687,12 @@ def full_iteration(
         for i, _ in enumerate(prev_state.state.solver_results):
             all_results.append(SolutionReference(state=prev_state, solution_index=i))
 
+        personal_result_index = None
+        for i, item in enumerate(groupiter.parent.preferences.set_preferences.items()):
+            if item[0] == user.id:
+                personal_result_index = i
+                break
+
         full_iterations.append(
             FullIteration(
                 phase=groupiter.parent.preferences.phase,
@@ -683,11 +701,35 @@ def full_iteration(
                 starting_result=SolutionReference(state=first_state, solution_index=0),
                 common_results=all_results[-4:],
                 user_results=all_results[:-4],
+                personal_result_index=personal_result_index,
                 final_result=SolutionReference(state=this_state, solution_index=0)
             )
         )
 
         groupiter = groupiter.parent.parent
+
+    # We're at the root, so add the initialization stuff
+    if groupiter is not None and groupiter.parent is None:
+        this_state = session.exec(select(StateDB).where(StateDB.id == groupiter.state_id)).first()
+
+        if this_state is None:
+            raise HTTPException(
+                detail="Initialization state does not exist!",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+        
+        full_iterations.append(
+            FullIteration(
+                phase="init",
+                optimization_preferences=None,
+                voting_preferences=None,
+                starting_result=None,
+                common_results=[],
+                user_results=[],
+                personal_result_index=None,
+                final_result=SolutionReference(state=this_state, solution_index=0),
+            )
+        )
         
 
     response = GNIMBUSAllIterationsResponse(
@@ -711,7 +753,7 @@ def toggle_phase(
             status_code=status.HTTP_404_NOT_FOUND
         )
     
-    if user.id not in group.user_ids:
+    if user.id is not group.owner_id:
         raise HTTPException(
             detail="Unauthorized user.",
             status_code=status.HTTP_401_UNAUTHORIZED
@@ -735,7 +777,13 @@ def toggle_phase(
         )
     
     old_phase = iteration.preferences.phase
-    new_phase = "decision" if old_phase == "learning" else "learning"
+    match old_phase:
+        case "learning":
+            new_phase = "decision"
+        case "decision":
+            new_phase = "crp"
+        case "crp":
+            new_phase = "learning"
 
     preferences: OptimizationPreference = copy.deepcopy(iteration.preferences)
     preferences.phase = new_phase
