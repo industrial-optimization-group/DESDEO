@@ -16,6 +16,7 @@ from desdeo.api.models import (
     User,
 )
 from desdeo.api.routers.user_authentication import get_current_user
+from desdeo.api.routers.problem import check_solver
 from desdeo.mcdm import rpm_solve_solutions
 from desdeo.problem import Problem
 from desdeo.tools import SolverResults
@@ -56,6 +57,8 @@ def solve_solutions(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Problem with id={request.problem_id} could not be found."
         )
 
+    solver = check_solver(problem_db=problem_db)
+
     problem = Problem.from_problemdb(problem_db)
 
     # optimize for solutions
@@ -63,7 +66,7 @@ def solve_solutions(
         problem,
         request.preference.aspiration_levels,
         request.scalarization_options,
-        request.solver,
+        solver,
         request.solver_options,
     )
 
