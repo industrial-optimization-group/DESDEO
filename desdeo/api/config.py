@@ -17,7 +17,12 @@ with config_path.open("rb") as fp:
 class SettingsConfig(BaseModel):
     """General settings."""
 
-    debug: ClassVar[bool] = config_data["settings"]["debug"]
+    # If DESDEO_PRODUCTION env variable is something resembling true, then do not use the debug value from config
+    debug: ClassVar[bool] = (
+        False
+        if os.getenv("DESDEO_PRODUCTION", "").strip().lower() in ("1", "true", "yes", "on")
+        else config_data["settings"]["debug"]
+    )
 
 
 class ServerDebugConfig(BaseModel):
@@ -38,12 +43,8 @@ class AuthDebugConfig(BaseModel):
     authjwt_algorithm: ClassVar[str] = config_data["auth-debug"]["authjwt_algorithm"]
     authjwt_access_token_expires: ClassVar[int] = config_data["auth-debug"]["authjwt_access_token_expires"]
     authjwt_refresh_token_expires: ClassVar[int] = config_data["auth-debug"]["authjwt_refresh_token_expires"]
-    cors_origins: ClassVar[list[str]] = (
-        json.loads(os.getenv("CORS_ORIGINS"))
-        if os.environ.get("CORS_ORIGINS") is not None
-        else config_data["auth-debug"]["cors_origins"]
-    )
-    cookie_domain: ClassVar[str] = os.getenv("COOKIE_DOMAIN", "")
+    cors_origins: ClassVar[list[str]] = config_data["auth-debug"]["cors_origins"]
+    cookie_domain: ClassVar[str] = config_data["auth-debug"]["cookie_domain"]
 
 
 class DatabaseDebugConfig(BaseModel):
@@ -70,10 +71,17 @@ class DatabaseDeployConfig(BaseModel):
     db_pool_size: int = config_data["database-deploy"]["db_pool_size"]
     db_max_overflow: int = config_data["database-deploy"]["db_max_overflow"]
     db_pool: bool = config_data["database-deploy"]["db_pool"]
+    db_driver: str = os.getenv("DB_DRIVER", config_data["database-deploy"]["db_driver"])
 
 
-# class AuthDeployConfig(BaseModel):
-# authjwt_algorithm: str = config_data["auth-deploy"]["authjwt_algorithm"]
-# authjwt_access_token_expires: int = config_data["auth-deploy"]["authjwt_access_token_expires"]
-# authjwt_refresh_token_expires: int = config_data["auth-deploy"]["authjwt_refresh_token_expires"]
-# Note: authjwt_secret_key should be retrieved securely in production
+class AuthDeployConfig(BaseModel):
+    authjwt_secret_key: ClassVar[str] = os.getenv("AUTHJWT_SECRET")
+    authjwt_algorithm: str = config_data["auth-deploy"]["authjwt_algorithm"]
+    authjwt_access_token_expires: int = config_data["auth-deploy"]["authjwt_access_token_expires"]
+    authjwt_refresh_token_expires: int = config_data["auth-deploy"]["authjwt_refresh_token_expires"]
+    cors_origins: ClassVar[list[str]] = (
+        json.loads(os.getenv("CORS_ORIGINS"))
+        if os.environ.get("CORS_ORIGINS") is not None
+        else config_data["auth-debug"]["cors_origins"]
+    )
+    cookie_domain: ClassVar[str] = os.getenv("COOKIE_DOMAIN", "")

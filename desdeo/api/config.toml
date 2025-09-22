@@ -1,4 +1,5 @@
 [settings]
+# This is ignored if $DESDEO_PRODUCTION env variable is present
 debug = true
 
 # development configs
@@ -24,13 +25,17 @@ cors_origins = [
     "http://127.0.0.1:8000",
     "http://127.0.0.1:5173",
 ]
+cookie_domain = "" # Not needed for testing
 
 [auth-deploy]
-# TODO
 # secret key should be read from env DO NOT EXPOSE!!!!
+# authjwt_secret_key = $AUTHJWT_SECRET
 authjwt_algorithm = "HS256"
 authjwt_access_token_expires = 15  # in minutes
 authjwt_refresh_token_expires = 30 # in minutes
+# These are not that sensitive info but read from env regardless
+# cors_origins = $CORS_ORIGINS
+# cookie_domain = $COOKIE_DOMAIN
 
 # SQLite setup (enabled for local development)
 [database-debug]
@@ -42,15 +47,18 @@ db_password = ""
 db_pool_size = 1
 db_max_overflow = 0
 db_pool = false
+db_driver = "postgresql+asyncpg"
 
 # Database configuration (deployment)
 [database-deploy]
 # READ FROM ENV!!!
-# db_host = "localhost"
-# db_port = "5432"
-# db_database = "test"
-# db_username = "test"
-# db_password = "testpw"
+# db_host = $DB_HOST
+# db_port = $DB_PORT
+# db_database = $DB_NAME
+# db_username = $DB_USER
+# db_password = $DB_PASSWORD
 db_pool_size = 20
 db_max_overflow = 20
 db_pool = true
+# Can be overridden with $DB_DRIVER env variable
+db_driver = "postgresql+asyncpg"

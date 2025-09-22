@@ -2,39 +2,29 @@
 
 from sqlmodel import Session, create_engine
 
-from desdeo.api.config import DatabaseDebugConfig, SettingsConfig
+from desdeo.api.config import SettingsConfig
 import os
 
-"""
 if SettingsConfig.debug:
-    # debug and development stuff
-
-    # SQLite setup
-    engine = create_engine(DatabaseDebugConfig.db_database, connect_args={"check_same_thread": False})
-
+    from desdeo.api.config import DatabaseDebugConfig as DatabaseConfig
 else:
-    # deployment stuff
+    from desdeo.api.config import DatabaseDeployConfig as DatabaseConfig
 
-    # Postgresql setup
-    # check from config.toml
-    # SQLALCHEMY_DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-    pass
-"""
 
 if SettingsConfig.debug:
     # debug and development stuff
 
     # SQLite setup
-    engine = create_engine(DatabaseDebugConfig.db_database, connect_args={"check_same_thread": False})
+    engine = create_engine(DatabaseConfig.db_database, connect_args={"check_same_thread": False})
 
 else:
-    # For rahti purposes, read necessary fields from environment.
-    DB_USER = os.getenv("DB_USER")
-    DB_PASSWORD = os.getenv("DB_PASSWORD")
-    DB_HOST = os.getenv("DB_HOST")
-    DB_PORT = os.getenv("DB_PORT")
-    DB_NAME = os.getenv("DB_NAME")
+    DB_USER = DatabaseConfig.db_username
+    DB_PASSWORD = DatabaseConfig.db_password
+    DB_HOST = DatabaseConfig.db_host
+    DB_PORT = DatabaseConfig.db_port
+    DB_NAME = DatabaseConfig.db_database
 
+    # Now the use of postgres is hardcoded for deployment, which may be fine
     engine = create_engine(f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}")
 
 
