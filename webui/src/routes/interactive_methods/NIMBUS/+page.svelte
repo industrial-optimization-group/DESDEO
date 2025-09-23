@@ -199,10 +199,6 @@
 	let mapDescription = $state<string | undefined>(undefined);
 	let compensation = $state(0.0);
 
-	// Variables for  for showing that calculations are ongoing
-	let calculating = false;
-	let error: string | null = null;
-
 	// Validation: iteration is allowed when at least one preference is better and one is worse than current objectives
 	let is_iteration_allowed = $derived(() => {
 		// Use the imported utility function to validate if iteration is allowed
@@ -502,46 +498,32 @@
 			)
 		};
 
-		try {
-			calculating = true;
-			error = null;
+		const result = await callNimbusAPI<Response>('iterate', {
+			problem_id: problem.id,
+			session_id: null,
+			parent_state_id: null,
+			current_objectives: selected_iteration_objectives,
+			num_desired: current_num_iteration_solutions,
+			preference: preference
+		});
 
-			const result = await callNimbusAPI<Response>(
-				'iterate',
-				{
-					problem_id: problem.id,
-					session_id: null,
-					parent_state_id: null,
-					current_objectives: selected_iteration_objectives,
-					num_desired: current_num_iteration_solutions,
-					preference
-				},
-				10000
+		if (result.success && result.data) {
+			// Store the preference values that were just used for iteration
+			current_state = result.data;
+
+			// Update names from saved solutions (only for all_solutions, current_solutions are new)
+			current_state.all_solutions = updateSolutionNames(
+				current_state.saved_solutions,
+				current_state.all_solutions
 			);
 
-			if (!result.success || !result.data) {
-				error = result.error ?? 'Unknown error';
-			} else {
-				// Store the preference values that were just used for iteration
-				current_state = result.data;
-
-				// Update names from saved solutions (only for all_solutions, current_solutions are new)
-				current_state.all_solutions = updateSolutionNames(
-					current_state.saved_solutions,
-					current_state.all_solutions
-				);
-
-				selected_iteration_index = [0];
-				// Switch to current solutions view after iteration
-				change_solution_type_updating_selections('current');
-				update_preferences_from_state(current_state);
-				current_num_iteration_solutions = current_state.current_solutions.length;
-			}
-		} catch (err) {
-			error = err instanceof Error ? err.message : 'Unknown error';
-			console.log(error);
-		} finally {
-			calculating = false;
+			selected_iteration_index = [0];
+			// Switch to current solutions view after iteration
+			change_solution_type_updating_selections('current');
+			update_preferences_from_state(current_state);
+			current_num_iteration_solutions = current_state.current_solutions.length;
+		} else {
+			console.error('NIMBUS iteration failed:', result.error);
 		}
 	}
 
