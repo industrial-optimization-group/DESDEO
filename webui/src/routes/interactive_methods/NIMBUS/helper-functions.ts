@@ -10,6 +10,7 @@
  */
 
 import type { components } from '$lib/api/client-types';
+import { errorMessage, isLoading } from '../../../stores/error-store';
 
 // Type definitions for NIMBUS components
 type ProblemInfo = components['schemas']['ProblemInfo'];
@@ -231,38 +232,41 @@ export function updateSolutionNames(
     return updatedSolutions;
 }
 
-export async function callNimbusAPI<T = Response>(
-    type: string,
-    data: Record<string, any>,
-    timeout = 10000 // 10s default
-): Promise<{
-    success: boolean;
-    data?: T;
-    error?: string;
-}> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-    try {
-        const response = await fetch(`/interactive_methods/NIMBUS/?type=${type}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
-            signal: controller.signal
-        });
+export async function callNimbusAPI<T>(
+	type: string,
+	data: Record<string, any>,
+	timeout = 10000 // 10s default
+): Promise<T | null> {
+	isLoading.set(true);
+	errorMessage.set(null);
+	const controller = new AbortController();
+	const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-        clearTimeout(timeoutId);
+	try {
+		const response = await fetch(`/interactive_methods/NIMBUS/?type=${type}`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(data),
+			signal: controller.signal
+		});
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
-        }
+		clearTimeout(timeoutId);
 
-        return await response.json();
-    } catch (error) {
-        console.error(`Error calling NIMBUS ${type} API:`, error);
-        return {
-            success: false,
-            error: error instanceof Error ? error.message : 'Unknown error'
-        };
-    }
+		const result = await response.json();
+
+		if (!response.ok || !result.success) {
+			const errorMsg = result.error || `HTTP error! Status: ${response.status}`;
+			throw new Error(errorMsg);
+		}
+
+		return result.data as T;
+	} catch (error) {
+		const errorMsg = error instanceof Error ? error.message : 'An unknown error occurred';
+		errorMessage.set(errorMsg);
+		console.error(`Error calling NIMBUS ${type} API:`, errorMsg);
+		return null;
+	} finally {
+		isLoading.set(false);
+	}
 }
