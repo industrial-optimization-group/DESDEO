@@ -1,6 +1,6 @@
 <script lang="ts">
 	/**
-    Topbar.svelte
+    topbar.svelte
 
     Author: Giomara Larraga
     Created: June 2025
