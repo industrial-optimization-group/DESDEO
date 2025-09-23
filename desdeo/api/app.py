@@ -5,6 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from desdeo.api.config import SettingsConfig
 from desdeo.api.routers import (
+    gdm_aggregate,
+    gdm_base,
     EMO,
     generic,
     nimbus,
@@ -12,6 +14,7 @@ from desdeo.api.routers import (
     reference_point_method,
     session,
     user_authentication,
+    gnimbus,
     utopia,
 )
 

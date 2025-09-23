@@ -19,3 +19,4 @@ hide:
 ## Web-API
 
 - **[Database models and schema](database_models_and_schema.md):** Learn about the logic behind the models and schema used in the web-API.
+- **[Group Decision Making and Websockets](group_decision_making_and_websockets.md):** Learn about how the Group Decision Making framework built into DESDEO works and how it utilizes websockets.

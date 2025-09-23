@@ -70,7 +70,6 @@
 	// Layout and core components
 	import { BaseLayout } from '$lib/components/custom/method_layout/index.js';
 	import { methodSelection } from '../../../stores/methodSelection';
-	import type { components } from '$lib/api/client-types';
 	import { onMount } from 'svelte';
 
 	// UI Components
@@ -79,10 +78,7 @@
 	import * as Resizable from '$lib/components/ui/resizable/index.js';
 	import ResizableHandle from '$lib/components/ui/resizable/resizable-handle.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
-
-	// Dialog Components
-	import ConfirmationDialog from '$lib/components/custom/confirmation-dialog.svelte';
-	import InputDialog from '$lib/components/custom/input-dialog.svelte';
+	import { openConfirmDialog, openInputDialog } from '$lib/components/custom/dialogs/dialogs';
 
 	// NIMBUS specific components
 	import AppSidebar from '$lib/components/custom/preferences-bar/preferences-sidebar.svelte';
@@ -98,29 +94,12 @@
 		mapSolutionsToObjectiveValues,
 		updatePreferencesFromState,
 		validateIterationAllowed,
-		callNimbusAPI,
 		processPreviousObjectiveValues,
 		updateSolutionNames
 	} from './helper-functions';
-	type ProblemInfo = components['schemas']['ProblemInfo'];
-	// Define a general type combining all three responses that NIMBUS can return
-	type Solution = components['schemas']['SolutionReferenceResponse'];
-	type Response = {
-		state_id: number | null;
-		previous_preference?: components['schemas']['ReferencePoint'];
-		previous_objectives?: {
-			[key: string]: number;
-		};
-		reference_solution_1?: {
-			[key: string]: number;
-		};
-		reference_solution_2?: {
-			[key: string]: number;
-		};
-		current_solutions: Solution[];
-		saved_solutions: Solution[];
-		all_solutions: Solution[];
-	};
+
+	import type { ProblemInfo, Solution, SolutionType, MethodMode, PeriodKey } from '$lib/types';
+	import type { Response } from './types';
 
 	// State for NIMBUS iteration management
 	let current_state: Response = $state({} as Response);
@@ -158,7 +137,7 @@
 	});
 	// variables for handling different modes (iteration, intermediate, save, finish)
 	// and chosen solutions that are separate for every mode
-	let mode: 'iterate' | 'final' | 'intermediate' = $state('iterate');
+	let mode: MethodMode = $state('iterate');
 	// iteration mode
 	let selected_iteration_index: number[] = $state([0]); // Index of solution from previous results to use in sidebar. List for consistency, but always has one element
 	let current_num_iteration_solutions: number = $state(1); // how many solutions user wants when making the iteration
@@ -186,7 +165,6 @@
 	let hasUtopiaMetadata = $state(false);
 
 	// Variables for showing the map for UTOPIA
-	type PeriodKey = 'period1' | 'period2' | 'period3';
 	let mapOptions = $state<Record<PeriodKey, Record<string, any>>>({
 		period1: {},
 		period2: {},
@@ -206,11 +184,11 @@
 	});
 
 	function handle_type_solutions_change(event: { value: string }) {
-		change_solution_type_updating_selections(event.value as 'current' | 'best' | 'all');
+		change_solution_type_updating_selections(event.value as SolutionType);
 	}
 
 	// Helper function to change solution type and update selections
-	function change_solution_type_updating_selections(newType: 'current' | 'best' | 'all') {
+	function change_solution_type_updating_selections(newType: SolutionType) {
 		// Update the internal state
 		selected_type_solutions = newType;
 
@@ -239,38 +217,6 @@
 		}
 	}
 
-	// Dialog state management
-	type DialogConfig = {
-		open: boolean;
-		title: string;
-		description: string;
-		confirmText: string;
-		cancelText: string;
-		onConfirm: () => void;
-		onCancel?: () => void;
-		confirmVariant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
-	};
-
-	let dialogConfig = $state<DialogConfig>({
-		open: false,
-		title: '',
-		description: '',
-		confirmText: '',
-		cancelText: '',
-		onConfirm: () => {},
-		onCancel: () => {},
-		confirmVariant: 'default'
-	});
-
-	// Helper function to open the dialog with specific configuration
-	function openDialog(config: Partial<DialogConfig>) {
-		dialogConfig = {
-			...dialogConfig,
-			...config,
-			open: true
-		};
-	}
-
 	// Function to handle finishing
 	function confirm_finish() {
 		// We now only handle the case when exactly one solution is selected
@@ -280,61 +226,50 @@
 		const final_solution = { ...selectedSolution }; // Save the actual solution
 		const solutionName = selectedSolution.name || `Solution #${selectedIndexes[0] + 1}`;
 
-		openDialog({
+		openConfirmDialog({
 			title: 'Confirm Final Choice',
 			description: `Are you sure you want to proceed with "${solutionName}" as your final choice?`,
 			confirmText: 'Yes, Proceed',
 			cancelText: 'Cancel',
+			confirmVariant: 'destructive',
 			onConfirm: () => handle_finish(final_solution, selectedIndexes[0])
 		});
 	}
 	// TODO: find out if there is an endpoint or some actual functionality needed; now the endpoint is mocked
 	async function handle_finish(final_solution: Solution, index: number) {
-		interface FinishResponse {
-			success: boolean;
-		}
+		const success = await handleFinishRequest(problem, final_solution);
 
-		const result = await callNimbusAPI<FinishResponse>('choose', {
-			problem_id: problem?.id,
-			solution: final_solution
-		});
-
-		if (result.success) {
+		if (success) {
 			// Update the selected iteration index to match our final solution
 			// This will ensure that in final mode we show the correct solution
 			selected_iteration_index = [index];
 
 			// Set mode to final after updating the indexes
 			mode = 'final';
-		} else {
-			console.error('Failed to save final choice:', result.error);
 		}
 	}
 
+	import {
+		handle_intermediate as handleIntermediateRequest,
+		handle_iterate as handleIterateRequest,
+		handle_save as handleSaveRequest,
+		handle_remove_saved as handleRemoveSavedRequest,
+		handle_finish as handleFinishRequest,
+		get_maps as getMapsRequest,
+		initialize_nimbus_state as initializeNimbusStateRequest
+	} from './handlers';
+
 	// Handle intermediate solutions generation
 	async function handle_intermediate() {
-		// Check if we have exactly 2 solutions selected
-		if (selected_solutions_for_intermediate.length !== 2) {
-			console.error('Exactly 2 solutions must be selected for intermediate solutions');
-			return;
-		}
+		const result = await handleIntermediateRequest(
+			problem,
+			selected_solutions_for_intermediate,
+			current_num_intermediate_solutions
+		);
 
-		// Get the two selected solutions
-		const solution1 = selected_solutions_for_intermediate[0];
-		const solution2 = selected_solutions_for_intermediate[1];
-
-		const result = await callNimbusAPI<Response>('intermediate', {
-			problem_id: problem?.id,
-			session_id: null, // Using active session
-			parent_state_id: null, // No specific parent
-			reference_solution_1: solution1,
-			reference_solution_2: solution2,
-			num_desired: current_num_intermediate_solutions
-		});
-
-		if (result.success && result.data) {
+		if (result) {
 			// Update the current state with the intermediate solutions response
-			current_state = result.data;
+			current_state = result;
 
 			// Update names from saved solutions (only for all_solutions, current_solutions are new)
 			current_state.all_solutions = updateSolutionNames(
@@ -348,21 +283,19 @@
 			selected_iteration_index = [0];
 			// Switch to current solutions view and update UI
 			change_solution_type_updating_selections('current');
-		} else {
-			console.error('Failed to solve intermediate solutions:', result.error);
 		}
 	}
 
-	// Dialog state for renaming saved solution in input dialog
-	let show_rename_dialog: boolean = $state(false);
-	let solution_to_rename: Solution | null = $state(null);
-	let solution_initial_name: string = $state('');
-
 	function handle_change(solution: Solution): void {
-		// Open the input dialog and set the solution to be renamed
-		solution_to_rename = solution;
-		solution_initial_name = solution.name || '';
-		show_rename_dialog = true;
+		openInputDialog({
+			title: 'Rename Solution',
+			description: 'Enter a name for this solution.',
+			confirmText: 'Save',
+			cancelText: 'Cancel',
+			initialValue: solution.name || '',
+			placeholder: 'Solution name',
+			onConfirm: (name) => handle_save(solution, name)
+		});
 	}
 
 	// Save a solution with an optional name
@@ -370,23 +303,11 @@
 	// Should inform user, make it possible for user to compare decision variables and decide if they want so save the new one too.
 	// Accuracy of comparison should be display accuracy, because that is what the user sees.
 	async function handle_save(solution: Solution, name: string | undefined) {
-		// Create a copy of the solution with the name
-		const solutionToSave = {
-			...solution,
-			name: name ?? null
-		};
+		const solutionToSave = { ...solution, name: name || null };
 
-		// save the solution to the server. Endpoint checks if the exact solution is already saved and changes the name.
-		interface SaveResponse {
-			success: boolean;
-		}
+		const success = await handleSaveRequest(problem, solution, name);
 
-		const result = await callNimbusAPI<SaveResponse>('save', {
-			problem_id: problem?.id,
-			solution_info: [solutionToSave]
-		});
-
-		if (result.success) {
+		if (success) {
 			// Update the solution in all lists after it is successfully saved in the backend
 			const updateSolutionInList = (list: Solution[]) =>
 				list.map((item) =>
@@ -418,35 +339,25 @@
 				saved_solutions: updatedSavedSolutions,
 				all_solutions: updateSolutionInList(current_state.all_solutions)
 			};
-		} else {
-			console.error('Failed to save solution:', result.error);
 		}
 	}
 	// Function to handle removing saved solution with confirmation
 	function confirm_remove_saved(solution: Solution) {
-		openDialog({
+		openConfirmDialog({
 			title: 'Remove Saved Solution',
 			description: `Are you sure you want to remove ${solution.name || 'this solution'} from saved solutions?`,
 			confirmText: 'Remove',
 			cancelText: 'Cancel',
 			onConfirm: () => handle_remove_saved(solution)
-			// confirmVariant: "destructive" // Use red color for destructive action
 		});
 	}
 
 	// TODO: endpoint for removing saved solution is not implemented in +server.ts
 	// Actual function to remove the saved solution after confirmation
 	async function handle_remove_saved(solution: Solution) {
-		interface RemoveResponse {
-			success: boolean;
-		}
+		const success = await handleRemoveSavedRequest(problem, solution);
 
-		const result = await callNimbusAPI<RemoveResponse>('remove_saved', {
-			problem_id: problem?.id,
-			solutions: [solution]
-		});
-
-		if (result.success) {
+		if (success) {
 			// Remove the solution from saved_solutions
 			const updatedSavedSolutions = current_state.saved_solutions.filter(
 				(saved) =>
@@ -462,8 +373,6 @@
 				// No need to update current_solutions or all_solutions as they should remain unchanged
 				// We just need to remove the solution from saved_solutions
 			};
-		} else {
-			console.error('Failed to remove saved solution:', result.error);
 		}
 	}
 
@@ -487,29 +396,16 @@
 			return;
 		}
 
-		const preference = {
-			preference_type: 'reference_point',
-			aspiration_levels: problem.objectives.reduce(
-				(acc, obj, idx) => {
-					acc[obj.symbol] = current_preference[idx];
-					return acc;
-				},
-				{} as Record<string, number>
-			)
-		};
+		const result = await handleIterateRequest(
+			problem,
+			current_preference,
+			selected_iteration_objectives,
+			current_num_iteration_solutions
+		);
 
-		const result = await callNimbusAPI<Response>('iterate', {
-			problem_id: problem.id,
-			session_id: null,
-			parent_state_id: null,
-			current_objectives: selected_iteration_objectives,
-			num_desired: current_num_iteration_solutions,
-			preference: preference
-		});
-
-		if (result.success && result.data) {
+		if (result) {
 			// Store the preference values that were just used for iteration
-			current_state = result.data;
+			current_state = result;
 
 			// Update names from saved solutions (only for all_solutions, current_solutions are new)
 			current_state.all_solutions = updateSolutionNames(
@@ -522,8 +418,6 @@
 			change_solution_type_updating_selections('current');
 			update_preferences_from_state(current_state);
 			current_num_iteration_solutions = current_state.current_solutions.length;
-		} else {
-			console.error('NIMBUS iteration failed:', result.error);
 		}
 	}
 
@@ -534,35 +428,11 @@
 			return;
 		}
 
-		// Define the expected return type for the maps API
-		interface MapsResponse {
-			years: string[];
-			options: Record<string, any>;
-			map_json: object;
-			map_name: string;
-			description: string;
-			compensation: number;
-		}
+		const data = await getMapsRequest(problem, solution);
 
-		const result = await callNimbusAPI<MapsResponse>('get_maps', {
-			problem_id: problem.id,
-			solution: solution
-		});
-
-		if (result.success && result.data) {
-			const data = result.data;
-
+		if (data) {
 			// Update state variables with the fetched data
 			yearlist = data.years;
-
-			// Apply the formatter function client-side
-			for (let year of yearlist) {
-				if (data.options[year].tooltip.formatterEnabled) {
-					data.options[year].tooltip.formatter = function (params: any) {
-						return `${params.name}`;
-					};
-				}
-			}
 
 			// Assign map options for each period
 			mapOptions = {
@@ -575,8 +445,6 @@
 			mapName = data.map_name;
 			mapDescription = data.description;
 			compensation = Math.round(data.compensation * 100) / 100; // TODO: not used anywhere, in old UI only used in one sentence
-		} else {
-			console.error('Failed to get maps:', result.error);
 		}
 	}
 
@@ -653,16 +521,11 @@
 
 	// Initialize NIMBUS state by calling the API endpoint
 	async function initialize_nimbus_state(problem_id: number) {
-		const result = await callNimbusAPI<Response>('initialize', {
-			problem_id: problem_id,
-			session_id: null, // Use active session
-			parent_state_id: null, // No parent for initialization
-			solver: null // Use default solver
-		});
+		const result = await initializeNimbusStateRequest(problem_id);
 
-		if (result.success && result.data) {
+		if (result) {
 			// Store response data
-			current_state = result.data;
+			current_state = result;
 
 			// Update names from saved solutions
 			current_state.current_solutions = updateSolutionNames(
@@ -679,8 +542,6 @@
 			update_iteration_selection(current_state);
 			update_preferences_from_state(current_state);
 			current_num_iteration_solutions = current_state.current_solutions.length;
-		} else {
-			console.error('NIMBUS initialization failed:', result.error);
 		}
 	}
 
@@ -921,33 +782,3 @@
 		{/snippet}
 	</BaseLayout>
 {/if}
-
-<ConfirmationDialog
-	bind:open={dialogConfig.open}
-	title={dialogConfig.title}
-	description={dialogConfig.description}
-	confirmText={dialogConfig.confirmText}
-	cancelText={dialogConfig.cancelText}
-	onConfirm={dialogConfig.onConfirm}
-	onCancel={dialogConfig.onCancel}
-	confirmVariant={dialogConfig.confirmVariant}
-/>
-
-<InputDialog
-	bind:open={show_rename_dialog}
-	title="Rename Solution"
-	description="Enter a name for this solution."
-	confirmText="Save"
-	cancelText="Cancel"
-	initialValue={solution_initial_name}
-	placeholder="Solution name"
-	onConfirm={(name) => {
-		if (solution_to_rename) {
-			handle_save(solution_to_rename, name);
-		}
-	}}
-	onCancel={() => {
-		// Reset the solution to rename
-		solution_to_rename = null;
-	}}
-/>

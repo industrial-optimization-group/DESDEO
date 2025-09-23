@@ -3,13 +3,14 @@
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, Relationship, SQLModel, Column, JSON
 
 if TYPE_CHECKING:
     from .archive import UserSavedSolutionDB
     from .preference import PreferenceDB
     from .problem import ProblemDB
     from .session import InteractiveSessionDB
+    from .gdm_base import Group
 
 
 class UserRole(str, Enum):
@@ -33,7 +34,8 @@ class User(UserBase, table=True):
     id: int | None = Field(primary_key=True, default=None)
     password_hash: str = Field()
     role: UserRole = Field()
-    group: str = Field(default="")
+    group: str | None = Field(default="") # TODO: Get rid of this and use proper group systems
+    group_ids: list[int] = Field(sa_column=Column(JSON), default=[]) # The user is either a member of a group or an owner of a group
     active_session_id: int | None = Field(default=None)
 
     # Back populates
@@ -48,4 +50,4 @@ class UserPublic(UserBase):
 
     id: int
     role: UserRole
-    group: str
+    group_ids: list[int] | None
