@@ -70,6 +70,7 @@
 	// Layout and core components
 	import { BaseLayout } from '$lib/components/custom/method_layout/index.js';
 	import { methodSelection } from '../../../stores/methodSelection';
+	import { errorMessage, isLoading } from '../../../stores/error-store';
 	import { onMount } from 'svelte';
 
 	// UI Components
@@ -561,6 +562,40 @@
 		current_preference = [...data.preferenceValues];
 	}
 </script>
+
+{#if $isLoading}
+    <div class="loading-spinner">
+        Calculating...
+    </div>
+{/if}
+
+{#if $errorMessage}
+    <div class="error-message">
+        {#if typeof $errorMessage === 'string'}
+            {$errorMessage}
+        {:else}
+            An unexpected error occurred. Please try again.
+        {/if}
+    </div>
+{/if}
+
+<style>
+    .error-message {
+        background-color: #fee;
+        color: #c00;
+        padding: 1rem;
+        margin: 1rem 0;
+        border-radius: 4px;
+    }
+
+    .loading-spinner {
+        background-color: #f0f0f0;
+        padding: 1rem;
+        margin: 1rem 0;
+        border-radius: 4px;
+        text-align: center;
+    }
+</style>
 
 {#if mode === 'final'}
 	<BaseLayout showLeftSidebar={false} showRightSidebar={false} bottomPanelTitle="Final Solution">

@@ -1,6 +1,7 @@
 import type { ProblemInfo, Solution } from '$lib/types';
 import type { Response } from './types';
 import { callNimbusAPI } from './helper-functions';
+import { errorMessage, isLoading } from '../../../stores/error-store';
 
 // Handler for intermediate solutions generation
 export async function handle_intermediate(
@@ -42,31 +43,44 @@ export async function handle_iterate(
     selected_iteration_objectives: Record<string, number>,
     current_num_iteration_solutions: number
 ): Promise<Response | null> {
-    const preference = {
-        preference_type: 'reference_point',
-        aspiration_levels: problem.objectives.reduce(
-            (acc, obj, idx) => {
-                acc[obj.symbol] = current_preference[idx];
-                return acc;
-            },
-            {} as Record<string, number>
-        )
-    };
+    try {
+        isLoading.set(true);
+        errorMessage.set(null);
 
-    const result = await callNimbusAPI<Response>('iterate', {
-        problem_id: problem.id,
-        session_id: null,
-        parent_state_id: null,
-        current_objectives: selected_iteration_objectives,
-        num_desired: current_num_iteration_solutions,
-        preference: preference
-    });
+        const preference = {
+            preference_type: 'reference_point',
+            aspiration_levels: problem.objectives.reduce(
+                (acc, obj, idx) => {
+                    acc[obj.symbol] = current_preference[idx];
+                    return acc;
+                },
+                {} as Record<string, number>
+            )
+        };
 
-    if (result.success && result.data) {
-        return result.data;
-    } else {
-        console.error('NIMBUS iteration failed:', result.error);
+        const result = await callNimbusAPI<Response>('iterate', {
+            problem_id: problem.id,
+            session_id: null,
+            parent_state_id: null,
+            current_objectives: selected_iteration_objectives,
+            num_desired: current_num_iteration_solutions,
+            preference: preference
+        });
+
+        if (!result.success) {
+            // Ensure error is always a string
+            const errorMsg = result.error ?? 'Failed to iterate';
+            errorMessage.set(errorMsg);
+            return null;
+        }
+
+        return result.data || null;
+    } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Unknown error';
+        errorMessage.set(msg);
         return null;
+    } finally {
+        isLoading.set(false);
     }
 }
 

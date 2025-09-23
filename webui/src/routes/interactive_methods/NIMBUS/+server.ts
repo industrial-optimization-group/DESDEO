@@ -139,39 +139,49 @@ async function handle_initialize(body: any, refreshToken: string) {
 }
 
 async function handle_iterate(body: any, refreshToken: string) {
-    const { problem_id, session_id, parent_state_id, current_objectives, num_desired, preference } = body;
+    try {
+        const { problem_id, session_id, parent_state_id, current_objectives, num_desired, preference } = body;
 
-    const requestBody = {
-        problem_id: Number(problem_id),
-        session_id: session_id ? Number(session_id) : null,
-        parent_state_id: parent_state_id ? Number(parent_state_id) : null,
-        current_objectives,
-        num_desired: num_desired ? Number(num_desired) : null,
-        preference,
-        scalarization_options: null,
-        solver: null,
-        solver_options: null
-    };
+        const requestBody = {
+            problem_id: Number(problem_id),
+            session_id: session_id ? Number(session_id) : null,
+            parent_state_id: parent_state_id ? Number(parent_state_id) : null,
+            current_objectives,
+            num_desired: num_desired ? Number(num_desired) : null,
+            preference,
+            scalarization_options: null,
+            solver: null,
+            solver_options: null
+        };
 
-    const response = await api.POST('/method/nimbus/solve', {
-        body: requestBody,
-        headers: {
-            'Authorization': `Bearer ${refreshToken}`
+        const response = await api.POST('/method/nimbus/solve', {
+            body: requestBody,
+            headers: {
+                'Authorization': `Bearer ${refreshToken}`
+            }
+        });
+
+        if (response.error || !response.data) {
+            // Get specific error message from response if available 
+            const errorMessage = `${response.response.status} ${response.error.detail}` || 
+                               response.error?.toString() || 
+                               'Failed to process request';
+            return {
+                success: false,
+                error: errorMessage
+            };
         }
-    });
 
-    // Check if the response has an error
-    if (response.error) {
-        console.error(`NIMBUS solve API error: ${response.error} (Status: ${response.response?.status})`);
-        throw new Error(`NIMBUS solve API error: ${response.error} (Status: ${response.response?.status})`);
+        return {
+            success: true,
+            data: response.data
+        };
+    } catch (error) {
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error during iteration'
+        };
     }
-
-    if (!response.data) {
-        console.error('No data received from NIMBUS solve API');
-        throw new Error('No data received from NIMBUS solve API');
-    }
-
-    return { success: true, data: response.data };
 }
 
 async function handle_intermediate(body: any, refreshToken: string) {
