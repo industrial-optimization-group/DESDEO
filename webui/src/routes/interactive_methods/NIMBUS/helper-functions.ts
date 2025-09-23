@@ -231,26 +231,33 @@ export function updateSolutionNames(
     return updatedSolutions;
 }
 
-export async function callNimbusAPI<T = Response>(type: string, data: Record<string, any>): Promise<{
+export async function callNimbusAPI<T = Response>(
+    type: string,
+    data: Record<string, any>,
+    timeout = 10000 // 10s default
+): Promise<{
     success: boolean;
     data?: T;
     error?: string;
 }> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
     try {
         const response = await fetch(`/interactive_methods/NIMBUS/?type=${type}`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+            signal: controller.signal
         });
+
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
             throw new Error(`HTTP error! Status: ${response.status}`);
         }
 
-        const result = await response.json();
-        return result;
+        return await response.json();
     } catch (error) {
         console.error(`Error calling NIMBUS ${type} API:`, error);
         return {

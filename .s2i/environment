@@ -2,3 +2,4 @@ UPGRADE_PIP_TO_LATEST=1
 APP_MODULE=desdeo.api.app:app
 GUNICORN_CMD_ARGS=--bind=0.0.0.0:8080 --workers=2 --access-logfile=- --worker-class uvicorn.workers.UvicornWorker
 DESDEO_INSTALL=.[web,server]
+DESDEO_PRODUCTION=True
