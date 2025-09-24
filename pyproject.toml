@@ -23,6 +23,7 @@ dependencies = [
     "numba >= 0.61.0",
     "pydantic >= 2.9",
     "sympy >= 1.0",
+    "plotly>=6.0",
     "pyparsing >= 3.0",
     "nevergrad >= 1.0.12",
     "bayesian-optimization >= 1.0",  # They recently released v2 which breaks compatibility with nevergrad
@@ -89,7 +90,6 @@ web = [
 
 viz = [
     "seaborn>=0.13.0",
-    "plotly>=6.0",
     "scienceplots>=2.1.1",
     "pyparsing[diagrams]>=3.1.1"
 ]
@@ -100,8 +100,7 @@ tools = [
 ]
 
 server = [
-    "gunicorn>=23.0.0",
-    "plotly>=6.0"
+    "gunicorn>=23.0.0"
 ]
 
 [tool.ruff]
