@@ -80,6 +80,7 @@ web = [
     "python-multipart>=0.0.20",
     "uvicorn>=0.34.2",
     "bcrypt>=4.3.0",
+	"pydantic-settings>=2.10.1",
     "sqlalchemy-utils>=0.41.2",
     "sqlmodel>=0.0.24",
     "psycopg2>=2.9.10",
