@@ -9,7 +9,7 @@ from pathlib import Path
 from sqlalchemy_utils import database_exists
 from sqlmodel import Session, SQLModel
 
-from desdeo.api.config import ServerDebugConfig, SettingsConfig
+from desdeo.api.config import ServerConfig, SettingsConfig
 from desdeo.api.db import engine
 from desdeo.api.models import ProblemDB, User, UserRole, ForestProblemMetaData, ProblemMetaDataDB
 from desdeo.api.routers.user_authentication import get_password_hash
@@ -32,8 +32,8 @@ if __name__ == "__main__":
 
         with Session(engine) as session:
             user_analyst = User(
-                username=ServerDebugConfig.test_user_analyst_name,
-                password_hash=get_password_hash(ServerDebugConfig.test_user_analyst_password),
+                username=ServerConfig.test_user_analyst_name,
+                password_hash=get_password_hash(ServerConfig.test_user_analyst_password),
                 role=UserRole.analyst,
                 group="test",
             )
@@ -64,21 +64,15 @@ if __name__ == "__main__":
             forest_metadata = ForestProblemMetaData(
                 map_json=map_json,
                 schedule_dict=key,
-                years=list(map(lambda x: str(x), [5,10,20])),
+                years=list(map(lambda x: str(x), [5, 10, 20])),
                 stand_id_field="id",
                 stand_descriptor=generate_descriptions(
-                    json.loads(map_json),
-                    "id",
-                    "number",
-                    "estate_code",
-                    "extension"
-                )
+                    json.loads(map_json), "id", "number", "estate_code", "extension"
+                ),
             )
 
             metadata_db = ProblemMetaDataDB(
-                problem_id = problem_db.id,
-                forest_metadata=[forest_metadata],
-                problem=problem_db
+                problem_id=problem_db.id, forest_metadata=[forest_metadata], problem=problem_db
             )
 
             session.add(metadata_db)
@@ -94,11 +88,6 @@ if __name__ == "__main__":
             # os.remove(target_path / "test.db")
             # Put new one in.
             os.rename(current_path.parent / "test.db", target_path)
-
-
-            
-
-            
 
     else:
         # deployment stuff

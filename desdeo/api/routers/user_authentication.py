@@ -12,15 +12,9 @@ from jose import ExpiredSignatureError, JWTError, jwt
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from desdeo.api import AuthDebugConfig, AuthDeployConfig, SettingsConfig
+from desdeo.api import AuthConfig
 from desdeo.api.db import get_session
 from desdeo.api.models import User, UserPublic, UserRole
-
-# AuthConfig
-if SettingsConfig.debug:
-    AuthConfig = AuthDebugConfig()
-else:
-    AuthConfig = AuthDeployConfig()
 
 router = APIRouter()
 

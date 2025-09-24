@@ -2,13 +2,7 @@
 
 from sqlmodel import Session, create_engine
 
-from desdeo.api.config import DatabaseDebugConfig, DatabaseDeployConfig, SettingsConfig
-
-if SettingsConfig.debug:
-    DatabaseConfig = DatabaseDebugConfig()
-else:
-    DatabaseConfig = DatabaseDeployConfig()
-
+from desdeo.api.config import DatabaseConfig, SettingsConfig
 
 if SettingsConfig.debug:
     # debug and development stuff

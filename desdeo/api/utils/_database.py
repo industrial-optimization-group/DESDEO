@@ -19,14 +19,9 @@ from sqlalchemy.sql.expression import exists as sa_exists
 from sqlalchemy.sql.functions import count
 from sqlalchemy.sql.selectable import Exists, Select
 
-from desdeo.api.config import DatabaseDebugConfig, DatabaseDeployConfig, SettingsConfig
+from desdeo.api.config import DatabaseConfig as DBConfig
 
 from .logger import get_logger
-
-if SettingsConfig.debug:
-    DBConfig = DatabaseDebugConfig()
-else:
-    DBConfig = DatabaseDeployConfig()
 
 T = TypeVar("T")
 
