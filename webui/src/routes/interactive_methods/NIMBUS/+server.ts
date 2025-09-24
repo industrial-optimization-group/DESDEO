@@ -1,15 +1,15 @@
 /**
  * +server.ts - NIMBUS API Server Endpoint
- * 
+ *
  * @author Stina Palomäki <palomakistina@gmail.com>
  * @created August 2025
- * 
+ *
  * @description
  * This server endpoint handles all NIMBUS method API requests, acting as a proxy between
  * the frontend and the backend API. It supports operations like initializing NIMBUS,
  * iterating to find new solutions, generating intermediate solutions, saving solutions,
  * and fetching map data for UTOPIA visualization.
- * 
+ *
  * @endpoints
  * - initialize: Initializes a new NIMBUS session with the backend
  * - iterate: Performs a NIMBUS iteration based on user preferences
@@ -18,18 +18,16 @@
  * - save: Saves a solution with a name
  * - remove_saved: Removes a saved solution (TODO: currently not implemented)
  * - get_maps: Retrieves map data for UTOPIA visualization
- * 
+ *
  * @authentication
  * All endpoints require authentication via refresh_token cookie.
- * 
+ *
  * @error_handling
  * Returns standardized JSON responses with success/error fields and appropriate HTTP status codes.
  */
 import { json } from '@sveltejs/kit';
 import { serverApi as api } from '$lib/api/client';
 import type { RequestHandler } from './$types';
-
-
 
 async function makeApiRequest(endpoint: string, body: any, refreshToken: string) {
 	try {
@@ -44,7 +42,7 @@ async function makeApiRequest(endpoint: string, body: any, refreshToken: string)
 			const status = response.response?.status || 'N/A';
 			// The error object from the client seems to have a 'detail' property for FastAPI errors
 			const detail =
-				(response.error as any)?.detail || response.error?.toString() || 'Failed to process request';
+				response.error.detail || response.error.toString() || 'Failed to process request';
 			const errorMessage = `${status} ${detail}`;
 			console.error(`API error on endpoint ${endpoint}:`, errorMessage);
 			return {
@@ -82,14 +80,8 @@ const handlers: Record<string, HandlerFunction> = {
 		return makeApiRequest('/method/nimbus/get-or-initialize', requestBody, refreshToken);
 	},
 	iterate: (body, refreshToken) => {
-		const {
-			problem_id,
-			session_id,
-			parent_state_id,
-			current_objectives,
-			num_desired,
-			preference
-		} = body;
+		const { problem_id, session_id, parent_state_id, current_objectives, num_desired, preference } =
+			body;
 		const requestBody = {
 			problem_id: Number(problem_id),
 			session_id: session_id ? Number(session_id) : null,

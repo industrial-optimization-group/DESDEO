@@ -43,6 +43,8 @@
 	 * - ConfirmationDialog: For confirming actions.
 	 * - InputDialog: For renaming saved solutions.
 	 * - methodSelection: Svelte store for the currently selected problem.
+	 * - LoadingSpinner: For showing a loading state during long operations.
+	 * - ErrorAlert: For displaying dismissible error messages.
 	 *
 	 * @notes
 	 * - The selected problem is determined from the methodSelection store.
@@ -70,8 +72,10 @@
 	// Layout and core components
 	import { BaseLayout } from '$lib/components/custom/method_layout/index.js';
 	import { methodSelection } from '../../../stores/methodSelection';
-	import { errorMessage, isLoading } from '../../../stores/error-store';
+	import { errorMessage, isLoading } from '../../../stores/uiState';
 	import { onMount } from 'svelte';
+	import LoadingSpinner from '$lib/components/custom/notifications/loading-spinner.svelte';
+	import ErrorAlert from '$lib/components/custom/notifications/error-alert.svelte';
 
 	// UI Components
 	import { Combobox } from '$lib/components/ui/combobox';
@@ -564,38 +568,12 @@
 </script>
 
 {#if $isLoading}
-    <div class="loading-spinner">
-        Calculating...
-    </div>
+	<LoadingSpinner />
 {/if}
 
 {#if $errorMessage}
-    <div class="error-message">
-        {#if typeof $errorMessage === 'string'}
-            {$errorMessage}
-        {:else}
-            An unexpected error occurred. Please try again.
-        {/if}
-    </div>
+	<ErrorAlert />
 {/if}
-
-<style>
-    .error-message {
-        background-color: #fee;
-        color: #c00;
-        padding: 1rem;
-        margin: 1rem 0;
-        border-radius: 4px;
-    }
-
-    .loading-spinner {
-        background-color: #f0f0f0;
-        padding: 1rem;
-        margin: 1rem 0;
-        border-radius: 4px;
-        text-align: center;
-    }
-</style>
 
 {#if mode === 'final'}
 	<BaseLayout showLeftSidebar={false} showRightSidebar={false} bottomPanelTitle="Final Solution">
