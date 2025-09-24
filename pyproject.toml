@@ -23,6 +23,7 @@ dependencies = [
     "numba >= 0.61.0",
     "pydantic >= 2.9",
     "sympy >= 1.0",
+    "plotly>=6.0",
     "pyparsing >= 3.0",
     "nevergrad >= 1.0.12",
     "bayesian-optimization >= 1.0",  # They recently released v2 which breaks compatibility with nevergrad
@@ -80,6 +81,7 @@ web = [
     "python-multipart>=0.0.20",
     "uvicorn>=0.34.2",
     "bcrypt>=4.3.0",
+	"pydantic-settings>=2.10.1",
     "sqlalchemy-utils>=0.41.2",
     "sqlmodel>=0.0.24",
     "psycopg2>=2.9.10",
@@ -88,7 +90,6 @@ web = [
 
 viz = [
     "seaborn>=0.13.0",
-    "plotly>=6.0",
     "scienceplots>=2.1.1",
     "pyparsing[diagrams]>=3.1.1"
 ]
