@@ -100,7 +100,8 @@ tools = [
 ]
 
 server = [
-    "gunicorn>=23.0.0"
+    "gunicorn>=23.0.0",
+    "plotly>=6.0"
 ]
 
 [tool.ruff]
