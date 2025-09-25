@@ -43,6 +43,8 @@
 	 * - ConfirmationDialog: For confirming actions.
 	 * - InputDialog: For renaming saved solutions.
 	 * - methodSelection: Svelte store for the currently selected problem.
+	 * - LoadingSpinner: For showing a loading state during long operations.
+	 * - ErrorAlert: For displaying dismissible error messages.
 	 *
 	 * @notes
 	 * - The selected problem is determined from the methodSelection store.
@@ -70,7 +72,10 @@
 	// Layout and core components
 	import { BaseLayout } from '$lib/components/custom/method_layout/index.js';
 	import { methodSelection } from '../../../stores/methodSelection';
+	import { errorMessage, isLoading } from '../../../stores/uiState';
 	import { onMount } from 'svelte';
+	import LoadingSpinner from '$lib/components/custom/notifications/loading-spinner.svelte';
+	import ErrorAlert from '$lib/components/custom/notifications/error-alert.svelte';
 
 	// UI Components
 	import { Combobox } from '$lib/components/ui/combobox';
@@ -561,6 +566,14 @@
 		current_preference = [...data.preferenceValues];
 	}
 </script>
+
+{#if $isLoading}
+	<LoadingSpinner />
+{/if}
+
+{#if $errorMessage}
+	<ErrorAlert />
+{/if}
 
 {#if mode === 'final'}
 	<BaseLayout showLeftSidebar={false} showRightSidebar={false} bottomPanelTitle="Final Solution">
