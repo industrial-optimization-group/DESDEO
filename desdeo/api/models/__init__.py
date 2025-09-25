@@ -87,6 +87,15 @@ __all__ = [  # noqa: RUF022
     "UtopiaRequest",
     "UtopiaResponse",
     "VariableDB",
+    "ScoreBandsRequest",
+    "ScoreBandsResponse",
+    "OptimizationPreference",
+    "VotingPreference",
+    "GNIMBUSResultResponse",
+    "FullIteration",
+    "GNIMBUSAllIterationsResponse",
+    "GNIMBUSSwitchPhaseRequest",
+    "GNIMBUSSwitchPhaseResponse",
 ]
 
 
@@ -96,6 +105,8 @@ from .generic import (
     GenericIntermediateSolutionResponse,
     IntermediateSolutionRequest,
     SolutionInfo,
+    ScoreBandsRequest,
+    ScoreBandsResponse,
 )
 from .generic_states import (
     SavedSolutionReference,
@@ -177,3 +188,12 @@ from .gdm_aggregate import (
     GroupInfoRequest,
 )
 from .utopia import UtopiaRequest, UtopiaResponse
+from .gnimbus import (
+    OptimizationPreference,
+    VotingPreference,
+    GNIMBUSResultResponse,
+    FullIteration,
+    GNIMBUSAllIterationsResponse,
+    GNIMBUSSwitchPhaseResponse,
+    GNIMBUSSwitchPhaseRequest,
+)

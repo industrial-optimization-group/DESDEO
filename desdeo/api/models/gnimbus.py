@@ -38,6 +38,16 @@ class SolverResultType(TypeDecorator):
                     continue
             return solver_list
         
+class GNIMBUSSwitchPhaseRequest(SQLModel):
+    """A request for a certain phase. Comes from the group owner/analyst"""
+    group_id: int
+    new_phase: str
+
+class GNIMBUSSwitchPhaseResponse(SQLModel):
+    """A response for the above request."""
+    old_phase: str
+    new_phase: str
+
 
 class OptimizationPreference(BasePreferences):
     """An optimization preference class. As for the method and phase, see GNIMBUS for details."""
@@ -64,11 +74,12 @@ class GNIMBUSResultResponse(SQLModel):
 
 class FullIteration(SQLModel):
     phase: str
-    optimization_preferences: OptimizationPreference
+    optimization_preferences: OptimizationPreference | None
     voting_preferences: VotingPreference | None
-    starting_result: SolutionReference
+    starting_result: SolutionReference | None
     common_results: list[SolutionReference]
     user_results: list[SolutionReference]
+    personal_result_index: int | None
     final_result: SolutionReference | None
 
 class GNIMBUSAllIterationsResponse(SQLModel):

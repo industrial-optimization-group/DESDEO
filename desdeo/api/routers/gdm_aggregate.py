@@ -1,4 +1,4 @@
-""" A structure for group decision making.
+"""A structure for group decision making.
 
 Currently, NIMBUS has been implemented in this system. However, swapping the NIMBUS methods for some other methods, such as
 reference point method should not be exceedingly difficult. I believe that if database models (in models.gdm) are generalized enough, this same
@@ -19,44 +19,29 @@ from datetime import UTC, datetime
 
 import logging
 import sys
+
 logging.basicConfig(
-    stream=sys.stdout,
-    format='[%(filename)s:%(lineno)d] %(levelname)s: %(message)s',
-    level=logging.INFO
+    stream=sys.stdout, format="[%(filename)s:%(lineno)d] %(levelname)s: %(message)s", level=logging.INFO
 )
 
-from fastapi import (
-    APIRouter, 
-    WebSocket, 
-    WebSocketDisconnect, 
-    Depends,
-    Query
-)
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query
 
 from jose import JWTError, jwt, ExpiredSignatureError
 from sqlmodel import Session, select
 from typing import Annotated
 
 from desdeo.api.models import (
-    User, 
+    User,
     Group,
 )
 from desdeo.api.db import get_session
-from desdeo.api import SettingsConfig
+from desdeo.api import AuthConfig
 from desdeo.api.routers.user_authentication import get_user
 from desdeo.api.routers.gdm_base import GroupManager, ManagerException
 from desdeo.api.routers.gnimbus import GNIMBUSManager
 
-
-# AuthConfig
-if SettingsConfig.debug:
-    from desdeo.api import AuthDebugConfig
-
-    AuthConfig = AuthDebugConfig
-else:
-    pass
-
 router = APIRouter(prefix="/gdm")
+
 
 class ManagerManager:
     """A singleton class to manage group managers. Spawns them and deletes them.
@@ -68,12 +53,11 @@ class ManagerManager:
         self.group_managers: dict[int, GroupManager] = {}
         self.lock = asyncio.Lock()
 
-
     async def get_group_manager(self, group_id: int, method: str) -> GroupManager | GNIMBUSManager:
         """Get the group manager for a specific group. If it doesn't exist, create one."""
         match method:
-            case "gnimbus":    
-                async with self.lock:   
+            case "gnimbus":
+                async with self.lock:
                     try:
                         return self.group_managers[group_id]
                     except KeyError:
@@ -87,7 +71,6 @@ class ManagerManager:
             case _:
                 return None
 
-        
     async def check_disconnect(self, group_id: int):
         """If no active connections, remove group manager"""
         async with self.lock:
@@ -106,17 +89,14 @@ class ManagerManager:
 
 manager = ManagerManager()
 
-async def auth_user(
-    token: str,
-    session: Session,
-    websocket: WebSocket
-) -> User:
+
+async def auth_user(token: str, session: Session, websocket: WebSocket) -> User:
     """Authenticate the user
 
     token: str: the access token of the user.
     session: Session: the database session from where the user is received
     websocket: WebSocket: the websocket that the user has connected with
-    
+
     """
 
     async def error_and_close():
@@ -142,8 +122,9 @@ async def auth_user(
 
     if user is None:
         return await error_and_close()
-    
+
     return user
+
 
 @router.websocket("/ws")
 async def websocket_endpoint(
@@ -151,21 +132,16 @@ async def websocket_endpoint(
     websocket: WebSocket,
     token: str = Query(),
     group_id: int = Query(),
-    method: str = Query()
+    method: str = Query(),
 ):
-    """ The websocket to which the user connects.
+    """The websocket to which the user connects.
 
     Both the access token and the group id is given as a query parameter to the endpoint.
     The call to this endpoint looks like the following:
 
     ws://[DOMAIN]:[PORT]/gdm/ws?token=[TOKEN]&group_id=[GROUP_ID]&method=[METHOD]
 
-    The data sent by the client is validated. If validation as ReferencePoint succeeds,
-    the preferences of this particular user are updated. When all the preferences are in,
-    the system begins the optimization and notifies all connected websockets that the
-    optimization is done and the results are ready for fetching.
-
-    If a user is not connected to the server, they will be notified when they connect next time.
+    See further details in the documentation. (Explanations -> GDM and websockets)
 
     """
 
@@ -181,13 +157,13 @@ async def websocket_endpoint(
         await websocket.send_text(f"There is no group with ID {group_id}.")
         await websocket.close()
         return
-    
-    if user.id not in group.user_ids:
+
+    if not (user.id in group.user_ids or user.id is group.owner_id):
         await websocket.send_text(f"User {user.username} doesn't belong in group {group.name}")
         await websocket.close()
         return
 
-    # We don't need the session here any more, so we can just close it. 
+    # We don't need the session here any more, so we can just close it.
     # I believe this releases connections to the pool
     session.close()
 

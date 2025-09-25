@@ -1,9 +1,5 @@
 # How to host a DESDEO web application on Kubernetes
 
-!!! Note
-
-    This guide is for the previous version of the web-API and is kept here for documentation (heh!) purposes. It will be updated eventually. The old web-API can be found in the git branch tagged `old_web_api`.
-
 
 This is a how-to guide to setting up a DESDEO web application on Kubernetes. Specifically, the aim is to provide one easy way to get desdeo-webapi, desdeo-webui and a database running on [CSC Rahti](https://docs.csc.fi/cloud/rahti2/). Rahti is running Openshift OKD v4 with Kubernetes v1.28. If you are trying to host your web application somewhere else, all the steps presented here might not be directly applicable, but the process should be similar.
 
@@ -40,6 +36,8 @@ POSTGRES_HOST       # This is the host of the database
 POSTGRES_PORT       # This is the port used by the host
 POSTGRES_DB         # This is the name of the database
 CORS_ORIGINS        # This is a list of potential URLs where the webui might be hosted
+COOKIE_DOMAIN       # Shared domain ending, from which cookies should be considered valid (for example, .2.rahtiapp.fi)
+AUTHJWT_SECRET      # Secret key for jwt authentication. You will need to generate this yourself.
 ```
 The `CORS_ORIGINS` variable is used to list the web sites for [Cross-origin resource sharing](https://en.wikipedia.org/wiki/Cross-origin_resource_sharing). It should list all the URLs where you might want to host your frontend. It should be in the format of a list of JSON string. For example, the default value if the environment variable is not set is `["http://localhost", "http://localhost:8080", "http://localhost:5173"]`
 
@@ -66,22 +64,12 @@ DESDEO2 uses a custom `assemble` script for installing all the necessary depende
 UPGRADE_PIP_TO_LATEST=1
 APP_MODULE=desdeo.api.app:app
 GUNICORN_CMD_ARGS=--bind=0.0.0.0:8080 --workers=2 --access-logfile=- --worker-class uvicorn.workers.UvicornWorker
-DESDEO_INSTALL=.[standard,api,server]
+DESDEO_INSTALL=.[web,server]
+DESDEO_PRODUCTION=True
 ```
-The first line tells that `pip` should be upgraded to the latest version. `APP_MODULE` denotes the app that [gunicorn](http://docs.gunicorn.org/en/latest/run.html#gunicorn) should run. `GUNICORN_CMD_ARGS` lists the other arguments given to gunicorn i.e. the server should be run for all ip addresses at port 8080, the number of workers should be 2 (the default is way too many), the logs should go to stdout, and most importantly, the workers-class should use uvicorn workers. The end result here is that the code in app:app will be run on a Gunicorn ASGI server using the given arguments. `DESDEO_INSTALL` is used to give additional parameters in the `pip install $DESDEO_INSTALL` command in the `asseble` script.
+The first line tells that `pip` should be upgraded to the latest version. `APP_MODULE` denotes the app that [gunicorn](http://docs.gunicorn.org/en/latest/run.html#gunicorn) should run. `GUNICORN_CMD_ARGS` lists the other arguments given to gunicorn i.e. the server should be run for all ip addresses at port 8080, the number of workers should be 2 (the default is way too many), the logs should go to stdout, and most importantly, the workers-class should use uvicorn workers. The end result here is that the code in app:app will be run on a Gunicorn ASGI server using the given arguments. `DESDEO_INSTALL` is used to give additional parameters in the `pip install $DESDEO_INSTALL` command in the `asseble` script. `DESDEO_PRODUCTION` is present so that the API knows to use the correct configurations.
 
-[Desdeo-webui](#desdeo-webui) has custom `assemble` and `run` scripts included. This is because [s2i-nodejs-container](https://github.com/sclorg/s2i-nodejs-container/blob/master/18/README.md) does not include as many configuration options through environment variables. The custom scripts are not very complicated however. If you need to change them, the `assemble` and `run` scripts are found in the `.s2i/bin/` folder. Below are files used to run current version of desdeo-webui (at the time of writing this). First the `assemble` script
-```sh
-/usr/libexec/s2i/assemble
-npm install -g npm@10.8.2
-npm run build
-exit
-```
-It first runs the default nodejs assemble script found at `/usr/libexec/s2i/assemble` to install all the dependencies and such, then it runs `npm run build` to build the svelte web app, finally it exits. The custom `run` script used is even simpler
-```sh
-node build
-```
-It just runs the code as a standalone node server.
+[Desdeo-webui](#desdeo-webui) has custom `assemble` and `run` scripts included. This is because [s2i-nodejs-container](https://github.com/sclorg/s2i-nodejs-container/blob/master/18/README.md) does not include as many configuration options through environment variables. The custom scripts are not very complicated however. If you need to change them, the `assemble` and `run` scripts are found in the `webui/.s2i/bin/` folder.
 
 ## Adding a custom build image
 
@@ -127,13 +115,18 @@ sourceStrategy:
 
 The process of adding DESDEO webui to Rahti is very similar to the one detailed above with [DESDEO webapi](#desdeo-webapi), as long as you have done all the necessary preparations [relating to S2I](#source-to-image-s2i). First you go to the `+Add` page, then you choose `Import from Git` option. You add your Github link and write the correct branch under Advanced Git options.
 
-The system should automatically figure out you are adding a Node application. You can change the builder image version if you need a specific version of Node for example. At the time of writing this, you don't need a custom build image for the webui.
+Because the webui is now found in the same repository as the rest of DESDEO, the system will not automatically figure out
+you are adding a Node application. You can switch to node application manually. You will also need add context dir `/webui` under advanced Git options.
+
+At the moment, Rahti has not added a build image for node 22, which is what DESDEO uses. That means you will need to set the build image manually. Webui does not need to do anything special with its build image,
+so you can just use the image from, for example, `registry.access.redhat.com/ubi9/nodejs-22:latest`.
 
 Under **General** you can choose your Application, which does not matter much, but you might want to use the same one as for the webapi. You can also choose the `Name` for your application, which is somewhat important, because it will be part of the address your users will use to access the web application.
 
-Under **Build** you could add environment variables for build and runtime. At the moment there is one important environment variable you need to set, `VITE_DESDEO_API_SERVER` which should point to the URL of you api server. For example
+Under **Build** you could add environment variables for build and runtime. At the moment there is two important environment variables you need to set, `VITE_API_URL` and `API_BASE_URL` which should point to the URL of you api server. For example
 ```
-VITE_DESDEO_API_SERVER = https://api-my-desdeo-app.2.rahtiapp.fi
+VITE_API_URL = https://api-my-desdeo-app.2.rahtiapp.fi
+API_BASE_URL = https://api-my-desdeo-app.2.rahtiapp.fi
 ```
 
 It is unlikely you will need to touch anything under **Deploy** or **Advanced Options**.
@@ -141,11 +134,11 @@ It is unlikely you will need to touch anything under **Deploy** or **Advanced Op
 Once you click `Create` the system should download your code, build it, and run it.
 
 !!! Note
-    You are likely to encounter error `exit status 137` when building your app. This is because the build node ran out of memory. Luckily, this is not difficult to fix. You will just need to open the **YAML** of your build config and change `spec.resources`. 2000 Mi should be more than enough.
+    You are highly likely to encounter error `exit status 137` when building your app. This is because the build node ran out of memory. Luckily, this is not difficult to fix. You will just need to open the **YAML** of your build config and change `spec.resources`. 4000 Mi should be enough.
     ```yaml
     resources:
         limits:
-          memory: 2000Mi
+          memory: 4000Mi
     ```
 
 ## PostgreSQL database
@@ -158,10 +151,10 @@ If you are hosting the database on Rahti, you just select the image and then inp
 
 For your web application to work, webapi also needs to know how to access the database. Make sure to set up the environmental variables the way shown in [DESDEO webapi](#desdeo-webapi). You can store the address and login details as a secret in Rahti and then pass them on to builds and pods through the resource configuration.
 
-Once your webapi knows how to access the database, you will need to initialize the database to create user accounts and passwords (and possibly other things). The easiest way is to connect to the database from your own computer. To do this, you will first need to add your IP to the database access list. Then set up environmental variables associated with the database as you would for the [DESDEO webapi](#desdeo-webapi). You can the run the script `desdeo/api/db_init.py` or create a custom script for your project that will set up the database the way you want.
+Once your webapi knows how to access the database, you will need to initialize the database to create user accounts and passwords (and possibly other things). The easiest way is to connect to the database from your own computer. To do this, you will first need to add your IP to the database access list. Then set up environmental variables associated with the database as you would for the [DESDEO webapi](#desdeo-webapi). You can modify the script `desdeo/api/db_init.py` to do something outside the debug mode or create a custom script for your project that will set up the database.
 
 ## Troubleshooting
 
-If you manage get webapi and webui running, but you are unable to get past the login page or do much else, your webui probably does not know where the webapi server is running. The address is supposed to be in the environment variable called `VITE_DESDEO_API_SERVER`.
+If you manage get webapi and webui running, but you are unable to get past the login page or do much else, your webui probably does not know where the webapi server is running. The address is supposed to be in the two environment variables.
 
 If you are encountering `Login attempt failed. Please check your username and password.` errors in the login screen, and you think you have the correct username and password, it is likely that webapi is not connecting to the [database](#postgresql-database) correctly or you have not initialized the database correctly. Check that you have set the environment variables for the api.

@@ -27,6 +27,7 @@ from desdeo.api.models import (
     RPMSolveRequest,
     SolutionInfo,
     User,
+    UserPublic,
     GroupCreateRequest,
     GroupModifyRequest,
     GroupInfoRequest,
@@ -559,6 +560,15 @@ def test_group_operations(client: TestClient):
             access_token=access_token
         )
 
+    def get_user_info(token: str):
+        return client.get(
+            "/user_info",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "content-type": "application/x-www-form-urlencoded",
+            },
+        )
+
     # try to create group with no problem
     response = post_json(
         client=client,
@@ -606,6 +616,17 @@ def test_group_operations(client: TestClient):
     assert response.status_code == status.HTTP_200_OK
     group: GroupPublic = GroupPublic.model_validate(json.loads(response.content.decode("utf-8")))
     assert 2 in group.user_ids
+    assert 1 not in group.user_ids
+
+    user_info = get_user_info(access_token)
+    user: UserPublic = UserPublic.model_validate(json.loads(user_info.content.decode("utf-8")))
+    assert 1 in user.group_ids
+
+    dm_access_token = login(client, "new_dm", "new_dm")
+
+    user_info = get_user_info(dm_access_token)
+    dm_user: UserPublic = UserPublic.model_validate(json.loads(user_info.content.decode("utf-8")))
+    assert 1 in dm_user.group_ids
 
     # TODO: websocket testing and result fetching?
 
@@ -625,6 +646,15 @@ def test_group_operations(client: TestClient):
     group: GroupPublic = GroupPublic.model_validate(json.loads(response.content.decode("utf-8")))
     assert 2 not in group.user_ids
 
+    user_info = get_user_info(dm_access_token)
+    user: UserPublic = UserPublic.model_validate(json.loads(user_info.content.decode("utf-8")))
+    assert 1 not in user.group_ids
+
+    user_info = get_user_info(access_token)
+    user: UserPublic = UserPublic.model_validate(json.loads(user_info.content.decode("utf-8")))
+    assert 1 in user.group_ids
+
+
     # Delete the group
     response = post_json(
         client=client,
@@ -637,6 +667,10 @@ def test_group_operations(client: TestClient):
     assert response.status_code == status.HTTP_200_OK
     response = get_info(1)
     assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    user_info = get_user_info(access_token)
+    user: UserPublic = UserPublic.model_validate(json.loads(user_info.content.decode("utf-8")))
+    assert 1 not in user.group_ids
 
 
 def test_emo_solve_with_reference_point(client: TestClient):
