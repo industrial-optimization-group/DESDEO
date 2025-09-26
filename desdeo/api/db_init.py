@@ -5,7 +5,7 @@ import warnings
 from sqlalchemy_utils import database_exists
 from sqlmodel import Session, SQLModel
 
-from desdeo.api.config import ServerDebugConfig, SettingsConfig
+from desdeo.api.config import ServerConfig, SettingsConfig
 from desdeo.api.db import engine
 from desdeo.api.models import ProblemDB, User, UserRole
 from desdeo.api.routers.user_authentication import get_password_hash
@@ -29,8 +29,8 @@ if __name__ == "__main__":
 
         with Session(engine) as session:
             user_analyst = User(
-                username=ServerDebugConfig.test_user_analyst_name,
-                password_hash=get_password_hash(ServerDebugConfig.test_user_analyst_password),
+                username=ServerConfig.test_user_analyst_name,
+                password_hash=get_password_hash(ServerConfig.test_user_analyst_password),
                 role=UserRole.analyst,
                 group="test",
             )

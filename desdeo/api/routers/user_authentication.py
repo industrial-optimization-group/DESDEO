@@ -12,17 +12,9 @@ from jose import ExpiredSignatureError, JWTError, jwt
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from desdeo.api import SettingsConfig
+from desdeo.api import AuthConfig
 from desdeo.api.db import get_session
 from desdeo.api.models import User, UserPublic, UserRole
-
-# AuthConfig
-if SettingsConfig.debug:
-    from desdeo.api import AuthDebugConfig
-
-    AuthConfig = AuthDebugConfig
-else:
-    pass
 
 router = APIRouter()
 
@@ -289,9 +281,9 @@ def add_user_to_database(
     """Add a user to database.
 
     Args:
-        form_data Annotated[OAuth2PasswordRequestForm, Depends()]: form with username and password to be added to database
-        role UserRole: Role of the user to be added to the database
-        session Annotated[Session, Depends(get_session)]: database session
+        form_data: Annotated[OAuth2PasswordRequestForm, Depends()]: form with username and password to be added
+        role: UserRole: Role of the user to be added to the database
+        session: Annotated[Session, Depends(get_session)]: database session
 
     Returns:
         None
@@ -299,7 +291,6 @@ def add_user_to_database(
     Raises:
         HTTPException: If username already is in the database or if adding the user to the database failed.
     """
-
     username = form_data.username
     password = form_data.password
 
@@ -371,15 +362,28 @@ def login(
     tokens = generate_tokens({"id": user.id, "sub": user.username})
 
     response = JSONResponse(content={"access_token": tokens.access_token})
-    response.set_cookie(
-        key="refresh_token",
-        value=tokens.refresh_token,
-        httponly=True,  # HTTP only cookie, more secure than storing the refresh token in the frontend code.
-        secure=False,  # allow http
-        samesite="lax",  # cross-origin requests
-        max_age=cookie_max_age * 60,  # convert to minutes
-        path="/",
-    )
+
+    if AuthConfig.cookie_domain == "":
+        response.set_cookie(
+            key="refresh_token",
+            value=tokens.refresh_token,
+            httponly=True,  # HTTP only cookie, more secure than storing the refresh token in the frontend code.
+            secure=False,  # allow http
+            samesite="lax",  # cross-origin requests
+            max_age=cookie_max_age * 60,  # convert to minutes
+            path="/",
+        )
+    else:
+        response.set_cookie(
+            key="refresh_token",
+            value=tokens.refresh_token,
+            httponly=True,  # keep this
+            secure=True,  # MUST be true for HTTPS
+            samesite="none",  # required for cross-site subdomains
+            max_age=cookie_max_age * 60,
+            path="/",
+            domain=AuthConfig.cookie_domain,  # <- allow sharing between API + webui
+        )
 
     return response
 
@@ -449,7 +453,6 @@ def add_new_dm(
     Raises:
         HTTPException: if username is already in use or if saving to the database fails for some reason.
     """
-
     add_user_to_database(
         form_data=form_data,
         role=UserRole.dm,
@@ -468,12 +471,12 @@ def add_new_analyst(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     session: Annotated[Session, Depends(get_session)],
 ) -> JSONResponse:
-    """Add a new user of the role Analyst to the database. Requires a logged in analyst or an admin
+    """Add a new user of the role Analyst to the database. Requires a logged in analyst or an admin.
 
     Args:
-        user Annotated[User, Depends(get_current_user)]: Logged in user with the role "analyst" or "admin".
-        form_data (Annotated[OAuth2PasswordRequestForm, Depends()]): The user credentials to add to the database.
-        session (Annotated[Session, Depends(get_session)]): the database session.
+        user: Annotated[User, Depends(get_current_user)]: Logged in user with the role "analyst" or "admin".
+        form_data: (Annotated[OAuth2PasswordRequestForm, Depends()]): The user credentials to add to the database.
+        session: (Annotated[Session, Depends(get_session)]): the database session.
 
     Returns:
         JSONResponse: A JSON response
@@ -483,7 +486,6 @@ def add_new_analyst(
         username is already in use or if saving to the database fails for some reason.
 
     """
-
     # Check if the user who tries to create the user is either an analyst or an admin.
     if not (user.role == UserRole.analyst or user.role == UserRole.admin):
         raise HTTPException(

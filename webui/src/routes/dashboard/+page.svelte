@@ -20,8 +20,7 @@
 		goto('/problems/define');
 	}
 	function goToForestManagement() {
-		// Change this to the actual route for the forest management tool
-		goto('/forest-management');
+		goto('/interactive_methods/NIMBUS');
 	}
 	function goToOptimizationProblems() {
 		goto('/problems');
