@@ -14,6 +14,8 @@ __all__ = [  # noqa: RUF022
     "ForestProblemMetaData",
     "GenericIntermediateSolutionResponse",
     "GetSessionRequest",
+    "GNIMBUSOptimizationState",
+    "GNIMBUSVotingState",
     "InteractiveSessionBase",
     "InteractiveSessionDB",
     "InteractiveSessionInfo",
@@ -62,6 +64,14 @@ __all__ = [  # noqa: RUF022
     "ProblemMetaDataDB",
     "BaseProblemMetaData",
     "ForestProblemMetaData",
+    "Group",
+    "GroupModifyRequest",
+    "GroupCreateRequest",
+    "GroupIteration",
+    "GroupPublic",
+    "GroupInfoRequest",
+    "BasePreferences",
+    "ReferencePointDictType",
     "EMOSolveRequest",
     "PreferredRanges",
     "PreferedSolutions",
@@ -80,6 +90,15 @@ __all__ = [  # noqa: RUF022
     "UtopiaRequest",
     "UtopiaResponse",
     "VariableDB",
+    "ScoreBandsRequest",
+    "ScoreBandsResponse",
+    "OptimizationPreference",
+    "VotingPreference",
+    "GNIMBUSResultResponse",
+    "FullIteration",
+    "GNIMBUSAllIterationsResponse",
+    "GNIMBUSSwitchPhaseRequest",
+    "GNIMBUSSwitchPhaseResponse",
 ]
 
 
@@ -97,6 +116,8 @@ from .generic import (
     GenericIntermediateSolutionResponse,
     IntermediateSolutionRequest,
     SolutionInfo,
+    ScoreBandsRequest,
+    ScoreBandsResponse,
 )
 from .generic_states import (
     SavedSolutionReference,
@@ -160,7 +181,30 @@ from .state import (
     NIMBUSClassificationState,
     NIMBUSInitializationState,
     NIMBUSSaveState,
+    GNIMBUSOptimizationState,
+    GNIMBUSVotingState,
     RPMState,
 )
 from .user import User, UserBase, UserPublic, UserRole
+from .gdm_base import (
+    BasePreferences,
+    ReferencePointDictType,
+)
+from .gdm_aggregate import (
+    Group, 
+    GroupModifyRequest, 
+    GroupCreateRequest, 
+    GroupIteration,
+    GroupPublic,
+    GroupInfoRequest,
+)
 from .utopia import UtopiaRequest, UtopiaResponse
+from .gnimbus import (
+    OptimizationPreference,
+    VotingPreference,
+    GNIMBUSResultResponse,
+    FullIteration,
+    GNIMBUSAllIterationsResponse,
+    GNIMBUSSwitchPhaseResponse,
+    GNIMBUSSwitchPhaseRequest,
+)

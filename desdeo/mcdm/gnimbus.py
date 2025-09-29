@@ -199,7 +199,7 @@ def scale_delta(problem, d):
     nadir = problem.get_nadir_point()
 
     for obj in problem.objectives:
-        delta.update({obj.name: d*(ideal[obj.name] - nadir[obj.name])})
+        delta.update({obj.symbol: d*(ideal[obj.symbol] - nadir[obj.symbol])})
     return delta
 
 
@@ -333,7 +333,6 @@ def solve_group_sub_problems(  # noqa: PLR0913
         # Add individual solutions
         for i in range(len(ind_sols)):
             solutions.append(ind_sols[i])
-
         """ Group nimbus scalarization with delta and added hard_constraints  """
         classification_list = []
         for dm_rp in reference_points:

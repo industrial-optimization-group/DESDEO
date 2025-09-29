@@ -23,6 +23,7 @@ dependencies = [
     "numba >= 0.61.0",
     "pydantic >= 2.9",
     "sympy >= 1.0",
+    "plotly>=6.0",
     "pyparsing >= 3.0",
     "nevergrad >= 1.0.12",
     "bayesian-optimization >= 1.0", # They recently released v2 which breaks compatibility with nevergrad
@@ -44,7 +45,7 @@ repository="https://github.com/industrial-optimization-group/DESDEO"
 documentation="https://desdeo.readthedocs.io/en/latest/"
 "Bug tracker"="https://github.com/industrial-optimization-group/DESDEO/issues"
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "ruff>=0.11",
     "isort>=6.0",
@@ -81,13 +82,14 @@ web = [
     "python-multipart>=0.0.20",
     "uvicorn>=0.34.2",
     "bcrypt>=4.3.0",
+    "pydantic-settings>=2.10.1",
     "sqlalchemy-utils>=0.41.2",
     "sqlmodel>=0.0.24",
+    "websockets>=15.0.1",
 ]
 
 viz = [
     "seaborn>=0.13.0",
-    "plotly>=6.0",
     "scienceplots>=2.1.1",
     "pyparsing[diagrams]>=3.1.1"
 ]
@@ -97,9 +99,26 @@ tools = [
     "eralchemy>=1.5.0"
 ]
 
-server = [
-    "gunicorn>=23.0.0"
+server = [ # production!
+    "gunicorn>=23.0.0",
+    "psycopg2>=2.9.10"
 ]
+
+all-dev = [
+    { include-group = "dev" },
+    { include-group = "docs" },
+    { include-group = "jupyter" },
+    { include-group = "web" },
+    { include-group = "viz" },
+    { include-group = "tools" },
+]
+
+[tool.poetry.group.server]
+optional = true
+
+
+[tool.uv]
+default-groups = ["dev", "docs", "jupyter", "web", "viz", "tools"]
 
 [tool.ruff]
 # Enable the pycodestyle (`E`) and Pyflakes (`F`) rules by default.

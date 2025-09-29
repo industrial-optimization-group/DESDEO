@@ -23,13 +23,13 @@ Install the `web` dependencies with the following command if you have not alread
 === "Poetry"
 
     ```bash
-    poetry install --all-extras
+    poetry install
     ```
 
 === "uv"
 
     ```bash
-    uv sync --all-extras
+    uv sync
     ```
 
 This will install the required dependencies for the web-API. The web-API itself is

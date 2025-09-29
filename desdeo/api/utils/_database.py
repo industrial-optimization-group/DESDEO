@@ -1,6 +1,5 @@
 """Database utils for the API."""
 
-from os import getenv
 from typing import TypeVar
 
 from sqlalchemy.engine import URL, Result
@@ -20,17 +19,9 @@ from sqlalchemy.sql.expression import exists as sa_exists
 from sqlalchemy.sql.functions import count
 from sqlalchemy.sql.selectable import Exists, Select
 
-from desdeo.api.config import SettingsConfig
+from desdeo.api.config import DatabaseConfig as DBConfig
 
 from .logger import get_logger
-
-if SettingsConfig.debug:
-    from desdeo.api.config import DatabaseDebugConfig
-
-    DBConfig = DatabaseDebugConfig
-else:
-    # set development setting, e.g., DBConfig = DatabaseDeployConfig
-    pass
 
 T = TypeVar("T")
 
@@ -249,9 +240,7 @@ class DatabaseDependency:
             self.engine_options["poolclass"] = NullPool
         else:
             del self.engine_options["poolclass"]
-        self.db = DB(
-            getenv("DB_DRIVER", "postgresql+asyncpg"), options=self.engine_options, **self.database_url_options
-        )
+        self.db = DB(DBConfig.db_driver, options=self.engine_options, **self.database_url_options)
         logger.info("Connected to Database")
 
     async def init(self) -> None:

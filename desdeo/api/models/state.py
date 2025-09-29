@@ -196,6 +196,51 @@ class NIMBUSInitializationState(ResultInterface, SQLModel, table=True):
         return 1
 
 
+
+class GNIMBUSOptimizationState(ResultInterface, SQLModel, table=True):
+    """GNIMBUS: classification / solving"""
+    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
+
+    # Preferences that went in
+    reference_points: dict[int, dict[str, float]] = Field(sa_column=Column(JSON))
+    # Results that came out
+    solver_results: list[SolverResults] = Field(sa_column=Column(ResultsType))
+
+    @property
+    def result_objective_values(self) -> list[dict[str, float]]:
+        return [x.optimal_objectives for x in self.solver_results]
+
+    @property
+    def result_variable_values(self) -> list[dict[str, VariableType | Tensor]]:
+        return [x.optimal_variables for x in self.solver_results]
+
+    @property
+    def num_solutions(self) -> int:
+        return len(self.solver_results)
+    
+
+class GNIMBUSVotingState(ResultInterface, SQLModel, table=True):
+    """GNIMBUS: voting"""
+    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
+
+    # Preferences that went in
+    votes: dict[int, int] = Field(sa_column=Column(JSON))
+    # Results that came out
+    solver_results: list[SolverResults] = Field(sa_column=Column(ResultsType))
+
+    @property
+    def result_objective_values(self) -> list[dict[str, float]]:
+        return [x.optimal_objectives for x in self.solver_results]
+
+    @property
+    def result_variable_values(self) -> list[dict[str, VariableType | Tensor]]:
+        return [x.optimal_variables for x in self.solver_results]
+
+    @property
+    def num_solutions(self) -> int:
+        return 1
+
+
 class EMOIterateState(ResultInterface, SQLModel, table=True):
     """EMO run (NSGA3, RVEA, etc.)."""
 

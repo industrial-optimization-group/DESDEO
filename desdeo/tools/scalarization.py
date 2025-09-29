@@ -743,10 +743,16 @@ def add_group_asf_agg_diff(
     constraints = []
     # loop to create a constraint for every objective of every reference point given
     for obj in problem.objectives:
-        expr = (
-            f"({obj.symbol}_min - {agg_aspirations[obj.symbol]}) / "
-            f"({nadir_point[obj.symbol]} - {ideal_point[obj.symbol] - delta}) - _alpha"
-        )
+        if type(delta) is dict:
+            expr = (
+                f"({obj.symbol}_min - {agg_aspirations[obj.symbol]}) / "
+                f"({nadir_point[obj.symbol]} - {ideal_point[obj.symbol] - delta[obj.symbol]}) - _alpha"
+            )
+        else:
+            expr = (
+                f"({obj.symbol}_min - {agg_aspirations[obj.symbol]}) / "
+                f"({nadir_point[obj.symbol]} - {ideal_point[obj.symbol] - delta}) - _alpha"
+            )
         constraints.append(
             Constraint(
                 name=f"Constraint for {obj.symbol}",
@@ -2324,7 +2330,7 @@ def add_stom_sf_diff(
     # define the objective function of the scalarization
     aug_expr = " + ".join(
         [
-            f"{obj.symbol}_min / ({reference_point[obj.symbol]} - {ideal_point[obj.symbol] - delta})"
+            f"{obj.symbol}_min / ({(reference_point[obj.symbol] - ideal_point[obj.symbol]) + delta})"
             for obj in problem.objectives
         ]
     )
@@ -2344,7 +2350,7 @@ def add_stom_sf_diff(
     for obj in problem.objectives:
         expr = (
             f"({obj.symbol}_min - {ideal_point[obj.symbol] - delta}) / "
-            f"({corrected_rp[obj.symbol] - (ideal_point[obj.symbol] - delta)}) - _alpha"
+            f"({(corrected_rp[obj.symbol] - ideal_point[obj.symbol]) + delta}) - _alpha"
         )
         constraints.append(
             Constraint(
@@ -2430,14 +2436,14 @@ def add_stom_sf_nondiff(
         [
             (
                 f"({obj.symbol}_min - {ideal_point[obj.symbol] - delta}) / "
-                f"({corrected_rp[obj.symbol]} - {ideal_point[obj.symbol] - delta})"
+                f"({(corrected_rp[obj.symbol] - ideal_point[obj.symbol]) + delta})"
             )
             for obj in problem.objectives
         ]
     )
     aug_expr = " + ".join(
         [
-            f"{obj.symbol}_min / ({reference_point[obj.symbol]} - {ideal_point[obj.symbol] - delta})"
+            f"{obj.symbol}_min / ({(reference_point[obj.symbol] - ideal_point[obj.symbol]) + delta})"
             for obj in problem.objectives
         ]
     )
@@ -2519,14 +2525,14 @@ def add_group_stom(
         if type(delta) is dict:
             weights.append(
                 {
-                    obj.symbol: 1 / (corrected_rp[obj.symbol] - (ideal_point[obj.symbol] - delta[obj.symbol]))
+                    obj.symbol: 1 / ((corrected_rp[obj.symbol] - ideal_point[obj.symbol]) + delta[obj.symbol])
                     for obj in problem.objectives
                 }
             )
         else:
             weights.append(
                 {
-                    obj.symbol: 1 / (corrected_rp[obj.symbol] - (ideal_point[obj.symbol] - delta))
+                    obj.symbol: 1 / ((corrected_rp[obj.symbol] - ideal_point[obj.symbol]) + delta)
                     for obj in problem.objectives
                 }
             )
@@ -2645,12 +2651,12 @@ def add_group_stom_agg(
     weights = None
     if type(delta) is dict:
         weights = {
-            obj.symbol: 1 / (agg_aspirations[obj.symbol] - (ideal_point[obj.symbol] - delta[obj.symbol]))
+            obj.symbol: 1 / ((agg_aspirations[obj.symbol] - ideal_point[obj.symbol]) + delta[obj.symbol])
             for obj in problem.objectives
         }
     else:
         weights = {
-            obj.symbol: 1 / (agg_aspirations[obj.symbol] - (ideal_point[obj.symbol] - delta))
+            obj.symbol: 1 / ((agg_aspirations[obj.symbol] - ideal_point[obj.symbol]) + delta)
             for obj in problem.objectives
         }
 
@@ -2778,14 +2784,14 @@ def add_group_stom_diff(
         if type(delta) is dict:
             weights.append(
                 {
-                    obj.symbol: 1 / (corrected_rp[obj.symbol] - (ideal_point[obj.symbol] - delta[obj.symbol]))
+                    obj.symbol: 1 / ((corrected_rp[obj.symbol] - ideal_point[obj.symbol]) + delta[obj.symbol])
                     for obj in problem.objectives
                 }
             )
         else:
             weights.append(
                 {
-                    obj.symbol: 1 / (corrected_rp[obj.symbol] - (ideal_point[obj.symbol] - delta))
+                    obj.symbol: 1 / ((corrected_rp[obj.symbol] - ideal_point[obj.symbol]) + delta)
                     for obj in problem.objectives
                 }
             )
@@ -2930,12 +2936,12 @@ def add_group_stom_agg_diff(
     weights = {}
     if type(delta) is dict:
         weights = {
-            obj.symbol: 1 / (agg_aspirations[obj.symbol] - (ideal_point[obj.symbol] - delta[obj.symbol]))
+            obj.symbol: 1 / ((agg_aspirations[obj.symbol] - ideal_point[obj.symbol]) + delta[obj.symbol])
             for obj in problem.objectives
         }
     else:
         weights = {
-            obj.symbol: 1 / (agg_aspirations[obj.symbol] - (ideal_point[obj.symbol] - delta))
+            obj.symbol: 1 / ((agg_aspirations[obj.symbol] - ideal_point[obj.symbol]) + delta)
             for obj in problem.objectives
         }
 
@@ -2958,10 +2964,16 @@ def add_group_stom_agg_diff(
     constraints = []
     # loop to create a constraint for every objective of every reference point given
     for obj in problem.objectives:
-        expr = (
-            f"({obj.symbol}_min - {ideal_point[obj.symbol] - delta}) / "
-            f"({agg_aspirations[obj.symbol] - (ideal_point[obj.symbol] - delta)}) - _alpha"
-        )
+        if type(delta) is dict:
+            expr = (
+                f"({obj.symbol}_min - {ideal_point[obj.symbol] - delta[obj.symbol]}) / "
+                f"({agg_aspirations[obj.symbol] - (ideal_point[obj.symbol] - delta[obj.symbol])}) - _alpha"
+            )
+        else:
+            expr = (
+                f"({obj.symbol}_min - {ideal_point[obj.symbol] - delta}) / "
+                f"({agg_aspirations[obj.symbol] - (ideal_point[obj.symbol] - delta)}) - _alpha"
+            )
         constraints.append(
             Constraint(
                 name=f"Constraint for {obj.symbol}",
