@@ -833,6 +833,7 @@ class NSGA3Selector(BaseDecompositionSelector):
         verbosity: int,
         publisher: Publisher,
         reference_vector_options: ReferenceVectorOptions | None = None,
+        invert_reference_vectors: bool = False,
         seed: int = 0,
     ):
         """Initialize the NSGA-III selection operator.
@@ -842,6 +843,7 @@ class NSGA3Selector(BaseDecompositionSelector):
             verbosity (int): The verbosity level of the operator.
             publisher (Publisher): The publisher to use for communication.
             reference_vector_options (ReferenceVectorOptions | None, optional): Options for the reference vectors. Defaults to None.
+            invert_reference_vectors (bool, optional): Whether to invert the reference vectors. Defaults to False.
             seed (int, optional): The random seed to use. Defaults to 0.
         """
         if reference_vector_options is None:
@@ -851,6 +853,7 @@ class NSGA3Selector(BaseDecompositionSelector):
 
         # Just asserting correct options for NSGA-III
         reference_vector_options.vector_type = "planar"
+        self.invert_reference_vectors = invert_reference_vectors
         super().__init__(
             problem,
             reference_vector_options=reference_vector_options,
@@ -1095,8 +1098,12 @@ class NSGA3Selector(BaseDecompositionSelector):
         return niche_count
 
     def calc_perpendicular_distance(self, N, ref_dirs):
-        u = np.tile(ref_dirs, (len(N), 1))
-        v = np.repeat(N, len(ref_dirs), axis=0)
+        if self.invert_reference_vectors:
+            u = np.tile(-ref_dirs, (len(N), 1))
+            v = np.repeat(1-N, len(ref_dirs), axis=0)
+        else:
+            u = np.tile(ref_dirs, (len(N), 1))
+            v = np.repeat(N, len(ref_dirs), axis=0)
 
         norm_u = np.linalg.norm(u, axis=1)
 
