@@ -102,6 +102,10 @@ There are many ways to setup and activate a virtual environment. Some examples h
     ```
 
 === "Poetry"
+
+    !!! Note
+
+    Version 2.2 or greater of `poetry` is required!
  
     This assumes you already have [`poetry`](https://python-poetry.org/) available on your system.
 
@@ -158,13 +162,13 @@ is activated!
     After installing poetry, we can use the following command to install DESDEO's core-logic dependencies
 
     ```bash
-    poetry install
+    poetry install --only main
     ```
 
     If you wish to install the development and web dependencies as well, then run the following command instead:
 
     ```bash
-    poetry install --all-extras
+    poetry install
     ```
 
 === "uv"
@@ -178,13 +182,13 @@ is activated!
     To install DESDEO's core-logic dependencies, run
 
     ```bash
-    uv sync
+    uv sync --no-default-groups
     ```
 
     If you wish to install the development and web dependencies as well, then run the following command instead:
 
     ```bash
-    uv sync --all-extras
+    uv sync
     ```
 
 === "pip (not recommended)"
@@ -358,7 +362,6 @@ You can then install DESDEO and the required packages by typing
 ```cmd
 poetry install
 ```
-If you want the development dependencies installed as well, use `poetry install --all-extras` instead.
 
 !!! question "Why did I have to do that thing with the env configs?"
 
