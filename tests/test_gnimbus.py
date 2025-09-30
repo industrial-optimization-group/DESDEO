@@ -8,8 +8,8 @@ import numpy.testing as npt
 import pytest
 
 from desdeo.mcdm.gnimbus import (voting_procedure,
-                     solve_intermediate_solutions, solve_group_sub_problems,
-                     find_min_max_values, scale_delta)
+                                 solve_intermediate_solutions, solve_group_sub_problems,
+                                 find_min_max_values, scale_delta)
 
 from desdeo.gdm.voting_rules import majority_rule, plurality_rule
 from desdeo.gdm.gdmtools import dict_of_rps_to_list_of_rps, list_of_rps_to_dict_of_rps
@@ -53,7 +53,7 @@ def test_dict_to_list_and_back():
             assert isinstance(inner_value, float)
 
 
-#@pytest.mark.skip
+# @pytest.mark.skip
 @pytest.mark.gnimbus
 def test_voting_procedure():
 
@@ -223,7 +223,6 @@ def test_solve_sub_problems_diff():
         problem, initial_fs, dms_rps, phase, create_solver=PyomoIpoptSolver, solver_options=solver_options
     )
 
-    # TODO: WORks until here because missing nimbus scala
     assert len(solutions) == 4 + len(dms_rps)
     print(solutions[0].optimal_objectives)
     print(solutions[1].optimal_objectives)
@@ -232,3 +231,35 @@ def test_solve_sub_problems_diff():
     print(solutions[4].optimal_objectives)
     print(solutions[5].optimal_objectives)
     print(solutions[6].optimal_objectives)
+
+    phase = "crp"
+    solutions = solve_group_sub_problems(
+        problem, initial_fs, dms_rps, phase, create_solver=PyomoIpoptSolver, solver_options=solver_options
+    )
+
+    assert len(solutions) == 4 + len(dms_rps)
+    print(solutions[0].optimal_objectives)
+    print(solutions[1].optimal_objectives)
+    print(solutions[2].optimal_objectives)
+    print(solutions[3].optimal_objectives)
+    print(solutions[4].optimal_objectives)
+    print(solutions[5].optimal_objectives)
+    print(solutions[6].optimal_objectives)
+
+    non_valid_rps = {
+        "DM1": {"f_1": 0.0, "f_2": initial_fs["f_2"], "f_3": 0},  # improve f_1, keep f_2 same, impair f_3
+        "DM2": {"f_1": 0.3, "f_2": 0.0, "f_3": 0.5},  # improve f_1 to 0.3, impair f_2, improve f_3 to 0.5
+        "DM3": {"f_1": 0.15, "f_2": 0.16, "f_3": 0.0},  # impair f_1 to 0.5, impair f_2 to 0.6, improve f_3
+    }
+
+    phase = "learning"
+
+    # pytest.raises(Exception)
+    #    solutions=solve_group_sub_problems(
+    #        problem, initial_fs, non_valid_rps, phase, create_solver=PyomoIpoptSolver, solver_options=solver_options
+    #    )
+    # )
+    with pytest.raises(Exception) as e_info:
+        solutions = solve_group_sub_problems(
+            problem, initial_fs, non_valid_rps, phase, create_solver=PyomoIpoptSolver, solver_options=solver_options
+        )
