@@ -52,6 +52,7 @@ from desdeo.tools import SolverResults
 from desdeo.tools.scalarization import ScalarizationError
 
 from desdeo.api.routers.gdm_base import GroupManager
+from desdeo.api.routers.problem import check_solver
 
 router = APIRouter(prefix="/gnimbus")
 
@@ -104,6 +105,7 @@ class GNIMBUSManager(GroupManager):
         
         # If all preferences are in, begin optimization.
         problem_db: ProblemDB = session.exec(select(ProblemDB).where(ProblemDB.id == group.problem_id)).first()
+        solver = check_solver(problem_db=problem_db)
         problem: Problem = Problem.from_problemdb(problem_db)
         prefs = current_iteration.preferences.set_preferences
         
@@ -129,6 +131,7 @@ class GNIMBUSManager(GroupManager):
                 current_objectives=prev_sol,
                 reference_points=formatted_prefs,
                 phase=current_iteration.preferences.phase,
+                create_solver=solver,
             )
             logging.info(f"Optimization for group {self.group_id} done.")
 
@@ -424,11 +427,17 @@ def gnimbus_initialize(
             detail=f"No problem with id {group.problem_id} found!",
             status_code=status.HTTP_404_NOT_FOUND
         )
+    
+    solver = check_solver(problem_db=problem_db)
+
     problem = Problem.from_problemdb(problem_db)
 
     # Create the first iteration for the group
     # As if we just voted for a result, but really is just the starting point.
-    starting_point = generate_starting_point(problem)
+    starting_point = generate_starting_point(
+        problem=problem,
+        solver=solver
+    )
 
     gnimbus_state = GNIMBUSVotingState(
         votes={},
