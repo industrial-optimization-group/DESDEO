@@ -20,7 +20,7 @@ from fastapi import HTTPException, status
 
 from sqlmodel import Session, select
 from pydantic import ValidationError
-from typing import Annotated
+from typing import Annotated, Any
 
 from desdeo.api.models import (
     User,
@@ -37,6 +37,7 @@ from desdeo.api.models import (
     OptimizationPreference,
     VotingPreference,
     EndProcessPreference,
+    BasePreferences,
     GNIMBUSResultResponse,
     FullIteration,
     GNIMBUSAllIterationsResponse,
@@ -56,8 +57,91 @@ from desdeo.tools.scalarization import ScalarizationError
 from desdeo.api.routers.gdm_base import GroupManager
 
 router = APIRouter(prefix="/gnimbus")
+    
 
 class GNIMBUSManager(GroupManager):
+
+    # Repeated functionality collected class methods
+    async def set_and_update_preferences(
+        self,
+        user_id: int,
+        preference: Any,
+        preferences: BasePreferences,
+        session: Session,
+        current_iteration: GroupIteration
+    ):
+        preferences.set_preferences[user_id] = preference
+        current_iteration.preferences = preferences
+        session.add(current_iteration)
+        session.commit()
+        session.refresh(current_iteration)
+
+    async def check_preferences(
+        self,
+        user_ids: list[int], 
+        preferences,
+    ) -> bool:
+        """Function to check if a preference item has all needed preferences"""
+        for user_id in user_ids:
+            try:
+                # This shouldn't happen but just in case.
+                if preferences.set_preferences[user_id] == None:
+                    logging.info("Not all prefs in!")
+                    return False
+            except KeyError:
+                logging.info("Key error: Not all prefs in!")
+                return False
+        return True
+
+    async def get_state(
+        self,
+        session: Session,
+        current_iteration: GroupIteration
+    ):
+        prev_state: StateDB = session.exec(select(StateDB).where(StateDB.id == current_iteration.parent.state_id)).first()
+        if prev_state == None:
+            print("No previous state!")
+            return None
+        actual_prev_state = prev_state.state
+        return actual_prev_state
+    
+    async def set_state(
+        self,
+        session: Session, 
+        problem_db: ProblemDB,
+        optim_state: Any, # Not really any but rather a state
+        current_iteration: GroupIteration,
+        user_ids: list[int]
+    ): 
+        # FUNC 4
+        new_state = StateDB.create(
+            database_session=session,
+            problem_id=problem_db.id,
+            session_id=None,
+            parent_id=None,
+            state=optim_state
+        )
+
+        session.add(new_state)
+        session.commit()
+        session.refresh(new_state)
+
+        # Update state id to current iteration
+        current_iteration.state_id = new_state.id
+        session.add(current_iteration)
+        session.commit()
+
+        # If the optimization succeeds, update the iteration and
+        # notify connected users that the optimization is done
+        g = user_ids
+        g.append(user_ids)
+        notified = await self.notify(user_ids=g, message="Please fetch results.")
+        
+        # Update iteration's notifcation database item
+        current_iteration.notified = notified
+        session.add(current_iteration)
+        session.commit()
+        session.refresh(current_iteration)
 
     async def optimization(
             self,
@@ -86,24 +170,22 @@ class GNIMBUSManager(GroupManager):
         # Update the current GroupIteration's database entry with the new preferences
         # We need to do a deep copy here, otherwise the db entry won't be updated
         preferences: OptimizationPreference = copy.deepcopy(current_iteration.preferences)
-        preferences.set_preferences[user_id] = preference
-        current_iteration.preferences = preferences
-        session.add(current_iteration)
-        session.commit()
-        session.refresh(current_iteration)
+        await self.set_and_update_preferences(
+            user_id=user_id,
+            preference=preference,
+            preferences=preferences,
+            current_iteration=current_iteration,
+            session=session
+        )
 
         # Check if all preferences are in
         # There has to be a more elegant way of doing this
         preferences: OptimizationPreference = current_iteration.preferences
-        for user_id in group.user_ids:
-            try:
-                # This shouldn't happen but just in case.
-                if preferences.set_preferences[user_id] == None:
-                    logging.info("Not all prefs in!")
-                    return None
-            except KeyError:
-                logging.info("Key error: Not all prefs in!")
-                return None
+        if not await self.check_preferences(
+            group.user_ids,
+            preferences,
+        ):
+            return None
         
         # If all preferences are in, begin optimization.
         problem: Problem = Problem.from_problemdb(problem_db)
@@ -116,13 +198,14 @@ class GNIMBUSManager(GroupManager):
 
         # And here we choose the first result of the previous iteration as the current objectives.
         # The previous solution could be perhaps voted, in a separate case of the surrounding match
-        prev_state: StateDB = session.exec(select(StateDB).where(StateDB.id == current_iteration.parent.state_id)).first()
-        if prev_state == None:
-            print("No previous state!")
+        actual_state = await self.get_state(
+            session,
+            current_iteration,
+        )
+        if actual_state == None:
             return None
-        actual_prev_state: GNIMBUSVotingState = prev_state.state
 
-        prev_sol = actual_prev_state.solver_results[0].optimal_objectives
+        prev_sol = actual_state.solver_results[0].optimal_objectives
         logging.info(f"Previous solution: {prev_sol}")
 
         logging.info(problem.name)
@@ -151,37 +234,16 @@ class GNIMBUSManager(GroupManager):
             solver_results=results
         )
 
-        new_state = StateDB.create(
-            database_session=session,
-            problem_id=problem_db.id,
-            session_id=None,
-            parent_id=None,
-            state=optim_state
+        await self.set_state(
+            session, 
+            problem_db,
+            optim_state,
+            current_iteration,
+            group.user_ids
         )
 
-        session.add(new_state)
-        session.commit()
-        session.refresh(new_state)
-
-        # Update state id to current iteration
-        current_iteration.state_id = new_state.id
-        session.add(current_iteration)
-        session.commit()
-
-        # If the optimization succeeds, update the iteration and
-        # notify connected users that the optimization is done
-        g = group.user_ids
-        g.append(group.owner_id)
-        notified = await self.notify(user_ids=g, message="Please fetch results.")
-        
-        # Update iteration's notifcation database item
-        current_iteration.notified = notified
-        session.add(current_iteration)
-        session.commit()
-        session.refresh(current_iteration)
-
         # DIVERGE THE PATH by returning a different type.
-        if current_iteration.phase is "decision":
+        if current_iteration.preferences.phase == "decision":
             new_preferences = EndProcessPreference(
                 set_preferences={}
             )
@@ -214,25 +276,23 @@ class GNIMBUSManager(GroupManager):
             return None
 
         preferences: VotingPreference = copy.deepcopy(current_iteration.preferences)
-        preferences.set_preferences[user_id] = preference
-        current_iteration.preferences = preferences
-        session.add(current_iteration)
-        session.commit()
-        session.refresh(current_iteration)
+        await self.set_and_update_preferences(
+            user_id=user_id,
+            preference=preference,
+            preferences=preferences,
+            current_iteration=current_iteration,
+            session=session
+        )
 
         logging.info(preferences)
 
         # Check if all preferences are in
         preferences: VotingPreference = current_iteration.preferences
-        for user_id in group.user_ids:
-            try:
-                # This shouldn't happen but just in case.
-                if preferences.set_preferences[user_id] == None:
-                    logging.info("Not all prefs in!")
-                    return None
-            except KeyError:
-                logging.info("Key error: Not all prefs in!")
-                return None
+        if not await self.check_preferences(
+            group.user_ids,
+            preferences
+        ):
+            return None
 
         formatted_votes = {}
         for key, value in preferences.set_preferences.items():
@@ -241,12 +301,13 @@ class GNIMBUSManager(GroupManager):
 
         problem: Problem = Problem.from_problemdb(problem_db)
 
-        prev_state = session.exec(select(StateDB).where(StateDB.id == current_iteration.parent.state_id)).first()
-        if prev_state == None:
-            logging.warning("No previous state?")
+        actual_state = await self.get_state(
+            session,
+            current_iteration,
+        )
+        if actual_state == None:
             return None
 
-        actual_state = prev_state.state
         results = actual_state.solver_results
 
         # Get the winning results
@@ -262,34 +323,13 @@ class GNIMBUSManager(GroupManager):
             solver_results=[winner_result]
         )
 
-        new_state = StateDB.create(
-            database_session=session,
-            problem_id=problem_db.id,
-            session_id=None,
-            parent_id=None,
-            state=vote_state
+        await self.set_state(
+            session, 
+            problem_db,
+            vote_state,
+            current_iteration,
+            group.user_ids
         )
-
-        session.add(new_state)
-        session.commit()
-        session.refresh(new_state)
-
-        # Update iteration's state id
-        current_iteration.state_id = new_state.id
-        session.add(current_iteration)
-        session.commit()
-
-        # If the optimization succeeds, update the iteration and
-        # notify connected users that the optimization is done
-        g = group.user_ids
-        g.append(group.owner_id)
-        notified = await self.notify(user_ids=g, message="Voting has concluded.")
-        
-        # Update iteration's notifcation database item
-        current_iteration.notified = notified
-        session.add(current_iteration)
-        session.commit()
-        session.refresh(current_iteration)
 
         # Return a OptimizationPreferenceResult so
         # that we can fill it with reference points
@@ -317,37 +357,35 @@ class GNIMBUSManager(GroupManager):
             return None
 
         preferences: EndProcessPreference = copy.deepcopy(current_iteration.preferences)
-        preferences.set_preferences[user_id] = preference
-        current_iteration.preferences = preferences
-        session.add(current_iteration)
-        session.commit()
-        session.refresh(current_iteration)
+        await self.set_and_update_preferences(
+            user_id=user_id,
+            preference=preference,
+            preferences=preferences,
+            current_iteration=current_iteration,
+            session=session
+        )
 
         # Check if all preferences are in
         preferences: VotingPreference = current_iteration.preferences
-        for user_id in group.user_ids:
-            try:
-                # This shouldn't happen but just in case.
-                if preferences.set_preferences[user_id] == None:
-                    logging.info("Not all prefs in!")
-                    return None
-            except KeyError:
-                logging.info("Key error: Not all prefs in!")
-                return None
+        if not await self.check_preferences(
+            group.user_ids,
+            preferences,
+        ):
+            return None
             
-        # All preferences in, let's what they think.
+        # All preferences in, let's see what they think.
         all_vote_yes: bool = True
         for user_id in group.user_ids:
             if preferences.set_preferences[user_id] == False:
                 all_vote_yes = False
                 break
 
-        prev_state = session.exec(select(StateDB).where(StateDB.id == current_iteration.parent.state_id)).first()
-        if prev_state == None:
-            logging.warning("No previous state?")
+        actual_state = await self.get_state(
+            session,
+            current_iteration,
+        )
+        if actual_state == None:
             return None
-
-        actual_state = prev_state.state
 
         # We take the result that was voted on (there should be only one)
         results = actual_state.solver_results
@@ -356,9 +394,22 @@ class GNIMBUSManager(GroupManager):
             solver_results=results,
             success=all_vote_yes
         )
-        
-        
 
+        await self.set_state(
+            session, 
+            problem_db,
+            ending_state,
+            current_iteration,
+            group.user_ids
+        )
+
+        # Return a OptimizationPreferenceResult so
+        # that we can fill it with reference points
+        new_preferences = OptimizationPreference(
+            set_preferences={},
+        )
+    
+        return new_preferences
 
     async def run_method(
             self,
