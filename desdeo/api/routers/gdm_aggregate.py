@@ -182,7 +182,10 @@ async def websocket_endpoint(
             # Get data from socket
             data = await websocket.receive_text()
             # send data for preference setting
-            await group_manager.run_method(user.id, data)
+            if user.id in group.user_ids:
+                await group_manager.run_method(user.id, data)
+            else:
+                logging.warning(f"User {user.username} is not part of group {group.name}! They're likely the group owner.")
         except WebSocketDisconnect:
             await group_manager.disconnect(user.id, websocket)
             await manager.check_disconnect(group_id=group_id)

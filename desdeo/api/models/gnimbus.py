@@ -62,6 +62,12 @@ class VotingPreference(BasePreferences):
     method: str = "voting"
     set_preferences: dict[int, int] = Field(sa_column=Column(JSON)) # A user votes for an index from the results (or something)
 
+class EndProcessPreference(BasePreferences):
+    """A model for determining if everyone is happy with current solution so we can end the process"""
+    method: str = "end"
+    set_preferences: dict[int, bool] = Field(sa_column=Column(JSON)) # We check if everyone agrees to stop.
+    success: bool
+
 
 class GNIMBUSResultResponse(SQLModel):
     """The response for getting GNIMBUS results"""

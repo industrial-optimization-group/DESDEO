@@ -32,9 +32,11 @@ from desdeo.api.models import (
     StateDB,
     GNIMBUSOptimizationState,
     GNIMBUSVotingState,
+    GNIMBUSEndState,
     SolutionReference,
     OptimizationPreference,
     VotingPreference,
+    EndProcessPreference,
     GNIMBUSResultResponse,
     FullIteration,
     GNIMBUSAllIterationsResponse,
@@ -64,6 +66,7 @@ class GNIMBUSManager(GroupManager):
             session: Session,
             group: Group,
             current_iteration: GroupIteration,
+            problem_db: ProblemDB
     ) -> VotingPreference | None:
         """A function to handle the NIMBUS path"""
 
@@ -103,7 +106,6 @@ class GNIMBUSManager(GroupManager):
                 return None
         
         # If all preferences are in, begin optimization.
-        problem_db: ProblemDB = session.exec(select(ProblemDB).where(ProblemDB.id == group.problem_id)).first()
         problem: Problem = Problem.from_problemdb(problem_db)
         prefs = current_iteration.preferences.set_preferences
         
@@ -123,6 +125,10 @@ class GNIMBUSManager(GroupManager):
         prev_sol = actual_prev_state.solver_results[0].optimal_objectives
         logging.info(f"Previous solution: {prev_sol}")
 
+        logging.info(problem.name)
+        logging.info(prev_sol)
+        logging.info(formatted_prefs)
+
         try:
             results: list[SolverResults] = solve_group_sub_problems(
                 problem,
@@ -139,9 +145,6 @@ class GNIMBUSManager(GroupManager):
         except Exception as e:
             await self.broadcast(f"An error occured while optimizing: {e}")
             return None
-        
-        # TODO: Create StateDB and store the results there. Also 
-        # connect the state to the right group iteration
 
         optim_state = GNIMBUSOptimizationState(
             reference_points=formatted_prefs,
@@ -177,10 +180,15 @@ class GNIMBUSManager(GroupManager):
         session.commit()
         session.refresh(current_iteration)
 
-        # Make a preference result for putting in the voting preferences
-        new_preferences = VotingPreference(
-            set_preferences={}
-        )
+        # DIVERGE THE PATH by returning a different type.
+        if current_iteration.phase is "decision":
+            new_preferences = EndProcessPreference(
+                set_preferences={}
+            )
+        else:
+            new_preferences = VotingPreference(
+                set_preferences={}
+            )
 
         return new_preferences
     
@@ -191,6 +199,7 @@ class GNIMBUSManager(GroupManager):
         session: Session,
         group: Group,
         current_iteration: GroupIteration,
+        problem_db: ProblemDB,
     ) -> OptimizationPreference | None:
         """ A function to handle voting path """
 
@@ -211,7 +220,7 @@ class GNIMBUSManager(GroupManager):
         session.commit()
         session.refresh(current_iteration)
 
-        print(preferences)
+        logging.info(preferences)
 
         # Check if all preferences are in
         preferences: VotingPreference = current_iteration.preferences
@@ -230,12 +239,11 @@ class GNIMBUSManager(GroupManager):
             formatted_votes[str(key)] = value
 
 
-        problem_db: ProblemDB = session.exec(select(ProblemDB).where(ProblemDB.id == group.problem_id)).first()
         problem: Problem = Problem.from_problemdb(problem_db)
 
         prev_state = session.exec(select(StateDB).where(StateDB.id == current_iteration.parent.state_id)).first()
         if prev_state == None:
-            print("No previous state?")
+            logging.warning("No previous state?")
             return None
 
         actual_state = prev_state.state
@@ -290,6 +298,66 @@ class GNIMBUSManager(GroupManager):
         )
     
         return new_preferences
+    
+    
+    async def ending(
+        self,
+        user_id: int,
+        data: str,
+        session: Session,
+        group: Group,
+        current_iteration: GroupIteration,
+        problem_db: ProblemDB,
+    ) -> OptimizationPreference | None:
+        """Ok so its like that huh"""
+        try:
+            preference: bool = bool(data)
+        except Exception as e:
+            await self.send_message(f"Unable to validate sent data as an boolean value.", self.sockets[user_id])
+            return None
+
+        preferences: EndProcessPreference = copy.deepcopy(current_iteration.preferences)
+        preferences.set_preferences[user_id] = preference
+        current_iteration.preferences = preferences
+        session.add(current_iteration)
+        session.commit()
+        session.refresh(current_iteration)
+
+        # Check if all preferences are in
+        preferences: VotingPreference = current_iteration.preferences
+        for user_id in group.user_ids:
+            try:
+                # This shouldn't happen but just in case.
+                if preferences.set_preferences[user_id] == None:
+                    logging.info("Not all prefs in!")
+                    return None
+            except KeyError:
+                logging.info("Key error: Not all prefs in!")
+                return None
+            
+        # All preferences in, let's what they think.
+        all_vote_yes: bool = True
+        for user_id in group.user_ids:
+            if preferences.set_preferences[user_id] == False:
+                all_vote_yes = False
+                break
+
+        prev_state = session.exec(select(StateDB).where(StateDB.id == current_iteration.parent.state_id)).first()
+        if prev_state == None:
+            logging.warning("No previous state?")
+            return None
+
+        actual_state = prev_state.state
+
+        # We take the result that was voted on (there should be only one)
+        results = actual_state.solver_results
+        ending_state = GNIMBUSEndState(
+            votes=current_iteration.preferences,
+            solver_results=results,
+            success=all_vote_yes
+        )
+        
+        
 
 
     async def run_method(
@@ -331,6 +399,12 @@ class GNIMBUSManager(GroupManager):
             current_iteration = group.head_iteration
             logging.info(f"Current iteration ID: {current_iteration.id}")
 
+            problem_db: ProblemDB = session.exec(select(ProblemDB).where(ProblemDB.id == group.problem_id)).first()
+            # This shouldn't be a problem at this point anymore, but
+            if problem_db is None:
+                await self.broadcast(f"There's no problem with ID {group.problem_id}!")
+                return
+
             # Diverge into different paths using PreferenceResult method type of the current iteration.
             match current_iteration.preferences.method:
                 case "optimization":
@@ -339,7 +413,8 @@ class GNIMBUSManager(GroupManager):
                         data=data,
                         session=session,
                         group=group,
-                        current_iteration=current_iteration
+                        current_iteration=current_iteration,
+                        problem_db=problem_db
                     )
 
                 case "voting":
@@ -349,11 +424,22 @@ class GNIMBUSManager(GroupManager):
                         data=data,
                         session=session,
                         group=group,
-                        current_iteration=current_iteration
+                        current_iteration=current_iteration,
+                        problem_db=problem_db
                     )
 
-                case _:
+                case "end":
                     # throw an error
+                    new_preferences = await self.ending(
+                        user_id=user_id,
+                        data=data,
+                        session=session,
+                        group=group,
+                        current_iteration=current_iteration,
+                        problem_db=problem_db
+                    )
+                
+                case _:
                     new_preferences = None
                     return
             
