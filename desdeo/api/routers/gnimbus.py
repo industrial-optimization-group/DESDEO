@@ -206,12 +206,7 @@ class GNIMBUSManager(GroupManager):
             return None
 
         prev_sol = actual_state.solver_results[0].optimal_objectives
-        logging.info(f"Previous solution: {prev_sol}")
-
-        logging.info(problem.name)
-        logging.info(prev_sol)
-        logging.info(formatted_prefs)
-
+        
         try:
             results: list[SolverResults] = solve_group_sub_problems(
                 problem,
