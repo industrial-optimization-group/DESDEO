@@ -183,27 +183,3 @@ def best_cake_problem() -> Problem:
         variables=variables,
         objectives=objectives,
     )
-
-
-def into_db(uname: str):
-    """
-    An utility function to add the cake problem
-    to database under a certain user
-    """
-    from sqlmodel import select
-
-    from desdeo.api.db import get_session
-    from desdeo.api.models import ProblemDB, User
-
-    problem = best_cake_problem()
-
-    session = next(get_session())
-    user = session.exec(select(User).where(User.username == uname)).first()
-    if user is None:
-        print(f"No user with name {uname}!")
-        return
-
-    problem_db = ProblemDB.from_problem(problem_instance=problem, user=user)
-
-    session.add(problem_db)
-    session.commit()
