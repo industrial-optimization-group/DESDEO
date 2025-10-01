@@ -14,16 +14,16 @@ from desdeo.problem import (
     VariableTypeEnum,
 )
 from desdeo.problem.testproblems import simple_knapsack_vectors, simple_linear_test_problem
-from desdeo.tools import GurobipySolver, PersistentGurobipySolver
+from desdeo.tools import GurobipyOptions, GurobipySolver, PersistentGurobipySolver
 
 
 @pytest.mark.slow
 @pytest.mark.gurobipy
 def test_gurobipy_solver():
-    """Tests the bonmin solver."""
+    """Tests the gurobipy solver."""
     problem = simple_linear_test_problem()
-    solver = GurobipySolver(problem)
-
+    sol_opts = GurobipyOptions(solution_limit=100)  # test opts
+    solver = GurobipySolver(problem, sol_opts)
     results = solver.solve("f_1")
 
     assert results.success
@@ -36,7 +36,7 @@ def test_gurobipy_solver():
 @pytest.mark.slow
 @pytest.mark.gurobipy
 def test_gurobipy_persistent_solver():
-    """Tests the bonmin solver."""
+    """Tests the gurobipy solver."""
     problem = simple_linear_test_problem()
     solver = PersistentGurobipySolver(problem)
 
