@@ -61,7 +61,7 @@ router = APIRouter(prefix="/gnimbus")
 
 class GNIMBUSManager(GroupManager):
 
-    # Repeated functionality collected class methods
+    # Repeated functionality collected into class methods
     async def set_and_update_preferences(
         self,
         user_id: int,
@@ -70,6 +70,7 @@ class GNIMBUSManager(GroupManager):
         session: Session,
         current_iteration: GroupIteration
     ):
+        print(type(preference))
         preferences.set_preferences[user_id] = preference
         current_iteration.preferences = preferences
         session.add(current_iteration)
@@ -111,9 +112,9 @@ class GNIMBUSManager(GroupManager):
         problem_db: ProblemDB,
         optim_state: Any, # Not really any but rather a state
         current_iteration: GroupIteration,
-        user_ids: list[int]
+        user_ids: list[int],
+        owner_id: int
     ): 
-        # FUNC 4
         new_state = StateDB.create(
             database_session=session,
             problem_id=problem_db.id,
@@ -134,8 +135,8 @@ class GNIMBUSManager(GroupManager):
         # If the optimization succeeds, update the iteration and
         # notify connected users that the optimization is done
         g = user_ids
-        g.append(user_ids)
-        notified = await self.notify(user_ids=g, message="Please fetch results.")
+        g.append(owner_id)
+        notified = await self.notify(user_ids=g, message=f"Please fetch {current_iteration.preferences.method} results.")
         
         # Update iteration's notifcation database item
         current_iteration.notified = notified
@@ -152,7 +153,7 @@ class GNIMBUSManager(GroupManager):
             current_iteration: GroupIteration,
             problem_db: ProblemDB
     ) -> VotingPreference | None:
-        """A function to handle the NIMBUS path"""
+        """A function to handle the Optimization path"""
 
         # we know the type of data we need so we'll validate the data as ReferencePoint.
         try:
@@ -193,7 +194,7 @@ class GNIMBUSManager(GroupManager):
         
         formatted_prefs = {}
         for key, item in prefs.items():
-            formatted_prefs[str(key)] = item.aspiration_levels
+            formatted_prefs[key] = item.aspiration_levels
         logging.info(f"Formatted preferences: {formatted_prefs}")
 
         # And here we choose the first result of the previous iteration as the current objectives.
@@ -206,6 +207,8 @@ class GNIMBUSManager(GroupManager):
             return None
 
         prev_sol = actual_state.solver_results[0].optimal_objectives
+
+        print(f"starting values: {prev_sol}")
         
         try:
             results: list[SolverResults] = solve_group_sub_problems(
@@ -234,13 +237,15 @@ class GNIMBUSManager(GroupManager):
             problem_db,
             optim_state,
             current_iteration,
-            group.user_ids
+            group.user_ids,
+            group.owner_id
         )
 
         # DIVERGE THE PATH by returning a different type.
         if current_iteration.preferences.phase == "decision":
             new_preferences = EndProcessPreference(
-                set_preferences={}
+                set_preferences={},
+                success=None
             )
         else:
             new_preferences = VotingPreference(
@@ -278,8 +283,6 @@ class GNIMBUSManager(GroupManager):
             current_iteration=current_iteration,
             session=session
         )
-
-        logging.info(preferences)
 
         # Check if all preferences are in
         preferences: VotingPreference = current_iteration.preferences
@@ -323,12 +326,15 @@ class GNIMBUSManager(GroupManager):
             problem_db,
             vote_state,
             current_iteration,
-            group.user_ids
+            group.user_ids,
+            group.owner_id
         )
 
         # Return a OptimizationPreferenceResult so
         # that we can fill it with reference points
         new_preferences = OptimizationPreference(
+            # really? I need to get the phase from the previous iteration?
+            phase=current_iteration.parent.preferences.phase,
             set_preferences={},
         )
     
@@ -344,10 +350,10 @@ class GNIMBUSManager(GroupManager):
         current_iteration: GroupIteration,
         problem_db: ProblemDB,
     ) -> OptimizationPreference | None:
-        """Ok so its like that huh"""
+        """Function to handle the ending(+) path"""
         try:
-            preference: bool = bool(data)
-        except Exception as e:
+            preference: bool = bool(int(data))
+        except:
             await self.send_message(f"Unable to validate sent data as an boolean value.", self.sockets[user_id])
             return None
 
@@ -359,9 +365,10 @@ class GNIMBUSManager(GroupManager):
             current_iteration=current_iteration,
             session=session
         )
+        session.refresh(current_iteration)
 
         # Check if all preferences are in
-        preferences: VotingPreference = current_iteration.preferences
+        preferences: EndProcessPreference = current_iteration.preferences
         if not await self.check_preferences(
             group.user_ids,
             preferences,
@@ -374,6 +381,13 @@ class GNIMBUSManager(GroupManager):
             if preferences.set_preferences[user_id] == False:
                 all_vote_yes = False
                 break
+        new_copy_preferences: EndProcessPreference = copy.deepcopy(current_iteration.preferences)
+        new_copy_preferences.success = all_vote_yes
+        current_iteration.preferences = new_copy_preferences
+        session.add(current_iteration)
+        session.commit()
+        session.refresh(current_iteration)
+        print(current_iteration.preferences)
 
         actual_state = await self.get_state(
             session,
@@ -384,8 +398,9 @@ class GNIMBUSManager(GroupManager):
 
         # We take the result that was voted on (there should be only one)
         results = actual_state.solver_results
+        
         ending_state = GNIMBUSEndState(
-            votes=current_iteration.preferences,
+            votes=current_iteration.preferences.set_preferences,
             solver_results=results,
             success=all_vote_yes
         )
@@ -395,12 +410,14 @@ class GNIMBUSManager(GroupManager):
             problem_db,
             ending_state,
             current_iteration,
-            group.user_ids
+            group.user_ids,
+            group.owner_id
         )
 
         # Return a OptimizationPreferenceResult so
         # that we can fill it with reference points
         new_preferences = OptimizationPreference(
+            phase=current_iteration.parent.preferences.phase,
             set_preferences={},
         )
     

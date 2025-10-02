@@ -10,7 +10,8 @@ from sqlmodel import SQLModel, Field, Relationship, JSON, Column
 from desdeo.api.models import BasePreferences, StateDB
 from desdeo.api.models.gnimbus import (
     VotingPreference,
-    OptimizationPreference
+    OptimizationPreference,
+    EndProcessPreference
 )
 from desdeo.tools import SolverResults
 
@@ -38,8 +39,11 @@ class PreferenceType(TypeDecorator):
                     valdeser = OptimizationPreference.model_validate(jsoned)
                     return valdeser
                 # As the different methods are implemented, add new types
+                case "end":
+                    valdeser = EndProcessPreference.model_validate(jsoned)
+                    return valdeser
                 case _:
-                    print(f"Unable to deserialize PreferenceResult with method {jsoned["method"]}.")
+                    print(f"Unable to deserialize Preference with method {jsoned["method"]}.")
                     return None
         return None
 
@@ -78,8 +82,6 @@ class GroupIteration(SQLModel, table=True):
     preferences: BasePreferences = Field(sa_column=Column(PreferenceType))
     notified: dict[int, bool] = Field(sa_column=Column(JSON))
 
-    # TODO: Add a state db item to contain the results. This should allow e.g. UTOPIA endpoints to function.
-    # I don't want a relation to StateDB so I feel this might be the way to do that
     state_id: int | None = Field()
 
     parent_id: int | None = Field(foreign_key="groupiteration.id", default=None)

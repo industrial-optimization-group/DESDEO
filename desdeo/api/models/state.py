@@ -246,6 +246,8 @@ class GNIMBUSEndState(ResultInterface, SQLModel, table=True):
 
     # Preferences that went in
     votes: dict[int, bool] = Field(sa_column=Column(JSON))
+    # Success?
+    success: bool = Field()
     # Results that came out
     solver_results: list[SolverResults] = Field(sa_column=Column(ResultsType))
 

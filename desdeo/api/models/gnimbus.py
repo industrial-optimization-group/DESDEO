@@ -7,7 +7,8 @@ from enum import Enum
 
 from desdeo.api.models import (
     BasePreferences, 
-    ReferencePointDictType, 
+    ReferencePointDictType,
+    BooleanDictTypeDecorator,
     ReferencePoint,
     SolutionReference
 )
@@ -65,8 +66,8 @@ class VotingPreference(BasePreferences):
 class EndProcessPreference(BasePreferences):
     """A model for determining if everyone is happy with current solution so we can end the process"""
     method: str = "end"
-    set_preferences: dict[int, bool] = Field(sa_column=Column(JSON)) # We check if everyone agrees to stop.
-    success: bool
+    success: bool | None = Field()
+    set_preferences: dict[int, bool] = Field(sa_column=Column(BooleanDictTypeDecorator)) # We check if everyone agrees to stop.
 
 
 class GNIMBUSResultResponse(SQLModel):
@@ -81,7 +82,7 @@ class GNIMBUSResultResponse(SQLModel):
 class FullIteration(SQLModel):
     phase: str
     optimization_preferences: OptimizationPreference | None
-    voting_preferences: VotingPreference | None
+    voting_preferences: VotingPreference | EndProcessPreference | None
     starting_result: SolutionReference | None
     common_results: list[SolutionReference]
     user_results: list[SolutionReference]

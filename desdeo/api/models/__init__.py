@@ -73,6 +73,7 @@ __all__ = [  # noqa: RUF022
     "GroupInfoRequest",
     "BasePreferences",
     "ReferencePointDictType",
+    "BooleanDictTypeDecorator",
     "EMOSolveRequest",
     "PreferredRanges",
     "PreferedSolutions",
@@ -181,6 +182,7 @@ from .user import User, UserBase, UserPublic, UserRole
 from .gdm_base import (
     BasePreferences,
     ReferencePointDictType,
+    BooleanDictTypeDecorator,
 )
 from .gdm_aggregate import (
     Group, 

@@ -29,6 +29,29 @@ class ReferencePointDictType(TypeDecorator):
             except ValidationError as e:
                 print(f"Validation error when deserializing PreferencePoint: {e}")
         return dictionary
+    
+class BooleanDictTypeDecorator(TypeDecorator):
+    """A converter of bool into json, surprising that this needs to exists"""
+    impl = JSON
+
+    def process_bind_param(self, value, dialect):
+        if isinstance(value, dict):
+            for key, item in value.items():
+                if isinstance(item, bool):
+                    value[key] = json.dumps(item)
+            return json.dumps(value)
+    
+    def process_result_value(self, value, dialect):
+        dict = json.loads(value)
+        for key, item in dict.items():
+            if item == None:
+                print("Something's wrong... Database has a NoneType entry.")
+            try:
+                dict[key] = bool(item)
+            except Exception as e:
+                print(f"Validation error when desderializing boolean: {e}")
+        return dict
+
 
 class BasePreferences(SQLModel):
     """A base class for a method specific preference and results"""
