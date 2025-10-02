@@ -509,7 +509,7 @@
                        {previousObjectiveValues}
                        displayAccuracy={displayAccuracy()}
                        columnsLength={columns.length}
-                       personalResultIndex={personalResultIndex? personalResultIndex : 0}
+                       personalResultIndex={personalResultIndex ?? -1}
                     />
 
                 {/if}

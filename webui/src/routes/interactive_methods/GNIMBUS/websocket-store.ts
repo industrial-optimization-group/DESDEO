@@ -20,14 +20,20 @@ export class WebSocketService {
       console.log("WebSocket connection established.");
     });
 
-    this.socket.addEventListener("close", () => {
-      this.messageStore.set("Websocket closed. Info from socket store");
+    this.socket.addEventListener("close", (event) => {
+      const message = event.reason || "Connection closed";
+      this.messageStore.set(`WebSocket closed: ${message}`);
+      console.log("WebSocket closed:", { code: event.code, reason: event.reason });
     });
 
     this.socket.addEventListener("message", (event) => {
       try {
         const data = JSON.parse(event.data);
-        this.messageStore.set(data);
+        if (data.type === "error") {
+          this.messageStore.set(`Error: ${data.message}`);
+        } else {
+          this.messageStore.set(data);
+        }
       } catch {
         this.messageStore.set(event.data.toString());
       }

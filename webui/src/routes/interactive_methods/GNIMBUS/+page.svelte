@@ -69,7 +69,7 @@
 	 */
 	// Layout and core components
 	import { BaseLayout } from '$lib/components/custom/method_layout/index.js';
-	import { methodSelection } from '../../../stores/methodSelection';
+	import { auth } from '../../../stores/auth';
 	import type { components } from '$lib/api/client-types';
 	import { onMount } from 'svelte';
 
@@ -92,56 +92,51 @@
 		checkUtopiaMetadata,
 		validateIterationAllowed,
 		callGNimbusAPI,
-	} from '../NIMBUS/helper-functions';
+		mapSolutionsToObjectiveValues,
+	} from './helper-functions';
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 	type Solution = components["schemas"]["SolutionReference"]
-	type Response = {
-		method: "optimization" | "voting";
-		phase: string;
-		common_results: Solution[];
-		user_results: Solution[];
-		personal_result_index: number | null;
-		preferences: components["schemas"]["VotingPreference"] | components["schemas"]["OptimizationPreference"];
-	}
-
+	type AllIterations = components["schemas"]["GNIMBUSAllIterationsResponse"]
+	type Group = components["schemas"]["GroupPublic"]
+	type Response = components["schemas"]["FullIteration"]
+	let userId = $auth.user?.id;
 	// State for NIMBUS iteration management
 	let current_state: Response = $state({} as Response);
+	let full_iterations: AllIterations = $state({} as AllIterations);
 	
 	let problem: ProblemInfo | null = $state(null);
-	const { data } = $props<{ data: { problem: ProblemInfo; groupId: number; refreshToken: string } }>();
+	const { data } = $props<{ data: { problem: ProblemInfo; group: Group; refreshToken: string } }>();
 	let problem_data = data.problem ?? null;
-	// user can choose from three types of solutions: current, best, or all, TODO: they CAN'T now obviously
-	let selected_type_solutions = $state('current');
-	const frameworks = [
-		{ value: 'current', label: 'Current solutions' },
-		{ value: 'best', label: 'Best candidate solutions' },
-		{ value: 'all', label: 'All solutions' }
-	];
 
-	let chosen_solutions = $derived.by(() => {
+	// User role state
+	let isOwner = $state(false);
+	let isDecisionMaker = $state(false);
+
+	let solution_options = $derived.by(() => {
 		if (!current_state) return [];
-		
-		switch (selected_type_solutions) {
-			case 'current':
-			return current_state.common_results || [];
-			case 'best':
-			return current_state.common_results || [];
-			case 'all':
-			return current_state.common_results || [];
-			default:
-			return current_state.common_results || [];
+		if (current_state.phase === "init" || mode === "optimization") { // init phase does not have structure to define mode
+			return current_state.final_result?.objective_values ? [current_state.final_result] : [];
+		} else { // mode === "voting"
+			// Make sure common_results exists and each result has objective_values
+			if (!current_state.common_results?.length) return [];
+			return current_state.common_results;
 		}
 	});
 	
 	// Get the label for the selected solution type from frameworks
+
 	let selected_type_solutions_label = $derived.by(() => {
-		const framework = frameworks.find(f => f.value === selected_type_solutions);
-		return framework ? framework.label : "Solutions";
+		if (current_state.phase === "init") return "Initial solution";
+		if (current_state.phase === "decision" && mode === "voting") return "Suggestion for a final solution";
+		if (mode === "optimization") return "Voted solution";
+		if (mode === "voting") return "Solutions to vote from";
+		return "Solutions";
 	});
-	// variables for handling different modes (iteration, intermediate, save, finish)
-	// and chosen solutions that are separate for every mode
+
+	// variables for handling different modes (optimization, voting)
 	let mode: "optimization" | "voting" = $state("optimization");
 	let isActionDone: boolean = $state(false);
+	
 	// iteration mode
 	let selected_voting_index: number = $state(0); // Index of solution from previous results to use in sidebar.
 	let selected_voting_objectives: Record<string, number> = $state({}); // actual objectives of the selected solution in iteration mode
@@ -166,74 +161,85 @@
 	let geoJSON = $state<object | undefined>(undefined);
 	let mapName = $state<string | undefined>(undefined);
 	let mapDescription = $state<string | undefined>(undefined);
-	let compensation = $state(0.0);
 
-
-	// socket things
+	// Message handling
 	let wsService: WebSocketService;
 	let message = $state("");
+	let messageTimeout: number | undefined;
+
+	function showTemporaryMessage(msg: string, duration: number = 5000) {
+		// Clear any existing timeout
+		if (messageTimeout) {
+			clearTimeout(messageTimeout);
+		}
+		message = msg;
+		// Clear message after duration
+		messageTimeout = window.setTimeout(() => {
+			message = "";
+		}, duration);
+	}
 
 	$effect(() => {
 		if (message === "Please fetch results.") {
-			getResults(data.groupId);
+			getResultsAndUpdate(data.group.id);
 		}
 		if (message === "Voting has concluded.") {
-			// getFullResponse(data.groupId); // TODO: for what?
-			getResults(data.groupId);
-		}
+			getResultsAndUpdate(data.group.id);
+		 }
 	});
 
-
-	/**
-	 * Maps solutions objective values to arrays suitable for visualization components
-	 * COPIED from helper-functions because differnt types. 
-	 * Maybe try again to use that one, I am not sure if the Solution[] is so different now?
-	 * @param solutions Array of solutions with objective values
-	 * @param problem The problem containing objective definitions
-	 * @returns Array of arrays with objective values in the order defined by the problem
-	 */
-	function mapSolutionsToObjectiveValues(solutions: Solution[], problem: ProblemInfo) {
-		return solutions.map(result => {
-			return problem.objectives.map(obj => {
-				const value = result.objective_values && result.objective_values[obj.symbol];
-				return Array.isArray(value) ? value[0] : value;
-			});
+		async function getResultsAndUpdate(group_id: number) {
+		const fullResult = await callGNimbusAPI<AllIterations>('get_all_iterations', {
+			group_id: group_id
 		});
-	}
 
-	async function getResults(group_id: number) {
-		const result = await callGNimbusAPI<Response>('get_latest_results', { group_id });
-		if (result.success && result.data) {
-			console.log("FETCH RESULTS:", result.data);
-			// const { 
-			// 	method,
-			// 	phase,
-			//  preferences,
-			// 	common_results,
-			// 	user_results,
-			// 	personal_result_index
-			// } = result.data;
+		if (fullResult.success && fullResult.data) {
+			// Update full history
+			full_iterations = fullResult.data;
+			// Update current state with user-specific information
 			
-			// Update current state with the new results
-			current_state = result.data;
-			// Set UI mode to the opposite of what was just completed
-			mode = result.data.method === "voting" ? "optimization" : "voting";
+			// Get the last iteration for context ??
+			const latestIteration = fullResult.data.all_full_iterations[0];
+			if (!latestIteration) return;
+			current_state = latestIteration;
+
+			// Set mode based on current state; Set UI mode to the opposite of what was just completed
+			if (latestIteration.phase === "init") mode = "optimization";
+			else mode = (latestIteration.voting_preferences !== null) ? "optimization" : "voting";
+			
+			function hasOptimizationPreferences(iteration: Response): iteration is Response & { optimization_preferences: NonNullable<Response['optimization_preferences']> } {
+				return iteration.optimization_preferences !== null;
+			}
+			if (
+				userId && isDecisionMaker
+			) {
+				// Update preferences based on the current state and method
+				if (!hasOptimizationPreferences(latestIteration)) {
+					// Handle null case with starting_result
+					if (problem) {
+						current_preference = problem.objectives.map(obj => 
+							obj.ideal ?? 0
+						);
+					}
+				}
+				else {
+					// TypeScript now knows optimization_preferences is not null
+					current_preference = problem?.objectives.map(obj =>
+						latestIteration.optimization_preferences.set_preferences[userId].aspiration_levels[obj.symbol]
+					) || [];
+				}
+			}
+			
 			// Reset selection based on the new mode
-			selected_voting_index = mode === "optimization" ? 0 : -1;
-			change_solution_type_updating_selections('current');
-			update_preferences_from_state(current_state);
+			if (current_state.phase ==="decision") selected_voting_index = 0;
+			else selected_voting_index = mode === "optimization" ? 0 : -1;
+			update_voting_selection(current_state);
+			last_iterated_preference = [...current_preference];
 			isActionDone = false;
 		} else {
-			console.error('Failed to FETCH RESULTS:', result.error);
-		}
-		// TODO: is there a step where previous preferences come from backend? full results?
-		// Point is, I think I shouldn't have to do this in getResults, ever, if I end up calling getResults ony in voting phase.
-		// But right now I am always calling it so I need this.
-		// there is this update_preferences_from_state()-function, think of that at this point.
-		// current_preference = current_state.common_results[0].objective_values
-		// 	? Object.values(current_state.common_results[0].objective_values)
-		// 	: [];
-		return result;
+			console.error('Failed to fetch the full response:', fullResult.error);
+		} 
+		return fullResult;
 	}
 	
 	// Validation: iteration is allowed when at least one preference is better and one is worse than current objectives
@@ -241,18 +247,6 @@
 		// Use the imported utility function to validate if iteration is allowed
 		return validateIterationAllowed(problem, current_preference, selected_voting_objectives);
 	})
-
-	function handle_type_solutions_change(event: { value: string }) {
-		change_solution_type_updating_selections(event.value as 'current' | 'best' | 'all');
-	}
-
-	// Helper function to change solution type and update selections
-	function change_solution_type_updating_selections(newType: 'current' | 'best' | 'all') {
-		// Update the internal state
-		selected_type_solutions = newType;
-		// Then update UI and data
-		update_voting_selection(current_state);
-	}
 
 	function handle_solution_click(index: number) {
 		if(selected_voting_index === index) {
@@ -301,16 +295,18 @@
 					{} as Record<string, number>
 				)
 			};
-			console.log(preference)
 			wsService.sendMessage(JSON.stringify(preference));
 			isActionDone = true;
 	}
 
 	// Fetch maps data for UTOPIA visualization for one solution
-	// TODO
 	async function get_maps(solution: Solution) {
 		if (!problem) {
 			console.error('No problem selected');
+			return;
+		}
+		if (selected_voting_index === -1) {
+			console.log('No solution selected');
 			return;
 		}
 		
@@ -360,7 +356,6 @@
 			geoJSON = data.map_json;
 			mapName = data.map_name;
 			mapDescription = data.description;
-			compensation = Math.round(data.compensation * 100) / 100; // TODO: not used anywhere, in old UI only used in one sentence
 		} else {
 			console.error('Failed to get maps:', result.error);
 		}
@@ -372,14 +367,14 @@
 		if (!state) return;
 		
 		// Use chosen_solutions instead of hardcoding current_solutions
-		if (chosen_solutions.length === 0) return;
+		if (solution_options.length === 0) return;
 		
 		// Make sure the selected index is within bounds of the chosen solutions
-		if ( selected_voting_index >= chosen_solutions.length) {
+		if ( selected_voting_index >= solution_options.length) {
 			selected_voting_index = mode === "optimization" ? 0 : -1; // If index out of bounds, reset to first solution or none
 		}
 		
-		const selectedSolution = chosen_solutions[selected_voting_index]; 
+		const selectedSolution = solution_options[selected_voting_index]; 
 		selected_voting_objectives = selectedSolution && selectedSolution.objective_values ? selectedSolution.objective_values : {};
 				
 		// Only fetch maps if problem has utopia metadata
@@ -387,22 +382,38 @@
 			get_maps(selectedSolution);
 		}
 	}
-	
-	// Helper function to initialize preferences from previous state or ideal values
-	// TODO: when is this used, do I need this? Used in getResult and getFullResponse.
-	// Should probably be used so that these are whatever when it is iteration step,
-	// but in voting step, last_iterated_preference could be either all the users preferences, only the oneusers,
-	// or are they "previous solutions"? Question is, are they circles or lines in graph?
-	function update_preferences_from_state(state: Response | null) {
-		if (!problem) return;
-		// current_preference = updatePreferencesFromState(state, problem);
-		last_iterated_preference = [...current_preference];
 
+	// Function to handle phase switching
+	async function handle_phase_switch(new_phase: "learning" | "decision" | "crp") {
+
+		const result = await callGNimbusAPI<Response>('switch_phase', { 
+			group_id: data.group.id,
+			new_phase
+		});
+
+		if (!result || (!result.success && result.error === 'wrong_step')) {
+			showTemporaryMessage("Wrong step for phase change!");
+			// Revert the UI selection back to current state
+		} else {
+			// Update will happen via websocket notification
+			message = "Phase switched to "+new_phase;
+			console.log('Phase change requested successfully');
+		}
 	}
 
 	onMount(async () => {
-		wsService = new WebSocketService(data.groupId, "gnimbus", data.refreshToken);
+		// Determine user roles based on group ownership and membership
+		if (userId) {
+			isOwner = userId === data.group.owner_id;
+			isDecisionMaker = data.group.user_ids.includes(userId);
+		}
+
+		wsService = new WebSocketService(data.group.id, "gnimbus", data.refreshToken);
 		wsService.messageStore.subscribe((msg) => {
+			if (messageTimeout) {
+				clearTimeout(messageTimeout);
+				messageTimeout = undefined;
+			}
 			message = msg;
 		});
 		problem = problem_data;
@@ -411,17 +422,18 @@
 			hasUtopiaMetadata = checkUtopiaMetadata(problem);
 			
 			// Try to get results first
-			const result = await getResults(data.groupId);
-			
+			const result = await getResultsAndUpdate(data.group.id);
+			console.log(result?.data?.all_full_iterations)
+
 			// If we get not_initialized error, initialize and try again
-			// TODO: initialization can only be done by the owner of group so  this is a little... fragile
-			if (!result.success && result.error === 'not_initialized') {
+			// TODO: understand when the await is needed, when not and what it causes here
+			if (!result || (!result.success && result.error) === 'not_initialized') {
 				console.log('GNIMBUS not initialized, initializing...');
-				const initResult = await callGNimbusAPI<Response>('initialize', { group_id: data.groupId });
+				const initResult = await callGNimbusAPI<Response>('initialize', { group_id: data.group.id });
 				
 				if (initResult.success) {
 					// After successful initialization, try getting results again
-					await getResults(data.groupId);
+					await getResultsAndUpdate(data.group.id);
 				} else {
 					console.error('Failed to initialize GNIMBUS:', initResult.error);
 				}
@@ -445,33 +457,12 @@
 		type_preferences = data.typePreferences;
 		current_preference = [...data.preferenceValues];
 	}
-
-	async function getFullResponse(group_id: number=1) {
-		const result = await callGNimbusAPI<Response>('get_full_iteration', {
-			group_id: group_id
-		});
-
-		if (result.success && result.data) {
-			// Update the current state with the full response
-			current_state = result.data;
-			
-			// Initialize other state after receiving the response
-			selected_voting_index = 0;
-			change_solution_type_updating_selections('current');
-			
-			// Update UI selections based on new state
-			update_voting_selection(current_state);
-			update_preferences_from_state(current_state);
-		} else {
-			console.error('Failed to fetch the full response:', result.error);
-		}
-	}
 </script>
 
 <BaseLayout showLeftSidebar={!!problem} showRightSidebar={false} bottomPanelTitle={selected_type_solutions_label}>
 	{#snippet leftSidebar()}
 
-		{#if problem && mode==="optimization"}
+		{#if problem && mode==="optimization" && isDecisionMaker}
 			<AppSidebar
 				{problem}
 				preferenceTypes={[PREFERENCE_TYPES.Classification]}
@@ -489,11 +480,27 @@
 	{/snippet}
 
 	{#snippet explorerControls()}
+		{#if isOwner && mode === "optimization"}
+			<span>Switch phase: </span>
+			<Button onclick={()=>handle_phase_switch("learning")}>Learning</Button>
+			<Button onclick={()=>handle_phase_switch("crp")}>CRP</Button>
+			<Button onclick={()=>handle_phase_switch("decision")}>Decision</Button>
+		{/if}
 		<div class="p-4 rounded-lg bg-gray-50 text-sm">
 			{#if message && !message.includes("Please fetch results") && !message.includes("Voting has concluded")}
 				<!-- Show websocket messages that aren't handled automatically -->
-				<span class="text-blue-600">{message}</span>
-			{:else if mode === "voting"}
+				<span class="text-gray-600">{message}</span>
+			{:else if isOwner && !isDecisionMaker}
+				{#if mode === "optimization"}
+					<span class="text-gray-600">
+						Viewing current solutions in {current_state.phase} phase. Phase can be switched during optimization steps.
+					</span>
+				{:else}
+					<span class="text-gray-600">
+						Viewing solutions in {current_state.phase} phase. Please wait for voting to complete.
+					</span>
+				{/if}
+			{:else if mode === "voting" && isDecisionMaker}
 				{#if isActionDone}
 					<span class="text-gray-600">
 						Waiting for other users to finish voting. You can still change your vote by selecting another solution.
@@ -503,7 +510,7 @@
 						Please vote for your preferred solution by selecting it from the table below.
 					</span>
 				{/if}
-			{:else if mode === "optimization"}
+			{:else if mode === "optimization" && isDecisionMaker}
 				{#if isActionDone}
 					<span class="text-gray-600">
 						Waiting for other users to finish their iterations. You can still modify your preferences and iterate again.
@@ -513,18 +520,16 @@
 						Please set your preferences for the current solution using the classification interface on the left.
 					</span>
 				{/if}
+			{:else}
+				<span class="text-gray-600">
+					Viewing group progress.
+				</span>
 			{/if}
 		</div>		
-		<!-- <span>View: </span>
-		<Combobox
-		options={frameworks}
-		defaultSelected={selected_type_solutions}
-		onChange={handle_type_solutions_change}
-		/> -->
 	{/snippet}
 
 	{#snippet visualizationArea()}
-		{#if problem && current_state }
+		{#if problem && current_state && solution_options.length > 0 }
 			<!-- Resizable layout for visualizations side by side -->
 			<div class="h-full">
 				<Resizable.PaneGroup direction="horizontal" class="h-full">
@@ -537,8 +542,9 @@
 							currentPreferenceValues={mode==="optimization" ? current_preference : []}
 							previousPreferenceType={type_preferences}
 							currentPreferenceType={type_preferences}
-							solutionsObjectiveValues={problem ? mapSolutionsToObjectiveValues(chosen_solutions, problem) : []}
-							previousObjectiveValues={(problem && mode==="voting") ? mapSolutionsToObjectiveValues(current_state.user_results, problem) : []}
+							solutionsObjectiveValues={problem ? mapSolutionsToObjectiveValues(solution_options, problem) : []}
+							previousObjectiveValues={(problem && mode==="voting" && current_state.personal_result_index !== null) ? mapSolutionsToObjectiveValues([current_state.user_results[current_state.personal_result_index]], problem) : []}
+							otherObjectiveValues={(problem && mode==="voting") ? mapSolutionsToObjectiveValues(current_state.user_results, problem) : []}
 							externalSelectedIndexes={[selected_voting_index]}
 							onSelectSolution={handle_solution_click}
 						/>
@@ -569,71 +575,62 @@
 		{/if}
 	{/snippet}
 	{#snippet numericalValues()}
-		{#if problem && chosen_solutions.length > 0}
-			{#if mode === "voting"}
-				<Button disabled={selected_voting_index === -1} onclick= {handle_vote}>Vote</Button>
-			{/if}
-			<SolutionTable
-			{problem}
-			personalResultIndex={current_state.personal_result_index}
-			solverResults={chosen_solutions.map((solution, i) => ({
-				state_id: 0,
-				solution_index: i,
-				name: null,
-				objective_values: solution.objective_values,
-				variable_values: solution.variable_values
-			}))}
-			selectedSolutions={[selected_voting_index]}
-			savingEnabled={false}
-			handle_row_click={handle_solution_click}
-			selected_type_solutions={selected_type_solutions}
-			previousObjectiveValuesType = "user_results"
-			previousObjectiveValues={
-				(selected_type_solutions === 'current') ? 
-				(problem ? 
-				current_state.user_results
-					.map(result => result.objective_values)
-					.filter((obj): obj is { [key: string]: number } => obj !== null && obj !== undefined)
-				: 
-				[]) : 
-				[]
-			}
-			/>
+		{#if problem && solution_options.length > 0}
+			<div class="flex flex-col h-full">
+				{#if mode === "voting" && isDecisionMaker}
+					{#if current_state.phase === "decision"}
+						<div class="flex-none mb-2">
+							<Button
+								variant="default"
+								onclick={() => {
+									handle_vote();
+									console.log("true");
+								}}
+							>
+								Select as the final solution
+							</Button>
+							<Button
+								variant="destructive"
+								onclick={() => console.log("false")}
+							>
+								Continue to next iteration
+							</Button>
+						</div>
+					{:else}
+						<div class="flex-none mb-2">
+							<Button disabled={selected_voting_index === -1} onclick= {handle_vote}>Vote</Button>
+						</div>
+					{/if}
+				{/if}
+				<div class="flex-1 min-h-0">
+					<SolutionTable
+						{problem}
+						personalResultIndex={current_state.personal_result_index}
+						solverResults={solution_options.map((solution, i) => ({
+							state_id: solution.state_id,
+							solution_index: i,
+							name: null,
+							objective_values: solution.objective_values,
+							variable_values: solution.variable_values
+						}))}
+						selectedSolutions={[selected_voting_index]}
+						savingEnabled={false}
+						handle_row_click={handle_solution_click}
+						selected_type_solutions={"current"}
+						previousObjectiveValuesType = "user_results"
+						previousObjectiveValues={
+							(mode === "voting") ? 
+							(problem ? 
+							current_state.user_results
+								.map(result => result.objective_values)
+								.filter((obj): obj is { [key: string]: number } => obj !== null && obj !== undefined)
+							: 
+							[]) : 
+							[]
+						}
+					/>
+				</div>
+			</div>
 		{/if}
 	{/snippet}
 </BaseLayout>
-
-
-<!-- 
-_/ remove saved and all solutions? Component is hidden, might be enough
-
-_/ show websocket (error)messages better. No lingering, show in console.
-
-get prev pref jostain
-
-now there is a preference; for optimization its a pref.point and fov voting a number,
-I mean it includes method
-
-REACT TO THESE LATEST CHANGES:
-
-I modified the GroupIterations and the PreferenceResult types,
-so that the PreferenceResults are only preferences now,
-there to collect the preferences from the users. 
-The results are stored in states. GroupIteration now has a state_id field to store its ID.
-
-(solutionReference in gnimbus result has state)
-
-Also, UserPublic, instead of returning the group's name,
-returns as a list the ID's of the groups that the user is part of.
-
-The newest iteration response model now returns:
-the method (optimization, voting)
-and phase (learning, decision).
-The responses now also include the references to the corresponding state and solver result,
-so for example Utopia endpoint should be ok to use with GNIMBUS also.
-
-Added an GNIMBUS endpoint that returns info on all iterations. 
-One optimization and one voting iteration are combined into one complete, full iteration.
-The endpoint returns a list of those. If the system requires voting preferences,
-i.e. the last step was optimization, the endpoint returns an incomplete full iteration as the first element.
--->

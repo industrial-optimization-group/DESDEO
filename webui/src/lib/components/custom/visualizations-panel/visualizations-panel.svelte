@@ -79,6 +79,7 @@
 		problem: ProblemInfo | null;
 		previousPreferenceValues?: number[];
 		previousObjectiveValues?: number[][];
+		otherObjectiveValues?: number[][];  // New prop for additional objective values
 		currentPreferenceValues?: number[];
 		previousPreferenceType: string;
 		currentPreferenceType: string;
@@ -93,6 +94,7 @@
 		problem,
 		previousPreferenceValues = [],
 		previousObjectiveValues,
+		otherObjectiveValues,
 		currentPreferenceValues = [],
 		previousPreferenceType,
 		currentPreferenceType,
@@ -118,7 +120,7 @@
 	 * Create reference data in the format expected by ParallelCoordinates
 	 * Includes reference point and preferred ranges if available
 	 */
-	const referenceData = $derived(() => createReferenceData(currentPreferenceValues, previousPreferenceValues, problem, previousObjectiveValues));
+	const referenceData = $derived(() => createReferenceData(currentPreferenceValues, previousPreferenceValues, problem, previousObjectiveValues, otherObjectiveValues));
 
 	/**
 	 * Handle line selection from ParallelCoordinates

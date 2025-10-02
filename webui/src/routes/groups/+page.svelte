@@ -26,14 +26,13 @@
 	 * - methodSelection: Svelte store for the currently selected problem and method.
 	 */
 
-	import DataTable from '$lib/components/custom/problems-data-table/data-table.svelte';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import { buttonVariants } from '$lib/components/ui/button';
 	import type { components } from '$lib/api/client-types';
 	import { methodSelection } from '../../stores/methodSelection';
-	import { groupSelection } from '../../stores/groupSelection';
+	import { auth } from '../../stores/auth';
 	import { goto } from '$app/navigation';
 
 	type ProblemInfo = components['schemas']['ProblemInfo'];
@@ -58,6 +57,18 @@
 	function findProblemForGroup(group: GroupInfo): ProblemInfo | undefined {
 		return problemList.find(p => p.id === group.problem_id);
 	}
+
+	function getUserRole(group: GroupInfo, userId: number | undefined): string {
+		if (!userId) return "";
+		
+		const isOwner = userId === group.owner_id;
+		const isDM = group.user_ids.includes(userId);
+		
+		if (isOwner && isDM) return "Owner & DM";
+		if (isOwner) return "Owner";
+		if (isDM) return "DM";
+		return "";
+	}
 </script>
 
 <div class="px-8">
@@ -80,6 +91,7 @@
 						<Table.Row>
 							<Table.Head class="font-semibold">Group Name</Table.Head>
 							<Table.Head class="font-semibold">Problem</Table.Head>
+							<Table.Head class="font-semibold">Role of User</Table.Head>
 							<Table.Head class="font-semibold">Members</Table.Head>
 							<Table.Head class="font-semibold">Action</Table.Head>
 						</Table.Row>
@@ -97,6 +109,7 @@
 								tabindex={0}>
 								<Table.Cell class="text-justify">{group.name}</Table.Cell>
 								<Table.Cell class="text-justify">{problem?.name ?? '—'}</Table.Cell>
+								<Table.Cell class="text-justify">{getUserRole(group, $auth?.user?.id)}</Table.Cell>
 								<Table.Cell class="text-justify">{group.user_ids.length} members</Table.Cell>
 								<Table.Cell>
 									<button
@@ -108,7 +121,6 @@
 											if (problem) {
 												methodSelection.set(problem.id ?? null, $methodSelection.selectedMethod);
 											}
-											groupSelection.set(group.id);
 											await goto(`/interactive_methods/GNIMBUS?group=${group.id}`);
 										}}
 									>

@@ -48,14 +48,12 @@ export const POST: RequestHandler = async ({ url, request, cookies }) => {
             case 'get_latest_results':
                 response = await get_results(body, refreshToken);
                 break;
-            case 'get_full_iteration':
-                response = await handle_full_iteration(body, refreshToken);
+            case 'get_all_iterations':
+                response = await get_all_iterations(body, refreshToken);
                 break;
-            case 'save':
-                response = await handle_save(body, refreshToken);
+            case 'switch_phase':
+                response = await switch_phase(body, refreshToken);
                 break;
-            case 'remove_saved':
-                return json({ success: false, error: 'solution remove not implemented!' });
             case 'get_maps':
                 response = await handle_get_maps(body, refreshToken);
                 break;
@@ -93,8 +91,8 @@ async function handle_init(body: any, refreshToken: string) {
 
     // Check if the response has an error
     if (response.error) {
-        console.error(`GNIMBUS initialize API error: ${response.error} (Status: ${response.response?.status})`);
-        throw new Error(`GNIMBUS initialize API error: ${response.error} (Status: ${response.response?.status})`);
+        console.error(`GNIMBUS initialize API error: ${response.error.detail} (Status: ${response.response?.status})`);
+        throw new Error(`GNIMBUS initialize API error: ${response.error.detail} (Status: ${response.response?.status})`);
     }
 
     if (!response.data) {
@@ -122,15 +120,6 @@ async function get_results(body: any, refreshToken: string) {
         }
     });
 
-    // If we get a 404 with "No results found!", return a special response
-    const error = response.error as unknown as APIError;
-    if (error && response.response?.status === 404 && error.detail === 'No results found!') {
-        return {
-            success: false,
-            error: 'not_initialized'
-        };
-    }
-
     // For any other error, throw it
     if (response.error) {
         throw new Error(response.error as string);
@@ -140,7 +129,7 @@ async function get_results(body: any, refreshToken: string) {
     return { success: true, data: response.data };
 }
 
-async function handle_full_iteration(body: any, refreshToken: string) {
+async function get_all_iterations(body: any, refreshToken: string) {
     const { group_id } = body;
     const requestBody = {
         group_id: Number(group_id)
@@ -153,10 +142,19 @@ async function handle_full_iteration(body: any, refreshToken: string) {
         }
     });
 
+    // If we get an error because of problem is not initialized, return a special response
+    const error = response.error as unknown as APIError;
+    if (error && response.response?.status === 400 && error.detail === "Problem has not been initialized!") {
+        return {
+            success: false,
+            error: 'not_initialized'
+        };
+    }
+
     // Check if the response has an error
     if (response.error) {
-        console.error(`GNIMBUS full_response API error: ${response.error} (Status: ${response.response?.status})`);
-        throw new Error(`GNIMBUS full_response API error: ${response.error} (Status: ${response.response?.status})`);
+        console.error(`GNIMBUS full_response API error: ${response.error.detail} (Status: ${response.response?.status})`);
+        throw new Error(`GNIMBUS full_response API error: ${response.error.detail} (Status: ${response.response?.status})`);
     }
 
     if (!response.data) {
@@ -168,33 +166,38 @@ async function handle_full_iteration(body: any, refreshToken: string) {
 
 }
 
-// TODO: is there any saving for gnimbus, needs an endpoint, etc...
-async function handle_save(body: any, refreshToken: string) {
-        const {problem_id, solutions} = body;
-        const session_id = null;
-        const parent_state_id = null;
+
+async function switch_phase(body: any, refreshToken: string) {
+        const {group_id, new_phase} = body;
         const requestBody = {
-            problem_id,
-            session_id,
-            parent_state_id,
-            solution_info: solutions
+            group_id: Number(group_id),
+            new_phase
         }
-        const response = await api.POST('/method/nimbus/save', {
+        const response = await api.POST('/gnimbus/toggle_phase', {
             body: requestBody,
             headers: {
                 'Authorization': `Bearer ${refreshToken}`
             }
         });
 
+        // If we get an error that the step is wrong for phase change, return a special response
+        const error = response.error as unknown as APIError;
+        if (error && response.response?.status === 400) {
+            return {
+                success: false,
+                error: 'wrong_step'
+            };
+        }
+
         // Check if the response has an error
         if (response.error) {
-            console.error(`NIMBUS save API error: ${response.error} (Status: ${response.response?.status})`);
-            throw new Error(`NIMBUS save API error: ${response.error} (Status: ${response.response?.status})`);
+            console.error(`GNIMBUS toggle_phase API error: ${response.error.detail} (Status: ${response.response?.status})`);
+            throw new Error(`GNIMBUS toggle_phase API error: ${response.error.detail} (Status: ${response.response?.status})`);
         }
 
         if (!response.data) {
-            console.error('No data received from NIMBUS save API');
-            throw new Error('No data received from NIMBUS save API');
+            console.error('No data received from GNIMBUS toggle_phase API');
+            throw new Error('No data received from GNIMBUS toggle_phase API');
         }
 
         return { success: true, data: response.data };

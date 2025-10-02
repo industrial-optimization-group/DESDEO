@@ -9,8 +9,9 @@ export const load: PageLoad = async () => {
 
 	const groupIds = user.data.group_ids;
 	if (!groupIds || groupIds.length === 0) {
-		throw new Error('User is not part of any groups');
+		return {problemList: [], groupList: []};
 	}
+
 	let groupList = [];
 	for (const id of groupIds) {
 		const info = await api.POST('/gdm/get_group_info', {body:{group_id: id}});
