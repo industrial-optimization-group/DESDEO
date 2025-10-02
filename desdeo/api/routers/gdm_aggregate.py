@@ -21,10 +21,18 @@ import logging
 import sys
 
 logging.basicConfig(
-    stream=sys.stdout, format="[%(filename)s:%(lineno)d] %(levelname)s: %(message)s", level=logging.INFO
+    stream=sys.stdout,
+    format='[%(filename)s:%(lineno)d] %(levelname)s: %(message)s',
+    level=logging.INFO
 )
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query
+from fastapi import (
+    APIRouter, 
+    WebSocket, 
+    WebSocketDisconnect, 
+    Depends, 
+    Query,
+)
 
 from jose import JWTError, jwt, ExpiredSignatureError
 from sqlmodel import Session, select
@@ -38,10 +46,9 @@ from desdeo.api.db import get_session
 from desdeo.api import AuthConfig
 from desdeo.api.routers.user_authentication import get_user
 from desdeo.api.routers.gdm_base import GroupManager, ManagerException
-from desdeo.api.routers.gnimbus import GNIMBUSManager
+from desdeo.api.routers.gnimbus.gnimbus_manager import GNIMBUSManager
 
 router = APIRouter(prefix="/gdm")
-
 
 class ManagerManager:
     """A singleton class to manage group managers. Spawns them and deletes them.

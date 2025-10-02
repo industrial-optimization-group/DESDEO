@@ -14,9 +14,9 @@ from desdeo.api.routers import (
     reference_point_method,
     session,
     user_authentication,
-    gnimbus,
     utopia,
 )
+from desdeo.api.routers.gnimbus import gnimbus_routers
 
 app = FastAPI(
     title="DESDEO (fast)API",
@@ -34,7 +34,7 @@ app.include_router(generic.router)
 app.include_router(utopia.router)
 app.include_router(gdm_base.router)
 app.include_router(gdm_aggregate.router)
-app.include_router(gnimbus.router)
+app.include_router(gnimbus_routers.router)
 
 
 
