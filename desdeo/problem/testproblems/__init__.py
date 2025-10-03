@@ -41,6 +41,7 @@ __all__ = [
     "zdt1",
     "zdt2",
     "zdt3",
+    "best_cake_problem",
 ]
 
 
@@ -80,3 +81,4 @@ from .spanish_sustainability_problem import (
     spanish_sustainability_problem_discrete,
 )
 from .zdt_problem import zdt1, zdt2, zdt3
+from .cake_problem import best_cake_problem

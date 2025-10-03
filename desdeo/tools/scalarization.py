@@ -743,10 +743,16 @@ def add_group_asf_agg_diff(
     constraints = []
     # loop to create a constraint for every objective of every reference point given
     for obj in problem.objectives:
-        expr = (
-            f"({obj.symbol}_min - {agg_aspirations[obj.symbol]}) / "
-            f"({nadir_point[obj.symbol]} - {ideal_point[obj.symbol] - delta}) - _alpha"
-        )
+        if type(delta) is dict:
+            expr = (
+                f"({obj.symbol}_min - {agg_aspirations[obj.symbol]}) / "
+                f"({nadir_point[obj.symbol]} - {ideal_point[obj.symbol] - delta[obj.symbol]}) - _alpha"
+            )
+        else:
+            expr = (
+                f"({obj.symbol}_min - {agg_aspirations[obj.symbol]}) / "
+                f"({nadir_point[obj.symbol]} - {ideal_point[obj.symbol] - delta}) - _alpha"
+            )
         constraints.append(
             Constraint(
                 name=f"Constraint for {obj.symbol}",
@@ -2958,10 +2964,16 @@ def add_group_stom_agg_diff(
     constraints = []
     # loop to create a constraint for every objective of every reference point given
     for obj in problem.objectives:
-        expr = (
-            f"({obj.symbol}_min - {ideal_point[obj.symbol] - delta}) / "
-            f"({agg_aspirations[obj.symbol] - (ideal_point[obj.symbol] - delta)}) - _alpha"
-        )
+        if type(delta) is dict:
+            expr = (
+                f"({obj.symbol}_min - {ideal_point[obj.symbol] - delta[obj.symbol]}) / "
+                f"({agg_aspirations[obj.symbol] - (ideal_point[obj.symbol] - delta[obj.symbol])}) - _alpha"
+            )
+        else:
+            expr = (
+                f"({obj.symbol}_min - {ideal_point[obj.symbol] - delta}) / "
+                f"({agg_aspirations[obj.symbol] - (ideal_point[obj.symbol] - delta)}) - _alpha"
+            )
         constraints.append(
             Constraint(
                 name=f"Constraint for {obj.symbol}",
