@@ -3121,7 +3121,7 @@ def add_guess_sf_diff(
     aug_expr = " + ".join(
         [
             (  # Technically delta should be included (according to the paper), but I'm a rebel and don't want to add it
-                (f"{obj.symbol}_min / ({nadir_point[obj.symbol]} - {ideal_point[obj.symbol]}")
+                f"{obj.symbol}_min / ({nadir_point[obj.symbol]} - {ideal_point[obj.symbol]})"
                 if obj.symbol in free_to_change
                 else f"{obj.symbol}_min / ({nadir_point[obj.symbol]} - {corrected_rp[obj.symbol]}"
             )
@@ -3281,7 +3281,7 @@ def add_guess_sf_nondiff(
     aug_expr = " + ".join(
         [
             (  # Technically delta should be included (according to the paper), but I'm a rebel and don't want to add it
-                (f"{obj.symbol}_min / ({nadir_point[obj.symbol]} - {ideal_point[obj.symbol]}")
+                f"{obj.symbol}_min / ({nadir_point[obj.symbol]} - {ideal_point[obj.symbol]})"
                 if obj.symbol in free_to_change
                 else f"{obj.symbol}_min / ({nadir_point[obj.symbol]} - {corrected_rp[obj.symbol]}"
             )
