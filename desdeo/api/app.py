@@ -5,8 +5,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from desdeo.api.config import AuthConfig
 from desdeo.api.routers import (
-    gdm_aggregate,
-    gdm_base,
     EMO,
     generic,
     nimbus,
@@ -16,7 +14,8 @@ from desdeo.api.routers import (
     user_authentication,
     utopia,
 )
-from desdeo.api.routers.gnimbus import gnimbus_routers
+from desdeo.api.routers.gdm import gdm_aggregate, gdm_base
+from desdeo.api.routers.gdm.gnimbus import gnimbus_routers
 
 app = FastAPI(
     title="DESDEO (fast)API",

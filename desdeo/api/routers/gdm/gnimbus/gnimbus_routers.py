@@ -1,4 +1,8 @@
-"""GNIMBUS routers: separated from manager implementation for clarity"""
+"""
+GNIMBUS routers. Separated from GNIMBUSManager file for
+A.) Clarity and 
+B.) To avoid circular imports, since we need to access the ManagerManager singleton.
+"""
 
 import copy
 
@@ -24,7 +28,7 @@ from typing import Annotated
 
 from desdeo.api.db import get_session
 from desdeo.api.routers.user_authentication import get_current_user
-from desdeo.api.routers.gdm_aggregate import manager
+from desdeo.api.routers.gdm.gdm_aggregate import manager
 from desdeo.api.models import (
     User,
     Group,
@@ -45,6 +49,10 @@ from desdeo.api.models import (
 from desdeo.problem import Problem
 from desdeo.mcdm.nimbus import generate_starting_point
 
+not_init_error = HTTPException(
+    detail="Problem has not been initialized!",
+    status_code=status.HTTP_400_BAD_REQUEST
+)
 
 router = APIRouter(prefix="/gnimbus")
 
@@ -54,10 +62,7 @@ def gnimbus_initialize(
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
 ):
-    """Initialize the problem for NIMBUS
-    
-    Different initializations should be used for different methods
-    """
+    """Initialize the problem for GNIMBUS."""
     group = session.exec(select(Group).where(Group.id == request.group_id)).first()
     if group == None:
         raise HTTPException(
@@ -276,13 +281,13 @@ def full_iteration(
             status_code=status.HTTP_401_UNAUTHORIZED
         )
 
-    groupiter = group.head_iteration.parent
+    try:
+        groupiter = group.head_iteration.parent
+    except:
+        raise not_init_error
 
     if groupiter is None:
-        raise HTTPException(
-            detail="Problem has not been initialized!",
-            status_code=status.HTTP_400_BAD_REQUEST
-        )
+        raise not_init_error
     
     full_iterations: list[FullIteration] = []
     
@@ -328,7 +333,7 @@ def full_iteration(
         
         groupiter = groupiter.parent
 
-    # We're at voting phase now.
+    # We're at voting/end method now.
     while groupiter is not None and groupiter.parent is not None and groupiter.parent.parent is not None:
 
         this_state = session.exec(select(StateDB).where(StateDB.id == groupiter.state_id)).first()
@@ -402,10 +407,7 @@ async def switch_phase(
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)]
 ) -> GNIMBUSSwitchPhaseResponse:
-    """Switch the phase from one to another. See the list just below what phases are allowed.
-    This function needs to exist where it can access the ManagerManager. Therefore it is located
-    in here (gdm_aggregate.py) instead of gnimbus.py.
-    """
+    """Switch the phase from one to another. "learning", "crp", "decision" phases are allowed."""
     
     if request.new_phase not in ["learning", "crp", "decision"]:
         raise HTTPException(
@@ -467,4 +469,40 @@ async def switch_phase(
     return GNIMBUSSwitchPhaseResponse(
         old_phase=old_phase,
         new_phase=new_phase
+    )
+
+@router.post("/get_phase")
+def get_phase(
+    request: GroupInfoRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)]
+) -> JSONResponse:
+    """Get the current phase of the group"""
+
+    group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
+    if group == None:
+        raise HTTPException(
+            detail=f"No group with ID {request.group_id} found",
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    g = group.user_ids
+    g.append(group.owner_id)
+
+    if user.id not in g:
+        raise HTTPException(
+            detail="Unauthorized user.",
+            status_code=status.HTTP_401_UNAUTHORIZED
+        )
+    
+    current_iteration = group.head_iteration
+    if current_iteration == None:
+        raise not_init_error
+    
+    if current_iteration.preferences.method != "optimization":
+        current_iteration = current_iteration.parent
+
+    return JSONResponse(
+        content={"phase": current_iteration.preferences.phase},
+        status_code=status.HTTP_200_OK
     )

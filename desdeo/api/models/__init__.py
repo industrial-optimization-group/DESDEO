@@ -179,12 +179,12 @@ from .state import (
     RPMState,
 )
 from .user import User, UserBase, UserPublic, UserRole
-from .gdm_base import (
+from .gdm.gdm_base import (
     BasePreferences,
     ReferencePointDictType,
     BooleanDictTypeDecorator,
 )
-from .gdm_aggregate import (
+from .gdm.gdm_aggregate import (
     Group, 
     GroupModifyRequest, 
     GroupCreateRequest, 
@@ -193,7 +193,7 @@ from .gdm_aggregate import (
     GroupInfoRequest,
 )
 from .utopia import UtopiaRequest, UtopiaResponse
-from .gnimbus import (
+from .gdm.gnimbus import (
     OptimizationPreference,
     VotingPreference,
     EndProcessPreference,

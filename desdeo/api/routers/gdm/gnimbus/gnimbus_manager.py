@@ -1,4 +1,4 @@
-"""GNIMBUS group manager implementation. Handles varying paths of optimization."""
+"""GNIMBUS group manager implementation. Handles varying paths of the GNIMBUS method."""
 
 import logging
 import json
@@ -40,7 +40,7 @@ from desdeo.mcdm.gnimbus import solve_group_sub_problems, voting_procedure
 from desdeo.tools import SolverResults
 from desdeo.tools.scalarization import ScalarizationError
 
-from desdeo.api.routers.gdm_base import GroupManager
+from desdeo.api.routers.gdm.gdm_base import GroupManager
 
 class GNIMBUSManager(GroupManager):
 
@@ -53,7 +53,6 @@ class GNIMBUSManager(GroupManager):
         session: Session,
         current_iteration: GroupIteration
     ):
-        print(type(preference))
         preferences.set_preferences[user_id] = preference
         current_iteration.preferences = preferences
         session.add(current_iteration)
@@ -334,10 +333,9 @@ class GNIMBUSManager(GroupManager):
         current_iteration: GroupIteration,
         problem_db: ProblemDB,
     ) -> OptimizationPreference | None:
-        """Function to handle the ending(+) path
-        """
+        """Function to handle the ending(+) path"""
         try:
-            preference: bool = bool(int(data))
+            preference: bool = bool(data)
         except:
             await self.send_message(f"Unable to validate sent data as an boolean value.", self.sockets[user_id])
             return None
@@ -440,10 +438,10 @@ class GNIMBUSManager(GroupManager):
         7.  phase: decision,    method: optimize
         8.  phase: decision,    method: end
         9.  if all voted "yes" on 8, 
-                end the process.
+                end the process. (flagged item in database)
             otherwise, 
                 go to 7.
-
+                
         """
 
         async with self.lock:

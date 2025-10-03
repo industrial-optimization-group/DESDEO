@@ -33,7 +33,7 @@ from desdeo.api.models import (
     Group,
     GroupIteration,
 )
-from desdeo.api.models.gnimbus import (
+from desdeo.api.models.gdm.gnimbus import (
     OptimizationPreference,
     VotingPreference,
 )

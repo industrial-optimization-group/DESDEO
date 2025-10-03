@@ -8,7 +8,7 @@ from sqlalchemy.types import TypeDecorator
 from sqlmodel import SQLModel, Field, Relationship, JSON, Column
 
 from desdeo.api.models import BasePreferences, StateDB
-from desdeo.api.models.gnimbus import (
+from desdeo.api.models.gdm.gnimbus import (
     VotingPreference,
     OptimizationPreference,
     EndProcessPreference
