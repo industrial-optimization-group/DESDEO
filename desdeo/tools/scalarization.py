@@ -3123,7 +3123,7 @@ def add_guess_sf_diff(
             (  # Technically delta should be included (according to the paper), but I'm a rebel and don't want to add it
                 f"{obj.symbol}_min / ({nadir_point[obj.symbol]} - {ideal_point[obj.symbol]})"
                 if obj.symbol in free_to_change
-                else f"{obj.symbol}_min / ({nadir_point[obj.symbol]} - {corrected_rp[obj.symbol]}"
+                else f"{obj.symbol}_min / ({nadir_point[obj.symbol]} - {corrected_rp[obj.symbol]})"
             )
             for obj in problem.objectives
         ]
@@ -3283,7 +3283,7 @@ def add_guess_sf_nondiff(
             (  # Technically delta should be included (according to the paper), but I'm a rebel and don't want to add it
                 f"{obj.symbol}_min / ({nadir_point[obj.symbol]} - {ideal_point[obj.symbol]})"
                 if obj.symbol in free_to_change
-                else f"{obj.symbol}_min / ({nadir_point[obj.symbol]} - {corrected_rp[obj.symbol]}"
+                else f"{obj.symbol}_min / ({nadir_point[obj.symbol]} - {corrected_rp[obj.symbol]})"
             )
             for obj in problem.objectives
         ]
