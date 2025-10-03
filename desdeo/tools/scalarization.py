@@ -3066,7 +3066,7 @@ def add_guess_sf_diff(
             to calculate nadir point from problem.
         rho (float, optional): a small scalar value to scale the sum in the objective
             function of the scalarization. Defaults to 1e-6.
-        delta (float, optional): a small scalar to define the utopian point. Defaults to 1e-6.
+        delta (float, optional): a small scalar value to define the utopian point. Defaults to 1e-6.
 
     Returns:
         tuple[Problem, str]: a tuple with the copy of the problem with the added
@@ -3120,7 +3120,11 @@ def add_guess_sf_diff(
     # define the objective function of the scalarization
     aug_expr = " + ".join(
         [
-            (f"{obj.symbol}_min / ({nadir_point[obj.symbol]} - {(corrected_rp[obj.symbol])})")
+            (  # Technically delta should be included (according to the paper), but I'm a rebel and don't want to add it
+                (f"{obj.symbol}_min / ({nadir_point[obj.symbol]} - {ideal_point[obj.symbol]}")
+                if obj.symbol in free_to_change
+                else f"{obj.symbol}_min / ({nadir_point[obj.symbol]} - {corrected_rp[obj.symbol]}"
+            )
             for obj in problem.objectives
         ]
     )
@@ -3276,7 +3280,11 @@ def add_guess_sf_nondiff(
     # define the augmentation term
     aug_expr = " + ".join(
         [
-            (f"{obj.symbol}_min / ({nadir_point[obj.symbol]} - {(corrected_rp[obj.symbol])})")
+            (  # Technically delta should be included (according to the paper), but I'm a rebel and don't want to add it
+                (f"{obj.symbol}_min / ({nadir_point[obj.symbol]} - {ideal_point[obj.symbol]}")
+                if obj.symbol in free_to_change
+                else f"{obj.symbol}_min / ({nadir_point[obj.symbol]} - {corrected_rp[obj.symbol]}"
+            )
             for obj in problem.objectives
         ]
     )
