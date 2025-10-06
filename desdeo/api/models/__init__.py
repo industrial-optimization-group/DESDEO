@@ -80,9 +80,8 @@ __all__ = [  # noqa: RUF022
     "EMOSaveState",
     "EMOSaveRequest",
     "EMOState",
-    "SolutionAddress",
-    "SolutionAddressReference",
-    "SolutionAddressResponse",
+    "SolutionReference",
+    "SolutionReferenceResponse",
     "SolverSelectionMetadata",
     "UserSavedEMOResults",
     "UserSavedSolutionDB",
@@ -103,12 +102,24 @@ __all__ = [  # noqa: RUF022
 
 from .archive import UserSavedEMOResults
 from .EMO import EMOSaveRequest, EMOSolveRequest
+from .gdm_aggregate import (
+    Group,
+    GroupCreateRequest,
+    GroupInfoRequest,
+    GroupIteration,
+    GroupModifyRequest,
+    GroupPublic,
+)
+from .gdm_base import (
+    BasePreferences,
+    ReferencePointDictType,
+)
 from .generic import (
     GenericIntermediateSolutionResponse,
     IntermediateSolutionRequest,
-    SolutionInfo,
     ScoreBandsRequest,
     ScoreBandsResponse,
+    SolutionInfo,
 )
 from .generic_states import (
     SavedSolutionReference,
@@ -117,6 +128,15 @@ from .generic_states import (
     State,
     StateDB,
     UserSavedSolutionDB,
+)
+from .gnimbus import (
+    FullIteration,
+    GNIMBUSAllIterationsResponse,
+    GNIMBUSResultResponse,
+    GNIMBUSSwitchPhaseRequest,
+    GNIMBUSSwitchPhaseResponse,
+    OptimizationPreference,
+    VotingPreference,
 )
 from .nimbus import (
     NIMBUSClassificationRequest,
@@ -170,34 +190,13 @@ from .state import (
     EMOSaveState,
     EMOState,
     ENautilusState,
+    GNIMBUSOptimizationState,
+    GNIMBUSVotingState,
     IntermediateSolutionState,
     NIMBUSClassificationState,
     NIMBUSInitializationState,
     NIMBUSSaveState,
-    GNIMBUSOptimizationState,
-    GNIMBUSVotingState,
     RPMState,
 )
 from .user import User, UserBase, UserPublic, UserRole
-from .gdm_base import (
-    BasePreferences,
-    ReferencePointDictType,
-)
-from .gdm_aggregate import (
-    Group, 
-    GroupModifyRequest, 
-    GroupCreateRequest, 
-    GroupIteration,
-    GroupPublic,
-    GroupInfoRequest,
-)
 from .utopia import UtopiaRequest, UtopiaResponse
-from .gnimbus import (
-    OptimizationPreference,
-    VotingPreference,
-    GNIMBUSResultResponse,
-    FullIteration,
-    GNIMBUSAllIterationsResponse,
-    GNIMBUSSwitchPhaseResponse,
-    GNIMBUSSwitchPhaseRequest,
-)

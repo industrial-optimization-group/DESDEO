@@ -13,9 +13,9 @@ from desdeo.api.models import (
     ProblemGetRequest,
     ProblemInfo,
     ProblemInfoSmall,
+    ProblemMetaDataDB,
     ProblemMetaDataGetRequest,
     ProblemSelectSolverRequest,
-    ProblemMetaDataDB,
     RepresentativeNonDominatedSolutions,
     SolverSelectionMetadata,
     User,
@@ -27,14 +27,20 @@ from desdeo.tools.utils import available_solvers
 
 router = APIRouter(prefix="/problem")
 
+
 def check_solver(problem_db: ProblemDB):
-    """Check if a preferred solver is set in the metadata. 
-    If it exist, fetch its constructor and return it. Otherwise return None."""
+    """Check if a preferred solver is set in the metadata.
+
+    Check if a preferred solver is set in the metadata.
+    If it exist, fetch its constructor and return it. Otherwise return None.
+    """
     metadata: ProblemMetaDataDB = problem_db.problem_metadata
     solver_metadata = None
     if metadata is not None:
-        solver_metadata_list = [metadata for metadata in metadata.all_metadata if metadata.metadata_type == "solver_selection_metadata"]
-        if solver_metadata_list is not []:
+        solver_metadata_list = [
+            metadata for metadata in metadata.all_metadata if metadata.metadata_type == "solver_selection_metadata"
+        ]
+        if solver_metadata_list != []:
             solver_metadata = solver_metadata_list[-1]
 
     if solver_metadata is not None:
@@ -42,6 +48,7 @@ def check_solver(problem_db: ProblemDB):
     else:
         solver = None
     return solver
+
 
 # This is needed, because otherwise fields ending in an underscore fail to parse.
 async def parse_problem_json(request: Request) -> Problem:
@@ -185,16 +192,17 @@ def get_metadata(
     # metadata is defined, try to find matching types based on request
     return [metadata for metadata in problem_metadata.all_metadata if metadata.metadata_type == request.metadata_type]
 
+
 @router.post("/assign_solver")
 def select_solver(
     request: ProblemSelectSolverRequest,
     user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[Session, Depends(get_session)]
+    session: Annotated[Session, Depends(get_session)],
 ) -> JSONResponse:
     if request.solver_string_representation not in [x for x, _ in available_solvers.items()]:
         raise HTTPException(
             detail=f"Solver of unknown type: {request.solver_string_representation}",
-            status_code=status.HTTP_404_NOT_FOUND
+            status_code=status.HTTP_404_NOT_FOUND,
         )
 
     """Set a specific solver for a specific problem."""
@@ -207,19 +215,13 @@ def select_solver(
         )
     # Auth the user
     if user.id != problem_db.user_id:
-        raise HTTPException(
-            detail=f"Unauthorized user!",
-            status_code=status.HTTP_401_UNAUTHORIZED
-        )
-    
+        raise HTTPException(detail=f"Unauthorized user!", status_code=status.HTTP_401_UNAUTHORIZED)
+
     # All good, get on with it.
     problem_metadata = problem_db.problem_metadata
     if problem_metadata is None:
         # There's no metadata for this problem! Create some.
-        problem_metadata = ProblemMetaDataDB(
-            problem_id=problem_db.id,
-            problem=problem_db
-        )
+        problem_metadata = ProblemMetaDataDB(problem_id=problem_db.id, problem=problem_db)
         session.add(problem_metadata)
         session.commit()
         session.refresh(problem_metadata)
@@ -231,19 +233,16 @@ def select_solver(
     solver_selection_metadata = SolverSelectionMetadata(
         metadata_id=problem_metadata.id,
         solver_string_representation=request.solver_string_representation,
-        metadata_instance=problem_metadata
+        metadata_instance=problem_metadata,
     )
 
     session.add(solver_selection_metadata)
     session.commit()
     session.refresh(solver_selection_metadata)
-    
+
     problem_metadata.solver_selection_metadata.append(solver_selection_metadata)
     session.add(problem_metadata)
     session.commit()
     session.refresh(problem_metadata)
 
-    return JSONResponse(
-        content={"message": "OK"},
-        status_code=status.HTTP_200_OK
-    )
+    return JSONResponse(content={"message": "OK"}, status_code=status.HTTP_200_OK)

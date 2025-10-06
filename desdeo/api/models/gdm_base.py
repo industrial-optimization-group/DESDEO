@@ -1,15 +1,17 @@
-"""Base classes for Group Decision Making. Here one can add some common data types for serialization"""
+"""Base classes for Group Decision Making. Here one can add some common data types for serialization."""
 
 import json
 
-from sqlalchemy.types import TypeDecorator
-from sqlmodel import SQLModel, JSON
 from pydantic import ValidationError
+from sqlalchemy.types import TypeDecorator
+from sqlmodel import JSON, SQLModel
 
-from desdeo.api.models import ReferencePoint
-        
+from desdeo.api.models.preference import ReferencePoint
+
+
 class ReferencePointDictType(TypeDecorator):
     """A converter for dict of int and preferences"""
+
     impl = JSON
 
     def process_bind_param(self, value, dialect):
@@ -18,7 +20,7 @@ class ReferencePointDictType(TypeDecorator):
                 if isinstance(item, ReferencePoint):
                     value[key] = item.model_dump_json()
             return json.dumps(value)
-    
+
     def process_result_value(self, value, dialect):
         dictionary = json.loads(value)
         for key, item in dictionary.items():
@@ -30,6 +32,8 @@ class ReferencePointDictType(TypeDecorator):
                 print(f"Validation error when deserializing PreferencePoint: {e}")
         return dictionary
 
+
 class BasePreferences(SQLModel):
     """A base class for a method specific preference and results"""
+
     method: str = "unset"

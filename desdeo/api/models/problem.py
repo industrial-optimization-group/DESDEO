@@ -53,9 +53,10 @@ class ProblemGetRequest(SQLModel):
 
     problem_id: int
 
+
 class ProblemSelectSolverRequest(SQLModel):
-    """Model to request a specific solver for a problem"""
-    
+    """Model to request a specific solver for a problem."""
+
     problem_id: int
     solver_string_representation: str
 
@@ -261,8 +262,10 @@ class RepresentativeNonDominatedSolutions(SQLModel, table=True):
 
     metadata_instance: "ProblemMetaDataDB" = Relationship(back_populates="representative_nd_metadata")
 
+
 class SolverSelectionMetadata(SQLModel, table=True):
-    """
+    """A problem metadata class to store the preferred solver of a problem.
+
     A problem metadata class to store the preferred solver of a problem.
     See desdeo/tools/utils.py -> available_solvers for available solvers.
     """
@@ -276,6 +279,7 @@ class SolverSelectionMetadata(SQLModel, table=True):
     solver_string_representation: str = Field(description="The string representation of the selected solver.")
 
     metadata_instance: "ProblemMetaDataDB" = Relationship(back_populates="solver_selection_metadata")
+
 
 class ProblemMetaDataDB(SQLModel, table=True):
     """Store Problem MetaData to DB with this class."""
@@ -291,11 +295,15 @@ class ProblemMetaDataDB(SQLModel, table=True):
     problem: ProblemDB = Relationship(back_populates="problem_metadata")
 
     @property
-    def all_metadata(self) -> list[ForestProblemMetaData | RepresentativeNonDominatedSolutions | SolverSelectionMetadata]:
+    def all_metadata(
+        self,
+    ) -> list[ForestProblemMetaData | RepresentativeNonDominatedSolutions | SolverSelectionMetadata]:
         """Return all metadata in one list."""
-        return (self.forest_metadata or []) + \
-            (self.representative_nd_metadata or []) +\
-            (self.solver_selection_metadata or [])
+        return (
+            (self.forest_metadata or [])
+            + (self.representative_nd_metadata or [])
+            + (self.solver_selection_metadata or [])
+        )
 
 
 class ProblemMetaDataPublic(SQLModel):

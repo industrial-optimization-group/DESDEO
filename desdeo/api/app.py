@@ -7,14 +7,13 @@ from desdeo.api.config import AuthConfig
 from desdeo.api.routers import (
     gdm_aggregate,
     gdm_base,
-    EMO,
     generic,
+    gnimbus,
     nimbus,
     problem,
     reference_point_method,
     session,
     user_authentication,
-    gnimbus,
     utopia,
 )
 

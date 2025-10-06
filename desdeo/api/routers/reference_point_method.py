@@ -15,8 +15,8 @@ from desdeo.api.models import (
     StateDB,
     User,
 )
-from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.api.routers.problem import check_solver
+from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.mcdm import rpm_solve_solutions
 from desdeo.problem import Problem
 from desdeo.tools import SolverResults
