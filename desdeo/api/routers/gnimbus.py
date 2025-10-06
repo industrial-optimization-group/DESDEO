@@ -4,10 +4,9 @@ import logging
 import json
 import copy
 import sys
+
 logging.basicConfig(
-    stream=sys.stdout,
-    format='[%(filename)s:%(lineno)d] %(levelname)s: %(message)s',
-    level=logging.INFO
+    stream=sys.stdout, format="[%(filename)s:%(lineno)d] %(levelname)s: %(message)s", level=logging.INFO
 )
 
 from fastapi import (
@@ -52,20 +51,21 @@ from desdeo.tools import SolverResults
 from desdeo.tools.scalarization import ScalarizationError
 
 from desdeo.api.routers.gdm_base import GroupManager
+from desdeo.api.routers.problem import check_solver
 
 router = APIRouter(prefix="/gnimbus")
 
-class GNIMBUSManager(GroupManager):
 
+class GNIMBUSManager(GroupManager):
     async def optimization(
-            self,
-            user_id: int,
-            data: str,
-            session: Session,
-            group: Group,
-            current_iteration: GroupIteration,
+        self,
+        user_id: int,
+        data: str,
+        session: Session,
+        group: Group,
+        current_iteration: GroupIteration,
     ) -> VotingPreference | None:
-        """A function to handle the NIMBUS path"""
+        """A function to handle the NIMBUS path."""
 
         # we know the type of data we need so we'll validate the data as ReferencePoint.
         try:
@@ -74,10 +74,14 @@ class GNIMBUSManager(GroupManager):
             await self.send_message(f"Unable to validate sent data as reference point!", self.sockets[user_id])
             return None
         except json.decoder.JSONDecodeError as e:
-            await self.send_message(f"Unable to decode data; make sure it is formatted properly.", self.sockets[user_id])
+            await self.send_message(
+                f"Unable to decode data; make sure it is formatted properly.", self.sockets[user_id]
+            )
             return None
         except KeyError as e:
-            await self.send_message(f"Unable to validate data; make sure it is formatted properly.", self.sockets[user_id])
+            await self.send_message(
+                f"Unable to validate data; make sure it is formatted properly.", self.sockets[user_id]
+            )
             return None
 
         # Update the current GroupIteration's database entry with the new preferences
@@ -101,12 +105,13 @@ class GNIMBUSManager(GroupManager):
             except KeyError:
                 logging.info("Key error: Not all prefs in!")
                 return None
-        
+
         # If all preferences are in, begin optimization.
         problem_db: ProblemDB = session.exec(select(ProblemDB).where(ProblemDB.id == group.problem_id)).first()
+        solver = check_solver(problem_db=problem_db)
         problem: Problem = Problem.from_problemdb(problem_db)
         prefs = current_iteration.preferences.set_preferences
-        
+
         formatted_prefs = {}
         for key, item in prefs.items():
             formatted_prefs[str(key)] = item.aspiration_levels
@@ -114,7 +119,9 @@ class GNIMBUSManager(GroupManager):
 
         # And here we choose the first result of the previous iteration as the current objectives.
         # The previous solution could be perhaps voted, in a separate case of the surrounding match
-        prev_state: StateDB = session.exec(select(StateDB).where(StateDB.id == current_iteration.parent.state_id)).first()
+        prev_state: StateDB = session.exec(
+            select(StateDB).where(StateDB.id == current_iteration.parent.state_id)
+        ).first()
         if prev_state == None:
             print("No previous state!")
             return None
@@ -129,6 +136,7 @@ class GNIMBUSManager(GroupManager):
                 current_objectives=prev_sol,
                 reference_points=formatted_prefs,
                 phase=current_iteration.preferences.phase,
+                create_solver=solver,
             )
             logging.info(f"Optimization for group {self.group_id} done.")
 
@@ -139,21 +147,14 @@ class GNIMBUSManager(GroupManager):
         except Exception as e:
             await self.broadcast(f"An error occured while optimizing: {e}")
             return None
-        
-        # TODO: Create StateDB and store the results there. Also 
+
+        # TODO: Create StateDB and store the results there. Also
         # connect the state to the right group iteration
 
-        optim_state = GNIMBUSOptimizationState(
-            reference_points=formatted_prefs,
-            solver_results=results
-        )
+        optim_state = GNIMBUSOptimizationState(reference_points=formatted_prefs, solver_results=results)
 
         new_state = StateDB.create(
-            database_session=session,
-            problem_id=problem_db.id,
-            session_id=None,
-            parent_id=None,
-            state=optim_state
+            database_session=session, problem_id=problem_db.id, session_id=None, parent_id=None, state=optim_state
         )
 
         session.add(new_state)
@@ -170,7 +171,7 @@ class GNIMBUSManager(GroupManager):
         g = group.user_ids
         g.append(group.owner_id)
         notified = await self.notify(user_ids=g, message="Please fetch results.")
-        
+
         # Update iteration's notifcation database item
         current_iteration.notified = notified
         session.add(current_iteration)
@@ -178,12 +179,10 @@ class GNIMBUSManager(GroupManager):
         session.refresh(current_iteration)
 
         # Make a preference result for putting in the voting preferences
-        new_preferences = VotingPreference(
-            set_preferences={}
-        )
+        new_preferences = VotingPreference(set_preferences={})
 
         return new_preferences
-    
+
     async def voting(
         self,
         user_id: int,
@@ -192,13 +191,13 @@ class GNIMBUSManager(GroupManager):
         group: Group,
         current_iteration: GroupIteration,
     ) -> OptimizationPreference | None:
-        """ A function to handle voting path """
+        """A function to handle voting path"""
 
         try:
             preference = int(data)
             if preference > 3 or preference < 0:
                 await self.send_message(f"Voting index out of bounds! Can only vote for 0 to 3.", self.sockets[user_id])
-                return None    
+                return None
         except Exception as e:
             print(e)
             await self.send_message(f"Unable to validate sent data as an integer!", self.sockets[user_id])
@@ -229,7 +228,6 @@ class GNIMBUSManager(GroupManager):
         for key, value in preferences.set_preferences.items():
             formatted_votes[str(key)] = value
 
-
         problem_db: ProblemDB = session.exec(select(ProblemDB).where(ProblemDB.id == group.problem_id)).first()
         problem: Problem = Problem.from_problemdb(problem_db)
 
@@ -244,22 +242,15 @@ class GNIMBUSManager(GroupManager):
         # Get the winning results
         winner_result: SolverResults = voting_procedure(
             problem=problem,
-            solutions=results[-4:], # we vote from the last 4 solutions, aka the common solutions
-            votes_idxs=formatted_votes
+            solutions=results[-4:],  # we vote from the last 4 solutions, aka the common solutions
+            votes_idxs=formatted_votes,
         )
 
         # Add winning result to database
-        vote_state = GNIMBUSVotingState(
-            votes=preferences.set_preferences,
-            solver_results=[winner_result]
-        )
+        vote_state = GNIMBUSVotingState(votes=preferences.set_preferences, solver_results=[winner_result])
 
         new_state = StateDB.create(
-            database_session=session,
-            problem_id=problem_db.id,
-            session_id=None,
-            parent_id=None,
-            state=vote_state
+            database_session=session, problem_id=problem_db.id, session_id=None, parent_id=None, state=vote_state
         )
 
         session.add(new_state)
@@ -276,7 +267,7 @@ class GNIMBUSManager(GroupManager):
         g = group.user_ids
         g.append(group.owner_id)
         notified = await self.notify(user_ids=g, message="Voting has concluded.")
-        
+
         # Update iteration's notifcation database item
         current_iteration.notified = notified
         session.add(current_iteration)
@@ -288,23 +279,22 @@ class GNIMBUSManager(GroupManager):
         new_preferences = OptimizationPreference(
             set_preferences={},
         )
-    
+
         return new_preferences
 
-
     async def run_method(
-            self,
-            user_id: int,
-            data: str,
+        self,
+        user_id: int,
+        data: str,
     ):
         """The method function.
-        
+
         Here, the preferences are set (and updated to database). If all preferences are set, optimize and
         update database with results. Then, create new iteration and assign the correct relationships
         between the database entries.
 
-        This serves as an example on how this system could be utilized and how the diverging of the 
-        paths could be handled (i.e. making multi-phase gdm). We could have two types of "paths", first one beign the 
+        This serves as an example on how this system could be utilized and how the diverging of the
+        paths could be handled (i.e. making multi-phase gdm). We could have two types of "paths", first one beign the
         NIMBUS path and the second one beign the voting path. The execution path taken is determined by the
         method field of pref_result of the group's head iteration.
 
@@ -314,7 +304,6 @@ class GNIMBUSManager(GroupManager):
         """
 
         async with self.lock:
-
             # Fetch the current iteration
             session = next(get_session())
             group = session.exec(select(Group).where(Group.id == self.group_id)).first()
@@ -335,32 +324,24 @@ class GNIMBUSManager(GroupManager):
             match current_iteration.preferences.method:
                 case "optimization":
                     new_preferences = await self.optimization(
-                        user_id=user_id,
-                        data=data,
-                        session=session,
-                        group=group,
-                        current_iteration=current_iteration
+                        user_id=user_id, data=data, session=session, group=group, current_iteration=current_iteration
                     )
 
                 case "voting":
                     # Here we could do some voting on the NIMBUS results.
                     new_preferences = await self.voting(
-                        user_id=user_id,
-                        data=data,
-                        session=session,
-                        group=group,
-                        current_iteration=current_iteration
+                        user_id=user_id, data=data, session=session, group=group, current_iteration=current_iteration
                     )
 
                 case _:
                     # throw an error
                     new_preferences = None
                     return
-            
+
             if new_preferences == None:
                 session.close()
                 return
-            
+
             # If everything has gone according to keikaku (keikaku means plan), create the next iteration.
             next_iteration = GroupIteration(
                 group_id=self.group_id,
@@ -368,15 +349,15 @@ class GNIMBUSManager(GroupManager):
                 problem_id=current_iteration.problem_id,
                 preferences=new_preferences,
                 notified={},
-                parent_id=current_iteration.id, # Probably redundant to have
-                parent=current_iteration,       # two connections to parents?
+                parent_id=current_iteration.id,  # Probably redundant to have
+                parent=current_iteration,  # two connections to parents?
                 child=None,
             )
             session.add(next_iteration)
             session.commit()
             session.refresh(next_iteration)
 
-            # Update new parent iteration 
+            # Update new parent iteration
             current_iteration.child = next_iteration
             session.add(current_iteration)
             session.commit()
@@ -397,50 +378,36 @@ def gnimbus_initialize(
     session: Annotated[Session, Depends(get_session)],
 ):
     """Initialize the problem for NIMBUS
-    
+
     Different initializations should be used for different methods
     """
     group = session.exec(select(Group).where(Group.id == request.group_id)).first()
     if group == None:
-        raise HTTPException(
-            detail=f"No group with ID {request.group_id} found!",
-            status_code=status.HTTP_404_NOT_FOUND
-        )
+        raise HTTPException(detail=f"No group with ID {request.group_id} found!", status_code=status.HTTP_404_NOT_FOUND)
     if not (user.id in group.user_ids or user.id is group.owner_id):
-        raise HTTPException(
-            detail=f"Unauthorized user",
-            status_code=status.HTTP_401_UNAUTHORIZED
-        )
-    
+        raise HTTPException(detail=f"Unauthorized user", status_code=status.HTTP_401_UNAUTHORIZED)
+
     if group.head_iteration != None:
-        raise HTTPException(
-            detail=f"Group problem already initialized!",
-            status_code=status.HTTP_400_BAD_REQUEST
-        )
-    
+        raise HTTPException(detail=f"Group problem already initialized!", status_code=status.HTTP_400_BAD_REQUEST)
+
     problem_db = session.exec(select(ProblemDB).where(ProblemDB.id == group.problem_id)).first()
     if problem_db == None:
         raise HTTPException(
-            detail=f"No problem with id {group.problem_id} found!",
-            status_code=status.HTTP_404_NOT_FOUND
+            detail=f"No problem with id {group.problem_id} found!", status_code=status.HTTP_404_NOT_FOUND
         )
+
+    solver = check_solver(problem_db=problem_db)
+
     problem = Problem.from_problemdb(problem_db)
 
     # Create the first iteration for the group
     # As if we just voted for a result, but really is just the starting point.
-    starting_point = generate_starting_point(problem)
+    starting_point = generate_starting_point(problem=problem, solver=solver)
 
-    gnimbus_state = GNIMBUSVotingState(
-        votes={},
-        solver_results=[starting_point]
-    )
+    gnimbus_state = GNIMBUSVotingState(votes={}, solver_results=[starting_point])
 
     state = StateDB.create(
-        database_session=session,
-        problem_id=problem_db.id,
-        session_id=None,
-        parent_id=None,
-        state=gnimbus_state
+        database_session=session, problem_id=problem_db.id, session_id=None, parent_id=None, state=gnimbus_state
     )
 
     session.add(state)
@@ -458,7 +425,7 @@ def gnimbus_initialize(
         state_id=state.id,
         parent_id=None,
         parent=None,
-        child=None
+        child=None,
     )
 
     session.add(start_iteration)
@@ -475,7 +442,7 @@ def gnimbus_initialize(
         notified={},
         parent_id=start_iteration.id,
         parent=start_iteration,
-        child=None
+        child=None,
     )
 
     session.add(new_iteration)
@@ -488,17 +455,14 @@ def gnimbus_initialize(
     session.add(group)
     session.commit()
 
-    return JSONResponse(
-        content={"message": f"Group {group.id} initialized."},
-        status_code=status.HTTP_200_OK
-    )
+    return JSONResponse(content={"message": f"Group {group.id} initialized."}, status_code=status.HTTP_200_OK)
 
 
 @router.post("/get_latest_results")
 def get_latest_results(
     request: GroupInfoRequest,
     user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[Session, Depends(get_session)]
+    session: Annotated[Session, Depends(get_session)],
 ) -> GNIMBUSResultResponse:
     """Get the latest results from group iteration
     NOTE: This function is likely obsolete as full_iterations does what it does ans more.
@@ -516,34 +480,25 @@ def get_latest_results(
     """
     group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
     if group == None:
-        raise HTTPException(
-            detail=f"No group with ID {request.group_id} found",
-            status_code=status.HTTP_404_NOT_FOUND
-        )
-    
-    if not (user.id in group.user_ids or user.id is group.owner_id):
-        raise HTTPException(
-            detail="Unauthorized user.",
-            status_code=status.HTTP_401_UNAUTHORIZED
-        )
+        raise HTTPException(detail=f"No group with ID {request.group_id} found", status_code=status.HTTP_404_NOT_FOUND)
 
-    nores_exp = HTTPException(
-        detail="No results found!",
-        status_code=status.HTTP_404_NOT_FOUND
-    )
+    if not (user.id in group.user_ids or user.id is group.owner_id):
+        raise HTTPException(detail="Unauthorized user.", status_code=status.HTTP_401_UNAUTHORIZED)
+
+    nores_exp = HTTPException(detail="No results found!", status_code=status.HTTP_404_NOT_FOUND)
 
     try:
         iteration = group.head_iteration.parent
     except:
         raise nores_exp
-    
+
     if iteration == None:
         raise nores_exp
-    
+
     state = session.exec(select(StateDB).where(StateDB.id == iteration.state_id)).first()
     if state == None:
         raise nores_exp
-    
+
     actual_state = state.state
     preferences = iteration.preferences
 
@@ -551,7 +506,7 @@ def get_latest_results(
         return GNIMBUSResultResponse(
             method="voting",
             phase=iteration.parent.preferences.phase if iteration.parent is not None else "learning",
-            preferences = preferences,
+            preferences=preferences,
             common_results=[SolutionReference(state=state, solution_index=0)],
             user_results=[],
             personal_result_index=None,
@@ -564,11 +519,8 @@ def get_latest_results(
             break
 
     if personal_result_index == None:
-        raise HTTPException(
-            detail=f"No personal results for user ID {user.id}",
-            status_code=status.HTTP_404_NOT_FOUND
-        )
-    
+        raise HTTPException(detail=f"No personal results for user ID {user.id}", status_code=status.HTTP_404_NOT_FOUND)
+
     solution_references = []
     for i, _ in enumerate(actual_state.solver_results):
         solution_references.append(SolutionReference(state=state, solution_index=i))
@@ -607,44 +559,29 @@ def full_iteration(
 
     group = session.exec(select(Group).where(Group.id == request.group_id)).first()
     if group is None:
-        raise HTTPException(
-            detail=f"No group with ID {request.group_id}!",
-            status_code=status.HTTP_404_NOT_FOUND
-        )
-    
+        raise HTTPException(detail=f"No group with ID {request.group_id}!", status_code=status.HTTP_404_NOT_FOUND)
+
     if user.id not in group.user_ids and user.id is not group.owner_id:
-        raise HTTPException(
-            detail="Unauthorized user",
-            status_code=status.HTTP_401_UNAUTHORIZED
-        )
+        raise HTTPException(detail="Unauthorized user", status_code=status.HTTP_401_UNAUTHORIZED)
 
     groupiter = group.head_iteration.parent
 
     if groupiter is None:
-        raise HTTPException(
-            detail="Problem has not been initialized!",
-            status_code=status.HTTP_400_BAD_REQUEST
-        )
-    
+        raise HTTPException(detail="Problem has not been initialized!", status_code=status.HTTP_400_BAD_REQUEST)
+
     full_iterations: list[FullIteration] = []
-    
+
     if groupiter.preferences.method == "optimization":
         # There are no full results because the latest iteration is optimization,
         # so add an incomplete entry to the list to be returned.
         prev_state = session.exec(select(StateDB).where(StateDB.id == groupiter.parent.state_id)).first()
         if prev_state is None:
-            raise HTTPException(
-                detail="No state for starting results!",
-                status_code=status.HTTP_404_NOT_FOUND
-            )
-        
+            raise HTTPException(detail="No state for starting results!", status_code=status.HTTP_404_NOT_FOUND)
+
         this_state = session.exec(select(StateDB).where(StateDB.id == groupiter.state_id)).first()
         if this_state is None:
-            raise HTTPException(
-                detail="No state in most recent iteration!",
-                status_code=status.HTTP_404_NOT_FOUND
-            )
-        
+            raise HTTPException(detail="No state in most recent iteration!", status_code=status.HTTP_404_NOT_FOUND)
+
         personal_result_index = None
         for i, item in enumerate(groupiter.preferences.set_preferences.items()):
             if item[0] == user.id:
@@ -663,25 +600,21 @@ def full_iteration(
                 starting_result=SolutionReference(state=prev_state, solution_index=0),
                 common_results=all_results[-4:],
                 user_results=all_results[:-4],
-                personal_result_index = personal_result_index,
+                personal_result_index=personal_result_index,
                 final_result=None,
             )
         )
-        
+
         groupiter = groupiter.parent
 
     # We're at voting phase now.
     while groupiter is not None and groupiter.parent is not None and groupiter.parent.parent is not None:
-
         this_state = session.exec(select(StateDB).where(StateDB.id == groupiter.state_id)).first()
         prev_state = session.exec(select(StateDB).where(StateDB.id == groupiter.parent.state_id)).first()
         first_state = session.exec(select(StateDB).where(StateDB.id == groupiter.parent.parent.state_id)).first()
 
         if this_state is None or prev_state is None or first_state is None:
-            raise HTTPException(
-                detail="All needed states do not exist!",
-                status_code=status.HTTP_404_NOT_FOUND
-            )
+            raise HTTPException(detail="All needed states do not exist!", status_code=status.HTTP_404_NOT_FOUND)
 
         all_results = []
         for i, _ in enumerate(prev_state.state.solver_results):
@@ -702,7 +635,7 @@ def full_iteration(
                 common_results=all_results[-4:],
                 user_results=all_results[:-4],
                 personal_result_index=personal_result_index,
-                final_result=SolutionReference(state=this_state, solution_index=0)
+                final_result=SolutionReference(state=this_state, solution_index=0),
             )
         )
 
@@ -713,11 +646,8 @@ def full_iteration(
         this_state = session.exec(select(StateDB).where(StateDB.id == groupiter.state_id)).first()
 
         if this_state is None:
-            raise HTTPException(
-                detail="Initialization state does not exist!",
-                status_code=status.HTTP_404_NOT_FOUND
-            )
-        
+            raise HTTPException(detail="Initialization state does not exist!", status_code=status.HTTP_404_NOT_FOUND)
+
         full_iterations.append(
             FullIteration(
                 phase="init",
@@ -730,11 +660,8 @@ def full_iteration(
                 final_result=SolutionReference(state=this_state, solution_index=0),
             )
         )
-        
 
-    response = GNIMBUSAllIterationsResponse(
-        all_full_iterations=full_iterations
-    )
+    response = GNIMBUSAllIterationsResponse(all_full_iterations=full_iterations)
     return response
 
 
@@ -742,46 +669,37 @@ def full_iteration(
 def toggle_phase(
     request: GNIMBUSSwitchPhaseRequest,
     user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[Session, Depends(get_session)]
+    session: Annotated[Session, Depends(get_session)],
 ) -> GNIMBUSSwitchPhaseResponse:
     """Toggle the phase from learning to decision and vice versa"""
-    
+
     if request.new_phase not in ["learning", "crp", "decision"]:
         raise HTTPException(
-            detail=f"Undefined phase: {request.new_phase}! Can only be {["learning", "crp", "decision"]}",
-            status_code=status.HTTP_400_BAD_REQUEST
+            detail=f"Undefined phase: {request.new_phase}! Can only be {['learning', 'crp', 'decision']}",
+            status_code=status.HTTP_400_BAD_REQUEST,
         )
 
     group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
     if group == None:
-        raise HTTPException(
-            detail=f"No group with ID {request.group_id} found",
-            status_code=status.HTTP_404_NOT_FOUND
-        )
-    
+        raise HTTPException(detail=f"No group with ID {request.group_id} found", status_code=status.HTTP_404_NOT_FOUND)
+
     if user.id is not group.owner_id:
-        raise HTTPException(
-            detail="Unauthorized user.",
-            status_code=status.HTTP_401_UNAUTHORIZED
-        )
+        raise HTTPException(detail="Unauthorized user.", status_code=status.HTTP_401_UNAUTHORIZED)
 
     iteration = group.head_iteration
     if iteration == None:
         raise HTTPException(
             detail="There's no iterations! Did you forget to initialize the problem?",
-            status_code=status.HTTP_404_NOT_FOUND
+            status_code=status.HTTP_404_NOT_FOUND,
         )
     if iteration.preferences == None:
-        raise HTTPException(
-            details="Now this is a funky problem!",
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+        raise HTTPException(details="Now this is a funky problem!", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
     if iteration.preferences.method == "voting":
         raise HTTPException(
             detail="You cannot switch the phase in the middle of the iteration.",
-            status_code=status.HTTP_400_BAD_REQUEST
+            status_code=status.HTTP_400_BAD_REQUEST,
         )
-    
+
     old_phase = iteration.preferences.phase
     new_phase = request.new_phase
 
@@ -793,7 +711,4 @@ def toggle_phase(
     session.commit()
     session.refresh(iteration)
 
-    return GNIMBUSSwitchPhaseResponse(
-        old_phase=old_phase,
-        new_phase=new_phase
-    )
+    return GNIMBUSSwitchPhaseResponse(old_phase=old_phase, new_phase=new_phase)

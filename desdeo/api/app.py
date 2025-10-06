@@ -7,14 +7,13 @@ from desdeo.api.config import AuthConfig
 from desdeo.api.routers import (
     gdm_aggregate,
     gdm_base,
-    EMO,
     generic,
+    gnimbus,
     nimbus,
     problem,
     reference_point_method,
     session,
     user_authentication,
-    gnimbus,
     utopia,
 )
 
@@ -32,6 +31,9 @@ app.include_router(nimbus.router)
 # app.include_router(EMO.router) #TODO: after EMO stuff works, put it to use again
 app.include_router(generic.router)
 app.include_router(utopia.router)
+app.include_router(gnimbus.router)
+app.include_router(gdm_base.router)
+app.include_router(gdm_aggregate.router)
 
 origins = AuthConfig.cors_origins
 
