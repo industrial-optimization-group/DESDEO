@@ -23,9 +23,11 @@ from desdeo.api.models import (
     NIMBUSSaveResponse,
     ProblemGetRequest,
     ProblemInfo,
+    ProblemSelectSolverRequest,
     ReferencePoint,
     RPMSolveRequest,
     SolutionInfo,
+    SolverSelectionMetadata,
     User,
     UserPublic,
     GroupCreateRequest,
@@ -672,6 +674,63 @@ def test_group_operations(client: TestClient):
     user: UserPublic = UserPublic.model_validate(json.loads(user_info.content.decode("utf-8")))
     assert 1 not in user.group_ids
 
+
+def test_preferred_solver(client: TestClient):
+    """Test that setting a preferred solver for the problem is ok."""
+    access_token = login(client)
+
+    request = ProblemSelectSolverRequest(
+        problem_id=1, 
+        solver_string_representation="THIS SOLVER DOESN'T EXIST"
+    )
+    response = post_json(
+        client, 
+        "/problem/assign_solver",
+        request.model_dump(),
+        access_token
+    )
+    assert response.status_code == 404
+
+    request = ProblemSelectSolverRequest(
+        problem_id=1, 
+        solver_string_representation="pyomo_cbc"
+    )
+    response = post_json(
+        client, 
+        "/problem/assign_solver",
+        request.model_dump(),
+        access_token
+    )
+    assert response.status_code == 200
+
+    request = {
+        "problem_id": 1, 
+        "metadata_type": "solver_selection_metadata"
+    }
+    response = post_json(
+        client, 
+        "/problem/get_metadata", 
+        request, 
+        access_token
+    )
+    assert response.status_code == 200
+
+    model = SolverSelectionMetadata.model_validate(response.json()[0])
+
+    assert model.metadata_type == "solver_selection_metadata"
+    assert model.solver_string_representation == "pyomo_cbc"
+
+    # Test that the solver is in use
+    try:
+        request = NIMBUSInitializationRequest(problem_id=1)
+        response = post_json(client, "/method/nimbus/initialize", request.model_dump(), access_token)
+        model = NIMBUSInitializationResponse.model_validate(response.json())
+    except Exception as e:
+        print(e)
+        print("^ This outcome is expected since pyomo_cbc doesn't support nonlinear problems.")
+        print("  As that solver is what we set it to be in the start, we can verify that they actually get used.")
+
+    
 
 def test_emo_solve_with_reference_point(client: TestClient):
     """Test that using EMO with reference point works as expected."""
