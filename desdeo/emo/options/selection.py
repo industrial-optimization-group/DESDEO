@@ -53,6 +53,10 @@ class NSGA3SelectorOptions(BaseModel):
         default=ReferenceVectorOptions(), description="Options for the reference vectors."
     )
     """Options for the reference vectors."""
+    invert_reference_vectors: bool = Field(
+        default=False, description="Whether to invert the reference vectors (inverted triangle)."
+    )
+    """Whether to invert the reference vectors (inverted triangle)."""
 
 
 class IBEASelectorOptions(BaseModel):

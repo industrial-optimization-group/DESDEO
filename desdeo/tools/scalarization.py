@@ -4604,6 +4604,172 @@ def __create_GMDF(y: str, a: list, d1: float = 0.9, d2: float = 0.1) -> str:
     return func
 
 
+def __create_GMDF(y: str, a: list, d1: float = 0.9, d2: float = 0.1) -> str:
+    """Create Group MaoMao's desirability function.
+
+    Distinctions form MaoMao's original function:
+    - The upper and lower bounds of desirability are fixed to 0 and 1, respectively.
+
+    Parameters
+    ----------
+    y : str
+        The objective value to compute the desirability for.
+    a : float
+        Ordered aspiration levels of the group for the objective.
+    d1 : float
+        The desirability for the aspiration level for the group.
+    d2 : float
+        The desirability for the reservation level for the group.
+    Returns
+    -------
+    callable
+        A function that computes the desirability for a given value.
+ 
+    if not (0 < d1 < 1 and 0 < d2 < 1):
+        raise ValueError("Desirability values must be between 0 and 1 (exclusive).")
+    if not (a < r):
+        raise ValueError("a must be less than r.")
+    if not d2 < d1:
+        raise ValueError("d2 must be less than d1. Higher desirability should correspond to lower values of y.")
+    """
+    # how many dms = len(a)
+    # [0.2, 0.4, 0.6], equally spread the local d values
+
+    delta = 0.2
+    c1 = d2 + delta
+    c2 = c1 + delta
+    c3 = c2 + delta
+    c4 = c3 + delta
+    c5 = c4 + delta
+    
+    print(d2, c1, c2, c3, c4, c5, d1)
+
+    # for f1
+    af = a[0]
+    a1 = a[1]
+    a2 = a[2]
+    a3 = a[3]
+    al = a[-1]
+
+    ea = 1 - d1
+    er = d2
+    #ea = 0.2
+    #er = 0.2
+    # change a - r to pairwise a_i - a_i+1
+    """
+    # start to first
+    # change a - r to pairwise a_i - a_i+1
+    m1 = -ea * ea * ((af - a1) / (d1 - d2))
+    b1 = -af + ea * ((af - a1) / (d1 - d2))
+    m2 = (d1 - d2) / (af - a1)
+    b2 = (d2 * af - d1 * a1) / (af - a1)
+
+    # 1 to 2 # TODO: add local D values in these
+    m23 = (d1 - d2) / (a1 - a2) # + 0.1
+    b23 = (d2 * a1 - d1 * a2) / (a1 - a2)
+
+    # 2 - 3 # TODO: add local D values in these
+    m34 = (d1 - d2) / (a2 - a3) #+ 0.2
+    b34 = (d2 * a2 - d1 * a3) / (a2 - a3)
+
+    # 3 - 4 # TODO: add local D values in these
+    m45 = (d1 - d2) / (a3 - al) # + 0.3
+    b45 = (d2 * a3 - d1 * al) / (a3 - al)
+
+    # 4 - last
+    m3 = -er * er * (a3 - al) / (d1 - d2)
+    b3 = -al - er * (a3 - al) / (d1 - d2)
+
+    """
+
+    # start to first
+    # change a - r to pairwise a_i - a_i+1
+    m1 = -ea * ea * ((af - a1) / (d1 - d2))
+    b1 = -af + ea * ((af - a1) / (d1 - d2))
+    
+    # 1 to 2
+    m2 = (c5 - c4) / (af - a1)
+    b2 = (c4 * af - c5 * a1) / (af - a1)
+
+    # 1 to 2 
+    m23 = (c4 - c3) / (a1 - a2) 
+    b23 = (c3 * a1 - c4 * a2) / (a1 - a2)
+
+    # 2 - 3
+    m34 = (c3 - c2) / (a2 - a3) 
+    b34 = (c2 * a2 - c3 * a3) / (a2 - a3)
+
+    # 3 - 4 
+    m45 = (c2 - c1) / (a3 - al) 
+    b45 = (c1 * a3 - c2 * al) / (a3 - al)
+    
+    # 4 - 5 # there is a gap here !
+    #m56 = (c2 - c1) / (a3 - al) 
+    #b56 = (c1 * a3 - c2 * al) / (a3 - al)
+
+    # 5 - last
+    m3 = -er * er * (a3 - al) / (d1 - d2)
+    b3 = -al - er * (a3 - al) / (d1 - d2)
+
+
+    # test
+    a = af
+    r = a1
+    r2 = a2
+    r3 = a3
+    t = al
+
+    # TODO: elif's for the number of DMs, in otherwords len (a)
+    def MDF1(y):
+        """Compute the desirability for a given value."""
+        if isinstance(y, np.ndarray):
+            return np.array([MDF1(yi) for yi in y])
+        if y <= a:
+            return 1 + m1 / (y + b1)  # another ea missing from c1 + ea?
+        # TODO: elif's for the number of DMs, in otherwords len (a)
+        elif a < y <= r: # when at left, returns close to d1, when at right returns close to d2. linear between
+            return m2 * y + b2 
+        elif r < y <= r2:
+            return m23 * y + b23
+        elif r2 < y <= r3:
+            return m34 * y + b34 
+        elif r3 < y <= t:
+            return m45 * y + b45 
+        else:
+            return m3 / (y + b3) + delta # except here returns less than d2 but still positive?
+    
+
+    def MDF(y):
+        """Compute the desirability for a given value."""
+        # Same but without the if statements
+        if isinstance(y, np.ndarray):
+            return np.array([MDF(yi) for yi in y])
+        return (
+            max(a - y, 0) * (1 + m1 / (y + b1)) / (a - y) # first
+            + max(y - t, 0) * (m3 / (y + b3)) / (y - t) # last
+            + max(y - a, 0) * max(r - y, 0) * (m2 * y + b2) / ((y - a) * (r - y)) # second
+            + max(y - r, 0) * max(r2 - y, 0) * (m23 * y + b23) / ((y - r) * (r2 - y)) # third
+            + max(y - r2, 0) * max(r3 - y, 0) * (m34 * y + b34) / ((y - r2) * (r3 - y)) # fourth
+            + max(y - r3, 0) * max(t - y, 0) * (m45 * y + b45) / ((y - r3) * (t - y)) # fifth
+        )
+
+    func = (
+        f"Max({a} - {y}, 0) * (1 + ({m1} / ({y} + {b1})) / ({a} - {y})) + "
+        f"Max({y} - {t}, 0) * (({m3} / ({y} + {b3})) / ({y} - {t})) + " # - 0.2 missing or not?
+        f"Max({y} - {a}, 0) * Max({r} - {y}, 0) * ({m2} * {y} + {b2}) / "
+        f"(({y} - {a}) * ({r} - {y})) + "
+        f"Max({y} - {r}, 0) * Max({r2} - {y}, 0) * ({m23} * {y} + {b23}) / "
+        f"(({y} - {r}) * ({r2} - {y})) + "
+        f"Max({y} - {r2}, 0) * Max({r3} - {y}, 0) * ({m34} * {y} + {b34}) / "
+        f"(({y} - {r2}) * ({r3} - {y})) + "
+        f"Max({y} - {r3}, 0) * Max({t} - {y}, 0) * ({m45} * {y} + {b45}) / "
+        f"(({y} - {r3}) * ({t} - {y})) "
+    )
+
+    #return MDF1
+    return func
+
+
 
 def add_desirability_funcs(
     problem: Problem,
@@ -4677,6 +4843,121 @@ def add_desirability_funcs(
         problem_ = problem_.add_scalarization(scalarization)
 
     return problem_, symbols
+
+
+def add_group_DF_funcs2(
+    problem: Problem,
+    reference_points: dict[str, dict[str, float]],
+    #reservation_levels: dict[str, dict[str, float]] | None = None,
+    desirability_levels: dict[str, tuple[float, float]] | None = None,
+    desirability_func: Literal["Harrington", "MaoMao", "GroupMaoMao"] = "GroupMaoMao",
+) -> tuple[Problem, list[str]]:
+    """Adds desirability functions to the problem based on the given aspiration and reservation levels.
+
+    Note that the desirability functions are added as scalarization functions to the problem. They are also multiplied
+    by -1 to ensure that "desirability" values can be minimized, as is assumed by the optimizers.
+
+    Args:
+        problem (Problem): The problem to which the desirability functions should be added.
+        aspiration_levels (dict[str, float]): A dictionary with keys corresponding to objective function symbols
+            and values to aspiration levels.
+        reservation_levels (dict[str, float]): A dictionary with keys corresponding to objective function symbols
+            and values to reservation levels.
+        desirability_levels (dict[str, tuple[float, float]] | None, optional): A dictionary with keys corresponding to
+            objective function symbols and values to desirability levels, where each value is a tuple of (d1, d2). If
+            not given, the default values for d1 and d2 are used, which are 0.9 and 0.1 respectively. Defaults to None.
+        desirability_func (str, optional): The type of desirability function to use. Currently, only "Harrington" or
+        "MaoMao" is supported. Defaults to "Harrington".
+
+    Returns:
+        Problem: A copy of the problem with the added desirability functions as scalarization functions.
+        list[str]: A list of symbols of the added desirability functions.
+    """
+    if desirability_func == "Harrington":
+        create_func = __create_HDF
+    elif desirability_func == "MaoMao":
+        create_func = __create_MDF
+    elif desirability_func == "GroupMaoMao":
+        create_func = __create_GMDF
+    else:
+        raise ScalarizationError(f"Desirability function {desirability_func} is not supported.")
+
+    if desirability_levels is None:
+        desirability_levels = {obj.symbol: (0.9, 0.1) for obj in problem.objectives}
+
+    symbols = []
+    problem_: Problem = problem.model_copy(deep=True)
+    DMs = list(reference_points.keys())
+    for dm in DMs:
+        # check that all objectives have aspiration and reservation levels defined
+        for obj in problem.objectives:
+            if obj.symbol not in reference_points[dm]:
+                raise ScalarizationError(
+                    f"Objective {obj.symbol} does not have reference point defined."
+                )
+
+    maximize: dict[str, int] = {obj.symbol: -1 if obj.maximize else 1 for obj in problem.objectives}
+
+    # TODO: make less dumb
+    def order_rps(reference_points):
+        keys = ["f_1", "f_2", "f_3"]
+        f1_l = []
+        f2_l = []
+        f3_l = []
+        for dm in reference_points:
+            for key in keys:
+                if key == "f_1":
+                    f1_l.append(reference_points[dm][key])
+                elif key == "f_2":
+                    f2_l.append(reference_points[dm][key])
+                else:
+                    f3_l.append(reference_points[dm][key])
+
+        print("=======")
+        f1_l = sorted(f1_l)
+        f2_l = sorted(f2_l)
+        f3_l = sorted(f3_l)
+        print(f1_l)
+        print(f2_l)
+        print(f3_l)
+        return f1_l, f2_l, f3_l
+
+    f1_l, f2_l, f3_l = order_rps(reference_points)
+    ordered_rps = {"f_1": f1_l, "f_2": f2_l, "f_3": f3_l }
+
+    for obj in problem.objectives:
+        d1, d2 = desirability_levels[obj.symbol]
+        # TODO: fix below. Need to give all ordered RPs. Need to order before this
+        #ordered_rps = ordered_rps[obj.symbol] * maximize[obj.symbol]
+        func = (
+            "("
+            + create_func(
+                obj.symbol + "_min",
+                #ordered_rps,
+                ordered_rps[obj.symbol] * maximize[obj.symbol],
+                #reference_points["DM1"][obj.symbol] * maximize[obj.symbol],
+                #reference_points["DM2"][obj.symbol] * maximize[obj.symbol],
+                d1,
+                d2,
+            )
+            + ")"
+        )
+        #d_funcs.append(func)
+        #df_expr = " * ".join(d_funcs)
+        df_expr = "-(" + func + ")"
+        symbols.append(f"gdf_{obj.symbol}")
+        scalarization = ScalarizationFunction(
+            name=f"Group desirability function for objective {obj.symbol}",
+            symbol=f"GDF_{obj.symbol}",
+            func=df_expr,
+            is_linear=False,
+            is_convex=False,
+            is_twice_differentiable=False,
+        )
+        problem_ = problem_.add_scalarization(scalarization)
+
+    return problem_, symbols
+
 
 
 def add_iopis_funcs(
@@ -4789,6 +5070,7 @@ def add_group_DF_funcs(
 
     return problem_, symbols
 
+
 def add_group_DF_funcs2(
     problem: Problem,
     reference_points: dict[str, dict[str, float]],
@@ -4861,7 +5143,9 @@ def add_group_DF_funcs2(
         f1_l = sorted(f1_l)
         f2_l = sorted(f2_l)
         f3_l = sorted(f3_l)
-
+        print(f1_l)
+        print(f2_l)
+        print(f3_l)
         return f1_l, f2_l, f3_l
 
     f1_l, f2_l, f3_l = order_rps(reference_points)
@@ -4876,7 +5160,7 @@ def add_group_DF_funcs2(
             + create_func(
                 obj.symbol + "_min",
                 #ordered_rps,
-                ordered_rps[obj.symbol],
+                ordered_rps[obj.symbol] * maximize[obj.symbol],
                 #reference_points["DM1"][obj.symbol] * maximize[obj.symbol],
                 #reference_points["DM2"][obj.symbol] * maximize[obj.symbol],
                 d1,
@@ -4887,10 +5171,10 @@ def add_group_DF_funcs2(
         #d_funcs.append(func)
         #df_expr = " * ".join(d_funcs)
         df_expr = "-(" + func + ")"
-        symbols.append(f"gdf_{obj}")
+        symbols.append(f"gdf_{obj.symbol}")
         scalarization = ScalarizationFunction(
-            name=f"Group desirability function for objective {obj}",
-            symbol=f"GDF_{obj}",
+            name=f"Group desirability function for objective {obj.symbol}",
+            symbol=f"GDF_{obj.symbol}",
             func=df_expr,
             is_linear=False,
             is_convex=False,
@@ -4899,7 +5183,6 @@ def add_group_DF_funcs2(
         problem_ = problem_.add_scalarization(scalarization)
 
     return problem_, symbols
-
 
 def add_iopis_fairness(
     problem: Problem,
