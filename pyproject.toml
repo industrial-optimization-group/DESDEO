@@ -44,7 +44,7 @@ repository="https://github.com/industrial-optimization-group/DESDEO"
 documentation="https://desdeo.readthedocs.io/en/latest/"
 "Bug tracker"="https://github.com/industrial-optimization-group/DESDEO/issues"
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "ruff>=0.11",
     "isort>=6.0",
@@ -81,11 +81,10 @@ web = [
     "python-multipart>=0.0.20",
     "uvicorn>=0.34.2",
     "bcrypt>=4.3.0",
-	"pydantic-settings>=2.10.1",
+    "pydantic-settings>=2.10.1",
     "sqlalchemy-utils>=0.41.2",
     "sqlmodel>=0.0.24",
-    "psycopg2>=2.9.10",
-    "websockets>=15.0.1"
+    "websockets>=15.0.1",
 ]
 
 viz = [
@@ -99,9 +98,26 @@ tools = [
     "eralchemy>=1.5.0"
 ]
 
-server = [
-    "gunicorn>=23.0.0"
+server = [ # production!
+    "gunicorn>=23.0.0",
+    "psycopg2>=2.9.10"
 ]
+
+all-dev = [
+    { include-group = "dev" },
+    { include-group = "docs" },
+    { include-group = "jupyter" },
+    { include-group = "web" },
+    { include-group = "viz" },
+    { include-group = "tools" },
+]
+
+[tool.poetry.group.server]
+optional = true
+
+
+[tool.uv]
+default-groups = ["dev", "docs", "jupyter", "web", "viz", "tools"]
 
 [tool.ruff]
 # Enable the pycodestyle (`E`) and Pyflakes (`F`) rules by default.
@@ -242,7 +258,8 @@ markers = [
     "indicators: tests related to indicators.",
     "testproblem: tests related to test problems.",
     "enautilus: tests related to the E-NAUTILUS method.",
-
+    "gdmtools: tests related to group decision making.",
+    "gnimbus: tests related to group nimbus method.",
 ]
 pythonpath = "."
 asyncio_default_fixture_loop_scope = "function"
