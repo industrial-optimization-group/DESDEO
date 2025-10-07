@@ -10,6 +10,7 @@ __all__ = [  # noqa: RUF022
     "EMOSolveRequest",
     "EMOState",
     "ENautilusState",
+    "ENautilusStepRequest",
     "ExtraFunctionDB",
     "ForestProblemMetaData",
     "GenericIntermediateSolutionResponse",
@@ -102,6 +103,7 @@ __all__ = [  # noqa: RUF022
 
 from .archive import UserSavedEMOResults
 from .EMO import EMOSaveRequest, EMOSolveRequest
+from .enautilus import EnautilusStepRequest
 from .gdm_aggregate import (
     Group,
     GroupCreateRequest,
