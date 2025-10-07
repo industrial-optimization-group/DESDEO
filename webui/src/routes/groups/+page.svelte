@@ -36,7 +36,7 @@
 	import { goto } from '$app/navigation';
 
 	type ProblemInfo = components['schemas']['ProblemInfo'];
-	
+
 	type GroupInfo = {
 		id: number;
 		name: string;
@@ -55,30 +55,30 @@
 	let selectedProblem = $state<ProblemInfo | undefined>(undefined);
 
 	function findProblemForGroup(group: GroupInfo): ProblemInfo | undefined {
-		return problemList.find(p => p.id === group.problem_id);
+		return problemList.find((p) => p.id === group.problem_id);
 	}
 
 	function getUserRole(group: GroupInfo, userId: number | undefined): string {
-		if (!userId) return "";
-		
+		if (!userId) return '';
+
 		const isOwner = userId === group.owner_id;
 		const isDM = group.user_ids.includes(userId);
-		
-		if (isOwner && isDM) return "Owner & DM";
-		if (isOwner) return "Owner";
-		if (isDM) return "DM";
-		return "";
+
+		if (isOwner && isDM) return 'Owner & DM';
+		if (isOwner) return 'Owner';
+		if (isDM) return 'DM';
+		return '';
 	}
 </script>
 
 <div class="px-8">
-	<h1 class="primary mb-2 text-pretty pt-4 text-left text-lg font-semibold lg:text-xl">
+	<h1 class="primary mb-2 pt-4 text-left text-lg font-semibold text-pretty lg:text-xl">
 		User Groups
 	</h1>
 	<p class="text-md text-justify text-gray-700">
-		Here you can view and manage your DESDEO groups. Each group is associated with a specific optimization
-		problem. You can participate in multiple groups and collaborate with other users on solving optimization
-		problems together.
+		Here you can view and manage your DESDEO groups. Each group is associated with a specific
+		optimization problem. You can participate in multiple groups and collaborate with other users on
+		solving optimization problems together.
 	</p>
 	{#if groupList.length === 0}
 		<p class="text-gray-600">You are not a member of any groups yet.</p>
@@ -99,14 +99,16 @@
 					<Table.Body>
 						{#each groupList as group}
 							{@const problem = findProblemForGroup(group)}
-							<Table.Row class={selectedGroup?.id === group.id ? 'bg-gray-100' : ''}
+							<Table.Row
+								class={selectedGroup?.id === group.id ? 'bg-gray-100' : ''}
 								onclick={() => {
 									selectedGroup = group;
 									selectedProblem = problem;
 									console.log('Selected group:', group.id, 'with problem:', problem?.id);
 								}}
 								role="button"
-								tabindex={0}>
+								tabindex={0}
+							>
 								<Table.Cell class="text-justify">{group.name}</Table.Cell>
 								<Table.Cell class="text-justify">{problem?.name ?? '—'}</Table.Cell>
 								<Table.Cell class="text-justify">{getUserRole(group, $auth?.user?.id)}</Table.Cell>
@@ -328,7 +330,7 @@
 											<span class="text-gray-700">real</span>
 										</li>
 									</ul>
-									<p class="mb-2 text-sm italic text-gray-600">
+									<p class="mb-2 text-sm text-gray-600 italic">
 										Only a summary is shown because this problem has more than 10 variables.
 									</p>
 								</div>
