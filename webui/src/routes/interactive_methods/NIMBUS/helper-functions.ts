@@ -288,32 +288,3 @@ export async function callNimbusAPI<T>(
 		isLoading.set(false);
 	}
 }
-
-export async function callGNimbusAPI<T = Response>(type: string, data: Record<string, any>): Promise<{
-    success: boolean;
-    data?: T;
-    error?: string;
-}> {
-    try {
-        const response = await fetch(`/interactive_methods/GNIMBUS/?type=${type}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-
-        const result = await response.json();
-        return result;
-    } catch (error) {
-        console.error(`Error calling GNIMBUS ${type} API:`, error);
-        return {
-            success: false,
-            error: error instanceof Error ? error.message : 'Unknown error'
-        };
-    }
-}

@@ -27,7 +27,7 @@
  */
 import { json } from '@sveltejs/kit';
 import { serverApi as api } from '$lib/api/client';
-import type { RequestHandler } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
 
 async function makeApiRequest(endpoint: string, body: any, refreshToken: string) {
 	try {
