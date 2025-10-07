@@ -16,6 +16,9 @@ from desdeo.api.models import (
     NIMBUSInitializationRequest,
     NIMBUSInitializationResponse,
     NIMBUSInitializationState,
+    NIMBUSFinalizeRequest,
+    NIMBUSFinalizeResponse,
+    NIMBUSFinalState,
     NIMBUSIntermediateSolutionResponse,
     NIMBUSSaveRequest,
     NIMBUSSaveResponse,
@@ -470,7 +473,7 @@ def get_or_initialize(
     # Find the latest relevant state (NIMBUS classification, initialization, or intermediate with NIMBUS context)
     latest_state = None
     for state in states:
-        if (isinstance(state.state, (NIMBUSClassificationState | NIMBUSInitializationState)) or
+        if (isinstance(state.state, (NIMBUSClassificationState | NIMBUSInitializationState | NIMBUSFinalState)) or
             (isinstance(state.state, IntermediateSolutionState) and state.state.context == "nimbus")):
             latest_state = state
             break
@@ -518,3 +521,84 @@ def get_or_initialize(
 
     # No relevant state found, initialize a new one
     return initialize(request, user, session)
+
+
+@router.post("/finalize")
+def finalize_nimbus(
+    request: NIMBUSFinalizeRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)]
+) -> NIMBUSFinalizeResponse:
+    """An endpoint for finishing up the NIMBUS method"""
+
+    if request.session_id is not None:
+        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == request.session_id)
+        interactive_session = session.exec(statement)
+
+        if interactive_session is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Could not find interactive session with id={request.session_id}.",
+            )
+    else:
+        # request.session_id is None:
+        # use active session instead
+        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == user.active_session_id)
+
+        interactive_session = session.exec(statement).first()
+
+    if problem_db is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Problem with id={request.problem_id} could not be found."
+        )
+
+    if request.parent_state_id is None:
+        parent_state = None
+    else:
+        statement = session.select(StateDB).where(StateDB.id == request.parent_state_id)
+        parent_state = session.exec(statement).first()
+
+        if parent_state is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail=f"Could not find state with id={request.parent_state_id}"
+            )
+
+    # fetch the problem from the DB
+    statement = select(ProblemDB).where(ProblemDB.user_id == user.id, ProblemDB.id == request.problem_id)
+    problem_db = session.exec(statement).first()
+
+    solution_state_id = request.solution_info.state_id
+    solution_index = request.solution_info.solution_index
+
+    statement = select(StateDB).where(StateDB.id == solution_state_id)
+    actual_state = session.exec(statement).first().state
+    if actual_state is None:
+        raise HTTPException(
+            detail="No concrete substate!",
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+
+    final_state = NIMBUSFinalState(
+        solver_results  = actual_state.solver_results[solution_index],
+        reference_point = request.preferences.aspiration_levels,
+    )
+
+    state = StateDB.create(
+        database_session=session,
+        problem_id=problem_db.id,
+        session_id=interactive_session.id if interactive_session is not None else None,
+        parent_id=parent_state.id if parent_state is not None else None,
+        state=final_state,
+    )
+
+    session.add(state)
+    session.commit()
+    session.refresh(state)
+
+    return NIMBUSFinalizeResponse(
+        state_id=state.id,
+        final_solution=SolutionReference(
+            state=solution_state_id,
+            solution_index=solution_index
+        )
+    )

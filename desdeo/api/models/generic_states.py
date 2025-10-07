@@ -25,6 +25,7 @@ from .state import (
     NIMBUSClassificationState,
     NIMBUSInitializationState,
     NIMBUSSaveState,
+    NIMBUSFinalState,
     GNIMBUSOptimizationState,
     GNIMBUSVotingState,
     RPMState,
@@ -48,6 +49,7 @@ class StateKind(str, Enum):
     NIMBUS_SOLVE = "nimbus.solve_candidates"
     NIMBUS_SAVE = "nimbus.save_solutions"
     NIMBUS_INIT = "nimbus.initialize"
+    NIMBUS_FINAL = "nimbus.final"
     GNIMBUS_OPTIMIZE = "gnimbus.optimize"
     GNIMBUS_VOTE = "gnimbus.vote"
     EMO_RUN = "emo.run"
@@ -173,6 +175,7 @@ KIND_TO_TABLE: dict[StateKind, SQLModel] = {
     StateKind.NIMBUS_SOLVE: NIMBUSClassificationState,
     StateKind.NIMBUS_SAVE: NIMBUSSaveState,
     StateKind.NIMBUS_INIT: NIMBUSInitializationState,
+    StateKind.NIMBUS_FINAL: NIMBUSFinalState,
     StateKind.GNIMBUS_OPTIMIZE: GNIMBUSOptimizationState,
     StateKind.GNIMBUS_VOTE: GNIMBUSVotingState,
     StateKind.EMO_RUN: EMOState,
@@ -186,6 +189,7 @@ SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
     NIMBUSClassificationState: StateKind.NIMBUS_SOLVE,
     NIMBUSSaveState: StateKind.NIMBUS_SAVE,
     NIMBUSInitializationState: StateKind.NIMBUS_INIT,
+    NIMBUSFinalState: StateKind.NIMBUS_FINAL,
     GNIMBUSOptimizationState: StateKind.GNIMBUS_OPTIMIZE,
     GNIMBUSVotingState: StateKind.GNIMBUS_VOTE,
     EMOState: StateKind.EMO_RUN,
