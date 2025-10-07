@@ -2,24 +2,20 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import Session, select
+from fastapi import APIRouter, Depends
+from sqlmodel import Session
 
 from desdeo.api.db import get_session
 from desdeo.api.models import (
-    InteractiveSessionDB,
-    PreferenceDB,
-    ProblemDB,
     ENautilusState,
     EnautilusStepRequest,
-    StateDB,
+    InteractiveSessionDB,
     User,
 )
-from desdeo.api.routers.problem import check_solver
 from desdeo.api.routers.user_authentication import get_current_user
-from desdeo.mcdm import rpm_solve_solutions
 from desdeo.problem import Problem
-from desdeo.tools import SolverResults
+
+from .utils import fetch_interactive_session, fetch_user_problem
 
 router = APIRouter(prefix="/method/enautilus")
 
@@ -28,6 +24,8 @@ router = APIRouter(prefix="/method/enautilus")
 def step(
     request: EnautilusStepRequest,
     user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[Session, Depends(get_session)],
+    db_session: Annotated[Session, Depends(get_session)],
 ) -> ENautilusState:
     """."""
+    interactive_session: InteractiveSessionDB | None = fetch_interactive_session(user, request, db_session)
+    problem: Problem = fetch_user_problem(user, request, db_session)

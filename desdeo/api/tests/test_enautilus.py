@@ -39,3 +39,7 @@ def test_enautilus_step_request(session_and_user: dict[str, Session | list[user]
     assert request.selected_point == selected_point
     assert request.reachable_point_indices == reachable_point_indices
     assert request.number_of_intermediate_points == number_of_intermediate_points
+
+
+def test_enautilus_step_router(session_and_user: dict[str, Session | list[user]]):
+    """."""
