@@ -55,7 +55,7 @@ class BooleanDictTypeDecorator(TypeDecorator):
             try:
                 dictionary[key] = bool(item)
             except Exception as e:
-                print(f"Validation error when desderializing boolean: {e}")
+                print(f"Validation error when deserializing boolean: {e}")
         return dictionary
 
 
