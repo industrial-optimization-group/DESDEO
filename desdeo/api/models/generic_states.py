@@ -23,12 +23,12 @@ from .state import (
     EMOSCOREState,
     EMOIterateState,
     ENautilusState,
+    GNIMBUSOptimizationState,
+    GNIMBUSVotingState,
     IntermediateSolutionState,
     NIMBUSClassificationState,
     NIMBUSInitializationState,
     NIMBUSSaveState,
-    GNIMBUSOptimizationState,
-    GNIMBUSVotingState,
     RPMState,
 )
 from .user import User

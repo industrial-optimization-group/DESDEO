@@ -44,6 +44,7 @@ __all__ = [  # noqa: RUF022
     "ProblemInfoSmall",
     "ProblemMetaDataDB",
     "ProblemMetaDataGetRequest",
+    "ProblemSelectSolverRequest",
     "ReferencePoint",
     "RepresentativeNonDominatedSolutions",
     "RPMSolveRequest",
@@ -81,11 +82,11 @@ __all__ = [  # noqa: RUF022
     "EMOFetchResponse",
     "EMOIterateResponse",
     "EMOSaveRequest",
-    "EMOScoreRequest",
-    "EMOScoreResponse",
-    "SolutionAddress",
-    "SolutionAddressReference",
-    "SolutionAddressResponse",
+    "EMOState",
+    "SolutionReference",
+    "SolutionReferenceResponse",
+    "SolverSelectionMetadata",
+    "UserSavedEMOResults",
     "UserSavedSolutionDB",
     "UtopiaRequest",
     "UtopiaResponse",
@@ -102,22 +103,26 @@ __all__ = [  # noqa: RUF022
 ]
 
 
-# from .archive import UserSavedEMOResults
-from .emo import (
-    EMOIterateRequest,
-    EMOFetchRequest,
-    EMOFetchResponse,
-    EMOIterateResponse,
-    EMOSaveRequest,
-    EMOScoreRequest,
-    EMOScoreResponse,
+from .archive import UserSavedEMOResults
+from .EMO import EMOSaveRequest, EMOSolveRequest
+from .gdm_aggregate import (
+    Group,
+    GroupCreateRequest,
+    GroupInfoRequest,
+    GroupIteration,
+    GroupModifyRequest,
+    GroupPublic,
+)
+from .gdm_base import (
+    BasePreferences,
+    ReferencePointDictType,
 )
 from .generic import (
     GenericIntermediateSolutionResponse,
     IntermediateSolutionRequest,
-    SolutionInfo,
     ScoreBandsRequest,
     ScoreBandsResponse,
+    SolutionInfo,
 )
 from .generic_states import (
     SavedSolutionReference,
@@ -126,6 +131,15 @@ from .generic_states import (
     State,
     StateDB,
     UserSavedSolutionDB,
+)
+from .gnimbus import (
+    FullIteration,
+    GNIMBUSAllIterationsResponse,
+    GNIMBUSResultResponse,
+    GNIMBUSSwitchPhaseRequest,
+    GNIMBUSSwitchPhaseResponse,
+    OptimizationPreference,
+    VotingPreference,
 )
 from .nimbus import (
     NIMBUSClassificationRequest,
@@ -158,9 +172,11 @@ from .problem import (
     ProblemInfoSmall,
     ProblemMetaDataDB,
     ProblemMetaDataGetRequest,
+    ProblemSelectSolverRequest,
     RepresentativeNonDominatedSolutions,
     ScalarizationFunctionDB,
     SimulatorDB,
+    SolverSelectionMetadata,
     TensorConstantDB,
     TensorVariableDB,
     VariableDB,
@@ -177,34 +193,13 @@ from .state import (
     EMOSaveState,
     EMOIterateState,
     ENautilusState,
+    GNIMBUSOptimizationState,
+    GNIMBUSVotingState,
     IntermediateSolutionState,
     NIMBUSClassificationState,
     NIMBUSInitializationState,
     NIMBUSSaveState,
-    GNIMBUSOptimizationState,
-    GNIMBUSVotingState,
     RPMState,
 )
 from .user import User, UserBase, UserPublic, UserRole
-from .gdm_base import (
-    BasePreferences,
-    ReferencePointDictType,
-)
-from .gdm_aggregate import (
-    Group, 
-    GroupModifyRequest, 
-    GroupCreateRequest, 
-    GroupIteration,
-    GroupPublic,
-    GroupInfoRequest,
-)
 from .utopia import UtopiaRequest, UtopiaResponse
-from .gnimbus import (
-    OptimizationPreference,
-    VotingPreference,
-    GNIMBUSResultResponse,
-    FullIteration,
-    GNIMBUSAllIterationsResponse,
-    GNIMBUSSwitchPhaseResponse,
-    GNIMBUSSwitchPhaseRequest,
-)
