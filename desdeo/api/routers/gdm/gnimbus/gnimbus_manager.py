@@ -35,6 +35,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
 class GNIMBUSManager(GroupManager):
     """The Group NIMBUS manager class.
 

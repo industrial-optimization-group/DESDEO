@@ -33,8 +33,10 @@ class ReferencePointDictType(TypeDecorator):
                 print(f"Validation error when deserializing PreferencePoint: {e}")
         return dictionary
 
+
 class BooleanDictTypeDecorator(TypeDecorator):
     """A converter of bool into json, surprising that this needs to exists."""
+
     impl = JSON
 
     def process_bind_param(self, value, dialect):
@@ -55,7 +57,6 @@ class BooleanDictTypeDecorator(TypeDecorator):
             except Exception as e:
                 print(f"Validation error when desderializing boolean: {e}")
         return dictionary
-
 
 
 class BasePreferences(SQLModel):

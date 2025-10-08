@@ -74,8 +74,10 @@ class VotingPreference(BasePreferences):
         sa_column=Column(JSON)
     )  # A user votes for an index from the results (or something)
 
+
 class EndProcessPreference(BasePreferences):
     """A model for determining if everyone is happy with current solution so we can end the process."""
+
     method: str = "end"
     success: bool | None = Field()
 
@@ -96,6 +98,7 @@ class GNIMBUSResultResponse(SQLModel):
 
 class FullIteration(SQLModel):
     """A full iteration item containing results from a complete or incomplete iteration."""
+
     phase: str
     optimization_preferences: OptimizationPreference | None
     voting_preferences: VotingPreference | EndProcessPreference | None
