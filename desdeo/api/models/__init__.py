@@ -45,6 +45,7 @@ __all__ = [  # noqa: RUF022
     "ProblemInfoSmall",
     "ProblemMetaDataDB",
     "ProblemMetaDataGetRequest",
+    "ProblemSelectSolverRequest",
     "ReferencePoint",
     "RepresentativeNonDominatedSolutions",
     "RPMSolveRequest",
@@ -81,9 +82,9 @@ __all__ = [  # noqa: RUF022
     "EMOSaveState",
     "EMOSaveRequest",
     "EMOState",
-    "SolutionAddress",
-    "SolutionAddressReference",
-    "SolutionAddressResponse",
+    "SolutionReference",
+    "SolutionReferenceResponse",
+    "SolverSelectionMetadata",
     "UserSavedEMOResults",
     "UserSavedSolutionDB",
     "UtopiaRequest",
@@ -104,12 +105,35 @@ __all__ = [  # noqa: RUF022
 
 from .archive import UserSavedEMOResults
 from .EMO import EMOSaveRequest, EMOSolveRequest
+from .gdm.gdm_aggregate import (
+    Group,
+    GroupCreateRequest,
+    GroupInfoRequest,
+    GroupIteration,
+    GroupModifyRequest,
+    GroupPublic,
+)
+from .gdm.gdm_base import (
+    BasePreferences,
+    BooleanDictTypeDecorator,
+    ReferencePointDictType,
+)
+from .gdm.gnimbus import (
+    EndProcessPreference,
+    FullIteration,
+    GNIMBUSAllIterationsResponse,
+    GNIMBUSResultResponse,
+    GNIMBUSSwitchPhaseRequest,
+    GNIMBUSSwitchPhaseResponse,
+    OptimizationPreference,
+    VotingPreference,
+)
 from .generic import (
     GenericIntermediateSolutionResponse,
     IntermediateSolutionRequest,
-    SolutionInfo,
     ScoreBandsRequest,
     ScoreBandsResponse,
+    SolutionInfo,
 )
 from .generic_states import (
     SavedSolutionReference,
@@ -150,9 +174,11 @@ from .problem import (
     ProblemInfoSmall,
     ProblemMetaDataDB,
     ProblemMetaDataGetRequest,
+    ProblemSelectSolverRequest,
     RepresentativeNonDominatedSolutions,
     ScalarizationFunctionDB,
     SimulatorDB,
+    SolverSelectionMetadata,
     TensorConstantDB,
     TensorVariableDB,
     VariableDB,
@@ -169,37 +195,14 @@ from .state import (
     EMOSaveState,
     EMOState,
     ENautilusState,
+    GNIMBUSEndState,
+    GNIMBUSOptimizationState,
+    GNIMBUSVotingState,
     IntermediateSolutionState,
     NIMBUSClassificationState,
     NIMBUSInitializationState,
     NIMBUSSaveState,
-    GNIMBUSOptimizationState,
-    GNIMBUSVotingState,
-    GNIMBUSEndState,
     RPMState,
 )
 from .user import User, UserBase, UserPublic, UserRole
-from .gdm.gdm_base import (
-    BasePreferences,
-    ReferencePointDictType,
-    BooleanDictTypeDecorator,
-)
-from .gdm.gdm_aggregate import (
-    Group, 
-    GroupModifyRequest, 
-    GroupCreateRequest, 
-    GroupIteration,
-    GroupPublic,
-    GroupInfoRequest,
-)
 from .utopia import UtopiaRequest, UtopiaResponse
-from .gdm.gnimbus import (
-    OptimizationPreference,
-    VotingPreference,
-    EndProcessPreference,
-    GNIMBUSResultResponse,
-    FullIteration,
-    GNIMBUSAllIterationsResponse,
-    GNIMBUSSwitchPhaseResponse,
-    GNIMBUSSwitchPhaseRequest,
-)

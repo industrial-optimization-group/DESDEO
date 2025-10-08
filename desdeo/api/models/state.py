@@ -13,7 +13,7 @@ from sqlmodel import (
 )
 
 from desdeo.mcdm import ENautilusResult
-from desdeo.problem import VariableType, Tensor
+from desdeo.problem import Tensor, VariableType
 from desdeo.tools import SolverResults
 
 from .preference import PreferenceType, ReferencePoint
@@ -198,7 +198,7 @@ class NIMBUSInitializationState(ResultInterface, SQLModel, table=True):
 
 
 class GNIMBUSOptimizationState(ResultInterface, SQLModel, table=True):
-    """GNIMBUS: classification / solving"""
+    """GNIMBUS: classification / solving."""
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
 
     # Preferences that went in
@@ -217,10 +217,10 @@ class GNIMBUSOptimizationState(ResultInterface, SQLModel, table=True):
     @property
     def num_solutions(self) -> int:
         return len(self.solver_results)
-    
+
 
 class GNIMBUSVotingState(ResultInterface, SQLModel, table=True):
-    """GNIMBUS: voting"""
+    """GNIMBUS: voting."""
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
 
     # Preferences that went in
@@ -239,9 +239,9 @@ class GNIMBUSVotingState(ResultInterface, SQLModel, table=True):
     @property
     def num_solutions(self) -> int:
         return 1
-    
+
 class GNIMBUSEndState(ResultInterface, SQLModel, table=True):
-    """GNIMBUS: ending. We check if everyone's happy with the solution and end if yes"""
+    """GNIMBUS: ending. We check if everyone's happy with the solution and end if yes."""
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
 
     # Preferences that went in

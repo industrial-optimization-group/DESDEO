@@ -3,7 +3,7 @@
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from sqlmodel import Field, Relationship, SQLModel, Column, JSON
+from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from .archive import UserSavedSolutionDB

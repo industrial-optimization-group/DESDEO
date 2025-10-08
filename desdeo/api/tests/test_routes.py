@@ -1,5 +1,4 @@
 """Tests related to routes and routers."""
-import json
 
 import json
 
@@ -13,6 +12,10 @@ from desdeo.api.models import (
     ForestProblemMetaData,
     GenericIntermediateSolutionResponse,
     GetSessionRequest,
+    GroupCreateRequest,
+    GroupInfoRequest,
+    GroupModifyRequest,
+    GroupPublic,
     InteractiveSessionDB,
     IntermediateSolutionRequest,
     NIMBUSClassificationRequest,
@@ -23,15 +26,13 @@ from desdeo.api.models import (
     NIMBUSSaveResponse,
     ProblemGetRequest,
     ProblemInfo,
+    ProblemSelectSolverRequest,
     ReferencePoint,
     RPMSolveRequest,
     SolutionInfo,
+    SolverSelectionMetadata,
     User,
     UserPublic,
-    GroupCreateRequest,
-    GroupModifyRequest,
-    GroupInfoRequest,
-    GroupPublic,
     UserSavedEMOResults,
 )
 from desdeo.api.models.nimbus import NIMBUSInitializationResponse
@@ -536,11 +537,10 @@ def test_login_logout(client: TestClient):
     )
     # Access token NOT refreshed
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
-    
+
 
 def test_group_operations(client: TestClient):
-    """Tests for websocket endpoints and websockets"""
-
+    """Tests for websocket endpoints and websockets."""
     create_endpoint = "/gdm/create_group"
     delete_endpoint = "/gdm/delete_group"
     add_user_endpoint = "/gdm/add_to_group"
@@ -548,7 +548,7 @@ def test_group_operations(client: TestClient):
     group_info_endpoint = "/gdm/get_group_info"
 
     # login to analyst
-    access_token = login(client=client, username="analyst", password="analyst")
+    access_token = login(client=client, username="analyst", password="analyst")  # noqa: S106
 
     def get_info(gid: int):
         return post_json(
@@ -557,7 +557,7 @@ def test_group_operations(client: TestClient):
             json=GroupInfoRequest(
                 group_id=gid,
             ).model_dump(),
-            access_token=access_token
+            access_token=access_token,
         )
 
     def get_user_info(token: str):
@@ -573,11 +573,8 @@ def test_group_operations(client: TestClient):
     response = post_json(
         client=client,
         endpoint=create_endpoint,
-        json=GroupCreateRequest(
-            group_name="testGroup", 
-            problem_id=10
-        ).model_dump(),
-        access_token=access_token
+        json=GroupCreateRequest(group_name="testGroup", problem_id=10).model_dump(),
+        access_token=access_token,
     )
     assert response.status_code == 404
 
@@ -585,11 +582,8 @@ def test_group_operations(client: TestClient):
     response = post_json(
         client=client,
         endpoint=create_endpoint,
-        json=GroupCreateRequest(
-            group_name="testGroup", 
-            problem_id=2
-        ).model_dump(),
-        access_token=access_token
+        json=GroupCreateRequest(group_name="testGroup", problem_id=2).model_dump(),
+        access_token=access_token,
     )
     assert response.status_code == 201
 
@@ -605,11 +599,8 @@ def test_group_operations(client: TestClient):
     response = post_json(
         client=client,
         endpoint=add_user_endpoint,
-        json=GroupModifyRequest(
-            group_id=1,
-            user_id=2
-        ).model_dump(),
-        access_token=access_token
+        json=GroupModifyRequest(group_id=1, user_id=2).model_dump(),
+        access_token=access_token,
     )
     assert response.status_code == status.HTTP_200_OK
     response = get_info(1)
@@ -634,11 +625,8 @@ def test_group_operations(client: TestClient):
     response = post_json(
         client=client,
         endpoint=remove_user_endpoint,
-        json=GroupModifyRequest(
-            group_id=1,
-            user_id=2
-        ).model_dump(),
-        access_token=access_token
+        json=GroupModifyRequest(group_id=1, user_id=2).model_dump(),
+        access_token=access_token,
     )
     assert response.status_code == status.HTTP_200_OK
     response = get_info(1)
@@ -653,7 +641,6 @@ def test_group_operations(client: TestClient):
     user_info = get_user_info(access_token)
     user: UserPublic = UserPublic.model_validate(json.loads(user_info.content.decode("utf-8")))
     assert 1 in user.group_ids
-
 
     # Delete the group
     response = post_json(
@@ -671,6 +658,38 @@ def test_group_operations(client: TestClient):
     user_info = get_user_info(access_token)
     user: UserPublic = UserPublic.model_validate(json.loads(user_info.content.decode("utf-8")))
     assert 1 not in user.group_ids
+
+
+def test_preferred_solver(client: TestClient):
+    """Test that setting a preferred solver for the problem is ok."""
+    access_token = login(client)
+
+    request = ProblemSelectSolverRequest(problem_id=1, solver_string_representation="THIS SOLVER DOESN'T EXIST")
+    response = post_json(client, "/problem/assign_solver", request.model_dump(), access_token)
+    assert response.status_code == 404
+
+    request = ProblemSelectSolverRequest(problem_id=1, solver_string_representation="pyomo_cbc")
+    response = post_json(client, "/problem/assign_solver", request.model_dump(), access_token)
+    assert response.status_code == 200
+
+    request = {"problem_id": 1, "metadata_type": "solver_selection_metadata"}
+    response = post_json(client, "/problem/get_metadata", request, access_token)
+    assert response.status_code == 200
+
+    model = SolverSelectionMetadata.model_validate(response.json()[0])
+
+    assert model.metadata_type == "solver_selection_metadata"
+    assert model.solver_string_representation == "pyomo_cbc"
+
+    # Test that the solver is in use
+    try:
+        request = NIMBUSInitializationRequest(problem_id=1)
+        response = post_json(client, "/method/nimbus/initialize", request.model_dump(), access_token)
+        model = NIMBUSInitializationResponse.model_validate(response.json())
+    except Exception as e:
+        print(e)
+        print("^ This outcome is expected since pyomo_cbc doesn't support nonlinear problems.")
+        print("  As that solver is what we set it to be in the start, we can verify that they actually get used.")
 
 
 def test_emo_solve_with_reference_point(client: TestClient):

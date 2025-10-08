@@ -15,19 +15,19 @@ from sqlmodel import (
     select,
 )
 
-from desdeo.problem import VariableType, Tensor
+from desdeo.problem import Tensor, VariableType
 
 from .state import (
     EMOSaveState,
     EMOState,
     ENautilusState,
+    GNIMBUSEndState,
+    GNIMBUSOptimizationState,
+    GNIMBUSVotingState,
     IntermediateSolutionState,
     NIMBUSClassificationState,
     NIMBUSInitializationState,
     NIMBUSSaveState,
-    GNIMBUSOptimizationState,
-    GNIMBUSVotingState,
-    GNIMBUSEndState,
     RPMState,
 )
 from .user import User

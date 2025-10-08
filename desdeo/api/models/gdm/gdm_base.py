@@ -1,15 +1,17 @@
-"""Base classes for Group Decision Making. Here one can add some common data types for serialization"""
+"""Base classes for Group Decision Making. Here one can add some common data types for serialization."""
 
 import json
 
-from sqlalchemy.types import TypeDecorator
-from sqlmodel import SQLModel, JSON
 from pydantic import ValidationError
+from sqlalchemy.types import TypeDecorator
+from sqlmodel import JSON, SQLModel
 
-from desdeo.api.models import ReferencePoint
-        
+from desdeo.api.models.preference import ReferencePoint
+
+
 class ReferencePointDictType(TypeDecorator):
-    """A converter for dict of int and preferences"""
+    """A converter for dict of int and preferences."""
+
     impl = JSON
 
     def process_bind_param(self, value, dialect):
@@ -18,20 +20,21 @@ class ReferencePointDictType(TypeDecorator):
                 if isinstance(item, ReferencePoint):
                     value[key] = item.model_dump_json()
             return json.dumps(value)
-    
+        return None
+
     def process_result_value(self, value, dialect):
         dictionary = json.loads(value)
         for key, item in dictionary.items():
-            if item == None:
+            if item is None:
                 print("Something's wrong... Database has a NoneType entry.")
             try:
                 dictionary[key] = ReferencePoint.model_validate(json.loads(item))
             except ValidationError as e:
                 print(f"Validation error when deserializing PreferencePoint: {e}")
         return dictionary
-    
+
 class BooleanDictTypeDecorator(TypeDecorator):
-    """A converter of bool into json, surprising that this needs to exists"""
+    """A converter of bool into json, surprising that this needs to exists."""
     impl = JSON
 
     def process_bind_param(self, value, dialect):
@@ -40,19 +43,22 @@ class BooleanDictTypeDecorator(TypeDecorator):
                 if isinstance(item, bool):
                     value[key] = json.dumps(item)
             return json.dumps(value)
-    
+        return None
+
     def process_result_value(self, value, dialect):
-        dict = json.loads(value)
-        for key, item in dict.items():
-            if item == None:
+        dictionary = json.loads(value)
+        for key, item in dictionary.items():
+            if item is None:
                 print("Something's wrong... Database has a NoneType entry.")
             try:
-                dict[key] = bool(item)
+                dictionary[key] = bool(item)
             except Exception as e:
                 print(f"Validation error when desderializing boolean: {e}")
-        return dict
+        return dictionary
+
 
 
 class BasePreferences(SQLModel):
-    """A base class for a method specific preference and results"""
+    """A base class for a method specific preference and results."""
+
     method: str = "unset"

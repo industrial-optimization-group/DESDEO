@@ -3,43 +3,41 @@
 import asyncio
 import logging
 import sys
+from typing import Annotated
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
+from fastapi.responses import JSONResponse
+from sqlmodel import Session, select
+
+from desdeo.api.db import get_session
+from desdeo.api.models import (
+    Group,
+    GroupCreateRequest,
+    GroupInfoRequest,
+    GroupIteration,
+    GroupModifyRequest,
+    GroupPublic,
+    ProblemDB,
+    User,
+)
+from desdeo.api.routers.user_authentication import get_current_user
 
 logging.basicConfig(
     stream=sys.stdout, format="[%(filename)s:%(lineno)d] %(levelname)s: %(message)s", level=logging.INFO
 )
 
-from fastapi import (
-    APIRouter,
-    WebSocket,
-    WebSocketDisconnect,
-    Depends,
-)
-
-from fastapi.responses import JSONResponse
-from fastapi import HTTPException, status
-
-from sqlmodel import Session, select
-from typing import Annotated
-
-from desdeo.api.models import (
-    User,
-    Group,
-    GroupModifyRequest,
-    GroupCreateRequest,
-    GroupIteration,
-    GroupInfoRequest,
-    GroupPublic,
-    ProblemDB,
-)
-from desdeo.api.db import get_session
-from desdeo.api import AuthConfig
-from desdeo.api.routers.user_authentication import get_current_user
-
 router = APIRouter(prefix="/gdm")
 
 
-class ManagerException(Exception):
-    """If something goes awry with the manager"""
+class ManagerError(Exception):
+    """If something goes awry with the manager."""
 
 
 class GroupManager:
@@ -54,9 +52,9 @@ class GroupManager:
         # Get session and make sure the group exists
         session = next(get_session())
         group = session.exec(select(Group).where(Group.id == group_id)).first()
-        if group == None:
+        if group is None:
             session.close()
-            raise ManagerException(f"No group with ID {group_id} found!")
+            raise ManagerError(f"No group with ID {group_id} found!")
 
         # Initialize the socket dict (at the very least to avoid KeyErrors)
         for user_id in group.user_ids:
@@ -65,19 +63,18 @@ class GroupManager:
         session.close()
 
     async def send_message(self, message: str, websocket: WebSocket):
-        """Notify the user of the existing results that have to be fetched"""
+        """Notify the user of the existing results that have to be fetched."""
         try:
             await websocket.send_text(message)
         except WebSocketDisconnect:
             return
 
     async def connect(self, user_id: int, websocket: WebSocket):
-        """Connect to websocket
+        """Connect to websocket.
 
         The connection has been accepted beforehand for sending error messages
         back to user, but here we attach it to the manager instance.
         """
-
         self.sockets[user_id] = websocket
 
         # If there are pending notifications, send notifications
@@ -85,7 +82,7 @@ class GroupManager:
         group = session.exec(select(Group).where(Group.id == self.group_id)).first()
         try:
             prev_iter = group.head_iteration.parent
-            if prev_iter == None:
+            if prev_iter is None:
                 session.close()
                 return
             if not prev_iter.notified[str(user_id)]:
@@ -96,12 +93,12 @@ class GroupManager:
                 session.add(prev_iter)
                 session.commit()
                 session.close()
-        except:
+        except Exception:
             session.close()
             return
 
     async def disconnect(self, user_id: int, websocket: WebSocket):
-        """Disconnect from websocket
+        """Disconnect from websocket.
 
         The connection has been closed beforehand, but here we detach the WebSocket
         object from the manager instance.
@@ -110,9 +107,9 @@ class GroupManager:
             self.sockets[user_id] = None
 
     async def broadcast(self, message: str):
-        """Send message to all connected websockets"""
+        """Send message to all connected websockets."""
         for _, socket in self.sockets.items():
-            if socket != None:
+            if socket is not None:
                 try:
                     await socket.send_text(message)
                 except WebSocketDisconnect:
@@ -123,11 +120,12 @@ class GroupManager:
         user_ids: list[int],
         message: str,
     ) -> dict[int, bool]:
+        """Notify all users with [message]."""
         notified = {}
         for user_id in user_ids:
             try:
                 socket: WebSocket = self.sockets[user_id]
-                if socket != None:
+                if socket is not None:
                     await self.send_message(message, socket)
                     notified[user_id] = True
                 else:
@@ -141,11 +139,10 @@ class GroupManager:
         user_id: int,
         data: str,
     ):
-        """The function to run the method
+        """The function to run the method.
 
         One could derive different managers from this GroupManager
         class and implement method and manager-specific "run_method" functions.
-
         """
 
 
@@ -168,9 +165,8 @@ def create_group(
     Raises:
         HTTPException
     """
-
     problem = session.exec(select(ProblemDB).where(ProblemDB.id == request.problem_id)).first()
-    if problem == None:
+    if problem is None:
         raise HTTPException(
             detail=f"There's no problem with ID {request.problem_id}!", status_code=status.HTTP_404_NOT_FOUND
         )
@@ -197,7 +193,7 @@ def delete_group(
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
 ) -> JSONResponse:
-    """Delete the group with given ID
+    """Delete the group with given ID.
 
     Args:
         request (GroupInfoRequest): Contains the ID of the group to be deleted
@@ -211,7 +207,7 @@ def delete_group(
         HTTPException: Insufficient authorization etc.
     """
     group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
-    if group == None:
+    if group is None:
         raise HTTPException(detail=f"No group with ID {request.group_id} found.", status_code=status.HTTP_404_NOT_FOUND)
 
     if user.id != group.owner_id:
@@ -221,8 +217,8 @@ def delete_group(
 
     # Remove the group from users
     user_ids = group.user_ids
-    for id in user_ids:
-        group_user = session.exec(select(User).where(User.id == id)).first()
+    for uid in user_ids:
+        group_user = session.exec(select(User).where(User.id == uid)).first()
         ugids = group_user.group_ids.copy()
         ugids.remove(group.id)
         group_user.group_ids = ugids
@@ -239,8 +235,8 @@ def delete_group(
     # Get the root iteration
     head: GroupIteration = group.head_iteration
     iter_count = 0
-    if head != None:
-        while head.parent != None:
+    if head is not None:
+        while head.parent is not None:
             head = head.parent
             iter_count += 1
 
@@ -255,7 +251,7 @@ def delete_group(
 
     # Make sure that the group IS deleted!
     group = session.exec(select(Group).where(Group.id == request.group_id)).first()
-    if group != None:
+    if group is not None:
         raise HTTPException(
             detail="Couldn't delete group from the database!", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
@@ -287,7 +283,7 @@ def add_to_group(
     """
     group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
     # Make sure the group exists
-    if group == None:
+    if group is None:
         raise HTTPException(
             detail=f"There's no group with ID {request.group_id}", status_code=status.HTTP_404_NOT_FOUND
         )
@@ -302,7 +298,7 @@ def add_to_group(
 
     addee = session.exec(select(User).where(User.id == request.user_id)).first()
     # Make sure the user to be added exists
-    if addee == None:
+    if addee is None:
         raise HTTPException(
             detail=f"There is no user with ID {request.user_id}!", status_code=status.HTTP_404_NOT_FOUND
         )
@@ -314,7 +310,7 @@ def add_to_group(
     session.commit()
     session.refresh(group)
 
-    if addee.group_ids == None:
+    if addee.group_ids is None:
         addee.group_ids = [group.id]
     else:
         groups = addee.group_ids.copy()
@@ -351,10 +347,10 @@ def remove_from_group(
     """
     group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
     # Make sure the group exists
-    if group == None:
+    if group is None:
         raise HTTPException(detail=f"No group with ID {request.group_id} found.", status_code=status.HTTP_404_NOT_FOUND)
     # Make sure of proper authorization
-    authorized = user.id == group.owner_id or user.id == request.user_id
+    authorized = user.id in (group.owner_id, request.user_id)
 
     if not authorized:
         raise HTTPException(detail="Unauthorized user", status_code=status.HTTP_401_UNAUTHORIZED)
@@ -395,7 +391,7 @@ def get_group_info(
     request: GroupInfoRequest,
     session: Annotated[Session, Depends(get_session)],
 ) -> GroupPublic:
-    """Get information about the group
+    """Get information about the group.
 
     Args:
         request (GroupInfoRequest): the id of the group for which we desire info on
@@ -408,7 +404,7 @@ def get_group_info(
         HTTPException: If there's no group with the requests group id
     """
     group = session.exec(select(Group).where(Group.id == request.group_id)).first()
-    if group == None:
+    if group is None:
         raise HTTPException(
             detail=f"No group with ID {request.group_id} found!",
             status_code=status.HTTP_404_NOT_FOUND,
