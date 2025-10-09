@@ -3,14 +3,13 @@
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from sqlmodel import Field, Relationship, SQLModel, Column, JSON
+from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from .archive import UserSavedSolutionDB
     from .preference import PreferenceDB
     from .problem import ProblemDB
     from .session import InteractiveSessionDB
-    from .gdm_base import Group
 
 
 class UserRole(str, Enum):

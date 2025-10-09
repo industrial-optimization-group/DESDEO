@@ -1,27 +1,24 @@
-"""Classes for group decision making, aggregating all different types of data classes
-from across the derived classes of BaseSolverResult
-"""
+"""Classes for group decision making, aggregating all different types of data classes."""
 
 import json
 
 from sqlalchemy.types import TypeDecorator
-from sqlmodel import SQLModel, Field, Relationship, JSON, Column
+from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
-from desdeo.api.models.gdm_base import BasePreferences
-from desdeo.api.models.gnimbus import VotingPreference, OptimizationPreference
+from desdeo.api.models.gdm.gdm_base import BasePreferences
+from desdeo.api.models.gdm.gnimbus import EndProcessPreference, OptimizationPreference, VotingPreference
 from desdeo.tools import SolverResults
 
 
 class PreferenceType(TypeDecorator):
-    """A converter of Preference/Result types"""
+    """A converter of Preference types."""
 
     impl = JSON
 
     # Serialize
     def process_bind_param(self, value, dialect):
         if isinstance(value, BasePreferences):
-            valmd = value.model_dump_json()
-            return valmd
+            return value.model_dump_json()
         return None
 
     # Deserialize
@@ -30,24 +27,24 @@ class PreferenceType(TypeDecorator):
         if jsoned is not None:
             match jsoned["method"]:
                 case "voting":
-                    valdeser = VotingPreference.model_validate(jsoned)
-                    return valdeser
+                    return VotingPreference.model_validate(jsoned)
                 case "optimization":
-                    valdeser = OptimizationPreference.model_validate(jsoned)
-                    return valdeser
+                    return OptimizationPreference.model_validate(jsoned)
                 # As the different methods are implemented, add new types
+                case "end":
+                    return EndProcessPreference.model_validate(jsoned)
                 case _:
-                    print(f"Unable to deserialize PreferenceResult with method {jsoned['method']}.")
+                    print(f"Unable to deserialize Preference with method {jsoned['method']}.")
                     return None
         return None
 
 
 class GroupBase(SQLModel):
-    """Base class for group table model and group response model"""
+    """Base class for group table model and group response model."""
 
 
 class Group(GroupBase, table=True):
-    """Table model for Group"""
+    """Table model for Group."""
 
     id: int | None = Field(primary_key=True, default=None)
     name: str | None = Field(default=None)
@@ -61,7 +58,7 @@ class Group(GroupBase, table=True):
 
 
 class GroupPublic(GroupBase):
-    """Response model for Group"""
+    """Response model for Group."""
 
     id: int
     name: str
@@ -71,7 +68,7 @@ class GroupPublic(GroupBase):
 
 
 class GroupIteration(SQLModel, table=True):
-    """Table model for Group Iteration (we could extend this in various ways)"""
+    """Table model for Group Iteration (we could extend this in various ways)."""
 
     id: int | None = Field(primary_key=True, default=None)
     problem_id: int | None = Field(default=None)
@@ -83,8 +80,6 @@ class GroupIteration(SQLModel, table=True):
     preferences: BasePreferences = Field(sa_column=Column(PreferenceType))
     notified: dict[int, bool] = Field(sa_column=Column(JSON))
 
-    # TODO: Add a state db item to contain the results. This should allow e.g. UTOPIA endpoints to function.
-    # I don't want a relation to StateDB so I feel this might be the way to do that
     state_id: int | None = Field()
 
     parent_id: int | None = Field(foreign_key="groupiteration.id", default=None)
@@ -98,22 +93,26 @@ class GroupIteration(SQLModel, table=True):
 
 
 class GroupInfoRequest(SQLModel):
+    """Class for requesting group information."""
+
     group_id: int
 
 
 class GroupResult(SQLModel):
+    """Class for group's result."""
+
     solver_results: list[SolverResults]
 
 
 class GroupModifyRequest(SQLModel):
-    """Used for adding a user into group and removing a user from group"""
+    """Used for adding a user into group and removing a user from group."""
 
     group_id: int
     user_id: int
 
 
 class GroupCreateRequest(SQLModel):
-    """Used for requesting a group to be created"""
+    """Used for requesting a group to be created."""
 
     group_name: str
     problem_id: int
