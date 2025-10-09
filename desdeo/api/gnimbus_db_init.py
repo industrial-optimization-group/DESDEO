@@ -23,16 +23,18 @@ user_list: list[(str, str)] = [
 ]
 group_name: str = "group_1"
 
+
 def login(username="analyst", password="analyst") -> str:  # noqa: S107
     """Login, returns the access token."""
     response_login = requests.post(
         f"{server_prefix}/login",
         data={"username": username, "password": password, "grant_type": "password"},
         headers={"content-type": "application/x-www-form-urlencoded"},
-        timeout=10
+        timeout=10,
     ).json()
 
     return response_login["access_token"]
+
 
 if __name__ == "__main__":
     if SettingsConfig.debug:
@@ -67,22 +69,13 @@ if __name__ == "__main__":
             session.commit()
             session.refresh(problem_db)
 
-        analyst_access_token = login(
-            ServerConfig.test_user_analyst_name,
-            ServerConfig.test_user_analyst_password
-        )
+        analyst_access_token = login(ServerConfig.test_user_analyst_name, ServerConfig.test_user_analyst_password)
 
         response = requests.post(
             url=f"{server_prefix}/gdm/create_group",
-            json=GroupCreateRequest(
-                group_name=group_name,
-                problem_id=problem_db.id
-            ).model_dump(),
-            headers={
-                "Authorization": f"Bearer {analyst_access_token}",
-                "content-type": "application/json"
-            },
-            timeout=10
+            json=GroupCreateRequest(group_name=group_name, problem_id=problem_db.id).model_dump(),
+            headers={"Authorization": f"Bearer {analyst_access_token}", "content-type": "application/json"},
+            timeout=10,
         )
 
         for i, user_item in enumerate(user_list):
@@ -92,22 +85,18 @@ if __name__ == "__main__":
                 url=f"{server_prefix}/add_new_dm",
                 data={"username": uname, "password": passw, "grant_type": "password"},
                 headers={"content-type": "application/x-www-form-urlencoded"},
-                timeout=10
+                timeout=10,
             )
 
             requests.post(
                 url=f"{server_prefix}/gdm/add_to_group",
                 json=GroupModifyRequest(
-                    group_id=1, # We assume of that this is the only group.
-                    user_id=i+2,
+                    group_id=1,  # We assume of that this is the only group.
+                    user_id=i + 2,
                 ).model_dump(),
-                headers={
-                    "Authorization": f"Bearer {analyst_access_token}",
-                    "content-type": "application/json"
-                },
-                timeout=10
+                headers={"Authorization": f"Bearer {analyst_access_token}", "content-type": "application/json"},
+                timeout=10,
             )
-
 
     else:
         # deployment stuff
