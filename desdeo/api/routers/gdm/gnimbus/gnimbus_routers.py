@@ -338,7 +338,7 @@ def full_iteration(
     return GNIMBUSAllIterationsResponse(all_full_iterations=full_iterations)
 
 
-@router.post("/switch_phase")
+@router.post("/toggle_phase")
 async def switch_phase(
     request: GNIMBUSSwitchPhaseRequest,
     user: Annotated[User, Depends(get_current_user)],

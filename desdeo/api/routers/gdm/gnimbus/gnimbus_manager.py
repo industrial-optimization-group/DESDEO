@@ -298,8 +298,9 @@ class GNIMBUSManager(GroupManager):
         problem_db: ProblemDB,
     ) -> OptimizationPreference | None:
         """Function to handle the ending path."""
+        logger.info(f"incoming data: {data}")
         try:
-            preference: bool = bool(data)
+            preference: bool = bool(int(data))
         except Exception:
             await self.send_message("Unable to validate sent data as an boolean value.", self.sockets[user_id])
             return None
