@@ -8,7 +8,7 @@
 import { writable, type Writable } from 'svelte/store';
 
 const BASE_URL = import.meta.env.VITE_API_URL;
-
+const wsBase = BASE_URL.replace(/^http/, 'ws');
 export class WebSocketService {
 	socket: WebSocket | null = null;
 	messageStore: Writable<string> = writable('');
@@ -24,7 +24,10 @@ export class WebSocketService {
 		if (this.socket) {
 			this.close();
 		}
-		const url = `${BASE_URL}/gdm/ws?group_id=${groupId}&method=${method}&token=${token}`;
+		console.log('BASE_URL:', BASE_URL);
+		console.log('wsBase:', wsBase);
+		const url = `${wsBase}/gdm/ws?group_id=${groupId}&method=${method}&token=${token}`;
+		console.log('WebSocket URL:', url);
 		this.socket = new WebSocket(url);
 
 		this.socket.addEventListener('open', () => {

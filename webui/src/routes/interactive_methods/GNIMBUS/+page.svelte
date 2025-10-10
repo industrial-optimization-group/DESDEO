@@ -66,7 +66,8 @@
 		Response,
 		Step,
 		PeriodKey,
-		MapState
+		MapState,
+		TableData
 	} from './types';
 
 	import { WebSocketService } from './websocket-store';
@@ -81,6 +82,8 @@
 		createVisualizationData,
 		createPreferenceData
 	} from './helper-functions';
+	import SolutionDisplay from './components/SolutionDisplay.svelte';
+	import EndStateView from './components/EndStateView.svelte';
 
 	let userId = $auth.user?.id;
 	// State for NIMBUS iteration management
@@ -417,7 +420,7 @@
 
 		// Try to get existing results from backend
 		const result = await getResultsAndUpdate(data.group.id);
-
+		console.log('Initial fetch result:', result);
 		// Initialize only if there are no results beforehand
 		if (!result?.success && result?.error === 'not_initialized') {
 			console.log('GNIMBUS not initialized, initializing...');
@@ -443,7 +446,7 @@
 	}
 
 	// Derived value for solution table data
-	let tableData = $derived.by(() =>
+	let tableData: TableData[] = $derived.by(() =>
 		solution_options.map((solution, i) => ({
 			state_id: solution.state_id,
 			solution_index: i,
@@ -565,40 +568,21 @@
 
 	{#snippet numericalValues()}
 		{#if problem && solution_options.length > 0}
-			<div class="flex h-full flex-col">
-				{#if step === 'voting' && isDecisionMaker}
-					{#if current_state.phase === 'decision'}
-						<div class="mb-2 flex-none">
-							<Button variant="default" onclick={() => handle_vote(1)}>
-								Select as the final solution
-							</Button>
-							<Button variant="destructive" onclick={() => handle_vote(0)}>
-								Continue to next iteration
-							</Button>
-						</div>
-					{:else}
-						<div class="mb-2 flex-none">
-							<Button
-								disabled={selected_voting_index === -1}
-								onclick={() => handle_vote(selected_voting_index)}>Vote</Button
-							>
-						</div>
-					{/if}
-				{/if}
-				<div class="min-h-0 flex-1">
-					<SolutionTable
-						{problem}
-						personalResultIndex={current_state.personal_result_index}
-						solverResults={tableData}
-						selectedSolutions={[selected_voting_index]}
-						savingEnabled={false}
-						handle_row_click={handle_solution_click}
-						selected_type_solutions={'current'}
-						previousObjectiveValuesType="user_results"
-						previousObjectiveValues={previousValues}
-					/>
-				</div>
-			</div>
+			{#if step === 'finish'}
+				<EndStateView {problem} {tableData} />
+			{:else}
+				<SolutionDisplay
+					{problem}
+					{step}
+					{current_state}
+					{tableData}
+					{selected_voting_index}
+					{previousValues}
+					{isDecisionMaker}
+					onVote={handle_vote}
+					onRowClick={handle_solution_click}
+				/>
+			{/if}
 		{/if}
 	{/snippet}
 </BaseLayout>
