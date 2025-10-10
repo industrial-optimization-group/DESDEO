@@ -1,56 +1,50 @@
 <script lang="ts">
 	import { api } from '$lib/api/client';
+	import { loginLoginPost } from '$lib/gen/endpoints/dESDEOFastAPI';
+	import {
+		type loginLoginPostResponse,
+		getCurrentUserInfoUserInfoGet
+	} from '$lib/gen/endpoints/dESDEOFastAPI';
+	import type { BodyLoginLoginPost, Tokens } from '$lib/gen/models';
 	import { goto } from '$app/navigation';
 	import { auth } from '../../stores/auth';
-	import { tick } from 'svelte';
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import GalleryVerticalEndIcon from '@lucide/svelte/icons/orbit';
 	import main_image from '$lib/assets/main.jpg';
-	import { setTime } from 'effect/TestClock';
+	import { get } from 'svelte/store';
 
 	let username = ''; // from login form
 	let password = '';
 	let loginError: string | null = null; // whether login is successful or not
 
 	async function handleLogin() {
-		const res = await api.POST('/login', {
-			// @ts-ignore
-			body: new URLSearchParams({
-				// type not really matched, but it is what it is here (not worth fixing right now)
-				username,
-				password,
-				scope: ''
-			}),
-			headers: {
-				'Content-Type': 'application/x-www-form-urlencoded'
-			},
-			credentials: 'include'
-		});
+		const body: BodyLoginLoginPost = {
+			username: username,
+			password: password,
+			scope: ''
+		};
+		const options: RequestInit = { credentials: 'include' }; // stores the refresh token as a cookie
 
-		const token = res.data?.access_token;
-		// check if login ok
-		if (!token) {
+		const new_res = await loginLoginPost(body, undefined, options);
+
+		if (new_res.status !== 200) {
+			// login not ok
 			loginError = 'Invalid username or password';
 			return;
 		}
 
-		// need to set token to be available, even if user not known yet
-		auth.setAuth(token, null);
+		const new_tokens: Tokens = new_res.data;
 
-		const userRes = await api.GET('/user_info');
-
-		// check is user data can be fetched
-		if (!userRes.data) {
-			loginError = 'Could not fetch user info';
-			auth.clearAuth();
-			return;
-		}
+		const userRes = await getCurrentUserInfoUserInfoGet({
+			headers: { Authorization: `Bearer ${new_tokens.access_token}` }
+		});
 
 		// user info available, update that as well
-		auth.setAuth(token, userRes.data);
+		auth.setAuth(new_tokens.access_token, userRes.data);
 
+		// if redirection does not work, it is likely because the refresh token is not set properly
 		goto('/dashboard');
 	}
 </script>
