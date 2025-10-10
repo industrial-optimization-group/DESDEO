@@ -66,6 +66,13 @@
 		class="flex flex-1 flex-col justify-end gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6"
 	>
 		<DropdownMenu.Root>
+			<a
+				href="/groups"
+				class="text-primary-foreground hover:text-secondary flex items-center gap-1 transition-colors"
+			>
+				<Archive class="h-4 w-4" />
+				Groups
+			</a>
 			<DropdownMenu.Trigger>
 				<span
 					class="text-primary-foreground hover:text-secondary flex items-center gap-1 transition-colors hover:cursor-pointer"
