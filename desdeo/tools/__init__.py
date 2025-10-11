@@ -4,6 +4,7 @@ __all__ = [
     "BaseSolver",
     "BonminOptions",
     "IpoptOptions",
+    "GurobipyOptions",
     "GurobipySolver",
     "NevergradGenericOptions",
     "NevergradGenericSolver",
@@ -56,6 +57,7 @@ __all__ = [
 
 from desdeo.tools.generics import BaseSolver, SolverOptions, SolverResults
 from desdeo.tools.gurobipy_solver_interfaces import (
+    GurobipyOptions,
     GurobipySolver,
     PersistentGurobipySolver,
 )
