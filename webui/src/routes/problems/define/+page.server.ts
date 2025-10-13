@@ -379,3 +379,15 @@ export const actions: Actions = {
     }
   };
 */
+
+import { addProblemProblemAddPostResponse } from "$lib/gen/endpoints/dESDEOFastAPIzod";
+import { superValidate } from 'sveltekit-superforms';
+import { zod4 } from 'sveltekit-superforms/adapters';
+
+const problemSchema = addProblemProblemAddPostResponse;
+
+export const load: PageServerLoad = async () => {
+  const form = await superValidate(zod4(problemSchema));
+
+  return { form };
+}

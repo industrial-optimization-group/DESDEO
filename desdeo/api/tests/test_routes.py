@@ -1,8 +1,9 @@
 """Tests related to routes and routers."""
 
+import io
 import json
 
-from fastapi import status
+from fastapi import UploadFile, status
 from fastapi.testclient import TestClient
 from websockets.asyncio.client import connect
 
@@ -31,6 +32,7 @@ from desdeo.api.models import (
     NIMBUSIntermediateSolutionResponse,
     NIMBUSSaveRequest,
     NIMBUSSaveResponse,
+    ProblemAddFromJSONRequest,
     ProblemGetRequest,
     ProblemInfo,
     ProblemSelectSolverRequest,
@@ -49,7 +51,7 @@ from desdeo.emo.options.algorithms import nsga3_options, rvea_options
 from desdeo.emo.options.templates import ReferencePointOptions
 from desdeo.problem.testproblems import simple_knapsack_vectors
 
-from .conftest import get_json, login, post_json
+from .conftest import get_json, login, post_file_multipart, post_json
 
 
 def test_user_login(client: TestClient):
@@ -155,6 +157,18 @@ def test_add_problem(client: TestClient):
     problems = response.json()
 
     assert len(problems) == 3
+
+
+def test_add_problem_json(client: TestClient):
+    """Test that adding a problem to the database works with JSON files."""
+    access_token = login(client)
+
+    payload = {"name": "Test File", "version": 1}
+    raw = json.dumps(payload).encode("utf-8")
+
+    response = post_file_multipart(client, "/problem/add_json", raw, access_token)
+
+    print()
 
 
 def test_new_session(client: TestClient, session_and_user: dict):

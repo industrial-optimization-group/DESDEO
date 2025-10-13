@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, status
 from fastapi.responses import JSONResponse
 from sqlmodel import Session, select
 
@@ -152,6 +152,15 @@ def add_problem(
     session.refresh(problem_db)
 
     return problem_db
+
+
+@router.post("/add_json")
+def add_problem_json(
+    json_file: UploadFile,
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)],
+):
+    raw = json_file.read()
 
 
 @router.post("/get_metadata")
