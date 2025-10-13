@@ -1,5 +1,7 @@
 """General fixtures for API tests are defined here."""
 
+import io
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine
@@ -98,6 +100,17 @@ def post_json(client: TestClient, endpoint: str, json: dict, access_token: str):
         endpoint,
         json=json,
         headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
+    )
+
+
+def post_file_multipart(
+    client: TestClient, endpoint: str, file_bytes: bytes, access_token: str, filename: str = "test.json"
+):
+    """Makes a post request with an uploaded file and returns the response."""
+    return client.post(
+        endpoint,
+        files={"json_file": (filename, io.BytesIO(file_bytes), "application/json")},
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
 
