@@ -5,8 +5,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from desdeo.api.config import AuthConfig
 from desdeo.api.routers import (
-    gdm_aggregate,
-    gdm_base,
     EMO,
     generic,
     nimbus,
@@ -14,9 +12,10 @@ from desdeo.api.routers import (
     reference_point_method,
     session,
     user_authentication,
-    gnimbus,
     utopia,
 )
+from desdeo.api.routers.gdm import gdm_aggregate, gdm_base
+from desdeo.api.routers.gdm.gnimbus import gnimbus_routers
 
 app = FastAPI(
     title="DESDEO (fast)API",
@@ -32,6 +31,11 @@ app.include_router(nimbus.router)
 # app.include_router(EMO.router) #TODO: after EMO stuff works, put it to use again
 app.include_router(generic.router)
 app.include_router(utopia.router)
+app.include_router(gdm_base.router)
+app.include_router(gdm_aggregate.router)
+app.include_router(gnimbus_routers.router)
+
+
 
 origins = AuthConfig.cors_origins
 

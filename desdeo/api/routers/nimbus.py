@@ -31,6 +31,7 @@ from desdeo.api.models import (
 from desdeo.api.models.generic import SolutionInfo
 from desdeo.api.models.state import IntermediateSolutionState
 from desdeo.api.routers.generic import solve_intermediate
+from desdeo.api.routers.problem import check_solver
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.mcdm.nimbus import generate_starting_point, solve_sub_problems
 from desdeo.problem import Problem
@@ -42,7 +43,6 @@ router = APIRouter(prefix="/method/nimbus")
 # helper for collecting solutions
 def filter_duplicates(solutions: list[SavedSolutionReference]) -> list[SavedSolutionReference]:
     """Filters out the duplicate values of objectives."""
-
     # No solutions or only one solution. There can not be any duplicates.
     if len(solutions) < 2:
         return solutions
@@ -133,6 +133,8 @@ def solve_solutions(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Problem with id={request.problem_id} could not be found."
         )
 
+    solver = check_solver(problem_db=problem_db)
+
     problem = Problem.from_problemdb(problem_db)
 
     # fetch parent state
@@ -160,7 +162,7 @@ def solve_solutions(
         reference_point=request.preference.aspiration_levels,
         num_desired=request.num_desired,
         scalarization_options=request.scalarization_options,
-        solver=request.solver,
+        solver=solver,
         solver_options=request.solver_options,
     )
 
@@ -190,7 +192,7 @@ def solve_solutions(
 
     # Collect all current solutions
     current_solutions: list[SolutionReference] = []
-    for i, result in enumerate(solver_results):
+    for i, _ in enumerate(solver_results):
         current_solutions.append(SolutionReference(state=state, solution_index=i))
 
     saved_solutions = collect_saved_solutions(user, request.problem_id, session)
@@ -238,6 +240,8 @@ def initialize(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Problem with id={request.problem_id} could not be found."
         )
 
+    solver = check_solver(problem_db=problem_db)
+
     problem = Problem.from_problemdb(problem_db)
 
     if isinstance(ref_point := request.starting_point, ReferencePoint):
@@ -265,7 +269,7 @@ def initialize(
         problem=problem,
         reference_point=starting_point,
         scalarization_options=request.scalarization_options,
-        solver=request.solver,
+        solver=solver,
         solver_options=request.solver_options,
     )
 
@@ -435,6 +439,7 @@ def solve_nimbus_intermediate(
         all_solutions=all_solutions,
     )
 
+
 @router.post("/get-or-initialize")
 def get_or_initialize(
     request: NIMBUSInitializationRequest,
@@ -470,8 +475,9 @@ def get_or_initialize(
     # Find the latest relevant state (NIMBUS classification, initialization, or intermediate with NIMBUS context)
     latest_state = None
     for state in states:
-        if (isinstance(state.state, (NIMBUSClassificationState | NIMBUSInitializationState)) or
-            (isinstance(state.state, IntermediateSolutionState) and state.state.context == "nimbus")):
+        if isinstance(state.state, (NIMBUSClassificationState | NIMBUSInitializationState)) or (
+            isinstance(state.state, IntermediateSolutionState) and state.state.context == "nimbus"
+        ):
             latest_state = state
             break
 
@@ -481,8 +487,9 @@ def get_or_initialize(
         # Handle both single result and list of results cases
         solver_results = latest_state.state.solver_results
         if isinstance(solver_results, list):
-            current_solutions = [SolutionReference(state=latest_state, solution_index=i)
-                               for i in range(len(solver_results))]
+            current_solutions = [
+                SolutionReference(state=latest_state, solution_index=i) for i in range(len(solver_results))
+            ]
         else:
             # Single result case (NIMBUSInitializationState)
             current_solutions = [SolutionReference(state=latest_state, solution_index=0)]
@@ -497,7 +504,6 @@ def get_or_initialize(
                 all_solutions=all_solutions,
             )
 
-
         if isinstance(latest_state.state, IntermediateSolutionState):
             return NIMBUSIntermediateSolutionResponse(
                 state_id=latest_state.id,
@@ -507,7 +513,7 @@ def get_or_initialize(
                 saved_solutions=saved_solutions,
                 all_solutions=all_solutions,
             )
-            
+
         # NIMBUSInitializationState
         return NIMBUSInitializationResponse(
             state_id=latest_state.id,

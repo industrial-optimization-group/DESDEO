@@ -9,13 +9,13 @@ from sqlmodel import Session, select
 from desdeo.api.db import get_session
 from desdeo.api.models import (
     ForestProblemMetaData,
+    NIMBUSInitializationState,
+    NIMBUSSaveState,
     ProblemMetaDataDB,
     StateDB,
     User,
     UtopiaRequest,
     UtopiaResponse,
-    NIMBUSInitializationState,
-    NIMBUSSaveState
 )
 from desdeo.api.routers.user_authentication import get_current_user
 
@@ -28,10 +28,11 @@ def get_utopia_data(
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
 ) -> UtopiaResponse:
-    """Request and receive the Utopia map corresponding to the decision variables sent. Can be just the optimal_variables form a SolverResult.
+    """Request and receive the Utopia map corresponding to the decision variables sent.
 
     Args:
-        request (UtopiaRequest): the set of decision variables and problem for which the utopia forest map is requested for.
+        request (UtopiaRequest): the set of decision variables and problem for which the utopia forest map is requested
+        for.
         user (Annotated[User, Depend(get_current_user)]) the current user
         session (Annotated[Session, Depends(get_session)]) the current database session
     Raises:
@@ -67,14 +68,14 @@ def get_utopia_data(
             return empty_response
         decision_variables = result.optimal_variables  # expects a list of variables, won't work without.
 
-
     from_db_metadata = session.exec(
         select(ProblemMetaDataDB).where(ProblemMetaDataDB.problem_id == request.problem_id)
     ).first()
     if from_db_metadata is None:
         return empty_response
 
-    # Get the last instance of forest related metadata from the database. If for some reason there's more than one forest metadata, return the latest.
+    # Get the last instance of forest related metadata from the database.
+    # If for some reason there's more than one forest metadata, return the latest.
     forest_metadata: ForestProblemMetaData = [
         metadata for metadata in from_db_metadata.all_metadata if metadata.metadata_type == "forest_problem_metadata"
     ][-1]
@@ -212,9 +213,9 @@ def get_utopia_data(
 
     # Let's also generate a nice description for the map
     map_description = (
-        f"Income from harvesting in the first period {int(decision_variables['P_1'])}€.\n"  # Will complain about P_X if there is no P_X.
-        + f"Income from harvesting in the second period {int(decision_variables['P_2'])}€.\n"  # See the comment about what is expected
-        + f"Income from harvesting in the third period {int(decision_variables['P_3'])}€.\n"  # from the UtopiaRequest.
+        f"Income from harvesting in the first period {int(decision_variables['P_1'])}€.\n"
+        + f"Income from harvesting in the second period {int(decision_variables['P_2'])}€.\n"
+        + f"Income from harvesting in the third period {int(decision_variables['P_3'])}€.\n"
         + f"The discounted value of the remaining forest at the end of the plan {int(decision_variables['V_end'])}€."
     )
 

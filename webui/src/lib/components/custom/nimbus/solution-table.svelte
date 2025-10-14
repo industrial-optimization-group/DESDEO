@@ -9,7 +9,7 @@
 	 * This component renders a table of solutions for the NIMBUS interactive multiobjective optimization method.
 	 * It displays objective values for solutions and allows for selecting, renaming, saving, and removing solutions.
 	 * The table adapts its display based on the current view mode (current, best, or all solutions).
-	 * 
+	 *
 	 * @props
 	 * @property {ProblemInfo} problem - The current optimization problem.
 	 * @property {Solution[]} solverResults - The solutions to display in the table.
@@ -21,6 +21,7 @@
 	 * @property {Function} isSaved - Function to check if a solution is already saved.
 	 * @property {string} [selected_type_solutions="current"] - The current view mode ("current", "best", "all").
 	 * @property {{ [key: string]: number }[]} [previousObjectiveValues=[]] - Previous objective values for comparison.
+	 * @property {string} [previousObjectiveValuesType="previous"] - Type of previous objective values ("previous" in NIMBUS, "user_results" in GNIMBUS. Depending on type, different component is rendered).
 	 *
 	 * @features
 	 * - Displays solution names and objective values in a sortable, filterable table.
@@ -49,190 +50,208 @@
 	 * - The component works with the NIMBUS method implementation in DESDEO.
 	 * - Number formatting respects the problem's precision requirements.
 	 */
-    import {
-        type ColumnDef,
-        type RowSelectionState,
-        type Column,
-        type Row,
-        type ColumnFiltersState,
-        type PaginationState,
-        type SortingState,
-        type VisibilityState,
-        type Table as TableType,
-        getCoreRowModel,
-        getFacetedRowModel,
-        getFacetedUniqueValues,
-        getFilteredRowModel,
-        getPaginationRowModel,
-        getSortedRowModel,
-    } from '@tanstack/table-core';
-    import { createSvelteTable } from '$lib/components/ui/data-table/data-table.svelte.js';
-    import FlexRender from '$lib/components/ui/data-table/flex-render.svelte';
-    import * as Table from '$lib/components/ui/table/index.js';
-    import { renderSnippet } from '$lib/components/ui/data-table/render-helpers.js';
-    import { Button } from '$lib/components/ui/button';
-    import type { components } from '$lib/api/client-types';
-    import { getDisplayAccuracy, formatNumber } from '$lib/helpers';
-    import { COLOR_PALETTE } from '$lib/components/visualizations/utils/colors.js';
-    import PenIcon from '@lucide/svelte/icons/pen';
-    import BookmarkIcon from '@lucide/svelte/icons/bookmark';
-    import type { HTMLAttributes } from 'svelte/elements';
-    import { cn } from '$lib/utils.js';
-    import * as Select from '$lib/components/ui/select/index.js';
-    import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-    import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
-    import ChevronsLeftIcon from '@lucide/svelte/icons/chevrons-left';
-    import ChevronsRightIcon from '@lucide/svelte/icons/chevrons-right';
-    import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
-    import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
-    import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
+	import {
+		type ColumnDef,
+		type Column,
+		type Row,
+		type ColumnFiltersState,
+		type PaginationState,
+		type SortingState,
+		type VisibilityState,
+		type Table as TableType,
+		getCoreRowModel,
+		getFacetedRowModel,
+		getFacetedUniqueValues,
+		getFilteredRowModel,
+		getPaginationRowModel,
+		getSortedRowModel
+	} from '@tanstack/table-core';
+	import { createSvelteTable } from '$lib/components/ui/data-table/data-table.svelte.js';
+	import FlexRender from '$lib/components/ui/data-table/flex-render.svelte';
+	import * as Table from '$lib/components/ui/table/index.js';
+	import { renderSnippet } from '$lib/components/ui/data-table/render-helpers.js';
+	import { Button } from '$lib/components/ui/button';
+	import type { components } from '$lib/api/client-types';
+	import { getDisplayAccuracy, formatNumber } from '$lib/helpers';
+	import { COLOR_PALETTE } from '$lib/components/visualizations/utils/colors.js';
+	import PenIcon from '@lucide/svelte/icons/pen';
+	import BookmarkIcon from '@lucide/svelte/icons/bookmark';
+	import type { HTMLAttributes } from 'svelte/elements';
+	import { cn } from '$lib/utils.js';
+	import * as Select from '$lib/components/ui/select/index.js';
+	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
+	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
+	import ChevronsLeftIcon from '@lucide/svelte/icons/chevrons-left';
+	import ChevronsRightIcon from '@lucide/svelte/icons/chevrons-right';
+	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
+	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
+	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
 	import DataTableToolbar from './solution-table-toolbar.svelte';
+	import PreviousSolutions from './solution-table-prev-solutions.svelte';
+	import UserResults from './solution-table-gdm-user-results.svelte';
 
-    // Types matching your original solution-table
-    type ProblemInfo = components['schemas']['ProblemInfo'];
-    type Solution = components['schemas']['SolutionReferenceResponse'];
-    
-    // Props matching your original solution-table for compatibility
-    let {
-        problem,
-        solverResults,
-        selectedSolutions,
-        handle_save,
-        handle_change,
-        handle_row_click,
-        handle_remove_saved,
-        isSaved,
-        selected_type_solutions = "current",
-        previousObjectiveValues = [],
-        isFrozen = false,
-    }: {
-        problem: ProblemInfo;
-        solverResults: Array<Solution>;
-        selectedSolutions: number[];
-        handle_save: (solution: Solution, name:string|undefined) => void;
-        handle_change: (solution: Solution) => void;
-        handle_row_click: (index:number) => void;
-        handle_remove_saved?: (solution: Solution) => void;
-        isSaved: (solution: Solution) => boolean;
-        selected_type_solutions?: string;
-        previousObjectiveValues?: { [key: string]: number }[];
-        isFrozen?: boolean;
-    } = $props();
+	// Types matching your original solution-table
+	type ProblemInfo = components['schemas']['ProblemInfo'];
+	type Solution = components['schemas']['SolutionReferenceResponse'];
 
-    // Get the display accuracy
-    let displayAccuracy = $derived(() => getDisplayAccuracy(problem));
+	// Props matching your original solution-table for compatibility
+	let {
+		problem,
+		solverResults,
+		selectedSolutions,
+		handle_save = () => {},
+		handle_change = () => {},
+		handle_row_click,
+		handle_remove_saved = () => {},
+		isSaved = () => false,
+		savingEnabled = true,
+		selected_type_solutions = 'current',
+		previousObjectiveValues = [],
+		previousObjectiveValuesType = 'previous', // "previous" in nimbus, but in gnimbus it's "user_results"
+		isFrozen = false,
+		personalResultIndex
+	}: {
+		problem: ProblemInfo;
+		solverResults: Array<Solution>;
+		selectedSolutions: number[];
+		handle_save?: (solution: Solution, name: string | undefined) => void;
+		handle_change?: (solution: Solution) => void;
+		handle_row_click: (index: number) => void;
+		handle_remove_saved?: (solution: Solution) => void;
+		isSaved?: (solution: Solution) => boolean;
+		savingEnabled?: boolean;
+		selected_type_solutions?: string;
+		previousObjectiveValues?: { [key: string]: number }[];
+		previousObjectiveValuesType?: string;
+		isFrozen?: boolean;
+		personalResultIndex?: number | null;
+	} = $props();
 
-    let columnVisibility = $state<VisibilityState>({});
-    let columnFilters = $state<ColumnFiltersState>([]);
-    let sorting = $state<SortingState>([]);
-    let pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 5 });
+	// Get the display accuracy
+	let displayAccuracy = $derived(() => getDisplayAccuracy(problem));
 
-    // Define columns for the table
-    const columns: ColumnDef<Solution>[] = $derived.by(() => {
-        return [
-            // First column - Bookmark/Save icon
-            {
-                accessorKey: 'saved',
-                header: ({column}) => renderSnippet(ColumnHeader, { column, title: '' }),
-                cell: ({row}) => renderSnippet(SavedCell, { solution: row.original, rowIndex: row.index }),
-                enableSorting: false
-            },
-            // Second column - Solution name
-            {
-                accessorKey: 'name',
-                header: ({column}) => renderSnippet(ColumnHeader, { column, title: 'Name (optional)' }),
-                cell: ({row}) => renderSnippet(NameCell, { solution: row.original }),
-                enableSorting: true,
-                sortUndefined: "last"
-            },
-            // Third column - Edit button (if saved)
-            {
-                accessorKey: 'edit',
-                header: ({column}) => renderSnippet(ColumnHeader, { column, title: '' }),
-                cell: ({row}) => renderSnippet(EditCell, { solution: row.original }),
-                enableSorting: false
-            },
-            // Fourth column - Iteration (only visible when not "current")
-            ...(selected_type_solutions !== "current" ? [{
-                accessorKey: 'address_state',
-                header: ({ column }: { column: Column<Solution> }) => renderSnippet(ColumnHeader, { column, title: 'Iteration' }),
-                cell: ({ row }: { row: Row<Solution> }) => renderSnippet(IterationCell, { solution: row.original }),
-                enableSorting: true
-            }] : []),
-            // Add columns for each objective
-            ...problem.objectives.map((objective, idx) => ({
-                accessorKey: `objective_values.${objective.symbol}`,
-                header: ({ column }: { column: Column<Solution> }) => renderSnippet(ColumnHeader, {column, objective, idx}),
-                cell: ({ row }: { row: Row<Solution> }) => renderSnippet(ObjectiveCell, {value: row.original.objective_values?.[objective.symbol], accuracy: displayAccuracy()}),
-                enableSorting: true
-            }))
-        ];
-    });
+	let columnVisibility = $state<VisibilityState>({});
+	let columnFilters = $state<ColumnFiltersState>([]);
+	let sorting = $state<SortingState>([]);
+	let pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 5 });
 
-    // Create the table
-    const table = createSvelteTable({
-        get data() {
-            return solverResults || [];
-        },
-        get columns() {
-            return columns;
-        },
-        state: {
-            get sorting() {
-                return sorting;
-            },
-            get columnVisibility() {
-                return columnVisibility;
-            },
-            get columnFilters() {
-                return columnFilters;
-            },
-            get pagination() {
-                return pagination;
-            }
-        },
-        onSortingChange: (updater) => {
-            if (typeof updater === 'function') {
-                sorting = updater(sorting);
-            } else {
-                sorting = updater;
-            }
-        },
-        onColumnFiltersChange: (updater) => {
-            if (typeof updater === 'function') {
-                columnFilters = updater(columnFilters);
-            } else {
-                columnFilters = updater;
-            }
-        },
-        onColumnVisibilityChange: (updater) => {
-            if (typeof updater === 'function') {
-                columnVisibility = updater(columnVisibility);
-            } else {
-                columnVisibility = updater;
-            }
-        },
-        onPaginationChange: (updater) => {
-            if (typeof updater === 'function') {
-                pagination = updater(pagination);
-            } else {
-                pagination = updater;
-            }
-        },
-        enableRowSelection: true,
-        enableMultiRowSelection: true,
-        getCoreRowModel: getCoreRowModel(),
-        getFilteredRowModel: getFilteredRowModel(),
-        getPaginationRowModel: getPaginationRowModel(),
-        getSortedRowModel: getSortedRowModel(),
-        getFacetedRowModel: getFacetedRowModel(),
-        getFacetedUniqueValues: getFacetedUniqueValues()
-    });
+	// Define columns for the table
+	const columns: ColumnDef<Solution>[] = $derived.by(() => {
+		return [
+			// First column - Bookmark/Save icon
+			{
+				accessorKey: 'saved',
+				header: ({ column }) => renderSnippet(ColumnHeader, { column, title: '' }),
+				cell: ({ row }) =>
+					renderSnippet(SavedCell, { solution: row.original, rowIndex: row.index }),
+				enableSorting: false
+			},
+			// Second column - Solution name
+			{
+				accessorKey: 'name',
+				header: ({ column }) => renderSnippet(ColumnHeader, { column, title: 'Name (optional)' }),
+				cell: ({ row }) => renderSnippet(NameCell, { solution: row.original }),
+				enableSorting: true,
+				sortUndefined: 'last'
+			},
+			// Third column - Edit button (if saved)
+			{
+				accessorKey: 'edit',
+				header: ({ column }) => renderSnippet(ColumnHeader, { column, title: '' }),
+				cell: ({ row }) => renderSnippet(EditCell, { solution: row.original }),
+				enableSorting: false
+			},
+			// Fourth column - Iteration (only visible when not "current")
+			...(selected_type_solutions !== 'current'
+				? [
+						{
+							accessorKey: 'address_state',
+							header: ({ column }: { column: Column<Solution> }) =>
+								renderSnippet(ColumnHeader, { column, title: 'Iteration' }),
+							cell: ({ row }: { row: Row<Solution> }) =>
+								renderSnippet(IterationCell, { solution: row.original }),
+							enableSorting: true
+						}
+					]
+				: []),
+			// Add columns for each objective
+			...problem.objectives.map((objective, idx) => ({
+				accessorKey: `objective_values.${objective.symbol}`,
+				header: ({ column }: { column: Column<Solution> }) =>
+					renderSnippet(ColumnHeader, { column, objective, idx }),
+				cell: ({ row }: { row: Row<Solution> }) =>
+					renderSnippet(ObjectiveCell, {
+						value: row.original.objective_values?.[objective.symbol],
+						accuracy: displayAccuracy()
+					}),
+				enableSorting: true
+			}))
+		];
+	});
 
-    function isFirstCell(cellIndex: number) {
-        return cellIndex === 0;
-    }
+	// Create the table
+	const table = createSvelteTable({
+		get data() {
+			return solverResults || [];
+		},
+		get columns() {
+			return columns;
+		},
+		state: {
+			get sorting() {
+				return sorting;
+			},
+			get columnVisibility() {
+				return columnVisibility;
+			},
+			get columnFilters() {
+				return columnFilters;
+			},
+			get pagination() {
+				return pagination;
+			}
+		},
+		onSortingChange: (updater) => {
+			if (typeof updater === 'function') {
+				sorting = updater(sorting);
+			} else {
+				sorting = updater;
+			}
+		},
+		onColumnFiltersChange: (updater) => {
+			if (typeof updater === 'function') {
+				columnFilters = updater(columnFilters);
+			} else {
+				columnFilters = updater;
+			}
+		},
+		onColumnVisibilityChange: (updater) => {
+			if (typeof updater === 'function') {
+				columnVisibility = updater(columnVisibility);
+			} else {
+				columnVisibility = updater;
+			}
+		},
+		onPaginationChange: (updater) => {
+			if (typeof updater === 'function') {
+				pagination = updater(pagination);
+			} else {
+				pagination = updater;
+			}
+		},
+		enableRowSelection: true,
+		enableMultiRowSelection: true,
+		getCoreRowModel: getCoreRowModel(),
+		getFilteredRowModel: getFilteredRowModel(),
+		getPaginationRowModel: getPaginationRowModel(),
+		getSortedRowModel: getSortedRowModel(),
+		getFacetedRowModel: getFacetedRowModel(),
+		getFacetedUniqueValues: getFacetedUniqueValues()
+	});
 
+	function isFirstCell(cellIndex: number) {
+		return cellIndex === 0;
+	}
 </script>
 
 <!-- there is only 2 small changes to Pagination in comparison to dataTable: the selectedSolutions and TableType<Solution> -->
@@ -312,205 +331,233 @@
 {/snippet}
 
 <!-- Cell rendering snippets -->
-{#snippet SavedCell({ solution, rowIndex }: { solution: Solution, rowIndex: number })}
-    <div class="w-10">
-        {#if !isFrozen && isSaved(solution)}
-            <Button 
-                size="icon"
-                variant="ghost"
-                class="flex justify-center text-green-600 hover:text-green-700 transition-colors mx-auto"
-                title="Click to remove from saved solutions"
-                aria-label="Remove from saved solutions"
-                onclick={(e) => {
-                    e.stopPropagation(); // Prevent row click
-                    if (handle_remove_saved) {
-                        handle_remove_saved(solution);
-                    }
-                }}
-            >
-                <BookmarkIcon class="h-4 w-4 fill-current" />
-            </Button>
-        {:else if !isFrozen}
-            <Button
-                size="icon"
-                variant="ghost"
-                class="flex justify-center text-gray-500 hover:text-gray-700 transition-colors mx-auto"
-                title="Click to save this solution"
-                aria-label="Save this solution"
-                onclick={(e) => {
-                    e.stopPropagation(); // Prevent row click
-                    handle_save(solution, undefined);
-                }}
-            >
-                <BookmarkIcon class="h-4 w-4 fill-current" />
-            </Button>
-        {/if}
-    </div>
+{#snippet SavedCell({ solution, rowIndex }: { solution: Solution; rowIndex: number })}
+	<div class="w-10">
+		{#if savingEnabled}
+			{#if !isFrozen && isSaved(solution)}
+				<Button
+					size="icon"
+					variant="ghost"
+					class="mx-auto flex justify-center text-green-600 transition-colors hover:text-green-700"
+					title="Click to remove from saved solutions"
+					aria-label="Remove from saved solutions"
+					onclick={(e) => {
+						e.stopPropagation(); // Prevent row click
+						if (handle_remove_saved) {
+							handle_remove_saved(solution);
+						}
+					}}
+				>
+					<BookmarkIcon class="h-4 w-4 fill-current" />
+				</Button>
+			{:else if !isFrozen}
+				<Button
+					size="icon"
+					variant="ghost"
+					class="mx-auto flex justify-center text-gray-500 transition-colors hover:text-gray-700"
+					title="Click to save this solution"
+					aria-label="Save this solution"
+					onclick={(e) => {
+						e.stopPropagation(); // Prevent row click
+						handle_save(solution, undefined);
+					}}
+				>
+					<BookmarkIcon class="h-4 w-4 fill-current" />
+				</Button>
+			{/if}
+		{:else}
+			<div class="h-4 w-4"></div>
+			<!-- Empty div to maintain spacing -->
+		{/if}
+	</div>
 {/snippet}
 
 {#snippet NameCell({ solution }: { solution: Solution })}
-    <div>
-        {#if solution.name}
-            {solution.name}
-        {:else}
-            <span class="text-gray-400">Solution {solution.solution_index!== null ? (solution.solution_index+1) : ""}</span>
-        {/if}
-    </div>
+	<div>
+		{#if solution.name}
+			{solution.name}
+		{:else}
+			<span class="text-gray-400"
+				>Solution {solution.solution_index !== null ? solution.solution_index + 1 : ''}</span
+			>
+		{/if}
+	</div>
 {/snippet}
 
 {#snippet EditCell({ solution }: { solution: Solution })}
-    {#if !isFrozen && isSaved(solution)}
-        <Button 
-            size="icon"
-            onclick={(e) => {
-                e.stopPropagation(); // Prevent row click
-                handle_change(solution);
-            }}
-            variant="ghost"
-            class="h-8 w-8"
-            title="Rename solution"
-        >
-            <PenIcon class="h-4 w-4" />
-            <span class="sr-only">Rename solution</span>
-        </Button>
-    {/if}
+	{#if !isFrozen && isSaved(solution)}
+		<Button
+			size="icon"
+			onclick={(e) => {
+				e.stopPropagation(); // Prevent row click
+				handle_change(solution);
+			}}
+			variant="ghost"
+			class="h-8 w-8"
+			title="Rename solution"
+		>
+			<PenIcon class="h-4 w-4" />
+			<span class="sr-only">Rename solution</span>
+		</Button>
+	{/if}
 {/snippet}
 
 {#snippet IterationCell({ solution }: { solution: Solution })}
-        {solution.state_id}
+	{solution.state_id}
 {/snippet}
 
-{#snippet ObjectiveCell({ value, accuracy }: { value: number | null | undefined, accuracy: number })}
-    <div class="text-right pr-4">
-        {value != null ? formatNumber(value, accuracy) : '-'}
-    </div>
+{#snippet ObjectiveCell({
+	value,
+	accuracy
+}: {
+	value: number | null | undefined;
+	accuracy: number;
+})}
+	<div class="pr-4 text-right">
+		{value != null ? formatNumber(value, accuracy) : '-'}
+	</div>
 {/snippet}
 
-{#snippet ColumnHeader({ column, title, objective, idx, class: className, ...restProps }: { column: Column<Solution>, title?: string, objective?: any, idx?: number } & HTMLAttributes<HTMLDivElement>)}
-    {#if !column?.getCanSort() || isFrozen}
-        <!-- Non-sortable column header -->
-        <div 
-            class={cn('px-2 py-1', className)} 
-            style={objective ? `border-bottom: 4px solid ${COLOR_PALETTE[(idx ?? 0) % COLOR_PALETTE.length]}; width: 100%; padding: 0.5rem;` : ''}
-            {...restProps}
-        >
-            {#if objective}
-                {objective.symbol} {objective.unit ? `/ ${objective.unit}` : ''}({objective.maximize ? 'max' : 'min'})
-            {:else if title}
-                {title}
-            {/if}
-        </div>
-    {:else}
-        <!-- Sortable column header -->
-        <div 
-            class={cn('flex items-center', className)}
-            style={objective ? `border-bottom: 6px solid ${COLOR_PALETTE[(idx ?? 0) % COLOR_PALETTE.length]}; width: 100%; padding: 0.5rem;` : ''}
-            {...restProps}
-        >
-            <Button
-                variant="ghost"
-                size="sm"
-                onclick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                class="-ml-3 h-8 {objective ? 'text-left flex-1 justify-start' : ''}"
-            >
-                <span>
-                    {#if objective}
-                        {objective.symbol} {objective.unit ? `/ ${objective.unit}` : ''}({objective.maximize ? 'max' : 'min'})
-                    {:else if title}
-                        {title}
-                    {/if}
-                </span>
-                {#if column.getIsSorted() === 'desc'}
-                    <ArrowDownIcon class="ml-2 h-4 w-4" />
-                {:else if column.getIsSorted() === 'asc'}
-                    <ArrowUpIcon class="ml-2 h-4 w-4" />
-                {:else}
-                    <ChevronsUpDownIcon class="ml-2 h-4 w-4 opacity-50" />
-                {/if}
-            </Button>
-        </div>
-    {/if}
+{#snippet ColumnHeader({
+	column,
+	title,
+	objective,
+	idx,
+	class: className,
+	...restProps
+}: {
+	column: Column<Solution>;
+	title?: string;
+	objective?: any;
+	idx?: number;
+} & HTMLAttributes<HTMLDivElement>)}
+	{#if !column?.getCanSort() || isFrozen}
+		<!-- Non-sortable column header -->
+		<div
+			class={cn('px-2 py-1', className)}
+			style={objective
+				? `border-bottom: 4px solid ${COLOR_PALETTE[(idx ?? 0) % COLOR_PALETTE.length]}; width: 100%; padding: 0.5rem;`
+				: ''}
+			{...restProps}
+		>
+			{#if objective}
+				{objective.symbol}
+				{objective.unit ? `/ ${objective.unit}` : ''}({objective.maximize ? 'max' : 'min'})
+			{:else if title}
+				{title}
+			{/if}
+		</div>
+	{:else}
+		<!-- Sortable column header -->
+		<div
+			class={cn('flex items-center', className)}
+			style={objective
+				? `border-bottom: 6px solid ${COLOR_PALETTE[(idx ?? 0) % COLOR_PALETTE.length]}; width: 100%; padding: 0.5rem;`
+				: ''}
+			{...restProps}
+		>
+			<Button
+				variant="ghost"
+				size="sm"
+				onclick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+				class="-ml-3 h-8 {objective ? 'flex-1 justify-start text-left' : ''}"
+			>
+				<span>
+					{#if objective}
+						{objective.symbol}
+						{objective.unit ? `/ ${objective.unit}` : ''}({objective.maximize ? 'max' : 'min'})
+					{:else if title}
+						{title}
+					{/if}
+				</span>
+				{#if column.getIsSorted() === 'desc'}
+					<ArrowDownIcon class="ml-2 h-4 w-4" />
+				{:else if column.getIsSorted() === 'asc'}
+					<ArrowUpIcon class="ml-2 h-4 w-4" />
+				{:else}
+					<ChevronsUpDownIcon class="ml-2 h-4 w-4 opacity-50" />
+				{/if}
+			</Button>
+		</div>
+	{/if}
 {/snippet}
 
 {#if problem}
-    <div class="h-full flex flex-col items-start">
-        {#if selected_type_solutions !== "current" && !isFrozen}
-            <DataTableToolbar {table} />
-        {/if}
-        <div class="border rounded shadow-sm overflow-auto">
-            <!-- Header and previous solutions -->
-            <Table.Root>
-                <Table.Header>
-                    {#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
-                        <Table.Row >
-                            {#each headerGroup.headers as header (header.id)}
-                                <Table.Head colspan={header.colSpan}>
-                                    {#if !header.isPlaceholder}
-                                        <FlexRender
-                                            content={header.column.columnDef.header}
-                                            context={header.getContext()}
-                                        />
-                                    {/if}
-                                </Table.Head>
-                            {/each}
-                        </Table.Row>
-                    {/each}
-                </Table.Header>
-                
+	<div class="flex h-full flex-col items-start">
+		{#if selected_type_solutions !== 'current' && !isFrozen}
+			<DataTableToolbar {table} />
+		{/if}
+		<div class="overflow-auto rounded border shadow-sm">
+			<!-- Header and previous solutions -->
+			<Table.Root>
+				<Table.Header>
+					{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
+						<Table.Row>
+							{#each headerGroup.headers as header (header.id)}
+								<Table.Head colspan={header.colSpan}>
+									{#if !header.isPlaceholder}
+										<FlexRender
+											content={header.column.columnDef.header}
+											context={header.getContext()}
+										/>
+									{/if}
+								</Table.Head>
+							{/each}
+						</Table.Row>
+					{/each}
+				</Table.Header>
 
-            <!-- Main table with TanStack Table -->
-                <Table.Body>
-                    {#each table.getRowModel().rows as row (row.id)}
-                        <Table.Row
-                            onclick={!isFrozen ? () => handle_row_click(row.index) : undefined}
-                            class="{isFrozen ? '' : 'cursor-pointer'} {selectedSolutions.includes(row.index) ? 'bg-gray-300' : ''} {isFrozen ? 'pointer-events-none' : ''}"
-                            aria-label="Select row"
-                        >
-                            {#each row.getVisibleCells() as cell, cellIndex (cell.id)}
-                                <Table.Cell class={isFirstCell(cellIndex) ? (selectedSolutions.includes(row.index) ? 'border-l-10 border-blue-600' : 'border-l-10') : ''}>
-                                    <FlexRender 
-                                        content={cell.column.columnDef.cell} 
-                                        context={cell.getContext()} 
-                                    />
-                                </Table.Cell>
-                            {/each}
-                        </Table.Row>
-                    {:else}
-                        <Table.Row>
-                            <Table.Cell colspan={columns.length} class="h-24 text-center">
-                                No solutions available.
-                            </Table.Cell>
-                        </Table.Row>
-                    {/each}
+				<!-- Main table with TanStack Table -->
+				<Table.Body>
+					{#each table.getRowModel().rows as row (row.id)}
+						<Table.Row
+							onclick={!isFrozen ? () => handle_row_click(row.index) : undefined}
+							class="{isFrozen ? '' : 'cursor-pointer'} {selectedSolutions.includes(row.index)
+								? 'bg-gray-300'
+								: ''} {isFrozen ? 'pointer-events-none' : ''}"
+							aria-label="Select row"
+						>
+							{#each row.getVisibleCells() as cell, cellIndex (cell.id)}
+								<Table.Cell
+									class={isFirstCell(cellIndex)
+										? selectedSolutions.includes(row.index)
+											? 'border-l-10 border-blue-600'
+											: 'border-l-10'
+										: ''}
+								>
+									<FlexRender content={cell.column.columnDef.cell} context={cell.getContext()} />
+								</Table.Cell>
+							{/each}
+						</Table.Row>
+					{:else}
+						<Table.Row>
+							<Table.Cell colspan={columns.length} class="h-24 text-center">
+								No solutions available.
+							</Table.Cell>
+						</Table.Row>
+					{/each}
 
-                {#if selected_type_solutions === "current" && previousObjectiveValues && previousObjectiveValues.length > 0}
-                        <Table.Row>
-                            <Table.Cell colspan={columns.length}>
-                            </Table.Cell>
-                        </Table.Row>
-                        {#each previousObjectiveValues as previousObjectiveValue}
-                            <Table.Row class='pointer-events-none'>
-                                <Table.Cell class="border-l-10 border-teal-400"></Table.Cell>
-                                <Table.Cell class="italic">
-                                    <div>
-                                        <span class="text-gray-500">Previous solution</span>
-                                    </div>
-                                </Table.Cell>
-                                <Table.Cell></Table.Cell>
-                                {#each problem.objectives as objective}
-                                    <Table.Cell class="text-gray-500 text-right pr-6">
-                                        {formatNumber(previousObjectiveValue[objective.symbol], displayAccuracy())}
-                                    </Table.Cell>
-                                {/each}
-                            </Table.Row>
-                        {/each}
-                {/if}
-                </Table.Body>
-
-            </Table.Root>
-        </div>
-        {#if selected_type_solutions !== "current" && !isFrozen}
-            {@render Pagination({ table })}
-        {/if}
-    </div>
+					{#if previousObjectiveValuesType === 'previous' && selected_type_solutions === 'current' && previousObjectiveValues.length > 0}
+						<PreviousSolutions
+							{problem}
+							{previousObjectiveValues}
+							displayAccuracy={displayAccuracy()}
+							columnsLength={columns.length}
+						/>
+					{:else if previousObjectiveValuesType === 'user_results'}
+						<UserResults
+							{problem}
+							{previousObjectiveValues}
+							displayAccuracy={displayAccuracy()}
+							columnsLength={columns.length}
+							personalResultIndex={personalResultIndex ?? -1}
+						/>
+					{/if}
+				</Table.Body>
+			</Table.Root>
+		</div>
+		{#if selected_type_solutions !== 'current' && !isFrozen}
+			{@render Pagination({ table })}
+		{/if}
+	</div>
 {/if}
