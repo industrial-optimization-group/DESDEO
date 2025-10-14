@@ -1,7 +1,6 @@
 {
     "preference": null,
     "template": {
-        "algorithm_name": "NSGA3",
         "crossover": {
             "name": "SimulatedBinaryCrossover",
             "xover_probability": 0.5,
@@ -25,7 +24,8 @@
                 "preferred_solutions": null,
                 "non_preferred_solutions": null,
                 "preferred_ranges": null
-            }
+            },
+            "invert_reference_vectors": false
         },
         "termination": {
             "name": "MaxGenerationsTerminator",
@@ -41,6 +41,7 @@
         "use_archive": true,
         "seed": 42,
         "verbosity": 2,
+        "algorithm_name": "NSGA3",
         "name": "Template1"
     }
 }

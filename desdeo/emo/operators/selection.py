@@ -560,7 +560,7 @@ class RVEASelector(BaseDecompositionSelector):
         reference_vector_options: ReferenceVectorOptions | dict | None = None,
         seed: int = 0,
     ):
-        if not isinstance(parameter_adaptation_strategy, ParameterAdaptationStrategy):
+        if parameter_adaptation_strategy not in ParameterAdaptationStrategy:
             raise TypeError(f"Parameter adaptation strategy must be of Type {type(ParameterAdaptationStrategy)}")
         if parameter_adaptation_strategy == ParameterAdaptationStrategy.OTHER:
             raise ValueError("Other parameter adaptation strategies are not yet implemented.")
@@ -1100,7 +1100,7 @@ class NSGA3Selector(BaseDecompositionSelector):
     def calc_perpendicular_distance(self, N, ref_dirs):
         if self.invert_reference_vectors:
             u = np.tile(-ref_dirs, (len(N), 1))
-            v = np.repeat(1-N, len(ref_dirs), axis=0)
+            v = np.repeat(1 - N, len(ref_dirs), axis=0)
         else:
             u = np.tile(ref_dirs, (len(N), 1))
             v = np.repeat(N, len(ref_dirs), axis=0)

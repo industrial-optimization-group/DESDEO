@@ -3,7 +3,8 @@
 from pydantic import ConfigDict
 from sqlmodel import JSON, Column, Field, SQLModel
 
-from desdeo.emo.options.templates import TemplateOptions, PreferenceOptions
+from desdeo.emo.options.templates import PreferenceOptions, TemplateOptions
+from desdeo.tools.score_bands import SCOREBandsConfig, SCOREBandsResult
 
 
 class EMOIterateRequest(SQLModel):
@@ -66,6 +67,9 @@ class EMOScoreRequest(SQLModel):
     parent_state_id: int | None = Field(default=None)
     """State ID of the parent state, if any."""
 
+    config: SCOREBandsConfig | None = Field(default=None)
+    """Configuration for the SCORE bands visualization."""
+
     solution_ids: list[int] = Field()
     """List of solution IDs to score."""
 
@@ -118,5 +122,7 @@ class EMOScoreResponse(SQLModel):
 
     model_config = ConfigDict(use_attribute_docstrings=True)
 
-    state_id: int
+    state_id: int | None = Field(default=None)
     """The state ID of the newly created state."""
+
+    result: SCOREBandsResult

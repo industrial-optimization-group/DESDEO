@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Annotated
 from warnings import warn
 
+import polars as pl
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import StreamingResponse
@@ -35,6 +36,9 @@ from desdeo.api.models.user import User
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.emo.options.templates import EMOOptions, PreferenceOptions, TemplateOptions, emo_constructor
 from desdeo.problem import Problem
+from desdeo.tools.score_bands import SCOREBandsConfig, SCOREBandsResult, score_json
+
+from .utils import fetch_interactive_session, fetch_user_problem
 
 router = APIRouter(prefix="/method/emo", tags=["EMO"])
 
@@ -52,11 +56,17 @@ class WSmanager:
         EA instance will have its own unique identifier. The webui client should
         get its id from the server.
         """
+        self.unsent_messages: dict[str, list[dict]] = {}
+        """A dictionary to store unsent messages for clients that are not currently connected."""
 
     async def connect(self, websocket: WebSocket, client_id: str):
         """Accepts a new WebSocket connection."""
         await websocket.accept()
         self.active_connections[client_id] = websocket
+        if client_id in self.unsent_messages:
+            for message in self.unsent_messages[client_id]:
+                await websocket.send_json(message)
+            self.unsent_messages.pop(client_id, None)
 
     def disconnect(self, websocket: WebSocket):
         """Removes a WebSocket connection."""
@@ -71,10 +81,20 @@ class WSmanager:
         if websocket:
             await websocket.send_json(message)
         else:
-            raise ValueError(f"No active connection for client_id: {client_id}")
+            if client_id not in self.unsent_messages:
+                self.unsent_messages[client_id] = []
+            self.unsent_messages[client_id].append(message)
+            warn(
+                f"Client with id={client_id} is not connected. Message saved, will be sent upon connection.",
+                stacklevel=2,
+            )
 
     async def broadcast_message(self, message: dict):
-        """Sends a message to all active WebSocket connections."""
+        """Sends a message to all active WebSocket connections.
+
+        Typically don't use this as this won't send messages
+        to disconnected/unconnected clients.
+        """
         for websocket in self.active_connections.values():
             await websocket.send_json(message)
 
@@ -150,33 +170,9 @@ def iterate(
         IterateResponse: A response object containing a list of IDs to be used for websocket communication.
             Also contains the StateDB id where the results will be stored.
     """
-    if request.session_id is not None:
-        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == request.session_id)
-        interactive_session = session.exec(statement)
+    interactive_session: InteractiveSessionDB | None = fetch_interactive_session(user, request, session)
 
-        if interactive_session is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Could not find interactive session with id={request.session_id}.",
-            )
-    else:
-        # request.session_id is None:
-        # use active session instead
-        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == user.active_session_id)
-
-        interactive_session = session.exec(statement).first()
-
-    # fetch the problem from the DB
-    statement = select(ProblemDB).where(ProblemDB.user_id == user.id, ProblemDB.id == request.problem_id)
-    problem_db = session.exec(statement).first()
-
-    if problem_db is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Problem with id={request.problem_id} could not be found.",
-        )
-
-    # Convert ProblemDB to Problem object
+    problem_db = fetch_user_problem(user, request, session)
     problem = Problem.from_problemdb(problem_db)
 
     templates = request.template_options
@@ -229,20 +225,26 @@ def iterate(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create a new state in the database.",
         )
-
     # Close db session
     session.close()
 
     # Spawn a new process to handle EMO method creation
     Process(
-        target=spawn_emo_process,
-        args=(problem, templates, request.preference_options, web_socket_ids, client_id, state_id),
+        target=_spawn_emo_process,
+        args=(
+            problem,
+            templates,
+            request.preference_options,
+            web_socket_ids,
+            client_id,
+            state_id,
+        ),
     ).start()
 
     return EMOIterateResponse(method_ids=web_socket_ids, client_id=client_id, state_id=state_id)
 
 
-def spawn_emo_process(
+def _spawn_emo_process(
     problem: Problem,
     templates: list[TemplateOptions],
     preference_options: PreferenceOptions | None,
@@ -273,7 +275,7 @@ def spawn_emo_process(
         websocket_ids, templates, strict=True
     ):  # Skip the first id, which is for the webui client
         p = Process(
-            target=ea_sync,
+            target=_ea_sync,
             args=(problem, template, preference_options, stop_event.is_set, w_id, client_id, results_dict),
         )
         processes.append(p)
@@ -282,8 +284,6 @@ def spawn_emo_process(
     # collect results
     for p in processes:
         p.join()
-
-    import polars as pl
 
     # Combine results
     optimal_variables = pl.concat([results.optimal_variables for results in results_dict.values()])
@@ -319,7 +319,7 @@ def spawn_emo_process(
     session.close()
 
 
-def ea_sync(
+def _ea_sync(  # noqa: PLR0913
     problem: Problem,
     template: TemplateOptions,
     preference_options: PreferenceOptions | None,
@@ -328,8 +328,19 @@ def ea_sync(
     client_id: str,
     results_dict: dict,
 ):
+    """Synchronous wrapper to run the evolutionary algorithm in an async event loop.
+
+    Args:
+        problem (Problem): The problem object.
+        template (TemplateOptions): The template options for the EMO method.
+        preference_options (PreferenceOptions | None): The preference options for the EMO method.
+        stop_event (Callable[[], bool]): A callable that returns True if the algorithm should stop.
+        websocket_id (str): The WebSocket ID for the current EMO method for communication.
+        client_id (str): The ID of the client to send websocket messages to.
+        results_dict (dict): A shared ProcessManager dictionary to store results.
+    """
     run(
-        ea_async(
+        _ea_async(
             problem=problem,
             websocket_id=websocket_id,
             client_id=client_id,
@@ -341,7 +352,7 @@ def ea_sync(
     )
 
 
-async def ea_async(
+async def _ea_async(  # noqa: PLR0913
     problem: Problem,
     websocket_id: str,
     client_id: str,
@@ -354,8 +365,12 @@ async def ea_async(
 
     Args:
         problem (Problem): The problem object.
-        websocket_id (str): The WebSocket ID for communication.
+        websocket_id (str): The WebSocket ID for the current EMO method for communication.
+        client_id (str): The ID of the client to send websocket messages to.
         stop_event (Event): The stop event to signal when to stop the algorithm.
+        results_dict (dict): A shared ProcessManager dictionary to store results.
+        template (TemplateOptions): The template options for the EMO method.
+        preference_options (PreferenceOptions | None): The preference options for the EMO method.
     """
     # TODO: the url should not be hardcoded
     async with connect(f"ws://localhost:8000/method/emo/ws/{websocket_id}") as ws:
@@ -375,7 +390,20 @@ async def fetch_results(
     request: EMOFetchRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
-):
+) -> StreamingResponse:
+    """Fetches results from a completed EMO method.
+
+    Args:
+        request (EMOFetchRequest): The request object containing parameters for fetching results.
+        user (Annotated[User, Depends]): The current user.
+        session (Annotated[Session, Depends]): The database session.
+
+    Raises:
+        HTTPException: If the request is invalid or the EMO method has not completed.
+
+    Returns:
+        StreamingResponse: A streaming response containing the results of the EMO method.
+    """
     parent_state = request.parent_state_id
     statement = select(StateDB).where(StateDB.id == parent_state)
     state = session.exec(statement).first()
@@ -405,3 +433,65 @@ async def fetch_results(
             yield json.dumps(item) + "\n"
 
     return StreamingResponse(result_stream())
+
+
+@router.post("/fetch_score")
+async def fetch_score_bands(
+    request: EMOScoreRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)],
+) -> EMOScoreResponse:
+    """Fetches results from a completed EMO method.
+
+    Args:
+        request (EMOFetchRequest): The request object containing parameters for fetching results and of the SCORE bands
+            visualization.
+        user (Annotated[User, Depends]): The current user.
+        session (Annotated[Session, Depends]): The database session.
+
+    Raises:
+        HTTPException: If the request is invalid or the EMO method has not completed.
+
+    Returns:
+        SCOREBandsResult: The results of the SCORE bands visualization.
+    """
+    if request.config is None:
+        score_config = SCOREBandsConfig()
+    else:
+        score_config = request.config
+    parent_state = request.parent_state_id
+    statement = select(StateDB).where(StateDB.id == parent_state)
+    state = session.exec(statement).first()
+    if state is None:
+        raise HTTPException(status_code=404, detail="Parent state not found.")
+
+    if not isinstance(state.state, EMOIterateState):
+        raise TypeError(f"State with id={parent_state} is not of type EMOIterateState.")
+
+    if not (state.state.objective_values and state.state.decision_variables):
+        raise ValueError(f"State does not contain results yet.")
+
+    # Convert objs: dict[str, list[float]] to objs: list[dict[str, float]]
+    raw_objs: dict[str, list[float]] = state.state.objective_values
+    objs = pl.DataFrame(raw_objs)
+
+    results = score_json(
+        data=objs,
+        options=score_config,
+    )
+
+    score_state = EMOSCOREState(result=results.model_dump())
+
+    score_db_state = StateDB.create(
+        database_session=session,
+        problem_id=request.problem_id,
+        session_id=request.session_id,
+        parent_id=parent_state,
+        state=score_state,
+    )
+    session.add(score_db_state)
+    session.commit()
+    session.refresh(score_db_state)
+    state_id = score_db_state.id
+
+    return EMOScoreResponse(result=results, state_id=state_id)

@@ -36,7 +36,7 @@ class SCOREBandsGDMResult(BaseModel):
     # If the data keeps changing, we need to store the actual data instead of just the IDs.
 
 
-def run_score_bands_gdm(
+def score_bands_gdm(
     data: pl.DataFrame,
     config: SCOREBandsGDMConfig,
     state: list[SCOREBandsGDMResult] | None = None,

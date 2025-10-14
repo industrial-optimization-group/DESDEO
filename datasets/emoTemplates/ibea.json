@@ -1,7 +1,6 @@
 {
     "preference": null,
     "template": {
-        "algorithm_name": "IBEA",
         "crossover": {
             "name": "SimulatedBinaryCrossover",
             "xover_probability": 0.5,
@@ -32,6 +31,7 @@
         "use_archive": true,
         "seed": 42,
         "verbosity": 2,
+        "algorithm_name": "IBEA",
         "name": "Template2",
         "mate_selection": {
             "name": "TournamentSelection",
