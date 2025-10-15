@@ -67,7 +67,7 @@ if __name__ == "__main__":
             session.refresh(group)
 
         print("Creating users")
-        user_id_list = [owner.id]
+        user_id_list = []
         for user, password in user_content.items():
             user_dm = session.exec(select(User).where(User.username == user)).first()
 
@@ -78,10 +78,12 @@ if __name__ == "__main__":
                     role=UserRole.dm,
                     group_ids=[group.id],
                 )
+            else:
+                user_dm.group_ids = [group.id]
 
-                session.add(user_dm)
-                session.commit()
-                session.refresh(user_dm)
+            session.add(user_dm)
+            session.commit()
+            session.refresh(user_dm)
 
             user_id_list.append(user_dm.id)
 
