@@ -5,9 +5,15 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 import bcrypt
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, Security, status
 from fastapi.responses import JSONResponse
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.security import (
+    APIKeyCookie,
+    HTTPAuthorizationCredentials,
+    HTTPBearer,
+    OAuth2PasswordBearer,
+    OAuth2PasswordRequestForm,
+)
 from jose import ExpiredSignatureError, JWTError, jwt
 from pydantic import BaseModel
 from sqlmodel import Session, select
@@ -29,7 +35,9 @@ class Tokens(BaseModel):
 
 # OAuth2PasswordBearer is a class that creates a dependency that will be used to get the token from the request.
 # The token will be used to authenticate the user.
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login", auto_error=False)
+# Same, but for getting the access_token from the cookies of the request.
+cookie_scheme = APIKeyCookie(name="access_token", auto_error=False)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -100,9 +108,11 @@ def authenticate_user(session: Session, username: str, password: str) -> User | 
     return user
 
 
+# token: Annotated[str, Depends(oauth2_scheme)],
 def get_current_user(
-    token: Annotated[str, Depends(oauth2_scheme)],
     session: Annotated[Session, Depends(get_session)],
+    header_token: Annotated[str | None, Security(oauth2_scheme)] = None,
+    cookie_token: Annotated[str | None, Security(cookie_scheme)] = None,
 ) -> User:
     """Get the current user based on a JWT token.
 
@@ -118,11 +128,16 @@ def get_current_user(
     Raises:
         HTTPException: If the token is invalid.
     """
+    token = header_token or cookie_token
+
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+    if not token:
+        raise credentials_exception
     try:
         payload = jwt.decode(token, AuthConfig.authjwt_secret_key, algorithms=[AuthConfig.authjwt_algorithm])
         username = payload.get("sub")
