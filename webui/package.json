@@ -17,7 +17,8 @@
     "test:e2e": "playwright test",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "generate:client": "openapi-typescript http://localhost:8000/openapi.json -o src/lib/api/client-types.ts"
+    "generate:client": "openapi-typescript http://localhost:8000/openapi.json -o src/lib/api/client-types.ts",
+    "svelte-check": "svelte-check"
   },
   "dependencies": {
     "@cortex-js/compute-engine": "^0.30.2",

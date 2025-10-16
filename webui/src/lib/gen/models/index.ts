@@ -14,6 +14,7 @@ export * from './bodyAddNewDmAddNewDmPost';
 export * from './bodyAddNewDmAddNewDmPostClientId';
 export * from './bodyAddNewDmAddNewDmPostClientSecret';
 export * from './bodyAddNewDmAddNewDmPostGrantType';
+export * from './bodyAddProblemJsonProblemAddJsonPost';
 export * from './bodyLoginLoginPost';
 export * from './bodyLoginLoginPostClientId';
 export * from './bodyLoginLoginPostClientSecret';

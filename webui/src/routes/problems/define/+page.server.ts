@@ -380,14 +380,32 @@ export const actions: Actions = {
   };
 */
 
-import { addProblemProblemAddPostResponse } from "$lib/gen/endpoints/dESDEOFastAPIzod";
-import { superValidate } from 'sveltekit-superforms';
+import { addProblemJsonProblemAddJsonPost } from "$lib/gen/endpoints/dESDEOFastAPI";
+import { addProblemJsonProblemAddJsonPostBody } from "$lib/gen/endpoints/dESDEOFastAPIzod";
+import { superValidate, fail } from 'sveltekit-superforms';
 import { zod4 } from 'sveltekit-superforms/adapters';
 
-const problemSchema = addProblemProblemAddPostResponse;
+const problemAddJsonSchema = addProblemJsonProblemAddJsonPostBody;
 
 export const load: PageServerLoad = async () => {
-  const form = await superValidate(zod4(problemSchema));
+  const form = await superValidate(zod4(problemAddJsonSchema));
 
   return { form };
+}
+
+export const actions: Actions = {
+  upload_json: async ({ request }) => {
+    const form = await superValidate(request as typeof problemAddJsonSchema, zod4(problemAddJsonSchema));
+
+
+    if (!form.valid) {
+      return fail(400, { form });
+    }
+
+    console.log(form.data.json_file);
+    const response = await addProblemJsonProblemAddJsonPost(form.data);
+
+    console.log(response);
+
+  }
 }

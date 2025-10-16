@@ -1,52 +1,15 @@
 <script lang="ts">
-	import { api } from '$lib/api/client';
-	import { loginLoginPost } from '$lib/gen/endpoints/dESDEOFastAPI';
-	import {
-		type loginLoginPostResponse,
-		getCurrentUserInfoUserInfoGet
-	} from '$lib/gen/endpoints/dESDEOFastAPI';
-	import type { BodyLoginLoginPost, Tokens } from '$lib/gen/models';
-	import { goto } from '$app/navigation';
-	import { auth } from '../../stores/auth';
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import GalleryVerticalEndIcon from '@lucide/svelte/icons/orbit';
 	import main_image from '$lib/assets/main.jpg';
-	import { get } from 'svelte/store';
+	import { superForm } from 'sveltekit-superforms';
 
-	let username = ''; // from login form
-	let password = '';
+	let { data } = $props();
+	const { form, enhance } = superForm(data.form);
+
 	let loginError: string | null = null; // whether login is successful or not
-
-	async function handleLogin() {
-		const body: BodyLoginLoginPost = {
-			username: username,
-			password: password,
-			scope: ''
-		};
-		const options: RequestInit = { credentials: 'include' }; // stores the refresh token as a cookie
-
-		const new_res = await loginLoginPost(body, undefined, options);
-
-		if (new_res.status !== 200) {
-			// login not ok
-			loginError = 'Invalid username or password';
-			return;
-		}
-
-		const new_tokens: Tokens = new_res.data;
-
-		const userRes = await getCurrentUserInfoUserInfoGet({
-			headers: { Authorization: `Bearer ${new_tokens.access_token}` }
-		});
-
-		// user info available, update that as well
-		auth.setAuth(new_tokens.access_token, userRes.data);
-
-		// if redirection does not work, it is likely because the refresh token is not set properly
-		goto('/dashboard');
-	}
 </script>
 
 <div class="grid min-h-svh lg:grid-cols-2">
@@ -63,7 +26,7 @@
 		</div>
 		<div class="flex flex-1 items-center justify-center">
 			<div class="w-full max-w-xs">
-				<form class="flex flex-col gap-6" on:submit|preventDefault={handleLogin}>
+				<form class="flex flex-col gap-6" method="POST" action="?/login" use:enhance>
 					<div class="flex flex-col items-center gap-2 text-center">
 						<h1 class="text-2xl font-bold">Login to your account</h1>
 						<p class="text-muted-foreground text-sm text-balance">
@@ -73,7 +36,7 @@
 					<div class="grid gap-6">
 						<div class="grid gap-3">
 							<Label for="username">Username</Label>
-							<Input id="username" bind:value={username} required />
+							<Input id="username" name="username" bind:value={$form.username} required />
 						</div>
 						<div class="grid gap-3">
 							<div class="flex items-center">
@@ -82,7 +45,13 @@
 									Forgot your password?
 								</a>
 							</div>
-							<Input id="password" type="password" bind:value={password} required />
+							<Input
+								id="password"
+								type="password"
+								name="password"
+								bind:value={$form.password}
+								required
+							/>
 						</div>
 						<Button type="submit" class="w-full">Login</Button>
 						{#if loginError}
