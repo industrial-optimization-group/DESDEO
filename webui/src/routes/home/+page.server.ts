@@ -3,7 +3,7 @@ import { fail, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
 import { loginLoginPost } from "$lib/gen/endpoints/dESDEOFastAPI";
 import type { BodyLoginLoginPost } from '$lib/gen/models';
-import type { Actions } from "@sveltejs/kit";
+import { redirect, type Actions } from "@sveltejs/kit";
 
 const loginSchema = z.object({
     username: z.string(),
@@ -39,5 +39,7 @@ export const actions = {
 
         cookies.set("access_token", response.data.access_token, {httpOnly: true, secure: true, sameSite: "lax", path: '/'});
         cookies.set("refresh_token", response.data.refresh_token, {httpOnly: true, secure: true, sameSite: "lax", path: '/'});
+
+        redirect(303, '/dashboard');
     },
 } satisfies Actions;

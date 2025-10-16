@@ -25,28 +25,17 @@ const getUrl = (contextUrl: string): string => {
   return requestUrl.toString();
 };
 
-// NOTE: Add headers
 const getHeaders = (headers?: HeadersInit): HeadersInit => {
-  // TODO: check that access token has not expired, refresh it if needed
-  // remember to include credentials!
-
-  const base =
-    headers instanceof Headers
-        ? Object.fromEntries(headers.entries())
-        : Array.isArray(headers)
-            ? Object.fromEntries(headers)
-            : { ...(headers ?? {}) };
-
-  // If Authorization already present, keep it; otherwise use token
-
-  return base;
+  return {
+    ...headers,
+    credentials: 'include' // Keep and set cookies
+  }
 };
 
 export const customFetch = async <T>(
   url: string,
   options: RequestInit,
 ): Promise<T> => {
-  console.log(options);
   const requestUrl = getUrl(url);
   const requestHeaders = getHeaders(options.headers);
 
