@@ -361,7 +361,7 @@ def login(
 
     tokens = generate_tokens({"id": user.id, "sub": user.username})
 
-    response = JSONResponse(content={"access_token": tokens.access_token})
+    response = JSONResponse(content={"access_token": tokens.access_token, "refresh_token": tokens.refresh_token})
 
     if AuthConfig.cookie_domain == "":
         response.set_cookie(
