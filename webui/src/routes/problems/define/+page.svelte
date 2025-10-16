@@ -45,29 +45,36 @@
 </script>
 
 <script lang="ts">
-	import { superForm } from 'sveltekit-superforms';
+	import { superForm, fileProxy } from 'sveltekit-superforms';
 	import Card from '$lib/components/ui/card/card.svelte';
-	import Name from '$lib/components/custom/define_problem/Name.svelte';
-	import Description from '$lib/components/custom/define_problem/Description.svelte';
 	import FormButton from '$lib/components/ui/form/form-button.svelte';
 	import type { PageData } from '../$types';
 
 	const { data } = $props<{ data: PageData }>();
 
-	const form = superForm(data.form);
-	const { form: formData, message, enhance, errors } = superForm(data.form);
+	const { form, enhance, errors } = superForm(data.form);
+
+	const file = fileProxy(form, 'json_file');
+
+	async function uploadFile() {
+		console.log(form);
+	}
 </script>
 
 <section class="mx-10">
 	<div class="m-6 mx-auto max-w-4xl">
 		<h1 class="mt-10 text-center text-2xl font-semibold">Problem Definition</h1>
 
-		<form class="flex flex-col gap-4" method="POST" action="?/create">
+		<form
+			class="flex flex-col gap-4"
+			onsubmit={uploadFile}
+			enctype="multipart/form-data"
+			use:enhance
+		>
 			<Card class="p-6">
-				<Name {form} />
-				<Description {form} />
+				<input type="file" name="json_file" accept=".json" bind:files={$file} />
 			</Card>
-			<FormButton>Add Problem</FormButton>
+			<FormButton>Submit</FormButton>
 		</form>
 	</div>
 </section>

@@ -1,8 +1,3 @@
-import { auth } from '../../stores/auth';
-import { get } from 'svelte/store';
-import type { Tokens } from '../gen/models/'
-
-
 // NOTE: Supports cases where `content-type` is other than `json`
 const getBody = <T>(c: Response | Request): Promise<T> => {
   const contentType = c.headers.get('content-type');
@@ -32,7 +27,6 @@ const getUrl = (contextUrl: string): string => {
 
 // NOTE: Add headers
 const getHeaders = (headers?: HeadersInit): HeadersInit => {
-  const tokens: Tokens = get(auth);
   // TODO: check that access token has not expired, refresh it if needed
   // remember to include credentials!
 
@@ -44,9 +38,6 @@ const getHeaders = (headers?: HeadersInit): HeadersInit => {
             : { ...(headers ?? {}) };
 
   // If Authorization already present, keep it; otherwise use token
-  if (!('Authorization' in base) && tokens?.access_token) {
-    base.Authorization = `Bearer ${tokens.access_token}`;
-  }
 
   return base;
 };
@@ -55,6 +46,7 @@ export const customFetch = async <T>(
   url: string,
   options: RequestInit,
 ): Promise<T> => {
+  console.log(options);
   const requestUrl = getUrl(url);
   const requestHeaders = getHeaders(options.headers);
 

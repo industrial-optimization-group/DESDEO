@@ -1928,6 +1928,580 @@ export const addProblemProblemAddPostResponse = zod
 	.describe('Problem info request return data.');
 
 /**
+ * Adds a problem to the database based on its JSON definition.
+
+Args:
+    json_file (UploadFile): a file in JSON format describing the problem.
+    user (Annotated[User, Depends): the usr for which the problem is added.
+    session (Annotated[Session, Depends): the database session.
+
+Raises:
+    HTTPException: if the provided `json_file` is empty.
+    HTTPException: if the content in the provided `json_file` is not in JSON format.__annotations__
+
+Returns:
+    ProblemInfo: a description of the added problem.
+ * @summary Add Problem Json
+ */
+export const addProblemJsonProblemAddJsonPostBody = zod.object({
+	json_file: zod.instanceof(File)
+});
+
+export const addProblemJsonProblemAddJsonPostResponseObjectivesItemMaximizeDefault = false;
+export const addProblemJsonProblemAddJsonPostResponseObjectivesItemIsLinearDefault = false;
+export const addProblemJsonProblemAddJsonPostResponseObjectivesItemIsConvexDefault = false;
+export const addProblemJsonProblemAddJsonPostResponseObjectivesItemIsTwiceDifferentiableDefault = false;
+export const addProblemJsonProblemAddJsonPostResponseConstraintsItemIsLinearDefault = true;
+export const addProblemJsonProblemAddJsonPostResponseConstraintsItemIsConvexDefault = false;
+export const addProblemJsonProblemAddJsonPostResponseConstraintsItemIsTwiceDifferentiableDefault = false;
+export const addProblemJsonProblemAddJsonPostResponseScalarizationFuncsItemIsLinearDefault = false;
+export const addProblemJsonProblemAddJsonPostResponseScalarizationFuncsItemIsConvexDefault = false;
+export const addProblemJsonProblemAddJsonPostResponseScalarizationFuncsItemIsTwiceDifferentiableDefault = false;
+export const addProblemJsonProblemAddJsonPostResponseExtraFuncsItemIsLinearDefault = false;
+export const addProblemJsonProblemAddJsonPostResponseExtraFuncsItemIsConvexDefault = false;
+export const addProblemJsonProblemAddJsonPostResponseExtraFuncsItemIsTwiceDifferentiableDefault = false;
+export const addProblemJsonProblemAddJsonPostResponseDiscreteRepresentationNonDominatedDefault = false;
+export const addProblemJsonProblemAddJsonPostResponseProblemMetadataForestMetadataItemMetadataTypeDefault =
+	'forest_problem_metadata';
+export const addProblemJsonProblemAddJsonPostResponseProblemMetadataRepresentativeNdMetadataItemMetadataTypeDefault =
+	'representative_non_dominated_solutions';
+
+export const addProblemJsonProblemAddJsonPostResponse = zod
+	.object({
+		name: zod.string(),
+		description: zod.string(),
+		is_convex: zod.union([zod.boolean(), zod.null()]),
+		is_linear: zod.union([zod.boolean(), zod.null()]),
+		is_twice_differentiable: zod.union([zod.boolean(), zod.null()]),
+		scenario_keys: zod.union([zod.array(zod.string()), zod.null()]),
+		variable_domain: zod
+			.enum(['continuous', 'binary', 'integer', 'mixed'])
+			.describe('An enumerator for the possible variable type domains of a problem.'),
+		id: zod.number(),
+		user_id: zod.number(),
+		constants: zod.union([
+			zod.array(
+				zod
+					.object({
+						name: zod
+							.string()
+							.describe(
+								"Descriptive name of the constant. This can be used in UI and visualizations. Example: 'maximum cost'."
+							),
+						symbol: zod
+							.string()
+							.describe(
+								"Symbol to represent the constant. This will be used in the rest of the problem definition. It may also be used in UIs and visualizations. Example: 'c_1'."
+							),
+						value: zod.number().describe('The value of the constant.'),
+						id: zod.union([zod.number(), zod.null()]).optional(),
+						problem_id: zod.union([zod.number(), zod.null()]).optional()
+					})
+					.describe('The SQLModel equivalent to `Constant`.')
+			),
+			zod.null()
+		]),
+		tensor_constants: zod.union([
+			zod.array(
+				zod
+					.object({
+						values: zod.union([
+							zod.array(zod.any()),
+							zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+							zod.number(),
+							zod.number(),
+							zod.boolean(),
+							zod.literal('List'),
+							zod.null()
+						]),
+						shape: zod.array(zod.number()),
+						name: zod
+							.string()
+							.describe(
+								"Descriptive name of the tensor representing the values. E.g., 'distances'"
+							),
+						symbol: zod
+							.string()
+							.describe(
+								"Symbol to represent the constant. This will be used in the rest of the problem definition. Notice that the elements of the tensor will be represented with the symbol followed by indices. E.g., the first element of the third element of a 2-dimensional tensor, is represented by 'x_1_3', where 'x' is the symbol given to the TensorVariable. Note that indexing starts from 1."
+							),
+						id: zod.union([zod.number(), zod.null()]).optional(),
+						problem_id: zod.union([zod.number(), zod.null()]).optional()
+					})
+					.describe('The SQLModel equivalent to `TensorConstant`.')
+			),
+			zod.null()
+		]),
+		variables: zod.union([
+			zod.array(
+				zod
+					.object({
+						name: zod
+							.string()
+							.describe(
+								"Descriptive name of the variable. This can be used in UI and visualizations. Example: 'velocity'."
+							),
+						symbol: zod
+							.string()
+							.describe(
+								"Symbol to represent the variable. This will be used in the rest of the problem definition. It may also be used in UIs and visualizations. Example: 'v_1'."
+							),
+						variable_type: zod
+							.enum(['real', 'integer', 'binary'])
+							.describe('An enumerator for possible variable types.'),
+						lowerbound: zod
+							.union([zod.number(), zod.null()])
+							.optional()
+							.describe('Lower bound of the variable.'),
+						upperbound: zod
+							.union([zod.number(), zod.null()])
+							.optional()
+							.describe('Upper bound of the variable.'),
+						initial_value: zod
+							.union([zod.number(), zod.null()])
+							.optional()
+							.describe('Initial value of the variable. This is optional.'),
+						id: zod.union([zod.number(), zod.null()]).optional(),
+						problem_id: zod.union([zod.number(), zod.null()]).optional()
+					})
+					.describe('The SQLModel equivalent to `Variable`.')
+			),
+			zod.null()
+		]),
+		tensor_variables: zod.union([
+			zod.array(
+				zod
+					.object({
+						initial_values: zod.union([
+							zod.union([
+								zod.array(zod.any()),
+								zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+								zod.number(),
+								zod.number(),
+								zod.boolean(),
+								zod.literal('List'),
+								zod.null()
+							]),
+							zod.null()
+						]),
+						lowerbounds: zod.union([
+							zod.union([
+								zod.array(zod.any()),
+								zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+								zod.number(),
+								zod.number(),
+								zod.boolean(),
+								zod.literal('List'),
+								zod.null()
+							]),
+							zod.null()
+						]),
+						upperbounds: zod.union([
+							zod.union([
+								zod.array(zod.any()),
+								zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+								zod.number(),
+								zod.number(),
+								zod.boolean(),
+								zod.literal('List'),
+								zod.null()
+							]),
+							zod.null()
+						]),
+						shape: zod.array(zod.number()),
+						name: zod
+							.string()
+							.describe(
+								"Descriptive name of the variable. This can be used in UI and visualizations. Example: 'velocity'."
+							),
+						symbol: zod
+							.string()
+							.describe(
+								"Symbol to represent the variable. This will be used in the rest of the problem definition. Notice that the elements of the tensor will be represented with the symbol followed by indices. E.g., the first element of the third element of a 2-dimensional tensor, is represented by 'x_1_3', where 'x' is the symbol given to the TensorVariable. Note that indexing starts from 1."
+							),
+						variable_type: zod
+							.enum(['real', 'integer', 'binary'])
+							.describe('An enumerator for possible variable types.'),
+						id: zod.union([zod.number(), zod.null()]).optional(),
+						problem_id: zod.union([zod.number(), zod.null()]).optional()
+					})
+					.describe('The SQLModel equivalent to `TensorVariable`.')
+			),
+			zod.null()
+		]),
+		objectives: zod.array(
+			zod
+				.object({
+					func: zod.union([zod.array(zod.any()), zod.null()]),
+					scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
+					surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
+					simulator_path: zod
+						.union([
+							zod.string(),
+							zod
+								.object({
+									url: zod
+										.string()
+										.describe(
+											'A URL to the simulator. A GET request to this URL should be used to evaluate solutions in batches.'
+										),
+									auth: zod
+										.union([zod.tuple([zod.string(), zod.string()]), zod.null()])
+										.optional()
+										.describe(
+											'Optional. A tuple of username and password to be used for authentication when making requests to the URL.'
+										)
+								})
+								.describe('Model for a URL.'),
+							zod.null()
+						])
+						.optional(),
+					name: zod
+						.string()
+						.describe(
+							"Descriptive name of the objective function. This can be used in UI and visualizations. Example: 'time'."
+						),
+					symbol: zod
+						.string()
+						.describe(
+							"Symbol to represent the objective function. This will be used in the rest of the problem definition. It may also be used in UIs and visualizations. Example: 'f_1'."
+						),
+					unit: zod
+						.union([zod.string(), zod.null()])
+						.optional()
+						.describe(
+							"The unit of the objective function. This is optional. Used in UIs and visualizations. Example: 'seconds' or 'millions of hectares'."
+						),
+					maximize: zod
+						.boolean()
+						.optional()
+						.describe('Whether the objective function is to be maximized or minimized.'),
+					ideal: zod
+						.union([zod.number(), zod.null()])
+						.optional()
+						.describe('Ideal value of the objective. This is optional.'),
+					nadir: zod
+						.union([zod.number(), zod.null()])
+						.optional()
+						.describe('Nadir value of the objective. This is optional.'),
+					objective_type: zod
+						.enum(['analytical', 'data_based', 'simulator', 'surrogate'])
+						.optional()
+						.describe('An enumerator for supported objective function types.'),
+					is_linear: zod
+						.boolean()
+						.optional()
+						.describe('Whether the function expression is linear or not. Defaults to `False`.'),
+					is_convex: zod
+						.boolean()
+						.optional()
+						.describe(
+							'Whether the function expression is convex or not (non-convex). Defaults to `False`.'
+						),
+					is_twice_differentiable: zod
+						.boolean()
+						.optional()
+						.describe(
+							'Whether the function expression is twice differentiable or not. Defaults to `False`'
+						),
+					id: zod.union([zod.number(), zod.null()]).optional(),
+					problem_id: zod.union([zod.number(), zod.null()]).optional()
+				})
+				.describe('The SQLModel equivalent to `Objective`.')
+		),
+		constraints: zod.union([
+			zod.array(
+				zod
+					.object({
+						func: zod.array(zod.any()),
+						scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
+						surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
+						simulator_path: zod
+							.union([
+								zod.string(),
+								zod
+									.object({
+										url: zod
+											.string()
+											.describe(
+												'A URL to the simulator. A GET request to this URL should be used to evaluate solutions in batches.'
+											),
+										auth: zod
+											.union([zod.tuple([zod.string(), zod.string()]), zod.null()])
+											.optional()
+											.describe(
+												'Optional. A tuple of username and password to be used for authentication when making requests to the URL.'
+											)
+									})
+									.describe('Model for a URL.'),
+								zod.null()
+							])
+							.optional(),
+						name: zod
+							.string()
+							.describe(
+								"Descriptive name of the constraint. This can be used in UI and visualizations. Example: 'maximum length'."
+							),
+						symbol: zod
+							.string()
+							.describe(
+								"Symbol to represent the constraint. This will be used in the rest of the problem definition. It may also be used in UIs and visualizations. Example: 'g_1'."
+							),
+						cons_type: zod
+							.enum(['=', '<='])
+							.describe('An enumerator for supported constraint expression types.'),
+						is_linear: zod
+							.boolean()
+							.default(addProblemJsonProblemAddJsonPostResponseConstraintsItemIsLinearDefault)
+							.describe(
+								'Whether the constraint is linear or not. Defaults to True, e.g., a linear constraint is assumed.'
+							),
+						is_convex: zod
+							.boolean()
+							.optional()
+							.describe(
+								'Whether the function expression is convex or not (non-convex). Defaults to `False`.'
+							),
+						is_twice_differentiable: zod
+							.boolean()
+							.optional()
+							.describe(
+								'Whether the function expression is twice differentiable or not. Defaults to `False`'
+							),
+						id: zod.union([zod.number(), zod.null()]).optional(),
+						problem_id: zod.union([zod.number(), zod.null()]).optional()
+					})
+					.describe('The SQLModel equivalent to `Constraint`.')
+			),
+			zod.null()
+		]),
+		scalarization_funcs: zod.union([
+			zod.array(
+				zod
+					.object({
+						func: zod.array(zod.any()),
+						scenario_keys: zod.array(zod.string()),
+						name: zod.string().describe('Name of the scalarization function.'),
+						symbol: zod
+							.union([zod.string(), zod.null()])
+							.optional()
+							.describe(
+								'Optional symbol to represent the scalarization function. This may be used in UIs and visualizations.'
+							),
+						is_linear: zod
+							.boolean()
+							.optional()
+							.describe('Whether the function expression is linear or not. Defaults to `False`.'),
+						is_convex: zod
+							.boolean()
+							.optional()
+							.describe(
+								'Whether the function expression is convex or not (non-convex). Defaults to `False`.'
+							),
+						is_twice_differentiable: zod
+							.boolean()
+							.optional()
+							.describe(
+								'Whether the function expression is twice differentiable or not. Defaults to `False`'
+							),
+						id: zod.union([zod.number(), zod.null()]).optional(),
+						problem_id: zod.union([zod.number(), zod.null()]).optional()
+					})
+					.describe('The SQLModel equivalent to `ScalarizationFunction`.')
+			),
+			zod.null()
+		]),
+		extra_funcs: zod.union([
+			zod.array(
+				zod
+					.object({
+						func: zod.array(zod.any()),
+						scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
+						surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
+						simulator_path: zod
+							.union([
+								zod.string(),
+								zod
+									.object({
+										url: zod
+											.string()
+											.describe(
+												'A URL to the simulator. A GET request to this URL should be used to evaluate solutions in batches.'
+											),
+										auth: zod
+											.union([zod.tuple([zod.string(), zod.string()]), zod.null()])
+											.optional()
+											.describe(
+												'Optional. A tuple of username and password to be used for authentication when making requests to the URL.'
+											)
+									})
+									.describe('Model for a URL.'),
+								zod.null()
+							])
+							.optional(),
+						name: zod
+							.string()
+							.describe("Descriptive name of the function. Example: 'normalization'."),
+						symbol: zod
+							.string()
+							.describe(
+								"Symbol to represent the function. This will be used in the rest of the problem definition. It may also be used in UIs and visualizations. Example: 'avg'."
+							),
+						is_linear: zod
+							.boolean()
+							.optional()
+							.describe('Whether the function expression is linear or not. Defaults to `False`.'),
+						is_convex: zod
+							.boolean()
+							.optional()
+							.describe(
+								'Whether the function expression is convex or not (non-convex). Defaults to `False`.'
+							),
+						is_twice_differentiable: zod
+							.boolean()
+							.optional()
+							.describe(
+								'Whether the function expression is twice differentiable or not. Defaults to `False`'
+							),
+						id: zod.union([zod.number(), zod.null()]).optional(),
+						problem_id: zod.union([zod.number(), zod.null()]).optional()
+					})
+					.describe('The SQLModel equivalent to `ExtraFunction`.')
+			),
+			zod.null()
+		]),
+		discrete_representation: zod.union([
+			zod
+				.object({
+					non_dominated: zod.boolean().optional(),
+					variable_values: zod.record(
+						zod.string(),
+						zod.array(zod.union([zod.number(), zod.number(), zod.boolean()]))
+					),
+					objective_values: zod.record(zod.string(), zod.array(zod.number())),
+					id: zod.union([zod.number(), zod.null()]).optional(),
+					problem_id: zod.union([zod.number(), zod.null()]).optional()
+				})
+				.describe('The SQLModel equivalent to `DiscreteRepresentation`.'),
+			zod.null()
+		]),
+		simulators: zod.union([
+			zod.array(
+				zod
+					.object({
+						file: zod.union([zod.string(), zod.null()]).optional(),
+						url: zod
+							.union([
+								zod
+									.object({
+										url: zod
+											.string()
+											.describe(
+												'A URL to the simulator. A GET request to this URL should be used to evaluate solutions in batches.'
+											),
+										auth: zod
+											.union([zod.tuple([zod.string(), zod.string()]), zod.null()])
+											.optional()
+											.describe(
+												'Optional. A tuple of username and password to be used for authentication when making requests to the URL.'
+											)
+									})
+									.describe('Model for a URL.'),
+								zod.null()
+							])
+							.optional(),
+						parameter_options: zod
+							.union([zod.record(zod.string(), zod.any()), zod.null()])
+							.optional(),
+						name: zod
+							.string()
+							.describe(
+								'Descriptive name of the simulator. This can be used in UI and visualizations.'
+							),
+						symbol: zod
+							.string()
+							.describe(
+								'Symbol to represent the simulator. This will be used in the rest of the problem definition. It may also be used in UIs and visualizations.'
+							),
+						id: zod.union([zod.number(), zod.null()]).optional(),
+						problem_id: zod.union([zod.number(), zod.null()]).optional()
+					})
+					.describe('The SQLModel equivalent to `Simulator`.')
+			),
+			zod.null()
+		]),
+		problem_metadata: zod.union([
+			zod
+				.object({
+					problem_id: zod.number(),
+					forest_metadata: zod.union([
+						zod.array(
+							zod
+								.object({
+									id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_type: zod
+										.string()
+										.default(
+											addProblemJsonProblemAddJsonPostResponseProblemMetadataForestMetadataItemMetadataTypeDefault
+										),
+									map_json: zod.string(),
+									schedule_dict: zod.record(zod.string(), zod.any()),
+									years: zod.array(zod.string()),
+									stand_id_field: zod.string(),
+									stand_descriptor: zod
+										.union([zod.record(zod.string(), zod.any()), zod.null()])
+										.optional(),
+									compensation: zod.union([zod.number(), zod.null()]).optional()
+								})
+								.describe(
+									'A problem metadata class to hold UTOPIA forest problem specific information.'
+								)
+						),
+						zod.null()
+					]),
+					representative_nd_metadata: zod.union([
+						zod.array(
+							zod
+								.object({
+									id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_type: zod
+										.string()
+										.default(
+											addProblemJsonProblemAddJsonPostResponseProblemMetadataRepresentativeNdMetadataItemMetadataTypeDefault
+										),
+									name: zod.string().describe('The name of the representative set.'),
+									description: zod
+										.union([zod.string(), zod.null()])
+										.optional()
+										.describe('A description of the representative set. Optional.'),
+									solution_data: zod
+										.record(zod.string(), zod.array(zod.number()))
+										.describe(
+											'The non-dominated solutions. It is assumed that columns exist for each variable and objective function. For functions, the `_min` variant should be present, and any tensor variables should be unrolled.'
+										),
+									ideal: zod
+										.record(zod.string(), zod.number())
+										.describe('The ideal objective function values of the representative set.'),
+									nadir: zod
+										.record(zod.string(), zod.number())
+										.describe('The nadir objective function values of the representative set.')
+								})
+								.describe(
+									'A problem metadata class to store representative solutions sets, i.e., non-dominated sets...\n\nA problem metadata class to store representative solutions sets, i.e., non-dominated sets that\nrepresent/approximate the Pareto optimal solution set of the problem.\n\nNote:\n    It is assumed that the solution set is non-dominated.'
+								)
+						),
+						zod.null()
+					])
+				})
+				.describe('Response model for ProblemMetaData.'),
+			zod.null()
+		])
+	})
+	.describe('Problem info request return data.');
+
+/**
  * Fetch specific metadata for a specific problem.
 
 Fetch specific metadata for a specific problem. See all the possible

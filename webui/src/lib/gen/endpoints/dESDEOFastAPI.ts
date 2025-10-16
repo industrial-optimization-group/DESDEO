@@ -8,6 +8,7 @@
 import type {
 	BodyAddNewAnalystAddNewAnalystPost,
 	BodyAddNewDmAddNewDmPost,
+	BodyAddProblemJsonProblemAddJsonPost,
 	BodyLoginLoginPost,
 	CreateSessionRequest,
 	EnautilusStepRequest,
@@ -579,6 +580,66 @@ export const addProblemProblemAddPost = async (
 		...options,
 		method: 'POST'
 	});
+};
+
+/**
+ * Adds a problem to the database based on its JSON definition.
+
+Args:
+    json_file (UploadFile): a file in JSON format describing the problem.
+    user (Annotated[User, Depends): the usr for which the problem is added.
+    session (Annotated[Session, Depends): the database session.
+
+Raises:
+    HTTPException: if the provided `json_file` is empty.
+    HTTPException: if the content in the provided `json_file` is not in JSON format.__annotations__
+
+Returns:
+    ProblemInfo: a description of the added problem.
+ * @summary Add Problem Json
+ */
+export type addProblemJsonProblemAddJsonPostResponse200 = {
+	data: ProblemInfo;
+	status: 200;
+};
+
+export type addProblemJsonProblemAddJsonPostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type addProblemJsonProblemAddJsonPostResponseSuccess =
+	addProblemJsonProblemAddJsonPostResponse200 & {
+		headers: Headers;
+	};
+export type addProblemJsonProblemAddJsonPostResponseError =
+	addProblemJsonProblemAddJsonPostResponse422 & {
+		headers: Headers;
+	};
+
+export type addProblemJsonProblemAddJsonPostResponse =
+	| addProblemJsonProblemAddJsonPostResponseSuccess
+	| addProblemJsonProblemAddJsonPostResponseError;
+
+export const getAddProblemJsonProblemAddJsonPostUrl = () => {
+	return `http://localhost:8000/problem/add_json`;
+};
+
+export const addProblemJsonProblemAddJsonPost = async (
+	bodyAddProblemJsonProblemAddJsonPost: BodyAddProblemJsonProblemAddJsonPost,
+	options?: RequestInit
+): Promise<addProblemJsonProblemAddJsonPostResponse> => {
+	const formData = new FormData();
+	formData.append(`json_file`, bodyAddProblemJsonProblemAddJsonPost.json_file);
+
+	return customFetch<addProblemJsonProblemAddJsonPostResponse>(
+		getAddProblemJsonProblemAddJsonPostUrl(),
+		{
+			...options,
+			method: 'POST',
+			body: formData
+		}
+	);
 };
 
 /**
@@ -2972,6 +3033,551 @@ export const getGetProblemProblemGetPostResponseMock = (
 });
 
 export const getAddProblemProblemAddPostResponseMock = (
+	overrideResponse: Partial<ProblemInfo> = {}
+): ProblemInfo => ({
+	name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+	description: faker.string.alpha({ length: { min: 10, max: 20 } }),
+	is_convex: faker.helpers.arrayElement([faker.datatype.boolean(), null]),
+	is_linear: faker.helpers.arrayElement([faker.datatype.boolean(), null]),
+	is_twice_differentiable: faker.helpers.arrayElement([faker.datatype.boolean(), null]),
+	scenario_keys: faker.helpers.arrayElement([
+		Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+			faker.string.alpha({ length: { min: 10, max: 20 } })
+		),
+		null
+	]),
+	variable_domain: faker.helpers.arrayElement(Object.values(VariableDomainTypeEnum)),
+	id: faker.number.int({ min: undefined, max: undefined }),
+	user_id: faker.number.int({ min: undefined, max: undefined }),
+	constants: faker.helpers.arrayElement([
+		Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+			name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+			symbol: faker.string.alpha({ length: { min: 10, max: 20 } }),
+			value: faker.number.float({ min: undefined, max: undefined, fractionDigits: 2 }),
+			id: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([faker.number.int({ min: undefined, max: undefined }), null]),
+				undefined
+			]),
+			problem_id: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([faker.number.int({ min: undefined, max: undefined }), null]),
+				undefined
+			])
+		})),
+		null
+	]),
+	tensor_constants: faker.helpers.arrayElement([
+		Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+			values: faker.helpers.arrayElement([
+				[],
+				Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+					faker.helpers.arrayElement([
+						faker.number.float({ min: undefined, max: undefined, fractionDigits: 2 }),
+						faker.number.int({ min: undefined, max: undefined }),
+						faker.datatype.boolean()
+					])
+				),
+				faker.number.float({ min: undefined, max: undefined, fractionDigits: 2 }),
+				faker.number.int({ min: undefined, max: undefined }),
+				faker.datatype.boolean(),
+				'List',
+				null
+			]),
+			shape: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+				() => faker.number.int({ min: undefined, max: undefined })
+			),
+			name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+			symbol: faker.string.alpha({ length: { min: 10, max: 20 } }),
+			id: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([faker.number.int({ min: undefined, max: undefined }), null]),
+				undefined
+			]),
+			problem_id: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([faker.number.int({ min: undefined, max: undefined }), null]),
+				undefined
+			])
+		})),
+		null
+	]),
+	variables: faker.helpers.arrayElement([
+		Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+			name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+			symbol: faker.string.alpha({ length: { min: 10, max: 20 } }),
+			variable_type: faker.helpers.arrayElement(Object.values(VariableTypeEnum)),
+			lowerbound: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([
+					faker.number.float({ min: undefined, max: undefined, fractionDigits: 2 }),
+					null
+				]),
+				undefined
+			]),
+			upperbound: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([
+					faker.number.float({ min: undefined, max: undefined, fractionDigits: 2 }),
+					null
+				]),
+				undefined
+			]),
+			initial_value: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([
+					faker.number.float({ min: undefined, max: undefined, fractionDigits: 2 }),
+					null
+				]),
+				undefined
+			]),
+			id: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([faker.number.int({ min: undefined, max: undefined }), null]),
+				undefined
+			]),
+			problem_id: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([faker.number.int({ min: undefined, max: undefined }), null]),
+				undefined
+			])
+		})),
+		null
+	]),
+	tensor_variables: faker.helpers.arrayElement([
+		Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+			initial_values: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([
+					[],
+					Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+						faker.helpers.arrayElement([
+							faker.number.float({ min: undefined, max: undefined, fractionDigits: 2 }),
+							faker.number.int({ min: undefined, max: undefined }),
+							faker.datatype.boolean()
+						])
+					),
+					faker.number.float({ min: undefined, max: undefined, fractionDigits: 2 }),
+					faker.number.int({ min: undefined, max: undefined }),
+					faker.datatype.boolean(),
+					'List',
+					null
+				]),
+				null
+			]),
+			lowerbounds: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([
+					[],
+					Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+						faker.helpers.arrayElement([
+							faker.number.float({ min: undefined, max: undefined, fractionDigits: 2 }),
+							faker.number.int({ min: undefined, max: undefined }),
+							faker.datatype.boolean()
+						])
+					),
+					faker.number.float({ min: undefined, max: undefined, fractionDigits: 2 }),
+					faker.number.int({ min: undefined, max: undefined }),
+					faker.datatype.boolean(),
+					'List',
+					null
+				]),
+				null
+			]),
+			upperbounds: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([
+					[],
+					Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+						faker.helpers.arrayElement([
+							faker.number.float({ min: undefined, max: undefined, fractionDigits: 2 }),
+							faker.number.int({ min: undefined, max: undefined }),
+							faker.datatype.boolean()
+						])
+					),
+					faker.number.float({ min: undefined, max: undefined, fractionDigits: 2 }),
+					faker.number.int({ min: undefined, max: undefined }),
+					faker.datatype.boolean(),
+					'List',
+					null
+				]),
+				null
+			]),
+			shape: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+				() => faker.number.int({ min: undefined, max: undefined })
+			),
+			name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+			symbol: faker.string.alpha({ length: { min: 10, max: 20 } }),
+			variable_type: faker.helpers.arrayElement(Object.values(VariableTypeEnum)),
+			id: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([faker.number.int({ min: undefined, max: undefined }), null]),
+				undefined
+			]),
+			problem_id: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([faker.number.int({ min: undefined, max: undefined }), null]),
+				undefined
+			])
+		})),
+		null
+	]),
+	objectives: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+		() => ({
+			func: faker.helpers.arrayElement([
+				Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+					() => ({})
+				),
+				null
+			]),
+			scenario_keys: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([
+					Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+						faker.string.alpha({ length: { min: 10, max: 20 } })
+					),
+					null
+				]),
+				undefined
+			]),
+			surrogates: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([
+					Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+						faker.string.alpha({ length: { min: 10, max: 20 } })
+					),
+					null
+				]),
+				undefined
+			]),
+			simulator_path: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([
+					faker.string.alpha({ length: { min: 10, max: 20 } }),
+					{
+						url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+						auth: faker.helpers.arrayElement([faker.helpers.arrayElement([[], null]), undefined])
+					},
+					null
+				]),
+				undefined
+			]),
+			name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+			symbol: faker.string.alpha({ length: { min: 10, max: 20 } }),
+			unit: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+				undefined
+			]),
+			maximize: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]),
+			ideal: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([
+					faker.number.float({ min: undefined, max: undefined, fractionDigits: 2 }),
+					null
+				]),
+				undefined
+			]),
+			nadir: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([
+					faker.number.float({ min: undefined, max: undefined, fractionDigits: 2 }),
+					null
+				]),
+				undefined
+			]),
+			objective_type: faker.helpers.arrayElement([
+				faker.helpers.arrayElement(Object.values(ObjectiveTypeEnum)),
+				undefined
+			]),
+			is_linear: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]),
+			is_convex: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]),
+			is_twice_differentiable: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]),
+			id: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([faker.number.int({ min: undefined, max: undefined }), null]),
+				undefined
+			]),
+			problem_id: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([faker.number.int({ min: undefined, max: undefined }), null]),
+				undefined
+			])
+		})
+	),
+	constraints: faker.helpers.arrayElement([
+		Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+			func: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+				() => ({})
+			),
+			scenario_keys: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([
+					Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+						faker.string.alpha({ length: { min: 10, max: 20 } })
+					),
+					null
+				]),
+				undefined
+			]),
+			surrogates: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([
+					Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+						faker.string.alpha({ length: { min: 10, max: 20 } })
+					),
+					null
+				]),
+				undefined
+			]),
+			simulator_path: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([
+					faker.string.alpha({ length: { min: 10, max: 20 } }),
+					{
+						url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+						auth: faker.helpers.arrayElement([faker.helpers.arrayElement([[], null]), undefined])
+					},
+					null
+				]),
+				undefined
+			]),
+			name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+			symbol: faker.string.alpha({ length: { min: 10, max: 20 } }),
+			cons_type: faker.helpers.arrayElement(Object.values(ConstraintTypeEnum)),
+			is_linear: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]),
+			is_convex: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]),
+			is_twice_differentiable: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]),
+			id: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([faker.number.int({ min: undefined, max: undefined }), null]),
+				undefined
+			]),
+			problem_id: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([faker.number.int({ min: undefined, max: undefined }), null]),
+				undefined
+			])
+		})),
+		null
+	]),
+	scalarization_funcs: faker.helpers.arrayElement([
+		Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+			func: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+				() => ({})
+			),
+			scenario_keys: Array.from(
+				{ length: faker.number.int({ min: 1, max: 10 }) },
+				(_, i) => i + 1
+			).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+			name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+			symbol: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+				undefined
+			]),
+			is_linear: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]),
+			is_convex: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]),
+			is_twice_differentiable: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]),
+			id: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([faker.number.int({ min: undefined, max: undefined }), null]),
+				undefined
+			]),
+			problem_id: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([faker.number.int({ min: undefined, max: undefined }), null]),
+				undefined
+			])
+		})),
+		null
+	]),
+	extra_funcs: faker.helpers.arrayElement([
+		Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+			func: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+				() => ({})
+			),
+			scenario_keys: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([
+					Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+						faker.string.alpha({ length: { min: 10, max: 20 } })
+					),
+					null
+				]),
+				undefined
+			]),
+			surrogates: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([
+					Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+						faker.string.alpha({ length: { min: 10, max: 20 } })
+					),
+					null
+				]),
+				undefined
+			]),
+			simulator_path: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([
+					faker.string.alpha({ length: { min: 10, max: 20 } }),
+					{
+						url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+						auth: faker.helpers.arrayElement([faker.helpers.arrayElement([[], null]), undefined])
+					},
+					null
+				]),
+				undefined
+			]),
+			name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+			symbol: faker.string.alpha({ length: { min: 10, max: 20 } }),
+			is_linear: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]),
+			is_convex: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]),
+			is_twice_differentiable: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]),
+			id: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([faker.number.int({ min: undefined, max: undefined }), null]),
+				undefined
+			]),
+			problem_id: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([faker.number.int({ min: undefined, max: undefined }), null]),
+				undefined
+			])
+		})),
+		null
+	]),
+	discrete_representation: faker.helpers.arrayElement([
+		{
+			non_dominated: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]),
+			variable_values: {
+				[faker.string.alphanumeric(5)]: Array.from(
+					{ length: faker.number.int({ min: 1, max: 10 }) },
+					(_, i) => i + 1
+				).map(() =>
+					faker.helpers.arrayElement([
+						faker.number.float({ min: undefined, max: undefined, fractionDigits: 2 }),
+						faker.number.int({ min: undefined, max: undefined }),
+						faker.datatype.boolean()
+					])
+				)
+			},
+			objective_values: {
+				[faker.string.alphanumeric(5)]: Array.from(
+					{ length: faker.number.int({ min: 1, max: 10 }) },
+					(_, i) => i + 1
+				).map(() => faker.number.float({ min: undefined, max: undefined, fractionDigits: 2 }))
+			},
+			id: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([faker.number.int({ min: undefined, max: undefined }), null]),
+				undefined
+			]),
+			problem_id: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([faker.number.int({ min: undefined, max: undefined }), null]),
+				undefined
+			])
+		},
+		null
+	]),
+	simulators: faker.helpers.arrayElement([
+		Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+			file: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+				undefined
+			]),
+			url: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([
+					{
+						url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+						auth: faker.helpers.arrayElement([faker.helpers.arrayElement([[], null]), undefined])
+					},
+					null
+				]),
+				undefined
+			]),
+			parameter_options: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([null]),
+				undefined
+			]),
+			name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+			symbol: faker.string.alpha({ length: { min: 10, max: 20 } }),
+			id: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([faker.number.int({ min: undefined, max: undefined }), null]),
+				undefined
+			]),
+			problem_id: faker.helpers.arrayElement([
+				faker.helpers.arrayElement([faker.number.int({ min: undefined, max: undefined }), null]),
+				undefined
+			])
+		})),
+		null
+	]),
+	problem_metadata: faker.helpers.arrayElement([
+		{
+			problem_id: faker.number.int({ min: undefined, max: undefined }),
+			forest_metadata: faker.helpers.arrayElement([
+				Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+					id: faker.helpers.arrayElement([
+						faker.helpers.arrayElement([
+							faker.number.int({ min: undefined, max: undefined }),
+							null
+						]),
+						undefined
+					]),
+					metadata_id: faker.helpers.arrayElement([
+						faker.helpers.arrayElement([
+							faker.number.int({ min: undefined, max: undefined }),
+							null
+						]),
+						undefined
+					]),
+					metadata_type: faker.helpers.arrayElement([
+						faker.string.alpha({ length: { min: 10, max: 20 } }),
+						undefined
+					]),
+					map_json: faker.string.alpha({ length: { min: 10, max: 20 } }),
+					schedule_dict: {},
+					years: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+						() => faker.string.alpha({ length: { min: 10, max: 20 } })
+					),
+					stand_id_field: faker.string.alpha({ length: { min: 10, max: 20 } }),
+					stand_descriptor: faker.helpers.arrayElement([
+						faker.helpers.arrayElement([null]),
+						undefined
+					]),
+					compensation: faker.helpers.arrayElement([
+						faker.helpers.arrayElement([
+							faker.number.float({ min: undefined, max: undefined, fractionDigits: 2 }),
+							null
+						]),
+						undefined
+					])
+				})),
+				null
+			]),
+			representative_nd_metadata: faker.helpers.arrayElement([
+				Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+					id: faker.helpers.arrayElement([
+						faker.helpers.arrayElement([
+							faker.number.int({ min: undefined, max: undefined }),
+							null
+						]),
+						undefined
+					]),
+					metadata_id: faker.helpers.arrayElement([
+						faker.helpers.arrayElement([
+							faker.number.int({ min: undefined, max: undefined }),
+							null
+						]),
+						undefined
+					]),
+					metadata_type: faker.helpers.arrayElement([
+						faker.string.alpha({ length: { min: 10, max: 20 } }),
+						undefined
+					]),
+					name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+					description: faker.helpers.arrayElement([
+						faker.helpers.arrayElement([
+							faker.string.alpha({ length: { min: 10, max: 20 } }),
+							null
+						]),
+						undefined
+					]),
+					solution_data: {
+						[faker.string.alphanumeric(5)]: Array.from(
+							{ length: faker.number.int({ min: 1, max: 10 }) },
+							(_, i) => i + 1
+						).map(() => faker.number.float({ min: undefined, max: undefined, fractionDigits: 2 }))
+					},
+					ideal: {
+						[faker.string.alphanumeric(5)]: faker.number.float({
+							min: undefined,
+							max: undefined,
+							fractionDigits: 2
+						})
+					},
+					nadir: {
+						[faker.string.alphanumeric(5)]: faker.number.float({
+							min: undefined,
+							max: undefined,
+							fractionDigits: 2
+						})
+					}
+				})),
+				null
+			])
+		},
+		null
+	]),
+	...overrideResponse
+});
+
+export const getAddProblemJsonProblemAddJsonPostResponseMock = (
 	overrideResponse: Partial<ProblemInfo> = {}
 ): ProblemInfo => ({
 	name: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -5984,6 +6590,34 @@ export const getAddProblemProblemAddPostMockHandler = (
 	);
 };
 
+export const getAddProblemJsonProblemAddJsonPostMockHandler = (
+	overrideResponse?:
+		| ProblemInfo
+		| ((
+				info: Parameters<Parameters<typeof http.post>[1]>[0]
+		  ) => Promise<ProblemInfo> | ProblemInfo),
+	options?: RequestHandlerOptions
+) => {
+	return http.post(
+		'*/problem/add_json',
+		async (info) => {
+			await delay(1000);
+
+			return new HttpResponse(
+				JSON.stringify(
+					overrideResponse !== undefined
+						? typeof overrideResponse === 'function'
+							? await overrideResponse(info)
+							: overrideResponse
+						: getAddProblemJsonProblemAddJsonPostResponseMock()
+				),
+				{ status: 200, headers: { 'Content-Type': 'application/json' } }
+			);
+		},
+		options
+	);
+};
+
 export const getGetMetadataProblemGetMetadataPostMockHandler = (
 	overrideResponse?:
 		| GetMetadataProblemGetMetadataPost200Item[]
@@ -6586,6 +7220,7 @@ export const getDESDEOFastAPIMock = () => [
 	getGetProblemsInfoProblemAllInfoGetMockHandler(),
 	getGetProblemProblemGetPostMockHandler(),
 	getAddProblemProblemAddPostMockHandler(),
+	getAddProblemJsonProblemAddJsonPostMockHandler(),
 	getGetMetadataProblemGetMetadataPostMockHandler(),
 	getSelectSolverProblemAssignSolverPostMockHandler(),
 	getCreateNewSessionSessionNewPostMockHandler(),
