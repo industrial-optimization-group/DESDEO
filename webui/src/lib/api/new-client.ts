@@ -28,23 +28,26 @@ const getUrl = (contextUrl: string): string => {
 const getHeaders = (headers?: HeadersInit): HeadersInit => {
   return {
     ...headers,
-    credentials: 'include' // Keep and set cookies
+    // add headers if needed
   }
 };
 
 export const customFetch = async <T>(
   url: string,
-  options: RequestInit,
+  options: (RequestInit & {fetchImpl?: typeof fetch }),
 ): Promise<T> => {
+  const f = options.fetchImpl ?? fetch;
+
   const requestUrl = getUrl(url);
   const requestHeaders = getHeaders(options.headers);
 
   const requestInit: RequestInit = {
     ...options,
     headers: requestHeaders,
+    credentials: "include",
   };
 
-  const response = await fetch(requestUrl, requestInit);
+  const response = await f(requestUrl, requestInit);
   const data = await getBody<T>(response);
 
   return { status: response.status, data, headers: response.headers } as T;

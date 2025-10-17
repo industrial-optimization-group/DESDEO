@@ -55,10 +55,6 @@
 	const { form, enhance, errors } = superForm(data.form);
 
 	const file = fileProxy(form, 'json_file');
-
-	async function uploadFile() {
-		console.log(form);
-	}
 </script>
 
 <section class="mx-10">
@@ -67,7 +63,8 @@
 
 		<form
 			class="flex flex-col gap-4"
-			onsubmit={uploadFile}
+			action="?/upload_json"
+			method="POST"
 			enctype="multipart/form-data"
 			use:enhance
 		>

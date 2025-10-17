@@ -16,7 +16,7 @@ export const load = async () => {
     return { form };
 }
 
-export const actions = {
+export const actions: Actions = {
     login: async ({request, cookies}) => {
 
         const form = await superValidate(request, zod4(loginSchema));
@@ -42,4 +42,4 @@ export const actions = {
 
         redirect(303, '/dashboard');
     },
-} satisfies Actions;
+};
