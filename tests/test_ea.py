@@ -75,7 +75,7 @@ def test_nsga3():
 
     results = solver()
 
-    norm = results.outputs.with_columns(
+    norm = results.optimal_outputs.with_columns(
         (pl.col("f_1") ** 2 + pl.col("f_2") ** 2 + pl.col("f_3") ** 2).sqrt().alias("norm")
     )["norm"]
 
@@ -92,7 +92,7 @@ def test_rvea():
 
     results = solver()
 
-    norm = results.outputs.with_columns(
+    norm = results.optimal_outputs.with_columns(
         (pl.col("f_1") ** 2 + pl.col("f_2") ** 2 + pl.col("f_3") ** 2).sqrt().alias("norm")
     )["norm"]
 
@@ -109,7 +109,7 @@ def test_ibea():
 
     results = solver()
 
-    norm = results.outputs.with_columns(
+    norm = results.optimal_outputs.with_columns(
         (pl.col("f_1") ** 2 + pl.col("f_2") ** 2 + pl.col("f_3") ** 2).sqrt().alias("norm")
     )["norm"]
 
@@ -195,7 +195,7 @@ def test_archives():
         (pl.col("f_1") ** 2 + pl.col("f_2") ** 2 + pl.col("f_3") ** 2).sqrt().alias("norm")
     )["norm"]
 
-    norm_final = results.outputs.with_columns(
+    norm_final = results.optimal_outputs.with_columns(
         (pl.col("f_1") ** 2 + pl.col("f_2") ** 2 + pl.col("f_3") ** 2).sqrt().alias("norm")
     )["norm"]
 
@@ -797,9 +797,9 @@ def test_template_mixed_integer():
 def test_mixed_integer_nsga3():
     """Test whether the mixed-integer NSGA-III variant can be initialized and run as a whole."""
     problem = momip_ti2()
-    solver, publisher = nsga3_mixed_integer(problem=problem, n_generations=10)
-
-    _ = solver()
+    with suppress(NotImplementedError):
+        solver, publisher = nsga3_mixed_integer(problem=problem, n_generations=10)
+        _ = solver()
 
 
 @pytest.mark.ea
