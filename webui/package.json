@@ -42,7 +42,7 @@
 	    "tailwind-variants": "^1.0.0",
 	    "tw-animate-css": "^1.3.0",
 	    "vaul-svelte": "^1.0.0-next.7",
-	    "vite": "^6.2.6"
+	    "vite": "^6.4.1"
 		},
 	"devDependencies": {
 	    "@chromatic-com/storybook": "^3",
