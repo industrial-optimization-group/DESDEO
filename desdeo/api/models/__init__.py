@@ -74,7 +74,6 @@ __all__ = [  # noqa: RUF022
     "GroupInfoRequest",
     "BasePreferences",
     "ReferencePointDictType",
-    "EMOSolveRequest",
     "PreferredRanges",
     "PreferedSolutions",
     "NonPreferredSolutions",
@@ -203,8 +202,8 @@ from .session import (
     InteractiveSessionInfo,
 )
 from .state import (
-    EMOSaveState,
     EMOIterateState,
+    EMOSaveState,
     ENautilusState,
     GNIMBUSOptimizationState,
     GNIMBUSVotingState,

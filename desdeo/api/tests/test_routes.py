@@ -8,7 +8,6 @@ from fastapi.testclient import TestClient
 from desdeo.api.models import (
     CreateSessionRequest,
     EMOSaveRequest,
-    EMOSolveRequest,
     ForestProblemMetaData,
     GenericIntermediateSolutionResponse,
     GetSessionRequest,
@@ -36,7 +35,7 @@ from desdeo.api.models import (
     UserSavedEMOResults,
 )
 from desdeo.api.models.nimbus import NIMBUSInitializationResponse
-from desdeo.api.models.state import EMOSaveState, EMOIterateState
+from desdeo.api.models.state import EMOIterateState, EMOSaveState
 from desdeo.api.routers.user_authentication import create_access_token
 from desdeo.problem.testproblems import simple_knapsack_vectors
 
