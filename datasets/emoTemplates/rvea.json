@@ -1,0 +1,48 @@
+{
+    "preference": null,
+    "template": {
+        "crossover": {
+            "name": "SimulatedBinaryCrossover",
+            "xover_probability": 0.5,
+            "xover_distribution": 30.0
+        },
+        "mutation": {
+            "name": "BoundedPolynomialMutation",
+            "mutation_probability": null,
+            "distribution_index": 20.0
+        },
+        "selection": {
+            "name": "RVEASelector",
+            "reference_vector_options": {
+                "adaptation_frequency": 100,
+                "creation_type": "simplex",
+                "vector_type": "spherical",
+                "lattice_resolution": null,
+                "number_of_vectors": 100,
+                "adaptation_distance": 0.2,
+                "reference_point": null,
+                "preferred_solutions": null,
+                "non_preferred_solutions": null,
+                "preferred_ranges": null
+            },
+            "parameter_adaptation_strategy": "GENERATION_BASED",
+            "alpha": 2.0
+        },
+        "termination": {
+            "name": "MaxGenerationsTerminator",
+            "max_generations": 100
+        },
+        "generator": {
+            "n_points": 100,
+            "name": "LHSGenerator"
+        },
+        "repair": {
+            "name": "NoRepair"
+        },
+        "use_archive": true,
+        "seed": 42,
+        "verbosity": 2,
+        "algorithm_name": "RVEA",
+        "name": "Template1"
+    }
+}

@@ -12,15 +12,15 @@ from sqlmodel import (
     SQLModel,
 )
 
+from desdeo.emo.options.templates import PreferenceOptions, TemplateOptions
 from desdeo.mcdm import ENautilusResult
-from desdeo.problem import VariableType, Tensor
+from desdeo.problem import Tensor, VariableType
 from desdeo.tools import SolverResults
+from desdeo.tools.score_bands import SCOREBandsResult
 
 from .preference import PreferenceType, ReferencePoint
 
 if TYPE_CHECKING:
-    from desdeo.tools.generics import EMOResults
-
     from .problem import RepresentativeNonDominatedSolutions
     from .state_table import UserSavedSolutionDB
 
@@ -199,6 +199,7 @@ class NIMBUSInitializationState(ResultInterface, SQLModel, table=True):
 
 class GNIMBUSOptimizationState(ResultInterface, SQLModel, table=True):
     """GNIMBUS: classification / solving"""
+
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
 
     # Preferences that went in
@@ -217,10 +218,11 @@ class GNIMBUSOptimizationState(ResultInterface, SQLModel, table=True):
     @property
     def num_solutions(self) -> int:
         return len(self.solver_results)
-    
+
 
 class GNIMBUSVotingState(ResultInterface, SQLModel, table=True):
     """GNIMBUS: voting"""
+
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
 
     # Preferences that went in
@@ -241,24 +243,73 @@ class GNIMBUSVotingState(ResultInterface, SQLModel, table=True):
         return 1
 
 
-class EMOState(SQLModel, table=True):
+class EMOIterateState(ResultInterface, SQLModel, table=True):
     """EMO run (NSGA3, RVEA, etc.)."""
 
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
 
     # algorithm flavor
-    method_name: str = Field(description="Algorithm, e.g., NSGA3, RVEA")
-
-    # parameters
-    max_evaluations: int = Field(default=1000)
-    number_of_vectors: int = Field(default=20)
-    use_archive: bool = Field(default=True)
+    template_options: list[TemplateOptions] = Field(
+        sa_column=Column(JSON)
+    )  # TODO: This should probably be ids to another table
+    # preferences
+    preference_options: PreferenceOptions | None = Field(sa_column=Column(JSON))
 
     # results
-    solutions: list["EMOResults"] = Field(
-        sa_column=Column(JSON), description="Optimization results", default_factory=list
+    decision_variables: dict[str, list[VariableType]] | None = Field(
+        sa_column=Column(JSON), description="Optimization results (decision variables)", default=None
+    )  ## Unlike other methods, we have a very large number of solutions. So maybe we should store them together?
+    objective_values: dict[str, list[float]] | None = Field(
+        sa_column=Column(JSON), description="Optimization outputs", default=None
     )
-    outputs: list = Field(sa_column=Column(JSON), description="Optimization outputs", default_factory=list)
+    constraint_values: dict[str, list[float]] | None = Field(
+        sa_column=Column(JSON), description="Constraint values of the solutions", default=None
+    )
+    extra_func_values: dict[str, list[float]] | None = Field(
+        sa_column=Column(JSON), description="Extra function values of the solutions", default=None
+    )
+
+    @property
+    def result_objective_values(self) -> dict[str, list[float]]:
+        if self.objective_values is None:
+            raise ValueError("No objective values stored in this state.")
+        return self.objective_values
+
+    @property
+    def result_variable_values(self) -> dict[str, list[VariableType]]:
+        if self.decision_variables is None:
+            raise ValueError("No decision variables stored in this state.")
+        return self.decision_variables
+
+    @property
+    def result_constraint_values(self) -> dict[str, list[float]] | None:
+        return self.constraint_values
+
+    @property
+    def result_extra_func_values(self) -> dict[str, list[float]] | None:
+        return self.extra_func_values
+
+    @property
+    def num_solutions(self) -> int:
+        if self.objective_values:
+            first_key = next(iter(self.objective_values))
+            return len(self.objective_values[first_key])
+        return 0
+
+
+class EMOFetchState(SQLModel, table=True):
+    """Request model for fetching EMO solutions."""
+
+    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
+    # More fields can be added here if needed in the future. E.g., number of solutions to fetch, filters, etc.
+
+
+class EMOSCOREState(SQLModel, table=True):
+    """EMO: SCORE iteration."""
+
+    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
+
+    result: SCOREBandsResult = Field(sa_column=Column(JSON))
 
 
 class EMOSaveState(SQLModel, table=True):
@@ -266,16 +317,45 @@ class EMOSaveState(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
 
-    problem_id: int
-
-    # are these necessary here?
-    max_evaluations: int = Field(default=1000)
-    number_of_vectors: int = Field(default=20)
-    use_archive: bool = Field(default=True)
-
     # results
-    saved_solutions: list["EMOResults"] = Field(sa_column=Column(JSON), default_factory=list)
-    solutions: list = Field(sa_column=Column(JSON), description="Original solutions from request", default_factory=list)
+    decision_variables: dict[str, list[VariableType]] = Field(
+        sa_column=Column(JSON), description="Optimization results (decision variables)", default_factory=dict
+    )  ## Unlike other methods, we have a very large number of solutions. So maybe we should store them together?
+    objective_values: dict[str, list[float]] = Field(
+        sa_column=Column(JSON), description="Optimization outputs", default_factory=dict
+    )
+    constraint_values: dict[str, list[float]] | None = Field(
+        sa_column=Column(JSON), description="Constraint values of the solutions", default_factory=dict
+    )
+    extra_func_values: dict[str, list[float]] | None = Field(
+        sa_column=Column(JSON), description="Extra function values of the solutions", default_factory=dict
+    )
+    names: list[str | None] = Field(
+        default_factory=list, sa_column=Column(JSON), description="Names of the saved solutions"
+    )
+
+    @property
+    def result_objective_values(self) -> dict[str, list[float]]:
+        return self.objective_values
+
+    @property
+    def result_variable_values(self) -> dict[str, list[VariableType]]:
+        return self.decision_variables
+
+    @property
+    def result_constraint_values(self) -> dict[str, list[float]] | None:
+        return self.constraint_values
+
+    @property
+    def result_extra_func_values(self) -> dict[str, list[float]] | None:
+        return self.extra_func_values
+
+    @property
+    def num_solutions(self) -> int:
+        if self.objective_values:
+            first_key = next(iter(self.objective_values))
+            return len(self.objective_values[first_key])
+        return 0
 
 
 class IntermediateSolutionState(SQLModel, ResultInterface, table=True):
