@@ -20,9 +20,9 @@ from warnings import warn
 
 warn(
     "desdeo.emo.methods.EAs is deprecated and will be removed in future versions. "
-    "Please use desdeo.emo.config.algorithms instead.",
+    "Please use desdeo.emo.options.algorithms instead.",
     category=DeprecationWarning,
-    stacklevel=2,
+    stacklevel=1,
 )
 
 

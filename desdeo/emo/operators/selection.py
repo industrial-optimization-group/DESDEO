@@ -861,6 +861,9 @@ class NSGA3Selector(BaseDecompositionSelector):
             publisher=publisher,
             seed=seed,
         )
+        if self.constraints_symbols is not None:
+            raise NotImplementedError("NSGA3 selector does not support constraints. Please use a different selector.")
+
         self.adapted_reference_vectors = None
         self.worst_fitness: np.ndarray | None = None
         self.extreme_points: np.ndarray | None = None
@@ -1318,6 +1321,8 @@ class IBEASelector(BaseSelector):
         self.binary_indicator = binary_indicator
         self.kappa = kappa
         self.population_size = population_size
+        if self.constraints_symbols is not None:
+            raise NotImplementedError("IBEA selector does not support constraints. Please use a different selector.")
 
     def do(
         self, parents: tuple[SolutionType, pl.DataFrame], offsprings: tuple[SolutionType, pl.DataFrame]
