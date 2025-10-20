@@ -16,6 +16,14 @@ from desdeo.emo.operators.termination import MaxEvaluationsTerminator, MaxGenera
 from desdeo.problem import Problem
 from desdeo.tools.indicators_binary import self_epsilon
 from desdeo.tools.patterns import Publisher
+from warnings import warn
+
+warn(
+    "desdeo.emo.methods.EAs is deprecated and will be removed in future versions. "
+    "Please use desdeo.emo.config.algorithms instead.",
+    category=DeprecationWarning,
+    stacklevel=2,
+)
 
 
 def rvea(
