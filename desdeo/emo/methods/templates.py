@@ -15,17 +15,7 @@ from desdeo.emo.operators.mutation import BaseMutation
 from desdeo.emo.operators.scalar_selection import BaseScalarSelector
 from desdeo.emo.operators.selection import BaseSelector
 from desdeo.emo.operators.termination import BaseTerminator
-
-
-class EMOResult(BaseModel):
-    solutions: pl.DataFrame = Field(description="The decision vectors of the final population.")
-    """The decision vectors of the final population."""
-    outputs: pl.DataFrame = Field(
-        description="The objective vectors, constraint vectors, and targets of the final population."
-    )
-    """The objective vectors, constraint vectors, and targets of the final population."""
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+from desdeo.tools.generics import EMOResult
 
 
 def template1(
@@ -64,7 +54,7 @@ def template1(
         offspring_outputs = evaluator.evaluate(offspring)
         solutions, outputs = selection.do(parents=(solutions, outputs), offsprings=(offspring, offspring_outputs))
 
-    return EMOResult(solutions=solutions, outputs=outputs)
+    return EMOResult(optimal_variables=solutions, optimal_outputs=outputs)
 
 
 def template2(
@@ -118,4 +108,4 @@ def template2(
         offspring = repair(offspring)
         offspring_outputs = evaluator.evaluate(offspring)
 
-    return EMOResult(solutions=solutions, outputs=outputs)
+    return EMOResult(optimal_variables=solutions, optimal_outputs=outputs)

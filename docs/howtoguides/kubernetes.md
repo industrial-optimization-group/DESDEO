@@ -64,8 +64,8 @@ DESDEO2 uses a custom `assemble` script for installing all the necessary depende
 UPGRADE_PIP_TO_LATEST=1
 APP_MODULE=desdeo.api.app:app
 GUNICORN_CMD_ARGS=--bind=0.0.0.0:8080 --workers=2 --access-logfile=- --worker-class uvicorn.workers.UvicornWorker
-DESDEO_INSTALL=.[web,server]
-DESDEO_PRODUCTION=True
+DESDEO_INSTALL=. --group web --group server
+DEBUG=false
 ```
 The first line tells that `pip` should be upgraded to the latest version. `APP_MODULE` denotes the app that [gunicorn](http://docs.gunicorn.org/en/latest/run.html#gunicorn) should run. `GUNICORN_CMD_ARGS` lists the other arguments given to gunicorn i.e. the server should be run for all ip addresses at port 8080, the number of workers should be 2 (the default is way too many), the logs should go to stdout, and most importantly, the workers-class should use uvicorn workers. The end result here is that the code in app:app will be run on a Gunicorn ASGI server using the given arguments. `DESDEO_INSTALL` is used to give additional parameters in the `pip install $DESDEO_INSTALL` command in the `asseble` script. `DESDEO_PRODUCTION` is present so that the API knows to use the correct configurations.
 

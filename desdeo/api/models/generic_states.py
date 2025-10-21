@@ -15,19 +15,21 @@ from sqlmodel import (
     select,
 )
 
-from desdeo.problem import VariableType, Tensor
+from desdeo.problem import Tensor, VariableType
 
 from .state import (
+    EMOFetchState,
+    EMOIterateState,
     EMOSaveState,
-    EMOState,
+    EMOSCOREState,
     ENautilusState,
-    IntermediateSolutionState,
-    NIMBUSClassificationState,
-    NIMBUSInitializationState,
-    NIMBUSSaveState,
-    NIMBUSFinalState,
     GNIMBUSOptimizationState,
     GNIMBUSVotingState,
+    IntermediateSolutionState,
+    NIMBUSClassificationState,
+    NIMBUSFinalState,
+    NIMBUSInitializationState,
+    NIMBUSSaveState,
     RPMState,
 )
 from .user import User
@@ -54,6 +56,8 @@ class StateKind(str, Enum):
     GNIMBUS_VOTE = "gnimbus.vote"
     EMO_RUN = "emo.run"
     EMO_SAVE = "emo.save_solutions"
+    EMO_FETCH = "emo.fetch_solutions"
+    EMO_SCORE = "emo.score_bands"
     GENERIC_INTERMEDIATE = "generic.solve_intermediate"
     ENAUTILUS_STEP = "e-nautilus.stepping"
 
@@ -176,10 +180,12 @@ KIND_TO_TABLE: dict[StateKind, SQLModel] = {
     StateKind.NIMBUS_SAVE: NIMBUSSaveState,
     StateKind.NIMBUS_INIT: NIMBUSInitializationState,
     StateKind.NIMBUS_FINAL: NIMBUSFinalState,
+    StateKind.EMO_RUN: EMOIterateState,
     StateKind.GNIMBUS_OPTIMIZE: GNIMBUSOptimizationState,
     StateKind.GNIMBUS_VOTE: GNIMBUSVotingState,
-    StateKind.EMO_RUN: EMOState,
     StateKind.EMO_SAVE: EMOSaveState,
+    StateKind.EMO_FETCH: EMOFetchState,
+    StateKind.EMO_SCORE: EMOSCOREState,
     StateKind.GENERIC_INTERMEDIATE: IntermediateSolutionState,
     StateKind.ENAUTILUS_STEP: ENautilusState,
 }
@@ -190,10 +196,12 @@ SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
     NIMBUSSaveState: StateKind.NIMBUS_SAVE,
     NIMBUSInitializationState: StateKind.NIMBUS_INIT,
     NIMBUSFinalState: StateKind.NIMBUS_FINAL,
+    EMOIterateState: StateKind.EMO_RUN,
     GNIMBUSOptimizationState: StateKind.GNIMBUS_OPTIMIZE,
     GNIMBUSVotingState: StateKind.GNIMBUS_VOTE,
-    EMOState: StateKind.EMO_RUN,
     EMOSaveState: StateKind.EMO_SAVE,
+    EMOFetchState: StateKind.EMO_FETCH,
+    EMOSCOREState: StateKind.EMO_SCORE,
     IntermediateSolutionState: StateKind.GENERIC_INTERMEDIATE,
     ENautilusState: StateKind.ENAUTILUS_STEP,
 }

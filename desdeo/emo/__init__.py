@@ -5,7 +5,7 @@ __all__ = [
     "nsga3",
     "ibea",
     "template1",
-    "NSGAIII_select",
+    "NSGA3Selector",
     "RVEASelector",
     "SimulatedBinaryCrossover",
     "BoundedPolynomialMutation",
@@ -20,11 +20,11 @@ __all__ = [
 ]
 
 from .hooks.archivers import Archive, FeasibleArchive, NonDominatedArchive
-from .methods.EAs import nsga3, rvea, ibea
+from .methods.EAs import ibea, nsga3, rvea
 from .methods.templates import template1
 from .operators.crossover import SimulatedBinaryCrossover
 from .operators.evaluator import EMOEvaluator
 from .operators.generator import LHSGenerator, RandomGenerator
 from .operators.mutation import BoundedPolynomialMutation
-from .operators.selection import NSGAIII_select, RVEASelector
+from .operators.selection import NSGA3Selector, RVEASelector
 from .operators.termination import MaxEvaluationsTerminator, MaxGenerationsTerminator
