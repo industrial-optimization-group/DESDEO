@@ -38,24 +38,22 @@ from desdeo.tools import (
     add_nimbus_sf_diff,
     add_nimbus_sf_nondiff,
 )
-from desdeo.mcdm.nimbus import (
-    # generate_starting_point,
-    solve_intermediate_solutions,
-    infer_classifications,
-)
+from desdeo.mcdm.nimbus import infer_classifications
+from desdeo.mcdm.reference_point_method import rpm_intermediate_solutions
 from desdeo.gdm.voting_rules import majority_rule, plurality_rule
 from desdeo.gdm.gdmtools import dict_of_rps_to_list_of_rps, list_of_rps_to_dict_of_rps
 import polars as pl
+
 
 class GNIMBUSError(Exception):
     """Raised when an error with a NIMBUS method is encountered."""
 
 
 def voting_procedure(problem: Problem, solutions, votes_idxs: dict[str, int]) -> SolverResults:
-    """ 
-        Voting procedure for GNIMBUS for 4 DMs.
-        CLEAN THIS UP
-        Works properly for 4 votes and 4 solutions as per design.
+    """
+    Voting procedure for GNIMBUS for 4 DMs.
+    CLEAN THIS UP
+    Works properly for 4 votes and 4 solutions as per design.
     """
     winner_idx = None
 
@@ -74,19 +72,16 @@ def voting_procedure(problem: Problem, solutions, votes_idxs: dict[str, int]) ->
     if len(winners) == 2:
         # if two same solutions with same number of votes, call intermediate
         # TODO: not perfect check as I suppose it is possible to have a problem that we can calculate more solutions AND discrete representation also.
-        if problem.discrete_representation is None:
-            wsol1, wsol2 = solutions[winners[0]].optimal_variables, solutions[winners[1]].optimal_variables
-        else:
-            wsol1, wsol2 = solutions[winners[0]].optimal_objectives, solutions[winners[1]].optimal_objectives
+        wsol1, wsol2 = solutions[winners[0]].optimal_objectives, solutions[winners[1]].optimal_objectives
         print("Finding intermediate solution between", wsol1, wsol2)
-        # return solve_intermediate_solutions_only_objs(problem, wsol1, wsol2, num_desired=3)
-        return solve_intermediate_solutions(problem, wsol1, wsol2, num_desired=1)[0]
+        return rpm_intermediate_solutions(problem, wsol1, wsol2, num_desired=1)[0]
     else:
         print("TIE-breaking, select first solution (group nimbus scalarization)")
         return solutions[0]  # need to unlist the winners list
 
 
 # TODO: below is just doing the intermediate solutions with the objective vectors, was needed for GNIMBUS Malaga experiment
+# I think this is probably unnecessary, check rpm_intermediate_solutions
 def solve_intermediate_solutions_only_objs(  # noqa: PLR0913
     problem: Problem,
     solution_1: dict[str, VariableType],
@@ -182,7 +177,7 @@ def solve_intermediate_solutions_only_objs(  # noqa: PLR0913
 # TODO: move to tools after generalizing a bit
 def find_min_max_values(po_list: list[dict[str, float]], problem: Problem):
     """
-        Find min aspirations and upper (max) bounds. Assumes minimization.
+    Find min aspirations and upper (max) bounds. Assumes minimization.
     """
 
     objective_symbols = [obj.symbol for obj in problem.objectives]
@@ -192,6 +187,7 @@ def find_min_max_values(po_list: list[dict[str, float]], problem: Problem):
 
     return min_values, max_values
 
+
 # TODO: comments and move somewhere else
 # TODO: convert to work both with min and maximization problems. Now seems to work with max objectives
 def scale_delta(problem, d):
@@ -200,7 +196,7 @@ def scale_delta(problem, d):
     nadir = problem.get_nadir_point()
 
     for obj in problem.objectives:
-        delta.update({obj.symbol: d*(ideal[obj.symbol] - nadir[obj.symbol])})
+        delta.update({obj.symbol: d * (ideal[obj.symbol] - nadir[obj.symbol])})
     return delta
 
 
@@ -266,7 +262,10 @@ def solve_group_sub_problems(  # noqa: PLR0913
         # for rp in reference_point:
         if not all(obj.symbol in reference_point for obj in problem.objectives):
             print(reference_point)
-            msg = f"The reference point {reference_point} is missing entries " "for one or more of the objective functions."
+            msg = (
+                f"The reference point {reference_point} is missing entries "
+                "for one or more of the objective functions."
+            )
             raise GNIMBUSError(msg)
         # check that at least one objective function is allowed to be improved and one is allowed to worsen
         classifications = infer_classifications(problem, current_objectives, reference_point)
@@ -280,7 +279,9 @@ def solve_group_sub_problems(  # noqa: PLR0913
             raise GNIMBUSError(msg)
 
     if not all(obj.symbol in current_objectives for obj in problem.objectives):
-        msg = f"The current point {current_objectives} is missing entries " "for one or more of the objective functions."
+        msg = (
+            f"The current point {current_objectives} is missing entries " "for one or more of the objective functions."
+        )
         raise GNIMBUSError(msg)
 
     init_solver = create_solver if create_solver is not None else guess_best_solver(problem)
@@ -296,7 +297,9 @@ def solve_group_sub_problems(  # noqa: PLR0913
     # Solve for individual solutions. TODO: move as own function, should be useful for other methods as well.
     for dm_rp in reference_points:
         classification = infer_classifications(problem, current_objectives, reference_points[dm_rp])
-        nimbus_scala = add_nimbus_sf_diff if problem.is_twice_differentiable else add_nimbus_sf_nondiff  # non-diff gnimbus
+        nimbus_scala = (
+            add_nimbus_sf_diff if problem.is_twice_differentiable else add_nimbus_sf_nondiff
+        )  # non-diff gnimbus
         add_nimbus_sf = nimbus_scala
 
         problem_i_nimbus, nimbus_target = add_nimbus_sf(
@@ -325,7 +328,13 @@ def solve_group_sub_problems(  # noqa: PLR0913
         add_nimbus_sf = gnimbus_scala
 
         problem_g_nimbus, gnimbus_target = add_nimbus_sf(
-            problem, "nimbus_sf", classification_list, delta, agg_bounds, current_objectives, **(scalarization_options or {})
+            problem,
+            "nimbus_sf",
+            classification_list,
+            delta,
+            agg_bounds,
+            current_objectives,
+            **(scalarization_options or {}),
         )
 
         if _solver_options:
@@ -352,7 +361,13 @@ def solve_group_sub_problems(  # noqa: PLR0913
         add_nimbus_sf = gnimbus_scala
 
         problem_w_nimbus, nimbus_target = add_nimbus_sf(
-            problem, "nimbus_sf", classification_list, current_objectives, agg_bounds, delta, **(scalarization_options or {})
+            problem,
+            "nimbus_sf",
+            classification_list,
+            current_objectives,
+            agg_bounds,
+            delta,
+            **(scalarization_options or {}),
         )
 
         if _solver_options:
@@ -416,7 +431,13 @@ def solve_group_sub_problems(  # noqa: PLR0913
         add_nimbus_sf = gnimbus_scala
 
         problem_w_nimbus, nimbus_target = add_nimbus_sf(
-            problem, "nimbus_sf", classification_list, current_objectives, agg_bounds, delta, **(scalarization_options or {})
+            problem,
+            "nimbus_sf",
+            classification_list,
+            current_objectives,
+            agg_bounds,
+            delta,
+            **(scalarization_options or {}),
         )
 
         if _solver_options:
