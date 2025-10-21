@@ -35,23 +35,24 @@ export class WebSocketService {
 		});
 
 		this.socket.addEventListener('close', (event) => {
-			const message = event.reason || 'Connection closed';
-			this.messageStore.set(`WebSocket closed: ${message}`);
 			console.log('WebSocket closed:', { code: event.code, reason: event.reason });
 		});
 
 		this.socket.addEventListener('message', (event) => {
 			try {
+				// Try to parse as JSON in case future backend changes send structured data
 				const data = JSON.parse(event.data);
-				if (data.type === 'error') {
-					this.messageStore.set(`Error: ${data.message}`);
-				} else {
-					this.messageStore.set(data);
-				}
+				this.messageStore.set(data);
 			} catch {
+				// If not JSON, treat as plain text message
 				this.messageStore.set(event.data.toString());
 			}
 			console.log('WebSocket message received:', event.data);
+		});
+
+		this.socket.addEventListener('error', (event) => {
+			console.error('WebSocket error:', event);
+			this.messageStore.set('Connection error occurred');
 		});
 	}
 

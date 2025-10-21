@@ -58,6 +58,12 @@
 	import VisualizationsPanel from '$lib/components/custom/visualizations-panel/visualizations-panel.svelte';
 	import UtopiaMap from '$lib/components/custom/nimbus/utopia-map.svelte';
 	import { PREFERENCE_TYPES } from '$lib/constants';
+	import { errorMessage, isLoading } from '../../../stores/uiState';
+	import LoadingSpinner from '$lib/components/custom/notifications/loading-spinner.svelte';
+	import Alert from '$lib/components/custom/notifications/alert.svelte';
+
+
+
 	import type {
 		ProblemInfo,
 		Solution,
@@ -97,6 +103,29 @@
 	let isOwner = $state(false);
 	let isDecisionMaker = $state(false);
 
+	// Define the base phases array
+	const PHASE_CONFIGS = [
+		{ id: 'learning', label: 'Learning' },
+		{ id: 'crp', label: 'CRP' },
+		{ id: 'decision', label: 'Decision' }
+	] as const;
+
+	// Helper function to determine button variant for group owners phase change buttons
+	function getVariant(phaseId: typeof PHASE_CONFIGS[number]['id'], currentPhase: string, clicked: string | null) {
+	if (currentPhase === 'init' ) currentPhase = 'learning';
+	return currentPhase === phaseId ? 'default' : 
+		clicked === phaseId ? 'secondary' : 
+		'outline' as 'outline' | 'default' | 'secondary';
+	}
+
+	// Derived phases with variants
+	let PHASES = $derived.by(() => 
+		PHASE_CONFIGS.map(phase => ({
+			...phase,
+			variant: getVariant(phase.id, current_state.phase, clickedPhase)
+		}))
+	);
+	let clickedPhase = $state(null as 'learning' | 'crp' | 'decision' | null);
 	// the solutions we want to show in UI are different depending on the step of iteration.
 	// in the optimization step we want to show the final result,
 	// and in the voting step we want to show the common results.
@@ -123,7 +152,7 @@
 	// variable for handling different steps (view and possible actions are defined by step)
 	let step: Step = $state('optimization');
 
-	// variable for tracking if the user did the action for the ongoing step, used in defining what message is shown to user
+	// variable for tracking if the user did the action for the ongoing step, used in defining what instruction is shown to user
 	let isActionDone: boolean = $state(false);
 
 	// variables needed for voting: index of voted solution and the objectives extracted from that solution
@@ -154,7 +183,7 @@
 
 	// Message handling
 	let wsService: WebSocketService;
-	let message = $state('');
+	let message: string | null = $state(null);
 	let messageTimeout: number | undefined;
 
 	function showTemporaryMessage(msg: string, duration: number = 5000) {
@@ -165,7 +194,7 @@
 		message = msg;
 		// Clear message after duration
 		messageTimeout = window.setTimeout(() => {
-			message = '';
+			message = null;
 		}, duration);
 	}
 
@@ -373,11 +402,8 @@
 
 		if (!result || (!result.success && result.error === 'wrong_step')) {
 			showTemporaryMessage('Wrong step for phase change!');
-			// Revert the UI selection back to current state
-		} else {
-			// TODO: Update will happen via websocket notification
-			message = 'Phase switched to ' + new_phase;
 		}
+		return result.success;
 	}
 
 	async function initializeGNIMBUS(groupId: number) {
@@ -403,9 +429,12 @@
 		// Initialize WebSocket
 		wsService = new WebSocketService(data.group.id, 'gnimbus', data.refreshToken);
 		wsService.messageStore.subscribe((msg) => {
-			clearTimeout(messageTimeout);
-			messageTimeout = undefined;
-			message = msg;
+			if (
+				!msg.includes('Please fetch') &&
+				!msg.includes('Voting has concluded')
+			) {
+				showTemporaryMessage(msg);
+			}
 			getResultsAndUpdate(data.group.id);
 		});
 
@@ -472,6 +501,24 @@
 	);
 </script>
 
+{#if $isLoading}
+	<LoadingSpinner />
+{/if}
+
+{#if $errorMessage}
+	<Alert 
+		message={$errorMessage} 
+		variant='destructive'
+	/>
+{/if}
+
+{#if message}
+	<Alert 
+		{message} 
+		variant='default'
+	/>
+{/if}
+
 <BaseLayout
 	showLeftSidebar={!!problem}
 	showRightSidebar={false}
@@ -496,27 +543,38 @@
 	{/snippet}
 
 	{#snippet explorerControls()}
-		{#if isOwner && step === 'optimization'}
-			<span>Switch phase: </span>
-			<Button onclick={() => handle_phase_switch('learning')}>Learning</Button>
-			<Button onclick={() => handle_phase_switch('crp')}>CRP</Button>
-			<Button onclick={() => handle_phase_switch('decision')}>Decision</Button>
-		{/if}
 		<div class="rounded-lg bg-gray-50 p-4 text-sm">
 			{#if problem}
-				{@const status = getStatusMessage({
-					message,
+				{@const statusMessage = getStatusMessage({
 					isOwner,
 					isDecisionMaker,
 					step,
 					phase: current_state.phase,
 					isActionDone
 				})}
-				<span class={status.isAlert ? 'text-red-600' : 'text-gray-600'}>
-					{status.text}
+				<span class='text-gray-600'>
+					{statusMessage}
 				</span>
 			{/if}
 		</div>
+		{#if isOwner && step === 'optimization'}
+			{#each PHASES as phase}
+				<Button
+					variant={phase.variant}
+					onclick={() => {
+						handle_phase_switch(phase.id)
+							.then((value) => {
+								if (value) clickedPhase = phase.id;
+							})
+							.catch((err) => {
+								console.error('Phase switch error:', err);
+							});
+						}
+					}>
+					{phase.label}
+				</Button>
+			{/each}
+		{/if}
 	{/snippet}
 
 	{#snippet visualizationArea()}

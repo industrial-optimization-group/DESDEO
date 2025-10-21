@@ -1,6 +1,6 @@
 <script lang="ts">
 	/**
-	 * error-alert.svelte
+	 * alert.svelte
 	 *
 	 * @author Stina Palomäki <palomakistina@gmail.com>
 	 * @created September 2025
@@ -8,11 +8,13 @@
 	 * @description
 	 * This component displays a dismissible error alert as a notification at the top of the page.
 	 * It can get its message from the global `errorMessage` store or from a `message` prop.
+	 * It can show both error and info messages, with configurable styling and timeout.
 	 * The alert automatically dismisses after a timeout and can also be closed manually.
 	 *
 	 * @props
-	 * @property {string} [title='Error'] - The title of the alert.
-	 * @property {string} [message] - Optional. The error message to display. If not provided, it uses the value from the `errorMessage` store.
+	 * @property {string | undefined} - The title of the alert.
+	 * @property {string} [message] - Optional. The message to display. If not provided, it uses the value from the `errorMessage` store.
+	 * @property {'default' | 'destructive'} [variant='default'] - The visual style of the alert
 	 * @property {number} [timeout=10000] - The duration in milliseconds before the alert automatically closes. Set to 0 to disable auto-close.
 	 *
 	 * @features
@@ -29,15 +31,20 @@
 	import { errorMessage } from '../../../../stores/uiState';
 	import { onMount } from 'svelte';
 
-	export let title = 'Error';
+	export let title: string | undefined = undefined;
+	export let variant: 'default' | 'destructive' = 'default';
 	export let message: string | undefined = undefined;
 	export let timeout = 5000; // 5 seconds
+	export let onClose: (() => void) | undefined = undefined;
 
 	// Use the message prop if provided, otherwise fall back to the store's value.
-	const displayMessage = message ?? $errorMessage;
+    $: displayMessage = message ?? (variant === 'destructive' ? $errorMessage : null);
 
 	function handleClose() {
-		errorMessage.set(null);
+		if (variant === 'destructive') {
+            errorMessage.set(null);
+        }
+		onClose?.();
 	}
 
 	onMount(() => {
@@ -52,16 +59,16 @@
 </script>
 
 {#if displayMessage}
-	<div class="error-alert">
-		<Alert variant="destructive">
-			<AlertTitle>{title}</AlertTitle>
+	<div class="alert-container">
+		<Alert {variant}>
+			{#if title}<AlertTitle>{title}</AlertTitle>{/if}
 			<AlertDescription>{displayMessage}</AlertDescription>
 		</Alert>
 	</div>
 {/if}
 
 <style>
-	.error-alert {
+	.alert-container {
 		position: fixed;
 		top: 1rem;
 		left: 50%;
