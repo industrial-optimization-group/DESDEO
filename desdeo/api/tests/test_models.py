@@ -11,6 +11,8 @@ from desdeo.api.models import (
     ENautilusState,
     ExtraFunctionDB,
     ForestProblemMetaData,
+    Group,
+    GroupIteration,
     InteractiveSessionDB,
     NIMBUSSaveState,
     ObjectiveDB,
@@ -28,14 +30,9 @@ from desdeo.api.models import (
     User,
     UserSavedSolutionDB,
     VariableDB,
-    ProblemMetaDataDB,
-    ForestProblemMetaData,
-    Group,
-    GroupIteration,
 )
 from desdeo.api.models.gdm.gnimbus import (
     OptimizationPreference,
-    VotingPreference,
 )
 from desdeo.mcdm import enautilus_step, rpm_solve_solutions
 from desdeo.problem.schema import (
@@ -820,7 +817,9 @@ def test_problem_metadata(session_and_user: dict[str, Session | list[User]]):
 
     assert problem.problem_metadata == from_db_metadata
 
+
 def test_group(session_and_user: dict[str, Session | list[User]]):
+    """なに？！ちょっとまって。。。ドクメンタはどこですか？？？"""
     session: Session = session_and_user["session"]
     user: User = session_and_user["user"]
 
@@ -838,6 +837,7 @@ def test_group(session_and_user: dict[str, Session | list[User]]):
     assert group.id == 1
     assert group.user_ids[0] == user.id
     assert group.name == "TestGroup"
+
 
 def test_gnimbus_datas(session_and_user: dict[str, Session | list[User]]):
     session: Session = session_and_user["session"]
@@ -862,7 +862,7 @@ def test_gnimbus_datas(session_and_user: dict[str, Session | list[User]]):
             set_preferences={},
         ),
         notified={},
-        parent_id = None,
+        parent_id=None,
         parent=None,
         child=None,
     )
@@ -870,7 +870,7 @@ def test_gnimbus_datas(session_and_user: dict[str, Session | list[User]]):
     session.commit()
     session.refresh(giter)
 
-    assert type(giter.preferences) == OptimizationPreference
+    assert type(giter.preferences) is OptimizationPreference
     assert giter.problem_id == 1
     assert giter.group_id == group.id
 

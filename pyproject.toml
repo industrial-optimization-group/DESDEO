@@ -27,7 +27,7 @@ dependencies = [
     "plotly>=6.0",
     "pyparsing >= 3.0",
     "nevergrad >= 1.0.12",
-    "bayesian-optimization >= 1.0",  # They recently released v2 which breaks compatibility with nevergrad
+    "bayesian-optimization >= 1.0", # They recently released v2 which breaks compatibility with nevergrad
     "pyomo >= 6.8",
     "gurobipy >= 12.0.0",
     "tsp-solver >= 0.1",
@@ -36,7 +36,8 @@ dependencies = [
     "shap >= 0.47.0",
 	"requests >= 2.32.0",
     "cvxpy[scip] >= 1.6.4",
-    "moocore >= 0.1.7"
+    "moocore >= 0.1.7",
+    "websockets>=15.0.1",
 ]
 
 [project.urls]
@@ -165,6 +166,9 @@ lint.pydocstyle.convention = "google"
 lint.fixable = []
 lint.unfixable = []
 
+# Allow unused variables when underscore-prefixed.
+lint.dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
 # Exclude a variety of commonly ignored directories.
 exclude = [
     ".bzr",
@@ -191,9 +195,6 @@ exclude = [
 ]
 
 line-length = 120
-
-# Allow unused variables when underscore-prefixed.
-lint.dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 # Assume Python 3.12.
 target-version = "py312"
@@ -271,3 +272,6 @@ filterwarnings = [
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.pyrefly]
+project-includes = ["desdeo/", "tests/"]

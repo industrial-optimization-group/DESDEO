@@ -52,10 +52,9 @@ class GNIMBUSError(Exception):
 
 
 def voting_procedure(problem: Problem, solutions, votes_idxs: dict[str, int]) -> SolverResults:
-    """ 
-        Voting procedure for GNIMBUS for 4 DMs.
-        CLEAN THIS UP
-        Works properly for 4 votes and 4 solutions as per design.
+    """
+    More general procedure for GNIMBUS for any number of DMs.
+    TODO: docs and cleaning up.
     """
     winner_idx = None
 
@@ -68,9 +67,11 @@ def voting_procedure(problem: Problem, solutions, votes_idxs: dict[str, int]) ->
     # call plurality
     winners = plurality_rule(votes_idxs)
     print("winners")
+    """ general procedure does not apply plurality rule
     if len(winners) == 1:
         print("Plurality winner", winners[0])
         return solutions[winners[0]]  # need to unlist the winners list
+    """
     if len(winners) == 2:
         # if two same solutions with same number of votes, call intermediate
         # TODO: not perfect check as I suppose it is possible to have a problem that we can calculate more solutions AND discrete representation also.
@@ -82,8 +83,11 @@ def voting_procedure(problem: Problem, solutions, votes_idxs: dict[str, int]) ->
         # return solve_intermediate_solutions_only_objs(problem, wsol1, wsol2, num_desired=3)
         return solve_intermediate_solutions(problem, wsol1, wsol2, num_desired=1)[0]
     else:
-        print("TIE-breaking, select first solution (group nimbus scalarization)")
-        return solutions[0]  # need to unlist the winners list
+        print("TIE-breaking, select a solution randomly (as random as computers ever are..)")
+        n_of_sols = len(solutions)
+        rng = np.random.default_rng()
+        random_idx = rng.choice(range(n_of_sols))
+        return solutions[random_idx]
 
 
 # TODO: below is just doing the intermediate solutions with the objective vectors, was needed for GNIMBUS Malaga experiment
@@ -179,18 +183,21 @@ def solve_intermediate_solutions_only_objs(  # noqa: PLR0913
     return intermediate_solutions
 
 
-# TODO: move to tools after generalizing a bit
-def find_min_max_values(po_list: list[dict[str, float]], problem: Problem):
-    """
-        Find min aspirations and upper (max) bounds. Assumes minimization.
-    """
+# TODO: move to tools, document
+def agg_aspbounds(po_list: list[dict[str, float]], problem: Problem):
+    agg_aspirations = {}
+    agg_bounds = {}
 
-    objective_symbols = [obj.symbol for obj in problem.objectives]
+    for obj in problem.objectives:
+        if obj.maximize:
+            agg_aspirations.update({obj.symbol: max(s[obj.symbol] for s in po_list)})
+            agg_bounds.update({obj.symbol: min(s[obj.symbol] for s in po_list)})
+        else:
+            agg_aspirations.update({obj.symbol: min(s[obj.symbol] for s in po_list)})
+            agg_bounds.update({obj.symbol: max(s[obj.symbol] for s in po_list)})
 
-    max_values = {obj: max(s[obj] for s in po_list) for obj in objective_symbols}
-    min_values = {obj: min(s[obj] for s in po_list) for obj in objective_symbols}
+    return agg_aspirations, agg_bounds
 
-    return min_values, max_values
 
 # TODO: comments and move somewhere else
 # TODO: convert to work both with min and maximization problems. Now seems to work with max objectives
@@ -200,7 +207,10 @@ def scale_delta(problem, d):
     nadir = problem.get_nadir_point()
 
     for obj in problem.objectives:
-        delta.update({obj.symbol: d*(ideal[obj.symbol] - nadir[obj.symbol])})
+        if obj.maximize:
+            delta.update({obj.symbol: d*(ideal[obj.symbol] - nadir[obj.symbol])})
+        else:
+            delta.update({obj.symbol: d*(nadir[obj.symbol] - ideal[obj.symbol])})
     return delta
 
 
@@ -315,7 +325,7 @@ def solve_group_sub_problems(  # noqa: PLR0913
         achievable_prefs.append(ind_sols[q].optimal_objectives)
 
     print(achievable_prefs)
-    agg_aspirations, agg_bounds = find_min_max_values(achievable_prefs, problem)
+    agg_aspirations, agg_bounds = agg_aspbounds(achievable_prefs, problem)
     delta = scale_delta(problem, d=1e-6)  # TODO: move somewhere else
 
     if phase == "decision":

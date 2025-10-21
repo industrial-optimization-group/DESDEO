@@ -2,10 +2,10 @@
 
 from sqlmodel import Field
 
-from desdeo.tools.generics import EMOResults
+from desdeo.tools.generics import EMOResult
 
 
-class UserSavedEMOResults(EMOResults):
+class UserSavedEMOResults(EMOResult):
     """Defines a schema for storing emo solutions."""
 
     name: str | None = Field(
@@ -13,9 +13,9 @@ class UserSavedEMOResults(EMOResults):
         default=None,
     )
 
-    def to_emo_results(self) -> EMOResults:
+    def to_emo_results(self) -> EMOResult:
         """Convert to SolverResults without the name field."""
-        return EMOResults(
+        return EMOResult(
             optimal_variables=self.optimal_variables,
             optimal_objectives=self.optimal_objectives,
             constraint_values=self.constraint_values,
