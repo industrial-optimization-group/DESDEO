@@ -616,7 +616,7 @@ def add_group_asf_diff(
     if agg_bounds is not None:
         bounds = flip_maximized_objective_values(problem, agg_bounds)
         for obj in problem.objectives:
-            expr = f"({obj.symbol}_min - {bounds[obj.symbol]} - _alpha)"
+            expr = f"({obj.symbol}_min - {bounds[obj.symbol]})"
             constraints.append(
                 Constraint(
                     name=f"Constraint bound for {obj.symbol}",
@@ -769,7 +769,7 @@ def add_group_asf_agg_diff(
     if agg_bounds is not None:
         bounds = flip_maximized_objective_values(problem, agg_bounds)
         for obj in problem.objectives:
-            expr = f"({obj.symbol}_min - {bounds[obj.symbol]} - _alpha)"
+            expr = f"({obj.symbol}_min - {bounds[obj.symbol]})"
             constraints.append(
                 Constraint(
                     name=f"Constraint bound for {obj.symbol}",
@@ -2840,7 +2840,7 @@ def add_group_stom_diff(
     if agg_bounds is not None:
         bounds = flip_maximized_objective_values(problem, agg_bounds)
         for obj in problem.objectives:
-            expr = f"({obj.symbol}_min - {bounds[obj.symbol]} -_alpha)"
+            expr = f"({obj.symbol}_min - {bounds[obj.symbol]})"
             constraints.append(
                 Constraint(
                     name=f"Constraint bound for {obj.symbol}",
@@ -2989,7 +2989,7 @@ def add_group_stom_agg_diff(
     if agg_bounds is not None:
         bounds = flip_maximized_objective_values(problem, agg_bounds)
         for obj in problem.objectives:
-            expr = f"({obj.symbol}_min - {bounds[obj.symbol]} -_alpha)"
+            expr = f"({obj.symbol}_min - {bounds[obj.symbol]})"
             constraints.append(
                 Constraint(
                     name=f"Constraint bound for {obj.symbol}",
@@ -3692,7 +3692,7 @@ def add_group_guess_diff(
     if agg_bounds is not None:
         bounds = flip_maximized_objective_values(problem, agg_bounds)
         for obj in problem.objectives:
-            expr = f"({obj.symbol}_min - {bounds[obj.symbol]} - _alpha)"
+            expr = f"({obj.symbol}_min - {bounds[obj.symbol]})"
             constraints.append(
                 Constraint(
                     name=f"Constraint bound for {obj.symbol}",
@@ -3836,7 +3836,7 @@ def add_group_guess_agg_diff(
     if agg_bounds is not None:
         bounds = flip_maximized_objective_values(problem, agg_bounds)
         for obj in problem.objectives:
-            expr = f"({obj.symbol}_min - {bounds[obj.symbol]} - _alpha)"
+            expr = f"({obj.symbol}_min - {bounds[obj.symbol]})"
             constraints.append(
                 Constraint(
                     name=f"Constraint bound for {obj.symbol}",
