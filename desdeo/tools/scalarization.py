@@ -616,7 +616,7 @@ def add_group_asf_diff(
     if agg_bounds is not None:
         bounds = flip_maximized_objective_values(problem, agg_bounds)
         for obj in problem.objectives:
-            expr = f"({obj.symbol}_min - {bounds[obj.symbol]} - _alpha)"
+            expr = f"({obj.symbol}_min - {bounds[obj.symbol]})"
             constraints.append(
                 Constraint(
                     name=f"Constraint bound for {obj.symbol}",
@@ -769,7 +769,7 @@ def add_group_asf_agg_diff(
     if agg_bounds is not None:
         bounds = flip_maximized_objective_values(problem, agg_bounds)
         for obj in problem.objectives:
-            expr = f"({obj.symbol}_min - {bounds[obj.symbol]} - _alpha)"
+            expr = f"({obj.symbol}_min - {bounds[obj.symbol]})"
             constraints.append(
                 Constraint(
                     name=f"Constraint bound for {obj.symbol}",
@@ -2214,7 +2214,7 @@ def add_group_nimbus_diff(  # noqa: PLR0913
                     # not relevant for this group scalarization
                     pass
                 case (">=", reservation):
-                    con_expr = f"{_symbol}_min - {bounds[_symbol]}"
+                    con_expr = f"{_symbol}_min - {bounds[_symbol]} - _alpha"
                     constraints.append(
                         Constraint(
                             name=f"Worsen until constraint for {_symbol}",
@@ -2840,7 +2840,7 @@ def add_group_stom_diff(
     if agg_bounds is not None:
         bounds = flip_maximized_objective_values(problem, agg_bounds)
         for obj in problem.objectives:
-            expr = f"({obj.symbol}_min - {bounds[obj.symbol]} -_alpha)"
+            expr = f"({obj.symbol}_min - {bounds[obj.symbol]})"
             constraints.append(
                 Constraint(
                     name=f"Constraint bound for {obj.symbol}",
@@ -2989,7 +2989,7 @@ def add_group_stom_agg_diff(
     if agg_bounds is not None:
         bounds = flip_maximized_objective_values(problem, agg_bounds)
         for obj in problem.objectives:
-            expr = f"({obj.symbol}_min - {bounds[obj.symbol]} -_alpha)"
+            expr = f"({obj.symbol}_min - {bounds[obj.symbol]})"
             constraints.append(
                 Constraint(
                     name=f"Constraint bound for {obj.symbol}",
@@ -3436,7 +3436,6 @@ def add_group_guess_agg(
     agg_aspirations: dict[str, float],
     agg_bounds: dict[str, float],
     delta: dict[str, float] | float = 1e-6,
-    ideal: dict[str, float] | None = None,
     nadir: dict[str, float] | None = None,
     rho: float = 1e-6,
 ) -> tuple[Problem, str]:
@@ -3473,16 +3472,6 @@ def add_group_guess_agg(
         tuple[Problem, str]: a tuple with the copy of the problem with the added
             scalarization and the symbol of the added scalarization.
     """
-
-    # check if ideal point is specified
-    # if not specified, try to calculate corrected ideal point
-    if ideal is not None:
-        ideal_point = ideal
-    elif problem.get_ideal_point() is not None:
-        ideal_point = get_corrected_ideal(problem)
-    else:
-        msg = "Ideal point not defined!"
-        raise ScalarizationError(msg)
 
     # check if nadir point is specified
     # if not specified, try to calculate corrected nadir point
@@ -3692,7 +3681,7 @@ def add_group_guess_diff(
     if agg_bounds is not None:
         bounds = flip_maximized_objective_values(problem, agg_bounds)
         for obj in problem.objectives:
-            expr = f"({obj.symbol}_min - {bounds[obj.symbol]} - _alpha)"
+            expr = f"({obj.symbol}_min - {bounds[obj.symbol]})"
             constraints.append(
                 Constraint(
                     name=f"Constraint bound for {obj.symbol}",
@@ -3836,7 +3825,7 @@ def add_group_guess_agg_diff(
     if agg_bounds is not None:
         bounds = flip_maximized_objective_values(problem, agg_bounds)
         for obj in problem.objectives:
-            expr = f"({obj.symbol}_min - {bounds[obj.symbol]} - _alpha)"
+            expr = f"({obj.symbol}_min - {bounds[obj.symbol]})"
             constraints.append(
                 Constraint(
                     name=f"Constraint bound for {obj.symbol}",
@@ -4560,3 +4549,31 @@ def add_desirability_funcs(
         problem_ = problem_.add_scalarization(scalarization)
 
     return problem_, symbols
+
+
+def add_iopis_funcs(
+    problem: Problem,
+    reference_point: dict[str, float],
+    ideal: dict[str, float] | None = None,
+    nadir: dict[str, float] | None = None,
+    rho: float = 1e-6,
+    delta: float = 1e-6,
+) -> tuple[Problem, list[str]]:
+    symbols = ["iopis_guess", "iopis_stom"]
+    _problem, _ = add_guess_sf_nondiff(
+        problem=problem,
+        symbol=symbols[0],
+        reference_point=reference_point,
+        ideal=ideal,
+        nadir=nadir,
+        rho=rho,
+    )
+
+    _problem, _ = add_stom_sf_nondiff(
+        problem=_problem,
+        symbol=symbols[1],
+        reference_point=reference_point,
+        ideal=ideal,
+        delta=delta,
+    )
+    return _problem, symbols
