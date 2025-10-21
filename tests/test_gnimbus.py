@@ -115,6 +115,7 @@ def test_voting_procedure():
     print(next_current_solution)
     """
 
+    """
     # TEST intermediate
     votes_idxs = {
         "DM1": 0,
@@ -127,7 +128,6 @@ def test_voting_procedure():
     print(next_current_solution)
 
     # TEST according to gnimbus WINS
-    """
     votes_idxs = {
         "DM1": 1,
         "DM2": 0,
