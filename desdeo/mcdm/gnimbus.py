@@ -292,13 +292,8 @@ def solve_group_sub_problems(  # noqa: PLR0913
     for q in range(len(reference_points)):
         achievable_prefs.append(ind_sols[q].optimal_objectives)
 
-    print(achievable_prefs)
     agg_aspirations, agg_bounds = agg_aspbounds(achievable_prefs, problem)
-    print("aspirations", agg_aspirations)
-    print("bounds", agg_bounds)
     delta = scale_delta(problem, d=1e-6)  # TODO: move somewhere else
-    print(delta)
-    # delta = 1e-6  # TODO: move somewhere else
 
     if phase == "decision":
         for dm_rp in reference_points:
