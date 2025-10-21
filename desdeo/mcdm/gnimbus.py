@@ -295,6 +295,7 @@ def solve_group_sub_problems(  # noqa: PLR0913
 
     init_solver = create_solver if create_solver is not None else guess_best_solver(problem)
     _solver_options = solver_options if solver_options is not None else None
+    print("solver is ", init_solver)
 
     solutions = []
     classification_list = []
@@ -326,7 +327,11 @@ def solve_group_sub_problems(  # noqa: PLR0913
 
     print(achievable_prefs)
     agg_aspirations, agg_bounds = agg_aspbounds(achievable_prefs, problem)
+    print("aspirations", agg_aspirations)
+    print("bounds", agg_bounds)
     delta = scale_delta(problem, d=1e-6)  # TODO: move somewhere else
+    print(delta)
+    # delta = 1e-6  # TODO: move somewhere else
 
     if phase == "decision":
         for dm_rp in reference_points:
@@ -335,7 +340,7 @@ def solve_group_sub_problems(  # noqa: PLR0913
         add_nimbus_sf = gnimbus_scala
 
         problem_g_nimbus, gnimbus_target = add_nimbus_sf(
-            problem, "nimbus_sf", classification_list, delta, agg_bounds, current_objectives, **(scalarization_options or {})
+            problem, "nimbus_sf", classification_list, current_objectives, agg_bounds, delta, **(scalarization_options or {})
         )
 
         if _solver_options:
