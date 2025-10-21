@@ -17,6 +17,7 @@ __all__ = [
     "solve_group_sub_problems",
     "voting_procedure",
     "rpm_solve_solutions",
+    "rpm_intermediate_solutions",
 ]
 
 from .enautilus import (
@@ -37,4 +38,4 @@ from .nimbus import (
     solve_sub_problems,
 )
 from .gnimbus import solve_group_sub_problems, voting_procedure
-from .reference_point_method import rpm_solve_solutions
+from .reference_point_method import rpm_solve_solutions, rpm_intermediate_solutions
