@@ -3803,6 +3803,17 @@ def add_group_guess_agg_diff(
     aug_exprs.append(aug_expr)
     aug_exprs = " + ".join(aug_exprs)
 
+    func = f"_alpha + {rho}*({aug_exprs})"
+
+    scalarization = ScalarizationFunction(
+        name="Differentiable GUESS scalarization objective function for multiple decision makers",
+        symbol=symbol,
+        func=func,
+        is_linear=problem.is_linear,
+        is_convex=problem.is_convex,
+        is_twice_differentiable=problem.is_twice_differentiable,
+    )
+
     constraints = []
     # loop to create a constraint for every objective of every reference point given
     for obj in problem.objectives:
@@ -3837,15 +3848,7 @@ def add_group_guess_agg_diff(
                     is_twice_differentiable=obj.is_twice_differentiable,
                 )
             )
-    func = f"_alpha + {rho}*({aug_exprs})"
-    scalarization = ScalarizationFunction(
-        name="Differentiable GUESS scalarization objective function for multiple decision makers",
-        symbol=symbol,
-        func=func,
-        is_linear=problem.is_linear,
-        is_convex=problem.is_convex,
-        is_twice_differentiable=problem.is_twice_differentiable,
-    )
+
     _problem = problem.add_variables([alpha])
     _problem = _problem.add_scalarization(scalarization)
     return _problem.add_constraints(constraints), symbol
