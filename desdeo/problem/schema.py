@@ -1602,7 +1602,7 @@ class Problem(BaseModel):
 
         """
         json_content = self.model_dump_json(indent=4)
-        path.write_text(json_content)
+        path.write_text(json_content, encoding="utf-8")
 
     @classmethod
     def load_json(cls, path: Path) -> "Problem":

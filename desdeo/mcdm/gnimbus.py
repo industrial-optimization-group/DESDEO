@@ -1,48 +1,49 @@
 """Functions related to the GNIMBUS method.
 
-References:
-"""  # noqa: RUF002
+References (to add later): # noqa: RUD414
+"""
 
 import numpy as np
+import polars as pl
 
+from desdeo.gdm.gdmtools import dict_of_rps_to_list_of_rps, agg_aspbounds, scale_delta
+from desdeo.gdm.voting_rules import majority_rule, plurality_rule
+from desdeo.mcdm.nimbus import (  # generate_starting_point,
+    infer_classifications,
+    solve_intermediate_solutions,
+)
 from desdeo.problem import (
     PolarsEvaluator,
     Problem,
-    VariableType,
     Variable,
+    VariableType,
     objective_dict_to_numpy_array,
     unflatten_variable_array,
 )
-
 from desdeo.tools import (
     BaseSolver,
     SolverOptions,
     SolverResults,
-    add_group_asf_diff,
+    add_asf_diff,
+    add_asf_nondiff,
     add_group_asf,
     add_group_asf_agg,
     add_group_asf_agg_diff,
-    add_group_guess_diff,
+    add_group_asf_diff,
     add_group_guess,
     add_group_guess_agg,
     add_group_guess_agg_diff,
+    add_group_guess_diff,
     add_group_nimbus,
     add_group_nimbus_diff,
     add_group_stom,
     add_group_stom_agg,
     add_group_stom_agg_diff,
     add_group_stom_diff,
-    guess_best_solver,
-    add_asf_diff,
-    add_asf_nondiff,
     add_nimbus_sf_diff,
     add_nimbus_sf_nondiff,
+    guess_best_solver,
 )
-from desdeo.mcdm.nimbus import infer_classifications
-from desdeo.mcdm.reference_point_method import rpm_intermediate_solutions
-from desdeo.gdm.voting_rules import majority_rule, plurality_rule
-from desdeo.gdm.gdmtools import dict_of_rps_to_list_of_rps, list_of_rps_to_dict_of_rps
-import polars as pl
 
 
 class GNIMBUSError(Exception):
@@ -50,11 +51,10 @@ class GNIMBUSError(Exception):
 
 
 def voting_procedure(problem: Problem, solutions, votes_idxs: dict[str, int]) -> SolverResults:
+    r""" More general procedure for GNIMBUS for any number of DMs.
+    TODO(@jpajasmaa): docs and cleaning up.
     """
-    Voting procedure for GNIMBUS for 4 DMs.
-    CLEAN THIS UP
-    Works properly for 4 votes and 4 solutions as per design.
-    """
+
     winner_idx = None
 
     # call majority
@@ -62,7 +62,7 @@ def voting_procedure(problem: Problem, solutions, votes_idxs: dict[str, int]) ->
     if winner_idx is not None:
         print("Majority winner", winner_idx)
         return solutions[winner_idx]
-
+    """ general procedure does not apply plurality rule
     # call plurality
     winners = plurality_rule(votes_idxs)
     print("winners")
@@ -71,13 +71,21 @@ def voting_procedure(problem: Problem, solutions, votes_idxs: dict[str, int]) ->
         return solutions[winners[0]]  # need to unlist the winners list
     if len(winners) == 2:
         # if two same solutions with same number of votes, call intermediate
-        # TODO: not perfect check as I suppose it is possible to have a problem that we can calculate more solutions AND discrete representation also.
-        wsol1, wsol2 = solutions[winners[0]].optimal_objectives, solutions[winners[1]].optimal_objectives
+        # TODO:(@jpajasmaa) not perfect check as it is possible to have a problem that we can calculate more solutions
+        # AND discrete representation also.
+        if problem.discrete_representation is None:
+            wsol1, wsol2 = solutions[winners[0]].optimal_variables, solutions[winners[1]].optimal_variables
+        else:
+            wsol1, wsol2 = solutions[winners[0]].optimal_objectives, solutions[winners[1]].optimal_objectives
         print("Finding intermediate solution between", wsol1, wsol2)
-        return rpm_intermediate_solutions(problem, wsol1, wsol2, num_desired=1)[0]
-    else:
-        print("TIE-breaking, select first solution (group nimbus scalarization)")
-        return solutions[0]  # need to unlist the winners list
+        # return solve_intermediate_solutions_only_objs(problem, wsol1, wsol2, num_desired=3)
+        return solve_intermediate_solutions(problem, wsol1, wsol2, num_desired=1)[0]
+    """
+    print("TIE-breaking, select a solution randomly (as random as computers ever are..)")
+    n_of_sols = len(solutions)
+    rng = np.random.default_rng()
+    random_idx = rng.choice(range(n_of_sols))
+    return solutions[random_idx]
 
 
 # TODO: below is just doing the intermediate solutions with the objective vectors, was needed for GNIMBUS Malaga experiment
@@ -174,32 +182,6 @@ def solve_intermediate_solutions_only_objs(  # noqa: PLR0913
     return intermediate_solutions
 
 
-# TODO: move to tools after generalizing a bit
-def find_min_max_values(po_list: list[dict[str, float]], problem: Problem):
-    """
-    Find min aspirations and upper (max) bounds. Assumes minimization.
-    """
-
-    objective_symbols = [obj.symbol for obj in problem.objectives]
-
-    max_values = {obj: max(s[obj] for s in po_list) for obj in objective_symbols}
-    min_values = {obj: min(s[obj] for s in po_list) for obj in objective_symbols}
-
-    return min_values, max_values
-
-
-# TODO: comments and move somewhere else
-# TODO: convert to work both with min and maximization problems. Now seems to work with max objectives
-def scale_delta(problem, d):
-    delta = {}
-    ideal = problem.get_ideal_point()
-    nadir = problem.get_nadir_point()
-
-    for obj in problem.objectives:
-        delta.update({obj.symbol: d * (ideal[obj.symbol] - nadir[obj.symbol])})
-    return delta
-
-
 def solve_group_sub_problems(  # noqa: PLR0913
     problem: Problem,
     current_objectives: dict[str, float],
@@ -286,6 +268,7 @@ def solve_group_sub_problems(  # noqa: PLR0913
 
     init_solver = create_solver if create_solver is not None else guess_best_solver(problem)
     _solver_options = solver_options if solver_options is not None else None
+    print("solver is ", init_solver)
 
     solutions = []
     classification_list = []
@@ -317,8 +300,7 @@ def solve_group_sub_problems(  # noqa: PLR0913
     for q in range(len(reference_points)):
         achievable_prefs.append(ind_sols[q].optimal_objectives)
 
-    print(achievable_prefs)
-    agg_aspirations, agg_bounds = find_min_max_values(achievable_prefs, problem)
+    agg_aspirations, agg_bounds = agg_aspbounds(achievable_prefs, problem)
     delta = scale_delta(problem, d=1e-6)  # TODO: move somewhere else
 
     if phase == "decision":
@@ -328,13 +310,7 @@ def solve_group_sub_problems(  # noqa: PLR0913
         add_nimbus_sf = gnimbus_scala
 
         problem_g_nimbus, gnimbus_target = add_nimbus_sf(
-            problem,
-            "nimbus_sf",
-            classification_list,
-            delta,
-            agg_bounds,
-            current_objectives,
-            **(scalarization_options or {}),
+            problem, "nimbus_sf", classification_list, current_objectives, agg_bounds, delta, **(scalarization_options or {})
         )
 
         if _solver_options:
@@ -472,7 +448,7 @@ def solve_group_sub_problems(  # noqa: PLR0913
 
         solutions.append(asfg_solver.solve(asfg_target))
 
-        add_guess_sf2 = add_group_asf_agg_diff if problem.is_twice_differentiable else add_group_guess_agg
+        add_guess_sf2 = add_group_guess_agg_diff if problem.is_twice_differentiable else add_group_guess_agg
 
         problem_g_guess, guess2_target = add_guess_sf2(
             problem, "guess_sf2", agg_aspirations, agg_bounds, delta, **(scalarization_options or {})

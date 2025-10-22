@@ -11,11 +11,19 @@ from desdeo.emo.operators.evaluator import EMOEvaluator
 from desdeo.emo.operators.generator import LHSGenerator, RandomMixedIntegerGenerator
 from desdeo.emo.operators.mutation import BoundedPolynomialMutation, MixedIntegerRandomMutation
 from desdeo.emo.operators.scalar_selection import TournamentSelection
-from desdeo.emo.operators.selection import IBEA_Selector, NSGAIII_select, ReferenceVectorOptions, RVEASelector
+from desdeo.emo.operators.selection import IBEASelector, NSGA3Selector, ReferenceVectorOptions, RVEASelector
 from desdeo.emo.operators.termination import MaxEvaluationsTerminator, MaxGenerationsTerminator
 from desdeo.problem import Problem
 from desdeo.tools.indicators_binary import self_epsilon
 from desdeo.tools.patterns import Publisher
+from warnings import warn
+
+warn(
+    "desdeo.emo.methods.EAs is deprecated and will be removed in future versions. "
+    "Please use desdeo.emo.options.algorithms instead.",
+    category=DeprecationWarning,
+    stacklevel=1,
+)
 
 
 def rvea(
@@ -163,7 +171,7 @@ def nsga3(
         verbosity=forced_verbosity if forced_verbosity is not None else 2,
     )
 
-    selector = NSGAIII_select(
+    selector = NSGA3Selector(
         problem=problem,
         publisher=publisher,
         verbosity=forced_verbosity if forced_verbosity is not None else 2,
@@ -264,7 +272,7 @@ def ibea(
         publisher=publisher,
         verbosity=forced_verbosity if forced_verbosity is not None else 2,
     )
-    selector = IBEA_Selector(
+    selector = IBEASelector(
         problem=problem,
         verbosity=forced_verbosity if forced_verbosity is not None else 2,
         publisher=publisher,
@@ -373,7 +381,7 @@ def nsga3_mixed_integer(
         verbosity=forced_verbosity if forced_verbosity is not None else 2,
     )
 
-    selector = NSGAIII_select(
+    selector = NSGA3Selector(
         problem=problem,
         publisher=publisher,
         verbosity=forced_verbosity if forced_verbosity is not None else 2,
