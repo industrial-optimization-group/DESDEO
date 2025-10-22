@@ -27,6 +27,7 @@ from desdeo.api.models import (
     ReferencePoint,
     SavedSolutionReference,
     SolutionReference,
+    SolutionReferenceResponse,
     StateDB,
     User,
     UserSavedSolutionDB,
@@ -604,8 +605,11 @@ def finalize_nimbus(
 
     return NIMBUSFinalizeResponse(
         state_id=state.id,
-        final_solution=SolutionReference(
-            state=solution_state_id,
-            solution_index=solution_index
+        final_solution=SolutionReferenceResponse(
+            name=None,
+            solution_index=solution_index,
+            state_id=solution_state_id,
+            objective_values=actual_state.solver_results[solution_index].optimal_objectives,
+            variable_values=actual_state.solver_results[solution_index].optimal_variables,
         )
     )

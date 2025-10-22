@@ -87,7 +87,7 @@ class NIMBUSSaveResponse(SQLModel):
 
 
 class NIMBUSFinalizeResponse(SQLModel):
-    """The response from NIMBUS finish endpoint"""
+    """The response from NIMBUS finish endpoint."""
 
     state_id: int | None = Field(description="The id of the newest state")
     final_solution: SolutionReferenceResponse = Field(
