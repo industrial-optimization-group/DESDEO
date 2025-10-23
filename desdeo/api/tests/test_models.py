@@ -14,6 +14,9 @@ from desdeo.api.models import (
     Group,
     GroupIteration,
     InteractiveSessionDB,
+    NIMBUSClassificationState,
+    NIMBUSFinalState,
+    NIMBUSInitializationState,
     NIMBUSSaveState,
     ObjectiveDB,
     PreferenceDB,
@@ -34,7 +37,7 @@ from desdeo.api.models import (
 from desdeo.api.models.gnimbus import (
     OptimizationPreference,
 )
-from desdeo.mcdm import enautilus_step, rpm_solve_solutions
+from desdeo.mcdm import enautilus_step, generate_starting_point, rpm_solve_solutions, solve_sub_problems
 from desdeo.problem.schema import (
     Constant,
     Constraint,
@@ -1038,3 +1041,116 @@ def test_enautilus_state(session_and_user: dict[str, Session | list[User]]):
     assert len(state_1.children) == 1
     assert state_1.children[0] == state_2
     assert state_2.children == []
+
+def test_nimbus_models(session_and_user: dict[str, Session | list[User]]):
+    """Test that the NIMBUS models are in working order."""
+    session: Session = session_and_user["session"]
+    user: User = session_and_user["user"]
+    problem_db = user.problems[0]
+    problem = Problem.from_problemdb(problem_db)
+
+    isession = InteractiveSessionDB(user_id=user.id)
+
+    session.add(isession)
+    session.commit()
+    session.refresh(isession)
+
+    # 1. Initialize the NIMBUS problem (NIMBUSInitializationState)
+    results_1 = generate_starting_point(
+        problem=problem,
+    )
+    nimbus_init_state = NIMBUSInitializationState(
+        solver_results=results_1
+    )
+
+    state_1 = StateDB.create(
+        database_session=session,
+        problem_id=problem_db.id,
+        session_id=isession.id,
+        state=nimbus_init_state
+    )
+
+    session.add(state_1)
+    session.commit()
+    session.refresh(state_1)
+
+    actual_state_1: NIMBUSInitializationState = state_1.state
+
+    assert type(actual_state_1) is NIMBUSInitializationState
+    assert np.allclose(
+        [x for _, x in actual_state_1.solver_results.optimal_objectives.items()],
+        [x for _, x in results_1.optimal_objectives.items()],
+        0.001
+    )
+
+    # 2. Solve sub problems (NIMBUSClassificationState)
+    aspirations = {"f_1": 0.1, "f_2": 0.9, "f_3": 0.6}
+
+    results_2 = solve_sub_problems(
+        problem=problem,
+        current_objectives=results_1.optimal_objectives,
+        reference_point=aspirations,
+        num_desired=4
+    )
+    nimbus_classification_state = NIMBUSClassificationState(
+        preferences=ReferencePoint(aspiration_levels=aspirations),
+        current_objectives=results_1.optimal_objectives,
+        previous_preferences=ReferencePoint(aspiration_levels=aspirations),
+        solver_results=results_2
+    )
+
+    state_2 = StateDB.create(
+        database_session=session,
+        problem_id=problem_db.id,
+        session_id=isession.id,
+        state=nimbus_classification_state
+    )
+
+    session.add(state_2)
+    session.commit()
+    session.refresh(state_2)
+
+    actual_state_2: NIMBUSClassificationState = state_2.state
+
+    assert type(actual_state_2) is NIMBUSClassificationState
+    assert np.allclose(
+        [x for _, x in actual_state_2.preferences.aspiration_levels.items()],
+        [x for _, x in aspirations.items()],
+        0.001
+    )
+    assert np.allclose(
+        [x for _, x in actual_state_2.solver_results[0].optimal_objectives.items()],
+        [x for _, x in results_2[0].optimal_objectives.items()],
+        0.001
+    )
+
+    # 3. (TODO) Save a found solution (NIMBUSSaveState)
+    # 4. Finalize the NIMBUS process (NIMBUSFinalState)
+    nimbus_final_state = NIMBUSFinalState(
+        solver_results=results_2[0],
+        reference_point=aspirations
+    )
+
+    state_3 = StateDB.create(
+        database_session=session,
+        problem_id=problem_db.id,
+        session_id=isession.id,
+        state=nimbus_final_state
+    )
+
+    session.add(state_3)
+    session.commit()
+    session.refresh(state_3)
+
+    actual_state_3: NIMBUSFinalState = state_3.state
+    assert type(actual_state_3) is NIMBUSFinalState
+    assert np.allclose(
+        [x for _, x in actual_state_3.reference_point.items()],
+        [x for _, x in aspirations.items()],
+        0.001
+    )
+    assert np.allclose(
+        [x for _, x in actual_state_3.solver_results.optimal_objectives.items()],
+        [x for _, x in results_2[0].optimal_objectives.items()],
+        0.01
+    )
