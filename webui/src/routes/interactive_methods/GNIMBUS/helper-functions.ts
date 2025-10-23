@@ -35,7 +35,6 @@ interface MessageState {
 	isOwner: boolean;
 	isDecisionMaker: boolean;
 	step: 'optimization' | 'voting' | 'finish';
-	phase: string;
 	isActionDone: boolean;
 }
 /**
@@ -47,30 +46,34 @@ interface MessageState {
  *        - step: Current step (optimization/voting)
  *        - phase: Current phase (learning/crp/decision)
  *        - isActionDone: Whether user has completed their current action
- * @returns Status message text, that is the instruction text depending on step
+ * @returns Status message text with formatted phase names and clear instructions
  */
 export function getStatusMessage(state: MessageState): string {
-	// Owner but not decision maker
-	if (state.isOwner && !state.isDecisionMaker) {
-		let phase = state.phase === 'init' ? 'learning' : state.phase;
-		return state.step === 'optimization'
-			? `Viewing current solutions in ${phase} phase. \n Click button to choose next phase.`
-			: `Viewing solutions in ${phase} phase. Please wait for voting to complete.`;
+	// Process finished
+	if (state.step === 'finish') {
+		return 'The decision process has ended succesfully. Viewing the selected final solution below.';
 	}
 
-	// Decision maker in voting mode
-	if (state.step === 'voting' && state.isDecisionMaker) {
-		return state.isActionDone
-				? 'Waiting for other users to finish voting. You can still change your vote by selecting another solution.'
-				: 'Please vote for your preferred solution by selecting it from the table below.';
-	}
+    // Owner but not decision maker
+    if (state.isOwner && !state.isDecisionMaker) {
+        return state.step === 'optimization'
+            ? `Click button to proceed to the next phase.`
+            : `Please wait for decision makers to complete voting.`;
+    }
 
-	// Decision maker in optimization mode
-	if (state.step === 'optimization' && state.isDecisionMaker) {
-		return  state.isActionDone
-				? 'Waiting for other users to finish their iterations. You can still modify your preferences and iterate again.'
-				: 'Please set your preferences for the current solution using the classification interface on the left.';
-	}
+    // Decision maker in voting mode
+    if (state.step === 'voting' && state.isDecisionMaker) {
+        return state.isActionDone
+            ? `Your vote has been recorded. You may change your vote while waiting for others to complete.`
+            : `Please select your preferred solution from the table below to cast your vote.`;
+    }
+
+    // Decision maker in optimization mode
+    if (state.step === 'optimization' && state.isDecisionMaker) {
+        return state.isActionDone
+            ? `Your preferences are set. You may modify them while waiting for other decision makers.`
+            : `Use the classification interface on the left to set your preferences for the current solution.`;
+    }
 
 	// Default case
 	return 'Viewing group progress.';

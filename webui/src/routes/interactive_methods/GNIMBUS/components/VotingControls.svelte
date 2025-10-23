@@ -20,7 +20,6 @@
 	export let onVote: (value: number) => void;
 </script>
 
-<div>{phase}</div>
 {#if phase === 'decision'}
 	<div class="mb-2 flex-none">
 		<Button variant="default" onclick={() => onVote(1)}>Select as the final solution</Button>

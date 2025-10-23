@@ -9,13 +9,13 @@
 
 	let {
 		problem,
-		previousObjectiveValues,
+		objectiveValues,
 		displayAccuracy,
 		columnsLength,
 		personalResultIndex
 	}: {
 		problem: ProblemInfo;
-		previousObjectiveValues: { [key: string]: number }[];
+		objectiveValues: { [key: string]: number }[];
 		displayAccuracy: number;
 		columnsLength: number;
 		personalResultIndex: number;
@@ -24,14 +24,14 @@
 	let showOtherSolutions = $state(false);
 </script>
 
-{#if previousObjectiveValues && previousObjectiveValues.length > 0}
+{#if objectiveValues && objectiveValues.length > 0}
 	<Table.Row class="pointer-events-none">
 		<Table.Cell colspan={columnsLength}></Table.Cell>
 	</Table.Row>
 
 	{#if personalResultIndex === -1}
 		<!-- Show all solutions without distinction when user is owner but not DM -->
-		{#each previousObjectiveValues as previousObjectiveValue, index}
+		{#each objectiveValues as objectiveValue, index}
 			<Table.Row class="pointer-events-none">
 				<Table.Cell class="border-l-10 border-teal-400"></Table.Cell>
 				<Table.Cell class="italic">
@@ -42,17 +42,17 @@
 				<Table.Cell></Table.Cell>
 				{#each problem.objectives as objective}
 					<Table.Cell class="pr-6 text-right">
-						{formatNumber(previousObjectiveValue[objective.symbol], displayAccuracy)}
+						{formatNumber(objectiveValue[objective.symbol], displayAccuracy)}
 					</Table.Cell>
 				{/each}
 			</Table.Row>
 		{/each}
 	{:else}
 		<!-- Personal Solution -->
-		{#if previousObjectiveValues[personalResultIndex]}
+		{#if objectiveValues[personalResultIndex]}
 			<Table.Row class="hover:bg-gray-200">
 				<Table.Cell class="border-l-10 border-teal-400">
-					{#if previousObjectiveValues.length > 1}
+					{#if objectiveValues.length > 1}
 						<Button
 							size="icon"
 							variant="ghost"
@@ -71,14 +71,14 @@
 				</Table.Cell>
 				<Table.Cell class="italic">
 					<div>
-						<span>Your personal solution</span>
+						<span>Your individual solution</span>
 					</div>
 				</Table.Cell>
 				<Table.Cell></Table.Cell>
 				{#each problem.objectives as objective}
 					<Table.Cell class="pr-6 text-right">
 						{formatNumber(
-							previousObjectiveValues[personalResultIndex][objective.symbol],
+							objectiveValues[personalResultIndex][objective.symbol],
 							displayAccuracy
 						)}
 					</Table.Cell>
@@ -88,7 +88,7 @@
 
 		<!-- Other Solutions -->
 		{#if showOtherSolutions}
-			{#each previousObjectiveValues as previousObjectiveValue, index}
+			{#each objectiveValues as objectiveValue, index}
 				{#if index !== personalResultIndex}
 					<Table.Row class="pointer-events-none">
 						<Table.Cell class="border-l-10 border-teal-400 pl-6"></Table.Cell>
@@ -100,7 +100,7 @@
 						<Table.Cell></Table.Cell>
 						{#each problem.objectives as objective}
 							<Table.Cell class="pr-6 text-right text-gray-500">
-								{formatNumber(previousObjectiveValue[objective.symbol], displayAccuracy)}
+								{formatNumber(objectiveValue[objective.symbol], displayAccuracy)}
 							</Table.Cell>
 						{/each}
 					</Table.Row>

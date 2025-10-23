@@ -6,6 +6,7 @@
  */
 
 import { writable, type Writable } from 'svelte/store';
+import { isLoading } from '../../../stores/uiState';
 
 const BASE_URL = import.meta.env.VITE_API_URL;
 const wsBase = BASE_URL.replace(/^http/, 'ws');
@@ -56,11 +57,46 @@ export class WebSocketService {
 		});
 	}
 
-	sendMessage(message: string) {
-		if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-			this.socket.send(message);
-		} else {
-			this.messageStore.set('WebSocket not connected');
+	async sendMessage(message: string): Promise<boolean> {
+		isLoading.set(true);
+		try {
+			return await new Promise((resolve) => {
+				if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+					try {
+						this.socket.send(message);
+						
+						// Set up a timeout for error handling
+						const timeoutId = setTimeout(() => {
+							isLoading.set(false);
+							resolve(false);
+						}, 5000); // 5 second timeout
+
+						// Set up one-time message handler to check for immediate errors
+						const messageHandler = (event: MessageEvent) => {
+							clearTimeout(timeoutId);
+							this.socket?.removeEventListener('message', messageHandler);
+							
+							// Check if the message indicates an error
+							const success = !(event.data.includes('error') || event.data.includes('failed'));
+							isLoading.set(false);
+							resolve(success);
+						};
+
+						this.socket.addEventListener('message', messageHandler);
+					} catch (error) {
+						console.error('Failed to send WebSocket message:', error);
+						isLoading.set(false);
+						resolve(false);
+					}
+				} else {
+					this.messageStore.set('WebSocket not connected');
+					isLoading.set(false);
+					resolve(false);
+				}
+			});
+		} catch (error) {
+			isLoading.set(false);
+			return false;
 		}
 	}
 

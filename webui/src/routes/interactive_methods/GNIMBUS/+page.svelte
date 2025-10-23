@@ -36,7 +36,6 @@
 	 * @dependencies
 	 * - BaseLayout: Core layout component
 	 * - AppSidebar: Preference setting interface
-	 * - SolutionTable: Solution comparison and selection
 	 * - VisualizationsPanel: Objective space visualization
 	 * - UtopiaMap: Geographical data visualization
 	 * - WebSocketService: Real-time communication
@@ -44,7 +43,6 @@
 	// Layout and core components
 	import { BaseLayout } from '$lib/components/custom/method_layout/index.js';
 	import { auth } from '../../../stores/auth';
-	import type { components } from '$lib/api/client-types';
 	import { onMount } from 'svelte';
 
 	// UI Components
@@ -54,7 +52,6 @@
 
 	// NIMBUS specific components
 	import AppSidebar from '$lib/components/custom/preferences-bar/preferences-sidebar.svelte';
-	import SolutionTable from '$lib/components/custom/nimbus/solution-table.svelte';
 	import VisualizationsPanel from '$lib/components/custom/visualizations-panel/visualizations-panel.svelte';
 	import UtopiaMap from '$lib/components/custom/nimbus/utopia-map.svelte';
 	import { PREFERENCE_TYPES } from '$lib/constants';
@@ -145,7 +142,7 @@
 			return 'Suggestion for a final solution';
 		if (step === 'optimization') return 'Voted solution';
 		if (step === 'voting') return 'Solutions to vote from';
-		if (step === 'finish') return 'Final solution';
+		if (step === 'finish') return '';
 		return 'Solutions';
 	});
 
@@ -274,9 +271,11 @@
 			console.error('No solution set');
 			return;
 		}
-		wsService.sendMessage(JSON.stringify(int));
-
-		isActionDone = true;
+		const success = await wsService.sendMessage(JSON.stringify(int));
+		if (success) {
+			showTemporaryMessage('Vote submitted');
+			isActionDone = true;
+		}
 	}
 
 	// function for handling the iteration of the optimization step. Sends the preferences as a message to websocket
@@ -303,8 +302,11 @@
 				{} as Record<string, number>
 			)
 		};
-		wsService.sendMessage(JSON.stringify(preference));
-		isActionDone = true;
+		const success = await wsService.sendMessage(JSON.stringify(preference));
+		if (success) {
+			showTemporaryMessage('Preferences submitted');
+			isActionDone = true;
+		}
 	}
 
 	// Fetch maps data for UTOPIA visualization for one solution
@@ -485,7 +487,7 @@
 		}))
 	);
 
-	let previousValues = $derived.by(() => {
+	let userSolutionsObjectives = $derived.by(() => {
 		if (step !== 'voting' || !problem) return [];
 		return current_state.user_results
 			.map((result) => result.objective_values)
@@ -543,20 +545,30 @@
 	{/snippet}
 
 	{#snippet explorerControls()}
-		<div class="rounded-lg bg-gray-50 p-4 text-sm">
-			{#if problem}
-				{@const statusMessage = getStatusMessage({
-					isOwner,
-					isDecisionMaker,
-					step,
-					phase: current_state.phase,
-					isActionDone
-				})}
-				<span class='text-gray-600'>
+		{#if problem}
+			{@const statusMessage = getStatusMessage({
+				isOwner,
+				isDecisionMaker,
+				step,
+				isActionDone
+			})}
+			<div class="p-4">
+				<span class="font-bold">
+					{#if step === 'finish'}
+						Final Solution
+					{:else}
+						{current_state.phase === 'crp' ? 'CRP Phase.' : 
+						current_state.phase === 'init' ? 'Learning Phase.' :
+						current_state.phase === 'learning' ? 'Learning Phase.' :
+						current_state.phase === 'decision' ? 'Decision Phase.' :
+						''}
+					{/if}
+				</span>
+				<span>
 					{statusMessage}
 				</span>
-			{/if}
-		</div>
+			</div>
+		{/if}
 		{#if isOwner && step === 'optimization'}
 			{#each PHASES as phase}
 				<Button
@@ -596,6 +608,15 @@
 							otherObjectiveValues={visualizationObjectives.others}
 							externalSelectedIndexes={[selected_voting_index]}
 							onSelectSolution={handle_solution_click}
+							lineLabels={Object.fromEntries(
+								visualizationObjectives.solutions.map((_, i) => [i, `Group solution ${i + 1}`])
+							)}
+							referenceDataLabels={{
+								previousRefLabel: 'Previous preference',
+								currentRefLabel: 'Current preference',
+								previousSolutionLabels:['Your individual solution'],
+								otherSolutionLabels: visualizationObjectives.previous.map((_, i) => `Users solution ${i + 1}`),
+							}}
 						/>
 					</Resizable.Pane>
 
@@ -635,7 +656,7 @@
 					{current_state}
 					{tableData}
 					{selected_voting_index}
-					{previousValues}
+					userSolutionsObjectives={userSolutionsObjectives}
 					{isDecisionMaker}
 					onVote={handle_vote}
 					onRowClick={handle_solution_click}

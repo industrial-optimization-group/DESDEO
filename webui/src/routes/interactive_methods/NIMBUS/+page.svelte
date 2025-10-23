@@ -778,7 +778,7 @@
 					handle_row_click={handle_solution_click}
 					{isSaved}
 					{selected_type_solutions}
-					previousObjectiveValues={selected_type_solutions === 'current'
+					secondaryObjectiveValues={selected_type_solutions === 'current'
 						? problem
 							? [
 									// Add previous_objectives if it exists

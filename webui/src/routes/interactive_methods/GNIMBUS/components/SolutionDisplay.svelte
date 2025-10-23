@@ -18,7 +18,7 @@
 		current_state,
 		tableData,
 		selected_voting_index,
-		previousValues,
+		userSolutionsObjectives,
 		isDecisionMaker,
 		onVote,
 		onRowClick
@@ -28,7 +28,7 @@
 		current_state: { phase: string; personal_result_index: number | null };
 		tableData: TableData[]; // Array of solutions
 		selected_voting_index: number;
-		previousValues: { [key: string]: number }[] | undefined;
+		userSolutionsObjectives: { [key: string]: number }[] | undefined;
 		isDecisionMaker: boolean;
 		onVote: (value: number) => void;
 		onRowClick: (index: number) => void;
@@ -48,8 +48,8 @@
 			savingEnabled={false}
 			handle_row_click={onRowClick}
 			selected_type_solutions={'current'}
-			previousObjectiveValuesType="user_results"
-			previousObjectiveValues={previousValues}
+			methodPage="gnimbus"
+			secondaryObjectiveValues={userSolutionsObjectives}
 		/>
 	</div>
 </div>

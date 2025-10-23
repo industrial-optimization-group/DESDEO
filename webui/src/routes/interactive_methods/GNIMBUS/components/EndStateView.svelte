@@ -101,7 +101,7 @@
 			{problem}
 			solverResults={tableData}
 			mode="objectives"
-			title="Solution Objectives"
+			title="Final Solution"
 		/>
 	</div>
 

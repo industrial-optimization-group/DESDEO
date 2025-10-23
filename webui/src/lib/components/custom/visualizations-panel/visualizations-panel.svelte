@@ -32,6 +32,8 @@
 	 * @property {function} [onSelectSolution] - Callback when user selects a solution
 	 * @property {number | null} [externalSelectedIndex] - Index of solution to highlight (single-select mode)
 	 * @property {number[] | null} [externalSelectedIndexes] - Indexes of solutions to highlight (multi-select mode)
+	 * @property {{ [key: string]: string }} [lineLabels] - Custom labels for solution lines displayed in tooltips
+	 * @property {{ currentRefLabel?: string, previousRefLabel?: string, previousSolutionLabels?: string[], otherSolutionLabels?: string[] }} [referenceDataLabels] - Labels for reference points and solutions
 	 *
 	 * @features
 	 * - Visualization type selector (Parallel Coordinates/Bar Chart toggle)
@@ -40,6 +42,7 @@
 	 * - Reference point visualization
 	 * - Previous solution comparison
 	 * - Empty state handling
+	 * - Interactive tooltips with customizable labels for solutions and reference points
 	 *
 	 * @dependencies
 	 * - ParallelCoordinates component for the parallel coordinates visualization
@@ -88,6 +91,14 @@
 		onSelectSolution?: (index: number) => void;
 		externalSelectedIndex?: number | null;
 		externalSelectedIndexes?: number[] | null;
+		// Labels for different types of solutions
+		lineLabels?: { [key: string]: string };
+		referenceDataLabels?: {
+			currentRefLabel?: string;
+			previousRefLabel?: string;
+			previousSolutionLabels?: string[];
+			otherSolutionLabels?: string[];
+		};
 	}
 
 	const {
@@ -102,7 +113,9 @@
 		solutionsDecisionValues = [],
 		onSelectSolution,
 		externalSelectedIndex = null,
-		externalSelectedIndexes = null
+		externalSelectedIndexes = null,
+		lineLabels = {},
+		referenceDataLabels = {}
 	}: Props = $props();
 
 	/**
@@ -126,7 +139,8 @@
 			previousPreferenceValues,
 			problem,
 			previousObjectiveValues,
-			otherObjectiveValues
+			otherObjectiveValues,
+			referenceDataLabels
 		)
 	);
 
@@ -240,6 +254,7 @@
 					{selectedIndex}
 					multipleSelectedIndexes={externalSelectedIndexes}
 					onLineSelect={handleLineSelect}
+					{lineLabels}
 				/>
 			{:else if visualizationType === 'bar'}
 				<!-- Placeholder for Bar Chart Visualization -->

@@ -20,8 +20,8 @@
 	 * @property {Function} handle_remove_saved - Callback to remove a saved solution.
 	 * @property {Function} isSaved - Function to check if a solution is already saved.
 	 * @property {string} [selected_type_solutions="current"] - The current view mode ("current", "best", "all").
-	 * @property {{ [key: string]: number }[]} [previousObjectiveValues=[]] - Previous objective values for comparison.
-	 * @property {string} [previousObjectiveValuesType="previous"] - Type of previous objective values ("previous" in NIMBUS, "user_results" in GNIMBUS. Depending on type, different component is rendered).
+	 * @property {{ [key: string]: number }[]} [secondaryObjectiveValues=[]] - Previous objective values for comparison.
+	 * @property {string} [methodPage="nimbus"] - What page is using this. Makes it possible to render different components based on use case.
 	 *
 	 * @features
 	 * - Displays solution names and objective values in a sortable, filterable table.
@@ -93,6 +93,7 @@
 	// Types matching your original solution-table
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 	type Solution = components['schemas']['SolutionReferenceResponse'];
+	type MethodPage = 'nimbus' | 'gnimbus';
 
 	// Props matching your original solution-table for compatibility
 	let {
@@ -106,8 +107,8 @@
 		isSaved = () => false,
 		savingEnabled = true,
 		selected_type_solutions = 'current',
-		previousObjectiveValues = [],
-		previousObjectiveValuesType = 'previous', // "previous" in nimbus, but in gnimbus it's "user_results"
+		secondaryObjectiveValues = [],
+		methodPage = 'nimbus',
 		isFrozen = false,
 		personalResultIndex
 	}: {
@@ -121,8 +122,8 @@
 		isSaved?: (solution: Solution) => boolean;
 		savingEnabled?: boolean;
 		selected_type_solutions?: string;
-		previousObjectiveValues?: { [key: string]: number }[];
-		previousObjectiveValuesType?: string;
+		secondaryObjectiveValues?: { [key: string]: number }[];
+		methodPage?: MethodPage;
 		isFrozen?: boolean;
 		personalResultIndex?: number | null;
 	} = $props();
@@ -378,7 +379,7 @@
 			{solution.name}
 		{:else}
 			<span class="text-gray-400"
-				>Solution {solution.solution_index !== null ? solution.solution_index + 1 : ''}</span
+				>{methodPage === "gnimbus" ? 'Group solution' : 'Solution'} {(solverResults.length > 1 && solution.solution_index !== null) ? solution.solution_index + 1 : ''}</span
 			>
 		{/if}
 	</div>
@@ -537,17 +538,17 @@
 						</Table.Row>
 					{/each}
 
-					{#if previousObjectiveValuesType === 'previous' && selected_type_solutions === 'current' && previousObjectiveValues.length > 0}
+					{#if methodPage === 'nimbus' && selected_type_solutions === 'current' && secondaryObjectiveValues.length > 0}
 						<PreviousSolutions
 							{problem}
-							{previousObjectiveValues}
+							previousObjectiveValues={secondaryObjectiveValues}
 							displayAccuracy={displayAccuracy()}
 							columnsLength={columns.length}
 						/>
-					{:else if previousObjectiveValuesType === 'user_results'}
+					{:else if methodPage === 'gnimbus'}
 						<UserResults
 							{problem}
-							{previousObjectiveValues}
+							objectiveValues={secondaryObjectiveValues}
 							displayAccuracy={displayAccuracy()}
 							columnsLength={columns.length}
 							personalResultIndex={personalResultIndex ?? -1}
