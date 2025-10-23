@@ -26,7 +26,7 @@ from desdeo.emo.options.templates import (
 from desdeo.emo.options.termination import MaxGenerationsTerminatorOptions
 from desdeo.problem import Problem
 
-rvea_options = EMOOptions(
+rvea_options = lambda: EMOOptions(  # noqa: E731
     preference=None,
     template=Template1Options(
         algorithm_name="RVEA",
@@ -74,7 +74,7 @@ rvea_options = EMOOptions(
     ),
 )
 
-nsga3_options = EMOOptions(
+nsga3_options = lambda: EMOOptions(  # noqa: E731
     preference=None,
     template=Template1Options(
         algorithm_name="NSGA3",
@@ -120,7 +120,7 @@ nsga3_options = EMOOptions(
     ),
 )
 
-ibea_options = EMOOptions(
+ibea_options = lambda: EMOOptions(  # noqa:E731
     preference=None,
     template=Template2Options(
         algorithm_name="IBEA",
@@ -162,7 +162,7 @@ ibea_options = EMOOptions(
     ),
 )
 
-rvea_mixed_integer_options = EMOOptions(
+rvea_mixed_integer_options = lambda: EMOOptions(  # noqa:E731
     preference=None,
     template=Template1Options(
         algorithm_name="RVEA_Mixed_Integer",
@@ -199,7 +199,7 @@ rvea_mixed_integer_options = EMOOptions(
     ),
 )
 
-nsga3_mixed_integer_options = EMOOptions(
+nsga3_mixed_integer_options = lambda: EMOOptions(  # noqa:E731
     preference=None,
     template=Template1Options(
         algorithm_name="NSGA3_Mixed_Integer",
@@ -234,7 +234,7 @@ nsga3_mixed_integer_options = EMOOptions(
     ),
 )
 
-ibea_mixed_integer_options = EMOOptions(
+ibea_mixed_integer_options = lambda: EMOOptions(   # noqa:E731
     preference=None,
     template=Template2Options(
         algorithm_name="IBEA_Mixed_Integer",
@@ -263,26 +263,6 @@ ibea_mixed_integer_options = EMOOptions(
         verbosity=2,
         seed=42,
     ),
-)
-
-rvea: Callable[[Problem], tuple[Callable[[], EMOResult], ConstructorExtras]] = partial(
-    emo_constructor, emo_options=rvea_options
-)
-nsga3: Callable[[Problem], tuple[Callable[[], EMOResult], ConstructorExtras]] = partial(
-    emo_constructor, emo_options=nsga3_options
-)
-ibea: Callable[[Problem], tuple[Callable[[], EMOResult], ConstructorExtras]] = partial(
-    emo_constructor, emo_options=ibea_options
-)
-
-rvea_mixed_integer: Callable[[Problem], tuple[Callable[[], EMOResult], ConstructorExtras]] = partial(
-    emo_constructor, emo_options=rvea_mixed_integer_options
-)
-nsga3_mixed_integer: Callable[[Problem], tuple[Callable[[], EMOResult], ConstructorExtras]] = partial(
-    emo_constructor, emo_options=nsga3_mixed_integer_options
-)
-ibea_mixed_integer: Callable[[Problem], tuple[Callable[[], EMOResult], ConstructorExtras]] = partial(
-    emo_constructor, emo_options=ibea_mixed_integer_options
 )
 
 if __name__ == "__main__":
