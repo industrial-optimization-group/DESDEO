@@ -1,7 +1,11 @@
-"""Implements common evolutionary algorithms for multi-objective optimization."""
+"""[Deprecated] Implements common evolutionary algorithms for multi-objective optimization.
+
+Use desdeo.emo.options.algorithms instead.
+"""
 
 from collections.abc import Callable
 from functools import partial
+from warnings import warn
 
 import numpy as np
 
@@ -16,7 +20,6 @@ from desdeo.emo.operators.termination import MaxEvaluationsTerminator, MaxGenera
 from desdeo.problem import Problem
 from desdeo.tools.indicators_binary import self_epsilon
 from desdeo.tools.patterns import Publisher
-from warnings import warn
 
 warn(
     "desdeo.emo.methods.EAs is deprecated and will be removed in future versions. "
