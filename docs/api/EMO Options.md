@@ -1,3 +1,6 @@
+This page documents the Pydantic interfaces for configuring Evolutionary Multi-Objective Optimization (EMO)
+algorithms in DESDEO.
+
 ## Algorithm Options
 ::: desdeo.emo.options.algorithms
     options:
