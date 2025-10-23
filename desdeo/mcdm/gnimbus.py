@@ -81,7 +81,7 @@ def voting_procedure(problem: Problem, solutions, votes_idxs: dict[str, int]) ->
 
 
 # TODO: below is just doing the intermediate solutions with the objective vectors, was needed for GNIMBUS Malaga experiment
-# I think this is probably unnecessary, check rpm_intermediate_solutions
+# I think this is probably unnecessary, check rpm_intermediate_solutions -Juho
 def solve_intermediate_solutions_only_objs(  # noqa: PLR0913
     problem: Problem,
     solution_1: dict[str, VariableType],
@@ -200,6 +200,85 @@ def scale_delta(problem, d):
     return delta
 
 
+def infer_group_classifications(
+    problem: Problem,
+    current_objectives: dict[str, float],
+    reference_points: dict[str, dict[str, float]],
+    *,
+    silent: bool = True,
+) -> dict[str, tuple[str, list[float]]]:
+    """Infers group classification from the reference points given by the group.
+
+    Args:
+        problem (Problem): the problem being solved
+        current_objectives (dict[str, float]): objective values at the current iteration
+        reference_points (dict[str, dict[str, float]]): The reference points given by the group.
+            The keys of the outer dict are the decision makers and the keys of the inner dict are objective symbols.
+        silent (bool): If false, the classifications will be printed.
+
+    Raises:
+        GNIMBUSError: _description_
+
+    Returns:
+        dict[str, tuple[str, list[float]]]: _description_
+    """
+    for dm, reference_point in reference_points.items():
+        # for rp in reference_point:
+        if not all(obj.symbol in reference_point for obj in problem.objectives):
+            print(reference_point)
+            msg = (
+                f"The reference point {reference_point} of {dm} is missing entries "
+                "for one or more of the objective functions."
+            )
+            raise GNIMBUSError(msg)
+
+    group_classifications = {}
+    for obj in problem.objectives:
+        # maximization
+        if obj.maximize and all(
+            (
+                reference_points[dm][obj.symbol] >= current_objectives[obj.symbol]
+                or np.isclose(reference_points[dm][obj.symbol], current_objectives[obj.symbol])
+            )
+            for dm in reference_points
+        ):
+            classify = "improve"
+        elif obj.maximize and all(
+            reference_points[dm][obj.symbol] < current_objectives[obj.symbol] for dm in reference_points
+        ):
+            classify = "worsen"
+        # minimization
+        elif (not obj.maximize) and all(
+            (
+                reference_points[dm][obj.symbol] <= current_objectives[obj.symbol]
+                or np.isclose(reference_points[dm][obj.symbol], current_objectives[obj.symbol])
+            )
+            for dm in reference_points
+        ):
+            classify = "improve"
+        elif (not obj.maximize) and all(
+            reference_points[dm][obj.symbol] > current_objectives[obj.symbol] for dm in reference_points
+        ):
+            classify = "worsen"
+        else:
+            classify = "conflict"
+        group_classifications = {obj.symbol: (classify, [reference_points[dm][obj.symbol] for dm in reference_points])}
+
+        if not silent:
+            for symbol, value in group_classifications.items():
+                if value[0] == "improve":
+                    print(f"The group wants to improve objective {symbol}")
+                    print(value[1])
+                if value[0] == "worsen":
+                    print(f"The group wants to worsen objective {symbol}")
+                    print(value[1])
+                if value[0] == "conflict":
+                    print(f"The group has conflicting views about objective {symbol}")
+                    print(value[1])
+
+    return group_classifications
+
+
 def solve_group_sub_problems(  # noqa: PLR0913
     problem: Problem,
     current_objectives: dict[str, float],
@@ -295,6 +374,7 @@ def solve_group_sub_problems(  # noqa: PLR0913
     reference_points_list = dict_of_rps_to_list_of_rps(reference_points)
 
     # Solve for individual solutions. TODO: move as own function, should be useful for other methods as well.
+    # Can't this just call solve_sub_problems from nimbus method? -Juho
     for dm_rp in reference_points:
         classification = infer_classifications(problem, current_objectives, reference_points[dm_rp])
         nimbus_scala = (
@@ -416,7 +496,7 @@ def solve_group_sub_problems(  # noqa: PLR0913
 
         return solutions
 
-    else:  # phase is crp
+    else:  # phase is concsensus reaching
         # Add individual solutions
         for i in range(len(ind_sols)):
             solutions.append(ind_sols[i])
