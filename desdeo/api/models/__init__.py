@@ -25,6 +25,8 @@ __all__ = [  # noqa: RUF022
     "IntermediateSolutionState",
     "NIMBUSClassificationRequest",
     "NIMBUSClassificationState",
+    "NIMBUSDeleteSaveRequest",
+    "NIMBUSDeleteSaveResponse",
     "NIMBUSInitializationRequest",
     "NIMBUSInitializationState",
     "NIMBUSIntermediateSolutionResponse",
@@ -159,6 +161,8 @@ from .gnimbus import (
 from .nimbus import (
     NIMBUSClassificationRequest,
     NIMBUSClassificationResponse,
+    NIMBUSDeleteSaveRequest,
+    NIMBUSDeleteSaveResponse,
     NIMBUSInitializationRequest,
     NIMBUSInitializationResponse,
     NIMBUSIntermediateSolutionResponse,

@@ -195,15 +195,15 @@ class NIMBUSInitializationState(ResultInterface, SQLModel, table=True):
     @property
     def num_solutions(self) -> int:
         return 1
-    
+
+
 class NIMBUSFinalState(ResultInterface, SQLModel, table=True):
-    """
-    NIMBUS: The Final State.
+    """NIMBUS: The Final State.
+
     NOTE: Despite this being the "final" state, I think the user should
     still be allowed to use this as a basis for new iterations. Therefore
     I think this should behave/have necessary elements for that to be the case.
     """
-    
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
 
     solver_results: "SolverResults" = Field(sa_column=Column(ResultsType), default_factory=list) # the final solution
@@ -223,7 +223,7 @@ class NIMBUSFinalState(ResultInterface, SQLModel, table=True):
 
 
 class GNIMBUSOptimizationState(ResultInterface, SQLModel, table=True):
-    """GNIMBUS: classification / solving"""
+    """GNIMBUS: classification / solving."""
 
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
 
@@ -246,7 +246,7 @@ class GNIMBUSOptimizationState(ResultInterface, SQLModel, table=True):
 
 
 class GNIMBUSVotingState(ResultInterface, SQLModel, table=True):
-    """GNIMBUS: voting"""
+    """GNIMBUS: voting."""
 
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
 

@@ -13,6 +13,8 @@ from desdeo.api.models import (
     NIMBUSClassificationRequest,
     NIMBUSClassificationResponse,
     NIMBUSClassificationState,
+    NIMBUSDeleteSaveRequest,
+    NIMBUSDeleteSaveResponse,
     NIMBUSFinalizeRequest,
     NIMBUSFinalizeResponse,
     NIMBUSFinalState,
@@ -538,7 +540,19 @@ def finalize_nimbus(
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)]
 ) -> NIMBUSFinalizeResponse:
-    """An endpoint for finishing up the NIMBUS method."""
+    """An endpoint for finishing up the nimbus process.
+
+    Args:
+        request (NIMBUSFinalizeRequest): The request containing the final solution, etc.
+        user (Annotated[User, Depends): The current user.
+        session (Annotated[Session, Depends): The database session.
+
+    Raises:
+        HTTPException
+
+    Returns:
+        NIMBUSFinalizeResponse: Response containing state id of the final solution.
+    """
     if request.session_id is not None:
         statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == request.session_id)
         interactive_session = session.exec(statement)
@@ -613,3 +627,20 @@ def finalize_nimbus(
             variable_values=actual_state.solver_results[solution_index].optimal_variables,
         )
     )
+
+@router.add("/delete_save")
+def delete_save(
+    request: NIMBUSDeleteSaveRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)]
+) -> NIMBUSDeleteSaveResponse:
+    """Endpoint for deleting saved solutions.
+
+    Args:
+        request (NIMBUSDeleteSaveRequest): request containing necessary information for deleting a save
+        user (Annotated[User, Depends): the current  (logged in) user
+        session (Annotated[Session, Depends): database session
+
+    Returns:
+        NIMBUSDeleteSaveResponse: Response acknowledging the deletion of save and other useful info.
+    """
