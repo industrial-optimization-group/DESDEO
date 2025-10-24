@@ -2214,7 +2214,7 @@ def add_group_nimbus_diff(  # noqa: PLR0913
                     # not relevant for this group scalarization
                     pass
                 case (">=", reservation):
-                    con_expr = f"{_symbol}_min - {bounds[_symbol]} - _alpha"
+                    con_expr = f"{_symbol}_min - {bounds[_symbol]}"
                     constraints.append(
                         Constraint(
                             name=f"Worsen until constraint for {_symbol}",

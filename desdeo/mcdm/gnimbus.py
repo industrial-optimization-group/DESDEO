@@ -89,6 +89,7 @@ def voting_procedure(problem: Problem, solutions, votes_idxs: dict[str, int]) ->
 
 
 # TODO: below is just doing the intermediate solutions with the objective vectors, was needed for GNIMBUS Malaga experiment
+# I think this is probably unnecessary, check rpm_intermediate_solutions
 def solve_intermediate_solutions_only_objs(  # noqa: PLR0913
     problem: Problem,
     solution_1: dict[str, VariableType],
@@ -243,7 +244,10 @@ def solve_group_sub_problems(  # noqa: PLR0913
         # for rp in reference_point:
         if not all(obj.symbol in reference_point for obj in problem.objectives):
             print(reference_point)
-            msg = f"The reference point {reference_point} is missing entries " "for one or more of the objective functions."
+            msg = (
+                f"The reference point {reference_point} is missing entries "
+                "for one or more of the objective functions."
+            )
             raise GNIMBUSError(msg)
         # check that at least one objective function is allowed to be improved and one is allowed to worsen
         classifications = infer_classifications(problem, current_objectives, reference_point)
@@ -257,7 +261,9 @@ def solve_group_sub_problems(  # noqa: PLR0913
             raise GNIMBUSError(msg)
 
     if not all(obj.symbol in current_objectives for obj in problem.objectives):
-        msg = f"The current point {current_objectives} is missing entries " "for one or more of the objective functions."
+        msg = (
+            f"The current point {current_objectives} is missing entries " "for one or more of the objective functions."
+        )
         raise GNIMBUSError(msg)
 
     init_solver = create_solver if create_solver is not None else guess_best_solver(problem)
@@ -274,7 +280,9 @@ def solve_group_sub_problems(  # noqa: PLR0913
     # Solve for individual solutions. TODO: move as own function, should be useful for other methods as well.
     for dm_rp in reference_points:
         classification = infer_classifications(problem, current_objectives, reference_points[dm_rp])
-        nimbus_scala = add_nimbus_sf_diff if problem.is_twice_differentiable else add_nimbus_sf_nondiff  # non-diff gnimbus
+        nimbus_scala = (
+            add_nimbus_sf_diff if problem.is_twice_differentiable else add_nimbus_sf_nondiff
+        )  # non-diff gnimbus
         add_nimbus_sf = nimbus_scala
 
         problem_i_nimbus, nimbus_target = add_nimbus_sf(
@@ -329,7 +337,13 @@ def solve_group_sub_problems(  # noqa: PLR0913
         add_nimbus_sf = gnimbus_scala
 
         problem_w_nimbus, nimbus_target = add_nimbus_sf(
-            problem, "nimbus_sf", classification_list, current_objectives, agg_bounds, delta, **(scalarization_options or {})
+            problem,
+            "nimbus_sf",
+            classification_list,
+            current_objectives,
+            agg_bounds,
+            delta,
+            **(scalarization_options or {}),
         )
 
         if _solver_options:
@@ -393,7 +407,13 @@ def solve_group_sub_problems(  # noqa: PLR0913
         add_nimbus_sf = gnimbus_scala
 
         problem_w_nimbus, nimbus_target = add_nimbus_sf(
-            problem, "nimbus_sf", classification_list, current_objectives, agg_bounds, delta, **(scalarization_options or {})
+            problem,
+            "nimbus_sf",
+            classification_list,
+            current_objectives,
+            agg_bounds,
+            delta,
+            **(scalarization_options or {}),
         )
 
         if _solver_options:

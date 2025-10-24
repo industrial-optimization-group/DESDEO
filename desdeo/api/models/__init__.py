@@ -17,6 +17,7 @@ __all__ = [  # noqa: RUF022
     "GetSessionRequest",
     "GNIMBUSOptimizationState",
     "GNIMBUSVotingState",
+    "GNIMBUSEndState",
     "InteractiveSessionBase",
     "InteractiveSessionDB",
     "InteractiveSessionInfo",
@@ -79,6 +80,8 @@ __all__ = [  # noqa: RUF022
     "GroupInfoRequest",
     "BasePreferences",
     "ReferencePointDictType",
+    "BooleanDictTypeDecorator",
+    "EMOSolveRequest",
     "PreferredRanges",
     "PreferedSolutions",
     "NonPreferredSolutions",
@@ -102,6 +105,7 @@ __all__ = [  # noqa: RUF022
     "ScoreBandsResponse",
     "OptimizationPreference",
     "VotingPreference",
+    "EndProcessPreference",
     "GNIMBUSResultResponse",
     "FullIteration",
     "GNIMBUSAllIterationsResponse",
@@ -122,7 +126,7 @@ from .emo import (
     Solution,
 )
 from .enautilus import EnautilusStepRequest
-from .gdm_aggregate import (
+from .gdm.gdm_aggregate import (
     Group,
     GroupCreateRequest,
     GroupInfoRequest,
@@ -130,9 +134,20 @@ from .gdm_aggregate import (
     GroupModifyRequest,
     GroupPublic,
 )
-from .gdm_base import (
+from .gdm.gdm_base import (
     BasePreferences,
+    BooleanDictTypeDecorator,
     ReferencePointDictType,
+)
+from .gdm.gnimbus import (
+    EndProcessPreference,
+    FullIteration,
+    GNIMBUSAllIterationsResponse,
+    GNIMBUSResultResponse,
+    GNIMBUSSwitchPhaseRequest,
+    GNIMBUSSwitchPhaseResponse,
+    OptimizationPreference,
+    VotingPreference,
 )
 from .generic import (
     GenericIntermediateSolutionResponse,
@@ -148,15 +163,6 @@ from .generic_states import (
     State,
     StateDB,
     UserSavedSolutionDB,
-)
-from .gnimbus import (
-    FullIteration,
-    GNIMBUSAllIterationsResponse,
-    GNIMBUSResultResponse,
-    GNIMBUSSwitchPhaseRequest,
-    GNIMBUSSwitchPhaseResponse,
-    OptimizationPreference,
-    VotingPreference,
 )
 from .nimbus import (
     NIMBUSClassificationRequest,
@@ -214,6 +220,7 @@ from .state import (
     EMOIterateState,
     EMOSaveState,
     ENautilusState,
+    GNIMBUSEndState,
     GNIMBUSOptimizationState,
     GNIMBUSVotingState,
     IntermediateSolutionState,
