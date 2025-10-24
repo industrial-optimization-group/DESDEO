@@ -7,10 +7,7 @@ from desdeo.api.config import AuthConfig
 from desdeo.api.routers import (
     enautilus,
     emo,
-    gdm_aggregate,
-    gdm_base,
     generic,
-    gnimbus,
     nimbus,
     problem,
     reference_point_method,
@@ -18,6 +15,8 @@ from desdeo.api.routers import (
     user_authentication,
     utopia,
 )
+from desdeo.api.routers.gdm import gdm_aggregate, gdm_base
+from desdeo.api.routers.gdm.gnimbus import gnimbus_routers
 
 app = FastAPI(
     title="DESDEO (fast)API",
@@ -33,9 +32,9 @@ app.include_router(nimbus.router)
 app.include_router(emo.router)
 app.include_router(generic.router)
 app.include_router(utopia.router)
-app.include_router(gnimbus.router)
 app.include_router(gdm_base.router)
 app.include_router(gdm_aggregate.router)
+app.include_router(gnimbus_routers.router)
 app.include_router(enautilus.router)
 
 origins = AuthConfig.cors_origins

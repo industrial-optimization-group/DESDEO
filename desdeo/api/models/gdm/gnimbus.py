@@ -5,8 +5,9 @@ import json
 from pydantic import ValidationError
 from sqlmodel import JSON, Column, Field, SQLModel, TypeDecorator
 
-from desdeo.api.models.gdm_base import (
+from desdeo.api.models.gdm.gdm_base import (
     BasePreferences,
+    BooleanDictTypeDecorator,
     ReferencePoint,
     ReferencePointDictType,
 )
@@ -26,6 +27,7 @@ class SolverResultType(TypeDecorator):
                 if isinstance(item, SolverResults):
                     solver_list.append(item.model_dump_json())
             return json.dumps(solver_list)
+        return None
 
     def process_result_value(self, value, dialect):
         if value is not None:
@@ -39,10 +41,11 @@ class SolverResultType(TypeDecorator):
                     print(f"Validation error when deserializing SolverResults: {e}")
                     continue
             return solver_list
+        return None
 
 
 class GNIMBUSSwitchPhaseRequest(SQLModel):
-    """A request for a certain phase. Comes from the group owner/analyst"""
+    """A request for a certain phase. Comes from the group owner/analyst."""
 
     group_id: int
     new_phase: str
@@ -64,7 +67,7 @@ class OptimizationPreference(BasePreferences):
 
 
 class VotingPreference(BasePreferences):
-    """Voting preferences"""
+    """Voting preferences."""
 
     method: str = "voting"
     set_preferences: dict[int, int] = Field(
@@ -72,8 +75,18 @@ class VotingPreference(BasePreferences):
     )  # A user votes for an index from the results (or something)
 
 
+class EndProcessPreference(BasePreferences):
+    """A model for determining if everyone is happy with current solution so we can end the process."""
+
+    method: str = "end"
+    success: bool | None = Field()
+
+    # We check if everyone agrees to stop.
+    set_preferences: dict[int, bool] = Field(sa_column=Column(BooleanDictTypeDecorator))
+
+
 class GNIMBUSResultResponse(SQLModel):
-    """The response for getting GNIMBUS results"""
+    """The response for getting GNIMBUS results."""
 
     method: str
     phase: str
@@ -84,9 +97,11 @@ class GNIMBUSResultResponse(SQLModel):
 
 
 class FullIteration(SQLModel):
+    """A full iteration item containing results from a complete or incomplete iteration."""
+
     phase: str
     optimization_preferences: OptimizationPreference | None
-    voting_preferences: VotingPreference | None
+    voting_preferences: VotingPreference | EndProcessPreference | None
     starting_result: SolutionReference | None
     common_results: list[SolutionReference]
     user_results: list[SolutionReference]
@@ -95,6 +110,6 @@ class FullIteration(SQLModel):
 
 
 class GNIMBUSAllIterationsResponse(SQLModel):
-    """The response model for getting all found solutions among others"""
+    """The response model for getting all found solutions among others."""
 
     all_full_iterations: list[FullIteration]

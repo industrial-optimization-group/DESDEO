@@ -23,6 +23,7 @@ from .state import (
     EMOSCOREState,
     EMOIterateState,
     ENautilusState,
+    GNIMBUSEndState,
     GNIMBUSOptimizationState,
     GNIMBUSVotingState,
     IntermediateSolutionState,
@@ -52,6 +53,7 @@ class StateKind(str, Enum):
     NIMBUS_INIT = "nimbus.initialize"
     GNIMBUS_OPTIMIZE = "gnimbus.optimize"
     GNIMBUS_VOTE = "gnimbus.vote"
+    GNIMBUS_END = "gnimbus.end"
     EMO_RUN = "emo.run"
     EMO_SAVE = "emo.save_solutions"
     EMO_FETCH = "emo.fetch_solutions"
@@ -180,6 +182,7 @@ KIND_TO_TABLE: dict[StateKind, SQLModel] = {
     StateKind.EMO_RUN: EMOIterateState,
     StateKind.GNIMBUS_OPTIMIZE: GNIMBUSOptimizationState,
     StateKind.GNIMBUS_VOTE: GNIMBUSVotingState,
+    StateKind.GNIMBUS_END: GNIMBUSEndState,
     StateKind.EMO_SAVE: EMOSaveState,
     StateKind.EMO_FETCH: EMOFetchState,
     StateKind.EMO_SCORE: EMOSCOREState,
@@ -195,6 +198,7 @@ SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
     EMOIterateState: StateKind.EMO_RUN,
     GNIMBUSOptimizationState: StateKind.GNIMBUS_OPTIMIZE,
     GNIMBUSVotingState: StateKind.GNIMBUS_VOTE,
+    GNIMBUSEndState: StateKind.GNIMBUS_END,
     EMOSaveState: StateKind.EMO_SAVE,
     EMOFetchState: StateKind.EMO_FETCH,
     EMOSCOREState: StateKind.EMO_SCORE,

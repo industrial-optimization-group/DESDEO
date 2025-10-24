@@ -31,7 +31,7 @@ from desdeo.api.models import (
     UserSavedSolutionDB,
     VariableDB,
 )
-from desdeo.api.models.gnimbus import (
+from desdeo.api.models.gdm.gnimbus import (
     OptimizationPreference,
 )
 from desdeo.mcdm import enautilus_step, rpm_solve_solutions
