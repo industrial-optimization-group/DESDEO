@@ -895,10 +895,10 @@
 				opacity: 0.9,
 			}
 		);
-		// Draw previous reference point (gray or another color)
+		// Draw previous reference point (lighter red)
 		drawGenericReferencePoint(svgElement, newScales, xScale, line, 
 			referenceData?.previousReferencePoint, {
-				groupClass: 'previous-reference-point',
+				groupClass: 'reference-point',
 				opacity: 0.3, // more transparent than current ref point
 			}
 		);
@@ -1027,11 +1027,13 @@
 	}
 
 	:global(.reference-point path) {
-		pointer-events: none;
+		pointer-events: auto;
+		cursor: default;  /* Shows regular cursor instead of pointer */
 	}
 
 	:global(.reference-point circle) {
-		pointer-events: none;
+		pointer-events: auto;
+		cursor: default;  /* Shows regular cursor instead of pointer */
 	}
 
 	/* Allow hover events but prevent clicks */
