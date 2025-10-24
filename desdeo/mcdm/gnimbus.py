@@ -1,48 +1,50 @@
 """Functions related to the GNIMBUS method.
 
 References:
-"""  # noqa: RUF002
+TBA
+"""
+
+from typing import Literal
 
 import numpy as np
+import polars as pl
 
+from desdeo.gdm.gdmtools import dict_of_rps_to_list_of_rps, list_of_rps_to_dict_of_rps
+from desdeo.gdm.voting_rules import majority_rule, plurality_rule
+from desdeo.mcdm.nimbus import infer_classifications
+from desdeo.mcdm.reference_point_method import rpm_intermediate_solutions
 from desdeo.problem import (
     PolarsEvaluator,
     Problem,
-    VariableType,
     Variable,
+    VariableType,
     objective_dict_to_numpy_array,
     unflatten_variable_array,
 )
-
 from desdeo.tools import (
     BaseSolver,
     SolverOptions,
     SolverResults,
-    add_group_asf_diff,
+    add_asf_diff,
+    add_asf_nondiff,
     add_group_asf,
     add_group_asf_agg,
     add_group_asf_agg_diff,
-    add_group_guess_diff,
+    add_group_asf_diff,
     add_group_guess,
     add_group_guess_agg,
     add_group_guess_agg_diff,
+    add_group_guess_diff,
     add_group_nimbus,
     add_group_nimbus_diff,
     add_group_stom,
     add_group_stom_agg,
     add_group_stom_agg_diff,
     add_group_stom_diff,
-    guess_best_solver,
-    add_asf_diff,
-    add_asf_nondiff,
     add_nimbus_sf_diff,
     add_nimbus_sf_nondiff,
+    guess_best_solver,
 )
-from desdeo.mcdm.nimbus import infer_classifications
-from desdeo.mcdm.reference_point_method import rpm_intermediate_solutions
-from desdeo.gdm.voting_rules import majority_rule, plurality_rule
-from desdeo.gdm.gdmtools import dict_of_rps_to_list_of_rps, list_of_rps_to_dict_of_rps
-import polars as pl
 
 
 class GNIMBUSError(Exception):
@@ -206,7 +208,7 @@ def infer_group_classifications(
     reference_points: dict[str, dict[str, float]],
     *,
     silent: bool = True,
-) -> dict[str, tuple[str, list[float]]]:
+) -> dict[str, tuple[Literal["improve", "worsen", "conflict"], list[float]]]:
     """Infers group classification from the reference points given by the group.
 
     Args:
@@ -262,7 +264,7 @@ def infer_group_classifications(
             classify = "worsen"
         else:
             classify = "conflict"
-        group_classifications = {obj.symbol: (classify, [reference_points[dm][obj.symbol] for dm in reference_points])}
+        group_classifications[obj.symbol] = (classify, [reference_points[dm][obj.symbol] for dm in reference_points])
 
         if not silent:
             for symbol, value in group_classifications.items():
@@ -342,8 +344,7 @@ def solve_group_sub_problems(  # noqa: PLR0913
         if not all(obj.symbol in reference_point for obj in problem.objectives):
             print(reference_point)
             msg = (
-                f"The reference point {reference_point} is missing entries "
-                "for one or more of the objective functions."
+                f"The reference point {reference_point} is missing entries for one or more of the objective functions."
             )
             raise GNIMBUSError(msg)
         # check that at least one objective function is allowed to be improved and one is allowed to worsen
@@ -358,9 +359,7 @@ def solve_group_sub_problems(  # noqa: PLR0913
             raise GNIMBUSError(msg)
 
     if not all(obj.symbol in current_objectives for obj in problem.objectives):
-        msg = (
-            f"The current point {current_objectives} is missing entries " "for one or more of the objective functions."
-        )
+        msg = f"The current point {current_objectives} is missing entries for one or more of the objective functions."
         raise GNIMBUSError(msg)
 
     init_solver = create_solver if create_solver is not None else guess_best_solver(problem)
@@ -423,6 +422,8 @@ def solve_group_sub_problems(  # noqa: PLR0913
             gnimbus_solver = init_solver(problem_g_nimbus)  # type:ignore
 
         solutions.append(gnimbus_solver.solve(gnimbus_target))
+
+        infer_group_classifications(problem, current_objectives, reference_points, silent=False)
 
         return solutions
 
@@ -494,6 +495,8 @@ def solve_group_sub_problems(  # noqa: PLR0913
 
         solutions.append(guess_solver.solve(guess_target))
 
+        infer_group_classifications(problem, current_objectives, reference_points, silent=False)
+
         return solutions
 
     else:  # phase is concsensus reaching
@@ -564,5 +567,7 @@ def solve_group_sub_problems(  # noqa: PLR0913
             guess2_solver = init_solver(problem_g_guess)
 
         solutions.append(guess2_solver.solve(guess2_target))
+
+        infer_group_classifications(problem, current_objectives, reference_points, silent=False)
 
         return solutions
