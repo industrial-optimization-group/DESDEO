@@ -4,13 +4,14 @@ import json
 
 from fastapi import status
 from fastapi.testclient import TestClient
+from websockets.asyncio.client import connect
 
 from desdeo.api.models import (
     CreateSessionRequest,
-    EMOSaveRequest,
     EMOFetchRequest,
     EMOIterateRequest,
     EMOIterateResponse,
+    EMOSaveRequest,
     ForestProblemMetaData,
     GenericIntermediateSolutionResponse,
     GetSessionRequest,
@@ -22,6 +23,8 @@ from desdeo.api.models import (
     IntermediateSolutionRequest,
     NIMBUSClassificationRequest,
     NIMBUSClassificationResponse,
+    NIMBUSFinalizeRequest,
+    NIMBUSFinalizeResponse,
     NIMBUSInitializationRequest,
     NIMBUSIntermediateSolutionResponse,
     NIMBUSSaveRequest,
@@ -40,13 +43,11 @@ from desdeo.api.models import (
 from desdeo.api.models.nimbus import NIMBUSInitializationResponse
 from desdeo.api.models.state import EMOIterateState, EMOSaveState
 from desdeo.api.routers.user_authentication import create_access_token
+from desdeo.emo.options.algorithms import nsga3_options, rvea_options
+from desdeo.emo.options.templates import ReferencePointOptions
 from desdeo.problem.testproblems import simple_knapsack_vectors
 
 from .conftest import get_json, login, post_json
-
-from desdeo.emo.options.algorithms import nsga3_options, rvea_options
-from desdeo.emo.options.templates import ReferencePointOptions
-from websockets.asyncio.client import connect
 
 
 def test_user_login(client: TestClient):
@@ -414,6 +415,62 @@ def test_nimbus_initialize(client: TestClient):
     assert len(result_w_ref.current_solutions) == 1
     assert len(result_w_ref.saved_solutions) == 0
     assert len(result_w_ref.all_solutions) == 2  # we should have a new one
+
+def test_nimbus_finalize(client: TestClient):
+    """Test for seeing if NIMBUS finalization works."""
+    access_token = login(client)
+
+    # create some previous iterations
+    request = NIMBUSInitializationRequest(problem_id=1, solver=None)
+    response = post_json(client, "/method/nimbus/initialize", request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+    init_response = NIMBUSInitializationResponse.model_validate(json.loads(response.content))
+    assert init_response.state_id == 1
+    assert len(init_response.current_solutions) == 1
+    assert len(init_response.saved_solutions) == 0
+    assert len(init_response.all_solutions) == 1
+
+    preference = ReferencePoint(aspiration_levels={"f_1": 0.5, "f_2": 0.6, "f_3": 0.4})
+
+    request = NIMBUSClassificationRequest(
+        problem_id=1, preference=preference, current_objectives={"f_1": 0.6, "f_2": 0.4, "f_3": 0.5}, num_desired=3
+    )
+
+    response = post_json(client, "/method/nimbus/solve", request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+    result: NIMBUSClassificationResponse = NIMBUSClassificationResponse.model_validate(
+        json.loads(response.content.decode("utf-8"))
+    )
+    assert result.previous_preference == preference
+    assert len(result.current_solutions) == 3
+
+    solution_index = 2
+
+    optim_obj = result.current_solutions[solution_index].objective_values
+    optim_var = result.current_solutions[solution_index].variable_values
+
+    prev_pref = result.previous_preference
+    state_id = result.state_id
+
+    request = NIMBUSFinalizeRequest(
+        problem_id=1,
+        solution_info=SolutionInfo(
+            state_id=state_id,
+            solution_index=solution_index
+        ),
+        preferences=prev_pref
+    )
+
+    response = post_json(client, "/method/nimbus/finalize", request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+    result: NIMBUSFinalizeResponse = NIMBUSFinalizeResponse.model_validate(
+        json.loads(response.content.decode("utf-8"))
+    )
+    assert result.final_solution is not None
+    assert result.final_solution.objective_values == optim_obj
+    assert result.final_solution.variable_values == optim_var
+    assert result.final_solution.state_id != result.state_id
+
 
 
 def test_add_new_dm(client: TestClient):

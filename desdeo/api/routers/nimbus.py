@@ -13,6 +13,11 @@ from desdeo.api.models import (
     NIMBUSClassificationRequest,
     NIMBUSClassificationResponse,
     NIMBUSClassificationState,
+    NIMBUSDeleteSaveRequest,
+    NIMBUSDeleteSaveResponse,
+    NIMBUSFinalizeRequest,
+    NIMBUSFinalizeResponse,
+    NIMBUSFinalState,
     NIMBUSInitializationRequest,
     NIMBUSInitializationResponse,
     NIMBUSInitializationState,
@@ -24,6 +29,7 @@ from desdeo.api.models import (
     ReferencePoint,
     SavedSolutionReference,
     SolutionReference,
+    SolutionReferenceResponse,
     StateDB,
     User,
     UserSavedSolutionDB,
@@ -477,7 +483,7 @@ def get_or_initialize(
     # Find the latest relevant state (NIMBUS classification, initialization, or intermediate with NIMBUS context)
     latest_state = None
     for state in states:
-        if isinstance(state.state, (NIMBUSClassificationState | NIMBUSInitializationState)) or (
+        if isinstance(state.state, (NIMBUSClassificationState | NIMBUSInitializationState | NIMBUSFinalState)) or (
             isinstance(state.state, IntermediateSolutionState) and state.state.context == "nimbus"
         ):
             latest_state = state
@@ -526,3 +532,150 @@ def get_or_initialize(
 
     # No relevant state found, initialize a new one
     return initialize(request, user, session)
+
+
+@router.post("/finalize")
+def finalize_nimbus(
+    request: NIMBUSFinalizeRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)]
+) -> NIMBUSFinalizeResponse:
+    """An endpoint for finishing up the nimbus process.
+
+    Args:
+        request (NIMBUSFinalizeRequest): The request containing the final solution, etc.
+        user (Annotated[User, Depends): The current user.
+        session (Annotated[Session, Depends): The database session.
+
+    Raises:
+        HTTPException
+
+    Returns:
+        NIMBUSFinalizeResponse: Response containing state id of the final solution.
+    """
+    if request.session_id is not None:
+        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == request.session_id)
+        interactive_session = session.exec(statement)
+
+        if interactive_session is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Could not find interactive session with id={request.session_id}.",
+            )
+    else:
+        # request.session_id is None:
+        # use active session instead
+        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == user.active_session_id)
+
+        interactive_session = session.exec(statement).first()
+
+    if request.parent_state_id is None:
+        parent_state = None
+    else:
+        statement = session.select(StateDB).where(StateDB.id == request.parent_state_id)
+        parent_state = session.exec(statement).first()
+
+        if parent_state is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail=f"Could not find state with id={request.parent_state_id}"
+            )
+
+    # fetch the problem from the DB
+    statement = select(ProblemDB).where(ProblemDB.user_id == user.id, ProblemDB.id == request.problem_id)
+    problem_db = session.exec(statement).first()
+
+    if problem_db is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Problem with id={request.problem_id} could not be found."
+        )
+
+    solution_state_id = request.solution_info.state_id
+    solution_index = request.solution_info.solution_index
+
+    statement = select(StateDB).where(StateDB.id == solution_state_id)
+    actual_state = session.exec(statement).first().state
+    if actual_state is None:
+        raise HTTPException(
+            detail="No concrete substate!",
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+
+    final_state = NIMBUSFinalState(
+        solver_results  = actual_state.solver_results[solution_index],
+        reference_point = request.preferences.aspiration_levels,
+    )
+
+    state = StateDB.create(
+        database_session=session,
+        problem_id=problem_db.id,
+        session_id=interactive_session.id if interactive_session is not None else None,
+        parent_id=parent_state.id if parent_state is not None else None,
+        state=final_state,
+    )
+
+    session.add(state)
+    session.commit()
+    session.refresh(state)
+
+    return NIMBUSFinalizeResponse(
+        state_id=state.id,
+        final_solution=SolutionReferenceResponse(
+            name=None,
+            solution_index=solution_index,
+            state_id=solution_state_id,
+            objective_values=actual_state.solver_results[solution_index].optimal_objectives,
+            variable_values=actual_state.solver_results[solution_index].optimal_variables,
+        )
+    )
+
+@router.post("/delete_save")
+def delete_save(
+    request: NIMBUSDeleteSaveRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)]
+) -> NIMBUSDeleteSaveResponse:
+    """Endpoint for deleting saved solutions.
+
+    Args:
+        request (NIMBUSDeleteSaveRequest): request containing necessary information for deleting a save
+        user (Annotated[User, Depends): the current  (logged in) user
+        session (Annotated[Session, Depends): database session
+
+    Raises:
+        HTTPException
+
+    Returns:
+        NIMBUSDeleteSaveResponse: Response acknowledging the deletion of save and other useful info.
+    """
+    to_be_deleted = session.exec(
+        select(UserSavedSolutionDB).where(
+            UserSavedSolutionDB.origin_state_id == request.state_id,
+            UserSavedSolutionDB.solution_index == request.solution_index,
+        )
+    ).first()
+
+    if to_be_deleted is None:
+        raise HTTPException(
+            detail="Unable to find a saved solution!",
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+
+    session.delete(to_be_deleted)
+    session.commit()
+
+    to_be_deleted = session.exec(
+        select(UserSavedSolutionDB).where(
+            UserSavedSolutionDB.origin_state_id == request.state_id,
+            UserSavedSolutionDB.solution_index == request.solution_index,
+        )
+    ).first()
+
+    if to_be_deleted is not None:
+        raise HTTPException(
+            detail="Could not delete the saved solution!",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+    return NIMBUSDeleteSaveResponse(
+        message="Save deleted."
+    )

@@ -19,15 +19,16 @@ from desdeo.problem import Tensor, VariableType
 
 from .state import (
     EMOFetchState,
+    EMOIterateState,
     EMOSaveState,
     EMOSCOREState,
-    EMOIterateState,
     ENautilusState,
     GNIMBUSEndState,
     GNIMBUSOptimizationState,
     GNIMBUSVotingState,
     IntermediateSolutionState,
     NIMBUSClassificationState,
+    NIMBUSFinalState,
     NIMBUSInitializationState,
     NIMBUSSaveState,
     RPMState,
@@ -51,6 +52,7 @@ class StateKind(str, Enum):
     NIMBUS_SOLVE = "nimbus.solve_candidates"
     NIMBUS_SAVE = "nimbus.save_solutions"
     NIMBUS_INIT = "nimbus.initialize"
+    NIMBUS_FINAL = "nimbus.final"
     GNIMBUS_OPTIMIZE = "gnimbus.optimize"
     GNIMBUS_VOTE = "gnimbus.vote"
     GNIMBUS_END = "gnimbus.end"
@@ -179,6 +181,7 @@ KIND_TO_TABLE: dict[StateKind, SQLModel] = {
     StateKind.NIMBUS_SOLVE: NIMBUSClassificationState,
     StateKind.NIMBUS_SAVE: NIMBUSSaveState,
     StateKind.NIMBUS_INIT: NIMBUSInitializationState,
+    StateKind.NIMBUS_FINAL: NIMBUSFinalState,
     StateKind.EMO_RUN: EMOIterateState,
     StateKind.GNIMBUS_OPTIMIZE: GNIMBUSOptimizationState,
     StateKind.GNIMBUS_VOTE: GNIMBUSVotingState,
@@ -195,6 +198,7 @@ SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
     NIMBUSClassificationState: StateKind.NIMBUS_SOLVE,
     NIMBUSSaveState: StateKind.NIMBUS_SAVE,
     NIMBUSInitializationState: StateKind.NIMBUS_INIT,
+    NIMBUSFinalState: StateKind.NIMBUS_FINAL,
     EMOIterateState: StateKind.EMO_RUN,
     GNIMBUSOptimizationState: StateKind.GNIMBUS_OPTIMIZE,
     GNIMBUSVotingState: StateKind.GNIMBUS_VOTE,

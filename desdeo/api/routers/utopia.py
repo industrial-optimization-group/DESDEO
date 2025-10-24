@@ -9,6 +9,7 @@ from sqlmodel import Session, select
 from desdeo.api.db import get_session
 from desdeo.api.models import (
     ForestProblemMetaData,
+    NIMBUSFinalState,
     NIMBUSInitializationState,
     NIMBUSSaveState,
     ProblemMetaDataDB,
@@ -49,10 +50,10 @@ def get_utopia_data(
     actual_state = state.state
 
     if type(actual_state) is NIMBUSSaveState:
-        decision_variables = state.state.result_variable_values[0]
+        decision_variables = actual_state.result_variable_values[0]
 
-    elif type(actual_state) is NIMBUSInitializationState:
-        decision_variables = state.state.solver_results.optimal_variables
+    elif type(actual_state) is NIMBUSInitializationState | NIMBUSFinalState:
+        decision_variables = actual_state.solver_results.optimal_variables
 
     else:
         # Check if solver_results exists and has the needed index

@@ -34,6 +34,23 @@ class NIMBUSSaveRequest(SQLModel):
 
     solution_info: list[SolutionInfo]
 
+class NIMBUSDeleteSaveRequest(SQLModel):
+    """Request model for deletion of a saved solution."""
+
+    state_id : int = Field(description="The ID of the save state.")
+    solution_index: int = Field(description="The ID of the solution within the above state.")
+
+
+class NIMBUSFinalizeRequest(SQLModel):
+    """Request model for finalizing the NIMBUS procedure."""
+
+    problem_id: int
+    session_id: int | None = Field(default=None)
+    parent_state_id: int | None = Field(default=None)
+
+    solution_info: SolutionInfo # the final solution
+    preferences: ReferencePoint # the preferences that led to the final solution
+
 
 class NIMBUSClassificationResponse(SQLModel):
     """The response from NIMBUS classification endpoint."""
@@ -73,6 +90,18 @@ class NIMBUSSaveResponse(SQLModel):
     """The response from NIMBUS save endpoint."""
 
     state_id: int | None = Field(description="The id of the newest state")
+
+class NIMBUSDeleteSaveResponse(SQLModel):
+    """Response of NIMBUS save deletion."""
+    message: str | None
+
+class NIMBUSFinalizeResponse(SQLModel):
+    """The response from NIMBUS finish endpoint."""
+
+    state_id: int | None = Field(description="The id of the newest state")
+    final_solution: SolutionReferenceResponse = Field(
+        description="The final solution"
+    )
 
 
 class NIMBUSInitializationRequest(SQLModel):
