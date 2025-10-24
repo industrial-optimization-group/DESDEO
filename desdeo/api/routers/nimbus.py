@@ -628,7 +628,7 @@ def finalize_nimbus(
         )
     )
 
-@router.add("/delete_save")
+@router.post("/delete_save")
 def delete_save(
     request: NIMBUSDeleteSaveRequest,
     user: Annotated[User, Depends(get_current_user)],
@@ -641,6 +641,41 @@ def delete_save(
         user (Annotated[User, Depends): the current  (logged in) user
         session (Annotated[Session, Depends): database session
 
+    Raises:
+        HTTPException
+
     Returns:
         NIMBUSDeleteSaveResponse: Response acknowledging the deletion of save and other useful info.
     """
+    to_be_deleted = session.exec(
+        select(UserSavedSolutionDB).where(
+            UserSavedSolutionDB.origin_state_id == request.state_id,
+            UserSavedSolutionDB.solution_index == request.solution_index,
+        )
+    ).first()
+
+    if to_be_deleted is None:
+        raise HTTPException(
+            detail="Unable to find a saved solution!",
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+
+    session.delete(to_be_deleted)
+    session.commit()
+
+    to_be_deleted = session.exec(
+        select(UserSavedSolutionDB).where(
+            UserSavedSolutionDB.origin_state_id == request.state_id,
+            UserSavedSolutionDB.solution_index == request.solution_index,
+        )
+    ).first()
+
+    if to_be_deleted is not None:
+        raise HTTPException(
+            detail="Could not delete the saved solution!",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+    return NIMBUSDeleteSaveResponse(
+        message="Save deleted."
+    )

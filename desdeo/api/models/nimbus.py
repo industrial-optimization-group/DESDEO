@@ -37,6 +37,9 @@ class NIMBUSSaveRequest(SQLModel):
 class NIMBUSDeleteSaveRequest(SQLModel):
     """Request model for deletion of a saved solution."""
 
+    state_id : int = Field(description="The ID of the save state.")
+    solution_index: int = Field(description="The ID of the solution within the above state.")
+
 
 class NIMBUSFinalizeRequest(SQLModel):
     """Request model for finalizing the NIMBUS procedure."""
@@ -90,6 +93,7 @@ class NIMBUSSaveResponse(SQLModel):
 
 class NIMBUSDeleteSaveResponse(SQLModel):
     """Response of NIMBUS save deletion."""
+    message: str | None
 
 class NIMBUSFinalizeResponse(SQLModel):
     """The response from NIMBUS finish endpoint."""
