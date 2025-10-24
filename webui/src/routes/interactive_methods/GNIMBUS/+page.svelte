@@ -36,7 +36,6 @@
 	 * @dependencies
 	 * - BaseLayout: Core layout component
 	 * - AppSidebar: Preference setting interface
-	 * - SolutionTable: Solution comparison and selection
 	 * - VisualizationsPanel: Objective space visualization
 	 * - UtopiaMap: Geographical data visualization
 	 * - WebSocketService: Real-time communication
@@ -44,7 +43,6 @@
 	// Layout and core components
 	import { BaseLayout } from '$lib/components/custom/method_layout/index.js';
 	import { auth } from '../../../stores/auth';
-	import type { components } from '$lib/api/client-types';
 	import { onMount } from 'svelte';
 
 	// UI Components
@@ -54,10 +52,15 @@
 
 	// NIMBUS specific components
 	import AppSidebar from '$lib/components/custom/preferences-bar/preferences-sidebar.svelte';
-	import SolutionTable from '$lib/components/custom/nimbus/solution-table.svelte';
 	import VisualizationsPanel from '$lib/components/custom/visualizations-panel/visualizations-panel.svelte';
 	import UtopiaMap from '$lib/components/custom/nimbus/utopia-map.svelte';
 	import { PREFERENCE_TYPES } from '$lib/constants';
+	import { errorMessage, isLoading } from '../../../stores/uiState';
+	import LoadingSpinner from '$lib/components/custom/notifications/loading-spinner.svelte';
+	import Alert from '$lib/components/custom/notifications/alert.svelte';
+
+
+
 	import type {
 		ProblemInfo,
 		Solution,
@@ -66,7 +69,8 @@
 		Response,
 		Step,
 		PeriodKey,
-		MapState
+		MapState,
+		TableData
 	} from './types';
 
 	import { WebSocketService } from './websocket-store';
@@ -81,6 +85,8 @@
 		createVisualizationData,
 		createPreferenceData
 	} from './helper-functions';
+	import SolutionDisplay from './components/SolutionDisplay.svelte';
+	import EndStateView from './components/EndStateView.svelte';
 
 	let userId = $auth.user?.id;
 	// State for NIMBUS iteration management
@@ -94,6 +100,29 @@
 	let isOwner = $state(false);
 	let isDecisionMaker = $state(false);
 
+	// Define the base phases array
+	const PHASE_CONFIGS = [
+		{ id: 'learning', label: 'Learning' },
+		{ id: 'crp', label: 'CRP' },
+		{ id: 'decision', label: 'Decision' }
+	] as const;
+
+	// Helper function to determine button variant for group owners phase change buttons
+	function getVariant(phaseId: typeof PHASE_CONFIGS[number]['id'], currentPhase: string, clicked: string | null) {
+	if (currentPhase === 'init' ) currentPhase = 'learning';
+	return currentPhase === phaseId ? 'default' : 
+		clicked === phaseId ? 'secondary' : 
+		'outline' as 'outline' | 'default' | 'secondary';
+	}
+
+	// Derived phases with variants
+	let PHASES = $derived.by(() => 
+		PHASE_CONFIGS.map(phase => ({
+			...phase,
+			variant: getVariant(phase.id, current_state.phase, clickedPhase)
+		}))
+	);
+	let clickedPhase = $state(null as 'learning' | 'crp' | 'decision' | null);
 	// the solutions we want to show in UI are different depending on the step of iteration.
 	// in the optimization step we want to show the final result,
 	// and in the voting step we want to show the common results.
@@ -113,14 +142,14 @@
 			return 'Suggestion for a final solution';
 		if (step === 'optimization') return 'Voted solution';
 		if (step === 'voting') return 'Solutions to vote from';
-		if (step === 'finish') return 'Final solution';
+		if (step === 'finish') return '';
 		return 'Solutions';
 	});
 
 	// variable for handling different steps (view and possible actions are defined by step)
 	let step: Step = $state('optimization');
 
-	// variable for tracking if the user did the action for the ongoing step, used in defining what message is shown to user
+	// variable for tracking if the user did the action for the ongoing step, used in defining what instruction is shown to user
 	let isActionDone: boolean = $state(false);
 
 	// variables needed for voting: index of voted solution and the objectives extracted from that solution
@@ -151,7 +180,7 @@
 
 	// Message handling
 	let wsService: WebSocketService;
-	let message = $state('');
+	let message: string | null = $state(null);
 	let messageTimeout: number | undefined;
 
 	function showTemporaryMessage(msg: string, duration: number = 5000) {
@@ -162,7 +191,7 @@
 		message = msg;
 		// Clear message after duration
 		messageTimeout = window.setTimeout(() => {
-			message = '';
+			message = null;
 		}, duration);
 	}
 
@@ -242,9 +271,11 @@
 			console.error('No solution set');
 			return;
 		}
-		wsService.sendMessage(JSON.stringify(int));
-
-		isActionDone = true;
+		const success = await wsService.sendMessage(JSON.stringify(int));
+		if (success) {
+			showTemporaryMessage('Vote submitted');
+			isActionDone = true;
+		}
 	}
 
 	// function for handling the iteration of the optimization step. Sends the preferences as a message to websocket
@@ -271,8 +302,11 @@
 				{} as Record<string, number>
 			)
 		};
-		wsService.sendMessage(JSON.stringify(preference));
-		isActionDone = true;
+		const success = await wsService.sendMessage(JSON.stringify(preference));
+		if (success) {
+			showTemporaryMessage('Preferences submitted');
+			isActionDone = true;
+		}
 	}
 
 	// Fetch maps data for UTOPIA visualization for one solution
@@ -370,11 +404,8 @@
 
 		if (!result || (!result.success && result.error === 'wrong_step')) {
 			showTemporaryMessage('Wrong step for phase change!');
-			// Revert the UI selection back to current state
-		} else {
-			// TODO: Update will happen via websocket notification
-			message = 'Phase switched to ' + new_phase;
 		}
+		return result.success;
 	}
 
 	async function initializeGNIMBUS(groupId: number) {
@@ -400,9 +431,12 @@
 		// Initialize WebSocket
 		wsService = new WebSocketService(data.group.id, 'gnimbus', data.refreshToken);
 		wsService.messageStore.subscribe((msg) => {
-			clearTimeout(messageTimeout);
-			messageTimeout = undefined;
-			message = msg;
+			if (
+				!msg.includes('Please fetch') &&
+				!msg.includes('Voting has concluded')
+			) {
+				showTemporaryMessage(msg);
+			}
 			getResultsAndUpdate(data.group.id);
 		});
 
@@ -417,7 +451,7 @@
 
 		// Try to get existing results from backend
 		const result = await getResultsAndUpdate(data.group.id);
-
+		console.log('Initial fetch result:', result);
 		// Initialize only if there are no results beforehand
 		if (!result?.success && result?.error === 'not_initialized') {
 			console.log('GNIMBUS not initialized, initializing...');
@@ -443,7 +477,7 @@
 	}
 
 	// Derived value for solution table data
-	let tableData = $derived.by(() =>
+	let tableData: TableData[] = $derived.by(() =>
 		solution_options.map((solution, i) => ({
 			state_id: solution.state_id,
 			solution_index: i,
@@ -453,7 +487,7 @@
 		}))
 	);
 
-	let previousValues = $derived.by(() => {
+	let userSolutionsObjectives = $derived.by(() => {
 		if (step !== 'voting' || !problem) return [];
 		return current_state.user_results
 			.map((result) => result.objective_values)
@@ -468,6 +502,24 @@
 		createVisualizationData(problem, step, current_state, solution_options)
 	);
 </script>
+
+{#if $isLoading}
+	<LoadingSpinner />
+{/if}
+
+{#if $errorMessage}
+	<Alert 
+		message={$errorMessage} 
+		variant='destructive'
+	/>
+{/if}
+
+{#if message}
+	<Alert 
+		{message} 
+		variant='default'
+	/>
+{/if}
 
 <BaseLayout
 	showLeftSidebar={!!problem}
@@ -493,27 +545,48 @@
 	{/snippet}
 
 	{#snippet explorerControls()}
-		{#if isOwner && step === 'optimization'}
-			<span>Switch phase: </span>
-			<Button onclick={() => handle_phase_switch('learning')}>Learning</Button>
-			<Button onclick={() => handle_phase_switch('crp')}>CRP</Button>
-			<Button onclick={() => handle_phase_switch('decision')}>Decision</Button>
-		{/if}
-		<div class="rounded-lg bg-gray-50 p-4 text-sm">
-			{#if problem}
-				{@const status = getStatusMessage({
-					message,
-					isOwner,
-					isDecisionMaker,
-					step,
-					phase: current_state.phase,
-					isActionDone
-				})}
-				<span class={status.isAlert ? 'text-red-600' : 'text-gray-600'}>
-					{status.text}
+		{#if problem}
+			{@const statusMessage = getStatusMessage({
+				isOwner,
+				isDecisionMaker,
+				step,
+				isActionDone
+			})}
+			<div class="p-4">
+				<span class="font-bold">
+					{#if step === 'finish'}
+						Final Solution
+					{:else}
+						{current_state.phase === 'crp' ? 'CRP Phase.' : 
+						current_state.phase === 'init' ? 'Learning Phase.' :
+						current_state.phase === 'learning' ? 'Learning Phase.' :
+						current_state.phase === 'decision' ? 'Decision Phase.' :
+						''}
+					{/if}
 				</span>
-			{/if}
-		</div>
+				<span>
+					{statusMessage}
+				</span>
+			</div>
+		{/if}
+		{#if isOwner && step === 'optimization'}
+			{#each PHASES as phase}
+				<Button
+					variant={phase.variant}
+					onclick={() => {
+						handle_phase_switch(phase.id)
+							.then((value) => {
+								if (value) clickedPhase = phase.id;
+							})
+							.catch((err) => {
+								console.error('Phase switch error:', err);
+							});
+						}
+					}>
+					{phase.label}
+				</Button>
+			{/each}
+		{/if}
 	{/snippet}
 
 	{#snippet visualizationArea()}
@@ -535,6 +608,15 @@
 							otherObjectiveValues={visualizationObjectives.others}
 							externalSelectedIndexes={[selected_voting_index]}
 							onSelectSolution={handle_solution_click}
+							lineLabels={Object.fromEntries(
+								visualizationObjectives.solutions.map((_, i) => [i, `Group solution ${i + 1}`])
+							)}
+							referenceDataLabels={{
+								previousRefLabel: 'Previous preference',
+								currentRefLabel: 'Current preference',
+								previousSolutionLabels:['Your individual solution'],
+								otherSolutionLabels: visualizationObjectives.previous.map((_, i) => `Users solution ${i + 1}`),
+							}}
 						/>
 					</Resizable.Pane>
 
@@ -565,40 +647,21 @@
 
 	{#snippet numericalValues()}
 		{#if problem && solution_options.length > 0}
-			<div class="flex h-full flex-col">
-				{#if step === 'voting' && isDecisionMaker}
-					{#if current_state.phase === 'decision'}
-						<div class="mb-2 flex-none">
-							<Button variant="default" onclick={() => handle_vote(1)}>
-								Select as the final solution
-							</Button>
-							<Button variant="destructive" onclick={() => handle_vote(0)}>
-								Continue to next iteration
-							</Button>
-						</div>
-					{:else}
-						<div class="mb-2 flex-none">
-							<Button
-								disabled={selected_voting_index === -1}
-								onclick={() => handle_vote(selected_voting_index)}>Vote</Button
-							>
-						</div>
-					{/if}
-				{/if}
-				<div class="min-h-0 flex-1">
-					<SolutionTable
-						{problem}
-						personalResultIndex={current_state.personal_result_index}
-						solverResults={tableData}
-						selectedSolutions={[selected_voting_index]}
-						savingEnabled={false}
-						handle_row_click={handle_solution_click}
-						selected_type_solutions={'current'}
-						previousObjectiveValuesType="user_results"
-						previousObjectiveValues={previousValues}
-					/>
-				</div>
-			</div>
+			{#if step === 'finish'}
+				<EndStateView {problem} {tableData} />
+			{:else}
+				<SolutionDisplay
+					{problem}
+					{step}
+					{current_state}
+					{tableData}
+					{selected_voting_index}
+					userSolutionsObjectives={userSolutionsObjectives}
+					{isDecisionMaker}
+					onVote={handle_vote}
+					onRowClick={handle_solution_click}
+				/>
+			{/if}
 		{/if}
 	{/snippet}
 </BaseLayout>

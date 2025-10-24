@@ -44,7 +44,7 @@
 	 * - InputDialog: For renaming saved solutions.
 	 * - methodSelection: Svelte store for the currently selected problem.
 	 * - LoadingSpinner: For showing a loading state during long operations.
-	 * - ErrorAlert: For displaying dismissible error messages.
+	 * - Alert: For displaying dismissible error messages.
 	 *
 	 * @notes
 	 * - The selected problem is determined from the methodSelection store.
@@ -75,7 +75,7 @@
 	import { errorMessage, isLoading } from '../../../stores/uiState';
 	import { onMount } from 'svelte';
 	import LoadingSpinner from '$lib/components/custom/notifications/loading-spinner.svelte';
-	import ErrorAlert from '$lib/components/custom/notifications/error-alert.svelte';
+	import Alert from '$lib/components/custom/notifications/alert.svelte';
 
 	// UI Components
 	import { Combobox } from '$lib/components/ui/combobox';
@@ -572,7 +572,11 @@
 {/if}
 
 {#if $errorMessage}
-	<ErrorAlert />
+	<Alert 
+		title="Error"
+		message={$errorMessage} 
+		variant='destructive'
+	/>
 {/if}
 
 {#if mode === 'final'}
@@ -774,7 +778,7 @@
 					handle_row_click={handle_solution_click}
 					{isSaved}
 					{selected_type_solutions}
-					previousObjectiveValues={selected_type_solutions === 'current'
+					secondaryObjectiveValues={selected_type_solutions === 'current'
 						? problem
 							? [
 									// Add previous_objectives if it exists
