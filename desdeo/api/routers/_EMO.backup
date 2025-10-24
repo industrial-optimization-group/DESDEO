@@ -1,24 +1,31 @@
 """Router for evolutionary multiobjective optimization (EMO) methods."""
 
-from typing import Annotated
+from datetime import datetime
+from typing import Annotated, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlmodel import select
 
 from desdeo.api.db import get_session
-from desdeo.api.models import StateDB
+from desdeo.api.models.archive import (
+    UserSavedEMOResults,
+)
 from desdeo.api.models.EMO import (
     EMOSaveRequest,
     EMOSolveRequest,
 )
 from desdeo.api.models.preference import (
+    NonPreferredSolutions,
     PreferenceBase,
     PreferenceDB,
+    PreferredRanges,
+    PreferredSolutions,
+    ReferencePoint,
 )
 from desdeo.api.models.problem import ProblemDB
 from desdeo.api.models.session import InteractiveSessionDB
-from desdeo.api.models.state import EMOSaveState, EMOState
+from desdeo.api.models.state import EMOSaveState, EMOState, StateDB
 from desdeo.api.models.user import User
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.api.utils.database import user_save_solutions
@@ -37,6 +44,7 @@ def start_emo_optimization(
     session: Annotated[Session, Depends(get_session)],
 ) -> EMOState:
     """Start interactive evolutionary multiobjective optimization."""
+
     # Handle session logic
     if request.session_id is not None:
         statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == request.session_id)
@@ -252,7 +260,7 @@ def get_saved_solutions(
 
 
 # Helper functions
-def _build_reference_vector_options(preference: PreferenceBase, number_of_vectors: int) -> dict:
+def _build_reference_vector_options(preference: PreferenceBase, number_of_vectors: int) -> Dict:
     """Build reference vector options based on preference type."""
 
     base_options = {

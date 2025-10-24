@@ -575,7 +575,6 @@
 		xScale: d3.ScalePoint<string>,
 		line: d3.Line<[string, number]>
 	) {
-
 		// Draw other solutions first (they should be in the background)
 		if (referenceData?.otherSolutions) {
 			const otherGroup = svgElement.append('g').attr('class', 'other-solutions');

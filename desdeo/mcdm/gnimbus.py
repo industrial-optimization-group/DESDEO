@@ -1,62 +1,60 @@
 """Functions related to the GNIMBUS method.
 
-References:
-"""  # noqa: RUF002
+References (to add later): # noqa: RUD414
+"""
 
 import numpy as np
+import polars as pl
 
+from desdeo.gdm.gdmtools import dict_of_rps_to_list_of_rps, agg_aspbounds, scale_delta
+from desdeo.gdm.voting_rules import majority_rule, plurality_rule
+from desdeo.mcdm.nimbus import (  # generate_starting_point,
+    infer_classifications,
+    solve_intermediate_solutions,
+)
 from desdeo.problem import (
     PolarsEvaluator,
     Problem,
-    VariableType,
     Variable,
+    VariableType,
     objective_dict_to_numpy_array,
     unflatten_variable_array,
 )
-
 from desdeo.tools import (
     BaseSolver,
     SolverOptions,
     SolverResults,
-    add_group_asf_diff,
+    add_asf_diff,
+    add_asf_nondiff,
     add_group_asf,
     add_group_asf_agg,
     add_group_asf_agg_diff,
-    add_group_guess_diff,
+    add_group_asf_diff,
     add_group_guess,
     add_group_guess_agg,
     add_group_guess_agg_diff,
+    add_group_guess_diff,
     add_group_nimbus,
     add_group_nimbus_diff,
     add_group_stom,
     add_group_stom_agg,
     add_group_stom_agg_diff,
     add_group_stom_diff,
-    guess_best_solver,
-    add_asf_diff,
-    add_asf_nondiff,
     add_nimbus_sf_diff,
     add_nimbus_sf_nondiff,
+    guess_best_solver,
 )
-from desdeo.mcdm.nimbus import (
-    # generate_starting_point,
-    solve_intermediate_solutions,
-    infer_classifications,
-    NimbusError
-)
-from desdeo.gdm.voting_rules import majority_rule, plurality_rule
-from desdeo.gdm.gdmtools import dict_of_rps_to_list_of_rps, list_of_rps_to_dict_of_rps
-import polars as pl
 
 
+class GNIMBUSError(Exception):
+    """Raised when an error with a NIMBUS method is encountered."""
 
 
 def voting_procedure(problem: Problem, solutions, votes_idxs: dict[str, int]) -> SolverResults:
-    """ 
-        Voting procedure for GNIMBUS for 4 DMs.
-        CLEAN THIS UP
-        Works properly for 4 votes and 4 solutions as per design.
+    r""" More general procedure for GNIMBUS for any number of DMs.
+    TODO(@jpajasmaa): docs and cleaning up.
     """
+
     winner_idx = None
 
     # call majority
@@ -64,7 +62,7 @@ def voting_procedure(problem: Problem, solutions, votes_idxs: dict[str, int]) ->
     if winner_idx is not None:
         print("Majority winner", winner_idx)
         return solutions[winner_idx]
-
+    """ general procedure does not apply plurality rule
     # call plurality
     winners = plurality_rule(votes_idxs)
     print("winners")
@@ -73,7 +71,8 @@ def voting_procedure(problem: Problem, solutions, votes_idxs: dict[str, int]) ->
         return solutions[winners[0]]  # need to unlist the winners list
     if len(winners) == 2:
         # if two same solutions with same number of votes, call intermediate
-        # TODO: not perfect check as I suppose it is possible to have a problem that we can calculate more solutions AND discrete representation also.
+        # TODO:(@jpajasmaa) not perfect check as it is possible to have a problem that we can calculate more solutions
+        # AND discrete representation also.
         if problem.discrete_representation is None:
             wsol1, wsol2 = solutions[winners[0]].optimal_variables, solutions[winners[1]].optimal_variables
         else:
@@ -81,12 +80,16 @@ def voting_procedure(problem: Problem, solutions, votes_idxs: dict[str, int]) ->
         print("Finding intermediate solution between", wsol1, wsol2)
         # return solve_intermediate_solutions_only_objs(problem, wsol1, wsol2, num_desired=3)
         return solve_intermediate_solutions(problem, wsol1, wsol2, num_desired=1)[0]
-    else:
-        print("TIE-breaking, select first solution (group nimbus scalarization)")
-        return solutions[0]  # need to unlist the winners list
+    """
+    print("TIE-breaking, select a solution randomly (as random as computers ever are..)")
+    n_of_sols = len(solutions)
+    rng = np.random.default_rng()
+    random_idx = rng.choice(range(n_of_sols))
+    return solutions[random_idx]
 
 
 # TODO: below is just doing the intermediate solutions with the objective vectors, was needed for GNIMBUS Malaga experiment
+# I think this is probably unnecessary, check rpm_intermediate_solutions
 def solve_intermediate_solutions_only_objs(  # noqa: PLR0913
     problem: Problem,
     solution_1: dict[str, VariableType],
@@ -130,7 +133,7 @@ def solve_intermediate_solutions_only_objs(  # noqa: PLR0913
 
     if int(num_desired) < 1:
         msg = f"The given number of desired intermediate ({num_desired=}) solutions must be at least 1."
-        raise NimbusError(msg)
+        raise GNIMBUSError(msg)
 
     init_solver = guess_best_solver(problem) if solver is None else solver
     _solver_options = None if solver_options is None or solver is None else solver_options
@@ -179,30 +182,6 @@ def solve_intermediate_solutions_only_objs(  # noqa: PLR0913
     return intermediate_solutions
 
 
-# TODO: move to tools after generalizing a bit
-def find_min_max_values(po_list: list[dict[str, float]], problem: Problem):
-    """
-        Find min aspirations and upper (max) bounds. Assumes minimization.
-    """
-
-    objective_symbols = [obj.symbol for obj in problem.objectives]
-
-    max_values = {obj: max(s[obj] for s in po_list) for obj in objective_symbols}
-    min_values = {obj: min(s[obj] for s in po_list) for obj in objective_symbols}
-
-    return min_values, max_values
-
-# TODO: comments and move somewhere else
-def scale_delta(problem, d):
-    delta = {}
-    ideal = problem.get_ideal_point()
-    nadir = problem.get_nadir_point()
-
-    for obj in problem.objectives:
-        delta.update({obj.symbol: d*(ideal[obj.symbol] - nadir[obj.symbol])})
-    return delta
-
-
 def solve_group_sub_problems(  # noqa: PLR0913
     problem: Problem,
     current_objectives: dict[str, float],
@@ -231,8 +210,8 @@ def solve_group_sub_problems(  # noqa: PLR0913
     4.  the GUESS scalarization function.
 
     Raises:
-        NimbusError: the given problem has an undefined ideal or nadir point, or both.
-        NimbusError: either the reference point of current objective functions value are
+        GNIMBUSError: the given problem has an undefined ideal or nadir point, or both.
+        GNIMBUSError: either the reference point of current objective functions value are
             missing entries for one or more of the objective functions defined in the problem.
 
     Args:
@@ -257,24 +236,39 @@ def solve_group_sub_problems(  # noqa: PLR0913
     """
     if None in problem.get_ideal_point() or None in problem.get_nadir_point():
         msg = "The given problem must have both an ideal and nadir point defined."
-        raise NimbusError(msg)
+        raise GNIMBUSError(msg)
 
-    # TODO: update these tests for multiple RPs
-
-    """
-    for reference_point in reference_points:
+    DMs = reference_points.keys()
+    for dm in DMs:
+        reference_point = reference_points[dm]
+        # for rp in reference_point:
         if not all(obj.symbol in reference_point for obj in problem.objectives):
-            msg = f"The reference point {reference_point} is missing entries " "for one or more of the objective functions."
-            raise NimbusError(msg)
+            print(reference_point)
+            msg = (
+                f"The reference point {reference_point} is missing entries "
+                "for one or more of the objective functions."
+            )
+            raise GNIMBUSError(msg)
+        # check that at least one objective function is allowed to be improved and one is allowed to worsen
+        classifications = infer_classifications(problem, current_objectives, reference_point)
+        if not any(classifications[obj.symbol][0] in ["<", "<="] for obj in problem.objectives) or not any(
+            classifications[obj.symbol][0] in [">=", "0"] for obj in problem.objectives
+        ):
+            msg = (
+                f"The given classifications {classifications} should allow at least one objective function value "
+                "to improve and one to worsen."
+            )
+            raise GNIMBUSError(msg)
 
-        if not all(obj.symbol in current_objectives for obj in problem.objectives):
-            msg = f"The current point {reference_point} is missing entries " "for one or more of the objective functions."
-            raise NimbusError(msg)
-
-    """
+    if not all(obj.symbol in current_objectives for obj in problem.objectives):
+        msg = (
+            f"The current point {current_objectives} is missing entries " "for one or more of the objective functions."
+        )
+        raise GNIMBUSError(msg)
 
     init_solver = create_solver if create_solver is not None else guess_best_solver(problem)
     _solver_options = solver_options if solver_options is not None else None
+    print("solver is ", init_solver)
 
     solutions = []
     classification_list = []
@@ -286,7 +280,9 @@ def solve_group_sub_problems(  # noqa: PLR0913
     # Solve for individual solutions. TODO: move as own function, should be useful for other methods as well.
     for dm_rp in reference_points:
         classification = infer_classifications(problem, current_objectives, reference_points[dm_rp])
-        nimbus_scala = add_nimbus_sf_diff if problem.is_twice_differentiable else add_nimbus_sf_nondiff  # non-diff gnimbus
+        nimbus_scala = (
+            add_nimbus_sf_diff if problem.is_twice_differentiable else add_nimbus_sf_nondiff
+        )  # non-diff gnimbus
         add_nimbus_sf = nimbus_scala
 
         problem_i_nimbus, nimbus_target = add_nimbus_sf(
@@ -304,9 +300,8 @@ def solve_group_sub_problems(  # noqa: PLR0913
     for q in range(len(reference_points)):
         achievable_prefs.append(ind_sols[q].optimal_objectives)
 
-    print(achievable_prefs)
-    agg_aspirations, agg_bounds = find_min_max_values(achievable_prefs, problem)
-    delta = scale_delta(problem, d=1e-6) # TODO: move somewhere else
+    agg_aspirations, agg_bounds = agg_aspbounds(achievable_prefs, problem)
+    delta = scale_delta(problem, d=1e-6)  # TODO: move somewhere else
 
     if phase == "decision":
         for dm_rp in reference_points:
@@ -315,7 +310,7 @@ def solve_group_sub_problems(  # noqa: PLR0913
         add_nimbus_sf = gnimbus_scala
 
         problem_g_nimbus, gnimbus_target = add_nimbus_sf(
-            problem, "nimbus_sf", classification_list, delta, agg_bounds, current_objectives, **(scalarization_options or {})
+            problem, "nimbus_sf", classification_list, current_objectives, agg_bounds, delta, **(scalarization_options or {})
         )
 
         if _solver_options:
@@ -342,7 +337,13 @@ def solve_group_sub_problems(  # noqa: PLR0913
         add_nimbus_sf = gnimbus_scala
 
         problem_w_nimbus, nimbus_target = add_nimbus_sf(
-            problem, "nimbus_sf", classification_list, current_objectives, agg_bounds, delta, **(scalarization_options or {})
+            problem,
+            "nimbus_sf",
+            classification_list,
+            current_objectives,
+            agg_bounds,
+            delta,
+            **(scalarization_options or {}),
         )
 
         if _solver_options:
@@ -359,7 +360,7 @@ def solve_group_sub_problems(  # noqa: PLR0913
             problem, "stom_sf", reference_points_list, agg_bounds, delta, **(scalarization_options or {})
         )
         if _solver_options:
-            stom_solver = init_solver(problem_w_stom, _solver_options) # type:ignore
+            stom_solver = init_solver(problem_w_stom, _solver_options)  # type:ignore
         else:
             stom_solver = init_solver(problem_w_stom)
 
@@ -371,7 +372,7 @@ def solve_group_sub_problems(  # noqa: PLR0913
             problem, "asf", reference_points_list, agg_bounds, delta, **(scalarization_options or {})
         )
         if _solver_options:
-            asf_solver = init_solver(problem_w_asf, _solver_options) # type:ignore
+            asf_solver = init_solver(problem_w_asf, _solver_options)  # type:ignore
         else:
             asf_solver = init_solver(problem_w_asf)
 
@@ -383,7 +384,7 @@ def solve_group_sub_problems(  # noqa: PLR0913
             problem, "guess_sf", reference_points_list, agg_bounds, delta, **(scalarization_options or {})
         )
         if _solver_options:
-            guess_solver = init_solver(problem_w_guess, _solver_options) # type:ignore
+            guess_solver = init_solver(problem_w_guess, _solver_options)  # type:ignore
         else:
             guess_solver = init_solver(problem_w_guess)
 
@@ -402,11 +403,17 @@ def solve_group_sub_problems(  # noqa: PLR0913
             print("RPS", reference_points[dm_rp])
             classification_list.append(infer_classifications(problem, current_objectives, reference_points[dm_rp]))
         print(classification_list)
-        gnimbus_scala = add_group_nimbus_diff if problem.is_twice_differentiable else add_group_nimbus 
+        gnimbus_scala = add_group_nimbus_diff if problem.is_twice_differentiable else add_group_nimbus
         add_nimbus_sf = gnimbus_scala
 
         problem_w_nimbus, nimbus_target = add_nimbus_sf(
-            problem, "nimbus_sf", classification_list, current_objectives, agg_bounds, delta, **(scalarization_options or {})
+            problem,
+            "nimbus_sf",
+            classification_list,
+            current_objectives,
+            agg_bounds,
+            delta,
+            **(scalarization_options or {}),
         )
 
         if _solver_options:
@@ -424,7 +431,7 @@ def solve_group_sub_problems(  # noqa: PLR0913
             problem, "stom_sf2", agg_aspirations, agg_bounds, delta, **(scalarization_options or {})
         )
         if _solver_options:
-            stomg_solver = init_solver(problem_g_stom, _solver_options) # type:ignore
+            stomg_solver = init_solver(problem_g_stom, _solver_options)  # type:ignore
         else:
             stomg_solver = init_solver(problem_g_stom)
 
@@ -435,20 +442,20 @@ def solve_group_sub_problems(  # noqa: PLR0913
             problem, "asf2", agg_aspirations, agg_bounds, delta, **(scalarization_options or {})
         )
         if _solver_options:
-            asfg_solver = init_solver(problem_g_asf, _solver_options) # type:ignore
+            asfg_solver = init_solver(problem_g_asf, _solver_options)  # type:ignore
         else:
             asfg_solver = init_solver(problem_g_asf)
 
         solutions.append(asfg_solver.solve(asfg_target))
 
-        add_guess_sf2 = add_group_asf_agg_diff if problem.is_twice_differentiable else add_group_guess_agg
+        add_guess_sf2 = add_group_guess_agg_diff if problem.is_twice_differentiable else add_group_guess_agg
 
         problem_g_guess, guess2_target = add_guess_sf2(
             problem, "guess_sf2", agg_aspirations, agg_bounds, delta, **(scalarization_options or {})
         )
 
         if _solver_options:
-            guess2_solver = init_solver(problem_g_guess, _solver_options) # type:ignore
+            guess2_solver = init_solver(problem_g_guess, _solver_options)  # type:ignore
         else:
             guess2_solver = init_solver(problem_g_guess)
 

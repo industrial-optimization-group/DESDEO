@@ -8,14 +8,16 @@ __all__ = [  # noqa: RUF022
     "DiscreteRepresentationDB",
     "EMOSaveState",
     "EMOSolveRequest",
-    "EMOState",
+    "EMOIterateState",
     "ENautilusState",
+    "ENautilusStepRequest",
     "ExtraFunctionDB",
     "ForestProblemMetaData",
     "GenericIntermediateSolutionResponse",
     "GetSessionRequest",
     "GNIMBUSOptimizationState",
     "GNIMBUSVotingState",
+    "GNIMBUSEndState",
     "InteractiveSessionBase",
     "InteractiveSessionDB",
     "InteractiveSessionInfo",
@@ -44,6 +46,7 @@ __all__ = [  # noqa: RUF022
     "ProblemInfoSmall",
     "ProblemMetaDataDB",
     "ProblemMetaDataGetRequest",
+    "ProblemSelectSolverRequest",
     "ReferencePoint",
     "RepresentativeNonDominatedSolutions",
     "RPMSolveRequest",
@@ -72,16 +75,22 @@ __all__ = [  # noqa: RUF022
     "GroupInfoRequest",
     "BasePreferences",
     "ReferencePointDictType",
+    "BooleanDictTypeDecorator",
     "EMOSolveRequest",
     "PreferredRanges",
     "PreferedSolutions",
     "NonPreferredSolutions",
-    "EMOSaveState",
+    "EMOFetchRequest",
+    "EMOFetchResponse",
+    "EMOIterateRequest",
+    "EMOIterateResponse",
     "EMOSaveRequest",
-    "EMOState",
-    "SolutionAddress",
-    "SolutionAddressReference",
-    "SolutionAddressResponse",
+    "EMOScoreRequest",
+    "EMOScoreResponse",
+    "Solution",
+    "SolutionReference",
+    "SolutionReferenceResponse",
+    "SolverSelectionMetadata",
     "UserSavedEMOResults",
     "UserSavedSolutionDB",
     "UtopiaRequest",
@@ -91,6 +100,7 @@ __all__ = [  # noqa: RUF022
     "ScoreBandsResponse",
     "OptimizationPreference",
     "VotingPreference",
+    "EndProcessPreference",
     "GNIMBUSResultResponse",
     "FullIteration",
     "GNIMBUSAllIterationsResponse",
@@ -100,13 +110,46 @@ __all__ = [  # noqa: RUF022
 
 
 from .archive import UserSavedEMOResults
-from .EMO import EMOSaveRequest, EMOSolveRequest
+from .emo import (
+    EMOFetchRequest,
+    EMOFetchResponse,
+    EMOIterateRequest,
+    EMOIterateResponse,
+    EMOSaveRequest,
+    EMOScoreRequest,
+    EMOScoreResponse,
+    Solution,
+)
+from .enautilus import EnautilusStepRequest
+from .gdm.gdm_aggregate import (
+    Group,
+    GroupCreateRequest,
+    GroupInfoRequest,
+    GroupIteration,
+    GroupModifyRequest,
+    GroupPublic,
+)
+from .gdm.gdm_base import (
+    BasePreferences,
+    BooleanDictTypeDecorator,
+    ReferencePointDictType,
+)
+from .gdm.gnimbus import (
+    EndProcessPreference,
+    FullIteration,
+    GNIMBUSAllIterationsResponse,
+    GNIMBUSResultResponse,
+    GNIMBUSSwitchPhaseRequest,
+    GNIMBUSSwitchPhaseResponse,
+    OptimizationPreference,
+    VotingPreference,
+)
 from .generic import (
     GenericIntermediateSolutionResponse,
     IntermediateSolutionRequest,
-    SolutionInfo,
     ScoreBandsRequest,
     ScoreBandsResponse,
+    SolutionInfo,
 )
 from .generic_states import (
     SavedSolutionReference,
@@ -147,9 +190,11 @@ from .problem import (
     ProblemInfoSmall,
     ProblemMetaDataDB,
     ProblemMetaDataGetRequest,
+    ProblemSelectSolverRequest,
     RepresentativeNonDominatedSolutions,
     ScalarizationFunctionDB,
     SimulatorDB,
+    SolverSelectionMetadata,
     TensorConstantDB,
     TensorVariableDB,
     VariableDB,
@@ -163,37 +208,17 @@ from .session import (
     InteractiveSessionInfo,
 )
 from .state import (
+    EMOIterateState,
     EMOSaveState,
-    EMOState,
     ENautilusState,
+    GNIMBUSEndState,
+    GNIMBUSOptimizationState,
+    GNIMBUSVotingState,
     IntermediateSolutionState,
     NIMBUSClassificationState,
     NIMBUSInitializationState,
     NIMBUSSaveState,
-    GNIMBUSOptimizationState,
-    GNIMBUSVotingState,
     RPMState,
 )
 from .user import User, UserBase, UserPublic, UserRole
-from .gdm_base import (
-    BasePreferences,
-    ReferencePointDictType,
-)
-from .gdm_aggregate import (
-    Group, 
-    GroupModifyRequest, 
-    GroupCreateRequest, 
-    GroupIteration,
-    GroupPublic,
-    GroupInfoRequest,
-)
 from .utopia import UtopiaRequest, UtopiaResponse
-from .gnimbus import (
-    OptimizationPreference,
-    VotingPreference,
-    GNIMBUSResultResponse,
-    FullIteration,
-    GNIMBUSAllIterationsResponse,
-    GNIMBUSSwitchPhaseResponse,
-    GNIMBUSSwitchPhaseRequest,
-)

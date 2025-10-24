@@ -9,7 +9,7 @@ hide:
 - **[Installing DESDEO](installing.md):** How to install DESDEO on your system
 - **[Defining a Problem](problem.md):** How to define a multiobjective optimization problem
 - **[Worked Example](full_example.ipynb):** How to get started using DESDEO
-- **[Hosting on Kubernetes](kubernetes.md) (outdated!):** How to host a DESDEO web application on Kubernetes
+- **[Hosting on Kubernetes](kubernetes.md):** How to host a DESDEO web application on Kubernetes
 - **[Running the web-API and web-GUI](api_and_gui.md):** How to run the web-API and web-GUI
 - **[NAUTILUS Navigator](nautilus_navigator.md):** How to use the NAUTILUS Navigator method
 - **[NAUTILI](nautili.md):** How to use the NAUTILI method
@@ -24,4 +24,4 @@ The following examples are the ones, which are covered in the article describing
 - **[Example 1](./how_to_define_a_problem.ipynb):** How to define a multiobjective optimization problem
 - **[Example 2](./how_to_utilize_mcdm_methods.ipynb):** How to utilize 'MCDM' methods
 - **[Example 3](../explanation/simulator_support.ipynb):** Connecting DESDEO to a simulator
-- **[Example 4](../how_to_use_adms.ipynb):** Using Artificial DMs to compare 'EMO' methods.
+- **[Example 4](./how_to_use_adms.ipynb):** Using Artificial DMs to compare 'EMO' methods.

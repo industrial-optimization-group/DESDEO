@@ -1602,7 +1602,7 @@ class Problem(BaseModel):
 
         """
         json_content = self.model_dump_json(indent=4)
-        path.write_text(json_content)
+        path.write_text(json_content, encoding="utf-8")
 
     @classmethod
     def load_json(cls, path: Path) -> "Problem":
@@ -1619,6 +1619,7 @@ class Problem(BaseModel):
         return cls.model_validate_json(json_data, by_name=True)
 
     @model_validator(mode="after")
+    @classmethod
     def set_is_twice_differentiable(cls, values):
         """If "is_twice_differentiable" is explicitly provided to the model, we set it to that value."""
         if "is_twice_differentiable" in values and values["is_twice_differentiable"] is not None:
