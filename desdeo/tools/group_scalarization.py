@@ -801,7 +801,6 @@ def add_group_nimbus_compromise(  # noqa: PLR0913
     symbol: str,
     group_classification: dict[str, tuple[Literal["improve", "worsen", "conflict"], list[float]]],
     current_objective_vector: dict[str, float],
-    agg_bounds: dict[str, float],
     *,
     delta: dict[str, float] | float = 0.000001,
     ideal: dict[str, float] | None = None,
@@ -941,7 +940,6 @@ def add_group_nimbus_compromise(  # noqa: PLR0913
         raise ScalarizationError(msg)
 
     corrected_current_point = flip_maximized_objective_values(problem, current_objective_vector)
-    bounds = flip_maximized_objective_values(problem, agg_bounds)
 
     # calculate the weights
     weights = None
@@ -993,7 +991,7 @@ def add_group_nimbus_compromise(  # noqa: PLR0913
                 target = (
                     -max(group_classification[_symbol][1]) if obj.maximize else min(group_classification[_symbol][1])
                 )
-                con_expr = f"{_symbol}_min - {bounds[_symbol]} "
+                con_expr = f"{_symbol}_min - {target} "
                 constraints.append(
                     Constraint(
                         name=f"Worsen until constraint for {_symbol}",
@@ -1053,7 +1051,6 @@ def add_group_nimbus_compromise_diff(  # noqa: PLR0913
     symbol: str,
     group_classification: dict[str, tuple[Literal["improve", "worsen", "conflict"], list[float]]],
     current_objective_vector: dict[str, float],
-    agg_bounds: dict[str, float],
     *,
     delta: dict[str, float] | float = 0.000001,
     ideal: dict[str, float] | None = None,
@@ -1193,7 +1190,6 @@ def add_group_nimbus_compromise_diff(  # noqa: PLR0913
         raise ScalarizationError(msg)
 
     corrected_current_point = flip_maximized_objective_values(problem, current_objective_vector)
-    bounds = flip_maximized_objective_values(problem, agg_bounds)
 
     # calculate the weights
     weights = None
@@ -1264,7 +1260,7 @@ def add_group_nimbus_compromise_diff(  # noqa: PLR0913
                 target = (
                     -max(group_classification[_symbol][1]) if obj.maximize else min(group_classification[_symbol][1])
                 )
-                con_expr = f"{_symbol}_min - {bounds[_symbol]} "
+                con_expr = f"{_symbol}_min - {target} "
                 constraints.append(
                     Constraint(
                         name=f"Worsen until constraint for {_symbol}",
