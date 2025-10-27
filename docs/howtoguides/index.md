@@ -15,6 +15,7 @@ hide:
 - **[NAUTILI](nautili.md):** How to use the NAUTILI method
 - **[Using EAs in DESDEO](ea.ipynb):** How to use evolutionary algorithms in DESDEO
 - **[Using EAs in DESDEO (Pydantic Interface)](ea_options.ipynb):** How to use evolutionary algorithms in DESDEO with the Pydantic interface
+- **[Implementing new EA components](how_to_implement_ea.md):** How to implement new evolutionary algorithm components in DESDEO
 - **[Advanced Usage of Surrogates](advancedSurrogates.ipynb):** How to a combination of multiple surrogates and analytical objectives
 - **[Iterative Pareto Representer](IPR.ipynb):** How to generate a representative set of solutions using the Iterative Pareto Representer
 
