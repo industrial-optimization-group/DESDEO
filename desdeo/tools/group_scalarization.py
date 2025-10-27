@@ -970,7 +970,7 @@ def add_group_nimbus_compromise(  # noqa: PLR0913
                     -max(group_classification[_symbol][1]) if obj.maximize else min(group_classification[_symbol][1])
                 )
                 if target < corrected_current_point[_symbol]:
-                    max_expr = f"{weights[_symbol]} * ({_symbol}_min - {ideal_point[_symbol]})"
+                    max_expr = f"{weights[_symbol]} * ({_symbol}_min - {target})"
                     max_args.append(max_expr)
 
                 con_expr = f"{_symbol}_min - {corrected_current_point[_symbol]}"
@@ -1007,7 +1007,7 @@ def add_group_nimbus_compromise(  # noqa: PLR0913
                 if find_compromise:
                     # Take the median target from the group (could be changed to something else as well)
                     target = np.median(group_classification[_symbol][1])
-                    max_expr = f"{weights[_symbol]} * ({_symbol}_min - {ideal_point[_symbol]})"
+                    max_expr = f"{weights[_symbol]} * ({_symbol}_min - {target})"
                     max_args.append(max_expr)
                 else:
                     con_expr = f"{_symbol}_min - {corrected_current_point[_symbol]}"
@@ -1229,7 +1229,7 @@ def add_group_nimbus_compromise_diff(  # noqa: PLR0913
                     -max(group_classification[_symbol][1]) if obj.maximize else min(group_classification[_symbol][1])
                 )
                 if target < corrected_current_point[_symbol]:
-                    max_expr = f"{weights[_symbol]} * ({_symbol}_min - {ideal_point[_symbol]}) - _alpha"
+                    max_expr = f"{weights[_symbol]} * ({_symbol}_min - {target}) - _alpha"
                     constraints.append(
                         Constraint(
                             name=f"Max term linearization for {_symbol}",
@@ -1276,7 +1276,7 @@ def add_group_nimbus_compromise_diff(  # noqa: PLR0913
                 if find_compromise:
                     # Take the median target from the group (could be changed to something else as well)
                     target = np.median(group_classification[_symbol][1])
-                    max_expr = f"{weights[_symbol]} * ({_symbol}_min - {ideal_point[_symbol]}) - _alpha"
+                    max_expr = f"{weights[_symbol]} * ({_symbol}_min - {target}) - _alpha"
                     constraints.append(
                         Constraint(
                             name=f"Max term linearization for {_symbol}",
