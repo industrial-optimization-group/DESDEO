@@ -228,8 +228,6 @@ from .state import (
     NIMBUSInitializationState,
     NIMBUSSaveState,
     NIMBUSFinalState,
-    GNIMBUSOptimizationState,
-    GNIMBUSVotingState,
     RPMState,
 )
 from .user import User, UserBase, UserPublic, UserRole
