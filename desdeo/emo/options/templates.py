@@ -70,14 +70,24 @@ class BaseTemplateOptions(BaseModel):
 
 
 class Template1Options(BaseTemplateOptions):
-    """Options for template 1."""
+    """Options for template 1.
+
+    Template 1 is used by methods such as NSGA-III and RVEA. See
+    [template1][desdeo.emo.methods.templates.template1] for
+    more details.
+    """
 
     name: Literal["Template1"] = Field(default="Template1", frozen=True, description="The name of the template.")
     """The name of the template."""
 
 
 class Template2Options(BaseTemplateOptions):
-    """Options for template 2."""
+    """Options for template 2.
+
+    Template 2 is used by methods such as IBEA. See
+    [template2][desdeo.emo.methods.templates.template2] for
+    more details.
+    """
 
     name: Literal["Template2"] = Field(default="Template2", frozen=True, description="The name of the template.")
     """The name of the template."""
@@ -170,6 +180,7 @@ class EMOOptions(BaseModel):
     preference: PreferenceOptions | None = Field(description="The preference information for the EMO algorithm.")
     """The preference information for the EMO algorithm."""
     template: TemplateOptions = Field(description="The template options for the EMO algorithm.")
+    """The template options for the EMO algorithm."""
 
 
 def preference_handler(
@@ -205,6 +216,8 @@ def preference_handler(
             raise InvalidTemplateError("Preference handling with Hakanen method is not supported for IBEASelector.")
         if selection.reference_vector_options is None:
             reference_vector_options = ReferenceVectorOptions()  # Use default reference vector options
+        else:
+            reference_vector_options = selection.reference_vector_options
         if isinstance(preference, DesirableRangesOptions):
             preference_value = {
                 obj.symbol: [preference.aspiration_levels[obj.symbol], preference.reservation_levels[obj.symbol]]
@@ -247,7 +260,7 @@ class ConstructorExtras:
 def emo_constructor(
     emo_options: EMOOptions, problem: Problem, external_check: Callable[[], bool] | None = None
 ) -> tuple[Callable[[], EMOResult], ConstructorExtras]:
-    """Construct a template from the given options.
+    """Construct an evolutionary algorithm from the given options.
 
     Args:
         emo_options (EMOOptions): The options for the EMO algorithm.
@@ -257,7 +270,8 @@ def emo_constructor(
 
     Returns:
         tuple[Callable[[], EMOResult], ConstructorExtras]: A tuple containing the template function
-        and extra information such as the (possibly modified) problem, publisher, and archive.
+        and extra information such as the (possibly modified) problem, publisher, and archive. Run the template
+        function to execute the algorithm.
 
     Raises:
         InvalidTemplateError: If the template configuration is invalid.

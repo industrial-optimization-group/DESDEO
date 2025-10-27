@@ -137,9 +137,6 @@ class MaxGenerationsTerminator(BaseTerminator):
     def check(self) -> bool:
         """Check if the termination criterion based on the number of generations is reached.
 
-        Args:
-            new_generation (bool, optional): Increment the generation counter. Defaults to True.
-
         Returns:
             bool: True if the termination criterion is reached, False otherwise.
         """
@@ -171,9 +168,6 @@ class MaxEvaluationsTerminator(BaseTerminator):
 
     def check(self) -> bool:
         """Check if the termination criterion based on the number of generations is reached.
-
-        Args:
-            new_generation (bool, optional): Increment the generation counter. Defaults to True.
 
         Returns:
             bool: True if the termination criterion is reached, False otherwise.
