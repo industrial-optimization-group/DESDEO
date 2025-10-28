@@ -2,8 +2,8 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import Session, select
+from fastapi import APIRouter, Depends
+from sqlmodel import Session
 
 from desdeo.api.db import get_session
 from desdeo.api.models import (
@@ -21,6 +21,8 @@ from desdeo.mcdm import rpm_solve_solutions
 from desdeo.problem import Problem
 from desdeo.tools import SolverResults
 
+from .utils import fetch_interactive_session, fetch_parent_state, fetch_user_problem
+
 router = APIRouter(prefix="/method/rpm")
 
 
@@ -30,32 +32,22 @@ def solve_solutions(
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
 ) -> RPMState:
-    """."""
+    """Runs an iteration of the reference point method.
 
-    if request.session_id is not None:
-        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == request.session_id)
-        interactive_session = session.exec(statement)
+    Args:
+        request (RPMSolveRequest): a request with the needed information to run the method.
+        user (Annotated[User, Depends): the current user.
+        session (Annotated[Session, Depends): the current database session.
 
-        if interactive_session is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Could not find interactive session with id={request.session_id}.",
-            )
-    else:
-        # request.session_id is None:
-        # use active session instead
-        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == user.active_session_id)
+    Returns:
+        RPMState: a state with information on the results of iterating the reference point method
+            once.
+    """
+    # fetch interactive session, parent state, and ProblemDB
+    interactive_session: InteractiveSessionDB = fetch_interactive_session(user, request, session)
+    parent_state = fetch_parent_state(user, request, session, interactive_session)
 
-        interactive_session = session.exec(statement).first()
-
-    # fetch the problem from the DB
-    statement = select(ProblemDB).where(ProblemDB.user_id == user.id, ProblemDB.id == request.problem_id)
-    problem_db = session.exec(statement).first()
-
-    if problem_db is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Problem with id={request.problem_id} could not be found."
-        )
+    problem_db: ProblemDB = fetch_user_problem(user, request, session)
 
     solver = check_solver(problem_db=problem_db)
 
@@ -76,25 +68,6 @@ def solve_solutions(
     session.add(preference_db)
     session.commit()
     session.refresh(preference_db)
-
-    # fetch parent state
-    if request.parent_state_id is None:
-        # parent state is assumed to be the last sate added to the session.
-        parent_state = (
-            interactive_session.states[-1]
-            if (interactive_session is not None and len(interactive_session.states) > 0)
-            else None
-        )
-
-    else:
-        # request.parent_state_id is not None
-        statement = session.select(StateDB).where(StateDB.id == request.parent_state_id)
-        parent_state = session.exec(statement).first()
-
-        if parent_state is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail=f"Could not find state with id={request.parent_state_id}"
-            )
 
     # create state and add to DB
     rpm_state = RPMState(

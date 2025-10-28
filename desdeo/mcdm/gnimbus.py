@@ -52,34 +52,43 @@ class GNIMBUSError(Exception):
 
 
 def voting_procedure(problem: Problem, solutions, votes_idxs: dict[str, int]) -> SolverResults:
+    r""" More general procedure for GNIMBUS for any number of DMs.
+    TODO(@jpajasmaa): docs and cleaning up.
     """
-    Voting procedure for GNIMBUS for 4 DMs.
-    CLEAN THIS UP
-    Works properly for 4 votes and 4 solutions as per design.
-    """
-    winner_idx = None
+
+    # winner_idx = None
 
     # call majority
+    """ general procedure does not apply majority rule
     winner_idx = majority_rule(votes_idxs)
     if winner_idx is not None:
         print("Majority winner", winner_idx)
         return solutions[winner_idx]
-
+    """
     # call plurality
     winners = plurality_rule(votes_idxs)
     print("winners")
     if len(winners) == 1:
         print("Plurality winner", winners[0])
         return solutions[winners[0]]  # need to unlist the winners list
-    if len(winners) == 2:
+
+    print("TIE-breaking, select a solution randomly among top voted ones")
+    """
         # if two same solutions with same number of votes, call intermediate
-        # TODO: not perfect check as I suppose it is possible to have a problem that we can calculate more solutions AND discrete representation also.
-        wsol1, wsol2 = solutions[winners[0]].optimal_objectives, solutions[winners[1]].optimal_objectives
+        # TODO:(@jpajasmaa) not perfect check as it is possible to have a problem that we can calculate more solutions
+        # AND discrete representation also.
+        if problem.discrete_representation is None:
+            wsol1, wsol2 = solutions[winners[0]].optimal_variables, solutions[winners[1]].optimal_variables
+        else:
+            wsol1, wsol2 = solutions[winners[0]].optimal_objectives, solutions[winners[1]].optimal_objectives
         print("Finding intermediate solution between", wsol1, wsol2)
-        return rpm_intermediate_solutions(problem, wsol1, wsol2, num_desired=1)[0]
-    else:
-        print("TIE-breaking, select first solution (group nimbus scalarization)")
-        return solutions[0]  # need to unlist the winners list
+        # return solve_intermediate_solutions_only_objs(problem, wsol1, wsol2, num_desired=3)
+        return solve_intermediate_solutions(problem, wsol1, wsol2, num_desired=1)[0]
+    """
+    # n_of_sols = len(solutions)
+    rng = np.random.default_rng()
+    random_idx = rng.choice(winners)
+    return solutions[random_idx]
 
 
 # TODO: below is just doing the intermediate solutions with the objective vectors, was needed for GNIMBUS Malaga experiment
@@ -105,18 +114,18 @@ def solve_intermediate_solutions_only_objs(  # noqa: PLR0913
     returned solutions will not include the original points.
 
     Args:
-        problem (Problem): the problem being solved.
-        solution_1 (dict[str, VariableType]): the first of the solutions between which the intermediate
+        problem(Problem): the problem being solved.
+        solution_1(dict[str, VariableType]): the first of the solutions between which the intermediate
             solutions are to be generated.
-        solution_2 (dict[str, VariableType]): the second of the solutions between which the intermediate
+        solution_2(dict[str, VariableType]): the second of the solutions between which the intermediate
             solutions are to be generated.
-        num_desired (int): the number of desired intermediate solutions to be generated. Must be at least `1`.
-        scalarization_options (dict | None, optional): optional kwargs passed to the scalarization function.
+        num_desired(int): the number of desired intermediate solutions to be generated. Must be at least `1`.
+        scalarization_options(dict | None, optional): optional kwargs passed to the scalarization function.
             Defaults to None.
-        solver (BaseSolver | None, optional): solver used to solve the problem.
+        solver(BaseSolver | None, optional): solver used to solve the problem.
             If not given, an appropriate solver will be automatically determined based on the features of `problem`.
             Defaults to None.
-        solver_options (SolverOptions | None, optional): optional options passed
+        solver_options(SolverOptions | None, optional): optional options passed
             to the `solver`. Ignored if `solver` is `None`.
             Defaults to None.
 
@@ -314,18 +323,18 @@ def solve_group_sub_problems(  # noqa: PLR0913
             missing entries for one or more of the objective functions defined in the problem.
 
     Args:
-        problem (Problem): the problem being solved.
-        current_objectives (dict[str, float]): an objective dictionary with the objective functions values
+        problem(Problem): the problem being solved.
+        current_objectives(dict[str, float]): an objective dictionary with the objective functions values
             the classifications have been given with respect to.
-        reference_point (dict[str, float]): an objective dictionary with a reference point.
+        reference_point(dict[str, float]): an objective dictionary with a reference point.
             The classifications utilized in the sub problems are derived from
             the reference point.
-        scalarization_options (dict | None, optional): optional kwargs passed to the scalarization function.
+        scalarization_options(dict | None, optional): optional kwargs passed to the scalarization function.
             Defaults to None.
-        create_solver (CreateSolverType | None, optional): a function that given a problem, will return a solver.
+        create_solver(CreateSolverType | None, optional): a function that given a problem, will return a solver.
             If not given, an appropriate solver will be automatically determined based on the features of `problem`.
             Defaults to None.
-        solver_options (SolverOptions | None, optional): optional options passed
+        solver_options(SolverOptions | None, optional): optional options passed
             to the `create_solver` routine. Ignored if `create_solver` is `None`.
             Defaults to None.
 
@@ -364,6 +373,7 @@ def solve_group_sub_problems(  # noqa: PLR0913
 
     init_solver = create_solver if create_solver is not None else guess_best_solver(problem)
     _solver_options = solver_options if solver_options is not None else None
+    print("solver is ", init_solver)
 
     solutions = []
     classification_list = []
@@ -396,8 +406,7 @@ def solve_group_sub_problems(  # noqa: PLR0913
     for q in range(len(reference_points)):
         achievable_prefs.append(ind_sols[q].optimal_objectives)
 
-    print(achievable_prefs)
-    agg_aspirations, agg_bounds = find_min_max_values(achievable_prefs, problem)
+    agg_aspirations, agg_bounds = agg_aspbounds(achievable_prefs, problem)
     delta = scale_delta(problem, d=1e-6)  # TODO: move somewhere else
 
     if phase == "decision":
@@ -407,13 +416,7 @@ def solve_group_sub_problems(  # noqa: PLR0913
         add_nimbus_sf = gnimbus_scala
 
         problem_g_nimbus, gnimbus_target = add_nimbus_sf(
-            problem,
-            "nimbus_sf",
-            classification_list,
-            delta,
-            agg_bounds,
-            current_objectives,
-            **(scalarization_options or {}),
+            problem, "nimbus_sf", classification_list, current_objectives, agg_bounds, delta, **(scalarization_options or {})
         )
 
         if _solver_options:
@@ -555,7 +558,7 @@ def solve_group_sub_problems(  # noqa: PLR0913
 
         solutions.append(asfg_solver.solve(asfg_target))
 
-        add_guess_sf2 = add_group_asf_agg_diff if problem.is_twice_differentiable else add_group_guess_agg
+        add_guess_sf2 = add_group_guess_agg_diff if problem.is_twice_differentiable else add_group_guess_agg
 
         problem_g_guess, guess2_target = add_guess_sf2(
             problem, "guess_sf2", agg_aspirations, agg_bounds, delta, **(scalarization_options or {})

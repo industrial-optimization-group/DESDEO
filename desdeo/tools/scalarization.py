@@ -2051,3 +2051,31 @@ def add_desirability_funcs(
         problem_ = problem_.add_scalarization(scalarization)
 
     return problem_, symbols
+
+
+def add_iopis_funcs(
+    problem: Problem,
+    reference_point: dict[str, float],
+    ideal: dict[str, float] | None = None,
+    nadir: dict[str, float] | None = None,
+    rho: float = 1e-6,
+    delta: float = 1e-6,
+) -> tuple[Problem, list[str]]:
+    symbols = ["iopis_guess", "iopis_stom"]
+    _problem, _ = add_guess_sf_nondiff(
+        problem=problem,
+        symbol=symbols[0],
+        reference_point=reference_point,
+        ideal=ideal,
+        nadir=nadir,
+        rho=rho,
+    )
+
+    _problem, _ = add_stom_sf_nondiff(
+        problem=_problem,
+        symbol=symbols[1],
+        reference_point=reference_point,
+        ideal=ideal,
+        delta=delta,
+    )
+    return _problem, symbols

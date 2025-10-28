@@ -16,6 +16,7 @@ class PymooParameters(BaseModel):
     name: str
     n_var: int
     n_obj: int
+    minus: bool = False
 
 
 class ProblemInfo(BaseModel):
@@ -33,7 +34,9 @@ app = FastAPI()
 
 def get_pymoo_problem(p: PymooParameters):
     """Get a pymoo problem instance by name, number of variables, and number of objectives."""
-    return get_problem(**p.model_dump())
+    params = p.model_dump()
+    params.pop("minus")
+    return get_problem(**params)
 
 
 @app.get("/evaluate")
@@ -91,7 +94,13 @@ def server_problem(parameters: PymooParameters) -> Problem:
             for i in range(parameters.n_var)
         ],
         objectives=[
-            Objective(name=f"f_{i + 1}", symbol=f"f_{i + 1}", simulator_path=simulator_url, objective_type="simulator")
+            Objective(
+                name=f"f_{i + 1}",
+                symbol=f"f_{i + 1}",
+                simulator_path=simulator_url,
+                objective_type="simulator",
+                maximize=parameters.minus,
+            )
             for i in range(parameters.n_obj)
         ],
         simulators=[

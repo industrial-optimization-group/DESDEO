@@ -231,6 +231,8 @@ def initialize(
 
         interactive_session = session.exec(statement).first()
 
+    print(interactive_session)
+
     # fetch the problem from the DB
     statement = select(ProblemDB).where(ProblemDB.user_id == user.id, ProblemDB.id == request.problem_id)
     problem_db = session.exec(statement).first()
