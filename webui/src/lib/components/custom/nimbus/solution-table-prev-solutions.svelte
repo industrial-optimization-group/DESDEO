@@ -24,7 +24,7 @@
     </Table.Row>
     {#each previousObjectiveValues as previousObjectiveValue}
         <Table.Row class='pointer-events-none'>
-            <Table.Cell class="border-l-10 border-teal-400"></Table.Cell>
+            <Table.Cell class="border-l-10 border-emerald-400"></Table.Cell>
             <Table.Cell class="italic">
                 <div>
                     <span class="text-gray-500">Previous solution</span>

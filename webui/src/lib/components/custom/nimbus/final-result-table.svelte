@@ -126,7 +126,7 @@
 			? `border-bottom: 4px solid ${COLOR_PALETTE[idx % COLOR_PALETTE.length]}; width: 100%; padding: 0.5rem;`
 			: 'width: 100%; padding: 0.5rem;'}
 	>
-		{item.symbol}
+		{item.name}
 		{#if item.unit}
 			/ {item.unit}
 		{/if}

@@ -439,6 +439,7 @@
 			style={objective
 				? `border-bottom: 4px solid ${COLOR_PALETTE[(idx ?? 0) % COLOR_PALETTE.length]}; width: 100%; padding: 0.5rem;`
 				: ''}
+			title={objective ? (objective.unit ? `${objective.name} (${objective.unit})` : objective.name) : undefined}
 			{...restProps}
 		>
 			{#if objective}
@@ -462,7 +463,8 @@
 				size="sm"
 				onclick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
 				class="-ml-3 h-8 {objective ? 'flex-1 justify-start text-left' : ''}"
-			>
+				title={objective ? (objective.unit ? `${objective.name} (${objective.unit})` : objective.name) : undefined}
+            >
 				<span>
 					{#if objective}
 						{objective.symbol}

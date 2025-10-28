@@ -28,6 +28,7 @@
 	 * - Solution value marker with click event to set the selected value.
 	 * - Click events on lower and upper bounds triangles to set the selected value.
 	 * - Click event on previous value marker to set the selected value.
+	 * - Click-anywhere functionality on the bar area to set the selected value.
 	 *
 	 * @notes
 	 * - TODO: Add tooltip on hover to show exact values.
@@ -114,8 +115,8 @@
 			.attr('height', innerHeight)
 			.attr('fill', direction === 'min' ? '#eee' : barColor)
 			.attr('rx', 1);
-
-		// --- Draw solution bar ---
+		
+			// --- Draw solution bar ---
 		if (solutionValue !== undefined) {
 			const solWidth = x(solutionValue) - x(axisRanges[0]);
 			d3.select(svg)
@@ -127,6 +128,32 @@
 				.attr('fill', direction === 'min' ? barColor : '#eee')
 				.attr('rx', 1);
 		}
+
+		// --- Add click-anywhere functionality to the bar area ---
+		d3.select(svg)
+			.append('rect')
+			.attr('x', margin.left)
+			.attr('y', margin.top - 8) // Extend slightly above the bar
+			.attr('width', innerWidth)
+			.attr('height', innerHeight + 16) // Extend slightly below the bar
+			.attr('fill', 'transparent') // Invisible but clickable
+			.attr('cursor', 'pointer')
+			.on('click', function(event) {
+				// Get the mouse position relative to the SVG
+				const [mouseX] = d3.pointer(event, this);
+				
+				// Convert pixel position to value
+				const clickedValue = x.invert(mouseX);
+				
+				// Clamp the value to the axis ranges
+				const clampedValue = Math.max(axisRanges[0], Math.min(axisRanges[1], clickedValue));
+				
+				// Round to the specified precision
+				const roundedValue = roundToDecimal(clampedValue, options.decimalPrecision);
+				
+				selectedValue = roundedValue;
+				if (onSelect) onSelect(roundedValue);
+			});
 
 		// --- Draw a marker for the solution value ---
 		if (solutionValue !== undefined) {
@@ -205,6 +232,7 @@
 				.attr('fill-opacity', 0.5)
 				.attr('stroke', '#000')
 				.attr('stroke-width', 2)
+				.attr('cursor', 'pointer')
 				.on('click', () => {
 					selectedValue = previousValue;
 					if (onSelect) onSelect(previousValue);

@@ -592,7 +592,7 @@
 						.datum(solutionData)
 						.attr('d', line)
 						.attr('fill', 'none')
-						.attr('stroke', '#008080') // Teal color
+						.attr('stroke', '#10b981') // Emerald color
 						.attr('stroke-width', options.strokeWidth)
 						.attr('stroke-dasharray', '3,3') // Dashed pattern
 						.attr('opacity', 0.6);
@@ -618,7 +618,7 @@
 						.datum(solutionData)
 						.attr('d', line)
 						.attr('fill', 'none')
-						.attr('stroke', '#4ecdc4') // Teal color for preferred
+						.attr('stroke', '#10b981') // Emerald color for preferred
 						.attr('stroke-width', options.strokeWidth + 2) // Thicker than normal lines
 						.attr('stroke-dasharray', '4,2') // Different dash pattern
 						.attr('opacity', 0.8);
@@ -633,7 +633,7 @@
 							preferredGroup
 								.append('polygon')
 								.attr('points', `${x},${y - 4} ${x + 4},${y + 3} ${x - 4},${y + 3}`) // Triangle shape
-								.attr('fill', '#4ecdc4')
+								.attr('fill', '#10b981')
 								.attr('stroke', '#fff')
 								.attr('stroke-width', 1);
 						}
@@ -648,7 +648,7 @@
                     .attr('x', 10)
                     .attr('y', 10)
                     .style('font-size', '11px')
-                    .style('fill', '#4ecdc4')
+                    .style('fill', '#10b981')
                     .style('font-weight', 'bold')
                     .text(`${referenceData.preferredSolutions.length} Preferred Solution(s)`);
             }*/

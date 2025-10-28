@@ -33,7 +33,7 @@
 		<!-- Show all solutions without distinction when user is owner but not DM -->
 		{#each objectiveValues as objectiveValue, index}
 			<Table.Row class="pointer-events-none">
-				<Table.Cell class="border-l-10 border-teal-400"></Table.Cell>
+				<Table.Cell class="border-l-10 border-emerald-400"></Table.Cell>
 				<Table.Cell class="italic">
 					<div>
 						<span>User {index + 1}'s solution</span>
@@ -51,7 +51,7 @@
 		<!-- Personal Solution -->
 		{#if objectiveValues[personalResultIndex]}
 			<Table.Row class="hover:bg-gray-200">
-				<Table.Cell class="border-l-10 border-teal-400">
+				<Table.Cell class="border-l-10 border-emerald-400">
 					{#if objectiveValues.length > 1}
 						<Button
 							size="icon"
@@ -91,7 +91,7 @@
 			{#each objectiveValues as objectiveValue, index}
 				{#if index !== personalResultIndex}
 					<Table.Row class="pointer-events-none">
-						<Table.Cell class="border-l-10 border-teal-400 pl-6"></Table.Cell>
+						<Table.Cell class="border-l-10 border-emerald-400 pl-6"></Table.Cell>
 						<Table.Cell class="italic">
 							<div>
 								<span class="text-gray-500">Another user's solution</span>

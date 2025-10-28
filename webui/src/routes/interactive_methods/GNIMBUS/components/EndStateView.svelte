@@ -35,7 +35,7 @@
 		// Prepare objectives table
 		const objectiveSection = [
 			'Objectives', // Title for objectives section
-			problem.objectives.map((obj) => obj.symbol).join(','), // Objective names
+			problem.objectives.map((obj) => obj.unit ? `${obj.name} / ${obj.unit}` : obj.name).join(','), // Objective names with units
 			problem.objectives.map((obj) => solution.objective_values?.[obj.symbol] ?? '').join(',') // Objective values
 		];
 
@@ -45,7 +45,7 @@
 		// Prepare variables table
 		const variableSection = [
 			'Variables', // Title for variables section
-			problem.variables?.map((v) => v.symbol).join(','), // Variable names
+			problem.variables?.map((v) => v.name).join(','), // Variable names
 			problem.variables?.map((v) => solution.variable_values?.[v.symbol] ?? '').join(',') // Variable values
 		];
 

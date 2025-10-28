@@ -13,6 +13,7 @@
 	 * 1. Learning: Users learn about the problem space and practice setting preferences
 	 * 2. CRP (Collaborative Reference Point): Users collaborate to find preferred solutions
 	 * 3. Decision: Group decides on the final solution
+	 * 4. Compromise: Decision phase variant for different backend behaviour
 	 *
 	 * Each phase alternates between:
 	 * - Optimization mode: Users set preferences to generate new solutions
@@ -104,7 +105,8 @@
 	const PHASE_CONFIGS = [
 		{ id: 'learning', label: 'Learning' },
 		{ id: 'crp', label: 'CRP' },
-		{ id: 'decision', label: 'Decision' }
+		{ id: 'decision', label: 'Decision' },
+		{ id: 'compromise', label: 'Compromise' }
 	] as const;
 
 	// Helper function to determine button variant for group owners phase change buttons
@@ -122,7 +124,7 @@
 			variant: getVariant(phase.id, current_state.phase, clickedPhase)
 		}))
 	);
-	let clickedPhase = $state(null as 'learning' | 'crp' | 'decision' | null);
+	let clickedPhase = $state(null as 'learning' | 'crp' | 'decision' | 'compromise' | null);
 	// the solutions we want to show in UI are different depending on the step of iteration.
 	// in the optimization step we want to show the final result,
 	// and in the voting step we want to show the common results.
@@ -138,7 +140,7 @@
 	// Get the label for the selected solution type from frameworks
 	let selected_type_solutions_label = $derived.by(() => {
 		if (current_state.phase === 'init') return 'Initial solution';
-		if (current_state.phase === 'decision' && step === 'voting')
+		if ((current_state.phase === 'decision' ||current_state.phase === 'compromise') && step === 'voting')
 			return 'Suggestion for a final solution';
 		if (step === 'optimization') return 'Voted solution';
 		if (step === 'voting') return 'Solutions to vote from';
@@ -235,7 +237,7 @@
 
 		// Update selection state
 		selected_voting_index =
-			latestIteration.phase === 'decision' ? 0 : step === 'optimization' ? 0 : -1;
+			(latestIteration.phase === 'decision' || latestIteration.phase == 'compromise') ? 0 : step === 'optimization' ? 0 : -1;
 
 		// Update dependent states
 		update_voting_selection(current_state);
@@ -396,7 +398,12 @@
 	}
 
 	// Function to handle phase switching
-	async function handle_phase_switch(new_phase: 'learning' | 'decision' | 'crp') {
+	async function handle_phase_switch(new_phase: 'learning' | 'decision' | 'crp'| 'compromise') {
+		// TODO: handle compromise like others, when API exists
+		if (new_phase === 'compromise') {
+			console.log('Compromise phase switch not implemented yet, changing to decision instead');
+			new_phase = 'decision';
+		}
 		const result = await callGNimbusAPI<Response>('switch_phase', {
 			group_id: data.group.id,
 			new_phase
@@ -543,6 +550,20 @@
 			/>
 		{/if}
 	{/snippet}
+	{#snippet explorerTitle()}
+		<span class="font-bold">
+			{#if step === 'finish'}
+				Final Solution
+			{:else}
+				{current_state.phase === 'crp' ? 'CRP Phase' : 
+				current_state.phase === 'init' ? 'Learning Phase' :
+				current_state.phase === 'learning' ? 'Learning Phase' :
+				current_state.phase === 'decision' ? 'Decision Phase' :
+				current_state.phase === 'compromise' ? 'Decision Phase' : // TODO: should the text be same or different to decision phase?
+				''}
+			{/if}
+		</span>
+	{/snippet}
 
 	{#snippet explorerControls()}
 		{#if problem}
@@ -553,18 +574,7 @@
 				isActionDone
 			})}
 			<div class="p-4">
-				<span class="font-bold">
-					{#if step === 'finish'}
-						Final Solution
-					{:else}
-						{current_state.phase === 'crp' ? 'CRP Phase.' : 
-						current_state.phase === 'init' ? 'Learning Phase.' :
-						current_state.phase === 'learning' ? 'Learning Phase.' :
-						current_state.phase === 'decision' ? 'Decision Phase.' :
-						''}
-					{/if}
-				</span>
-				<span>
+				<span class="left-0">
 					{statusMessage}
 				</span>
 			</div>
@@ -609,7 +619,12 @@
 							externalSelectedIndexes={[selected_voting_index]}
 							onSelectSolution={handle_solution_click}
 							lineLabels={Object.fromEntries(
-								visualizationObjectives.solutions.map((_, i) => [i, `Group solution ${i + 1}`])
+								visualizationObjectives.solutions.map((_, i) => [
+									i, 
+									visualizationObjectives.solutions.length === 1 
+										? 'Group solution' 
+										: `Group solution ${i + 1}`
+								])
 							)}
 							referenceDataLabels={{
 								previousRefLabel: 'Previous preference',
