@@ -55,21 +55,24 @@ def voting_procedure(problem: Problem, solutions, votes_idxs: dict[str, int]) ->
     TODO(@jpajasmaa): docs and cleaning up.
     """
 
-    winner_idx = None
+    # winner_idx = None
 
     # call majority
+    """ general procedure does not apply majority rule
     winner_idx = majority_rule(votes_idxs)
     if winner_idx is not None:
         print("Majority winner", winner_idx)
         return solutions[winner_idx]
-    """ general procedure does not apply plurality rule
+    """
     # call plurality
     winners = plurality_rule(votes_idxs)
     print("winners")
     if len(winners) == 1:
         print("Plurality winner", winners[0])
         return solutions[winners[0]]  # need to unlist the winners list
-    if len(winners) == 2:
+
+    print("TIE-breaking, select a solution randomly among top voted ones")
+    """
         # if two same solutions with same number of votes, call intermediate
         # TODO:(@jpajasmaa) not perfect check as it is possible to have a problem that we can calculate more solutions
         # AND discrete representation also.
@@ -81,10 +84,9 @@ def voting_procedure(problem: Problem, solutions, votes_idxs: dict[str, int]) ->
         # return solve_intermediate_solutions_only_objs(problem, wsol1, wsol2, num_desired=3)
         return solve_intermediate_solutions(problem, wsol1, wsol2, num_desired=1)[0]
     """
-    print("TIE-breaking, select a solution randomly (as random as computers ever are..)")
-    n_of_sols = len(solutions)
+    # n_of_sols = len(solutions)
     rng = np.random.default_rng()
-    random_idx = rng.choice(range(n_of_sols))
+    random_idx = rng.choice(winners)
     return solutions[random_idx]
 
 
@@ -111,18 +113,18 @@ def solve_intermediate_solutions_only_objs(  # noqa: PLR0913
     returned solutions will not include the original points.
 
     Args:
-        problem (Problem): the problem being solved.
-        solution_1 (dict[str, VariableType]): the first of the solutions between which the intermediate
+        problem(Problem): the problem being solved.
+        solution_1(dict[str, VariableType]): the first of the solutions between which the intermediate
             solutions are to be generated.
-        solution_2 (dict[str, VariableType]): the second of the solutions between which the intermediate
+        solution_2(dict[str, VariableType]): the second of the solutions between which the intermediate
             solutions are to be generated.
-        num_desired (int): the number of desired intermediate solutions to be generated. Must be at least `1`.
-        scalarization_options (dict | None, optional): optional kwargs passed to the scalarization function.
+        num_desired(int): the number of desired intermediate solutions to be generated. Must be at least `1`.
+        scalarization_options(dict | None, optional): optional kwargs passed to the scalarization function.
             Defaults to None.
-        solver (BaseSolver | None, optional): solver used to solve the problem.
+        solver(BaseSolver | None, optional): solver used to solve the problem.
             If not given, an appropriate solver will be automatically determined based on the features of `problem`.
             Defaults to None.
-        solver_options (SolverOptions | None, optional): optional options passed
+        solver_options(SolverOptions | None, optional): optional options passed
             to the `solver`. Ignored if `solver` is `None`.
             Defaults to None.
 
@@ -215,18 +217,18 @@ def solve_group_sub_problems(  # noqa: PLR0913
             missing entries for one or more of the objective functions defined in the problem.
 
     Args:
-        problem (Problem): the problem being solved.
-        current_objectives (dict[str, float]): an objective dictionary with the objective functions values
+        problem(Problem): the problem being solved.
+        current_objectives(dict[str, float]): an objective dictionary with the objective functions values
             the classifications have been given with respect to.
-        reference_point (dict[str, float]): an objective dictionary with a reference point.
+        reference_point(dict[str, float]): an objective dictionary with a reference point.
             The classifications utilized in the sub problems are derived from
             the reference point.
-        scalarization_options (dict | None, optional): optional kwargs passed to the scalarization function.
+        scalarization_options(dict | None, optional): optional kwargs passed to the scalarization function.
             Defaults to None.
-        create_solver (CreateSolverType | None, optional): a function that given a problem, will return a solver.
+        create_solver(CreateSolverType | None, optional): a function that given a problem, will return a solver.
             If not given, an appropriate solver will be automatically determined based on the features of `problem`.
             Defaults to None.
-        solver_options (SolverOptions | None, optional): optional options passed
+        solver_options(SolverOptions | None, optional): optional options passed
             to the `create_solver` routine. Ignored if `create_solver` is `None`.
             Defaults to None.
 
