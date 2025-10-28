@@ -1,6 +1,5 @@
 """Tests related to the GNIMBUS method."""
 
-from inspect import FullArgSpec
 from desdeo.mcdm.nimbus import generate_starting_point
 from desdeo.tools import IpoptOptions, PyomoIpoptSolver, add_asf_diff
 from desdeo.problem.testproblems import dtlz2, nimbus_test_problem, zdt1, re22, simple_knapsack_vectors
