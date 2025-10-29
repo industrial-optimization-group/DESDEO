@@ -377,12 +377,13 @@ class ArchiveGenerator(BaseGenerator):
     """Class for getting initial population from an archive."""
 
     def __init__(
-        self, problem: Problem,
+        self,
+        problem: Problem,
         evaluator: EMOEvaluator,
         publisher: Publisher,
         verbosity: int,
         solutions: pl.DataFrame,
-        outputs: pl.DataFrame
+        **kwargs,  # just to dump seed
     ):
         """Initialize the ArchiveGenerator class.
 
@@ -394,22 +395,17 @@ class ArchiveGenerator(BaseGenerator):
             verbosity (int): The verbosity level of the generator. A verbosity of 2 is needed if you want to maintain
                 an external archive. Otherwise, a verbosity of 1 is sufficient.
             solutions (pl.DataFrame): The decision variable vectors to use as the initial population.
-            outputs (pl.DataFrame): The corresponding objectives, constraint violations, and targets.
         """
         super().__init__(problem, verbosity=verbosity, publisher=publisher)
         if not isinstance(solutions, pl.DataFrame):
             raise ValueError("The solutions must be a polars DataFrame.")
-        if not isinstance(outputs, pl.DataFrame):
-            raise ValueError("The outputs must be a polars DataFrame.")
-        if solutions.shape[0] != outputs.shape[0]:
-            raise ValueError("The number of solutions must be equal to the number of outputs.")
         if solutions.shape[0] == 0:
             raise ValueError("The solutions DataFrame is empty.")
         self.solutions = solutions
-        self.outputs = outputs
+        # self.outputs = outputs
         if not set(self.solutions.columns) == set(self.variable_symbols):
             raise ValueError("The solutions DataFrame must have the same columns as the problem variables.")
-        #TODO: Check that the outputs have the correct columns
+        # TODO: Check that the outputs have the correct columns
         self.evaluator = evaluator
 
     def do(self) -> tuple[pl.DataFrame, pl.DataFrame]:
@@ -419,6 +415,7 @@ class ArchiveGenerator(BaseGenerator):
             tuple[pl.DataFrame, pl.DataFrame]: The initial population as the first element,
                 the corresponding objectives, the constraint violations, and the targets as the second element.
         """
+        self.outputs = self.evaluator.evaluate(self.solutions)
         self.notify()
         return self.solutions, self.outputs
 
@@ -431,7 +428,7 @@ class ArchiveGenerator(BaseGenerator):
         Returns:
             dict: The state of the generator.
         """
-        #TODO: Should we do it like this? Or just do super().state()?
+        # TODO: Should we do it like this? Or just do super().state()?
         # Maybe saying that zero evaluations have been done is misleading?
         # idk
         if self.verbosity == 0:
@@ -457,3 +454,6 @@ class ArchiveGenerator(BaseGenerator):
                 source=self.__class__.__name__,
             ),
         ]
+
+    def update(self, message) -> None:
+        """Update the generator based on the message."""

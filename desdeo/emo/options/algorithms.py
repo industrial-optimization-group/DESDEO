@@ -375,5 +375,9 @@ if __name__ == "__main__":
     ):
         if not json_dump_path.exists():
             json_dump_path.mkdir(parents=True, exist_ok=True)
-        with Path.open(json_dump_path / f"{algo_name}.json", "a") as f:
+        with Path.open(json_dump_path / f"{algo_name}.json", "w") as f:
             json.dump(algo().model_dump(), f, indent=4)
+
+    # Also dump the schema
+    with Path.open(json_dump_path / f"emoOptionsSchema.json", "w") as f:
+        json.dump(EMOOptions.model_json_schema(), f, indent=4)
