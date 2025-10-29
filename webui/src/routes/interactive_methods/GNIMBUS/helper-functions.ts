@@ -132,7 +132,7 @@ export function determineStep(iteration: Response): 'optimization' | 'voting' | 
 		return 'optimization';
 	}
 	if (
-		iteration.phase === 'decision' &&
+		(iteration.phase === 'decision' || iteration.phase === 'compromise') &&
 		iteration.voting_preferences?.method === 'end' &&
 		iteration.voting_preferences.success
 	) {
