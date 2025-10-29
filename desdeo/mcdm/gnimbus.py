@@ -1,17 +1,18 @@
 """Functions related to the GNIMBUS method.
 
-References (to add later): # noqa: RUD414
+References:
+TBA
 """
+
+from typing import Literal
 
 import numpy as np
 import polars as pl
 
-from desdeo.gdm.gdmtools import dict_of_rps_to_list_of_rps, agg_aspbounds, scale_delta
+from desdeo.gdm.gdmtools import dict_of_rps_to_list_of_rps, list_of_rps_to_dict_of_rps, agg_aspbounds
 from desdeo.gdm.voting_rules import majority_rule, plurality_rule
-from desdeo.mcdm.nimbus import (  # generate_starting_point,
-    infer_classifications,
-    solve_intermediate_solutions,
-)
+from desdeo.mcdm.nimbus import infer_classifications
+from desdeo.mcdm.reference_point_method import rpm_intermediate_solutions
 from desdeo.problem import (
     PolarsEvaluator,
     Problem,
@@ -36,6 +37,8 @@ from desdeo.tools import (
     add_group_guess_diff,
     add_group_nimbus,
     add_group_nimbus_diff,
+    add_group_nimbus_compromise,
+    add_group_nimbus_compromise_diff,
     add_group_stom,
     add_group_stom_agg,
     add_group_stom_agg_diff,
@@ -55,21 +58,24 @@ def voting_procedure(problem: Problem, solutions, votes_idxs: dict[str, int]) ->
     TODO(@jpajasmaa): docs and cleaning up.
     """
 
-    winner_idx = None
+    # winner_idx = None
 
     # call majority
+    """ general procedure does not apply majority rule
     winner_idx = majority_rule(votes_idxs)
     if winner_idx is not None:
         print("Majority winner", winner_idx)
         return solutions[winner_idx]
-    """ general procedure does not apply plurality rule
+    """
     # call plurality
     winners = plurality_rule(votes_idxs)
     print("winners")
     if len(winners) == 1:
         print("Plurality winner", winners[0])
         return solutions[winners[0]]  # need to unlist the winners list
-    if len(winners) == 2:
+
+    print("TIE-breaking, select a solution randomly among top voted ones")
+    """
         # if two same solutions with same number of votes, call intermediate
         # TODO:(@jpajasmaa) not perfect check as it is possible to have a problem that we can calculate more solutions
         # AND discrete representation also.
@@ -81,15 +87,14 @@ def voting_procedure(problem: Problem, solutions, votes_idxs: dict[str, int]) ->
         # return solve_intermediate_solutions_only_objs(problem, wsol1, wsol2, num_desired=3)
         return solve_intermediate_solutions(problem, wsol1, wsol2, num_desired=1)[0]
     """
-    print("TIE-breaking, select a solution randomly (as random as computers ever are..)")
-    n_of_sols = len(solutions)
+    # n_of_sols = len(solutions)
     rng = np.random.default_rng()
-    random_idx = rng.choice(range(n_of_sols))
+    random_idx = rng.choice(winners)
     return solutions[random_idx]
 
 
 # TODO: below is just doing the intermediate solutions with the objective vectors, was needed for GNIMBUS Malaga experiment
-# I think this is probably unnecessary, check rpm_intermediate_solutions
+# I think this is probably unnecessary, check rpm_intermediate_solutions -Juho
 def solve_intermediate_solutions_only_objs(  # noqa: PLR0913
     problem: Problem,
     solution_1: dict[str, VariableType],
@@ -111,18 +116,18 @@ def solve_intermediate_solutions_only_objs(  # noqa: PLR0913
     returned solutions will not include the original points.
 
     Args:
-        problem (Problem): the problem being solved.
-        solution_1 (dict[str, VariableType]): the first of the solutions between which the intermediate
+        problem(Problem): the problem being solved.
+        solution_1(dict[str, VariableType]): the first of the solutions between which the intermediate
             solutions are to be generated.
-        solution_2 (dict[str, VariableType]): the second of the solutions between which the intermediate
+        solution_2(dict[str, VariableType]): the second of the solutions between which the intermediate
             solutions are to be generated.
-        num_desired (int): the number of desired intermediate solutions to be generated. Must be at least `1`.
-        scalarization_options (dict | None, optional): optional kwargs passed to the scalarization function.
+        num_desired(int): the number of desired intermediate solutions to be generated. Must be at least `1`.
+        scalarization_options(dict | None, optional): optional kwargs passed to the scalarization function.
             Defaults to None.
-        solver (BaseSolver | None, optional): solver used to solve the problem.
+        solver(BaseSolver | None, optional): solver used to solve the problem.
             If not given, an appropriate solver will be automatically determined based on the features of `problem`.
             Defaults to None.
-        solver_options (SolverOptions | None, optional): optional options passed
+        solver_options(SolverOptions | None, optional): optional options passed
             to the `solver`. Ignored if `solver` is `None`.
             Defaults to None.
 
@@ -182,6 +187,111 @@ def solve_intermediate_solutions_only_objs(  # noqa: PLR0913
     return intermediate_solutions
 
 
+# TODO: move to tools after generalizing a bit
+def find_min_max_values(po_list: list[dict[str, float]], problem: Problem):
+    """
+    Find min aspirations and upper (max) bounds. Assumes minimization.
+    """
+
+    objective_symbols = [obj.symbol for obj in problem.objectives]
+
+    max_values = {obj: max(s[obj] for s in po_list) for obj in objective_symbols}
+    min_values = {obj: min(s[obj] for s in po_list) for obj in objective_symbols}
+
+    return min_values, max_values
+
+
+# TODO: comments and move somewhere else
+# TODO: convert to work both with min and maximization problems. Now seems to work with max objectives
+def scale_delta(problem, d):
+    delta = {}
+    ideal = problem.get_ideal_point()
+    nadir = problem.get_nadir_point()
+
+    for obj in problem.objectives:
+        delta.update({obj.symbol: d * (ideal[obj.symbol] - nadir[obj.symbol])})
+    return delta
+
+
+def infer_group_classifications(
+    problem: Problem,
+    current_objectives: dict[str, float],
+    reference_points: dict[str, dict[str, float]],
+    *,
+    silent: bool = True,
+) -> dict[str, tuple[Literal["improve", "worsen", "conflict"], list[float]]]:
+    """Infers group classification from the reference points given by the group.
+
+    Args:
+        problem (Problem): the problem being solved
+        current_objectives (dict[str, float]): objective values at the current iteration
+        reference_points (dict[str, dict[str, float]]): The reference points given by the group.
+            The keys of the outer dict are the decision makers and the keys of the inner dict are objective symbols.
+        silent (bool): If false, the classifications will be printed.
+
+    Raises:
+        GNIMBUSError: _description_
+
+    Returns:
+        dict[str, tuple[str, list[float]]]: _description_
+    """
+    for dm, reference_point in reference_points.items():
+        # for rp in reference_point:
+        if not all(obj.symbol in reference_point for obj in problem.objectives):
+            print(reference_point)
+            msg = (
+                f"The reference point {reference_point} of {dm} is missing entries "
+                "for one or more of the objective functions."
+            )
+            raise GNIMBUSError(msg)
+
+    group_classifications = {}
+    for obj in problem.objectives:
+        # maximization
+        if obj.maximize and all(
+            (
+                reference_points[dm][obj.symbol] >= current_objectives[obj.symbol]
+                or np.isclose(reference_points[dm][obj.symbol], current_objectives[obj.symbol])
+            )
+            for dm in reference_points
+        ):
+            classify = "improve"
+        elif obj.maximize and all(
+            reference_points[dm][obj.symbol] < current_objectives[obj.symbol] for dm in reference_points
+        ):
+            classify = "worsen"
+        # minimization
+        elif (not obj.maximize) and all(
+            (
+                reference_points[dm][obj.symbol] <= current_objectives[obj.symbol]
+                or np.isclose(reference_points[dm][obj.symbol], current_objectives[obj.symbol])
+            )
+            for dm in reference_points
+        ):
+            classify = "improve"
+        elif (not obj.maximize) and all(
+            reference_points[dm][obj.symbol] > current_objectives[obj.symbol] for dm in reference_points
+        ):
+            classify = "worsen"
+        else:
+            classify = "conflict"
+        group_classifications[obj.symbol] = (classify, [reference_points[dm][obj.symbol] for dm in reference_points])
+
+        if not silent:
+            for symbol, value in group_classifications.items():
+                if value[0] == "improve":
+                    print(f"The group wants to improve objective {symbol}")
+                    print(value[1])
+                if value[0] == "worsen":
+                    print(f"The group wants to worsen objective {symbol}")
+                    print(value[1])
+                if value[0] == "conflict":
+                    print(f"The group has conflicting views about objective {symbol}")
+                    print(value[1])
+
+    return group_classifications
+
+
 def solve_group_sub_problems(  # noqa: PLR0913
     problem: Problem,
     current_objectives: dict[str, float],
@@ -215,18 +325,18 @@ def solve_group_sub_problems(  # noqa: PLR0913
             missing entries for one or more of the objective functions defined in the problem.
 
     Args:
-        problem (Problem): the problem being solved.
-        current_objectives (dict[str, float]): an objective dictionary with the objective functions values
+        problem(Problem): the problem being solved.
+        current_objectives(dict[str, float]): an objective dictionary with the objective functions values
             the classifications have been given with respect to.
-        reference_point (dict[str, float]): an objective dictionary with a reference point.
+        reference_point(dict[str, float]): an objective dictionary with a reference point.
             The classifications utilized in the sub problems are derived from
             the reference point.
-        scalarization_options (dict | None, optional): optional kwargs passed to the scalarization function.
+        scalarization_options(dict | None, optional): optional kwargs passed to the scalarization function.
             Defaults to None.
-        create_solver (CreateSolverType | None, optional): a function that given a problem, will return a solver.
+        create_solver(CreateSolverType | None, optional): a function that given a problem, will return a solver.
             If not given, an appropriate solver will be automatically determined based on the features of `problem`.
             Defaults to None.
-        solver_options (SolverOptions | None, optional): optional options passed
+        solver_options(SolverOptions | None, optional): optional options passed
             to the `create_solver` routine. Ignored if `create_solver` is `None`.
             Defaults to None.
 
@@ -245,8 +355,7 @@ def solve_group_sub_problems(  # noqa: PLR0913
         if not all(obj.symbol in reference_point for obj in problem.objectives):
             print(reference_point)
             msg = (
-                f"The reference point {reference_point} is missing entries "
-                "for one or more of the objective functions."
+                f"The reference point {reference_point} is missing entries for one or more of the objective functions."
             )
             raise GNIMBUSError(msg)
         # check that at least one objective function is allowed to be improved and one is allowed to worsen
@@ -261,9 +370,7 @@ def solve_group_sub_problems(  # noqa: PLR0913
             raise GNIMBUSError(msg)
 
     if not all(obj.symbol in current_objectives for obj in problem.objectives):
-        msg = (
-            f"The current point {current_objectives} is missing entries " "for one or more of the objective functions."
-        )
+        msg = f"The current point {current_objectives} is missing entries for one or more of the objective functions."
         raise GNIMBUSError(msg)
 
     init_solver = create_solver if create_solver is not None else guess_best_solver(problem)
@@ -278,6 +385,7 @@ def solve_group_sub_problems(  # noqa: PLR0913
     reference_points_list = dict_of_rps_to_list_of_rps(reference_points)
 
     # Solve for individual solutions. TODO: move as own function, should be useful for other methods as well.
+    # Can't this just call solve_sub_problems from nimbus method? -Juho
     for dm_rp in reference_points:
         classification = infer_classifications(problem, current_objectives, reference_points[dm_rp])
         nimbus_scala = (
@@ -319,6 +427,33 @@ def solve_group_sub_problems(  # noqa: PLR0913
             gnimbus_solver = init_solver(problem_g_nimbus)  # type:ignore
 
         solutions.append(gnimbus_solver.solve(gnimbus_target))
+
+        infer_group_classifications(problem, current_objectives, reference_points, silent=False)
+
+        return solutions
+
+    elif phase == "compromise":
+        classification_list = infer_group_classifications(problem, current_objectives, reference_points)
+        # All cool, the preference's are in a bit of a different format that other branches but works.
+
+        gnimbus_scala = add_group_nimbus_compromise_diff \
+            if problem.is_twice_differentiable else add_group_nimbus_compromise
+        add_nimbus_sf = gnimbus_scala
+
+        problem_g_nimbus, gnimbus_target = add_nimbus_sf(
+            problem, "nimbus_sf", classification_list, current_objectives, **(scalarization_options or {})
+        )
+        # ISSUE: makes the problem not twice differentiable, thus the initial solver doesn't work
+        # Also needed a little tweaking inside the scalarization functions.
+
+        if _solver_options:
+            gnimbus_solver = init_solver(problem_g_nimbus, _solver_options)  # type:ignore
+        else:
+            gnimbus_solver = init_solver(problem_g_nimbus)  # type:ignore
+
+        solutions.append(gnimbus_solver.solve(gnimbus_target))
+
+        infer_group_classifications(problem, current_objectives, reference_points, silent=False)
 
         return solutions
 
@@ -390,9 +525,11 @@ def solve_group_sub_problems(  # noqa: PLR0913
 
         solutions.append(guess_solver.solve(guess_target))
 
+        infer_group_classifications(problem, current_objectives, reference_points, silent=False)
+
         return solutions
 
-    else:  # phase is crp
+    else:  # phase is concsensus reaching
         # Add individual solutions
         for i in range(len(ind_sols)):
             solutions.append(ind_sols[i])
@@ -460,5 +597,7 @@ def solve_group_sub_problems(  # noqa: PLR0913
             guess2_solver = init_solver(problem_g_guess)
 
         solutions.append(guess2_solver.solve(guess2_target))
+
+        infer_group_classifications(problem, current_objectives, reference_points, silent=False)
 
         return solutions

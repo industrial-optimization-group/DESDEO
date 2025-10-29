@@ -14,7 +14,7 @@ exclude = [
     "desdeo/utopia_stuff"
 ]
 keywords=["optimization", "decision-support", "multiobjective optimization", "evolutionary optimization", "interactive methods"]
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.12,<3.14"
 dependencies = [
     "numpy >= 2.2.0",
     "scipy >= 1.11.4",

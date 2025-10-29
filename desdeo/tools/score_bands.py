@@ -3,8 +3,9 @@
 This module contains the functions which generate SCORE bands visualizations. It also contains functions to calculate
 the order and positions of the objective axes, as well as a heatmap of correlation matrix.
 
-This file is just copied from the old SCORE bands repo.
-It is very much out of date and is missing documentation.
+To run the SCORE bands visualization, use the `score_json` function to generate the data for the visualization, and then
+use the `plot_score` function to generate the figure. You can also pass the result of `score_json` to other frontends
+for visualization.
 """
 
 from copy import deepcopy

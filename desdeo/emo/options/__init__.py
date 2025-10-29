@@ -31,6 +31,7 @@ from .mutation import (
     SelfAdaptiveGaussianMutationOptions,
     mutation_constructor,
 )
+from .repair import RepairOptions, repair_constructor
 from .scalar_selection import (
     RouletteWheelSelectionOptions,
     ScalarSelectionOptions,
@@ -54,8 +55,6 @@ from .termination import (
     TerminatorOptions,
     terminator_constructor,
 )
-
-from .repair import RepairOptions, repair_constructor
 
 __all__ = [
     "BinaryFlipMutationOptions",
