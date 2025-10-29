@@ -97,7 +97,10 @@
 	let internal_preference_values = $state([...preferenceValues]);
 	let internal_objective_values = $state([...objectiveValues]);
 
-	let displayAccuracy = $derived(() => getDisplayAccuracy(problem));
+	let displayAccuracy = $derived((idx: number) => {
+		const list = getDisplayAccuracy(problem)
+		return list[idx];
+	});
 
 	// Sync internal state with props when they change
 	$effect(() => {
@@ -254,7 +257,7 @@
 									placeholder=""
 									min={Math.min(objective.ideal, objective.nadir)}
 									max={Math.max(objective.ideal, objective.nadir)}
-									value={String(formatNumber(get_preference_value(idx), displayAccuracy()))}
+									value={String(formatNumber(get_preference_value(idx), displayAccuracy(idx)))}
 									onChange={(value) => {
 										const val = Number(value);
 										if (!isNaN(val)) handle_preference_value_change(idx, val);
@@ -273,7 +276,7 @@
 									direction={objective.maximize ? 'max' : 'min'}
 									previousValue={lastIteratedPreference[idx] ?? undefined}
 									options={{
-										decimalPrecision: displayAccuracy(),
+										decimalPrecision: displayAccuracy(idx),
 										showPreviousValue: true,
 										showSelectedValueLabel: false,
 										aspectRatio: 'aspect-[11/2]'
@@ -303,7 +306,7 @@
 									placeholder=""
 									min={Math.min(objective.ideal, objective.nadir)}
 									max={Math.max(objective.ideal, objective.nadir)}
-									value={String(formatNumber(get_preference_value(idx), displayAccuracy()))}
+									value={String(formatNumber(get_preference_value(idx), displayAccuracy(idx)))}
 									onChange={(value) => {
 										const val = Number(value);
 										if (!isNaN(val)) handle_preference_value_change(idx, val);
@@ -350,7 +353,7 @@
 									placeholder=""
 									min={Math.min(objective.ideal, objective.nadir)}
 									max={Math.max(objective.ideal, objective.nadir)}
-									value={String(formatNumber(get_preference_value(idx), displayAccuracy()))}
+									value={String(formatNumber(get_preference_value(idx), displayAccuracy(idx)))}
 									onChange={(value) => {
 										const val = Number(value);
 										if (!isNaN(val)) handle_preference_value_change(idx, val);

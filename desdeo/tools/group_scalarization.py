@@ -911,13 +911,12 @@ def add_group_nimbus_compromise(  # noqa: PLR0913
         side effect may be removed in production code.
     """
     # check that classifications have been provided for all objective functions
-    for classification in group_classification:
-        if not objective_dict_has_all_symbols(problem, classification):
-            msg = (
-                f"The given classifications {classification} do not define "
-                "a classification for all the objective functions."
-            )
-            raise ScalarizationError(msg)
+    if not objective_dict_has_all_symbols(problem, group_classification):
+        msg = (
+            f"The given classifications {group_classification} do not define "
+            "a classification for all the objective functions."
+        )
+        raise ScalarizationError(msg)
 
     # check if ideal point is specified
     # if not specified, try to calculate corrected ideal point
@@ -1161,13 +1160,12 @@ def add_group_nimbus_compromise_diff(  # noqa: PLR0913
         side effect may be removed in production code.
     """
     # check that classifications have been provided for all objective functions
-    for classification in group_classification:
-        if not objective_dict_has_all_symbols(problem, classification):
-            msg = (
-                f"The given classifications {classification} do not define "
-                "a classification for all the objective functions."
-            )
-            raise ScalarizationError(msg)
+    if not objective_dict_has_all_symbols(problem, group_classification):
+        msg = (
+            f"The given classifications {group_classification} do not define "
+            "a classification for all the objective functions."
+        )
+        raise ScalarizationError(msg)
 
     # check if ideal point is specified
     # if not specified, try to calculate corrected ideal point
@@ -1310,17 +1308,18 @@ def add_group_nimbus_compromise_diff(  # noqa: PLR0913
     # form the augmentation term
     aug_expr = " + ".join([f"({weights[obj.symbol]} * {obj.symbol}_min)" for obj in problem.objectives])
 
-    func = f"{alpha.symbol} + {rho} * ({aug_expr})"
+    func = f"_alpha + {rho} * ({aug_expr})"
     scalarization = ScalarizationFunction(
         name="NIMBUS scalarization objective function for multiple decision makers",
         symbol=symbol,
         func=func,
         is_linear=problem.is_linear,
         is_convex=problem.is_convex,
-        is_twice_differentiable=False,
+        is_twice_differentiable=problem.is_twice_differentiable,
     )
 
-    _problem = problem.add_scalarization(scalarization)
+    _problem = problem.add_variables([alpha])
+    _problem = _problem.add_scalarization(scalarization)
     return _problem.add_constraints(constraints), symbol
 
 
