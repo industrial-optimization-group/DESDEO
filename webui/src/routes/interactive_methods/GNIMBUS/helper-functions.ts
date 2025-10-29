@@ -103,6 +103,7 @@ export function createVisualizationData(
 		previous:
 			step === 'voting' &&
 			currentState.phase !== 'decision' &&
+			currentState.phase !== 'compromise' &&
 			currentState.personal_result_index !== null
 				? mapSolutionsToObjectiveValues(
 						[currentState.user_results[currentState.personal_result_index]],
@@ -131,7 +132,7 @@ export function determineStep(iteration: Response): 'optimization' | 'voting' | 
 		return 'optimization';
 	}
 	if (
-		iteration.phase === 'decision' &&
+		(iteration.phase === 'decision' || iteration.phase === 'compromise') &&
 		iteration.voting_preferences?.method === 'end' &&
 		iteration.voting_preferences.success
 	) {

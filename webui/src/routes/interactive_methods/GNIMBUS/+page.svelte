@@ -564,7 +564,7 @@
 				current_state.phase === 'init' ? 'Learning Phase' :
 				current_state.phase === 'learning' ? 'Learning Phase' :
 				current_state.phase === 'decision' ? 'Decision Phase' :
-				current_state.phase === 'compromise' ? 'Decision Phase' : // TODO: should the text be same or different to decision phase?
+				current_state.phase === 'compromise' ? 'Compromise Phase' : // TODO: should the text be same or different to decision phase?
 				''}
 			{/if}
 		</span>

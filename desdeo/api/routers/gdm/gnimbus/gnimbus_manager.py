@@ -214,7 +214,7 @@ class GNIMBUSManager(GroupManager):
 
         # DIVERGE THE PATH: if we're in the decision phase, we'll want to see if everyone
         # is happy with the current solution, so we'll return end process preference.
-        if current_iteration.preferences.phase == "decision":
+        if current_iteration.preferences.phase in ["decision", "compromise"]:
             new_preferences = EndProcessPreference(set_preferences={}, success=None)
         # If we're in "learning" or "crp" phases, we return ordinary voting preference
         else:
