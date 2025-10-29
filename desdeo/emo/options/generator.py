@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal
 
+import polars as pl
 from pydantic import BaseModel, Field
 
 from desdeo.emo.operators.evaluator import EMOEvaluator
 from desdeo.emo.operators.generator import (
+    ArchiveGenerator,
     BaseGenerator,
     LHSGenerator,
     RandomBinaryGenerator,
@@ -71,12 +73,25 @@ class RandomMixedIntegerGeneratorOptions(BaseGeneratorOptions):
     """The name of the generator."""
 
 
+class ArchiveGeneratorOptions(BaseModel):
+    """Options for Archive generator."""
+
+    model_config = {"arbitrary_types_allowed": True, "use_attribute_docstrings": True}
+
+    name: Literal["ArchiveGenerator"] = "ArchiveGenerator"
+    """The name of the generator."""
+    solutions: pl.DataFrame
+    """The initial solutions to populate the archive with."""
+    outputs: pl.DataFrame
+    """The corresponding outputs of the initial solutions."""
+
 GeneratorOptions = (
     LHSGeneratorOptions
     | RandomBinaryGeneratorOptions
     | RandomGeneratorOptions
     | RandomIntegerGeneratorOptions
     | RandomMixedIntegerGeneratorOptions
+    | ArchiveGeneratorOptions
 )
 
 
@@ -107,6 +122,7 @@ def generator_constructor(
         "RandomGenerator": RandomGenerator,
         "RandomIntegerGenerator": RandomIntegerGenerator,
         "RandomMixedIntegerGenerator": RandomMixedIntegerGenerator,
+        "ArchiveGenerator": ArchiveGenerator,
     }
     options: dict = options.model_dump()
     name = options.pop("name")

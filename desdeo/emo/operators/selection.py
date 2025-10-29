@@ -142,10 +142,12 @@ class BaseDecompositionSelector(BaseSelector):
         reference_vector_options: ReferenceVectorOptions,
         verbosity: int,
         publisher: Publisher,
+        invert_reference_vectors: bool = False,
         seed: int = 0,
     ):
         super().__init__(problem, verbosity=verbosity, publisher=publisher, seed=seed)
         self.reference_vector_options = reference_vector_options
+        self.invert_reference_vectors = invert_reference_vectors
         self.reference_vectors: np.ndarray
         self.reference_vectors_initial: np.ndarray
 
@@ -241,7 +243,10 @@ class BaseDecompositionSelector(BaseSelector):
         for i in range(1, self.num_dims - 1):
             weight[:, i] = temp[:, i] - temp[:, i - 1]
         weight[:, -1] = lattice_resolution - temp[:, -1]
-        self.reference_vectors = weight / lattice_resolution
+        if not self.invert_reference_vectors: # todo, this currently only exists for nsga3
+            self.reference_vectors = weight / lattice_resolution
+        else:
+            self.reference_vectors = 1 - (weight / lattice_resolution)
         self.reference_vectors_initial = np.copy(self.reference_vectors)
         self._normalize_rvs()
 
@@ -250,11 +255,19 @@ class BaseDecompositionSelector(BaseSelector):
         if self.reference_vector_options.vector_type == "spherical":
             norm = np.linalg.norm(self.reference_vectors, axis=1).reshape(-1, 1)
             norm[norm == 0] = np.finfo(float).eps
-        elif self.reference_vector_options.vector_type == "planar":
-            norm = np.sum(self.reference_vectors, axis=1).reshape(-1, 1)
-        else:  # Not needed due to pydantic validation
-            raise ValueError("Invalid vector type. Must be either 'spherical' or 'planar'.")
-        self.reference_vectors = np.divide(self.reference_vectors, norm)
+            self.reference_vectors = np.divide(self.reference_vectors, norm)
+            return
+        if self.reference_vector_options.vector_type == "planar":
+            if not self.invert_reference_vectors:
+                norm = np.sum(self.reference_vectors, axis=1).reshape(-1, 1)
+                self.reference_vectors = np.divide(self.reference_vectors, norm)
+                return
+            else:
+                norm = np.sum(1 - self.reference_vectors, axis=1).reshape(-1, 1)
+                self.reference_vectors = 1 - np.divide(1 - self.reference_vectors, norm)
+                return
+        # Not needed due to pydantic validation
+        raise ValueError("Invalid vector type. Must be either 'spherical' or 'planar'.")
 
     def interactive_adapt_1(self, z: np.ndarray, translation_param: float) -> None:
         """Adapt reference vectors using the information about prefererred solution(s) selected by the Decision maker.
@@ -805,6 +818,31 @@ class RVEASelector(BaseDecompositionSelector):
                         closest_angle = angle
             self.reference_vectors_gamma[i] = closest_angle
 
+@njit
+def jitted_calc_perpendicular_distance(
+    solutions: np.ndarray, ref_dirs: np.ndarray, invert_reference_vectors: bool
+) -> np.ndarray:
+    """Calculate the perpendicular distance between solutions and reference directions.
+
+    Args:
+        solutions (np.ndarray): The normalized solutions.
+        ref_dirs (np.ndarray): The reference directions.
+        invert_reference_vectors (bool): Whether to invert the reference vectors.
+
+    Returns:
+        np.ndarray: The perpendicular distance matrix.
+    """
+    matrix = np.zeros((solutions.shape[0], ref_dirs.shape[0]))
+    for i in range(ref_dirs.shape[0]):
+        for j in range(solutions.shape[0]):
+            if invert_reference_vectors:
+                unit_vector = 1 - ref_dirs[i]
+                unit_vector = -unit_vector / np.linalg.norm(unit_vector)
+            else:
+                unit_vector = ref_dirs[i] / np.linalg.norm(ref_dirs[i])
+            component = ref_dirs[i] - solutions[j] - np.dot(ref_dirs[i] - solutions[j], unit_vector) * unit_vector
+            matrix[j, i] = np.linalg.norm(component)
+    return matrix
 
 class NSGA3Selector(BaseDecompositionSelector):
     """The NSGA-III selection operator, heavily based on the version of nsga3 in the pymoo package by msu-coinlab."""
@@ -853,13 +891,13 @@ class NSGA3Selector(BaseDecompositionSelector):
 
         # Just asserting correct options for NSGA-III
         reference_vector_options.vector_type = "planar"
-        self.invert_reference_vectors = invert_reference_vectors
         super().__init__(
             problem,
             reference_vector_options=reference_vector_options,
             verbosity=verbosity,
             publisher=publisher,
             seed=seed,
+            invert_reference_vectors=invert_reference_vectors,
         )
         if self.constraints_symbols is not None:
             raise NotImplementedError("NSGA3 selector does not support constraints. Please use a different selector.")
@@ -1087,7 +1125,8 @@ class NSGA3Selector(BaseDecompositionSelector):
 
         # normalize by ideal point and intercepts
         N = (F - utopian_point) / denom
-        dist_matrix = self.calc_perpendicular_distance(N, ref_dirs)
+        # dist_matrix = self.calc_perpendicular_distance(N, ref_dirs)
+        dist_matrix = jitted_calc_perpendicular_distance(N, ref_dirs, self.invert_reference_vectors)
 
         niche_of_individuals = np.argmin(dist_matrix, axis=1)
         dist_to_niche = dist_matrix[np.arange(F.shape[0]), niche_of_individuals]
@@ -1116,6 +1155,8 @@ class NSGA3Selector(BaseDecompositionSelector):
         matrix = np.reshape(val, (len(N), len(ref_dirs)))
 
         return matrix
+
+
 
     def state(self) -> Sequence[Message]:
         if self.verbosity == 0 or self.selection is None or self.selected_targets is None:

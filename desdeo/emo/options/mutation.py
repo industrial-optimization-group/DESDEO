@@ -26,24 +26,19 @@ if TYPE_CHECKING:
 class BoundedPolynomialMutationOptions(BaseModel):
     """Options for Bounded Polynomial Mutation."""
 
+    model_config = {"use_attribute_docstrings": True}
+
     name: Literal["BoundedPolynomialMutation"] = Field(
-        default="BoundedPolynomialMutation", frozen=True, description="The name of the mutation operator."
+        default="BoundedPolynomialMutation",
+        frozen=True,
     )
     """The name of the mutation operator."""
-    mutation_probability: float | None = Field(
-        default=None,
-        ge=0.0,
-        le=1.0,
-        description=(
-            "The probability of mutation. Defaults to None, which sets the "
-            "mutation probability to 1/<number of decision variables>."
-        ),
-    )
+    mutation_probability: float | None = Field(default=None, ge=0.0, le=1.0)
     """
     The probability of mutation. Defaults to None, which sets the mutation probability to
     1/<number of decision variables>.
     """
-    distribution_index: float = Field(default=20.0, gt=0.0, description="The distribution index.")
+    distribution_index: float = Field(default=20.0, gt=0.0)
     """The distribution index."""
 
 
@@ -232,6 +227,7 @@ MutationOptions = (
     | SelfAdaptiveGaussianMutationOptions
     | PowerMutationOptions
 )
+"""All possible mutation operator options."""
 
 
 def mutation_constructor(
