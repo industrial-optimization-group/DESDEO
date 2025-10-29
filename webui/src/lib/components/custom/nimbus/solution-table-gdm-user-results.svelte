@@ -16,7 +16,7 @@
 	}: {
 		problem: ProblemInfo;
 		objectiveValues: { [key: string]: number }[];
-		displayAccuracy: number;
+		displayAccuracy: number[];
 		columnsLength: number;
 		personalResultIndex: number;
 	} = $props();
@@ -40,9 +40,9 @@
 					</div>
 				</Table.Cell>
 				<Table.Cell></Table.Cell>
-				{#each problem.objectives as objective}
+				{#each problem.objectives as objective, idx}
 					<Table.Cell class="pr-6 text-right">
-						{formatNumber(objectiveValue[objective.symbol], displayAccuracy)}
+						{formatNumber(objectiveValue[objective.symbol], displayAccuracy[idx])}
 					</Table.Cell>
 				{/each}
 			</Table.Row>
@@ -75,11 +75,11 @@
 					</div>
 				</Table.Cell>
 				<Table.Cell></Table.Cell>
-				{#each problem.objectives as objective}
+				{#each problem.objectives as objective, idx}
 					<Table.Cell class="pr-6 text-right">
 						{formatNumber(
 							objectiveValues[personalResultIndex][objective.symbol],
-							displayAccuracy
+							displayAccuracy[idx]
 						)}
 					</Table.Cell>
 				{/each}
@@ -98,9 +98,9 @@
 							</div>
 						</Table.Cell>
 						<Table.Cell></Table.Cell>
-						{#each problem.objectives as objective}
+						{#each problem.objectives as objective, idx}
 							<Table.Cell class="pr-6 text-right text-gray-500">
-								{formatNumber(objectiveValue[objective.symbol], displayAccuracy)}
+								{formatNumber(objectiveValue[objective.symbol], displayAccuracy[idx])}
 							</Table.Cell>
 						{/each}
 					</Table.Row>

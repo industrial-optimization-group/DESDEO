@@ -397,6 +397,16 @@
 		}
 	}
 
+	async function handlePhaseClick(phaseId: typeof PHASE_CONFIGS[number]['id']) {
+        try {
+            const success = await handle_phase_switch(phaseId);
+            if (success) {
+                clickedPhase = phaseId;
+            }
+        } catch (err) {
+            console.error('Phase switch error:', err);
+        }
+    }
 	// Function to handle phase switching
 	async function handle_phase_switch(new_phase: 'learning' | 'decision' | 'crp'| 'compromise') {
 		// TODO: handle compromise like others, when API exists
@@ -581,20 +591,12 @@
 		{/if}
 		{#if isOwner && step === 'optimization'}
 			{#each PHASES as phase}
-				<Button
-					variant={phase.variant}
-					onclick={() => {
-						handle_phase_switch(phase.id)
-							.then((value) => {
-								if (value) clickedPhase = phase.id;
-							})
-							.catch((err) => {
-								console.error('Phase switch error:', err);
-							});
-						}
-					}>
-					{phase.label}
-				</Button>
+                    <Button
+                        variant={phase.variant}
+                        onclick={() => handlePhaseClick(phase.id)}
+                    >
+                        {phase.label}
+                    </Button>
 			{/each}
 		{/if}
 	{/snippet}

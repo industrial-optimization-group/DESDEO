@@ -60,7 +60,10 @@
 	} = $props();
 
 	// Get the display accuracy
-	let displayAccuracy = $derived(() => getDisplayAccuracy(problem));
+	let displayAccuracy = $derived((idx: number) => {
+		const list = getDisplayAccuracy(problem)
+		return list[idx]
+	});
 
 	// Define columns based on mode
 	const columns: ColumnDef<Solution>[] = $derived.by(() => {
@@ -103,7 +106,7 @@
 							mode === 'objectives'
 								? row.original.objective_values?.[item.symbol]
 								: row.original.variable_values?.[item.symbol],
-						accuracy: displayAccuracy()
+						accuracy: displayAccuracy(idx)
 					})
 			}))
 		];

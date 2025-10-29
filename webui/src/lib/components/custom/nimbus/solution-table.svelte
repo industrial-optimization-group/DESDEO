@@ -129,7 +129,13 @@
 	} = $props();
 
 	// Get the display accuracy
-	let displayAccuracy = $derived(() => getDisplayAccuracy(problem));
+	let displayAccuracy = $derived.by(() => getDisplayAccuracy(problem));
+	let displayName = $derived((idx: number | null) => {
+		let baseName = methodPage === "gnimbus" ? 'Group solution' : 'Solution'
+		let indexSuffix = (solverResults.length > 1 && idx !== null) ? idx + 1 : ''
+		
+		return `${baseName} ${indexSuffix}`;
+	});
 
 	let columnVisibility = $state<VisibilityState>({});
 	let columnFilters = $state<ColumnFiltersState>([]);
@@ -183,7 +189,7 @@
 				cell: ({ row }: { row: Row<Solution> }) =>
 					renderSnippet(ObjectiveCell, {
 						value: row.original.objective_values?.[objective.symbol],
-						accuracy: displayAccuracy()
+						accuracy: displayAccuracy[idx]
 					}),
 				enableSorting: true
 			}))
@@ -379,7 +385,7 @@
 			{solution.name}
 		{:else}
 			<span class="text-gray-400"
-				>{methodPage === "gnimbus" ? 'Group solution' : 'Solution'} {(solverResults.length > 1 && solution.solution_index !== null) ? solution.solution_index + 1 : ''}</span
+				>{displayName(solution.solution_index)}</span
 			>
 		{/if}
 	</div>
@@ -544,14 +550,14 @@
 						<PreviousSolutions
 							{problem}
 							previousObjectiveValues={secondaryObjectiveValues}
-							displayAccuracy={displayAccuracy()}
+							displayAccuracy={displayAccuracy}
 							columnsLength={columns.length}
 						/>
 					{:else if methodPage === 'gnimbus'}
 						<UserResults
 							{problem}
 							objectiveValues={secondaryObjectiveValues}
-							displayAccuracy={displayAccuracy()}
+							displayAccuracy={displayAccuracy}
 							columnsLength={columns.length}
 							personalResultIndex={personalResultIndex ?? -1}
 						/>

@@ -12,7 +12,7 @@
     }: {
         problem: ProblemInfo;
         previousObjectiveValues: { [key: string]: number }[];
-        displayAccuracy: number;
+        displayAccuracy: number[];
         columnsLength: number;
     } = $props();
 </script>
@@ -31,9 +31,9 @@
                 </div>
             </Table.Cell>
             <Table.Cell></Table.Cell>
-            {#each problem.objectives as objective}
+            {#each problem.objectives as objective, idx}
                 <Table.Cell class="text-gray-500 text-right pr-6">
-                    {formatNumber(previousObjectiveValue[objective.symbol], displayAccuracy)}
+                    {formatNumber(previousObjectiveValue[objective.symbol], displayAccuracy[idx])}
                 </Table.Cell>
             {/each}
         </Table.Row>
