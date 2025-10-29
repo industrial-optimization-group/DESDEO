@@ -103,6 +103,7 @@ export function createVisualizationData(
 		previous:
 			step === 'voting' &&
 			currentState.phase !== 'decision' &&
+			currentState.phase !== 'compromise' &&
 			currentState.personal_result_index !== null
 				? mapSolutionsToObjectiveValues(
 						[currentState.user_results[currentState.personal_result_index]],
