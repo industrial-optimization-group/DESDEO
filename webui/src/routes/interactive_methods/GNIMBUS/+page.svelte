@@ -409,11 +409,6 @@
     }
 	// Function to handle phase switching
 	async function handle_phase_switch(new_phase: 'learning' | 'decision' | 'crp'| 'compromise') {
-		// TODO: handle compromise like others, when API exists
-		if (new_phase === 'compromise') {
-			console.log('Compromise phase switch not implemented yet, changing to decision instead');
-			new_phase = 'decision';
-		}
 		const result = await callGNimbusAPI<Response>('switch_phase', {
 			group_id: data.group.id,
 			new_phase
