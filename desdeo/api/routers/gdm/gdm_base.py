@@ -177,7 +177,7 @@ def create_group(
     session.commit()
     session.refresh(group)
 
-    group_ids = user.group_ids.copy()
+    group_ids = user.group_ids.copy() if user.group_ids is not None else []
     group_ids.append(group.id)
     user.group_ids = group_ids
 

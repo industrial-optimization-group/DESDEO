@@ -14,7 +14,7 @@ from desdeo.problem.testproblems import dtlz2, river_pollution_problem, simple_k
 problems = [dtlz2(10, 3), simple_knapsack(), river_pollution_problem()]
 
 if __name__ == "__main__":
-    if SettingsConfig.debug:
+    if True:
         # debug stuff
 
         print("Creating database tables.")
@@ -23,10 +23,12 @@ if __name__ == "__main__":
         else:
             warnings.warn("Database already exists. Clearing it.", stacklevel=1)
             # Drop all tables
+            SQLModel.metadata.reflect(bind=engine)
             SQLModel.metadata.drop_all(bind=engine)
             SQLModel.metadata.create_all(engine)
         print("Database tables created.")
 
+        """
         with Session(engine) as session:
             user_analyst = User(
                 username=ServerConfig.test_user_analyst_name,
@@ -46,7 +48,6 @@ if __name__ == "__main__":
             session.commit()
             session.refresh(problem_db)
 
-        """
         db.add(user_analyst)
         db.commit()
         db.refresh(user_analyst)

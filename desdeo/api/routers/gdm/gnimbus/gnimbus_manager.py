@@ -189,6 +189,8 @@ class GNIMBUSManager(GroupManager):
 
         print(f"starting values: {prev_sol}")
 
+        # TODO: Filtering duplicate solutions
+
         try:
             results: list[SolverResults] = solve_group_sub_problems(
                 problem,
