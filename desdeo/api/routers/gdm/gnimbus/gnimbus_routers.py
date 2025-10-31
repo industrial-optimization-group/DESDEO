@@ -44,7 +44,7 @@ logging.basicConfig(
 
 not_init_error = HTTPException(detail="Problem has not been initialized!", status_code=status.HTTP_400_BAD_REQUEST)
 
-router = APIRouter(prefix="/gnimbus")
+router = APIRouter(prefix="/gnimbus", tags=["GNIMBUS"])
 
 
 @router.post("/initialize")

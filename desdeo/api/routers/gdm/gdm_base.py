@@ -33,7 +33,7 @@ logging.basicConfig(
     stream=sys.stdout, format="[%(filename)s:%(lineno)d] %(levelname)s: %(message)s", level=logging.INFO
 )
 
-router = APIRouter(prefix="/gdm")
+router = APIRouter(prefix="/gdm", tags=["GDM"])
 
 
 class ManagerError(Exception):
