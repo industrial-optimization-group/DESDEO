@@ -9,7 +9,7 @@ from typing import Literal
 import numpy as np
 import polars as pl
 
-from desdeo.gdm.gdmtools import dict_of_rps_to_list_of_rps, list_of_rps_to_dict_of_rps
+from desdeo.gdm.gdmtools import dict_of_rps_to_list_of_rps, list_of_rps_to_dict_of_rps, agg_aspbounds
 from desdeo.gdm.voting_rules import majority_rule, plurality_rule
 from desdeo.mcdm.nimbus import infer_classifications
 from desdeo.mcdm.reference_point_method import rpm_intermediate_solutions
@@ -37,6 +37,8 @@ from desdeo.tools import (
     add_group_guess_diff,
     add_group_nimbus,
     add_group_nimbus_diff,
+    add_group_nimbus_compromise,
+    add_group_nimbus_compromise_diff,
     add_group_stom,
     add_group_stom_agg,
     add_group_stom_agg_diff,
@@ -418,6 +420,31 @@ def solve_group_sub_problems(  # noqa: PLR0913
         problem_g_nimbus, gnimbus_target = add_nimbus_sf(
             problem, "nimbus_sf", classification_list, current_objectives, agg_bounds, delta, **(scalarization_options or {})
         )
+
+        if _solver_options:
+            gnimbus_solver = init_solver(problem_g_nimbus, _solver_options)  # type:ignore
+        else:
+            gnimbus_solver = init_solver(problem_g_nimbus)  # type:ignore
+
+        solutions.append(gnimbus_solver.solve(gnimbus_target))
+
+        infer_group_classifications(problem, current_objectives, reference_points, silent=False)
+
+        return solutions
+
+    elif phase == "compromise":
+        classification_list = infer_group_classifications(problem, current_objectives, reference_points)
+        # All cool, the preference's are in a bit of a different format that other branches but works.
+
+        gnimbus_scala = add_group_nimbus_compromise_diff \
+            if problem.is_twice_differentiable else add_group_nimbus_compromise
+        add_nimbus_sf = gnimbus_scala
+
+        problem_g_nimbus, gnimbus_target = add_nimbus_sf(
+            problem, "nimbus_sf", classification_list, current_objectives, **(scalarization_options or {})
+        )
+        # ISSUE: makes the problem not twice differentiable, thus the initial solver doesn't work
+        # Also needed a little tweaking inside the scalarization functions.
 
         if _solver_options:
             gnimbus_solver = init_solver(problem_g_nimbus, _solver_options)  # type:ignore

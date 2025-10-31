@@ -126,7 +126,7 @@
 											await goto(`/interactive_methods/GNIMBUS?group=${group.id}`);
 										}}
 									>
-										Open in GNIMBUS
+										Open in Group NIMBUS
 									</button>
 								</Table.Cell>
 							</Table.Row>

@@ -344,8 +344,8 @@ async def switch_phase(
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
 ) -> GNIMBUSSwitchPhaseResponse:
-    """Switch the phase from one to another. "learning", "crp", "decision" phases are allowed."""
-    if request.new_phase not in ["learning", "crp", "decision"]:
+    """Switch the phase from one to another. "learning", "crp", "decision" and "compromise" phases are allowed."""
+    if request.new_phase not in ["learning", "crp", "decision", "compromise"]:
         raise HTTPException(
             detail=f"Undefined phase: {request.new_phase}! Can only be {['learning', 'crp', 'decision']}",
             status_code=status.HTTP_400_BAD_REQUEST,
