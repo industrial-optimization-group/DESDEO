@@ -82,6 +82,9 @@ class ManagerManager:
     async def check_disconnect(self, group_id: int):
         """If no active connections, remove group manager."""
         async with self.lock:
+            if self.group_managers[group_id] is None:
+                logger.warning(f"GroupManager for group {group_id} does not exists!")
+                return
             group_manager = self.group_managers[group_id]
             for _, socket in group_manager.sockets.items():
                 # There are active sockets in here!

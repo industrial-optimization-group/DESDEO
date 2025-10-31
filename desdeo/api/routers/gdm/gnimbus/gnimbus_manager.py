@@ -4,6 +4,7 @@ import copy
 import json
 import logging
 import sys
+import math
 from typing import Any
 
 from pydantic import ValidationError
@@ -35,6 +36,46 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def compare_variable(v1: int | float | list, v2: int | float | list) -> bool:
+    if type(v1) != type(v2):
+        # Not of the same type! How can this be?
+        return False
+
+    if type(v1) == int:
+        return v1 == v2
+    elif type(v1) == float:
+        return math.isclose(v1, v2)
+    else: # Type is list
+        return all([math.isclose(tup[0], tup[1]) for tup in zip(v1, v2, strict=True)])
+
+
+def filter_duplicates(results: list[SolverResults]) -> list[SolverResults]:
+    """Filters away duplicate solutions by comparing all decision variables.
+
+    Args:
+        results (list[SolverResults]): The list of solutions that the function filters.
+    """
+    if len(results) < 2:
+        # The length 1 or 0, there is no duplicates.
+        return results
+
+    filtered_list = []
+    for result in results:
+        same_solution = False
+        for unique in filtered_list:
+            # Here, compare the result's dec vars and the unique's dec vars and if they're the same, discard
+            if all(
+                [compare_variable(t[0], t[1]) for t in zip(
+                    [b for _, b in result.optimal_variables.items()],
+                    [b for _, b in unique.optimal_variables.items()]
+                )]
+            ):
+                same_solution = True
+                break
+        if not same_solution:
+            filtered_list.append(result)
+
+    return filtered_list
 
 class GNIMBUSManager(GroupManager):
     """The Group NIMBUS manager class.
@@ -198,6 +239,7 @@ class GNIMBUSManager(GroupManager):
                 reference_points=formatted_prefs,
                 phase=current_iteration.preferences.phase,
             )
+            # results = filter_duplicates(results)
             logger.info(f"Optimization for group {self.group_id} done.")
 
         except ScalarizationError as e:

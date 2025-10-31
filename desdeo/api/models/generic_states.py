@@ -311,7 +311,7 @@ class SolutionReference(SQLModel):
 
     @computed_field
     @property
-    def variable_values(self) -> dict[str, VariableType] | None:
+    def variable_values(self) -> dict[str, VariableType | Tensor] | None:
         if self.solution_index is not None:
             return self.state.state.result_variable_values[self.solution_index]
 
