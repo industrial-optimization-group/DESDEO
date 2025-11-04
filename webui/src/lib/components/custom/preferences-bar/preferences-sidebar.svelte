@@ -188,6 +188,15 @@
 	function get_objective_value(idx: number): number {
 		return internal_objective_values[idx] ?? 0;
 	}
+
+	// Helper function to get objective title for display
+	function getObjectiveTitle(objective: any): string {
+		if (!objective) return '';
+		
+		const tooltip = objective.description || objective.name;
+		return objective.unit ? `${tooltip} (${objective.unit})` : tooltip;
+	}
+
 </script>
 
 <Sidebar.Root
@@ -244,9 +253,9 @@
 					<div class="mb-4 flex flex-col gap-2">
 						<div
 							class="text-sm font-semibold text-gray-700"
-							title={objective.unit ? `${objective.name} (${objective.unit})` : objective.name}
+							title={getObjectiveTitle(objective)}
 						>
-							{objective.symbol} ({objective.maximize ? 'max' : 'min'})
+							{objective.name} ({objective.maximize ? 'max' : 'min'})
 						</div>
 						<div class="flex flex-row items-start">
 							<div class="flex w-1/4 flex-col">
@@ -297,7 +306,7 @@
 				{#if objective.ideal != null && objective.nadir != null}
 					<div class="mb-4 flex flex-col gap-2">
 						<div class="text-sm font-semibold text-gray-700">
-							{objective.symbol} ({objective.maximize ? 'max' : 'min'})
+							{objective.name} ({objective.maximize ? 'max' : 'min'})
 						</div>
 						<div class="flex flex-row">
 							<div class="flex w-1/4 flex-col justify-center">
@@ -344,7 +353,7 @@
 				{#if objective.ideal != null && objective.nadir != null}
 					<div class="mb-4 flex flex-col gap-2">
 						<div class="text-sm font-semibold text-gray-700">
-							{objective.symbol} ({objective.maximize ? 'max' : 'min'})
+							{objective.name} ({objective.maximize ? 'max' : 'min'})
 						</div>
 						<div class="flex flex-row">
 							<div class="flex w-1/4 flex-col justify-center">

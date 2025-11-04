@@ -121,7 +121,7 @@ export function createPreferenceData(
 	currentPreference: number[]
 ): PreferenceData {
 	return {
-		previousValues: step === 'optimization' ? lastIteratedPreference : [],
+		previousValues: lastIteratedPreference,
 		currentValues: step === 'optimization' ? currentPreference : []
 	};
 }

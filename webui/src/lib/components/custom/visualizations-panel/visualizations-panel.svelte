@@ -134,7 +134,8 @@
 	 * Includes reference point and preferred ranges if available
 	 */
 	const referenceData = $derived(() =>
-		createReferenceData(
+		{
+			let data = createReferenceData(
 			currentPreferenceValues,
 			previousPreferenceValues,
 			problem,
@@ -142,6 +143,9 @@
 			otherObjectiveValues,
 			referenceDataLabels
 		)
+		data ? data.preferredRanges = undefined : ()=> []; // Disable preferred ranges display
+		return data;
+		}
 	);
 
 	/**
@@ -167,7 +171,7 @@
 		showAxisLabels: true,
 		highlightOnHover: true,
 		strokeWidth: 2,
-		opacity: 0.7,
+		opacity: 0.4,
 		enableBrushing: false
 	};
 

@@ -131,6 +131,15 @@ const handlers: Record<string, HandlerFunction> = {
         return response;
     },
 
+    get_phase: async (body, refreshToken) => {
+        const { group_id } = body;
+        const requestBody = {
+            group_id: Number(group_id)
+        };
+        
+        return makeApiRequest('/gnimbus/get_phase', requestBody, refreshToken);
+    },
+
     get_maps: (body, refreshToken) => {
         const { problem_id, solution } = body;
         const requestBody = {
