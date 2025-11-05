@@ -9,7 +9,7 @@
 	 *
 	 * @description
 	 * A versatile visualization panel for multi-objective optimization solutions in DESDEO.
-	 * Provides different visualization types (Parallel Coordinates, Bar Chart) for exploring
+	 * Will provide different visualization types (Parallel Coordinates, Bar Chart) for exploring TODO: Bar Chart
 	 * solution spaces and comparing different solutions against preferences.
 	 *
 	 * @data_flow
@@ -243,8 +243,8 @@
 					{ value: 'parallel', label: 'Parallel Coordinates' },
 					{ value: 'bar', label: 'Bar Chart' }
 				]}
-				class="justify-end"
-			/>
+				class="justify-end invisible" 
+			/> <!--To implement the bar chart, remove the invisible class above and add the visualization below-->
 		</div>
 
 		<!-- Visualization Container with dynamic height -->

@@ -608,7 +608,7 @@
 >
 
 	{#snippet explorerTitle()}
-		<div class="font-bold">
+		<span class="font-bold">
 			{#if step === 'finish'}
 				Final Solution
 			{:else}
@@ -619,11 +619,8 @@
 				current_state.phase === 'compromise' ? 'Decision Phase' :
 				''}
 			{/if}
-		</div>
-		<div>Iteration {full_iterations.all_full_iterations?.length ? full_iterations.all_full_iterations?.length-1 : "0"}</div>
-	{/snippet}
-
-	{#snippet explorerControls()}
+		</span>
+		<span> / Iteration {full_iterations.all_full_iterations?.length ? full_iterations.all_full_iterations?.length-1 : "0"}</span>
 		{#if problem}
 			{@const statusMessage = getStatusMessage({
 				isOwner,
@@ -631,12 +628,13 @@
 				step,
 				isActionDone
 			})}
-			<div class="p-4">
-				<span class="left-0">
-					{statusMessage}
-				</span>
-			</div>
+			<span class="left-0 p-4 font-normal">
+				{statusMessage}
+			</span>
 		{/if}
+	{/snippet}
+
+	{#snippet explorerControls()}
 		{#if isOwner && step === 'optimization'}
 			{#each PHASES as phase}
                     <Button

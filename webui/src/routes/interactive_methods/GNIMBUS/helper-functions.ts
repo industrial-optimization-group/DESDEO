@@ -57,7 +57,7 @@ export function getStatusMessage(state: MessageState): string {
     // Owner but not decision maker
     if (state.isOwner && !state.isDecisionMaker) {
         return state.step === 'optimization'
-            ? `Click button to proceed to the next phase.`
+            ? `Click button to change the phase.`
             : `Please wait for decision makers to complete voting.`;
     }
 
@@ -65,7 +65,7 @@ export function getStatusMessage(state: MessageState): string {
     if (state.step === 'voting' && state.isDecisionMaker) {
         return state.isActionDone
             ? `Your vote has been recorded. You may change your vote while waiting for others to complete.`
-            : `Please select your preferred solution from the table below to cast your vote.`;
+            : `Please select your preferred solution to cast your vote.`;
     }
 
     // Decision maker in optimization mode
