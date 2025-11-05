@@ -410,7 +410,7 @@ def add_group_asf_diff(
     if agg_bounds is not None:
         bounds = flip_maximized_objective_values(problem, agg_bounds)
         for obj in problem.objectives:
-            expr = f"({obj.symbol}_min - {bounds[obj.symbol]} - _alpha)"
+            expr = f"({obj.symbol}_min - {bounds[obj.symbol]})"
             constraints.append(
                 Constraint(
                     name=f"Constraint bound for {obj.symbol}",
@@ -563,7 +563,7 @@ def add_group_asf_agg_diff(
     if agg_bounds is not None:
         bounds = flip_maximized_objective_values(problem, agg_bounds)
         for obj in problem.objectives:
-            expr = f"({obj.symbol}_min - {bounds[obj.symbol]} - _alpha)"
+            expr = f"({obj.symbol}_min - {bounds[obj.symbol]})"
             constraints.append(
                 Constraint(
                     name=f"Constraint bound for {obj.symbol}",
@@ -911,13 +911,12 @@ def add_group_nimbus_compromise(  # noqa: PLR0913
         side effect may be removed in production code.
     """
     # check that classifications have been provided for all objective functions
-    for classification in group_classification:
-        if not objective_dict_has_all_symbols(problem, classification):
-            msg = (
-                f"The given classifications {classification} do not define "
-                "a classification for all the objective functions."
-            )
-            raise ScalarizationError(msg)
+    if not objective_dict_has_all_symbols(problem, group_classification):
+        msg = (
+            f"The given classifications {group_classification} do not define "
+            "a classification for all the objective functions."
+        )
+        raise ScalarizationError(msg)
 
     # check if ideal point is specified
     # if not specified, try to calculate corrected ideal point
@@ -1009,6 +1008,20 @@ def add_group_nimbus_compromise(  # noqa: PLR0913
                     target = np.median(group_classification[_symbol][1])
                     max_expr = f"{weights[_symbol]} * ({_symbol}_min - {target})"
                     max_args.append(max_expr)
+                    con_expr = f"{_symbol}_min - {corrected_current_point[_symbol]} - {
+                        (nadir_point[_symbol] - ideal_point[_symbol]) / 20
+                    }"
+                    constraints.append(
+                        Constraint(
+                            name=f"improvement constraint for {_symbol}",
+                            symbol=f"{_symbol}_lt",
+                            func=con_expr,
+                            cons_type=ConstraintTypeEnum.LTE,
+                            is_linear=problem.is_linear,
+                            is_convex=problem.is_convex,
+                            is_twice_differentiable=problem.is_twice_differentiable,
+                        )
+                    )
                 else:
                     con_expr = f"{_symbol}_min - {corrected_current_point[_symbol]}"
                     constraints.append(
@@ -1161,13 +1174,12 @@ def add_group_nimbus_compromise_diff(  # noqa: PLR0913
         side effect may be removed in production code.
     """
     # check that classifications have been provided for all objective functions
-    for classification in group_classification:
-        if not objective_dict_has_all_symbols(problem, classification):
-            msg = (
-                f"The given classifications {classification} do not define "
-                "a classification for all the objective functions."
-            )
-            raise ScalarizationError(msg)
+    if not objective_dict_has_all_symbols(problem, group_classification):
+        msg = (
+            f"The given classifications {group_classification} do not define "
+            "a classification for all the objective functions."
+        )
+        raise ScalarizationError(msg)
 
     # check if ideal point is specified
     # if not specified, try to calculate corrected ideal point
@@ -1288,6 +1300,20 @@ def add_group_nimbus_compromise_diff(  # noqa: PLR0913
                             is_twice_differentiable=problem.is_twice_differentiable,
                         )
                     )
+                    con_expr = f"{_symbol}_min - {corrected_current_point[_symbol]} - {
+                        (nadir_point[_symbol] - ideal_point[_symbol]) / 20
+                    }"
+                    constraints.append(
+                        Constraint(
+                            name=f"improvement constraint for {_symbol}",
+                            symbol=f"{_symbol}_lt",
+                            func=con_expr,
+                            cons_type=ConstraintTypeEnum.LTE,
+                            is_linear=problem.is_linear,
+                            is_convex=problem.is_convex,
+                            is_twice_differentiable=problem.is_twice_differentiable,
+                        )
+                    )
                 else:
                     con_expr = f"{_symbol}_min - {corrected_current_point[_symbol]}"
                     constraints.append(
@@ -1310,17 +1336,18 @@ def add_group_nimbus_compromise_diff(  # noqa: PLR0913
     # form the augmentation term
     aug_expr = " + ".join([f"({weights[obj.symbol]} * {obj.symbol}_min)" for obj in problem.objectives])
 
-    func = f"{alpha.symbol} + {rho} * ({aug_expr})"
+    func = f"_alpha + {rho} * ({aug_expr})"
     scalarization = ScalarizationFunction(
         name="NIMBUS scalarization objective function for multiple decision makers",
         symbol=symbol,
         func=func,
         is_linear=problem.is_linear,
         is_convex=problem.is_convex,
-        is_twice_differentiable=False,
+        is_twice_differentiable=problem.is_twice_differentiable,
     )
 
-    _problem = problem.add_scalarization(scalarization)
+    _problem = problem.add_variables([alpha])
+    _problem = _problem.add_scalarization(scalarization)
     return _problem.add_constraints(constraints), symbol
 
 
@@ -2171,7 +2198,7 @@ def add_group_stom_diff(
     if agg_bounds is not None:
         bounds = flip_maximized_objective_values(problem, agg_bounds)
         for obj in problem.objectives:
-            expr = f"({obj.symbol}_min - {bounds[obj.symbol]} -_alpha)"
+            expr = f"({obj.symbol}_min - {bounds[obj.symbol]})"
             constraints.append(
                 Constraint(
                     name=f"Constraint bound for {obj.symbol}",
@@ -2320,7 +2347,7 @@ def add_group_stom_agg_diff(
     if agg_bounds is not None:
         bounds = flip_maximized_objective_values(problem, agg_bounds)
         for obj in problem.objectives:
-            expr = f"({obj.symbol}_min - {bounds[obj.symbol]} -_alpha)"
+            expr = f"({obj.symbol}_min - {bounds[obj.symbol]})"
             constraints.append(
                 Constraint(
                     name=f"Constraint bound for {obj.symbol}",
