@@ -479,15 +479,6 @@ async def revert_iteration(
             status_code=status.HTTP_404_NOT_FOUND
         )
 
-    # What are the implications of just going back?
-    # Also, how does one go about doing it?
-    # 1. remove the current head iteration
-    # 2. set previous iteration as the head iteration
-    # 3. remove the state and some such
-    # 4. reset the state by setting all different thingamajigs to None
-    # 5. so how does this go, do i want to like, change the voting/ending thing also?
-    #    basically, do i need to change the preference item in the database?
-
     prev_iteration: GroupIteration = current_iteration.parent
     if not prev_iteration:
         raise HTTPException(
