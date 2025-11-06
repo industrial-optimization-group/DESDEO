@@ -429,6 +429,7 @@ def get_preference_item(item):
     """
     if type(item) is OptimizationPreference:
         return OptimizationPreference(
+            phase=item.phase,
             set_preferences={}
         )
     if type(item) is EndProcessPreference:
