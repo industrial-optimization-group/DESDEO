@@ -241,6 +241,18 @@ def select_solver(
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
 ) -> JSONResponse:
+    """Assign a specific solver for a problem.
+
+    request: ProblemSelectSolverRequest: The request containing problem id and string representation of the solver
+    user: Annotated[User, Depends(get_current_user): The user that is logged in.
+    session: Annotated[Session, Depends(get_session)]: The database session.
+
+    Raises:
+        HTTPException: Unknown solver, unauthorized user
+
+    Returns:
+        JSONResponse: A simple confirmation.
+    """
     if request.solver_string_representation not in [x for x, _ in available_solvers.items()]:
         raise HTTPException(
             detail=f"Solver of unknown type: {request.solver_string_representation}",
@@ -257,7 +269,7 @@ def select_solver(
         )
     # Auth the user
     if user.id != problem_db.user_id:
-        raise HTTPException(detail=f"Unauthorized user!", status_code=status.HTTP_401_UNAUTHORIZED)
+        raise HTTPException(detail="Unauthorized user!", status_code=status.HTTP_401_UNAUTHORIZED)
 
     # All good, get on with it.
     problem_metadata = problem_db.problem_metadata

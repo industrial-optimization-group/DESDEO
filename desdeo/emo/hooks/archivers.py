@@ -5,6 +5,7 @@ from collections.abc import Sequence
 import polars as pl
 
 from desdeo.problem import Problem
+from desdeo.tools.generics import EMOResult
 from desdeo.tools.message import (
     EvaluatorMessageTopics,
     GeneratorMessageTopics,
@@ -71,6 +72,14 @@ class BaseArchive(Subscriber):
             else:
                 self.selections = pl.concat([self.selections, data], how="vertical")
             return
+
+    @property
+    def results(self) -> EMOResult:
+        """Return the results of the archiver."""
+        dec_vars = [x.symbol for x in self.problem.get_flattened_variables()]
+        all_cols = self.solutions.columns
+        non_decs = [col for col in all_cols if col not in dec_vars]
+        return EMOResult(optimal_variables=self.solutions[dec_vars], optimal_outputs=self.solutions[non_decs])
 
 
 class FeasibleArchive(BaseArchive):

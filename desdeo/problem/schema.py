@@ -1,4 +1,5 @@
 from typing import Self
+
 """Schema for the problem definition.
 
 The problem definition is a JSON file that contains the following information:
@@ -261,7 +262,7 @@ class ObjectiveTypeEnum(str, Enum):
 class Constant(BaseModel):
     """Model for a constant."""
 
-    model_config = ConfigDict(frozen=True, from_attributes=True, extra='forbid')
+    model_config = ConfigDict(frozen=True, from_attributes=True, extra="forbid")
 
     name: str = Field(
         description=(
@@ -285,7 +286,7 @@ class Constant(BaseModel):
 class TensorConstant(BaseModel):
     """Model for a tensor containing constant values."""
 
-    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True, from_attributes=True, extra='forbid')
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True, from_attributes=True, extra="forbid")
 
     name: str = Field(description="Descriptive name of the tensor representing the values. E.g., 'distances'")
     """Descriptive name of the tensor representing the values. E.g., 'distances'"""
@@ -378,7 +379,7 @@ class TensorConstant(BaseModel):
 class Variable(BaseModel):
     """Model for a variable."""
 
-    model_config = ConfigDict(frozen=True, from_attributes=True, extra='forbid')
+    model_config = ConfigDict(frozen=True, from_attributes=True, extra="forbid")
 
     name: str = Field(
         description="Descriptive name of the variable. This can be used in UI and visualizations. Example: 'velocity'."
@@ -408,7 +409,7 @@ class Variable(BaseModel):
 class TensorVariable(BaseModel):
     """Model for a tensor, e.g., vector variable."""
 
-    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True, from_attributes=True, extra='forbid')
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True, from_attributes=True, extra="forbid")
 
     name: str = Field(
         description="Descriptive name of the variable. This can be used in UI and visualizations. Example: 'velocity'."
@@ -586,7 +587,7 @@ class ExtraFunction(BaseModel):
     they are needed for other computations related to the problem.
     """
 
-    model_config = ConfigDict(frozen=True, from_attributes=True, extra='forbid')
+    model_config = ConfigDict(frozen=True, from_attributes=True, extra="forbid")
 
     name: str = Field(
         description=("Descriptive name of the function. Example: 'normalization'."),
@@ -664,7 +665,7 @@ class ExtraFunction(BaseModel):
 class ScalarizationFunction(BaseModel):
     """Model for scalarization of the problem."""
 
-    model_config = ConfigDict(from_attributes=True, extra='forbid')
+    model_config = ConfigDict(from_attributes=True, extra="forbid")
 
     name: str = Field(description=("Name of the scalarization function."))
     """Name of the scalarization function."""
@@ -712,14 +713,16 @@ class ScalarizationFunction(BaseModel):
         parse_scenario_key_singleton_to_list
     )
 
+
 class Url(BaseModel):
     """Model for a URL."""
 
-    model_config = ConfigDict(frozen=True, from_attributes=True, extra='forbid')
+    model_config = ConfigDict(frozen=True, from_attributes=True, extra="forbid")
 
     url: str = Field(
         description=(
-            "A URL to the simulator. A GET request to this URL should be used to evaluate solutions in batches.")
+            "A URL to the simulator. A GET request to this URL should be used to evaluate solutions in batches."
+        )
     )
     """A URL to the simulator. A GET request to this URL should be used to evaluate solutions in batches."""
 
@@ -732,12 +735,14 @@ class Url(BaseModel):
     """Optional. A tuple of username and password to be used for authentication when making requests to the URL."""
     # Add headers and stuff for a proper HTTP request if needed in the future idk
 
+
 class Simulator(BaseModel):
     """Model for simulator data.
-    
-    One of `file` or `url` must be provided, but not both."""
 
-    model_config = ConfigDict(frozen=True, from_attributes=True, extra='forbid')
+    One of `file` or `url` must be provided, but not both.
+    """
+
+    model_config = ConfigDict(frozen=True, from_attributes=True, extra="forbid")
 
     name: str = Field(
         description=("Descriptive name of the simulator. This can be used in UI and visualizations."),
@@ -749,9 +754,7 @@ class Simulator(BaseModel):
             " It may also be used in UIs and visualizations."
         ),
     )
-    file: Path | None = Field(
-        description=("Path to a python file with the connection to simulators."), default=None
-    )
+    file: Path | None = Field(description=("Path to a python file with the connection to simulators."), default=None)
     """Path to a python file with the connection to simulators."""
     url: Url | None = Field(
         description=(
@@ -784,7 +787,7 @@ class Simulator(BaseModel):
 class Objective(BaseModel):
     """Model for an objective function."""
 
-    model_config = ConfigDict(frozen=True, from_attributes=True, extra='forbid')
+    model_config = ConfigDict(frozen=True, from_attributes=True, extra="forbid")
 
     name: str = Field(
         description=(
@@ -825,7 +828,7 @@ class Objective(BaseModel):
     variable/constant/extra function. Can be 'None' for 'data_based', 'simulator' or
     'surrogate' objective functions. If 'None', either 'simulator_path' or 'surrogates' must
     not be 'None'."""
-    simulator_path: Path | Url |  None = Field(
+    simulator_path: Path | Url | None = Field(
         description=(
             "Path to a python file or http server with the connection to simulators. Must be a valid Path or url."
             "Can be 'None' for 'analytical', 'data_based' or 'surrogate' objective functions."
@@ -896,7 +899,7 @@ class Objective(BaseModel):
 class Constraint(BaseModel):
     """Model for a constraint function."""
 
-    model_config = ConfigDict(frozen=True, from_attributes=True, extra='forbid')
+    model_config = ConfigDict(frozen=True, from_attributes=True, extra="forbid")
 
     name: str = Field(
         description=(
@@ -999,7 +1002,7 @@ class DiscreteRepresentation(BaseModel):
     found at `objective_values['f_i'][j]` for all `i` and some `j`.
     """
 
-    model_config = ConfigDict(frozen=True, from_attributes=True, extra='forbid')
+    model_config = ConfigDict(frozen=True, from_attributes=True, extra="forbid")
 
     variable_values: dict[str, list[VariableType]] = Field(
         description=(
@@ -1038,7 +1041,7 @@ class DiscreteRepresentation(BaseModel):
 class Problem(BaseModel):
     """Model for a problem definition."""
 
-    model_config = ConfigDict(frozen=True, extra='forbid')
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     _scalarization_index: int = PrivateAttr(default=1)
     # TODO: make init to communicate the _scalarization_index to a new model
@@ -1602,7 +1605,7 @@ class Problem(BaseModel):
 
         """
         json_content = self.model_dump_json(indent=4)
-        path.write_text(json_content)
+        path.write_text(json_content, encoding="utf-8")
 
     @classmethod
     def load_json(cls, path: Path) -> "Problem":
@@ -1619,6 +1622,7 @@ class Problem(BaseModel):
         return cls.model_validate_json(json_data, by_name=True)
 
     @model_validator(mode="after")
+    @classmethod
     def set_is_twice_differentiable(cls, values):
         """If "is_twice_differentiable" is explicitly provided to the model, we set it to that value."""
         if "is_twice_differentiable" in values and values["is_twice_differentiable"] is not None:

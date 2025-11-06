@@ -24,6 +24,7 @@
 	 *     preferredRanges?: { [key: string]: { min: number; max: number } }; // Preferred ranges for each dimension
 	 *     preferredSolutions?: Array<{ [key: string]: number }>; // Array of preferred solutions
 	 *     nonPreferredSolutions?: Array<{ [key: string]: number }>; // Array of non-preferred solutions
+	 * 	   otherSolutions?: Array<{ [key: string]: number }>; // Array of any solutions that dont fit into other categories. Used for users solutions in group nimbus
 	 *   }
 	 * - options: {
 	 *     showAxisLabels: boolean; // Whether to show dimension names above axes
@@ -66,6 +67,7 @@
 		preferredRanges?: { [key: string]: { min: number; max: number } }; // Preferred value ranges per dimension
 		preferredSolutions?: Array<{ [key: string]: number }>; // Array of preferred solution points
 		nonPreferredSolutions?: Array<{ [key: string]: number }>; // Array of non-preferred solution points
+		otherSolutions?: Array<{ [key: string]: number }>; // Array of solution points that dont fit other categories, for any additional need
 	};
 
 	// --- Component Props ---
@@ -543,6 +545,31 @@
 		xScale: d3.ScalePoint<string>,
 		line: d3.Line<[string, number]>
 	) {
+		// Draw other solutions first (they should be in the background)
+		if (referenceData?.otherSolutions) {
+			const otherGroup = svgElement.append('g').attr('class', 'other-solutions');
+
+			referenceData.otherSolutions.forEach((solution, index) => {
+				// Convert solution data to line format
+				const solutionData: [string, number][] = dimensions
+					.map((dim) => [dim.symbol, solution[dim.symbol]])
+					.filter(([, value]) => value !== undefined && value !== null);
+
+				if (solutionData.length > 0) {
+					// Draw thin dashed line for other solutions
+					otherGroup
+						.append('path')
+						.datum(solutionData)
+						.attr('d', line)
+						.attr('fill', 'none')
+						.attr('stroke', '#008080') // Teal color
+						.attr('stroke-width', options.strokeWidth)
+						.attr('stroke-dasharray', '3,3') // Dashed pattern
+						.attr('opacity', 0.6);
+				}
+			});
+		}
+
 		// Draw preferred solutions (good examples)
 		if (referenceData?.preferredSolutions) {
 			const preferredGroup = svgElement.append('g').attr('class', 'preferred-solutions');
@@ -951,7 +978,8 @@
 	}
 
 	:global(.preferred-solutions path),
-	:global(.non-preferred-solutions path) {
+	:global(.non-preferred-solutions path),
+	:global(.other-solutions path) {
 		pointer-events: none;
 	}
 
