@@ -8,7 +8,7 @@ __all__ = [  # noqa: RUF022
     "DiscreteRepresentationDB",
     "EMOSaveState",
     "EMOSolveRequest",
-    "EMOState",
+    "EMOIterateState",
     "ENautilusState",
     "ENautilusStepRequest",
     "ExtraFunctionDB",
@@ -17,6 +17,7 @@ __all__ = [  # noqa: RUF022
     "GetSessionRequest",
     "GNIMBUSOptimizationState",
     "GNIMBUSVotingState",
+    "GNIMBUSEndState",
     "InteractiveSessionBase",
     "InteractiveSessionDB",
     "InteractiveSessionInfo",
@@ -25,6 +26,8 @@ __all__ = [  # noqa: RUF022
     "IntermediateSolutionState",
     "NIMBUSClassificationRequest",
     "NIMBUSClassificationState",
+    "NIMBUSDeleteSaveRequest",
+    "NIMBUSDeleteSaveResponse",
     "NIMBUSInitializationRequest",
     "NIMBUSInitializationState",
     "NIMBUSIntermediateSolutionResponse",
@@ -32,6 +35,9 @@ __all__ = [  # noqa: RUF022
     "NIMBUSClassificationResponse",
     "NIMBUSInitializationResponse",
     "NIMBUSSaveResponse",
+    "NIMBUSFinalizeRequest",
+    "NIMBUSFinalizeResponse",
+    "NIMBUSFinalState",
     "NIMBUSSaveState",
     "NonPreferredSolutions",
     "ObjectiveDB",
@@ -74,13 +80,19 @@ __all__ = [  # noqa: RUF022
     "GroupInfoRequest",
     "BasePreferences",
     "ReferencePointDictType",
+    "BooleanDictTypeDecorator",
     "EMOSolveRequest",
     "PreferredRanges",
     "PreferedSolutions",
     "NonPreferredSolutions",
-    "EMOSaveState",
+    "EMOFetchRequest",
+    "EMOFetchResponse",
+    "EMOIterateRequest",
+    "EMOIterateResponse",
     "EMOSaveRequest",
-    "EMOState",
+    "EMOScoreRequest",
+    "EMOScoreResponse",
+    "Solution",
     "SolutionReference",
     "SolutionReferenceResponse",
     "SolverSelectionMetadata",
@@ -93,6 +105,7 @@ __all__ = [  # noqa: RUF022
     "ScoreBandsResponse",
     "OptimizationPreference",
     "VotingPreference",
+    "EndProcessPreference",
     "GNIMBUSResultResponse",
     "FullIteration",
     "GNIMBUSAllIterationsResponse",
@@ -102,9 +115,18 @@ __all__ = [  # noqa: RUF022
 
 
 from .archive import UserSavedEMOResults
-from .EMO import EMOSaveRequest, EMOSolveRequest
+from .emo import (
+    EMOFetchRequest,
+    EMOFetchResponse,
+    EMOIterateRequest,
+    EMOIterateResponse,
+    EMOSaveRequest,
+    EMOScoreRequest,
+    EMOScoreResponse,
+    Solution,
+)
 from .enautilus import EnautilusStepRequest
-from .gdm_aggregate import (
+from .gdm.gdm_aggregate import (
     Group,
     GroupCreateRequest,
     GroupInfoRequest,
@@ -112,9 +134,20 @@ from .gdm_aggregate import (
     GroupModifyRequest,
     GroupPublic,
 )
-from .gdm_base import (
+from .gdm.gdm_base import (
     BasePreferences,
+    BooleanDictTypeDecorator,
     ReferencePointDictType,
+)
+from .gdm.gnimbus import (
+    EndProcessPreference,
+    FullIteration,
+    GNIMBUSAllIterationsResponse,
+    GNIMBUSResultResponse,
+    GNIMBUSSwitchPhaseRequest,
+    GNIMBUSSwitchPhaseResponse,
+    OptimizationPreference,
+    VotingPreference,
 )
 from .generic import (
     GenericIntermediateSolutionResponse,
@@ -131,23 +164,18 @@ from .generic_states import (
     StateDB,
     UserSavedSolutionDB,
 )
-from .gnimbus import (
-    FullIteration,
-    GNIMBUSAllIterationsResponse,
-    GNIMBUSResultResponse,
-    GNIMBUSSwitchPhaseRequest,
-    GNIMBUSSwitchPhaseResponse,
-    OptimizationPreference,
-    VotingPreference,
-)
 from .nimbus import (
     NIMBUSClassificationRequest,
     NIMBUSClassificationResponse,
+    NIMBUSDeleteSaveRequest,
+    NIMBUSDeleteSaveResponse,
     NIMBUSInitializationRequest,
     NIMBUSInitializationResponse,
     NIMBUSIntermediateSolutionResponse,
     NIMBUSSaveRequest,
     NIMBUSSaveResponse,
+    NIMBUSFinalizeRequest,
+    NIMBUSFinalizeResponse,
 )
 from .preference import (
     Bounds,
@@ -189,15 +217,17 @@ from .session import (
     InteractiveSessionInfo,
 )
 from .state import (
+    EMOIterateState,
     EMOSaveState,
-    EMOState,
     ENautilusState,
+    GNIMBUSEndState,
     GNIMBUSOptimizationState,
     GNIMBUSVotingState,
     IntermediateSolutionState,
     NIMBUSClassificationState,
     NIMBUSInitializationState,
     NIMBUSSaveState,
+    NIMBUSFinalState,
     RPMState,
 )
 from .user import User, UserBase, UserPublic, UserRole

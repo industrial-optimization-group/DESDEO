@@ -1,26 +1,36 @@
 """Tests related to the GNIMBUS method."""
 
-from desdeo.mcdm.nimbus import generate_starting_point
-from desdeo.tools import IpoptOptions, PyomoIpoptSolver, add_asf_diff
-from desdeo.problem.testproblems import dtlz2, nimbus_test_problem, zdt1, re22, simple_knapsack_vectors
 import numpy as np
 import numpy.testing as npt
 import pytest
 
-from desdeo.mcdm.gnimbus import (voting_procedure,
-                                 solve_intermediate_solutions, solve_group_sub_problems,
-                                 find_min_max_values, scale_delta)
-
-from desdeo.gdm.voting_rules import majority_rule, plurality_rule
 from desdeo.gdm.gdmtools import dict_of_rps_to_list_of_rps, list_of_rps_to_dict_of_rps
+from desdeo.gdm.voting_rules import majority_rule, plurality_rule
+from desdeo.mcdm.gnimbus import (
+    GNIMBUSError,
+    find_min_max_values,
+    infer_group_classifications,
+    scale_delta,
+    solve_group_sub_problems,
+    voting_procedure,
+)
+from desdeo.mcdm.nimbus import generate_starting_point
+from desdeo.problem.testproblems import dtlz2, nimbus_test_problem, re22, simple_knapsack_vectors, zdt1
+from desdeo.tools import IpoptOptions, PyomoIpoptSolver, add_asf_diff
 
 
 @pytest.mark.gdmtools
 def test_dict_to_list_and_back():
+    """Verify conversion between dict-of-reference-points and list-of-reference-points.
+
+    This test ensures `dict_of_rps_to_list_of_rps` returns a list of dictionaries
+    with correct types and that `list_of_rps_to_dict_of_rps` reconstructs the
+    original dictionary structure.
+    """
     rps = {
-        "DM1": {"f_1": 0.0, "f_2": 0.5, "f_3": 1.},
-        "DM2": {"f_1": 0.0, "f_2": 1., "f_3": 0.5},
-        "DM3": {"f_1": 0.5, "f_2": 1., "f_3": 0.0},
+        "DM1": {"f_1": 0.0, "f_2": 0.5, "f_3": 1.0},
+        "DM2": {"f_1": 0.0, "f_2": 1.0, "f_3": 0.5},
+        "DM3": {"f_1": 0.5, "f_2": 1.0, "f_3": 0.0},
     }
     result = dict_of_rps_to_list_of_rps(rps)
     print(result)  # results look resonable
@@ -56,14 +66,18 @@ def test_dict_to_list_and_back():
 # @pytest.mark.skip
 @pytest.mark.gnimbus
 def test_voting_procedure():
+    """Exercise the voting procedure for GNIMBUS.
 
+    This test prepares a small problem and a set of candidate solutions produced
+    by `solve_group_sub_problems`, then exercises `voting_procedure` with
+    different vote distributions to validate majority, plurality and
+    intermediate-tie behaviours.
+    """
     problem = dtlz2(8, 3)
 
     solver_options = IpoptOptions()
     # get some initial solution
-    initial_rp = {
-        "f_1": 0.4, "f_2": 0.5, "f_3": 0.8
-    }
+    initial_rp = {"f_1": 0.4, "f_2": 0.5, "f_3": 0.8}
     problem_w_sf, target = add_asf_diff(problem, "target", initial_rp)
     solver = PyomoIpoptSolver(problem_w_sf, solver_options)
     initial_result = solver.solve(target)
@@ -85,66 +99,72 @@ def test_voting_procedure():
     )
     voted_solutions = solution_results
 
-    # TEST MAJORITY WINS
+    # TEST PLURALITY WINS
     # make different votes
-    votes_idxs = {
-        "DM1": 1,
-        "DM2": 2,
-        "DM3": 2
-    }
+    votes_idxs = {"DM1": 1, "DM2": 2, "DM3": 2, "DM4": 0}
     res = voting_procedure(problem, voted_solutions, votes_idxs)
     assert res == solution_results[2]
     next_current_solution = res.optimal_objectives
     print(next_current_solution)
 
+    # TEST random among 2 top voted
+    votes_idxs = {"DM1": 1, "DM2": 2, "DM3": 2, "DM4": 1}
+    res = voting_procedure(problem, voted_solutions, votes_idxs)
+    assert res == solution_results[1] or res == solution_results[2]
+    next_current_solution = res.optimal_objectives
+    print(next_current_solution)
+
+    # TEST random among 3 top voted
+    votes_idxs = {"DM1": 0, "DM2": 0, "DM3": 1, "DM4": 1, "DM5": 2, "DM6": 2}
+    res = voting_procedure(problem, voted_solutions, votes_idxs)
+    assert res == solution_results[0] or res == solution_results[1] or res == solution_results[2]
+    assert res != solution_results[3]
+    next_current_solution = res.optimal_objectives
+    print(next_current_solution)
+
+    # TEST random among 4 top voted
+    votes_idxs = {"DM1": 0, "DM2": 3, "DM3": 2, "DM4": 1}
+    res = voting_procedure(problem, voted_solutions, votes_idxs)
+    assert res == solution_results[0] or res == solution_results[1] or res == solution_results[2] or res == solution_results[3]
+    next_current_solution = res.optimal_objectives
+    print(next_current_solution)
+
+    """
     # TEST PLULARITY WINS
     # make different votes
-    votes_idxs = {
-        "DM1": 1,
-        "DM2": 0,
-        "DM3": 0,
-        "DM4": 3,
-        "DM5": 2
-
-    }
+    votes_idxs = {"DM1": 1, "DM2": 0, "DM3": 0, "DM4": 3, "DM5": 2}
     res = voting_procedure(problem, voted_solutions, votes_idxs)
     print("here", res)
     assert res == solution_results[0]
     next_current_solution = res.optimal_objectives
     print(next_current_solution)
+    """
 
+    """
     # TEST intermediate
-    votes_idxs = {
-        "DM1": 0,
-        "DM2": 0,
-        "DM3": 2,
-        "DM4": 2
-    }
+    votes_idxs = {"DM1": 0, "DM2": 0, "DM3": 2, "DM4": 2}
     res = voting_procedure(problem, voted_solutions, votes_idxs)
     next_current_solution = res.optimal_objectives
     print(next_current_solution)
 
     # TEST according to gnimbus WINS
-    votes_idxs = {
-        "DM1": 1,
-        "DM2": 0,
-        "DM3": 2
-    }
+    votes_idxs = {"DM1": 1, "DM2": 0, "DM3": 2}
     res = voting_procedure(problem, voted_solutions, votes_idxs)
     print(res)
     print(solution_results[0])
     assert res == solution_results[0]  # for now tie-breaking rule is taking the first one. Error what?
+
     next_current_solution = res.optimal_objectives
     print(next_current_solution)
-
+    """
 
 @pytest.mark.gnimbus
 @pytest.mark.slow
 def test_solve_sub_problems_nondiff():
     """
-        Test that the scalarization problems in GNIMBUS are solved as expected.
-        TODO: get a correct ideal and nadir or some other non-diff problem for results to make sense.
+    Test that the scalarization problems in GNIMBUS are solved as expected.
 
+    TODO: get a correct ideal and nadir or some other non-diff problem for results to make sense.
     """
     problem = re22()
     # problem = simple_knapsack_vectors()
@@ -174,7 +194,10 @@ def test_solve_sub_problems_nondiff():
 
     phase = "learning"
     solutions = solve_group_sub_problems(
-        problem, initial_fs, dms_rps, phase,  # create_solver=PyomoIpoptSolver,  solver_options=solver_options
+        problem,
+        initial_fs,
+        dms_rps,
+        phase,  # create_solver=PyomoIpoptSolver,  solver_options=solver_options
     )
 
     assert len(solutions) == len(dms_rps) + 4
@@ -186,6 +209,7 @@ def test_solve_sub_problems_nondiff():
     print(solutions[4].optimal_objectives)
     print(solutions[5].optimal_objectives)
     print(solutions[6].optimal_objectives)
+
 
 @pytest.mark.gnimbus
 @pytest.mark.slow
@@ -199,9 +223,7 @@ def test_solve_sub_problems_diff():
     solver_options = IpoptOptions()
 
     # get some initial solution
-    initial_rp = {
-        "f_1": 0.4, "f_2": 0.5, "f_3": 0.8
-    }
+    initial_rp = {"f_1": 0.4, "f_2": 0.5, "f_3": 0.8}
     problem_w_sf, target = add_asf_diff(problem, "target", initial_rp)
     solver = PyomoIpoptSolver(problem_w_sf, solver_options)
     initial_result = solver.solve(target)
@@ -263,3 +285,75 @@ def test_solve_sub_problems_diff():
         solutions = solve_group_sub_problems(
             problem, initial_fs, non_valid_rps, phase, create_solver=PyomoIpoptSolver, solver_options=solver_options
         )
+
+
+def test_infer_group_classifications_improve_worsen_conflict():
+    """Unit tests for `infer_group_classifications` covering improve/worsen/conflict.
+
+    Creates a small synthetic scenario with two DMs' reference points and a
+    chosen current objective vector. Checks that each objective is classified
+    correctly as 'improve', 'worsen' or 'conflict', and that reported values
+    correspond to the original reference points.
+    """
+    problem = nimbus_test_problem()
+
+    # choose a current point similar to other tests
+    current_objectives = {"f_1": 4.5, "f_2": 3.2, "f_3": -5.2, "f_4": -1.2, "f_5": 120.0, "f_6": 9001.0}
+
+    # Construct two DMs' reference points such that:
+    # - For f_1 (maximize): both rps >= current -> group wants to improve
+    # - For f_2 (minimize): both rps <= current -> group wants to improve
+    # - For f_3 (minimize): both rps > current -> group wants to worsen
+    # - For f_4 (minimize): mixed -> conflict
+    # - For f_5 (minimize): both rps < current -> improve
+    # - For f_6 (minimize): both rps <= current -> improve (edge-case close)
+    rp_dm1 = {"f_1": 6.0, "f_2": 2.0, "f_3": -3.0, "f_4": -2.0, "f_5": 100.0, "f_6": 9000.0}
+    rp_dm2 = {"f_1": 5.0, "f_2": 1.0, "f_3": -4.0, "f_4": 0.0, "f_5": 80.0, "f_6": 8999.0}
+
+    reference_points = {"dm1": rp_dm1, "dm2": rp_dm2}
+
+    classifications = infer_group_classifications(problem, current_objectives, reference_points, silent=True)
+
+    # Ensure we got a classification for each objective and a list of values per DM
+    assert set(classifications.keys()) == set(obj.symbol for obj in problem.objectives)
+
+    # f_1 maximize -> both rps are >= current => improve
+    assert classifications["f_1"][0] == "improve"
+    assert np.isclose(classifications["f_1"][1][0], rp_dm1["f_1"]) and np.isclose(
+        classifications["f_1"][1][1], rp_dm2["f_1"]
+    )
+
+    # f_2 minimize -> both rps <= current => improve
+    assert classifications["f_2"][0] == "improve"
+
+    # f_3 minimize -> both rps > current => worsen
+    assert classifications["f_3"][0] == "worsen"
+
+    # f_4 -> conflicting views
+    assert classifications["f_4"][0] == "conflict"
+
+    # f_5 minimize -> both rps < current => improve
+    assert classifications["f_5"][0] == "improve"
+
+    # f_6 minimize -> both rps <= current => improve
+    assert classifications["f_6"][0] == "improve"
+
+
+def test_infer_group_classifications_missing_entry_raises():
+    """Ensure `infer_group_classifications` raises when a DM's RP misses an objective.
+
+    Constructs reference points where one DM is missing an objective entry and
+    asserts that `GNIMBUSError` is raised.
+    """
+    problem = nimbus_test_problem()
+
+    current_objectives = {"f_1": 1.0, "f_2": 2.0, "f_3": 3.0, "f_4": 4.0, "f_5": 5.0, "f_6": 6.0}
+
+    # dm2 missing f_3
+    rp_dm1 = {"f_1": 2.0, "f_2": 1.0, "f_3": 0.0, "f_4": 4.5, "f_5": 5.5, "f_6": 6.5}
+    rp_dm2 = {"f_1": 2.5, "f_2": 1.5, "f_4": 4.1, "f_5": 5.1, "f_6": 6.1}
+
+    reference_points = {"dm1": rp_dm1, "dm2": rp_dm2}
+
+    with pytest.raises(GNIMBUSError):
+        infer_group_classifications(problem, current_objectives, reference_points)
