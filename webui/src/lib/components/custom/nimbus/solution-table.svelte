@@ -137,6 +137,14 @@
 		return `${baseName} ${indexSuffix}`;
 	});
 
+	// Helper function to get objective title for display
+	function getObjectiveTitle(objective: any): string {
+		if (!objective) return '';
+		
+		const tooltip = objective.description || objective.name;
+		return objective.unit ? `${tooltip} (${objective.unit})` : tooltip;
+	}
+
 	let columnVisibility = $state<VisibilityState>({});
 	let columnFilters = $state<ColumnFiltersState>([]);
 	let sorting = $state<SortingState>([]);
@@ -445,11 +453,11 @@
 			style={objective
 				? `border-bottom: 4px solid ${COLOR_PALETTE[(idx ?? 0) % COLOR_PALETTE.length]}; width: 100%; padding: 0.5rem;`
 				: ''}
-			title={objective ? (objective.unit ? `${objective.name} (${objective.unit})` : objective.name) : undefined}
+			title={objective ? getObjectiveTitle(objective) : undefined}
 			{...restProps}
 		>
 			{#if objective}
-				{objective.symbol}
+				{objective.name}
 				{objective.unit ? `/ ${objective.unit}` : ''}({objective.maximize ? 'max' : 'min'})
 			{:else if title}
 				{title}
@@ -469,11 +477,11 @@
 				size="sm"
 				onclick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
 				class="-ml-3 h-8 {objective ? 'flex-1 justify-start text-left' : ''}"
-				title={objective ? (objective.unit ? `${objective.name} (${objective.unit})` : objective.name) : undefined}
+				title={objective ? getObjectiveTitle(objective) : undefined}
             >
 				<span>
 					{#if objective}
-						{objective.symbol}
+						{objective.name}
 						{objective.unit ? `/ ${objective.unit}` : ''}({objective.maximize ? 'max' : 'min'})
 					{:else if title}
 						{title}

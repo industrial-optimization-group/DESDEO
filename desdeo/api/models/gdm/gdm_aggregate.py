@@ -84,10 +84,10 @@ class GroupIteration(SQLModel, table=True):
 
     parent_id: int | None = Field(foreign_key="groupiteration.id", default=None)
     parent: "GroupIteration" = Relationship(
-        back_populates="child", sa_relationship_kwargs={"remote_side": "GroupIteration.id"}
+        back_populates="children", sa_relationship_kwargs={"remote_side": "GroupIteration.id"}
     )
     # If parent is removed, remove the child too
-    child: "GroupIteration" = Relationship(
+    children: list["GroupIteration"] = Relationship(
         back_populates="parent", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
 

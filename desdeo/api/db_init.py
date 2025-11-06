@@ -28,7 +28,6 @@ if __name__ == "__main__":
             SQLModel.metadata.create_all(engine)
         print("Database tables created.")
 
-        """
         with Session(engine) as session:
             user_analyst = User(
                 username=ServerConfig.test_user_analyst_name,
@@ -47,6 +46,8 @@ if __name__ == "__main__":
 
             session.commit()
             session.refresh(problem_db)
+
+        """
 
         db.add(user_analyst)
         db.commit()

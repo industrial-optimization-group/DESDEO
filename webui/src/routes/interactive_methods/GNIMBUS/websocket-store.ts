@@ -69,15 +69,16 @@ export class WebSocketService {
 						const timeoutId = setTimeout(() => {
 							isLoading.set(false);
 							resolve(false);
-						}, 5000); // 5 second timeout
+						}, 3000); // 3 second timeout
 
-						// Set up one-time message handler to check for immediate errors
+						// Set up one-time message handler to check for immediate success or error message
 						const messageHandler = (event: MessageEvent) => {
 							clearTimeout(timeoutId);
 							this.socket?.removeEventListener('message', messageHandler);
 							
-							// Check if the message indicates an error
-							const success = !(event.data.includes('error') || event.data.includes('failed'));
+							// Check if the message indicates an error. 
+							// TODO: when API changes, all error msgs will have keyword ERROR, other conditions can be removed.
+							const success = !(event.data.includes('ERROR')  || event.data.includes('error') || event.data.includes('failed'));
 							isLoading.set(false);
 							resolve(success);
 						};

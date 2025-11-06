@@ -91,7 +91,7 @@
 			{#each objectiveValues as objectiveValue, index}
 				{#if index !== personalResultIndex}
 					<Table.Row class="pointer-events-none">
-						<Table.Cell class="border-l-10 border-emerald-400 pl-6"></Table.Cell>
+						<Table.Cell class="border-l-10"></Table.Cell>
 						<Table.Cell class="italic">
 							<div>
 								<span class="text-gray-500">Another user's solution</span>

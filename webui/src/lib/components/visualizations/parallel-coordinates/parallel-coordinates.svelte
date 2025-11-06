@@ -82,7 +82,7 @@
 	export let data: { [key: string]: number }[] = [];
 
 	// Dimension definitions - describes each axis with optional constraints
-	export let dimensions: { symbol: string; min?: number; max?: number; direction?: 'max' | 'min' }[] =
+	export let dimensions: { name: string; min?: number; max?: number; direction?: 'max' | 'min' }[] =
 		[];
 
 	// Optional reference data for enhanced visualization
@@ -99,7 +99,7 @@
 		showAxisLabels: true,
 		highlightOnHover: true,
 		strokeWidth: 2,
-		opacity: 0.7,
+		opacity: 0.4,
 		enableBrushing: true
 	};
 	// optional map of labels for each data index for tooltip display on hover
@@ -271,13 +271,13 @@
 				if (isSelected(i)) return 1;// Selected line is fully opaque
 					return options.opacity; // Other lines use configured opacity
 				})
-			// Set stroke color - selected line gets theme color, others are gray
+			// Set stroke color - both selected and other lines get theme color, other linesa are just thinner and less opaque
 			.attr('stroke', (d, i) => {
 				const passes = passesFilters(d);
-				if (!passes) return '#ccc'; // Hidden lines are gray
+				if (!passes) return '#3b82f6'; // Hidden lines are primary color
 
 				if (isSelected(i)) return '#3b82f6'; // Selected line uses primary color
-				return '#ccc'; // Non-selected lines are gray
+				return '#3b82f6'; // Non-selected lines are primary color
 			})
 			// Set stroke width - selected line is slightly thicker
 			.attr('stroke-width', (d, i) => {
@@ -592,7 +592,7 @@
 						.datum(solutionData)
 						.attr('d', line)
 						.attr('fill', 'none')
-						.attr('stroke', '#10b981') // Emerald color
+						.attr('stroke', '#333') // Gray color
 						.attr('stroke-width', options.strokeWidth)
 						.attr('stroke-dasharray', '3,3') // Dashed pattern
 						.attr('opacity', 0.6);
@@ -619,7 +619,7 @@
 						.attr('d', line)
 						.attr('fill', 'none')
 						.attr('stroke', '#10b981') // Emerald color for preferred
-						.attr('stroke-width', options.strokeWidth + 2) // Thicker than normal lines
+						.attr('stroke-width', options.strokeWidth + 1) // Thicker than otherSolutions
 						.attr('stroke-dasharray', '4,2') // Different dash pattern
 						.attr('opacity', 0.8);
 					
@@ -797,16 +797,16 @@
 					.style('font-size', '12px')
 					.style('font-weight', 'bold')
 					.style('fill', '#333')
-					.text(dim.symbol)
+					.text(dim.name)
 
 					// Add an arrow if direction is specified
 				if (dim.direction) {
-					const arrowX = x - 5 + dim.symbol.length * 7; // Rough estimate of text width
+					const arrowX = x; // Rough estimate of text width
 					svgElement
 						.append('path')
 						.attr('d', dim.direction === 'max' 
-							? `M${arrowX},-8 L${arrowX+5},-16 L${arrowX+10},-8` // Up arrow
-							: `M${arrowX},-16 L${arrowX+5},-8 L${arrowX+10},-16` // Down arrow
+							? `M${arrowX-5},8 L${arrowX},0 L${arrowX+5},8` // Up arrow
+							: `M${arrowX-5},0 L${arrowX},8 L${arrowX+5},0` // Down arrow
 						)
 						.attr('fill', '#333')
 						.attr('stroke', 'none');

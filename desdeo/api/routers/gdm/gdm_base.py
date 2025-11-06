@@ -201,7 +201,7 @@ def delete_group(
         session (Annotated[Session, Depends(get_session)]): The database session
 
     Returns:
-        JSONResponse: Aknowledgement of the deletion
+        JSONResponse: Acknowledgement of the deletion
 
     Raises:
         HTTPException: Insufficient authorization etc.
@@ -233,6 +233,7 @@ def delete_group(
     session.refresh(user)
 
     # Get the root iteration
+    # TODO: Adapt this to the new cascade with multiple children
     head: GroupIteration = group.head_iteration
     iter_count = 0
     if head is not None:

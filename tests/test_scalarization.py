@@ -21,11 +21,21 @@ from desdeo.tools import (
 from desdeo.tools.pyomo_solver_interfaces import PyomoIpoptSolver
 from desdeo.tools.scalarization import (
     ScalarizationError,
+    add_guess_sf_diff,
+    add_guess_sf_nondiff,
+    add_nimbus_sf_diff,
+    add_nimbus_sf_nondiff,
+    add_stom_sf_diff,
+    add_stom_sf_nondiff,
+    add_weighted_sums,
+    add_desirability_funcs,
     add_asf_diff,
     add_asf_generic_diff,
     add_asf_generic_nondiff,
     add_asf_nondiff,
     add_epsilon_constraints,
+)
+from desdeo.tools.group_scalarization import (
     add_group_asf,
     add_group_asf_agg,
     add_group_asf_agg_diff,
@@ -42,14 +52,6 @@ from desdeo.tools.scalarization import (
     add_group_stom_agg,
     add_group_stom_agg_diff,
     add_group_stom_diff,
-    add_guess_sf_diff,
-    add_guess_sf_nondiff,
-    add_nimbus_sf_diff,
-    add_nimbus_sf_nondiff,
-    add_stom_sf_diff,
-    add_stom_sf_nondiff,
-    add_weighted_sums,
-    add_desirability_funcs,
 )
 
 

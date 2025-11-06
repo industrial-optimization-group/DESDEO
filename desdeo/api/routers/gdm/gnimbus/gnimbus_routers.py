@@ -16,6 +16,7 @@ from sqlmodel import Session, select
 
 from desdeo.api.db import get_session
 from desdeo.api.models import (
+    EndProcessPreference,
     FullIteration,
     GNIMBUSAllIterationsResponse,
     GNIMBUSResultResponse,
@@ -98,7 +99,6 @@ def gnimbus_initialize(
         state_id=state.id,
         parent_id=None,
         parent=None,
-        child=None,
     )
 
     session.add(start_iteration)
@@ -115,14 +115,15 @@ def gnimbus_initialize(
         notified={},
         parent_id=start_iteration.id,
         parent=start_iteration,
-        child=None,
     )
 
     session.add(new_iteration)
     session.commit()
     session.refresh(new_iteration)
 
-    start_iteration.child = new_iteration
+    children = start_iteration.children.copy()
+    children.append(new_iteration)
+    start_iteration.children = children
     session.add(start_iteration)
     group.head_iteration = new_iteration
     session.add(group)
@@ -416,3 +417,124 @@ def get_phase(
         current_iteration = current_iteration.parent
 
     return JSONResponse(content={"phase": current_iteration.preferences.phase}, status_code=status.HTTP_200_OK)
+
+def get_preference_item(item):
+    """Returns an empty preference item for adding preferences.
+
+    Args:
+        item: Preference item to get type whatever
+
+    Returns:
+        Preference item.
+    """
+    if type(item) is OptimizationPreference:
+        return OptimizationPreference(
+            set_preferences={}
+        )
+    if type(item) is EndProcessPreference:
+        return EndProcessPreference(
+            success=None,
+            set_preferences={}
+        )
+    return VotingPreference(
+        set_preferences={}
+    )
+
+@router.post("/revert_iteration")
+async def revert_iteration(
+    request: GroupInfoRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)],
+) -> JSONResponse:
+    """Changes the starting solution of an iteration so in case of emergency the group owner can just change it.
+
+    Args:
+        request (GNIMBUSChangeStartingSolutionRequest): The request containing necessary details to fulfill the change.
+        user (Annotated[User, Depends): The current user.
+        session (Annotated[Session, Depends): The database session.
+
+    Raises:
+        HTTPException
+
+    Returns:
+        JSONResponse: Response that acknowledges the changes.
+    """
+    group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
+    if not group:
+        raise HTTPException(
+            detail=f"No group with ID {request.group_id}!",
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    if group.owner_id is not user.id:
+        raise HTTPException(
+            detail="Unauthorized user!",
+            status_code=status.HTTP_401_UNAUTHORIZED
+        )
+
+    current_iteration = group.head_iteration
+    if not current_iteration:
+        raise HTTPException(
+            detail="There's no head iteration",
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+
+    # What are the implications of just going back?
+    # Also, how does one go about doing it?
+    # 1. remove the current head iteration
+    # 2. set previous iteration as the head iteration
+    # 3. remove the state and some such
+    # 4. reset the state by setting all different thingamajigs to None
+    # 5. so how does this go, do i want to like, change the voting/ending thing also?
+    #    basically, do i need to change the preference item in the database?
+
+    prev_iteration: GroupIteration = current_iteration.parent
+    if not prev_iteration:
+        raise HTTPException(
+            details="There's no parent iteration!",
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+
+    parent = prev_iteration.parent
+
+    state = session.exec(select(StateDB).where(StateDB.id == prev_iteration.state_id)).first()
+    if not state:
+        raise HTTPException(
+            detail="There is no concrete state in current iteration.",
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+
+    new_iteration = GroupIteration(
+        problem_id=group.problem_id,
+        group_id=group.id,
+        group=group,
+        preferences=get_preference_item(prev_iteration.preferences),
+        notified={},
+        parent_id=prev_iteration.parent_id,
+        parent=parent,
+    )
+
+    session.add(new_iteration)
+    session.commit()
+
+    group.head_iteration = new_iteration
+
+    session.add(group)
+    session.delete(current_iteration)
+    session.commit()
+    session.refresh(group)
+
+    children = parent.children.copy()
+    children.append(new_iteration)
+    parent.children = children
+    session.add(parent)
+    session.commit()
+
+    gman = await manager.get_group_manager(group_id=group.id, method="gnimbus")
+    await gman.broadcast("UPDATE: Latest iteration reversed by the group owner!")
+
+    return JSONResponse(
+        content={
+            "message": "Iteration reversed!",
+        },
+        status_code=status.HTTP_200_OK
+    )

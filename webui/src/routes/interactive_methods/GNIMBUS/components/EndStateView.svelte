@@ -16,15 +16,17 @@
 
 	let {
 		problem,
-		tableData
+		tableData,
+		showVariables = false
 	}: {
 		problem: ProblemInfo;
 		tableData: TableData[]; // Array of solutions
+		showVariables?: boolean;
 	} = $props();
 
 	/**
 	 * Prepares CSV content for a single solution
-	 * Formats both objective values and decision variables in separate sections
+	 * Formats objective values and optionally decision variables based on showVariables prop
 	 *
 	 * @param solution The solution data to format
 	 * @returns Formatted CSV string or null if problem is not defined
@@ -39,18 +41,24 @@
 			problem.objectives.map((obj) => solution.objective_values?.[obj.symbol] ?? '').join(',') // Objective values
 		];
 
-		// Add blank line between sections
-		const separator = '';
+		// Only include variables section if showVariables is true
+		if (showVariables && problem.variables && problem.variables.length > 0) {
+			// Add blank line between sections
+			const separator = '';
 
-		// Prepare variables table
-		const variableSection = [
-			'Variables', // Title for variables section
-			problem.variables?.map((v) => v.name).join(','), // Variable names
-			problem.variables?.map((v) => solution.variable_values?.[v.symbol] ?? '').join(',') // Variable values
-		];
+			// Prepare variables table
+			const variableSection = [
+				'Variables', // Title for variables section
+				problem.variables.map((v) => v.name).join(','), // Variable names
+				problem.variables.map((v) => solution.variable_values?.[v.symbol] ?? '').join(',') // Variable values
+			];
 
-		// Combine sections with blank line separator
-		return [...objectiveSection, separator, ...variableSection].join('\n');
+			// Combine sections with blank line separator
+			return [...objectiveSection, separator, ...variableSection].join('\n');
+		}
+
+		// Return only objectives section if variables are not shown
+		return objectiveSection.join('\n');
 	}
 
 	/**
@@ -105,14 +113,16 @@
 		/>
 	</div>
 
-	<div class="min-h-0 flex-1">
-		<FinalResultTable
-			{problem}
-			solverResults={tableData}
-			mode="variables"
-			title="Decision Variables"
-		/>
-	</div>
+	{#if showVariables}
+		<div class="min-h-0 flex-1">
+			<FinalResultTable
+				{problem}
+				solverResults={tableData}
+				mode="variables"
+				title="Decision Variables"
+			/>
+		</div>
+	{/if}
 
 	<div class="flex-none">
 		<Button onclick={handleDownload}>Download Results as CSV</Button>

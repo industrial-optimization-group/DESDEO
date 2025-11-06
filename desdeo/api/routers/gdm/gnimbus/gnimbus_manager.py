@@ -41,9 +41,9 @@ def compare_variable(v1: int | float | list, v2: int | float | list) -> bool:
         # Not of the same type! How can this be?
         return False
 
-    if type(v1) == int:
+    if type(v1) is int:
         return v1 == v2
-    elif type(v1) == float:
+    elif type(v1) is float:
         return math.isclose(v1, v2)
     else: # Type is list
         return all([math.isclose(tup[0], tup[1]) for tup in zip(v1, v2, strict=True)])
@@ -99,6 +99,7 @@ class GNIMBUSManager(GroupManager):
         session.commit()
         session.refresh(current_iteration)
         print(current_iteration.preferences)
+        await self.send_message("Received preferences successfully", self.sockets[user_id])
 
     async def check_preferences(
         self,
@@ -137,13 +138,26 @@ class GNIMBUSManager(GroupManager):
         owner_id: int,
     ):
         """Add the state into database."""
+        """
+        if current_iteration.parent:
+            parent_state_id = session.exec(
+                select(StateDB).where(StateDB.id == current_iteration.parent.state_id)
+            ).first()
+        """
+
         new_state = StateDB.create(
-            database_session=session, problem_id=problem_db.id, session_id=None, parent_id=None, state=optim_state
+            database_session=session,
+            problem_id=problem_db.id,
+            session_id=None,
+            parent_id=None,
+            state=optim_state
         )
 
         session.add(new_state)
         session.commit()
         session.refresh(new_state)
+
+        print(new_state.parent)
 
         # Update state id to current iteration
         current_iteration.state_id = new_state.id
@@ -154,7 +168,7 @@ class GNIMBUSManager(GroupManager):
         g = user_ids
         g.append(owner_id)
         notified = await self.notify(
-            user_ids=g, message=f"Please fetch {current_iteration.preferences.method} results."
+            user_ids=g, message=f"UPDATE: Please fetch {current_iteration.preferences.method} results."
         )
 
         # Update iteration's notifcation database item
@@ -177,14 +191,14 @@ class GNIMBUSManager(GroupManager):
         try:
             preference = ReferencePoint.model_validate(json.loads(data))
         except ValidationError:
-            await self.send_message("Unable to validate sent data as reference point!", self.sockets[user_id])
+            await self.send_message("ERROR: Unable to validate sent data as reference point!", self.sockets[user_id])
             return None
         except json.decoder.JSONDecodeError:
-            await self.send_message("Unable to decode data; make sure it is formatted properly.", self.sockets[user_id])
+            await self.send_message("ERROR: Unable to decode data; make sure it is formatted properly.", self.sockets[user_id])
             return None
         except KeyError:
             await self.send_message(
-                "Unable to validate data; make sure it is formatted properly.", self.sockets[user_id]
+                "ERROR: Unable to validate data; make sure it is formatted properly.", self.sockets[user_id]
             )
             return None
 
@@ -243,12 +257,12 @@ class GNIMBUSManager(GroupManager):
             logger.info(f"Optimization for group {self.group_id} done.")
 
         except ScalarizationError as e:
-            await self.broadcast(f"Error while scalarizing: {e}")
+            await self.broadcast(f"ERROR: Error while scalarizing: {e}")
             logger.exception(f"ERROR: {e}")
             return None
 
         except Exception as e:
-            await self.broadcast(f"An error occured while optimizing: {e}")
+            await self.broadcast(f"ERROR: An error occured while optimizing: {e}")
             logger.exception(f"ERROR: {e}")
             return None
 
@@ -279,11 +293,11 @@ class GNIMBUSManager(GroupManager):
         try:
             preference = int(data)
             if preference > 3 or preference < 0:
-                await self.send_message("Voting index out of bounds! Can only vote for 0 to 3.", self.sockets[user_id])
+                await self.send_message("ERROR: Voting index out of bounds! Can only vote for 0 to 3.", self.sockets[user_id])
                 return None
         except Exception as e:
             print(e)
-            await self.send_message("Unable to validate sent data as an integer!", self.sockets[user_id])
+            await self.send_message("ERROR: Unable to validate sent data as an integer!", self.sockets[user_id])
             return None
 
         preferences: VotingPreference = copy.deepcopy(current_iteration.preferences)
@@ -349,7 +363,7 @@ class GNIMBUSManager(GroupManager):
         try:
             preference: bool = bool(int(data))
         except Exception:
-            await self.send_message("Unable to validate sent data as an boolean value.", self.sockets[user_id])
+            await self.send_message("ERROR: Unable to validate sent data as an boolean value.", self.sockets[user_id])
             return None
 
         preferences: EndProcessPreference = copy.deepcopy(current_iteration.preferences)
@@ -448,12 +462,12 @@ class GNIMBUSManager(GroupManager):
             session = next(get_session())
             group = session.exec(select(Group).where(Group.id == self.group_id)).first()
             if group is None:
-                await self.broadcast(f"The group with ID {self.group_id} doesn't exist anymore.")
+                await self.broadcast(f"ERROR: The group with ID {self.group_id} doesn't exist anymore.")
                 session.close()
                 return
 
             if group.head_iteration is None:
-                await self.broadcast("Problem not initialized! Initialize the problem!")
+                await self.broadcast("ERROR: Problem not initialized! Initialize the problem!")
                 session.close()
                 return
 
@@ -463,7 +477,7 @@ class GNIMBUSManager(GroupManager):
             problem_db: ProblemDB = session.exec(select(ProblemDB).where(ProblemDB.id == group.problem_id)).first()
             # This shouldn't be a problem at this point anymore, but
             if problem_db is None:
-                await self.broadcast(f"There's no problem with ID {group.problem_id}!")
+                await self.broadcast(f"ERROR: There's no problem with ID {group.problem_id}!")
                 return
 
             # Diverge into different paths using PreferenceResult method type of the current iteration.
@@ -517,14 +531,17 @@ class GNIMBUSManager(GroupManager):
                 notified={},
                 parent_id=current_iteration.id,  # Probably redundant to have
                 parent=current_iteration,  # two connections to parents?
-                child=None,
             )
+
             session.add(next_iteration)
             session.commit()
             session.refresh(next_iteration)
 
             # Update new parent iteration
-            current_iteration.child = next_iteration
+            children = current_iteration.children.copy()
+            children.append(next_iteration)
+            current_iteration.children = children
+            current_iteration.group_id = self.group_id
             session.add(current_iteration)
             session.commit()
 
