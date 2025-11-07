@@ -32,67 +32,51 @@ export function checkUtopiaMetadata(prob: ProblemInfo | null) {
 }
 
 interface MessageState {
-	message: string;
 	isOwner: boolean;
 	isDecisionMaker: boolean;
 	step: 'optimization' | 'voting' | 'finish';
-	phase: string;
 	isActionDone: boolean;
 }
 /**
  * Determines the appropriate status message based on current application state
  *
  * @param state Current state of the application including:
- *        - message: Current WebSocket or system message
  *        - isOwner: Whether current user is group owner
  *        - isDecisionMaker: Whether current user is a decision maker
  *        - step: Current step (optimization/voting)
  *        - phase: Current phase (learning/crp/decision)
  *        - isActionDone: Whether user has completed their current action
- * @returns Object containing status message text and alert flag
+ * @returns Status message text with formatted phase names and clear instructions
  */
-export function getStatusMessage(state: MessageState): { text: string; isAlert?: boolean } {
-	// Handle websocket messages first
-	if (
-		state.message &&
-		!state.message.includes('Please fetch') &&
-		!state.message.includes('Voting has concluded')
-	) {
-		return { text: state.message };
+export function getStatusMessage(state: MessageState): string {
+	// Process finished
+	if (state.step === 'finish') {
+		return 'The decision process has ended succesfully. Viewing the selected final solution below.';
 	}
 
-	// Owner but not decision maker
-	if (state.isOwner && !state.isDecisionMaker) {
-		return {
-			text:
-				state.step === 'optimization'
-					? `Viewing current solutions in ${state.phase} phase. Phase can be switched during optimization steps.`
-					: `Viewing solutions in ${state.phase} phase. Please wait for voting to complete.`
-		};
-	}
+    // Owner but not decision maker
+    if (state.isOwner && !state.isDecisionMaker) {
+        return state.step === 'optimization'
+            ? `Click button to change the phase.`
+            : `Please wait for decision makers to complete voting.`;
+    }
 
-	// Decision maker in voting mode
-	if (state.step === 'voting' && state.isDecisionMaker) {
-		return {
-			text: state.isActionDone
-				? 'Waiting for other users to finish voting. You can still change your vote by selecting another solution.'
-				: 'Please vote for your preferred solution by selecting it from the table below.',
-			isAlert: !state.isActionDone
-		};
-	}
+    // Decision maker in voting mode
+    if (state.step === 'voting' && state.isDecisionMaker) {
+        return state.isActionDone
+            ? `Your vote has been recorded. You may change your vote while waiting for others to complete.`
+            : `Please select your preferred solution to cast your vote.`;
+    }
 
-	// Decision maker in optimization mode
-	if (state.step === 'optimization' && state.isDecisionMaker) {
-		return {
-			text: state.isActionDone
-				? 'Waiting for other users to finish their iterations. You can still modify your preferences and iterate again.'
-				: 'Please set your preferences for the current solution using the classification interface on the left.',
-			isAlert: !state.isActionDone
-		};
-	}
+    // Decision maker in optimization mode
+    if (state.step === 'optimization' && state.isDecisionMaker) {
+        return state.isActionDone
+            ? `Your preferences are set. You may modify them while waiting for other decision makers.`
+            : `Use the classification interface on the left to set your preferences for the current solution.`;
+    }
 
 	// Default case
-	return { text: 'Viewing group progress.' };
+	return 'Viewing group progress.';
 }
 
 export interface VisualizationData {
@@ -119,6 +103,7 @@ export function createVisualizationData(
 		previous:
 			step === 'voting' &&
 			currentState.phase !== 'decision' &&
+			currentState.phase !== 'compromise' &&
 			currentState.personal_result_index !== null
 				? mapSolutionsToObjectiveValues(
 						[currentState.user_results[currentState.personal_result_index]],
@@ -136,7 +121,7 @@ export function createPreferenceData(
 	currentPreference: number[]
 ): PreferenceData {
 	return {
-		previousValues: step === 'optimization' ? lastIteratedPreference : [],
+		previousValues: lastIteratedPreference,
 		currentValues: step === 'optimization' ? currentPreference : []
 	};
 }
@@ -147,7 +132,7 @@ export function determineStep(iteration: Response): 'optimization' | 'voting' | 
 		return 'optimization';
 	}
 	if (
-		iteration.phase === 'decision' &&
+		(iteration.phase === 'decision' || iteration.phase === 'compromise') &&
 		iteration.voting_preferences?.method === 'end' &&
 		iteration.voting_preferences.success
 	) {
@@ -229,7 +214,6 @@ export function mapSolutionsToObjectiveValues(solutions: Solution[], problem: Pr
 }
 
 /**
- * TODO: timeout thing, general http and websocket cleaning and refactoring. if errors and spinners not needed, remove from imports
  * Generic API call function for GNIMBUS operations.
  * This function wraps the fetch API to provide a consistent way to interact with the GNIMBUS backend proxy.
  * It handles setting a loading state, clearing previous errors, request timeouts, and unified error handling.
@@ -242,32 +226,57 @@ export function mapSolutionsToObjectiveValues(solutions: Solution[], problem: Pr
  */
 export async function callGNimbusAPI<T>(
 	type: string,
-	data: Record<string, any>
+	data: Record<string, any>,
+	timeout = 10000 // 10s default
 ): Promise<{
 	success: boolean;
 	data?: T;
 	error?: string;
 }> {
+	isLoading.set(true);
+	errorMessage.set(null);
+	const controller = new AbortController();
+	const timeoutId = setTimeout(() => controller.abort(), timeout);
+
 	try {
 		const response = await fetch(`/interactive_methods/GNIMBUS/?type=${type}`, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json'
 			},
-			body: JSON.stringify(data)
+			body: JSON.stringify(data),
+			signal: controller.signal
 		});
 
-		if (!response.ok) {
-			throw new Error(`HTTP error! Status: ${response.status}`);
-		}
+		clearTimeout(timeoutId);
 
 		const result = await response.json();
+
+		if (!response.ok || !result.success) {
+			const status = response.status;
+			console.log(status)
+			let errorMsg = result.error || `HTTP error! Status: ${status}`;
+			if (status === 401) errorMsg = `${errorMsg} Please log in again.`;
+			// if (status === 403) errorMsg = `${errorMsg} You do not have permission to perform this action.`; // TODO: use if needed
+			throw new Error(errorMsg);
+		}
 		return result;
+		
 	} catch (error) {
-		console.error(`Error calling GNIMBUS ${type} API:`, error);
-		return {
-			success: false,
-			error: error instanceof Error ? error.message : 'Unknown error'
-		};
+		let errorMsg: string;
+		if (error instanceof Error) {
+			if (error.name === 'AbortError') {
+				errorMsg = 'The request timed out. Please try again.';
+			} else {
+				errorMsg = error.message;
+			}
+		} else {
+			errorMsg = 'An unknown error occurred';
+		}
+		errorMessage.set(errorMsg);
+		console.error(`Error calling NIMBUS ${type} API:`, errorMsg);
+		return { success: false, error: errorMsg };
+	} finally {
+		isLoading.set(false);
 	}
 }
