@@ -86,7 +86,7 @@
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
-	import DataTableToolbar from './solution-table-toolbar.svelte';
+	import SolutionTableToolbar from './solution-table-toolbar.svelte';
 	import PreviousSolutions from './solution-table-prev-solutions.svelte';
 	import UserResults from './solution-table-gdm-user-results.svelte';
 
@@ -113,7 +113,7 @@
 		personalResultIndex
 	}: {
 		problem: ProblemInfo;
-		solverResults: Array<Solution>;
+		solverResults: Array<any>;
 		selectedSolutions: number[];
 		handle_save?: (solution: Solution, name: string | undefined) => void;
 		handle_change?: (solution: Solution) => void;
@@ -151,7 +151,7 @@
 	let pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 5 });
 
 	// Define columns for the table
-	const columns: ColumnDef<Solution>[] = $derived.by(() => {
+	const columns: ColumnDef<any>[] = $derived.by(() => {
 		return [
 			// First column - Bookmark/Save icon
 			{
@@ -180,12 +180,15 @@
 			...(selected_type_solutions !== 'current'
 				? [
 						{
-							accessorKey: 'address_state',
+							id: 'iteration_number',
+							accessorFn: (row: any) => String(row.iteration_number ?? row.state_id ?? ''),
 							header: ({ column }: { column: Column<Solution> }) =>
 								renderSnippet(ColumnHeader, { column, title: 'Iteration' }),
-							cell: ({ row }: { row: Row<Solution> }) =>
+							cell: ({ row }: { row: Row<any> }) =>
 								renderSnippet(IterationCell, { solution: row.original }),
-							enableSorting: true
+							enableSorting: true,
+							enableColumnFilter: true,
+							filterFn: 'includesString' // Force string-based filtering
 						}
 					]
 				: []),
@@ -417,8 +420,12 @@
 	{/if}
 {/snippet}
 
-{#snippet IterationCell({ solution }: { solution: Solution })}
-	{solution.state_id}
+{#snippet IterationCell({ solution }: { solution: any })}
+	{#if methodPage ==="gnimbus"}
+		{solution.iteration_number}
+	{:else}
+		{solution.state_id}
+	{/if}
 {/snippet}
 
 {#snippet ObjectiveCell({
@@ -502,7 +509,15 @@
 {#if problem}
 	<div class="flex h-full flex-col items-start">
 		{#if selected_type_solutions !== 'current' && !isFrozen}
-			<DataTableToolbar {table} />
+			{#if methodPage ==='gnimbus'}
+				<SolutionTableToolbar
+					{table}
+					filterColumn="iteration_number"
+					placeholder="Filter solutions by iteration..."
+				/>
+			{:else}
+				<SolutionTableToolbar {table} />
+			{/if}
 		{/if}
 		<div class="overflow-auto rounded border shadow-sm">
 			<!-- Header and previous solutions -->
@@ -553,22 +568,23 @@
 							</Table.Cell>
 						</Table.Row>
 					{/each}
-
-					{#if methodPage === 'nimbus' && selected_type_solutions === 'current' && secondaryObjectiveValues.length > 0}
-						<PreviousSolutions
-							{problem}
-							previousObjectiveValues={secondaryObjectiveValues}
-							displayAccuracy={displayAccuracy}
-							columnsLength={columns.length}
-						/>
-					{:else if methodPage === 'gnimbus'}
-						<UserResults
-							{problem}
-							objectiveValues={secondaryObjectiveValues}
-							displayAccuracy={displayAccuracy}
-							columnsLength={columns.length}
-							personalResultIndex={personalResultIndex ?? -1}
-						/>
+					{#if selected_type_solutions === 'current'}
+						{#if methodPage === 'nimbus' && secondaryObjectiveValues.length > 0}
+							<PreviousSolutions
+								{problem}
+								previousObjectiveValues={secondaryObjectiveValues}
+								displayAccuracy={displayAccuracy}
+								columnsLength={columns.length}
+							/>
+						{:else if methodPage === 'gnimbus'}
+							<UserResults
+								{problem}
+								objectiveValues={secondaryObjectiveValues}
+								displayAccuracy={displayAccuracy}
+								columnsLength={columns.length}
+								personalResultIndex={personalResultIndex ?? -1}
+							/>
+						{/if}
 					{/if}
 				</Table.Body>
 			</Table.Root>

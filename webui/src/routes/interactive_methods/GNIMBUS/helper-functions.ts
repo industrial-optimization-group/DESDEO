@@ -86,7 +86,7 @@ export interface VisualizationData {
 }
 
 export interface PreferenceData {
-	previousValues: number[];
+	previousValues: number[][];
 	currentValues: number[];
 }
 
@@ -121,7 +121,7 @@ export function createPreferenceData(
 	currentPreference: number[]
 ): PreferenceData {
 	return {
-		previousValues: lastIteratedPreference,
+		previousValues: [lastIteratedPreference],
 		currentValues: step === 'optimization' ? currentPreference : []
 	};
 }
@@ -138,7 +138,7 @@ export function determineStep(iteration: Response): 'optimization' | 'voting' | 
 	) {
 		return 'finish';
 	}
-	return iteration.voting_preferences !== null ? 'optimization' : 'voting';
+	return iteration.final_result !== null ? 'optimization' : 'voting';
 }
 
 /**

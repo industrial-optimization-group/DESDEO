@@ -17,6 +17,7 @@
 		step,
 		current_state,
 		tableData,
+		selected_type_solutions,
 		selected_voting_index,
 		userSolutionsObjectives,
 		isDecisionMaker,
@@ -27,6 +28,7 @@
 		step: Step;
 		current_state: { phase: string; personal_result_index: number | null };
 		tableData: TableData[]; // Array of solutions
+		selected_type_solutions: string;
 		selected_voting_index: number;
 		userSolutionsObjectives: { [key: string]: number }[] | undefined;
 		isDecisionMaker: boolean;
@@ -36,7 +38,7 @@
 </script>
 
 <div class="flex h-full flex-col">
-	{#if step === 'voting' && isDecisionMaker}
+	{#if step === 'voting' && isDecisionMaker && selected_type_solutions === 'current'}
 		<VotingControls phase={current_state.phase} {selected_voting_index} {onVote} />
 	{/if}
 	<div class="min-h-0 flex-1">
@@ -47,7 +49,7 @@
 			selectedSolutions={[selected_voting_index]}
 			savingEnabled={false}
 			handle_row_click={onRowClick}
-			selected_type_solutions={'current'}
+			{selected_type_solutions}
 			methodPage="gnimbus"
 			secondaryObjectiveValues={userSolutionsObjectives}
 		/>

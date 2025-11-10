@@ -50,6 +50,7 @@
 	import * as Resizable from '$lib/components/ui/resizable/index.js';
 	import ResizableHandle from '$lib/components/ui/resizable/resizable-handle.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
+	import { Combobox } from '$lib/components/ui/combobox';
 
 	// NIMBUS specific components
 	import AppSidebar from '$lib/components/custom/preferences-bar/preferences-sidebar.svelte';
@@ -94,6 +95,49 @@
 	let current_state: Response = $state({} as Response);
 	let full_iterations: AllIterations = $state({} as AllIterations);
 
+	// all solutions and preferences from all iterations in proper form:
+	// TODO: works but is slow as heck and extremely messy. Refactor when possible.
+	let history: {
+		own_solutions: any[];
+		common_solutions: any[];
+		preferences: number[][];
+		chosen_preference: number[];
+	} = $derived.by(() => {
+		let own_solutions = full_iterations.all_full_iterations.map((iteration, index) => {
+			const iterationNumber = full_iterations.all_full_iterations.length - 1 - index; // Count backwards like header
+			return {
+				...iteration.user_results[(iteration.personal_result_index || 0)],
+				iteration_number: iterationNumber
+			}
+		}
+		);
+		let common_solutions = full_iterations.all_full_iterations.flatMap((iteration, index) => {
+			const iterationNumber = full_iterations.all_full_iterations.length - 1 - index; // Count backwards like header
+			return (iteration.common_results ?? []).map(solution => ({
+            ...solution,
+            iteration_number: iterationNumber
+        }));
+		}
+	);
+		let all_preferences = full_iterations.all_full_iterations.map((iteration) => iteration.optimization_preferences);
+		let all_pref_data = all_preferences.map((pref)=>{
+		if (pref !== null) return pref.set_preferences;
+		});
+		let preferences = all_pref_data.map((data)=> {
+			if (data && userId) {
+				let pref_values = Object.values(data[userId].aspiration_levels);
+				return pref_values;
+			}
+		}).filter((vals): vals is number[] => vals !== null && vals !== undefined);
+		let chosen_preference = preferences.splice(selected_voting_index, 1)[0]; // remove the selected iteration's preferences
+		
+		return {
+			own_solutions,
+			common_solutions,
+			preferences,
+			chosen_preference
+		};		
+	});
 	let problem: ProblemInfo | null = $state(null);
 	const { data } = $props<{ data: { problem: ProblemInfo; group: Group; refreshToken: string } }>();
 
@@ -101,7 +145,7 @@
 	let isOwner = $state(false);
 	let isDecisionMaker = $state(false);
 
-	// Define the base phases array
+	// Define the base phases array for group owners phase change buttons
 	const PHASE_CONFIGS = [
 		{ id: 'learning', label: 'Learning' },
 		{ id: 'crp', label: 'CRP' },
@@ -123,19 +167,65 @@
 			variant: getVariant(phase.id, current_state.phase)
 		}))
 	);
+	// the options shown in the drop-down for selecting solution types:
+	const frameworks = [
+		{ value: 'current', label: 'Current iteration' },
+		{ value: 'all_own', label: 'All own solutions and preferences' },
+		{ value: 'all_group', label: 'All group solutions' }
+	];
+	
+	// this is what drop-down selection is bound to:
+	let selected_type_solutions = $state('current');
+	// These functions are all here so this should be easy to refactor later. Just in case 'current', do what solution_options does, and rename stuff accordingly.
+
+	// TODO: this has no meaning now, just something to start working on,
+	// this was used to define the selected_type_solutions_label in NIMBUS.
+	let random_text_based_on_dropbar = $derived.by(() => {
+		const framework = frameworks.find((f) => f.value === selected_type_solutions);
+		return framework ? framework.label : 'Solutions';
+	});
+
+	// if showHistory, read solution_options from chosen_history. Ongoing TODO.
 	// the solutions we want to show in UI are different depending on the step of iteration.
 	// in the optimization step we want to show the final result,
 	// and in the voting step we want to show the common results.
 	let solution_options = $derived.by(() => {
 		if (!current_state) return [];
-		return step === 'optimization'
-			? current_state.final_result?.objective_values
-				? [current_state.final_result]
-				: []
-			: (current_state.common_results ?? []);
+		if (selected_type_solutions === 'all_group') {
+			return history.common_solutions;
+		}
+		if (selected_type_solutions === 'all_own') {
+			return history.own_solutions;
+		}
+		switch (step) {
+			case 'optimization':
+				return current_state.final_result?.objective_values ? [current_state.final_result] : [];
+			case 'voting':
+				return current_state.common_results ?? [];
+			case 'finish':
+				return current_state.common_results ?? []; // TODO: make sure this is right. 
+				// I mean, it works but could I make this more logical? Does the final solution have structure where I could also use final solution?
+			default:
+				return [];
+		}
+			
 	});
+	function handle_type_solutions_change(event: { value: string }) {
+		change_solution_type_updating_selections(event.value as 'current' | 'all_own' | 'all_group');
+	}
+	// Helper function to change solution type and update selections TODO: this is in the wrong place, history thing
+	function change_solution_type_updating_selections(newType: 'current' | 'all_own' | 'all_group') {
+		// Update the internal state
+		selected_type_solutions = newType;
+		console.log('Changed solution type to:', newType);
+		// TODO: when changing back to current, reset selections. If step is optimization, select index 0.
+		// If voting, what? User may have voted, so if I do -1, it might confuse them.
+		// Then update UI and data
+		// update_iteration_selection(current_state);
+		// update_intermediate_selection(current_state);
+	}
 
-	// Get the label for the selected solution type from frameworks
+	// Get the label for the selected solution type from frameworks TODO
 	let selected_type_solutions_label = $derived.by(() => {
 		if (current_state.phase === 'init') return 'Initial solution';
 		if ((current_state.phase === 'decision' ||current_state.phase === 'compromise') && step === 'voting')
@@ -570,7 +660,8 @@
 			solution_index: i,
 			name: null,
 			objective_values: solution.objective_values,
-			variable_values: solution.variable_values
+			variable_values: solution.variable_values,
+			iteration_number: solution.iteration_number ?? null
 		}))
 	);
 
@@ -581,8 +672,15 @@
 			.filter((obj): obj is { [key: string]: number } => obj !== null && obj !== undefined);
 	});
 
-	let visualizationPreferences = $derived.by(() =>
-		createPreferenceData(step, last_iterated_preference, current_preference)
+	let visualizationPreferences = $derived.by(() => {
+		if (selected_type_solutions === "current") return createPreferenceData(step, last_iterated_preference, current_preference)
+		// show preference history if user selected to see their own history, 
+		// otherwise show no preferenes
+		return {
+			previousValues: selected_type_solutions === 'all_own' ? history.preferences: [],
+			currentValues: selected_type_solutions === 'all_own' ? history.chosen_preference: []
+		}
+	}
 	);
 
 	let visualizationObjectives = $derived.by(() =>
@@ -620,8 +718,13 @@
 				''}
 			{/if}
 		</span>
-		<span> / Iteration {full_iterations.all_full_iterations?.length ? full_iterations.all_full_iterations?.length-1 : "0"}</span>
-		{#if problem}
+		{@const iter = full_iterations.all_full_iterations?.length ? 
+			((step === 'optimization') ? 
+				full_iterations.all_full_iterations?.length 
+				:full_iterations.all_full_iterations?.length-1 ) 
+			: "0"}
+		<span> / Iteration {iter}</span>
+		{#if problem && selected_type_solutions === 'current'}
 			{@const statusMessage = getStatusMessage({
 				isOwner,
 				isDecisionMaker,
@@ -636,6 +739,7 @@
 
 	{#snippet explorerControls()}
 		{#if isOwner && step === 'optimization'}
+		<span class="left-0 p-4">Change phase: </span>
 			{#each PHASES as phase}
                     <Button
                         variant={phase.variant}
@@ -645,10 +749,16 @@
                     </Button>
 			{/each}
 		{/if}
+		<span class="left-0 p-4">View: </span>
+		<Combobox
+			options={frameworks}
+			defaultSelected={selected_type_solutions}
+			onChange={handle_type_solutions_change}
+		/>
 	{/snippet}
 
 	{#snippet leftSidebar()}
-		{#if problem && step === 'optimization' && isDecisionMaker}
+		{#if problem && step === 'optimization' && isDecisionMaker && selected_type_solutions === 'current'}
 			<AppSidebar
 				{problem}
 				preferenceTypes={[PREFERENCE_TYPES.Classification]}
@@ -675,8 +785,8 @@
 						<!-- Visualization panel that adapts to current mode -->
 						<VisualizationsPanel
 							{problem}
-							previousPreferenceValues={visualizationPreferences.previousValues}
-							currentPreferenceValues={visualizationPreferences.currentValues}
+							previousPreferenceValues={visualizationPreferences?.previousValues}
+							currentPreferenceValues={visualizationPreferences?.currentValues}
 							previousPreferenceType={type_preferences}
 							currentPreferenceType={type_preferences}
 							solutionsObjectiveValues={visualizationObjectives.solutions}
@@ -736,6 +846,7 @@
 					{step}
 					{current_state}
 					{tableData}
+					{selected_type_solutions}
 					{selected_voting_index}
 					userSolutionsObjectives={userSolutionsObjectives}
 					{isDecisionMaker}

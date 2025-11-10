@@ -38,4 +38,5 @@ export interface TableData {
 	variable_values: {
 		[key: string]: number | boolean;
 	} | null;
+	iteration_number?: number;
 }

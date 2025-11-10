@@ -70,7 +70,7 @@
 	 */
 	type ReferenceData = {
 		referencePoint?: Solution; // Single reference point across all dimensions
-    	previousReferencePoint?: Solution; // Single reference point across all dimensions, for previous preference
+    	previousReferencePoints?: Solution[]; // Array of previous reference points for comparison
 		preferredRanges?: { [key: string]: { min: number; max: number } }; // Preferred value ranges per dimension
 		preferredSolutions?: Array<Solution>; // Array of preferred solution points
 		nonPreferredSolutions?: Array<Solution>; // Array of non-preferred solution points
@@ -99,7 +99,7 @@
 		showAxisLabels: true,
 		highlightOnHover: true,
 		strokeWidth: 2,
-		opacity: 0.4,
+		opacity: 0.6,
 		enableBrushing: true
 	};
 	// optional map of labels for each data index for tooltip display on hover
@@ -274,10 +274,10 @@
 			// Set stroke color - both selected and other lines get theme color, other linesa are just thinner and less opaque
 			.attr('stroke', (d, i) => {
 				const passes = passesFilters(d);
-				if (!passes) return '#3b82f6'; // Hidden lines are primary color
+				if (!passes) return '#93c5fd'; // Hidden lines are lighter color
 
 				if (isSelected(i)) return '#3b82f6'; // Selected line uses primary color
-				return '#3b82f6'; // Non-selected lines are primary color
+				return '#93c5fd'; // Non-selected lines are lighter color
 			})
 			// Set stroke width - selected line is slightly thicker
 			.attr('stroke-width', (d, i) => {
@@ -895,13 +895,17 @@
 				opacity: 0.9,
 			}
 		);
-		// Draw previous reference point (lighter red)
-		drawGenericReferencePoint(svgElement, newScales, xScale, line, 
-			referenceData?.previousReferencePoint, {
-				groupClass: 'reference-point',
-				opacity: 0.3, // more transparent than current ref point
-			}
-		);
+		// Draw previous reference points (transparent red, multiple)
+		if (referenceData?.previousReferencePoints) {
+			referenceData.previousReferencePoints.forEach((prevPoint) => {
+				drawGenericReferencePoint(svgElement, newScales, xScale, line, 
+					prevPoint, {
+						groupClass: `reference-point`,
+						opacity: 0.3, // more transparent than current ref point
+					}
+				);
+			});
+		}
 		drawReferenceSolutions(svgElement, newScales, xScale, line);
 		// Add filter status information at the bottom
 		const activeFilters = Object.keys(brushFilters).length;
