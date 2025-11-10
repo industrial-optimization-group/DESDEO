@@ -26,6 +26,8 @@ __all__ = [  # noqa: RUF022
     "IntermediateSolutionState",
     "NIMBUSClassificationRequest",
     "NIMBUSClassificationState",
+    "NIMBUSDeleteSaveRequest",
+    "NIMBUSDeleteSaveResponse",
     "NIMBUSInitializationRequest",
     "NIMBUSInitializationState",
     "NIMBUSIntermediateSolutionResponse",
@@ -33,6 +35,9 @@ __all__ = [  # noqa: RUF022
     "NIMBUSClassificationResponse",
     "NIMBUSInitializationResponse",
     "NIMBUSSaveResponse",
+    "NIMBUSFinalizeRequest",
+    "NIMBUSFinalizeResponse",
+    "NIMBUSFinalState",
     "NIMBUSSaveState",
     "NonPreferredSolutions",
     "ObjectiveDB",
@@ -162,11 +167,15 @@ from .generic_states import (
 from .nimbus import (
     NIMBUSClassificationRequest,
     NIMBUSClassificationResponse,
+    NIMBUSDeleteSaveRequest,
+    NIMBUSDeleteSaveResponse,
     NIMBUSInitializationRequest,
     NIMBUSInitializationResponse,
     NIMBUSIntermediateSolutionResponse,
     NIMBUSSaveRequest,
     NIMBUSSaveResponse,
+    NIMBUSFinalizeRequest,
+    NIMBUSFinalizeResponse,
 )
 from .preference import (
     Bounds,
@@ -218,6 +227,7 @@ from .state import (
     NIMBUSClassificationState,
     NIMBUSInitializationState,
     NIMBUSSaveState,
+    NIMBUSFinalState,
     RPMState,
 )
 from .user import User, UserBase, UserPublic, UserRole

@@ -197,8 +197,33 @@ class NIMBUSInitializationState(ResultInterface, SQLModel, table=True):
         return 1
 
 
+class NIMBUSFinalState(ResultInterface, SQLModel, table=True):
+    """NIMBUS: The Final State.
+
+    NOTE: Despite this being the "final" state, I think the user should
+    still be allowed to use this as a basis for new iterations. Therefore
+    I think this should behave/have necessary elements for that to be the case.
+    """
+    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
+
+    solver_results: "SolverResults" = Field(sa_column=Column(ResultsType), default_factory=list) # the final solution
+    reference_point: dict[str, float] | None = Field(sa_column=Column(JSON), default=None) # the reference point that led to the final solution
+
+    @property
+    def result_objective_values(self) -> list[dict[str, float]]:
+        return [self.solver_results.optimal_objectives]
+
+    @property
+    def result_variable_values(self) -> list[dict[str, VariableType | Tensor]]:
+        return [self.solver_results.optimal_variables]
+
+    @property
+    def num_solutions(self) -> int:
+        return 1
+
+
 class GNIMBUSOptimizationState(ResultInterface, SQLModel, table=True):
-    """GNIMBUS: classification / solving"""
+    """GNIMBUS: classification / solving."""
 
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
 
@@ -221,7 +246,7 @@ class GNIMBUSOptimizationState(ResultInterface, SQLModel, table=True):
 
 
 class GNIMBUSVotingState(ResultInterface, SQLModel, table=True):
-    """GNIMBUS: voting"""
+    """GNIMBUS: voting."""
 
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
 

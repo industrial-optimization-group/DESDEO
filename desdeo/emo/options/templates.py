@@ -47,23 +47,25 @@ class InvalidTemplateError(Exception):
 class BaseTemplateOptions(BaseModel):
     """Base class for template options."""
 
-    crossover: CrossoverOptions = Field(description="The crossover operator options.")
+    model_config = {"use_attribute_docstrings": True}
+
+    crossover: CrossoverOptions
     """The crossover operator options."""
-    mutation: MutationOptions = Field(description="The mutation operator options.")
+    mutation: MutationOptions
     """The mutation operator options."""
-    selection: SelectorOptions = Field(description="The selection operator options.")
+    selection: SelectorOptions
     """The selection operator options."""
-    termination: TerminatorOptions = Field(description="The termination operator options.")
+    termination: TerminatorOptions
     """The termination operator options."""
-    generator: GeneratorOptions = Field(description="The population generator options.")
+    generator: GeneratorOptions
     """The population generator options."""
-    repair: RepairOptions = Field(NoRepairOptions(), description="The repair operator options.")
+    repair: RepairOptions = Field(default=NoRepairOptions())
     """The repair operator options."""
-    use_archive: bool = Field(default=True, description="Whether to use an archive.")
+    use_archive: bool = Field(default=True)
     """Whether to use an archive."""
-    seed: int = Field(default=0, description="The seed for random number generation.")
+    seed: int = Field(default=0)
     """The seed for random number generation."""
-    verbosity: int = Field(default=2, description="The verbosity level of the operators.")
+    verbosity: int = Field(default=2)
     """The verbosity level of the operators."""
     algorithm_name: str
     """The unique name of the algorithm."""
@@ -133,6 +135,13 @@ class DesirableRangesOptions(BaseModel):
         default="Hakanen", description="The method for handling the desirable ranges."
     )
     """The method for handling the desirable ranges."""
+    desirability_levels: tuple[float, float] = Field(
+        default=(0.9, 0.1),
+        description=(
+            "The desirability levels as a tuple (high, low). Used if method is DF transformation."
+            " If None, default levels (0.9, 0.1) are used."
+        ),
+    )
 
 
 class PreferredSolutionsOptions(BaseModel):
@@ -177,9 +186,11 @@ PreferenceOptions = (
 class EMOOptions(BaseModel):
     """Options for configuring the EMO algorithm."""
 
-    preference: PreferenceOptions | None = Field(description="The preference information for the EMO algorithm.")
+    model_config = {"use_attribute_docstrings": True}
+
+    preference: PreferenceOptions | None
     """The preference information for the EMO algorithm."""
-    template: TemplateOptions = Field(description="The template options for the EMO algorithm.")
+    template: TemplateOptions
     """The template options for the EMO algorithm."""
 
 
@@ -239,6 +250,8 @@ def preference_handler(
             problem=problem,
             aspiration_levels=preference.aspiration_levels,
             reservation_levels=preference.reservation_levels,
+            desirability_levels={name: preference.desirability_levels for name in preference.aspiration_levels},
+            desirability_func="MaoMao",
         )
         return df_problem, selection
     raise InvalidTemplateError(f"Unknown preference handling method: {preference.method}")

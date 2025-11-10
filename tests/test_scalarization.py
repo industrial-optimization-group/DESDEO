@@ -18,23 +18,6 @@ from desdeo.tools import (
     PyomoBonminSolver,
     ScipyMinimizeSolver,
 )
-from desdeo.tools.pyomo_solver_interfaces import PyomoIpoptSolver
-from desdeo.tools.scalarization import (
-    ScalarizationError,
-    add_guess_sf_diff,
-    add_guess_sf_nondiff,
-    add_nimbus_sf_diff,
-    add_nimbus_sf_nondiff,
-    add_stom_sf_diff,
-    add_stom_sf_nondiff,
-    add_weighted_sums,
-    add_desirability_funcs,
-    add_asf_diff,
-    add_asf_generic_diff,
-    add_asf_generic_nondiff,
-    add_asf_nondiff,
-    add_epsilon_constraints,
-)
 from desdeo.tools.group_scalarization import (
     add_group_asf,
     add_group_asf_agg,
@@ -52,6 +35,23 @@ from desdeo.tools.group_scalarization import (
     add_group_stom_agg,
     add_group_stom_agg_diff,
     add_group_stom_diff,
+)
+from desdeo.tools.pyomo_solver_interfaces import PyomoIpoptSolver
+from desdeo.tools.scalarization import (
+    ScalarizationError,
+    add_asf_diff,
+    add_asf_generic_diff,
+    add_asf_generic_nondiff,
+    add_asf_nondiff,
+    add_desirability_funcs,
+    add_epsilon_constraints,
+    add_guess_sf_diff,
+    add_guess_sf_nondiff,
+    add_nimbus_sf_diff,
+    add_nimbus_sf_nondiff,
+    add_stom_sf_diff,
+    add_stom_sf_nondiff,
+    add_weighted_sums,
 )
 
 
@@ -894,11 +894,11 @@ def test_guess_sf_nondiff_solve():
 @pytest.mark.group_scalarization
 @pytest.mark.slow
 def test_add_group_asf():
-    """ Test that the multiple decision maker asf scalarization function works."""
+    """Test that the multiple decision maker asf scalarization function works."""
     n_variables = 3
     n_objectives = 3
     problem = dtlz2(n_variables, n_objectives)
-    res = {'f_1': 0.52, 'f_2': 0.6, 'f_3': 0.72}
+    res = {"f_1": 0.52, "f_2": 0.6, "f_3": 0.72}
     rps = {
         "DM1": {"f_1": 0.1, "f_2": 0.4, "f_3": 0.8},
         "DM2": {"f_1": 0.1, "f_2": 0.6, "f_3": 0.3},
@@ -906,7 +906,7 @@ def test_add_group_asf():
     }
     rps = list(rps.values())
     # max reservations
-    agg_bounds = {'f_1': 0.9, 'f_2': 0.6, 'f_3': 0.8}
+    agg_bounds = {"f_1": 0.9, "f_2": 0.6, "f_3": 0.8}
 
     problem_w_group_sf_3rp, group_sf_3rp = add_group_asf(problem, "group_sf", rps, agg_bounds)
 
@@ -928,6 +928,7 @@ def test_add_group_asf():
     assert result.optimal_objectives["f_1"] < result.optimal_objectives["f_2"]
     assert result.optimal_objectives["f_1"] < result.optimal_objectives["f_3"]
 
+
 @pytest.mark.scalarization
 @pytest.mark.group_scalarization
 @pytest.mark.slow
@@ -936,7 +937,7 @@ def test_add_group_asf_agg():
     n_variables = 3
     n_objectives = 3
     problem = dtlz2(n_variables, n_objectives)
-    res = {'f_1': 0.52, 'f_2': 0.45, 'f_3': 0.72}
+    res = {"f_1": 0.52, "f_2": 0.45, "f_3": 0.72}
     rps = {
         "DM1": {"f_1": 0.1, "f_2": 0.4, "f_3": 0.8},
         "DM2": {"f_1": 0.1, "f_2": 0.45, "f_3": 0.3},
@@ -946,7 +947,7 @@ def test_add_group_asf_agg():
     # min aspirations
     agg_rps = {"f_1": 0.1, "f_2": 0.3, "f_3": 0.3}
     # max reservations
-    agg_bounds = {'f_1': 0.9, 'f_2': 0.45, 'f_3': 0.8}
+    agg_bounds = {"f_1": 0.9, "f_2": 0.45, "f_3": 0.8}
 
     problem_w_group_sf_3rp, group_sf_3rp = add_group_asf_agg(problem, "group_sf", agg_rps, agg_bounds)
 
@@ -969,15 +970,16 @@ def test_add_group_asf_agg():
     assert result.optimal_objectives["f_2"] < result.optimal_objectives["f_3"]
     assert result.optimal_objectives["f_1"] < result.optimal_objectives["f_3"]
 
+
 @pytest.mark.scalarization
 @pytest.mark.group_scalarization
 @pytest.mark.slow
 def test_add_group_asf_diff():
-    """ Test that the multiple decision maker asf scalarization function works. Test both differentiable versions."""
+    """Test that the multiple decision maker asf scalarization function works. Test both differentiable versions."""
     n_variables = 3
     n_objectives = 3
     problem = dtlz2(n_variables, n_objectives)
-    res = {'f_1': 0.52, 'f_2': 0.6, 'f_3': 0.72}
+    res = {"f_1": 0.52, "f_2": 0.6, "f_3": 0.72}
     rps = {
         "DM1": {"f_1": 0.1, "f_2": 0.4, "f_3": 0.8},
         "DM2": {"f_1": 0.1, "f_2": 0.6, "f_3": 0.3},
@@ -985,7 +987,7 @@ def test_add_group_asf_diff():
     }
     rps = list(rps.values())
     # max reservations
-    agg_bounds = {'f_1': 0.9, 'f_2': 0.6, 'f_3': 0.8}
+    agg_bounds = {"f_1": 0.9, "f_2": 0.6, "f_3": 0.8}
 
     problem_w_group_sf, group_sf_3rp = add_group_asf_diff(problem, "group_sf", rps, agg_bounds)
 
@@ -1009,7 +1011,7 @@ def test_add_group_asf_diff():
 
     # TEST add_group_asf_agg_diff
 
-    agg_aspirations = {'f_1': 0.1, 'f_2': 0.3, 'f_3': 0.3}
+    agg_aspirations = {"f_1": 0.1, "f_2": 0.3, "f_3": 0.3}
     problem_w_group_sf, group_sf_3rp = add_group_asf_agg_diff(problem, "group_sf", agg_aspirations, agg_bounds)
 
     # solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="NGOpt")
@@ -1031,15 +1033,16 @@ def test_add_group_asf_diff():
     assert result.optimal_objectives["f_2"] >= agg_aspirations["f_2"]
     assert result.optimal_objectives["f_3"] >= agg_aspirations["f_3"]
 
+
 @pytest.mark.scalarization
 @pytest.mark.group_scalarization
 @pytest.mark.slow
 def test_add_group_guess():
-    """ Test that the multiple decision maker GUESS scalarization function works."""
+    """Test that the multiple decision maker GUESS scalarization function works."""
     n_variables = 3
     n_objectives = 3
     problem = dtlz2(n_variables, n_objectives)
-    res = {'f_1': 0.5, 'f_2': 0.6, 'f_3': 0.61}
+    res = {"f_1": 0.5, "f_2": 0.6, "f_3": 0.61}
     rps = {
         "DM1": {"f_1": 0.1, "f_2": 0.4, "f_3": 0.8},
         "DM2": {"f_1": 0.1, "f_2": 0.6, "f_3": 0.3},
@@ -1049,7 +1052,7 @@ def test_add_group_guess():
     # min aspirations
     agg_rps = {"f_1": 0.1, "f_2": 0.3, "f_3": 0.3}
     # max reservations
-    agg_bounds = {'f_1': 0.9, 'f_2': 0.6, 'f_3': 0.8}
+    agg_bounds = {"f_1": 0.9, "f_2": 0.6, "f_3": 0.8}
 
     problem_w_group_sf_3rp, group_sf_3rp = add_group_guess(problem, "group_sf", rps, agg_bounds)
 
@@ -1087,11 +1090,11 @@ def test_add_group_guess():
 @pytest.mark.group_scalarization
 @pytest.mark.slow
 def test_add_group_guess_diff():
-    """ Test that the multiple decision maker guess scalarization function works. Test both differentiable versions."""
+    """Test that the multiple decision maker guess scalarization function works. Test both differentiable versions."""
     n_variables = 3
     n_objectives = 3
     problem = dtlz2(n_variables, n_objectives)
-    res = {'f_1': 0.5, 'f_2': 0.6, 'f_3': 0.61}
+    res = {"f_1": 0.5, "f_2": 0.6, "f_3": 0.61}
     rps = {
         "DM1": {"f_1": 0.1, "f_2": 0.4, "f_3": 0.8},
         "DM2": {"f_1": 0.1, "f_2": 0.6, "f_3": 0.3},
@@ -1099,7 +1102,7 @@ def test_add_group_guess_diff():
     }
     rps = list(rps.values())
     # max reservations
-    agg_bounds = {'f_1': 0.9, 'f_2': 0.6, 'f_3': 0.8}
+    agg_bounds = {"f_1": 0.9, "f_2": 0.6, "f_3": 0.8}
 
     problem_w_group_sf, group_sf_3rp = add_group_guess_diff(problem, "group_sf", rps, agg_bounds)
 
@@ -1122,7 +1125,7 @@ def test_add_group_guess_diff():
 
     # TEST add_group_guess_agg_diff
 
-    agg_aspirations = {'f_1': 0.1, 'f_2': 0.3, 'f_3': 0.3}
+    agg_aspirations = {"f_1": 0.1, "f_2": 0.3, "f_3": 0.3}
     problem_w_group_sf, group_sf_3rp = add_group_guess_agg_diff(problem, "group_sf", agg_aspirations, agg_bounds)
 
     # solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="NGOpt")
@@ -1152,7 +1155,7 @@ def test_add_group_nimbus():
     n_variables = 3
     n_objectives = 3
     problem = dtlz2(n_variables, n_objectives)
-    current_obj_vector = {'f_1': 0.5, 'f_2': 0.6, 'f_3': 0.62}
+    current_obj_vector = {"f_1": 0.5, "f_2": 0.6, "f_3": 0.62}
     rps = {
         "DM1": {"f_1": 0.1, "f_2": 0.4, "f_3": 0.7},
         "DM2": {"f_1": 0.1, "f_2": 1.0, "f_3": 0.4},
@@ -1165,9 +1168,11 @@ def test_add_group_nimbus():
     ]
     rps = list(rps.values())
     # max reservations
-    agg_bounds = {'f_1': 0.9, 'f_2': 1.0, 'f_3': 0.7}
+    agg_bounds = {"f_1": 0.9, "f_2": 1.0, "f_3": 0.7}
 
-    problem_w_group_sf, group_sf = add_group_nimbus(problem, "group_sf", classification_list, current_obj_vector, agg_bounds)
+    problem_w_group_sf, group_sf = add_group_nimbus(
+        problem, "group_sf", classification_list, current_obj_vector, agg_bounds
+    )
 
     solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="CMA")
     solver_group_sf = NevergradGenericSolver(problem_w_group_sf, solver_options)
@@ -1191,7 +1196,7 @@ def test_add_group_nimbus_diff():
     n_variables = 3
     n_objectives = 3
     problem = dtlz2(n_variables, n_objectives)
-    current_obj_vector = {'f_1': 0.5, 'f_2': 0.6, 'f_3': 0.62}
+    current_obj_vector = {"f_1": 0.5, "f_2": 0.6, "f_3": 0.62}
     rps = {
         "DM1": {"f_1": 0.1, "f_2": 0.4, "f_3": 0.8},
         "DM2": {"f_1": 0.1, "f_2": 1.0, "f_3": 0.3},
@@ -1206,10 +1211,12 @@ def test_add_group_nimbus_diff():
     ]
     rps = list(rps.values())
     # max reservations
-    agg_bounds = {'f_1': 0.9, 'f_2': 0.9, 'f_3': 0.8}
+    agg_bounds = {"f_1": 0.9, "f_2": 0.9, "f_3": 0.8}
 
     print(current_obj_vector)
-    problem_w_group_sf, group_sf = add_group_nimbus_diff(problem, "group_sf", classification_list, current_obj_vector, agg_bounds)
+    problem_w_group_sf, group_sf = add_group_nimbus_diff(
+        problem, "group_sf", classification_list, current_obj_vector, agg_bounds
+    )
 
     # solver_group_sf = PyomoIpoptSolver(problem_w_group_sf)
     solver_group_sf = PyomoBonminSolver(problem_w_group_sf)
@@ -1224,15 +1231,16 @@ def test_add_group_nimbus_diff():
     assert result.optimal_objectives["f_2"] < agg_bounds["f_2"]
     assert result.optimal_objectives["f_3"] < agg_bounds["f_3"]
 
+
 @pytest.mark.scalarization
 @pytest.mark.group_scalarization
 @pytest.mark.slow
 def test_add_group_stom():
-    """ Test that the multiple decision maker STOM scalarization function works."""
+    """Test that the multiple decision maker STOM scalarization function works."""
     n_variables = 3
     n_objectives = 3
     problem = dtlz2(n_variables, n_objectives)
-    res = {'f_1': 0.25, 'f_2': 0.6, 'f_3': 0.75}
+    res = {"f_1": 0.25, "f_2": 0.6, "f_3": 0.75}
     rps = {
         "DM1": {"f_1": 0.1, "f_2": 0.4, "f_3": 0.8},
         "DM2": {"f_1": 0.1, "f_2": 0.6, "f_3": 0.3},
@@ -1240,7 +1248,7 @@ def test_add_group_stom():
     }
     rps = list(rps.values())
     # max reservations
-    agg_bounds = {'f_1': 0.9, 'f_2': 0.6, 'f_3': 0.8}
+    agg_bounds = {"f_1": 0.9, "f_2": 0.6, "f_3": 0.8}
 
     problem_w_group_sf_3rp, group_sf_3rp = add_group_stom(problem, "group_sf", rps, agg_bounds)
 
@@ -1268,7 +1276,7 @@ def test_add_group_stom_agg():
     n_variables = 3
     n_objectives = 3
     problem = dtlz2(n_variables, n_objectives)
-    res = {'f_1': 0.4, 'f_2': 0.45, 'f_3': 0.78}
+    res = {"f_1": 0.4, "f_2": 0.45, "f_3": 0.78}
     rps = {
         "DM1": {"f_1": 0.1, "f_2": 0.4, "f_3": 0.8},
         "DM2": {"f_1": 0.1, "f_2": 0.45, "f_3": 0.3},
@@ -1278,7 +1286,7 @@ def test_add_group_stom_agg():
     # min aspirations
     agg_rps = {"f_1": 0.1, "f_2": 0.3, "f_3": 0.3}
     # max reservations
-    agg_bounds = {'f_1': 0.9, 'f_2': 0.45, 'f_3': 0.8}
+    agg_bounds = {"f_1": 0.9, "f_2": 0.45, "f_3": 0.8}
 
     problem_w_group_sf_3rp, group_sf_3rp = add_group_stom_agg(problem, "group_sf", agg_rps, agg_bounds)
 
@@ -1298,15 +1306,16 @@ def test_add_group_stom_agg():
     assert result.optimal_objectives["f_1"] < result.optimal_objectives["f_2"]
     assert result.optimal_objectives["f_1"] < result.optimal_objectives["f_3"]
 
+
 @pytest.mark.scalarization
 @pytest.mark.group_scalarization
 @pytest.mark.slow
 def test_add_group_stom_diff():
-    """ Test that the multiple decision maker stom scalarization function works. Test both differentiable versions."""
+    """Test that the multiple decision maker stom scalarization function works. Test both differentiable versions."""
     n_variables = 3
     n_objectives = 3
     problem = dtlz2(n_variables, n_objectives)
-    res = {'f_1': 0.52, 'f_2': 0.6, 'f_3': 0.72}
+    res = {"f_1": 0.52, "f_2": 0.6, "f_3": 0.72}
     rps = {
         "DM1": {"f_1": 0.1, "f_2": 0.4, "f_3": 0.8},
         "DM2": {"f_1": 0.1, "f_2": 0.6, "f_3": 0.3},
@@ -1314,7 +1323,7 @@ def test_add_group_stom_diff():
     }
     rps = list(rps.values())
     # max reservations
-    agg_bounds = {'f_1': 0.9, 'f_2': 0.6, 'f_3': 0.8}
+    agg_bounds = {"f_1": 0.9, "f_2": 0.6, "f_3": 0.8}
 
     problem_w_group_sf, group_sf_3rp = add_group_stom_diff(problem, "group_sf", rps, agg_bounds)
 
@@ -1338,7 +1347,7 @@ def test_add_group_stom_diff():
 
     # TEST add_group_guess_agg_diff
 
-    agg_aspirations = {'f_1': 0.1, 'f_2': 0.3, 'f_3': 0.3}
+    agg_aspirations = {"f_1": 0.1, "f_2": 0.3, "f_3": 0.3}
     problem_w_group_sf, group_sf_3rp = add_group_stom_agg_diff(problem, "group_sf", agg_aspirations, agg_bounds)
 
     # solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="NGOpt")
