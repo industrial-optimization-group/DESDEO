@@ -12,7 +12,13 @@ const BASE_URL = import.meta.env.VITE_API_URL;
 const wsBase = BASE_URL.replace(/^http/, 'ws');
 export class WebSocketService {
 	socket: WebSocket | null = null;
-	messageStore: Writable<string> = writable('');
+	messageStore: Writable<{
+		message:	string;
+		messageId: number;
+	}> = writable({
+		message: '',
+		messageId: 0
+	});
 
 	/**
 	 * Creates a new WebSocket connection for GNIMBUS group communication
@@ -43,17 +49,28 @@ export class WebSocketService {
 			try {
 				// Try to parse as JSON in case future backend changes send structured data
 				const data = JSON.parse(event.data);
-				this.messageStore.set(data);
+				this.messageStore.update((store) => {
+					store.message = data;
+					store.messageId += 1;
+					return store;
+			});
 			} catch {
 				// If not JSON, treat as plain text message
-				this.messageStore.set(event.data.toString());
+				this.messageStore.update((store) => {
+					store.message = event.data.toString();
+					store.messageId += 1;
+					return store;
+				});
 			}
 			console.log('WebSocket message received:', event.data);
 		});
-
 		this.socket.addEventListener('error', (event) => {
 			console.error('WebSocket error:', event);
-			this.messageStore.set('Connection error occurred');
+			this.messageStore.update((store) => {
+				store.message = 'Connection error occurred';
+				store.messageId += 1;
+				return store;
+			});
 		});
 	}
 
@@ -90,7 +107,11 @@ export class WebSocketService {
 						resolve(false);
 					}
 				} else {
-					this.messageStore.set('WebSocket not connected');
+					this.messageStore.update((store) => {
+						store.message = 'WebSocket not connected';
+						store.messageId += 1;
+						return store;
+					});
 					isLoading.set(false);
 					resolve(false);
 				}
