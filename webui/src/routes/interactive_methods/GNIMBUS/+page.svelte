@@ -263,6 +263,7 @@
 		update_voting_selection(current_state);
 		last_iterated_preference = [...current_preference];
 		isActionDone = false;
+		console.log('Fetch result:', fullResult);
 
 		return fullResult;
 	}
@@ -506,11 +507,12 @@
 
 		// Initialize WebSocket
 		wsService = new WebSocketService(data.group.id, 'gnimbus', data.refreshToken);
-		wsService.messageStore.subscribe((msg) => {
+		wsService.messageStore.subscribe((store) => {
 			// Filters for specific messages. 
 			// TODO: when API is updated, all messages should include keyword UPDATE if update in UI needed,
 			// and keyword ERROR if msg is error message. Other checks can be removed
 			// this is because socket messages are simple strings and there is no other way to differentiate them.
+			let msg = store.message;
 			if (
 				msg.includes('UPDATE:') ||
 				msg.includes('Please fetch') ||
@@ -533,12 +535,10 @@
 			
 			// Show the processed message
 			showTemporaryMessage(displayMessage);
-			getResultsAndUpdate(data.group.id);
 		});
 
 		// Try to get existing results from backend
 		const result = await getResultsAndUpdate(data.group.id);
-		console.log('Fetch result:', result);
 		// Initialize only if there are no results beforehand
 		if (!result?.success && result?.error === 'not_initialized') {
 			console.log('GNIMBUS not initialized, initializing...');
