@@ -26,6 +26,7 @@ from desdeo.api.models import (
     Group,
     GroupInfoRequest,
     GroupIteration,
+    GroupRevertRequest,
     OptimizationPreference,
     ProblemDB,
     SolutionReference,
@@ -418,32 +419,33 @@ def get_phase(
 
     return JSONResponse(content={"phase": current_iteration.preferences.phase}, status_code=status.HTTP_200_OK)
 
-def get_preference_item(item):
+def get_preference_item(iteration):
     """Returns an empty preference item for adding preferences.
 
     Args:
-        item: Preference item to get type whatever
+        iteration: we consider this iteration and it's preferences.
 
     Returns:
         Preference item.
     """
+    item = iteration.preferences
     if type(item) is OptimizationPreference:
-        return OptimizationPreference(
-            phase=item.phase,
+        if item.phase in ["decision", "compromise"]:
+            return EndProcessPreference(
+                success=None,
+                set_preferences={}
+            )
+        return VotingPreference(
             set_preferences={}
         )
-    if type(item) is EndProcessPreference:
-        return EndProcessPreference(
-            success=None,
-            set_preferences={}
-        )
-    return VotingPreference(
-        set_preferences={}
+    return OptimizationPreference(
+        phase=iteration.parent.preferences.phase if iteration.parent.preferences.phase is not None else "learning",
+        set_preferences={},
     )
 
 @router.post("/revert_iteration")
 async def revert_iteration(
-    request: GroupInfoRequest,
+    request: GroupRevertRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
 ) -> JSONResponse:
@@ -479,19 +481,11 @@ async def revert_iteration(
             status_code=status.HTTP_404_NOT_FOUND
         )
 
-    prev_iteration: GroupIteration = current_iteration.parent
-    if not prev_iteration:
+    # Get the GroupIteration corresponding to the requests state id
+    target_iteration = session.exec(select(GroupIteration).where(GroupIteration.state_id == request.state_id)).first()
+    if not target_iteration:
         raise HTTPException(
-            details="There's no parent iteration!",
-            status_code=status.HTTP_404_NOT_FOUND
-        )
-
-    parent = prev_iteration.parent
-
-    state = session.exec(select(StateDB).where(StateDB.id == prev_iteration.state_id)).first()
-    if not state:
-        raise HTTPException(
-            detail="There is no concrete state in current iteration.",
+            detail=f"There's no iteration with state ID {request.state_id}!",
             status_code=status.HTTP_404_NOT_FOUND
         )
 
@@ -499,10 +493,10 @@ async def revert_iteration(
         problem_id=group.problem_id,
         group_id=group.id,
         group=group,
-        preferences=get_preference_item(prev_iteration.preferences),
+        preferences=get_preference_item(target_iteration),
         notified={},
-        parent_id=prev_iteration.parent_id,
-        parent=parent,
+        parent_id=target_iteration.id,
+        parent=target_iteration,
     )
 
     session.add(new_iteration)
@@ -515,10 +509,10 @@ async def revert_iteration(
     session.commit()
     session.refresh(group)
 
-    children = parent.children.copy()
+    children = target_iteration.children.copy()
     children.append(new_iteration)
-    parent.children = children
-    session.add(parent)
+    target_iteration.children = children
+    session.add(target_iteration)
     session.commit()
 
     gman = await manager.get_group_manager(group_id=group.id, method="gnimbus")

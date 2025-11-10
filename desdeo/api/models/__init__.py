@@ -75,6 +75,7 @@ __all__ = [  # noqa: RUF022
     "Group",
     "GroupModifyRequest",
     "GroupCreateRequest",
+    "GroupRevertRequest",
     "GroupIteration",
     "GroupPublic",
     "GroupInfoRequest",
@@ -133,6 +134,7 @@ from .gdm.gdm_aggregate import (
     GroupIteration,
     GroupModifyRequest,
     GroupPublic,
+    GroupRevertRequest,
 )
 from .gdm.gdm_base import (
     BasePreferences,

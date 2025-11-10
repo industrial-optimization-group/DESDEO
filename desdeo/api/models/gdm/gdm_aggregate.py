@@ -97,6 +97,15 @@ class GroupInfoRequest(SQLModel):
 
     group_id: int
 
+class GroupRevertRequest(SQLModel):
+    """Class for requesting reverting to certain iteration."""
+
+    group_id: int = Field(description="The ID of the group we wish to revert.")
+    state_id: int = Field(
+        description="The state's ID to which we want to revert to. "\
+            "Corresponds to state_id in GroupIteration."
+    )
+
 
 class GroupResult(SQLModel):
     """Class for group's result."""
