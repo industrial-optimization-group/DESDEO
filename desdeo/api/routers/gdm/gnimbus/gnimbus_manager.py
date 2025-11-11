@@ -526,6 +526,7 @@ class GNIMBUSManager(GroupManager):
             next_iteration = GroupIteration(
                 group_id=self.group_id,
                 group=group,
+                gid=self.group_id,
                 problem_id=current_iteration.problem_id,
                 preferences=new_preferences,
                 notified={},

@@ -93,6 +93,7 @@ def gnimbus_initialize(
         problem_id=group.problem_id,
         group_id=group.id,
         group=group,
+        gid=group.id,
         preferences=VotingPreference(
             set_preferences={},
         ),
@@ -110,6 +111,7 @@ def gnimbus_initialize(
         problem_id=start_iteration.problem_id,
         group_id=start_iteration.group_id,
         group=start_iteration.group,
+        gid=start_iteration.group_id,
         preferences=OptimizationPreference(
             set_preferences={},
         ),
@@ -493,6 +495,7 @@ async def revert_iteration(
         problem_id=group.problem_id,
         group_id=group.id,
         group=group,
+        gid=group.id,
         preferences=get_preference_item(target_iteration),
         notified={},
         parent_id=target_iteration.id,

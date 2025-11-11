@@ -14,7 +14,7 @@ from desdeo.problem.testproblems import dtlz2, river_pollution_problem, simple_k
 problems = [dtlz2(10, 3), simple_knapsack(), river_pollution_problem()]
 
 if __name__ == "__main__":
-    if True:
+    if SettingsConfig.debug:
         # debug stuff
 
         print("Creating database tables.")

@@ -76,6 +76,9 @@ class GroupIteration(SQLModel, table=True):
     group_id: int | None = Field(foreign_key="group.id", default=None)
     group: "Group" = Relationship(back_populates="head_iteration")
 
+    # kinda stupid, but an easy fix for querying using group id (group_id dont work due to 1-to-1 relationship w/ group)
+    gid: int | None = Field(default=None)
+
     # Preferences that are filled as they come (remove the RESULT aspect from this, just put the results to the state.)
     preferences: BasePreferences = Field(sa_column=Column(PreferenceType))
     notified: dict[int, bool] = Field(sa_column=Column(JSON))
