@@ -20,6 +20,7 @@ from .options.algorithms import (
     emo_constructor,
     ibea_mixed_integer_options,
     ibea_options,
+    nsga2_options,
     nsga3_mixed_integer_options,
     nsga3_options,
     rvea_mixed_integer_options,
@@ -54,7 +55,13 @@ from .options.mutation import (
 )
 from .options.repair import ClipRepairOptions, NoRepairOptions
 from .options.scalar_selection import RouletteWheelSelectionOptions, TournamentSelectionOptions
-from .options.selection import IBEASelectorOptions, NSGA3SelectorOptions, ReferenceVectorOptions, RVEASelectorOptions
+from .options.selection import (
+    IBEASelectorOptions,
+    NSGA2SelectorOptions,
+    NSGA3SelectorOptions,
+    ReferenceVectorOptions,
+    RVEASelectorOptions,
+)
 from .options.templates import (
     DesirableRangesOptions,
     NonPreferredSolutionsOptions,
@@ -74,6 +81,7 @@ from .options.termination import (
 # Just didn't want to have a thousand imports in the main namespace
 algorithms = SimpleNamespace(
     rvea_options=rvea_options,
+    nsga2_options=nsga2_options,
     nsga3_options=nsga3_options,
     ibea_options=ibea_options,
     rvea_mixed_integer_options=rvea_mixed_integer_options,
@@ -93,6 +101,7 @@ termination = SimpleNamespace(
 selection = SimpleNamespace(
     IBEASelectorOptions=IBEASelectorOptions,
     NSGA3SelectorOptions=NSGA3SelectorOptions,
+    NSGA2SelectorOptions=NSGA2SelectorOptions,
     RVEASelectorOptions=RVEASelectorOptions,
 )
 

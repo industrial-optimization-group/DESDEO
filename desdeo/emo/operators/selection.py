@@ -9,15 +9,14 @@ from abc import abstractmethod
 from collections.abc import Sequence
 from enum import StrEnum
 from itertools import combinations
-from typing import Callable, Literal, TypedDict, TypeVar
+from typing import Callable, Literal, TypeVar
 
 import numpy as np
 import polars as pl
 from numba import njit
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 from scipy.special import comb
 from scipy.stats.qmc import LatinHypercube
-from sqlalchemy import false
 
 from desdeo.problem import Problem
 from desdeo.tools import get_corrected_ideal_and_nadir
@@ -243,7 +242,7 @@ class BaseDecompositionSelector(BaseSelector):
         for i in range(1, self.num_dims - 1):
             weight[:, i] = temp[:, i] - temp[:, i - 1]
         weight[:, -1] = lattice_resolution - temp[:, -1]
-        if not self.invert_reference_vectors: # todo, this currently only exists for nsga3
+        if not self.invert_reference_vectors:  # todo, this currently only exists for nsga3
             self.reference_vectors = weight / lattice_resolution
         else:
             self.reference_vectors = 1 - (weight / lattice_resolution)
@@ -818,6 +817,7 @@ class RVEASelector(BaseDecompositionSelector):
                         closest_angle = angle
             self.reference_vectors_gamma[i] = closest_angle
 
+
 @njit
 def jitted_calc_perpendicular_distance(
     solutions: np.ndarray, ref_dirs: np.ndarray, invert_reference_vectors: bool
@@ -843,6 +843,7 @@ def jitted_calc_perpendicular_distance(
             component = ref_dirs[i] - solutions[j] - np.dot(ref_dirs[i] - solutions[j], unit_vector) * unit_vector
             matrix[j, i] = np.linalg.norm(component)
     return matrix
+
 
 class NSGA3Selector(BaseDecompositionSelector):
     """The NSGA-III selection operator, heavily based on the version of nsga3 in the pymoo package by msu-coinlab."""
@@ -1156,8 +1157,6 @@ class NSGA3Selector(BaseDecompositionSelector):
 
         return matrix
 
-
-
     def state(self) -> Sequence[Message]:
         if self.verbosity == 0 or self.selection is None or self.selected_targets is None:
             return []
@@ -1413,6 +1412,302 @@ class IBEASelector(BaseSelector):
 
         self.notify()
         return self.selected_individuals, self.selected_targets
+
+    def state(self) -> Sequence[Message]:
+        """Return the state of the selector."""
+        if self.verbosity == 0 or self.selection is None or self.selected_targets is None:
+            return []
+        if self.verbosity == 1:
+            return [
+                DictMessage(
+                    topic=SelectorMessageTopics.STATE,
+                    value={
+                        "population_size": self.population_size,
+                        "selected_individuals": self.selection,
+                    },
+                    source=self.__class__.__name__,
+                )
+            ]
+        # verbosity == 2
+        if isinstance(self.selected_individuals, pl.DataFrame):
+            message = PolarsDataFrameMessage(
+                topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
+                value=pl.concat([self.selected_individuals, self.selected_targets], how="horizontal"),
+                source=self.__class__.__name__,
+            )
+        else:
+            warnings.warn("Population is not a Polars DataFrame. Defaulting to providing OUTPUTS only.", stacklevel=2)
+            message = PolarsDataFrameMessage(
+                topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
+                value=self.selected_targets,
+                source=self.__class__.__name__,
+            )
+        return [
+            DictMessage(
+                topic=SelectorMessageTopics.STATE,
+                value={
+                    "population_size": self.population_size,
+                    "selected_individuals": self.selection,
+                },
+                source=self.__class__.__name__,
+            ),
+            message,
+            NumpyArrayMessage(
+                topic=SelectorMessageTopics.SELECTED_FITNESS,
+                value=self.fitness,
+                source=self.__class__.__name__,
+            ),
+        ]
+
+    def update(self, message: Message) -> None:
+        pass
+
+
+def _nsga2_crowding_distance_assignment(
+    non_dominated_front: np.ndarray, f_mins: np.ndarray, f_maxs: np.ndarray
+) -> np.ndarray:
+    """Computes the crowding distance as pecified in the definition of NSGA2.
+
+    This function computed the crowding distances for a non-dominated set of solutions.
+    A smaller value means that a solution is more crowded (worse), while a larger value means
+    it is less crowded (better).
+
+    Note:
+        The boundary point in `non_dominated_front` will be assigned a non-crowding
+            distance value of `np.inf` indicating, that they shouls always be included
+            in later sorting.
+
+    Args:
+        non_dominated_front (np.ndarray): a 2D numpy array (size n x m = number
+            of vectors x number of targets (obejctive funcitons)) containing
+            mutually non-dominated vectors. The values of the vectors correspond to
+            the optimization 'target' (usually the minimized objective function
+            values.)
+        f_mins (np.ndarray): a 1D numpy array of size m containing the minimum objective function
+            values in `non_dominated_front`.
+        f_maxs (np.ndarray): a 1D numpy array of size m containing the maximum objective function
+            values in `non_dominated_front`.
+
+    Returns:
+        np.ndarray: a numpy array of size m containing the crowding distances for each vector
+            in `non_dominated_front`.
+
+    Reference: Deb, K., Pratap, A., Agarwal, S., & Meyarivan, T. A. M. T.
+        (2002). A fast and elitist multiobjective genetic algorithm: NSGA-II. IEEE
+        transactions on evolutionary computation, 6(2), 182-197.
+    """
+    vectors = non_dominated_front  # I
+    num_vectors = vectors.shape[0]  # l
+    num_objectives = vectors.shape[1]
+
+    crowding_distances = np.zeros(num_vectors)  # I[i]_distance
+
+    for m in range(num_objectives):
+        # sort by column (objective)
+        vectors = vectors[vectors[:, m].argsort()]
+        # inlcude boundary points
+        crowding_distances[0], crowding_distances[-1] = np.inf, np.inf
+
+        for i in range(1, num_vectors - 1):
+            crowding_distances[i] = crowding_distances[i] + (vectors[i + 1, m] - vectors[i - 1, m]) / (
+                f_maxs[m] - f_mins[m]
+            )
+
+    return crowding_distances
+
+
+class NSGA2Selector(BaseSelector):
+    """Implements the selection operator defined for NSGA2.
+
+    Implements the selection operator defined for NSGA2, which included the crowding
+    distance calculation.
+
+    Reference: Deb, K., Pratap, A., Agarwal, S., & Meyarivan, T. A. M. T.
+        (2002). A fast and elitist multiobjective genetic algorithm: NSGA-II. IEEE
+        transactions on evolutionary computation, 6(2), 182-197.
+    """
+
+    @property
+    def provided_topics(self):
+        """The topics provided for the NSGA2 method."""
+        return {
+            0: [],
+            1: [SelectorMessageTopics.STATE],
+            2: [SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS, SelectorMessageTopics.SELECTED_FITNESS],
+        }
+
+    @property
+    def interested_topics(self):
+        """The topics the NSGA2 method is interested in."""
+        return []
+
+    def __init__(
+        self,
+        problem: Problem,
+        verbosity: int,
+        publisher: Publisher,
+        population_size: int,
+        seed: int = 0,
+    ):
+        super().__init__(problem=problem, verbosity=verbosity, publisher=publisher, seed=seed)
+        if self.constraints_symbols is not None:
+            print(
+                "NSGA2 selector does not currently support constraints. "
+                "Results may vary if used to solve constrainted problems."
+            )
+        self.population_size = population_size
+        self.seed = seed
+        self.selection: list[int] | None = None
+        self.selected_individuals: SolutionType | None = None
+        self.selected_targets: pl.DataFrame | None = None
+
+    def do(
+        self, parents: tuple[SolutionType, pl.DataFrame], offsprings: tuple[SolutionType, pl.DataFrame]
+    ) -> tuple[SolutionType, pl.DataFrame]:
+        """Perform the selection operation."""
+        # First iteration, offspring is empty
+        # Do basic binary tournament selection, recombination, and mutation
+        # In practice, just compute the non-dom ranks and provide them as fitness
+
+        # Off-spring empty (first iteration, compute only non-dominated ranks and provide them as fitness)
+        if offsprings[0].is_empty() and offsprings[1].is_empty():
+            # just compute non-dominated ranks of population and be done
+            parents_a = parents[1][self.target_symbols].to_numpy()
+            fronts = fast_non_dominated_sort(parents_a)
+
+            # assign fitness according to non-dom rank (lower better)
+            scores = np.arange(len(fronts))
+            fitness_values = scores @ fronts
+            self.fitness = fitness_values
+
+            # all selected in first iteration
+            self.selection = list(range(len(parents[1])))
+            self.selected_individuals = parents[0]
+            self.selected_targets = parents[1]
+
+            self.notify()
+
+            return self.selected_individuals, self.selected_targets
+
+        # #Actual selection operator for NSGA2
+
+        # Combine parent and offspring R_t = P_t U Q_t
+        r_solutions = parents[0].vstack(offsprings[0])
+        r_population = parents[1].vstack(offsprings[1])
+        r_targets_arr = r_population[self.target_symbols].to_numpy()
+
+        # the minimum and maximum target values in the whole current population
+        f_mins, f_maxs = np.min(r_targets_arr, axis=0), np.max(r_targets_arr, axis=0)
+
+        # Do fast non-dominated sorting on R_t -> F
+        fronts = fast_non_dominated_sort(r_targets_arr)
+        crowding_distances = np.ones(self.population_size) * np.nan
+        rankings = np.ones(self.population_size) * np.nan
+        fitness_values = np.ones(self.population_size) * np.nan
+
+        # Set the new parent population to P_t+1 = empty and i=1
+        new_parents = np.ones(parents[1].shape) * np.nan
+        new_parents_solutions = np.ones(parents[0].shape) * np.nan
+        parents_ptr = 0  # keep track where stuff was last added
+
+        # the -1 is here because searchsorted returns the index where we can insert the population size to preserve the
+        # order, hence, the previous index of this will be the last element in the cumsum that is less than
+        # the population size
+        last_whole_front_idx = (
+            np.searchsorted(np.cumsum(np.sum(fronts, axis=1)), self.population_size, side="right") - 1
+        )
+
+        last_ranking = 0  # in case first front is larger th population size
+        for i in range(last_whole_front_idx + 1):  # inclusive
+            # The looped front here will result in a new population with size <= 100.
+
+            # Compute the crowding distances for F_i
+            distances = _nsga2_crowding_distance_assignment(r_targets_arr[fronts[i]], f_mins, f_maxs)
+            crowding_distances[parents_ptr : parents_ptr + distances.shape[0]] = (
+                distances  # distances will have same number of elements as in front[i]
+            )
+
+            # keep track of the rankings as well (best = 0, larger worse). First
+            # non-dom front will have a rank fitness of 0.
+            rankings[parents_ptr : parents_ptr + distances.shape[0]] = i
+
+            #   P_t+1 = P_t+1 U F_i
+            new_parents[parents_ptr : parents_ptr + distances.shape[0]] = r_population.filter(fronts[i])
+            new_parents_solutions[parents_ptr : parents_ptr + distances.shape[0]] = r_solutions.filter(fronts[i])
+
+            # compute fitness
+            # If fronts[i].sum() == 2 ([inf, inf]) will result is zero-size array here, hence the if else
+            max_no_inf = np.nanmax(distances[distances != np.inf]) if fronts[i].sum() > 2 else np.ones(fronts[i].sum())
+            distances_no_inf = np.nan_to_num(distances, posinf=max_no_inf * 1.1)
+
+            # Distances for the current front normalized between 0 and 1.
+            # The small scalar we add in the nominator and denominator is to
+            # ensure that no distance value would result in exactly 0 after
+            # normalizing, which would increase the corresponding solution
+            # ranking, once reversed, which we do not want to.
+            normalized_distances = (distances_no_inf - (distances_no_inf.min() - 1e-6)) / (
+                distances_no_inf.max() - (distances_no_inf.min() - 1e-6)
+            )
+
+            # since higher is better for the crowded distance, we substract the normalized distances from 1 so that
+            # lower is better, which allows us to combine them with the ranking
+            # No value here should be 1.0 or greater.
+            reversed_distances = 1.0 - normalized_distances
+
+            front_fitness = reversed_distances + rankings[parents_ptr : parents_ptr + distances.shape[0]]
+            fitness_values[parents_ptr : parents_ptr + distances.shape[0]] = front_fitness
+
+            # increment parent pointer
+            parents_ptr += distances.shape[0]
+
+            # keep track of last given rank
+            last_ranking = i
+
+        # deal with last (partial) front, if needed
+        if parents_ptr < self.population_size:
+            distances = _nsga2_crowding_distance_assignment(
+                r_targets_arr[fronts[last_whole_front_idx + 1]], f_mins, f_maxs
+            )
+
+            # Sort F_i in descending order according to crowding distance
+            trimmed_and_sorted_indices = distances.argsort()[::-1][: self.population_size - parents_ptr]
+
+            crowding_distances[parents_ptr : self.population_size] = distances[trimmed_and_sorted_indices]
+            rankings[parents_ptr : self.population_size] = last_ranking + 1
+
+            # P_t+1 = P_t+1 U F_i[1: (N - |P_t+1|)]
+            new_parents[parents_ptr : self.population_size] = r_population.filter(fronts[last_whole_front_idx + 1])[
+                trimmed_and_sorted_indices
+            ]
+            new_parents_solutions[parents_ptr : self.population_size] = r_solutions.filter(
+                fronts[last_whole_front_idx + 1]
+            )[trimmed_and_sorted_indices]
+
+            # compute fitness (see above for details)
+            max_no_inf = (
+                np.nanmax(distances[trimmed_and_sorted_indices][distances[trimmed_and_sorted_indices] != np.inf])
+                if len(trimmed_and_sorted_indices) > 2
+                else np.ones(len(trimmed_and_sorted_indices))  # we have 1 or 2 boundary points
+            )
+            distances_no_inf = np.nan_to_num(distances[trimmed_and_sorted_indices], posinf=max_no_inf * 1.1)
+
+            normalized_distances = (distances_no_inf - (distances_no_inf.min() - 1e-6)) / (
+                distances_no_inf.max() - (distances_no_inf.min() - 1e-6)
+            )
+
+            reversed_distances = 1.0 - normalized_distances
+
+            front_fitness = reversed_distances + rankings[parents_ptr : self.population_size]
+            fitness_values[parents_ptr : parents_ptr + self.population_size] = front_fitness
+
+        # back to polars, return values
+        solutions = pl.DataFrame(new_parents_solutions, schema=parents[0].schema)
+        outputs = pl.DataFrame(new_parents, schema=parents[1].schema)
+
+        self.fitness = fitness_values
+
+        self.notify()
+        return solutions, outputs
 
     def state(self) -> Sequence[Message]:
         """Return the state of the selector."""
