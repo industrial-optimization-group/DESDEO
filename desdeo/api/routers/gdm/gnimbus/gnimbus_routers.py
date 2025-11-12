@@ -249,6 +249,8 @@ def full_iteration(
 
     full_iterations: list[FullIteration] = []
 
+    user_len = len(group.user_ids)
+
     if groupiter.preferences.method == "optimization":
         # There are no full results because the latest iteration is optimization,
         # so add an incomplete entry to the list to be returned.
@@ -276,8 +278,8 @@ def full_iteration(
                 optimization_preferences=groupiter.preferences,
                 voting_preferences=None,
                 starting_result=SolutionReference(state=prev_state, solution_index=0),
-                common_results=all_results[-4:],
-                user_results=all_results[:-4],
+                common_results=all_results[user_len:],
+                user_results=all_results[:user_len],
                 personal_result_index=personal_result_index,
                 final_result=None,
             )
@@ -310,8 +312,8 @@ def full_iteration(
                 optimization_preferences=groupiter.parent.preferences,
                 voting_preferences=groupiter.preferences,
                 starting_result=SolutionReference(state=first_state, solution_index=0),
-                common_results=all_results[-4:],
-                user_results=all_results[:-4],
+                common_results=all_results[user_len:],
+                user_results=all_results[:user_len],
                 personal_result_index=personal_result_index,
                 final_result=SolutionReference(state=this_state, solution_index=0),
             )
@@ -445,6 +447,7 @@ def get_preference_item(iteration):
         set_preferences={},
     )
 
+
 @router.post("/revert_iteration")
 async def revert_iteration(
     request: GroupRevertRequest,
@@ -482,6 +485,12 @@ async def revert_iteration(
             detail="There's no head iteration",
             status_code=status.HTTP_404_NOT_FOUND
         )
+    head_iteration_type = type(current_iteration.preferences)
+    if head_iteration_type in [VotingPreference, EndProcessPreference]:
+        raise HTTPException(
+            detail="Complete the iteration before reverting. Sorry for the inconvenience.",
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
 
     # Get the GroupIteration corresponding to the requests state id
     target_iteration = session.exec(select(GroupIteration).where(GroupIteration.state_id == request.state_id)).first()
@@ -490,33 +499,72 @@ async def revert_iteration(
             detail=f"There's no iteration with state ID {request.state_id}!",
             status_code=status.HTTP_404_NOT_FOUND
         )
+    target_iteration_type = type(target_iteration.preferences)
+    if target_iteration_type == OptimizationPreference:
+        raise HTTPException(
+            detail="You can only revert to a result of a complete iteration. Sorry for the inconvenience.",
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
 
-    new_iteration = GroupIteration(
+    # We must "artificially" create some history, so that we can later on fetch stuff seamlessly,
+    # without any hiccups or changes to the "all_iterations" endpoint.
+    new_parent_1 = GroupIteration(
         problem_id=group.problem_id,
         group_id=group.id,
         group=group,
         gid=group.id,
-        preferences=get_preference_item(target_iteration),
-        notified={},
-        parent_id=target_iteration.id,
-        parent=target_iteration,
+        preferences=target_iteration.parent.preferences.model_copy(),
+        notified=target_iteration.parent.notified.copy(),
+        state_id=target_iteration.parent.state_id,
+        parent_id=current_iteration.parent.id,
+        parent=current_iteration.parent
     )
 
-    session.add(new_iteration)
+    session.add(new_parent_1)
+    session.commit()
+    session.refresh(new_parent_1)
+
+    new_parent_2 = GroupIteration(
+        problem_id=group.problem_id,
+        group_id=group.id,
+        group=group,
+        gid=group.id,
+        preferences=target_iteration.preferences.model_copy(),
+        notified=target_iteration.notified.copy(),
+        state_id=target_iteration.state_id,
+        parent_id=new_parent_1.id,
+        parent=new_parent_1
+    )
+
+    session.add(new_parent_2)
+    session.commit()
+    session.refresh(new_parent_2)
+
+    # New head iteration
+    new_head = GroupIteration(
+        problem_id=group.problem_id,
+        group_id=group.id,
+        group=group,
+        gid=group.id,
+        preferences=OptimizationPreference(
+            phase=target_iteration.parent.preferences.phase \
+                if target_iteration.parent.preferences.phase is not None else "learning",
+            set_preferences={}
+        ),
+        notified={},
+        parent_id=new_parent_2.id,
+        parent=new_parent_2,
+    )
+
+    session.add(new_head)
     session.commit()
 
-    group.head_iteration = new_iteration
+    group.head_iteration = new_head
 
     session.add(group)
     session.delete(current_iteration)
     session.commit()
     session.refresh(group)
-
-    children = target_iteration.children.copy()
-    children.append(new_iteration)
-    target_iteration.children = children
-    session.add(target_iteration)
-    session.commit()
 
     gman = await manager.get_group_manager(group_id=group.id, method="gnimbus")
     await gman.broadcast("UPDATE: Latest iteration reversed by the group owner!")

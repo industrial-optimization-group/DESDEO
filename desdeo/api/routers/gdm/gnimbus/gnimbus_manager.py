@@ -3,10 +3,11 @@
 import copy
 import json
 import logging
-import sys
 import math
+import sys
 from typing import Any
 
+import numpy as np
 from pydantic import ValidationError
 from sqlmodel import Session, select
 
@@ -43,10 +44,9 @@ def compare_variable(v1: int | float | list, v2: int | float | list) -> bool:
 
     if type(v1) is int:
         return v1 == v2
-    elif type(v1) is float:
+    if type(v1) is float:
         return math.isclose(v1, v2)
-    else: # Type is list
-        return all([math.isclose(tup[0], tup[1]) for tup in zip(v1, v2, strict=True)])
+    return all([math.isclose(tup[0], tup[1]) for tup in zip(v1, v2, strict=True)])
 
 
 def filter_duplicates(results: list[SolverResults]) -> list[SolverResults]:
@@ -59,23 +59,28 @@ def filter_duplicates(results: list[SolverResults]) -> list[SolverResults]:
         # The length 1 or 0, there is no duplicates.
         return results
 
-    filtered_list = []
-    for result in results:
-        same_solution = False
-        for unique in filtered_list:
-            # Here, compare the result's dec vars and the unique's dec vars and if they're the same, discard
-            if all(
-                [compare_variable(t[0], t[1]) for t in zip(
-                    [b for _, b in result.optimal_variables.items()],
-                    [b for _, b in unique.optimal_variables.items()]
-                )]
-            ):
-                same_solution = True
-                break
-        if not same_solution:
-            filtered_list.append(result)
+    # Get the variable values
+    objective_values_list = [res.optimal_objectives for res in results]
+    # Get the variable symbols
+    objective_keys = list(objective_values_list[0])
+    # Get the corresponding values for functions into a list of lists of values
+    valuelists = [[dictionary[key] for key in objective_keys] for dictionary in objective_values_list]
+    # Check duplicate indices
+    duplicate_indices = []
+    for i in range(len(results) - 1):
+        for j in range(i + 1, len(results)):
+            # If all values of the objective functions are (nearly) identical, that's a duplicate
+            if np.allclose(valuelists[i], valuelists[j]):
+                duplicate_indices.append(i)
 
-    return filtered_list
+    # Quite the memory hell. See If there's a smarter way to do this
+    new_solutions = []
+    for i in range(len(results)):
+        if i not in duplicate_indices:
+            new_solutions.append(results[i])
+
+    return new_solutions
+
 
 class GNIMBUSManager(GroupManager):
     """The Group NIMBUS manager class.
@@ -245,6 +250,7 @@ class GNIMBUSManager(GroupManager):
         print(f"starting values: {prev_sol}")
 
         # TODO: Filtering duplicate solutions
+        user_len = len(group.user_ids)
 
         try:
             results: list[SolverResults] = solve_group_sub_problems(
@@ -253,7 +259,11 @@ class GNIMBUSManager(GroupManager):
                 reference_points=formatted_prefs,
                 phase=current_iteration.preferences.phase,
             )
-            # results = filter_duplicates(results)
+            logger.info(f"Amount on common solutions before filtering: {len(results[user_len:])}")
+            common_results = filter_duplicates(results[user_len:])
+            results = results[:user_len] + common_results
+            logger.info(f"Amount on common solutions after filtering: {len(results[user_len:])}")
+
             logger.info(f"Optimization for group {self.group_id} done.")
 
         except ScalarizationError as e:
@@ -504,7 +514,7 @@ class GNIMBUSManager(GroupManager):
                     )
 
                 case "end":
-                    # throw an error
+                    # An ending iteration; not necessarily the end.
                     new_preferences = await self.ending(
                         user_id=user_id,
                         data=data,
@@ -515,6 +525,7 @@ class GNIMBUSManager(GroupManager):
                     )
 
                 case _:
+                    # throw an error
                     new_preferences = None
                     return
 
