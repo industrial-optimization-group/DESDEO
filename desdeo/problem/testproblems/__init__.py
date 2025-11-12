@@ -4,7 +4,7 @@ Pre-defined problems for, e.g.,
 testing and illustration purposed are defined here.
 """
 
-__all__ = [
+__all__ = [  # noqa: RUF022
     "binh_and_korn",
     "dtlz2",
     "forest_problem",
@@ -18,6 +18,7 @@ __all__ = [
     "mixed_variable_dimensions_problem",
     "momip_ti2",
     "momip_ti7",
+    "multi_valued_constraint_problem",
     "nimbus_test_problem",
     "pareto_navigator_test_problem",
     "re21",
@@ -46,6 +47,7 @@ __all__ = [
 
 
 from .binh_and_korn_problem import binh_and_korn
+from .cake_problem import best_cake_problem
 from .dtlz2_problem import dtlz2
 from .forest_problem import forest_problem, forest_problem_discrete
 from .knapsack_problem import simple_knapsack, simple_knapsack_vectors
@@ -59,6 +61,7 @@ from .mcwb_problem import (
 )
 from .mixed_variable_dimenrions_problem import mixed_variable_dimensions_problem
 from .momip_problem import momip_ti2, momip_ti7
+from .multi_valued_constraints import multi_valued_constraint_problem
 from .nimbus_problem import nimbus_test_problem
 from .pareto_navigator_problem import pareto_navigator_test_problem
 from .re_problem import re21, re22, re23, re24
@@ -81,4 +84,3 @@ from .spanish_sustainability_problem import (
     spanish_sustainability_problem_discrete,
 )
 from .zdt_problem import zdt1, zdt2, zdt3
-from .cake_problem import best_cake_problem
