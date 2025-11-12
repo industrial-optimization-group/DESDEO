@@ -1,5 +1,3 @@
-from typing import Self
-
 """Schema for the problem definition.
 
 The problem definition is a JSON file that contains the following information:
@@ -18,7 +16,7 @@ from collections.abc import Iterable
 from enum import Enum
 from itertools import product
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeAliasType, Self
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Self, TypeAliasType
 
 import numpy as np
 from pydantic import (
