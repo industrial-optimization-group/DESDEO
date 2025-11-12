@@ -93,9 +93,8 @@ export class WebSocketService {
 							clearTimeout(timeoutId);
 							this.socket?.removeEventListener('message', messageHandler);
 							
-							// Check if the message indicates an error. 
-							// TODO: when API changes, all error msgs will have keyword ERROR, other conditions can be removed.
-							const success = !(event.data.includes('ERROR')  || event.data.includes('error') || event.data.includes('failed'));
+							// Check if the message indicates an error. All error messages contain 'ERROR'
+							const success = !(event.data.includes('ERROR'));
 							isLoading.set(false);
 							resolve(success);
 						};

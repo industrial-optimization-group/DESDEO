@@ -130,6 +130,26 @@ const handlers: Record<string, HandlerFunction> = {
         
         return response;
     },
+        revert_iteration: (body, refreshToken) => {
+        const { group_id , state_id} = body;
+        if (!group_id) {
+            return Promise.resolve({
+                success: false,
+                error: 'group_id is required'
+            });
+        }        
+        if (!state_id) {
+            return Promise.resolve({
+                success: false,
+                error: 'state_id is required'
+            });
+        }
+        const requestBody = {
+            group_id: Number(group_id),
+            state_id: Number(state_id)
+        };
+        return makeApiRequest('/gnimbus/revert_iteration', requestBody, refreshToken);
+    },
 
     get_phase: async (body, refreshToken) => {
         const { group_id } = body;

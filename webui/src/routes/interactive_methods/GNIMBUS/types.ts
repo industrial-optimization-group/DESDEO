@@ -30,7 +30,7 @@ export interface MapState {
 
 export interface TableData {
 	state_id: number;
-	solution_index: number;
+	solution_index: number |null;
 	name: null;
 	objective_values: {
 		[key: string]: number;

@@ -236,7 +236,7 @@
 	{#if solutionsObjectiveValues.length > 0}
 		<!-- Visualization Type Selector -->
 		<div class="mb-2 flex items-center justify-between">
-			<h3 class="text-sm font-medium">Visualization</h3>
+			<h3>Visualization</h3>
 			<SegmentedControl
 				bind:value={visualizationType}
 				options={[

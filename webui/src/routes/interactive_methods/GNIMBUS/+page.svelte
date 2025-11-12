@@ -85,7 +85,11 @@
 		getStatusMessage,
 		determineStep,
 		createVisualizationData,
-		createPreferenceData
+		createPreferenceData,
+		computeHistory,
+		getSolutionsForView,
+		getChosenPreference,
+		type HistoryData
 	} from './helper-functions';
 	import SolutionDisplay from './components/SolutionDisplay.svelte';
 	import EndStateView from './components/EndStateView.svelte';
@@ -95,49 +99,6 @@
 	let current_state: Response = $state({} as Response);
 	let full_iterations: AllIterations = $state({} as AllIterations);
 
-	// all solutions and preferences from all iterations in proper form:
-	// TODO: works but is slow as heck and extremely messy. Refactor when possible.
-	let history: {
-		own_solutions: any[];
-		common_solutions: any[];
-		preferences: number[][];
-		chosen_preference: number[];
-	} = $derived.by(() => {
-		let own_solutions = full_iterations.all_full_iterations.map((iteration, index) => {
-			const iterationNumber = full_iterations.all_full_iterations.length - 1 - index; // Count backwards like header
-			return {
-				...iteration.user_results[(iteration.personal_result_index || 0)],
-				iteration_number: iterationNumber
-			}
-		}
-		);
-		let common_solutions = full_iterations.all_full_iterations.flatMap((iteration, index) => {
-			const iterationNumber = full_iterations.all_full_iterations.length - 1 - index; // Count backwards like header
-			return (iteration.common_results ?? []).map(solution => ({
-            ...solution,
-            iteration_number: iterationNumber
-        }));
-		}
-	);
-		let all_preferences = full_iterations.all_full_iterations.map((iteration) => iteration.optimization_preferences);
-		let all_pref_data = all_preferences.map((pref)=>{
-		if (pref !== null) return pref.set_preferences;
-		});
-		let preferences = all_pref_data.map((data)=> {
-			if (data && userId) {
-				let pref_values = Object.values(data[userId].aspiration_levels);
-				return pref_values;
-			}
-		}).filter((vals): vals is number[] => vals !== null && vals !== undefined);
-		let chosen_preference = preferences.splice(selected_voting_index, 1)[0]; // remove the selected iteration's preferences
-		
-		return {
-			own_solutions,
-			common_solutions,
-			preferences,
-			chosen_preference
-		};		
-	});
 	let problem: ProblemInfo | null = $state(null);
 	const { data } = $props<{ data: { problem: ProblemInfo; group: Group; refreshToken: string } }>();
 
@@ -145,6 +106,7 @@
 	let isOwner = $state(false);
 	let isDecisionMaker = $state(false);
 
+	// Phase changing related things:
 	// Define the base phases array for group owners phase change buttons
 	const PHASE_CONFIGS = [
 		{ id: 'learning', label: 'Learning' },
@@ -152,14 +114,12 @@
 		{ id: 'decision', label: 'Decision' },
 		{ id: 'compromise', label: 'Compromise' }
 	] as const;
-
 	// Helper function to determine button variant for group owners phase change buttons
 	function getVariant(phaseId: typeof PHASE_CONFIGS[number]['id'], currentPhase: string) {
 	if (currentPhase === 'init' ) currentPhase = 'learning';
 	return currentPhase === phaseId ? 'default' : 
-		'outline' as 'outline' | 'default' | 'secondary';
+		'outline' as 'outline' | 'default';
 	}
-
 	// Derived phases with variants
 	let PHASES = $derived.by(() => 
 		PHASE_CONFIGS.map(phase => ({
@@ -168,83 +128,71 @@
 		}))
 	);
 	// the options shown in the drop-down for selecting solution types:
-	const frameworks = [
-		{ value: 'current', label: 'Current iteration' },
-		{ value: 'all_own', label: 'All own solutions and preferences' },
-		{ value: 'all_group', label: 'All group solutions' }
-	];
+	// Filter out 'all_own' option if user is owner but not decision maker (they have no personal solutions)
+	let frameworks = $derived.by(() => {
+		const baseOptions = [
+			{ value: 'current', label: 'Current iteration' },
+			{ value: 'all_group', label: 'All group solutions' }
+		];
+		
+		// Only add "all_own" option if user is a decision maker (has personal solutions)
+		if (isDecisionMaker) {
+			baseOptions.splice(1, 0, { value: 'all_own', label: 'All own solutions and preferences' });
+		}
+		
+		return baseOptions;
+	});
 	
-	// this is what drop-down selection is bound to:
-	let selected_type_solutions = $state('current');
-	// These functions are all here so this should be easy to refactor later. Just in case 'current', do what solution_options does, and rename stuff accordingly.
+	// History and visible solution selection related things:
+	// this is what drop-down selection is bound to
+	let history_option = $state('current') as 'current' | 'all_own' | 'all_group';
 
-	// TODO: this has no meaning now, just something to start working on,
-	// this was used to define the selected_type_solutions_label in NIMBUS.
-	let random_text_based_on_dropbar = $derived.by(() => {
-		const framework = frameworks.find((f) => f.value === selected_type_solutions);
-		return framework ? framework.label : 'Solutions';
+	// preparing solutions and preferences for showing them in history
+	let history: HistoryData = $derived.by(() => {
+		return computeHistory(full_iterations, userId, isDecisionMaker);
 	});
 
-	// if showHistory, read solution_options from chosen_history. Ongoing TODO.
-	// the solutions we want to show in UI are different depending on the step of iteration.
-	// in the optimization step we want to show the final result,
-	// and in the voting step we want to show the common results.
+	// choosing the solutions we want to show in UI
 	let solution_options = $derived.by(() => {
-		if (!current_state) return [];
-		if (selected_type_solutions === 'all_group') {
-			return history.common_solutions;
-		}
-		if (selected_type_solutions === 'all_own') {
-			return history.own_solutions;
-		}
-		switch (step) {
-			case 'optimization':
-				return current_state.final_result?.objective_values ? [current_state.final_result] : [];
-			case 'voting':
-				return current_state.common_results ?? [];
-			case 'finish':
-				return current_state.common_results ?? []; // TODO: make sure this is right. 
-				// I mean, it works but could I make this more logical? Does the final solution have structure where I could also use final solution?
-			default:
-				return [];
-		}
-			
+		return getSolutionsForView(history, current_state, history_option as 'current' | 'all_own' | 'all_group', step);
 	});
+
+	// This is for highlightin specific preference in history, but we need to have it separate from other history things
+	// to avoid history dependency on selected_solution_index
+	// If history depends on this, changing selected_solution_index would trigger get_maps.
+	let chosen_preference = $derived.by(() => {
+		return getChosenPreference(history.preferences, selected_solution_index);
+	});
+
 	function handle_type_solutions_change(event: { value: string }) {
 		change_solution_type_updating_selections(event.value as 'current' | 'all_own' | 'all_group');
 	}
-	// Helper function to change solution type and update selections TODO: this is in the wrong place, history thing
+	
+	// Helper function to change solution type and update selections
 	function change_solution_type_updating_selections(newType: 'current' | 'all_own' | 'all_group') {
+		// Prevent setting 'all_own' if user is not a decision maker
+		if (newType === 'all_own' && !isDecisionMaker) {
+			console.warn('Cannot select "all_own" - user is not a decision maker');
+			return;
+		}
+		
 		// Update the internal state
-		selected_type_solutions = newType;
+		history_option = newType;
 		console.log('Changed solution type to:', newType);
-		// TODO: when changing back to current, reset selections. If step is optimization, select index 0.
-		// If voting, what? User may have voted, so if I do -1, it might confuse them.
-		// Then update UI and data
-		// update_iteration_selection(current_state);
-		// update_intermediate_selection(current_state);
+		// Reset selections to none or for current optimization iteration to 0
+		selected_solution_index = (step === 'optimization' && newType === 'current') ? 0 : -1;
+		update_solution_selection(current_state);
 	}
 
-	// Get the label for the selected solution type from frameworks TODO
-	let selected_type_solutions_label = $derived.by(() => {
-		if (current_state.phase === 'init') return 'Initial solution';
-		if ((current_state.phase === 'decision' ||current_state.phase === 'compromise') && step === 'voting')
-			return 'Suggestion for a final solution';
-		if (step === 'optimization') return 'Voted solution';
-		if (step === 'voting') return 'Solutions to vote from';
-		if (step === 'finish') return '';
-		return 'Solutions';
-	});
-
-	// variable for handling different steps (view and possible actions are defined by step)
+	// variable for handling different steps of iteration: optimization, voting and finish (view and possible actions are defined by step)
 	let step: Step = $state('optimization');
 
 	// variable for tracking if the user did the action for the ongoing step, used in defining what instruction is shown to user
 	let isActionDone: boolean = $state(false);
 
-	// variables needed for voting: index of voted solution and the objectives extracted from that solution
-	let selected_voting_index: number = $state(0); // Index of solution from previous results to use in sidebar.
-	let selected_voting_objectives: Record<string, number> = $state({}); // actual objectives of the selected solution in iteration mode
+	// variables needed for choosing a solution for voting, showing map etc: index of solution and the objectives extracted from that solution
+	let selected_solution_index: number = $state(0); // Index of solution from previous results to use in sidebar.
+	let selected_solution_objectives: Record<string, number> = $state({}); // actual objectives of the selected solution in iteration mode
 
 	// currentPreference is initialized from previous preference or ideal values
 	let current_preference: number[] = $state([]);
@@ -346,11 +294,11 @@
 		}
 
 		// Update selection state
-		selected_voting_index =
+		selected_solution_index =
 			(latestIteration.phase === 'decision' || latestIteration.phase == 'compromise') ? 0 : step === 'optimization' ? 0 : -1;
 
 		// Update dependent states
-		update_voting_selection(current_state);
+		update_solution_selection(current_state);
 		last_iterated_preference = [...current_preference];
 		isActionDone = false;
 		console.log('Fetch result:', fullResult);
@@ -361,16 +309,16 @@
 	// Validation: iteration is allowed when at least one preference is better and one is worse than current objectives
 	let is_iteration_allowed = $derived.by(() => {
 		// Use the imported utility function to validate if iteration is allowed
-		return validateIterationAllowed(problem, current_preference, selected_voting_objectives);
+		return validateIterationAllowed(problem, current_preference, selected_solution_objectives);
 	});
 
 	function handle_solution_click(index: number) {
-		if (selected_voting_index === index) {
+		if (selected_solution_index === index) {
 			return; // Already selected, do nothing
 		}
 		// Iterate mode: always select just one solution
-		selected_voting_index = index;
-		update_voting_selection(current_state);
+		selected_solution_index = index;
+		update_solution_selection(current_state);
 	}
 
 	// Handle voting
@@ -380,15 +328,23 @@
 			return;
 		}
 
-		if (selected_voting_index === -1) {
+		if (selected_solution_index === -1) {
 			console.error('No solution set');
 			return;
 		}
 		const success = await wsService.sendMessage(JSON.stringify(int));
 		if (success) {
-			// showTemporaryMessage('Vote submitted');
 			isActionDone = true;
 		}
+	}
+
+	async function revert_iteration() {
+		// function that gets the solution from the place of selected_index, takes its state_id, and sends a change_iteration http request with body {group_id, state_id}
+		// and after that make sure that everything updates. Might happen if socket message says "UPDATE:" If there is a socket message. But should be for sure.
+		const result = await callGNimbusAPI<string>('revert_iteration', {
+			group_id: data.group.id,
+			state_id: solution_options[selected_solution_index]?.state_id
+		});
 	}
 
 	// function for handling the iteration of the optimization step. Sends the preferences as a message to websocket
@@ -423,7 +379,7 @@
 	}
 
 	// Fetch maps data for UTOPIA visualization for one solution
-	async function get_maps(solution: Solution, solutionIndex: number) {
+	async function get_maps(solution: Solution, sol_order_index: number) {
 		if (!problem) {
 			console.error('No problem selected');
 			return;
@@ -485,51 +441,60 @@
 				} as Record<PeriodKey, Record<string, any>>;
 
 				// Store the map state at the correct index
-				mapStates[solutionIndex] = newMapState;
-				if (solutionIndex === selected_voting_index) {
+				mapStates[sol_order_index] = newMapState;
+				if (sol_order_index === selected_solution_index) {
 					mapState = { ...newMapState };
 					console.log('Updated map state for selected solution:', mapState);
 				}
 			}
 		} catch (error) {
-			console.error(`Failed to get maps for solution ${solutionIndex}:`, error);
+			console.error(`Failed to get maps for solution ${sol_order_index}:`, error);
 		}
 	}
 
 	// Pre-fetch maps for all solutions when solution_options changes
 	$effect(() => {
 		if (hasUtopiaMetadata && solution_options.length > 0) {
+			console.log('Map fetching triggered - selected_type_solutions:', history_option, 'solutions count:', solution_options.length);
 			// Initialize mapStates array with the correct length
 			mapStates = new Array(solution_options.length);
 			
-			// Fetch maps for each solution without waiting
-			solution_options.forEach((solution, index) => {
-				get_maps(solution, index);
+			// Fetch maps for each solution without waiting, but only for valid solutions
+			solution_options.forEach((solution, order_index) => {
+				// Type guard: ensure solution has required fields for maps
+				if (solution && 
+					typeof solution.state_id === 'number' && 
+					typeof solution.solution_index === 'number') {
+					get_maps(solution as Solution, order_index);
+				} else {
+					console.warn(`Solution at index ${order_index} missing required fields for maps:`, solution);
+				}
 			});
+			console.log('Started pre-fetching maps for all solutions.');
 		}
 	});
 
 	// Helper function to update objectives of selected solution from the current state
-	function update_voting_selection(state: Response | null) {
+	function update_solution_selection(state: Response | null) {
 		if (!problem) return;
 		if (!state) return;
 
 		if (solution_options.length === 0) return;
 
 		// Make sure the selected index is within bounds of the chosen solutions
-		if (selected_voting_index >= solution_options.length) {
-			selected_voting_index = step === 'optimization' ? 0 : -1; // If index out of bounds, reset to first solution or none
+		if (selected_solution_index >= solution_options.length) {
+			selected_solution_index = step === 'optimization' ? 0 : -1; // If index out of bounds, reset to first solution or none
 		}
 
-		const selectedSolution = solution_options[selected_voting_index];
-		selected_voting_objectives =
+		const selectedSolution = solution_options[selected_solution_index];
+		selected_solution_objectives =
 			selectedSolution && selectedSolution.objective_values
 				? selectedSolution.objective_values
 				: {};
-		console.log("selected voting index:", selected_voting_index);
+		console.log("selected voting index:", selected_solution_index);
 		// Update current map state from pre-fetched maps if available
-		if (hasUtopiaMetadata && selected_voting_index >= 0 && mapStates[selected_voting_index]) {
-			mapState = { ...mapStates[selected_voting_index] };
+		if (hasUtopiaMetadata && selected_solution_index >= 0 && mapStates[selected_solution_index]) {
+			mapState = { ...mapStates[selected_solution_index] };
 			console.log('Updated map state for selected solution:', mapState);
 		}
 	}
@@ -598,15 +563,11 @@
 		// Initialize WebSocket
 		wsService = new WebSocketService(data.group.id, 'gnimbus', data.refreshToken);
 		wsService.messageStore.subscribe((store) => {
-			// Filters for specific messages. 
-			// TODO: when API is updated, all messages should include keyword UPDATE if update in UI needed,
-			// and keyword ERROR if msg is error message. Other checks can be removed
+			// Filters for specific messages. All socket messages that imply need for state updates start with "UPDATE"
 			// this is because socket messages are simple strings and there is no other way to differentiate them.
 			let msg = store.message;
 			if (
-				msg.includes('UPDATE:') ||
-				msg.includes('Please fetch') ||
-				msg.includes('Voting has concluded')
+				msg.includes('UPDATE')
 			) {
 				// Don't show these messages, but instead update state
 				getResultsAndUpdate(data.group.id);
@@ -657,7 +618,7 @@
 	let tableData: TableData[] = $derived.by(() =>
 		solution_options.map((solution, i) => ({
 			state_id: solution.state_id,
-			solution_index: i,
+			solution_index: solution.solution_index ?? null,
 			name: null,
 			objective_values: solution.objective_values,
 			variable_values: solution.variable_values,
@@ -673,18 +634,18 @@
 	});
 
 	let visualizationPreferences = $derived.by(() => {
-		if (selected_type_solutions === "current") return createPreferenceData(step, last_iterated_preference, current_preference)
+		if (history_option === "current") return createPreferenceData(step, last_iterated_preference, current_preference)
 		// show preference history if user selected to see their own history, 
 		// otherwise show no preferenes
 		return {
-			previousValues: selected_type_solutions === 'all_own' ? history.preferences: [],
-			currentValues: selected_type_solutions === 'all_own' ? history.chosen_preference: []
+			previousValues: history_option === 'all_own' ? history.preferences: [],
+			currentValues: history_option === 'all_own' ? chosen_preference: []
 		}
 	}
 	);
 
 	let visualizationObjectives = $derived.by(() =>
-		createVisualizationData(problem, step, current_state, solution_options)
+		createVisualizationData(problem, step, current_state, solution_options, history_option)
 	);
 </script>
 
@@ -702,34 +663,38 @@
 <BaseLayout
 	showLeftSidebar={!!problem}
 	showRightSidebar={false}
-	bottomPanelTitle={selected_type_solutions_label}
 >
 
 	{#snippet explorerTitle()}
+		{@const iter = full_iterations.all_full_iterations?.length > 1 ? 
+			((step === 'optimization') ? 
+				full_iterations.all_full_iterations?.length 
+				:full_iterations.all_full_iterations?.length-1 ) 
+			: 0}
+		{@const iterLabel = iter === 0 ? " / Initial solution" : ` / Iteration ${iter}`}
 		<span class="font-bold">
-			{#if step === 'finish'}
-				Final Solution
+			{#if history_option === 'all_group'}
+				All Group Solutions
+			{:else if history_option === 'all_own'}
+				All Own Solutions and preferences
+			{:else if step === 'finish'}
+				Final Solution {iterLabel}
 			{:else}
 				{current_state.phase === 'crp' ? 'Consensus Reaching Phase' : 
 				current_state.phase === 'init' ? 'Learning Phase' :
 				current_state.phase === 'learning' ? 'Learning Phase' :
 				current_state.phase === 'decision' ? 'Decision Phase' :
 				current_state.phase === 'compromise' ? 'Decision Phase' :
-				''}
+				''} {iterLabel}
 			{/if}
 		</span>
-		{@const iter = full_iterations.all_full_iterations?.length ? 
-			((step === 'optimization') ? 
-				full_iterations.all_full_iterations?.length 
-				:full_iterations.all_full_iterations?.length-1 ) 
-			: "0"}
-		<span> / Iteration {iter}</span>
-		{#if problem && selected_type_solutions === 'current'}
+		{#if problem && history_option === 'current'}
 			{@const statusMessage = getStatusMessage({
 				isOwner,
 				isDecisionMaker,
 				step,
-				isActionDone
+				isActionDone,
+				phase: current_state.phase
 			})}
 			<span class="left-0 p-4 font-normal">
 				{statusMessage}
@@ -752,20 +717,20 @@
 		<span class="left-0 p-4">View: </span>
 		<Combobox
 			options={frameworks}
-			defaultSelected={selected_type_solutions}
+			defaultSelected={history_option}
 			onChange={handle_type_solutions_change}
 		/>
 	{/snippet}
 
 	{#snippet leftSidebar()}
-		{#if problem && step === 'optimization' && isDecisionMaker && selected_type_solutions === 'current'}
+		{#if problem && step === 'optimization' && isDecisionMaker && history_option === 'current'}
 			<AppSidebar
 				{problem}
 				preferenceTypes={[PREFERENCE_TYPES.Classification]}
 				numSolutions={4}
 				typePreferences={type_preferences}
 				preferenceValues={current_preference}
-				objectiveValues={Object.values(selected_voting_objectives)}
+				objectiveValues={Object.values(selected_solution_objectives)}
 				isIterationAllowed={is_iteration_allowed}
 				lastIteratedPreference={last_iterated_preference}
 				onPreferenceChange={handle_preference_change}
@@ -790,18 +755,11 @@
 							previousPreferenceType={type_preferences}
 							currentPreferenceType={type_preferences}
 							solutionsObjectiveValues={visualizationObjectives.solutions}
-							previousObjectiveValues={visualizationObjectives.previous}
-							otherObjectiveValues={visualizationObjectives.others}
-							externalSelectedIndexes={[selected_voting_index]}
+							previousObjectiveValues={history_option ==="current" ? visualizationObjectives.previous : []}
+							otherObjectiveValues={history_option ==="current" ? visualizationObjectives.others : []}
+							externalSelectedIndexes={[selected_solution_index]}
 							onSelectSolution={handle_solution_click}
-							lineLabels={Object.fromEntries(
-								visualizationObjectives.solutions.map((_, i) => [
-									i, 
-									visualizationObjectives.solutions.length === 1 
-										? 'Group solution' 
-										: `Group solution ${i + 1}`
-								])
-							)}
+							lineLabels={visualizationObjectives.solutionLabels}
 							referenceDataLabels={{
 								previousRefLabel: 'Your previous preference',
 								currentRefLabel: 'Your current preference',
@@ -846,11 +804,13 @@
 					{step}
 					{current_state}
 					{tableData}
-					{selected_type_solutions}
-					{selected_voting_index}
+					selected_type_solutions={history_option}
+					selected_voting_index={selected_solution_index}
 					userSolutionsObjectives={userSolutionsObjectives}
 					{isDecisionMaker}
+					{isOwner}
 					onVote={handle_vote}
+					onChangeIteration={revert_iteration}
 					onRowClick={handle_solution_click}
 				/>
 			{/if}

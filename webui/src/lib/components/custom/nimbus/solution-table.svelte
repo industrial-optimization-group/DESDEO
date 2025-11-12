@@ -130,11 +130,16 @@
 
 	// Get the display accuracy
 	let displayAccuracy = $derived.by(() => getDisplayAccuracy(problem));
+
+	// Helper function to get solution display name. idx is solutions solution_index
 	let displayName = $derived((idx: number | null) => {
-		let baseName = methodPage === "gnimbus" ? 'Group solution' : 'Solution'
 		let indexSuffix = (solverResults.length > 1 && idx !== null) ? idx + 1 : ''
-		
-		return `${baseName} ${indexSuffix}`;
+		let name = `Solution ${indexSuffix}`
+		if (methodPage ==="gnimbus") {
+			indexSuffix = (solverResults.length > 1 && idx !== null) ? idx : ''
+			name = selected_type_solutions === 'all_own' ? 'Your solution' : `Group solution ${indexSuffix}`
+		};	
+		return name;
 	});
 
 	// Helper function to get objective title for display
@@ -164,9 +169,9 @@
 			// Second column - Solution name
 			{
 				accessorKey: 'name',
-				header: ({ column }) => renderSnippet(ColumnHeader, { column, title: 'Name (optional)' }),
+				header: ({ column }) => renderSnippet(ColumnHeader, { column, title: methodPage === "nimbus" ? 'Name (optional)' : "" }),
 				cell: ({ row }) => renderSnippet(NameCell, { solution: row.original }),
-				enableSorting: true,
+				enableSorting: methodPage === "nimbus",
 				sortUndefined: 'last'
 			},
 			// Third column - Edit button (if saved)

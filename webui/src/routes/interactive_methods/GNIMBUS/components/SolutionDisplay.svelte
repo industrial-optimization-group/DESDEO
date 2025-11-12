@@ -9,6 +9,7 @@
 	 * @created October 2025
 	 */
 	import SolutionTable from '$lib/components/custom/nimbus/solution-table.svelte';
+	import Button from '$lib/components/ui/button/button.svelte';
 	import type { Step, TableData, ProblemInfo } from '../types';
 	import VotingControls from './VotingControls.svelte';
 
@@ -21,7 +22,9 @@
 		selected_voting_index,
 		userSolutionsObjectives,
 		isDecisionMaker,
+		isOwner,
 		onVote,
+		onChangeIteration,
 		onRowClick
 	}: {
 		problem: ProblemInfo;
@@ -32,15 +35,14 @@
 		selected_voting_index: number;
 		userSolutionsObjectives: { [key: string]: number }[] | undefined;
 		isDecisionMaker: boolean;
+		isOwner: boolean;
 		onVote: (value: number) => void;
+		onChangeIteration: () => void;
 		onRowClick: (index: number) => void;
 	} = $props();
 </script>
 
 <div class="flex h-full flex-col">
-	{#if step === 'voting' && isDecisionMaker && selected_type_solutions === 'current'}
-		<VotingControls phase={current_state.phase} {selected_voting_index} {onVote} />
-	{/if}
 	<div class="min-h-0 flex-1">
 		<SolutionTable
 			{problem}
@@ -54,4 +56,12 @@
 			secondaryObjectiveValues={userSolutionsObjectives}
 		/>
 	</div>
+	{#if step === 'voting' && isDecisionMaker && selected_type_solutions === 'current'}
+		<VotingControls phase={current_state.phase} {selected_voting_index} {onVote} />
+	{/if}
+	{#if selected_type_solutions !== 'current' && isOwner}
+		<Button onclick={onChangeIteration} class="mb-2 flex-none" variant="secondary">
+			Change Iteration to chosen solutions iteration
+		</Button>
+	{/if}
 </div>
