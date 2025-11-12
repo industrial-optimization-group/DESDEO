@@ -105,7 +105,7 @@ export function createVisualizationData(
 	step: string,
 	currentState: Response,
 	solutionOptions: Solution[],
-	historyOption: 'current' | 'all_own' | 'all_group'
+	historyOption: 'current' | 'all_own' | 'all_group' | 'all_final'
 ): VisualizationData {
 	if (!problem) return { solutions: [], previous: [], others: [] };
 
@@ -116,6 +116,14 @@ export function createVisualizationData(
 			return [
 				i, 
 				solutionOptions.length === 1 ? 'Your solution' : `Your solution ${iterationNumber}`
+			]})
+		)
+	} else 	if (historyOption === 'all_final') {
+		solutionLabels = Object.fromEntries(solutionOptions.map((_, i) => {
+			const iterationNumber = solutionOptions.length - 1 - i; // Count backwards, smallest is 1
+			return [
+				i, 
+				solutionOptions.length === 1 ? 'Final solution' : `Final solution ${iterationNumber}`
 			]})
 		)
 	} else {
@@ -246,6 +254,7 @@ export function mapSolutionsToObjectiveValues(solutions: Solution[], problem: Pr
 export interface HistoryData {
 	own_solutions: any[];
 	common_solutions: any[];
+	final_solutions: any[];
 	preferences: number[][];
 }
 
@@ -253,12 +262,13 @@ export interface HistoryData {
  * Transforms full iterations data into organized history data
  * This replaces the complex $derived.by() computation in the main component
  */
-export function computeHistory(full_iterations: AllIterations, userId: number | undefined, isDecisionMaker: boolean): HistoryData {
+export function computeHistory(full_iterations: AllIterations, userId: number | undefined, isDecisionMaker: boolean, isOwner: boolean): HistoryData {
 	if (!full_iterations.all_full_iterations || !userId) {
 		return {
 			own_solutions: [],
 			common_solutions: [],
-			preferences: []
+			preferences: [],
+			final_solutions: []
 		};
 	}
 	// Transform own solutions with iteration numbers (only if user has valid ID and iteration has user results)
@@ -283,13 +293,24 @@ export function computeHistory(full_iterations: AllIterations, userId: number | 
 			}));
 		});
 
+	const final_solutions = full_iterations.all_full_iterations
+		.filter((iteration) => iteration.final_result !== null)
+		.map((iteration, index) => {
+			const iterationNumber = full_iterations.all_full_iterations.length - 1 - index; // Count backwards like header
+			return {
+				...iteration.final_result,
+				iteration_number: iterationNumber
+			};
+		});
+
 	// Extract preferences history
 	const preferences = isDecisionMaker ? extractPreferencesHistory(full_iterations, userId) : [];
 
 	return {
 		own_solutions,
 		common_solutions,
-		preferences
+		preferences,
+		final_solutions
 	};
 }
 
@@ -322,7 +343,7 @@ function extractPreferencesHistory(full_iterations: AllIterations, userId: numbe
 export function getSolutionsForView(
 	historyData: HistoryData,
 	current_state: any,
-	history_option: 'current' | 'all_own' | 'all_group',
+	history_option: 'current' | 'all_own' | 'all_group' | 'all_final',
 	step: string
 ): Solution[] {
 	if (!current_state) return [];
@@ -333,6 +354,9 @@ export function getSolutionsForView(
 	}
 	if (history_option === 'all_own') {
 		return historyData.own_solutions;
+	}
+	if (history_option === 'all_final') {
+		return historyData.final_solutions;
 	}
 	
 	// Current iteration mode

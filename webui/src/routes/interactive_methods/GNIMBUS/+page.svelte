@@ -132,7 +132,8 @@
 	let frameworks = $derived.by(() => {
 		const baseOptions = [
 			{ value: 'current', label: 'Current iteration' },
-			{ value: 'all_group', label: 'All group solutions' }
+			{ value: 'all_group', label: 'All group solutions' },
+			{ value: 'all_final', label: 'All final solutions' }
 		];
 		
 		// Only add "all_own" option if user is a decision maker (has personal solutions)
@@ -145,16 +146,16 @@
 	
 	// History and visible solution selection related things:
 	// this is what drop-down selection is bound to
-	let history_option = $state('current') as 'current' | 'all_own' | 'all_group';
+	let history_option = $state('current') as 'current' | 'all_own' | 'all_group' | 'all_final';
 
 	// preparing solutions and preferences for showing them in history
 	let history: HistoryData = $derived.by(() => {
-		return computeHistory(full_iterations, userId, isDecisionMaker);
+		return computeHistory(full_iterations, userId, isDecisionMaker, isOwner);
 	});
 
 	// choosing the solutions we want to show in UI
 	let solution_options = $derived.by(() => {
-		return getSolutionsForView(history, current_state, history_option as 'current' | 'all_own' | 'all_group', step);
+		return getSolutionsForView(history, current_state, history_option as 'current' | 'all_own' | 'all_group' | 'all_final', step);
 	});
 
 	// This is for highlightin specific preference in history, but we need to have it separate from other history things
@@ -165,11 +166,11 @@
 	});
 
 	function handle_type_solutions_change(event: { value: string }) {
-		change_solution_type_updating_selections(event.value as 'current' | 'all_own' | 'all_group');
+		change_solution_type_updating_selections(event.value as 'current' | 'all_own' | 'all_group' | 'all_final');
 	}
 	
 	// Helper function to change solution type and update selections
-	function change_solution_type_updating_selections(newType: 'current' | 'all_own' | 'all_group') {
+	function change_solution_type_updating_selections(newType: 'current' | 'all_own' | 'all_group' | 'all_final') {
 		// Prevent setting 'all_own' if user is not a decision maker
 		if (newType === 'all_own' && !isDecisionMaker) {
 			console.warn('Cannot select "all_own" - user is not a decision maker');

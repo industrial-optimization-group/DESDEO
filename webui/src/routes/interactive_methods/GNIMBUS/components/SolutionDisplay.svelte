@@ -59,7 +59,7 @@
 	{#if step === 'voting' && isDecisionMaker && selected_type_solutions === 'current'}
 		<VotingControls phase={current_state.phase} {selected_voting_index} {onVote} />
 	{/if}
-	{#if selected_type_solutions !== 'current' && isOwner}
+	{#if selected_type_solutions === 'all_final' && isOwner}
 		<Button onclick={onChangeIteration} class="mb-2 flex-none" variant="secondary">
 			Change Iteration to chosen solutions iteration
 		</Button>
