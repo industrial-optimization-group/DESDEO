@@ -4,13 +4,11 @@ import numpy as np
 import numpy.testing as npt
 import pytest
 
-from desdeo.gdm.gdmtools import dict_of_rps_to_list_of_rps, list_of_rps_to_dict_of_rps
+from desdeo.gdm.gdmtools import dict_of_rps_to_list_of_rps, list_of_rps_to_dict_of_rps, agg_aspbounds, scale_delta
 from desdeo.gdm.voting_rules import majority_rule, plurality_rule
 from desdeo.mcdm.gnimbus import (
     GNIMBUSError,
-    find_min_max_values,
     infer_group_classifications,
-    scale_delta,
     solve_group_sub_problems,
     voting_procedure,
 )
@@ -268,6 +266,22 @@ def test_solve_sub_problems_diff():
     print(solutions[5].optimal_objectives)
     print(solutions[6].optimal_objectives)
 
+    phase = "decision"
+    solutions = solve_group_sub_problems(
+        problem, initial_fs, dms_rps, phase, create_solver=PyomoIpoptSolver, solver_options=solver_options
+    )
+
+    assert len(solutions) == 1
+    print(solutions[0].optimal_objectives)
+
+    phase = "compromise"
+    solutions = solve_group_sub_problems(
+        problem, initial_fs, dms_rps, phase, create_solver=PyomoIpoptSolver, solver_options=solver_options
+    )
+
+    assert len(solutions) == 1
+    print(solutions[0].optimal_objectives)
+
     non_valid_rps = {
         "DM1": {"f_1": 0.0, "f_2": initial_fs["f_2"], "f_3": 0},  # improve f_1, keep f_2 same, impair f_3
         "DM2": {"f_1": 0.3, "f_2": 0.0, "f_3": 0.5},  # improve f_1 to 0.3, impair f_2, improve f_3 to 0.5
@@ -275,12 +289,6 @@ def test_solve_sub_problems_diff():
     }
 
     phase = "learning"
-
-    # pytest.raises(Exception)
-    #    solutions=solve_group_sub_problems(
-    #        problem, initial_fs, non_valid_rps, phase, create_solver=PyomoIpoptSolver, solver_options=solver_options
-    #    )
-    # )
     with pytest.raises(Exception) as e_info:
         solutions = solve_group_sub_problems(
             problem, initial_fs, non_valid_rps, phase, create_solver=PyomoIpoptSolver, solver_options=solver_options

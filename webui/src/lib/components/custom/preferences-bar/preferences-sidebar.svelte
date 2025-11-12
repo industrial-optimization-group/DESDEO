@@ -97,7 +97,10 @@
 	let internal_preference_values = $state([...preferenceValues]);
 	let internal_objective_values = $state([...objectiveValues]);
 
-	let displayAccuracy = $derived(() => getDisplayAccuracy(problem));
+	let displayAccuracy = $derived((idx: number) => {
+		const list = getDisplayAccuracy(problem)
+		return list[idx];
+	});
 
 	// Sync internal state with props when they change
 	$effect(() => {
@@ -185,6 +188,15 @@
 	function get_objective_value(idx: number): number {
 		return internal_objective_values[idx] ?? 0;
 	}
+
+	// Helper function to get objective title for display
+	function getObjectiveTitle(objective: any): string {
+		if (!objective) return '';
+		
+		const tooltip = objective.description || objective.name;
+		return objective.unit ? `${tooltip} (${objective.unit})` : tooltip;
+	}
+
 </script>
 
 <Sidebar.Root
@@ -241,9 +253,9 @@
 					<div class="mb-4 flex flex-col gap-2">
 						<div
 							class="text-sm font-semibold text-gray-700"
-							title={objective.unit ? `${objective.name} (${objective.unit})` : objective.name}
+							title={getObjectiveTitle(objective)}
 						>
-							{objective.symbol} ({objective.maximize ? 'max' : 'min'})
+							{objective.name} ({objective.maximize ? 'max' : 'min'})
 						</div>
 						<div class="flex flex-row items-start">
 							<div class="flex w-1/4 flex-col">
@@ -254,7 +266,7 @@
 									placeholder=""
 									min={Math.min(objective.ideal, objective.nadir)}
 									max={Math.max(objective.ideal, objective.nadir)}
-									value={String(formatNumber(get_preference_value(idx), displayAccuracy()))}
+									value={String(formatNumber(get_preference_value(idx), displayAccuracy(idx)))}
 									onChange={(value) => {
 										const val = Number(value);
 										if (!isNaN(val)) handle_preference_value_change(idx, val);
@@ -273,7 +285,7 @@
 									direction={objective.maximize ? 'max' : 'min'}
 									previousValue={lastIteratedPreference[idx] ?? undefined}
 									options={{
-										decimalPrecision: displayAccuracy(),
+										decimalPrecision: displayAccuracy(idx),
 										showPreviousValue: true,
 										showSelectedValueLabel: false,
 										aspectRatio: 'aspect-[11/2]'
@@ -294,7 +306,7 @@
 				{#if objective.ideal != null && objective.nadir != null}
 					<div class="mb-4 flex flex-col gap-2">
 						<div class="text-sm font-semibold text-gray-700">
-							{objective.symbol} ({objective.maximize ? 'max' : 'min'})
+							{objective.name} ({objective.maximize ? 'max' : 'min'})
 						</div>
 						<div class="flex flex-row">
 							<div class="flex w-1/4 flex-col justify-center">
@@ -303,7 +315,7 @@
 									placeholder=""
 									min={Math.min(objective.ideal, objective.nadir)}
 									max={Math.max(objective.ideal, objective.nadir)}
-									value={String(formatNumber(get_preference_value(idx), displayAccuracy()))}
+									value={String(formatNumber(get_preference_value(idx), displayAccuracy(idx)))}
 									onChange={(value) => {
 										const val = Number(value);
 										if (!isNaN(val)) handle_preference_value_change(idx, val);
@@ -341,7 +353,7 @@
 				{#if objective.ideal != null && objective.nadir != null}
 					<div class="mb-4 flex flex-col gap-2">
 						<div class="text-sm font-semibold text-gray-700">
-							{objective.symbol} ({objective.maximize ? 'max' : 'min'})
+							{objective.name} ({objective.maximize ? 'max' : 'min'})
 						</div>
 						<div class="flex flex-row">
 							<div class="flex w-1/4 flex-col justify-center">
@@ -350,7 +362,7 @@
 									placeholder=""
 									min={Math.min(objective.ideal, objective.nadir)}
 									max={Math.max(objective.ideal, objective.nadir)}
-									value={String(formatNumber(get_preference_value(idx), displayAccuracy()))}
+									value={String(formatNumber(get_preference_value(idx), displayAccuracy(idx)))}
 									onChange={(value) => {
 										const val = Number(value);
 										if (!isNaN(val)) handle_preference_value_change(idx, val);

@@ -9,7 +9,7 @@
 	 *
 	 * @description
 	 * A versatile visualization panel for multi-objective optimization solutions in DESDEO.
-	 * Provides different visualization types (Parallel Coordinates, Bar Chart) for exploring
+	 * Will provide different visualization types (Parallel Coordinates, Bar Chart) for exploring TODO: Bar Chart
 	 * solution spaces and comparing different solutions against preferences.
 	 *
 	 * @data_flow
@@ -32,6 +32,8 @@
 	 * @property {function} [onSelectSolution] - Callback when user selects a solution
 	 * @property {number | null} [externalSelectedIndex] - Index of solution to highlight (single-select mode)
 	 * @property {number[] | null} [externalSelectedIndexes] - Indexes of solutions to highlight (multi-select mode)
+	 * @property {{ [key: string]: string }} [lineLabels] - Custom labels for solution lines displayed in tooltips
+	 * @property {{ currentRefLabel?: string, previousRefLabel?: string, previousSolutionLabels?: string[], otherSolutionLabels?: string[] }} [referenceDataLabels] - Labels for reference points and solutions
 	 *
 	 * @features
 	 * - Visualization type selector (Parallel Coordinates/Bar Chart toggle)
@@ -40,6 +42,7 @@
 	 * - Reference point visualization
 	 * - Previous solution comparison
 	 * - Empty state handling
+	 * - Interactive tooltips with customizable labels for solutions and reference points
 	 *
 	 * @dependencies
 	 * - ParallelCoordinates component for the parallel coordinates visualization
@@ -88,6 +91,14 @@
 		onSelectSolution?: (index: number) => void;
 		externalSelectedIndex?: number | null;
 		externalSelectedIndexes?: number[] | null;
+		// Labels for different types of solutions
+		lineLabels?: { [key: string]: string };
+		referenceDataLabels?: {
+			currentRefLabel?: string;
+			previousRefLabel?: string;
+			previousSolutionLabels?: string[];
+			otherSolutionLabels?: string[];
+		};
 	}
 
 	const {
@@ -102,7 +113,9 @@
 		solutionsDecisionValues = [],
 		onSelectSolution,
 		externalSelectedIndex = null,
-		externalSelectedIndexes = null
+		externalSelectedIndexes = null,
+		lineLabels = {},
+		referenceDataLabels = {}
 	}: Props = $props();
 
 	/**
@@ -121,13 +134,18 @@
 	 * Includes reference point and preferred ranges if available
 	 */
 	const referenceData = $derived(() =>
-		createReferenceData(
+		{
+			let data = createReferenceData(
 			currentPreferenceValues,
 			previousPreferenceValues,
 			problem,
 			previousObjectiveValues,
-			otherObjectiveValues
+			otherObjectiveValues,
+			referenceDataLabels
 		)
+		data ? data.preferredRanges = undefined : ()=> []; // Disable preferred ranges display
+		return data;
+		}
 	);
 
 	/**
@@ -153,7 +171,7 @@
 		showAxisLabels: true,
 		highlightOnHover: true,
 		strokeWidth: 2,
-		opacity: 0.7,
+		opacity: 0.4,
 		enableBrushing: false
 	};
 
@@ -225,8 +243,8 @@
 					{ value: 'parallel', label: 'Parallel Coordinates' },
 					{ value: 'bar', label: 'Bar Chart' }
 				]}
-				class="justify-end"
-			/>
+				class="justify-end invisible" 
+			/> <!--To implement the bar chart, remove the invisible class above and add the visualization below-->
 		</div>
 
 		<!-- Visualization Container with dynamic height -->
@@ -240,6 +258,7 @@
 					{selectedIndex}
 					multipleSelectedIndexes={externalSelectedIndexes}
 					onLineSelect={handleLineSelect}
+					{lineLabels}
 				/>
 			{:else if visualizationType === 'bar'}
 				<!-- Placeholder for Bar Chart Visualization -->

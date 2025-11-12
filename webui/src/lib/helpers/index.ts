@@ -73,23 +73,44 @@ export function formatNumberArray(values: number[], digits: number = SIGNIFICANT
 
 /**
  * Gets the display accuracy from problem metadata or returns default value
+ * TODO: This function is just a mock function that tries to find information that doesn't exist,
+ * and defaults to accuracy of SIGNIFICANT_DIGITS.
  * @param problem The problem to check
  * @returns The display accuracy (number of significant digits)
  */
-export function getDisplayAccuracy(problem: ProblemInfo | null): number {
+export function getDisplayAccuracy(problem: ProblemInfo | null): number[] {
     // Default to 2 significant digits if not specified
     const DEFAULT_ACCURACY = SIGNIFICANT_DIGITS;
     
-    if (!problem || !problem.problem_metadata ) {
-        return DEFAULT_ACCURACY;
+    if (!problem) {
+        return [];
+    }
+    if (!problem.problem_metadata ) {
+        return problem.objectives.map(() => DEFAULT_ACCURACY);
     }
 
-    // Check if any metadata has display_accuracy field 
+    // Check if metadata has display_accuracy field with per-objective accuracies
     // TODO: this does not make sense: I dont know where in the metadata the display accuracy would exist, since it doesn't,
-    // and also it should be unique for every objective value.
-      if ('display_accuracy' in problem.problem_metadata && typeof problem.problem_metadata.display_accuracy === 'number') {
-          return problem.problem_metadata.display_accuracy;
-      }
+    // and metadata might need to be fetched in http request?
+    // Anyway, this is just mocking anyway.
+    if ('display_accuracy' in problem.problem_metadata) {
+        const displayAccuracy = problem.problem_metadata.display_accuracy;
+        
+        // If it's an array, use it (assuming it matches objectives length)
+        if (Array.isArray(displayAccuracy)) {
+            // Pad with defaults if array is shorter than objectives
+            const result = displayAccuracy.slice(0, problem.objectives.length);
+            while (result.length < problem.objectives.length) {
+                result.push(DEFAULT_ACCURACY);
+            }
+            return result.map(acc => typeof acc === 'number' ? acc : DEFAULT_ACCURACY);
+        }
+        
+        // If it's a single number, use it for all objectives
+        if (typeof displayAccuracy === 'number') {
+            return problem.objectives.map(() => displayAccuracy);
+        }
+    }
 
-    return DEFAULT_ACCURACY;
+    return problem.objectives.map(() => DEFAULT_ACCURACY);
 }

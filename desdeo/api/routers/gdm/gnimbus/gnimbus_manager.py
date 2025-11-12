@@ -57,6 +57,7 @@ class GNIMBUSManager(GroupManager):
         session.add(current_iteration)
         session.commit()
         session.refresh(current_iteration)
+        print(current_iteration.preferences)
 
     async def check_preferences(
         self,
@@ -199,10 +200,12 @@ class GNIMBUSManager(GroupManager):
 
         except ScalarizationError as e:
             await self.broadcast(f"Error while scalarizing: {e}")
+            logger.exception(f"ERROR: {e}")
             return None
 
         except Exception as e:
             await self.broadcast(f"An error occured while optimizing: {e}")
+            logger.exception(f"ERROR: {e}")
             return None
 
         optim_state = GNIMBUSOptimizationState(reference_points=formatted_prefs, solver_results=results)
