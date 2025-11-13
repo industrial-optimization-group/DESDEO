@@ -259,10 +259,12 @@ class GNIMBUSManager(GroupManager):
                 reference_points=formatted_prefs,
                 phase=current_iteration.preferences.phase,
             )
-            logger.info(f"Amount on common solutions before filtering: {len(results[user_len:])}")
-            common_results = filter_duplicates(results[user_len:])
-            results = results[:user_len] + common_results
-            logger.info(f"Amount on common solutions after filtering: {len(results[user_len:])}")
+            logger.info(f"Result amount: {len(results)}")
+            if current_iteration.preferences.phase in ["learning", "crp"]:
+                logger.info(f"Amount on common solutions before filtering: {len(results[user_len:])}")
+                common_results = filter_duplicates(results[user_len:])
+                results = results[:user_len] + common_results
+                logger.info(f"Amount on common solutions after filtering: {len(results[user_len:])}")
 
             logger.info(f"Optimization for group {self.group_id} done.")
 
@@ -476,12 +478,13 @@ class GNIMBUSManager(GroupManager):
                 session.close()
                 return
 
-            if group.head_iteration is None:
+            current_iteration = session.exec(select(GroupIteration)
+                                          .where(GroupIteration.id == group.head_iteration_id)).first()
+            if current_iteration is None:
                 await self.broadcast("ERROR: Problem not initialized! Initialize the problem!")
                 session.close()
                 return
 
-            current_iteration = group.head_iteration
             logger.info(f"Current iteration ID: {current_iteration.id}")
 
             problem_db: ProblemDB = session.exec(select(ProblemDB).where(ProblemDB.id == group.problem_id)).first()
@@ -538,8 +541,6 @@ class GNIMBUSManager(GroupManager):
             # If everything has gone according to keikaku (keikaku means plan), create the next iteration.
             next_iteration = GroupIteration(
                 group_id=self.group_id,
-                group=group,
-                gid=self.group_id,
                 problem_id=current_iteration.problem_id,
                 preferences=new_preferences,
                 notified={},
@@ -560,7 +561,7 @@ class GNIMBUSManager(GroupManager):
             session.commit()
 
             # Update head of the group
-            group.head_iteration = next_iteration
+            group.head_iteration_id = next_iteration.id
             session.add(group)
             session.commit()
 

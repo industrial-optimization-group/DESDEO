@@ -62,7 +62,9 @@ def gnimbus_initialize(
     if not (user.id in group.user_ids or user.id is group.owner_id):
         raise HTTPException(detail="Unauthorized user", status_code=status.HTTP_401_UNAUTHORIZED)
 
-    if group.head_iteration is not None:
+    head_iteration = session.exec(select(GroupIteration)
+                                  .where(GroupIteration.id == group.head_iteration_id)).first()
+    if head_iteration is not None:
         raise HTTPException(detail="Group problem already initialized!", status_code=status.HTTP_400_BAD_REQUEST)
 
     problem_db = session.exec(select(ProblemDB).where(ProblemDB.id == group.problem_id)).first()
@@ -92,8 +94,6 @@ def gnimbus_initialize(
     start_iteration = GroupIteration(
         problem_id=group.problem_id,
         group_id=group.id,
-        group=group,
-        gid=group.id,
         preferences=VotingPreference(
             set_preferences={},
         ),
@@ -110,8 +110,6 @@ def gnimbus_initialize(
     new_iteration = GroupIteration(
         problem_id=start_iteration.problem_id,
         group_id=start_iteration.group_id,
-        group=start_iteration.group,
-        gid=start_iteration.group_id,
         preferences=OptimizationPreference(
             set_preferences={},
         ),
@@ -128,7 +126,7 @@ def gnimbus_initialize(
     children.append(new_iteration)
     start_iteration.children = children
     session.add(start_iteration)
-    group.head_iteration = new_iteration
+    group.head_iteration_id = new_iteration.id
     session.add(group)
     session.commit()
 
@@ -163,8 +161,11 @@ def get_latest_results(
 
     nores_exp = HTTPException(detail="No results found!", status_code=status.HTTP_404_NOT_FOUND)
 
+    head_iteration = session.exec(select(GroupIteration)
+                                  .where(GroupIteration.id == group.head_iteration_id)).first()
+
     try:
-        iteration = group.head_iteration.parent
+        iteration = head_iteration.parent
     except Exception as e:
         raise nores_exp from e
 
@@ -239,8 +240,11 @@ def full_iteration(
     if user.id not in group.user_ids and user.id is not group.owner_id:
         raise HTTPException(detail="Unauthorized user", status_code=status.HTTP_401_UNAUTHORIZED)
 
+    head_iteration = session.exec(select(GroupIteration)
+                                  .where(GroupIteration.id == group.head_iteration_id)).first()
+
     try:
-        groupiter = group.head_iteration.parent
+        groupiter = head_iteration.parent
     except Exception as e:
         raise not_init_error from e
 
@@ -272,13 +276,15 @@ def full_iteration(
         for i, _ in enumerate(this_state.state.solver_results):
             all_results.append(SolutionReference(state=this_state, solution_index=i))
 
+        phase = groupiter.preferences.phase
+
         full_iterations.append(
             FullIteration(
-                phase=groupiter.preferences.phase,
+                phase=phase,
                 optimization_preferences=groupiter.preferences,
                 voting_preferences=None,
                 starting_result=SolutionReference(state=prev_state, solution_index=0),
-                common_results=all_results[user_len:],
+                common_results=all_results if phase in ["decision", "compromise"] else all_results[user_len:],
                 user_results=all_results[:user_len],
                 personal_result_index=personal_result_index,
                 final_result=None,
@@ -306,13 +312,15 @@ def full_iteration(
                 personal_result_index = i
                 break
 
+        phase = groupiter.parent.preferences.phase
+
         full_iterations.append(
             FullIteration(
-                phase=groupiter.parent.preferences.phase,
+                phase=phase,
                 optimization_preferences=groupiter.parent.preferences,
                 voting_preferences=groupiter.preferences,
                 starting_result=SolutionReference(state=first_state, solution_index=0),
-                common_results=all_results[user_len:],
+                common_results=all_results if phase in ["decision", "compromise"] else all_results[user_len:],
                 user_results=all_results[:user_len],
                 personal_result_index=personal_result_index,
                 final_result=SolutionReference(state=this_state, solution_index=0),
@@ -364,7 +372,9 @@ async def switch_phase(
     if user.id is not group.owner_id:
         raise HTTPException(detail="Unauthorized user.", status_code=status.HTTP_401_UNAUTHORIZED)
 
-    iteration = group.head_iteration
+    iteration = session.exec(select(GroupIteration)
+                             .where(GroupIteration.id == group.head_iteration_id)).first()
+
     if iteration is None:
         raise HTTPException(
             detail="There's no iterations! Did you forget to initialize the problem?",
@@ -414,7 +424,8 @@ def get_phase(
     if user.id not in g:
         raise HTTPException(detail="Unauthorized user.", status_code=status.HTTP_401_UNAUTHORIZED)
 
-    current_iteration = group.head_iteration
+    current_iteration= session.exec(select(GroupIteration)
+                                    .where(GroupIteration.id == group.head_iteration_id)).first()
     if current_iteration is None:
         raise not_init_error
 
@@ -479,7 +490,9 @@ async def revert_iteration(
             status_code=status.HTTP_401_UNAUTHORIZED
         )
 
-    current_iteration = group.head_iteration
+    current_iteration = session.exec(select(GroupIteration)
+                                     .where(GroupIteration.id == group.head_iteration_id)).first()
+
     if not current_iteration:
         raise HTTPException(
             detail="There's no head iteration",
@@ -511,8 +524,6 @@ async def revert_iteration(
     new_parent_1 = GroupIteration(
         problem_id=group.problem_id,
         group_id=group.id,
-        group=group,
-        gid=group.id,
         preferences=target_iteration.parent.preferences.model_copy(),
         notified=target_iteration.parent.notified.copy(),
         state_id=target_iteration.parent.state_id,
@@ -527,8 +538,6 @@ async def revert_iteration(
     new_parent_2 = GroupIteration(
         problem_id=group.problem_id,
         group_id=group.id,
-        group=group,
-        gid=group.id,
         preferences=target_iteration.preferences.model_copy(),
         notified=target_iteration.notified.copy(),
         state_id=target_iteration.state_id,
@@ -544,8 +553,6 @@ async def revert_iteration(
     new_head = GroupIteration(
         problem_id=group.problem_id,
         group_id=group.id,
-        group=group,
-        gid=group.id,
         preferences=OptimizationPreference(
             phase=target_iteration.parent.preferences.phase \
                 if target_iteration.parent.preferences.phase is not None else "learning",
@@ -559,7 +566,7 @@ async def revert_iteration(
     session.add(new_head)
     session.commit()
 
-    group.head_iteration = new_head
+    group.head_iteration_id = new_head.id
 
     session.add(group)
     session.delete(current_iteration)

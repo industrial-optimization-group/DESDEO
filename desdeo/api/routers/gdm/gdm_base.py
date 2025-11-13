@@ -81,7 +81,12 @@ class GroupManager:
         session = next(get_session())
         group = session.exec(select(Group).where(Group.id == self.group_id)).first()
         try:
-            prev_iter = group.head_iteration.parent
+            head_iter = session.exec(select(GroupIteration)
+                                     .where(GroupIteration.id == group.head_iteration_id)).first()
+            if head_iter is None:
+                session.close()
+                return
+            prev_iter = head_iter.parent
             if prev_iter is None:
                 session.close()
                 return
@@ -234,7 +239,8 @@ def delete_group(
 
     # Get the root iteration
     # TODO: Adapt this to the new cascade with multiple children
-    head: GroupIteration = group.head_iteration
+    head: GroupIteration = session.exec(select(GroupIteration)
+                                        .where(GroupIteration.id == group.head_iteration_id)).first()
     iter_count = 0
     if head is not None:
         while head.parent is not None:

@@ -54,7 +54,7 @@ class Group(GroupBase, table=True):
 
     problem_id: int = Field(default=None)
 
-    head_iteration: "GroupIteration" = Relationship(back_populates="group")
+    head_iteration_id: int | None # looser coupling, used for querying instead of standard relationships
 
 
 class GroupPublic(GroupBase):
@@ -73,11 +73,7 @@ class GroupIteration(SQLModel, table=True):
     id: int | None = Field(primary_key=True, default=None)
     problem_id: int | None = Field(default=None)
 
-    group_id: int | None = Field(foreign_key="group.id", default=None)
-    group: "Group" = Relationship(back_populates="head_iteration")
-
-    # kinda stupid, but an easy fix for querying using group id (group_id dont work due to 1-to-1 relationship w/ group)
-    gid: int | None = Field(default=None)
+    group_id: int # looser coupling, used for querying instead of standard relationships
 
     # Preferences that are filled as they come (remove the RESULT aspect from this, just put the results to the state.)
     preferences: BasePreferences = Field(sa_column=Column(PreferenceType))

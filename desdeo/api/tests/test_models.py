@@ -860,8 +860,6 @@ def test_gnimbus_datas(session_and_user: dict[str, Session | list[User]]):
     giter = GroupIteration(
         problem_id=1,
         group_id=group.id,
-        group=group,
-        gid=group.id,
         preferences=OptimizationPreference(
             set_preferences={},
         ),
