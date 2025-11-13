@@ -132,14 +132,30 @@
 	let displayAccuracy = $derived.by(() => getDisplayAccuracy(problem));
 
 	// Helper function to get solution display name. idx is solutions solution_index
-	let displayName = $derived((idx: number | null) => {
-		let indexSuffix = (solverResults.length > 1 && idx !== null) ? idx + 1 : ''
-		let name = `Solution ${indexSuffix}`
-		if (methodPage ==="gnimbus") {
-			indexSuffix = (solverResults.length > 1 && idx !== null) ? idx : ''
-			name = selected_type_solutions === 'all_own' ? 'Your solution' : `Group solution ${indexSuffix}`
-		};	
-		return name;
+	let displayName = $derived((idx: number | null, iterationNumber?: number) => {
+		if (methodPage !== "gnimbus") {
+			// For NIMBUS, use original logic
+			let indexSuffix = (solverResults.length > 1 && idx !== null) ? idx + 1 : '';
+			return `Solution ${indexSuffix}`;
+		}
+
+		// For GNIMBUS, use switch for clear case handling
+		switch (selected_type_solutions) {
+			case 'all_own':
+				return 'Your solution';
+			case 'all_final':
+				// Check if this is iteration 0 (initial solution)
+				if (iterationNumber === 0) {
+					return 'Initial solution';
+				}
+				return 'Group solution';
+			default: // 'current' and 'all_group'
+				if (solverResults.length > 1 && idx !== null) {
+					return `Group solution ${idx}`;
+				}
+				return 'Group solution';
+			
+		}
 	});
 
 	// Helper function to get objective title for display
@@ -395,13 +411,13 @@
 	</div>
 {/snippet}
 
-{#snippet NameCell({ solution }: { solution: Solution })}
+{#snippet NameCell({ solution }: { solution: any })}
 	<div>
 		{#if solution.name}
 			{solution.name}
 		{:else}
 			<span class="text-gray-400"
-				>{displayName(solution.solution_index)}</span
+				>{displayName(solution.solution_index, solution.iteration_number)}</span
 			>
 		{/if}
 	</div>

@@ -104,26 +104,25 @@ export function createVisualizationData(
 	problem: ProblemInfo | null,
 	step: string,
 	currentState: Response,
-	solutionOptions: Solution[],
+	solutionOptions: any[], // NOPE. solution.iteration_number || null exists.
 	historyOption: 'current' | 'all_own' | 'all_group' | 'all_final'
 ): VisualizationData {
 	if (!problem) return { solutions: [], previous: [], others: [] };
 
 	let solutionLabels;
 	if (historyOption === 'all_own') {
-		solutionLabels = Object.fromEntries(solutionOptions.map((_, i) => {
-			const iterationNumber = solutionOptions.length - i; // Count backwards, smallest is 1
+		solutionLabels = Object.fromEntries(solutionOptions.map((solution, i) => {
 			return [
 				i, 
-				solutionOptions.length === 1 ? 'Your solution' : `Your solution ${iterationNumber}`
+				solutionOptions.length === 1 ? 'Your solution' : `Your solution ${solution.iteration_number ?? ""}`
 			]})
 		)
 	} else 	if (historyOption === 'all_final') {
-		solutionLabels = Object.fromEntries(solutionOptions.map((_, i) => {
-			const iterationNumber = solutionOptions.length - 1 - i; // Count backwards, smallest is 1
+		solutionLabels = Object.fromEntries(solutionOptions.map((solution, i) => {
+
 			return [
 				i, 
-				solutionOptions.length === 1 ? 'Final solution' : `Final solution ${iterationNumber}`
+				solutionOptions.length === 1 ? 'Group solution' : `Group solution ${solution.iteration_number ?? ""}`
 			]})
 		)
 	} else {
@@ -259,10 +258,9 @@ export interface HistoryData {
 }
 
 /**
- * Transforms full iterations data into organized history data
- * This replaces the complex $derived.by() computation in the main component
+ * Transforms full iterations data into organized history data, giving all solutions iteration numbers
  */
-export function computeHistory(full_iterations: AllIterations, userId: number | undefined, isDecisionMaker: boolean, isOwner: boolean): HistoryData {
+export function computeHistory(full_iterations: AllIterations, userId: number | undefined, isDecisionMaker: boolean, step: string): HistoryData {
 	if (!full_iterations.all_full_iterations || !userId) {
 		return {
 			own_solutions: [],
@@ -271,22 +269,34 @@ export function computeHistory(full_iterations: AllIterations, userId: number | 
 			final_solutions: []
 		};
 	}
-	// Transform own solutions with iteration numbers (only if user has valid ID and iteration has user results)
-	const own_solutions = isDecisionMaker ? full_iterations.all_full_iterations
-		.filter((iteration) => iteration.user_results && iteration.user_results.length > 0) // Filter out iterations with empty user_results
+	const arrayLength = full_iterations.all_full_iterations.length;
+
+	// TODO: isDecisionmaker means that personal_result_index !== null,
+	// so maybe to show all to owner, one could remove the isDecisionmaker and instead flatmap with condition that if null, just get all.
+	// Transform own solutions with iteration numbers (only if user is decisionMaker and thus has personal results, and user_results exist)
+	const own_solutions = isDecisionMaker ? full_iterations.all_full_iterations.slice(0, arrayLength -1) // Copy array to avoid mutating original
 		.map((iteration, index) => {
-			const iterationNumber = full_iterations.all_full_iterations.length - 1 - index; // Count backwards like header
-			return {
+			const iterationNumber = arrayLength - 1 - index; // Count backwards to get iteration number
+			if (iteration.phase === 'decision' || iteration.phase === 'compromise') {
+				return {
+					undefined,
+					iteration_number: iterationNumber
+				}
+			}
+			return (iteration.user_results && iteration.user_results.length >0) ? {
 				...iteration.user_results[(iteration.personal_result_index || 0)],
 				iteration_number: iterationNumber
-			};
-		}) : [];
+			} : {
+					undefined,
+					iteration_number: iterationNumber
+				};
+		})
+		: [];
 
-	// Transform common solutions with iteration numbers (filter out iterations with empty results)
-	const common_solutions = full_iterations.all_full_iterations
-		.filter((iteration) => iteration.common_results && iteration.common_results.length > 0) // Filter out iterations with empty common_results
+	// Transform common solutions with iteration numbers
+	const common_solutions = full_iterations.all_full_iterations // Iteration should always have common results, at least []. No need to filter.
 		.flatMap((iteration, index) => {
-			const iterationNumber = full_iterations.all_full_iterations.length - 1 - index; // Count backwards like header
+			const iterationNumber = arrayLength - 1 - index; // Count backwards to get iteration number
 			return (iteration.common_results ?? []).map(solution => ({
 				...solution,
 				iteration_number: iterationNumber
@@ -294,16 +304,19 @@ export function computeHistory(full_iterations: AllIterations, userId: number | 
 		});
 
 	const final_solutions = full_iterations.all_full_iterations
-		.filter((iteration) => iteration.final_result !== null)
+		.filter((_, index) => {
+			if (step === "voting") return index !== 0;
+			return true;
+		}) // filters the first if step is voting; in this case there is no final solution in that iteration.
 		.map((iteration, index) => {
-			const iterationNumber = full_iterations.all_full_iterations.length - 1 - index; // Count backwards like header
+			const iterationNumber = arrayLength - 1 - index; // Count backwards to get iteration number
 			return {
 				...iteration.final_result,
-				iteration_number: iterationNumber
+				iteration_number: step === 'voting' ? iterationNumber-1 : iterationNumber // if the first one is removed, array is shorter so index is one less
 			};
 		});
 
-	// Extract preferences history
+	// Extract preferences history TODO: is no dm, can return all?
 	const preferences = isDecisionMaker ? extractPreferencesHistory(full_iterations, userId) : [];
 
 	return {
@@ -315,7 +328,7 @@ export function computeHistory(full_iterations: AllIterations, userId: number | 
 }
 
 /**
- * Extracts preferences history for a specific user
+ * Extracts preferences history for a specific user TODO: check if right. All filterings etc can be AI bullshit
  */
 function extractPreferencesHistory(full_iterations: AllIterations, userId: number): number[][] {
 	const all_preferences = full_iterations.all_full_iterations

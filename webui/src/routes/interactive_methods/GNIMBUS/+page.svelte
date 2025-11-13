@@ -133,7 +133,7 @@
 		const baseOptions = [
 			{ value: 'current', label: 'Current iteration' },
 			{ value: 'all_group', label: 'All group solutions' },
-			{ value: 'all_final', label: 'All final solutions' }
+			{ value: 'all_final', label: 'All voting results' }
 		];
 		
 		// Only add "all_own" option if user is a decision maker (has personal solutions)
@@ -150,7 +150,7 @@
 
 	// preparing solutions and preferences for showing them in history
 	let history: HistoryData = $derived.by(() => {
-		return computeHistory(full_iterations, userId, isDecisionMaker, isOwner);
+		return computeHistory(full_iterations, userId, isDecisionMaker, step);
 	});
 
 	// choosing the solutions we want to show in UI
@@ -235,16 +235,17 @@
 			clearTimeout(messageTimeout);
 		}
 		if (msg.includes('ERROR')) {
-			socketError = msg;
+			socketError = msg.replace(/ERROR: /gi, '');
 			messageTimeout = window.setTimeout(() => {
 				socketError = undefined;
 			}, duration);
+		} else {
+			message = msg;
+			// Clear message after duration
+			messageTimeout = window.setTimeout(() => {
+				message = undefined;
+			}, duration);
 		}
-		message = msg;
-		// Clear message after duration
-		messageTimeout = window.setTimeout(() => {
-			message = undefined;
-		}, duration);
 	}
 
 	// Main function to fetch and update state
@@ -276,7 +277,7 @@
 			phase
 		};
 		step = determineStep(current_state);
-
+		history_option = 'current';
 		// Update preferences if user is a decision maker
 		if (userId && isDecisionMaker && problem) {
 			if (!latestIteration.optimization_preferences) {
@@ -617,7 +618,7 @@
 
 	// Derived value for solution table data
 	let tableData: TableData[] = $derived.by(() =>
-		solution_options.map((solution, i) => ({
+		solution_options.map((solution) => ({
 			state_id: solution.state_id,
 			solution_index: solution.solution_index ?? null,
 			name: null,
@@ -629,6 +630,7 @@
 
 	let userSolutionsObjectives = $derived.by(() => {
 		if (step !== 'voting' || !problem) return [];
+		if (current_state.phase === 'decision' || current_state.phase === 'compromise') return [];
 		return current_state.user_results
 			.map((result) => result.objective_values)
 			.filter((obj): obj is { [key: string]: number } => obj !== null && obj !== undefined);
@@ -677,7 +679,9 @@
 			{#if history_option === 'all_group'}
 				All Group Solutions
 			{:else if history_option === 'all_own'}
-				All Own Solutions and preferences
+				All Own Solutions and Preferences
+			{:else if history_option === 'all_final'}
+				All Solutions Resulted from Voting
 			{:else if step === 'finish'}
 				Final Solution {iterLabel}
 			{:else}
