@@ -1,9 +1,8 @@
 """Tests related to routes and routers."""
 
-import io
 import json
 
-from fastapi import UploadFile, status
+from fastapi import status
 from fastapi.testclient import TestClient
 from websockets.asyncio.client import connect
 
@@ -32,7 +31,7 @@ from desdeo.api.models import (
     NIMBUSIntermediateSolutionResponse,
     NIMBUSSaveRequest,
     NIMBUSSaveResponse,
-    ProblemAddFromJSONRequest,
+    ProblemDB,
     ProblemGetRequest,
     ProblemInfo,
     ProblemSelectSolverRequest,
@@ -50,8 +49,11 @@ from desdeo.api.routers.user_authentication import create_access_token
 from desdeo.emo.options.algorithms import nsga3_options, rvea_options
 from desdeo.emo.options.templates import ReferencePointOptions
 from desdeo.problem.testproblems import simple_knapsack_vectors
+from desdeo.problem import Problem
+from desdeo.problem.testproblems import dtlz2, simple_knapsack_vectors
 
 from .conftest import get_json, login, post_file_multipart, post_json
+from .test_models import compare_models
 
 
 def test_user_login(client: TestClient):
@@ -159,16 +161,22 @@ def test_add_problem(client: TestClient):
     assert len(problems) == 3
 
 
-def test_add_problem_json(client: TestClient):
+def test_add_problem_json(client: TestClient, session_and_user: dict):
     """Test that adding a problem to the database works with JSON files."""
+    session = session_and_user["session"]
     access_token = login(client)
+    problem = dtlz2(5, 3)
 
-    payload = {"name": "Test File", "version": 1}
+    payload = problem.model_dump()
     raw = json.dumps(payload).encode("utf-8")
 
     response = post_file_multipart(client, "/problem/add_json", raw, access_token)
 
-    print()
+    assert response.status_code == 200
+
+    problem_from_db = session.get(ProblemDB, 3)
+
+    assert compare_models(problem, Problem.from_problemdb(problem_from_db))
 
 
 def test_new_session(client: TestClient, session_and_user: dict):
@@ -432,6 +440,7 @@ def test_nimbus_initialize(client: TestClient):
     assert len(result_w_ref.saved_solutions) == 0
     assert len(result_w_ref.all_solutions) == 2  # we should have a new one
 
+
 def test_nimbus_finalize(client: TestClient):
     """Test for seeing if NIMBUS finalization works."""
     access_token = login(client)
@@ -470,22 +479,18 @@ def test_nimbus_finalize(client: TestClient):
 
     request = NIMBUSFinalizeRequest(
         problem_id=1,
-        solution_info=SolutionInfo(
-            state_id=state_id,
-            solution_index=solution_index
-        ),
-        preferences=prev_pref
+        solution_info=SolutionInfo(state_id=state_id, solution_index=solution_index),
+        preferences=prev_pref,
     )
 
     response = post_json(client, "/method/nimbus/finalize", request.model_dump(), access_token)
     assert response.status_code == status.HTTP_200_OK
-    result: NIMBUSFinalizeResponse = NIMBUSFinalizeResponse.model_validate(
-        json.loads(response.content.decode("utf-8"))
-    )
+    result: NIMBUSFinalizeResponse = NIMBUSFinalizeResponse.model_validate(json.loads(response.content.decode("utf-8")))
     assert result.final_solution is not None
     assert result.final_solution.objective_values == optim_obj
     assert result.final_solution.variable_values == optim_var
     assert result.final_solution.state_id != result.state_id
+
 
 def test_nimbus_save_and_delete_save(client: TestClient):
     """Test that NIMBUS saving and save deletion works."""
@@ -497,7 +502,7 @@ def test_nimbus_save_and_delete_save(client: TestClient):
     init_result: NIMBUSInitializationResponse = NIMBUSInitializationResponse.model_validate(
         json.loads(response.content)
     )
-    assert init_result.state_id==1
+    assert init_result.state_id == 1
 
     # 2. Iterate
     request: NIMBUSClassificationRequest = NIMBUSClassificationRequest(
@@ -510,28 +515,21 @@ def test_nimbus_save_and_delete_save(client: TestClient):
             }
         ),
         current_objectives=init_result.current_solutions[0].objective_values,
-        num_desired=3
+        num_desired=3,
     )
     response = post_json(client, "/method/nimbus/solve", request.model_dump(), access_token)
     solve_result: NIMBUSClassificationResponse = NIMBUSClassificationResponse.model_validate(
         json.loads(response.content)
     )
-    assert solve_result.state_id==2
+    assert solve_result.state_id == 2
 
     # 3. Save
     request: NIMBUSSaveRequest = NIMBUSSaveRequest(
-        problem_id=1,
-        parent_state_id=2,
-        solution_info=[SolutionInfo(
-            state_id=2,
-            solution_index=1
-        )]
+        problem_id=1, parent_state_id=2, solution_info=[SolutionInfo(state_id=2, solution_index=1)]
     )
     response = post_json(client, "/method/nimbus/save", request.model_dump(), access_token)
-    save_result: NIMBUSSaveResponse = NIMBUSSaveResponse.model_validate(
-        json.loads(response.content)
-    )
-    assert save_result.state_id==3
+    save_result: NIMBUSSaveResponse = NIMBUSSaveResponse.model_validate(json.loads(response.content))
+    assert save_result.state_id == 3
 
     # Assert that stuff is saved
     request: NIMBUSClassificationRequest = NIMBUSClassificationRequest(
@@ -544,21 +542,19 @@ def test_nimbus_save_and_delete_save(client: TestClient):
             }
         ),
         current_objectives=solve_result.current_solutions[0].objective_values,
-        num_desired=1
+        num_desired=1,
     )
     response = post_json(client, "/method/nimbus/solve", request.model_dump(), access_token)
     solve_result: NIMBUSClassificationResponse = NIMBUSClassificationResponse.model_validate(
         json.loads(response.content)
     )
-    assert solve_result.state_id==4
+    assert solve_result.state_id == 4
     assert len(solve_result.saved_solutions) > 0
 
     # 4. Delete save
     request: NIMBUSDeleteSaveRequest = NIMBUSDeleteSaveRequest(state_id=3, solution_index=1)
     response = post_json(client, "/method/nimbus/delete_save", request.model_dump(), access_token)
-    delete_save_result: NIMBUSDeleteSaveResponse = NIMBUSDeleteSaveResponse.model_validate(
-        json.loads(response.content)
-    )
+    delete_save_result: NIMBUSDeleteSaveResponse = NIMBUSDeleteSaveResponse.model_validate(json.loads(response.content))
 
     assert delete_save_result
 
@@ -575,15 +571,14 @@ def test_nimbus_save_and_delete_save(client: TestClient):
             }
         ),
         current_objectives=solve_result.current_solutions[0].objective_values,
-        num_desired=1
+        num_desired=1,
     )
     response = post_json(client, "/method/nimbus/solve", request.model_dump(), access_token)
     solve_result: NIMBUSClassificationResponse = NIMBUSClassificationResponse.model_validate(
         json.loads(response.content)
     )
-    assert solve_result.state_id==5
+    assert solve_result.state_id == 5
     assert len(solve_result.saved_solutions) == 0
-
 
 
 def test_add_new_dm(client: TestClient):

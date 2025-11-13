@@ -4,6 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, status
 from fastapi.responses import JSONResponse
+import json
 from sqlmodel import Session, select
 
 from desdeo.api.db import get_session
@@ -159,8 +160,40 @@ def add_problem_json(
     json_file: UploadFile,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
-):
-    raw = json_file.read()
+) -> ProblemInfo:
+    """Adds a problem to the database based on its JSON definition.
+
+    Args:
+        json_file (UploadFile): a file in JSON format describing the problem.
+        user (Annotated[User, Depends): the usr for which the problem is added.
+        session (Annotated[Session, Depends): the database session.
+
+    Raises:
+        HTTPException: if the provided `json_file` is empty.
+        HTTPException: if the content in the provided `json_file` is not in JSON format.__annotations__
+
+    Returns:
+        ProblemInfo: a description of the added problem.
+    """
+    raw = json_file.file.read()
+
+    if not raw:
+        raise HTTPException(400, "Empty upload.")
+
+    try:
+        # for extra validation
+        json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise HTTPException(400, "Invalid JSON.") from e
+
+    problem = Problem.model_validate_json(raw, by_name=True)
+    problem_db = ProblemDB.from_problem(problem, user=user)
+
+    session.add(problem_db)
+    session.commit()
+    session.refresh(problem_db)
+
+    return problem_db
 
 
 @router.post("/get_metadata")
