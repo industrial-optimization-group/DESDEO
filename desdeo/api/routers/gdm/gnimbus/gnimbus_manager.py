@@ -490,6 +490,8 @@ class GNIMBUSManager(GroupManager):
                 await self.broadcast(f"ERROR: There's no problem with ID {group.problem_id}!")
                 return
 
+            new_preferences = None
+
             # Diverge into different paths using PreferenceResult method type of the current iteration.
             match current_iteration.preferences.method:
                 case "optimization":
@@ -564,3 +566,5 @@ class GNIMBUSManager(GroupManager):
 
             # Close the session
             session.close()
+
+            logger.info("Database operations done.")
