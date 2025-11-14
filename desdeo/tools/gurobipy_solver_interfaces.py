@@ -102,10 +102,6 @@ class GurobipySolver(BaseSolver):
         self.evaluator.model.optimize()
         return parse_gurobipy_optimizer_results(self.problem, self.evaluator)
 
-    def __del__(self):
-        """Destructor for GurobipySolver."""
-        del self.evaluator
-
 
 class PersistentGurobipySolver(PersistentSolver):
     """A persistent solver class utlizing gurobipy.
