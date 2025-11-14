@@ -560,3 +560,12 @@ class GurobipyEvaluator:
             self.model.setObjective(obj_expr, sense=gp.GRB.MAXIMIZE)
         else:
             self.model.setObjective(obj_expr)
+
+    def __del__(self):
+        """The destructor of GurobipyEvaluator."""
+        # Anything else to dispose of? The model's probably the main thing.
+        self.model.dispose()
+        del self.objective_functions
+        del self.scalarizations
+        del self.extra_functions
+        del self.constants
