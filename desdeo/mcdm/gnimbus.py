@@ -404,6 +404,8 @@ def solve_group_sub_problems(  # noqa: PLR0913
 
         ind_sols.append(nimbus_solver.solve(nimbus_target))
 
+        del nimbus_solver
+
     achievable_prefs = []
     for q in range(len(reference_points)):
         achievable_prefs.append(ind_sols[q].optimal_objectives)
@@ -427,6 +429,8 @@ def solve_group_sub_problems(  # noqa: PLR0913
             gnimbus_solver = init_solver(problem_g_nimbus)  # type:ignore
 
         solutions.append(gnimbus_solver.solve(gnimbus_target))
+
+        del gnimbus_solver
 
         infer_group_classifications(problem, current_objectives, reference_points, silent=False)
 
@@ -452,6 +456,8 @@ def solve_group_sub_problems(  # noqa: PLR0913
             gnimbus_solver = init_solver(problem_g_nimbus)  # type:ignore
 
         solutions.append(gnimbus_solver.solve(gnimbus_target))
+
+        del gnimbus_solver
 
         infer_group_classifications(problem, current_objectives, reference_points, silent=False)
 
@@ -488,6 +494,8 @@ def solve_group_sub_problems(  # noqa: PLR0913
 
         solutions.append(nimbus_solver.solve(nimbus_target))
 
+        del nimbus_solver
+
         """ SOLVING Group Scals with scaled delta, original RPs and hard_constraints """
         # solve STOM
         add_stom_sf = add_group_stom_diff if problem.is_twice_differentiable else add_group_stom
@@ -501,6 +509,8 @@ def solve_group_sub_problems(  # noqa: PLR0913
 
         solutions.append(stom_solver.solve(stom_target))
 
+        del stom_solver
+
         # solve ASF
         add_asf = add_group_asf_diff if problem.is_twice_differentiable else add_group_asf
         problem_w_asf, asf_target = add_asf(
@@ -513,6 +523,8 @@ def solve_group_sub_problems(  # noqa: PLR0913
 
         solutions.append(asf_solver.solve(asf_target))
 
+        del asf_solver
+
         # Solve GUESS
         add_guess_sf = add_group_guess_diff if problem.is_twice_differentiable else add_group_guess
         problem_w_guess, guess_target = add_guess_sf(
@@ -524,6 +536,8 @@ def solve_group_sub_problems(  # noqa: PLR0913
             guess_solver = init_solver(problem_w_guess)
 
         solutions.append(guess_solver.solve(guess_target))
+
+        del guess_solver
 
         infer_group_classifications(problem, current_objectives, reference_points, silent=False)
 
@@ -560,6 +574,8 @@ def solve_group_sub_problems(  # noqa: PLR0913
 
         solutions.append(nimbus_solver.solve(nimbus_target))
 
+        del nimbus_solver
+
         """ SOLVING Group Scals with scaled delta, agg. aspirations and hard_constraints """
 
         add_stom_sf2 = add_group_stom_agg_diff if problem.is_twice_differentiable else add_group_stom_agg
@@ -574,6 +590,8 @@ def solve_group_sub_problems(  # noqa: PLR0913
 
         solutions.append(stomg_solver.solve(stomg_target))
 
+        del stomg_solver
+
         add_asf2 = add_group_asf_agg_diff if problem.is_twice_differentiable else add_group_asf_agg
         problem_g_asf, asfg_target = add_asf2(
             problem, "asf2", agg_aspirations, agg_bounds, delta, **(scalarization_options or {})
@@ -584,6 +602,8 @@ def solve_group_sub_problems(  # noqa: PLR0913
             asfg_solver = init_solver(problem_g_asf)
 
         solutions.append(asfg_solver.solve(asfg_target))
+
+        del asfg_solver
 
         add_guess_sf2 = add_group_guess_agg_diff if problem.is_twice_differentiable else add_group_guess_agg
 
@@ -597,6 +617,8 @@ def solve_group_sub_problems(  # noqa: PLR0913
             guess2_solver = init_solver(problem_g_guess)
 
         solutions.append(guess2_solver.solve(guess2_target))
+
+        del guess2_solver
 
         infer_group_classifications(problem, current_objectives, reference_points, silent=False)
 

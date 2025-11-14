@@ -11,7 +11,7 @@ from desdeo.api.models.gdm.gdm_base import (
     ReferencePoint,
     ReferencePointDictType,
 )
-from desdeo.api.models.generic_states import SolutionReference
+from desdeo.api.models.generic_states import SolutionReference, SolutionReferenceLite
 from desdeo.tools import SolverResults
 
 
@@ -102,11 +102,11 @@ class FullIteration(SQLModel):
     phase: str
     optimization_preferences: OptimizationPreference | None
     voting_preferences: VotingPreference | EndProcessPreference | None
-    starting_result: SolutionReference | None
-    common_results: list[SolutionReference]
-    user_results: list[SolutionReference]
+    starting_result: SolutionReferenceLite | None
+    common_results: list[SolutionReferenceLite]
+    user_results: list[SolutionReferenceLite]
     personal_result_index: int | None
-    final_result: SolutionReference | None
+    final_result: SolutionReferenceLite | None
 
 
 class GNIMBUSAllIterationsResponse(SQLModel):

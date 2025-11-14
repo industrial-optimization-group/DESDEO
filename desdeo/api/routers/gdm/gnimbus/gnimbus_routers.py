@@ -30,6 +30,7 @@ from desdeo.api.models import (
     OptimizationPreference,
     ProblemDB,
     SolutionReference,
+    SolutionReferenceLite,
     StateDB,
     User,
     VotingPreference,
@@ -274,7 +275,7 @@ def full_iteration(
 
         all_results = []
         for i, _ in enumerate(this_state.state.solver_results):
-            all_results.append(SolutionReference(state=this_state, solution_index=i))
+            all_results.append(SolutionReferenceLite(state=this_state, solution_index=i))
 
         phase = groupiter.preferences.phase
 
@@ -283,7 +284,7 @@ def full_iteration(
                 phase=phase,
                 optimization_preferences=groupiter.preferences,
                 voting_preferences=None,
-                starting_result=SolutionReference(state=prev_state, solution_index=0),
+                starting_result=SolutionReferenceLite(state=prev_state, solution_index=0),
                 common_results=all_results if phase in ["decision", "compromise"] else all_results[user_len:],
                 user_results=all_results[:user_len],
                 personal_result_index=personal_result_index,
@@ -304,7 +305,7 @@ def full_iteration(
 
         all_results = []
         for i, _ in enumerate(prev_state.state.solver_results):
-            all_results.append(SolutionReference(state=prev_state, solution_index=i))
+            all_results.append(SolutionReferenceLite(state=prev_state, solution_index=i))
 
         personal_result_index = None
         for i, item in enumerate(groupiter.parent.preferences.set_preferences.items()):
@@ -319,11 +320,11 @@ def full_iteration(
                 phase=phase,
                 optimization_preferences=groupiter.parent.preferences,
                 voting_preferences=groupiter.preferences,
-                starting_result=SolutionReference(state=first_state, solution_index=0),
+                starting_result=SolutionReferenceLite(state=first_state, solution_index=0),
                 common_results=all_results if phase in ["decision", "compromise"] else all_results[user_len:],
                 user_results=all_results[:user_len],
                 personal_result_index=personal_result_index,
-                final_result=SolutionReference(state=this_state, solution_index=0),
+                final_result=SolutionReferenceLite(state=this_state, solution_index=0),
             )
         )
 
@@ -345,7 +346,7 @@ def full_iteration(
                 common_results=[],
                 user_results=[],
                 personal_result_index=None,
-                final_result=SolutionReference(state=this_state, solution_index=0),
+                final_result=SolutionReferenceLite(state=this_state, solution_index=0),
             )
         )
 

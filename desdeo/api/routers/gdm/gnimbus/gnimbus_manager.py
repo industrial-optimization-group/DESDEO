@@ -249,7 +249,6 @@ class GNIMBUSManager(GroupManager):
 
         print(f"starting values: {prev_sol}")
 
-        # TODO: Filtering duplicate solutions
         user_len = len(group.user_ids)
 
         try:
@@ -341,10 +340,12 @@ class GNIMBUSManager(GroupManager):
 
         results = actual_state.solver_results
 
+        user_len = len(group.user_ids)
+
         # Get the winning results
         winner_result: SolverResults = voting_procedure(
             problem=problem,
-            solutions=results[-4:],  # we vote from the last 4 solutions, aka the common solutions
+            solutions=results[user_len:],  # we vote from the common solutions
             votes_idxs=formatted_votes,
         )
 

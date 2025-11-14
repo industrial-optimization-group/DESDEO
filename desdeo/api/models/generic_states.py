@@ -332,6 +332,35 @@ class SolutionReference(SQLModel):
         return len(self.state.state.solver_results)
 
 
+class SolutionReferenceLite(SQLModel):
+    """The same as SolutionReference minus the unnecessary variable values."""
+
+    name: str | None = Field(description="Optional name to help identify the solution if, e.g., saved.", default=None)
+    solution_index: int | None = Field(
+        description="The index of the referenced solution, if multiple solutions exist in the reference state.",
+        default=None,
+    )
+    state: StateDB = Field(description="The reference state with the solution information.")
+
+    @computed_field
+    @property
+    def objective_values(self) -> dict[str, float] | None:
+        if self.solution_index is not None:
+            return self.state.state.result_objective_values[self.solution_index]
+
+        return None
+
+    @computed_field
+    @property
+    def state_id(self) -> int:
+        return self.state.id
+
+    @computed_field
+    @property
+    def num_solutions(self) -> int:
+        return len(self.state.state.solver_results)
+
+
 class SolutionReferenceResponse(SQLModel):
     """The response information provided when `SolutionReference` object are returned from the client."""
 

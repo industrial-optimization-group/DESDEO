@@ -95,6 +95,7 @@ __all__ = [  # noqa: RUF022
     "EMOScoreResponse",
     "Solution",
     "SolutionReference",
+    "SolutionReferenceLite",
     "SolutionReferenceResponse",
     "SolverSelectionMetadata",
     "UserSavedEMOResults",
@@ -161,6 +162,7 @@ from .generic import (
 from .generic_states import (
     SavedSolutionReference,
     SolutionReference,
+    SolutionReferenceLite,
     SolutionReferenceResponse,
     State,
     StateDB,
