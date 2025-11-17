@@ -50,7 +50,7 @@ def compare_variable(v1: int | float | list, v2: int | float | list) -> bool:
 
 
 def filter_duplicates(results: list[SolverResults]) -> list[SolverResults]:
-    """Filters away duplicate solutions by comparing all decision variables.
+    """Filters away duplicate solutions by comparing all objective values.
 
     Args:
         results (list[SolverResults]): The list of solutions that the function filters.
@@ -191,7 +191,26 @@ class GNIMBUSManager(GroupManager):
         current_iteration: GroupIteration,
         problem_db: ProblemDB,
     ) -> VotingPreference | EndProcessPreference | None:
-        """A function to handle the optimization path."""
+        """A function to handle the optimization path.
+
+        This function is responsible for taking users' preferences and attaching them to database. When all preferences
+        are in the database (this is compared against groups users), begin optimizing using core logic's gnimbus
+        functions. When optimization is done, put the results to database and create a new preference item, so that
+        we can return it, attach it to the next iteration and begin voting/ending iteration. If at any point an error
+        rises, we return None
+
+        Args:
+            user_id (int): The user's id. This is comes from the websocket from which the call is made.
+            data (str): The data to be validated as reference point.
+            session (Session): The database session.
+            group (Group): The group.
+            current_iteration (GroupIteration): The current group iteration, for accessing preferences and the like.
+            problem_db (ProblemDB): The problem that we optimize.
+
+        Returns:
+            VotingPreference | EndProcessPreference | None: Return values; If success, return preference items
+        """  # noqa: D202
+
         # we know the type of data we need so we'll validate the data as ReferencePoint.
         try:
             preference = ReferencePoint.model_validate(json.loads(data))
@@ -237,7 +256,6 @@ class GNIMBUSManager(GroupManager):
         logger.info(f"Formatted preferences: {formatted_prefs}")
 
         # And here we choose the first result of the previous iteration as the current objectives.
-        # The previous solution could be perhaps voted, in a separate case of the surrounding match
         actual_state = await self.get_state(
             session,
             current_iteration,
@@ -251,6 +269,7 @@ class GNIMBUSManager(GroupManager):
 
         user_len = len(group.user_ids)
 
+        # Begin optimization
         try:
             results: list[SolverResults] = solve_group_sub_problems(
                 problem,
@@ -277,11 +296,12 @@ class GNIMBUSManager(GroupManager):
             logger.exception(f"ERROR: {e}")
             return None
 
+        # All good, attach results to state and attach that to iteration.
         optim_state = GNIMBUSOptimizationState(reference_points=formatted_prefs, solver_results=results)
 
         await self.set_state(session, problem_db, optim_state, current_iteration, group.user_ids, group.owner_id)
 
-        # DIVERGE THE PATH: if we're in the decision phase, we'll want to see if everyone
+        # DIVERGE THE PATH: if we're in the decision/compromise phase, we'll want to see if everyone
         # is happy with the current solution, so we'll return end process preference.
         if current_iteration.preferences.phase in ["decision", "compromise"]:
             new_preferences = EndProcessPreference(set_preferences={}, success=None)
@@ -300,7 +320,24 @@ class GNIMBUSManager(GroupManager):
         current_iteration: GroupIteration,
         problem_db: ProblemDB,
     ) -> OptimizationPreference | None:
-        """A function to handle voting path."""
+        """ Handles the voting path of GNIMBUS.
+
+        Very similar to above "optimization" phase, but instead we validate data as voting index.
+        Also returns an "OptimizationPreference" item, to which we attach reference points.
+
+        Args:
+            user_id (int): User's id
+            data (str): Data as string, to be validated and an index for voting
+            session (Session): database session.
+            group (Group): group
+            current_iteration (GroupIteration): the current iteration, form which we get the results that we vote on.
+            problem_db (ProblemDB): the current problem.
+
+        Returns:
+            OptimizationPreference | None: If we succeed in voting, we return an
+            item to which we attach optimization preferences (reference points).
+        """  # noqa: D202, D210
+
         try:
             preference = int(data)
             if preference > 3 or preference < 0:
@@ -325,6 +362,7 @@ class GNIMBUSManager(GroupManager):
         if not await self.check_preferences(group.user_ids, preferences):
             return None
 
+        # format the votes
         formatted_votes = {}
         for key, value in preferences.set_preferences.items():
             formatted_votes[str(key)] = value
@@ -371,7 +409,21 @@ class GNIMBUSManager(GroupManager):
         current_iteration: GroupIteration,
         problem_db: ProblemDB,
     ) -> OptimizationPreference | None:
-        """Function to handle the ending path."""
+        """Function to handle the "ending" path.
+
+        This time it is almost identical to above "voting" path, but we validate data as "bool".
+
+        Args:
+            user_id (int): user's id
+            data (str): data to be validated as bool
+            session (Session): db session
+            group (Group): group
+            current_iteration (GroupIteration): the current iteration from which we pull the necessary data.
+            problem_db (ProblemDB): the problem.
+
+        Returns:
+            OptimizationPreference | None: If success, we return an optimization preference.
+        """
         logger.info(f"incoming data: {data}")
         try:
             preference: bool = bool(int(data))
@@ -469,6 +521,8 @@ class GNIMBUSManager(GroupManager):
                 end the process. (flagged item in database)
             otherwise,
                 go to 7.
+
+        NOTE: There's now an additional phase, "compromise", that functions identically to "decision".
         """
         async with self.lock:
             # Fetch the current iteration
@@ -520,7 +574,7 @@ class GNIMBUSManager(GroupManager):
                     )
 
                 case "end":
-                    # An ending iteration; not necessarily the end.
+                    # An ending iteration; naming is a bit odd, but means that using this we can end the process.
                     new_preferences = await self.ending(
                         user_id=user_id,
                         data=data,

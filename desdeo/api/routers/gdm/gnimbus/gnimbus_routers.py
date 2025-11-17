@@ -57,6 +57,7 @@ def gnimbus_initialize(
     session: Annotated[Session, Depends(get_session)],
 ):
     """Initialize the problem for GNIMBUS."""
+    #Check that all pre-conditions are all right
     group = session.exec(select(Group).where(Group.id == request.group_id)).first()
     if group is None:
         raise HTTPException(detail=f"No group with ID {request.group_id} found!", status_code=status.HTTP_404_NOT_FOUND)
@@ -84,6 +85,7 @@ def gnimbus_initialize(
 
     gnimbus_state = GNIMBUSVotingState(votes={}, solver_results=[starting_point])
 
+    # Create init state
     state = StateDB.create(
         database_session=session, problem_id=problem_db.id, session_id=None, parent_id=None, state=gnimbus_state
     )
@@ -92,6 +94,7 @@ def gnimbus_initialize(
     session.commit()
     session.refresh(state)
 
+    # The starting iteration
     start_iteration = GroupIteration(
         problem_id=group.problem_id,
         group_id=group.id,
@@ -108,6 +111,7 @@ def gnimbus_initialize(
     session.commit()
     session.refresh(start_iteration)
 
+    # New iteration for continuing; to this we add new preferences and begin building a linked list
     new_iteration = GroupIteration(
         problem_id=start_iteration.problem_id,
         group_id=start_iteration.group_id,
@@ -141,6 +145,8 @@ def get_latest_results(
     session: Annotated[Session, Depends(get_session)],
 ) -> GNIMBUSResultResponse:
     """Get the latest results from group iteration.
+
+    (OBSOLETE AND OUT OF DATE!)
 
     Args:
         request (GroupInfoRequest): essentially just the ID of the group
@@ -294,7 +300,8 @@ def full_iteration(
 
         groupiter = groupiter.parent
 
-    # We're at voting/end method now.
+    # We're at voting/end method now. Construct an FullIteration item from Voting/Ending an Optimization iterations
+    # A bit of a complicated mess, I could have done this in a better manner.
     while groupiter is not None and groupiter.parent is not None and groupiter.parent.parent is not None:
         this_state = session.exec(select(StateDB).where(StateDB.id == groupiter.state_id)).first()
         prev_state = session.exec(select(StateDB).where(StateDB.id == groupiter.parent.state_id)).first()
@@ -330,7 +337,7 @@ def full_iteration(
 
         groupiter = groupiter.parent.parent
 
-    # We're at the root, so add the initialization stuff
+    # We're at the root, so add the initialization iteration (essentially empty with just a final result)
     if groupiter is not None and groupiter.parent is None:
         this_state = session.exec(select(StateDB).where(StateDB.id == groupiter.state_id)).first()
 
@@ -360,22 +367,19 @@ async def switch_phase(
     session: Annotated[Session, Depends(get_session)],
 ) -> GNIMBUSSwitchPhaseResponse:
     """Switch the phase from one to another. "learning", "crp", "decision" and "compromise" phases are allowed."""
+    #Preliminary checks etc.
     if request.new_phase not in ["learning", "crp", "decision", "compromise"]:
         raise HTTPException(
             detail=f"Undefined phase: {request.new_phase}! Can only be {['learning', 'crp', 'decision']}",
             status_code=status.HTTP_400_BAD_REQUEST,
         )
-
     group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
     if group is None:
         raise HTTPException(detail=f"No group with ID {request.group_id} found", status_code=status.HTTP_404_NOT_FOUND)
-
     if user.id is not group.owner_id:
         raise HTTPException(detail="Unauthorized user.", status_code=status.HTTP_401_UNAUTHORIZED)
-
     iteration = session.exec(select(GroupIteration)
                              .where(GroupIteration.id == group.head_iteration_id)).first()
-
     if iteration is None:
         raise HTTPException(
             detail="There's no iterations! Did you forget to initialize the problem?",
@@ -392,6 +396,7 @@ async def switch_phase(
     old_phase = iteration.preferences.phase
     new_phase = request.new_phase
 
+    # Set the phase in the preferences
     preferences = copy.deepcopy(iteration.preferences)
     preferences.phase = new_phase
 
@@ -436,7 +441,7 @@ def get_phase(
     return JSONResponse(content={"phase": current_iteration.preferences.phase}, status_code=status.HTTP_200_OK)
 
 def get_preference_item(iteration):
-    """Returns an empty preference item for adding preferences.
+    """Returns an empty preference item for adding preferences; The preferences are the next preferences.
 
     Args:
         iteration: we consider this iteration and it's preferences.
@@ -521,7 +526,8 @@ async def revert_iteration(
         )
 
     # We must "artificially" create some history, so that we can later on fetch stuff seamlessly,
-    # without any hiccups or changes to the "all_iterations" endpoint.
+    # without any hiccups or changes to the "all_iterations" endpoint. Essentially we copy two latest
+    # iterations to the head of the history.
     new_parent_1 = GroupIteration(
         problem_id=group.problem_id,
         group_id=group.id,
