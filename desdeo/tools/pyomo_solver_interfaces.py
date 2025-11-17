@@ -231,6 +231,31 @@ def parse_pyomo_optimizer_results(
     constraint_values = (
         {con.symbol: results[con.symbol] for con in problem.constraints} if problem.constraints else None
     )
+
+    # handle constraint, which might be multi-valued
+    if problem.constraints is not None:
+        constraint_values = {}
+
+        for con in problem.constraints:
+            result = results[con.symbol]
+
+            if isinstance(result, dict):
+                # multi-valued
+                indices = list(getattr(evaluator.model, con.symbol).keys())
+                shape = tuple(len({idx[k] for idx in indices}) for k in range(len(indices[0])))
+                values_list = np.zeros(shape)
+
+                for idx in indices:
+                    values_list[*[i - 1 for i in idx]] = result[idx]
+
+                constraint_values[con.symbol] = values_list.tolist()
+
+            else:
+                # scalar-valued
+                constraint_values[con.symbol] = result
+    else:
+        constraint_values = None
+
     extra_func_values = (
         {extra.symbol: results[extra.symbol] for extra in problem.extra_funcs}
         if problem.extra_funcs is not None

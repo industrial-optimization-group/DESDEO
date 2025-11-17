@@ -1094,7 +1094,7 @@ def test_add_group_guess_diff():
     n_variables = 3
     n_objectives = 3
     problem = dtlz2(n_variables, n_objectives)
-    res = {"f_1": 0.5, "f_2": 0.6, "f_3": 0.61}
+    res = {"f_1": 0.7, "f_2": 0.4, "f_3": 0.6}
     rps = {
         "DM1": {"f_1": 0.1, "f_2": 0.4, "f_3": 0.8},
         "DM2": {"f_1": 0.1, "f_2": 0.6, "f_3": 0.3},
@@ -1119,9 +1119,9 @@ def test_add_group_guess_diff():
     for obj in problem.objectives:
         assert np.isclose(res[obj.symbol], fs_group_sf_3rp[obj.symbol], atol=1e-1)
 
-    # f_1 should be the lowest value
-    assert result.optimal_objectives["f_1"] < result.optimal_objectives["f_2"]
-    assert result.optimal_objectives["f_1"] < result.optimal_objectives["f_3"]
+    # f_1 should be the highest value
+    assert result.optimal_objectives["f_1"] > result.optimal_objectives["f_2"]
+    assert result.optimal_objectives["f_1"] > result.optimal_objectives["f_3"]
 
     # TEST add_group_guess_agg_diff
 
