@@ -31,10 +31,7 @@ export class WebSocketService {
 		if (this.socket) {
 			this.close();
 		}
-		console.log('BASE_URL:', BASE_URL);
-		console.log('wsBase:', wsBase);
 		const url = `${wsBase}/gdm/ws?group_id=${groupId}&method=${method}&token=${token}`;
-		console.log('WebSocket URL:', url);
 		this.socket = new WebSocket(url);
 
 		this.socket.addEventListener('open', () => {
@@ -86,16 +83,15 @@ export class WebSocketService {
 						const timeoutId = setTimeout(() => {
 							isLoading.set(false);
 							resolve(false);
-						}, 3000); // 3 second timeout
+						}, 7000); // 7 second timeout
 
 						// Set up one-time message handler to check for immediate success or error message
 						const messageHandler = (event: MessageEvent) => {
 							clearTimeout(timeoutId);
 							this.socket?.removeEventListener('message', messageHandler);
 							
-							// Check if the message indicates an error. 
-							// TODO: when API changes, all error msgs will have keyword ERROR, other conditions can be removed.
-							const success = !(event.data.includes('ERROR')  || event.data.includes('error') || event.data.includes('failed'));
+							// Check if the message indicates an error. All error messages contain 'ERROR'
+							const success = !(event.data.includes('ERROR'));
 							isLoading.set(false);
 							resolve(success);
 						};

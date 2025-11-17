@@ -86,13 +86,22 @@
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
-	import DataTableToolbar from './solution-table-toolbar.svelte';
+	import SolutionTableToolbar from './solution-table-toolbar.svelte';
 	import PreviousSolutions from './solution-table-prev-solutions.svelte';
 	import UserResults from './solution-table-gdm-user-results.svelte';
 
 	// Types matching your original solution-table
 	type ProblemInfo = components['schemas']['ProblemInfo'];
-	type Solution = components['schemas']['SolutionReferenceResponse'];
+	type Solution = components['schemas']['SolutionReferenceResponse'] & {
+            name?: string | null;
+            solution_index?: number | null;
+            readonly objective_values: {
+                [key: string]: number;
+            } | null;
+            iteration_number?: number;
+            readonly state_id: number;
+            readonly num_solutions: number;
+        };;
 	type MethodPage = 'nimbus' | 'gnimbus';
 
 	// Props matching your original solution-table for compatibility
@@ -130,11 +139,32 @@
 
 	// Get the display accuracy
 	let displayAccuracy = $derived.by(() => getDisplayAccuracy(problem));
-	let displayName = $derived((idx: number | null) => {
-		let baseName = methodPage === "gnimbus" ? 'Group solution' : 'Solution'
-		let indexSuffix = (solverResults.length > 1 && idx !== null) ? idx + 1 : ''
-		
-		return `${baseName} ${indexSuffix}`;
+
+	// Helper function to get solution display name. idx is solutions solution_index
+	let displayName = $derived((idx: number | null, iterationNumber?: number) => {
+		if (methodPage !== "gnimbus") {
+			// For NIMBUS, use original logic
+			let indexSuffix = (solverResults.length > 1 && idx !== null) ? idx + 1 : '';
+			return `Solution ${indexSuffix}`;
+		}
+
+		// For GNIMBUS, use switch for clear case handling
+		switch (selected_type_solutions) {
+			case 'all_own':
+				return 'Your solution';
+			case 'all_final':
+				// Check if this is iteration 0 (initial solution)
+				if (iterationNumber === 0) {
+					return 'Initial solution';
+				}
+				return 'Group solution';
+			default: // 'current' and 'all_group'
+				if (solverResults.length > 1 && idx !== null) {
+					return `Group solution ${idx}`;
+				}
+				return 'Group solution';
+			
+		}
 	});
 
 	// Helper function to get objective title for display
@@ -164,9 +194,9 @@
 			// Second column - Solution name
 			{
 				accessorKey: 'name',
-				header: ({ column }) => renderSnippet(ColumnHeader, { column, title: 'Name (optional)' }),
+				header: ({ column }) => renderSnippet(ColumnHeader, { column, title: methodPage === "nimbus" ? 'Name (optional)' : "" }),
 				cell: ({ row }) => renderSnippet(NameCell, { solution: row.original }),
-				enableSorting: true,
+				enableSorting: methodPage === "nimbus",
 				sortUndefined: 'last'
 			},
 			// Third column - Edit button (if saved)
@@ -180,12 +210,16 @@
 			...(selected_type_solutions !== 'current'
 				? [
 						{
-							accessorKey: 'address_state',
+							id: 'iteration_number',
+							accessorFn: (row: Solution) => String(row.iteration_number ?? row.state_id ?? ''),
 							header: ({ column }: { column: Column<Solution> }) =>
 								renderSnippet(ColumnHeader, { column, title: 'Iteration' }),
 							cell: ({ row }: { row: Row<Solution> }) =>
 								renderSnippet(IterationCell, { solution: row.original }),
-							enableSorting: true
+							enableSorting: true,
+							enableColumnFilter: true,
+							filterFn: (row: Row<Solution>, columnId: string, filterValue: unknown) =>
+								String(row.getValue(columnId) ?? '').includes(String(filterValue ?? '')) // Force string-based filtering
 						}
 					]
 				: []),
@@ -393,7 +427,7 @@
 			{solution.name}
 		{:else}
 			<span class="text-gray-400"
-				>{displayName(solution.solution_index)}</span
+				>{displayName(solution.solution_index, solution.iteration_number)}</span
 			>
 		{/if}
 	</div>
@@ -418,7 +452,11 @@
 {/snippet}
 
 {#snippet IterationCell({ solution }: { solution: Solution })}
-	{solution.state_id}
+	{#if methodPage ==="gnimbus"}
+		{solution.iteration_number}
+	{:else}
+		{solution.state_id}
+	{/if}
 {/snippet}
 
 {#snippet ObjectiveCell({
@@ -502,7 +540,15 @@
 {#if problem}
 	<div class="flex h-full flex-col items-start">
 		{#if selected_type_solutions !== 'current' && !isFrozen}
-			<DataTableToolbar {table} />
+			{#if methodPage ==='gnimbus'}
+				<SolutionTableToolbar
+					{table}
+					filterColumn="iteration_number"
+					placeholder="Filter solutions by iteration..."
+				/>
+			{:else}
+				<SolutionTableToolbar {table} />
+			{/if}
 		{/if}
 		<div class="overflow-auto rounded border shadow-sm">
 			<!-- Header and previous solutions -->
@@ -553,22 +599,23 @@
 							</Table.Cell>
 						</Table.Row>
 					{/each}
-
-					{#if methodPage === 'nimbus' && selected_type_solutions === 'current' && secondaryObjectiveValues.length > 0}
-						<PreviousSolutions
-							{problem}
-							previousObjectiveValues={secondaryObjectiveValues}
-							displayAccuracy={displayAccuracy}
-							columnsLength={columns.length}
-						/>
-					{:else if methodPage === 'gnimbus'}
-						<UserResults
-							{problem}
-							objectiveValues={secondaryObjectiveValues}
-							displayAccuracy={displayAccuracy}
-							columnsLength={columns.length}
-							personalResultIndex={personalResultIndex ?? -1}
-						/>
+					{#if selected_type_solutions === 'current'}
+						{#if methodPage === 'nimbus' && secondaryObjectiveValues.length > 0}
+							<PreviousSolutions
+								{problem}
+								previousObjectiveValues={secondaryObjectiveValues}
+								displayAccuracy={displayAccuracy}
+								columnsLength={columns.length}
+							/>
+						{:else if methodPage === 'gnimbus'}
+							<UserResults
+								{problem}
+								objectiveValues={secondaryObjectiveValues}
+								displayAccuracy={displayAccuracy}
+								columnsLength={columns.length}
+								personalResultIndex={personalResultIndex ?? -1}
+							/>
+						{/if}
 					{/if}
 				</Table.Body>
 			</Table.Root>

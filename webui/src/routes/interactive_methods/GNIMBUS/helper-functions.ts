@@ -9,7 +9,7 @@
  * @created October 2025
  */
 
-import type { ProblemInfo, Solution, Response } from './types';
+import type { ProblemInfo, Solution, Response, AllIterations } from './types';
 import { errorMessage, isLoading } from '../../../stores/uiState';
 
 /**
@@ -36,6 +36,7 @@ interface MessageState {
 	isDecisionMaker: boolean;
 	step: 'optimization' | 'voting' | 'finish';
 	isActionDone: boolean;
+	phase: string;
 }
 /**
  * Determines the appropriate status message based on current application state
@@ -63,9 +64,15 @@ export function getStatusMessage(state: MessageState): string {
 
     // Decision maker in voting mode
     if (state.step === 'voting' && state.isDecisionMaker) {
+		if (state.phase ==='decision' || state.phase === 'compromise') {
+			return state.isActionDone
+				? `Your vote has been recorded. You may change your vote while waiting for others to complete.`
+				: `Please vote for choosing the suggested solution as a final solution.`;
+
+		}
         return state.isActionDone
             ? `Your vote has been recorded. You may change your vote while waiting for others to complete.`
-            : `Please select your preferred solution to cast your vote.`;
+            : `Please select your preferred solution from visualization or table to cast your vote.`;
     }
 
     // Decision maker in optimization mode
@@ -83,10 +90,13 @@ export interface VisualizationData {
 	solutions: number[][];
 	previous: number[][];
 	others: number[][];
+	solutionLabels?: {
+		[key: string]: string;
+	} | undefined
 }
 
 export interface PreferenceData {
-	previousValues: number[];
+	previousValues: number[][];
 	currentValues: number[];
 }
 
@@ -94,9 +104,34 @@ export function createVisualizationData(
 	problem: ProblemInfo | null,
 	step: string,
 	currentState: Response,
-	solutionOptions: Solution[]
+	solutionOptions: any[], // NOPE. solution.iteration_number || null exists.
+	historyOption: 'current' | 'all_own' | 'all_group' | 'all_final'
 ): VisualizationData {
 	if (!problem) return { solutions: [], previous: [], others: [] };
+
+	let solutionLabels;
+	if (historyOption === 'all_own') {
+		solutionLabels = Object.fromEntries(solutionOptions.map((solution, i) => {
+			return [
+				i, 
+				solutionOptions.length === 1 ? 'Your solution' : `Your solution ${solution.iteration_number ?? ""}`
+			]})
+		)
+	} else 	if (historyOption === 'all_final') {
+		solutionLabels = Object.fromEntries(solutionOptions.map((solution, i) => {
+
+			return [
+				i, 
+				solutionOptions.length === 1 ? 'Group solution' : `Group solution ${solution.iteration_number ?? ""}`
+			]})
+		)
+	} else {
+		solutionLabels = Object.fromEntries(solutionOptions.map((solution, i) => [
+				i, 
+				solutionOptions.length === 1 ? 'Group solution' : `Group solution ${solution.solution_index}`
+			])
+		)
+	}
 
 	return {
 		solutions: mapSolutionsToObjectiveValues(solutionOptions, problem),
@@ -111,7 +146,8 @@ export function createVisualizationData(
 					)
 				: [],
 		others:
-			step === 'voting' ? mapSolutionsToObjectiveValues(currentState.user_results, problem) : []
+			step === 'voting' ? mapSolutionsToObjectiveValues(currentState.user_results, problem) : [],
+		solutionLabels
 	};
 }
 
@@ -121,7 +157,7 @@ export function createPreferenceData(
 	currentPreference: number[]
 ): PreferenceData {
 	return {
-		previousValues: lastIteratedPreference,
+		previousValues: [lastIteratedPreference],
 		currentValues: step === 'optimization' ? currentPreference : []
 	};
 }
@@ -138,7 +174,7 @@ export function determineStep(iteration: Response): 'optimization' | 'voting' | 
 	) {
 		return 'finish';
 	}
-	return iteration.voting_preferences !== null ? 'optimization' : 'voting';
+	return iteration.final_result !== null ? 'optimization' : 'voting';
 }
 
 /**
@@ -211,6 +247,146 @@ export function mapSolutionsToObjectiveValues(solutions: Solution[], problem: Pr
 			return Array.isArray(value) ? value[0] : value;
 		});
 	});
+}
+
+
+export interface HistoryData {
+	own_solutions: any[];
+	common_solutions: any[];
+	final_solutions: any[];
+	preferences: number[][];
+}
+
+/**
+ * Transforms full iterations data into organized history data, giving all solutions iteration numbers
+ */
+export function computeHistory(full_iterations: AllIterations, userId: number | undefined, isDecisionMaker: boolean, step: string): HistoryData {
+	if (!full_iterations.all_full_iterations || !userId) {
+		return {
+			own_solutions: [],
+			common_solutions: [],
+			preferences: [],
+			final_solutions: []
+		};
+	}
+	const arrayLength = full_iterations.all_full_iterations.length;
+
+	// TODO: isDecisionmaker means that personal_result_index !== null,
+	// so maybe to show all to owner, one could remove the isDecisionmaker and instead flatmap with condition that if null, just get all.
+	// Transform own solutions with iteration numbers (only if user is decisionMaker and thus has personal results, and user_results exist)
+	const own_solutions = isDecisionMaker ? full_iterations.all_full_iterations.slice(0, arrayLength -1)
+		.map((iteration, index) => {
+			const iterationNumber = arrayLength - 1 - index; // Count backwards to get iteration number
+			if (iteration.phase === 'decision' || iteration.phase === 'compromise') {
+				return {
+					undefined,
+					iteration_number: iterationNumber
+				}
+			}
+			return (iteration.user_results && iteration.user_results.length >0) ? {
+				...iteration.user_results[(iteration.personal_result_index || 0)],
+				iteration_number: iterationNumber
+			} : {
+					undefined,
+					iteration_number: iterationNumber
+				};
+		})
+		: [];
+
+	// Transform common solutions with iteration numbers
+	const common_solutions = full_iterations.all_full_iterations // Iteration should always have common results, at least []. No need to filter.
+		.flatMap((iteration, index) => {
+			const iterationNumber = arrayLength - 1 - index; // Count backwards to get iteration number
+			return (iteration.common_results ?? []).map(solution => ({
+				...solution,
+				iteration_number: iterationNumber
+			}));
+		});
+
+	const final_solutions = full_iterations.all_full_iterations
+		.filter((_, index) => {
+			if (step === "voting") return index !== 0;
+			return true;
+		}) // filters the first if step is voting; in this case there is no final solution in that iteration.
+		.map((iteration, index) => {
+			const iterationNumber = arrayLength - 1 - index; // Count backwards to get iteration number
+			return {
+				...iteration.final_result,
+				iteration_number: step === 'voting' ? iterationNumber-1 : iterationNumber // if the first one is removed, array is shorter so index is one less
+			};
+		});
+
+	// Extract preferences history TODO: is no dm, can return all?
+	const preferences = extractPreferencesHistory(isDecisionMaker, full_iterations, userId);
+
+	return {
+		own_solutions,
+		common_solutions,
+		preferences,
+		final_solutions
+	};
+}
+
+/**
+ * Extracts preferences history for a specific user
+ */
+function extractPreferencesHistory( isDecisionMaker:boolean, full_iterations: AllIterations, userId: number): number[][] {
+	const all_preferences = full_iterations.all_full_iterations.slice(0, full_iterations.all_full_iterations.length -1) // Exclude initial iteration as it has no preferences
+		.map((iteration) => iteration.optimization_preferences?.set_preferences);
+	if (!isDecisionMaker) {
+		return [];
+	}
+	const preferences = all_preferences.map((data) => {
+		if ( data ) {
+			const pref_values = Object.values(data[userId].aspiration_levels);
+			return pref_values;
+		}
+	}).filter((vals): vals is number[] => vals !== null && vals !== undefined);
+	
+	return preferences;
+}
+
+/**
+ * Gets solutions based on view mode and current state
+ * This replaces the complex solution_options derived logic
+ */
+export function getSolutionsForView(
+	historyData: HistoryData,
+	current_state: any,
+	history_option: 'current' | 'all_own' | 'all_group' | 'all_final',
+	step: string
+): Solution[] {
+	if (!current_state) return [];
+	
+	// History modes
+	if (history_option === 'all_group') {
+		return historyData.common_solutions;
+	}
+	if (history_option === 'all_own') {
+		return historyData.own_solutions;
+	}
+	if (history_option === 'all_final') {
+		return historyData.final_solutions;
+	}
+	
+	// Current iteration mode
+	switch (step) {
+		case 'optimization':
+			return current_state.final_result?.objective_values ? [current_state.final_result] : [];
+		case 'voting':
+			return current_state.common_results ?? [];
+		case 'finish':
+			return current_state.common_results ?? [];
+		default:
+			return [];
+	}
+}
+
+/**
+ * Gets the appropriate preference values for a given index
+ */
+export function getChosenPreference(preferences: number[][], selectedIndex: number): number[] {
+	return preferences[selectedIndex] || [];
 }
 
 /**

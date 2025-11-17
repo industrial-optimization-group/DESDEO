@@ -68,7 +68,7 @@
 	 *
 	 * @interface Props
 	 * @property {ProblemInfo | null} problem - The optimization problem definition including objectives, variables, and constraints
-	 * @property {number[]} previous_preference_values - Previous iteration's preference values for comparison
+	 * @property {number[][]} previous_preference_values - Previous iteration's preference values for comparison
 	 * @property {string} previous_preference_type - Type of previous preference (reference_point, preferred_solution, etc.)
 	 * @property {number[]} currentPreferenceValues - Current iteration's preference values
 	 * @property {string} currentPreferenceType - Type of current preference
@@ -80,7 +80,7 @@
 	 */
 	interface Props {
 		problem: ProblemInfo | null;
-		previousPreferenceValues?: number[];
+		previousPreferenceValues?: number[][];
 		previousObjectiveValues?: number[][];
 		otherObjectiveValues?: number[][]; // New prop for additional objective values
 		currentPreferenceValues?: number[];
@@ -171,7 +171,7 @@
 		showAxisLabels: true,
 		highlightOnHover: true,
 		strokeWidth: 2,
-		opacity: 0.4,
+		opacity: 1,
 		enableBrushing: false
 	};
 
@@ -236,7 +236,7 @@
 	{#if solutionsObjectiveValues.length > 0}
 		<!-- Visualization Type Selector -->
 		<div class="mb-2 flex items-center justify-between">
-			<h3 class="text-sm font-medium">Visualization</h3>
+			<h3>Visualization</h3>
 			<SegmentedControl
 				bind:value={visualizationType}
 				options={[
