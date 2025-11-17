@@ -11,7 +11,30 @@
 import type { components } from '$lib/api/client-types';
 
 export type ProblemInfo = components['schemas']['ProblemInfo'];
-export type Solution = components['schemas']['SolutionReference'];
+// export type Solution = components['schemas']['SolutionReference'];
+export type Solution = {
+            /**
+             * Name
+             * @description Optional name to help identify the solution if, e.g., saved.
+             */
+            name?: string | null;
+            /**
+             * Solution Index
+             * @description The index of the referenced solution, if multiple solutions exist in the reference state.
+             */
+            solution_index?: number | null;
+            /** @description The reference state with the solution information. */
+            /** Objective Values */
+            readonly objective_values: {
+                [key: string]: number;
+            } | null;
+            /** Variable Values */
+            iteration_number?: number | null;
+            /** State Id */
+            readonly state_id: number;
+            /** Num Solutions */
+            readonly num_solutions: number;
+        };
 export type AllIterations = components['schemas']['GNIMBUSAllIterationsResponse'];
 export type Group = components['schemas']['GroupPublic'];
 export type Response = components['schemas']['FullIteration'];
@@ -34,9 +57,6 @@ export interface TableData {
 	name: null;
 	objective_values: {
 		[key: string]: number;
-	} | null;
-	variable_values: {
-		[key: string]: number | boolean;
 	} | null;
 	iteration_number?: number;
 }

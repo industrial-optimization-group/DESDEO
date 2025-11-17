@@ -171,7 +171,7 @@
 		showAxisLabels: true,
 		highlightOnHover: true,
 		strokeWidth: 2,
-		opacity: 0.6,
+		opacity: 1,
 		enableBrushing: false
 	};
 

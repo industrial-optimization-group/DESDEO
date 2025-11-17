@@ -92,7 +92,16 @@
 
 	// Types matching your original solution-table
 	type ProblemInfo = components['schemas']['ProblemInfo'];
-	type Solution = components['schemas']['SolutionReferenceResponse'];
+	type Solution = components['schemas']['SolutionReferenceResponse'] & {
+            name?: string | null;
+            solution_index?: number | null;
+            readonly objective_values: {
+                [key: string]: number;
+            } | null;
+            iteration_number?: number;
+            readonly state_id: number;
+            readonly num_solutions: number;
+        };;
 	type MethodPage = 'nimbus' | 'gnimbus';
 
 	// Props matching your original solution-table for compatibility
@@ -113,7 +122,7 @@
 		personalResultIndex
 	}: {
 		problem: ProblemInfo;
-		solverResults: Array<any>;
+		solverResults: Array<Solution>;
 		selectedSolutions: number[];
 		handle_save?: (solution: Solution, name: string | undefined) => void;
 		handle_change?: (solution: Solution) => void;
@@ -172,7 +181,7 @@
 	let pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 5 });
 
 	// Define columns for the table
-	const columns: ColumnDef<any>[] = $derived.by(() => {
+	const columns: ColumnDef<Solution>[] = $derived.by(() => {
 		return [
 			// First column - Bookmark/Save icon
 			{
@@ -202,14 +211,15 @@
 				? [
 						{
 							id: 'iteration_number',
-							accessorFn: (row: any) => String(row.iteration_number ?? row.state_id ?? ''),
+							accessorFn: (row: Solution) => String(row.iteration_number ?? row.state_id ?? ''),
 							header: ({ column }: { column: Column<Solution> }) =>
 								renderSnippet(ColumnHeader, { column, title: 'Iteration' }),
-							cell: ({ row }: { row: Row<any> }) =>
+							cell: ({ row }: { row: Row<Solution> }) =>
 								renderSnippet(IterationCell, { solution: row.original }),
 							enableSorting: true,
 							enableColumnFilter: true,
-							filterFn: 'includesString' // Force string-based filtering
+							filterFn: (row: Row<Solution>, columnId: string, filterValue: unknown) =>
+								String(row.getValue(columnId) ?? '').includes(String(filterValue ?? '')) // Force string-based filtering
 						}
 					]
 				: []),
@@ -411,7 +421,7 @@
 	</div>
 {/snippet}
 
-{#snippet NameCell({ solution }: { solution: any })}
+{#snippet NameCell({ solution }: { solution: Solution })}
 	<div>
 		{#if solution.name}
 			{solution.name}
@@ -441,7 +451,7 @@
 	{/if}
 {/snippet}
 
-{#snippet IterationCell({ solution }: { solution: any })}
+{#snippet IterationCell({ solution }: { solution: Solution })}
 	{#if methodPage ==="gnimbus"}
 		{solution.iteration_number}
 	{:else}

@@ -274,7 +274,7 @@ export function computeHistory(full_iterations: AllIterations, userId: number | 
 	// TODO: isDecisionmaker means that personal_result_index !== null,
 	// so maybe to show all to owner, one could remove the isDecisionmaker and instead flatmap with condition that if null, just get all.
 	// Transform own solutions with iteration numbers (only if user is decisionMaker and thus has personal results, and user_results exist)
-	const own_solutions = isDecisionMaker ? full_iterations.all_full_iterations.slice(0, arrayLength -1) // Copy array to avoid mutating original
+	const own_solutions = isDecisionMaker ? full_iterations.all_full_iterations.slice(0, arrayLength -1)
 		.map((iteration, index) => {
 			const iterationNumber = arrayLength - 1 - index; // Count backwards to get iteration number
 			if (iteration.phase === 'decision' || iteration.phase === 'compromise') {
@@ -317,7 +317,7 @@ export function computeHistory(full_iterations: AllIterations, userId: number | 
 		});
 
 	// Extract preferences history TODO: is no dm, can return all?
-	const preferences = isDecisionMaker ? extractPreferencesHistory(full_iterations, userId) : [];
+	const preferences = extractPreferencesHistory(isDecisionMaker, full_iterations, userId);
 
 	return {
 		own_solutions,
@@ -328,19 +328,16 @@ export function computeHistory(full_iterations: AllIterations, userId: number | 
 }
 
 /**
- * Extracts preferences history for a specific user TODO: check if right. All filterings etc can be AI bullshit
+ * Extracts preferences history for a specific user
  */
-function extractPreferencesHistory(full_iterations: AllIterations, userId: number): number[][] {
-	const all_preferences = full_iterations.all_full_iterations
-		.filter((iteration) => iteration.optimization_preferences !== null) // Filter out iterations without preferences
-		.map((iteration) => iteration.optimization_preferences);
-	
-	const all_pref_data = all_preferences.map((pref) => {
-		if (pref !== null) return pref.set_preferences;
-	});
-	
-	const preferences = all_pref_data.map((data) => {
-		if (data && userId) {
+function extractPreferencesHistory( isDecisionMaker:boolean, full_iterations: AllIterations, userId: number): number[][] {
+	const all_preferences = full_iterations.all_full_iterations.slice(0, full_iterations.all_full_iterations.length -1) // Exclude initial iteration as it has no preferences
+		.map((iteration) => iteration.optimization_preferences?.set_preferences);
+	if (!isDecisionMaker) {
+		return [];
+	}
+	const preferences = all_preferences.map((data) => {
+		if ( data ) {
 			const pref_values = Object.values(data[userId].aspiration_levels);
 			return pref_values;
 		}

@@ -271,7 +271,7 @@
 				if (isSelected(i)) return 1;// Selected line is fully opaque
 					return options.opacity; // Other lines use configured opacity
 				})
-			// Set stroke color - both selected and other lines get theme color, other linesa are just thinner and less opaque
+			// Set stroke color - selected lines get theme color, other lines are thinner and color lighter variant
 			.attr('stroke', (d, i) => {
 				const passes = passesFilters(d);
 				if (!passes) return '#93c5fd'; // Hidden lines are lighter color
@@ -284,6 +284,12 @@
 				if (isSelected(i)) return options.strokeWidth + 1; // Selected line is thicker
 				return options.strokeWidth; // Normal thickness for others
 			});
+			    // Move selected lines to front by reordering DOM
+		lines.each(function(d, i) {
+			if (isSelected(i)) {
+				this.parentNode.appendChild(this); // Move to end = bring to front
+			}
+		});
 	}
 
 	/**
@@ -592,7 +598,7 @@
 						.datum(solutionData)
 						.attr('d', line)
 						.attr('fill', 'none')
-						.attr('stroke', '#333') // Gray color
+						.attr('stroke', '#9ca3af') // Gray color
 						.attr('stroke-width', options.strokeWidth)
 						.attr('stroke-dasharray', '3,3') // Dashed pattern
 						.attr('opacity', 0.6);
@@ -621,7 +627,7 @@
 						.attr('stroke', '#10b981') // Emerald color for preferred
 						.attr('stroke-width', options.strokeWidth + 1) // Thicker than otherSolutions
 						.attr('stroke-dasharray', '4,2') // Different dash pattern
-						.attr('opacity', 0.8);
+						.attr('opacity', 0.6);
 					
 					addTooltip(path, solution.label);
 

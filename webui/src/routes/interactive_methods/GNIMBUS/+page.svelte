@@ -181,7 +181,7 @@
 		history_option = newType;
 		console.log('Changed solution type to:', newType);
 		// Reset selections to none or for current optimization iteration to 0
-		selected_solution_index = (step === 'optimization' && newType === 'current') ? 0 : -1;
+		selected_solution_index = ((step === 'optimization' || current_state.phase === 'decision' || current_state.phase ==='compromise') && newType === 'current') ? 0 : -1;
 		update_solution_selection(current_state);
 	}
 
@@ -571,7 +571,7 @@
 			if (
 				msg.includes('UPDATE')
 			) {
-				// Don't show these messages, but instead update state
+				// Don't show these messages, but only update state
 				getResultsAndUpdate(data.group.id);
 				return;
 			}
@@ -579,15 +579,16 @@
 			// Replace "compromise" with "decision" in messages for non-owners
 			let displayMessage = !isOwner ? msg.replace(/compromise/gi, 'decision') : msg;
 			
-			// Filter out "same phase to same phase" messages for non-owners TODO: ASK which one is good, show this or not. Because user will see the spinner!
+			// Filter out "same phase to same phase" messages for non-owners
 			if (!isOwner && /from (\w+) to \1/i.test(displayMessage)) {
 				// Don't show "changed from X to X" messages to non-owners, but still update state
 				getResultsAndUpdate(data.group.id);
 				return;
 			}
 			
-			// Show the processed message
+			// Show the processed message AND update state
 			showTemporaryMessage(displayMessage);
+			getResultsAndUpdate(data.group.id);
 		});
 
 		// Try to get existing results from backend
@@ -623,8 +624,7 @@
 			solution_index: solution.solution_index ?? null,
 			name: null,
 			objective_values: solution.objective_values,
-			variable_values: solution.variable_values,
-			iteration_number: solution.iteration_number ?? null
+			iteration_number: solution.iteration_number ?? undefined
 		}))
 	);
 
@@ -719,12 +719,14 @@
                     </Button>
 			{/each}
 		{/if}
+		{#if step !== 'finish' && current_state.phase !== 'init' }
 		<span class="left-0 p-4">View: </span>
 		<Combobox
 			options={frameworks}
 			defaultSelected={history_option}
 			onChange={handle_type_solutions_change}
 		/>
+		{/if}
 	{/snippet}
 
 	{#snippet leftSidebar()}
@@ -762,7 +764,7 @@
 							solutionsObjectiveValues={visualizationObjectives.solutions}
 							previousObjectiveValues={history_option ==="current" ? visualizationObjectives.previous : []}
 							otherObjectiveValues={history_option ==="current" ? visualizationObjectives.others : []}
-							externalSelectedIndexes={[selected_solution_index]}
+							externalSelectedIndex={selected_solution_index}
 							onSelectSolution={handle_solution_click}
 							lineLabels={visualizationObjectives.solutionLabels}
 							referenceDataLabels={{
