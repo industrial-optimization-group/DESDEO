@@ -281,7 +281,7 @@ class UserSavedSolutionDB(SQLModel, table=True):
         )
 
 
-class SolutionReference(SQLModel):
+class SolutionReferenceBase(SQLModel):
     """A model that functions as a reference to solutions existing in the database.
 
     Referenced solutions are not necessarily solutions that the user has saved explicitly. For
@@ -294,6 +294,20 @@ class SolutionReference(SQLModel):
         default=None,
     )
     state: StateDB = Field(description="The reference state with the solution information.")
+
+    @computed_field
+    @property
+    def state_id(self) -> int:
+        return self.state.id
+
+    @computed_field
+    @property
+    def num_solutions(self) -> int:
+        return len(self.state.state.solver_results)
+
+
+class SolutionReference(SolutionReferenceBase):
+    """A full solution reference with objectives and variables."""
 
     @computed_field
     @property
@@ -321,26 +335,9 @@ class SolutionReference(SQLModel):
 
         return None
 
-    @computed_field
-    @property
-    def state_id(self) -> int:
-        return self.state.id
 
-    @computed_field
-    @property
-    def num_solutions(self) -> int:
-        return len(self.state.state.solver_results)
-
-
-class SolutionReferenceLite(SQLModel):
-    """The same as SolutionReference minus the unnecessary variable values."""
-
-    name: str | None = Field(description="Optional name to help identify the solution if, e.g., saved.", default=None)
-    solution_index: int | None = Field(
-        description="The index of the referenced solution, if multiple solutions exist in the reference state.",
-        default=None,
-    )
-    state: StateDB = Field(description="The reference state with the solution information.")
+class SolutionReferenceLite(SolutionReferenceBase):
+    """The same as SolutionReference, but without decision variables for more efficient transport over the internet."""
 
     @computed_field
     @property
@@ -349,16 +346,6 @@ class SolutionReferenceLite(SQLModel):
             return self.state.state.result_objective_values[self.solution_index]
 
         return None
-
-    @computed_field
-    @property
-    def state_id(self) -> int:
-        return self.state.id
-
-    @computed_field
-    @property
-    def num_solutions(self) -> int:
-        return len(self.state.state.solver_results)
 
 
 class SolutionReferenceResponse(SQLModel):

@@ -16,9 +16,9 @@ from desdeo.problem import (
 )
 from desdeo.tools import (
     BaseSolver,
-    GurobipySolver,
     SolverOptions,
     SolverResults,
+    GurobipySolver,
     add_group_asf,
     add_group_asf_agg,
     add_group_asf_agg_diff,
@@ -160,7 +160,7 @@ def infer_group_classifications(
     return group_classifications
 
 
-def solve_group_sub_problems(  # noqa: PLR0913, RET503
+def solve_group_sub_problems(  # noqa: PLR0913
     problem: Problem,
     current_objectives: dict[str, float],
     reference_points: dict[str, dict[str, float]],
@@ -355,11 +355,11 @@ def solve_group_sub_problems(  # noqa: PLR0913, RET503
         )
 
         if _solver_options:
-            gnimbus_solver = init_solver(problem_w_nimbus, _solver_options)  # type:ignore
+            nimbus_solver = init_solver(problem_w_nimbus, _solver_options)  # type:ignore
         else:
-            gnimbus_solver = init_solver(problem_w_nimbus)
+            nimbus_solver = init_solver(problem_w_nimbus)  # type:ignore
 
-        solutions.append(gnimbus_solver.solve(nimbus_target))
+        solutions.append(nimbus_solver.solve(nimbus_target))
 
         """ SOLVING Group Scals with scaled delta, original RPs and hard_constraints """
         # solve STOM
@@ -368,11 +368,11 @@ def solve_group_sub_problems(  # noqa: PLR0913, RET503
             problem, "stom_sf", reference_points_list, agg_bounds, delta, **(scalarization_options or {})
         )
         if _solver_options:
-            gnimbus_solver = init_solver(problem_w_stom, _solver_options)  # type:ignore
+            stom_solver = init_solver(problem_w_stom, _solver_options)  # type:ignore
         else:
-            gnimbus_solver = init_solver(problem_w_stom)
+            stom_solver = init_solver(problem_w_stom)  # type:ignore
 
-        solutions.append(gnimbus_solver.solve(stom_target))
+        solutions.append(stom_solver.solve(stom_target))
 
         # solve ASF
         add_asf = add_group_asf_diff if problem.is_twice_differentiable else add_group_asf
@@ -380,11 +380,11 @@ def solve_group_sub_problems(  # noqa: PLR0913, RET503
             problem, "asf", reference_points_list, agg_bounds, delta, **(scalarization_options or {})
         )
         if _solver_options:
-            gnimbus_solver = init_solver(problem_w_asf, _solver_options)  # type:ignore
+            asf_solver = init_solver(problem_w_asf, _solver_options)  # type:ignore
         else:
-            gnimbus_solver = init_solver(problem_w_asf)
+            asf_solver = init_solver(problem_w_asf)  # type:ignore
 
-        solutions.append(gnimbus_solver.solve(asf_target))
+        solutions.append(asf_solver.solve(asf_target))
 
         # Solve GUESS
         add_guess_sf = add_group_guess_diff if problem.is_twice_differentiable else add_group_guess
@@ -427,11 +427,11 @@ def solve_group_sub_problems(  # noqa: PLR0913, RET503
         )
 
         if _solver_options:
-            gnimbus_solver = init_solver(problem_w_nimbus, _solver_options)  # type:ignore
+            nimbus_solver = init_solver(problem_w_nimbus, _solver_options)  # type:ignore
         else:
-            gnimbus_solver = init_solver(problem_w_nimbus)
+            nimbus_solver = init_solver(problem_w_nimbus)  # type:ignore
 
-        solutions.append(gnimbus_solver.solve(nimbus_target))
+        solutions.append(nimbus_solver.solve(nimbus_target))
 
         """ SOLVING Group Scals with scaled delta, agg. aspirations and hard_constraints """
 
@@ -441,22 +441,22 @@ def solve_group_sub_problems(  # noqa: PLR0913, RET503
             problem, "stom_sf2", agg_aspirations, agg_bounds, delta, **(scalarization_options or {})
         )
         if _solver_options:
-            gnimbus_solver = init_solver(problem_g_stom, _solver_options)  # type:ignore
+            stomg_solver = init_solver(problem_g_stom, _solver_options)  # type:ignore
         else:
-            gnimbus_solver = init_solver(problem_g_stom)
+            stomg_solver = init_solver(problem_g_stom)  # type:ignore
 
-        solutions.append(gnimbus_solver.solve(stomg_target))
+        solutions.append(stomg_solver.solve(stomg_target))
 
         add_asf2 = add_group_asf_agg_diff if problem.is_twice_differentiable else add_group_asf_agg
         problem_g_asf, asfg_target = add_asf2(
             problem, "asf2", agg_aspirations, agg_bounds, delta, **(scalarization_options or {})
         )
         if _solver_options:
-            gnimbus_solver = init_solver(problem_g_asf, _solver_options)  # type:ignore
+            asfg_solver = init_solver(problem_g_asf, _solver_options)  # type:ignore
         else:
-            gnimbus_solver = init_solver(problem_g_asf)
+            asfg_solver = init_solver(problem_g_asf)  # type:ignore
 
-        solutions.append(gnimbus_solver.solve(asfg_target))
+        solutions.append(asfg_solver.solve(asfg_target))
 
         add_guess_sf2 = add_group_guess_agg_diff if problem.is_twice_differentiable else add_group_guess_agg
 
@@ -465,11 +465,11 @@ def solve_group_sub_problems(  # noqa: PLR0913, RET503
         )
 
         if _solver_options:
-            gnimbus_solver = init_solver(problem_g_guess, _solver_options)  # type:ignore
+            guess2_solver = init_solver(problem_g_guess, _solver_options)  # type:ignore
         else:
-            gnimbus_solver = init_solver(problem_g_guess)
+            guess2_solver = init_solver(problem_g_guess)  # type:ignore
 
-        solutions.append(gnimbus_solver.solve(guess2_target))
+        solutions.append(guess2_solver.solve(guess2_target))
 
         infer_group_classifications(problem, current_objectives, reference_points, silent=False)
 

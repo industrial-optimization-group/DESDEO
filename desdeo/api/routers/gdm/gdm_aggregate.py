@@ -1,17 +1,10 @@
 """A structure for group decision making.
 
-Currently, NIMBUS has been implemented in this system. However, swapping the NIMBUS methods for some other methods, such
-as reference point method should not be exceedingly difficult. I believe that if database models (in models.gdm) are
-generalized enough, this same system could be used for voting for solutions, as I believe is the case with GDM methods.
-Generalizing, or creating a "method" info field could be used to generalize things also.
-
-When preferences are sent through the websockets, they are validated. Currently the validation handles only
-ReferencePoints. Then, the preferences are saved into a database. When all group members have articulated their
+When preferences are sent through the websockets, they are validated.
+Then, the preferences are saved into a database. When all group members have articulated their
 preferences, system begins optimization. The results are then saved into the database and the system notifies all
 connected users that the solutions are ready to be fetched. If a user is not connected to the server, the server will
 notify the user when they connect next time.
-
-For example, in the case of NIMBUS, the last chosen solution should exist. This could be an index into the solutions.
 
 """
 

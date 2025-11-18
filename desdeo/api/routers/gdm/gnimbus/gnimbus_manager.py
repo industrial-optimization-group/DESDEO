@@ -37,17 +37,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def compare_variable(v1: int | float | list, v2: int | float | list) -> bool:
-    if type(v1) != type(v2):
-        # Not of the same type! How can this be?
-        return False
-
-    if type(v1) is int:
-        return v1 == v2
-    if type(v1) is float:
-        return math.isclose(v1, v2)
-    return all([math.isclose(tup[0], tup[1]) for tup in zip(v1, v2, strict=True)])
-
 
 def filter_duplicates(results: list[SolverResults]) -> list[SolverResults]:
     """Filters away duplicate solutions by comparing all objective values.
@@ -341,7 +330,10 @@ class GNIMBUSManager(GroupManager):
         try:
             preference = int(data)
             if preference > 3 or preference < 0:
-                await self.send_message("ERROR: Voting index out of bounds! Can only vote for 0 to 3.", self.sockets[user_id])
+                await self.send_message(
+                    "ERROR: Voting index out of bounds! Can only vote for 0 to 3.",
+                    self.sockets[user_id]
+                )
                 return None
         except Exception as e:
             print(e)
@@ -622,5 +614,3 @@ class GNIMBUSManager(GroupManager):
 
             # Close the session
             session.close()
-
-            logger.info("Database operations done.")
