@@ -4,6 +4,7 @@
 	 *
 	 * @author Stina Palomäki <palomakistina@gmail.com>
 	 * @created September 2025
+	 * @updated November 2025
 	 *
 	 * @description
 	 * This page implements the Group NIMBUS interactive multiobjective optimization method in DESDEO.
@@ -18,6 +19,8 @@
 	 * Each phase alternates between:
 	 * - Optimization mode: Users set preferences to generate new solutions
 	 * - Voting mode: Users vote on proposed solutions
+	 * When final solution is selected, the process moves to:
+	 * - Finish mode: Final solution display and process completion
 	 *
 	 * @props
 	 * @property {Object} data - Server-loaded data containing problem and group information
@@ -30,6 +33,9 @@
 	 * - Role-based access control (owner vs decision maker)
 	 * - Interactive preference setting and solution generation
 	 * - Voting system for solution selection
+	 * - Phase management by group owner
+	 * - Solution history viewing (current, own, group, final results)
+	 * - Iteration reversion possibility for group owner
 	 * - Visualization of objective space
 	 * - Map visualization for problems with geographical data (UTOPIA)
 	 * - Phase-based group decision making process
@@ -40,6 +46,8 @@
 	 * - VisualizationsPanel: Objective space visualization
 	 * - UtopiaMap: Geographical data visualization
 	 * - WebSocketService: Real-time communication
+	 * - SolutionDisplay: Solution table and voting interface
+	 * - EndStateView: Final results display
 	 */
 	// Layout and core components
 	import { BaseLayout } from '$lib/components/custom/method_layout/index.js';

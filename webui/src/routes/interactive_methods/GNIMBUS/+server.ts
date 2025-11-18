@@ -1,22 +1,21 @@
 /**
- * +server.ts - NIMBUS API Server Endpoint
+ * +server.ts - GNIMBUS API Server Endpoint
  *
  * @author Stina Palomäki <palomakistina@gmail.com>
- * @created August 2025
+ * @created September 2025
+ * @updated November 2025
  *
  * @description
- * This server endpoint handles all NIMBUS method API requests, acting as a proxy between
- * the frontend and the backend API. It supports operations like initializing NIMBUS,
- * iterating to find new solutions, generating intermediate solutions, saving solutions,
- * and fetching map data for UTOPIA visualization.
+ * This server endpoint handles all Group NIMBUS method API requests, acting as a proxy 
+ * between the frontend and the backend API.
  *
  * @endpoints
- * - initialize: Initializes a new NIMBUS session with the backend
- * - iterate: Performs a NIMBUS iteration based on user preferences
- * - intermediate: Generates intermediate solutions between two reference solutions
- * - choose: Selects a final solution (TODO: currently not implemented)
- * - save: Saves a solution with a name
- * - remove_saved: Removes a saved solution (TODO: currently not implemented)
+ * - initialize: Initializes a new GNIMBUS group session with the backend
+ * - get_latest_results: Retrieves the most recent iteration results (legacy endpoint)
+ * - get_all_iterations: Fetches complete iteration history for the group
+ * - switch_phase: Changes the group decision making phase (learning/crp/decision/compromise)
+ * - revert_iteration: Reverts to a selected iteration state (group owner only)
+ * - get_phase: Retrieves the current phase of the latest iteration of group decision making process
  * - get_maps: Retrieves map data for UTOPIA visualization
  *
  * @authentication
@@ -24,6 +23,7 @@
  *
  * @error_handling
  * Returns standardized JSON responses with success/error fields and appropriate HTTP status codes.
+ * Includes special handling for common error cases like "not_initialized" and "wrong_step".
  */
 import { json } from '@sveltejs/kit';
 import { serverApi as api } from '$lib/api/client';

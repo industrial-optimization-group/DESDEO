@@ -1,8 +1,20 @@
 /**
  * WebSocket Service for GNIMBUS
  *
- * Manages real-time communication between group members during the decision making process.
- * Handles connection lifecycle, message parsing, and error handling.
+ * @author Stina Palomäki <palomakistina@gmail.com>
+ * @created September 2025
+ * @updated November 2025
+ *
+ * @description
+ * Manages real-time communication between group members during the GNIMBUS group decision making process.
+ * Handles connection lifecycle, message parsing, automatic reconnection, and error handling.
+ *
+ * @features
+ * - Automatic reconnection with exponential backoff (max 5 attempts)
+ * - Reconnection callbacks for state synchronization
+ * - Connection state management
+ * - Message validation and error handling
+ *
  */
 
 import { writable, type Writable } from 'svelte/store';

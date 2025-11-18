@@ -7,25 +7,25 @@
 	 * @author Giomara Larraga <glarragw@jyu.fi>
 	 * @author Stina Palomäki <palomakistina@gmail.com> (Multi-selection support, label tooltips)
 	 * @created June 2025
-	 * @updated August 2025, October 2025
+	 * @updated November 2025
 	 *
 	 * @description
 	 * Renders a responsive parallel coordinates plot using D3.js.
 	 * Each line represents a solution/data point, and each vertical axis represents a dimension/objective.
-	 * Supports additional reference information like reference points, preferred ranges, and preferred solutions.
+	 * Supports additional reference information like reference points, preferred ranges, and different solution gatecories.
 	 * Features both single and multiple line selection modes, axis brushing for filtering, and optional
 	 * tooltips displaying customizable labels for each line.
 	 *
 	 * @props
 	 * - data: Array<{ [key: string]: number }> — Array of data points where each object has values for each dimension
-	 * - dimensions: Array<{ symbol: string; min?: number; max?: number; direction?: 'max' | 'min' }> — Dimension definitions
+	 * - dimensions: Array<{ symbol: string; name: string; min?: number; max?: number; direction?: 'max' | 'min' }> — Dimension definitions with optional constraints
 	 * - referenceData?: {
 	 *     referencePoint?: { [key: string]: number }; // Current reference point values for each dimension
 	 *     previousReferencePoint?: { [key: string]: number }; // Previous reference point values for comparison
-	 *     preferredRanges?: { [key: string]: { min: number; max: number } }; // Preferred ranges for each dimension
-	 *     preferredSolutions?: Array<{ [key: string]: number }>; // Array of preferred solutions
+	 *     preferredRanges?: { [key: string]: { min: number; max: number } }; // Preferred ranges for each dimension (disabled by default)
+	 *     preferredSolutions?: Array<{ [key: string]: number }>; // Array of preferred solutions (e.g., user's previous solutions)
 	 *     nonPreferredSolutions?: Array<{ [key: string]: number }>; // Array of non-preferred solutions
-	 * 	   otherSolutions?: Array<{ [key: string]: number }>; // Array of any solutions that dont fit into other categories. Used for users solutions in group nimbus
+	 * 	   otherSolutions?: Array<{ [key: string]: number }>; // Array of additional solutions (e.g., other users' solutions in GNIMBUS)
 	 *   }
 	 * - options: {
 	 *     showAxisLabels: boolean; // Whether to show dimension names above axes
@@ -34,7 +34,7 @@
 	 *     opacity: number; // Opacity of non-selected lines
 	 *     enableBrushing: boolean; // Whether to enable axis brushing for filtering
 	 *   }
-	 * - lineLabels: { [key: string]: string } - Map of data indexes to custom labels displayed in tooltips, optional
+	 * - lineLabels: { [key: string]: string } - Map of data indexes to custom labels displayed in tooltips
 	 * - selectedIndex: number | null — Index of selected line in single selection mode
 	 * - multipleSelectedIndexes: number[] | null — Indexes of selected lines in multi-selection mode
 	 * - brushFilters: { [dimension: string]: [number, number] } — Brush filter ranges for each dimension
@@ -50,8 +50,9 @@
 	 * - Customizable axis ranges and directions
 	 * - Reference point visualization (dashed line)
 	 * - Preferred ranges visualization (colored bands)
-	 * - Preferred/non-preferred solutions (different line styles)
+	 * - Preferred/non-preferred and other solutions (different line styles)
 	 * - Customizable optional line labels with tooltips
+	 * - Click-to-select functionality with multi-selection support for main data lines
 	 */
 
 	// --- Import required libraries ---
@@ -82,7 +83,7 @@
 	export let data: { [key: string]: number }[] = [];
 
 	// Dimension definitions - describes each axis with optional constraints
-	export let dimensions: { name: string; min?: number; max?: number; direction?: 'max' | 'min' }[] =
+	export let dimensions: { symbol: string; name: string; min?: number; max?: number; direction?: 'max' | 'min' }[] =
 		[];
 
 	// Optional reference data for enhanced visualization

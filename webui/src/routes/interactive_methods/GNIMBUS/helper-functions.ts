@@ -1,12 +1,23 @@
 /**
  * GNIMBUS Helper Functions
  *
- * This file contains utility functions for the GNIMBUS interactive group decision making method.
- * Functions handle data transformation, validation, API calls, message handling,
- * and visualization data preparation.
- *
  * @author Stina Palomäki <palomakistina@gmail.com>
  * @created October 2025
+ * @updated November 2025
+ *
+ * @description
+ * This file contains utility functions for the GNIMBUS interactive group decision making method.
+ * Functions handle data transformation, validation, API calls, message handling,
+ * visualization data preparation, and state management.
+ *
+ * @features
+ * - Problem metadata validation (UTOPIA map support)
+ * - User status message generation based on role and phase
+ * - Data transformation for visualizations
+ * - Preference validation and iteration control
+ * - Solution history computation and organization
+ * - API communication with unified error handling
+ * - State synchronization utilities
  */
 
 import type { ProblemInfo, Solution, Response, AllIterations } from './types';
