@@ -820,6 +820,29 @@
 			}
 		});
 
+		// Draw previous reference points (light red, multiple)
+		if (referenceData?.previousReferencePoints) {
+			referenceData.previousReferencePoints.forEach((prevPoint) => {
+				drawGenericReferencePoint(svgElement, newScales, xScale, line, 
+					prevPoint, {
+						groupClass: `reference-point`,
+						color: '#fecaca', // light red color, tailwind red 200
+					}
+				);
+			});
+		}
+
+		// Draw reference visualizations (on top of data lines)
+		// Draw current reference point (red)
+		drawGenericReferencePoint(svgElement, newScales, xScale, line, 
+			referenceData?.referencePoint, {
+				groupClass: 'reference-point',
+				color: '#f87171', // Red color, tailwind red 400
+			}
+		);
+		
+		drawReferenceSolutions(svgElement, newScales, xScale, line);
+		
 		// Draw main data lines
 		const lines = svgElement
 			.append('g')
@@ -893,27 +916,6 @@
 			updateLineVisibility(lines); // Update visual state
 		});
 
-		// Draw previous reference points (light red, multiple)
-		if (referenceData?.previousReferencePoints) {
-			referenceData.previousReferencePoints.forEach((prevPoint) => {
-				drawGenericReferencePoint(svgElement, newScales, xScale, line, 
-					prevPoint, {
-						groupClass: `reference-point`,
-						color: '#fecaca', // light red color, tailwind red 200
-					}
-				);
-			});
-		}
-
-		// Draw reference visualizations (on top of data lines)
-		// Draw current reference point (red)
-		drawGenericReferencePoint(svgElement, newScales, xScale, line, 
-			referenceData?.referencePoint, {
-				groupClass: 'reference-point',
-				color: '#f87171', // Red color, tailwind red 400
-			}
-		);
-		drawReferenceSolutions(svgElement, newScales, xScale, line);
 		// Add filter status information at the bottom
 		const activeFilters = Object.keys(brushFilters).length;
 		if (activeFilters > 0) {
