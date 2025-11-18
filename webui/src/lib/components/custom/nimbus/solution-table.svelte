@@ -119,8 +119,7 @@
 		secondaryObjectiveValues = [],
 		methodPage = 'nimbus',
 		isFrozen = false,
-		personalResultIndex,
-		isDecisionMaker,
+		personalResultIndex
 	}: {
 		problem: ProblemInfo;
 		solverResults: Array<Solution>;
@@ -136,7 +135,6 @@
 		methodPage?: MethodPage;
 		isFrozen?: boolean;
 		personalResultIndex?: number | null;
-		isDecisionMaker?: boolean;
 	} = $props();
 
 	// Get the display accuracy
@@ -153,7 +151,7 @@
 		// For GNIMBUS, use switch for clear case handling
 		switch (selected_type_solutions) {
 			case 'all_own':
-				return isDecisionMaker ? 'Your solution' : 'Users solution';
+				return 'Your solution';
 			case 'all_final':
 				// Check if this is iteration 0 (initial solution)
 				if (iterationNumber === 0) {

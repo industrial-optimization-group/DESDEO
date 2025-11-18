@@ -132,10 +132,14 @@
 	let frameworks = $derived.by(() => {
 		const baseOptions = [
 			{ value: 'current', label: 'Current iteration' },
-			{ value: 'all_own', label: `${isDecisionMaker ? 'All own solutions and preferences' : 'All users solutions'}` },
 			{ value: 'all_group', label: 'All group solutions' },
 			{ value: 'all_final', label: 'All voting results' }
 		];
+		
+		// Only add "all_own" option if user is a decision maker (has personal solutions)
+		if (isDecisionMaker) {
+			baseOptions.splice(1, 0, { value: 'all_own', label: 'All own solutions and preferences' });
+		}
 		
 		return baseOptions;
 	});
@@ -167,6 +171,11 @@
 	
 	// Helper function to change solution type and update selections
 	function change_solution_type_updating_selections(newType: 'current' | 'all_own' | 'all_group' | 'all_final') {
+		// Prevent setting 'all_own' if user is not a decision maker
+		if (newType === 'all_own' && !isDecisionMaker) {
+			console.warn('Cannot select "all_own" - user is not a decision maker');
+			return;
+		}
 		
 		// Update the internal state
 		history_option = newType;
@@ -628,7 +637,7 @@
 	});
 
 	let visualizationPreferences = $derived.by(() => {
-		if (history_option === "current") return createPreferenceData(step, last_iterated_preference, current_preference);
+		if (history_option === "current") return createPreferenceData(step, last_iterated_preference, current_preference)
 		// show preference history if user selected to see their own history, 
 		// otherwise show no preferenes
 		return {
@@ -639,7 +648,7 @@
 	);
 
 	let visualizationObjectives = $derived.by(() =>
-		createVisualizationData(problem, step, current_state, solution_options, history_option, isDecisionMaker)
+		createVisualizationData(problem, step, current_state, solution_options, history_option)
 	);
 </script>
 
@@ -759,8 +768,8 @@
 							onSelectSolution={handle_solution_click}
 							lineLabels={visualizationObjectives.solutionLabels}
 							referenceDataLabels={{
-								previousRefLabel: history_option ==='current' ? 'Your previous preference' : 'Previous preference',
-								currentRefLabel: history_option ==='current' ? 'Your current preference' : "Selected previous preference",
+								previousRefLabel: 'Your previous preference',
+								currentRefLabel: 'Your current preference',
 								previousSolutionLabels:['Your individual solution'],
 								otherSolutionLabels: visualizationObjectives.others.map((_, i) => isDecisionMaker ? `Another user's solution`:`User ${i + 1}'s solution`),
 							}}

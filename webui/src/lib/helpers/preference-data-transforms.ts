@@ -59,10 +59,10 @@ export function createReferenceData(
     // Create reference point from previous preferences
     const previousReferencePoints: Solution[] = [];
     if (previous_preference_values.length > 0) {
-        previous_preference_values.forEach((preferenceArray) => {
+        previous_preference_values.forEach((preferenceArray, idx) => {
             const previousReferencePoint: Solution = {
                 values: {},
-                label: labels?.previousRefLabel ? `${labels.previousRefLabel}` : `Previous preference`
+                label: labels?.previousRefLabel ? `${labels.previousRefLabel} ${idx + 1}` : `Previous ${idx + 1}`
             };
             
             preferenceArray.forEach((value, index) => {

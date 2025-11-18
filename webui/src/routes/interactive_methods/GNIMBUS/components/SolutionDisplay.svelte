@@ -54,7 +54,6 @@
 			{selected_type_solutions}
 			methodPage="gnimbus"
 			secondaryObjectiveValues={userSolutionsObjectives}
-			{isDecisionMaker}
 		/>
 	</div>
 	{#if step === 'voting' && isDecisionMaker && selected_type_solutions === 'current'}
