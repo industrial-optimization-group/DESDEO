@@ -554,7 +554,12 @@
 		hasUtopiaMetadata = checkUtopiaMetadata(problem);
 
 		// Initialize WebSocket
-		wsService = new WebSocketService(data.group.id, 'gnimbus', data.refreshToken);
+		wsService = new WebSocketService(data.group.id, 'gnimbus', data.refreshToken, () => {
+			// This runs only when connection is re-established
+			console.log('WebSocket reconnected, updating state...');
+			showTemporaryMessage('Reconnected to server');
+			getResultsAndUpdate(data.group.id);
+		});
 		wsService.messageStore.subscribe((store) => {
 			// Filters for specific messages. All socket messages that imply need for state updates start with "UPDATE"
 			// this is because socket messages are simple strings and there is no other way to differentiate them.
