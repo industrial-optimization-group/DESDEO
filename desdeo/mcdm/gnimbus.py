@@ -160,7 +160,7 @@ def infer_group_classifications(
     return group_classifications
 
 
-def solve_group_sub_problems(  # noqa: PLR0913
+def solve_group_sub_problems(  # noqa: PLR0913, RET503
     problem: Problem,
     current_objectives: dict[str, float],
     reference_points: dict[str, dict[str, float]],
@@ -246,7 +246,7 @@ def solve_group_sub_problems(  # noqa: PLR0913
     if init_solver is GurobipySolver and not solver_options:
         solver_options = {"OutputFlag": 0} #TODO: how does one want this to behave?
     _solver_options = solver_options if solver_options is not None else None
-    print("solver is ", init_solver)
+    # print("solver is ", init_solver)
 
     solutions = []
     classification_list = []
@@ -257,7 +257,15 @@ def solve_group_sub_problems(  # noqa: PLR0913
 
     # Solve for individual solutions using nimbus scalarization.
     for dm_rp in reference_points:
-        ind_sols.append(solve_sub_problems(problem, current_objectives, reference_points[dm_rp], num_desired=1)[0])
+        ind_sols.append(solve_sub_problems(
+            problem=problem,
+            current_objectives=current_objectives,
+            reference_point=reference_points[dm_rp],
+            num_desired=1,
+            scalarization_options=None,
+            solver=init_solver,
+            solver_options=_solver_options)[0],
+        )
 
     achievable_prefs = []
     for q in range(len(reference_points)):

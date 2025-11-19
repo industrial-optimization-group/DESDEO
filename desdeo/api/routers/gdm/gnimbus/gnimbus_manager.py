@@ -37,8 +37,98 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def compare_values(
+    a: int | float | list[float],
+    b: int | float | list[float]
+) -> bool:
+    """Compare two variables.
 
-def filter_duplicates(results: list[SolverResults]) -> list[SolverResults]:
+    Args:
+        a (int | float | list[float]): variable 1
+        b (int | float | list[float]): variable 2
+
+    Returns:
+        bool: whether the values are same (within tolerance)
+    """
+    # Make sure that the variables are of the same type.
+    if type(a) is not type(b):
+        return False
+
+    # check numeric types first.
+    if type(a) is int:
+        return a == b
+
+    if type(a) is float:
+        return np.isclose(a, b)
+
+    if type(a) is list:
+        return np.allclose(a, b)
+
+    return False
+
+def compare_value_lists(
+    a: list[int | float | list[float]],
+    b: list[int | float | list[float]],
+    variable_keys: list[str]
+) -> bool:
+    """Compare two lists of above possible types together.
+
+    Args:
+        a (list[int  |  float  |  list[float]]): list 1
+        b (list[int  |  float  |  list[float]]): list 2
+
+    Returns:
+        whether the value lists are similar.
+    """
+    if len(a) is not len(b):
+        return False
+    complete_list = list(zip(a, b, strict=True))
+    equal_values = True
+    for i, pair in enumerate(complete_list):
+        if not compare_values(pair[0], pair[1]):
+            # logger.info(f"These aren't supposedly the same {variable_keys[i]} variables:\n{pair[0]}\n{pair[1]}")
+            equal_values = False
+
+    return equal_values
+
+def filter_duplicates_with_variables(results: list[SolverResults]) -> list[SolverResults]:
+    """Filters duplicate solutions bu comparing variables.
+
+    Args:
+        results (list[SolverResults]): The solver results that are coming in from the solver
+
+    Returns:
+        list[SolverResults]: Filtered results
+    """
+    if len(results) < 2:
+        # The length is 1 or 0; there are no duplicates
+        return results
+
+    # Get varuables from results
+    variable_values_list = [res.optimal_variables for res in results]
+    # Get variable symbols
+    variable_keys = list(variable_values_list[0])
+    if '_alpha' in variable_keys:
+        variable_keys.remove('_alpha')
+    # Get the corresponding values for functions into a list of lists of values
+    valuelists = [[dictionary[key] for key in variable_keys] for dictionary in variable_values_list]
+    duplicate_indices = []
+    for i in range(len(results) - 1):
+        for j in range(i + 1, len(results)):
+            # If comparing the two solutions, two solutions are close to each other,
+            # add the index
+            if compare_value_lists(valuelists[i], valuelists[j], variable_keys):
+                duplicate_indices.append(i)
+
+    # Quite the memory hell. See If there's a smarter way to do this
+    new_solutions = []
+    for i in range(len(results)):
+        if i not in duplicate_indices:
+            new_solutions.append(results[i])
+
+    return new_solutions
+
+def filter_duplicates_with_objectives(results: list[SolverResults]) -> list[SolverResults]:
     """Filters away duplicate solutions by comparing all objective values.
 
     Args:
@@ -92,7 +182,7 @@ class GNIMBUSManager(GroupManager):
         session.add(current_iteration)
         session.commit()
         session.refresh(current_iteration)
-        print(current_iteration.preferences)
+        # print(current_iteration.preferences)
         await self.send_message("Received preferences successfully", self.sockets[user_id])
 
     async def check_preferences(
@@ -108,7 +198,7 @@ class GNIMBUSManager(GroupManager):
                     logger.info("Not all prefs in!")
                     return False
             except KeyError:
-                logger.info("Key error: Not all prefs in!")
+                logger.info("Not all prefs in!")
                 return False
         return True
 
@@ -151,7 +241,7 @@ class GNIMBUSManager(GroupManager):
         session.commit()
         session.refresh(new_state)
 
-        print(new_state.parent)
+        # print(new_state.parent)
 
         # Update state id to current iteration
         current_iteration.state_id = new_state.id
@@ -242,7 +332,7 @@ class GNIMBUSManager(GroupManager):
         formatted_prefs = {}
         for key, item in prefs.items():
             formatted_prefs[key] = item.aspiration_levels
-        logger.info(f"Formatted preferences: {formatted_prefs}")
+        # logger.info(f"Formatted preferences: {formatted_prefs}")
 
         # And here we choose the first result of the previous iteration as the current objectives.
         actual_state = await self.get_state(
@@ -254,7 +344,7 @@ class GNIMBUSManager(GroupManager):
 
         prev_sol = actual_state.solver_results[0].optimal_objectives
 
-        print(f"starting values: {prev_sol}")
+        logger.info(f"starting values: {prev_sol}")
 
         user_len = len(group.user_ids)
 
@@ -269,7 +359,7 @@ class GNIMBUSManager(GroupManager):
             logger.info(f"Result amount: {len(results)}")
             if current_iteration.preferences.phase in ["learning", "crp"]:
                 logger.info(f"Amount on common solutions before filtering: {len(results[user_len:])}")
-                common_results = filter_duplicates(results[user_len:])
+                common_results = filter_duplicates_with_objectives(results[user_len:])
                 results = results[:user_len] + common_results
                 logger.info(f"Amount on common solutions after filtering: {len(results[user_len:])}")
 
@@ -416,7 +506,7 @@ class GNIMBUSManager(GroupManager):
         Returns:
             OptimizationPreference | None: If success, we return an optimization preference.
         """
-        logger.info(f"incoming data: {data}")
+        # logger.info(f"incoming data: {data}")
         try:
             preference: bool = bool(int(data))
         except Exception:
@@ -532,7 +622,7 @@ class GNIMBUSManager(GroupManager):
                 session.close()
                 return
 
-            logger.info(f"Current iteration ID: {current_iteration.id}")
+            # logger.info(f"Current iteration ID: {current_iteration.id}")
 
             problem_db: ProblemDB = session.exec(select(ProblemDB).where(ProblemDB.id == group.problem_id)).first()
             # This shouldn't be a problem at this point anymore, but
