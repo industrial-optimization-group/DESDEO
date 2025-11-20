@@ -26,6 +26,6 @@ def step(
     user: Annotated[User, Depends(get_current_user)],
     db_session: Annotated[Session, Depends(get_session)],
 ) -> ENautilusState:
-    """."""
+    """Steps the E-NAUTILUS method."""
     interactive_session: InteractiveSessionDB | None = fetch_interactive_session(user, request, db_session)
     problem: Problem = fetch_user_problem(user, request, db_session)

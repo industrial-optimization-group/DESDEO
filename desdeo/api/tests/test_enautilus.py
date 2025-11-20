@@ -1,8 +1,9 @@
 """Tests related to E-NAUTILUS models and routes."""
 
-from sqlmodel import Session
+from fastapi.testclient import TestClient
+from sqlmodel import Session, select
 
-from desdeo.api.models import EnautilusStepRequest, user
+from desdeo.api.models import EnautilusStepRequest, ProblemDB, RepresentativeNonDominatedSolutions, user
 
 
 def test_enautilus_step_request(session_and_user: dict[str, Session | list[user]]):
@@ -41,5 +42,23 @@ def test_enautilus_step_request(session_and_user: dict[str, Session | list[user]
     assert request.number_of_intermediate_points == number_of_intermediate_points
 
 
-def test_enautilus_step_router(session_and_user: dict[str, Session | list[user]]):
-    """."""
+def test_enautilus_step_router(client: TestClient, session_and_user: dict[str, Session | list[user]]):
+    """Test the E-NAUTILUS stepping endpoint."""
+    session, user = session_and_user["session"], session_and_user["user"]
+
+    problem_db = session.exec(select(ProblemDB).where(ProblemDB.name == "The river pollution problem")).first()
+
+    representative_solutions = session.exec(
+        select(RepresentativeNonDominatedSolutions).where(ProblemDB.id == problem_db.id)
+    )
+
+    print()
+
+    """
+    request = EnautilusStepRequest(
+        problem_id=problem_db.id,
+        session_id=None,
+        parent_state_id=None,
+        representative_solutions_id=
+    )
+    """
