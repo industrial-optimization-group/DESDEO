@@ -26,7 +26,7 @@ export class WebSocketService {
 	socket: WebSocket | null = null;
 	private reconnectAttempts = 0;
 	private maxReconnectAttempts = 5;
-	private reconnectInterval = 2000; // Start with 2 seconds
+	private reconnectInterval = 5000; // Start with 5 seconds
 	private isReconnecting = false;
 	private groupId: number;
 	private method: string;
@@ -66,17 +66,23 @@ export class WebSocketService {
 	private connect() {
 		const url = `${wsBase}/gdm/ws?group_id=${this.groupId}&method=${this.method}&token=${this.token}`;
 		this.socket = new WebSocket(url);
+		if (this.reconnectAttempts > 0) {
+			this.messageStore.update((store) => ({
+				...store,
+				message: `Reconnecting...`,
+				messageId: store.messageId + 1
+			}));
+		}
+		this.isReconnecting = false;
 
 		this.socket.addEventListener('open', () => {
 			console.log('WebSocket connection established.');
-			
 			// Call the reconnection callback if this was a reconnection
 			if (this.reconnectAttempts > 0 && this.onReconnectCallback) {
 				this.onReconnectCallback();
 			}
 			
 			this.reconnectAttempts = 0; // Reset on successful connection
-			this.isReconnecting = false;
 		});
 
 		this.socket.addEventListener('close', (event) => {
@@ -128,9 +134,14 @@ export class WebSocketService {
 		
 		this.isReconnecting = true;
 		this.reconnectAttempts++;
-		
-		const delay = Math.min(this.reconnectInterval * this.reconnectAttempts, 10000); // Max 10 seconds
-		
+
+		const delay = Math.min(this.reconnectInterval * this.reconnectAttempts, 25000); // Max 25 seconds
+		const delaySeconds = Math.floor(delay / 1000);
+		this.messageStore.update((store) => ({
+			...store,
+			message: `Connection lost. Retrying in ${delaySeconds} seconds...`,
+			messageId: store.messageId + 1
+		}));
 		console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts}) in ${delay} ms`);
 		
 		setTimeout(() => {
