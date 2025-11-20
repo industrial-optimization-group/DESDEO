@@ -4,51 +4,65 @@
 	 *
 	 * @author Stina Palomäki <palomakistina@gmail.com>
 	 * @created August 2025
+	 * @updated November 2025
 	 *
 	 * @description
-	 * This component renders a table of solutions for the NIMBUS interactive multiobjective optimization method.
-	 * It displays objective values for solutions and allows for selecting, renaming, saving, and removing solutions.
-	 * The table adapts its display based on the current view mode (current, best, or all solutions).
+	 * This component renders a table of solutions for both NIMBUS and GNIMBUS interactive multiobjective 
+	 * optimization methods. It displays objective values for solutions and supports various interaction modes
+	 * including selection, saving, and editing. The table adapts its display based on the current view mode 
+	 * and method type (current solutions, history etc, NIMBUS vs GNIMBUS).
 	 *
 	 * @props
-	 * @property {ProblemInfo} problem - The current optimization problem.
-	 * @property {Solution[]} solverResults - The solutions to display in the table.
-	 * @property {number[]} selectedSolutions - Indexes of selected solutions.
-	 * @property {Function} handle_save - Callback to save a solution with an optional name.
-	 * @property {Function} handle_change - Callback to rename a solution.
-	 * @property {Function} handle_row_click - Callback when a row is clicked.
-	 * @property {Function} handle_remove_saved - Callback to remove a saved solution.
-	 * @property {Function} isSaved - Function to check if a solution is already saved.
-	 * @property {string} [selected_type_solutions="current"] - The current view mode ("current", "best", "all").
-	 * @property {{ [key: string]: number }[]} [secondaryObjectiveValues=[]] - Previous objective values for comparison.
-	 * @property {string} [methodPage="nimbus"] - What page is using this. Makes it possible to render different components based on use case.
+	 * @property {ProblemInfo} problem - The current optimization problem
+	 * @property {Solution[]} solverResults - The solutions to display in the table
+	 * @property {number[]} selectedSolutions - Indexes of selected solutions
+	 * @property {Function} handle_save - Callback to save a solution with an optional name
+	 * @property {Function} handle_change - Callback to rename a solution
+	 * @property {Function} handle_row_click - Callback when a row is clicked
+	 * @property {Function} handle_remove_saved - Callback to remove a saved solution
+	 * @property {Function} isSaved - Function to check if a solution is already saved
+	 * @property {boolean} [savingEnabled=true] - Whether saving functionality is enabled
+	 * @property {string} [selected_type_solutions="current"] - Current view mode (modes are different between NIMBUS and GNIMBUS)
+	 * @property {{ [key: string]: number }[]} [secondaryObjectiveValues=[]] - Previous objective values for comparison
+	 * @property {string} [methodPage="nimbus"] - What page is using this component ("nimbus" or "gnimbus"). For conditional rendering
+	 * @property {boolean} [isFrozen=false] - Whether the table is in read-only mode
+	 * @property {number | null} [personalResultIndex] - Index of user's personal result, used in group nimbus
+	 * @property {boolean} [isDecisionMaker] - Whether current user is a decision maker, used in group nimbus
 	 *
 	 * @features
-	 * - Displays solution names and objective values in a sortable, filterable table.
-	 * - Highlights selected solutions.
-	 * - Shows save/edit buttons for solutions.
-	 * - Displays iteration number for non-current solutions.
-	 * - Formats numbers according to problem's display accuracy.
-	 * - Filterable by solution name.
+	 * - Displays solution names and objective values in a sortable, filterable table
+	 * - Highlights selected solutions
+	 * - Shows save/edit buttons for solutions (when enabled)
+	 * - Displays iteration numbers for historical solutions
+	 * - Formats numbers according to problem's display accuracy requirements
+	 * - Filterable by solution name or in gnimbus by iteration number
+	 * - Pagination support for large solution sets
+	 * - Method-specific display names and iteration handling
+	 * - Support for both single and multi-selection modes
+	 * - Role-based feature visibility in group methods
 	 *
 	 * @dependencies
-	 * - @tanstack/table-core for table logic.
-	 * - $lib/components/ui/table for table UI.
-	 * - $lib/components/ui/button for buttons.
-	 * - $lib/components/ui/data-table for table functionality.
-	 * - $lib/api/client-types for OpenAPI-generated types.
-	 * - $lib/helpers for number formatting.
-	 * - Svelte Runes mode for reactivity.
-	 * - Lucide icons for UI.
+	 * - @tanstack/table-core for table logic
+	 * - $lib/components/ui/table for table UI
+	 * - $lib/components/ui/button for buttons
+	 * - $lib/components/ui/data-table for table functionality
+	 * - $lib/api/client-types for OpenAPI-generated types
+	 * - $lib/helpers for number formatting
+	 * - Svelte Runes mode for reactivity
+	 * - Lucide icons for UI elements
+	 * - SolutionTableToolbar for filtering and controls
+	 * - PreviousSolutions for historical data display
+	 * - UserResults for group method user data
 	 *
 	 * @customization
-	 * - Column definitions dynamically built based on the problem objectives.
-	 * - Cell rendering customized via Svelte snippets.
-	 * - Shows different columns based on selected_type_solutions.
+	 * - Column definitions dynamically built based on problem objectives
+	 * - Cell rendering customized via Svelte snippets
+	 * - Conditional column display based on view mode and method type (selected_type_solutions and methodPage props)
+	 * - Method-specific naming conventions and iteration numbering
 	 *
 	 * @notes
-	 * - The component works with the NIMBUS method implementation in DESDEO.
-	 * - Number formatting respects the problem's precision requirements.
+	 * - Compatible with both NIMBUS and GNIMBUS method implementations
+	 * - Number formatting respects the problem's precision requirements
 	 */
 	import {
 		type ColumnDef,
@@ -119,7 +133,8 @@
 		secondaryObjectiveValues = [],
 		methodPage = 'nimbus',
 		isFrozen = false,
-		personalResultIndex
+		personalResultIndex,
+		isDecisionMaker,
 	}: {
 		problem: ProblemInfo;
 		solverResults: Array<Solution>;
@@ -135,6 +150,7 @@
 		methodPage?: MethodPage;
 		isFrozen?: boolean;
 		personalResultIndex?: number | null;
+		isDecisionMaker?: boolean;
 	} = $props();
 
 	// Get the display accuracy
@@ -151,7 +167,7 @@
 		// For GNIMBUS, use switch for clear case handling
 		switch (selected_type_solutions) {
 			case 'all_own':
-				return 'Your solution';
+				return isDecisionMaker ? 'Your solution' : 'Users solution';
 			case 'all_final':
 				// Check if this is iteration 0 (initial solution)
 				if (iterationNumber === 0) {

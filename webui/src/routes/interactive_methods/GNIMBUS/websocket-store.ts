@@ -1,8 +1,20 @@
 /**
  * WebSocket Service for GNIMBUS
  *
- * Manages real-time communication between group members during the decision making process.
- * Handles connection lifecycle, message parsing, and error handling.
+ * @author Stina Palomäki <palomakistina@gmail.com>
+ * @created September 2025
+ * @updated November 2025
+ *
+ * @description
+ * Manages real-time communication between group members during the GNIMBUS group decision making process.
+ * Handles connection lifecycle, message parsing, automatic reconnection, and error handling.
+ *
+ * @features
+ * - Automatic reconnection with exponential backoff (max 5 attempts)
+ * - Reconnection callbacks for state synchronization
+ * - Connection state management
+ * - Message validation and error handling
+ *
  */
 
 import { writable, type Writable } from 'svelte/store';
@@ -12,6 +24,17 @@ const BASE_URL = import.meta.env.VITE_API_URL;
 const wsBase = BASE_URL.replace(/^http/, 'ws');
 export class WebSocketService {
 	socket: WebSocket | null = null;
+	private reconnectAttempts = 0;
+	private maxReconnectAttempts = 5;
+	private reconnectInterval = 2000; // Start with 2 seconds
+	private isReconnecting = false;
+	private groupId: number;
+	private method: string;
+	private token: string;
+	
+	// Add callback for successful reconnection
+	private onReconnectCallback?: () => void;
+	
 	messageStore: Writable<{
 		message:	string;
 		messageId: number;
@@ -26,20 +49,39 @@ export class WebSocketService {
 	 * @param groupId ID of the group session
 	 * @param method Method name (default: "gnimbus")
 	 * @param token Authentication token
+	 * @param onReconnect Callback function to run when reconnected
 	 */
-	constructor(groupId: number, method = 'gnimbus', token: string) {
+	constructor(groupId: number, method = 'gnimbus', token: string, onReconnect?: () => void) {
+		this.groupId = groupId;
+		this.method = method;
+		this.token = token;
+		this.onReconnectCallback = onReconnect;
+		
 		if (this.socket) {
 			this.close();
 		}
-		const url = `${wsBase}/gdm/ws?group_id=${groupId}&method=${method}&token=${token}`;
+		this.connect();
+	}
+
+	private connect() {
+		const url = `${wsBase}/gdm/ws?group_id=${this.groupId}&method=${this.method}&token=${this.token}`;
 		this.socket = new WebSocket(url);
 
 		this.socket.addEventListener('open', () => {
 			console.log('WebSocket connection established.');
+			
+			// Call the reconnection callback if this was a reconnection
+			if (this.reconnectAttempts > 0 && this.onReconnectCallback) {
+				this.onReconnectCallback();
+			}
+			
+			this.reconnectAttempts = 0; // Reset on successful connection
+			this.isReconnecting = false;
 		});
 
 		this.socket.addEventListener('close', (event) => {
 			console.log('WebSocket closed:', { code: event.code, reason: event.reason });
+			this.attemptReconnect();
 		});
 
 		this.socket.addEventListener('message', (event) => {
@@ -61,6 +103,7 @@ export class WebSocketService {
 			}
 			console.log('WebSocket message received:', event.data);
 		});
+		
 		this.socket.addEventListener('error', (event) => {
 			console.error('WebSocket error:', event);
 			this.messageStore.update((store) => {
@@ -71,7 +114,41 @@ export class WebSocketService {
 		});
 	}
 
+	private attemptReconnect() {
+		if (this.isReconnecting || this.reconnectAttempts >= this.maxReconnectAttempts) {
+			if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+				this.messageStore.update((store) => ({
+					...store,
+					message: 'Connection lost. Please refresh the page.',
+					messageId: store.messageId + 1
+				}));
+			}
+			return;
+		}
+		
+		this.isReconnecting = true;
+		this.reconnectAttempts++;
+		
+		const delay = Math.min(this.reconnectInterval * this.reconnectAttempts, 10000); // Max 10 seconds
+		
+		console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts}) in ${delay} ms`);
+		
+		setTimeout(() => {
+			this.connect();
+		}, delay);
+	}
+
 	async sendMessage(message: string): Promise<boolean> {
+		// If we're currently reconnecting, queue the message or return false
+		if (this.isReconnecting) {
+			this.messageStore.update((store) => ({
+				...store,
+				message: 'Reconnecting... Please try again in a moment.',
+				messageId: store.messageId + 1
+			}));
+			return false;
+		}
+		
 		isLoading.set(true);
 		try {
 			return await new Promise((resolve) => {

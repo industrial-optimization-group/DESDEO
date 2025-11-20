@@ -4,6 +4,7 @@
 	 *
 	 * @author Stina Palomäki <palomakistina@gmail.com>
 	 * @created September 2025
+	 * @updated November 2025
 	 *
 	 * @description
 	 * This page implements the Group NIMBUS interactive multiobjective optimization method in DESDEO.
@@ -18,6 +19,8 @@
 	 * Each phase alternates between:
 	 * - Optimization mode: Users set preferences to generate new solutions
 	 * - Voting mode: Users vote on proposed solutions
+	 * When final solution is selected, the process moves to:
+	 * - Finish mode: Final solution display and process completion
 	 *
 	 * @props
 	 * @property {Object} data - Server-loaded data containing problem and group information
@@ -30,6 +33,9 @@
 	 * - Role-based access control (owner vs decision maker)
 	 * - Interactive preference setting and solution generation
 	 * - Voting system for solution selection
+	 * - Phase management by group owner
+	 * - Solution history viewing (current, own, group, final results)
+	 * - Iteration reversion possibility for group owner
 	 * - Visualization of objective space
 	 * - Map visualization for problems with geographical data (UTOPIA)
 	 * - Phase-based group decision making process
@@ -40,6 +46,8 @@
 	 * - VisualizationsPanel: Objective space visualization
 	 * - UtopiaMap: Geographical data visualization
 	 * - WebSocketService: Real-time communication
+	 * - SolutionDisplay: Solution table and voting interface
+	 * - EndStateView: Final results display
 	 */
 	// Layout and core components
 	import { BaseLayout } from '$lib/components/custom/method_layout/index.js';
@@ -132,14 +140,10 @@
 	let frameworks = $derived.by(() => {
 		const baseOptions = [
 			{ value: 'current', label: 'Current iteration' },
+			{ value: 'all_own', label: `${isDecisionMaker ? 'All own solutions and preferences' : 'All users solutions'}` },
 			{ value: 'all_group', label: 'All group solutions' },
 			{ value: 'all_final', label: 'All voting results' }
 		];
-		
-		// Only add "all_own" option if user is a decision maker (has personal solutions)
-		if (isDecisionMaker) {
-			baseOptions.splice(1, 0, { value: 'all_own', label: 'All own solutions and preferences' });
-		}
 		
 		return baseOptions;
 	});
@@ -171,11 +175,6 @@
 	
 	// Helper function to change solution type and update selections
 	function change_solution_type_updating_selections(newType: 'current' | 'all_own' | 'all_group' | 'all_final') {
-		// Prevent setting 'all_own' if user is not a decision maker
-		if (newType === 'all_own' && !isDecisionMaker) {
-			console.warn('Cannot select "all_own" - user is not a decision maker');
-			return;
-		}
 		
 		// Update the internal state
 		history_option = newType;
@@ -563,7 +562,12 @@
 		hasUtopiaMetadata = checkUtopiaMetadata(problem);
 
 		// Initialize WebSocket
-		wsService = new WebSocketService(data.group.id, 'gnimbus', data.refreshToken);
+		wsService = new WebSocketService(data.group.id, 'gnimbus', data.refreshToken, () => {
+			// This runs only when connection is re-established
+			console.log('WebSocket reconnected, updating state...');
+			showTemporaryMessage('Reconnected to server');
+			getResultsAndUpdate(data.group.id);
+		});
 		wsService.messageStore.subscribe((store) => {
 			// Filters for specific messages. All socket messages that imply need for state updates start with "UPDATE"
 			// this is because socket messages are simple strings and there is no other way to differentiate them.
@@ -585,10 +589,15 @@
 				getResultsAndUpdate(data.group.id);
 				return;
 			}
+			if (displayMessage.includes('The phase was changed')) {
+				// Show "phase was changed" to dm AND update state
+				showTemporaryMessage(displayMessage);
+				getResultsAndUpdate(data.group.id);
+				return;
+			}
 			
-			// Show the processed message AND update state
+			// Show the processed message, DONT update state
 			showTemporaryMessage(displayMessage);
-			getResultsAndUpdate(data.group.id);
 		});
 
 		// Try to get existing results from backend
@@ -637,7 +646,7 @@
 	});
 
 	let visualizationPreferences = $derived.by(() => {
-		if (history_option === "current") return createPreferenceData(step, last_iterated_preference, current_preference)
+		if (history_option === "current") return createPreferenceData(step, last_iterated_preference, current_preference);
 		// show preference history if user selected to see their own history, 
 		// otherwise show no preferenes
 		return {
@@ -648,7 +657,7 @@
 	);
 
 	let visualizationObjectives = $derived.by(() =>
-		createVisualizationData(problem, step, current_state, solution_options, history_option)
+		createVisualizationData(problem, step, current_state, solution_options, history_option, isDecisionMaker)
 	);
 </script>
 
@@ -768,8 +777,8 @@
 							onSelectSolution={handle_solution_click}
 							lineLabels={visualizationObjectives.solutionLabels}
 							referenceDataLabels={{
-								previousRefLabel: 'Your previous preference',
-								currentRefLabel: 'Your current preference',
+								previousRefLabel: history_option ==='current' ? 'Your previous preference' : 'Previous preference',
+								currentRefLabel: history_option ==='current' ? 'Your current preference' : "Selected previous preference",
 								previousSolutionLabels:['Your individual solution'],
 								otherSolutionLabels: visualizationObjectives.others.map((_, i) => isDecisionMaker ? `Another user's solution`:`User ${i + 1}'s solution`),
 							}}

@@ -7,25 +7,25 @@
 	 * @author Giomara Larraga <glarragw@jyu.fi>
 	 * @author Stina Palomäki <palomakistina@gmail.com> (Multi-selection support, label tooltips)
 	 * @created June 2025
-	 * @updated August 2025, October 2025
+	 * @updated November 2025
 	 *
 	 * @description
 	 * Renders a responsive parallel coordinates plot using D3.js.
 	 * Each line represents a solution/data point, and each vertical axis represents a dimension/objective.
-	 * Supports additional reference information like reference points, preferred ranges, and preferred solutions.
+	 * Supports additional reference information like reference points, preferred ranges, and different solution gatecories.
 	 * Features both single and multiple line selection modes, axis brushing for filtering, and optional
 	 * tooltips displaying customizable labels for each line.
 	 *
 	 * @props
 	 * - data: Array<{ [key: string]: number }> — Array of data points where each object has values for each dimension
-	 * - dimensions: Array<{ symbol: string; min?: number; max?: number; direction?: 'max' | 'min' }> — Dimension definitions
+	 * - dimensions: Array<{ symbol: string; name: string; min?: number; max?: number; direction?: 'max' | 'min' }> — Dimension definitions with optional constraints
 	 * - referenceData?: {
 	 *     referencePoint?: { [key: string]: number }; // Current reference point values for each dimension
 	 *     previousReferencePoint?: { [key: string]: number }; // Previous reference point values for comparison
-	 *     preferredRanges?: { [key: string]: { min: number; max: number } }; // Preferred ranges for each dimension
-	 *     preferredSolutions?: Array<{ [key: string]: number }>; // Array of preferred solutions
+	 *     preferredRanges?: { [key: string]: { min: number; max: number } }; // Preferred ranges for each dimension (disabled by default)
+	 *     preferredSolutions?: Array<{ [key: string]: number }>; // Array of preferred solutions (e.g., user's previous solutions)
 	 *     nonPreferredSolutions?: Array<{ [key: string]: number }>; // Array of non-preferred solutions
-	 * 	   otherSolutions?: Array<{ [key: string]: number }>; // Array of any solutions that dont fit into other categories. Used for users solutions in group nimbus
+	 * 	   otherSolutions?: Array<{ [key: string]: number }>; // Array of additional solutions (e.g., other users' solutions in GNIMBUS)
 	 *   }
 	 * - options: {
 	 *     showAxisLabels: boolean; // Whether to show dimension names above axes
@@ -34,7 +34,7 @@
 	 *     opacity: number; // Opacity of non-selected lines
 	 *     enableBrushing: boolean; // Whether to enable axis brushing for filtering
 	 *   }
-	 * - lineLabels: { [key: string]: string } - Map of data indexes to custom labels displayed in tooltips, optional
+	 * - lineLabels: { [key: string]: string } - Map of data indexes to custom labels displayed in tooltips
 	 * - selectedIndex: number | null — Index of selected line in single selection mode
 	 * - multipleSelectedIndexes: number[] | null — Indexes of selected lines in multi-selection mode
 	 * - brushFilters: { [dimension: string]: [number, number] } — Brush filter ranges for each dimension
@@ -50,8 +50,9 @@
 	 * - Customizable axis ranges and directions
 	 * - Reference point visualization (dashed line)
 	 * - Preferred ranges visualization (colored bands)
-	 * - Preferred/non-preferred solutions (different line styles)
+	 * - Preferred/non-preferred and other solutions (different line styles)
 	 * - Customizable optional line labels with tooltips
+	 * - Click-to-select functionality with multi-selection support for main data lines
 	 */
 
 	// --- Import required libraries ---
@@ -82,7 +83,7 @@
 	export let data: { [key: string]: number }[] = [];
 
 	// Dimension definitions - describes each axis with optional constraints
-	export let dimensions: { name: string; min?: number; max?: number; direction?: 'max' | 'min' }[] =
+	export let dimensions: { symbol: string; name: string; min?: number; max?: number; direction?: 'max' | 'min' }[] =
 		[];
 
 	// Optional reference data for enhanced visualization
@@ -274,9 +275,9 @@
 			// Set stroke color - selected lines get theme color, other lines are thinner and color lighter variant
 			.attr('stroke', (d, i) => {
 				const passes = passesFilters(d);
-				if (!passes) return '#93c5fd'; // Hidden lines are lighter color
+				if (!passes) return '#93c5fd'; // Hidden lines are lighter color, tailwind sky 700
 
-				if (isSelected(i)) return '#3b82f6'; // Selected line uses primary color
+				if (isSelected(i)) return '#3b82f6'; // Selected line uses primary color, tailwind blue 500
 				return '#93c5fd'; // Non-selected lines are lighter color
 			})
 			// Set stroke width - selected line is slightly thicker
@@ -511,7 +512,7 @@
 		pointData: Solution | undefined,
 		modifiedOptions: {
 			groupClass: string;
-			opacity: number;
+			color: string;
 		}
 	) {
 		if (!pointData) return; // Skip if no point data defined
@@ -531,10 +532,10 @@
 				.datum(refLineData)
 				.attr('d', line) // Use line generator to create path
 				.attr('fill', 'none')
-				.attr('stroke', '#ff6b6b') // Red color for reference
+				.attr('stroke', modifiedOptions.color) // Red color for reference
 				.attr('stroke-width', options.strokeWidth + 1) // Slightly thicker than data lines
 				.attr('stroke-dasharray', '8,4') // Dashed pattern
-				.attr('opacity', modifiedOptions.opacity);
+				.attr('opacity', 0.8);
 
 			// Add circles at each axis to highlight reference values
 			refLineData.forEach(([dimName, value]) => {
@@ -546,10 +547,10 @@
 						.attr('cx', x)
 						.attr('cy', y)
 						.attr('r', 4) // Small circle radius
-						.attr('fill', '#ff6b6b') // Same red as line
+						.attr('fill', modifiedOptions.color) // Same red as line
 						.attr('stroke', '#fff') // White border for visibility
 						.attr('stroke-width', 2)
-						.attr('opacity', modifiedOptions.opacity);
+						.attr('opacity', 0.8);
 				}
 			});
 			addTooltip(path, pointData.label);
@@ -598,7 +599,7 @@
 						.datum(solutionData)
 						.attr('d', line)
 						.attr('fill', 'none')
-						.attr('stroke', '#9ca3af') // Gray color
+						.attr('stroke', '#9ca3af') // Gray color, tailwind gray 400
 						.attr('stroke-width', options.strokeWidth)
 						.attr('stroke-dasharray', '3,3') // Dashed pattern
 						.attr('opacity', 0.6);
@@ -624,7 +625,7 @@
 						.datum(solutionData)
 						.attr('d', line)
 						.attr('fill', 'none')
-						.attr('stroke', '#10b981') // Emerald color for preferred
+						.attr('stroke', '#10b981') // Tailwind Emerald 500 color for preferred
 						.attr('stroke-width', options.strokeWidth + 1) // Thicker than otherSolutions
 						.attr('stroke-dasharray', '4,2') // Different dash pattern
 						.attr('opacity', 0.6);
@@ -820,6 +821,29 @@
 			}
 		});
 
+		// Draw previous reference points (light red, multiple)
+		if (referenceData?.previousReferencePoints) {
+			referenceData.previousReferencePoints.forEach((prevPoint) => {
+				drawGenericReferencePoint(svgElement, newScales, xScale, line, 
+					prevPoint, {
+						groupClass: `reference-point`,
+						color: '#fecaca', // light red color, tailwind red 200
+					}
+				);
+			});
+		}
+
+		// Draw reference visualizations (on top of data lines)
+		// Draw current reference point (red)
+		drawGenericReferencePoint(svgElement, newScales, xScale, line, 
+			referenceData?.referencePoint, {
+				groupClass: 'reference-point',
+				color: '#f87171', // Red color, tailwind red 400
+			}
+		);
+		
+		drawReferenceSolutions(svgElement, newScales, xScale, line);
+		
 		// Draw main data lines
 		const lines = svgElement
 			.append('g')
@@ -893,26 +917,6 @@
 			updateLineVisibility(lines); // Update visual state
 		});
 
-		// Draw reference visualizations (on top of data lines)
-		// Draw current reference point (red)
-		drawGenericReferencePoint(svgElement, newScales, xScale, line, 
-			referenceData?.referencePoint, {
-				groupClass: 'reference-point',
-				opacity: 0.9,
-			}
-		);
-		// Draw previous reference points (transparent red, multiple)
-		if (referenceData?.previousReferencePoints) {
-			referenceData.previousReferencePoints.forEach((prevPoint) => {
-				drawGenericReferencePoint(svgElement, newScales, xScale, line, 
-					prevPoint, {
-						groupClass: `reference-point`,
-						opacity: 0.3, // more transparent than current ref point
-					}
-				);
-			});
-		}
-		drawReferenceSolutions(svgElement, newScales, xScale, line);
 		// Add filter status information at the bottom
 		const activeFilters = Object.keys(brushFilters).length;
 		if (activeFilters > 0) {
