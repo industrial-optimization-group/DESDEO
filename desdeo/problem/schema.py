@@ -787,6 +787,14 @@ class Objective(BaseModel):
 
     model_config = ConfigDict(frozen=True, from_attributes=True, extra="forbid")
 
+    """A longer description for the objective."""
+    description: str | None = Field(
+        description=(
+            "A longer description of the objective function. This can be used in UI and visualizations. \
+            Meant to have longer text than what name should have."
+        ),
+        default=None
+    )
     name: str = Field(
         description=(
             "Descriptive name of the objective function. This can be used in UI and visualizations. Example: 'time'."
