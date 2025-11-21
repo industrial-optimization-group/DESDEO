@@ -151,8 +151,8 @@ class NIMBUSSaveState(ResultInterface, SQLModel, table=True):
     solutions: list["UserSavedSolutionDB"] = Relationship(
         sa_relationship_kwargs={
             # tell SQLA which FK on the child points back to THIS parent
-            "foreign_keys": "[UserSavedSolutionDB.origin_state_id]",
-            "primaryjoin": "NIMBUSSaveState.id == UserSavedSolutionDB.origin_state_id",
+            "foreign_keys": "[UserSavedSolutionDB.save_state_id]",
+            "primaryjoin": "NIMBUSSaveState.id == UserSavedSolutionDB.save_state_id",
             "cascade": "all, delete-orphan",
             "lazy": "selectin",
         }
@@ -204,10 +204,13 @@ class NIMBUSFinalState(ResultInterface, SQLModel, table=True):
     still be allowed to use this as a basis for new iterations. Therefore
     I think this should behave/have necessary elements for that to be the case.
     """
+
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
 
-    solver_results: "SolverResults" = Field(sa_column=Column(ResultsType), default_factory=list) # the final solution
-    reference_point: dict[str, float] | None = Field(sa_column=Column(JSON), default=None) # the reference point that led to the final solution
+    solver_results: "SolverResults" = Field(sa_column=Column(ResultsType), default_factory=list)  # the final solution
+    reference_point: dict[str, float] | None = Field(
+        sa_column=Column(JSON), default=None
+    )  # the reference point that led to the final solution
 
     @property
     def result_objective_values(self) -> list[dict[str, float]]:
@@ -267,8 +270,10 @@ class GNIMBUSVotingState(ResultInterface, SQLModel, table=True):
     def num_solutions(self) -> int:
         return 1
 
+
 class GNIMBUSEndState(ResultInterface, SQLModel, table=True):
     """GNIMBUS: ending. We check if everyone's happy with the solution and end if yes."""
+
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
 
     # Preferences that went in
