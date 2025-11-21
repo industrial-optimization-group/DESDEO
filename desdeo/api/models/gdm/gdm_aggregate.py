@@ -54,7 +54,8 @@ class Group(GroupBase, table=True):
 
     problem_id: int = Field(default=None)
 
-    head_iteration_id: int | None # looser coupling, used for querying instead of standard relationships
+    """The id of the head GroupIteration."""
+    head_iteration_id: int | None
 
 
 class GroupPublic(GroupBase):
@@ -73,14 +74,17 @@ class GroupIteration(SQLModel, table=True):
     id: int | None = Field(primary_key=True, default=None)
     problem_id: int | None = Field(default=None)
 
-    group_id: int # looser coupling, used for querying instead of standard relationships
+    """ID of the associated Group."""
+    group_id: int
 
     # Preferences that are filled as they come (remove the RESULT aspect from this, just put the results to the state.)
     preferences: BasePreferences = Field(sa_column=Column(PreferenceType))
     notified: dict[int, bool] = Field(sa_column=Column(JSON))
 
+    """State for storing post optimization/voting related data (dec vars, objectives, etc.)"""
     state_id: int | None = Field()
 
+    """Linked list emerges."""
     parent_id: int | None = Field(foreign_key="groupiteration.id", default=None)
     parent: "GroupIteration" = Relationship(
         back_populates="children", sa_relationship_kwargs={"remote_side": "GroupIteration.id"}

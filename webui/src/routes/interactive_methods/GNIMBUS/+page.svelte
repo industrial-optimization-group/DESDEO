@@ -178,7 +178,6 @@
 		
 		// Update the internal state
 		history_option = newType;
-		console.log('Changed solution type to:', newType);
 		// Reset selections to none or for current optimization iteration to 0
 		selected_solution_index = ((step === 'optimization' || current_state.phase === 'decision' || current_state.phase ==='compromise') && newType === 'current') ? 0 : -1;
 		update_solution_selection(current_state);
@@ -302,7 +301,6 @@
 		update_solution_selection(current_state);
 		last_iterated_preference = [...current_preference];
 		isActionDone = false;
-		console.log('Fetch result:', fullResult);
 
 		return fullResult;
 	}
@@ -445,7 +443,6 @@
 				mapStates[sol_order_index] = newMapState;
 				if (sol_order_index === selected_solution_index) {
 					mapState = { ...newMapState };
-					console.log('Updated map state for selected solution:', mapState);
 				}
 			}
 		} catch (error) {
@@ -456,7 +453,6 @@
 	// Pre-fetch maps for all solutions when solution_options changes
 	$effect(() => {
 		if (hasUtopiaMetadata && solution_options.length > 0) {
-			console.log('Map fetching triggered - selected_type_solutions:', history_option, 'solutions count:', solution_options.length);
 			// Initialize mapStates array with the correct length
 			mapStates = new Array(solution_options.length);
 			
@@ -471,7 +467,6 @@
 					console.warn(`Solution at index ${order_index} missing required fields for maps:`, solution);
 				}
 			});
-			console.log('Started pre-fetching maps for all solutions.');
 		}
 	});
 
@@ -492,11 +487,9 @@
 			selectedSolution && selectedSolution.objective_values
 				? selectedSolution.objective_values
 				: {};
-		console.log("selected voting index:", selected_solution_index);
 		// Update current map state from pre-fetched maps if available
 		if (hasUtopiaMetadata && selected_solution_index >= 0 && mapStates[selected_solution_index]) {
 			mapState = { ...mapStates[selected_solution_index] };
-			console.log('Updated map state for selected solution:', mapState);
 		}
 	}
 

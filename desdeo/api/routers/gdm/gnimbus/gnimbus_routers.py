@@ -370,7 +370,7 @@ async def switch_phase(
     #Preliminary checks etc.
     if request.new_phase not in ["learning", "crp", "decision", "compromise"]:
         raise HTTPException(
-            detail=f"Undefined phase: {request.new_phase}! Can only be {['learning', 'crp', 'decision']}",
+            detail=f"Undefined phase: {request.new_phase}! Can only be {['learning', 'crp', 'decision', 'compromise']}",
             status_code=status.HTTP_400_BAD_REQUEST,
         )
     group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
