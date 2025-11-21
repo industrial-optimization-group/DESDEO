@@ -52,7 +52,7 @@ def get_utopia_data(
     if type(actual_state) is NIMBUSSaveState:
         decision_variables = actual_state.result_variable_values[0]
 
-    elif type(actual_state) is NIMBUSInitializationState | NIMBUSFinalState:
+    elif type(actual_state) in [NIMBUSInitializationState, NIMBUSFinalState]:
         decision_variables = actual_state.solver_results.optimal_variables
 
     else:
