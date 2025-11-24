@@ -55,6 +55,8 @@ class NIMBUSFinalizeRequest(SQLModel):
 class NIMBUSClassificationResponse(SQLModel):
     """The response from NIMBUS classification endpoint."""
 
+    response_type: str = "nimbus.classification"
+
     state_id: int | None = Field(description="The newly created state id")
     previous_preference: ReferencePoint = Field(description="The previous preference used.")
     previous_objectives: dict[str, float] = Field(
@@ -74,6 +76,8 @@ class NIMBUSClassificationResponse(SQLModel):
 class NIMBUSInitializationResponse(SQLModel):
     """The response from NIMBUS classification endpoint."""
 
+    response_type: str = "nimbus.initialization"
+
     state_id: int | None = Field(description="The newly created state id")
     current_solutions: list[SolutionReferenceResponse] = Field(
         description="The solutions from the current interation of nimbus."
@@ -89,14 +93,21 @@ class NIMBUSInitializationResponse(SQLModel):
 class NIMBUSSaveResponse(SQLModel):
     """The response from NIMBUS save endpoint."""
 
+    response_type: str = "nimbus.save"
+
     state_id: int | None = Field(description="The id of the newest state")
 
 class NIMBUSDeleteSaveResponse(SQLModel):
     """Response of NIMBUS save deletion."""
+
+    response_type: str = "nimbus.delete_save"
+
     message: str | None
 
 class NIMBUSFinalizeResponse(SQLModel):
     """The response from NIMBUS finish endpoint."""
+
+    response_type: str = "nimbus.finalize"
 
     state_id: int | None = Field(description="The id of the newest state")
     final_solution: SolutionReferenceResponse = Field(
