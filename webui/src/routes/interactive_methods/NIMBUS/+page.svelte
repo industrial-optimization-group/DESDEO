@@ -104,7 +104,7 @@
 	} from './helper-functions';
 
 	import type { ProblemInfo, Solution, SolutionType, MethodMode, PeriodKey } from '$lib/types';
-	import type { Response } from './types';
+	import type { Response, MapState } from './types';
 
 	// State for NIMBUS iteration management
 	let current_state: Response = $state({} as Response);
@@ -169,18 +169,20 @@
 	// Variable to track if problem has utopia metadata
 	let hasUtopiaMetadata = $state(false);
 
-	// Variables for showing the map for UTOPIA
-	let mapOptions = $state<Record<PeriodKey, Record<string, any>>>({
-		period1: {},
-		period2: {},
-		period3: {}
+	// Variables for showing the map for UTOPIA - stores maps for all solutions
+	let mapStates: MapState[] = $state([]);
+	let mapState: MapState = $state({
+		mapOptions: {
+			period1: {},
+			period2: {},
+			period3: {}
+		},
+		yearlist: [],
+		selectedPeriod: 'period1' as PeriodKey,
+		geoJSON: undefined,
+		mapName: undefined,
+		mapDescription: undefined
 	});
-	let yearlist = $state<string[]>([]);
-	let selectedPeriod = $state<PeriodKey>('period1');
-	let geoJSON = $state<object | undefined>(undefined);
-	let mapName = $state<string | undefined>(undefined);
-	let mapDescription = $state<string | undefined>(undefined);
-	let compensation = $state(0.0);
 
 	// Validation: iteration is allowed when at least one preference is better and one is worse than current objectives
 	let is_iteration_allowed = $derived(() => {
@@ -242,9 +244,14 @@
 	}
 	// TODO: find out if there is an endpoint or some actual functionality needed; now the endpoint is mocked
 	async function handle_finish(final_solution: Solution, index: number) {
-		const success = await handleFinishRequest(problem, final_solution);
+		if (!current_state.previous_preference) {
+			console.error('No previous preference values found for finishing.');
+			return;
+		}
+		const response = await handleFinishRequest(problem, final_solution, current_state.previous_preference); // TODO, change to right type!
 
-		if (success) {
+		if (response) {
+			console.log('Final solution confirmed:', response);
 			// Update the selected iteration index to match our final solution
 			// This will ensure that in final mode we show the correct solution
 			selected_iteration_index = [index];
@@ -263,6 +270,7 @@
 		get_maps as getMapsRequest,
 		initialize_nimbus_state as initializeNimbusStateRequest
 	} from './handlers';
+	import EndStateView from '../GNIMBUS/components/EndStateView.svelte';
 
 	// Handle intermediate solutions generation
 	async function handle_intermediate() {
@@ -360,6 +368,7 @@
 	// TODO: endpoint for removing saved solution is not implemented in +server.ts
 	// Actual function to remove the saved solution after confirmation
 	async function handle_remove_saved(solution: Solution) {
+		console.log('Removing saved solution:', solution);
 		const success = await handleRemoveSavedRequest(problem, solution);
 
 		if (success) {
@@ -427,31 +436,70 @@
 	}
 
 	// Fetch maps data for UTOPIA visualization for one solution
-	async function get_maps(solution: Solution) {
+	async function get_maps(solution: Solution, solutionIndex: number) {
 		if (!problem) {
 			console.error('No problem selected');
 			return;
 		}
 
-		const data = await getMapsRequest(problem, solution);
+		try {
+			const data = await getMapsRequest(problem, solution);
 
-		if (data) {
-			// Update state variables with the fetched data
-			yearlist = data.years;
+			if (data) {
+				// Create new map state for this solution
+				const newMapState: MapState = {
+					mapOptions: {
+						period1: {},
+						period2: {},
+						period3: {}
+					},
+					yearlist: data.years,
+					selectedPeriod: 'period1' as PeriodKey,
+					geoJSON: data.map_json,
+					mapName: data.map_name,
+					mapDescription: data.description
+				};
 
-			// Assign map options for each period
-			mapOptions = {
-				period1: data.options[yearlist[0]] || {},
-				period2: data.options[yearlist[1]] || {},
-				period3: data.options[yearlist[2]] || {}
-			} as Record<PeriodKey, Record<string, any>>;
+				// Apply the formatter function client-side if needed // TODO: what is this
+				for (let year of newMapState.yearlist) {
+					if (data.options[year]?.tooltip?.formatterEnabled) {
+						data.options[year].tooltip.formatter = function (params: any) {
+							return `${params.name}`;
+						};
+					}
+				}
 
-			geoJSON = data.map_json;
-			mapName = data.map_name;
-			mapDescription = data.description;
-			compensation = Math.round(data.compensation * 100) / 100; // TODO: not used anywhere, in old UI only used in one sentence
+				// Assign map options for each period
+				newMapState.mapOptions = {
+					period1: data.options[newMapState.yearlist[0]] || {},
+					period2: data.options[newMapState.yearlist[1]] || {},
+					period3: data.options[newMapState.yearlist[2]] || {}
+				} as Record<PeriodKey, Record<string, any>>;
+
+				// Store the map state at the correct index
+				mapStates[solutionIndex] = newMapState;
+				if (solutionIndex === selected_iteration_index[0]) {
+					mapState = { ...newMapState };
+					console.log('Updated map state for selected solution:', mapState);
+				}
+			}
+		} catch (error) {
+			console.error(`Failed to get maps for solution ${solutionIndex}:`, error);
 		}
 	}
+
+	// Pre-fetch maps for all solutions when chosen_solutions changes
+	$effect(() => {
+		if (hasUtopiaMetadata && chosen_solutions.length > 0) {
+			// Initialize mapStates array with the correct length
+			mapStates = new Array(chosen_solutions.length);
+			
+			// Fetch maps for each solution without waiting
+			chosen_solutions.forEach((solution, index) => {
+				get_maps(solution, index);
+			});
+		}
+	});
 
 	// Helper function to update current iteration objectives from the current state
 	function update_iteration_selection(state: Response | null) {
@@ -469,9 +517,10 @@
 		const selectedSolution = chosen_solutions[selected_iteration_index[0]];
 		selected_iteration_objectives = selectedSolution.objective_values || {};
 
-		// Only fetch maps if problem has utopia metadata
-		if (hasUtopiaMetadata) {
-			get_maps(selectedSolution);
+		// Update current map state from pre-fetched maps if available
+		if (hasUtopiaMetadata && selected_iteration_index[0] >= 0 && mapStates[selected_iteration_index[0]]) {
+			mapState = { ...mapStates[selected_iteration_index[0]] };
+			console.log('Updated map state for selected solution:', mapState);
 		}
 	}
 
@@ -520,6 +569,10 @@
 
 				// Initialize NIMBUS state from the API
 				await initialize_nimbus_state(problem.id);
+
+				if (current_state.all_solutions && current_state.all_solutions.length > 1) {
+					mode = 'final';
+				}
 			}
 		}
 	});
@@ -527,7 +580,7 @@
 	// Initialize NIMBUS state by calling the API endpoint
 	async function initialize_nimbus_state(problem_id: number) {
 		const result = await initializeNimbusStateRequest(problem_id);
-
+		console.log(result)
 		if (result) {
 			// Store response data
 			current_state = result;
@@ -614,12 +667,12 @@
 							<!-- Map visualization -->
 							<Resizable.Pane defaultSize={35} minSize={20} class="h-full">
 								<UtopiaMap
-									{mapOptions}
-									bind:selectedPeriod
-									{yearlist}
-									{geoJSON}
-									{mapName}
-									{mapDescription}
+									mapOptions={mapState.mapOptions}
+									bind:selectedPeriod={mapState.selectedPeriod}
+									yearlist={mapState.yearlist}
+									geoJSON={mapState.geoJSON}
+									mapName={mapState.mapName}
+									mapDescription={mapState.mapDescription}
 								/>
 							</Resizable.Pane>
 						{/if}
@@ -633,17 +686,7 @@
 		{/snippet}
 		{#snippet numericalValues()}
 			{#if problem && chosen_solutions.length > 0 && selected_iteration_index.length > 0}
-				<SolutionTable
-					{problem}
-					solverResults={[chosen_solutions[selected_iteration_index[0]]]}
-					{isSaved}
-					selectedSolutions={selected_iteration_index}
-					{handle_save}
-					{handle_change}
-					handle_remove_saved={confirm_remove_saved}
-					handle_row_click={() => {}}
-					isFrozen={true}
-				/>
+				<EndStateView {problem} tableData={[chosen_solutions[selected_iteration_index[0]] as any]} />
 			{/if}
 		{/snippet}
 	</BaseLayout>
@@ -749,12 +792,12 @@
 							<!-- Right side: Decision space placeholder, for UTOPIA it is a map -->
 							<Resizable.Pane defaultSize={35} minSize={20} class="h-full">
 								<UtopiaMap
-									{mapOptions}
-									bind:selectedPeriod
-									{yearlist}
-									{geoJSON}
-									{mapName}
-									{mapDescription}
+									mapOptions={mapState.mapOptions}
+									bind:selectedPeriod={mapState.selectedPeriod}
+									yearlist={mapState.yearlist}
+									geoJSON={mapState.geoJSON}
+									mapName={mapState.mapName}
+									mapDescription={mapState.mapDescription}
 								/>
 							</Resizable.Pane>
 						{/if}
