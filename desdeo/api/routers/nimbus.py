@@ -453,7 +453,8 @@ def get_or_initialize(
     request: NIMBUSInitializationRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
-) -> NIMBUSInitializationResponse | NIMBUSClassificationResponse | NIMBUSIntermediateSolutionResponse:
+) -> NIMBUSInitializationResponse | NIMBUSClassificationResponse | \
+        NIMBUSIntermediateSolutionResponse | NIMBUSFinalizeResponse:
     """Get the latest NIMBUS state if it exists, or initialize a new one if it doesn't."""
     if request.session_id is not None:
         statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == request.session_id)
@@ -522,6 +523,25 @@ def get_or_initialize(
                 all_solutions=all_solutions,
             )
 
+        if isinstance(latest_state.state, NIMBUSFinalState):
+
+            solution_index = latest_state.state.solution_result_index
+            origin_state_id = latest_state.state.solution_origin_state_id
+
+            final_solution_ref_res = SolutionReferenceResponse(
+                solution_index=solution_index,
+                state_id=origin_state_id,
+                objective_values=latest_state.state.solver_results.optimal_objectives,
+                variable_values=latest_state.state.solver_results.optimal_variables
+            )
+
+            return NIMBUSFinalizeResponse(
+                state_id=latest_state.id,
+                final_solution=final_solution_ref_res,
+                saved_solutions=saved_solutions,
+                all_solutions=all_solutions,
+            )
+
         # NIMBUSInitializationState
         return NIMBUSInitializationResponse(
             state_id=latest_state.id,
@@ -551,7 +571,7 @@ def finalize_nimbus(
         HTTPException
 
     Returns:
-        NIMBUSFinalizeResponse: Response containing state id of the final solution.
+        NIMBUSFinalizeResponse: Response containing info on the final solution.
     """
     if request.session_id is not None:
         statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == request.session_id)
@@ -601,8 +621,9 @@ def finalize_nimbus(
         )
 
     final_state = NIMBUSFinalState(
-        solver_results  = actual_state.solver_results[solution_index],
-        reference_point = request.preferences.aspiration_levels,
+        solution_origin_state_id=solution_state_id,
+        solution_result_index=solution_index,
+        solver_results=actual_state.solver_results[solution_index]
     )
 
     state = StateDB.create(
@@ -617,15 +638,18 @@ def finalize_nimbus(
     session.commit()
     session.refresh(state)
 
+    solution_reference_response=SolutionReferenceResponse(
+        solution_index=solution_index,
+        state_id=solution_state_id,
+        objective_values=final_state.solver_results.optimal_objectives,
+        variable_values=final_state.solver_results.optimal_variables,
+    )
+
     return NIMBUSFinalizeResponse(
         state_id=state.id,
-        final_solution=SolutionReferenceResponse(
-            name=None,
-            solution_index=solution_index,
-            state_id=solution_state_id,
-            objective_values=actual_state.solver_results[solution_index].optimal_objectives,
-            variable_values=actual_state.solver_results[solution_index].optimal_variables,
-        )
+        final_solution=solution_reference_response,
+        saved_solutions=collect_saved_solutions(user=user, problem_id=problem_db.id, session=session),
+        all_solutions=collect_all_solutions(user=user, problem_id=problem_db.id, session=session),
     )
 
 @router.post("/delete_save")
