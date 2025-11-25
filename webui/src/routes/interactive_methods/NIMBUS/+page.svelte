@@ -26,9 +26,9 @@
 	 * - Solution explorer with a combobox to select between "Current", "Best", and "All" solutions.
 	 * - Responsive, resizable layout with visualization panels.
 	 * - Visualization of objective space and decision space (map for problems with utopia metadata).
-	 * - Solution tables with saving, renaming, and removing functionality. TODO: removing request
+	 * - Solution tables with saving, renaming, and removing functionality.
 	 * - Support for intermediate solution generation between two selected solutions.
-	 * - Final solution selection and confirmation. TODO: actual http request
+	 * - Final solution selection and confirmation.
 	 *
 	 * @dependencies
 	 * - BaseLayout: Layout component for the method view.
@@ -242,16 +242,14 @@
 			onConfirm: () => handle_finish(final_solution, selectedIndexes[0])
 		});
 	}
-	// TODO: find out if there is an endpoint or some actual functionality needed; now the endpoint is mocked
+	// Actual function to handle finishing after confirmation
 	async function handle_finish(final_solution: Solution, index: number) {
 		if (!current_state.previous_preference) {
 			console.error('No previous preference values found for finishing.');
 			return;
 		}
-		const response = await handleFinishRequest(problem, final_solution, current_state.previous_preference); // TODO, change to right type!
-
+		const response = await handleFinishRequest(problem, final_solution, current_state.previous_preference); 
 		if (response) {
-			console.log('Final solution confirmed:', response);
 			// Update the selected iteration index to match our final solution
 			// This will ensure that in final mode we show the correct solution
 			selected_iteration_index = [index];
@@ -364,11 +362,8 @@
 			onConfirm: () => handle_remove_saved(solution)
 		});
 	}
-
-	// TODO: endpoint for removing saved solution is not implemented in +server.ts
 	// Actual function to remove the saved solution after confirmation
 	async function handle_remove_saved(solution: Solution) {
-		console.log('Removing saved solution:', solution);
 		const success = await handleRemoveSavedRequest(problem, solution);
 
 		if (success) {
@@ -460,7 +455,7 @@
 					mapDescription: data.description
 				};
 
-				// Apply the formatter function client-side if needed // TODO: what is this
+				// Apply the formatter function client-side if needed
 				for (let year of newMapState.yearlist) {
 					if (data.options[year]?.tooltip?.formatterEnabled) {
 						data.options[year].tooltip.formatter = function (params: any) {
@@ -480,7 +475,6 @@
 				mapStates[solutionIndex] = newMapState;
 				if (solutionIndex === selected_iteration_index[0]) {
 					mapState = { ...newMapState };
-					console.log('Updated map state for selected solution:', mapState);
 				}
 			}
 		} catch (error) {
@@ -520,7 +514,6 @@
 		// Update current map state from pre-fetched maps if available
 		if (hasUtopiaMetadata && selected_iteration_index[0] >= 0 && mapStates[selected_iteration_index[0]]) {
 			mapState = { ...mapStates[selected_iteration_index[0]] };
-			console.log('Updated map state for selected solution:', mapState);
 		}
 	}
 
@@ -570,9 +563,6 @@
 				// Initialize NIMBUS state from the API
 				await initialize_nimbus_state(problem.id);
 
-				if (current_state.all_solutions && current_state.all_solutions.length > 1) {
-					mode = 'final';
-				}
 			}
 		}
 	});
@@ -580,11 +570,16 @@
 	// Initialize NIMBUS state by calling the API endpoint
 	async function initialize_nimbus_state(problem_id: number) {
 		const result = await initializeNimbusStateRequest(problem_id);
-		console.log(result)
 		if (result) {
 			// Store response data
-			current_state = result;
-
+			let current_solutions = result.current_solutions || [];
+			if (result.final_solution) {
+				current_solutions = [result.final_solution]
+			}
+			current_state = {
+				...result,
+				current_solutions: current_solutions,
+			};
 			// Update names from saved solutions
 			current_state.current_solutions = updateSolutionNames(
 				current_state.saved_solutions,
@@ -600,6 +595,9 @@
 			update_iteration_selection(current_state);
 			update_preferences_from_state(current_state);
 			current_num_iteration_solutions = current_state.current_solutions.length;
+			if (current_state.response_type === 'nimbus.finalize') {
+				mode = 'final';
+			}
 		}
 	}
 
@@ -634,6 +632,17 @@
 
 {#if mode === 'final'}
 	<BaseLayout showLeftSidebar={false} showRightSidebar={false} bottomPanelTitle="Final Solution">
+		<!-- This commented-out button exists so that it is easy to implement reverting back from final solution, if need be. It works. -->
+		<!-- {#snippet explorerControls()}
+				<Button
+					onclick={()=> mode = 'iterate'}
+					disabled={selectedIndexes.length !== 1}
+					variant="destructive"
+					class="ml-10"
+				>
+					Regret and continue
+				</Button>
+		{/snippet} -->
 		{#snippet visualizationArea()}
 			{#if problem && selected_iteration_index.length > 0}
 				<!-- Resizable layout for visualizations -->
@@ -644,9 +653,9 @@
 							<!-- Visualization panel showing only the final selected solution -->
 							<VisualizationsPanel
 								{problem}
-								previousPreferenceValues={last_iterated_preference}
+								previousPreferenceValues={[]}
 								previousPreferenceType={type_preferences}
-								currentPreferenceValues={current_preference}
+								currentPreferenceValues={[]}
 								currentPreferenceType={type_preferences}
 								solutionsObjectiveValues={problem
 									? mapSolutionsToObjectiveValues(
@@ -751,7 +760,7 @@
 			>
 				<Button
 					onclick={selectedIndexes.length === 1 ? confirm_finish : undefined}
-					disabled={selectedIndexes.length !== 1}
+					disabled={selectedIndexes.length !== 1 || current_state.response_type === 'nimbus.finalize'}
 					variant="destructive"
 					class="ml-10"
 				>
