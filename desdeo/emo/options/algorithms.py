@@ -10,6 +10,7 @@ from desdeo.emo.options.repair import NoRepairOptions
 from desdeo.emo.options.scalar_selection import TournamentSelectionOptions
 from desdeo.emo.options.selection import (
     IBEASelectorOptions,
+    NSGA2SelectorOptions,
     NSGA3SelectorOptions,
     ParameterAdaptationStrategy,
     ReferenceVectorOptions,
@@ -182,6 +183,57 @@ def ibea_options() -> EMOOptions:
                 name="IBEASelector",
                 binary_indicator="eps",
                 kappa=0.05,
+                population_size=100,
+            ),
+            mate_selection=TournamentSelectionOptions(
+                name="TournamentSelection",
+                tournament_size=2,
+                winner_size=100,
+            ),
+            generator=LHSGeneratorOptions(
+                name="LHSGenerator",
+                n_points=100,
+            ),
+            repair=NoRepairOptions(
+                name="NoRepair",
+            ),
+            termination=MaxGenerationsTerminatorOptions(
+                name="MaxGenerationsTerminator",
+                max_generations=100,
+            ),
+            use_archive=True,
+            verbosity=2,
+            seed=42,
+        ),
+    )
+
+
+def nsga2_options() -> EMOOptions:
+    """Get default NSGA-II options as a Pydantic model.
+
+    Reference: Deb, K., Pratap, A., Agarwal, S., & Meyarivan, T. A. M. T.
+        (2002). A fast and elitist multiobjective genetic algorithm: NSGA-II. IEEE
+        transactions on evolutionary computation, 6(2), 182-197.
+
+    Returns:
+        EMOOptions: The default NSGA-II options as a Pydantic model.
+    """
+    return EMOOptions(
+        preference=None,
+        template=Template2Options(
+            algorithm_name="NSGA-II",
+            crossover=SimulatedBinaryCrossoverOptions(
+                name="SimulatedBinaryCrossover",
+                xover_distribution=20,  # Note that the operator defaults are different in Template2
+                xover_probability=0.9,
+            ),
+            mutation=BoundedPolynomialMutationOptions(
+                name="BoundedPolynomialMutation",
+                distribution_index=20,
+                mutation_probability=0.01,
+            ),
+            selection=NSGA2SelectorOptions(
+                name="NSGA2Selector",
                 population_size=100,
             ),
             mate_selection=TournamentSelectionOptions(

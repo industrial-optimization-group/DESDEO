@@ -519,7 +519,6 @@ def test_user_save_solutions(session_and_user: dict[str, Session | list[User]]):
 
     user_id = user.id
     problem_id = 1
-    origin_state_id = 2
 
     test_solutions = [
         UserSavedSolutionDB(
@@ -528,7 +527,7 @@ def test_user_save_solutions(session_and_user: dict[str, Session | list[User]]):
             variable_values=variable_values,
             user_id=user_id,
             problem_id=problem_id,
-            origin_state_id=origin_state_id,
+            origin_state_id=1,
         ),
         UserSavedSolutionDB(
             name="Solution 2",
@@ -537,6 +536,7 @@ def test_user_save_solutions(session_and_user: dict[str, Session | list[User]]):
             solution_index=2,
             user_id=user_id,
             problem_id=problem_id,
+            origin_state_id=2,
         ),
     ]
 
@@ -571,7 +571,7 @@ def test_user_save_solutions(session_and_user: dict[str, Session | list[User]]):
     assert second_solution.name == "Solution 2"
     assert second_solution.objective_values == objective_values
     assert second_solution.variable_values == variable_values
-    assert second_solution.origin_state_id == 1
+    assert second_solution.origin_state_id == 2
     assert second_solution.solution_index == 2
     assert second_solution.user_id == user.id
     assert second_solution.problem_id == problem_id

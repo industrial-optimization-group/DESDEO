@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from desdeo.emo.operators.selection import (
     BaseSelector,
     IBEASelector,
+    NSGA2Selector,
     NSGA3Selector,
     ParameterAdaptationStrategy,
     ReferenceVectorOptions,
@@ -59,6 +60,17 @@ class NSGA3SelectorOptions(BaseModel):
     """Whether to invert the reference vectors (inverted triangle)."""
 
 
+class NSGA2SelectorOptions(BaseModel):
+    """Options for NSGA-II Selection."""
+
+    name: Literal["NSGA2Selector"] = Field(
+        default="NSGA2Selector", frozen=True, description="The name of the selection operator."
+    )
+    """The name of the selection operator."""
+    population_size: int = Field(gt=0, description="The population size.")
+    """The population size."""
+
+
 class IBEASelectorOptions(BaseModel):
     """Options for IBEA Selection."""
 
@@ -74,7 +86,7 @@ class IBEASelectorOptions(BaseModel):
     """The binary indicator for IBEA."""
 
 
-SelectorOptions = RVEASelectorOptions | NSGA3SelectorOptions | IBEASelectorOptions
+SelectorOptions = RVEASelectorOptions | NSGA2SelectorOptions | NSGA3SelectorOptions | IBEASelectorOptions
 
 
 def selection_constructor(
@@ -97,6 +109,7 @@ def selection_constructor(
     """
     selection_types = {
         "RVEASelector": RVEASelector,
+        "NSGA2Selector": NSGA2Selector,
         "NSGA3Selector": NSGA3Selector,
         "IBEASelector": IBEASelector,
     }

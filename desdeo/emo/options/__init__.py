@@ -40,6 +40,7 @@ from .scalar_selection import (
 )
 from .selection import (
     IBEASelectorOptions,
+    NSGA2SelectorOptions,
     NSGA3SelectorOptions,
     ReferenceVectorOptions,
     RVEASelectorOptions,
@@ -56,7 +57,7 @@ from .termination import (
     terminator_constructor,
 )
 
-__all__ = [
+__all__ = [  # noqa: RUF022
     "BinaryFlipMutationOptions",
     "BlendAlphaCrossoverOptions",
     "BoundedExponentialCrossoverOptions",
@@ -75,6 +76,7 @@ __all__ = [
     "MixedIntegerRandomMutationOptions",
     "MPTMutationOptions",
     "MutationOptions",
+    "NSGA2SelectorOptions",
     "NSGA3SelectorOptions",
     "NonUniformMutationOptions",
     "PowerMutationOptions",
