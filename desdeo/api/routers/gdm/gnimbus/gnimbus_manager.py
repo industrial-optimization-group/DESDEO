@@ -84,7 +84,7 @@ def compare_value_lists(
         return False
     complete_list = list(zip(a, b, strict=True))
     equal_values = True
-    for i, pair in enumerate(complete_list):
+    for _, pair in enumerate(complete_list):
         if not compare_values(pair[0], pair[1]):
             # logger.info(f"These aren't supposedly the same {variable_keys[i]} variables:\n{pair[0]}\n{pair[1]}")
             equal_values = False
@@ -100,7 +100,7 @@ def filter_duplicates_with_variables(results: list[SolverResults]) -> list[Solve
     Returns:
         list[SolverResults]: Filtered results
     """
-    if len(results) < 2:
+    if len(results) < 2:  # noqa: PLR2004
         # The length is 1 or 0; there are no duplicates
         return results
 
@@ -134,7 +134,7 @@ def filter_duplicates_with_objectives(results: list[SolverResults]) -> list[Solv
     Args:
         results (list[SolverResults]): The list of solutions that the function filters.
     """
-    if len(results) < 2:
+    if len(results) < 2:  # noqa: PLR2004
         # The length 1 or 0, there is no duplicates.
         return results
 
@@ -212,11 +212,11 @@ class GNIMBUSManager(GroupManager):
             return None
         return prev_state.state
 
-    async def set_state(
+    async def set_state(  # noqa: PLR0913
         self,
         session: Session,
         problem_db: ProblemDB,
-        optim_state: Any,  # Not really any but rather a state
+        optim_state: GNIMBUSOptimizationState | GNIMBUSVotingState | GNIMBUSEndState,
         current_iteration: GroupIteration,
         user_ids: list[int],
         owner_id: int,
@@ -261,7 +261,7 @@ class GNIMBUSManager(GroupManager):
         session.commit()
         session.refresh(current_iteration)
 
-    async def optimization(
+    async def optimization(  # noqa: PLR0911, PLR0913
         self,
         user_id: int,
         data: str,
@@ -297,7 +297,8 @@ class GNIMBUSManager(GroupManager):
             await self.send_message("ERROR: Unable to validate sent data as reference point!", self.sockets[user_id])
             return None
         except json.decoder.JSONDecodeError:
-            await self.send_message("ERROR: Unable to decode data; make sure it is formatted properly.", self.sockets[user_id])
+            await self.send_message("ERROR: Unable to decode data; make \
+                                    sure it is formatted properly.", self.sockets[user_id])
             return None
         except KeyError:
             await self.send_message(
@@ -390,7 +391,7 @@ class GNIMBUSManager(GroupManager):
 
         return new_preferences
 
-    async def voting(
+    async def voting(  # noqa: PLR0913
         self,
         user_id: int,
         data: str,
@@ -419,7 +420,7 @@ class GNIMBUSManager(GroupManager):
 
         try:
             preference = int(data)
-            if preference > 3 or preference < 0:
+            if preference > 3 or preference < 0:  # noqa: PLR2004
                 await self.send_message(
                     "ERROR: Voting index out of bounds! Can only vote for 0 to 3.",
                     self.sockets[user_id]
@@ -482,7 +483,7 @@ class GNIMBUSManager(GroupManager):
             set_preferences={},
         )
 
-    async def ending(
+    async def ending(  # noqa: PLR0913
         self,
         user_id: int,
         data: str,

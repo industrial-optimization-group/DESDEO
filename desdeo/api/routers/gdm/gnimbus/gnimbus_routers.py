@@ -220,7 +220,7 @@ def get_latest_results(
 
 
 @router.post("/all_iterations")
-def full_iteration(
+def full_iteration(  # noqa: C901, PLR0912
     request: GroupInfoRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],

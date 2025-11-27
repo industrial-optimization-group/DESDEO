@@ -21,6 +21,7 @@ class SolverResultType(TypeDecorator):
     impl = JSON
 
     def process_bind_param(self, value, dialect):
+        """Turns solver results into json."""
         if isinstance(value, list):
             solver_list = []
             for item in value:
@@ -30,6 +31,7 @@ class SolverResultType(TypeDecorator):
         return None
 
     def process_result_value(self, value, dialect):
+        """And back."""
         if value is not None:
             value_list = json.loads(value)
             solver_list: SolverResults = []

@@ -165,7 +165,7 @@ def create_group(
         session (Annotated[Session, Depends(get_session)]): the database session.
 
     Returns:
-        JSONResponse: Aknowledgement that the gourp was created
+        JSONResponse: Acknowledgement that the group was created
 
     Raises:
         HTTPException

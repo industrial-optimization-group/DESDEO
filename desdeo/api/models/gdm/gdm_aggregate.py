@@ -17,12 +17,14 @@ class PreferenceType(TypeDecorator):
 
     # Serialize
     def process_bind_param(self, value, dialect):
+        """Turns a preference item into json."""
         if isinstance(value, BasePreferences):
             return value.model_dump_json()
         return None
 
     # Deserialize
     def process_result_value(self, value, dialect):
+        """And the other way around."""
         jsoned = json.loads(value)
         if jsoned is not None:
             match jsoned["method"]:
@@ -77,7 +79,7 @@ class GroupIteration(SQLModel, table=True):
     """ID of the associated Group."""
     group_id: int
 
-    # Preferences that are filled as they come (remove the RESULT aspect from this, just put the results to the state.)
+    """The preferences are stored in this item while the iteration is in progress."""
     preferences: BasePreferences = Field(sa_column=Column(PreferenceType))
     notified: dict[int, bool] = Field(sa_column=Column(JSON))
 

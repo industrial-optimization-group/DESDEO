@@ -15,6 +15,7 @@ class ReferencePointDictType(TypeDecorator):
     impl = JSON
 
     def process_bind_param(self, value, dialect):
+        """Turns a reference point dict into json."""
         if isinstance(value, dict):
             for key, item in value.items():
                 if isinstance(item, ReferencePoint):
@@ -23,6 +24,7 @@ class ReferencePointDictType(TypeDecorator):
         return None
 
     def process_result_value(self, value, dialect):
+        """And the other way around."""
         dictionary = json.loads(value)
         for key, item in dictionary.items():
             if item is None:
@@ -40,6 +42,7 @@ class BooleanDictTypeDecorator(TypeDecorator):
     impl = JSON
 
     def process_bind_param(self, value, dialect):
+        """Turns boolean dict to json."""
         if isinstance(value, dict):
             for key, item in value.items():
                 if isinstance(item, bool):
@@ -48,6 +51,7 @@ class BooleanDictTypeDecorator(TypeDecorator):
         return None
 
     def process_result_value(self, value, dialect):
+        """And the other way around."""
         dictionary = json.loads(value)
         for key, item in dictionary.items():
             if item is None:
