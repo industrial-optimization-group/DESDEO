@@ -1461,8 +1461,56 @@ def test_nsga2_selection():
 
 
 @pytest.mark.ea
+def test_nsga2_selection_dealing_with_boundaries():
+    """Tests the NSGA2 selection operator and that it deals with boundaries as expected."""
+    population_size = 4
+    publisher = Publisher()
+
+    seed = 0
+    n_vars = 10
+    n_objs = 3
+    problem = dtlz2(n_vars, n_objs)
+
+    selector = NSGA2Selector(
+        problem=problem, verbosity=2, publisher=publisher, population_size=population_size, seed=seed
+    )
+
+    publisher.auto_subscribe(selector)
+    publisher.register_topics(selector.provided_topics[selector.verbosity], selector.__class__.__name__)
+
+    # only boundaries in pop
+    f_data_pop = {
+        "f_1_min": [1.0, 0.0, 0.0],
+        "f_2_min": [0.0, 1.0, 0.0],
+        "f_3_min": [0.0, 0.0, 1.0],
+    }
+    f_data_off = {
+        "f_1_min": [2.0, 3.0, 3.0, 2.5],
+        "f_2_min": [3.0, 2.0, 3.0, 2.5],
+        "f_3_min": [3.0, 3.0, 2.0, 2.5],
+    }
+
+    x_data_pop = {f"x_{i}": [0.0] * 3 for i in range(1, n_vars + 1)}
+    x_data_off = {f"x_{i}": [1.0] * 4 for i in range(1, n_vars + 1)}
+
+    population = (pl.DataFrame(x_data_pop), pl.DataFrame(f_data_pop))
+    offspring = (pl.DataFrame(x_data_off), pl.DataFrame(f_data_off))
+
+    res = selector.do(population, offspring)
+
+    f_expected_pop = {
+        "f_1_min": [1.0, 0.0, 0.0, 3.0],
+        "f_2_min": [0.0, 1.0, 0.0, 3.0],
+        "f_3_min": [0.0, 0.0, 1.0, 2.0],
+    }
+
+    assert res[1].to_dict(as_series=False) == f_expected_pop
+
+
+@pytest.mark.ea
 def test_nsga2_crowding():
     """Tests the NSGA2 crowding distance computation."""
+    # First and last solution on the boundary
     front = np.array(
         [
             [-3.5, 4.5, 3.8],
@@ -1496,3 +1544,73 @@ def test_nsga2_crowding():
         assert all(distances[i_crowded] < distances[0:3])
         # compare to sparsely distributed last three solutions
         assert all(distances[i_crowded] < distances[7:-1])
+
+    # Three boundary points in the middle
+    front = np.array([[0.5, 0.5, 0.5], [0.0, 1.0, 1.0], [1.0, 0.0, 1.0], [1.0, 1.0, 0.0], [0.5, 0.5, 0.5]])
+
+    f_mins = np.min(front, axis=0)
+    f_maxs = np.max(front, axis=0)
+
+    distances = _nsga2_crowding_distance_assignment(front, f_mins, f_maxs)
+
+    assert all(distances[1:4] == np.inf)
+    assert distances[0] < np.inf
+    assert distances[-1] < np.inf
+
+
+@pytest.mark.ea
+def test_single_constrained_ranking():
+    """Tests the single-objective constrained ranking selection operator."""
+    population_size = 100
+    publisher = Publisher()
+
+    seed = 0
+    n_vars = 10
+    n_objs = 3
+    problem = dtlz2(n_vars, n_objs)
+
+    crossover = SimulatedBinaryCrossover(
+        problem=problem, seed=seed, verbosity=2, publisher=publisher, xover_probability=0.9, xover_distribution=20
+    )
+    mutation = BoundedPolynomialMutation(
+        problem=problem,
+        seed=seed,
+        verbosity=2,
+        publisher=publisher,
+        mutation_probability=1 / n_vars,
+        distribution_index=20,
+    )
+    selector = SingleObjectiveConstrainedRankingSelector(
+        problem=problem,
+        verbosity=2,
+        publisher=publisher,
+        population_size=population_size,
+        seed=seed,
+        target_objective_symbol="f_1",
+    )
+    scalar_selection = TournamentSelection(
+        winner_size=population_size, verbosity=2, publisher=publisher, tournament_size=2, seed=seed
+    )
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
+    generator = RandomGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=population_size, seed=seed, verbosity=1
+    )
+
+    components = [selector, evaluator, generator, scalar_selection, crossover, mutation]
+    [publisher.auto_subscribe(x) for x in components]
+    [publisher.register_topics(x.provided_topics[x.verbosity], x.__class__.__name__) for x in components]
+
+    # first iteration
+    solutions, outputs = generator.do()
+    offspring = pl.DataFrame(
+        schema=solutions.schema,
+    )
+    offspring_outputs = pl.DataFrame(
+        schema=outputs.schema,
+    )
+    solutions, outputs = selector.do(parents=(solutions, outputs), offsprings=(offspring, offspring_outputs))
+
+    parents, _ = scalar_selection.do((solutions, outputs))
+    offspring = crossover.do(population=parents)
+    offspring = mutation.do(offspring, solutions)
+    offspring_outputs = evaluator.evaluate(offspring)
