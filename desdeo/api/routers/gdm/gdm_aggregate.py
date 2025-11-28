@@ -32,6 +32,7 @@ from desdeo.api.models import (
 )
 from desdeo.api.routers.gdm.gdm_base import GroupManager, ManagerError
 from desdeo.api.routers.gdm.gnimbus.gnimbus_manager import GNIMBUSManager
+from desdeo.api.routers.gdm.gdm_score_bands.gdm_score_bands_manager import GDMScoreBandsManager
 from desdeo.api.routers.user_authentication import get_user
 
 logging.basicConfig(
@@ -51,44 +52,79 @@ class ManagerManager:
 
     def __init__(self):
         """Class constructor."""
-        self.group_managers: dict[int, GroupManager] = {}
+        # self.group_managers: dict[int, GroupManager] = {}
+        self.group_managers: dict[int, dict[str, GroupManager]] = {}
         self.lock = asyncio.Lock()
 
-    async def get_group_manager(self, group_id: int, method: str) -> GroupManager | GNIMBUSManager:
-        """Get the group manager for a specific group. If it doesn't exist, create one."""
-        match method:
-            case "gnimbus":
-                async with self.lock:
-                    try:
-                        return self.group_managers[group_id]
-                    except KeyError:
-                        try:
-                            group_manager = GNIMBUSManager(group_id=group_id)
-                            self.group_managers[group_id] = group_manager
-                            return group_manager
-                        except ManagerError as e:
-                            logger.warning(f"ManagerException: {e}")
-                            return None
-            case _:
-                return None
+    async def get_group_manager(
+        self,
+        group_id: int,
+        method: str
+    ) -> GroupManager | GNIMBUSManager | GDMScoreBandsManager | None:
+        """Return the correct group manager for the caller.
 
-    async def check_disconnect(self, group_id: int):
-        """If no active connections, remove group manager."""
+        Args:
+            group_id (int): The ID of the group of the mgr
+            method (str): The method of the group mgr
+
+        Returns:
+            GroupManager | GNIMBUSManager | GDMScoreBandsManager | None: The manager (or not if not implemented.)
+        """
         async with self.lock:
-            try:
-                group_manager = self.group_managers[group_id]
-            except KeyError:
-                return
-            for _, socket in group_manager.sockets.items():
-                # There are active sockets in here!
-                if socket is not None:
-                    return
-            # No active sockets, proceed with the deletion
-            async with group_manager.lock:
-                try:
-                    del self.group_managers[group_id]
-                except Exception:
-                    logger.warning(f"GroupManager for group {group_id} already deleted!")
+            if group_id in self.group_managers:
+                managers = self.group_managers[group_id]
+                if method in managers:
+                    return managers[method]
+                # If there is no manager, create it.
+                match method:
+                    case "gnimbus":
+                        manager = GNIMBUSManager(group_id=group_id)
+                        self.group_managers[group_id][method] = manager
+                        return manager
+                    case "gdm-score-bands":
+                        manager = GDMScoreBandsManager(group_id=group_id)
+                        self.group_managers[group_id][method] = manager
+                        return manager
+            else:
+                self.group_managers[group_id] = {}
+                match method:
+                    case "gnimbus":
+                        manager = GNIMBUSManager(group_id=group_id)
+                        self.group_managers[group_id][method] = manager
+                        return manager
+                    case "gdm-score-bands":
+                        manager = GDMScoreBandsManager(group_id=group_id)
+                        self.group_managers[group_id][method] = manager
+                        return manager
+
+
+    async def check_disconnect(self, group_id: int, method: str):
+        """Checks if a group manager has active connections. If no, delete it.
+
+        Args:
+            group_id (int): ID of the group
+            method (str): method of the manager
+
+        Returns:
+            Nothing.
+        """
+        async with self.lock:
+            # check if group has any managers
+            if group_id in self.group_managers:
+                managers = self.group_managers[group_id]
+                # Check if method has a manager
+                if method in managers:
+                    manager = managers[method]
+                    # check if the manager has any active websockets
+                    for _, socket in manager.sockets.items():
+                        if socket is not None:
+                            return
+                    # No active sockets, delete the manager.
+                    async with manager.lock:
+                        del self.group_managers[group_id][method]
+                        # If group has no managers, delete the group entry.
+                        if self.group_managers[group_id] == {}:
+                            del self.group_managers[group_id]
 
 
 manager = ManagerManager()
@@ -191,7 +227,7 @@ async def websocket_endpoint(
                 )
         except WebSocketDisconnect:
             await group_manager.disconnect(user.id, websocket)
-            await manager.check_disconnect(group_id=group_id)
+            await manager.check_disconnect(group_id=group_id, method=method)
             logger.info(f"Group ID {group_id} manager's active connections {group_manager.sockets}")
             logger.info(f"Existing GroupManagers: {manager.group_managers}")
             break

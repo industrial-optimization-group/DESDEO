@@ -13,7 +13,7 @@ from sqlmodel import Session, select
 
 from desdeo.api.db import get_session
 from desdeo.api.models import (
-    BasePreferences,
+    BaseGroupInfoContainer,
     EndProcessPreference,
     GNIMBUSEndState,
     GNIMBUSOptimizationState,
@@ -172,13 +172,13 @@ class GNIMBUSManager(GroupManager):
         self,
         user_id: int,
         preference: Any,
-        preferences: BasePreferences,
+        preferences: BaseGroupInfoContainer,
         session: Session,
         current_iteration: GroupIteration,
     ):
         """Set and update preferences; write them into database."""
         preferences.set_preferences[user_id] = preference
-        current_iteration.preferences = preferences
+        current_iteration.info_container = preferences
         session.add(current_iteration)
         session.commit()
         session.refresh(current_iteration)
@@ -252,7 +252,7 @@ class GNIMBUSManager(GroupManager):
         g = user_ids
         g.append(owner_id)
         notified = await self.notify(
-            user_ids=g, message=f"UPDATE: Please fetch {current_iteration.preferences.method} results."
+            user_ids=g, message=f"UPDATE: Please fetch {current_iteration.info_container.method} results."
         )
 
         # Update iteration's notifcation database item
@@ -308,7 +308,7 @@ class GNIMBUSManager(GroupManager):
 
         # Update the current GroupIteration's database entry with the new preferences
         # We need to do a deep copy here, otherwise the db entry won't be updated
-        preferences: OptimizationPreference = copy.deepcopy(current_iteration.preferences)
+        preferences: OptimizationPreference = copy.deepcopy(current_iteration.info_container)
         await self.set_and_update_preferences(
             user_id=user_id,
             preference=preference,
@@ -319,7 +319,7 @@ class GNIMBUSManager(GroupManager):
 
         # Check if all preferences are in
         # There has to be a more elegant way of doing this
-        preferences: OptimizationPreference = current_iteration.preferences
+        preferences: OptimizationPreference = current_iteration.info_container
         if not await self.check_preferences(
             group.user_ids,
             preferences,
@@ -328,7 +328,7 @@ class GNIMBUSManager(GroupManager):
 
         # If all preferences are in, begin optimization.
         problem: Problem = Problem.from_problemdb(problem_db)
-        prefs = current_iteration.preferences.set_preferences
+        prefs = current_iteration.info_container.set_preferences
 
         formatted_prefs = {}
         for key, item in prefs.items():
@@ -355,10 +355,10 @@ class GNIMBUSManager(GroupManager):
                 problem,
                 current_objectives=prev_sol,
                 reference_points=formatted_prefs,
-                phase=current_iteration.preferences.phase,
+                phase=current_iteration.info_container.phase,
             )
             logger.info(f"Result amount: {len(results)}")
-            if current_iteration.preferences.phase in ["learning", "crp"]:
+            if current_iteration.info_container.phase in ["learning", "crp"]:
                 logger.info(f"Amount on common solutions before filtering: {len(results[user_len:])}")
                 common_results = filter_duplicates_with_objectives(results[user_len:])
                 results = results[:user_len] + common_results
@@ -383,7 +383,7 @@ class GNIMBUSManager(GroupManager):
 
         # DIVERGE THE PATH: if we're in the decision/compromise phase, we'll want to see if everyone
         # is happy with the current solution, so we'll return end process preference.
-        if current_iteration.preferences.phase in ["decision", "compromise"]:
+        if current_iteration.info_container.phase in ["decision", "compromise"]:
             new_preferences = EndProcessPreference(set_preferences={}, success=None)
         # If we're in "learning" or "crp" phases, we return ordinary voting preference
         else:
@@ -431,7 +431,7 @@ class GNIMBUSManager(GroupManager):
             await self.send_message("ERROR: Unable to validate sent data as an integer!", self.sockets[user_id])
             return None
 
-        preferences: VotingPreference = copy.deepcopy(current_iteration.preferences)
+        preferences: VotingPreference = copy.deepcopy(current_iteration.info_container)
         await self.set_and_update_preferences(
             user_id=user_id,
             preference=preference,
@@ -441,7 +441,7 @@ class GNIMBUSManager(GroupManager):
         )
 
         # Check if all preferences are in
-        preferences: VotingPreference = current_iteration.preferences
+        preferences: VotingPreference = current_iteration.info_container
         if not await self.check_preferences(group.user_ids, preferences):
             return None
 
@@ -479,7 +479,7 @@ class GNIMBUSManager(GroupManager):
         # that we can fill it with reference points
         return OptimizationPreference(
             # really? I need to get the phase from the previous iteration?
-            phase=current_iteration.parent.preferences.phase,
+            phase=current_iteration.parent.info_container.phase,
             set_preferences={},
         )
 
@@ -514,7 +514,7 @@ class GNIMBUSManager(GroupManager):
             await self.send_message("ERROR: Unable to validate sent data as an boolean value.", self.sockets[user_id])
             return None
 
-        preferences: EndProcessPreference = copy.deepcopy(current_iteration.preferences)
+        preferences: EndProcessPreference = copy.deepcopy(current_iteration.info_container)
         await self.set_and_update_preferences(
             user_id=user_id,
             preference=preference,
@@ -525,7 +525,7 @@ class GNIMBUSManager(GroupManager):
         session.refresh(current_iteration)
 
         # Check if all preferences are in
-        preferences: EndProcessPreference = current_iteration.preferences
+        preferences: EndProcessPreference = current_iteration.info_container
         if not await self.check_preferences(
             group.user_ids,
             preferences,
@@ -538,13 +538,13 @@ class GNIMBUSManager(GroupManager):
             if not preferences.set_preferences[uid]:
                 all_vote_yes = False
                 break
-        new_copy_preferences: EndProcessPreference = copy.deepcopy(current_iteration.preferences)
+        new_copy_preferences: EndProcessPreference = copy.deepcopy(current_iteration.info_container)
         new_copy_preferences.success = all_vote_yes
-        current_iteration.preferences = new_copy_preferences
+        current_iteration.info_container = new_copy_preferences
         session.add(current_iteration)
         session.commit()
         session.refresh(current_iteration)
-        print(current_iteration.preferences)
+        print(current_iteration.info_container)
 
         actual_state = await self.get_state(
             session,
@@ -557,7 +557,7 @@ class GNIMBUSManager(GroupManager):
         results = actual_state.solver_results
 
         ending_state = GNIMBUSEndState(
-            votes=current_iteration.preferences.set_preferences, solver_results=results, success=all_vote_yes
+            votes=current_iteration.info_container.set_preferences, solver_results=results, success=all_vote_yes
         )
 
         await self.set_state(session, problem_db, ending_state, current_iteration, group.user_ids, group.owner_id)
@@ -565,7 +565,7 @@ class GNIMBUSManager(GroupManager):
         # Return a OptimizationPreferenceResult so
         # that we can fill it with reference points
         return OptimizationPreference(
-            phase=current_iteration.parent.preferences.phase,
+            phase=current_iteration.parent.info_container.phase,
             set_preferences={},
         )
 
@@ -634,7 +634,7 @@ class GNIMBUSManager(GroupManager):
             new_preferences = None
 
             # Diverge into different paths using PreferenceResult method type of the current iteration.
-            match current_iteration.preferences.method:
+            match current_iteration.info_container.method:
                 case "optimization":
                     new_preferences = await self.optimization(
                         user_id=user_id,
@@ -680,7 +680,7 @@ class GNIMBUSManager(GroupManager):
             next_iteration = GroupIteration(
                 group_id=self.group_id,
                 problem_id=current_iteration.problem_id,
-                preferences=new_preferences,
+                info_container=new_preferences,
                 notified={},
                 parent_id=current_iteration.id,  # Probably redundant to have
                 parent=current_iteration,  # two connections to parents?

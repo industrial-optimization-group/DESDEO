@@ -862,7 +862,7 @@ def test_gnimbus_datas(session_and_user: dict[str, Session | list[User]]):
     giter = GroupIteration(
         problem_id=1,
         group_id=group.id,
-        preferences=OptimizationPreference(
+        info_container=OptimizationPreference(
             set_preferences={},
         ),
         notified={},
@@ -874,7 +874,7 @@ def test_gnimbus_datas(session_and_user: dict[str, Session | list[User]]):
     session.commit()
     session.refresh(giter)
 
-    assert type(giter.preferences) is OptimizationPreference
+    assert type(giter.info_container) is OptimizationPreference
     assert giter.problem_id == 1
     assert giter.group_id == group.id
 

@@ -6,7 +6,7 @@ from pydantic import ValidationError
 from sqlmodel import JSON, Column, Field, SQLModel, TypeDecorator
 
 from desdeo.api.models.gdm.gdm_base import (
-    BasePreferences,
+    BaseGroupInfoContainer,
     BooleanDictTypeDecorator,
     ReferencePoint,
     ReferencePointDictType,
@@ -60,7 +60,7 @@ class GNIMBUSSwitchPhaseResponse(SQLModel):
     new_phase: str
 
 
-class OptimizationPreference(BasePreferences):
+class OptimizationPreference(BaseGroupInfoContainer):
     """A structure for storing optimization preferences. See GNIMBUS for details."""
 
     method: str = "optimization"
@@ -68,7 +68,7 @@ class OptimizationPreference(BasePreferences):
     set_preferences: dict[int, ReferencePoint] = Field(sa_column=Column(ReferencePointDictType))
 
 
-class VotingPreference(BasePreferences):
+class VotingPreference(BaseGroupInfoContainer):
     """A structure for storing voting preferences."""
 
     method: str = "voting"
@@ -77,7 +77,7 @@ class VotingPreference(BasePreferences):
     )  # A user votes for an index from the results (or something)
 
 
-class EndProcessPreference(BasePreferences):
+class EndProcessPreference(BaseGroupInfoContainer):
     """A structure for storing info on whether everyone is happy to end the gnimbus process."""
 
     method: str = "end"

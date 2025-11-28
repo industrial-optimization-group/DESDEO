@@ -79,7 +79,7 @@ __all__ = [  # noqa: RUF022
     "GroupIteration",
     "GroupPublic",
     "GroupInfoRequest",
-    "BasePreferences",
+    "BaseGroupInfoContainer",
     "ReferencePointDictType",
     "BooleanDictTypeDecorator",
     "EMOSolveRequest",
@@ -138,7 +138,7 @@ from .gdm.gdm_aggregate import (
     GroupRevertRequest,
 )
 from .gdm.gdm_base import (
-    BasePreferences,
+    BaseGroupInfoContainer,
     BooleanDictTypeDecorator,
     ReferencePointDictType,
 )
@@ -158,6 +158,8 @@ from .generic import (
     ScoreBandsRequest,
     ScoreBandsResponse,
     SolutionInfo,
+    GenericScoreRequest,
+    GenericScoreResponse
 )
 from .generic_states import (
     SavedSolutionReference,

@@ -98,7 +98,7 @@ def gnimbus_initialize(
     start_iteration = GroupIteration(
         problem_id=group.problem_id,
         group_id=group.id,
-        preferences=VotingPreference(
+        info_container=VotingPreference(
             set_preferences={},
         ),
         notified={},
@@ -115,7 +115,7 @@ def gnimbus_initialize(
     new_iteration = GroupIteration(
         problem_id=start_iteration.problem_id,
         group_id=start_iteration.group_id,
-        preferences=OptimizationPreference(
+        info_container=OptimizationPreference(
             set_preferences={},
         ),
         notified={},
@@ -184,12 +184,12 @@ def get_latest_results(
         raise nores_exp
 
     actual_state = state.state
-    preferences = iteration.preferences
+    preferences = iteration.info_container
 
     if type(actual_state) is GNIMBUSVotingState:
         return GNIMBUSResultResponse(
             method="voting",
-            phase=iteration.parent.preferences.phase if iteration.parent is not None else "learning",
+            phase=iteration.parent.info_container.phase if iteration.parent is not None else "learning",
             preferences=preferences,
             common_results=[SolutionReference(state=state, solution_index=0)],
             user_results=[],
@@ -211,7 +211,7 @@ def get_latest_results(
 
     return GNIMBUSResultResponse(
         method="optimization",
-        phase=iteration.preferences.phase,
+        phase=iteration.info_container.phase,
         preferences=preferences,
         common_results=solution_references[-4:],
         user_results=solution_references[:-4],
@@ -262,7 +262,7 @@ def full_iteration(  # noqa: C901, PLR0912
 
     user_len = len(group.user_ids)
 
-    if groupiter.preferences.method == "optimization":
+    if groupiter.info_container.method == "optimization":
         # There are no full results because the latest iteration is optimization,
         # so add an incomplete entry to the list to be returned.
         prev_state = session.exec(select(StateDB).where(StateDB.id == groupiter.parent.state_id)).first()
@@ -274,7 +274,7 @@ def full_iteration(  # noqa: C901, PLR0912
             raise HTTPException(detail="No state in most recent iteration!", status_code=status.HTTP_404_NOT_FOUND)
 
         personal_result_index = None
-        for i, item in enumerate(groupiter.preferences.set_preferences.items()):
+        for i, item in enumerate(groupiter.info_container.set_preferences.items()):
             if item[0] == user.id:
                 personal_result_index = i
                 break
@@ -283,12 +283,12 @@ def full_iteration(  # noqa: C901, PLR0912
         for i, _ in enumerate(this_state.state.solver_results):
             all_results.append(SolutionReferenceLite(state=this_state, solution_index=i))
 
-        phase = groupiter.preferences.phase
+        phase = groupiter.info_container.phase
 
         full_iterations.append(
             FullIteration(
                 phase=phase,
-                optimization_preferences=groupiter.preferences,
+                optimization_preferences=groupiter.info_container,
                 voting_preferences=None,
                 starting_result=SolutionReferenceLite(state=prev_state, solution_index=0),
                 common_results=all_results if phase in ["decision", "compromise"] else all_results[user_len:],
@@ -315,18 +315,18 @@ def full_iteration(  # noqa: C901, PLR0912
             all_results.append(SolutionReferenceLite(state=prev_state, solution_index=i))
 
         personal_result_index = None
-        for i, item in enumerate(groupiter.parent.preferences.set_preferences.items()):
+        for i, item in enumerate(groupiter.parent.info_container.set_preferences.items()):
             if item[0] == user.id:
                 personal_result_index = i
                 break
 
-        phase = groupiter.parent.preferences.phase
+        phase = groupiter.parent.info_container.phase
 
         full_iterations.append(
             FullIteration(
                 phase=phase,
-                optimization_preferences=groupiter.parent.preferences,
-                voting_preferences=groupiter.preferences,
+                optimization_preferences=groupiter.parent.info_container,
+                voting_preferences=groupiter.info_container,
                 starting_result=SolutionReferenceLite(state=first_state, solution_index=0),
                 common_results=all_results if phase in ["decision", "compromise"] else all_results[user_len:],
                 user_results=all_results[:user_len],
@@ -385,22 +385,22 @@ async def switch_phase(
             detail="There's no iterations! Did you forget to initialize the problem?",
             status_code=status.HTTP_404_NOT_FOUND,
         )
-    if iteration.preferences is None:
+    if iteration.info_container is None:
         raise HTTPException(details="Now this is a funky problem!", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    if iteration.preferences.method == "voting":
+    if iteration.info_container.method == "voting":
         raise HTTPException(
             detail="You cannot switch the phase in the middle of the iteration.",
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
-    old_phase = iteration.preferences.phase
+    old_phase = iteration.info_container.phase
     new_phase = request.new_phase
 
     # Set the phase in the preferences
-    preferences = copy.deepcopy(iteration.preferences)
+    preferences = copy.deepcopy(iteration.info_container)
     preferences.phase = new_phase
 
-    iteration.preferences = preferences
+    iteration.info_container = preferences
     session.add(iteration)
     session.commit()
     session.refresh(iteration)
@@ -435,10 +435,10 @@ def get_phase(
     if current_iteration is None:
         raise not_init_error
 
-    if current_iteration.preferences.method != "optimization":
+    if current_iteration.info_container.method != "optimization":
         current_iteration = current_iteration.parent
 
-    return JSONResponse(content={"phase": current_iteration.preferences.phase}, status_code=status.HTTP_200_OK)
+    return JSONResponse(content={"phase": current_iteration.info_container.phase}, status_code=status.HTTP_200_OK)
 
 def get_preference_item(iteration):
     """Returns an empty preference item for adding preferences; The preferences are the next preferences.
@@ -504,7 +504,7 @@ async def revert_iteration(
             detail="There's no head iteration",
             status_code=status.HTTP_404_NOT_FOUND
         )
-    head_iteration_type = type(current_iteration.preferences)
+    head_iteration_type = type(current_iteration.info_container)
     if head_iteration_type in [VotingPreference, EndProcessPreference]:
         raise HTTPException(
             detail="Complete the iteration before reverting. Sorry for the inconvenience.",
@@ -518,7 +518,7 @@ async def revert_iteration(
             detail=f"There's no iteration with state ID {request.state_id}!",
             status_code=status.HTTP_404_NOT_FOUND
         )
-    target_iteration_type = type(target_iteration.preferences)
+    target_iteration_type = type(target_iteration.info_container)
     if target_iteration_type == OptimizationPreference:
         raise HTTPException(
             detail="You can only revert to a result of a complete iteration. Sorry for the inconvenience.",
@@ -531,7 +531,7 @@ async def revert_iteration(
     new_parent_1 = GroupIteration(
         problem_id=group.problem_id,
         group_id=group.id,
-        preferences=target_iteration.parent.preferences.model_copy(),
+        info_container=target_iteration.parent.info_container.model_copy(),
         notified=target_iteration.parent.notified.copy(),
         state_id=target_iteration.parent.state_id,
         parent_id=current_iteration.parent.id,
@@ -545,7 +545,7 @@ async def revert_iteration(
     new_parent_2 = GroupIteration(
         problem_id=group.problem_id,
         group_id=group.id,
-        preferences=target_iteration.preferences.model_copy(),
+        info_container=target_iteration.info_container.model_copy(),
         notified=target_iteration.notified.copy(),
         state_id=target_iteration.state_id,
         parent_id=new_parent_1.id,
@@ -560,9 +560,9 @@ async def revert_iteration(
     new_head = GroupIteration(
         problem_id=group.problem_id,
         group_id=group.id,
-        preferences=OptimizationPreference(
-            phase=target_iteration.parent.preferences.phase \
-                if target_iteration.parent.preferences.phase is not None else "learning",
+        info_container=OptimizationPreference(
+            phase=target_iteration.parent.info_container.phase \
+                if target_iteration.parent.info_container.phase is not None else "learning",
             set_preferences={}
         ),
         notified={},

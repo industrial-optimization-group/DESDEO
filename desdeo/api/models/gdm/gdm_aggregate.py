@@ -5,7 +5,7 @@ import json
 from sqlalchemy.types import TypeDecorator
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
-from desdeo.api.models.gdm.gdm_base import BasePreferences
+from desdeo.api.models.gdm.gdm_base import BaseGroupInfoContainer
 from desdeo.api.models.gdm.gnimbus import EndProcessPreference, OptimizationPreference, VotingPreference
 from desdeo.tools import SolverResults
 
@@ -18,7 +18,7 @@ class PreferenceType(TypeDecorator):
     # Serialize
     def process_bind_param(self, value, dialect):
         """Turns a preference item into json."""
-        if isinstance(value, BasePreferences):
+        if isinstance(value, BaseGroupInfoContainer):
             return value.model_dump_json()
         return None
 
@@ -80,7 +80,9 @@ class GroupIteration(SQLModel, table=True):
     group_id: int
 
     """The preferences are stored in this item while the iteration is in progress."""
-    preferences: BasePreferences = Field(sa_column=Column(PreferenceType))
+    info_container: BaseGroupInfoContainer = Field(sa_column=Column(PreferenceType))
+    # NOTE: This used to be called "preferences" and the class used to be called "BasePreference"
+
     notified: dict[int, bool] = Field(sa_column=Column(JSON))
 
     """State for storing post optimization/voting related data (dec vars, objectives, etc.)"""

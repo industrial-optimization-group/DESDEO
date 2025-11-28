@@ -63,7 +63,7 @@ class BooleanDictTypeDecorator(TypeDecorator):
         return dictionary
 
 
-class BasePreferences(SQLModel):
+class BaseGroupInfoContainer(SQLModel):
     """A base class for a method specific preference and results."""
 
     method: str = "unset"

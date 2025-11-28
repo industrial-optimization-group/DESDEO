@@ -15,6 +15,8 @@ from desdeo.api.models import (
     StateDB,
     ScoreBandsRequest,
     ScoreBandsResponse,
+    GenericScoreResponse,
+    GenericScoreRequest,
     User,
 )
 
@@ -180,8 +182,8 @@ def solve_intermediate(
     )
 
 
-@router.post("/score-bands")
-def calculate_score_bands(
+@router.post("/score-bands-obj-data")
+def calculate_score_bands_from_objective_data(
     request: ScoreBandsRequest,
 ) -> ScoreBandsResponse:
     """Calculate SCORE bands parameters from objective data."""
@@ -235,3 +237,22 @@ def calculate_score_bands(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Error calculating SCORE bands parameters: {str(e)}",
         )
+
+
+@router.post("/score-bands-state")
+def calculate_score_bands_from_state(
+    request: GenericScoreRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)],
+) -> GenericScoreResponse:
+    """Fetch score bands with state (in a generic manner).
+
+    Args:
+        request (GenericScoreRequest): A request containing state id, score bands config etc.
+        user (Annotated[User, Depends): the current user.
+        session (Annotated[Session, Depends): the database session.
+
+    Returns:
+        GenericScoreResponse: Response containing the score bands data.
+    """
+    pass
