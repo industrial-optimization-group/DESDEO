@@ -14,10 +14,11 @@ class EnautilusStepRequest(SQLModel):
 
     current_iteration: int = Field(description="The number of the current iteration.")
     iterations_left: int = Field(description="The number of iterations left.")
-    selected_point: dict[str, float] = Field(
+    selected_point: dict[str, float] | None = Field(
         sa_column=Column(JSON),
         description=(
-            "The selected intermediate point. If first iteration, set this to be the (approximated) nadir point."
+            "The selected intermediate point. If first iteration, set this to be the (approximated) nadir point. "
+            "If not set, then the point is assumed to be the nadir point of the current approximating set."
         ),
     )
     reachable_point_indices: list[int] = Field(
