@@ -511,6 +511,7 @@ def test_nimbus_save_and_delete_save(client: TestClient):
             }
         ),
         current_objectives=init_result.current_solutions[0].objective_values,
+        parent_state_id=1,
         num_desired=3,
     )
     response = post_json(client, "/method/nimbus/solve", request.model_dump(), access_token)
@@ -539,6 +540,7 @@ def test_nimbus_save_and_delete_save(client: TestClient):
         ),
         current_objectives=solve_result.current_solutions[0].objective_values,
         num_desired=1,
+        parent_state_id=3,
     )
     response = post_json(client, "/method/nimbus/solve", request.model_dump(), access_token)
     solve_result: NIMBUSClassificationResponse = NIMBUSClassificationResponse.model_validate(
@@ -548,7 +550,7 @@ def test_nimbus_save_and_delete_save(client: TestClient):
     assert len(solve_result.saved_solutions) > 0
 
     # 4. Delete save
-    request: NIMBUSDeleteSaveRequest = NIMBUSDeleteSaveRequest(state_id=3, solution_index=1)
+    request: NIMBUSDeleteSaveRequest = NIMBUSDeleteSaveRequest(state_id=2, solution_index=1)
     response = post_json(client, "/method/nimbus/delete_save", request.model_dump(), access_token)
     delete_save_result: NIMBUSDeleteSaveResponse = NIMBUSDeleteSaveResponse.model_validate(json.loads(response.content))
 
@@ -568,6 +570,7 @@ def test_nimbus_save_and_delete_save(client: TestClient):
         ),
         current_objectives=solve_result.current_solutions[0].objective_values,
         num_desired=1,
+        parent_state_id=4,
     )
     response = post_json(client, "/method/nimbus/solve", request.model_dump(), access_token)
     solve_result: NIMBUSClassificationResponse = NIMBUSClassificationResponse.model_validate(

@@ -241,7 +241,12 @@ class UserSavedSolutionDB(SQLModel, table=True):
     # Links
     user_id: int | None = Field(foreign_key="user.id", default=None)
     problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
-    origin_state_id: int | None = Field(foreign_key="states.id", default=None)  # the StateDB holder
+    origin_state_id: int | None = Field(
+        foreign_key="states.id", default=None
+    )  # the StateDB where this solution was generated
+    save_state_id: int | None = Field(
+        foreign_key="states.id", default=None
+    )  # the StateDB that explicitly created the save
 
     # Back populates
     user: "User" = Relationship(back_populates="archive")
