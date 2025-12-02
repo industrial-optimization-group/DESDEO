@@ -44,7 +44,6 @@ from desdeo.api.models.nimbus import NIMBUSInitializationResponse
 from desdeo.api.routers.user_authentication import create_access_token
 from desdeo.emo.options.algorithms import rvea_options
 from desdeo.emo.options.templates import ReferencePointOptions
-from desdeo.problem.testproblems import simple_knapsack_vectors
 from desdeo.problem import Problem
 from desdeo.problem.testproblems import dtlz2, simple_knapsack_vectors
 

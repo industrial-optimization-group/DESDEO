@@ -1,18 +1,23 @@
 """A selection of utilities for handling routers and data therein."""
 
-from fastapi import HTTPException, status
+from dataclasses import dataclass
+from typing import Annotated
+
+from fastapi import Depends, HTTPException, status
 from sqlmodel import Session, select
 
+from desdeo.api.db import get_session
 from desdeo.api.models import (
-    EnautilusStepRequest,
+    ENautilusStepRequest,
     InteractiveSessionDB,
     ProblemDB,
     RPMSolveRequest,
     StateDB,
     User,
 )
+from desdeo.api.routers.user_authentication import get_current_user
 
-RequestType = RPMSolveRequest | EnautilusStepRequest
+RequestType = RPMSolveRequest | ENautilusStepRequest
 
 
 def fetch_interactive_session(user: User, request: RequestType, session: Session) -> InteractiveSessionDB | None:
@@ -38,7 +43,7 @@ def fetch_interactive_session(user: User, request: RequestType, session: Session
     if request.session_id is not None:
         # specific interactive session id is given, try using that
         statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == request.session_id)
-        interactive_session = session.exec(statement)
+        interactive_session = session.exec(statement).first()
 
         if interactive_session is None:
             # Raise if explicitly requested interactive session cannot be found
@@ -126,7 +131,7 @@ def fetch_parent_state(
 
     else:
         # request.parent_state_id is not None
-        statement = session.select(StateDB).where(StateDB.id == request.parent_state_id)
+        statement = select(StateDB).where(StateDB.id == request.parent_state_id)
         parent_state = session.exec(statement).first()
 
         # this error is raised because if a parent_state_id is given, it is assumed that the
@@ -137,3 +142,43 @@ def fetch_parent_state(
             )
 
     return parent_state
+
+
+@dataclass(frozen=True)
+class SessionContext:
+    """A generic context to be used in various endpoints."""
+
+    user: User
+    db_session: Session
+    problem_db: ProblemDB
+    interactive_session: InteractiveSessionDB | None
+    parent_state: StateDB | None
+
+
+def get_session_context(
+    request: RequestType,
+    user: Annotated[User, Depends(get_current_user)],
+    db_session: Annotated[Session, Depends(get_session)],
+) -> SessionContext:
+    """Gets the current session context. Should be used as a dep.
+
+    Args:
+        request (RequestType): request based on which the context is fetched.
+        user (Annotated[User, Depends): the current user (dep).
+        db_session (Annotated[Session, Depends): the current database session (dep).
+
+    Returns:
+        SessionContext: the current session context with the relevant instances
+            of `User`, `Session`, `ProblemDB`, `InteractiveSessionDB`, and `StateDB`.
+    """
+    problem_db = fetch_user_problem(user, request, db_session)
+    interactive_session = fetch_interactive_session(user, request, db_session)
+    parent_state = fetch_parent_state(user, request, db_session, interactive_session=interactive_session)
+
+    return SessionContext(
+        user=user,
+        db_session=db_session,
+        problem_db=problem_db,
+        interactive_session=interactive_session,
+        parent_state=parent_state,
+    )

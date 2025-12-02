@@ -11,6 +11,7 @@ __all__ = [  # noqa: RUF022
     "EMOIterateState",
     "ENautilusState",
     "ENautilusStepRequest",
+    "ENautilusStepResponse",
     "ExtraFunctionDB",
     "ForestProblemMetaData",
     "GenericIntermediateSolutionResponse",
@@ -126,7 +127,7 @@ from .emo import (
     EMOScoreResponse,
     Solution,
 )
-from .enautilus import EnautilusStepRequest
+from .enautilus import ENautilusStepRequest, ENautilusStepResponse
 from .gdm.gdm_aggregate import (
     Group,
     GroupCreateRequest,
@@ -170,13 +171,13 @@ from .nimbus import (
     NIMBUSClassificationResponse,
     NIMBUSDeleteSaveRequest,
     NIMBUSDeleteSaveResponse,
+    NIMBUSFinalizeRequest,
+    NIMBUSFinalizeResponse,
     NIMBUSInitializationRequest,
     NIMBUSInitializationResponse,
     NIMBUSIntermediateSolutionResponse,
     NIMBUSSaveRequest,
     NIMBUSSaveResponse,
-    NIMBUSFinalizeRequest,
-    NIMBUSFinalizeResponse,
 )
 from .preference import (
     Bounds,
@@ -227,9 +228,9 @@ from .state import (
     GNIMBUSVotingState,
     IntermediateSolutionState,
     NIMBUSClassificationState,
+    NIMBUSFinalState,
     NIMBUSInitializationState,
     NIMBUSSaveState,
-    NIMBUSFinalState,
     RPMState,
 )
 from .user import User, UserBase, UserPublic, UserRole

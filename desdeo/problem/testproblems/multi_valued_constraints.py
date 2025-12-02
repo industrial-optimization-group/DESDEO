@@ -80,6 +80,8 @@ def multi_valued_constraint_problem() -> Problem:
         symbol="f_1",
         func=f_1_expr,
         objective_type=ObjectiveTypeEnum.analytical,
+        ideal=0.0,
+        nadir=150.0,
         is_twice_differentiable=True,
     )
 
@@ -87,6 +89,8 @@ def multi_valued_constraint_problem() -> Problem:
         name="f2",
         symbol="f_2",
         func=f_2_expr,
+        ideal=0.0,
+        nadir=206.0,
         objective_type=ObjectiveTypeEnum.analytical,
         is_twice_differentiable=True,
     )

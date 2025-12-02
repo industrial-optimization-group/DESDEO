@@ -3,7 +3,7 @@
 from sqlmodel import JSON, Column, Field, SQLModel
 
 
-class EnautilusStepRequest(SQLModel):
+class ENautilusStepRequest(SQLModel):
     """Model of the request to the E-NAUTILUS method."""
 
     problem_id: int
@@ -28,3 +28,26 @@ class EnautilusStepRequest(SQLModel):
         )
     )
     number_of_intermediate_points: int = Field(description="The number of intermediate points to be generated.")
+
+
+class ENautilusStepResponse(SQLModel):
+    """The response from E-NAUTILUS step endpoint."""
+
+    state_id: int | None = Field(description="The id of the state created by the request that generated this response")
+    representative_solutions_id: int = Field(description="The id of the 'RepresentativeNonDominatedSolutions' used.")
+
+    current_iteration: int = Field(description="Number of the current iteration.")
+    iterations_left: int = Field(description="Number of iterations left.")
+    intermediate_points: list[dict[str, float]] = Field(sa_column=Column(JSON), description="New intermediate points")
+    reachable_best_bounds: list[dict[str, float]] = Field(
+        sa_column=Column(JSON),
+        description="Best bounds of the objective function values reachable from each intermediate point.",
+    )
+    reachable_worst_bounds: list[dict[str, float]] = Field(
+        sa_column=Column(JSON),
+        description="Worst bounds of the objective function values reachable from each intermediate point.",
+    )
+    closeness_measures: list[float] = Field(description="Closeness measures of each intermediate point.")
+    reachable_point_indices: list[list[int]] = Field(
+        description="Indices of the reachable points from each intermediate point."
+    )
