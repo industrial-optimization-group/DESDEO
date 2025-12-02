@@ -127,6 +127,23 @@ const handlers: Record<string, HandlerFunction> = {
 		};
 		return makeApiRequest('/method/nimbus/save', requestBody, refreshToken);
 	},
+	remove_saved: (body, refreshToken) => {
+		const { state_id, solution_index } = body;
+		const requestBody = {
+			state_id: Number(state_id),
+			solution_index: Number(solution_index)
+		};
+		return makeApiRequest('/method/nimbus/delete_save', requestBody, refreshToken);
+	},
+	choose: async (body, refreshToken) => {
+		const { problem_id, solution_info, preferences } = body;
+		const requestBody = {
+			problem_id: Number(problem_id),
+			solution_info,
+			preferences
+		};
+		return makeApiRequest('/method/nimbus/finalize', requestBody, refreshToken);
+	},
 	get_maps: (body, refreshToken) => {
 		const { problem_id, solution } = body;
 		const requestBody = {
@@ -149,13 +166,6 @@ export const POST: RequestHandler = async ({ url, request, cookies }) => {
 
 		if (!type) {
 			return json({ success: false, error: 'Invalid request type' }, { status: 400 });
-		}
-
-		if (type === 'choose') {
-			return json({ success: true, message: 'solution chosen!' });
-		}
-		if (type === 'remove_saved') {
-			return json({ success: false, error: 'solution remove not implemented!' });
 		}
 
 		const handler = handlers[type];

@@ -424,8 +424,8 @@ def test_nimbus_finalize(client: TestClient):
     access_token = login(client)
 
     # create some previous iterations
-    request = NIMBUSInitializationRequest(problem_id=1, solver=None)
-    response = post_json(client, "/method/nimbus/initialize", request.model_dump(), access_token)
+    request = NIMBUSInitializationRequest(problem_id=1)
+    response = post_json(client, "/method/nimbus/get-or-initialize", request.model_dump(), access_token)
     assert response.status_code == status.HTTP_200_OK
     init_response = NIMBUSInitializationResponse.model_validate(json.loads(response.content))
     assert init_response.state_id == 1
@@ -452,22 +452,46 @@ def test_nimbus_finalize(client: TestClient):
     optim_obj = result.current_solutions[solution_index].objective_values
     optim_var = result.current_solutions[solution_index].variable_values
 
-    prev_pref = result.previous_preference
     state_id = result.state_id
+
+    request = NIMBUSInitializationRequest(problem_id=1)
+    response = post_json(client, "/method/nimbus/get-or-initialize", request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+    classify_result = NIMBUSClassificationResponse.model_validate(json.loads(response.content))
+    assert classify_result.state_id == 2
+    assert len(classify_result.current_solutions) == 3
+    assert len(classify_result.saved_solutions) == 0
+    assert len(classify_result.all_solutions) == 4
 
     request = NIMBUSFinalizeRequest(
         problem_id=1,
-        solution_info=SolutionInfo(state_id=state_id, solution_index=solution_index),
-        preferences=prev_pref,
+        solution_info=SolutionInfo(
+            state_id=state_id,
+            solution_index=solution_index
+        ),
     )
 
+    # Finalize the process
     response = post_json(client, "/method/nimbus/finalize", request.model_dump(), access_token)
     assert response.status_code == status.HTTP_200_OK
     result: NIMBUSFinalizeResponse = NIMBUSFinalizeResponse.model_validate(json.loads(response.content.decode("utf-8")))
-    assert result.final_solution is not None
+    assert result.response_type == "nimbus.finalize"
     assert result.final_solution.objective_values == optim_obj
     assert result.final_solution.variable_values == optim_var
     assert result.final_solution.state_id != result.state_id
+    assert result.all_solutions is not None
+
+    request = NIMBUSInitializationRequest(problem_id=1)
+
+    # The last item in the pipe is a finalize state, so we should be getting a finalize response.
+    response = post_json(client, "/method/nimbus/get-or-initialize", request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+    result: NIMBUSFinalizeResponse = NIMBUSFinalizeResponse.model_validate(json.loads(response.content.decode("utf-8")))
+    assert result.response_type == "nimbus.finalize"
+    assert result.final_solution.objective_values == optim_obj
+    assert result.final_solution.variable_values == optim_var
+    assert result.final_solution.state_id != result.state_id
+    assert result.all_solutions is not None
 
 
 def test_nimbus_save_and_delete_save(client: TestClient):

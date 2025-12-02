@@ -8,8 +8,8 @@ from .generic_states import SolutionReferenceResponse
 class SolutionInfo(SQLModel):
     """Used when we wish to reference a solution in some `StateDB` stored in the database."""
 
-    state_id: int
-    solution_index: int
+    state_id: int = Field(description="State of the desired solution.")
+    solution_index: int = Field(description="Index of the desired solution.")
     name: str | None = Field(
         description="Name to be given to the solution. Optional.", default=None
     )

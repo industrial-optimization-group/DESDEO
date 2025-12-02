@@ -342,7 +342,7 @@ class SolutionReferenceResponse(SQLModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    name: str | None
+    name: str | None = Field(default=None)
     solution_index: int | None
     state_id: int
     objective_values: dict[str, float] | None
