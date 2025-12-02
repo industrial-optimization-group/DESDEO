@@ -1,9 +1,11 @@
 """GDM Score Bands manager implementation."""
 
+import copy
+
 from sqlmodel import Session, select
 
 from desdeo.api.db import get_session
-from desdeo.api.models import Group, GroupIteration, ProblemDB
+from desdeo.api.models import Group, GroupIteration, ProblemDB, User
 from desdeo.api.routers.gdm.gdm_base import GroupManager, ManagerError
 from desdeo.tools.score_bands import SCOREBandsConfig, SCOREBandsResult
 
@@ -18,7 +20,13 @@ class GDMScoreBandsManager(GroupManager):
             group_id (int): id of the group of this manager.
         """
         super().__init__(group_id)
-
+        # LOAD THE DISCRETE REPRESENTATION
+        session = next(get_session())
+        group: Group = session.exec(select(Group).where(Group.id == group_id)).first()
+        problem: ProblemDB = session.exec(select(ProblemDB).where(ProblemDB.id == group.problem_id)).first()
+        if problem.discrete_representation is None:
+            raise ManagerError("The group's discrete representation does not exist!")
+        self.discrete_representation = problem.discrete_representation
 
     async def run_method(self, user_id: int, data: str):
         """Method runner implementation for GDM Score Bands.
@@ -36,8 +44,8 @@ class GDMScoreBandsManager(GroupManager):
 
     async def vote(
         self,
-        user_id: int,
-        group_id: int,
+        user: User,
+        group: Group,
         voted_index: int,
         session: Session
     ):
@@ -53,18 +61,30 @@ class GDMScoreBandsManager(GroupManager):
             session: (Session) the database session.
         """
         async with self.lock: #not sure if async lock is all that necessary but here we go anyways.
-            # TODO!!!
-            # Get group and latest iteration.
+            group_iteration = session.exec(
+                select(GroupIteration).where(GroupIteration.id == group.head_iteration_id)
+            ).first()
+            if group_iteration is None:
+                raise ManagerError("No such Group Iteration! Did you initialize this group?")
+            info_container = copy.deepcopy(group_iteration.info_container)
+            if user.id in info_container.user_confirms:
+                raise ManagerError("User has already confirmed they want to move on!")
+            info_container.user_votes[user.id] = voted_index
+            group_iteration.info_container = info_container
+            session.add(group_iteration)
+            session.commit()
+            session.refresh(group_iteration)
+
             # Then update preferences dictionary.
-            await self.broadcast(f"OH YEAH BROTHER! UID: {user_id}, GID: {group_id}, VOTE: {voted_index}")
+            await self.broadcast("UPDATE: A vote has been cast.")
 
     async def confirm(
         self,
-        user_id: int,
-        group_id: int,
+        user: User,
+        group: Group,
         session: Session
     ):
-        """A method for a user to use that we could move forward with clustering anew.
+        """A method for a user to indicate that we could move forward with clustering anew.
 
         After everyone has hit this endpoint, do the following shenanigans:
             1. Filter the active solution indices using the voting result.
@@ -81,6 +101,32 @@ class GDMScoreBandsManager(GroupManager):
             session (Session): The database session.
         """
         async with self.lock:
-            # TODO!
-            # Everything.
-            pass
+            if user.id not in group.user_ids:
+                raise ManagerError(
+                    detail=f"User with ID {user.id} is not part of group with ID {group.id}",
+                )
+            group_iteration = session.exec(
+                select(GroupIteration).where(GroupIteration.id == group.head_iteration_id)
+            ).first()
+            if group_iteration is None:
+                raise ManagerError("No such Group Iteration! Did you initialize this group?")
+
+            info_container = copy.deepcopy(group_iteration.info_container)
+            if user.id not in info_container.user_votes:
+                raise ManagerError("User hasn't voted! Cannot confirm!")
+            # if user.id in info_container.user_confirms:
+                raise ManagerError("User has already confirmed they want to move on!")
+            info_container.user_confirms.append(user.id)
+            group_iteration.info_container = info_container
+            session.add(group_iteration)
+            session.commit()
+            session.refresh(group_iteration)
+
+            # After everyone's done, filter etc.
+            for uid in group.user_ids:
+                # Check if user is not in the list of confirms
+                if uid not in info_container.user_confirms:
+                    return
+
+            # Every user seems to have wanted to move on.
+            # TODO: voting & filtering.

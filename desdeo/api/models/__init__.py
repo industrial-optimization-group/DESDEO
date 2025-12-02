@@ -113,6 +113,9 @@ __all__ = [  # noqa: RUF022
     "GNIMBUSAllIterationsResponse",
     "GNIMBUSSwitchPhaseRequest",
     "GNIMBUSSwitchPhaseResponse",
+    "GDMScoreBandsInitializationRequest",
+    "GDMSCOREBandInformation",
+    "GDMSCOREBandsResponse",
 ]
 
 
@@ -152,14 +155,17 @@ from .gdm.gnimbus import (
     OptimizationPreference,
     VotingPreference,
 )
+from .gdm.gdm_score_bands import (
+    GDMScoreBandsInitializationRequest,
+    GDMSCOREBandInformation,
+    GDMSCOREBandsResponse
+)
 from .generic import (
     GenericIntermediateSolutionResponse,
     IntermediateSolutionRequest,
     ScoreBandsRequest,
     ScoreBandsResponse,
     SolutionInfo,
-    GenericScoreRequest,
-    GenericScoreResponse
 )
 from .generic_states import (
     SavedSolutionReference,

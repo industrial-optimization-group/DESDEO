@@ -64,6 +64,6 @@ class BooleanDictTypeDecorator(TypeDecorator):
 
 
 class BaseGroupInfoContainer(SQLModel):
-    """A base class for a method specific preference and results."""
+    """A base class for a method specific iteration information."""
 
     method: str = "unset"
