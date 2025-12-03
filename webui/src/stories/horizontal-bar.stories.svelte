@@ -1,7 +1,7 @@
 <script module>
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 	import { HorizontalBar } from '$lib/components/visualizations/horizontal-bar';
-	import { action } from '@storybook/addon-actions';
+	import { action } from 'storybook/actions';
 
 	let selected = 70;
 

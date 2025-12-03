@@ -1,51 +1,54 @@
 <script lang="ts">
-/**
- * Visualizations Panel Component
- * 
- * @author Giomara Larraga <glarragw@jyu.fi>
- * @author Stina Palomäki <palomakistina@gmail.com> (Enhancements)
- * @created July 2025
- * @updated August 2025
- * 
- * @description
- * A versatile visualization panel for multi-objective optimization solutions in DESDEO.
- * Provides different visualization types (Parallel Coordinates, Bar Chart) for exploring
- * solution spaces and comparing different solutions against preferences.
- * 
- * @data_flow
- * 1. Parent component (EMO/NIMBUS page etc.) performs optimization iteration
- * 2. The corresponding method returns solutions with objective values, decision values, constraint values, etc.
- * 3. Parent passes data to this component
- * 4. Component transforms data for appropriate visualization format
- * 5. User interacts with visualizations (selecting solutions, filtering)
- * 6. Selected solutions are passed back to parent via onSelectSolution callback
- * 
- * @props
- * @property {ProblemInfo | null} problem - The optimization problem definition
- * @property {number[]} previousPreferenceValues - Previous iteration's preference values
- * @property {string} previousPreferenceType - Type of previous preference (e.g., 'reference_point')
- * @property {number[]} currentPreferenceValues - Current iteration's preference values
- * @property {string} currentPreferenceType - Type of current preference
- * @property {number[][]} [previousObjectiveValues] - Previous objective values for comparison
- * @property {number[][]} [solutionsObjectiveValues] - Array of objective values for each solution
- * @property {number[][]} [solutionsDecisionValues] - Array of decision variable values for each solution
- * @property {function} [onSelectSolution] - Callback when user selects a solution
- * @property {number | null} [externalSelectedIndex] - Index of solution to highlight (single-select mode)
- * @property {number[] | null} [externalSelectedIndexes] - Indexes of solutions to highlight (multi-select mode)
- * 
- * @features
- * - Visualization type selector (Parallel Coordinates/Bar Chart toggle)
- * - Dynamic resizing to fit container
- * - Solution selection with parent component synchronization
- * - Reference point visualization
- * - Previous solution comparison
- * - Empty state handling
- * 
- * @dependencies
- * - ParallelCoordinates component for the parallel coordinates visualization
- * - SegmentedControl for the visualization type selector
- * - Helper functions for data transformation
- */
+	/**
+	 * Visualizations Panel Component
+	 *
+	 * @author Giomara Larraga <glarragw@jyu.fi>
+	 * @author Stina Palomäki <palomakistina@gmail.com> (Enhancements)
+	 * @created July 2025
+	 * @updated August 2025
+	 *
+	 * @description
+	 * A versatile visualization panel for multi-objective optimization solutions in DESDEO.
+	 * Will provide different visualization types (Parallel Coordinates, Bar Chart) for exploring TODO: Bar Chart
+	 * solution spaces and comparing different solutions against preferences.
+	 *
+	 * @data_flow
+	 * 1. Parent component (EMO/NIMBUS page etc.) performs optimization iteration
+	 * 2. The corresponding method returns solutions with objective values, decision values, constraint values, etc.
+	 * 3. Parent passes data to this component
+	 * 4. Component transforms data for appropriate visualization format
+	 * 5. User interacts with visualizations (selecting solutions, filtering)
+	 * 6. Selected solutions are passed back to parent via onSelectSolution callback
+	 *
+	 * @props
+	 * @property {ProblemInfo | null} problem - The optimization problem definition
+	 * @property {number[]} previousPreferenceValues - Previous iteration's preference values
+	 * @property {string} previousPreferenceType - Type of previous preference (e.g., 'reference_point')
+	 * @property {number[]} currentPreferenceValues - Current iteration's preference values
+	 * @property {string} currentPreferenceType - Type of current preference
+	 * @property {number[][]} [previousObjectiveValues] - Previous objective values for comparison
+	 * @property {number[][]} [solutionsObjectiveValues] - Array of objective values for each solution
+	 * @property {number[][]} [solutionsDecisionValues] - Array of decision variable values for each solution
+	 * @property {function} [onSelectSolution] - Callback when user selects a solution
+	 * @property {number | null} [externalSelectedIndex] - Index of solution to highlight (single-select mode)
+	 * @property {number[] | null} [externalSelectedIndexes] - Indexes of solutions to highlight (multi-select mode)
+	 * @property {{ [key: string]: string }} [lineLabels] - Custom labels for solution lines displayed in tooltips
+	 * @property {{ currentRefLabel?: string, previousRefLabel?: string, previousSolutionLabels?: string[], otherSolutionLabels?: string[] }} [referenceDataLabels] - Labels for reference points and solutions
+	 *
+	 * @features
+	 * - Visualization type selector (Parallel Coordinates/Bar Chart toggle)
+	 * - Dynamic resizing to fit container
+	 * - Solution selection with parent component synchronization
+	 * - Reference point visualization
+	 * - Previous solution comparison
+	 * - Empty state handling
+	 * - Interactive tooltips with customizable labels for solutions and reference points
+	 *
+	 * @dependencies
+	 * - ParallelCoordinates component for the parallel coordinates visualization
+	 * - SegmentedControl for the visualization type selector
+	 * - Helper functions for data transformation
+	 */
 
 	import type { components } from '$lib/api/client-types';
 	import ParallelCoordinates from '$lib/components/visualizations/parallel-coordinates/parallel-coordinates.svelte';
@@ -77,9 +80,10 @@
 	 */
 	interface Props {
 		problem: ProblemInfo | null;
-		previousPreferenceValues: number[];
+		previousPreferenceValues?: number[];
 		previousObjectiveValues?: number[][];
-		currentPreferenceValues: number[];
+		otherObjectiveValues?: number[][]; // New prop for additional objective values
+		currentPreferenceValues?: number[];
 		previousPreferenceType: string;
 		currentPreferenceType: string;
 		solutionsObjectiveValues?: number[][];
@@ -87,13 +91,22 @@
 		onSelectSolution?: (index: number) => void;
 		externalSelectedIndex?: number | null;
 		externalSelectedIndexes?: number[] | null;
+		// Labels for different types of solutions
+		lineLabels?: { [key: string]: string };
+		referenceDataLabels?: {
+			currentRefLabel?: string;
+			previousRefLabel?: string;
+			previousSolutionLabels?: string[];
+			otherSolutionLabels?: string[];
+		};
 	}
 
 	const {
 		problem,
-		previousPreferenceValues,
+		previousPreferenceValues = [],
 		previousObjectiveValues,
-		currentPreferenceValues,
+		otherObjectiveValues,
+		currentPreferenceValues = [],
 		previousPreferenceType,
 		currentPreferenceType,
 		solutionsObjectiveValues = [],
@@ -101,6 +114,8 @@
 		onSelectSolution,
 		externalSelectedIndex = null,
 		externalSelectedIndexes = null,
+		lineLabels = {},
+		referenceDataLabels = {}
 	}: Props = $props();
 
 	/**
@@ -118,7 +133,20 @@
 	 * Create reference data in the format expected by ParallelCoordinates
 	 * Includes reference point and preferred ranges if available
 	 */
-	const referenceData = $derived(() => createReferenceData(currentPreferenceValues, previousPreferenceValues, problem, previousObjectiveValues));
+	const referenceData = $derived(() =>
+		{
+			let data = createReferenceData(
+			currentPreferenceValues,
+			previousPreferenceValues,
+			problem,
+			previousObjectiveValues,
+			otherObjectiveValues,
+			referenceDataLabels
+		)
+		data ? data.preferredRanges = undefined : ()=> []; // Disable preferred ranges display
+		return data;
+		}
+	);
 
 	/**
 	 * Handle line selection from ParallelCoordinates
@@ -129,7 +157,7 @@
 		if (externalSelectedIndexes === null) {
 			selectedIndex = index;
 		}
-    	
+
 		// Notify parent component if callback provided
 		if (index !== null && onSelectSolution) {
 			onSelectSolution(index);
@@ -143,13 +171,15 @@
 		showAxisLabels: true,
 		highlightOnHover: true,
 		strokeWidth: 2,
-		opacity: 0.7,
+		opacity: 0.4,
 		enableBrushing: false
 	};
 
 	// State for line selection and filtering
 	// Initialize with external selection if provided, otherwise null
-	let selectedIndex = $state<number | null>(externalSelectedIndex !== null ? externalSelectedIndex : null);
+	let selectedIndex = $state<number | null>(
+		externalSelectedIndex !== null ? externalSelectedIndex : null
+	);
 
 	// Update internal selection when external selection changes
 	$effect(() => {
@@ -205,18 +235,18 @@
 <div bind:this={containerElement} class="flex h-full w-full flex-col space-y-4 overflow-hidden">
 	{#if solutionsObjectiveValues.length > 0}
 		<!-- Visualization Type Selector -->
-		<div class="flex items-center justify-between mb-2">
+		<div class="mb-2 flex items-center justify-between">
 			<h3 class="text-sm font-medium">Visualization</h3>
-			<SegmentedControl 
+			<SegmentedControl
 				bind:value={visualizationType}
 				options={[
 					{ value: 'parallel', label: 'Parallel Coordinates' },
 					{ value: 'bar', label: 'Bar Chart' }
-				]} 
-				class="justify-end"
-			/>
+				]}
+				class="justify-end invisible" 
+			/> <!--To implement the bar chart, remove the invisible class above and add the visualization below-->
 		</div>
-		
+
 		<!-- Visualization Container with dynamic height -->
 		<div class="w-full border-t border-gray-200" style="height: {plotHeight()}px;">
 			{#if visualizationType === 'parallel'}
@@ -228,13 +258,14 @@
 					{selectedIndex}
 					multipleSelectedIndexes={externalSelectedIndexes}
 					onLineSelect={handleLineSelect}
+					{lineLabels}
 				/>
 			{:else if visualizationType === 'bar'}
 				<!-- Placeholder for Bar Chart Visualization -->
 				<div class="flex h-full items-center justify-center bg-gray-50 text-gray-500">
 					<div class="text-center">
 						<p>Bar Chart visualization coming soon</p>
-						<p class="text-sm mt-2">This will display objective values as interactive bar charts</p>
+						<p class="mt-2 text-sm">This will display objective values as interactive bar charts</p>
 					</div>
 				</div>
 			{/if}

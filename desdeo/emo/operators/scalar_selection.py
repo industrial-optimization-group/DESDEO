@@ -94,7 +94,7 @@ class BaseScalarSelector(Subscriber):
             self.fitness = message.value
         else:
             raise ValueError(f"Unknown message topic: {message.topic}")
-    
+
     def state(self) -> Sequence[Message]:
         return []
 

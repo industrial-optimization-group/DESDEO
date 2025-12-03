@@ -255,10 +255,10 @@ Once the virtual environment is activated, we can install
 
 <span id="bash:poetry_install_dev"></span>
 ```shell
-$ poetry install --all-groups # (1)!
+$ poetry install --with all-dev # (1)!
 ```
 
-1.  The option `--all-groups` install DESDEO and all its extra dependencies,
+1.  The option `--with all-dev` install DESDEO and all its extra dependencies,
     which are needed for developing the framework.
 
 This might take a while. After poetry is done installing, and there

@@ -11,6 +11,7 @@ Warning:
     super().do method to increment the generation counter _before_ conducting the termination check.
 """
 
+import time
 from abc import abstractmethod
 from collections.abc import Sequence
 
@@ -136,9 +137,6 @@ class MaxGenerationsTerminator(BaseTerminator):
     def check(self) -> bool:
         """Check if the termination criterion based on the number of generations is reached.
 
-        Args:
-            new_generation (bool, optional): Increment the generation counter. Defaults to True.
-
         Returns:
             bool: True if the termination criterion is reached, False otherwise.
         """
@@ -170,9 +168,6 @@ class MaxEvaluationsTerminator(BaseTerminator):
 
     def check(self) -> bool:
         """Check if the termination criterion based on the number of generations is reached.
-
-        Args:
-            new_generation (bool, optional): Increment the generation counter. Defaults to True.
 
         Returns:
             bool: True if the termination criterion is reached, False otherwise.
@@ -244,3 +239,48 @@ class ExternalCheckTerminator(BaseTerminator):
         super().check()
         self.notify()
         return self.check_function()
+
+
+class MaxTimeTerminator(BaseTerminator):
+    """A termination criterion based on the maximum elapsed time."""
+
+    @property
+    def provided_topics(self) -> dict[int, Sequence[TerminatorMessageTopics]]:
+        """Return the topics provided by the terminator.
+
+        Returns:
+            dict[int, Sequence[TerminatorMessageTopics]]: The topics provided by the terminator.
+        """
+        return {
+            0: [],
+            1: [
+                TerminatorMessageTopics.GENERATION,
+                TerminatorMessageTopics.EVALUATION,
+            ],
+        }
+
+    def __init__(self, max_time_in_seconds: float, publisher: Publisher):
+        """Initialize the maximum time terminator.
+
+        Args:
+            max_time_in_seconds (float): The maximum elapsed time in seconds.
+            publisher (Publisher): The publisher to which the terminator will publish its state.
+        """
+        super().__init__(publisher=publisher)
+        if not isinstance(max_time_in_seconds, float) or max_time_in_seconds < 0:
+            raise ValueError("max_time must be a non-negative float")
+        self.max_time = max_time_in_seconds
+        self.start_time = None
+
+    def check(self) -> bool:
+        """Check if the termination criterion based on the maximum elapsed time is reached.
+
+        Returns:
+            bool: True if the termination criterion is reached, False otherwise.
+        """
+        super().check()
+        self.notify()
+        if self.start_time is None:
+            self.start_time = time.perf_counter()
+        elapsed_time = time.perf_counter() - self.start_time
+        return elapsed_time >= self.max_time

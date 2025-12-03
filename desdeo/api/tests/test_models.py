@@ -1,7 +1,6 @@
 """Tests related to the SQLModels."""
 
 import numpy as np
-import polars as pl
 from sqlmodel import Session, select
 
 from desdeo.api.models import (
@@ -12,7 +11,12 @@ from desdeo.api.models import (
     ENautilusState,
     ExtraFunctionDB,
     ForestProblemMetaData,
+    Group,
+    GroupIteration,
     InteractiveSessionDB,
+    NIMBUSClassificationState,
+    NIMBUSFinalState,
+    NIMBUSInitializationState,
     NIMBUSSaveState,
     ObjectiveDB,
     PreferenceDB,
@@ -27,14 +31,13 @@ from desdeo.api.models import (
     TensorConstantDB,
     TensorVariableDB,
     User,
-    UserSavedSolutionAddress,
     UserSavedSolutionDB,
     VariableDB,
 )
-from desdeo.api.models.archive import SolutionAddress
-
-from desdeo.api.routers.nimbus import user_save_solutions
-from desdeo.mcdm import enautilus_step, rpm_solve_solutions
+from desdeo.api.models.gdm.gnimbus import (
+    OptimizationPreference,
+)
+from desdeo.mcdm import enautilus_step, generate_starting_point, rpm_solve_solutions, solve_sub_problems
 from desdeo.problem.schema import (
     Constant,
     Constraint,
@@ -56,6 +59,7 @@ from desdeo.problem.testproblems import (
     dtlz2,
     momip_ti2,
     momip_ti7,
+    multi_valued_constraint_problem,
     nimbus_test_problem,
     pareto_navigator_test_problem,
     re21,
@@ -73,7 +77,7 @@ from desdeo.problem.testproblems import (
     spanish_sustainability_problem,
     zdt1,
 )
-from desdeo.tools import available_solvers
+from desdeo.tools import PyomoBonminSolver, available_solvers
 
 
 def compare_models(
@@ -474,6 +478,7 @@ def test_from_problem_to_d_and_back(session_and_user: dict[str, Session | list[U
         spanish_sustainability_problem(),
         zdt1(10),
         dtlz2(5, 3),
+        multi_valued_constraint_problem(),
         momip_ti2(),
         momip_ti7(),
         nimbus_test_problem(),
@@ -503,51 +508,6 @@ def test_from_problem_to_d_and_back(session_and_user: dict[str, Session | list[U
         assert compare_models(problem, problem_db)
 
 
-def test_archive_entry(session_and_user: dict[str, Session | list[User]]):
-    """Test that the archive works as intended."""
-    session: Session = session_and_user["session"]
-    user: User = session_and_user["user"]
-
-    problem = dtlz2(n_variables=5, n_objectives=3)
-    problem_db = ProblemDB.from_problem(problem, user)
-
-    session.add(problem_db)
-    session.commit()
-    session.refresh(problem_db)
-
-    name = "Test Archive Entry"
-    objective_values = {"f_1": 1.2, "f_2": 0.9, "f_3": 1.5}
-    address_state=1
-    address_result=1
-
-    archive_entry = SolutionAddress(objective_values=objective_values, address_state=address_state, address_result=address_result)
-
-    archive_entry_db = UserSavedSolutionDB.model_validate(
-        archive_entry,
-        update={
-            "name": name,
-            "user_id": user.id,
-            "problem_id": problem_db.id,
-        },
-    )
-
-    session.add(archive_entry_db)
-    session.commit()
-    session.refresh(archive_entry_db)
-
-    from_db = session.get(UserSavedSolutionDB, archive_entry_db.id)
-
-    assert from_db.name == name
-    assert from_db.user_id == user.id
-    assert from_db.problem_id == problem_db.id
-    assert from_db == user.archive[0]
-    assert compare_models(from_db.problem, problem_db)
-    assert from_db.objective_values == objective_values
-    assert from_db.address_state == address_state
-    assert from_db.address_result == address_result
-
-
-
 def test_user_save_solutions(session_and_user: dict[str, Session | list[User]]):
     """Test that user_save_solutions correctly saves solutions to the usersavedsolutiondb in the database."""
     session = session_and_user["session"]
@@ -555,54 +515,77 @@ def test_user_save_solutions(session_and_user: dict[str, Session | list[User]]):
 
     # Create test solutions with proper dictionary values
     objective_values = {"f_1": 1.2, "f_2": 0.9}
+    variable_values = {"x_1": 5.2, "x_2": 8.0, "x_3": -4.2}
+
+    user_id = user.id
+    problem_id = 1
 
     test_solutions = [
-        UserSavedSolutionAddress(
+        UserSavedSolutionDB(
             name="Solution 1",
             objective_values=objective_values,
-            address_state=1,
-            address_result=1,
+            variable_values=variable_values,
+            user_id=user_id,
+            problem_id=problem_id,
+            origin_state_id=1,
         ),
-        UserSavedSolutionAddress(
+        UserSavedSolutionDB(
             name="Solution 2",
             objective_values=objective_values,
-            address_state=1,
-            address_result=2,
-        )
-
+            variable_values=variable_values,
+            solution_index=2,
+            user_id=user_id,
+            problem_id=problem_id,
+            origin_state_id=2,
+        ),
     ]
+
     num_test_solutions = len(test_solutions)
-    problem_id = 1
+
     # Create NIMBUSSaveState
-    save_state = NIMBUSSaveState(
-        solution_addresses=test_solutions
-    )
+    save_state = NIMBUSSaveState(solutions=test_solutions)
 
+    # Create StateDB with NIMBUSSaveState
+    state_db = StateDB.create(session, problem_id=problem_id, state=save_state)
 
-    # Create StateDB
-    state = StateDB(problem_id=problem_id, state=save_state)
+    session.add(state_db)
+    session.commit()
+    session.refresh(state_db)
 
-    # Call the function
-    user_save_solutions(state, test_solutions, user.id, session)
     # Verify the solutions were saved
     saved_solutions = session.exec(select(UserSavedSolutionDB)).all()
-    if len(saved_solutions) != num_test_solutions:
-        raise ValueError(f"Expected {num_test_solutions} saved solutions, but found {len(saved_solutions)}")
+    assert len(saved_solutions) == num_test_solutions
 
     # Verify the content of the first solution
     first_solution = saved_solutions[0]
     assert first_solution.name == "Solution 1"
     assert first_solution.objective_values == objective_values
-    assert first_solution.address_state == 1
-    assert first_solution.address_result == 1
+    assert first_solution.variable_values == variable_values
+    assert first_solution.origin_state_id == 1
+    assert first_solution.solution_index is None
     assert first_solution.user_id == user.id
     assert first_solution.problem_id == problem_id
-    assert first_solution.state_id == state.id
+
+    # Verify the content of the second solution
+    second_solution = saved_solutions[1]
+    assert second_solution.name == "Solution 2"
+    assert second_solution.objective_values == objective_values
+    assert second_solution.variable_values == variable_values
+    assert second_solution.origin_state_id == 2
+    assert second_solution.solution_index == 2
+    assert second_solution.user_id == user.id
+    assert second_solution.problem_id == problem_id
 
     # Verify state relationship
-    saved_state = session.exec(select(StateDB).where(StateDB.id == state.id)).first()
+    saved_state = session.exec(select(StateDB).where(StateDB.id == state_db.id)).first()
     assert isinstance(saved_state.state, NIMBUSSaveState)
-    assert len(saved_state.state.solution_addresses) == num_test_solutions
+    assert len(saved_state.state.solutions) == num_test_solutions
+
+    # Check that relationships are formed
+    session.refresh(user)
+
+    assert len(user.archive) == len(test_solutions)
+    assert len(session.get(ProblemDB, problem_id).solutions) == len(test_solutions)
 
 
 def test_preference_models(session_and_user: dict[str, Session | list[User]]):
@@ -680,23 +663,19 @@ def test_rpm_state(session_and_user: dict[str, Session | list[User]]):
     # create preferences
 
     rp_1 = ReferencePoint(aspiration_levels=asp_levels_1)
-    preferences = PreferenceDB(user_id=user.id, problem_id=problem_db.id, preference=rp_1)
-
-    session.add(preferences)
-    session.commit()
-    session.refresh(preferences)
 
     # create state
 
     rpm_state = RPMState(
+        preferences=rp_1,
         scalarization_options=scalarization_options,
         solver=solver,
         solver_options=solver_options,
         solver_results=results,
     )
 
-    state_1 = StateDB(
-        problem_id=problem_db.id, preference_id=preferences.id, session_id=isession.id, parent_id=None, state=rpm_state
+    state_1 = StateDB.create(
+        database_session=session, problem_id=problem_db.id, session_id=isession.id, state=rpm_state
     )
 
     session.add(state_1)
@@ -704,8 +683,6 @@ def test_rpm_state(session_and_user: dict[str, Session | list[User]]):
     session.refresh(state_1)
 
     asp_levels_2 = {"f_1": 0.6, "f_2": 0.4, "f_3": 0.5}
-
-    problem = Problem.from_problemdb(problem_db)
 
     scalarization_options = None
     solver = "pyomo_bonmin"
@@ -719,15 +696,6 @@ def test_rpm_state(session_and_user: dict[str, Session | list[User]]):
         solver_options=solver_options,
     )
 
-    # create preferences
-
-    rp_2 = ReferencePoint(aspiration_levels=asp_levels_2)
-    preferences = PreferenceDB(user_id=user.id, problem_id=problem_db.id, preference=rp_2)
-
-    session.add(preferences)
-    session.commit()
-    session.refresh(preferences)
-
     # create state
 
     rpm_state = RPMState(
@@ -737,9 +705,23 @@ def test_rpm_state(session_and_user: dict[str, Session | list[User]]):
         solver_results=results,
     )
 
-    state_2 = StateDB(
+    # create preferences
+
+    rp_2 = ReferencePoint(aspiration_levels=asp_levels_2)
+
+    # create state
+
+    rpm_state = RPMState(
+        preferences=rp_2,
+        scalarization_options=scalarization_options,
+        solver=solver,
+        solver_options=solver_options,
+        solver_results=results,
+    )
+
+    state_2 = StateDB.create(
+        database_session=session,
         problem_id=problem_db.id,
-        preference_id=preferences.id,
         session_id=isession.id,
         parent_id=state_1.id,
         state=rpm_state,
@@ -754,8 +736,8 @@ def test_rpm_state(session_and_user: dict[str, Session | list[User]]):
     assert len(state_1.children) == 1
     assert state_1.children[0] == state_2
 
-    assert state_1.preference.preference == rp_1
-    assert state_2.preference.preference == rp_2
+    assert state_1.state.preferences == rp_1
+    assert state_2.state.preferences == rp_2
 
     assert state_2.problem == problem_db
     assert state_2.session.user == user
@@ -839,6 +821,63 @@ def test_problem_metadata(session_and_user: dict[str, Session | list[User]]):
     assert metadata_representative.nadir == representative_nadir
 
     assert problem.problem_metadata == from_db_metadata
+
+
+def test_group(session_and_user: dict[str, Session | list[User]]):
+    """なに？！ちょっとまって。。。ドクメンタはどこですか？？？"""
+    session: Session = session_and_user["session"]
+    user: User = session_and_user["user"]
+
+    group = Group(
+        name="TestGroup",
+        owner_id=user.id,
+        user_ids=[user.id],
+        problem_id=1,
+    )
+
+    session.add(group)
+    session.commit()
+    session.refresh(group)
+
+    assert group.id == 1
+    assert group.user_ids[0] == user.id
+    assert group.name == "TestGroup"
+
+
+def test_gnimbus_datas(session_and_user: dict[str, Session | list[User]]):
+    session: Session = session_and_user["session"]
+    user: User = session_and_user["user"]
+
+    group = Group(
+        name="TestGroup",
+        owner_id=user.id,
+        user_ids=[user.id],
+        problem_id=1,
+    )
+
+    session.add(group)
+    session.commit()
+    session.refresh(group)
+
+    giter = GroupIteration(
+        problem_id=1,
+        group_id=group.id,
+        group=group,
+        preferences=OptimizationPreference(
+            set_preferences={},
+        ),
+        notified={},
+        parent_id=None,
+        parent=None,
+        child=None,
+    )
+    session.add(giter)
+    session.commit()
+    session.refresh(giter)
+
+    assert type(giter.preferences) is OptimizationPreference
+    assert giter.problem_id == 1
+    assert giter.group_id == group.id
 
 
 def test_enautilus_state(session_and_user: dict[str, Session | list[User]]):
@@ -926,6 +965,7 @@ def test_enautilus_state(session_and_user: dict[str, Session | list[User]]):
     n_points = 3  # DM wants to see 3 points at first
     current = 0
 
+    # First iteration
     res = enautilus_step(
         problem=dummy_problem,
         non_dominated_points=non_dom_data,
@@ -936,9 +976,8 @@ def test_enautilus_state(session_and_user: dict[str, Session | list[User]]):
         number_of_intermediate_points=n_points,
     )
 
-    # First iteration
     enautilus_state = ENautilusState(
-        non_dominated_points_id=reprdata.id,
+        non_dominated_solutions_id=reprdata.id,
         current_iteration=current,
         iterations_left=total_iters - current,
         selected_point=selected_point,
@@ -947,9 +986,9 @@ def test_enautilus_state(session_and_user: dict[str, Session | list[User]]):
         enautilus_results=res,
     )
 
-    state_1 = StateDB(
+    state_1 = StateDB.create(
+        database_session=session,
         problem_id=problemdb.id,
-        preference_id=None,
         session_id=isession.id,
         parent_id=None,
         state=enautilus_state,
@@ -971,7 +1010,7 @@ def test_enautilus_state(session_and_user: dict[str, Session | list[User]]):
     )
 
     enautilus_state_2 = ENautilusState(
-        non_dominated_points_id=reprdata.id,
+        non_dominated_solutions_id=reprdata.id,
         current_iteration=res.current_iteration,
         iterations_left=res.iterations_left,
         selected_point=res.intermediate_points[0],
@@ -980,14 +1019,156 @@ def test_enautilus_state(session_and_user: dict[str, Session | list[User]]):
         enautilus_results=res_2,
     )
 
-    state_2 = StateDB(
+    state_2 = StateDB.create(
+        database_session=session,
         problem_id=problemdb.id,
-        preference_id=None,
         session_id=isession.id,
-        parent_id=state_1.id,
+        parent_id=enautilus_state.id,
         state=enautilus_state_2,
     )
 
     session.add(state_2)
     session.commit()
     session.refresh(state_2)
+
+    assert state_1.problem_id == problemdb.id
+    assert state_2.problem_id == problemdb.id
+
+    assert state_1.session_id == isession.id
+    assert state_2.session_id == isession.id
+
+    assert state_1.parent is None
+    assert state_2.parent == state_1
+
+    assert len(state_1.children) == 1
+    assert state_1.children[0] == state_2
+    assert state_2.children == []
+
+
+def test_nimbus_models(session_and_user: dict[str, Session | list[User]]):
+    """Test that the NIMBUS models are in working order."""
+    session: Session = session_and_user["session"]
+    user: User = session_and_user["user"]
+    problem_db = user.problems[0]
+    problem = Problem.from_problemdb(problem_db)
+
+    isession = InteractiveSessionDB(user_id=user.id)
+
+    session.add(isession)
+    session.commit()
+    session.refresh(isession)
+
+    # 1. Initialize the NIMBUS problem (NIMBUSInitializationState)
+    results_1 = generate_starting_point(
+        problem=problem,
+    )
+    nimbus_init_state = NIMBUSInitializationState(solver_results=results_1)
+
+    state_1 = StateDB.create(
+        database_session=session, problem_id=problem_db.id, session_id=isession.id, state=nimbus_init_state
+    )
+
+    session.add(state_1)
+    session.commit()
+    session.refresh(state_1)
+
+    actual_state_1: NIMBUSInitializationState = state_1.state
+
+    assert type(actual_state_1) is NIMBUSInitializationState
+    assert np.allclose(
+        [x for _, x in actual_state_1.solver_results.optimal_objectives.items()],
+        [x for _, x in results_1.optimal_objectives.items()],
+        0.001,
+    )
+
+    # 2. Solve sub problems (NIMBUSClassificationState)
+    aspirations = {"f_1": 0.1, "f_2": 0.9, "f_3": 0.6}
+
+    results_2 = solve_sub_problems(
+        problem=problem, current_objectives=results_1.optimal_objectives, reference_point=aspirations, num_desired=4
+    )
+    nimbus_classification_state = NIMBUSClassificationState(
+        preferences=ReferencePoint(aspiration_levels=aspirations),
+        current_objectives=results_1.optimal_objectives,
+        previous_preferences=ReferencePoint(aspiration_levels=aspirations),
+        solver_results=results_2,
+    )
+
+    state_2 = StateDB.create(
+        database_session=session, problem_id=problem_db.id, session_id=isession.id, state=nimbus_classification_state
+    )
+
+    session.add(state_2)
+    session.commit()
+    session.refresh(state_2)
+
+    actual_state_2: NIMBUSClassificationState = state_2.state
+
+    assert type(actual_state_2) is NIMBUSClassificationState
+    assert np.allclose(
+        [x for _, x in actual_state_2.preferences.aspiration_levels.items()], [x for _, x in aspirations.items()], 0.001
+    )
+    assert np.allclose(
+        [x for _, x in actual_state_2.solver_results[0].optimal_objectives.items()],
+        [x for _, x in results_2[0].optimal_objectives.items()],
+        0.001,
+    )
+
+    # 3. (TODO) Save a found solution (NIMBUSSaveState)
+    # 4. Finalize the NIMBUS process (NIMBUSFinalState)
+    nimbus_final_state = NIMBUSFinalState(solver_results=results_2[0], reference_point=aspirations)
+
+    state_3 = StateDB.create(
+        database_session=session, problem_id=problem_db.id, session_id=isession.id, state=nimbus_final_state
+    )
+
+    session.add(state_3)
+    session.commit()
+    session.refresh(state_3)
+
+    actual_state_3: NIMBUSFinalState = state_3.state
+    assert type(actual_state_3) is NIMBUSFinalState
+    assert np.allclose(
+        [x for _, x in actual_state_3.reference_point.items()], [x for _, x in aspirations.items()], 0.001
+    )
+    assert np.allclose(
+        [x for _, x in actual_state_3.solver_results.optimal_objectives.items()],
+        [x for _, x in results_2[0].optimal_objectives.items()],
+        0.01,
+    )
+
+
+def test_nimbus_initialize_w_multidimensional_constraints(session_and_user: dict[str, Session | list[User]]):
+    """Test that the NIMBUS initialization model works with multidimensional constraints."""
+    session: Session = session_and_user["session"]
+    user: User = session_and_user["user"]
+    problem = multi_valued_constraint_problem()
+
+    problem_db = ProblemDB.from_problem(problem, user)
+    isession = InteractiveSessionDB(user_id=user.id)
+
+    session.add(isession)
+    session.add(problem_db)
+    session.commit()
+    session.refresh(isession)
+    session.refresh(problem_db)
+
+    results_1 = generate_starting_point(problem=problem, solver=PyomoBonminSolver)
+    nimbus_init_state = NIMBUSInitializationState(solver_results=results_1)
+
+    state_1 = StateDB.create(
+        database_session=session, problem_id=problem_db.id, session_id=isession.id, state=nimbus_init_state
+    )
+
+    session.add(state_1)
+    session.commit()
+    session.refresh(state_1)
+
+    actual_state_1: NIMBUSInitializationState = state_1.state
+
+    assert type(actual_state_1) is NIMBUSInitializationState
+    assert np.allclose(
+        [x for _, x in actual_state_1.solver_results.optimal_objectives.items()],
+        [x for _, x in results_1.optimal_objectives.items()],
+        0.001,
+    )

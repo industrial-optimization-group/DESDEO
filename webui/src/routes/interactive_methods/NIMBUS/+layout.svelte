@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Dialogs from '$lib/components/custom/dialogs/Dialogs.svelte';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import '../../../app.css';
 	let { children } = $props();
@@ -15,3 +16,4 @@
 		</Sidebar.Inset>
 	</Sidebar.Provider>
 </main>
+<Dialogs />

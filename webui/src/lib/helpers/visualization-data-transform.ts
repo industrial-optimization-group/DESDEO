@@ -63,6 +63,7 @@ export function createObjectiveDimensions(problem: ProblemInfo | null) {
 
     return problem.objectives.map((obj) => ({
         symbol: obj.symbol,
+        name: obj.name,
         min: typeof obj.nadir === 'number' ? obj.nadir : undefined,
         max: typeof obj.ideal === 'number' ? obj.ideal : undefined,
         direction: obj.maximize ? ('max' as const) : ('min' as const)
@@ -80,6 +81,7 @@ export function createDecisionDimensions(problem: ProblemInfo | null) {
 
     return problem.variables.map((variable) => ({
         symbol: variable.symbol,
+        name: variable.name,
         min: typeof variable.lowerbound === 'number' ? variable.lowerbound : undefined,
         max: typeof variable.upperbound === 'number' ? variable.upperbound : undefined
     }));

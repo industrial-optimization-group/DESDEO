@@ -1,15 +1,18 @@
-"""Request and response models for Utopia endpoint"""
+"""Request and response models for Utopia endpoint."""
 
 from typing import Any
-from sqlmodel import SQLModel, Field
-from desdeo.api.models.archive import SolutionAddress
+
+from sqlmodel import Field, SQLModel
+
+from desdeo.api.models.generic import SolutionInfo
 
 
 class UtopiaRequest(SQLModel):
     """The request for an Utopia map."""
 
     problem_id: int = Field(description="Problem for which the map is generated")
-    solution: SolutionAddress = Field(description="Solution for which to generate the map")
+    solution: SolutionInfo = Field(description="Solution for which to generate the map")
+
 
 class UtopiaResponse(SQLModel):
     """The response to an UtopiaRequest."""

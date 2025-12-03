@@ -5,15 +5,16 @@
 	 * Responsive parallel coordinates plot component using D3.
 	 *
 	 * @author Giomara Larraga <glarragw@jyu.fi>
-	 * @author Stina Palomäki <palomakistina@gmail.com> (Multi-selection support)
+	 * @author Stina Palomäki <palomakistina@gmail.com> (Multi-selection support, label tooltips)
 	 * @created June 2025
-	 * @updated August 2025
+	 * @updated August 2025, October 2025
 	 *
 	 * @description
 	 * Renders a responsive parallel coordinates plot using D3.js.
 	 * Each line represents a solution/data point, and each vertical axis represents a dimension/objective.
 	 * Supports additional reference information like reference points, preferred ranges, and preferred solutions.
-	 * Features both single and multiple line selection modes and axis brushing for filtering.
+	 * Features both single and multiple line selection modes, axis brushing for filtering, and optional
+	 * tooltips displaying customizable labels for each line.
 	 *
 	 * @props
 	 * - data: Array<{ [key: string]: number }> — Array of data points where each object has values for each dimension
@@ -24,6 +25,7 @@
 	 *     preferredRanges?: { [key: string]: { min: number; max: number } }; // Preferred ranges for each dimension
 	 *     preferredSolutions?: Array<{ [key: string]: number }>; // Array of preferred solutions
 	 *     nonPreferredSolutions?: Array<{ [key: string]: number }>; // Array of non-preferred solutions
+	 * 	   otherSolutions?: Array<{ [key: string]: number }>; // Array of any solutions that dont fit into other categories. Used for users solutions in group nimbus
 	 *   }
 	 * - options: {
 	 *     showAxisLabels: boolean; // Whether to show dimension names above axes
@@ -32,6 +34,7 @@
 	 *     opacity: number; // Opacity of non-selected lines
 	 *     enableBrushing: boolean; // Whether to enable axis brushing for filtering
 	 *   }
+	 * - lineLabels: { [key: string]: string } - Map of data indexes to custom labels displayed in tooltips, optional
 	 * - selectedIndex: number | null — Index of selected line in single selection mode
 	 * - multipleSelectedIndexes: number[] | null — Indexes of selected lines in multi-selection mode
 	 * - brushFilters: { [dimension: string]: [number, number] } — Brush filter ranges for each dimension
@@ -48,6 +51,7 @@
 	 * - Reference point visualization (dashed line)
 	 * - Preferred ranges visualization (colored bands)
 	 * - Preferred/non-preferred solutions (different line styles)
+	 * - Customizable optional line labels with tooltips
 	 */
 
 	// --- Import required libraries ---
@@ -56,16 +60,21 @@
 	import { COLOR_PALETTE } from '../utils/colors'; // Custom color palette for styling
 
 	// --- Type Definitions ---
+	type Solution = {
+		values: { [key: string]: number };
+		label?: string;
+	};
 	/**
 	 * Type definition for reference data structure
 	 * Contains optional reference information for enhanced visualization
 	 */
 	type ReferenceData = {
-		referencePoint?: { [key: string]: number }; // Single reference point across all dimensions
-    	previousReferencePoint?: { [key: string]: number }; // Single reference point across all dimensions, for previous preference
+		referencePoint?: Solution; // Single reference point across all dimensions
+    	previousReferencePoint?: Solution; // Single reference point across all dimensions, for previous preference
 		preferredRanges?: { [key: string]: { min: number; max: number } }; // Preferred value ranges per dimension
-		preferredSolutions?: Array<{ [key: string]: number }>; // Array of preferred solution points
-		nonPreferredSolutions?: Array<{ [key: string]: number }>; // Array of non-preferred solution points
+		preferredSolutions?: Array<Solution>; // Array of preferred solution points
+		nonPreferredSolutions?: Array<Solution>; // Array of non-preferred solution points
+		otherSolutions?: Array<Solution>; // Array of solution points that dont fit other categories, for any additional need
 	};
 
 	// --- Component Props ---
@@ -73,7 +82,7 @@
 	export let data: { [key: string]: number }[] = [];
 
 	// Dimension definitions - describes each axis with optional constraints
-	export let dimensions: { symbol: string; min?: number; max?: number; direction?: 'max' | 'min' }[] =
+	export let dimensions: { name: string; min?: number; max?: number; direction?: 'max' | 'min' }[] =
 		[];
 
 	// Optional reference data for enhanced visualization
@@ -90,10 +99,11 @@
 		showAxisLabels: true,
 		highlightOnHover: true,
 		strokeWidth: 2,
-		opacity: 0.7,
+		opacity: 0.4,
 		enableBrushing: true
 	};
-
+	// optional map of labels for each data index for tooltip display on hover
+	export let lineLabels: { [key: string]: string } = {}; // Map of data index to label
 	// Index of currently selected line (null = no selection)
 	export let selectedIndex: number | null = null;
 	// indexes for the case where multiple lines can be selected
@@ -130,6 +140,7 @@
 	let resizeObserver: ResizeObserver; // Observer for container size changes
 	let brushes: { [dimension: string]: d3.BrushBehavior<unknown> } = {}; // D3 brush objects per dimension
 	let scales: { [key: string]: d3.ScaleLinear<number, number> } = {}; // D3 scales for each dimension
+	let tooltip: d3.Selection<HTMLDivElement, unknown, null, undefined>; // Single tooltip for all uses
 
 	/**
 	 * Creates linear scales for each dimension
@@ -217,6 +228,26 @@
 		return true; // Point passes all filters
 	}
 
+	// Helper function to add tooltip functionality to a path
+	function addTooltip(path: d3.Selection<SVGPathElement, unknown, null, undefined>, label?: string) {
+		if (!label) return path; // If no label, return path without tooltip
+
+		return path
+			.on('mouseover.tooltip', function(event) {
+				tooltip.transition()
+					.duration(200)
+					.style('opacity', .9);
+				tooltip.html(label)
+					.style('left', (event.pageX + 10) + 'px')
+					.style('top', (event.pageY - 28) + 'px');
+			})
+			.on('mouseout.tooltip', function() {
+				tooltip.transition()
+					.duration(500)
+					.style('opacity', 0);
+			});
+	}
+
 	/**
 	 * Updates the visibility and styling of all data lines
 	 * Handles filtering, selection highlighting, and opacity
@@ -240,13 +271,13 @@
 				if (isSelected(i)) return 1;// Selected line is fully opaque
 					return options.opacity; // Other lines use configured opacity
 				})
-			// Set stroke color - selected line gets theme color, others are gray
+			// Set stroke color - both selected and other lines get theme color, other linesa are just thinner and less opaque
 			.attr('stroke', (d, i) => {
 				const passes = passesFilters(d);
-				if (!passes) return '#ccc'; // Hidden lines are gray
+				if (!passes) return '#3b82f6'; // Hidden lines are primary color
 
 				if (isSelected(i)) return '#3b82f6'; // Selected line uses primary color
-				return '#ccc'; // Non-selected lines are gray
+				return '#3b82f6'; // Non-selected lines are primary color
 			})
 			// Set stroke width - selected line is slightly thicker
 			.attr('stroke-width', (d, i) => {
@@ -471,7 +502,7 @@
 		scales: { [key: string]: d3.ScaleLinear<number, number> },
 		xScale: d3.ScalePoint<string>,
 		line: d3.Line<[string, number]>,
-		pointData: { [key: string]: number } | undefined,
+		pointData: Solution | undefined,
 		modifiedOptions: {
 			groupClass: string;
 			opacity: number;
@@ -484,12 +515,12 @@
 
 		// Convert reference point data to line format
 		const refLineData: [string, number][] = dimensions
-			.map((dim) => [dim.symbol, pointData[dim.symbol]])
+			.map((dim) => [dim.symbol, pointData.values[dim.symbol]])
 			.filter(([, value]) => value !== undefined && value !== null);
 
 		if (refLineData.length > 0) {
 			// Draw line connecting reference values across all dimensions
-			referenceGroup
+			const path = referenceGroup
 				.append('path')
 				.datum(refLineData)
 				.attr('d', line) // Use line generator to create path
@@ -515,6 +546,7 @@
 						.attr('opacity', modifiedOptions.opacity);
 				}
 			});
+			addTooltip(path, pointData.label);
 			
 			// Note: Reference point label is commented out to reduce visual clutter
 			/*referenceGroup
@@ -543,27 +575,55 @@
 		xScale: d3.ScalePoint<string>,
 		line: d3.Line<[string, number]>
 	) {
-		// Draw preferred solutions (good examples)
-		if (referenceData?.preferredSolutions) {
-			const preferredGroup = svgElement.append('g').attr('class', 'preferred-solutions');
+		// Draw other solutions first (they should be in the background)
+		if (referenceData?.otherSolutions) {
+			const otherGroup = svgElement.append('g').attr('class', 'other-solutions');
 
-			referenceData.preferredSolutions.forEach((solution, index) => {
+			referenceData.otherSolutions.forEach((solution, index) => {
 				// Convert solution data to line format
 				const solutionData: [string, number][] = dimensions
-					.map((dim) => [dim.symbol, solution[dim.symbol]])
+					.map((dim) => [dim.symbol, solution.values[dim.symbol]])
 					.filter(([, value]) => value !== undefined && value !== null);
 
 				if (solutionData.length > 0) {
-					// Draw dashed line for preferred solution
-					preferredGroup
+					// Draw thin dashed line for other solutions
+					const path = otherGroup
 						.append('path')
 						.datum(solutionData)
 						.attr('d', line)
 						.attr('fill', 'none')
-						.attr('stroke', '#4ecdc4') // Teal color for preferred
-						.attr('stroke-width', options.strokeWidth + 2) // Thicker than normal lines
+						.attr('stroke', '#333') // Gray color
+						.attr('stroke-width', options.strokeWidth)
+						.attr('stroke-dasharray', '3,3') // Dashed pattern
+						.attr('opacity', 0.6);
+					
+					addTooltip(path, solution.label);
+				}
+			});
+		}
+
+		// Draw preferred solutions (good examples)
+		if (referenceData?.preferredSolutions) {
+			const preferredGroup = svgElement.append('g').attr('class', 'preferred-solutions');
+			referenceData.preferredSolutions.forEach((solution, index) => {
+				// Convert solution data to line format
+				const solutionData: [string, number][] = dimensions
+					.map((dim) => [dim.symbol, solution.values[dim.symbol]])
+					.filter(([, value]) => value !== undefined && value !== null);
+
+				if (solutionData.length > 0) {
+					// Draw dashed line for preferred solution
+					const path = preferredGroup
+						.append('path')
+						.datum(solutionData)
+						.attr('d', line)
+						.attr('fill', 'none')
+						.attr('stroke', '#10b981') // Emerald color for preferred
+						.attr('stroke-width', options.strokeWidth + 1) // Thicker than otherSolutions
 						.attr('stroke-dasharray', '4,2') // Different dash pattern
 						.attr('opacity', 0.8);
+					
+					addTooltip(path, solution.label);
 
 					// Add triangle markers at each axis point
 					solutionData.forEach(([dimName, value]) => {
@@ -573,7 +633,7 @@
 							preferredGroup
 								.append('polygon')
 								.attr('points', `${x},${y - 4} ${x + 4},${y + 3} ${x - 4},${y + 3}`) // Triangle shape
-								.attr('fill', '#4ecdc4')
+								.attr('fill', '#10b981')
 								.attr('stroke', '#fff')
 								.attr('stroke-width', 1);
 						}
@@ -588,7 +648,7 @@
                     .attr('x', 10)
                     .attr('y', 10)
                     .style('font-size', '11px')
-                    .style('fill', '#4ecdc4')
+                    .style('fill', '#10b981')
                     .style('font-weight', 'bold')
                     .text(`${referenceData.preferredSolutions.length} Preferred Solution(s)`);
             }*/
@@ -601,12 +661,12 @@
 			referenceData.nonPreferredSolutions.forEach((solution, index) => {
 				// Convert solution data to line format
 				const solutionData: [string, number][] = dimensions
-					.map((dim) => [dim.symbol, solution[dim.symbol]])
+					.map((dim) => [dim.symbol, solution.values[dim.symbol]])
 					.filter(([, value]) => value !== undefined && value !== null);
 
 				if (solutionData.length > 0) {
 					// Draw dashed line for non-preferred solution
-					nonPreferredGroup
+					const path = nonPreferredGroup
 						.append('path')
 						.datum(solutionData)
 						.attr('d', line)
@@ -615,6 +675,8 @@
 						.attr('stroke-width', options.strokeWidth + 1)
 						.attr('stroke-dasharray', '2,3') // Dense dash pattern
 						.attr('opacity', 0.6);
+					
+					addTooltip(path, solution.label);
 
 					// Add X markers at each axis point
 					solutionData.forEach(([dimName, value]) => {
@@ -735,16 +797,16 @@
 					.style('font-size', '12px')
 					.style('font-weight', 'bold')
 					.style('fill', '#333')
-					.text(dim.symbol)
+					.text(dim.name)
 
 					// Add an arrow if direction is specified
 				if (dim.direction) {
-					const arrowX = x - 5 + dim.symbol.length * 7; // Rough estimate of text width
+					const arrowX = x; // Rough estimate of text width
 					svgElement
 						.append('path')
 						.attr('d', dim.direction === 'max' 
-							? `M${arrowX},-8 L${arrowX+5},-16 L${arrowX+10},-8` // Up arrow
-							: `M${arrowX},-16 L${arrowX+5},-8 L${arrowX+10},-16` // Down arrow
+							? `M${arrowX-5},8 L${arrowX},0 L${arrowX+5},8` // Up arrow
+							: `M${arrowX-5},0 L${arrowX},8 L${arrowX+5},0` // Down arrow
 						)
 						.attr('fill', '#333')
 						.attr('stroke', 'none');
@@ -781,12 +843,24 @@
 
 		// Add hover effects if enabled
 		if (options.highlightOnHover) {
+
 			lines
 				.on('mouseover', function (event, d) {
 					if (!passesFilters(d)) return; // Only highlight visible lines
 
+					const index = data.indexOf(d);
 					// Temporarily increase stroke width on hover
 					d3.select(this).attr('stroke-width', options.strokeWidth + 2);
+
+					// Only show tooltip if there's a label
+					if (lineLabels[index]) {
+						tooltip.transition()
+							.duration(200)
+							.style('opacity', .9);
+						tooltip.html(lineLabels[index])
+							.style('left', (event.pageX + 10) + 'px')
+							.style('top', (event.pageY - 28) + 'px');
+					}
 				})
 				.on('mouseout', function (event, d) {
 					const index = data.indexOf(d);
@@ -796,6 +870,10 @@
 						'stroke-width',
 						isSelected(index) ? options.strokeWidth + 1 : options.strokeWidth
 					);
+					// Hide tooltip
+					tooltip.transition()
+						.duration(500)
+						.style('opacity', 0);
 				});
 		}
 
@@ -817,10 +895,10 @@
 				opacity: 0.9,
 			}
 		);
-		// Draw previous reference point (gray or another color)
+		// Draw previous reference point (lighter red)
 		drawGenericReferencePoint(svgElement, newScales, xScale, line, 
 			referenceData?.previousReferencePoint, {
-				groupClass: 'previous-reference-point',
+				groupClass: 'reference-point',
 				opacity: 0.3, // more transparent than current ref point
 			}
 		);
@@ -849,6 +927,12 @@
 	 * Sets up responsive behavior and draws initial chart
 	 */
 	onMount(() => {
+		// Create single tooltip for the component
+		tooltip = d3.select(container)
+			.append('div')
+			.attr('class', 'tooltip')
+			.style('opacity', 0);
+
 		// Set up responsive behavior using ResizeObserver
 		resizeObserver = new ResizeObserver((entries) => {
 			for (const entry of entries) {
@@ -937,22 +1021,27 @@
 		ry: 2;
 	}
 
-	/* Reference data styling - prevent interaction */
+	/* Reference data styling - control interaction */
 	:global(.preferred-ranges rect) {
 		pointer-events: none;
 	}
 
 	:global(.reference-point path) {
-		pointer-events: none;
+		pointer-events: auto;
+		cursor: default;  /* Shows regular cursor instead of pointer */
 	}
 
 	:global(.reference-point circle) {
-		pointer-events: none;
+		pointer-events: auto;
+		cursor: default;  /* Shows regular cursor instead of pointer */
 	}
 
+	/* Allow hover events but prevent clicks */
 	:global(.preferred-solutions path),
-	:global(.non-preferred-solutions path) {
-		pointer-events: none;
+	:global(.non-preferred-solutions path),
+	:global(.other-solutions path) {
+		pointer-events: auto;
+		cursor: default;  /* Shows regular cursor instead of pointer */
 	}
 
 	/* Brush styling */
@@ -980,5 +1069,16 @@
 
 	:global(.brush-highlight:hover) {
 		opacity: 0.3;
+	}
+
+	:global(.tooltip) {
+		position: absolute;
+		padding: 8px;
+		background: white;
+		border: 1px solid #ddd;
+		border-radius: 4px;
+		pointer-events: none;
+		font-size: 12px;
+		box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 	}
 </style>

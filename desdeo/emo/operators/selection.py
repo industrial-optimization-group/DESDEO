@@ -1,22 +1,22 @@
 """The base class for selection operators.
 
-This whole file should be rewritten. Everything is a mess. Moreover, the selectors do not yet take seeds as input for reproducibility.
+Some operators should be rewritten.
 TODO:@light-weaver
 """
 
 import warnings
 from abc import abstractmethod
 from collections.abc import Sequence
-from enum import Enum
+from enum import StrEnum
 from itertools import combinations
-from typing import Callable, Literal, TypedDict, TypeVar
+from typing import Callable, Literal, TypeVar
 
 import numpy as np
 import polars as pl
 from numba import njit
+from pydantic import BaseModel, ConfigDict, Field
 from scipy.special import comb
 from scipy.stats.qmc import LatinHypercube
-from sqlalchemy import false
 
 from desdeo.problem import Problem
 from desdeo.tools import get_corrected_ideal_and_nadir
@@ -45,11 +45,12 @@ class BaseSelector(Subscriber):
         self.problem = problem
         self.variable_symbols = [x.symbol for x in problem.get_flattened_variables()]
         self.objective_symbols = [x.symbol for x in problem.objectives]
+        self.maximization_mult = {x.symbol: -1 if x.maximize else 1 for x in problem.objectives}
 
         if problem.scalarization_funcs is None:
             self.target_symbols = [f"{x.symbol}_min" for x in problem.objectives]
             try:
-                ideal, nadir = get_corrected_ideal_and_nadir(problem)
+                ideal, nadir = get_corrected_ideal_and_nadir(problem)  # This is for the minimized problem
                 self.ideal = np.array([ideal[x.symbol] for x in problem.objectives])
                 self.nadir = np.array([nadir[x.symbol] for x in problem.objectives]) if nadir is not None else None
             except ValueError:  # in case the ideal and nadir are not provided
@@ -87,51 +88,47 @@ class BaseSelector(Subscriber):
         """
 
 
-class ReferenceVectorOptions(TypedDict, total=False):
-    """The options for the reference vector based selection operators."""
+class ReferenceVectorOptions(BaseModel):
+    """Pydantic model for Reference Vector arguments."""
 
-    adaptation_frequency: int
-    """Number of generations between reference vector adaptation. If set to 0, no adaptation occurs. Defaults to 100.
-    Only used if `interactive_adaptation` is set to "none"."""
-    creation_type: Literal["simplex", "s_energy"]
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+    adaptation_frequency: int = Field(default=0)
+    """Number of generations between reference vector adaptation. If set to 0, no adaptation occurs. Defaults to 0.
+    Only used if no preference is provided."""
+    creation_type: Literal["simplex", "s_energy"] = Field(default="simplex")
     """The method for creating reference vectors. Defaults to "simplex".
     Currently only "simplex" is implemented. Future versions will include "s_energy".
 
     If set to "simplex", the reference vectors are created using the simplex lattice design method.
     This method is generates distributions with specific numbers of reference vectors.
     Check: https://www.itl.nist.gov/div898/handbook/pri/section5/pri542.htm for more information.
-
     If set to "s_energy", the reference vectors are created using the Riesz s-energy criterion. This method is used to
     distribute an arbitrary number of reference vectors in the objective space while minimizing the s-energy.
     Currently not implemented.
     """
-    vector_type: Literal["spherical", "planar"]
+    vector_type: Literal["spherical", "planar"] = Field(default="spherical")
     """The method for normalizing the reference vectors. Defaults to "spherical"."""
-    lattice_resolution: int
+    lattice_resolution: int | None = None
     """Number of divisions along an axis when creating the simplex lattice. This is not required/used for the "s_energy"
-    method. If not specified, the lattice resolution is calculated based on the `number_of_vectors`.
+    method. If not specified, the lattice resolution is calculated based on the `number_of_vectors`. If "spherical" is 
+    selected as the `vector_type`, this value overrides the `number_of_vectors`.
     """
-    number_of_vectors: int
+    number_of_vectors: int = 200
     """Number of reference vectors to be created. If "simplex" is selected as the `creation_type`, then the closest
     `lattice_resolution` is calculated based on this value. If "s_energy" is selected, then this value is used directly.
     Note that if neither `lattice_resolution` nor `number_of_vectors` is specified, the number of vectors defaults to
-    500.
+    200. Overridden if "spherical" is selected as the `vector_type` and `lattice_resolution` is provided.
     """
-    interactive_adaptation: Literal[
-        "preferred_solutions", "non_preferred_solutions", "preferred_ranges", "reference_point", "none"
-    ]
-    """The method for adapting reference vectors based on the Decision maker's preference information.
-    Defaults to "none".
-    """
-    adaptation_distance: float
+    adaptation_distance: float = Field(default=0.2)
     """Distance parameter for the interactive adaptation methods. Defaults to 0.2."""
-    reference_point: dict[str, float]
+    reference_point: dict[str, float] | None = Field(default=None)
     """The reference point for interactive adaptation."""
-    preferred_solutions: dict[str, list[float]]
+    preferred_solutions: dict[str, list[float]] | None = Field(default=None)
     """The preferred solutions for interactive adaptation."""
-    non_preferred_solutions: dict[str, list[float]]
+    non_preferred_solutions: dict[str, list[float]] | None = Field(default=None)
     """The non-preferred solutions for interactive adaptation."""
-    preferred_ranges: dict[str, list[float]]
+    preferred_ranges: dict[str, list[float]] | None = Field(default=None)
     """The preferred ranges for interactive adaptation."""
 
 
@@ -144,59 +141,63 @@ class BaseDecompositionSelector(BaseSelector):
         reference_vector_options: ReferenceVectorOptions,
         verbosity: int,
         publisher: Publisher,
+        invert_reference_vectors: bool = False,
         seed: int = 0,
     ):
         super().__init__(problem, verbosity=verbosity, publisher=publisher, seed=seed)
         self.reference_vector_options = reference_vector_options
+        self.invert_reference_vectors = invert_reference_vectors
         self.reference_vectors: np.ndarray
         self.reference_vectors_initial: np.ndarray
 
-        # Set default values
-        if "creation_type" not in self.reference_vector_options:
-            self.reference_vector_options["creation_type"] = "simplex"
-        if "vector_type" not in self.reference_vector_options:
-            self.reference_vector_options["vector_type"] = "spherical"
-        if "adaptation_frequency" not in self.reference_vector_options:
-            self.reference_vector_options["adaptation_frequency"] = 100
-        if self.reference_vector_options["creation_type"] == "simplex":
-            self._create_simplex()
-        elif self.reference_vector_options["creation_type"] == "s_energy":
+        if self.reference_vector_options.creation_type == "s_energy":
             raise NotImplementedError("Riesz s-energy criterion is not yet implemented.")
 
-        if "interactive_adaptation" not in self.reference_vector_options:
-            self.reference_vector_options["interactive_adaptation"] = "none"
-        elif self.reference_vector_options["interactive_adaptation"] != "none":
-            self.reference_vector_options["adaptation_frequency"] = 0
-        if "adaptation_distance" not in self.reference_vector_options:
-            self.reference_vector_options["adaptation_distance"] = 0.2
         self._create_simplex()
 
-        if self.reference_vector_options["interactive_adaptation"] == "reference_point":
-            if "reference_point" not in self.reference_vector_options:
-                raise ValueError("Reference point must be specified for interactive adaptation.")
+        if self.reference_vector_options.reference_point:
+            corrected_rp = np.array(
+                [
+                    self.reference_vector_options.reference_point[x] * self.maximization_mult[x]
+                    for x in self.objective_symbols
+                ]
+            )
             self.interactive_adapt_3(
-                np.array([self.reference_vector_options["reference_point"][x] for x in self.target_symbols]),
-                translation_param=self.reference_vector_options["adaptation_distance"],
+                corrected_rp,
+                translation_param=self.reference_vector_options.adaptation_distance,
             )
-        elif self.reference_vector_options["interactive_adaptation"] == "preferred_solutions":
-            if "preferred_solutions" not in self.reference_vector_options:
-                raise ValueError("Preferred solutions must be specified for interactive adaptation.")
+        elif self.reference_vector_options.preferred_solutions:
+            corrected_sols = np.array(
+                [
+                    np.array(self.reference_vector_options.preferred_solutions[x]) * self.maximization_mult[x]
+                    for x in self.objective_symbols
+                ]
+            ).T
             self.interactive_adapt_1(
-                np.array([self.reference_vector_options["preferred_solutions"][x] for x in self.target_symbols]).T,
-                translation_param=self.reference_vector_options["adaptation_distance"],
+                corrected_sols,
+                translation_param=self.reference_vector_options.adaptation_distance,
             )
-        elif self.reference_vector_options["interactive_adaptation"] == "non_preferred_solutions":
-            if "non_preferred_solutions" not in self.reference_vector_options:
-                raise ValueError("Non-preferred solutions must be specified for interactive adaptation.")
+        elif self.reference_vector_options.non_preferred_solutions:
+            corrected_sols = np.array(
+                [
+                    np.array(self.reference_vector_options.non_preferred_solutions[x]) * self.maximization_mult[x]
+                    for x in self.objective_symbols
+                ]
+            ).T
             self.interactive_adapt_2(
-                np.array([self.reference_vector_options["non_preferred_solutions"][x] for x in self.target_symbols]).T,
-                predefined_distance=self.reference_vector_options["adaptation_distance"],
+                corrected_sols,
+                predefined_distance=self.reference_vector_options.adaptation_distance,
+                ord=2 if self.reference_vector_options.vector_type == "spherical" else 1,
             )
-        elif self.reference_vector_options["interactive_adaptation"] == "preferred_ranges":
-            if "preferred_ranges" not in self.reference_vector_options:
-                raise ValueError("Preferred ranges must be specified for interactive adaptation.")
+        elif self.reference_vector_options.preferred_ranges:
+            corrected_ranges = np.array(
+                [
+                    np.array(self.reference_vector_options.preferred_ranges[x]) * self.maximization_mult[x]
+                    for x in self.objective_symbols
+                ]
+            ).T
             self.interactive_adapt_4(
-                np.array([self.reference_vector_options["preferred_ranges"][x] for x in self.target_symbols]).T,
+                corrected_ranges,
             )
 
     def _create_simplex(self):
@@ -216,14 +217,12 @@ class BaseDecompositionSelector(BaseSelector):
                     break
             return temp_lattice_resolution - 1
 
-        if "lattice_resolution" in self.reference_vector_options:
-            lattice_resolution = self.reference_vector_options["lattice_resolution"]
-        elif "number_of_vectors" in self.reference_vector_options:
-            lattice_resolution = approx_lattice_resolution(
-                self.reference_vector_options["number_of_vectors"], num_dims=self.num_dims
-            )
+        if self.reference_vector_options.lattice_resolution:
+            lattice_resolution = self.reference_vector_options.lattice_resolution
         else:
-            lattice_resolution = approx_lattice_resolution(500, num_dims=self.num_dims)
+            lattice_resolution = approx_lattice_resolution(
+                self.reference_vector_options.number_of_vectors, num_dims=self.num_dims
+            )
 
         number_of_vectors: int = comb(
             lattice_resolution + self.num_dims - 1,
@@ -231,8 +230,8 @@ class BaseDecompositionSelector(BaseSelector):
             exact=True,
         )
 
-        self.reference_vector_options["number_of_vectors"] = number_of_vectors
-        self.reference_vector_options["lattice_resolution"] = lattice_resolution
+        self.reference_vector_options.number_of_vectors = number_of_vectors
+        self.reference_vector_options.lattice_resolution = lattice_resolution
 
         temp1 = range(1, self.num_dims + lattice_resolution)
         temp1 = np.array(list(combinations(temp1, self.num_dims - 1)))
@@ -243,20 +242,31 @@ class BaseDecompositionSelector(BaseSelector):
         for i in range(1, self.num_dims - 1):
             weight[:, i] = temp[:, i] - temp[:, i - 1]
         weight[:, -1] = lattice_resolution - temp[:, -1]
-        self.reference_vectors = weight / lattice_resolution
+        if not self.invert_reference_vectors:  # todo, this currently only exists for nsga3
+            self.reference_vectors = weight / lattice_resolution
+        else:
+            self.reference_vectors = 1 - (weight / lattice_resolution)
         self.reference_vectors_initial = np.copy(self.reference_vectors)
         self._normalize_rvs()
 
     def _normalize_rvs(self):
         """Normalize the reference vectors to a unit hypersphere."""
-        if self.reference_vector_options["vector_type"] == "spherical":
+        if self.reference_vector_options.vector_type == "spherical":
             norm = np.linalg.norm(self.reference_vectors, axis=1).reshape(-1, 1)
             norm[norm == 0] = np.finfo(float).eps
-        elif self.reference_vector_options["vector_type"] == "planar":
-            norm = np.sum(self.reference_vectors, axis=1).reshape(-1, 1)
-        else:
-            raise ValueError("Invalid vector type. Must be either 'spherical' or 'planar'.")
-        self.reference_vectors = np.divide(self.reference_vectors, norm)
+            self.reference_vectors = np.divide(self.reference_vectors, norm)
+            return
+        if self.reference_vector_options.vector_type == "planar":
+            if not self.invert_reference_vectors:
+                norm = np.sum(self.reference_vectors, axis=1).reshape(-1, 1)
+                self.reference_vectors = np.divide(self.reference_vectors, norm)
+                return
+            else:
+                norm = np.sum(1 - self.reference_vectors, axis=1).reshape(-1, 1)
+                self.reference_vectors = 1 - np.divide(1 - self.reference_vectors, norm)
+                return
+        # Not needed due to pydantic validation
+        raise ValueError("Invalid vector type. Must be either 'spherical' or 'planar'.")
 
     def interactive_adapt_1(self, z: np.ndarray, translation_param: float) -> None:
         """Adapt reference vectors using the information about prefererred solution(s) selected by the Decision maker.
@@ -282,7 +292,7 @@ class BaseDecompositionSelector(BaseSelector):
         self._normalize_rvs()
         self.add_edge_vectors()
 
-    def interactive_adapt_2(self, z: np.ndarray, predefined_distance: float) -> None:
+    def interactive_adapt_2(self, z: np.ndarray, predefined_distance: float, ord: int) -> None:
         """Adapt reference vectors by using the information about non-preferred solution(s) selected by the Decision maker.
 
         After the Decision maker has specified non-preferred solution(s), Euclidian distance between normalized solution
@@ -304,12 +314,12 @@ class BaseDecompositionSelector(BaseSelector):
         Args:
             z (np.ndarray): Non-preferred solution(s).
             predefined_distance (float): The reference vectors that are closer than this distance are either removed or
-            re-positioned somewhere else.
-            Default value: 0.2
+                re-positioned somewhere else. Default value: 0.2
+            ord (int): Order of the norm. Default is 2, i.e., Euclidian distance.
         """
         # calculate L1 norm of non-preferred solution(s)
         z = np.atleast_2d(z)
-        norm = np.linalg.norm(z, ord=2, axis=1).reshape(np.shape(z)[0], 1)
+        norm = np.linalg.norm(z, ord=ord, axis=1).reshape(np.shape(z)[0], 1)
 
         # non-preferred solutions normalized
         v_c = np.divide(z, norm)
@@ -397,12 +407,14 @@ class BaseDecompositionSelector(BaseSelector):
         self._normalize_rvs()
 
 
-class ParameterAdaptationStrategy(Enum):
+class ParameterAdaptationStrategy(StrEnum):
     """The parameter adaptation strategies for the RVEA selector."""
 
-    GENERATION_BASED = 1  # Based on the current generation and the maximum generation.
-    FUNCTION_EVALUATION_BASED = 2  # Based on the current function evaluation and the maximum function evaluation.
-    OTHER = 3  # As of yet undefined strategies.
+    GENERATION_BASED = "GENERATION_BASED"  # Based on the current generation and the maximum generation.
+    FUNCTION_EVALUATION_BASED = (
+        "FUNCTION_EVALUATION_BASED"  # Based on the current function evaluation and the maximum function evaluation.
+    )
+    OTHER = "OTHER"  # As of yet undefined strategies.
 
 
 @njit
@@ -557,23 +569,37 @@ class RVEASelector(BaseDecompositionSelector):
         publisher: Publisher,
         alpha: float = 2.0,
         parameter_adaptation_strategy: ParameterAdaptationStrategy = ParameterAdaptationStrategy.GENERATION_BASED,
-        reference_vector_options: ReferenceVectorOptions | None = None,
+        reference_vector_options: ReferenceVectorOptions | dict | None = None,
+        seed: int = 0,
     ):
-        if not isinstance(parameter_adaptation_strategy, ParameterAdaptationStrategy):
+        if parameter_adaptation_strategy not in ParameterAdaptationStrategy:
             raise TypeError(f"Parameter adaptation strategy must be of Type {type(ParameterAdaptationStrategy)}")
         if parameter_adaptation_strategy == ParameterAdaptationStrategy.OTHER:
             raise ValueError("Other parameter adaptation strategies are not yet implemented.")
 
         if reference_vector_options is None:
-            reference_vector_options = ReferenceVectorOptions(
-                adaptation_frequency=100,
-                creation_type="simplex",
-                vector_type="spherical",
-                number_of_vectors=200,
+            reference_vector_options = ReferenceVectorOptions()
+
+        if isinstance(reference_vector_options, dict):
+            reference_vector_options = ReferenceVectorOptions.model_validate(reference_vector_options)
+
+        # Just asserting correct options for RVEA
+        reference_vector_options.vector_type = "spherical"
+        if reference_vector_options.adaptation_frequency == 0:
+            warnings.warn(
+                "Adaptation frequency was set to 0. Setting it to 100 for RVEA selector. "
+                "Set it to 0 only if you provide preference information.",
+                UserWarning,
+                stacklevel=2,
             )
+            reference_vector_options.adaptation_frequency = 100
 
         super().__init__(
-            problem=problem, reference_vector_options=reference_vector_options, verbosity=verbosity, publisher=publisher
+            problem=problem,
+            reference_vector_options=reference_vector_options,
+            verbosity=verbosity,
+            publisher=publisher,
+            seed=seed,
         )
 
         self.reference_vectors_gamma: np.ndarray
@@ -697,8 +723,8 @@ class RVEASelector(BaseDecompositionSelector):
             if message.topic == TerminatorMessageTopics.GENERATION:
                 self.numerator = message.value
                 if (
-                    self.reference_vector_options["adaptation_frequency"] > 0
-                    and self.numerator % self.reference_vector_options["adaptation_frequency"] == 0
+                    self.reference_vector_options.adaptation_frequency > 0
+                    and self.numerator % self.reference_vector_options.adaptation_frequency == 0
                 ):
                     self._adapt()
             if message.topic == TerminatorMessageTopics.MAX_GENERATIONS:
@@ -792,7 +818,34 @@ class RVEASelector(BaseDecompositionSelector):
             self.reference_vectors_gamma[i] = closest_angle
 
 
-class NSGAIII_select(BaseDecompositionSelector):
+@njit
+def jitted_calc_perpendicular_distance(
+    solutions: np.ndarray, ref_dirs: np.ndarray, invert_reference_vectors: bool
+) -> np.ndarray:
+    """Calculate the perpendicular distance between solutions and reference directions.
+
+    Args:
+        solutions (np.ndarray): The normalized solutions.
+        ref_dirs (np.ndarray): The reference directions.
+        invert_reference_vectors (bool): Whether to invert the reference vectors.
+
+    Returns:
+        np.ndarray: The perpendicular distance matrix.
+    """
+    matrix = np.zeros((solutions.shape[0], ref_dirs.shape[0]))
+    for i in range(ref_dirs.shape[0]):
+        for j in range(solutions.shape[0]):
+            if invert_reference_vectors:
+                unit_vector = 1 - ref_dirs[i]
+                unit_vector = -unit_vector / np.linalg.norm(unit_vector)
+            else:
+                unit_vector = ref_dirs[i] / np.linalg.norm(ref_dirs[i])
+            component = ref_dirs[i] - solutions[j] - np.dot(ref_dirs[i] - solutions[j], unit_vector) * unit_vector
+            matrix[j, i] = np.linalg.norm(component)
+    return matrix
+
+
+class NSGA3Selector(BaseDecompositionSelector):
     """The NSGA-III selection operator, heavily based on the version of nsga3 in the pymoo package by msu-coinlab."""
 
     @property
@@ -819,6 +872,7 @@ class NSGAIII_select(BaseDecompositionSelector):
         verbosity: int,
         publisher: Publisher,
         reference_vector_options: ReferenceVectorOptions | None = None,
+        invert_reference_vectors: bool = False,
         seed: int = 0,
     ):
         """Initialize the NSGA-III selection operator.
@@ -828,22 +882,27 @@ class NSGAIII_select(BaseDecompositionSelector):
             verbosity (int): The verbosity level of the operator.
             publisher (Publisher): The publisher to use for communication.
             reference_vector_options (ReferenceVectorOptions | None, optional): Options for the reference vectors. Defaults to None.
+            invert_reference_vectors (bool, optional): Whether to invert the reference vectors. Defaults to False.
             seed (int, optional): The random seed to use. Defaults to 0.
         """
         if reference_vector_options is None:
-            reference_vector_options = ReferenceVectorOptions(
-                adaptation_frequency=0,
-                creation_type="simplex",
-                vector_type="planar",
-                number_of_vectors=200,
-            )
+            reference_vector_options = ReferenceVectorOptions()
+        elif isinstance(reference_vector_options, dict):
+            reference_vector_options = ReferenceVectorOptions.model_validate(reference_vector_options)
+
+        # Just asserting correct options for NSGA-III
+        reference_vector_options.vector_type = "planar"
         super().__init__(
             problem,
             reference_vector_options=reference_vector_options,
             verbosity=verbosity,
             publisher=publisher,
             seed=seed,
+            invert_reference_vectors=invert_reference_vectors,
         )
+        if self.constraints_symbols is not None:
+            raise NotImplementedError("NSGA3 selector does not support constraints. Please use a different selector.")
+
         self.adapted_reference_vectors = None
         self.worst_fitness: np.ndarray | None = None
         self.extreme_points: np.ndarray | None = None
@@ -1067,7 +1126,8 @@ class NSGAIII_select(BaseDecompositionSelector):
 
         # normalize by ideal point and intercepts
         N = (F - utopian_point) / denom
-        dist_matrix = self.calc_perpendicular_distance(N, ref_dirs)
+        # dist_matrix = self.calc_perpendicular_distance(N, ref_dirs)
+        dist_matrix = jitted_calc_perpendicular_distance(N, ref_dirs, self.invert_reference_vectors)
 
         niche_of_individuals = np.argmin(dist_matrix, axis=1)
         dist_to_niche = dist_matrix[np.arange(F.shape[0]), niche_of_individuals]
@@ -1081,8 +1141,12 @@ class NSGAIII_select(BaseDecompositionSelector):
         return niche_count
 
     def calc_perpendicular_distance(self, N, ref_dirs):
-        u = np.tile(ref_dirs, (len(N), 1))
-        v = np.repeat(N, len(ref_dirs), axis=0)
+        if self.invert_reference_vectors:
+            u = np.tile(-ref_dirs, (len(N), 1))
+            v = np.repeat(1 - N, len(ref_dirs), axis=0)
+        else:
+            u = np.tile(ref_dirs, (len(N), 1))
+            v = np.repeat(N, len(ref_dirs), axis=0)
 
         norm_u = np.linalg.norm(u, axis=1)
 
@@ -1244,7 +1308,7 @@ def _ibea_select_all(fitness_components: np.ndarray, population_size: int, kappa
     return ~bad_sols
 
 
-class IBEA_Selector(BaseSelector):
+class IBEASelector(BaseSelector):
     """The adaptive IBEA selection operator.
 
     Reference: Zitzler, E., Künzli, S. (2004). Indicator-Based Selection in Multiobjective Search. In: Yao, X., et al.
@@ -1272,6 +1336,7 @@ class IBEA_Selector(BaseSelector):
         population_size: int,
         kappa: float = 0.05,
         binary_indicator: Callable[[np.ndarray], np.ndarray] = self_epsilon,
+        seed: int = 0,
     ):
         """Initialize the IBEA selector.
 
@@ -1289,13 +1354,15 @@ class IBEA_Selector(BaseSelector):
         # Update 21st August, tested against jmetalpy IBEA. Our version is both faster and better
         # What is happening???
         # Results are similar to this https://github.com/Xavier-MaYiMing/IBEA/
-        super().__init__(problem=problem, verbosity=verbosity, publisher=publisher)
+        super().__init__(problem=problem, verbosity=verbosity, publisher=publisher, seed=seed)
         self.selection: list[int] | None = None
         self.selected_individuals: SolutionType | None = None
         self.selected_targets: pl.DataFrame | None = None
         self.binary_indicator = binary_indicator
         self.kappa = kappa
         self.population_size = population_size
+        if self.constraints_symbols is not None:
+            raise NotImplementedError("IBEA selector does not support constraints. Please use a different selector.")
 
     def do(
         self, parents: tuple[SolutionType, pl.DataFrame], offsprings: tuple[SolutionType, pl.DataFrame]
@@ -1345,6 +1412,321 @@ class IBEA_Selector(BaseSelector):
 
         self.notify()
         return self.selected_individuals, self.selected_targets
+
+    def state(self) -> Sequence[Message]:
+        """Return the state of the selector."""
+        if self.verbosity == 0 or self.selection is None or self.selected_targets is None:
+            return []
+        if self.verbosity == 1:
+            return [
+                DictMessage(
+                    topic=SelectorMessageTopics.STATE,
+                    value={
+                        "population_size": self.population_size,
+                        "selected_individuals": self.selection,
+                    },
+                    source=self.__class__.__name__,
+                )
+            ]
+        # verbosity == 2
+        if isinstance(self.selected_individuals, pl.DataFrame):
+            message = PolarsDataFrameMessage(
+                topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
+                value=pl.concat([self.selected_individuals, self.selected_targets], how="horizontal"),
+                source=self.__class__.__name__,
+            )
+        else:
+            warnings.warn("Population is not a Polars DataFrame. Defaulting to providing OUTPUTS only.", stacklevel=2)
+            message = PolarsDataFrameMessage(
+                topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
+                value=self.selected_targets,
+                source=self.__class__.__name__,
+            )
+        return [
+            DictMessage(
+                topic=SelectorMessageTopics.STATE,
+                value={
+                    "population_size": self.population_size,
+                    "selected_individuals": self.selection,
+                },
+                source=self.__class__.__name__,
+            ),
+            message,
+            NumpyArrayMessage(
+                topic=SelectorMessageTopics.SELECTED_FITNESS,
+                value=self.fitness,
+                source=self.__class__.__name__,
+            ),
+        ]
+
+    def update(self, message: Message) -> None:
+        pass
+
+
+@njit
+def _nsga2_crowding_distance_assignment(
+    non_dominated_front: np.ndarray, f_mins: np.ndarray, f_maxs: np.ndarray
+) -> np.ndarray:
+    """Computes the crowding distance as pecified in the definition of NSGA2.
+
+    This function computed the crowding distances for a non-dominated set of solutions.
+    A smaller value means that a solution is more crowded (worse), while a larger value means
+    it is less crowded (better).
+
+    Note:
+        The boundary point in `non_dominated_front` will be assigned a non-crowding
+            distance value of `np.inf` indicating, that they shouls always be included
+            in later sorting.
+
+    Args:
+        non_dominated_front (np.ndarray): a 2D numpy array (size n x m = number
+            of vectors x number of targets (obejctive funcitons)) containing
+            mutually non-dominated vectors. The values of the vectors correspond to
+            the optimization 'target' (usually the minimized objective function
+            values.)
+        f_mins (np.ndarray): a 1D numpy array of size m containing the minimum objective function
+            values in `non_dominated_front`.
+        f_maxs (np.ndarray): a 1D numpy array of size m containing the maximum objective function
+            values in `non_dominated_front`.
+
+    Returns:
+        np.ndarray: a numpy array of size m containing the crowding distances for each vector
+            in `non_dominated_front`.
+
+    Reference: Deb, K., Pratap, A., Agarwal, S., & Meyarivan, T. A. M. T.
+        (2002). A fast and elitist multiobjective genetic algorithm: NSGA-II. IEEE
+        transactions on evolutionary computation, 6(2), 182-197.
+    """
+    vectors = non_dominated_front  # I
+    num_vectors = vectors.shape[0]  # l
+    num_objectives = vectors.shape[1]
+
+    crowding_distances = np.zeros(num_vectors)  # I[i]_distance
+
+    for m in range(num_objectives):
+        # sort by column (objective)
+        m_order = vectors[:, m].argsort()
+        # inlcude boundary points
+        crowding_distances[m_order[0]], crowding_distances[m_order[-1]] = np.inf, np.inf
+
+        for i in range(1, num_vectors - 1):
+            crowding_distances[m_order[i]] = crowding_distances[m_order[i]] + (
+                vectors[m_order[i + 1], m] - vectors[m_order[i - 1], m]
+            ) / (f_maxs[m] - f_mins[m])
+
+    return crowding_distances
+
+
+class NSGA2Selector(BaseSelector):
+    """Implements the selection operator defined for NSGA2.
+
+    Implements the selection operator defined for NSGA2, which included the crowding
+    distance calculation.
+
+    Reference: Deb, K., Pratap, A., Agarwal, S., & Meyarivan, T. A. M. T.
+        (2002). A fast and elitist multiobjective genetic algorithm: NSGA-II. IEEE
+        transactions on evolutionary computation, 6(2), 182-197.
+    """
+
+    @property
+    def provided_topics(self):
+        """The topics provided for the NSGA2 method."""
+        return {
+            0: [],
+            1: [SelectorMessageTopics.STATE],
+            2: [SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS, SelectorMessageTopics.SELECTED_FITNESS],
+        }
+
+    @property
+    def interested_topics(self):
+        """The topics the NSGA2 method is interested in."""
+        return []
+
+    def __init__(
+        self,
+        problem: Problem,
+        verbosity: int,
+        publisher: Publisher,
+        population_size: int,
+        seed: int = 0,
+    ):
+        super().__init__(problem=problem, verbosity=verbosity, publisher=publisher, seed=seed)
+        if self.constraints_symbols is not None:
+            print(
+                "NSGA2 selector does not currently support constraints. "
+                "Results may vary if used to solve constrainted problems."
+            )
+        self.population_size = population_size
+        self.seed = seed
+        self.selection: list[int] | None = None
+        self.selected_individuals: SolutionType | None = None
+        self.selected_targets: pl.DataFrame | None = None
+
+    def do(
+        self, parents: tuple[SolutionType, pl.DataFrame], offsprings: tuple[SolutionType, pl.DataFrame]
+    ) -> tuple[SolutionType, pl.DataFrame]:
+        """Perform the selection operation."""
+        # First iteration, offspring is empty
+        # Do basic binary tournament selection, recombination, and mutation
+        # In practice, just compute the non-dom ranks and provide them as fitness
+
+        # Off-spring empty (first iteration, compute only non-dominated ranks and provide them as fitness)
+        if offsprings[0].is_empty() and offsprings[1].is_empty():
+            # just compute non-dominated ranks of population and be done
+            parents_a = parents[1][self.target_symbols].to_numpy()
+            fronts = fast_non_dominated_sort(parents_a)
+
+            # assign fitness according to non-dom rank (lower better)
+            scores = np.arange(len(fronts))
+            fitness_values = scores @ fronts
+            self.fitness = fitness_values
+
+            # all selected in first iteration
+            self.selection = list(range(len(parents[1])))
+            self.selected_individuals = parents[0]
+            self.selected_targets = parents[1]
+
+            self.notify()
+
+            return self.selected_individuals, self.selected_targets
+
+        # #Actual selection operator for NSGA2
+
+        # Combine parent and offspring R_t = P_t U Q_t
+        r_solutions = parents[0].vstack(offsprings[0])
+        r_population = parents[1].vstack(offsprings[1])
+        r_targets_arr = r_population[self.target_symbols].to_numpy()
+
+        # the minimum and maximum target values in the whole current population
+        f_mins, f_maxs = np.min(r_targets_arr, axis=0), np.max(r_targets_arr, axis=0)
+
+        # Do fast non-dominated sorting on R_t -> F
+        fronts = fast_non_dominated_sort(r_targets_arr)
+        crowding_distances = np.ones(self.population_size) * np.nan
+        rankings = np.ones(self.population_size) * np.nan
+        fitness_values = np.ones(self.population_size) * np.nan
+
+        # Set the new parent population to P_t+1 = empty and i=1
+        new_parents = np.ones((self.population_size, parents[1].shape[1])) * np.nan
+        new_parents_solutions = np.ones((self.population_size, parents[0].shape[1])) * np.nan
+        parents_ptr = 0  # keep track where stuff was last added
+
+        # the -1 is here because searchsorted returns the index where we can insert the population size to preserve the
+        # order, hence, the previous index of this will be the last element in the cumsum that is less than
+        # the population size
+        last_whole_front_idx = (
+            np.searchsorted(np.cumsum(np.sum(fronts, axis=1)), self.population_size, side="right") - 1
+        )
+
+        last_ranking = 0  # in case first front is larger th population size
+        for i in range(last_whole_front_idx + 1):  # inclusive
+            # The looped front here will result in a new population with size <= 100.
+
+            # Compute the crowding distances for F_i
+            distances = _nsga2_crowding_distance_assignment(r_targets_arr[fronts[i]], f_mins, f_maxs)
+            crowding_distances[parents_ptr : parents_ptr + distances.shape[0]] = (
+                distances  # distances will have same number of elements as in front[i]
+            )
+
+            # keep track of the rankings as well (best = 0, larger worse). First
+            # non-dom front will have a rank fitness of 0.
+            rankings[parents_ptr : parents_ptr + distances.shape[0]] = i
+
+            #   P_t+1 = P_t+1 U F_i
+            new_parents[parents_ptr : parents_ptr + distances.shape[0]] = r_population.filter(fronts[i])
+            new_parents_solutions[parents_ptr : parents_ptr + distances.shape[0]] = r_solutions.filter(fronts[i])
+
+            # compute fitness
+            # infs are checked since boundary points are assigned this value when computing the crowding distance
+            finite_distances = distances[distances != np.inf]
+            max_no_inf = np.nanmax(finite_distances) if finite_distances.size > 0 else np.ones(fronts[i].sum())
+            distances_no_inf = np.nan_to_num(distances, posinf=max_no_inf * 1.1)
+
+            # Distances for the current front normalized between 0 and 1.
+            # The small scalar we add in the nominator and denominator is to
+            # ensure that no distance value would result in exactly 0 after
+            # normalizing, which would increase the corresponding solution
+            # ranking, once reversed, which we do not want to.
+            normalized_distances = (distances_no_inf - (distances_no_inf.min() - 1e-6)) / (
+                distances_no_inf.max() - (distances_no_inf.min() - 1e-6)
+            )
+
+            # since higher is better for the crowded distance, we substract the normalized distances from 1 so that
+            # lower is better, which allows us to combine them with the ranking
+            # No value here should be 1.0 or greater.
+            reversed_distances = 1.0 - normalized_distances
+
+            front_fitness = reversed_distances + rankings[parents_ptr : parents_ptr + distances.shape[0]]
+            fitness_values[parents_ptr : parents_ptr + distances.shape[0]] = front_fitness
+
+            # increment parent pointer
+            parents_ptr += distances.shape[0]
+
+            # keep track of last given rank
+            last_ranking = i
+
+        # deal with last (partial) front, if needed
+        trimmed_and_sorted_indices = None
+        if parents_ptr < self.population_size:
+            distances = _nsga2_crowding_distance_assignment(
+                r_targets_arr[fronts[last_whole_front_idx + 1]], f_mins, f_maxs
+            )
+
+            # Sort F_i in descending order according to crowding distance
+            # This makes picking the selected part of the partial front easier
+            trimmed_and_sorted_indices = distances.argsort()[::-1][: self.population_size - parents_ptr]
+
+            crowding_distances[parents_ptr : self.population_size] = distances[trimmed_and_sorted_indices]
+            rankings[parents_ptr : self.population_size] = last_ranking + 1
+
+            # P_t+1 = P_t+1 U F_i[1: (N - |P_t+1|)]
+            new_parents[parents_ptr : self.population_size] = r_population.filter(fronts[last_whole_front_idx + 1])[
+                trimmed_and_sorted_indices
+            ]
+            new_parents_solutions[parents_ptr : self.population_size] = r_solutions.filter(
+                fronts[last_whole_front_idx + 1]
+            )[trimmed_and_sorted_indices]
+
+            # compute fitness (see above for details)
+            finite_distances = distances[trimmed_and_sorted_indices][distances[trimmed_and_sorted_indices] != np.inf]
+            max_no_inf = (
+                np.nanmax(finite_distances)
+                if finite_distances.size > 0
+                else np.ones(len(trimmed_and_sorted_indices))  # we have only boundary points
+            )
+            distances_no_inf = np.nan_to_num(distances[trimmed_and_sorted_indices], posinf=max_no_inf * 1.1)
+
+            normalized_distances = (distances_no_inf - (distances_no_inf.min() - 1e-6)) / (
+                distances_no_inf.max() - (distances_no_inf.min() - 1e-6)
+            )
+
+            reversed_distances = 1.0 - normalized_distances
+
+            front_fitness = reversed_distances + rankings[parents_ptr : self.population_size]
+            fitness_values[parents_ptr : parents_ptr + self.population_size] = front_fitness
+
+        # back to polars, return values
+        solutions = pl.DataFrame(new_parents_solutions, schema=parents[0].schema)
+        outputs = pl.DataFrame(new_parents, schema=parents[1].schema)
+
+        self.fitness = fitness_values
+
+        whole_fronts = fronts[: last_whole_front_idx + 1]
+        whole_indices = [np.where(row)[0].tolist() for row in whole_fronts]
+
+        if trimmed_and_sorted_indices is not None:
+            # partial front considered
+            partial_front = fronts[last_whole_front_idx + 1]
+            partial_indices = np.where(partial_front)[0][trimmed_and_sorted_indices].tolist()
+        else:
+            partial_indices = []
+
+        self.selection = [index for indices in whole_indices for index in indices] + partial_indices
+        self.selected_individuals = solutions
+        self.selected_targets = outputs
+
+        self.notify()
+        return solutions, outputs
 
     def state(self) -> Sequence[Message]:
         """Return the state of the selector."""

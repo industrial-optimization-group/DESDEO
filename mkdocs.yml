@@ -44,7 +44,8 @@ nav:
   - "Core-Logic Reference":
       - "desdeo-problem": "api/desdeo_problem.md"
       - "desdeo-mcdm": "api/desdeo_mcdm.md"
-      - "desdeo-emo": "api/desdeo_emo.md"
+      - "EMO": "api/desdeo_emo.md"
+      - "EMO Pydantic Interface": "api/EMO Options.md"
       - "desdeo-tools": "api/desdeo_tools.md"
       - "DESDEO REST API": "api/desdeo_api.md"
   - "Web-API":
@@ -132,6 +133,8 @@ markdown_extensions:
   - pymdownx.tabbed:
       alternate_style: true
   - pymdownx.details
+  - toc:
+      toc_depth: 3
 
 extra_css:
   - stylesheets/extra.css

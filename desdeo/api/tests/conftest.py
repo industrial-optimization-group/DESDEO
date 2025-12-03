@@ -7,7 +7,13 @@ from sqlmodel.pool import StaticPool
 
 from desdeo.api.app import app
 from desdeo.api.db import get_session
-from desdeo.api.models import ProblemDB, User, UserRole, ProblemMetaDataDB, ForestProblemMetaData
+from desdeo.api.models import (
+    ForestProblemMetaData,
+    ProblemDB,
+    ProblemMetaDataDB,
+    User,
+    UserRole,
+)
 from desdeo.api.routers.user_authentication import get_password_hash
 from desdeo.problem.testproblems import dtlz2, river_pollution_problem
 
@@ -73,3 +79,31 @@ def client_fixture(session_and_user):
     yield client
 
     app.dependency_overrides.clear()
+
+
+def login(client: TestClient, username="analyst", password="analyst") -> str:  # noqa: S107
+    """Login, returns the access token."""
+    response_login = client.post(
+        "/login",
+        data={"username": username, "password": password, "grant_type": "password"},
+        headers={"content-type": "application/x-www-form-urlencoded"},
+    ).json()
+
+    return response_login["access_token"]
+
+
+def post_json(client: TestClient, endpoint: str, json: dict, access_token: str):
+    """Makes a post request and returns the response."""
+    return client.post(
+        endpoint,
+        json=json,
+        headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
+    )
+
+
+def get_json(client: TestClient, endpoint: str, access_token: str):
+    """Makes a get request and returns the response."""
+    return client.get(
+        endpoint,
+        headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
+    )

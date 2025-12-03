@@ -8,12 +8,11 @@ import polars as pl
 from desdeo.problem import Evaluator, Problem
 from desdeo.tools.message import (
     EvaluatorMessageTopics,
-    GenericMessage,
     IntMessage,
     Message,
     PolarsDataFrameMessage,
 )
-from desdeo.tools.patterns import Subscriber, Publisher
+from desdeo.tools.patterns import Publisher, Subscriber
 
 
 class EMOEvaluator(Subscriber):

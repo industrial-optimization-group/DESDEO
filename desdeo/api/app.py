@@ -3,9 +3,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from desdeo.api.config import AuthDebugConfig, SettingsConfig
+from desdeo.api.config import AuthConfig
 from desdeo.api.routers import (
-    EMO,
+    enautilus,
+    emo,
     generic,
     nimbus,
     problem,
@@ -14,35 +15,34 @@ from desdeo.api.routers import (
     user_authentication,
     utopia,
 )
+from desdeo.api.routers.gdm import gdm_aggregate, gdm_base
+from desdeo.api.routers.gdm.gnimbus import gnimbus_routers
 
-if SettingsConfig.debug:
-    # debug and development stuff
+app = FastAPI(
+    title="DESDEO (fast)API",
+    version="0.1.0",
+    description="A rest API for the DESDEO framework.",
+)
 
-    app = FastAPI(
-        title="DESDEO (fast)API",
-        version="0.1.0",
-        description="A rest API for the DESDEO framework.",
-    )
+app.include_router(user_authentication.router)
+app.include_router(problem.router)
+app.include_router(session.router)
+app.include_router(reference_point_method.router)
+app.include_router(nimbus.router)
+app.include_router(emo.router)
+app.include_router(generic.router)
+app.include_router(utopia.router)
+app.include_router(gdm_base.router)
+app.include_router(gdm_aggregate.router)
+app.include_router(gnimbus_routers.router)
+app.include_router(enautilus.router)
 
-    app.include_router(user_authentication.router)
-    app.include_router(problem.router)
-    app.include_router(session.router)
-    app.include_router(reference_point_method.router)
-    app.include_router(nimbus.router)
-    app.include_router(EMO.router)
-    app.include_router(generic.router)
-    app.include_router(utopia.router)
+origins = AuthConfig.cors_origins
 
-    origins = AuthDebugConfig.cors_origins
-
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-
-else:
-    # deployment stuff
-    pass
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)

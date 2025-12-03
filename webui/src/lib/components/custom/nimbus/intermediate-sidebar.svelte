@@ -3,7 +3,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import type { components } from '$lib/api/client-types';
 	import { Input } from '$lib/components/ui/input/index.js';
-	type Solution = components['schemas']['UserSavedSolutionAddress'];
+	type Solution = components['schemas']['SolutionReferenceResponse'];
 
 		interface Props {
 		onChange?: (event: { value: string}) => void;
@@ -71,7 +71,7 @@
 							{#if solution.name}
                                 <div class="font-medium text-primary">{solution.name}</div>
                             {:else}
-                                <div class="font-medium text-primary">Solution {solution.address_result + 1} (iteration {solution.address_state})</div>
+								<div class="font-medium text-primary">Solution {solution.solution_index!== null ? (solution.solution_index+1) : ""} (iteration {solution.state_id})</div> 
                             {/if}
 					</div>
 				{/each}

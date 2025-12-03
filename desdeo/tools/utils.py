@@ -160,7 +160,12 @@ def guess_best_solver(problem: Problem) -> BaseSolver:  # noqa: PLR0911
     # check if problem has a discrete definition
     has_discrete = problem.discrete_representation is not None
 
-    if True in [isinstance(variable, TensorVariable) for variable in problem.variables]:
+    # TODO: when figured out what solver is best for problems with tensor variables: it seems that e.g. the
+    # forest problems don't work with pyomo_cbc. So VERY MUCH a quick fix to get something working, as those types of
+    # problems have been ok with gurobipy.
+
+    # if True in [isinstance(variable, TensorVariable) for variable in problem.variables]:
+    if False:
         if problem.is_linear and shutil.which("cbc"):
             return available_solvers["pyomo_cbc"]["constructor"]
 

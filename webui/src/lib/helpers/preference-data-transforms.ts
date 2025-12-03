@@ -2,15 +2,20 @@ import type { components } from '$lib/api/client-types';
 
 type ProblemInfo = components['schemas']['ProblemInfo'];
 
+export type Solution = {
+    values: { [key: string]: number };
+    label?: string;
+};
 /**
  * Reference data structure for visualization components
  */
 export type ReferenceData = {
-    referencePoint?: { [key: string]: number };
-    previousReferencePoint?: { [key: string]: number };
+    referencePoint?: Solution;
+    previousReferencePoint?: Solution;
     preferredRanges?: { [key: string]: { min: number; max: number } };
-    preferredSolutions?: Array<{ [key: string]: number }>;
-    nonPreferredSolutions?: Array<{ [key: string]: number }>;
+    preferredSolutions?: Solution[];
+    nonPreferredSolutions?: Solution[];
+    otherSolutions?: Solution[];
 };
 
 /**
@@ -27,26 +32,39 @@ export function createReferenceData(
     previous_preference_values: number[],
     problem: ProblemInfo | null,
     previous_objective_values?: number[][],
+    other_objective_values?: number[][],
+    labels?: {
+        currentRefLabel?: string;
+        previousRefLabel?: string;
+        previousSolutionLabels?: string[];
+        otherSolutionLabels?: string[];
+    },
     tolerancePercent: number = 0.1
 ): ReferenceData | undefined {
     if (!problem?.objectives) return undefined;
 
     // Create reference point from current preferences
-    const referencePoint: { [key: string]: number } = {};
+    const referencePoint: Solution = {
+        values: {},
+        label: labels?.currentRefLabel
+    };
     if (current_preference_values.length > 0) {
         current_preference_values.forEach((value, index) => {
             if (problem.objectives[index]) {
-                referencePoint[problem.objectives[index].symbol] = value;
+                referencePoint.values[problem.objectives[index].symbol] = value;
             }
         });
     }
 
     // Create reference point from previous preferences
-    const previousReferencePoint: { [key: string]: number } = {};
+    const previousReferencePoint: Solution = {
+        values: {},
+        label: labels?.previousRefLabel
+    };
     if (previous_preference_values.length > 0) {
         previous_preference_values.forEach((value, index) => {
             if (problem.objectives[index]) {
-                previousReferencePoint[problem.objectives[index].symbol] = value;
+                previousReferencePoint.values[problem.objectives[index].symbol] = value;
             }
         });
     }
@@ -67,14 +85,17 @@ export function createReferenceData(
     }
 
     // Convert previous objective values to preferred solutions format
-    const preferredSolutions: Array<{ [key: string]: number }> = [];
+    const preferredSolutions: Solution[] = [];
     if (previous_objective_values && previous_objective_values.length > 0 && problem.objectives.length > 0) {
-        previous_objective_values.forEach(solutionArray => {
+        previous_objective_values.forEach((solutionArray, idx) => {
             if (solutionArray.length === problem.objectives.length) {
-                const solutionObj: { [key: string]: number } = {};
+                const solutionObj: Solution = {
+                    values: {},
+                    label: labels?.previousSolutionLabels?.[idx]
+                };
                 solutionArray.forEach((value, index) => {
                     if (problem.objectives[index]) {
-                        solutionObj[problem.objectives[index].symbol] = value;
+                        solutionObj.values[problem.objectives[index].symbol] = value;
                     }
                 });
                 if (Object.keys(solutionObj).length > 0) {
@@ -83,12 +104,33 @@ export function createReferenceData(
             }
         });
     }
-    
+
+    // Convert other objective values to other solutions format
+    const otherSolutions: Solution[] = [];
+    if (other_objective_values && other_objective_values.length > 0 && problem.objectives.length > 0) {
+        other_objective_values.forEach((solutionArray, idx) => {
+            if (solutionArray.length === problem.objectives.length) {
+                const solutionObj: Solution = {
+                    values: {},
+                    label: labels?.otherSolutionLabels?.[idx]
+                };
+                solutionArray.forEach((value, index) => {
+                    if (problem.objectives[index]) {
+                        solutionObj.values[problem.objectives[index].symbol] = value;
+                    }
+                });
+                if (Object.keys(solutionObj).length > 0) {
+                    otherSolutions.push(solutionObj);
+                }
+            }
+        });
+    }
     return {
         referencePoint: Object.keys(referencePoint).length > 0 ? referencePoint : undefined,
         previousReferencePoint: Object.keys(previousReferencePoint).length > 0 ? previousReferencePoint : undefined,
         preferredRanges: Object.keys(preferredRanges).length > 0 ? preferredRanges : undefined,
-        preferredSolutions: preferredSolutions.length > 0 ? preferredSolutions : undefined
+        preferredSolutions: preferredSolutions.length > 0 ? preferredSolutions : undefined,
+        otherSolutions: otherSolutions.length > 0 ? otherSolutions : undefined
     };
 }
 

@@ -769,6 +769,9 @@ class MPTMutation(BaseMutation):
         ]
 
 
+#TODO (@light-weaver): Get rid of the max_generations parameter and instead get it from a message
+# Additionally, allow the operator to use max_evaluations as a basis for decay
+# Make sure that the ratio never exceeds 1.0, otherwise there will be issues
 class NonUniformMutation(BaseMutation):
     """Non-uniform mutation operator.
 

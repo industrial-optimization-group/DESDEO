@@ -1,9 +1,5 @@
 """Utility functions for EMO database operations."""
 
-from typing import List
-from sqlmodel import Session
-from desdeo.api.models.archive import UserSavedEMOResults
-from desdeo.api.models.state import StateDB
 
 def _convert_dataframe_to_dict_list(df):
     """Convert DataFrame to list of dictionaries, handling different DataFrame types."""

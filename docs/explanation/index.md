@@ -15,7 +15,9 @@ hide:
 - **[Solvers](solvers.ipynb):** Learn how DESDEO can be used to interface to different optimizers
 - **[Test problems](test_problems.ipynb):** Learn about different test problems implemented in DESDEO
 - **[Evolutionary Algorithms in DESDEO](templates_and_pub_sub.ipynb):** Learn about the implementation of evolutionary algorithms in DESDEO
+- **[Pydantic Interface for Evolutionary Algorithms](pydantic_interface.md):** Learn about the Pydantic interface that acts as a configuration/abstraction layer for the EA components and templates in DESDEO
 
 ## Web-API
 
 - **[Database models and schema](database_models_and_schema.md):** Learn about the logic behind the models and schema used in the web-API.
+- **[Group Decision Making and Websockets](group_decision_making_and_websockets.md):** Learn about how the Group Decision Making framework built into DESDEO works and how it utilizes websockets.

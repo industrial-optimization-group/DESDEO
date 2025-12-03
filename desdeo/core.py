@@ -2,10 +2,17 @@
 
 import shutil
 import warnings
+from os import getenv
+
+from dotenv import load_dotenv
 
 
 def _check_executables(executable_list):
     missing_executables = []
+    load_dotenv()
+    if getenv("CHECK_EXECUTABLES", "true").lower() == "false":
+        return
+
     for executable in executable_list:
         if shutil.which(executable) is None:
             missing_executables.append(executable)

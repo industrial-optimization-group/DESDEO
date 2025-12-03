@@ -34,6 +34,7 @@ __all__ = [
     "VariableDimensionEnum",
     "VariableDomainTypeEnum",
     "VariableType",
+    "Tensor",
     "VariableTypeEnum",
     "variable_dimension_enumerate",
 ]
@@ -66,6 +67,7 @@ from .schema import (
     Variable,
     VariableDomainTypeEnum,
     VariableType,
+    Tensor,
     VariableTypeEnum,
 )
 from .simulator_evaluator import Evaluator

@@ -2,21 +2,23 @@
 
 from sqlmodel import Session, create_engine
 
-from desdeo.api.config import DatabaseDebugConfig, SettingsConfig
+from desdeo.api.config import DatabaseConfig, SettingsConfig
 
 if SettingsConfig.debug:
     # debug and development stuff
 
     # SQLite setup
-    engine = create_engine(DatabaseDebugConfig.db_database, connect_args={"check_same_thread": False})
+    engine = create_engine(DatabaseConfig.db_database, connect_args={"check_same_thread": False})
 
 else:
-    # deployment stuff
+    DB_USER = DatabaseConfig.db_username
+    DB_PASSWORD = DatabaseConfig.db_password
+    DB_HOST = DatabaseConfig.db_host
+    DB_PORT = DatabaseConfig.db_port
+    DB_NAME = DatabaseConfig.db_database
 
-    # Postgresql setup
-    # check from config.toml
-    # SQLALCHEMY_DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-    pass
+    # Now the use of postgres is hardcoded for deployment, which may be fine
+    engine = create_engine(f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}")
 
 
 def get_session():
