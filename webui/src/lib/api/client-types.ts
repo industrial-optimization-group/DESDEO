@@ -154,12 +154,12 @@ export interface paths {
         put?: never;
         /**
          * Add New Analyst
-         * @description Add a new user of the role Analyst to the database. Requires a logged in analyst or an admin
+         * @description Add a new user of the role Analyst to the database. Requires a logged in analyst or an admin.
          *
          *     Args:
-         *         user Annotated[User, Depends(get_current_user)]: Logged in user with the role "analyst" or "admin".
-         *         form_data (Annotated[OAuth2PasswordRequestForm, Depends()]): The user credentials to add to the database.
-         *         session (Annotated[Session, Depends(get_session)]): the database session.
+         *         user: Annotated[User, Depends(get_current_user)]: Logged in user with the role "analyst" or "admin".
+         *         form_data: (Annotated[OAuth2PasswordRequestForm, Depends()]): The user credentials to add to the database.
+         *         session: (Annotated[Session, Depends(get_session)]): the database session.
          *
          *     Returns:
          *         JSONResponse: A JSON response
@@ -326,6 +326,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/problem/assign_solver": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Select Solver
+         * @description Assign a specific solver for a problem.
+         *
+         *     request: ProblemSelectSolverRequest: The request containing problem id and string representation of the solver
+         *     user: Annotated[User, Depends(get_current_user): The user that is logged in.
+         *     session: Annotated[Session, Depends(get_session)]: The database session.
+         *
+         *     Raises:
+         *         HTTPException: Unknown solver, unauthorized user
+         *
+         *     Returns:
+         *         JSONResponse: A simple confirmation.
+         */
+        post: operations["select_solver_problem_assign_solver_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/session/new": {
         parameters: {
             query?: never;
@@ -389,7 +419,16 @@ export interface paths {
         put?: never;
         /**
          * Solve Solutions
-         * @description .
+         * @description Runs an iteration of the reference point method.
+         *
+         *     Args:
+         *         request (RPMSolveRequest): a request with the needed information to run the method.
+         *         user (Annotated[User, Depends): the current user.
+         *         session (Annotated[Session, Depends): the current database session.
+         *
+         *     Returns:
+         *         RPMState: a state with information on the results of iterating the reference point method
+         *             once.
          */
         post: operations["solve_solutions_method_rpm_solve_post"];
         delete?: never;
@@ -498,6 +537,183 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/method/nimbus/finalize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finalize Nimbus
+         * @description An endpoint for finishing up the nimbus process.
+         *
+         *     Args:
+         *         request (NIMBUSFinalizeRequest): The request containing the final solution, etc.
+         *         user (Annotated[User, Depends): The current user.
+         *         session (Annotated[Session, Depends): The database session.
+         *
+         *     Raises:
+         *         HTTPException
+         *
+         *     Returns:
+         *         NIMBUSFinalizeResponse: Response containing state id of the final solution.
+         */
+        post: operations["finalize_nimbus_method_nimbus_finalize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/method/nimbus/delete_save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete Save
+         * @description Endpoint for deleting saved solutions.
+         *
+         *     Args:
+         *         request (NIMBUSDeleteSaveRequest): request containing necessary information for deleting a save
+         *         user (Annotated[User, Depends): the current  (logged in) user
+         *         session (Annotated[Session, Depends): database session
+         *
+         *     Raises:
+         *         HTTPException
+         *
+         *     Returns:
+         *         NIMBUSDeleteSaveResponse: Response acknowledging the deletion of save and other useful info.
+         */
+        post: operations["delete_save_method_nimbus_delete_save_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/method/nimbus/get_solution_details": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get Solution Details
+         * @description Get detailed solution information including Lagrange multipliers.
+         */
+        post: operations["get_solution_details_method_nimbus_get_solution_details_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/method/emo/iterate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Iterate
+         * @description Starts the EMO method.
+         *
+         *     Args:
+         *         request (EMOSolveRequest): The request object containing parameters for the EMO method.
+         *         user (Annotated[User, Depends]): The current user.
+         *         session (Annotated[Session, Depends]): The database session.
+         *
+         *     Raises:
+         *         HTTPException: If the request is invalid or the EMO method fails.
+         *
+         *     Returns:
+         *         IterateResponse: A response object containing a list of IDs to be used for websocket communication.
+         *             Also contains the StateDB id where the results will be stored.
+         */
+        post: operations["iterate_method_emo_iterate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/method/emo/fetch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fetch Results
+         * @description Fetches results from a completed EMO method.
+         *
+         *     Args:
+         *         request (EMOFetchRequest): The request object containing parameters for fetching results.
+         *         user (Annotated[User, Depends]): The current user.
+         *         session (Annotated[Session, Depends]): The database session.
+         *
+         *     Raises:
+         *         HTTPException: If the request is invalid or the EMO method has not completed.
+         *
+         *     Returns:
+         *         StreamingResponse: A streaming response containing the results of the EMO method.
+         */
+        post: operations["fetch_results_method_emo_fetch_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/method/emo/fetch_score": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fetch Score Bands
+         * @description Fetches results from a completed EMO method.
+         *
+         *     Args:
+         *         request (EMOFetchRequest): The request object containing parameters for fetching results and of the SCORE bands
+         *             visualization.
+         *         user (Annotated[User, Depends]): The current user.
+         *         session (Annotated[Session, Depends]): The database session.
+         *
+         *     Raises:
+         *         HTTPException: If the request is invalid or the EMO method has not completed.
+         *
+         *     Returns:
+         *         SCOREBandsResult: The results of the SCORE bands visualization.
+         */
+        post: operations["fetch_score_bands_method_emo_fetch_score_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/method/generic/intermediate": {
         parameters: {
             query?: never;
@@ -549,10 +765,11 @@ export interface paths {
         put?: never;
         /**
          * Get Utopia Data
-         * @description Request and receive the Utopia map corresponding to the decision variables sent. Can be just the optimal_variables form a SolverResult.
+         * @description Request and receive the Utopia map corresponding to the decision variables sent.
          *
          *     Args:
-         *         request (UtopiaRequest): the set of decision variables and problem for which the utopia forest map is requested for.
+         *         request (UtopiaRequest): the set of decision variables and problem for which the utopia forest map is requested
+         *         for.
          *         user (Annotated[User, Depend(get_current_user)]) the current user
          *         session (Annotated[Session, Depends(get_session)]) the current database session
          *     Raises:
@@ -567,10 +784,350 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/gdm/create_group": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Group
+         * @description Create group.
+         *
+         *     Args:
+         *         request (GroupCreateRequest): a request that holds information to be used in creation of the group.
+         *         user (Annotated[User, Depends(get_current_user)]): the current user.
+         *         session (Annotated[Session, Depends(get_session)]): the database session.
+         *
+         *     Returns:
+         *         JSONResponse: Aknowledgement that the gourp was created
+         *
+         *     Raises:
+         *         HTTPException
+         */
+        post: operations["create_group_gdm_create_group_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gdm/delete_group": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete Group
+         * @description Delete the group with given ID.
+         *
+         *     Args:
+         *         request (GroupInfoRequest): Contains the ID of the group to be deleted
+         *         user (Annotated[User, Depends(get_current_user)]): The user (in this case must be owner for anything to happen)
+         *         session (Annotated[Session, Depends(get_session)]): The database session
+         *
+         *     Returns:
+         *         JSONResponse: Aknowledgement of the deletion
+         *
+         *     Raises:
+         *         HTTPException: Insufficient authorization etc.
+         */
+        post: operations["delete_group_gdm_delete_group_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gdm/add_to_group": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add To Group
+         * @description Add a user to a group.
+         *
+         *     Args:
+         *         request (GroupModifyRequest): Request object that has group and user IDs.
+         *         user (Annotated[User, Depends(get_current_user)]): the current user.
+         *         session (Annotated[Session, Depends(get_session)]): the database session.
+         *
+         *     Returns:
+         *         JSONResponse: Aknowledge that user has been added to the group
+         *
+         *     Raises:
+         *         HTTPException: Authorization issues, group or user not found.
+         */
+        post: operations["add_to_group_gdm_add_to_group_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gdm/remove_from_group": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove From Group
+         * @description Remove user from group.
+         *
+         *     Args:
+         *         request (GroupModifyRequest): Request object that has group and user IDs.
+         *         user (Annotated[User, Depends(get_current_user)]): the current user.
+         *         session (Annotated[Session, Depends(get_session)]): the database session.
+         *
+         *     Returns:
+         *         JSONResponse: Aknowledge that user has been removed from the group.
+         *
+         *     Raises:
+         *         HTTPException: Authorization issues, group or user not found.
+         */
+        post: operations["remove_from_group_gdm_remove_from_group_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gdm/get_group_info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get Group Info
+         * @description Get information about the group.
+         *
+         *     Args:
+         *         request (GroupInfoRequest): the id of the group for which we desire info on
+         *         session (Annotated[Session, Depends(get_session)]): the database session
+         *
+         *     Returns:
+         *         GroupPublic: public info of the group
+         *
+         *     Raises:
+         *         HTTPException: If there's no group with the requests group id
+         */
+        post: operations["get_group_info_gdm_get_group_info_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gnimbus/initialize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Gnimbus Initialize
+         * @description Initialize the problem for GNIMBUS.
+         */
+        post: operations["gnimbus_initialize_gnimbus_initialize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gnimbus/get_latest_results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get Latest Results
+         * @description Get the latest results from group iteration.
+         *
+         *     Args:
+         *         request (GroupInfoRequest): essentially just the ID of the group
+         *         user (Annotated[User, Depends(get_current_user)]): Current user
+         *         session (Annotated[Session, Depends(get_session)]): Database session.
+         *
+         *     Returns:
+         *         GNIMBUSResultResponse: A GNIMBUSResultResponse response containing the latest gnimbus results
+         *
+         *     Raises:
+         *         HTTPException: Validation errors or no results
+         */
+        post: operations["get_latest_results_gnimbus_get_latest_results_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gnimbus/all_iterations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Full Iteration
+         * @description Get all results from all iterations of the group.
+         *
+         *     Args:
+         *         request (GroupInfoRequest): essentially just the ID of the group
+         *         user (Annotated[User, Depends(get_current_user)]): current user
+         *         session (Annotated[Session, Depends(get_session)]): current session
+         *
+         *     Returns:
+         *         GNIMBUSAllIterationsResponse: A GNIMBUSAllIterationsResponse response
+         *         containing all the results of the iterations. If last iteration was optimization,
+         *         the first iteration is incomplete (i.e. the voting preferences and voting results are missing)
+         *
+         *     Raises:
+         *         HTTPException: Validation errors or no results or no states and such.
+         */
+        post: operations["full_iteration_gnimbus_all_iterations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gnimbus/toggle_phase": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Switch Phase
+         * @description Switch the phase from one to another. "learning", "crp", "decision" and "compromise" phases are allowed.
+         */
+        post: operations["switch_phase_gnimbus_toggle_phase_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gnimbus/get_phase": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get Phase
+         * @description Get the current phase of the group.
+         */
+        post: operations["get_phase_gnimbus_get_phase_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/method/enautilus/step": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Step
+         * @description .
+         */
+        post: operations["step_method_enautilus_step_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * BinaryFlipMutationOptions
+         * @description Options for Binary Flip Mutation.
+         */
+        BinaryFlipMutationOptions: {
+            /**
+             * Name
+             * @description The name of the mutation operator.
+             * @default BinaryFlipMutation
+             * @constant
+             */
+            name: "BinaryFlipMutation";
+            /**
+             * Mutation Probability
+             * @description The probability of mutation. Defaults to None, which sets the mutation probability to 1/<number of decision variables>.
+             */
+            mutation_probability?: number | null;
+        };
+        /**
+         * BlendAlphaCrossoverOptions
+         * @description Options for Blend Alpha Crossover.
+         */
+        BlendAlphaCrossoverOptions: {
+            /**
+             * Name
+             * @description The name of the crossover operator.
+             * @default BlendAlphaCrossover
+             * @constant
+             */
+            name: "BlendAlphaCrossover";
+            /**
+             * Alpha
+             * @description Non-negative blending factor 'alpha' that controls the extent to which offspring may be sampled outside the interval defined by each pair of parent genes. alpha = 0 restricts children strictly within the parents range, larger alpha allows some outliers.
+             * @default 0.5
+             */
+            alpha: number;
+            /**
+             * Xover Probability
+             * @default 1
+             */
+            xover_probability: number;
+        };
         /** Body_add_new_analyst_add_new_analyst_post */
         Body_add_new_analyst_add_new_analyst_post: {
             /** Grant Type */
@@ -642,6 +1199,108 @@ export interface components {
              * Format: password
              */
             client_secret?: string | null;
+        };
+        /**
+         * BoundedExponentialCrossoverOptions
+         * @description Options for Bounded Exponential Crossover.
+         */
+        BoundedExponentialCrossoverOptions: {
+            /**
+             * Name
+             * @description The name of the crossover operator.
+             * @default BoundedExponentialCrossover
+             * @constant
+             */
+            name: "BoundedExponentialCrossover";
+            /**
+             * Xover Probability
+             * @description The crossover probability.
+             * @default 1
+             */
+            xover_probability: number;
+            /**
+             * Lambda
+             * @description Positive scale λ for the exponential distribution.
+             * @default 1
+             */
+            lambda_: number;
+        };
+        /**
+         * BoundedPolynomialMutationOptions
+         * @description Options for Bounded Polynomial Mutation.
+         */
+        BoundedPolynomialMutationOptions: {
+            /**
+             * Name
+             * @description The name of the mutation operator.
+             * @default BoundedPolynomialMutation
+             * @constant
+             */
+            name: "BoundedPolynomialMutation";
+            /**
+             * Mutation Probability
+             * @description The probability of mutation. Defaults to None, which sets the mutation probability to
+             *     1/<number of decision variables>.
+             */
+            mutation_probability?: number | null;
+            /**
+             * Distribution Index
+             * @description The distribution index.
+             * @default 20
+             */
+            distribution_index: number;
+        };
+        /**
+         * ClipRepairOptions
+         * @description Options for Clip Repair.
+         */
+        ClipRepairOptions: {
+            /**
+             * Name
+             * @description Clip the solutions to be within the variable bounds.
+             * @default ClipRepair
+             * @constant
+             */
+            name: "ClipRepair";
+            /**
+             * Lower Bounds
+             * @description Lower bounds for the decision variables. If none, the lower bounds from the problem will be used.
+             */
+            lower_bounds?: {
+                [key: string]: number;
+            } | null;
+            /**
+             * Upper Bounds
+             * @description Upper bounds for the decision variables. If none, the upper bounds from the problem will be used.
+             */
+            upper_bounds?: {
+                [key: string]: number;
+            } | null;
+        };
+        /**
+         * CompositeTerminatorOptions
+         * @description Options for composite terminator operator.
+         */
+        CompositeTerminatorOptions: {
+            /**
+             * Name
+             * @description The name of the termination operator.
+             * @default CompositeTerminator
+             * @constant
+             */
+            name: "CompositeTerminator";
+            /**
+             * Terminators
+             * @description List of terminators.
+             */
+            terminators?: (components["schemas"]["MaxEvaluationsTerminatorOptions"] | components["schemas"]["MaxGenerationsTerminatorOptions"] | components["schemas"]["MaxTimeTerminatorOptions"] | components["schemas"]["ExternalCheckTerminatorOptions"])[];
+            /**
+             * Mode
+             * @description Whether to use logical AND or OR.
+             * @default any
+             * @enum {string}
+             */
+            mode: "all" | "any";
         };
         /**
          * ConstantDB
@@ -731,6 +1390,113 @@ export interface components {
             info?: string | null;
         };
         /**
+         * CustomClusterOptions
+         * @description Options for custom clustering provided by the user.
+         */
+        CustomClusterOptions: {
+            /**
+             * Name
+             * @description Custom user-provided clusters.
+             * @default Custom
+             */
+            name: string;
+            /**
+             * Clusters
+             * @description List of cluster IDs (one for each solution) indicating the cluster to which each solution belongs.
+             */
+            clusters: number[];
+        };
+        /**
+         * DBSCANOptions
+         * @description Options for DBSCAN clustering algorithm.
+         */
+        DBSCANOptions: {
+            /**
+             * Name
+             * @description DBSCAN clustering algorithm.
+             * @default DBSCAN
+             */
+            name: string;
+        };
+        /**
+         * DesirableRangesOptions
+         * @description Options for providing desirable ranges for an EA.
+         */
+        DesirableRangesOptions: {
+            /**
+             * Name
+             * @description The name of the preferred ranges option.
+             * @default preferred_ranges
+             * @constant
+             */
+            name: "preferred_ranges";
+            /**
+             * Aspiration Levels
+             * @description The aspiration levels as a dictionary with objective function symbols as the keys.
+             */
+            aspiration_levels: {
+                [key: string]: number;
+            };
+            /**
+             * Reservation Levels
+             * @description The reservation levels as a dictionary with objective function symbols as the keys.
+             */
+            reservation_levels: {
+                [key: string]: number;
+            };
+            /**
+             * Method
+             * @description The method for handling the desirable ranges.
+             * @default Hakanen
+             * @enum {string}
+             */
+            method: "Hakanen" | "DF transformation";
+            /**
+             * Desirability Levels
+             * @description The desirability levels as a tuple (high, low). Used if method is DF transformation. If None, default levels (0.9, 0.1) are used.
+             * @default [
+             *       0.9,
+             *       0.1
+             *     ]
+             */
+            desirability_levels: [
+                number,
+                number
+            ];
+        };
+        /**
+         * DimensionClusterOptions
+         * @description Options for clustering by one of the objectives/decision variables.
+         */
+        DimensionClusterOptions: {
+            /**
+             * Name
+             * @description Clustering by one of the dimensions.
+             * @default DimensionCluster
+             */
+            name: string;
+            /**
+             * Dimension Name
+             * @description Dimension to use for clustering.
+             */
+            dimension_name: string;
+            /**
+             * N Clusters
+             * @description Number of clusters to use. Defaults to 5.
+             * @default 5
+             */
+            n_clusters: number;
+            /**
+             * Kind
+             * @description Kind of clustering to use. Either "EqualWidth", which divides the dimension range into equal width intervals,
+             *     or "EqualFrequency", which divides the dimension values into intervals with equal number of solutions.
+             *     Defaults to "EqualWidth".
+             * @default EqualWidth
+             * @enum {string}
+             */
+            kind: "EqualWidth" | "EqualFrequency";
+        };
+        /**
          * DiscreteRepresentationDB
          * @description The SQLModel equivalent to `DiscreteRepresentation`.
          */
@@ -752,6 +1518,263 @@ export interface components {
             id?: number | null;
             /** Problem Id */
             problem_id?: number | null;
+        };
+        /**
+         * DistanceFormula
+         * @description Distance formulas supported by SCORE bands. See the paper for details.
+         * @enum {integer}
+         */
+        DistanceFormula: 1 | 2;
+        /**
+         * EMOFetchRequest
+         * @description Model of the request to fetch solutions from an EMO method.
+         */
+        EMOFetchRequest: {
+            /**
+             * Problem Id
+             * @description Database ID of the problem to solve.
+             */
+            problem_id: number;
+            /** Session Id */
+            session_id?: number | null;
+            /**
+             * Parent State Id
+             * @description State ID of the parent state, if any. Should be None if this is the first state in a session.
+             */
+            parent_state_id?: number | null;
+            /**
+             * Num Solutions
+             * @description Number of solutions to fetch. If 0, fetch all solutions.
+             * @default 0
+             */
+            num_solutions: number;
+        };
+        /**
+         * EMOIterateRequest
+         * @description Model of the request to iterate an EMO method.
+         */
+        EMOIterateRequest: {
+            /**
+             * Problem Id
+             * @description Database ID of the problem to solve.
+             */
+            problem_id: number;
+            /** Session Id */
+            session_id?: number | null;
+            /**
+             * Parent State Id
+             * @description State ID of the parent state, if any. Should be None if this is the first state in a session.
+             */
+            parent_state_id?: number | null;
+            /**
+             * Template Options
+             * @description Options for the template to use. A list of options can be given if multiple templates are used in parallel.
+             */
+            template_options?: (components["schemas"]["Template1Options"] | components["schemas"]["Template2Options"])[] | null;
+            /**
+             * Preference Options
+             * @description Options for the preference handling.
+             */
+            preference_options?: components["schemas"]["ReferencePointOptions"] | components["schemas"]["DesirableRangesOptions"] | components["schemas"]["PreferredSolutionsOptions"] | components["schemas"]["NonPreferredSolutionsOptions"] | null;
+        };
+        /**
+         * EMOIterateResponse
+         * @description Model of the response to an EMO iterate request.
+         */
+        EMOIterateResponse: {
+            /**
+             * Method Ids
+             * @description IDs of the EMO methods using websockets to get/send updates.
+             */
+            method_ids: string[];
+            /**
+             * Client Id
+             * @description Client ID to use when connecting to the websockets.
+             */
+            client_id: string;
+            /**
+             * State Id
+             * @description The state ID of the newly created state.
+             */
+            state_id: number;
+        };
+        /**
+         * EMOScoreRequest
+         * @description Request model for getting SCORE bands visualization data from state.
+         */
+        EMOScoreRequest: {
+            /**
+             * Problem Id
+             * @description Database ID of the problem to solve.
+             */
+            problem_id: number;
+            /** Session Id */
+            session_id?: number | null;
+            /**
+             * Parent State Id
+             * @description State ID of the parent state, if any.
+             */
+            parent_state_id?: number | null;
+            /** @description Configuration for the SCORE bands visualization. */
+            config?: components["schemas"]["SCOREBandsConfig"] | null;
+            /**
+             * Solution Ids
+             * @description List of solution IDs to score.
+             */
+            solution_ids: number[];
+        };
+        /**
+         * EMOScoreResponse
+         * @description Model of the response to an EMO score request.
+         */
+        EMOScoreResponse: {
+            /**
+             * State Id
+             * @description The state ID of the newly created state.
+             */
+            state_id?: number | null;
+            result: components["schemas"]["SCOREBandsResult"];
+        };
+        /**
+         * ENautilusResult
+         * @description The result of an iteration of the E-NAUTILUS method.
+         */
+        ENautilusResult: {
+            /**
+             * Current Iteration
+             * @description Number of the current iteration.
+             */
+            current_iteration: number;
+            /**
+             * Iterations Left
+             * @description Number of iterations left.
+             */
+            iterations_left: number;
+            /**
+             * Intermediate Points
+             * @description New intermediate points
+             */
+            intermediate_points: {
+                [key: string]: number;
+            }[];
+            /**
+             * Reachable Best Bounds
+             * @description Best bounds of the objective function values reachable from each intermediate point.
+             */
+            reachable_best_bounds: {
+                [key: string]: number;
+            }[];
+            /**
+             * Reachable Worst Bounds
+             * @description Worst bounds of the objective function values reachable from each intermediate point.
+             */
+            reachable_worst_bounds: {
+                [key: string]: number;
+            }[];
+            /**
+             * Closeness Measures
+             * @description Closeness measures of each intermediate point.
+             */
+            closeness_measures: number[];
+            /**
+             * Reachable Point Indices
+             * @description Indices of the reachable points from each intermediate point.
+             */
+            reachable_point_indices: number[][];
+        };
+        /**
+         * ENautilusState
+         * @description E-NAUTILUS: one stepping iteration.
+         */
+        ENautilusState: {
+            /** Id */
+            id?: number | null;
+            /** Non Dominated Solutions Id */
+            non_dominated_solutions_id?: number | null;
+            /** Current Iteration */
+            current_iteration: number;
+            /** Iterations Left */
+            iterations_left: number;
+            /** Selected Point */
+            selected_point?: {
+                [key: string]: number;
+            } | null;
+            /** Reachable Point Indices */
+            reachable_point_indices?: number[];
+            /** Number Of Intermediate Points */
+            number_of_intermediate_points: number;
+            enautilus_results: components["schemas"]["ENautilusResult"];
+        };
+        /**
+         * EnautilusStepRequest
+         * @description Model of the request to the E-NAUTILUS method.
+         */
+        EnautilusStepRequest: {
+            /** Problem Id */
+            problem_id: number;
+            /** Session Id */
+            session_id?: number | null;
+            /** Parent State Id */
+            parent_state_id?: number | null;
+            /** Representative Solutions Id */
+            representative_solutions_id?: number | null;
+            /**
+             * Current Iteration
+             * @description The number of the current iteration.
+             */
+            current_iteration: number;
+            /**
+             * Iterations Left
+             * @description The number of iterations left.
+             */
+            iterations_left: number;
+            /**
+             * Selected Point
+             * @description The selected intermediate point. If first iteration, set this to be the (approximated) nadir point.
+             */
+            selected_point: {
+                [key: string]: number;
+            };
+            /**
+             * Reachable Point Indices
+             * @description The indices indicating the point on the non-dominated set that are reachable from the currently selected point.
+             */
+            reachable_point_indices: number[];
+            /**
+             * Number Of Intermediate Points
+             * @description The number of intermediate points to be generated.
+             */
+            number_of_intermediate_points: number;
+        };
+        /**
+         * EndProcessPreference
+         * @description A model for determining if everyone is happy with current solution so we can end the process.
+         */
+        EndProcessPreference: {
+            /**
+             * Method
+             * @default end
+             */
+            method: string;
+            /** Success */
+            success: boolean | null;
+            /** Set Preferences */
+            set_preferences: {
+                [key: string]: boolean;
+            };
+        };
+        /**
+         * ExternalCheckTerminatorOptions
+         * @description Options for external check terminator operator. Note that the check function must be provided separately.
+         */
+        ExternalCheckTerminatorOptions: {
+            /**
+             * Name
+             * @description The name of the termination operator.
+             * @default ExternalCheckTerminator
+             * @constant
+             */
+            name: "ExternalCheckTerminator";
         };
         /**
          * ExtraFunctionDB
@@ -831,6 +1854,91 @@ export interface components {
             compensation?: number | null;
         };
         /**
+         * FullIteration
+         * @description A full iteration item containing results from a complete or incomplete iteration.
+         */
+        FullIteration: {
+            /** Phase */
+            phase: string;
+            optimization_preferences: components["schemas"]["OptimizationPreference"] | null;
+            /** Voting Preferences */
+            voting_preferences: components["schemas"]["VotingPreference"] | components["schemas"]["EndProcessPreference"] | null;
+            starting_result: components["schemas"]["SolutionReference"] | null;
+            /** Common Results */
+            common_results: components["schemas"]["SolutionReference"][];
+            /** User Results */
+            user_results: components["schemas"]["SolutionReference"][];
+            /** Personal Result Index */
+            personal_result_index: number | null;
+            final_result: components["schemas"]["SolutionReference"] | null;
+        };
+        /**
+         * GMMOptions
+         * @description Options for Gaussian Mixture Model clustering algorithm.
+         */
+        GMMOptions: {
+            /**
+             * Name
+             * @description Gaussian Mixture Model clustering algorithm.
+             * @default GMM
+             */
+            name: string;
+            /**
+             * Scoring Method
+             * @description Scoring method to use for GMM. Either "BIC" or "silhouette". Defaults to "silhouette".
+             *     This option determines how the number of clusters is chosen.
+             * @default silhouette
+             * @enum {string}
+             */
+            scoring_method: "BIC" | "silhouette";
+        };
+        /**
+         * GNIMBUSAllIterationsResponse
+         * @description The response model for getting all found solutions among others.
+         */
+        GNIMBUSAllIterationsResponse: {
+            /** All Full Iterations */
+            all_full_iterations: components["schemas"]["FullIteration"][];
+        };
+        /**
+         * GNIMBUSResultResponse
+         * @description The response for getting GNIMBUS results.
+         */
+        GNIMBUSResultResponse: {
+            /** Method */
+            method: string;
+            /** Phase */
+            phase: string;
+            /** Preferences */
+            preferences: components["schemas"]["VotingPreference"] | components["schemas"]["OptimizationPreference"];
+            /** Common Results */
+            common_results: components["schemas"]["SolutionReference"][];
+            /** User Results */
+            user_results: components["schemas"]["SolutionReference"][];
+            /** Personal Result Index */
+            personal_result_index: number | null;
+        };
+        /**
+         * GNIMBUSSwitchPhaseRequest
+         * @description A request for a certain phase. Comes from the group owner/analyst.
+         */
+        GNIMBUSSwitchPhaseRequest: {
+            /** Group Id */
+            group_id: number;
+            /** New Phase */
+            new_phase: string;
+        };
+        /**
+         * GNIMBUSSwitchPhaseResponse
+         * @description A response for the above request.
+         */
+        GNIMBUSSwitchPhaseResponse: {
+            /** Old Phase */
+            old_phase: string;
+            /** New Phase */
+            new_phase: string;
+        };
+        /**
          * GenericIntermediateSolutionResponse
          * @description The response from computing intermediate values.
          */
@@ -858,10 +1966,103 @@ export interface components {
             /** Session Id */
             session_id: number;
         };
+        /**
+         * GroupCreateRequest
+         * @description Used for requesting a group to be created.
+         */
+        GroupCreateRequest: {
+            /** Group Name */
+            group_name: string;
+            /** Problem Id */
+            problem_id: number;
+        };
+        /**
+         * GroupInfoRequest
+         * @description Class for requesting group information.
+         */
+        GroupInfoRequest: {
+            /** Group Id */
+            group_id: number;
+        };
+        /**
+         * GroupModifyRequest
+         * @description Used for adding a user into group and removing a user from group.
+         */
+        GroupModifyRequest: {
+            /** Group Id */
+            group_id: number;
+            /** User Id */
+            user_id: number;
+        };
+        /**
+         * GroupPublic
+         * @description Response model for Group.
+         */
+        GroupPublic: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Owner Id */
+            owner_id: number;
+            /** User Ids */
+            user_ids: number[];
+            /** Problem Id */
+            problem_id: number;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * IBEASelectorOptions
+         * @description Options for IBEA Selection.
+         */
+        IBEASelectorOptions: {
+            /**
+             * Name
+             * @description The name of the selection operator.
+             * @default IBEASelector
+             * @constant
+             */
+            name: "IBEASelector";
+            /**
+             * Population Size
+             * @description The population size.
+             */
+            population_size: number;
+            /**
+             * Kappa
+             * @description The kappa parameter for IBEA.
+             * @default 0.05
+             */
+            kappa: number;
+            /**
+             * Binary Indicator
+             * @description The binary indicator for IBEA.
+             * @default eps
+             * @enum {string}
+             */
+            binary_indicator: "eps" | "hv";
+        };
+        /**
+         * IntegerRandomMutationOptions
+         * @description Options for Integer Random Mutation.
+         */
+        IntegerRandomMutationOptions: {
+            /**
+             * Name
+             * @description The name of the mutation operator.
+             * @default IntegerRandomMutation
+             * @constant
+             */
+            name: "IntegerRandomMutation";
+            /**
+             * Mutation Probability
+             * @description The probability of mutation. Defaults to None, which sets the mutation probability to 1/<number of decision variables>.
+             */
+            mutation_probability?: number | null;
         };
         /**
          * InteractiveSessionBase
@@ -905,6 +2106,160 @@ export interface components {
             num_desired: number | null;
             reference_solution_1: components["schemas"]["SolutionInfo"];
             reference_solution_2: components["schemas"]["SolutionInfo"];
+        };
+        /**
+         * KMeansOptions
+         * @description Options for KMeans clustering algorithm.
+         */
+        KMeansOptions: {
+            /**
+             * Name
+             * @description KMeans clustering algorithm.
+             * @default KMeans
+             */
+            name: string;
+            /**
+             * N Clusters
+             * @description Number of clusters to use. Defaults to 5.
+             * @default 5
+             */
+            n_clusters: number;
+        };
+        /**
+         * LHSGeneratorOptions
+         * @description Options for Latin Hypercube Sampling (LHS) generator.
+         */
+        LHSGeneratorOptions: {
+            /**
+             * N Points
+             * @description The number of points to generate for the initial population.
+             */
+            n_points: number;
+            /**
+             * Name
+             * @description The name of the generator.
+             * @default LHSGenerator
+             * @constant
+             */
+            name: "LHSGenerator";
+        };
+        /**
+         * LocalCrossoverOptions
+         * @description Options for Local Crossover.
+         */
+        LocalCrossoverOptions: {
+            /**
+             * Name
+             * @description The name of the crossover operator.
+             * @default LocalCrossover
+             * @constant
+             */
+            name: "LocalCrossover";
+            /**
+             * Xover Probability
+             * @description The crossover probability.
+             * @default 1
+             */
+            xover_probability: number;
+        };
+        /**
+         * MPTMutationOptions
+         * @description Options for MPT Mutation.
+         */
+        MPTMutationOptions: {
+            /**
+             * Name
+             * @description The name of the mutation operator.
+             * @default MPTMutation
+             * @constant
+             */
+            name: "MPTMutation";
+            /**
+             * Mutation Probability
+             * @description The probability of mutation. Defaults to None, which sets the mutation probability to 1/<number of decision variables>.
+             */
+            mutation_probability?: number | null;
+            /**
+             * Mutation Exponent
+             * @description Controls strength of small mutation (larger means smaller mutations).
+             * @default 2
+             */
+            mutation_exponent: number;
+        };
+        /**
+         * MaxEvaluationsTerminatorOptions
+         * @description Options for max evaluations terminator operator.
+         */
+        MaxEvaluationsTerminatorOptions: {
+            /**
+             * Name
+             * @description The name of the termination operator.
+             * @default MaxEvaluationsTerminator
+             * @constant
+             */
+            name: "MaxEvaluationsTerminator";
+            /**
+             * Max Evaluations
+             * @description The maximum number of evaluations allowed.
+             * @default 10000
+             */
+            max_evaluations: number;
+        };
+        /**
+         * MaxGenerationsTerminatorOptions
+         * @description Options for max generations terminator operator.
+         */
+        MaxGenerationsTerminatorOptions: {
+            /**
+             * Name
+             * @description The name of the termination operator.
+             * @default MaxGenerationsTerminator
+             * @constant
+             */
+            name: "MaxGenerationsTerminator";
+            /**
+             * Max Generations
+             * @description The maximum number of generations allowed.
+             * @default 100
+             */
+            max_generations: number;
+        };
+        /**
+         * MaxTimeTerminatorOptions
+         * @description Options for max time terminator operator.
+         */
+        MaxTimeTerminatorOptions: {
+            /**
+             * Name
+             * @description The name of the termination operator.
+             * @default MaxTimeTerminator
+             * @constant
+             */
+            name: "MaxTimeTerminator";
+            /**
+             * Max Time
+             * @description The maximum time allowed (in seconds).
+             * @default 30
+             */
+            max_time: number;
+        };
+        /**
+         * MixedIntegerRandomMutationOptions
+         * @description Options for Mixed Integer Random Mutation.
+         */
+        MixedIntegerRandomMutationOptions: {
+            /**
+             * Name
+             * @description The name of the mutation operator.
+             * @default MixedIntegerRandomMutation
+             * @constant
+             */
+            name: "MixedIntegerRandomMutation";
+            /**
+             * Mutation Probability
+             * @description The probability of mutation. Defaults to None, which sets the mutation probability to 1/<number of decision variables>.
+             */
+            mutation_probability?: number | null;
         };
         /**
          * NIMBUSClassificationRequest
@@ -975,6 +2330,57 @@ export interface components {
              * @description All solutions generated by NIMBUS in all iterations.
              */
             all_solutions: components["schemas"]["SolutionReferenceResponse"][];
+        };
+        /**
+         * NIMBUSDeleteSaveRequest
+         * @description Request model for deletion of a saved solution.
+         */
+        NIMBUSDeleteSaveRequest: {
+            /**
+             * State Id
+             * @description The ID of the save state.
+             */
+            state_id: number;
+            /**
+             * Solution Index
+             * @description The ID of the solution within the above state.
+             */
+            solution_index: number;
+        };
+        /**
+         * NIMBUSDeleteSaveResponse
+         * @description Response of NIMBUS save deletion.
+         */
+        NIMBUSDeleteSaveResponse: {
+            /** Message */
+            message: string | null;
+        };
+        /**
+         * NIMBUSFinalizeRequest
+         * @description Request model for finalizing the NIMBUS procedure.
+         */
+        NIMBUSFinalizeRequest: {
+            /** Problem Id */
+            problem_id: number;
+            /** Session Id */
+            session_id?: number | null;
+            /** Parent State Id */
+            parent_state_id?: number | null;
+            solution_info: components["schemas"]["SolutionInfo"];
+            preferences: components["schemas"]["ReferencePoint"];
+        };
+        /**
+         * NIMBUSFinalizeResponse
+         * @description The response from NIMBUS finish endpoint.
+         */
+        NIMBUSFinalizeResponse: {
+            /**
+             * State Id
+             * @description The id of the newest state
+             */
+            state_id: number | null;
+            /** @description The final solution */
+            final_solution: components["schemas"]["SolutionReferenceResponse"];
         };
         /**
          * NIMBUSInitializationRequest
@@ -1092,6 +2498,123 @@ export interface components {
             state_id: number | null;
         };
         /**
+         * NSGA2SelectorOptions
+         * @description Options for NSGA-II Selection.
+         */
+        NSGA2SelectorOptions: {
+            /**
+             * Name
+             * @description The name of the selection operator.
+             * @default NSGA2Selector
+             * @constant
+             */
+            name: "NSGA2Selector";
+            /**
+             * Population Size
+             * @description The population size.
+             */
+            population_size: number;
+        };
+        /**
+         * NSGA3SelectorOptions
+         * @description Options for NSGA-III Selection.
+         */
+        NSGA3SelectorOptions: {
+            /**
+             * Name
+             * @description The name of the selection operator.
+             * @default NSGA3Selector
+             * @constant
+             */
+            name: "NSGA3Selector";
+            /**
+             * @description Options for the reference vectors.
+             * @default {
+             *       "adaptation_frequency": 0,
+             *       "creation_type": "simplex",
+             *       "vector_type": "spherical",
+             *       "number_of_vectors": 200,
+             *       "adaptation_distance": 0.2
+             *     }
+             */
+            reference_vector_options: components["schemas"]["ReferenceVectorOptions"];
+            /**
+             * Invert Reference Vectors
+             * @description Whether to invert the reference vectors (inverted triangle).
+             * @default false
+             */
+            invert_reference_vectors: boolean;
+        };
+        /**
+         * NoRepairOptions
+         * @description Options for No Repair.
+         */
+        NoRepairOptions: {
+            /**
+             * Name
+             * @description Do not apply any repair to the solutions.
+             * @default NoRepair
+             * @constant
+             */
+            name: "NoRepair";
+        };
+        /**
+         * NonPreferredSolutionsOptions
+         * @description Options for providing non-preferred solutions for an EA.
+         */
+        NonPreferredSolutionsOptions: {
+            /**
+             * Name
+             * @description The name of the non-preferred solutions option.
+             * @default non_preferred_solutions
+             * @constant
+             */
+            name: "non_preferred_solutions";
+            /**
+             * Preference
+             * @description The non-preferred solutions as a dictionary with objective function symbols as the keys.
+             */
+            preference: {
+                [key: string]: number[];
+            };
+            /**
+             * Method
+             * @description The method for handling the non-preferred solutions.
+             * @default Hakanen
+             * @constant
+             */
+            method: "Hakanen";
+        };
+        /**
+         * NonUniformMutationOptions
+         * @description Options for Non-Uniform Mutation.
+         */
+        NonUniformMutationOptions: {
+            /**
+             * Name
+             * @description The name of the mutation operator.
+             * @default NonUniformMutation
+             * @constant
+             */
+            name: "NonUniformMutation";
+            /**
+             * Mutation Probability
+             * @description The probability of mutation. Defaults to None, which sets the mutation probability to 1/<number of decision variables>.
+             */
+            mutation_probability?: number | null;
+            /**
+             * Max Generations
+             * @description Maximum number of generations in the evolutionary run. Used to scale mutation decay.
+             */
+            max_generations: number;
+            /**
+             * B
+             * @description Non-uniform mutation decay parameter. Higher values causefaster reduction in mutation strength over generations.
+             * @default 5
+             */
+            b: number;
+        };
+        /**
          * ObjectiveDB
          * @description The SQLModel equivalent to `Objective`.
          */
@@ -1104,6 +2627,11 @@ export interface components {
             surrogates?: string[] | null;
             /** Simulator Path */
             simulator_path?: string | components["schemas"]["Url"] | null;
+            /**
+             * Description
+             * @description A longer description of the objective function. This can be used in UI and visualizations.             Meant to have longer text than what name should have.
+             */
+            description?: string | null;
             /**
              * Name
              * @description Descriptive name of the objective function. This can be used in UI and visualizations. Example: 'time'.
@@ -1169,6 +2697,83 @@ export interface components {
          * @enum {string}
          */
         ObjectiveTypeEnum: "analytical" | "data_based" | "simulator" | "surrogate";
+        /**
+         * OptimizationPreference
+         * @description An optimization preference class. As for the method and phase, see GNIMBUS for details.
+         */
+        OptimizationPreference: {
+            /**
+             * Method
+             * @default optimization
+             */
+            method: string;
+            /**
+             * Phase
+             * @default learning
+             */
+            phase: string;
+            /** Set Preferences */
+            set_preferences: {
+                [key: string]: components["schemas"]["ReferencePoint"];
+            };
+        };
+        /**
+         * ParameterAdaptationStrategy
+         * @description The parameter adaptation strategies for the RVEA selector.
+         * @enum {string}
+         */
+        ParameterAdaptationStrategy: "GENERATION_BASED" | "FUNCTION_EVALUATION_BASED" | "OTHER";
+        /**
+         * PowerMutationOptions
+         * @description Options for Power Mutation.
+         */
+        PowerMutationOptions: {
+            /**
+             * Name
+             * @description The name of the mutation operator.
+             * @default PowerMutation
+             * @constant
+             */
+            name: "PowerMutation";
+            /**
+             * Mutation Probability
+             * @description The probability of mutation. Defaults to None, which sets the mutation probability to 1/<number of decision variables>.
+             */
+            mutation_probability?: number | null;
+            /**
+             * P
+             * @description Power distribution parameter. Controls the perturbation magnitude.
+             * @default 1.5
+             */
+            p: number;
+        };
+        /**
+         * PreferredSolutionsOptions
+         * @description Options for providing preferred solutions for an EA.
+         */
+        PreferredSolutionsOptions: {
+            /**
+             * Name
+             * @description The name of the preferred solutions option.
+             * @default preferred_solutions
+             * @constant
+             */
+            name: "preferred_solutions";
+            /**
+             * Preference
+             * @description The preferred solutions as a dictionary with objective function symbols as the keys.
+             */
+            preference: {
+                [key: string]: number[];
+            };
+            /**
+             * Method
+             * @description The method for handling the preferred solutions.
+             * @default Hakanen
+             * @constant
+             */
+            method: "Hakanen";
+        };
         /**
          * ProblemGetRequest
          * @description Model to deal with problem fetching requests.
@@ -1267,6 +2872,16 @@ export interface components {
             representative_nd_metadata: components["schemas"]["RepresentativeNonDominatedSolutions"][] | null;
         };
         /**
+         * ProblemSelectSolverRequest
+         * @description Model to request a specific solver for a problem.
+         */
+        ProblemSelectSolverRequest: {
+            /** Problem Id */
+            problem_id: number;
+            /** Solver String Representation */
+            solver_string_representation: string;
+        };
+        /**
          * RPMSolveRequest
          * @description Model of the request to the reference point method.
          */
@@ -1311,6 +2926,113 @@ export interface components {
             solver_results: components["schemas"]["SolverResults"][];
         };
         /**
+         * RVEASelectorOptions
+         * @description Options for RVEA Selection.
+         */
+        RVEASelectorOptions: {
+            /**
+             * Name
+             * @description The name of the selection operator.
+             * @default RVEASelector
+             * @constant
+             */
+            name: "RVEASelector";
+            /**
+             * @description Options for the reference vectors.
+             * @default {
+             *       "adaptation_frequency": 0,
+             *       "creation_type": "simplex",
+             *       "vector_type": "spherical",
+             *       "number_of_vectors": 200,
+             *       "adaptation_distance": 0.2
+             *     }
+             */
+            reference_vector_options: components["schemas"]["ReferenceVectorOptions"];
+            /**
+             * @description The parameter adaptation strategy to use.
+             * @default GENERATION_BASED
+             */
+            parameter_adaptation_strategy: components["schemas"]["ParameterAdaptationStrategy"];
+            /**
+             * Alpha
+             * @description The alpha parameter in the angle penalized distance.
+             * @default 2
+             */
+            alpha: number;
+        };
+        /**
+         * RandomBinaryGeneratorOptions
+         * @description Options for Random Binary generator.
+         */
+        RandomBinaryGeneratorOptions: {
+            /**
+             * N Points
+             * @description The number of points to generate for the initial population.
+             */
+            n_points: number;
+            /**
+             * Name
+             * @description The name of the generator.
+             * @default RandomBinaryGenerator
+             * @constant
+             */
+            name: "RandomBinaryGenerator";
+        };
+        /**
+         * RandomGeneratorOptions
+         * @description Options for Random generator.
+         */
+        RandomGeneratorOptions: {
+            /**
+             * N Points
+             * @description The number of points to generate for the initial population.
+             */
+            n_points: number;
+            /**
+             * Name
+             * @description The name of the generator.
+             * @default RandomGenerator
+             * @constant
+             */
+            name: "RandomGenerator";
+        };
+        /**
+         * RandomIntegerGeneratorOptions
+         * @description Options for Random Integer generator.
+         */
+        RandomIntegerGeneratorOptions: {
+            /**
+             * N Points
+             * @description The number of points to generate for the initial population.
+             */
+            n_points: number;
+            /**
+             * Name
+             * @description The name of the generator.
+             * @default RandomIntegerGenerator
+             * @constant
+             */
+            name: "RandomIntegerGenerator";
+        };
+        /**
+         * RandomMixedIntegerGeneratorOptions
+         * @description Options for Random Mixed Integer generator.
+         */
+        RandomMixedIntegerGeneratorOptions: {
+            /**
+             * N Points
+             * @description The number of points to generate for the initial population.
+             */
+            n_points: number;
+            /**
+             * Name
+             * @description The name of the generator.
+             * @default RandomMixedIntegerGenerator
+             * @constant
+             */
+            name: "RandomMixedIntegerGenerator";
+        };
+        /**
          * ReferencePoint
          * @description Model for representing a reference point type of preference.
          */
@@ -1325,6 +3047,118 @@ export interface components {
             aspiration_levels: {
                 [key: string]: number;
             };
+        };
+        /**
+         * ReferencePointOptions
+         * @description Options for providing a reference point for an EA.
+         */
+        ReferencePointOptions: {
+            /**
+             * Name
+             * @description The name of the reference point option.
+             * @default reference_point
+             * @constant
+             */
+            name: "reference_point";
+            /**
+             * Preference
+             * @description The reference point as a dictionary with objective function symbols as the keys.
+             */
+            preference: {
+                [key: string]: number;
+            };
+            /**
+             * Method
+             * @description The method for handling the reference point.
+             * @default Hakanen
+             * @enum {string}
+             */
+            method: "Hakanen" | "IOPIS";
+        };
+        /**
+         * ReferenceVectorOptions
+         * @description Pydantic model for Reference Vector arguments.
+         */
+        ReferenceVectorOptions: {
+            /**
+             * Adaptation Frequency
+             * @description Number of generations between reference vector adaptation. If set to 0, no adaptation occurs. Defaults to 0.
+             *     Only used if no preference is provided.
+             * @default 0
+             */
+            adaptation_frequency: number;
+            /**
+             * Creation Type
+             * @description The method for creating reference vectors. Defaults to "simplex".
+             *     Currently only "simplex" is implemented. Future versions will include "s_energy".
+             *
+             *     If set to "simplex", the reference vectors are created using the simplex lattice design method.
+             *     This method is generates distributions with specific numbers of reference vectors.
+             *     Check: https://www.itl.nist.gov/div898/handbook/pri/section5/pri542.htm for more information.
+             *     If set to "s_energy", the reference vectors are created using the Riesz s-energy criterion. This method is used to
+             *     distribute an arbitrary number of reference vectors in the objective space while minimizing the s-energy.
+             *     Currently not implemented.
+             * @default simplex
+             * @enum {string}
+             */
+            creation_type: "simplex" | "s_energy";
+            /**
+             * Vector Type
+             * @description The method for normalizing the reference vectors. Defaults to "spherical".
+             * @default spherical
+             * @enum {string}
+             */
+            vector_type: "spherical" | "planar";
+            /**
+             * Lattice Resolution
+             * @description Number of divisions along an axis when creating the simplex lattice. This is not required/used for the "s_energy"
+             *     method. If not specified, the lattice resolution is calculated based on the `number_of_vectors`. If "spherical" is
+             *     selected as the `vector_type`, this value overrides the `number_of_vectors`.
+             */
+            lattice_resolution?: number | null;
+            /**
+             * Number Of Vectors
+             * @description Number of reference vectors to be created. If "simplex" is selected as the `creation_type`, then the closest
+             *     `lattice_resolution` is calculated based on this value. If "s_energy" is selected, then this value is used directly.
+             *     Note that if neither `lattice_resolution` nor `number_of_vectors` is specified, the number of vectors defaults to
+             *     200. Overridden if "spherical" is selected as the `vector_type` and `lattice_resolution` is provided.
+             * @default 200
+             */
+            number_of_vectors: number;
+            /**
+             * Adaptation Distance
+             * @description Distance parameter for the interactive adaptation methods. Defaults to 0.2.
+             * @default 0.2
+             */
+            adaptation_distance: number;
+            /**
+             * Reference Point
+             * @description The reference point for interactive adaptation.
+             */
+            reference_point?: {
+                [key: string]: number;
+            } | null;
+            /**
+             * Preferred Solutions
+             * @description The preferred solutions for interactive adaptation.
+             */
+            preferred_solutions?: {
+                [key: string]: number[];
+            } | null;
+            /**
+             * Non Preferred Solutions
+             * @description The non-preferred solutions for interactive adaptation.
+             */
+            non_preferred_solutions?: {
+                [key: string]: number[];
+            } | null;
+            /**
+             * Preferred Ranges
+             * @description The preferred ranges for interactive adaptation.
+             */
+            preferred_ranges?: {
+                [key: string]: number[];
+            } | null;
         };
         /**
          * RepresentativeNonDominatedSolutions
@@ -1375,6 +3209,170 @@ export interface components {
              * @description The nadir objective function values of the representative set.
              */
             nadir: {
+                [key: string]: number;
+            };
+        };
+        /**
+         * RouletteWheelSelectionOptions
+         * @description Options for roulette wheel selection operator.
+         */
+        RouletteWheelSelectionOptions: {
+            /**
+             * Name
+             * @description The name of the scalar selection operator.
+             * @default RouletteWheelSelection
+             * @constant
+             */
+            name: "RouletteWheelSelection";
+            /**
+             * Tournament Size
+             * @description The number of individuals participating in the tournament.
+             * @default 2
+             */
+            tournament_size: number;
+            /**
+             * Winner Size
+             * @description The number of winners to select (equivalent to population size).
+             */
+            winner_size: number;
+        };
+        /**
+         * SCOREBandsConfig
+         * @description Configuration options for SCORE bands visualization.
+         */
+        SCOREBandsConfig: {
+            /**
+             * Dimensions
+             * @description List of variable/objective names (i.e., column names in the data) to include in the visualization.
+             *     If None, all columns in the data are used. Defaults to None.
+             */
+            dimensions?: string[] | null;
+            /**
+             * Axis Positions
+             * @description Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first
+             *     objective is at position 0.0, and the last objective is at position 1.0. Use this option if you want to
+             *     manually set the axis positions. If None, the axis positions are calculated automatically based on correlations.
+             *     Defaults to None.
+             */
+            axis_positions?: {
+                [key: string]: number;
+            } | null;
+            /**
+             * Clustering Algorithm
+             * @description Clustering algorithm to use. Currently supported options: "GMM", "DBSCAN",
+             *         and "KMeans". Defaults to "DBSCAN".
+             * @default {
+             *       "name": "DBSCAN"
+             *     }
+             */
+            clustering_algorithm: components["schemas"]["GMMOptions"] | components["schemas"]["DBSCANOptions"] | components["schemas"]["KMeansOptions"] | components["schemas"]["DimensionClusterOptions"] | components["schemas"]["CustomClusterOptions"];
+            /**
+             * @description Distance formula to use. The value should be 1 or 2. Check the paper for details. Defaults to 1.
+             * @default 1
+             */
+            distance_formula: components["schemas"]["DistanceFormula"];
+            /**
+             * Distance Parameter
+             * @description Change the relative distances between the objective axes. Increase this value if objectives are placed too close
+             *     together. Decrease this value if the objectives are equidistant in a problem with objective clusters. Defaults
+             *     to 0.05.
+             * @default 0.05
+             */
+            distance_parameter: number;
+            /**
+             * Use Absolute Correlations
+             * @description Whether to use absolute value of the correlation to calculate the placement of axes. Defaults to False.
+             * @default false
+             */
+            use_absolute_correlations: boolean;
+            /**
+             * Include Solutions
+             * @description Whether to include individual solutions. Defaults to False. If True, the size of the resulting figure may be
+             *     very large for datasets with many solutions. Moreover, the individual traces are hidden by default, but can be
+             *     viewed interactively in the figure.
+             * @default false
+             */
+            include_solutions: boolean;
+            /**
+             * Include Medians
+             * @description Whether to include cluster medians. Defaults to False. If True, the median traces are hidden by default, but
+             *     can be viewed interactively in the figure.
+             * @default false
+             */
+            include_medians: boolean;
+            /**
+             * Interval Size
+             * @description The size (as a fraction) of the interval to use for the bands. Defaults to 0.95, meaning that 95% of the
+             *     middle solutions in a cluster will be included in the band. The rest will be considered outliers.
+             * @default 0.95
+             */
+            interval_size: number;
+            /**
+             * Scales
+             * @description Optional dictionary specifying the min and max values for each objective. The keys should be the
+             *     objective names (i.e., column names in the data), and the values should be tuples of (min, max).
+             *     If not provided, the min and max will be calculated from the data.
+             */
+            scales?: {
+                [key: string]: [
+                    number,
+                    number
+                ];
+            } | null;
+        };
+        /**
+         * SCOREBandsResult
+         * @description Pydantic/JSON model for representing SCORE Bands.
+         */
+        SCOREBandsResult: {
+            /** @description Configuration options used to generate the SCORE bands. */
+            options: components["schemas"]["SCOREBandsConfig"];
+            /**
+             * Ordered Dimensions
+             * @description List of variable/objective names (i.e., column names in the data).
+             *     Ordered according to their placement in the SCORE bands visualization.
+             */
+            ordered_dimensions: string[];
+            /**
+             * Clusters
+             * @description List of cluster IDs (one for each solution) indicating the cluster to which each solution belongs.
+             */
+            clusters: number[];
+            /**
+             * Axis Positions
+             * @description Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first
+             *     objective is at position 0.0, and the last objective is at position 1.0.
+             */
+            axis_positions: {
+                [key: string]: number;
+            };
+            /**
+             * Bands
+             * @description Dictionary mapping cluster IDs to dictionaries of objective names and their corresponding band
+             *     extremes (min, max).
+             */
+            bands: {
+                [key: string]: {
+                    [key: string]: [
+                        number,
+                        number
+                    ];
+                };
+            };
+            /**
+             * Medians
+             * @description Dictionary mapping cluster IDs to dictionaries of objective names and their corresponding median values.
+             */
+            medians: {
+                [key: string]: {
+                    [key: string]: number;
+                };
+            };
+            /**
+             * Cardinalities
+             * @description Dictionary mapping cluster IDs to the number of solutions in each cluster.
+             */
+            cardinalities: {
                 [key: string]: number;
             };
         };
@@ -1499,6 +3497,49 @@ export interface components {
             obj_order: number[];
         };
         /**
+         * SelfAdaptiveGaussianMutationOptions
+         * @description Options for Self-Adaptive Gaussian Mutation.
+         */
+        SelfAdaptiveGaussianMutationOptions: {
+            /**
+             * Name
+             * @description The name of the mutation operator.
+             * @default SelfAdaptiveGaussianMutation
+             * @constant
+             */
+            name: "SelfAdaptiveGaussianMutation";
+            /**
+             * Mutation Probability
+             * @description The probability of mutation. Defaults to None, which sets the mutation probability to 1/<number of decision variables>.
+             */
+            mutation_probability?: number | null;
+        };
+        /**
+         * SimulatedBinaryCrossoverOptions
+         * @description Options for Simulated Binary Crossover (SBX).
+         */
+        SimulatedBinaryCrossoverOptions: {
+            /**
+             * Name
+             * @description The name of the crossover operator.
+             * @default SimulatedBinaryCrossover
+             * @constant
+             */
+            name: "SimulatedBinaryCrossover";
+            /**
+             * Xover Probability
+             * @description The SBX crossover probability.
+             * @default 0.5
+             */
+            xover_probability: number;
+            /**
+             * Xover Distribution
+             * @description The SBX distribution index.
+             * @default 30
+             */
+            xover_distribution: number;
+        };
+        /**
          * SimulatorDB
          * @description The SQLModel equivalent to `Simulator`.
          */
@@ -1526,6 +3567,38 @@ export interface components {
             problem_id?: number | null;
         };
         /**
+         * SingleArithmeticCrossoverOptions
+         * @description Options for Single Arithmetic Crossover.
+         */
+        SingleArithmeticCrossoverOptions: {
+            /**
+             * Name
+             * @description The name of the crossover operator.
+             * @default SingleArithmeticCrossover
+             * @constant
+             */
+            name: "SingleArithmeticCrossover";
+            /**
+             * Xover Probability
+             * @description The crossover probability.
+             * @default 1
+             */
+            xover_probability: number;
+        };
+        /**
+         * SinglePointBinaryCrossoverOptions
+         * @description Options for Single Point Binary Crossover.
+         */
+        SinglePointBinaryCrossoverOptions: {
+            /**
+             * Name
+             * @description The name of the crossover operator.
+             * @default SinglePointBinaryCrossover
+             * @constant
+             */
+            name: "SinglePointBinaryCrossover";
+        };
+        /**
          * SolutionInfo
          * @description Used when we wish to reference a solution in some `StateDB` stored in the database.
          */
@@ -1539,6 +3612,47 @@ export interface components {
              * @description Name to be given to the solution. Optional.
              */
             name?: string | null;
+        };
+        /**
+         * SolutionReference
+         * @description A model that functions as a reference to solutions existing in the database.
+         *
+         *     Referenced solutions are not necessarily solutions that the user has saved explicitly. For
+         *     referencing those, see `SavedSolutionReference`.
+         */
+        SolutionReference: {
+            /**
+             * Name
+             * @description Optional name to help identify the solution if, e.g., saved.
+             */
+            name?: string | null;
+            /**
+             * Solution Index
+             * @description The index of the referenced solution, if multiple solutions exist in the reference state.
+             */
+            solution_index?: number | null;
+            /** @description The reference state with the solution information. */
+            state: components["schemas"]["StateDB"];
+            /** Objective Values All */
+            readonly objective_values_all: {
+                [key: string]: number;
+            }[];
+            /** Variable Values All */
+            readonly variable_values_all: {
+                [key: string]: number | boolean | components["schemas"]["Tensor"];
+            }[];
+            /** Objective Values */
+            readonly objective_values: {
+                [key: string]: number;
+            } | null;
+            /** Variable Values */
+            readonly variable_values: {
+                [key: string]: number | boolean;
+            } | null;
+            /** State Id */
+            readonly state_id: number;
+            /** Num Solutions */
+            readonly num_solutions: number;
         };
         /**
          * SolutionReferenceResponse
@@ -1618,6 +3732,196 @@ export interface components {
              */
             message: string;
         };
+        /**
+         * SolverSelectionMetadata
+         * @description A problem metadata class to store the preferred solver of a problem.
+         *
+         *     A problem metadata class to store the preferred solver of a problem.
+         *     See desdeo/tools/utils.py -> available_solvers for available solvers.
+         */
+        SolverSelectionMetadata: {
+            /** Id */
+            id?: number | null;
+            /** Metadata Id */
+            metadata_id?: number | null;
+            /**
+             * Metadata Type
+             * @default solver_selection_metadata
+             */
+            metadata_type: string;
+            /**
+             * Solver String Representation
+             * @description The string representation of the selected solver.
+             */
+            solver_string_representation: string;
+        };
+        /**
+         * StateDB
+         * @description State holder with a single relationship to the base State.
+         */
+        StateDB: {
+            /** Id */
+            id?: number | null;
+            /** Problem Id */
+            problem_id?: number | null;
+            /** Session Id */
+            session_id?: number | null;
+            /** Parent Id */
+            parent_id?: number | null;
+            /** State Id */
+            state_id?: number | null;
+        };
+        /**
+         * Template1Options
+         * @description Options for template 1.
+         *
+         *     Template 1 is used by methods such as NSGA-III and RVEA. See
+         *     [template1][desdeo.emo.methods.templates.template1] for
+         *     more details.
+         */
+        Template1Options: {
+            /**
+             * Crossover
+             * @description The crossover operator options.
+             */
+            crossover: components["schemas"]["SimulatedBinaryCrossoverOptions"] | components["schemas"]["SinglePointBinaryCrossoverOptions"] | components["schemas"]["UniformIntegerCrossoverOptions"] | components["schemas"]["UniformMixedIntegerCrossoverOptions"] | components["schemas"]["BlendAlphaCrossoverOptions"] | components["schemas"]["SingleArithmeticCrossoverOptions"] | components["schemas"]["LocalCrossoverOptions"] | components["schemas"]["BoundedExponentialCrossoverOptions"];
+            /**
+             * Mutation
+             * @description The mutation operator options.
+             */
+            mutation: components["schemas"]["BoundedPolynomialMutationOptions"] | components["schemas"]["BinaryFlipMutationOptions"] | components["schemas"]["IntegerRandomMutationOptions"] | components["schemas"]["MixedIntegerRandomMutationOptions"] | components["schemas"]["MPTMutationOptions"] | components["schemas"]["NonUniformMutationOptions"] | components["schemas"]["SelfAdaptiveGaussianMutationOptions"] | components["schemas"]["PowerMutationOptions"];
+            /**
+             * Selection
+             * @description The selection operator options.
+             */
+            selection: components["schemas"]["RVEASelectorOptions"] | components["schemas"]["NSGA2SelectorOptions"] | components["schemas"]["NSGA3SelectorOptions"] | components["schemas"]["IBEASelectorOptions"];
+            /**
+             * Termination
+             * @description The termination operator options.
+             */
+            termination: components["schemas"]["MaxGenerationsTerminatorOptions"] | components["schemas"]["MaxEvaluationsTerminatorOptions"] | components["schemas"]["MaxTimeTerminatorOptions"] | components["schemas"]["ExternalCheckTerminatorOptions"] | components["schemas"]["CompositeTerminatorOptions"];
+            /**
+             * Generator
+             * @description The population generator options.
+             */
+            generator: components["schemas"]["LHSGeneratorOptions"] | components["schemas"]["RandomBinaryGeneratorOptions"] | components["schemas"]["RandomGeneratorOptions"] | components["schemas"]["RandomIntegerGeneratorOptions"] | components["schemas"]["RandomMixedIntegerGeneratorOptions"];
+            /**
+             * Repair
+             * @description The repair operator options.
+             * @default {
+             *       "name": "NoRepair"
+             *     }
+             */
+            repair: components["schemas"]["ClipRepairOptions"] | components["schemas"]["NoRepairOptions"];
+            /**
+             * Use Archive
+             * @description Whether to use an archive.
+             * @default true
+             */
+            use_archive: boolean;
+            /**
+             * Seed
+             * @description The seed for random number generation.
+             * @default 0
+             */
+            seed: number;
+            /**
+             * Verbosity
+             * @description The verbosity level of the operators.
+             * @default 2
+             */
+            verbosity: number;
+            /**
+             * Algorithm Name
+             * @description The unique name of the algorithm.
+             */
+            algorithm_name: string;
+            /**
+             * Name
+             * @description The name of the template.
+             * @default Template1
+             * @constant
+             */
+            name: "Template1";
+        };
+        /**
+         * Template2Options
+         * @description Options for template 2.
+         *
+         *     Template 2 is used by methods such as IBEA. See
+         *     [template2][desdeo.emo.methods.templates.template2] for
+         *     more details.
+         */
+        Template2Options: {
+            /**
+             * Crossover
+             * @description The crossover operator options.
+             */
+            crossover: components["schemas"]["SimulatedBinaryCrossoverOptions"] | components["schemas"]["SinglePointBinaryCrossoverOptions"] | components["schemas"]["UniformIntegerCrossoverOptions"] | components["schemas"]["UniformMixedIntegerCrossoverOptions"] | components["schemas"]["BlendAlphaCrossoverOptions"] | components["schemas"]["SingleArithmeticCrossoverOptions"] | components["schemas"]["LocalCrossoverOptions"] | components["schemas"]["BoundedExponentialCrossoverOptions"];
+            /**
+             * Mutation
+             * @description The mutation operator options.
+             */
+            mutation: components["schemas"]["BoundedPolynomialMutationOptions"] | components["schemas"]["BinaryFlipMutationOptions"] | components["schemas"]["IntegerRandomMutationOptions"] | components["schemas"]["MixedIntegerRandomMutationOptions"] | components["schemas"]["MPTMutationOptions"] | components["schemas"]["NonUniformMutationOptions"] | components["schemas"]["SelfAdaptiveGaussianMutationOptions"] | components["schemas"]["PowerMutationOptions"];
+            /**
+             * Selection
+             * @description The selection operator options.
+             */
+            selection: components["schemas"]["RVEASelectorOptions"] | components["schemas"]["NSGA2SelectorOptions"] | components["schemas"]["NSGA3SelectorOptions"] | components["schemas"]["IBEASelectorOptions"];
+            /**
+             * Termination
+             * @description The termination operator options.
+             */
+            termination: components["schemas"]["MaxGenerationsTerminatorOptions"] | components["schemas"]["MaxEvaluationsTerminatorOptions"] | components["schemas"]["MaxTimeTerminatorOptions"] | components["schemas"]["ExternalCheckTerminatorOptions"] | components["schemas"]["CompositeTerminatorOptions"];
+            /**
+             * Generator
+             * @description The population generator options.
+             */
+            generator: components["schemas"]["LHSGeneratorOptions"] | components["schemas"]["RandomBinaryGeneratorOptions"] | components["schemas"]["RandomGeneratorOptions"] | components["schemas"]["RandomIntegerGeneratorOptions"] | components["schemas"]["RandomMixedIntegerGeneratorOptions"];
+            /**
+             * Repair
+             * @description The repair operator options.
+             * @default {
+             *       "name": "NoRepair"
+             *     }
+             */
+            repair: components["schemas"]["ClipRepairOptions"] | components["schemas"]["NoRepairOptions"];
+            /**
+             * Use Archive
+             * @description Whether to use an archive.
+             * @default true
+             */
+            use_archive: boolean;
+            /**
+             * Seed
+             * @description The seed for random number generation.
+             * @default 0
+             */
+            seed: number;
+            /**
+             * Verbosity
+             * @description The verbosity level of the operators.
+             * @default 2
+             */
+            verbosity: number;
+            /**
+             * Algorithm Name
+             * @description The unique name of the algorithm.
+             */
+            algorithm_name: string;
+            /**
+             * Name
+             * @description The name of the template.
+             * @default Template2
+             * @constant
+             */
+            name: "Template2";
+            /**
+             * Mate Selection
+             * @description The mate selection operator options.
+             */
+            mate_selection: components["schemas"]["TournamentSelectionOptions"] | components["schemas"]["RouletteWheelSelectionOptions"];
+        };
         Tensor: components["schemas"]["Tensor"][] | (number | boolean)[] | number | boolean | "List" | null;
         /**
          * TensorConstantDB
@@ -1682,6 +3986,56 @@ export interface components {
             token_type: string;
         };
         /**
+         * TournamentSelectionOptions
+         * @description Options for tournament selection operator.
+         */
+        TournamentSelectionOptions: {
+            /**
+             * Name
+             * @description The name of the scalar selection operator.
+             * @default TournamentSelection
+             * @constant
+             */
+            name: "TournamentSelection";
+            /**
+             * Tournament Size
+             * @description The number of individuals participating in the tournament.
+             * @default 2
+             */
+            tournament_size: number;
+            /**
+             * Winner Size
+             * @description The number of winners to select (equivalent to population size).
+             */
+            winner_size: number;
+        };
+        /**
+         * UniformIntegerCrossoverOptions
+         * @description Options for Uniform Integer Crossover.
+         */
+        UniformIntegerCrossoverOptions: {
+            /**
+             * Name
+             * @description The name of the crossover operator.
+             * @default UniformIntegerCrossover
+             * @constant
+             */
+            name: "UniformIntegerCrossover";
+        };
+        /**
+         * UniformMixedIntegerCrossoverOptions
+         * @description Options for Uniform Mixed Integer Crossover.
+         */
+        UniformMixedIntegerCrossoverOptions: {
+            /**
+             * Name
+             * @description The name of the crossover operator.
+             * @default UniformMixedIntegerCrossover
+             * @constant
+             */
+            name: "UniformMixedIntegerCrossover";
+        };
+        /**
          * Url
          * @description Model for a URL.
          */
@@ -1710,8 +4064,8 @@ export interface components {
             /** Id */
             id: number;
             role: components["schemas"]["UserRole"];
-            /** Group */
-            group: string;
+            /** Group Ids */
+            group_ids: number[] | null;
         };
         /**
          * UserRole
@@ -1830,6 +4184,21 @@ export interface components {
          * @enum {string}
          */
         VariableTypeEnum: "real" | "integer" | "binary";
+        /**
+         * VotingPreference
+         * @description Voting preferences.
+         */
+        VotingPreference: {
+            /**
+             * Method
+             * @default voting
+             */
+            method: string;
+            /** Set Preferences */
+            set_preferences: {
+                [key: string]: number;
+            };
+        };
     };
     responses: never;
     parameters: never;
@@ -2123,7 +4492,40 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": (components["schemas"]["ForestProblemMetaData"] | components["schemas"]["RepresentativeNonDominatedSolutions"])[];
+                    "application/json": (components["schemas"]["ForestProblemMetaData"] | components["schemas"]["RepresentativeNonDominatedSolutions"] | components["schemas"]["SolverSelectionMetadata"])[];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    select_solver_problem_assign_solver_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProblemSelectSolverRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -2401,6 +4803,206 @@ export interface operations {
             };
         };
     };
+    finalize_nimbus_method_nimbus_finalize_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NIMBUSFinalizeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NIMBUSFinalizeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_save_method_nimbus_delete_save_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NIMBUSDeleteSaveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NIMBUSDeleteSaveResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_solution_details_method_nimbus_get_solution_details_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    iterate_method_emo_iterate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EMOIterateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EMOIterateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fetch_results_method_emo_fetch_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EMOFetchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fetch_score_bands_method_emo_fetch_score_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EMOScoreRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EMOScoreResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     solve_intermediate_method_generic_intermediate_post: {
         parameters: {
             query?: never;
@@ -2487,6 +5089,369 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UtopiaResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_group_gdm_create_group_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_group_gdm_delete_group_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupInfoRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_to_group_gdm_add_to_group_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupModifyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_from_group_gdm_remove_from_group_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupModifyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_group_info_gdm_get_group_info_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupInfoRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupPublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    gnimbus_initialize_gnimbus_initialize_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupInfoRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_latest_results_gnimbus_get_latest_results_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupInfoRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GNIMBUSResultResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    full_iteration_gnimbus_all_iterations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupInfoRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GNIMBUSAllIterationsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    switch_phase_gnimbus_toggle_phase_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GNIMBUSSwitchPhaseRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GNIMBUSSwitchPhaseResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_phase_gnimbus_get_phase_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupInfoRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    step_method_enautilus_step_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnautilusStepRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ENautilusState"];
                 };
             };
             /** @description Validation Error */
