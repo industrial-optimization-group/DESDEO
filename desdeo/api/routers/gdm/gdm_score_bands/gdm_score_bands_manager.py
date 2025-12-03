@@ -2,12 +2,13 @@
 
 import copy
 
+import polars as pl
 from sqlmodel import Session, select
 
 from desdeo.api.db import get_session
-from desdeo.api.models import Group, GroupIteration, ProblemDB, User
+from desdeo.api.models import Group, GroupIteration, ProblemDB, User, GDMSCOREBandInformation
 from desdeo.api.routers.gdm.gdm_base import GroupManager, ManagerError
-from desdeo.tools.score_bands import SCOREBandsConfig, SCOREBandsResult
+from desdeo.tools.score_bands import SCOREBandsConfig, SCOREBandsResult, score_json
 
 
 class GDMScoreBandsManager(GroupManager):
@@ -129,4 +130,81 @@ class GDMScoreBandsManager(GroupManager):
                     return
 
             # Every user seems to have wanted to move on.
-            # TODO: voting & filtering.
+            # See which band has won
+            votes = [x for _, x in info_container.user_votes.items()]
+            band_ids = set(info_container.score_bands_result.clusters)
+            vote_counts = [votes.count(i) for i in band_ids]
+            winners = []
+            max_votes = max(vote_counts)
+            for i in band_ids:
+                if vote_counts[i - 1] == max_votes:
+                    winners.append(i)
+
+            print(f"Winning bands: {winners}")
+            # Now we have the winning bands, and now we filter the active indices with them.
+
+            active_indices = info_container.active_indices
+            clusters = info_container.score_bands_result.clusters
+
+            # Into polars data frame for neater handling
+            indices_and_clusters_df = pl.DataFrame({"index": active_indices, "cluster": clusters})
+
+            # Filter using the winners list
+            indices_and_clusters_df = indices_and_clusters_df.filter(pl.col("cluster").is_in(winners))
+
+            # Get them objective values with indices on them
+            active_repr = self.discrete_representation.objective_values
+            objective_keys = list(active_repr)
+            objs = pl.DataFrame(active_repr).with_row_index()
+
+            # Join the two lists: basically if an index exists in indices_and_clusters_df,
+            # select the corresponding row from objs.
+            objs_w_indices = indices_and_clusters_df.join(
+                other=objs,
+                how="left",
+                left_on="index",
+                right_on="index"
+            )
+
+            # Get just the objectives.
+            objs = objs_w_indices.select(objective_keys)
+
+            # We use the latest core bands config by default. Cluster the stuff.
+            # TODO: figure how to change that.
+            score_bands_config = info_container.score_bands_config
+            result: SCOREBandsResult = score_json(
+                data=objs,
+                options=score_bands_config
+            )
+
+            # store necessary data to the database. Currently all "voting" related is null bc no voting has happened yet
+            score_bands_info = GDMSCOREBandInformation(
+                user_votes={},
+                user_confirms=[],
+                voting_results=None,
+                active_indices=objs_w_indices.to_dict(as_series=False)["index"],
+                score_bands_config=score_bands_config,
+                score_bands_result=result
+            )
+
+            # Add group iteration and related stuff, then set new iteration to head.
+            new_iteration: GroupIteration = GroupIteration(
+                group_id=group.id,
+                problem_id=group.problem_id,
+                info_container=score_bands_info,
+                notified={},
+                state_id=None,
+                parent_id=group.head_iteration_id,
+                parent=group_iteration,
+            )
+
+            session.add(new_iteration)
+            session.commit()
+            session.refresh(new_iteration)
+
+            group.head_iteration_id = new_iteration.id
+            session.add(group)
+            session.commit()
+            session.refresh(group)
+
+            await self.broadcast("UPDATE: A new iteration has begun.")

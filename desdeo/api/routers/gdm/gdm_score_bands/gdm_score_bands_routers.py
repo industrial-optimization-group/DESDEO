@@ -250,7 +250,6 @@ def get_votes_and_confirms(
 
     return JSONResponse(
         content={
-            "message": "votes and confirms.",
             "votes": votes,
             "confirms": confirms
         }
