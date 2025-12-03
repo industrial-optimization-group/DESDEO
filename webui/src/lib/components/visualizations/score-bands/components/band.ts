@@ -6,6 +6,7 @@ interface BandDrawOptions {
   showMedian?: boolean;
   showSolutions?: boolean;
   bandOpacity?: number;
+  bands?: boolean;  // Add this for pre-calculated bands
 }
 
 export function drawBand(
@@ -86,3 +87,99 @@ export function drawBand(
     });
   }
 }
+
+
+
+	/**
+	 * Draws a single cluster using pre-calculated band and median data
+	 */
+	export function drawPreCalculatedCluster(
+		svg: any,
+		clusterId: number,
+		bandsData: Record<string, Record<string, [number, number]>>,
+		mediansData: Record<string, Record<string, number>>,
+		axisNames: string[],
+		xPositions: number[],
+		yScales: any[],
+		clusterColors: Record<number, string>,
+		axisSigns: number[],
+		options: any,
+		isSelected: boolean,
+		onBandSelect?: (clusterId: number | null) => void
+	) {
+		const clusterColor = clusterColors[clusterId] || '#1f77b4';
+		const clusterKey = clusterId.toString();
+		
+		// Get band and median data for this cluster
+		const clusterBands = bandsData[clusterKey]; // Record<string, [number, number]>
+		const clusterMedians = mediansData[clusterKey]; // Record<string, number>
+		
+		if (!clusterBands || !clusterMedians) {
+			console.warn(`No data for cluster ${clusterId} (key: ${clusterKey})`);
+			return;
+		}
+
+		// Prepare data arrays, applying axis signs for flipping
+		const low: number[] = [];
+		const high: number[] = [];
+		const medians: number[] = [];
+
+		for (let axisIndex = 0; axisIndex < axisNames.length; axisIndex++) {
+			const axisName = axisNames[axisIndex];
+			const [minVal, maxVal] = clusterBands[axisName] || [0, 1];
+			const medianVal = clusterMedians[axisName] ?? 0.5;
+			const sign = axisSigns[axisIndex] || 1;
+			
+			// Apply axis flipping if needed (invert normalized values)
+			if (sign === -1) {
+				low.push(1 - maxVal);
+				high.push(1 - minVal);
+				medians.push(1 - medianVal);
+			} else {
+				low.push(minVal);
+				high.push(maxVal);
+				medians.push(medianVal);
+			}
+		}
+
+		// --- Draw Band ---
+		if (options.bands) {
+			const area = d3.area<number>()
+				.x((_, i) => xPositions[i])
+				.y0((_, i) => yScales[i](low[i]))
+				.y1((_, i) => yScales[i](high[i]))
+				.curve(d3.curveMonotoneX);
+
+			const bandElement = svg.append("path")
+				.datum(Array(axisNames.length).fill(0))
+				.attr("fill", clusterColor)
+				.attr("opacity", isSelected ? 0.7 : 0.5)
+				.attr("stroke", isSelected ? "#000" : "none")
+				.attr("stroke-width", isSelected ? 2 : 0)
+				.attr("d", area)
+				.style("cursor", "pointer");
+
+			if (onBandSelect) {
+				bandElement.on("click", (event: any) => {
+					event.stopPropagation();
+					onBandSelect(isSelected ? null : clusterId);
+				});
+			}
+		}
+
+		// --- Draw Median ---
+		if (options.medians) {
+			const line = d3.line<number>()
+				.x((_, i) => xPositions[i])
+				.y((_, i) => yScales[i](medians[i]))
+				.curve(d3.curveMonotoneX);
+
+			svg.append("path")
+				.datum(medians)
+				.attr("fill", "none")
+				.attr("stroke", clusterColor)
+				.attr("stroke-width", 2)
+				.attr("opacity", 0.9)
+				.attr("d", line);
+		}
+	}

@@ -38,13 +38,17 @@ type ScoreBandsRequest = {
  * 
  * Returns: JSON response with ScoreBandsResponse containing calculated parameters
  */
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, cookies }) => {
+  const refreshToken = cookies.get('refresh_token');
+  if (!refreshToken) {
+    return json({ error: 'Not authenticated' }, { status: 401 });
+  }
   try {
     // Parse the incoming score bands request from the frontend
     const calculateRequest: ScoreBandsRequest = await request.json();
     
     // Debug logging: Log the received request for troubleshooting
-    console.log('Received score bands request:', JSON.stringify(calculateRequest, null, 2));
+    // console.log('Received score bands request:', JSON.stringify(calculateRequest, null, 2));
     console.log('Making API call to /method/generic/score-bands');
 
     // Get the backend API URL
@@ -61,6 +65,7 @@ export const POST: RequestHandler = async ({ request }) => {
     const response = await fetch(`${apiUrl}/method/generic/score-bands`, {
       method: 'POST',
       headers: {
+				Authorization: `Bearer ${refreshToken}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(calculateRequest)

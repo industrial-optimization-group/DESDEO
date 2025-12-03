@@ -47,7 +47,7 @@
 	import { normalize_data } from '$lib/components/visualizations/utils/math';
 	import type { AxisOptions } from './utils/types';
 	import { getAxisOptions } from './utils/helpers';
-	import { drawBand } from './components/band';
+	import { drawBand, drawPreCalculatedCluster } from './components/band';
 
 	// --- Props ---
 	export let data: number[][] = [];
@@ -74,6 +74,12 @@
 	export let onAxisSelect: ((axisIndex: number | null) => void) | undefined = undefined;
 	export let selectedBand: number | null = null;
 	export let selectedAxis: number | null = null;
+	
+	// Pre-calculated bands and medians from SCORE API (when raw data is not available)
+	// bands = { "clusterId": { "axisName": [minValue, maxValue] } } - quantile-based band limits per cluster per axis
+	export let bands: Record<string, Record<string, [number, number]>> = {};
+	// medians = { "clusterId": { "axisName": medianValue } } - median value per cluster per axis
+	export let medians: Record<string, Record<string, number>> = {};
 
 	// --- Derived state ---
 	$: defaultAxisOrder = Array.from({ length: axisNames.length }, (_, i) => i);
@@ -98,7 +104,18 @@
 	 * Draws the parallel coordinates chart with bands, medians, and solutions.
 	 */
 	function drawChart() {
-		if (!container || data.length === 0 || axisNames.length === 0) return;
+		if (!container || axisNames.length === 0) return;
+		// Allow rendering without data when we have bands/medians from API
+		if (data.length === 0 && (!options.bands && !options.medians)) return;
+
+		console.log('Drawing SCORE bands with:', {
+			axisNames: axisNames.length,
+			data: data.length,
+			groups: groups.length,
+			bandsAvailable: Object.keys(bands).length,
+			mediansAvailable: Object.keys(medians).length,
+			options
+		});
 
 		const width = 800;
 		const height = 600;
@@ -114,13 +131,13 @@
 			if (onAxisSelect) onAxisSelect(null);
 		});
 
-		// Apply axis signs to flip axes if needed
-		const processedData = sortedData.map((row) =>
+		// Apply axis signs to flip axes if needed (only if we have data)
+		const processedData = sortedData.length > 0 ? sortedData.map((row) =>
 			row.map((val, i) => {
 				const sign = sortedAxisSigns[i] || 1;
 				return sign === -1 ? 1 - val : val; // Flip by inverting normalized value
 			})
-		);
+		) : [];
 
 		// Y scales for each axis (normalized [0,1])
 		const yScales = sortedAxisNames.map(() =>
@@ -136,42 +153,42 @@
 		);
 
 		// --- Group data by cluster ---
-		const grouped = d3.group(
-			processedData.map((v, i) => ({ values: v, group: groups[i] })),
-			(d) => d.group
-		);
+		const grouped = processedData.length > 0 && groups.length > 0 ? 
+			d3.group(
+				processedData.map((v, i) => ({ values: v, group: groups[i] })),
+				(d) => d.group
+			) : new Map();
 
-		// --- Draw all unselected clusters ---
-		grouped.forEach((rows, groupId) => {
-			if (!effectiveClusterVisibility[groupId]) return;
-			if (selectedBand === groupId) return; // skip selected cluster here
-
-			drawBand(
-				svg,
-				rows,
-				groupId,
-				xPositions,
-				yScales,
-				clusterColors,
-				{
-					quantile: options.quantile,
-					showMedian: options.medians,
-					showSolutions: options.solutions,
-					bandOpacity: 0.5
-				},
-				false, // not selected
-				onBandSelect
-			);
+		// --- Decide which drawing method to use ---
+		const hasRawData = processedData.length > 0 && groups.length > 0;
+		const hasPreCalculatedData = Object.keys(bands).length > 0 && Object.keys(medians).length > 0;
+		
+		console.log('🎯 Drawing method decision:', {
+			hasRawData,
+			hasPreCalculatedData,
+			optionsBands: options.bands,
+			optionsMedians: options.medians,
+			willDrawBands: hasPreCalculatedData && options.bands,
+			willDrawMedians: hasPreCalculatedData && options.medians,
+			bandsKeys: Object.keys(bands),
+			mediansKeys: Object.keys(medians),
+			groups: groups,
+			uniqueGroups: [...new Set(groups)],
+			sortedAxisNames,
+			originalAxisNames: axisNames,
+			effectiveAxisOrder
 		});
 
-		// --- Draw selected cluster on top ---
-		if (selectedBand !== null && effectiveClusterVisibility[selectedBand]) {
-			const selectedRows = grouped.get(selectedBand);
-			if (selectedRows) {
+		if (hasRawData) {
+			// --- Use raw data to calculate and draw bands ---
+			grouped.forEach((rows, groupId) => {
+				if (!effectiveClusterVisibility[groupId]) return;
+				if (selectedBand === groupId) return; // skip selected cluster here
+
 				drawBand(
 					svg,
-					selectedRows,
-					selectedBand,
+					rows,
+					groupId,
 					xPositions,
 					yScales,
 					clusterColors,
@@ -181,9 +198,87 @@
 						showSolutions: options.solutions,
 						bandOpacity: 0.5
 					},
-					true, // selected styling
+					false, // not selected
 					onBandSelect
 				);
+			});
+
+			// --- Draw selected cluster on top ---
+			if (selectedBand !== null && effectiveClusterVisibility[selectedBand]) {
+				const selectedRows = grouped.get(selectedBand);
+				if (selectedRows) {
+					drawBand(
+						svg,
+						selectedRows,
+						selectedBand,
+						xPositions,
+						yScales,
+						clusterColors,
+						{
+							quantile: options.quantile,
+							showMedian: options.medians,
+							showSolutions: options.solutions,
+							bandOpacity: 0.5
+						},
+						true, // selected styling
+						onBandSelect
+					);
+				}
+			}
+		} else if (hasPreCalculatedData) {
+			// --- Use pre-calculated bands and medians from SCORE API ---
+			console.log('🎨 Drawing pre-calculated bands:', { 
+				availableClusterIds: Object.keys(bands),
+				sampleBandData: bands[Object.keys(bands)[0]],
+				sampleMedianData: medians[Object.keys(medians)[0]],
+				uniqueClusters: [...new Set(groups)]
+			});
+
+			// Get unique cluster IDs from groups
+			const uniqueClusterIds = [...new Set(groups)].sort((a, b) => a - b);
+			
+			// Draw all unselected clusters first
+			uniqueClusterIds.forEach((clusterId) => {
+				const clusterKey = clusterId.toString();
+				if (!bands[clusterKey] || !medians[clusterKey]) return; // Skip if no data
+				if (!effectiveClusterVisibility[clusterId]) return;
+				if (selectedBand === clusterId) return; // skip selected cluster, draw it on top
+				
+				drawPreCalculatedCluster(
+					svg,
+					clusterId,  // actual cluster ID for colors and selection
+					bands,
+					medians,
+					sortedAxisNames,
+					xPositions,
+					yScales,
+					clusterColors,
+					sortedAxisSigns,
+					options,
+					false, // not selected
+					onBandSelect
+				);
+			});
+
+			// Draw selected cluster on top
+			if (selectedBand !== null && effectiveClusterVisibility[selectedBand]) {
+				const selectedClusterKey = selectedBand.toString();
+				if (bands[selectedClusterKey] && medians[selectedClusterKey]) {
+					drawPreCalculatedCluster(
+						svg,
+						selectedBand,       // actual cluster ID
+						bands,
+						medians,
+						sortedAxisNames,
+						xPositions,
+						yScales,
+						clusterColors,
+						sortedAxisSigns,
+						options,
+						true, // selected
+						onBandSelect
+					);
+				}
 			}
 		}
 
