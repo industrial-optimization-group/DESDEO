@@ -5,8 +5,9 @@ import json
 from sqlalchemy.types import TypeDecorator
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
-from desdeo.api.models.gdm.gdm_base import BasePreferences
+from desdeo.api.models.gdm.gdm_base import BaseGroupInfoContainer
 from desdeo.api.models.gdm.gnimbus import EndProcessPreference, OptimizationPreference, VotingPreference
+from desdeo.api.models.gdm.gdm_score_bands import GDMSCOREBandInformation
 from desdeo.tools import SolverResults
 
 
@@ -17,12 +18,14 @@ class PreferenceType(TypeDecorator):
 
     # Serialize
     def process_bind_param(self, value, dialect):
-        if isinstance(value, BasePreferences):
+        """Turns a preference item into json."""
+        if isinstance(value, BaseGroupInfoContainer):
             return value.model_dump_json()
         return None
 
     # Deserialize
     def process_result_value(self, value, dialect):
+        """And the other way around."""
         jsoned = json.loads(value)
         if jsoned is not None:
             match jsoned["method"]:
@@ -33,6 +36,8 @@ class PreferenceType(TypeDecorator):
                 # As the different methods are implemented, add new types
                 case "end":
                     return EndProcessPreference.model_validate(jsoned)
+                case "gdm-score-bands":
+                    return GDMSCOREBandInformation.model_validate(jsoned)
                 case _:
                     print(f"Unable to deserialize Preference with method {jsoned['method']}.")
                     return None
@@ -54,7 +59,8 @@ class Group(GroupBase, table=True):
 
     problem_id: int = Field(default=None)
 
-    head_iteration: "GroupIteration" = Relationship(back_populates="group")
+    """The id of the head GroupIteration."""
+    head_iteration_id: int | None
 
 
 class GroupPublic(GroupBase):
@@ -73,21 +79,25 @@ class GroupIteration(SQLModel, table=True):
     id: int | None = Field(primary_key=True, default=None)
     problem_id: int | None = Field(default=None)
 
-    group_id: int | None = Field(foreign_key="group.id", default=None)
-    group: "Group" = Relationship(back_populates="head_iteration")
+    """ID of the associated Group."""
+    group_id: int
 
-    # Preferences that are filled as they come (remove the RESULT aspect from this, just put the results to the state.)
-    preferences: BasePreferences = Field(sa_column=Column(PreferenceType))
+    """The preferences are stored in this item while the iteration is in progress."""
+    info_container: BaseGroupInfoContainer = Field(sa_column=Column(PreferenceType))
+    # NOTE: This used to be called "preferences" and the class used to be called "BasePreference"
+
     notified: dict[int, bool] = Field(sa_column=Column(JSON))
 
+    """State for storing post optimization/voting related data (dec vars, objectives, etc.)"""
     state_id: int | None = Field()
 
+    """Linked list emerges."""
     parent_id: int | None = Field(foreign_key="groupiteration.id", default=None)
     parent: "GroupIteration" = Relationship(
-        back_populates="child", sa_relationship_kwargs={"remote_side": "GroupIteration.id"}
+        back_populates="children", sa_relationship_kwargs={"remote_side": "GroupIteration.id"}
     )
     # If parent is removed, remove the child too
-    child: "GroupIteration" = Relationship(
+    children: list["GroupIteration"] = Relationship(
         back_populates="parent", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
 
@@ -96,6 +106,15 @@ class GroupInfoRequest(SQLModel):
     """Class for requesting group information."""
 
     group_id: int
+
+class GroupRevertRequest(SQLModel):
+    """Class for requesting reverting to certain iteration."""
+
+    group_id: int = Field(description="The ID of the group we wish to revert.")
+    state_id: int = Field(
+        description="The state's ID to which we want to revert to. "\
+            "Corresponds to state_id in GroupIteration."
+    )
 
 
 class GroupResult(SQLModel):

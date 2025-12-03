@@ -31,8 +31,8 @@ cookie_domain = "" # Not needed for testing
 # secret key should be read from env DO NOT EXPOSE!!!!
 # authjwt_secret_key = $AUTHJWT_SECRET
 authjwt_algorithm = "HS256"
-authjwt_access_token_expires = 15  # in minutes
-authjwt_refresh_token_expires = 30 # in minutes
+authjwt_access_token_expires = 5  # in minutes
+authjwt_refresh_token_expires = 180 # in minutes
 # These are not that sensitive info but read from env regardless
 # cors_origins = $CORS_ORIGINS
 # cookie_domain = $COOKIE_DOMAIN

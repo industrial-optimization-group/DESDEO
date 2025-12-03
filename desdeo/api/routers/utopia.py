@@ -109,7 +109,7 @@ def get_utopia_data(
             # if the optimization didn't choose any decision alternative, it's safe to assume
             #  that nothing is being done at that forest stand
             treatments = forest_metadata.schedule_dict[key]["0"]
-            print(e)
+            # print(e)
         treatments_dict[key] = {forest_metadata.years[0]: 0, forest_metadata.years[1]: 0, forest_metadata.years[2]: 0}
         for year in treatments_dict[key]:
             if year in treatments:

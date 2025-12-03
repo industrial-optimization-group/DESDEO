@@ -11,7 +11,7 @@ export type Solution = {
  */
 export type ReferenceData = {
     referencePoint?: Solution;
-    previousReferencePoint?: Solution;
+    previousReferencePoints?: Solution[]; // Changed from single to array
     preferredRanges?: { [key: string]: { min: number; max: number } };
     preferredSolutions?: Solution[];
     nonPreferredSolutions?: Solution[];
@@ -22,14 +22,14 @@ export type ReferenceData = {
  * Create reference data from preference values
  * 
  * @param current_preference_values - Current iteration's preference values
- * @param previous_preference_values - Previous iteration's preference values
+ * @param previous_preference_values - Array of previous iterations' preference values
  * @param problem - Problem definition with objective symbols
  * @param tolerancePercent - Tolerance percentage for preferred ranges (default: 10%)
  * @returns Reference data object for visualization
  */
 export function createReferenceData(
     current_preference_values: number[],
-    previous_preference_values: number[],
+    previous_preference_values: number[][],
     problem: ProblemInfo | null,
     previous_objective_values?: number[][],
     other_objective_values?: number[][],
@@ -57,14 +57,22 @@ export function createReferenceData(
     }
 
     // Create reference point from previous preferences
-    const previousReferencePoint: Solution = {
-        values: {},
-        label: labels?.previousRefLabel
-    };
+    const previousReferencePoints: Solution[] = [];
     if (previous_preference_values.length > 0) {
-        previous_preference_values.forEach((value, index) => {
-            if (problem.objectives[index]) {
-                previousReferencePoint.values[problem.objectives[index].symbol] = value;
+        previous_preference_values.forEach((preferenceArray) => {
+            const previousReferencePoint: Solution = {
+                values: {},
+                label: labels?.previousRefLabel ? `${labels.previousRefLabel}` : `Previous preference`
+            };
+            
+            preferenceArray.forEach((value, index) => {
+                if (problem.objectives[index]) {
+                    previousReferencePoint.values[problem.objectives[index].symbol] = value;
+                }
+            });
+            
+            if (Object.keys(previousReferencePoint.values).length > 0) {
+                previousReferencePoints.push(previousReferencePoint);
             }
         });
     }
@@ -127,7 +135,7 @@ export function createReferenceData(
     }
     return {
         referencePoint: Object.keys(referencePoint).length > 0 ? referencePoint : undefined,
-        previousReferencePoint: Object.keys(previousReferencePoint).length > 0 ? previousReferencePoint : undefined,
+        previousReferencePoints: previousReferencePoints.length > 0 ? previousReferencePoints : undefined,
         preferredRanges: Object.keys(preferredRanges).length > 0 ? preferredRanges : undefined,
         preferredSolutions: preferredSolutions.length > 0 ? preferredSolutions : undefined,
         otherSolutions: otherSolutions.length > 0 ? otherSolutions : undefined
