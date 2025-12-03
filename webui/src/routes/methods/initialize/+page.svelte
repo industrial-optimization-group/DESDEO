@@ -71,6 +71,12 @@
 			preferencesType: ['classification']
 		},
 		{
+			name: 'Explainable NIMBUS',
+			path: '/interactive_methods/XNIMBUS',
+			description: 'Explainable NIMBUS method for MOO.',
+			preferencesType: ['classification']
+		},
+		{
 			name: 'GDM-SCORE-bands',
 			path: '/interactive_methods/GDM-SCORE-bands',
 			description: 'SCORE bands for GDM.',
