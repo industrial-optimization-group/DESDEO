@@ -42,7 +42,7 @@ class SCOREBandsGDMResult(BaseModel):
 def score_bands_gdm(
     data: pl.DataFrame,
     config: SCOREBandsGDMConfig,
-    state: list[SCOREBandsGDMResult] | None = None,
+    state: list[SCOREBandsGDMResult],
     votes: dict[str, int] | None = None,
 ) -> list[SCOREBandsGDMResult]:
     """Run the SCORE bands based interactive GDM.
@@ -50,7 +50,7 @@ def score_bands_gdm(
     Args:
         data (pl.DataFrame): The data to run the GDM on.
         config (SCOREBandsGDMConfig): Configuration for the GDM.
-        state (list[SCOREBandsGDMResult] | None, optional): List of previous state of the GDM. Defaults to None.
+        state (list[SCOREBandsGDMResult]): List of previous state of the GDM. Empty list if first iteration.
         votes (dict[str, int] | None, optional): Votes from the decision makers. Defaults to None.
 
     Raises:
@@ -72,8 +72,10 @@ def score_bands_gdm(
                 previous_iteration=None,
             )
         ]
-    if state is None:  # Just to shut up ruff
+    if not state:
         raise ValueError("State must be provided if votes are provided.")
+    elif config.from_iteration is None:
+        raise ValueError("from_iteration must be set in the config for subsequent iterations.")
 
     winning_clusters = consensus_rule(votes, config.minimum_votes)
 
