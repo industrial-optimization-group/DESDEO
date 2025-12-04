@@ -43,11 +43,13 @@ __all__ = [  # noqa: RUF022
     "zdt2",
     "zdt3",
     "best_cake_problem",
+    "dmitry_forest_problem_disc",
 ]
 
 
 from .binh_and_korn_problem import binh_and_korn
 from .cake_problem import best_cake_problem
+from .dmitry_forest_problem_discrete import dmitry_forest_problem_disc
 from .dtlz2_problem import dtlz2
 from .forest_problem import forest_problem, forest_problem_discrete
 from .knapsack_problem import simple_knapsack, simple_knapsack_vectors

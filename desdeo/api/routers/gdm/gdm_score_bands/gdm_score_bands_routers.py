@@ -2,6 +2,8 @@
 
 I imagine these as simple interfaces to the GDMScoreBandsManager.
 """
+import logging
+import sys
 from typing import Annotated
 
 import polars as pl
@@ -14,33 +16,45 @@ from desdeo.api.models import (
     GDMSCOREBandInformation,
     GDMScoreBandsInitializationRequest,
     GDMSCOREBandsResponse,
+    GDMScoreBandsVoteRequest,
     Group,
+    GroupInfoRequest,
     GroupIteration,
     User,
-    GroupInfoRequest,
 )
 from desdeo.api.routers.gdm.gdm_aggregate import manager
 from desdeo.api.routers.gdm.gdm_score_bands.gdm_score_bands_manager import GDMScoreBandsManager
 from desdeo.api.routers.user_authentication import get_current_user
+from desdeo.gdm.score_bands import SCOREBandsGDMConfig, SCOREBandsGDMResult, score_bands_gdm
 from desdeo.tools.score_bands import SCOREBandsConfig, SCOREBandsResult, score_json
+
+logging.basicConfig(
+    stream=sys.stdout, format="[%(filename)s:%(lineno)d] %(levelname)s: %(message)s", level=logging.INFO
+)
 
 router = APIRouter(prefix="/gdm-score-bands", tags=["GDM Score Bands"])
 
 @router.post("/vote")
 async def vote_for_a_band(
-    group_id: int,
-    vote: int,
+    request: GDMScoreBandsVoteRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)]
 ):
-    """Vote for a band.
+    """Vote for a band using this endpoint.
 
     Args:
-        group_id (int): _description_
-        vote (int): _description_
-        user (Annotated[User, Depends): _description_
-        session (Annotated[Session, Depends): _description_
+        request (GDMScoreBandsVoteRequest): A container for the group id and the vote.
+        user (Annotated[User, Depends): the current user.
+        session (Annotated[Session, Depends): database session
+
+    Raises:
+        HTTPException: If something goes wrong. It hopefully let's you know what went wrong.
+
+    Returns:
+        JSONResponse: A quick confirmation that vote went through.
     """
+    group_id = request.group_id
+    vote = request.vote
     group = session.exec(select(Group).where(Group.id == group_id)).first()
     if not group:
         raise HTTPException(
@@ -68,8 +82,9 @@ async def vote_for_a_band(
             session=session
         )
     except Exception as e:
+        logging.exception(e)
         raise HTTPException(
-            detail=str(e),
+            detail="Internal server error",
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         ) from e
 
@@ -79,18 +94,24 @@ async def vote_for_a_band(
 
 @router.post("/confirm")
 async def confirm_vote(
-    group_id: int,
+    request: GroupInfoRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
 ):
-    """Confirm that you'll want to use these preferences.
+    """Confim the vote. If all confirm, the clustering and new iteration begins.
 
     Args:
-        group_id (int): _description_
-        vote (int): _description_
-        user (Annotated[User, Depends): _description_
-        session (Annotated[Session, Depends): _description_
+        request (GroupInfoRequest): Simple request to get the group ID.
+        user (Annotated[User, Depends): The current user.
+        session (Annotated[Session, Depends): Database session.
+
+    Raises:
+        HTTPException: If something goes awry. It should let you know what went wrong, though.
+
+    Returns:
+        JSONResponse: A simple confirmation that everything went ok and that vote went in.
     """
+    group_id = request.group_id
     group = session.exec(select(Group).where(Group.id == group_id)).first()
     if not group:
         raise HTTPException(
@@ -112,8 +133,9 @@ async def confirm_vote(
             session=session
         )
     except Exception as e:
+        logging.exception(e)
         raise HTTPException(
-            detail=str(e),
+            detail="Internal server error!",
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         ) from e
 
@@ -127,7 +149,22 @@ async def initialize(
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)]
 ) -> GDMSCOREBandsResponse:
-    """Initialize the GDM SCORE BANDS."""
+    """An endpoint for two things: Initializing the GDM Score Bands things and Fetching results.
+
+    If a group hasn't been initialized, initialize and then return initial clustering information.
+    If it has been initialized, just fetch the latest iteration's information (clustering, etc.)
+
+    Args:
+        request (GDMScoreBandsInitializationRequest): Request that contains necessary information for initialization.
+        user (Annotated[User, Depends): The current user.
+        session (Annotated[Session, Depends): Database session.
+
+    Raises:
+        HTTPException: It'll let you know.
+
+    Returns:
+        GDMSCOREBandsResponse: A response containing Group id, group iter id and ScoreBandsResponse.
+    """
     group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
     if not Group:
         raise HTTPException(
@@ -143,7 +180,7 @@ async def initialize(
         return GDMSCOREBandsResponse(
             group_id=group.id,
             group_iter_id=group.head_iteration_id,
-            result=group_iteration.info_container.score_bands_result
+            result=group_iteration.info_container.score_bands_result.score_bands_result
         )
     user_ids = group.user_ids
     user_ids.append(group.owner_id)
@@ -156,25 +193,20 @@ async def initialize(
         group_id=group.id, method="gdm-score-bands"
     )
 
-    score_bands_config = SCOREBandsConfig() if request.score_bands_config is None else request.score_bands_config
+    score_bands_config = SCOREBandsGDMConfig() if request.score_bands_config is None else request.score_bands_config
 
     # initial clustering for the objectives
     discrete_representation_obj = group_mgr.discrete_representation.objective_values
     objs = pl.DataFrame(discrete_representation_obj)
-    result: SCOREBandsResult = score_json(
+    result: SCOREBandsGDMResult = score_bands_gdm(
         data=objs,
-        options=score_bands_config
-    )
-
-    # all solutions are active.
-    active_indices = list(range(len(result.clusters)))
+        config=score_bands_config,
+    )[-1]
 
     # store necessary data to the database. Currently all "voting" related is null bc no voting has happened yet.
     score_bands_info = GDMSCOREBandInformation(
         user_votes={},
         user_confirms=[],
-        voting_results=None,
-        active_indices=active_indices,
         score_bands_config=score_bands_config,
         score_bands_result=result
     )
@@ -203,7 +235,7 @@ async def initialize(
     return GDMSCOREBandsResponse(
         group_id=group.id,
         group_iter_id=group.head_iteration_id,
-        result=result
+        result=result.score_bands_result
     )
 
 @router.post("/get-votes-and-confirms")
@@ -212,7 +244,7 @@ def get_votes_and_confirms(
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)]
 ) -> JSONResponse:
-    """Returns the current status of votes and confirmations in this iteration.
+    """Returns the current status of votes and confirmations in current iteration.
 
     Args:
         request (GroupInfoRequest): The group we'd like the info on.
@@ -250,7 +282,6 @@ def get_votes_and_confirms(
 
     return JSONResponse(
         content={
-            "message": "votes and confirms.",
             "votes": votes,
             "confirms": confirms
         }

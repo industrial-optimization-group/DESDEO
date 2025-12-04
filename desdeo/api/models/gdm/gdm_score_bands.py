@@ -9,29 +9,23 @@ indices will get smaller and smaller, and eventually be only ~10 solutions.
 from sqlmodel import Field, SQLModel
 
 from desdeo.api.models.gdm.gdm_base import BaseGroupInfoContainer
-from desdeo.tools.score_bands import SCOREBandsConfig, SCOREBandsResult
+from desdeo.gdm.score_bands import SCOREBandsGDMConfig, SCOREBandsGDMResult
+from desdeo.tools.score_bands import SCOREBandsResult
 
 
 class GDMSCOREBandInformation(BaseGroupInfoContainer):
     """Class for containing info on which band was voted for."""
     method: str = "gdm-score-bands"
-    user_votes: dict[int, int] = Field(
+    user_votes: dict[str, int] = Field(
         description="Dictionary of votes."
     )
     user_confirms: list[int] = Field(
         description="List of users who want to move on."
     )
-    voting_results: int | None = Field(
-        "The band id that was voted for. Are there more than one?"
-    )
-    # Maybe store this as something smarter?
-    active_indices: list[int] = Field(
-        description="A list of active indices. They reduce as we choose a score band."
-    )
-    score_bands_config: SCOREBandsConfig = Field(
+    score_bands_config: SCOREBandsGDMConfig = Field(
         description="The configuration that led to this classification."
     )
-    score_bands_result: SCOREBandsResult = Field(
+    score_bands_result: SCOREBandsGDMResult = Field(
         description="The results of the score bands."
     )
 
@@ -40,9 +34,17 @@ class GDMScoreBandsInitializationRequest(SQLModel):
     group_id: int = Field(
         description="The group to be initialized."
     )
-
-    score_bands_config: SCOREBandsConfig = Field(
+    score_bands_config: SCOREBandsGDMConfig = Field(
         description="The configuration for the initial score banding."
+    )
+
+class GDMScoreBandsVoteRequest(SQLModel):
+    """Request for voting for a band."""
+    group_id: int = Field(
+        description="ID of the group in question"
+    )
+    vote: int = Field(
+        description="The vote. Vaalisalaisuus."
     )
 
 class GDMSCOREBandsResponse(SQLModel):

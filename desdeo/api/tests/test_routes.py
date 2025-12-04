@@ -13,6 +13,9 @@ from desdeo.api.models import (
     EMOIterateResponse,
     EMOSaveRequest,
     ForestProblemMetaData,
+    GDMScoreBandsInitializationRequest,
+    GDMSCOREBandsResponse,
+    GDMScoreBandsVoteRequest,
     GenericIntermediateSolutionResponse,
     GetSessionRequest,
     GroupCreateRequest,
@@ -47,7 +50,9 @@ from desdeo.api.models.state import EMOIterateState, EMOSaveState
 from desdeo.api.routers.user_authentication import create_access_token
 from desdeo.emo.options.algorithms import nsga3_options, rvea_options
 from desdeo.emo.options.templates import ReferencePointOptions
+from desdeo.gdm.score_bands import SCOREBandsGDMConfig
 from desdeo.problem.testproblems import simple_knapsack_vectors
+from desdeo.tools.score_bands import KMeansOptions, SCOREBandsConfig, SCOREBandsResult
 
 from .conftest import get_json, login, post_json
 
@@ -154,7 +159,7 @@ def test_add_problem(client: TestClient):
 
     problems = response.json()
 
-    assert len(problems) == 3
+    assert len(problems) == 4
 
 
 def test_new_session(client: TestClient, session_and_user: dict):
@@ -873,6 +878,111 @@ def test_get_problem_metadata(client: TestClient):
     assert response.json()[0]["schedule_dict"] == {"type": "dict"}
 
     # No problem
-    req = {"problem_id": 3, "metadata_type": "forest_problem_metadata"}
+    req = {"problem_id": 4, "metadata_type": "forest_problem_metadata"}
     response = post_json(client=client, endpoint="/problem/get_metadata", json=req, access_token=access_token)
     assert response.status_code == 404
+
+def test_gdm_score_bands(client: TestClient):
+    """Test score bands endpoints."""
+    access_token = login(client=client)
+
+    # create group
+    req = GroupCreateRequest(
+        group_name="group",
+        problem_id=3 #The discrete representation problem
+    ).model_dump()
+    response = post_json(
+        client=client,
+        endpoint="/gdm/create_group",
+        json=req,
+        access_token=access_token
+    )
+    assert response.status_code == 201
+
+    # Add a dm to the group
+    # Create a new user to the database
+    response = client.post(
+        "/add_new_dm",
+        data={"username": "dm", "password": "dm", "grant_type": "password"},
+        headers={"content-type": "application/x-www-form-urlencoded"},
+    )
+    assert response.status_code == 201
+
+    req = GroupModifyRequest(
+        group_id=1,
+        user_id=2
+    ).model_dump()
+    response = post_json(
+        client=client,
+        endpoint="/gdm/add_to_group",
+        json=req,
+        access_token=access_token
+    )
+    assert response.status_code == 200
+
+    access_token = login(client=client, username="dm", password="dm")
+
+    # Now we have a group, so let's get on with making stuff with gdm score bands.
+    req = GDMScoreBandsInitializationRequest(
+        group_id=1,
+        score_bands_config=SCOREBandsGDMConfig(
+            score_bands_config=SCOREBandsConfig(
+                clustering_algorithm=KMeansOptions(
+                    n_clusters=5
+                )
+            )
+        )
+    ).model_dump()
+    response = post_json(
+        client=client,
+        endpoint="/gdm-score-bands/get-or-initialize",
+        json=req,
+        access_token=access_token
+    )
+    assert response.status_code == 200
+    response_innards = GDMSCOREBandsResponse.model_validate(response.json())
+    cluster_size_1 = len(response_innards.result.clusters)
+
+    # VOTE AND CONFIRM
+    req = GDMScoreBandsVoteRequest(
+        group_id=1, vote=4,
+    ).model_dump()
+    response = post_json(
+        client=client,
+        endpoint="/gdm-score-bands/vote",
+        json=req,
+        access_token=access_token
+    )
+    assert response.status_code == 200
+    req = GroupInfoRequest(group_id=1).model_dump()
+    response = post_json(
+        client=client,
+        endpoint="/gdm-score-bands/confirm",
+        json=req,
+        access_token=access_token
+    )
+    assert response.status_code == 200
+
+    req = GDMScoreBandsInitializationRequest(
+        group_id=1,
+        score_bands_config=SCOREBandsGDMConfig(
+            score_bands_config=SCOREBandsConfig(
+                clustering_algorithm=KMeansOptions(
+                    n_clusters=5
+                )
+            )
+        )
+    ).model_dump()
+    response = post_json(
+        client=client,
+        endpoint="/gdm-score-bands/get-or-initialize",
+        json=req,
+        access_token=access_token
+    )
+    assert response.status_code == 200
+    response_innards = GDMSCOREBandsResponse.model_validate(response.json())
+    cluster_size_2 = len(response_innards.result.clusters)
+
+    # Since we've made one iteration, the length of the clustering and therefore the active 
+    # indices should be smaller the second time around than the first one.
+    assert cluster_size_1 > cluster_size_2
