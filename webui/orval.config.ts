@@ -16,7 +16,8 @@ export default defineConfig({
             schemas: 'src/lib/gen/models',
             client: 'fetch',
             baseUrl: `${BASE_URL}`,
-            mock: true,
+            mock: false,
+	    namingConvention: "PascalCase",
             override: {
                 mutator: {
                     path: 'src/lib/api/new-client.ts',
@@ -34,6 +35,7 @@ export default defineConfig({
             mode: 'single',
             client: 'zod',
             target: 'src/lib/gen/endpoints',
+	    namingConvention: "PascalCase",
             fileExtension: 'zod.ts',
         },
         hooks: {
