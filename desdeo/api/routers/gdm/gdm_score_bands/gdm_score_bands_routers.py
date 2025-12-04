@@ -166,7 +166,7 @@ async def initialize(
         GDMSCOREBandsResponse: A response containing Group id, group iter id and ScoreBandsResponse.
     """
     group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
-    if not Group:
+    if not group:
         raise HTTPException(
             detail=f"Group with ID {request.group_id} not found!",
             status_code=status.HTTP_404_NOT_FOUND
