@@ -599,7 +599,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/method/nimbus/get_solution_details": {
+    "/method/nimbus/lagrange-multipliers": {
         parameters: {
             query?: never;
             header?: never;
@@ -609,10 +609,57 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Get Solution Details
-         * @description Get detailed solution information including Lagrange multipliers.
+         * Get Lagrange Multipliers
+         * @description Extract Lagrange multipliers from a NIMBUS classification response.
+         *
+         *     This endpoint takes the same request as the solve endpoint, gets the NIMBUS response,
+         *     and returns the Lagrange multipliers from all solutions.
+         *
+         *     Args:
+         *         request (NIMBUSClassificationRequest): The NIMBUS request
+         *         user (User): Current authenticated user
+         *         session (Session): Database session
+         *
+         *     Returns:
+         *         dict[str, list[dict[str, float | list[float]] | None]]: Dictionary containing
+         *         Lagrange multipliers organized by solution type ("current", "saved", "all")
          */
-        post: operations["get_solution_details_method_nimbus_get_solution_details_post"];
+        post: operations["get_lagrange_multipliers_method_nimbus_lagrange_multipliers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/method/nimbus/lagrange-multipliers/{state_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Lagrange Multipliers By State
+         * @description Extract Lagrange multipliers from solutions in an existing NIMBUS state.
+         *
+         *     This endpoint retrieves Lagrange multipliers from solutions that were previously
+         *     computed and stored in the specified state.
+         *
+         *     Args:
+         *         state_id (int): The ID of the state containing the solutions
+         *         user (User): Current authenticated user
+         *         session (Session): Database session
+         *
+         *     Returns:
+         *         dict[str, list[dict[str, float | list[float]] | None]]: Dictionary containing
+         *         Lagrange multipliers organized by solution type ("current", "saved", "all")
+         *
+         *     Raises:
+         *         HTTPException: If state not found or access denied
+         */
+        get: operations["get_lagrange_multipliers_by_state_method_nimbus_lagrange_multipliers__state_id__get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3653,6 +3700,10 @@ export interface components {
             readonly state_id: number;
             /** Num Solutions */
             readonly num_solutions: number;
+            /** Lagrange Multipliers */
+            readonly lagrange_multipliers: {
+                [key: string]: number;
+            }[] | null;
         };
         /**
          * SolutionReferenceResponse
@@ -3672,6 +3723,10 @@ export interface components {
             /** Variable Values */
             variable_values: {
                 [key: string]: number | boolean | components["schemas"]["Tensor"];
+            } | null;
+            /** Lagrange Multipliers */
+            lagrange_multipliers: {
+                [key: string]: number;
             } | null;
         };
         /**
@@ -4869,7 +4924,7 @@ export interface operations {
             };
         };
     };
-    get_solution_details_method_nimbus_get_solution_details_post: {
+    get_lagrange_multipliers_method_nimbus_lagrange_multipliers_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -4878,9 +4933,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["NIMBUSClassificationRequest"];
             };
         };
         responses: {
@@ -4890,7 +4943,46 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": {
+                        [key: string]: ({
+                            [key: string]: number | number[];
+                        } | null)[];
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_lagrange_multipliers_by_state_method_nimbus_lagrange_multipliers__state_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                state_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: ({
+                            [key: string]: number | number[];
+                        } | null)[];
+                    };
                 };
             };
             /** @description Validation Error */

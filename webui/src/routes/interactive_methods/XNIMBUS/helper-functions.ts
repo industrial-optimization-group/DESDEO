@@ -1,7 +1,9 @@
 import type { components } from '$lib/api/client-types';
+import { errorMessage, isLoading } from '../../../stores/uiState';
+
 
 type ProblemInfo = components['schemas']['ProblemInfo'];
-type Solution = components['schemas']['UserSavedSolutionAddress'];
+type Solution = components['schemas']['SolutionReferenceResponse'];
 
 // Define the Response type needed for our helper functions
 type NIMBUSClassificationResponse = components['schemas']['NIMBUSClassificationResponse'];
@@ -19,12 +21,18 @@ type Response = BaseResponse & {
  * @returns boolean indicating if the problem has utopia metadata
  */
 export function checkUtopiaMetadata(prob: ProblemInfo | null) {
-    if (!prob || !prob.problem_metadata || !prob.problem_metadata.data) {
+    // Check if the problem and its metadata exist
+    if (!prob || !prob.problem_metadata) {
         return false;
     }
-    return prob.problem_metadata.data.some(meta => meta.metadata_type === "forest_problem_metadata");
-}
 
+    // Check if forest_metadata exists and is not empty
+    return (
+        prob.problem_metadata.forest_metadata !== null &&
+        Array.isArray(prob.problem_metadata.forest_metadata) &&
+        prob.problem_metadata.forest_metadata.length > 0
+    );
+}
 /**
  * Maps solutions objective values to arrays suitable for visualization components
  * @param solutions Array of solutions with objective values
@@ -32,13 +40,14 @@ export function checkUtopiaMetadata(prob: ProblemInfo | null) {
  * @returns Array of arrays with objective values in the order defined by the problem
  */
 export function mapSolutionsToObjectiveValues(solutions: Solution[], problem: ProblemInfo) {
-    return solutions.map(result => {
-        return problem.objectives.map(obj => {
-            const value = result.objective_values[obj.symbol];
+    return solutions.map((result) => {
+        return problem.objectives.map((obj) => {
+            const value = result.objective_values && result.objective_values[obj.symbol];
             return Array.isArray(value) ? value[0] : value;
         });
     });
 }
+
 
 /**
  * Initialize preferences from previous state or ideal values
@@ -201,48 +210,66 @@ export function updateSolutionNames(
 
     // Create a copy of the target solutions to avoid mutating the original
     const updatedSolutions = [...targetSolutions];
-    
+
     // Update names for solutions that exist in saved solutions
     for (let solution of updatedSolutions) {
         const savedIndex = savedSolutions.findIndex(
-            saved => saved.address_state === solution.address_state && 
-                   saved.address_result === solution.address_result
+            (saved) =>
+                saved.state_id === solution.state_id && saved.solution_index === solution.solution_index
         );
-        
+
         if (savedIndex !== -1) {
             // Solution exists in saved_solutions, update the name
             solution.name = savedSolutions[savedIndex].name;
         }
     }
-    
+
     return updatedSolutions;
 }
 
-export async function callNimbusAPI<T = Response>(type: string, data: Record<string, any>): Promise<{
-    success: boolean;
-    data?: T;
-    error?: string;
-}> {
+export async function callNimbusAPI<T>(
+    type: string,
+    data: Record<string, any>,
+    timeout = 10000 // 10s default
+): Promise<T | null> {
+    isLoading.set(true);
+    errorMessage.set(null);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
     try {
-        const response = await fetch(`/interactive_methods/NIMBUS/?type=${type}`, {
+        const response = await fetch(`/interactive_methods/XNIMBUS/?type=${type}`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+            signal: controller.signal
         });
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
-        }
+        clearTimeout(timeoutId);
 
         const result = await response.json();
-        return result;
+
+        if (!response.ok || !result.success) {
+            const errorMsg = result.error || `HTTP error! Status: ${response.status}`;
+            throw new Error(errorMsg);
+        }
+
+        return result.data as T;
     } catch (error) {
-        console.error(`Error calling NIMBUS ${type} API:`, error);
-        return {
-            success: false,
-            error: error instanceof Error ? error.message : 'Unknown error'
-        };
+        let errorMsg: string;
+        if (error instanceof Error) {
+            if (error.name === 'AbortError') {
+                errorMsg = 'The request timed out. Please try again.';
+            } else {
+                errorMsg = error.message;
+            }
+        } else {
+            errorMsg = 'An unknown error occurred';
+        }
+        errorMessage.set(errorMsg);
+        console.error(`Error calling NIMBUS ${type} API:`, errorMsg);
+        return null;
+    } finally {
+        isLoading.set(false);
     }
 }

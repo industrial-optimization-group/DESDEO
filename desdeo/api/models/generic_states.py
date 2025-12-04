@@ -173,7 +173,9 @@ class StateDB(SQLModel, table=True):
             # No bound state
             raise RuntimeError("StateDB.state accessed without a bound Session")
 
-        return db_session.exec(select(table).where(table.id == self.base_state.id)).first()
+        return db_session.exec(
+            select(table).where(table.id == self.base_state.id)
+        ).first()
 
 
 KIND_TO_TABLE: dict[StateKind, SQLModel] = {
@@ -293,12 +295,17 @@ class SolutionReference(SQLModel):
     referencing those, see `SavedSolutionReference`.
     """
 
-    name: str | None = Field(description="Optional name to help identify the solution if, e.g., saved.", default=None)
+    name: str | None = Field(
+        description="Optional name to help identify the solution if, e.g., saved.",
+        default=None,
+    )
     solution_index: int | None = Field(
         description="The index of the referenced solution, if multiple solutions exist in the reference state.",
         default=None,
     )
-    state: StateDB = Field(description="The reference state with the solution information.")
+    state: StateDB = Field(
+        description="The reference state with the solution information."
+    )
 
     @computed_field
     @property
@@ -336,6 +343,15 @@ class SolutionReference(SQLModel):
     def num_solutions(self) -> int:
         return len(self.state.state.solver_results)
 
+    @computed_field
+    @property
+    def lagrange_multipliers(self) -> list[dict[str, float]] | None:
+        return (
+            self.state.state.result_lagrange_multipliers[self.solution_index]
+            if self.state.state.result_lagrange_multipliers
+            else None
+        )
+
 
 class SolutionReferenceResponse(SQLModel):
     """The response information provided when `SolutionReference` object are returned from the client."""
@@ -347,12 +363,15 @@ class SolutionReferenceResponse(SQLModel):
     state_id: int
     objective_values: dict[str, float] | None
     variable_values: dict[str, "VariableType | Tensor"] | None
+    lagrange_multipliers: dict[str, float] | None
 
 
 class SavedSolutionReference(SQLModel):
     """A model that functions as a reference to solutions that users have chosen to explicitly save in the database."""
 
-    saved_solution: UserSavedSolutionDB = Field(description="The reference object with the solution information.")
+    saved_solution: UserSavedSolutionDB = Field(
+        description="The reference object with the solution information."
+    )
 
     @computed_field
     @property
