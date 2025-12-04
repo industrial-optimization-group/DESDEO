@@ -3,6 +3,33 @@
 	import ScoreBands from '$lib/components/visualizations/score-bands/score-bands.svelte';
 	import { onMount } from 'svelte';
 	import type { components } from "$lib/api/client-types";
+	import { auth } from '../../../stores/auth';
+
+	// Page data props
+	type Group = components['schemas']['GroupPublic'];
+	type Problem = components['schemas']['ProblemInfo'];
+	
+	const { data } = $props<{ 
+		data: { 
+			problems: any[];
+			refreshToken: string;
+			group?: Group;
+			problem?: Problem;
+		} 
+	}>();
+
+	// User authentication
+	let userId = $auth.user?.id;
+	let isOwner = $state(false);
+	let isDecisionMaker = $state(false);
+
+	// Initialize user roles if in group mode
+	$effect(() => {
+		if (data.group && userId) {
+			isOwner = userId === data.group.owner_id;
+			isDecisionMaker = data.group.user_ids.includes(userId);
+		}
+	});
 
 	// Data state variables
 	let dummy_data: number[][] = $state([]); // TODO Stina: UI does not use this in the end.
@@ -289,7 +316,10 @@
 	// Debounced effect for reactive quantile changes
 	let quantile_debounce_timer: ReturnType<typeof setTimeout> | undefined;
 	
-	$effect(() => {		
+	$effect(() => {
+		// Access quantile_value in the effect scope to make it reactive
+		const currentQuantile = quantile_value;
+		
 		// Clear existing timer
 		if (quantile_debounce_timer) {
 			clearTimeout(quantile_debounce_timer);
@@ -297,7 +327,7 @@
 		
 		// Set up new debounced API call
 		quantile_debounce_timer = setTimeout(async () => {
-			const interval_size = quantileToIntervalSize(quantile_value);
+			const interval_size = quantileToIntervalSize(currentQuantile);
 			
 			try {
 				is_quantile_loading = true;
@@ -314,14 +344,23 @@
 	// Cluster visibility controls - dynamically generated based on data
 	let cluster_visibility_map: Record<number, boolean> = $state({});
 
+	// Helper function to initialize all clusters as visible
+	function clusters_to_visible() {
+		if (SCOREBands && SCOREBands.clusterIds.length > 0) {
+			SCOREBands.clusterIds.forEach((clusterId) => {
+				cluster_visibility_map[clusterId] = true;
+			});
+		}
+	}
+
 	// Update cluster visibility when groups data changes
 	$effect(()=>{
 		if (SCOREBands && SCOREBands.clusterIds.length > 0) {
-	
 			// Initialize all clusters as visible if not already set
 			SCOREBands.clusterIds.forEach((clusterId) => {
-				if ((clusterId in cluster_visibility_map)) {
+				if (!(clusterId in cluster_visibility_map)) {
 					cluster_visibility_map[clusterId] = true;
+
 				}
 			});
 			// Remove clusters that no longer exist in the data
@@ -349,10 +388,12 @@
 	});
 
 	// Load data on component mount
-	onMount(() => {
+	onMount(async () => {
 		// load_csv_data();
 		const initial_interval_size = quantileToIntervalSize(quantile_value);
-		fetch_score_bands(initial_interval_size);
+		await fetch_score_bands(initial_interval_size);
+		// Ensure clusters are visible after initial load
+		clusters_to_visible();
 	});
 
 	// Helper function to generate consistent cluster colors
@@ -468,15 +509,19 @@
 				}
 			};
 			
+			// Use group-specific problem ID if available, otherwise default to problem 1
+			const problemId = data.group?.problem_id || 1;
+		
+			
 			const scoreResponse = await fetch('/interactive_methods/GDM-SCORE-bands/fetch_score_bands', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({
-					problem_id: 1,
+					problem_id: problemId,
 					session_id: null,
-					parent_state_id: 10, // iterateResult.data.state_id, // Use state_id from iterate response
+					parent_state_id: 5, //iterateResult.data.state_id, // Use state_id from iterate response
 					config: scoreBandsConfig,
 					solution_ids: []
 				})
@@ -492,6 +537,7 @@
 			
 			if (scoreResult.success) {
 				scoreBandsResult = scoreResult.data.result;
+				// Force all clusters to be visible after data loads
 			} else {
 				throw new Error(`Fetch score failed: ${scoreResult.error || 'Unknown error'}`);
 			}
@@ -499,7 +545,7 @@
 			loading_error = null;
 
 		} catch (error) {
-			console.error('Error in doSomething:', error);
+			console.error('Error in fetch_score_bands:', error);
 			alert(`Error: ${error}`);
 		}
 	}
@@ -518,6 +564,35 @@
 			</div>
 		</div>
 	{:else}
+		<!-- Group Information (if in collaborative mode) -->
+		{#if data.group}
+			<div class="card bg-base-100 mb-4 shadow-xl">
+				<div class="card-body">
+					<h3 class="card-title">Group Session Information</h3>
+					<div class="grid grid-cols-2 gap-4">
+						<div>
+							<p><strong>Group ID:</strong> {data.group.id}</p>
+							<p><strong>Problem:</strong> {data.problem?.name || 'Unknown'}</p>
+							<p><strong>User Role:</strong> 
+								{#if isOwner}
+									<span class="badge badge-primary">Owner</span>
+								{:else if isDecisionMaker}
+									<span class="badge badge-secondary">Decision Maker</span>
+								{:else}
+									<span class="badge badge-outline">Observer</span>
+								{/if}
+							</p>
+						</div>
+						<div>
+							<p><strong>Members:</strong> {data.group.user_ids.length}</p>
+							<p><strong>Created:</strong> {new Date(data.group.created_at).toLocaleDateString()}</p>
+							<p><strong>Your User ID:</strong> {userId || 'Not authenticated'}</p>
+						</div>
+					</div>
+				</div>
+			</div>
+		{/if}
+
 		<!-- Show quantile loading indicator if updating -->
 		{#if is_quantile_loading}
 			<div class="alert alert-info mb-4">
@@ -527,6 +602,21 @@
 				</div>
 			</div>
 		{/if}
+		
+		<!-- Header and Instructions -->
+		<div class="card bg-base-100 mb-6 shadow-xl">
+			<div class="card-body">
+				<div class="">
+					<!-- Header Section -->
+					<div class="font-semibold">
+						HEADER: Method name, iteration number, phase.
+					</div>
+					<!-- Instructions Section -->
+					<div>Click a cluster on the graph, vote with the button, then confirm when ready to continue.</div>
+				</div>
+			</div>
+		</div>
+
 		<!-- Parameter Controls -->
 		<div class="card bg-base-100 mb-6 shadow-xl">
 			<div class="card-body">
@@ -761,7 +851,7 @@
 								Vote
 							</Button>
 							<Button onclick={() => fetch_score_bands(quantileToIntervalSize(quantile_value))}>
-								Ready to continue
+								Confirm vote
 							</Button>
 						</div>
 					</div>

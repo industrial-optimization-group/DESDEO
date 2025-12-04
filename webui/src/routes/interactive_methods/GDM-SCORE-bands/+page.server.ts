@@ -6,5 +6,5 @@ export const load: PageServerLoad = async ({ cookies }) => {
   if (!refreshToken) {
     throw redirect(307, '/home');
   }
-  return {};
+  return { refreshToken };
 };
