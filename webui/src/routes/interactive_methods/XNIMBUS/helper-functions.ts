@@ -48,6 +48,15 @@ export function mapSolutionsToObjectiveValues(solutions: Solution[], problem: Pr
     });
 }
 
+export function mapSolutionToMultipliers(solutions: Solution[], problem: ProblemInfo) {
+    return solutions.map((result) => {
+        return problem.objectives.map((obj) => {
+            const value = result.lagrange_multipliers && result.lagrange_multipliers[obj.symbol];
+            return Array.isArray(value) ? value[0] : value;
+        });
+    });
+}
+
 
 /**
  * Initialize preferences from previous state or ideal values
@@ -272,4 +281,38 @@ export async function callNimbusAPI<T>(
     } finally {
         isLoading.set(false);
     }
+}
+
+
+export function compute_tradeoffs(
+    solution: Solution,
+    problem: ProblemInfo,
+){
+  const objective_values = mapSolutionsToObjectiveValues([solution], problem);
+  const lagrange_multipliers = solution.lagrange_multipliers || null;
+
+
+
+  // Equivalent of np.ones((n_objectives, n_objectives))
+  const partialTradeOffs: number [][] = Array.from({ length: nObjectives }, () =>
+    Array(nObjectives).fill(1)
+  );
+
+  // Equivalent of w_inv = 1 / np.array(w)
+  // (Note: this is currently unused, just like in your Python code.)
+  const wInv: number[] = w.map((value) => 1 / value);
+
+  for (let i = 0; i < nObjectives; i++) {
+    const lambda_i = lambdas[i];
+    for (let j = 0; j < nObjectives; j++) {
+      if (i !== j) {
+        const lambda_j = lambdas[j];
+        // tradeoff = -(lambda_j) / (lambda_i)
+        const tradeoff = -lambda_j / lambda_i;
+        partialTradeOffs[i][j] = tradeoff;
+      }
+    }
+  }
+
+  return partialTradeOffs;
 }

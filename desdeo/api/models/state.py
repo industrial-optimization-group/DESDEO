@@ -1,7 +1,9 @@
 """Defines models for representing the state of various interactive methods."""
 
+import re
 import warnings
 from typing import TYPE_CHECKING
+from collections import defaultdict
 
 from sqlalchemy.types import TypeDecorator
 from sqlmodel import (
@@ -161,7 +163,38 @@ class NIMBUSClassificationState(ResultInterface, SQLModel, table=True):
 
     @property
     def result_lagrange_multipliers(self) -> list[dict[str, float]]:
-        return [x.lagrange_multipliers for x in self.solver_results]
+        result = []
+
+        for solver_result in self.solver_results:
+            if solver_result.lagrange_multipliers is None:
+                result.append({})
+                continue
+
+            # filter multipliers to keep only one per objective
+            grouped = defaultdict(list)
+
+            for key, value in solver_result.lagrange_multipliers.items():
+                match = re.search(r"f_(\d+)", key)
+                if match:
+                    f_i = match.group(1)  # Extract the objective number
+                    grouped[f_i].append((key, value))
+
+            # Select preferred multiplier for each objective
+            filtered_multipliers = {}
+            for obj_num, entries in grouped.items():
+                # Prefer non-"eq" constraints
+                preferred = next(
+                    (entry for entry in entries if not entry[0].endswith("eq")), None
+                )
+                if preferred is None and entries:
+                    preferred = entries[0]
+
+                if preferred:
+                    filtered_multipliers[f"f_{obj_num}"] = preferred[1]
+
+            result.append(filtered_multipliers)
+
+        return result
 
     @property
     def num_solutions(self) -> int:
