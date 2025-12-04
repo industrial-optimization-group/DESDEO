@@ -116,6 +116,7 @@ __all__ = [  # noqa: RUF022
     "GDMScoreBandsInitializationRequest",
     "GDMSCOREBandInformation",
     "GDMSCOREBandsResponse",
+    "GDMScoreBandsVoteRequest",
 ]
 
 
@@ -158,7 +159,8 @@ from .gdm.gnimbus import (
 from .gdm.gdm_score_bands import (
     GDMScoreBandsInitializationRequest,
     GDMSCOREBandInformation,
-    GDMSCOREBandsResponse
+    GDMSCOREBandsResponse,
+    GDMScoreBandsVoteRequest
 )
 from .generic import (
     GenericIntermediateSolutionResponse,
