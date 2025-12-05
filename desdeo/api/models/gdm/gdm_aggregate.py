@@ -7,7 +7,7 @@ from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
 from desdeo.api.models.gdm.gdm_base import BaseGroupInfoContainer
 from desdeo.api.models.gdm.gnimbus import EndProcessPreference, OptimizationPreference, VotingPreference
-from desdeo.api.models.gdm.gdm_score_bands import GDMSCOREBandInformation
+from desdeo.api.models.gdm.gdm_score_bands import GDMSCOREBandInformation, GDMSCOREBandFinalSelection
 from desdeo.tools import SolverResults
 
 
@@ -38,6 +38,8 @@ class PreferenceType(TypeDecorator):
                     return EndProcessPreference.model_validate(jsoned)
                 case "gdm-score-bands":
                     return GDMSCOREBandInformation.model_validate(jsoned)
+                case "gdm-score-bands-final":
+                    return GDMSCOREBandFinalSelection.model_validate(jsoned)
                 case _:
                     print(f"Unable to deserialize Preference with method {jsoned['method']}.")
                     return None

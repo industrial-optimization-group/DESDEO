@@ -14,6 +14,7 @@ from sqlmodel import Session, select
 from desdeo.api.db import get_session
 from desdeo.api.models import (
     GDMSCOREBandInformation,
+    GDMSCOREBandsDecisionResponse,
     GDMScoreBandsInitializationRequest,
     GDMSCOREBandsResponse,
     GDMScoreBandsVoteRequest,
@@ -84,7 +85,7 @@ async def vote_for_a_band(
     except Exception as e:
         logging.exception(e)
         raise HTTPException(
-            detail="Internal server error",
+            detail=f"Internal server error: {e}",
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         ) from e
 
@@ -135,7 +136,7 @@ async def confirm_vote(
     except Exception as e:
         logging.exception(e)
         raise HTTPException(
-            detail="Internal server error!",
+            detail=f"Internal server error: {e}",
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         ) from e
 
@@ -144,11 +145,11 @@ async def confirm_vote(
     )
 
 @router.post("/get-or-initialize")
-async def initialize(
+async def get_or_initialize(
     request: GDMScoreBandsInitializationRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)]
-) -> GDMSCOREBandsResponse:
+) -> GDMSCOREBandsResponse | GDMSCOREBandsDecisionResponse:
     """An endpoint for two things: Initializing the GDM Score Bands things and Fetching results.
 
     If a group hasn't been initialized, initialize and then return initial clustering information.
@@ -166,7 +167,7 @@ async def initialize(
         GDMSCOREBandsResponse: A response containing Group id, group iter id and ScoreBandsResponse.
     """
     group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
-    if not Group:
+    if not group:
         raise HTTPException(
             detail=f"Group with ID {request.group_id} not found!",
             status_code=status.HTTP_404_NOT_FOUND
@@ -177,11 +178,19 @@ async def initialize(
         group_iteration = session.exec(
             select(GroupIteration).where(GroupIteration.id == group.head_iteration_id)
         ).first()
-        return GDMSCOREBandsResponse(
-            group_id=group.id,
-            group_iter_id=group.head_iteration_id,
-            result=group_iteration.info_container.score_bands_result.score_bands_result
-        )
+        match group_iteration.info_container.method:
+            case "gdm-score-bands":
+                return GDMSCOREBandsResponse(
+                    group_id=group.id,
+                    group_iter_id=group.head_iteration_id,
+                    result=group_iteration.info_container.score_bands_result.score_bands_result
+                )
+            case "gdm-score-bands-final":
+                return GDMSCOREBandsDecisionResponse(
+                    group_id=group.id,
+                    group_iter_id=group.head_iteration_id,
+                    result=group_iteration.info_container
+                )
     user_ids = group.user_ids
     user_ids.append(group.owner_id)
     if user.id not in user_ids:
