@@ -6,9 +6,17 @@ import polars as pl
 from sqlmodel import Session, select
 
 from desdeo.api.db import get_session
-from desdeo.api.models import GDMSCOREBandInformation, Group, GroupIteration, ProblemDB, User
+from desdeo.api.models import (
+    GDMSCOREBandFinalSelection,
+    GDMSCOREBandInformation,
+    Group,
+    GroupIteration,
+    ProblemDB,
+    User,
+)
 from desdeo.api.routers.gdm.gdm_base import GroupManager, ManagerError
 from desdeo.gdm.score_bands import SCOREBandsGDMConfig, SCOREBandsGDMResult, score_bands_gdm
+from desdeo.gdm.voting_rules import majority_rule, plurality_rule
 from desdeo.tools.score_bands import SCOREBandsConfig, SCOREBandsResult, score_json
 
 
@@ -92,7 +100,7 @@ class GDMScoreBandsManager(GroupManager):
             1. Filter the active solution indices using the voting result.
             2. Create a new GroupIteration.
             3. Re-cluster the active solutions and put the result into the
-               preference item of the newly created GroupIteration.
+               info_container item of the newly created GroupIteration.
             4. Send all connected websockets info that we've got some hot
                new data to update the UI with. Then use some other endpoint to
                fetch that data.
@@ -116,7 +124,7 @@ class GDMScoreBandsManager(GroupManager):
             info_container = copy.deepcopy(group_iteration.info_container)
             if str(user.id) not in info_container.user_votes:
                 raise ManagerError("User hasn't voted! Cannot confirm!")
-            # if user.id in info_container.user_confirms:
+            #if user.id in info_container.user_confirms:
                 raise ManagerError("User has already confirmed they want to move on!")
             info_container.user_confirms.append(user.id)
             group_iteration.info_container = info_container
@@ -130,59 +138,137 @@ class GDMScoreBandsManager(GroupManager):
                 if uid not in info_container.user_confirms:
                     return
 
-            # Seems like every user wants to move on.
-            statement = select(GroupIteration)\
-                .where(GroupIteration.group_id == group.id)
-            iterations: list[GroupIteration] = session.exec(statement).all()
-            state: list[SCOREBandsGDMResult] = [iteration.info_container.score_bands_result for iteration in iterations]
-            for st in state:
-                print(len(st.score_bands_result.clusters))
+            # We're in consensus reaching phase
+            if info_container.method == "gdm-score-bands":
 
-            # USE Bhupinder's score bands stuff.
-            score_bands_config = SCOREBandsGDMConfig(
-                score_bands_config=info_container.score_bands_config.score_bands_config
-            )
+                # Seems like every user wants to move on.
+                statement = select(GroupIteration)\
+                    .where(GroupIteration.group_id == group.id)
+                iterations: list[GroupIteration] = session.exec(statement).all()
+                state: list[SCOREBandsGDMResult] = [iteration.info_container.score_bands_result for iteration in iterations]
+                for st in state:
+                    print(len(st.score_bands_result.clusters))
 
-            discrete_repr = self.discrete_representation.objective_values
-            objective_keys = list(discrete_repr)
-            objs = pl.DataFrame(discrete_repr).with_row_index()
-            objs = objs.select(objective_keys)
+                # USE Bhupinder's score bands stuff.
+                score_bands_config = SCOREBandsGDMConfig(
+                    score_bands_config=info_container.score_bands_config.score_bands_config
+                )
 
-            result: list[SCOREBandsGDMResult] = score_bands_gdm(
-                data=objs,
-                config=score_bands_config,
-                state=state,
-                votes=group_iteration.info_container.user_votes
-            )
+                # Get them discrete reprs
+                discrete_repr = self.discrete_representation
 
-            # store necessary data to the database. Currently all "voting" related is null bc no voting has happened yet
-            score_bands_info = GDMSCOREBandInformation(
-                user_votes={},
-                user_confirms=[],
-                score_bands_config=score_bands_config,
-                score_bands_result=result[-1]
-            )
+                # Make sure that there are enough solutions for re-clustering
+                votes = group_iteration.info_container.user_votes
+                winners = majority_rule(votes) if score_bands_config.voting_method == "majority" else plurality_rule(votes)
+                relevant_ids = state[-1].relevant_ids
+                clustering = state[-1].score_bands_result.clusters
+                if len([x[0] for x in zip(relevant_ids, clustering, strict=True) if x[1] in winners]) < 11:
+                    print("LESS THAN OR AS MUCH AS 10")
+                    # THERE ARE 10 OR LESS SOLUTIONS IN TOTAL: MOVE ON TO DECISION PHASE!
+                    # Just figure out how to do that. A different database class or an additional field in existing ones?
 
-            # Add group iteration and related stuff, then set new iteration to head.
-            new_iteration: GroupIteration = GroupIteration(
-                group_id=group.id,
-                problem_id=group.problem_id,
-                info_container=score_bands_info,
-                notified={},
-                state_id=None,
-                parent_id=group.head_iteration_id,
-                parent=group_iteration,
-            )
+                    obj_keys = list(discrete_repr.objective_values)
+                    var_keys = list(discrete_repr.variable_values)
 
-            session.add(new_iteration)
-            session.commit()
-            session.refresh(new_iteration)
+                    objs = pl.DataFrame(discrete_repr.objective_values).with_row_index()
+                    varis = pl.DataFrame(discrete_repr.variable_values)
+                    indices = pl.DataFrame({
+                        "index": relevant_ids,
+                        "cluster": clustering
+                    }).filter(pl.col("cluster").is_in(winners))
+                    objs = indices.join(
+                        other=objs,
+                        how="left",
+                        left_on="index",
+                        right_on="index"
+                    ).select(obj_keys)
+                    varis = indices.join(
+                        other=varis,
+                        how="left",
+                        left_on="index",
+                        right_on="index"
+                    ).select(var_keys)
 
-            group.head_iteration_id = new_iteration.id
-            session.add(group)
-            session.commit()
-            session.refresh(group)
+                    info_container = GDMSCOREBandFinalSelection(
+                        user_votes={},
+                        user_confirms=[],
+                        solution_variables=varis.to_dict(),
+                        solution_objectives=objs.to_dict(),
+                        winner_solution_variables={},
+                        winner_solution_objectives={},
+                    )
 
-            await self.broadcast("UPDATE: A new iteration has begun.")
-            """
-            """
+                else:
+                    print("MORE THAN 10")
+                    discrete_repr = discrete_repr.objective_values
+                    objective_keys = list(discrete_repr)
+                    objs = pl.DataFrame(discrete_repr).with_row_index()
+                    objs = objs.select(objective_keys)
+
+                    result: list[SCOREBandsGDMResult] = score_bands_gdm(
+                        data=objs,
+                        config=score_bands_config,
+                        state=state,
+                        votes=votes
+                    )
+
+                    # store necessary data to the database. Currently all "voting" related is null bc no voting has happened
+                    info_container = GDMSCOREBandInformation(
+                        user_votes={},
+                        user_confirms=[],
+                        score_bands_config=score_bands_config,
+                        score_bands_result=result[-1]
+                    )
+
+
+                # Add group iteration and related stuff, then set new iteration to head.
+                new_iteration: GroupIteration = GroupIteration(
+                    group_id=group.id,
+                    problem_id=group.problem_id,
+                    info_container=info_container,
+                    notified={},
+                    state_id=None,
+                    parent_id=group.head_iteration_id,
+                    parent=group_iteration,
+                )
+
+                session.add(new_iteration)
+                session.commit()
+                session.refresh(new_iteration)
+
+                group.head_iteration_id = new_iteration.id
+                session.add(group)
+                session.commit()
+                session.refresh(group)
+
+                await self.broadcast("UPDATE: A new iteration has begun.")
+
+            # We're in decision phase.
+            elif info_container.method == "gdm-score-bands-final":
+
+                winners = plurality_rule(info_container.user_votes)
+                if len(winners) > 1:
+                    pass # TODO: minimize distance or whatever
+
+                varis = info_container.solution_variables
+                vari_keys = list(varis)
+                objs = info_container.solution_objectives
+                obj_keys = list(objs)
+
+                vari_d = {}
+                for key in vari_keys:
+                    vari_d[key] = varis[key][winners[0]]
+                print(vari_d)
+
+                obj_d = {}
+                for key in obj_keys:
+                    obj_d[key] = objs[key][winners[0]]
+                print(obj_d)
+
+                info_container.winner_solution_variables = vari_d
+                info_container.winner_solution_objectives = obj_d
+
+                group_iteration.info_container = info_container
+
+                session.add(group_iteration)
+                session.commit()
