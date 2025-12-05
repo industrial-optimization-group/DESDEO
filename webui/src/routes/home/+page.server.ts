@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { fail, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
-import { loginLoginPost } from "$lib/gen/endpoints/dESDEOFastAPI";
+import { loginLoginPost } from "$lib/gen/endpoints/DESDEOFastAPI";
 import type { BodyLoginLoginPost } from '$lib/gen/models';
 import { redirect, type Actions } from "@sveltejs/kit";
 

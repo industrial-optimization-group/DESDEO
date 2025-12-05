@@ -1,5 +1,5 @@
 import type { HandleFetch } from '@sveltejs/kit';
-import { refreshAccessTokenRefreshPost } from '$lib/gen/endpoints/dESDEOFastAPI';
+import { refreshAccessTokenRefreshPost } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 // const API = process.env.API_BASE_URL ?? '/';
 
