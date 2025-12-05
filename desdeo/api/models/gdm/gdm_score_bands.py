@@ -70,7 +70,7 @@ class GDMScoreBandsVoteRequest(SQLModel):
 
 class GDMSCOREBandsResponse(SQLModel):
     """Response class for GDMSCOREBands, whether it is initialization or not."""
-    method = "gdm-score-bands"
+    method: str = "gdm-score-bands"
     group_id: int = Field(
         description="The group in question."
     )
@@ -83,7 +83,7 @@ class GDMSCOREBandsResponse(SQLModel):
 
 class GDMSCOREBandsDecisionResponse(SQLModel):
     """Response class for gdm score bands that includes the last 10 or less solutions."""
-    method = "gdm-score-bands-final"
+    method: str = "gdm-score-bands-final"
     group_id: int = Field(
         description="The group in question."
     )

@@ -126,7 +126,8 @@ class GDMScoreBandsManager(GroupManager):
                 raise ManagerError("User hasn't voted! Cannot confirm!")
             #if user.id in info_container.user_confirms:
                 raise ManagerError("User has already confirmed they want to move on!")
-            info_container.user_confirms.append(user.id)
+            if user.id not in info_container.user_confirms:
+                info_container.user_confirms.append(user.id)
             group_iteration.info_container = info_container
             session.add(group_iteration)
             session.commit()
