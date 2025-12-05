@@ -14,19 +14,9 @@
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
-import createClient from 'openapi-fetch';
-import type { paths } from '$lib/api/client-types';
+import { api } from '$lib/api/client';
 import type { components } from '$lib/api/client-types';
 
-/**
- * Create a server-side API client for communicating with the DESDEO backend.
- */
-const serverApi = createClient<paths>({
-  baseUrl: process.env.API_URL || 'http://localhost:8000'
-});
-
-// Type definitions from the OpenAPI schema
-type EMOIterateRequest = components['schemas']['EMOIterateRequest'];
 
 /**
  * POST handler for EMO iterate requests
@@ -44,15 +34,16 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
   try {
     // Parse the incoming request from the frontend
-    const requestData: EMOIterateRequest = await request.json();
-    
-    console.log('Starting EMO iterate');
-    console.log('Calling EMO iterate endpoint:', requestData);
+    const {group_id, vote} = await request.json();
+    const requestData = {
+      group_id,
+      vote
+    }
 
     /**
      * Forward the request to the backend DESDEO API
      */
-    const response = await serverApi.POST('/method/emo/iterate', {
+    const response = await api.POST('/gdm-score-bands/vote', {
       body: requestData,
       headers: {
         'Authorization': `Bearer ${refreshToken}`, // Authenticate with refresh token
@@ -69,7 +60,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
       
       return json(
         { 
-          error: 'Failed to start EMO iterate',
+          error: 'Failed to vote',
           details: response.error || 'No data returned from API',
           status: response.response?.status
         }, 
@@ -77,12 +68,12 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
       );
     }
 
-    console.log('EMO iterate response:', response.data);
+    console.log('vote response:', response.data);
 
     return json({
       success: true,
       data: response.data,
-      message: 'EMO iterate completed successfully'
+      message: 'vote completed successfully'
     });
 
   } catch (error) {
@@ -90,7 +81,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
     const errorName = error instanceof Error ? error.name : 'Error';
     const errorStack = error instanceof Error ? error.stack : undefined;
     
-    console.error('EMO iterate error details:', {
+    console.error('voting error details:', {
         message: errorMessage,
         stack: errorStack,
         name: errorName

@@ -105,6 +105,7 @@ export function drawBand(
 		axisSigns: number[],
 		options: any,
 		isSelected: boolean,
+		scales: Record<string, [number, number]> | undefined,
 		onBandSelect?: (clusterId: number | null) => void
 	) {
 		const clusterColor = clusterColors[clusterId] || '#1f77b4';
@@ -119,26 +120,50 @@ export function drawBand(
 			return;
 		}
 
-		// Prepare data arrays, applying axis signs for flipping
+		// Helper function to normalize raw value to [0,1] using scales
+		function normalizeValue(rawValue: number, axisName: string): number {
+			if (!scales || !scales[axisName]) {
+				console.warn(`No scales available for axis ${axisName}, using raw value as normalized`);
+				return rawValue;
+			}
+			
+			const [min, max] = scales[axisName];
+			if (max === min) {
+				console.warn(`Min equals max for axis ${axisName}: [${min}, ${max}], returning 0.5`);
+				return 0.5;
+			}
+			
+			const normalized = (rawValue - min) / (max - min);
+			// Clamp to [0,1] range in case of edge cases
+			return Math.max(0, Math.min(1, normalized));
+		}
+
+		// Prepare data arrays, normalizing raw values and applying axis signs for flipping
 		const low: number[] = [];
 		const high: number[] = [];
 		const medians: number[] = [];
 
 		for (let axisIndex = 0; axisIndex < axisNames.length; axisIndex++) {
 			const axisName = axisNames[axisIndex];
-			const [minVal, maxVal] = clusterBands[axisName] || [0, 1];
-			const medianVal = clusterMedians[axisName] ?? 0.5;
+			const [rawMinVal, rawMaxVal] = clusterBands[axisName] || [0, 1];
+			const rawMedianVal = clusterMedians[axisName] ?? 0.5;
+			
+			// Normalize raw values to [0,1] using scales
+			const normalizedMin = normalizeValue(rawMinVal, axisName);
+			const normalizedMax = normalizeValue(rawMaxVal, axisName);
+			const normalizedMedian = normalizeValue(rawMedianVal, axisName);
+			
 			const sign = axisSigns[axisIndex] || 1;
 			
 			// Apply axis flipping if needed (invert normalized values)
 			if (sign === -1) {
-				low.push(1 - maxVal);
-				high.push(1 - minVal);
-				medians.push(1 - medianVal);
+				low.push(1 - normalizedMax);
+				high.push(1 - normalizedMin);
+				medians.push(1 - normalizedMedian);
 			} else {
-				low.push(minVal);
-				high.push(maxVal);
-				medians.push(medianVal);
+				low.push(normalizedMin);
+				high.push(normalizedMax);
+				medians.push(normalizedMedian);
 			}
 		}
 

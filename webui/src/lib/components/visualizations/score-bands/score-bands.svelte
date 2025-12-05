@@ -80,6 +80,8 @@
 	export let bands: Record<string, Record<string, [number, number]>> = {};
 	// medians = { "clusterId": { "axisName": medianValue } } - median value per cluster per axis
 	export let medians: Record<string, Record<string, number>> = {};
+	// scales = { "axisName": [minValue, maxValue] } - normalization scales for converting raw values to [0,1]
+	export let scales: Record<string, [number, number]> | undefined = undefined;
 
 	// --- Derived state ---
 	$: defaultAxisOrder = Array.from({ length: axisNames.length }, (_, i) => i);
@@ -107,15 +109,6 @@
 		if (!container || axisNames.length === 0) return;
 		// Allow rendering without data when we have bands/medians from API
 		if (data.length === 0 && (!options.bands && !options.medians)) return;
-
-		console.log('Drawing SCORE bands with:', {
-			axisNames: axisNames.length,
-			data: data.length,
-			groups: groups.length,
-			bandsAvailable: Object.keys(bands).length,
-			mediansAvailable: Object.keys(medians).length,
-			options
-		});
 
 		const width = 800;
 		const height = 600;
@@ -162,22 +155,6 @@
 		// --- Decide which drawing method to use ---
 		const hasRawData = processedData.length > 0 && groups.length > 0;
 		const hasPreCalculatedData = Object.keys(bands).length > 0 && Object.keys(medians).length > 0;
-		
-		console.log('🎯 Drawing method decision:', {
-			hasRawData,
-			hasPreCalculatedData,
-			optionsBands: options.bands,
-			optionsMedians: options.medians,
-			willDrawBands: hasPreCalculatedData && options.bands,
-			willDrawMedians: hasPreCalculatedData && options.medians,
-			bandsKeys: Object.keys(bands),
-			mediansKeys: Object.keys(medians),
-			groups: groups,
-			uniqueGroups: [...new Set(groups)],
-			sortedAxisNames,
-			originalAxisNames: axisNames,
-			effectiveAxisOrder
-		});
 
 		if (hasRawData) {
 			// --- Use raw data to calculate and draw bands ---
@@ -227,13 +204,7 @@
 			}
 		} else if (hasPreCalculatedData) {
 			// --- Use pre-calculated bands and medians from SCORE API ---
-			console.log('🎨 Drawing pre-calculated bands:', { 
-				availableClusterIds: Object.keys(bands),
-				sampleBandData: bands[Object.keys(bands)[0]],
-				sampleMedianData: medians[Object.keys(medians)[0]],
-				uniqueClusters: [...new Set(groups)]
-			});
-
+			
 			// Get unique cluster IDs from groups
 			const uniqueClusterIds = [...new Set(groups)].sort((a, b) => a - b);
 			
@@ -256,6 +227,7 @@
 					sortedAxisSigns,
 					options,
 					false, // not selected
+					scales, // normalization scales
 					onBandSelect
 				);
 			});
@@ -276,6 +248,7 @@
 						sortedAxisSigns,
 						options,
 						true, // selected
+						scales, // normalization scales
 						onBandSelect
 					);
 				}

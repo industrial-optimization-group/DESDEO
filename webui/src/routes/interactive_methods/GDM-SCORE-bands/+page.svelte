@@ -1,9 +1,12 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import ScoreBands from '$lib/components/visualizations/score-bands/score-bands.svelte';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import type { components } from "$lib/api/client-types";
 	import { auth } from '../../../stores/auth';
+
+	// WebSocket service import
+	import { WebSocketService } from './websocket-store';
 
 	// Page data props
 	type Group = components['schemas']['GroupPublic'];
@@ -31,49 +34,75 @@
 		}
 	});
 
-	// Data state variables
-	let dummy_data: number[][] = $state([]); // TODO Stina: UI does not use this in the end.
-	// let axis_names: string[] = $state([]); // TODO Stina: ? Names from API or does this use some problem like everything so that I can read it, match symbols to names?
-	let axis_positions: number[] = $state([]); // TODO Stina: Comes straight from SCOREBandsResult, though need to convert dict[str, float] => number[]
-	let axis_signs: number[] = $state([]); // TODO Stina: NOWHERE to be found! WHERE does this come from? It is needed in visualization for sure!
-	let groups: number[] = $state([]); // TODO Stina: Not needed? Or what? There is the clusters in SCOREBandsResult that is closest to this, but not quite? Or is it?
+	// WebSocket service for real-time updates
+	let wsService: WebSocketService | null = $state(null);
+	let websocket_message = $state('');
+	
+	// TODO: Add more websocket-related state variables as needed:
+	// - voting status updates
+	// - iteration status
+	// - other users' actions
+
 	let data_loaded = $state(false); // This is for loading spinner, but the data in question is csv-data that is probably not neededd....?
 	let loading_error: string | null = $state(null); // TODO Stina: --------''----------
+	let vote_given = $state(false);
+	let vote_confirmed = $state(false);
 	let scoreBandsResult : components['schemas']['SCOREBandsResult'] | null = $state(null); // ALRIGHT, so this has the things we will get from API in future.
 	
 	let SCOREBands = $derived.by(()=> {
 		if (!scoreBandsResult || scoreBandsResult === null) {
 			return {
-				axisNames: [],
-				clusterIds: [],
-				axisPositions: [],
-				axisSigns: [],
-				data: [],
+				axisNames: [] as string[],
+				clusterIds: [] as number[],
+				axisPositions: [] as number[],
+				axisSigns: [] as number[],
+				data: [] as number[][],
 				// Empty objects for pre-calculated bands and medians
 				bands: {}, 
-            	medians: {}
+				medians: {},
+				scales: undefined
 			};
 		}
 		
-		console.log('🏗️ SCOREBands direct structure:', (() => {
-			if (!scoreBandsResult) {
-				return { status: 'no data' };
+		// Calculate scales: use API scales if available, otherwise calculate from bands data
+		function calculateScales(result: components['schemas']['SCOREBandsResult']): Record<string, [number, number]> {
+			// First try to use scales from API
+			if (result.options?.scales) {
+				return result.options.scales;
 			}
 			
-			return {
-				originalBands: scoreBandsResult.bands,
-				originalMedians: scoreBandsResult.medians,
-				orderedDimensions: scoreBandsResult.ordered_dimensions,
-				clusters: scoreBandsResult.clusters,
-				clusterIds: Object.keys(scoreBandsResult.bands).sort((a, b) => parseInt(a) - parseInt(b)),
-				bandsStructure: Object.keys(scoreBandsResult.bands).reduce((acc, clusterId) => {
-					acc[clusterId] = Object.keys(scoreBandsResult!.bands[clusterId]);
-					return acc;
-				}, {} as Record<string, string[]>)
-			};
-		})());
+			// Fallback: calculate scales from bands data
+			const fallbackScales: Record<string, [number, number]> = {};
+			
+			result.ordered_dimensions.forEach(axisName => {
+				let min = Infinity;
+				let max = -Infinity;
+				
+				// Find min/max across all clusters for this axis
+				Object.values(result.bands).forEach(clusterBands => {
+					if (clusterBands[axisName]) {
+						const [bandMin, bandMax] = clusterBands[axisName];
+						min = Math.min(min, bandMin);
+						max = Math.max(max, bandMax);
+					}
+				});
+				
+				// Also check medians for additional range
+				Object.values(result.medians).forEach(clusterMedians => {
+					if (clusterMedians[axisName] !== undefined) {
+						const median = clusterMedians[axisName];
+						min = Math.min(min, median);
+						max = Math.max(max, median);
+					}
+				});
+				
+				fallbackScales[axisName] = [min, max];
+			});
+			
+			return fallbackScales;
+		}
 		
-		return {
+		const derivedData = {
 			// Direct mappings
 			axisNames: scoreBandsResult.ordered_dimensions,
 			clusterIds: Object.keys(scoreBandsResult.bands).sort((a, b) => parseInt(a) - parseInt(b)).map(id => Number(id)),
@@ -83,196 +112,21 @@
 			) as number[],
 			
 			// Missing data - need fallbacks
-			axisSigns: new Array(scoreBandsResult.ordered_dimensions.length).fill(1), // Default: no flipping TODO
+			axisSigns: new Array(scoreBandsResult.ordered_dimensions.length).fill(1), // Default: no flipping TODO, should this be just "Flip axes"-checkbox? In visualization options? Or is this based on something actual and should come from API?
 			data: [], // Empty - use bands-only mode
 			
 			// Pre-calculated bands and medians as original key-based structure
 			// bands[clusterId][axisName] = [minValue, maxValue] - quantile-based band limits
 			bands: scoreBandsResult.bands, 
 			// medians[clusterId][axisName] = medianValue - median values per cluster per axis
-			medians: scoreBandsResult.medians
+			medians: scoreBandsResult.medians,
+			// scales[axisName] = [minValue, maxValue] - normalization scales for converting raw values to [0,1]
+			scales: calculateScales(scoreBandsResult)
 		};
+		
+		return derivedData;
 	})
 
-	// Function to recalculate score bands parameters
-	async function recalculate_parameters() {
-		// if (dummy_data.length === 0 || axis_names.length === 0) {
-		// 	console.warn('No data available for recalculation');
-		// 	return;
-		// }
-
-		// try {
-		// 	loading_error = null;
-
-		// 	console.log('Recalculating score-bands parameters with:', {
-		// 		dist_parameter,
-		// 		use_absolute_corr,
-		// 		distance_formula,
-		// 		flip_axes,
-		// 		clustering_algorithm,
-		// 		clustering_score
-		// 	});
-
-		// 	const response = await fetch('/interactive_methods/GDM-SCORE-bands/calculate', {
-		// 		method: 'POST',
-		// 		headers: {
-		// 			'Content-Type': 'application/json'
-		// 		},
-		// 		body: JSON.stringify({
-		// 			data: dummy_data,
-		// 			objs: axis_names,
-		// 			dist_parameter: dist_parameter,
-		// 			use_absolute_corr: use_absolute_corr,
-		// 			distance_formula: distance_formula,
-		// 			flip_axes: flip_axes,
-		// 			clustering_algorithm: clustering_algorithm,
-		// 			clustering_score: clustering_score
-		// 		})
-		// 	});
-
-		// 	if (!response.ok) {
-		// 		const errorData = await response.json();
-		// 		throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
-		// 	}
-
-		// 	const result = await response.json();
-
-		// 	if (!result.success) {
-		// 		throw new Error(result.error || 'Failed to recalculate score bands parameters');
-		// 	}
-
-		// 	// Update parameters with new calculations
-		// 	const { groups: new_groups, axis_dist, axis_signs: new_axis_signs } = result.data;
-
-		// 	groups = new_groups;
-		// 	axis_positions = axis_dist;
-		// 	axis_signs = new_axis_signs || new Array(axis_names.length).fill(1);
-
-		// 	console.log('Parameters recalculated successfully:', {
-		// 		unique_groups: [...new Set(groups)].length,
-		// 		axis_positions: axis_positions,
-		// 		axis_signs: axis_signs
-		// 	});
-		// } catch (error) {
-		// 	console.error('Error recalculating parameters:', error);
-		// 	loading_error = error instanceof Error ? error.message : 'Unknown error occurred';
-		// }
-	}
-
-	// Load data from CSV file and calculate SCORE bands parameters
-	async function load_csv_data() {
-		// try {
-		// 	// Fetch the CSV file from the static folder
-		// 	const csvResponse = await fetch('/data/dtlz7_4d.csv');
-		// 	if (!csvResponse.ok) {
-		// 		throw new Error(`HTTP ${csvResponse.status}: ${csvResponse.statusText}`);
-		// 	}
-		// 	const csv_text = await csvResponse.text();
-
-		// 	if (!csv_text) {
-		// 		throw new Error('CSV file is empty or could not be loaded');
-		// 	}
-
-		// 	const lines = csv_text.trim().split('\n');
-
-		// 	if (lines.length < 2) {
-		// 		throw new Error('CSV file must have at least a header and one data row');
-		// 	}
-
-		// 	// Parse header to get axis names
-		// 	const header = lines[0].split(',').map((col) => col.trim());
-
-		// 	// Assuming the CSV structure is: f1,f2,f3,f4,group
-		// 	// where the last column is the group assignment (we'll ignore it and calculate our own)
-		// 	axis_names = header.slice(0, -1); // All columns except the last one
-
-		// 	// Parse data rows - extract only objective values (ignore existing group column)
-		// 	const raw_data = [];
-
-		// 	for (let i = 1; i < lines.length; i++) {
-		// 		const values = lines[i].split(',').map((val) => parseFloat(val.trim()));
-
-		// 		if (values.length !== header.length) {
-		// 			console.warn(`Row ${i} has ${values.length} values, expected ${header.length}`);
-		// 			continue;
-		// 		}
-
-		// 		// Extract objective values (all columns except the last one)
-		// 		const objective_values = values.slice(0, -1);
-		// 		raw_data.push(objective_values);
-		// 	}
-
-		// 	// Now call the score-bands API to calculate parameters
-		// 	console.log('Calling score-bands API with data:', {
-		// 		objectives: axis_names.length,
-		// 		solutions: raw_data.length
-		// 	});
-
-		// 	const response = await fetch('/interactive_methods/GDM-SCORE-bands/calculate', {
-		// 		method: 'POST',
-		// 		headers: {
-		// 			'Content-Type': 'application/json'
-		// 		},
-		// 		body: JSON.stringify({
-		// 			data: raw_data,
-		// 			objs: axis_names,
-		// 			dist_parameter: dist_parameter,
-		// 			use_absolute_corr: use_absolute_corr,
-		// 			distance_formula: distance_formula,
-		// 			flip_axes: flip_axes,
-		// 			clustering_algorithm: clustering_algorithm,
-		// 			clustering_score: clustering_score
-		// 		})
-		// 	});
-
-		// 	if (!response.ok) {
-		// 		const errorData = await response.json();
-		// 		throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
-		// 	}
-
-		// 	const result = await response.json();
-
-		// 	if (!result.success) {
-		// 		throw new Error(result.error || 'Failed to calculate score bands parameters');
-		// 	}
-
-		// 	// Extract the calculated parameters
-		// 	const {
-		// 		groups: calculated_groups,
-		// 		axis_dist,
-		// 		axis_signs: calculated_axis_signs,
-		// 		obj_order
-		// 	} = result.data;
-
-		// 	// Set the calculated parameters
-		// 	groups = calculated_groups;
-		// 	axis_positions = axis_dist;
-		// 	axis_signs = calculated_axis_signs || new Array(axis_names.length).fill(1);
-
-		// 	// Reorder the data and axis names according to the optimal objective order
-		// 	const reordered_axis_names = obj_order.map((index: number) => axis_names[index]);
-		// 	const reordered_data = raw_data.map((row) => obj_order.map((index: number) => row[index]));
-
-		// 	// Update the final data
-		// 	axis_names = reordered_axis_names;
-		// 	dummy_data = reordered_data;
-
-		// 	data_loaded = true;
-		// 	loading_error = null;
-
-		// 	console.log('Data loaded and parameters calculated successfully:', {
-		// 		solutions: dummy_data.length,
-		// 		objectives: axis_names.length,
-		// 		unique_groups: [...new Set(groups)].length,
-		// 		axis_positions: axis_positions,
-		// 		axis_signs: axis_signs,
-		// 		objective_order: obj_order
-		// 	});
-		// } catch (error) {
-		// 	console.error('Error loading CSV data or calculating parameters:', error);
-		// 	loading_error = error instanceof Error ? error.message : 'Unknown error occurred';
-		// }
-	}
 
 	// Reactive options with checkboxes
 	let show_bands = $state(true);
@@ -389,11 +243,68 @@
 
 	// Load data on component mount
 	onMount(async () => {
+		// Initialize WebSocket connection
+		// if (data.group) {
+			console.log('Initializing WebSocket for group:', 1); //data.group.id);
+			wsService = new WebSocketService(
+				1, //data.group.id, 
+				'gdm-score-bands', 
+				data.refreshToken, 
+				() => {
+					// This runs when connection is re-established after disconnection
+					console.log('WebSocket reconnected, refreshing gdm-score-bands state...');
+					// showTemporaryMessage('Reconnected to server');
+					fetch_score_bands(quantileToIntervalSize(quantile_value));
+					// TODO: Add more specific state refresh logic here, IF NEEDED, e.g.:
+					// - Refresh current voting status
+					// - Update UI to show current group state
+				}
+			);
+			
+			// Subscribe to websocket messages
+			wsService.messageStore.subscribe((store) => {
+				websocket_message = store.message; // TODO: if I want to show messages, I can use this and filter them or sth
+				// Handle different message types from the backend:
+				const msg = store.message;
+				
+				// Handle update messages (these don't show to user, just trigger state updates)
+				if (msg.includes('UPDATE: A vote has been cast.')) {
+					// TODO: Update voting status in UI
+					// Maybe refresh voting counts, update voting display, etc.
+					return;
+				}
+				
+				if (msg.includes('iteration')) {
+					fetch_score_bands(quantileToIntervalSize(quantile_value));
+					return;
+				}
+				
+				// Handle error messages
+				if (msg.includes('ERROR')) {
+					console.error('WebSocket error:', msg);
+					// TODO: Show error to user appropriately
+					return;
+				}
+				
+				// TODO: Handle other message types specific to score-bands
+				// You might want to add more message patterns here
+			});
+		// }
+
 		// load_csv_data();
 		const initial_interval_size = quantileToIntervalSize(quantile_value);
 		await fetch_score_bands(initial_interval_size);
 		// Ensure clusters are visible after initial load
 		clusters_to_visible();
+	});
+
+	// Cleanup websocket connection when component is destroyed
+	onDestroy(() => {
+		if (wsService) {
+			console.log('Closing WebSocket connection');
+			wsService.close();
+			wsService = null;
+		}
 	});
 
 	// Helper function to generate consistent cluster colors
@@ -467,39 +378,6 @@
 
 	async function fetch_score_bands(interval_size: number = 0.5) {
 		try {
-			// console.log('Starting EMO iterate and fetch score test...');
-			
-			// // Step 1: Call iterate endpoint
-			// console.log('Step 1: Calling iterate endpoint...');
-			// const iterateResponse = await fetch('/interactive_methods/GDM-SCORE-bands/iterate', {
-			// 	method: 'POST',
-			// 	headers: {
-			// 		'Content-Type': 'application/json'
-			// 	},
-			// 	body: JSON.stringify({
-			// 		problem_id: 1, // Default test problem ID
-			// 	})
-			// });
-
-			// if (!iterateResponse.ok) {
-			// 	const errorData = await iterateResponse.json();
-			// 	throw new Error(`Iterate failed: ${errorData.error || `HTTP ${iterateResponse.status}: ${iterateResponse.statusText}`}`);
-			// }
-
-			// const iterateResult = await iterateResponse.json();
-			// console.log('Iterate completed:', iterateResult);
-			
-			// if (!iterateResult.success) {
-			// 	throw new Error(`Iterate failed: ${iterateResult.error || 'Unknown error'}`);
-			// }
-
-			// // Step 2: Wait 10 seconds (EMO algorithms need time to complete)
-			// console.log('Step 2: Waiting 20 seconds for EMO algorithm to complete...');
-			// await new Promise(resolve => setTimeout(resolve, 20000));
-
-			// Step 3: Call fetch_score_bands endpoint with state_id from iterate and SCOREBandsConfig
-			console.log('Step 3: Calling fetch_score_bands endpoint with interval_size:', interval_size);
-			
 			// Configure SCORE bands with K-means clustering and dynamic interval_size
 			const scoreBandsConfig = {
 				interval_size: interval_size,
@@ -519,11 +397,8 @@
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({
-					problem_id: problemId,
-					session_id: null,
-					parent_state_id: 5, //iterateResult.data.state_id, // Use state_id from iterate response
-					config: scoreBandsConfig,
-					solution_ids: []
+					group_id: 1, //data.group.id,
+					score_bands_config: scoreBandsConfig,
 				})
 			});
 
@@ -533,19 +408,91 @@
 			}
 
 			const scoreResult = await scoreResponse.json();
-			console.log('Fetch score completed:', scoreResult);
 			
 			if (scoreResult.success) {
 				scoreBandsResult = scoreResult.data.result;
-				// Force all clusters to be visible after data loads
+				console.log('✅ SCORE bands fetched successfully:', scoreBandsResult);
 			} else {
 				throw new Error(`Fetch score failed: ${scoreResult.error || 'Unknown error'}`);
 			}
 			data_loaded = true;
 			loading_error = null;
-
+			selected_band = null;
+			vote_given = false;
+			vote_confirmed = false;
 		} catch (error) {
 			console.error('Error in fetch_score_bands:', error);
+			alert(`Error: ${error}`);
+		}
+	}
+
+	async function vote(band: number | null) {
+		if (band === null) {
+			alert('Please select a band to vote for.');
+			return;
+		}
+		console.log("band to vote for:", band);
+		try {
+			const voteResponse = await fetch('/interactive_methods/GDM-SCORE-bands/vote', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					group_id: 1, //data.group.id,
+					vote: band,
+				})
+			});
+
+			if (!voteResponse.ok) {
+				const errorData = await voteResponse.json();
+				throw new Error(`Vote failed: ${errorData.error || `HTTP ${voteResponse.status}: ${voteResponse.statusText}`}`);
+			}
+
+			const voteResult = await voteResponse.json();
+			
+			if (voteResult.success) {
+				console.log('Voted successfully:', voteResult.data.message);
+			} else {
+				throw new Error(`Vote failed: ${voteResult.error || 'Unknown error'}`);
+			}
+			vote_given = true;
+		} catch (error) {
+			console.error('Error in vote:', error);
+			alert(`Error: ${error}`);
+		}
+	}
+
+	async function confirm_vote() {
+		if (vote_confirmed) {
+			return;
+		}
+		try {
+			const confirmResponse = await fetch('/interactive_methods/GDM-SCORE-bands/confirm_vote', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					group_id: 1, //data.group.id,
+				})
+			});
+
+			if (!confirmResponse.ok) {
+				const errorData = await confirmResponse.json();
+				throw new Error(`Confirm failed: ${errorData.error || `HTTP ${confirmResponse.status}: ${confirmResponse.statusText}`}`);
+			}
+
+			const confirmResult = await confirmResponse.json();
+			
+			if (confirmResult.success) {
+				console.log('Confirmed vote successfully:', confirmResult.data.message);
+			} else {
+				throw new Error(`Confirm failed: ${confirmResult.error || 'Unknown error'}`);
+			}
+			vote_confirmed = true;
+		} catch (error) {
+			console.error('Error in Confirm:', error);
 			alert(`Error: ${error}`);
 		}
 	}
@@ -587,6 +534,19 @@
 							<p><strong>Members:</strong> {data.group.user_ids.length}</p>
 							<p><strong>Created:</strong> {new Date(data.group.created_at).toLocaleDateString()}</p>
 							<p><strong>Your User ID:</strong> {userId || 'Not authenticated'}</p>
+							<!-- TODO: Add WebSocket connection status display -->
+							{#if wsService}
+								<p><strong>WebSocket:</strong> 
+									<span class="badge badge-success">Connected</span>
+								</p>
+								{#if websocket_message}
+									<p><strong>Last Message:</strong> <span class="text-xs">{websocket_message}</span></p>
+								{/if}
+							{:else}
+								<p><strong>WebSocket:</strong> 
+									<span class="badge badge-warning">Not Connected</span>
+								</p>
+							{/if}
 						</div>
 					</div>
 				</div>
@@ -694,7 +654,7 @@
 						<span class="label-text">Flip Axes</span>
 					</label>
 					<button
-						onclick={recalculate_parameters}
+						onclick={()=>{}}
 						class="btn btn-primary"
 						disabled={SCOREBands.axisNames.length === 0}
 					>
@@ -847,10 +807,10 @@
 					<div class="card-body">
 						<h2 class="card-title">Voting</h2>
 						<div class="space-y-2 p-2">
-							<Button onclick={() => fetch_score_bands(quantileToIntervalSize(quantile_value))}>
+							<Button onclick={() => vote(selected_band)} disabled={selected_band === null || vote_confirmed}>
 								Vote
 							</Button>
-							<Button onclick={() => fetch_score_bands(quantileToIntervalSize(quantile_value))}>
+							<Button onclick={confirm_vote} disabled={!vote_given}>
 								Confirm vote
 							</Button>
 						</div>
@@ -872,6 +832,7 @@
 								options={options}
 								bands={SCOREBands.bands}
 								medians={SCOREBands.medians}
+								scales={SCOREBands.scales}
 								clusterVisibility={cluster_visibility_map}
 								clusterColors={cluster_colors}
 								axisOptions={axis_options}
