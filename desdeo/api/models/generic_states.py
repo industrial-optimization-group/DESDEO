@@ -343,6 +343,7 @@ class SolutionReference(SQLModel):
     def num_solutions(self) -> int:
         return len(self.state.state.solver_results)
 
+    """
     @computed_field
     @property
     def lagrange_multipliers(self) -> list[dict[str, float]] | None:
@@ -351,6 +352,7 @@ class SolutionReference(SQLModel):
             if self.state.state.result_lagrange_multipliers
             else None
         )
+    """
 
 
 class SolutionReferenceResponse(SQLModel):
@@ -363,7 +365,7 @@ class SolutionReferenceResponse(SQLModel):
     state_id: int
     objective_values: dict[str, float] | None
     variable_values: dict[str, "VariableType | Tensor"] | None
-    lagrange_multipliers: dict[str, float] | None
+    # lagrange_multipliers: dict[str, float] | None
 
 
 class SavedSolutionReference(SQLModel):

@@ -39,7 +39,9 @@ def solve_intermediate(
 ) -> GenericIntermediateSolutionResponse:
     """Solve intermediate solutions between given two solutions."""
     if request.session_id is not None:
-        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == request.session_id)
+        statement = select(InteractiveSessionDB).where(
+            InteractiveSessionDB.id == request.session_id
+        )
         interactive_session = session.exec(statement)
 
         if interactive_session is None:
@@ -50,7 +52,9 @@ def solve_intermediate(
     else:
         # request.session_id is None:
         # use active session instead
-        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == user.active_session_id)
+        statement = select(InteractiveSessionDB).where(
+            InteractiveSessionDB.id == user.active_session_id
+        )
 
         interactive_session = session.exec(statement).first()
 
@@ -59,7 +63,9 @@ def solve_intermediate(
     var_and_obj_values_of_references: list[tuple[dict, dict]] = []
     reference_states = []
     for solution_info in [request.reference_solution_1, request.reference_solution_2]:
-        solution_state = session.exec(select(StateDB).where(StateDB.id == solution_info.state_id)).first()
+        solution_state = session.exec(
+            select(StateDB).where(StateDB.id == solution_info.state_id)
+        ).first()
 
         if solution_state is None:
             # no StateDB found with the given id
@@ -97,7 +103,9 @@ def solve_intermediate(
         var_and_obj_values_of_references.append((var_values, obj_values))
 
     # fetch the problem from the DB
-    statement = select(ProblemDB).where(ProblemDB.user_id == user.id, ProblemDB.id == request.problem_id)
+    statement = select(ProblemDB).where(
+        ProblemDB.user_id == user.id, ProblemDB.id == request.problem_id
+    )
     problem_db = session.exec(statement).first()
 
     if problem_db is None:
@@ -175,7 +183,8 @@ def solve_intermediate(
             name=request.reference_solution_2.name,
         ),
         intermediate_solutions=[
-            SolutionReference(state=state, solution_index=i) for i in range(state.state.num_solutions)
+            SolutionReference(state=state, solution_index=i)
+            for i in range(state.state.num_solutions)
         ],
     )
 
@@ -190,7 +199,9 @@ def calculate_score_bands(
         data = pd.DataFrame(request.data, columns=request.objs)
 
         # Calculate correlation matrix and objective order
-        corr, obj_order = order_dimensions(data, use_absolute_corr=request.use_absolute_corr)
+        corr, obj_order = order_dimensions(
+            data, use_absolute_corr=request.use_absolute_corr
+        )
 
         # Calculate axis positions and signs
         ordered_data, axis_dist, axis_signs = calculate_axes_positions(
@@ -219,13 +230,17 @@ def calculate_score_bands(
         # Handle potential None values and ensure proper type conversion
         response = ScoreBandsResponse(
             groups=groups.tolist() if hasattr(groups, "tolist") else list(groups),
-            axis_dist=(axis_dist.tolist() if hasattr(axis_dist, "tolist") else list(axis_dist)),
+            axis_dist=(
+                axis_dist.tolist() if hasattr(axis_dist, "tolist") else list(axis_dist)
+            ),
             axis_signs=(
                 axis_signs.tolist()
                 if axis_signs is not None and hasattr(axis_signs, "tolist")
                 else (list(axis_signs) if axis_signs is not None else None)
             ),
-            obj_order=(obj_order.tolist() if hasattr(obj_order, "tolist") else list(obj_order)),
+            obj_order=(
+                obj_order.tolist() if hasattr(obj_order, "tolist") else list(obj_order)
+            ),
         )
 
         return response

@@ -93,6 +93,24 @@ export async function handle_iterate(
 }
 
 /**
+ * Handles the retrieval of the lagrange multipliers for the solutions from an state.
+ * @param state_id The ID of the NIMBUS state to retrieve multipliers from.
+ */
+export async function handle_get_multipliers(
+	state_id: number
+): Promise<Array<Array<Record<string, number>>> | null> {
+	interface MultipliersResponse {
+		lagrange_multipliers: Array<Array<Record<string, number>>>;
+	}
+
+	const result = await callNimbusAPI<MultipliersResponse>('get_multipliers', {
+		state_id: state_id
+	});
+	console.log('Multipliers response:', result?.lagrange_multipliers);
+
+	return result ? result.lagrange_multipliers : null;
+}
+/**
  * Saves a solution with an optional user-provided name.
  * @param problem The active problem context.
  * @param solution The solution to be saved.

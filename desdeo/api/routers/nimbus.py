@@ -1,5 +1,7 @@
 """Defines end-points to access functionalities related to the NIMBUS method."""
 
+from collections import defaultdict
+import re
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -35,6 +37,7 @@ from desdeo.api.models import (
     UserSavedSolutionDB,
 )
 from desdeo.api.models.generic import SolutionInfo
+from desdeo.api.models.nimbus import NIMBUSMultiplierRequest, NIMBUSMultiplierResponse
 from desdeo.api.models.state import IntermediateSolutionState
 from desdeo.api.routers.generic import solve_intermediate
 from desdeo.api.routers.problem import check_solver
@@ -755,3 +758,86 @@ def delete_save(
         )
 
     return NIMBUSDeleteSaveResponse(message="Save deleted.")
+
+
+@router.post("/get-multipliers-info")
+def get_multipliers_info(
+    request: NIMBUSMultiplierRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)],
+) -> NIMBUSMultiplierResponse:
+    """Get Lagrange multipliers information from an state. The multipliers are available from the solver results."""
+    empty_response = {"lagrange_multipliers": None}
+    state = session.exec(select(StateDB).where(StateDB.id == request.state_id)).first()
+
+    if state is None or not hasattr(state, "state"):
+        return empty_response
+
+    actual_state = state.state
+
+    if (
+        not hasattr(actual_state, "solver_results")
+        or actual_state.solver_results is None
+    ):
+        return empty_response
+
+    lagrange_multipliers = []
+
+    # Handle states with multiple results (list of SolverResults)
+    if isinstance(actual_state.solver_results, list):
+        for result in actual_state.solver_results:
+            if (
+                hasattr(result, "lagrange_multipliers")
+                and result.lagrange_multipliers is not None
+            ):
+                lagrange_multipliers.append(
+                    filter_lagrange_multipliers(result.lagrange_multipliers)
+                )
+            else:
+                lagrange_multipliers.append(None)
+
+    # Handle states with single result (single SolverResults object)
+    else:
+        result = actual_state.solver_results
+        if (
+            hasattr(result, "lagrange_multipliers")
+            and result.lagrange_multipliers is not None
+        ):
+            lagrange_multipliers.append(
+                filter_lagrange_multipliers(result.lagrange_multipliers)
+            )
+        else:
+            lagrange_multipliers.append(None)
+
+    return {"lagrange_multipliers": lagrange_multipliers}
+
+
+def filter_lagrange_multipliers(lagrange_multipliers) -> list[dict[str, float]]:
+    # return [x.lagrange_multipliers for x in self.solver_results]
+    result = []
+
+    # filter multipliers to keep only one per objective
+    grouped = defaultdict(list)
+
+    for key, value in lagrange_multipliers.items():
+        match = re.search(r"f_(\d+)", key)
+        if match:
+            f_i = match.group(1)  # Extract the objective number
+            grouped[f_i].append((key, value))
+
+    # Select preferred multiplier for each objective
+    filtered_multipliers = {}
+    for obj_num, entries in grouped.items():
+        # Prefer non-"eq" constraints
+        preferred = next(
+            (entry for entry in entries if not entry[0].endswith("eq")), None
+        )
+        if preferred is None and entries:
+            preferred = entries[0]
+
+        if preferred:
+            filtered_multipliers[f"f_{obj_num}"] = preferred[1]
+
+    result.append(filtered_multipliers)
+
+    return result

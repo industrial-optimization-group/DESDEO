@@ -14,9 +14,13 @@ class NIMBUSClassificationRequest(SQLModel):
     session_id: int | None = Field(default=None)
     parent_state_id: int | None = Field(default=None)
 
-    scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    scalarization_options: dict[str, float | str | bool] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
     solver: str | None = Field(default=None)
-    solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    solver_options: dict[str, float | str | bool] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
     preference: ReferencePoint = Field(Column(JSON))
 
     current_objectives: dict[str, float] = Field(
@@ -34,11 +38,14 @@ class NIMBUSSaveRequest(SQLModel):
 
     solution_info: list[SolutionInfo]
 
+
 class NIMBUSDeleteSaveRequest(SQLModel):
     """Request model for deletion of a saved solution."""
 
-    state_id : int = Field(description="The ID of the save state.")
-    solution_index: int = Field(description="The ID of the solution within the above state.")
+    state_id: int = Field(description="The ID of the save state.")
+    solution_index: int = Field(
+        description="The ID of the solution within the above state."
+    )
 
 
 class NIMBUSFinalizeRequest(SQLModel):
@@ -48,17 +55,20 @@ class NIMBUSFinalizeRequest(SQLModel):
     session_id: int | None = Field(default=None)
     parent_state_id: int | None = Field(default=None)
 
-    solution_info: SolutionInfo # the final solution
-    preferences: ReferencePoint # the preferences that led to the final solution
+    solution_info: SolutionInfo  # the final solution
+    preferences: ReferencePoint  # the preferences that led to the final solution
 
 
 class NIMBUSClassificationResponse(SQLModel):
     """The response from NIMBUS classification endpoint."""
 
     state_id: int | None = Field(description="The newly created state id")
-    previous_preference: ReferencePoint = Field(description="The previous preference used.")
+    previous_preference: ReferencePoint = Field(
+        description="The previous preference used."
+    )
     previous_objectives: dict[str, float] = Field(
-        sa_column=Column(JSON), description="The previous solutions objectives used for iteration."
+        sa_column=Column(JSON),
+        description="The previous solutions objectives used for iteration.",
     )
     current_solutions: list[SolutionReferenceResponse] = Field(
         description="The solutions from the current iteration of nimbus."
@@ -91,17 +101,18 @@ class NIMBUSSaveResponse(SQLModel):
 
     state_id: int | None = Field(description="The id of the newest state")
 
+
 class NIMBUSDeleteSaveResponse(SQLModel):
     """Response of NIMBUS save deletion."""
+
     message: str | None
+
 
 class NIMBUSFinalizeResponse(SQLModel):
     """The response from NIMBUS finish endpoint."""
 
     state_id: int | None = Field(description="The id of the newest state")
-    final_solution: SolutionReferenceResponse = Field(
-        description="The final solution"
-    )
+    final_solution: SolutionReferenceResponse = Field(description="The final solution")
 
 
 class NIMBUSInitializationRequest(SQLModel):
@@ -111,10 +122,16 @@ class NIMBUSInitializationRequest(SQLModel):
     session_id: int | None = Field(default=None)
     parent_state_id: int | None = Field(default=None)
 
-    starting_point: ReferencePoint | SolutionInfo | None = Field(sa_column=Column(JSON), default=None)
-    scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    starting_point: ReferencePoint | SolutionInfo | None = Field(
+        sa_column=Column(JSON), default=None
+    )
+    scalarization_options: dict[str, float | str | bool] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
     solver: str | None = Field(default=None)
-    solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    solver_options: dict[str, float | str | bool] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
 
 
 class NIMBUSIntermediateSolutionResponse(SQLModel):
@@ -122,10 +139,12 @@ class NIMBUSIntermediateSolutionResponse(SQLModel):
 
     state_id: int | None = Field(description="The newly created state id")
     reference_solution_1: dict[str, float] = Field(
-        sa_column=Column(JSON), description="The first solution used when computing intermediate points."
+        sa_column=Column(JSON),
+        description="The first solution used when computing intermediate points.",
     )
-    reference_solution_2: dict[str, float]= Field(
-        sa_column=Column(JSON), description="The second solution used when computing intermediate points."
+    reference_solution_2: dict[str, float] = Field(
+        sa_column=Column(JSON),
+        description="The second solution used when computing intermediate points.",
     )
     current_solutions: list[SolutionReferenceResponse] = Field(
         description="The solutions from the current iteration of NIMBUS."
@@ -135,4 +154,20 @@ class NIMBUSIntermediateSolutionResponse(SQLModel):
     )
     all_solutions: list[SolutionReferenceResponse] = Field(
         description="All solutions generated by NIMBUS in all iterations."
+    )
+
+
+class NIMBUSMultiplierRequest(SQLModel):
+    """Model of the request to get Lagrange multipliers from the solutions in an state."""
+
+    state_id: int
+
+
+class NIMBUSMultiplierResponse(SQLModel):
+    """Response model for Lagrange multipliers."""
+
+    lagrange_multipliers: (
+        list[list[dict[str, float | list[float]] | None] | None] | None
+    ) = Field(
+        description="List of Lagrange multipliers for each solution, or None if not available"
     )

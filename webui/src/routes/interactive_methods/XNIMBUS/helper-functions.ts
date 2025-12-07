@@ -48,14 +48,14 @@ export function mapSolutionsToObjectiveValues(solutions: Solution[], problem: Pr
     });
 }
 
-export function mapSolutionToMultipliers(solutions: Solution[], problem: ProblemInfo) {
+/*export function mapSolutionToMultipliers(solutions: Solution[], problem: ProblemInfo) {
     return solutions.map((result) => {
         return problem.objectives.map((obj) => {
             const value = result.lagrange_multipliers && result.lagrange_multipliers[obj.symbol];
             return Array.isArray(value) ? value[0] : value;
         });
     });
-}
+}*/
 
 
 /**
@@ -284,7 +284,7 @@ export async function callNimbusAPI<T>(
 }
 
 
-export function compute_tradeoffs(
+/*export function compute_tradeoffs(
     solution: Solution,
     problem: ProblemInfo,
 ){
@@ -315,4 +315,4 @@ export function compute_tradeoffs(
   }
 
   return partialTradeOffs;
-}
+}*/

@@ -89,6 +89,7 @@ class ResultInterface:
 
         return []
 
+    """
     @property
     def result_lagrange_multipliers(self) -> list[dict[str, float]]:
         msg = (
@@ -99,6 +100,7 @@ class ResultInterface:
         warnings.warn(msg, category=RuntimeWarning, stacklevel=2)
 
         return []
+    """
 
     @property
     def num_solutions(self) -> int:
@@ -161,6 +163,7 @@ class NIMBUSClassificationState(ResultInterface, SQLModel, table=True):
     def result_variable_values(self) -> list[dict[str, VariableType | Tensor]]:
         return [x.optimal_variables for x in self.solver_results]
 
+    """
     @property
     def result_lagrange_multipliers(self) -> list[dict[str, float]]:
         result = []
@@ -195,6 +198,7 @@ class NIMBUSClassificationState(ResultInterface, SQLModel, table=True):
             result.append(filtered_multipliers)
 
         return result
+    """
 
     @property
     def num_solutions(self) -> int:
@@ -227,6 +231,10 @@ class NIMBUSSaveState(ResultInterface, SQLModel, table=True):
     @property
     def num_solutions(self) -> int:
         return len(self.solutions)
+
+    # @property
+    # def result_lagrange_multipliers(self) -> list[dict[str, float]]:
+    #    return []
 
 
 class NIMBUSInitializationState(ResultInterface, SQLModel, table=True):
@@ -261,6 +269,10 @@ class NIMBUSInitializationState(ResultInterface, SQLModel, table=True):
     @property
     def num_solutions(self) -> int:
         return 1
+
+    # @property
+    # def result_lagrange_multipliers(self) -> list[dict[str, float]] | None:
+    #    return [self.solver_results.lagrange_multipliers]
 
 
 class NIMBUSFinalState(ResultInterface, SQLModel, table=True):

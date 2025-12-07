@@ -41,9 +41,13 @@ def get_utopia_data(
     Returns:
         UtopiaResponse: the map for the forest, to be rendered in frontend
     """
-    empty_response = UtopiaResponse(is_utopia=False, map_name="", map_json={}, options={}, description="", years=[])
+    empty_response = UtopiaResponse(
+        is_utopia=False, map_name="", map_json={}, options={}, description="", years=[]
+    )
 
-    state = session.exec(select(StateDB).where(StateDB.id == request.solution.state_id)).first()
+    state = session.exec(
+        select(StateDB).where(StateDB.id == request.solution.state_id)
+    ).first()
     if state is None or not hasattr(state, "state"):
         return empty_response
 
@@ -67,10 +71,14 @@ def get_utopia_data(
         result = actual_state.solver_results[request.solution.solution_index]
         if not hasattr(result, "optimal_variables") or not result.optimal_variables:
             return empty_response
-        decision_variables = result.optimal_variables  # expects a list of variables, won't work without.
+        decision_variables = (
+            result.optimal_variables
+        )  # expects a list of variables, won't work without.
 
     from_db_metadata = session.exec(
-        select(ProblemMetaDataDB).where(ProblemMetaDataDB.problem_id == request.problem_id)
+        select(ProblemMetaDataDB).where(
+            ProblemMetaDataDB.problem_id == request.problem_id
+        )
     ).first()
     if from_db_metadata is None:
         return empty_response
@@ -78,7 +86,9 @@ def get_utopia_data(
     # Get the last instance of forest related metadata from the database.
     # If for some reason there's more than one forest metadata, return the latest.
     forest_metadata: ForestProblemMetaData = [
-        metadata for metadata in from_db_metadata.all_metadata if metadata.metadata_type == "forest_problem_metadata"
+        metadata
+        for metadata in from_db_metadata.all_metadata
+        if metadata.metadata_type == "forest_problem_metadata"
     ][-1]
     if forest_metadata is None:
         return empty_response
@@ -104,13 +114,19 @@ def get_utopia_data(
             continue
         # The dict keys get converted to ints to strings when it's loaded from database
         try:
-            treatments = forest_metadata.schedule_dict[key][str(decision_variables[key].index(1))]
+            treatments = forest_metadata.schedule_dict[key][
+                str(decision_variables[key].index(1))
+            ]
         except ValueError as e:
             # if the optimization didn't choose any decision alternative, it's safe to assume
             #  that nothing is being done at that forest stand
             treatments = forest_metadata.schedule_dict[key]["0"]
             print(e)
-        treatments_dict[key] = {forest_metadata.years[0]: 0, forest_metadata.years[1]: 0, forest_metadata.years[2]: 0}
+        treatments_dict[key] = {
+            forest_metadata.years[0]: 0,
+            forest_metadata.years[1]: 0,
+            forest_metadata.years[2]: 0,
+        }
         for year in treatments_dict[key]:
             if year in treatments:
                 for part in treatments.split():
@@ -176,9 +192,7 @@ def get_utopia_data(
                     "roam": True,
                     "map": map_name,
                     "nameProperty": forest_metadata.stand_id_field,
-                    "label": {
-                        "show": False  # Hide text labels on the map
-                    },
+                    "label": {"show": False},  # Hide text labels on the map
                     # "colorBy": "data",
                     # "itemStyle": {"symbol": "triangle", "color": "red"},
                     "data": [],
@@ -201,7 +215,10 @@ def get_utopia_data(
             if piece not in options[year]["visualMap"]["pieces"]:
                 options[year]["visualMap"]["pieces"].append(piece)
             if forest_metadata.stand_descriptor:
-                name = forest_metadata.stand_descriptor[str(stand)] + description_dict[treatment_id]
+                name = (
+                    forest_metadata.stand_descriptor[str(stand)]
+                    + description_dict[treatment_id]
+                )
             else:
                 name = "Stand " + str(stand) + " " + description_dict[treatment_id]
             options[year]["series"][0]["data"].append(

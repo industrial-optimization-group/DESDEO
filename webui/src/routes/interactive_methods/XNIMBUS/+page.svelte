@@ -58,7 +58,8 @@
 		handle_remove_saved as handleRemoveSavedRequest,
 		handle_finish as handleFinishRequest,
 		get_maps as getMapsRequest,
-		initialize_nimbus_state as initializeNimbusStateRequest
+		initialize_nimbus_state as initializeNimbusStateRequest,
+		handle_get_multipliers as handleGetMultipliersRequest
 	} from './handlers';
 
 	// State for NIMBUS iteration management
@@ -106,6 +107,8 @@
 	let current_num_intermediate_solutions: number = $state(1);
 	let selected_solutions_for_intermediate: Solution[] = $state([]); // actual objectives, but it is a list unlike for iteration, since user should choose two solutions
 
+	let selected_objective_index: number | null = $state(null);
+
 	// Reactive variable for selected indexes based on current mode
 	let selectedIndexes = $derived.by(() => {
 		if (mode === 'intermediate') {
@@ -119,7 +122,8 @@
 	let current_preference: number[] = $state([]);
 	// Store the last iterated preference values to show as "previous" in UI
 	let last_iterated_preference: number[] = $state([]);
-
+	// Store current multipliers for the current solutions
+	let current_multipliers: Array<Array<Record<string, number>> | null> = $state([]);
 	// Variable to track if problem has utopia metadata
 	let hasUtopiaMetadata = $state(false);
 
@@ -146,6 +150,15 @@
 		change_solution_type_updating_selections(event.value as SolutionType);
 	}
 
+	function handle_objective_click(index: number) {
+		// If the clicked objective is already selected, deselect it
+		if (selected_objective_index === index) {
+			selected_objective_index = null;
+		} else {
+			// Otherwise, select the clicked objective
+			selected_objective_index = index;
+		}
+	}
 	// Helper function to change solution type and update selections
 	function change_solution_type_updating_selections(newType: SolutionType) {
 		// Update the internal state
@@ -164,6 +177,7 @@
 			// Iterate mode: always select just one solution
 			selected_iteration_index = [index];
 			update_iteration_selection(current_state);
+			selected_objective_index = null; // Reset selected objective on solution change
 		} else if (mode === 'intermediate') {
 			// Intermediate mode: allow selecting up to 2 rows
 			if (selected_intermediate_indexes.includes(index)) {
@@ -174,6 +188,7 @@
 				selected_intermediate_indexes = [...selected_intermediate_indexes, index];
 			}
 			update_intermediate_selection(current_state);
+			selected_objective_index = null; // Reset selected objective on solution change
 		}
 	}
 
@@ -367,10 +382,27 @@
 			);
 
 			selected_iteration_index = [0];
+			selected_objective_index = null; // Reset selected objective on iteration
 			// Switch to current solutions view after iteration
 			change_solution_type_updating_selections('current');
 			update_preferences_from_state(current_state);
 			current_num_iteration_solutions = current_state.current_solutions.length;
+
+			// Fetch multipliers for the current solutions
+			fetch_multipliers();
+		}
+	}
+
+	//Fetch multipliers for current solutions
+	async function fetch_multipliers() {
+		if (!current_state || !current_state.state_id) {
+			console.error('No current state available to fetch multipliers');
+			return;
+		}
+		const data = await handleGetMultipliersRequest(current_state.state_id);
+		console.log('Fetched multipliers data:', data);
+		if (data) {
+			current_multipliers = data;
 		}
 	}
 
@@ -416,6 +448,7 @@
 
 		const selectedSolution = chosen_solutions[selected_iteration_index[0]];
 		selected_iteration_objectives = selectedSolution.objective_values || {};
+		selected_objective_index = null; // Reset selected objective on iteration
 
 		// Only fetch maps if problem has utopia metadata
 		if (hasUtopiaMetadata) {
@@ -492,6 +525,7 @@
 
 			// Initialize other state
 			selected_iteration_index = [0];
+			selected_objective_index = null; // Reset selected objective on initialization
 			update_iteration_selection(current_state);
 			update_preferences_from_state(current_state);
 			current_num_iteration_solutions = current_state.current_solutions.length;
@@ -754,7 +788,10 @@
 				<AdvancedSidebar
 					{problem}
 					preferenceValues={current_preference}
-					results={chosen_solutions}
+					solutions={chosen_solutions}
+					multipliers={current_multipliers[selectedIndexes[0]] || []}
+					selectedSolutions={selectedIndexes}
+					handleObjectiveClick={handle_objective_click}
 				/>
 			{/if}
 		{/snippet}
