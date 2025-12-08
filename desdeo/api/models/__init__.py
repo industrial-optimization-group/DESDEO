@@ -10,6 +10,8 @@ __all__ = [  # noqa: RUF022
     "EMOSolveRequest",
     "EMOIterateState",
     "ENautilusState",
+    "ENautilusStateResponse",
+    "ENautilusStateRequest",
     "ENautilusStepRequest",
     "ENautilusStepResponse",
     "ExtraFunctionDB",
@@ -127,7 +129,12 @@ from .emo import (
     EMOScoreResponse,
     Solution,
 )
-from .enautilus import ENautilusStepRequest, ENautilusStepResponse
+from .enautilus import (
+    ENautilusStateRequest,
+    ENautilusStateResponse,
+    ENautilusStepRequest,
+    ENautilusStepResponse,
+)
 from .gdm.gdm_aggregate import (
     Group,
     GroupCreateRequest,

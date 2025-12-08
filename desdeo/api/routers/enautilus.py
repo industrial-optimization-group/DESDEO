@@ -4,10 +4,13 @@ from typing import Annotated
 
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import select
+from sqlmodel import Session, select
 
+from desdeo.api.db import get_session
 from desdeo.api.models import (
     ENautilusState,
+    ENautilusStateRequest,
+    ENautilusStateResponse,
     ENautilusStepRequest,
     ENautilusStepResponse,
     RepresentativeNonDominatedSolutions,
@@ -105,7 +108,6 @@ def step(
 
     return ENautilusStepResponse(
         state_id=state_db.id,
-        representative_solutions_id=representative_solutions.id,
         current_iteration=results.current_iteration,
         iterations_left=results.iterations_left,
         intermediate_points=results.intermediate_points,
@@ -114,3 +116,50 @@ def step(
         closeness_measures=results.closeness_measures,
         reachable_point_indices=results.reachable_point_indices,
     )
+
+
+@router.post("/get_state")
+def get_state(
+    request: ENautilusStateRequest,
+    db_session: Annotated[Session, Depends(get_session)],
+) -> ENautilusStateResponse:
+    """Fetch a previous state of the the E-NAUTILUS method."""
+    state_db: StateDB | None = db_session.exec(select(StateDB).where(StateDB.id == request.state_id)).first()
+
+    if state_db is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Could not find 'StateDB' with id={request.id}"
+        )
+
+    if not isinstance(state_db.state, ENautilusState):
+        raise HTTPException(
+            status_code=status.HTTP_406_NOT_ACCEPTABLE, detail="The requested state does not contain an ENautilusState."
+        )
+
+    enautilus_state: ENautilusState = state_db.state
+    results: ENautilusResult = enautilus_state.enautilus_results
+
+    request = ENautilusStepRequest(
+        problem_id=state_db.problem_id,
+        session_id=state_db.session_id,
+        parent_state_id=state_db.parent_id,
+        representative_solutions_id=enautilus_state.non_dominated_solutions_id,
+        current_iteration=enautilus_state.current_iteration,
+        iterations_left=enautilus_state.iterations_left,
+        selected_point=enautilus_state.selected_point,
+        reachable_point_indices=enautilus_state.reachable_point_indices,
+        number_of_intermediate_points=enautilus_state.number_of_intermediate_points,
+    )
+
+    response = ENautilusStepResponse(
+        state_id=state_db.id,
+        current_iteration=results.current_iteration,
+        iterations_left=results.iterations_left,
+        intermediate_points=results.intermediate_points,
+        reachable_best_bounds=results.reachable_best_bounds,
+        reachable_worst_bounds=results.reachable_worst_bounds,
+        closeness_measures=results.closeness_measures,
+        reachable_point_indices=results.reachable_point_indices,
+    )
+
+    return ENautilusStateResponse(request=request, response=response)
