@@ -7,6 +7,9 @@
 
 	// WebSocket service import
 	import { WebSocketService } from './websocket-store';
+	
+	// Helper functions import
+	import { drawVotesChart } from './helper-functions';
 
 	// Page data props
 	type Group = components['schemas']['GroupPublic'];
@@ -60,9 +63,22 @@
 			vote_confirmed = false;
 		}
 	});
+
+	let votes_per_cluster: Record<number, number> = $derived.by(() => {
+		const counts: Record<number, number> = {};
+		Object.values(votes_and_confirms.votes).forEach((bandId) => {
+			if (!(bandId in counts)) {
+				counts[bandId] = 0;
+			}
+			counts[bandId] += 1;
+		});
+		return counts;
+	});
+	const totalVoters = data.group ? data.group.user_ids.length : 4;
+
 	let phase = $state('Consensus Reaching Phase'); // 'Consensus reaching phase' or 'Decision phase'
 	let iteration_id = $state(0);
-	let scoreBandsResult : components['schemas']['SCOREBandsResult'] | null = $state(null);
+	let scoreBandsResult: components['schemas']['SCOREBandsResult'] | null = $state(null);
 	
 	let SCOREBands = $derived.by(()=> {
 		if (!scoreBandsResult || scoreBandsResult === null) {
@@ -283,9 +299,8 @@
 				const msg = store.message;
 				
 				// Handle update messages (these don't show to user, just trigger state updates)
+				// TODO: in the END, look if you can make this simpler or sth. And make sure you dont make the neglect errors like before
 				if (msg.includes('UPDATE: A vote has been cast.')) {
-					// TODO: Update voting status in UI
-					// Maybe refresh voting counts, update voting display, etc.
 					fetch_votes_and_confirms();
 					return;
 				}
@@ -308,10 +323,9 @@
 			});
 		}
 
-		// load_csv_data();
 		const initial_interval_size = quantileToIntervalSize(quantile_value);
-		await fetch_votes_and_confirms();
 		await fetch_score_bands(initial_interval_size);
+		await fetch_votes_and_confirms();
 		// Ensure clusters are visible after initial load
 		clusters_to_visible();
 	});
@@ -393,7 +407,22 @@
 		selected_axis = axisIndex;
 	}
 
+	// Votes chart container
+	let votesChartContainer: HTMLDivElement | undefined = $state();
 
+	// Update votes chart when votes change
+	$effect(() => {
+		if (votesChartContainer) {
+			drawVotesChart(
+				votesChartContainer,
+				votes_per_cluster,
+				totalVoters,
+				cluster_colors
+			);
+		}
+	});
+
+	// TODO: documentation text
 	async function fetch_score_bands(interval_size: number = 0.5) {
 		try {
 			// Configure SCORE bands with K-means clustering and dynamic interval_size
@@ -436,18 +465,13 @@
 			}
 			data_loaded = true;
 			loading_error = null;
-			// If user has voted already, select the band they voted for
-			if (userId && votes_and_confirms.votes.hasOwnProperty(userId)) {
-				selected_band = votes_and_confirms.votes[userId];
-			} else {
-				selected_band = null;
-			}
 		} catch (error) {
 			console.error('Error in fetch_score_bands:', error);
 			alert(`Error: ${error}`);
 		}
 	}
 
+	// TODO: documentation text
 	async function vote(band: number | null) {
 		if (band === null) {
 			alert('Please select a band to vote for.');
@@ -484,6 +508,7 @@
 		}
 	}
 
+	// TODO: documentation text
 	async function confirm_vote() {
 		if (vote_confirmed) {
 			return;
@@ -518,6 +543,7 @@
 		}
 	}
 
+	// TODO: documentation text
 	async function fetch_votes_and_confirms() {
 		try {
 			const response = await fetch('/interactive_methods/GDM-SCORE-bands/get_votes_and_confirms', {
@@ -539,6 +565,12 @@
 			if (result.success) {
 				votes_and_confirms = result.data;
 				console.log('Votes and confirms fetched successfully:', result.data);
+				// If user has voted already, select the band they voted for
+				if (userId && votes_and_confirms.votes.hasOwnProperty(userId)) {
+					selected_band = votes_and_confirms.votes[userId];
+				} else {
+					selected_band = null;
+				}
 			} else {
 				throw new Error(`Get votes and confirms failed: ${result.error || 'Unknown error'}`);
 			}
@@ -678,7 +710,7 @@
 			</div>
 		{/if}
 
-		<div class="grid grid-cols-1 gap-6 lg:grid-cols-4">
+		<div class="grid grid-cols-1 gap-6 lg:grid-cols-5">
 			<!-- Controls Panel -->
 			<div class="space-y-6 lg:col-span-1">
 				<div class="card bg-base-100 shadow-xl">
@@ -857,6 +889,15 @@
 								selectedAxis={selected_axis}
 							/>
 						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Votes Chart -->
+			<div class="lg:col-span-1">
+				<div class="card bg-base-100 shadow-xl">
+					<div class="card-body">
+						<div bind:this={votesChartContainer} class="w-full h-48"></div>
 					</div>
 				</div>
 			</div>

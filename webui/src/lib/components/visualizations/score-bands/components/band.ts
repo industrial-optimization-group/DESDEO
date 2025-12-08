@@ -106,7 +106,9 @@ export function drawBand(
 		options: any,
 		isSelected: boolean,
 		scales: Record<string, [number, number]> | undefined,
-		onBandSelect?: (clusterId: number | null) => void
+		onBandSelect?: (clusterId: number | null) => void,
+		// labels?: Record<number, string>,
+		solutionData?: { values: number[] }[] // TODO: copied from original, type most likely impractical
 	) {
 		const clusterColor = clusterColors[clusterId] || '#1f77b4';
 		const clusterKey = clusterId.toString();
@@ -195,16 +197,65 @@ export function drawBand(
 		// --- Draw Median ---
 		if (options.medians) {
 			const line = d3.line<number>()
-				.x((_, i) => xPositions[i])
-				.y((_, i) => yScales[i](medians[i]))
-				.curve(d3.curveMonotoneX);
-
+			.x((_, i) => xPositions[i])
+			.y((_, i) => yScales[i](medians[i]))
+			.curve(d3.curveMonotoneX);
+			
 			svg.append("path")
-				.datum(medians)
+			.datum(medians)
+			.attr("fill", "none")
+			.attr("stroke", clusterColor)
+			.attr("stroke-width", 2)
+			.attr("opacity", 0.9)
+			.attr("d", line);
+		}
+
+		// --- Individual solutions --- TODO: copied from original, needs fixing when solutions are implemented
+		if (solutionData && options.solutions) {
+			const line = d3.line<number>()
+			.x((_, i) => xPositions[i])
+			.y((val, i) => yScales[i](val))
+			.curve(d3.curveMonotoneX);
+
+			solutionData.forEach((d) => {
+			svg.append("path")
+				.datum(d.values)
 				.attr("fill", "none")
 				.attr("stroke", clusterColor)
-				.attr("stroke-width", 2)
-				.attr("opacity", 0.9)
+				.attr("stroke-opacity", 0.3)
+				.attr("stroke-width", 1)
 				.attr("d", line);
+			});
 		}
+
+		// --- Labels ---
+		// if (labels && labels[clusterId] !== undefined) {
+		// 	const labelValue = labels[clusterId];
+		// 	// Position label at the end of the last axis
+		// 	const xPos = xPositions[0] - 40; // Slightly offset to the left
+		// 	const yPos = yScales[0](medians[0]);
+
+		// 	svg.append("text")
+		// 		.attr('class', 'band-label')
+		// 		.attr('x', xPos)
+		// 		.attr('y', yPos)
+		// 		.attr('fill', clusterColor)
+		// 		.attr('text-anchor', 'middle')
+		// 		.attr('font-size', '14px')
+		// 		.attr('font-weight', 'bold')
+		// 		.text(labelValue.toString());
+			// TODO: Should this be for selected cluster? It is bolded, has the same feel.
+			// svg.append("text")
+			// 	.attr('class', 'band-label')
+			// 	.attr('x', xPos)
+			// 	.attr('y', yPos)
+			// 	.attr('fill', 'black')
+			// 	.attr('text-anchor', 'middle')
+			// 	.attr('font-size', '14px')
+			// 	.attr('font-weight', 'bold')
+			// 	.attr('stroke', clusterColor)
+			// 	.attr('stroke-width', '0.5')
+			// 	.style('paint-order', 'stroke fill')
+			// 	.text(labelValue.toString());
+		// }
 	}
