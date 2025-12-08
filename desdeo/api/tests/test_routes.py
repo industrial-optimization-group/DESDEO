@@ -930,7 +930,8 @@ def test_gdm_score_bands(client: TestClient):
                 clustering_algorithm=KMeansOptions(
                     n_clusters=5
                 )
-            )
+            ),
+            from_iteration = None
         )
     ).model_dump()
     response = post_json(
@@ -970,7 +971,8 @@ def test_gdm_score_bands(client: TestClient):
                 clustering_algorithm=KMeansOptions(
                     n_clusters=5
                 )
-            )
+            ),
+            from_iteration=response_innards.latest_iteration
         )
     ).model_dump()
     response = post_json(

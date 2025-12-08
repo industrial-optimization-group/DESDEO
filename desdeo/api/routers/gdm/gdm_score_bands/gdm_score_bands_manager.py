@@ -16,7 +16,7 @@ from desdeo.api.models import (
 )
 from desdeo.api.routers.gdm.gdm_base import GroupManager, ManagerError
 from desdeo.gdm.score_bands import SCOREBandsGDMConfig, SCOREBandsGDMResult, score_bands_gdm
-from desdeo.gdm.voting_rules import majority_rule, plurality_rule
+from desdeo.gdm.voting_rules import consensus_rule, majority_rule
 from desdeo.tools.score_bands import SCOREBandsConfig, SCOREBandsResult, score_json
 
 
@@ -37,6 +37,7 @@ class GDMScoreBandsManager(GroupManager):
         if problem.discrete_representation is None:
             raise ManagerError("The group's discrete representation does not exist!")
         self.discrete_representation = problem.discrete_representation
+        session.close()
 
     async def run_method(self, user_id: int, data: str):
         """Method runner implementation for GDM Score Bands.
@@ -146,13 +147,16 @@ class GDMScoreBandsManager(GroupManager):
                 statement = select(GroupIteration)\
                     .where(GroupIteration.group_id == group.id)
                 iterations: list[GroupIteration] = session.exec(statement).all()
-                state: list[SCOREBandsGDMResult] = [iteration.info_container.score_bands_result for iteration in iterations]
+                state: list[SCOREBandsGDMResult] = [iteration.info_container.score_bands_result \
+                                                    for iteration in iterations if \
+                                                        iteration.info_container.method == "gdm-score-bands"]
                 for st in state:
-                    print(len(st.score_bands_result.clusters))
+                    print(f"{st.iteration}: {len(st.score_bands_result.clusters)}")
 
                 # USE Bhupinder's score bands stuff.
                 score_bands_config = SCOREBandsGDMConfig(
-                    score_bands_config=info_container.score_bands_config.score_bands_config
+                    score_bands_config=info_container.score_bands_config.score_bands_config,
+                    from_iteration=state[-1].iteration # the ID from the latest iteration.
                 )
 
                 # Get them discrete reprs
@@ -160,13 +164,12 @@ class GDMScoreBandsManager(GroupManager):
 
                 # Make sure that there are enough solutions for re-clustering
                 votes = group_iteration.info_container.user_votes
-                winners = majority_rule(votes) if score_bands_config.voting_method == "majority" else plurality_rule(votes)
+                winners = consensus_rule(votes, score_bands_config.minimum_votes)
                 relevant_ids = state[-1].relevant_ids
                 clustering = state[-1].score_bands_result.clusters
                 if len([x[0] for x in zip(relevant_ids, clustering, strict=True) if x[1] in winners]) < 11:
                     print("LESS THAN OR AS MUCH AS 10")
                     # THERE ARE 10 OR LESS SOLUTIONS IN TOTAL: MOVE ON TO DECISION PHASE!
-                    # Just figure out how to do that. A different database class or an additional field in existing ones?
 
                     obj_keys = list(discrete_repr.objective_values)
                     var_keys = list(discrete_repr.variable_values)
@@ -247,9 +250,9 @@ class GDMScoreBandsManager(GroupManager):
             # We're in decision phase.
             elif info_container.method == "gdm-score-bands-final":
 
-                winners = plurality_rule(info_container.user_votes)
-                if len(winners) > 1:
-                    pass # TODO: minimize distance or whatever
+                winner = majority_rule(info_container.user_votes) # A different rule perhaps?
+                #if len(winners) > 1:
+                #    pass # TODO: minimize distance or whatever
 
                 varis = info_container.solution_variables
                 vari_keys = list(varis)
@@ -258,12 +261,12 @@ class GDMScoreBandsManager(GroupManager):
 
                 vari_d = {}
                 for key in vari_keys:
-                    vari_d[key] = varis[key][winners[0]]
+                    vari_d[key] = varis[key][winner]
                 print(vari_d)
 
                 obj_d = {}
                 for key in obj_keys:
-                    obj_d[key] = objs[key][winners[0]]
+                    obj_d[key] = objs[key][winner]
                 print(obj_d)
 
                 info_container.winner_solution_variables = vari_d
@@ -273,3 +276,73 @@ class GDMScoreBandsManager(GroupManager):
 
                 session.add(group_iteration)
                 session.commit()
+
+    async def revert(
+        self,
+        user: User,
+        group: Group,
+        session: Session,
+        group_iteration_number: int
+    ):
+        """Revert to a different iteration.
+
+        Args:
+            user (User): Current user
+            group (Group): Current group
+            session (Session): database session
+            iteration_number (int): the iteration to which we want to revert.
+
+        Raises:
+            ManagerError
+        """
+        async with self.lock:
+            group_iteration = session.exec(
+                select(GroupIteration).where(GroupIteration.id == group.head_iteration_id)
+            ).first()
+            if group_iteration is None:
+                raise ManagerError("No group iterations! Did you initialize this group?")
+
+            statement = select(GroupIteration)\
+                .where(GroupIteration.group_id == group.id)
+            iterations: list[GroupIteration] = session.exec(statement).all()
+
+            target_group_iteration: GroupIteration = [i for i in iterations if i.id == group_iteration_number][0]
+
+            state: list[SCOREBandsGDMResult] = [
+                iteration.info_container.score_bands_result for iteration in \
+                iterations if iteration.info_container.method == "gdm-score-bands"
+            ]
+
+            prev_id = state[-1].iteration
+            result = target_group_iteration.info_container.score_bands_result
+            result.previous_iteration = prev_id
+            result.iteration = prev_id + 1
+
+            info_container = GDMSCOREBandInformation(
+                user_votes={},
+                user_confirms=[],
+                score_bands_config=target_group_iteration.info_container.score_bands_config,
+                score_bands_result=result
+            )
+
+            # Add group iteration and related stuff, then set new iteration to head.
+            new_iteration: GroupIteration = GroupIteration(
+                group_id=group.id,
+                problem_id=group.problem_id,
+                info_container=info_container,
+                notified={},
+                state_id=None,
+                parent_id=group.head_iteration_id,
+                parent=group_iteration,
+            )
+
+            session.add(new_iteration)
+            session.commit()
+            session.refresh(new_iteration)
+
+            group.head_iteration_id = new_iteration.id
+            session.add(group)
+            session.commit()
+            session.refresh(group)
+
+            await self.broadcast("UPDATE: Iteration reverted.")

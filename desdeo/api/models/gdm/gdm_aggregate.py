@@ -6,8 +6,8 @@ from sqlalchemy.types import TypeDecorator
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
 from desdeo.api.models.gdm.gdm_base import BaseGroupInfoContainer
+from desdeo.api.models.gdm.gdm_score_bands import GDMSCOREBandFinalSelection, GDMSCOREBandInformation
 from desdeo.api.models.gdm.gnimbus import EndProcessPreference, OptimizationPreference, VotingPreference
-from desdeo.api.models.gdm.gdm_score_bands import GDMSCOREBandInformation, GDMSCOREBandFinalSelection
 from desdeo.tools import SolverResults
 
 
