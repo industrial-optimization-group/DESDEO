@@ -28,6 +28,7 @@ export class WebSocketService {
 	private maxReconnectAttempts = 5;
 	private reconnectInterval = 5000; // Start with 5 seconds
 	private isReconnecting = false;
+	private intentionalDisconnect = false; // Flag to prevent reconnection on intentional disconnect
 	private groupId: number;
 	private method: string;
 	private token: string;
@@ -87,7 +88,12 @@ export class WebSocketService {
 
 		this.socket.addEventListener('close', (event) => {
 			console.log('WebSocket closed:', { code: event.code, reason: event.reason });
-			this.attemptReconnect();
+			// Only attempt reconnection if the disconnect was not intentional
+			if (!this.intentionalDisconnect) {
+				this.attemptReconnect();
+			} else {
+				console.log('WebSocket was intentionally closed, not attempting reconnection');
+			}
 		});
 
 		this.socket.addEventListener('message', (event) => {
@@ -121,8 +127,8 @@ export class WebSocketService {
 	}
 
 	private attemptReconnect() {
-		if (this.isReconnecting || this.reconnectAttempts >= this.maxReconnectAttempts) {
-			if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+		if (this.isReconnecting || this.reconnectAttempts >= this.maxReconnectAttempts || this.intentionalDisconnect) {
+			if (this.reconnectAttempts >= this.maxReconnectAttempts && !this.intentionalDisconnect) {
 				this.messageStore.update((store) => ({
 					...store,
 					message: 'Connection lost. Please refresh the page.',
@@ -163,6 +169,7 @@ export class WebSocketService {
 	}
 
 	close() {
+		this.intentionalDisconnect = true; // Mark as intentional disconnect
 		if (this.socket) {
 			this.socket.close();
 			this.socket = null;

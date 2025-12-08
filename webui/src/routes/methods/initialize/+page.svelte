@@ -150,6 +150,17 @@
 		})
 	);
 
+	// Button enable logic: for group methods, enable if groupId exists; for individual methods, enable if problem exists
+	const isMethodEnabled = (method: Method) => {
+		if (method.supportsGroups && data.groupId) {
+			// Group method: enable if we have a groupId (DM users can access group problems they don't own)
+			return true;
+		} else {
+			// Individual method: enable only if problem exists in user's problem list
+			return !!problem;
+		}
+	};
+
 	onMount(() => {
 		problemId = $methodSelection.selectedProblemId;
 		if (problemId) {
@@ -184,6 +195,14 @@
 					Selected problem: <span class="text-primary font-bold">{problem.name}</span>
 				</p>
 				<Button variant="outline" size="sm" href="/problems">Change</Button>
+			</div>
+		{:else if data.groupId}
+			<div class="bg-info/10 flex items-center justify-between rounded-lg px-4 py-2">
+				<p class="text-sm">
+					Group mode: <span class="text-primary font-bold">Group ID {data.groupId}</span> 
+					- Group methods are available for collaborative decision making
+				</p>
+				<Button variant="outline" size="sm" href="/groups">Back to Groups</Button>
 			</div>
 		{:else}
 			<div class="bg-warning/10 flex items-center justify-between rounded-lg px-4 py-2">
@@ -246,9 +265,9 @@
 						<Button
 							variant="outline"
 							size="sm"
-							disabled={!problem}
+							disabled={!isMethodEnabled(method)}
 							href={`${method.path}`}
-							class={!problem ? 'opacity-50' : 'hover:bg-secondary/90'}
+							class={!isMethodEnabled(method) ? 'opacity-50' : 'hover:bg-secondary/90'}
 						>
 							<Play class="mr-2 size-4" />
 							Use
@@ -291,9 +310,9 @@
 					<Card.Footer class="pt-4">
 						<Button
 							variant="default"
-							disabled={!problem}
+							disabled={!isMethodEnabled(method)}
 							href={`${method.path}`}
-							class="w-full justify-center {!problem ? 'opacity-50' : 'hover:bg-primary/90'}"
+							class="w-full justify-center {!isMethodEnabled(method) ? 'opacity-50' : 'hover:bg-primary/90'}"
 						>
 							<Play class="mr-2" size={18} />
 							Use {method.name}

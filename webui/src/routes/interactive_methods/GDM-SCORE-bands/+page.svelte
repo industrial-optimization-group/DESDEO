@@ -14,10 +14,9 @@
 	
 	const { data } = $props<{ 
 		data: { 
-			problems: any[];
 			refreshToken: string;
-			group?: Group;
-			problem?: Problem;
+			group: Group;
+			problem: Problem;
 		} 
 	}>();
 
@@ -43,11 +42,27 @@
 	// - iteration status
 	// - other users' actions
 
-	let data_loaded = $state(false); // This is for loading spinner, but the data in question is csv-data that is probably not neededd....?
+	let data_loaded = $state(false); // TODO: This is for loading spinner, but the data in question is csv-data that is probably not neededd....?
 	let loading_error: string | null = $state(null); // TODO Stina: --------''----------
 	let vote_given = $state(false);
 	let vote_confirmed = $state(false);
-	let scoreBandsResult : components['schemas']['SCOREBandsResult'] | null = $state(null); // ALRIGHT, so this has the things we will get from API in future.
+	let votes_and_confirms = $state({
+		confirms: [] as number[],
+		votes: {} as Record<number, number>
+	});
+	$effect(() => {
+		if (userId) {
+			// Use a safe hasOwnProperty check and typed votes map so numeric indexing is allowed
+			vote_given = Object.prototype.hasOwnProperty.call(votes_and_confirms.votes, userId);
+			vote_confirmed = votes_and_confirms.confirms.includes(userId);
+		} else {
+			vote_given = false;
+			vote_confirmed = false;
+		}
+	});
+	let phase = $state('Consensus Reaching Phase'); // 'Consensus reaching phase' or 'Decision phase'
+	let iteration_id = $state(0);
+	let scoreBandsResult : components['schemas']['SCOREBandsResult'] | null = $state(null);
 	
 	let SCOREBands = $derived.by(()=> {
 		if (!scoreBandsResult || scoreBandsResult === null) {
@@ -244,10 +259,10 @@
 	// Load data on component mount
 	onMount(async () => {
 		// Initialize WebSocket connection
-		// if (data.group) {
-			console.log('Initializing WebSocket for group:', 1); //data.group.id);
+		if (data.group) {
+			console.log('Initializing WebSocket for group:', data.group.id);
 			wsService = new WebSocketService(
-				1, //data.group.id, 
+				data.group.id, 
 				'gdm-score-bands', 
 				data.refreshToken, 
 				() => {
@@ -271,11 +286,13 @@
 				if (msg.includes('UPDATE: A vote has been cast.')) {
 					// TODO: Update voting status in UI
 					// Maybe refresh voting counts, update voting display, etc.
+					fetch_votes_and_confirms();
 					return;
 				}
 				
 				if (msg.includes('iteration')) {
 					fetch_score_bands(quantileToIntervalSize(quantile_value));
+					fetch_votes_and_confirms();
 					return;
 				}
 				
@@ -289,10 +306,11 @@
 				// TODO: Handle other message types specific to score-bands
 				// You might want to add more message patterns here
 			});
-		// }
+		}
 
 		// load_csv_data();
 		const initial_interval_size = quantileToIntervalSize(quantile_value);
+		await fetch_votes_and_confirms();
 		await fetch_score_bands(initial_interval_size);
 		// Ensure clusters are visible after initial load
 		clusters_to_visible();
@@ -397,7 +415,7 @@
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({
-					group_id: 1, //data.group.id,
+					group_id: data.group.id,
 					score_bands_config: scoreBandsConfig,
 				})
 			});
@@ -411,15 +429,19 @@
 			
 			if (scoreResult.success) {
 				scoreBandsResult = scoreResult.data.result;
+				iteration_id = scoreResult.data.group_iter_id;
 				console.log('✅ SCORE bands fetched successfully:', scoreBandsResult);
 			} else {
 				throw new Error(`Fetch score failed: ${scoreResult.error || 'Unknown error'}`);
 			}
 			data_loaded = true;
 			loading_error = null;
-			selected_band = null;
-			vote_given = false;
-			vote_confirmed = false;
+			// If user has voted already, select the band they voted for
+			if (userId && votes_and_confirms.votes.hasOwnProperty(userId)) {
+				selected_band = votes_and_confirms.votes[userId];
+			} else {
+				selected_band = null;
+			}
 		} catch (error) {
 			console.error('Error in fetch_score_bands:', error);
 			alert(`Error: ${error}`);
@@ -439,7 +461,7 @@
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({
-					group_id: 1, //data.group.id,
+					group_id: data.group.id,
 					vote: band,
 				})
 			});
@@ -456,7 +478,6 @@
 			} else {
 				throw new Error(`Vote failed: ${voteResult.error || 'Unknown error'}`);
 			}
-			vote_given = true;
 		} catch (error) {
 			console.error('Error in vote:', error);
 			alert(`Error: ${error}`);
@@ -474,7 +495,7 @@
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({
-					group_id: 1, //data.group.id,
+					group_id: data.group.id,
 				})
 			});
 
@@ -490,9 +511,39 @@
 			} else {
 				throw new Error(`Confirm failed: ${confirmResult.error || 'Unknown error'}`);
 			}
-			vote_confirmed = true;
+			fetch_votes_and_confirms();
 		} catch (error) {
 			console.error('Error in Confirm:', error);
+			alert(`Error: ${error}`);
+		}
+	}
+
+	async function fetch_votes_and_confirms() {
+		try {
+			const response = await fetch('/interactive_methods/GDM-SCORE-bands/get_votes_and_confirms', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					group_id: data.group.id,
+				})
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(`Get votes and confirms failed: ${errorData.error || `HTTP ${response.status}: ${response.statusText}`}`);
+			}
+
+			const result = await response.json();
+			if (result.success) {
+				votes_and_confirms = result.data;
+				console.log('Votes and confirms fetched successfully:', result.data);
+			} else {
+				throw new Error(`Get votes and confirms failed: ${result.error || 'Unknown error'}`);
+			}
+		} catch (error) {
+			console.error('Error in get_votes_and_confirms:', error);
 			alert(`Error: ${error}`);
 		}
 	}
@@ -511,49 +562,7 @@
 			</div>
 		</div>
 	{:else}
-		<!-- Group Information (if in collaborative mode) -->
-		{#if data.group}
-			<div class="card bg-base-100 mb-4 shadow-xl">
-				<div class="card-body">
-					<h3 class="card-title">Group Session Information</h3>
-					<div class="grid grid-cols-2 gap-4">
-						<div>
-							<p><strong>Group ID:</strong> {data.group.id}</p>
-							<p><strong>Problem:</strong> {data.problem?.name || 'Unknown'}</p>
-							<p><strong>User Role:</strong> 
-								{#if isOwner}
-									<span class="badge badge-primary">Owner</span>
-								{:else if isDecisionMaker}
-									<span class="badge badge-secondary">Decision Maker</span>
-								{:else}
-									<span class="badge badge-outline">Observer</span>
-								{/if}
-							</p>
-						</div>
-						<div>
-							<p><strong>Members:</strong> {data.group.user_ids.length}</p>
-							<p><strong>Created:</strong> {new Date(data.group.created_at).toLocaleDateString()}</p>
-							<p><strong>Your User ID:</strong> {userId || 'Not authenticated'}</p>
-							<!-- TODO: Add WebSocket connection status display -->
-							{#if wsService}
-								<p><strong>WebSocket:</strong> 
-									<span class="badge badge-success">Connected</span>
-								</p>
-								{#if websocket_message}
-									<p><strong>Last Message:</strong> <span class="text-xs">{websocket_message}</span></p>
-								{/if}
-							{:else}
-								<p><strong>WebSocket:</strong> 
-									<span class="badge badge-warning">Not Connected</span>
-								</p>
-							{/if}
-						</div>
-					</div>
-				</div>
-			</div>
-		{/if}
-
-		<!-- Show quantile loading indicator if updating -->
+		<!-- Show quantile loading indicator if updating TODO whats the point, no point anymore, remove.-->
 		{#if is_quantile_loading}
 			<div class="alert alert-info mb-4">
 				<div class="flex items-center gap-2">
@@ -569,100 +578,105 @@
 				<div class="">
 					<!-- Header Section -->
 					<div class="font-semibold">
-						HEADER: Method name, iteration number, phase.
+						HEADER: Iteration {iteration_id}, {phase}
 					</div>
-					<!-- Instructions Section -->
+					<!-- Instructions Section TODO: instructions to match voting situation, need group info -->
 					<div>Click a cluster on the graph, vote with the button, then confirm when ready to continue.</div>
+					<div> Votes: {Object.keys(votes_and_confirms.votes || {}).length}</div>
+					<div> Confirms: {votes_and_confirms.confirms.length}</div>
+
 				</div>
 			</div>
 		</div>
 
 		<!-- Parameter Controls -->
-		<div class="card bg-base-100 mb-6 shadow-xl">
-			<div class="card-body">
-				<h3 class="card-title">Score Bands Parameters</h3>
-				<div class="grid grid-cols-2 gap-4">
-					<div class="form-control">
-						<label for="dist_parameter" class="label">
-							<span class="label-text">Distance Parameter</span>
-						</label>
-						<input
-							id="dist_parameter"
-							type="number"
-							bind:value={dist_parameter}
-							min="0"
-							max="1"
-							step="0.1"
-							class="input input-bordered"
-						/>
+		 {#if isOwner}
+			<div class="card bg-base-100 mb-6 shadow-xl">
+				<div class="card-body">
+					<h3 class="card-title">Score Bands Parameters</h3>
+					<div class="grid grid-cols-2 gap-4">
+						<div class="form-control">
+							<label for="dist_parameter" class="label">
+								<span class="label-text">Distance Parameter</span>
+							</label>
+							<input
+								id="dist_parameter"
+								type="number"
+								bind:value={dist_parameter}
+								min="0"
+								max="1"
+								step="0.1"
+								class="input input-bordered"
+							/>
+						</div>
+						<div class="form-control">
+							<label for="distance_formula" class="label">
+								<span class="label-text">Distance Formula</span>
+							</label>
+							<select
+								id="distance_formula"
+								bind:value={distance_formula}
+								class="select select-bordered"
+							>
+								<option value={1}>Euclidean</option>
+								<option value={2}>Manhattan</option>
+							</select>
+						</div>
+						<div class="form-control">
+							<label for="clustering_algorithm" class="label">
+								<span class="label-text">Clustering Algorithm</span>
+							</label>
+							<select
+								id="clustering_algorithm"
+								bind:value={clustering_algorithm}
+								class="select select-bordered"
+							>
+								<option value="DBSCAN">DBSCAN</option>
+								<option value="GMM">GMM</option>
+							</select>
+						</div>
+						<div class="form-control">
+							<label for="clustering_score" class="label">
+								<span class="label-text">Clustering Score</span>
+							</label>
+							<select
+								id="clustering_score"
+								bind:value={clustering_score}
+								class="select select-bordered"
+							>
+								<option value="silhoutte">Silhouette</option>
+								<option value="BIC">BIC</option>
+							</select>
+						</div>
 					</div>
-					<div class="form-control">
-						<label for="distance_formula" class="label">
-							<span class="label-text">Distance Formula</span>
+					<div class="mt-4 flex items-center gap-4">
+						<label class="label cursor-pointer">
+							<input
+								type="checkbox"
+								bind:checked={use_absolute_corr}
+								class="checkbox checkbox-primary mr-2"
+							/>
+							<span class="label-text">Use Absolute Correlation</span>
 						</label>
-						<select
-							id="distance_formula"
-							bind:value={distance_formula}
-							class="select select-bordered"
+						<label class="label cursor-pointer">
+							<input
+								type="checkbox"
+								bind:checked={flip_axes}
+								class="checkbox checkbox-primary mr-2"
+							/>
+							<span class="label-text">Flip Axes</span>
+						</label>
+						<button
+							onclick={()=>{}}
+							class="btn btn-primary"
+							disabled={SCOREBands.axisNames.length === 0}
 						>
-							<option value={1}>Euclidean</option>
-							<option value={2}>Manhattan</option>
-						</select>
+							Recalculate Parameters
+						</button>
 					</div>
-					<div class="form-control">
-						<label for="clustering_algorithm" class="label">
-							<span class="label-text">Clustering Algorithm</span>
-						</label>
-						<select
-							id="clustering_algorithm"
-							bind:value={clustering_algorithm}
-							class="select select-bordered"
-						>
-							<option value="DBSCAN">DBSCAN</option>
-							<option value="GMM">GMM</option>
-						</select>
-					</div>
-					<div class="form-control">
-						<label for="clustering_score" class="label">
-							<span class="label-text">Clustering Score</span>
-						</label>
-						<select
-							id="clustering_score"
-							bind:value={clustering_score}
-							class="select select-bordered"
-						>
-							<option value="silhoutte">Silhouette</option>
-							<option value="BIC">BIC</option>
-						</select>
-					</div>
-				</div>
-				<div class="mt-4 flex items-center gap-4">
-					<label class="label cursor-pointer">
-						<input
-							type="checkbox"
-							bind:checked={use_absolute_corr}
-							class="checkbox checkbox-primary mr-2"
-						/>
-						<span class="label-text">Use Absolute Correlation</span>
-					</label>
-					<label class="label cursor-pointer">
-						<input
-							type="checkbox"
-							bind:checked={flip_axes}
-							class="checkbox checkbox-primary mr-2"
-						/>
-						<span class="label-text">Flip Axes</span>
-					</label>
-					<button
-						onclick={()=>{}}
-						class="btn btn-primary"
-						disabled={SCOREBands.axisNames.length === 0}
-					>
-						Recalculate Parameters
-					</button>
 				</div>
 			</div>
-		</div>
+		{/if}
 
 		<div class="grid grid-cols-1 gap-6 lg:grid-cols-4">
 			<!-- Controls Panel -->
@@ -802,7 +816,7 @@
 				</div>
 
 
-				<!-- "Hacky button" -->
+				<!-- "Voting buttons" -->
 				<div class="card bg-base-100 shadow-xl">
 					<div class="card-body">
 						<h2 class="card-title">Voting</h2>
