@@ -105,6 +105,12 @@ class SCOREBandsConfig(BaseModel):
     dimensions: list[str] | None = Field(default=None)
     """List of variable/objective names (i.e., column names in the data) to include in the visualization.
         If None, all columns in the data are used. Defaults to None."""
+    descriptive_names: dict[str, str] | None = Field(default=None)
+    """Optional dictionary mapping dimensions to descriptive names for display in the visualization.
+        If None, the original dimension names are used. Defaults to None."""
+    units: dict[str, str] | None = Field(default=None)
+    """Optional dictionary mapping dimensions to their units for display in the visualization.
+        If None, no units are displayed. Defaults to None."""
     axis_positions: dict[str, float] | None = Field(default=None)
     """Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first
         objective is at position 0.0, and the last objective is at position 1.0. Use this option if you want to
@@ -509,6 +515,15 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
         cluster_column_name = "cluster_id"
     scaled_data = scaled_data.with_columns(pl.Series(cluster_column_name, result.clusters))
 
+    if result.options.descriptive_names is None:
+        descriptive_names = {name: name for name in column_names}
+    else:
+        descriptive_names = result.options.descriptive_names
+    if result.options.units is None:
+        units = {name: "" for name in column_names}
+    else:
+        units = result.options.units
+
     num_ticks = 6
     # Add axes
     for i, col_name in enumerate(column_names):
@@ -530,9 +545,18 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
         # Column Name
         fig.add_scatter(
             x=[result.axis_positions[col_name]],
-            y=[1.10],
-            text=f"{col_name}",
+            y=[1.20],
+            text=f"{descriptive_names[col_name]}",
             textfont={"size": 20},
+            mode="text",
+            showlegend=False,
+        )
+        # Units
+        fig.add_scatter(
+            x=[result.axis_positions[col_name]],
+            y=[1.10],
+            text=f"{units[col_name]}",
+            textfont={"size": 12},
             mode="text",
             showlegend=False,
         )
