@@ -157,7 +157,9 @@
 		} else {
 			// Otherwise, select the clicked objective
 			selected_objective_index = index;
+			console.log('Selected objective index:', selected_objective_index);
 		}
+		
 	}
 	// Helper function to change solution type and update selections
 	function change_solution_type_updating_selections(newType: SolutionType) {

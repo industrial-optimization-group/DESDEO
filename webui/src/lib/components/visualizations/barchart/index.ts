@@ -1,2 +1,3 @@
 import Barchart from './barchart.svelte';
-export { Barchart };
+import ExpBarchart from './exp-barchart.svelte';
+export { Barchart, ExpBarchart };

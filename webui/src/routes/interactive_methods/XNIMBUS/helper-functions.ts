@@ -236,6 +236,43 @@ export function updateSolutionNames(
     return updatedSolutions;
 }
 
+/*export function computeTradeoffs(
+    lagrange_multipliers: number[][],
+    solution: Solution,
+    problem: ProblemInfo,
+){
+  const objective_values = mapSolutionsToObjectiveValues([solution], problem);
+
+  if (!lagrange_multipliers) {
+      return [];
+  }
+  
+  const nObjectives = problem.objectives.length;
+    const lambdas: number[] = problem.objectives.map((obj) => {
+        const value = lagrange_multipliers[obj.symbol];
+        return Array.isArray(value) ? value[0] : value || 0;
+    });
+    const partialTradeOffs: number [][] = Array.from({ length: nObjectives }, () =>
+        Array(nObjectives).fill(1)
+    );
+  
+    const wInv: number[] = lambdas.map((value) => 1 / value); 
+
+
+    for (let i = 0; i < nObjectives; i++) {
+        const lambda_i = lambdas[i];
+        for (let j = 0; j < nObjectives; j++) {
+        if (i !== j) {
+            const lambda_j = lambdas[j];
+            // tradeoff = -(lambda_j) / (lambda_i)
+            const tradeoff = -lambda_j / lambda_i;
+            partialTradeOffs[i][j] = tradeoff;
+        }
+        }
+    }
+    return partialTradeOffs;
+}*/
+
 export async function callNimbusAPI<T>(
     type: string,
     data: Record<string, any>,

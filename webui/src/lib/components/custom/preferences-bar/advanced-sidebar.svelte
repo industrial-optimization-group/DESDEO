@@ -19,6 +19,7 @@
 	import { PREFERENCE_TYPES, SIGNIFICANT_DIGITS } from '$lib/constants/index.js';
 	import { getValueRange } from '$lib/components/visualizations/utils/math';
 	import type { ProblemInfo, Solution, SolutionType, MethodMode, PeriodKey } from '$lib/types';
+	import ExpBarchart from '$lib/components/visualizations/barchart/exp-barchart.svelte';
 
 	interface Props {
 		problem: ProblemInfo;
@@ -53,7 +54,7 @@
 		</p>
 	</Sidebar.Header>
 	<Sidebar.Content class="px-4">
-		{#if solutions.length === 0}
+		{#if solutions.length === 0 || multipliers.length === 0}
 			<div class="py-8 text-center text-sm text-gray-500">No solutions available to analyze.</div>
 		{:else if selectedSolutions == null || selectedSolutions.length === 0}
 			<div class="py-8 text-center text-sm text-gray-500">
@@ -69,20 +70,43 @@
 
 				<!-- Objective values -->
 				<div class="mb-4">
-					<h5 class="mb-2 text-sm font-medium text-gray-700">Objective Values:</h5>
-					<div class="space-y-1">
+					<div>
 						{#if multipliers && multipliers[0]}
 							<div class="mb-4">
-								<h5 class="mb-2 text-sm font-medium text-gray-700">Lagrange Multipliers:</h5>
-								<div class="space-y-1">
-									{#each Object.entries(multipliers[0] ?? {}) as [objName, value]}
+								<p class="mb-3 text-sm text-gray-600">
+ 									<strong>Click a bar for the objective you want to improve.</strong> The bar height shows how strongly each objective influences the current solution. When you click, you’ll see the trade-offs and a suggested adjustment to move closer to your preferred solution.								</p>
+								<div>
+<!-- 								{#each Object.entries(multipliers[0] ?? {}) as [objName, value]}
 										<div class="flex justify-between rounded bg-blue-50 p-2 text-xs">
 											<span class="font-medium">{objName}:</span>
 											<span class="font-mono"
 												>{formatNumber(Number(value), SIGNIFICANT_DIGITS)}</span
 											>
 										</div>
-									{/each}
+									{/each} -->
+									<ExpBarchart
+										data={Object.entries(multipliers[0] ?? {}).map(([objName, value]) => ({
+											name: objName,
+											value: Number(-1*value),
+											direction: 'min'
+										}))}
+										axisRanges={Object.entries(multipliers[0] ?? {}).map(() => [0, 1])} 
+										options={{ showLabels: true, orientation: 'vertical' }}
+										onSelect={handleObjectiveClick}
+									/>
+								</div>
+
+								<div>
+									<ExpBarchart
+										data={Object.entries(multipliers[0] ?? {}).map(([objName, value]) => ({
+											name: objName,
+											value: Number(-1*value),
+											direction: 'min'
+										}))}
+										axisRanges={Object.entries(multipliers[0] ?? {}).map(() => [0, 1])} 
+										options={{ showLabels: true, orientation: 'horizontal' }}
+										onSelect={handleObjectiveClick}
+									/>
 								</div>
 							</div>
 						{/if}
