@@ -16,6 +16,8 @@ import type {
 	EMOIterateResponse,
 	EMOScoreRequest,
 	EMOScoreResponse,
+	ENautilusStateRequest,
+	ENautilusStateResponse,
 	ENautilusStepRequest,
 	ENautilusStepResponse,
 	GNIMBUSAllIterationsResponse,
@@ -2117,4 +2119,50 @@ export const stepMethodEnautilusStepPost = async (
 		headers: { 'Content-Type': 'application/json', ...options?.headers },
 		body: JSON.stringify(eNautilusStepRequest)
 	});
+};
+
+/**
+ * Fetch a previous state of the the E-NAUTILUS method.
+ * @summary Get State
+ */
+export type getStateMethodEnautilusGetStatePostResponse200 = {
+	data: ENautilusStateResponse;
+	status: 200;
+};
+
+export type getStateMethodEnautilusGetStatePostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type getStateMethodEnautilusGetStatePostResponseSuccess =
+	getStateMethodEnautilusGetStatePostResponse200 & {
+		headers: Headers;
+	};
+export type getStateMethodEnautilusGetStatePostResponseError =
+	getStateMethodEnautilusGetStatePostResponse422 & {
+		headers: Headers;
+	};
+
+export type getStateMethodEnautilusGetStatePostResponse =
+	| getStateMethodEnautilusGetStatePostResponseSuccess
+	| getStateMethodEnautilusGetStatePostResponseError;
+
+export const getGetStateMethodEnautilusGetStatePostUrl = () => {
+	return `http://localhost:8000/method/enautilus/get_state`;
+};
+
+export const getStateMethodEnautilusGetStatePost = async (
+	eNautilusStateRequest: ENautilusStateRequest,
+	options?: RequestInit
+): Promise<getStateMethodEnautilusGetStatePostResponse> => {
+	return customFetch<getStateMethodEnautilusGetStatePostResponse>(
+		getGetStateMethodEnautilusGetStatePostUrl(),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(eNautilusStateRequest)
+		}
+	);
 };

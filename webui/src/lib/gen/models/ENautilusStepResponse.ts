@@ -16,8 +16,6 @@ import type { ENautilusStepResponseReachableWorstBoundsItem } from './ENautilusS
 export interface ENautilusStepResponse {
 	/** The id of the state created by the request that generated this response */
 	state_id: ENautilusStepResponseStateId;
-	/** The id of the 'RepresentativeNonDominatedSolutions' used. */
-	representative_solutions_id: number;
 	/** Number of the current iteration. */
 	current_iteration: number;
 	/** Number of iterations left. */

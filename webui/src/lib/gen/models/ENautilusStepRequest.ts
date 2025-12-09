@@ -7,7 +7,6 @@
  */
 import type { ENautilusStepRequestSessionId } from './ENautilusStepRequestSessionId';
 import type { ENautilusStepRequestParentStateId } from './ENautilusStepRequestParentStateId';
-import type { ENautilusStepRequestRepresentativeSolutionsId } from './ENautilusStepRequestRepresentativeSolutionsId';
 import type { ENautilusStepRequestSelectedPoint } from './ENautilusStepRequestSelectedPoint';
 
 /**
@@ -17,7 +16,8 @@ export interface ENautilusStepRequest {
 	problem_id: number;
 	session_id?: ENautilusStepRequestSessionId;
 	parent_state_id?: ENautilusStepRequestParentStateId;
-	representative_solutions_id?: ENautilusStepRequestRepresentativeSolutionsId;
+	/** The id of the representative solutions to be used. */
+	representative_solutions_id: number;
 	/** The number of the current iteration. */
 	current_iteration: number;
 	/** The number of iterations left. */

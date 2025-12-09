@@ -10,7 +10,7 @@ class ENautilusStepRequest(SQLModel):
     session_id: int | None = Field(default=None)
     parent_state_id: int | None = Field(default=None)
     # non_dominated points fetched from problem metadata in endpoints
-    representative_solutions_id: int | None = Field(default=None)
+    representative_solutions_id: int = Field(description="The id of the representative solutions to be used.")
 
     current_iteration: int = Field(description="The number of the current iteration.")
     iterations_left: int = Field(description="The number of iterations left.")

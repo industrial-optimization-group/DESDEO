@@ -18,14 +18,15 @@ export async function step_enautilus(
     current_state: ENautilusStepResponse,
     selected_index: number,
     problem_id: number,
-    number_of_intermediate_points: number
+    number_of_intermediate_points: number,
+    representative_solutions_id: number
 ): Promise<ENautilusStepResponse | null> {
     const selected_point = current_state.intermediate_points[selected_index];
     const reachable_indices = current_state.reachable_point_indices[selected_index];
 
     const request: ENautilusStepRequest = {
         problem_id: problem_id,
-        representative_solutions_id: current_state.representative_solutions_id,
+        representative_solutions_id: representative_solutions_id,
         current_iteration: current_state.current_iteration,
         iterations_left: current_state.iterations_left,
         selected_point: selected_point,
@@ -34,6 +35,8 @@ export async function step_enautilus(
         // parent state
         //session id
     }
+
+    console.log(request);
 
     const response: stepMethodEnautilusStepPostResponse = await stepMethodEnautilusStepPost(request);
 

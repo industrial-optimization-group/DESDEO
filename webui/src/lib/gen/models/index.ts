@@ -76,6 +76,8 @@ export * from './EMOScoreRequestParentStateId';
 export * from './EMOScoreRequestSessionId';
 export * from './EMOScoreResponse';
 export * from './EMOScoreResponseStateId';
+export * from './ENautilusStateRequest';
+export * from './ENautilusStateResponse';
 export * from './ENautilusStepRequest';
 export * from './ENautilusStepRequestParentStateId';
 export * from './ENautilusStepRequestRepresentativeSolutionsId';

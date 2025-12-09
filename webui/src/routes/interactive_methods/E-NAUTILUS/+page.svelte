@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { methodSelection } from '../../../stores/methodSelection';
+	import type { MethodSelectionState } from '../../../stores/methodSelection';
 	import { isLoading, errorMessage } from '../../../stores/uiState';
 
 	import BaseLayout from '$lib/components/custom/method_layout/base-layout.svelte';
@@ -20,42 +21,41 @@
 		initialize_enautilus_state,
 		points_to_list
 	} from './handler';
-	import type { stepMethodEnautilusStepPostResponse } from '$lib/gen/endpoints/DESDEOFastAPI';
-	import { number } from 'zod';
 
-	let selection = $state({ selectedProblemId: null, selectedMethod: null });
-	let problem_info = $state(null);
-	let enautilus_state = $state<ENautilusStepResponse | null>(null);
+	let selection = $state<MethodSelectionState>({ selectedProblemId: null, selectedMethod: null });
+	let problem_info = $state<ProblemInfo | null>(null);
+	let previous_request = $state<ENautilusStepRequest | null>(null);
+	let previous_response = $state<ENautilusStepResponse | null>(null);
 	let selected_point_index = $state<number>(0);
 	let previous_objective_values = $state<number[]>([]);
 	let number_intermediate_points = $state<number>(3);
 
 	let currentIntermediatePoints = $derived.by(() => {
-		if (!enautilus_state) {
+		if (!previous_response) {
 			return [];
 		}
 
-		return points_to_list(enautilus_state.intermediate_points);
+		return points_to_list(previous_response.intermediate_points);
 	});
 
 	let currentReachableBestBounds = $derived.by(() => {
-		if (!enautilus_state) {
+		if (!previous_response) {
 			return [];
 		}
 
-		return points_to_list(enautilus_state.reachable_best_bounds);
+		return points_to_list(previous_response.reachable_best_bounds);
 	});
 
 	let currentReachableWorstBounds = $derived.by(() => {
-		if (!enautilus_state) {
+		if (!previous_response) {
 			return [];
 		}
 
-		return points_to_list(enautilus_state.reachable_worst_bounds);
+		return points_to_list(previous_response.reachable_worst_bounds);
 	});
 
 	$effect(() => {
-		$inspect('enautilus_state', enautilus_state);
+		$inspect('enautilus_state', previous_response);
 		$inspect('currentIntermediatePoints', currentIntermediatePoints);
 		$inspect('currently_selected_point', selected_point_index);
 		$inspect('currentReachableBestBounds', currentReachableBestBounds);
@@ -77,7 +77,7 @@
 
 				// fetch problem info
 				const request: ProblemGetRequest = { problem_id: selection.selectedProblemId };
-				const response: ProblemInfo = await fetch_problem_info(request);
+				const response = await fetch_problem_info(request);
 
 				if (response === null) {
 					console.log('Could not fetch problem.');
@@ -102,7 +102,7 @@
 					// session_id, parent_state_id
 				};
 
-				const stepResponse: ENautilusStepResponse = await initialize_enautilus_state(stepRequest);
+				const stepResponse = await initialize_enautilus_state(stepRequest);
 
 				if (stepResponse === null) {
 					console.log('E-NAUTILUS initialization failed (empty response).');
@@ -110,7 +110,8 @@
 					return;
 				}
 
-				enautilus_state = stepResponse;
+				previous_request = stepRequest;
+				previous_response = stepResponse;
 			} catch (err) {
 				console.log('Error during initialization of the E-NAUTILUS method', err);
 				errorMessage.set('Unexpected error during E-NAUTILUS initialization.');
@@ -126,11 +127,27 @@
 		try {
 			isLoading.set(true);
 
+			if (previous_request === null) {
+				errorMessage.set('Previous request is null.');
+				return;
+			}
+
+			if (previous_response === null) {
+				errorMessage.set('Previous response is null.');
+				return;
+			}
+
+			if (selection.selectedProblemId === null) {
+				errorMessage.set('No problem selected.');
+				return;
+			}
+
 			const next = await step_enautilus(
-				enautilus_state,
+				previous_response,
 				selected_point_index,
 				selection.selectedProblemId,
-				number_intermediate_points
+				number_intermediate_points,
+				previous_request.representative_solutions_id
 			);
 
 			if (!next) {
@@ -140,7 +157,7 @@
 
 			previous_objective_values = currentIntermediatePoints[selected_point_index];
 
-			enautilus_state = next;
+			previous_response = next;
 		} catch (err) {
 			console.error('Error during E-NAUTILUS step', err);
 			errorMessage.set('Unexpected error during E-NAUTILUS step.');
@@ -189,8 +206,8 @@
 				<Button
 					onclick={selected_point_index != null ? handle_iteration : undefined}
 					disabled={selected_point_index == null ||
-						!enautilus_state ||
-						enautilus_state.iterations_left <= 0}
+						!previous_response ||
+						previous_response.iterations_left <= 0}
 					variant="default"
 					class="ml-10"
 				>
@@ -200,16 +217,16 @@
 		</div>
 	{/snippet}
 	{#snippet visualizationArea()}
-		{#if problem_info && enautilus_state && currentIntermediatePoints.length > 0}
+		{#if problem_info && previous_response && currentIntermediatePoints.length > 0}
 			<div class="h-full">
 				<Resizable.PaneGroup direction="horizontal" class="h-full">
 					<Resizable.Pane defaultSize={100} minSize={40} class="h-full">
 						<VisualizationsPanel
-							problem={problem_info}
+							problem={problem_info as any}
 							previousPreferenceValues={currentReachableBestBounds[selected_point_index]}
 							currentPreferenceValues={[]}
-							previousPreferenceType={null}
-							currentPreferenceType={null}
+							previousPreferenceType={''}
+							currentPreferenceType={''}
 							solutionsObjectiveValues={currentIntermediatePoints}
 							previousObjectiveValues={[previous_objective_values]}
 							externalSelectedIndexes={[selected_point_index]}

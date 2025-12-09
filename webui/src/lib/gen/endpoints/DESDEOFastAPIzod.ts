@@ -7601,7 +7601,9 @@ export const stepMethodEnautilusStepPostBody = zod
 		problem_id: zod.number(),
 		session_id: zod.union([zod.number(), zod.null()]).optional(),
 		parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
-		representative_solutions_id: zod.union([zod.number(), zod.null()]).optional(),
+		representative_solutions_id: zod
+			.number()
+			.describe('The id of the representative solutions to be used.'),
 		current_iteration: zod.number().describe('The number of the current iteration.'),
 		iterations_left: zod.number().describe('The number of iterations left.'),
 		selected_point: zod
@@ -7625,9 +7627,6 @@ export const stepMethodEnautilusStepPostResponse = zod
 		state_id: zod
 			.union([zod.number(), zod.null()])
 			.describe('The id of the state created by the request that generated this response'),
-		representative_solutions_id: zod
-			.number()
-			.describe("The id of the 'RepresentativeNonDominatedSolutions' used."),
 		current_iteration: zod.number().describe('Number of the current iteration.'),
 		iterations_left: zod.number().describe('Number of iterations left.'),
 		intermediate_points: zod
@@ -7651,3 +7650,75 @@ export const stepMethodEnautilusStepPostResponse = zod
 			.describe('Indices of the reachable points from each intermediate point.')
 	})
 	.describe('The response from E-NAUTILUS step endpoint.');
+
+/**
+ * Fetch a previous state of the the E-NAUTILUS method.
+ * @summary Get State
+ */
+export const getStateMethodEnautilusGetStatePostBody = zod
+	.object({
+		state_id: zod
+			.number()
+			.describe(
+				"The id of the requested 'StateDB' object containing an instance of an 'ENautilusState."
+			)
+	})
+	.describe('Model to request a previous state of the E-NAUTILUS method.');
+
+export const getStateMethodEnautilusGetStatePostResponse = zod
+	.object({
+		request: zod
+			.object({
+				problem_id: zod.number(),
+				session_id: zod.union([zod.number(), zod.null()]).optional(),
+				parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
+				representative_solutions_id: zod
+					.number()
+					.describe('The id of the representative solutions to be used.'),
+				current_iteration: zod.number().describe('The number of the current iteration.'),
+				iterations_left: zod.number().describe('The number of iterations left.'),
+				selected_point: zod
+					.union([zod.record(zod.string(), zod.number()), zod.null()])
+					.describe(
+						'The selected intermediate point. If first iteration, set this to be the (approximated) nadir point. If not set, then the point is assumed to be the nadir point of the current approximating set.'
+					),
+				reachable_point_indices: zod
+					.array(zod.number())
+					.describe(
+						'The indices indicating the point on the non-dominated set that are reachable from the currently selected point.'
+					),
+				number_of_intermediate_points: zod
+					.number()
+					.describe('The number of intermediate points to be generated.')
+			})
+			.describe('Model of the request to the E-NAUTILUS method.'),
+		response: zod
+			.object({
+				state_id: zod
+					.union([zod.number(), zod.null()])
+					.describe('The id of the state created by the request that generated this response'),
+				current_iteration: zod.number().describe('Number of the current iteration.'),
+				iterations_left: zod.number().describe('Number of iterations left.'),
+				intermediate_points: zod
+					.array(zod.record(zod.string(), zod.number()))
+					.describe('New intermediate points'),
+				reachable_best_bounds: zod
+					.array(zod.record(zod.string(), zod.number()))
+					.describe(
+						'Best bounds of the objective function values reachable from each intermediate point.'
+					),
+				reachable_worst_bounds: zod
+					.array(zod.record(zod.string(), zod.number()))
+					.describe(
+						'Worst bounds of the objective function values reachable from each intermediate point.'
+					),
+				closeness_measures: zod
+					.array(zod.number())
+					.describe('Closeness measures of each intermediate point.'),
+				reachable_point_indices: zod
+					.array(zod.array(zod.number()))
+					.describe('Indices of the reachable points from each intermediate point.')
+			})
+			.describe('The response from E-NAUTILUS step endpoint.')
+	})
+	.describe('The response model when requesting a state in E-NAUTILUS.');
