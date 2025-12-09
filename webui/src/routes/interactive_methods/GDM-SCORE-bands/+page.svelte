@@ -107,7 +107,23 @@
 		
 		// Calculate scales: use API scales if available, otherwise calculate from bands data TODO: maybe remove? Or fall back to ideal and nadir from problem first?
 		function calculateScales(result: components['schemas']['SCOREBandsResult']): Record<string, [number, number]> {
-			// First try to use scales from API
+			// First try to use ideal and nadir from problem
+			if (data.problem?.objectives) {
+				const scales: Record<string, [number, number]> = {};
+				data.problem.objectives.forEach((objective: any) => {
+					const name = objective.name;
+					const ideal = objective.ideal;
+					const nadir = objective.nadir;
+					if (ideal !== undefined && nadir !== undefined) {
+						scales[name] = [nadir, ideal];
+					}
+				});
+				// Only return scales from problem if we found at least one complete objective
+				if (Object.keys(scales).length > 0) {
+					return scales;
+				}
+			}
+			// Second try to use scales from API
 			if (result.options?.scales) {
 				return result.options.scales;
 			}
@@ -162,7 +178,7 @@
 			// medians[clusterId][axisName] = medianValue - median values per cluster per axis
 			medians: scoreBandsResult.medians,
 			// scales[axisName] = [minValue, maxValue] - normalization scales for converting raw values to [0,1]
-			scales: scoreBandsResult.options?.scales ? scoreBandsResult.options.scales : calculateScales(scoreBandsResult)
+			scales: calculateScales(scoreBandsResult)
 		};
 		
 		return derivedData;
@@ -936,7 +952,7 @@
 							<Button onclick={() => vote(selected_band)} disabled={selected_band === null || vote_confirmed}>
 								Vote
 							</Button>
-							<Button onclick={confirm_vote} disabled={!vote_given}>
+							<Button onclick={confirm_vote} >
 								Confirm vote
 							</Button>
 						</div>

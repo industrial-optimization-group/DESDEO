@@ -132,13 +132,22 @@
 			})
 		) : [];
 
-		// Y scales for each axis (normalized [0,1])
-		const yScales = sortedAxisNames.map(() =>
-			d3
-				.scaleLinear()
-				.domain([0, 1])
-				.range([height - margin.bottom, margin.top])
-		);
+		// Y scales for each axis (using actual min/max from scales)
+		const yScales = sortedAxisNames.map((axisName) => {
+			if (scales && scales[axisName]) {
+				const [min, max] = scales[axisName];
+				return d3
+					.scaleLinear()
+					.domain([min, max])
+					.range([height - margin.bottom, margin.top]);
+			} else {
+				// Fallback to normalized [0,1] if no scales provided
+				return d3
+					.scaleLinear()
+					.domain([0, 1])
+					.range([height - margin.bottom, margin.top]);
+			}
+		});
 
 		// X positions for each axis
 		const xPositions = sortedAxisPositions.map(
@@ -306,11 +315,24 @@
 			// Add tick marks and labels
 			const tickValues = [0, 0.25, 0.5, 0.75, 1];
 			tickValues.forEach((tick) => {
-				const yPos = yScales[sortedIndex](tick);
+				// Get the actual value from the scale domain
+				let actualValue: number;
+				if (scales && scales[sortedAxisNames[sortedIndex]]) {
+					const [min, max] = scales[sortedAxisNames[sortedIndex]];
+					actualValue = min + tick * (max - min);
+				} else {
+					actualValue = tick;
+				}
+				
+				const yPos = yScales[sortedIndex](actualValue);
 
-				// Adjust tick label based on axis sign
+				// Apply axis sign for flipped axes
 				const sign = sortedAxisSigns[sortedIndex] || 1;
-				const displayValue = sign === -1 ? 1 - tick : tick;
+				const displayValue = sign === -1 ? 
+					(scales && scales[sortedAxisNames[sortedIndex]] ? 
+						scales[sortedAxisNames[sortedIndex]][0] + scales[sortedAxisNames[sortedIndex]][1] - actualValue : 
+						1 - tick) : 
+					actualValue;
 
 				// Tick mark
 				svg
@@ -322,7 +344,7 @@
 					.attr('stroke', '#666')
 					.attr('stroke-width', 1);
 
-				// Tick label (adjusted for axis direction)
+				// Tick label (show actual scale values)
 				svg
 					.append('text')
 					.attr('x', x + 10)

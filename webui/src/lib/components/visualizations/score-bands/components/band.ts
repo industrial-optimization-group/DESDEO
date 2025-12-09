@@ -122,25 +122,7 @@ export function drawBand(
 			return;
 		}
 
-		// Helper function to normalize raw value to [0,1] using scales
-		function normalizeValue(rawValue: number, axisName: string): number {
-			if (!scales || !scales[axisName]) {
-				console.warn(`No scales available for axis ${axisName}, using raw value as normalized`);
-				return rawValue;
-			}
-			
-			const [min, max] = scales[axisName];
-			if (max === min) {
-				console.warn(`Min equals max for axis ${axisName}: [${min}, ${max}], returning 0.5`);
-				return 0.5;
-			}
-			
-			const normalized = (rawValue - min) / (max - min);
-			// Clamp to [0,1] range in case of edge cases
-			return Math.max(0, Math.min(1, normalized));
-		}
-
-		// Prepare data arrays, normalizing raw values and applying axis signs for flipping
+		// Prepare data arrays, using raw values directly and applying axis signs for flipping
 		const low: number[] = [];
 		const high: number[] = [];
 		const medians: number[] = [];
@@ -150,22 +132,17 @@ export function drawBand(
 			const [rawMinVal, rawMaxVal] = clusterBands[axisName] || [0, 1];
 			const rawMedianVal = clusterMedians[axisName] ?? 0.5;
 			
-			// Normalize raw values to [0,1] using scales
-			const normalizedMin = normalizeValue(rawMinVal, axisName);
-			const normalizedMax = normalizeValue(rawMaxVal, axisName);
-			const normalizedMedian = normalizeValue(rawMedianVal, axisName);
-			
 			const sign = axisSigns[axisIndex] || 1;
 			
-			// Apply axis flipping if needed (invert normalized values)
+			// Apply axis flipping if needed (swap min/max for flipped axes)
 			if (sign === -1) {
-				low.push(1 - normalizedMax);
-				high.push(1 - normalizedMin);
-				medians.push(1 - normalizedMedian);
+				low.push(rawMaxVal);
+				high.push(rawMinVal);
+				medians.push(rawMedianVal); // Note: median flipping will be handled by the yScale
 			} else {
-				low.push(normalizedMin);
-				high.push(normalizedMax);
-				medians.push(normalizedMedian);
+				low.push(rawMinVal);
+				high.push(rawMaxVal);
+				medians.push(rawMedianVal);
 			}
 		}
 
