@@ -1,6 +1,7 @@
 """Tests related to routes and routers."""
 
 import json
+import time
 
 from fastapi import status
 from fastapi.testclient import TestClient

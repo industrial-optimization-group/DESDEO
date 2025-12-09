@@ -20,6 +20,11 @@ from desdeo.gdm.voting_rules import consensus_rule, majority_rule
 from desdeo.tools.score_bands import SCOREBandsConfig, SCOREBandsResult, score_json
 
 
+def p_r(item):
+    print(item)
+    return item
+
+
 class GDMScoreBandsManager(GroupManager):
     """The group manager implementation for GDM Score Bands."""
 
@@ -67,7 +72,8 @@ class GDMScoreBandsManager(GroupManager):
         operated, send all connected websockets info on the voting.
 
         Args:
-            user_id (int): User's identification number
+            user (User): The user that sent the vote
+            group (Group): The group the user belongs to and generally the one we're dealing with
             voted_index (int): the vote
             session: (Session) the database session.
         """
@@ -89,7 +95,8 @@ class GDMScoreBandsManager(GroupManager):
             # Then update preferences dictionary.
             await self.broadcast("UPDATE: A vote has been cast.")
 
-    async def confirm(
+
+    async def confirm( #noqa: PLR0912 I guess it could be a bit less complicated but I'm running out of time
         self,
         user: User,
         group: Group,
@@ -167,30 +174,30 @@ class GDMScoreBandsManager(GroupManager):
                 winners = consensus_rule(votes, score_bands_config.minimum_votes)
                 relevant_ids = state[-1].relevant_ids
                 clustering = state[-1].score_bands_result.clusters
-                if len([x[0] for x in zip(relevant_ids, clustering, strict=True) if x[1] in winners]) < 11:
+                if p_r(len([x[0] for x in zip(relevant_ids, clustering, strict=True) if x[1] in winners])) < 11:
                     print("LESS THAN OR AS MUCH AS 10")
                     # THERE ARE 10 OR LESS SOLUTIONS IN TOTAL: MOVE ON TO DECISION PHASE!
 
                     obj_keys = list(discrete_repr.objective_values)
                     var_keys = list(discrete_repr.variable_values)
 
-                    objs = pl.DataFrame(discrete_repr.objective_values).with_row_index()
-                    varis = pl.DataFrame(discrete_repr.variable_values)
+                    objs = pl.DataFrame(discrete_repr.objective_values).with_row_index(name="index_")
+                    varis = pl.DataFrame(discrete_repr.variable_values).with_row_index(name="index_")
                     indices = pl.DataFrame({
-                        "index": relevant_ids,
-                        "cluster": clustering
-                    }).filter(pl.col("cluster").is_in(winners))
+                        "index_": relevant_ids,
+                        "cluster_": clustering
+                    }).filter(pl.col("cluster_").is_in(winners))
                     objs = indices.join(
                         other=objs,
                         how="left",
-                        left_on="index",
-                        right_on="index"
+                        left_on="index_",
+                        right_on="index_"
                     ).select(obj_keys)
                     varis = indices.join(
                         other=varis,
                         how="left",
-                        left_on="index",
-                        right_on="index"
+                        left_on="index_",
+                        right_on="index_"
                     ).select(var_keys)
 
                     info_container = GDMSCOREBandFinalSelection(
@@ -215,6 +222,9 @@ class GDMScoreBandsManager(GroupManager):
                         state=state,
                         votes=votes
                     )
+
+                    st = result[-1]
+                    print(f"{st.iteration}: {len(st.score_bands_result.clusters)}")
 
                     # store necessary data to the database. Currently all "voting" related is null bc no voting has happened
                     info_container = GDMSCOREBandInformation(
@@ -290,7 +300,7 @@ class GDMScoreBandsManager(GroupManager):
             user (User): Current user
             group (Group): Current group
             session (Session): database session
-            iteration_number (int): the iteration to which we want to revert.
+            group_iteration_number (int): the group iteration to which we want to revert.
 
         Raises:
             ManagerError
@@ -307,17 +317,22 @@ class GDMScoreBandsManager(GroupManager):
             iterations: list[GroupIteration] = session.exec(statement).all()
 
             target_group_iteration: GroupIteration = [i for i in iterations if i.id == group_iteration_number][0]
+            if target_group_iteration.info_container.method == "gdm-score-bands-final":
+                raise ManagerError("We can only revert to a score bands iteration.")
 
             state: list[SCOREBandsGDMResult] = [
                 iteration.info_container.score_bands_result for iteration in \
                 iterations if iteration.info_container.method == "gdm-score-bands"
             ]
 
+            # The parent ID will be the latest state's iteration
             prev_id = state[-1].iteration
+            # The results remain the same as in the target
             result = target_group_iteration.info_container.score_bands_result
             result.previous_iteration = prev_id
             result.iteration = prev_id + 1
 
+            # Essentially create a new iteration.
             info_container = GDMSCOREBandInformation(
                 user_votes={},
                 user_confirms=[],
@@ -346,3 +361,97 @@ class GDMScoreBandsManager(GroupManager):
             session.refresh(group)
 
             await self.broadcast("UPDATE: Iteration reverted.")
+
+    async def configure(
+        self,
+        group: Group,
+        config: SCOREBandsGDMConfig,
+        session: Session
+    ):
+        """Configure the SCORE Bands process.
+
+        Args:
+            user (User): Actually might not be necessary...
+            group (Group): The group whom the configuration concerns.
+            config (SCOREBandsGDMConfig): The configuration.
+            session (Session): The database session.
+        """
+        async with self.lock:
+            group_iteration = session.exec(
+                select(GroupIteration).where(GroupIteration.id == group.head_iteration_id)
+            ).first()
+            if group_iteration is None:
+                raise ManagerError("No group iterations! Did you initialize this group?")
+
+            if group_iteration.info_container.method == "gdm-score-bands-final":
+                raise ManagerError("Cannot reconfigure in a non SCORE Bands phase!")
+
+            statement = select(GroupIteration)\
+                    .where(GroupIteration.group_id == group.id)
+            iterations: list[GroupIteration] = session.exec(statement).all()
+            state: list[SCOREBandsGDMResult] = [iteration.info_container.score_bands_result \
+                                                for iteration in iterations if \
+                                                    iteration.info_container.method == "gdm-score-bands"]
+
+            relevant_indices = state[-1].relevant_ids
+            iteration_number = state[-1].iteration
+
+            index_df = pl.DataFrame({"index": relevant_indices})
+
+            discrete_repr = self.discrete_representation.objective_values
+            objective_keys = list(discrete_repr)
+            objs_df = pl.DataFrame(discrete_repr).with_row_index()
+
+            # Filter
+            objs_df = index_df.join(
+                how="left",
+                left_on="index",
+                right_on="index",
+                other=objs_df
+            )
+
+            objs_df = objs_df.select(objective_keys)
+
+            # Recluster!
+            print(objs_df)
+
+            score_bands_result = score_json(
+                data=objs_df,
+                options=config.score_bands_config
+            )
+            score_bands_gdm_result = SCOREBandsGDMResult(
+                score_bands_result=score_bands_result,
+                relevant_ids=relevant_indices,
+                iteration=iteration_number + 1,
+                previous_iteration=iteration_number
+            )
+
+            # Essentially create a new iteration.
+            info_container = GDMSCOREBandInformation(
+                user_votes={},
+                user_confirms=[],
+                score_bands_config=config,
+                score_bands_result=score_bands_gdm_result
+            )
+
+            # Add group iteration and related stuff, then set new iteration to head.
+            new_iteration: GroupIteration = GroupIteration(
+                group_id=group.id,
+                problem_id=group.problem_id,
+                info_container=info_container,
+                notified={},
+                state_id=None,
+                parent_id=group.head_iteration_id,
+                parent=group_iteration,
+            )
+
+            session.add(new_iteration)
+            session.commit()
+            session.refresh(new_iteration)
+
+            group.head_iteration_id = new_iteration.id
+            session.add(group)
+            session.commit()
+            session.refresh(group)
+
+            await self.broadcast("UPDATE: Reconfigured SCORE Bands.")
