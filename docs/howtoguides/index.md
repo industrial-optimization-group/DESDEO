@@ -18,6 +18,7 @@ hide:
 - **[Implementing new EA components](how_to_implement_ea.md):** How to implement new evolutionary algorithm components in DESDEO
 - **[Advanced Usage of Surrogates](advancedSurrogates.ipynb):** How to a combination of multiple surrogates and analytical objectives
 - **[Iterative Pareto Representer](IPR.ipynb):** How to generate a representative set of solutions using the Iterative Pareto Representer
+- **[Using GDM SCORE bands](gdm_score.ipynb):** How to use the GDM SCORE bands method for consensus reaching
 
 ## Article Examples
 
