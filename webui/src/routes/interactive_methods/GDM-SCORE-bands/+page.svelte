@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import ScoreBands from '$lib/components/visualizations/score-bands/score-bands.svelte';
+	import ParallelCoordinates from '$lib/components/visualizations/parallel-coordinates/parallel-coordinates.svelte';
+	import ScoreBandsSolutionTable from './score-bands-solution-table.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import type { components } from "$lib/api/client-types";
 	import { auth } from '../../../stores/auth';
@@ -77,8 +79,16 @@
 	const totalVoters = data.group ? data.group.user_ids.length : 4;
 
 	let phase = $state('Consensus Reaching Phase'); // 'Consensus reaching phase' or 'Decision phase'
-	let iteration_id = $state(0);
+	let iteration_id = $state(0); // for header
+	let method = $state(''); // for header, now wrong
 	let scoreBandsResult: components['schemas']['SCOREBandsResult'] | null = $state(null);
+	
+	// Decision phase data
+	let decisionResult: components['schemas']['GDMSCOREBandFinalSelection'] | null = $state(null);
+	
+	// Derived state to determine which phase we're in
+	let isDecisionPhase = $derived(phase === 'Decision Phase');
+	let isConsensusPhase = $derived(phase === 'Consensus Reaching Phase');
 	
 	let SCOREBands = $derived.by(()=> {
 		if (!scoreBandsResult || scoreBandsResult === null) {
@@ -95,7 +105,7 @@
 			};
 		}
 		
-		// Calculate scales: use API scales if available, otherwise calculate from bands data
+		// Calculate scales: use API scales if available, otherwise calculate from bands data TODO: maybe remove? Or fall back to ideal and nadir from problem first?
 		function calculateScales(result: components['schemas']['SCOREBandsResult']): Record<string, [number, number]> {
 			// First try to use scales from API
 			if (result.options?.scales) {
@@ -152,7 +162,7 @@
 			// medians[clusterId][axisName] = medianValue - median values per cluster per axis
 			medians: scoreBandsResult.medians,
 			// scales[axisName] = [minValue, maxValue] - normalization scales for converting raw values to [0,1]
-			scales: calculateScales(scoreBandsResult)
+			scales: scoreBandsResult.options?.scales ? scoreBandsResult.options.scales : calculateScales(scoreBandsResult)
 		};
 		
 		return derivedData;
@@ -397,6 +407,11 @@
 	// Selection state
 	let selected_band: number | null = $state(null);
 	let selected_axis: number | null = $state(null);
+	
+	// Decision phase solution selection state tODO do I need the vote parameters to be separate for phases
+	let selected_solution: number | null = $state(null);
+	// let solution_vote_given = $state(false);
+	// let solution_vote_confirmed = $state(false);
 
 	// Selection handlers
 	function handle_band_select(clusterId: number | null) {
@@ -406,6 +421,43 @@
 	function handle_axis_select(axisIndex: number | null) {
 		selected_axis = axisIndex;
 	}
+
+	// Decision phase solution selection handler
+	function handle_solution_select(index: number | null, solutionData: any | null) {
+		selected_solution = index;
+		console.log('Selected solution:', index, solutionData);
+	}
+
+	// Transform decision data for parallel coordinates
+	let decisionSolutions = $derived.by(() => {
+		if (!decisionResult || !decisionResult.solution_objectives) {
+			return [];
+		}
+
+		const objectives = decisionResult.solution_objectives;
+		const numSolutions = Object.values(objectives)[0]?.length || 0;
+		
+		return Array.from({ length: numSolutions }, (_, index) => {
+			const solution: { [key: string]: number } = {};
+			Object.entries(objectives).forEach(([objectiveName, values]) => {
+				solution[objectiveName] = values[index];
+			});
+			return solution;
+		});
+	});
+
+	// Create dimensions from problem objectives for parallel coordinates
+	let decisionDimensions = $derived.by(() => {
+		if (!data.problem?.objectives) {
+			return [];
+		}
+
+		return data.problem.objectives.map((obj: any) => ({
+			symbol: obj.symbol,
+			name: obj.name,
+			direction: obj.maximize ? 'max' as const : 'min' as const
+		}));
+	});
 
 	// Votes chart container
 	let votesChartContainer: HTMLDivElement | undefined = $state();
@@ -423,6 +475,7 @@
 	});
 
 	// TODO: documentation text
+	// components["schemas"]["GDMSCOREBandsResponse"] | components["schemas"]["GDMSCOREBandsDecisionResponse"]
 	async function fetch_score_bands(interval_size: number = 0.5) {
 		try {
 			// Configure SCORE bands with K-means clustering and dynamic interval_size
@@ -457,9 +510,26 @@
 			const scoreResult = await scoreResponse.json();
 			
 			if (scoreResult.success) {
-				scoreBandsResult = scoreResult.data.result;
-				iteration_id = scoreResult.data.group_iter_id;
-				console.log('✅ SCORE bands fetched successfully:', scoreBandsResult);
+				// Check which type of response we got
+				if (scoreResult.data.method === 'gdm-score-bands') {
+					// Regular SCORE bands response
+					scoreBandsResult = scoreResult.data.result;
+					iteration_id = scoreResult.data.group_iter_id;
+					method = scoreResult.data.method;
+					phase = 'Consensus Reaching Phase';
+					decisionResult = null; // Clear decision data
+					console.log('✅ SCORE bands fetched successfully:', scoreResult.data);
+				} else if (scoreResult.data.method === 'gdm-score-bands-final') {
+					// Decision phase response
+					decisionResult = scoreResult.data.result;
+					iteration_id = scoreResult.data.group_iter_id;
+					method = scoreResult.data.method;
+					phase = 'Decision Phase';
+					scoreBandsResult = null; // Clear score bands data
+					console.log('✅ Decision phase data fetched successfully:', scoreResult.data);
+				} else {
+					throw new Error(`Unknown method: ${scoreResult.data.method}`);
+				}
 			} else {
 				throw new Error(`Fetch score failed: ${scoreResult.error || 'Unknown error'}`);
 			}
@@ -472,12 +542,12 @@
 	}
 
 	// TODO: documentation text
-	async function vote(band: number | null) {
-		if (band === null) {
-			alert('Please select a band to vote for.');
+	async function vote(selection: number | null) {
+		if (selection === null) {
+			alert('Please select a band or solution to vote for.');
 			return;
 		}
-		console.log("band to vote for:", band);
+		console.log("Selection to vote for:", selection);
 		try {
 			const voteResponse = await fetch('/interactive_methods/GDM-SCORE-bands/vote', {
 				method: 'POST',
@@ -486,7 +556,7 @@
 				},
 				body: JSON.stringify({
 					group_id: data.group.id,
-					vote: band,
+					vote: selection,
 				})
 			});
 
@@ -610,18 +680,28 @@
 				<div class="">
 					<!-- Header Section -->
 					<div class="font-semibold">
-						HEADER: Iteration {iteration_id}, {phase}
+						{method}, Iteration {iteration_id}, {phase}
 					</div>
-					<!-- Instructions Section TODO: instructions to match voting situation, need group info -->
-					<div>Click a cluster on the graph, vote with the button, then confirm when ready to continue.</div>
-					<div> Votes: {Object.keys(votes_and_confirms.votes || {}).length}</div>
-					<div> Confirms: {votes_and_confirms.confirms.length}</div>
+					<!-- Instructions Section -->
+					{#if isConsensusPhase}
+						<div>Click a cluster on the graph, vote with the button, then confirm when ready to continue.</div>
+						<div> Votes: {Object.keys(votes_and_confirms.votes || {}).length}</div>
+						<div> Confirms: {votes_and_confirms.confirms.length}</div>
+					{:else if isDecisionPhase}
+						<div>Select the best solution from the solutions shown below and vote for it.</div>
+						{#if decisionResult}
+							<div> Votes: {Object.keys(decisionResult.user_votes || {}).length}</div>
+							<div> Confirms: {decisionResult.user_confirms.length}</div>
+						{/if}
+					{/if}
 
 				</div>
 			</div>
 		</div>
 
-		<!-- Parameter Controls -->
+		{#if isConsensusPhase}
+			<!-- CONSENSUS PHASE: Existing SCORE Bands Content -->
+			<!-- Parameter Controls -->
 		 {#if isOwner}
 			<div class="card bg-base-100 mb-6 shadow-xl">
 				<div class="card-body">
@@ -902,6 +982,128 @@
 				</div>
 			</div>
 		</div>
+		
+		{:else if isDecisionPhase}
+			<!-- DECISION PHASE: Solution Selection Content -->
+			<div class="grid grid-cols-1 gap-6 lg:grid-cols-4">
+				<!-- Solution Visualization Area -->
+				<div class="lg:col-span-3">
+					<div class="card bg-base-100 shadow-xl">
+						<div class="card-body">
+							<div class="flex h-[600px] w-full items-center justify-center">
+								{#if decisionResult && decisionSolutions.length > 0}
+									<!-- Parallel Coordinates Component -->
+									<ParallelCoordinates
+										data={decisionSolutions}
+										dimensions={decisionDimensions}
+										selectedIndex={selected_solution}
+										onLineSelect={handle_solution_select}
+									/>
+								{:else}
+									<div class="text-center">
+										<h2 class="text-2xl font-bold mb-4">Decision Phase</h2>
+										<p class="text-gray-600 mb-4">Loading solutions...</p>
+									</div>
+								{/if}
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- Decision Controls -->
+				<div class="lg:col-span-1">
+					<div class="card bg-base-100 shadow-xl">
+						<div class="card-body">
+							<h2 class="card-title">Solution Voting</h2>
+							<div class="space-y-2 p-2">
+								<p class="text-sm text-gray-600">
+									Click on a solution in the visualization, then vote for it.
+								</p>
+								
+								{#if selected_solution !== null}
+									<p class="text-sm font-semibold text-blue-600">
+										Selected: Solution {selected_solution + 1}
+									</p>
+								{/if}
+								
+								{#if vote_given}
+									<div class="alert alert-success">
+										<span>You voted for Solution {selected_solution !== null ? selected_solution + 1 : '?'}</span>
+									</div>
+								{:else}
+									<Button 
+										onclick={() => vote(selected_solution)} 
+										disabled={selected_solution === null}
+									>
+										Vote for Selected Solution
+									</Button>
+								{/if}
+								
+								{#if vote_given && !vote_confirmed}
+									<Button onclick={confirm_vote}>
+										Confirm Final Decision
+									</Button>
+								{:else if vote_confirmed}
+									<div class="alert alert-info">
+										<span>Decision Confirmed!</span>
+									</div>
+								{/if}
+								
+								<!-- Group Progress -->
+								{#if decisionResult?.user_votes}
+									<div class="stats stats-vertical w-full">
+										<div class="stat">
+											<div class="stat-title">Votes Cast</div>
+											<div class="stat-value text-sm">{Object.keys(decisionResult.user_votes).length}</div>
+										</div>
+										<div class="stat">
+											<div class="stat-title">Confirmed</div>
+											<div class="stat-value text-sm">{decisionResult.user_confirms.length}</div>
+										</div>
+									</div>
+									
+									{#if decisionResult.winner_solution_objectives && Object.keys(decisionResult.winner_solution_objectives).length > 0}
+										<div class="alert alert-success">
+											<span>🎉 Group decision reached!</span>
+										</div>
+									{/if}
+								{/if}
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			
+			<!-- Solution Table -->
+			<div class="mt-6">
+				<div class="card bg-base-100 shadow-xl">
+					<div class="card-body">
+						<h2 class="card-title mb-4">Solution Details</h2>
+						{#if decisionResult && decisionSolutions.length > 0}
+							<ScoreBandsSolutionTable
+								problem={data.problem}
+								solutions={decisionSolutions}
+								selectedSolution={selected_solution}
+								onSolutionSelect={handle_solution_select}
+								userHasVoted={vote_given}
+								userVotedSolution={vote_given ? selected_solution : null}
+								groupVotes={decisionResult.user_votes || {}}
+							/>
+						{:else}
+							<div class="text-center py-8 text-gray-500">
+								Loading solution data...
+							</div>
+						{/if}
+					</div>
+				</div>
+			</div>
+
+		{:else}
+			<!-- FALLBACK: Unknown phase -->
+			<div class="alert alert-error">
+				<span>Unknown phase: {phase}</span>
+			</div>
+		{/if}
 	{/if}
 </div>
 
