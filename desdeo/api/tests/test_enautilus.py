@@ -2,6 +2,7 @@
 
 import json
 
+import numpy as np
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
@@ -151,10 +152,13 @@ def test_enautilus_get_state(client: TestClient, session_and_user: dict[str, Ses
     reachable_point_indices = []  # empty for first iteration
     number_of_intermediate_points = 3
 
+    session_id = None
+    parent_state_id = None
+
     request = ENautilusStepRequest(
         problem_id=problem_db.id,
-        session_id=None,
-        parent_state_id=None,
+        session_id=session_id,
+        parent_state_id=parent_state_id,
         representative_solutions_id=representative_solutions.id,
         current_iteration=current_iteration,
         iterations_left=total_iterations,
@@ -231,14 +235,21 @@ def test_enautilus_get_state(client: TestClient, session_and_user: dict[str, Ses
     assert previous_response.closeness_measures == step1_response.closeness_measures
     assert previous_response.reachable_point_indices == step1_response.reachable_point_indices
 
+    nadir_point = {
+        f"{obj.symbol}": (-1 if obj.maximize else 1)
+        * np.max(representative_solutions.solution_data[f"{obj.symbol}_min"])
+        for obj in problem_db.objectives
+    }
+
+    reachable_point_indices_ = list(range(len(representative_solutions.solution_data[problem_db.objectives[0].symbol])))
+
     # request is the origin of the state
-    # TODO: finish writing this test
-    assert previous_request.problem_id
-    assert previous_request.session_id
-    assert previous_request.parent_state_id
-    assert previous_request.representative_solutions_id
-    assert previous_request.current_iteration
-    assert previous_request.iterations_left
-    assert previous_request.selected_point
-    assert previous_request.reachable_point_indices
-    assert previous_request.number_of_intermediate_points
+    assert previous_request.problem_id == problem_db.id
+    assert previous_request.session_id == session_id
+    assert previous_request.parent_state_id == parent_state_id
+    assert previous_request.representative_solutions_id == representative_solutions.id
+    assert previous_request.current_iteration == current_iteration
+    assert previous_request.iterations_left == total_iterations
+    assert previous_request.selected_point == nadir_point  # should be the nadir, because first iteration
+    assert previous_request.reachable_point_indices == reachable_point_indices_  # all in the first iteration
+    assert previous_request.number_of_intermediate_points == number_of_intermediate_points
