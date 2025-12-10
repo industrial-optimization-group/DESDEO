@@ -236,7 +236,6 @@
 					sortedAxisSigns,
 					options,
 					false, // not selected
-					scales, // normalization scales
 					onBandSelect
 				);
 			});
@@ -257,7 +256,6 @@
 						sortedAxisSigns,
 						options,
 						true, // selected
-						scales, // normalization scales
 						onBandSelect
 					);
 				}

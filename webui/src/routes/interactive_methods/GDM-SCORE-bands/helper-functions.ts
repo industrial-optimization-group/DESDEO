@@ -1,89 +1,67 @@
-// /**
-//  * Calculate agreement level for each axis based on voting data
-//  * @param {Object} votes_and_confirms - Contains votes and confirms data
-//  * @param {Object} medians - Medians data from SCORE bands: {clusterId: {axisName: medianValue}}
-//  * @param {Object} scoreBandsResult - Full SCORE bands result with scales info
-//  * @param {number} agreementThreshold - Threshold below which we consider agreement (e.g., 0.1)
-//  * @param {number} disagreementThreshold - Threshold above which we consider disagreement (e.g., 0.9)
-//  * @returns {Record<string, 'agreement' | 'disagreement' | 'neutral'>} - Agreement status per axis
-//  */
-// function calculateAxisAgreement(
-//     votes_and_confirms: {
-//         confirms: number[];
-//         votes: Record<number, number>;
-//     },
-//     medians,
-//     scoreBandsResult,
-//     agreementThreshold = 0.1,
-//     disagreementThreshold = 0.9
-// ): Record<string, 'agreement' | 'disagreement' | 'neutral'> {
-//     const agreement = {};
+/**
+ * Calculate agreement level for each axis based on voting data
+ * @param {Object} votes_and_confirms - Contains votes and confirms data
+ * @param {Object} medians - Medians data from SCORE bands: {clusterId: {axisName: medianValue}}
+ * @param {Object} scales - Scales data: {axisName: [ideal, nadir]}
+ * @param {number} agreementThreshold - Threshold below which we consider agreement (e.g., 0.1)
+ * @param {number} disagreementThreshold - Threshold above which we consider disagreement (e.g., 0.9)
+ * @returns {Record<string, 'agreement' | 'disagreement' | 'neutral'>} - Agreement status per axis
+ */
+export function calculateAxisAgreement(
+    votes_and_confirms: {
+        confirms: number[];
+        votes: Record<number, number>;
+    },
+    medians: Record<string, Record<string, number>>,
+    scales: Record<string, [number, number]>,
+    agreementThreshold = 0.1,
+    disagreementThreshold = 0.9
+): Record<string, 'agreement' | 'disagreement' | 'neutral'> {
+    const agreement: Record<string, 'agreement' | 'disagreement' | 'neutral'> = {};
     
-//     // Get bands that have votes
-//     const votedBandIds = Object.values(votes_and_confirms.votes || {});
-//     const uniqueVotedBands = [...new Set(votedBandIds)];
+    // Get bands that have votes
+    const votedBandIds = Object.values(votes_and_confirms.votes || {});
     
-//     if (uniqueVotedBands.length < 2) {
-//         // If less than 2 bands voted for, no disagreement possible
-//         scoreBandsResult.ordered_dimensions.forEach(axisName => {
-//             agreement[axisName] = 'neutral';
-//         });
-//         return agreement;
-//     }
     
-//     // For each axis, calculate agreement
-//     scoreBandsResult.ordered_dimensions.forEach(axisName => {
-//         // Get medians for voted bands on this axis
-//         const votedMedians = uniqueVotedBands
-//             .map(bandId => medians[bandId.toString()]?.[axisName])
-//             .filter(median => median !== undefined);
-            
-//         if (votedMedians.length < 2) {
-//             agreement[axisName] = 'neutral';
-//             return;
-//         }
-        
-//         // Calculate spread: max - min
-//         const maxMedian = Math.max(...votedMedians);
-//         const minMedian = Math.min(...votedMedians);
-//         const spread = maxMedian - minMedian;
-        
-//         // Get nadir-ideal range for this axis
-//         let totalRange;
-//         if (scoreBandsResult.options?.scales?.[axisName]) {
-//             const [idealValue, nadirValue] = scoreBandsResult.options.scales[axisName];
-//             totalRange = Math.abs(nadirValue - idealValue);
-//         } else {
-//             // Fallback: calculate from all available medians and bands
-//             let allValues = [];
-//             Object.values(medians).forEach(clusterMedians => {
-//                 if (clusterMedians[axisName] !== undefined) {
-//                     allValues.push(clusterMedians[axisName]);
-//                 }
-//             });
-//             Object.values(scoreBandsResult.bands).forEach(clusterBands => {
-//                 if (clusterBands[axisName]) {
-//                     allValues.push(...clusterBands[axisName]);
-//                 }
-//             });
-//             totalRange = allValues.length > 0 ? Math.max(...allValues) - Math.min(...allValues) : 1;
-//         }
-        
-//         // Calculate normalized disagreement score
-//         const disagreementScore = totalRange > 0 ? spread / totalRange : 0;
-        
-//         // Classify agreement level
-//         if (disagreementScore <= agreementThreshold) {
-//             agreement[axisName] = 'agreement';
-//         } else if (disagreementScore >= disagreementThreshold) {
-//             agreement[axisName] = 'disagreement';
-//         } else {
-//             agreement[axisName] = 'neutral';
-//         }
-//     });
+    if (votedBandIds.length < 2) {
+        // In the case of only one vote, just return neutral
+        Object.keys(scales).forEach(axisName => {
+            agreement[axisName] = 'neutral';
+        });
+        return agreement;
+    }
     
-//     return agreement;
-// }
+    // For each axis, calculate agreement
+    Object.keys(scales).forEach(axisName => {
+        // Get medians for voted bands on this axis
+        const votedMedians = votedBandIds
+            .map(bandId => medians[bandId.toString()]?.[axisName])
+            .filter(median => median !== undefined);
+        
+        // Calculate spread: max - min
+        const maxMedian = Math.max(...votedMedians);
+        const minMedian = Math.min(...votedMedians);
+        const spread = maxMedian - minMedian;
+        
+        // Get nadir-ideal range for this axis
+        const [nadir, ideal] = scales[axisName];
+        const totalRange = Math.abs(nadir - ideal);
+        
+        // Calculate normalized disagreement score
+        const disagreementScore = totalRange > 0 ? spread / totalRange : 0;
+        
+        // Classify agreement level
+        if (disagreementScore <= agreementThreshold) {
+            agreement[axisName] = 'agreement';
+        } else if (disagreementScore >= disagreementThreshold) {
+            agreement[axisName] = 'disagreement';
+        } else {
+            agreement[axisName] = 'neutral';
+        }
+    });
+    
+    return agreement;
+}
 
 /**
  * Draws a vertical bar chart showing votes per cluster using D3.

@@ -105,7 +105,6 @@ export function drawBand(
 		axisSigns: number[],
 		options: any,
 		isSelected: boolean,
-		scales: Record<string, [number, number]> | undefined,
 		onBandSelect?: (clusterId: number | null) => void,
 		// labels?: Record<number, string>,
 		solutionData?: { values: number[] }[] // TODO: copied from original, type most likely impractical

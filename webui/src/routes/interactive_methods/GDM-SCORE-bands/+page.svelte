@@ -11,7 +11,7 @@
 	import { WebSocketService } from './websocket-store';
 	
 	// Helper functions import
-	import { drawVotesChart } from './helper-functions';
+	import { drawVotesChart, calculateAxisAgreement } from './helper-functions';
 
 	// Page data props
 	type Group = components['schemas']['GroupPublic'];
@@ -77,6 +77,30 @@
 		return counts;
 	});
 	const totalVoters = data.group ? data.group.user_ids.length : 4;
+
+	// Calculate axis agreement when everyone has voted but not everyone has confirmed
+	let axis_agreement = $derived.by(() => {
+		// Only calculate if we're in consensus phase and have the necessary data
+		if (!isConsensusPhase || !SCOREBands.medians || !SCOREBands.scales) {
+			return {};
+		}
+		
+		const votesCount = Object.keys(votes_and_confirms.votes || {}).length;
+		const confirmsCount = votes_and_confirms.confirms.length;
+		
+		// Calculate when everyone has voted but not everyone has confirmed
+		if (votesCount === totalVoters && confirmsCount < totalVoters) {
+			return calculateAxisAgreement(
+				votes_and_confirms,
+				SCOREBands.medians,
+				SCOREBands.scales,
+				0.1, // agreement threshold
+				0.9  // disagreement threshold
+			);
+		}
+		
+		return {}; // Return empty object when conditions aren't met
+	});
 
 	let phase = $state('Consensus Reaching Phase'); // 'Consensus reaching phase' or 'Decision phase'
 	let iteration_id = $state(0); // for header
@@ -703,6 +727,26 @@
 						<div>Click a cluster on the graph, vote with the button, then confirm when ready to continue.</div>
 						<div> Votes: {Object.keys(votes_and_confirms.votes || {}).length}</div>
 						<div> Confirms: {votes_and_confirms.confirms.length}</div>
+						
+						<!-- Display axis agreement information -->
+						{#if Object.keys(axis_agreement).length > 0}
+							<div class="mt-4 p-4 bg-blue-50 rounded-lg">
+								<h4 class="font-semibold text-sm mb-2">Axis Agreement Analysis:</h4>
+								<div class="grid grid-cols-1 gap-1 text-sm">
+									{#each Object.entries(axis_agreement) as [axisName, agreementLevel]}
+										<div class="flex justify-between items-center">
+											<span class="font-medium">{axisName}:</span>
+											<span class="px-2 py-1 rounded text-xs font-semibold
+												{agreementLevel === 'agreement' ? 'bg-green-200 text-green-800' : 
+												 agreementLevel === 'disagreement' ? 'bg-red-200 text-red-800' : 
+												 'bg-gray-200 text-gray-600'}">
+												{agreementLevel}
+											</span>
+										</div>
+									{/each}
+								</div>
+							</div>
+						{/if}
 					{:else if isDecisionPhase}
 						<div>Select the best solution from the solutions shown below and vote for it.</div>
 						{#if decisionResult}
@@ -952,7 +996,7 @@
 							<Button onclick={() => vote(selected_band)} disabled={selected_band === null || vote_confirmed}>
 								Vote
 							</Button>
-							<Button onclick={confirm_vote} >
+							<Button onclick={confirm_vote} disabled={!vote_given || vote_confirmed}>
 								Confirm vote
 							</Button>
 						</div>
@@ -1002,26 +1046,35 @@
 		{:else if isDecisionPhase}
 			<!-- DECISION PHASE: Solution Selection Content -->
 			<div class="grid grid-cols-1 gap-6 lg:grid-cols-4">
-				<!-- Solution Visualization Area -->
 				<div class="lg:col-span-3">
 					<div class="card bg-base-100 shadow-xl">
 						<div class="card-body">
+							{#if decisionResult && decisionSolutions.length > 0}
 							<div class="flex h-[600px] w-full items-center justify-center">
-								{#if decisionResult && decisionSolutions.length > 0}
-									<!-- Parallel Coordinates Component -->
-									<ParallelCoordinates
-										data={decisionSolutions}
-										dimensions={decisionDimensions}
-										selectedIndex={selected_solution}
-										onLineSelect={handle_solution_select}
-									/>
-								{:else}
-									<div class="text-center">
-										<h2 class="text-2xl font-bold mb-4">Decision Phase</h2>
-										<p class="text-gray-600 mb-4">Loading solutions...</p>
-									</div>
-								{/if}
+								<!-- Parallel Coordinates Component -->
+								<ParallelCoordinates
+									data={decisionSolutions}
+									dimensions={decisionDimensions}
+									selectedIndex={selected_solution}
+									onLineSelect={handle_solution_select}
+								/>
 							</div>
+							<h2 class="card-title mb-4">Numerical values</h2>
+								<ScoreBandsSolutionTable
+									problem={data.problem}
+									solutions={decisionSolutions}
+									selectedSolution={selected_solution}
+									onSolutionSelect={handle_solution_select}
+									userHasVoted={vote_given}
+									userVotedSolution={vote_given ? selected_solution : null}
+									groupVotes={decisionResult.user_votes || {}}
+								/>
+							{:else}
+							<div class="text-center">
+								<h2 class="text-2xl font-bold mb-4">Decision Phase</h2>
+								<p class="text-gray-600 mb-4">Loading solutions...</p>
+							</div>
+							{/if}
 						</div>
 					</div>
 				</div>
@@ -1086,30 +1139,6 @@
 								{/if}
 							</div>
 						</div>
-					</div>
-				</div>
-			</div>
-			
-			<!-- Solution Table -->
-			<div class="mt-6">
-				<div class="card bg-base-100 shadow-xl">
-					<div class="card-body">
-						<h2 class="card-title mb-4">Solution Details</h2>
-						{#if decisionResult && decisionSolutions.length > 0}
-							<ScoreBandsSolutionTable
-								problem={data.problem}
-								solutions={decisionSolutions}
-								selectedSolution={selected_solution}
-								onSolutionSelect={handle_solution_select}
-								userHasVoted={vote_given}
-								userVotedSolution={vote_given ? selected_solution : null}
-								groupVotes={decisionResult.user_votes || {}}
-							/>
-						{:else}
-							<div class="text-center py-8 text-gray-500">
-								Loading solution data...
-							</div>
-						{/if}
 					</div>
 				</div>
 			</div>
