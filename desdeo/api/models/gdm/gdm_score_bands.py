@@ -105,3 +105,7 @@ class GDMSCOREBandsDecisionResponse(SQLModel):
     result: GDMSCOREBandFinalSelection = Field(
         description="The container for the solutions and the winner solution."
     )
+
+class GDMSCOREBandsHistoryResponse(SQLModel):
+    """Response class for all history. Allows for going to a previous iteration."""
+    history: list[GDMSCOREBandsResponse | GDMSCOREBandsDecisionResponse]
