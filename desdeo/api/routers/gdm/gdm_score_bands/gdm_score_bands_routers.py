@@ -17,6 +17,7 @@ from desdeo.api.models import (
     GDMSCOREBandsDecisionResponse,
     GDMScoreBandsInitializationRequest,
     GDMSCOREBandsResponse,
+    GDMSCOREBandsRevertRequest,
     GDMScoreBandsVoteRequest,
     Group,
     GroupInfoRequest,
@@ -27,11 +28,11 @@ from desdeo.api.routers.gdm.gdm_aggregate import manager
 from desdeo.api.routers.gdm.gdm_score_bands.gdm_score_bands_manager import GDMScoreBandsManager
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.gdm.score_bands import SCOREBandsGDMConfig, SCOREBandsGDMResult, score_bands_gdm
-from desdeo.tools.score_bands import SCOREBandsConfig, SCOREBandsResult, score_json
 
 logging.basicConfig(
     stream=sys.stdout, format="[%(filename)s:%(lineno)d] %(levelname)s: %(message)s", level=logging.INFO
 )
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/gdm-score-bands", tags=["GDM Score Bands"])
 
@@ -83,7 +84,7 @@ async def vote_for_a_band(
             session=session
         )
     except Exception as e:
-        logging.exception(e)
+        logger.exception(e)
         raise HTTPException(
             detail=f"Internal server error: {e}",
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -134,7 +135,7 @@ async def confirm_vote(
             session=session
         )
     except Exception as e:
-        logging.exception(e)
+        logger.exception(e)
         raise HTTPException(
             detail=f"Internal server error: {e}",
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -183,6 +184,7 @@ async def get_or_initialize(
                 return GDMSCOREBandsResponse(
                     group_id=group.id,
                     group_iter_id=group.head_iteration_id,
+                    latest_iteration=group_iteration.info_container.score_bands_result.iteration,
                     result=group_iteration.info_container.score_bands_result.score_bands_result
                 )
             case "gdm-score-bands-final":
@@ -210,6 +212,7 @@ async def get_or_initialize(
     result: SCOREBandsGDMResult = score_bands_gdm(
         data=objs,
         config=score_bands_config,
+        state=None
     )[-1]
 
     # store necessary data to the database. Currently all "voting" related is null bc no voting has happened yet.
@@ -244,6 +247,7 @@ async def get_or_initialize(
     return GDMSCOREBandsResponse(
         group_id=group.id,
         group_iter_id=group.head_iteration_id,
+        latest_iteration=result.iteration,
         result=result.score_bands_result
     )
 
@@ -294,4 +298,121 @@ def get_votes_and_confirms(
             "votes": votes,
             "confirms": confirms
         }
+    )
+
+
+@router.post("/revert")
+async def revert(
+    request: GDMSCOREBandsRevertRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)],
+) -> JSONResponse:
+    """Revert to a previous iteration. Usable only by the analyst.
+
+    This implies that we're gonna need to see ALL previous iterations I'd say.
+
+    Args:
+        request (GDMSCOREBandsRevertRequest): The request containing group id and iteration number.
+        user (Annotated[User, Depends): The current user.
+        session (Annotated[Session, Depends): The database session.
+
+    Returns:
+        JSONResponse: Acknowledgement of the revert.
+    """
+    group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
+    if user.id is not group.owner_id:
+        raise HTTPException(
+            detail="Reverting can only be done by the group owner!",
+            status_code=status.HTTP_401_UNAUTHORIZED
+        )
+    if not group:
+        raise HTTPException(
+            detail=f"Group with ID {request.group_id} not found!",
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    user_ids = group.user_ids
+    user_ids.append(group.owner_id)
+    if user.id not in user_ids:
+        raise HTTPException(
+            detail=f"User with ID {user.id} is not part of group with ID {group.id}",
+            status_code=status.HTTP_403_FORBIDDEN
+        )
+    group_id = request.group_id
+    group_mgr: GDMScoreBandsManager = await manager.get_group_manager(
+        group_id=group_id, method="gdm-score-bands"
+    )
+
+    try:
+        await group_mgr.revert(
+            user=user,
+            group=group,
+            session=session,
+            group_iteration_number=request.iteration_number
+        )
+    except Exception as e:
+        logger.exception(e)
+        raise HTTPException(
+            detail=f"Internal server error: {e}",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        ) from e
+
+    return JSONResponse(
+        content={"message": "Reverted iteration."}
+    )
+
+@router.post("/configure")
+async def configure_gdm(
+    config: SCOREBandsGDMConfig,
+    group_id: int,
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)]
+) -> JSONResponse:
+    """Configure the SCORE Bands settings.
+
+    Args:
+        config (SCOREBandsGDMConfig): The configuration object
+        group_id (int): group id
+        user (Annotated[User, Depends): The user doing the request
+        session (Annotated[Session, Depends): The database session.
+
+    Returns:
+        JSONResponse: Acknowledgement that yeah ok reconfigured.
+    """
+    group: Group = session.exec(select(Group).where(Group.id == group_id)).first()
+    if user.id is not group.owner_id:
+        raise HTTPException(
+            detail="Reverting can only be done by the group owner!",
+            status_code=status.HTTP_401_UNAUTHORIZED
+        )
+    if not group:
+        raise HTTPException(
+            detail=f"Group with ID {group_id} not found!",
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    user_ids = group.user_ids
+    user_ids.append(group.owner_id)
+    if user.id not in user_ids:
+        raise HTTPException(
+            detail=f"User with ID {user.id} is not part of group with ID {group.id}",
+            status_code=status.HTTP_403_FORBIDDEN
+        )
+    group_mgr: GDMScoreBandsManager = await manager.get_group_manager(
+        group_id=group_id, method="gdm-score-bands"
+    )
+
+    try:
+        await group_mgr.configure(
+            config=config,
+            group=group,
+            session=session,
+        )
+    except Exception as e:
+        logger.exception(e)
+        raise HTTPException(
+            detail=f"Internal server error: {e}",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        ) from e
+
+    return JSONResponse(
+        content={"message": "Configured. Re-clustered."}
     )

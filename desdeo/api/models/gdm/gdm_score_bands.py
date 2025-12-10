@@ -68,6 +68,15 @@ class GDMScoreBandsVoteRequest(SQLModel):
         description="The vote. Vaalisalaisuus."
     )
 
+class GDMSCOREBandsRevertRequest(SQLModel):
+    """Request for reverting to a previous setup."""
+    group_id: int = Field(
+        description="Group ID."
+    )
+    iteration_number: int = Field(
+        description="The number of the iteration that we want to revert to."
+    )
+
 class GDMSCOREBandsResponse(SQLModel):
     """Response class for GDMSCOREBands, whether it is initialization or not."""
     method: str = "gdm-score-bands"
@@ -76,6 +85,9 @@ class GDMSCOREBandsResponse(SQLModel):
     )
     group_iter_id: int = Field(
         description="ID of the latest group iteration."
+    )
+    latest_iteration: int = Field(
+        description="The latest GDM iteration number. Different from Group Iteration id."
     )
     result: SCOREBandsResult = Field(
         description="The results of the score bands procedure."

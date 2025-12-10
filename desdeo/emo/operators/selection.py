@@ -1463,6 +1463,7 @@ class IBEASelector(BaseSelector):
         pass
 
 
+@njit
 def _nsga2_crowding_distance_assignment(
     non_dominated_front: np.ndarray, f_mins: np.ndarray, f_maxs: np.ndarray
 ) -> np.ndarray:
@@ -1504,14 +1505,14 @@ def _nsga2_crowding_distance_assignment(
 
     for m in range(num_objectives):
         # sort by column (objective)
-        vectors = vectors[vectors[:, m].argsort()]
+        m_order = vectors[:, m].argsort()
         # inlcude boundary points
-        crowding_distances[0], crowding_distances[-1] = np.inf, np.inf
+        crowding_distances[m_order[0]], crowding_distances[m_order[-1]] = np.inf, np.inf
 
         for i in range(1, num_vectors - 1):
-            crowding_distances[i] = crowding_distances[i] + (vectors[i + 1, m] - vectors[i - 1, m]) / (
-                f_maxs[m] - f_mins[m]
-            )
+            crowding_distances[m_order[i]] = crowding_distances[m_order[i]] + (
+                vectors[m_order[i + 1], m] - vectors[m_order[i - 1], m]
+            ) / (f_maxs[m] - f_mins[m])
 
     return crowding_distances
 
@@ -1606,8 +1607,8 @@ class NSGA2Selector(BaseSelector):
         fitness_values = np.ones(self.population_size) * np.nan
 
         # Set the new parent population to P_t+1 = empty and i=1
-        new_parents = np.ones(parents[1].shape) * np.nan
-        new_parents_solutions = np.ones(parents[0].shape) * np.nan
+        new_parents = np.ones((self.population_size, parents[1].shape[1])) * np.nan
+        new_parents_solutions = np.ones((self.population_size, parents[0].shape[1])) * np.nan
         parents_ptr = 0  # keep track where stuff was last added
 
         # the -1 is here because searchsorted returns the index where we can insert the population size to preserve the
@@ -1636,8 +1637,9 @@ class NSGA2Selector(BaseSelector):
             new_parents_solutions[parents_ptr : parents_ptr + distances.shape[0]] = r_solutions.filter(fronts[i])
 
             # compute fitness
-            # If fronts[i].sum() == 2 ([inf, inf]) will result is zero-size array here, hence the if else
-            max_no_inf = np.nanmax(distances[distances != np.inf]) if fronts[i].sum() > 2 else np.ones(fronts[i].sum())
+            # infs are checked since boundary points are assigned this value when computing the crowding distance
+            finite_distances = distances[distances != np.inf]
+            max_no_inf = np.nanmax(finite_distances) if finite_distances.size > 0 else np.ones(fronts[i].sum())
             distances_no_inf = np.nan_to_num(distances, posinf=max_no_inf * 1.1)
 
             # Distances for the current front normalized between 0 and 1.
@@ -1664,12 +1666,14 @@ class NSGA2Selector(BaseSelector):
             last_ranking = i
 
         # deal with last (partial) front, if needed
+        trimmed_and_sorted_indices = None
         if parents_ptr < self.population_size:
             distances = _nsga2_crowding_distance_assignment(
                 r_targets_arr[fronts[last_whole_front_idx + 1]], f_mins, f_maxs
             )
 
             # Sort F_i in descending order according to crowding distance
+            # This makes picking the selected part of the partial front easier
             trimmed_and_sorted_indices = distances.argsort()[::-1][: self.population_size - parents_ptr]
 
             crowding_distances[parents_ptr : self.population_size] = distances[trimmed_and_sorted_indices]
@@ -1684,10 +1688,11 @@ class NSGA2Selector(BaseSelector):
             )[trimmed_and_sorted_indices]
 
             # compute fitness (see above for details)
+            finite_distances = distances[trimmed_and_sorted_indices][distances[trimmed_and_sorted_indices] != np.inf]
             max_no_inf = (
-                np.nanmax(distances[trimmed_and_sorted_indices][distances[trimmed_and_sorted_indices] != np.inf])
-                if len(trimmed_and_sorted_indices) > 2
-                else np.ones(len(trimmed_and_sorted_indices))  # we have 1 or 2 boundary points
+                np.nanmax(finite_distances)
+                if finite_distances.size > 0
+                else np.ones(len(trimmed_and_sorted_indices))  # we have only boundary points
             )
             distances_no_inf = np.nan_to_num(distances[trimmed_and_sorted_indices], posinf=max_no_inf * 1.1)
 
@@ -1705,6 +1710,20 @@ class NSGA2Selector(BaseSelector):
         outputs = pl.DataFrame(new_parents, schema=parents[1].schema)
 
         self.fitness = fitness_values
+
+        whole_fronts = fronts[: last_whole_front_idx + 1]
+        whole_indices = [np.where(row)[0].tolist() for row in whole_fronts]
+
+        if trimmed_and_sorted_indices is not None:
+            # partial front considered
+            partial_front = fronts[last_whole_front_idx + 1]
+            partial_indices = np.where(partial_front)[0][trimmed_and_sorted_indices].tolist()
+        else:
+            partial_indices = []
+
+        self.selection = [index for indices in whole_indices for index in indices] + partial_indices
+        self.selected_individuals = solutions
+        self.selected_targets = outputs
 
         self.notify()
         return solutions, outputs
