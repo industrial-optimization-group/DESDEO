@@ -15,6 +15,7 @@ from desdeo.api.db import get_session
 from desdeo.api.models import (
     GDMSCOREBandInformation,
     GDMSCOREBandsDecisionResponse,
+    GDMSCOREBandsHistoryResponse,
     GDMScoreBandsInitializationRequest,
     GDMSCOREBandsResponse,
     GDMSCOREBandsRevertRequest,
@@ -150,7 +151,7 @@ async def get_or_initialize(
     request: GDMScoreBandsInitializationRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)]
-) -> GDMSCOREBandsResponse | GDMSCOREBandsDecisionResponse:
+) -> GDMSCOREBandsHistoryResponse:
     """An endpoint for two things: Initializing the GDM Score Bands things and Fetching results.
 
     If a group hasn't been initialized, initialize and then return initial clustering information.
@@ -174,25 +175,30 @@ async def get_or_initialize(
             status_code=status.HTTP_404_NOT_FOUND
         )
     if group.head_iteration_id is not None:
-        # Actually, just return the newest score band data,.
+        # Actually, just return the newest score band data.
         print("Group already initialized!")
-        group_iteration = session.exec(
-            select(GroupIteration).where(GroupIteration.id == group.head_iteration_id)
-        ).first()
-        match group_iteration.info_container.method:
-            case "gdm-score-bands":
-                return GDMSCOREBandsResponse(
-                    group_id=group.id,
-                    group_iter_id=group.head_iteration_id,
-                    latest_iteration=group_iteration.info_container.score_bands_result.iteration,
-                    result=group_iteration.info_container.score_bands_result.score_bands_result
-                )
-            case "gdm-score-bands-final":
-                return GDMSCOREBandsDecisionResponse(
-                    group_id=group.id,
-                    group_iter_id=group.head_iteration_id,
-                    result=group_iteration.info_container
-                )
+        group_iterations = session.exec(
+            select(GroupIteration).where(GroupIteration.group_id == group.id)
+        ).all()
+        responses: list[GDMSCOREBandsResponse | GDMSCOREBandsDecisionResponse] = []
+        for giter in group_iterations:
+            match giter.info_container.method:
+                case "gdm-score-bands":
+                    responses.append(GDMSCOREBandsResponse(
+                        group_id=group.id,
+                        group_iter_id=giter.id,
+                        latest_iteration=giter.info_container.score_bands_result.iteration,
+                        result=giter.info_container.score_bands_result.score_bands_result
+                    ))
+                case "gdm-score-bands-final":
+                    responses.append(GDMSCOREBandsDecisionResponse(
+                        group_id=group.id,
+                        group_iter_id=group.head_iteration_id,
+                        result=giter.info_container
+                    ))
+        return GDMSCOREBandsHistoryResponse(
+            history=responses
+        )
     user_ids = group.user_ids
     user_ids.append(group.owner_id)
     if user.id not in user_ids:
@@ -244,12 +250,15 @@ async def get_or_initialize(
     session.refresh(group)
 
     # Actually, return just the newly created score band data.
-    return GDMSCOREBandsResponse(
-        group_id=group.id,
-        group_iter_id=group.head_iteration_id,
-        latest_iteration=result.iteration,
-        result=result.score_bands_result
+    return GDMSCOREBandsHistoryResponse(
+        history=[GDMSCOREBandsResponse(
+            group_id=group.id,
+            group_iter_id=group.head_iteration_id,
+            latest_iteration=result.iteration,
+            result=result.score_bands_result
+        )]
     )
+
 
 @router.post("/get-votes-and-confirms")
 def get_votes_and_confirms(

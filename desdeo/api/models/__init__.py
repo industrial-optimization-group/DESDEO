@@ -120,6 +120,7 @@ __all__ = [  # noqa: RUF022
     "GDMSCOREBandFinalSelection",
     "GDMSCOREBandsDecisionResponse",
     "GDMSCOREBandsRevertRequest",
+    "GDMSCOREBandsHistoryResponse"
 ]
 
 
@@ -166,7 +167,8 @@ from .gdm.gdm_score_bands import (
     GDMSCOREBandsDecisionResponse,
     GDMScoreBandsVoteRequest,
     GDMSCOREBandFinalSelection,
-    GDMSCOREBandsRevertRequest
+    GDMSCOREBandsRevertRequest,
+    GDMSCOREBandsHistoryResponse
 )
 from .generic import (
     GenericIntermediateSolutionResponse,
