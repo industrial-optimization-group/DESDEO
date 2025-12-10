@@ -36,13 +36,13 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
     
 
     // Call fetch_score endpoint using the authenticated API client
-    const {group_id, score_bands_config} = requestData;
+    const {group_id, score_bands_config, from_iteration} = requestData;
     const scoreBandRequest: components["schemas"]["GDMScoreBandsInitializationRequest"] = {
         group_id,
         score_bands_config: {
-          num_interations: 5,  
+          from_iteration,
           score_bands_config,
-          voting_method: 'majority'
+          minimum_votes: 1
         }
     };
 

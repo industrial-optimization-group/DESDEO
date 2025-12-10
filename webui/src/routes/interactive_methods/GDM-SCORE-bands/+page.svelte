@@ -109,18 +109,25 @@
 		return {}; // Return empty object when conditions aren't met
 	});
 
+	let history: (components["schemas"]["GDMSCOREBandsResponse"] | components["schemas"]["GDMSCOREBandsDecisionResponse"])[] = $state([]);
 	let phase = $state('Consensus Reaching Phase'); // 'Consensus reaching phase' or 'Decision phase'
 	let iteration_id = $state(0); // for header and fetch_score_bands
 	let method = $state(''); // for header, now wrong
 	let scoreBandsResult: components['schemas']['SCOREBandsResult'] | null = $state(null);
-	// TODO: should the initial config be empty? I am using this bcs looks clear now, but prob need to change
+	// TODO: should the initial config be empty? Ok, well it cant be emtpiedr than this. I am using this bcs looks clear now, but prob need to change
 	// ALSO, this is used in initialization now, but exists in case of configuration changing possibility for group owner later
-	let scoreBandsConfig = $state({
-		clustering_algorithm: {
-			name: 'KMeans',
-			n_clusters: 5
-		}
-	});
+	let scoreBandsConfig: components["schemas"]["SCOREBandsConfig"] = $state({
+			clustering_algorithm: {
+				name: 'KMeans',
+				n_clusters: 5
+			},
+			distance_formula: 1,
+			distance_parameter: 0.05,
+			use_absolute_correlations: false,
+			include_solutions: false,
+			include_medians: true,
+			interval_size: 0.25,
+		});
 	// Decision phase data
 	let decisionResult: components['schemas']['GDMSCOREBandFinalSelection'] | null = $state(null);
 	
@@ -527,26 +534,34 @@
 			const scoreResult = await scoreResponse.json();
 			
 			if (scoreResult.success) {
+				// Save the history list from the response
+				history = scoreResult.data.history;
+				console.log('Full history received:', history);
+				// Get the last item from history as the current response
+				const currentResponse = history[history.length - 1];
+				
 				// Check which type of response we got
-				if (scoreResult.data.method === 'gdm-score-bands') {
+				if (currentResponse.method === 'gdm-score-bands') {
 					// Regular SCORE bands response
-					scoreBandsResult = scoreResult.data.result;
-					scoreBandsConfig = scoreResult.data.result.score_bands_config;
-					iteration_id = scoreResult.data.group_iter_id;
-					method = scoreResult.data.method;
+					const scoreBandsData = currentResponse.result as components['schemas']['SCOREBandsResult'];
+					scoreBandsResult = scoreBandsData;
+					scoreBandsConfig = scoreBandsData.options;
+					iteration_id = currentResponse.group_iter_id;
+					method = currentResponse.method;
 					phase = 'Consensus Reaching Phase';
 					decisionResult = null; // Clear decision data
-					console.log('✅ SCORE bands fetched successfully:', scoreResult.data);
-				} else if (scoreResult.data.method === 'gdm-score-bands-final') {
+					console.log('✅ SCORE bands fetched successfully:', currentResponse);
+				} else if (currentResponse.method === 'gdm-score-bands-final') {
 					// Decision phase response
-					decisionResult = scoreResult.data.result;
-					iteration_id = scoreResult.data.group_iter_id;
-					method = scoreResult.data.method;
+					const finalDecisionData = currentResponse.result as components['schemas']['GDMSCOREBandFinalSelection'];
+					decisionResult = finalDecisionData;
+					iteration_id = currentResponse.group_iter_id;
+					method = currentResponse.method;
 					phase = 'Decision Phase';
 					scoreBandsResult = null; // Clear score bands data
-					console.log('✅ Decision phase data fetched successfully:', scoreResult.data);
+					console.log('✅ Decision phase data fetched successfully:', currentResponse);
 				} else {
-					throw new Error(`Unknown method: ${scoreResult.data.method}`);
+					throw new Error(`Unknown method: ${currentResponse.method}`);
 				}
 			} else {
 				throw new Error(`Fetch score failed: ${scoreResult.error || 'Unknown error'}`);
