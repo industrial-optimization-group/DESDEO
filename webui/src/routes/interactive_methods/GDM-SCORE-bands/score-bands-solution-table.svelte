@@ -6,7 +6,7 @@
 	 * @created December 2025
 	 *
 	 * @description
-	 * Simplified solution table component for GDM SCORE-Bands decision phase.
+	 * Solution table component for GDM SCORE-Bands decision phase.
 	 * Displays solutions for voting with objective values and voting status.
 	 *
 	 * @props
@@ -19,17 +19,35 @@
 	 * @property {{ [key: string]: number }} [groupVotes={}] - Group voting status
 	 *
 	 * @features
-	 * - Simple table showing objective values for each solution
+	 * - Sortable columns for objective values
 	 * - Click to select solutions for voting
 	 * - Highlighting for selected and voted solutions
 	 * - Responsive design for decision phase
+	 * - Vote count visualization
 	 */
+	import {
+		type ColumnDef,
+		type Column,
+		type Row,
+		type SortingState,
+		getCoreRowModel,
+		getSortedRowModel
+	} from '@tanstack/table-core';
+	import { createSvelteTable } from '$lib/components/ui/data-table/data-table.svelte.js';
+	import FlexRender from '$lib/components/ui/data-table/flex-render.svelte';
+	import * as Table from '$lib/components/ui/table/index.js';
+	import { renderSnippet } from '$lib/components/ui/data-table/render-helpers.js';
 	import type { components } from '$lib/api/client-types';
 	import { getDisplayAccuracy, formatNumber } from '$lib/helpers';
 	import { COLOR_PALETTE } from '$lib/components/visualizations/utils/colors.js';
+	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
+	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
+	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
+
 
 	// Types
 	type ProblemInfo = components['schemas']['ProblemInfo'];
+	type SolutionData = { [key: string]: number } & { index: number };
 
 	// Props
 	let {
@@ -37,7 +55,6 @@
 		solutions,
 		selectedSolution,
 		onSolutionSelect,
-		userHasVoted = false,
 		userVotedSolution = null,
 		groupVotes = {}
 	}: {
@@ -45,13 +62,20 @@
 		solutions: Array<{ [key: string]: number }>;
 		selectedSolution: number | null;
 		onSolutionSelect: (index: number | null, solutionData?: any) => void;
-		userHasVoted?: boolean;
 		userVotedSolution?: number | null;
 		groupVotes?: { [key: string]: number };
 	} = $props();
 
 	// Get display accuracy for number formatting
 	let displayAccuracy = $derived.by(() => getDisplayAccuracy(problem));
+
+	// Transform solutions to include index for table
+	let tableData = $derived.by(() => {
+		return solutions.map((solution, index) => ({
+			...solution,
+			index
+		}));
+	});
 
 	// Helper function to get solution display name
 	function getSolutionName(index: number): string {
@@ -60,7 +84,7 @@
 
 	// Helper function to check if solution is voted by user
 	function isUserVotedSolution(index: number): boolean {
-		return userHasVoted && userVotedSolution === index;
+		return userVotedSolution === index;
 	}
 
 	// Helper function to get vote count for solution
@@ -74,105 +98,216 @@
 		const tooltip = objective.description || objective.name;
 		return objective.unit ? `${tooltip} (${objective.unit})` : tooltip;
 	}
+
+	// Table state
+	let sorting = $state<SortingState>([]);
+
+	// Define columns for the table
+	const columns: ColumnDef<SolutionData>[] = $derived.by(() => {
+		return [
+			// Solution name column
+			{
+				accessorKey: 'index',
+				header: ({ column }) => renderSnippet(ColumnHeader, { column, title: 'Solution' }),
+				cell: ({ row }) => renderSnippet(SolutionNameCell, { solution: row.original }),
+				enableSorting: false
+			},
+			// Add columns for each objective
+			...problem.objectives.map((objective, idx) => ({
+				accessorKey: objective.symbol,
+				header: ({ column }: { column: Column<SolutionData> }) =>
+					renderSnippet(ObjectiveColumnHeader, { column, objective, idx }),
+				cell: ({ row }: { row: Row<SolutionData> }) =>
+					renderSnippet(ObjectiveCell, {
+						value: row.original[objective.symbol],
+						accuracy: displayAccuracy[idx]
+					}),
+				enableSorting: true
+			})),
+			// Vote count column
+			{
+				accessorKey: 'votes',
+				header: ({ column }) => renderSnippet(ColumnHeader, { column, title: 'Votes' }),
+				cell: ({ row }) => renderSnippet(VoteCountCell, { solution: row.original }),
+				enableSorting: false
+			}
+		];
+	});
+
+	// Create the table
+		const table = createSvelteTable<SolutionData>({
+			get data() {
+				return (tableData || []) as SolutionData[];
+			},
+			get columns() {
+				return columns as ColumnDef<SolutionData, any>[];
+			},
+			state: {
+				get sorting() {
+					return sorting;
+				}
+			},
+			onSortingChange: (updater) => {
+				if (typeof updater === 'function') {
+					sorting = updater(sorting);
+				} else {
+					sorting = updater;
+				}
+			},
+			getCoreRowModel: getCoreRowModel(),
+			getSortedRowModel: getSortedRowModel()
+		});
+
+	// Handle row clicks
+	function handleRowClick(solution: SolutionData) {
+		onSolutionSelect(solution.index, solution);
+	}
 </script>
-	 * - Svelte Runes mode for reactivity
+{#snippet SolutionNameCell({ solution }: { solution: SolutionData })}
+	<div class="font-medium">
+		<div class="flex flex-col">
+			<span>{getSolutionName(solution.index)}</span>
+		</div>
+	</div>
+{/snippet}
+
+{#snippet ObjectiveColumnHeader({
+	column,
+	objective,
+	idx
+}: {
+	column: Column<SolutionData>;
+	objective: any;
+	idx: number;
+})}
+	<div
+		class="flex items-center justify-center"
+		style="border-bottom: 4px solid {COLOR_PALETTE[idx % COLOR_PALETTE.length]}; width: 100%; padding: 0.5rem;"
+		title={getObjectiveTitle(objective)}
+	>
+		<button
+			class="flex items-center gap-2 hover:bg-gray-50 px-2 py-1 rounded"
+			onclick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+		>
+			<div class="flex flex-col items-center">
+				<span class="font-medium">{objective.name}</span>
+				{#if objective.unit}
+					<span class="text-xs text-gray-500">({objective.unit})</span>
+				{/if}
+				<span class="text-xs text-gray-500">({objective.maximize ? 'max' : 'min'})</span>
+			</div>
+			{#if column.getIsSorted() === 'desc'}
+				<ArrowDownIcon class="h-4 w-4" />
+			{:else if column.getIsSorted() === 'asc'}
+				<ArrowUpIcon class="h-4 w-4" />
+			{:else}
+				<ChevronsUpDownIcon class="h-4 w-4 opacity-50" />
+			{/if}
+		</button>
+	</div>
+{/snippet}
+
+{#snippet ObjectiveCell({
+	value,
+	accuracy
+}: {
+	value: number | null | undefined;
+	accuracy: number;
+})}
+	<div class="text-center">
+		{value != null ? formatNumber(value, accuracy) : '-'}
+	</div>
+{/snippet}
+
+{#snippet VoteCountCell({ solution }: { solution: SolutionData })}
+	<div class="text-center">
+		{#if getVoteCount(solution.index) > 0}
+			<span class="badge {getVoteCount(solution.index) > 1 ? 'badge-accent' : 'badge-primary'} badge-sm">
+				{getVoteCount(solution.index)}
+			</span>
+		{:else}
+			<span class="text-gray-400">0</span>
+		{/if}
+	</div>
+{/snippet}
+
+{#snippet ColumnHeader({
+	column,
+	title
+}: {
+	column: Column<SolutionData>;
+	title: string;
+})}
+	<div class="px-2 py-1 font-medium">
+		{title}
+	</div>
+{/snippet}
 
 {#if problem && solutions.length > 0}
-	<div class="overflow-auto rounded border shadow-sm">
-		<table class="table w-full">
-			<thead>
-				<tr>
-					<!-- Solution name column -->
-					<th class="w-32">Solution</th>
-					
-					<!-- Objective columns -->
-					{#each problem.objectives as objective, idx}
-						<th 
-							class="text-center min-w-24"
-							style="border-bottom: 4px solid {COLOR_PALETTE[idx % COLOR_PALETTE.length]}"
-							title={getObjectiveTitle(objective)}
-						>
-							<div class="flex flex-col items-center">
-								<span class="font-medium">{objective.name}</span>
-								{#if objective.unit}
-									<span class="text-xs text-gray-500">({objective.unit})</span>
-								{/if}
-								<span class="text-xs text-gray-500">({objective.maximize ? 'max' : 'min'})</span>
-							</div>
-						</th>
+	<div class="flex h-full flex-col items-start">
+		<div class="overflow-auto rounded border shadow-sm w-full">
+			<Table.Root>
+				<Table.Header>
+					{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
+						<Table.Row>
+							{#each headerGroup.headers as header (header.id)}
+								<Table.Head class="text-center">
+									{#if !header.isPlaceholder}
+										<FlexRender
+											content={header.column.columnDef.header}
+											context={header.getContext()}
+										/>
+									{/if}
+								</Table.Head>
+							{/each}
+						</Table.Row>
 					{/each}
-					
-					<!-- Vote count column -->
-					<th class="w-20 text-center">Votes</th>
-				</tr>
-			</thead>
-			
-			<tbody>
-				{#each solutions as solution, index}
-					<tr 
-						class="cursor-pointer hover:bg-gray-50 {selectedSolution === index ? 'bg-blue-100 border-l-4 border-blue-600' : ''} {isUserVotedSolution(index) ? 'bg-green-50 border-l-4 border-green-600' : ''}"
-						onclick={() => onSolutionSelect(index, solution)}
-						role="button"
-						tabindex="0"
-						onkeydown={(e) => {
-							if (e.key === 'Enter' || e.key === ' ') {
-								e.preventDefault();
-								onSolutionSelect(index, solution);
-							}
-						}}
-					>
-						<!-- Solution name -->
-						<td class="font-medium">
-							<div class="flex flex-col">
-								<span>{getSolutionName(index)}</span>
-								{#if isUserVotedSolution(index)}
-									<span class="text-xs text-green-600 font-medium">✓ Your vote</span>
-								{:else if selectedSolution === index}
-									<span class="text-xs text-blue-600">Selected</span>
-								{/if}
-							</div>
-						</td>
-						
-						<!-- Objective values -->
-						{#each problem.objectives as objective, objIndex}
-							<td class="text-center">
-								{#if solution[objective.symbol] !== undefined}
-									{formatNumber(solution[objective.symbol], displayAccuracy[objIndex])}
-								{:else}
-									-
-								{/if}
-							</td>
-						{/each}
-						
-						<!-- Vote count -->
-						<td class="text-center">
-							{#if getVoteCount(index) > 0}
-								<span class="badge {getVoteCount(index) > 1 ? 'badge-accent' : 'badge-primary'} badge-sm">
-									{getVoteCount(index)}
-								</span>
-							{:else}
-								<span class="text-gray-400">0</span>
-							{/if}
-						</td>
-					</tr>
-				{/each}
-			</tbody>
-		</table>
-	</div>
-	
-	<!-- Table Legend -->
-	<div class="mt-4 text-sm text-gray-600">
-		<div class="flex flex-wrap gap-4">
-			<div class="flex items-center gap-2">
-				<div class="w-3 h-3 bg-blue-100 border-l-2 border-blue-600"></div>
-				<span>Selected for voting</span>
-			</div>
-			<div class="flex items-center gap-2">
-				<div class="w-3 h-3 bg-green-50 border-l-2 border-green-600"></div>
-				<span>Your vote</span>
-			</div>
-			<div class="flex items-center gap-2">
-				<span>Click rows to select solutions</span>
+				</Table.Header>
+
+				<Table.Body>
+					{#each table.getRowModel().rows as row (row.id)}
+						<Table.Row
+							onclick={() => handleRowClick(row.original)}
+							class="cursor-pointer hover:bg-gray-50 {selectedSolution === row.original.index
+								? 'bg-blue-100 border-l-4 border-blue-600'
+								: ''} {isUserVotedSolution(row.original.index)
+								? 'bg-green-50 border-l-4 border-green-600'
+								: ''}"
+							role="button"
+							tabindex={0}
+							aria-label="Select solution {row.original.index + 1}"
+						>
+							{#each row.getVisibleCells() as cell (cell.id)}
+								<Table.Cell>
+									<FlexRender content={cell.column.columnDef.cell} context={cell.getContext()} />
+								</Table.Cell>
+							{/each}
+						</Table.Row>
+					{:else}
+						<Table.Row>
+							<Table.Cell colspan={columns.length} class="h-24 text-center">
+								No solutions available for voting.
+							</Table.Cell>
+						</Table.Row>
+					{/each}
+				</Table.Body>
+			</Table.Root>
+		</div>
+		
+		<!-- Table Legend -->
+		<div class="mt-4 text-sm text-gray-600 w-full">
+			<div class="flex flex-wrap gap-4">
+				<div class="flex items-center gap-2">
+					<div class="w-3 h-3 bg-blue-100 border-l-2 border-blue-600"></div>
+					<span>Selected for voting</span>
+				</div>
+				<div class="flex items-center gap-2">
+					<div class="w-3 h-3 bg-green-50 border-l-2 border-green-600"></div>
+					<span>Your vote</span>
+				</div>
+				<div class="flex items-center gap-2">
+					<span>Click rows to select • Click column headers to sort</span>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -181,16 +316,3 @@
 		No solutions available for voting.
 	</div>
 {/if}
-
-<style>
-	.table th {
-		position: sticky;
-		top: 0;
-		background: white;
-		z-index: 10;
-	}
-	
-	.table tr:hover td {
-		background-color: inherit;
-	}
-</style>

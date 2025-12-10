@@ -55,6 +55,13 @@
 		confirms: [] as number[],
 		votes: {} as Record<number, number>
 	});
+	let usersVote: number | null = $derived.by(() => {
+		if (userId && votes_and_confirms.votes.hasOwnProperty(userId)) {
+			return votes_and_confirms.votes[userId];
+		}
+		return null;
+	});
+
 	$effect(() => {
 		if (userId) {
 			// Use a safe hasOwnProperty check and typed votes map so numeric indexing is allowed
@@ -103,10 +110,17 @@
 	});
 
 	let phase = $state('Consensus Reaching Phase'); // 'Consensus reaching phase' or 'Decision phase'
-	let iteration_id = $state(0); // for header
+	let iteration_id = $state(0); // for header and fetch_score_bands
 	let method = $state(''); // for header, now wrong
 	let scoreBandsResult: components['schemas']['SCOREBandsResult'] | null = $state(null);
-	
+	// TODO: should the initial config be empty? I am using this bcs looks clear now, but prob need to change
+	// ALSO, this is used in initialization now, but exists in case of configuration changing possibility for group owner later
+	let scoreBandsConfig = $state({
+		clustering_algorithm: {
+			name: 'KMeans',
+			n_clusters: 5
+		}
+	});
 	// Decision phase data
 	let decisionResult: components['schemas']['GDMSCOREBandFinalSelection'] | null = $state(null);
 	
@@ -129,7 +143,8 @@
 			};
 		}
 		
-		// Calculate scales: use API scales if available, otherwise calculate from bands data TODO: maybe remove? Or fall back to ideal and nadir from problem first?
+		// TODO: when scales work, use them and not problem for ideal and nadir. Do we need fallback to UI-calculation? I dont want it.
+		// Calculate scales: use API scales if available, otherwise calculate from bands data 
 		function calculateScales(result: components['schemas']['SCOREBandsResult']): Record<string, [number, number]> {
 			// First try to use ideal and nadir from problem
 			if (data.problem?.objectives) {
@@ -211,11 +226,11 @@
 
 	// Reactive options with checkboxes
 	let show_bands = $state(true);
-	let show_solutions = $state(false); // Disabled for API mode - no individual solutions
+	let show_solutions = $state(false); // Disabled for now - no individual solutions
 	let show_medians = $state(false); // Hide medians by default
 	let quantile_value = $state(0.25);
-	let is_quantile_loading = $state(false); // Loading state for quantile changes
 
+	// TODO: do I need this? 
 	// Conversion functions between quantile and interval_size
 	function quantileToIntervalSize(quantile: number): number {
 		return 1 - (2 * quantile);
@@ -247,34 +262,6 @@
 		medians: show_medians,
 		quantile: quantile_value
 	}});
-
-	// Debounced effect for reactive quantile changes
-	let quantile_debounce_timer: ReturnType<typeof setTimeout> | undefined;
-	
-	$effect(() => {
-		// Access quantile_value in the effect scope to make it reactive
-		const currentQuantile = quantile_value;
-		
-		// Clear existing timer
-		if (quantile_debounce_timer) {
-			clearTimeout(quantile_debounce_timer);
-		}
-		
-		// Set up new debounced API call
-		quantile_debounce_timer = setTimeout(async () => {
-			const interval_size = quantileToIntervalSize(currentQuantile);
-			
-			try {
-				is_quantile_loading = true;
-				await fetch_score_bands(interval_size);
-			} catch (error) {
-				console.error('❌ Error updating bands for quantile:', error);
-				loading_error = `Failed to update bands: ${error}`;
-			} finally {
-				is_quantile_loading = false;
-			}
-		}, 500); // 500ms debounce delay
-	});
 
 	// Cluster visibility controls - dynamically generated based on data
 	let cluster_visibility_map: Record<number, boolean> = $state({});
@@ -335,7 +322,7 @@
 					// This runs when connection is re-established after disconnection
 					console.log('WebSocket reconnected, refreshing gdm-score-bands state...');
 					// showTemporaryMessage('Reconnected to server');
-					fetch_score_bands(quantileToIntervalSize(quantile_value));
+					fetch_score_bands();
 					// TODO: Add more specific state refresh logic here, IF NEEDED, e.g.:
 					// - Refresh current voting status
 					// - Update UI to show current group state
@@ -356,7 +343,7 @@
 				}
 				
 				if (msg.includes('iteration')) {
-					fetch_score_bands(quantileToIntervalSize(quantile_value));
+					fetch_score_bands();
 					fetch_votes_and_confirms();
 					return;
 				}
@@ -373,8 +360,7 @@
 			});
 		}
 
-		const initial_interval_size = quantileToIntervalSize(quantile_value);
-		await fetch_score_bands(initial_interval_size);
+		await fetch_score_bands();
 		await fetch_votes_and_confirms();
 		// Ensure clusters are visible after initial load
 		clusters_to_visible();
@@ -417,22 +403,24 @@
 
 	// Helper function to generate axis options with colors and styles
 	function generate_axis_options() {
-		return SCOREBands.axisNames.map((_, index) => {
-			// Set specific styles for axis 1 (green) and axis 3 (red)
-			if (index === 1) {
-				return {
-					color: '#0000FF', // Blue for axis 1
-					strokeWidth: 2,
-					strokeDasharray: '5,5'
-				};
-			}
-			if (index === 3) {
-				return {
-					color: '#FF0000', // Red for axis 3
-					strokeWidth: 3,
-					strokeDasharray: '5,5' // Dashed line
-				};
-			}
+		return SCOREBands.axisNames.map((axisName) => {
+			if(axis_agreement && axisName in axis_agreement) {
+				// Set specific styles for axis 1 (green) and axis 3 (red)
+				if (axis_agreement[axisName] === 'agreement') {
+					return {
+						color: '#15803d', // Green for agreement
+						strokeWidth: 2,
+						strokeDasharray: '5,5'
+					};
+				}
+				if (axis_agreement[axisName] === 'disagreement') {
+					return {
+						color: '#b91c1c', // Red for disagreement
+						strokeWidth: 3,
+						strokeDasharray: '5,5' // Dashed line
+					};
+				}
+		}
 			// Default gray color and solid line for all other axes
 			return {
 				color: '#666666', // Gray for all other axes
@@ -516,21 +504,9 @@
 
 	// TODO: documentation text
 	// components["schemas"]["GDMSCOREBandsResponse"] | components["schemas"]["GDMSCOREBandsDecisionResponse"]
-	async function fetch_score_bands(interval_size: number = 0.5) {
-		try {
-			// Configure SCORE bands with K-means clustering and dynamic interval_size
-			const scoreBandsConfig = {
-				interval_size: interval_size,
-				clustering_algorithm: {
-					name: "KMeans",
-					n_clusters: 5
-				}
-			};
-			
-			// Use group-specific problem ID if available, otherwise default to problem 1
-			const problemId = data.group?.problem_id || 1;
-		
-			
+	async function fetch_score_bands() {
+
+		try {			
 			const scoreResponse = await fetch('/interactive_methods/GDM-SCORE-bands/fetch_score_bands', {
 				method: 'POST',
 				headers: {
@@ -539,6 +515,7 @@
 				body: JSON.stringify({
 					group_id: data.group.id,
 					score_bands_config: scoreBandsConfig,
+					from_iteration: iteration_id
 				})
 			});
 
@@ -554,6 +531,7 @@
 				if (scoreResult.data.method === 'gdm-score-bands') {
 					// Regular SCORE bands response
 					scoreBandsResult = scoreResult.data.result;
+					scoreBandsConfig = scoreResult.data.result.score_bands_config;
 					iteration_id = scoreResult.data.group_iter_id;
 					method = scoreResult.data.method;
 					phase = 'Consensus Reaching Phase';
@@ -689,6 +667,119 @@
 			alert(`Error: ${error}`);
 		}
 	}
+
+	// TODO: documentation text
+	async function revert(iteration: number) {
+		try {
+			const response = await fetch('/interactive_methods/GDM-SCORE-bands/revert', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					group_id: data.group.id,
+					iteration_number: iteration
+				})
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(`Revert iteration failed: ${errorData.error || `HTTP ${response.status}: ${response.statusText}`}`);
+			}
+
+			const result = await response.json();
+			if (result.success) {
+				console.log('Reverted to previous iteration successfully:', result.data.message);
+				// Refresh score bands and votes after reverting
+				await fetch_score_bands();
+				await fetch_votes_and_confirms();
+				clusters_to_visible();
+			} else {
+				throw new Error(`Revert iteration failed: ${result.error || 'Unknown error'}`);
+			}
+		} catch (error) {
+			console.error('Error in revert_iteration:', error);
+			alert(`Error: ${error}`);
+		}
+	}
+
+	// TODO: documentation text
+	async function configure(config: components['schemas']['SCOREBandsGDMConfig']) {
+		try {
+			// Hardcoded configuration for SCORE bands GDM settings
+			// This should eventually come from UI form inputs or state variables
+			const hardcodedConfig: components['schemas']['SCOREBandsGDMConfig'] = {
+				// Configuration for the underlying SCORE bands algorithm
+				score_bands_config: {
+					dimensions: null, // null = use all dimensions
+					descriptive_names: null, // null = use default names. Could be {[key: string]: string}
+					units: null, // null = use default units. Could be {[key: string]: string}
+					axis_positions: null, // null = use default positions. Could be {[key: string]: number}
+					clustering_algorithm: {
+						// Algorithm name: 'DBSCAN', 'KMeans', or 'GMM'
+						name: 'KMeans',
+						// Number of clusters (for KMeans and GMM)
+						n_clusters: 5
+					},
+					// Distance formula: 1 = Euclidean, 2 = Manhattan
+					// Determines how distances between points are calculated
+					distance_formula: 1,
+					// Distance parameter for clustering (0.0 to 1.0) 
+					// Used in clustering algorithms to determine cluster boundaries
+					distance_parameter: 0.05,
+					// Whether to use absolute correlation in distance calculations
+					// true = use absolute values, false = consider sign of correlation
+					use_absolute_correlations: false,
+					include_solutions: false, // Whether to include individual solutions in visualization. This shouldnot even work, if I am right; deprecated?
+					include_medians: true, // Whether to include medians in visualization
+					// Quantile parameter for band calculation (0.0 to 0.5)
+					// Determines the width of the bands - smaller values = narrower bands
+					interval_size: 0.25,
+					scales: null, // null = auto-calculate scales. Could be {[key: string]: [number, number]}					
+				},
+				
+				// Minimum number of votes required to proceed to next iteration
+				// Must be greater than 0, typically set to majority or all users
+				minimum_votes: 1,
+				
+				// Iteration number from which to start considering clusters
+				// null = start from beginning, number = start from specific iteration
+				from_iteration: null // TODO: should this be the latest_iteration, is there something wrong with it since it does not give new info?
+			};
+
+			const configureResponse = await fetch('/interactive_methods/GDM-SCORE-bands/configure', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					// Group ID for which to apply the configuration
+					group_id: data.group.id,
+					// Configuration object with all SCORE bands settings
+					config: hardcodedConfig
+				})
+			});
+
+			if (!configureResponse.ok) {
+				const errorData = await configureResponse.json();
+				throw new Error(`Configure failed: ${errorData.error || `HTTP ${configureResponse.status}: ${configureResponse.statusText}`}`);
+			}
+
+			const configureResult = await configureResponse.json();
+			
+			if (configureResult.success) {
+				console.log('Configuration updated successfully:', configureResult.data.message);
+				// TODO: Refresh score bands data after configuration change
+				// await fetch_score_bands();
+				// await fetch_votes_and_confirms();
+			} else {
+				throw new Error(`Configure failed: ${configureResult.error || 'Unknown error'}`);
+			}
+		} catch (error) {
+			console.error('Error in configure:', error);
+			alert(`Error: ${error}`);
+		}
+	}
 </script>
 
 <div class="container mx-auto p-6">
@@ -699,20 +790,10 @@
 				<p class="mt-4">Loading data...</p>
 				{#if loading_error}
 					<p class="text-error mt-2">Error: {loading_error}</p>
-					<p class="mt-1 text-sm text-gray-500">Using fallback data instead</p>
 				{/if}
 			</div>
 		</div>
 	{:else}
-		<!-- Show quantile loading indicator if updating TODO whats the point, no point anymore, remove.-->
-		{#if is_quantile_loading}
-			<div class="alert alert-info mb-4">
-				<div class="flex items-center gap-2">
-					<div class="loading loading-spinner loading-sm"></div>
-					<span>Updating bands for quantile {quantile_value}...</span>
-				</div>
-			</div>
-		{/if}
 		
 		<!-- Header and Instructions -->
 		<div class="card bg-base-100 mb-6 shadow-xl">
@@ -727,26 +808,6 @@
 						<div>Click a cluster on the graph, vote with the button, then confirm when ready to continue.</div>
 						<div> Votes: {Object.keys(votes_and_confirms.votes || {}).length}</div>
 						<div> Confirms: {votes_and_confirms.confirms.length}</div>
-						
-						<!-- Display axis agreement information -->
-						{#if Object.keys(axis_agreement).length > 0}
-							<div class="mt-4 p-4 bg-blue-50 rounded-lg">
-								<h4 class="font-semibold text-sm mb-2">Axis Agreement Analysis:</h4>
-								<div class="grid grid-cols-1 gap-1 text-sm">
-									{#each Object.entries(axis_agreement) as [axisName, agreementLevel]}
-										<div class="flex justify-between items-center">
-											<span class="font-medium">{axisName}:</span>
-											<span class="px-2 py-1 rounded text-xs font-semibold
-												{agreementLevel === 'agreement' ? 'bg-green-200 text-green-800' : 
-												 agreementLevel === 'disagreement' ? 'bg-red-200 text-red-800' : 
-												 'bg-gray-200 text-gray-600'}">
-												{agreementLevel}
-											</span>
-										</div>
-									{/each}
-								</div>
-							</div>
-						{/if}
 					{:else if isDecisionPhase}
 						<div>Select the best solution from the solutions shown below and vote for it.</div>
 						{#if decisionResult}
@@ -759,10 +820,8 @@
 			</div>
 		</div>
 
-		{#if isConsensusPhase}
-			<!-- CONSENSUS PHASE: Existing SCORE Bands Content -->
-			<!-- Parameter Controls -->
-		 {#if isOwner}
+		<!-- Parameter Controls -->
+		{#if isOwner}
 			<div class="card bg-base-100 mb-6 shadow-xl">
 				<div class="card-body">
 					<h3 class="card-title">Score Bands Parameters</h3>
@@ -845,10 +904,19 @@
 						>
 							Recalculate Parameters
 						</button>
+						<Button
+							onclick={()=>revert(iteration_id-1)}
+							class="btn btn-primary"
+							disabled={iteration_id === 0}
+						>
+							Revert to previous iteration
+						</Button>
 					</div>
 				</div>
 			</div>
 		{/if}
+		{#if isConsensusPhase}
+		<!-- CONSENSUS PHASE: Existing SCORE Bands Content -->
 
 		<div class="grid grid-cols-1 gap-6 lg:grid-cols-5">
 			<!-- Controls Panel -->
@@ -901,9 +969,6 @@
 						<div class="form-control">
 							<label class="label">
 								<span class="label-text">Quantile: {quantile_value}</span>
-								{#if is_quantile_loading}
-									<span class="loading loading-spinner loading-sm"></span>
-								{/if}
 							</label>
 							<input
 								type="range"
@@ -911,7 +976,6 @@
 								max="0.5"
 								step="0.05"
 								bind:value={quantile_value}
-								disabled={is_quantile_loading}
 								class="range range-primary"
 								title="Adjust quantile to change band width (triggers API call)"
 							/>
@@ -1057,6 +1121,12 @@
 									dimensions={decisionDimensions}
 									selectedIndex={selected_solution}
 									onLineSelect={handle_solution_select}
+									referenceData={{
+										preferredSolutions: usersVote !== null ? [{
+											values: decisionSolutions[usersVote],
+											label: `Your Vote: Solution ${usersVote + 1}`
+										}] : []
+									}}
 								/>
 							</div>
 							<h2 class="card-title mb-4">Numerical values</h2>
@@ -1065,8 +1135,7 @@
 									solutions={decisionSolutions}
 									selectedSolution={selected_solution}
 									onSolutionSelect={handle_solution_select}
-									userHasVoted={vote_given}
-									userVotedSolution={vote_given ? selected_solution : null}
+									userVotedSolution={usersVote}
 									groupVotes={decisionResult.user_votes || {}}
 								/>
 							{:else}
@@ -1097,7 +1166,7 @@
 								
 								{#if vote_given}
 									<div class="alert alert-success">
-										<span>You voted for Solution {selected_solution !== null ? selected_solution + 1 : '?'}</span>
+										<span>You voted for Solution {usersVote ? usersVote + 1 : '?'}</span>
 									</div>
 								{:else}
 									<Button 
@@ -1109,6 +1178,12 @@
 								{/if}
 								
 								{#if vote_given && !vote_confirmed}
+									<Button 
+										onclick={() => vote(selected_solution)} 
+										disabled={selected_solution === null}
+									>
+										Vote for Selected Solution
+									</Button>
 									<Button onclick={confirm_vote}>
 										Confirm Final Decision
 									</Button>
