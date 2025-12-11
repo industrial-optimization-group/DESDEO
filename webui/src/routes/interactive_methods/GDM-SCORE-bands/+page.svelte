@@ -6,6 +6,12 @@
 	import { onMount, onDestroy } from 'svelte';
 	import type { components } from "$lib/api/client-types";
 	import { auth } from '../../../stores/auth';
+	import { errorMessage } from '../../../stores/uiState';
+	import Alert from '$lib/components/custom/notifications/alert.svelte';
+		import {
+		createObjectiveDimensions,
+		transformObjectiveData
+	} from '$lib/helpers/visualization-data-transform';
 
 	// WebSocket service import
 	import { WebSocketService } from './websocket-store';
@@ -113,6 +119,10 @@
 	let phase = $state('Consensus Reaching Phase'); // 'Consensus reaching phase' or 'Decision phase'
 	let iteration_id = $state(0); // for header and fetch_score_bands
 	let method = $state(''); // for header, now wrong
+	
+	// History browsing state
+	let showHistory = $state(false);
+	let expandedIterations = $state(new Set<number>());
 	let scoreBandsResult: components['schemas']['SCOREBandsResult'] | null = $state(null);
 	// TODO: should the initial config be empty? Ok, well it cant be emtpiedr than this. I am using this bcs looks clear now, but prob need to change
 	// ALSO, this is used in initialization now, but exists in case of configuration changing possibility for group owner later
@@ -454,7 +464,8 @@
 	}
 
 	function handle_axis_select(axisIndex: number | null) {
-		selected_axis = axisIndex;
+		// TODO: Waiting until there is need to select an axis
+		// selected_axis = axisIndex;
 	}
 
 	// Decision phase solution selection handler
@@ -479,19 +490,6 @@
 			});
 			return solution;
 		});
-	});
-
-	// Create dimensions from problem objectives for parallel coordinates
-	let decisionDimensions = $derived.by(() => {
-		if (!data.problem?.objectives) {
-			return [];
-		}
-
-		return data.problem.objectives.map((obj: any) => ({
-			symbol: obj.symbol,
-			name: obj.name,
-			direction: obj.maximize ? 'max' as const : 'min' as const
-		}));
 	});
 
 	// Votes chart container
@@ -570,14 +568,14 @@
 			loading_error = null;
 		} catch (error) {
 			console.error('Error in fetch_score_bands:', error);
-			alert(`Error: ${error}`);
+			errorMessage.set(`${error}`);
 		}
 	}
 
 	// TODO: documentation text
 	async function vote(selection: number | null) {
 		if (selection === null) {
-			alert('Please select a band or solution to vote for.');
+			errorMessage.set('Please select a band or solution to vote for.');
 			return;
 		}
 		console.log("Selection to vote for:", selection);
@@ -607,7 +605,7 @@
 			}
 		} catch (error) {
 			console.error('Error in vote:', error);
-			alert(`Error: ${error}`);
+			errorMessage.set(`${error}`);
 		}
 	}
 
@@ -642,7 +640,7 @@
 			fetch_votes_and_confirms();
 		} catch (error) {
 			console.error('Error in Confirm:', error);
-			alert(`Error: ${error}`);
+			errorMessage.set(`${error}`);
 		}
 	}
 
@@ -679,12 +677,12 @@
 			}
 		} catch (error) {
 			console.error('Error in get_votes_and_confirms:', error);
-			alert(`Error: ${error}`);
+			errorMessage.set(`${error}`);
 		}
 	}
 
 	// TODO: documentation text
-	async function revert(iteration: number) {
+	async function revert_to(iteration: number) {
 		try {
 			const response = await fetch('/interactive_methods/GDM-SCORE-bands/revert', {
 				method: 'POST',
@@ -714,7 +712,7 @@
 			}
 		} catch (error) {
 			console.error('Error in revert_iteration:', error);
-			alert(`Error: ${error}`);
+			errorMessage.set(`${error}`);
 		}
 	}
 
@@ -792,12 +790,20 @@
 			}
 		} catch (error) {
 			console.error('Error in configure:', error);
-			alert(`Error: ${error}`);
+			errorMessage.set(`${error}`);
 		}
 	}
 </script>
 
 <div class="container mx-auto p-6">
+	{#if $errorMessage}
+		<Alert 
+			title="Error"
+			message={$errorMessage} 
+			variant='destructive'
+		/>
+	{/if}
+	
 	{#if !data_loaded}
 		<div class="flex h-96 items-center justify-center">
 			<div class="text-center">
@@ -816,7 +822,7 @@
 				<div class="">
 					<!-- Header Section -->
 					<div class="font-semibold">
-						{method}, Iteration {iteration_id}, {phase}
+						Group SCORE Bands / {phase}, Iteration {iteration_id}
 					</div>
 					<!-- Instructions Section -->
 					{#if isConsensusPhase}
@@ -919,13 +925,6 @@
 						>
 							Recalculate Parameters
 						</button>
-						<Button
-							onclick={()=>revert(iteration_id-1)}
-							class="btn btn-primary"
-							disabled={iteration_id === 0}
-						>
-							Revert to previous iteration
-						</Button>
 					</div>
 				</div>
 			</div>
@@ -1048,8 +1047,8 @@
 							{:else}
 								<div class="text-sm text-gray-500">No band selected</div>
 							{/if}
-
-							{#if selected_axis !== null}
+							<!-- TODO: uncomment code below, when there is a need to select an axis -->
+							<!-- {#if selected_axis !== null}
 								<div class="alert alert-warning">
 									<span class="font-medium"
 										>Axis "{SCOREBands.axisNames[selected_axis] || 'Unknown'}" selected</span
@@ -1057,30 +1056,31 @@
 								</div>
 							{:else}
 								<div class="text-sm text-gray-500">No axis selected</div>
-							{/if}
+							{/if} -->
 
 							{#if selected_band === null && selected_axis === null}
-								<div class="mt-2 text-xs text-gray-400">Click on bands or axes to select them</div>
+								<div class="mt-2 text-xs text-gray-400">Click on bands to select them</div>
 							{/if}
 						</div>
 					</div>
 				</div>
 
-
 				<!-- "Voting buttons" -->
-				<div class="card bg-base-100 shadow-xl">
-					<div class="card-body">
-						<h2 class="card-title">Voting</h2>
-						<div class="space-y-2 p-2">
-							<Button onclick={() => vote(selected_band)} disabled={selected_band === null || vote_confirmed}>
-								Vote
-							</Button>
-							<Button onclick={confirm_vote} disabled={!vote_given || vote_confirmed}>
-								Confirm vote
-							</Button>
+				{#if isDecisionMaker}
+					<div class="card bg-base-100 shadow-xl">
+						<div class="card-body">
+							<h2 class="card-title">Voting</h2>
+							<div class="space-y-2 p-2">
+								<Button onclick={() => vote(selected_band)} disabled={selected_band === null || vote_confirmed}>
+									Vote
+								</Button>
+								<Button onclick={confirm_vote} disabled={!vote_given || vote_confirmed}>
+									Confirm vote
+								</Button>
+							</div>
 						</div>
 					</div>
-				</div>
+				{/if}
 			</div>
 
 			<!-- Visualization Area -->
@@ -1112,13 +1112,57 @@
 				</div>
 			</div>
 
-			<!-- Votes Chart -->
 			<div class="lg:col-span-1">
+				<!-- Votes Chart -->
 				<div class="card bg-base-100 shadow-xl">
 					<div class="card-body">
 						<div bind:this={votesChartContainer} class="w-full h-48"></div>
 					</div>
 				</div>
+				<!-- "History" -->
+				{#if isOwner}
+					<div class="card bg-base-100 shadow-xl">
+						<div class="card-body">
+							<h2 class="card-title">History</h2>
+							<div class="space-y-2 p-2">
+								<Button
+									onclick={() => showHistory = !showHistory}
+									class="btn btn-secondary"
+								>
+									{showHistory ? 'Hide History' : 'Show History'}
+								</Button>
+								
+								{#if showHistory}
+									<div class="mt-4 space-y-2 max-h-100 overflow-y-auto">
+										{#each history as historyItem, index}
+											<div class="flex items-center justify-between p-2 border rounded">
+												<span class="text-sm">
+													Iteration {historyItem.group_iter_id}
+													{#if historyItem.group_iter_id === iteration_id}
+														<span class="text-blue-600 text-xs">(current)</span>
+													{/if}
+													{#if historyItem.method === 'gdm-score-bands-final'}
+														<span class="text-orange-600 text-xs">(final)</span>
+													{/if}
+												</span>
+													<Button
+														onclick={() => revert_to(historyItem.group_iter_id)}
+														class="btn btn-xs btn-primary"
+														disabled={historyItem.group_iter_id === iteration_id || historyItem.method === 'gdm-score-bands-final'}
+													>
+														Go to this iteration
+													</Button>
+											</div>
+										{/each}
+										{#if history.length <= 1}
+											<p class="text-sm text-gray-500 text-center">No previous iterations available</p>
+										{/if}
+									</div>
+								{/if}
+							</div>
+						</div>
+					</div>
+				{/if}
 			</div>
 		</div>
 		
@@ -1133,7 +1177,7 @@
 								<!-- Parallel Coordinates Component -->
 								<ParallelCoordinates
 									data={decisionSolutions}
-									dimensions={decisionDimensions}
+									dimensions={createObjectiveDimensions(data.problem)}
 									selectedIndex={selected_solution}
 									onLineSelect={handle_solution_select}
 									referenceData={{

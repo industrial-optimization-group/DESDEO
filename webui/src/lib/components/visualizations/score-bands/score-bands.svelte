@@ -162,6 +162,8 @@
 			) : new Map();
 
 		// --- Decide which drawing method to use ---
+		// hasRawData: UI has list of solutions and calculates bands from them.
+		// hasPreCalculatedData: UI uses bands and medians pre-calculated by SCORE API, and might not have solutions at all.
 		const hasRawData = processedData.length > 0 && groups.length > 0;
 		const hasPreCalculatedData = Object.keys(bands).length > 0 && Object.keys(medians).length > 0;
 

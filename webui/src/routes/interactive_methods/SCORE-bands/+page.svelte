@@ -33,6 +33,8 @@
 	import { onMount } from 'svelte';
 	import type { components } from "$lib/api/client-types";
 	import { methodSelection } from '../../../stores/methodSelection';
+	import { errorMessage } from '../../../stores/uiState';
+	import Alert from '$lib/components/custom/notifications/alert.svelte';
 
 
 	// Page data props
@@ -373,21 +375,21 @@
 			loading_error = null;
 		} catch (error) {
 			console.error('Error in fetch_score_bands:', error);
-			alert(`Error: ${error}`);
+			errorMessage.set(`${error}`);
 		}
 	}
 
 	// Iterate to find new solutions based on current selection
 	async function iterate(problem: ProblemInfo | undefined, selected_band: number | null) {
 		if (!problem || selected_band === null) {
-			alert('Please select a problem and a band to iterate from.');
+			errorMessage.set('Please select a problem and a band to iterate from.');
 			return;
 		}
 
 		console.log("Iterating from selected band:", selected_band);
 		try {
 			// For now, just show a message - this would call EMO iterate with preferences
-			alert(`Iterate functionality: Would generate new solutions focusing on cluster ${selected_band}`);
+			errorMessage.set(`Iterate functionality: Would generate new solutions focusing on cluster ${selected_band}`);
 			
 			// TODO: Implement actual iteration logic
 			// This would involve calling EMO iterate with preferences based on the selected band
@@ -395,26 +397,26 @@
 			
 		} catch (error) {
 			console.error('Error in iterate:', error);
-			alert(`Error: ${error}`);
+			errorMessage.set(`${error}`);
 		}
 	}
 
 	// Confirm final solution selection
 	async function confirmFinalSolution() {
 		if (!problem || selected_solution === null) {
-			alert('Please select a solution to confirm as final.');
+			errorMessage.set('Please select a solution to confirm as final.');
 			return;
 		}
 
 		try {
 			// For now, just show a message - this would save the final solution
-			alert(`Final solution confirmed: Solution ${selected_solution + 1} has been selected as the final decision.`);
+			errorMessage.set(`Final solution confirmed: Solution ${selected_solution + 1} has been selected as the final decision.`);
 			
 			console.log('Final solution confirmed:', selected_solution);
 			
 		} catch (error) {
 			console.error('Error in confirm final solution:', error);
-			alert(`Error: ${error}`);
+			errorMessage.set(`${error}`);
 		}
 	}
 
@@ -429,10 +431,10 @@
 		try {
 			// Not implemented for individual SCORE bands method
 			console.log('revert: Not implemented for individual method');
-			alert('Revert functionality is not available in individual SCORE bands method');
+			errorMessage.set('Revert functionality is not available in individual SCORE bands method');
 		} catch (error) {
 			console.error('Error in revert_iteration:', error);
-			alert(`Error: ${error}`);
+			errorMessage.set(`${error}`);
 		}
 	}
 
@@ -441,15 +443,23 @@
 		try {
 			// Not implemented for individual SCORE bands method
 			console.log('configure: Not implemented for individual method');
-			alert('Configuration is not available in individual SCORE bands method');
+			errorMessage.set('Configuration is not available in individual SCORE bands method');
 		} catch (error) {
 			console.error('Error in configure:', error);
-			alert(`Error: ${error}`);
+			errorMessage.set(`${error}`);
 		}
 	}
 </script>
 
 <div class="container mx-auto p-6">
+	{#if $errorMessage}
+		<Alert 
+			title="Error"
+			message={$errorMessage} 
+			variant='destructive'
+		/>
+	{/if}
+	
 	{#if !data_loaded}
 		<div class="flex h-96 items-center justify-center">
 			<div class="text-center">
