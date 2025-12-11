@@ -14,6 +14,7 @@ from desdeo.api.models import (
     EMOIterateResponse,
     EMOSaveRequest,
     ForestProblemMetaData,
+    GDMSCOREBandsHistoryResponse,
     GDMScoreBandsInitializationRequest,
     GDMSCOREBandsResponse,
     GDMScoreBandsVoteRequest,
@@ -942,8 +943,8 @@ def test_gdm_score_bands(client: TestClient):
         access_token=access_token
     )
     assert response.status_code == 200
-    response_innards = GDMSCOREBandsResponse.model_validate(response.json())
-    cluster_size_1 = len(response_innards.result.clusters)
+    response_innards = GDMSCOREBandsHistoryResponse.model_validate(response.json())
+    cluster_size_1 = len(response_innards.history[-1].result.clusters)
 
     # VOTE AND CONFIRM
     req = GDMScoreBandsVoteRequest(
@@ -973,7 +974,7 @@ def test_gdm_score_bands(client: TestClient):
                     n_clusters=5
                 )
             ),
-            from_iteration=response_innards.latest_iteration
+            from_iteration=response_innards.history[-1].latest_iteration
         )
     ).model_dump()
     response = post_json(
@@ -983,9 +984,11 @@ def test_gdm_score_bands(client: TestClient):
         access_token=access_token
     )
     assert response.status_code == 200
-    response_innards = GDMSCOREBandsResponse.model_validate(response.json())
-    cluster_size_2 = len(response_innards.result.clusters)
+    response_innards = GDMSCOREBandsHistoryResponse.model_validate(response.json())
+    cluster_size_2 = len(response_innards.history[-1].result.clusters)
 
-    # Since we've made one iteration, the length of the clustering and therefore the active 
+    # Since we've made one iteration, the length of the clustering and therefore the active
     # indices should be smaller the second time around than the first one.
     assert cluster_size_1 > cluster_size_2
+
+    # TODO: Test reverting, re-clustering

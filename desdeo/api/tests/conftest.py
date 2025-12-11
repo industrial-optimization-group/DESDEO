@@ -63,9 +63,7 @@ def session_fixture():
         session.commit()
 
         problem_db_discrete = ProblemDB.from_problem(
-            dmitry_forest_problem_disc(
-                "../../tests/data/dmitry_discrete_repr/dmitry_forest_problem_non_dom_solns.csv"
-            ),
+            dmitry_forest_problem_disc(),
             user=user_analyst
         )
         session.add(problem_db_discrete)
