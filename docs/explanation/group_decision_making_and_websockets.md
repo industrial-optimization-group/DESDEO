@@ -80,8 +80,18 @@ The url for the websocket is ```ws://[DOMAIN]:[PORT]/gdm/ws?token=[TOKEN]&group_
 If the server is hosted on a server with TSL certificates etc. the appropriate protocol is ```wss:```, similar to what is the case with ```http:``` and ```https:```.
 When a user connects to this websocket, they are validated as a member of the group using ```[TOKEN]``` and ```[GROUP_ID]``` and then are connected to the Group's manager corresponding to ```[METHOD]```.
 
-For as long as the user is connected to the websocket, they can send data over to the server. The data is validated as needed as described above. The users are also notified when optimization is done or if something goes wrong as a result of their actions.
+For as long as the user is connected to the websocket, they can send data over to the server. The data is validated as needed as described above (in the case of GNIMBUS). The users are also notified when optimization is done or if something goes wrong as a result of their actions.
 
 ### The routers
 
 These are just your standard HTTP endpoints. These can be used in general to manipulate groups and such. There's also the GNIMBUS specific endpoints used for fetching results and initializing the problem and such.
+
+### Authors note after implementing the GDMScoreBands prototype
+
+The role of the websockets has been greatly diminished in the GDMSCOREBands implementation. Currently, the system rather utilizes HTTP endpoints to communicate with the Group Manager. Each HTTP endpoint has it's corresponding method in the group manager.
+
+In implementing the GDMSCOREBands system, it is evident that this system can be used to many degrees. One can, if they will, rely on the websockets for transferring preferences, messages, etc. and use the manager system to handle the optimization and so forth (as is done with GNIMBUS). One can also communicate with the manager through HTTPEndpoints, and implement the manager to handle the things (as is done with GDMSCOREBands). One could most likely also utilize the manager as a simple message system, making sure that the UI will fetch the right data from the right endpoint.
+
+In hindsight, the author of this system might have been blinded with the idea of websockets as a form of back-and-forth communication. The GNIMBUS system build on top of this works, yes, but it could have been simpler. A word forward: have the HTTP endpoints access the managers through import. Then have the endpoints utilize the manager's functionality.
+
+However, the groups and group iterations and their interplay is useful.
