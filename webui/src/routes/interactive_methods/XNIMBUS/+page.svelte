@@ -10,7 +10,7 @@
 	 * We need to restructure the code to avoid repetition.
 	 *
 	 */
-	import { BaseLayout } from '$lib/components/custom/method_layout/index.js';
+	import { ExplainableLayout as BaseLayout } from '$lib/components/custom/method_layout/index.js';
 	import { methodSelection } from '../../../stores/methodSelection';
 	//import type { components } from '$lib/api/client-types';
 	import { errorMessage, isLoading } from '../../../stores/uiState';
@@ -159,7 +159,6 @@
 			selected_objective_index = index;
 			console.log('Selected objective index:', selected_objective_index);
 		}
-		
 	}
 	// Helper function to change solution type and update selections
 	function change_solution_type_updating_selections(newType: SolutionType) {
