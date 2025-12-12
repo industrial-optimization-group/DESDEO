@@ -195,7 +195,7 @@ async def get_or_initialize(
                 case "gdm-score-bands-final":
                     responses.append(GDMSCOREBandsDecisionResponse(
                         group_id=group.id,
-                        group_iter_id=group.head_iteration_id,
+                        group_iter_id=giter.id,
                         result=giter.info_container
                     ))
         toc = time.time()
