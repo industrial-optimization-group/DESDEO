@@ -157,8 +157,6 @@ class GDMScoreBandsManager(GroupManager):
                 state: list[SCOREBandsGDMResult] = [iteration.info_container.score_bands_result \
                                                     for iteration in iterations if \
                                                         iteration.info_container.method == "gdm-score-bands"]
-                for st in state:
-                    print(f"{st.iteration}: {len(st.score_bands_result.clusters)}")
 
                 # USE Bhupinder's score bands stuff.
                 score_bands_config = SCOREBandsGDMConfig(
@@ -174,9 +172,8 @@ class GDMScoreBandsManager(GroupManager):
                 winners = consensus_rule(votes, score_bands_config.minimum_votes)
                 relevant_ids = state[-1].relevant_ids
                 clustering = state[-1].score_bands_result.clusters
-                if p_r(len([x[0] for x in zip(relevant_ids, clustering, strict=True) if x[1] in winners])) < 11:
-                    print("LESS THAN OR AS MUCH AS 10")
-                    # THERE ARE 10 OR LESS SOLUTIONS IN TOTAL: MOVE ON TO DECISION PHASE!
+                if len([x[0] for x in zip(relevant_ids, clustering, strict=True) if x[1] in winners]) < 11:
+                    # There are less than 10 solutions, so move to the decision phase.
 
                     obj_keys = list(discrete_repr.objective_values)
                     var_keys = list(discrete_repr.variable_values)
@@ -210,7 +207,7 @@ class GDMScoreBandsManager(GroupManager):
                     )
 
                 else:
-                    print("MORE THAN 10")
+                    # Case in which we have more than 10 solutions
                     discrete_repr = discrete_repr.objective_values
                     objective_keys = list(discrete_repr)
                     objs = pl.DataFrame(discrete_repr).with_row_index()
@@ -222,9 +219,6 @@ class GDMScoreBandsManager(GroupManager):
                         state=state,
                         votes=votes
                     )
-
-                    st = result[-1]
-                    print(f"{st.iteration}: {len(st.score_bands_result.clusters)}")
 
                     # store necessary data to the database. Currently all "voting" related is null bc no voting has happened
                     info_container = GDMSCOREBandInformation(
@@ -272,12 +266,10 @@ class GDMScoreBandsManager(GroupManager):
                 vari_d = {}
                 for key in vari_keys:
                     vari_d[key] = varis[key][winner]
-                print(vari_d)
 
                 obj_d = {}
                 for key in obj_keys:
                     obj_d[key] = objs[key][winner]
-                print(obj_d)
 
                 info_container.winner_solution_variables = vari_d
                 info_container.winner_solution_objectives = obj_d
@@ -411,9 +403,6 @@ class GDMScoreBandsManager(GroupManager):
             )
 
             objs_df = objs_df.select(objective_keys)
-
-            # Recluster!
-            print(objs_df)
 
             score_bands_result = score_json(
                 data=objs_df,

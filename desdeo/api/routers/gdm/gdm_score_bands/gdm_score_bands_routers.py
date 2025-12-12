@@ -4,6 +4,7 @@ I imagine these as simple interfaces to the GDMScoreBandsManager.
 """
 import logging
 import sys
+import time
 from typing import Annotated
 
 import polars as pl
@@ -168,6 +169,7 @@ async def get_or_initialize(
     Returns:
         GDMSCOREBandsResponse: A response containing Group id, group iter id and ScoreBandsResponse.
     """
+    tic = time.time()
     group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
     if not group:
         raise HTTPException(
@@ -196,6 +198,8 @@ async def get_or_initialize(
                         group_iter_id=group.head_iteration_id,
                         result=giter.info_container
                     ))
+        toc = time.time()
+        #print(f"Elapsed time: {(toc - tic)}")
         return GDMSCOREBandsHistoryResponse(
             history=responses
         )

@@ -4,6 +4,9 @@ Idea is that in the very first iteration, the filtered indices contains the clus
 information on the entire data. Since on each iteration, the clustering is different,
 we need to include the indices over and over again. Of course with time the amount of
 indices will get smaller and smaller, and eventually be only ~10 solutions.
+
+The names of the classes can be renamed to fit the purpose better, currently they are
+more or less just the first thing that came to my mind.
 """
 
 from sqlmodel import JSON, Column, Field, SQLModel
