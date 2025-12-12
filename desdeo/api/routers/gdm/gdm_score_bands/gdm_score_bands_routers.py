@@ -225,6 +225,8 @@ async def get_or_initialize(
         state=None
     )[-1]
 
+    score_bands_config.score_bands_config.axis_positions = result.score_bands_result.axis_positions
+
     # store necessary data to the database. Currently all "voting" related is null bc no voting has happened yet.
     score_bands_info = GDMSCOREBandInformation(
         user_votes={},
