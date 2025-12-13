@@ -74,9 +74,13 @@
 						{#if multipliers && multipliers[0]}
 							<div class="mb-4">
 								<p class="mb-3 text-sm text-gray-600">
- 									<strong>Click a bar for the objective you want to improve.</strong> The bar height shows how strongly each objective influences the current solution. When you click, you’ll see the trade-offs and a suggested adjustment to move closer to your preferred solution.								</p>
+									<strong>Click a bar for the objective you want to improve.</strong> The bar height
+									shows how strongly each objective influences the current solution. When you click,
+									you’ll see the trade-offs and a suggested adjustment to move closer to your preferred
+									solution.
+								</p>
 								<div>
-<!-- 								{#each Object.entries(multipliers[0] ?? {}) as [objName, value]}
+									<!-- 								{#each Object.entries(multipliers[0] ?? {}) as [objName, value]}
 										<div class="flex justify-between rounded bg-blue-50 p-2 text-xs">
 											<span class="font-medium">{objName}:</span>
 											<span class="font-mono"
@@ -87,10 +91,10 @@
 									<ExpBarchart
 										data={Object.entries(multipliers[0] ?? {}).map(([objName, value]) => ({
 											name: objName,
-											value: Number(-1*value),
+											value: Number(-1 * value),
 											direction: 'min'
 										}))}
-										axisRanges={Object.entries(multipliers[0] ?? {}).map(() => [0, 1])} 
+										axisRanges={Object.entries(multipliers[0] ?? {}).map(() => [0, 1])}
 										options={{ showLabels: true, orientation: 'vertical' }}
 										onSelect={handleObjectiveClick}
 									/>
@@ -100,10 +104,10 @@
 									<ExpBarchart
 										data={Object.entries(multipliers[0] ?? {}).map(([objName, value]) => ({
 											name: objName,
-											value: Number(-1*value),
+											value: Number(-1 * value),
 											direction: 'min'
 										}))}
-										axisRanges={Object.entries(multipliers[0] ?? {}).map(() => [0, 1])} 
+										axisRanges={Object.entries(multipliers[0] ?? {}).map(() => [0, 1])}
 										options={{ showLabels: true, orientation: 'horizontal' }}
 										onSelect={handleObjectiveClick}
 									/>

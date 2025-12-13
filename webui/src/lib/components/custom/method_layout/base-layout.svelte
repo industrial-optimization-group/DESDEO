@@ -9,6 +9,7 @@
 		showLeftSidebar?: boolean;
 		showRightSidebar?: boolean;
 		leftSidebarWidth?: string;
+		leftSidebarMinWidth?: string;
 		rightSidebarWidth?: string;
 		bottomPanelTitle?: string; // New prop for the bottom panel title
 		// Named snippets
@@ -26,7 +27,8 @@
 	let {
 		showLeftSidebar = true,
 		showRightSidebar = true,
-		leftSidebarWidth = 'auto',
+		leftSidebarWidth = '24rem',
+		leftSidebarMinWidth = '24rem',
 		rightSidebarWidth = 'auto',
 		bottomPanelTitle = 'Numerical values', // Default title for the bottom panel
 		leftSidebar,
@@ -44,7 +46,10 @@
 <div class="flex min-h-[calc(100vh-3rem)]">
 	<!-- Left Sidebar: Preferences and Controls -->
 	{#if showLeftSidebar}
-		<aside class="left-sidebar" style="width: {leftSidebarWidth}">
+		<aside
+			class="left-sidebar"
+			style={`min-width: ${leftSidebarMinWidth}; width: ${leftSidebarWidth}`}
+		>
 			{#if leftSidebar}
 				{@render leftSidebar()}
 			{/if}
@@ -90,33 +95,33 @@
 			<ResizableHandle />
 			<!-- Bottom Panel: Numerical Values and Tables -->
 			<Resizable.Pane class="flex min-h-0 flex-col p-2">
-					<Tabs.Root value="numerical-values" class="flex flex-col min-h-0 h-full">
-						<Tabs.List class="flex-shrink-0">
+				<Tabs.Root value="numerical-values" class="flex h-full min-h-0 flex-col">
+					<Tabs.List class="flex-shrink-0">
 						{#if tabsList}
 							{@render tabsList()}
 						{:else}
-							<span class='text-black'>{bottomPanelTitle}</span>
+							<span class="text-black">{bottomPanelTitle}</span>
 						{/if}
-						</Tabs.List>
+					</Tabs.List>
 
-						<!-- Numerical Values Tab Content -->
-						<Tabs.Content value="numerical-values" class="min-h-0 flex-grow">
-							{#if numericalValues}
-								{@render numericalValues()}
-							{:else}
-								<div class="p-4">Default numerical values content</div>
-							{/if}
-						</Tabs.Content>
+					<!-- Numerical Values Tab Content -->
+					<Tabs.Content value="numerical-values" class="min-h-0 flex-grow">
+						{#if numericalValues}
+							{@render numericalValues()}
+						{:else}
+							<div class="p-4">Default numerical values content</div>
+						{/if}
+					</Tabs.Content>
 
-						<!-- Saved Solutions Tab Content -->
-						<Tabs.Content value="saved-solutions" class="min-h-0 flex-grow">
-							{#if savedSolutions}
-								{@render savedSolutions()}
-							{:else}
-								<div class="p-4">Default saved solutions content</div>
-							{/if}
-						</Tabs.Content>
-					</Tabs.Root>
+					<!-- Saved Solutions Tab Content -->
+					<Tabs.Content value="saved-solutions" class="min-h-0 flex-grow">
+						{#if savedSolutions}
+							{@render savedSolutions()}
+						{:else}
+							<div class="p-4">Default saved solutions content</div>
+						{/if}
+					</Tabs.Content>
+				</Tabs.Root>
 			</Resizable.Pane>
 		</Resizable.PaneGroup>
 	</div>

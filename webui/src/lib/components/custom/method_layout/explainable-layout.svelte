@@ -11,6 +11,7 @@
 		showLeftSidebar?: boolean;
 		showRightSidebar?: boolean;
 		leftSidebarWidth?: string;
+		leftSidebarMinWidth?: string;
 		rightSidebarWidth?: string;
 		bottomPanelTitle?: string; // New prop for the bottom panel title
 		// Named snippets
@@ -28,7 +29,8 @@
 	let {
 		showLeftSidebar = true,
 		showRightSidebar = true,
-		leftSidebarWidth = 'auto',
+		leftSidebarWidth = '24em',
+		leftSidebarMinWidth = '24rem',
 		rightSidebarWidth = 'auto',
 		bottomPanelTitle = 'Numerical values', // Default title for the bottom panel
 		leftSidebar,
@@ -41,16 +43,33 @@
 		savedSolutions,
 		rightSidebar
 	}: Props = $props();
+
+	const hasLeft = $derived(showLeftSidebar && !!leftSidebar);
+	const hasRight = $derived(showRightSidebar && !!rightSidebar);
+	const gridTemplateColumns = $derived(
+		hasLeft && hasRight
+			? `${leftSidebarWidth} 1fr ${rightSidebarWidth}`
+			: hasLeft
+				? `${leftSidebarWidth} 1fr`
+				: hasRight
+					? `1fr ${rightSidebarWidth}`
+					: '1fr'
+	);
 </script>
 
-<Sidebar.Provider style="--sidebar-width: 16rem; --sidebar-width-mobile: 18rem;">
-	<div class="flex min-h-[calc(100vh-3rem)] w-full">
+<Sidebar.Provider class="min-h-[calc(100vh-3rem)] w-full">
+	<div
+		class="grid min-h-[calc(100vh-3rem)] w-full gap-2"
+		style={`grid-template-columns: ${gridTemplateColumns};`}
+	>
 		<!-- Left Sidebar: Preferences and Controls -->
-		{#if leftSidebar}
-			{@render leftSidebar()}
+		{#if hasLeft}
+			<div class="left-sidebar h-full" style={`min-width: ${leftSidebarMinWidth};`}>
+				{@render leftSidebar?.()}
+			</div>
 		{/if}
 
-		<Sidebar.Inset>
+		<Sidebar.Inset class="min-w-0">
 			<div class="flex min-w-0 flex-1 flex-col">
 				<Resizable.PaneGroup direction="vertical" class="flex-1">
 					<Resizable.Pane class="flex min-h-0 flex-col">
@@ -88,41 +107,46 @@
 
 					<ResizableHandle />
 					<!-- Bottom Panel: Numerical Values and Tables -->
-					<Resizable.Pane class="flex min-h-0 flex-col p-2">
-						<Tabs.Root value="numerical-values" class="flex h-full min-h-0 flex-col">
-							<Tabs.List class="flex-shrink-0">
-								{#if tabsList}
-									{@render tabsList()}
-								{:else}
-									<span class="text-black">{bottomPanelTitle}</span>
-								{/if}
-							</Tabs.List>
+					<Resizable.Pane class="flex min-h-0 flex-col">
+						<div class="min-h-0 w-full flex-shrink p-2">
+							<Tabs.Root value="numerical-values" class="flex h-full flex-shrink flex-col">
+								<Tabs.List class="flex-shrink-0">
+									{#if tabsList}
+										{@render tabsList()}
+									{:else}
+										<span class="text-black">{bottomPanelTitle}</span>
+									{/if}
+								</Tabs.List>
 
-							<!-- Numerical Values Tab Content -->
-							<Tabs.Content value="numerical-values" class="min-h-0 flex-grow">
-								{#if numericalValues}
-									{@render numericalValues()}
-								{:else}
-									<div class="p-4">Default numerical values content</div>
-								{/if}
-							</Tabs.Content>
+								<!-- Numerical Values Tab Content -->
+								<Tabs.Content value="numerical-values" class="min-h-0">
+									{#if numericalValues}
+										{@render numericalValues()}
+									{:else}
+										<div class="p-4">Default numerical values content</div>
+									{/if}
+								</Tabs.Content>
 
-							<!-- Saved Solutions Tab Content -->
-							<Tabs.Content value="saved-solutions" class="min-h-0 flex-grow">
-								{#if savedSolutions}
-									{@render savedSolutions()}
-								{:else}
-									<div class="p-4">Default saved solutions content</div>
-								{/if}
-							</Tabs.Content>
-						</Tabs.Root>
+								<!-- Saved Solutions Tab Content -->
+								<Tabs.Content value="saved-solutions" class="min-h-0 flex-grow">
+									{#if savedSolutions}
+										{@render savedSolutions()}
+									{:else}
+										<div class="p-4">Default saved solutions content</div>
+									{/if}
+								</Tabs.Content>
+							</Tabs.Root>
+						</div>
 					</Resizable.Pane>
 				</Resizable.PaneGroup>
 			</div>
 		</Sidebar.Inset>
+
 		<!-- Right Sidebar -->
-		{#if showRightSidebar && rightSidebar}
-			{@render rightSidebar()}
+		{#if hasRight}
+			<div class="right-sidebar h-full">
+				{@render rightSidebar?.()}
+			</div>
 		{/if}
 	</div>
 </Sidebar.Provider>

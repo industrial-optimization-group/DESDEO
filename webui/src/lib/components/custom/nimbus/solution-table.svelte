@@ -131,16 +131,16 @@
 	// Get the display accuracy
 	let displayAccuracy = $derived.by(() => getDisplayAccuracy(problem));
 	let displayName = $derived((idx: number | null) => {
-		let baseName = methodPage === "gnimbus" ? 'Group solution' : 'Solution'
-		let indexSuffix = (solverResults.length > 1 && idx !== null) ? idx + 1 : ''
-		
+		let baseName = methodPage === 'gnimbus' ? 'Group solution' : 'Solution';
+		let indexSuffix = solverResults.length > 1 && idx !== null ? idx + 1 : '';
+
 		return `${baseName} ${indexSuffix}`;
 	});
 
 	// Helper function to get objective title for display
 	function getObjectiveTitle(objective: any): string {
 		if (!objective) return '';
-		
+
 		const tooltip = objective.description || objective.name;
 		return objective.unit ? `${tooltip} (${objective.unit})` : tooltip;
 	}
@@ -159,7 +159,8 @@
 				header: ({ column }) => renderSnippet(ColumnHeader, { column, title: '' }),
 				cell: ({ row }) =>
 					renderSnippet(SavedCell, { solution: row.original, rowIndex: row.index }),
-				enableSorting: false
+				enableSorting: false,
+				size: 50
 			},
 			// Second column - Solution name
 			{
@@ -167,14 +168,16 @@
 				header: ({ column }) => renderSnippet(ColumnHeader, { column, title: 'Name (optional)' }),
 				cell: ({ row }) => renderSnippet(NameCell, { solution: row.original }),
 				enableSorting: true,
-				sortUndefined: 'last'
+				sortUndefined: 'last',
+				size: 120
 			},
 			// Third column - Edit button (if saved)
 			{
 				accessorKey: 'edit',
 				header: ({ column }) => renderSnippet(ColumnHeader, { column, title: '' }),
 				cell: ({ row }) => renderSnippet(EditCell, { solution: row.original }),
-				enableSorting: false
+				enableSorting: false,
+				size: 50
 			},
 			// Fourth column - Iteration (only visible when not "current")
 			...(selected_type_solutions !== 'current'
@@ -185,7 +188,8 @@
 								renderSnippet(ColumnHeader, { column, title: 'Iteration' }),
 							cell: ({ row }: { row: Row<Solution> }) =>
 								renderSnippet(IterationCell, { solution: row.original }),
-							enableSorting: true
+							enableSorting: true,
+							size: 80
 						}
 					]
 				: []),
@@ -199,7 +203,8 @@
 						value: row.original.objective_values?.[objective.symbol],
 						accuracy: displayAccuracy[idx]
 					}),
-				enableSorting: true
+				enableSorting: true,
+				size: 130
 			}))
 		];
 	});
@@ -392,9 +397,7 @@
 		{#if solution.name}
 			{solution.name}
 		{:else}
-			<span class="text-gray-400"
-				>{displayName(solution.solution_index)}</span
-			>
+			<span class="text-gray-400">{displayName(solution.solution_index)}</span>
 		{/if}
 	</div>
 {/snippet}
@@ -478,7 +481,7 @@
 				onclick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
 				class="-ml-3 h-8 {objective ? 'flex-1 justify-start text-left' : ''}"
 				title={objective ? getObjectiveTitle(objective) : undefined}
-            >
+			>
 				<span>
 					{#if objective}
 						{objective.name}
@@ -504,14 +507,14 @@
 		{#if selected_type_solutions !== 'current' && !isFrozen}
 			<DataTableToolbar {table} />
 		{/if}
-		<div class="overflow-auto rounded border shadow-sm">
+		<div class="w-full overflow-auto rounded border shadow-sm">
 			<!-- Header and previous solutions -->
 			<Table.Root>
 				<Table.Header>
 					{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
 						<Table.Row>
 							{#each headerGroup.headers as header (header.id)}
-								<Table.Head colspan={header.colSpan}>
+								<Table.Head colspan={header.colSpan} style={`width: ${header.getSize()}px`}>
 									{#if !header.isPlaceholder}
 										<FlexRender
 											content={header.column.columnDef.header}
@@ -541,6 +544,7 @@
 											? 'border-l-10 border-blue-600'
 											: 'border-l-10'
 										: ''}
+									style={`width: ${cell.column.getSize()}px`}
 								>
 									<FlexRender content={cell.column.columnDef.cell} context={cell.getContext()} />
 								</Table.Cell>
@@ -558,14 +562,14 @@
 						<PreviousSolutions
 							{problem}
 							previousObjectiveValues={secondaryObjectiveValues}
-							displayAccuracy={displayAccuracy}
+							{displayAccuracy}
 							columnsLength={columns.length}
 						/>
 					{:else if methodPage === 'gnimbus'}
 						<UserResults
 							{problem}
 							objectiveValues={secondaryObjectiveValues}
-							displayAccuracy={displayAccuracy}
+							{displayAccuracy}
 							columnsLength={columns.length}
 							personalResultIndex={personalResultIndex ?? -1}
 						/>
@@ -578,3 +582,15 @@
 		{/if}
 	</div>
 {/if}
+
+<style>
+	:global(table) {
+		table-layout: fixed;
+		width: 100%;
+	}
+
+	.left-sidebar {
+		flex-shrink: 0;
+		border-right: 1px solid var(--border-color, #e2e8f0);
+	}
+</style>

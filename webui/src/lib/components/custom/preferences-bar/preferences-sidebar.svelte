@@ -98,7 +98,7 @@
 	let internal_objective_values = $state([...objectiveValues]);
 
 	let displayAccuracy = $derived((idx: number) => {
-		const list = getDisplayAccuracy(problem)
+		const list = getDisplayAccuracy(problem);
 		return list[idx];
 	});
 
@@ -192,17 +192,16 @@
 	// Helper function to get objective title for display
 	function getObjectiveTitle(objective: any): string {
 		if (!objective) return '';
-		
+
 		const tooltip = objective.description || objective.name;
 		return objective.unit ? `${tooltip} (${objective.unit})` : tooltip;
 	}
-
 </script>
 
 <Sidebar.Root
 	{ref}
 	collapsible="none"
-	class="top-12 flex h-[calc(100vh-6rem)] min-h-[calc(100vh-3rem)] w-[25rem]"
+	class="top-12 flex h-[calc(100vh-6rem)] min-h-[calc(100vh-3rem)] w-full"
 >
 	<Sidebar.Header>
 		{#if valid_preference_types.length > 1}
@@ -224,7 +223,7 @@
 		{/if}
 	</Sidebar.Header>
 
-	<Sidebar.Content class="h-full px-4">
+	<Sidebar.Content class="h-full w-full px-4">
 		{#if showNumSolutions}
 			<p class="mb-2 text-sm text-gray-500">Provide the maximum number of solutions to generate</p>
 			<Input
@@ -251,10 +250,7 @@
 			{#each problem.objectives as objective, idx}
 				{#if objective.ideal != null && objective.nadir != null}
 					<div class="mb-4 flex flex-col gap-2">
-						<div
-							class="text-sm font-semibold text-gray-700"
-							title={getObjectiveTitle(objective)}
-						>
+						<div class="text-sm font-semibold text-gray-700" title={getObjectiveTitle(objective)}>
 							{objective.name} ({objective.maximize ? 'max' : 'min'})
 						</div>
 						<div class="flex flex-row items-start">
