@@ -9,6 +9,7 @@
 		HorizontalBarRanges
 	} from '$lib/components/visualizations/horizontal-bar';
 	import { Input } from '$lib/components/ui/input/index.js';
+	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 	import ValidatedTextbox from '../validated-textbox/validated-textbox.svelte';
 	import { COLOR_PALETTE } from '$lib/components/visualizations/utils/colors.js';
 	import {
@@ -46,23 +47,18 @@
 
 <Sidebar.Root side="right" class="fixed right-0 top-12 h-[calc(100vh-3rem)]">
 	<Sidebar.Header>
-		<span>Solution Analysis</span>
-		<p class="mt-1 text-xs font-normal text-gray-500">
-			Detailed analysis of the selected solution ({selectedSolutions
-				? selectedSolutions.join(', ')
-				: 'none'}).
-		</p>
+		<span class="text-sm font-semibold">Explanations</span>
 	</Sidebar.Header>
 	<Sidebar.Content class="px-4">
 		{#if solutions.length === 0 || multipliers.length === 0}
 			<div class="py-8 text-center text-sm text-gray-500">No solutions available to analyze.</div>
 		{:else if selectedSolutions == null || selectedSolutions.length === 0}
 			<div class="py-8 text-center text-sm text-gray-500">
-				Please select a solution to view its analysis.
+				Please select a solution to view its explanations.
 			</div>
 		{:else}
 			<div class="mb-6 rounded-lg border bg-white p-4 shadow-sm">
-				<h4 class="mb-3 text-lg font-semibold">
+				<h4 class="mb-3 text-sm font-semibold">
 					{solutions[selectedSolutions[0]].name == null
 						? 'Solution ' + (selectedSolutions[0] + 1)
 						: solutions[selectedSolutions[0]].name}
@@ -73,12 +69,21 @@
 					<div>
 						{#if multipliers && multipliers[0]}
 							<div class="mb-4">
-								<p class="mb-3 text-sm text-gray-600">
-									<strong>Click a bar for the objective you want to improve.</strong> The bar height
-									shows how strongly each objective influences the current solution. When you click,
-									you’ll see the trade-offs and a suggested adjustment to move closer to your preferred
-									solution.
-								</p>
+								<div class="mb-2 flex flex-row">
+									<strong>Click a bar for the objective you want to improve.</strong>
+
+									<Tooltip.Root>
+										<Tooltip.Trigger>i</Tooltip.Trigger>
+										<Tooltip.Content>
+											<p>
+												The bar height shows how strongly each objective influences the current
+												solution. When you click, you’ll see the trade-offs and a suggested
+												adjustment to move closer to your preferred solution.
+											</p>
+										</Tooltip.Content>
+									</Tooltip.Root>
+								</div>
+
 								<div>
 									<!-- 								{#each Object.entries(multipliers[0] ?? {}) as [objName, value]}
 										<div class="flex justify-between rounded bg-blue-50 p-2 text-xs">

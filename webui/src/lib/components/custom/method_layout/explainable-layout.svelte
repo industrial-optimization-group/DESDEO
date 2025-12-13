@@ -57,7 +57,10 @@
 	);
 </script>
 
-<Sidebar.Provider class="min-h-[calc(100vh-3rem)] w-full">
+<Sidebar.Provider
+	class="min-h-[calc(100vh-3rem)] w-full"
+	style="--sidebar-width: 20rem; --sidebar-width-mobile: 20rem;"
+>
 	<div
 		class="grid min-h-[calc(100vh-3rem)] w-full gap-2"
 		style={`grid-template-columns: ${gridTemplateColumns};`}

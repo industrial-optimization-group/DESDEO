@@ -133,20 +133,18 @@
 	 * Create reference data in the format expected by ParallelCoordinates
 	 * Includes reference point and preferred ranges if available
 	 */
-	const referenceData = $derived(() =>
-		{
-			let data = createReferenceData(
+	const referenceData = $derived(() => {
+		let data = createReferenceData(
 			currentPreferenceValues,
 			previousPreferenceValues,
 			problem,
 			previousObjectiveValues,
 			otherObjectiveValues,
 			referenceDataLabels
-		)
-		data ? data.preferredRanges = undefined : ()=> []; // Disable preferred ranges display
+		);
+		data ? (data.preferredRanges = undefined) : () => []; // Disable preferred ranges display
 		return data;
-		}
-	);
+	});
 
 	/**
 	 * Handle line selection from ParallelCoordinates
@@ -243,12 +241,13 @@
 					{ value: 'parallel', label: 'Parallel Coordinates' },
 					{ value: 'bar', label: 'Bar Chart' }
 				]}
-				class="justify-end invisible" 
-			/> <!--To implement the bar chart, remove the invisible class above and add the visualization below-->
+				class="invisible justify-end"
+			/>
+			<!--To implement the bar chart, remove the invisible class above and add the visualization below-->
 		</div>
 
 		<!-- Visualization Container with dynamic height -->
-		<div class="w-full border-t border-gray-200" style="height: {plotHeight()}px;">
+		<div class="w-full" style="height: {plotHeight()}px;">
 			{#if visualizationType === 'parallel'}
 				<ParallelCoordinates
 					data={objectiveData()}
