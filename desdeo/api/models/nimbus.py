@@ -166,8 +166,6 @@ class NIMBUSMultiplierRequest(SQLModel):
 class NIMBUSMultiplierResponse(SQLModel):
     """Response model for Lagrange multipliers."""
 
-    lagrange_multipliers: (
-        list[list[dict[str, float | list[float]] | None] | None] | None
-    ) = Field(
+    lagrange_multipliers: list[dict[str, float] | None] | None = Field(
         description="List of Lagrange multipliers for each solution, or None if not available"
     )

@@ -54,9 +54,31 @@
 	let svg: SVGSVGElement;
 	let container: HTMLDivElement;
 	let resizeObserver: ResizeObserver;
+	let originalData: typeof data = [];
+
+	function normalizeData(data: { name: string; value: number; direction: 'max' | 'min' }[]) {
+		let normalized_data = data;
+		// Normalize data values between 0 and 1
+		const values = normalized_data.map((d) => d.value);
+		const minValue = Math.min(...values);
+		const maxValue = Math.max(...values);
+		if (maxValue > minValue) {
+			normalized_data = normalized_data.map((d) => ({
+				...d,
+				value: (d.value - minValue) / (maxValue - minValue)
+			}));
+		} else {
+			normalized_data = normalized_data.map((d) => ({
+				...d,
+				value: 0
+			}));
+		}
+		return normalized_data;
+	}
 
 	/**
 	 * Draws a horizontal bar chart using D3.
+	 *
 	 */
 	function drawHorizontalChart(
 		svgElement: d3.Selection<SVGGElement, unknown, null, undefined>,
@@ -88,7 +110,6 @@
 		svgElement.append('g').attr('transform', `translate(0,${margin.top})`).call(d3.axisTop(x));
 		svgElement.append('g').attr('transform', `translate(${margin.left},0)`).call(d3.axisLeft(y));
 
-
 		// Draw zero line if domain includes negative values
 		if (x.domain()[0] < 0 && x.domain()[1] > 0) {
 			svgElement
@@ -101,13 +122,12 @@
 				.attr('stroke-width', 2);
 		}
 
-
 		// Draw value labels if enabled
 		if (options.showLabels) {
 			svgElement
 				.append('g')
 				.selectAll('text')
-				.data(data)
+				.data(originalData)
 				.join('text')
 				.attr('x', (d) => {
 					const valueStr = d.value.toString();
@@ -147,24 +167,24 @@
 
 		data.forEach((element: { name: string; value: number; direction: 'max' | 'min' }, index) => {
 			svgElement
-			.append('g')
-			.selectAll('rect')
-			.data([element])
-			.join('rect')
-			.attr('x', (d) => x(d.name)!)
-			.attr('width', x.bandwidth())
-			.attr('y', (d) => (y(d.value)))
-			.attr('height', (d) =>
-				d.direction === 'min' ? y(0) - y(d.value) : y(0) - yMax - (y(0) - y(d.value))
-			)
-			.style('cursor', 'pointer') 
-			.on('click', (event, d) => {
-				if (onSelect) {
-					onSelect(index);
-					selected_objective_index = index;
-				}
-			})
-			.attr('fill', (d) => color(d.name));
+				.append('g')
+				.selectAll('rect')
+				.data([element])
+				.join('rect')
+				.attr('x', (d) => x(d.name)!)
+				.attr('width', x.bandwidth())
+				.attr('y', (d) => y(d.value))
+				.attr('height', (d) =>
+					d.direction === 'min' ? y(0) - y(d.value) : y(0) - yMax - (y(0) - y(d.value))
+				)
+				.style('cursor', 'pointer')
+				.on('click', (event, d) => {
+					if (onSelect) {
+						onSelect(index);
+						selected_objective_index = index;
+					}
+				})
+				.attr('fill', (d) => color(d.name));
 
 			// Highlight selected bar
 			if (onSelect && index === selected_objective_index) {
@@ -172,16 +192,13 @@
 					.append('rect')
 					.attr('x', x(element.name)!)
 					.attr('width', x.bandwidth())
-					.attr('y', (d) => (y(element.value)))
+					.attr('y', (d) => y(element.value))
 					.attr('height', y(0) - y(element.value))
 					.attr('fill', 'none')
 					.attr('stroke', 'blue')
 					.attr('stroke-width', 2);
 			}
-
 		});
-		
-
 
 		// Draw axes
 		svgElement
@@ -195,7 +212,7 @@
 			svgElement
 				.append('g')
 				.selectAll('text')
-				.data(data)
+				.data(originalData)
 				.join('text')
 				.attr('x', (d) => x(d.name)! + x.bandwidth() / 2)
 				.attr('y', (d) => {
@@ -223,8 +240,15 @@
 
 		if (options.orientation == 'horizontal') {
 			margin = { top: 0, right: 10, bottom: 30, left: 20 };
+			// Normalize all except the selected objective
+			let data_to_use = data;
+			if (selected_objective_index !== null) {
+				data_to_use = data.map((d, i) => (i === selected_objective_index ? d : { ...d, value: 0 }));
+			}
+			data = normalizeData(data_to_use);
 		} else {
 			margin = { top: 10, right: 10, bottom: 30, left: 20 };
+			data = normalizeData(data);
 		}
 		//const margin = { top: 20, right: 20, bottom: 30, left: 40 };
 		const innerWidth = width - margin.left - margin.right;
@@ -253,13 +277,12 @@
 
 			let xDomain: [number, number];
 			if (axisRanges.length > 0) {
-				const allMins = axisRanges.map(r => r[0]);
-				const allMaxs = axisRanges.map(r => r[1]);
+				const allMins = axisRanges.map((r) => r[0]);
+				const allMaxs = axisRanges.map((r) => r[1]);
 				xDomain = [Math.min(...allMins), Math.max(...allMaxs)];
 			} else {
-				xDomain = [0, d3.max(data, (d) => d.value) ?? 0];
+				xDomain = [d3.min(data, (d) => d.value) ?? 0, d3.max(data, (d) => d.value) ?? 0];
 			}
-				
 
 			const x = d3
 				.scaleLinear()
@@ -278,15 +301,14 @@
 				.range([margin.left, innerWidth - margin.right])
 				.padding(0.1);
 
-			 let yDomain: [number, number];
-				if (axisRanges.length > 0) {
-					const allMins = axisRanges.map(r => r[0]);
-					const allMaxs = axisRanges.map(r => r[1]);
-					yDomain = [Math.min(...allMins), Math.max(...allMaxs)];
-				} else {
-					yDomain = [0, d3.max(data, (d) => d.value) ?? 0];
-				}
-
+			let yDomain: [number, number];
+			if (axisRanges.length > 0) {
+				const allMins = axisRanges.map((r) => r[0]);
+				const allMaxs = axisRanges.map((r) => r[1]);
+				yDomain = [Math.min(...allMins), Math.max(...allMaxs)];
+			} else {
+				yDomain = [0, d3.max(data, (d) => d.value) ?? 0];
+			}
 
 			const y = d3
 				.scaleLinear()
@@ -336,6 +358,22 @@
 
 	// Reset selected objective index when data changes
 	$: if (data) {
+		originalData = data;
+		// Normalize data values between 0 and 1
+		/*const values = data.map((d) => d.value);
+		const minValue = Math.min(...values);
+		const maxValue = Math.max(...values);
+		if (maxValue > minValue) {
+			data = data.map((d) => ({
+				...d,
+				value: (d.value - minValue) / (maxValue - minValue)
+			}));
+		} else {
+			data = data.map((d) => ({
+				...d,
+				value: 0
+			}));
+		}*/
 		selected_objective_index = null;
 	}
 </script>

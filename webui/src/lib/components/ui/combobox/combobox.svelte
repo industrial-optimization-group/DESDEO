@@ -30,19 +30,21 @@
 		placeholder = 'Select an option...',
 		defaultSelected,
 		onChange,
-		showSearch = false
+		showSearch = false,
+		width = 200
 	} = $props<{
 		options: { value: string; label: string }[];
 		placeholder?: string;
 		defaultSelected?: string;
 		onChange: (event: { value: string }) => void;
 		showSearch?: boolean;
+		width?: number;
 	}>();
 
 	let open = $state(false);
 	let triggerRef: HTMLButtonElement | null = $state(null);
 	let selected = $state(defaultSelected ?? '');
-	
+
 	// Update selected when defaultSelected changes
 	$effect(() => {
 		selected = defaultSelected ?? '';
@@ -78,7 +80,8 @@
 	<Popover.Trigger bind:ref={triggerRef}>
 		<Button
 			variant="outline"
-			class="w-[200px] justify-between"
+			class={`justify-between`}
+			style={`width: ${width}px`}
 			role="combobox"
 			aria-expanded={open}
 		>
@@ -87,7 +90,7 @@
 		</Button>
 	</Popover.Trigger>
 
-	<Popover.Content class="w-[200px] p-0">
+	<Popover.Content class={`p-0`} style={`width: ${width}px`}>
 		<Command.Root>
 			{#if showSearch}
 				<Command.Input placeholder="Search..." />

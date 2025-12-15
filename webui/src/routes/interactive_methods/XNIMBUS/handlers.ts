@@ -98,9 +98,9 @@ export async function handle_iterate(
  */
 export async function handle_get_multipliers(
 	state_id: number
-): Promise<Array<Array<Record<string, number>>> | null> {
+): Promise<Array<Record<string, number>> | null> {
 	interface MultipliersResponse {
-		lagrange_multipliers: Array<Array<Record<string, number>>>;
+		lagrange_multipliers: Array<Record<string, number>>;
 	}
 
 	const result = await callNimbusAPI<MultipliersResponse>('get_multipliers', {

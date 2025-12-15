@@ -15,6 +15,7 @@ type Response = BaseResponse & {
     all_solutions: Solution[],
 };
 
+
 /**
  * Checks if a problem has utopia metadata for map visualization
  * @param prob The problem to check
@@ -46,6 +47,19 @@ export function mapSolutionsToObjectiveValues(solutions: Solution[], problem: Pr
             return Array.isArray(value) ? value[0] : value;
         });
     });
+}
+/**
+ * Creates a dictionary mapping objective symbols to their names
+ * @param problem The problem containing objective definitions
+ * @returns Record mapping objective symbols to names
+ */
+
+export function getDictionaryObjectiveNames(problem: ProblemInfo) {
+    const objectiveNames: Record<string, string> = {};
+    problem.objectives.forEach((obj) => {
+        objectiveNames[obj.symbol] = obj.name ?? obj.symbol;
+    });
+    return objectiveNames;
 }
 
 /*export function mapSolutionToMultipliers(solutions: Solution[], problem: ProblemInfo) {
@@ -236,28 +250,29 @@ export function updateSolutionNames(
     return updatedSolutions;
 }
 
-/*export function computeTradeoffs(
-    lagrange_multipliers: number[][],
+export function computeTradeoffs(
+    lagrange_multipliers: Record<string, number> | null | undefined,
     solution: Solution,
     problem: ProblemInfo,
 ){
-  const objective_values = mapSolutionsToObjectiveValues([solution], problem);
+    const objective_values = mapSolutionsToObjectiveValues([solution], problem);
 
-  if (!lagrange_multipliers) {
-      return [];
-  }
+    if (!lagrange_multipliers || lagrange_multipliers.length === 0) {
+        return [];
+    }
   
-  const nObjectives = problem.objectives.length;
+    const nObjectives = problem.objectives.length;
+
     const lambdas: number[] = problem.objectives.map((obj) => {
         const value = lagrange_multipliers[obj.symbol];
         return Array.isArray(value) ? value[0] : value || 0;
     });
+
     const partialTradeOffs: number [][] = Array.from({ length: nObjectives }, () =>
         Array(nObjectives).fill(1)
     );
   
     const wInv: number[] = lambdas.map((value) => 1 / value); 
-
 
     for (let i = 0; i < nObjectives; i++) {
         const lambda_i = lambdas[i];
@@ -270,8 +285,9 @@ export function updateSolutionNames(
         }
         }
     }
+    //return normalizeTradeoffs(partialTradeOffs);
     return partialTradeOffs;
-}*/
+}
 
 export async function callNimbusAPI<T>(
     type: string,
@@ -318,6 +334,116 @@ export async function callNimbusAPI<T>(
     } finally {
         isLoading.set(false);
     }
+}
+/**
+ * 
+ * @param multipliers 
+ * @returns Compute the minimum and maximium lagrange multipliers for each objective
+ */
+export function getRangeMultipliers(multipliers: Array<Record<string, number>> | null | undefined): Record<string, { min: number; max: number }> {
+    if (!multipliers || multipliers.length === 0) {
+        return {};
+    }
+    // For each column (objective), find min and max across all solutions (rows)
+    const objectiveKeys = Object.keys(multipliers[0]);
+    const minMax: Record<string, { min: number; max: number }> = {};
+    
+    objectiveKeys.forEach((key) => {
+        let min = Infinity;
+        let max = -Infinity;
+        multipliers.forEach((solution) => {
+            const value = solution[key];
+            if (value !== undefined) {
+                if (value < min) min = value;
+                if (value > max) max = value;
+            }
+        }
+
+    );
+
+        minMax[key] = { min, max };
+    });
+    
+    return minMax;
+}
+
+/*Compute the minimum and maximum tradeoffs per objective (column)*/
+export function getRangeTradeoffs(tradeoffs: number[][] | null | undefined) : { min: number; max: number }[] {
+    if (!tradeoffs || tradeoffs.length === 0) {
+        return [{ min: 0, max: 0 }];
+    }
+    
+    const nObjectives = tradeoffs.length;
+    const minMax: { min: number; max: number }[] = [];
+    for (let j = 0; j < nObjectives; j++) {
+        let min = Infinity;
+        let max = -Infinity;
+        for (let i = 0; i < nObjectives; i++) {
+            const value = tradeoffs[i][j];
+            if (value < min) min = value;
+            if (value > max) max = value;
+        }
+        minMax.push({ min, max });
+    }
+    return minMax;
+}
+
+export function normalizeMultipliers(
+    multipliers: Array<Record<string, number>> | null | undefined
+): Array<Record<string, number>> {
+    if (!multipliers || multipliers.length === 0) {
+        return [];
+    }
+    
+    const objectiveKeys = Object.keys(multipliers[0]);
+    const normalizedMultipliers: Array<Record<string, number>> = [];
+    const minMax = getRangeMultipliers(multipliers);
+    
+    multipliers.forEach((solution) => {
+        const normalizedSolution: Record<string, number> = {};
+        objectiveKeys.forEach((key) => {
+            const value = solution[key];
+            const range = minMax[key].max - minMax[key].min;
+            if (range === 0) {
+                normalizedSolution[key] = 0; // or some default value when no variation
+            }
+            else {
+                normalizedSolution[key] = (value - minMax[key].min) / range;
+            }
+        });
+        normalizedMultipliers.push(normalizedSolution);
+    });
+    
+    return normalizedMultipliers;
+}
+
+export function normalizeTradeoffs(
+    tradeoffs: number[][] | null | undefined
+): number[][] {
+    if (!tradeoffs || tradeoffs.length === 0) {
+        return [];
+    }
+    
+    const nObjectives = tradeoffs.length;
+    const normalizedTradeoffs: number[][] = [];
+    const minMax = getRangeTradeoffs(tradeoffs);
+    
+    for (let i = 0; i < nObjectives; i++) {
+        const normalizedRow: number[] = [];
+        for (let j = 0; j < nObjectives; j++) {
+            const value = tradeoffs[i][j];
+            const range = minMax[j].max - minMax[j].min;
+            if (range === 0) {
+                normalizedRow.push(0); // or some default value when no variation
+            }
+            else {
+                normalizedRow.push((value - minMax[j].min) / range);
+            }
+        }
+        normalizedTradeoffs.push(normalizedRow);
+    }
+    
+    return normalizedTradeoffs;
 }
 
 

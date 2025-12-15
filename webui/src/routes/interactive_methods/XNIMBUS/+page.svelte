@@ -44,7 +44,10 @@
 		updatePreferencesFromState,
 		validateIterationAllowed,
 		processPreviousObjectiveValues,
-		updateSolutionNames
+		updateSolutionNames,
+		computeTradeoffs,
+		normalizeMultipliers,
+		normalizeTradeoffs
 	} from './helper-functions';
 	import AdvancedSidebar from '$lib/components/custom/preferences-bar/advanced-sidebar.svelte';
 
@@ -61,6 +64,7 @@
 		initialize_nimbus_state as initializeNimbusStateRequest,
 		handle_get_multipliers as handleGetMultipliersRequest
 	} from './handlers';
+	import type { N } from 'vitest/dist/chunks/environment.d.Dmw5ulng.js';
 
 	// State for NIMBUS iteration management
 	let current_state: Response = $state({} as Response);
@@ -123,7 +127,8 @@
 	// Store the last iterated preference values to show as "previous" in UI
 	let last_iterated_preference: number[] = $state([]);
 	// Store current multipliers for the current solutions
-	let current_multipliers: Array<Array<Record<string, number>> | null> = $state([]);
+	let current_multipliers: Array<Record<string, number> | null> | null = $state(null);
+
 	// Variable to track if problem has utopia metadata
 	let hasUtopiaMetadata = $state(false);
 
@@ -148,6 +153,10 @@
 
 	function handle_type_solutions_change(event: { value: string }) {
 		change_solution_type_updating_selections(event.value as SolutionType);
+	}
+
+	function handle_selected_objective_change(event: { value: string }) {
+		handle_objective_click(Number(event.value));
 	}
 
 	function handle_objective_click(index: number) {
@@ -404,6 +413,8 @@
 		console.log('Fetched multipliers data:', data);
 		if (data) {
 			current_multipliers = data;
+		} else {
+			current_multipliers = null;
 		}
 	}
 
@@ -790,8 +801,14 @@
 					{problem}
 					preferenceValues={current_preference}
 					solutions={chosen_solutions}
-					multipliers={current_multipliers[selectedIndexes[0]] || []}
+					multipliers={current_multipliers ? current_multipliers[selectedIndexes[0]] : null}
+					tradeoffs={computeTradeoffs(
+						current_multipliers ? (current_multipliers[selectedIndexes[0]] ?? null) : null,
+						chosen_solutions[selectedIndexes[0]],
+						problem
+					)}
 					selectedSolutions={selectedIndexes}
+					selectedObjectiveIndex={selected_objective_index}
 					handleObjectiveClick={handle_objective_click}
 				/>
 			{/if}

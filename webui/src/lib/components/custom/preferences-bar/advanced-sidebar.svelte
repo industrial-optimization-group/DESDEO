@@ -1,33 +1,23 @@
 <script lang="ts">
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
-	import PreferenceSwitcher from './preference-switcher.svelte';
-	import { writable, type Writable } from 'svelte/store';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import type { components } from '$lib/api/client-types';
-	import {
-		HorizontalBar,
-		HorizontalBarRanges
-	} from '$lib/components/visualizations/horizontal-bar';
-	import { Input } from '$lib/components/ui/input/index.js';
+	import InfoIcon from '@lucide/svelte/icons/info';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
-	import ValidatedTextbox from '../validated-textbox/validated-textbox.svelte';
 	import { COLOR_PALETTE } from '$lib/components/visualizations/utils/colors.js';
-	import {
-		calculateClassification,
-		type PreferenceValue,
-		formatNumber
-	} from '$lib/helpers/index.js';
+
 	import { PREFERENCE_TYPES, SIGNIFICANT_DIGITS } from '$lib/constants/index.js';
 	import { getValueRange } from '$lib/components/visualizations/utils/math';
 	import type { ProblemInfo, Solution, SolutionType, MethodMode, PeriodKey } from '$lib/types';
 	import ExpBarchart from '$lib/components/visualizations/barchart/exp-barchart.svelte';
+	import { Combobox } from '$lib/components/ui/combobox';
 
 	interface Props {
 		problem: ProblemInfo;
 		preferenceValues: number[];
 		solutions: Array<Solution>;
-		multipliers: Array<Record<string, number> | null>; // Fixed: Remove nested array
+		multipliers: Record<string, number> | null; // Fixed: Remove nested array
+		tradeoffs: number[][] | null;
 		selectedSolutions?: Array<number>;
+		selectedObjectiveIndex?: number | null;
 		handleObjectiveClick?: (index: number) => void;
 		ref?: HTMLElement | null;
 	}
@@ -37,12 +27,34 @@
 		preferenceValues,
 		solutions,
 		multipliers,
+		tradeoffs,
 		selectedSolutions,
+		selectedObjectiveIndex,
 		handleObjectiveClick,
 		ref = null
 	}: Props = $props();
-	// Store for solution details including Lagrange multipliers
-	let solutionDetails: Record<string, any> = $state({});
+	// Create a dictionary of objective names and their symbols
+	const objectiveNames: Record<string, string> = {};
+	problem.objectives.forEach((obj) => {
+		objectiveNames[obj.symbol] = obj.name ?? obj.symbol;
+	});
+
+	// Get the row corresponding to the selected objective index from tradeoffs
+	function formatTradeofftoDict(
+		tradeoffs: number[][] | null,
+		selectedObjectiveIndex: number | null | undefined
+	) {
+		if (!tradeoffs || selectedObjectiveIndex === null || selectedObjectiveIndex === undefined)
+			return {};
+		const row_tradeoff = selectedObjectiveIndex !== null ? tradeoffs[selectedObjectiveIndex] : null;
+		if (!row_tradeoff) return {};
+
+		const tradeoffDict: Record<string, number> = {};
+		problem.objectives.forEach((obj, idx) => {
+			tradeoffDict[obj.symbol] = row_tradeoff[idx];
+		});
+		return tradeoffDict;
+	}
 </script>
 
 <Sidebar.Root side="right" class="fixed right-0 top-12 h-[calc(100vh-3rem)]">
@@ -50,31 +62,39 @@
 		<span class="text-sm font-semibold">Explanations</span>
 	</Sidebar.Header>
 	<Sidebar.Content class="px-4">
-		{#if solutions.length === 0 || multipliers.length === 0}
+		{#if solutions.length === 0 || multipliers === null}
 			<div class="py-8 text-center text-sm text-gray-500">No solutions available to analyze.</div>
 		{:else if selectedSolutions == null || selectedSolutions.length === 0}
 			<div class="py-8 text-center text-sm text-gray-500">
 				Please select a solution to view its explanations.
 			</div>
 		{:else}
-			<div class="mb-6 rounded-lg border bg-white p-4 shadow-sm">
-				<h4 class="mb-3 text-sm font-semibold">
+			<div>
+				<!-- 				<h4 class="mb-3 text-sm font-semibold">
 					{solutions[selectedSolutions[0]].name == null
 						? 'Solution ' + (selectedSolutions[0] + 1)
 						: solutions[selectedSolutions[0]].name}
-				</h4>
+				</h4> -->
 
 				<!-- Objective values -->
 				<div class="mb-4">
 					<div>
-						{#if multipliers && multipliers[0]}
+						{#if multipliers}
 							<div class="mb-4">
 								<div class="mb-2 flex flex-row">
-									<strong>Click a bar for the objective you want to improve.</strong>
+									<span class="text-sm"
+										>Impact of each objective function value in <span
+											class="text-primary font-semibold"
+										>
+											{solutions[selectedSolutions[0]].name == null
+												? 'Solution ' + (selectedSolutions[0] + 1)
+												: solutions[selectedSolutions[0]].name}</span
+										>.</span
+									>
 
 									<Tooltip.Root>
-										<Tooltip.Trigger>i</Tooltip.Trigger>
-										<Tooltip.Content>
+										<Tooltip.Trigger><InfoIcon /></Tooltip.Trigger>
+										<Tooltip.Content class="max-w-sm">
 											<p>
 												The bar height shows how strongly each objective influences the current
 												solution. When you click, you’ll see the trade-offs and a suggested
@@ -93,29 +113,47 @@
 											>
 										</div>
 									{/each} -->
+
 									<ExpBarchart
-										data={Object.entries(multipliers[0] ?? {}).map(([objName, value]) => ({
-											name: objName,
+										data={Object.entries(multipliers ?? {}).map(([objName, value]) => ({
+											name: objectiveNames[objName] || objName,
 											value: Number(-1 * value),
 											direction: 'min'
 										}))}
-										axisRanges={Object.entries(multipliers[0] ?? {}).map(() => [0, 1])}
 										options={{ showLabels: true, orientation: 'vertical' }}
 										onSelect={handleObjectiveClick}
 									/>
 								</div>
-
+								<!-- <Combobox
+									placeholder="Select Objective to View Trade-offs"
+									width={300}
+									options={objectiveNames
+										? problem.objectives.map((obj, idx) => ({
+												label: objectiveNames[obj.symbol] || obj.symbol,
+												value: idx.toString()
+											}))
+										: []}
+									defaultSelected={selectedObjectiveIndex !== null &&
+									selectedObjectiveIndex !== undefined
+										? objectiveNames[problem.objectives[selectedObjectiveIndex].symbol] ||
+											problem.objectives[selectedObjectiveIndex].symbol
+										: undefined}
+									onChange={undefined}
+								/> -->
 								<div>
-									<ExpBarchart
-										data={Object.entries(multipliers[0] ?? {}).map(([objName, value]) => ({
-											name: objName,
-											value: Number(-1 * value),
-											direction: 'min'
-										}))}
-										axisRanges={Object.entries(multipliers[0] ?? {}).map(() => [0, 1])}
-										options={{ showLabels: true, orientation: 'horizontal' }}
-										onSelect={handleObjectiveClick}
-									/>
+									{#if selectedObjectiveIndex !== null}
+										<ExpBarchart
+											data={Object.entries(
+												formatTradeofftoDict(tradeoffs, selectedObjectiveIndex) ?? {}
+											).map(([objName, value]) => ({
+												name: objectiveNames[objName] || objName,
+												value: Number(value),
+												direction: 'min'
+											}))}
+											options={{ showLabels: true, orientation: 'horizontal' }}
+											onSelect={handleObjectiveClick}
+										/>
+									{/if}
 								</div>
 							</div>
 						{/if}

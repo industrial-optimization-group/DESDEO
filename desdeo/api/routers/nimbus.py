@@ -793,6 +793,7 @@ def get_multipliers_info(
                 lagrange_multipliers.append(
                     filter_lagrange_multipliers(result.lagrange_multipliers)
                 )
+                print("Added multipliers:", result.lagrange_multipliers)
             else:
                 lagrange_multipliers.append(None)
 
@@ -809,10 +810,12 @@ def get_multipliers_info(
         else:
             lagrange_multipliers.append(None)
 
+    print(lagrange_multipliers)
+
     return {"lagrange_multipliers": lagrange_multipliers}
 
 
-def filter_lagrange_multipliers(lagrange_multipliers) -> list[dict[str, float]]:
+def filter_lagrange_multipliers(lagrange_multipliers) -> dict[str, float]:
     # return [x.lagrange_multipliers for x in self.solver_results]
     result = []
 
@@ -838,6 +841,6 @@ def filter_lagrange_multipliers(lagrange_multipliers) -> list[dict[str, float]]:
         if preferred:
             filtered_multipliers[f"f_{obj_num}"] = preferred[1]
 
-    result.append(filtered_multipliers)
+    # result.append(filtered_multipliers)
 
-    return result
+    return filtered_multipliers
