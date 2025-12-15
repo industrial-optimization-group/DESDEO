@@ -4,6 +4,7 @@
 	import ParallelCoordinates from '$lib/components/visualizations/parallel-coordinates/parallel-coordinates.svelte';
 	import ScoreBandsSolutionTable from './score-bands-solution-table.svelte';
 	import HistoryBrowser from './history-browser.svelte';
+	import ConfigPanel from './config-panel.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import type { components } from "$lib/api/client-types";
 	import { auth } from '../../../stores/auth';
@@ -22,6 +23,7 @@
 		generate_cluster_colors,
 		calculateScales
 	} from './helper-functions';
+	import { json } from 'd3';
 	
 	const { data } = $props<{ 
 		data: { 
@@ -187,29 +189,15 @@
 		return !show_medians || (show_bands || show_solutions);
 	}
 
-	// Score bands calculation parameters
-	// TODO STINA: should match config structure, where to put flipAxes, whatabout show_solutions?
-	let dist_parameter = $state(0.05);
-	let use_absolute_corr = $state(false);
-	let distance_formula = $state(1); // 1 for euclidean, 2 for manhattan
-	let flip_axes = $state(true);
-	let clustering_algorithm = $state('DBSCAN'); // 'DBSCAN' or 'GMM'
-	let clustering_score = $state('silhoutte'); // Note: This is the correct spelling used in DESDEO
-	let quantile_value = $state(0.25);
-
-	// Conversion functions between quantile and interval_size
-	// IF quantile slider will be used to set interval_size of configuration
-	function quantileToIntervalSize(quantile: number): number {
-		return 1 - (2 * quantile);
-	}
 
 	// options for drawing score bands
+	// TODO STINA, should I remove quantile
 	let options = $derived.by(()=>{
 		return {
 		bands: show_bands,
 		solutions: show_solutions,
 		medians: show_medians,
-		quantile: quantile_value
+		quantile: 0.25
 	}});
 
 	// Cluster visibility controls
@@ -346,6 +334,7 @@
 				else if (msg.includes('UPDATE')) {
 					fetch_score_bands();
 					fetch_votes_and_confirms();
+					clusters_to_visible();
 					return;
 				}
 				
@@ -581,47 +570,6 @@
 	// TODO STINA: documentation text AND EVERYTHING. Try to USE.
 	async function configure(config: components['schemas']['SCOREBandsGDMConfig']) {
 		try {
-			// Hardcoded configuration for SCORE bands GDM settings
-			// This should eventually come from UI form inputs or state variables
-			const hardcodedConfig: components['schemas']['SCOREBandsGDMConfig'] = {
-				// Configuration for the underlying SCORE bands algorithm
-				score_bands_config: {
-					dimensions: null, // null = use all dimensions
-					descriptive_names: null, // null = use default names. Could be {[key: string]: string}
-					units: null, // null = use default units. Could be {[key: string]: string}
-					axis_positions: null, // null = use default positions. Could be {[key: string]: number}
-					clustering_algorithm: {
-						// Algorithm name: 'DBSCAN', 'KMeans', or 'GMM'
-						name: 'KMeans',
-						// Number of clusters (for KMeans and GMM)
-						n_clusters: 5
-					},
-					// Distance formula: 1 = Euclidean, 2 = Manhattan
-					// Determines how distances between points are calculated
-					distance_formula: 1,
-					// Distance parameter for clustering (0.0 to 1.0) 
-					// Used in clustering algorithms to determine cluster boundaries
-					distance_parameter: 0.05,
-					// Whether to use absolute correlation in distance calculations
-					// true = use absolute values, false = consider sign of correlation
-					use_absolute_correlations: false,
-					include_solutions: false, // Whether to include individual solutions in visualization. This shouldnot even work, if I am right; deprecated?
-					include_medians: true, // Whether to include medians in visualization
-					// Quantile parameter for band calculation (0.0 to 0.5)
-					// Determines the width of the bands - smaller values = narrower bands
-					interval_size: 0.25,
-					scales: null, // null = auto-calculate scales. Could be {[key: string]: [number, number]}					
-				},
-				
-				// Minimum number of votes required to proceed to next iteration
-				// Must be greater than 0, typically set to majority or all users
-				minimum_votes: 1,
-				
-				// Iteration number from which to start considering clusters
-				// null = start from beginning, number = start from specific iteration
-				from_iteration: null // TODO: should this be the latest_iteration, is there something wrong with it since it does not give new info?
-			};
-
 			const configureResponse = await fetch('/interactive_methods/GDM-SCORE-bands/configure', {
 				method: 'POST',
 				headers: {
@@ -631,7 +579,7 @@
 					// Group ID for which to apply the configuration
 					group_id: data.group.id,
 					// Configuration object with all SCORE bands settings
-					config: hardcodedConfig
+					config: config
 				})
 			});
 
@@ -644,9 +592,7 @@
 			
 			if (configureResult.success) {
 				console.log('Configuration updated successfully:', configureResult.data.message);
-				// TODO: Refresh score bands data after configuration change
-				// await fetch_score_bands();
-				// await fetch_votes_and_confirms();
+				console.log("config: ", config);
 			} else {
 				throw new Error(`Configure failed: ${configureResult.error || 'Unknown error'}`);
 			}
@@ -720,118 +666,13 @@
 			</div>
 		</div>
 
-		<!-- Parameter Controls TODO STINA -->
-		{#if isOwner && isConsensusPhase}
-			<div class="card bg-base-100 mb-6 shadow-xl">
-				<div class="card-body">
-					<h3 class="card-title">Score Bands Parameters</h3>
-					<div class="grid grid-cols-2 gap-4">
-						<div class="form-control">
-							<label for="dist_parameter" class="label">
-								<span class="label-text">Distance Parameter</span>
-							</label>
-							<input
-								id="dist_parameter"
-								type="number"
-								bind:value={dist_parameter}
-								min="0"
-								max="1"
-								step="0.1"
-								class="input input-bordered"
-							/>
-						</div>
-						<div class="form-control">
-							<label for="distance_formula" class="label">
-								<span class="label-text">Distance Formula</span>
-							</label>
-							<select
-								id="distance_formula"
-								bind:value={distance_formula}
-								class="select select-bordered"
-							>
-								<option value={1}>Euclidean</option>
-								<option value={2}>Manhattan</option>
-							</select>
-						</div>
-						<div class="form-control">
-							<label for="clustering_algorithm" class="label">
-								<span class="label-text">Clustering Algorithm</span>
-							</label>
-							<select
-								id="clustering_algorithm"
-								bind:value={clustering_algorithm}
-								class="select select-bordered"
-							>
-								<option value="DBSCAN">DBSCAN</option>
-								<option value="GMM">GMM</option>
-							</select>
-						</div>
-						<div class="form-control">
-							<label for="clustering_score" class="label">
-								<span class="label-text">Clustering Score</span>
-							</label>
-							<select
-								id="clustering_score"
-								bind:value={clustering_score}
-								class="select select-bordered"
-							>
-								<option value="silhoutte">Silhouette</option>
-								<option value="BIC">BIC</option>
-							</select>
-						</div>
-						<div class="form-control">
-							<div class="w-lg">
-								<label class="label">
-									<span class="label-text">Quantile: {quantile_value}</span>
-								</label>
-								<input
-									type="range"
-									min="0.1"
-									max="0.5"
-									step="0.05"
-									bind:value={quantile_value}
-									class="range range-primary"
-									title="Adjust quantile to change band width (triggers API call)"
-								/>
-								<div class="flex w-full px-2 text-xs justify-around">
-									<span>0.1</span>
-									<span>0.3</span>
-									<span>0.5</span>
-								</div>
-								<div class="mt-2 text-xs text-gray-600">
-									Interval size: {quantileToIntervalSize(quantile_value).toFixed(2)}
-								</div>
-							</div>
-						</div>
-					</div>
-					<div class="mt-4 flex items-center gap-4">
-						<label class="label cursor-pointer">
-							<input
-								type="checkbox"
-								bind:checked={use_absolute_corr}
-								class="checkbox checkbox-primary mr-2"
-							/>
-							<span class="label-text">Use Absolute Correlation</span>
-						</label>
-						<label class="label cursor-pointer">
-							<input
-								type="checkbox"
-								bind:checked={flip_axes}
-								class="checkbox checkbox-primary mr-2"
-							/>
-							<span class="label-text">Flip Axes</span>
-						</label>
-						<button
-							onclick={()=>{}}
-							class="btn btn-primary"
-							disabled={SCOREBands.axisNames.length === 0}
-						>
-							Recalculate Parameters
-						</button>
-					</div>
-				</div>
-			</div>
-		{/if}
+		<!-- Parameter Controls -->
+		<ConfigPanel 
+			currentConfig={scoreBandsResult?.options || null}
+			{totalVoters}
+			onRecalculate={configure}
+			isVisible={isOwner && isConsensusPhase}
+		/>
 
 		{#if isConsensusPhase}
 		<!-- CONSENSUS PHASE: Existing SCORE Bands Content -->
