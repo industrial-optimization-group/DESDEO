@@ -1,3 +1,6 @@
+import type { components } from "$lib/api/client-types";
+
+
 /**
  * Calculate agreement level for each axis based on voting data
  * @param {Object} votes_and_confirms - Contains votes and confirms data
@@ -21,7 +24,6 @@ export function calculateAxisAgreement(
     
     // Get bands that have votes
     const votedBandIds = Object.values(votes_and_confirms.votes || {});
-    
     
     if (votedBandIds.length < 2) {
         // In the case of only one vote, just return neutral
@@ -61,6 +63,114 @@ export function calculateAxisAgreement(
     });
     
     return agreement;
+}
+
+// Helper function to generate consistent cluster colors
+export function generate_cluster_colors(clusterIds: number[]): Record<number, string> {
+    const color_palette = [
+        '#1f77b4', // Strong blue
+        '#ff7f0e', // Vibrant orange
+        '#2ca02c', // Strong green
+        '#d62728', // Bold red
+        '#9467bd', // Purple
+        '#8c564b', // Brown
+        '#e377c2', // Pink
+        '#7f7f7f', // Gray
+        '#bcbd22', // Olive/yellow-green
+        '#17becf' // Cyan
+    ];
+
+    const cluster_colors: Record<number, string> = {};
+
+    clusterIds.forEach((clusterId, index) => {
+        cluster_colors[clusterId] = color_palette[index % color_palette.length];
+    });
+
+    return cluster_colors;
+}
+
+// Helper function to generate axis options with colors and styles
+export function generate_axis_options(axisNames: string[], axis_agreement: Record<string, 'agreement' | 'disagreement' | 'neutral'> | null) {
+    return axisNames.map((axisName) => {
+        if(axis_agreement && axisName in axis_agreement) {
+            // Set specific styles for axis 1 (green) and axis 3 (red)
+            if (axis_agreement[axisName] === 'agreement') {
+                return {
+                    color: '#15803d', // Green for agreement
+                    strokeWidth: 2,
+                    strokeDasharray: '5,5'
+                };
+            }
+            if (axis_agreement[axisName] === 'disagreement') {
+                return {
+                    color: '#b91c1c', // Red for disagreement
+                    strokeWidth: 3,
+                    strokeDasharray: '5,5' // Dashed line
+                };
+            }
+    }
+        // Default gray color and solid line for all other axes
+        return {
+            color: '#666666', // Gray for all other axes
+            strokeWidth: 1,
+            strokeDasharray: 'none'
+        };
+    });
+}
+
+// TODO: when scales work, use them and not problem for ideal and nadir. Do we need fallback to UI-calculation? I dont want it. KEEP THIS TODO, write more clear
+// Calculate scales: use API scales if available, otherwise calculate from bands data 
+export function calculateScales(problem: components['schemas']['ProblemInfo'], result: components['schemas']['SCOREBandsResult']): Record<string, [number, number]> {
+    // First, try to use ideal and nadir from problem definition
+    const scales: Record<string, [number, number]> = {};
+    problem.objectives.forEach((objective: any) => {
+        const name = objective.name;
+        const ideal = objective.ideal;
+        const nadir = objective.nadir;
+        if (ideal !== undefined && nadir !== undefined) {
+            scales[name] = [nadir, ideal];
+        }
+    });
+    // Only return scales from problem if we found at least one complete objective
+    // TODO: logic is wrong here
+    if (Object.keys(scales).length > 0) {
+        return scales;
+    }
+    
+    // Second, try to use scales from API
+    if (result.options?.scales) {
+        return result.options.scales;
+    }
+    
+    // Fallback: calculate scales from bands data
+    const fallbackScales: Record<string, [number, number]> = {};
+    
+    result.ordered_dimensions.forEach(axisName => {
+        let min = Infinity;
+        let max = -Infinity;
+        
+        // Find min/max across all clusters for this axis
+        Object.values(result.bands).forEach(clusterBands => {
+            if (clusterBands[axisName]) {
+                const [bandMin, bandMax] = clusterBands[axisName];
+                min = Math.min(min, bandMin);
+                max = Math.max(max, bandMax);
+            }
+        });
+        
+        // Also check medians for additional range
+        Object.values(result.medians).forEach(clusterMedians => {
+            if (clusterMedians[axisName] !== undefined) {
+                const median = clusterMedians[axisName];
+                min = Math.min(min, median);
+                max = Math.max(max, median);
+            }
+        });
+        
+        fallbackScales[axisName] = [min, max];
+    });
+    
+    return fallbackScales;
 }
 
 /**
