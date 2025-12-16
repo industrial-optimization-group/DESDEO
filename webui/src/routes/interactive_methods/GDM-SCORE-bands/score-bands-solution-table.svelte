@@ -4,26 +4,43 @@
 	 *
 	 * @author Stina Palomäki <palomakistina@gmail.com>
 	 * @created December 2025
+	 * @updated December 2025
 	 *
 	 * @description
 	 * Solution table component for GDM SCORE-Bands decision phase.
 	 * Displays solutions for voting with objective values and voting status.
+	 * Provides sortable interface for comparing solutions across multiple objectives.
 	 *
 	 * @props
-	 * @property {ProblemInfo} problem - The current optimization problem
-	 * @property {Array<{ [key: string]: number }>} solutions - Solutions to display (already transformed)
+	 * @property {ProblemInfo} problem - The current optimization problem definition
+	 * @property {Array<{ [key: string]: number }>} solutions - Solutions to display (pre-transformed)
 	 * @property {number | null} selectedSolution - Index of currently selected solution
-	 * @property {Function} onSolutionSelect - Callback when a solution is selected
-	 * @property {boolean} [userHasVoted=false] - Whether current user has voted
-	 * @property {number | null} [userVotedSolution=null] - Which solution user voted for
-	 * @property {{ [key: string]: number }} [groupVotes={}] - Group voting status
+	 * @property {Function} onSolutionSelect - Callback when a solution is selected for voting
+	 * @property {number | null} [userVotedSolution=null] - Which solution user has voted for
+	 * @property {{ [key: string]: number }} [groupVotes={}] - Group voting status per solution
 	 *
 	 * @features
-	 * - Sortable columns for objective values
+	 * - Sortable columns for objective values with TanStack Table
 	 * - Click to select solutions for voting
 	 * - Highlighting for selected and voted solutions
-	 * - Responsive design for decision phase
-	 * - Vote count visualization
+	 * - Vote count display
+	 * - Color-coded objective columns matching visualization palette
+	 *
+	 * @current_implementation
+	 * - Basic sortable table with objective value sorting
+	 * - Vote count display in dedicated column
+	 * - Visual differentiation between selected and voted solutions
+	 *
+	 * @todo_improvements
+	 * - Rethink vote display: should it be in the table or elsewhere?
+	 * - Visual enhancements needed, this is ugly and different to other tables
+	 *
+	 * @dependencies
+	 * - @tanstack/table-core for advanced table functionality
+	 * - $lib/components/ui/data-table for table UI components
+	 * - $lib/helpers for number formatting utilities
+	 * - $lib/components/visualizations/utils/colors for consistent color palette
+	 * - Lucide icons for sorting indicators
 	 */
 	import {
 		type ColumnDef,

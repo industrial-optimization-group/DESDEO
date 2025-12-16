@@ -1,15 +1,16 @@
 /**
- * Server-side API endpoint for EMO iterate.
+ * Server-side API endpoint for GDM SCORE Bands voting.
  * This endpoint acts as a proxy between the frontend and the backend DESDEO API.
  * 
- * Route: POST /interactive_methods/GDM-SCORE-bands/iterate
+ * Route: POST /interactive_methods/GDM-SCORE-bands/vote
  * 
  * Purpose:
- * - Calls EMO iterate endpoint to start evolutionary algorithm
- * - Returns the iterate response with state_id for subsequent calls
+ * - Calls vote endpoint to cast user's vote for a specific cluster or solution
+ * - Allows users to vote for their preferred option in group decision making
+ * - Returns voting confirmation from the backend, but websocket handles all the neccessary updates instead of this response
  * 
- * Author: AI Assistant
- * Created: November 2025
+ * Author: Stina Palomäki
+ * Created: December 2025
  */
 
 import { json } from '@sveltejs/kit';
@@ -19,11 +20,11 @@ import type { components } from '$lib/api/client-types';
 
 
 /**
- * POST handler for EMO iterate requests
+ * POST handler for GDM SCORE Bands voting requests
  * 
- * Expected request body: Contains problem_id and other EMO parameters
+ * Expected request body: { group_id: number, vote: number }
  * 
- * Returns: JSON response with iterate data including state_id
+ * Returns: JSON response with voting confirmation and updated status
  */
 export const POST: RequestHandler = async ({ request, cookies }) => {
   // Authentication check: Verify that the user has a valid refresh token

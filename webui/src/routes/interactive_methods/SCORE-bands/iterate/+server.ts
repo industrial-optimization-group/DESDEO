@@ -1,7 +1,7 @@
 /**
  * Server-side API endpoint for SCORE Bands iteration.
  * 
- * Route: POST /interactive_methods/SCORE-bands/iterate
+ * Route: -
  * 
  * Status: Not implemented yet for individual SCORE bands method
  */

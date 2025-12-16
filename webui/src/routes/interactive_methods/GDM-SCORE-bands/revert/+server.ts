@@ -1,15 +1,15 @@
 /**
- * Server-side API endpoint for GDM Score Bands revert functionality.
+ * Server-side API endpoint for GDM SCORE Bands iteration reversion.
  * This endpoint acts as a proxy between the frontend and the backend DESDEO API.
  * 
  * Route: POST /interactive_methods/GDM-SCORE-bands/revert
  * 
  * Purpose:
- * - Calls the revert endpoint to revert to a previous iteration
+ * - Calls revert endpoint to revert group to a previous iteration
  * - Only group owners can revert iterations
- * - Returns confirmation of the revert action
+ * - Resets voting state and returns to specified iteration
  * 
- * Author: AI Assistant
+ * Author: Stina Palomäki
  * Created: December 2025
  */
 
@@ -19,7 +19,7 @@ import { api } from '$lib/api/client';
 import type { components } from '$lib/api/client-types';
 
 /**
- * POST handler for revert iteration requests
+ * POST handler for iteration revert requests
  * 
  * Expected request body: { group_id: number, iteration_number: number }
  * 

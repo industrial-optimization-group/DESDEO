@@ -1,29 +1,38 @@
 <script lang="ts">
 	/**
-	 * +page.svelte (SCORE-bands method)
+	 * +page.svelte (Single-User SCORE-bands)
 	 *
-	 * @author Stina (Functionality) <palomakistina@gmail.com>
-	 * @created December 2024
+	 * @author Stina Palomäki <palomakistina@gmail.com>
+	 * @created December 2025
 	 *
 	 * @description
-	 * This page implements the SCORE-bands interactive multiobjective optimization method in DESDEO.
-	 * It displays a sidebar with problem information and SCORE-bands visualizations for individual users.
+	 * Placeholder page for single-user SCORE-bands interactive multiobjective optimization method.
+	 * This is a template/demonstration page copied from GDM-SCORE-bands and adapted for individual use.
+	 * Currently shows visualization only - actual method functionality needs to be implemented.
+	 *
+	 * @status PLACEHOLDER - For demonstration and future development
+	 * Ready for implementation by adding proper API endpoints and method logic
 	 *
 	 * @props
-	 * @property {Object} data - Contains a list of optimization problems fetched from the server.
-	 * @property {ProblemInfo[]} data.problems - List of problems.
+	 * @property {Object} data - Contains optimization problems from server
+	 * @property {ProblemInfo[]} data.problems - Available problems for selection
 	 *
 	 * @features
-	 * - Problem selection from available problems
-	 * - SCORE-bands visualization with cluster analysis
-	 * - Interactive band selection and voting
-	 * - Solution table with detailed information
+	 * - SCORE-bands visualization (demonstration)
+	 * - Configuration controls (non-functional)
+	 * - Solution table placeholder
+	 *
+	 * @todo
+	 * - Implement actual SCORE-bands method endpoints
+	 * - Add proper configuration functionality  
+	 * - Connect visualization to real method results
+	 * - Implement solution selection and preference handling
+	 * - Add decision phase workflow (there is no actual decision phase in single-user, but view to handle solutions is still needed)
 	 *
 	 * @dependencies
-	 * - ScoreBands: Component for SCORE-bands visualization
-	 * - ParallelCoordinates: Component for parallel coordinates visualization
-	 * - ScoreBandsSolutionTable: Table component for displaying solutions
-	 * - methodSelection: Svelte store for the currently selected problem
+	 * - ScoreBands: Visualization component (works with mock data)
+	 * - ParallelCoordinates: Alternative visualization for solutions. Not used, need to add solution selection view
+	 * - ScoreBandsSolutionTable: Solution display (needs real data integration) Not used, need to add solution selection view
 	 */
 
 	import { Button } from '$lib/components/ui/button';
@@ -35,6 +44,14 @@
 	import { methodSelection } from '../../../stores/methodSelection';
 	import { errorMessage } from '../../../stores/uiState';
 	import Alert from '$lib/components/custom/notifications/alert.svelte';
+	import { 
+		calculateScales, 
+		generateClusterColors, 
+		generateAxisOptions,
+		canToggleBands,
+		canToggleMedians,
+		createDemoData
+	} from './helper-functions.js';
 
 
 	// Page data props
@@ -89,60 +106,6 @@
 		// Type assertion to help TypeScript understand the structure
 		const result = scoreBandsResult as components['schemas']['SCOREBandsResult'];
 		
-		// Calculate scales: use API scales if available, otherwise calculate from bands data 
-		function calculateScales(result: components['schemas']['SCOREBandsResult']): Record<string, [number, number]> {
-			// First try to use ideal and nadir from problem
-			if (problem?.objectives) {
-				const scales: Record<string, [number, number]> = {};
-				problem.objectives.forEach((objective: any) => {
-					const name = objective.name;
-					const ideal = objective.ideal;
-					const nadir = objective.nadir;
-					if (ideal !== undefined && nadir !== undefined) {
-						scales[name] = [nadir, ideal];
-					}
-				});
-				// Only return scales from problem if we found at least one complete objective
-				if (Object.keys(scales).length > 0) {
-					return scales;
-				}
-			}
-			// Second try to use scales from API
-			if (result.options?.scales) {
-				return result.options.scales;
-			}
-			
-			// Fallback: calculate scales from bands data
-			const fallbackScales: Record<string, [number, number]> = {};
-			
-			result.ordered_dimensions.forEach((axisName: string) => {
-				let min = Infinity;
-				let max = -Infinity;
-				
-				// Find min/max across all clusters for this axis
-				Object.values(result.bands).forEach(clusterBands => {
-					if (clusterBands[axisName]) {
-						const [bandMin, bandMax] = clusterBands[axisName];
-						min = Math.min(min, bandMin);
-						max = Math.max(max, bandMax);
-					}
-				});
-				
-				// Also check medians for additional range
-				Object.values(result.medians).forEach(clusterMedians => {
-					if (clusterMedians[axisName] !== undefined) {
-						const median = clusterMedians[axisName];
-						min = Math.min(min, median);
-						max = Math.max(max, median);
-					}
-				});
-				
-				fallbackScales[axisName] = [min, max];
-			});
-			
-			return fallbackScales;
-		}
-		
 		const derivedData = {
 			// Direct mappings
 			axisNames: result.ordered_dimensions,
@@ -162,7 +125,7 @@
 			// medians[clusterId][axisName] = medianValue - median values per cluster per axis
 			medians: result.medians,
 			// scales[axisName] = [minValue, maxValue] - normalization scales for converting raw values to [0,1]
-			scales: calculateScales(result)
+			scales: calculateScales(result, problem)
 		};
 		
 		return derivedData;
@@ -175,30 +138,13 @@
 	let show_medians = $state(false); // Hide medians by default
 	let quantile_value = $state(0.25);
 
-	// TODO: do I need this? 
-	// Conversion functions between quantile and interval_size
-	function quantileToIntervalSize(quantile: number): number {
-		return 1 - (2 * quantile);
-	}
-
-	// Helper functions to prevent deselecting all visualization options
-	function canToggleBands() {
-		// Can toggle bands off only if medians would remain on (solutions is disabled)
-		return !show_bands || (show_medians || show_solutions);
-	}
-
-	function canToggleMedians() {
-		// Can toggle medians off only if bands would remain on
-		return !show_medians || (show_bands || show_solutions);
-	}
-
 	// Score bands calculation parameters
 	let dist_parameter = $state(0.05);
 	let use_absolute_corr = $state(false);
 	let distance_formula = $state(1); // 1 for euclidean, 2 for manhattan
 	let flip_axes = $state(true);
 	let clustering_algorithm = $state('DBSCAN'); // 'DBSCAN' or 'GMM'
-	let clustering_score = $state('silhoutte'); // Note: This is the correct spelling used in DESDEO
+	let clustering_score = $state('silhouette'); // Note: This is the correct spelling used in DESDEO
 
 	let options = $derived.by(()=>{
 		return {
@@ -274,80 +220,25 @@
 		}
 	});
 
-	// Initialize demo data using EMO endpoints for demonstration
+	// Initialize demo data using helper function for demonstration
 	async function initializeDemoData() {
-		// Show sample data for testing visualization
-		scoreBandsResult = {
-			ordered_dimensions: ['Objective 1', 'Objective 3', 'Objective 2'],
-			axis_positions: { 'Objective 1': 0, 'Objective 2': 1, 'Objective 3': 0.2 },
-			bands: {
-				'1': { 'Objective 1': [0.1, 0.3], 'Objective 2': [0.4, 0.6], 'Objective 3': [0.2, 0.4] },
-				'2': { 'Objective 1': [0.6, 0.8], 'Objective 2': [0.1, 0.3], 'Objective 3': [0.7, 0.9] }
-			},
-			medians: {
-				'1': { 'Objective 1': 0.2, 'Objective 2': 0.5, 'Objective 3': 0.3 },
-				'2': { 'Objective 1': 0.7, 'Objective 2': 0.2, 'Objective 3': 0.8 }
-			},
-			options: {
-				scales: {
-					'Objective 1': [0.0, 1.0],
-					'Objective 2': [0.0, 1.0], 
-					'Objective 3': [0.0, 1.0]
-				}
-			},
-			clusters: {}
-		} as unknown as components['schemas']['SCOREBandsResult'];
+		// Use helper function to create sample data for testing visualization
+		scoreBandsResult = createDemoData();
 		
 		data_loaded = true;
 		loading_error = null;
 		console.log('Demo mode: Sample data loaded for visualization');
 	}
 
-	// Helper function to generate consistent cluster colors
-	function generate_cluster_colors() {
-		const color_palette = [
-			'#1f77b4', // Strong blue
-			'#ff7f0e', // Vibrant orange
-			'#2ca02c', // Strong green
-			'#d62728', // Bold red
-			'#9467bd', // Purple
-			'#8c564b', // Brown
-			'#e377c2', // Pink
-			'#7f7f7f', // Gray
-			'#bcbd22', // Olive/yellow-green
-			'#17becf' // Cyan
-		];
+	let cluster_colors = $derived(SCOREBands.clusterIds.length > 0 ? generateClusterColors(SCOREBands.clusterIds) : {});
 
-		const cluster_colors: Record<number, string> = {};
-
-		SCOREBands.clusterIds.forEach((clusterId, index) => {
-			cluster_colors[clusterId] = color_palette[index % color_palette.length];
-		});
-
-		return cluster_colors;
-	}
-
-	let cluster_colors = $derived(SCOREBands.clusterIds.length > 0 ? generate_cluster_colors() : {});
-
-	// Helper function to generate axis options with colors and styles
-	function generate_axis_options() {
-		return SCOREBands.axisNames.map((axisName: string) => {
-			// Default gray color and solid line for all other axes
-			return {
-				color: '#666666', // Gray for all other axes
-				strokeWidth: 1,
-				strokeDasharray: 'none'
-			};
-		});
-	}
-
-	let axis_options = $derived(SCOREBands.axisNames.length > 0 ? generate_axis_options() : []);
+	let axis_options = $derived(SCOREBands.axisNames.length > 0 ? generateAxisOptions(SCOREBands.axisNames) : []);
 
 	// Selection state
 	let selected_band: number | null = $state(null);
 	let selected_axis: number | null = $state(null);
 	
-	// Decision phase solution selection state tODO do I need the vote parameters to be separate for phases
+	// Decision phase solution selection state TODO: do I need the vote parameters to be separate for phases
 	let selected_solution: number | null = $state(null);
 
 
@@ -366,7 +257,10 @@
 		console.log('Selected solution:', index, solutionData);
 	}
 
-	// TODO
+	/**
+	 * Placeholder function for fetching SCORE bands data
+	 * Currently returns immediately as method is not implemented
+	 */
 	async function fetch_score_bands() {
 		try {			
 			// This is now a placeholder - no longer fetching data
@@ -379,7 +273,13 @@
 		}
 	}
 
-	// Iterate to find new solutions based on current selection
+	/**
+	 * Iteration function for progressing to new solutions based on band selection
+	 * Currently placeholder - would integrate with EMO iterate with preferences
+	 * 
+	 * @param problem Current optimization problem
+	 * @param selected_band ID of the cluster/band to focus iteration on
+	 */
 	async function iterate(problem: ProblemInfo | undefined, selected_band: number | null) {
 		if (!problem || selected_band === null) {
 			errorMessage.set('Please select a problem and a band to iterate from.');
@@ -401,7 +301,10 @@
 		}
 	}
 
-	// Confirm final solution selection
+	/**
+	 * Confirms final solution selection for individual user
+	 * Currently placeholder - would save final decision to backend
+	 */
 	async function confirmFinalSolution() {
 		if (!problem || selected_solution === null) {
 			errorMessage.set('Please select a solution to confirm as final.');
@@ -420,13 +323,13 @@
 		}
 	}
 
-	// TODO: Remove this function - not needed for individual SCORE bands
-	async function fetch_votes_and_confirms() {
-		// This function is no longer needed for individual SCORE bands method
-		console.log('fetch_votes_and_confirms: Not implemented for individual method');
-	}
 
-	// TODO: documentation text
+	/**
+	 * Revert iteration function - not applicable for single-user workflow
+	 * Individual users don't have group iterations to revert to
+	 * 
+	 * @param iteration Iteration number to revert to (unused in single-user)
+	 */
 	async function revert(iteration: number) {
 		try {
 			// Not implemented for individual SCORE bands method
@@ -438,7 +341,12 @@
 		}
 	}
 
-	// TODO: documentation text
+	/**
+	 * Configuration function for SCORE bands parameters
+	 * Currently placeholder - would update method configuration
+	 * 
+	 * @param config Configuration object with SCORE bands parameters
+	 */
 	async function configure(config: components['schemas']['SCOREBandsGDMConfig']) {
 		try {
 			// Not implemented for individual SCORE bands method
@@ -594,9 +502,9 @@
 								<input
 									type="checkbox"
 									bind:checked={show_bands}
-									disabled={!canToggleBands()}
+									disabled={!canToggleBands(show_bands, show_medians, show_solutions)}
 									class="checkbox checkbox-primary"
-									title={canToggleBands() ? "" : "At least one visualization option must remain active"}
+									title={canToggleBands(show_bands, show_medians, show_solutions) ? "" : "At least one visualization option must remain active"}
 								/>
 							</label>
 						</div>
@@ -620,9 +528,9 @@
 								<input
 									type="checkbox"
 									bind:checked={show_medians}
-									disabled={!canToggleMedians()}
+									disabled={!canToggleMedians(show_bands, show_medians, show_solutions)}
 									class="checkbox checkbox-primary"
-									title={canToggleMedians() ? "" : "At least one visualization option must remain active"}
+									title={canToggleMedians(show_bands, show_medians, show_solutions) ? "" : "At least one visualization option must remain active"}
 								/>
 							</label>
 						</div>
@@ -647,9 +555,7 @@
 								<span>0.3</span>
 								<span>0.5</span>
 							</div>
-							<div class="mt-2 text-xs text-gray-600">
-								Interval size: {quantileToIntervalSize(quantile_value).toFixed(2)}
-							</div>
+
 						</div>
 					</div>
 				</div>

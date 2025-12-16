@@ -1,15 +1,16 @@
 /**
- * Server-side API endpoint for EMO fetch score bands.
+ * Server-side API endpoint for GDM SCORE Bands data fetching.
  * This endpoint acts as a proxy between the frontend and the backend DESDEO API.
  * 
  * Route: POST /interactive_methods/GDM-SCORE-bands/fetch_score_bands
  * 
  * Purpose:
- * - Calls fetch_score endpoint to get score bands data from a completed EMO iteration
- * - Returns the score bands results to the frontend
+ * - Calls fetch-score-bands endpoint to get current SCORE bands data and history
+ * - Returns the complete SCORE bands results including visualization data
+ * - Handles both consensus reaching and decision phase data
  * 
- * Author: AI Assistant
- * Created: November 2025
+ * Author: Stina Palomäki
+ * Created: December 2025
  */
 
 import { json } from '@sveltejs/kit';
@@ -18,11 +19,11 @@ import { api } from '$lib/api/client';
 import type { components } from '$lib/api/client-types';
 
 /**
- * POST handler for EMO fetch score requests
+ * POST handler for GDM SCORE Bands fetch requests
  * 
- * Expected request body: Contains problem_id, parent_state_id and other EMO parameters
+ * Expected request body: { group_id: number, score_bands_config: SCOREBandsConfig, from_iteration?: number }
  * 
- * Returns: JSON response with score bands data from EMO fetch_score endpoint
+ * Returns: JSON response with SCORE bands data, history, and current phase information
  */
 export const POST: RequestHandler = async ({ request, cookies }) => {
   const refreshToken = cookies.get('refresh_token');

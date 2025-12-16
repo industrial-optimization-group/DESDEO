@@ -64,6 +64,12 @@ export class WebSocketService {
 		this.connect();
 	}
 
+	/**
+	 * Establishes WebSocket connection to GDM-SCORE-bands backend
+	 * Sets up event listeners for open, close, message, and error events
+	 * 
+	 * @private
+	 */
 	private connect() {
 		const url = `${wsBase}/gdm/ws?group_id=${this.groupId}&method=${this.method}&token=${this.token}`;
 		this.socket = new WebSocket(url);
@@ -126,6 +132,12 @@ export class WebSocketService {
 		});
 	}
 
+	/**
+	 * Attempts to reconnect to WebSocket with exponential backoff
+	 * Only triggers if not already reconnecting and max attempts not reached
+	 * 
+	 * @private
+	 */
 	private attemptReconnect() {
 		if (this.isReconnecting || this.reconnectAttempts >= this.maxReconnectAttempts || this.intentionalDisconnect) {
 			if (this.reconnectAttempts >= this.maxReconnectAttempts && !this.intentionalDisconnect) {
@@ -155,6 +167,14 @@ export class WebSocketService {
 		}, delay);
 	}
 
+	/**
+	 * Sends a message through WebSocket (not used in GDM-SCORE-bands)
+	 * GDM-SCORE-bands uses HTTP endpoints for user actions instead
+	 * 
+	 * @param message Message to send
+	 * @returns Promise<boolean> Always false for this implementation
+	 * @deprecated Use HTTP endpoints for voting and confirmation actions
+	 */
 	async sendMessage(message: string): Promise<boolean> {
 		// GDM-SCORE-bands uses HTTP endpoints for user actions, not websocket messages
 		// This method is kept in case the API requires it, we need it in future or we fuse websocket-store-components with GNIMBUS.
@@ -168,6 +188,10 @@ export class WebSocketService {
 		return false;
 	}
 
+	/**
+	 * Closes WebSocket connection intentionally
+	 * Prevents automatic reconnection attempts
+	 */
 	close() {
 		this.intentionalDisconnect = true; // Mark as intentional disconnect
 		if (this.socket) {

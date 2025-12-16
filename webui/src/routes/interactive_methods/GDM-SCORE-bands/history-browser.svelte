@@ -1,4 +1,37 @@
 <script lang="ts">
+	/**
+	 * history-browser.svelte
+	 *
+	 * @author Stina Palomäki <palomakistina@gmail.com>
+	 * @created December 2025
+	 * @updated December 2025
+	 *
+	 * @description
+	 * History navigation component for GDM SCORE Bands iterations.
+	 * Provides expandable list of previous iterations with navigation controls.
+	 * Only visible to group owners who can revert to previous states.
+	 *
+	 * @props
+	 * @property {Array} history - Array of iteration responses (both consensus and decision phases)
+	 * @property {number} currentIterationId - ID of the currently active iteration
+	 * @property {Function} onRevertToIteration - Callback to revert to a specific iteration
+	 * @property {boolean} [isOwner=false] - Whether current user is group owner
+	 *
+	 * @features
+	 * - Toggle-based history visibility (show/hide)
+	 * - Iteration list with identification of current and final phases
+	 * - Buttons to revert to selected iterations (disabled for current/decision phases)
+	 * - Owner-only access control
+	 *
+	 * @todo_features
+	 * - Add mini-graph visualization for expanded iterations, or something else to give some info about iterations
+	 * - Implement iteration expansion state management (expandedIterations already prepared)
+	 *
+	 * @dependencies
+	 * - $lib/components/ui/button for navigation controls
+	 * - $lib/api/client-types for OpenAPI-generated TypeScript types
+	 * - Svelte 5 runes for reactive state management
+	 */
 	import { Button } from '$lib/components/ui/button';
 	import type { components } from "$lib/api/client-types";
 

@@ -1,15 +1,15 @@
 /**
- * Server-side API endpoint for GDM Score Bands configuration.
+ * Server-side API endpoint for GDM SCORE Bands configuration.
  * This endpoint acts as a proxy between the frontend and the backend DESDEO API.
  * 
  * Route: POST /interactive_methods/GDM-SCORE-bands/configure
  * 
  * Purpose:
- * - Calls the configure endpoint to update SCORE bands settings
+ * - Calls configure endpoint to update SCORE bands clustering and visualization settings
  * - Only group owners can configure settings
- * - Triggers re-clustering with new configuration
+ * - Triggers re-clustering with new configuration parameters
  * 
- * Author: AI Assistant
+ * Author: Stina Palomäki
  * Created: December 2025
  */
 
@@ -19,7 +19,7 @@ import { api } from '$lib/api/client';
 import type { components } from '$lib/api/client-types';
 
 /**
- * POST handler for configure SCORE bands requests
+ * POST handler for SCORE bands configuration requests
  * 
  * Expected request body: { group_id: number, config: SCOREBandsGDMConfig }
  * 

@@ -1,14 +1,42 @@
+/**
+ * helper-functions.ts
+ *
+ * @author Stina Palomäki <palomakistina@gmail.com>
+ * @created December 2025
+ * @updated December 2025
+ *
+ * @description
+ * Utility functions for GDM SCORE Bands visualization and group decision making.
+ * Provides calculations for axis agreement analysis, visual styling generation,
+ * scale computation, and voting charts using native SVG rendering.
+ *
+ * @functions
+ * - calculateAxisAgreement: Analyzes voting patterns to determine agreement levels per axis
+ * - generate_cluster_colors: Creates consistent color palette for cluster visualization
+ * - generate_axis_options: Generates axis styling based on agreement levels
+ * - calculateScales: Computes axis scales from problem definition or data
+ * - drawVotesChart: Renders SVG voting chart without external dependencies
+ *
+ * @dependencies
+ * - $lib/api/client-types for OpenAPI-generated TypeScript types
+ * - Native SVG DOM manipulation (no external charting libraries)
+ */
 import type { components } from "$lib/api/client-types";
 
 
 /**
  * Calculate agreement level for each axis based on voting data
- * @param {Object} votes_and_confirms - Contains votes and confirms data
- * @param {Object} medians - Medians data from SCORE bands: {clusterId: {axisName: medianValue}}
- * @param {Object} scales - Scales data: {axisName: [ideal, nadir]}
- * @param {number} agreementThreshold - Threshold below which we consider agreement (e.g., 0.1)
- * @param {number} disagreementThreshold - Threshold above which we consider disagreement (e.g., 0.9)
- * @returns {Record<string, 'agreement' | 'disagreement' | 'neutral'>} - Agreement status per axis
+ * 
+ * Analyzes the spread of voted cluster medians on each axis to determine if voters
+ * are in agreement, disagreement, or neutral. Uses normalized disagreement scores
+ * based on the total objective range to classify agreement levels.
+ * 
+ * @param votes_and_confirms - Contains votes and confirms data from group voting
+ * @param medians - Medians data from SCORE bands: {clusterId: {axisName: medianValue}}
+ * @param scales - Scales data: {axisName: [ideal, nadir]} for normalization
+ * @param agreementThreshold - Threshold below which we consider agreement (default: 0.1)
+ * @param disagreementThreshold - Threshold above which we consider disagreement (default: 0.9)
+ * @returns Agreement status per axis ('agreement' | 'disagreement' | 'neutral')
  */
 export function calculateAxisAgreement(
     votes_and_confirms: {
@@ -65,7 +93,15 @@ export function calculateAxisAgreement(
     return agreement;
 }
 
-// Helper function to generate consistent cluster colors
+/**
+ * Generate consistent cluster colors from predefined palette
+ * 
+ * Maps cluster IDs to colors using a predefined color palette with good contrast.
+ * Colors cycle through the palette if more clusters exist than available colors.
+ * 
+ * @param clusterIds - Array of cluster IDs to assign colors to
+ * @returns Record mapping cluster ID to hex color string
+ */
 export function generate_cluster_colors(clusterIds: number[]): Record<number, string> {
     const color_palette = [
         '#1f77b4', // Strong blue
@@ -89,7 +125,20 @@ export function generate_cluster_colors(clusterIds: number[]): Record<number, st
     return cluster_colors;
 }
 
-// Helper function to generate axis options with colors and styles
+/**
+ * Generate axis styling options based on agreement levels
+ * 
+ * Creates visual styling for axes based on calculated agreement levels.
+ * Agreement axes are green with dashed lines, disagreement axes are red with thick dashed lines,
+ * and neutral/unknown axes are gray with solid lines.
+ * 
+ * TODO: maybe here or maybe in the visualization component:
+ * make different axis styles more visible.
+ * 
+ * @param axisNames - Array of axis names to generate options for
+ * @param axis_agreement - Agreement status per axis, or null if not calculated
+ * @returns Array of styling options with color, strokeWidth, and strokeDasharray properties
+ */
 export function generate_axis_options(axisNames: string[], axis_agreement: Record<string, 'agreement' | 'disagreement' | 'neutral'> | null) {
     return axisNames.map((axisName) => {
         if(axis_agreement && axisName in axis_agreement) {
@@ -118,22 +167,40 @@ export function generate_axis_options(axisNames: string[], axis_agreement: Recor
     });
 }
 
-// TODO: when scales work, use them and not problem for ideal and nadir. Do we need fallback to UI-calculation? I dont want it. KEEP THIS TODO, write more clear
-// Calculate scales: use API scales if available, otherwise calculate from bands data 
+/**
+ * Calculate axis scales for SCORE bands visualization
+ * 
+ * Determines the min/max range for each axis using a priority order:
+ * 1. Problem definition (ideal/nadir from objectives)
+ * 2. API-provided scales from result.options.scales
+ * 3. Fallback: calculate from actual bands and medians data
+ * 
+ * TODO: When API scales functionality is fully implemented, prioritize using 
+ * result.options.scales over problem definition. Evaluate if fallback calculation
+ * from bands data is still needed or should be removed.
+ * 
+ * @param problem - Problem definition containing objectives with ideal/nadir values
+ * @param result - SCORE bands result containing bands data and configuration
+ * @returns Record mapping axis name to [min, max] range tuple
+ */
 export function calculateScales(problem: components['schemas']['ProblemInfo'], result: components['schemas']['SCOREBandsResult']): Record<string, [number, number]> {
     // First, try to use ideal and nadir from problem definition
     const scales: Record<string, [number, number]> = {};
+    let allObjectivesHaveScales = true;
+    
     problem.objectives.forEach((objective: any) => {
         const name = objective.name;
         const ideal = objective.ideal;
         const nadir = objective.nadir;
         if (ideal !== undefined && nadir !== undefined) {
             scales[name] = [nadir, ideal];
+        } else {
+            allObjectivesHaveScales = false;
         }
     });
-    // Only return scales from problem if we found at least one complete objective
-    // TODO: logic is wrong here
-    if (Object.keys(scales).length > 0) {
+    
+    // Only use problem scales if ALL objectives have complete ideal/nadir values
+    if (allObjectivesHaveScales && Object.keys(scales).length === problem.objectives.length) {
         return scales;
     }
     
@@ -174,11 +241,16 @@ export function calculateScales(problem: components['schemas']['ProblemInfo'], r
 }
 
 /**
- * Draws a vertical bar chart showing votes per cluster using D3.
- * @param container - HTML container element for the chart
+ * Draw voting results as SVG bar chart
+ * 
+ * Renders a vertical bar chart showing vote distribution across clusters using native SVG.
+ * Only displays clusters that have received at least one vote. Each bar shows the vote count
+ * and is colored according to the cluster's assigned color scheme.
+ * 
+ * @param container - HTML container element to render the chart into
  * @param votes_per_cluster - Record mapping cluster ID to vote count
- * @param totalVoters - Total number of voters for reference
- * @param cluster_colors - Record mapping cluster ID to color string
+ * @param totalVoters - Total number of voters for reference and scaling
+ * @param cluster_colors - Record mapping cluster ID to hex color string
  */
 export function drawVotesChart(
     container: HTMLElement,

@@ -1,4 +1,82 @@
 <script lang="ts">
+	/**
+	 * config-panel.svelte
+	 *
+	 * @author Stina Palomäki <palomakistina@gmail.com>
+	 * @created December 2025
+	 * @updated December 2025
+	 *
+	 * @description
+	 * Configuration panel component for SCORE Bands group decision making (GDM) parameters.
+	 * Provides a comprehensive interface for adjusting clustering algorithms, distance calculations,
+	 * visualization options, and voting thresholds. The component follows a props-based architecture
+	 * for reusability and maintainability, accepting current configuration values and notifying
+	 * parent components of changes through callbacks.
+	 *
+	 * @props
+	 * @property {SCOREBandsConfig | null} currentConfig - Current SCORE bands configuration from API
+	 * @property {number} totalVoters - Total number of voters in the group for minimum votes validation
+	 * @property {Function} onRecalculate - Callback function to execute when configuration changes
+	 * @property {boolean} [isVisible=true] - Controls visibility of the entire configuration panel
+	 *
+	 * @features
+	 * - **Clustering Configuration**: Algorithm selection (DBSCAN, KMeans, GMM) with dynamic cluster count
+	 * - **Distance Parameters**: Formula selection and parameter tuning for axis positioning
+	 * - **Visualization Options**: Controls for band width, solution inclusion, and median display
+	 * - **Voting Controls**: Minimum votes threshold for group decision progression
+	 * - **Real-time Updates**: Form values sync with incoming configuration changes
+	 * - **Type Safety**: Full TypeScript support with OpenAPI-generated schemas
+	 * - **Validation**: Input constraints and conditional field enabling
+	 *
+	 * @implementation_status
+	 * ** IMPLEMENTED (Working)**
+	 * - Basic clustering parameters (distance_parameter, distance_formula, clustering_algorithm)
+	 * - Cluster count configuration (n_clusters) with DBSCAN conditional disabling
+	 * - Interval size slider for band width control
+	 * - Boolean toggles (use_absolute_correlations, include_solutions, include_medians)
+	 * - Minimum votes configuration for GDM workflow
+	 * - Form state synchronization with external configuration changes
+	 * - Configuration building and callback integration
+	 *
+	 * **🚧 NOT IMPLEMENTED (Advanced Features)**
+	 * - dimensions: Multi-select dropdown for objective subset selection
+	 * - descriptive_names: Key-value editor for custom objective display names
+	 * - units: Key-value editor for objective unit specifications
+	 * - axis_positions: Manual axis positioning controls (drag-and-drop or numeric inputs)
+	 * - scales: Min/max range inputs for objective scaling overrides
+	 * - from_iteration: Historical iteration selection for configuration inheritance
+	 *
+	 * @dependencies
+	 * - $lib/components/ui/button for action buttons
+	 * - $lib/api/client-types for OpenAPI-generated TypeScript types
+	 * - Svelte 5 runes ($state, $effect) for reactive state management
+	 * - DaisyUI classes for consistent styling and form components
+	 *
+	 * @data_flow
+	 * 1. Parent component passes currentConfig and callback function
+	 * 2. Component initializes form state from currentConfig or defaults
+	 * 3. User modifies form values through UI interactions
+	 * 4. On "Recalculate Parameters" click, buildConfiguration() creates API payload
+	 * 5. onRecalculate callback sends configuration to parent for API submission
+	 * 6. Parent refreshes data and passes updated currentConfig back to component
+	 *
+	 * @usage_example
+	 * ```svelte
+	 * <ConfigPanel 
+	 *   currentConfig={scoreBandsResult?.options || null}
+	 *   totalVoters={groupUserCount}
+	 *   onRecalculate={handleConfigurationUpdate}
+	 *   isVisible={isOwner && isConsensusPhase}
+	 * />
+	 * ```
+	 *
+	 * @notes
+	 * - Component automatically disables n_clusters input when DBSCAN is selected
+	 * - Interval size uses range slider with visual feedback and descriptive tooltip
+	 * - Form validation ensures minimum votes doesn't exceed total voters
+	 * - Configuration building follows SCOREBandsGDMConfig schema requirements
+	 * - Advanced configuration options are marked as null for future implementation
+	 */
 	import { Button } from '$lib/components/ui/button';
 	import type { components } from "$lib/api/client-types";
 
@@ -15,7 +93,8 @@
 		isVisible?: boolean;
 	}>();
 
-	// Local state for form values - initialized from currentConfig or defaults
+	// Local reactive state for form values - initialized from currentConfig or defaults
+	// These values are bound to form controls
 	let distance_parameter = $state(currentConfig?.distance_parameter ?? 0.05);
 	let distance_formula = $state(currentConfig?.distance_formula ?? 1);
 	let clustering_algorithm = $state(currentConfig?.clustering_algorithm?.name ?? 'KMeans');
@@ -28,7 +107,13 @@
 	let interval_size = $state(currentConfig?.interval_size ?? 0.25);
 	let minimum_votes = $state(1);
 
-	// Update form values when currentConfig changes
+	/**
+	 * Effect to synchronize form values when currentConfig changes
+	 * 
+	 * This ensures the form stays in sync when the parent component provides
+	 * updated configuration data (e.g., after API responses or iteration changes).
+	 * Prevents form state from becoming stale when external data updates occur.
+	 */
 	$effect(() => {
 		if (currentConfig) {
 			distance_parameter = currentConfig.distance_parameter;
@@ -42,70 +127,74 @@
 		}
 	});
 
-	// Build configuration object for API call
+	/**
+	 * Build configuration object for API call
+	 * 
+	 * Constructs a complete SCOREBandsGDMConfig object from current form values.
+	 * Maps UI form state to the API schema structure required by the backend.
+	 * 
+	 * @returns {SCOREBandsGDMConfig} Complete configuration object for API submission
+	 * 
+	 * @implementation_notes
+	 * ** IMPLEMENTED - Form-based Configuration**
+	 * - clustering_algorithm: Maps UI selection to algorithm object with conditional n_clusters
+	 * - distance_formula: Direct mapping from select dropdown (1=Euclidean, 2=Manhattan)
+	 * - distance_parameter: Number input for axis spacing control (0.0-1.0)
+	 * - use_absolute_correlations: Boolean toggle for correlation calculation method
+	 * - include_solutions: Boolean toggle for individual solution visibility
+	 * - include_medians: Boolean toggle for cluster median display
+	 * - interval_size: Range slider for band width (0.1-0.95 fraction)
+	 * - minimum_votes: Number input for GDM voting threshold (1 to totalVoters)
+	 * 
+	 * ** HARDCODED - Default Values (Ready for Future Implementation)**
+	 * - dimensions: null (use all objectives)
+	 * - descriptive_names: null (use original names)
+	 * - units: null (no units displayed)
+	 * - axis_positions: null (auto-calculated)
+	 * - scales: null (auto-calculated ranges)
+	 * - from_iteration: null (start fresh) - Future: iteration selection for config inheritance TODO STINA! This should be the iteration given blabla
+	 */
 	function buildConfiguration(): components['schemas']['SCOREBandsGDMConfig'] {
-		return  {
+		return {
 			score_bands_config: {
-				dimensions: null, // null = use all dimensions
-				descriptive_names: null, // null = use default names
-				units: null, // null = use default units
-				axis_positions: null, // null = use default positions
+				dimensions: null, // Future: Multi-select dropdown for objective subset selection
+				descriptive_names: null, // Future: Key-value editor for custom objective display names  
+				units: null, // Future: Key-value editor for objective unit specifications
+				axis_positions: null, // Future: Drag-and-drop or numeric inputs for manual axis positioning (axis selection exists, commented out)
+				scales: null, // Future: Min/max range inputs for objective scaling overrides
+				
+				// IMPLEMENTED: Clustering algorithm configuration with conditional n_clusters
 				clustering_algorithm: {
 					name: clustering_algorithm as any,
+					// Conditionally include n_clusters only for KMeans and GMM (DBSCAN uses density-based clustering)
 					...(clustering_algorithm !== 'DBSCAN' && { n_clusters: n_clusters })
 				},
-				distance_formula: distance_formula as components['schemas']['DistanceFormula'],
-				distance_parameter: distance_parameter,
-				use_absolute_correlations: use_absolute_correlations,
-				include_solutions: include_solutions,
-				include_medians: include_medians,
-				interval_size: interval_size,
-				scales: null // null = auto-calculate scales
-			},
-			minimum_votes: minimum_votes,
-			from_iteration: null
-		};
+				
+				// IMPLEMENTED: Distance calculation parameters
+				distance_formula: distance_formula as components['schemas']['DistanceFormula'], // 1=Euclidean, 2=Manhattan
+				distance_parameter: distance_parameter, // 0.0-1.0: Controls relative distances between objective axes
+				
+				// IMPLEMENTED: Visualization behavior controls
+				use_absolute_correlations: use_absolute_correlations, // Whether to use absolute value of correlations for axis placement
+				include_solutions: include_solutions, // Whether to show individual solutions in visualization
+				include_medians: include_medians, // Whether to show cluster median traces
+				interval_size: interval_size, // 0.1-0.95: Fraction of solutions to include in bands (band width control)
 
-        // const configExample = {
-		// 		// Configuration for the underlying SCORE bands algorithm
-		// 		score_bands_config: {
-		// 			dimensions: null, // null = use all dimensions
-		// 			descriptive_names: null, // null = use default names. Could be {[key: string]: string}
-		// 			units: null, // null = use default units. Could be {[key: string]: string}
-		// 			axis_positions: null, // null = use default positions. Could be {[key: string]: number}
-		// 			clustering_algorithm: {
-		// 				// Algorithm name: 'DBSCAN', 'KMeans', or 'GMM'
-		// 				name: 'KMeans',
-		// 				// Number of clusters (for KMeans and GMM)
-		// 				n_clusters: 5
-		// 			},
-		// 			// Distance formula: 1 = Euclidean, 2 = Manhattan
-		// 			// Determines how distances between points are calculated
-		// 			distance_formula: 1,
-		// 			// Distance parameter for clustering (0.0 to 1.0) 
-		// 			// Used in clustering algorithms to determine cluster boundaries
-		// 			distance_parameter: 0.05,
-		// 			// Whether to use absolute correlation in distance calculations
-		// 			// true = use absolute values, false = consider sign of correlation
-		// 			use_absolute_correlations: false,
-		// 			include_solutions: false, // Whether to include individual solutions in visualization. This shouldnot even work, if I am right; deprecated?
-		// 			include_medians: true, // Whether to include medians in visualization
-		// 			// Quantile parameter for band calculation (0.0 to 0.5)
-		// 			// Determines the width of the bands - smaller values = narrower bands
-		// 			interval_size: 0.25,
-		// 			scales: null, // null = auto-calculate scales. Could be {[key: string]: [number, number]}					
-		// 		},
-				
-		// 		// Minimum number of votes required to proceed to next iteration
-		// 		// Must be greater than 0, typically set to majority or all users
-		// 		minimum_votes: 1,
-				
-		// 		// Iteration number from which to start considering clusters
-		// 		// null = start from beginning, number = start from specific iteration
-		// 		from_iteration: null // TODO: should this be the latest_iteration, is there something wrong with it since it does not give new info?
-		// 	};
+			},
+			
+			// IMPLEMENTED: Group decision making parameters  
+			minimum_votes: minimum_votes, // Minimum votes required to proceed to next iteration
+			from_iteration: null // Future: Iteration selection dropdown for configuration inheritance
+		};
 	}
 
+	/**
+	 * Handle recalculation button click
+	 * 
+	 * Builds the current configuration from form values and triggers the parent
+	 * component's recalculation callback. This initiates the API call to update
+	 * the SCORE bands configuration and refresh the visualization.
+	 */
 	function handleRecalculate() {
 		const config = buildConfiguration();
 		onRecalculate(config);

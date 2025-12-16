@@ -1,7 +1,7 @@
 /**
  * Server-side API endpoint for SCORE Bands configuration.
  * 
- * Route: POST /interactive_methods/SCORE-bands/configure
+ * Route: -
  * 
  * Status: Not implemented for individual SCORE bands method
  */

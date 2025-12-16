@@ -6,24 +6,29 @@
 	 * @created December 2025
 	 *
 	 * @description
-	 * Solution table component for GDM SCORE-Bands decision phase.
-	 * Displays solutions for voting with objective values and voting status.
+	 * Solution table component for single-user SCORE-bands method.
+	 * Placeholder component adapted from GDM version for individual decision making.
+	 *
+	 * @status PLACEHOLDER - Ready for adaptation to single-user workflow
 	 *
 	 * @props
-	 * @property {ProblemInfo} problem - The current optimization problem
-	 * @property {Array<{ [key: string]: number }>} solutions - Solutions to display (already transformed)
-	 * @property {number | null} selectedSolution - Index of currently selected solution
-	 * @property {Function} onSolutionSelect - Callback when a solution is selected
-	 * @property {boolean} [userHasVoted=false] - Whether current user has voted
-	 * @property {number | null} [userVotedSolution=null] - Which solution user voted for
-	 * @property {{ [key: string]: number }} [groupVotes={}] - Group voting status
+	 * @property {ProblemInfo} problem - The optimization problem information
+	 * @property {Array<{ [key: string]: number }>} solutions - Solutions to display
+	 * @property {number | null} selectedSolution - Currently selected solution index
+	 * @property {Function} onSolutionSelect - Callback for solution selection
+	 * @property {boolean} [userHasSelected=false] - Whether user has made selection
+	 * @property {number | null} [userSelectedSolution=null] - User's selected solution
 	 *
 	 * @features
 	 * - Sortable columns for objective values
-	 * - Click to select solutions for voting
-	 * - Highlighting for selected and voted solutions
-	 * - Responsive design for decision phase
-	 * - Vote count visualization
+	 * - Solution selection for preference input
+	 * - Highlighting for selected solutions
+	 * - Responsive design
+	 *
+	 * @todo
+	 * - Adapt voting logic to single-user preference handling
+	 * - Remove group-specific functionality
+	 * - Connect to single-user SCORE-bands method workflow
 	 */
 	import {
 		type ColumnDef,
