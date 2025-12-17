@@ -47,7 +47,7 @@
 	import { normalize_data } from '$lib/components/visualizations/utils/math';
 	import type { AxisOptions } from './utils/types';
 	import { getAxisOptions } from './utils/helpers';
-	import { drawBand, drawPreCalculatedCluster } from './components/band';
+	import { drawPreCalculatedCluster } from './components/band';
 
 	// --- Props ---
 	export let data: number[][] = [];
@@ -59,12 +59,10 @@
 		bands: boolean;
 		solutions: boolean;
 		medians: boolean;
-		quantile: number;
 	} = {
 		bands: true,
 		solutions: true,
 		medians: false,
-		quantile: 0.5
 	};
 	export let clusterVisibility: Record<number, boolean> | undefined;
 	export let axisOrder: number[] = [];
@@ -167,53 +165,7 @@
 		const hasRawData = processedData.length > 0 && groups.length > 0;
 		const hasPreCalculatedData = Object.keys(bands).length > 0 && Object.keys(medians).length > 0;
 
-		if (hasRawData) {
-			// --- Use raw data to calculate and draw bands ---
-			grouped.forEach((rows, groupId) => {
-				if (!effectiveClusterVisibility[groupId]) return;
-				if (selectedBand === groupId) return; // skip selected cluster here
-
-				drawBand(
-					svg,
-					rows,
-					groupId,
-					xPositions,
-					yScales,
-					clusterColors,
-					{
-						quantile: options.quantile,
-						showMedian: options.medians,
-						showSolutions: options.solutions,
-						bandOpacity: 0.5
-					},
-					false, // not selected
-					onBandSelect
-				);
-			});
-
-			// --- Draw selected cluster on top ---
-			if (selectedBand !== null && effectiveClusterVisibility[selectedBand]) {
-				const selectedRows = grouped.get(selectedBand);
-				if (selectedRows) {
-					drawBand(
-						svg,
-						selectedRows,
-						selectedBand,
-						xPositions,
-						yScales,
-						clusterColors,
-						{
-							quantile: options.quantile,
-							showMedian: options.medians,
-							showSolutions: options.solutions,
-							bandOpacity: 0.5
-						},
-						true, // selected styling
-						onBandSelect
-					);
-				}
-			}
-		} else if (hasPreCalculatedData) {
+		if (hasPreCalculatedData) {
 			// --- Use pre-calculated bands and medians from SCORE API ---
 			
 			// Get unique cluster IDs from groups
@@ -228,7 +180,7 @@
 				
 				drawPreCalculatedCluster(
 					svg,
-					clusterId,  // actual cluster ID for colors and selection
+					clusterId,
 					bands,
 					medians,
 					sortedAxisNames,
@@ -248,7 +200,7 @@
 				if (bands[selectedClusterKey] && medians[selectedClusterKey]) {
 					drawPreCalculatedCluster(
 						svg,
-						selectedBand,       // actual cluster ID
+						selectedBand,
 						bands,
 						medians,
 						sortedAxisNames,
@@ -262,6 +214,53 @@
 					);
 				}
 			}
+		// ORIGINAL VERSION USING RAW DATA TO CALCULATE BANDS
+		// } else if (hasRawData) {
+		// 	// --- Use raw data to calculate and draw bands ---
+		// 	grouped.forEach((rows, groupId) => {
+		// 		if (!effectiveClusterVisibility[groupId]) return;
+		// 		if (selectedBand === groupId) return; // skip selected cluster here
+
+		// 		drawBand(
+		// 			svg,
+		// 			rows,
+		// 			groupId,
+		// 			xPositions,
+		// 			yScales,
+		// 			clusterColors,
+		// 			{
+		// 				quantile: 0.25,
+		// 				showMedian: options.medians,
+		// 				showSolutions: options.solutions,
+		// 				bandOpacity: 0.5
+		// 			},
+		// 			false, // not selected
+		// 			onBandSelect
+		// 		);
+		// 	});
+
+		// 	// --- Draw selected cluster on top ---
+		// 	if (selectedBand !== null && effectiveClusterVisibility[selectedBand]) {
+		// 		const selectedRows = grouped.get(selectedBand);
+		// 		if (selectedRows) {
+		// 			drawBand(
+		// 				svg,
+		// 				selectedRows,
+		// 				selectedBand,
+		// 				xPositions,
+		// 				yScales,
+		// 				clusterColors,
+		// 				{
+		// 					quantile: 0.25,
+		// 					showMedian: options.medians,
+		// 					showSolutions: options.solutions,
+		// 					bandOpacity: 0.5
+		// 				},
+		// 				true, // selected styling
+		// 				onBandSelect
+		// 			);
+		// 		}
+		// 	}
 		}
 
 		// --- Draw axis lines and labels (always in front) ---

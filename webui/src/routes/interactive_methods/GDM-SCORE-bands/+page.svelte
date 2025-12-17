@@ -117,8 +117,9 @@
 	let iteration_id = $state(0); // for header and fetch_score_bands
 	// current iteration data for consensus reaching phase, when bands exist
 	let scoreBandsResult: components['schemas']['SCOREBandsResult'] | null = $state(null);
-	// TODO: Configuration is used only in initialization now,
-	// but this exists in case it is needed when recalculating parameters is implemented for moderator
+	
+	// Configuration and latestIteration are used in initialization and configPanel
+	let latestIteration: number | null = $state(null);
 	let scoreBandsConfig: components["schemas"]["SCOREBandsConfig"] = $state({
 			clustering_algorithm: {
 				name: 'KMeans',
@@ -149,7 +150,8 @@
 				data: [] as number[][],
 				bands: {}, 
 				medians: {},
-				scales: undefined
+				scales: undefined,
+				solutions_per_cluster: {} as Record<string, number>,
 			};
 		}
 		
@@ -167,7 +169,7 @@
 			bands: scoreBandsResult.bands, 
 			medians: scoreBandsResult.medians,
 			scales: calculateScales(data.problem, scoreBandsResult), // TODO: see calculateScales function
-			solutions_per_cluster: [] // TODO STINA
+			solutions_per_cluster: scoreBandsResult.cardinalities
 		};
 		return derivedData;
 	})
@@ -191,13 +193,11 @@
 
 
 	// options for drawing score bands
-	// TODO STINA, should I remove quantile
 	let options = $derived.by(()=>{
 		return {
 		bands: show_bands,
 		solutions: show_solutions,
 		medians: show_medians,
-		quantile: 0.25
 	}});
 
 	// Cluster visibility controls
@@ -316,7 +316,7 @@
 					console.log('WebSocket reconnected, refreshing gdm-score-bands state...');
 					// TODO: Pop up message to user: 'Reconnected to server'. At least exists in GNIMBUS.
 					fetch_score_bands();
-					fetch_votes_and_confirms();
+					fetch_votes_and_confirms(true);
 				}
 			);
 			
@@ -333,7 +333,7 @@
 				
 				else if (msg.includes('UPDATE')) {
 					fetch_score_bands();
-					fetch_votes_and_confirms();
+					fetch_votes_and_confirms(true);
 					clusters_to_visible();
 					return;
 				}
@@ -348,7 +348,7 @@
 		}
 
 		await fetch_score_bands();
-		await fetch_votes_and_confirms();
+		await fetch_votes_and_confirms(true);
 
 		clusters_to_visible();
 	});
@@ -392,17 +392,20 @@
 				const currentResponse = history[history.length - 1];
 				// Check which type of response we got and update state accordingly
 				if (currentResponse.method === 'gdm-score-bands') {
-					// Regular SCORE bands response
-					const scoreBandsData = currentResponse.result as components['schemas']['SCOREBandsResult'];
+					// Regular SCORE bands response - cast to proper type for TypeScript
+					const scoreBandsResponse = currentResponse as components['schemas']['GDMSCOREBandsResponse'];
+					latestIteration = scoreBandsResponse.latest_iteration ? scoreBandsResponse.latest_iteration : null;
+					const scoreBandsData = scoreBandsResponse.result as components['schemas']['SCOREBandsResult'];
 					scoreBandsResult = scoreBandsData;
 					scoreBandsConfig = scoreBandsData.options;
-					iteration_id = currentResponse.group_iter_id;
+					iteration_id = scoreBandsResponse.group_iter_id;
 					phase = 'Consensus Reaching Phase';
 					decisionResult = null;
-					console.log('SCORE bands fetched successfully:', currentResponse);
+					console.log('SCORE bands fetched successfully:', scoreBandsResponse);
 				} else if (currentResponse.method === 'gdm-score-bands-final') {
 					// Decision phase response
 					const finalDecisionData = currentResponse.result as components['schemas']['GDMSCOREBandFinalSelection'];
+					latestIteration = null;
 					decisionResult = finalDecisionData;
 					iteration_id = currentResponse.group_iter_id;
 					phase = 'Decision Phase';
@@ -495,7 +498,7 @@
 	}
 
 	// TODO STINA: documentation text
-	async function fetch_votes_and_confirms() {
+	async function fetch_votes_and_confirms(selectVotedBand = false) {
 		try {
 			const response = await fetch('/interactive_methods/GDM-SCORE-bands/get_votes_and_confirms', {
 				method: 'POST',
@@ -516,9 +519,8 @@
 			if (result.success) {
 				votes_and_confirms = result.data;
 				// If user has voted already, select the band they voted for
-				// TODO STINA: This should happen when onMount, reconnect ws, but NOT if someone else just votes and ws says "voted!".
-				// SO this is WRONG place. What is right?
-				if (userId && votes_and_confirms.votes.hasOwnProperty(userId)) {
+				// selectVotedBand parameter controls whether to update selected_band: updates happen in different situations, some should not change selected_band
+				if (userId && votes_and_confirms.votes.hasOwnProperty(userId) && selectVotedBand) {
 					selected_band = votes_and_confirms.votes[userId];
 				} else {
 					selected_band = null;
@@ -567,7 +569,7 @@
 		}
 	}
 
-	// TODO STINA: documentation text AND EVERYTHING. Try to USE.
+	// TODO STINA: documentation text
 	async function configure(config: components['schemas']['SCOREBandsGDMConfig']) {
 		try {
 			const configureResponse = await fetch('/interactive_methods/GDM-SCORE-bands/configure', {
@@ -669,6 +671,7 @@
 		<!-- Parameter Controls -->
 		<ConfigPanel 
 			currentConfig={scoreBandsResult?.options || null}
+			{latestIteration}
 			{totalVoters}
 			onRecalculate={configure}
 			isVisible={isOwner && isConsensusPhase}
@@ -740,6 +743,11 @@
 											style="background-color: {cluster_colors[clusterId] || '#000000'};"
 										></span>
 										Cluster {clusterId}
+										{#if SCOREBands.solutions_per_cluster && SCOREBands.solutions_per_cluster[clusterId]}
+											<span class="text-xs text-gray-500 ml-1">
+												({SCOREBands.solutions_per_cluster[clusterId]} solutions)
+											</span>
+										{/if}
 									</span>
 									<input
 										type="checkbox"

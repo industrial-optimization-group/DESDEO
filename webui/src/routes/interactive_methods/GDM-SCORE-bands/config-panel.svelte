@@ -83,11 +83,13 @@
 	// Component props
 	const {
 		currentConfig,
+		latestIteration,
 		totalVoters,
 		onRecalculate,
 		isVisible = true
 	} = $props<{
 		currentConfig: components['schemas']['SCOREBandsConfig'] | null;
+		latestIteration: number | null;
 		totalVoters: number;
 		onRecalculate: (config: components['schemas']['SCOREBandsGDMConfig']) => void;
 		isVisible?: boolean;
@@ -106,6 +108,7 @@
 	let include_medians = $state(currentConfig?.include_medians ?? true);
 	let interval_size = $state(currentConfig?.interval_size ?? 0.25);
 	let minimum_votes = $state(1);
+	let latest_iteration = $state(latestIteration);
 
 	/**
 	 * Effect to synchronize form values when currentConfig changes
@@ -125,6 +128,7 @@
 			include_medians = currentConfig.include_medians;
 			interval_size = currentConfig.interval_size;
 		}
+		latest_iteration = latestIteration;
 	});
 
 	/**
@@ -145,6 +149,7 @@
 	 * - include_medians: Boolean toggle for cluster median display
 	 * - interval_size: Range slider for band width (0.1-0.95 fraction)
 	 * - minimum_votes: Number input for GDM voting threshold (1 to totalVoters)
+	 * - from_iteration: latest_iteration (inherits config from specified iteration)
 	 * 
 	 * ** HARDCODED - Default Values (Ready for Future Implementation)**
 	 * - dimensions: null (use all objectives)
@@ -152,7 +157,6 @@
 	 * - units: null (no units displayed)
 	 * - axis_positions: null (auto-calculated)
 	 * - scales: null (auto-calculated ranges)
-	 * - from_iteration: null (start fresh) - Future: iteration selection for config inheritance TODO STINA! This should be the iteration given blabla
 	 */
 	function buildConfiguration(): components['schemas']['SCOREBandsGDMConfig'] {
 		return {
@@ -184,7 +188,7 @@
 			
 			// IMPLEMENTED: Group decision making parameters  
 			minimum_votes: minimum_votes, // Minimum votes required to proceed to next iteration
-			from_iteration: null // Future: Iteration selection dropdown for configuration inheritance
+			from_iteration: latest_iteration
 		};
 	}
 
