@@ -2,44 +2,35 @@
 	/**
 	 * SCOREBands.svelte
 	 * --------------------------------
-	 * Parallel coordinates visualization with bands, medians, and solutions.
+	 * Parallel coordinates visualization for SCORE-bands method.
 	 *
-	 * @author Giomara Larraga <glarragw@jyu.fi>
+	 * @author Giomara Larraga <glarragw@jyu.fi>, Stina Palomäki <palomakistina@gmail.com> (modifications)
 	 * @created June 2025
+	 * @modified December 2025
 	 *
 	 * @description
-	 * Visualizes multi-objective data as parallel axes, with bands, medians, and individual solutions.
-	 * Supports axis flipping, custom axis order, cluster coloring, and cluster visibility toggling.
+	 * Visualizes SCORE-bands data using pre-calculated bands and medians from API.
+	 * Supports cluster selection, axis styling, and cluster visibility controls.
 	 *
-	 * @work-in-progress
-	 * This component is a work in progress. Features may change.
+	 * @current-implementation
+	 * Uses pre-calculated bands/medians from SCORE API (raw data processing commented out).
 	 *
 	 * @props
-	 * - data: number[][] — rows: solutions, columns: objectives (any range, will be normalized internally)
-	 * - axisNames: string[] — names for each axis (objective)
-	 * - axisPositions: number[] — normalized horizontal positions for axes (0 to 1)
-	 * - axisSigns: number[] — 1 or -1 to flip axis direction
-	 * - groups: number[] — cluster/group IDs for each row in data
-	 * - options: {
-	 *     bands: boolean;      // show quantile bands
-	 *     solutions: boolean;  // show individual solutions
-	 *     medians: boolean;    // show median line
-	 *     quantile: number;    // quantile for bands
-	 *   }
-	 * - clusterVisibility?: Record<number, boolean> — which clusters are visible
-	 * - clusterColors?: Record<number, string> — colors for each cluster
-	 * - axisOptions?: Array<{color?: string; strokeWidth?: number; strokeDasharray?: string}> — styling options for each axis
-	 * - axisOrder?: number[] — custom axis order (default: [0, 1, 2, ...])
-	 * - onBandSelect?: function — callback when a band is selected
-	 * - onAxisSelect?: function — callback when an axis is selected
-	 * - selectedBand?: number | null — currently selected band cluster ID
-	 * - selectedAxis?: number | null — currently selected axis index
+	 * - bands: Record<string, Record<string, [number, number]>> — pre-calculated band limits
+	 * - medians: Record<string, Record<string, number>> — pre-calculated median values
+	 * - scales: Record<string, [number, number]> — normalization scales
+	 * - axisNames: string[] — axis labels
+	 * - axisPositions: number[] — axis positions (0-1)
+	 * - clusterVisibility: Record<number, boolean> — cluster visibility
+	 * - clusterColors: Record<number, string> — cluster colors
+	 * - selectedBand: number | null — selected cluster ID
+	 * - onBandSelect: function — band selection callback
 	 *
 	 * @features
-	 * - Automatic data normalization to [0,1] range
-	 * - Cluster coloring (Tableau10)
-	 * - Axis flipping and reordering
-	 * - Responsive to prop changes
+	 * - Pre-calculated band visualization
+	 * - Cluster selection and highlighting
+	 * - Axis styling and labeling
+	 * - Responsive cluster visibility
 	 */
 
 	import { onMount } from 'svelte';
@@ -50,7 +41,7 @@
 	import { drawPreCalculatedCluster } from './components/band';
 
 	// --- Props ---
-	export let data: number[][] = [];
+	export let data: number[][] = []; // not used, kept in case future happens
 	export let axisNames: string[] = [];
 	export let axisPositions: number[] = [];
 	export let axisSigns: number[] = [];
@@ -101,7 +92,8 @@
 	let container: HTMLDivElement;
 
 	/**
-	 * Draws the parallel coordinates chart with bands, medians, and solutions.
+	 * Draws SCORE-bands visualization using pre-calculated bands and medians
+	 * Note: Raw data processing is commented out, using API data only
 	 */
 	function drawChart() {
 		if (!container || axisNames.length === 0) return;
@@ -160,7 +152,7 @@
 			) : new Map();
 
 		// --- Decide which drawing method to use ---
-		// hasRawData: UI has list of solutions and calculates bands from them.
+		// hasRawData: UI has list of solutions and calculates bands from them. This calculation is currently commented out.
 		// hasPreCalculatedData: UI uses bands and medians pre-calculated by SCORE API, and might not have solutions at all.
 		const hasRawData = processedData.length > 0 && groups.length > 0;
 		const hasPreCalculatedData = Object.keys(bands).length > 0 && Object.keys(medians).length > 0;
@@ -215,6 +207,8 @@
 				}
 			}
 		// ORIGINAL VERSION USING RAW DATA TO CALCULATE BANDS
+		// This version calculated bands from raw solution data instead of using pre-calculated API data
+
 		// } else if (hasRawData) {
 		// 	// --- Use raw data to calculate and draw bands ---
 		// 	grouped.forEach((rows, groupId) => {

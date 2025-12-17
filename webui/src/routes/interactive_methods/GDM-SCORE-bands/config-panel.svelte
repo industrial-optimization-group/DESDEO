@@ -37,14 +37,14 @@
 	 * - Minimum votes configuration for GDM workflow
 	 * - Form state synchronization with external configuration changes
 	 * - Configuration building and callback integration
+	 * - from_iteration: Iteration selection for configuration inheritance
 	 *
-	 * **🚧 NOT IMPLEMENTED (Advanced Features)**
+	 * ** NOT IMPLEMENTED **
 	 * - dimensions: Multi-select dropdown for objective subset selection
 	 * - descriptive_names: Key-value editor for custom objective display names
 	 * - units: Key-value editor for objective unit specifications
 	 * - axis_positions: Manual axis positioning controls (drag-and-drop or numeric inputs)
 	 * - scales: Min/max range inputs for objective scaling overrides
-	 * - from_iteration: Historical iteration selection for configuration inheritance
 	 *
 	 * @dependencies
 	 * - $lib/components/ui/button for action buttons

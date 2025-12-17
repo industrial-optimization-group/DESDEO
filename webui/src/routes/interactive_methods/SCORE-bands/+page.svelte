@@ -238,7 +238,6 @@
 	let selected_band: number | null = $state(null);
 	let selected_axis: number | null = $state(null);
 	
-	// Decision phase solution selection state TODO: do I need the vote parameters to be separate for phases
 	let selected_solution: number | null = $state(null);
 
 
@@ -290,9 +289,6 @@
 		try {
 			// For now, just show a message - this would call EMO iterate with preferences
 			errorMessage.set(`Iterate functionality: Would generate new solutions focusing on cluster ${selected_band}`);
-			
-			// TODO: Implement actual iteration logic
-			// This would involve calling EMO iterate with preferences based on the selected band
 			console.log('Iteration completed');
 			
 		} catch (error) {

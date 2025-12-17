@@ -1,4 +1,67 @@
 <script lang="ts">
+	/**
+	 * +page.svelte (GDM-SCORE-bands method)
+	 *
+	 * @author Stina (Functionality) <palomakistina@gmail.com>
+	 * @author Giomara Larraga (Base structure) <glarragw@jyu.fi>
+	 * @created December 2025
+	 *
+	 * @description
+	 * Group decision making interface using SCORE-bands method.
+	 * Handles consensus phase (band voting) and decision phase (solution voting).
+	 * 
+	 * @props
+	 * @property {Object} data - Contains authentication token, group info, and problem data.
+	 * @property {string} data.refreshToken - JWT refresh token for authentication.
+	 * @property {GroupPublic} data.group - Group information including members and owner.
+	 * @property {ProblemInfo} data.problem - Optimization problem definition and metadata.
+	 *
+	 * @features
+	 * - Real-time collaboration via WebSocket
+	 * - Two-phase process: consensus reaching and decision phase
+	 * - SCORE-bands visualization for voting in consensus reaching phase
+	 * - Parallel coordinates visualization for solution voting in decision phase
+	 * - Configuration panel for method parameters (number of solutions, clusters, etc.) (group owner only)
+	 * - History browser with possibility to revert to chosen iteration (group owner only)
+	 * - Role-based access control (group owner vs decision makers)
+	 * - Cluster visibility controls with solution count display
+	 * - Agreement calculation and consensus indicators (axis colors)
+	 * - Voted bands visible in bar chart visualization
+	 * - Solution table with detailed objective and decision variable values for decision phase
+	 *
+	 * @dependencies
+	 * - ScoreBands: Main visualization component for SCORE-bands method
+	 * - ParallelCoordinates: Visualization for solution comparison
+	 * - ScoreBandsSolutionTable: Table component for displaying solution details
+	 * - HistoryBrowser: Component for browsing iteration history
+	 * - ConfigPanel: Configuration interface for method parameters
+	 * - WebSocketService: Real-time communication service for collaboration
+	 * - Button: UI component for actions and controls
+	 * - Alert: For displaying error messages and notifications
+	 * - createObjectiveDimensions: Helper for visualization data transformation
+	 * - Helper functions: drawVotesChart, calculateAxisAgreement, generate_axis_options, etc.
+	 *
+	 * @notes
+	 * - WebSocket connection is established automatically when component mounts
+	 * - User roles are determined from group membership and ownership
+	 * - State is managed using Svelte's reactive $state and $derived declarations
+	 * - Real-time updates are handled through WebSocket message processing
+	 * - Consensus is calculated based on agreement thresholds and vote patterns
+	 *
+	 * @phases
+	 * 1. Band Voting Phase (CRP):
+	 *    - Decision makers vote on preferred objective value bands
+	 *    - SCORE-bands visualization shows clusters and voting interface
+	 *    - Real-time consensus tracking with agreement indicators
+	 *    - Configuration panel allows adjusting method parameters
+	 *
+	 * 2. Solution Voting Phase (Decision phase):
+	 *    - Activated after API returns different data without bands, meaning there are under 10 solutions
+	 *    - Parallel coordinates show solutions within agreed bands
+	 *    - Decision makers vote on specific solutions
+	 *    - Final solution selected based on voting results
+	 */
+
 	import { Button } from '$lib/components/ui/button';
 	import ScoreBands from '$lib/components/visualizations/score-bands/score-bands.svelte';
 	import ParallelCoordinates from '$lib/components/visualizations/parallel-coordinates/parallel-coordinates.svelte';
@@ -165,7 +228,7 @@
 			
 			// TODO: Visualization used axisSigns, but is the info from backend or user in UI? "Flip axes" -checkbox?
 			axisSigns: new Array(scoreBandsResult.ordered_dimensions.length).fill(1),
-			data: [], // TODO: This could be filled with solution data, if it will be a thing later. Visualization might not work: copied, not tested.
+			data: [], // TODO: This could be filled with solution data, if it will be a thing later. Visualization might not work: copy-paste from old function, not tested.
 			bands: scoreBandsResult.bands, 
 			medians: scoreBandsResult.medians,
 			scales: calculateScales(data.problem, scoreBandsResult), // TODO: see calculateScales function
@@ -262,13 +325,43 @@
 	}
 
 	function handle_axis_select(axisIndex: number | null) {
-		// TODO: Waiting until there is need to select an axis
+		// TODO: Waiting until there is need to select an axis. Should happen if user will be able to move axes later.
 		// selected_axis = axisIndex;
 	}
 
 	function handle_solution_select(index: number | null) {
 		selected_solution = index;
 	}
+
+	// Check if group decision is reached
+	let isGroupDecisionReached = $derived.by(() => {
+		return decisionResult?.winner_solution_objectives && 
+		       Object.keys(decisionResult.winner_solution_objectives).length > 0;
+	});
+
+	// Get the index of the winning solution
+	let winnerSolutionIndex = $derived.by(() => {
+		if (!isGroupDecisionReached || !decisionResult?.solution_objectives || !decisionResult?.winner_solution_objectives) {
+			return null;
+		}
+		
+		// Find which solution matches the winner objectives
+		const objectives = decisionResult.solution_objectives;
+		const winnerObjectives = decisionResult.winner_solution_objectives;
+		const numSolutions = Object.values(objectives)[0]?.length || 0;
+		
+		for (let i = 0; i < numSolutions; i++) {
+			let matches = true;
+			for (const [objName, winnerValue] of Object.entries(winnerObjectives)) {
+				if (objectives[objName] && objectives[objName][i] !== winnerValue) {
+					matches = false;
+					break;
+				}
+			}
+			if (matches) return i;
+		}
+		return 0; // fallback to first solution if no exact match found
+	});
 
 	// Transform solution data for parallel coordinates visualization in decision phase
 	let decisionSolutions = $derived.by(() => {
@@ -314,7 +407,7 @@
 				() => {
 					// This runs when connection is re-established after disconnection
 					console.log('WebSocket reconnected, refreshing gdm-score-bands state...');
-					// TODO: Pop up message to user: 'Reconnected to server'. At least exists in GNIMBUS.
+					// TODO: Would be nice to have a pop up message to user: 'Reconnected to server'. At least exists in GNIMBUS.
 					fetch_score_bands();
 					fetch_votes_and_confirms(true);
 				}
@@ -324,6 +417,7 @@
 			wsService.messageStore.subscribe((store) => {
 				// Handle different message types from the backend:
 				const msg = store.message;
+				console.log('WebSocket message received:', msg);
 				
 				// Handle update messages (messages don't show to user, just trigger state updates)
 				if (msg.includes('UPDATE: A vote has been cast.')) {
@@ -362,7 +456,9 @@
 		}
 	});
 
-	// TODO STINA: documentation text
+	/**
+	 * Fetches current SCORE bands data and history from backend
+	 */
 	async function fetch_score_bands() {
 		try {			
 			const scoreResponse = await fetch('/interactive_methods/GDM-SCORE-bands/fetch_score_bands', {
@@ -425,7 +521,9 @@
 		}
 	}
 
-	// TODO STINA: documentation text
+	/**
+	 * Submits user vote for selected band or solution
+	 */
 	async function vote(selection: number | null) {
 		if (selection === null) {
 			errorMessage.set('Please select a band or solution to vote for.');
@@ -462,7 +560,9 @@
 		}
 	}
 
-	// TODO STINA: documentation text
+	/**
+	 * Confirms user's current vote to proceed to next phase
+	 */
 	async function confirm_vote() {
 		if (vote_confirmed) {
 			return;
@@ -497,7 +597,9 @@
 		}
 	}
 
-	// TODO STINA: documentation text
+	/**
+	 * Fetches voting status and confirmations for all group members
+	 */
 	async function fetch_votes_and_confirms(selectVotedBand = false) {
 		try {
 			const response = await fetch('/interactive_methods/GDM-SCORE-bands/get_votes_and_confirms', {
@@ -522,8 +624,6 @@
 				// selectVotedBand parameter controls whether to update selected_band: updates happen in different situations, some should not change selected_band
 				if (userId && votes_and_confirms.votes.hasOwnProperty(userId) && selectVotedBand) {
 					selected_band = votes_and_confirms.votes[userId];
-				} else {
-					selected_band = null;
 				}
 			} else {
 				throw new Error(`Get votes and confirms failed: ${result.error || 'Unknown error'}`);
@@ -534,7 +634,9 @@
 		}
 	}
 
-	// TODO STINA: documentation text
+	/**
+	 * Reverts group to specified iteration (owner only)
+	 */
 	async function revert_to(iteration: number) {
 		try {
 			const response = await fetch('/interactive_methods/GDM-SCORE-bands/revert', {
@@ -569,7 +671,9 @@
 		}
 	}
 
-	// TODO STINA: documentation text
+	/**
+	 * Updates SCORE bands configuration and recalculates bands (owner only)
+	 */
 	async function configure(config: components['schemas']['SCOREBandsGDMConfig']) {
 		try {
 			const configureResponse = await fetch('/interactive_methods/GDM-SCORE-bands/configure', {
@@ -638,30 +742,34 @@
 						<!-- Instructions Section -->
 						{#if isConsensusPhase && usersVote === null}
 							<div>Click a cluster on the graph and vote with the button. When all votes are received, you can continue by confirming your vote.</div>
-						{:else if isDecisionPhase && usersVote === null}
+						{:else if isDecisionPhase && usersVote === null && !isGroupDecisionReached}
 							<div>Select the best solution from the solutions shown below and vote for it.</div>
 						{/if}
-						{#if usersVote !== null && !have_all_voted}
-							<div>
-								You have voted for {isConsensusPhase ? "band" : "solution"} {usersVote}. You can still change your vote.
-								To confirm your vote, please wait for other users to vote.
-							</div>
-						{/if}
-						{#if have_all_voted && !vote_confirmed}
-							<div>
-								You have voted for {isConsensusPhase ? "band" : "solution"} {usersVote}. You can still change your vote, or confirm your vote to proceed.
-							</div>
-						{/if}
-						{#if vote_confirmed}
-							<div>
-								You have confirmed your vote for {isConsensusPhase ? "band" : "solution"} {usersVote}. Please wait for other users to confirm their votes.
-							</div>
+						{#if isDecisionPhase && isGroupDecisionReached}
+							<div>The group decision process is complete! The final solution selected is Solution {winnerSolutionIndex !== null ? winnerSolutionIndex + 1 : 'N/A'}.</div>
+						{:else}
+							{#if usersVote !== null && !have_all_voted}
+								<div>
+									You have voted for {isConsensusPhase ? "band" : "solution"} {isConsensusPhase ? usersVote : usersVote+1}. You can still change your vote.
+									To confirm your vote, please wait for other users to vote.
+								</div>
+							{/if}
+							{#if usersVote !== null && have_all_voted && !vote_confirmed}
+								<div>
+									You have voted for {isConsensusPhase ? "band" : "solution"} {isConsensusPhase ? usersVote : usersVote+1}. You can still change your vote, or confirm your vote to proceed.
+								</div>
+							{/if}
+							{#if usersVote !== null && vote_confirmed}
+								<div>
+									You have confirmed your vote for {isConsensusPhase ? "band" : "solution"} {isConsensusPhase ? usersVote : usersVote+1}. Please wait for other users to confirm their votes.
+								</div>
+							{/if}
 						{/if}
 					{/if}
 					{#if isOwner}
 						<div class="mt-2 text-sm text-gray-600">
-							You can adjust the SCORE Bands parameters and recalculate the bands below.
-							You can also revert to a previous iteration using the History Browser.
+							You can revert to a previous iteration using the History Browser.
+							{isConsensusPhase ? "You can also adjust the SCORE Bands parameters and recalculate the bands below.": ""}
 						</div>
 					{/if}
 				</div>
@@ -858,6 +966,68 @@
 		{:else if isDecisionPhase}
 			<!-- DECISION PHASE: Solution Selection Content -->
 			<div class="grid grid-cols-1 gap-6 lg:grid-cols-4">
+				<!-- Decision Controls -->
+				<div class="lg:col-span-1">
+					{#if isDecisionMaker}
+					<!-- Voting -->
+						<div class="card bg-base-100 shadow-xl">
+							<div class="card-body">
+								<h2 class="card-title">{isGroupDecisionReached ? 'Final Solution' : 'Solution Voting'}</h2>
+								<div class="space-y-2 p-2">
+									{#if !isGroupDecisionReached}
+										<Button 
+											onclick={() => vote(selected_solution)} 
+											disabled={selected_solution === null || vote_confirmed}
+										>
+											Vote for Selected Solution
+										</Button>
+										<Button onclick={confirm_vote} disabled={!have_all_voted || vote_confirmed}>
+											Confirm Final Decision
+										</Button>
+										{#if vote_confirmed}
+											<div class="alert alert-info">
+												<span>Decision Confirmed!</span>
+											</div>
+										{/if}
+									{:else}
+										<div class="alert alert-success">
+											<span>Group decision reached!</span>
+											<div class="text-sm mt-2">Final solution: Solution {winnerSolutionIndex !== null ? winnerSolutionIndex + 1 : 'N/A'}</div>
+										</div>
+									{/if}
+									
+								</div>
+							</div>
+						</div>
+					{:else if isOwner}
+					<!-- Voting status for owner -->
+						<div class="card bg-base-100 shadow-xl">
+							<div class="card-body">
+								<h2 class="card-title">{isGroupDecisionReached ? 'Final Solution' : 'Solution Voting'}</h2>
+								<div class="space-y-2 p-2">
+									{#if !isGroupDecisionReached}
+										<div>Voting still ongoing or decision not found with these votes.</div>
+									{:else}
+										<div class="alert alert-success">
+											<span>Group decision reached!</span>
+											<div class="text-sm mt-2">Final solution: Solution {winnerSolutionIndex !== null ? winnerSolutionIndex + 1 : 'N/A'}</div>
+										</div>
+									{/if}		
+								</div>
+							</div>
+						</div>
+					{/if}
+
+
+					<!-- History Browser Component -->
+					<HistoryBrowser 
+						{history}
+						currentIterationId={iteration_id}
+						onRevertToIteration={revert_to}
+						{isOwner}
+					/>
+				</div>
+				<!-- Visualization Area -->
 				<div class="lg:col-span-3">
 					<div class="card bg-base-100 shadow-xl">
 						<div class="card-body">
@@ -894,82 +1064,6 @@
 							{/if}
 						</div>
 					</div>
-				</div>
-
-				<!-- Decision Controls -->
-				<div class="lg:col-span-1">
-					<div class="card bg-base-100 shadow-xl">
-						<div class="card-body">
-							<h2 class="card-title">Solution Voting</h2>
-							<div class="space-y-2 p-2">
-								<p class="text-sm text-gray-600">
-									Click on a solution in the visualization, then vote for it.
-								</p>
-								
-								{#if selected_solution !== null}
-									<p class="text-sm font-semibold text-blue-600">
-										Selected: Solution {selected_solution + 1}
-									</p>
-								{/if}
-								
-								{#if usersVote !== null}
-									<div class="alert alert-success">
-										<span>You voted for Solution {usersVote ? usersVote + 1 : '?'}</span>
-									</div>
-								{:else}
-									<Button 
-										onclick={() => vote(selected_solution)} 
-										disabled={selected_solution === null}
-									>
-										Vote for Selected Solution
-									</Button>
-								{/if}
-								
-								{#if usersVote !== null && !vote_confirmed}
-									<Button 
-										onclick={() => vote(selected_solution)} 
-										disabled={selected_solution === null}
-									>
-										Vote for Selected Solution
-									</Button>
-									<Button onclick={confirm_vote}>
-										Confirm Final Decision
-									</Button>
-								{:else if vote_confirmed}
-									<div class="alert alert-info">
-										<span>Decision Confirmed!</span>
-									</div>
-								{/if}
-								
-								<!-- Group Progress -->
-								{#if decisionResult?.user_votes}
-									<div class="stats stats-vertical w-full">
-										<div class="stat">
-											<div class="stat-title">Votes Cast</div>
-											<div class="stat-value text-sm">{Object.keys(decisionResult.user_votes).length}</div>
-										</div>
-										<div class="stat">
-											<div class="stat-title">Confirmed</div>
-											<div class="stat-value text-sm">{decisionResult.user_confirms.length}</div>
-										</div>
-									</div>
-									
-									{#if decisionResult.winner_solution_objectives && Object.keys(decisionResult.winner_solution_objectives).length > 0}
-										<div class="alert alert-success">
-											<span>🎉 Group decision reached!</span>
-										</div>
-									{/if}
-								{/if}
-							</div>
-						</div>
-					</div>
-					<!-- History Browser Component -->
-					<HistoryBrowser 
-						{history}
-						currentIterationId={iteration_id}
-						onRevertToIteration={revert_to}
-						{isOwner}
-					/>
 				</div>
 			</div>
 
