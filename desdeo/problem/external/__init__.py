@@ -1,14 +1,10 @@
-"""Imports from the external problems."""
+"""Export of the external module."""
 
-from .core import ProviderRegistry, SimulatorResolver
+from .core import ProviderParams
 from .pymoo_provider import PymooProvider
+from .runtime import get_registry, get_resolver, register_provider, supported_schemes
 
-external_registry = ProviderRegistry()
+# register default providers here
+register_provider("pymoo", PymooProvider())
 
-# Register any providers here
-external_registry.register("pymoo", PymooProvider())
-
-external_resolver = SimulatorResolver(external_registry)
-
-# TODO
-# export locator URIs and endpoints as well
+__all__ = ["ProviderParams", "get_registry", "get_resolver", "register_provider", "supported_schemes"]

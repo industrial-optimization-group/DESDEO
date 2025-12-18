@@ -5,7 +5,7 @@ from functools import lru_cache
 from typing import Any
 
 import numpy as np
-from pydantic import BaseModel, Field
+from pydantic import Field
 from pymoo.problems import get_problem as pymoo_get_problem
 
 from desdeo.problem import (
@@ -20,93 +20,34 @@ from desdeo.problem import (
     VariableTypeEnum,
 )
 
-pymoo_locator_evaluate = "desdeo://external/pymoo/evaluate"
+from .core import ExternalProblemInfo, ExternalProblemParams, Provider
+
+_pymoo_locator_evaluate = "desdeo://external/pymoo/evaluate"
 
 
-class PymooParams(BaseModel):
+class PymooProblemParams(ExternalProblemParams):
+    """Parameters to generate Pymoo test problems.
+
+    See: https://pymoo.org/problems/test_problems.html
+    """
+
     name: str = Field(description="The name of the model. See https://pymoo.org/problems/test_problems.html")
     n_var: int | None = Field(description="The number of desirable variables (if relevant).", default=None)
     n_obj: int | None = Field(description="The number of desirable objective functions (if relevant).", default=None)
     extra: dict[str, Any] | None = Field(description="Any other extra parameters.", default=None)
 
 
-# TODO: move to core
-class ExternalProblemInfo(BaseModel):
-    name: str = Field(description="Name of the problem")
-    description: str | None = Field(description="Description of the problem. Default to 'None'.", default=None)
-    variable_symbols: list[str] = Field(description="The symbols of the variables.")
-    variable_names: dict[str, str] | None = Field(
-        description=(
-            "The names of the variables. It is expected that the keys are the same as the provided symbols. "
-            "Defaults to 'None', in which case the symbols are used."
-        )
-    )
-    variable_type: dict[str, VariableTypeEnum] | None = Field(
-        description=(
-            "The type of each variable (real, integer, binary). It is "
-            "expected that the keys are the same as the provided symbols. If 'None', "
-            "the type 'real' is assumed for all variables. Defaults to 'None'."
-        )
-    )
-    variable_lower_bounds: dict[str, VariableType | None] | None = Field(
-        description=(
-            "The lower bound of each variable. It is "
-            "expected that the keys are the same as the provided symbols. If 'None', "
-            "the value is None, no bounds are assumed for all lower bounds. variables. Defaults to 'None'."
-        )
-    )
-    variable_upper_bounds: dict[str, VariableType | None] | None = Field(
-        description=(
-            "The upper bound of each variable. It is "
-            "expected that the keys are the same as the provided symbols. If 'None', "
-            "the value is None, no bounds are assumed for all upper bounds. variables. Defaults to 'None'."
-        )
-    )
-    objective_symbols: list[str] = Field(description="The names of the objective functions.")
-    objective_names: dict[str, str] | None = Field(
-        description=(
-            "The names of the objectives. It is expected that the keys are the same as the provided symbols. "
-            "Defaults to 'None', in which case the symbols are used."
-        )
-    )
-    objective_maximize: dict[str, bool] | None = Field(
-        description=(
-            "Whether objective are to be maximized. It is "
-            "expected that the keys are the same as the provided symbols. "
-            "Defaults to 'None', in which case minimization is assumed."
-        )
-    )
-    constraint_symbols: list[str] | None = Field(
-        description=(
-            "The symbols of constraints. If 'None', no constraints are defined for the problem. Defaults to None."
-        )
-    )
-    constraint_names: dict[str, str] | None = Field(
-        description=(
-            "The names of the constraints. It is expected that the keys are the same as the provided symbols. "
-            "Defaults to 'None', in which case the symbols are used."
-        )
-    )
-    constraint_types: dict[str, ConstraintTypeEnum] | None = Field(
-        description=(
-            "The types (LTE, EQ...) of the constraints. It is expected that the "
-            "keys are the same as the provided symbols. Defaults to 'None', in "
-            "which case no symbols are assumed to be defined."
-        )
-    )
-
-
 def _stable_json(d: dict[str, Any]) -> str:
     return json.dumps(d, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
-def _params_key(params: PymooParams) -> str:
+def _params_key(params: dict) -> str:
     """Canonical cache key for a PymooParams instance.
 
     Canonical cache key for a PymooParams instance.
     Includes 'extra' (if present) and omits None fields.
     """
-    return _stable_json(params.model_dump(exclude_none=True))
+    return _stable_json(params)
 
 
 @lru_cache(maxsize=256)
@@ -137,6 +78,8 @@ def _get_cached_info(params_key: str) -> ExternalProblemInfo:
     p_xl = pymoo_problem.xl
     p_xu = pymoo_problem.xu
     p_vtype = pymoo_problem.vtype
+    p_ideal = pymoo_problem.ideal_point()
+    p_nadir = pymoo_problem.nadir_point()
 
     var_symbols = [f"x_{i}" for i in range(1, p_n_var + 1)]
     obj_symbols = [f"f_{i}" for i in range(1, p_n_obj + 1)]
@@ -158,40 +101,95 @@ def _get_cached_info(params_key: str) -> ExternalProblemInfo:
         objective_symbols=obj_symbols,
         objective_names=dict(zip(obj_symbols, obj_symbols, strict=True)),
         objective_maximize=dict.fromkeys(obj_symbols, False),  # assumed all min
+        ideal_point=dict(zip(obj_symbols, p_ideal, strict=True)) if p_ideal is not None else None,
+        nadir_point=dict(zip(obj_symbols, p_nadir, strict=True)) if p_nadir is not None else None,
         constraint_symbols=constr_symbols,
         constraint_names=dict(zip(constr_symbols, constr_symbols, strict=True)) if constr_symbols is not None else None,
         constraint_types=dict(zip(constr_symbols, constr_types, strict=True)) if len(constr_types) > 0 else None,
     )
 
 
-class PymooProvider:
-    def info(self, params: PymooParams) -> ExternalProblemInfo:
-        return _get_cached_info(_params_key(params))
+class PymooProvider(Provider):
+    """Provider to get info on and evaluate Pymoo test problems.
 
-    def evaluate(self, xs: list[list[float]], params: PymooParams) -> dict[str, Any]:
-        # TODO: return type
-        params_key = _params_key(params)
+    Note:
+        the methods `info` and `evaluate` use caching so that the Pymoo problem is generated only once
+            in case of multiple consecutive evaluations of the same problem.
+    """
+
+    def info(self, params: PymooProblemParams | dict[str, Any]) -> ExternalProblemInfo:
+        """Get info on a Pymoo test problem.
+
+        Args:
+            params (PymooProblemParams | dict[str, Any]): parameters to generate the problem.
+
+        Returns:
+            ExternalProblemInfo: info on the problem generated based on the provided parameters.
+        """
+        return _get_cached_info(_params_key(params if isinstance(params, dict) else params.model_dump()))
+
+    def evaluate(
+        self, xs: dict[str, VariableType | list[VariableType]], params: PymooProblemParams | dict[str, Any]
+    ) -> dict[str, float]:
+        """Evaluate a Pymoo test problem.
+
+        Args:
+            xs (dict[str, VariableType]): a set of variables to be evaluated.
+                Expected format is {variable symbol: [values]}.
+            params (ProviderParams | dict[str, Any]): parameters that generate the problem Pymoo
+                problem to be evaluated.
+
+        Returns:
+            dict[str, float]: a dict with keys corresponding to evaluated fields of the problem, e.g.,
+                objective functions, constraints, etc., and values consisting of lists.
+
+        Note:
+            When multiple values are provided for the variables, it is assumed that
+            the external problem is evaluated pointwise and that the returned values
+            correspond to the input values in the same order.
+        """
+        params_key = _params_key(params if isinstance(params, dict) else params.model_dump())
         problem = _get_cached_pymoo_problem(params_key)
         info = _get_cached_info(params_key)
 
         out = {"F": None, "G": None, "H": None}
-        problem._evaluate(np.asarray(xs, dtype=float), out)
+
+        xs_arr = np.atleast_2d(np.column_stack([xs[k] for k in info.variable_symbols]))
+        problem._evaluate(np.asarray(xs_arr, dtype=float), out)
 
         # parse output
-        obj_results = dict(zip(info.objective_symbols, out["F"].tolist(), strict=True))
+        obj_results = dict(zip(info.objective_symbols, out["F"].squeeze().T.tolist(), strict=True))
         _constrs = (np.atleast_2d(out["G"]).tolist() if out["G"] is not None else []) + (
             np.atleast_2d(out["H"]).tolist() if out["H"] is not None else []
         )
-        constr_results = dict(zip(info.constraint_symbols, _constrs, strict=True)) if len(_constrs) > 0 else None
+        constr_results = dict(zip(info.constraint_symbols, _constrs, strict=True)) if len(_constrs) > 0 else {}
 
         return obj_results | constr_results
 
 
-def create_pymoo_problem(params: PymooParams) -> Problem:
+def create_pymoo_problem(params: PymooProblemParams) -> Problem:
+    """Create a Pymoo test problem based on given parameters.
+
+    Args:
+        params (PymooProblemParams): the parameters to generate the Pymoo test problem.
+
+    Returns:
+        Problem: an instance of a Pymoo test problem generated based on the given parameters.
+
+    Note:
+        Any `Problem` generated with this function should be considered to be black-box, i.e.,
+        the exact mathematical forms are not available. However, if the user is knowledgeable
+        about the properties of the problem, they can still use, for example, some gradient-based
+        solvers available in DESDEO to try and solve the problem, if the problem is differentiable.
+
+        Ideal and nadir point values will be available, if they are available in Pymoo for a given problem.
+
+        For info on the possible problems to generate, see https://pymoo.org/problems/test_problems.html
+    """
     provider = PymooProvider()
     info = provider.info(params)
 
-    simulator_url = Url(url=pymoo_locator_evaluate)
+    simulator_url = Url(url=_pymoo_locator_evaluate)
 
     variables: list[Variable] = []
     for sym in info.variable_symbols:
@@ -248,7 +246,7 @@ def create_pymoo_problem(params: PymooParams) -> Problem:
         parameter_options=params.model_dump(exclude_none=True),
     )
 
-    return Problem(
+    problem = Problem(
         name=info.name,
         description=info.description,
         variables=variables,
@@ -256,3 +254,6 @@ def create_pymoo_problem(params: PymooParams) -> Problem:
         constraints=constraints if len(constraints) > 0 else None,
         simulators=[simulator],
     )
+
+    # add ideal and nadir (might be None)
+    return problem.update_ideal_and_nadir(info.ideal_point, info.nadir_point)

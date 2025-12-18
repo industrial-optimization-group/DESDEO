@@ -262,6 +262,7 @@ markers = [
     "enautilus: tests related to the E-NAUTILUS method.",
     "gdmtools: tests related to group decision making.",
     "gnimbus: tests related to group nimbus method.",
+    "external: tests related to providers interfacing to external problems."
 ]
 pythonpath = "."
 asyncio_default_fixture_loop_scope = "function"
