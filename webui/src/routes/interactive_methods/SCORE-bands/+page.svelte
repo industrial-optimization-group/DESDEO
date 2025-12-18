@@ -24,7 +24,7 @@
 	 *
 	 * @todo
 	 * - Implement actual SCORE-bands method endpoints
-	 * - Add proper configuration functionality  
+	 * - Add proper configuration functionality
 	 * - Connect visualization to real method results
 	 * - Implement solution selection and preference handling
 	 * - Add decision phase workflow (there is no actual decision phase in single-user, but view to handle solutions is still needed)
@@ -40,39 +40,37 @@
 	import ParallelCoordinates from '$lib/components/visualizations/parallel-coordinates/parallel-coordinates.svelte';
 	import ScoreBandsSolutionTable from './score-bands-solution-table.svelte';
 	import { onMount } from 'svelte';
-	import type { components } from "$lib/api/client-types";
+	import type { components } from '$lib/api/client-types';
 	import { methodSelection } from '../../../stores/methodSelection';
 	import { errorMessage } from '../../../stores/uiState';
 	import Alert from '$lib/components/custom/notifications/alert.svelte';
-	import { 
-		calculateScales, 
-		generateClusterColors, 
+	import {
+		calculateScales,
+		generateClusterColors,
 		generateAxisOptions,
 		canToggleBands,
 		canToggleMedians,
 		createDemoData
 	} from './helper-functions.js';
 
-
 	// Page data props
 	type Problem = components['schemas']['ProblemInfo'];
-	
-	const { data } = $props<{ 
-		data: { 
+
+	const { data } = $props<{
+		data: {
 			problems: Problem[];
-		} 
+		};
 	}>();
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 	let problem: ProblemInfo | undefined = $state(undefined);
 	let problem_list: ProblemInfo[] = $state(data.problems);
-
 
 	let data_loaded = $state(false);
 	let loading_error: string | null = $state(null);
 
 	// SCORE-bands state variables
 	let scoreBandsResult: components['schemas']['SCOREBandsResult'] | null = $state(null);
-	let scoreBandsConfig: components["schemas"]["SCOREBandsConfig"] = $state({
+	let scoreBandsConfig: components['schemas']['SCOREBandsConfig'] = $state({
 		clustering_algorithm: {
 			name: 'KMeans',
 			n_clusters: 5
@@ -82,13 +80,13 @@
 		use_absolute_correlations: false,
 		include_solutions: false,
 		include_medians: true,
-		interval_size: 0.25,
+		interval_size: 0.25
 	});
 
 	// EMO state for demonstration
 	let emoStateId: number | null = $state(null);
-	
-	let SCOREBands = $derived.by(()=> {
+
+	let SCOREBands = $derived.by(() => {
 		if (!scoreBandsResult) {
 			return {
 				axisNames: [] as string[],
@@ -97,40 +95,41 @@
 				axisSigns: [] as number[],
 				data: [] as number[][],
 				// Empty objects for pre-calculated bands and medians
-				bands: {}, 
+				bands: {},
 				medians: {},
 				scales: {}
 			};
 		}
-		
+
 		// Type assertion to help TypeScript understand the structure
 		const result = scoreBandsResult as components['schemas']['SCOREBandsResult'];
-		
+
 		const derivedData = {
 			// Direct mappings
 			axisNames: result.ordered_dimensions,
-			clusterIds: Object.keys(result.bands).sort((a, b) => parseInt(a) - parseInt(b)).map(id => Number(id)),
+			clusterIds: Object.keys(result.bands)
+				.sort((a, b) => parseInt(a) - parseInt(b))
+				.map((id) => Number(id)),
 			// Convert axis_positions dict to ordered array
 			axisPositions: result.ordered_dimensions.map(
 				(objName: string) => result.axis_positions[objName]
 			) as number[],
-			
+
 			// Missing data - need fallbacks
 			axisSigns: new Array(result.ordered_dimensions.length).fill(1), // Default: no flipping
 			data: [], // Empty - use bands-only mode
-			
+
 			// Pre-calculated bands and medians as original key-based structure
 			// bands[clusterId][axisName] = [minValue, maxValue] - quantile-based band limits
-			bands: result.bands, 
+			bands: result.bands,
 			// medians[clusterId][axisName] = medianValue - median values per cluster per axis
 			medians: result.medians,
 			// scales[axisName] = [minValue, maxValue] - normalization scales for converting raw values to [0,1]
 			scales: calculateScales(result, problem)
 		};
-		
-		return derivedData;
-	})
 
+		return derivedData;
+	});
 
 	// Reactive options with checkboxes
 	let show_bands = $state(true);
@@ -146,13 +145,14 @@
 	let clustering_algorithm = $state('DBSCAN'); // 'DBSCAN' or 'GMM'
 	let clustering_score = $state('silhouette'); // Note: This is the correct spelling used in DESDEO
 
-	let options = $derived.by(()=>{
+	let options = $derived.by(() => {
 		return {
-		bands: show_bands,
-		solutions: show_solutions,
-		medians: show_medians,
-		quantile: quantile_value
-	}});
+			bands: show_bands,
+			solutions: show_solutions,
+			medians: show_medians,
+			quantile: quantile_value
+		};
+	});
 
 	// Cluster visibility controls - dynamically generated based on data
 	let cluster_visibility_map: Record<number, boolean> = $state({});
@@ -167,13 +167,12 @@
 	}
 
 	// Update cluster visibility when groups data changes
-	$effect(()=>{
+	$effect(() => {
 		if (SCOREBands && SCOREBands.clusterIds.length > 0) {
 			// Initialize all clusters as visible if not already set
 			SCOREBands.clusterIds.forEach((clusterId) => {
 				if (!(clusterId in cluster_visibility_map)) {
 					cluster_visibility_map[clusterId] = true;
-
 				}
 			});
 			// Remove clusters that no longer exist in the data
@@ -224,22 +223,25 @@
 	async function initializeDemoData() {
 		// Use helper function to create sample data for testing visualization
 		scoreBandsResult = createDemoData();
-		
+
 		data_loaded = true;
 		loading_error = null;
 		console.log('Demo mode: Sample data loaded for visualization');
 	}
 
-	let cluster_colors = $derived(SCOREBands.clusterIds.length > 0 ? generateClusterColors(SCOREBands.clusterIds) : {});
+	let cluster_colors = $derived(
+		SCOREBands.clusterIds.length > 0 ? generateClusterColors(SCOREBands.clusterIds) : {}
+	);
 
-	let axis_options = $derived(SCOREBands.axisNames.length > 0 ? generateAxisOptions(SCOREBands.axisNames) : []);
+	let axis_options = $derived(
+		SCOREBands.axisNames.length > 0 ? generateAxisOptions(SCOREBands.axisNames) : []
+	);
 
 	// Selection state
 	let selected_band: number | null = $state(null);
 	let selected_axis: number | null = $state(null);
-	
-	let selected_solution: number | null = $state(null);
 
+	let selected_solution: number | null = $state(null);
 
 	// Selection handlers
 	function handle_band_select(clusterId: number | null) {
@@ -261,7 +263,7 @@
 	 * Currently returns immediately as method is not implemented
 	 */
 	async function fetch_score_bands() {
-		try {			
+		try {
 			// This is now a placeholder - no longer fetching data
 			console.log('fetch_score_bands: Not implemented for individual method');
 			data_loaded = true;
@@ -275,7 +277,7 @@
 	/**
 	 * Iteration function for progressing to new solutions based on band selection
 	 * Currently placeholder - would integrate with EMO iterate with preferences
-	 * 
+	 *
 	 * @param problem Current optimization problem
 	 * @param selected_band ID of the cluster/band to focus iteration on
 	 */
@@ -285,12 +287,13 @@
 			return;
 		}
 
-		console.log("Iterating from selected band:", selected_band);
+		console.log('Iterating from selected band:', selected_band);
 		try {
 			// For now, just show a message - this would call EMO iterate with preferences
-			errorMessage.set(`Iterate functionality: Would generate new solutions focusing on cluster ${selected_band}`);
+			errorMessage.set(
+				`Iterate functionality: Would generate new solutions focusing on cluster ${selected_band}`
+			);
 			console.log('Iteration completed');
-			
 		} catch (error) {
 			console.error('Error in iterate:', error);
 			errorMessage.set(`${error}`);
@@ -309,21 +312,21 @@
 
 		try {
 			// For now, just show a message - this would save the final solution
-			errorMessage.set(`Final solution confirmed: Solution ${selected_solution + 1} has been selected as the final decision.`);
-			
+			errorMessage.set(
+				`Final solution confirmed: Solution ${selected_solution + 1} has been selected as the final decision.`
+			);
+
 			console.log('Final solution confirmed:', selected_solution);
-			
 		} catch (error) {
 			console.error('Error in confirm final solution:', error);
 			errorMessage.set(`${error}`);
 		}
 	}
 
-
 	/**
 	 * Revert iteration function - not applicable for single-user workflow
 	 * Individual users don't have group iterations to revert to
-	 * 
+	 *
 	 * @param iteration Iteration number to revert to (unused in single-user)
 	 */
 	async function revert(iteration: number) {
@@ -340,7 +343,7 @@
 	/**
 	 * Configuration function for SCORE bands parameters
 	 * Currently placeholder - would update method configuration
-	 * 
+	 *
 	 * @param config Configuration object with SCORE bands parameters
 	 */
 	async function configure(config: components['schemas']['SCOREBandsGDMConfig']) {
@@ -357,13 +360,9 @@
 
 <div class="container mx-auto p-6">
 	{#if $errorMessage}
-		<Alert 
-			title="Error"
-			message={$errorMessage} 
-			variant='destructive'
-		/>
+		<Alert title="Error" message={$errorMessage} variant="destructive" />
 	{/if}
-	
+
 	{#if !data_loaded}
 		<div class="flex h-96 items-center justify-center">
 			<div class="text-center">
@@ -375,16 +374,13 @@
 			</div>
 		</div>
 	{:else}
-		
 		<!-- Header and Instructions -->
 		<div class="card bg-base-100 mb-6 shadow-xl">
 			<div class="card-body">
 				<div class="">
 					<!-- Header Section -->
-					<div class="font-semibold">
-						SCORE Bands demo page
-					</div>
-						<div>Click a cluster on the graph and iterate. Functionality is not implemented.</div>
+					<div class="font-semibold">SCORE Bands demo page</div>
+					<div>Click a cluster on the graph and iterate. Functionality is not implemented.</div>
 				</div>
 			</div>
 		</div>
@@ -466,17 +462,13 @@
 						<span class="label-text">Flip Axes</span>
 					</label>
 					<button
-						onclick={()=>{}}
+						onclick={() => {}}
 						class="btn btn-primary"
 						disabled={SCOREBands.axisNames.length === 0}
 					>
 						Recalculate Parameters
 					</button>
-					<Button
-						onclick={()=>revert(1)}
-						class="btn btn-primary"
-						disabled={true}
-					>
+					<Button onclick={() => revert(1)} class="btn btn-primary" disabled={true}>
 						Revert to previous iteration
 					</Button>
 				</div>
@@ -500,7 +492,9 @@
 									bind:checked={show_bands}
 									disabled={!canToggleBands(show_bands, show_medians, show_solutions)}
 									class="checkbox checkbox-primary"
-									title={canToggleBands(show_bands, show_medians, show_solutions) ? "" : "At least one visualization option must remain active"}
+									title={canToggleBands(show_bands, show_medians, show_solutions)
+										? ''
+										: 'At least one visualization option must remain active'}
 								/>
 							</label>
 						</div>
@@ -526,7 +520,9 @@
 									bind:checked={show_medians}
 									disabled={!canToggleMedians(show_bands, show_medians, show_solutions)}
 									class="checkbox checkbox-primary"
-									title={canToggleMedians(show_bands, show_medians, show_solutions) ? "" : "At least one visualization option must remain active"}
+									title={canToggleMedians(show_bands, show_medians, show_solutions)
+										? ''
+										: 'At least one visualization option must remain active'}
 								/>
 							</label>
 						</div>
@@ -551,7 +547,6 @@
 								<span>0.3</span>
 								<span>0.5</span>
 							</div>
-
 						</div>
 					</div>
 				</div>
@@ -616,13 +611,15 @@
 					</div>
 				</div>
 
-
 				<!-- "Voting buttons" -->
 				<div class="card bg-base-100 shadow-xl">
 					<div class="card-body">
 						<h2 class="card-title">Voting</h2>
 						<div class="space-y-2 p-2">
-							<Button onclick={() => iterate(problem, selected_band)} disabled={selected_band === null}>
+							<Button
+								onclick={() => iterate(problem, selected_band)}
+								disabled={selected_band === null}
+							>
 								Iterate
 							</Button>
 						</div>
@@ -642,7 +639,7 @@
 									axisPositions={SCOREBands.axisPositions}
 									axisSigns={SCOREBands.axisSigns}
 									groups={SCOREBands.clusterIds}
-									options={options}
+									{options}
 									bands={SCOREBands.bands}
 									medians={SCOREBands.medians}
 									scales={SCOREBands.scales}
@@ -657,10 +654,13 @@
 								/>
 							{:else}
 								<div class="text-center">
-									<div class="text-lg font-semibold text-gray-500 mb-2">No SCORE bands data available</div>
+									<div class="mb-2 text-lg font-semibold text-gray-500">
+										No SCORE bands data available
+									</div>
 									<div class="text-sm text-gray-400">
 										{#if !problem}
-											Select a problem from the NIMBUS method selection to see SCORE bands visualization
+											Select a problem from the NIMBUS method selection to see SCORE bands
+											visualization
 										{:else}
 											Run optimization to generate data for SCORE bands analysis
 										{/if}

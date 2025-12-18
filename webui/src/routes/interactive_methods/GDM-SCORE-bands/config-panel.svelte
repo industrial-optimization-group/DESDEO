@@ -62,7 +62,7 @@
 	 *
 	 * @usage_example
 	 * ```svelte
-	 * <ConfigPanel 
+	 * <ConfigPanel
 	 *   currentConfig={scoreBandsResult?.options || null}
 	 *   totalVoters={groupUserCount}
 	 *   onRecalculate={handleConfigurationUpdate}
@@ -78,7 +78,7 @@
 	 * - Advanced configuration options are marked as null for future implementation
 	 */
 	import { Button } from '$lib/components/ui/button';
-	import type { components } from "$lib/api/client-types";
+	import type { components } from '$lib/api/client-types';
 
 	// Component props
 	const {
@@ -100,9 +100,7 @@
 	let distance_parameter = $state(currentConfig?.distance_parameter ?? 0.05);
 	let distance_formula = $state(currentConfig?.distance_formula ?? 1);
 	let clustering_algorithm = $state(currentConfig?.clustering_algorithm?.name ?? 'KMeans');
-	let n_clusters = $state(
-		(currentConfig?.clustering_algorithm as any)?.n_clusters ?? 5
-	);
+	let n_clusters = $state((currentConfig?.clustering_algorithm as any)?.n_clusters ?? 5);
 	let use_absolute_correlations = $state(currentConfig?.use_absolute_correlations ?? false);
 	let include_solutions = $state(currentConfig?.include_solutions ?? false);
 	let include_medians = $state(currentConfig?.include_medians ?? true);
@@ -112,7 +110,7 @@
 
 	/**
 	 * Effect to synchronize form values when currentConfig changes
-	 * 
+	 *
 	 * This ensures the form stays in sync when the parent component provides
 	 * updated configuration data (e.g., after API responses or iteration changes).
 	 * Prevents form state from becoming stale when external data updates occur.
@@ -133,12 +131,12 @@
 
 	/**
 	 * Build configuration object for API call
-	 * 
+	 *
 	 * Constructs a complete SCOREBandsGDMConfig object from current form values.
 	 * Maps UI form state to the API schema structure required by the backend.
-	 * 
+	 *
 	 * @returns {SCOREBandsGDMConfig} Complete configuration object for API submission
-	 * 
+	 *
 	 * @implementation_notes
 	 * ** IMPLEMENTED - Form-based Configuration**
 	 * - clustering_algorithm: Maps UI selection to algorithm object with conditional n_clusters
@@ -150,7 +148,7 @@
 	 * - interval_size: Range slider for band width (0.1-0.95 fraction)
 	 * - minimum_votes: Number input for GDM voting threshold (1 to totalVoters)
 	 * - from_iteration: latest_iteration (inherits config from specified iteration)
-	 * 
+	 *
 	 * ** HARDCODED - Default Values (Ready for Future Implementation)**
 	 * - dimensions: null (use all objectives)
 	 * - descriptive_names: null (use original names)
@@ -162,31 +160,30 @@
 		return {
 			score_bands_config: {
 				dimensions: null, // Future: Multi-select dropdown for objective subset selection
-				descriptive_names: null, // Future: Key-value editor for custom objective display names  
+				descriptive_names: null, // Future: Key-value editor for custom objective display names
 				units: null, // Future: Key-value editor for objective unit specifications
 				axis_positions: null, // Future: Drag-and-drop or numeric inputs for manual axis positioning (axis selection exists, commented out)
 				scales: null, // Future: Min/max range inputs for objective scaling overrides
-				
+
 				// IMPLEMENTED: Clustering algorithm configuration with conditional n_clusters
 				clustering_algorithm: {
 					name: clustering_algorithm as any,
 					// Conditionally include n_clusters only for KMeans and GMM (DBSCAN uses density-based clustering)
 					...(clustering_algorithm !== 'DBSCAN' && { n_clusters: n_clusters })
 				},
-				
+
 				// IMPLEMENTED: Distance calculation parameters
 				distance_formula: distance_formula as components['schemas']['DistanceFormula'], // 1=Euclidean, 2=Manhattan
 				distance_parameter: distance_parameter, // 0.0-1.0: Controls relative distances between objective axes
-				
+
 				// IMPLEMENTED: Visualization behavior controls
 				use_absolute_correlations: use_absolute_correlations, // Whether to use absolute value of correlations for axis placement
 				include_solutions: include_solutions, // Whether to show individual solutions in visualization
 				include_medians: include_medians, // Whether to show cluster median traces
-				interval_size: interval_size, // 0.1-0.95: Fraction of solutions to include in bands (band width control)
-
+				interval_size: interval_size // 0.1-0.95: Fraction of solutions to include in bands (band width control)
 			},
-			
-			// IMPLEMENTED: Group decision making parameters  
+
+			// IMPLEMENTED: Group decision making parameters
 			minimum_votes: minimum_votes, // Minimum votes required to proceed to next iteration
 			from_iteration: latest_iteration
 		};
@@ -194,7 +191,7 @@
 
 	/**
 	 * Handle recalculation button click
-	 * 
+	 *
 	 * Builds the current configuration from form values and triggers the parent
 	 * component's recalculation callback. This initiates the API call to update
 	 * the SCORE bands configuration and refresh the visualization.
@@ -225,7 +222,7 @@
 						class="input input-bordered"
 					/>
 				</div>
-				
+
 				<!-- Distance Formula (1=Euclidean, 2=Manhattan) -->
 				<div class="form-control">
 					<label for="distance_formula" class="label">
@@ -240,7 +237,7 @@
 						<option value={2}>Manhattan</option>
 					</select>
 				</div>
-				
+
 				<!-- Clustering Algorithm -->
 				<div class="form-control">
 					<label for="clustering_algorithm" class="label">
@@ -257,8 +254,8 @@
 					</select>
 				</div>
 
-                <!-- Clustering score -->
-                <!-- <div class="form-control">
+				<!-- Clustering score -->
+				<!-- <div class="form-control">
                     <label for="clustering_score" class="label">
                         <span class="label-text">Clustering Score</span>
                     </label>
@@ -289,7 +286,7 @@
 						class:input-disabled={clustering_algorithm === 'DBSCAN'}
 					/>
 				</div>
-				
+
 				<!-- Interval Size -->
 				<div class="form-control">
 					<label for="interval_size" class="label">
@@ -304,13 +301,13 @@
 						class="range range-primary"
 						title="Fraction of solutions to include in bands (0.1 = 10%, 0.95 = 95%)"
 					/>
-					<div class="flex w-full px-2 text-xs justify-between">
+					<div class="flex w-full justify-between px-2 text-xs">
 						<span>0.1</span>
 						<span>0.5</span>
 						<span>0.95</span>
 					</div>
 				</div>
-				
+
 				<!-- Minimum Votes -->
 				<div class="form-control">
 					<label for="minimum_votes" class="label">
@@ -327,7 +324,7 @@
 					/>
 				</div>
 			</div>
-			
+
 			<!-- Boolean Options -->
 			<div class="mt-4 flex flex-wrap items-center gap-4">
 				<label class="label cursor-pointer">
@@ -338,7 +335,7 @@
 					/>
 					<span class="label-text">Use Absolute Correlations</span>
 				</label>
-				
+
 				<label class="label cursor-pointer">
 					<input
 						type="checkbox"
@@ -347,7 +344,7 @@
 					/>
 					<span class="label-text">Include Individual Solutions</span>
 				</label>
-				
+
 				<label class="label cursor-pointer">
 					<input
 						type="checkbox"
@@ -357,15 +354,10 @@
 					<span class="label-text">Include Cluster Medians</span>
 				</label>
 			</div>
-			
+
 			<!-- Action Button -->
 			<div class="mt-4">
-				<Button
-					onclick={handleRecalculate}
-					class="btn btn-primary"
-				>
-					Recalculate Parameters
-				</Button>
+				<Button onclick={handleRecalculate} class="btn btn-primary">Recalculate Parameters</Button>
 			</div>
 		</div>
 	</div>

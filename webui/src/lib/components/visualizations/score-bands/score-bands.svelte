@@ -53,7 +53,7 @@
 	} = {
 		bands: true,
 		solutions: true,
-		medians: false,
+		medians: false
 	};
 	export let clusterVisibility: Record<number, boolean> | undefined;
 	export let axisOrder: number[] = [];
@@ -63,7 +63,7 @@
 	export let onAxisSelect: ((axisIndex: number | null) => void) | undefined = undefined;
 	export let selectedBand: number | null = null;
 	export let selectedAxis: number | null = null;
-	
+
 	// Pre-calculated bands and medians from SCORE API (when raw data is not available)
 	// bands = { "clusterId": { "axisName": [minValue, maxValue] } } - quantile-based band limits per cluster per axis
 	export let bands: Record<string, Record<string, [number, number]>> = {};
@@ -98,7 +98,7 @@
 	function drawChart() {
 		if (!container || axisNames.length === 0) return;
 		// Allow rendering without data when we have bands/medians from API
-		if (data.length === 0 && (!options.bands && !options.medians)) return;
+		if (data.length === 0 && !options.bands && !options.medians) return;
 
 		const width = 800;
 		const height = 600;
@@ -115,12 +115,15 @@
 		});
 
 		// Apply axis signs to flip axes if needed (only if we have data)
-		const processedData = sortedData.length > 0 ? sortedData.map((row) =>
-			row.map((val, i) => {
-				const sign = sortedAxisSigns[i] || 1;
-				return sign === -1 ? 1 - val : val; // Flip by inverting normalized value
-			})
-		) : [];
+		const processedData =
+			sortedData.length > 0
+				? sortedData.map((row) =>
+						row.map((val, i) => {
+							const sign = sortedAxisSigns[i] || 1;
+							return sign === -1 ? 1 - val : val; // Flip by inverting normalized value
+						})
+					)
+				: [];
 
 		// Y scales for each axis (using actual min/max from scales)
 		const yScales = sortedAxisNames.map((axisName) => {
@@ -145,11 +148,13 @@
 		);
 
 		// --- Group data by cluster ---
-		const grouped = processedData.length > 0 && groups.length > 0 ? 
-			d3.group(
-				processedData.map((v, i) => ({ values: v, group: groups[i] })),
-				(d) => d.group
-			) : new Map();
+		const grouped =
+			processedData.length > 0 && groups.length > 0
+				? d3.group(
+						processedData.map((v, i) => ({ values: v, group: groups[i] })),
+						(d) => d.group
+					)
+				: new Map();
 
 		// --- Decide which drawing method to use ---
 		// hasRawData: UI has list of solutions and calculates bands from them. This calculation is currently commented out.
@@ -159,17 +164,17 @@
 
 		if (hasPreCalculatedData) {
 			// --- Use pre-calculated bands and medians from SCORE API ---
-			
+
 			// Get unique cluster IDs from groups
 			const uniqueClusterIds = [...new Set(groups)].sort((a, b) => a - b);
-			
+
 			// Draw all unselected clusters first
 			uniqueClusterIds.forEach((clusterId) => {
 				const clusterKey = clusterId.toString();
 				if (!bands[clusterKey] || !medians[clusterKey]) return; // Skip if no data
 				if (!effectiveClusterVisibility[clusterId]) return;
 				if (selectedBand === clusterId) return; // skip selected cluster, draw it on top
-				
+
 				drawPreCalculatedCluster(
 					svg,
 					clusterId,
@@ -206,55 +211,55 @@
 					);
 				}
 			}
-		// ORIGINAL VERSION USING RAW DATA TO CALCULATE BANDS
-		// This version calculated bands from raw solution data instead of using pre-calculated API data
+			// ORIGINAL VERSION USING RAW DATA TO CALCULATE BANDS
+			// This version calculated bands from raw solution data instead of using pre-calculated API data
 
-		// } else if (hasRawData) {
-		// 	// --- Use raw data to calculate and draw bands ---
-		// 	grouped.forEach((rows, groupId) => {
-		// 		if (!effectiveClusterVisibility[groupId]) return;
-		// 		if (selectedBand === groupId) return; // skip selected cluster here
+			// } else if (hasRawData) {
+			// 	// --- Use raw data to calculate and draw bands ---
+			// 	grouped.forEach((rows, groupId) => {
+			// 		if (!effectiveClusterVisibility[groupId]) return;
+			// 		if (selectedBand === groupId) return; // skip selected cluster here
 
-		// 		drawBand(
-		// 			svg,
-		// 			rows,
-		// 			groupId,
-		// 			xPositions,
-		// 			yScales,
-		// 			clusterColors,
-		// 			{
-		// 				quantile: 0.25,
-		// 				showMedian: options.medians,
-		// 				showSolutions: options.solutions,
-		// 				bandOpacity: 0.5
-		// 			},
-		// 			false, // not selected
-		// 			onBandSelect
-		// 		);
-		// 	});
+			// 		drawBand(
+			// 			svg,
+			// 			rows,
+			// 			groupId,
+			// 			xPositions,
+			// 			yScales,
+			// 			clusterColors,
+			// 			{
+			// 				quantile: 0.25,
+			// 				showMedian: options.medians,
+			// 				showSolutions: options.solutions,
+			// 				bandOpacity: 0.5
+			// 			},
+			// 			false, // not selected
+			// 			onBandSelect
+			// 		);
+			// 	});
 
-		// 	// --- Draw selected cluster on top ---
-		// 	if (selectedBand !== null && effectiveClusterVisibility[selectedBand]) {
-		// 		const selectedRows = grouped.get(selectedBand);
-		// 		if (selectedRows) {
-		// 			drawBand(
-		// 				svg,
-		// 				selectedRows,
-		// 				selectedBand,
-		// 				xPositions,
-		// 				yScales,
-		// 				clusterColors,
-		// 				{
-		// 					quantile: 0.25,
-		// 					showMedian: options.medians,
-		// 					showSolutions: options.solutions,
-		// 					bandOpacity: 0.5
-		// 				},
-		// 				true, // selected styling
-		// 				onBandSelect
-		// 			);
-		// 		}
-		// 	}
+			// 	// --- Draw selected cluster on top ---
+			// 	if (selectedBand !== null && effectiveClusterVisibility[selectedBand]) {
+			// 		const selectedRows = grouped.get(selectedBand);
+			// 		if (selectedRows) {
+			// 			drawBand(
+			// 				svg,
+			// 				selectedRows,
+			// 				selectedBand,
+			// 				xPositions,
+			// 				yScales,
+			// 				clusterColors,
+			// 				{
+			// 					quantile: 0.25,
+			// 					showMedian: options.medians,
+			// 					showSolutions: options.solutions,
+			// 					bandOpacity: 0.5
+			// 				},
+			// 				true, // selected styling
+			// 				onBandSelect
+			// 			);
+			// 		}
+			// 	}
 		}
 
 		// --- Draw axis lines and labels (always in front) ---
@@ -316,16 +321,19 @@
 				} else {
 					actualValue = tick;
 				}
-				
+
 				const yPos = yScales[sortedIndex](actualValue);
 
 				// Apply axis sign for flipped axes
 				const sign = sortedAxisSigns[sortedIndex] || 1;
-				const displayValue = sign === -1 ? 
-					(scales && scales[sortedAxisNames[sortedIndex]] ? 
-						scales[sortedAxisNames[sortedIndex]][0] + scales[sortedAxisNames[sortedIndex]][1] - actualValue : 
-						1 - tick) : 
-					actualValue;
+				const displayValue =
+					sign === -1
+						? scales && scales[sortedAxisNames[sortedIndex]]
+							? scales[sortedAxisNames[sortedIndex]][0] +
+								scales[sortedAxisNames[sortedIndex]][1] -
+								actualValue
+							: 1 - tick
+						: actualValue;
 
 				// Tick mark
 				svg

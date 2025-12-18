@@ -31,12 +31,12 @@ export class WebSocketService {
 	private groupId: number;
 	private method: string;
 	private token: string;
-	
+
 	// Add callback for successful reconnection
 	private onReconnectCallback?: () => void;
-	
+
 	messageStore: Writable<{
-		message:	string;
+		message: string;
 		messageId: number;
 	}> = writable({
 		message: '',
@@ -56,7 +56,7 @@ export class WebSocketService {
 		this.method = method;
 		this.token = token;
 		this.onReconnectCallback = onReconnect;
-		
+
 		if (this.socket) {
 			this.close();
 		}
@@ -81,7 +81,7 @@ export class WebSocketService {
 			if (this.reconnectAttempts > 0 && this.onReconnectCallback) {
 				this.onReconnectCallback();
 			}
-			
+
 			this.reconnectAttempts = 0; // Reset on successful connection
 		});
 
@@ -98,7 +98,7 @@ export class WebSocketService {
 					store.message = data;
 					store.messageId += 1;
 					return store;
-			});
+				});
 			} catch {
 				// If not JSON, treat as plain text message
 				this.messageStore.update((store) => {
@@ -109,7 +109,7 @@ export class WebSocketService {
 			}
 			console.log('WebSocket message received:', event.data);
 		});
-		
+
 		this.socket.addEventListener('error', (event) => {
 			console.error('WebSocket error:', event);
 			this.messageStore.update((store) => {
@@ -131,7 +131,7 @@ export class WebSocketService {
 			}
 			return;
 		}
-		
+
 		this.isReconnecting = true;
 		this.reconnectAttempts++;
 
@@ -142,8 +142,10 @@ export class WebSocketService {
 			message: `Connection lost. Retrying in ${delaySeconds} seconds...`,
 			messageId: store.messageId + 1
 		}));
-		console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts}) in ${delay} ms`);
-		
+		console.log(
+			`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts}) in ${delay} ms`
+		);
+
 		setTimeout(() => {
 			this.connect();
 		}, delay);
@@ -159,14 +161,14 @@ export class WebSocketService {
 			}));
 			return false;
 		}
-		
+
 		isLoading.set(true);
 		try {
 			return await new Promise((resolve) => {
 				if (this.socket && this.socket.readyState === WebSocket.OPEN) {
 					try {
 						this.socket.send(message);
-						
+
 						// Set up a timeout for error handling
 						const timeoutId = setTimeout(() => {
 							isLoading.set(false);
@@ -177,9 +179,9 @@ export class WebSocketService {
 						const messageHandler = (event: MessageEvent) => {
 							clearTimeout(timeoutId);
 							this.socket?.removeEventListener('message', messageHandler);
-							
+
 							// Check if the message indicates an error. All error messages contain 'ERROR'
-							const success = !(event.data.includes('ERROR'));
+							const success = !event.data.includes('ERROR');
 							isLoading.set(false);
 							resolve(success);
 						};

@@ -61,7 +61,6 @@
 	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
 
-
 	// Types
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 	type SolutionData = { [key: string]: number } & { index: number };
@@ -106,7 +105,7 @@
 
 	// Helper function to get vote count for solution
 	function getVoteCount(index: number): number {
-		return Object.values(groupVotes).filter(vote => vote === index).length;
+		return Object.values(groupVotes).filter((vote) => vote === index).length;
 	}
 
 	// Helper function to get objective title
@@ -152,34 +151,35 @@
 	});
 
 	// Create the table
-		const table = createSvelteTable<SolutionData>({
-			get data() {
-				return (tableData || []) as SolutionData[];
-			},
-			get columns() {
-				return columns as ColumnDef<SolutionData, any>[];
-			},
-			state: {
-				get sorting() {
-					return sorting;
-				}
-			},
-			onSortingChange: (updater) => {
-				if (typeof updater === 'function') {
-					sorting = updater(sorting);
-				} else {
-					sorting = updater;
-				}
-			},
-			getCoreRowModel: getCoreRowModel(),
-			getSortedRowModel: getSortedRowModel()
-		});
+	const table = createSvelteTable<SolutionData>({
+		get data() {
+			return (tableData || []) as SolutionData[];
+		},
+		get columns() {
+			return columns as ColumnDef<SolutionData, any>[];
+		},
+		state: {
+			get sorting() {
+				return sorting;
+			}
+		},
+		onSortingChange: (updater) => {
+			if (typeof updater === 'function') {
+				sorting = updater(sorting);
+			} else {
+				sorting = updater;
+			}
+		},
+		getCoreRowModel: getCoreRowModel(),
+		getSortedRowModel: getSortedRowModel()
+	});
 
 	// Handle row clicks
 	function handleRowClick(solution: SolutionData) {
 		onSolutionSelect(solution.index, solution);
 	}
 </script>
+
 {#snippet SolutionNameCell({ solution }: { solution: SolutionData })}
 	<div class="font-medium">
 		<div class="flex flex-col">
@@ -199,11 +199,13 @@
 })}
 	<div
 		class="flex items-center justify-center"
-		style="border-bottom: 4px solid {COLOR_PALETTE[idx % COLOR_PALETTE.length]}; width: 100%; padding: 0.5rem;"
+		style="border-bottom: 4px solid {COLOR_PALETTE[
+			idx % COLOR_PALETTE.length
+		]}; width: 100%; padding: 0.5rem;"
 		title={getObjectiveTitle(objective)}
 	>
 		<button
-			class="flex items-center gap-2 hover:bg-gray-50 px-2 py-1 rounded"
+			class="flex items-center gap-2 rounded px-2 py-1 hover:bg-gray-50"
 			onclick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
 		>
 			<div class="flex flex-col items-center">
@@ -239,7 +241,9 @@
 {#snippet VoteCountCell({ solution }: { solution: SolutionData })}
 	<div class="text-center">
 		{#if getVoteCount(solution.index) > 0}
-			<span class="badge {getVoteCount(solution.index) > 1 ? 'badge-accent' : 'badge-primary'} badge-sm">
+			<span
+				class="badge {getVoteCount(solution.index) > 1 ? 'badge-accent' : 'badge-primary'} badge-sm"
+			>
 				{getVoteCount(solution.index)}
 			</span>
 		{:else}
@@ -248,13 +252,7 @@
 	</div>
 {/snippet}
 
-{#snippet ColumnHeader({
-	column,
-	title
-}: {
-	column: Column<SolutionData>;
-	title: string;
-})}
+{#snippet ColumnHeader({ column, title }: { column: Column<SolutionData>; title: string })}
 	<div class="px-2 py-1 font-medium">
 		{title}
 	</div>
@@ -262,7 +260,7 @@
 
 {#if problem && solutions.length > 0}
 	<div class="flex h-full flex-col items-start">
-		<div class="overflow-auto rounded border shadow-sm w-full">
+		<div class="w-full overflow-auto rounded border shadow-sm">
 			<Table.Root>
 				<Table.Header>
 					{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
@@ -286,9 +284,9 @@
 						<Table.Row
 							onclick={() => handleRowClick(row.original)}
 							class="cursor-pointer hover:bg-gray-50 {selectedSolution === row.original.index
-								? 'bg-blue-100 border-l-4 border-blue-600'
+								? 'border-l-4 border-blue-600 bg-blue-100'
 								: ''} {isUserVotedSolution(row.original.index)
-								? 'bg-green-50 border-l-4 border-green-600'
+								? 'border-l-4 border-green-600 bg-green-50'
 								: ''}"
 							role="button"
 							tabindex={0}
@@ -310,16 +308,16 @@
 				</Table.Body>
 			</Table.Root>
 		</div>
-		
+
 		<!-- Table Legend -->
-		<div class="mt-4 text-sm text-gray-600 w-full">
+		<div class="mt-4 w-full text-sm text-gray-600">
 			<div class="flex flex-wrap gap-4">
 				<div class="flex items-center gap-2">
-					<div class="w-3 h-3 bg-blue-100 border-l-2 border-blue-600"></div>
+					<div class="h-3 w-3 border-l-2 border-blue-600 bg-blue-100"></div>
 					<span>Selected for voting</span>
 				</div>
 				<div class="flex items-center gap-2">
-					<div class="w-3 h-3 bg-green-50 border-l-2 border-green-600"></div>
+					<div class="h-3 w-3 border-l-2 border-green-600 bg-green-50"></div>
 					<span>Your vote</span>
 				</div>
 				<div class="flex items-center gap-2">
@@ -329,7 +327,5 @@
 		</div>
 	</div>
 {:else}
-	<div class="text-center py-8 text-gray-500">
-		No solutions available for voting.
-	</div>
+	<div class="py-8 text-center text-gray-500">No solutions available for voting.</div>
 {/if}

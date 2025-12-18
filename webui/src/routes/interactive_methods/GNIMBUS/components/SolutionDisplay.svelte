@@ -61,10 +61,13 @@
 		<VotingControls phase={current_state.phase} {selected_voting_index} {onVote} />
 	{/if}
 	{#if selected_type_solutions === 'all_final' && isOwner}
-	<div class="mb-2 flex-none">
-		<Button onclick={onChangeIteration} disabled={step === 'voting' || selected_voting_index === -1}>
-			Copy selected iteration as starting point for next iteration
-		</Button>
-	</div>
+		<div class="mb-2 flex-none">
+			<Button
+				onclick={onChangeIteration}
+				disabled={step === 'voting' || selected_voting_index === -1}
+			>
+				Copy selected iteration as starting point for next iteration
+			</Button>
+		</div>
 	{/if}
 </div>

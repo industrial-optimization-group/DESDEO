@@ -8,7 +8,7 @@
  * Manages real-time communication between group members during the GDM-SCORE-bands group decision making process.
  * Unlike GNIMBUS, this service is primarily for RECEIVING websocket messages (voting updates, iteration changes)
  * rather than sending user input through websockets. User actions (vote, confirm) are sent via HTTP endpoints.
- * 
+ *
  * @features
  * - Automatic reconnection with exponential backoff (max 5 attempts)
  * - Reconnection callbacks for state synchronization
@@ -32,12 +32,12 @@ export class WebSocketService {
 	private groupId: number;
 	private method: string;
 	private token: string;
-	
+
 	// Add callback for successful reconnection
 	private onReconnectCallback?: () => void;
-	
+
 	messageStore: Writable<{
-		message:	string;
+		message: string;
 		messageId: number;
 	}> = writable({
 		message: '',
@@ -52,12 +52,17 @@ export class WebSocketService {
 	 * @param token Authentication token
 	 * @param onReconnect Callback function to run when reconnected (e.g., refresh voting state)
 	 */
-	constructor(groupId: number, method = 'gdm-score-bands', token: string, onReconnect?: () => void) {
+	constructor(
+		groupId: number,
+		method = 'gdm-score-bands',
+		token: string,
+		onReconnect?: () => void
+	) {
 		this.groupId = groupId;
 		this.method = method;
 		this.token = token;
 		this.onReconnectCallback = onReconnect;
-		
+
 		if (this.socket) {
 			this.close();
 		}
@@ -67,7 +72,7 @@ export class WebSocketService {
 	/**
 	 * Establishes WebSocket connection to GDM-SCORE-bands backend
 	 * Sets up event listeners for open, close, message, and error events
-	 * 
+	 *
 	 * @private
 	 */
 	private connect() {
@@ -88,7 +93,7 @@ export class WebSocketService {
 			if (this.reconnectAttempts > 0 && this.onReconnectCallback) {
 				this.onReconnectCallback();
 			}
-			
+
 			this.reconnectAttempts = 0; // Reset on successful connection
 		});
 
@@ -110,7 +115,7 @@ export class WebSocketService {
 					store.message = data;
 					store.messageId += 1;
 					return store;
-			});
+				});
 			} catch {
 				// If not JSON, treat as plain text message
 				this.messageStore.update((store) => {
@@ -121,7 +126,7 @@ export class WebSocketService {
 			}
 			console.log('GDM-SCORE-bands WebSocket message received:', event.data);
 		});
-		
+
 		this.socket.addEventListener('error', (event) => {
 			console.error('WebSocket error:', event);
 			this.messageStore.update((store) => {
@@ -135,11 +140,15 @@ export class WebSocketService {
 	/**
 	 * Attempts to reconnect to WebSocket with exponential backoff
 	 * Only triggers if not already reconnecting and max attempts not reached
-	 * 
+	 *
 	 * @private
 	 */
 	private attemptReconnect() {
-		if (this.isReconnecting || this.reconnectAttempts >= this.maxReconnectAttempts || this.intentionalDisconnect) {
+		if (
+			this.isReconnecting ||
+			this.reconnectAttempts >= this.maxReconnectAttempts ||
+			this.intentionalDisconnect
+		) {
 			if (this.reconnectAttempts >= this.maxReconnectAttempts && !this.intentionalDisconnect) {
 				this.messageStore.update((store) => ({
 					...store,
@@ -149,7 +158,7 @@ export class WebSocketService {
 			}
 			return;
 		}
-		
+
 		this.isReconnecting = true;
 		this.reconnectAttempts++;
 
@@ -160,8 +169,10 @@ export class WebSocketService {
 			message: `Connection lost. Retrying in ${delaySeconds} seconds...`,
 			messageId: store.messageId + 1
 		}));
-		console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts}) in ${delay} ms`);
-		
+		console.log(
+			`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts}) in ${delay} ms`
+		);
+
 		setTimeout(() => {
 			this.connect();
 		}, delay);
@@ -170,7 +181,7 @@ export class WebSocketService {
 	/**
 	 * Sends a message through WebSocket (not used in GDM-SCORE-bands)
 	 * GDM-SCORE-bands uses HTTP endpoints for user actions instead
-	 * 
+	 *
 	 * @param message Message to send
 	 * @returns Promise<boolean> Always false for this implementation
 	 * @deprecated Use HTTP endpoints for voting and confirmation actions
@@ -178,8 +189,10 @@ export class WebSocketService {
 	async sendMessage(message: string): Promise<boolean> {
 		// GDM-SCORE-bands uses HTTP endpoints for user actions, not websocket messages
 		// This method is kept in case the API requires it, we need it in future or we fuse websocket-store-components with GNIMBUS.
-		
-		console.warn('GDM-SCORE-bands: sendMessage() should not be used. Use HTTP endpoints for user actions.');
+
+		console.warn(
+			'GDM-SCORE-bands: sendMessage() should not be used. Use HTTP endpoints for user actions.'
+		);
 		this.messageStore.update((store) => ({
 			...store,
 			message: 'Use HTTP endpoints for voting and confirmation, not websocket messages.',

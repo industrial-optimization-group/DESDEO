@@ -79,7 +79,6 @@ export function getStatusMessage(state: MessageState): string {
 			return state.isActionDone
 				? `Your vote has been recorded. You may change your vote while waiting for others to complete.`
 				: `Please vote for choosing the suggested solution as a final solution.`;
-
 		}
 		return state.isActionDone
 			? `Your vote has been recorded. You may change your vote while waiting for others to complete.`
@@ -101,9 +100,11 @@ export interface VisualizationData {
 	solutions: number[][];
 	previous: number[][];
 	others: number[][];
-	solutionLabels?: {
-		[key: string]: string;
-	} | undefined
+	solutionLabels?:
+		| {
+				[key: string]: string;
+		  }
+		| undefined;
 }
 
 export interface PreferenceData {
@@ -123,46 +124,56 @@ export function createVisualizationData(
 
 	let solutionLabels;
 	if (historyOption === 'all_own') {
-		solutionLabels = Object.fromEntries(solutionOptions.map((solution, i) => {
-				return isDecisionMaker ? [
-					i,
-					solutionOptions.length === 1 ? 'Your solution' : `Your solution ${solution.iteration_number ?? ""}`
-				] : 
-				[
-					i,
-					solutionOptions.length === 1 ? 'Users solution' : `Users solution ${solution.iteration_number ?? ""}`
-				]
+		solutionLabels = Object.fromEntries(
+			solutionOptions.map((solution, i) => {
+				return isDecisionMaker
+					? [
+							i,
+							solutionOptions.length === 1
+								? 'Your solution'
+								: `Your solution ${solution.iteration_number ?? ''}`
+						]
+					: [
+							i,
+							solutionOptions.length === 1
+								? 'Users solution'
+								: `Users solution ${solution.iteration_number ?? ''}`
+						];
 			})
-
-		)
-	} else 	if (historyOption === 'all_final') {
-		solutionLabels = Object.fromEntries(solutionOptions.map((solution, i) => {
-
-			return [
-				i,
-				solutionOptions.length === 1 ? 'Group solution' : `Group solution ${solution.iteration_number ?? ""}`
-			]
-		})
-		)
+		);
+	} else if (historyOption === 'all_final') {
+		solutionLabels = Object.fromEntries(
+			solutionOptions.map((solution, i) => {
+				return [
+					i,
+					solutionOptions.length === 1
+						? 'Group solution'
+						: `Group solution ${solution.iteration_number ?? ''}`
+				];
+			})
+		);
 	} else {
-		solutionLabels = Object.fromEntries(solutionOptions.map((solution, i) => [
-			i,
-			solutionOptions.length === 1 ? 'Group solution' : `Group solution ${solution.solution_index}`
-		])
-		)
+		solutionLabels = Object.fromEntries(
+			solutionOptions.map((solution, i) => [
+				i,
+				solutionOptions.length === 1
+					? 'Group solution'
+					: `Group solution ${solution.solution_index}`
+			])
+		);
 	}
 
 	return {
 		solutions: mapSolutionsToObjectiveValues(solutionOptions, problem),
 		previous:
 			step === 'voting' &&
-				currentState.phase !== 'decision' &&
-				currentState.phase !== 'compromise' &&
-				currentState.personal_result_index !== null
+			currentState.phase !== 'decision' &&
+			currentState.phase !== 'compromise' &&
+			currentState.personal_result_index !== null
 				? mapSolutionsToObjectiveValues(
-					[currentState.user_results[currentState.personal_result_index]],
-					problem
-				)
+						[currentState.user_results[currentState.personal_result_index]],
+						problem
+					)
 				: [],
 		others:
 			step === 'voting' ? mapSolutionsToObjectiveValues(currentState.user_results, problem) : [],
@@ -173,9 +184,8 @@ export function createVisualizationData(
 export function createPreferenceData(
 	step: string,
 	lastIteratedPreference: number[],
-	currentPreference: number[],
+	currentPreference: number[]
 ): PreferenceData {
-
 	return {
 		previousValues: [lastIteratedPreference],
 		currentValues: step === 'optimization' ? currentPreference : []
@@ -269,7 +279,6 @@ export function mapSolutionsToObjectiveValues(solutions: Solution[], problem: Pr
 	});
 }
 
-
 export interface HistoryData {
 	own_solutions: any[];
 	common_solutions: any[];
@@ -280,7 +289,12 @@ export interface HistoryData {
 /**
  * Transforms full iterations data into organized history data, giving all solutions iteration numbers
  */
-export function computeHistory(full_iterations: AllIterations, userId: number | undefined, isDecisionMaker: boolean, step: string): HistoryData {
+export function computeHistory(
+	full_iterations: AllIterations,
+	userId: number | undefined,
+	isDecisionMaker: boolean,
+	step: string
+): HistoryData {
 	if (!full_iterations.all_full_iterations || !userId) {
 		return {
 			own_solutions: [],
@@ -294,27 +308,28 @@ export function computeHistory(full_iterations: AllIterations, userId: number | 
 	// TODO: isDecisionmaker means that personal_result_index !== null,
 	// so maybe to show all to owner, one could remove the isDecisionmaker and instead flatmap with condition that if null, just get all.
 	// Transform own solutions with iteration numbers (only if user is decisionMaker and thus has personal results, and user_results exist)
-	const own_solutions = isDecisionMaker ? full_iterations.all_full_iterations.slice(0, arrayLength - 1)
-		.map((iteration, index) => {
-			const iterationNumber = arrayLength - 1 - index; // Count backwards to get iteration number
-			if (iteration.phase === 'decision' || iteration.phase === 'compromise') {
-				return {
-					undefined,
-					iteration_number: iterationNumber
-				}
-			}
-			return (iteration.user_results && iteration.user_results.length > 0) ? {
-				...iteration.user_results[(iteration.personal_result_index || 0)],
-				iteration_number: iterationNumber
-			} : {
-				undefined,
-				iteration_number: iterationNumber
-			};
-		})
-		: full_iterations.all_full_iterations.slice(0, arrayLength - 1)
-			.flatMap((iteration, index) => {
+	const own_solutions = isDecisionMaker
+		? full_iterations.all_full_iterations.slice(0, arrayLength - 1).map((iteration, index) => {
 				const iterationNumber = arrayLength - 1 - index; // Count backwards to get iteration number
-				return (iteration.user_results ?? []).map(solution => ({
+				if (iteration.phase === 'decision' || iteration.phase === 'compromise') {
+					return {
+						undefined,
+						iteration_number: iterationNumber
+					};
+				}
+				return iteration.user_results && iteration.user_results.length > 0
+					? {
+							...iteration.user_results[iteration.personal_result_index || 0],
+							iteration_number: iterationNumber
+						}
+					: {
+							undefined,
+							iteration_number: iterationNumber
+						};
+			})
+		: full_iterations.all_full_iterations.slice(0, arrayLength - 1).flatMap((iteration, index) => {
+				const iterationNumber = arrayLength - 1 - index; // Count backwards to get iteration number
+				return (iteration.user_results ?? []).map((solution) => ({
 					...solution,
 					iteration_number: iterationNumber
 				}));
@@ -324,7 +339,7 @@ export function computeHistory(full_iterations: AllIterations, userId: number | 
 	const common_solutions = full_iterations.all_full_iterations // Iteration should always have common results, at least []. No need to filter.
 		.flatMap((iteration, index) => {
 			const iterationNumber = arrayLength - 1 - index; // Count backwards to get iteration number
-			return (iteration.common_results ?? []).map(solution => ({
+			return (iteration.common_results ?? []).map((solution) => ({
 				...solution,
 				iteration_number: iterationNumber
 			}));
@@ -332,7 +347,7 @@ export function computeHistory(full_iterations: AllIterations, userId: number | 
 
 	const final_solutions = full_iterations.all_full_iterations
 		.filter((_, index) => {
-			if (step === "voting") return index !== 0;
+			if (step === 'voting') return index !== 0;
 			return true;
 		}) // filters the first if step is voting; in this case there is no final solution in that iteration.
 		.map((iteration, index) => {
@@ -357,29 +372,36 @@ export function computeHistory(full_iterations: AllIterations, userId: number | 
 /**
  * Extracts preferences history for a specific user
  */
-function extractPreferencesHistory(isDecisionMaker: boolean, full_iterations: AllIterations, userId: number): number[][] {
-	const set_preferences = full_iterations.all_full_iterations.slice(0, full_iterations.all_full_iterations.length - 1) // Exclude initial iteration as it has no preferences
+function extractPreferencesHistory(
+	isDecisionMaker: boolean,
+	full_iterations: AllIterations,
+	userId: number
+): number[][] {
+	const set_preferences = full_iterations.all_full_iterations
+		.slice(0, full_iterations.all_full_iterations.length - 1) // Exclude initial iteration as it has no preferences
 		.map((iteration) => iteration.optimization_preferences?.set_preferences);
-	
+
 	if (!isDecisionMaker) {
 		// Extract preferences from ALL users across all iterations
 		const preferences = set_preferences.flatMap((iterationPrefs) => {
 			if (!iterationPrefs) return [];
 			// Get all users' preferences for this iteration
-			return Object.values(iterationPrefs).map(userPrefs => 
+			return Object.values(iterationPrefs).map((userPrefs) =>
 				Object.values(userPrefs.aspiration_levels)
 			);
 		});
 
 		return preferences;
 	}
-	
+
 	// Extract preferences only for the specific user (decision maker)
-	const preferences = set_preferences.map((data) => {
-		if (data) {
-			return Object.values(data[userId].aspiration_levels);
-		}
-	}).filter((vals): vals is number[] => vals !== null && vals !== undefined);
+	const preferences = set_preferences
+		.map((data) => {
+			if (data) {
+				return Object.values(data[userId].aspiration_levels);
+			}
+		})
+		.filter((vals): vals is number[] => vals !== null && vals !== undefined);
 
 	return preferences;
 }
@@ -468,14 +490,13 @@ export async function callGNimbusAPI<T>(
 
 		if (!response.ok || !result.success) {
 			const status = response.status;
-			console.log(status)
+			console.log(status);
 			let errorMsg = result.error || `HTTP error! Status: ${status}`;
 			if (status === 401) errorMsg = `${errorMsg} Please log in again.`;
 			// if (status === 403) errorMsg = `${errorMsg} You do not have permission to perform this action.`; // TODO: use if needed
 			throw new Error(errorMsg);
 		}
 		return result;
-
 	} catch (error) {
 		let errorMsg: string;
 		if (error instanceof Error) {

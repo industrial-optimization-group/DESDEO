@@ -69,8 +69,6 @@
 	import LoadingSpinner from '$lib/components/custom/notifications/loading-spinner.svelte';
 	import Alert from '$lib/components/custom/notifications/alert.svelte';
 
-
-
 	import type {
 		ProblemInfo,
 		Solution,
@@ -123,14 +121,13 @@
 		{ id: 'compromise', label: 'Compromise' }
 	] as const;
 	// Helper function to determine button variant for group owners phase change buttons
-	function getVariant(phaseId: typeof PHASE_CONFIGS[number]['id'], currentPhase: string) {
-	if (currentPhase === 'init' ) currentPhase = 'learning';
-	return currentPhase === phaseId ? 'default' : 
-		'outline' as 'outline' | 'default';
+	function getVariant(phaseId: (typeof PHASE_CONFIGS)[number]['id'], currentPhase: string) {
+		if (currentPhase === 'init') currentPhase = 'learning';
+		return currentPhase === phaseId ? 'default' : ('outline' as 'outline' | 'default');
 	}
 	// Derived phases with variants
-	let PHASES = $derived.by(() => 
-		PHASE_CONFIGS.map(phase => ({
+	let PHASES = $derived.by(() =>
+		PHASE_CONFIGS.map((phase) => ({
 			...phase,
 			variant: getVariant(phase.id, current_state.phase)
 		}))
@@ -140,14 +137,17 @@
 	let frameworks = $derived.by(() => {
 		const baseOptions = [
 			{ value: 'current', label: 'Current iteration' },
-			{ value: 'all_own', label: `${isDecisionMaker ? 'All own solutions and preferences' : 'All users solutions'}` },
+			{
+				value: 'all_own',
+				label: `${isDecisionMaker ? 'All own solutions and preferences' : 'All users solutions'}`
+			},
 			{ value: 'all_group', label: 'All group solutions' },
 			{ value: 'all_final', label: 'All voting results' }
 		];
-		
+
 		return baseOptions;
 	});
-	
+
 	// History and visible solution selection related things:
 	// this is what drop-down selection is bound to
 	let history_option = $state('current') as 'current' | 'all_own' | 'all_group' | 'all_final';
@@ -159,7 +159,12 @@
 
 	// choosing the solutions we want to show in UI
 	let solution_options = $derived.by(() => {
-		return getSolutionsForView(history, current_state, history_option as 'current' | 'all_own' | 'all_group' | 'all_final', step);
+		return getSolutionsForView(
+			history,
+			current_state,
+			history_option as 'current' | 'all_own' | 'all_group' | 'all_final',
+			step
+		);
 	});
 
 	// This is for highlightin specific preference in history, but we need to have it separate from other history things
@@ -170,16 +175,25 @@
 	});
 
 	function handle_type_solutions_change(event: { value: string }) {
-		change_solution_type_updating_selections(event.value as 'current' | 'all_own' | 'all_group' | 'all_final');
+		change_solution_type_updating_selections(
+			event.value as 'current' | 'all_own' | 'all_group' | 'all_final'
+		);
 	}
-	
+
 	// Helper function to change solution type and update selections
-	function change_solution_type_updating_selections(newType: 'current' | 'all_own' | 'all_group' | 'all_final') {
-		
+	function change_solution_type_updating_selections(
+		newType: 'current' | 'all_own' | 'all_group' | 'all_final'
+	) {
 		// Update the internal state
 		history_option = newType;
 		// Reset selections to none or for current optimization iteration to 0
-		selected_solution_index = ((step === 'optimization' || current_state.phase === 'decision' || current_state.phase ==='compromise') && newType === 'current') ? 0 : -1;
+		selected_solution_index =
+			(step === 'optimization' ||
+				current_state.phase === 'decision' ||
+				current_state.phase === 'compromise') &&
+			newType === 'current'
+				? 0
+				: -1;
 		update_solution_selection(current_state);
 	}
 
@@ -221,11 +235,13 @@
 	let message: string | undefined = $state(undefined);
 	let socketError: string | undefined = $state(undefined);
 	let messageTimeout: number | undefined;
-	let alerts = $derived.by(() => [
-        { message: $errorMessage ?? undefined, variant: 'destructive' as const},
-        { message: socketError, variant: 'destructive' as const},
-        { message: message, variant: 'default' as const}
-    ].filter(alert => alert.message));
+	let alerts = $derived.by(() =>
+		[
+			{ message: $errorMessage ?? undefined, variant: 'destructive' as const },
+			{ message: socketError, variant: 'destructive' as const },
+			{ message: message, variant: 'default' as const }
+		].filter((alert) => alert.message)
+	);
 
 	function showTemporaryMessage(msg: string, duration: number = 5000) {
 		// Clear any existing timeout
@@ -267,7 +283,8 @@
 		const phaseResult = await callGNimbusAPI<Response>('get_phase', {
 			group_id: group_id
 		});
-		let phase = phaseResult.success && phaseResult.data ? phaseResult.data.phase : latestIteration.phase
+		let phase =
+			phaseResult.success && phaseResult.data ? phaseResult.data.phase : latestIteration.phase;
 		if (latestIteration.phase === 'init') phase = 'init';
 		// Update current state with correct phase
 		current_state = {
@@ -295,7 +312,11 @@
 
 		// Update selection state
 		selected_solution_index =
-			(latestIteration.phase === 'decision' || latestIteration.phase == 'compromise') ? 0 : step === 'optimization' ? 0 : -1;
+			latestIteration.phase === 'decision' || latestIteration.phase == 'compromise'
+				? 0
+				: step === 'optimization'
+					? 0
+					: -1;
 
 		// Update dependent states
 		update_solution_selection(current_state);
@@ -455,16 +476,21 @@
 		if (hasUtopiaMetadata && solution_options.length > 0) {
 			// Initialize mapStates array with the correct length
 			mapStates = new Array(solution_options.length);
-			
+
 			// Fetch maps for each solution without waiting, but only for valid solutions
 			solution_options.forEach((solution, order_index) => {
 				// Type guard: ensure solution has required fields for maps
-				if (solution && 
-					typeof solution.state_id === 'number' && 
-					typeof solution.solution_index === 'number') {
+				if (
+					solution &&
+					typeof solution.state_id === 'number' &&
+					typeof solution.solution_index === 'number'
+				) {
 					get_maps(solution as Solution, order_index);
 				} else {
-					console.warn(`Solution at index ${order_index} missing required fields for maps:`, solution);
+					console.warn(
+						`Solution at index ${order_index} missing required fields for maps:`,
+						solution
+					);
 				}
 			});
 		}
@@ -493,7 +519,7 @@
 		}
 	}
 
-	async function handlePhaseClick(phaseId: typeof PHASE_CONFIGS[number]['id']) {		
+	async function handlePhaseClick(phaseId: (typeof PHASE_CONFIGS)[number]['id']) {
 		try {
 			// Switch to the new phase
 			const switchResult = await callGNimbusAPI<Response>('switch_phase', {
@@ -516,9 +542,7 @@
 			if (phaseResult.success && phaseResult.data) {
 				// Update the current state with the new phase
 				current_state = { ...current_state, phase: phaseResult.data.phase };
-				
 			}
-
 		} catch (err) {
 			console.error('Phase switch error:', err);
 			showTemporaryMessage('Failed to switch phase');
@@ -565,17 +589,15 @@
 			// Filters for specific messages. All socket messages that imply need for state updates start with "UPDATE"
 			// this is because socket messages are simple strings and there is no other way to differentiate them.
 			let msg = store.message;
-			if (
-				msg.includes('UPDATE')
-			) {
+			if (msg.includes('UPDATE')) {
 				// Don't show these messages, but only update state
 				getResultsAndUpdate(data.group.id);
 				return;
 			}
-			
+
 			// Replace "compromise" with "decision" in messages for non-owners
 			let displayMessage = !isOwner ? msg.replace(/compromise/gi, 'decision') : msg;
-			
+
 			// Filter out "same phase to same phase" messages for non-owners
 			if (!isOwner && /from (\w+) to \1/i.test(displayMessage)) {
 				// Don't show "changed from X to X" messages to non-owners, but still update state
@@ -588,7 +610,7 @@
 				getResultsAndUpdate(data.group.id);
 				return;
 			}
-			
+
 			// Show the processed message, DONT update state
 			showTemporaryMessage(displayMessage);
 		});
@@ -639,18 +661,25 @@
 	});
 
 	let visualizationPreferences = $derived.by(() => {
-		if (history_option === "current") return createPreferenceData(step, last_iterated_preference, current_preference);
-		// show preference history if user selected to see their own history, 
+		if (history_option === 'current')
+			return createPreferenceData(step, last_iterated_preference, current_preference);
+		// show preference history if user selected to see their own history,
 		// otherwise show no preferenes
 		return {
-			previousValues: history_option === 'all_own' ? history.preferences: [],
-			currentValues: history_option === 'all_own' ? chosen_preference: []
-		}
-	}
-	);
+			previousValues: history_option === 'all_own' ? history.preferences : [],
+			currentValues: history_option === 'all_own' ? chosen_preference : []
+		};
+	});
 
 	let visualizationObjectives = $derived.by(() =>
-		createVisualizationData(problem, step, current_state, solution_options, history_option, isDecisionMaker)
+		createVisualizationData(
+			problem,
+			step,
+			current_state,
+			solution_options,
+			history_option,
+			isDecisionMaker
+		)
 	);
 </script>
 
@@ -659,24 +688,18 @@
 {/if}
 
 {#each alerts as alert}
-    <Alert 
-        message={alert.message} 
-        variant={alert.variant}
-    />
+	<Alert message={alert.message} variant={alert.variant} />
 {/each}
 
-<BaseLayout
-	showLeftSidebar={!!problem}
-	showRightSidebar={false}
->
-
+<BaseLayout showLeftSidebar={!!problem} showRightSidebar={false}>
 	{#snippet explorerTitle()}
-		{@const iter = full_iterations.all_full_iterations?.length > 1 ? 
-			((step === 'optimization') ? 
-				full_iterations.all_full_iterations?.length 
-				:full_iterations.all_full_iterations?.length-1 ) 
-			: 0}
-		{@const iterLabel = iter === 0 ? " / Initial solution" : ` / Iteration ${iter}`}
+		{@const iter =
+			full_iterations.all_full_iterations?.length > 1
+				? step === 'optimization'
+					? full_iterations.all_full_iterations?.length
+					: full_iterations.all_full_iterations?.length - 1
+				: 0}
+		{@const iterLabel = iter === 0 ? ' / Initial solution' : ` / Iteration ${iter}`}
 		<span class="font-bold">
 			{#if history_option === 'all_group'}
 				All Group Solutions
@@ -687,12 +710,18 @@
 			{:else if step === 'finish'}
 				Final Solution {iterLabel}
 			{:else}
-				{current_state.phase === 'crp' ? 'Consensus Reaching Phase' : 
-				current_state.phase === 'init' ? 'Learning Phase' :
-				current_state.phase === 'learning' ? 'Learning Phase' :
-				current_state.phase === 'decision' ? 'Decision Phase' :
-				current_state.phase === 'compromise' ? 'Decision Phase' :
-				''} {iterLabel}
+				{current_state.phase === 'crp'
+					? 'Consensus Reaching Phase'
+					: current_state.phase === 'init'
+						? 'Learning Phase'
+						: current_state.phase === 'learning'
+							? 'Learning Phase'
+							: current_state.phase === 'decision'
+								? 'Decision Phase'
+								: current_state.phase === 'compromise'
+									? 'Decision Phase'
+									: ''}
+				{iterLabel}
 			{/if}
 		</span>
 		{#if problem && history_option === 'current'}
@@ -711,23 +740,20 @@
 
 	{#snippet explorerControls()}
 		{#if isOwner && step === 'optimization'}
-		<span class="left-0 p-4">Change phase: </span>
+			<span class="left-0 p-4">Change phase: </span>
 			{#each PHASES as phase}
-                    <Button
-                        variant={phase.variant}
-                        onclick={() => handlePhaseClick(phase.id)}
-                    >
-                        {phase.label}
-                    </Button>
+				<Button variant={phase.variant} onclick={() => handlePhaseClick(phase.id)}>
+					{phase.label}
+				</Button>
 			{/each}
 		{/if}
-		{#if step !== 'finish' && current_state.phase !== 'init' }
-		<span class="left-0 p-4">View: </span>
-		<Combobox
-			options={frameworks}
-			defaultSelected={history_option}
-			onChange={handle_type_solutions_change}
-		/>
+		{#if step !== 'finish' && current_state.phase !== 'init'}
+			<span class="left-0 p-4">View: </span>
+			<Combobox
+				options={frameworks}
+				defaultSelected={history_option}
+				onChange={handle_type_solutions_change}
+			/>
 		{/if}
 	{/snippet}
 
@@ -764,16 +790,26 @@
 							previousPreferenceType={type_preferences}
 							currentPreferenceType={type_preferences}
 							solutionsObjectiveValues={visualizationObjectives.solutions}
-							previousObjectiveValues={history_option ==="current" ? visualizationObjectives.previous : []}
-							otherObjectiveValues={history_option ==="current" ? visualizationObjectives.others : []}
+							previousObjectiveValues={history_option === 'current'
+								? visualizationObjectives.previous
+								: []}
+							otherObjectiveValues={history_option === 'current'
+								? visualizationObjectives.others
+								: []}
 							externalSelectedIndex={selected_solution_index}
 							onSelectSolution={handle_solution_click}
 							lineLabels={visualizationObjectives.solutionLabels}
 							referenceDataLabels={{
-								previousRefLabel: history_option ==='current' ? 'Your previous preference' : 'Previous preference',
-								currentRefLabel: history_option ==='current' ? 'Your current preference' : "Selected previous preference",
-								previousSolutionLabels:['Your individual solution'],
-								otherSolutionLabels: visualizationObjectives.others.map((_, i) => isDecisionMaker ? `Another user's solution`:`User ${i + 1}'s solution`),
+								previousRefLabel:
+									history_option === 'current' ? 'Your previous preference' : 'Previous preference',
+								currentRefLabel:
+									history_option === 'current'
+										? 'Your current preference'
+										: 'Selected previous preference',
+								previousSolutionLabels: ['Your individual solution'],
+								otherSolutionLabels: visualizationObjectives.others.map((_, i) =>
+									isDecisionMaker ? `Another user's solution` : `User ${i + 1}'s solution`
+								)
 							}}
 						/>
 					</Resizable.Pane>
@@ -815,7 +851,7 @@
 					{tableData}
 					selected_type_solutions={history_option}
 					selected_voting_index={selected_solution_index}
-					userSolutionsObjectives={userSolutionsObjectives}
+					{userSolutionsObjectives}
 					{isDecisionMaker}
 					{isOwner}
 					onVote={handle_vote}
