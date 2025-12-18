@@ -78,8 +78,15 @@ def _get_cached_info(params_key: str) -> ExternalProblemInfo:
     p_xl = pymoo_problem.xl
     p_xu = pymoo_problem.xu
     p_vtype = pymoo_problem.vtype
-    p_ideal = pymoo_problem.ideal_point()
-    p_nadir = pymoo_problem.nadir_point()
+
+    try:
+        p_ideal = pymoo_problem.ideal_point()
+    except Exception:
+        p_ideal = None
+    try:
+        p_nadir = pymoo_problem.nadir_point()
+    except Exception:
+        p_nadir = None
 
     var_symbols = [f"x_{i}" for i in range(1, p_n_var + 1)]
     obj_symbols = [f"f_{i}" for i in range(1, p_n_obj + 1)]
