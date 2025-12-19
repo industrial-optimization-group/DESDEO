@@ -34,10 +34,11 @@ dependencies = [
     "greenlet >= 3.1.1",
     "pymoo >= 0.6.1.2",
     "shap >= 0.47.0",
-	"requests >= 2.32.0",
+    "requests >= 2.32.0",
     "cvxpy[scip] >= 1.6.4",
     "moocore >= 0.1.7",
     "websockets>=15.0.1",
+    "coco-experiment>=2.8.2",
 ]
 
 [project.urls]
@@ -261,6 +262,7 @@ markers = [
     "enautilus: tests related to the E-NAUTILUS method.",
     "gdmtools: tests related to group decision making.",
     "gnimbus: tests related to group nimbus method.",
+    "external: tests related to providers interfacing to external problems."
 ]
 pythonpath = "."
 asyncio_default_fixture_loop_scope = "function"
