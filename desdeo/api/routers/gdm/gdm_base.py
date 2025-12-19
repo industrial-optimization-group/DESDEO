@@ -33,7 +33,7 @@ logging.basicConfig(
     stream=sys.stdout, format="[%(filename)s:%(lineno)d] %(levelname)s: %(message)s", level=logging.INFO
 )
 
-router = APIRouter(prefix="/gdm")
+router = APIRouter(prefix="/gdm", tags=["GDM"])
 
 
 class ManagerError(Exception):
@@ -81,7 +81,12 @@ class GroupManager:
         session = next(get_session())
         group = session.exec(select(Group).where(Group.id == self.group_id)).first()
         try:
-            prev_iter = group.head_iteration.parent
+            head_iter = session.exec(select(GroupIteration)
+                                     .where(GroupIteration.id == group.head_iteration_id)).first()
+            if head_iter is None:
+                session.close()
+                return
+            prev_iter = head_iter.parent
             if prev_iter is None:
                 session.close()
                 return
@@ -160,7 +165,7 @@ def create_group(
         session (Annotated[Session, Depends(get_session)]): the database session.
 
     Returns:
-        JSONResponse: Aknowledgement that the gourp was created
+        JSONResponse: Acknowledgement that the group was created
 
     Raises:
         HTTPException
@@ -177,7 +182,7 @@ def create_group(
     session.commit()
     session.refresh(group)
 
-    group_ids = user.group_ids.copy()
+    group_ids = user.group_ids.copy() if user.group_ids is not None else []
     group_ids.append(group.id)
     user.group_ids = group_ids
 
@@ -201,7 +206,7 @@ def delete_group(
         session (Annotated[Session, Depends(get_session)]): The database session
 
     Returns:
-        JSONResponse: Aknowledgement of the deletion
+        JSONResponse: Acknowledgement of the deletion
 
     Raises:
         HTTPException: Insufficient authorization etc.
@@ -233,7 +238,9 @@ def delete_group(
     session.refresh(user)
 
     # Get the root iteration
-    head: GroupIteration = group.head_iteration
+    # TODO: Adapt this to the new cascade with multiple children
+    head: GroupIteration = session.exec(select(GroupIteration)
+                                        .where(GroupIteration.id == group.head_iteration_id)).first()
     iter_count = 0
     if head is not None:
         while head.parent is not None:

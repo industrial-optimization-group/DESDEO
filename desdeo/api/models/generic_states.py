@@ -286,7 +286,7 @@ class UserSavedSolutionDB(SQLModel, table=True):
         )
 
 
-class SolutionReference(SQLModel):
+class SolutionReferenceBase(SQLModel):
     """A model that functions as a reference to solutions existing in the database.
 
     Referenced solutions are not necessarily solutions that the user has saved explicitly. For
@@ -299,6 +299,20 @@ class SolutionReference(SQLModel):
         default=None,
     )
     state: StateDB = Field(description="The reference state with the solution information.")
+
+    @computed_field
+    @property
+    def state_id(self) -> int:
+        return self.state.id
+
+    @computed_field
+    @property
+    def num_solutions(self) -> int:
+        return len(self.state.state.solver_results)
+
+
+class SolutionReference(SolutionReferenceBase):
+    """A full solution reference with objectives and variables."""
 
     @computed_field
     @property
@@ -320,21 +334,23 @@ class SolutionReference(SQLModel):
 
     @computed_field
     @property
-    def variable_values(self) -> dict[str, VariableType] | None:
+    def variable_values(self) -> dict[str, VariableType | Tensor] | None:
         if self.solution_index is not None:
             return self.state.state.result_variable_values[self.solution_index]
 
         return None
 
-    @computed_field
-    @property
-    def state_id(self) -> int:
-        return self.state.id
+
+class SolutionReferenceLite(SolutionReferenceBase):
+    """The same as SolutionReference, but without decision variables for more efficient transport over the internet."""
 
     @computed_field
     @property
-    def num_solutions(self) -> int:
-        return len(self.state.state.solver_results)
+    def objective_values(self) -> dict[str, float] | None:
+        if self.solution_index is not None:
+            return self.state.state.result_objective_values[self.solution_index]
+
+        return None
 
 
 class SolutionReferenceResponse(SQLModel):

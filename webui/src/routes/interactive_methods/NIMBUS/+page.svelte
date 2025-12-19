@@ -591,7 +591,7 @@
 							<!-- Visualization panel showing only the final selected solution -->
 							<VisualizationsPanel
 								{problem}
-								previousPreferenceValues={last_iterated_preference}
+								previousPreferenceValues={[last_iterated_preference]}
 								previousPreferenceType={type_preferences}
 								currentPreferenceValues={current_preference}
 								currentPreferenceType={type_preferences}
@@ -727,7 +727,7 @@
 							<!-- Visualization panel that adapts to current mode -->
 							<VisualizationsPanel
 								{problem}
-								previousPreferenceValues={last_iterated_preference}
+								previousPreferenceValues={[last_iterated_preference]}
 								currentPreferenceValues={current_preference}
 								previousPreferenceType={type_preferences}
 								currentPreferenceType={type_preferences}
