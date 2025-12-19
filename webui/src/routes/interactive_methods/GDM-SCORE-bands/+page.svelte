@@ -489,6 +489,8 @@
 
 				// The last item from history is the current response
 				const currentResponse = history[history.length - 1];
+				selected_band = null;
+				selected_solution = null;
 				// Check which type of response we got and update state accordingly
 				if (currentResponse.method === 'gdm-score-bands') {
 					// Regular SCORE bands response - cast to proper type for TypeScript
@@ -1103,7 +1105,7 @@
 									selectedSolution={selected_solution}
 									onSolutionSelect={handle_solution_select}
 									userVotedSolution={usersVote}
-									groupVotes={decisionResult.user_votes || {}}
+									groupVotes={votes_and_confirms.votes || {}}
 								/>
 							{:else}
 								<div class="text-center">
