@@ -96,13 +96,18 @@
 										<Tooltip.Trigger><InfoIcon /></Tooltip.Trigger>
 										<Tooltip.Content class="max-w-sm">
 											<p>
-												The bar height shows how strongly each objective influences the current
-												solution. When you click, you’ll see the trade-offs and a suggested
-												adjustment to move closer to your preferred solution.
+												The height of each bar represents how strongly each objective function
+												influences the selected solution ({solutions[selectedSolutions[0]].name ==
+												null
+													? 'Solution ' + (selectedSolutions[0] + 1)
+													: solutions[selectedSolutions[0]].name}). When you select an objective
+												function, you can see how improving it by one unit affects the other
+												objective functions.
 											</p>
 										</Tooltip.Content>
 									</Tooltip.Root>
 								</div>
+								<span class="text-sm"> Select an objective function you want to improve. </span>
 
 								<div>
 									<!-- 								{#each Object.entries(multipliers[0] ?? {}) as [objName, value]}
@@ -141,7 +146,30 @@
 									onChange={undefined}
 								/> -->
 								<div>
-									{#if selectedObjectiveIndex !== null}
+									{#if selectedObjectiveIndex !== null && selectedObjectiveIndex !== undefined && tradeoffs}
+										<div class="my-4 mb-2 flex flex-row">
+											<span class="text-sm"
+												>Estimated changes in other objective functions when <span
+													class="text-primary font-semibold"
+													>{objectiveNames[problem.objectives[selectedObjectiveIndex].symbol] ||
+														problem.objectives[selectedObjectiveIndex].symbol}</span
+												> is improved by one unit.</span
+											>
+
+											<Tooltip.Root>
+												<Tooltip.Trigger><InfoIcon /></Tooltip.Trigger>
+												<Tooltip.Content class="max-w-sm">
+													<p>
+														The values represent local effects near
+														{solutions[selectedSolutions[0]].name == null
+															? 'Solution ' + (selectedSolutions[0] + 1)
+															: solutions[selectedSolutions[0]].name}. They indicate how much each
+														objective function is expected to change if the selected objective
+														function is improved by one unit.
+													</p>
+												</Tooltip.Content>
+											</Tooltip.Root>
+										</div>
 										<ExpBarchart
 											data={Object.entries(
 												formatTradeofftoDict(tradeoffs, selectedObjectiveIndex) ?? {}

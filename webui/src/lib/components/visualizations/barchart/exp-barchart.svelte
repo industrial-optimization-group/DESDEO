@@ -241,11 +241,18 @@
 		if (options.orientation == 'horizontal') {
 			margin = { top: 0, right: 10, bottom: 30, left: 20 };
 			// Normalize all except the selected objective
+			// Use the absotlute data values for normalization
+
 			let data_to_use = data;
 			if (selected_objective_index !== null) {
-				data_to_use = data.map((d, i) => (i === selected_objective_index ? d : { ...d, value: 0 }));
+				data_to_use = data.map((d, i) =>
+					i === selected_objective_index ? { ...d, value: Math.abs(d.value) } : { ...d, value: 0 }
+				);
+				console.log('selected_objective_index', selected_objective_index);
+				console.log('original data', data);
+				console.log('data_to_use', data_to_use);
+				data = normalizeData(data_to_use);
 			}
-			data = normalizeData(data_to_use);
 		} else {
 			margin = { top: 10, right: 10, bottom: 30, left: 20 };
 			data = normalizeData(data);
@@ -374,7 +381,7 @@
 				value: 0
 			}));
 		}*/
-		selected_objective_index = null;
+		//selected_objective_index = null;
 	}
 </script>
 
