@@ -2,6 +2,8 @@
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import PreferenceSwitcher from './preference-switcher.svelte';
 	import { writable, type Writable } from 'svelte/store';
+	import InfoIcon from '@lucide/svelte/icons/info';
+
 	import { Button } from '$lib/components/ui/button/index.js';
 	import type { components } from '$lib/api/client-types';
 	import {
@@ -18,6 +20,7 @@
 		getDisplayAccuracy
 	} from '$lib/helpers/index.js';
 	import { PREFERENCE_TYPES } from '$lib/constants/index.js';
+	import { Tooltip } from 'bits-ui';
 
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 
@@ -215,9 +218,27 @@
 				size="lg"
 				class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
 			>
-				<div class="flex flex-col gap-0.5 leading-none">
-					<span class="font-semibold">Preference information</span>
-					<span class="text-primary-500">{internal_type_preferences}</span>
+				<div
+					class="w-full gap-0.5 leading-none"
+					style="display: flex; flex-direction: row; align-items: center; justify-content: space-between;"
+				>
+					<div class="flex flex-col">
+						<div class="font-semibold">Preference information</div>
+						<div class="text-primary-500">{internal_type_preferences}</div>
+					</div>
+					<div class="flex justify-center">
+						<Tooltip.Root>
+							<Tooltip.Trigger><InfoIcon class="h-5 w-5" /></Tooltip.Trigger>
+							<Tooltip.Content side="right" class="tooltip-content">
+								<p>
+									You have selected the <span class="font-semibold"
+										>{internal_type_preferences}</span
+									>{' '}
+									preference type.
+								</p>
+							</Tooltip.Content>
+						</Tooltip.Root>
+					</div>
 				</div>
 			</Sidebar.MenuButton>
 		{/if}

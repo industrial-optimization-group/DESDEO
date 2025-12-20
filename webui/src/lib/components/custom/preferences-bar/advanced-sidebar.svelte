@@ -93,17 +93,15 @@
 									>
 
 									<Tooltip.Root>
-										<Tooltip.Trigger><InfoIcon /></Tooltip.Trigger>
-										<Tooltip.Content class="max-w-sm">
-											<p>
-												The height of each bar represents how strongly each objective function
-												influences the selected solution ({solutions[selectedSolutions[0]].name ==
-												null
-													? 'Solution ' + (selectedSolutions[0] + 1)
-													: solutions[selectedSolutions[0]].name}). When you select an objective
-												function, you can see how improving it by one unit affects the other
-												objective functions.
-											</p>
+										<Tooltip.Trigger><InfoIcon class="h-5 w-5" /></Tooltip.Trigger>
+										<Tooltip.Content side="right" class="tooltip-content">
+											The height of each bar represents how strongly each objective function
+											influences the selected solution ({solutions[selectedSolutions[0]].name ==
+											null
+												? 'Solution ' + (selectedSolutions[0] + 1)
+												: solutions[selectedSolutions[0]].name}). When you select an objective
+											function, you can see how improving it by one unit affects the other objective
+											functions.
 										</Tooltip.Content>
 									</Tooltip.Root>
 								</div>
@@ -157,8 +155,8 @@
 											>
 
 											<Tooltip.Root>
-												<Tooltip.Trigger><InfoIcon /></Tooltip.Trigger>
-												<Tooltip.Content class="max-w-sm">
+												<Tooltip.Trigger><InfoIcon class="h-5 w-5" /></Tooltip.Trigger>
+												<Tooltip.Content side="right" class="tooltip-content">
 													<p>
 														The values represent local effects near
 														{solutions[selectedSolutions[0]].name == null

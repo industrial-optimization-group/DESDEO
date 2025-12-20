@@ -128,4 +128,18 @@
     font-family: 'Roboto', sans-serif; 
 
   }
+.tooltip-content {
+  background-color: var(--color-popover) !important;
+  color: var(--color-popover-foreground) !important;
+  z-index: 50 !important;
+  max-width: 28rem !important;
+  border-radius: 0.375rem !important;
+  padding: 0.5rem !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+  font-size: 0.875rem !important;
 }
+.tooltip-content [data-side] {
+  opacity: 0;
+}
+}
+
