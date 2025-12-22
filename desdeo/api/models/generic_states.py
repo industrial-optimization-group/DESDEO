@@ -1,5 +1,6 @@
 """Defines models for representing the state of various interactive methods."""
 
+from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -94,6 +95,10 @@ class StateDB(SQLModel, table=True):
 
     # one-to-one to base state
     state_id: int | None = Field(foreign_key="states.id", default=None, index=True)
+
+    # date and time stamps could be added here
+    date_time: str | None = Field(default=None)
+
     base_state: State | None = Relationship(
         sa_relationship_kwargs={
             "uselist": False,
@@ -140,11 +145,13 @@ class StateDB(SQLModel, table=True):
         method, phase = _method_phase_from_kind(kind)
         base = State(method=method, phase=phase, kind=kind)
 
+        # Add current date-time stamp
         row = cls(
             problem_id=problem_id,
             session_id=session_id,
             parent_id=parent_id,
             base_state=base,
+            date_time=datetime.now().isoformat(),
         )
         database_session.add(row)
 

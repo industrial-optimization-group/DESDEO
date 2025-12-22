@@ -2489,9 +2489,9 @@ export interface components {
              * Lagrange Multipliers
              * @description List of Lagrange multipliers for each solution, or None if not available
              */
-            lagrange_multipliers: (({
-                [key: string]: number | number[];
-            } | null)[] | null)[] | null;
+            lagrange_multipliers: ({
+                [key: string]: number;
+            } | null)[] | null;
         };
         /**
          * NIMBUSSaveRequest
@@ -3791,6 +3791,8 @@ export interface components {
             parent_id?: number | null;
             /** State Id */
             state_id?: number | null;
+            /** Date Time */
+            date_time?: string | null;
         };
         /**
          * Template1Options
