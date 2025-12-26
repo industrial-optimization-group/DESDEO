@@ -79,6 +79,7 @@
 	 * @property {number | null} externalSelectedIndex - Optional index of solution to highlight from external source
 	 */
 	interface Props {
+		height?: number; // Height in pixels from parent container
 		problem: ProblemInfo | null;
 		previousPreferenceValues?: number[];
 		previousObjectiveValues?: number[][];
@@ -102,6 +103,7 @@
 	}
 
 	const {
+		height = 0,
 		problem,
 		previousPreferenceValues = [],
 		previousObjectiveValues,
@@ -186,26 +188,7 @@
 		}
 	});
 
-	// Add container size tracking
-	let containerElement: HTMLDivElement;
-	let containerSize = $state({ width: 0, height: 0 });
-
-	onMount(() => {
-		if (!containerElement) return;
-
-		const resizeObserver = new ResizeObserver((entries) => {
-			for (let entry of entries) {
-				const { width, height } = entry.contentRect;
-				containerSize = { width, height };
-			}
-		});
-
-		resizeObserver.observe(containerElement);
-
-		return () => {
-			resizeObserver.disconnect();
-		};
-	});
+	// Use passed height from parent (no ResizeObserver needed)
 
 	// Visualization type enum
 	type VisualizationType = 'parallel' | 'bar';
@@ -213,12 +196,8 @@
 	// Current visualization type state
 	let visualizationType = $state<VisualizationType>('parallel');
 
-	// Calculate dynamic height for visualizations
-	const plotHeight = $derived(() => {
-		// Reserve space for header with visualization selector, instructions, and table
-		const reservedSpace = 50; // Increased to accommodate the visualization selector, adjust based on your layout, maybe a prop? TODO
-		return Math.max(containerSize.height - reservedSpace, 10);
-	});
+	// Use the height passed from parent
+	const plotHeight = $derived(height || 0);
 </script>
 
 <!-- 
@@ -230,24 +209,24 @@
  */
 -->
 
-<div bind:this={containerElement} class="flex h-full w-full flex-col space-y-4 overflow-hidden">
+<div class="flex h-full flex-col space-y-4 overflow-hidden">
 	{#if solutionsObjectiveValues.length > 0}
 		<!-- Visualization Type Selector -->
 		<div class="mb-2 flex items-center justify-between">
-			<h3 class="text-sm font-medium">Visualization</h3>
-			<SegmentedControl
+			<!-- <h3 class="text-sm font-medium">Visualization</h3> -->
+			<!-- 			<SegmentedControl
 				bind:value={visualizationType}
 				options={[
 					{ value: 'parallel', label: 'Parallel Coordinates' },
 					{ value: 'bar', label: 'Bar Chart' }
 				]}
 				class="invisible justify-end"
-			/>
+			/> -->
 			<!--To implement the bar chart, remove the invisible class above and add the visualization below-->
 		</div>
 
 		<!-- Visualization Container with dynamic height -->
-		<div class="w-full" style="height: {plotHeight()}px;">
+		<div class="w-full" style="height: {plotHeight}px;">
 			{#if visualizationType === 'parallel'}
 				<ParallelCoordinates
 					data={objectiveData()}

@@ -4,7 +4,6 @@
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import ResizableHandle from '$lib/components/ui/resizable/resizable-handle.svelte';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
-	import { Provider } from '$lib/components/ui/tooltip';
 
 	// Define the interface for your named snippets
 	interface Props {
@@ -19,7 +18,7 @@
 		explorerTitle?: Snippet;
 		explorerControls?: Snippet;
 		debugPanel?: Snippet;
-		visualizationArea?: Snippet;
+		visualizationArea?: Snippet<[number]>;
 		tabsList?: Snippet;
 		numericalValues?: Snippet;
 		savedSolutions?: Snippet;
@@ -43,6 +42,8 @@
 		savedSolutions,
 		rightSidebar
 	}: Props = $props();
+
+	let visualizationHeight = $state(0);
 
 	const hasLeft = $derived(showLeftSidebar && !!leftSidebar);
 	const hasRight = $derived(showRightSidebar && !!rightSidebar);
@@ -75,7 +76,7 @@
 		<Sidebar.Inset class="min-w-0">
 			<div class="flex min-w-0 flex-1 flex-col">
 				<Resizable.PaneGroup direction="vertical" class="flex-1">
-					<Resizable.Pane class="flex min-h-0 flex-col">
+					<Resizable.Pane defaultSize={50} class="flex min-h-0 flex-col">
 						<!-- Top Panel: Explorer Title and Controls -->
 						<div class="flex-shrink-0 p-2">
 							<div class="flex flex-row items-center justify-between gap-4 pb-2">
@@ -94,13 +95,16 @@
 							</div>
 						</div>
 						<!-- Visualization Area -->
-						<div class="mx-2 min-h-0 flex-1 rounded border bg-gray-100 p-4">
+						<div
+							class="mx-2 min-h-0 flex-1 rounded border bg-gray-100 p-4"
+							bind:clientHeight={visualizationHeight}
+						>
 							<!-- Main Visualization Area -->
 							<div class="h-full w-full">
 								<div class="grid h-full w-full gap-4 xl:grid-cols-1">
 									<div class="h-full flex-1 rounded">
 										{#if visualizationArea}
-											{@render visualizationArea()}
+											{@render visualizationArea(visualizationHeight)}
 										{/if}
 									</div>
 								</div>
@@ -110,7 +114,7 @@
 
 					<ResizableHandle />
 					<!-- Bottom Panel: Numerical Values and Tables -->
-					<Resizable.Pane class="flex min-h-0 flex-col">
+					<Resizable.Pane defaultSize={50} class="flex min-h-0 flex-col">
 						<div class="min-h-0 w-full flex-shrink p-2">
 							<Tabs.Root value="numerical-values" class="flex h-full flex-shrink flex-col">
 								<Tabs.List class="flex-shrink-0">

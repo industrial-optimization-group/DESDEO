@@ -17,7 +17,7 @@
 		explorerTitle?: Snippet;
 		explorerControls?: Snippet;
 		debugPanel?: Snippet;
-		visualizationArea?: Snippet;
+		visualizationArea?: Snippet<[number]>;
 		tabsList?: Snippet;
 		numericalValues?: Snippet;
 		savedSolutions?: Snippet;
@@ -41,6 +41,8 @@
 		savedSolutions,
 		rightSidebar
 	}: Props = $props();
+
+	let visualizationHeight = $state(0);
 </script>
 
 <div class="flex min-h-[calc(100vh-3rem)]">
@@ -78,13 +80,16 @@
 					</div>
 				</div>
 				<!-- Visualization Area -->
-				<div class="mx-2 min-h-0 flex-1 rounded border bg-gray-100 p-4">
+				<div
+					class="mx-2 min-h-0 flex-1 rounded border bg-gray-100 p-4"
+					bind:clientHeight={visualizationHeight}
+				>
 					<!-- Main Visualization Area -->
 					<div class="h-full w-full">
 						<div class="grid h-full w-full gap-4 xl:grid-cols-1">
 							<div class="h-full flex-1 rounded">
 								{#if visualizationArea}
-									{@render visualizationArea()}
+									{@render visualizationArea(visualizationHeight)}
 								{/if}
 							</div>
 						</div>

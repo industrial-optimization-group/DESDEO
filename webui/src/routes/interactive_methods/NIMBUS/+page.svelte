@@ -583,7 +583,7 @@
 
 {#if mode === 'final'}
 	<BaseLayout showLeftSidebar={false} showRightSidebar={false} bottomPanelTitle="Final Solution">
-		{#snippet visualizationArea()}
+		{#snippet visualizationArea(height)}
 			{#if problem && selected_iteration_index.length > 0}
 				<!-- Resizable layout for visualizations -->
 				<div class="h-full">
@@ -592,6 +592,7 @@
 						<Resizable.Pane defaultSize={65} minSize={40} class="h-full">
 							<!-- Visualization panel showing only the final selected solution -->
 							<VisualizationsPanel
+								{height}
 								{problem}
 								previousPreferenceValues={last_iterated_preference}
 								previousPreferenceType={type_preferences}
@@ -719,7 +720,7 @@
 			</span>
 		{/snippet}
 
-		{#snippet visualizationArea()}
+		{#snippet visualizationArea(height)}
 			{#if problem && current_state}
 				<!-- Resizable layout for visualizations side by side -->
 				<div class="h-full">
@@ -729,6 +730,7 @@
 							<!-- Visualization panel that adapts to current mode -->
 							<VisualizationsPanel
 								{problem}
+								{height}
 								previousPreferenceValues={last_iterated_preference}
 								currentPreferenceValues={current_preference}
 								previousPreferenceType={type_preferences}
