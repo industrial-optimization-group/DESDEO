@@ -14,7 +14,7 @@
 	import { methodSelection } from '../../../stores/methodSelection';
 	//import type { components } from '$lib/api/client-types';
 	import { errorMessage, isLoading } from '../../../stores/uiState';
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import LoadingSpinner from '$lib/components/custom/notifications/loading-spinner.svelte';
 	import Alert from '$lib/components/custom/notifications/alert.svelte';
 
@@ -501,6 +501,7 @@
 	}
 
 	onMount(async () => {
+		methodSelection.set($methodSelection.selectedProblemId, 'Explainable NIMBUS');
 		if ($methodSelection.selectedProblemId) {
 			problem = problem_list.find(
 				(p: ProblemInfo) => String(p.id) === String($methodSelection.selectedProblemId)
@@ -515,6 +516,11 @@
 				await initialize_nimbus_state(problem.id);
 			}
 		}
+	});
+
+	onDestroy(() => {
+		// Reset method selection store on component destroy
+		methodSelection.set(null, null);
 	});
 
 	// Initialize NIMBUS state by calling the API endpoint

@@ -73,7 +73,7 @@
 	import { BaseLayout } from '$lib/components/custom/method_layout/index.js';
 	import { methodSelection } from '../../../stores/methodSelection';
 	import { errorMessage, isLoading } from '../../../stores/uiState';
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import LoadingSpinner from '$lib/components/custom/notifications/loading-spinner.svelte';
 	import Alert from '$lib/components/custom/notifications/alert.svelte';
 
@@ -508,6 +508,7 @@
 	}
 
 	onMount(async () => {
+		methodSelection.set($methodSelection.selectedProblemId, 'NIMBUS'); // Set the selected method to NIMBUS
 		if ($methodSelection.selectedProblemId) {
 			problem = problem_list.find(
 				(p: ProblemInfo) => String(p.id) === String($methodSelection.selectedProblemId)
@@ -522,6 +523,11 @@
 				await initialize_nimbus_state(problem.id);
 			}
 		}
+	});
+
+	onDestroy(() => {
+		// Reset method selection store on component destroy
+		methodSelection.set(null, null);
 	});
 
 	// Initialize NIMBUS state by calling the API endpoint
@@ -572,11 +578,7 @@
 {/if}
 
 {#if $errorMessage}
-	<Alert 
-		title="Error"
-		message={$errorMessage} 
-		variant='destructive'
-	/>
+	<Alert title="Error" message={$errorMessage} variant="destructive" />
 {/if}
 
 {#if mode === 'final'}

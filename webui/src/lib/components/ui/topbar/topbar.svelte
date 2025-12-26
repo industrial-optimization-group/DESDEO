@@ -25,6 +25,7 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import { goto } from '$app/navigation';
 	import { auth } from '../../../../stores/auth';
+	import { methodSelection } from '../../../../stores/methodSelection';
 	import { derived } from 'svelte/store';
 	import desdeo_logo from '$lib/assets/desdeo_logo.svg';
 
@@ -49,6 +50,13 @@
 		}
 		return '';
 	});
+
+	const methodDisplay = derived(methodSelection, ($methodSelection) => {
+		if ($methodSelection.selectedMethod) {
+			return `${$methodSelection.selectedMethod}`;
+		}
+		return null;
+	});
 </script>
 
 <header class="bg-primary sticky top-0 flex h-12 items-center gap-4 border-b px-4 md:px-6">
@@ -59,6 +67,10 @@
 	>
 		<img src={desdeo_logo} alt="DESDEO Logo" class="h-6 w-6" />
 		<span>DESDEO</span>
+		{#if $methodDisplay}
+			<span class="text-secondary">|</span>
+			<span class="text-secondary font-normal">{$methodDisplay}</span>
+		{/if}
 	</a>
 
 	<!-- Right: Navigation -->

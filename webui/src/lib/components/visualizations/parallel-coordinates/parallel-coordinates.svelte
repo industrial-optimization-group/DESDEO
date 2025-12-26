@@ -70,7 +70,7 @@
 	 */
 	type ReferenceData = {
 		referencePoint?: Solution; // Single reference point across all dimensions
-    	previousReferencePoint?: Solution; // Single reference point across all dimensions, for previous preference
+		previousReferencePoint?: Solution; // Single reference point across all dimensions, for previous preference
 		preferredRanges?: { [key: string]: { min: number; max: number } }; // Preferred value ranges per dimension
 		preferredSolutions?: Array<Solution>; // Array of preferred solution points
 		nonPreferredSolutions?: Array<Solution>; // Array of non-preferred solution points
@@ -82,8 +82,13 @@
 	export let data: { [key: string]: number }[] = [];
 
 	// Dimension definitions - describes each axis with optional constraints
-	export let dimensions: { name: string; min?: number; max?: number; direction?: 'max' | 'min' }[] =
-		[];
+	export let dimensions: {
+		name: string;
+		symbol: string;
+		min?: number;
+		max?: number;
+		direction?: 'max' | 'min';
+	}[] = [];
 
 	// Optional reference data for enhanced visualization
 	export let referenceData: ReferenceData | undefined = undefined;
@@ -112,14 +117,16 @@
 	/**
 	 * Helper function to check if a data point is selected
 	 * Works with both single selection (selectedIndex) and multi-selection (multipleSelectedIndexes) modes
-	 * 
+	 *
 	 * @param index - The index of the data point to check
 	 * @returns true if the data point is selected, false otherwise
 	 */
 	function isSelected(index: number): boolean {
 		// Check if we're in single or multi-selection mode and if the point is selected
-		return (multipleSelectedIndexes === null && index === selectedIndex) || 
-			   (multipleSelectedIndexes !== null && multipleSelectedIndexes.includes(index));
+		return (
+			(multipleSelectedIndexes === null && index === selectedIndex) ||
+			(multipleSelectedIndexes !== null && multipleSelectedIndexes.includes(index))
+		);
 	}
 
 	// Active brush filters - maps dimension name to [y1, y2] pixel coordinates
@@ -229,22 +236,22 @@
 	}
 
 	// Helper function to add tooltip functionality to a path
-	function addTooltip(path: d3.Selection<SVGPathElement, unknown, null, undefined>, label?: string) {
+	function addTooltip(
+		path: d3.Selection<SVGPathElement, [string, number][], null, undefined>,
+		label?: string
+	) {
 		if (!label) return path; // If no label, return path without tooltip
 
 		return path
-			.on('mouseover.tooltip', function(event) {
-				tooltip.transition()
-					.duration(200)
-					.style('opacity', .9);
-				tooltip.html(label)
-					.style('left', (event.pageX + 10) + 'px')
-					.style('top', (event.pageY - 28) + 'px');
+			.on('mouseover.tooltip', function (event) {
+				tooltip.transition().duration(200).style('opacity', 0.9);
+				tooltip
+					.html(label)
+					.style('left', event.pageX + 10 + 'px')
+					.style('top', event.pageY - 28 + 'px');
 			})
-			.on('mouseout.tooltip', function() {
-				tooltip.transition()
-					.duration(500)
-					.style('opacity', 0);
+			.on('mouseout.tooltip', function () {
+				tooltip.transition().duration(500).style('opacity', 0);
 			});
 	}
 
@@ -254,8 +261,14 @@
 	 *
 	 * @param lines - D3 selection of path elements representing data lines
 	 */
+
 	function updateLineVisibility(
-		lines: d3.Selection<SVGPathElement, { [key: string]: number }, SVGGElement, unknown>
+		lines: d3.Selection<
+			SVGPathElement | d3.BaseType,
+			{ [key: string]: number },
+			SVGGElement,
+			unknown
+		>
 	) {
 		lines
 			// Hide/show lines based on brush filters
@@ -268,9 +281,9 @@
 				const passes = passesFilters(d);
 				if (!passes) return 0; // Hidden lines have 0 opacity
 
-				if (isSelected(i)) return 1;// Selected line is fully opaque
-					return options.opacity; // Other lines use configured opacity
-				})
+				if (isSelected(i)) return 1; // Selected line is fully opaque
+				return options.opacity; // Other lines use configured opacity
+			})
 			// Set stroke color - both selected and other lines get theme color, other linesa are just thinner and less opaque
 			.attr('stroke', (d, i) => {
 				const passes = passesFilters(d);
@@ -301,7 +314,12 @@
 		dimension: string,
 		xPos: number,
 		innerHeight: number,
-		lines: d3.Selection<SVGPathElement, { [key: string]: number }, SVGGElement, unknown>
+		lines: d3.Selection<
+			SVGPathElement | d3.BaseType,
+			{ [key: string]: number },
+			SVGGElement,
+			unknown
+		>
 	) {
 		if (!options.enableBrushing) return; // Skip if brushing is disabled
 
@@ -314,7 +332,9 @@
 			])
 			// Handle brush events during dragging (real-time feedback)
 			.on('brush', function (event) {
-				const brushGroup = d3.select(this.parentNode);
+				const parent = this.parentNode as SVGGElement;
+				if (!parent) return;
+				const brushGroup = d3.select(parent);
 
 				if (event.selection) {
 					const [y1, y2] = event.selection as [number, number];
@@ -340,7 +360,9 @@
 			})
 			// Handle brush end events (when user releases mouse)
 			.on('end', function (event) {
-				const brushGroup = d3.select(this.parentNode);
+				const parent = this.parentNode as SVGGElement;
+				if (!parent) return;
+				const brushGroup = d3.select(parent);
 
 				if (!event.selection) {
 					// No selection = brush was cleared
@@ -369,7 +391,14 @@
 				}
 
 				// Update line visibility based on new filters
-				updateLineVisibility(lines);
+				updateLineVisibility(
+					lines as d3.Selection<
+						SVGPathElement | d3.BaseType,
+						{ [key: string]: number },
+						SVGGElement,
+						unknown
+					>
+				);
 
 				// Notify parent component of filter changes
 				onBrushFilter?.(brushFilters);
@@ -422,7 +451,7 @@
 			onLineSelect?.(index, dataPoint);
 			return;
 		}
-		
+
 		// Single selection mode
 		if (selectedIndex === index) {
 			// Deselect if already selected
@@ -489,7 +518,7 @@
 
 	/**
 	 * Draws a reference point as a line across all dimensions with configurable styling
-	 * 
+	 *
 	 * @param svgElement - Parent SVG group element
 	 * @param scales - Scale functions for each dimension
 	 * @param xScale - Scale for positioning dimensions horizontally
@@ -515,7 +544,7 @@
 
 		// Convert reference point data to line format
 		const refLineData: [string, number][] = dimensions
-			.map((dim) => [dim.symbol, pointData.values[dim.symbol]])
+			.map((dim) => [dim.symbol, pointData.values[dim.symbol]] as [string, number])
 			.filter(([, value]) => value !== undefined && value !== null);
 
 		if (refLineData.length > 0) {
@@ -547,7 +576,7 @@
 				}
 			});
 			addTooltip(path, pointData.label);
-			
+
 			// Note: Reference point label is commented out to reduce visual clutter
 			/*referenceGroup
                 .append('text')
@@ -582,7 +611,7 @@
 			referenceData.otherSolutions.forEach((solution, index) => {
 				// Convert solution data to line format
 				const solutionData: [string, number][] = dimensions
-					.map((dim) => [dim.symbol, solution.values[dim.symbol]])
+					.map((dim) => [dim.symbol, solution.values[dim.symbol]] as [string, number])
 					.filter(([, value]) => value !== undefined && value !== null);
 
 				if (solutionData.length > 0) {
@@ -596,7 +625,7 @@
 						.attr('stroke-width', options.strokeWidth)
 						.attr('stroke-dasharray', '3,3') // Dashed pattern
 						.attr('opacity', 0.6);
-					
+
 					addTooltip(path, solution.label);
 				}
 			});
@@ -608,7 +637,7 @@
 			referenceData.preferredSolutions.forEach((solution, index) => {
 				// Convert solution data to line format
 				const solutionData: [string, number][] = dimensions
-					.map((dim) => [dim.symbol, solution.values[dim.symbol]])
+					.map((dim) => [dim.symbol, solution.values[dim.symbol]] as [string, number])
 					.filter(([, value]) => value !== undefined && value !== null);
 
 				if (solutionData.length > 0) {
@@ -622,7 +651,7 @@
 						.attr('stroke-width', options.strokeWidth + 1) // Thicker than otherSolutions
 						.attr('stroke-dasharray', '4,2') // Different dash pattern
 						.attr('opacity', 0.8);
-					
+
 					addTooltip(path, solution.label);
 
 					// Add triangle markers at each axis point
@@ -661,7 +690,7 @@
 			referenceData.nonPreferredSolutions.forEach((solution, index) => {
 				// Convert solution data to line format
 				const solutionData: [string, number][] = dimensions
-					.map((dim) => [dim.symbol, solution.values[dim.symbol]])
+					.map((dim) => [dim.symbol, solution.values[dim.symbol]] as [string, number])
 					.filter(([, value]) => value !== undefined && value !== null);
 
 				if (solutionData.length > 0) {
@@ -675,7 +704,7 @@
 						.attr('stroke-width', options.strokeWidth + 1)
 						.attr('stroke-dasharray', '2,3') // Dense dash pattern
 						.attr('opacity', 0.6);
-					
+
 					addTooltip(path, solution.label);
 
 					// Add X markers at each axis point
@@ -797,16 +826,18 @@
 					.style('font-size', '12px')
 					.style('font-weight', 'bold')
 					.style('fill', '#333')
-					.text(dim.name)
+					.text(dim.name);
 
-					// Add an arrow if direction is specified
+				// Add an arrow if direction is specified
 				if (dim.direction) {
 					const arrowX = x; // Rough estimate of text width
 					svgElement
 						.append('path')
-						.attr('d', dim.direction === 'max' 
-							? `M${arrowX-5},8 L${arrowX},0 L${arrowX+5},8` // Up arrow
-							: `M${arrowX-5},0 L${arrowX},8 L${arrowX+5},0` // Down arrow
+						.attr(
+							'd',
+							dim.direction === 'max'
+								? `M${arrowX - 5},8 L${arrowX},0 L${arrowX + 5},8` // Up arrow
+								: `M${arrowX - 5},0 L${arrowX},8 L${arrowX + 5},0` // Down arrow
 						)
 						.attr('fill', '#333')
 						.attr('stroke', 'none');
@@ -824,13 +855,18 @@
 			.attr('d', (d, i) => {
 				// Convert data point to line coordinates
 				const lineData: [string, number][] = dimensions
-					.map((dim) => [dim.symbol, d[dim.symbol]])
+					.map((dim) => [dim.symbol, d[dim.symbol]] as [string, number])
 					.filter(([, value]) => value !== undefined && value !== null);
 				return line(lineData); // Generate SVG path string
 			})
 			.attr('fill', 'none') // Lines have no fill, only stroke
 			.attr('class', (d, i) => `line line-${i}`) // Unique class for each line
-			.style('cursor', 'pointer'); // Show pointer cursor to indicate clickability
+			.style('cursor', 'pointer') as d3.Selection<
+			SVGPathElement | d3.BaseType,
+			{ [key: string]: number },
+			SVGGElement,
+			unknown
+		>; // Show pointer cursor to indicate clickability
 
 		// Set up brushing for each axis (must be done before line updates)
 		dimensions.forEach((dim) => {
@@ -843,7 +879,6 @@
 
 		// Add hover effects if enabled
 		if (options.highlightOnHover) {
-
 			lines
 				.on('mouseover', function (event, d) {
 					if (!passesFilters(d)) return; // Only highlight visible lines
@@ -854,12 +889,11 @@
 
 					// Only show tooltip if there's a label
 					if (lineLabels[index]) {
-						tooltip.transition()
-							.duration(200)
-							.style('opacity', .9);
-						tooltip.html(lineLabels[index])
-							.style('left', (event.pageX + 10) + 'px')
-							.style('top', (event.pageY - 28) + 'px');
+						tooltip.transition().duration(200).style('opacity', 0.9);
+						tooltip
+							.html(lineLabels[index])
+							.style('left', event.pageX + 10 + 'px')
+							.style('top', event.pageY - 28 + 'px');
 					}
 				})
 				.on('mouseout', function (event, d) {
@@ -871,9 +905,7 @@
 						isSelected(index) ? options.strokeWidth + 1 : options.strokeWidth
 					);
 					// Hide tooltip
-					tooltip.transition()
-						.duration(500)
-						.style('opacity', 0);
+					tooltip.transition().duration(500).style('opacity', 0);
 				});
 		}
 
@@ -889,17 +921,20 @@
 
 		// Draw reference visualizations (on top of data lines)
 		// Draw current reference point (red)
-		drawGenericReferencePoint(svgElement, newScales, xScale, line, 
-			referenceData?.referencePoint, {
-				groupClass: 'reference-point',
-				opacity: 0.9,
-			}
-		);
+		drawGenericReferencePoint(svgElement, newScales, xScale, line, referenceData?.referencePoint, {
+			groupClass: 'reference-point',
+			opacity: 0.9
+		});
 		// Draw previous reference point (lighter red)
-		drawGenericReferencePoint(svgElement, newScales, xScale, line, 
-			referenceData?.previousReferencePoint, {
+		drawGenericReferencePoint(
+			svgElement,
+			newScales,
+			xScale,
+			line,
+			referenceData?.previousReferencePoint,
+			{
 				groupClass: 'reference-point',
-				opacity: 0.3, // more transparent than current ref point
+				opacity: 0.3 // more transparent than current ref point
 			}
 		);
 		drawReferenceSolutions(svgElement, newScales, xScale, line);
@@ -928,10 +963,7 @@
 	 */
 	onMount(() => {
 		// Create single tooltip for the component
-		tooltip = d3.select(container)
-			.append('div')
-			.attr('class', 'tooltip')
-			.style('opacity', 0);
+		tooltip = d3.select(container).append('div').attr('class', 'tooltip').style('opacity', 0);
 
 		// Set up responsive behavior using ResizeObserver
 		resizeObserver = new ResizeObserver((entries) => {
@@ -1028,12 +1060,12 @@
 
 	:global(.reference-point path) {
 		pointer-events: auto;
-		cursor: default;  /* Shows regular cursor instead of pointer */
+		cursor: default; /* Shows regular cursor instead of pointer */
 	}
 
 	:global(.reference-point circle) {
 		pointer-events: auto;
-		cursor: default;  /* Shows regular cursor instead of pointer */
+		cursor: default; /* Shows regular cursor instead of pointer */
 	}
 
 	/* Allow hover events but prevent clicks */
@@ -1041,7 +1073,7 @@
 	:global(.non-preferred-solutions path),
 	:global(.other-solutions path) {
 		pointer-events: auto;
-		cursor: default;  /* Shows regular cursor instead of pointer */
+		cursor: default; /* Shows regular cursor instead of pointer */
 	}
 
 	/* Brush styling */
@@ -1079,6 +1111,6 @@
 		border-radius: 4px;
 		pointer-events: none;
 		font-size: 12px;
-		box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 	}
 </style>
