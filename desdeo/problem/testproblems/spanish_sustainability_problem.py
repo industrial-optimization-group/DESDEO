@@ -16,6 +16,7 @@ from desdeo.problem.schema import (
     VariableTypeEnum,
 )
 
+
 def spanish_sustainability_problem():
     """Implements the Spanish sustainability problem."""
     coefficients_dict = {
@@ -222,14 +223,18 @@ def spanish_sustainability_problem():
         name="Linear coefficients for the social indicator",
         symbol="beta_social",
         shape=[n_variables],
-        values=list(coefficients.filter(pl.col("column") == "social_linear").row(0)[1:]),
+        values=list(
+            coefficients.filter(pl.col("column") == "social_linear").row(0)[1:]
+        ),
     )
 
     social_quadratic = TensorConstant(
         name="Quadratic coefficients for the social indicator",
         symbol="gamma_social",
         shape=[n_variables],
-        values=list(coefficients.filter(pl.col("column") == "social_quadratic").row(0)[1:]),
+        values=list(
+            coefficients.filter(pl.col("column") == "social_quadratic").row(0)[1:]
+        ),
     )
 
     social_cubic = TensorConstant(
@@ -247,7 +252,9 @@ def spanish_sustainability_problem():
     )
 
     social_c = Constant(
-        name="Constant coefficient for the social indicator", symbol="cte_social", value=social_cte_value
+        name="Constant coefficient for the social indicator",
+        symbol="cte_social",
+        value=social_cte_value,
     )
 
     # For the economical indicator
@@ -255,32 +262,42 @@ def spanish_sustainability_problem():
         name="Linear coefficients for the economical indicator",
         symbol="beta_economical",
         shape=[n_variables],
-        values=list(coefficients.filter(pl.col("column") == "economical_linear").row(0)[1:]),
+        values=list(
+            coefficients.filter(pl.col("column") == "economical_linear").row(0)[1:]
+        ),
     )
 
     economical_quadratic = TensorConstant(
         name="Quadratic coefficients for the economical indicator",
         symbol="gamma_economical",
         shape=[n_variables],
-        values=list(coefficients.filter(pl.col("column") == "economical_quadratic").row(0)[1:]),
+        values=list(
+            coefficients.filter(pl.col("column") == "economical_quadratic").row(0)[1:]
+        ),
     )
 
     economical_cubic = TensorConstant(
         name="Cubic coefficients for the economical indicator",
         symbol="delta_economical",
         shape=[n_variables],
-        values=list(coefficients.filter(pl.col("column") == "economical_cubic").row(0)[1:]),
+        values=list(
+            coefficients.filter(pl.col("column") == "economical_cubic").row(0)[1:]
+        ),
     )
 
     economical_log = TensorConstant(
         name="Logarithmic coefficients for the economical indicator",
         symbol="omega_economical",
         shape=[n_variables],
-        values=list(coefficients.filter(pl.col("column") == "economical_log").row(0)[1:]),
+        values=list(
+            coefficients.filter(pl.col("column") == "economical_log").row(0)[1:]
+        ),
     )
 
     economical_c = Constant(
-        name="Constant coefficient for the economical indicator", symbol="cte_economical", value=economical_cte_value
+        name="Constant coefficient for the economical indicator",
+        symbol="cte_economical",
+        value=economical_cte_value,
     )
 
     # For the environmental indicator
@@ -288,14 +305,18 @@ def spanish_sustainability_problem():
         name="Linear coefficients for the environmental indicator",
         symbol="beta_enviro",
         shape=[n_variables],
-        values=list(coefficients.filter(pl.col("column") == "enviro_linear").row(0)[1:]),
+        values=list(
+            coefficients.filter(pl.col("column") == "enviro_linear").row(0)[1:]
+        ),
     )
 
     enviro_quadratic = TensorConstant(
         name="Quadratic coefficients for the environmental indicator",
         symbol="gamma_enviro",
         shape=[n_variables],
-        values=list(coefficients.filter(pl.col("column") == "enviro_quadratic").row(0)[1:]),
+        values=list(
+            coefficients.filter(pl.col("column") == "enviro_quadratic").row(0)[1:]
+        ),
     )
 
     enviro_cubic = TensorConstant(
@@ -313,7 +334,9 @@ def spanish_sustainability_problem():
     )
 
     enviro_c = Constant(
-        name="Constant coefficient for the environmental indicator", symbol="cte_enviro", value=enviro_cte_value
+        name="Constant coefficient for the environmental indicator",
+        symbol="cte_enviro",
+        value=enviro_cte_value,
     )
 
     constants = [
@@ -340,8 +363,12 @@ def spanish_sustainability_problem():
         symbol="X",
         variable_type=VariableTypeEnum.real,
         shape=[n_variables],
-        lowerbounds=list(coefficients.filter(pl.col("column") == "lower_bounds").row(0)[1:]),
-        upperbounds=list(coefficients.filter(pl.col("column") == "upper_bounds").row(0)[1:]),
+        lowerbounds=list(
+            coefficients.filter(pl.col("column") == "lower_bounds").row(0)[1:]
+        ),
+        upperbounds=list(
+            coefficients.filter(pl.col("column") == "upper_bounds").row(0)[1:]
+        ),
         initial_values=1.0,
     )
 
@@ -349,12 +376,13 @@ def spanish_sustainability_problem():
 
     # Define objective functions
     # Social
-    f1_expr = "cte_social + X @ beta_social + (X**2) @ gamma_social + (X**3) @ delta_social + Ln(X) @ omega_social"
+    f_1_expr = "cte_social + X @ beta_social + (X**2) @ gamma_social + (X**3) @ delta_social + Ln(X) @ omega_social"
 
-    f1 = Objective(
-        name="Societal indicator",
-        symbol="f1",
-        func=f1_expr,
+    f_1 = Objective(
+        name="Social",
+        description="Societal indicator.",
+        symbol="f_1",
+        func=f_1_expr,
         objective_type=ObjectiveTypeEnum.analytical,
         ideal=1.17,
         nadir=1.15,
@@ -365,15 +393,16 @@ def spanish_sustainability_problem():
     )
 
     # economical
-    f2_expr = (
+    f_2_expr = (
         "cte_economical + beta_economical @ X + gamma_economical @ (X**2) + delta_economical @ (X**3) "
         "+ omega_economical @ Ln(X)"
     )
 
-    f2 = Objective(
-        name="economical indicator",
-        symbol="f2",
-        func=f2_expr,
+    f_2 = Objective(
+        name="Economical",
+        description="Economical indicator.",
+        symbol="f_2",
+        func=f_2_expr,
         objective_type=ObjectiveTypeEnum.analytical,
         ideal=1.98,
         nadir=0.63,
@@ -384,12 +413,16 @@ def spanish_sustainability_problem():
     )
 
     # Environmental
-    f3_expr = "cte_enviro + beta_enviro @ X + gamma_enviro @ (X**2) + delta_enviro @ (X**3) " "+ omega_enviro @ Ln(X)"
+    f_3_expr = (
+        "cte_enviro + beta_enviro @ X + gamma_enviro @ (X**2) + delta_enviro @ (X**3) "
+        "+ omega_enviro @ Ln(X)"
+    )
 
-    f3 = Objective(
-        name="Environmental indicator",
-        symbol="f3",
-        func=f3_expr,
+    f_3 = Objective(
+        name="Environmental",
+        description="Environmental indicator.",
+        symbol="f_3",
+        func=f_3_expr,
         objective_type=ObjectiveTypeEnum.analytical,
         ideal=2.93,
         nadir=1.52,
@@ -399,7 +432,7 @@ def spanish_sustainability_problem():
         is_twice_differentiable=True,
     )
 
-    objectives = [f1, f2, f3]
+    objectives = [f_1, f_2, f_3]
 
     # Define constraints
 
@@ -777,66 +810,66 @@ def spanish_sustainability_problem():
         is_twice_differentiable=True,
     )
 
-    con_f1_1_expr = "-1.0*f1"
-    con_f1_1 = Constraint(
-        name="f1 greater than zero",
-        symbol="con_f1_1",
-        func=con_f1_1_expr,
+    con_f_1_1_expr = "-1.0*f_1"
+    con_f_1_1 = Constraint(
+        name="f_1 greater than zero",
+        symbol="con_f_1_1",
+        func=con_f_1_1_expr,
         cons_type=ConstraintTypeEnum.LTE,
         is_linear=False,
         is_convex=False,
         is_twice_differentiable=True,
     )
 
-    con_f1_2_expr = "f1 - 4.0"
-    con_f1_2 = Constraint(
-        name="f1 less than four",
-        symbol="con_f1_2",
-        func=con_f1_2_expr,
+    con_f_1_2_expr = "f_1 - 4.0"
+    con_f_1_2 = Constraint(
+        name="f_1 less than four",
+        symbol="con_f_1_2",
+        func=con_f_1_2_expr,
         cons_type=ConstraintTypeEnum.LTE,
         is_linear=False,
         is_convex=False,
         is_twice_differentiable=True,
     )
 
-    con_f2_1_expr = "-1.0*f2"
-    con_f2_1 = Constraint(
-        name="f2 greater than zero",
-        symbol="con_f2_1",
-        func=con_f2_1_expr,
+    con_f_2_1_expr = "-1.0*f_2"
+    con_f_2_1 = Constraint(
+        name="f_2 greater than zero",
+        symbol="con_f_2_1",
+        func=con_f_2_1_expr,
         cons_type=ConstraintTypeEnum.LTE,
         is_linear=False,
         is_convex=False,
         is_twice_differentiable=True,
     )
 
-    con_f2_2_expr = "f2 - 4.0"
-    con_f2_2 = Constraint(
-        name="f2 less than four",
-        symbol="con_f2_2",
-        func=con_f2_2_expr,
+    con_f_2_2_expr = "f_2 - 4.0"
+    con_f_2_2 = Constraint(
+        name="f_2 less than four",
+        symbol="con_f_2_2",
+        func=con_f_2_2_expr,
         cons_type=ConstraintTypeEnum.LTE,
         is_linear=False,
         is_convex=False,
         is_twice_differentiable=True,
     )
 
-    con_f3_1_expr = "-1.0*f3"
-    con_f3_1 = Constraint(
-        name="f3 greater than zero",
-        symbol="con_f3_1",
-        func=con_f3_1_expr,
+    con_f_3_1_expr = "-1.0*f_3"
+    con_f_3_1 = Constraint(
+        name="f_3 greater than zero",
+        symbol="con_f_3_1",
+        func=con_f_3_1_expr,
         cons_type=ConstraintTypeEnum.LTE,
         is_linear=False,
         is_convex=False,
         is_twice_differentiable=True,
     )
 
-    con_f3_2_expr = "f3 - 4.0"
-    con_f3_2 = Constraint(
-        name="f3 less than four",
-        symbol="con_f3_2",
-        func=con_f3_2_expr,
+    con_f_3_2_expr = "f_3 - 4.0"
+    con_f_3_2 = Constraint(
+        name="f_3 less than four",
+        symbol="con_f_3_2",
+        func=con_f_3_2_expr,
         cons_type=ConstraintTypeEnum.LTE,
         is_linear=False,
         is_convex=False,
@@ -878,12 +911,12 @@ def spanish_sustainability_problem():
         con_32,
         con_33,
         con_34,
-        con_f1_1,
-        con_f1_2,
-        con_f2_1,
-        con_f2_2,
-        con_f3_1,
-        con_f3_2,
+        con_f_1_1,
+        con_f_1_2,
+        con_f_2_1,
+        con_f_2_2,
+        con_f_3_1,
+        con_f_3_2,
     ]
 
     return Problem(
@@ -900,12 +933,12 @@ def spanish_sustainability_problem_discrete():
     """Implements the Spanish sustainability problem using Pareto front representation."""
     filename = "datasets/sustainability_spanish.csv"
     varnames = [f"x{i}" for i in range(1, 12)]
-    objNames = {"f1": "social", "f2": "economic", "f3": "environmental"}
+    objNames = {"f_1": "social", "f_2": "economic", "f_3": "environmental"}
 
     path = Path(__file__).parent.parent.parent.parent / filename
     data = pl.read_csv(path, has_header=True)
 
-    data = data.rename({"social": "f1", "economic": "f2", "environmental": "f3"})
+    data = data.rename({"social": "f_1", "economic": "f_2", "environmental": "f_3"})
 
     variables = [
         Variable(

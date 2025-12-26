@@ -56,10 +56,20 @@ def river_pollution_problem(*, five_objective_variant: bool = True) -> Problem:
             Heidelberg, 1997.
     """
     variable_1 = Variable(
-        name="BOD", symbol="x_1", variable_type="real", lowerbound=0.3, upperbound=1.0, initial_value=0.65
+        name="BOD",
+        symbol="x_1",
+        variable_type="real",
+        lowerbound=0.3,
+        upperbound=1.0,
+        initial_value=0.65,
     )
     variable_2 = Variable(
-        name="DO", symbol="x_2", variable_type="real", lowerbound=0.3, upperbound=1.0, initial_value=0.65
+        name="DO",
+        symbol="x_2",
+        variable_type="real",
+        lowerbound=0.3,
+        upperbound=1.0,
+        initial_value=0.65,
     )
 
     f_1 = "4.07 + 2.27 * x_1"
@@ -69,7 +79,8 @@ def river_pollution_problem(*, five_objective_variant: bool = True) -> Problem:
     f_5 = "Max(Abs(x_1 - 0.65), Abs(x_2 - 0.65))"
 
     objective_1 = Objective(
-        name="DO city",
+        name="DOCity",
+        description="Level of dissolved oxygen in the city",
         symbol="f_1",
         func=f_1,
         maximize=True,
@@ -80,7 +91,8 @@ def river_pollution_problem(*, five_objective_variant: bool = True) -> Problem:
         is_twice_differentiable=True,
     )
     objective_2 = Objective(
-        name="DO municipality",
+        name="DOMun",
+        description="Level of dissolved oxygen in the municipality",
         symbol="f_2",
         func=f_2,
         maximize=True,
@@ -91,7 +103,8 @@ def river_pollution_problem(*, five_objective_variant: bool = True) -> Problem:
         is_twice_differentiable=True,
     )
     objective_3 = Objective(
-        name="ROI fishery",
+        name="RFish",
+        description="Return on investment in the fishery",
         symbol="f_3",
         func=f_3,
         maximize=True,
@@ -102,7 +115,8 @@ def river_pollution_problem(*, five_objective_variant: bool = True) -> Problem:
         is_twice_differentiable=True,
     )
     objective_4 = Objective(
-        name="ROI city",
+        name="RCity",
+        description="Return on investment in the city",
         symbol="f_4",
         func=f_4,
         maximize=True,
@@ -113,7 +127,8 @@ def river_pollution_problem(*, five_objective_variant: bool = True) -> Problem:
         is_twice_differentiable=True,
     )
     objective_5 = Objective(
-        name="BOD deviation",
+        name="BOD",
+        description="BOD deviation from the initial value",
         symbol="f_5",
         func=f_5,
         maximize=False,
@@ -168,7 +183,12 @@ def river_pollution_problem_discrete(*, five_objective_variant: bool = True) -> 
     """
     filename = "datasets/river_poll_4_objs.csv"
     true_var_names = {"x_1": "BOD", "x_2": "DO"}
-    true_obj_names = {"f1": "DO city", "f2": "DO municipality", "f3": "ROI fishery", "f4": "ROI city"}
+    true_obj_names = {
+        "f1": "DO city",
+        "f2": "DO municipality",
+        "f3": "ROI fishery",
+        "f4": "ROI city",
+    }
     if five_objective_variant:
         filename = "datasets/river_poll_5_objs.csv"
         true_obj_names["f5"] = "BOD deviation"
@@ -188,8 +208,14 @@ def river_pollution_problem_discrete(*, five_objective_variant: bool = True) -> 
         for varName in true_var_names
     ]
     maximize = {"f1": True, "f2": True, "f3": True, "f4": True, "f5": False}
-    ideal = {objName: (data[objName].max() if maximize[objName] else data[objName].min()) for objName in true_obj_names}
-    nadir = {objName: (data[objName].min() if maximize[objName] else data[objName].max()) for objName in true_obj_names}
+    ideal = {
+        objName: (data[objName].max() if maximize[objName] else data[objName].min())
+        for objName in true_obj_names
+    }
+    nadir = {
+        objName: (data[objName].min() if maximize[objName] else data[objName].max())
+        for objName in true_obj_names
+    }
     units = {"f1": "mg/L", "f2": "mg/L", "f3": "%", "f4": "%", "f5": "mg/L"}
 
     objectives = [
@@ -297,7 +323,10 @@ def river_pollution_scenario() -> Problem:
 
     # each scenario parameter is defined as its own tensor constant
     alpha_constant = TensorConstant(
-        name="Water quality index after fishery", symbol="alpha", shape=[num_scenarios], values=alpha_values
+        name="Water quality index after fishery",
+        symbol="alpha",
+        shape=[num_scenarios],
+        values=alpha_values,
     )
     beta_constant = TensorConstant(
         name="BOD reduction rate at treatment plant 1 (after the fishery)",
@@ -330,7 +359,14 @@ def river_pollution_scenario() -> Problem:
         values=r_values,
     )
 
-    constants = [alpha_constant, beta_constant, delta_constant, xi_constant, eta_constant, r_constant]
+    constants = [
+        alpha_constant,
+        beta_constant,
+        delta_constant,
+        xi_constant,
+        eta_constant,
+        r_constant,
+    ]
 
     # define variables
     x1 = Variable(
@@ -361,7 +397,9 @@ def river_pollution_scenario() -> Problem:
 
         gamma_expr = f"Ln(alpha[{i + 1}]/2 - 1) + alpha[{i + 1}]/2 + 1.5"
 
-        f1_expr = f"alpha[{i + 1}] + (Ln((beta[{i + 1}]/2 - 1.14)**2) + beta[{i + 1}]**3)*x_1"
+        f1_expr = (
+            f"alpha[{i + 1}] + (Ln((beta[{i + 1}]/2 - 1.14)**2) + beta[{i + 1}]**3)*x_1"
+        )
         f2_expr = (
             f"{gamma_expr} + delta[{i + 1}]*x_1 + xi[{i + 1}]*x_2 + 0.01/(eta[{i + 1}] - x_1**2) "
             f"+ 0.3/(eta[{i + 1}] - x_2**2)"
