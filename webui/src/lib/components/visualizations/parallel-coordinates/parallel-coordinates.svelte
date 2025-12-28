@@ -747,9 +747,14 @@
 		if (!data.length || !dimensions.length) return; // Skip if no data to display
 
 		// Define margins around the chart area
-		const margin = { top: 20, right: 40, bottom: 20, left: 40 };
+		const margin = { top: 20, right: 40, bottom: 40, left: 40 };
+		const legendMargin = 0; // Margin between chart and legend
+
 		const innerWidth = width - margin.left - margin.right; // Available width for chart
-		const innerHeight = height - margin.top - margin.bottom; // Available height for chart
+		const innerHeight = height - margin.top - margin.bottom - legendMargin; // Available height for chart
+
+		const legendWidth = innerWidth; // Full width for legend
+		const legendY = margin.top + innerHeight + legendMargin; // Position below chart
 
 		// Clear any previous chart content
 		d3.select(svg).selectAll('*').remove();
@@ -953,6 +958,84 @@
 					`Showing ${visibleLines} of ${data.length} solutions (${activeFilters} filter${activeFilters > 1 ? 's' : ''} active)`
 				);
 		}
+
+		// Add legend for each type of line
+		const legendData = [
+			{ label: 'Previous Solution(s)', color: '#10b981', dasharray: '4,2' },
+			{ label: 'New reference point', color: '#ff6b6b', dasharray: '8,4' },
+			{ label: 'Previous reference point', color: '#ff6b6b90', dasharray: '8,4' },
+			{ label: 'Selected solution', color: '#3b82f6', dasharray: '0' },
+			{ label: 'Non-selected solutions', color: '#3b82f680', dasharray: '0' }
+		];
+
+		const legendGroup = svgElement
+			.append('g')
+			.attr('class', 'color-legend')
+			.attr('transform', `translate(0, ${legendY - margin.bottom})`); // Position below chart area
+
+		const itemWidth = legendWidth / legendData.length;
+		const legendItems = legendGroup
+			.selectAll('.legend-item')
+			.data(legendData)
+			.join('g')
+			.attr('class', 'legend-item')
+			.attr('max-width', itemWidth)
+			.attr('transform', (d, i) => `translate(${i * itemWidth + itemWidth / 5}, 0)`);
+
+		// Add colored line sample
+		legendItems
+			.append('line')
+			.attr('x1', -20)
+			.attr('x2', -5)
+			.attr('y1', 0)
+			.attr('y2', 0)
+			.attr('stroke', (d) => d.color)
+			.attr('stroke-width', 2)
+			.attr('stroke-dasharray', (d) => d.dasharray);
+
+		// Add label text with wrapping support
+		const textElements = legendItems
+			.append('text')
+			.attr('x', 0)
+			.attr('y', 2)
+			.attr('text-anchor', 'start')
+			.style('font-size', '11px')
+			.style('fill', '#333');
+
+		textElements.each(function (d) {
+			const text = d3.select(this);
+			const maxWidth = itemWidth - 30; // Max width for text
+			const words = d.label.split(' ');
+			let line = '';
+			let lineNumber = 0;
+
+			words.forEach((word) => {
+				const testLine = line + (line ? ' ' : '') + word;
+				const testLength = testLine.length * 6.5; // Rough estimate: 11px font ≈ 6.5px per char
+
+				if (testLength > maxWidth && line) {
+					// Current line is full, start new line
+					text
+						.append('tspan')
+						.attr('x', 0)
+						.attr('dy', lineNumber === 0 ? 0 : '1.2em')
+						.text(line);
+					line = word;
+					lineNumber++;
+				} else {
+					line = testLine;
+				}
+			});
+
+			// Add remaining text
+			if (line) {
+				text
+					.append('tspan')
+					.attr('x', 0)
+					.attr('dy', lineNumber === 0 ? 0 : '1.2em')
+					.text(line);
+			}
+		});
 	}
 
 	// --- Lifecycle Management ---
@@ -1112,5 +1195,28 @@
 		pointer-events: none;
 		font-size: 12px;
 		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+	}
+
+	:global(.color-legend) {
+		display: flex;
+		justify-content: center;
+		flex-wrap: wrap;
+		margin: 0;
+		padding-left: 0;
+	}
+	:global(.color-legend-item) {
+		margin: 5px 12px;
+		font-size: 1.4rem;
+	}
+	:global(.color-legend span) {
+		display: inline-block;
+	}
+	:global(.color-legend-item-color) {
+		position: relative;
+		top: 2px;
+		width: 14px;
+		height: 14px;
+		margin-right: 5px;
+		border-radius: 3px;
 	}
 </style>
