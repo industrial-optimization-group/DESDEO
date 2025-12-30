@@ -37,16 +37,16 @@
 	import { COLOR_PALETTE } from '../utils/colors';
 
 	// --- Props ---
-	export let data: { name: string; value: number; direction: 'max' | 'min' }[] = [];
+	export let data: { name: string; symbol: string; value: number; direction: 'max' | 'min' }[] = [];
 	export let axisRanges: [number, number][] = [];
 	export let options: { showLabels: boolean; orientation: 'horizontal' | 'vertical' } = {
 		showLabels: true,
 		orientation: 'horizontal'
 	};
 
-	export let onSelect: ((value: number) => void) | undefined = undefined;
+	export let onSelect: ((event: { value: string }) => void) | undefined = undefined;
 
-	let selected_objective_index: number | null = null;
+	export let selected_objective_symbol: string | null = null;
 
 	// --- Internal state ---
 	let width = 500;
@@ -56,7 +56,9 @@
 	let resizeObserver: ResizeObserver;
 	let originalData: typeof data = [];
 
-	function normalizeData(data: { name: string; value: number; direction: 'max' | 'min' }[]) {
+	function normalizeData(
+		data: { name: string; symbol: string; value: number; direction: 'max' | 'min' }[]
+	) {
 		let normalized_data = data;
 		// Normalize data values between 0 and 1
 		const values = normalized_data.map((d) => d.value);
@@ -165,40 +167,47 @@
 	) {
 		// Draw bars
 
-		data.forEach((element: { name: string; value: number; direction: 'max' | 'min' }, index) => {
-			svgElement
-				.append('g')
-				.selectAll('rect')
-				.data([element])
-				.join('rect')
-				.attr('x', (d) => x(d.name)!)
-				.attr('width', x.bandwidth())
-				.attr('y', (d) => y(d.value))
-				.attr('height', (d) =>
-					d.direction === 'min' ? y(0) - y(d.value) : y(0) - yMax - (y(0) - y(d.value))
-				)
-				.style('cursor', 'pointer')
-				.on('click', (event, d) => {
-					if (onSelect) {
-						onSelect(index);
-						selected_objective_index = index;
-					}
-				})
-				.attr('fill', (d) => color(d.name));
-
-			// Highlight selected bar
-			if (onSelect && index === selected_objective_index) {
+		data.forEach(
+			(
+				element: { name: string; symbol: string; value: number; direction: 'max' | 'min' },
+				index
+			) => {
 				svgElement
-					.append('rect')
-					.attr('x', x(element.name)!)
+					.append('g')
+					.selectAll('rect')
+					.data([element])
+					.join('rect')
+					.attr('x', (d) => x(d.name)!)
 					.attr('width', x.bandwidth())
-					.attr('y', (d) => y(element.value))
-					.attr('height', y(0) - y(element.value))
-					.attr('fill', 'none')
-					.attr('stroke', 'blue')
-					.attr('stroke-width', 2);
+					.attr('y', (d) => y(d.value))
+					/*.attr('height', (d) =>
+					d.direction === 'min' ? y(0) - y(d.value) : y(0) - yMax - (y(0) - y(d.value))
+				)*/
+					.attr('height', (d) => y(0) - y(d.value))
+
+					.style('cursor', 'pointer')
+					.on('click', (event, d) => {
+						if (onSelect) {
+							onSelect({ value: element.symbol });
+							selected_objective_symbol = element.symbol;
+						}
+					})
+					.attr('fill', (d) => color(d.name));
+
+				// Highlight selected bar
+				if (onSelect && element.symbol === selected_objective_symbol) {
+					svgElement
+						.append('rect')
+						.attr('x', x(element.name)!)
+						.attr('width', x.bandwidth())
+						.attr('y', (d) => y(element.value))
+						.attr('height', y(0) - y(element.value))
+						.attr('fill', 'none')
+						.attr('stroke', 'blue')
+						.attr('stroke-width', 2);
+				}
 			}
-		});
+		);
 
 		// Draw axes
 		svgElement
@@ -206,55 +215,33 @@
 			.attr('transform', `translate(0,${innerHeight - margin.bottom})`)
 			.call(d3.axisBottom(x));
 		svgElement.append('g').attr('transform', `translate(${margin.left},0)`).call(d3.axisLeft(y));
-
-		// Draw value labels if enabled
-		if (options.showLabels) {
-			svgElement
-				.append('g')
-				.selectAll('text')
-				.data(originalData)
-				.join('text')
-				.attr('x', (d) => x(d.name)! + x.bandwidth() / 2)
-				.attr('y', (d) => {
-					let labelY = y(d.value);
-					let approxTextHeight = 15;
-					if (d.direction === 'min') {
-						labelY -= 3;
-						if (labelY > y(yMax)) labelY = y(yMax) - approxTextHeight;
-					} else {
-						labelY += approxTextHeight;
-						if (labelY < y(yMin)) labelY = y(yMin) - approxTextHeight;
-					}
-					return labelY;
-				})
-				.attr('text-anchor', 'middle')
-				.text((d) => d.value);
-		}
 	}
 
 	/**
 	 * Draws the bar chart (horizontal or vertical) using D3.
 	 */
 	function drawChart(): void {
-		let margin = { top: 0, right: 0, bottom: 30, left: 30 };
+		let margin = { top: 0, right: 0, bottom: 15, left: 30 };
 
 		if (options.orientation == 'horizontal') {
-			margin = { top: 0, right: 10, bottom: 30, left: 20 };
+			margin = { top: 0, right: 10, bottom: 15, left: 20 };
 			// Normalize all except the selected objective
 			// Use the absotlute data values for normalization
 
 			let data_to_use = data;
-			if (selected_objective_index !== null) {
+			if (selected_objective_symbol !== null) {
 				data_to_use = data.map((d, i) =>
-					i === selected_objective_index ? { ...d, value: Math.abs(d.value) } : { ...d, value: 0 }
+					d.symbol === selected_objective_symbol
+						? { ...d, value: Math.abs(d.value) }
+						: { ...d, value: 0 }
 				);
-				console.log('selected_objective_index', selected_objective_index);
+				console.log('selected_objective_symbol', selected_objective_symbol);
 				console.log('original data', data);
 				console.log('data_to_use', data_to_use);
 				data = normalizeData(data_to_use);
 			}
 		} else {
-			margin = { top: 10, right: 10, bottom: 30, left: 20 };
+			margin = { top: 10, right: 10, bottom: 15, left: 20 };
 			data = normalizeData(data);
 		}
 		//const margin = { top: 20, right: 20, bottom: 30, left: 40 };
@@ -343,7 +330,7 @@
 
 	// --- Responsive: update chart on container resize ---
 	onMount(() => {
-		selected_objective_index = null;
+		selected_objective_symbol = null;
 
 		resizeObserver = new ResizeObserver((entries) => {
 			for (const entry of entries) {
@@ -361,7 +348,7 @@
 	});
 
 	// --- Redraw chart on data/options/size change ---
-	$: data, options, width, height, axisRanges, selected_objective_index, drawChart();
+	$: data, options, width, height, axisRanges, selected_objective_symbol, onSelect, drawChart();
 
 	// Reset selected objective index when data changes
 	$: if (data) {

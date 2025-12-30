@@ -111,7 +111,7 @@
 	let current_num_intermediate_solutions: number = $state(1);
 	let selected_solutions_for_intermediate: Solution[] = $state([]); // actual objectives, but it is a list unlike for iteration, since user should choose two solutions
 
-	let selected_objective_index: number | null = $state(null);
+	let selected_objective_symbol: string | null = $state(null);
 
 	// Reactive variable for selected indexes based on current mode
 	let selectedIndexes = $derived.by(() => {
@@ -156,19 +156,11 @@
 	}
 
 	function handle_selected_objective_change(event: { value: string }) {
-		handle_objective_click(Number(event.value));
+		// For combobox, always set the value (no toggle behavior)
+		selected_objective_symbol = event.value;
+		console.log('Selected objective symbol:', selected_objective_symbol);
 	}
 
-	function handle_objective_click(index: number) {
-		// If the clicked objective is already selected, deselect it
-		if (selected_objective_index === index) {
-			selected_objective_index = null;
-		} else {
-			// Otherwise, select the clicked objective
-			selected_objective_index = index;
-			console.log('Selected objective index:', selected_objective_index);
-		}
-	}
 	// Helper function to change solution type and update selections
 	function change_solution_type_updating_selections(newType: SolutionType) {
 		// Update the internal state
@@ -187,7 +179,7 @@
 			// Iterate mode: always select just one solution
 			selected_iteration_index = [index];
 			update_iteration_selection(current_state);
-			selected_objective_index = null; // Reset selected objective on solution change
+			selected_objective_symbol = null; // Reset selected objective on solution change
 		} else if (mode === 'intermediate') {
 			// Intermediate mode: allow selecting up to 2 rows
 			if (selected_intermediate_indexes.includes(index)) {
@@ -198,7 +190,7 @@
 				selected_intermediate_indexes = [...selected_intermediate_indexes, index];
 			}
 			update_intermediate_selection(current_state);
-			selected_objective_index = null; // Reset selected objective on solution change
+			selected_objective_symbol = null; // Reset selected objective on solution change
 		}
 	}
 
@@ -392,7 +384,7 @@
 			);
 
 			selected_iteration_index = [0];
-			selected_objective_index = null; // Reset selected objective on iteration
+			selected_objective_symbol = null; // Reset selected objective on iteration
 			// Switch to current solutions view after iteration
 			change_solution_type_updating_selections('current');
 			update_preferences_from_state(current_state);
@@ -460,7 +452,7 @@
 
 		const selectedSolution = chosen_solutions[selected_iteration_index[0]];
 		selected_iteration_objectives = selectedSolution.objective_values || {};
-		selected_objective_index = null; // Reset selected objective on iteration
+		selected_objective_symbol = null; // Reset selected objective on iteration
 
 		// Only fetch maps if problem has utopia metadata
 		if (hasUtopiaMetadata) {
@@ -543,7 +535,7 @@
 
 			// Initialize other state
 			selected_iteration_index = [0];
-			selected_objective_index = null; // Reset selected objective on initialization
+			selected_objective_symbol = null; // Reset selected objective on initialization
 			update_iteration_selection(current_state);
 			update_preferences_from_state(current_state);
 			current_num_iteration_solutions = current_state.current_solutions.length;
@@ -816,8 +808,8 @@
 						problem
 					)}
 					selectedSolutions={selectedIndexes}
-					selectedObjectiveIndex={selected_objective_index}
-					handleObjectiveClick={handle_objective_click}
+					selectedObjectiveSymbol={selected_objective_symbol}
+					handleObjectiveClick={handle_selected_objective_change}
 				/>
 			{/if}
 		{/snippet}

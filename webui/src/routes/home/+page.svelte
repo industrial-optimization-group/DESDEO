@@ -9,7 +9,8 @@
 	import GalleryVerticalEndIcon from '@lucide/svelte/icons/orbit';
 	import main_image from '$lib/assets/main.jpg';
 	import { setTime } from 'effect/TestClock';
-
+	import { methodSelection } from '../../stores/methodSelection';
+	methodSelection.set(null, null); // reset method selection on home page
 	let username = ''; // from login form
 	let password = '';
 	let loginError: string | null = null; // whether login is successful or not
@@ -72,7 +73,7 @@
 				<form class="flex flex-col gap-6" on:submit|preventDefault={handleLogin}>
 					<div class="flex flex-col items-center gap-2 text-center">
 						<h1 class="text-2xl font-bold">Login to your account</h1>
-						<p class="text-muted-foreground text-sm text-balance">
+						<p class="text-muted-foreground text-balance text-sm">
 							Enter your username below to login to your account
 						</p>
 					</div>

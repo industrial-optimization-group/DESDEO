@@ -9,16 +9,17 @@
 	import type { ProblemInfo, Solution, SolutionType, MethodMode, PeriodKey } from '$lib/types';
 	import ExpBarchart from '$lib/components/visualizations/barchart/exp-barchart.svelte';
 	import { Combobox } from '$lib/components/ui/combobox';
+	import type { symbol } from 'd3';
 
 	interface Props {
 		problem: ProblemInfo;
 		preferenceValues: number[];
 		solutions: Array<Solution>;
 		multipliers: Record<string, number> | null; // Fixed: Remove nested array
-		tradeoffs: number[][] | null;
+		tradeoffs: Record<string, Record<string, number>> | null;
 		selectedSolutions?: Array<number>;
-		selectedObjectiveIndex?: number | null;
-		handleObjectiveClick?: (index: number) => void;
+		selectedObjectiveSymbol?: string | null;
+		handleObjectiveClick?: (event: { value: string }) => void;
 		ref?: HTMLElement | null;
 	}
 
@@ -29,7 +30,7 @@
 		multipliers,
 		tradeoffs,
 		selectedSolutions,
-		selectedObjectiveIndex,
+		selectedObjectiveSymbol,
 		handleObjectiveClick,
 		ref = null
 	}: Props = $props();
@@ -39,21 +40,26 @@
 		objectiveNames[obj.symbol] = obj.name ?? obj.symbol;
 	});
 
-	// Get the row corresponding to the selected objective index from tradeoffs
-	function formatTradeofftoDict(
-		tradeoffs: number[][] | null,
-		selectedObjectiveIndex: number | null | undefined
-	) {
-		if (!tradeoffs || selectedObjectiveIndex === null || selectedObjectiveIndex === undefined)
-			return {};
-		const row_tradeoff = selectedObjectiveIndex !== null ? tradeoffs[selectedObjectiveIndex] : null;
-		if (!row_tradeoff) return {};
-
-		const tradeoffDict: Record<string, number> = {};
-		problem.objectives.forEach((obj, idx) => {
-			tradeoffDict[obj.symbol] = row_tradeoff[idx];
-		});
-		return tradeoffDict;
+	function formatTradeofftoDict(tradeoffs_row: Record<string, number>, problem: ProblemInfo) {
+		if (tradeoffs_row && problem) {
+			const formatedDict: Array<{
+				name: string;
+				symbol: string;
+				value: number;
+				direction: 'max' | 'min';
+			}> = [];
+			problem.objectives.forEach((obj) => {
+				formatedDict.push({
+					name: obj.name ?? obj.symbol,
+					symbol: obj.symbol,
+					value: tradeoffs_row[obj.symbol],
+					direction: obj.maximize ? 'max' : 'min'
+				});
+			});
+			console.log('formatedDict', formatedDict);
+			return formatedDict;
+		}
+		return undefined;
 	}
 </script>
 
@@ -96,61 +102,67 @@
 										<Tooltip.Trigger><InfoIcon class="h-5 w-5" /></Tooltip.Trigger>
 										<Tooltip.Content side="right" class="tooltip-content">
 											The height of each bar represents how strongly each objective function
-											influences the selected solution ({solutions[selectedSolutions[0]].name ==
-											null
-												? 'Solution ' + (selectedSolutions[0] + 1)
-												: solutions[selectedSolutions[0]].name}). When you select an objective
-											function, you can see how improving it by one unit affects the other objective
-											functions.
+											influences the selected solution (<span class="text-primary font-semibold"
+												>{solutions[selectedSolutions[0]].name == null
+													? 'Solution ' + (selectedSolutions[0] + 1)
+													: solutions[selectedSolutions[0]].name}</span
+											>). When you select an objective function, you can see how improving it by one
+											unit affects the other objective functions.
 										</Tooltip.Content>
 									</Tooltip.Root>
 								</div>
-								<span class="text-sm"> Select an objective function you want to improve. </span>
 
 								<div>
-									<!-- 								{#each Object.entries(multipliers[0] ?? {}) as [objName, value]}
-										<div class="flex justify-between rounded bg-blue-50 p-2 text-xs">
-											<span class="font-medium">{objName}:</span>
-											<span class="font-mono"
-												>{formatNumber(Number(value), SIGNIFICANT_DIGITS)}</span
-											>
-										</div>
-									{/each} -->
-
 									<ExpBarchart
-										data={Object.entries(multipliers ?? {}).map(([objName, value]) => ({
-											name: objectiveNames[objName] || objName,
-											value: Number(-1 * value),
-											direction: 'min'
-										}))}
+										data={multipliers && selectedSolutions.length > 0
+											? Object.entries(multipliers).map(([key, value]) => {
+													const obj = problem.objectives.find((o) => o.symbol === key);
+													return {
+														name: obj?.name ?? key,
+														symbol: key,
+														value: -1 * value,
+														direction: obj?.maximize ? 'max' : 'min'
+													};
+												})
+											: []}
 										options={{ showLabels: true, orientation: 'vertical' }}
 										onSelect={handleObjectiveClick}
+										selected_objective_symbol={selectedObjectiveSymbol}
 									/>
 								</div>
-								<!-- <Combobox
+								<span class="text-sm"> Select an objective function you want to improve. </span>
+
+								<Combobox
 									placeholder="Select Objective to View Trade-offs"
 									width={300}
 									options={objectiveNames
 										? problem.objectives.map((obj, idx) => ({
 												label: objectiveNames[obj.symbol] || obj.symbol,
-												value: idx.toString()
+												value: obj.symbol
 											}))
 										: []}
-									defaultSelected={selectedObjectiveIndex !== null &&
-									selectedObjectiveIndex !== undefined
-										? objectiveNames[problem.objectives[selectedObjectiveIndex].symbol] ||
-											problem.objectives[selectedObjectiveIndex].symbol
-										: undefined}
-									onChange={undefined}
-								/> -->
+									defaultSelected={selectedObjectiveSymbol !== null &&
+									selectedObjectiveSymbol !== undefined
+										? selectedObjectiveSymbol
+										: ''}
+									onChange={(value) => {
+										if (
+											handleObjectiveClick &&
+											selectedObjectiveSymbol !== null &&
+											selectedObjectiveSymbol !== undefined
+										) {
+											handleObjectiveClick(value);
+										}
+									}}
+								/>
 								<div>
-									{#if selectedObjectiveIndex !== null && selectedObjectiveIndex !== undefined && tradeoffs}
+									{#if selectedObjectiveSymbol !== null && selectedObjectiveSymbol !== undefined && tradeoffs}
 										<div class="my-4 mb-2 flex flex-row">
 											<span class="text-sm"
 												>Estimated changes in other objective functions when <span
 													class="text-primary font-semibold"
-													>{objectiveNames[problem.objectives[selectedObjectiveIndex].symbol] ||
-														problem.objectives[selectedObjectiveIndex].symbol}</span
+													>{objectiveNames[selectedObjectiveSymbol] ||
+														selectedObjectiveSymbol}</span
 												> is improved by one unit.</span
 											>
 
@@ -169,13 +181,9 @@
 											</Tooltip.Root>
 										</div>
 										<ExpBarchart
-											data={Object.entries(
-												formatTradeofftoDict(tradeoffs, selectedObjectiveIndex) ?? {}
-											).map(([objName, value]) => ({
-												name: objectiveNames[objName] || objName,
-												value: Number(value),
-												direction: 'min'
-											}))}
+											data={tradeoffs && selectedObjectiveSymbol
+												? formatTradeofftoDict(tradeoffs[selectedObjectiveSymbol], problem)
+												: []}
 											options={{ showLabels: true, orientation: 'horizontal' }}
 											onSelect={handleObjectiveClick}
 										/>

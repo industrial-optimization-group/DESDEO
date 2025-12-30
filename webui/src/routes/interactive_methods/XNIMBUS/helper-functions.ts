@@ -254,11 +254,11 @@ export function computeTradeoffs(
     lagrange_multipliers: Record<string, number> | null | undefined,
     solution: Solution,
     problem: ProblemInfo,
-){
+): Record<string, Record<string, number>> {
     const objective_values = mapSolutionsToObjectiveValues([solution], problem);
 
     if (!lagrange_multipliers || lagrange_multipliers.length === 0) {
-        return [];
+        return {};
     }
   
     const nObjectives = problem.objectives.length;
@@ -268,24 +268,23 @@ export function computeTradeoffs(
         return Array.isArray(value) ? value[0] : value || 0;
     });
 
-    const partialTradeOffs: number [][] = Array.from({ length: nObjectives }, () =>
-        Array(nObjectives).fill(1)
-    );
-  
+    const partialTradeOffs: Record<string, Record<string, number>> = {}; 
     const wInv: number[] = lambdas.map((value) => 1 / value); 
 
-    for (let i = 0; i < nObjectives; i++) {
-        const lambda_i = lambdas[i];
-        for (let j = 0; j < nObjectives; j++) {
-        if (i !== j) {
-            const lambda_j = lambdas[j];
-            // tradeoff = -(lambda_j) / (lambda_i)
-            const tradeoff = -lambda_j / lambda_i;
-            partialTradeOffs[i][j] = tradeoff;
-        }
-        }
-    }
-    //return normalizeTradeoffs(partialTradeOffs);
+    problem.objectives.forEach((obj_i, i) => {
+        partialTradeOffs[obj_i.symbol] = {};
+        problem.objectives.forEach((obj_j) => {
+            partialTradeOffs[obj_i.symbol][obj_j.symbol] = 1; // Initialize with 1
+        });
+        problem.objectives.forEach((obj_j, j) => {
+            if (obj_i.symbol !== obj_j.symbol) {
+                const lambda_i = lambdas[i];
+                const lambda_j = lambdas[j];
+                const tradeoff = -lambda_j / lambda_i;
+                partialTradeOffs[obj_i.symbol][obj_j.symbol] = tradeoff;
+            }
+        });
+    });    
     return partialTradeOffs;
 }
 
