@@ -125,7 +125,7 @@
 													};
 												})
 											: []}
-										options={{ showLabels: true, orientation: 'vertical' }}
+										options={{ showLabels: true, type: 'multipliers' }}
 										onSelect={handleObjectiveClick}
 										selected_objective_symbol={selectedObjectiveSymbol}
 									/>
@@ -171,11 +171,16 @@
 												<Tooltip.Content side="right" class="tooltip-content">
 													<p>
 														The values represent local effects near
-														{solutions[selectedSolutions[0]].name == null
-															? 'Solution ' + (selectedSolutions[0] + 1)
-															: solutions[selectedSolutions[0]].name}. They indicate how much each
-														objective function is expected to change if the selected objective
-														function is improved by one unit.
+														<span class="text-primary font-semibold"
+															>{solutions[selectedSolutions[0]].name == null
+																? 'Solution ' + (selectedSolutions[0] + 1)
+																: solutions[selectedSolutions[0]].name}</span
+														>. They indicate how much each objective function is expected to change
+														if the selected objective function (<span
+															class="text-primary font-semibold"
+															>{objectiveNames[selectedObjectiveSymbol] ||
+																selectedObjectiveSymbol}</span
+														>) is improved by one unit.
 													</p>
 												</Tooltip.Content>
 											</Tooltip.Root>
@@ -184,8 +189,9 @@
 											data={tradeoffs && selectedObjectiveSymbol
 												? formatTradeofftoDict(tradeoffs[selectedObjectiveSymbol], problem)
 												: []}
-											options={{ showLabels: true, orientation: 'horizontal' }}
+											options={{ showLabels: false, type: 'tradeoffs' }}
 											onSelect={handleObjectiveClick}
+											selected_objective_symbol={selectedObjectiveSymbol}
 										/>
 									{/if}
 								</div>

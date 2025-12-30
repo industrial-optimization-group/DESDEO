@@ -35,18 +35,26 @@
 	import { onMount, onDestroy } from 'svelte';
 	import * as d3 from 'd3';
 	import { COLOR_PALETTE } from '../utils/colors';
+	import { derived } from 'svelte/store';
 
 	// --- Props ---
 	export let data: { name: string; symbol: string; value: number; direction: 'max' | 'min' }[] = [];
 	export let axisRanges: [number, number][] = [];
-	export let options: { showLabels: boolean; orientation: 'horizontal' | 'vertical' } = {
+	export let options: { showLabels: boolean; type: 'multipliers' | 'tradeoffs' } = {
 		showLabels: true,
-		orientation: 'horizontal'
+		type: 'multipliers'
 	};
 
 	export let onSelect: ((event: { value: string }) => void) | undefined = undefined;
 
 	export let selected_objective_symbol: string | null = null;
+
+	let selected_objective_name = '';
+
+	$: {
+		const obj = data.find((d) => d.symbol === selected_objective_symbol);
+		selected_objective_name = obj ? obj.name : '';
+	}
 
 	// --- Internal state ---
 	let width = 500;
@@ -55,6 +63,7 @@
 	let container: HTMLDivElement;
 	let resizeObserver: ResizeObserver;
 	let originalData: typeof data = [];
+	let tooltip: HTMLDivElement;
 
 	function normalizeData(
 		data: { name: string; symbol: string; value: number; direction: 'max' | 'min' }[]
@@ -91,7 +100,8 @@
 		x: d3.ScaleLinear<number, number>,
 		y: d3.ScaleBand<string>,
 		xMin: number,
-		xMax: number
+		xMax: number,
+		tooltipSelection: d3.Selection<HTMLDivElement, unknown, null, undefined>
 	) {
 		// Draw bars
 		svgElement
@@ -105,8 +115,28 @@
 				// For negative values, start from value position; for positive, start from 0
 				return d.value < 0 ? x(d.value) : x(0);
 			})
-			.attr('width', (d) => (d.direction === 'min' ? x(d.value) - x(0) : xMax - x(d.value)))
-			.attr('fill', (d) => color(d.name));
+			.attr('width', (d) => Math.abs(x(d.value) - x(0)))
+			.attr('fill', (d) => color(d.name))
+			.style('cursor', 'pointer') // Add this line
+			.on('mouseenter', (event, d) => {
+				tooltipSelection
+					.style('opacity', 1)
+					.classed('text-sm', true)
+					.html(
+						selected_objective_symbol == d.symbol
+							? `<span class="text-primary font-semibold">${selected_objective_name}</span> is the objective function you want to improve`
+							: `Improving one unit in <span class="text-primary font-semibold">${selected_objective_name}</span> would impair <span class="text-primary font-semibold">${d.name}</span> by ${Math.abs(d.value).toFixed(3)} units.`
+					);
+			})
+			.on('mousemove', (event) => {
+				const [xPos, yPos] = d3.pointer(event, container);
+				tooltipSelection.style('left', `${xPos + 12}px`).style('top', `${yPos + 12}px`);
+			})
+			.on('mouseleave', () => {
+				tooltipSelection.style('opacity', 0);
+			});
+
+		// Add tooltip to each bar
 
 		// Draw axes
 		svgElement.append('g').attr('transform', `translate(0,${margin.top})`).call(d3.axisTop(x));
@@ -123,32 +153,6 @@
 				.attr('stroke', 'black')
 				.attr('stroke-width', 2);
 		}
-
-		// Draw value labels if enabled
-		if (options.showLabels) {
-			svgElement
-				.append('g')
-				.selectAll('text')
-				.data(originalData)
-				.join('text')
-				.attr('x', (d) => {
-					const valueStr = d.value.toString();
-					const approxTextWidth = valueStr.length * 7;
-					let labelX = x(d.value);
-					if (d.direction === 'min') {
-						labelX += 5;
-						if (labelX + approxTextWidth > xMax) labelX = xMax - approxTextWidth - 2;
-					} else {
-						labelX -= 5;
-						if (labelX - approxTextWidth < xMin) labelX = xMin + approxTextWidth + 2;
-					}
-					return labelX;
-				})
-				.attr('y', (d) => y(d.name)! + y.bandwidth() / 2)
-				.attr('dy', '0.35em')
-				.attr('text-anchor', (d) => (d.direction === 'min' ? 'start' : 'end'))
-				.text((d) => d.value);
-		}
 	}
 
 	/**
@@ -163,7 +167,8 @@
 		x: d3.ScaleBand<string>,
 		y: d3.ScaleLinear<number, number>,
 		yMin: number,
-		yMax: number
+		yMax: number,
+		tooltipSelection: d3.Selection<HTMLDivElement, unknown, null, undefined>
 	) {
 		// Draw bars
 
@@ -192,6 +197,7 @@
 							selected_objective_symbol = element.symbol;
 						}
 					})
+
 					.attr('fill', (d) => color(d.name));
 
 				// Highlight selected bar
@@ -221,27 +227,26 @@
 	 * Draws the bar chart (horizontal or vertical) using D3.
 	 */
 	function drawChart(): void {
-		let margin = { top: 0, right: 0, bottom: 15, left: 30 };
+		let margin = { top: 0, right: 1, bottom: 30, left: 30 };
 
-		if (options.orientation == 'horizontal') {
-			margin = { top: 0, right: 10, bottom: 15, left: 20 };
+		if (options.type == 'tradeoffs') {
+			console.log('DRAW TRADEOFFS CHART');
+			console.log('selected_objective_symbol', selected_objective_symbol);
+			margin = { top: 0, right: 1, bottom: 30, left: 30 };
 			// Normalize all except the selected objective
 			// Use the absotlute data values for normalization
 
 			let data_to_use = data;
-			if (selected_objective_symbol !== null) {
+			if (selected_objective_symbol !== null && selected_objective_symbol !== undefined) {
 				data_to_use = data.map((d, i) =>
-					d.symbol === selected_objective_symbol
-						? { ...d, value: Math.abs(d.value) }
-						: { ...d, value: 0 }
+					d.symbol === selected_objective_symbol ? { ...d, value: 1 } : { ...d, value: d.value }
 				);
-				console.log('selected_objective_symbol', selected_objective_symbol);
-				console.log('original data', data);
-				console.log('data_to_use', data_to_use);
-				data = normalizeData(data_to_use);
+				//data = normalizeData(data_to_use);
+				data = data_to_use;
+				console.log('DATA TO USE FOR TRADEOFFS', data_to_use);
 			}
 		} else {
-			margin = { top: 10, right: 10, bottom: 15, left: 20 };
+			margin = { top: 10, right: 11, bottom: 15, left: 20 };
 			data = normalizeData(data);
 		}
 		//const margin = { top: 20, right: 20, bottom: 30, left: 40 };
@@ -257,12 +262,14 @@
 			.append('g')
 			.attr('transform', `translate(${margin.left}, ${margin.top})`);
 
+		const tooltipSelection = d3.select(tooltip);
+
 		const color = d3
 			.scaleOrdinal<string>()
 			.domain(data.map((d) => d.name))
 			.range(COLOR_PALETTE);
 
-		if (options.orientation === 'horizontal') {
+		if (options.type === 'tradeoffs') {
 			const y = d3
 				.scaleBand()
 				.domain(data.map((d) => d.name))
@@ -270,13 +277,13 @@
 				.padding(0.1);
 
 			let xDomain: [number, number];
-			if (axisRanges.length > 0) {
-				const allMins = axisRanges.map((r) => r[0]);
-				const allMaxs = axisRanges.map((r) => r[1]);
-				xDomain = [Math.min(...allMins), Math.max(...allMaxs)];
-			} else {
-				xDomain = [d3.min(data, (d) => d.value) ?? 0, d3.max(data, (d) => d.value) ?? 0];
-			}
+
+			let minValue = d3.max(data, (d) => Math.abs(d.value)) ?? 0;
+			let maxValue = d3.max(data, (d) => Math.abs(d.value)) ?? 1;
+
+			console.log('minValue', -1 * minValue);
+			console.log('maxValue', maxValue);
+			xDomain = [-1 * minValue, maxValue];
 
 			const x = d3
 				.scaleLinear()
@@ -287,7 +294,20 @@
 			const xMin = x.range()[0];
 			const xMax = x.range()[1];
 
-			drawHorizontalChart(svgElement, color, innerWidth, innerHeight, margin, x, y, xMin, xMax);
+			console.log('xmin', xMin);
+			console.log('xmax', xMax);
+			drawHorizontalChart(
+				svgElement,
+				color,
+				innerWidth,
+				innerHeight,
+				margin,
+				x,
+				y,
+				xMin,
+				xMax,
+				tooltipSelection
+			);
 		} else {
 			const x = d3
 				.scaleBand()
@@ -313,7 +333,18 @@
 			const yMin = y.range()[0];
 			const yMax = y.range()[1];
 
-			drawVerticalChart(svgElement, color, innerWidth, innerHeight, margin, x, y, yMin, yMax);
+			drawVerticalChart(
+				svgElement,
+				color,
+				innerWidth,
+				innerHeight,
+				margin,
+				x,
+				y,
+				yMin,
+				yMax,
+				tooltipSelection
+			);
 		}
 
 		// Draw border around plot area
@@ -332,6 +363,11 @@
 	onMount(() => {
 		selected_objective_symbol = null;
 
+		tooltip = document.createElement('div');
+		tooltip.className = 'bar-tooltip';
+		tooltip.style.opacity = '0';
+		container.appendChild(tooltip);
+
 		resizeObserver = new ResizeObserver((entries) => {
 			for (const entry of entries) {
 				const rect = entry.contentRect;
@@ -345,6 +381,9 @@
 	});
 	onDestroy(() => {
 		resizeObserver.disconnect();
+		if (tooltip) {
+			tooltip.remove();
+		}
 	});
 
 	// --- Redraw chart on data/options/size change ---
@@ -379,3 +418,17 @@
 <div bind:this={container} style="aspect-ratio: 4 / 4; width: 100%;">
 	<svg bind:this={svg} style="width: 100%; height: 100%;" />
 </div>
+
+<style>
+	.bar-tooltip {
+		position: absolute;
+		pointer-events: none;
+		background: rgba(0, 0, 0, 0.75);
+		color: #fff;
+		padding: 4px 8px;
+		border-radius: 4px;
+		font-size: 12px;
+		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+		transition: opacity 120ms ease-in-out;
+	}
+</style>
