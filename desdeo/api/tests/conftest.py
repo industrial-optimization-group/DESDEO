@@ -15,7 +15,7 @@ from desdeo.api.models import (
     UserRole,
 )
 from desdeo.api.routers.user_authentication import get_password_hash
-from desdeo.problem.testproblems import dtlz2, river_pollution_problem
+from desdeo.problem.testproblems import dtlz2, river_pollution_problem, dmitry_forest_problem_disc
 
 
 @pytest.fixture(name="session_and_user", scope="function")
@@ -61,6 +61,14 @@ def session_fixture():
 
         session.add(forest_metadata)
         session.commit()
+
+        problem_db_discrete = ProblemDB.from_problem(
+            dmitry_forest_problem_disc(),
+            user=user_analyst
+        )
+        session.add(problem_db_discrete)
+        session.commit()
+        session.refresh(problem_db_discrete)
 
         yield {"session": session, "user": user_analyst}
         session.rollback()

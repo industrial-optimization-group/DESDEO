@@ -1,7 +1,9 @@
 """Generic models for the DESDEO API."""
 
+from pydantic import ConfigDict
 from sqlmodel import JSON, Column, Field, SQLModel
 
+from desdeo.tools.score_bands import SCOREBandsConfig, SCOREBandsResult
 from .generic_states import SolutionReferenceResponse
 
 
@@ -77,7 +79,6 @@ class ScoreBandsRequest(SQLModel):
         default="silhoutte", description="Clustering score metric"
     )
 
-
 class ScoreBandsResponse(SQLModel):
     """Model of the response containing SCORE bands parameters."""
 
@@ -87,3 +88,31 @@ class ScoreBandsResponse(SQLModel):
     axis_dist: list[float] = Field(description="Normalized axis positions")
     axis_signs: list[int] | None = Field(description="Axis direction signs (1 or -1)")
     obj_order: list[int] = Field(description="Optimal order of objectives")
+
+
+class GroupScoreRequest(SQLModel):
+    """A generic model for requesting SCORE Bands for a state."""
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+    problem_id: int
+    group_id: int
+    """Database ID of the problem to solve."""
+    session_id: int | None = Field(default=None)
+    parent_state_id: int | None = Field(default=None)
+    """State ID of the parent state, if any."""
+
+    config: SCOREBandsConfig | None = Field(default=None)
+    """Configuration for the SCORE bands visualization."""
+
+    solution_ids: list[int] = Field()
+    """List of solution IDs to score."""
+
+class GroupScoreResponse(SQLModel):
+    """Model of the response to an EMO score request."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+    group_iteration_id: int | None = Field(default=None)
+    """The state ID of the newly created group iteration."""
+
+    result: SCOREBandsResult

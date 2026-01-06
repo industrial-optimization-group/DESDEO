@@ -29,7 +29,7 @@
 		goto('/methods/initialize');
 	}
 	function goToScoreBands() {
-		goto('/interactive_methods/GDM-SCORE-bands');
+		goto('/interactive_methods/SCORE-bands');
 	}
 </script>
 
