@@ -62,7 +62,7 @@ def _get_cached_pymoo_problem(params_key: str):
     if isinstance(extra, dict):
         params_dict |= extra
 
-    return pymoo_get_problem(**params_dict)
+    return pymoo_get_problem(**{k: v for k, v in params_dict.items() if v is not None})
 
 
 @lru_cache(maxsize=256)
@@ -165,9 +165,9 @@ class PymooProvider(Provider):
         problem._evaluate(np.asarray(xs_arr, dtype=float), out)
 
         # parse output
-        obj_results = dict(zip(info.objective_symbols, out["F"].squeeze().T.tolist(), strict=True))
-        _constrs = (np.atleast_2d(out["G"]).tolist() if out["G"] is not None else []) + (
-            np.atleast_2d(out["H"]).tolist() if out["H"] is not None else []
+        obj_results = dict(zip(info.objective_symbols, np.atleast_2d(out["F"].T).tolist(), strict=True))
+        _constrs = (np.atleast_2d(out["G"].T).tolist() if out["G"] is not None else []) + (
+            np.atleast_2d(out["H"].T).tolist() if out["H"] is not None else []
         )
         constr_results = dict(zip(info.constraint_symbols, _constrs, strict=True)) if len(_constrs) > 0 else {}
 
@@ -242,7 +242,7 @@ def create_pymoo_problem(params: PymooProblemParams) -> Problem:
                     name=c_name,
                     symbol=sym,
                     simulator_path=simulator_url,
-                    constraint_type=c_type,
+                    cons_type=c_type,
                 )
             )
 
