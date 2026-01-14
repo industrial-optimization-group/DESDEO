@@ -5,8 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from desdeo.api.config import AuthConfig
 from desdeo.api.routers import (
-    enautilus,
     emo,
+    enautilus,
     generic,
     nimbus,
     problem,
@@ -16,6 +16,7 @@ from desdeo.api.routers import (
     utopia,
 )
 from desdeo.api.routers.gdm import gdm_aggregate, gdm_base
+from desdeo.api.routers.gdm.gdm_score_bands import gdm_score_bands_routers
 from desdeo.api.routers.gdm.gnimbus import gnimbus_routers
 
 app = FastAPI(
@@ -29,13 +30,14 @@ app.include_router(problem.router)
 app.include_router(session.router)
 app.include_router(reference_point_method.router)
 app.include_router(nimbus.router)
-app.include_router(emo.router)
+# app.include_router(emo.router) # TODO: what is going on? cannot serialize pl.dataframe
 app.include_router(generic.router)
 app.include_router(utopia.router)
 app.include_router(gdm_base.router)
 app.include_router(gdm_aggregate.router)
 app.include_router(gnimbus_routers.router)
 app.include_router(enautilus.router)
+app.include_router(gdm_score_bands_routers.router)
 
 origins = AuthConfig.cors_origins
 

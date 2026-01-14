@@ -180,8 +180,8 @@ def solve_intermediate(
     )
 
 
-@router.post("/score-bands")
-def calculate_score_bands(
+@router.post("/score-bands-obj-data")
+def calculate_score_bands_from_objective_data(
     request: ScoreBandsRequest,
 ) -> ScoreBandsResponse:
     """Calculate SCORE bands parameters from objective data."""

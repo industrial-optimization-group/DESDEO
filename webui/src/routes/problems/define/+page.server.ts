@@ -51,7 +51,6 @@
  * - Form state preserved on validation errors
  */
 
-/*
 import { redirect, error } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { api } from '$lib/api/client';
@@ -84,14 +83,11 @@ const problemSchema = z.object({
   is_linear: z.boolean().optional(),
   is_twice_differentiable: z.boolean().optional()
 });
-*/
 
 /**
  * Validation helper - parses JSON strings from form inputs
  * Used for complex fields like func, surrogates, scenario_keys, tensor bounds/values
  */
-
-/*
 function parseAndValidateJSON(text: string, fieldName: string): { 
     success: boolean; 
     data: any; 
@@ -378,4 +374,3 @@ export const actions: Actions = {
       }
     }
   };
-*/
