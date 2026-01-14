@@ -6,11 +6,11 @@ from fixtures import surrogate_file, surrogate_file2  # noqa: F401
 from desdeo.problem import (
     Constraint,
     ConstraintTypeEnum,
-    Evaluator,
     ExtraFunction,
     Objective,
     ObjectiveTypeEnum,
     Problem,
+    SimulatorEvaluator,
     Variable,
     VariableTypeEnum,
 )
@@ -25,7 +25,7 @@ def test_w_analytical_simulator_surrogate_problem(surrogate_file, surrogate_file
     surrogates = {"f_5": surrogate_file, "f_6": surrogate_file2, "g_3": surrogate_file, "e_3": surrogate_file2}
 
     # test that the evaluator can be initialized with parameters and surrogate paths as arguments
-    evaluator = Evaluator(
+    evaluator = SimulatorEvaluator(
         problem=problem,
         params={"s_1": {"alpha": 0.1, "beta": 0.2}, "s_2": {"epsilon": 10, "gamma": 20}},
         surrogate_paths=surrogates,
@@ -47,7 +47,7 @@ def test_w_o_parameters(surrogate_file, surrogate_file2):  # noqa: F811
 
     surrogates = {"f_5": surrogate_file, "f_6": surrogate_file2, "g_3": surrogate_file, "e_3": surrogate_file2}
 
-    evaluator = Evaluator(problem=problem, surrogate_paths=surrogates)
+    evaluator = SimulatorEvaluator(problem=problem, surrogate_paths=surrogates)
 
     res = evaluator.evaluate(
         {
@@ -95,7 +95,7 @@ def test_w_o_given_surrogate_paths(surrogate_file, surrogate_file2):  # noqa: F8
         extra_funcs=[e1],
     )
 
-    evaluator = Evaluator(
+    evaluator = SimulatorEvaluator(
         problem=problem,
         params={"s_1": {"alpha": 0.1, "beta": 0.2}, "s_2": {"epsilon": 10, "gamma": 20}},
     )
