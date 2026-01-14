@@ -1874,23 +1874,15 @@ def __create_HDF(
     multiobjective evolutionary algorithms by means of desirability functions.
     IEEE Transactions on Evolutionary Computation 14, 5 (2010), 688-701.
 
-    Parameters
-    ----------
-    y : str
-        The objective value to compute the desirability for.
-    a : float
-        Aspiration level for the objective.
-    r : float
-        Reservation level for the objective.
-    d1 : float
-        The desirability for the aspiration level.
-    d2 : float
-        The desirability for the reservation level.
+    Args:
+        y (str): The objective value to compute the desirability for.
+        a (float): Aspiration level for the objective.
+        r (float): Reservation level for the objective.
+        d1 (float): The desirability for the aspiration level.
+        d2 (float): The desirability for the reservation level.
 
-    Returns
-    -------
-    callable
-        A function that computes the desirability for a given value.
+    Returns: 
+        callable (Function): A function that computes the desirability for a given value.
     """
     if not (0 < d1 < 1 and 0 < d2 < 1):
         raise ValueError("Desirability values must be between 0 and 1 (exclusive).")
@@ -1915,23 +1907,15 @@ def __create_MDF(y: str, a: float, r: float, d1: float = 0.9, d2: float = 0.1) -
     Distinctions form MaoMao's original function:
     - The upper and lower bounds of desirability are fixed to 0 and 1, respectively.
 
-    Parameters
-    ----------
-    y : str
-        The objective value to compute the desirability for.
-    a : float
-        Aspiration level for the objective.
-    r : float
-        Reservation level for the objective.
-    d1 : float
-        The desirability for the aspiration level.
-    d2 : float
-        The desirability for the reservation level.
+    Args:
+        y (str): The objective value to compute the desirability for.
+        a (float): Aspiration level for the objective.
+        r (float): Reservation level for the objective.
+        d1 (float): The desirability for the aspiration level.
+        d2 (float): The desirability for the reservation level.
 
-    Returns
-    -------
-    callable
-        A function that computes the desirability for a given value.
+    Returns: 
+        callable (Function): A function that computes the desirability for a given value.
     """
     if not (0 < d1 < 1 and 0 < d2 < 1):
         raise ValueError("Desirability values must be between 0 and 1 (exclusive).")
