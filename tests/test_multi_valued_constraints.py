@@ -1,9 +1,6 @@
 """Tests related to multi-valued constraints."""
 
-<<<<<<< HEAD
 import numpy as np
-=======
->>>>>>> 761c90fb801746ede493a915ab18d85551c0a060
 import polars as pl
 import polars.testing as plt
 import pytest
@@ -11,7 +8,6 @@ import pytest
 from desdeo.problem import GurobipyEvaluator, PolarsEvaluator, PyomoEvaluator, SympyEvaluator
 from desdeo.problem.sympy_evaluator import SympyEvaluatorError
 from desdeo.problem.testproblems import multi_valued_constraint_problem
-<<<<<<< HEAD
 from desdeo.tools import (
     NevergradGenericSolver,
     PyomoBonminSolver,
@@ -21,8 +17,6 @@ from desdeo.tools import (
     ScipyMinimizeSolver,
 )
 from desdeo.tools.generics import SolverError
-=======
->>>>>>> 761c90fb801746ede493a915ab18d85551c0a060
 
 
 def test_with_polars_evaluator():
@@ -135,7 +129,6 @@ def test_with_gurobipy_evaluator():
     # x_input = {"X": [[[1.0], [2.0]], [[2.0], [1.0]], [[-4.0], [4.0]]], "y": [-1.0, 0.0, 1.0]}
 
     # res = evaluator.evaluate(x_input)
-<<<<<<< HEAD
 
 
 def test_with_pyomo_solvers():
@@ -179,5 +172,3 @@ def test_with_scipy_solvers():
         with pytest.raises(SolverError):
             # TODO: scipy solvers lacking support for tensors in general
             solver = solver_maker(problem)
-=======
->>>>>>> 761c90fb801746ede493a915ab18d85551c0a060
