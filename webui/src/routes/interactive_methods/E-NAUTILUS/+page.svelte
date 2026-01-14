@@ -26,9 +26,27 @@
 	let problem_info = $state<ProblemInfo | null>(null);
 	let previous_request = $state<ENautilusStepRequest | null>(null);
 	let previous_response = $state<ENautilusStepResponse | null>(null);
-	let selected_point_index = $state<number>(0);
+	let selected_point_index = $state<number | null>(null);
 	let previous_objective_values = $state<number[]>([]);
 	let number_intermediate_points = $state<number>(3);
+	let iterations_left_override = $state<number | null>(null);
+
+	let objective_keys = $derived.by(() => {
+		if (!previous_response || previous_response.intermediate_points.length === 0) return [];
+
+		const first = previous_response.intermediate_points[0] as Record<string, number>;
+		return Object.keys(first);
+	});
+
+	let objective_labels = $derived.by(() => {
+		if (!problem_info) return objective_keys;
+
+		const names = problem_info.objectives?.map((o) => o.name) ?? [];
+
+		return objective_keys.map((key, i) => names[i] ?? key);
+	});
+
+
 
 	let currentIntermediatePoints = $derived.by(() => {
 		if (!previous_response) {
@@ -52,6 +70,12 @@
 		}
 
 		return points_to_list(previous_response.reachable_worst_bounds);
+	});
+
+	let effective_iterations_left = $derived.by(() => {
+		// Prefer override if provided; else use backend state; else fallback for init
+		if (iterations_left_override != null) return iterations_left_override;
+		return previous_response?.iterations_left ?? 5;
 	});
 
 	$effect(() => {
@@ -95,7 +119,7 @@
 					problem_id: selection.selectedProblemId,
 					representative_solutions_id: 1,
 					current_iteration: 0,
-					iterations_left: 5,
+					iterations_left: effective_iterations_left,
 					selected_point: {},
 					reachable_point_indices: [],
 					number_of_intermediate_points: number_intermediate_points
@@ -142,11 +166,17 @@
 				return;
 			}
 
+			if (selected_point_index == null) {
+				errorMessage.set('No point selected.')
+				return;
+			}
+
 			const next = await step_enautilus(
 				previous_response,
 				selected_point_index,
 				selection.selectedProblemId,
 				number_intermediate_points,
+				effective_iterations_left,
 				previous_request.representative_solutions_id
 			);
 
@@ -155,9 +185,13 @@
 				return;
 			}
 
-			previous_objective_values = currentIntermediatePoints[selected_point_index];
+			previous_objective_values = selected_point_index != null ? currentIntermediatePoints[selected_point_index] : [];
 
 			previous_response = next;
+
+			// reset user selections
+			selected_point_index = null;
+			iterations_left_override = null;
 		} catch (err) {
 			console.error('Error during E-NAUTILUS step', err);
 			errorMessage.set('Unexpected error during E-NAUTILUS step.');
@@ -197,6 +231,26 @@
 					class="w-20 rounded border border-gray-300 px-2 py-1 text-sm"
 				/>
 			</div>
+
+			<div class="flex items-center gap-2">
+				<span class="text-sm text-gray-700">Iterations left:</span>
+				<input
+					type="number"
+					min="0"
+					placeholder="auto"
+					value={iterations_left_override ?? ''}
+					oninput={(e) => {
+						const v = (e.target as HTMLInputElement).value;
+						iterations_left_override = v === '' ? null : Number(v);
+					}}
+					class="w-20 rounded border border-gray-300 px-2 py-1 text-sm"
+				/>
+			</div>
+
+			<span class="text-xs text-gray-500">
+				Auto: {previous_response?.iterations_left ?? '—'}
+			</span>
+
 			<span
 				class="inline-block"
 				title={selected_point_index == null
@@ -214,6 +268,7 @@
 					Next iteration
 				</Button>
 			</span>
+
 		</div>
 	{/snippet}
 	{#snippet visualizationArea()}
@@ -223,13 +278,13 @@
 					<Resizable.Pane defaultSize={100} minSize={40} class="h-full">
 						<VisualizationsPanel
 							problem={problem_info as any}
-							previousPreferenceValues={currentReachableBestBounds[selected_point_index]}
+							previousPreferenceValues={selected_point_index != null ? currentReachableBestBounds[selected_point_index] : undefined}
 							currentPreferenceValues={[]}
 							previousPreferenceType={''}
 							currentPreferenceType={''}
 							solutionsObjectiveValues={currentIntermediatePoints}
 							previousObjectiveValues={[previous_objective_values]}
-							externalSelectedIndexes={[selected_point_index]}
+							externalSelectedIndexes={selected_point_index != null ? [selected_point_index] : []}
 							onSelectSolution={(index: number) => {
 								selected_point_index = index;
 							}}
@@ -244,4 +299,56 @@
 			</div>
 		{/if}
 	{/snippet}
+	{#snippet numericalValues()}
+	{#if previous_response && currentIntermediatePoints.length > 0 && objective_keys.length > 0}
+		<div class="h-full overflow-auto">
+			<table class="min-w-full border-collapse text-sm">
+				<thead class="sticky top-0 bg-white">
+					<tr class="border-b border-gray-200">
+						<th class="px-2 py-2 text-left text-xs font-semibold text-gray-600">#</th>
+
+						<th class="px-2 py-2 text-right text-xs font-semibold text-gray-600">
+							closeness
+						</th>
+
+						{#each objective_labels as label}
+							<th class="px-2 py-2 text-right text-xs font-semibold text-gray-600">
+								{label}
+							</th>
+						{/each}
+					</tr>
+				</thead>
+
+				<tbody>
+					{#each currentIntermediatePoints as row, i}
+						<tr
+							class={`border-b border-gray-100 cursor-pointer ${
+								i === selected_point_index ? 'bg-gray-100' : 'hover:bg-gray-50'
+							}`}
+							onclick={() => (selected_point_index = i)}
+							title="Click to select this intermediate point"
+						>
+							<td class="px-2 py-2 text-xs text-gray-600">{i + 1}</td>
+
+							<td class="px-2 py-2 text-right font-mono text-xs">
+								{(previous_response.closeness_measures?.[i] ?? 0).toFixed(4)}
+							</td>
+
+							{#each row as value}
+								<td class="px-2 py-2 text-right font-mono text-xs">
+									{value.toFixed(6)}
+								</td>
+							{/each}
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
+	{:else}
+		<div class="flex h-full items-center justify-center text-gray-500">
+			No numerical values available.
+		</div>
+	{/if}
+	{/snippet}
+
 </BaseLayout>

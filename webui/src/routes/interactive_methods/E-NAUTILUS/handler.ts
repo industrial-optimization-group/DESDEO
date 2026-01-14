@@ -19,6 +19,7 @@ export async function step_enautilus(
     selected_index: number,
     problem_id: number,
     number_of_intermediate_points: number,
+    iterations_left: number,
     representative_solutions_id: number
 ): Promise<ENautilusStepResponse | null> {
     const selected_point = current_state.intermediate_points[selected_index];
@@ -28,7 +29,7 @@ export async function step_enautilus(
         problem_id: problem_id,
         representative_solutions_id: representative_solutions_id,
         current_iteration: current_state.current_iteration,
-        iterations_left: current_state.iterations_left,
+        iterations_left: iterations_left,
         selected_point: selected_point,
         reachable_point_indices: reachable_indices,
         number_of_intermediate_points: number_of_intermediate_points
