@@ -48,6 +48,7 @@ from desdeo.api.routers.user_authentication import create_access_token
 from desdeo.emo.options.algorithms import nsga3_options, rvea_options
 from desdeo.emo.options.templates import ReferencePointOptions
 from desdeo.problem.testproblems import simple_knapsack_vectors
+from desdeo.tools.utils import available_solvers
 
 from .conftest import get_json, login, post_json
 
@@ -817,6 +818,17 @@ def test_preferred_solver(client: TestClient):
         print("^ This outcome is expected since pyomo_cbc doesn't support nonlinear problems.")
         print("  As that solver is what we set it to be in the start, we can verify that they actually get used.")
 
+def test_get_available_solvers(client: TestClient):
+    """Test that available solvers can be fetched."""
+    response = client.get("/problem/assign/solver")
+
+    assert response.status_code == 200
+
+    data = response.json()
+    assert isinstance(data, list)
+
+    # Check that the returned solver names match the available solvers
+    assert set(data) == set(available_solvers.keys())
 
 def test_emo_solve_with_reference_point(client: TestClient):
     """Test that using EMO with reference point works as expected."""
