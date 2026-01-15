@@ -39,7 +39,7 @@
     "openapi-fetch": "^0.14.1",
     "openapi-typescript-fetch": "^2.2.1",
     "orval": "^7.13.2",
-    "svelte": "^5.39.11",
+    "svelte": "^5.46.4",
     "svelte-sonner": "^1.0.5",
     "sveltekit-superforms": "^2.27.2",
     "tailwind-merge": "^3.3.1",
