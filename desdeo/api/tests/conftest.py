@@ -1,5 +1,9 @@
 """General fixtures for API tests are defined here."""
 
+import io
+from pathlib import Path
+
+import polars as pl
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine
@@ -11,6 +15,7 @@ from desdeo.api.models import (
     ForestProblemMetaData,
     ProblemDB,
     ProblemMetaDataDB,
+    RepresentativeNonDominatedSolutions,
     User,
     UserRole,
 )
@@ -50,6 +55,24 @@ def session_fixture():
         session.add(metadata)
         session.commit()
         session.refresh(metadata)
+
+        data_path = Path(__file__).parent.parent.parent.parent / "datasets" / "river_pollution_non_dom.parquet"
+        df = pl.read_parquet(data_path)
+        dict_data = df.to_dict(as_series=False)
+        river_nondominated_meta = RepresentativeNonDominatedSolutions(
+            metadata_id=metadata.id,
+            name="Non-dom-solutions",
+            description=(
+                "Set of non-dominated solutions representing the Pareto optimal "
+                "solutions of the river pollution problem."
+            ),
+            solution_data=dict_data,
+            ideal={},
+            nadir={},
+        )
+
+        session.add(river_nondominated_meta)
+        session.commit()
 
         forest_metadata = ForestProblemMetaData(
             metadata_id=metadata.id,
@@ -98,6 +121,17 @@ def post_json(client: TestClient, endpoint: str, json: dict, access_token: str):
         endpoint,
         json=json,
         headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
+    )
+
+
+def post_file_multipart(
+    client: TestClient, endpoint: str, file_bytes: bytes, access_token: str, filename: str = "test.json"
+):
+    """Makes a post request with an uploaded file and returns the response."""
+    return client.post(
+        endpoint,
+        files={"json_file": (filename, io.BytesIO(file_bytes), "application/json")},
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
 

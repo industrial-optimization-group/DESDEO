@@ -5,6 +5,7 @@ from pathlib import Path
 from types import UnionType
 from typing import TYPE_CHECKING
 
+from fastapi import UploadFile
 from pydantic import BaseModel, ConfigDict, create_model
 from sqlalchemy.types import JSON, String, TypeDecorator
 from sqlmodel import Column, Field, Relationship, SQLModel
@@ -59,6 +60,12 @@ class ProblemSelectSolverRequest(SQLModel):
 
     problem_id: int
     solver_string_representation: str
+
+
+class ProblemAddFromJSONRequest(SQLModel):
+    """Model to request addition of a problem based on the contents of a JSON file."""
+
+    json_file: UploadFile
 
 
 class ProblemInfo(ProblemBase):

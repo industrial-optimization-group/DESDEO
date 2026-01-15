@@ -793,7 +793,7 @@ class Objective(BaseModel):
             "A longer description of the objective function. This can be used in UI and visualizations. \
             Meant to have longer text than what name should have."
         ),
-        default=None
+        default=None,
     )
     name: str = Field(
         description=(
@@ -951,7 +951,7 @@ class Constraint(BaseModel):
     function must match objective/variable/constant symbols.
     Can be 'None' if either 'simulator_path' or 'surrogates' is not 'None'.
     If 'None', either 'simulator_path' or 'surrogates' must not be 'None'."""
-    simulator_path: Path | None = Field(
+    simulator_path: Path | Url | None = Field(
         description=(
             "Path to a python file with the connection to simulators. Must be a valid Path."
             "Can be 'None' for if either 'func' or 'surrogates' is not 'None'."

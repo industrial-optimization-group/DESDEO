@@ -1,10 +1,10 @@
 import { browser } from '$app/environment';
 import { writable } from 'svelte/store';
 
-type MethodSelectionState = {
+export interface MethodSelectionState {
 	selectedProblemId: number | null;
 	selectedMethod: string | null;
-};
+}
 
 const storageKey = 'methodSelection';
 

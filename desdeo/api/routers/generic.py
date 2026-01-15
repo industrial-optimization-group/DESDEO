@@ -2,6 +2,8 @@
 
 from typing import Annotated
 
+import numpy as np
+import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 
@@ -11,22 +13,18 @@ from desdeo.api.models import (
     IntermediateSolutionRequest,
     IntermediateSolutionState,
     ProblemDB,
-    SolutionReference,
-    StateDB,
     ScoreBandsRequest,
     ScoreBandsResponse,
+    SolutionReference,
+    StateDB,
     User,
 )
-
-from desdeo.tools.score_bands import order_dimensions, cluster, calculate_axes_positions
 from desdeo.api.models.generic import GenericIntermediateSolutionResponse
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.mcdm.nimbus import solve_intermediate_solutions
 from desdeo.problem import Problem
 from desdeo.tools import SolverResults
-
-import numpy as np
-import pandas as pd
+from desdeo.tools.score_bands import calculate_axes_positions, cluster, order_dimensions
 
 router = APIRouter(prefix="/method/generic")
 
@@ -217,7 +215,7 @@ def calculate_score_bands(
 
         # Convert numpy arrays to lists for JSON serialization
         # Handle potential None values and ensure proper type conversion
-        response = ScoreBandsResponse(
+        return ScoreBandsResponse(
             groups=groups.tolist() if hasattr(groups, "tolist") else list(groups),
             axis_dist=(axis_dist.tolist() if hasattr(axis_dist, "tolist") else list(axis_dist)),
             axis_signs=(
@@ -228,10 +226,8 @@ def calculate_score_bands(
             obj_order=(obj_order.tolist() if hasattr(obj_order, "tolist") else list(obj_order)),
         )
 
-        return response
-
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Error calculating SCORE bands parameters: {str(e)}",
-        )
+            detail=f"Error calculating SCORE bands parameters: {e!r}",
+        ) from e
