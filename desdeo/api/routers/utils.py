@@ -1,4 +1,7 @@
-"""A selection of utilities for handling routers and data therein."""
+"""A selection of utilities for handling routers and data therein.
+
+NOTE: No routers should be defined in this file!
+"""
 
 from fastapi import HTTPException, status
 from sqlmodel import Session, select
