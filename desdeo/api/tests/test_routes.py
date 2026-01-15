@@ -4,14 +4,12 @@ import json
 
 from fastapi import status
 from fastapi.testclient import TestClient
-from websockets.asyncio.client import connect
 
 from desdeo.api.models import (
     CreateSessionRequest,
     EMOFetchRequest,
     EMOIterateRequest,
     EMOIterateResponse,
-    EMOSaveRequest,
     ForestProblemMetaData,
     GenericIntermediateSolutionResponse,
     GetSessionRequest,
@@ -31,6 +29,7 @@ from desdeo.api.models import (
     NIMBUSIntermediateSolutionResponse,
     NIMBUSSaveRequest,
     NIMBUSSaveResponse,
+    ProblemDB,
     ProblemGetRequest,
     ProblemInfo,
     ProblemSelectSolverRequest,
@@ -40,16 +39,16 @@ from desdeo.api.models import (
     SolverSelectionMetadata,
     User,
     UserPublic,
-    UserSavedEMOResults,
 )
 from desdeo.api.models.nimbus import NIMBUSInitializationResponse
-from desdeo.api.models.state import EMOIterateState, EMOSaveState
 from desdeo.api.routers.user_authentication import create_access_token
-from desdeo.emo.options.algorithms import nsga3_options, rvea_options
+from desdeo.emo.options.algorithms import rvea_options
 from desdeo.emo.options.templates import ReferencePointOptions
-from desdeo.problem.testproblems import simple_knapsack_vectors
+from desdeo.problem import Problem
+from desdeo.problem.testproblems import dtlz2, simple_knapsack_vectors
 
-from .conftest import get_json, login, post_json
+from .conftest import get_json, login, post_file_multipart, post_json
+from .test_models import compare_models
 
 
 def test_user_login(client: TestClient):
@@ -155,6 +154,24 @@ def test_add_problem(client: TestClient):
     problems = response.json()
 
     assert len(problems) == 3
+
+
+def test_add_problem_json(client: TestClient, session_and_user: dict):
+    """Test that adding a problem to the database works with JSON files."""
+    session = session_and_user["session"]
+    access_token = login(client)
+    problem = dtlz2(5, 3)
+
+    payload = problem.model_dump()
+    raw = json.dumps(payload).encode("utf-8")
+
+    response = post_file_multipart(client, "/problem/add_json", raw, access_token)
+
+    assert response.status_code == 200
+
+    problem_from_db = session.get(ProblemDB, 3)
+
+    assert compare_models(problem, Problem.from_problemdb(problem_from_db))
 
 
 def test_new_session(client: TestClient, session_and_user: dict):
