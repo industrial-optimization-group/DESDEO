@@ -23,7 +23,7 @@
   "dependencies": {
     "@cortex-js/compute-engine": "^0.30.2",
     "@faker-js/faker": "^10.0.0",
-    "@sveltejs/adapter-node": "^5.3.3",
+    "@sveltejs/adapter-node": "^5.5.1",
     "@tailwindcss/vite": "^4.1.14",
     "bits-ui": "^2.11.4",
     "d3": "^7.9.0",
