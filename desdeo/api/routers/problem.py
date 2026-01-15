@@ -235,6 +235,13 @@ def get_metadata(
     return [metadata for metadata in problem_metadata.all_metadata if metadata.metadata_type == request.metadata_type]
 
 
+@router.get("/assign/solver", response_model=list[str])
+def get_available_solvers() -> list[str]:
+    """
+    Return the list of available solver names.
+    """
+    return list(available_solvers.keys())
+
 @router.post("/assign_solver")
 def select_solver(
     request: ProblemSelectSolverRequest,
