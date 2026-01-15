@@ -3,20 +3,24 @@
 from typing import Annotated
 
 import numpy as np
+import polars as pl
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 
 from desdeo.api.db import get_session
 from desdeo.api.models import (
+    ENautilusRepresentativeSolutionsRequest,
+    ENautilusRepresentativeSolutionsResponse,
     ENautilusState,
     ENautilusStateRequest,
     ENautilusStateResponse,
     ENautilusStepRequest,
     ENautilusStepResponse,
+    ProblemDB,
     RepresentativeNonDominatedSolutions,
     StateDB,
 )
-from desdeo.mcdm import ENautilusResult, enautilus_step
+from desdeo.mcdm import ENautilusResult, enautilus_get_representative_solutions, enautilus_step
 from desdeo.problem import Problem
 
 from .utils import (
@@ -163,3 +167,74 @@ def get_state(
     )
 
     return ENautilusStateResponse(request=request, response=response)
+
+
+@router.post("/get_representative")
+def get_representative(
+    request: ENautilusRepresentativeSolutionsRequest, db_session: Annotated[Session, Depends(get_session)]
+) -> ENautilusRepresentativeSolutionsResponse:
+    """Computes the representative solutions that are closest to the intermediate solutions computed by E-NAUTILUS.
+
+    This endpoint should be used to get the actual solution from the
+    non-dominated representation used in the E-NAUTILUS method's last iteration
+    (when number of iterations left is 0).
+
+    Args:
+        request (ENautilusRepresentativeSolutionsRequest): a request which
+            contains the id of the `StateDB` with information on the intermediate
+            points for which the representative solutions should be computed.
+        db_session (Annotated[Session, Depends): the database session.
+
+    Raises:
+        HTTPException: 404 when a `StateDB`, `ProblemDB`, or
+            `RepresentativeNonDominatedSolutions` instance cannot be found. 406 when
+            the substate of the references `StateDB` is not an instance of
+            `ENautilusState`.
+
+    Returns:
+        ENautilusRepresentativeSolutionsResponse: the information on the representative solutions.
+    """
+    state_db: StateDB | None = db_session.exec(select(StateDB).where(StateDB.id == request.state_id)).first()
+
+    if state_db is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Could not find 'StateDB' with id={request.id}"
+        )
+
+    if not isinstance(state_db.state, ENautilusState):
+        raise HTTPException(
+            status_code=status.HTTP_406_NOT_ACCEPTABLE, detail="The requested state does not contain an ENautilusState."
+        )
+
+    enautilus_state: ENautilusState = state_db.state
+    enautilus_result: ENautilusResult = enautilus_state.enautilus_results
+
+    non_dom_solutions_db = db_session.exec(
+        select(RepresentativeNonDominatedSolutions).where(
+            RepresentativeNonDominatedSolutions.id == enautilus_state.non_dominated_solutions_id
+        )
+    ).first()
+
+    if non_dom_solutions_db is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=(
+                "Could not find 'RepresentativeNonDominatedSolutions' with "
+                f"id={enautilus_state.non_dominated_solutions_id}"
+            ),
+        )
+
+    non_dom_solutions = pl.DataFrame(non_dom_solutions_db.solution_data)
+
+    problem_db = db_session.exec(select(ProblemDB).where(ProblemDB.id == state_db.problem_id)).first()
+
+    if problem_db is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Could not find 'ProblemDB' with id={state_db.problem_id}"
+        )
+
+    problem = Problem.from_problemdb(problem_db)
+
+    representative_solutions = enautilus_get_representative_solutions(problem, enautilus_result, non_dom_solutions)
+
+    return ENautilusRepresentativeSolutionsResponse(solutions=representative_solutions)
