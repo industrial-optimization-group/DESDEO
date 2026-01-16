@@ -1,1 +1,0 @@
-{"contents":{"coin":{"version":"20230221","files":["bonmin","cbc","coin-license.txt","coin-versions.txt","couenne","ipopt"]},"cbc":{"version":"20240724","files":["cbc","docs","docs/CHANGES.cbc.md","docs/README.cbc.txt","libCbc.so.3","libCbcSolver.so.3","libCgl.so.1","libClp.so.1","libClpSolver.so.1","libCoinUtils.so.3","libOsi.so.1","libOsiClp.so.1"]}}}
