@@ -10,9 +10,7 @@ class SolutionInfo(SQLModel):
 
     state_id: int
     solution_index: int
-    name: str | None = Field(
-        description="Name to be given to the solution. Optional.", default=None
-    )
+    name: str | None = Field(description="Name to be given to the solution. Optional.", default=None)
 
 
 class IntermediateSolutionRequest(SQLModel):
@@ -22,13 +20,9 @@ class IntermediateSolutionRequest(SQLModel):
     session_id: int | None = Field(default=None)
     parent_state_id: int | None = Field(default=None)
     context: str | None = None  # Method context (nimbus, rpm, etc.)
-    scalarization_options: dict[str, float | str | bool] | None = Field(
-        sa_column=Column(JSON), default=None
-    )
+    scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
     solver: str | None = Field(default=None)
-    solver_options: dict[str, float | str | bool] | None = Field(
-        sa_column=Column(JSON), default=None
-    )
+    solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
 
     num_desired: int | None = Field(default=1)
 
@@ -60,30 +54,18 @@ class ScoreBandsRequest(SQLModel):
     objs: list[str] = Field(description="Array of objective names for each column")
 
     # Optional parameters with defaults matching the score_bands.py functions
-    dist_parameter: float = Field(
-        default=0.05, description="Distance parameter for axis positioning"
-    )
-    use_absolute_corr: bool = Field(
-        default=False, description="Use absolute correlation values"
-    )
+    dist_parameter: float = Field(default=0.05, description="Distance parameter for axis positioning")
+    use_absolute_corr: bool = Field(default=False, description="Use absolute correlation values")
     distance_formula: int = Field(default=1, description="Distance formula (1 or 2)")
-    flip_axes: bool = Field(
-        default=True, description="Whether to flip axes based on correlation signs"
-    )
-    clustering_algorithm: str = Field(
-        default="DBSCAN", description="Clustering algorithm (DBSCAN or GMM)"
-    )
-    clustering_score: str = Field(
-        default="silhoutte", description="Clustering score metric"
-    )
+    flip_axes: bool = Field(default=True, description="Whether to flip axes based on correlation signs")
+    clustering_algorithm: str = Field(default="DBSCAN", description="Clustering algorithm (DBSCAN or GMM)")
+    clustering_score: str = Field(default="silhoutte", description="Clustering score metric")
 
 
 class ScoreBandsResponse(SQLModel):
     """Model of the response containing SCORE bands parameters."""
 
-    groups: list[int] = Field(
-        description="Cluster group assignments for each data point"
-    )
+    groups: list[int] = Field(description="Cluster group assignments for each data point")
     axis_dist: list[float] = Field(description="Normalized axis positions")
     axis_signs: list[int] | None = Field(description="Axis direction signs (1 or -1)")
     obj_order: list[int] = Field(description="Optimal order of objectives")

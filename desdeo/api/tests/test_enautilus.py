@@ -7,6 +7,8 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
 from desdeo.api.models import (
+    ENautilusRepresentativeSolutionsRequest,
+    ENautilusRepresentativeSolutionsResponse,
     ENautilusStateRequest,
     ENautilusStateResponse,
     ENautilusStepRequest,
@@ -253,3 +255,83 @@ def test_enautilus_get_state(client: TestClient, session_and_user: dict[str, Ses
     assert previous_request.selected_point == nadir_point  # should be the nadir, because first iteration
     assert previous_request.reachable_point_indices == reachable_point_indices_  # all in the first iteration
     assert previous_request.number_of_intermediate_points == number_of_intermediate_points
+
+
+def test_enautilus_get_representative(client: TestClient, session_and_user: dict[str, Session | list[user]]):
+    """Test the E-NAUTILUS endpoint for getting representative solutions."""
+    session, _ = session_and_user["session"], session_and_user["user"]
+    access_token = login(client)
+
+    problem_db = session.exec(select(ProblemDB).where(ProblemDB.name == "The river pollution problem")).first()
+
+    representative_solutions = session.exec(
+        select(RepresentativeNonDominatedSolutions)
+        .join(RepresentativeNonDominatedSolutions.metadata_instance)
+        .where(ProblemMetaDataDB.problem_id == problem_db.id)
+    ).first()
+
+    current_iteration = 0
+    total_iterations = 5
+    selected_point = None  # nadir point
+    reachable_point_indices = []  # empty for first iteration
+    number_of_intermediate_points = 3
+
+    request = ENautilusStepRequest(
+        problem_id=problem_db.id,
+        session_id=None,
+        parent_state_id=None,
+        representative_solutions_id=representative_solutions.id,
+        current_iteration=current_iteration,
+        iterations_left=total_iterations,
+        selected_point=selected_point,
+        reachable_point_indices=reachable_point_indices,
+        number_of_intermediate_points=number_of_intermediate_points,
+    )
+
+    raw_response = post_json(client, "/method/enautilus/step", request.model_dump(), access_token)
+
+    assert raw_response.status_code == 200  # OK
+
+    step_response = ENautilusStepResponse.model_validate(json.loads(raw_response.content))
+
+    # iterate until last
+    while step_response.iterations_left > 0:
+        previous_step = step_response
+
+        request = ENautilusStepRequest(
+            problem_id=problem_db.id,
+            session_id=None,
+            parent_state_id=previous_step.state_id,
+            representative_solutions_id=representative_solutions.id,
+            current_iteration=previous_step.current_iteration,
+            iterations_left=previous_step.iterations_left,
+            selected_point=previous_step.intermediate_points[0],
+            reachable_point_indices=previous_step.reachable_point_indices[0],
+            number_of_intermediate_points=number_of_intermediate_points,
+        )
+
+        raw_response = post_json(client, "/method/enautilus/step", request.model_dump(), access_token)
+
+        assert raw_response.status_code == 200  # OK
+
+        step_response = ENautilusStepResponse.model_validate(json.loads(raw_response.content))
+
+    # no iterations left, last iteration
+    request = ENautilusRepresentativeSolutionsRequest(state_id=step_response.state_id)
+    raw_response = post_json(client, "/method/enautilus/get_representative", request.model_dump(), access_token)
+
+    assert raw_response.status_code == 200
+
+    int_response = ENautilusRepresentativeSolutionsResponse.model_validate(json.loads(raw_response.content))
+
+    assert len(int_response.solutions) == number_of_intermediate_points
+
+    # try also a previous iteration
+    request = ENautilusRepresentativeSolutionsRequest(state_id=3)
+    raw_response = post_json(client, "/method/enautilus/get_representative", request.model_dump(), access_token)
+
+    assert raw_response.status_code == 200
+
+    int_response = ENautilusRepresentativeSolutionsResponse.model_validate(json.loads(raw_response.content))
+
+    assert len(int_response.solutions) == number_of_intermediate_points

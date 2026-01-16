@@ -9,6 +9,8 @@ __all__ = [  # noqa: RUF022
     "EMOSaveState",
     "EMOSolveRequest",
     "EMOIterateState",
+    "ENautilusRepresentativeSolutionsRequest",
+    "ENautilusRepresentativeSolutionsResponse",
     "ENautilusState",
     "ENautilusStateResponse",
     "ENautilusStateRequest",
@@ -130,6 +132,8 @@ from .emo import (
     Solution,
 )
 from .enautilus import (
+    ENautilusRepresentativeSolutionsRequest,
+    ENautilusRepresentativeSolutionsResponse,
     ENautilusStateRequest,
     ENautilusStateResponse,
     ENautilusStepRequest,
