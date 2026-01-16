@@ -162,3 +162,6 @@ scratch/
 # Surrogate models
 surrogatemodels/
 utopia_forest.json
+
+# Solvers
+solvers/
