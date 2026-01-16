@@ -237,8 +237,7 @@ def get_metadata(
 
 @router.get("/assign/solver", response_model=list[str])
 def get_available_solvers() -> list[str]:
-    """
-    Return the list of available solver names.
+    """Returns the list of available solver names.
     """
     return list(available_solvers.keys())
 
