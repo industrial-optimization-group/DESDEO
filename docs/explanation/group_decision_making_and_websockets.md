@@ -1,6 +1,6 @@
 # Websockets and Group Decision Making
 
-This page documents how the Group Decision Making (GDM) framework built into DESDEO functions and how it utilizes websockets. This page also goes over how the functionality of this framework can be leveraged to create new GDM methods. For now, there is partially functioning Group NIMBUS implementation, that we're going to be using as an example method to explain the concepts of this framework. In short, GNIMBUS is a group extension of the [NIMBUS](https://doi.org/10.1016/j.ejor.2004.07.052) method, in which a group articulates individual preferences, send them to the method and then vote for a solution.
+This page documents how the Group Decision Making (GDM) framework built into DESDEO functions and how it utilizes websockets. This page also goes over how the functionality of this framework can be leveraged to create new GDM methods. For now, there is a functioning Group NIMBUS implementation, that we're going to be using as an example method to explain the concepts of this framework. In short, GNIMBUS is a group extension of the [NIMBUS](https://doi.org/10.1016/j.ejor.2004.07.052) method, in which a group articulates individual preferences, send them to the method and then vote for a solution.
 
 A useful tool for working with websockets is [Websocketking](https://websocketking.com/). It allows creating multiple connections, saving payloads and more. Once a user enters the page for the first time, a quick introduction should begin, going into further details.
 
@@ -35,7 +35,7 @@ As can be observed from .../models/gdm/gnimbus.py, there's a number of GNIMBUS s
 
 ### The managers
 
-When the server is started, a singleton called ManagerManager that manages GroupManagers is spawned. Its responsibilities are to create and delete these GroupManagers. If a valid connection, with authorized user connects, ManagerManager checks whether a corresponding group/method already has a GroupManager and returns it. If there is no such GroupManager, it spawns it. Upon disconnection of a user, ManagerManager checks whether a GroupManager has any remaining connections. If there are none, the singleton deletes this GroupManager.
+When the server is started, a singleton called ManagerManager that manages GroupManagers is spawned. Its responsibilities are to create and delete these GroupManagers. If a valid connection with an authorized user connects, ManagerManager checks whether a corresponding group/method already has a GroupManager and returns it. If there is no such GroupManager, it spawns it. Upon disconnection of a user, ManagerManager checks whether a GroupManager has any remaining connections. If there are none, the singleton deletes this GroupManager.
 
 A GroupManager handles the needs of a single group. These needs are handling connections, database accesses, message broadcasts, preference updates and optimization. Next, we'll go over relevant functions. The base for this manager can be found from .../api/routers/gdm/gdm_base.py.
 
@@ -67,7 +67,7 @@ In these different paths, represented by the "optimization", "voting" and "endin
 *   Update the current GroupIteration's Preference field with the newest preferences.
 *   If preferences from all members of the group are in, we can move on to result production (running GNIMBUS methods or voting for a result or ending for ending)
 *   After those results are produced, the results and the preferences used to obtain those results are stored into States and that State is linked to the current GroupIteration.
-*   Users are notified that the results are ready for fetching using separate HTTP endpoints. The notification information (as in who is notified and who is not) is stored to the State.
+*   Users are notified that the results are ready for fetching using separate HTTP endpoints. The notification information (as in who is notified and who is not) is stored to the iteration.
 *   A new Preference item of the opposite type as the current type is created and returned from the path-specific function to the "run_method" function.
 
 Then a new GroupIteration is formed, with the newly created and returned Preference item contained within. Group's head iteration is updated to the newest iteration, the parent/child relations between the new and old GroupIteration are set. Now the new GroupIteration's Preference item is ready to be filled with preferences coming from the websocket.
@@ -80,8 +80,18 @@ The url for the websocket is ```ws://[DOMAIN]:[PORT]/gdm/ws?token=[TOKEN]&group_
 If the server is hosted on a server with TSL certificates etc. the appropriate protocol is ```wss:```, similar to what is the case with ```http:``` and ```https:```.
 When a user connects to this websocket, they are validated as a member of the group using ```[TOKEN]``` and ```[GROUP_ID]``` and then are connected to the Group's manager corresponding to ```[METHOD]```.
 
-For as long as the user is connected to the websocket, they can send data over to the server. The data is validated as needed as described above. The users are also notified when optimization is done or if something goes wrong as a result of their actions.
+For as long as the user is connected to the websocket, they can send data over to the server. The data is validated as needed as described above (in the case of GNIMBUS). The users are also notified when optimization is done or if something goes wrong as a result of their actions.
 
 ### The routers
 
 These are just your standard HTTP endpoints. These can be used in general to manipulate groups and such. There's also the GNIMBUS specific endpoints used for fetching results and initializing the problem and such.
+
+### Authors note after implementing the GDMScoreBands prototype
+
+The role of the websockets has been greatly diminished in the GDMSCOREBands implementation. Currently, the system rather utilizes HTTP endpoints to communicate with the Group Manager. Each HTTP endpoint has it's corresponding method in the group manager.
+
+In implementing the GDMSCOREBands system, it is evident that this system can be used to many degrees. One can, if they will, rely on the websockets for transferring preferences, messages, etc. and use the manager system to handle the optimization and so forth (as is done with GNIMBUS). One can also communicate with the manager through HTTPEndpoints, and implement the manager to handle the things (as is done with GDMSCOREBands). One could most likely also utilize the manager as a simple message system, making sure that the UI will fetch the right data from the right endpoint.
+
+In hindsight, the author of this system might have been blinded with the idea of websockets as a form of back-and-forth communication. The GNIMBUS system build on top of this works, yes, but it could have been simpler. A word forward: have the HTTP endpoints access the managers through import. Then have the endpoints utilize the manager's functionality.
+
+However, the groups and group iterations and their interplay is useful.

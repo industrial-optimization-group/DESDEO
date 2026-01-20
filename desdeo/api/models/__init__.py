@@ -81,10 +81,11 @@ __all__ = [  # noqa: RUF022
     "Group",
     "GroupModifyRequest",
     "GroupCreateRequest",
+    "GroupRevertRequest",
     "GroupIteration",
     "GroupPublic",
     "GroupInfoRequest",
-    "BasePreferences",
+    "BaseGroupInfoContainer",
     "ReferencePointDictType",
     "BooleanDictTypeDecorator",
     "EMOSolveRequest",
@@ -100,6 +101,7 @@ __all__ = [  # noqa: RUF022
     "EMOScoreResponse",
     "Solution",
     "SolutionReference",
+    "SolutionReferenceLite",
     "SolutionReferenceResponse",
     "SolverSelectionMetadata",
     "UserSavedEMOResults",
@@ -117,6 +119,14 @@ __all__ = [  # noqa: RUF022
     "GNIMBUSAllIterationsResponse",
     "GNIMBUSSwitchPhaseRequest",
     "GNIMBUSSwitchPhaseResponse",
+    "GDMScoreBandsInitializationRequest",
+    "GDMSCOREBandInformation",
+    "GDMSCOREBandsResponse",
+    "GDMScoreBandsVoteRequest",
+    "GDMSCOREBandFinalSelection",
+    "GDMSCOREBandsDecisionResponse",
+    "GDMSCOREBandsRevertRequest",
+    "GDMSCOREBandsHistoryResponse"
 ]
 
 
@@ -146,9 +156,10 @@ from .gdm.gdm_aggregate import (
     GroupIteration,
     GroupModifyRequest,
     GroupPublic,
+    GroupRevertRequest,
 )
 from .gdm.gdm_base import (
-    BasePreferences,
+    BaseGroupInfoContainer,
     BooleanDictTypeDecorator,
     ReferencePointDictType,
 )
@@ -162,6 +173,16 @@ from .gdm.gnimbus import (
     OptimizationPreference,
     VotingPreference,
 )
+from .gdm.gdm_score_bands import (
+    GDMScoreBandsInitializationRequest,
+    GDMSCOREBandInformation,
+    GDMSCOREBandsResponse,
+    GDMSCOREBandsDecisionResponse,
+    GDMScoreBandsVoteRequest,
+    GDMSCOREBandFinalSelection,
+    GDMSCOREBandsRevertRequest,
+    GDMSCOREBandsHistoryResponse
+)
 from .generic import (
     GenericIntermediateSolutionResponse,
     IntermediateSolutionRequest,
@@ -172,6 +193,7 @@ from .generic import (
 from .generic_states import (
     SavedSolutionReference,
     SolutionReference,
+    SolutionReferenceLite,
     SolutionReferenceResponse,
     State,
     StateDB,

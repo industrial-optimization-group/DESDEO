@@ -154,12 +154,12 @@ export interface paths {
         put?: never;
         /**
          * Add New Analyst
-         * @description Add a new user of the role Analyst to the database. Requires a logged in analyst or an admin
+         * @description Add a new user of the role Analyst to the database. Requires a logged in analyst or an admin.
          *
          *     Args:
-         *         user Annotated[User, Depends(get_current_user)]: Logged in user with the role "analyst" or "admin".
-         *         form_data (Annotated[OAuth2PasswordRequestForm, Depends()]): The user credentials to add to the database.
-         *         session (Annotated[Session, Depends(get_session)]): the database session.
+         *         user: Annotated[User, Depends(get_current_user)]: Logged in user with the role "analyst" or "admin".
+         *         form_data: (Annotated[OAuth2PasswordRequestForm, Depends()]): The user credentials to add to the database.
+         *         session: (Annotated[Session, Depends(get_session)]): the database session.
          *
          *     Returns:
          *         JSONResponse: A JSON response
@@ -326,6 +326,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/problem/assign_solver": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Select Solver
+         * @description Assign a specific solver for a problem.
+         *
+         *     request: ProblemSelectSolverRequest: The request containing problem id and string representation of the solver
+         *     user: Annotated[User, Depends(get_current_user): The user that is logged in.
+         *     session: Annotated[Session, Depends(get_session)]: The database session.
+         *
+         *     Raises:
+         *         HTTPException: Unknown solver, unauthorized user
+         *
+         *     Returns:
+         *         JSONResponse: A simple confirmation.
+         */
+        post: operations["select_solver_problem_assign_solver_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/session/new": {
         parameters: {
             query?: never;
@@ -389,7 +419,16 @@ export interface paths {
         put?: never;
         /**
          * Solve Solutions
-         * @description .
+         * @description Runs an iteration of the reference point method.
+         *
+         *     Args:
+         *         request (RPMSolveRequest): a request with the needed information to run the method.
+         *         user (Annotated[User, Depends): the current user.
+         *         session (Annotated[Session, Depends): the current database session.
+         *
+         *     Returns:
+         *         RPMState: a state with information on the results of iterating the reference point method
+         *             once.
          */
         post: operations["solve_solutions_method_rpm_solve_post"];
         delete?: never;
@@ -498,6 +537,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/method/nimbus/finalize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finalize Nimbus
+         * @description An endpoint for finishing up the nimbus process.
+         *
+         *     Args:
+         *         request (NIMBUSFinalizeRequest): The request containing the final solution, etc.
+         *         user (Annotated[User, Depends): The current user.
+         *         session (Annotated[Session, Depends): The database session.
+         *
+         *     Raises:
+         *         HTTPException
+         *
+         *     Returns:
+         *         NIMBUSFinalizeResponse: Response containing state id of the final solution.
+         */
+        post: operations["finalize_nimbus_method_nimbus_finalize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/method/nimbus/delete_save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete Save
+         * @description Endpoint for deleting saved solutions.
+         *
+         *     Args:
+         *         request (NIMBUSDeleteSaveRequest): request containing necessary information for deleting a save
+         *         user (Annotated[User, Depends): the current  (logged in) user
+         *         session (Annotated[Session, Depends): database session
+         *
+         *     Raises:
+         *         HTTPException
+         *
+         *     Returns:
+         *         NIMBUSDeleteSaveResponse: Response acknowledging the deletion of save and other useful info.
+         */
+        post: operations["delete_save_method_nimbus_delete_save_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/method/generic/intermediate": {
         parameters: {
             query?: never;
@@ -518,7 +619,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/method/generic/score-bands": {
+    "/method/generic/score-bands-obj-data": {
         parameters: {
             query?: never;
             header?: never;
@@ -528,10 +629,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Calculate Score Bands
+         * Calculate Score Bands From Objective Data
          * @description Calculate SCORE bands parameters from objective data.
          */
-        post: operations["calculate_score_bands_method_generic_score_bands_post"];
+        post: operations["calculate_score_bands_from_objective_data_method_generic_score_bands_obj_data_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -549,10 +650,11 @@ export interface paths {
         put?: never;
         /**
          * Get Utopia Data
-         * @description Request and receive the Utopia map corresponding to the decision variables sent. Can be just the optimal_variables form a SolverResult.
+         * @description Request and receive the Utopia map corresponding to the decision variables sent.
          *
          *     Args:
-         *         request (UtopiaRequest): the set of decision variables and problem for which the utopia forest map is requested for.
+         *         request (UtopiaRequest): the set of decision variables and problem for which the utopia forest map is requested
+         *         for.
          *         user (Annotated[User, Depend(get_current_user)]) the current user
          *         session (Annotated[Session, Depends(get_session)]) the current database session
          *     Raises:
@@ -561,6 +663,523 @@ export interface paths {
          *         UtopiaResponse: the map for the forest, to be rendered in frontend
          */
         post: operations["get_utopia_data_utopia__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gdm/create_group": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Group
+         * @description Create group.
+         *
+         *     Args:
+         *         request (GroupCreateRequest): a request that holds information to be used in creation of the group.
+         *         user (Annotated[User, Depends(get_current_user)]): the current user.
+         *         session (Annotated[Session, Depends(get_session)]): the database session.
+         *
+         *     Returns:
+         *         JSONResponse: Acknowledgement that the group was created
+         *
+         *     Raises:
+         *         HTTPException
+         */
+        post: operations["create_group_gdm_create_group_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gdm/delete_group": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete Group
+         * @description Delete the group with given ID.
+         *
+         *     Args:
+         *         request (GroupInfoRequest): Contains the ID of the group to be deleted
+         *         user (Annotated[User, Depends(get_current_user)]): The user (in this case must be owner for anything to happen)
+         *         session (Annotated[Session, Depends(get_session)]): The database session
+         *
+         *     Returns:
+         *         JSONResponse: Acknowledgement of the deletion
+         *
+         *     Raises:
+         *         HTTPException: Insufficient authorization etc.
+         */
+        post: operations["delete_group_gdm_delete_group_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gdm/add_to_group": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add To Group
+         * @description Add a user to a group.
+         *
+         *     Args:
+         *         request (GroupModifyRequest): Request object that has group and user IDs.
+         *         user (Annotated[User, Depends(get_current_user)]): the current user.
+         *         session (Annotated[Session, Depends(get_session)]): the database session.
+         *
+         *     Returns:
+         *         JSONResponse: Aknowledge that user has been added to the group
+         *
+         *     Raises:
+         *         HTTPException: Authorization issues, group or user not found.
+         */
+        post: operations["add_to_group_gdm_add_to_group_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gdm/remove_from_group": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove From Group
+         * @description Remove user from group.
+         *
+         *     Args:
+         *         request (GroupModifyRequest): Request object that has group and user IDs.
+         *         user (Annotated[User, Depends(get_current_user)]): the current user.
+         *         session (Annotated[Session, Depends(get_session)]): the database session.
+         *
+         *     Returns:
+         *         JSONResponse: Aknowledge that user has been removed from the group.
+         *
+         *     Raises:
+         *         HTTPException: Authorization issues, group or user not found.
+         */
+        post: operations["remove_from_group_gdm_remove_from_group_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gdm/get_group_info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get Group Info
+         * @description Get information about the group.
+         *
+         *     Args:
+         *         request (GroupInfoRequest): the id of the group for which we desire info on
+         *         session (Annotated[Session, Depends(get_session)]): the database session
+         *
+         *     Returns:
+         *         GroupPublic: public info of the group
+         *
+         *     Raises:
+         *         HTTPException: If there's no group with the requests group id
+         */
+        post: operations["get_group_info_gdm_get_group_info_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gnimbus/initialize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Gnimbus Initialize
+         * @description Initialize the problem for GNIMBUS.
+         */
+        post: operations["gnimbus_initialize_gnimbus_initialize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gnimbus/get_latest_results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get Latest Results
+         * @description Get the latest results from group iteration.
+         *
+         *     (OBSOLETE AND OUT OF DATE!)
+         *
+         *     Args:
+         *         request (GroupInfoRequest): essentially just the ID of the group
+         *         user (Annotated[User, Depends(get_current_user)]): Current user
+         *         session (Annotated[Session, Depends(get_session)]): Database session.
+         *
+         *     Returns:
+         *         GNIMBUSResultResponse: A GNIMBUSResultResponse response containing the latest gnimbus results
+         *
+         *     Raises:
+         *         HTTPException: Validation errors or no results
+         */
+        post: operations["get_latest_results_gnimbus_get_latest_results_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gnimbus/all_iterations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Full Iteration
+         * @description Get all results from all iterations of the group.
+         *
+         *     Args:
+         *         request (GroupInfoRequest): essentially just the ID of the group
+         *         user (Annotated[User, Depends(get_current_user)]): current user
+         *         session (Annotated[Session, Depends(get_session)]): current session
+         *
+         *     Returns:
+         *         GNIMBUSAllIterationsResponse: A GNIMBUSAllIterationsResponse response
+         *         containing all the results of the iterations. If last iteration was optimization,
+         *         the first iteration is incomplete (i.e. the voting preferences and voting results are missing)
+         *
+         *     Raises:
+         *         HTTPException: Validation errors or no results or no states and such.
+         */
+        post: operations["full_iteration_gnimbus_all_iterations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gnimbus/toggle_phase": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Switch Phase
+         * @description Switch the phase from one to another. "learning", "crp", "decision" and "compromise" phases are allowed.
+         */
+        post: operations["switch_phase_gnimbus_toggle_phase_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gnimbus/get_phase": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get Phase
+         * @description Get the current phase of the group.
+         */
+        post: operations["get_phase_gnimbus_get_phase_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gnimbus/revert_iteration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revert Iteration
+         * @description Changes the starting solution of an iteration so in case of emergency the group owner can just change it.
+         *
+         *     Args:
+         *         request (GNIMBUSChangeStartingSolutionRequest): The request containing necessary details to fulfill the change.
+         *         user (Annotated[User, Depends): The current user.
+         *         session (Annotated[Session, Depends): The database session.
+         *
+         *     Raises:
+         *         HTTPException
+         *
+         *     Returns:
+         *         JSONResponse: Response that acknowledges the changes.
+         */
+        post: operations["revert_iteration_gnimbus_revert_iteration_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/method/enautilus/step": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Step
+         * @description .
+         */
+        post: operations["step_method_enautilus_step_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gdm-score-bands/vote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Vote For A Band
+         * @description Vote for a band using this endpoint.
+         *
+         *     Args:
+         *         request (GDMScoreBandsVoteRequest): A container for the group id and the vote.
+         *         user (Annotated[User, Depends): the current user.
+         *         session (Annotated[Session, Depends): database session
+         *
+         *     Raises:
+         *         HTTPException: If something goes wrong. It hopefully let's you know what went wrong.
+         *
+         *     Returns:
+         *         JSONResponse: A quick confirmation that vote went through.
+         */
+        post: operations["vote_for_a_band_gdm_score_bands_vote_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gdm-score-bands/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Vote
+         * @description Confim the vote. If all confirm, the clustering and new iteration begins.
+         *
+         *     Args:
+         *         request (GroupInfoRequest): Simple request to get the group ID.
+         *         user (Annotated[User, Depends): The current user.
+         *         session (Annotated[Session, Depends): Database session.
+         *
+         *     Raises:
+         *         HTTPException: If something goes awry. It should let you know what went wrong, though.
+         *
+         *     Returns:
+         *         JSONResponse: A simple confirmation that everything went ok and that vote went in.
+         */
+        post: operations["confirm_vote_gdm_score_bands_confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gdm-score-bands/get-or-initialize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get Or Initialize
+         * @description An endpoint for two things: Initializing the GDM Score Bands things and Fetching results.
+         *
+         *     If a group hasn't been initialized, initialize and then return initial clustering information.
+         *     If it has been initialized, just fetch the latest iteration's information (clustering, etc.)
+         *
+         *     Args:
+         *         request (GDMScoreBandsInitializationRequest): Request that contains necessary information for initialization.
+         *         user (Annotated[User, Depends): The current user.
+         *         session (Annotated[Session, Depends): Database session.
+         *
+         *     Raises:
+         *         HTTPException: It'll let you know.
+         *
+         *     Returns:
+         *         GDMSCOREBandsResponse: A response containing Group id, group iter id and ScoreBandsResponse.
+         */
+        post: operations["get_or_initialize_gdm_score_bands_get_or_initialize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gdm-score-bands/get-votes-and-confirms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get Votes And Confirms
+         * @description Returns the current status of votes and confirmations in current iteration.
+         *
+         *     Args:
+         *         request (GroupInfoRequest): The group we'd like the info on.
+         *         user (Annotated[User, Depends): The user that requests the data.
+         *         session (Annotated[Session, Depends): The database session.
+         *
+         *     Raises:
+         *         HTTPException: If group doesn't exists etc errors.
+         *
+         *     Returns:
+         *         JSONResponse: A response containing the votes and confirmations.
+         */
+        post: operations["get_votes_and_confirms_gdm_score_bands_get_votes_and_confirms_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gdm-score-bands/revert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revert
+         * @description Revert to a previous iteration. Usable only by the analyst.
+         *
+         *     This implies that we're gonna need to see ALL previous iterations I'd say.
+         *
+         *     Args:
+         *         request (GDMSCOREBandsRevertRequest): The request containing group id and iteration number.
+         *         user (Annotated[User, Depends): The current user.
+         *         session (Annotated[Session, Depends): The database session.
+         *
+         *     Returns:
+         *         JSONResponse: Acknowledgement of the revert.
+         */
+        post: operations["revert_gdm_score_bands_revert_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gdm-score-bands/configure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Configure Gdm
+         * @description Configure the SCORE Bands settings.
+         *
+         *     Args:
+         *         config (SCOREBandsGDMConfig): The configuration object
+         *         group_id (int): group id
+         *         user (Annotated[User, Depends): The user doing the request
+         *         session (Annotated[Session, Depends): The database session.
+         *
+         *     Returns:
+         *         JSONResponse: Acknowledgement that yeah ok reconfigured.
+         */
+        post: operations["configure_gdm_gdm_score_bands_configure_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -731,6 +1350,67 @@ export interface components {
             info?: string | null;
         };
         /**
+         * CustomClusterOptions
+         * @description Options for custom clustering provided by the user.
+         */
+        CustomClusterOptions: {
+            /**
+             * Name
+             * @description Custom user-provided clusters.
+             * @default Custom
+             */
+            name: string;
+            /**
+             * Clusters
+             * @description List of cluster IDs (one for each solution) indicating the cluster to which each solution belongs.
+             */
+            clusters: number[];
+        };
+        /**
+         * DBSCANOptions
+         * @description Options for DBSCAN clustering algorithm.
+         */
+        DBSCANOptions: {
+            /**
+             * Name
+             * @description DBSCAN clustering algorithm.
+             * @default DBSCAN
+             */
+            name: string;
+        };
+        /**
+         * DimensionClusterOptions
+         * @description Options for clustering by one of the objectives/decision variables.
+         */
+        DimensionClusterOptions: {
+            /**
+             * Name
+             * @description Clustering by one of the dimensions.
+             * @default DimensionCluster
+             */
+            name: string;
+            /**
+             * Dimension Name
+             * @description Dimension to use for clustering.
+             */
+            dimension_name: string;
+            /**
+             * N Clusters
+             * @description Number of clusters to use. Defaults to 5.
+             * @default 5
+             */
+            n_clusters: number;
+            /**
+             * Kind
+             * @description Kind of clustering to use. Either "EqualWidth", which divides the dimension range into equal width intervals,
+             *     or "EqualFrequency", which divides the dimension values into intervals with equal number of solutions.
+             *     Defaults to "EqualWidth".
+             * @default EqualWidth
+             * @enum {string}
+             */
+            kind: "EqualWidth" | "EqualFrequency";
+        };
+        /**
          * DiscreteRepresentationDB
          * @description The SQLModel equivalent to `DiscreteRepresentation`.
          */
@@ -752,6 +1432,140 @@ export interface components {
             id?: number | null;
             /** Problem Id */
             problem_id?: number | null;
+        };
+        /**
+         * DistanceFormula
+         * @description Distance formulas supported by SCORE bands. See the paper for details.
+         * @enum {integer}
+         */
+        DistanceFormula: 1 | 2;
+        /**
+         * ENautilusResult
+         * @description The result of an iteration of the E-NAUTILUS method.
+         */
+        ENautilusResult: {
+            /**
+             * Current Iteration
+             * @description Number of the current iteration.
+             */
+            current_iteration: number;
+            /**
+             * Iterations Left
+             * @description Number of iterations left.
+             */
+            iterations_left: number;
+            /**
+             * Intermediate Points
+             * @description New intermediate points
+             */
+            intermediate_points: {
+                [key: string]: number;
+            }[];
+            /**
+             * Reachable Best Bounds
+             * @description Best bounds of the objective function values reachable from each intermediate point.
+             */
+            reachable_best_bounds: {
+                [key: string]: number;
+            }[];
+            /**
+             * Reachable Worst Bounds
+             * @description Worst bounds of the objective function values reachable from each intermediate point.
+             */
+            reachable_worst_bounds: {
+                [key: string]: number;
+            }[];
+            /**
+             * Closeness Measures
+             * @description Closeness measures of each intermediate point.
+             */
+            closeness_measures: number[];
+            /**
+             * Reachable Point Indices
+             * @description Indices of the reachable points from each intermediate point.
+             */
+            reachable_point_indices: number[][];
+        };
+        /**
+         * ENautilusState
+         * @description E-NAUTILUS: one stepping iteration.
+         */
+        ENautilusState: {
+            /** Id */
+            id?: number | null;
+            /** Non Dominated Solutions Id */
+            non_dominated_solutions_id?: number | null;
+            /** Current Iteration */
+            current_iteration: number;
+            /** Iterations Left */
+            iterations_left: number;
+            /** Selected Point */
+            selected_point?: {
+                [key: string]: number;
+            } | null;
+            /** Reachable Point Indices */
+            reachable_point_indices?: number[];
+            /** Number Of Intermediate Points */
+            number_of_intermediate_points: number;
+            enautilus_results: components["schemas"]["ENautilusResult"];
+        };
+        /**
+         * EnautilusStepRequest
+         * @description Model of the request to the E-NAUTILUS method.
+         */
+        EnautilusStepRequest: {
+            /** Problem Id */
+            problem_id: number;
+            /** Session Id */
+            session_id?: number | null;
+            /** Parent State Id */
+            parent_state_id?: number | null;
+            /** Representative Solutions Id */
+            representative_solutions_id?: number | null;
+            /**
+             * Current Iteration
+             * @description The number of the current iteration.
+             */
+            current_iteration: number;
+            /**
+             * Iterations Left
+             * @description The number of iterations left.
+             */
+            iterations_left: number;
+            /**
+             * Selected Point
+             * @description The selected intermediate point. If first iteration, set this to be the (approximated) nadir point.
+             */
+            selected_point: {
+                [key: string]: number;
+            };
+            /**
+             * Reachable Point Indices
+             * @description The indices indicating the point on the non-dominated set that are reachable from the currently selected point.
+             */
+            reachable_point_indices: number[];
+            /**
+             * Number Of Intermediate Points
+             * @description The number of intermediate points to be generated.
+             */
+            number_of_intermediate_points: number;
+        };
+        /**
+         * EndProcessPreference
+         * @description A structure for storing info on whether everyone is happy to end the gnimbus process.
+         */
+        EndProcessPreference: {
+            /**
+             * Method
+             * @default end
+             */
+            method: string;
+            /** Success */
+            success: boolean | null;
+            /** Set Preferences */
+            set_preferences: {
+                [key: string]: boolean;
+            };
         };
         /**
          * ExtraFunctionDB
@@ -831,6 +1645,254 @@ export interface components {
             compensation?: number | null;
         };
         /**
+         * FullIteration
+         * @description A full iteration item containing results from a complete or incomplete iteration.
+         *
+         *     This is a format to send information to the user interface.
+         */
+        FullIteration: {
+            /**
+             * Phase
+             * @description The phase of the iteration.
+             */
+            phase: string;
+            /** @description The preferences related to the optimization stage of the full iteration. */
+            optimization_preferences: components["schemas"]["OptimizationPreference"] | null;
+            /**
+             * Voting Preferences
+             * @description The preferences related to the voting phase of the iteration.             either actual votes or a vote to see whether to just continue.
+             */
+            voting_preferences: components["schemas"]["VotingPreference"] | components["schemas"]["EndProcessPreference"] | null;
+            /** @description The starting result of the optimization process. Fetched from the previous             iteration's final result. */
+            starting_result: components["schemas"]["SolutionReferenceLite"] | null;
+            /**
+             * Common Results
+             * @description The common results (1 to 4) generated by gnimbus.
+             */
+            common_results: components["schemas"]["SolutionReferenceLite"][];
+            /**
+             * User Results
+             * @description The user specific results generated by gnimbus in phases learning and crp.
+             */
+            user_results: components["schemas"]["SolutionReferenceLite"][];
+            /**
+             * Personal Result Index
+             * @description The user result index of requester.
+             */
+            personal_result_index: number | null;
+            /** @description The final result after voting. */
+            final_result: components["schemas"]["SolutionReferenceLite"] | null;
+        };
+        /**
+         * GDMSCOREBandFinalSelection
+         * @description Class for containing the final 10 or less solutions, the final solution and the votes that led to it.
+         */
+        GDMSCOREBandFinalSelection: {
+            /**
+             * Method
+             * @default gdm-score-bands-final
+             */
+            method: string;
+            /**
+             * User Votes
+             * @description Dictionary of votes.
+             */
+            user_votes: {
+                [key: string]: number;
+            };
+            /**
+             * User Confirms
+             * @description List of users who want to move on.
+             */
+            user_confirms: number[];
+            /** Solution Variables */
+            solution_variables: {
+                [key: string]: (number | boolean)[];
+            };
+            /** Solution Objectives */
+            solution_objectives: {
+                [key: string]: number[];
+            };
+            /** Winner Solution Variables */
+            winner_solution_variables: {
+                [key: string]: number | boolean;
+            };
+            /** Winner Solution Objectives */
+            winner_solution_objectives: {
+                [key: string]: number;
+            };
+        };
+        /**
+         * GDMSCOREBandsDecisionResponse
+         * @description Response class for gdm score bands that includes the last 10 or less solutions.
+         */
+        GDMSCOREBandsDecisionResponse: {
+            /**
+             * Method
+             * @default gdm-score-bands-final
+             */
+            method: string;
+            /**
+             * Group Id
+             * @description The group in question.
+             */
+            group_id: number;
+            /**
+             * Group Iter Id
+             * @description ID of the latest group iteration.
+             */
+            group_iter_id: number;
+            /** @description The container for the solutions and the winner solution. */
+            result: components["schemas"]["GDMSCOREBandFinalSelection"];
+        };
+        /**
+         * GDMSCOREBandsHistoryResponse
+         * @description Response class for all history. Allows for going to a previous iteration.
+         */
+        GDMSCOREBandsHistoryResponse: {
+            /** History */
+            history: (components["schemas"]["GDMSCOREBandsResponse"] | components["schemas"]["GDMSCOREBandsDecisionResponse"])[];
+        };
+        /**
+         * GDMSCOREBandsResponse
+         * @description Response class for GDMSCOREBands, whether it is initialization or not.
+         */
+        GDMSCOREBandsResponse: {
+            /**
+             * Method
+             * @default gdm-score-bands
+             */
+            method: string;
+            /**
+             * Group Id
+             * @description The group in question.
+             */
+            group_id: number;
+            /**
+             * Group Iter Id
+             * @description ID of the latest group iteration.
+             */
+            group_iter_id: number;
+            /**
+             * Latest Iteration
+             * @description The latest GDM iteration number. Different from Group Iteration id.
+             */
+            latest_iteration: number;
+            /** @description The results of the score bands procedure. */
+            result: components["schemas"]["SCOREBandsResult"];
+        };
+        /**
+         * GDMSCOREBandsRevertRequest
+         * @description Request for reverting to a previous setup.
+         */
+        GDMSCOREBandsRevertRequest: {
+            /**
+             * Group Id
+             * @description Group ID.
+             */
+            group_id: number;
+            /**
+             * Iteration Number
+             * @description The number of the iteration that we want to revert to.
+             */
+            iteration_number: number;
+        };
+        /**
+         * GDMScoreBandsInitializationRequest
+         * @description Request class for initialization of score bands.
+         */
+        GDMScoreBandsInitializationRequest: {
+            /**
+             * Group Id
+             * @description The group to be initialized.
+             */
+            group_id: number;
+            /** @description The configuration for the initial score banding. */
+            score_bands_config: components["schemas"]["SCOREBandsGDMConfig"];
+        };
+        /**
+         * GDMScoreBandsVoteRequest
+         * @description Request for voting for a band.
+         */
+        GDMScoreBandsVoteRequest: {
+            /**
+             * Group Id
+             * @description ID of the group in question
+             */
+            group_id: number;
+            /**
+             * Vote
+             * @description The vote. Vaalisalaisuus.
+             */
+            vote: number;
+        };
+        /**
+         * GMMOptions
+         * @description Options for Gaussian Mixture Model clustering algorithm.
+         */
+        GMMOptions: {
+            /**
+             * Name
+             * @description Gaussian Mixture Model clustering algorithm.
+             * @default GMM
+             */
+            name: string;
+            /**
+             * Scoring Method
+             * @description Scoring method to use for GMM. Either "BIC" or "silhouette". Defaults to "silhouette".
+             *     This option determines how the number of clusters is chosen.
+             * @default silhouette
+             * @enum {string}
+             */
+            scoring_method: "BIC" | "silhouette";
+        };
+        /**
+         * GNIMBUSAllIterationsResponse
+         * @description The response model for getting all found solutions among others.
+         */
+        GNIMBUSAllIterationsResponse: {
+            /** All Full Iterations */
+            all_full_iterations: components["schemas"]["FullIteration"][];
+        };
+        /**
+         * GNIMBUSResultResponse
+         * @description The response for getting GNIMBUS results. NOTE: OBSOLETE!
+         */
+        GNIMBUSResultResponse: {
+            /** Method */
+            method: string;
+            /** Phase */
+            phase: string;
+            /** Preferences */
+            preferences: components["schemas"]["VotingPreference"] | components["schemas"]["OptimizationPreference"];
+            /** Common Results */
+            common_results: components["schemas"]["SolutionReference"][];
+            /** User Results */
+            user_results: components["schemas"]["SolutionReference"][];
+            /** Personal Result Index */
+            personal_result_index: number | null;
+        };
+        /**
+         * GNIMBUSSwitchPhaseRequest
+         * @description A request for a certain phase. Comes from the group owner/analyst.
+         */
+        GNIMBUSSwitchPhaseRequest: {
+            /** Group Id */
+            group_id: number;
+            /** New Phase */
+            new_phase: string;
+        };
+        /**
+         * GNIMBUSSwitchPhaseResponse
+         * @description A response for the above request.
+         */
+        GNIMBUSSwitchPhaseResponse: {
+            /** Old Phase */
+            old_phase: string;
+            /** New Phase */
+            new_phase: string;
+        };
+        /**
          * GenericIntermediateSolutionResponse
          * @description The response from computing intermediate values.
          */
@@ -857,6 +1919,66 @@ export interface components {
         GetSessionRequest: {
             /** Session Id */
             session_id: number;
+        };
+        /**
+         * GroupCreateRequest
+         * @description Used for requesting a group to be created.
+         */
+        GroupCreateRequest: {
+            /** Group Name */
+            group_name: string;
+            /** Problem Id */
+            problem_id: number;
+        };
+        /**
+         * GroupInfoRequest
+         * @description Class for requesting group information.
+         */
+        GroupInfoRequest: {
+            /** Group Id */
+            group_id: number;
+        };
+        /**
+         * GroupModifyRequest
+         * @description Used for adding a user into group and removing a user from group.
+         */
+        GroupModifyRequest: {
+            /** Group Id */
+            group_id: number;
+            /** User Id */
+            user_id: number;
+        };
+        /**
+         * GroupPublic
+         * @description Response model for Group.
+         */
+        GroupPublic: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Owner Id */
+            owner_id: number;
+            /** User Ids */
+            user_ids: number[];
+            /** Problem Id */
+            problem_id: number;
+        };
+        /**
+         * GroupRevertRequest
+         * @description Class for requesting reverting to certain iteration.
+         */
+        GroupRevertRequest: {
+            /**
+             * Group Id
+             * @description The ID of the group we wish to revert.
+             */
+            group_id: number;
+            /**
+             * State Id
+             * @description The state's ID to which we want to revert to. Corresponds to state_id in GroupIteration.
+             */
+            state_id: number;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -905,6 +2027,24 @@ export interface components {
             num_desired: number | null;
             reference_solution_1: components["schemas"]["SolutionInfo"];
             reference_solution_2: components["schemas"]["SolutionInfo"];
+        };
+        /**
+         * KMeansOptions
+         * @description Options for KMeans clustering algorithm.
+         */
+        KMeansOptions: {
+            /**
+             * Name
+             * @description KMeans clustering algorithm.
+             * @default KMeans
+             */
+            name: string;
+            /**
+             * N Clusters
+             * @description Number of clusters to use. Defaults to 5.
+             * @default 5
+             */
+            n_clusters: number;
         };
         /**
          * NIMBUSClassificationRequest
@@ -975,6 +2115,57 @@ export interface components {
              * @description All solutions generated by NIMBUS in all iterations.
              */
             all_solutions: components["schemas"]["SolutionReferenceResponse"][];
+        };
+        /**
+         * NIMBUSDeleteSaveRequest
+         * @description Request model for deletion of a saved solution.
+         */
+        NIMBUSDeleteSaveRequest: {
+            /**
+             * State Id
+             * @description The ID of the save state.
+             */
+            state_id: number;
+            /**
+             * Solution Index
+             * @description The ID of the solution within the above state.
+             */
+            solution_index: number;
+        };
+        /**
+         * NIMBUSDeleteSaveResponse
+         * @description Response of NIMBUS save deletion.
+         */
+        NIMBUSDeleteSaveResponse: {
+            /** Message */
+            message: string | null;
+        };
+        /**
+         * NIMBUSFinalizeRequest
+         * @description Request model for finalizing the NIMBUS procedure.
+         */
+        NIMBUSFinalizeRequest: {
+            /** Problem Id */
+            problem_id: number;
+            /** Session Id */
+            session_id?: number | null;
+            /** Parent State Id */
+            parent_state_id?: number | null;
+            solution_info: components["schemas"]["SolutionInfo"];
+            preferences: components["schemas"]["ReferencePoint"];
+        };
+        /**
+         * NIMBUSFinalizeResponse
+         * @description The response from NIMBUS finish endpoint.
+         */
+        NIMBUSFinalizeResponse: {
+            /**
+             * State Id
+             * @description The id of the newest state
+             */
+            state_id: number | null;
+            /** @description The final solution */
+            final_solution: components["schemas"]["SolutionReferenceResponse"];
         };
         /**
          * NIMBUSInitializationRequest
@@ -1105,6 +2296,11 @@ export interface components {
             /** Simulator Path */
             simulator_path?: string | components["schemas"]["Url"] | null;
             /**
+             * Description
+             * @description A longer description of the objective function. This can be used in UI and visualizations.             Meant to have longer text than what name should have.
+             */
+            description?: string | null;
+            /**
              * Name
              * @description Descriptive name of the objective function. This can be used in UI and visualizations. Example: 'time'.
              */
@@ -1169,6 +2365,26 @@ export interface components {
          * @enum {string}
          */
         ObjectiveTypeEnum: "analytical" | "data_based" | "simulator" | "surrogate";
+        /**
+         * OptimizationPreference
+         * @description A structure for storing optimization preferences. See GNIMBUS for details.
+         */
+        OptimizationPreference: {
+            /**
+             * Method
+             * @default optimization
+             */
+            method: string;
+            /**
+             * Phase
+             * @default learning
+             */
+            phase: string;
+            /** Set Preferences */
+            set_preferences: {
+                [key: string]: components["schemas"]["ReferencePoint"];
+            };
+        };
         /**
          * ProblemGetRequest
          * @description Model to deal with problem fetching requests.
@@ -1265,6 +2481,22 @@ export interface components {
             forest_metadata: components["schemas"]["ForestProblemMetaData"][] | null;
             /** Representative Nd Metadata */
             representative_nd_metadata: components["schemas"]["RepresentativeNonDominatedSolutions"][] | null;
+        };
+        /**
+         * ProblemSelectSolverRequest
+         * @description Model to request a specific solver for a problem.
+         */
+        ProblemSelectSolverRequest: {
+            /**
+             * Problem Id
+             * @description ID of the problem that the solver is assigned to.
+             */
+            problem_id: number;
+            /**
+             * Solver String Representation
+             * @description One of the following: ['scipy_minimize', 'scipy_de', 'proximal', 'nevergrad', 'pyomo_bonmin', 'pyomo_cbc', 'pyomo_ipopt', 'pyomo_gurobi', 'gurobipy', 'gurobipy_persistent']
+             */
+            solver_string_representation: string;
         };
         /**
          * RPMSolveRequest
@@ -1375,6 +2607,176 @@ export interface components {
              * @description The nadir objective function values of the representative set.
              */
             nadir: {
+                [key: string]: number;
+            };
+        };
+        /**
+         * SCOREBandsConfig
+         * @description Configuration options for SCORE bands visualization.
+         */
+        SCOREBandsConfig: {
+            /**
+             * Dimensions
+             * @description List of variable/objective names (i.e., column names in the data) to include in the visualization.
+             *     If None, all columns in the data are used. Defaults to None.
+             */
+            dimensions?: string[] | null;
+            /**
+             * Descriptive Names
+             * @description Optional dictionary mapping dimensions to descriptive names for display in the visualization.
+             *     If None, the original dimension names are used. Defaults to None.
+             */
+            descriptive_names?: {
+                [key: string]: string;
+            } | null;
+            /**
+             * Units
+             * @description Optional dictionary mapping dimensions to their units for display in the visualization.
+             *     If None, no units are displayed. Defaults to None.
+             */
+            units?: {
+                [key: string]: string;
+            } | null;
+            /**
+             * Axis Positions
+             * @description Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first
+             *     objective is at position 0.0, and the last objective is at position 1.0. Use this option if you want to
+             *     manually set the axis positions. If None, the axis positions are calculated automatically based on correlations.
+             *     Defaults to None.
+             */
+            axis_positions?: {
+                [key: string]: number;
+            } | null;
+            /**
+             * Clustering Algorithm
+             * @description Clustering algorithm to use. Currently supported options: "GMM", "DBSCAN",
+             *         and "KMeans". Defaults to "DBSCAN".
+             * @default {
+             *       "name": "DBSCAN"
+             *     }
+             */
+            clustering_algorithm: components["schemas"]["GMMOptions"] | components["schemas"]["DBSCANOptions"] | components["schemas"]["KMeansOptions"] | components["schemas"]["DimensionClusterOptions"] | components["schemas"]["CustomClusterOptions"];
+            /**
+             * @description Distance formula to use. The value should be 1 or 2. Check the paper for details. Defaults to 1.
+             * @default 1
+             */
+            distance_formula: components["schemas"]["DistanceFormula"];
+            /**
+             * Distance Parameter
+             * @description Change the relative distances between the objective axes. Increase this value if objectives are placed too close
+             *     together. Decrease this value if the objectives are equidistant in a problem with objective clusters. Defaults
+             *     to 0.05.
+             * @default 0.05
+             */
+            distance_parameter: number;
+            /**
+             * Use Absolute Correlations
+             * @description Whether to use absolute value of the correlation to calculate the placement of axes. Defaults to False.
+             * @default false
+             */
+            use_absolute_correlations: boolean;
+            /**
+             * Include Solutions
+             * @description Whether to include individual solutions. Defaults to False. If True, the size of the resulting figure may be
+             *     very large for datasets with many solutions. Moreover, the individual traces are hidden by default, but can be
+             *     viewed interactively in the figure.
+             * @default false
+             */
+            include_solutions: boolean;
+            /**
+             * Include Medians
+             * @description Whether to include cluster medians. Defaults to False. If True, the median traces are hidden by default, but
+             *     can be viewed interactively in the figure.
+             * @default false
+             */
+            include_medians: boolean;
+            /**
+             * Interval Size
+             * @description The size (as a fraction) of the interval to use for the bands. Defaults to 0.95, meaning that 95% of the
+             *     middle solutions in a cluster will be included in the band. The rest will be considered outliers.
+             * @default 0.95
+             */
+            interval_size: number;
+            /**
+             * Scales
+             * @description Optional dictionary specifying the min and max values for each objective. The keys should be the
+             *     objective names (i.e., column names in the data), and the values should be tuples of (min, max).
+             *     If not provided, the min and max will be calculated from the data.
+             */
+            scales?: {
+                [key: string]: [
+                    number,
+                    number
+                ];
+            } | null;
+        };
+        /**
+         * SCOREBandsGDMConfig
+         * @description Configuration for the SCORE bands based GDM.
+         */
+        SCOREBandsGDMConfig: {
+            score_bands_config?: components["schemas"]["SCOREBandsConfig"];
+            /**
+             * Minimum Votes
+             * @default 1
+             */
+            minimum_votes: number;
+            /** From Iteration */
+            from_iteration: number | null;
+        };
+        /**
+         * SCOREBandsResult
+         * @description Pydantic/JSON model for representing SCORE Bands.
+         */
+        SCOREBandsResult: {
+            /** @description Configuration options used to generate the SCORE bands. */
+            options: components["schemas"]["SCOREBandsConfig"];
+            /**
+             * Ordered Dimensions
+             * @description List of variable/objective names (i.e., column names in the data).
+             *     Ordered according to their placement in the SCORE bands visualization.
+             */
+            ordered_dimensions: string[];
+            /**
+             * Clusters
+             * @description List of cluster IDs (one for each solution) indicating the cluster to which each solution belongs.
+             */
+            clusters: number[];
+            /**
+             * Axis Positions
+             * @description Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first
+             *     objective is at position 0.0, and the last objective is at position 1.0.
+             */
+            axis_positions: {
+                [key: string]: number;
+            };
+            /**
+             * Bands
+             * @description Dictionary mapping cluster IDs to dictionaries of objective names and their corresponding band
+             *     extremes (min, max).
+             */
+            bands: {
+                [key: string]: {
+                    [key: string]: [
+                        number,
+                        number
+                    ];
+                };
+            };
+            /**
+             * Medians
+             * @description Dictionary mapping cluster IDs to dictionaries of objective names and their corresponding median values.
+             */
+            medians: {
+                [key: string]: {
+                    [key: string]: number;
+                };
+            };
+            /**
+             * Cardinalities
+             * @description Dictionary mapping cluster IDs to the number of solutions in each cluster.
+             */
+            cardinalities: {
                 [key: string]: number;
             };
         };
@@ -1541,6 +2943,70 @@ export interface components {
             name?: string | null;
         };
         /**
+         * SolutionReference
+         * @description A full solution reference with objectives and variables.
+         */
+        SolutionReference: {
+            /**
+             * Name
+             * @description Optional name to help identify the solution if, e.g., saved.
+             */
+            name?: string | null;
+            /**
+             * Solution Index
+             * @description The index of the referenced solution, if multiple solutions exist in the reference state.
+             */
+            solution_index?: number | null;
+            /** @description The reference state with the solution information. */
+            state: components["schemas"]["StateDB"];
+            /** State Id */
+            readonly state_id: number;
+            /** Num Solutions */
+            readonly num_solutions: number;
+            /** Objective Values All */
+            readonly objective_values_all: {
+                [key: string]: number;
+            }[];
+            /** Variable Values All */
+            readonly variable_values_all: {
+                [key: string]: number | boolean | components["schemas"]["Tensor"];
+            }[];
+            /** Objective Values */
+            readonly objective_values: {
+                [key: string]: number;
+            } | null;
+            /** Variable Values */
+            readonly variable_values: {
+                [key: string]: number | boolean | components["schemas"]["Tensor"];
+            } | null;
+        };
+        /**
+         * SolutionReferenceLite
+         * @description The same as SolutionReference, but without decision variables for more efficient transport over the internet.
+         */
+        SolutionReferenceLite: {
+            /**
+             * Name
+             * @description Optional name to help identify the solution if, e.g., saved.
+             */
+            name?: string | null;
+            /**
+             * Solution Index
+             * @description The index of the referenced solution, if multiple solutions exist in the reference state.
+             */
+            solution_index?: number | null;
+            /** @description The reference state with the solution information. */
+            state: components["schemas"]["StateDB"];
+            /** State Id */
+            readonly state_id: number;
+            /** Num Solutions */
+            readonly num_solutions: number;
+            /** Objective Values */
+            readonly objective_values: {
+                [key: string]: number;
+            } | null;
+        };
+        /**
          * SolutionReferenceResponse
          * @description The response information provided when `SolutionReference` object are returned from the client.
          */
@@ -1610,6 +3076,45 @@ export interface components {
              * @description Description of the cause of termination.
              */
             message: string;
+        };
+        /**
+         * SolverSelectionMetadata
+         * @description A problem metadata class to store the preferred solver of a problem.
+         *
+         *     A problem metadata class to store the preferred solver of a problem.
+         *     See desdeo/tools/utils.py -> available_solvers for available solvers.
+         */
+        SolverSelectionMetadata: {
+            /** Id */
+            id?: number | null;
+            /** Metadata Id */
+            metadata_id?: number | null;
+            /**
+             * Metadata Type
+             * @default solver_selection_metadata
+             */
+            metadata_type: string;
+            /**
+             * Solver String Representation
+             * @description The string representation of the selected solver.
+             */
+            solver_string_representation: string;
+        };
+        /**
+         * StateDB
+         * @description State holder with a single relationship to the base State.
+         */
+        StateDB: {
+            /** Id */
+            id?: number | null;
+            /** Problem Id */
+            problem_id?: number | null;
+            /** Session Id */
+            session_id?: number | null;
+            /** Parent Id */
+            parent_id?: number | null;
+            /** State Id */
+            state_id?: number | null;
         };
         Tensor: components["schemas"]["Tensor"][] | (number | boolean)[] | number | boolean | "List" | null;
         /**
@@ -1703,8 +3208,8 @@ export interface components {
             /** Id */
             id: number;
             role: components["schemas"]["UserRole"];
-            /** Group */
-            group: string;
+            /** Group Ids */
+            group_ids: number[] | null;
         };
         /**
          * UserRole
@@ -1823,6 +3328,21 @@ export interface components {
          * @enum {string}
          */
         VariableTypeEnum: "real" | "integer" | "binary";
+        /**
+         * VotingPreference
+         * @description A structure for storing voting preferences.
+         */
+        VotingPreference: {
+            /**
+             * Method
+             * @default voting
+             */
+            method: string;
+            /** Set Preferences */
+            set_preferences: {
+                [key: string]: number;
+            };
+        };
     };
     responses: never;
     parameters: never;
@@ -2116,7 +3636,40 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": (components["schemas"]["ForestProblemMetaData"] | components["schemas"]["RepresentativeNonDominatedSolutions"])[];
+                    "application/json": (components["schemas"]["ForestProblemMetaData"] | components["schemas"]["RepresentativeNonDominatedSolutions"] | components["schemas"]["SolverSelectionMetadata"])[];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    select_solver_problem_assign_solver_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProblemSelectSolverRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -2394,6 +3947,72 @@ export interface operations {
             };
         };
     };
+    finalize_nimbus_method_nimbus_finalize_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NIMBUSFinalizeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NIMBUSFinalizeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_save_method_nimbus_delete_save_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NIMBUSDeleteSaveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NIMBUSDeleteSaveResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     solve_intermediate_method_generic_intermediate_post: {
         parameters: {
             query?: never;
@@ -2427,7 +4046,7 @@ export interface operations {
             };
         };
     };
-    calculate_score_bands_method_generic_score_bands_post: {
+    calculate_score_bands_from_objective_data_method_generic_score_bands_obj_data_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -2480,6 +4099,602 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UtopiaResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_group_gdm_create_group_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_group_gdm_delete_group_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupInfoRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_to_group_gdm_add_to_group_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupModifyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_from_group_gdm_remove_from_group_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupModifyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_group_info_gdm_get_group_info_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupInfoRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupPublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    gnimbus_initialize_gnimbus_initialize_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupInfoRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_latest_results_gnimbus_get_latest_results_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupInfoRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GNIMBUSResultResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    full_iteration_gnimbus_all_iterations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupInfoRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GNIMBUSAllIterationsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    switch_phase_gnimbus_toggle_phase_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GNIMBUSSwitchPhaseRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GNIMBUSSwitchPhaseResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_phase_gnimbus_get_phase_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupInfoRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revert_iteration_gnimbus_revert_iteration_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupRevertRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    step_method_enautilus_step_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnautilusStepRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ENautilusState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    vote_for_a_band_gdm_score_bands_vote_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GDMScoreBandsVoteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_vote_gdm_score_bands_confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupInfoRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_or_initialize_gdm_score_bands_get_or_initialize_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GDMScoreBandsInitializationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GDMSCOREBandsHistoryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_votes_and_confirms_gdm_score_bands_get_votes_and_confirms_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupInfoRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revert_gdm_score_bands_revert_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GDMSCOREBandsRevertRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    configure_gdm_gdm_score_bands_configure_post: {
+        parameters: {
+            query: {
+                group_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SCOREBandsGDMConfig"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
