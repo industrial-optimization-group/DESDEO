@@ -195,39 +195,107 @@ def test_new_session(client: TestClient, session_and_user: dict):
 
     assert isession.info == "My session"
 
-
 def test_get_session(client: TestClient, session_and_user: dict):
-    """Test that getting a session works as intended."""
+    """Test that getting a session via GET works as intended."""
     user: User = session_and_user["user"]
 
     access_token = login(client)
 
     # no sessions
-    request = GetSessionRequest(session_id=1)
-    response = post_json(client, "/session/get", request.model_dump(), access_token)
+    response = client.get(
+        "/session/get/1",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
-    # add some sessions
-    request = CreateSessionRequest(info="My session")
+    # add session 1
+    request = CreateSessionRequest(info="Session 1")
     response = post_json(client, "/session/new", request.model_dump(), access_token)
     assert response.status_code == status.HTTP_200_OK
-
     assert user.active_session_id == 1
 
-    request = CreateSessionRequest(info="My session")
+    # add session 2
+    request = CreateSessionRequest(info="Session 2")
     response = post_json(client, "/session/new", request.model_dump(), access_token)
     assert response.status_code == status.HTTP_200_OK
-
     assert user.active_session_id == 2
 
-    # sessions with id 1 and 2 should exist
-    request = GetSessionRequest(session_id=1)
-    response = post_json(client, "/session/get", request.model_dump(), access_token)
+    # fetch session 1
+    response = client.get(
+        "/session/get/1",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
     assert response.status_code == status.HTTP_200_OK
+    assert response.json()["id"] == 1
 
-    request = GetSessionRequest(session_id=2)
-    response = post_json(client, "/session/get", request.model_dump(), access_token)
+    # fetch session 2
+    response = client.get(
+        "/session/get/2",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
     assert response.status_code == status.HTTP_200_OK
+    assert response.json()["id"] == 2
+
+def test_get_all_sessions_success(client: TestClient, session_and_user: dict):
+    """Test getting all sessions when sessions exist."""
+    access_token = login(client)
+
+    # create 2 test sessions
+    post_json(client, "/session/new", {"info": "S1"}, access_token)
+    post_json(client, "/session/new", {"info": "S2"}, access_token)
+
+    response = client.get(
+        "/session/get_all",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) == 2
+
+def test_get_all_sessions_not_found(client: TestClient, session_and_user: dict):
+    """Test get_all returns 404 if user has no sessions."""
+    access_token = login(client)
+
+    response = client.get(
+        "/session/get_all",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+def test_delete_session_success(client: TestClient, session_and_user: dict):
+    """Test deleting an existing session."""
+    access_token = login(client)
+
+    # create session
+    post_json(client, "/session/new", {"info": "To delete"}, access_token)
+
+    response = client.delete(
+        "/session/1",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+
+    # verify it's gone
+    response = client.get(
+        "/session/get/1",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+def test_delete_session_not_found(client: TestClient, session_and_user: dict):
+    """Test deleting a non-existent session returns 404."""
+    access_token = login(client)
+
+    response = client.delete(
+        "/session/999",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_rpm_solve(client: TestClient):

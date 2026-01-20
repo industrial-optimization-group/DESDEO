@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 
-from desdeo.api.db import get_session
+from desdeo.api.db import get_session as get_db_session
 from desdeo.api.models import (
     CreateSessionRequest,
     GetSessionRequest,
@@ -23,7 +23,7 @@ router = APIRouter(prefix="/session")
 def create_new_session(
     request: CreateSessionRequest,
     user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[Session, Depends(get_session)],
+    session: Annotated[Session, Depends(get_db_session)],
 ) -> InteractiveSessionInfo:
     """."""
     interactive_session = InteractiveSessionDB(user_id=user.id, info=request.info)
@@ -45,12 +45,14 @@ def create_new_session(
 def get_session(
     session_id: int,
     user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[Session, Depends(get_session)],
+    session: Annotated[Session, Depends(get_db_session)],
 ) -> InteractiveSessionInfo:
-    """Return an interactive session with a given id for the current user."""
+
+    request = GetSessionRequest(session_id=session_id)
+    """Return an interactive session with a current user."""
     interactive_session = fetch_interactive_session(
-        session_id=session_id,
-        user_id=user.id,
+        user=user,
+        request=request,
         session=session,
     )
     return interactive_session
@@ -58,7 +60,7 @@ def get_session(
 @router.get("/get_all", status_code=status.HTTP_200_OK)
 def get_all_sessions(
     user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[Session, Depends(get_session)],
+    session: Annotated[Session, Depends(get_db_session)],
 ) -> list[InteractiveSessionInfo]:
     """Return all interactive sessions of the current user."""
     statement = select(InteractiveSessionDB).where(
@@ -78,14 +80,16 @@ def get_all_sessions(
 def delete_session(
     session_id: int,
     user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[Session, Depends(get_session)],
+    session: Annotated[Session, Depends(get_db_session)],
 ) -> None:
     """Delete an interactive session and all its related states."""
+    request = GetSessionRequest(session_id=session_id)
+
     interactive_session = fetch_interactive_session(
-        session_id=session_id,
-        user_id=user.id,
+        user=user,
+        request=request,
         session=session,
-    ) # raises 404 if not found
+    )# raises 404 if not found
 
     try:
         session.delete(interactive_session)
