@@ -278,7 +278,7 @@
 					<Resizable.Pane defaultSize={100} minSize={40} class="h-full">
 						<VisualizationsPanel
 							problem={problem_info as any}
-							previousPreferenceValues={selected_point_index != null ? currentReachableBestBounds[selected_point_index] : undefined}
+							previousPreferenceValues={selected_point_index != null ? [currentReachableBestBounds[selected_point_index]] : undefined}
 							currentPreferenceValues={[]}
 							previousPreferenceType={''}
 							currentPreferenceType={''}

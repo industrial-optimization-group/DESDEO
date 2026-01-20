@@ -37,7 +37,9 @@
 		// Prepare objectives table
 		const objectiveSection = [
 			'Objectives', // Title for objectives section
-			problem.objectives.map((obj) => obj.unit ? `${obj.name} / ${obj.unit}` : obj.name).join(','), // Objective names with units
+			problem.objectives
+				.map((obj) => (obj.unit ? `${obj.name} / ${obj.unit}` : obj.name))
+				.join(','), // Objective names with units
 			problem.objectives.map((obj) => solution.objective_values?.[obj.symbol] ?? '').join(',') // Objective values
 		];
 

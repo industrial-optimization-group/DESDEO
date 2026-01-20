@@ -29,11 +29,13 @@
 	import * as Tabs from '$lib/components/ui/tabs';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
+	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 	import { buttonVariants } from '$lib/components/ui/button';
 	import type { components } from '$lib/api/client-types';
 	import { methodSelection } from '../../stores/methodSelection';
 	import { auth } from '../../stores/auth';
 	import { goto } from '$app/navigation';
+	import Play from '@lucide/svelte/icons/play';
 
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 
@@ -93,7 +95,7 @@
 							<Table.Head class="font-semibold">Problem</Table.Head>
 							<Table.Head class="font-semibold">Role of User</Table.Head>
 							<Table.Head class="font-semibold">Members</Table.Head>
-							<Table.Head class="font-semibold">Action</Table.Head>
+							<Table.Head class="font-semibold">Solve</Table.Head>
 						</Table.Row>
 					</Table.Header>
 					<Table.Body>
@@ -114,20 +116,31 @@
 								<Table.Cell class="text-justify">{getUserRole(group, $auth?.user?.id)}</Table.Cell>
 								<Table.Cell class="text-justify">{group.user_ids.length} members</Table.Cell>
 								<Table.Cell>
-									<button
-										class={buttonVariants({ variant: 'outline' })}
-										onclick={async (e) => {
-											e.stopPropagation(); // Prevent row click
-											selectedGroup = group;
-											selectedProblem = problem;
-											if (problem) {
-												methodSelection.set(problem.id ?? null, $methodSelection.selectedMethod);
-											}
-											await goto(`/interactive_methods/GNIMBUS?group=${group.id}`);
-										}}
-									>
-										Open in Group NIMBUS
-									</button>
+									<Tooltip.Provider>
+										<Tooltip.Root>
+											<Tooltip.Trigger
+												class={buttonVariants({
+													variant: 'outline',
+													size: 'icon',
+													class: 'text-secondary-foreground flex h-8 w-8 cursor-pointer p-0'
+												})}
+												onclick={async (e) => {
+													e.stopPropagation(); // Prevent row click
+													selectedGroup = group;
+													selectedProblem = problem;
+													if (problem) {
+														methodSelection.set(problem.id ?? null, $methodSelection.selectedMethod);
+													}
+													await goto(`/methods/initialize?group=${group.id}`);
+												}}
+											>
+												<Play />
+											</Tooltip.Trigger>
+											<Tooltip.Content>
+												<p>Choose method for group</p>
+											</Tooltip.Content>
+										</Tooltip.Root>
+									</Tooltip.Provider>
 								</Table.Cell>
 							</Table.Row>
 						{/each}

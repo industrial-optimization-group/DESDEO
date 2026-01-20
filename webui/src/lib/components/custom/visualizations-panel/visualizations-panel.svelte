@@ -3,9 +3,9 @@
 	 * Visualizations Panel Component
 	 *
 	 * @author Giomara Larraga <glarragw@jyu.fi>
-	 * @author Stina Palomäki <palomakistina@gmail.com> (Enhancements)
+	 * @author Stina Palomäki <palomakistina@gmail.com> (Enhancements & GNIMBUS support)
 	 * @created July 2025
-	 * @updated August 2025
+	 * @updated November 2025
 	 *
 	 * @description
 	 * A versatile visualization panel for multi-objective optimization solutions in DESDEO.
@@ -22,11 +22,12 @@
 	 *
 	 * @props
 	 * @property {ProblemInfo | null} problem - The optimization problem definition
-	 * @property {number[]} previousPreferenceValues - Previous iteration's preference values
+	 * @property {number[][]} [previousPreferenceValues] - Previous iteration's preference values
 	 * @property {string} previousPreferenceType - Type of previous preference (e.g., 'reference_point')
-	 * @property {number[]} currentPreferenceValues - Current iteration's preference values
+	 * @property {number[]} [currentPreferenceValues] - Current iteration's preference values
 	 * @property {string} currentPreferenceType - Type of current preference
 	 * @property {number[][]} [previousObjectiveValues] - Previous objective values for comparison
+	 * @property {number[][]} [otherObjectiveValues] - Additional objective values (e.g., other users' solutions)
 	 * @property {number[][]} [solutionsObjectiveValues] - Array of objective values for each solution
 	 * @property {number[][]} [solutionsDecisionValues] - Array of decision variable values for each solution
 	 * @property {function} [onSelectSolution] - Callback when user selects a solution
@@ -36,18 +37,24 @@
 	 * @property {{ currentRefLabel?: string, previousRefLabel?: string, previousSolutionLabels?: string[], otherSolutionLabels?: string[] }} [referenceDataLabels] - Labels for reference points and solutions
 	 *
 	 * @features
-	 * - Visualization type selector (Parallel Coordinates/Bar Chart toggle)
+	 * - Visualization type selector (Parallel Coordinates/Bar Chart toggle), hidden until Bar Chart is implemented
 	 * - Dynamic resizing to fit container
 	 * - Solution selection with parent component synchronization
 	 * - Reference point visualization
 	 * - Previous solution comparison
 	 * - Empty state handling
 	 * - Interactive tooltips with customizable labels for solutions and reference points
-	 *
+	 * 
 	 * @dependencies
-	 * - ParallelCoordinates component for the parallel coordinates visualization
-	 * - SegmentedControl for the visualization type selector
-	 * - Helper functions for data transformation
+	 * - ParallelCoordinates component for the core visualization
+	 * - SegmentedControl for visualization type selection (prepared for future bar charts)
+	 * - Helper functions for data transformation and reference data creation
+	 * - ResizeObserver for responsive container monitoring
+	 *
+	 * @responsive_design
+	 * - Automatically adjusts visualization height based on container size
+	 * - Reserves space for controls and maintains usable visualization area
+	 * - Handles container resize events for optimal display
 	 */
 
 	import type { components } from '$lib/api/client-types';
@@ -68,7 +75,7 @@
 	 *
 	 * @interface Props
 	 * @property {ProblemInfo | null} problem - The optimization problem definition including objectives, variables, and constraints
-	 * @property {number[]} previous_preference_values - Previous iteration's preference values for comparison
+	 * @property {number[][]} previous_preference_values - Previous iteration's preference values for comparison
 	 * @property {string} previous_preference_type - Type of previous preference (reference_point, preferred_solution, etc.)
 	 * @property {number[]} currentPreferenceValues - Current iteration's preference values
 	 * @property {string} currentPreferenceType - Type of current preference
@@ -80,7 +87,7 @@
 	 */
 	interface Props {
 		problem: ProblemInfo | null;
-		previousPreferenceValues?: number[];
+		previousPreferenceValues?: number[][];
 		previousObjectiveValues?: number[][];
 		otherObjectiveValues?: number[][]; // New prop for additional objective values
 		currentPreferenceValues?: number[];
@@ -169,7 +176,7 @@
 		showAxisLabels: true,
 		highlightOnHover: true,
 		strokeWidth: 2,
-		opacity: 0.4,
+		opacity: 1,
 		enableBrushing: false
 	};
 
@@ -234,7 +241,7 @@
 	{#if solutionsObjectiveValues.length > 0}
 		<!-- Visualization Type Selector -->
 		<div class="mb-2 flex items-center justify-between">
-			<h3 class="text-sm font-medium">Visualization</h3>
+			<h3>Visualization</h3>
 			<SegmentedControl
 				bind:value={visualizationType}
 				options={[

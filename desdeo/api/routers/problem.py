@@ -1,10 +1,10 @@
 """Defines end-points to access and manage problems."""
 
+import json
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, status
 from fastapi.responses import JSONResponse
-import json
 from sqlmodel import Session, select
 
 from desdeo.api.db import get_session
@@ -237,9 +237,7 @@ def get_metadata(
 
 @router.get("/assign/solver", response_model=list[str])
 def get_available_solvers() -> list[str]:
-    """
-    Return the list of available solver names.
-    """
+    """Return the list of available solver names."""
     return list(available_solvers.keys())
 
 @router.post("/assign_solver")

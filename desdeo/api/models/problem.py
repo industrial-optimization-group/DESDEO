@@ -28,6 +28,8 @@ from desdeo.problem.schema import (
     VariableType,
 )
 
+from desdeo.tools.utils import available_solvers
+
 if TYPE_CHECKING:
     from .archive import UserSavedSolutionDB
     from .preference import PreferenceDB
@@ -58,8 +60,12 @@ class ProblemGetRequest(SQLModel):
 class ProblemSelectSolverRequest(SQLModel):
     """Model to request a specific solver for a problem."""
 
-    problem_id: int
-    solver_string_representation: str
+    problem_id: int = Field(
+        description="ID of the problem that the solver is assigned to."
+    )
+    solver_string_representation: str = Field(
+        description=f"One of the following: {[x for x, _ in available_solvers.items()]}"
+    )
 
 
 class ProblemAddFromJSONRequest(SQLModel):

@@ -8,17 +8,19 @@
 	 * @description
 	 * This component provides a toolbar for the NIMBUS solution table.
 	 * It includes:
-	 *   - Input for filtering solutions by name.
+	 *   - Input for filtering solutions by column.
 	 *   - Reset button to clear all filters (visible when filters are active).
 	 *
 	 * @prop {Table<TData>} table - TanStack Table instance, passed via $props in Svelte Runes mode.
+	 * @prop {string} filterColumn - Column accessor key to filter on
+	 * @prop {string} placeholder - Placeholder text for the filter input
 	 * 
 	 * @features
-	 * - Provides search functionality for finding solutions by name
+	 * - Provides search functionality for filtering solutions by specified column
 	 * - Shows/hides reset button based on filter state
 	 *
 	 * @usage
-	 * <SolutionTableToolbar table={table} />
+	 * <SolutionTableToolbar table={table} filterColumn="name" placeholder="Filter solutions by name..." />
 	 * 
 	 * @dependencies
 	 * - @tanstack/table-core for table logic
@@ -31,7 +33,15 @@
 	import Button from '$lib/components/ui/button/button.svelte';
 	import { Input } from '$lib/components/ui/input/index.js';
 
-	let { table }: { table: Table<TData> } = $props();
+	let { 
+		table,
+		filterColumn = 'name',
+		placeholder = 'Filter solutions by name...'
+	}: { 
+		table: Table<TData>;
+		filterColumn?: string;
+		placeholder?: string;
+	} = $props();
 
 	const isFiltered = $derived(table.getState().columnFilters.length > 0);
 </script>
@@ -39,13 +49,13 @@
 <div class="flex items-center justify-between">
 	<div class="flex flex-1 items-center space-x-2">
 		<Input
-			placeholder="Filter solutions by name..."
-			value={(table.getColumn('name')?.getFilterValue() as string) ?? ''}
+			placeholder={placeholder}
+			value={(table.getColumn(filterColumn)?.getFilterValue() as string) ?? ''}
 			oninput={(e) => {
-				table.getColumn('name')?.setFilterValue(e.currentTarget.value);
+				table.getColumn(filterColumn)?.setFilterValue(e.currentTarget.value);
 			}}
 			onchange={(e) => {
-				table.getColumn('name')?.setFilterValue(e.currentTarget.value);
+				table.getColumn(filterColumn)?.setFilterValue(e.currentTarget.value);
 			}}
 			class="h-8 w-[150px] lg:w-[250px]"
 		/>
