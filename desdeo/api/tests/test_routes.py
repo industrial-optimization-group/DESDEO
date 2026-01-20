@@ -922,18 +922,6 @@ def test_get_available_solvers(client: TestClient):
     # Check that the returned solver names match the available solvers
     assert set(data) == set(available_solvers.keys())
 
-def test_get_available_solvers(client: TestClient):
-    """Test that available solvers can be fetched."""
-    response = client.get("/problem/assign/solver")
-
-    assert response.status_code == 200
-
-    data = response.json()
-    assert isinstance(data, list)
-
-    # Check that the returned solver names match the available solvers
-    assert set(data) == set(available_solvers.keys())
-
 
 def test_emo_solve_with_reference_point(client: TestClient):
     """Test that using EMO with reference point works as expected."""
