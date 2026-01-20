@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 
-from desdeo.api.db import get_session
+from desdeo.api.db import get_session as get_db_session
 from desdeo.api.models import (
     CreateSessionRequest,
     GetSessionRequest,
@@ -14,6 +14,7 @@ from desdeo.api.models import (
     User,
 )
 from desdeo.api.routers.user_authentication import get_current_user
+from desdeo.api.routers.utils import fetch_interactive_session
 
 router = APIRouter(prefix="/session")
 
@@ -22,7 +23,7 @@ router = APIRouter(prefix="/session")
 def create_new_session(
     request: CreateSessionRequest,
     user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[Session, Depends(get_session)],
+    session: Annotated[Session, Depends(get_db_session)],
 ) -> InteractiveSessionInfo:
     """."""
     interactive_session = InteractiveSessionDB(user_id=user.id, info=request.info)
@@ -40,37 +41,62 @@ def create_new_session(
     return interactive_session
 
 
-@router.post("/get")
+@router.get("/get/{session_id}")
 def get_session(
-    request: GetSessionRequest,
+    session_id: int,
     user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[Session, Depends(get_session)],
+    session: Annotated[Session, Depends(get_db_session)],
 ) -> InteractiveSessionInfo:
-    """Return an interactive session with a given id for the current user.
 
-    Args:
-        request (GetSessionRequest): a request containing the id of the session.
-        user (Annotated[User, Depends): the current user.
-        session (Annotated[Session, Depends): the database session.
-
-    Raises:
-        HTTPException: could not find an interactive session with the given id
-            for the current user.
-
-    Returns:
-        InteractiveSessionInfo: info on the requested interactive session.
-    """
-    statement = select(InteractiveSessionDB).where(
-        InteractiveSessionDB.id == request.session_id, InteractiveSessionDB.user_id == user.id
+    request = GetSessionRequest(session_id=session_id)
+    """Return an interactive session with a current user."""
+    interactive_session = fetch_interactive_session(
+        user=user,
+        request=request,
+        session=session,
     )
-    result = session.exec(statement)
+    return interactive_session
 
-    interactive_session = result.first()
+@router.get("/get_all", status_code=status.HTTP_200_OK)
+def get_all_sessions(
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_db_session)],
+) -> list[InteractiveSessionInfo]:
+    """Return all interactive sessions of the current user."""
+    statement = select(InteractiveSessionDB).where(
+        InteractiveSessionDB.user_id == user.id
+    )
+    result = session.exec(statement).all()
 
-    if interactive_session is None:
+    if not result:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Could not find interactive session with id={request.session_id}.",
+            detail="No interactive sessions found for the user.",
         )
 
-    return interactive_session
+    return result
+
+@router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_session(
+    session_id: int,
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_db_session)],
+) -> None:
+    """Delete an interactive session and all its related states."""
+    request = GetSessionRequest(session_id=session_id)
+
+    interactive_session = fetch_interactive_session(
+        user=user,
+        request=request,
+        session=session,
+    )# raises 404 if not found
+
+    try:
+        session.delete(interactive_session)
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete interactive session.",
+        )

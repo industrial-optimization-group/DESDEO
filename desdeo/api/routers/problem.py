@@ -240,7 +240,6 @@ def get_available_solvers() -> list[str]:
     """Return the list of available solver names."""
     return list(available_solvers.keys())
 
-
 @router.post("/assign_solver")
 def select_solver(
     request: ProblemSelectSolverRequest,
