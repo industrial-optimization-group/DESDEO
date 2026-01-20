@@ -1627,33 +1627,6 @@ class Problem(BaseModel):
 
         return cls.model_validate_json(json_data, by_name=True)
 
-    @model_validator(mode="after")
-    @classmethod
-    def set_is_twice_differentiable(cls, values):
-        """If "is_twice_differentiable" is explicitly provided to the model, we set it to that value."""
-        if "is_twice_differentiable" in values and values["is_twice_differentiable"] is not None:
-            values["is_twice_differentiable_"] = values["is_twice_differentiable"]
-
-        return values
-
-    @model_validator(mode="after")
-    @classmethod
-    def set_is_linear(cls, values):
-        """If "is_linear" is explicitly provided to the model, we set it to that value."""
-        if "is_linear" in values and values["is_linear"] is not None:
-            values["is_linear_"] = values["is_linear"]
-
-        return values
-
-    @model_validator(mode="after")
-    @classmethod
-    def set_is_convex(cls, values):
-        """If "is_convex" is explicitly provided to the model, we set it to that value."""
-        if "is_convex" in values and values["is_convex"] is not None:
-            values["is_convex_"] = values["is_convex"]
-
-        return values
-
     name: str = Field(
         description="Name of the problem.",
     )
