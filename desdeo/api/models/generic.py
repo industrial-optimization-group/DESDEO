@@ -4,14 +4,15 @@ from pydantic import ConfigDict
 from sqlmodel import JSON, Column, Field, SQLModel
 
 from desdeo.tools.score_bands import SCOREBandsConfig, SCOREBandsResult
+
 from .generic_states import SolutionReferenceResponse
 
 
 class SolutionInfo(SQLModel):
     """Used when we wish to reference a solution in some `StateDB` stored in the database."""
 
-    state_id: int
-    solution_index: int
+    state_id: int = Field(description="State of the desired solution.")
+    solution_index: int = Field(description="Index of the desired solution.")
     name: str | None = Field(description="Name to be given to the solution. Optional.", default=None)
 
 
@@ -63,6 +64,7 @@ class ScoreBandsRequest(SQLModel):
     clustering_algorithm: str = Field(default="DBSCAN", description="Clustering algorithm (DBSCAN or GMM)")
     clustering_score: str = Field(default="silhoutte", description="Clustering score metric")
 
+
 class ScoreBandsResponse(SQLModel):
     """Model of the response containing SCORE bands parameters."""
 
@@ -74,6 +76,7 @@ class ScoreBandsResponse(SQLModel):
 
 class GroupScoreRequest(SQLModel):
     """A generic model for requesting SCORE Bands for a state."""
+
     model_config = ConfigDict(use_attribute_docstrings=True)
 
     problem_id: int
@@ -88,6 +91,7 @@ class GroupScoreRequest(SQLModel):
 
     solution_ids: list[int] = Field()
     """List of solution IDs to score."""
+
 
 class GroupScoreResponse(SQLModel):
     """Model of the response to an EMO score request."""

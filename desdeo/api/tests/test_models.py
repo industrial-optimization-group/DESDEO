@@ -1115,7 +1115,11 @@ def test_nimbus_models(session_and_user: dict[str, Session | list[User]]):
 
     # 3. (TODO) Save a found solution (NIMBUSSaveState)
     # 4. Finalize the NIMBUS process (NIMBUSFinalState)
-    nimbus_final_state = NIMBUSFinalState(solver_results=results_2[0], reference_point=aspirations)
+    nimbus_final_state = NIMBUSFinalState(
+        solution_origin_state_id=state_2.state.id,
+        solution_result_index=0,
+        solver_results=results_2[0]
+    )
 
     state_3 = StateDB.create(
         database_session=session, problem_id=problem_db.id, session_id=isession.id, state=nimbus_final_state
@@ -1128,11 +1132,13 @@ def test_nimbus_models(session_and_user: dict[str, Session | list[User]]):
     actual_state_3: NIMBUSFinalState = state_3.state
     assert type(actual_state_3) is NIMBUSFinalState
     assert np.allclose(
-        [x for _, x in actual_state_3.reference_point.items()], [x for _, x in aspirations.items()], 0.001
-    )
-    assert np.allclose(
         [x for _, x in actual_state_3.solver_results.optimal_objectives.items()],
         [x for _, x in results_2[0].optimal_objectives.items()],
+        0.01,
+    )
+    assert np.allclose(
+        [x for _, x in actual_state_3.solver_results.optimal_variables.items()],
+        [x for _, x in results_2[0].optimal_variables.items()],
         0.01,
     )
 

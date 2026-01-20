@@ -15,7 +15,7 @@
  * initial client-side validation, such as checking for the presence of a problem context.
  */
 import type { ProblemInfo, Solution } from '$lib/types';
-import type { Response } from './types';
+import type { Response, ReferencePoint, FinishResponse } from './types';
 import { callNimbusAPI } from './helper-functions';
 import { errorMessage } from '../../../stores/uiState';
 
@@ -149,8 +149,8 @@ export async function handle_remove_saved(
 	}
 
 	const result = await callNimbusAPI<RemoveResponse>('remove_saved', {
-		problem_id: problem.id,
-		solutions: [solution]
+		state_id: solution.state_id,
+		solution_index: solution.solution_index
 	});
 
 	return result !== null;
@@ -164,7 +164,8 @@ export async function handle_remove_saved(
  */
 export async function handle_finish(
 	problem: ProblemInfo | null,
-	solution: Solution
+	solution: Solution,
+	preferences: ReferencePoint
 ): Promise<boolean> {
 	if (!problem) {
 		errorMessage.set('No problem selected');
@@ -172,13 +173,10 @@ export async function handle_finish(
 		return false;
 	}
 
-	interface FinishResponse {
-		success: boolean;
-	}
-
 	const result = await callNimbusAPI<FinishResponse>('choose', {
 		problem_id: problem.id,
-		solution: solution
+		solution_info: solution,
+		preferences: preferences
 	});
 
 	return result !== null;
