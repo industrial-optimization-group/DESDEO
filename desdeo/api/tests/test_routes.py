@@ -1,6 +1,7 @@
 """Tests related to routes and routers."""
 
 import json
+import time
 
 from fastapi import status
 from fastapi.testclient import TestClient
@@ -835,6 +836,7 @@ def test_preferred_solver(client: TestClient):
         print("^ This outcome is expected since pyomo_cbc doesn't support nonlinear problems.")
         print("  As that solver is what we set it to be in the start, we can verify that they actually get used.")
 
+
 def test_get_available_solvers(client: TestClient):
     """Test that available solvers can be fetched."""
     response = client.get("/problem/assign/solver")
@@ -847,6 +849,7 @@ def test_get_available_solvers(client: TestClient):
     # Check that the returned solver names match the available solvers
     assert set(data) == set(available_solvers.keys())
 
+
 def test_emo_solve_with_reference_point(client: TestClient):
     """Test that using EMO with reference point works as expected."""
     return
@@ -858,8 +861,6 @@ def test_emo_solve_with_reference_point(client: TestClient):
         preference_options=ReferencePointOptions(preference={"f_1": 0.5, "f_2": 0.3, "f_3": 0.4}, method="Hakanen"),
     )
 
-    print("Request Data:", request.model_dump())
-
     response = post_json(client, "/method/emo/iterate", request.model_dump(), access_token)
 
     assert response.status_code == status.HTTP_200_OK
@@ -868,20 +869,16 @@ def test_emo_solve_with_reference_point(client: TestClient):
     emo_response = EMOIterateResponse.model_validate(response.json())
     assert emo_response.client_id is not None
     state_id = emo_response.state_id
-    print(emo_response)
-    import time
 
     initial_time = time.time()
     with client.websocket_connect(f"/method/emo/ws/{emo_response.client_id}") as websocket:
         while time.time() - initial_time < 10:
             message = websocket.receive_json()
-            print("WebSocket Message:", message)
             if message.get("message") == f"Finished {emo_response.method_ids[0]}":
                 break
     # Fetch the state to verify it worked
     fetch_request = EMOFetchRequest(problem_id=1, parent_state_id=state_id)
     response = post_json(client, "/method/emo/fetch", fetch_request.model_dump(), access_token)
-    print(response.json())
 
 
 def test_get_problem_metadata(client: TestClient):
