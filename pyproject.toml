@@ -270,6 +270,10 @@ filterwarnings = [
 	"default::RuntimeWarning",
 	"default::UserWarning",
 ]
+testpaths = [
+    "tests",
+    "desdeo/api/tests",
+]
 
 [build-system]
 requires = ["poetry-core"]

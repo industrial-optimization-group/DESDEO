@@ -30,9 +30,9 @@ from desdeo.api.models import (
     Group,
     User,
 )
-from desdeo.api.routers.gdm.gdm_base import GroupManager, ManagerError
-from desdeo.api.routers.gdm.gnimbus.gnimbus_manager import GNIMBUSManager
+from desdeo.api.routers.gdm.gdm_base import GroupManager
 from desdeo.api.routers.gdm.gdm_score_bands.gdm_score_bands_manager import GDMScoreBandsManager
+from desdeo.api.routers.gdm.gnimbus.gnimbus_manager import GNIMBUSManager
 from desdeo.api.routers.user_authentication import get_user
 
 logging.basicConfig(
@@ -57,15 +57,14 @@ class ManagerManager:
         self.lock = asyncio.Lock()
 
     async def get_group_manager(
-        self,
-        group_id: int,
-        method: str
+        self, group_id: int, method: str, db_session: Session
     ) -> GroupManager | GNIMBUSManager | GDMScoreBandsManager | None:
         """Return the correct group manager for the caller.
 
         Args:
             group_id (int): The ID of the group of the mgr
             method (str): The method of the group mgr
+            db_session (Session): the database session passed to the manager.
 
         Returns:
             GroupManager | GNIMBUSManager | GDMScoreBandsManager | None: The manager (or not if not implemented.)
@@ -78,25 +77,24 @@ class ManagerManager:
                 # If there is no manager, create it.
                 match method:
                     case "gnimbus":
-                        manager = GNIMBUSManager(group_id=group_id)
+                        manager = GNIMBUSManager(group_id=group_id, db_session=db_session)
                         self.group_managers[group_id][method] = manager
                         return manager
                     case "gdm-score-bands":
-                        manager = GDMScoreBandsManager(group_id=group_id)
+                        manager = GDMScoreBandsManager(group_id=group_id, db_session=db_session)
                         self.group_managers[group_id][method] = manager
                         return manager
             else:
                 self.group_managers[group_id] = {}
                 match method:
                     case "gnimbus":
-                        manager = GNIMBUSManager(group_id=group_id)
+                        manager = GNIMBUSManager(group_id=group_id, db_session=db_session)
                         self.group_managers[group_id][method] = manager
                         return manager
                     case "gdm-score-bands":
-                        manager = GDMScoreBandsManager(group_id=group_id)
+                        manager = GDMScoreBandsManager(group_id=group_id, db_session=db_session)
                         self.group_managers[group_id][method] = manager
                         return manager
-
 
     async def check_disconnect(self, group_id: int, method: str):
         """Checks if a group manager has active connections. If no, delete it.

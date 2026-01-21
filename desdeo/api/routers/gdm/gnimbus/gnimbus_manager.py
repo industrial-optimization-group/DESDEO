@@ -3,7 +3,6 @@
 import copy
 import json
 import logging
-import math
 import sys
 from typing import Any
 
@@ -11,7 +10,6 @@ import numpy as np
 from pydantic import ValidationError
 from sqlmodel import Session, select
 
-from desdeo.api.db import get_session
 from desdeo.api.models import (
     BaseGroupInfoContainer,
     EndProcessPreference,
@@ -37,10 +35,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def compare_values(
-    a: int | float | list[float],
-    b: int | float | list[float]
-) -> bool:
+
+def compare_values(a: int | float | list[float], b: int | float | list[float]) -> bool:
     """Compare two variables.
 
     Args:
@@ -66,10 +62,9 @@ def compare_values(
 
     return False
 
+
 def compare_value_lists(
-    a: list[int | float | list[float]],
-    b: list[int | float | list[float]],
-    variable_keys: list[str]
+    a: list[int | float | list[float]], b: list[int | float | list[float]], variable_keys: list[str]
 ) -> bool:
     """Compare two lists of above possible types together.
 
@@ -91,6 +86,7 @@ def compare_value_lists(
 
     return equal_values
 
+
 def filter_duplicates_with_variables(results: list[SolverResults]) -> list[SolverResults]:
     """Filters duplicate solutions bu comparing variables.
 
@@ -108,8 +104,8 @@ def filter_duplicates_with_variables(results: list[SolverResults]) -> list[Solve
     variable_values_list = [res.optimal_variables for res in results]
     # Get variable symbols
     variable_keys = list(variable_values_list[0])
-    if '_alpha' in variable_keys:
-        variable_keys.remove('_alpha')
+    if "_alpha" in variable_keys:
+        variable_keys.remove("_alpha")
     # Get the corresponding values for functions into a list of lists of values
     valuelists = [[dictionary[key] for key in variable_keys] for dictionary in variable_values_list]
     duplicate_indices = []
@@ -127,6 +123,7 @@ def filter_duplicates_with_variables(results: list[SolverResults]) -> list[Solve
             new_solutions.append(results[i])
 
     return new_solutions
+
 
 def filter_duplicates_with_objectives(results: list[SolverResults]) -> list[SolverResults]:
     """Filters away duplicate solutions by comparing all objective values.
@@ -230,11 +227,7 @@ class GNIMBUSManager(GroupManager):
         """
 
         new_state = StateDB.create(
-            database_session=session,
-            problem_id=problem_db.id,
-            session_id=None,
-            parent_id=None,
-            state=optim_state
+            database_session=session, problem_id=problem_db.id, session_id=None, parent_id=None, state=optim_state
         )
 
         session.add(new_state)
@@ -297,8 +290,11 @@ class GNIMBUSManager(GroupManager):
             await self.send_message("ERROR: Unable to validate sent data as reference point!", self.sockets[user_id])
             return None
         except json.decoder.JSONDecodeError:
-            await self.send_message("ERROR: Unable to decode data; make \
-                                    sure it is formatted properly.", self.sockets[user_id])
+            await self.send_message(
+                "ERROR: Unable to decode data; make \
+                                    sure it is formatted properly.",
+                self.sockets[user_id],
+            )
             return None
         except KeyError:
             await self.send_message(
@@ -368,12 +364,12 @@ class GNIMBUSManager(GroupManager):
 
         except ScalarizationError as e:
             await self.broadcast(f"ERROR: Error while scalarizing: {e}")
-            logger.exception(f"ERROR: {e}")
+            logger.exception("Found an error while scalarizing.")
             return None
 
         except Exception as e:
             await self.broadcast(f"ERROR: An error occured while optimizing: {e}")
-            logger.exception(f"ERROR: {e}")
+            logger.exception("Found an error when scalarizing.")
             return None
 
         # All good, attach results to state and attach that to iteration.
@@ -400,7 +396,7 @@ class GNIMBUSManager(GroupManager):
         current_iteration: GroupIteration,
         problem_db: ProblemDB,
     ) -> OptimizationPreference | None:
-        """ Handles the voting path of GNIMBUS.
+        """Handles the voting path of GNIMBUS.
 
         Very similar to above "optimization" phase, but instead we validate data as voting index.
         Also returns an "OptimizationPreference" item, to which we attach reference points.
@@ -422,8 +418,7 @@ class GNIMBUSManager(GroupManager):
             preference = int(data)
             if preference > 3 or preference < 0:  # noqa: PLR2004
                 await self.send_message(
-                    "ERROR: Voting index out of bounds! Can only vote for 0 to 3.",
-                    self.sockets[user_id]
+                    "ERROR: Voting index out of bounds! Can only vote for 0 to 3.", self.sockets[user_id]
                 )
                 return None
         except Exception as e:
@@ -569,11 +564,7 @@ class GNIMBUSManager(GroupManager):
             set_preferences={},
         )
 
-    async def run_method(
-        self,
-        user_id: int,
-        data: str,
-    ):
+    async def run_method(self, user_id: int, data: str, db_session: Session):
         """The method function.
 
         Here, the preferences are set (and updated to database). If all preferences are set, optimize and
@@ -609,23 +600,23 @@ class GNIMBUSManager(GroupManager):
         """
         async with self.lock:
             # Fetch the current iteration
-            session = next(get_session())
-            group = session.exec(select(Group).where(Group.id == self.group_id)).first()
+            group = db_session.exec(select(Group).where(Group.id == self.group_id)).first()
             if group is None:
                 await self.broadcast(f"ERROR: The group with ID {self.group_id} doesn't exist anymore.")
-                session.close()
+                db_session.close()
                 return
 
-            current_iteration = session.exec(select(GroupIteration)
-                                          .where(GroupIteration.id == group.head_iteration_id)).first()
+            current_iteration = db_session.exec(
+                select(GroupIteration).where(GroupIteration.id == group.head_iteration_id)
+            ).first()
             if current_iteration is None:
                 await self.broadcast("ERROR: Problem not initialized! Initialize the problem!")
-                session.close()
+                db_session.close()
                 return
 
             # logger.info(f"Current iteration ID: {current_iteration.id}")
 
-            problem_db: ProblemDB = session.exec(select(ProblemDB).where(ProblemDB.id == group.problem_id)).first()
+            problem_db: ProblemDB = db_session.exec(select(ProblemDB).where(ProblemDB.id == group.problem_id)).first()
             # This shouldn't be a problem at this point anymore, but
             if problem_db is None:
                 await self.broadcast(f"ERROR: There's no problem with ID {group.problem_id}!")
@@ -639,7 +630,7 @@ class GNIMBUSManager(GroupManager):
                     new_preferences = await self.optimization(
                         user_id=user_id,
                         data=data,
-                        session=session,
+                        session=db_session,
                         group=group,
                         current_iteration=current_iteration,
                         problem_db=problem_db,
@@ -650,7 +641,7 @@ class GNIMBUSManager(GroupManager):
                     new_preferences = await self.voting(
                         user_id=user_id,
                         data=data,
-                        session=session,
+                        session=db_session,
                         group=group,
                         current_iteration=current_iteration,
                         problem_db=problem_db,
@@ -661,7 +652,7 @@ class GNIMBUSManager(GroupManager):
                     new_preferences = await self.ending(
                         user_id=user_id,
                         data=data,
-                        session=session,
+                        session=db_session,
                         group=group,
                         current_iteration=current_iteration,
                         problem_db=problem_db,
@@ -673,7 +664,7 @@ class GNIMBUSManager(GroupManager):
                     return
 
             if new_preferences is None:
-                session.close()
+                db_session.close()
                 return
 
             # If everything has gone according to keikaku (keikaku means plan), create the next iteration.
@@ -686,22 +677,22 @@ class GNIMBUSManager(GroupManager):
                 parent=current_iteration,  # two connections to parents?
             )
 
-            session.add(next_iteration)
-            session.commit()
-            session.refresh(next_iteration)
+            db_session.add(next_iteration)
+            db_session.commit()
+            db_session.refresh(next_iteration)
 
             # Update new parent iteration
             children = current_iteration.children.copy()
             children.append(next_iteration)
             current_iteration.children = children
             current_iteration.group_id = self.group_id
-            session.add(current_iteration)
-            session.commit()
+            db_session.add(current_iteration)
+            db_session.commit()
 
             # Update head of the group
             group.head_iteration_id = next_iteration.id
-            session.add(group)
-            session.commit()
+            db_session.add(group)
+            db_session.commit()
 
             # Close the session
-            session.close()
+            db_session.close()
