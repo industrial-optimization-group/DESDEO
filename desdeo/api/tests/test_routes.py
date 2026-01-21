@@ -16,7 +16,6 @@ from desdeo.api.models import (
     GDMScoreBandsInitializationRequest,
     GDMScoreBandsVoteRequest,
     GenericIntermediateSolutionResponse,
-    GetSessionRequest,
     GroupCreateRequest,
     GroupInfoRequest,
     GroupModifyRequest,
@@ -51,7 +50,6 @@ from desdeo.emo.options.templates import ReferencePointOptions
 from desdeo.gdm.score_bands import SCOREBandsGDMConfig
 from desdeo.problem import Problem
 from desdeo.problem.testproblems import dtlz2, simple_knapsack_vectors
-
 from desdeo.tools.score_bands import KMeansOptions, SCOREBandsConfig
 from desdeo.tools.utils import available_solvers
 
@@ -202,6 +200,7 @@ def test_new_session(client: TestClient, session_and_user: dict):
 
     assert isession.info == "My session"
 
+
 def test_get_session(client: TestClient, session_and_user: dict):
     """Test that getting a session via GET works as intended."""
     user: User = session_and_user["user"]
@@ -243,6 +242,7 @@ def test_get_session(client: TestClient, session_and_user: dict):
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["id"] == 2
 
+
 def test_get_all_sessions_success(client: TestClient, session_and_user: dict):
     """Test getting all sessions when sessions exist."""
     access_token = login(client)
@@ -261,6 +261,7 @@ def test_get_all_sessions_success(client: TestClient, session_and_user: dict):
     assert isinstance(data, list)
     assert len(data) == 2
 
+
 def test_get_all_sessions_not_found(client: TestClient, session_and_user: dict):
     """Test get_all returns 404 if user has no sessions."""
     access_token = login(client)
@@ -271,6 +272,7 @@ def test_get_all_sessions_not_found(client: TestClient, session_and_user: dict):
     )
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
+
 
 def test_delete_session_success(client: TestClient, session_and_user: dict):
     """Test deleting an existing session."""
@@ -292,6 +294,7 @@ def test_delete_session_success(client: TestClient, session_and_user: dict):
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
+
 
 def test_delete_session_not_found(client: TestClient, session_and_user: dict):
     """Test deleting a non-existent session returns 404."""
@@ -909,6 +912,7 @@ def test_preferred_solver(client: TestClient):
         print(e)
         print("^ This outcome is expected since pyomo_cbc doesn't support nonlinear problems.")
         print("  As that solver is what we set it to be in the start, we can verify that they actually get used.")
+
 
 def test_get_available_solvers(client: TestClient):
     """Test that available solvers can be fetched."""

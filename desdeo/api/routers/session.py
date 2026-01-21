@@ -47,15 +47,14 @@ def get_session(
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> InteractiveSessionInfo:
-
-    request = GetSessionRequest(session_id=session_id)
     """Return an interactive session with a current user."""
-    interactive_session = fetch_interactive_session(
+    request = GetSessionRequest(session_id=session_id)
+    return fetch_interactive_session(
         user=user,
         request=request,
         session=session,
     )
-    return interactive_session
+
 
 @router.get("/get_all", status_code=status.HTTP_200_OK)
 def get_all_sessions(
@@ -63,9 +62,7 @@ def get_all_sessions(
     session: Annotated[Session, Depends(get_db_session)],
 ) -> list[InteractiveSessionInfo]:
     """Return all interactive sessions of the current user."""
-    statement = select(InteractiveSessionDB).where(
-        InteractiveSessionDB.user_id == user.id
-    )
+    statement = select(InteractiveSessionDB).where(InteractiveSessionDB.user_id == user.id)
     result = session.exec(statement).all()
 
     if not result:
@@ -75,6 +72,7 @@ def get_all_sessions(
         )
 
     return result
+
 
 @router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_session(
@@ -89,14 +87,14 @@ def delete_session(
         user=user,
         request=request,
         session=session,
-    )# raises 404 if not found
+    )  # raises 404 if not found
 
     try:
         session.delete(interactive_session)
         session.commit()
-    except Exception:
+    except Exception as exc:
         session.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete interactive session.",
-        )
+        ) from exc
