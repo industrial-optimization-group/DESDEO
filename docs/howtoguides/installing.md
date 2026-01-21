@@ -191,14 +191,6 @@ is activated!
     uv sync
     ```
 
-=== "pip (not recommended)"
-
-    When using `pip`, you will be installing all dependencies by default, including any extra dependencies:
-
-    ```bash
-    pip install -r requirements.txt
-    ```
-
 And now we should be done! DESDEO should now be available on your system in your current virtual environment.
 
 !!! Note "Extra dependencies?"
