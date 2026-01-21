@@ -88,7 +88,6 @@ ipython_config.py
 #   NOTE: We should have git ignore poetry.lock and uv.lock as we install different versions of polars.
 #   Change this in the future if necessary.
 poetry.lock
-uv.lock
 
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
 __pypackages__/
