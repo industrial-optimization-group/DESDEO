@@ -12,9 +12,7 @@ import type {
 	BodyLoginLoginPost,
 	ConfigureGdmGdmScoreBandsConfigurePostParams,
 	CreateSessionRequest,
-	ENautilusRepresentativeSolutionsRequest,
 	ENautilusRepresentativeSolutionsResponse,
-	ENautilusStateRequest,
 	ENautilusStateResponse,
 	ENautilusStepRequest,
 	ENautilusStepResponse,
@@ -2122,44 +2120,42 @@ export const stepMethodEnautilusStepPost = async (
  * Fetch a previous state of the the E-NAUTILUS method.
  * @summary Get State
  */
-export type getStateMethodEnautilusGetStatePostResponse200 = {
+export type getStateMethodEnautilusGetStateStateIdGetResponse200 = {
 	data: ENautilusStateResponse;
 	status: 200;
 };
 
-export type getStateMethodEnautilusGetStatePostResponse422 = {
+export type getStateMethodEnautilusGetStateStateIdGetResponse422 = {
 	data: HTTPValidationError;
 	status: 422;
 };
 
-export type getStateMethodEnautilusGetStatePostResponseSuccess =
-	getStateMethodEnautilusGetStatePostResponse200 & {
+export type getStateMethodEnautilusGetStateStateIdGetResponseSuccess =
+	getStateMethodEnautilusGetStateStateIdGetResponse200 & {
 		headers: Headers;
 	};
-export type getStateMethodEnautilusGetStatePostResponseError =
-	getStateMethodEnautilusGetStatePostResponse422 & {
+export type getStateMethodEnautilusGetStateStateIdGetResponseError =
+	getStateMethodEnautilusGetStateStateIdGetResponse422 & {
 		headers: Headers;
 	};
 
-export type getStateMethodEnautilusGetStatePostResponse =
-	| getStateMethodEnautilusGetStatePostResponseSuccess
-	| getStateMethodEnautilusGetStatePostResponseError;
+export type getStateMethodEnautilusGetStateStateIdGetResponse =
+	| getStateMethodEnautilusGetStateStateIdGetResponseSuccess
+	| getStateMethodEnautilusGetStateStateIdGetResponseError;
 
-export const getGetStateMethodEnautilusGetStatePostUrl = () => {
-	return `http://localhost:8000/method/enautilus/get_state`;
+export const getGetStateMethodEnautilusGetStateStateIdGetUrl = (stateId: number) => {
+	return `http://localhost:8000/method/enautilus/get_state/${stateId}`;
 };
 
-export const getStateMethodEnautilusGetStatePost = async (
-	eNautilusStateRequest: ENautilusStateRequest,
+export const getStateMethodEnautilusGetStateStateIdGet = async (
+	stateId: number,
 	options?: RequestInit
-): Promise<getStateMethodEnautilusGetStatePostResponse> => {
-	return customFetch<getStateMethodEnautilusGetStatePostResponse>(
-		getGetStateMethodEnautilusGetStatePostUrl(),
+): Promise<getStateMethodEnautilusGetStateStateIdGetResponse> => {
+	return customFetch<getStateMethodEnautilusGetStateStateIdGetResponse>(
+		getGetStateMethodEnautilusGetStateStateIdGetUrl(stateId),
 		{
 			...options,
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json', ...options?.headers },
-			body: JSON.stringify(eNautilusStateRequest)
+			method: 'GET'
 		}
 	);
 };
@@ -2172,8 +2168,7 @@ non-dominated representation used in the E-NAUTILUS method's last iteration
 (when number of iterations left is 0).
 
 Args:
-    request (ENautilusRepresentativeSolutionsRequest): a request which
-        contains the id of the `StateDB` with information on the intermediate
+    state_id (int): id of the `StateDB` with information on the intermediate
         points for which the representative solutions should be computed.
     db_session (Annotated[Session, Depends): the database session.
 
@@ -2187,44 +2182,44 @@ Returns:
     ENautilusRepresentativeSolutionsResponse: the information on the representative solutions.
  * @summary Get Representative
  */
-export type getRepresentativeMethodEnautilusGetRepresentativePostResponse200 = {
+export type getRepresentativeMethodEnautilusGetRepresentativeStateIdGetResponse200 = {
 	data: ENautilusRepresentativeSolutionsResponse;
 	status: 200;
 };
 
-export type getRepresentativeMethodEnautilusGetRepresentativePostResponse422 = {
+export type getRepresentativeMethodEnautilusGetRepresentativeStateIdGetResponse422 = {
 	data: HTTPValidationError;
 	status: 422;
 };
 
-export type getRepresentativeMethodEnautilusGetRepresentativePostResponseSuccess =
-	getRepresentativeMethodEnautilusGetRepresentativePostResponse200 & {
+export type getRepresentativeMethodEnautilusGetRepresentativeStateIdGetResponseSuccess =
+	getRepresentativeMethodEnautilusGetRepresentativeStateIdGetResponse200 & {
 		headers: Headers;
 	};
-export type getRepresentativeMethodEnautilusGetRepresentativePostResponseError =
-	getRepresentativeMethodEnautilusGetRepresentativePostResponse422 & {
+export type getRepresentativeMethodEnautilusGetRepresentativeStateIdGetResponseError =
+	getRepresentativeMethodEnautilusGetRepresentativeStateIdGetResponse422 & {
 		headers: Headers;
 	};
 
-export type getRepresentativeMethodEnautilusGetRepresentativePostResponse =
-	| getRepresentativeMethodEnautilusGetRepresentativePostResponseSuccess
-	| getRepresentativeMethodEnautilusGetRepresentativePostResponseError;
+export type getRepresentativeMethodEnautilusGetRepresentativeStateIdGetResponse =
+	| getRepresentativeMethodEnautilusGetRepresentativeStateIdGetResponseSuccess
+	| getRepresentativeMethodEnautilusGetRepresentativeStateIdGetResponseError;
 
-export const getGetRepresentativeMethodEnautilusGetRepresentativePostUrl = () => {
-	return `http://localhost:8000/method/enautilus/get_representative`;
+export const getGetRepresentativeMethodEnautilusGetRepresentativeStateIdGetUrl = (
+	stateId: number
+) => {
+	return `http://localhost:8000/method/enautilus/get_representative/${stateId}`;
 };
 
-export const getRepresentativeMethodEnautilusGetRepresentativePost = async (
-	eNautilusRepresentativeSolutionsRequest: ENautilusRepresentativeSolutionsRequest,
+export const getRepresentativeMethodEnautilusGetRepresentativeStateIdGet = async (
+	stateId: number,
 	options?: RequestInit
-): Promise<getRepresentativeMethodEnautilusGetRepresentativePostResponse> => {
-	return customFetch<getRepresentativeMethodEnautilusGetRepresentativePostResponse>(
-		getGetRepresentativeMethodEnautilusGetRepresentativePostUrl(),
+): Promise<getRepresentativeMethodEnautilusGetRepresentativeStateIdGetResponse> => {
+	return customFetch<getRepresentativeMethodEnautilusGetRepresentativeStateIdGetResponse>(
+		getGetRepresentativeMethodEnautilusGetRepresentativeStateIdGetUrl(stateId),
 		{
 			...options,
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json', ...options?.headers },
-			body: JSON.stringify(eNautilusRepresentativeSolutionsRequest)
+			method: 'GET'
 		}
 	);
 };

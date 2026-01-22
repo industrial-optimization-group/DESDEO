@@ -5092,17 +5092,11 @@ export const StepMethodEnautilusStepPostResponse = zod
  * Fetch a previous state of the the E-NAUTILUS method.
  * @summary Get State
  */
-export const GetStateMethodEnautilusGetStatePostBody = zod
-	.object({
-		state_id: zod
-			.number()
-			.describe(
-				"The id of the requested 'StateDB' object containing an instance of an 'ENautilusState."
-			)
-	})
-	.describe('Model to request a previous state of the E-NAUTILUS method.');
+export const GetStateMethodEnautilusGetStateStateIdGetParams = zod.object({
+	state_id: zod.number()
+});
 
-export const GetStateMethodEnautilusGetStatePostResponse = zod
+export const GetStateMethodEnautilusGetStateStateIdGetResponse = zod
 	.object({
 		request: zod
 			.object({
@@ -5168,8 +5162,7 @@ non-dominated representation used in the E-NAUTILUS method's last iteration
 (when number of iterations left is 0).
 
 Args:
-    request (ENautilusRepresentativeSolutionsRequest): a request which
-        contains the id of the `StateDB` with information on the intermediate
+    state_id (int): id of the `StateDB` with information on the intermediate
         points for which the representative solutions should be computed.
     db_session (Annotated[Session, Depends): the database session.
 
@@ -5183,19 +5176,11 @@ Returns:
     ENautilusRepresentativeSolutionsResponse: the information on the representative solutions.
  * @summary Get Representative
  */
-export const GetRepresentativeMethodEnautilusGetRepresentativePostBody = zod
-	.object({
-		state_id: zod
-			.number()
-			.describe(
-				"The id of the requested 'StateDB' object containing an instance of an 'ENautilusState."
-			)
-	})
-	.describe(
-		"Model to request the representative solutions of intermediate points.\n\nNote that only the id of the 'StateDB' object with the relevant 'ENautilusInstance' is required."
-	);
+export const GetRepresentativeMethodEnautilusGetRepresentativeStateIdGetParams = zod.object({
+	state_id: zod.number()
+});
 
-export const GetRepresentativeMethodEnautilusGetRepresentativePostResponse = zod
+export const GetRepresentativeMethodEnautilusGetRepresentativeStateIdGetResponse = zod
 	.object({
 		solutions: zod
 			.array(
