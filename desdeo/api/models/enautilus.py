@@ -54,14 +54,6 @@ class ENautilusStepResponse(SQLModel):
     )
 
 
-class ENautilusStateRequest(SQLModel):
-    """Model to request a previous state of the E-NAUTILUS method."""
-
-    state_id: int = Field(
-        description="The id of the requested 'StateDB' object containing an instance of an 'ENautilusState."
-    )
-
-
 class ENautilusStateResponse(SQLModel):
     """The response model when requesting a state in E-NAUTILUS."""
 
@@ -75,10 +67,3 @@ class ENautilusRepresentativeSolutionsResponse(SQLModel):
     solutions: list[SolverResults] = Field(
         description="The solutions on the non-dominated front closest to the intermediate points."
     )
-
-
-class ENautilusRepresentativeSolutionsRequest(ENautilusStateRequest):
-    """Model to request the representative solutions of intermediate points.
-
-    Note that only the id of the 'StateDB' object with the relevant 'ENautilusInstance' is required.
-    """

@@ -9,10 +9,8 @@ from sqlmodel import Session, select
 
 from desdeo.api.db import get_session
 from desdeo.api.models import (
-    ENautilusRepresentativeSolutionsRequest,
     ENautilusRepresentativeSolutionsResponse,
     ENautilusState,
-    ENautilusStateRequest,
     ENautilusStateResponse,
     ENautilusStepRequest,
     ENautilusStepResponse,
@@ -122,17 +120,17 @@ def step(
     )
 
 
-@router.post("/get_state")
+@router.get("/get_state/{state_id}")
 def get_state(
-    request: ENautilusStateRequest,
+    state_id: int,
     db_session: Annotated[Session, Depends(get_session)],
 ) -> ENautilusStateResponse:
     """Fetch a previous state of the the E-NAUTILUS method."""
-    state_db: StateDB | None = db_session.exec(select(StateDB).where(StateDB.id == request.state_id)).first()
+    state_db: StateDB | None = db_session.exec(select(StateDB).where(StateDB.id == state_id)).first()
 
     if state_db is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Could not find 'StateDB' with id={request.id}"
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Could not find 'StateDB' with id={state_id}"
         )
 
     if not isinstance(state_db.state, ENautilusState):
@@ -169,9 +167,9 @@ def get_state(
     return ENautilusStateResponse(request=request, response=response)
 
 
-@router.post("/get_representative")
+@router.get("/get_representative/{state_id}")
 def get_representative(
-    request: ENautilusRepresentativeSolutionsRequest, db_session: Annotated[Session, Depends(get_session)]
+    state_id: int, db_session: Annotated[Session, Depends(get_session)]
 ) -> ENautilusRepresentativeSolutionsResponse:
     """Computes the representative solutions that are closest to the intermediate solutions computed by E-NAUTILUS.
 
@@ -180,8 +178,7 @@ def get_representative(
     (when number of iterations left is 0).
 
     Args:
-        request (ENautilusRepresentativeSolutionsRequest): a request which
-            contains the id of the `StateDB` with information on the intermediate
+        state_id (int): id of the `StateDB` with information on the intermediate
             points for which the representative solutions should be computed.
         db_session (Annotated[Session, Depends): the database session.
 
@@ -194,11 +191,11 @@ def get_representative(
     Returns:
         ENautilusRepresentativeSolutionsResponse: the information on the representative solutions.
     """
-    state_db: StateDB | None = db_session.exec(select(StateDB).where(StateDB.id == request.state_id)).first()
+    state_db: StateDB | None = db_session.exec(select(StateDB).where(StateDB.id == state_id)).first()
 
     if state_db is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Could not find 'StateDB' with id={request.id}"
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Could not find 'StateDB' with id={state_id}"
         )
 
     if not isinstance(state_db.state, ENautilusState):

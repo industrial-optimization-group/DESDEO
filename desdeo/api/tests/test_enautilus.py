@@ -7,9 +7,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
 from desdeo.api.models import (
-    ENautilusRepresentativeSolutionsRequest,
     ENautilusRepresentativeSolutionsResponse,
-    ENautilusStateRequest,
     ENautilusStateResponse,
     ENautilusStepRequest,
     ENautilusStepResponse,
@@ -19,7 +17,7 @@ from desdeo.api.models import (
     user,
 )
 
-from .conftest import login, post_json
+from .conftest import get_json, login, post_json
 
 
 def test_enautilus_step_request(session_and_user: dict[str, Session | list[user]]):
@@ -137,7 +135,7 @@ def test_enautilus_step_router(client: TestClient, session_and_user: dict[str, S
 
 def test_enautilus_get_state(client: TestClient, session_and_user: dict[str, Session | list[user]]):
     """Test fetching a previous state for the the E-NAUTILUS method."""
-    session, user = session_and_user["session"], session_and_user["user"]
+    session, _ = session_and_user["session"], session_and_user["user"]
     access_token = login(client)
 
     problem_db = session.exec(select(ProblemDB).where(ProblemDB.name == "The river pollution problem")).first()
@@ -215,10 +213,7 @@ def test_enautilus_get_state(client: TestClient, session_and_user: dict[str, Ses
     assert len(step2_response.closeness_measures) == new_number_of_intermediate_points  # one for each point
     assert len(step2_response.reachable_point_indices) == new_number_of_intermediate_points  # one set for each point
 
-    # fetch the first state
-    previous_request = ENautilusStateRequest(state_id=step1_response.state_id)
-
-    raw_response = post_json(client, "/method/enautilus/get_state", previous_request.model_dump(), access_token)
+    raw_response = get_json(client, f"/method/enautilus/get_state/{step1_response.state_id}", access_token)
 
     assert raw_response.status_code == 200  # OK
 
@@ -317,8 +312,7 @@ def test_enautilus_get_representative(client: TestClient, session_and_user: dict
         step_response = ENautilusStepResponse.model_validate(json.loads(raw_response.content))
 
     # no iterations left, last iteration
-    request = ENautilusRepresentativeSolutionsRequest(state_id=step_response.state_id)
-    raw_response = post_json(client, "/method/enautilus/get_representative", request.model_dump(), access_token)
+    raw_response = get_json(client, "/method/enautilus/get_representative/3", access_token)
 
     assert raw_response.status_code == 200
 
@@ -327,8 +321,7 @@ def test_enautilus_get_representative(client: TestClient, session_and_user: dict
     assert len(int_response.solutions) == number_of_intermediate_points
 
     # try also a previous iteration
-    request = ENautilusRepresentativeSolutionsRequest(state_id=3)
-    raw_response = post_json(client, "/method/enautilus/get_representative", request.model_dump(), access_token)
+    raw_response = get_json(client, "/method/enautilus/get_representative/2", access_token)
 
     assert raw_response.status_code == 200
 

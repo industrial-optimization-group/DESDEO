@@ -9,11 +9,9 @@ __all__ = [  # noqa: RUF022
     "EMOSaveState",
     "EMOSolveRequest",
     "EMOIterateState",
-    "ENautilusRepresentativeSolutionsRequest",
     "ENautilusRepresentativeSolutionsResponse",
     "ENautilusState",
     "ENautilusStateResponse",
-    "ENautilusStateRequest",
     "ENautilusStepRequest",
     "ENautilusStepResponse",
     "ExtraFunctionDB",
@@ -126,7 +124,7 @@ __all__ = [  # noqa: RUF022
     "GDMSCOREBandFinalSelection",
     "GDMSCOREBandsDecisionResponse",
     "GDMSCOREBandsRevertRequest",
-    "GDMSCOREBandsHistoryResponse"
+    "GDMSCOREBandsHistoryResponse",
 ]
 
 
@@ -142,9 +140,7 @@ from .emo import (
     Solution,
 )
 from .enautilus import (
-    ENautilusRepresentativeSolutionsRequest,
     ENautilusRepresentativeSolutionsResponse,
-    ENautilusStateRequest,
     ENautilusStateResponse,
     ENautilusStepRequest,
     ENautilusStepResponse,
@@ -163,6 +159,16 @@ from .gdm.gdm_base import (
     BooleanDictTypeDecorator,
     ReferencePointDictType,
 )
+from .gdm.gdm_score_bands import (
+    GDMSCOREBandFinalSelection,
+    GDMSCOREBandInformation,
+    GDMSCOREBandsDecisionResponse,
+    GDMSCOREBandsHistoryResponse,
+    GDMScoreBandsInitializationRequest,
+    GDMSCOREBandsResponse,
+    GDMSCOREBandsRevertRequest,
+    GDMScoreBandsVoteRequest,
+)
 from .gdm.gnimbus import (
     EndProcessPreference,
     FullIteration,
@@ -172,16 +178,6 @@ from .gdm.gnimbus import (
     GNIMBUSSwitchPhaseResponse,
     OptimizationPreference,
     VotingPreference,
-)
-from .gdm.gdm_score_bands import (
-    GDMScoreBandsInitializationRequest,
-    GDMSCOREBandInformation,
-    GDMSCOREBandsResponse,
-    GDMSCOREBandsDecisionResponse,
-    GDMScoreBandsVoteRequest,
-    GDMSCOREBandFinalSelection,
-    GDMSCOREBandsRevertRequest,
-    GDMSCOREBandsHistoryResponse
 )
 from .generic import (
     GenericIntermediateSolutionResponse,
