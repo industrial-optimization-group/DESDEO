@@ -1,7 +1,8 @@
-import type { ENautilusStateResponse, ENautilusStepRequest, ENautilusStepResponse, ProblemGetRequest, ProblemInfo } from "$lib/gen/models";
-import type { getStateMethodEnautilusGetStateStateIdGetResponse, stepMethodEnautilusStepPostResponse } from "$lib/gen/endpoints/DESDEOFastAPI";
-import { stepMethodEnautilusStepPost, getProblemProblemGetPost, getStateMethodEnautilusGetStateStateIdGet } from "$lib/gen/endpoints/DESDEOFastAPI";
+import type { ENautilusRepresentativeSolutionsResponse, ENautilusStateResponse, ENautilusStepRequest, ENautilusStepResponse, ProblemGetRequest, ProblemInfo } from "$lib/gen/models";
+import type { getRepresentativeMethodEnautilusGetRepresentativeStateIdGetResponse, getStateMethodEnautilusGetStateStateIdGetResponse, stepMethodEnautilusStepPostResponse } from "$lib/gen/endpoints/DESDEOFastAPI";
+import { stepMethodEnautilusStepPost, getProblemProblemGetPost, getStateMethodEnautilusGetStateStateIdGet, getRepresentativeMethodEnautilusGetRepresentativeStateIdGet } from "$lib/gen/endpoints/DESDEOFastAPI";
 import type { getProblemProblemGetPostResponse } from "$lib/gen/endpoints/DESDEOFastAPI";
+import { GetRepresentativeMethodEnautilusGetRepresentativeStateIdGetResponse } from "$lib/gen/endpoints/DESDEOFastAPIzod";
 
 export type ENautilusStepBundle = {
     request: ENautilusStepRequest;
@@ -81,6 +82,19 @@ export async function fetch_enautilus_state(state_id: number): Promise<ENautilus
 
     if (response.status !== 200) {
         console.error("Failed to fetch E-NAUTILUS state:", response.status);
+        return null;
+    }
+
+    return response.data;
+}
+
+export async function fetch_representative_solutions(
+    state_id: number
+): Promise<ENautilusRepresentativeSolutionsResponse | null> {
+    const response: getRepresentativeMethodEnautilusGetRepresentativeStateIdGetResponse = await getRepresentativeMethodEnautilusGetRepresentativeStateIdGet(state_id);
+
+    if (response.status !== 200) {
+        console.error("Failed to fetch representative solutions:", response.status);
         return null;
     }
 

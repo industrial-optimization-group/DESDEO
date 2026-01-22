@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { methodSelection } from '../../../stores/methodSelection';
 	import type { MethodSelectionState } from '../../../stores/methodSelection';
-	import type { ENautilusStateResponse } from '$lib/gen/models';
+	import { type ENautilusRepresentativeSolutionsResponse} from '$lib/gen/models';
 	import { isLoading, errorMessage } from '../../../stores/uiState';
 
 	import BaseLayout from '$lib/components/custom/method_layout/base-layout.svelte';
@@ -21,8 +21,16 @@
 		fetch_problem_info,
 		initialize_enautilus_state,
 		points_to_list,
-		fetch_enautilus_state
+		fetch_enautilus_state,
+
+		fetch_representative_solutions
+
 	} from './handler';
+
+	type ENautilusMode = "iterate" | "final";
+	let mode = $state<ENautilusMode>("iterate");
+	let representative = $state<ENautilusRepresentativeSolutionsResponse | null>(null);
+	let final_selected_index = $state<number>(0);
 
 	let selection = $state<MethodSelectionState>({ selectedProblemId: null, selectedMethod: null });
 	let problem_info = $state<ProblemInfo | null>(null);
@@ -79,6 +87,17 @@
 		if (iterations_left_override != null) return iterations_left_override;
 		return previous_response?.iterations_left ?? 5;
 	});
+
+	let representativeObjectiveValues = $derived.by(() => {
+		if (!representative || objective_keys.length === 0) return [];
+
+		return representative.solutions.map((sol) => objective_keys.map((k) => (sol.optimal_objectives as any)[k] as number));
+	});
+
+	let finalSolution = $derived.by(() => {
+		if (!representative) return null;
+		return representative.solutions[final_selected_index] ?? null;
+	})
 
 	$effect(() => {
 		$inspect('enautilus_state', previous_response);
@@ -234,6 +253,40 @@
 			isLoading.set(false);
 		}
 	}
+
+	async function finalize_enautilus() {
+		try {
+
+			isLoading.set(true);
+
+			if (!previous_response || previous_response.state_id == null) {
+				errorMessage.set("Final state is missing state_id.");
+				return;
+			}
+
+			if (previous_response.iterations_left !== 0) {
+				errorMessage.set("E-NAUTILUS is not yet at the final iteration.")
+				return;
+			}
+
+			const response = await fetch_representative_solutions(previous_response.state_id);
+			if (!response) {
+				errorMessage.set("Failed to fetch representative solutions.")
+			}
+
+			representative = response;
+
+			final_selected_index = selected_point_index ?? 0;
+
+			mode = 'final';
+
+		} catch(err) {
+			console.error("Failed to finalize E-NAUTILUS", err);
+			errorMessage.set("Unexpected error during finalization.");
+		} finally {
+			isLoading.set(false);
+		}
+	}
 </script>
 
 <h1 class="mt-10 text-center text-2xl font-semibold">E-NAUTILUS method</h1>
@@ -249,155 +302,236 @@
 	<p class="text-center text-red-600">{$errorMessage}</p>
 {/if}
 
-<BaseLayout
-	showLeftSidebar={false}
-	showRightSidebar={false}
-	bottomPanelTitle="E-NAUTILUS: initial intermediate points"
->
-	{#snippet explorerControls()}
-		<div class="flex items-center gap-6">
-			<div class="flex items-center gap-2">
-				<span class="text-sm text-gray-700">Intermediate points:</span>
-				<input
-					type="number"
-					min="1"
-					max="10"
-					bind:value={number_intermediate_points}
-					class="w-20 rounded border border-gray-300 px-2 py-1 text-sm"
-				/>
-			</div>
-
-			<div class="flex items-center gap-2">
-				<span class="text-sm text-gray-700">Iterations left:</span>
-				<input
-					type="number"
-					min="0"
-					placeholder="auto"
-					value={iterations_left_override ?? ''}
-					oninput={(e) => {
-						const v = (e.target as HTMLInputElement).value;
-						iterations_left_override = v === '' ? null : Number(v);
-					}}
-					class="w-20 rounded border border-gray-300 px-2 py-1 text-sm"
-				/>
-			</div>
-
-			<span class="text-xs text-gray-500">
-				Auto: {previous_response?.iterations_left ?? '—'}
-			</span>
-
-			<span
-				class="inline-block"
-				title={selected_point_index == null
-					? 'Select exactly one intermediate point to advance the E-NAUTILUS method.'
-					: 'Advance the E-NAUTILUS method using the selected intermediate point.'}
-			>
-				<Button
-					onclick={selected_point_index != null ? handle_iteration : undefined}
-					disabled={selected_point_index == null ||
-						!previous_response ||
-						previous_response.iterations_left <= 0}
-					variant="default"
-					class="ml-10"
-				>
-					Next iteration
+{#if mode === 'final'}
+	<BaseLayout showLeftSidebar={false} showRightSidebar={false} bottomPanelTitle="Final solution">
+		{#snippet explorerControls()}
+			<span class="inline-block" title="Return to the last E-NAUTILUS iteration view.">
+				<Button onclick={() => (mode = 'iterate')} variant="secondary">
+					Back to iterations
 				</Button>
 			</span>
+		{/snippet}
 
-			<span
-				class="inline-block"
-				title={previous_request?.parent_state_id == null ? 'No previous state available.' : 'Go back to the previous iteration.'}
-			>
-				<Button
-					onclick={previous_request?.parent_state_id != null ? handle_back : undefined}
-					disabled={$isLoading || !previous_request || previous_request.parent_state_id == null}
-					variant="secondary"
+		{#snippet visualizationArea()}
+			{#if problem_info && representative && representativeObjectiveValues.length > 0}
+				<div class="h-full">
+					<Resizable.PaneGroup direction="horizontal" class="h-full">
+						<Resizable.Pane defaultSize={100} minSize={40} class="h-full">
+							<VisualizationsPanel
+								problem={problem_info as any}
+								previousPreferenceValues={[]}
+								currentPreferenceValues={[]}
+								previousPreferenceType={''}
+								currentPreferenceType={''}
+								solutionsObjectiveValues={representativeObjectiveValues}
+								previousObjectiveValues={[]}
+								externalSelectedIndexes={[final_selected_index]}
+								onSelectSolution={(index: number) => {
+									final_selected_index = index;
+								}}
+							/>
+						</Resizable.Pane>
+					</Resizable.PaneGroup>
+				</div>
+			{:else}
+				<div class="flex h-full items-center justify-center text-gray-500">
+					Final solution not available.
+				</div>
+			{/if}
+		{/snippet}
+
+		{#snippet numericalValues()}
+			{#if finalSolution}
+				<!-- Minimal numeric display for SolverResults -->
+				<div class="h-full overflow-auto p-2 text-sm">
+					<div class="mb-2 font-semibold">Representative solution #{final_selected_index + 1}</div>
+
+					<div class="mb-3">
+						<div class="text-xs font-semibold text-gray-600">Objectives</div>
+						<pre class="text-xs">{JSON.stringify(finalSolution.optimal_objectives, null, 2)}</pre>
+					</div>
+
+					<div class="mb-3">
+						<div class="text-xs font-semibold text-gray-600">Variables</div>
+						<pre class="text-xs">{JSON.stringify(finalSolution.optimal_variables, null, 2)}</pre>
+					</div>
+
+					<div class="text-xs text-gray-600">
+						success: {String(finalSolution.success)} — {finalSolution.message}
+					</div>
+				</div>
+			{/if}
+		{/snippet}
+	</BaseLayout>
+{:else}
+	<BaseLayout
+		showLeftSidebar={false}
+		showRightSidebar={false}
+		bottomPanelTitle="E-NAUTILUS: initial intermediate points"
+	>
+		{#snippet explorerControls()}
+			<div class="flex items-center gap-6">
+				<div class="flex items-center gap-2">
+					<span class="text-sm text-gray-700">Intermediate points:</span>
+					<input
+						type="number"
+						min="1"
+						max="10"
+						bind:value={number_intermediate_points}
+						class="w-20 rounded border border-gray-300 px-2 py-1 text-sm"
+					/>
+				</div>
+
+				<div class="flex items-center gap-2">
+					<span class="text-sm text-gray-700">Iterations left:</span>
+					<input
+						type="number"
+						min="0"
+						placeholder="auto"
+						value={iterations_left_override ?? ''}
+						oninput={(e) => {
+							const v = (e.target as HTMLInputElement).value;
+							iterations_left_override = v === '' ? null : Number(v);
+						}}
+						class="w-20 rounded border border-gray-300 px-2 py-1 text-sm"
+					/>
+				</div>
+
+				<span class="text-xs text-gray-500">
+					Auto: {previous_response?.iterations_left ?? '—'}
+				</span>
+
+				<span
+					class="inline-block"
+					title={selected_point_index == null
+						? 'Select exactly one intermediate point to advance the E-NAUTILUS method.'
+						: 'Advance the E-NAUTILUS method using the selected intermediate point.'}
 				>
-					Back
-				</Button>
+					<Button
+						onclick={selected_point_index != null ? handle_iteration : undefined}
+						disabled={selected_point_index == null ||
+							!previous_response ||
+							previous_response.iterations_left <= 0}
+						variant="default"
+						class="ml-10"
+					>
+						Next iteration
+					</Button>
+				</span>
 
-			</span>
+				<span
+					class="inline-block"
+					title={previous_request?.parent_state_id == null ? 'No previous state available.' : 'Go back to the previous iteration.'}
+				>
+					<Button
+						onclick={previous_request?.parent_state_id != null ? handle_back : undefined}
+						disabled={$isLoading || !previous_request || previous_request.parent_state_id == null}
+						variant="secondary"
+					>
+						Back
+					</Button>
+				</span>
 
-		</div>
-	{/snippet}
-	{#snippet visualizationArea()}
-		{#if problem_info && previous_response && currentIntermediatePoints.length > 0}
-			<div class="h-full">
-				<Resizable.PaneGroup direction="horizontal" class="h-full">
-					<Resizable.Pane defaultSize={100} minSize={40} class="h-full">
-						<VisualizationsPanel
-							problem={problem_info as any}
-							previousPreferenceValues={selected_point_index != null ? [currentReachableBestBounds[selected_point_index]] : undefined}
-							currentPreferenceValues={[]}
-							previousPreferenceType={''}
-							currentPreferenceType={''}
-							solutionsObjectiveValues={currentIntermediatePoints}
-							previousObjectiveValues={[previous_objective_values]}
-							externalSelectedIndexes={selected_point_index != null ? [selected_point_index] : []}
-							onSelectSolution={(index: number) => {
-								selected_point_index = index;
-							}}
-						/>
-					</Resizable.Pane>
-				</Resizable.PaneGroup>
+				<span
+					class="inline-block"
+					title={
+						!previous_response || previous_response.iterations_left !== 0
+							? 'Finish becomes available after the last iteration (iterations left = 0).'
+							: previous_response.state_id == null
+								? 'Cannot finalize because the final state_id is missing.'
+								: 'Fetch the final representative solution(s).'
+					}
+				>
+					<Button
+						onclick={previous_response && previous_response.iterations_left === 0 && previous_response.state_id != null ? finalize_enautilus : undefined}
+						disabled={!previous_response || previous_response.iterations_left !== 0 || previous_response.state_id == null}
+						variant="destructive"
+						class="ml-10"
+					>
+						Finish
+					</Button>
+				</span>
+			</div>
+		{/snippet}
+		{#snippet visualizationArea()}
+			{#if problem_info && previous_response && currentIntermediatePoints.length > 0}
+				<div class="h-full">
+					<Resizable.PaneGroup direction="horizontal" class="h-full">
+						<Resizable.Pane defaultSize={100} minSize={40} class="h-full">
+							<VisualizationsPanel
+								problem={problem_info as any}
+								previousPreferenceValues={selected_point_index != null ? [currentReachableBestBounds[selected_point_index]] : undefined}
+								currentPreferenceValues={[]}
+								previousPreferenceType={''}
+								currentPreferenceType={''}
+								solutionsObjectiveValues={currentIntermediatePoints}
+								previousObjectiveValues={[previous_objective_values]}
+								externalSelectedIndexes={selected_point_index != null ? [selected_point_index] : []}
+								onSelectSolution={(index: number) => {
+									selected_point_index = index;
+								}}
+							/>
+						</Resizable.Pane>
+					</Resizable.PaneGroup>
+				</div>
+			{:else}
+				<div class="flex h-full items-center justify-center text-gray-500">
+					No E-NAUTILUS data available yet.
+					{currentIntermediatePoints.length}
+				</div>
+			{/if}
+		{/snippet}
+		{#snippet numericalValues()}
+		{#if previous_response && currentIntermediatePoints.length > 0 && objective_keys.length > 0}
+			<div class="h-full overflow-auto">
+				<table class="min-w-full border-collapse text-sm">
+					<thead class="sticky top-0 bg-white">
+						<tr class="border-b border-gray-200">
+							<th class="px-2 py-2 text-left text-xs font-semibold text-gray-600">#</th>
+
+							<th class="px-2 py-2 text-right text-xs font-semibold text-gray-600">
+								closeness
+							</th>
+
+							{#each objective_labels as label}
+								<th class="px-2 py-2 text-right text-xs font-semibold text-gray-600">
+									{label}
+								</th>
+							{/each}
+						</tr>
+					</thead>
+
+					<tbody>
+						{#each currentIntermediatePoints as row, i}
+							<tr
+								class={`border-b border-gray-100 cursor-pointer ${
+									i === selected_point_index ? 'bg-gray-100' : 'hover:bg-gray-50'
+								}`}
+								onclick={() => (selected_point_index = i)}
+								title="Click to select this intermediate point"
+							>
+								<td class="px-2 py-2 text-xs text-gray-600">{i + 1}</td>
+
+								<td class="px-2 py-2 text-right font-mono text-xs">
+									{(previous_response.closeness_measures?.[i] ?? 0).toFixed(4)}
+								</td>
+
+								{#each row as value}
+									<td class="px-2 py-2 text-right font-mono text-xs">
+										{value.toFixed(6)}
+									</td>
+								{/each}
+							</tr>
+						{/each}
+					</tbody>
+				</table>
 			</div>
 		{:else}
 			<div class="flex h-full items-center justify-center text-gray-500">
-				No E-NAUTILUS data available yet.
-				{currentIntermediatePoints.length}
+				No numerical values available.
 			</div>
 		{/if}
-	{/snippet}
-	{#snippet numericalValues()}
-	{#if previous_response && currentIntermediatePoints.length > 0 && objective_keys.length > 0}
-		<div class="h-full overflow-auto">
-			<table class="min-w-full border-collapse text-sm">
-				<thead class="sticky top-0 bg-white">
-					<tr class="border-b border-gray-200">
-						<th class="px-2 py-2 text-left text-xs font-semibold text-gray-600">#</th>
+		{/snippet}
 
-						<th class="px-2 py-2 text-right text-xs font-semibold text-gray-600">
-							closeness
-						</th>
-
-						{#each objective_labels as label}
-							<th class="px-2 py-2 text-right text-xs font-semibold text-gray-600">
-								{label}
-							</th>
-						{/each}
-					</tr>
-				</thead>
-
-				<tbody>
-					{#each currentIntermediatePoints as row, i}
-						<tr
-							class={`border-b border-gray-100 cursor-pointer ${
-								i === selected_point_index ? 'bg-gray-100' : 'hover:bg-gray-50'
-							}`}
-							onclick={() => (selected_point_index = i)}
-							title="Click to select this intermediate point"
-						>
-							<td class="px-2 py-2 text-xs text-gray-600">{i + 1}</td>
-
-							<td class="px-2 py-2 text-right font-mono text-xs">
-								{(previous_response.closeness_measures?.[i] ?? 0).toFixed(4)}
-							</td>
-
-							{#each row as value}
-								<td class="px-2 py-2 text-right font-mono text-xs">
-									{value.toFixed(6)}
-								</td>
-							{/each}
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
-	{:else}
-		<div class="flex h-full items-center justify-center text-gray-500">
-			No numerical values available.
-		</div>
-	{/if}
-	{/snippet}
-
-</BaseLayout>
+	</BaseLayout>
+{/if}
