@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { methodSelection } from '../../../stores/methodSelection';
 	import type { MethodSelectionState } from '../../../stores/methodSelection';
+	import type { ENautilusStateResponse } from '$lib/gen/models';
 	import { isLoading, errorMessage } from '../../../stores/uiState';
 
 	import BaseLayout from '$lib/components/custom/method_layout/base-layout.svelte';
@@ -19,7 +20,8 @@
 		step_enautilus,
 		fetch_problem_info,
 		initialize_enautilus_state,
-		points_to_list
+		points_to_list,
+		fetch_enautilus_state
 	} from './handler';
 
 	let selection = $state<MethodSelectionState>({ selectedProblemId: null, selectedMethod: null });
@@ -171,7 +173,7 @@
 				return;
 			}
 
-			const next = await step_enautilus(
+			const next_bundle = await step_enautilus(
 				previous_response,
 				selected_point_index,
 				selection.selectedProblemId,
@@ -180,21 +182,54 @@
 				previous_request.representative_solutions_id
 			);
 
-			if (!next) {
+			if (!next_bundle) {
 				errorMessage.set('Failed to iterate E-NAUTILUS');
 				return;
 			}
 
 			previous_objective_values = selected_point_index != null ? currentIntermediatePoints[selected_point_index] : [];
-
-			previous_response = next;
+			previous_response = next_bundle.response;
+			previous_request = next_bundle.request;
 
 			// reset user selections
 			selected_point_index = null;
 			iterations_left_override = null;
+
 		} catch (err) {
 			console.error('Error during E-NAUTILUS step', err);
 			errorMessage.set('Unexpected error during E-NAUTILUS step.');
+		} finally {
+			isLoading.set(false);
+		}
+	}
+
+	async function handle_back() {
+		try {
+			isLoading.set(true);
+
+			if (!previous_request) return;
+
+			const parent_id = previous_request.parent_state_id ?? null;
+			if (parent_id == null) return;
+
+			const state_resp = await fetch_enautilus_state(parent_id);
+
+			if (!state_resp) {
+				errorMessage.set("Failed to fetch previous E-NAUTILUS state.");
+				return;
+			}
+			
+			previous_request = state_resp.request;
+			previous_response = state_resp.response;
+
+			selected_point_index = null;
+			iterations_left_override = null;
+
+			previous_objective_values = [];
+
+		} catch (err) {
+			console.error("Error going back one E-NAUTILUS state", err);
+			errorMessage.set("Unexpected error while going back.")
 		} finally {
 			isLoading.set(false);
 		}
@@ -267,6 +302,20 @@
 				>
 					Next iteration
 				</Button>
+			</span>
+
+			<span
+				class="inline-block"
+				title={previous_request?.parent_state_id == null ? 'No previous state available.' : 'Go back to the previous iteration.'}
+			>
+				<Button
+					onclick={previous_request?.parent_state_id != null ? handle_back : undefined}
+					disabled={$isLoading || !previous_request || previous_request.parent_state_id == null}
+					variant="secondary"
+				>
+					Back
+				</Button>
+
 			</span>
 
 		</div>
