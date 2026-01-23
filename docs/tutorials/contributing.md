@@ -161,7 +161,7 @@ $ git clone git@github.com:ourusername/DESDEO.git
 
 We should remember to replace _ourusername_ with our actual GitHub username.
 
-<span id="note:ssh"></span> 
+<span id="note:ssh"></span>
 !!! Note "On SSH and keys"
     It is recommended to utilize the SSH (secure shell) url when
     cloning DESDEO. This, however, requires that an SSH key-pairs has been
@@ -198,7 +198,7 @@ We are now in a position to setup our virtual environment.
 
 There are many ways to setup a virtual environment. Here, we will
 be utilizing poetry (c.f., section [Required software](#installing-required-software))
-for the task. (If you want to some other virtual environment system, 
+for the task. (If you want to some other virtual environment system,
 see the [DESDEO installation guide](../howtoguides/installing.md#setting-up-a-virtual-environment)
 for hints.) First, we should ensure
 that we are utilizing a correct version of Python
@@ -251,7 +251,7 @@ This will print the command that needs to be executed to activate the virtual
 environment.  __Please note that this command does not activate the environment,
 it only shows the command that needs to be executed to do so.__
 
-Once the virtual environment is activated, we can install 
+Once the virtual environment is activated, we can install
 
 <span id="bash:poetry_install_dev"></span>
 ```shell
@@ -395,7 +395,7 @@ $ git log # (2)!
     risk an unwanted merge.
 2.  This will print a log of the most recent changes to the branch.
     We should see fairly recent changes here, if not, we should double
-    check we are on the correct branch. To exit the log, we can press 'q'.    
+    check we are on the correct branch. To exit the log, we can press 'q'.
 
 We are now in a position to create our own branch, which branches from the
 `master` branch. To create a branch with the name, e.g., `feature-x` (it is recommended
@@ -475,7 +475,7 @@ $ git commit -m "Our commit message"
     of the commit should be a short summary, e.g., "Added a few new tests.",
     which is then followed (separated by a blank new line) with more details,
     e.g., "A test was added to test the correct functioning of the NIMBUS method.
-    A similar test was also added for the E-NAUTILUS methods. Both of these 
+    A similar test was also added for the E-NAUTILUS methods. Both of these
     tests should be passing." __There is no such thing as a "too long"
     commit message!__ We can also refer to any issues our commit addressed by
     simply including the commits number preceded by a hashtag, e.g., #123.
@@ -541,7 +541,7 @@ date with the upstream. This is important because, for example,
 a pull request from another contributor might have been accepted into the
 mainstream while we have been working on our local fork. Some of these changes might also
 affect the code we have been working on, and we should make sure our changes are
-based on the latest code in the upstream. This can avoid overly complicated 
+based on the latest code in the upstream. This can avoid overly complicated
 merge conflicts in the repository when making a pull request.
 
 The following commands can be used to update our fork (remember to commit any changes to your
@@ -615,7 +615,7 @@ break any existing code in DESDEO with out additions.
 their usability and reusability, and to support other users in utilizing
 our additions.
 
-These topics are discussed in their respective sections 
+These topics are discussed in their respective sections
 [Code style, linting](#code-style-and-linting); [Typechecking](#typechecking);
 [Testing](#testing); and [Documenting](#documenting).
 
@@ -677,6 +677,87 @@ starting with `[tool.ruff...]`.
 For more information on Ruff, the reader is encouraged to check [its official
 documentation](https://docs.astral.sh/ruff/).
 
+### Pre-commit hooks
+
+DESDEO uses *pre-commit hooks* to automatically run a small set of code-quality
+checks on staged files before a Git commit is created. The goal is to catch
+common issues early (e.g., formatting, imports, whitespace) and to keep pull
+requests focused on the substance of the changes.
+
+The hooks are configured in the file `.pre-commit-config.yaml` in the root
+directory of the repository.
+
+#### Installing the hooks
+
+Pre-commit hooks are not automatically enabled by Git. They must be installed
+once per local clone of the repository.
+
+After installing DESDEO with development dependencies (c.f.,
+[Installing DESDEO](#setting-up-a-virtual-environment-and-installing-desdeo)),
+install the hooks:
+
+```bash
+$ pre-commit install
+```
+
+After this, the hooks will run automatically whenever `git commit` is executed.
+
+!!! Note "On virtual environments"
+    If the command `pre-commit` is not found, make sure your virtual environment
+    is activated and that development dependencies have been installed.
+
+#### What happens on commit
+
+By default, hooks run only on the files that are part of the commit (staged
+files). Some hooks may automatically modify files (for example, formatting or
+removing trailing whitespace). If a hook modifies files, the commit is stopped so
+that the changes can be reviewed and staged.
+
+A typical workflow after a hook run is:
+
+```bash
+$ git status
+$ git diff
+$ git add .
+$ git commit
+```
+
+#### Running hooks manually
+
+It is often useful to run hooks without creating a commit, for example before
+opening a pull request or after pulling changes from upstream.
+
+To run all configured hooks on the entire codebase:
+
+```bash
+$ pre-commit run --all-files
+```
+
+To run hooks only for a specific file or folder:
+
+```bash
+$ pre-commit run --files path/to/file.py
+$ pre-commit run --files path/to/folder/
+```
+
+To run a single hook (for example Ruff) on the whole repository:
+
+```bash
+$ pre-commit run ruff --all-files
+```
+
+#### Skipping hooks (rarely needed)
+
+In rare cases it may be necessary to bypass hooks locally:
+
+```bash
+$ git commit --no-verify
+```
+
+This should be used sparingly. Contributors should expect that automated checks
+are also executed in continuous integration, and any issues must be
+addressed before a pull request can be merged.
+
 ### Typechecking
 
 While Python is not a typed language, it still offers the options
@@ -688,7 +769,7 @@ def divide_numbers(nominator: int | float, denominator: int | float) -> float:
 ```
 
 In the above example, the types following each function argument (after the colon),
-denote the type of the arguments, in this case, either an `int` or a `float`. 
+denote the type of the arguments, in this case, either an `int` or a `float`.
 The type after the arrow `->` in the function definition defines the
 return type of the function, in this a case `float`.
 
@@ -704,7 +785,7 @@ desdeo with its [development dependencies](#bash:poetry_install_dev). To check
 a file with mypy, we can run the command
 
 ```bash
-$ mypy desdeo/problem/utils.py 
+$ mypy desdeo/problem/utils.py
 ```
 
 As an example, the output of `mypy` could look like
@@ -731,7 +812,7 @@ documentation](https://mypy.readthedocs.io/en/stable/index.html).
 
 ### Testing
 
-Another way to ensure the code quality in DESDEO is _testing_. 
+Another way to ensure the code quality in DESDEO is _testing_.
 DESDEO utilizes _pytest_ as its testing library, which should
 come installed with the project if we installed DESDEO with its
 [development dependencies](#bash:poetry_install_dev).
@@ -947,7 +1028,7 @@ def log2(x: float, useless: str) -> float:
 
     References:
         Napier, J. (1614). Mirifici Logarithmorum Canonis Descriptio
-            [Description of the Wonderful Rule of Logarithms]        
+            [Description of the Wonderful Rule of Logarithms]
 
     Raises:
         ValueError: the given argument `x` is either zero or negative.
@@ -957,7 +1038,7 @@ def log2(x: float, useless: str) -> float:
             Must be non-zero and positive.
         useless (str): an unused variable to just showcase how we can have
             multiple entries in a section.
-        
+
     Returns:
         float: the base-2 logarithm of `x`.
     """ # (1)!
@@ -968,12 +1049,12 @@ def log2(x: float, useless: str) -> float:
 
     # we utilize log10 and the change of base formula for computing the base-2
     # logarithm
-    return log10(x) / log10(2) 
+    return log10(x) / log10(2)
 ```
 
 1.  The first line of the docstring should be a short summary of the function.
     This is then followed by a more detailed description.
-    
+
     The more detailed description is then followed by sections. The
     section `References` can be used to list one or more references
     related to the function, for example, when it is based on the
@@ -1009,7 +1090,7 @@ to illustrate since we are reading it right now! In other words,
 this refers to the part of the documentation that does not
 reside in the Python source code itself, but it, as the name
 suggests, external, and documents larger entities related
-to DESDEO, such as different concepts, or like in this 
+to DESDEO, such as different concepts, or like in this
 tutorial, how to contribute to DESDEO.
 
 The tool utilized for building the very documentation we are
@@ -1023,7 +1104,7 @@ if we installed DESDEO with its development dependencies.
 
 The external documentation of DESDEO resides in the directory
 `docs` found at the root of the project. The overall structure and
-the configuration related to mkdocs, and the other documentation tools 
+the configuration related to mkdocs, and the other documentation tools
 used, are found in the file `mkdocs.yml`, which is also found at the root
 level of the project.
 
@@ -1037,33 +1118,33 @@ This will build the documentation and create a local server, allowing
 us to view the built documentation by opening the url `http://localhost:8000/`
 in a web browser.
 
-To better understand the structure of DESDEO's documentation, it is 
+To better understand the structure of DESDEO's documentation, it is
 best to take a moment and explore the file `mkdocs.yml`, starting with
 its top-level contents, and especially the contents in the section `nav:`,
-which describes the structure of the generated web page containing this 
+which describes the structure of the generated web page containing this
 documentation. The actual contents of the documentation are written in a rich
 markdown format, and are logically arranged in the sub-folders found in `docs/`.
 Rich here just refers to the fact that we are using extensions of
-the markdown language that support $\LaTeX$, for instance. 
+the markdown language that support $\LaTeX$, for instance.
 To given an example of the structure, the
 contents of this tutorial can be found in the file
 `docs/tutorials/contributing.md`.
 
 We will not discuss mkdocs and its extensions further in this tutorial.
-A novice contributor will find the easiest time by studying how 
+A novice contributor will find the easiest time by studying how
 the existing documentation has been written, and
 working by example. For further reading resources,
 the documentation for [mkdocs](https://www.mkdocs.org/),
 [mkdocstrings-python](https://mkdocstrings.github.io/python/),
 and [Materials for mkdocs](https://squidfunk.github.io/mkdocs-material/),
-are good reference material. 
+are good reference material.
 
-## Integrated development environments 
+## Integrated development environments
 
 Thus far, we have separately discussed the tools utilized
 when developing DESDEO. While these tools can be used
 as demonstrated, it is often too inconvenient
-from a practical point of view. In practice, many of the 
+from a practical point of view. In practice, many of the
 discussed tools are run automatically, or managed though
 other, arguably more user friendly tools, such as various
 graphical user interfaces.
@@ -1089,7 +1170,7 @@ and contributing to DESDEO.
 ### Visual studio code
 
 One of the most popular IDEs currently being used, is [Visual studio
-code](https://code.visualstudio.com/) (Vscode for short). 
+code](https://code.visualstudio.com/) (Vscode for short).
 It is available on all major platforms,
 making it a portable solution. Its development is backed by a major company, and
 it is based on mostly open source software. Vscode is also very
@@ -1146,7 +1227,7 @@ One is free to explore the many other alternatives available as well.
 
 We have covered many topics in this tutorial, and at first,
 its contents may feel overwhelming. However, despite first
-impression, most of the discussed steps and practices will 
+impression, most of the discussed steps and practices will
 become almost second nature fairly quickly. To support
 the reader's endeavors in contributing to DESDEO, we have
 summarized the main steps to take into account when contributing
@@ -1156,7 +1237,7 @@ to DESDEO in this last section.
 
 1.  Fork the DESDEO repository. This is done on GitHub.
 2.  Clone the fork (`$ git clone <url to fork>`)
-3.  Make sure the fork is up to date with the upstream, or main repository, of DESDEO. 
+3.  Make sure the fork is up to date with the upstream, or main repository, of DESDEO.
     ```bash
     $ git remote add upstream \ # (1)!
         git@github.com:industrial-optimization-group/DESDEO.git
@@ -1166,8 +1247,8 @@ to DESDEO in this last section.
 
 3.   If no virtual environment exists, create and activate a virtual environment. (`$ poetry shell`)
 4.   Else activate an existing virtual environment. (`$ poetry shell`)
-5.  Run tests and make sure at least most of them are passing. (`$ pytest`) 
-6.  Create or switch to a local branch. 
+5.  Run tests and make sure at least most of them are passing. (`$ pytest`)
+6.  Create or switch to a local branch.
     ```bash
     $ git branch feature-x
     $ git checkout feature-x
@@ -1181,7 +1262,7 @@ to DESDEO in this last section.
     when relevant.
 9.  Be mindful of the outputs of Ruff and mypy. Fix errors and warnings whenever possible.
 10.  Push your commits to your fork on GitHub. (`$ git push origin feature-x`)
-11.  Make a pull request on GitHub. 
+11.  Make a pull request on GitHub.
 12.  Goto 3.
 
 ## Conclusions, where to go next, and our Discord server
