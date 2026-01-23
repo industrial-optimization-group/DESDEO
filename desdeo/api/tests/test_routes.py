@@ -649,7 +649,7 @@ def test_nimbus_save_and_delete_save(client: TestClient):
     assert len(solve_result.saved_solutions) > 0
 
     # 4. Delete save
-    request: NIMBUSDeleteSaveRequest = NIMBUSDeleteSaveRequest(state_id=2, solution_index=1)
+    request: NIMBUSDeleteSaveRequest = NIMBUSDeleteSaveRequest(state_id=2, solution_index=1, problem_id=1)
     response = post_json(client, "/method/nimbus/delete_save", request.model_dump(), access_token)
     delete_save_result: NIMBUSDeleteSaveResponse = NIMBUSDeleteSaveResponse.model_validate(json.loads(response.content))
 
