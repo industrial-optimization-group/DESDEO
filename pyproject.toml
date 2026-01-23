@@ -50,13 +50,13 @@ documentation="https://desdeo.readthedocs.io/en/latest/"
 [dependency-groups]
 dev = [
     "ruff>=0.11",
-    "isort>=6.0",
     "mypy>=1.0",
     "pytest>=8.0",
     "pytest-xdist>=3.5.0",
     "pytest-testmon>=2.1.1",
     "pytest-asyncio>=0.26.0",
     "snakeviz>=2.2.0",
+    "pre-commit>=0.14.14",
 ]
 
 docs = [
@@ -164,7 +164,7 @@ lint.pydocstyle.convention = "google"
 
 
 # Allow autofix for all enabled rules (when `--fix`) is provided.
-lint.fixable = []
+lint.fixable = ["ALL"]
 lint.unfixable = []
 
 # Allow unused variables when underscore-prefixed.
@@ -218,9 +218,6 @@ quote-style = "double"
 
 [tool.djlint]
 profile = "jinja"
-
-[tool.isort]
-profile = "black"
 
 [tool.mypy]
 ignore_missing_imports = true
