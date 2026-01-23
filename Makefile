@@ -18,7 +18,7 @@
 # fullstack: run the web-API and web-GUI for local develpment.
 
 test:
-	pytest -n auto -m "not nautilus and not performance and not skip and not fixme" --disable-warnings
+	pytest -n auto -m "not fixme" --disable-warnings
 
 test-all:
 	pytest -n auto

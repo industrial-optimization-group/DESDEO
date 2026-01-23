@@ -227,10 +227,8 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 markers = [
-    "skip: stests marked to be skipped",
     "slow: mark test as slow",
     "nautilus_navigator: tests related to the NAUTILUS Navigator method",
-    "performance: tests that are related to performance. Skipped by default",
     "infix_parser: tests related to the infix parser",
     "pyomo: tests related to pyomo models, their parsing, and evaluation",
     "sympy: tests related to sympy expressions, their parsing, and evaluatio.",
@@ -262,7 +260,8 @@ markers = [
     "gdmtools: tests related to group decision making.",
     "gnimbus: tests related to group nimbus method.",
     "external: tests related to providers interfacing to external problems.",
-    "fixme: tests that are not passing, but maybe should, yet are ignored."
+    "fixme: tests that are not passing, but maybe should, yet are ignored.",
+    "githubskip: skip these tests on GitHub workflows."
 ]
 pythonpath = "."
 asyncio_default_fixture_loop_scope = "function"

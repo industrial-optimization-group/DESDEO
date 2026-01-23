@@ -163,7 +163,7 @@ def test_bonmin_w_momip_ti7():
     assert np.isclose(gs["g_2"], 0, atol=1e-8) or gs["g_2"] < 0
 
 
-@pytest.mark.skip
+@pytest.mark.githubskip
 @pytest.mark.slow
 @pytest.mark.pyomo
 def test_gurobi_solver():
