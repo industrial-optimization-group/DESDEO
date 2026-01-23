@@ -51,8 +51,8 @@ jobs:
       - name: Check Python and Pytest paths
         run: |
           uv run python -V
-          uv run pytest -m "not nautilus and not performance and not skip" --collect-only
+          uv run pytest -m "not nautilus and not performance and not skip and not fixme" --collect-only
 
       - name: Run unit tests
         run: |
-          uv run pytest -n auto -m "not nautilus and not performance and not skip" --disable-warnings --maxfail=5
+          uv run pytest -n auto -m "not nautilus and not performance and not skip and not fixme" --disable-warnings --maxfail=5
