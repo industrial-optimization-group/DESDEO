@@ -38,7 +38,7 @@
     "msw": "^2.11.5",
     "openapi-fetch": "^0.14.1",
     "openapi-typescript-fetch": "^2.2.1",
-    "orval": "^8.0.2",
+    "orval": "^8.0.3",
     "svelte": "^5.46.4",
     "svelte-sonner": "^1.0.5",
     "sveltekit-superforms": "^2.27.2",
