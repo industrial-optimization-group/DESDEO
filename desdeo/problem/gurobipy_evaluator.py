@@ -1,8 +1,8 @@
 """Defines an evaluator compatible with the Problem JSON format and transforms it into a GurobipyModel."""
 
+import warnings
 from operator import eq as _eq
 from operator import le as _le
-import warnings
 
 import gurobipy as gp
 import numpy as np
@@ -18,8 +18,7 @@ from desdeo.problem.schema import (
     TensorConstant,
     TensorVariable,
     Variable,
-    VariableTypeEnum
-
+    VariableTypeEnum,
 )
 
 
@@ -125,8 +124,16 @@ class GurobipyEvaluator:
 
             elif isinstance(var, TensorVariable):
                 # handle tensor variables, i.e., vectors etc..
-                lowerbounds = var.get_lowerbound_values() if var.lowerbounds is not None else np.full(var.shape, float("-inf")).tolist()
-                upperbounds = var.get_upperbound_values() if var.upperbounds is not None else np.full(var.shape, float("inf")).tolist()
+                lowerbounds = (
+                    var.get_lowerbound_values()
+                    if var.lowerbounds is not None
+                    else np.full(var.shape, float("-inf")).tolist()
+                )
+                upperbounds = (
+                    var.get_upperbound_values()
+                    if var.upperbounds is not None
+                    else np.full(var.shape, float("inf")).tolist()
+                )
 
                 # figure out the variable type
                 match var.variable_type:
@@ -143,12 +150,17 @@ class GurobipyEvaluator:
                         raise GurobipyEvaluatorError(msg)
 
                 # add the variable to the model
-                gvar = self.model.addMVar(shape=tuple(var.shape), lb=np.array(lowerbounds), ub=np.array(upperbounds), vtype=domain, name=var.symbol)
+                gvar = self.model.addMVar(
+                    shape=tuple(var.shape),
+                    lb=np.array(lowerbounds),
+                    ub=np.array(upperbounds),
+                    vtype=domain,
+                    name=var.symbol,
+                )
                 # set the initial value, if one has been defined
                 if var.initial_values is not None:
                     gvar.setAttr("Start", np.array(var.get_initial_values()))
                 self.mvars[var.symbol] = gvar
-
 
         # update the model before returning, so that other expressions can reference the variables
         self.model.update()
@@ -413,8 +425,16 @@ class GurobipyEvaluator:
                 gvar.setAttr("Start", var.initial_value)
         elif isinstance(var, TensorVariable):
             # handle tensor variables, i.e., vectors etc..
-            lowerbounds = var.get_lowerbound_values() if var.lowerbounds is not None else np.full(var.shape, float("-inf")).tolist()
-            upperbounds = var.get_upperbound_values() if var.upperbounds is not None else np.full(var.shape, float("inf")).tolist()
+            lowerbounds = (
+                var.get_lowerbound_values()
+                if var.lowerbounds is not None
+                else np.full(var.shape, float("-inf")).tolist()
+            )
+            upperbounds = (
+                var.get_upperbound_values()
+                if var.upperbounds is not None
+                else np.full(var.shape, float("inf")).tolist()
+            )
 
             # figure out the variable type
             match var.variable_type:
@@ -431,7 +451,13 @@ class GurobipyEvaluator:
                     raise GurobipyEvaluatorError(msg)
 
             # add the variable to the model
-            gvar = self.model.addMVar(shape=tuple(var.shape), lb=np.array(lowerbounds), ub=np.array(upperbounds), vtype=domain, name=var.symbol)
+            gvar = self.model.addMVar(
+                shape=tuple(var.shape),
+                lb=np.array(lowerbounds),
+                ub=np.array(upperbounds),
+                vtype=domain,
+                name=var.symbol,
+            )
             # set the initial value, if one has been defined
             if var.initial_values is not None:
                 gvar.setAttr("Start", np.array(var.get_initial_values()))
@@ -470,8 +496,7 @@ class GurobipyEvaluator:
                 expression = self.constants[name]
         return expression
 
-
-    def get_values(self) -> dict[str, float | int | bool | list[float] | list[int]]:   # noqa: C901
+    def get_values(self) -> dict[str, float | int | bool | list[float] | list[int]]:
         """Get the values from the Gurobipy Model in a dict.
 
         The keys of the dict will be the symbols defined in the problem utilized to initialize the evaluator.

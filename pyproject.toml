@@ -142,8 +142,6 @@ lint.select = [
     "PIE",
     "RET",
     "PTH",
-    "TD",   # Comment this out if too annoying
-    "FIX",  # Comment this out if too annoying
     "SIM",
     "PL",
     "TRY",
@@ -156,8 +154,9 @@ lint.select = [
 ]
 lint.ignore = [
     "COM812",  # Enforcing trailing commas is too annoying.
+    "PLR0911", # "too many return statements (>6)"
+    "PLR0912", # "too many branches"
     "PLR0915", # "too many statements (>50)"
-    "T201",    # TODO: remove? it allow print statements
     "TRY003",  # allow long error messages
 ]
 lint.pydocstyle.convention = "google"
@@ -203,7 +202,6 @@ target-version = "py312"
 [tool.ruff.lint.mccabe]
 max-complexity = 15
 
-[tool.ruff.per-file-ignores]
 [tool.ruff.lint.per-file-ignores]
 # Ignore certain rules in test files
 "**/tests/**/*.py" = [

@@ -193,7 +193,7 @@ class InfixExpressionParser:
     def _is_number_or_variable(self, c):
         return isinstance(c, int | float) or (isinstance(c, str) and c not in self.reserved_symbols)
 
-    def _to_math_json(self, parsed: list | str) -> list:  # noqa: PLR0911, PLR0912
+    def _to_math_json(self, parsed: list | str) -> list:
         """Converts a list of expressions into a MathJSON compliant format.
 
         The conversion happens recursively. Each list of recursed until a terminal character is reached.
@@ -324,18 +324,3 @@ class InfixExpressionParser:
         # simple expressions, like 'x_1', are parsed into just a string after removing any extra
         # brackets, so we add them back there in case it is needed
         return expr if isinstance(expr, list) else [expr]
-
-
-if __name__ == "__main__":
-    # Parse and convert
-    test = "(x_1 - c_2) ** 2 + x_2 ** 2 - 25"
-
-    ohh_no = "['Add', ['Negate', ['Square', ['Subtract', 'x_1', 8]]], ['Negate', ['Square', ['Add', 'x_2', 3]]], 7.7]"
-
-    to_json_parser = InfixExpressionParser(target="MathJSON")
-
-    parsed_expression = to_json_parser.parse(test)
-
-    print(f"Expresion:\n{test}")
-    print(f"Parsed:\n{to_json_parser._pre_parse(test)}")
-    print(f"MathJSON:\n{parsed_expression}")

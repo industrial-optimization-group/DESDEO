@@ -35,7 +35,7 @@ class MathParser:
     Currently only parses MathJSON to polars expressions. Pyomo WIP.
     """
 
-    def __init__(self, to_format: FormatEnum = "polars"):
+    def __init__(self, to_format: FormatEnum = "polars"):  # noqa: C901
         """Create a parser instance for parsing MathJSON notation into polars expressions.
 
         Args:
@@ -135,7 +135,7 @@ class MathParser:
                 acc = acc.to_numpy()
                 x = x.to_numpy()
 
-                if len(acc.shape) == 2 and len(x.shape) == 2:
+                if len(acc.shape) == 2 and len(x.shape) == 2:  # noqa: PLR2004
                     # Row vectors, just return the dot product, polars does not handle
                     # "column" vectors anyway
                     return pl.Series(values=np.einsum("ij,ij->i", acc, x, optimize=True))
@@ -373,7 +373,7 @@ class MathParser:
                     hasattr(x, "is_indexed")
                     and x.is_indexed()
                     and x.dim() > 0
-                    and (not hasattr(y, "is_indexed") or not y.is_indexed() or y.is_indexed() and y.dim() == 0)
+                    and (not hasattr(y, "is_indexed") or not y.is_indexed() or (y.is_indexed() and y.dim() == 0))
                 ):
                     # x is a tensor, y is scalar
                     expr = pyomo.Expression(
@@ -385,7 +385,7 @@ class MathParser:
                     hasattr(y, "is_indexed")
                     and y.is_indexed()
                     and y.dim() > 0
-                    and (not hasattr(x, "is_indexed") or not x.is_indexed() or x.is_indexed() and x.dim() == 0)
+                    and (not hasattr(x, "is_indexed") or not x.is_indexed() or (x.is_indexed() and x.dim() == 0))
                 ):
                     # y is a tensor, x is scalar
                     expr = pyomo.Expression(
@@ -534,16 +534,13 @@ class MathParser:
         def _sympy_matmul(*args):
             """Sympy matrix multiplication."""
             msg = (
-                "Matrix multiplication '@' has not been implemented for the Sympy parser yet."
-                " Feel free to contribute!"
+                "Matrix multiplication '@' has not been implemented for the Sympy parser yet. Feel free to contribute!"
             )
             raise NotImplementedError(msg)
 
         def _sympy_summation(summand):
             """Sympy matrix summation."""
-            msg = (
-                "Matrix summation 'Sum' has not been implemented for the Sympy parser yet." " Feel free to contribute!"
-            )
+            msg = "Matrix summation 'Sum' has not been implemented for the Sympy parser yet. Feel free to contribute!"
             raise NotImplementedError(msg)
 
         def _sympy_random_access(*args):
@@ -627,8 +624,7 @@ class MathParser:
 
             return _sum(summand)
             msg = (
-                "Matrix summation 'Sum' has not been implemented for the Gurobipy parser yet."
-                " Feel free to contribute!"
+                "Matrix summation 'Sum' has not been implemented for the Gurobipy parser yet. Feel free to contribute!"
             )
             raise NotImplementedError(msg)
 

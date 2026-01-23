@@ -33,7 +33,7 @@ class PolarsEvaluatorModesEnum(str, Enum):
     mixed = "mixed"
     """Indicates that the problem has analytical and simulator and/or surrogate
     based objectives, constraints and extra functions. In this mode, the evaluator
-    only handles data-based and analytical functions. For data-bsed objectives,
+    only handles data-based and analytical functions. For data-based objectives,
     it assumes that the variables are to be evaluated by finding the closest
     variables values in the data compare to the input, and evaluating the result
     to be the matching objective function values that match to the closest
@@ -74,7 +74,7 @@ def variable_dimension_enumerate(problem: Problem) -> VariableDimensionEnum:
     enum = VariableDimensionEnum.scalar
     for var in problem.variables:
         if isinstance(var, TensorVariable):
-            if len(var.shape) == 1 or len(var.shape) == 2 and not (var.shape[0] > 1 and var.shape[1] > 1):  # noqa: PLR2004
+            if len(var.shape) == 1 or (len(var.shape) == 2 and not (var.shape[0] > 1 and var.shape[1] > 1)):  # noqa: PLR2004
                 enum = VariableDimensionEnum.vector
             else:
                 return VariableDimensionEnum.tensor
@@ -187,7 +187,7 @@ class PolarsEvaluator:
                 f"Provided 'evaluator_mode' {evaluator_mode} not supported. Must be one of {PolarsEvaluatorModesEnum}."
             )
 
-    def _polars_init(self):  # noqa: C901, PLR0912
+    def _polars_init(self):  # noqa: C901
         """Initialization of the evaluator for parser type 'polars'."""
         # If any constants are defined in problem, replace their symbol with the defined numerical
         # value in all the function expressions found in the Problem.
@@ -211,8 +211,7 @@ class PolarsEvaluator:
                     parsed_obj_funcs[f"{obj.symbol}"] = None
                 else:
                     msg = (
-                        f"Incorrect objective-type {obj.objective_type} encountered. "
-                        f"Must be one of {ObjectiveTypeEnum}"
+                        f"Incorrect objective-type {obj.objective_type} encountered. Must be one of {ObjectiveTypeEnum}"
                     )
                     raise PolarsEvaluatorError(msg)
 
