@@ -198,11 +198,10 @@ def test_ipopt_solver():
     xs = result.optimal_variables
     fs = result.optimal_objectives
 
-    npt.assert_allclose([xs[f"x_{i+1}"] for i in range(n_objectives - 1, n_variables)], 0.5)
+    npt.assert_allclose([xs[f"x_{i + 1}"] for i in range(n_objectives - 1, n_variables)], 0.5)
     npt.assert_almost_equal(sum(fs[obj.symbol] ** 2 for obj in problem.objectives), 1.0)
 
 
-@pytest.mark.nogithub
 @pytest.mark.pyomo
 def test_combinatorial_problem():
     """Test that CBC can be used to solve a simple combinatorial problem."""

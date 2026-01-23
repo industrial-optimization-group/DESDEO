@@ -99,7 +99,7 @@ class CbcOptions(BaseModel):
 
     model_config = ConfigDict(frozen=True, populate_by_name=True)
 
-    sec: int = Field(
+    seconds: int = Field(
         description="The maximum amount of time (in seconds) the solver should run. Defaults to 600.", default=600
     )
     """The maximum amount of time (in seconds) the solver should run. Defaults to 600."""
