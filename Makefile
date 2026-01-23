@@ -18,16 +18,16 @@
 # fullstack: run the web-API and web-GUI for local develpment.
 
 test:
-	pytest -n 4 -m "not nautilus and not performance and not skip"
+	pytest -n auto -m "not nautilus and not performance and not skip and not fixme" --disable-warnings
 
 test-all:
-	pytest -n 4
+	pytest -n auto
 
 test-changes:
-	pytest -n 4 --testmon
+	pytest -n auto --testmon
 
 test-failures:
-	pytest -n 4 --lf
+	pytest -n auto --lf
 
 fullstack:
 	./run_fullstack.sh

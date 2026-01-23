@@ -1,10 +1,10 @@
+name: "Unit tests"
+
 on:
   pull_request:
-    branches:
-      - desdeo2
+    branches: [master]
   push:
-    branches:
-      - desdeo2
+    branches: [master]
 
 jobs:
   test:
@@ -12,24 +12,30 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
         with:
-          python-version: "3.12"
+          enable-cache: true
 
-      - name: Create needed folders folder
-        run: mkdir -p $HOME/tmp/custom_binaries
+      - name: Install Python 3.12
+        run: uv python install 3.12
+
+      - name: Install DESDEO (all extras)
+        run: uv sync --all-extras --python 3.12
+
+      - name: Create needed folders for solver binaries
+        run: mkdir -p "$HOME/tmp/custom_binaries"
 
       - name: Download custom binaries
         run: wget https://github.com/industrial-optimization-group/DESDEO/releases/download/supplementary/solver_binaries.tgz -O $HOME/tmp/binaries.tgz
 
       - name: Extract custom binaries
-        run: tar --strip-components=1 -xzf $HOME/tmp/binaries.tgz -C $HOME/tmp/custom_binaries
+        run: tar --strip-components=1 -xzf "$HOME/tmp/binaries.tgz" -C "$HOME/tmp/custom_binaries"
 
       - name: Make binaries executable
-        run: chmod +x $HOME/tmp/custom_binaries/*
+        run: chmod +x "$HOME/tmp/custom_binaries"/*
 
       - name: Add binaries to path
         run: echo "$HOME/tmp/custom_binaries" >> "$GITHUB_PATH"
@@ -39,20 +45,14 @@ jobs:
 
       - name: Check that binaries are available
         run: |
-          ipopt --version
-          bonmin --version
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          command -v ipopt
+          command -v bonmin
 
       - name: Check Python and Pytest paths
         run: |
-          which python
-          which pytest
-          pytest -k "not performance and not nautili and not api and not gurobipy and not skip" --collect-only
+          uv run python -V
+          uv run pytest -m "not nautilus and not performance and not skip" --collect-only
 
-      - name: Run tests
+      - name: Run unit tests
         run: |
-          pytest -k "not performance and not nautili and not api and not gurobipy and not skip and not nogithub" --disable-warnings --maxfail=5
+          uv run pytest -n auto -m "not nautilus and not performance and not skip" --disable-warnings --maxfail=5
