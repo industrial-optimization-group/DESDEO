@@ -163,7 +163,6 @@ def test_bonmin_w_momip_ti7():
     assert np.isclose(gs["g_2"], 0, atol=1e-8) or gs["g_2"] < 0
 
 
-@pytest.mark.githubskip
 @pytest.mark.slow
 @pytest.mark.pyomo
 def test_gurobi_solver():
@@ -202,6 +201,7 @@ def test_ipopt_solver():
     npt.assert_almost_equal(sum(fs[obj.symbol] ** 2 for obj in problem.objectives), 1.0)
 
 
+@pytest.mark.githubskip
 @pytest.mark.pyomo
 def test_combinatorial_problem():
     """Test that CBC can be used to solve a simple combinatorial problem."""
