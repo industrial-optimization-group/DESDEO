@@ -9,6 +9,10 @@
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 
+	import { goto } from '$app/navigation';
+	import { methodSelection } from '../../../stores/methodSelection';
+	import Check from '@lucide/svelte/icons/check';
+
 	import { create_session, delete_session, fetch_sessions } from './handler';
 
 	let sessions = $state<InteractiveSessionBase[]>([]);
@@ -66,6 +70,12 @@
 				return;
 			}
 
+			if ($methodSelection.selectedSessionId === sessionId) {
+				methodSelection.clearSession();
+			}
+
+			sessions = sessions.filter((s) => s.id !== sessionId);
+
 			await refresh();
 		} catch (err) {
 			console.error('Failed to delete session', err);
@@ -93,6 +103,16 @@
 			<Button variant="outline" size="sm" onclick={refresh}>
 				<RefreshCw class="mr-2 size-4" />
 				Refresh
+			</Button>
+			<Button
+				variant="outline"
+				size="sm"
+				onclick={() => {
+					methodSelection.clearSession();
+					goto('/methods/initialize');
+				}}
+			>
+				None
 			</Button>
 		</div>
 	</div>
@@ -140,16 +160,31 @@
 							<Table.Row>
 								<Table.Cell class="font-mono text-sm">{s.id}</Table.Cell>
 								<Table.Cell class="max-w-[720px] truncate">{s.info ?? '—'}</Table.Cell>
+
 								<Table.Cell class="text-right">
-									<Button
-										variant="ghost"
-										size="icon"
-										disabled={deletingId === s.id}
-										onclick={() => handleDelete(s.id)}
-										title="Delete session"
-									>
-										<Trash2 class="size-4" />
-									</Button>
+									<div class="flex justify-end gap-1">
+										<Button
+											variant="ghost"
+											size="icon"
+											onclick={() => {
+												methodSelection.setSession(s.id, s.info ?? null);
+												goto('/methods/initialize');
+											}}
+											title="Select session"
+										>
+											<Check class="size-4" />
+										</Button>
+
+										<Button
+											variant="ghost"
+											size="icon"
+											disabled={deletingId === s.id}
+											onclick={() => handleDelete(s.id)}
+											title="Delete session"
+										>
+											<Trash2 class="size-4" />
+										</Button>
+									</div>
 								</Table.Cell>
 							</Table.Row>
 						{/each}

@@ -123,6 +123,8 @@
 	let searchQuery = $state('');
 	let selectedPreferenceType = $state<MethodFilterType>('all');
 	let isCompactView = $state(false);
+	let selectedSessionId: number | null = $state(null);
+	let selectedSessionInfo: string | null = $state(null);
 
 	const { data } = $props<{
 			data: {
@@ -133,6 +135,14 @@
 	let problemList = data.problems ?? [];
 
 	const preferenceTypes = [...new Set(baseMethods.flatMap((m) => m.preferencesType))];
+
+	let selectedSessionLabel = $derived.by(() => {
+		if (!selectedSessionId) return 'None';
+		const info = selectedSessionInfo?.trim();
+		return info && info.length > 0
+			? `#${selectedSessionId} — ${info}`
+			: `#${selectedSessionId}`;
+	});
 
 	let filteredMethods = $derived(
 		methods.filter((method) => {
@@ -163,10 +173,13 @@
 
 	onMount(() => {
 		problemId = $methodSelection.selectedProblemId;
+		selectedSessionId = $methodSelection.selectedSessionId;
+		selectedSessionInfo = $methodSelection.selectedSessionInfo;
+
 		if (problemId) {
 			problem = problemList.find((p: ProblemInfo) => String(p.id) === String(problemId));
 		}
-	});
+});
 </script>
 
 <div class="container mx-auto px-4 py-8">
@@ -195,6 +208,13 @@
 					Selected problem: <span class="text-primary font-bold">{problem.name}</span>
 				</p>
 				<Button variant="outline" size="sm" href="/problems">Change</Button>
+			</div>
+			<div class="bg-secondary/20 flex items-center justify-between rounded-lg px-4 py-2">
+				<p class="text-sm">
+					Selected session:
+					<span class="text-primary font-bold">{selectedSessionLabel}</span>
+				</p>
+				<Button variant="outline" size="sm" href="/methods/sessions">Change</Button>
 			</div>
 		{:else if data.groupId}
 			<div class="bg-info/10 flex items-center justify-between rounded-lg px-4 py-2">
@@ -267,6 +287,7 @@
 							size="sm"
 							disabled={!isMethodEnabled(method)}
 							href={`${method.path}`}
+							onclick={() => methodSelection.setMethod(method.name)}
 							class={!isMethodEnabled(method) ? 'opacity-50' : 'hover:bg-secondary/90'}
 						>
 							<Play class="mr-2 size-4" />
@@ -312,6 +333,7 @@
 							variant="default"
 							disabled={!isMethodEnabled(method)}
 							href={`${method.path}`}
+							onclick={() => methodSelection.setMethod(method.name)}
 							class="w-full justify-center {!isMethodEnabled(method) ? 'opacity-50' : 'hover:bg-primary/90'}"
 						>
 							<Play class="mr-2" size={18} />

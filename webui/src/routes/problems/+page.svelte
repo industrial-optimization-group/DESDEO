@@ -80,7 +80,7 @@
 					onClickSolve={(e: ProblemInfo) => {
 						selectedProblem = e;
 						console.log('Selected problem:', selectedProblem.id);
-						methodSelection.set(selectedProblem?.id ?? null, $methodSelection.selectedMethod); // Update method selection store with the selected problem ID
+						methodSelection.setProblem(selectedProblem?.id ?? null);
 					}}
 				/>
 			</div>

@@ -129,7 +129,7 @@
 													selectedGroup = group;
 													selectedProblem = problem;
 													if (problem) {
-														methodSelection.set(problem.id ?? null, $methodSelection.selectedMethod);
+														methodSelection.setProblem(problem.id ?? null);
 													}
 													await goto(`/methods/initialize?group=${group.id}`);
 												}}
