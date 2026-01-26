@@ -15,30 +15,24 @@ import polars as pl
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import StreamingResponse
-from sqlmodel import Session, select
+from sqlmodel import select
 from websockets.asyncio.client import connect
 
 from desdeo.api.db import get_session
-from desdeo.api.models import InteractiveSessionDB, StateDB
+from desdeo.api.models import StateDB
 from desdeo.api.models.emo import (
     EMOFetchRequest,
-    EMOFetchResponse,
     EMOIterateRequest,
     EMOIterateResponse,
-    EMOSaveRequest,
     EMOScoreRequest,
     EMOScoreResponse,
-    Solution,
 )
-from desdeo.api.models.problem import ProblemDB
-from desdeo.api.models.state import EMOFetchState, EMOIterateState, EMOSaveState, EMOSCOREState
-from desdeo.api.models.user import User
-from desdeo.api.routers.user_authentication import get_current_user
+from desdeo.api.models.state import EMOIterateState, EMOSCOREState
 from desdeo.emo.options.templates import EMOOptions, PreferenceOptions, TemplateOptions, emo_constructor
 from desdeo.problem import Problem
-from desdeo.tools.score_bands import SCOREBandsConfig, SCOREBandsResult, score_json
+from desdeo.tools.score_bands import SCOREBandsConfig, score_json
 
-from .utils import fetch_interactive_session, fetch_user_problem, get_session_context, SessionContext
+from .utils import SessionContext, get_session_context
 
 router = APIRouter(prefix="/method/emo", tags=["EMO"])
 
@@ -113,7 +107,6 @@ async def websocket_endpoint(
     try:
         while True:
             data = await websocket.receive_json()
-            print(data)
             if "send_to" in data:
                 try:
                     await ws_manager.send_private_message(data, data["send_to"])
@@ -149,6 +142,7 @@ def get_templates() -> list[TemplateOptions]:
             templates.append(template.template)
     return templates
 
+
 @router.post("/iterate")
 def iterate(
     request: EMOIterateRequest,
@@ -175,8 +169,7 @@ def iterate(
     templates = request.template_options or get_templates()
 
     web_socket_ids = [
-        f"{template.algorithm_name.lower()}_{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
-        for template in templates
+        f"{template.algorithm_name.lower()}_{datetime.now().strftime('%Y%m%d%H%M%S%f')}" for template in templates
     ]
 
     client_id = f"client_{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
@@ -297,7 +290,7 @@ def _spawn_emo_process(
     session.close()
 
 
-def _ea_sync(  # noqa: PLR0913
+def _ea_sync(
     problem: Problem,
     template: TemplateOptions,
     preference_options: PreferenceOptions | None,
@@ -330,7 +323,7 @@ def _ea_sync(  # noqa: PLR0913
     )
 
 
-async def _ea_async(  # noqa: PLR0913
+async def _ea_async(
     problem: Problem,
     websocket_id: str,
     client_id: str,
@@ -362,6 +355,7 @@ async def _ea_async(  # noqa: PLR0913
         await ws.send(f'{{"message": "Finished {websocket_id}", "send_to": "{client_id}"}}')
         results_dict[websocket_id] = results
 
+
 @router.post("/fetch")
 async def fetch_results(
     request: EMOFetchRequest,
@@ -392,14 +386,10 @@ async def fetch_results(
     # Convert objs: dict[str, list[float]] to objs: list[dict[str, float]]
     raw_objs: dict[str, list[float]] = state.state.objective_values
     n_solutions = len(next(iter(raw_objs.values())))
-    objs: list[dict[str, float]] = [
-        {k: v[i] for k, v in raw_objs.items()} for i in range(n_solutions)
-    ]
+    objs: list[dict[str, float]] = [{k: v[i] for k, v in raw_objs.items()} for i in range(n_solutions)]
 
     raw_decs: dict[str, list[float]] = state.state.decision_variables
-    decs: list[dict[str, float]] = [
-        {k: v[i] for k, v in raw_decs.items()} for i in range(n_solutions)
-    ]
+    decs: list[dict[str, float]] = [{k: v[i] for k, v in raw_decs.items()} for i in range(n_solutions)]
 
     def result_stream():
         for i in range(n_solutions):
@@ -412,6 +402,7 @@ async def fetch_results(
 
     return StreamingResponse(result_stream())
 
+
 @router.post("/fetch_score")
 async def fetch_score_bands(
     request: EMOScoreRequest,
@@ -419,7 +410,7 @@ async def fetch_score_bands(
 ) -> EMOScoreResponse:
     """Fetches results from a completed EMO method.
 
-    Args: request (EMOFetchRequest): The request object containing parameters for fetching 
+    Args: request (EMOFetchRequest): The request object containing parameters for fetching
         results and of the SCORE bands visualization.
         context (Annotated[SessionContext, Depends]): The session context.
 
@@ -430,25 +421,22 @@ async def fetch_score_bands(
         SCOREBandsResult: The results of the SCORE bands visualization.
     """
     # Use context instead of manual fetch
-    state = context.parent_state
+    parent_state = context.parent_state
     db_session = context.db_session
     problem_db = context.problem_db
 
-    if state is None:
+    if parent_state is None:
         raise HTTPException(status_code=404, detail="Parent state not found.")
 
-    if not isinstance(state.state, EMOIterateState):
+    if not isinstance(parent_state.state, EMOIterateState):
         raise TypeError(f"State with id={request.parent_state_id} is not of type EMOIterateState.")
 
-    if not (state.state.objective_values and state.state.decision_variables):
+    if not (parent_state.state.objective_values and parent_state.state.decision_variables):
         raise ValueError("State does not contain results yet.")
 
-    if request.config is None:
-        score_config = SCOREBandsConfig()
-    else:
-        score_config = request.config
+    score_config = SCOREBandsConfig() if request.config is None else request.config
 
-    raw_objs: dict[str, list[float]] = state.state.objective_values
+    raw_objs: dict[str, list[float]] = parent_state.state.objective_values
     objs = pl.DataFrame(raw_objs)
 
     results = score_json(
@@ -462,8 +450,8 @@ async def fetch_score_bands(
     score_db_state = StateDB.create(
         database_session=db_session,
         problem_id=problem_db.id,
-        session_id=state.session_id,
-        parent_id=state.id,
+        session_id=parent_state.session_id,
+        parent_id=parent_state.id,
         state=score_state,
     )
 

@@ -14,15 +14,17 @@ from desdeo.api.models import (
     User,
 )
 from desdeo.api.routers.user_authentication import get_current_user
-from desdeo.api.routers.utils import fetch_interactive_session, get_session_context_base, SessionContext
+from desdeo.api.routers.utils import SessionContext, fetch_interactive_session, get_session_context_base
 
 router = APIRouter(prefix="/session")
+
 
 @router.post("/new")
 def create_new_session(
     request: CreateSessionRequest,
     context: Annotated[SessionContext, Depends(get_session_context_base)],
 ) -> InteractiveSessionInfo:
+    """Creates a new interactive session."""
     user = context.user
     db_session = context.db_session
 
@@ -41,6 +43,7 @@ def create_new_session(
     db_session.commit()
 
     return interactive_session
+
 
 @router.get("/get/{session_id}")
 def get_session(

@@ -3,27 +3,22 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import Session
 
-from desdeo.api.db import get_session
 from desdeo.api.models import (
-    InteractiveSessionDB,
     PreferenceDB,
-    ProblemDB,
     RPMSolveRequest,
     RPMState,
     StateDB,
-    User,
 )
 from desdeo.api.routers.problem import check_solver
-from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.mcdm import rpm_solve_solutions
 from desdeo.problem import Problem
 from desdeo.tools import SolverResults
 
-from .utils import fetch_interactive_session, fetch_parent_state, fetch_user_problem, get_session_context, SessionContext
+from .utils import SessionContext, get_session_context
 
 router = APIRouter(prefix="/method/rpm")
+
 
 @router.post("/solve")
 def solve_solutions(

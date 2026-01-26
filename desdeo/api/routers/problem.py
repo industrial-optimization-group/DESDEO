@@ -5,9 +5,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, status
 from fastapi.responses import JSONResponse
-from sqlmodel import Session, select
+from sqlmodel import select
 
-from desdeo.api.db import get_session
 from desdeo.api.models import (
     ForestProblemMetaData,
     ProblemDB,
@@ -25,7 +24,8 @@ from desdeo.api.models import (
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.problem import Problem
 from desdeo.tools.utils import available_solvers
-from .utils import get_session_context, get_session_context_base, SessionContext
+
+from .utils import SessionContext, get_session_context, get_session_context_base
 
 router = APIRouter(prefix="/problem")
 
@@ -84,6 +84,7 @@ def get_problems_info(user: Annotated[User, Depends(get_current_user)]) -> list[
     """
     return user.problems
 
+
 @router.post("/get")
 def get_problem(
     request: ProblemGetRequest,
@@ -97,7 +98,6 @@ def get_problem(
     Raises: HTTPException: could not find a problem with the given id.
     Returns: ProblemInfo: detailed information on the requested problem.
     """
-    db_session = context.db_session
     problem_db = context.problem_db
 
     # -----------------------------
@@ -110,6 +110,7 @@ def get_problem(
         )
 
     return problem_db
+
 
 @router.post("/add")
 def add_problem(
@@ -140,6 +141,7 @@ def add_problem(
 
     return problem_db
 
+
 @router.post("/add_json")
 def add_problem_json(
     json_file: UploadFile,
@@ -168,6 +170,7 @@ def add_problem_json(
 
     return problem_db
 
+
 @router.post("/get_metadata")
 def get_metadata(
     request: ProblemMetaDataGetRequest,
@@ -176,9 +179,7 @@ def get_metadata(
     """Fetch specific metadata for a specific problem."""
     db_session = context.db_session
 
-    problem_from_db = db_session.exec(
-        select(ProblemDB).where(ProblemDB.id == request.problem_id)
-    ).first()
+    problem_from_db = db_session.exec(select(ProblemDB).where(ProblemDB.id == request.problem_id)).first()
 
     if problem_from_db is None:
         raise HTTPException(
@@ -191,16 +192,14 @@ def get_metadata(
     if problem_metadata is None:
         return []
 
-    return [
-        metadata
-        for metadata in problem_metadata.all_metadata
-        if metadata.metadata_type == request.metadata_type
-    ]
+    return [metadata for metadata in problem_metadata.all_metadata if metadata.metadata_type == request.metadata_type]
+
 
 @router.get("/assign/solver", response_model=list[str])
 def get_available_solvers() -> list[str]:
     """Return the list of available solver names."""
     return list(available_solvers.keys())
+
 
 @router.post("/assign_solver")
 def select_solver(
@@ -219,9 +218,7 @@ def select_solver(
         )
 
     # Fetch problem
-    problem_db = db_session.exec(
-        select(ProblemDB).where(ProblemDB.id == request.problem_id)
-    ).first()
+    problem_db = db_session.exec(select(ProblemDB).where(ProblemDB.id == request.problem_id)).first()
 
     if problem_db is None:
         raise HTTPException(
