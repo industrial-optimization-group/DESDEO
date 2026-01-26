@@ -4,7 +4,7 @@ NOTE: No routers should be defined in this file!
 """
 
 from dataclasses import dataclass
-from typing import Annotated, Optional
+from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
 from sqlmodel import Session, select
@@ -19,10 +19,6 @@ from desdeo.api.models import (
     User,
 )
 from desdeo.api.routers.user_authentication import get_current_user
-
-# ---------------------------------------------------------------------
-# Request protocol used by session utilities
-# ---------------------------------------------------------------------
 
 RequestType = RPMSolveRequest | ENautilusStepRequest
 
@@ -95,7 +91,15 @@ def fetch_parent_state(
     session: Session,
     interactive_session: InteractiveSessionDB | None = None,
 ) -> StateDB | None:
-    """Fetches the parent state if defined.
+    """Fetches the parent state, if an id is given, or if defined in the given interactive session.
+
+    Determines the appropriate parent `StateDB` instance to associate with a new
+    state or operation. It first checks whether the `request` explicitly
+    provides a `parent_state_id`. If so, it attempts to retrieve the
+    corresponding `StateDB` entry from the database. If no such id is provided,
+    the function defaults to returning the most recently added state from the
+    given `interactive_session`, if available. If neither source provides a
+    parent state, `None` is returned.
 
     Args:
     user (User): the user for which the parent state is fetched.
@@ -115,15 +119,20 @@ def fetch_parent_state(
             If both `request.parent_state_id` and `interactive_session` are `None`, then returns `None`.
     """
     if request.parent_state_id is None:
+        # parent state is assumed to be the last sate added to the session.
+        # if `interactive_session` is None, then parent state is set to None.
         return (
             interactive_session.states[-1]
             if interactive_session and interactive_session.states
             else None
         )
 
+    # request.parent_state_id is not None
     statement = select(StateDB).where(StateDB.id == request.parent_state_id)
     parent_state = session.exec(statement).first()
 
+    # this error is raised because if a parent_state_id is given, it is assumed that the
+    # user wished to use that state explicitly as the parent.
     if parent_state is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -138,15 +147,15 @@ class SessionContext:
 
     user: User
     db_session: Session
-    problem_db: Optional[ProblemDB] = None
-    interactive_session: Optional[InteractiveSessionDB] = None,
-    parent_state: Optional[StateDB] = None,
+    problem_db: ProblemDB | None = None
+    interactive_session: InteractiveSessionDB | None = None
+    parent_state: StateDB | None = None
 
 
 def get_session_context(
-    request: RequestType,
     user: Annotated[User, Depends(get_current_user)],
     db_session: Annotated[Session, Depends(get_session)],
+    request: RequestType | None = None,
 ) -> SessionContext:
     """Gets the current session context. Should be used as a dep.
 
@@ -159,9 +168,14 @@ def get_session_context(
         SessionContext: the current session context with the relevant instances
             of `User`, `Session`, `ProblemDB`, `InteractiveSessionDB`, and `StateDB`.
     """
-    problem_db = fetch_user_problem(user, request, db_session)
-    interactive_session = fetch_interactive_session(user, request, db_session)
-    parent_state = fetch_parent_state(user, request, db_session, interactive_session=interactive_session)
+    problem_db = None
+    interactive_session = None
+    parent_state = None
+
+    if request is not None:
+        problem_db = fetch_user_problem(user, request, db_session)
+        interactive_session = fetch_interactive_session(user, request, db_session)
+        parent_state = fetch_parent_state(user, request, db_session, interactive_session=interactive_session)
 
     return SessionContext(
         user=user,
@@ -177,4 +191,3 @@ def get_session_context_base(
 ) -> SessionContext:
     """Gets the current session context. Should be used as a dep."""
     return SessionContext(user=user, db_session=db_session)
-

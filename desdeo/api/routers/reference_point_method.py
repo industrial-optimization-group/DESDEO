@@ -30,7 +30,17 @@ def solve_solutions(
     request: RPMSolveRequest,
     context: Annotated[SessionContext, Depends(get_session_context)],
 ) -> RPMState:
-    """Runs an iteration of the reference point method."""
+    """Runs an iteration of the reference point method.
+
+    Args:
+        request (RPMSolveRequest): a request with the needed information to run the method.
+        user (Annotated[User, Depends): the current user.
+        context (Annotated[SessionContext, Depends): the current session context.
+
+    Returns:
+        RPMState: a state with information on the results of iterating the reference point method
+            once.
+    """
     user = context.user
     db_session = context.db_session
     problem_db = context.problem_db
@@ -55,6 +65,7 @@ def solve_solutions(
         request.solver_options,
     )
 
+    # create DB preference
     preference_db = PreferenceDB(
         user_id=user.id,
         problem_id=problem_db.id,
@@ -65,7 +76,7 @@ def solve_solutions(
     db_session.commit()
     db_session.refresh(preference_db)
 
-    # create RPM state (API model)
+    # create state and add to DB
     rpm_state = RPMState(
         scalarization_options=request.scalarization_options,
         solver=request.solver,
@@ -73,7 +84,7 @@ def solve_solutions(
         solver_results=solver_results,
     )
 
-    # create DB state
+    # create DB state and add it to the DB
     state = StateDB(
         problem_id=problem_db.id,
         preference_id=preference_db.id,

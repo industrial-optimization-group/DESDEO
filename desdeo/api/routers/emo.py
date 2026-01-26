@@ -158,6 +158,10 @@ def iterate(
 
     Args: request (EMOIterateRequest): The request object containing parameters for fetching results.
         context (Annotated[SessionContext, Depends]): The session context.
+
+    Raises: HTTPException: If the request is invalid or the EMO method fails.
+    Returns: IterateResponse: A response object containing a list of IDs to be used for websocket communication.
+        Also contains the StateDB id where the results will be stored.
     """
     # 1) Get context objects
     db_session = context.db_session
