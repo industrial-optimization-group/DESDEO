@@ -92,8 +92,7 @@ def get_problem(
 
     Args:
         request (ProblemGetRequest): the request containing the problem's id `problem_id`.
-        user (Annotated[User, Depends): the current user.
-        session (Annotated[Session, Depends): the database session.
+        context (Annotated[SessionContext, Depends): the session context.
 
     Raises:
         HTTPException: could not find a problem with the given id.
@@ -209,7 +208,6 @@ def get_metadata(
 
     Args:
         request (MetaDataGetRequest): the requested metadata type.
-        user (Annotated[User, Depends]): the current user.
         context (Annotated[SessionContext, Depends]): the session context.
 
     Returns:
@@ -255,7 +253,6 @@ def select_solver(
 
     Args:
         request: ProblemSelectSolverRequest: The request containing problem id and string representation of the solver
-        user: Annotated[User, Depends(get_current_user): The user that is logged in.
         context: Annotated[SessionContext, Depends(get_session)]: The session context.
 
     Raises:

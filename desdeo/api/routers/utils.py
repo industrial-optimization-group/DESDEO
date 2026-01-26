@@ -153,9 +153,9 @@ class SessionContext:
 
 
 def get_session_context(
+    request: RequestType,
     user: Annotated[User, Depends(get_current_user)],
     db_session: Annotated[Session, Depends(get_session)],
-    request: RequestType | None = None,
 ) -> SessionContext:
     """Gets the current session context. Should be used as a dep.
 
@@ -168,14 +168,9 @@ def get_session_context(
         SessionContext: the current session context with the relevant instances
             of `User`, `Session`, `ProblemDB`, `InteractiveSessionDB`, and `StateDB`.
     """
-    problem_db = None
-    interactive_session = None
-    parent_state = None
-
-    if request is not None:
-        problem_db = fetch_user_problem(user, request, db_session)
-        interactive_session = fetch_interactive_session(user, request, db_session)
-        parent_state = fetch_parent_state(user, request, db_session, interactive_session=interactive_session)
+    problem_db = fetch_user_problem(user, request, db_session)
+    interactive_session = fetch_interactive_session(user, request, db_session)
+    parent_state = fetch_parent_state(user, request, db_session, interactive_session=interactive_session)
 
     return SessionContext(
         user=user,

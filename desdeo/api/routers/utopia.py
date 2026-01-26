@@ -20,7 +20,6 @@ from desdeo.api.models import (
 )
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.api.routers.utils import get_session_context, SessionContext
-# get_session_context_base
 
 router = APIRouter(prefix="/utopia")
 
