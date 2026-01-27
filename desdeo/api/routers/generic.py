@@ -42,7 +42,7 @@ def solve_intermediate(
         context (Annotated[SessionContext, Depends]): The session context.
     """
     db_session = context.db_session
-    user = context.user
+    user = context.user  # noqa: F841
     problem_db = context.problem_db
     interactive_session = context.interactive_session
     parent_state = context.parent_state

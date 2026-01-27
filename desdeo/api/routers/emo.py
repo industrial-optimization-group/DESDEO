@@ -113,7 +113,7 @@ async def websocket_endpoint(
     try:
         while True:
             data = await websocket.receive_json()
-            print(data)
+            # print(data)
             if "send_to" in data:
                 try:
                     await ws_manager.send_private_message(data, data["send_to"])
@@ -226,7 +226,7 @@ def iterate(
     return EMOIterateResponse(method_ids=web_socket_ids, client_id=client_id, state_id=state_id)
 
 
-def _spawn_emo_process(
+def _spawn_emo_process(  # noqa: PLR0913
     problem: Problem,
     templates: list[TemplateOptions],
     preference_options: PreferenceOptions | None,
@@ -423,7 +423,7 @@ async def fetch_score_bands(
 ) -> EMOScoreResponse:
     """Fetches results from a completed EMO method.
 
-    Args: request (EMOFetchRequest): The request object containing parameters for fetching 
+    Args: request (EMOFetchRequest): The request object containing parameters for fetching
         results and of the SCORE bands visualization.
         context (Annotated[SessionContext, Depends]): The session context.
 
@@ -447,10 +447,7 @@ async def fetch_score_bands(
     if not (state.state.objective_values and state.state.decision_variables):
         raise ValueError("State does not contain results yet.")
 
-    if request.config is None:
-        score_config = SCOREBandsConfig()
-    else:
-        score_config = request.config
+    score_config = SCOREBandsConfig() if request.config is None else request.config
 
     raw_objs: dict[str, list[float]] = state.state.objective_values
     objs = pl.DataFrame(raw_objs)

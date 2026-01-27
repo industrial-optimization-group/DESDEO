@@ -50,7 +50,7 @@ router = APIRouter(prefix="/method/nimbus")
 def filter_duplicates(solutions: list[SavedSolutionReference]) -> list[SavedSolutionReference]:
     """Filters out the duplicate values of objectives."""
     # No solutions or only one solution. There can not be any duplicates.
-    if len(solutions) < 2:
+    if len(solutions) < 2:  # noqa: PLR2004
         return solutions
 
     # Get the objective values
@@ -464,8 +464,7 @@ def finalize_nimbus(
 
     Args:
         request (NIMBUSFinalizeRequest): The request containing the final solution, etc.
-        user (Annotated[User, Depends): The current user.
-        session (Annotated[Session, Depends): The database session.
+        context (Annotated[SessionContext, Depends): The session context.
 
     Raises:
         HTTPException

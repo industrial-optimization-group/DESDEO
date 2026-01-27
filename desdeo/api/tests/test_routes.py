@@ -930,9 +930,9 @@ def test_preferred_solver(client: TestClient):
         response = post_json(client, "/method/nimbus/initialize", request.model_dump(), access_token)
         model = NIMBUSInitializationResponse.model_validate(response.json())
     except Exception as e:
-        print(e)
-        print("^ This outcome is expected since pyomo_cbc doesn't support nonlinear problems.")
-        print("  As that solver is what we set it to be in the start, we can verify that they actually get used.")
+        print(e)  # noqa: T201
+        print("^ This outcome is expected since pyomo_cbc doesn't support nonlinear problems.") # noqa: T201
+        print("  As that solver is what we set it to be in the start, we can verify that they actually get used.") # noqa: T201
 
 
 def test_get_available_solvers(client: TestClient):
@@ -1027,7 +1027,7 @@ def test_gdm_score_bands(client: TestClient):
     response = post_json(client=client, endpoint="/gdm/add_to_group", json=req, access_token=access_token)
     assert response.status_code == 200
 
-    access_token = login(client=client, username="dm", password="dm")
+    access_token = login(client=client, username="dm", password="dm")  # noqa: S106
 
     # Now we have a group, so let's get on with making stuff with gdm score bands.
     req = GDMScoreBandsInitializationRequest(

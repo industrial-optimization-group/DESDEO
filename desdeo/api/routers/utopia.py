@@ -25,16 +25,17 @@ router = APIRouter(prefix="/utopia")
 
 
 @router.post("/")
-def get_utopia_data(
+def get_utopia_data(  # noqa: C901
     request: UtopiaRequest,
     context: Annotated[SessionContext, Depends(get_session_context)],
 ) -> UtopiaResponse:
     """Request and receive the Utopia map corresponding to the decision variables sent.
 
     Args:
-        request (UtopiaRequest): the set of decision variables and problem for which the utopia forest map is requested
-        for.
-        context (Annotated[SessionContext, Depends(get_session_context)]) the current session context
+        request (UtopiaRequest): the set of decision variables and problem for which
+          the utopia forest map is requested for.
+        context (Annotated[SessionContext, Depends]): The session context.
+
     Raises:
         HTTPException:
     Returns:
@@ -106,7 +107,7 @@ def get_utopia_data(
         # The dict keys get converted to ints to strings when it's loaded from database
         try:
             treatments = forest_metadata.schedule_dict[key][str(decision_variables[key].index(1))]
-        except ValueError as e:
+        except ValueError:
             # if the optimization didn't choose any decision alternative, it's safe to assume
             #  that nothing is being done at that forest stand
             treatments = forest_metadata.schedule_dict[key]["0"]
