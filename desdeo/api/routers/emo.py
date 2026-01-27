@@ -294,7 +294,7 @@ def _spawn_emo_process(  # noqa: PLR0913
     session.close()
 
 
-def _ea_sync(
+def _ea_sync(  # noqa: PLR0913
     problem: Problem,
     template: TemplateOptions,
     preference_options: PreferenceOptions | None,
@@ -327,7 +327,7 @@ def _ea_sync(
     )
 
 
-async def _ea_async(
+async def _ea_async(  # noqa: PLR0913
     problem: Problem,
     websocket_id: str,
     client_id: str,

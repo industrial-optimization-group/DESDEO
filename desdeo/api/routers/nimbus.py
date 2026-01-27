@@ -23,7 +23,6 @@ from desdeo.api.models import (
     NIMBUSSaveRequest,
     NIMBUSSaveResponse,
     NIMBUSSaveState,
-    ProblemDB,
     ReferencePoint,
     SavedSolutionReference,
     SolutionReference,

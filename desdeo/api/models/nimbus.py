@@ -39,7 +39,7 @@ class NIMBUSSaveRequest(SQLModel):
 class NIMBUSDeleteSaveRequest(SQLModel):
     """Request model for deletion of a saved solution."""
 
-    state_id : int = Field(description="The ID of the save state.")
+    state_id: int = Field(description="The ID of the save state.")
     solution_index: int = Field(description="The ID of the solution within the above state.")
     problem_id: int = Field(description="The ID of the problem.")
 
@@ -145,7 +145,7 @@ class NIMBUSIntermediateSolutionResponse(SQLModel):
     reference_solution_1: dict[str, float] = Field(
         sa_column=Column(JSON), description="The first solution used when computing intermediate points."
     )
-    reference_solution_2: dict[str, float]= Field(
+    reference_solution_2: dict[str, float] = Field(
         sa_column=Column(JSON), description="The second solution used when computing intermediate points."
     )
     current_solutions: list[SolutionReferenceResponse] = Field(
