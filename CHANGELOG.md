@@ -35,6 +35,73 @@ This project follows **Keep a Changelog** and **Semantic Versioning**:
 
 ---
 
+## [2.1.1] - 2026-01-27
+
+### Core logic
+#### Changed
+- Updated `CBCOptions` parameter name from `sec` to `seconds` to better reflect semantics.
+- Removed obsolete pytest tags (`nogithub`) as part of test cleanup.
+
+---
+
+### Web API
+*(No functional API changes in this release.)*
+
+---
+
+### Web GUI
+#### Added
+- Added a **barebones page for adding and inspecting interactive sessions** (WIP).
+
+---
+
+### Tests
+#### Changed
+- Cleaned up pytest markers:
+  - Re-added `githubskip` where appropriate.
+  - Removed excessive pytest tags that were unintentionally skipping tests.
+  - Added a new `fixme` pytest mark to explicitly label known failing tests with pending issues.
+- Updated pytest commands in the `Makefile`.
+
+---
+
+### Workflows / CI
+#### Added
+- Added a **pre-commit hook GitHub workflow** that runs checks only on changed files in pull requests.
+- Integrated **ruff-based linting and formatting** via pre-commit hooks.
+- For details about pre-commit hooks (how to install and activate),
+  see [the documentation](https://desdeo.readthedocs.io/en/latest/tutorials/contributing/#pre-commit-hooks).
+
+#### Changed
+- Updated unit test workflow:
+  - Now runs on `master` branch commits and pull requests.
+  - Switched dependency management from `pip` to **`uv`**.
+  - Added missing pytest tags to ensure correct test selection.
+
+---
+
+### Tooling and linting
+#### Changed
+- Removed `isort` in favor of **ruff-only** linting and formatting.
+- Refined ruff configuration in `pyproject.toml` to be more sensible in practice.
+- Fixed minor linting issues revealed by enabling pre-commit hooks.
+
+---
+
+### Documentation
+#### Changed
+- Updated `README.md`.
+- Updated contributing documentation with instructions and expectations for using pre-commit hooks.
+
+---
+
+### Notes
+- This release focuses on **developer experience, CI correctness, and test hygiene**.
+- No user-facing web-API changes are expected.
+- GUI additions are **early-stage and exploratory**.
+
+---
+
 ## [2.1.0] - 2026-01-22
 
 ### Core logic
