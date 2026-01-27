@@ -5,29 +5,26 @@ from typing import Annotated
 import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import Session, select
+from sqlmodel import select
 
-from desdeo.api.db import get_session
 from desdeo.api.models import (
-    InteractiveSessionDB,
     IntermediateSolutionRequest,
     IntermediateSolutionState,
-    ProblemDB,
     ScoreBandsRequest,
     ScoreBandsResponse,
     SolutionReference,
     StateDB,
-    User,
 )
 from desdeo.api.models.generic import GenericIntermediateSolutionResponse
-from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.mcdm.nimbus import solve_intermediate_solutions
 from desdeo.problem import Problem
 from desdeo.tools import SolverResults
 from desdeo.tools.score_bands import calculate_axes_positions, cluster, order_dimensions
 
-from .utils import get_session_context, SessionContext
+from .utils import SessionContext, get_session_context
+
 router = APIRouter(prefix="/method/generic")
+
 
 @router.post("/intermediate")
 def solve_intermediate(
@@ -42,7 +39,6 @@ def solve_intermediate(
         context (Annotated[SessionContext, Depends]): The session context.
     """
     db_session = context.db_session
-    user = context.user  # noqa: F841
     problem_db = context.problem_db
     interactive_session = context.interactive_session
     parent_state = context.parent_state
@@ -64,9 +60,7 @@ def solve_intermediate(
     reference_states = []
 
     for solution_info in [request.reference_solution_1, request.reference_solution_2]:
-        solution_state = db_session.exec(
-            select(StateDB).where(StateDB.id == solution_info.state_id)
-        ).first()
+        solution_state = db_session.exec(select(StateDB).where(StateDB.id == solution_info.state_id)).first()
 
         if solution_state is None:
             raise HTTPException(
@@ -164,6 +158,7 @@ def solve_intermediate(
             SolutionReference(state=state, solution_index=i) for i in range(state.state.num_solutions)
         ],
     )
+
 
 @router.post("/score-bands-obj-data")
 def calculate_score_bands_from_objective_data(
