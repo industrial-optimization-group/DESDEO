@@ -152,6 +152,10 @@ def iterate(
 
     Args: request (EMOIterateRequest): The request object containing parameters for fetching results.
         context (Annotated[SessionContext, Depends]): The session context.
+
+    Raises: HTTPException: If the request is invalid or the EMO method fails.
+    Returns: IterateResponse: A response object containing a list of IDs to be used for websocket communication.
+        Also contains the StateDB id where the results will be stored.
     """
     # 1) Get context objects
     db_session = context.db_session
@@ -215,7 +219,7 @@ def iterate(
     return EMOIterateResponse(method_ids=web_socket_ids, client_id=client_id, state_id=state_id)
 
 
-def _spawn_emo_process(
+def _spawn_emo_process(  # noqa: PLR0913
     problem: Problem,
     templates: list[TemplateOptions],
     preference_options: PreferenceOptions | None,

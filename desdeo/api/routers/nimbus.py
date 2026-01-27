@@ -347,7 +347,9 @@ def solve_nimbus_intermediate(
     # Forward to generic endpoint
     intermediate_response = solve_intermediate(request, context)
 
+    # Get saved solutions for this user and problem
     saved_solutions = collect_saved_solutions(user, request.problem_id, db_session)
+    # Get all solutions including the newly generated intermediate ones
     all_solutions = collect_all_solutions(user, request.problem_id, db_session)
 
     return NIMBUSIntermediateSolutionResponse(
@@ -386,6 +388,7 @@ def get_or_initialize(
     )
     states = db_session.exec(statement).all()
 
+    # Find the latest relevant state (NIMBUS classification, initialization, or intermediate with NIMBUS context)
     latest_state = None
     for state in states:
         if isinstance(state.state, (NIMBUSClassificationState | NIMBUSInitializationState | NIMBUSFinalState)) or (
@@ -442,7 +445,7 @@ def get_or_initialize(
                 saved_solutions=saved_solutions,
                 all_solutions=all_solutions,
             )
-
+        # NIMBUSInitializationState
         return NIMBUSInitializationResponse(
             state_id=latest_state.id,
             current_solutions=current_solutions,
@@ -474,24 +477,7 @@ def finalize_nimbus(
     user = context.user
     interactive_session = context.interactive_session
     parent_state = context.parent_state
-
-    if request.parent_state_id is None:
-        parent_state = None
-    else:
-        parent_state = db_session.exec(select(StateDB).where(StateDB.id == request.parent_state_id)).first()
-        if parent_state is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail=f"Could not find state with id={request.parent_state_id}"
-            )
-
-    # fetch problem
-    problem_db = db_session.exec(
-        select(ProblemDB).where(ProblemDB.user_id == user.id, ProblemDB.id == request.problem_id)
-    ).first()
-    if problem_db is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Problem with id={request.problem_id} could not be found."
-        )
+    problem_db = context.problem_db
 
     solution_state_id = request.solution_info.state_id
     solution_index = request.solution_info.solution_index
@@ -580,5 +566,4 @@ def delete_save(
         raise HTTPException(
             detail="Could not delete the saved solution!", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
-
     return NIMBUSDeleteSaveResponse(message="Save deleted.")

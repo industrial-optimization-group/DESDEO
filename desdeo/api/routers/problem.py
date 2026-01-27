@@ -29,7 +29,6 @@ from .utils import SessionContext, get_session_context, get_session_context_base
 
 router = APIRouter(prefix="/problem")
 
-
 def check_solver(problem_db: ProblemDB):
     """Check if a preferred solver is set in the metadata.
 
@@ -92,17 +91,19 @@ def get_problem(
 ) -> ProblemInfo:
     """Get the model of a specific problem.
 
-    Args: request (ProblemGetRequest): the request containing the problem's id `problem_id`.
-        user (Annotated[User, Depends): the current user.
-        session (Annotated[Session, Depends): the database session.
-    Raises: HTTPException: could not find a problem with the given id.
-    Returns: ProblemInfo: detailed information on the requested problem.
+    Args:
+        request (ProblemGetRequest): the request containing the problem's id `problem_id`.
+        context (Annotated[SessionContext, Depends): the session context.
+
+    Raises:
+        HTTPException: could not find a problem with the given id.
+
+    Returns:
+        ProblemInfo: detailed information on the requested problem.
     """
     problem_db = context.problem_db
 
-    # -----------------------------
     # Ensure problem exists
-    # -----------------------------
     if problem_db is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -117,7 +118,21 @@ def add_problem(
     request: Annotated[Problem, Depends(parse_problem_json)],
     context: Annotated[SessionContext, Depends(get_session_context_base)],
 ) -> ProblemInfo:
-    """Add a newly defined problem to the database."""
+    """Add a newly defined problem to the database.
+
+    Args:
+        request (Problem): the JSON representation of the problem.
+        context (Annotated[SessionContext, Depends): the session context.
+
+    Note:
+        Users with the role 'guest' may not add new problems.
+
+    Raises:
+        HTTPException: when any issue with defining the problem arises.
+
+    Returns:
+        ProblemInfo: the information about the problem added.
+    """
     user = context.user
     db_session = context.db_session
 
@@ -147,7 +162,19 @@ def add_problem_json(
     json_file: UploadFile,
     context: Annotated[SessionContext, Depends(get_session_context_base)],
 ) -> ProblemInfo:
-    """Adds a problem to the database based on its JSON definition."""
+    """Adds a problem to the database based on its JSON definition.
+
+    Args:
+        json_file (UploadFile): a file in JSON format describing the problem.
+        context (Annotated[SessionContext, Depends): the session context.
+
+    Raises:
+        HTTPException: if the provided `json_file` is empty.
+        HTTPException: if the content in the provided `json_file` is not in JSON format.__annotations__
+
+    Returns:
+        ProblemInfo: a description of the added problem.
+    """
     user = context.user
     db_session = context.db_session
 
@@ -176,7 +203,21 @@ def get_metadata(
     request: ProblemMetaDataGetRequest,
     context: Annotated[SessionContext, Depends(get_session_context)],
 ) -> list[ForestProblemMetaData | RepresentativeNonDominatedSolutions | SolverSelectionMetadata]:
-    """Fetch specific metadata for a specific problem."""
+    """Fetch specific metadata for a specific problem.
+
+    Fetch specific metadata for a specific problem. See all the possible
+    metadata types from DESDEO/desdeo/api/models/problem.py Problem Metadata
+    section.
+
+    Args:
+        request (MetaDataGetRequest): the requested metadata type.
+        context (Annotated[SessionContext, Depends]): the session context.
+
+    Returns:
+        list[ForestProblemMetadata | RepresentativeNonDominatedSolutions]: list containing all the metadata
+            defined for the problem with the requested metadata type. If no match is found,
+            returns an empty list.
+    """
     db_session = context.db_session
 
     problem_from_db = db_session.exec(select(ProblemDB).where(ProblemDB.id == request.problem_id)).first()
@@ -190,10 +231,10 @@ def get_metadata(
     problem_metadata = problem_from_db.problem_metadata
 
     if problem_metadata is None:
+        # no metadata define for the problem
         return []
-
-    return [metadata for metadata in problem_metadata.all_metadata if metadata.metadata_type == request.metadata_type]
-
+    # metadata is defined, try to find matching types based on request
+    return [metadata for metadata in problem_metadata.all_metadata if metadata.metadata_type == request.metadata_type]  
 
 @router.get("/assign/solver", response_model=list[str])
 def get_available_solvers() -> list[str]:
@@ -206,7 +247,18 @@ def select_solver(
     request: ProblemSelectSolverRequest,
     context: Annotated[SessionContext, Depends(get_session_context)],
 ) -> JSONResponse:
-    """Assign a specific solver for a problem."""
+    """Assign a specific solver for a problem.
+
+    Args:
+        request: ProblemSelectSolverRequest: The request containing problem id and string representation of the solver
+        context: Annotated[SessionContext, Depends(get_session)]: The session context.
+
+    Raises:
+        HTTPException: Unknown solver, unauthorized user
+
+    Returns:
+        JSONResponse: A simple confirmation.
+    """
     db_session = context.db_session
     user = context.user
 
@@ -226,16 +278,17 @@ def select_solver(
             status_code=status.HTTP_404_NOT_FOUND,
         )
 
-    # Authorization
+    # Auth the user
     if user.id != problem_db.user_id:
         raise HTTPException(
             detail="Unauthorized user!",
             status_code=status.HTTP_401_UNAUTHORIZED,
         )
 
-    # Ensure metadata exists
+    # All good, get on with it.
     problem_metadata = problem_db.problem_metadata
     if problem_metadata is None:
+        # There's no metadata for this problem! Create some.
         problem_metadata = ProblemMetaDataDB(problem_id=problem_db.id, problem=problem_db)
         db_session.add(problem_metadata)
         db_session.commit()
