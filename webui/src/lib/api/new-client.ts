@@ -1,16 +1,24 @@
 // NOTE: Supports cases where `content-type` is other than `json`
-const getBody = <T>(c: Response | Request): Promise<T> => {
+const getBody = async <T>(c: Response | Request): Promise<T> => {
+  // If it's a Response and there is explicitly no content, don't parse anything
+  if (c instanceof Response && (c.status === 204 || c.status === 205)) {
+    return null as T;
+  }
+
   const contentType = c.headers.get('content-type');
 
   if (contentType && contentType.includes('application/json')) {
-    return c.json();
+    // Avoid JSON.parse errors on empty bodies
+    const text = await (c as Response).text?.() ?? '';
+    if (!text) return null as T;
+    return JSON.parse(text) as T;
   }
 
   if (contentType && contentType.includes('application/pdf')) {
-    return c.blob() as Promise<T>;
+    return (c as Response).blob() as Promise<T>;
   }
 
-  return c.text() as Promise<T>;
+  return (c as Response).text() as Promise<T>;
 };
 
 // NOTE: Update just base url

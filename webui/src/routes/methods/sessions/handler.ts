@@ -35,13 +35,12 @@ export async function create_session(info: string | null): Promise<InteractiveSe
 }
 
 export async function delete_session(session_id: number): Promise<boolean> {
-	const response: deleteSessionSessionSessionIdDeleteResponse =
-		await deleteSessionSessionSessionIdDelete(session_id);
+  const response = await deleteSessionSessionSessionIdDelete(session_id);
 
-	if (response.status !== 204) {
-		console.error('delete_session failed.', response.status);
-		return false;
-	}
-
-	return true;
+  if (response.status < 200 || response.status >= 300) {
+    console.error('delete_session failed.', response.status);
+    return false;
+  }
+  return true;
 }
+
