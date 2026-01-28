@@ -36,11 +36,13 @@ class NIMBUSSaveRequest(SQLModel):
 
     solution_info: list[SolutionInfo]
 
+
 class NIMBUSDeleteSaveRequest(SQLModel):
     """Request model for deletion of a saved solution."""
 
-    state_id : int = Field(description="The ID of the save state.")
+    state_id: int = Field(description="The ID of the save state.")
     solution_index: int = Field(description="The ID of the solution within the above state.")
+    problem_id: int = Field(description="The ID of the problem.")
 
 
 class NIMBUSFinalizeRequest(SQLModel):
@@ -50,7 +52,7 @@ class NIMBUSFinalizeRequest(SQLModel):
     session_id: int | None = Field(default=None)
     parent_state_id: int | None = Field(default=None)
 
-    solution_info: SolutionInfo # the final solution
+    solution_info: SolutionInfo  # the final solution
 
 
 class NIMBUSClassificationResponse(SQLModel):
@@ -98,12 +100,14 @@ class NIMBUSSaveResponse(SQLModel):
 
     state_id: int | None = Field(description="The id of the newest state")
 
+
 class NIMBUSDeleteSaveResponse(SQLModel):
     """Response of NIMBUS save deletion."""
 
     response_type: str = "nimbus.delete_save"
 
-    message: str | None
+    message: str | None = None
+
 
 class NIMBUSFinalizeResponse(SQLModel):
     """The response from NIMBUS finish endpoint."""
@@ -144,7 +148,7 @@ class NIMBUSIntermediateSolutionResponse(SQLModel):
     reference_solution_1: dict[str, float] = Field(
         sa_column=Column(JSON), description="The first solution used when computing intermediate points."
     )
-    reference_solution_2: dict[str, float]= Field(
+    reference_solution_2: dict[str, float] = Field(
         sa_column=Column(JSON), description="The second solution used when computing intermediate points."
     )
     current_solutions: list[SolutionReferenceResponse] = Field(

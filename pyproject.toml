@@ -147,6 +147,7 @@ lint.ignore = [
     "COM812",  # Enforcing trailing commas is too annoying.
     "PLR0911", # "too many return statements (>6)"
     "PLR0912", # "too many branches"
+    "PLR0913", # "too many function args"
     "PLR0915", # "too many statements (>50)"
     "TRY003",  # allow long error messages
 ]

@@ -67,7 +67,7 @@ def fetch_interactive_session(user: User, request: RequestType, session: Session
     return interactive_session
 
 
-def fetch_user_problem(user: User, request: RequestType, session: Session) -> ProblemDB:
+def fetch_user_problem(user: User, request: RequestType, session: Session) -> ProblemDB | None:
     """Fetches a user's `ProblemDB` based on the id in the given request.
 
     Args:
@@ -81,19 +81,21 @@ def fetch_user_problem(user: User, request: RequestType, session: Session) -> Pr
     Returns:
         Problem: the instance of `ProblemDB` with the given id.
     """
-    statement = select(ProblemDB).where(ProblemDB.user_id == user.id, ProblemDB.id == request.problem_id)
-    problem_db = session.exec(statement).first()
+    if request.problem_id is None:
+        return None
 
-    if problem_db is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Problem with id={request.problem_id} could not be found."
-        )
-
-    return problem_db
+    statement = select(ProblemDB).where(
+        ProblemDB.user_id == user.id,
+        ProblemDB.id == request.problem_id,
+    )
+    return session.exec(statement).first()
 
 
 def fetch_parent_state(
-    user: User, request: RequestType, session: Session, interactive_session: InteractiveSessionDB | None = None
+    user: User,
+    request: RequestType,
+    session: Session,
+    interactive_session: InteractiveSessionDB | None = None,
 ) -> StateDB | None:
     """Fetches the parent state, if an id is given, or if defined in the given interactive session.
 
@@ -105,18 +107,17 @@ def fetch_parent_state(
     given `interactive_session`, if available. If neither source provides a
     parent state, `None` is returned.
 
-
     Args:
-        user (User): the user for which the parent state is fetched.
-        request (RequestType): request containing details about the parent state and optionally the
-            interactive session.
-        session (Session): the database session from which to fetch the parent state.
-        interactive_session (InteractiveSessionDB | None, optional): the interactive session containing
-            information about the parent state. Defaults to None.
+    user (User): the user for which the parent state is fetched.
+    request (RequestType): request containing details about the parent state and optionally the
+        interactive session.
+    session (Session): the database session from which to fetch the parent state.
+    interactive_session (InteractiveSessionDB | None, optional): the interactive session containing
+        information about the parent state. Defaults to None.
 
     Raises:
-        HTTPException: when `request.parent_state_id` is not `None` and a `StateDB` with this id cannot
-            be found in the given database session.
+    HTTPException: when `request.parent_state_id` is not `None` and a `StateDB` with this id cannot
+        be found in the given database session.
 
     Returns:
         StateDB | None: if `request.parent_state_id` is given, returns the corresponding `StateDB`.
@@ -126,23 +127,19 @@ def fetch_parent_state(
     if request.parent_state_id is None:
         # parent state is assumed to be the last sate added to the session.
         # if `interactive_session` is None, then parent state is set to None.
-        parent_state = (
-            interactive_session.states[-1]
-            if (interactive_session is not None and len(interactive_session.states) > 0)
-            else None
+        return interactive_session.states[-1] if interactive_session and interactive_session.states else None
+
+    # request.parent_state_id is not None
+    statement = select(StateDB).where(StateDB.id == request.parent_state_id)
+    parent_state = session.exec(statement).first()
+
+    # this error is raised because if a parent_state_id is given, it is assumed that the
+    # user wished to use that state explicitly as the parent.
+    if parent_state is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Could not find state with id={request.parent_state_id}",
         )
-
-    else:
-        # request.parent_state_id is not None
-        statement = select(StateDB).where(StateDB.id == request.parent_state_id)
-        parent_state = session.exec(statement).first()
-
-        # this error is raised because if a parent_state_id is given, it is assumed that the
-        # user wished to use that state explicitly as the parent.
-        if parent_state is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail=f"Could not find state with id={request.parent_state_id}"
-            )
 
     return parent_state
 
@@ -153,9 +150,9 @@ class SessionContext:
 
     user: User
     db_session: Session
-    problem_db: ProblemDB
-    interactive_session: InteractiveSessionDB | None
-    parent_state: StateDB | None
+    problem_db: ProblemDB | None = None
+    interactive_session: InteractiveSessionDB | None = None
+    parent_state: StateDB | None = None
 
 
 def get_session_context(
@@ -185,3 +182,11 @@ def get_session_context(
         interactive_session=interactive_session,
         parent_state=parent_state,
     )
+
+
+def get_session_context_without_request(
+    user: Annotated[User, Depends(get_current_user)],
+    db_session: Annotated[Session, Depends(get_session)],
+) -> SessionContext:
+    """Gets the current session context. Should be used as a dep."""
+    return SessionContext(user=user, db_session=db_session)
