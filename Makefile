@@ -17,17 +17,29 @@
 #
 # fullstack: run the web-API and web-GUI for local develpment.
 
+# Pytest conf (defined with `?=` can be overridden, e.g., `make test
+# PYTST_MARK="-m slow"`)
+PYTEST 		?= pytest -n auto
+PYTEST_SKIP 	?= -m "not fixme"
+PYTEST_OPTS 	?= --disable-warnings
+
+# Other conf
+TEST_API_PATH := ./desdeo/api/tests
+
 test:
-	pytest -n auto -m "not fixme" --disable-warnings
+	$(PYTEST) $(PYTEST_SKIP) $(PYTEST_OPTS)
+
+test-api:
+	$(PYTEST) $(PYTEST_SKIP) $(PYTEST_OPTS) $(TEST_API_PATH)
 
 test-all:
-	pytest -n auto
+	$(PYTEST)
 
 test-changes:
-	pytest -n auto --testmon
+	$(PYTEST) --testmon
 
 test-failures:
-	pytest -n auto --lf
+	$(PYTEST) --lf $(PYTEST_SKIP) $(PYTEST_OPTS)
 
 fullstack:
 	./run_fullstack.sh
