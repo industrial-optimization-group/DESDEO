@@ -931,8 +931,8 @@ def test_preferred_solver(client: TestClient):
         model = NIMBUSInitializationResponse.model_validate(response.json())
     except Exception as e:
         print(e)  # noqa: T201
-        print("^ This outcome is expected since pyomo_cbc doesn't support nonlinear problems.") # noqa: T201
-        print("  As that solver is what we set it to be in the start, we can verify that they actually get used.") # noqa: T201
+        print("^ This outcome is expected since pyomo_cbc doesn't support nonlinear problems.")  # noqa: T201
+        print("  As that solver is what we set it to be in the start, we can verify that they actually get used.")  # noqa: T201
 
 
 def test_get_available_solvers(client: TestClient):

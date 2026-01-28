@@ -157,19 +157,19 @@ def iterate(
     Returns: IterateResponse: A response object containing a list of IDs to be used for websocket communication.
         Also contains the StateDB id where the results will be stored.
     """
-    # 1) Get context objects
+    # Get context objects
     db_session = context.db_session
     interactive_session = context.interactive_session
     parent_state = context.parent_state
 
-    # 2) Ensure problem exists
+    # Ensure problem exists
     if context.problem_db is None:
         raise HTTPException(status_code=404, detail="Problem not found")
 
     problem_db = context.problem_db
     problem = Problem.from_problemdb(problem_db)
 
-    # 3) Templates
+    # Templates
     templates = request.template_options or get_templates()
 
     web_socket_ids = [
@@ -203,7 +203,7 @@ def iterate(
             detail="Failed to create a new state in the database.",
         )
 
-    # 5) Start process
+    # Start process
     Process(
         target=_spawn_emo_process,
         args=(
@@ -219,7 +219,7 @@ def iterate(
     return EMOIterateResponse(method_ids=web_socket_ids, client_id=client_id, state_id=state_id)
 
 
-def _spawn_emo_process(  # noqa: PLR0913
+def _spawn_emo_process(
     problem: Problem,
     templates: list[TemplateOptions],
     preference_options: PreferenceOptions | None,
@@ -294,7 +294,7 @@ def _spawn_emo_process(  # noqa: PLR0913
     session.close()
 
 
-def _ea_sync(  # noqa: PLR0913
+def _ea_sync(
     problem: Problem,
     template: TemplateOptions,
     preference_options: PreferenceOptions | None,
@@ -327,7 +327,7 @@ def _ea_sync(  # noqa: PLR0913
     )
 
 
-async def _ea_async(  # noqa: PLR0913
+async def _ea_async(
     problem: Problem,
     websocket_id: str,
     client_id: str,

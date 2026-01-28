@@ -117,9 +117,7 @@ def solve_solutions(
     interactive_session = context.interactive_session
     parent_state = context.parent_state
 
-    # -----------------------------
     # Ensure problem exists
-    # -----------------------------
     if problem_db is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Problem with id={request.problem_id} could not be found."

@@ -22,6 +22,7 @@ from desdeo.api.routers.user_authentication import get_current_user
 
 RequestType = RPMSolveRequest | ENautilusStepRequest
 
+
 def fetch_interactive_session(user: User, request: RequestType, session: Session) -> InteractiveSessionDB | None:
     """Gets the desired instance of `InteractiveSessionDB`.
 
@@ -74,7 +75,11 @@ def fetch_user_problem(user: User, request: RequestType, session: Session) -> Pr
         request (RequestType): request containing details of the problem to be fetched (`request.problem_id`).
         session (Session): the database session from which to fetch the problem.
 
-    Returns None if no problem is found.
+    Raises:
+        HTTPException: a problem with the given id (`request.problem_id`) could not be found (404).
+
+    Returns:
+        Problem: the instance of `ProblemDB` with the given id.
     """
     if request.problem_id is None:
         return None
@@ -84,6 +89,7 @@ def fetch_user_problem(user: User, request: RequestType, session: Session) -> Pr
         ProblemDB.id == request.problem_id,
     )
     return session.exec(statement).first()
+
 
 def fetch_parent_state(
     user: User,
@@ -121,11 +127,7 @@ def fetch_parent_state(
     if request.parent_state_id is None:
         # parent state is assumed to be the last sate added to the session.
         # if `interactive_session` is None, then parent state is set to None.
-        return (
-            interactive_session.states[-1]
-            if interactive_session and interactive_session.states
-            else None
-        )
+        return interactive_session.states[-1] if interactive_session and interactive_session.states else None
 
     # request.parent_state_id is not None
     statement = select(StateDB).where(StateDB.id == request.parent_state_id)
@@ -140,6 +142,7 @@ def fetch_parent_state(
         )
 
     return parent_state
+
 
 @dataclass(frozen=True)
 class SessionContext:
@@ -180,7 +183,8 @@ def get_session_context(
         parent_state=parent_state,
     )
 
-def get_session_context_base(
+
+def get_session_context_without_request(
     user: Annotated[User, Depends(get_current_user)],
     db_session: Annotated[Session, Depends(get_session)],
 ) -> SessionContext:

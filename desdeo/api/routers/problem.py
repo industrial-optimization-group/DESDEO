@@ -25,9 +25,10 @@ from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.problem import Problem
 from desdeo.tools.utils import available_solvers
 
-from .utils import SessionContext, get_session_context, get_session_context_base
+from .utils import SessionContext, get_session_context, get_session_context_without_request
 
 router = APIRouter(prefix="/problem")
+
 
 def check_solver(problem_db: ProblemDB):
     """Check if a preferred solver is set in the metadata.
@@ -116,7 +117,7 @@ def get_problem(
 @router.post("/add")
 def add_problem(
     request: Annotated[Problem, Depends(parse_problem_json)],
-    context: Annotated[SessionContext, Depends(get_session_context_base)],
+    context: Annotated[SessionContext, Depends(get_session_context_without_request)],
 ) -> ProblemInfo:
     """Add a newly defined problem to the database.
 
@@ -160,7 +161,7 @@ def add_problem(
 @router.post("/add_json")
 def add_problem_json(
     json_file: UploadFile,
-    context: Annotated[SessionContext, Depends(get_session_context_base)],
+    context: Annotated[SessionContext, Depends(get_session_context_without_request)],
 ) -> ProblemInfo:
     """Adds a problem to the database based on its JSON definition.
 
@@ -235,6 +236,7 @@ def get_metadata(
         return []
     # metadata is defined, try to find matching types based on request
     return [metadata for metadata in problem_metadata.all_metadata if metadata.metadata_type == request.metadata_type]
+
 
 @router.get("/assign/solver", response_model=list[str])
 def get_available_solvers() -> list[str]:

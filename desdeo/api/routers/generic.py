@@ -43,19 +43,7 @@ def solve_intermediate(
     interactive_session = context.interactive_session
     parent_state = context.parent_state
 
-    # --------------------------------------
-    # Validate interactive session
-    # --------------------------------------
-    if interactive_session is None and request.session_id is not None:
-        # session id was explicitly requested but not found
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Could not find interactive session with id={request.session_id}.",
-        )
-
-    # --------------------------------------
     # query both reference solutions' variable values
-    # --------------------------------------
     var_and_obj_values_of_references: list[tuple[dict, dict]] = []
     reference_states = []
 
@@ -94,9 +82,7 @@ def solve_intermediate(
 
         var_and_obj_values_of_references.append((var_values, obj_values))
 
-    # --------------------------------------
     # Problem is now already loaded via context
-    # --------------------------------------
     if problem_db is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

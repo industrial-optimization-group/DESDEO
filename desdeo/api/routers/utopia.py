@@ -20,6 +20,7 @@ from desdeo.api.routers.utils import SessionContext, get_session_context
 
 router = APIRouter(prefix="/utopia")
 
+
 @router.post("/")
 def get_utopia_data(  # noqa: C901
     request: UtopiaRequest,
@@ -105,7 +106,7 @@ def get_utopia_data(  # noqa: C901
             treatments = forest_metadata.schedule_dict[key][str(decision_variables[key].index(1))]
         except ValueError:
             # if the optimization didn't choose any decision alternative, it's safe to assume
-            #  that nothing is being done at that forest stand
+            # that nothing is being done at that forest stand
             treatments = forest_metadata.schedule_dict[key]["0"]
             # print(e)
         treatments_dict[key] = {forest_metadata.years[0]: 0, forest_metadata.years[1]: 0, forest_metadata.years[2]: 0}
