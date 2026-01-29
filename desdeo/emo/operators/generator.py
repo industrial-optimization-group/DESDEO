@@ -469,12 +469,12 @@ class SeededHybridGenerator(BaseGenerator):
         evaluator,
         publisher,
         verbosity,
+        seed: int,
         n_points: int,
         seed_solution: pl.DataFrame,
         perturb_fraction: float = 0.2,
         sigma: float = 0.02,
         flip_prob: float = 0.1,
-        **kwargs: dict,
     ):
         """Initialize the seeded hybrid generator.
 
@@ -487,6 +487,7 @@ class SeededHybridGenerator(BaseGenerator):
             evaluator (EMOEvaluator): Evaluator used to compute objectives and constraints.
             publisher (Publisher): Publisher used for emitting generator messages.
             verbosity (int): Verbosity level of the generator.
+            seed (int): Seed used for random number generation.
             n_points (int): Total size of the initial population.
             seed_solution (pl.DataFrame): A single-row DataFrame containing a seed
                 decision variable vector.
@@ -496,7 +497,6 @@ class SeededHybridGenerator(BaseGenerator):
                 variable ranges. Defaults to 0.02.
             flip_prob (float, optional): Probability of flipping a binary variable
                 when perturbing the seed. Defaults to 0.1.
-            kwargs (dict): `seed` is used, if present.
 
         Raises:
             TypeError: If ``seed_solution`` is not a polars DataFrame.
@@ -532,7 +532,8 @@ class SeededHybridGenerator(BaseGenerator):
         self.flip_prob = flip_prob
 
         self.evaluator = evaluator
-        self.rng = np.random.default_rng(kwargs.get("seed"))
+        self.seed = seed
+        self.rng = np.random.default_rng(self.seed)
 
         self.population = None
         self.out = None
