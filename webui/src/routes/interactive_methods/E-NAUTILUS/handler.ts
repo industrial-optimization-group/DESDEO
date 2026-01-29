@@ -26,7 +26,8 @@ export async function step_enautilus(
     problem_id: number,
     number_of_intermediate_points: number,
     iterations_left: number,
-    representative_solutions_id: number
+    representative_solutions_id: number,
+    session_id: number | null
 ): Promise<ENautilusStepBundle | null> {
     const selected_point = current_state.intermediate_points[selected_index];
     const reachable_indices = current_state.reachable_point_indices[selected_index];
@@ -40,6 +41,7 @@ export async function step_enautilus(
         reachable_point_indices: reachable_indices,
         number_of_intermediate_points: number_of_intermediate_points,
         parent_state_id: current_state.state_id ?? undefined,
+        session_id: session_id,
         //session id
     }
 

@@ -40,6 +40,9 @@
 	let previous_objective_values = $state<number[]>([]);
 	let number_intermediate_points = $state<number>(3);
 	let iterations_left_override = $state<number | null>(null);
+	let initial_intermediate_points = $state<number | null>(null);
+	let initial_iterations_left = $state<number | null>(null);
+	let has_initialized = $state<boolean>(false);
 
 	let objective_keys = $derived.by(() => {
 		if (!previous_response || previous_response.intermediate_points.length === 0) return [];
@@ -85,7 +88,7 @@
 	let effective_iterations_left = $derived.by(() => {
 		// Prefer override if provided; else use backend state; else fallback for init
 		if (iterations_left_override != null) return iterations_left_override;
-		return previous_response?.iterations_left ?? 5;
+		return previous_response?.iterations_left ?? initial_iterations_left ?? 0;
 	});
 
 	let representativeObjectiveValues = $derived.by(() => {
@@ -131,32 +134,6 @@
 				}
 
 				problem_info = response;
-
-				// initial E-NAUTILUS problem step request
-				// TODO: these parameters should be queried from the user
-				// TODO: if we have a selected interactive session and state, we should pick up from there
-
-				const stepRequest: ENautilusStepRequest = {
-					problem_id: selection.selectedProblemId,
-					representative_solutions_id: 1,
-					current_iteration: 0,
-					iterations_left: effective_iterations_left,
-					selected_point: {},
-					reachable_point_indices: [],
-					number_of_intermediate_points: number_intermediate_points
-					// session_id, parent_state_id
-				};
-
-				const stepResponse = await initialize_enautilus_state(stepRequest);
-
-				if (stepResponse === null) {
-					console.log('E-NAUTILUS initialization failed (empty response).');
-					errorMessage.set('Failed to initialize E-NAUTILUS.');
-					return;
-				}
-
-				previous_request = stepRequest;
-				previous_response = stepResponse;
 			} catch (err) {
 				console.log('Error during initialization of the E-NAUTILUS method', err);
 				errorMessage.set('Unexpected error during E-NAUTILUS initialization.');
@@ -167,6 +144,59 @@
 
 		return unsubscribe;
 	});
+
+	async function initialize_enautilus() {
+		if (selection.selectedProblemId === null) {
+			errorMessage.set('No problem selected.');
+			return;
+		}
+
+		if (selection.selectedSessionId === null) {
+			errorMessage.set('Please select a session before starting E-NAUTILUS.');
+			return;
+		}
+
+		if (initial_intermediate_points == null || initial_iterations_left == null) {
+			errorMessage.set('Please enter the initial number of iterations and intermediate points.');
+			return;
+		}
+
+		try {
+			isLoading.set(true);
+
+			const stepRequest: ENautilusStepRequest = {
+				problem_id: selection.selectedProblemId,
+				representative_solutions_id: 1,
+				current_iteration: 0,
+				iterations_left: initial_iterations_left,
+				selected_point: {},
+				reachable_point_indices: [],
+				number_of_intermediate_points: initial_intermediate_points,
+				session_id: selection.selectedSessionId
+				// parent_state_id
+			};
+
+			const stepResponse = await initialize_enautilus_state(stepRequest);
+
+			if (stepResponse === null) {
+				console.log('E-NAUTILUS initialization failed (empty response).');
+				errorMessage.set('Failed to initialize E-NAUTILUS.');
+				return;
+			}
+
+			number_intermediate_points = initial_intermediate_points;
+			previous_request = stepRequest;
+			previous_response = stepResponse;
+			iterations_left_override = null;
+			selected_point_index = null;
+			has_initialized = true;
+		} catch (err) {
+			console.log('Error during initialization of the E-NAUTILUS method', err);
+			errorMessage.set('Unexpected error during E-NAUTILUS initialization.');
+		} finally {
+			isLoading.set(false);
+		}
+	}
 
 	async function handle_iteration() {
 		try {
@@ -187,6 +217,11 @@
 				return;
 			}
 
+			if (selection.selectedSessionId === null) {
+				errorMessage.set('No session selected.');
+				return;
+			}
+
 			if (selected_point_index == null) {
 				errorMessage.set('No point selected.')
 				return;
@@ -198,7 +233,8 @@
 				selection.selectedProblemId,
 				number_intermediate_points,
 				effective_iterations_left,
-				previous_request.representative_solutions_id
+				previous_request.representative_solutions_id,
+				selection.selectedSessionId
 			);
 
 			if (!next_bundle) {
@@ -363,6 +399,80 @@
 			{/if}
 		{/snippet}
 	</BaseLayout>
+{:else if !previous_response && !has_initialized}
+	<div class="mx-auto mt-8 flex w-full max-w-3xl flex-col gap-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+		<div>
+			<h2 class="text-lg font-semibold">Start E-NAUTILUS</h2>
+			<p class="text-sm text-gray-600">
+				Choose the interactive session and initial parameters before running the first iteration.
+			</p>
+		</div>
+
+		<div class="grid gap-4 md:grid-cols-2">
+			<div>
+				<label class="mb-1 block text-sm font-medium text-gray-700">Selected session</label>
+				<div class="rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+					{#if selection.selectedSessionId != null}
+						Session #{selection.selectedSessionId}
+						{#if selection.selectedSessionInfo}
+							— {selection.selectedSessionInfo}
+						{/if}
+					{:else}
+						No session selected. Choose one from the Sessions page.
+					{/if}
+				</div>
+			</div>
+
+			<div class="flex items-center justify-end md:justify-start">
+				<Button variant="outline" href="/methods/sessions">Manage sessions</Button>
+			</div>
+
+			<div>
+				<label class="mb-1 block text-sm font-medium text-gray-700" for="initial-iterations">
+					Iterations
+				</label>
+				<input
+					id="initial-iterations"
+					type="number"
+					min="1"
+					bind:value={initial_iterations_left}
+					class="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+					placeholder="e.g. 5"
+				/>
+			</div>
+
+			<div>
+				<label class="mb-1 block text-sm font-medium text-gray-700" for="initial-intermediate">
+					Intermediate points
+				</label>
+				<input
+					id="initial-intermediate"
+					type="number"
+					min="1"
+					max="10"
+					bind:value={initial_intermediate_points}
+					class="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+					placeholder="e.g. 3"
+				/>
+			</div>
+		</div>
+
+		<div class="flex flex-wrap items-center justify-between gap-3">
+			<p class="text-xs text-gray-500">
+				You can adjust intermediate points and remaining iterations later in the iteration controls.
+			</p>
+			<Button
+				onclick={initialize_enautilus}
+				disabled={$isLoading ||
+					selection.selectedProblemId == null ||
+					selection.selectedSessionId == null ||
+					initial_iterations_left == null ||
+					initial_intermediate_points == null}
+			>
+				Start E-NAUTILUS
+			</Button>
+		</div>
+	</div>
 {:else}
 	<BaseLayout
 		showLeftSidebar={false}
