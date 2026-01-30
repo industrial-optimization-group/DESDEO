@@ -44,6 +44,15 @@
 	let initial_iterations_left = $state<number | null>(null);
 	let has_initialized = $state<boolean>(false);
 
+	let is_initial_ready = $derived.by(() => {
+		return (
+			initial_iterations_left != null &&
+			initial_iterations_left > 0 &&
+			initial_intermediate_points != null &&
+			initial_intermediate_points > 0
+		);
+	});
+
 	let objective_keys = $derived.by(() => {
 		if (!previous_response || previous_response.intermediate_points.length === 0) return [];
 
@@ -158,6 +167,11 @@
 
 		if (initial_intermediate_points == null || initial_iterations_left == null) {
 			errorMessage.set('Please enter the initial number of iterations and intermediate points.');
+			return;
+		}
+
+		if (initial_iterations_left <= 0 || initial_intermediate_points <= 0) {
+			errorMessage.set('Initial iterations and intermediate points must be greater than zero.');
 			return;
 		}
 
@@ -327,7 +341,16 @@
 
 <h1 class="mt-10 text-center text-2xl font-semibold">E-NAUTILUS method</h1>
 <p class="mb-4 text-center text-sm text-gray-600">
-	Selected problem id: {$methodSelection.selectedProblemId}; method: {$methodSelection.selectedMethod}
+	Selected problem id: {$methodSelection.selectedProblemId}; method: {$methodSelection.selectedMethod};
+	session:
+	{#if $methodSelection.selectedSessionId != null}
+		{$methodSelection.selectedSessionId}
+		{#if $methodSelection.selectedSessionInfo}
+			({$methodSelection.selectedSessionInfo})
+		{/if}
+	{:else}
+		none
+	{/if}
 </p>
 
 {#if $isLoading}
@@ -466,8 +489,7 @@
 				disabled={$isLoading ||
 					selection.selectedProblemId == null ||
 					selection.selectedSessionId == null ||
-					initial_iterations_left == null ||
-					initial_intermediate_points == null}
+					!is_initial_ready}
 			>
 				Start E-NAUTILUS
 			</Button>
