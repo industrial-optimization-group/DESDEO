@@ -110,6 +110,7 @@ def test_refresh(client: TestClient):
     response_refresh = client.post("/refresh")
 
     assert "access_token" in response_refresh.json()
+    assert "access_token" in response_refresh.cookies
 
     assert response_good.json()["access_token"] != response_refresh.json()["access_token"]
 

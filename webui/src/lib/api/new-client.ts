@@ -55,7 +55,23 @@ export const customFetch = async <T>(
     credentials: "include",
   };
 
-  const response = await f(requestUrl, requestInit);
+  const request = new Request(requestUrl, requestInit);
+  const retryRequest = request.clone();
+
+  let response = await f(request);
+
+  if (response.status === 401) {
+    const refreshUrl = new URL("/refresh", requestUrl).toString();
+    const refreshResponse = await f(refreshUrl, {
+      method: "POST",
+      credentials: "include",
+    });
+
+    if (refreshResponse.ok) {
+      response = await f(retryRequest);
+    }
+  }
+
   const data = await getBody<T>(response);
 
   return { status: response.status, data, headers: response.headers } as T;
