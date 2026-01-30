@@ -15,7 +15,7 @@ test_user_dm2_password = "dm2"
 [auth-debug]
 authjwt_secret_key = "36b96a23d24cebdeadce6d98fa53356111e6f3e85b8144d7273dcba230b9eb18"
 authjwt_algorithm = "HS256"
-authjwt_access_token_expires = 1 # in minutes
+authjwt_access_token_expires = 15 # in minutes
 authjwt_refresh_token_expires = 30 # in minutes
 cors_origins = [
     "http://localhost",
