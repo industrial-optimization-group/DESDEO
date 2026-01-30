@@ -8,13 +8,21 @@ import type {
 } from '$lib/gen/models';
 import { addProblemJsonProblemAddJsonPost, addProblemProblemAddPost } from '$lib/gen/endpoints/DESDEOFastAPI';
 
+export type ObjectivePayload = Omit<ObjectiveDB, 'func'> & {
+	func: ObjectiveDB['func'] | string | null;
+};
+
+export type ConstraintPayload = Omit<ConstraintDB, 'func'> & {
+	func: ConstraintDB['func'] | string;
+};
+
 export type ProblemPayload = {
 	name: string;
 	description: string;
 	variables: VariableDB[];
-	objectives: ObjectiveDB[];
+	objectives: ObjectivePayload[];
 	constants?: ConstantDB[] | null;
-	constraints?: ConstraintDB[] | null;
+	constraints?: ConstraintPayload[] | null;
 	scenario_keys?: string[] | null;
 	is_convex?: boolean | null;
 	is_linear?: boolean | null;

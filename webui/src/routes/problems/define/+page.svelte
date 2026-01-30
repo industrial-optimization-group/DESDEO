@@ -117,6 +117,7 @@
 	let formErrors = $state<string[]>([]);
 	let successMessage = $state<string | null>(null);
 	let apiError = $state<string | null>(null);
+	let showAdvanced = $state(false);
 
 	let name = $state('');
 	let description = $state('');
@@ -145,6 +146,19 @@
 			throw new Error('Expected a JSON array.');
 		}
 		return parsed;
+	};
+
+	const parseFunctionValue = (value: string): unknown[] | string | null => {
+		const trimmed = value.trim();
+		if (trimmed === '') return null;
+		try {
+			const parsed = JSON.parse(trimmed);
+			if (Array.isArray(parsed)) return parsed;
+			if (typeof parsed === 'string') return parsed;
+			return trimmed;
+		} catch (error) {
+			return trimmed;
+		}
 	};
 
 	const toStringList = (value: string): string[] | null => {
@@ -207,13 +221,6 @@
 		objectives.forEach((objective, index) => {
 			if (!objective.name.trim()) errors.push(`Objective ${index + 1}: name is required.`);
 			if (!objective.symbol.trim()) errors.push(`Objective ${index + 1}: symbol is required.`);
-			if (objective.func.trim()) {
-				try {
-					parseJsonArray(objective.func);
-				} catch (error) {
-					errors.push(`Objective ${index + 1}: func must be a JSON array.`);
-				}
-			}
 			if (objective.ideal.trim() && parseNumber(objective.ideal) === null) {
 				errors.push(`Objective ${index + 1}: ideal must be a number.`);
 			}
@@ -228,12 +235,6 @@
 			if (!constraint.cons_type) errors.push(`Constraint ${index + 1}: type is required.`);
 			if (!constraint.func.trim()) {
 				errors.push(`Constraint ${index + 1}: func is required.`);
-			} else {
-				try {
-					parseJsonArray(constraint.func);
-				} catch (error) {
-					errors.push(`Constraint ${index + 1}: func must be a JSON array.`);
-				}
 			}
 		});
 
@@ -269,7 +270,7 @@
 			symbol: objective.symbol.trim(),
 			description: objective.description.trim() || null,
 			unit: objective.unit.trim() || null,
-			func: objective.func.trim() ? parseJsonArray(objective.func) : null,
+			func: parseFunctionValue(objective.func),
 			maximize: objective.maximize,
 			ideal: parseNumber(objective.ideal),
 			nadir: parseNumber(objective.nadir),
@@ -277,23 +278,23 @@
 			is_linear: objective.is_linear,
 			is_convex: objective.is_convex,
 			is_twice_differentiable: objective.is_twice_differentiable,
-			scenario_keys: toStringList(objective.scenario_keys),
-			simulator_path: objective.simulator_path.trim() || null,
-			surrogates: toStringList(objective.surrogates)
+			scenario_keys: showAdvanced ? toStringList(objective.scenario_keys) : null,
+			simulator_path: showAdvanced ? objective.simulator_path.trim() || null : null,
+			surrogates: showAdvanced ? toStringList(objective.surrogates) : null
 		})),
 		constraints:
 			constraints.length > 0
 				? constraints.map((constraint) => ({
 						name: constraint.name.trim(),
 						symbol: constraint.symbol.trim(),
-						func: parseJsonArray(constraint.func) ?? [],
+						func: parseFunctionValue(constraint.func) ?? '',
 						cons_type: constraint.cons_type,
 						is_linear: constraint.is_linear,
 						is_convex: constraint.is_convex,
 						is_twice_differentiable: constraint.is_twice_differentiable,
-						scenario_keys: toStringList(constraint.scenario_keys),
-						simulator_path: constraint.simulator_path.trim() || null,
-						surrogates: toStringList(constraint.surrogates)
+						scenario_keys: showAdvanced ? toStringList(constraint.scenario_keys) : null,
+						simulator_path: showAdvanced ? constraint.simulator_path.trim() || null : null,
+						surrogates: showAdvanced ? toStringList(constraint.surrogates) : null
 					}))
 				: null,
 		constants:
@@ -304,11 +305,28 @@
 						value: parseNumber(constant.value) ?? 0
 					}))
 				: null,
-		scenario_keys: toStringList(scenarioKeys),
+		scenario_keys: showAdvanced ? toStringList(scenarioKeys) : null,
 		is_convex: parseTriState(isConvexSelection),
 		is_linear: parseTriState(isLinearSelection),
 		is_twice_differentiable: parseTriState(isTwiceDifferentiableSelection)
 	});
+
+	const handleClearForm = () => {
+		name = '';
+		description = '';
+		scenarioKeys = '';
+		isConvexSelection = 'auto';
+		isLinearSelection = 'auto';
+		isTwiceDifferentiableSelection = 'auto';
+		showAdvanced = false;
+		variables = [emptyVariable()];
+		objectives = [emptyObjective()];
+		constraints = [];
+		constants = [];
+		formErrors = [];
+		apiError = null;
+		successMessage = null;
+	};
 
 	const handleSubmit = async () => {
 		formErrors = [];
@@ -372,9 +390,13 @@
 		const jsonText = await jsonFile.text();
 		try {
 			const parsed = JSON.parse(jsonText) as Partial<ProblemPayload>;
+			let hasAdvanced = false;
 			if (parsed.name) name = parsed.name;
 			if (parsed.description) description = parsed.description;
-			if (parsed.scenario_keys) scenarioKeys = parsed.scenario_keys.join(', ');
+			if (parsed.scenario_keys) {
+				scenarioKeys = parsed.scenario_keys.join(', ');
+				hasAdvanced = true;
+			}
 			isConvexSelection = parsed.is_convex === null || parsed.is_convex === undefined ? 'auto' : parsed.is_convex ? 'true' : 'false';
 			isLinearSelection = parsed.is_linear === null || parsed.is_linear === undefined ? 'auto' : parsed.is_linear ? 'true' : 'false';
 			isTwiceDifferentiableSelection =
@@ -399,7 +421,12 @@
 				objectives = parsed.objectives.map((objective) => ({
 					name: objective.name ?? '',
 					symbol: objective.symbol ?? '',
-					func: objective.func ? JSON.stringify(objective.func, null, 2) : '',
+					func:
+						typeof objective.func === 'string'
+							? objective.func
+							: objective.func
+								? JSON.stringify(objective.func, null, 2)
+								: '',
 					description: objective.description ?? '',
 					unit: objective.unit ?? '',
 					maximize: objective.maximize ?? false,
@@ -418,13 +445,20 @@
 								: '',
 					surrogates: objective.surrogates?.join(', ') ?? ''
 				}));
+
+				if (parsed.objectives.some((objective) => objective.scenario_keys || objective.surrogates || objective.simulator_path)) {
+					hasAdvanced = true;
+				}
 			}
 
 			if (parsed.constraints && parsed.constraints.length > 0) {
 				constraints = parsed.constraints.map((constraint) => ({
 					name: constraint.name ?? '',
 					symbol: constraint.symbol ?? '',
-					func: JSON.stringify(constraint.func ?? [], null, 2),
+					func:
+						typeof constraint.func === 'string'
+							? constraint.func
+							: JSON.stringify(constraint.func ?? [], null, 2),
 					cons_type: constraint.cons_type ?? ConstraintTypeEnum['<='],
 					is_linear: constraint.is_linear ?? true,
 					is_convex: constraint.is_convex ?? false,
@@ -438,6 +472,10 @@
 								: '',
 					surrogates: constraint.surrogates?.join(', ') ?? ''
 				}));
+
+				if (parsed.constraints.some((constraint) => constraint.scenario_keys || constraint.surrogates || constraint.simulator_path)) {
+					hasAdvanced = true;
+				}
 			}
 
 			if (parsed.constants && parsed.constants.length > 0) {
@@ -448,6 +486,7 @@
 				}));
 			}
 
+			showAdvanced = hasAdvanced;
 			mode = 'form';
 		} catch (error) {
 			console.error('Failed to parse JSON', error);
@@ -520,47 +559,108 @@
 									required
 								/>
 							</div>
-							<div class="grid gap-2">
-								<Label for="problem-scenario-keys">Scenario keys (comma separated)</Label>
-								<Input id="problem-scenario-keys" bind:value={scenarioKeys} />
-							</div>
-							<div class="grid gap-3">
-								<Label>Problem characteristics</Label>
-								<div class="grid gap-2 md:grid-cols-3">
-									<div class="grid gap-2">
-										<Label class="text-xs text-muted-foreground">Linear</Label>
-										<Select.Root bind:value={isLinearSelection} type="single">
-											<Select.Trigger>{isLinearSelection}</Select.Trigger>
-											<Select.Content>
-												<Select.Item value="auto">auto</Select.Item>
-												<Select.Item value="true">true</Select.Item>
-												<Select.Item value="false">false</Select.Item>
-											</Select.Content>
-										</Select.Root>
-									</div>
-									<div class="grid gap-2">
-										<Label class="text-xs text-muted-foreground">Convex</Label>
-										<Select.Root bind:value={isConvexSelection} type="single">
-											<Select.Trigger>{isConvexSelection}</Select.Trigger>
-											<Select.Content>
-												<Select.Item value="auto">auto</Select.Item>
-												<Select.Item value="true">true</Select.Item>
-												<Select.Item value="false">false</Select.Item>
-											</Select.Content>
-										</Select.Root>
-									</div>
-									<div class="grid gap-2">
-										<Label class="text-xs text-muted-foreground">Twice differentiable</Label>
-										<Select.Root bind:value={isTwiceDifferentiableSelection} type="single">
-											<Select.Trigger>{isTwiceDifferentiableSelection}</Select.Trigger>
-											<Select.Content>
-												<Select.Item value="auto">auto</Select.Item>
-												<Select.Item value="true">true</Select.Item>
-												<Select.Item value="false">false</Select.Item>
-											</Select.Content>
-										</Select.Root>
+							<label class="flex items-center gap-2 text-sm">
+								<Checkbox bind:checked={showAdvanced} />
+								Show advanced fields
+							</label>
+							{#if showAdvanced}
+								<div class="grid gap-2">
+									<Label for="problem-scenario-keys">Scenario keys (comma separated)</Label>
+									<Input id="problem-scenario-keys" bind:value={scenarioKeys} />
+								</div>
+								<div class="grid gap-3">
+									<Label>Problem characteristics</Label>
+									<div class="grid gap-2 md:grid-cols-3">
+										<div class="grid gap-2">
+											<Label class="text-xs text-muted-foreground">Linear</Label>
+											<Select.Root bind:value={isLinearSelection} type="single">
+												<Select.Trigger>{isLinearSelection}</Select.Trigger>
+												<Select.Content>
+													<Select.Item value="auto">auto</Select.Item>
+													<Select.Item value="true">true</Select.Item>
+													<Select.Item value="false">false</Select.Item>
+												</Select.Content>
+											</Select.Root>
+										</div>
+										<div class="grid gap-2">
+											<Label class="text-xs text-muted-foreground">Convex</Label>
+											<Select.Root bind:value={isConvexSelection} type="single">
+												<Select.Trigger>{isConvexSelection}</Select.Trigger>
+												<Select.Content>
+													<Select.Item value="auto">auto</Select.Item>
+													<Select.Item value="true">true</Select.Item>
+													<Select.Item value="false">false</Select.Item>
+												</Select.Content>
+											</Select.Root>
+										</div>
+										<div class="grid gap-2">
+											<Label class="text-xs text-muted-foreground">Twice differentiable</Label>
+											<Select.Root bind:value={isTwiceDifferentiableSelection} type="single">
+												<Select.Trigger>{isTwiceDifferentiableSelection}</Select.Trigger>
+												<Select.Content>
+													<Select.Item value="auto">auto</Select.Item>
+													<Select.Item value="true">true</Select.Item>
+													<Select.Item value="false">false</Select.Item>
+												</Select.Content>
+											</Select.Root>
+										</div>
 									</div>
 								</div>
+							{/if}
+						</div>
+
+						<div class="grid gap-3">
+							<div class="flex items-center justify-between">
+								<h2 class="text-lg font-semibold">Constants</h2>
+								<Button type="button" variant="outline" onclick={addConstant}>
+									Add constant
+								</Button>
+							</div>
+							{#if constants.length === 0}
+								<p class="text-muted-foreground text-sm">No constants added yet.</p>
+							{/if}
+							<div class="grid gap-4">
+								{#each constants as constant, index}
+									<details class="rounded-lg border">
+										<summary class="flex cursor-pointer items-center justify-between gap-2 px-4 py-3 text-sm font-semibold">
+											<span>
+												Constant {index + 1}{constant.name || constant.symbol ? ` — ${constant.name || constant.symbol}` : ''}
+											</span>
+										</summary>
+										<div class="grid gap-4 px-4 pb-4">
+											<div class="flex items-center justify-end gap-2">
+												<Button
+													type="button"
+													variant="ghost"
+													onclick={() => (constants = duplicateItem(constants, index))}
+												>
+													Duplicate
+												</Button>
+												<Button
+													type="button"
+													variant="ghost"
+													onclick={() => (constants = removeItem(constants, index))}
+												>
+													Remove
+												</Button>
+											</div>
+											<div class="grid gap-2 md:grid-cols-3">
+												<div class="grid gap-2">
+													<Label>Name</Label>
+													<Input bind:value={constant.name} placeholder="Constant name" />
+												</div>
+												<div class="grid gap-2">
+													<Label>Symbol</Label>
+													<Input bind:value={constant.symbol} placeholder="c_1" />
+												</div>
+												<div class="grid gap-2">
+													<Label>Value</Label>
+													<Input bind:value={constant.value} placeholder="e.g., 1.0" />
+												</div>
+											</div>
+										</div>
+									</details>
+								{/each}
 							</div>
 						</div>
 
@@ -573,26 +673,28 @@
 							</div>
 							<div class="grid gap-4">
 								{#each variables as variable, index}
-									<Card class="p-4">
-										<div class="grid gap-4">
-											<div class="flex items-center justify-between">
-												<h3 class="text-sm font-semibold">Variable {index + 1}</h3>
-												<div class="flex gap-2">
-													<Button
-														type="button"
-														variant="ghost"
-														onclick={() => (variables = duplicateItem(variables, index))}
-													>
-														Duplicate
-													</Button>
-													<Button
-														type="button"
-														variant="ghost"
-														onclick={() => (variables = removeItem(variables, index))}
-													>
-														Remove
-													</Button>
-												</div>
+									<details class="rounded-lg border">
+										<summary class="flex cursor-pointer items-center justify-between gap-2 px-4 py-3 text-sm font-semibold">
+											<span>
+												Variable {index + 1}{variable.name || variable.symbol ? ` — ${variable.name || variable.symbol}` : ''}
+											</span>
+										</summary>
+										<div class="grid gap-4 px-4 pb-4">
+											<div class="flex items-center justify-end gap-2">
+												<Button
+													type="button"
+													variant="ghost"
+													onclick={() => (variables = duplicateItem(variables, index))}
+												>
+													Duplicate
+												</Button>
+												<Button
+													type="button"
+													variant="ghost"
+													onclick={() => (variables = removeItem(variables, index))}
+												>
+													Remove
+												</Button>
 											</div>
 											<div class="grid gap-2 md:grid-cols-2">
 												<div class="grid gap-2">
@@ -628,7 +730,7 @@
 												</div>
 											</div>
 										</div>
-									</Card>
+									</details>
 								{/each}
 							</div>
 						</div>
@@ -642,26 +744,28 @@
 							</div>
 							<div class="grid gap-4">
 								{#each objectives as objective, index}
-									<Card class="p-4">
-										<div class="grid gap-4">
-											<div class="flex items-center justify-between">
-												<h3 class="text-sm font-semibold">Objective {index + 1}</h3>
-												<div class="flex gap-2">
-													<Button
-														type="button"
-														variant="ghost"
-														onclick={() => (objectives = duplicateItem(objectives, index))}
-													>
-														Duplicate
-													</Button>
-													<Button
-														type="button"
-														variant="ghost"
-														onclick={() => (objectives = removeItem(objectives, index))}
-													>
-														Remove
-													</Button>
-												</div>
+									<details class="rounded-lg border">
+										<summary class="flex cursor-pointer items-center justify-between gap-2 px-4 py-3 text-sm font-semibold">
+											<span>
+												Objective {index + 1}{objective.name || objective.symbol ? ` — ${objective.name || objective.symbol}` : ''}
+											</span>
+										</summary>
+										<div class="grid gap-4 px-4 pb-4">
+											<div class="flex items-center justify-end gap-2">
+												<Button
+													type="button"
+													variant="ghost"
+													onclick={() => (objectives = duplicateItem(objectives, index))}
+												>
+													Duplicate
+												</Button>
+												<Button
+													type="button"
+													variant="ghost"
+													onclick={() => (objectives = removeItem(objectives, index))}
+												>
+													Remove
+												</Button>
 											</div>
 											<div class="grid gap-2 md:grid-cols-2">
 												<div class="grid gap-2">
@@ -689,8 +793,8 @@
 												</div>
 											</div>
 											<div class="grid gap-2">
-												<Label>Function (JSON array)</Label>
-												<Textarea bind:value={objective.func} placeholder='["Add", "x_1", 3]' />
+												<Label>Function (string or JSON array)</Label>
+												<Textarea bind:value={objective.func} placeholder="x_1 + x_2 or ['Add', 'x_1', 'x_2']" />
 											</div>
 											<div class="grid gap-2 md:grid-cols-2">
 												<div class="grid gap-2">
@@ -702,22 +806,26 @@
 													<Input bind:value={objective.nadir} placeholder="Optional" />
 												</div>
 												<div class="grid gap-2">
-													<Label>Scenario keys (comma separated)</Label>
-													<Input bind:value={objective.scenario_keys} placeholder="Optional" />
-												</div>
-												<div class="grid gap-2">
-													<Label>Simulator path or URL</Label>
-													<Input bind:value={objective.simulator_path} placeholder="Optional" />
-												</div>
-												<div class="grid gap-2">
-													<Label>Surrogates (comma separated)</Label>
-													<Input bind:value={objective.surrogates} placeholder="Optional" />
-												</div>
-												<div class="grid gap-2">
 													<Label>Description</Label>
 													<Input bind:value={objective.description} placeholder="Optional" />
 												</div>
 											</div>
+											{#if showAdvanced}
+												<div class="grid gap-2 md:grid-cols-2">
+													<div class="grid gap-2">
+														<Label>Scenario keys (comma separated)</Label>
+														<Input bind:value={objective.scenario_keys} placeholder="Optional" />
+													</div>
+													<div class="grid gap-2">
+														<Label>Simulator path or URL</Label>
+														<Input bind:value={objective.simulator_path} placeholder="Optional" />
+													</div>
+													<div class="grid gap-2">
+														<Label>Surrogates (comma separated)</Label>
+														<Input bind:value={objective.surrogates} placeholder="Optional" />
+													</div>
+												</div>
+											{/if}
 											<div class="flex flex-wrap gap-4">
 												<label class="flex items-center gap-2 text-sm">
 													<Checkbox bind:checked={objective.maximize} />
@@ -737,7 +845,7 @@
 												</label>
 											</div>
 										</div>
-									</Card>
+									</details>
 								{/each}
 							</div>
 						</div>
@@ -754,26 +862,28 @@
 							{/if}
 							<div class="grid gap-4">
 								{#each constraints as constraint, index}
-									<Card class="p-4">
-										<div class="grid gap-4">
-											<div class="flex items-center justify-between">
-												<h3 class="text-sm font-semibold">Constraint {index + 1}</h3>
-												<div class="flex gap-2">
-													<Button
-														type="button"
-														variant="ghost"
-														onclick={() => (constraints = duplicateItem(constraints, index))}
-													>
-														Duplicate
-													</Button>
-													<Button
-														type="button"
-														variant="ghost"
-														onclick={() => (constraints = removeItem(constraints, index))}
-													>
-														Remove
-													</Button>
-												</div>
+									<details class="rounded-lg border">
+										<summary class="flex cursor-pointer items-center justify-between gap-2 px-4 py-3 text-sm font-semibold">
+											<span>
+												Constraint {index + 1}{constraint.name || constraint.symbol ? ` — ${constraint.name || constraint.symbol}` : ''}
+											</span>
+										</summary>
+										<div class="grid gap-4 px-4 pb-4">
+											<div class="flex items-center justify-end gap-2">
+												<Button
+													type="button"
+													variant="ghost"
+													onclick={() => (constraints = duplicateItem(constraints, index))}
+												>
+													Duplicate
+												</Button>
+												<Button
+													type="button"
+													variant="ghost"
+													onclick={() => (constraints = removeItem(constraints, index))}
+												>
+													Remove
+												</Button>
 											</div>
 											<div class="grid gap-2 md:grid-cols-2">
 												<div class="grid gap-2">
@@ -795,25 +905,27 @@
 														</Select.Content>
 													</Select.Root>
 												</div>
-												<div class="grid gap-2">
-													<Label>Scenario keys (comma separated)</Label>
-													<Input bind:value={constraint.scenario_keys} placeholder="Optional" />
-												</div>
 											</div>
 											<div class="grid gap-2">
-												<Label>Function (JSON array)</Label>
-												<Textarea bind:value={constraint.func} placeholder='["Add", "x_1", 3]' />
+												<Label>Function (string or JSON array)</Label>
+												<Textarea bind:value={constraint.func} placeholder="x_1 + x_2 or ['Add', 'x_1', 'x_2']" />
 											</div>
-											<div class="grid gap-2 md:grid-cols-2">
-												<div class="grid gap-2">
-													<Label>Simulator path or URL</Label>
-													<Input bind:value={constraint.simulator_path} placeholder="Optional" />
+											{#if showAdvanced}
+												<div class="grid gap-2 md:grid-cols-2">
+													<div class="grid gap-2">
+														<Label>Scenario keys (comma separated)</Label>
+														<Input bind:value={constraint.scenario_keys} placeholder="Optional" />
+													</div>
+													<div class="grid gap-2">
+														<Label>Simulator path or URL</Label>
+														<Input bind:value={constraint.simulator_path} placeholder="Optional" />
+													</div>
+													<div class="grid gap-2">
+														<Label>Surrogates (comma separated)</Label>
+														<Input bind:value={constraint.surrogates} placeholder="Optional" />
+													</div>
 												</div>
-												<div class="grid gap-2">
-													<Label>Surrogates (comma separated)</Label>
-													<Input bind:value={constraint.surrogates} placeholder="Optional" />
-												</div>
-											</div>
+											{/if}
 											<div class="flex flex-wrap gap-4">
 												<label class="flex items-center gap-2 text-sm">
 													<Checkbox bind:checked={constraint.is_linear} />
@@ -829,60 +941,7 @@
 												</label>
 											</div>
 										</div>
-									</Card>
-								{/each}
-							</div>
-						</div>
-
-						<div class="grid gap-3">
-							<div class="flex items-center justify-between">
-								<h2 class="text-lg font-semibold">Constants</h2>
-								<Button type="button" variant="outline" onclick={addConstant}>
-									Add constant
-								</Button>
-							</div>
-							{#if constants.length === 0}
-								<p class="text-muted-foreground text-sm">No constants added yet.</p>
-							{/if}
-							<div class="grid gap-4">
-								{#each constants as constant, index}
-									<Card class="p-4">
-										<div class="grid gap-4">
-											<div class="flex items-center justify-between">
-												<h3 class="text-sm font-semibold">Constant {index + 1}</h3>
-												<div class="flex gap-2">
-													<Button
-														type="button"
-														variant="ghost"
-														onclick={() => (constants = duplicateItem(constants, index))}
-													>
-														Duplicate
-													</Button>
-													<Button
-														type="button"
-														variant="ghost"
-														onclick={() => (constants = removeItem(constants, index))}
-													>
-														Remove
-													</Button>
-												</div>
-											</div>
-											<div class="grid gap-2 md:grid-cols-3">
-												<div class="grid gap-2">
-													<Label>Name</Label>
-													<Input bind:value={constant.name} placeholder="Constant name" />
-												</div>
-												<div class="grid gap-2">
-													<Label>Symbol</Label>
-													<Input bind:value={constant.symbol} placeholder="c_1" />
-												</div>
-												<div class="grid gap-2">
-													<Label>Value</Label>
-													<Input bind:value={constant.value} placeholder="e.g., 1.0" />
-												</div>
-											</div>
-										</div>
-									</Card>
+									</details>
 								{/each}
 							</div>
 						</div>
@@ -907,9 +966,14 @@
 									{successMessage}
 								</Card>
 							{/if}
-							<Button type="button" disabled={isSubmitting} onclick={handleSubmit}>
-								{isSubmitting ? 'Submitting…' : 'Create problem'}
-							</Button>
+							<div class="flex flex-wrap gap-2">
+								<Button type="button" variant="outline" onclick={handleClearForm} disabled={isSubmitting}>
+									Clear form
+								</Button>
+								<Button type="button" disabled={isSubmitting} onclick={handleSubmit}>
+									{isSubmitting ? 'Submitting…' : 'Create problem'}
+								</Button>
+							</div>
 						</div>
 					</div>
 				</Card>
