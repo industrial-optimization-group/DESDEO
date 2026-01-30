@@ -2,7 +2,6 @@ import type { ENautilusRepresentativeSolutionsResponse, ENautilusStateResponse, 
 import type { getRepresentativeMethodEnautilusGetRepresentativeStateIdGetResponse, getStateMethodEnautilusGetStateStateIdGetResponse, stepMethodEnautilusStepPostResponse } from "$lib/gen/endpoints/DESDEOFastAPI";
 import { stepMethodEnautilusStepPost, getProblemProblemGetPost, getStateMethodEnautilusGetStateStateIdGet, getRepresentativeMethodEnautilusGetRepresentativeStateIdGet } from "$lib/gen/endpoints/DESDEOFastAPI";
 import type { getProblemProblemGetPostResponse } from "$lib/gen/endpoints/DESDEOFastAPI";
-import { GetRepresentativeMethodEnautilusGetRepresentativeStateIdGetResponse } from "$lib/gen/endpoints/DESDEOFastAPIzod";
 
 export type ENautilusStepBundle = {
     request: ENautilusStepRequest;
@@ -26,7 +25,8 @@ export async function step_enautilus(
     problem_id: number,
     number_of_intermediate_points: number,
     iterations_left: number,
-    representative_solutions_id: number
+    representative_solutions_id: number,
+    session_id: number | null
 ): Promise<ENautilusStepBundle | null> {
     const selected_point = current_state.intermediate_points[selected_index];
     const reachable_indices = current_state.reachable_point_indices[selected_index];
@@ -40,7 +40,7 @@ export async function step_enautilus(
         reachable_point_indices: reachable_indices,
         number_of_intermediate_points: number_of_intermediate_points,
         parent_state_id: current_state.state_id ?? undefined,
-        //session id
+        session_id: session_id,
     }
 
     console.log(request);
