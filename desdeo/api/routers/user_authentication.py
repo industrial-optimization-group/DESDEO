@@ -9,8 +9,6 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, Securit
 from fastapi.responses import JSONResponse
 from fastapi.security import (
     APIKeyCookie,
-    HTTPAuthorizationCredentials,
-    HTTPBearer,
     OAuth2PasswordBearer,
     OAuth2PasswordRequestForm,
 )
@@ -119,7 +117,8 @@ def get_current_user(
     This function is a dependency for other functions that need to get the current user.
 
     Args:
-        token (Annotated[str, Depends(oauth2_scheme)]): The authentication token.
+        header_token (Annotated[str, Depends(oauth2_scheme)]): The authentication token as part of the request header.
+        cookie_token (Annotated[str, Depends(cookie_scheme)]): The authentication token as part of request cookie.
         session (Annotated[Session, Depends(get_db)]): A database session.
 
     Returns:
@@ -525,7 +524,7 @@ def add_new_analyst(
 
     """
     # Check if the user who tries to create the user is either an analyst or an admin.
-    if not (user.role == UserRole.analyst or user.role == UserRole.admin):
+    if user.role not in (UserRole.analyst, UserRole.admin):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Logged in user has insufficient rights.",
