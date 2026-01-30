@@ -32,7 +32,8 @@
 	let representative = $state<ENautilusRepresentativeSolutionsResponse | null>(null);
 	let final_selected_index = $state<number>(0);
 
-	let selection = $state<MethodSelectionState>({ selectedProblemId: null, selectedMethod: null });
+	let selection = $state<MethodSelectionState>({ selectedProblemId: null, selectedMethod: null, selectedSessionId: null, selectedSessionInfo: null
+	});
 	let problem_info = $state<ProblemInfo | null>(null);
 	let previous_request = $state<ENautilusStepRequest | null>(null);
 	let previous_response = $state<ENautilusStepResponse | null>(null);
@@ -287,7 +288,7 @@
 				errorMessage.set("Failed to fetch previous E-NAUTILUS state.");
 				return;
 			}
-			
+
 			previous_request = state_resp.request;
 			previous_response = state_resp.response;
 
@@ -433,8 +434,8 @@
 
 		<div class="grid gap-4 md:grid-cols-2">
 			<div>
-				<label class="mb-1 block text-sm font-medium text-gray-700">Selected session</label>
-				<div class="rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+				<label class="mb-1 block text-sm font-medium text-gray-700" for="selected-session">Selected session</label>
+				<div class="rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700" id="selected-session">
 					{#if selection.selectedSessionId != null}
 						Session #{selection.selectedSessionId}
 						{#if selection.selectedSessionInfo}

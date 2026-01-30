@@ -2,7 +2,6 @@ import type { ENautilusRepresentativeSolutionsResponse, ENautilusStateResponse, 
 import type { getRepresentativeMethodEnautilusGetRepresentativeStateIdGetResponse, getStateMethodEnautilusGetStateStateIdGetResponse, stepMethodEnautilusStepPostResponse } from "$lib/gen/endpoints/DESDEOFastAPI";
 import { stepMethodEnautilusStepPost, getProblemProblemGetPost, getStateMethodEnautilusGetStateStateIdGet, getRepresentativeMethodEnautilusGetRepresentativeStateIdGet } from "$lib/gen/endpoints/DESDEOFastAPI";
 import type { getProblemProblemGetPostResponse } from "$lib/gen/endpoints/DESDEOFastAPI";
-import { GetRepresentativeMethodEnautilusGetRepresentativeStateIdGetResponse } from "$lib/gen/endpoints/DESDEOFastAPIzod";
 
 export type ENautilusStepBundle = {
     request: ENautilusStepRequest;
@@ -42,7 +41,6 @@ export async function step_enautilus(
         number_of_intermediate_points: number_of_intermediate_points,
         parent_state_id: current_state.state_id ?? undefined,
         session_id: session_id,
-        //session id
     }
 
     console.log(request);
