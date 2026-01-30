@@ -447,8 +447,31 @@ def refresh_access_token(
 
     # Generate a new access token for the user
     access_token = create_access_token({"id": user.id, "sub": user.username})
+    response = JSONResponse(content={"access_token": access_token})
 
-    return {"access_token": access_token}
+    if AuthConfig.cookie_domain == "":
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=False,
+            samesite="lax",
+            max_age=AuthConfig.authjwt_access_token_expires * 60,
+            path="/",
+        )
+    else:
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=True,
+            samesite="none",
+            max_age=AuthConfig.authjwt_access_token_expires * 60,
+            path="/",
+            domain=AuthConfig.cookie_domain,
+        )
+
+    return response
 
 
 @router.post("/add_new_dm")
