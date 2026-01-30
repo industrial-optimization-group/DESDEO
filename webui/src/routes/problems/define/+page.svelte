@@ -8,7 +8,7 @@
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
-	import type { ConstraintDB, ConstantDB, ObjectiveDB, VariableDB } from '$lib/gen/models';
+	import type { ConstraintDB, ObjectiveDB, VariableDB } from '$lib/gen/models';
 	import {
 		ConstraintTypeEnum,
 		ObjectiveTypeEnum,
@@ -112,7 +112,7 @@
 		value: ''
 	});
 
-	let mode = $state<'form' | 'upload'>('upload');
+	let mode = $state<string>('form'); // 'upload' | 'form'
 	let isSubmitting = $state(false);
 	let formErrors = $state<string[]>([]);
 	let successMessage = $state<string | null>(null);
@@ -185,9 +185,21 @@
 		constants = [...constants, emptyConstant()];
 	};
 
-	const duplicateItem = <T>(items: T[], index: number) => {
+	const _duplicateItem = <T>(items: T[], index: number) => {
 		const next = [...items];
 		next.splice(index + 1, 0, structuredClone(items[index]));
+		return next;
+	};
+
+	const duplicateItem = <T extends Record<string, any>>(items: T[], index: number) => {
+		const item = items[index];
+
+		const clone = {
+			...item,
+		};
+
+		const next = [...items];
+		next.splice(index + 1, 0, clone);
 		return next;
 	};
 
@@ -501,8 +513,8 @@
 
 		<Tabs.Root value={mode} class="mt-6 w-full" onValueChange={(value) => (mode = value)}>
 			<Tabs.List class="w-full">
-				<Tabs.Trigger value="upload">Upload JSON</Tabs.Trigger>
 				<Tabs.Trigger value="form">Define via Form</Tabs.Trigger>
+				<Tabs.Trigger value="upload">Upload JSON</Tabs.Trigger>
 			</Tabs.List>
 
 			<Tabs.Content value="upload" class="w-full">
@@ -908,7 +920,7 @@
 											</div>
 											<div class="grid gap-2">
 												<Label>Function (string or JSON array)</Label>
-												<Textarea bind:value={constraint.func} placeholder="x_1 + x_2 or ['Add', 'x_1', 'x_2']" />
+												<Textarea bind:value={constraint.func} placeholder="The left hand side of the expression: e.g., x_1 + x_2 or ['Add', 'x_1', 'x_2']" />
 											</div>
 											{#if showAdvanced}
 												<div class="grid gap-2 md:grid-cols-2">
