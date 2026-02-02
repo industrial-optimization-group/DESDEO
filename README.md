@@ -36,12 +36,18 @@ decision-support using the framework. __The
 web-API is currently under heavy development, and is subject to changes.__
 3. The __web-GUI__ (WIP), which implements a web-based interface for utilizing
 the interactive methods and tools for modeling and solving multiobjective
-optimization problems. __The web-GUI relies heavily on the web-API, and is also being actively developed currently, and therefore subject to sudden changes.__
+optimization problems.
+
+> [!WARNING]
+> __The web-GUI relies heavily on the web-API, and is also being actively developed currently, and therefore subject to sudden changes.__
 
 For developing and experimenting with interactive multiobjective optimization
 methods on a "grass root" level, the __core-logic__ provides the necessary
-tools.  For deploying interactive methods, the __web-API__ and the __web_GUI__
+tools.  For deploying interactive methods, the __web-API__ and the __web-GUI__
 play a central role.
+
+> [!IMPORTANT]
+> Users interested in using or developing the web-API and/or web-GUI are highly encouraged to express such intentions on our [Discord server](https://discord.gg/uGCEgQTJyY)!.
 
 DESDEO is an open-source project and everybody is welcome to contribute!
 
@@ -74,11 +80,12 @@ issue](https://github.com/industrial-optimization-group/DESDEO/issues/245).
 
 ## Web-GUI: key features
 
-DESDEO's web-GUI is currently in a planning stage. Once its active development
-starts, an issue will be created for documenting its development, as is
-currently the case with the web-API.
+DESDEO's web-GUI is currently under active development. Once it stabilized, its
+key features will be listed here. In the meantime, the interested user can
+follow (and contribute!) the development progress of the web-API in [this
+issue](https://github.com/industrial-optimization-group/DESDEO/issues/251).
 
-## Installation instructions
+## Installation instructions (core-logic)
 
 DESDEO is available on PyPI to be installed via pip:
 
