@@ -137,11 +137,11 @@ this repository's master branch is considered to be _DESDEO 2.0_.
 
 ## Funding
 
-Currently, DESDEO's development is partly funded by two projects granted by the
+Currently, DESDEO's development has been funded by projects granted by the
 [Research Council of Finland](https://www.aka.fi/en/). The most recent ones
 include:
 
 - DESIDES (project 355346)
 - UTOPIA (project 352784)
 - DAEMON (project 322221)
-
+- DESDEO (project 287496)
