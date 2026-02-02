@@ -16,6 +16,7 @@ from desdeo.emo.operators.generator import (
     RandomGenerator,
     RandomIntegerGenerator,
     RandomMixedIntegerGenerator,
+    SeededHybridGenerator,
 )
 
 if TYPE_CHECKING:
@@ -85,6 +86,27 @@ class ArchiveGeneratorOptions(BaseModel):
     outputs: pl.DataFrame
     """The corresponding outputs of the initial solutions."""
 
+
+class SeededHybridGeneratorOptions(BaseGeneratorOptions):
+    """Options for the seeded hybrid generator."""
+
+    name: Literal["SeededHybridGenerator"] = Field(default="SeededHybridGenerator", frozen=True)
+    model_config = {"arbitrary_types_allowed": True, "use_attribute_docstrings": True}
+
+    seed_solution: pl.DataFrame
+    """A dataframe with a single row representing the solution seed. The columns
+    must math the symbols of the variables in the problem being solved.
+    """
+    perturb_fraction: float = Field(default=0.2, ge=0.0, le=1.0)
+    """The desired fraction of perturbed vs random solutions in the generated population."""
+
+    sigma: float = Field(default=0.02, ge=0.0)
+    """The relative perturbation scale with respect to variable ranges."""
+
+    flip_prob: float = Field(default=0.1, ge=0.0, le=1.0)
+    """The flipping probability when perturbing binary variables."""
+
+
 GeneratorOptions = (
     LHSGeneratorOptions
     | RandomBinaryGeneratorOptions
@@ -92,6 +114,7 @@ GeneratorOptions = (
     | RandomIntegerGeneratorOptions
     | RandomMixedIntegerGeneratorOptions
     | ArchiveGeneratorOptions
+    | SeededHybridGeneratorOptions
 )
 
 
@@ -123,6 +146,7 @@ def generator_constructor(
         "RandomIntegerGenerator": RandomIntegerGenerator,
         "RandomMixedIntegerGenerator": RandomMixedIntegerGenerator,
         "ArchiveGenerator": ArchiveGenerator,
+        "SeededHybridGenerator": SeededHybridGenerator,
     }
     options: dict = options.model_dump()
     name = options.pop("name")

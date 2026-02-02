@@ -383,7 +383,7 @@ class ArchiveGenerator(BaseGenerator):
         publisher: Publisher,
         verbosity: int,
         solutions: pl.DataFrame,
-        **kwargs,  # just to dump seed
+        **kwargs: dict,  # just to dump seed
     ):
         """Initialize the ArchiveGenerator class.
 
@@ -395,10 +395,11 @@ class ArchiveGenerator(BaseGenerator):
             verbosity (int): The verbosity level of the generator. A verbosity of 2 is needed if you want to maintain
                 an external archive. Otherwise, a verbosity of 1 is sufficient.
             solutions (pl.DataFrame): The decision variable vectors to use as the initial population.
+            kwargs (dict): Other keyword arguments to pass, e.g., a random seed.
         """
         super().__init__(problem, verbosity=verbosity, publisher=publisher)
         if not isinstance(solutions, pl.DataFrame):
-            raise ValueError("The solutions must be a polars DataFrame.")
+            raise TypeError("The solutions must be a polars DataFrame.")
         if solutions.shape[0] == 0:
             raise ValueError("The solutions DataFrame is empty.")
         self.solutions = solutions
@@ -454,6 +455,156 @@ class ArchiveGenerator(BaseGenerator):
                 source=self.__class__.__name__,
             ),
         ]
+
+    def update(self, message) -> None:
+        """Update the generator based on the message."""
+
+
+class SeededHybridGenerator(BaseGenerator):
+    """Generates an initial population using a mix of seeded, perturbed, and random solutions."""
+
+    def __init__(
+        self,
+        problem,
+        evaluator,
+        publisher,
+        verbosity,
+        seed: int,
+        n_points: int,
+        seed_solution: pl.DataFrame,
+        perturb_fraction: float = 0.2,
+        sigma: float = 0.02,
+        flip_prob: float = 0.1,
+    ):
+        """Initialize the seeded hybrid generator.
+
+        The generator always includes the provided seed solution in the initial
+        population, fills a fraction of the population with small perturbations
+        around the seed, and fills the remainder with randomly generated solutions.
+
+        Args:
+            problem (Problem): The optimization problem.
+            evaluator (EMOEvaluator): Evaluator used to compute objectives and constraints.
+            publisher (Publisher): Publisher used for emitting generator messages.
+            verbosity (int): Verbosity level of the generator.
+            seed (int): Seed used for random number generation.
+            n_points (int): Total size of the initial population.
+            seed_solution (pl.DataFrame): A single-row DataFrame containing a seed
+                decision variable vector.
+            perturb_fraction (float, optional): Fraction of the population generated
+                by perturbing the seed solution. Defaults to 0.2.
+            sigma (float, optional): Relative perturbation scale with respect to
+                variable ranges. Defaults to 0.02.
+            flip_prob (float, optional): Probability of flipping a binary variable
+                when perturbing the seed. Defaults to 0.1.
+
+        Raises:
+            TypeError: If ``seed_solution`` is not a polars DataFrame.
+            ValueError: If ``seed_solution`` does not contain exactly one row.
+            ValueError: If ``seed_solution`` columns do not match problem variables.
+            ValueError: If ``n_points`` is not positive.
+            ValueError: If ``perturb_fraction`` is outside ``[0, 1]``.
+            ValueError: If ``sigma`` is negative.
+            ValueError: If ``flip_prob`` is outside ``[0, 1]``.
+        """
+        super().__init__(problem, verbosity=verbosity, publisher=publisher)
+
+        if not isinstance(seed_solution, pl.DataFrame):
+            raise TypeError("seed_solution must be a polars DataFrame.")
+        if seed_solution.shape[0] != 1:
+            raise ValueError("seed_solution must have exactly one row.")
+        if set(seed_solution.columns) != set(self.variable_symbols):
+            raise ValueError("seed_solution columns must match problem variables.")
+
+        if n_points <= 0:
+            raise ValueError("n_points must be > 0.")
+        if not (0.0 <= perturb_fraction <= 1.0):
+            raise ValueError("perturb_fraction must be in [0, 1].")
+        if sigma < 0:
+            raise ValueError("sigma must be >= 0.")
+        if not (0.0 <= flip_prob <= 1.0):
+            raise ValueError("flip_prob must be in [0, 1].")
+
+        self.n_points = n_points
+        self.seed_solution = seed_solution
+        self.perturb_fraction = perturb_fraction
+        self.sigma = sigma
+        self.flip_prob = flip_prob
+
+        self.evaluator = evaluator
+        self.seed = seed
+        self.rng = np.random.default_rng(self.seed)
+
+        self.population = None
+        self.out = None
+
+    def _random_population(self, n: int) -> pl.DataFrame:
+        tmp = {}
+        for var in self.problem.variables:
+            if var.variable_type in [VariableTypeEnum.binary, VariableTypeEnum.integer]:
+                vals = self.rng.integers(var.lowerbound, var.upperbound, size=n, endpoint=True).astype(float)
+            else:
+                vals = self.rng.uniform(var.lowerbound, var.upperbound, size=n).astype(float)
+            tmp[var.symbol] = vals
+        return pl.DataFrame(tmp)
+
+    def _perturb_seed(self, n: int) -> pl.DataFrame:
+        # includes the exact seed as first row
+        seed_row = self.seed_solution.select(self.variable_symbols).to_dict(as_series=False)
+        seed_vals = {k: float(v[0]) for k, v in seed_row.items()}
+
+        rows = [seed_vals]  # ensure seed present
+        if n <= 1:
+            return pl.DataFrame(rows)
+
+        for _ in range(n - 1):
+            x = {}
+            for var in self.problem.variables:
+                lb, ub = float(var.lowerbound), float(var.upperbound)
+                r = ub - lb
+
+                v0 = seed_vals[var.symbol]
+
+                if var.variable_type == VariableTypeEnum.binary:
+                    v = 1.0 - v0 if self.rng.random() < self.flip_prob else v0
+                elif var.variable_type == VariableTypeEnum.integer:
+                    # scales integer nose
+                    step = max(1, round(self.sigma * r)) if r >= 1 else 0
+                    dv = self.rng.integers(-step, step + 1) if step > 0 else 0
+                    v = float(int(np.clip(round(v0 + dv), lb, ub)))
+                else:
+                    # continuous noise is proportional to range
+                    dv = self.rng.normal(0.0, self.sigma * r if r > 0 else 0.0)
+                    v = float(np.clip(v0 + dv, lb, ub))
+
+                x[var.symbol] = v
+            rows.append(x)
+
+        return pl.DataFrame(rows)
+
+    def do(self) -> tuple[pl.DataFrame, pl.DataFrame]:
+        """Generate a population.
+
+        Returns:
+            tuple[pl.DataFrame, pl.DataFrame]: the population.
+        """
+        if self.population is not None and self.out is not None:
+            self.notify()
+            return self.population, self.out
+
+        n_pert = max(1, round(self.perturb_fraction * self.n_points))
+        n_pert = min(n_pert, self.n_points)
+        n_rand = self.n_points - n_pert
+
+        pert = self._perturb_seed(n_pert)
+        rand = self._random_population(n_rand) if n_rand > 0 else pl.DataFrame({s: [] for s in self.variable_symbols})
+
+        self.population = pl.concat([pert, rand], how="vertical")
+
+        self.out = self.evaluator.evaluate(self.population)
+        self.notify()
+
+        return self.population, self.out
 
     def update(self, message) -> None:
         """Update the generator based on the message."""
