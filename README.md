@@ -38,7 +38,6 @@ web-API is currently under heavy development, and is subject to changes.__
 the interactive methods and tools for modeling and solving multiobjective
 optimization problems.
 
-> [!WARNING]
 > __The web-GUI relies heavily on the web-API, and is also being actively developed currently, and therefore subject to sudden changes.__
 
 For developing and experimenting with interactive multiobjective optimization
@@ -46,7 +45,6 @@ methods on a "grass root" level, the __core-logic__ provides the necessary
 tools.  For deploying interactive methods, the __web-API__ and the __web-GUI__
 play a central role.
 
-> [!IMPORTANT]
 > Users interested in using or developing the web-API and/or web-GUI are highly encouraged to express such intentions on our [Discord server](https://discord.gg/uGCEgQTJyY)!.
 
 DESDEO is an open-source project and everybody is welcome to contribute!
