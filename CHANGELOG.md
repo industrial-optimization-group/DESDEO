@@ -33,6 +33,81 @@ This project follows **Keep a Changelog** and **Semantic Versioning**:
 #### Fixed
 #### Security
 
+## [2.2.0] - 2026-02-03
+
+### Core logic
+#### Added
+- Added a **seeded population generator** for evolutionary multiobjective optimization:
+  - Supports generating populations by perturbing a provided seed solution.
+  - Allows controlling the ratio of seeded vs. random solutions.
+  - Supports all variable types.
+
+#### Fixed
+- Fixed issues in the seeded generator implementation discovered during integration and testing.
+
+---
+
+### Web API
+#### Changed
+- Refactored session context handling:
+  - `get_session_context` is now used consistently in the endpoints.
+  - Removed redundant checks around interactive state retrieval; invalid states now raise immediately.
+- Applied linter-driven cleanup (removal of deprecated imports, improved import ordering, minor syntax fixes).
+- Access tokens are now returned as cookies as well (previously this was a feature just for refresh tokens).
+
+---
+
+### Web GUI
+#### Added
+- Added a **problem definition page** (WIP), including:
+  - Initial problem definition form.
+  - Iterative refinements to structure and validation.
+- Added initial support for **selecting interactive sessions** in the method-selection view, analogous to problem selection.
+
+#### Changed
+- Improved E-NAUTILUS session startup and validation logic.
+- Updated session and startup inputs for E-NAUTILUS.
+- Fixed missing session information in the E-NAUTILUS `selection` state.
+- Refined session settings UI for E-NAUTILUS.
+- Improved authentication flow by refreshing access tokens on `401` responses and updating cookies accordingly.
+
+#### Known issues
+- Deleting sessions can currently break NIMBUS if it attempts to access states from a deleted session.
+
+---
+
+### Tests
+#### Changed
+- Improved `Makefile` test rules:
+  - Better handling of skipped tests.
+  - Added a dedicated `make test-api` rule.
+  - General cleanup and variable handling improvements.
+- Fixed test setup issues on the home page.
+
+---
+
+### Tooling, CI, and linting
+#### Changed
+- Applied extensive **ruff-based linting fixes** across the codebase.
+- Cleaned up code to satisfy pre-commit hooks.
+- Minor workflow and maintenance-related refinements.
+
+---
+
+### Documentation
+#### Changed
+- Updated `README.md`:
+  - Clarified the development status of the Web GUI.
+  - Updated installation instructions.
+  - Revised funding information.
+  - Reordered and expanded project badges, including PyPI version badge.
+- Minor documentation fixes and clarifications.
+
+---
+
+### Notes
+- Several components (notably the Web GUI and session management) remain **actively evolving research prototypes**.
+
 ---
 
 ## [2.1.1] - 2026-01-27
