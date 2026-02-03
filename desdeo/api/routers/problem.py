@@ -5,7 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, status
 from fastapi.responses import JSONResponse
-from sqlmodel import select
+from sqlmodel import Session, select
 
 from desdeo.api.models import (
     ForestProblemMetaData,
@@ -21,6 +21,7 @@ from desdeo.api.models import (
     User,
     UserRole,
 )
+from desdeo.api.models.request_models import RepresentativeSolutionSetRequest
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.problem import Problem
 from desdeo.tools.utils import available_solvers
@@ -318,3 +319,64 @@ def select_solver(
     db_session.refresh(problem_metadata)
 
     return JSONResponse(content={"message": "OK"}, status_code=status.HTTP_200_OK)
+
+@router.post("/add_representative_solution_set")
+def add_representative_solution_set(
+    payload: RepresentativeSolutionSetRequest,
+    context: Annotated[SessionContext, Depends(get_session_context_without_request)],
+):
+    """Add a new representative solution set as metadata to a problem.
+
+    Args:
+        payload (RepresentativeSolutionSetRequest): JSON file containing the representative solution set.
+        context (SessionContext): The session context (includes user and DB session).
+
+    Raises:
+        HTTPException: If the JSON is invalid, empty, or problem not found.
+
+    Returns:
+        dict: Confirmation message.
+    """
+    user = context.user
+    db_session: Session = context.db_session
+
+    # Fetch the problem
+    problem_db = db_session.get(ProblemDB, payload.problem_id)
+    if problem_db is None:
+        raise HTTPException(status_code=404, detail=f"Problem with ID {payload.problem_id} not found.")
+
+    # Only the owner can add representative solution sets
+    if user.id != problem_db.user_id:
+        raise HTTPException(status_code=401, detail="Unauthorized user.")
+
+    # Ensure metadata object exists
+    if problem_db.problem_metadata is None:
+        problem_metadata = ProblemMetaDataDB(problem_id=problem_db.id, problem=problem_db)
+        db_session.add(problem_metadata)
+        db_session.commit()
+        db_session.refresh(problem_metadata)
+    else:
+        problem_metadata = problem_db.problem_metadata
+
+    # Add new representative solution set
+    repr_metadata = RepresentativeNonDominatedSolutions(
+        metadata_id=problem_metadata.id,
+        name=payload.name,
+        description=payload.description,
+        solution_data=payload.solution_data,
+        ideal=payload.ideal,
+        nadir=payload.nadir,
+        metadata_instance=problem_metadata,
+    )
+
+    db_session.add(repr_metadata)
+    db_session.commit()
+    db_session.refresh(repr_metadata)
+
+    # Attach to problem metadata
+    problem_metadata.representative_nd_metadata.append(repr_metadata)
+    db_session.add(problem_metadata)
+    db_session.commit()
+    db_session.refresh(problem_metadata)
+
+    return {"message": "Representative solution set added successfully."}
