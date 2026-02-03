@@ -86,14 +86,18 @@ def get_reference_hull(num_dims):
     return bounding_box, A, b, hull
 
 
-def rotate_in(vertices):
-    """
+def rotate_in(vertices: np.ndarray) -> np.ndarray:
+    """Project the vertices to a lower dimensional space.
+
+    First, the vertices are rotated such that the plane perpendicular to the ideal-nadir line
+    becomes perpendicular to one of the axes. Essentially, (1,1,...,1) is rotated to (0,0,...,0,1).
+    Then, the last dimension is dropped.
 
     Args:
-        vertices (_type_): _description_
+        vertices (np.ndarray): The vertices to be projected.
 
     Returns:
-        _type_: _description_
+        np.ndarray: The projected vertices.
     """
     num_dims = len(vertices[0])
     rotated_vertices = rotate([1] * num_dims, ([0] * (num_dims - 1) + [1]), vertices)
@@ -101,7 +105,15 @@ def rotate_in(vertices):
     return rotated_vertices
 
 
-def rotate_out(points):
+def rotate_out(points: np.ndarray) -> np.ndarray:
+    """Undo the `rotate_in` operation.
+
+    Args:
+        points (np.ndarray): The points to be projected back.
+
+    Returns:
+        np.ndarray: The projected points.
+    """
     points = np.atleast_2d(points)
     num_points, num_dims = points.shape
     points_rotated = np.hstack((points, np.ones((len(points), 1))))
@@ -111,7 +123,7 @@ def rotate_out(points):
     return points_rotated
 
 
-def get_hull_equations(hull):
+def get_hull_equations(hull: ConvexHull) -> tuple[np.ndarray, np.ndarray]:
     """Get the equations of the hyperplanes defining the convex hull.
 
     Args:
@@ -122,7 +134,6 @@ def get_hull_equations(hull):
             hull.
         np.ndarray: A (num_hyperplanes) array of the constants of the hyperplanes defining the convex hull.
     """
-
     return np.ascontiguousarray(hull.equations[:, :-1].T), np.ascontiguousarray(hull.equations[:, -1].T)
 
 
@@ -151,7 +162,6 @@ def generate_points(
     Returns:
         np.ndarray: A (num_points) x (num_dims-1) array of reference points.
     """
-
     bounding_box, A, b, _ = get_reference_hull(num_dims)
     points = numba_random_gen(num_points, bounding_box, A, b)
     # Project vertices onto plane perpendicular to largest space diagonal
