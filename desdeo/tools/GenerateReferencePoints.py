@@ -171,7 +171,20 @@ def generate_points(
 
 @njit()
 def numba_random_gen(num_points: int, bounding_box: np.ndarray, A: np.ndarray, b: np.ndarray) -> np.ndarray:
-    """Generates num_points random points within the convex hull defined by A and b."""
+    """Generates num_points random points within the convex hull defined by A and b.
+
+    Args:
+        num_points (int): The number of points to generate.
+        bounding_box (np.ndarray): A (2) x (num_objs - 1) array defining the bounding box within which to
+            generate points initially.
+        A (np.ndarray): A (num_hyperplanes) x (num_objs - 1) array of the coefficients of the hyperplanes defining the
+            convex hull. Basically the first num_objs - 1 columns of hull.equations.
+        b (np.ndarray): A (num_hyperplanes) array of the constants of the hyperplanes defining the convex hull.
+            Basically the last column of hull.equations.
+
+    Returns:
+        np.ndarray: A (num_points) x (num_objs - 1) array of points within the convex hull defined by A and b.
+    """
     num_dims_ = bounding_box.shape[1]
     points = np.zeros((num_points, num_dims_))
 
