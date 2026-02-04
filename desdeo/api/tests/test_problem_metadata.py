@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient  # noqa: D100
 from sqlmodel import select
 
 from desdeo.api.models import ProblemDB, ProblemMetaDataDB, RepresentativeNonDominatedSolutions
+from desdeo.api.models.representative_solution import RepresentativeSolutionSetRequest
 from desdeo.problem.testproblems import dtlz2
 
 from .conftest import login
@@ -20,12 +21,11 @@ def test_add_representative_solution_set(client: TestClient, session_and_user: d
     session.commit()
     session.refresh(problem)
 
-    # Prepare solution set JSON
-    solution_set_payload = {
-        "problem_id": problem.id,
-        "name": "Test solutions",
-        "description": "Solutions for testing",
-        "solution_data": {
+    solution_set_model = RepresentativeSolutionSetRequest(
+        problem_id=problem.id,
+        name="Test solutions",
+        description="Solutions for testing",
+        solution_data={
             "x_1": [1.1, 2.2, 3.3],
             "x_2": [-1.1, -2.2, -3.3],
             "f_1": [0.1, 0.5, 0.9],
@@ -33,18 +33,22 @@ def test_add_representative_solution_set(client: TestClient, session_and_user: d
             "f_1_min": [],
             "f_2_min": [],
         },
-        "ideal": {"f_1": 0.1, "f_2": -0.1},
-        "nadir": {"f_1": 0.9, "f_2": 199.2},
-    }
+        ideal={"f_1": 0.1, "f_2": -0.1},
+        nadir={"f_1": 0.9, "f_2": 199.2},
+    )
 
     response = client.post(
         "/problem/add_representative_solution_set",
         headers={"Authorization": f"Bearer {access_token}"},
-        json=solution_set_payload,
+        json=solution_set_model.model_dump(),  # send as JSON
     )
 
     assert response.status_code == 200
-    assert response.json()["message"] == "Representative solution set added successfully."
+    data = response.json()
+    assert data["name"] == solution_set_model.name
+    assert data["description"] == solution_set_model.description
+    assert data["ideal"] == solution_set_model.ideal
+    assert data["nadir"] == solution_set_model.nadir
 
     # Verify DB
     statement = select(ProblemMetaDataDB).where(ProblemMetaDataDB.problem_id == problem.id)
@@ -54,11 +58,11 @@ def test_add_representative_solution_set(client: TestClient, session_and_user: d
 
     repr_metadata = metadata.representative_nd_metadata[0]
     assert isinstance(repr_metadata, RepresentativeNonDominatedSolutions)
-    assert repr_metadata.name == solution_set_payload["name"]
-    assert repr_metadata.description == solution_set_payload["description"]
-    assert repr_metadata.solution_data == solution_set_payload["solution_data"]
-    assert repr_metadata.ideal == solution_set_payload["ideal"]
-    assert repr_metadata.nadir == solution_set_payload["nadir"]
+    assert repr_metadata.name == solution_set_model.name
+    assert repr_metadata.description == solution_set_model.description
+    assert repr_metadata.solution_data == solution_set_model.solution_data
+    assert repr_metadata.ideal == solution_set_model.ideal
+    assert repr_metadata.nadir == solution_set_model.nadir
 
 def test_get_all_representative_solution_sets(client: TestClient, session_and_user: dict):
     """Test that all representative solution sets for a problem can be fetched (meta-level)."""
@@ -108,10 +112,10 @@ def test_get_all_representative_solution_sets(client: TestClient, session_and_us
     assert response.status_code == 200
 
     data = response.json()
-    assert data["problem_id"] == problem.id
-    assert len(data["representative_sets"]) == 1
+    assert isinstance(data, list)
+    assert len(data) == 1
 
-    repr_meta = data["representative_sets"][0]
+    repr_meta = data[0]
     assert repr_meta["name"] == "Test Set GET"
     assert repr_meta["description"] == "Description GET"
     assert repr_meta["ideal"] == {"f_1": 0.1}
@@ -190,10 +194,16 @@ def test_delete_representative_solution_set(client: TestClient, session_and_user
     session.commit()
     session.refresh(problem)
 
+    # Create metadata properly
+    problem_metadata = ProblemMetaDataDB(problem_id=problem.id, problem=problem)
+    session.add(problem_metadata)
+    session.commit()
+    session.refresh(problem_metadata)
+
     # Add a representative solution set
     repr_metadata = RepresentativeNonDominatedSolutions(
-        metadata_id=ProblemMetaDataDB(problem_id=problem.id, problem=problem).id,
-        metadata_instance=ProblemMetaDataDB(problem_id=problem.id, problem=problem),
+        metadata_id=problem_metadata.id,
+        metadata_instance=problem_metadata,
         name="To be deleted",
         description="Test deletion",
         solution_data={"x": [1.0], "f": [0.0]},
@@ -209,8 +219,8 @@ def test_delete_representative_solution_set(client: TestClient, session_and_user
         f"/problem/representative_solution_set/{repr_metadata.id}",
         headers={"Authorization": f"Bearer {access_token}"},
     )
-    assert response.status_code == 200
-    assert response.json()["detail"] == "Deleted successfully"
+    assert response.status_code == 204
+    assert response.content == b""
 
     # Verify DB deletion
     deleted_set = session.get(RepresentativeNonDominatedSolutions, repr_metadata.id)
