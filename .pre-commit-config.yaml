@@ -12,4 +12,5 @@ repos:
       - id: end-of-file-fixer
       - id: trailing-whitespace
       - id: check-yaml
+        args: [--unsafe]
       - id: check-toml

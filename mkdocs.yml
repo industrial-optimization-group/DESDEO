@@ -41,13 +41,13 @@ nav:
       - "How to user evolutionary algorithms": "howtoguides/ea.ipynb"
       - "How to define problems with surrogates": "howtoguides/advancedSurrogates.ipynb"
       - "How to generate a representative set of solutions": "howtoguides/IPR.ipynb"
-  - "Core-Logic Reference":
-      - "desdeo-problem": "api/desdeo_problem.md"
-      - "desdeo-mcdm": "api/desdeo_mcdm.md"
-      - "EMO": "api/desdeo_emo.md"
+  - "Core-Logic API Reference":
+      - "": "api/index.md"
+      - "problem": "api/desdeo_problem.md"
+      - "mcdm": "api/desdeo_mcdm.md"
+      - "emo": "api/desdeo_emo.md"
       - "EMO Pydantic Interface": "api/EMO Options.md"
-      - "desdeo-tools": "api/desdeo_tools.md"
-      - "DESDEO REST API": "api/desdeo_api.md"
+      - "tools": "api/desdeo_tools.md"
   - "Web-API":
       - "": "web_api/index.md"
       - "OpenAPI reference": "web_api/openapi.md"
@@ -124,11 +124,13 @@ markdown_extensions:
   - footnotes
   - attr_list
   - md_in_html
+    # yamllint disable
   - pymdownx.emoji:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.highlight:
       anchor_linenums: true
+    # yamllint enable
   - pymdownx.superfences
   - pymdownx.tabbed:
       alternate_style: true
