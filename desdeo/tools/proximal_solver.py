@@ -54,7 +54,7 @@ class ProximalSolver(BaseSolver):
 
         # check constraint values if problem has constraints
         if self.problem.constraints is not None:
-            cons_condition = pl.lit(True)
+            cons_condition = pl.lit(True)  # noqa: FBT003
             for constraint in self.problem.constraints:
                 cons_condition = cons_condition & (results_df[constraint.symbol] <= 0)
 

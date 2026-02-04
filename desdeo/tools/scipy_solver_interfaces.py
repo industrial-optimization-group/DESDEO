@@ -7,12 +7,11 @@ from collections.abc import Callable
 from enum import Enum
 
 import numpy as np
+from pydantic import BaseModel, Field
 from scipy.optimize import NonlinearConstraint
 from scipy.optimize import OptimizeResult as _ScipyOptimizeResult
 from scipy.optimize import differential_evolution as _scipy_de
 from scipy.optimize import minimize as _scipy_minimize
-
-from pydantic import BaseModel, Field
 
 from desdeo.problem import ConstraintTypeEnum, PolarsEvaluator, Problem, variable_dimension_enumerate
 from desdeo.tools.generics import BaseSolver, SolverError, SolverResults
@@ -21,50 +20,44 @@ SUPPORTED_VAR_DIMENSIONS = ["scalar"]
 
 
 class ScipyDeOptions(BaseModel):
-    """
-    Defines a pydantic model to store and pass options to the Scipy differential evolution solver.
-    """
+    """Defines a pydantic model to store and pass options to the Scipy differential evolution solver."""
 
     initial_guess: dict[str, float | None] | None = Field(
         description="The initial guess to be utilized in the solver. For variables with a None as their initial "
-                    "guess, the mid-point of the variable's lower and upper bound is utilized as the initial"
-                    "guess. If None, it is assumed that there are no initial guesses for any of the variables.",
-        default=None
+        "guess, the mid-point of the variable's lower and upper bound is utilized as the initial"
+        "guess. If None, it is assumed that there are no initial guesses for any of the variables.",
+        default=None,
     )
     de_kwargs: dict | None = Field(
-        description="Custom keyword arguments to be forwarded to `scipy.optimize.differential_evolution`.",
-        default=None
+        description="Custom keyword arguments to be forwarded to `scipy.optimize.differential_evolution`.", default=None
     )
+
+
+_default_scipy_de_options = ScipyDeOptions()
 
 
 class ScipyMinimizeOptions(BaseModel):
-    """
-    Defines a pydantic model to store and pass options to the Scipy Minimize solver.
-    """
+    """Defines a pydantic model to store and pass options to the Scipy Minimize solver."""
 
     initial_guess: dict[str, float | None] | None = Field(
         description="The initial guess to be utilized in the solver. For variables with a None as their"
-                    "initial guess, the mid-point of the variable's lower and upper bound is utilized as the "
-                    "initial guess. If None, it is assumed that there are no initial guesses for any of the variables.",
-        default=None
+        "initial guess, the mid-point of the variable's lower and upper bound is utilized as the "
+        "initial guess. If None, it is assumed that there are no initial guesses for any of the variables.",
+        default=None,
     )
     method: str | None = Field(
         description="The scipy.optimize.minimize method to beused. If None, a method is selected "
-                    "automatically based on the properties of the objective (does it have constraints?).",
-        default=None
+        "automatically based on the properties of the objective (does it have constraints?).",
+        default=None,
     )
     method_kwargs: dict | None = Field(
-        description="The keyword arguments passed to the scipy.optimize.minimize method.",
-        default=None
+        description="The keyword arguments passed to the scipy.optimize.minimize method.", default=None
     )
-    tol: float | None = Field(
-        description="Tolerance for termination.",
-        default=None
-    )
-    additional_options: dict | None = Field(
-        description="Additional solver options.",
-        default=None
-    )
+    tol: float | None = Field(description="Tolerance for termination.", default=None)
+    additional_options: dict | None = Field(description="Additional solver options.", default=None)
+
+
+_default_scipy_minimize_options = ScipyMinimizeOptions()
 
 
 class EvalTargetEnum(str, Enum):
@@ -290,11 +283,7 @@ def parse_scipy_optimization_result(
 class ScipyMinimizeSolver(BaseSolver):
     """Creates a scipy solver that utilizes the `minimization` routine."""
 
-    def __init__(
-        self,
-        problem: Problem,
-        options: ScipyMinimizeOptions = ScipyMinimizeOptions()
-    ):
+    def __init__(self, problem: Problem, options: ScipyMinimizeOptions = _default_scipy_minimize_options):
         """Initializes a solver that utilizes the `scipy.optimize.minimize` routine.
 
         The `scipy.optimize.minimze` routine is fully accessible through this function.
@@ -366,7 +355,7 @@ class ScipyDeSolver(BaseSolver):
     def __init__(
         self,
         problem: Problem,
-        options: ScipyDeOptions = ScipyDeOptions(),
+        options: ScipyDeOptions = _default_scipy_de_options,
     ):
         """Creates a solver that utilizes the `scipy.optimize.differential_evolution` routine.
 
@@ -378,7 +367,6 @@ class ScipyDeSolver(BaseSolver):
             problem (Problem): the multiobjective optimization problem to be solved.
             options (ScipyDeOptions): Pydantic model containing arguments used by scipy DE solver.
         """
-
         initial_guess = options.initial_guess
         de_kwargs = options.de_kwargs
 

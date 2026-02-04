@@ -9,7 +9,6 @@ import polars as pl
 from desdeo.problem import (
     ObjectiveTypeEnum,
     Problem,
-    TensorVariable,
     VariableDimensionEnum,
     VariableDomainTypeEnum,
     numpy_array_to_objective_dict,
@@ -140,7 +139,7 @@ def find_compatible_solvers(problem: Problem) -> list[BaseSolver]:
     return solvers
 
 
-def guess_best_solver(problem: Problem) -> BaseSolver:  # noqa: PLR0911
+def guess_best_solver(problem: Problem) -> BaseSolver:
     """Given a problem, tries to guess the best solver to handle it.
 
     Args:

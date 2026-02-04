@@ -79,7 +79,7 @@ def calculate_navigation_point(
         raise NautilusNavigatorError(msg)
 
     z_prev = objective_dict_to_numpy_array(problem, previous_navigation_point)
-    f = objective_dict_to_numpy_array(problem, reachable_objective_vector).T  #
+    f = objective_dict_to_numpy_array(problem, reachable_objective_vector).T
     rs = number_of_steps_remaining
 
     # return the new navigation point
@@ -133,7 +133,7 @@ def solve_reachable_bounds(
     upper_bounds = {}
     for objective in problem.objectives:
         # Lower bounds
-        eps_problem, target, eps_symbols = add_epsilon_constraints(
+        eps_problem, target, _ = add_epsilon_constraints(
             problem,
             "target",
             {f"{obj.symbol}": f"{obj.symbol}_eps" for obj in problem.objectives},
@@ -175,7 +175,7 @@ def solve_reachable_bounds(
             lower_bound = lower_bound[0]
 
         # solver upper bounds
-        eps_problem, target, eps_symbols = add_epsilon_constraints(
+        eps_problem, target, _ = add_epsilon_constraints(
             problem,
             "target",
             {f"{obj.symbol}": f"{obj.symbol}_eps" for obj in problem.objectives},
@@ -397,7 +397,7 @@ def navigator_init(problem: Problem, solver: BaseSolver | None = None) -> NAUTIL
     )
 
 
-def navigator_step(  # NOQA: PLR0913
+def navigator_step(
     problem: Problem,
     steps_remaining: int,
     step_number: int,
@@ -602,13 +602,13 @@ if __name__ == "__main__":
     # calculate reachable solution (direction)
     opt_result = solve_reachable_solution(problem, reference_point)
 
-    assert opt_result.success
+    assert opt_result.success  # noqa: S101
 
     reachable_point = opt_result.optimal_objectives
 
     # update nav point
     nav_point = calculate_navigation_point(problem, nav_point, reachable_point, steps_remaining)
-    print(f"{nav_point=}")
+    print(f"{nav_point=}")  # noqa: T201
 
     # update_bounds
     lower_bounds, upper_bounds = solve_reachable_bounds(problem, nav_point)
@@ -621,7 +621,7 @@ if __name__ == "__main__":
     # no new reference point, reachable point (direction) stays the same
     # update nav point
     nav_point = calculate_navigation_point(problem, nav_point, reachable_point, steps_remaining)
-    print(f"{nav_point=}")
+    print(f"{nav_point=}")  # noqa: T201
 
     # update bounds
     lower_bounds, upper_bounds = solve_reachable_bounds(problem, nav_point)
@@ -637,13 +637,13 @@ if __name__ == "__main__":
     # calculate reachable solution (direction)
     opt_result = solve_reachable_solution(problem, reference_point)
 
-    assert opt_result.success
+    assert opt_result.success  # noqa: S101
 
     reachable_point = opt_result.optimal_objectives
 
     # update nav point
     nav_point = calculate_navigation_point(problem, nav_point, reachable_point, steps_remaining)
-    print(f"{nav_point=}")
+    print(f"{nav_point=}")  # noqa: T201
 
     # update_bounds
     lower_bounds, upper_bounds = solve_reachable_bounds(problem, nav_point)
