@@ -495,7 +495,7 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
 
     cluster_th = 8  # max number of clusters to use 'Accent' color map with, otherwise use 'tab20'
     colorscale = (
-        cm.get_cmap("Accent", len(cluster)) if len(clusters) <= cluster_th else cm.get_cmap("tab20", len(clusters))
+        cm.get_cmap("Accent", len(clusters)) if len(clusters) <= cluster_th else cm.get_cmap("tab20", len(clusters))
     )
     if result.options.scales is None:
         raise ValueError("Scales must be provided in the SCOREBandsResult to plot the figure.")
