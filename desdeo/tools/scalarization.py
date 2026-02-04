@@ -1430,7 +1430,6 @@ def add_guess_sf_nondiff(
             to calculate nadir point from problem.
         rho (float, optional): a small scalar value to scale the sum in the objective
             function of the scalarization. Defaults to 1e-6.
-        delta (float, optional): a small scalar to define the utopian point. Defaults to 1e-6.
 
     Returns:
         tuple[Problem, str]: a tuple with the copy of the problem with the added
@@ -1985,7 +1984,7 @@ def add_desirability_funcs(
             objective function symbols and values to desirability levels, where each value is a tuple of (d1, d2). If
             not given, the default values for d1 and d2 are used, which are 0.9 and 0.1 respectively. Defaults to None.
         desirability_func (str, optional): The type of desirability function to use. Currently, only "Harrington" or
-        "MaoMao" is supported. Defaults to "Harrington".
+            "MaoMao" is supported. Defaults to "Harrington".
 
     Returns:
         Problem: A copy of the problem with the added desirability functions as scalarization functions.

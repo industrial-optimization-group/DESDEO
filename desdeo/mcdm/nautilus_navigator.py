@@ -421,7 +421,7 @@ def navigator_step(  # NOQA: PLR0913
             which must be provided in this case.
         bounds (dict | None, optional): The bounds of the problem provided by the DM. Defaults to None.
         reachable_solution (dict | None, optional): The previous reachable solution. Must only be provided if the DM
-        has not changed their preference. Defaults to None.
+            has not changed their preference. Defaults to None.
 
     Raises:
         NautilusNavigatorError: If neither reference_point nor reachable_solution is provided.
@@ -472,7 +472,7 @@ def navigator_all_steps(
     previous_responses: list[NAUTILUS_Response],
     bounds: dict | None = None,
     solver: BaseSolver | None = None,
-):
+) -> list[NAUTILUS_Response]:
     """Performs all steps of the NAUTILUS method.
 
     NAUTILUS needs to be initialized before calling this function. Once initialized, this function performs all

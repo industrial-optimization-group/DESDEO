@@ -312,7 +312,7 @@ def annotated_heatmap(correlation_matrix: np.ndarray, col_names: list, order: li
     return fig
 
 
-def order_dimensions(data: pl.DataFrame, use_absolute_corr: bool = False):
+def order_dimensions(data: pl.DataFrame, use_absolute_corr: bool = False) -> tuple[np.ndarray, list[int]]:
     """Calculate the order of objectives.
 
     Also returns the correlation matrix.
@@ -482,7 +482,7 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
 
     Args:
         data (pl.DataFrame): Dataframe of objective values. The column names should be the objective names. Each row
-        should be an objective vector.
+            should be an objective vector.
         result (SCOREBandsResult): The result containing all relevant data for the SCORE bands visualization.
 
     Returns:

@@ -370,7 +370,6 @@ def repair(lower_bounds: dict[str, float], upper_bounds: dict[str, float]) -> Ca
     Useful in evolutionary algorithms where offspring may go out of bounds due to crossover or mutation operations.
 
     Args:
-        offspring (pl.DataFrame): The offspring to be repaired.
         lower_bounds (dict[str, float]): The lower bounds for each variable.
         upper_bounds (dict[str, float]): The upper bounds for each variable.
 

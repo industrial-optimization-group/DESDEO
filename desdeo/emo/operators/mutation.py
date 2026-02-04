@@ -831,7 +831,9 @@ class NonUniformMutation(BaseMutation):
             1 / len(self.variable_symbols) if mutation_probability is None else mutation_probability
         )
 
-    def _mutate_value(self, x, lower_bound, upper_bound, mutation_threshold=0.5):
+    def _mutate_value(
+        self, x: float, lower_bound: float, upper_bound: float, mutation_threshold: float = 0.5
+    ) -> float:
         """Apply non-uniform mutation to a single float value.
 
         Args:

@@ -304,7 +304,6 @@ class ScipyMinimizeSolver(BaseSolver):
         Args:
             problem (Problem): the multiobjective optimization problem to be solved.
             options: (ScipyMinimizeOptions): Pydantic model containing args for scipy minimize solver.
-            subscriber (str | None, optional): not used right now. WIP. Defaults to None.
 
         """
         if variable_dimension_enumerate(problem) not in SUPPORTED_VAR_DIMENSIONS:
@@ -377,11 +376,6 @@ class ScipyDeSolver(BaseSolver):
 
         Args:
             problem (Problem): the multiobjective optimization problem to be solved.
-            initial_guess (dict[str, float, None] | None, optional): The initial
-                guess to be utilized in the solver. For variables with a None as their
-                initial guess, the mid-point of the variable's lower and upper bound is
-                utilzied as the initial guess. If None, it is assumed that there are
-                no initial guesses for any of the variables. Defaults to None.
             options (ScipyDeOptions): Pydantic model containing arguments used by scipy DE solver.
         """
 
