@@ -21,7 +21,11 @@ from desdeo.api.models import (
     User,
     UserRole,
 )
-from desdeo.api.models.request_models import RepresentativeSolutionSetRequest
+from desdeo.api.models.representative_solution import (
+    RepresentativeSolutionSetFull,
+    RepresentativeSolutionSetInfo,
+    RepresentativeSolutionSetRequest,
+)
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.problem import Problem
 from desdeo.tools.utils import available_solvers
@@ -320,7 +324,10 @@ def select_solver(
 
     return JSONResponse(content={"message": "OK"}, status_code=status.HTTP_200_OK)
 
-@router.post("/add_representative_solution_set")
+@router.post(
+    "/add_representative_solution_set",
+    response_model=RepresentativeSolutionSetInfo
+)
 def add_representative_solution_set(
     payload: RepresentativeSolutionSetRequest,
     context: Annotated[SessionContext, Depends(get_session_context_without_request)],
@@ -374,15 +381,20 @@ def add_representative_solution_set(
     db_session.commit()
     db_session.refresh(repr_metadata)
 
-    # Attach to problem metadata
-    problem_metadata.representative_nd_metadata.append(repr_metadata)
-    db_session.add(problem_metadata)
-    db_session.commit()
-    db_session.refresh(problem_metadata)
 
-    return {"message": "Representative solution set added successfully."}
+    return RepresentativeSolutionSetInfo(
+        id=repr_metadata.id,
+        problem_id=problem_db.id,
+        name=repr_metadata.name,
+        description=repr_metadata.description,
+        ideal=repr_metadata.ideal,
+        nadir=repr_metadata.nadir,
+    )
 
-@router.get("/all_representative_solution_sets/{problem_id}")
+@router.get(
+    "/all_representative_solution_sets/{problem_id}",
+    response_model=list[RepresentativeSolutionSetInfo]
+)
 def get_all_representative_solution_sets(
     problem_id: int,
     context: Annotated[SessionContext, Depends(get_session_context_without_request)],
@@ -405,29 +417,26 @@ def get_all_representative_solution_sets(
 
     # Fetch metadata
     problem_metadata = problem_db.problem_metadata
-    if not problem_metadata or not problem_metadata.representative_nd_metadata:
-        return {
-            "problem_id": problem_id,
-            "representative_sets": []
-        }
+    if not problem_metadata:
+       return []
 
     # Build response
-    sets_meta = [
-        {
-            "name": rep.name,
-            "description": rep.description,
-            "ideal": rep.ideal,
-            "nadir": rep.nadir
-        }
+    return [
+        RepresentativeSolutionSetInfo(
+            id=rep.id,
+            problem_id=problem_id,
+            name=rep.name,
+            description=rep.description,
+            ideal=rep.ideal,
+            nadir=rep.nadir,
+        )
         for rep in problem_metadata.representative_nd_metadata
     ]
 
-    return {
-        "problem_id": problem_id,
-        "representative_sets": sets_meta
-    }
-
-@router.get("/representative_solution_set/{set_id}")
+@router.get(
+    "/representative_solution_set/{set_id}",
+    response_model=RepresentativeSolutionSetFull
+)
 def get_representative_solution_set(
     set_id: int,
     context: Annotated[SessionContext, Depends(get_session_context_without_request)],
@@ -445,16 +454,20 @@ def get_representative_solution_set(
         raise HTTPException(status_code=401, detail="Unauthorized user.")
 
     # Return all fields as a dict
-    return {
-        "id": repr_set.id,
-        "name": repr_set.name,
-        "description": repr_set.description,
-        "solution_data": repr_set.solution_data,
-        "ideal": repr_set.ideal,
-        "nadir": repr_set.nadir,
-    }
+    return RepresentativeSolutionSetFull(
+        id=repr_set.id,
+        problem_id=repr_set.metadata_instance.problem_id,
+        name=repr_set.name,
+        description=repr_set.description,
+        solution_data=repr_set.solution_data,
+        ideal=repr_set.ideal,
+        nadir=repr_set.nadir,
+    )
 
-@router.delete("/representative_solution_set/{set_id}")
+@router.delete(
+    "/representative_solution_set/{set_id}",
+    status_code=status.HTTP_204_NO_CONTENT
+)
 def delete_representative_solution_set(
     set_id: int,
     context: Annotated[SessionContext, Depends(get_session_context_without_request)],
@@ -477,4 +490,4 @@ def delete_representative_solution_set(
     db_session.delete(repr_metadata)
     db_session.commit()
 
-    return {"detail": "Deleted successfully"}
+    # return {"detail": "Deleted successfully"}
