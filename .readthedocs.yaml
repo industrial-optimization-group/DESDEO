@@ -21,3 +21,15 @@ build:
       - uv venv "${READTHEDOCS_VIRTUALENV_PATH}"
     install:
       - UV_PROJECT_ENVIRONMENT="${READTHEDOCS_VIRTUALENV_PATH}" uv sync --frozen --all-extras
+
+      # Ensure optimization solver binaries are available while building docs.
+      - mkdir -p "$HOME/tmp/custom_binaries"
+      - wget https://github.com/industrial-optimization-group/DESDEO/releases/download/supplementary/solver_binaries.tgz -O "$HOME/tmp/binaries.tgz"
+      - tar --strip-components=1 -xzf "$HOME/tmp/binaries.tgz" -C "$HOME/tmp/custom_binaries"
+      - chmod +x "$HOME/tmp/custom_binaries"/*
+
+      # Persist PATH update for subsequent build steps
+      - echo "PATH=$HOME/tmp/custom_binaries:$PATH" >> "$READTHEDOCS_ENVIRONMENT"
+
+      # Fail if the expected solvers are missing.
+      - bash -lc 'command -v ipopt && command -v bonmin'
