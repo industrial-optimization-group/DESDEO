@@ -32,9 +32,6 @@ class ProximalSolver(BaseSolver):
             kwargs (Optional[dict]): optional keyword arguments. Not used right now, but kept
                 here for compatibility reasons. Defaults to None.
 
-        Returns:
-            Callable[[str], SolverResults]: a solver that can be called with a target to be optimized.
-                This function then returns the results of the optimization as in a `SolverResults` dataclass.
         """
         for obj in problem.objectives:
             if obj.objective_type is not ObjectiveTypeEnum.data_based:
@@ -57,7 +54,7 @@ class ProximalSolver(BaseSolver):
 
         # check constraint values if problem has constraints
         if self.problem.constraints is not None:
-            cons_condition = pl.lit(True)
+            cons_condition = pl.lit(True)  # noqa: FBT003
             for constraint in self.problem.constraints:
                 cons_condition = cons_condition & (results_df[constraint.symbol] <= 0)
 

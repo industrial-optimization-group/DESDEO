@@ -8,6 +8,7 @@ use the `plot_score` function to generate the figure. You can also pass the resu
 for visualization.
 """
 
+import itertools
 from copy import deepcopy
 from enum import Enum
 from typing import Literal
@@ -257,7 +258,7 @@ def cluster_by_dimension(data: pl.DataFrame, options: DimensionClusterOptions) -
             options.n_clusters + 1,
         )
         return np.digitize(dimension.to_numpy(), thresholds)  # Cluster IDs start at 1
-    elif options.kind == "EqualFrequency":
+    if options.kind == "EqualFrequency":
         levels: list[float] = [dimension.quantile(i / options.n_clusters) for i in range(1, options.n_clusters)]
         thresholds = [-np.inf] + levels + [np.inf]
         return np.digitize(dimension.to_numpy(), thresholds)  # Cluster IDs start at 1
@@ -298,7 +299,7 @@ def annotated_heatmap(correlation_matrix: np.ndarray, col_names: list, order: li
 
     Returns:
         go.Figure: The heatmap
-    """  # noqa: D212, D213, D406, D407
+    """
     corr = pl.DataFrame(correlation_matrix, index=col_names, columns=col_names)
     corr = corr[col_names[order]].loc[col_names[order[::-1]]]
     corr = np.rint(corr * 100) / 100  # Take upto two significant figures only to make heatmap readable.
@@ -312,7 +313,7 @@ def annotated_heatmap(correlation_matrix: np.ndarray, col_names: list, order: li
     return fig
 
 
-def order_dimensions(data: pl.DataFrame, use_absolute_corr: bool = False):
+def order_dimensions(data: pl.DataFrame, use_absolute_corr: bool = False) -> tuple[np.ndarray, list[int]]:
     """Calculate the order of objectives.
 
     Also returns the correlation matrix.
@@ -360,7 +361,7 @@ def calculate_axes_positions(
         np.ndarray: Positions of the axes in the range [0, 1].
     """
     # axes positions
-    order = np.asarray(list(zip(dimension_order[:-1], dimension_order[1:], strict=True)))
+    order = np.asarray(list(itertools.pairwise(dimension_order)))
     axis_len = corr[order[:, 0], order[:, 1]]
     if distance_formula == DistanceFormula.FORMULA_1:
         axis_len = 1 - axis_len
@@ -482,7 +483,7 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
 
     Args:
         data (pl.DataFrame): Dataframe of objective values. The column names should be the objective names. Each row
-        should be an objective vector.
+            should be an objective vector.
         result (SCOREBandsResult): The result containing all relevant data for the SCORE bands visualization.
 
     Returns:
@@ -492,11 +493,10 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
 
     clusters = np.sort(np.unique(result.clusters))
 
-    if len(clusters) <= 8:
-        colorscale = cm.get_cmap("Accent", len(clusters))
-    else:
-        colorscale = cm.get_cmap("tab20", len(clusters))
-
+    cluster_th = 8  # max number of clusters to use 'Accent' color map with, otherwise use 'tab20'
+    colorscale = (
+        cm.get_cmap("Accent", len(clusters)) if len(clusters) <= cluster_th else cm.get_cmap("tab20", len(clusters))
+    )
     if result.options.scales is None:
         raise ValueError("Scales must be provided in the SCOREBandsResult to plot the figure.")
 
@@ -519,16 +519,13 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
         descriptive_names = {name: name for name in column_names}
     else:
         descriptive_names = result.options.descriptive_names
-    if result.options.units is None:
-        units = {name: "" for name in column_names}
-    else:
-        units = result.options.units
+    units = dict.fromkeys(column_names, "") if result.options.units is None else result.options.units
 
     num_ticks = 6
     # Add axes
     for i, col_name in enumerate(column_names):
         label_text = np.linspace(result.options.scales[col_name][0], result.options.scales[col_name][1], num_ticks)
-        label_text = ["{:.5g}".format(i) for i in label_text]
+        label_text = [f"{i:.5g}" for i in label_text]
         # label_text[0] = "<<"
         # label_text[-1] = ">>"
         heights = np.linspace(0, 1, num_ticks)
@@ -565,7 +562,7 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
         r, g, b, a = colorscale(cluster_id - 1)  # Needed as cluster numbering starts at 1
         a = 0.6
         color_bands = f"rgba({r}, {g}, {b}, {a})"
-        color_soln = f"rgba({r}, {g}, {b}, {a})"
+        # color_soln = f"rgba({r}, {g}, {b}, {a})"
 
         lows = [
             (result.bands[cluster_id][col_name][0] - result.options.scales[col_name][0])

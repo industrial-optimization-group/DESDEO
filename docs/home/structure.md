@@ -1,6 +1,6 @@
 # The structure of DESDEO
 
-In the big picture, DESDEO is not just a collection of interactive
+In the big picture, DESDEO is not just meant to be a collection of interactive
 multiobjective optimization methods, but a __full stack__ solution (which can be
 run as an application) to provide decision-support for decision makers to tackle
 real-life multiobjective optimization problems by utilizing interactive methods.
@@ -56,7 +56,7 @@ termination operators, which can be combined in different way to create existing
 or new EMO methods.
 
 Apart from the main modules, other modules exist as well. The main modules,
-and other, can be found in the `/desdeo/` directory of the source tree.
+and others, can be found in the `/desdeo/` directory of the source tree.
 
 ## The web-API
 
@@ -74,6 +74,11 @@ decision-support tools.
     The web-API is currently under heavy development. Be free to explore it
     and contribute, but understand things will be changing fast and nothing is stable!
 
+    If you are interested in contributing to the web-API, please check out [this
+    issue](https://github.com/industrial-optimization-group/DESDEO/issues/245)
+    and be sure to hop on our [Discord server](https://discord.gg/uGCEgQTJyY)
+    for additional support!
+
 The web-API can be found in the directory `desdeo/api/` in the project source tree.
 
 ## The web-GUI
@@ -86,5 +91,10 @@ Development of the web-GUI is in early stages of development.
 
     The web-GUI is currently under heavy development. Be free to explore it
     and contribute, but understand things will be changing fast and nothing is stable!
+
+    If you are interested in contributing to the web-API, please check out [this
+    issue](https://github.com/industrial-optimization-group/DESDEO/issues/251)
+    and be sure to hop on our [Discord server](https://discord.gg/uGCEgQTJyY)
+    for additional support!
 
 The web-GUI will be found in the directory `desdeo/gui/` in the project source tree.

@@ -49,7 +49,7 @@ we can visit [GitHub](https://github.com/) to setup a new account.
 Here, we assume to be operating in a __powershell__ environment. The first step
 is to install Python on the system, unless it is already installed. To check
 which version of Python are supported, check the section
-[Requirements](../index.md#installation-instructions). If utilizing the `.exe`
+[Requirements](../index.md#installation-instructions-core-logic). If utilizing the `.exe`
 installer for installing Python, we should ensure that the installer also sets the
 necessary `Path` environment variables. There should be a check-box for this
 during the installation. Python binaries for Windows platforms can be found [on

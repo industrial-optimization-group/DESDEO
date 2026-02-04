@@ -8,16 +8,16 @@ existing one fits your needs.
 This guide provides a step-by-step approach to implementing EA components in DESDEO. As a prerequisite, you should
 familiarize yourself with:
 
-- How multiobjective optimization problems are structured in DESDEO (see [here](../../explanation/problem_format)),
-- How evolutionary algorithms are structured in DESDEO (see [explanation](../../explanation/templates_and_pub_sub) and [usage](../ea)),
-- How the Pydantic interface for EAs work (see [explanation](../../explanation/pydantic_interface) and [usage](../ea_options)).
+- How multiobjective optimization problems are structured in DESDEO (see [here](../explanation/problem_format.ipynb)),
+- How evolutionary algorithms are structured in DESDEO (see [explanation](../explanation/templates_and_pub_sub.ipynb) and [usage](./ea.ipynb)),
+- How the Pydantic interface for EAs work (see [explanation](../explanation/pydantic_interface.md) and [usage](./ea_options.ipynb)).
 
 Once you are familiar with these concepts, you can follow the steps below to implement your own EA components in DESDEO:
 
 1. Implement the EA component as a Python method.
 2. Classify the inputs of the method into three categories: initialization parameters, parameters that it can get from
    the template, and parameters that it will have to receive via the publisher-subscriber mechanism.
-3. Implement a Python class that inherits from [Subscriber](../../api/desdeo_tools/#desdeo.tools.patterns.Subscriber) as a wrapper for your method.
+3. Implement a Python class that inherits from [Subscriber](../api/desdeo_tools.md#desdeo.tools.patterns.Subscriber) as a wrapper for your method.
 4. Implement a Pydantic model for your EA component to make sure it can be used through the Pydantic interface.
 5. Test your implementation to ensure it works as expected.
 
@@ -60,7 +60,7 @@ The inputs of the `adaptive_mutation` method can be classified as follows:
     of the mutation operator and are set when the operator is created.
 - Template parameters: To check whether an input parameter can be obtained from the template, check the implementation
     of the templates, or the implementation of existing EA components (in this case, other mutation operators). The
-    source code for [`template1`](../../api/desdeo_emo/#desdeo.emo.methods.templates.template1) shows that mutation operators can only get
+    source code for [`template1`](../api/desdeo_emo.md#desdeo.emo.methods.templates.template1) shows that mutation operators can only get
     the parent and offspring populations from the template. Therefore, in this case, `offspring` is a template parameter.
     However, the data is provided as a Polars DataFrame, so we will need to convert it to a NumPy array in the wrapper class.
 - Publisher-subscriber parameters: Any remaining parameters that are not initialization parameters or template parameters
@@ -73,7 +73,7 @@ The inputs of the `adaptive_mutation` method can be classified as follows:
 ## Step 3: Implement a Subscriber wrapper class
 
 Now that we have classified the inputs, we can implement a Subscriber wrapper class for the `adaptive_mutation` method.
-The class will inherit from [Subscriber](../../api/desdeo_tools/#desdeo.tools.patterns.Subscriber). As stated [here](../../explanation/templates_and_pub_sub/#publish-subscribe-pattern),
+The class will inherit from [Subscriber](../api/desdeo_tools.md#desdeo.tools.patterns.Subscriber). As stated [here](../explanation/templates_and_pub_sub.ipynb#publish-subscribe-pattern),
 we need to implement four attributes/methods: 
 
 1. Attribute `provided_topics`: Topics for the publisher subscriber mechanism that the component will provide data for.
@@ -82,7 +82,7 @@ we need to implement four attributes/methods:
 4. Method `update`: A method that receives messages from the `Publisher` and performs updates the component.
 
 While implementing the class, make sure to follow the structure of other similar components in DESDEO. To check the 
-available message topics and structures, check the [docs](../../api/desdeo_tools/#message-topics).
+available message topics and structures, check the [docs](../api/desdeo_tools.md#message-topics).
 
 ```python
 class AdaptiveMutation(Subscriber):
