@@ -28,8 +28,6 @@ build:
       - tar --strip-components=1 -xzf "$HOME/tmp/binaries.tgz" -C "$HOME/tmp/custom_binaries"
       - chmod +x "$HOME/tmp/custom_binaries"/*
 
-      # Persist PATH update for subsequent build steps
-      - echo "PATH=$HOME/tmp/custom_binaries:$PATH" >> "$READTHEDOCS_ENVIRONMENT"
+      - cp -a "$HOME/tmp/custom_binaries"/. "${READTHEDOCS_VIRTUALENV_PATH}/bin/"
 
-      # Fail if the expected solvers are missing.
       - bash -lc 'command -v ipopt && command -v bonmin'
