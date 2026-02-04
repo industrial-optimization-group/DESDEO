@@ -490,4 +490,3 @@ def delete_representative_solution_set(
     db_session.delete(repr_metadata)
     db_session.commit()
 
-    # return {"detail": "Deleted successfully"}
