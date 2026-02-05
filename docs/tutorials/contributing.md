@@ -758,6 +758,17 @@ This should be used sparingly. Contributors should expect that automated checks
 are also executed in continuous integration, and any issues must be
 addressed before a pull request can be merged.
 
+#### Which hooks are available and where?
+
+The configuration of the hooks is set in the file `.pre-commit-config.yaml`,
+which lists all the installed hooks. This is the source
+of the most up-to-date information on the hooks.
+
+As of February 5th, the pre-commit hooks will check modified `.py` files
+using ruff. `.yaml`, and `.toml` (and their derivatives) are also checked
+for their syntax. We also run `nbstripout` on notebooks stripping them
+of their outputs.
+
 ### Typechecking
 
 While Python is not a typed language, it still offers the options
