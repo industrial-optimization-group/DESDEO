@@ -329,13 +329,13 @@ def select_solver(
     response_model=RepresentativeSolutionSetInfo
 )
 def add_representative_solution_set(
-    payload: RepresentativeSolutionSetRequest,
+    request: RepresentativeSolutionSetRequest,
     context: Annotated[SessionContext, Depends(get_session_context_without_request)],
 ):
     """Add a new representative solution set as metadata to a problem.
 
     Args:
-        payload (RepresentativeSolutionSetRequest): The JSON body containing the
+        request (RepresentativeSolutionSetRequest): The JSON body containing the
             details of the representative solution set (name, description, solution data, ideal, nadir).
         context (SessionContext): The session context providing the current user and database session.
 
@@ -349,9 +349,9 @@ def add_representative_solution_set(
     db_session: Session = context.db_session
 
     # Fetch the problem
-    problem_db = db_session.get(ProblemDB, payload.problem_id)
+    problem_db = db_session.get(ProblemDB, request.problem_id)
     if problem_db is None:
-        raise HTTPException(status_code=404, detail=f"Problem with ID {payload.problem_id} not found.")
+        raise HTTPException(status_code=404, detail=f"Problem with ID {request.problem_id} not found.")
 
     # Check the user
     if user.id != problem_db.user_id:
@@ -369,11 +369,11 @@ def add_representative_solution_set(
     # Add new representative solution set
     repr_metadata = RepresentativeNonDominatedSolutions(
         metadata_id=problem_metadata.id,
-        name=payload.name,
-        description=payload.description,
-        solution_data=payload.solution_data,
-        ideal=payload.ideal,
-        nadir=payload.nadir,
+        name=request.name,
+        description=request.description,
+        solution_data=request.solution_data,
+        ideal=request.ideal,
+        nadir=request.nadir,
         metadata_instance=problem_metadata,
     )
 

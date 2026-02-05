@@ -254,10 +254,15 @@ class RepresentativeNonDominatedSolutions(RepresentativeSolutionSetBase, SQLMode
     metadata_id: int | None = Field(foreign_key="problemmetadatadb.id", default=None)
     metadata_type: str = "representative_non_dominated_solutions"
 
-    solution_data: dict[str, list[float]] = Field(sa_column=Column(JSON))
-    ideal: dict[str, float] = Field(sa_column=Column(JSON))
-    nadir: dict[str, float] = Field(sa_column=Column(JSON))
-
+    solution_data: dict[str, list[float]] = Field(sa_column=Column(JSON),
+        description="The non-dominated solutions. It is assumed that columns "
+        "exist for each variable and objective function. For functions, the "
+        "`_min` variant should be present, and any tensor variables should be "
+        "unrolled.")
+    ideal: dict[str, float] = Field(sa_column=Column(JSON),
+        description="The ideal objective function values of the representative set.")
+    nadir: dict[str, float] = Field(sa_column=Column(JSON),
+        description="The nadir objective function values of the representative set.")
 
     metadata_instance: "ProblemMetaDataDB" = Relationship(back_populates="representative_nd_metadata")
 
