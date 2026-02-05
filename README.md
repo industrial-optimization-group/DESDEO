@@ -103,8 +103,8 @@ available online.](https://desdeo.readthedocs.io/en/latest/)
 
 ### Documentation for LLMs
 
-An [`llms.txt`](desdeo.readthedocs.io/llms.txt) and
-[`llms-full.txt`](desdeo.readthedocs.io/llms-full.txt) file are available to
+An [`llms.txt`](https://desdeo.readthedocs.io/en/latest/llms.txt) and
+[`llms-full.txt`](https://desdeo.readthedocs.io/en/latest/llms-full.txt) file are available to
 appease our AI overlords.
 
 ## Contributing
