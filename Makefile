@@ -43,3 +43,9 @@ test-failures:
 
 fullstack:
 	./run_fullstack.sh
+
+docs-fast:
+	mkdocs serve -f mkdocs.yml
+
+docs-rtd:
+	mkdocs serve -f mkdocs.rtd.yml
