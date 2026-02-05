@@ -2,9 +2,9 @@
 [![PyPI version](https://img.shields.io/pypi/v/desdeo?label=PyPI)](https://pypi.org/project/desdeo/)
 [![Documentation Status](https://img.shields.io/readthedocs/desdeo.svg?version=desdeo2&label=Documentation)](https://desdeo.readthedocs.io/en/latest/)
 ![Tests](https://img.shields.io/github/actions/workflow/status/industrial-optimization-group/DESDEO/unit_tests.yaml?branch=master&label=Tests)
-[![Discord](https://img.shields.io/discord/1382614276409266206?style=flat&label=Join%20our%20Discord&labelColor=%237289da)](https://discord.gg/uGCEgQTJyY) 
+[![Discord](https://img.shields.io/discord/1382614276409266206?style=flat&label=Join%20our%20Discord&labelColor=%237289da)](https://discord.gg/uGCEgQTJyY)
 
- 
+
 # DESDEO: the open-source software framework for interactive multiobjective optimization
 ## Introduction
 
@@ -61,7 +61,7 @@ problems, surrogate-based problems, and simulation-based problems.
 Both continuous and (mixed-)integer problems are supported as well.
 -   Support to interface to many popular and powerful optimization software for
 solving multiobjective optimization problems. Including Gurobi, various solvers
-from the COIN-OR project, and nevergrad, for instance. 
+from the COIN-OR project, and nevergrad, for instance.
 -   A wide assortment of modular software components for implementing existing
 and new interactive multiobjective optimization methods. For example, many
 scalarization functions and evolutionary operators for multiobjective
@@ -100,6 +100,12 @@ To read more on these, and on instructions on how to install the latest version 
 Care has been taken to make sure DESDEO is well documented, making it accessible
 to both newcomers and seasoned users alike.  [The documentation of DESDEO is
 available online.](https://desdeo.readthedocs.io/en/latest/)
+
+### Documentation for LLMs
+
+An [`llms.txt`](desdeo.readthedocs.io/llms.txt) and
+[`llms-full.txt`](desdeo.readthedocs.io/llms-full.txt) file are available to
+appease our AI overlords.
 
 ## Contributing
 

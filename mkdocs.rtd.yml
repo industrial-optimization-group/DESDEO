@@ -25,7 +25,7 @@ plugins:
           ignore_init_summary: false
   include-markdown:
   mkdocs-jupyter:
-    execute: true # KEEP otherwsie as a carbon copy of mkdcos.yml
+    execute: true # KEEP otherwise as a carbon copy of mkdcos.yml
     include_requirejs: true
     custom_mathjax_url: "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS_CHTML-full,Safe"
     remove_tag_config:
@@ -33,3 +33,44 @@ plugins:
       remove_cell_tags: remove_cell
   neoteroi.mkdocsoad:
     use_pymdownx: true
+  llmstxt:
+    full_output: llms-full.txt
+    markdown_description: >
+      DESDEO 2 is an open-source Python framework for interactive
+      multiobjective optimization. It provides modular, reusable components
+      for implementing interactive decision-support methods, with a clear
+      separation between algorithmic core-logic and user interfaces.
+
+      DESDEO 2 represents a complete redesign of the original DESDEO software,
+      motivated by practical challenges in building decision-support systems.
+      The framework is built around three key layers: core-logic (algorithmic
+      foundation), web-facing components, and end-user interfaces.
+
+      Key architectural principles:
+      - Explicit abstractions for problem modeling and method execution
+      - Decoupling of algorithms from interface and deployment technology
+      - Modular, composable components for interactive methods
+      - Support for iterative interaction and preference modeling
+      - Web-ready and service-oriented architecture
+
+      The core-logic is fully self-contained and independent of any particular
+      interface technology, addressing challenges in reproducibility, reuse,
+      and extensibility. This stable foundation supports systematic
+      experimentation while enabling future methodological development.
+    sections:
+      Usage documentation:
+        - index.md: "Main documentation page"
+        - home/*.md: "Documentation home and general information"
+        - home/*.ipynb: "Documentation home and general information"
+        - api/*.md: "Core-logic API documentation"
+        - api/*.ipynb: "Core-logic API documentation"
+        - explanation/*.md: "Understanding oriented documentation"
+        - explanation/*.ipynb: "Understanding oriented documentation"
+        - howtoguides/*.md: "Goal oriented documentation"
+        - howtoguides/*.ipynb: "Goal oriented documentation"
+        - tutorials/*.md: "Tutorials"
+        - tutorials/*.ipynb: "Tutorials"
+        - web_api/*.md: "Web-API documentation"
+        - web_api/*.ipynb: "Web-API documentation"
+        - web_gui/*.md: "Web-GUI documentation"
+        - web_gui/*.ipynb: "Web-GUI documentation"
