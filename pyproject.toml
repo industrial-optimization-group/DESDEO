@@ -71,6 +71,7 @@ docs = [
     "neoteroi-mkdocs>=1.1.2",
     "griffe>=1.4.1",
     "python-markdown-math>=0.9",
+    "mkdocs-llmstxt>=0.5.0",
 ]
 
 jupyter = ["jupyter>=1.0", "jupyterlab>=4.0", "jupytext>=1.16.4"]
