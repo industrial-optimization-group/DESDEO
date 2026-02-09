@@ -16,7 +16,7 @@ from desdeo.api.models import (
     UtopiaRequest,
     UtopiaResponse,
 )
-from desdeo.api.routers.utils import SessionContext, get_session_context
+from desdeo.api.routers.utils import SessionContext, SessionContextGuard
 
 router = APIRouter(prefix="/utopia")
 
@@ -24,14 +24,17 @@ router = APIRouter(prefix="/utopia")
 @router.post("/")
 def get_utopia_data(  # noqa: C901
     request: UtopiaRequest,
-    context: Annotated[SessionContext, Depends(get_session_context)],
+    context: Annotated[
+        SessionContext,
+        Depends(SessionContextGuard())
+    ],
 ) -> UtopiaResponse:
     """Request and receive the Utopia map corresponding to the decision variables sent.
 
     Args:
         request (UtopiaRequest): the set of decision variables and problem for which the utopia forest map is requested
             for.
-        context (Annotated[SessionContext, Depends(get_session_context)]): the current session context
+        context (Annotated[SessionContext, Depends(SessionContextGuard)]): the current session context
 
     Raises:
         HTTPException:

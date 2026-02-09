@@ -32,7 +32,7 @@ from desdeo.emo.options.templates import EMOOptions, PreferenceOptions, Template
 from desdeo.problem import Problem
 from desdeo.tools.score_bands import SCOREBandsConfig, score_json
 
-from .utils import SessionContext, get_session_context
+from .utils import ContextField, SessionContext, SessionContextGuard
 
 router = APIRouter(prefix="/method/emo", tags=["EMO"])
 
@@ -146,7 +146,10 @@ def get_templates() -> list[TemplateOptions]:
 @router.post("/iterate")
 def iterate(
     request: EMOIterateRequest,
-    context: Annotated[SessionContext, Depends(get_session_context)],
+    context: Annotated[
+        SessionContext,
+        Depends(SessionContextGuard(require=[ContextField.PROBLEM]))
+    ],
 ) -> EMOIterateResponse:
     """Fetches results from a completed EMO method.
 
@@ -159,15 +162,11 @@ def iterate(
     """
     # Get context objects
     db_session = context.db_session
-    interactive_session = context.interactive_session
-    parent_state = context.parent_state
-
-    # Ensure problem exists
-    if context.problem_db is None:
-        raise HTTPException(status_code=404, detail="Problem not found")
-
     problem_db = context.problem_db
     problem = Problem.from_problemdb(problem_db)
+
+    interactive_session = context.interactive_session
+    parent_state = context.parent_state
 
     # Templates
     templates = request.template_options or get_templates()
@@ -217,7 +216,6 @@ def iterate(
     ).start()
 
     return EMOIterateResponse(method_ids=web_socket_ids, client_id=client_id, state_id=state_id)
-
 
 def _spawn_emo_process(
     problem: Problem,
@@ -363,7 +361,10 @@ async def _ea_async(
 @router.post("/fetch")
 async def fetch_results(
     request: EMOFetchRequest,
-    context: Annotated[SessionContext, Depends(get_session_context)],
+    context: Annotated[
+        SessionContext,
+        Depends(SessionContextGuard(require=[ContextField.PARENT_STATE]))
+    ],
 ) -> StreamingResponse:
     """Fetches results from a completed EMO method.
 
@@ -377,9 +378,6 @@ async def fetch_results(
     """
     # Use context instead of manual fetch
     state = context.parent_state
-
-    if state is None:
-        raise HTTPException(status_code=404, detail="Parent state not found.")
 
     if not isinstance(state.state, EMOIterateState):
         raise TypeError(f"State with id={request.parent_state_id} is not of type EMOIterateState.")
@@ -406,11 +404,13 @@ async def fetch_results(
 
     return StreamingResponse(result_stream())
 
-
 @router.post("/fetch_score")
 async def fetch_score_bands(
     request: EMOScoreRequest,
-    context: Annotated[SessionContext, Depends(get_session_context)],
+    context: Annotated[
+        SessionContext,
+        Depends(SessionContextGuard(require=[ContextField.PROBLEM, ContextField.PARENT_STATE]))
+    ],
 ) -> EMOScoreResponse:
     """Fetches results from a completed EMO method.
 
@@ -428,9 +428,6 @@ async def fetch_score_bands(
     parent_state = context.parent_state
     db_session = context.db_session
     problem_db = context.problem_db
-
-    if parent_state is None:
-        raise HTTPException(status_code=404, detail="Parent state not found.")
 
     if not isinstance(parent_state.state, EMOIterateState):
         raise TypeError(f"State with id={request.parent_state_id} is not of type EMOIterateState.")

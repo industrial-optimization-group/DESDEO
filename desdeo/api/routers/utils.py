@@ -3,7 +3,9 @@
 NOTE: No routers should be defined in this file!
 """
 
+from collections.abc import Iterable
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
@@ -145,6 +147,11 @@ def fetch_parent_state(
     return parent_state
 
 
+class ContextField(StrEnum):
+    PROBLEM = "problem_db"
+    INTERACTIVE_SESSION = "interactive_session"
+    PARENT_STATE = "parent_state"
+
 @dataclass(frozen=True)
 class SessionContext:
     """A generic context to be used in various endpoints."""
@@ -156,33 +163,88 @@ class SessionContext:
     parent_state: StateDB | None = None
 
 
-def get_session_context(
-    request: RequestType,
-    user: Annotated[User, Depends(get_current_user)],
-    db_session: Annotated[Session, Depends(get_session)],
-) -> SessionContext:
-    """Gets the current session context. Should be used as a dep.
+class SessionContextGuard:
+    """FastAPI dependency that builds a SessionContext and validates required fields."""
 
-    Args:
-        request (RequestType): request based on which the context is fetched.
-        user (Annotated[User, Depends): the current user (dep).
-        db_session (Annotated[Session, Depends): the current database session (dep).
+    def __init__(self, require: Iterable[ContextField] | None = None):
+        self.require = set(require or [])
 
-    Returns:
-        SessionContext: the current session context with the relevant instances
-            of `User`, `Session`, `ProblemDB`, `InteractiveSessionDB`, and `StateDB`.
-    """
-    problem_db = fetch_user_problem(user, request, db_session)
-    interactive_session = fetch_interactive_session(user, request, db_session)
-    parent_state = fetch_parent_state(user, request, db_session, interactive_session=interactive_session)
+    def __call__(
+        self,
+        user: Annotated[User, Depends(get_current_user)],
+        db_session: Annotated[Session, Depends(get_session)],
+        request: RequestType | None = None
+    ) -> SessionContext:
 
-    return SessionContext(
-        user=user,
-        db_session=db_session,
-        problem_db=problem_db,
-        interactive_session=interactive_session,
-        parent_state=parent_state,
-    )
+        problem_db = None
+        interactive_session = None
+        parent_state = None
+
+        # Only fetch request-based context if request exists
+        if request is not None:
+            problem_db = fetch_user_problem(user, request, db_session)
+
+            interactive_session = fetch_interactive_session(
+                user, request, db_session
+            )
+
+            parent_state = fetch_parent_state(
+                user,
+                request,
+                db_session,
+                interactive_session=interactive_session,
+            )
+
+        context = SessionContext(
+            user=user,
+            db_session=db_session,
+            problem_db=problem_db,
+            interactive_session=interactive_session,
+            parent_state=parent_state,
+        )
+
+        self._validate(context)
+
+        return context
+
+    def _validate(self, context: SessionContext) -> None:
+        """Ensure required fields exist."""
+        for field in self.require:
+            if getattr(context, field.value) is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"{field} context missing.",
+                )
+
+
+
+# def get_session_context(
+#     request: RequestType,
+#     user: Annotated[User, Depends(get_current_user)],
+#     db_session: Annotated[Session, Depends(get_session)],
+# ) -> SessionContext:
+#     """Gets the current session context. Should be used as a dep.
+
+#     Args:
+#         request (RequestType): request based on which the context is fetched.
+#         user (Annotated[User, Depends): the current user (dep).
+#         db_session (Annotated[Session, Depends): the current database session (dep).
+
+#     Returns:
+#         SessionContext: the current session context with the relevant instances
+#             of `User`, `Session`, `ProblemDB`, `InteractiveSessionDB`, and `StateDB`.
+#     """
+#     problem_db = fetch_user_problem(user, request, db_session)
+#     interactive_session = fetch_interactive_session(user, request, db_session)
+#     parent_state = fetch_parent_state(user, request, db_session, interactive_session=interactive_session)
+
+#     return SessionContext(
+#         user=user,
+#         db_session=db_session,
+#         problem_db=problem_db,
+#         interactive_session=interactive_session,
+#         parent_state=parent_state,
+#     )
 
 
 def get_session_context_without_request(
