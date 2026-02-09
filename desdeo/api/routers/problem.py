@@ -330,7 +330,7 @@ def select_solver(
 )
 def add_representative_solution_set(
     request: RepresentativeSolutionSetRequest,
-    context: Annotated[SessionContext, Depends(get_session_context_without_request)],
+    context: Annotated[SessionContext, Depends(get_session_context)],
 ):
     """Add a new representative solution set as metadata to a problem.
 
@@ -345,17 +345,11 @@ def add_representative_solution_set(
     Returns:
         dict: Confirmation message.
     """
-    user = context.user
     db_session: Session = context.db_session
+    problem_db = context.problem_db
 
-    # Fetch the problem
-    problem_db = db_session.get(ProblemDB, request.problem_id)
     if problem_db is None:
-        raise HTTPException(status_code=404, detail=f"Problem with ID {request.problem_id} not found.")
-
-    # Check the user
-    if user.id != problem_db.user_id:
-        raise HTTPException(status_code=401, detail="Unauthorized user.")
+        raise HTTPException(status_code=500, detail="Problem context missing.")
 
     # Ensure metadata object exists
     if problem_db.problem_metadata is None:
