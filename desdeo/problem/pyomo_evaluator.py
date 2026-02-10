@@ -176,7 +176,10 @@ class PyomoEvaluator:
                     )
 
                 pyomo_var = pyomo.Var(
-                    name=var.name, initialize=initial_value, bounds=(var.lowerbound, var.upperbound), domain=domain
+                    name=var.name,
+                    initialize=initial_value,
+                    bounds=(var.lowerbound, var.upperbound),
+                    domain=domain,
                 )
 
             elif isinstance(var, TensorVariable):
@@ -228,7 +231,11 @@ class PyomoEvaluator:
             # Handle regular constnants
             if isinstance(con, Constant):
                 # figure out the domain of the constant
-                match (isinstance(con.value, int), isinstance(con.value, float), con.value >= 0):
+                match (
+                    isinstance(con.value, int),
+                    isinstance(con.value, float),
+                    con.value >= 0,
+                ):
                     case (True, False, True):
                         # positive integer
                         domain = pyomo.NonNegativeIntegers
@@ -335,7 +342,10 @@ class PyomoEvaluator:
                     # constraints in DESDEO are defined such that they must be less than zero
                     pyomo_expr = _le(pyomo_expr, 0, cons.name)
                 case ConstraintTypeEnum.EQ:
-                    pyomo_expr = _eq(pyomo_expr, 0)
+                    # if these constraints start acting up, check how indexed
+                    # stuff is implemented in the local function _le
+                    pyomo_expr = pyomo.Constraint(expr=_eq(pyomo_expr, 0), name=cons.name)
+                    pyomo_expr.construct()
                 case _:
                     msg = f"Constraint type of {con_type} not supported. Must be one of {ConstraintTypeEnum}."
                     raise PyomoEvaluatorError(msg)
