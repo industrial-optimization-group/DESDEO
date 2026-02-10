@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, create_model
 from sqlalchemy.types import JSON, String, TypeDecorator
 from sqlmodel import Column, Field, Relationship, SQLModel
 
+from desdeo.api.models.representative_solution import RepresentativeSolutionSetBase
 from desdeo.problem.schema import (
     Constant,
     Constraint,
@@ -27,7 +28,6 @@ from desdeo.problem.schema import (
     VariableDomainTypeEnum,
     VariableType,
 )
-
 from desdeo.tools.utils import available_solvers
 
 if TYPE_CHECKING:
@@ -240,7 +240,7 @@ class ForestProblemMetaData(SQLModel, table=True):
     metadata_instance: "ProblemMetaDataDB" = Relationship(back_populates="forest_metadata")
 
 
-class RepresentativeNonDominatedSolutions(SQLModel, table=True):
+class RepresentativeNonDominatedSolutions(RepresentativeSolutionSetBase, SQLModel, table=True):
     """A problem metadata class to store representative solutions sets, i.e., non-dominated sets...
 
     A problem metadata class to store representative solutions sets, i.e., non-dominated sets that
@@ -252,26 +252,17 @@ class RepresentativeNonDominatedSolutions(SQLModel, table=True):
 
     id: int | None = Field(primary_key=True, default=None)
     metadata_id: int | None = Field(foreign_key="problemmetadatadb.id", default=None)
-
     metadata_type: str = "representative_non_dominated_solutions"
 
-    name: str = Field(description="The name of the representative set.")
-    description: str | None = Field(description="A description of the representative set. Optional.", default=None)
-
-    solution_data: dict[str, list[float]] = Field(
-        sa_column=Column(JSON),
+    solution_data: dict[str, list[float]] = Field(sa_column=Column(JSON),
         description="The non-dominated solutions. It is assumed that columns "
         "exist for each variable and objective function. For functions, the "
         "`_min` variant should be present, and any tensor variables should be "
-        "unrolled.",
-    )
-
-    ideal: dict[str, float] = Field(
-        sa_column=Column(JSON), description="The ideal objective function values of the representative set."
-    )
-    nadir: dict[str, float] = Field(
-        sa_column=Column(JSON), description="The nadir objective function values of the representative set."
-    )
+        "unrolled.")
+    ideal: dict[str, float] = Field(sa_column=Column(JSON),
+        description="The ideal objective function values of the representative set.")
+    nadir: dict[str, float] = Field(sa_column=Column(JSON),
+        description="The nadir objective function values of the representative set.")
 
     metadata_instance: "ProblemMetaDataDB" = Relationship(back_populates="representative_nd_metadata")
 

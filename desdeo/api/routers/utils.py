@@ -18,9 +18,10 @@ from desdeo.api.models import (
     StateDB,
     User,
 )
+from desdeo.api.models.representative_solution import RepresentativeSolutionSetRequest
 from desdeo.api.routers.user_authentication import get_current_user
 
-RequestType = RPMSolveRequest | ENautilusStepRequest
+RequestType = RPMSolveRequest | ENautilusStepRequest | RepresentativeSolutionSetRequest
 
 
 def fetch_interactive_session(user: User, request: RequestType, session: Session) -> InteractiveSessionDB | None:

@@ -20,7 +20,7 @@ from desdeo.api.models import (
     UserRole,
 )
 from desdeo.api.routers.user_authentication import get_password_hash
-from desdeo.problem.testproblems import dtlz2, river_pollution_problem, dmitry_forest_problem_disc
+from desdeo.problem.testproblems import dmitry_forest_problem_disc, dtlz2, river_pollution_problem
 
 
 @pytest.fixture(name="session_and_user", scope="function")

@@ -5,7 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, status
 from fastapi.responses import JSONResponse
-from sqlmodel import select
+from sqlmodel import Session, select
 
 from desdeo.api.models import (
     ForestProblemMetaData,
@@ -20,6 +20,11 @@ from desdeo.api.models import (
     SolverSelectionMetadata,
     User,
     UserRole,
+)
+from desdeo.api.models.representative_solution import (
+    RepresentativeSolutionSetFull,
+    RepresentativeSolutionSetInfo,
+    RepresentativeSolutionSetRequest,
 )
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.problem import Problem
@@ -318,3 +323,154 @@ def select_solver(
     db_session.refresh(problem_metadata)
 
     return JSONResponse(content={"message": "OK"}, status_code=status.HTTP_200_OK)
+
+
+@router.post("/add_representative_solution_set")
+def add_representative_solution_set(
+    request: RepresentativeSolutionSetRequest,
+    context: Annotated[SessionContext, Depends(get_session_context)],
+) -> RepresentativeSolutionSetInfo:
+    """Add a new representative solution set as metadata to a problem.
+
+    Args:
+        request (RepresentativeSolutionSetRequest): The JSON body containing the
+            details of the representative solution set (name, description, solution data, ideal, nadir).
+        context (SessionContext): The session context providing the current user and database session.
+
+    Raises:
+        HTTPException: If problem not found or unauthorized user.
+
+    Returns:
+        RepresentativeSolutionSetInfo: information about the added set.
+    """
+    db_session: Session = context.db_session
+    problem_db = context.problem_db
+
+    if problem_db is None:
+        raise HTTPException(status_code=500, detail="Problem context missing.")
+
+    # Ensure metadata object exists
+    if problem_db.problem_metadata is None:
+        problem_metadata = ProblemMetaDataDB(problem_id=problem_db.id, problem=problem_db)
+        db_session.add(problem_metadata)
+        db_session.commit()
+        db_session.refresh(problem_metadata)
+    else:
+        problem_metadata = problem_db.problem_metadata
+
+    # Add new representative solution set
+    repr_metadata = RepresentativeNonDominatedSolutions(
+        metadata_id=problem_metadata.id,
+        name=request.name,
+        description=request.description,
+        solution_data=request.solution_data,
+        ideal=request.ideal,
+        nadir=request.nadir,
+        metadata_instance=problem_metadata,
+    )
+
+    db_session.add(repr_metadata)
+    db_session.commit()
+    db_session.refresh(repr_metadata)
+
+    return RepresentativeSolutionSetInfo(
+        id=repr_metadata.id,
+        problem_id=problem_db.id,
+        name=repr_metadata.name,
+        description=repr_metadata.description,
+        ideal=repr_metadata.ideal,
+        nadir=repr_metadata.nadir,
+    )
+
+
+@router.get("/all_representative_solution_sets/{problem_id}")
+def get_all_representative_solution_sets(
+    problem_id: int,
+    context: Annotated[SessionContext, Depends(get_session_context_without_request)],
+) -> list[RepresentativeSolutionSetInfo]:
+    """Get meta information about all representative solution sets for a given problem.
+
+    Returns only name, description, ideal, and nadir for each set.
+    """
+    db_session: Session = context.db_session
+    user = context.user
+
+    # Fetch problem
+    problem_db = db_session.get(ProblemDB, problem_id)
+    if not problem_db:
+        raise HTTPException(status_code=404, detail=f"Problem with ID {problem_id} not found.")
+
+    # Check the user
+    if problem_db.user_id != user.id:
+        raise HTTPException(status_code=401, detail="Unauthorized user.")
+
+    # Fetch metadata
+    problem_metadata = problem_db.problem_metadata
+    if not problem_metadata:
+        return []
+
+    # Build response
+    return [
+        RepresentativeSolutionSetInfo(
+            id=rep.id,
+            problem_id=problem_id,
+            name=rep.name,
+            description=rep.description,
+            ideal=rep.ideal,
+            nadir=rep.nadir,
+        )
+        for rep in problem_metadata.representative_nd_metadata
+    ]
+
+
+@router.get("/representative_solution_set/{set_id}")
+def get_representative_solution_set(
+    set_id: int,
+    context: Annotated[SessionContext, Depends(get_session_context_without_request)],
+) -> RepresentativeSolutionSetFull:
+    """Fetch full information of a single representative solution by its ID."""
+    db_session: Session = context.db_session
+
+    # Fetch the representative set
+    repr_set = db_session.get(RepresentativeNonDominatedSolutions, set_id)
+    if repr_set is None:
+        raise HTTPException(status_code=404, detail=f"Representative set with ID {set_id} not found.")
+
+    # Check the user
+    if repr_set.metadata_instance.problem.user_id != context.user.id:
+        raise HTTPException(status_code=401, detail="Unauthorized user.")
+
+    # Return all fields as a dict
+    return RepresentativeSolutionSetFull(
+        id=repr_set.id,
+        problem_id=repr_set.metadata_instance.problem_id,
+        name=repr_set.name,
+        description=repr_set.description,
+        solution_data=repr_set.solution_data,
+        ideal=repr_set.ideal,
+        nadir=repr_set.nadir,
+    )
+
+
+@router.delete("/representative_solution_set/{set_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_representative_solution_set(
+    set_id: int,
+    context: Annotated[SessionContext, Depends(get_session_context_without_request)],
+):
+    """Delete a representative solution set by its ID."""
+    db_session: Session = context.db_session
+    user = context.user
+
+    # Fetch the set
+    repr_metadata = db_session.get(RepresentativeNonDominatedSolutions, set_id)
+    if repr_metadata is None:
+        raise HTTPException(status_code=404, detail=f"Representative solution set with ID {set_id} not found.")
+
+    # Ensure the user owns the problem this set belongs to
+    problem_metadata = repr_metadata.metadata_instance
+    if problem_metadata.problem.user_id != user.id:
+        raise HTTPException(status_code=401, detail="Unauthorized user.")
+
+    # Delete the set
+    db_session.delete(repr_metadata)
+    db_session.commit()
