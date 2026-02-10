@@ -324,14 +324,12 @@ def select_solver(
 
     return JSONResponse(content={"message": "OK"}, status_code=status.HTTP_200_OK)
 
-@router.post(
-    "/add_representative_solution_set",
-    response_model=RepresentativeSolutionSetInfo
-)
+
+@router.post("/add_representative_solution_set")
 def add_representative_solution_set(
     request: RepresentativeSolutionSetRequest,
     context: Annotated[SessionContext, Depends(get_session_context)],
-):
+) -> RepresentativeSolutionSetInfo:
     """Add a new representative solution set as metadata to a problem.
 
     Args:
@@ -343,7 +341,7 @@ def add_representative_solution_set(
         HTTPException: If problem not found or unauthorized user.
 
     Returns:
-        dict: Confirmation message.
+        RepresentativeSolutionSetInfo: information about the added set.
     """
     db_session: Session = context.db_session
     problem_db = context.problem_db
@@ -375,7 +373,6 @@ def add_representative_solution_set(
     db_session.commit()
     db_session.refresh(repr_metadata)
 
-
     return RepresentativeSolutionSetInfo(
         id=repr_metadata.id,
         problem_id=problem_db.id,
@@ -385,14 +382,12 @@ def add_representative_solution_set(
         nadir=repr_metadata.nadir,
     )
 
-@router.get(
-    "/all_representative_solution_sets/{problem_id}",
-    response_model=list[RepresentativeSolutionSetInfo]
-)
+
+@router.get("/all_representative_solution_sets/{problem_id}")
 def get_all_representative_solution_sets(
     problem_id: int,
     context: Annotated[SessionContext, Depends(get_session_context_without_request)],
-):
+) -> list[RepresentativeSolutionSetInfo]:
     """Get meta information about all representative solution sets for a given problem.
 
     Returns only name, description, ideal, and nadir for each set.
@@ -412,7 +407,7 @@ def get_all_representative_solution_sets(
     # Fetch metadata
     problem_metadata = problem_db.problem_metadata
     if not problem_metadata:
-       return []
+        return []
 
     # Build response
     return [
@@ -427,15 +422,13 @@ def get_all_representative_solution_sets(
         for rep in problem_metadata.representative_nd_metadata
     ]
 
-@router.get(
-    "/representative_solution_set/{set_id}",
-    response_model=RepresentativeSolutionSetFull
-)
+
+@router.get("/representative_solution_set/{set_id}")
 def get_representative_solution_set(
     set_id: int,
     context: Annotated[SessionContext, Depends(get_session_context_without_request)],
-):
-    """Fetch full information of a single representative solution set by its ID."""
+) -> RepresentativeSolutionSetFull:
+    """Fetch full information of a single representative solution by its ID."""
     db_session: Session = context.db_session
 
     # Fetch the representative set
@@ -458,10 +451,8 @@ def get_representative_solution_set(
         nadir=repr_set.nadir,
     )
 
-@router.delete(
-    "/representative_solution_set/{set_id}",
-    status_code=status.HTTP_204_NO_CONTENT
-)
+
+@router.delete("/representative_solution_set/{set_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_representative_solution_set(
     set_id: int,
     context: Annotated[SessionContext, Depends(get_session_context_without_request)],
@@ -483,4 +474,3 @@ def delete_representative_solution_set(
     # Delete the set
     db_session.delete(repr_metadata)
     db_session.commit()
-
