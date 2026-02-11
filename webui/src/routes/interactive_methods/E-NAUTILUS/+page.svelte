@@ -9,9 +9,11 @@
 	import Button from '$lib/components/ui/button/button.svelte';
 	import VisualizationsPanel from '$lib/components/custom/visualizations-panel/visualizations-panel.svelte';
 	import * as Resizable from '$lib/components/ui/resizable';
+	import * as Tabs from '$lib/components/ui/tabs';
 	import { DecisionTree } from '$lib/components/custom/decision-tree';
 	import Combobox from '$lib/components/ui/combobox/combobox.svelte';
 	import { EndStateView } from '$lib/components/custom/end-state-view';
+	import { DecisionJourney } from '$lib/components/custom/decision-journey';
 	import type { ENautilusSessionTreeResponse } from '$lib/gen/models';
 
 	import type {
@@ -52,7 +54,9 @@
 	type IntermediatePoint = Record<string, number>;
 
 	type ENautilusMode = "iterate" | "final";
+	type FinalView = "visualization" | "journey" | "map";
 	let mode = $state<ENautilusMode>("iterate");
+	let finalView = $state<FinalView>("visualization");
 	let representative = $state<ENautilusRepresentativeSolutionsResponse | null>(null);
 	let final_selected_index = $state<number>(0);
 
@@ -629,35 +633,58 @@
 {/if}
 
 {#if mode === 'final'}
-	<BaseLayout showLeftSidebar={false} showRightSidebar={false} bottomPanelTitle="Final solution">
+	<BaseLayout showLeftSidebar={false} showRightSidebar={false} bottomPanelTitle="">
+		{#snippet explorerTitle()}{/snippet}
 		{#snippet explorerControls()}
-			<span class="inline-block" title="Return to the last E-NAUTILUS iteration view.">
-				<Button onclick={() => (mode = 'iterate')} variant="secondary">
-					Back to iterations
-				</Button>
-			</span>
+			<div class="flex items-center gap-4">
+				<Tabs.Root bind:value={finalView}>
+					<Tabs.List>
+						<Tabs.Trigger value="visualization">Solution</Tabs.Trigger>
+						<Tabs.Trigger value="journey">Decision Journey</Tabs.Trigger>
+						<Tabs.Trigger value="map">Map</Tabs.Trigger>
+					</Tabs.List>
+				</Tabs.Root>
+
+				<span class="inline-block" title="Return to the last E-NAUTILUS iteration view.">
+					<Button onclick={() => (mode = 'iterate')} variant="secondary">
+						Back to iterations
+					</Button>
+				</span>
+			</div>
 		{/snippet}
 
 		{#snippet visualizationArea()}
 			{#if problem_info && representative && representativeObjectiveValues.length > 0}
-				<div class="h-full">
-					<Resizable.PaneGroup direction="horizontal" class="h-full">
-						<Resizable.Pane defaultSize={100} minSize={40} class="h-full">
-							<VisualizationsPanel
-								problem={problem_info as any}
-								previousPreferenceValues={[]}
-								currentPreferenceValues={[]}
-								previousPreferenceType={''}
-								currentPreferenceType={''}
-								solutionsObjectiveValues={representativeObjectiveValues}
-								previousObjectiveValues={[]}
-								externalSelectedIndexes={[final_selected_index]}
-								onSelectSolution={(index: number) => {
-									final_selected_index = index;
-								}}
+				<div class="relative h-full">
+					{#if finalView === 'map'}
+					<div class="flex h-full items-center justify-center text-sm text-gray-400">
+						Map visualization coming soon.
+					</div>
+				{:else if finalView === 'journey'}
+						{#if sessionTree && previous_response?.state_id != null}
+							<DecisionJourney
+								sessionTree={sessionTree}
+								leafNodeId={previous_response.state_id}
+								problem={problem_info}
+								finalSolutionPoint={finalSolution ? unwrapSolverRecord(finalSolution.optimal_objectives) : null}
 							/>
-						</Resizable.Pane>
-					</Resizable.PaneGroup>
+						{:else}
+							<div class="flex h-full items-center justify-center text-gray-500">
+								Session tree not available.
+							</div>
+						{/if}
+					{:else}
+						<VisualizationsPanel
+							problem={problem_info as any}
+							previousPreferenceValues={[]}
+							currentPreferenceValues={[]}
+							previousPreferenceType={''}
+							currentPreferenceType={''}
+							solutionsObjectiveValues={representativeObjectiveValues.length > 0 ? [representativeObjectiveValues[final_selected_index]] : []}
+							previousObjectiveValues={[]}
+							externalSelectedIndexes={[0]}
+						/>
+					{/if}
 				</div>
 			{:else}
 				<div class="flex h-full items-center justify-center text-gray-500">
@@ -667,7 +694,7 @@
 		{/snippet}
 
 		{#snippet numericalValues()}
-			{#if problem_info && finalTableData.length > 0}
+			{#if finalView === 'visualization' && problem_info && finalTableData.length > 0}
 				<EndStateView
 					problem={problem_info}
 					tableData={finalTableData}
