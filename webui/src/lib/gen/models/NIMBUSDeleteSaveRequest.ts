@@ -14,4 +14,6 @@ export interface NIMBUSDeleteSaveRequest {
 	state_id: number;
 	/** The ID of the solution within the above state. */
 	solution_index: number;
+	/** The ID of the problem. */
+	problem_id: number;
 }

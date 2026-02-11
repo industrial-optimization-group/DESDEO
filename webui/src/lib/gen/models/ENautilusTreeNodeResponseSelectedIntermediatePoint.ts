@@ -7,9 +7,6 @@
  */
 
 /**
- * Response of NIMBUS save deletion.
+ * The intermediate point selected in finalization.
  */
-export interface NIMBUSDeleteSaveResponse {
-	response_type?: string;
-	message?: string | null;
-}
+export type ENautilusTreeNodeResponseSelectedIntermediatePoint = { [key: string]: number } | null;

@@ -7,9 +7,6 @@
  */
 
 /**
- * Response of NIMBUS save deletion.
+ * The point the DM chose.
  */
-export interface NIMBUSDeleteSaveResponse {
-	response_type?: string;
-	message?: string | null;
-}
+export type ENautilusDecisionEventResponseChosenPoint = { [key: string]: number } | null;

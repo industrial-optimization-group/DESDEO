@@ -7,9 +7,6 @@
  */
 
 /**
- * Response of NIMBUS save deletion.
+ * The DM's position when viewing options.
  */
-export interface NIMBUSDeleteSaveResponse {
-	response_type?: string;
-	message?: string | null;
-}
+export type ENautilusDecisionEventResponseStartingPoint = { [key: string]: number } | null;

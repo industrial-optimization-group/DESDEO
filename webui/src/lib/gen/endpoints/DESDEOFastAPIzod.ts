@@ -173,18 +173,8 @@ export const GetProblemsProblemAllGetResponseItem = zod
 						zod.array(
 							zod
 								.object({
-									id: zod.union([zod.number(), zod.null()]).optional(),
-									metadata_id: zod.union([zod.number(), zod.null()]).optional(),
-									metadata_type: zod
-										.string()
-										.default(
-											getProblemsProblemAllGetResponseProblemMetadataOneRepresentativeNdMetadataOneItemMetadataTypeDefault
-										),
-									name: zod.string().describe('The name of the representative set.'),
-									description: zod
-										.union([zod.string(), zod.null()])
-										.optional()
-										.describe('A description of the representative set. Optional.'),
+									name: zod.string(),
+									description: zod.union([zod.string(), zod.null()]).optional(),
 									solution_data: zod
 										.record(zod.string(), zod.array(zod.number()))
 										.describe(
@@ -195,7 +185,14 @@ export const GetProblemsProblemAllGetResponseItem = zod
 										.describe('The ideal objective function values of the representative set.'),
 									nadir: zod
 										.record(zod.string(), zod.number())
-										.describe('The nadir objective function values of the representative set.')
+										.describe('The nadir objective function values of the representative set.'),
+									id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_type: zod
+										.string()
+										.default(
+											getProblemsProblemAllGetResponseProblemMetadataOneRepresentativeNdMetadataOneItemMetadataTypeDefault
+										)
 								})
 								.describe(
 									'A problem metadata class to store representative solutions sets, i.e., non-dominated sets...\n\nA problem metadata class to store representative solutions sets, i.e., non-dominated sets that\nrepresent/approximate the Pareto optimal solution set of the problem.\n\nNote:\n    It is assumed that the solution set is non-dominated.'
@@ -758,18 +755,8 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 						zod.array(
 							zod
 								.object({
-									id: zod.union([zod.number(), zod.null()]).optional(),
-									metadata_id: zod.union([zod.number(), zod.null()]).optional(),
-									metadata_type: zod
-										.string()
-										.default(
-											getProblemsInfoProblemAllInfoGetResponseProblemMetadataOneRepresentativeNdMetadataOneItemMetadataTypeDefault
-										),
-									name: zod.string().describe('The name of the representative set.'),
-									description: zod
-										.union([zod.string(), zod.null()])
-										.optional()
-										.describe('A description of the representative set. Optional.'),
+									name: zod.string(),
+									description: zod.union([zod.string(), zod.null()]).optional(),
 									solution_data: zod
 										.record(zod.string(), zod.array(zod.number()))
 										.describe(
@@ -780,7 +767,14 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 										.describe('The ideal objective function values of the representative set.'),
 									nadir: zod
 										.record(zod.string(), zod.number())
-										.describe('The nadir objective function values of the representative set.')
+										.describe('The nadir objective function values of the representative set.'),
+									id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_type: zod
+										.string()
+										.default(
+											getProblemsInfoProblemAllInfoGetResponseProblemMetadataOneRepresentativeNdMetadataOneItemMetadataTypeDefault
+										)
 								})
 								.describe(
 									'A problem metadata class to store representative solutions sets, i.e., non-dominated sets...\n\nA problem metadata class to store representative solutions sets, i.e., non-dominated sets that\nrepresent/approximate the Pareto optimal solution set of the problem.\n\nNote:\n    It is assumed that the solution set is non-dominated.'
@@ -803,8 +797,7 @@ export const GetProblemsInfoProblemAllInfoGetResponse = zod.array(
 
 Args:
     request (ProblemGetRequest): the request containing the problem's id `problem_id`.
-    user (Annotated[User, Depends): the current user.
-    session (Annotated[Session, Depends): the database session.
+    context (Annotated[SessionContext, Depends): the session context.
 
 Raises:
     HTTPException: could not find a problem with the given id.
@@ -1348,18 +1341,8 @@ export const GetProblemProblemGetPostResponse = zod
 						zod.array(
 							zod
 								.object({
-									id: zod.union([zod.number(), zod.null()]).optional(),
-									metadata_id: zod.union([zod.number(), zod.null()]).optional(),
-									metadata_type: zod
-										.string()
-										.default(
-											getProblemProblemGetPostResponseProblemMetadataOneRepresentativeNdMetadataOneItemMetadataTypeDefault
-										),
-									name: zod.string().describe('The name of the representative set.'),
-									description: zod
-										.union([zod.string(), zod.null()])
-										.optional()
-										.describe('A description of the representative set. Optional.'),
+									name: zod.string(),
+									description: zod.union([zod.string(), zod.null()]).optional(),
 									solution_data: zod
 										.record(zod.string(), zod.array(zod.number()))
 										.describe(
@@ -1370,7 +1353,14 @@ export const GetProblemProblemGetPostResponse = zod
 										.describe('The ideal objective function values of the representative set.'),
 									nadir: zod
 										.record(zod.string(), zod.number())
-										.describe('The nadir objective function values of the representative set.')
+										.describe('The nadir objective function values of the representative set.'),
+									id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_type: zod
+										.string()
+										.default(
+											getProblemProblemGetPostResponseProblemMetadataOneRepresentativeNdMetadataOneItemMetadataTypeDefault
+										)
 								})
 								.describe(
 									'A problem metadata class to store representative solutions sets, i.e., non-dominated sets...\n\nA problem metadata class to store representative solutions sets, i.e., non-dominated sets that\nrepresent/approximate the Pareto optimal solution set of the problem.\n\nNote:\n    It is assumed that the solution set is non-dominated.'
@@ -1390,8 +1380,7 @@ export const GetProblemProblemGetPostResponse = zod
 
 Args:
     request (Problem): the JSON representation of the problem.
-    user (Annotated[User, Depends): the current user.
-    session (Annotated[Session, Depends): the database session.
+    context (Annotated[SessionContext, Depends): the session context.
 
 Note:
     Users with the role 'guest' may not add new problems.
@@ -1932,18 +1921,8 @@ export const AddProblemProblemAddPostResponse = zod
 						zod.array(
 							zod
 								.object({
-									id: zod.union([zod.number(), zod.null()]).optional(),
-									metadata_id: zod.union([zod.number(), zod.null()]).optional(),
-									metadata_type: zod
-										.string()
-										.default(
-											addProblemProblemAddPostResponseProblemMetadataOneRepresentativeNdMetadataOneItemMetadataTypeDefault
-										),
-									name: zod.string().describe('The name of the representative set.'),
-									description: zod
-										.union([zod.string(), zod.null()])
-										.optional()
-										.describe('A description of the representative set. Optional.'),
+									name: zod.string(),
+									description: zod.union([zod.string(), zod.null()]).optional(),
 									solution_data: zod
 										.record(zod.string(), zod.array(zod.number()))
 										.describe(
@@ -1954,7 +1933,14 @@ export const AddProblemProblemAddPostResponse = zod
 										.describe('The ideal objective function values of the representative set.'),
 									nadir: zod
 										.record(zod.string(), zod.number())
-										.describe('The nadir objective function values of the representative set.')
+										.describe('The nadir objective function values of the representative set.'),
+									id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_type: zod
+										.string()
+										.default(
+											addProblemProblemAddPostResponseProblemMetadataOneRepresentativeNdMetadataOneItemMetadataTypeDefault
+										)
 								})
 								.describe(
 									'A problem metadata class to store representative solutions sets, i.e., non-dominated sets...\n\nA problem metadata class to store representative solutions sets, i.e., non-dominated sets that\nrepresent/approximate the Pareto optimal solution set of the problem.\n\nNote:\n    It is assumed that the solution set is non-dominated.'
@@ -1974,8 +1960,7 @@ export const AddProblemProblemAddPostResponse = zod
 
 Args:
     json_file (UploadFile): a file in JSON format describing the problem.
-    user (Annotated[User, Depends): the usr for which the problem is added.
-    session (Annotated[Session, Depends): the database session.
+    context (Annotated[SessionContext, Depends): the session context.
 
 Raises:
     HTTPException: if the provided `json_file` is empty.
@@ -2526,18 +2511,8 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 						zod.array(
 							zod
 								.object({
-									id: zod.union([zod.number(), zod.null()]).optional(),
-									metadata_id: zod.union([zod.number(), zod.null()]).optional(),
-									metadata_type: zod
-										.string()
-										.default(
-											addProblemJsonProblemAddJsonPostResponseProblemMetadataOneRepresentativeNdMetadataOneItemMetadataTypeDefault
-										),
-									name: zod.string().describe('The name of the representative set.'),
-									description: zod
-										.union([zod.string(), zod.null()])
-										.optional()
-										.describe('A description of the representative set. Optional.'),
+									name: zod.string(),
+									description: zod.union([zod.string(), zod.null()]).optional(),
 									solution_data: zod
 										.record(zod.string(), zod.array(zod.number()))
 										.describe(
@@ -2548,7 +2523,14 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 										.describe('The ideal objective function values of the representative set.'),
 									nadir: zod
 										.record(zod.string(), zod.number())
-										.describe('The nadir objective function values of the representative set.')
+										.describe('The nadir objective function values of the representative set.'),
+									id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_type: zod
+										.string()
+										.default(
+											addProblemJsonProblemAddJsonPostResponseProblemMetadataOneRepresentativeNdMetadataOneItemMetadataTypeDefault
+										)
 								})
 								.describe(
 									'A problem metadata class to store representative solutions sets, i.e., non-dominated sets...\n\nA problem metadata class to store representative solutions sets, i.e., non-dominated sets that\nrepresent/approximate the Pareto optimal solution set of the problem.\n\nNote:\n    It is assumed that the solution set is non-dominated.'
@@ -2572,8 +2554,7 @@ section.
 
 Args:
     request (MetaDataGetRequest): the requested metadata type.
-    user (Annotated[User, Depends]): the current user.
-    session (Annotated[Session, Depends]): the database session.
+    context (Annotated[SessionContext, Depends]): the session context.
 
 Returns:
     list[ForestProblemMetadata | RepresentativeNonDominatedSolutions]: list containing all the metadata
@@ -2610,16 +2591,8 @@ export const GetMetadataProblemGetMetadataPostResponseItem = zod.union([
 		.describe('A problem metadata class to hold UTOPIA forest problem specific information.'),
 	zod
 		.object({
-			id: zod.union([zod.number(), zod.null()]).optional(),
-			metadata_id: zod.union([zod.number(), zod.null()]).optional(),
-			metadata_type: zod
-				.string()
-				.default(getMetadataProblemGetMetadataPostResponseTwoMetadataTypeDefault),
-			name: zod.string().describe('The name of the representative set.'),
-			description: zod
-				.union([zod.string(), zod.null()])
-				.optional()
-				.describe('A description of the representative set. Optional.'),
+			name: zod.string(),
+			description: zod.union([zod.string(), zod.null()]).optional(),
 			solution_data: zod
 				.record(zod.string(), zod.array(zod.number()))
 				.describe(
@@ -2630,7 +2603,12 @@ export const GetMetadataProblemGetMetadataPostResponseItem = zod.union([
 				.describe('The ideal objective function values of the representative set.'),
 			nadir: zod
 				.record(zod.string(), zod.number())
-				.describe('The nadir objective function values of the representative set.')
+				.describe('The nadir objective function values of the representative set.'),
+			id: zod.union([zod.number(), zod.null()]).optional(),
+			metadata_id: zod.union([zod.number(), zod.null()]).optional(),
+			metadata_type: zod
+				.string()
+				.default(getMetadataProblemGetMetadataPostResponseTwoMetadataTypeDefault)
 		})
 		.describe(
 			'A problem metadata class to store representative solutions sets, i.e., non-dominated sets...\n\nA problem metadata class to store representative solutions sets, i.e., non-dominated sets that\nrepresent/approximate the Pareto optimal solution set of the problem.\n\nNote:\n    It is assumed that the solution set is non-dominated.'
@@ -2666,9 +2644,9 @@ export const GetAvailableSolversProblemAssignSolverGetResponse = zod.array(
 /**
  * Assign a specific solver for a problem.
 
-request: ProblemSelectSolverRequest: The request containing problem id and string representation of the solver
-user: Annotated[User, Depends(get_current_user): The user that is logged in.
-session: Annotated[Session, Depends(get_session)]: The database session.
+Args:
+    request: ProblemSelectSolverRequest: The request containing problem id and string representation of the solver
+    context: Annotated[SessionContext, Depends(get_session)]: The session context.
 
 Raises:
     HTTPException: Unknown solver, unauthorized user
@@ -2691,7 +2669,101 @@ export const SelectSolverProblemAssignSolverPostBody = zod
 export const SelectSolverProblemAssignSolverPostResponse = zod.unknown();
 
 /**
- * .
+ * Add a new representative solution set as metadata to a problem.
+
+Args:
+    request (RepresentativeSolutionSetRequest): The JSON body containing the
+        details of the representative solution set (name, description, solution data, ideal, nadir).
+    context (SessionContext): The session context providing the current user and database session.
+
+Raises:
+    HTTPException: If problem not found or unauthorized user.
+
+Returns:
+    RepresentativeSolutionSetInfo: information about the added set.
+ * @summary Add Representative Solution Set
+ */
+export const AddRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPostBody = zod
+	.object({
+		name: zod.string(),
+		description: zod.union([zod.string(), zod.null()]).optional(),
+		solution_data: zod.record(zod.string(), zod.array(zod.number())),
+		ideal: zod.record(zod.string(), zod.number()),
+		nadir: zod.record(zod.string(), zod.number()),
+		problem_id: zod.number()
+	})
+	.describe('Model of the request to the representative solution set.');
+
+export const AddRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPostResponse = zod
+	.object({
+		id: zod.number(),
+		problem_id: zod.number(),
+		name: zod.string(),
+		description: zod.union([zod.string(), zod.null()]).optional(),
+		ideal: zod.record(zod.string(), zod.number()),
+		nadir: zod.record(zod.string(), zod.number())
+	})
+	.describe('Model of the representative solution set info.');
+
+/**
+ * Get meta information about all representative solution sets for a given problem.
+
+Returns only name, description, ideal, and nadir for each set.
+ * @summary Get All Representative Solution Sets
+ */
+export const GetAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetParams =
+	zod.object({
+		problem_id: zod.number()
+	});
+
+export const GetAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetResponseItem =
+	zod
+		.object({
+			id: zod.number(),
+			problem_id: zod.number(),
+			name: zod.string(),
+			description: zod.union([zod.string(), zod.null()]).optional(),
+			ideal: zod.record(zod.string(), zod.number()),
+			nadir: zod.record(zod.string(), zod.number())
+		})
+		.describe('Model of the representative solution set info.');
+export const GetAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetResponse =
+	zod.array(
+		GetAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetResponseItem
+	);
+
+/**
+ * Fetch full information of a single representative solution by its ID.
+ * @summary Get Representative Solution Set
+ */
+export const GetRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGetParams =
+	zod.object({
+		set_id: zod.number()
+	});
+
+export const GetRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGetResponse = zod
+	.object({
+		id: zod.number(),
+		problem_id: zod.number(),
+		name: zod.string(),
+		description: zod.union([zod.string(), zod.null()]).optional(),
+		ideal: zod.record(zod.string(), zod.number()),
+		nadir: zod.record(zod.string(), zod.number()),
+		solution_data: zod.record(zod.string(), zod.array(zod.number()))
+	})
+	.describe('Model of the representative solution set full info.');
+
+/**
+ * Delete a representative solution set by its ID.
+ * @summary Delete Representative Solution Set
+ */
+export const DeleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDeleteParams =
+	zod.object({
+		set_id: zod.number()
+	});
+
+/**
+ * Creates a new interactive session.
  * @summary Create New Session
  */
 export const CreateNewSessionSessionNewPostBody = zod
@@ -2753,7 +2825,7 @@ export const DeleteSessionSessionSessionIdDeleteParams = zod.object({
 Args:
     request (RPMSolveRequest): a request with the needed information to run the method.
     user (Annotated[User, Depends): the current user.
-    session (Annotated[Session, Depends): the current database session.
+    context (Annotated[SessionContext, Depends): the current session context.
 
 Returns:
     RPMState: a state with information on the results of iterating the reference point method
@@ -3942,8 +4014,7 @@ export const GetOrInitializeMethodNimbusGetOrInitializePostResponse = zod.union(
 
 Args:
     request (NIMBUSFinalizeRequest): The request containing the final solution, etc.
-    user (Annotated[User, Depends): The current user.
-    session (Annotated[Session, Depends): The database session.
+    context (Annotated[User, get_session_context): The current context.
 
 Raises:
     HTTPException
@@ -4086,8 +4157,7 @@ export const FinalizeNimbusMethodNimbusFinalizePostResponse = zod
 
 Args:
     request (NIMBUSDeleteSaveRequest): request containing necessary information for deleting a save
-    user (Annotated[User, Depends): the current  (logged in) user
-    session (Annotated[Session, Depends): database session
+    context (Annotated[SessionContext, Depends): session context
 
 Raises:
     HTTPException
@@ -4099,7 +4169,8 @@ Returns:
 export const DeleteSaveMethodNimbusDeleteSavePostBody = zod
 	.object({
 		state_id: zod.number().describe('The ID of the save state.'),
-		solution_index: zod.number().describe('The ID of the solution within the above state.')
+		solution_index: zod.number().describe('The ID of the solution within the above state.'),
+		problem_id: zod.number().describe('The ID of the problem.')
 	})
 	.describe('Request model for deletion of a saved solution.');
 
@@ -4110,12 +4181,17 @@ export const DeleteSaveMethodNimbusDeleteSavePostResponse = zod
 		response_type: zod
 			.string()
 			.default(deleteSaveMethodNimbusDeleteSavePostResponseResponseTypeDefault),
-		message: zod.union([zod.string(), zod.null()])
+		message: zod.union([zod.string(), zod.null()]).optional()
 	})
 	.describe('Response of NIMBUS save deletion.');
 
 /**
  * Solve intermediate solutions between given two solutions.
+
+Args:
+    request (IntermediateSolutionRequest): The request object containing parameters
+        for fetching results.
+    context (Annotated[SessionContext, Depends]): The session context.
  * @summary Solve Intermediate
  */
 export const solveIntermediateMethodGenericIntermediatePostBodyNumDesiredDefault = 1;
@@ -4339,9 +4415,9 @@ export const CalculateScoreBandsFromObjectiveDataMethodGenericScoreBandsObjDataP
 
 Args:
     request (UtopiaRequest): the set of decision variables and problem for which the utopia forest map is requested
-    for.
-    user (Annotated[User, Depend(get_current_user)]) the current user
-    session (Annotated[Session, Depends(get_session)]) the current database session
+        for.
+    context (Annotated[SessionContext, Depends(get_session_context)]): the current session context
+
 Raises:
     HTTPException:
 Returns:
@@ -5167,10 +5243,10 @@ Args:
     db_session (Annotated[Session, Depends): the database session.
 
 Raises:
-    HTTPException: 404 when a `StateDB`, `ProblemDB`, or
-        `RepresentativeNonDominatedSolutions` instance cannot be found. 406 when
-        the substate of the references `StateDB` is not an instance of
-        `ENautilusState`.
+    HTTPException: 404 if a `StateDB`, `ProblemDB`, or
+        `RepresentativeNonDominatedSolutions` instance cannot be found.
+    HTTPException: 406 if the substate of the references `StateDB` is not an
+        instance of `ENautilusState`.
 
 Returns:
     ENautilusRepresentativeSolutionsResponse: the information on the representative solutions.
@@ -5241,6 +5317,204 @@ export const GetRepresentativeMethodEnautilusGetRepresentativeStateIdGetResponse
 			.describe('The solutions on the non-dominated front closest to the intermediate points.')
 	})
 	.describe('Model of the response when requesting representative solutions from E-NAUTILUS.');
+
+/**
+ * Finalize E-NAUTILUS by selecting the final solution.
+
+The parent state must be an E-NAUTILUS step with iterations_left == 0.
+The selected intermediate point is projected to the nearest point on the
+representative Pareto front using `enautilus_get_representative_solutions`.
+
+Note: The returned solution is the nearest point on the REPRESENTATIVE set,
+not necessarily a true Pareto optimal solution. A dominating solution may
+exist but would require additional optimization to find.
+
+Args:
+    request: The finalization request with parent_state_id and selected_point_index.
+    context: The session context.
+
+Returns:
+    ENautilusFinalizeResponse with the final state ID and solution.
+
+Raises:
+    HTTPException: 400 if parent state is not valid or iterations_left != 0.
+    HTTPException: 404 if referenced states/solutions not found.
+ * @summary Finalize Enautilus
+ */
+export const FinalizeEnautilusMethodEnautilusFinalizePostBody = zod
+	.object({
+		problem_id: zod.number(),
+		session_id: zod.union([zod.number(), zod.null()]).optional(),
+		parent_state_id: zod
+			.number()
+			.describe('The E-NAUTILUS step state (must have iterations_left == 0).'),
+		selected_point_index: zod
+			.number()
+			.describe('Index of the selected intermediate point (0-based).')
+	})
+	.describe('Request to finalize E-NAUTILUS and select the final solution.');
+
+export const finalizeEnautilusMethodEnautilusFinalizePostResponseResponseTypeDefault = `e-nautilus.finalize`;
+
+export const FinalizeEnautilusMethodEnautilusFinalizePostResponse = zod
+	.object({
+		response_type: zod
+			.literal('e-nautilus.finalize')
+			.default(finalizeEnautilusMethodEnautilusFinalizePostResponseResponseTypeDefault),
+		state_id: zod.number().describe('The ID of the created final state.'),
+		selected_intermediate_point: zod
+			.record(zod.string(), zod.number())
+			.describe('The intermediate point that was selected by the DM.'),
+		final_solution: zod
+			.object({
+				optimal_variables: zod
+					.record(zod.string(), zod.union([zod.number(), zod.number(), zod.array(zod.unknown())]))
+					.describe('The optimal decision variables found.'),
+				optimal_objectives: zod
+					.record(zod.string(), zod.union([zod.number(), zod.array(zod.number())]))
+					.describe(
+						'The objective function values corresponding to the optimal decision variables found.'
+					),
+				constraint_values: zod
+					.union([
+						zod.record(
+							zod.string(),
+							zod.union([
+								zod.number(),
+								zod.number(),
+								zod.array(zod.number()),
+								zod.array(zod.unknown())
+							])
+						),
+						zod.unknown(),
+						zod.null()
+					])
+					.optional()
+					.describe(
+						'The constraint values of the problem. A negative value means the constraint is respected, a positive one means it has been breached.'
+					),
+				extra_func_values: zod
+					.union([
+						zod.record(zod.string(), zod.union([zod.number(), zod.array(zod.number())])),
+						zod.null()
+					])
+					.optional()
+					.describe('The extra function values of the problem.'),
+				scalarization_values: zod
+					.union([
+						zod.record(zod.string(), zod.union([zod.number(), zod.array(zod.number())])),
+						zod.null()
+					])
+					.optional()
+					.describe('The scalarization function values of the problem.'),
+				success: zod
+					.boolean()
+					.describe('A boolean flag indicating whether the optimization was successful or not.'),
+				message: zod.string().describe('Description of the cause of termination.')
+			})
+			.describe('Defines a schema for a dataclass to store the results of a solver.')
+	})
+	.describe('Response from E-NAUTILUS finalization.');
+
+/**
+ * Extract the full E-NAUTILUS decision tree for a session.
+
+Returns all step and final nodes, edges, root IDs, and pre-computed
+decision events capturing what the DM chose at each transition.
+
+Args:
+    session_id: The interactive session ID.
+    db_session: The database session.
+
+Returns:
+    ENautilusSessionTreeResponse with nodes, edges, root_ids, and decision_events.
+ * @summary Get Session Tree
+ */
+export const GetSessionTreeMethodEnautilusSessionTreeSessionIdGetParams = zod.object({
+	session_id: zod.number()
+});
+
+export const GetSessionTreeMethodEnautilusSessionTreeSessionIdGetResponse = zod
+	.object({
+		session_id: zod.number().describe('The interactive session id.'),
+		nodes: zod
+			.array(
+				zod
+					.object({
+						node_id: zod.number().describe('The StateDB id of this node.'),
+						parent_node_id: zod
+							.union([zod.number(), zod.null()])
+							.optional()
+							.describe('The StateDB id of the parent node.'),
+						depth: zod.number().describe('Depth of this node in the tree (root = 0).'),
+						node_type: zod
+							.enum(['step', 'final'])
+							.describe('Whether this is a step or final node.'),
+						current_iteration: zod
+							.union([zod.number(), zod.null()])
+							.optional()
+							.describe('The iteration number at this step.'),
+						iterations_left: zod
+							.union([zod.number(), zod.null()])
+							.optional()
+							.describe('Iterations remaining at this step.'),
+						selected_point: zod
+							.union([zod.record(zod.string(), zod.number()), zod.null()])
+							.optional()
+							.describe("The DM's position when this step was taken."),
+						intermediate_points: zod
+							.union([zod.array(zod.record(zod.string(), zod.number())), zod.null()])
+							.optional()
+							.describe('Intermediate points shown at this step.'),
+						closeness_measures: zod
+							.union([zod.array(zod.number()), zod.null()])
+							.optional()
+							.describe('Closeness measures at this step.'),
+						selected_point_index: zod
+							.union([zod.number(), zod.null()])
+							.optional()
+							.describe('Index of the selected intermediate point.'),
+						selected_intermediate_point: zod
+							.union([zod.record(zod.string(), zod.number()), zod.null()])
+							.optional()
+							.describe('The intermediate point selected in finalization.'),
+						final_solution_objectives: zod
+							.union([zod.record(zod.string(), zod.number()), zod.null()])
+							.optional()
+							.describe('Objective values of the final projected solution.')
+					})
+					.describe('A node in the E-NAUTILUS session tree.')
+			)
+			.describe('All nodes in the tree (step and final).'),
+		edges: zod.array(zod.array(zod.number())).describe('Edges as [parent_id, child_id] pairs.'),
+		root_ids: zod.array(zod.number()).describe('IDs of root nodes (no parent).'),
+		decision_events: zod
+			.array(
+				zod
+					.object({
+						parent_node_id: zod.number().describe('The parent node id.'),
+						child_node_id: zod.number().describe('The child node id.'),
+						parent_iteration: zod.number().describe('Iteration number at the parent.'),
+						child_iteration: zod.number().describe('Iteration number at the child.'),
+						iterations_left_after: zod.number().describe('Iterations left after this decision.'),
+						starting_point: zod
+							.union([zod.record(zod.string(), zod.number()), zod.null()])
+							.optional()
+							.describe("The DM's position when viewing options."),
+						chosen_point: zod
+							.union([zod.record(zod.string(), zod.number()), zod.null()])
+							.optional()
+							.describe('The point the DM chose.'),
+						chosen_option_idx: zod
+							.union([zod.number(), zod.null()])
+							.optional()
+							.describe('Index of chosen option among those shown.')
+					})
+					.describe('A decision event capturing a transition from parent to child node.')
+			)
+			.describe('Pre-computed decision events for each parent-child transition.')
+	})
+	.describe('The complete E-NAUTILUS session tree.');
 
 /**
  * Vote for a band using this endpoint.

@@ -7,9 +7,6 @@
  */
 
 /**
- * Response of NIMBUS save deletion.
+ * The DM's position when this step was taken.
  */
-export interface NIMBUSDeleteSaveResponse {
-	response_type?: string;
-	message?: string | null;
-}
+export type ENautilusTreeNodeResponseSelectedPoint = { [key: string]: number } | null;

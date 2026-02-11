@@ -7,9 +7,6 @@
  */
 
 /**
- * Response of NIMBUS save deletion.
+ * Objective values of the final projected solution.
  */
-export interface NIMBUSDeleteSaveResponse {
-	response_type?: string;
-	message?: string | null;
-}
+export type ENautilusTreeNodeResponseFinalSolutionObjectives = { [key: string]: number } | null;

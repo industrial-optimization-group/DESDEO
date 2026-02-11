@@ -1,6 +1,6 @@
-import type { ENautilusRepresentativeSolutionsResponse, ENautilusStateResponse, ENautilusStepRequest, ENautilusStepResponse, ProblemGetRequest, ProblemInfo } from "$lib/gen/models";
-import type { getRepresentativeMethodEnautilusGetRepresentativeStateIdGetResponse, getStateMethodEnautilusGetStateStateIdGetResponse, stepMethodEnautilusStepPostResponse } from "$lib/gen/endpoints/DESDEOFastAPI";
-import { stepMethodEnautilusStepPost, getProblemProblemGetPost, getStateMethodEnautilusGetStateStateIdGet, getRepresentativeMethodEnautilusGetRepresentativeStateIdGet } from "$lib/gen/endpoints/DESDEOFastAPI";
+import type { ENautilusRepresentativeSolutionsResponse, ENautilusSessionTreeResponse, ENautilusStateResponse, ENautilusStepRequest, ENautilusStepResponse, ProblemGetRequest, ProblemInfo } from "$lib/gen/models";
+import type { getRepresentativeMethodEnautilusGetRepresentativeStateIdGetResponse, getSessionTreeMethodEnautilusSessionTreeSessionIdGetResponse, getStateMethodEnautilusGetStateStateIdGetResponse, stepMethodEnautilusStepPostResponse } from "$lib/gen/endpoints/DESDEOFastAPI";
+import { stepMethodEnautilusStepPost, getProblemProblemGetPost, getStateMethodEnautilusGetStateStateIdGet, getRepresentativeMethodEnautilusGetRepresentativeStateIdGet, getSessionTreeMethodEnautilusSessionTreeSessionIdGet } from "$lib/gen/endpoints/DESDEOFastAPI";
 import type { getProblemProblemGetPostResponse } from "$lib/gen/endpoints/DESDEOFastAPI";
 
 export type ENautilusStepBundle = {
@@ -95,6 +95,19 @@ export async function fetch_representative_solutions(
 
     if (response.status !== 200) {
         console.error("Failed to fetch representative solutions:", response.status);
+        return null;
+    }
+
+    return response.data;
+}
+
+export async function fetch_session_tree(
+    session_id: number
+): Promise<ENautilusSessionTreeResponse | null> {
+    const response: getSessionTreeMethodEnautilusSessionTreeSessionIdGetResponse = await getSessionTreeMethodEnautilusSessionTreeSessionIdGet(session_id);
+
+    if (response.status !== 200) {
+        console.error("Failed to fetch session tree:", response.status);
         return null;
     }
 

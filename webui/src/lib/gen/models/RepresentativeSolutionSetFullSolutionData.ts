@@ -6,10 +6,4 @@
  * OpenAPI spec version: 0.1.0
  */
 
-/**
- * Response of NIMBUS save deletion.
- */
-export interface NIMBUSDeleteSaveResponse {
-	response_type?: string;
-	message?: string | null;
-}
+export type RepresentativeSolutionSetFullSolutionData = { [key: string]: number[] };

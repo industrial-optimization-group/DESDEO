@@ -9,6 +9,8 @@
 	import Button from '$lib/components/ui/button/button.svelte';
 	import VisualizationsPanel from '$lib/components/custom/visualizations-panel/visualizations-panel.svelte';
 	import * as Resizable from '$lib/components/ui/resizable';
+	import { DecisionTree } from '$lib/components/custom/decision-tree';
+	import type { ENautilusSessionTreeResponse } from '$lib/gen/models';
 
 	import type {
 		ENautilusStepRequest,
@@ -22,10 +24,28 @@
 		initialize_enautilus_state,
 		points_to_list,
 		fetch_enautilus_state,
-
-		fetch_representative_solutions
-
+		fetch_representative_solutions,
+		fetch_session_tree
 	} from './handler';
+
+	import {
+		type ColumnDef,
+		type Column,
+		type SortingState,
+		getCoreRowModel,
+		getSortedRowModel
+	} from '@tanstack/table-core';
+	import { createSvelteTable } from '$lib/components/ui/data-table/data-table.svelte.js';
+	import FlexRender from '$lib/components/ui/data-table/flex-render.svelte';
+	import * as Table from '$lib/components/ui/table/index.js';
+	import { renderSnippet } from '$lib/components/ui/data-table/render-helpers.js';
+	import { COLOR_PALETTE } from '$lib/components/visualizations/utils/colors.js';
+	import { getDisplayAccuracy, formatNumber } from '$lib/helpers';
+	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
+	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
+	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
+
+	type IntermediatePoint = Record<string, number>;
 
 	type ENautilusMode = "iterate" | "final";
 	let mode = $state<ENautilusMode>("iterate");
@@ -44,6 +64,8 @@
 	let initial_intermediate_points = $state<number | null>(null);
 	let initial_iterations_left = $state<number | null>(null);
 	let has_initialized = $state<boolean>(false);
+	let showTree = $state<boolean>(false);
+	let sessionTree = $state<ENautilusSessionTreeResponse | null>(null);
 
 	let is_initial_ready = $derived.by(() => {
 		return (
@@ -111,6 +133,69 @@
 		if (!representative) return null;
 		return representative.solutions[final_selected_index] ?? null;
 	})
+
+	// -- Table state for intermediate points --
+	let displayAccuracy = $derived(getDisplayAccuracy(problem_info));
+	let tableSorting = $state<SortingState>([]);
+	let tableRows: IntermediatePoint[] = $derived(previous_response?.intermediate_points ?? []);
+
+	const tableColumns: ColumnDef<IntermediatePoint>[] = $derived.by(() => {
+		if (!problem_info) return [];
+		return [
+			{
+				id: 'row_number',
+				header: '#',
+				cell: ({ row }: { row: any }) => String(row.index + 1),
+				enableSorting: false
+			},
+			{
+				id: 'closeness',
+				accessorFn: (_row: IntermediatePoint, index: number) =>
+					previous_response?.closeness_measures?.[index] ?? 0,
+				header: ({ column }: { column: Column<IntermediatePoint> }) =>
+					renderSnippet(ColumnHeader, { column, title: 'Closeness' }),
+				cell: ({ row }: { row: any }) =>
+					renderSnippet(ObjectiveCell, {
+						value: previous_response?.closeness_measures?.[row.index] ?? 0,
+						accuracy: 4
+					}),
+				enableSorting: true
+			},
+			...problem_info.objectives.map((objective, idx) => ({
+				accessorKey: objective.symbol,
+				header: ({ column }: { column: Column<IntermediatePoint> }) =>
+					renderSnippet(ColumnHeader, {
+						column,
+						title: `${objective.name} (${objective.maximize ? 'max' : 'min'})`,
+						colorIdx: idx
+					}),
+				cell: ({ row }: { row: any }) =>
+					renderSnippet(ObjectiveCell, {
+						value: row.original[objective.symbol],
+						accuracy: displayAccuracy[idx],
+						best: (previous_response?.reachable_best_bounds?.[row.index] as Record<string, number> | undefined)?.[objective.symbol] ?? null
+					}),
+				enableSorting: true
+			}))
+		];
+	});
+
+	const table = createSvelteTable({
+		get data() { return tableRows; },
+		get columns() { return tableColumns; },
+		state: {
+			get sorting() { return tableSorting; }
+		},
+		onSortingChange: (updater) => {
+			if (typeof updater === 'function') {
+				tableSorting = updater(tableSorting);
+			} else {
+				tableSorting = updater;
+			}
+		},
+		getCoreRowModel: getCoreRowModel(),
+		getSortedRowModel: getSortedRowModel()
+	});
 
 	$effect(() => {
 		$inspect('enautilus_state', previous_response);
@@ -338,7 +423,85 @@
 			isLoading.set(false);
 		}
 	}
+
+	async function refreshTree() {
+		if (selection.selectedSessionId == null) return;
+		try {
+			sessionTree = await fetch_session_tree(selection.selectedSessionId);
+		} catch (err) {
+			console.error("Failed to refresh decision tree", err);
+		}
+	}
+
+	async function handleTreeNodeClick(nodeId: number) {
+		try {
+			isLoading.set(true);
+
+			const state_resp = await fetch_enautilus_state(nodeId);
+			if (!state_resp) {
+				errorMessage.set("Failed to load tree node state.");
+				return;
+			}
+
+			previous_request = state_resp.request;
+			previous_response = state_resp.response;
+			selected_point_index = null;
+			iterations_left_override = null;
+			previous_objective_values = [];
+			mode = 'iterate';
+		} catch (err) {
+			console.error("Error navigating to tree node", err);
+			errorMessage.set("Failed to navigate to selected node.");
+		} finally {
+			isLoading.set(false);
+		}
+	}
+
+	// Refresh tree whenever the response changes (new iteration completed)
+	$effect(() => {
+		if (previous_response && has_initialized) {
+			refreshTree();
+		}
+	});
 </script>
+
+{#snippet ColumnHeader({ column, title, colorIdx }: { column: Column<IntermediatePoint>; title: string; colorIdx?: number })}
+	<div
+		class="flex items-center"
+		style={colorIdx != null
+			? `border-bottom: 6px solid ${COLOR_PALETTE[colorIdx % COLOR_PALETTE.length]}; width: 100%; padding: 0.5rem;`
+			: ''}
+	>
+		{#if column.getCanSort()}
+			<Button
+				variant="ghost"
+				size="sm"
+				onclick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+				class="-ml-3 h-8"
+			>
+				<span>{title}</span>
+				{#if column.getIsSorted() === 'desc'}
+					<ArrowDownIcon class="ml-2 h-4 w-4" />
+				{:else if column.getIsSorted() === 'asc'}
+					<ArrowUpIcon class="ml-2 h-4 w-4" />
+				{:else}
+					<ChevronsUpDownIcon class="ml-2 h-4 w-4 opacity-50" />
+				{/if}
+			</Button>
+		{:else}
+			<span class="px-2 py-1">{title}</span>
+		{/if}
+	</div>
+{/snippet}
+
+{#snippet ObjectiveCell({ value, accuracy, best }: { value: number | null | undefined; accuracy: number; best?: number | null })}
+	<div class="pr-4 text-right">
+		{value != null ? formatNumber(value, accuracy) : '-'}
+		{#if best != null}
+			<div class="text-[10px] text-gray-400">[best: {formatNumber(best, accuracy)}]</div>
+		{/if}
+	</div>
+{/snippet}
 
 <h1 class="mt-10 text-center text-2xl font-semibold">E-NAUTILUS method</h1>
 <p class="mb-4 text-center text-sm text-gray-600">
@@ -499,7 +662,8 @@
 {:else}
 	<BaseLayout
 		showLeftSidebar={false}
-		showRightSidebar={false}
+		showRightSidebar={showTree}
+		rightSidebarWidth="320px"
 		bottomPanelTitle="E-NAUTILUS: initial intermediate points"
 	>
 		{#snippet explorerControls()}
@@ -584,6 +748,16 @@
 						Finish
 					</Button>
 				</span>
+
+				<span class="inline-block" title="Toggle the decision tree panel">
+					<Button
+						onclick={() => (showTree = !showTree)}
+						variant={showTree ? 'default' : 'outline'}
+						class="ml-4"
+					>
+						Tree
+					</Button>
+				</span>
 			</div>
 		{/snippet}
 		{#snippet visualizationArea()}
@@ -617,53 +791,68 @@
 		{#snippet numericalValues()}
 		{#if previous_response && currentIntermediatePoints.length > 0 && objective_keys.length > 0}
 			<div class="h-full overflow-auto">
-				<table class="min-w-full border-collapse text-sm">
-					<thead class="sticky top-0 bg-white">
-						<tr class="border-b border-gray-200">
-							<th class="px-2 py-2 text-left text-xs font-semibold text-gray-600">#</th>
-
-							<th class="px-2 py-2 text-right text-xs font-semibold text-gray-600">
-								closeness
-							</th>
-
-							{#each objective_labels as label}
-								<th class="px-2 py-2 text-right text-xs font-semibold text-gray-600">
-									{label}
-								</th>
-							{/each}
-						</tr>
-					</thead>
-
-					<tbody>
-						{#each currentIntermediatePoints as row, i}
-							<tr
-								class={`border-b border-gray-100 cursor-pointer ${
-									i === selected_point_index ? 'bg-gray-100' : 'hover:bg-gray-50'
-								}`}
-								onclick={() => (selected_point_index = i)}
+				<Table.Root>
+					<Table.Header>
+						{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
+							<Table.Row>
+								{#each headerGroup.headers as header (header.id)}
+									<Table.Head colspan={header.colSpan}>
+										{#if !header.isPlaceholder}
+											<FlexRender
+												content={header.column.columnDef.header}
+												context={header.getContext()}
+											/>
+										{/if}
+									</Table.Head>
+								{/each}
+							</Table.Row>
+						{/each}
+					</Table.Header>
+					<Table.Body>
+						{#each table.getRowModel().rows as row (row.id)}
+							<Table.Row
+								onclick={() => (selected_point_index = row.index)}
+								class="cursor-pointer {selected_point_index === row.index ? 'bg-gray-300' : ''}"
 								title="Click to select this intermediate point"
 							>
-								<td class="px-2 py-2 text-xs text-gray-600">{i + 1}</td>
-
-								<td class="px-2 py-2 text-right font-mono text-xs">
-									{(previous_response.closeness_measures?.[i] ?? 0).toFixed(4)}
-								</td>
-
-								{#each row as value}
-									<td class="px-2 py-2 text-right font-mono text-xs">
-										{value.toFixed(6)}
-									</td>
+								{#each row.getVisibleCells() as cell, cellIndex (cell.id)}
+									<Table.Cell
+										class={cellIndex === 0
+											? selected_point_index === row.index
+												? 'border-l-10 border-blue-600'
+												: 'border-l-10'
+											: ''}
+									>
+										<FlexRender content={cell.column.columnDef.cell} context={cell.getContext()} />
+									</Table.Cell>
 								{/each}
-							</tr>
+							</Table.Row>
+						{:else}
+							<Table.Row>
+								<Table.Cell colspan={tableColumns.length} class="h-24 text-center">
+									No intermediate points available.
+								</Table.Cell>
+							</Table.Row>
 						{/each}
-					</tbody>
-				</table>
+					</Table.Body>
+				</Table.Root>
 			</div>
 		{:else}
 			<div class="flex h-full items-center justify-center text-gray-500">
 				No numerical values available.
 			</div>
 		{/if}
+		{/snippet}
+
+		{#snippet rightSidebar()}
+			<div class="h-full overflow-auto p-2">
+				<DecisionTree
+					treeData={sessionTree}
+					activeNodeId={previous_response?.state_id ?? null}
+					onSelectNode={handleTreeNodeClick}
+					problem={problem_info}
+				/>
+			</div>
 		{/snippet}
 
 	</BaseLayout>

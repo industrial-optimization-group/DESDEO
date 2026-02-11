@@ -12,7 +12,10 @@ import type {
 	BodyLoginLoginPost,
 	ConfigureGdmGdmScoreBandsConfigurePostParams,
 	CreateSessionRequest,
+	ENautilusFinalizeRequest,
+	ENautilusFinalizeResponse,
 	ENautilusRepresentativeSolutionsResponse,
+	ENautilusSessionTreeResponse,
 	ENautilusStateResponse,
 	ENautilusStepRequest,
 	ENautilusStepResponse,
@@ -54,6 +57,9 @@ import type {
 	RPMSolveRequest,
 	RPMState,
 	RepresentativeNonDominatedSolutions,
+	RepresentativeSolutionSetFull,
+	RepresentativeSolutionSetInfo,
+	RepresentativeSolutionSetRequest,
 	SCOREBandsGDMConfig,
 	ScoreBandsRequest,
 	ScoreBandsResponse,
@@ -492,8 +498,7 @@ export const getProblemsInfoProblemAllInfoGet = async (
 
 Args:
     request (ProblemGetRequest): the request containing the problem's id `problem_id`.
-    user (Annotated[User, Depends): the current user.
-    session (Annotated[Session, Depends): the database session.
+    context (Annotated[SessionContext, Depends): the session context.
 
 Raises:
     HTTPException: could not find a problem with the given id.
@@ -544,8 +549,7 @@ export const getProblemProblemGetPost = async (
 
 Args:
     request (Problem): the JSON representation of the problem.
-    user (Annotated[User, Depends): the current user.
-    session (Annotated[Session, Depends): the database session.
+    context (Annotated[SessionContext, Depends): the session context.
 
 Note:
     Users with the role 'guest' may not add new problems.
@@ -585,8 +589,7 @@ export const addProblemProblemAddPost = async (
 
 Args:
     json_file (UploadFile): a file in JSON format describing the problem.
-    user (Annotated[User, Depends): the usr for which the problem is added.
-    session (Annotated[Session, Depends): the database session.
+    context (Annotated[SessionContext, Depends): the session context.
 
 Raises:
     HTTPException: if the provided `json_file` is empty.
@@ -649,8 +652,7 @@ section.
 
 Args:
     request (MetaDataGetRequest): the requested metadata type.
-    user (Annotated[User, Depends]): the current user.
-    session (Annotated[Session, Depends]): the database session.
+    context (Annotated[SessionContext, Depends]): the session context.
 
 Returns:
     list[ForestProblemMetadata | RepresentativeNonDominatedSolutions]: list containing all the metadata
@@ -735,9 +737,9 @@ export const getAvailableSolversProblemAssignSolverGet = async (
 /**
  * Assign a specific solver for a problem.
 
-request: ProblemSelectSolverRequest: The request containing problem id and string representation of the solver
-user: Annotated[User, Depends(get_current_user): The user that is logged in.
-session: Annotated[Session, Depends(get_session)]: The database session.
+Args:
+    request: ProblemSelectSolverRequest: The request containing problem id and string representation of the solver
+    context: Annotated[SessionContext, Depends(get_session)]: The session context.
 
 Raises:
     HTTPException: Unknown solver, unauthorized user
@@ -789,7 +791,211 @@ export const selectSolverProblemAssignSolverPost = async (
 };
 
 /**
- * .
+ * Add a new representative solution set as metadata to a problem.
+
+Args:
+    request (RepresentativeSolutionSetRequest): The JSON body containing the
+        details of the representative solution set (name, description, solution data, ideal, nadir).
+    context (SessionContext): The session context providing the current user and database session.
+
+Raises:
+    HTTPException: If problem not found or unauthorized user.
+
+Returns:
+    RepresentativeSolutionSetInfo: information about the added set.
+ * @summary Add Representative Solution Set
+ */
+export type addRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPostResponse200 = {
+	data: RepresentativeSolutionSetInfo;
+	status: 200;
+};
+
+export type addRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type addRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPostResponseSuccess =
+	addRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPostResponse200 & {
+		headers: Headers;
+	};
+export type addRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPostResponseError =
+	addRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPostResponse422 & {
+		headers: Headers;
+	};
+
+export type addRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPostResponse =
+	| addRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPostResponseSuccess
+	| addRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPostResponseError;
+
+export const getAddRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPostUrl = () => {
+	return `http://localhost:8000/problem/add_representative_solution_set`;
+};
+
+export const addRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPost = async (
+	representativeSolutionSetRequest: RepresentativeSolutionSetRequest,
+	options?: RequestInit
+): Promise<addRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPostResponse> => {
+	return customFetch<addRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPostResponse>(
+		getAddRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPostUrl(),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(representativeSolutionSetRequest)
+		}
+	);
+};
+
+/**
+ * Get meta information about all representative solution sets for a given problem.
+
+Returns only name, description, ideal, and nadir for each set.
+ * @summary Get All Representative Solution Sets
+ */
+export type getAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetResponse200 =
+	{
+		data: RepresentativeSolutionSetInfo[];
+		status: 200;
+	};
+
+export type getAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetResponse422 =
+	{
+		data: HTTPValidationError;
+		status: 422;
+	};
+
+export type getAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetResponseSuccess =
+	getAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetResponse200 & {
+		headers: Headers;
+	};
+export type getAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetResponseError =
+	getAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetResponse422 & {
+		headers: Headers;
+	};
+
+export type getAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetResponse =
+
+		| getAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetResponseSuccess
+		| getAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetResponseError;
+
+export const getGetAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetUrl =
+	(problemId: number) => {
+		return `http://localhost:8000/problem/all_representative_solution_sets/${problemId}`;
+	};
+
+export const getAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGet =
+	async (
+		problemId: number,
+		options?: RequestInit
+	): Promise<getAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetResponse> => {
+		return customFetch<getAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetResponse>(
+			getGetAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetUrl(
+				problemId
+			),
+			{
+				...options,
+				method: 'GET'
+			}
+		);
+	};
+
+/**
+ * Fetch full information of a single representative solution by its ID.
+ * @summary Get Representative Solution Set
+ */
+export type getRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGetResponse200 = {
+	data: RepresentativeSolutionSetFull;
+	status: 200;
+};
+
+export type getRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGetResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type getRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGetResponseSuccess =
+	getRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGetResponse200 & {
+		headers: Headers;
+	};
+export type getRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGetResponseError =
+	getRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGetResponse422 & {
+		headers: Headers;
+	};
+
+export type getRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGetResponse =
+	| getRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGetResponseSuccess
+	| getRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGetResponseError;
+
+export const getGetRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGetUrl = (
+	setId: number
+) => {
+	return `http://localhost:8000/problem/representative_solution_set/${setId}`;
+};
+
+export const getRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGet = async (
+	setId: number,
+	options?: RequestInit
+): Promise<getRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGetResponse> => {
+	return customFetch<getRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGetResponse>(
+		getGetRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGetUrl(setId),
+		{
+			...options,
+			method: 'GET'
+		}
+	);
+};
+
+/**
+ * Delete a representative solution set by its ID.
+ * @summary Delete Representative Solution Set
+ */
+export type deleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDeleteResponse204 =
+	{
+		data: void;
+		status: 204;
+	};
+
+export type deleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDeleteResponse422 =
+	{
+		data: HTTPValidationError;
+		status: 422;
+	};
+
+export type deleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDeleteResponseSuccess =
+	deleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDeleteResponse204 & {
+		headers: Headers;
+	};
+export type deleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDeleteResponseError =
+	deleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDeleteResponse422 & {
+		headers: Headers;
+	};
+
+export type deleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDeleteResponse =
+	| deleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDeleteResponseSuccess
+	| deleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDeleteResponseError;
+
+export const getDeleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDeleteUrl = (
+	setId: number
+) => {
+	return `http://localhost:8000/problem/representative_solution_set/${setId}`;
+};
+
+export const deleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDelete = async (
+	setId: number,
+	options?: RequestInit
+): Promise<deleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDeleteResponse> => {
+	return customFetch<deleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDeleteResponse>(
+		getDeleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDeleteUrl(setId),
+		{
+			...options,
+			method: 'DELETE'
+		}
+	);
+};
+
+/**
+ * Creates a new interactive session.
  * @summary Create New Session
  */
 export type createNewSessionSessionNewPostResponse200 = {
@@ -959,7 +1165,7 @@ export const deleteSessionSessionSessionIdDelete = async (
 Args:
     request (RPMSolveRequest): a request with the needed information to run the method.
     user (Annotated[User, Depends): the current user.
-    session (Annotated[Session, Depends): the current database session.
+    context (Annotated[SessionContext, Depends): the current session context.
 
 Returns:
     RPMState: a state with information on the results of iterating the reference point method
@@ -1242,8 +1448,7 @@ export const getOrInitializeMethodNimbusGetOrInitializePost = async (
 
 Args:
     request (NIMBUSFinalizeRequest): The request containing the final solution, etc.
-    user (Annotated[User, Depends): The current user.
-    session (Annotated[Session, Depends): The database session.
+    context (Annotated[User, get_session_context): The current context.
 
 Raises:
     HTTPException
@@ -1299,8 +1504,7 @@ export const finalizeNimbusMethodNimbusFinalizePost = async (
 
 Args:
     request (NIMBUSDeleteSaveRequest): request containing necessary information for deleting a save
-    user (Annotated[User, Depends): the current  (logged in) user
-    session (Annotated[Session, Depends): database session
+    context (Annotated[SessionContext, Depends): session context
 
 Raises:
     HTTPException
@@ -1353,6 +1557,11 @@ export const deleteSaveMethodNimbusDeleteSavePost = async (
 
 /**
  * Solve intermediate solutions between given two solutions.
+
+Args:
+    request (IntermediateSolutionRequest): The request object containing parameters
+        for fetching results.
+    context (Annotated[SessionContext, Depends]): The session context.
  * @summary Solve Intermediate
  */
 export type solveIntermediateMethodGenericIntermediatePostResponse200 = {
@@ -1448,9 +1657,9 @@ export const calculateScoreBandsFromObjectiveDataMethodGenericScoreBandsObjDataP
 
 Args:
     request (UtopiaRequest): the set of decision variables and problem for which the utopia forest map is requested
-    for.
-    user (Annotated[User, Depend(get_current_user)]) the current user
-    session (Annotated[Session, Depends(get_session)]) the current database session
+        for.
+    context (Annotated[SessionContext, Depends(get_session_context)]): the current session context
+
 Raises:
     HTTPException:
 Returns:
@@ -2173,10 +2382,10 @@ Args:
     db_session (Annotated[Session, Depends): the database session.
 
 Raises:
-    HTTPException: 404 when a `StateDB`, `ProblemDB`, or
-        `RepresentativeNonDominatedSolutions` instance cannot be found. 406 when
-        the substate of the references `StateDB` is not an instance of
-        `ENautilusState`.
+    HTTPException: 404 if a `StateDB`, `ProblemDB`, or
+        `RepresentativeNonDominatedSolutions` instance cannot be found.
+    HTTPException: 406 if the substate of the references `StateDB` is not an
+        instance of `ENautilusState`.
 
 Returns:
     ENautilusRepresentativeSolutionsResponse: the information on the representative solutions.
@@ -2217,6 +2426,125 @@ export const getRepresentativeMethodEnautilusGetRepresentativeStateIdGet = async
 ): Promise<getRepresentativeMethodEnautilusGetRepresentativeStateIdGetResponse> => {
 	return customFetch<getRepresentativeMethodEnautilusGetRepresentativeStateIdGetResponse>(
 		getGetRepresentativeMethodEnautilusGetRepresentativeStateIdGetUrl(stateId),
+		{
+			...options,
+			method: 'GET'
+		}
+	);
+};
+
+/**
+ * Finalize E-NAUTILUS by selecting the final solution.
+
+The parent state must be an E-NAUTILUS step with iterations_left == 0.
+The selected intermediate point is projected to the nearest point on the
+representative Pareto front using `enautilus_get_representative_solutions`.
+
+Note: The returned solution is the nearest point on the REPRESENTATIVE set,
+not necessarily a true Pareto optimal solution. A dominating solution may
+exist but would require additional optimization to find.
+
+Args:
+    request: The finalization request with parent_state_id and selected_point_index.
+    context: The session context.
+
+Returns:
+    ENautilusFinalizeResponse with the final state ID and solution.
+
+Raises:
+    HTTPException: 400 if parent state is not valid or iterations_left != 0.
+    HTTPException: 404 if referenced states/solutions not found.
+ * @summary Finalize Enautilus
+ */
+export type finalizeEnautilusMethodEnautilusFinalizePostResponse200 = {
+	data: ENautilusFinalizeResponse;
+	status: 200;
+};
+
+export type finalizeEnautilusMethodEnautilusFinalizePostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type finalizeEnautilusMethodEnautilusFinalizePostResponseSuccess =
+	finalizeEnautilusMethodEnautilusFinalizePostResponse200 & {
+		headers: Headers;
+	};
+export type finalizeEnautilusMethodEnautilusFinalizePostResponseError =
+	finalizeEnautilusMethodEnautilusFinalizePostResponse422 & {
+		headers: Headers;
+	};
+
+export type finalizeEnautilusMethodEnautilusFinalizePostResponse =
+	| finalizeEnautilusMethodEnautilusFinalizePostResponseSuccess
+	| finalizeEnautilusMethodEnautilusFinalizePostResponseError;
+
+export const getFinalizeEnautilusMethodEnautilusFinalizePostUrl = () => {
+	return `http://localhost:8000/method/enautilus/finalize`;
+};
+
+export const finalizeEnautilusMethodEnautilusFinalizePost = async (
+	eNautilusFinalizeRequest: ENautilusFinalizeRequest,
+	options?: RequestInit
+): Promise<finalizeEnautilusMethodEnautilusFinalizePostResponse> => {
+	return customFetch<finalizeEnautilusMethodEnautilusFinalizePostResponse>(
+		getFinalizeEnautilusMethodEnautilusFinalizePostUrl(),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(eNautilusFinalizeRequest)
+		}
+	);
+};
+
+/**
+ * Extract the full E-NAUTILUS decision tree for a session.
+
+Returns all step and final nodes, edges, root IDs, and pre-computed
+decision events capturing what the DM chose at each transition.
+
+Args:
+    session_id: The interactive session ID.
+    db_session: The database session.
+
+Returns:
+    ENautilusSessionTreeResponse with nodes, edges, root_ids, and decision_events.
+ * @summary Get Session Tree
+ */
+export type getSessionTreeMethodEnautilusSessionTreeSessionIdGetResponse200 = {
+	data: ENautilusSessionTreeResponse;
+	status: 200;
+};
+
+export type getSessionTreeMethodEnautilusSessionTreeSessionIdGetResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type getSessionTreeMethodEnautilusSessionTreeSessionIdGetResponseSuccess =
+	getSessionTreeMethodEnautilusSessionTreeSessionIdGetResponse200 & {
+		headers: Headers;
+	};
+export type getSessionTreeMethodEnautilusSessionTreeSessionIdGetResponseError =
+	getSessionTreeMethodEnautilusSessionTreeSessionIdGetResponse422 & {
+		headers: Headers;
+	};
+
+export type getSessionTreeMethodEnautilusSessionTreeSessionIdGetResponse =
+	| getSessionTreeMethodEnautilusSessionTreeSessionIdGetResponseSuccess
+	| getSessionTreeMethodEnautilusSessionTreeSessionIdGetResponseError;
+
+export const getGetSessionTreeMethodEnautilusSessionTreeSessionIdGetUrl = (sessionId: number) => {
+	return `http://localhost:8000/method/enautilus/session_tree/${sessionId}`;
+};
+
+export const getSessionTreeMethodEnautilusSessionTreeSessionIdGet = async (
+	sessionId: number,
+	options?: RequestInit
+): Promise<getSessionTreeMethodEnautilusSessionTreeSessionIdGetResponse> => {
+	return customFetch<getSessionTreeMethodEnautilusSessionTreeSessionIdGetResponse>(
+		getGetSessionTreeMethodEnautilusSessionTreeSessionIdGetUrl(sessionId),
 		{
 			...options,
 			method: 'GET'

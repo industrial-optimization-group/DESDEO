@@ -19,12 +19,7 @@ Note:
     It is assumed that the solution set is non-dominated.
  */
 export interface RepresentativeNonDominatedSolutions {
-	id?: number | null;
-	metadata_id?: number | null;
-	metadata_type?: string;
-	/** The name of the representative set. */
 	name: string;
-	/** A description of the representative set. Optional. */
 	description?: string | null;
 	/** The non-dominated solutions. It is assumed that columns exist for each variable and objective function. For functions, the `_min` variant should be present, and any tensor variables should be unrolled. */
 	solution_data: RepresentativeNonDominatedSolutionsSolutionData;
@@ -32,4 +27,7 @@ export interface RepresentativeNonDominatedSolutions {
 	ideal: RepresentativeNonDominatedSolutionsIdeal;
 	/** The nadir objective function values of the representative set. */
 	nadir: RepresentativeNonDominatedSolutionsNadir;
+	id?: number | null;
+	metadata_id?: number | null;
+	metadata_type?: string;
 }
