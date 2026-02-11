@@ -210,9 +210,7 @@ class NIMBUSFinalState(ResultInterface, SQLModel, table=True):
     solution_origin_state_id: int = Field(description="The state from which the solution originates.")
     solution_result_index: int = Field(description="The index within that state.")
 
-    solver_results: "SolverResults" = Field(
-        sa_column=Column(ResultsType), default_factory=list
-    )
+    solver_results: "SolverResults" = Field(sa_column=Column(ResultsType), default_factory=list)
 
     @property
     def result_objective_values(self) -> list[dict[str, float]]:
@@ -461,3 +459,50 @@ class ENautilusState(SQLModel, table=True):
     enautilus_results: "ENautilusResult" = Field(sa_column=Column(ResultsType))
 
     non_dominated_solutions: "RepresentativeNonDominatedSolutions" = Relationship()
+
+
+class ENautilusFinalState(ResultInterface, SQLModel, table=True):
+    """E-NAUTILUS: The final selected solution.
+
+    Created when the DM selects their final solution from the last iteration
+    (when iterations_left == 0). The selected intermediate point is projected
+    to the nearest point on the representative Pareto front.
+    """
+
+    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
+
+    # Reference to the step state from which the final solution was selected
+    origin_step_state_id: int = Field(description="The E-NAUTILUS step state from which the solution was selected.")
+    # Index of the selected intermediate point in that state
+    selected_point_index: int = Field(description="Index of the selected intermediate point.")
+    # The intermediate point that was selected (for reference)
+    selected_intermediate_point: dict[str, float] = Field(
+        sa_column=Column(JSON),
+        description="The intermediate point selected by the DM.",
+    )
+
+    # The projected solution on the representative Pareto front.
+    # NOTE: This is the nearest point on the REPRESENTATIVE set, not the true Pareto front.
+    # A true Pareto optimal solution dominating this point likely exists but would require
+    # additional optimization to find. For problems with expensive evaluations, this
+    # representative solution is used as a practical approximation.
+    solver_results: SolverResults = Field(
+        sa_column=Column(ResultsType),
+        description=(
+            "The final solution projected to the representative Pareto front. "
+            "Note: This is the nearest point on the representative set; a true Pareto "
+            "optimal solution dominating this point may exist."
+        ),
+    )
+
+    @property
+    def result_objective_values(self) -> list[dict[str, float]]:
+        return [self.solver_results.optimal_objectives]
+
+    @property
+    def result_variable_values(self) -> list[dict[str, VariableType | Tensor]]:
+        return [self.solver_results.optimal_variables]
+
+    @property
+    def num_solutions(self) -> int:
+        return 1

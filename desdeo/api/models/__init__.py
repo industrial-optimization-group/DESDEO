@@ -9,6 +9,9 @@ __all__ = [  # noqa: RUF022
     "EMOSaveState",
     "EMOSolveRequest",
     "EMOIterateState",
+    "ENautilusFinalizeRequest",
+    "ENautilusFinalizeResponse",
+    "ENautilusFinalState",
     "ENautilusRepresentativeSolutionsResponse",
     "ENautilusState",
     "ENautilusStateResponse",
@@ -140,6 +143,8 @@ from .emo import (
     Solution,
 )
 from .enautilus import (
+    ENautilusFinalizeRequest,
+    ENautilusFinalizeResponse,
     ENautilusRepresentativeSolutionsResponse,
     ENautilusStateResponse,
     ENautilusStepRequest,
@@ -251,6 +256,7 @@ from .session import (
 from .state import (
     EMOIterateState,
     EMOSaveState,
+    ENautilusFinalState,
     ENautilusState,
     GNIMBUSEndState,
     GNIMBUSOptimizationState,

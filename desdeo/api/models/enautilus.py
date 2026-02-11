@@ -1,5 +1,7 @@
 """Models specific to the E-NAUTILUS point method."""
 
+from typing import Literal
+
 from sqlmodel import JSON, Column, Field, SQLModel
 
 from desdeo.tools import SolverResults
@@ -66,4 +68,32 @@ class ENautilusRepresentativeSolutionsResponse(SQLModel):
 
     solutions: list[SolverResults] = Field(
         description="The solutions on the non-dominated front closest to the intermediate points."
+    )
+
+
+class ENautilusFinalizeRequest(SQLModel):
+    """Request to finalize E-NAUTILUS and select the final solution."""
+
+    problem_id: int
+    session_id: int | None = Field(default=None)
+    parent_state_id: int = Field(description="The E-NAUTILUS step state (must have iterations_left == 0).")
+    selected_point_index: int = Field(description="Index of the selected intermediate point (0-based).")
+
+
+class ENautilusFinalizeResponse(SQLModel):
+    """Response from E-NAUTILUS finalization."""
+
+    response_type: Literal["e-nautilus.finalize"] = "e-nautilus.finalize"
+
+    state_id: int = Field(description="The ID of the created final state.")
+    selected_intermediate_point: dict[str, float] = Field(
+        sa_column=Column(JSON),
+        description="The intermediate point that was selected by the DM.",
+    )
+    final_solution: SolverResults = Field(
+        description=(
+            "The final solution projected to the representative Pareto front. "
+            "Note: This is the nearest point on the representative set; a true Pareto "
+            "optimal solution dominating this point may exist."
+        ),
     )

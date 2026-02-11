@@ -7,6 +7,9 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
 from desdeo.api.models import (
+    ENautilusFinalizeRequest,
+    ENautilusFinalizeResponse,
+    ENautilusFinalState,
     ENautilusRepresentativeSolutionsResponse,
     ENautilusStateResponse,
     ENautilusStepRequest,
@@ -14,6 +17,7 @@ from desdeo.api.models import (
     ProblemDB,
     ProblemMetaDataDB,
     RepresentativeNonDominatedSolutions,
+    StateDB,
     user,
 )
 
@@ -57,7 +61,7 @@ def test_enautilus_step_request(session_and_user: dict[str, Session | list[user]
 
 def test_enautilus_step_router(client: TestClient, session_and_user: dict[str, Session | list[user]]):
     """Test the E-NAUTILUS stepping endpoint."""
-    session, user = session_and_user["session"], session_and_user["user"]
+    session, _ = session_and_user["session"], session_and_user["user"]
     access_token = login(client)
 
     problem_db = session.exec(select(ProblemDB).where(ProblemDB.name == "The river pollution problem")).first()
@@ -328,3 +332,316 @@ def test_enautilus_get_representative(client: TestClient, session_and_user: dict
     int_response = ENautilusRepresentativeSolutionsResponse.model_validate(json.loads(raw_response.content))
 
     assert len(int_response.solutions) == number_of_intermediate_points
+
+
+def test_enautilus_finalize_request_model():
+    """Test the ENautilusFinalizeRequest model."""
+    request = ENautilusFinalizeRequest(
+        problem_id=1,
+        session_id=2,
+        parent_state_id=10,
+        selected_point_index=0,
+    )
+
+    assert request.problem_id == 1
+    assert request.session_id == 2
+    assert request.parent_state_id == 10
+    assert request.selected_point_index == 0
+
+
+def test_enautilus_final_state_persisted(client: TestClient, session_and_user: dict[str, Session | list[user]]):
+    """Test that ENautilusFinalState is correctly persisted in the database."""
+    session, _ = session_and_user["session"], session_and_user["user"]
+    access_token = login(client)
+
+    problem_db = session.exec(select(ProblemDB).where(ProblemDB.name == "The river pollution problem")).first()
+
+    representative_solutions = session.exec(
+        select(RepresentativeNonDominatedSolutions)
+        .join(RepresentativeNonDominatedSolutions.metadata_instance)
+        .where(ProblemMetaDataDB.problem_id == problem_db.id)
+    ).first()
+
+    # Single iteration to reach iterations_left == 0
+    request = ENautilusStepRequest(
+        problem_id=problem_db.id,
+        session_id=None,
+        parent_state_id=None,
+        representative_solutions_id=representative_solutions.id,
+        current_iteration=0,
+        iterations_left=1,
+        selected_point=None,
+        reachable_point_indices=[],
+        number_of_intermediate_points=2,
+    )
+
+    raw_response = post_json(client, "/method/enautilus/step", request.model_dump(), access_token)
+    assert raw_response.status_code == 200
+    step_response = ENautilusStepResponse.model_validate(json.loads(raw_response.content))
+
+    # Finalize
+    finalize_request = ENautilusFinalizeRequest(
+        problem_id=problem_db.id,
+        session_id=None,
+        parent_state_id=step_response.state_id,
+        selected_point_index=0,
+    )
+
+    raw_response = post_json(client, "/method/enautilus/finalize", finalize_request.model_dump(), access_token)
+    assert raw_response.status_code == 200
+    finalize_response = ENautilusFinalizeResponse.model_validate(json.loads(raw_response.content))
+
+    # Verify the ENautilusFinalState was persisted correctly
+    state_db = session.exec(select(StateDB).where(StateDB.id == finalize_response.state_id)).first()
+    assert state_db is not None
+
+    # Get the concrete final state
+    final_state: ENautilusFinalState = state_db.state
+    assert final_state is not None
+    assert isinstance(final_state, ENautilusFinalState)
+
+    # Verify all fields were persisted
+    assert final_state.origin_step_state_id == step_response.state_id
+    assert final_state.selected_point_index == 0
+    assert final_state.selected_intermediate_point == step_response.intermediate_points[0]
+    assert final_state.solver_results is not None
+    assert final_state.solver_results.optimal_objectives is not None
+    assert final_state.solver_results.optimal_variables is not None
+
+    # Verify the ResultInterface properties work
+    assert final_state.num_solutions == 1
+    assert len(final_state.result_objective_values) == 1
+    assert len(final_state.result_variable_values) == 1
+
+
+def test_enautilus_finalize_endpoint(client: TestClient, session_and_user: dict[str, Session | list[user]]):
+    """Test the E-NAUTILUS finalize endpoint - happy path."""
+    session, _ = session_and_user["session"], session_and_user["user"]
+    access_token = login(client)
+
+    problem_db = session.exec(select(ProblemDB).where(ProblemDB.name == "The river pollution problem")).first()
+
+    representative_solutions = session.exec(
+        select(RepresentativeNonDominatedSolutions)
+        .join(RepresentativeNonDominatedSolutions.metadata_instance)
+        .where(ProblemMetaDataDB.problem_id == problem_db.id)
+    ).first()
+
+    # Run E-NAUTILUS until iterations_left == 0
+    current_iteration = 0
+    total_iterations = 3  # Use fewer iterations for faster test
+    number_of_intermediate_points = 2
+
+    request = ENautilusStepRequest(
+        problem_id=problem_db.id,
+        session_id=None,
+        parent_state_id=None,
+        representative_solutions_id=representative_solutions.id,
+        current_iteration=current_iteration,
+        iterations_left=total_iterations,
+        selected_point=None,
+        reachable_point_indices=[],
+        number_of_intermediate_points=number_of_intermediate_points,
+    )
+
+    raw_response = post_json(client, "/method/enautilus/step", request.model_dump(), access_token)
+    assert raw_response.status_code == 200
+    step_response = ENautilusStepResponse.model_validate(json.loads(raw_response.content))
+
+    # Iterate until last iteration (iterations_left == 0)
+    while step_response.iterations_left > 0:
+        previous_step = step_response
+
+        request = ENautilusStepRequest(
+            problem_id=problem_db.id,
+            session_id=None,
+            parent_state_id=previous_step.state_id,
+            representative_solutions_id=representative_solutions.id,
+            current_iteration=previous_step.current_iteration,
+            iterations_left=previous_step.iterations_left,
+            selected_point=previous_step.intermediate_points[0],
+            reachable_point_indices=previous_step.reachable_point_indices[0],
+            number_of_intermediate_points=number_of_intermediate_points,
+        )
+
+        raw_response = post_json(client, "/method/enautilus/step", request.model_dump(), access_token)
+        assert raw_response.status_code == 200
+        step_response = ENautilusStepResponse.model_validate(json.loads(raw_response.content))
+
+    # Now iterations_left == 0, we can finalize
+    assert step_response.iterations_left == 0
+    last_state_id = step_response.state_id
+
+    # Finalize by selecting the first intermediate point
+    finalize_request = ENautilusFinalizeRequest(
+        problem_id=problem_db.id,
+        session_id=None,
+        parent_state_id=last_state_id,
+        selected_point_index=0,
+    )
+
+    raw_response = post_json(client, "/method/enautilus/finalize", finalize_request.model_dump(), access_token)
+
+    assert raw_response.status_code == 200
+
+    finalize_response = ENautilusFinalizeResponse.model_validate(json.loads(raw_response.content))
+
+    assert finalize_response.response_type == "e-nautilus.finalize"
+    assert finalize_response.state_id is not None
+    assert finalize_response.state_id > last_state_id  # New state created
+    assert finalize_response.selected_intermediate_point == step_response.intermediate_points[0]
+    assert finalize_response.final_solution is not None
+    assert finalize_response.final_solution.optimal_objectives is not None
+    assert finalize_response.final_solution.optimal_variables is not None
+
+
+def test_enautilus_finalize_invalid_iterations_left(
+    client: TestClient, session_and_user: dict[str, Session | list[user]]
+):
+    """Test that finalize fails when iterations_left != 0."""
+    session, _ = session_and_user["session"], session_and_user["user"]
+    access_token = login(client)
+
+    problem_db = session.exec(select(ProblemDB).where(ProblemDB.name == "The river pollution problem")).first()
+
+    representative_solutions = session.exec(
+        select(RepresentativeNonDominatedSolutions)
+        .join(RepresentativeNonDominatedSolutions.metadata_instance)
+        .where(ProblemMetaDataDB.problem_id == problem_db.id)
+    ).first()
+
+    # Create a step state with iterations_left > 0
+    request = ENautilusStepRequest(
+        problem_id=problem_db.id,
+        session_id=None,
+        parent_state_id=None,
+        representative_solutions_id=representative_solutions.id,
+        current_iteration=0,
+        iterations_left=5,  # More than 0
+        selected_point=None,
+        reachable_point_indices=[],
+        number_of_intermediate_points=2,
+    )
+
+    raw_response = post_json(client, "/method/enautilus/step", request.model_dump(), access_token)
+    assert raw_response.status_code == 200
+    step_response = ENautilusStepResponse.model_validate(json.loads(raw_response.content))
+
+    # Try to finalize when iterations_left != 0
+    assert step_response.iterations_left > 0  # Confirm it's not 0
+
+    finalize_request = ENautilusFinalizeRequest(
+        problem_id=problem_db.id,
+        session_id=None,
+        parent_state_id=step_response.state_id,
+        selected_point_index=0,
+    )
+
+    raw_response = post_json(client, "/method/enautilus/finalize", finalize_request.model_dump(), access_token)
+
+    assert raw_response.status_code == 400  # Bad Request
+    error_detail = json.loads(raw_response.content)["detail"]
+    assert "iterations_left" in error_detail
+    assert "must be 0" in error_detail
+
+
+def test_enautilus_finalize_invalid_point_index(client: TestClient, session_and_user: dict[str, Session | list[user]]):
+    """Test that finalize fails with an invalid selected_point_index."""
+    session, _ = session_and_user["session"], session_and_user["user"]
+    access_token = login(client)
+
+    problem_db = session.exec(select(ProblemDB).where(ProblemDB.name == "The river pollution problem")).first()
+
+    representative_solutions = session.exec(
+        select(RepresentativeNonDominatedSolutions)
+        .join(RepresentativeNonDominatedSolutions.metadata_instance)
+        .where(ProblemMetaDataDB.problem_id == problem_db.id)
+    ).first()
+
+    # Run E-NAUTILUS until iterations_left == 0
+    number_of_intermediate_points = 2
+
+    request = ENautilusStepRequest(
+        problem_id=problem_db.id,
+        session_id=None,
+        parent_state_id=None,
+        representative_solutions_id=representative_solutions.id,
+        current_iteration=0,
+        iterations_left=1,  # Single iteration to reach 0 quickly
+        selected_point=None,
+        reachable_point_indices=[],
+        number_of_intermediate_points=number_of_intermediate_points,
+    )
+
+    raw_response = post_json(client, "/method/enautilus/step", request.model_dump(), access_token)
+    assert raw_response.status_code == 200
+    step_response = ENautilusStepResponse.model_validate(json.loads(raw_response.content))
+
+    assert step_response.iterations_left == 0
+
+    # Try to finalize with an invalid index (too high)
+    finalize_request = ENautilusFinalizeRequest(
+        problem_id=problem_db.id,
+        session_id=None,
+        parent_state_id=step_response.state_id,
+        selected_point_index=999,  # Invalid - only 2 intermediate points
+    )
+
+    raw_response = post_json(client, "/method/enautilus/finalize", finalize_request.model_dump(), access_token)
+
+    assert raw_response.status_code == 400  # Bad Request
+    error_detail = json.loads(raw_response.content)["detail"]
+    assert "Invalid selected_point_index" in error_detail
+
+
+def test_enautilus_finalize_second_option(client: TestClient, session_and_user: dict[str, Session | list[user]]):
+    """Test finalizing with a different selected_point_index."""
+    session, _ = session_and_user["session"], session_and_user["user"]
+    access_token = login(client)
+
+    problem_db = session.exec(select(ProblemDB).where(ProblemDB.name == "The river pollution problem")).first()
+
+    representative_solutions = session.exec(
+        select(RepresentativeNonDominatedSolutions)
+        .join(RepresentativeNonDominatedSolutions.metadata_instance)
+        .where(ProblemMetaDataDB.problem_id == problem_db.id)
+    ).first()
+
+    number_of_intermediate_points = 3
+
+    # Single iteration to reach iterations_left == 0
+    request = ENautilusStepRequest(
+        problem_id=problem_db.id,
+        session_id=None,
+        parent_state_id=None,
+        representative_solutions_id=representative_solutions.id,
+        current_iteration=0,
+        iterations_left=1,
+        selected_point=None,
+        reachable_point_indices=[],
+        number_of_intermediate_points=number_of_intermediate_points,
+    )
+
+    raw_response = post_json(client, "/method/enautilus/step", request.model_dump(), access_token)
+    assert raw_response.status_code == 200
+    step_response = ENautilusStepResponse.model_validate(json.loads(raw_response.content))
+
+    assert step_response.iterations_left == 0
+    assert len(step_response.intermediate_points) == number_of_intermediate_points
+
+    # Finalize by selecting the second intermediate point (index 1)
+    finalize_request = ENautilusFinalizeRequest(
+        problem_id=problem_db.id,
+        session_id=None,
+        parent_state_id=step_response.state_id,
+        selected_point_index=1,  # Second option
+    )
+
+    raw_response = post_json(client, "/method/enautilus/finalize", finalize_request.model_dump(), access_token)
+
+    assert raw_response.status_code == 200
+
+    finalize_response = ENautilusFinalizeResponse.model_validate(json.loads(raw_response.content))
+
+    assert finalize_response.selected_intermediate_point == step_response.intermediate_points[1]
+    assert finalize_response.final_solution is not None

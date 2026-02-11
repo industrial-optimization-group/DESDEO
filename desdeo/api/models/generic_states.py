@@ -22,6 +22,7 @@ from .state import (
     EMOIterateState,
     EMOSaveState,
     EMOSCOREState,
+    ENautilusFinalState,
     ENautilusState,
     GNIMBUSEndState,
     GNIMBUSOptimizationState,
@@ -62,6 +63,7 @@ class StateKind(str, Enum):
     EMO_SCORE = "emo.score_bands"
     GENERIC_INTERMEDIATE = "generic.solve_intermediate"
     ENAUTILUS_STEP = "e-nautilus.stepping"
+    ENAUTILUS_FINAL = "e-nautilus.final"
 
 
 class State(SQLModel, table=True):
@@ -191,6 +193,7 @@ KIND_TO_TABLE: dict[StateKind, SQLModel] = {
     StateKind.EMO_SCORE: EMOSCOREState,
     StateKind.GENERIC_INTERMEDIATE: IntermediateSolutionState,
     StateKind.ENAUTILUS_STEP: ENautilusState,
+    StateKind.ENAUTILUS_FINAL: ENautilusFinalState,
 }
 
 SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
@@ -208,6 +211,7 @@ SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
     EMOSCOREState: StateKind.EMO_SCORE,
     IntermediateSolutionState: StateKind.GENERIC_INTERMEDIATE,
     ENautilusState: StateKind.ENAUTILUS_STEP,
+    ENautilusFinalState: StateKind.ENAUTILUS_FINAL,
 }
 
 

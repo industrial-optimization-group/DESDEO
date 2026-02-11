@@ -9,6 +9,9 @@ from sqlmodel import Session, select
 
 from desdeo.api.db import get_session
 from desdeo.api.models import (
+    ENautilusFinalizeRequest,
+    ENautilusFinalizeResponse,
+    ENautilusFinalState,
     ENautilusRepresentativeSolutionsResponse,
     ENautilusState,
     ENautilusStateResponse,
@@ -183,10 +186,10 @@ def get_representative(
         db_session (Annotated[Session, Depends): the database session.
 
     Raises:
-        HTTPException: 404 when a `StateDB`, `ProblemDB`, or
-            `RepresentativeNonDominatedSolutions` instance cannot be found. 406 when
-            the substate of the references `StateDB` is not an instance of
-            `ENautilusState`.
+        HTTPException: 404 if a `StateDB`, `ProblemDB`, or
+            `RepresentativeNonDominatedSolutions` instance cannot be found.
+        HTTPException: 406 if the substate of the references `StateDB` is not an
+            instance of `ENautilusState`.
 
     Returns:
         ENautilusRepresentativeSolutionsResponse: the information on the representative solutions.
@@ -235,3 +238,122 @@ def get_representative(
     representative_solutions = enautilus_get_representative_solutions(problem, enautilus_result, non_dom_solutions)
 
     return ENautilusRepresentativeSolutionsResponse(solutions=representative_solutions)
+
+
+@router.post("/finalize")
+def finalize_enautilus(
+    request: ENautilusFinalizeRequest,
+    context: Annotated[SessionContext, Depends(get_session_context)],
+) -> ENautilusFinalizeResponse:
+    """Finalize E-NAUTILUS by selecting the final solution.
+
+    The parent state must be an E-NAUTILUS step with iterations_left == 0.
+    The selected intermediate point is projected to the nearest point on the
+    representative Pareto front using `enautilus_get_representative_solutions`.
+
+    Note: The returned solution is the nearest point on the REPRESENTATIVE set,
+    not necessarily a true Pareto optimal solution. A dominating solution may
+    exist but would require additional optimization to find.
+
+    Args:
+        request: The finalization request with parent_state_id and selected_point_index.
+        context: The session context.
+
+    Returns:
+        ENautilusFinalizeResponse with the final state ID and solution.
+
+    Raises:
+        HTTPException: 400 if parent state is not valid or iterations_left != 0.
+        HTTPException: 404 if referenced states/solutions not found.
+    """
+    db_session = context.db_session
+    parent_state = context.parent_state
+    problem_db = context.problem_db
+    interactive_session = context.interactive_session
+
+    # Validate parent state exists and is E-NAUTILUS step
+    if parent_state is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="parent_state_id is required for finalization.",
+        )
+
+    if not isinstance(parent_state.state, ENautilusState):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Parent state must be an E-NAUTILUS step state.",
+        )
+
+    enautilus_state: ENautilusState = parent_state.state
+    result: ENautilusResult = enautilus_state.enautilus_results
+
+    # Validate iterations_left == 0
+    if result.iterations_left != 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot finalize: iterations_left={result.iterations_left}, must be 0.",
+        )
+
+    # Validate selected_point_index
+    if request.selected_point_index < 0 or request.selected_point_index >= len(result.intermediate_points):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Invalid selected_point_index: {request.selected_point_index}. "
+                f"Must be in range [0, {len(result.intermediate_points) - 1}]."
+            ),
+        )
+
+    # Get the selected intermediate point
+    selected_intermediate_point = result.intermediate_points[request.selected_point_index]
+
+    # Get non-dominated solutions for projection
+    non_dom_solutions_db = db_session.exec(
+        select(RepresentativeNonDominatedSolutions).where(
+            RepresentativeNonDominatedSolutions.id == enautilus_state.non_dominated_solutions_id
+        )
+    ).first()
+
+    if non_dom_solutions_db is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=(
+                f"Could not find 'RepresentativeNonDominatedSolutions' with "
+                f"id={enautilus_state.non_dominated_solutions_id}"
+            ),
+        )
+
+    non_dom_solutions = pl.DataFrame(non_dom_solutions_db.solution_data)
+
+    # Get representative solutions (project to Pareto front)
+    problem = Problem.from_problemdb(problem_db)
+    representative_solutions = enautilus_get_representative_solutions(problem, result, non_dom_solutions)
+
+    # Get the solution corresponding to the selected point
+    final_solution = representative_solutions[request.selected_point_index]
+
+    # Create final state
+    final_state = ENautilusFinalState(
+        origin_step_state_id=parent_state.id,
+        selected_point_index=request.selected_point_index,
+        selected_intermediate_point=selected_intermediate_point,
+        solver_results=final_solution,
+    )
+
+    state_db = StateDB.create(
+        database_session=db_session,
+        problem_id=problem_db.id,
+        session_id=interactive_session.id if interactive_session else None,
+        parent_id=parent_state.id,
+        state=final_state,
+    )
+
+    db_session.add(state_db)
+    db_session.commit()
+    db_session.refresh(state_db)
+
+    return ENautilusFinalizeResponse(
+        state_id=state_db.id,
+        selected_intermediate_point=selected_intermediate_point,
+        final_solution=final_solution,
+    )
