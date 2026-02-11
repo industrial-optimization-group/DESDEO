@@ -3,6 +3,7 @@
 import warnings
 from typing import TYPE_CHECKING
 
+from sqlalchemy import ForeignKey, Integer
 from sqlalchemy.types import TypeDecorator
 from sqlmodel import (
     JSON,
@@ -102,7 +103,7 @@ class ResultInterface:
 class RPMState(SQLModel, table=True):
     """Reference Point Method (k+1 candidates)."""
 
-    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
+    id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
 
     # inputs
     preferences: ReferencePoint = Field(sa_column=Column(PreferenceType))
@@ -117,7 +118,7 @@ class RPMState(SQLModel, table=True):
 class NIMBUSClassificationState(ResultInterface, SQLModel, table=True):
     """NIMBUS: classification / solve candidates."""
 
-    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
+    id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
 
     preferences: ReferencePoint = Field(sa_column=Column(PreferenceType))
     scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
@@ -146,7 +147,7 @@ class NIMBUSClassificationState(ResultInterface, SQLModel, table=True):
 class NIMBUSSaveState(ResultInterface, SQLModel, table=True):
     """NIMBUS: save solutions."""
 
-    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
+    id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
 
     solutions: list["UserSavedSolutionDB"] = Relationship(
         sa_relationship_kwargs={
@@ -174,7 +175,7 @@ class NIMBUSSaveState(ResultInterface, SQLModel, table=True):
 class NIMBUSInitializationState(ResultInterface, SQLModel, table=True):
     """NIMBUS: initialization."""
 
-    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
+    id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
 
     reference_point: dict[str, float] | None = Field(sa_column=Column(JSON), default=None)
     scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
@@ -205,7 +206,7 @@ class NIMBUSFinalState(ResultInterface, SQLModel, table=True):
     I think this should behave/have necessary elements for that to be the case.
     """
 
-    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
+    id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
 
     solution_origin_state_id: int = Field(description="The state from which the solution originates.")
     solution_result_index: int = Field(description="The index within that state.")
@@ -228,7 +229,7 @@ class NIMBUSFinalState(ResultInterface, SQLModel, table=True):
 class GNIMBUSOptimizationState(ResultInterface, SQLModel, table=True):
     """GNIMBUS: classification / solving."""
 
-    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
+    id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
 
     # Preferences that went in
     reference_points: dict[int, dict[str, float]] = Field(sa_column=Column(JSON))
@@ -251,7 +252,7 @@ class GNIMBUSOptimizationState(ResultInterface, SQLModel, table=True):
 class GNIMBUSVotingState(ResultInterface, SQLModel, table=True):
     """GNIMBUS: voting."""
 
-    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
+    id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
 
     # Preferences that went in
     votes: dict[int, int] = Field(sa_column=Column(JSON))
@@ -274,7 +275,7 @@ class GNIMBUSVotingState(ResultInterface, SQLModel, table=True):
 class GNIMBUSEndState(ResultInterface, SQLModel, table=True):
     """GNIMBUS: ending. We check if everyone's happy with the solution and end if yes."""
 
-    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
+    id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
 
     # Preferences that went in
     votes: dict[int, bool] = Field(sa_column=Column(JSON))
@@ -299,7 +300,7 @@ class GNIMBUSEndState(ResultInterface, SQLModel, table=True):
 class EMOIterateState(ResultInterface, SQLModel, table=True):
     """EMO run (NSGA3, RVEA, etc.)."""
 
-    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
+    id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
 
     # algorithm flavor
     template_options: list[TemplateOptions] = Field(
@@ -353,14 +354,14 @@ class EMOIterateState(ResultInterface, SQLModel, table=True):
 class EMOFetchState(SQLModel, table=True):
     """Request model for fetching EMO solutions."""
 
-    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
+    id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
     # More fields can be added here if needed in the future. E.g., number of solutions to fetch, filters, etc.
 
 
 class EMOSCOREState(SQLModel, table=True):
     """EMO: SCORE iteration."""
 
-    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
+    id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
 
     result: SCOREBandsResult = Field(sa_column=Column(JSON))
 
@@ -368,7 +369,7 @@ class EMOSCOREState(SQLModel, table=True):
 class EMOSaveState(SQLModel, table=True):
     """EMO: save solutions."""
 
-    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
+    id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
 
     # results
     decision_variables: dict[str, list[VariableType]] = Field(
@@ -414,7 +415,7 @@ class EMOSaveState(SQLModel, table=True):
 class IntermediateSolutionState(SQLModel, ResultInterface, table=True):
     """Generic intermediate solutions requested by other methods."""
 
-    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
+    id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
 
     context: str | None = Field(
         default=None,
@@ -446,7 +447,7 @@ class IntermediateSolutionState(SQLModel, ResultInterface, table=True):
 class ENautilusState(SQLModel, table=True):
     """E-NAUTILUS: one stepping iteration."""
 
-    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
+    id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
 
     non_dominated_solutions_id: int | None = Field(foreign_key="representativenondominatedsolutions.id", default=None)
 
@@ -469,7 +470,7 @@ class ENautilusFinalState(ResultInterface, SQLModel, table=True):
     to the nearest point on the representative Pareto front.
     """
 
-    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
+    id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
 
     # Reference to the step state from which the final solution was selected
     origin_step_state_id: int = Field(description="The E-NAUTILUS step state from which the solution was selected.")

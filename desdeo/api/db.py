@@ -1,5 +1,6 @@
 """Database configuration file for the API."""
 
+from sqlalchemy import event
 from sqlmodel import Session, create_engine
 
 from desdeo.api.config import DatabaseConfig, SettingsConfig
@@ -9,6 +10,12 @@ if SettingsConfig.debug:
 
     # SQLite setup
     engine = create_engine(DatabaseConfig.db_database, connect_args={"check_same_thread": False})
+
+    @event.listens_for(engine, "connect")
+    def _set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 
 else:
     DB_USER = DatabaseConfig.db_username

@@ -228,6 +228,12 @@ def _attach_substate(session, base: State, sub: SQLModel | None) -> None:
 
     if sub is not None:
         sub.id = base.id
+        # Remove any orphaned substate row with this ID (can happen when a
+        # parent State was deleted without cascading to the substate table).
+        existing = session.get(type(sub), base.id)
+        if existing is not None:
+            session.delete(existing)
+            session.flush()
         session.add(sub)
         session.flush()
 
