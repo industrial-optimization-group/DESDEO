@@ -9,18 +9,22 @@ from sqlmodel import Session, select
 
 from desdeo.api.db import get_session
 from desdeo.api.models import (
+    ENautilusDecisionEventResponse,
     ENautilusFinalizeRequest,
     ENautilusFinalizeResponse,
     ENautilusFinalState,
     ENautilusRepresentativeSolutionsResponse,
+    ENautilusSessionTreeResponse,
     ENautilusState,
     ENautilusStateResponse,
     ENautilusStepRequest,
     ENautilusStepResponse,
+    ENautilusTreeNodeResponse,
     ProblemDB,
     RepresentativeNonDominatedSolutions,
     StateDB,
 )
+from desdeo.api.models.generic_states import State, StateKind
 from desdeo.mcdm import ENautilusResult, enautilus_get_representative_solutions, enautilus_step
 from desdeo.problem import Problem
 
@@ -357,3 +361,167 @@ def finalize_enautilus(
         selected_intermediate_point=selected_intermediate_point,
         final_solution=final_solution,
     )
+
+
+@router.get("/session_tree/{session_id}")
+def get_session_tree(
+    session_id: int,
+    db_session: Annotated[Session, Depends(get_session)],
+) -> ENautilusSessionTreeResponse:
+    """Extract the full E-NAUTILUS decision tree for a session.
+
+    Returns all step and final nodes, edges, root IDs, and pre-computed
+    decision events capturing what the DM chose at each transition.
+
+    Args:
+        session_id: The interactive session ID.
+        db_session: The database session.
+
+    Returns:
+        ENautilusSessionTreeResponse with nodes, edges, root_ids, and decision_events.
+    """
+    # Query step states
+    step_stmt = (
+        select(StateDB)
+        .join(State, StateDB.state_id == State.id)
+        .where(StateDB.session_id == session_id)
+        .where(State.kind == StateKind.ENAUTILUS_STEP)
+        .order_by(StateDB.id)
+    )
+    step_state_dbs: list[StateDB] = list(db_session.exec(step_stmt).all())
+
+    # Query final states
+    final_stmt = (
+        select(StateDB)
+        .join(State, StateDB.state_id == State.id)
+        .where(StateDB.session_id == session_id)
+        .where(State.kind == StateKind.ENAUTILUS_FINAL)
+        .order_by(StateDB.id)
+    )
+    final_state_dbs: list[StateDB] = list(db_session.exec(final_stmt).all())
+
+    all_state_dbs = step_state_dbs + final_state_dbs
+    all_node_ids = {sdb.id for sdb in all_state_dbs}
+
+    # Compute depths
+    parent_map = {sdb.id: sdb.parent_id for sdb in all_state_dbs}
+    depths: dict[int, int] = {}
+    for node_id in all_node_ids:
+        depth = 0
+        current = node_id
+        while parent_map.get(current) is not None:
+            parent = parent_map[current]
+            if parent in all_node_ids:
+                depth += 1
+            current = parent
+        depths[node_id] = depth
+
+    nodes: list[ENautilusTreeNodeResponse] = []
+    edges: list[list[int]] = []
+    root_ids: list[int] = []
+    # Map node_id -> parsed step data for decision event building
+    step_data: dict[int, dict] = {}
+
+    # Process step states
+    for state_db in step_state_dbs:
+        enautilus_state: ENautilusState = state_db.state
+        if enautilus_state is None:
+            continue
+
+        result = enautilus_state.enautilus_results
+
+        node = ENautilusTreeNodeResponse(
+            node_id=state_db.id,
+            parent_node_id=state_db.parent_id,
+            depth=depths.get(state_db.id, 0),
+            node_type="step",
+            current_iteration=result.current_iteration,
+            iterations_left=result.iterations_left,
+            selected_point=enautilus_state.selected_point,
+            intermediate_points=result.intermediate_points,
+            closeness_measures=result.closeness_measures,
+        )
+        nodes.append(node)
+
+        step_data[state_db.id] = {
+            "current_iteration": result.current_iteration,
+            "iterations_left": result.iterations_left,
+            "selected_point": enautilus_state.selected_point,
+            "intermediate_points": result.intermediate_points,
+        }
+
+        if state_db.parent_id is None:
+            root_ids.append(state_db.id)
+        elif state_db.parent_id in all_node_ids:
+            edges.append([state_db.parent_id, state_db.id])
+
+    # Process final states
+    for state_db in final_state_dbs:
+        final_state: ENautilusFinalState = state_db.state
+        if final_state is None:
+            continue
+
+        final_obj = None
+        if final_state.solver_results and final_state.solver_results.optimal_objectives:
+            final_obj = final_state.solver_results.optimal_objectives
+
+        node = ENautilusTreeNodeResponse(
+            node_id=state_db.id,
+            parent_node_id=state_db.parent_id,
+            depth=depths.get(state_db.id, 0),
+            node_type="final",
+            selected_point_index=final_state.selected_point_index,
+            selected_intermediate_point=final_state.selected_intermediate_point,
+            final_solution_objectives=final_obj,
+        )
+        nodes.append(node)
+
+        if state_db.parent_id in all_node_ids:
+            edges.append([state_db.parent_id, state_db.id])
+
+    # Build decision events for step-to-step edges
+    decision_events: list[ENautilusDecisionEventResponse] = []
+    for parent_id, child_id in edges:
+        parent_data = step_data.get(parent_id)
+        child_data = step_data.get(child_id)
+        if parent_data is None or child_data is None:
+            continue
+
+        # Match chosen point to parent's intermediate points
+        chosen_idx = _match_chosen_point(child_data["selected_point"], parent_data["intermediate_points"])
+
+        event = ENautilusDecisionEventResponse(
+            parent_node_id=parent_id,
+            child_node_id=child_id,
+            parent_iteration=parent_data["current_iteration"],
+            child_iteration=child_data["current_iteration"],
+            iterations_left_after=child_data["iterations_left"],
+            starting_point=parent_data["selected_point"],
+            chosen_point=child_data["selected_point"],
+            chosen_option_idx=chosen_idx,
+        )
+        decision_events.append(event)
+
+    return ENautilusSessionTreeResponse(
+        session_id=session_id,
+        nodes=nodes,
+        edges=edges,
+        root_ids=root_ids,
+        decision_events=decision_events,
+    )
+
+
+def _match_chosen_point(
+    chosen: dict[str, float] | None,
+    options: list[dict[str, float]],
+    tolerance: float = 1e-9,
+) -> int | None:
+    """Match a chosen point to one of the intermediate point options."""
+    if chosen is None or not options:
+        return None
+
+    for idx, opt in enumerate(options):
+        if set(chosen.keys()) == set(opt.keys()) and all(abs(chosen[k] - opt[k]) < tolerance for k in chosen):
+            return idx
+
+    return None
