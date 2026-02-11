@@ -11,6 +11,7 @@
 	import * as Resizable from '$lib/components/ui/resizable';
 	import { DecisionTree } from '$lib/components/custom/decision-tree';
 	import Combobox from '$lib/components/ui/combobox/combobox.svelte';
+	import { EndStateView } from '$lib/components/custom/end-state-view';
 	import type { ENautilusSessionTreeResponse } from '$lib/gen/models';
 
 	import type {
@@ -154,6 +155,27 @@
 		if (!representative) return null;
 		return representative.solutions[final_selected_index] ?? null;
 	})
+
+	// SolverResults values may be number | number[]; unwrap arrays to plain numbers.
+	function unwrapSolverRecord(record: Record<string, unknown>): { [key: string]: number } {
+		const out: { [key: string]: number } = {};
+		for (const [k, v] of Object.entries(record)) {
+			out[k] = Array.isArray(v) ? v[0] : (v as number);
+		}
+		return out;
+	}
+
+	let finalTableData = $derived.by(() => {
+		if (!representative) return [];
+		const sol = representative.solutions[final_selected_index];
+		if (!sol) return [];
+		return [{
+			objective_values: unwrapSolverRecord(sol.optimal_objectives),
+			variable_values: unwrapSolverRecord(sol.optimal_variables),
+			name: null,
+			solution_index: final_selected_index
+		}];
+	});
 
 	// -- Table state for intermediate points --
 	let displayAccuracy = $derived(getDisplayAccuracy(problem_info));
@@ -471,7 +493,7 @@
 
 	async function finalize_enautilus() {
 		try {
-
+			errorMessage.set(null);
 			isLoading.set(true);
 
 			if (!previous_response || previous_response.state_id == null) {
@@ -487,12 +509,11 @@
 			const response = await fetch_representative_solutions(previous_response.state_id);
 			if (!response) {
 				errorMessage.set("Failed to fetch representative solutions.")
+				return;
 			}
 
 			representative = response;
-
 			final_selected_index = selected_point_index ?? 0;
-
 			mode = 'final';
 
 		} catch(err) {
@@ -598,7 +619,10 @@
 
 {#if $isLoading}
 	<p class="text-center text-gray-500">Loading E-NAUTILUS data…</p>
+{:else}
+	<p class="text-center text-gray-500">Waiting for user input.</p>
 {/if}
+
 
 {#if $errorMessage}
 	<p class="text-center text-red-600">{$errorMessage}</p>
@@ -643,25 +667,13 @@
 		{/snippet}
 
 		{#snippet numericalValues()}
-			{#if finalSolution}
-				<!-- Minimal numeric display for SolverResults -->
-				<div class="h-full overflow-auto p-2 text-sm">
-					<div class="mb-2 font-semibold">Representative solution #{final_selected_index + 1}</div>
-
-					<div class="mb-3">
-						<div class="text-xs font-semibold text-gray-600">Objectives</div>
-						<pre class="text-xs">{JSON.stringify(finalSolution.optimal_objectives, null, 2)}</pre>
-					</div>
-
-					<div class="mb-3">
-						<div class="text-xs font-semibold text-gray-600">Variables</div>
-						<pre class="text-xs">{JSON.stringify(finalSolution.optimal_variables, null, 2)}</pre>
-					</div>
-
-					<div class="text-xs text-gray-600">
-						success: {String(finalSolution.success)} — {finalSolution.message}
-					</div>
-				</div>
+			{#if problem_info && finalTableData.length > 0}
+				<EndStateView
+					problem={problem_info}
+					tableData={finalTableData}
+					showVariables={true}
+					title="Representative solution"
+				/>
 			{/if}
 		{/snippet}
 	</BaseLayout>
@@ -841,14 +853,14 @@
 					title={
 						!previous_response || previous_response.iterations_left !== 0
 							? 'Finish becomes available after the last iteration (iterations left = 0).'
-							: previous_response.state_id == null
-								? 'Cannot finalize because the final state_id is missing.'
-								: 'Fetch the final representative solution(s).'
+							: selected_point_index == null
+								? 'Select an intermediate point first.'
+								: 'Finalize with the selected solution.'
 					}
 				>
 					<Button
-						onclick={previous_response && previous_response.iterations_left === 0 && previous_response.state_id != null ? finalize_enautilus : undefined}
-						disabled={!previous_response || previous_response.iterations_left !== 0 || previous_response.state_id == null}
+						onclick={finalize_enautilus}
+						disabled={!previous_response || previous_response.iterations_left !== 0 || previous_response.state_id == null || selected_point_index == null}
 						variant="destructive"
 						class="ml-10"
 					>
