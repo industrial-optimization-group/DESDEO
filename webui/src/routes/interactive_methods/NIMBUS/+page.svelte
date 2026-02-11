@@ -111,7 +111,7 @@
 
 	let problem: ProblemInfo | null = $state(null);
 	const { data } = $props<{ data: ProblemInfo[] }>();
-	let problem_list = data.problems ?? [];
+	let problem_list = $derived(data.problems ?? []);
 	// user can choose from three types of solutions: current, best, or all
 	let selected_type_solutions = $state('current');
 	const frameworks = [
@@ -248,7 +248,7 @@
 			console.error('No previous preference values found for finishing.');
 			return;
 		}
-		const response = await handleFinishRequest(problem, final_solution, current_state.previous_preference); 
+		const response = await handleFinishRequest(problem, final_solution, current_state.previous_preference);
 		if (response) {
 			// Update the selected iteration index to match our final solution
 			// This will ensure that in final mode we show the correct solution
@@ -487,7 +487,7 @@
 		if (hasUtopiaMetadata && chosen_solutions.length > 0) {
 			// Initialize mapStates array with the correct length
 			mapStates = new Array(chosen_solutions.length);
-			
+
 			// Fetch maps for each solution without waiting
 			chosen_solutions.forEach((solution, index) => {
 				get_maps(solution, index);
@@ -623,9 +623,9 @@
 {/if}
 
 {#if $errorMessage}
-	<Alert 
+	<Alert
 		title="Error"
-		message={$errorMessage} 
+		message={$errorMessage}
 		variant='destructive'
 	/>
 {/if}

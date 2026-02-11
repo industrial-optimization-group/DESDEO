@@ -7,7 +7,7 @@
 	import { superForm } from 'sveltekit-superforms';
 
 	let { data } = $props();
-	const { form, enhance } = superForm(data.form);
+	const { form, enhance } = $derived(superForm(data.form));
 
 	let loginError: string | null = null; // whether login is successful or not
 </script>

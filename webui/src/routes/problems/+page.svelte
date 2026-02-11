@@ -53,7 +53,7 @@
 	import MathExpressionRenderer from '$lib/components/ui/MathExpressionRenderer/MathExpressionRenderer.svelte';
 
 	let { data }: PageProps = $props();
-	let problemList = data.problemList;
+	let problemList = $derived(data.problemList);
 	let selectedProblem = $state<ProblemInfo | undefined>(undefined);
 </script>
 

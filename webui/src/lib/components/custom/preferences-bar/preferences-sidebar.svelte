@@ -78,24 +78,26 @@
 	}: Props = $props();
 
 	// Validate that preference_types only contains valid values
-	const valid_preference_types = preferenceTypes.filter((type) =>
+	const valid_preference_types = $derived(preferenceTypes.filter((type) =>
 		Object.values(PREFERENCE_TYPES).includes(type as PreferenceValue)
-	);
+	));
 
-	if (valid_preference_types.length !== preferenceTypes.length) {
-		console.warn(
-			'Invalid preference types detected:',
-			preferenceTypes.filter(
-				(type) => !Object.values(PREFERENCE_TYPES).includes(type as PreferenceValue)
-			)
-		);
-	}
+	$effect(() => {
+		if (valid_preference_types.length !== preferenceTypes.length) {
+			console.warn(
+				'Invalid preference types detected:',
+				preferenceTypes.filter(
+					(type) => !Object.values(PREFERENCE_TYPES).includes(type as PreferenceValue)
+				)
+			);
+		}
+	});
 
-	// Internal state that syncs with props
-	let internal_num_solutions = $state(numSolutions);
-	let internal_type_preferences = $state(typePreferences);
-	let internal_preference_values = $state([...preferenceValues]);
-	let internal_objective_values = $state([...objectiveValues]);
+	// Internal state that syncs with props (initialized via $effect below)
+	let internal_num_solutions = $state(0);
+	let internal_type_preferences = $state('');
+	let internal_preference_values = $state<number[]>([]);
+	let internal_objective_values = $state<number[]>([]);
 
 	let displayAccuracy = $derived((idx: number) => {
 		const list = getDisplayAccuracy(problem)
@@ -192,7 +194,7 @@
 	// Helper function to get objective title for display
 	function getObjectiveTitle(objective: any): string {
 		if (!objective) return '';
-		
+
 		const tooltip = objective.description || objective.name;
 		return objective.unit ? `${tooltip} (${objective.unit})` : tooltip;
 	}

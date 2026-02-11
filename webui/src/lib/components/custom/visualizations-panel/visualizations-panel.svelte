@@ -44,7 +44,7 @@
 	 * - Previous solution comparison
 	 * - Empty state handling
 	 * - Interactive tooltips with customizable labels for solutions and reference points
-	 * 
+	 *
 	 * @dependencies
 	 * - ParallelCoordinates component for the core visualization
 	 * - SegmentedControl for visualization type selection (prepared for future bar charts)
@@ -181,16 +181,11 @@
 	};
 
 	// State for line selection and filtering
-	// Initialize with external selection if provided, otherwise null
-	let selectedIndex = $state<number | null>(
-		externalSelectedIndex !== null ? externalSelectedIndex : null
-	);
+	let selectedIndex = $state<number | null>(null);
 
 	// Update internal selection when external selection changes
 	$effect(() => {
-		if (externalSelectedIndex !== null) {
-			selectedIndex = externalSelectedIndex;
-		}
+		selectedIndex = externalSelectedIndex ?? null;
 	});
 
 	// Add container size tracking
@@ -228,10 +223,10 @@
 	});
 </script>
 
-<!-- 
+<!--
 /**
  * Component Template
- * 
+ *
  * The visualization components handle their own internal resizing,
  * so we provide a container with appropriate dimensions and selector controls.
  */

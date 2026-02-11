@@ -125,7 +125,7 @@
 		}
 		return null;
 	});
-	const totalVoters = data.group.user_ids.length;
+	const totalVoters = $derived(data.group.user_ids.length);
 	let have_all_voted = $derived.by(() => {
 		return totalVoters === Object.keys(votes_and_confirms.votes || {}).length;
 	});

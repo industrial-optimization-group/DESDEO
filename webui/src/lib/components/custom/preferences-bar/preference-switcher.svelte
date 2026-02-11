@@ -13,7 +13,8 @@
 		defaultPreference,
 		onswitch
 	}: { preferences: string[]; defaultPreference: string; onswitch: any } = $props();
-	let selectedPreference = $state(defaultPreference);
+	let selectedPreference = $state('');
+	$effect(() => { selectedPreference = defaultPreference; });
 
 	// Watch for changes and dispatch event
 	//$: dispatch('switch', selectedPreference);

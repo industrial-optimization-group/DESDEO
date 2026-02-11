@@ -1,22 +1,22 @@
 <!--
     Interactive EMO Method Page
     ===========================
-    
+
     @description
     Interactive Evolutionary Multi-Objective (EMO) methods interface.
     This page provides an interface for EMO methods from the DESDEO framework.
-    The method being used (NSGA-III or RVEA) can be modified in the backend code. 
+    The method being used (NSGA-III or RVEA) can be modified in the backend code.
     In the future, we plan to let an analyst select the method from the UI.
 
     @author Giomara Larraga <glarragw@jyu.fi>
     @created July 2025
-    
+
     @dependencies
     - BaseLayout: Main layout component with snippet-based architecture
     - AppSidebar: Preferences and controls sidebar
     - AdvancedSidebar: Sidebar with explanations and advanced settings
     - Combobox: Solution visualization type selector
-     
+
     @preference_types
     Supported preference types:
     - ReferencePoint: Desirable values for each objective
@@ -31,7 +31,7 @@
        - Replace simulation in _update_from_optimization_procedure with real API calls
        - Implement proper error handling for network requests
        - Add loading states during optimization
-    
+
     3. Saved Solutions:
        - Implement solution saving/loading functionality
        - Add solution comparison features
@@ -86,7 +86,7 @@
 	 * List of available optimization problems
 	 * Extracted from the page data, with fallback to empty array
 	 */
-	let problem_list = data.problems ?? [];
+	let problem_list = $derived(data.problems ?? []);
 
 	/**
 	 * Selected type of solutions to visualize
@@ -553,15 +553,15 @@
 <!--
     Template Structure
     ==================
-    
+
     Layout: Three-column layout with resizable panels
     - Left: Preferences sidebar (AppSidebar)
     - Center: Main content area with solution explorer and numerical values
     - Right: Advanced settings sidebar (AdvancedSidebar)
-    
+
     The center area is divided vertically into:
     - Top: Solution explorer with visualization area
-    - Bottom: Numerical values 
+    - Bottom: Numerical values
 -->
 <BaseLayout showLeftSidebar={!!problem} showRightSidebar={true}>
 	{#snippet leftSidebar()}

@@ -51,8 +51,8 @@
 	import MathExpressionRenderer from '$lib/components/ui/MathExpressionRenderer/MathExpressionRenderer.svelte';
 
 	let { data }: PageProps = $props();
-	let problemList = data.problemList;
-	let groupList = data.groupList;
+	let problemList = $derived(data.problemList);
+	let groupList = $derived(data.groupList);
 	let selectedGroup = $state<GroupInfo | undefined>(undefined);
 	let selectedProblem = $state<ProblemInfo | undefined>(undefined);
 

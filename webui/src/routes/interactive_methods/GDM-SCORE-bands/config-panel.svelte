@@ -97,37 +97,32 @@
 
 	// Local reactive state for form values - initialized from currentConfig or defaults
 	// These values are bound to form controls
-	let distance_parameter = $state(currentConfig?.distance_parameter ?? 0.05);
-	let distance_formula = $state(currentConfig?.distance_formula ?? 1);
-	let clustering_algorithm = $state(currentConfig?.clustering_algorithm?.name ?? 'KMeans');
-	let n_clusters = $state((currentConfig?.clustering_algorithm as any)?.n_clusters ?? 5);
-	let use_absolute_correlations = $state(currentConfig?.use_absolute_correlations ?? false);
-	let include_solutions = $state(currentConfig?.include_solutions ?? false);
-	let include_medians = $state(currentConfig?.include_medians ?? true);
-	let interval_size = $state(currentConfig?.interval_size ?? 0.25);
+	let distance_parameter = $state(0.05);
+	let distance_formula = $state(1);
+	let clustering_algorithm = $state('KMeans');
+	let n_clusters = $state(5);
+	let use_absolute_correlations = $state(false);
+	let include_solutions = $state(false);
+	let include_medians = $state(true);
+	let interval_size = $state(0.25);
 	let minimum_votes = $state(1);
-	let latest_iteration = $state(latestIteration);
+	let latest_iteration = $state(0);
 
-	/**
-	 * Effect to synchronize form values when currentConfig changes
-	 *
-	 * This ensures the form stays in sync when the parent component provides
-	 * updated configuration data (e.g., after API responses or iteration changes).
-	 * Prevents form state from becoming stale when external data updates occur.
-	 */
+	// Sync form values when currentConfig or latestIteration props change
 	$effect(() => {
 		if (currentConfig) {
-			distance_parameter = currentConfig.distance_parameter;
-			distance_formula = currentConfig.distance_formula;
+			distance_parameter = currentConfig.distance_parameter ?? 0.05;
+			distance_formula = currentConfig.distance_formula ?? 1;
 			clustering_algorithm = currentConfig.clustering_algorithm?.name ?? 'KMeans';
 			n_clusters = (currentConfig.clustering_algorithm as any)?.n_clusters ?? 5;
-			use_absolute_correlations = currentConfig.use_absolute_correlations;
-			include_solutions = currentConfig.include_solutions;
-			include_medians = currentConfig.include_medians;
-			interval_size = currentConfig.interval_size;
+			use_absolute_correlations = currentConfig.use_absolute_correlations ?? false;
+			include_solutions = currentConfig.include_solutions ?? false;
+			include_medians = currentConfig.include_medians ?? true;
+			interval_size = currentConfig.interval_size ?? 0.25;
 		}
-		latest_iteration = latestIteration;
 	});
+	$effect(() => { latest_iteration = latestIteration; });
+
 
 	/**
 	 * Build configuration object for API call

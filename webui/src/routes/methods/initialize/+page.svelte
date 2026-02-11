@@ -110,8 +110,8 @@
 	const methods = $derived(
 		baseMethods.map(method => ({
 			...method,
-			path: method.supportsGroups && data.groupId 
-				? `${method.path}?group=${data.groupId}` 
+			path: method.supportsGroups && data.groupId
+				? `${method.path}?group=${data.groupId}`
 				: method.path
 		}))
 	);
@@ -130,9 +130,9 @@
 			data: {
 				problems: ProblemInfo[],
 				groupId?: string // This exists only in GDM when user comes to this page through group selecting page.
-			} 
+			}
 		}>();
-	let problemList = data.problems ?? [];
+	let problemList = $derived(data.problems ?? []);
 
 	const preferenceTypes = [...new Set(baseMethods.flatMap((m) => m.preferencesType))];
 
@@ -153,7 +153,7 @@
 
 			const matchesPreference =
 				selectedPreferenceType === 'all' || method.preferencesType.includes(selectedPreferenceType);
-			
+
 			const matchesGroupMode = data.groupId ? method.supportsGroups === true : method.supportsGroups !== true;
 
 			return matchesSearch && matchesPreference && matchesGroupMode;
@@ -219,7 +219,7 @@
 		{:else if data.groupId}
 			<div class="bg-info/10 flex items-center justify-between rounded-lg px-4 py-2">
 				<p class="text-sm">
-					Group mode: <span class="text-primary font-bold">Group ID {data.groupId}</span> 
+					Group mode: <span class="text-primary font-bold">Group ID {data.groupId}</span>
 					- Group methods are available for collaborative decision making
 				</p>
 				<Button variant="outline" size="sm" href="/groups">Back to Groups</Button>
