@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { methodSelection } from '../../../stores/methodSelection';
 	import type { MethodSelectionState } from '../../../stores/methodSelection';
-	import { type ENautilusRepresentativeSolutionsResponse} from '$lib/gen/models';
+	import { type ENautilusRepresentativeSolutionsResponse, type InteractiveSessionBase } from '$lib/gen/models';
 	import { isLoading, errorMessage } from '../../../stores/uiState';
 
 	import BaseLayout from '$lib/components/custom/method_layout/base-layout.svelte';
@@ -10,6 +10,7 @@
 	import VisualizationsPanel from '$lib/components/custom/visualizations-panel/visualizations-panel.svelte';
 	import * as Resizable from '$lib/components/ui/resizable';
 	import { DecisionTree } from '$lib/components/custom/decision-tree';
+	import Combobox from '$lib/components/ui/combobox/combobox.svelte';
 	import type { ENautilusSessionTreeResponse } from '$lib/gen/models';
 
 	import type {
@@ -25,7 +26,9 @@
 		points_to_list,
 		fetch_enautilus_state,
 		fetch_representative_solutions,
-		fetch_session_tree
+		fetch_session_tree,
+		fetch_sessions,
+		create_session
 	} from './handler';
 
 	import {
@@ -66,6 +69,9 @@
 	let has_initialized = $state<boolean>(false);
 	let showTree = $state<boolean>(false);
 	let sessionTree = $state<ENautilusSessionTreeResponse | null>(null);
+	let sessions = $state<InteractiveSessionBase[]>([]);
+	let newSessionInfo = $state<string>('');
+	let initSessionTree = $state<ENautilusSessionTreeResponse | null>(null);
 
 	let is_initial_ready = $derived.by(() => {
 		return (
@@ -75,6 +81,21 @@
 			initial_intermediate_points > 0
 		);
 	});
+
+	let sessionOptions = $derived(
+		sessions.filter(s => s.id != null).map(s => ({
+			value: String(s.id),
+			label: `#${s.id}${s.info ? ' — ' + s.info : ''}`
+		}))
+	);
+
+	let selectedSessionString = $derived(
+		selection.selectedSessionId != null ? String(selection.selectedSessionId) : ''
+	);
+
+	let initTreeHasNodes = $derived(
+		initSessionTree?.nodes.some(n => n.node_id > 0) ?? false
+	);
 
 	let objective_keys = $derived.by(() => {
 		if (!previous_response || previous_response.intermediate_points.length === 0) return [];
@@ -229,6 +250,15 @@
 				}
 
 				problem_info = response;
+
+				// Fetch all sessions
+				const fetchedSessions = await fetch_sessions();
+				sessions = fetchedSessions ?? [];
+
+				// If a session is already selected, pre-fetch its tree
+				if (selection.selectedSessionId != null) {
+					initSessionTree = await fetch_session_tree(selection.selectedSessionId);
+				}
 			} catch (err) {
 				console.log('Error during initialization of the E-NAUTILUS method', err);
 				errorMessage.set('Unexpected error during E-NAUTILUS initialization.');
@@ -239,6 +269,55 @@
 
 		return unsubscribe;
 	});
+
+	async function handleSessionSelect(value: string) {
+		const id = Number(value);
+		const session = sessions.find(s => s.id === id);
+		if (!session) return;
+		methodSelection.setSession(id, session.info ?? null);
+		initSessionTree = await fetch_session_tree(id);
+	}
+
+	async function handleCreateSession() {
+		const trimmed = newSessionInfo.trim();
+
+		try {
+			isLoading.set(true);
+			const created = await create_session(trimmed || null);
+
+			// Always refresh sessions list from server
+			const fetchedSessions = await fetch_sessions();
+			if (fetchedSessions) sessions = fetchedSessions;
+
+			if (created && created.id != null) {
+				methodSelection.setSession(created.id, created.info ?? null);
+			} else {
+				// Session may have been created despite an unexpected response.
+				// Try to find it in the refreshed list.
+				const found = sessions.find(s => s.info === trimmed);
+				if (found && found.id != null) {
+					methodSelection.setSession(found.id, found.info ?? null);
+				} else {
+					errorMessage.set('Failed to create session.');
+					return;
+				}
+			}
+
+			newSessionInfo = '';
+			initSessionTree = null;
+		} catch (err) {
+			console.error('Error creating session:', err);
+			errorMessage.set('Failed to create session.');
+		} finally {
+			isLoading.set(false);
+		}
+	}
+
+	async function handleInitTreeNodeClick(nodeId: number) {
+		await handleTreeNodeClick(nodeId);
+		has_initialized = true;
+		sessionTree = initSessionTree;
+	}
 
 	async function initialize_enautilus() {
 		if (selection.selectedProblemId === null) {
@@ -591,29 +670,57 @@
 		<div>
 			<h2 class="text-lg font-semibold">Start E-NAUTILUS</h2>
 			<p class="text-sm text-gray-600">
-				Choose the interactive session and initial parameters before running the first iteration.
+				Choose session and initial parameters.
 			</p>
 		</div>
 
-		<div class="grid gap-4 md:grid-cols-2">
-			<div>
-				<label class="mb-1 block text-sm font-medium text-gray-700" for="selected-session">Selected session</label>
-				<div class="rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700" id="selected-session">
-					{#if selection.selectedSessionId != null}
-						Session #{selection.selectedSessionId}
-						{#if selection.selectedSessionInfo}
-							— {selection.selectedSessionInfo}
-						{/if}
-					{:else}
-						No session selected. Choose one from the Sessions page.
-					{/if}
+		<div>
+			<span class="mb-1 block text-sm font-medium text-gray-700">Session</span>
+			<div class="flex items-center gap-2">
+				<div class="flex-1">
+					{#key selectedSessionString}
+						<Combobox
+							options={sessionOptions}
+							defaultSelected={selectedSessionString}
+							onChange={(e) => handleSessionSelect(e.value)}
+							placeholder="Select a session..."
+							showSearch={true}
+						/>
+					{/key}
 				</div>
+				<input
+					type="text"
+					bind:value={newSessionInfo}
+					placeholder="New session name"
+					class="rounded border border-gray-300 px-3 py-2 text-sm"
+					onkeydown={(e) => { if (e.key === 'Enter') handleCreateSession(); }}
+				/>
+				<Button variant="outline" onclick={handleCreateSession}>+ New</Button>
+			</div>
+		</div>
+
+		{#if initTreeHasNodes && selection.selectedSessionId != null}
+			<div>
+				<span class="mb-1 block text-sm font-medium text-gray-700">Resume from previous state</span>
+				<div class="max-h-64 overflow-auto rounded border border-gray-200 bg-gray-50 p-2">
+					<DecisionTree
+						treeData={initSessionTree}
+						activeNodeId={null}
+						onSelectNode={handleInitTreeNodeClick}
+						problem={problem_info}
+					/>
+				</div>
+				<p class="mt-1 text-xs text-gray-500">Click a node to resume from that point.</p>
 			</div>
 
-			<div class="flex items-center justify-end md:justify-start">
-				<Button variant="outline" href="/methods/sessions">Manage sessions</Button>
+			<div class="flex items-center gap-4">
+				<div class="h-px flex-1 bg-gray-200"></div>
+				<span class="text-xs text-gray-400">Or start fresh</span>
+				<div class="h-px flex-1 bg-gray-200"></div>
 			</div>
+		{/if}
 
+		<div class="grid gap-4 md:grid-cols-2">
 			<div>
 				<label class="mb-1 block text-sm font-medium text-gray-700" for="initial-iterations">
 					Iterations

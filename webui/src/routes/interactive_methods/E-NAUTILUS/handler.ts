@@ -2,6 +2,8 @@ import type { ENautilusRepresentativeSolutionsResponse, ENautilusSessionTreeResp
 import type { getRepresentativeMethodEnautilusGetRepresentativeStateIdGetResponse, getSessionTreeMethodEnautilusSessionTreeSessionIdGetResponse, getStateMethodEnautilusGetStateStateIdGetResponse, stepMethodEnautilusStepPostResponse } from "$lib/gen/endpoints/DESDEOFastAPI";
 import { stepMethodEnautilusStepPost, getProblemProblemGetPost, getStateMethodEnautilusGetStateStateIdGet, getRepresentativeMethodEnautilusGetRepresentativeStateIdGet, getSessionTreeMethodEnautilusSessionTreeSessionIdGet } from "$lib/gen/endpoints/DESDEOFastAPI";
 import type { getProblemProblemGetPostResponse } from "$lib/gen/endpoints/DESDEOFastAPI";
+import { fetch_sessions, create_session } from '../../methods/sessions/handler';
+export { fetch_sessions, create_session };
 
 export type ENautilusStepBundle = {
     request: ENautilusStepRequest;
