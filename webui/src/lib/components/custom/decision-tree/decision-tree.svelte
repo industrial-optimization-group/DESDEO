@@ -7,7 +7,7 @@
 		DecisionEventResponse
 	} from './tree-types';
 	import type { components } from '$lib/api/client-types';
-	import { buildHierarchy, formatPoint, analyzeTradeoffs, type ObjectiveTradeoff } from './tree-utils';
+	import { buildHierarchy, analyzeTradeoffs } from './tree-utils';
 	import DecisionTreeNode from './decision-tree-node.svelte';
 	import DecisionTreeTooltip from './decision-tree-tooltip.svelte';
 	import VisualizationsPanel from '$lib/components/custom/visualizations-panel/visualizations-panel.svelte';
@@ -26,8 +26,6 @@
 	let { treeData, activeNodeId = null, onSelectNode, problem = null }: Props = $props();
 
 	let tooltipNode = $state<TreeNodeResponse | null>(null);
-	let tooltipEvent = $state<DecisionEventResponse | null>(null);
-	let tooltipParentNode = $state<TreeNodeResponse | null>(null);
 	let tooltipX = $state(0);
 	let tooltipY = $state(0);
 	let tooltipVisible = $state(false);
@@ -92,25 +90,6 @@
 		);
 	});
 
-	let eventsByChild = $derived.by(() => {
-		const map = new Map<number, DecisionEventResponse>();
-		if (!treeData) return map;
-		for (const ev of treeData.decision_events) {
-			map.set(ev.child_node_id, ev);
-		}
-		return map;
-	});
-
-	// Lookup: node_id -> TreeNodeResponse
-	let nodesById = $derived.by(() => {
-		const map = new Map<number, TreeNodeResponse>();
-		if (!treeData) return map;
-		for (const n of treeData.nodes) {
-			map.set(n.node_id, n);
-		}
-		return map;
-	});
-
 	// Build a map from objective symbol to whether it should be maximized
 	let maximizeMap = $derived.by(() => {
 		const map: Record<string, boolean> = {};
@@ -129,11 +108,7 @@
 		tooltipX = e.clientX;
 		tooltipY = e.clientY;
 		tooltipNode = node;
-		const ev = eventsByChild.get(node.node_id) ?? null;
-		tooltipEvent = ev;
-		// Resolve parent node so tooltip can access its intermediate_points
-		tooltipParentNode = ev ? (nodesById.get(ev.parent_node_id) ?? null) : null;
-		// Forward event: decision made FROM this node (used as fallback for root nodes)
+		// Forward event: decision made FROM this node (only show trade-offs when a choice was made here)
 		tooltipForwardEvent = treeData?.decision_events.find(
 			(fev) => fev.parent_node_id === node.node_id
 		) ?? null;
@@ -180,26 +155,8 @@
 		overlayVisible = true;
 	}
 
-	// Arrival event: the decision that led TO this overlay node (where this node is the child)
-	let overlayArrivalEvent = $derived.by(() => {
-		if (!overlayNode) return null;
-		return eventsByChild.get(overlayNode.node_id) ?? null;
-	});
-
-	// Arrival trade-offs: computed from the parent's intermediate points + arrival chosen index
-	let overlayArrivalTradeoffs = $derived.by(() => {
-		if (!overlayArrivalEvent || overlayArrivalEvent.chosen_option_idx == null) return null;
-		const parent = nodesById.get(overlayArrivalEvent.parent_node_id);
-		if (!parent?.intermediate_points) return null;
-		return analyzeTradeoffs(
-			parent.intermediate_points as Record<string, number>[],
-			overlayArrivalEvent.chosen_option_idx,
-			maximizeMap
-		);
-	});
-
-	// Forward trade-offs: decision made FROM this node (fallback for root nodes with no arrival)
-	let overlayForwardTradeoffs = $derived.by(() => {
+	// Trade-offs: only shown when a decision was made FROM this node
+	let overlayTradeoffs = $derived.by(() => {
 		if (!overlayNode || overlayChosenIdx == null || !overlayNode.intermediate_points) return null;
 		return analyzeTradeoffs(
 			overlayNode.intermediate_points as Record<string, number>[],
@@ -207,9 +164,6 @@
 			maximizeMap
 		);
 	});
-
-	// Prefer arrival trade-offs; fall back to forward for root nodes
-	let overlayTradeoffs = $derived(overlayArrivalTradeoffs ?? overlayForwardTradeoffs);
 
 	// The decision event that was made FROM this overlay node (i.e., the child's event)
 	let overlayDecisionEvent = $derived.by(() => {
@@ -299,8 +253,6 @@
 				selected_intermediate_point: null,
 				final_solution_objectives: null
 			}}
-			event={tooltipEvent}
-			parentNode={tooltipParentNode}
 			forwardEvent={tooltipForwardEvent}
 			{maximizeMap}
 			x={tooltipX}
@@ -397,7 +349,7 @@
 					</div>
 				{/if}
 
-				<!-- Trade-offs at this choice (arrival — same as hover tooltip) -->
+				<!-- Trade-offs at this choice (only when a decision was made FROM this node) -->
 				{#if overlayTradeoffs}
 					<div class="mb-3">
 						<div class="mb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500">

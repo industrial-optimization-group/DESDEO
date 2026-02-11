@@ -4,8 +4,7 @@
 
 	interface Props {
 		node: TreeNodeResponse;
-		event?: DecisionEventResponse | null;
-		parentNode?: TreeNodeResponse | null;
+		/** Decision event made FROM this node (if any) */
 		forwardEvent?: DecisionEventResponse | null;
 		maximizeMap?: Record<string, boolean>;
 		x: number;
@@ -13,25 +12,13 @@
 		visible: boolean;
 	}
 
-	let { node, event = null, parentNode = null, forwardEvent = null, maximizeMap = {}, x, y, visible }: Props = $props();
+	let { node, forwardEvent = null, maximizeMap = {}, x, y, visible }: Props = $props();
 
 	// Flip tooltip to the left if it would overflow the right edge of the viewport
 	let flipLeft = $derived(x + 280 > (typeof window !== 'undefined' ? window.innerWidth : 1200));
 
-	// Arrival trade-offs: decision that led TO this node
-	let arrivalTradeoffs = $derived.by(() => {
-		if (!event || event.chosen_option_idx == null || !parentNode?.intermediate_points) {
-			return null;
-		}
-		return analyzeTradeoffs(
-			parentNode.intermediate_points as Record<string, number>[],
-			event.chosen_option_idx,
-			maximizeMap
-		);
-	});
-
-	// Forward trade-offs: decision made FROM this node (fallback for root nodes)
-	let forwardTradeoffs = $derived.by(() => {
+	// Trade-offs: only shown when a decision was made FROM this node
+	let tradeoffs = $derived.by(() => {
 		if (!forwardEvent || forwardEvent.chosen_option_idx == null || !node.intermediate_points) {
 			return null;
 		}
@@ -41,9 +28,6 @@
 			maximizeMap
 		);
 	});
-
-	// Prefer arrival; fall back to forward for root nodes
-	let tradeoffs = $derived(arrivalTradeoffs ?? forwardTradeoffs);
 
 	function tradeoffColor(t: ObjectiveTradeoff): string {
 		// Green (prioritized) → Yellow (neutral) → Red (sacrificed)
