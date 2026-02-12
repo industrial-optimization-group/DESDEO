@@ -21,9 +21,11 @@ from desdeo.api.models import (
     User,
 )
 from desdeo.api.models.representative_solution import RepresentativeSolutionSetRequest
+from desdeo.api.models.session import CreateSessionRequest
 from desdeo.api.routers.user_authentication import get_current_user
 
-RequestType = RPMSolveRequest | ENautilusStepRequest | RepresentativeSolutionSetRequest
+RequestType = RPMSolveRequest | ENautilusStepRequest |\
+    RepresentativeSolutionSetRequest | CreateSessionRequest
 
 
 def fetch_interactive_session(user: User, request: RequestType, session: Session) -> InteractiveSessionDB | None:
@@ -148,6 +150,7 @@ def fetch_parent_state(
 
 
 class ContextField(StrEnum):
+    """Enum class to specify context fileds."""
     PROBLEM = "problem_db"
     INTERACTIVE_SESSION = "interactive_session"
     PARENT_STATE = "parent_state"
@@ -167,6 +170,11 @@ class SessionContextGuard:
     """FastAPI dependency that builds a SessionContext and validates required fields."""
 
     def __init__(self, require: Iterable[ContextField] | None = None):
+        """Init method for the SessionContextGuard class.
+
+        Args:
+            require (Iterable[ContextField] | None, optional): _description_. Defaults to None.
+        """
         self.require = set(require or [])
 
     def __call__(
@@ -175,25 +183,37 @@ class SessionContextGuard:
         db_session: Annotated[Session, Depends(get_session)],
         request: RequestType | None = None
     ) -> SessionContext:
+        """Call method for the SessionContextGuard class.
 
+        Args:
+            user (Annotated[User, Depends): _description_
+            db_session (Annotated[Session, Depends): _description_
+            request (RequestType | None, optional): _description_. Defaults to None.
+
+        Returns:
+            SessionContext: _description_
+        """
         problem_db = None
         interactive_session = None
         parent_state = None
 
         # Only fetch request-based context if request exists
         if request is not None:
-            problem_db = fetch_user_problem(user, request, db_session)
+            if hasattr(request, "problem_id"):
+                problem_db = fetch_user_problem(user, request, db_session)
 
-            interactive_session = fetch_interactive_session(
-                user, request, db_session
-            )
+            if hasattr(request, "interactive_session_id") or hasattr(request, "problem_id"):
+                interactive_session = fetch_interactive_session(
+                    user, request, db_session
+                )
 
-            parent_state = fetch_parent_state(
-                user,
-                request,
-                db_session,
-                interactive_session=interactive_session,
-            )
+            if hasattr(request, "parent_state_id") or hasattr(request, "problem_id"):
+                parent_state = fetch_parent_state(
+                    user,
+                    request,
+                    db_session,
+                    interactive_session=interactive_session,
+                )
 
         context = SessionContext(
             user=user,
@@ -215,41 +235,3 @@ class SessionContextGuard:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"{field} context missing.",
                 )
-
-
-
-# def get_session_context(
-#     request: RequestType,
-#     user: Annotated[User, Depends(get_current_user)],
-#     db_session: Annotated[Session, Depends(get_session)],
-# ) -> SessionContext:
-#     """Gets the current session context. Should be used as a dep.
-
-#     Args:
-#         request (RequestType): request based on which the context is fetched.
-#         user (Annotated[User, Depends): the current user (dep).
-#         db_session (Annotated[Session, Depends): the current database session (dep).
-
-#     Returns:
-#         SessionContext: the current session context with the relevant instances
-#             of `User`, `Session`, `ProblemDB`, `InteractiveSessionDB`, and `StateDB`.
-#     """
-#     problem_db = fetch_user_problem(user, request, db_session)
-#     interactive_session = fetch_interactive_session(user, request, db_session)
-#     parent_state = fetch_parent_state(user, request, db_session, interactive_session=interactive_session)
-
-#     return SessionContext(
-#         user=user,
-#         db_session=db_session,
-#         problem_db=problem_db,
-#         interactive_session=interactive_session,
-#         parent_state=parent_state,
-#     )
-
-
-def get_session_context_without_request(
-    user: Annotated[User, Depends(get_current_user)],
-    db_session: Annotated[Session, Depends(get_session)],
-) -> SessionContext:
-    """Gets the current session context. Should be used as a dep."""
-    return SessionContext(user=user, db_session=db_session)

@@ -30,7 +30,7 @@ from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.problem import Problem
 from desdeo.tools.utils import available_solvers
 
-from .utils import ContextField, SessionContext, SessionContextGuard, get_session_context_without_request
+from .utils import ContextField, SessionContext, SessionContextGuard
 
 router = APIRouter(prefix="/problem")
 
@@ -112,7 +112,7 @@ def get_problem(
 @router.post("/add")
 def add_problem(
     request: Annotated[Problem, Depends(parse_problem_json)],
-    context: Annotated[SessionContext, Depends(get_session_context_without_request)],
+    context: Annotated[SessionContext, Depends(SessionContextGuard())],
 ) -> ProblemInfo:
     """Add a newly defined problem to the database.
 
@@ -151,49 +151,6 @@ def add_problem(
     db_session.refresh(problem_db)
 
     return problem_db
-
-# @router.post("/add")
-# def add_problem(
-#     request: Annotated[Problem, Depends(parse_problem_json)],
-#     context: Annotated[SessionContext, Depends(SessionContextGuard(require=[]))],
-# ) -> ProblemInfo:
-#     """Add a newly defined problem to the database.
-
-#     Args:
-#         request (Problem): the JSON representation of the problem.
-#         context (Annotated[SessionContext, Depends): the session context.
-
-#     Note:
-#         Users with the role 'guest' may not add new problems.
-
-#     Raises:
-#         HTTPException: when any issue with defining the problem arises.
-
-#     Returns:
-#         ProblemInfo: the information about the problem added.
-#     """
-#     user = context.user
-#     db_session = context.db_session
-
-#     if user.role == UserRole.guest:
-#         raise HTTPException(
-#             status_code=status.HTTP_401_UNAUTHORIZED,
-#             detail="Guest users are not allowed to add new problems.",
-#         )
-
-#     try:
-#         problem_db = ProblemDB.from_problem(request, user=user)
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-#             detail=f"Could not add problem. Possible reason: {e!r}",
-#         ) from e
-
-#     db_session.add(problem_db)
-#     db_session.commit()
-#     db_session.refresh(problem_db)
-
-#     return problem_db
 
 
 @router.post("/add_json")
