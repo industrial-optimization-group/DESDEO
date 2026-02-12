@@ -186,9 +186,10 @@ class SessionContextGuard:
         """Call method for the SessionContextGuard class.
 
         Args:
-            user (Annotated[User, Depends): _description_
-            db_session (Annotated[Session, Depends): _description_
-            request (RequestType | None, optional): _description_. Defaults to None.
+            user (Annotated[User, Depends): the current user (dep)
+            db_session (Annotated[Session, Depends): the current database session (dep).
+            request (RequestType | None, optional): request based on which the context is fetched.
+                Defaults to None.
 
         Returns:
             SessionContext: _description_
