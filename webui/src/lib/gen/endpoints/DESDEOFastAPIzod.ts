@@ -2763,6 +2763,24 @@ export const DeleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetI
 	});
 
 /**
+ * Delete a problem by its ID.
+ * @summary Delete Problem
+ */
+export const DeleteProblemProblemProblemIdDeleteParams = zod.object({
+	problem_id: zod.number()
+});
+
+/**
+ * Return a Problem as a serialized JSON object suitable for download/re-upload.
+ * @summary Get Problem Json
+ */
+export const GetProblemJsonProblemProblemIdJsonGetParams = zod.object({
+	problem_id: zod.number()
+});
+
+export const GetProblemJsonProblemProblemIdJsonGetResponse = zod.unknown();
+
+/**
  * Creates a new interactive session.
  * @summary Create New Session
  */
@@ -2868,7 +2886,7 @@ export const solveSolutionsMethodRpmSolvePostResponsePreferencesPreferenceTypeDe
 
 export const SolveSolutionsMethodRpmSolvePostResponse = zod
 	.object({
-		id: zod.union([zod.number(), zod.null()]).optional(),
+		id: zod.union([zod.number(), zod.null()]),
 		preferences: zod
 			.object({
 				preference_type: zod

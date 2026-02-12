@@ -14,7 +14,7 @@ import type { SolverResults } from './SolverResults';
  * Reference Point Method (k+1 candidates).
  */
 export interface RPMState {
-	id?: number | null;
+	id: number | null;
 	preferences: ReferencePoint;
 	scalarization_options?: RPMStateScalarizationOptions;
 	solver?: string | null;

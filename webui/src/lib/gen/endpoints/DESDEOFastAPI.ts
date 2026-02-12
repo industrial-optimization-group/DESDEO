@@ -995,6 +995,94 @@ export const deleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetI
 };
 
 /**
+ * Delete a problem by its ID.
+ * @summary Delete Problem
+ */
+export type deleteProblemProblemProblemIdDeleteResponse204 = {
+	data: void;
+	status: 204;
+};
+
+export type deleteProblemProblemProblemIdDeleteResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type deleteProblemProblemProblemIdDeleteResponseSuccess =
+	deleteProblemProblemProblemIdDeleteResponse204 & {
+		headers: Headers;
+	};
+export type deleteProblemProblemProblemIdDeleteResponseError =
+	deleteProblemProblemProblemIdDeleteResponse422 & {
+		headers: Headers;
+	};
+
+export type deleteProblemProblemProblemIdDeleteResponse =
+	| deleteProblemProblemProblemIdDeleteResponseSuccess
+	| deleteProblemProblemProblemIdDeleteResponseError;
+
+export const getDeleteProblemProblemProblemIdDeleteUrl = (problemId: number) => {
+	return `http://localhost:8000/problem/${problemId}`;
+};
+
+export const deleteProblemProblemProblemIdDelete = async (
+	problemId: number,
+	options?: RequestInit
+): Promise<deleteProblemProblemProblemIdDeleteResponse> => {
+	return customFetch<deleteProblemProblemProblemIdDeleteResponse>(
+		getDeleteProblemProblemProblemIdDeleteUrl(problemId),
+		{
+			...options,
+			method: 'DELETE'
+		}
+	);
+};
+
+/**
+ * Return a Problem as a serialized JSON object suitable for download/re-upload.
+ * @summary Get Problem Json
+ */
+export type getProblemJsonProblemProblemIdJsonGetResponse200 = {
+	data: unknown;
+	status: 200;
+};
+
+export type getProblemJsonProblemProblemIdJsonGetResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type getProblemJsonProblemProblemIdJsonGetResponseSuccess =
+	getProblemJsonProblemProblemIdJsonGetResponse200 & {
+		headers: Headers;
+	};
+export type getProblemJsonProblemProblemIdJsonGetResponseError =
+	getProblemJsonProblemProblemIdJsonGetResponse422 & {
+		headers: Headers;
+	};
+
+export type getProblemJsonProblemProblemIdJsonGetResponse =
+	| getProblemJsonProblemProblemIdJsonGetResponseSuccess
+	| getProblemJsonProblemProblemIdJsonGetResponseError;
+
+export const getGetProblemJsonProblemProblemIdJsonGetUrl = (problemId: number) => {
+	return `http://localhost:8000/problem/${problemId}/json`;
+};
+
+export const getProblemJsonProblemProblemIdJsonGet = async (
+	problemId: number,
+	options?: RequestInit
+): Promise<getProblemJsonProblemProblemIdJsonGetResponse> => {
+	return customFetch<getProblemJsonProblemProblemIdJsonGetResponse>(
+		getGetProblemJsonProblemProblemIdJsonGetUrl(problemId),
+		{
+			...options,
+			method: 'GET'
+		}
+	);
+};
+
+/**
  * Creates a new interactive session.
  * @summary Create New Session
  */

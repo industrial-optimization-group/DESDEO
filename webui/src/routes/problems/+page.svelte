@@ -9,7 +9,7 @@
 	 * @description
 	 * This page displays a list of optimization problems in DESDEO and allows users to view and interact with details for each problem.
 	 * It features a data table for problem selection and a tabbed interface for viewing general info, objectives, variables, constraints, and extra functions.
-	 * Each table supports detailed dialogs for mathematical formulations, and the UI is responsive to the selected problem.
+	 * Each table supports expandable rows for mathematical formulations, and the UI is responsive to the selected problem.
 	 *
 	 * @props
 	 * @property {Object} data - Contains a list of optimization problems fetched from the server.
@@ -18,14 +18,14 @@
 	 * @features
 	 * - DataTable for selecting a problem, with callbacks for selection and "solve" actions.
 	 * - Tabbed interface for viewing problem details: General, Objectives, Variables, Constraints, Extra Functions.
-	 * - Dialogs for viewing math expressions for objectives, constraints, and extra functions.
+	 * - Expandable rows for viewing math expressions for objectives, constraints, and extra functions.
 	 * - Responsive UI: shows a message if no problems are available, or if no problem is selected.
 	 * - Summarizes variable types if there are more than 10 variables.
 	 * - Uses Svelte runes mode for reactivity.
 	 *
 	 * @dependencies
 	 * - DataTable: Custom data table component for problems.
-	 * - Tabs, Table, Dialog: UI components.
+	 * - Tabs, Table: UI components.
 	 * - MathExpressionRenderer: Renders math expressions.
 	 * - OpenAPI-generated ProblemInfo type.
 	 * - methodSelection: Svelte store for the currently selected problem and method.
@@ -42,10 +42,12 @@
 	import DataTable from '$lib/components/custom/problems-data-table/data-table.svelte';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import * as Table from '$lib/components/ui/table/index.js';
-	import * as Dialog from '$lib/components/ui/dialog/index.js';
-	import { buttonVariants } from '$lib/components/ui/button';
+	import { Button } from '$lib/components/ui/button';
 	import type { components } from '$lib/api/client-types';
 	import { methodSelection } from '../../stores/methodSelection';
+	import { invalidateAll } from '$app/navigation';
+	import { deleteProblem, downloadProblemJson } from './handler';
+	import { openInputDialog } from '$lib/components/custom/dialogs/dialogs';
 
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 
@@ -55,6 +57,38 @@
 	let { data }: PageProps = $props();
 	let problemList = $derived(data.problemList);
 	let selectedProblem = $state<ProblemInfo | undefined>(undefined);
+	let expandedObjectives = $state(new Set<number>());
+	let expandedConstraints = $state(new Set<number>());
+	let expandedExtras = $state(new Set<number>());
+
+	function toggleSet(set: Set<number>, index: number): Set<number> {
+		const next = new Set(set);
+		if (next.has(index)) next.delete(index);
+		else next.add(index);
+		return next;
+	}
+
+	function handleDelete(problem: ProblemInfo) {
+		openInputDialog({
+			title: 'Delete Problem',
+			description: `Are you sure you want to delete "${problem.name}"? The problem and all associated data (solutions, sessions, metadata) will be permanently removed. Type "delete" to confirm.`,
+			confirmText: 'Delete',
+			cancelText: 'Cancel',
+			placeholder: 'Type "delete" to confirm',
+			confirmVariant: 'destructive',
+			requiredValue: 'delete',
+			onConfirm: async () => {
+				const success = await deleteProblem(problem.id);
+
+				if (success) {
+					if (selectedProblem?.id === problem.id) {
+						selectedProblem = undefined;
+					}
+					await invalidateAll();
+				}
+			}
+		});
+	}
 </script>
 
 <div class="px-8">
@@ -82,6 +116,8 @@
 						console.log('Selected problem:', selectedProblem.id);
 						methodSelection.setProblem(selectedProblem?.id ?? null);
 					}}
+					onDelete={handleDelete}
+					onDownload={(problem) => downloadProblemJson(problem.id, problem.name)}
 				/>
 			</div>
 			<div class="w-full">
@@ -166,7 +202,7 @@
 											</Table.Row>
 										</Table.Header>
 										<Table.Body>
-											{#each selectedProblem.objectives as obj}
+											{#each selectedProblem.objectives as obj, i}
 												<Table.Row>
 													<Table.Cell class="text-justify"
 														>{(obj.symbol || obj.name) ?? '_'}</Table.Cell
@@ -178,31 +214,24 @@
 													<Table.Cell class="text-justify">{obj.ideal ?? '—'}</Table.Cell>
 													<Table.Cell class="text-justify">{obj.nadir ?? '—'}</Table.Cell>
 													<Table.Cell class="text-justify">
-														<Dialog.Root>
-															<Dialog.Trigger
-																class={buttonVariants({ variant: 'outline' })}
-																disabled={!obj.func}
-															>
-																View Details
-															</Dialog.Trigger>
-															<Dialog.Content
-																class="max-h-[80vh] w-full max-w-4xl overflow-x-auto overflow-y-auto"
-															>
-																<Dialog.Header>
-																	<Dialog.Title>Objective Formulation</Dialog.Title>
-																	<Dialog.Description>
-																		View the formulation of the {obj.symbol || obj.name} objective below.
-																	</Dialog.Description>
-																</Dialog.Header>
-																<div class="grid gap-4 py-4">
-																	<div>
-																		<MathExpressionRenderer func={obj.func} />
-																	</div>
-																</div>
-															</Dialog.Content>
-														</Dialog.Root>
+														<Button
+															variant="outline"
+															disabled={!obj.func}
+															onclick={() => {
+																expandedObjectives = toggleSet(expandedObjectives, i);
+															}}
+														>
+															{expandedObjectives.has(i) ? 'Hide' : 'Show'} Formulation
+														</Button>
 													</Table.Cell>
 												</Table.Row>
+												{#if expandedObjectives.has(i) && obj.func}
+													<Table.Row>
+														<Table.Cell colspan={6} class="bg-gray-50 px-6 py-4">
+															<MathExpressionRenderer func={obj.func} />
+														</Table.Cell>
+													</Table.Row>
+												{/if}
 											{/each}
 										</Table.Body>
 									</Table.Root>
@@ -312,7 +341,7 @@
 											</Table.Row>
 										</Table.Header>
 										<Table.Body>
-											{#each selectedProblem.constraints as constraint}
+											{#each selectedProblem.constraints as constraint, i}
 												<Table.Row>
 													<Table.Cell class="text-justify"
 														>{(constraint.symbol || constraint.name) ?? '—'}</Table.Cell
@@ -329,33 +358,24 @@
 														>{constraint.is_twice_differentiable ? 'Yes' : 'No'}</Table.Cell
 													>
 													<Table.Cell class="text-justify">
-														<Dialog.Root>
-															<Dialog.Trigger
-																class={buttonVariants({ variant: 'outline' })}
-																disabled={!constraint.func}
-															>
-																View Details
-															</Dialog.Trigger>
-															<Dialog.Content
-																class="max-h-[80vh] w-full max-w-4xl overflow-x-auto overflow-y-auto"
-															>
-																<Dialog.Header>
-																	<Dialog.Title>Constraint Formulation</Dialog.Title>
-																	<Dialog.Description>
-																		View the formulation of the {(constraint.symbol ||
-																			constraint.name) ??
-																			'—'} constraint below.
-																	</Dialog.Description>
-																</Dialog.Header>
-																<div class="grid gap-4 py-4">
-																	<div>
-																		<MathExpressionRenderer func={constraint.func} />
-																	</div>
-																</div>
-															</Dialog.Content>
-														</Dialog.Root>
+														<Button
+															variant="outline"
+															disabled={!constraint.func}
+															onclick={() => {
+																expandedConstraints = toggleSet(expandedConstraints, i);
+															}}
+														>
+															{expandedConstraints.has(i) ? 'Hide' : 'Show'} Formulation
+														</Button>
 													</Table.Cell>
 												</Table.Row>
+												{#if expandedConstraints.has(i) && constraint.func}
+													<Table.Row>
+														<Table.Cell colspan={6} class="bg-gray-50 px-6 py-4">
+															<MathExpressionRenderer func={constraint.func} />
+														</Table.Cell>
+													</Table.Row>
+												{/if}
 											{/each}
 										</Table.Body>
 									</Table.Root>
@@ -384,38 +404,30 @@
 											</Table.Row>
 										</Table.Header>
 										<Table.Body>
-											{#each selectedProblem.extra_funcs as obj}
+											{#each selectedProblem.extra_funcs as obj, i}
 												<Table.Row>
 													<Table.Cell class="text-justify"
 														>{(obj.symbol || obj.name) ?? '—'}</Table.Cell
 													>
 													<Table.Cell class="text-justify">
-														<Dialog.Root>
-															<Dialog.Trigger
-																class={buttonVariants({ variant: 'outline' })}
-																disabled={!obj.func}
-															>
-																View Details
-															</Dialog.Trigger>
-															<Dialog.Content
-																class="max-h-[80vh] w-full max-w-4xl overflow-x-auto overflow-y-auto"
-															>
-																<Dialog.Header>
-																	<Dialog.Title>Extra Function Formulation</Dialog.Title>
-																	<Dialog.Description>
-																		View the formulation of the {(obj.symbol || obj.name) ?? '—'} extra
-																		function below.
-																	</Dialog.Description>
-																</Dialog.Header>
-																<div class="grid gap-4 py-4">
-																	<div>
-																		<MathExpressionRenderer func={obj.func} />
-																	</div>
-																</div>
-															</Dialog.Content>
-														</Dialog.Root>
+														<Button
+															variant="outline"
+															disabled={!obj.func}
+															onclick={() => {
+																expandedExtras = toggleSet(expandedExtras, i);
+															}}
+														>
+															{expandedExtras.has(i) ? 'Hide' : 'Show'} Formulation
+														</Button>
 													</Table.Cell>
 												</Table.Row>
+												{#if expandedExtras.has(i) && obj.func}
+													<Table.Row>
+														<Table.Cell colspan={2} class="bg-gray-50 px-6 py-4">
+															<MathExpressionRenderer func={obj.func} />
+														</Table.Cell>
+													</Table.Row>
+												{/if}
 											{/each}
 										</Table.Body>
 									</Table.Root>

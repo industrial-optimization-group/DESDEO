@@ -49,6 +49,8 @@
 		cancelText = "Cancel",
 		initialValue = "",
 		placeholder = "Enter text",
+		confirmVariant = "default" as "default" | "destructive" | "outline" | "secondary" | "ghost" | "link",
+		requiredValue = undefined as string | undefined,
 		onConfirm,
 		onCancel
 	} = $props<{
@@ -59,9 +61,13 @@
 		cancelText?: string;
 		initialValue?: string;
 		placeholder?: string;
+		confirmVariant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
+		requiredValue?: string;
 		onConfirm?: (value: string) => void;
 		onCancel?: () => void;
 	}>();
+
+	let confirmDisabled = $derived(requiredValue !== undefined && inputValue !== requiredValue);
 
 	// Local state for the input field — re-sync when prop changes
 	let inputValue = $state("");
@@ -106,7 +112,7 @@
 			<Button variant="outline" onclick={handleCancel}>
 				{cancelText}
 			</Button>
-			<Button variant="default" onclick={handleConfirm}>
+			<Button variant={confirmVariant} onclick={handleConfirm} disabled={confirmDisabled}>
 				{confirmText}
 			</Button>
 		</Dialog.Footer>

@@ -20,6 +20,8 @@ export interface InputDialogOptions {
   cancelText?: string;
   initialValue?: string;
   placeholder?: string;
+  confirmVariant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
+  requiredValue?: string;
   onConfirm?: (value: string) => void;
   onCancel?: () => void;
 }

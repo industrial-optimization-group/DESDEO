@@ -11,6 +11,9 @@ export default defineConfig({
       // ...other aliases
     }
   },
+  optimizeDeps: {
+    exclude: ['mathlive']
+  },
   server: {
     proxy: {
       '/api': {

@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
+	import { onMount } from 'svelte';
 	import Card from '$lib/components/ui/card/card.svelte';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -14,7 +16,7 @@
 		ObjectiveTypeEnum,
 		VariableTypeEnum
 	} from '$lib/gen/models';
-	import { createProblem, type ProblemPayload, uploadProblemJson } from './handler';
+	import { createProblem, fetchProblem, type ProblemPayload, uploadProblemJson } from './handler';
 
 	type VariableForm = {
 		name: string;
@@ -390,6 +392,107 @@
 		}, 800);
 	};
 
+	const populateFormFromData = (parsed: Partial<ProblemPayload>) => {
+		let hasAdvanced = false;
+		if (parsed.name) name = parsed.name;
+		if (parsed.description) description = parsed.description;
+		if (parsed.scenario_keys) {
+			scenarioKeys = parsed.scenario_keys.join(', ');
+			hasAdvanced = true;
+		}
+		isConvexSelection = parsed.is_convex === null || parsed.is_convex === undefined ? 'auto' : parsed.is_convex ? 'true' : 'false';
+		isLinearSelection = parsed.is_linear === null || parsed.is_linear === undefined ? 'auto' : parsed.is_linear ? 'true' : 'false';
+		isTwiceDifferentiableSelection =
+			parsed.is_twice_differentiable === null || parsed.is_twice_differentiable === undefined
+				? 'auto'
+				: parsed.is_twice_differentiable
+					? 'true'
+					: 'false';
+
+		if (parsed.variables && parsed.variables.length > 0) {
+			variables = parsed.variables.map((variable) => ({
+				name: variable.name ?? '',
+				symbol: variable.symbol ?? '',
+				variable_type: variable.variable_type ?? VariableTypeEnum.real,
+				lowerbound: variable.lowerbound?.toString() ?? '',
+				upperbound: variable.upperbound?.toString() ?? '',
+				initial_value: variable.initial_value?.toString() ?? ''
+			}));
+		}
+
+		if (parsed.objectives && parsed.objectives.length > 0) {
+			objectives = parsed.objectives.map((objective) => ({
+				name: objective.name ?? '',
+				symbol: objective.symbol ?? '',
+				func:
+					typeof objective.func === 'string'
+						? objective.func
+						: objective.func
+							? JSON.stringify(objective.func, null, 2)
+							: '',
+				description: objective.description ?? '',
+				unit: objective.unit ?? '',
+				maximize: objective.maximize ?? false,
+				ideal: objective.ideal?.toString() ?? '',
+				nadir: objective.nadir?.toString() ?? '',
+				objective_type: objective.objective_type ?? ObjectiveTypeEnum.analytical,
+				is_linear: objective.is_linear ?? false,
+				is_convex: objective.is_convex ?? false,
+				is_twice_differentiable: objective.is_twice_differentiable ?? false,
+				scenario_keys: objective.scenario_keys?.join(', ') ?? '',
+				simulator_path:
+					typeof objective.simulator_path === 'string'
+						? objective.simulator_path
+						: objective.simulator_path && 'url' in objective.simulator_path
+							? String(objective.simulator_path.url ?? '')
+							: '',
+				surrogates: objective.surrogates?.join(', ') ?? ''
+			}));
+
+			if (parsed.objectives.some((objective) => objective.scenario_keys || objective.surrogates || objective.simulator_path)) {
+				hasAdvanced = true;
+			}
+		}
+
+		if (parsed.constraints && parsed.constraints.length > 0) {
+			constraints = parsed.constraints.map((constraint) => ({
+				name: constraint.name ?? '',
+				symbol: constraint.symbol ?? '',
+				func:
+					typeof constraint.func === 'string'
+						? constraint.func
+						: JSON.stringify(constraint.func ?? [], null, 2),
+				cons_type: constraint.cons_type ?? ConstraintTypeEnum['<='],
+				is_linear: constraint.is_linear ?? true,
+				is_convex: constraint.is_convex ?? false,
+				is_twice_differentiable: constraint.is_twice_differentiable ?? false,
+				scenario_keys: constraint.scenario_keys?.join(', ') ?? '',
+				simulator_path:
+					typeof constraint.simulator_path === 'string'
+						? constraint.simulator_path
+						: constraint.simulator_path && 'url' in constraint.simulator_path
+							? String(constraint.simulator_path.url ?? '')
+							: '',
+				surrogates: constraint.surrogates?.join(', ') ?? ''
+			}));
+
+			if (parsed.constraints.some((constraint) => constraint.scenario_keys || constraint.surrogates || constraint.simulator_path)) {
+				hasAdvanced = true;
+			}
+		}
+
+		if (parsed.constants && parsed.constants.length > 0) {
+			constants = parsed.constants.map((constant) => ({
+				name: constant.name ?? '',
+				symbol: constant.symbol ?? '',
+				value: constant.value?.toString() ?? ''
+			}));
+		}
+
+		showAdvanced = hasAdvanced;
+		mode = 'form';
+	};
+
 	const handlePopulateFromJson = async () => {
 		apiError = null;
 		successMessage = null;
@@ -402,109 +505,28 @@
 		const jsonText = await jsonFile.text();
 		try {
 			const parsed = JSON.parse(jsonText) as Partial<ProblemPayload>;
-			let hasAdvanced = false;
-			if (parsed.name) name = parsed.name;
-			if (parsed.description) description = parsed.description;
-			if (parsed.scenario_keys) {
-				scenarioKeys = parsed.scenario_keys.join(', ');
-				hasAdvanced = true;
-			}
-			isConvexSelection = parsed.is_convex === null || parsed.is_convex === undefined ? 'auto' : parsed.is_convex ? 'true' : 'false';
-			isLinearSelection = parsed.is_linear === null || parsed.is_linear === undefined ? 'auto' : parsed.is_linear ? 'true' : 'false';
-			isTwiceDifferentiableSelection =
-				parsed.is_twice_differentiable === null || parsed.is_twice_differentiable === undefined
-					? 'auto'
-					: parsed.is_twice_differentiable
-						? 'true'
-						: 'false';
-
-			if (parsed.variables && parsed.variables.length > 0) {
-				variables = parsed.variables.map((variable) => ({
-					name: variable.name ?? '',
-					symbol: variable.symbol ?? '',
-					variable_type: variable.variable_type ?? VariableTypeEnum.real,
-					lowerbound: variable.lowerbound?.toString() ?? '',
-					upperbound: variable.upperbound?.toString() ?? '',
-					initial_value: variable.initial_value?.toString() ?? ''
-				}));
-			}
-
-			if (parsed.objectives && parsed.objectives.length > 0) {
-				objectives = parsed.objectives.map((objective) => ({
-					name: objective.name ?? '',
-					symbol: objective.symbol ?? '',
-					func:
-						typeof objective.func === 'string'
-							? objective.func
-							: objective.func
-								? JSON.stringify(objective.func, null, 2)
-								: '',
-					description: objective.description ?? '',
-					unit: objective.unit ?? '',
-					maximize: objective.maximize ?? false,
-					ideal: objective.ideal?.toString() ?? '',
-					nadir: objective.nadir?.toString() ?? '',
-					objective_type: objective.objective_type ?? ObjectiveTypeEnum.analytical,
-					is_linear: objective.is_linear ?? false,
-					is_convex: objective.is_convex ?? false,
-					is_twice_differentiable: objective.is_twice_differentiable ?? false,
-					scenario_keys: objective.scenario_keys?.join(', ') ?? '',
-					simulator_path:
-						typeof objective.simulator_path === 'string'
-							? objective.simulator_path
-							: objective.simulator_path && 'url' in objective.simulator_path
-								? String(objective.simulator_path.url ?? '')
-								: '',
-					surrogates: objective.surrogates?.join(', ') ?? ''
-				}));
-
-				if (parsed.objectives.some((objective) => objective.scenario_keys || objective.surrogates || objective.simulator_path)) {
-					hasAdvanced = true;
-				}
-			}
-
-			if (parsed.constraints && parsed.constraints.length > 0) {
-				constraints = parsed.constraints.map((constraint) => ({
-					name: constraint.name ?? '',
-					symbol: constraint.symbol ?? '',
-					func:
-						typeof constraint.func === 'string'
-							? constraint.func
-							: JSON.stringify(constraint.func ?? [], null, 2),
-					cons_type: constraint.cons_type ?? ConstraintTypeEnum['<='],
-					is_linear: constraint.is_linear ?? true,
-					is_convex: constraint.is_convex ?? false,
-					is_twice_differentiable: constraint.is_twice_differentiable ?? false,
-					scenario_keys: constraint.scenario_keys?.join(', ') ?? '',
-					simulator_path:
-						typeof constraint.simulator_path === 'string'
-							? constraint.simulator_path
-							: constraint.simulator_path && 'url' in constraint.simulator_path
-								? String(constraint.simulator_path.url ?? '')
-								: '',
-					surrogates: constraint.surrogates?.join(', ') ?? ''
-				}));
-
-				if (parsed.constraints.some((constraint) => constraint.scenario_keys || constraint.surrogates || constraint.simulator_path)) {
-					hasAdvanced = true;
-				}
-			}
-
-			if (parsed.constants && parsed.constants.length > 0) {
-				constants = parsed.constants.map((constant) => ({
-					name: constant.name ?? '',
-					symbol: constant.symbol ?? '',
-					value: constant.value?.toString() ?? ''
-				}));
-			}
-
-			showAdvanced = hasAdvanced;
-			mode = 'form';
+			populateFormFromData(parsed);
 		} catch (error) {
 			console.error('Failed to parse JSON', error);
 			apiError = 'Invalid JSON file.';
 		}
 	};
+
+	onMount(async () => {
+		const editId = page.url.searchParams.get('edit');
+		if (!editId) return;
+
+		const problemId = Number(editId);
+		if (Number.isNaN(problemId)) return;
+
+		const response = await fetchProblem(problemId);
+		if (!response.ok) {
+			apiError = response.error;
+			return;
+		}
+
+		populateFormFromData(response.data as unknown as Partial<ProblemPayload>);
+	});
 </script>
 
 <section class="mx-10">

@@ -125,10 +125,12 @@
 	});
 	// Use ProblemInfo everywhere you previously used Problem or PageData
 	//let { data }: ProblemInfo[] = $props();
-	const { data, onSelect, onClickSolve } = $props<{
+	const { data, onSelect, onClickSolve, onDelete, onDownload } = $props<{
 		data: ProblemInfo[];
 		onSelect: any;
 		onClickSolve: any;
+		onDelete: (problem: ProblemInfo) => void;
+		onDownload: (problem: ProblemInfo) => void;
 	}>();
 
 	let rowSelection = $state<RowSelectionState>({});
@@ -276,6 +278,8 @@
 		row.toggleSelected(true);
 		onSelect(row.original);
 	}
+
+
 </script>
 
 {#snippet NumberCell({ value }: { value: number })}
@@ -314,11 +318,12 @@
 			{/snippet}
 		</DropdownMenu.Trigger>
 		<DropdownMenu.Content class="w-[160px]" align="end">
-			<DropdownMenu.Item class="data-highlighted:bg-muted">Details</DropdownMenu.Item>
-			<DropdownMenu.Item class="data-highlighted:bg-muted">Edit</DropdownMenu.Item>
-			<DropdownMenu.Item class="data-highlighted:bg-muted">Download</DropdownMenu.Item>
+			<DropdownMenu.Item class="data-highlighted:bg-muted" onclick={() => handleRowClick(row)}>Details</DropdownMenu.Item>
+			<DropdownMenu.Item class="data-highlighted:bg-muted" onclick={() => goto(`/problems/define?edit=${problem.id}`)}>Edit (create modified copy)</DropdownMenu.Item>
+			<DropdownMenu.Item class="data-highlighted:bg-muted" onclick={() => onDownload(problem)}>Download</DropdownMenu.Item>
 			<DropdownMenu.Item
 				class="data-highlighted:bg-muted data-highlighted:text-red-700 text-red-500"
+				onclick={() => onDelete(problem)}
 				>Delete</DropdownMenu.Item
 			>
 		</DropdownMenu.Content>
