@@ -33,6 +33,71 @@ This project follows **Keep a Changelog** and **Semantic Versioning**:
 #### Fixed
 #### Security
 
+## [2.2.1] - 10.2.2026
+
+### Core logic
+#### Fixed
+- Fixed an issue in `PyomoEvaluator` where **equality-type (EQ) constraints were not added correctly** to the Pyomo model.
+- Fixed a small bug in **GDM SCORE band computation** introduced in a previous change.
+
+---
+
+### Web API
+#### Added
+- Added support for **Representative Solution Sets**:
+  - Introduced `RepresentativeSolutionSetRequest`.
+  - Added endpoints to create representative solution sets.
+  - Added endpoints to retrieve representative solution sets by problem ID and by set ID.
+  - Added endpoint to delete a specific representative solution set.
+- Added corresponding **unit tests** for representative solution set endpoints.
+
+#### Changed
+- Refactored representative solution set endpoints to use `get_session_context`.
+- Removed return payload from delete endpoints where it was unnecessary.
+- Minor refactoring and cleanup of API router structure.
+
+---
+
+### Documentation
+#### Added
+- Added **`llms.txt`** and **`llms-full.txt`** documentation files and integrated them into the documentation build.
+- Added Read the Docs-specific configuration to ensure **notebooks are executed during RTD builds**.
+- Added new Makefile rules for documentation:
+  - `docs-fast`: build docs without executing notebooks.
+  - `docs-rtd`: build docs with notebook execution (RTD parity).
+
+#### Changed
+- Stripped outputs from all notebooks using `nbstripout`.
+- Fixed issues with notebooks not executing correctly during documentation builds.
+- Polished and reorganized documentation structure (WIP).
+- Added missing documentation pages to MkDocs navigation.
+- Updated `README.md`:
+  - Fixed links to `llms.txt` and `llms-full.txt`.
+  - Minor clarifications and cosmetic updates.
+- Extended contributing guidelines with additional information on pre-commit hooks.
+
+---
+
+### Tooling, CI, and linting
+#### Added
+- Added `nbstripout` as a **pre-commit hook**.
+
+#### Changed
+- Updated Read the Docs configuration to **install solver binaries** so that optimization notebooks can be executed during documentation builds.
+- Refined pre-commit and ruff configuration:
+  - Ignored selected boolean-argument warnings.
+  - Fixed linter warnings surfaced during documentation audits.
+- General cosmetic and formatting fixes across the codebase.
+
+---
+
+### Notes
+- This iteration is **documentation- and infrastructure-heavy**, focusing on reproducibility, documentation execution fidelity, and API extensibility.
+- Representative Solution Sets introduce new **decision-support abstractions** that are expected to evolve as research workflows mature.
+- Several changes are **WIP and research-driven**, and interfaces may still change.
+
+---
+
 ## [2.2.0] - 2026-02-03
 
 ### Core logic
