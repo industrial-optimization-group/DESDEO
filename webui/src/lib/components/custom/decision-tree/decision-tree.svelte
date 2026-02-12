@@ -29,7 +29,7 @@
 	let tooltipX = $state(0);
 	let tooltipY = $state(0);
 	let tooltipVisible = $state(false);
-	let containerEl = $state<HTMLDivElement | null>(null);
+	let containerEl = $state<HTMLDivElement | null>(null);  // is used!
 
 	// Overlay state for right-click context panel
 	let overlayVisible = $state(false);

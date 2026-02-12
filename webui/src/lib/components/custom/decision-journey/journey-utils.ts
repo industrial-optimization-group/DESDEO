@@ -8,10 +8,6 @@ import type {
 } from "$lib/gen/models";
 import { analyzeTradeoffs, type ObjectiveTradeoff } from "$lib/components/custom/decision-tree/tree-utils";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
 export interface AlternativeDelta {
 	optionIdx: number;
 	/** chosen[key] - alternative[key] for each objective */
@@ -67,13 +63,10 @@ export interface JourneyData {
 	pairwiseTradeoffs: PairwiseTradeoffEntry[];
 }
 
-// ---------------------------------------------------------------------------
-// Path extraction
-// ---------------------------------------------------------------------------
-
 /**
  * Walk the parent_node_id chain from the leaf back to the root,
  * then reverse to get a root-first ordering.
+ * NOTE: buggy, if multiple branches, should be polished.
  */
 export function extractPathToLeaf(
 	tree: ENautilusSessionTreeResponse,
@@ -102,10 +95,6 @@ export function extractPathToLeaf(
 	path.reverse();
 	return path;
 }
-
-// ---------------------------------------------------------------------------
-// Journey data computation
-// ---------------------------------------------------------------------------
 
 /**
  * Compute journey data from the decision path.

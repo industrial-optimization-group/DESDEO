@@ -2,7 +2,6 @@
 	import { onMount, onDestroy } from 'svelte';
 	import * as d3 from 'd3';
 	import { COLOR_PALETTE } from '$lib/components/visualizations/utils/colors';
-	import { formatNumber } from '$lib/helpers';
 
 	interface Props {
 		options: Record<string, number>[];

@@ -42,9 +42,6 @@ class ResultsType(TypeDecorator):
         if hasattr(value, "model_dump"):
             return value.model_dump()
 
-        msg = f"No JSON serialization set for '{type(value)}'."
-        print(msg)
-
         return value
 
     def process_result_value(self, value, dialect):
@@ -66,8 +63,11 @@ class ResultsType(TypeDecorator):
 
 
 class ResultInterface:
+    """An interface class for objects that contain results."""
+
     @property
     def result_objective_values(self) -> list[dict[str, float]]:
+        """Objective values of the result."""
         msg = (
             f"Calling the method `result_objective_values`, which has not been implemented "
             f"for the class `{type(self).__name__}`. Returning an empty list..."
@@ -79,6 +79,7 @@ class ResultInterface:
 
     @property
     def result_variable_values(self) -> list[dict[str, VariableType | Tensor]]:
+        """Variable values of the result."""
         msg = (
             f"Calling the method `result_variable_values`, which has not been implemented "
             f"for the class `{type(self).__name__}`. Returning an empty list..."
@@ -90,6 +91,7 @@ class ResultInterface:
 
     @property
     def num_solutions(self) -> int:
+        """Number of solutions in the result."""
         msg = (
             f"Calling the method `num_solutions`, which has not been implemented "
             f"for the class `{type(self).__name__}`. Returning a zero."
@@ -133,14 +135,17 @@ class NIMBUSClassificationState(ResultInterface, SQLModel, table=True):
 
     @property
     def result_objective_values(self) -> list[dict[str, float]]:
+        """Objective values of the result."""
         return [x.optimal_objectives for x in self.solver_results]
 
     @property
     def result_variable_values(self) -> list[dict[str, VariableType | Tensor]]:
+        """Variable values of the result."""
         return [x.optimal_variables for x in self.solver_results]
 
     @property
     def num_solutions(self) -> int:
+        """Number of solutions in the result."""
         return len(self.solver_results)
 
 
@@ -161,14 +166,17 @@ class NIMBUSSaveState(ResultInterface, SQLModel, table=True):
 
     @property
     def result_objective_values(self) -> list[dict[str, float]]:
+        """Objective values of the saved solutions."""
         return [x.objective_values for x in self.solutions]
 
     @property
     def result_variable_values(self) -> list[dict[str, VariableType | Tensor]]:
+        """Variable values of the saved solutions."""
         return [x.variable_values for x in self.solutions]
 
     @property
     def num_solutions(self) -> int:
+        """Number of solutions in the result."""
         return len(self.solutions)
 
 
@@ -187,14 +195,17 @@ class NIMBUSInitializationState(ResultInterface, SQLModel, table=True):
 
     @property
     def result_objective_values(self) -> list[dict[str, float]]:
+        """Objective values stored in the state."""
         return [self.solver_results.optimal_objectives]
 
     @property
     def result_variable_values(self) -> list[dict[str, VariableType | Tensor]]:
+        """Variable values stored in the state."""
         return [self.solver_results.optimal_variables]
 
     @property
     def num_solutions(self) -> int:
+        """Number of solutions stored in the state."""
         return 1
 
 
@@ -215,14 +226,17 @@ class NIMBUSFinalState(ResultInterface, SQLModel, table=True):
 
     @property
     def result_objective_values(self) -> list[dict[str, float]]:
+        """Objective values stored in the state."""
         return [self.solver_results.optimal_objectives]
 
     @property
     def result_variable_values(self) -> list[dict[str, VariableType | Tensor]]:
+        """Variable values stored in the state."""
         return [self.solver_results.optimal_variables]
 
     @property
     def num_solutions(self) -> int:
+        """Number of solutions stored in the state."""
         return 1
 
 
@@ -238,14 +252,17 @@ class GNIMBUSOptimizationState(ResultInterface, SQLModel, table=True):
 
     @property
     def result_objective_values(self) -> list[dict[str, float]]:
+        """Objective values stored in the state."""
         return [x.optimal_objectives for x in self.solver_results]
 
     @property
     def result_variable_values(self) -> list[dict[str, VariableType | Tensor]]:
+        """Variable values stored in the state."""
         return [x.optimal_variables for x in self.solver_results]
 
     @property
     def num_solutions(self) -> int:
+        """Number of solutions stored in the state."""
         return len(self.solver_results)
 
 
@@ -261,14 +278,17 @@ class GNIMBUSVotingState(ResultInterface, SQLModel, table=True):
 
     @property
     def result_objective_values(self) -> list[dict[str, float]]:
+        """Objective values stored in the state."""
         return [x.optimal_objectives for x in self.solver_results]
 
     @property
     def result_variable_values(self) -> list[dict[str, VariableType | Tensor]]:
+        """Variable values stored in the state."""
         return [x.optimal_variables for x in self.solver_results]
 
     @property
     def num_solutions(self) -> int:
+        """Number of solutions stored in the state."""
         return 1
 
 
@@ -286,14 +306,17 @@ class GNIMBUSEndState(ResultInterface, SQLModel, table=True):
 
     @property
     def result_objective_values(self) -> list[dict[str, float]]:
+        """Objective values stored in the state."""
         return [x.optimal_objectives for x in self.solver_results]
 
     @property
     def result_variable_values(self) -> list[dict[str, VariableType | Tensor]]:
+        """Variable values stored in the state."""
         return [x.optimal_variables for x in self.solver_results]
 
     @property
     def num_solutions(self) -> int:
+        """Number of solutions stored in the state."""
         return 1
 
 
@@ -325,26 +348,31 @@ class EMOIterateState(ResultInterface, SQLModel, table=True):
 
     @property
     def result_objective_values(self) -> dict[str, list[float]]:
+        """Objective values stored in the state."""
         if self.objective_values is None:
             raise ValueError("No objective values stored in this state.")
         return self.objective_values
 
     @property
     def result_variable_values(self) -> dict[str, list[VariableType]]:
+        """Variable values stored in the state."""
         if self.decision_variables is None:
             raise ValueError("No decision variables stored in this state.")
         return self.decision_variables
 
     @property
     def result_constraint_values(self) -> dict[str, list[float]] | None:
+        """Constraint values stored in the state."""
         return self.constraint_values
 
     @property
     def result_extra_func_values(self) -> dict[str, list[float]] | None:
+        """Extra function values stored in the state."""
         return self.extra_func_values
 
     @property
     def num_solutions(self) -> int:
+        """Number of solutions stored in the state."""
         if self.objective_values:
             first_key = next(iter(self.objective_values))
             return len(self.objective_values[first_key])
@@ -390,22 +418,27 @@ class EMOSaveState(SQLModel, table=True):
 
     @property
     def result_objective_values(self) -> dict[str, list[float]]:
+        """Objective values stored in the state."""
         return self.objective_values
 
     @property
     def result_variable_values(self) -> dict[str, list[VariableType]]:
+        """Variable values stored in the state."""
         return self.decision_variables
 
     @property
     def result_constraint_values(self) -> dict[str, list[float]] | None:
+        """Constraint values stored in the state."""
         return self.constraint_values
 
     @property
     def result_extra_func_values(self) -> dict[str, list[float]] | None:
+        """Extra function values stored in the state."""
         return self.extra_func_values
 
     @property
     def num_solutions(self) -> int:
+        """Number of solutions stored in the state."""
         if self.objective_values:
             first_key = next(iter(self.objective_values))
             return len(self.objective_values[first_key])
@@ -433,14 +466,17 @@ class IntermediateSolutionState(SQLModel, ResultInterface, table=True):
 
     @property
     def result_objective_values(self) -> list[dict[str, float]]:
+        """Objective values stored in the state."""
         return [x.optimal_objectives for x in self.solver_results]
 
     @property
     def result_variable_values(self) -> list[dict[str, VariableType]]:
+        """Variable values stored in the state."""
         return [x.optimal_variables for x in self.solver_results]
 
     @property
     def num_solutions(self) -> int:
+        """Number of solutions store in the state."""
         return len(self.solver_results)
 
 
@@ -498,12 +534,15 @@ class ENautilusFinalState(ResultInterface, SQLModel, table=True):
 
     @property
     def result_objective_values(self) -> list[dict[str, float]]:
+        """Objective values stored in the state."""
         return [self.solver_results.optimal_objectives]
 
     @property
     def result_variable_values(self) -> list[dict[str, VariableType | Tensor]]:
+        """Variable values stored in the state."""
         return [self.solver_results.optimal_variables]
 
     @property
     def num_solutions(self) -> int:
+        """Number of solutions stored in the state."""
         return 1

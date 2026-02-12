@@ -272,6 +272,21 @@ class UserSavedSolutionDB(SQLModel, table=True):
         solution_index: int,
         name: str | None,
     ) -> "UserSavedSolutionDB | None":
+        """Initialize based on state info.
+
+        Args:
+            database_session (Session): a database session.
+            user_id (int): user id.
+            problem_id (int): problem id.
+            state_id (int): id of state from which to initialize.
+            solution_index (int): the index of the solution to be saved, this assumes that
+            the referenced state enumerates multiple solutions.
+            name (str | None): name given to the saved solution.
+
+        Returns:
+            UserSavedSolutionDB | None: `None` if no state with `state_id` is found. Otherwise
+                returns the saved solution.
+        """
         state = database_session.exec(
             select(StateDB).where(
                 StateDB.id == state_id,
@@ -313,11 +328,13 @@ class SolutionReferenceBase(SQLModel):
     @computed_field
     @property
     def state_id(self) -> int:
+        """The state id."""
         return self.state.id
 
     @computed_field
     @property
     def num_solutions(self) -> int:
+        """Number of solutions contained in the referenced state."""
         return len(self.state.state.solver_results)
 
 
@@ -327,16 +344,19 @@ class SolutionReference(SolutionReferenceBase):
     @computed_field
     @property
     def objective_values_all(self) -> list[dict[str, float]]:
+        """All the objective values of the result."""
         return self.state.state.result_objective_values
 
     @computed_field
     @property
     def variable_values_all(self) -> list[dict[str, VariableType | Tensor]]:
+        """All the variable values of the result."""
         return self.state.state.result_variable_values
 
     @computed_field
     @property
     def objective_values(self) -> dict[str, float] | None:
+        """The objective values of the referenced solution. None if not applicable."""
         if self.solution_index is not None:
             return self.state.state.result_objective_values[self.solution_index]
 
@@ -345,6 +365,7 @@ class SolutionReference(SolutionReferenceBase):
     @computed_field
     @property
     def variable_values(self) -> dict[str, VariableType | Tensor] | None:
+        """The variable values of the referenced solution. None if not apllicable."""
         if self.solution_index is not None:
             return self.state.state.result_variable_values[self.solution_index]
 
@@ -357,6 +378,7 @@ class SolutionReferenceLite(SolutionReferenceBase):
     @computed_field
     @property
     def objective_values(self) -> dict[str, float] | None:
+        """The objective values of the referenced solution. None if not applicable."""
         if self.solution_index is not None:
             return self.state.state.result_objective_values[self.solution_index]
 
@@ -383,29 +405,35 @@ class SavedSolutionReference(SQLModel):
     @computed_field
     @property
     def name(self) -> str | None:
+        """Name of the saved solution."""
         return self.saved_solution.name
 
     @computed_field
     @property
     def objective_values(self) -> dict[str, float]:
+        """Objective values of the saved solution."""
         return self.saved_solution.objective_values
 
     @computed_field
     @property
     def variable_values(self) -> dict[str, VariableType | Tensor]:
+        """Variable values of the saved solution."""
         return self.saved_solution.variable_values
 
     @computed_field
     @property
     def solution_index(self) -> int | None:
+        """The index of the saved solution."""
         return self.saved_solution.solution_index
 
     @computed_field
     @property
     def saved_solution_id(self) -> int:
+        """The id of the saved solution."""
         return self.saved_solution.id
 
     @computed_field
     @property
     def state_id(self) -> int | None:
+        """The origin state of the saved solution."""
         return self.saved_solution.origin_state_id

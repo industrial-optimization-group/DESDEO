@@ -1,4 +1,4 @@
-"""."""
+"""Models related to representing and storing information of problems."""
 
 import json
 from pathlib import Path
