@@ -54,6 +54,12 @@ function setSession(sessionId: number | null, sessionInfo: string | null = null)
 	}));
 }
 
+/** Update only the problem id, keeping session and method intact.
+ *  Useful when resuming a state that belongs to a different problem. */
+function syncProblem(problemId: number | null) {
+	store.update((s) => ({ ...s, selectedProblemId: problemId }));
+}
+
 function clearSession() {
 	setSession(null, null);
 }
@@ -67,6 +73,7 @@ export const methodSelection = {
 	setProblem,
 	setMethod,
 	setSession,
+	syncProblem,
 	clearSession,
 	clearAll,
 

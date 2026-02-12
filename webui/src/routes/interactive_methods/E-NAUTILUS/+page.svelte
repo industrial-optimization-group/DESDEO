@@ -547,6 +547,18 @@
 				return;
 			}
 
+			// If the loaded state belongs to a different problem, sync it
+			const stateProblemId = state_resp.request.problem_id;
+			if (stateProblemId != null && stateProblemId !== selection.selectedProblemId) {
+				const info = await fetch_problem_info({ problem_id: stateProblemId });
+				if (!info) {
+					errorMessage.set("Failed to load problem info for the resumed state.");
+					return;
+				}
+				problem_info = info;
+				methodSelection.syncProblem(stateProblemId);
+			}
+
 			previous_request = state_resp.request;
 			previous_response = state_resp.response;
 			selected_point_index = null;
