@@ -21,7 +21,7 @@ from desdeo.problem import Problem
 from desdeo.tools import SolverResults
 from desdeo.tools.score_bands import calculate_axes_positions, cluster, order_dimensions
 
-from .utils import SessionContext, get_session_context
+from .utils import ContextField, SessionContext, SessionContextGuard
 
 router = APIRouter(prefix="/method/generic")
 
@@ -29,7 +29,10 @@ router = APIRouter(prefix="/method/generic")
 @router.post("/intermediate")
 def solve_intermediate(
     request: IntermediateSolutionRequest,
-    context: Annotated[SessionContext, Depends(get_session_context)],
+    context: Annotated[
+        SessionContext,
+        Depends(SessionContextGuard(require=[ContextField.PROBLEM]))
+    ],
 ) -> GenericIntermediateSolutionResponse:
     """Solve intermediate solutions between given two solutions.
 
@@ -81,13 +84,6 @@ def solve_intermediate(
             ) from exc
 
         var_and_obj_values_of_references.append((var_values, obj_values))
-
-    # Problem is now already loaded via context
-    if problem_db is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Problem with id={request.problem_id} could not be found.",
-        )
 
     problem = Problem.from_problemdb(problem_db)
 
@@ -144,7 +140,6 @@ def solve_intermediate(
             SolutionReference(state=state, solution_index=i) for i in range(state.state.num_solutions)
         ],
     )
-
 
 @router.post("/score-bands-obj-data")
 def calculate_score_bands_from_objective_data(

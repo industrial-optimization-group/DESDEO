@@ -39,7 +39,7 @@ from desdeo.mcdm.nimbus import generate_starting_point, solve_sub_problems
 from desdeo.problem import Problem
 from desdeo.tools import SolverResults
 
-from .utils import SessionContext, get_session_context
+from .utils import ContextField, SessionContext, SessionContextGuard
 
 router = APIRouter(prefix="/method/nimbus")
 
@@ -108,7 +108,10 @@ def collect_all_solutions(user: User, problem_id: int, session: Session) -> list
 @router.post("/solve")
 def solve_solutions(
     request: NIMBUSClassificationRequest,
-    context: Annotated[SessionContext, Depends(get_session_context)],
+    context: Annotated[
+        SessionContext,
+        Depends(SessionContextGuard(require=[ContextField.PROBLEM]))
+    ],
 ) -> NIMBUSClassificationResponse:
     """Solve the problem using the NIMBUS method."""
     db_session = context.db_session
@@ -116,12 +119,6 @@ def solve_solutions(
     problem_db = context.problem_db
     interactive_session = context.interactive_session
     parent_state = context.parent_state
-
-    # Ensure problem exists
-    if problem_db is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Problem with id={request.problem_id} could not be found."
-        )
 
     solver = check_solver(problem_db=problem_db)
     problem = Problem.from_problemdb(problem_db)
@@ -181,7 +178,10 @@ def solve_solutions(
 @router.post("/initialize")
 def initialize(
     request: NIMBUSInitializationRequest,
-    context: Annotated[SessionContext, Depends(get_session_context)],
+    context: Annotated[
+        SessionContext,
+        Depends(SessionContextGuard(require=[ContextField.PROBLEM]))
+    ],
 ) -> NIMBUSInitializationResponse:
     """Initialize the problem for the NIMBUS method."""
     db_session = context.db_session
@@ -189,11 +189,6 @@ def initialize(
     problem_db = context.problem_db
     interactive_session = context.interactive_session
     parent_state = context.parent_state
-
-    if problem_db is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Problem with id={request.problem_id} could not be found."
-        )
 
     solver = check_solver(problem_db=problem_db)
     problem = Problem.from_problemdb(problem_db)
@@ -258,7 +253,8 @@ def initialize(
 
 @router.post("/save")
 def save(
-    request: NIMBUSSaveRequest, context: Annotated[SessionContext, Depends(get_session_context)]
+    request: NIMBUSSaveRequest,
+    context: Annotated[SessionContext, Depends(SessionContextGuard())]
 ) -> NIMBUSSaveResponse:
     """Save solutions."""
     db_session = context.db_session
@@ -332,7 +328,10 @@ def save(
 @router.post("/intermediate")
 def solve_nimbus_intermediate(
     request: IntermediateSolutionRequest,
-    context: Annotated[SessionContext, Depends(get_session_context)],
+    context: Annotated[
+        SessionContext,
+        Depends(SessionContextGuard(require=[ContextField.PROBLEM]))
+    ],
 ) -> NIMBUSIntermediateSolutionResponse:
     """Solve intermediate solutions by forwarding the request to generic intermediate endpoint with context nimbus."""
     db_session = context.db_session
@@ -362,7 +361,10 @@ def solve_nimbus_intermediate(
 @router.post("/get-or-initialize")
 def get_or_initialize(
     request: NIMBUSInitializationRequest,
-    context: Annotated[SessionContext, Depends(get_session_context)],
+    context: Annotated[
+        SessionContext,
+        Depends(SessionContextGuard(require=[ContextField.PROBLEM]))
+    ],
 ) -> (
     NIMBUSInitializationResponse
     | NIMBUSClassificationResponse
@@ -456,13 +458,14 @@ def get_or_initialize(
 
 @router.post("/finalize")
 def finalize_nimbus(
-    request: NIMBUSFinalizeRequest, context: Annotated[SessionContext, Depends(get_session_context)]
+    request: NIMBUSFinalizeRequest,
+    context: Annotated[SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]))]
 ) -> NIMBUSFinalizeResponse:
     """An endpoint for finishing up the nimbus process.
 
     Args:
         request (NIMBUSFinalizeRequest): The request containing the final solution, etc.
-        context (Annotated[User, get_session_context): The current context.
+        context (Annotated[SessionContext, SessionContextGuard): The current context.
 
     Raises:
         HTTPException
@@ -523,7 +526,7 @@ def finalize_nimbus(
 @router.post("/delete_save")
 def delete_save(
     request: NIMBUSDeleteSaveRequest,
-    context: Annotated[SessionContext, Depends(get_session_context)],
+    context: Annotated[SessionContext, Depends(SessionContextGuard())]
 ) -> NIMBUSDeleteSaveResponse:
     """Endpoint for deleting saved solutions.
 

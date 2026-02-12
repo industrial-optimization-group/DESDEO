@@ -77,24 +77,25 @@ def test_get_all_representative_solution_sets(client: TestClient, session_and_us
     session.commit()
     session.refresh(problem)
 
-    # Add a representative solution set
-    solution_set = RepresentativeNonDominatedSolutions(
-        metadata_id=None,
-        name="Test Set GET",
-        description="Description GET",
-        solution_data={"x": [1.0, 2.0], "f": [0.1, 0.2]},
-        ideal={"f_1": 0.1},
-        nadir={"f_1": 0.2},
-        metadata_instance=None
-    )
-
     # Attach problem metadata
     problem_metadata = ProblemMetaDataDB(problem_id=problem.id, problem=problem)
     session.add(problem_metadata)
     session.commit()
     session.refresh(problem_metadata)
 
+    # Add a representative solution set
+    solution_set = RepresentativeNonDominatedSolutions(
+        metadata_id=None,
+        metadata_instance=None,
+        name="Test Set GET",
+        description="Description GET",
+        solution_data={"x": [1.0, 2.0], "f": [0.1, 0.2]},
+        ideal={"f_1": 0.1},
+        nadir={"f_1": 0.2},
+    )
+
     # Attach the representative set
+
     solution_set.metadata_id = problem_metadata.id
     solution_set.metadata_instance = problem_metadata
     session.add(solution_set)

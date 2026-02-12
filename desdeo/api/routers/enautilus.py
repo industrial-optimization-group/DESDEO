@@ -21,10 +21,7 @@ from desdeo.api.models import (
 from desdeo.mcdm import ENautilusResult, enautilus_get_representative_solutions, enautilus_step
 from desdeo.problem import Problem
 
-from .utils import (
-    SessionContext,
-    get_session_context,
-)
+from .utils import ContextField, SessionContext, SessionContextGuard
 
 router = APIRouter(prefix="/method/enautilus")
 
@@ -32,17 +29,17 @@ router = APIRouter(prefix="/method/enautilus")
 @router.post("/step")
 def step(
     request: ENautilusStepRequest,
-    context: Annotated[SessionContext, Depends(get_session_context)],
+    context: Annotated[
+        SessionContext,
+        Depends(SessionContextGuard(require=[ContextField.PROBLEM]))
+    ],
 ) -> ENautilusStepResponse:
     """Steps the E-NAUTILUS method."""
-    # user = context.user  # not used here
     db_session = context.db_session
-
     problem_db = context.problem_db
     problem = Problem.from_problemdb(problem_db)
 
     interactive_session = context.interactive_session
-
     parent_state = context.parent_state
 
     representative_solutions = db_session.exec(
