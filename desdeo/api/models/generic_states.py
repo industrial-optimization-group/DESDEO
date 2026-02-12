@@ -115,7 +115,7 @@ class StateDB(SQLModel, table=True):
     )
 
     session: "InteractiveSessionDB" = Relationship(back_populates="states")
-    problem: "ProblemDB" = Relationship()
+    problem: "ProblemDB" = Relationship(back_populates="states")
 
     @classmethod
     def create(

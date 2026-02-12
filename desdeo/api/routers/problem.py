@@ -474,3 +474,43 @@ def delete_representative_solution_set(
     # Delete the set
     db_session.delete(repr_metadata)
     db_session.commit()
+
+
+@router.delete("/{problem_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_problem(
+    problem_id: int,
+    context: Annotated[SessionContext, Depends(get_session_context_without_request)],
+):
+    """Delete a problem by its ID."""
+    db_session: Session = context.db_session
+    user = context.user
+
+    problem_db = db_session.get(ProblemDB, problem_id)
+    if problem_db is None:
+        raise HTTPException(status_code=404, detail=f"Problem with ID {problem_id} not found.")
+
+    if problem_db.user_id != user.id:
+        raise HTTPException(status_code=401, detail="Unauthorized user.")
+
+    db_session.delete(problem_db)
+    db_session.commit()
+
+
+@router.get("/{problem_id}/json")
+def get_problem_json(
+    problem_id: int,
+    context: Annotated[SessionContext, Depends(get_session_context_without_request)],
+) -> JSONResponse:
+    """Return a Problem as a serialized JSON object suitable for download/re-upload."""
+    db_session: Session = context.db_session
+    user = context.user
+
+    problem_db = db_session.get(ProblemDB, problem_id)
+    if problem_db is None:
+        raise HTTPException(status_code=404, detail=f"Problem with ID {problem_id} not found.")
+
+    if problem_db.user_id != user.id:
+        raise HTTPException(status_code=401, detail="Unauthorized user.")
+
+    problem = Problem.from_problemdb(problem_db)
+    return JSONResponse(content=json.loads(problem.model_dump_json()), status_code=status.HTTP_200_OK)

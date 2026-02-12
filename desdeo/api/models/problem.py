@@ -32,6 +32,7 @@ from desdeo.tools.utils import available_solvers
 
 if TYPE_CHECKING:
     from .archive import UserSavedSolutionDB
+    from .generic_states import StateDB
     from .preference import PreferenceDB
     from .user import User
 
@@ -60,9 +61,7 @@ class ProblemGetRequest(SQLModel):
 class ProblemSelectSolverRequest(SQLModel):
     """Model to request a specific solver for a problem."""
 
-    problem_id: int = Field(
-        description="ID of the problem that the solver is assigned to."
-    )
+    problem_id: int = Field(description="ID of the problem that the solver is assigned to.")
     solver_string_representation: str = Field(
         description=f"One of the following: {[x for x, _ in available_solvers.items()]}"
     )
@@ -139,21 +138,22 @@ class ProblemDB(ProblemBase, table=True):
 
     # Back populates
     user: "User" = Relationship(back_populates="problems")
-    solutions: list["UserSavedSolutionDB"] = Relationship(back_populates="problem")
-    preferences: list["PreferenceDB"] = Relationship(back_populates="problem")
+    solutions: list["UserSavedSolutionDB"] = Relationship(back_populates="problem", cascade_delete=True)
+    preferences: list["PreferenceDB"] = Relationship(back_populates="problem", cascade_delete=True)
+    states: list["StateDB"] = Relationship(back_populates="problem", cascade_delete=True)
 
     # Populated by other models
-    constants: list["ConstantDB"] = Relationship(back_populates="problem")
-    tensor_constants: list["TensorConstantDB"] = Relationship(back_populates="problem")
-    variables: list["VariableDB"] = Relationship(back_populates="problem")
-    tensor_variables: list["TensorVariableDB"] = Relationship(back_populates="problem")
-    objectives: list["ObjectiveDB"] = Relationship(back_populates="problem")
-    constraints: list["ConstraintDB"] = Relationship(back_populates="problem")
-    scalarization_funcs: list["ScalarizationFunctionDB"] = Relationship(back_populates="problem")
-    extra_funcs: list["ExtraFunctionDB"] = Relationship(back_populates="problem")
-    discrete_representation: "DiscreteRepresentationDB" = Relationship(back_populates="problem")
-    simulators: list["SimulatorDB"] = Relationship(back_populates="problem")
-    problem_metadata: "ProblemMetaDataDB" = Relationship(back_populates="problem")
+    constants: list["ConstantDB"] = Relationship(back_populates="problem", cascade_delete=True)
+    tensor_constants: list["TensorConstantDB"] = Relationship(back_populates="problem", cascade_delete=True)
+    variables: list["VariableDB"] = Relationship(back_populates="problem", cascade_delete=True)
+    tensor_variables: list["TensorVariableDB"] = Relationship(back_populates="problem", cascade_delete=True)
+    objectives: list["ObjectiveDB"] = Relationship(back_populates="problem", cascade_delete=True)
+    constraints: list["ConstraintDB"] = Relationship(back_populates="problem", cascade_delete=True)
+    scalarization_funcs: list["ScalarizationFunctionDB"] = Relationship(back_populates="problem", cascade_delete=True)
+    extra_funcs: list["ExtraFunctionDB"] = Relationship(back_populates="problem", cascade_delete=True)
+    discrete_representation: "DiscreteRepresentationDB" = Relationship(back_populates="problem", cascade_delete=True)
+    simulators: list["SimulatorDB"] = Relationship(back_populates="problem", cascade_delete=True)
+    problem_metadata: "ProblemMetaDataDB" = Relationship(back_populates="problem", cascade_delete=True)
 
     @classmethod
     def from_problem(cls, problem_instance: Problem, user: "User") -> "ProblemDB":
@@ -254,15 +254,19 @@ class RepresentativeNonDominatedSolutions(RepresentativeSolutionSetBase, SQLMode
     metadata_id: int | None = Field(foreign_key="problemmetadatadb.id", default=None)
     metadata_type: str = "representative_non_dominated_solutions"
 
-    solution_data: dict[str, list[float]] = Field(sa_column=Column(JSON),
+    solution_data: dict[str, list[float]] = Field(
+        sa_column=Column(JSON),
         description="The non-dominated solutions. It is assumed that columns "
         "exist for each variable and objective function. For functions, the "
         "`_min` variant should be present, and any tensor variables should be "
-        "unrolled.")
-    ideal: dict[str, float] = Field(sa_column=Column(JSON),
-        description="The ideal objective function values of the representative set.")
-    nadir: dict[str, float] = Field(sa_column=Column(JSON),
-        description="The nadir objective function values of the representative set.")
+        "unrolled.",
+    )
+    ideal: dict[str, float] = Field(
+        sa_column=Column(JSON), description="The ideal objective function values of the representative set."
+    )
+    nadir: dict[str, float] = Field(
+        sa_column=Column(JSON), description="The nadir objective function values of the representative set."
+    )
 
     metadata_instance: "ProblemMetaDataDB" = Relationship(back_populates="representative_nd_metadata")
 
@@ -291,11 +295,13 @@ class ProblemMetaDataDB(SQLModel, table=True):
     id: int | None = Field(primary_key=True, default=None)
     problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
 
-    forest_metadata: list[ForestProblemMetaData] = Relationship(back_populates="metadata_instance")
+    forest_metadata: list[ForestProblemMetaData] = Relationship(back_populates="metadata_instance", cascade_delete=True)
     representative_nd_metadata: list[RepresentativeNonDominatedSolutions] = Relationship(
-        back_populates="metadata_instance"
+        back_populates="metadata_instance", cascade_delete=True
     )
-    solver_selection_metadata: list[SolverSelectionMetadata] = Relationship(back_populates="metadata_instance")
+    solver_selection_metadata: list[SolverSelectionMetadata] = Relationship(
+        back_populates="metadata_instance", cascade_delete=True
+    )
     problem: ProblemDB = Relationship(back_populates="problem_metadata")
 
     @property
