@@ -46,7 +46,10 @@
 	import type { components } from '$lib/api/client-types';
 	import { methodSelection } from '../../stores/methodSelection';
 	import { invalidateAll } from '$app/navigation';
-	import { deleteProblem, downloadProblemJson } from './handler';
+	import { deleteProblem, downloadProblemJson, getAssignedSolver, getAvailableSolvers, assignSolver, addRepresentativeSolutionSet } from './handler';
+	import * as Select from '$lib/components/ui/select/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
+	import { Label } from '$lib/components/ui/label/index.js';
 	import { openInputDialog } from '$lib/components/custom/dialogs/dialogs';
 
 	type ProblemInfo = components['schemas']['ProblemInfo'];
@@ -60,6 +63,161 @@
 	let expandedObjectives = $state(new Set<number>());
 	let expandedConstraints = $state(new Set<number>());
 	let expandedExtras = $state(new Set<number>());
+	let expandedRepSolutions = $state(new Set<number>());
+	let assignedSolver = $state<string | null>(null);
+	let availableSolvers = $state<string[]>([]);
+	let selectedSolver = $state('');
+
+	// Import representative solution set state
+	let importDialogOpen = $state(false);
+	let importName = $state('');
+	let importDescription = $state('');
+	let importSolutionData = $state<{ [key: string]: number[] }>({});
+	let importIdeal = $state<{ [key: string]: number }>({});
+	let importNadir = $state<{ [key: string]: number }>({});
+	let importError = $state('');
+	let importSubmitting = $state(false);
+	let fileInputEl = $state<HTMLInputElement | undefined>();
+
+	function computeIdealNadir(solutionData: { [key: string]: number[] }) {
+		const ideal: { [key: string]: number } = {};
+		const nadir: { [key: string]: number } = {};
+		if (!selectedProblem?.objectives) return { ideal, nadir };
+
+		for (const obj of selectedProblem.objectives) {
+			const key = obj.symbol || obj.name;
+			const values = solutionData[key];
+			if (!values?.length) continue;
+			if (obj.maximize) {
+				ideal[key] = Math.max(...values);
+				nadir[key] = Math.min(...values);
+			} else {
+				ideal[key] = Math.min(...values);
+				nadir[key] = Math.max(...values);
+			}
+		}
+		return { ideal, nadir };
+	}
+
+	function parseCSV(text: string): { [key: string]: number[] } {
+		const lines = text.trim().split('\n');
+		if (lines.length < 2) return {};
+		const headers = lines[0].split(',').map((h) => h.trim());
+		const data: { [key: string]: number[] } = {};
+		for (const h of headers) data[h] = [];
+		for (let i = 1; i < lines.length; i++) {
+			const values = lines[i].split(',');
+			for (let j = 0; j < headers.length; j++) {
+				data[headers[j]].push(parseFloat(values[j]));
+			}
+		}
+		return data;
+	}
+
+	async function handleFileSelected(event: Event) {
+		const input = event.target as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+
+		importError = '';
+		const text = await file.text();
+		input.value = '';
+		const isJson = file.name.toLowerCase().endsWith('.json');
+
+		try {
+			if (isJson) {
+				const parsed = JSON.parse(text);
+				let solutionData: { [key: string]: number[] };
+				let jsonName: string | undefined;
+				let jsonIdeal: { [key: string]: number } | undefined;
+				let jsonNadir: { [key: string]: number } | undefined;
+
+				if (Array.isArray(parsed)) {
+					// Row-oriented: [{col1: v1, col2: v2}, ...] → column-oriented
+					solutionData = {};
+					for (const row of parsed) {
+						for (const [key, val] of Object.entries(row)) {
+							if (!solutionData[key]) solutionData[key] = [];
+							solutionData[key].push(Number(val));
+						}
+					}
+				} else {
+					solutionData = parsed.solution_data ?? {};
+					jsonName = parsed.name;
+					jsonIdeal = parsed.ideal;
+					jsonNadir = parsed.nadir;
+				}
+
+				importSolutionData = solutionData;
+				importName = jsonName ?? file.name.replace(/\.json$/i, '');
+				importDescription = parsed.description ?? '';
+				const defaults = computeIdealNadir(importSolutionData);
+				importIdeal = jsonIdeal ?? defaults.ideal;
+				importNadir = jsonNadir ?? defaults.nadir;
+			} else {
+				importSolutionData = parseCSV(text);
+				importName = file.name.replace(/\.csv$/i, '');
+				importDescription = '';
+				const defaults = computeIdealNadir(importSolutionData);
+				importIdeal = defaults.ideal;
+				importNadir = defaults.nadir;
+			}
+
+			if (Object.keys(importSolutionData).length === 0) {
+				importError = 'No data found in file.';
+				return;
+			}
+
+			importDialogOpen = true;
+		} catch (e) {
+			importError = `Failed to parse file: ${e instanceof Error ? e.message : String(e)}`;
+			importDialogOpen = true;
+		}
+	}
+
+	async function handleImportSubmit() {
+		if (!selectedProblem) return;
+		importSubmitting = true;
+		importError = '';
+		try {
+			const success = await addRepresentativeSolutionSet({
+				name: importName,
+				description: importDescription || undefined,
+				solution_data: importSolutionData,
+				ideal: importIdeal,
+				nadir: importNadir,
+				problem_id: selectedProblem.id
+			});
+			if (success) {
+				importDialogOpen = false;
+				const problemId = selectedProblem.id;
+				await invalidateAll();
+				selectedProblem = problemList.find((p) => p.id === problemId);
+			} else {
+				importError = 'Failed to add solution set. Check the server logs for details.';
+			}
+		} catch (e) {
+			importError = `Error: ${e instanceof Error ? e.message : String(e)}`;
+		} finally {
+			importSubmitting = false;
+		}
+	}
+
+	$effect(() => {
+		if (!selectedProblem) {
+			assignedSolver = null;
+			availableSolvers = [];
+			selectedSolver = '';
+			return;
+		}
+		selectedSolver = '';
+		getAssignedSolver(selectedProblem.id).then((solver) => {
+			assignedSolver = solver;
+		});
+		getAvailableSolvers().then((solvers) => {
+			availableSolvers = solvers;
+		});
+	});
 
 	function toggleSet(set: Set<number>, index: number): Set<number> {
 		const next = new Set(set);
@@ -128,6 +286,7 @@
 						<Tabs.Trigger value="variables">Variables</Tabs.Trigger>
 						<Tabs.Trigger value="constraints">Constraints</Tabs.Trigger>
 						<Tabs.Trigger value="extra">Extra Functions</Tabs.Trigger>
+						<Tabs.Trigger value="metadata">Metadata</Tabs.Trigger>
 					</Tabs.List>
 
 					<!-- General Tab -->
@@ -439,8 +598,249 @@
 							Select a problem to see details.
 						{/if}
 					</Tabs.Content>
+
+					<!-- Metadata Tab -->
+					<Tabs.Content value="metadata" class="w-full">
+						{#if selectedProblem}
+							<!-- Solver Section -->
+							<div class="my-4 rounded-lg border border-gray-200 bg-gray-50 p-4 shadow-sm">
+								<h3 class="mb-2 font-semibold">Solver</h3>
+								<div class="mb-3">
+									{#if assignedSolver}
+										<span
+											class="inline-block rounded bg-blue-100 px-2 py-1 text-sm font-medium text-blue-800"
+										>
+											{assignedSolver}
+										</span>
+									{:else}
+										<p class="text-sm text-gray-500">No solver assigned.</p>
+									{/if}
+								</div>
+								<div class="flex items-center gap-2">
+									<Select.Root
+										type="single"
+										bind:value={selectedSolver}
+									>
+										<Select.Trigger class="w-64 bg-white">
+											{selectedSolver || 'Click to select'}
+										</Select.Trigger>
+										<Select.Content>
+											{#each availableSolvers as solver}
+												<Select.Item value={solver}>{solver}</Select.Item>
+											{/each}
+										</Select.Content>
+									</Select.Root>
+									<Button
+										variant="outline"
+										disabled={selectedSolver === ''}
+										onclick={() => {
+											if (selectedProblem && selectedSolver) {
+												assignSolver(selectedProblem.id, selectedSolver).then((success) => {
+													if (success) {
+														assignedSolver = selectedSolver;
+													}
+												});
+											}
+										}}
+									>
+										Set
+									</Button>
+								</div>
+							</div>
+
+							<!-- Representative Non-Dominated Solution Sets -->
+							<div class="my-4 rounded-lg border border-gray-200 bg-gray-50 p-4 shadow-sm">
+								<h3 class="mb-2 font-semibold">Representative Solution Sets</h3>
+								{#if selectedProblem.problem_metadata?.representative_nd_metadata?.length}
+									<Table.Root>
+										<Table.Header>
+											<Table.Row>
+												<Table.Head class="font-semibold">Name</Table.Head>
+												<Table.Head class="font-semibold">Description</Table.Head>
+												<Table.Head class="font-semibold">Solutions</Table.Head>
+												<Table.Head class="font-semibold">Details</Table.Head>
+											</Table.Row>
+										</Table.Header>
+										<Table.Body>
+											{#each selectedProblem.problem_metadata.representative_nd_metadata as repSet, i}
+												{@const solutionCount = Object.values(repSet.solution_data)[0]?.length ?? 0}
+												<Table.Row>
+													<Table.Cell>{repSet.name}</Table.Cell>
+													<Table.Cell>{repSet.description ?? '—'}</Table.Cell>
+													<Table.Cell>{solutionCount}</Table.Cell>
+													<Table.Cell>
+														<Button
+															variant="outline"
+															onclick={() => {
+																expandedRepSolutions = toggleSet(expandedRepSolutions, i);
+															}}
+														>
+															{expandedRepSolutions.has(i) ? 'Hide' : 'Show'} Details
+														</Button>
+													</Table.Cell>
+												</Table.Row>
+												{#if expandedRepSolutions.has(i)}
+													<Table.Row>
+														<Table.Cell colspan={4} class="bg-gray-50 px-6 py-4">
+															<Table.Root>
+																<Table.Header>
+																	<Table.Row>
+																		<Table.Head class="font-semibold">Objective</Table.Head>
+																		<Table.Head class="font-semibold">Ideal</Table.Head>
+																		<Table.Head class="font-semibold">Nadir</Table.Head>
+																	</Table.Row>
+																</Table.Header>
+																<Table.Body>
+																	{#each Object.keys(repSet.ideal) as key}
+																		<Table.Row>
+																			<Table.Cell>{key}</Table.Cell>
+																			<Table.Cell>{repSet.ideal[key]}</Table.Cell>
+																			<Table.Cell>{repSet.nadir[key]}</Table.Cell>
+																		</Table.Row>
+																	{/each}
+																</Table.Body>
+															</Table.Root>
+														</Table.Cell>
+													</Table.Row>
+												{/if}
+											{/each}
+										</Table.Body>
+									</Table.Root>
+								{:else}
+									<p class="text-sm text-gray-500">No representative solution sets.</p>
+								{/if}
+								<input
+									type="file"
+									accept=".json,.csv"
+									class="hidden"
+									bind:this={fileInputEl}
+									onchange={handleFileSelected}
+								/>
+								<Button
+									variant="outline"
+									class="mt-3"
+									onclick={() => fileInputEl?.click()}
+								>
+									Import from file
+								</Button>
+							</div>
+
+							<!-- Forest Metadata -->
+							{#if selectedProblem.problem_metadata?.forest_metadata?.length}
+								<div class="my-4 rounded-lg border border-gray-200 bg-gray-50 p-4 shadow-sm">
+									<h3 class="mb-2 font-semibold">Forest Metadata</h3>
+									{#each selectedProblem.problem_metadata.forest_metadata as forest}
+										<div class="grid w-full grid-cols-2 gap-x-4 gap-y-2">
+											<div class="col-span-2 flex">
+												<div class="w-40 font-semibold">Years</div>
+												<div class="flex-1">{forest.years.join(', ')}</div>
+											</div>
+											<div class="col-span-2 border-b border-gray-300"></div>
+											<div class="col-span-2 flex">
+												<div class="w-40 font-semibold">Stand ID Field</div>
+												<div class="flex-1">{forest.stand_id_field}</div>
+											</div>
+											<div class="col-span-2 border-b border-gray-300"></div>
+											{#if forest.compensation != null}
+												<div class="col-span-2 flex">
+													<div class="w-40 font-semibold">Compensation</div>
+													<div class="flex-1">{forest.compensation}</div>
+												</div>
+												<div class="col-span-2 border-b border-gray-300"></div>
+											{/if}
+											<div class="col-span-2 flex">
+												<div class="w-40 font-semibold">Map Data</div>
+												<div class="flex-1 text-sm text-gray-500">
+													{forest.map_json ? 'Available' : 'Not available'}
+												</div>
+											</div>
+											<div class="col-span-2 border-b border-gray-300"></div>
+											<div class="col-span-2 flex">
+												<div class="w-40 font-semibold">Schedule</div>
+												<div class="flex-1 text-sm text-gray-500">
+													{Object.keys(forest.schedule_dict).length} entries
+												</div>
+											</div>
+										</div>
+									{/each}
+								</div>
+							{/if}
+						{:else}
+							Select a problem to see details.
+						{/if}
+					</Tabs.Content>
 				</Tabs.Root>
 			</div>
 		</div>
 	{/if}
+
+<!-- Import Representative Solution Set Dialog -->
+{#if importDialogOpen}
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<div class="fixed inset-0 z-50 flex items-center justify-center">
+	<div class="fixed inset-0 bg-black/50" onclick={() => (importDialogOpen = false)}></div>
+	<div class="bg-background relative z-50 grid w-full max-w-lg gap-4 rounded-lg border p-6 shadow-lg max-h-[80vh] overflow-y-auto">
+		<div>
+			<h2 class="text-lg font-semibold">Import Representative Solution Set</h2>
+			<p class="text-muted-foreground text-sm">Review the parsed data and adjust ideal/nadir values before importing.</p>
+		</div>
+		<div class="grid gap-4 py-4">
+			{#if importError}
+				<p class="text-sm text-red-600">{importError}</p>
+			{/if}
+			<div class="grid gap-2">
+				<Label for="import-name">Name</Label>
+				<Input id="import-name" bind:value={importName} />
+			</div>
+			<div class="grid gap-2">
+				<Label for="import-description">Description</Label>
+				<Input id="import-description" bind:value={importDescription} placeholder="Optional" />
+			</div>
+			<div class="text-sm text-gray-600">
+				<p>{Object.keys(importSolutionData).length} columns, {Object.values(importSolutionData)[0]?.length ?? 0} solutions</p>
+			</div>
+			{#if Object.keys(importIdeal).length > 0}
+				<div class="grid gap-2">
+					<h4 class="font-semibold">Ideal Values</h4>
+					{#each Object.keys(importIdeal) as key}
+						<div class="flex items-center gap-2">
+							<Label class="w-24 text-sm">{key}</Label>
+							<Input
+								type="number"
+								value={importIdeal[key]}
+								onchange={(e: Event) => {
+									importIdeal[key] = parseFloat((e.target as HTMLInputElement).value);
+								}}
+							/>
+						</div>
+					{/each}
+				</div>
+				<div class="grid gap-2">
+					<h4 class="font-semibold">Nadir Values</h4>
+					{#each Object.keys(importNadir) as key}
+						<div class="flex items-center gap-2">
+							<Label class="w-24 text-sm">{key}</Label>
+							<Input
+								type="number"
+								value={importNadir[key]}
+								onchange={(e: Event) => {
+									importNadir[key] = parseFloat((e.target as HTMLInputElement).value);
+								}}
+							/>
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</div>
+		<div class="flex justify-end gap-2">
+			<Button variant="outline" onclick={() => (importDialogOpen = false)}>Cancel</Button>
+			<Button disabled={importSubmitting || !importName} onclick={handleImportSubmit}>
+				{importSubmitting ? 'Importing...' : 'Import'}
+			</Button>
+		</div>
+	</div>
+</div>
+{/if}
+
 </div>

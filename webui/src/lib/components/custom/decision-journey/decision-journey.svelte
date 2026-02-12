@@ -19,7 +19,7 @@
 
 	let { sessionTree, leafNodeId, problem, finalSolutionPoint = null }: Props = $props();
 
-	let tooltipEl: HTMLDivElement;
+	let tooltipEl = $state<HTMLDivElement>();
 	let selectedStep = $state<JourneyStep | null>(null);
 
 	let journeyData = $derived.by(() => {

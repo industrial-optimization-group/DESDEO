@@ -77,6 +77,25 @@
 	let sessions = $state<InteractiveSessionBase[]>([]);
 	let newSessionInfo = $state<string>('');
 	let initSessionTree = $state<ENautilusSessionTreeResponse | null>(null);
+	let selectedRepSetId = $state<number | null>(null);
+
+	let repSolutionSets = $derived(
+		problem_info?.problem_metadata?.representative_nd_metadata?.filter(s => s.id != null) ?? []
+	);
+
+	let repSetOptions = $derived(
+		repSolutionSets.map(s => ({
+			value: String(s.id),
+			label: s.name
+		}))
+	);
+
+	// Auto-select the only representative set when there's exactly one
+	$effect(() => {
+		if (repSolutionSets.length === 1 && repSolutionSets[0].id != null) {
+			selectedRepSetId = repSolutionSets[0].id;
+		}
+	});
 
 	let is_initial_ready = $derived.by(() => {
 		return (
@@ -366,12 +385,17 @@
 			return;
 		}
 
+		if (selectedRepSetId == null) {
+			errorMessage.set('Please select a representative solution set.');
+			return;
+		}
+
 		try {
 			isLoading.set(true);
 
 			const stepRequest: ENautilusStepRequest = {
 				problem_id: selection.selectedProblemId,
-				representative_solutions_id: 1,
+				representative_solutions_id: selectedRepSetId,
 				current_iteration: 0,
 				iterations_left: initial_iterations_left,
 				selected_point: {},
@@ -750,6 +774,26 @@
 			</div>
 		</div>
 
+		<div>
+			<span class="mb-1 block text-sm font-medium text-gray-700">Representative solution set</span>
+			{#if repSolutionSets.length === 0}
+				<p class="text-sm text-amber-600">
+					No representative solution sets available for this problem.
+					<a href="/problems" class="underline">Import or generate sets on the Problems page.</a>
+				</p>
+			{:else}
+				{#key selectedRepSetId}
+					<Combobox
+						options={repSetOptions}
+						defaultSelected={selectedRepSetId != null ? String(selectedRepSetId) : ''}
+						onChange={(e) => { selectedRepSetId = Number(e.value); }}
+						placeholder="Select a solution set..."
+						showSearch={repSetOptions.length > 5}
+					/>
+				{/key}
+			{/if}
+		</div>
+
 		{#if initTreeHasNodes && selection.selectedSessionId != null}
 			<div>
 				<span class="mb-1 block text-sm font-medium text-gray-700">Resume from previous state</span>
@@ -811,6 +855,7 @@
 				disabled={$isLoading ||
 					selection.selectedProblemId == null ||
 					selection.selectedSessionId == null ||
+					selectedRepSetId == null ||
 					!is_initial_ready}
 			>
 				Start E-NAUTILUS
