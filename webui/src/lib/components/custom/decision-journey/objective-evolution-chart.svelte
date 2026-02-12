@@ -196,9 +196,24 @@
 				})
 				.on('mousemove', (event: MouseEvent) => {
 					const parentRect = tooltipEl.parentElement!.getBoundingClientRect();
+					const tipRect = tooltipEl.getBoundingClientRect();
+					const gap = 12;
+
+					// Flip above cursor if tooltip would overflow bottom
+					let top = event.clientY - parentRect.top + gap;
+					if (event.clientY + gap + tipRect.height > parentRect.bottom) {
+						top = event.clientY - parentRect.top - tipRect.height - gap;
+					}
+
+					// Flip left of cursor if tooltip would overflow right
+					let left = event.clientX - parentRect.left + gap;
+					if (event.clientX + gap + tipRect.width > parentRect.right) {
+						left = event.clientX - parentRect.left - tipRect.width - gap;
+					}
+
 					tooltip
-						.style('left', `${event.clientX - parentRect.left + 12}px`)
-						.style('top', `${event.clientY - parentRect.top - 10}px`);
+						.style('left', `${left}px`)
+						.style('top', `${top}px`);
 				})
 				.on('mouseleave', () => {
 					tooltip.style('opacity', '0');
