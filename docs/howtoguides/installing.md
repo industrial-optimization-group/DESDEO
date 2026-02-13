@@ -191,6 +191,19 @@ is activated!
     uv sync
     ```
 
+=== "pip"
+
+    You can install desdeo and all optional dependencies by running
+
+    ```bash
+    pip install -e --group dev-all
+    ```
+
+    If you don't want all the optional stuff, you can also specify different group(s) or no group at all.
+
+    It's worth noting that pip does not automatically do anything to your virtual environments, so you will need to handle that manually. It also
+    won't help you figure out conflicting dependencies.
+
 And now we should be done! DESDEO should now be available on your system in your current virtual environment.
 
 !!! Note "Extra dependencies?"
