@@ -1,4 +1,3 @@
-
 [project]
 name = "desdeo"
 version = "2.2.1"
@@ -18,7 +17,6 @@ keywords = [
     "interactive methods",
 ]
 requires-python = ">=3.12,<3.14"
-
 dependencies = [
     "numpy >= 2.2.0",
     "scipy >= 1.11.4",
@@ -31,7 +29,7 @@ dependencies = [
     "plotly>=6.0",
     "pyparsing >= 3.0",
     "nevergrad >= 1.0.12",
-    "bayesian-optimization >= 1.0",
+    "bayesian-optimization >= 1.0", # They recently released v2 which breaks compatibility with nevergrad
     "pyomo >= 6.8",
     "gurobipy >= 12.0.0",
     "tsp-solver >= 0.1",
@@ -51,12 +49,7 @@ repository = "https://github.com/industrial-optimization-group/DESDEO"
 documentation = "https://desdeo.readthedocs.io/en/latest/"
 "Bug tracker" = "https://github.com/industrial-optimization-group/DESDEO/issues"
 
-# ----------------------------------------------------
-# OPTIONAL EXTRAS (pip, uv, Poetry all understand these)
-# ----------------------------------------------------
-
-[project.optional-dependencies]
-
+[dependency-groups]
 dev = [
     "ruff>=0.11",
     "mypy>=1.0",
@@ -81,11 +74,7 @@ docs = [
     "mkdocs-llmstxt>=0.5.0",
 ]
 
-jupyter = [
-    "jupyter>=1.0",
-    "jupyterlab>=4.0",
-    "jupytext>=1.16.4",
-]
+jupyter = ["jupyter>=1.0", "jupyterlab>=4.0", "jupytext>=1.16.4"]
 
 web = [
     "httpx>=0.28.1",
@@ -99,51 +88,123 @@ web = [
     "websockets>=15.0.1",
 ]
 
-viz = [
-    "seaborn>=0.13.0",
-    "scienceplots>=2.1.1",
-    "pyparsing[diagrams]>=3.1.1",
-]
+viz = ["seaborn>=0.13.0", "scienceplots>=2.1.1", "pyparsing[diagrams]>=3.1.1"]
 
-tools = [
-    "djlint>=1.34.1",
-    "eralchemy>=1.5.0",
-]
+tools = ["djlint>=1.34.1", "eralchemy>=1.5.0"]
 
-server = [
+server = [ # production!
     "gunicorn>=23.0.0",
     "psycopg2>=2.9.10",
 ]
 
-# This breaks poetry, remove it if you want to use poetry for some reason
-# all-dev = ["desdeo[dev,docs,jupyter,web,viz,tools]"]
+all-dev = [
+    { include-group = "dev" },
+    { include-group = "docs" },
+    { include-group = "jupyter" },
+    { include-group = "web" },
+    { include-group = "viz" },
+    { include-group = "tools" },
+]
+
+[tool.poetry.group.server]
+optional = true
+
 
 [tool.uv]
-default-extras = ["dev", "docs", "jupyter", "web", "viz", "tools"]
+default-groups = ["dev", "docs", "jupyter", "web", "viz", "tools"]
 
 [tool.ruff]
+# Enable the pycodestyle (`E`) and Pyflakes (`F`) rules by default.
+# Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
+# McCabe complexity (`C901`) by default.
 lint.select = [
-    "E","F","W","C901","D","UP","S","FBT","B","A","COM","C4","T20","PIE","RET","PTH","SIM","PL","TRY","FURB","LOG","NPY","RUF","I","N",
+    "E",
+    "F",
+    "W",
+    "C901",
+    "D",
+    "UP",
+    "S",
+    "FBT",
+    "B",
+    "A",
+    "COM",
+    "C4",
+    "T20",
+    "PIE",
+    "RET",
+    "PTH",
+    "SIM",
+    "PL",
+    "TRY",
+    "FURB",
+    "LOG",
+    "NPY",
+    "RUF",
+    "I",
+    "N",
 ]
 lint.ignore = [
-    "COM812","FBT001","FBT002","PLR0911","PLR0912","PLR0913","PLR0915","TRY003",
+    "COM812",  # Enforcing trailing commas is too annoying.
+    "FBT001",  # "boolean typed pos arg"
+    "FBT002",  # "boolean default pos"
+    "PLR0911", # "too many return statements (>6)"
+    "PLR0912", # "too many branches"
+    "PLR0913", # "too many function args"
+    "PLR0915", # "too many statements (>50)"
+    "TRY003",  # allow long error messages
 ]
 lint.pydocstyle.convention = "google"
+
+
+# Allow autofix for all enabled rules (when `--fix`) is provided.
 lint.fixable = ["ALL"]
 lint.unfixable = []
+
+# Allow unused variables when underscore-prefixed.
 lint.dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+# Exclude a variety of commonly ignored directories.
 exclude = [
-    ".bzr",".direnv",".eggs",".git",".git-rewrite",".hg",".mypy_cache",".nox",".pants.d",".pytype",".ruff_cache",".svn",".tox",".venv",
-    "__pypackages__","_build","buck-out","build","dist","node_modules","venv",
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
 ]
+
 line-length = 120
+
+# Assume Python 3.12.
 target-version = "py312"
 
 [tool.ruff.lint.mccabe]
 max-complexity = 15
 
 [tool.ruff.lint.per-file-ignores]
-"**/tests/**/*.py" = ["S101","ARG","FBT","PLR2004"]
+# Ignore certain rules in test files
+"**/tests/**/*.py" = [
+    "S101",    # asserts allowed in tests...
+    "ARG",     # Unused function args -> fixtures nevertheless are functionally relevant...
+    "FBT",     # Don't care about booleans as positional arguments in tests, e.g. via @pytest.mark.parametrize()
+    "PLR2004", # Magic value used in comparison, ...
+]
 
 [tool.ruff.format]
 quote-style = "double"

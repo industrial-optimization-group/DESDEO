@@ -182,7 +182,7 @@ is activated!
     To install DESDEO's core-logic dependencies, run
 
     ```bash
-    uv sync --no-default-extras
+    uv sync --no-default-groups
     ```
 
     If you wish to install the development and web dependencies as well, then run the following command instead:
@@ -330,42 +330,34 @@ cd DESDEO
 
 #### Installing dependencies
 After setting up a virtual environment and downloading the source code, we next
-need to install DESDEO's dependencies.  For this, we will need to first install
-`poetry` in our virtual environment. Type in your Anaconda prompt
+need to install DESDEO's dependencies. Type in your Anaconda prompt
 
 ```cmd
-pip install poetry
+pip install -e --group dev-all
 ```
+If you don't want all the extras, you can list some other groups or no groups at all.
 
-Next, we need to set up some environmental variables to make sure that we do not
-run into trouble when installing Python packages using Poetry. Type the five
-following commands in your Anaconda prompt:
+#### Using uv with Anaconda
 
+You can also use uv if you want. Make sure you have it installed first (`pip install uv`).
+
+The default cache location for uv will likely not work on a JYU machine, because a normal user
+doesn't have the necessary rights there. Thus, you should change the default cache location of
+uv to, for example, the anaconda environment.
 ```cmd
-conda env config vars set POETRY_VIRTUALENVS_CREATE=false
-conda env config vars set POETRY_CACHE_DIR=C:/MyTemp/temp
-conda env config vars set TEMP=C:/MyTemp/temp
-conda env config vars set TMP=C:/MyTemp/temp
+conda env config vars set UV_CACHE_DIR=%CONDA_PREFIX%\uv_cache
 conda activate desdeo
 ```
 
-You can then install DESDEO and the required packages by typing
+You can then use uv to install DESDEO and the required packages by typing
 
 ```cmd
-poetry install
+uv sync --python "%CONDA_PREFIX%\python.exe"
 ```
 
-!!! question "Why did I have to do that thing with the env configs?"
-
-    Installing Python packages with Poetry requires the creation and running of
-    some temporary files. However, the default locations where those files are
-    placed are not accessible without admin rights on JYU Windows machines.
-    That's why we are using `C:\MyTemp\temp` folder, because every user has the
-    necessary rights to do things there.
-
-    If you are not on a JYU Windows machine, you can probably safely skip that
-    part. If you are in some other tightly managed system, you might need to
-    figure out a different folder to use.
+The parameter `--python "%CONDA_PREFIX%\python.exe"` tells uv to install the
+dependencies to your current conda virtual environment instead of creating a
+new virtual environment.
 
 
 ## Where to go next?
