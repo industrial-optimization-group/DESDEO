@@ -109,6 +109,7 @@ def get_problem(
     """
     return context.problem_db
 
+
 @router.post("/add")
 def add_problem(
     request: Annotated[Problem, Depends(parse_problem_json)],
@@ -445,7 +446,7 @@ def delete_representative_solution_set(
 @router.delete("/{problem_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_problem(
     problem_id: int,
-    context: Annotated[SessionContext, Depends(get_session_context_without_request)],
+    context: Annotated[SessionContext, Depends(SessionContextGuard())],
 ):
     """Delete a problem by its ID."""
     db_session: Session = context.db_session
@@ -465,7 +466,7 @@ def delete_problem(
 @router.get("/{problem_id}/json")
 def get_problem_json(
     problem_id: int,
-    context: Annotated[SessionContext, Depends(get_session_context_without_request)],
+    context: Annotated[SessionContext, Depends(SessionContextGuard())],
 ) -> JSONResponse:
     """Return a Problem as a serialized JSON object suitable for download/re-upload."""
     db_session: Session = context.db_session
