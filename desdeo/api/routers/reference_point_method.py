@@ -15,7 +15,7 @@ from desdeo.mcdm import rpm_solve_solutions
 from desdeo.problem import Problem
 from desdeo.tools import SolverResults
 
-from .utils import SessionContext, get_session_context
+from .utils import ContextField, SessionContext, SessionContextGuard
 
 router = APIRouter(prefix="/method/rpm")
 
@@ -23,7 +23,10 @@ router = APIRouter(prefix="/method/rpm")
 @router.post("/solve")
 def solve_solutions(
     request: RPMSolveRequest,
-    context: Annotated[SessionContext, Depends(get_session_context)],
+    context: Annotated[
+        SessionContext,
+        Depends(SessionContextGuard(require=[ContextField.PROBLEM]))
+    ],
 ) -> RPMState:
     """Runs an iteration of the reference point method.
 
