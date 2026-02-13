@@ -182,7 +182,7 @@ is activated!
     To install DESDEO's core-logic dependencies, run
 
     ```bash
-    uv sync --no-default-groups
+    uv sync --no-default-extras
     ```
 
     If you wish to install the development and web dependencies as well, then run the following command instead:
