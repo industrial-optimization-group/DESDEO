@@ -24,8 +24,7 @@ from desdeo.api.models.representative_solution import RepresentativeSolutionSetR
 from desdeo.api.models.session import CreateSessionRequest
 from desdeo.api.routers.user_authentication import get_current_user
 
-RequestType = RPMSolveRequest | ENautilusStepRequest |\
-    RepresentativeSolutionSetRequest | CreateSessionRequest
+RequestType = RPMSolveRequest | ENautilusStepRequest | RepresentativeSolutionSetRequest | CreateSessionRequest
 
 
 def fetch_interactive_session(user: User, request: RequestType, session: Session) -> InteractiveSessionDB | None:
@@ -150,10 +149,12 @@ def fetch_parent_state(
 
 
 class ContextField(StrEnum):
-    """Enum class to specify context fileds."""
+    """Enum class to specify context fields."""
+
     PROBLEM = "problem_db"
     INTERACTIVE_SESSION = "interactive_session"
     PARENT_STATE = "parent_state"
+
 
 @dataclass(frozen=True)
 class SessionContext:
@@ -173,7 +174,8 @@ class SessionContextGuard:
         """Init method for the SessionContextGuard class.
 
         Args:
-            require (Iterable[ContextField] | None, optional): _description_. Defaults to None.
+            require (Iterable[ContextField] | None, optional): fields that the guard will check
+                are included in the request. Defaults to None.
         """
         self.require = set(require or [])
 
@@ -181,7 +183,7 @@ class SessionContextGuard:
         self,
         user: Annotated[User, Depends(get_current_user)],
         db_session: Annotated[Session, Depends(get_session)],
-        request: RequestType | None = None
+        request: RequestType | None = None,
     ) -> SessionContext:
         """Call method for the SessionContextGuard class.
 
@@ -192,7 +194,7 @@ class SessionContextGuard:
                 Defaults to None.
 
         Returns:
-            SessionContext: _description_
+            SessionContext: the session context with the required fields specified in `self.require`.
         """
         problem_db = None
         interactive_session = None
@@ -204,9 +206,7 @@ class SessionContextGuard:
                 problem_db = fetch_user_problem(user, request, db_session)
 
             if hasattr(request, "interactive_session_id") or hasattr(request, "problem_id"):
-                interactive_session = fetch_interactive_session(
-                    user, request, db_session
-                )
+                interactive_session = fetch_interactive_session(user, request, db_session)
 
             if hasattr(request, "parent_state_id") or hasattr(request, "problem_id"):
                 parent_state = fetch_parent_state(
