@@ -98,6 +98,16 @@ export function updatePreferencesFromState(state: Response | null, problem: Prob
     return problem.objectives.map((obj) => obj.ideal ?? 0);
 }
 
+export function isInitialState(state: Response | null): boolean {
+    // Try to get previous preference from NIMBUS state to determine if we are in the initial state (no previous preference means initial state)
+    if (state && 'previous_preference' in state && state.previous_preference) {
+        console.log('Previous preference found, not initial state:', state.previous_preference);
+        return false; // We have a previous preference, so not the initial state
+    }
+    console.log('No previous preference found, initial state:', state);
+    return true; // No previous preference, so we are in the initial state
+}
+
 /**
  * Converts objective values in object format to array format
  * Used to transform previous objectives for visualization components

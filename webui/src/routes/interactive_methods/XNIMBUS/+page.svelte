@@ -47,7 +47,8 @@
 		updateSolutionNames,
 		computeTradeoffs,
 		normalizeMultipliers,
-		normalizeTradeoffs
+		normalizeTradeoffs,
+		isInitialState
 	} from './helper-functions';
 	import AdvancedSidebar from '$lib/components/custom/preferences-bar/advanced-sidebar.svelte';
 
@@ -64,7 +65,6 @@
 		initialize_nimbus_state as initializeNimbusStateRequest,
 		handle_get_multipliers as handleGetMultipliersRequest
 	} from './handlers';
-	import type { N } from 'vitest/dist/chunks/environment.d.Dmw5ulng.js';
 
 	// State for NIMBUS iteration management
 	let current_state: Response = $state({} as Response);
@@ -467,6 +467,10 @@
 		last_iterated_preference = [...current_preference];
 	}
 
+	function check_if_is_initial_state(state: Response | null): boolean {
+		return isInitialState(state);
+	}
+
 	// Helper function to update current intermediate objectives from the current state
 	function update_intermediate_selection(state: Response | null) {
 		if (!problem) return;
@@ -656,6 +660,7 @@
 					{problem}
 					preferenceTypes={[PREFERENCE_TYPES.Classification]}
 					showNumSolutions={true}
+					showPreviousPreference={check_if_is_initial_state(current_state) ? false : true}
 					numSolutions={current_num_iteration_solutions}
 					typePreferences={type_preferences}
 					preferenceValues={current_preference}

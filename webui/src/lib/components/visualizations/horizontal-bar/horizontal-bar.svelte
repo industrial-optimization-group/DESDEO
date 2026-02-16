@@ -94,13 +94,15 @@
 			.ticks(4)
 			.tickFormat((d) => d.toString());
 
-		const axisGroup = d3.select(svg)
+		const axisGroup = d3
+			.select(svg)
 			.append('g')
 			.attr('transform', `translate(0,${height - margin.bottom})`)
 			.call(xAxis);
 
 		// Select all text elements within the axis and apply rotation
-		axisGroup.selectAll('text')  
+		axisGroup
+			.selectAll('text')
 			.style('text-anchor', 'end')
 			.attr('dx', '-.8em')
 			.attr('dy', '.15em')
@@ -115,8 +117,8 @@
 			.attr('height', innerHeight)
 			.attr('fill', direction === 'min' ? '#eee' : barColor)
 			.attr('rx', 1);
-		
-			// --- Draw solution bar ---
+
+		// --- Draw solution bar ---
 		if (solutionValue !== undefined) {
 			const solWidth = x(solutionValue) - x(axisRanges[0]);
 			d3.select(svg)
@@ -138,43 +140,43 @@
 			.attr('height', innerHeight + 16) // Extend slightly below the bar
 			.attr('fill', 'transparent') // Invisible but clickable
 			.attr('cursor', 'pointer')
-			.on('click', function(event) {
+			.on('click', function (event) {
 				// Get the mouse position relative to the SVG
 				const [mouseX] = d3.pointer(event, this);
-				
+
 				// Convert pixel position to value
 				const clickedValue = x.invert(mouseX);
-				
+
 				// Clamp the value to the axis ranges
 				const clampedValue = Math.max(axisRanges[0], Math.min(axisRanges[1], clickedValue));
-				
+
 				// Round to the specified precision
 				const roundedValue = roundToDecimal(clampedValue, options.decimalPrecision);
-				
+
 				selectedValue = roundedValue;
 				if (onSelect) onSelect(roundedValue);
 			});
 
 		// --- Draw a marker for the solution value ---
 		if (solutionValue !== undefined) {
-		d3.select(svg)
-			.append('polygon')
-			.attr(
-			'points',
-			[
-				[x(solutionValue) - 6, margin.top - 6], // bottom left
-				[x(solutionValue) + 6, margin.top - 6], // bottom right
-				[x(solutionValue), margin.top + 2]      // tip (pointing down)
-			]
-				.map((p) => p.join(','))
-				.join(' ')
-			)
-			.attr('fill', '#444')
-			.attr('cursor', 'pointer')
-			.on('click', () => {
-				selectedValue = solutionValue;
-				if (onSelect) onSelect(solutionValue);
-			});
+			d3.select(svg)
+				.append('polygon')
+				.attr(
+					'points',
+					[
+						[x(solutionValue) - 6, margin.top - 6], // bottom left
+						[x(solutionValue) + 6, margin.top - 6], // bottom right
+						[x(solutionValue), margin.top + 2] // tip (pointing down)
+					]
+						.map((p) => p.join(','))
+						.join(' ')
+				)
+				.attr('fill', '#444')
+				.attr('cursor', 'pointer')
+				.on('click', () => {
+					selectedValue = solutionValue;
+					if (onSelect) onSelect(solutionValue);
+				});
 		}
 
 		// --- Draw lower bound triangle, pointing left ---
@@ -236,7 +238,7 @@
 				.on('click', () => {
 					selectedValue = previousValue;
 					if (onSelect) onSelect(previousValue);
-    			});
+				});
 		}
 
 		// --- Draw selected value marker (draggable) ---
@@ -302,7 +304,7 @@
 				.attr('dy', '1.2em') // Move down relative to the previous line
 				.attr('text-anchor', 'end')
 				.text(`${roundToDecimal(previousValue, options.decimalPrecision)}`);
-						}
+		}
 	}
 
 	// --- Lifecycle: Responsive redraw ---

@@ -63,7 +63,7 @@
 	}
 </script>
 
-<Sidebar.Root side="right" class="fixed right-0 top-12 h-[calc(100vh-3rem)]">
+<Sidebar.Root side="right" class="fixed top-12 right-0 h-[calc(100vh-3rem)]">
 	<Sidebar.Header>
 		<span class="text-sm font-semibold">Explanations</span>
 	</Sidebar.Header>
@@ -146,11 +146,7 @@
 										? selectedObjectiveSymbol
 										: ''}
 									onChange={(value) => {
-										if (
-											handleObjectiveClick &&
-											selectedObjectiveSymbol !== null &&
-											selectedObjectiveSymbol !== undefined
-										) {
+										if (handleObjectiveClick) {
 											handleObjectiveClick(value);
 										}
 									}}

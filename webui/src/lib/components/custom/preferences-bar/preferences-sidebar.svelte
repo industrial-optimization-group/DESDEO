@@ -50,6 +50,7 @@
 			objectiveValues: number[];
 		}) => void;
 		showNumSolutions?: boolean;
+		showPreviousPreference?: boolean;
 		ref?: HTMLElement | null;
 		isIterationAllowed?: boolean;
 		isCalculating?: boolean;
@@ -71,6 +72,7 @@
 		onIterate,
 		onFinish,
 		showNumSolutions = false,
+		showPreviousPreference = false,
 		ref = null,
 		isIterationAllowed = true,
 		isFinishAllowed = true,
@@ -230,12 +232,39 @@
 						<Tooltip.Root>
 							<Tooltip.Trigger><InfoIcon class="h-5 w-5" /></Tooltip.Trigger>
 							<Tooltip.Content side="right" class="tooltip-content">
-								<p>
-									You have selected the <span class="font-semibold"
-										>{internal_type_preferences}</span
-									>{' '}
-									preference type.
-								</p>
+								{#if internal_type_preferences === PREFERENCE_TYPES.Classification}
+									<p class="leading-relaxed">
+										The <span class="font-semibold">Classification</span> preference type allows you
+										to define how objective functions should behave in the next iteration after selecting
+										a solution. For each objective function, you can specify whether it should be improved,
+										improved to a specific level, maintained at its current level, permitted to worsen,
+										or left free to change. By adjusting the preference values for each objective function,
+										the system automatically classifies them based on your selections.
+									</p>
+								{:else if internal_type_preferences === PREFERENCE_TYPES.ReferencePoint}
+									<p class="leading-relaxed">
+										The <span class="font-semibold">Reference Point</span> preference type lets you specify
+										a reference point in the objective space. Solutions will be evaluated based on their
+										distance from this reference point, helping you identify those that are closest to
+										your ideal outcomes.
+									</p>
+								{:else if internal_type_preferences === PREFERENCE_TYPES.PreferredRange}
+									<p class="leading-relaxed">
+										The <span class="font-semibold">Preferred Range</span> preference type enables you
+										to define a preferred range for each objective. Solutions will be assessed based
+										on whether they fall within these ranges, allowing you to focus on those that meet
+										your specific criteria.
+									</p>
+								{:else if internal_type_preferences === PREFERENCE_TYPES.PreferredSolution}
+									<p class="leading-relaxed">
+										The <span class="font-semibold">Preferred Solution</span> preference type allows
+										you to select one or more preferred solutions. The system will then analyze how other
+										solutions compare to your selected preferences, helping you understand trade-offs
+										and make informed decisions.
+									</p>
+								{:else}
+									<p>Select a preference type to view more information.</p>
+								{/if}
 							</Tooltip.Content>
 						</Tooltip.Root>
 					</div>
@@ -266,8 +295,6 @@
 		{/if}
 
 		{#if internal_type_preferences === PREFERENCE_TYPES.Classification}
-			<p class="mb-2 text-sm text-gray-500">Provide one desirable value for each objective.</p>
-
 			{#each problem.objectives as objective, idx}
 				{#if objective.ideal != null && objective.nadir != null}
 					<div class="mb-4 flex flex-col gap-2">
@@ -303,7 +330,7 @@
 									previousValue={lastIteratedPreference[idx] ?? undefined}
 									options={{
 										decimalPrecision: displayAccuracy(idx),
-										showPreviousValue: true,
+										showPreviousValue: showPreviousPreference,
 										showSelectedValueLabel: false,
 										aspectRatio: 'aspect-[11/2]'
 									}}
@@ -351,7 +378,7 @@
 									direction={objective.maximize ? 'max' : 'min'}
 									options={{
 										decimalPrecision: 2,
-										showPreviousValue: false,
+										showPreviousValue: showPreviousPreference,
 										aspectRatio: 'aspect-[11/2]'
 									}}
 									onSelect={(value) => handle_preference_value_change(idx, value)}
@@ -398,7 +425,7 @@
 									direction={objective.maximize ? 'max' : 'min'}
 									options={{
 										decimalPrecision: 2,
-										showPreviousValue: false,
+										showPreviousValue: showPreviousPreference,
 										aspectRatio: 'aspect-[11/2]'
 									}}
 								/>
@@ -420,9 +447,26 @@
 
 	<Sidebar.Footer>
 		<div class="items-right flex justify-end gap-2">
-			<Button variant="default" disabled={!isIterationAllowed} size="sm" onclick={handle_iterate}>
-				Iterate
-			</Button>
+			<Tooltip.Root>
+				<Tooltip.Trigger>
+					<Button
+						variant="default"
+						disabled={!isIterationAllowed}
+						size="sm"
+						onclick={handle_iterate}
+					>
+						Iterate
+					</Button>
+				</Tooltip.Trigger>
+				<Tooltip.Content side="top" class="tooltip-content">
+					{#if isIterationAllowed}
+						<p>Click "Iterate" to generate new solutions based on your preferences.</p>
+					{:else}
+						<p>Please adjust your preferences to enable iteration.</p>
+					{/if}
+				</Tooltip.Content>
+			</Tooltip.Root>
+
 			{#if isFinishButton}
 				<Button variant="secondary" size="sm" disabled={!isFinishAllowed} onclick={handle_finish}>
 					Finish
