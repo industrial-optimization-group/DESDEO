@@ -346,7 +346,7 @@ After setting up a virtual environment and downloading the source code, we next
 need to install DESDEO's dependencies. Type in your Anaconda prompt
 
 ```cmd
-pip install -e --group dev-all
+pip install -e . --group all-dev
 ```
 If you don't want all the extras, you can list some other groups or no groups at all.
 
@@ -365,12 +365,10 @@ conda activate desdeo
 You can then use uv to install DESDEO and the required packages by typing
 
 ```cmd
-uv sync --python "%CONDA_PREFIX%\python.exe"
+uv sync
 ```
 
-The parameter `--python "%CONDA_PREFIX%\python.exe"` tells uv to install the
-dependencies to your current conda virtual environment instead of creating a
-new virtual environment.
+Newer versions of uv are able to automatically detect that you have a conda env active and will install the dependencies there.
 
 
 ## Where to go next?
