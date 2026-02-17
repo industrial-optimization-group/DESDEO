@@ -235,11 +235,8 @@
 								{#if internal_type_preferences === PREFERENCE_TYPES.Classification}
 									<p class="leading-relaxed">
 										The <span class="font-semibold">Classification</span> preference type allows you
-										to define how objective functions should behave in the next iteration after selecting
-										a solution. For each objective function, you can specify whether it should be improved,
-										improved to a specific level, maintained at its current level, permitted to worsen,
-										or left free to change. By adjusting the preference values for each objective function,
-										the system automatically classifies them based on your selections.
+										to define how objective functions should change in the next iteration based on a
+										selected a solution.
 									</p>
 								{:else if internal_type_preferences === PREFERENCE_TYPES.ReferencePoint}
 									<p class="leading-relaxed">

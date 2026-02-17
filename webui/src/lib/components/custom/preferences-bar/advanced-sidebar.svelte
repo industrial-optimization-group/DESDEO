@@ -8,6 +8,7 @@
 	import { getValueRange } from '$lib/components/visualizations/utils/math';
 	import type { ProblemInfo, Solution, SolutionType, MethodMode, PeriodKey } from '$lib/types';
 	import ExpBarchart from '$lib/components/visualizations/barchart/exp-barchart.svelte';
+	import ExpRankingBarchart from '$lib/components/visualizations/barchart/exp-ranking-barchart.svelte';
 	import { Combobox } from '$lib/components/ui/combobox';
 	import type { symbol } from 'd3';
 
@@ -19,7 +20,9 @@
 		tradeoffs: Record<string, Record<string, number>> | null;
 		selectedSolutions?: Array<number>;
 		selectedObjectiveSymbol?: string | null;
+		selectedTradeoffSymbol?: string | null;
 		handleObjectiveClick?: (event: { value: string }) => void;
+		handleTradeoffClick?: (event: { value: string }) => void;
 		ref?: HTMLElement | null;
 	}
 
@@ -31,11 +34,14 @@
 		tradeoffs,
 		selectedSolutions,
 		selectedObjectiveSymbol,
+		selectedTradeoffSymbol,
 		handleObjectiveClick,
+		handleTradeoffClick,
 		ref = null
 	}: Props = $props();
 	// Create a dictionary of objective names and their symbols
 	const objectiveNames: Record<string, string> = {};
+
 	problem.objectives.forEach((obj) => {
 		objectiveNames[obj.symbol] = obj.name ?? obj.symbol;
 	});
@@ -155,11 +161,11 @@
 									{#if selectedObjectiveSymbol !== null && selectedObjectiveSymbol !== undefined && tradeoffs}
 										<div class="my-4 mb-2 flex flex-row">
 											<span class="text-sm"
-												>Estimated changes in other objective functions when <span
+												>Estimated impairment in other objective functions when <span
 													class="text-primary font-semibold"
 													>{objectiveNames[selectedObjectiveSymbol] ||
 														selectedObjectiveSymbol}</span
-												> is improved by one unit.</span
+												> is improved by one unit, ranked from most to least impaired.</span
 											>
 
 											<Tooltip.Root>
@@ -171,8 +177,8 @@
 															>{solutions[selectedSolutions[0]].name == null
 																? 'Solution ' + (selectedSolutions[0] + 1)
 																: solutions[selectedSolutions[0]].name}</span
-														>. They indicate how much each objective function is expected to change
-														if the selected objective function (<span
+														>. They indicate how much each objective function is expected to be
+														impaired if the selected objective function (<span
 															class="text-primary font-semibold"
 															>{objectiveNames[selectedObjectiveSymbol] ||
 																selectedObjectiveSymbol}</span
@@ -181,14 +187,39 @@
 												</Tooltip.Content>
 											</Tooltip.Root>
 										</div>
-										<ExpBarchart
+										<!-- 										<ExpBarchart
 											data={tradeoffs && selectedObjectiveSymbol
 												? formatTradeofftoDict(tradeoffs[selectedObjectiveSymbol], problem)
 												: []}
 											options={{ showLabels: false, type: 'tradeoffs' }}
 											onSelect={handleObjectiveClick}
 											selected_objective_symbol={selectedObjectiveSymbol}
+										/> -->
+										<ExpRankingBarchart
+											data={tradeoffs && selectedObjectiveSymbol
+												? formatTradeofftoDict(tradeoffs[selectedObjectiveSymbol], problem)
+												: []}
+											options={{ showLabels: false }}
+											onSelect={handleTradeoffClick}
+											selectedBarSymbol={selectedTradeoffSymbol}
+											selected_objective_symbol={selectedObjectiveSymbol}
 										/>
+
+										{#if selectedTradeoffSymbol !== null && selectedTradeoffSymbol !== undefined && selectedTradeoffSymbol !== ''}
+											<p>
+												Improving <span class="text-primary font-semibold"
+													>{objectiveNames[selectedObjectiveSymbol] ||
+														selectedObjectiveSymbol}</span
+												>
+												in one unit is expected to impair
+												<span class="text-primary font-semibold"
+													>{objectiveNames[selectedTradeoffSymbol] || selectedTradeoffSymbol}</span
+												>
+												in {Math.abs(
+													tradeoffs[selectedObjectiveSymbol][selectedTradeoffSymbol]
+												).toFixed(4)} units.
+											</p>
+										{/if}
 									{/if}
 								</div>
 							</div>

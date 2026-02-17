@@ -112,6 +112,13 @@
 	let selected_solutions_for_intermediate: Solution[] = $state([]); // actual objectives, but it is a list unlike for iteration, since user should choose two solutions
 
 	let selected_objective_symbol: string | null = $state(null);
+	let selected_tradeoff_symbol: string | null = $state(null);
+
+	// Reset selected tradeoff when selected objective changes
+	$effect(() => {
+		selected_objective_symbol;
+		selected_tradeoff_symbol = null;
+	});
 
 	// Reactive variable for selected indexes based on current mode
 	let selectedIndexes = $derived.by(() => {
@@ -159,6 +166,12 @@
 		// For combobox, always set the value (no toggle behavior)
 		selected_objective_symbol = event.value;
 		console.log('Selected objective symbol:', selected_objective_symbol);
+	}
+
+	function handle_selected_tradeoff_change(event: { value: string }) {
+		// For combobox, always set the value (no toggle behavior)
+		selected_tradeoff_symbol = event.value;
+		console.log('Selected tradeoff symbol:', selected_tradeoff_symbol);
 	}
 
 	// Helper function to change solution type and update selections
@@ -815,6 +828,8 @@
 					selectedSolutions={selectedIndexes}
 					selectedObjectiveSymbol={selected_objective_symbol}
 					handleObjectiveClick={handle_selected_objective_change}
+					selectedTradeoffSymbol={selected_tradeoff_symbol}
+					handleTradeoffClick={handle_selected_tradeoff_change}
 				/>
 			{/if}
 		{/snippet}
