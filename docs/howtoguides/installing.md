@@ -196,7 +196,7 @@ is activated!
     You can install desdeo and all optional dependencies by running
 
     ```bash
-    pip install -e --group dev-all
+    pip install -e . --group all-dev
     ```
 
     If you don't want all the optional stuff, you can also specify different group(s) or no group at all.
