@@ -7,7 +7,7 @@ This project follows **Keep a Changelog** and **Semantic Versioning**:
 - SemVer: https://semver.org/
 - Changelogs are generated using an LLM and curated by a human
 
-## [Unreleased]
+## [Version template]
 
 ### Core logic
 #### Added
@@ -32,6 +32,63 @@ This project follows **Keep a Changelog** and **Semantic Versioning**:
 #### Removed
 #### Fixed
 #### Security
+
+## [2.2.2] - 17.2.2026
+
+### Core logic
+*(No core-logic changes in this release.)*
+
+---
+
+### Web API
+#### Added
+- Added **E-NAUTILUS finalize** state and endpoint.
+- Added `ENautilusTreeNodeResponse`, `ENautilusDecisionEventResponse`, and `ENautilusSessionTreeResponse` models.
+- Added `GET /method/enautilus/session_tree/{session_id}` endpoint returning all nodes, edges, root IDs, and decision events.
+- Added `DELETE /problem/{id}` endpoint for problem deletion.
+- Added cascade deletes to `ProblemDB` relationships (solutions, preferences, states, constants, variables, objectives, constraints, etc.).
+- Added `ON DELETE CASCADE` to all 15 substate foreign key definitions.
+- Added unit test for problem deletion.
+
+#### Changed
+- Introduced **`SessionContextGuard`** class, replacing `get_session_context` and `get_session_context_without_request` across all endpoint routers.
+- Enabled `PRAGMA foreign_keys=ON` for SQLite connections.
+- Added `back_populates` for `StateDB→ProblemDB` relationship.
+- Added defensive cleanup in `_attach_substate` for existing orphaned rows.
+
+#### Fixed
+- Fixed E-NAUTILUS endpoints to work with the new `SessionContextGuard`.
+- Fixed orphaned substate rows causing `UNIQUE` constraint errors after session deletion.
+- Added missing docstrings and fixed typos in API models and router utilities.
+
+---
+
+### Web GUI
+#### Added
+- Added experimental new features for E-NAUTILUS related to tree and decision visualization.
+- Added generic **`EndStateView`** component (reuses `FinalResultTable` + CSV download).
+- Added **representative solution set selector** to E-NAUTILUS initialization panel; auto-selects when only one set exists, shows warning when none available.
+- Added inline session creation with **Combobox dropdown** and "+ New" button for E-NAUTILUS.
+- Added **delete and download actions** to problems data table.
+- Added input confirmation dialog component.
+- Added `syncProblem()` to `methodSelection` store (updates `problem_id` without clearing session/method).
+
+#### Changed
+- Replaced E-NAUTILUS final JSON view with `EndStateView`; show only the selected solution.
+- Replaced final view toggle buttons with proper **Tabs** component (experimental).
+- Replaced dialog-based formulation views with inline expandable rows in Objectives, Constraints, and Extra Functions tabs.
+- Replaced plain HTML intermediate points table with **TanStack/sortable table** using colored headers, closeness column, and blue selection border.
+- Disabled E-NAUTILUS in method initialize page when problem has no representative solution sets.
+- Regenerated API client types for new E-NAUTILUS and delete endpoints.
+
+#### Fixed
+- Fixed problem context mismatch when resuming E-NAUTILUS state from a different problem.
+- Fixed all `state_referenced_locally` Svelte 5 warnings across 11 components.
+- Fixed Svelte 5 `$state` warnings for `bind:this` element references.
+- Fixed `finalize_enautilus`: added missing return on error, cleared stale error messages.
+- Excluded `mathlive` from Vite `optimizeDeps` to fix KaTeX font 404 errors.
+- Disabled Finish button until intermediate point is chosen (E-NAUTILUS).
+- Removed duplicate config sync effect in GDM-SCORE-bands config-panel.
 
 ## [2.2.1] - 10.2.2026
 

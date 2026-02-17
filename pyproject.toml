@@ -1,6 +1,6 @@
 [project]
 name = "desdeo"
-version = "2.2.1"
+version = "2.2.2"
 description = "DESDEO is a modular and open source framework for interactive multiobjective optimization."
 authors = [
     { name = "Giovanni Misitano", email = "giovanni.a.misitano@jyu.fi" },
