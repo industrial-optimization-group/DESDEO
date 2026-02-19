@@ -15,12 +15,6 @@ class CreateSessionRequest(SQLModel):
     info: str | None = Field(default=None)
 
 
-class GetSessionRequest(SQLModel):
-    """Model of the request to get a specific session."""
-
-    session_id: int = Field()
-
-
 class InteractiveSessionBase(SQLModel):
     """The base model for representing interactive sessions."""
 

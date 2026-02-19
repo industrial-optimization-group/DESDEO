@@ -23,7 +23,6 @@ __all__ = [  # noqa: RUF022
     "ExtraFunctionDB",
     "ForestProblemMetaData",
     "GenericIntermediateSolutionResponse",
-    "GetSessionRequest",
     "GNIMBUSOptimizationState",
     "GNIMBUSVotingState",
     "GNIMBUSEndState",
@@ -252,7 +251,6 @@ from .problem import (
 from .reference_point_method import RPMSolveRequest
 from .session import (
     CreateSessionRequest,
-    GetSessionRequest,
     InteractiveSessionBase,
     InteractiveSessionDB,
     InteractiveSessionInfo,

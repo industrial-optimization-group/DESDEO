@@ -28,7 +28,12 @@ RequestType = RPMSolveRequest | ENautilusStepRequest | CreateSessionRequest |\
      RepresentativeSolutionSetRequest
 
 
-def fetch_interactive_session(user: User, request: RequestType, session: Session) -> InteractiveSessionDB | None:
+def fetch_interactive_session(
+        user: User,
+        session: Session,
+        request: RequestType | None = None,
+        session_id: int | None = None,
+    ) -> InteractiveSessionDB | None:
     """Gets the desired instance of `InteractiveSessionDB`.
 
     Args:
@@ -36,6 +41,7 @@ def fetch_interactive_session(user: User, request: RequestType, session: Session
         request (RequestType): the request with possibly information on which interactive session to query.
         session (Session): the database session (not to be confused with the interactive session) from
             which the interactive session should be queried.
+        session_id (int): the id of a session
 
     Note:
         If no explicit `session_id` is given in `request`, this function will try to fetch the
@@ -48,23 +54,28 @@ def fetch_interactive_session(user: User, request: RequestType, session: Session
     Returns:
         InteractiveSessionDB | None: an interactive session DB model, or nothing.
     """
-    if request.session_id is not None:
+    # session_id param has highest priority
+    actual_session_id = session_id or (getattr(request, "session_id", None) if request else None)
+
+
+    if actual_session_id is not None:
         # specific interactive session id is given, try using that
-        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == request.session_id)
+        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == actual_session_id)
         interactive_session = session.exec(statement).first()
 
         if interactive_session is None:
             # Raise if explicitly requested interactive session cannot be found
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Could not find interactive session with id={request.session_id}.",
+                detail=f"Could not find interactive session with id={actual_session_id}.",
             )
     else:
-        # request.session_id is None
+        if user.active_session_id is None:
+            return None
+        # actual_session_id is None
         # try to use active session instead
 
         statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == user.active_session_id)
-
         interactive_session = session.exec(statement).first()
 
     # At this point interactive_session is either an instance of InteractiveSessionDB or None (which is fine)
