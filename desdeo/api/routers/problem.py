@@ -10,7 +10,6 @@ from sqlmodel import Session
 from desdeo.api.models import (
     ForestProblemMetaData,
     ProblemDB,
-    ProblemGetRequest,
     ProblemInfo,
     ProblemInfoSmall,
     ProblemMetaDataDB,
@@ -89,26 +88,27 @@ def get_problems_info(user: Annotated[User, Depends(get_current_user)]) -> list[
     """
     return user.problems
 
-
-@router.post("/get")
+@router.get("/{problem_id}")
 def get_problem(
-    request: ProblemGetRequest,
-    context: Annotated[SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]))],
+    problem_id: int,
+    context: Annotated[
+        SessionContext,
+        Depends(SessionContextGuard(require=[ContextField.PROBLEM])),
+    ],
 ) -> ProblemInfo:
-    """Get the model of a specific problem.
+    """Get a specific problem by id.
 
     Args:
-        request (ProblemGetRequest): the request containing the problem's id `problem_id`.
-        context (Annotated[SessionContext, Depends): the session context.
+         problem_id (int): problem id.
+         context (Annotated[SessionContext, Depends): the session context.
 
     Raises:
-        HTTPException: could not find a problem with the given id.
+         HTTPException: could not find a problem with the given id.
 
     Returns:
-        ProblemInfo: detailed information on the requested problem.
+         ProblemInfo: detailed information on the requested problem.
     """
     return context.problem_db
-
 
 @router.post("/add")
 def add_problem(
@@ -348,7 +348,6 @@ def add_representative_solution_set(
         ideal=repr_metadata.ideal,
         nadir=repr_metadata.nadir,
     )
-
 
 @router.get("/all_representative_solution_sets/{problem_id}")
 def get_all_representative_solution_sets(

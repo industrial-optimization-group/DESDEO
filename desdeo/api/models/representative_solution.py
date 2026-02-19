@@ -25,8 +25,6 @@ class RepresentativeSolutionSetInfo(SQLModel):
     ideal: dict[str, float]
     nadir: dict[str, float]
 
-class RepresentativeSolutionSetFull(
-    RepresentativeSolutionSetInfo
-):
+class RepresentativeSolutionSetFull(RepresentativeSolutionSetInfo):
     """Model of the representative solution set full info."""
     solution_data: dict[str, list[float]]

@@ -24,7 +24,8 @@ from desdeo.api.models.representative_solution import RepresentativeSolutionSetR
 from desdeo.api.models.session import CreateSessionRequest
 from desdeo.api.routers.user_authentication import get_current_user
 
-RequestType = RPMSolveRequest | ENautilusStepRequest | RepresentativeSolutionSetRequest | CreateSessionRequest
+RequestType = RPMSolveRequest | ENautilusStepRequest | CreateSessionRequest |\
+     RepresentativeSolutionSetRequest
 
 
 def fetch_interactive_session(user: User, request: RequestType, session: Session) -> InteractiveSessionDB | None:
@@ -184,6 +185,7 @@ class SessionContextGuard:
         user: Annotated[User, Depends(get_current_user)],
         db_session: Annotated[Session, Depends(get_session)],
         request: RequestType | None = None,
+        problem_id: int | None = None,
     ) -> SessionContext:
         """Call method for the SessionContextGuard class.
 
@@ -192,6 +194,7 @@ class SessionContextGuard:
             db_session (Annotated[Session, Depends): the current database session (dep).
             request (RequestType | None, optional): request based on which the context is fetched.
                 Defaults to None.
+            problem_id (int): ID of the problem.
 
         Returns:
             SessionContext: the session context with the required fields specified in `self.require`.
@@ -215,6 +218,17 @@ class SessionContextGuard:
                     db_session,
                     interactive_session=interactive_session,
                 )
+        elif problem_id is not None:
+            # Build a minimal fake request-like object
+            class _ProblemOnly:
+                def __init__(self, problem_id: int):
+                    self.problem_id = problem_id
+                    self.session_id = None
+                    self.parent_state_id = None
+
+            pseudo_request = _ProblemOnly(problem_id)
+
+            problem_db = fetch_user_problem(user, pseudo_request, db_session)
 
         context = SessionContext(
             user=user,

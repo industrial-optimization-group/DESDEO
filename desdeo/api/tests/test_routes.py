@@ -33,7 +33,6 @@ from desdeo.api.models import (
     NIMBUSSaveRequest,
     NIMBUSSaveResponse,
     ProblemDB,
-    ProblemGetRequest,
     ProblemInfo,
     ProblemSelectSolverRequest,
     ReferencePoint,
@@ -119,22 +118,26 @@ def test_get_problem(client: TestClient):
     """Test fetching specific problems based on their id."""
     access_token = login(client)
 
-    response = post_json(client, "/problem/get", ProblemGetRequest(problem_id=1).model_dump(), access_token)
+    response = client.get(
+        "/problem/1",
+        headers={"Authorization": f"Bearer {access_token}"}
+    )
 
     assert response.status_code == 200
 
     info = ProblemInfo.model_validate(response.json())
-
     assert info.id == 1
     assert info.name == "dtlz2"
     assert info.problem_metadata is None
 
-    response = post_json(client, "problem/get", ProblemGetRequest(problem_id=2).model_dump(), access_token)
+    response = client.get(
+        "/problem/2",
+        headers={"Authorization": f"Bearer {access_token}"}
+    )
 
     assert response.status_code == 200
 
     info = ProblemInfo.model_validate(response.json())
-
     assert info.id == 2
     assert info.name == "The river pollution problem"
     assert isinstance(info.problem_metadata.forest_metadata[0], ForestProblemMetaData)
