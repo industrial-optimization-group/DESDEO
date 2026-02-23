@@ -161,11 +161,11 @@
 									{#if selectedObjectiveSymbol !== null && selectedObjectiveSymbol !== undefined && tradeoffs}
 										<div class="my-4 mb-2 flex flex-row">
 											<span class="text-sm"
-												>Estimated impairment in other objective functions when <span
+												>Estimated changes in other objective functions when <span
 													class="text-primary font-semibold"
 													>{objectiveNames[selectedObjectiveSymbol] ||
 														selectedObjectiveSymbol}</span
-												> is improved by one unit, ranked from most to least impaired.</span
+												> is improved by one unit. Ranked from most to least effect.</span
 											>
 
 											<Tooltip.Root>
@@ -177,12 +177,11 @@
 															>{solutions[selectedSolutions[0]].name == null
 																? 'Solution ' + (selectedSolutions[0] + 1)
 																: solutions[selectedSolutions[0]].name}</span
-														>. They indicate how much each objective function is expected to be
-														impaired if the selected objective function (<span
-															class="text-primary font-semibold"
+														>. TIP: To improve
+														<span class="text-primary font-semibold"
 															>{objectiveNames[selectedObjectiveSymbol] ||
 																selectedObjectiveSymbol}</span
-														>) is improved by one unit.
+														> impair the objective function with the highest rank in the plot.
 													</p>
 												</Tooltip.Content>
 											</Tooltip.Root>

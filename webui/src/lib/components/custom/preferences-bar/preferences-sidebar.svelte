@@ -234,9 +234,8 @@
 							<Tooltip.Content side="right" class="tooltip-content">
 								{#if internal_type_preferences === PREFERENCE_TYPES.Classification}
 									<p class="leading-relaxed">
-										The <span class="font-semibold">Classification</span> preference type allows you
-										to define how objective functions should change in the next iteration based on a
-										selected a solution.
+										Use the classification to indicate how you want each objective function to
+										change in the next iteration, based on the current solution.
 									</p>
 								{:else if internal_type_preferences === PREFERENCE_TYPES.ReferencePoint}
 									<p class="leading-relaxed">
@@ -459,7 +458,10 @@
 					{#if isIterationAllowed}
 						<p>Click "Iterate" to generate new solutions based on your preferences.</p>
 					{:else}
-						<p>Please adjust your preferences to enable iteration.</p>
+						<p>
+							Please adjust your preferences to continue for the next iteration. Tip: To improve one
+							objective function, at least one other must be allowed to worsen.
+						</p>
 					{/if}
 				</Tooltip.Content>
 			</Tooltip.Root>
