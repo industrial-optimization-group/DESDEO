@@ -20,12 +20,10 @@ from desdeo.api.models import (
     StateDB,
     User,
 )
-from desdeo.api.models.representative_solution import RepresentativeSolutionSetRequest
 from desdeo.api.models.session import CreateSessionRequest
 from desdeo.api.routers.user_authentication import get_current_user
 
-RequestType = RPMSolveRequest | ENautilusStepRequest | CreateSessionRequest |\
-     RepresentativeSolutionSetRequest
+RequestType = RPMSolveRequest | ENautilusStepRequest | CreateSessionRequest
 
 
 def fetch_interactive_session(
@@ -218,6 +216,14 @@ class SessionContextGuard:
         if request is not None:
             if hasattr(request, "problem_id"):
                 problem_db = fetch_user_problem(user, request, db_session)
+
+            if problem_db is None and problem_id is not None:
+                class _ProblemOnly:
+                    def __init__(self, problem_id: int):
+                        self.problem_id = problem_id
+                        self.session_id = None
+                        self.parent_state_id = None
+                problem_db = fetch_user_problem(user, _ProblemOnly(problem_id), db_session)
 
             if hasattr(request, "interactive_session_id") or hasattr(request, "problem_id"):
                 interactive_session = fetch_interactive_session(user, request, db_session)

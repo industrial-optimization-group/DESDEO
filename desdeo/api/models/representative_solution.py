@@ -10,11 +10,6 @@ class RepresentativeSolutionSetBase(SQLModel):
     ideal: dict[str, float]
     nadir: dict[str, float]
 
-class RepresentativeSolutionSetRequest(RepresentativeSolutionSetBase):
-    """Model of the request to the representative solution set."""
-
-    problem_id: int
-
 class RepresentativeSolutionSetInfo(SQLModel):
     """Model of the representative solution set info."""
 

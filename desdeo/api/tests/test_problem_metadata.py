@@ -1,8 +1,11 @@
+from types import SimpleNamespace
+
 from fastapi.testclient import TestClient  # noqa: D100
 from sqlmodel import select
 
 from desdeo.api.models import ProblemDB, ProblemMetaDataDB, RepresentativeNonDominatedSolutions
-from desdeo.api.models.representative_solution import RepresentativeSolutionSetRequest
+from desdeo.api.models.representative_solution import RepresentativeSolutionSetBase
+from desdeo.api.routers.utils import SessionContextGuard
 from desdeo.problem.testproblems import dtlz2
 
 from .conftest import login
@@ -12,7 +15,6 @@ def test_add_representative_solution_set(client: TestClient, session_and_user: d
     """Test that the representative solution set can be added via the endpoint."""
     session = session_and_user["session"]
     user = session_and_user["user"]
-
     access_token = login(client)
 
     # Create a test problem
@@ -21,8 +23,19 @@ def test_add_representative_solution_set(client: TestClient, session_and_user: d
     session.commit()
     session.refresh(problem)
 
-    solution_set_model = RepresentativeSolutionSetRequest(
-        problem_id=problem.id,
+    def test_guard(user, db_session, request=None, problem_id=None):
+        # problem_id comes from the URL
+        return SimpleNamespace(
+            user=user,
+            db_session=db_session,
+            problem_db=problem,
+            interactive_session=None,
+            parent_state=None,
+        )
+
+    client.app.dependency_overrides[SessionContextGuard] = test_guard
+
+    solution_set_model = RepresentativeSolutionSetBase(
         name="Test solutions",
         description="Solutions for testing",
         solution_data={
@@ -38,10 +51,13 @@ def test_add_representative_solution_set(client: TestClient, session_and_user: d
     )
 
     response = client.post(
-        "/problem/add_representative_solution_set",
+        f"/problem/{problem.id}/add_representative_solution_set",
         headers={"Authorization": f"Bearer {access_token}"},
         json=solution_set_model.model_dump(),  # send as JSON
     )
+
+    # Clean up override
+    client.app.dependency_overrides = {}
 
     assert response.status_code == 200
     data = response.json()
@@ -95,7 +111,6 @@ def test_get_all_representative_solution_sets(client: TestClient, session_and_us
     )
 
     # Attach the representative set
-
     solution_set.metadata_id = problem_metadata.id
     solution_set.metadata_instance = problem_metadata
     session.add(solution_set)
@@ -106,7 +121,7 @@ def test_get_all_representative_solution_sets(client: TestClient, session_and_us
 
     # Call GET endpoint
     response = client.get(
-        f"/problem/all_representative_solution_sets/{problem.id}",
+        f"/problem/{problem.id}/all_representative_solution_sets",
         headers={"Authorization": f"Bearer {access_token}"}
     )
 
@@ -137,7 +152,6 @@ def test_get_representative_solution_set(client: TestClient, session_and_user: d
 
     # Add a representative solution set
     solution_set_payload = {
-        "problem_id": problem.id,
         "name": "Full Test Solution Set",
         "description": "Full info for testing",
         "solution_data": {
@@ -153,7 +167,7 @@ def test_get_representative_solution_set(client: TestClient, session_and_user: d
     }
 
     post_response = client.post(
-        "/problem/add_representative_solution_set",
+        f"/problem/{problem.id}/add_representative_solution_set",
         headers={"Authorization": f"Bearer {access_token}"},
         json=solution_set_payload,
     )
