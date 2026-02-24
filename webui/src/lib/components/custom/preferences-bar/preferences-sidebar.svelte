@@ -291,6 +291,10 @@
 		{/if}
 
 		{#if internal_type_preferences === PREFERENCE_TYPES.Classification}
+			<span class="mb-4 text-sm text-gray-700"
+				>Drag the sliders to define how each objective should change. Colored areas indicate the
+				selected solution.</span
+			>
 			{#each problem.objectives as objective, idx}
 				{#if objective.ideal != null && objective.nadir != null}
 					<div class="mb-4 flex flex-col gap-2">
