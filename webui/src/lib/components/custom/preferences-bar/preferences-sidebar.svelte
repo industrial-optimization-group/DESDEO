@@ -317,7 +317,7 @@
 							<li class="flex items-center gap-2">
 								<Circle class="h-4 w-4 fill-gray-600 text-black" />
 								<span
-									><b>Match previous value</b> — align preference with previous iteration value</span
+									><b>Match previous preference</b> — align preference with previous iteration value</span
 								>
 							</li>
 						</ul>
