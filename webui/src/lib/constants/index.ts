@@ -1,6 +1,6 @@
 export const CLASSIFICATION_TYPES = {
   ChangeFreely: 'Change freely',
-  WorsenUntil: 'Worsen until',
+  WorsenUntil: 'Impair until',
   KeepConstant: 'Keep constant at',
   ImproveUntil: 'Improve until',
   ImproveFreely: 'Improve freely'

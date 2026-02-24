@@ -3,6 +3,8 @@
 	import PreferenceSwitcher from './preference-switcher.svelte';
 	import { writable, type Writable } from 'svelte/store';
 	import InfoIcon from '@lucide/svelte/icons/info';
+	import Circle from '@lucide/svelte/icons/circle';
+	import Triangle from '@lucide/svelte/icons/triangle';
 
 	import { Button } from '$lib/components/ui/button/index.js';
 	import type { components } from '$lib/api/client-types';
@@ -21,6 +23,7 @@
 	} from '$lib/helpers/index.js';
 	import { PREFERENCE_TYPES } from '$lib/constants/index.js';
 	import { Tooltip } from 'bits-ui';
+	import * as Popover from '$lib/components/ui/popover/index.js';
 
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 
@@ -228,7 +231,7 @@
 						<div class="font-semibold">Preference information</div>
 						<div class="text-primary-500">{internal_type_preferences}</div>
 					</div>
-					<div class="flex justify-center">
+					<!-- 					<div class="flex justify-center">
 						<Tooltip.Root>
 							<Tooltip.Trigger><InfoIcon class="h-5 w-5" /></Tooltip.Trigger>
 							<Tooltip.Content side="right" class="tooltip-content">
@@ -263,38 +266,64 @@
 								{/if}
 							</Tooltip.Content>
 						</Tooltip.Root>
-					</div>
+					</div> -->
 				</div>
 			</Sidebar.MenuButton>
 		{/if}
 	</Sidebar.Header>
 
 	<Sidebar.Content class="h-full w-full px-4">
-		{#if showNumSolutions}
-			<p class="mb-2 text-sm text-gray-500">Provide the maximum number of solutions to generate</p>
-			<Input
-				type="number"
-				placeholder="Number of solutions"
-				class="mb-2 w-full"
-				value={internal_num_solutions}
-				min={minNumSolutions}
-				max={maxNumSolutions}
-				oninput={(e) => {
-					const target = e.currentTarget;
-					if (target instanceof HTMLInputElement) {
-						const num_value = Number(target.value);
-						const clamped_value = Math.max(minNumSolutions, Math.min(maxNumSolutions, num_value));
-						handle_num_solutions_change(clamped_value);
-					}
-				}}
-			/>
-		{/if}
-
 		{#if internal_type_preferences === PREFERENCE_TYPES.Classification}
-			<span class="mb-4 text-sm text-gray-700"
-				>Drag the sliders to define how each objective should change. Colored areas indicate the
-				selected solution.</span
+			<span class="mb-1 cursor-pointer text-sm text-gray-700"
+				>Drag the sliders to define how each objective function should change. Colored areas
+				indicate the current value.</span
 			>
+			<Popover.Root>
+				<Popover.Trigger
+					class="flex items-center gap-1 text-sm text-gray-400 transition-colors hover:text-gray-700"
+				>
+					<InfoIcon class="h-3 w-3" />
+					<span>How do these sliders work?</span>
+				</Popover.Trigger>
+
+				<Popover.Content class="w-72 text-sm">
+					<div class="space-y-2">
+						<p class="font-medium">How these sliders work</p>
+						<ul class="text-muted-foreground space-y-2 text-sm">
+							<li class="flex items-center gap-2">
+								<Triangle class="h-4 w-4 -rotate-90 text-gray-400" />
+								<span><b>Minimum value</b> — set preference to the lowest achievable value</span>
+							</li>
+
+							<li class="flex items-center gap-2">
+								<Triangle class="h-4 w-4 rotate-90 text-gray-400" />
+								<span><b>Maximum value</b> — set preference to the highest achievable value</span>
+							</li>
+
+							<li class="flex items-center gap-2">
+								<span class="h-3 w-6 rounded-sm bg-gradient-to-r from-gray-300 to-gray-400"></span>
+								<span><b>Colored bar</b> — current objective value</span>
+							</li>
+
+							<li class="flex items-center gap-2">
+								<Circle class="h-4 w-4 fill-white text-black" />
+								<span><b>Preference value</b> — drag to adjust classification values</span>
+							</li>
+
+							<li class="flex items-center gap-2">
+								<Triangle class="h-4 w-4 rotate-180 fill-black text-black" />
+								<span><b>Match current value</b> — align preference with bar value</span>
+							</li>
+							<li class="flex items-center gap-2">
+								<Circle class="h-4 w-4 fill-gray-600 text-black" />
+								<span
+									><b>Match previous value</b> — align preference with previous iteration value</span
+								>
+							</li>
+						</ul>
+					</div>
+				</Popover.Content>
+			</Popover.Root>
 			{#each problem.objectives as objective, idx}
 				{#if objective.ideal != null && objective.nadir != null}
 					<div class="mb-4 flex flex-col gap-2">
@@ -443,6 +472,26 @@
 		{:else}
 			<p>Select a preference type to view options.</p>
 		{/if}
+
+		{#if showNumSolutions}
+			<p class="mb-2 text-sm text-gray-500">Provide the maximum number of solutions to generate</p>
+			<Input
+				type="number"
+				placeholder="Number of solutions"
+				class="mb-2 w-full"
+				value={internal_num_solutions}
+				min={minNumSolutions}
+				max={maxNumSolutions}
+				oninput={(e) => {
+					const target = e.currentTarget;
+					if (target instanceof HTMLInputElement) {
+						const num_value = Number(target.value);
+						const clamped_value = Math.max(minNumSolutions, Math.min(maxNumSolutions, num_value));
+						handle_num_solutions_change(clamped_value);
+					}
+				}}
+			/>
+		{/if}
 	</Sidebar.Content>
 
 	<Sidebar.Footer>
@@ -464,7 +513,7 @@
 					{:else}
 						<p>
 							Please adjust your preferences to continue for the next iteration. Tip: To improve one
-							objective function, at least one other must be allowed to worsen.
+							objective function, at least one other must be allowed to be impaired.
 						</p>
 					{/if}
 				</Tooltip.Content>

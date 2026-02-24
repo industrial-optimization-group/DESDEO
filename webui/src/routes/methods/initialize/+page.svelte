@@ -75,8 +75,8 @@
 			path: '/interactive_methods/XNIMBUS',
 			description: 'Explainable NIMBUS method for MOO.',
 			preferencesType: ['classification']
-		},
-		{
+		}
+		/* {
 			name: 'GDM-SCORE-bands',
 			path: '/interactive_methods/GDM-SCORE-bands',
 			description: 'SCORE bands for GDM.',
@@ -99,7 +99,7 @@
 			path: '/interactive_methods/reference-point',
 			description: 'Reference Point method for MOO.',
 			preferencesType: ['reference point']
-		}
+		} */
 	] as const;
 
 	type MethodFilterType = PreferenceType | 'all';
@@ -172,16 +172,16 @@
 		{/if}
 
 		<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-			<div class="flex-1/2 max-w-sm">
+			<div class="max-w-sm flex-1/2">
 				<div class="relative isolate">
 					<!-- Added isolate to create a new stacking context -->
 					<Search
-						class="text-muted-foreground pointer-events-none absolute left-3 top-1/2 z-[1] size-4 -translate-y-1/2"
+						class="text-muted-foreground pointer-events-none absolute top-1/2 left-3 z-[1] size-4 -translate-y-1/2"
 					/>
 					<input
 						type="text"
 						placeholder="Search methods..."
-						class="focus:ring-primary relative w-full rounded-md border py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2"
+						class="focus:ring-primary relative w-full rounded-md border py-2 pr-4 pl-10 text-sm focus:ring-2 focus:outline-none"
 						bind:value={searchQuery}
 					/>
 				</div>
