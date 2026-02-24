@@ -357,6 +357,19 @@ def spanish_sustainability_problem():
         enviro_c,
     ]
 
+    initial_solution = [
+        7.0576,
+        89.6530,
+        16.5170,
+        2.0723,
+        1.0000,
+        1.9501,
+        17.2040,
+        13.3250,
+        70.0000,
+        104.1900,
+        119.9700,
+    ]
     # Define variables
     x = TensorVariable(
         name="Variables 'x_1' through 'x_11' defined as a vector.",
@@ -369,7 +382,7 @@ def spanish_sustainability_problem():
         upperbounds=list(
             coefficients.filter(pl.col("column") == "upper_bounds").row(0)[1:]
         ),
-        initial_values=1.0,
+        initial_values=initial_solution,
     )
 
     variables = [x]
