@@ -717,7 +717,6 @@
 				defaultSelected={selected_type_solutions}
 				onChange={handle_type_solutions_change}
 			/>
-
 			<span
 				class="inline-block"
 				title={selectedIndexes.length !== 1
