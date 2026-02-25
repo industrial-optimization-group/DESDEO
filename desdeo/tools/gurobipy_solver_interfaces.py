@@ -14,7 +14,25 @@ from desdeo.problem import (
 from desdeo.tools.generics import BaseSolver, PersistentSolver, SolverResults
 
 
-def parse_gurobipy_optimizer_results(problem: Problem, evaluator: GurobipyEvaluator) -> SolverResults:
+def _constraint_contains_objective(
+    constraint: Constraint, objective_symbol: str
+) -> bool:
+    """Check if a constraint's function contains a specific objective symbol.
+
+    Args:
+        constraint (Constraint): The constraint to check.
+        objective_symbol (str): The objective symbol to search for.
+
+    Returns:
+        bool: True if the objective symbol is found in the constraint function.
+    """
+    func_str = str(constraint.func)
+    return objective_symbol in func_str
+
+
+def parse_gurobipy_optimizer_results(
+    problem: Problem, evaluator: GurobipyEvaluator
+) -> SolverResults:
     """Parses results from GurobipyEvaluator's model into DESDEO SolverResults.
 
     Args:
@@ -29,8 +47,20 @@ def parse_gurobipy_optimizer_results(problem: Problem, evaluator: GurobipyEvalua
     variable_values = {var.symbol: results[var.symbol] for var in problem.variables}
     objective_values = {obj.symbol: results[obj.symbol] for obj in problem.objectives}
     constraint_values = (
-        {con.symbol: results[con.symbol] for con in problem.constraints} if problem.constraints is not None else None
+        {con.symbol: results[con.symbol] for con in problem.constraints}
+        if problem.constraints is not None
+        else None
     )
+
+    lagrange_multipliers = None
+    if problem.constraints is not None:
+        objective_symbols = set(objective_values.keys())
+        lagrange_multipliers = {
+            con.symbol: results[con.symbol]
+            for con in problem.constraints
+            if any(obj_sym in con.symbol for obj_sym in objective_symbols)
+        }
+
     extra_func_values = (
         {extra.symbol: results[extra.symbol] for extra in problem.extra_funcs}
         if problem.extra_funcs is not None
@@ -60,6 +90,7 @@ def parse_gurobipy_optimizer_results(problem: Problem, evaluator: GurobipyEvalua
         constraint_values=constraint_values,
         extra_func_values=extra_func_values,
         scalarization_values=scalarization_values,
+        lagrange_multipliers=lagrange_multipliers,
         success=success,
         message=msg,
     )
@@ -127,7 +158,9 @@ class PersistentGurobipySolver(PersistentSolver):
             for key, value in options.items():
                 self.evaluator.model.setParam(key, value)
 
-    def add_constraint(self, constraint: Constraint | list[Constraint]) -> gp.Constr | list[gp.Constr]:
+    def add_constraint(
+        self, constraint: Constraint | list[Constraint]
+    ) -> gp.Constr | list[gp.Constr]:
         """Add one or more constraint expressions to the solver.
 
         If adding a lot of constraints or dealing with a large model, this function
@@ -170,7 +203,9 @@ class PersistentGurobipySolver(PersistentSolver):
         for obj in objective:
             self.evaluator.add_objective(obj)
 
-    def add_scalarization_function(self, scalarization: ScalarizationFunction | list[ScalarizationFunction]):
+    def add_scalarization_function(
+        self, scalarization: ScalarizationFunction | list[ScalarizationFunction]
+    ):
         """Adds a scalrization expression to the solver.
 
         Scalarizations work identically to objectives, except they are stored in a different
@@ -188,7 +223,8 @@ class PersistentGurobipySolver(PersistentSolver):
             self.evaluator.add_scalarization_function(scal)
 
     def add_variable(
-        self, variable: Variable | TensorVariable | list[Variable] | list[TensorVariable]
+        self,
+        variable: Variable | TensorVariable | list[Variable] | list[TensorVariable],
     ) -> gp.Var | gp.MVar | list[gp.Var] | list[gp.MVar]:
         """Add one or more variables to the solver.
 

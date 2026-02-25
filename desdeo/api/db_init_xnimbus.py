@@ -1,3 +1,4 @@
+import json
 import os
 import warnings
 from sqlalchemy_utils import database_exists, create_database
@@ -7,17 +8,27 @@ from desdeo.api.config import ServerConfig, SettingsConfig
 from desdeo.api.db import engine
 from desdeo.api.models import ProblemDB, User, UserRole
 from desdeo.api.routers.user_authentication import get_password_hash
+from desdeo.problem import Problem
 from desdeo.problem.testproblems import (
     river_pollution_problem,
     spanish_sustainability_problem,
     rocket_injector_design,
 )
 
+
+def load_problem_from_json(json_file_path: str) -> Problem:
+    """Load a problem from a JSON file."""
+    with open(json_file_path, "r") as f:
+        data = json.load(f)
+    return Problem.model_validate(data, by_name=True)
+
+
 problems = [
     river_pollution_problem(five_objective_variant=False),
     spanish_sustainability_problem(),
     rocket_injector_design(),
     rocket_injector_design(True),
+    load_problem_from_json("datasets/problemModels/utopia_forest.json"),
 ]
 
 RESET_DB = 1
