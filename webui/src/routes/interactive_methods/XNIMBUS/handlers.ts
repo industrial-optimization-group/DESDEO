@@ -97,14 +97,16 @@ export async function handle_iterate(
  * @param state_id The ID of the NIMBUS state to retrieve multipliers from.
  */
 export async function handle_get_multipliers(
-	state_id: number
+	state_id: number,
+	objective_symbols: Array<string>,
 ): Promise<Array<Record<string, number>> | null> {
 	interface MultipliersResponse {
 		lagrange_multipliers: Array<Record<string, number>>;
 	}
 
 	const result = await callNimbusAPI<MultipliersResponse>('get_multipliers', {
-		state_id: state_id
+		state_id: state_id,
+		objective_symbols: objective_symbols
 	});
 	console.log('Multipliers response:', result?.lagrange_multipliers);
 

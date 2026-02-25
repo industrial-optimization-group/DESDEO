@@ -414,7 +414,10 @@
 			console.error('No current state available to fetch multipliers');
 			return;
 		}
-		const data = await handleGetMultipliersRequest(current_state.state_id);
+		// Get the symbols of the objectives to pass to the API
+		const objective_symbols = problem?.objectives.map((obj) => obj.symbol) || [];
+
+		const data = await handleGetMultipliersRequest(current_state.state_id, objective_symbols);
 		console.log('Fetched multipliers data:', data);
 		if (data) {
 			current_multipliers = data;

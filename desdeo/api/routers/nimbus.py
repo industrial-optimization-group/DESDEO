@@ -775,6 +775,9 @@ def get_multipliers_info(
 
     actual_state = state.state
 
+    # Check if the request has the objective symbols, if not, we will try to extract them from the solver results if possible. If not, we will use the default f_{index} format for filtering the multipliers.
+    objective_symbols = request.objective_symbols
+
     if (
         not hasattr(actual_state, "solver_results")
         or actual_state.solver_results is None
@@ -791,7 +794,9 @@ def get_multipliers_info(
                 and result.lagrange_multipliers is not None
             ):
                 lagrange_multipliers.append(
-                    filter_lagrange_multipliers(result.lagrange_multipliers)
+                    filter_lagrange_multipliers(
+                        result.lagrange_multipliers, objective_symbols
+                    )
                 )
                 print("Added multipliers:", result.lagrange_multipliers)
             else:
@@ -805,7 +810,9 @@ def get_multipliers_info(
             and result.lagrange_multipliers is not None
         ):
             lagrange_multipliers.append(
-                filter_lagrange_multipliers(result.lagrange_multipliers)
+                filter_lagrange_multipliers(
+                    result.lagrange_multipliers, objective_symbols
+                )
             )
         else:
             lagrange_multipliers.append(None)
@@ -815,20 +822,30 @@ def get_multipliers_info(
     return {"lagrange_multipliers": lagrange_multipliers}
 
 
-def filter_lagrange_multipliers(lagrange_multipliers) -> dict[str, float]:
+def filter_lagrange_multipliers(
+    lagrange_multipliers, objective_symbols=None
+) -> dict[str, float]:
     # return [x.lagrange_multipliers for x in self.solver_results]
     result = []
 
-    # filter multipliers to keep only one per objective
+    # filter multipliers to keep only one per objective. If the symbols are available, use them to select the multiplier. If not, use f_{index} format.
     grouped = defaultdict(list)
 
     for key, value in lagrange_multipliers.items():
-        match = re.search(r"f_(\d+)", key)
-        if match:
-            f_i = match.group(1)  # Extract the objective number
-            grouped[f_i].append((key, value))
+        if objective_symbols is None:
+            match = re.search(
+                r"f_(\d+)", key
+            )  # Match keys like "f_0", "f_1", etc. and extract the objective number
+            if match:
+                f_i = match.group(1)  # Extract the objective number
+                grouped[f_i].append((key, value))
+        else:  # Get one multiplier per objective based on the symbols in the problem definition
+            for symbol in objective_symbols:
+                if symbol in key:
+                    grouped[symbol].append((key, value))
+                    break
 
-    # Select preferred multiplier for each objective
+    # Select preferred multiplier for each objective.
     filtered_multipliers = {}
     for obj_num, entries in grouped.items():
         # Prefer non-"eq" constraints
@@ -839,7 +856,11 @@ def filter_lagrange_multipliers(lagrange_multipliers) -> dict[str, float]:
             preferred = entries[0]
 
         if preferred:
-            filtered_multipliers[f"f_{obj_num}"] = preferred[1]
+            # use the symbol as key if available, otherwise use f_{index} format
+            key = preferred[0]
+            if objective_symbols is not None and obj_num in objective_symbols:
+                key = obj_num
+            filtered_multipliers[key] = preferred[1]
 
     # result.append(filtered_multipliers)
 

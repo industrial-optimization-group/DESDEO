@@ -1,6 +1,6 @@
 [settings]
 # This is ignored if $DESDEO_PRODUCTION env variable is present
-debug = false
+debug = true
 
 # development configs
 [server-debug]

@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { serverApi as api } from '$lib/api/client';
 import type { RequestHandler } from './$types';
+import { object } from 'zod/v4';
 
 async function makeApiRequest(endpoint: string, body: any, refreshToken: string) {
 	try {
@@ -111,7 +112,8 @@ const handlers: Record<string, HandlerFunction> = {
     get_multipliers: (body, refreshToken) => {
         const { state_id } = body;
         const requestBody = {
-            state_id: Number(state_id)
+            state_id: Number(state_id),
+            objective_symbols: body.objective_symbols
         };
         return makeApiRequest('/method/nimbus/get-multipliers-info', requestBody, refreshToken);
     }

@@ -161,6 +161,7 @@ class NIMBUSMultiplierRequest(SQLModel):
     """Model of the request to get Lagrange multipliers from the solutions in an state."""
 
     state_id: int
+    objective_symbols: list[str] | None = Field(default=None)
 
 
 class NIMBUSMultiplierResponse(SQLModel):
