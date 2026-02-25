@@ -8,7 +8,6 @@ from sqlmodel import Session, select
 from desdeo.api.db import get_session as get_db_session
 from desdeo.api.models import (
     CreateSessionRequest,
-    GetSessionRequest,
     InteractiveSessionDB,
     InteractiveSessionInfo,
     User,
@@ -51,10 +50,9 @@ def get_session(
     session: Annotated[Session, Depends(get_db_session)],
 ) -> InteractiveSessionInfo:
     """Return an interactive session with a current user."""
-    request = GetSessionRequest(session_id=session_id)
     return fetch_interactive_session(
         user=user,
-        request=request,
+        session_id=session_id,
         session=session,
     )
 
@@ -84,11 +82,9 @@ def delete_session(
     session: Annotated[Session, Depends(get_db_session)],
 ) -> None:
     """Delete an interactive session and all its related states."""
-    request = GetSessionRequest(session_id=session_id)
-
     interactive_session = fetch_interactive_session(
         user=user,
-        request=request,
+        session_id=session_id,
         session=session,
     )  # raises 404 if not found
 
