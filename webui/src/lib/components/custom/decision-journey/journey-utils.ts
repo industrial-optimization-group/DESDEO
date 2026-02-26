@@ -5,6 +5,7 @@ import type {
 	ENautilusTreeNodeResponse,
 	ENautilusDecisionEventResponse,
 	ProblemInfo,
+	SolverResults,
 } from "$lib/gen/models";
 import { analyzeTradeoffs, type ObjectiveTradeoff } from "$lib/components/custom/decision-tree/tree-utils";
 
@@ -74,6 +75,8 @@ export interface WhatIfSimulation {
 	steps: JourneyStep[];
 	/** The projected final solution objective values */
 	finalSolution: Record<string, number>;
+	/** The full SolverResults from the simulation (for adopting the solution) */
+	fullSolverResults: SolverResults;
 }
 
 /**

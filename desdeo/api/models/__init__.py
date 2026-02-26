@@ -2,6 +2,10 @@
 
 __all__ = [  # noqa: RUF022
     "Bounds",
+    "ClinicMapCity",
+    "ClinicMapLine",
+    "ClinicMapRequest",
+    "ClinicMapResponse",
     "ConstantDB",
     "ConstraintDB",
     "CreateSessionRequest",
@@ -138,6 +142,7 @@ __all__ = [  # noqa: RUF022
 
 
 from .archive import UserSavedEMOResults
+from .clinic_map import ClinicMapCity, ClinicMapLine, ClinicMapRequest, ClinicMapResponse
 from .emo import (
     EMOFetchRequest,
     EMOFetchResponse,

@@ -19,6 +19,7 @@ from desdeo.problem import (
     numpy_array_to_objective_dict,
     objective_dict_to_numpy_array,
 )
+from desdeo.problem.schema import TensorVariable
 from desdeo.tools import SolverResults, flip_maximized_objective_values
 
 
@@ -61,10 +62,29 @@ def enautilus_get_representative_solutions(
             supplied `non_dominated_points` should contain this information.
     """
     obj_syms = [obj.symbol for obj in problem.objectives]
-    var_syms = [var.symbol for var in problem.variables]
     const_syms = [con.symbol for con in problem.constraints] if problem.constraints else None
     extra_syms = [extra.symbol for extra in problem.extra_funcs] if problem.extra_funcs else None
     scal_syms = [scal.symbol for scal in problem.scalarization_funcs] if problem.scalarization_funcs else None
+
+    # Build the list of variable column names present in the DataFrame.
+    # Scalar variables use their symbol directly; tensor variables are unrolled
+    # into columns like "sv_1", "sv_2", ... matching the convention used by
+    # solve_epsilon.py and the representative solution set upload.
+    available_cols = set(non_dominated_points.columns)
+    var_col_names: list[str] = []
+    for var in problem.variables:
+        if isinstance(var, TensorVariable):
+            # Collect unrolled columns: symbol_1, symbol_2, ...
+            n_elements = 1
+            for d in var.shape:
+                n_elements *= d
+            for i in range(1, n_elements + 1):
+                col = f"{var.symbol}_{i}"
+                if col in available_cols:
+                    var_col_names.append(col)
+        else:
+            if var.symbol in available_cols:
+                var_col_names.append(var.symbol)
 
     # Objective matrix (rows = ND points, cols = objectives, original senses)
     obj_matrix = non_dominated_points.select(obj_syms).to_numpy()
@@ -79,7 +99,7 @@ def enautilus_get_representative_solutions(
 
         row = non_dominated_points[idx]
 
-        var_dict = {sym: row[sym] for sym in var_syms if sym in row}
+        var_dict = {col: row[col] for col in var_col_names}
         obj_dict = {sym: row[sym] for sym in obj_syms}
         const_dict = {sym: row[sym] for sym in const_syms if sym in row} if const_syms is not None else None
         extra_dict = {sym: row[sym] for sym in extra_syms if sym in row} if extra_syms is not None else None

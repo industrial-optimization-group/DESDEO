@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { methodSelection } from '../../../stores/methodSelection';
 	import type { MethodSelectionState } from '../../../stores/methodSelection';
-	import { type ENautilusRepresentativeSolutionsResponse, type InteractiveSessionBase } from '$lib/gen/models';
+	import { type ENautilusRepresentativeSolutionsResponse, type InteractiveSessionBase, type SolverResults } from '$lib/gen/models';
 	import { isLoading, errorMessage } from '../../../stores/uiState';
 
 	import BaseLayout from '$lib/components/custom/method_layout/base-layout.svelte';
@@ -14,6 +14,7 @@
 	import Combobox from '$lib/components/ui/combobox/combobox.svelte';
 	import { EndStateView } from '$lib/components/custom/end-state-view';
 	import { DecisionJourney } from '$lib/components/custom/decision-journey';
+	import ClinicMap from '$lib/components/custom/clinic-map/clinic-map.svelte';
 	import type { ENautilusSessionTreeResponse } from '$lib/gen/models';
 
 	import type {
@@ -59,6 +60,7 @@
 	let finalView = $state<FinalView>("visualization");
 	let representative = $state<ENautilusRepresentativeSolutionsResponse | null>(null);
 	let final_selected_index = $state<number>(0);
+	let adoptedSolution = $state<SolverResults | null>(null);
 
 	let selection = $state<MethodSelectionState>({ selectedProblemId: null, selectedMethod: null, selectedSessionId: null, selectedSessionInfo: null
 	});
@@ -175,6 +177,7 @@
 	});
 
 	let finalSolution = $derived.by(() => {
+		if (adoptedSolution) return adoptedSolution;
 		if (!representative) return null;
 		return representative.solutions[final_selected_index] ?? null;
 	})
@@ -188,15 +191,19 @@
 		return out;
 	}
 
+	function handleAdoptSolution(solution: SolverResults) {
+		adoptedSolution = solution;
+		finalView = 'visualization';
+	}
+
 	let finalTableData = $derived.by(() => {
-		if (!representative) return [];
-		const sol = representative.solutions[final_selected_index];
+		const sol = finalSolution;
 		if (!sol) return [];
 		return [{
 			objective_values: unwrapSolverRecord(sol.optimal_objectives),
 			variable_values: unwrapSolverRecord(sol.optimal_variables),
-			name: null,
-			solution_index: final_selected_index
+			name: adoptedSolution ? 'What-if solution' : null,
+			solution_index: adoptedSolution ? -1 : final_selected_index
 		}];
 	});
 
@@ -692,10 +699,23 @@
 		{#snippet visualizationArea()}
 			{#if problem_info && representative && representativeObjectiveValues.length > 0}
 				<div class="relative h-full">
+					{#if adoptedSolution}
+						<div class="absolute top-2 left-1/2 z-10 -translate-x-1/2 flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs text-blue-700 shadow-sm">
+							<span>Viewing what-if solution</span>
+							<button
+								class="font-semibold hover:text-blue-900"
+								onclick={() => (adoptedSolution = null)}
+							>&times; Revert</button>
+						</div>
+					{/if}
 					{#if finalView === 'map'}
-					<div class="flex h-full items-center justify-center text-sm text-gray-400">
-						Map visualization coming soon.
-					</div>
+						{#if finalSolution}
+							<ClinicMap solution={finalSolution} />
+						{:else}
+							<div class="flex h-full items-center justify-center text-sm text-gray-400">
+								No solution available for map.
+							</div>
+						{/if}
 				{:else if finalView === 'journey'}
 						{#if sessionTree && previous_response?.state_id != null}
 							<DecisionJourney
@@ -703,6 +723,7 @@
 								leafNodeId={previous_response.state_id}
 								problem={problem_info}
 								finalSolutionPoint={finalSolution ? unwrapSolverRecord(finalSolution.optimal_objectives) : null}
+								onAdoptSolution={handleAdoptSolution}
 							/>
 						{:else}
 							<div class="flex h-full items-center justify-center text-gray-500">

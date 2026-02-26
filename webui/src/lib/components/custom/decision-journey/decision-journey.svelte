@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ENautilusSessionTreeResponse, ENautilusSimulateResponse, ProblemInfo } from '$lib/gen/models';
+	import type { ENautilusSessionTreeResponse, ENautilusSimulateResponse, ProblemInfo, SolverResults } from '$lib/gen/models';
 	import { extractPathToLeaf, computeJourneyData, buildNormalizationMaps, computeSimulatedJourneySteps, type JourneyStep, type WhatIfSimulation } from './journey-utils';
 	import { COLOR_PALETTE } from '$lib/components/visualizations/utils/colors';
 	import { formatNumber } from '$lib/helpers';
@@ -16,9 +16,11 @@
 		/** Projected final solution values (from representative solutions).
 		 *  Overrides the last step's raw values so the chart matches the final view. */
 		finalSolutionPoint?: Record<string, number> | null;
+		/** Called when the user wants to adopt the what-if simulation's final solution. */
+		onAdoptSolution?: (solution: SolverResults) => void;
 	}
 
-	let { sessionTree, leafNodeId, problem, finalSolutionPoint = null }: Props = $props();
+	let { sessionTree, leafNodeId, problem, finalSolutionPoint = null, onAdoptSolution }: Props = $props();
 
 	let tooltipEl = $state<HTMLDivElement>();
 	let selectedStep = $state<JourneyStep | null>(null);
@@ -94,6 +96,7 @@
 				deprioritize,
 				steps: simSteps,
 				finalSolution,
+				fullSolverResults: response.final_solution,
 			};
 
 			// Scroll the what-if section into view after render
@@ -340,12 +343,22 @@
 								</tbody>
 							</table>
 
+							<div class="mt-2 flex gap-2">
+							{#if onAdoptSolution}
+								<button
+									class="rounded border border-blue-300 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
+									onclick={() => onAdoptSolution?.(whatIfSimulation!.fullSolverResults)}
+								>
+									Use this solution
+								</button>
+							{/if}
 							<button
-								class="mt-2 rounded border border-gray-200 px-2 py-1 text-xs text-gray-500 hover:bg-gray-50"
+								class="rounded border border-gray-200 px-2 py-1 text-xs text-gray-500 hover:bg-gray-50"
 								onclick={() => (whatIfSimulation = null)}
 							>
 								Clear what-if
 							</button>
+						</div>
 						</div>
 					{/if}
 				</div>
