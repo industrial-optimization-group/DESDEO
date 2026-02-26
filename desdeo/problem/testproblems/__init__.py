@@ -39,6 +39,7 @@ __all__ = [  # noqa: RUF022
     "simulator_problem",
     "spanish_sustainability_problem",
     "spanish_sustainability_problem_discrete",
+    "finnish_sustainability_problem",
     "zdt1",
     "zdt2",
     "zdt3",
@@ -83,4 +84,5 @@ from .spanish_sustainability_problem import (
     spanish_sustainability_problem,
     spanish_sustainability_problem_discrete,
 )
+from .finnish_sustainability_problem import finnish_sustainability_problem
 from .zdt_problem import zdt1, zdt2, zdt3

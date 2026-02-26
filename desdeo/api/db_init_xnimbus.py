@@ -11,8 +11,8 @@ from desdeo.api.routers.user_authentication import get_password_hash
 from desdeo.problem import Problem
 from desdeo.problem.testproblems import (
     river_pollution_problem,
-    spanish_sustainability_problem,
-    rocket_injector_design,
+    # spanish_sustainability_problem,
+    # finnish_sustainability_problem,
 )
 
 
@@ -25,10 +25,9 @@ def load_problem_from_json(json_file_path: str) -> Problem:
 
 problems = [
     river_pollution_problem(five_objective_variant=False),
-    spanish_sustainability_problem(),
-    rocket_injector_design(),
-    rocket_injector_design(True),
-    load_problem_from_json("datasets/problemModels/utopia_forest_allreal.json"),
+    # spanish_sustainability_problem(),
+    # finnish_sustainability_problem(),
+    # load_problem_from_json("tests/data/forestProblemWithMetadata/problem.json"),
 ]
 
 RESET_DB = 1
@@ -57,7 +56,7 @@ def init_schema():
 
 def seed_data():
     # Seed only if you want it (recommended only for dev/staging)
-    num_users = 10
+    num_users = 100
     user_name_prefix = "nimbus"
     analyst_usernames = ["kmiettinen", "bafsar", "glarraga"]
     password_length = 5
