@@ -28,7 +28,7 @@ problems = [
     spanish_sustainability_problem(),
     rocket_injector_design(),
     rocket_injector_design(True),
-    load_problem_from_json("datasets/problemModels/utopia_forest.json"),
+    load_problem_from_json("datasets/problemModels/utopia_forest_allreal.json"),
 ]
 
 RESET_DB = 1
