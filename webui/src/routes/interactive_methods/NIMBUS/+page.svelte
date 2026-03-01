@@ -601,9 +601,9 @@
 			update_iteration_selection(current_state);
 			update_preferences_from_state(current_state);
 			current_num_iteration_solutions = current_state.current_solutions.length;
-			if (current_state.response_type === 'nimbus.finalize') {
+			/*if (current_state.response_type === 'nimbus.finalize') {
 				mode = 'final';
-			}
+			}*/
 		}
 	}
 
@@ -772,7 +772,7 @@
 							<VisualizationsPanel
 								{problem}
 								{height}
-								previousPreferenceValues={last_iterated_preference}
+								previousPreferenceValues={[last_iterated_preference]}
 								currentPreferenceValues={current_preference}
 								previousPreferenceType={type_preferences}
 								currentPreferenceType={type_preferences}

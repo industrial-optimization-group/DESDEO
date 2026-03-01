@@ -226,12 +226,14 @@
 		});
 	}
 
-	// TODO: find out if there is an endpoint or some actual functionality needed; now the endpoint is mocked
-	// TODO: find out if there is an endpoint or some actual functionality needed; now the endpoint is mocked
+		// Actual function to handle finishing after confirmation
 	async function handle_finish(final_solution: Solution, index: number) {
-		const success = await handleFinishRequest(problem, final_solution);
-
-		if (success) {
+		if (!current_state.previous_preference) {
+			console.error('No previous preference values found for finishing.');
+			return;
+		}
+		const response = await handleFinishRequest(problem, final_solution, current_state.previous_preference); 
+		if (response) {
 			// Update the selected iteration index to match our final solution
 			// This will ensure that in final mode we show the correct solution
 			selected_iteration_index = [index];
@@ -538,11 +540,16 @@
 	// Initialize NIMBUS state by calling the API endpoint
 	async function initialize_nimbus_state(problem_id: number) {
 		const result = await initializeNimbusStateRequest(problem_id);
-
 		if (result) {
 			// Store response data
-			current_state = result;
-
+			let current_solutions = result.current_solutions || [];
+			if (result.final_solution) {
+				current_solutions = [result.final_solution]
+			}
+			current_state = {
+				...result,
+				current_solutions: current_solutions,
+			};
 			// Update names from saved solutions
 			current_state.current_solutions = updateSolutionNames(
 				current_state.saved_solutions,
@@ -555,12 +562,17 @@
 
 			// Initialize other state
 			selected_iteration_index = [0];
-			selected_objective_symbol = null; // Reset selected objective on initialization
+			selected_objective_symbol = null;
 			update_iteration_selection(current_state);
 			update_preferences_from_state(current_state);
 			current_num_iteration_solutions = current_state.current_solutions.length;
+			/*if (current_state.response_type === 'nimbus.finalize') {
+				mode = 'final';
+			}*/
 		}
 	}
+
+
 	// Convert data to match AppSidebar interface
 	let type_preferences = $state(PREFERENCE_TYPES.Classification);
 
@@ -608,7 +620,7 @@
 							<VisualizationsPanel
 								{height}
 								{problem}
-								previousPreferenceValues={last_iterated_preference}
+								previousPreferenceValues={[last_iterated_preference]}
 								previousPreferenceType={type_preferences}
 								currentPreferenceValues={current_preference}
 								currentPreferenceType={type_preferences}
@@ -652,7 +664,7 @@
 			{#if problem && chosen_solutions.length > 0 && selected_iteration_index.length > 0}
 				<SolutionTable
 					{problem}
-					solverResults={[chosen_solutions[selected_iteration_index[0]]]}
+					solverResults={chosen_solutions[selected_iteration_index[0]]}
 					{isSaved}
 					selectedSolutions={selected_iteration_index}
 					{handle_save}
@@ -745,7 +757,7 @@
 							<VisualizationsPanel
 								{height}
 								{problem}
-								previousPreferenceValues={last_iterated_preference}
+								previousPreferenceValues={[last_iterated_preference]}
 								currentPreferenceValues={current_preference}
 								previousPreferenceType={type_preferences}
 								currentPreferenceType={type_preferences}

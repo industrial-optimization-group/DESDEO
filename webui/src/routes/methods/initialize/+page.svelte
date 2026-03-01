@@ -123,7 +123,7 @@
 	const preferenceTypes = [...new Set(baseMethods.flatMap((m) => m.preferencesType))];
 
 	let filteredMethods = $derived(
-		methods.filter((method) => {
+		baseMethods.filter((method) => {
 			const matchesSearch =
 				searchQuery === '' ||
 				method.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
