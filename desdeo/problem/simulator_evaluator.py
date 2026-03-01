@@ -1,6 +1,3 @@
-from matplotlib.image import resample
-from numpy._core.multiarray import scalar
-
 """Evaluators are defined to evaluate simulator based and surrogate based objectives, constraints and extras."""
 
 import json
@@ -8,26 +5,38 @@ import subprocess
 import sys
 from inspect import getfullargspec
 from pathlib import Path
+from urllib.parse import urlparse
 
 import joblib
 import numpy as np
 import polars as pl
-
-# import skops.io as sio
 import requests
 
-from desdeo.problem import ObjectiveTypeEnum, PolarsEvaluator, PolarsEvaluatorModesEnum, Problem, MathParser
+from desdeo.problem import (
+    MathParser,
+    ObjectiveTypeEnum,
+    PolarsEvaluator,
+    PolarsEvaluatorModesEnum,
+    Problem,
+)
+from desdeo.problem.external import ProviderParams, get_resolver, supported_schemes
+
+# external resolver to resolve providers for problems defined externally of DESDEO
+_external_resolver = get_resolver()
 
 
 class EvaluatorError(Exception):
     """Error raised when exceptions are encountered in an Evaluator."""
 
 
-class Evaluator:
+class SimulatorEvaluator:
     """A class for creating evaluators for simulator based and surrogate based objectives, constraints and extras."""
 
-    def __init__(
-        self, problem: Problem, params: dict[str, dict] | None = None, surrogate_paths: dict[str, Path] | None = None
+    def __init__(  # noqa: PLR0912
+        self,
+        problem: Problem,
+        params: dict[str, dict] | ProviderParams | None = None,
+        surrogate_paths: dict[str, Path] | None = None,
     ):
         """Creating an evaluator for simulator based and surrogate based objectives, constraints and extras.
 
@@ -102,7 +111,10 @@ class Evaluator:
 
         # Gather the possible simulators
         self.simulators = problem.simulators if problem.simulators is not None else []
+
         # Gather the possibly given parameters
+        if params and not isinstance(params, dict):
+            params = params.model_dump()
         self.params = {}
         for sim in self.simulators:
             sim_params = params.get(sim.name, {}) if params is not None else {}
@@ -161,13 +173,21 @@ class Evaluator:
                     if isinstance(xs, pl.DataFrame):
                         # if xs is a polars dataframe, convert it to a dict
                         xs = xs.to_dict(as_series=False)
-                    res = requests.get(sim.url.url, auth=sim.url.auth, json={"d": xs, "p": params})
-                    res.raise_for_status()  # raise an error if the request failed
+                    scheme = urlparse(sim.url.url).scheme
+                    if scheme in supported_schemes:
+                        # desdeo
+                        res = _external_resolver.evaluate(sim.url.url, params, xs)
+                        res_df = res_df.hstack(pl.DataFrame(res))
+                        # parse res
+                    else:
+                        # http, https, etc...
+                        res = requests.get(sim.url.url, auth=sim.url.auth, json={"d": xs, "p": params})
+                        res.raise_for_status()  # raise an error if the request failed
+                        res_df = res_df.hstack(pl.DataFrame(res.json()))
                 except requests.RequestException as e:
                     raise EvaluatorError(
                         f"Failed to call the simulator at {sim.url}. Is the simulator server running?"
                     ) from e
-                res_df = res_df.hstack(pl.DataFrame(res.json()))
 
         # Evaluate the minimization form of the objective functions
         min_obj_columns = pl.DataFrame()

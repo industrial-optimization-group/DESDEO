@@ -285,12 +285,14 @@ class NIMBUSFinalState(ResultInterface, SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
 
+    solution_origin_state_id: int = Field(
+        description="The state from which the solution originates."
+    )
+    solution_result_index: int = Field(description="The index within that state.")
+
     solver_results: "SolverResults" = Field(
         sa_column=Column(ResultsType), default_factory=list
-    )  # the final solution
-    reference_point: dict[str, float] | None = Field(
-        sa_column=Column(JSON), default=None
-    )  # the reference point that led to the final solution
+    )
 
     @property
     def result_objective_values(self) -> list[dict[str, float]]:

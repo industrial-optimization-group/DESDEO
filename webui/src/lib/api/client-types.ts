@@ -599,121 +599,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/method/nimbus/get-multipliers-info": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Get Multipliers Info
-         * @description Get Lagrange multipliers information from an state. The multipliers are available from the solver results.
-         */
-        post: operations["get_multipliers_info_method_nimbus_get_multipliers_info_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/method/emo/iterate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Iterate
-         * @description Starts the EMO method.
-         *
-         *     Args:
-         *         request (EMOSolveRequest): The request object containing parameters for the EMO method.
-         *         user (Annotated[User, Depends]): The current user.
-         *         session (Annotated[Session, Depends]): The database session.
-         *
-         *     Raises:
-         *         HTTPException: If the request is invalid or the EMO method fails.
-         *
-         *     Returns:
-         *         IterateResponse: A response object containing a list of IDs to be used for websocket communication.
-         *             Also contains the StateDB id where the results will be stored.
-         */
-        post: operations["iterate_method_emo_iterate_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/method/emo/fetch": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Fetch Results
-         * @description Fetches results from a completed EMO method.
-         *
-         *     Args:
-         *         request (EMOFetchRequest): The request object containing parameters for fetching results.
-         *         user (Annotated[User, Depends]): The current user.
-         *         session (Annotated[Session, Depends]): The database session.
-         *
-         *     Raises:
-         *         HTTPException: If the request is invalid or the EMO method has not completed.
-         *
-         *     Returns:
-         *         StreamingResponse: A streaming response containing the results of the EMO method.
-         */
-        post: operations["fetch_results_method_emo_fetch_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/method/emo/fetch_score": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Fetch Score Bands
-         * @description Fetches results from a completed EMO method.
-         *
-         *     Args:
-         *         request (EMOFetchRequest): The request object containing parameters for fetching results and of the SCORE bands
-         *             visualization.
-         *         user (Annotated[User, Depends]): The current user.
-         *         session (Annotated[Session, Depends]): The database session.
-         *
-         *     Raises:
-         *         HTTPException: If the request is invalid or the EMO method has not completed.
-         *
-         *     Returns:
-         *         SCOREBandsResult: The results of the SCORE bands visualization.
-         */
-        post: operations["fetch_score_bands_method_emo_fetch_score_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/method/generic/intermediate": {
         parameters: {
             query?: never;
@@ -734,7 +619,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/method/generic/score-bands": {
+    "/method/generic/score-bands-obj-data": {
         parameters: {
             query?: never;
             header?: never;
@@ -744,10 +629,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Calculate Score Bands
+         * Calculate Score Bands From Objective Data
          * @description Calculate SCORE bands parameters from objective data.
          */
-        post: operations["calculate_score_bands_method_generic_score_bands_post"];
+        post: operations["calculate_score_bands_from_objective_data_method_generic_score_bands_obj_data_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -803,7 +688,7 @@ export interface paths {
          *         session (Annotated[Session, Depends(get_session)]): the database session.
          *
          *     Returns:
-         *         JSONResponse: Aknowledgement that the gourp was created
+         *         JSONResponse: Acknowledgement that the group was created
          *
          *     Raises:
          *         HTTPException
@@ -834,7 +719,7 @@ export interface paths {
          *         session (Annotated[Session, Depends(get_session)]): The database session
          *
          *     Returns:
-         *         JSONResponse: Aknowledgement of the deletion
+         *         JSONResponse: Acknowledgement of the deletion
          *
          *     Raises:
          *         HTTPException: Insufficient authorization etc.
@@ -971,6 +856,8 @@ export interface paths {
          * Get Latest Results
          * @description Get the latest results from group iteration.
          *
+         *     (OBSOLETE AND OUT OF DATE!)
+         *
          *     Args:
          *         request (GroupInfoRequest): essentially just the ID of the group
          *         user (Annotated[User, Depends(get_current_user)]): Current user
@@ -1062,6 +949,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/gnimbus/revert_iteration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revert Iteration
+         * @description Changes the starting solution of an iteration so in case of emergency the group owner can just change it.
+         *
+         *     Args:
+         *         request (GNIMBUSChangeStartingSolutionRequest): The request containing necessary details to fulfill the change.
+         *         user (Annotated[User, Depends): The current user.
+         *         session (Annotated[Session, Depends): The database session.
+         *
+         *     Raises:
+         *         HTTPException
+         *
+         *     Returns:
+         *         JSONResponse: Response that acknowledges the changes.
+         */
+        post: operations["revert_iteration_gnimbus_revert_iteration_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/method/enautilus/step": {
         parameters: {
             query?: never;
@@ -1076,6 +994,192 @@ export interface paths {
          * @description .
          */
         post: operations["step_method_enautilus_step_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gdm-score-bands/vote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Vote For A Band
+         * @description Vote for a band using this endpoint.
+         *
+         *     Args:
+         *         request (GDMScoreBandsVoteRequest): A container for the group id and the vote.
+         *         user (Annotated[User, Depends): the current user.
+         *         session (Annotated[Session, Depends): database session
+         *
+         *     Raises:
+         *         HTTPException: If something goes wrong. It hopefully let's you know what went wrong.
+         *
+         *     Returns:
+         *         JSONResponse: A quick confirmation that vote went through.
+         */
+        post: operations["vote_for_a_band_gdm_score_bands_vote_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gdm-score-bands/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Vote
+         * @description Confim the vote. If all confirm, the clustering and new iteration begins.
+         *
+         *     Args:
+         *         request (GroupInfoRequest): Simple request to get the group ID.
+         *         user (Annotated[User, Depends): The current user.
+         *         session (Annotated[Session, Depends): Database session.
+         *
+         *     Raises:
+         *         HTTPException: If something goes awry. It should let you know what went wrong, though.
+         *
+         *     Returns:
+         *         JSONResponse: A simple confirmation that everything went ok and that vote went in.
+         */
+        post: operations["confirm_vote_gdm_score_bands_confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gdm-score-bands/get-or-initialize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get Or Initialize
+         * @description An endpoint for two things: Initializing the GDM Score Bands things and Fetching results.
+         *
+         *     If a group hasn't been initialized, initialize and then return initial clustering information.
+         *     If it has been initialized, just fetch the latest iteration's information (clustering, etc.)
+         *
+         *     Args:
+         *         request (GDMScoreBandsInitializationRequest): Request that contains necessary information for initialization.
+         *         user (Annotated[User, Depends): The current user.
+         *         session (Annotated[Session, Depends): Database session.
+         *
+         *     Raises:
+         *         HTTPException: It'll let you know.
+         *
+         *     Returns:
+         *         GDMSCOREBandsResponse: A response containing Group id, group iter id and ScoreBandsResponse.
+         */
+        post: operations["get_or_initialize_gdm_score_bands_get_or_initialize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gdm-score-bands/get-votes-and-confirms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get Votes And Confirms
+         * @description Returns the current status of votes and confirmations in current iteration.
+         *
+         *     Args:
+         *         request (GroupInfoRequest): The group we'd like the info on.
+         *         user (Annotated[User, Depends): The user that requests the data.
+         *         session (Annotated[Session, Depends): The database session.
+         *
+         *     Raises:
+         *         HTTPException: If group doesn't exists etc errors.
+         *
+         *     Returns:
+         *         JSONResponse: A response containing the votes and confirmations.
+         */
+        post: operations["get_votes_and_confirms_gdm_score_bands_get_votes_and_confirms_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gdm-score-bands/revert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revert
+         * @description Revert to a previous iteration. Usable only by the analyst.
+         *
+         *     This implies that we're gonna need to see ALL previous iterations I'd say.
+         *
+         *     Args:
+         *         request (GDMSCOREBandsRevertRequest): The request containing group id and iteration number.
+         *         user (Annotated[User, Depends): The current user.
+         *         session (Annotated[Session, Depends): The database session.
+         *
+         *     Returns:
+         *         JSONResponse: Acknowledgement of the revert.
+         */
+        post: operations["revert_gdm_score_bands_revert_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gdm-score-bands/configure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Configure Gdm
+         * @description Configure the SCORE Bands settings.
+         *
+         *     Args:
+         *         config (SCOREBandsGDMConfig): The configuration object
+         *         group_id (int): group id
+         *         user (Annotated[User, Depends): The user doing the request
+         *         session (Annotated[Session, Depends): The database session.
+         *
+         *     Returns:
+         *         JSONResponse: Acknowledgement that yeah ok reconfigured.
+         */
+        post: operations["configure_gdm_gdm_score_bands_configure_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1419,52 +1523,6 @@ export interface components {
             name: string;
         };
         /**
-         * DesirableRangesOptions
-         * @description Options for providing desirable ranges for an EA.
-         */
-        DesirableRangesOptions: {
-            /**
-             * Name
-             * @description The name of the preferred ranges option.
-             * @default preferred_ranges
-             * @constant
-             */
-            name: "preferred_ranges";
-            /**
-             * Aspiration Levels
-             * @description The aspiration levels as a dictionary with objective function symbols as the keys.
-             */
-            aspiration_levels: {
-                [key: string]: number;
-            };
-            /**
-             * Reservation Levels
-             * @description The reservation levels as a dictionary with objective function symbols as the keys.
-             */
-            reservation_levels: {
-                [key: string]: number;
-            };
-            /**
-             * Method
-             * @description The method for handling the desirable ranges.
-             * @default Hakanen
-             * @enum {string}
-             */
-            method: "Hakanen" | "DF transformation";
-            /**
-             * Desirability Levels
-             * @description The desirability levels as a tuple (high, low). Used if method is DF transformation. If None, default levels (0.9, 0.1) are used.
-             * @default [
-             *       0.9,
-             *       0.1
-             *     ]
-             */
-            desirability_levels: [
-                number,
-                number
-            ];
-        };
-        /**
          * DimensionClusterOptions
          * @description Options for clustering by one of the objectives/decision variables.
          */
@@ -1525,116 +1583,6 @@ export interface components {
          * @enum {integer}
          */
         DistanceFormula: 1 | 2;
-        /**
-         * EMOFetchRequest
-         * @description Model of the request to fetch solutions from an EMO method.
-         */
-        EMOFetchRequest: {
-            /**
-             * Problem Id
-             * @description Database ID of the problem to solve.
-             */
-            problem_id: number;
-            /** Session Id */
-            session_id?: number | null;
-            /**
-             * Parent State Id
-             * @description State ID of the parent state, if any. Should be None if this is the first state in a session.
-             */
-            parent_state_id?: number | null;
-            /**
-             * Num Solutions
-             * @description Number of solutions to fetch. If 0, fetch all solutions.
-             * @default 0
-             */
-            num_solutions: number;
-        };
-        /**
-         * EMOIterateRequest
-         * @description Model of the request to iterate an EMO method.
-         */
-        EMOIterateRequest: {
-            /**
-             * Problem Id
-             * @description Database ID of the problem to solve.
-             */
-            problem_id: number;
-            /** Session Id */
-            session_id?: number | null;
-            /**
-             * Parent State Id
-             * @description State ID of the parent state, if any. Should be None if this is the first state in a session.
-             */
-            parent_state_id?: number | null;
-            /**
-             * Template Options
-             * @description Options for the template to use. A list of options can be given if multiple templates are used in parallel.
-             */
-            template_options?: (components["schemas"]["Template1Options"] | components["schemas"]["Template2Options"])[] | null;
-            /**
-             * Preference Options
-             * @description Options for the preference handling.
-             */
-            preference_options?: components["schemas"]["ReferencePointOptions"] | components["schemas"]["DesirableRangesOptions"] | components["schemas"]["PreferredSolutionsOptions"] | components["schemas"]["NonPreferredSolutionsOptions"] | null;
-        };
-        /**
-         * EMOIterateResponse
-         * @description Model of the response to an EMO iterate request.
-         */
-        EMOIterateResponse: {
-            /**
-             * Method Ids
-             * @description IDs of the EMO methods using websockets to get/send updates.
-             */
-            method_ids: string[];
-            /**
-             * Client Id
-             * @description Client ID to use when connecting to the websockets.
-             */
-            client_id: string;
-            /**
-             * State Id
-             * @description The state ID of the newly created state.
-             */
-            state_id: number;
-        };
-        /**
-         * EMOScoreRequest
-         * @description Request model for getting SCORE bands visualization data from state.
-         */
-        EMOScoreRequest: {
-            /**
-             * Problem Id
-             * @description Database ID of the problem to solve.
-             */
-            problem_id: number;
-            /** Session Id */
-            session_id?: number | null;
-            /**
-             * Parent State Id
-             * @description State ID of the parent state, if any.
-             */
-            parent_state_id?: number | null;
-            /** @description Configuration for the SCORE bands visualization. */
-            config?: components["schemas"]["SCOREBandsConfig"] | null;
-            /**
-             * Solution Ids
-             * @description List of solution IDs to score.
-             */
-            solution_ids: number[];
-        };
-        /**
-         * EMOScoreResponse
-         * @description Model of the response to an EMO score request.
-         */
-        EMOScoreResponse: {
-            /**
-             * State Id
-             * @description The state ID of the newly created state.
-             */
-            state_id?: number | null;
-            result: components["schemas"]["SCOREBandsResult"];
-        };
         /**
          * ENautilusResult
          * @description The result of an iteration of the E-NAUTILUS method.
@@ -1748,7 +1696,7 @@ export interface components {
         };
         /**
          * EndProcessPreference
-         * @description A model for determining if everyone is happy with current solution so we can end the process.
+         * @description A structure for storing info on whether everyone is happy to end the gnimbus process.
          */
         EndProcessPreference: {
             /**
@@ -1762,19 +1710,6 @@ export interface components {
             set_preferences: {
                 [key: string]: boolean;
             };
-        };
-        /**
-         * ExternalCheckTerminatorOptions
-         * @description Options for external check terminator operator. Note that the check function must be provided separately.
-         */
-        ExternalCheckTerminatorOptions: {
-            /**
-             * Name
-             * @description The name of the termination operator.
-             * @default ExternalCheckTerminator
-             * @constant
-             */
-            name: "ExternalCheckTerminator";
         };
         /**
          * ExtraFunctionDB
@@ -1856,21 +1791,184 @@ export interface components {
         /**
          * FullIteration
          * @description A full iteration item containing results from a complete or incomplete iteration.
+         *
+         *     This is a format to send information to the user interface.
          */
         FullIteration: {
-            /** Phase */
+            /**
+             * Phase
+             * @description The phase of the iteration.
+             */
             phase: string;
+            /** @description The preferences related to the optimization stage of the full iteration. */
             optimization_preferences: components["schemas"]["OptimizationPreference"] | null;
-            /** Voting Preferences */
+            /**
+             * Voting Preferences
+             * @description The preferences related to the voting phase of the iteration.             either actual votes or a vote to see whether to just continue.
+             */
             voting_preferences: components["schemas"]["VotingPreference"] | components["schemas"]["EndProcessPreference"] | null;
-            starting_result: components["schemas"]["SolutionReference"] | null;
-            /** Common Results */
-            common_results: components["schemas"]["SolutionReference"][];
-            /** User Results */
-            user_results: components["schemas"]["SolutionReference"][];
-            /** Personal Result Index */
+            /** @description The starting result of the optimization process. Fetched from the previous             iteration's final result. */
+            starting_result: components["schemas"]["SolutionReferenceLite"] | null;
+            /**
+             * Common Results
+             * @description The common results (1 to 4) generated by gnimbus.
+             */
+            common_results: components["schemas"]["SolutionReferenceLite"][];
+            /**
+             * User Results
+             * @description The user specific results generated by gnimbus in phases learning and crp.
+             */
+            user_results: components["schemas"]["SolutionReferenceLite"][];
+            /**
+             * Personal Result Index
+             * @description The user result index of requester.
+             */
             personal_result_index: number | null;
-            final_result: components["schemas"]["SolutionReference"] | null;
+            /** @description The final result after voting. */
+            final_result: components["schemas"]["SolutionReferenceLite"] | null;
+        };
+        /**
+         * GDMSCOREBandFinalSelection
+         * @description Class for containing the final 10 or less solutions, the final solution and the votes that led to it.
+         */
+        GDMSCOREBandFinalSelection: {
+            /**
+             * Method
+             * @default gdm-score-bands-final
+             */
+            method: string;
+            /**
+             * User Votes
+             * @description Dictionary of votes.
+             */
+            user_votes: {
+                [key: string]: number;
+            };
+            /**
+             * User Confirms
+             * @description List of users who want to move on.
+             */
+            user_confirms: number[];
+            /** Solution Variables */
+            solution_variables: {
+                [key: string]: (number | boolean)[];
+            };
+            /** Solution Objectives */
+            solution_objectives: {
+                [key: string]: number[];
+            };
+            /** Winner Solution Variables */
+            winner_solution_variables: {
+                [key: string]: number | boolean;
+            };
+            /** Winner Solution Objectives */
+            winner_solution_objectives: {
+                [key: string]: number;
+            };
+        };
+        /**
+         * GDMSCOREBandsDecisionResponse
+         * @description Response class for gdm score bands that includes the last 10 or less solutions.
+         */
+        GDMSCOREBandsDecisionResponse: {
+            /**
+             * Method
+             * @default gdm-score-bands-final
+             */
+            method: string;
+            /**
+             * Group Id
+             * @description The group in question.
+             */
+            group_id: number;
+            /**
+             * Group Iter Id
+             * @description ID of the latest group iteration.
+             */
+            group_iter_id: number;
+            /** @description The container for the solutions and the winner solution. */
+            result: components["schemas"]["GDMSCOREBandFinalSelection"];
+        };
+        /**
+         * GDMSCOREBandsHistoryResponse
+         * @description Response class for all history. Allows for going to a previous iteration.
+         */
+        GDMSCOREBandsHistoryResponse: {
+            /** History */
+            history: (components["schemas"]["GDMSCOREBandsResponse"] | components["schemas"]["GDMSCOREBandsDecisionResponse"])[];
+        };
+        /**
+         * GDMSCOREBandsResponse
+         * @description Response class for GDMSCOREBands, whether it is initialization or not.
+         */
+        GDMSCOREBandsResponse: {
+            /**
+             * Method
+             * @default gdm-score-bands
+             */
+            method: string;
+            /**
+             * Group Id
+             * @description The group in question.
+             */
+            group_id: number;
+            /**
+             * Group Iter Id
+             * @description ID of the latest group iteration.
+             */
+            group_iter_id: number;
+            /**
+             * Latest Iteration
+             * @description The latest GDM iteration number. Different from Group Iteration id.
+             */
+            latest_iteration: number;
+            /** @description The results of the score bands procedure. */
+            result: components["schemas"]["SCOREBandsResult"];
+        };
+        /**
+         * GDMSCOREBandsRevertRequest
+         * @description Request for reverting to a previous setup.
+         */
+        GDMSCOREBandsRevertRequest: {
+            /**
+             * Group Id
+             * @description Group ID.
+             */
+            group_id: number;
+            /**
+             * Iteration Number
+             * @description The number of the iteration that we want to revert to.
+             */
+            iteration_number: number;
+        };
+        /**
+         * GDMScoreBandsInitializationRequest
+         * @description Request class for initialization of score bands.
+         */
+        GDMScoreBandsInitializationRequest: {
+            /**
+             * Group Id
+             * @description The group to be initialized.
+             */
+            group_id: number;
+            /** @description The configuration for the initial score banding. */
+            score_bands_config: components["schemas"]["SCOREBandsGDMConfig"];
+        };
+        /**
+         * GDMScoreBandsVoteRequest
+         * @description Request for voting for a band.
+         */
+        GDMScoreBandsVoteRequest: {
+            /**
+             * Group Id
+             * @description ID of the group in question
+             */
+            group_id: number;
+            /**
+             * Vote
+             * @description The vote. Vaalisalaisuus.
+             */
+            vote: number;
         };
         /**
          * GMMOptions
@@ -1902,7 +2000,7 @@ export interface components {
         };
         /**
          * GNIMBUSResultResponse
-         * @description The response for getting GNIMBUS results.
+         * @description The response for getting GNIMBUS results. NOTE: OBSOLETE!
          */
         GNIMBUSResultResponse: {
             /** Method */
@@ -2009,6 +2107,22 @@ export interface components {
             user_ids: number[];
             /** Problem Id */
             problem_id: number;
+        };
+        /**
+         * GroupRevertRequest
+         * @description Class for requesting reverting to certain iteration.
+         */
+        GroupRevertRequest: {
+            /**
+             * Group Id
+             * @description The ID of the group we wish to revert.
+             */
+            group_id: number;
+            /**
+             * State Id
+             * @description The state's ID to which we want to revert to. Corresponds to state_id in GroupIteration.
+             */
+            state_id: number;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -2124,142 +2238,6 @@ export interface components {
              * @default 5
              */
             n_clusters: number;
-        };
-        /**
-         * LHSGeneratorOptions
-         * @description Options for Latin Hypercube Sampling (LHS) generator.
-         */
-        LHSGeneratorOptions: {
-            /**
-             * N Points
-             * @description The number of points to generate for the initial population.
-             */
-            n_points: number;
-            /**
-             * Name
-             * @description The name of the generator.
-             * @default LHSGenerator
-             * @constant
-             */
-            name: "LHSGenerator";
-        };
-        /**
-         * LocalCrossoverOptions
-         * @description Options for Local Crossover.
-         */
-        LocalCrossoverOptions: {
-            /**
-             * Name
-             * @description The name of the crossover operator.
-             * @default LocalCrossover
-             * @constant
-             */
-            name: "LocalCrossover";
-            /**
-             * Xover Probability
-             * @description The crossover probability.
-             * @default 1
-             */
-            xover_probability: number;
-        };
-        /**
-         * MPTMutationOptions
-         * @description Options for MPT Mutation.
-         */
-        MPTMutationOptions: {
-            /**
-             * Name
-             * @description The name of the mutation operator.
-             * @default MPTMutation
-             * @constant
-             */
-            name: "MPTMutation";
-            /**
-             * Mutation Probability
-             * @description The probability of mutation. Defaults to None, which sets the mutation probability to 1/<number of decision variables>.
-             */
-            mutation_probability?: number | null;
-            /**
-             * Mutation Exponent
-             * @description Controls strength of small mutation (larger means smaller mutations).
-             * @default 2
-             */
-            mutation_exponent: number;
-        };
-        /**
-         * MaxEvaluationsTerminatorOptions
-         * @description Options for max evaluations terminator operator.
-         */
-        MaxEvaluationsTerminatorOptions: {
-            /**
-             * Name
-             * @description The name of the termination operator.
-             * @default MaxEvaluationsTerminator
-             * @constant
-             */
-            name: "MaxEvaluationsTerminator";
-            /**
-             * Max Evaluations
-             * @description The maximum number of evaluations allowed.
-             * @default 10000
-             */
-            max_evaluations: number;
-        };
-        /**
-         * MaxGenerationsTerminatorOptions
-         * @description Options for max generations terminator operator.
-         */
-        MaxGenerationsTerminatorOptions: {
-            /**
-             * Name
-             * @description The name of the termination operator.
-             * @default MaxGenerationsTerminator
-             * @constant
-             */
-            name: "MaxGenerationsTerminator";
-            /**
-             * Max Generations
-             * @description The maximum number of generations allowed.
-             * @default 100
-             */
-            max_generations: number;
-        };
-        /**
-         * MaxTimeTerminatorOptions
-         * @description Options for max time terminator operator.
-         */
-        MaxTimeTerminatorOptions: {
-            /**
-             * Name
-             * @description The name of the termination operator.
-             * @default MaxTimeTerminator
-             * @constant
-             */
-            name: "MaxTimeTerminator";
-            /**
-             * Max Time
-             * @description The maximum time allowed (in seconds).
-             * @default 30
-             */
-            max_time: number;
-        };
-        /**
-         * MixedIntegerRandomMutationOptions
-         * @description Options for Mixed Integer Random Mutation.
-         */
-        MixedIntegerRandomMutationOptions: {
-            /**
-             * Name
-             * @description The name of the mutation operator.
-             * @default MixedIntegerRandomMutation
-             * @constant
-             */
-            name: "MixedIntegerRandomMutation";
-            /**
-             * Mutation Probability
-             * @description The probability of mutation. Defaults to None, which sets the mutation probability to 1/<number of decision variables>.
-             */
-            mutation_probability?: number | null;
         };
         /**
          * NIMBUSClassificationRequest
@@ -2720,7 +2698,7 @@ export interface components {
         ObjectiveTypeEnum: "analytical" | "data_based" | "simulator" | "surrogate";
         /**
          * OptimizationPreference
-         * @description An optimization preference class. As for the method and phase, see GNIMBUS for details.
+         * @description A structure for storing optimization preferences. See GNIMBUS for details.
          */
         OptimizationPreference: {
             /**
@@ -2737,63 +2715,6 @@ export interface components {
             set_preferences: {
                 [key: string]: components["schemas"]["ReferencePoint"];
             };
-        };
-        /**
-         * ParameterAdaptationStrategy
-         * @description The parameter adaptation strategies for the RVEA selector.
-         * @enum {string}
-         */
-        ParameterAdaptationStrategy: "GENERATION_BASED" | "FUNCTION_EVALUATION_BASED" | "OTHER";
-        /**
-         * PowerMutationOptions
-         * @description Options for Power Mutation.
-         */
-        PowerMutationOptions: {
-            /**
-             * Name
-             * @description The name of the mutation operator.
-             * @default PowerMutation
-             * @constant
-             */
-            name: "PowerMutation";
-            /**
-             * Mutation Probability
-             * @description The probability of mutation. Defaults to None, which sets the mutation probability to 1/<number of decision variables>.
-             */
-            mutation_probability?: number | null;
-            /**
-             * P
-             * @description Power distribution parameter. Controls the perturbation magnitude.
-             * @default 1.5
-             */
-            p: number;
-        };
-        /**
-         * PreferredSolutionsOptions
-         * @description Options for providing preferred solutions for an EA.
-         */
-        PreferredSolutionsOptions: {
-            /**
-             * Name
-             * @description The name of the preferred solutions option.
-             * @default preferred_solutions
-             * @constant
-             */
-            name: "preferred_solutions";
-            /**
-             * Preference
-             * @description The preferred solutions as a dictionary with objective function symbols as the keys.
-             */
-            preference: {
-                [key: string]: number[];
-            };
-            /**
-             * Method
-             * @description The method for handling the preferred solutions.
-             * @default Hakanen
-             * @constant
-             */
-            method: "Hakanen";
         };
         /**
          * ProblemGetRequest
@@ -2897,9 +2818,15 @@ export interface components {
          * @description Model to request a specific solver for a problem.
          */
         ProblemSelectSolverRequest: {
-            /** Problem Id */
+            /**
+             * Problem Id
+             * @description ID of the problem that the solver is assigned to.
+             */
             problem_id: number;
-            /** Solver String Representation */
+            /**
+             * Solver String Representation
+             * @description One of the following: ['scipy_minimize', 'scipy_de', 'proximal', 'nevergrad', 'pyomo_bonmin', 'pyomo_cbc', 'pyomo_ipopt', 'pyomo_gurobi', 'gurobipy', 'gurobipy_persistent']
+             */
             solver_string_representation: string;
         };
         /**
@@ -3234,30 +3161,6 @@ export interface components {
             };
         };
         /**
-         * RouletteWheelSelectionOptions
-         * @description Options for roulette wheel selection operator.
-         */
-        RouletteWheelSelectionOptions: {
-            /**
-             * Name
-             * @description The name of the scalar selection operator.
-             * @default RouletteWheelSelection
-             * @constant
-             */
-            name: "RouletteWheelSelection";
-            /**
-             * Tournament Size
-             * @description The number of individuals participating in the tournament.
-             * @default 2
-             */
-            tournament_size: number;
-            /**
-             * Winner Size
-             * @description The number of winners to select (equivalent to population size).
-             */
-            winner_size: number;
-        };
-        /**
          * SCOREBandsConfig
          * @description Configuration options for SCORE bands visualization.
          */
@@ -3268,6 +3171,22 @@ export interface components {
              *     If None, all columns in the data are used. Defaults to None.
              */
             dimensions?: string[] | null;
+            /**
+             * Descriptive Names
+             * @description Optional dictionary mapping dimensions to descriptive names for display in the visualization.
+             *     If None, the original dimension names are used. Defaults to None.
+             */
+            descriptive_names?: {
+                [key: string]: string;
+            } | null;
+            /**
+             * Units
+             * @description Optional dictionary mapping dimensions to their units for display in the visualization.
+             *     If None, no units are displayed. Defaults to None.
+             */
+            units?: {
+                [key: string]: string;
+            } | null;
             /**
              * Axis Positions
              * @description Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first
@@ -3340,6 +3259,20 @@ export interface components {
                     number
                 ];
             } | null;
+        };
+        /**
+         * SCOREBandsGDMConfig
+         * @description Configuration for the SCORE bands based GDM.
+         */
+        SCOREBandsGDMConfig: {
+            score_bands_config?: components["schemas"]["SCOREBandsConfig"];
+            /**
+             * Minimum Votes
+             * @default 1
+             */
+            minimum_votes: number;
+            /** From Iteration */
+            from_iteration: number | null;
         };
         /**
          * SCOREBandsResult
@@ -3636,10 +3569,7 @@ export interface components {
         };
         /**
          * SolutionReference
-         * @description A model that functions as a reference to solutions existing in the database.
-         *
-         *     Referenced solutions are not necessarily solutions that the user has saved explicitly. For
-         *     referencing those, see `SavedSolutionReference`.
+         * @description A full solution reference with objectives and variables.
          */
         SolutionReference: {
             /**
@@ -3654,6 +3584,10 @@ export interface components {
             solution_index?: number | null;
             /** @description The reference state with the solution information. */
             state: components["schemas"]["StateDB"];
+            /** State Id */
+            readonly state_id: number;
+            /** Num Solutions */
+            readonly num_solutions: number;
             /** Objective Values All */
             readonly objective_values_all: {
                 [key: string]: number;
@@ -3668,12 +3602,34 @@ export interface components {
             } | null;
             /** Variable Values */
             readonly variable_values: {
-                [key: string]: number | boolean;
+                [key: string]: number | boolean | components["schemas"]["Tensor"];
             } | null;
+        };
+        /**
+         * SolutionReferenceLite
+         * @description The same as SolutionReference, but without decision variables for more efficient transport over the internet.
+         */
+        SolutionReferenceLite: {
+            /**
+             * Name
+             * @description Optional name to help identify the solution if, e.g., saved.
+             */
+            name?: string | null;
+            /**
+             * Solution Index
+             * @description The index of the referenced solution, if multiple solutions exist in the reference state.
+             */
+            solution_index?: number | null;
+            /** @description The reference state with the solution information. */
+            state: components["schemas"]["StateDB"];
             /** State Id */
             readonly state_id: number;
             /** Num Solutions */
             readonly num_solutions: number;
+            /** Objective Values */
+            readonly objective_values: {
+                [key: string]: number;
+            } | null;
         };
         /**
          * SolutionReferenceResponse
@@ -3791,159 +3747,6 @@ export interface components {
             parent_id?: number | null;
             /** State Id */
             state_id?: number | null;
-            /** Date Time */
-            date_time?: string | null;
-        };
-        /**
-         * Template1Options
-         * @description Options for template 1.
-         *
-         *     Template 1 is used by methods such as NSGA-III and RVEA. See
-         *     [template1][desdeo.emo.methods.templates.template1] for
-         *     more details.
-         */
-        Template1Options: {
-            /**
-             * Crossover
-             * @description The crossover operator options.
-             */
-            crossover: components["schemas"]["SimulatedBinaryCrossoverOptions"] | components["schemas"]["SinglePointBinaryCrossoverOptions"] | components["schemas"]["UniformIntegerCrossoverOptions"] | components["schemas"]["UniformMixedIntegerCrossoverOptions"] | components["schemas"]["BlendAlphaCrossoverOptions"] | components["schemas"]["SingleArithmeticCrossoverOptions"] | components["schemas"]["LocalCrossoverOptions"] | components["schemas"]["BoundedExponentialCrossoverOptions"];
-            /**
-             * Mutation
-             * @description The mutation operator options.
-             */
-            mutation: components["schemas"]["BoundedPolynomialMutationOptions"] | components["schemas"]["BinaryFlipMutationOptions"] | components["schemas"]["IntegerRandomMutationOptions"] | components["schemas"]["MixedIntegerRandomMutationOptions"] | components["schemas"]["MPTMutationOptions"] | components["schemas"]["NonUniformMutationOptions"] | components["schemas"]["SelfAdaptiveGaussianMutationOptions"] | components["schemas"]["PowerMutationOptions"];
-            /**
-             * Selection
-             * @description The selection operator options.
-             */
-            selection: components["schemas"]["RVEASelectorOptions"] | components["schemas"]["NSGA2SelectorOptions"] | components["schemas"]["NSGA3SelectorOptions"] | components["schemas"]["IBEASelectorOptions"];
-            /**
-             * Termination
-             * @description The termination operator options.
-             */
-            termination: components["schemas"]["MaxGenerationsTerminatorOptions"] | components["schemas"]["MaxEvaluationsTerminatorOptions"] | components["schemas"]["MaxTimeTerminatorOptions"] | components["schemas"]["ExternalCheckTerminatorOptions"] | components["schemas"]["CompositeTerminatorOptions"];
-            /**
-             * Generator
-             * @description The population generator options.
-             */
-            generator: components["schemas"]["LHSGeneratorOptions"] | components["schemas"]["RandomBinaryGeneratorOptions"] | components["schemas"]["RandomGeneratorOptions"] | components["schemas"]["RandomIntegerGeneratorOptions"] | components["schemas"]["RandomMixedIntegerGeneratorOptions"];
-            /**
-             * Repair
-             * @description The repair operator options.
-             * @default {
-             *       "name": "NoRepair"
-             *     }
-             */
-            repair: components["schemas"]["ClipRepairOptions"] | components["schemas"]["NoRepairOptions"];
-            /**
-             * Use Archive
-             * @description Whether to use an archive.
-             * @default true
-             */
-            use_archive: boolean;
-            /**
-             * Seed
-             * @description The seed for random number generation.
-             * @default 0
-             */
-            seed: number;
-            /**
-             * Verbosity
-             * @description The verbosity level of the operators.
-             * @default 2
-             */
-            verbosity: number;
-            /**
-             * Algorithm Name
-             * @description The unique name of the algorithm.
-             */
-            algorithm_name: string;
-            /**
-             * Name
-             * @description The name of the template.
-             * @default Template1
-             * @constant
-             */
-            name: "Template1";
-        };
-        /**
-         * Template2Options
-         * @description Options for template 2.
-         *
-         *     Template 2 is used by methods such as IBEA. See
-         *     [template2][desdeo.emo.methods.templates.template2] for
-         *     more details.
-         */
-        Template2Options: {
-            /**
-             * Crossover
-             * @description The crossover operator options.
-             */
-            crossover: components["schemas"]["SimulatedBinaryCrossoverOptions"] | components["schemas"]["SinglePointBinaryCrossoverOptions"] | components["schemas"]["UniformIntegerCrossoverOptions"] | components["schemas"]["UniformMixedIntegerCrossoverOptions"] | components["schemas"]["BlendAlphaCrossoverOptions"] | components["schemas"]["SingleArithmeticCrossoverOptions"] | components["schemas"]["LocalCrossoverOptions"] | components["schemas"]["BoundedExponentialCrossoverOptions"];
-            /**
-             * Mutation
-             * @description The mutation operator options.
-             */
-            mutation: components["schemas"]["BoundedPolynomialMutationOptions"] | components["schemas"]["BinaryFlipMutationOptions"] | components["schemas"]["IntegerRandomMutationOptions"] | components["schemas"]["MixedIntegerRandomMutationOptions"] | components["schemas"]["MPTMutationOptions"] | components["schemas"]["NonUniformMutationOptions"] | components["schemas"]["SelfAdaptiveGaussianMutationOptions"] | components["schemas"]["PowerMutationOptions"];
-            /**
-             * Selection
-             * @description The selection operator options.
-             */
-            selection: components["schemas"]["RVEASelectorOptions"] | components["schemas"]["NSGA2SelectorOptions"] | components["schemas"]["NSGA3SelectorOptions"] | components["schemas"]["IBEASelectorOptions"];
-            /**
-             * Termination
-             * @description The termination operator options.
-             */
-            termination: components["schemas"]["MaxGenerationsTerminatorOptions"] | components["schemas"]["MaxEvaluationsTerminatorOptions"] | components["schemas"]["MaxTimeTerminatorOptions"] | components["schemas"]["ExternalCheckTerminatorOptions"] | components["schemas"]["CompositeTerminatorOptions"];
-            /**
-             * Generator
-             * @description The population generator options.
-             */
-            generator: components["schemas"]["LHSGeneratorOptions"] | components["schemas"]["RandomBinaryGeneratorOptions"] | components["schemas"]["RandomGeneratorOptions"] | components["schemas"]["RandomIntegerGeneratorOptions"] | components["schemas"]["RandomMixedIntegerGeneratorOptions"];
-            /**
-             * Repair
-             * @description The repair operator options.
-             * @default {
-             *       "name": "NoRepair"
-             *     }
-             */
-            repair: components["schemas"]["ClipRepairOptions"] | components["schemas"]["NoRepairOptions"];
-            /**
-             * Use Archive
-             * @description Whether to use an archive.
-             * @default true
-             */
-            use_archive: boolean;
-            /**
-             * Seed
-             * @description The seed for random number generation.
-             * @default 0
-             */
-            seed: number;
-            /**
-             * Verbosity
-             * @description The verbosity level of the operators.
-             * @default 2
-             */
-            verbosity: number;
-            /**
-             * Algorithm Name
-             * @description The unique name of the algorithm.
-             */
-            algorithm_name: string;
-            /**
-             * Name
-             * @description The name of the template.
-             * @default Template2
-             * @constant
-             */
-            name: "Template2";
-            /**
-             * Mate Selection
-             * @description The mate selection operator options.
-             */
-            mate_selection: components["schemas"]["TournamentSelectionOptions"] | components["schemas"]["RouletteWheelSelectionOptions"];
         };
         Tensor: components["schemas"]["Tensor"][] | (number | boolean)[] | number | boolean | "List" | null;
         /**
@@ -4209,7 +4012,7 @@ export interface components {
         VariableTypeEnum: "real" | "integer" | "binary";
         /**
          * VotingPreference
-         * @description Voting preferences.
+         * @description A structure for storing voting preferences.
          */
         VotingPreference: {
             /**
@@ -4892,138 +4695,6 @@ export interface operations {
             };
         };
     };
-    get_multipliers_info_method_nimbus_get_multipliers_info_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["NIMBUSMultiplierRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NIMBUSMultiplierResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    iterate_method_emo_iterate_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["EMOIterateRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EMOIterateResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    fetch_results_method_emo_fetch_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["EMOFetchRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    fetch_score_bands_method_emo_fetch_score_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["EMOScoreRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EMOScoreResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     solve_intermediate_method_generic_intermediate_post: {
         parameters: {
             query?: never;
@@ -5057,7 +4728,7 @@ export interface operations {
             };
         };
     };
-    calculate_score_bands_method_generic_score_bands_post: {
+    calculate_score_bands_from_objective_data_method_generic_score_bands_obj_data_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -5453,6 +5124,39 @@ export interface operations {
             };
         };
     };
+    revert_iteration_gnimbus_revert_iteration_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupRevertRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     step_method_enautilus_step_post: {
         parameters: {
             query?: never;
@@ -5473,6 +5177,206 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ENautilusState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    vote_for_a_band_gdm_score_bands_vote_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GDMScoreBandsVoteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_vote_gdm_score_bands_confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupInfoRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_or_initialize_gdm_score_bands_get_or_initialize_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GDMScoreBandsInitializationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GDMSCOREBandsHistoryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_votes_and_confirms_gdm_score_bands_get_votes_and_confirms_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupInfoRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revert_gdm_score_bands_revert_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GDMSCOREBandsRevertRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    configure_gdm_gdm_score_bands_configure_post: {
+        parameters: {
+            query: {
+                group_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SCOREBandsGDMConfig"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

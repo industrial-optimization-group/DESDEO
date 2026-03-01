@@ -62,6 +62,7 @@ def test_calculate_reachable_subset():
             [1.0, 1.0],  # too small
             [2.0, 2.0],  # on lower bound
             [2.5, 2.5],  # inside bounds
+            [2.5, 2.5],  # also inside bounds, but should be excluded
             [3.0, 3.0],  # on upper bound
             [3.5, 3.5],  # too large
             [2.0, 3.1],  # second objective too high
@@ -72,9 +73,10 @@ def test_calculate_reachable_subset():
     lower_bounds = np.array([2.0, 2.0])
     z_preferred = np.array([3.0, 3.0])
 
-    expected_indices = [1, 2, 3]  # rows 1-3 are within bounds
+    expected_indices = [1, 2, 4]  # rows 1-4 are within bounds
+    reachable_indices = [1, 2, 4, 5, 6, 7]  # exclude 3
 
-    result = calculate_reachable_subset(non_dominated, lower_bounds, z_preferred)
+    result = calculate_reachable_subset(non_dominated, reachable_indices, lower_bounds, z_preferred)
 
     assert isinstance(result, list)
     assert sorted(result) == expected_indices
@@ -273,7 +275,7 @@ def test_enautilus_full_run_boring():
 
 @pytest.mark.enautilus
 def test_enautilus_full_run_dynamic():
-    """Run E-NAUTILUS through several itearions.
+    """Run E-NAUTILUS through several iterations.
 
     Run E-NAUTILUS through several iterations (4-objective case)
     while changing both the number of iterations left and the number
@@ -291,10 +293,117 @@ def test_enautilus_full_run_dynamic():
         ],
     )
 
-    f1 = np.array([0.40, 0.60, 0.50, 0.70, 0.45, 0.55, 0.65, 0.48])
-    f2 = np.array([4.00, 3.80, 4.10, 3.70, 4.05, 3.90, 3.60, 4.20])
-    f3 = np.array([1.00, 1.30, 1.10, 1.40, 1.05, 1.20, 1.35, 1.15])
-    f4 = np.array([2.50, 2.30, 2.60, 2.20, 2.55, 2.40, 2.10, 2.65])
+    f1 = np.array(
+        [
+            0.40,
+            0.60,
+            0.50,
+            0.70,
+            0.45,
+            0.55,
+            0.65,
+            0.48,
+            0.44,
+            0.42,
+            0.47,
+            0.43,
+            0.52,
+            0.53,
+            0.51,
+            0.58,
+            0.62,
+            0.64,
+            0.38,
+            0.68,
+            0.48,
+            0.70,
+            0.66,
+        ]
+    )
+
+    f2 = np.array(
+        [
+            4.00,
+            3.80,
+            4.10,
+            3.70,
+            4.05,
+            3.90,
+            3.60,
+            4.20,
+            3.90,
+            3.95,
+            4.00,
+            4.08,
+            4.00,
+            3.95,
+            4.02,
+            3.85,
+            3.78,
+            3.70,
+            4.05,
+            3.55,
+            4.15,
+            3.65,
+            3.62,
+        ]
+    )
+
+    f3 = np.array(
+        [
+            1.00,
+            1.30,
+            1.10,
+            1.40,
+            1.05,
+            1.20,
+            1.35,
+            1.15,
+            1.05,
+            1.02,
+            1.07,
+            1.03,
+            1.15,
+            1.12,
+            1.10,
+            1.25,
+            1.30,
+            1.28,
+            1.08,
+            1.38,
+            1.12,
+            1.33,
+            1.31,
+        ]
+    )
+
+    f4 = np.array(
+        [
+            2.50,
+            2.30,
+            2.60,
+            2.20,
+            2.55,
+            2.40,
+            2.10,
+            2.65,
+            2.45,
+            2.48,
+            2.52,
+            2.58,
+            2.48,
+            2.50,
+            2.53,
+            2.33,
+            2.28,
+            2.18,
+            2.60,
+            2.05,
+            2.62,
+            2.12,
+            2.16,
+        ]
+    )
 
     nd_df = pl.DataFrame(
         {

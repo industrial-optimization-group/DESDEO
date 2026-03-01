@@ -793,7 +793,7 @@ class Objective(BaseModel):
             "A longer description of the objective function. This can be used in UI and visualizations. \
             Meant to have longer text than what name should have."
         ),
-        default=None
+        default=None,
     )
     name: str = Field(
         description=(
@@ -951,7 +951,7 @@ class Constraint(BaseModel):
     function must match objective/variable/constant symbols.
     Can be 'None' if either 'simulator_path' or 'surrogates' is not 'None'.
     If 'None', either 'simulator_path' or 'surrogates' must not be 'None'."""
-    simulator_path: Path | None = Field(
+    simulator_path: Path | Url | None = Field(
         description=(
             "Path to a python file with the connection to simulators. Must be a valid Path."
             "Can be 'None' for if either 'func' or 'surrogates' is not 'None'."
@@ -1626,33 +1626,6 @@ class Problem(BaseModel):
         json_data = path.read_text()
 
         return cls.model_validate_json(json_data, by_name=True)
-
-    @model_validator(mode="after")
-    @classmethod
-    def set_is_twice_differentiable(cls, values):
-        """If "is_twice_differentiable" is explicitly provided to the model, we set it to that value."""
-        if "is_twice_differentiable" in values and values["is_twice_differentiable"] is not None:
-            values["is_twice_differentiable_"] = values["is_twice_differentiable"]
-
-        return values
-
-    @model_validator(mode="after")
-    @classmethod
-    def set_is_linear(cls, values):
-        """If "is_linear" is explicitly provided to the model, we set it to that value."""
-        if "is_linear" in values and values["is_linear"] is not None:
-            values["is_linear_"] = values["is_linear"]
-
-        return values
-
-    @model_validator(mode="after")
-    @classmethod
-    def set_is_convex(cls, values):
-        """If "is_convex" is explicitly provided to the model, we set it to that value."""
-        if "is_convex" in values and values["is_convex"] is not None:
-            values["is_convex_"] = values["is_convex"]
-
-        return values
 
     name: str = Field(
         description="Name of the problem.",

@@ -5,6 +5,7 @@ from pathlib import Path
 from types import UnionType
 from typing import TYPE_CHECKING
 
+from fastapi import UploadFile
 from pydantic import BaseModel, ConfigDict, create_model
 from sqlalchemy.types import JSON, String, TypeDecorator
 from sqlmodel import Column, Field, Relationship, SQLModel
@@ -26,6 +27,8 @@ from desdeo.problem.schema import (
     VariableDomainTypeEnum,
     VariableType,
 )
+
+from desdeo.tools.utils import available_solvers
 
 if TYPE_CHECKING:
     from .archive import UserSavedSolutionDB
@@ -57,8 +60,18 @@ class ProblemGetRequest(SQLModel):
 class ProblemSelectSolverRequest(SQLModel):
     """Model to request a specific solver for a problem."""
 
-    problem_id: int
-    solver_string_representation: str
+    problem_id: int = Field(
+        description="ID of the problem that the solver is assigned to."
+    )
+    solver_string_representation: str = Field(
+        description=f"One of the following: {[x for x, _ in available_solvers.items()]}"
+    )
+
+
+class ProblemAddFromJSONRequest(SQLModel):
+    """Model to request addition of a problem based on the contents of a JSON file."""
+
+    json_file: UploadFile
 
 
 class ProblemInfo(ProblemBase):

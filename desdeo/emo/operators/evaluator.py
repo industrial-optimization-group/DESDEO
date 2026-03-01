@@ -5,7 +5,7 @@ from collections.abc import Sequence
 
 import polars as pl
 
-from desdeo.problem import Evaluator, Problem
+from desdeo.problem import Problem, SimulatorEvaluator
 from desdeo.tools.message import (
     EvaluatorMessageTopics,
     IntMessage,
@@ -48,7 +48,7 @@ class EMOEvaluator(Subscriber):
         )
         self.problem = problem
         # TODO(@light-weaver, @gialmisi): This can be so much more efficient.
-        self.evaluator = lambda x: Evaluator(problem).evaluate(
+        self.evaluator = lambda x: SimulatorEvaluator(problem).evaluate(
             {name.symbol: x[name.symbol].to_list() for name in problem.get_flattened_variables()}, flat=True
         )
         self.variable_symbols = [name.symbol for name in problem.variables]

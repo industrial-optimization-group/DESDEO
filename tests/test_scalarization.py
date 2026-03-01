@@ -4,7 +4,7 @@ import numpy as np
 import numpy.testing as npt
 import pytest
 
-from desdeo.problem import ConstraintTypeEnum, Evaluator
+from desdeo.problem import ConstraintTypeEnum, SimulatorEvaluator
 from desdeo.problem.testproblems import (
     dtlz2,
     momip_ti7,
@@ -1452,7 +1452,7 @@ def test_add_desirability_funcs() -> None:
     assert all(func[:-2] in obj_names for func in added_funcs), "Desirability functions for all objectives not created"
 
     inputs = np.random.rand(100, 10)
-    evaluator = Evaluator(problem_)
+    evaluator = SimulatorEvaluator(problem_)
     outs = evaluator.evaluate(inputs)[added_funcs].to_numpy()
     assert np.all(outs <= 0) and np.all(outs >= -1), "Desirability values should be in [-1, 0]"
 
@@ -1466,6 +1466,6 @@ def test_add_desirability_funcs() -> None:
     obj_names = [obj.symbol for obj in problem.objectives]
     assert all(func[:-2] in obj_names for func in added_funcs), "Desirability functions for all objectives not created"
     inputs = np.random.rand(100, 10)
-    evaluator = Evaluator(problem_)
+    evaluator = SimulatorEvaluator(problem_)
     outs = evaluator.evaluate(inputs)[added_funcs].to_numpy()
     assert np.all(outs <= 0) and np.all(outs >= -1), "Desirability values should be in [-1, 0]"

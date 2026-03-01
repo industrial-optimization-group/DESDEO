@@ -1,5 +1,9 @@
 """General fixtures for API tests are defined here."""
 
+import io
+from pathlib import Path
+
+import polars as pl
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine
@@ -11,11 +15,12 @@ from desdeo.api.models import (
     ForestProblemMetaData,
     ProblemDB,
     ProblemMetaDataDB,
+    RepresentativeNonDominatedSolutions,
     User,
     UserRole,
 )
 from desdeo.api.routers.user_authentication import get_password_hash
-from desdeo.problem.testproblems import dtlz2, river_pollution_problem
+from desdeo.problem.testproblems import dtlz2, river_pollution_problem, dmitry_forest_problem_disc
 
 
 @pytest.fixture(name="session_and_user", scope="function")
@@ -51,6 +56,24 @@ def session_fixture():
         session.commit()
         session.refresh(metadata)
 
+        data_path = Path(__file__).parent.parent.parent.parent / "datasets" / "river_pollution_non_dom.parquet"
+        df = pl.read_parquet(data_path)
+        dict_data = df.to_dict(as_series=False)
+        river_nondominated_meta = RepresentativeNonDominatedSolutions(
+            metadata_id=metadata.id,
+            name="Non-dom-solutions",
+            description=(
+                "Set of non-dominated solutions representing the Pareto optimal "
+                "solutions of the river pollution problem."
+            ),
+            solution_data=dict_data,
+            ideal={},
+            nadir={},
+        )
+
+        session.add(river_nondominated_meta)
+        session.commit()
+
         forest_metadata = ForestProblemMetaData(
             metadata_id=metadata.id,
             map_json="type: string",
@@ -61,6 +84,14 @@ def session_fixture():
 
         session.add(forest_metadata)
         session.commit()
+
+        problem_db_discrete = ProblemDB.from_problem(
+            dmitry_forest_problem_disc(),
+            user=user_analyst
+        )
+        session.add(problem_db_discrete)
+        session.commit()
+        session.refresh(problem_db_discrete)
 
         yield {"session": session, "user": user_analyst}
         session.rollback()
@@ -98,6 +129,17 @@ def post_json(client: TestClient, endpoint: str, json: dict, access_token: str):
         endpoint,
         json=json,
         headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
+    )
+
+
+def post_file_multipart(
+    client: TestClient, endpoint: str, file_bytes: bytes, access_token: str, filename: str = "test.json"
+):
+    """Makes a post request with an uploaded file and returns the response."""
+    return client.post(
+        endpoint,
+        files={"json_file": (filename, io.BytesIO(file_bytes), "application/json")},
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
 

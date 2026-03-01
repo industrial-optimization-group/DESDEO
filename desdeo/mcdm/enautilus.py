@@ -164,7 +164,7 @@ def enautilus_step(  # noqa: PLR0913
     z_nadir = non_dom_objectives.max(axis=0)
 
     # compute representative points
-    representative_points = prune_by_average_linkage(non_dom_objectives, number_of_intermediate_points)
+    representative_points = prune_by_average_linkage(p_h, number_of_intermediate_points)
 
     # calculate intermediate points
     intermediate_points = calculate_intermediate_points(z_h, representative_points, iterations_left)
@@ -182,7 +182,8 @@ def enautilus_step(  # noqa: PLR0913
 
     # calculate the indices of the reachable points for each intermediate point
     reachable_from_intermediate = [
-        calculate_reachable_subset(non_dom_objectives, lower_bounds, z_h) for lower_bounds in intermediate_lower_bounds
+        calculate_reachable_subset(non_dom_objectives, reachable_point_indices, lower_bounds, interm)
+        for lower_bounds, interm in zip(intermediate_lower_bounds, intermediate_points, strict=True)
     ]
 
     best_bounds = [
@@ -265,19 +266,25 @@ def calculate_intermediate_points(
 
 
 def calculate_reachable_subset(
-    non_dominated_points: np.ndarray, lower_bounds: np.ndarray, z_preferred: np.ndarray
+    non_dominated_points: np.ndarray, reachable_indices: np.ndarray, lower_bounds: np.ndarray, z_preferred: np.ndarray
 ) -> list[int]:
     """Calculates the reachable subset on a non-dominated set from a selected intermediate point.
 
     Args:
         non_dominated_points (np.ndarray): the original set of non-dominated points.
+        reachable_indices (np.ndarray): the currently reachable indices, which
+            will be used to select the new reachable points.
         lower_bounds (np.ndarray): the lower bounds of the reachable subset of non-dominates points.
         z_preferred (np.ndarray): the selected intermediate point subject to the reachable subset is calculated.
 
     Returns:
         list[int]: the indices of the reachable solutions
     """
-    return [i for i, z in enumerate(non_dominated_points) if np.all(lower_bounds <= z) and np.all(z <= z_preferred)]
+    return [
+        i
+        for i, z in enumerate(non_dominated_points)
+        if np.all(lower_bounds <= z) and np.all(z <= z_preferred) and i in reachable_indices
+    ]
 
 
 def calculate_lower_bounds(non_dominated_points: np.ndarray, z_intermediate: np.ndarray) -> np.ndarray:

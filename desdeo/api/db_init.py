@@ -23,6 +23,7 @@ if __name__ == "__main__":
         else:
             warnings.warn("Database already exists. Clearing it.", stacklevel=1)
             # Drop all tables
+            SQLModel.metadata.reflect(bind=engine)
             SQLModel.metadata.drop_all(bind=engine)
             SQLModel.metadata.create_all(engine)
         print("Database tables created.")
@@ -47,6 +48,7 @@ if __name__ == "__main__":
             session.refresh(problem_db)
 
         """
+
         db.add(user_analyst)
         db.commit()
         db.refresh(user_analyst)

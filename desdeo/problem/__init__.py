@@ -61,16 +61,16 @@ from .schema import (
     Problem,
     ScalarizationFunction,
     Simulator,
+    Tensor,
     TensorConstant,
     TensorVariable,
     Url,
     Variable,
     VariableDomainTypeEnum,
     VariableType,
-    Tensor,
     VariableTypeEnum,
 )
-from .simulator_evaluator import Evaluator
+from .simulator_evaluator import SimulatorEvaluator
 from .sympy_evaluator import SympyEvaluator
 from .utils import (
     flatten_variable_dict,

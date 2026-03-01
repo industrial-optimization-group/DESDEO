@@ -9,8 +9,13 @@ __all__ = [  # noqa: RUF022
     "EMOSaveState",
     "EMOSolveRequest",
     "EMOIterateState",
+    "ENautilusRepresentativeSolutionsRequest",
+    "ENautilusRepresentativeSolutionsResponse",
     "ENautilusState",
+    "ENautilusStateResponse",
+    "ENautilusStateRequest",
     "ENautilusStepRequest",
+    "ENautilusStepResponse",
     "ExtraFunctionDB",
     "ForestProblemMetaData",
     "GenericIntermediateSolutionResponse",
@@ -46,6 +51,7 @@ __all__ = [  # noqa: RUF022
     "PreferredSolutions",
     "PreferredRanges",
     "ProblemDB",
+    "ProblemAddFromJSONRequest",
     "ProblemGetRequest",
     "ProblemInfo",
     "ProblemInfoSmall",
@@ -75,10 +81,11 @@ __all__ = [  # noqa: RUF022
     "Group",
     "GroupModifyRequest",
     "GroupCreateRequest",
+    "GroupRevertRequest",
     "GroupIteration",
     "GroupPublic",
     "GroupInfoRequest",
-    "BasePreferences",
+    "BaseGroupInfoContainer",
     "ReferencePointDictType",
     "BooleanDictTypeDecorator",
     "EMOSolveRequest",
@@ -94,6 +101,7 @@ __all__ = [  # noqa: RUF022
     "EMOScoreResponse",
     "Solution",
     "SolutionReference",
+    "SolutionReferenceLite",
     "SolutionReferenceResponse",
     "SolverSelectionMetadata",
     "UserSavedEMOResults",
@@ -111,6 +119,14 @@ __all__ = [  # noqa: RUF022
     "GNIMBUSAllIterationsResponse",
     "GNIMBUSSwitchPhaseRequest",
     "GNIMBUSSwitchPhaseResponse",
+    "GDMScoreBandsInitializationRequest",
+    "GDMSCOREBandInformation",
+    "GDMSCOREBandsResponse",
+    "GDMScoreBandsVoteRequest",
+    "GDMSCOREBandFinalSelection",
+    "GDMSCOREBandsDecisionResponse",
+    "GDMSCOREBandsRevertRequest",
+    "GDMSCOREBandsHistoryResponse"
 ]
 
 
@@ -125,7 +141,14 @@ from .emo import (
     EMOScoreResponse,
     Solution,
 )
-from .enautilus import EnautilusStepRequest
+from .enautilus import (
+    ENautilusRepresentativeSolutionsRequest,
+    ENautilusRepresentativeSolutionsResponse,
+    ENautilusStateRequest,
+    ENautilusStateResponse,
+    ENautilusStepRequest,
+    ENautilusStepResponse,
+)
 from .gdm.gdm_aggregate import (
     Group,
     GroupCreateRequest,
@@ -133,9 +156,10 @@ from .gdm.gdm_aggregate import (
     GroupIteration,
     GroupModifyRequest,
     GroupPublic,
+    GroupRevertRequest,
 )
 from .gdm.gdm_base import (
-    BasePreferences,
+    BaseGroupInfoContainer,
     BooleanDictTypeDecorator,
     ReferencePointDictType,
 )
@@ -149,6 +173,16 @@ from .gdm.gnimbus import (
     OptimizationPreference,
     VotingPreference,
 )
+from .gdm.gdm_score_bands import (
+    GDMScoreBandsInitializationRequest,
+    GDMSCOREBandInformation,
+    GDMSCOREBandsResponse,
+    GDMSCOREBandsDecisionResponse,
+    GDMScoreBandsVoteRequest,
+    GDMSCOREBandFinalSelection,
+    GDMSCOREBandsRevertRequest,
+    GDMSCOREBandsHistoryResponse
+)
 from .generic import (
     GenericIntermediateSolutionResponse,
     IntermediateSolutionRequest,
@@ -159,6 +193,7 @@ from .generic import (
 from .generic_states import (
     SavedSolutionReference,
     SolutionReference,
+    SolutionReferenceLite,
     SolutionReferenceResponse,
     State,
     StateDB,
@@ -169,13 +204,13 @@ from .nimbus import (
     NIMBUSClassificationResponse,
     NIMBUSDeleteSaveRequest,
     NIMBUSDeleteSaveResponse,
+    NIMBUSFinalizeRequest,
+    NIMBUSFinalizeResponse,
     NIMBUSInitializationRequest,
     NIMBUSInitializationResponse,
     NIMBUSIntermediateSolutionResponse,
     NIMBUSSaveRequest,
     NIMBUSSaveResponse,
-    NIMBUSFinalizeRequest,
-    NIMBUSFinalizeResponse,
 )
 from .preference import (
     Bounds,
@@ -193,6 +228,7 @@ from .problem import (
     ExtraFunctionDB,
     ForestProblemMetaData,
     ObjectiveDB,
+    ProblemAddFromJSONRequest,
     ProblemDB,
     ProblemGetRequest,
     ProblemInfo,
@@ -225,9 +261,9 @@ from .state import (
     GNIMBUSVotingState,
     IntermediateSolutionState,
     NIMBUSClassificationState,
+    NIMBUSFinalState,
     NIMBUSInitializationState,
     NIMBUSSaveState,
-    NIMBUSFinalState,
     RPMState,
 )
 from .user import User, UserBase, UserPublic, UserRole

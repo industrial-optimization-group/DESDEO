@@ -3,10 +3,10 @@
 from typing import Literal
 
 import polars as pl
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
+from desdeo.gdm.voting_rules import consensus_rule
 from desdeo.tools.score_bands import SCOREBandsConfig, SCOREBandsResult, score_json
-from desdeo.gdm.voting_rules import majority_rule, plurality_rule
 
 
 class SCOREBandsGDMConfig(BaseModel):
@@ -14,12 +14,12 @@ class SCOREBandsGDMConfig(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    num_interations: int = Field(default=5)
-    """Number of iterations to perform."""
     score_bands_config: SCOREBandsConfig = Field(default_factory=lambda: SCOREBandsConfig())
     """Configuration for the SCORE bands method."""
-    voting_method: Literal["majority", "plurality"] = Field(default="plurality")
-    """Voting method to use."""
+    minimum_votes: int = Field(default=1, gt=0)
+    """Minimum number of votes required to select a cluster."""
+    from_iteration: int | None
+    """The iteration number from which to consider the clusters. Set to None if method is initializing."""
 
 
 class SCOREBandsGDMResult(BaseModel):
@@ -34,12 +34,15 @@ class SCOREBandsGDMResult(BaseModel):
     relevant_ids: list[int]
     """IDs of the relevant solutions in the current iteration. Assumes that data is not modified between iterations."""
     # If the data keeps changing, we need to store the actual data instead of just the IDs.
+    iteration: int
+    previous_iteration: int | None
+    """The previous iteration number, if any."""
 
 
 def score_bands_gdm(
     data: pl.DataFrame,
     config: SCOREBandsGDMConfig,
-    state: list[SCOREBandsGDMResult] | None = None,
+    state: list[SCOREBandsGDMResult],
     votes: dict[str, int] | None = None,
 ) -> list[SCOREBandsGDMResult]:
     """Run the SCORE bands based interactive GDM.
@@ -47,7 +50,7 @@ def score_bands_gdm(
     Args:
         data (pl.DataFrame): The data to run the GDM on.
         config (SCOREBandsGDMConfig): Configuration for the GDM.
-        state (list[SCOREBandsGDMResult] | None, optional): List of previous state of the GDM. Defaults to None.
+        state (list[SCOREBandsGDMResult]): List of previous state of the GDM. Empty list if first iteration.
         votes (dict[str, int] | None, optional): Votes from the decision makers. Defaults to None.
 
     Raises:
@@ -61,16 +64,20 @@ def score_bands_gdm(
     if votes is None:
         # First iteration. No votes yet.
         score_bands_result = score_json(data, config.score_bands_config)
-        return [SCOREBandsGDMResult(score_bands_result=score_bands_result, relevant_ids=list(range(len(data))))]
-    if state is None:  # Just to shut up ruff
+        return [
+            SCOREBandsGDMResult(
+                score_bands_result=score_bands_result,
+                relevant_ids=list(range(len(data))),
+                iteration=1,
+                previous_iteration=None,
+            )
+        ]
+    if not state:
         raise ValueError("State must be provided if votes are provided.")
+    elif config.from_iteration is None:
+        raise ValueError("from_iteration must be set in the config for subsequent iterations.")
 
-    if config.voting_method == "majority":
-        winning_clusters = [majority_rule(votes)]
-    elif config.voting_method == "plurality":
-        winning_clusters = plurality_rule(votes)
-    else:  # Handle future voting methods
-        raise ValueError(f"Unknown voting method: {config.voting_method}")
+    winning_clusters = consensus_rule(votes, config.minimum_votes)
 
     index_column_name = "index"
     if index_column_name in data.columns:
@@ -79,10 +86,14 @@ def score_bands_gdm(
     if cluster_column_name in data.columns:
         cluster_column_name = "cluster_"
 
-    clusters = state[-1].score_bands_result.clusters
+    current_iteration = state[-1].iteration + 1
+
+    clusters = state[config.from_iteration - 1].score_bands_result.clusters
     relevant_data = (
         data.with_row_index(name=index_column_name)  # Add index column
-        .filter(pl.col(index_column_name).is_in(state[-1].relevant_ids))  # Get the solutions from last iteration
+        .filter(
+            pl.col(index_column_name).is_in(state[config.from_iteration - 1].relevant_ids)
+        )  # Get the solutions from previous iteration
         .with_columns(pl.Series(cluster_column_name, clusters))  # Add clustering information from last iteration
         .filter(pl.col(cluster_column_name).is_in(winning_clusters))  # Keep only winning clusters
         .drop(cluster_column_name)  # Drop cluster column
@@ -97,5 +108,7 @@ def score_bands_gdm(
             votes=votes,
             score_bands_result=score_json(relevant_data, config.score_bands_config),
             relevant_ids=relevant_ids,
+            iteration=current_iteration,
+            previous_iteration=config.from_iteration,
         ),
     ]

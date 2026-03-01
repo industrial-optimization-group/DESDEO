@@ -20,7 +20,7 @@ from pyparsing import (
 )
 
 # Enable Packrat for better performance in recursive parsing
-ParserElement.enablePackrat(None)
+ParserElement.enable_packrat(None)
 
 
 class InfixExpressionParser:
@@ -193,7 +193,7 @@ class InfixExpressionParser:
     def _is_number_or_variable(self, c):
         return isinstance(c, int | float) or (isinstance(c, str) and c not in self.reserved_symbols)
 
-    def _to_math_json(self, parsed: list | str) -> list:
+    def _to_math_json(self, parsed: list | str) -> list:  # noqa: PLR0911, PLR0912
         """Converts a list of expressions into a MathJSON compliant format.
 
         The conversion happens recursively. Each list of recursed until a terminal character is reached.
