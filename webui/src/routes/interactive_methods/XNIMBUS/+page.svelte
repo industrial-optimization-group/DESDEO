@@ -23,7 +23,7 @@
 	import * as Resizable from '$lib/components/ui/resizable/index.js';
 	import ResizableHandle from '$lib/components/ui/resizable/resizable-handle.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
-	import { openConfirmDialog, openInputDialog } from '$lib/components/custom/dialogs/dialogs';
+	import { openConfirmDialog, openInputDialog, openHelpDialog } from '$lib/components/custom/dialogs/dialogs';
 
 	import AppSidebar from '$lib/components/custom/preferences-bar/preferences-sidebar.svelte';
 	import IntermediateSidebar from '$lib/components/custom/nimbus/intermediate-sidebar.svelte';
@@ -115,6 +115,15 @@
 
 	let selected_objective_symbol: string | null = $state(null);
 	let selected_tradeoff_symbol: string | null = $state(null);
+
+	const steps = [
+		{ title: "Input preferences", text: "Use the sliders to set your preferences. You can also enter a numerical value in the text boxes next to each slider. " },
+		{ title: "Input number of solutions", text: "Enter the number of solutions you want to generate." },
+		{ title: "Click on iterate", text: "Click the 'Iterate' button to generate solutions. The solutions will be visualized in the plot and table in the main view." },
+		{ title: "Select a solution", text: "Click on a solution in the table or plot to select it." },
+		{ title: "Iterate", text: "If you want to generate more solutions, adjust your preferences and click 'Iterate' again. If you are satisfied with the selected solution, click 'Finish'." }
+	];
+
 
 	// Reset selected tradeoff when selected objective changes
 	$effect(() => {
@@ -326,6 +335,15 @@
 				all_solutions: updateSolutionInList(current_state.all_solutions)
 			};
 		}
+	}
+
+	function show_help_dialog() {
+		openHelpDialog({
+			title: 'How Explainable NIMBUS works',
+			steps: steps,
+			nextText: 'Next',
+			cancelText: 'Close',
+		});
 	}
 
 	// Function to handle removing saved solution with confirmation
@@ -707,13 +725,18 @@
 		{/snippet}
 
 		{#snippet explorerControls()}
+			<span class="inline-block mr-0 ml-1">
+				<Button onclick={show_help_dialog} variant="ghost" class="font-semibold text-primary underline">
+					Quick Start
+				</Button>
+			</span>
 			<SegmentedControl
 				bind:value={mode}
 				options={[
 					{ value: 'iterate', label: 'Iterate' },
 					{ value: 'intermediate', label: 'Find intermediate' }
 				]}
-				class="mr-10"
+				class="ml-0"
 			/>
 			<span>View: </span>
 			<Combobox
@@ -721,6 +744,7 @@
 				defaultSelected={selected_type_solutions}
 				onChange={handle_type_solutions_change}
 			/>
+
 			<span
 				class="inline-block"
 				title={selectedIndexes.length !== 1
@@ -731,7 +755,7 @@
 					onclick={selectedIndexes.length === 1 ? confirm_finish : undefined}
 					disabled={selectedIndexes.length !== 1}
 					variant="destructive"
-					class="ml-10"
+					class="ml-0"
 				>
 					Finish
 				</Button>

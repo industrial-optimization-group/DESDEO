@@ -1,7 +1,17 @@
 // src/lib/dialogs.ts
 import { writable } from "svelte/store";
 
-export type DialogType = "confirm" | "input";
+export type DialogType = "confirm" | "input" | "help";
+
+
+export interface HelpDialogOptions {
+  title?: string;
+  steps: { title: string; text: string }[];
+  nextText?: string;
+  cancelText?: string;
+  onCancel?: () => void;
+  confirmVariant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
+}
 
 export interface ConfirmDialogOptions {
   title?: string;
@@ -26,7 +36,7 @@ export interface InputDialogOptions {
 
 interface DialogState {
   type: DialogType | null;
-  props?: ConfirmDialogOptions | InputDialogOptions;
+  props?: ConfirmDialogOptions | InputDialogOptions | HelpDialogOptions;
 }
 
 export const dialogState = writable<DialogState>({ type: null });
@@ -41,4 +51,8 @@ export function openInputDialog(props: InputDialogOptions) {
 
 export function closeDialog() {
   dialogState.set({ type: null });
+}
+
+export function openHelpDialog(props: HelpDialogOptions) {
+  dialogState.set({ type: "help", props });
 }
