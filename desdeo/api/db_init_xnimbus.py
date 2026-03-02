@@ -56,8 +56,11 @@ def init_schema():
 
 def seed_data():
     # Seed only if you want it (recommended only for dev/staging)
-    num_users = 100
-    user_name_prefix = "nimbus"
+    # Group 1: uses NIMBUS and then xNIMBUS, Group 2: uses xNIMBUS and then NIMBUS.
+    # NULL experiment_group means the user is not part of any experiment and can be used for manual testing, etc.
+    num_users_per_group = 30  # Create 30 users with experiment_group=1 and 30 users with experiment_group=2
+    prefix_groups = ["alpha", "beta"]
+    num_users = num_users_per_group * 2
     analyst_usernames = ["kmiettinen", "bafsar", "glarraga"]
     password_length = 5
 
@@ -113,7 +116,7 @@ def seed_data():
 
     for i in range(num_users):
         with Session(engine) as session:
-            username = f"{user_name_prefix}_{i+1}"
+            username = f"{prefix_groups[i // num_users_per_group]}_{i+1}"
             password = "".join(
                 random.choices(string.ascii_letters + string.digits, k=password_length)
             )
@@ -122,6 +125,7 @@ def seed_data():
                 password_hash=get_password_hash(password),
                 role=UserRole.dm,
                 group="test",
+                experiment_group=(i // num_users_per_group) + 1,
             )
             session.add(user)
             session.commit()

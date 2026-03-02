@@ -9,9 +9,20 @@ from desdeo.api.config import ServerConfig, SettingsConfig
 from desdeo.api.db import engine
 from desdeo.api.models import ProblemDB, User, UserRole
 from desdeo.api.routers.user_authentication import get_password_hash
-from desdeo.problem.testproblems import dtlz2, river_pollution_problem, simple_knapsack, spanish_sustainability_problem
+from desdeo.problem.testproblems import (
+    dtlz2,
+    river_pollution_problem,
+    simple_knapsack,
+    spanish_sustainability_problem,
+)
 
-problems = [dtlz2(10, 3), simple_knapsack(), river_pollution_problem(), river_pollution_problem(five_objective_variant=False), spanish_sustainability_problem()]
+problems = [
+    dtlz2(10, 3),
+    simple_knapsack(),
+    river_pollution_problem(),
+    river_pollution_problem(five_objective_variant=False),
+    spanish_sustainability_problem(),
+]
 
 if __name__ == "__main__":
     if SettingsConfig.debug:
@@ -31,7 +42,9 @@ if __name__ == "__main__":
         with Session(engine) as session:
             user_analyst = User(
                 username=ServerConfig.test_user_analyst_name,
-                password_hash=get_password_hash(ServerConfig.test_user_analyst_password),
+                password_hash=get_password_hash(
+                    ServerConfig.test_user_analyst_password
+                ),
                 role=UserRole.analyst,
                 group="test",
             )
@@ -60,6 +73,7 @@ if __name__ == "__main__":
             role=UserRole.DM,
             privileges=[],
             user_group="",
+            experiment_group=1,
         )
         db.add(user_dm1)
         db.commit()
@@ -72,6 +86,7 @@ if __name__ == "__main__":
             role=UserRole.DM,
             privileges=[],
             user_group="",
+            experiment_group=2,
         )
         db.add(user_dm2)
         db.commit()

@@ -99,9 +99,13 @@ export async function handle_iterate(
 export async function handle_get_multipliers(
 	state_id: number,
 	objective_symbols: Array<string>,
-): Promise<Array<Record<string, number>> | null> {
+): Promise<{ 
+	lagrange_multipliers: Array<Record<string, number> | null> | null;
+	tradeoffs_matrix: Array<Record<string, Record<string, number>> | null> | null;
+} | null> {
 	interface MultipliersResponse {
-		lagrange_multipliers: Array<Record<string, number>>;
+		lagrange_multipliers: Array<Record<string, number> | null> | null;
+		tradeoffs_matrix: Array<Record<string, Record<string, number>> | null> | null;
 	}
 
 	const result = await callNimbusAPI<MultipliersResponse>('get_multipliers', {
@@ -109,8 +113,12 @@ export async function handle_get_multipliers(
 		objective_symbols: objective_symbols
 	});
 	console.log('Multipliers response:', result?.lagrange_multipliers);
+	console.log('Tradeoffs response:', result?.tradeoffs_matrix);
 
-	return result ? result.lagrange_multipliers : null;
+	return result ? {
+		lagrange_multipliers: result.lagrange_multipliers,
+		tradeoffs_matrix: result.tradeoffs_matrix
+	} : null;
 }
 /**
  * Saves a solution with an optional user-provided name.

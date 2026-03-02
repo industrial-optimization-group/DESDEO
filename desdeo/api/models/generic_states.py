@@ -54,6 +54,10 @@ class StateKind(str, Enum):
     NIMBUS_SAVE = "nimbus.save_solutions"
     NIMBUS_INIT = "nimbus.initialize"
     NIMBUS_FINAL = "nimbus.final"
+    XNIMBUS_SOLVE = "xnimbus.solve_candidates"
+    XNIMBUS_SAVE = "xnimbus.save_solutions"
+    XNIMBUS_INIT = "xnimbus.initialize"
+    XNIMBUS_FINAL = "xnimbus.final"
     GNIMBUS_OPTIMIZE = "gnimbus.optimize"
     GNIMBUS_VOTE = "gnimbus.vote"
     GNIMBUS_END = "gnimbus.end"
@@ -129,18 +133,24 @@ class StateDB(SQLModel, table=True):
         session_id: int | None = None,
         parent_id: int | None = None,
         state: SQLModel | None = None,
+        kind: StateKind | None = None,
     ) -> "StateDB":
-        """Build a StateDB + base State with a concrete substate."""
-        sub_cls = type(state)
-        kind: StateKind | None = None
+        """Build a StateDB + base State with a concrete substate.
 
-        for cls_in_mro in sub_cls.mro():
-            if cls_in_mro in SUBSTATE_TO_KIND:
-                kind = SUBSTATE_TO_KIND[cls_in_mro]
-                break
-
+        Args:
+            kind: Optional explicit StateKind override. If provided, skips SUBSTATE_TO_KIND lookup.
+                  Useful for methods that share state classes (e.g., XNIMBUS and NIMBUS).
+        """
         if kind is None:
-            raise ValueError(f"No StateKind mapping for substate type {sub_cls!r}")
+            # Auto-detect kind from state type
+            sub_cls = type(state)
+            for cls_in_mro in sub_cls.mro():
+                if cls_in_mro in SUBSTATE_TO_KIND:
+                    kind = SUBSTATE_TO_KIND[cls_in_mro]
+                    break
+
+            if kind is None:
+                raise ValueError(f"No StateKind mapping for substate type {sub_cls!r}")
 
         method, phase = _method_phase_from_kind(kind)
         base = State(method=method, phase=phase, kind=kind)
@@ -191,6 +201,10 @@ KIND_TO_TABLE: dict[StateKind, SQLModel] = {
     StateKind.NIMBUS_SAVE: NIMBUSSaveState,
     StateKind.NIMBUS_INIT: NIMBUSInitializationState,
     StateKind.NIMBUS_FINAL: NIMBUSFinalState,
+    StateKind.XNIMBUS_SOLVE: NIMBUSClassificationState,
+    StateKind.XNIMBUS_SAVE: NIMBUSSaveState,
+    StateKind.XNIMBUS_INIT: NIMBUSInitializationState,
+    StateKind.XNIMBUS_FINAL: NIMBUSFinalState,
     StateKind.EMO_RUN: EMOIterateState,
     StateKind.GNIMBUS_OPTIMIZE: GNIMBUSOptimizationState,
     StateKind.GNIMBUS_VOTE: GNIMBUSVotingState,

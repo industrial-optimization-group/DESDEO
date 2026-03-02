@@ -33,9 +33,14 @@ class User(UserBase, table=True):
     id: int | None = Field(primary_key=True, default=None)
     password_hash: str = Field()
     role: UserRole = Field()
-    group: str | None = Field(default="") # TODO: Get rid of this and use proper group systems
-    group_ids: list[int] = Field(sa_column=Column(JSON), default=[]) # The user is either a member of a group or an owner of a group
+    group: str | None = Field(
+        default=""
+    )  # TODO: Get rid of this and use proper group systems
+    group_ids: list[int] = Field(
+        sa_column=Column(JSON), default=[]
+    )  # The user is either a member of a group or an owner of a group
     active_session_id: int | None = Field(default=None)
+    experiment_group: int | None = Field(default=None)
 
     # Back populates
     archive: list["UserSavedSolutionDB"] = Relationship(back_populates="user")
@@ -50,3 +55,4 @@ class UserPublic(UserBase):
     id: int
     role: UserRole
     group_ids: list[int] | None
+    experiment_group: int | None

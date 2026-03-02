@@ -81,6 +81,10 @@ class User(BaseModel):
     user_group: str = Field(
         description="User group of the user. Used for group decision making."
     )
+    experiment_group: int | None = Field(
+        default=None,
+        description="Experimental group identifier for A/B testing or experiments.",
+    )
     # To allows for User to be initialized from database instead of just dicts.
     model_config = ConfigDict(from_attributes=True)
 

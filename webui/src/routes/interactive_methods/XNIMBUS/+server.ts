@@ -1,7 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { serverApi as api } from '$lib/api/client';
 import type { RequestHandler } from './$types';
-import { object } from 'zod/v4';
 
 async function makeApiRequest(endpoint: string, body: any, refreshToken: string) {
 	try {
@@ -51,7 +50,7 @@ const handlers: Record<string, HandlerFunction> = {
             parent_state_id: parent_state_id ? Number(parent_state_id) : null,
             solver
         };
-        return makeApiRequest('/method/nimbus/get-or-initialize', requestBody, refreshToken);
+        return makeApiRequest('/method/xnimbus/get-or-initialize', requestBody, refreshToken);
     },
     iterate: (body, refreshToken) => {
         const { problem_id, session_id, parent_state_id, current_objectives, num_desired, preference } =
@@ -67,7 +66,7 @@ const handlers: Record<string, HandlerFunction> = {
             solver: null,
             solver_options: null
         };
-        return makeApiRequest('/method/nimbus/solve', requestBody, refreshToken);
+        return makeApiRequest('/method/xnimbus/solve', requestBody, refreshToken);
     },
     intermediate: (body, refreshToken) => {
         const {
@@ -89,7 +88,7 @@ const handlers: Record<string, HandlerFunction> = {
             solver: null,
             solver_options: null
         };
-        return makeApiRequest('/method/nimbus/intermediate', requestBody, refreshToken);
+        return makeApiRequest('/method/xnimbus/intermediate', requestBody, refreshToken);
     },
     save: (body, refreshToken) => {
         const { problem_id, solution_info } = body;
@@ -99,7 +98,24 @@ const handlers: Record<string, HandlerFunction> = {
             parent_state_id: null,
             solution_info
         };
-        return makeApiRequest('/method/nimbus/save', requestBody, refreshToken);
+        return makeApiRequest('/method/xnimbus/save', requestBody, refreshToken);
+    },
+    remove_saved: (body, refreshToken) => {
+        const { state_id, solution_index } = body;
+        const requestBody = {
+            state_id: Number(state_id),
+            solution_index: Number(solution_index)
+        };
+        return makeApiRequest('/method/xnimbus/delete_save', requestBody, refreshToken);
+    },
+    choose: async (body, refreshToken) => {
+        const { problem_id, solution_info, preferences } = body;
+        const requestBody = {
+            problem_id: Number(problem_id),
+            solution_info,
+            preferences
+        };
+        return makeApiRequest('/method/xnimbus/finalize', requestBody, refreshToken);
     },
     get_maps: (body, refreshToken) => {
         const { problem_id, solution } = body;
@@ -115,7 +131,7 @@ const handlers: Record<string, HandlerFunction> = {
             state_id: Number(state_id),
             objective_symbols: body.objective_symbols
         };
-        return makeApiRequest('/method/nimbus/get-multipliers-info', requestBody, refreshToken);
+        return makeApiRequest('/method/xnimbus/get-multipliers-info', requestBody, refreshToken);
     }
 };
 
@@ -131,13 +147,6 @@ export const POST: RequestHandler = async ({ url, request, cookies }) => {
 
         if (!type) {
             return json({ success: false, error: 'Invalid request type' }, { status: 400 });
-        }
-
-        if (type === 'choose') {
-            return json({ success: true, message: 'solution chosen!' });
-        }
-        if (type === 'remove_saved') {
-            return json({ success: false, error: 'solution remove not implemented!' });
         }
 
         const handler = handlers[type];

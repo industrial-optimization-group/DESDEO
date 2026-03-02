@@ -45,7 +45,6 @@
 		validateIterationAllowed,
 		processPreviousObjectiveValues,
 		updateSolutionNames,
-		computeTradeoffs,
 		normalizeMultipliers,
 		normalizeTradeoffs,
 		isInitialState
@@ -146,6 +145,8 @@
 	let last_iterated_preference: number[] = $state([]);
 	// Store current multipliers for the current solutions
 	let current_multipliers: Array<Record<string, number> | null> | null = $state(null);
+	// Store current tradeoffs matrix for the current solutions
+	let current_tradeoffs: Array<Record<string, Record<string, number>> | null> | null = $state(null);
 
 	// Variable to track if problem has utopia metadata
 	let hasUtopiaMetadata = $state(false);
@@ -430,7 +431,7 @@
 		}
 	}
 
-	//Fetch multipliers for current solutions
+	//Fetch multipliers and tradeoffs for current solutions
 	async function fetch_multipliers() {
 		if (!current_state || !current_state.state_id) {
 			console.error('No current state available to fetch multipliers');
@@ -442,9 +443,11 @@
 		const data = await handleGetMultipliersRequest(current_state.state_id, objective_symbols);
 		console.log('Fetched multipliers data:', data);
 		if (data) {
-			current_multipliers = data;
+			current_multipliers = data.lagrange_multipliers;
+			current_tradeoffs = data.tradeoffs_matrix;
 		} else {
 			current_multipliers = null;
+			current_tradeoffs = null;
 		}
 	}
 
@@ -850,11 +853,7 @@
 					preferenceValues={current_preference}
 					solutions={chosen_solutions}
 					multipliers={current_multipliers ? current_multipliers[selectedIndexes[0]] : null}
-					tradeoffs={computeTradeoffs(
-						current_multipliers ? (current_multipliers[selectedIndexes[0]] ?? null) : null,
-						chosen_solutions[selectedIndexes[0]],
-						problem
-					)}
+				tradeoffs={current_tradeoffs ? current_tradeoffs[selectedIndexes[0]] : null}
 					selectedSolutions={selectedIndexes}
 					selectedObjectiveSymbol={selected_objective_symbol}
 					handleObjectiveClick={handle_selected_objective_change}

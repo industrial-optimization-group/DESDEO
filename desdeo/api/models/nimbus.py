@@ -186,8 +186,12 @@ class NIMBUSMultiplierRequest(SQLModel):
 
 
 class NIMBUSMultiplierResponse(SQLModel):
-    """Response model for Lagrange multipliers."""
+    """Response model for Lagrange multipliers and tradeoffs."""
 
     lagrange_multipliers: list[dict[str, float] | None] | None = Field(
         description="List of Lagrange multipliers for each solution, or None if not available"
+    )
+    tradeoffs_matrix: list[dict[str, dict[str, float]] | None] | None = Field(
+        default=None,
+        description="List of tradeoffs matrices for each solution, or None if not available",
     )

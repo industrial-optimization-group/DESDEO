@@ -17,6 +17,7 @@ for name in userdict:
         role=UserRole.DM,
         privilages=[],
         user_group="",
+        experiment_group=1,
     )
     db.add(user)
 

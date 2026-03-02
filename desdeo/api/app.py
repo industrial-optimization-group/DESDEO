@@ -10,6 +10,7 @@ from desdeo.api.routers import (
     generic,
     nimbus,
     problem,
+    xnimbus,
     reference_point_method,
     session,
     user_authentication,
@@ -30,6 +31,7 @@ app.include_router(problem.router)
 app.include_router(session.router)
 app.include_router(reference_point_method.router)
 app.include_router(nimbus.router)
+app.include_router(xnimbus.router)
 # app.include_router(emo.router) # TODO: what is going on? cannot serialize pl.dataframe
 app.include_router(generic.router)
 app.include_router(utopia.router)

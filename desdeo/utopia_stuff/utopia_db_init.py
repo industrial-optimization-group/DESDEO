@@ -17,12 +17,15 @@ for name in userdict:
         role=UserRole.DM,
         privilages=[],
         user_group="",
+        experiment_group=1,
     )
     db.add(user)
     db.commit()
     db.refresh(user)
 
-    problem, schedule_dict = utopia_problem_old(problem_name=f"{name}n metsä", holding=holding_num)
+    problem, schedule_dict = utopia_problem_old(
+        problem_name=f"{name}n metsä", holding=holding_num
+    )
     problem_in_db = db_models.Problem(
         owner=user.id,
         name=f"{name}n metsä",
@@ -80,7 +83,9 @@ with open("C:/MyTemp/data/forest_owners.json") as file:  # noqa: PTH123
     fo_dict = json.load(file)
 
 
-def _generate_descriptions(mapjson: dict, sid: str, stand: str, holding: str, extension: str) -> dict:
+def _generate_descriptions(
+    mapjson: dict, sid: str, stand: str, holding: str, extension: str
+) -> dict:
     descriptions = {}
     if holding:
         for feat in mapjson["features"]:
@@ -97,7 +102,9 @@ def _generate_descriptions(mapjson: dict, sid: str, stand: str, holding: str, ex
                 ext = f".{feat["properties"][extension]}"
             else:
                 ext = ""
-            descriptions[feat["properties"][sid]] = f"Kuvio {feat["properties"][stand]}{ext}: "
+            descriptions[feat["properties"][sid]] = (
+                f"Kuvio {feat["properties"][stand]}{ext}: "
+            )
     return descriptions
 
 
@@ -109,6 +116,7 @@ for name in fo_dict:
         role=UserRole.DM,
         privilages=[],
         user_group="",
+        experiment_group=1,
     )
     db.add(user)
     db.commit()
@@ -161,7 +169,11 @@ for name in fo_dict:
 
 
 # One extra holding for one user
-user = db.query(db_models.User).filter(db_models.User.username == next(iter(fo_dict))).first()
+user = (
+    db.query(db_models.User)
+    .filter(db_models.User.username == next(iter(fo_dict)))
+    .first()
+)
 problem, schedule_dict = utopia_problem(
     simulation_results="C:/MyTemp/data/alternatives/asikkala/alternatives.csv",
     treatment_key="C:/MyTemp/data/alternatives/asikkala/alternatives_key.csv",
