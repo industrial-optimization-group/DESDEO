@@ -54,6 +54,8 @@
 
 	import type { ProblemInfo, Solution, SolutionType, MethodMode, PeriodKey } from '$lib/types';
 	import type { Response } from './types';
+	import EndStateView from '../GNIMBUS/components/EndStateView.svelte';
+
 
 	import {
 		handle_intermediate as handleIntermediateRequest,
@@ -662,17 +664,7 @@
 		{/snippet}
 		{#snippet numericalValues()}
 			{#if problem && chosen_solutions.length > 0 && selected_iteration_index.length > 0}
-				<SolutionTable
-					{problem}
-					solverResults={chosen_solutions[selected_iteration_index[0]]}
-					{isSaved}
-					selectedSolutions={selected_iteration_index}
-					{handle_save}
-					{handle_change}
-					handle_remove_saved={confirm_remove_saved}
-					handle_row_click={() => {}}
-					isFrozen={true}
-				/>
+				<EndStateView {problem} tableData={[chosen_solutions[selected_iteration_index[0]] as any]} />
 			{/if}
 		{/snippet}
 	</BaseLayout>

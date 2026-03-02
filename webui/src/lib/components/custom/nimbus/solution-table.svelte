@@ -114,7 +114,7 @@
             } | null;
             iteration_number?: number;
             readonly state_id: number;
-            readonly num_solutions: number;
+            readonly num_solutions?: number;
         };;
 	type MethodPage = 'nimbus' | 'gnimbus';
 

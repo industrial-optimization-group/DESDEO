@@ -236,7 +236,7 @@ export async function initialize_nimbus_state(problem_id: number): Promise<Respo
 		problem_id: problem_id,
 		session_id: null, // Use active session
 		parent_state_id: null, // No parent for initialization
-		solver: null // Use default solver
+		solver: null, // Use default solver
 	});
 
 	return result;
