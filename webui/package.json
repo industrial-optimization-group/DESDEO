@@ -29,6 +29,7 @@
     "d3": "^7.9.0",
     "dotenv": "^17.2.3",
     "echarts": "^6.0.0",
+    "effect": "^3.19.19",
     "embla-carousel-svelte": "^8.6.0",
     "formsnap": "^2.0.1",
     "katex": "^0.16.23",
