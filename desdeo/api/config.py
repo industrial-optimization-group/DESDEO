@@ -17,7 +17,8 @@ with config_path.open("rb") as fp:
 class GeneralSettings(BaseSettings):
     """General settings."""
 
-    debug: bool = config_data["settings"]["debug"]
+    # Allow environment variable DEBUG to override config.toml debug setting
+    debug: bool = os.getenv("DEBUG", str(config_data["settings"]["debug"])).lower() in ("true", "1")
 
 
 SettingsConfig = GeneralSettings()
