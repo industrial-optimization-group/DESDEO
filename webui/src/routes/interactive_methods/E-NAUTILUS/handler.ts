@@ -1,31 +1,40 @@
-import type { ENautilusStepRequest, ENautilusStepResponse, ProblemGetRequest, ProblemInfo } from "$lib/gen/models";
-import type { stepMethodEnautilusStepPostResponse } from "$lib/gen/endpoints/DESDEOFastAPI";
-import { stepMethodEnautilusStepPost, getProblemProblemGetPost } from "$lib/gen/endpoints/DESDEOFastAPI";
-import type { getProblemProblemGetPostResponse } from "$lib/gen/endpoints/DESDEOFastAPI";
+import type { components } from "$lib/api/client-types";
+import { api } from "$lib/api/client";
 
-export async function initialize_enautilus_state(request: ENautilusStepRequest): Promise<ENautilusStepResponse | null> {
-    const response: stepMethodEnautilusStepPostResponse = await stepMethodEnautilusStepPost(request)
+type EnautilusStepRequest = components["schemas"]["EnautilusStepRequest"];
+type ENautilusState = components["schemas"]["ENautilusState"];
+type ENautilusResult = components["schemas"]["ENautilusResult"];
+type ProblemGetRequest = components["schemas"]["ProblemGetRequest"];
+type ProblemInfo = components["schemas"]["ProblemInfo"];
 
-    if (response.status != 200){
-        console.log("E-NAUTILUS init failed.", response.status);
+// Map from API response to what the UI expects
+export function mapApiResponseToStepResponse(state: ENautilusState): ENautilusResult {
+    return state.enautilus_results;
+}
+
+export async function initialize_enautilus_state(request: EnautilusStepRequest): Promise<ENautilusResult | null> {
+    const response = await api.POST('/method/enautilus/step', { body: request });
+
+    if (!response.data) {
+        console.log("E-NAUTILUS init failed.");
         return null;
     }
 
-    return response.data;
+    return mapApiResponseToStepResponse(response.data);
 }
 
 export async function step_enautilus(
-    current_state: ENautilusStepResponse,
+    current_state: ENautilusResult,
     selected_index: number,
     problem_id: number,
     number_of_intermediate_points: number,
     iterations_left: number,
     representative_solutions_id: number
-): Promise<ENautilusStepResponse | null> {
-    const selected_point = current_state.intermediate_points[selected_index];
-    const reachable_indices = current_state.reachable_point_indices[selected_index];
+): Promise<ENautilusResult | null> {
+    const selected_point = current_state.intermediate_points?.[selected_index];
+    const reachable_indices = current_state.reachable_point_indices?.[selected_index];
 
-    const request: ENautilusStepRequest = {
+    const request: EnautilusStepRequest = {
         problem_id: problem_id,
         representative_solutions_id: representative_solutions_id,
         current_iteration: current_state.current_iteration,
@@ -33,27 +42,25 @@ export async function step_enautilus(
         selected_point: selected_point,
         reachable_point_indices: reachable_indices,
         number_of_intermediate_points: number_of_intermediate_points
-        // parent state
-        //session id
     }
 
     console.log(request);
 
-    const response: stepMethodEnautilusStepPostResponse = await stepMethodEnautilusStepPost(request);
+    const response = await api.POST('/method/enautilus/step', { body: request });
 
-    if (response.status != 200) {
-        console.error("E-NAUTILUS step failed.", response.status);
+    if (!response.data) {
+        console.error("E-NAUTILUS step failed.");
         return null;
     }
 
-    return response.data;
+    return mapApiResponseToStepResponse(response.data);
 }
 
 export async function fetch_problem_info(request: ProblemGetRequest): Promise<ProblemInfo | null> {
-    const response: getProblemProblemGetPostResponse = await getProblemProblemGetPost(request);
+    const response = await api.POST('/problem/get', { body: request });
 
-    if (response.status != 200) {
-        console.log("Could not fetch problem info.", response.status);
+    if (!response.data) {
+        console.log("Could not fetch problem info.");
         return null;
     }
 

@@ -292,6 +292,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/problem/add_json": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Problem Json
+         * @description Adds a problem to the database based on its JSON definition.
+         *
+         *     Args:
+         *         json_file (UploadFile): a file in JSON format describing the problem.
+         *         user (Annotated[User, Depends): the usr for which the problem is added.
+         *         session (Annotated[Session, Depends): the database session.
+         *
+         *     Raises:
+         *         HTTPException: if the provided `json_file` is empty.
+         *         HTTPException: if the content in the provided `json_file` is not in JSON format.__annotations__
+         *
+         *     Returns:
+         *         ProblemInfo: a description of the added problem.
+         */
+        post: operations["add_problem_json_problem_add_json_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/problem/get_metadata": {
         parameters: {
             query?: never;
@@ -320,6 +352,26 @@ export interface paths {
          *             returns an empty list.
          */
         post: operations["get_metadata_problem_get_metadata_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/problem/assign/solver": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Available Solvers
+         * @description Return the list of available solver names.
+         */
+        get: operations["get_available_solvers_problem_assign_solver_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -559,7 +611,7 @@ export interface paths {
          *         HTTPException
          *
          *     Returns:
-         *         NIMBUSFinalizeResponse: Response containing state id of the final solution.
+         *         NIMBUSFinalizeResponse: Response containing info on the final solution.
          */
         post: operations["finalize_nimbus_method_nimbus_finalize_post"];
         delete?: never;
@@ -593,6 +645,237 @@ export interface paths {
          *         NIMBUSDeleteSaveResponse: Response acknowledging the deletion of save and other useful info.
          */
         post: operations["delete_save_method_nimbus_delete_save_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/method/nimbus/get-multipliers-info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get Multipliers Info
+         * @description Get Lagrange multipliers information from an state. The multipliers are available from the solver results.
+         */
+        post: operations["get_multipliers_info_method_nimbus_get_multipliers_info_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/method/xnimbus/solve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Solve Solutions
+         * @description Solve the problem using the XNIMBUS method.
+         */
+        post: operations["solve_solutions_method_xnimbus_solve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/method/xnimbus/initialize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Initialize
+         * @description Initialize the problem for the XNIMBUS method.
+         */
+        post: operations["initialize_method_xnimbus_initialize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/method/xnimbus/save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save
+         * @description Save solutions.
+         */
+        post: operations["save_method_xnimbus_save_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/method/xnimbus/intermediate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Solve Xnimbus Intermediate
+         * @description Solve intermediate solutions by forwarding the request to generic intermediate endpoint with context xnimbus.
+         */
+        post: operations["solve_xnimbus_intermediate_method_xnimbus_intermediate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/method/xnimbus/get-or-initialize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get Or Initialize
+         * @description Get the latest XNIMBUS state if it exists, or initialize a new one if it doesn't.
+         */
+        post: operations["get_or_initialize_method_xnimbus_get_or_initialize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/method/xnimbus/finalize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finalize Xnimbus
+         * @description An endpoint for finishing up the xnimbus process.
+         *
+         *     Args:
+         *         request (NIMBUSFinalizeRequest): The request containing the final solution, etc.
+         *         user (Annotated[User, Depends): The current user.
+         *         session (Annotated[Session, Depends): The database session.
+         *
+         *     Raises:
+         *         HTTPException
+         *
+         *     Returns:
+         *         NIMBUSFinalizeResponse: Response containing info on the final solution.
+         */
+        post: operations["finalize_xnimbus_method_xnimbus_finalize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/method/xnimbus/delete_save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete Save
+         * @description Endpoint for deleting saved solutions.
+         *
+         *     Args:
+         *         request (NIMBUSDeleteSaveRequest): request containing necessary information for deleting a save
+         *         user (Annotated[User, Depends): the current  (logged in) user
+         *         session (Annotated[Session, Depends): database session
+         *
+         *     Raises:
+         *         HTTPException
+         *
+         *     Returns:
+         *         NIMBUSDeleteSaveResponse: Response acknowledging the deletion of save and other useful info.
+         */
+        post: operations["delete_save_method_xnimbus_delete_save_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/method/xnimbus/get-multipliers-info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get Multipliers Info
+         * @description Get Lagrange multipliers information from an state. The multipliers are available from the solver results.
+         */
+        post: operations["get_multipliers_info_method_xnimbus_get_multipliers_info_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/method/xnimbus/get-all-preference-suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get All Preference Suggestions
+         * @description Compute all possible preference suggestions for a solution at once.
+         *
+         *     For each objective that could be selected for improvement, this endpoint computes:
+         *     - Suggested aspiration levels for all objectives
+         *     - Explanation for each suggestion
+         *     - Impact analysis showing which objectives conflict and which are resilient
+         *     - Tradeoff statistics
+         *
+         *     The UI can then filter these suggestions based on user selection.
+         *     This is more efficient than computing suggestions on-demand for each selected objective.
+         */
+        post: operations["get_all_preference_suggestions_method_xnimbus_get_all_preference_suggestions_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -991,9 +1274,68 @@ export interface paths {
         put?: never;
         /**
          * Step
-         * @description .
+         * @description Steps the E-NAUTILUS method.
          */
         post: operations["step_method_enautilus_step_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/method/enautilus/get_state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get State
+         * @description Fetch a previous state of the the E-NAUTILUS method.
+         */
+        post: operations["get_state_method_enautilus_get_state_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/method/enautilus/get_representative": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get Representative
+         * @description Computes the representative solutions that are closest to the intermediate solutions computed by E-NAUTILUS.
+         *
+         *     This endpoint should be used to get the actual solution from the
+         *     non-dominated representation used in the E-NAUTILUS method's last iteration
+         *     (when number of iterations left is 0).
+         *
+         *     Args:
+         *         request (ENautilusRepresentativeSolutionsRequest): a request which
+         *             contains the id of the `StateDB` with information on the intermediate
+         *             points for which the representative solutions should be computed.
+         *         db_session (Annotated[Session, Depends): the database session.
+         *
+         *     Raises:
+         *         HTTPException: 404 when a `StateDB`, `ProblemDB`, or
+         *             `RepresentativeNonDominatedSolutions` instance cannot be found. 406 when
+         *             the substate of the references `StateDB` is not an instance of
+         *             `ENautilusState`.
+         *
+         *     Returns:
+         *         ENautilusRepresentativeSolutionsResponse: the information on the representative solutions.
+         */
+        post: operations["get_representative_method_enautilus_get_representative_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1190,48 +1532,6 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /**
-         * BinaryFlipMutationOptions
-         * @description Options for Binary Flip Mutation.
-         */
-        BinaryFlipMutationOptions: {
-            /**
-             * Name
-             * @description The name of the mutation operator.
-             * @default BinaryFlipMutation
-             * @constant
-             */
-            name: "BinaryFlipMutation";
-            /**
-             * Mutation Probability
-             * @description The probability of mutation. Defaults to None, which sets the mutation probability to 1/<number of decision variables>.
-             */
-            mutation_probability?: number | null;
-        };
-        /**
-         * BlendAlphaCrossoverOptions
-         * @description Options for Blend Alpha Crossover.
-         */
-        BlendAlphaCrossoverOptions: {
-            /**
-             * Name
-             * @description The name of the crossover operator.
-             * @default BlendAlphaCrossover
-             * @constant
-             */
-            name: "BlendAlphaCrossover";
-            /**
-             * Alpha
-             * @description Non-negative blending factor 'alpha' that controls the extent to which offspring may be sampled outside the interval defined by each pair of parent genes. alpha = 0 restricts children strictly within the parents range, larger alpha allows some outliers.
-             * @default 0.5
-             */
-            alpha: number;
-            /**
-             * Xover Probability
-             * @default 1
-             */
-            xover_probability: number;
-        };
         /** Body_add_new_analyst_add_new_analyst_post */
         Body_add_new_analyst_add_new_analyst_post: {
             /** Grant Type */
@@ -1280,6 +1580,14 @@ export interface components {
              */
             client_secret?: string | null;
         };
+        /** Body_add_problem_json_problem_add_json_post */
+        Body_add_problem_json_problem_add_json_post: {
+            /**
+             * Json File
+             * Format: binary
+             */
+            json_file: string;
+        };
         /** Body_login_login_post */
         Body_login_login_post: {
             /** Grant Type */
@@ -1303,108 +1611,6 @@ export interface components {
              * Format: password
              */
             client_secret?: string | null;
-        };
-        /**
-         * BoundedExponentialCrossoverOptions
-         * @description Options for Bounded Exponential Crossover.
-         */
-        BoundedExponentialCrossoverOptions: {
-            /**
-             * Name
-             * @description The name of the crossover operator.
-             * @default BoundedExponentialCrossover
-             * @constant
-             */
-            name: "BoundedExponentialCrossover";
-            /**
-             * Xover Probability
-             * @description The crossover probability.
-             * @default 1
-             */
-            xover_probability: number;
-            /**
-             * Lambda
-             * @description Positive scale λ for the exponential distribution.
-             * @default 1
-             */
-            lambda_: number;
-        };
-        /**
-         * BoundedPolynomialMutationOptions
-         * @description Options for Bounded Polynomial Mutation.
-         */
-        BoundedPolynomialMutationOptions: {
-            /**
-             * Name
-             * @description The name of the mutation operator.
-             * @default BoundedPolynomialMutation
-             * @constant
-             */
-            name: "BoundedPolynomialMutation";
-            /**
-             * Mutation Probability
-             * @description The probability of mutation. Defaults to None, which sets the mutation probability to
-             *     1/<number of decision variables>.
-             */
-            mutation_probability?: number | null;
-            /**
-             * Distribution Index
-             * @description The distribution index.
-             * @default 20
-             */
-            distribution_index: number;
-        };
-        /**
-         * ClipRepairOptions
-         * @description Options for Clip Repair.
-         */
-        ClipRepairOptions: {
-            /**
-             * Name
-             * @description Clip the solutions to be within the variable bounds.
-             * @default ClipRepair
-             * @constant
-             */
-            name: "ClipRepair";
-            /**
-             * Lower Bounds
-             * @description Lower bounds for the decision variables. If none, the lower bounds from the problem will be used.
-             */
-            lower_bounds?: {
-                [key: string]: number;
-            } | null;
-            /**
-             * Upper Bounds
-             * @description Upper bounds for the decision variables. If none, the upper bounds from the problem will be used.
-             */
-            upper_bounds?: {
-                [key: string]: number;
-            } | null;
-        };
-        /**
-         * CompositeTerminatorOptions
-         * @description Options for composite terminator operator.
-         */
-        CompositeTerminatorOptions: {
-            /**
-             * Name
-             * @description The name of the termination operator.
-             * @default CompositeTerminator
-             * @constant
-             */
-            name: "CompositeTerminator";
-            /**
-             * Terminators
-             * @description List of terminators.
-             */
-            terminators?: (components["schemas"]["MaxEvaluationsTerminatorOptions"] | components["schemas"]["MaxGenerationsTerminatorOptions"] | components["schemas"]["MaxTimeTerminatorOptions"] | components["schemas"]["ExternalCheckTerminatorOptions"])[];
-            /**
-             * Mode
-             * @description Whether to use logical AND or OR.
-             * @default any
-             * @enum {string}
-             */
-            mode: "all" | "any";
         };
         /**
          * ConstantDB
@@ -1584,10 +1790,104 @@ export interface components {
          */
         DistanceFormula: 1 | 2;
         /**
-         * ENautilusResult
-         * @description The result of an iteration of the E-NAUTILUS method.
+         * ENautilusRepresentativeSolutionsRequest
+         * @description Model to request the representative solutions of intermediate points.
+         *
+         *     Note that only the id of the 'StateDB' object with the relevant 'ENautilusInstance' is required.
          */
-        ENautilusResult: {
+        ENautilusRepresentativeSolutionsRequest: {
+            /**
+             * State Id
+             * @description The id of the requested 'StateDB' object containing an instance of an 'ENautilusState.
+             */
+            state_id: number;
+        };
+        /**
+         * ENautilusRepresentativeSolutionsResponse
+         * @description Model of the response when requesting representative solutions from E-NAUTILUS.
+         */
+        ENautilusRepresentativeSolutionsResponse: {
+            /**
+             * Solutions
+             * @description The solutions on the non-dominated front closest to the intermediate points.
+             */
+            solutions: components["schemas"]["SolverResults"][];
+        };
+        /**
+         * ENautilusStateRequest
+         * @description Model to request a previous state of the E-NAUTILUS method.
+         */
+        ENautilusStateRequest: {
+            /**
+             * State Id
+             * @description The id of the requested 'StateDB' object containing an instance of an 'ENautilusState.
+             */
+            state_id: number;
+        };
+        /**
+         * ENautilusStateResponse
+         * @description The response model when requesting a state in E-NAUTILUS.
+         */
+        ENautilusStateResponse: {
+            /** @description The original request for generating the state. */
+            request: components["schemas"]["ENautilusStepRequest"];
+            /** @description The state generated by the request. */
+            response: components["schemas"]["ENautilusStepResponse"];
+        };
+        /**
+         * ENautilusStepRequest
+         * @description Model of the request to the E-NAUTILUS method.
+         */
+        ENautilusStepRequest: {
+            /** Problem Id */
+            problem_id: number;
+            /** Session Id */
+            session_id?: number | null;
+            /** Parent State Id */
+            parent_state_id?: number | null;
+            /**
+             * Representative Solutions Id
+             * @description The id of the representative solutions to be used.
+             */
+            representative_solutions_id: number;
+            /**
+             * Current Iteration
+             * @description The number of the current iteration.
+             */
+            current_iteration: number;
+            /**
+             * Iterations Left
+             * @description The number of iterations left.
+             */
+            iterations_left: number;
+            /**
+             * Selected Point
+             * @description The selected intermediate point. If first iteration, set this to be the (approximated) nadir point. If not set, then the point is assumed to be the nadir point of the current approximating set.
+             */
+            selected_point: {
+                [key: string]: number;
+            } | null;
+            /**
+             * Reachable Point Indices
+             * @description The indices indicating the point on the non-dominated set that are reachable from the currently selected point.
+             */
+            reachable_point_indices: number[];
+            /**
+             * Number Of Intermediate Points
+             * @description The number of intermediate points to be generated.
+             */
+            number_of_intermediate_points: number;
+        };
+        /**
+         * ENautilusStepResponse
+         * @description The response from E-NAUTILUS step endpoint.
+         */
+        ENautilusStepResponse: {
+            /**
+             * State Id
+             * @description The id of the state created by the request that generated this response
+             */
+            state_id: number | null;
             /**
              * Current Iteration
              * @description Number of the current iteration.
@@ -1629,70 +1929,6 @@ export interface components {
              * @description Indices of the reachable points from each intermediate point.
              */
             reachable_point_indices: number[][];
-        };
-        /**
-         * ENautilusState
-         * @description E-NAUTILUS: one stepping iteration.
-         */
-        ENautilusState: {
-            /** Id */
-            id?: number | null;
-            /** Non Dominated Solutions Id */
-            non_dominated_solutions_id?: number | null;
-            /** Current Iteration */
-            current_iteration: number;
-            /** Iterations Left */
-            iterations_left: number;
-            /** Selected Point */
-            selected_point?: {
-                [key: string]: number;
-            } | null;
-            /** Reachable Point Indices */
-            reachable_point_indices?: number[];
-            /** Number Of Intermediate Points */
-            number_of_intermediate_points: number;
-            enautilus_results: components["schemas"]["ENautilusResult"];
-        };
-        /**
-         * EnautilusStepRequest
-         * @description Model of the request to the E-NAUTILUS method.
-         */
-        EnautilusStepRequest: {
-            /** Problem Id */
-            problem_id: number;
-            /** Session Id */
-            session_id?: number | null;
-            /** Parent State Id */
-            parent_state_id?: number | null;
-            /** Representative Solutions Id */
-            representative_solutions_id?: number | null;
-            /**
-             * Current Iteration
-             * @description The number of the current iteration.
-             */
-            current_iteration: number;
-            /**
-             * Iterations Left
-             * @description The number of iterations left.
-             */
-            iterations_left: number;
-            /**
-             * Selected Point
-             * @description The selected intermediate point. If first iteration, set this to be the (approximated) nadir point.
-             */
-            selected_point: {
-                [key: string]: number;
-            };
-            /**
-             * Reachable Point Indices
-             * @description The indices indicating the point on the non-dominated set that are reachable from the currently selected point.
-             */
-            reachable_point_indices: number[];
-            /**
-             * Number Of Intermediate Points
-             * @description The number of intermediate points to be generated.
-             */
-            number_of_intermediate_points: number;
         };
         /**
          * EndProcessPreference
@@ -2130,55 +2366,6 @@ export interface components {
             detail?: components["schemas"]["ValidationError"][];
         };
         /**
-         * IBEASelectorOptions
-         * @description Options for IBEA Selection.
-         */
-        IBEASelectorOptions: {
-            /**
-             * Name
-             * @description The name of the selection operator.
-             * @default IBEASelector
-             * @constant
-             */
-            name: "IBEASelector";
-            /**
-             * Population Size
-             * @description The population size.
-             */
-            population_size: number;
-            /**
-             * Kappa
-             * @description The kappa parameter for IBEA.
-             * @default 0.05
-             */
-            kappa: number;
-            /**
-             * Binary Indicator
-             * @description The binary indicator for IBEA.
-             * @default eps
-             * @enum {string}
-             */
-            binary_indicator: "eps" | "hv";
-        };
-        /**
-         * IntegerRandomMutationOptions
-         * @description Options for Integer Random Mutation.
-         */
-        IntegerRandomMutationOptions: {
-            /**
-             * Name
-             * @description The name of the mutation operator.
-             * @default IntegerRandomMutation
-             * @constant
-             */
-            name: "IntegerRandomMutation";
-            /**
-             * Mutation Probability
-             * @description The probability of mutation. Defaults to None, which sets the mutation probability to 1/<number of decision variables>.
-             */
-            mutation_probability?: number | null;
-        };
-        /**
          * InteractiveSessionBase
          * @description The base model for representing interactive sessions.
          */
@@ -2280,6 +2467,12 @@ export interface components {
          */
         NIMBUSClassificationResponse: {
             /**
+             * Response Type
+             * @default nimbus.classification
+             * @constant
+             */
+            response_type: "nimbus.classification";
+            /**
              * State Id
              * @description The newly created state id
              */
@@ -2330,6 +2523,11 @@ export interface components {
          * @description Response of NIMBUS save deletion.
          */
         NIMBUSDeleteSaveResponse: {
+            /**
+             * Response Type
+             * @default nimbus.delete_save
+             */
+            response_type: string;
             /** Message */
             message: string | null;
         };
@@ -2345,7 +2543,6 @@ export interface components {
             /** Parent State Id */
             parent_state_id?: number | null;
             solution_info: components["schemas"]["SolutionInfo"];
-            preferences: components["schemas"]["ReferencePoint"];
         };
         /**
          * NIMBUSFinalizeResponse
@@ -2353,12 +2550,28 @@ export interface components {
          */
         NIMBUSFinalizeResponse: {
             /**
+             * Response Type
+             * @default nimbus.finalize
+             * @constant
+             */
+            response_type: "nimbus.finalize";
+            /**
              * State Id
-             * @description The id of the newest state
+             * @description The newly created state id
              */
             state_id: number | null;
-            /** @description The final solution */
+            /** @description The final solution. We do not need the other current solutions. */
             final_solution: components["schemas"]["SolutionReferenceResponse"];
+            /**
+             * Saved Solutions
+             * @description The best candidate solutions saved by the decision maker.
+             */
+            saved_solutions: components["schemas"]["SolutionReferenceResponse"][];
+            /**
+             * All Solutions
+             * @description All solutions generated by NIMBUS in all iterations.
+             */
+            all_solutions: components["schemas"]["SolutionReferenceResponse"][];
         };
         /**
          * NIMBUSInitializationRequest
@@ -2390,6 +2603,12 @@ export interface components {
          */
         NIMBUSInitializationResponse: {
             /**
+             * Response Type
+             * @default nimbus.initialization
+             * @constant
+             */
+            response_type: "nimbus.initialization";
+            /**
              * State Id
              * @description The newly created state id
              */
@@ -2415,6 +2634,12 @@ export interface components {
          * @description The response from NIMBUS classification endpoint.
          */
         NIMBUSIntermediateSolutionResponse: {
+            /**
+             * Response Type
+             * @default nimbus.intermediate
+             * @constant
+             */
+            response_type: "nimbus.intermediate";
             /**
              * State Id
              * @description The newly created state id
@@ -2457,10 +2682,12 @@ export interface components {
         NIMBUSMultiplierRequest: {
             /** State Id */
             state_id: number;
+            /** Objective Symbols */
+            objective_symbols?: string[] | null;
         };
         /**
          * NIMBUSMultiplierResponse
-         * @description Response model for Lagrange multipliers.
+         * @description Response model for Lagrange multipliers and tradeoffs.
          */
         NIMBUSMultiplierResponse: {
             /**
@@ -2469,6 +2696,15 @@ export interface components {
              */
             lagrange_multipliers: ({
                 [key: string]: number;
+            } | null)[] | null;
+            /**
+             * Tradeoffs Matrix
+             * @description List of tradeoffs matrices for each solution, or None if not available
+             */
+            tradeoffs_matrix?: ({
+                [key: string]: {
+                    [key: string]: number;
+                };
             } | null)[] | null;
         };
         /**
@@ -2491,127 +2727,16 @@ export interface components {
          */
         NIMBUSSaveResponse: {
             /**
+             * Response Type
+             * @default nimbus.save
+             * @constant
+             */
+            response_type: "nimbus.save";
+            /**
              * State Id
              * @description The id of the newest state
              */
             state_id: number | null;
-        };
-        /**
-         * NSGA2SelectorOptions
-         * @description Options for NSGA-II Selection.
-         */
-        NSGA2SelectorOptions: {
-            /**
-             * Name
-             * @description The name of the selection operator.
-             * @default NSGA2Selector
-             * @constant
-             */
-            name: "NSGA2Selector";
-            /**
-             * Population Size
-             * @description The population size.
-             */
-            population_size: number;
-        };
-        /**
-         * NSGA3SelectorOptions
-         * @description Options for NSGA-III Selection.
-         */
-        NSGA3SelectorOptions: {
-            /**
-             * Name
-             * @description The name of the selection operator.
-             * @default NSGA3Selector
-             * @constant
-             */
-            name: "NSGA3Selector";
-            /**
-             * @description Options for the reference vectors.
-             * @default {
-             *       "adaptation_frequency": 0,
-             *       "creation_type": "simplex",
-             *       "vector_type": "spherical",
-             *       "number_of_vectors": 200,
-             *       "adaptation_distance": 0.2
-             *     }
-             */
-            reference_vector_options: components["schemas"]["ReferenceVectorOptions"];
-            /**
-             * Invert Reference Vectors
-             * @description Whether to invert the reference vectors (inverted triangle).
-             * @default false
-             */
-            invert_reference_vectors: boolean;
-        };
-        /**
-         * NoRepairOptions
-         * @description Options for No Repair.
-         */
-        NoRepairOptions: {
-            /**
-             * Name
-             * @description Do not apply any repair to the solutions.
-             * @default NoRepair
-             * @constant
-             */
-            name: "NoRepair";
-        };
-        /**
-         * NonPreferredSolutionsOptions
-         * @description Options for providing non-preferred solutions for an EA.
-         */
-        NonPreferredSolutionsOptions: {
-            /**
-             * Name
-             * @description The name of the non-preferred solutions option.
-             * @default non_preferred_solutions
-             * @constant
-             */
-            name: "non_preferred_solutions";
-            /**
-             * Preference
-             * @description The non-preferred solutions as a dictionary with objective function symbols as the keys.
-             */
-            preference: {
-                [key: string]: number[];
-            };
-            /**
-             * Method
-             * @description The method for handling the non-preferred solutions.
-             * @default Hakanen
-             * @constant
-             */
-            method: "Hakanen";
-        };
-        /**
-         * NonUniformMutationOptions
-         * @description Options for Non-Uniform Mutation.
-         */
-        NonUniformMutationOptions: {
-            /**
-             * Name
-             * @description The name of the mutation operator.
-             * @default NonUniformMutation
-             * @constant
-             */
-            name: "NonUniformMutation";
-            /**
-             * Mutation Probability
-             * @description The probability of mutation. Defaults to None, which sets the mutation probability to 1/<number of decision variables>.
-             */
-            mutation_probability?: number | null;
-            /**
-             * Max Generations
-             * @description Maximum number of generations in the evolutionary run. Used to scale mutation decay.
-             */
-            max_generations: number;
-            /**
-             * B
-             * @description Non-uniform mutation decay parameter. Higher values causefaster reduction in mutation strength over generations.
-             * @default 5
-             */
-            b: number;
         };
         /**
          * ObjectiveDB
@@ -2874,113 +2999,6 @@ export interface components {
             solver_results: components["schemas"]["SolverResults"][];
         };
         /**
-         * RVEASelectorOptions
-         * @description Options for RVEA Selection.
-         */
-        RVEASelectorOptions: {
-            /**
-             * Name
-             * @description The name of the selection operator.
-             * @default RVEASelector
-             * @constant
-             */
-            name: "RVEASelector";
-            /**
-             * @description Options for the reference vectors.
-             * @default {
-             *       "adaptation_frequency": 0,
-             *       "creation_type": "simplex",
-             *       "vector_type": "spherical",
-             *       "number_of_vectors": 200,
-             *       "adaptation_distance": 0.2
-             *     }
-             */
-            reference_vector_options: components["schemas"]["ReferenceVectorOptions"];
-            /**
-             * @description The parameter adaptation strategy to use.
-             * @default GENERATION_BASED
-             */
-            parameter_adaptation_strategy: components["schemas"]["ParameterAdaptationStrategy"];
-            /**
-             * Alpha
-             * @description The alpha parameter in the angle penalized distance.
-             * @default 2
-             */
-            alpha: number;
-        };
-        /**
-         * RandomBinaryGeneratorOptions
-         * @description Options for Random Binary generator.
-         */
-        RandomBinaryGeneratorOptions: {
-            /**
-             * N Points
-             * @description The number of points to generate for the initial population.
-             */
-            n_points: number;
-            /**
-             * Name
-             * @description The name of the generator.
-             * @default RandomBinaryGenerator
-             * @constant
-             */
-            name: "RandomBinaryGenerator";
-        };
-        /**
-         * RandomGeneratorOptions
-         * @description Options for Random generator.
-         */
-        RandomGeneratorOptions: {
-            /**
-             * N Points
-             * @description The number of points to generate for the initial population.
-             */
-            n_points: number;
-            /**
-             * Name
-             * @description The name of the generator.
-             * @default RandomGenerator
-             * @constant
-             */
-            name: "RandomGenerator";
-        };
-        /**
-         * RandomIntegerGeneratorOptions
-         * @description Options for Random Integer generator.
-         */
-        RandomIntegerGeneratorOptions: {
-            /**
-             * N Points
-             * @description The number of points to generate for the initial population.
-             */
-            n_points: number;
-            /**
-             * Name
-             * @description The name of the generator.
-             * @default RandomIntegerGenerator
-             * @constant
-             */
-            name: "RandomIntegerGenerator";
-        };
-        /**
-         * RandomMixedIntegerGeneratorOptions
-         * @description Options for Random Mixed Integer generator.
-         */
-        RandomMixedIntegerGeneratorOptions: {
-            /**
-             * N Points
-             * @description The number of points to generate for the initial population.
-             */
-            n_points: number;
-            /**
-             * Name
-             * @description The name of the generator.
-             * @default RandomMixedIntegerGenerator
-             * @constant
-             */
-            name: "RandomMixedIntegerGenerator";
-        };
-        /**
          * ReferencePoint
          * @description Model for representing a reference point type of preference.
          */
@@ -2995,118 +3013,6 @@ export interface components {
             aspiration_levels: {
                 [key: string]: number;
             };
-        };
-        /**
-         * ReferencePointOptions
-         * @description Options for providing a reference point for an EA.
-         */
-        ReferencePointOptions: {
-            /**
-             * Name
-             * @description The name of the reference point option.
-             * @default reference_point
-             * @constant
-             */
-            name: "reference_point";
-            /**
-             * Preference
-             * @description The reference point as a dictionary with objective function symbols as the keys.
-             */
-            preference: {
-                [key: string]: number;
-            };
-            /**
-             * Method
-             * @description The method for handling the reference point.
-             * @default Hakanen
-             * @enum {string}
-             */
-            method: "Hakanen" | "IOPIS";
-        };
-        /**
-         * ReferenceVectorOptions
-         * @description Pydantic model for Reference Vector arguments.
-         */
-        ReferenceVectorOptions: {
-            /**
-             * Adaptation Frequency
-             * @description Number of generations between reference vector adaptation. If set to 0, no adaptation occurs. Defaults to 0.
-             *     Only used if no preference is provided.
-             * @default 0
-             */
-            adaptation_frequency: number;
-            /**
-             * Creation Type
-             * @description The method for creating reference vectors. Defaults to "simplex".
-             *     Currently only "simplex" is implemented. Future versions will include "s_energy".
-             *
-             *     If set to "simplex", the reference vectors are created using the simplex lattice design method.
-             *     This method is generates distributions with specific numbers of reference vectors.
-             *     Check: https://www.itl.nist.gov/div898/handbook/pri/section5/pri542.htm for more information.
-             *     If set to "s_energy", the reference vectors are created using the Riesz s-energy criterion. This method is used to
-             *     distribute an arbitrary number of reference vectors in the objective space while minimizing the s-energy.
-             *     Currently not implemented.
-             * @default simplex
-             * @enum {string}
-             */
-            creation_type: "simplex" | "s_energy";
-            /**
-             * Vector Type
-             * @description The method for normalizing the reference vectors. Defaults to "spherical".
-             * @default spherical
-             * @enum {string}
-             */
-            vector_type: "spherical" | "planar";
-            /**
-             * Lattice Resolution
-             * @description Number of divisions along an axis when creating the simplex lattice. This is not required/used for the "s_energy"
-             *     method. If not specified, the lattice resolution is calculated based on the `number_of_vectors`. If "spherical" is
-             *     selected as the `vector_type`, this value overrides the `number_of_vectors`.
-             */
-            lattice_resolution?: number | null;
-            /**
-             * Number Of Vectors
-             * @description Number of reference vectors to be created. If "simplex" is selected as the `creation_type`, then the closest
-             *     `lattice_resolution` is calculated based on this value. If "s_energy" is selected, then this value is used directly.
-             *     Note that if neither `lattice_resolution` nor `number_of_vectors` is specified, the number of vectors defaults to
-             *     200. Overridden if "spherical" is selected as the `vector_type` and `lattice_resolution` is provided.
-             * @default 200
-             */
-            number_of_vectors: number;
-            /**
-             * Adaptation Distance
-             * @description Distance parameter for the interactive adaptation methods. Defaults to 0.2.
-             * @default 0.2
-             */
-            adaptation_distance: number;
-            /**
-             * Reference Point
-             * @description The reference point for interactive adaptation.
-             */
-            reference_point?: {
-                [key: string]: number;
-            } | null;
-            /**
-             * Preferred Solutions
-             * @description The preferred solutions for interactive adaptation.
-             */
-            preferred_solutions?: {
-                [key: string]: number[];
-            } | null;
-            /**
-             * Non Preferred Solutions
-             * @description The non-preferred solutions for interactive adaptation.
-             */
-            non_preferred_solutions?: {
-                [key: string]: number[];
-            } | null;
-            /**
-             * Preferred Ranges
-             * @description The preferred ranges for interactive adaptation.
-             */
-            preferred_ranges?: {
-                [key: string]: number[];
-            } | null;
         };
         /**
          * RepresentativeNonDominatedSolutions
@@ -3451,49 +3357,6 @@ export interface components {
             obj_order: number[];
         };
         /**
-         * SelfAdaptiveGaussianMutationOptions
-         * @description Options for Self-Adaptive Gaussian Mutation.
-         */
-        SelfAdaptiveGaussianMutationOptions: {
-            /**
-             * Name
-             * @description The name of the mutation operator.
-             * @default SelfAdaptiveGaussianMutation
-             * @constant
-             */
-            name: "SelfAdaptiveGaussianMutation";
-            /**
-             * Mutation Probability
-             * @description The probability of mutation. Defaults to None, which sets the mutation probability to 1/<number of decision variables>.
-             */
-            mutation_probability?: number | null;
-        };
-        /**
-         * SimulatedBinaryCrossoverOptions
-         * @description Options for Simulated Binary Crossover (SBX).
-         */
-        SimulatedBinaryCrossoverOptions: {
-            /**
-             * Name
-             * @description The name of the crossover operator.
-             * @default SimulatedBinaryCrossover
-             * @constant
-             */
-            name: "SimulatedBinaryCrossover";
-            /**
-             * Xover Probability
-             * @description The SBX crossover probability.
-             * @default 0.5
-             */
-            xover_probability: number;
-            /**
-             * Xover Distribution
-             * @description The SBX distribution index.
-             * @default 30
-             */
-            xover_distribution: number;
-        };
-        /**
          * SimulatorDB
          * @description The SQLModel equivalent to `Simulator`.
          */
@@ -3521,45 +3384,19 @@ export interface components {
             problem_id?: number | null;
         };
         /**
-         * SingleArithmeticCrossoverOptions
-         * @description Options for Single Arithmetic Crossover.
-         */
-        SingleArithmeticCrossoverOptions: {
-            /**
-             * Name
-             * @description The name of the crossover operator.
-             * @default SingleArithmeticCrossover
-             * @constant
-             */
-            name: "SingleArithmeticCrossover";
-            /**
-             * Xover Probability
-             * @description The crossover probability.
-             * @default 1
-             */
-            xover_probability: number;
-        };
-        /**
-         * SinglePointBinaryCrossoverOptions
-         * @description Options for Single Point Binary Crossover.
-         */
-        SinglePointBinaryCrossoverOptions: {
-            /**
-             * Name
-             * @description The name of the crossover operator.
-             * @default SinglePointBinaryCrossover
-             * @constant
-             */
-            name: "SinglePointBinaryCrossover";
-        };
-        /**
          * SolutionInfo
          * @description Used when we wish to reference a solution in some `StateDB` stored in the database.
          */
         SolutionInfo: {
-            /** State Id */
+            /**
+             * State Id
+             * @description State of the desired solution.
+             */
             state_id: number;
-            /** Solution Index */
+            /**
+             * Solution Index
+             * @description Index of the desired solution.
+             */
             solution_index: number;
             /**
              * Name
@@ -3637,7 +3474,7 @@ export interface components {
          */
         SolutionReferenceResponse: {
             /** Name */
-            name: string | null;
+            name?: string | null;
             /** Solution Index */
             solution_index: number | null;
             /** State Id */
@@ -3747,6 +3584,8 @@ export interface components {
             parent_id?: number | null;
             /** State Id */
             state_id?: number | null;
+            /** Date Time */
+            date_time?: string | null;
         };
         Tensor: components["schemas"]["Tensor"][] | (number | boolean)[] | number | boolean | "List" | null;
         /**
@@ -3812,56 +3651,6 @@ export interface components {
             token_type: string;
         };
         /**
-         * TournamentSelectionOptions
-         * @description Options for tournament selection operator.
-         */
-        TournamentSelectionOptions: {
-            /**
-             * Name
-             * @description The name of the scalar selection operator.
-             * @default TournamentSelection
-             * @constant
-             */
-            name: "TournamentSelection";
-            /**
-             * Tournament Size
-             * @description The number of individuals participating in the tournament.
-             * @default 2
-             */
-            tournament_size: number;
-            /**
-             * Winner Size
-             * @description The number of winners to select (equivalent to population size).
-             */
-            winner_size: number;
-        };
-        /**
-         * UniformIntegerCrossoverOptions
-         * @description Options for Uniform Integer Crossover.
-         */
-        UniformIntegerCrossoverOptions: {
-            /**
-             * Name
-             * @description The name of the crossover operator.
-             * @default UniformIntegerCrossover
-             * @constant
-             */
-            name: "UniformIntegerCrossover";
-        };
-        /**
-         * UniformMixedIntegerCrossoverOptions
-         * @description Options for Uniform Mixed Integer Crossover.
-         */
-        UniformMixedIntegerCrossoverOptions: {
-            /**
-             * Name
-             * @description The name of the crossover operator.
-             * @default UniformMixedIntegerCrossover
-             * @constant
-             */
-            name: "UniformMixedIntegerCrossover";
-        };
-        /**
          * Url
          * @description Model for a URL.
          */
@@ -3892,6 +3681,8 @@ export interface components {
             role: components["schemas"]["UserRole"];
             /** Group Ids */
             group_ids: number[] | null;
+            /** Experiment Group */
+            experiment_group: number | null;
         };
         /**
          * UserRole
@@ -4299,6 +4090,39 @@ export interface operations {
             };
         };
     };
+    add_problem_json_problem_add_json_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_add_problem_json_problem_add_json_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_metadata_problem_get_metadata_post: {
         parameters: {
             query?: never;
@@ -4328,6 +4152,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_available_solvers_problem_assign_solver_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
                 };
             };
         };
@@ -4615,7 +4459,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["NIMBUSInitializationResponse"] | components["schemas"]["NIMBUSClassificationResponse"] | components["schemas"]["NIMBUSIntermediateSolutionResponse"];
+                    "application/json": components["schemas"]["NIMBUSInitializationResponse"] | components["schemas"]["NIMBUSClassificationResponse"] | components["schemas"]["NIMBUSIntermediateSolutionResponse"] | components["schemas"]["NIMBUSFinalizeResponse"];
                 };
             };
             /** @description Validation Error */
@@ -4682,6 +4526,338 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NIMBUSDeleteSaveResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_multipliers_info_method_nimbus_get_multipliers_info_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NIMBUSMultiplierRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NIMBUSMultiplierResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    solve_solutions_method_xnimbus_solve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NIMBUSClassificationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NIMBUSClassificationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    initialize_method_xnimbus_initialize_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NIMBUSInitializationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NIMBUSInitializationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_method_xnimbus_save_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NIMBUSSaveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NIMBUSSaveResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    solve_xnimbus_intermediate_method_xnimbus_intermediate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IntermediateSolutionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NIMBUSIntermediateSolutionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_or_initialize_method_xnimbus_get_or_initialize_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NIMBUSInitializationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NIMBUSInitializationResponse"] | components["schemas"]["NIMBUSClassificationResponse"] | components["schemas"]["NIMBUSIntermediateSolutionResponse"] | components["schemas"]["NIMBUSFinalizeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    finalize_xnimbus_method_xnimbus_finalize_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NIMBUSFinalizeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NIMBUSFinalizeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_save_method_xnimbus_delete_save_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NIMBUSDeleteSaveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NIMBUSDeleteSaveResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_multipliers_info_method_xnimbus_get_multipliers_info_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NIMBUSMultiplierRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NIMBUSMultiplierResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_all_preference_suggestions_method_xnimbus_get_all_preference_suggestions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NIMBUSMultiplierRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */
@@ -5166,7 +5342,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["EnautilusStepRequest"];
+                "application/json": components["schemas"]["ENautilusStepRequest"];
             };
         };
         responses: {
@@ -5176,7 +5352,73 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ENautilusState"];
+                    "application/json": components["schemas"]["ENautilusStepResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_state_method_enautilus_get_state_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ENautilusStateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ENautilusStateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_representative_method_enautilus_get_representative_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ENautilusRepresentativeSolutionsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ENautilusRepresentativeSolutionsResponse"];
                 };
             };
             /** @description Validation Error */

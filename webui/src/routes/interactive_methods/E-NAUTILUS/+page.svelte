@@ -9,12 +9,12 @@
 	import VisualizationsPanel from '$lib/components/custom/visualizations-panel/visualizations-panel.svelte';
 	import * as Resizable from '$lib/components/ui/resizable';
 
-	import type {
-		ENautilusStepRequest,
-		ENautilusStepResponse,
-		ProblemGetRequest,
-		ProblemInfo
-	} from '$lib/gen/models';
+	import type { components } from '$lib/api/client-types';
+
+	type EnautilusStepRequest = components["schemas"]["EnautilusStepRequest"];
+	type ENautilusResult = components["schemas"]["ENautilusResult"];
+	type ProblemGetRequest = components["schemas"]["ProblemGetRequest"];
+	type ProblemInfo = components["schemas"]["ProblemInfo"];
 	import {
 		step_enautilus,
 		fetch_problem_info,
@@ -24,8 +24,8 @@
 
 	let selection = $state<MethodSelectionState>({ selectedProblemId: null, selectedMethod: null });
 	let problem_info = $state<ProblemInfo | null>(null);
-	let previous_request = $state<ENautilusStepRequest | null>(null);
-	let previous_response = $state<ENautilusStepResponse | null>(null);
+	let previous_request = $state<EnautilusStepRequest | null>(null);
+	let previous_response = $state<ENautilusResult | null>(null);
 	let selected_point_index = $state<number | null>(null);
 	let previous_objective_values = $state<number[]>([]);
 	let number_intermediate_points = $state<number>(3);
@@ -115,7 +115,7 @@
 				// TODO: these parameters should be queried from the user
 				// TODO: if we have a selected interactive session and state, we should pick up from there
 
-				const stepRequest: ENautilusStepRequest = {
+				const stepRequest: EnautilusStepRequest = {
 					problem_id: selection.selectedProblemId,
 					representative_solutions_id: 1,
 					current_iteration: 0,
@@ -177,7 +177,7 @@
 				selection.selectedProblemId,
 				number_intermediate_points,
 				effective_iterations_left,
-				previous_request.representative_solutions_id
+				previous_request.representative_solutions_id ?? 0
 			);
 
 			if (!next) {

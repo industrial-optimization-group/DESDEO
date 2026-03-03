@@ -1,7 +1,6 @@
 import type { HandleFetch } from '@sveltejs/kit';
-import { refreshAccessTokenRefreshPost } from '$lib/gen/endpoints/DESDEOFastAPI';
 
-// const API = process.env.API_BASE_URL ?? '/';
+const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8000';
 
 export const handleFetch: HandleFetch = async ({ event, request, fetch }) => {
   // TODO: check that the request originates from our app, instead of being a third party
@@ -11,15 +10,17 @@ export const handleFetch: HandleFetch = async ({ event, request, fetch }) => {
   if (res.status !== 401) return res;
 
   // 401, try refreshing the access token ONCE and then try again with the original request.
+  const refreshRes = await fetch(`${API_BASE_URL}/refresh`, {
+    method: 'POST',
+    credentials: 'include'  // sends cookies
+  });
 
-  const response_with_new_cookies = await refreshAccessTokenRefreshPost({ fetchImpl: fetch } as RequestInit);
+  if (!refreshRes.ok) {
+    return res;
+  }
 
-  if (response_with_new_cookies.status != 200 || !response_with_new_cookies.data?.access_token ) return res;
-
-  // access ok!
-  console.log(response_with_new_cookies);
-  event.cookies.set("access_token", response_with_new_cookies.data.access_token, {httpOnly: true, secure: true, sameSite: "lax", path: '/'});
-
+  const { access_token } = await refreshRes.json();
+  event.cookies.set("access_token", access_token, { httpOnly: true, secure: true, sameSite: "lax", path: '/' });
 
   // try again with new access cookie
   res = await fetch(request);

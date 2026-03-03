@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "npm run generate:client && vite build",
+    "build": "vite build",
     "preview": "vite preview",
     "prepare": "svelte-kit sync || echo ''",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
@@ -17,7 +17,7 @@
     "test:e2e": "playwright test",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "generate:client": "orval",
+    "generate:types": "openapi-typescript http://localhost:8000/openapi.json -o src/lib/api/client-types.ts",
     "svelte-check": "svelte-check"
   },
   "dependencies": {
@@ -39,7 +39,6 @@
     "msw": "^2.11.5",
     "openapi-fetch": "^0.14.1",
     "openapi-typescript-fetch": "^2.2.1",
-    "orval": "^7.13.2",
     "svelte": "^5.46.4",
     "svelte-sonner": "^1.0.5",
     "sveltekit-superforms": "^2.27.2",
