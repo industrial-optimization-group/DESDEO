@@ -30,7 +30,7 @@ api.use({
             // if unauthorized, try to get a new access token
 			const refreshRes = await fetch(`${BASE_URL}/refresh`, {
 				method: 'POST',
-				credentials: 'include'  // makes sure the cookie is sent
+				credentials: 'include'
 			});
 
 			if (refreshRes.ok) {
