@@ -4,8 +4,10 @@ import { defineConfig } from 'orval';
 // TODO: have something for production
 const BASE_URL = process.env.API_BASE_URL;
 const VITE_API_URL = process.env.VITE_API_URL;
+const OPENAPI_URL =
+  process.env.OPENAPI_URL ?? `${BASE_URL}/openapi.json`;
 // TODO: load from env like above
-const OPENAPI_URL = 'http://localhost:8000/openapi.json' 
+//const OPENAPI_URL = 'http://localhost:8000/openapi.json' 
 
 export default defineConfig({
     desdeo: {
