@@ -78,6 +78,9 @@
 		xMin: number,
 		xMax: number
 	) {
+		const MIN_BAR_WIDTH = 8; // Minimum visible bar width in pixels
+		const MARKER_RADIUS = 4; // Circle marker radius for small bars
+
 		svgElement
 			.append('g')
 			.selectAll('rect')
@@ -86,13 +89,41 @@
 			.attr('y', (d) => y(d.name)!)
 			.attr('height', y.bandwidth())
 			.attr('x', x(0))
-			.attr('width', (d) => Math.abs(x(d.value) - x(0)))
+			.attr('width', (d) => {
+				const calculatedWidth = Math.abs(x(d.value) - x(0));
+				return Math.max(calculatedWidth, MIN_BAR_WIDTH);
+			})
 			.attr('fill', (d) => color[d.symbol])
+			.attr('opacity', (d) => {
+				const calculatedWidth = Math.abs(x(d.value) - x(0));
+				return calculatedWidth < MIN_BAR_WIDTH ? 0 : 1;
+			})
 			.attr('stroke', (d) => (selectedBarSymbol === d.symbol ? '#3b82f6' : 'none'))
 			.attr('stroke-width', (d) => (selectedBarSymbol === d.symbol ? 3 : 0))
 			.style('cursor', 'pointer')
 			.on('click', (event, d) => {
 				// Toggle selection: deselect if clicking the same bar
+				selectedBarSymbol = selectedBarSymbol === d.symbol ? null : d.symbol;
+				if (onSelect) {
+					onSelect({ value: selectedBarSymbol ?? '' });
+				}
+				drawChart();
+			});
+
+		// Add circle markers for very small bars to make them more visible and clickable
+		svgElement
+			.append('g')
+			.selectAll('circle')
+			.data(data_to_render.filter((d) => Math.abs(x(d.value) - x(0)) < MIN_BAR_WIDTH))
+			.join('circle')
+			.attr('cx', (d) => x(0) + MIN_BAR_WIDTH)
+			.attr('cy', (d) => y(d.name)! + y.bandwidth() / 2)
+			.attr('r', MARKER_RADIUS)
+			.attr('fill', (d) => color[d.symbol])
+			.attr('stroke', (d) => (selectedBarSymbol === d.symbol ? '#3b82f6' : '#fff'))
+			.attr('stroke-width', (d) => (selectedBarSymbol === d.symbol ? 2 : 1))
+			.style('cursor', 'pointer')
+			.on('click', (event, d) => {
 				selectedBarSymbol = selectedBarSymbol === d.symbol ? null : d.symbol;
 				if (onSelect) {
 					onSelect({ value: selectedBarSymbol ?? '' });
@@ -112,6 +143,25 @@
 			.attr('font-size', '12px')
 			.attr('fill', '#666')
 			.text((d, i) => `#${i + 1}`);
+
+
+		// Add annotations for very small bars (minimal impact)
+		const smallBars = data_to_render.filter((d) => Math.abs(x(d.value) - x(0)) < MIN_BAR_WIDTH);
+		if (smallBars.length > 0) {
+			svgElement
+				.append('g')
+				.selectAll('text.small-annotation')
+				.data(smallBars)
+				.join('text')
+				.attr('class', 'small-annotation')
+				.attr('x', x(0) + MIN_BAR_WIDTH + MARKER_RADIUS + 5)
+				.attr('y', (d) => y(d.name)! + y.bandwidth() / 2)
+				.attr('dy', '0.35em')
+				.attr('font-size', '10px')
+				.attr('font-style', 'italic')
+				.attr('fill', '#9ca3af')
+				.text('Minor tradeoff');
+		}
 
 		// Draw axes
 		svgElement.append('g').attr('transform', `translate(0,${margin.top})`).call(d3.axisTop(x));
