@@ -1,5 +1,6 @@
 import type { HandleFetch } from '@sveltejs/kit';
 import { refreshAccessTokenRefreshPost } from '$lib/gen/endpoints/DESDEOFastAPI';
+import { dev } from '$app/environment';
 
 // const API = process.env.API_BASE_URL ?? '/';
 
@@ -29,7 +30,7 @@ export const handleFetch: HandleFetch = async ({ event, request, fetch }) => {
   // access ok!
   event.cookies.set("access_token", response_with_new_cookies.data.access_token, {
     httpOnly: true,
-    secure: true,
+    secure: !dev,
     sameSite: "lax",
     path: "/",
   });

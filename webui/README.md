@@ -66,6 +66,17 @@ ncu -u
 
 this will upgrade the project's packages to their latest (mutually) compatible versions. **This can introduce breaking changes!**
 
+## WSL / HTTP note
+
+Auth cookies are set with `secure: !dev`, meaning they require HTTPS only in
+production builds. In development mode (`npm run dev`), cookies are sent over
+plain HTTP, which is necessary when running through WSL2 on Windows where the
+browser may not treat the forwarded address as a secure context.
+
+If you build and preview a production bundle locally over HTTP, authentication
+will fail because `secure` cookies are not sent. Use `npm run dev` for local
+development, or serve the production build behind HTTPS.
+
 ## Developing
 
 Once the project's dependencies have been installed, start a development server:
