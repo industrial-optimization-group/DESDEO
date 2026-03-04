@@ -17,8 +17,7 @@ with config_path.open("rb") as fp:
 class GeneralSettings(BaseSettings):
     """General settings."""
 
-    # Allow environment variable DEBUG to override config.toml debug setting
-    debug: bool = os.getenv("DEBUG", str(config_data["settings"]["debug"])).lower() in ("true", "1")
+    debug: bool = config_data["settings"]["debug"]
 
 
 SettingsConfig = GeneralSettings()
@@ -28,7 +27,9 @@ class ServerDebugConfig(BaseSettings):
     """Server setup settings (development)."""
 
     test_user_analyst_name: str = config_data["server-debug"]["test_user_analyst_name"]
-    test_user_analyst_password: str = config_data["server-debug"]["test_user_analyst_password"]
+    test_user_analyst_password: str = config_data["server-debug"][
+        "test_user_analyst_password"
+    ]
     test_user_dm1_name: str = config_data["server-debug"]["test_user_dm1_name"]
     test_user_dm1_password: str = config_data["server-debug"]["test_user_dm1_password"]
     test_user_dm2_name: str = config_data["server-debug"]["test_user_dm2_name"]
@@ -40,8 +41,12 @@ class AuthDebugConfig(BaseSettings):
 
     authjwt_secret_key: str = config_data["auth-debug"]["authjwt_secret_key"]
     authjwt_algorithm: str = config_data["auth-debug"]["authjwt_algorithm"]
-    authjwt_access_token_expires: int = config_data["auth-debug"]["authjwt_access_token_expires"]
-    authjwt_refresh_token_expires: int = config_data["auth-debug"]["authjwt_refresh_token_expires"]
+    authjwt_access_token_expires: int = config_data["auth-debug"][
+        "authjwt_access_token_expires"
+    ]
+    authjwt_refresh_token_expires: int = config_data["auth-debug"][
+        "authjwt_refresh_token_expires"
+    ]
     cors_origins: List[str] = config_data["auth-debug"]["cors_origins"]
     cookie_domain: str = config_data["auth-debug"]["cookie_domain"]
 
@@ -78,14 +83,20 @@ class AuthDeployConfig(BaseSettings):
 
     authjwt_secret_key: str = os.getenv("AUTHJWT_SECRET")
     authjwt_algorithm: str = config_data["auth-deploy"]["authjwt_algorithm"]
-    authjwt_access_token_expires: int = config_data["auth-deploy"]["authjwt_access_token_expires"]
-    authjwt_refresh_token_expires: int = config_data["auth-deploy"]["authjwt_refresh_token_expires"]
+    authjwt_access_token_expires: int = config_data["auth-deploy"][
+        "authjwt_access_token_expires"
+    ]
+    authjwt_refresh_token_expires: int = config_data["auth-deploy"][
+        "authjwt_refresh_token_expires"
+    ]
     cors_origins: List[str] = json.loads(os.getenv("CORS_ORIGINS", "[]"))
     cookie_domain: str = os.getenv("COOKIE_DOMAIN", "")
 
 
 AuthConfig = AuthDebugConfig() if SettingsConfig.debug else AuthDeployConfig()
 
-DatabaseConfig = DatabaseDebugConfig() if SettingsConfig.debug else DatabaseDeployConfig()
+DatabaseConfig = (
+    DatabaseDebugConfig() if SettingsConfig.debug else DatabaseDeployConfig()
+)
 
 ServerConfig = ServerDebugConfig() if SettingsConfig.debug else None

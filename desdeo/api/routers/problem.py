@@ -1,9 +1,8 @@
 """Defines end-points to access and manage problems."""
 
-import json
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from sqlmodel import Session, select
 
@@ -39,13 +38,17 @@ def check_solver(problem_db: ProblemDB):
     solver_metadata = None
     if metadata is not None:
         solver_metadata_list = [
-            metadata for metadata in metadata.all_metadata if metadata.metadata_type == "solver_selection_metadata"
+            metadata
+            for metadata in metadata.all_metadata
+            if metadata.metadata_type == "solver_selection_metadata"
         ]
         if solver_metadata_list != []:
             solver_metadata = solver_metadata_list[-1]
 
     if solver_metadata is not None:
-        solver = available_solvers[solver_metadata.solver_string_representation]["constructor"]
+        solver = available_solvers[solver_metadata.solver_string_representation][
+            "constructor"
+        ]
     else:
         solver = None
     return solver
@@ -59,7 +62,9 @@ async def parse_problem_json(request: Request) -> Problem:
 
 
 @router.get("/all")
-def get_problems(user: Annotated[User, Depends(get_current_user)]) -> list[ProblemInfoSmall]:
+def get_problems(
+    user: Annotated[User, Depends(get_current_user)],
+) -> list[ProblemInfoSmall]:
     """Get information on all the current user's problems.
 
     Args:
@@ -72,7 +77,9 @@ def get_problems(user: Annotated[User, Depends(get_current_user)]) -> list[Probl
 
 
 @router.get("/all_info")
-def get_problems_info(user: Annotated[User, Depends(get_current_user)]) -> list[ProblemInfo]:
+def get_problems_info(
+    user: Annotated[User, Depends(get_current_user)],
+) -> list[ProblemInfo]:
     """Get detailed information on all the current user's problems.
 
     Args:
@@ -138,7 +145,8 @@ def add_problem(
     """
     if user.role == UserRole.guest:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Guest users are not allowed to add new problems."
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Guest users are not allowed to add new problems.",
         )
     try:
         problem_db = ProblemDB.from_problem(request, user=user)
@@ -155,53 +163,16 @@ def add_problem(
     return problem_db
 
 
-@router.post("/add_json")
-def add_problem_json(
-    json_file: UploadFile,
-    user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[Session, Depends(get_session)],
-) -> ProblemInfo:
-    """Adds a problem to the database based on its JSON definition.
-
-    Args:
-        json_file (UploadFile): a file in JSON format describing the problem.
-        user (Annotated[User, Depends): the usr for which the problem is added.
-        session (Annotated[Session, Depends): the database session.
-
-    Raises:
-        HTTPException: if the provided `json_file` is empty.
-        HTTPException: if the content in the provided `json_file` is not in JSON format.__annotations__
-
-    Returns:
-        ProblemInfo: a description of the added problem.
-    """
-    raw = json_file.file.read()
-
-    if not raw:
-        raise HTTPException(400, "Empty upload.")
-
-    try:
-        # for extra validation
-        json.loads(raw)
-    except json.JSONDecodeError as e:
-        raise HTTPException(400, "Invalid JSON.") from e
-
-    problem = Problem.model_validate_json(raw, by_name=True)
-    problem_db = ProblemDB.from_problem(problem, user=user)
-
-    session.add(problem_db)
-    session.commit()
-    session.refresh(problem_db)
-
-    return problem_db
-
-
 @router.post("/get_metadata")
 def get_metadata(
     request: ProblemMetaDataGetRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
-) -> list[ForestProblemMetaData | RepresentativeNonDominatedSolutions | SolverSelectionMetadata]:
+) -> list[
+    ForestProblemMetaData
+    | RepresentativeNonDominatedSolutions
+    | SolverSelectionMetadata
+]:
     """Fetch specific metadata for a specific problem.
 
     Fetch specific metadata for a specific problem. See all the possible
@@ -222,7 +193,8 @@ def get_metadata(
     problem_from_db = session.exec(statement).first()
     if problem_from_db is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Problem with ID {request.problem_id} not found!"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Problem with ID {request.problem_id} not found!",
         )
 
     problem_metadata = problem_from_db.problem_metadata
@@ -232,13 +204,11 @@ def get_metadata(
         return []
 
     # metadata is defined, try to find matching types based on request
-    return [metadata for metadata in problem_metadata.all_metadata if metadata.metadata_type == request.metadata_type]
-
-
-@router.get("/assign/solver", response_model=list[str])
-def get_available_solvers() -> list[str]:
-    """Return the list of available solver names."""
-    return list(available_solvers.keys())
+    return [
+        metadata
+        for metadata in problem_metadata.all_metadata
+        if metadata.metadata_type == request.metadata_type
+    ]
 
 
 @router.post("/assign_solver")
@@ -259,7 +229,9 @@ def select_solver(
     Returns:
         JSONResponse: A simple confirmation.
     """
-    if request.solver_string_representation not in [x for x, _ in available_solvers.items()]:
+    if request.solver_string_representation not in [
+        x for x, _ in available_solvers.items()
+    ]:
         raise HTTPException(
             detail=f"Solver of unknown type: {request.solver_string_representation}",
             status_code=status.HTTP_404_NOT_FOUND,
@@ -267,7 +239,9 @@ def select_solver(
 
     """Set a specific solver for a specific problem."""
     # Get the problem
-    problem_db = session.exec(select(ProblemDB).where(ProblemDB.id == request.problem_id)).first()
+    problem_db = session.exec(
+        select(ProblemDB).where(ProblemDB.id == request.problem_id)
+    ).first()
     if problem_db is None:
         raise HTTPException(
             detail=f"No problem with ID {request.problem_id}!",
@@ -275,13 +249,17 @@ def select_solver(
         )
     # Auth the user
     if user.id != problem_db.user_id:
-        raise HTTPException(detail="Unauthorized user!", status_code=status.HTTP_401_UNAUTHORIZED)
+        raise HTTPException(
+            detail="Unauthorized user!", status_code=status.HTTP_401_UNAUTHORIZED
+        )
 
     # All good, get on with it.
     problem_metadata = problem_db.problem_metadata
     if problem_metadata is None:
         # There's no metadata for this problem! Create some.
-        problem_metadata = ProblemMetaDataDB(problem_id=problem_db.id, problem=problem_db)
+        problem_metadata = ProblemMetaDataDB(
+            problem_id=problem_db.id, problem=problem_db
+        )
         session.add(problem_metadata)
         session.commit()
         session.refresh(problem_metadata)

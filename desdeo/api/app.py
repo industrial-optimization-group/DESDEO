@@ -26,6 +26,17 @@ app = FastAPI(
     description="A rest API for the DESDEO framework.",
 )
 
+# Add CORS middleware BEFORE including routers to ensure preflight requests work
+origins = AuthConfig.cors_origins
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(user_authentication.router)
 app.include_router(problem.router)
 app.include_router(session.router)
@@ -40,13 +51,3 @@ app.include_router(gdm_aggregate.router)
 app.include_router(gnimbus_routers.router)
 app.include_router(enautilus.router)
 app.include_router(gdm_score_bands_routers.router)
-
-origins = AuthConfig.cors_origins
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)

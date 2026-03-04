@@ -3,6 +3,4 @@ APP_MODULE=desdeo.api.app:app
 GUNICORN_CMD_ARGS=--bind=0.0.0.0:8080 --workers=1 --access-logfile=- --worker-class uvicorn.workers.UvicornWorker
 DESDEO_INSTALL=. --group web --group server
 DEBUG=false
-SETTINGS_DEBUG=false
-CORS_ORIGINS=["http://localhost","http://localhost:8080","http://localhost:5173","https://explainable-nimbus-explainable-nimbus.2.rahtiapp.fi"]
-COOKIE_DOMAIN=.2.rahtiapp.fi
+

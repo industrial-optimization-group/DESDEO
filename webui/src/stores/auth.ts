@@ -1,10 +1,16 @@
 import { browser } from '$app/environment';
 import { writable, derived } from 'svelte/store';
-import type { UserPublic } from '../lib/gen/models';
+
+export type User = {
+	id: number;
+	username: string;
+	role: string;
+	group: string;
+};
 
 type AuthState = {
 	accessToken: string | null;
-	user: UserPublic | null;
+	user: User | null;
 };
 
 const storageKey = 'authState';
@@ -25,7 +31,7 @@ if (browser) {
 
 export const auth = {
 	subscribe: store.subscribe,
-	setAuth: (accessToken: string, user: UserPublic | null) =>
+	setAuth: (accessToken: string, user: User | null) =>
 		store.set({ accessToken, user }),
 	clearAuth: () => store.set({ accessToken: null, user: null })
 };

@@ -292,38 +292,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/problem/add_json": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Add Problem Json
-         * @description Adds a problem to the database based on its JSON definition.
-         *
-         *     Args:
-         *         json_file (UploadFile): a file in JSON format describing the problem.
-         *         user (Annotated[User, Depends): the usr for which the problem is added.
-         *         session (Annotated[Session, Depends): the database session.
-         *
-         *     Raises:
-         *         HTTPException: if the provided `json_file` is empty.
-         *         HTTPException: if the content in the provided `json_file` is not in JSON format.__annotations__
-         *
-         *     Returns:
-         *         ProblemInfo: a description of the added problem.
-         */
-        post: operations["add_problem_json_problem_add_json_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/problem/get_metadata": {
         parameters: {
             query?: never;
@@ -352,26 +320,6 @@ export interface paths {
          *             returns an empty list.
          */
         post: operations["get_metadata_problem_get_metadata_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/problem/assign/solver": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Available Solvers
-         * @description Return the list of available solver names.
-         */
-        get: operations["get_available_solvers_problem_assign_solver_get"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1579,14 +1527,6 @@ export interface components {
              * Format: password
              */
             client_secret?: string | null;
-        };
-        /** Body_add_problem_json_problem_add_json_post */
-        Body_add_problem_json_problem_add_json_post: {
-            /**
-             * Json File
-             * Format: binary
-             */
-            json_file: string;
         };
         /** Body_login_login_post */
         Body_login_login_post: {
@@ -4090,39 +4030,6 @@ export interface operations {
             };
         };
     };
-    add_problem_json_problem_add_json_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": components["schemas"]["Body_add_problem_json_problem_add_json_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemInfo"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     get_metadata_problem_get_metadata_post: {
         parameters: {
             query?: never;
@@ -4152,26 +4059,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_available_solvers_problem_assign_solver_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": string[];
                 };
             };
         };

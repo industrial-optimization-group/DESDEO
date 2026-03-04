@@ -5,15 +5,9 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 import bcrypt
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, Security, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from fastapi.responses import JSONResponse
-from fastapi.security import (
-    APIKeyCookie,
-    HTTPAuthorizationCredentials,
-    HTTPBearer,
-    OAuth2PasswordBearer,
-    OAuth2PasswordRequestForm,
-)
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import ExpiredSignatureError, JWTError, jwt
 from pydantic import BaseModel
 from sqlmodel import Session, select
@@ -35,9 +29,7 @@ class Tokens(BaseModel):
 
 # OAuth2PasswordBearer is a class that creates a dependency that will be used to get the token from the request.
 # The token will be used to authenticate the user.
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login", auto_error=False)
-# Same, but for getting the access_token from the cookies of the request.
-cookie_scheme = APIKeyCookie(name="access_token", auto_error=False)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -52,7 +44,9 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
     password_byte_enc = plain_password.encode("utf-8")
 
-    return bcrypt.checkpw(password=password_byte_enc, hashed_password=hashed_password.encode("utf-8"))
+    return bcrypt.checkpw(
+        password=password_byte_enc, hashed_password=hashed_password.encode("utf-8")
+    )
 
 
 def get_password_hash(password: str) -> str:
@@ -108,11 +102,9 @@ def authenticate_user(session: Session, username: str, password: str) -> User | 
     return user
 
 
-# token: Annotated[str, Depends(oauth2_scheme)],
 def get_current_user(
+    token: Annotated[str, Depends(oauth2_scheme)],
     session: Annotated[Session, Depends(get_session)],
-    header_token: Annotated[str | None, Security(oauth2_scheme)] = None,
-    cookie_token: Annotated[str | None, Security(cookie_scheme)] = None,
 ) -> User:
     """Get the current user based on a JWT token.
 
@@ -128,22 +120,25 @@ def get_current_user(
     Raises:
         HTTPException: If the token is invalid.
     """
-    token = header_token or cookie_token
-
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-
-    if not token:
-        raise credentials_exception
     try:
-        payload = jwt.decode(token, AuthConfig.authjwt_secret_key, algorithms=[AuthConfig.authjwt_algorithm])
+        payload = jwt.decode(
+            token,
+            AuthConfig.authjwt_secret_key,
+            algorithms=[AuthConfig.authjwt_algorithm],
+        )
         username = payload.get("sub")
         expire_time: datetime = payload.get("exp")
 
-        if username is None or expire_time is None or expire_time < datetime.now(UTC).timestamp():
+        if (
+            username is None
+            or expire_time is None
+            or expire_time < datetime.now(UTC).timestamp()
+        ):
             raise credentials_exception
 
     except ExpiredSignatureError:
@@ -187,7 +182,9 @@ def create_jwt_token(
     return jwt.encode(data, secret_key, algorithm=algorithm)
 
 
-def create_access_token(data: dict, expiration_time: int = AuthConfig.authjwt_access_token_expires) -> str:
+def create_access_token(
+    data: dict, expiration_time: int = AuthConfig.authjwt_access_token_expires
+) -> str:
     """Creates a JWT access token.
 
     Creates a JWT access token with `data`, and an
@@ -204,7 +201,9 @@ def create_access_token(data: dict, expiration_time: int = AuthConfig.authjwt_ac
     return create_jwt_token(data, timedelta(minutes=expiration_time))
 
 
-def create_refresh_token(data: dict, expiration_time: int = AuthConfig.authjwt_refresh_token_expires) -> str:
+def create_refresh_token(
+    data: dict, expiration_time: int = AuthConfig.authjwt_refresh_token_expires
+) -> str:
     """Creates a JTW refresh token.
 
     Creates a JWT refresh token with `data and an expiration time.
@@ -237,7 +236,9 @@ def generate_tokens(data: dict) -> Tokens:
     """
     access_token = create_access_token(data)
     refresh_token = create_refresh_token(data)
-    return Tokens(access_token=access_token, refresh_token=refresh_token, token_type="bearer")  # noqa: S106
+    return Tokens(
+        access_token=access_token, refresh_token=refresh_token, token_type="bearer"
+    )  # noqa: S106
 
 
 def validate_refresh_token(
@@ -277,7 +278,11 @@ def validate_refresh_token(
     except Exception as _:
         raise credentials_exception from None
 
-    if username is None or expire_time is None or expire_time < datetime.now(UTC).timestamp():
+    if (
+        username is None
+        or expire_time is None
+        or expire_time < datetime.now(UTC).timestamp()
+    ):
         raise credentials_exception
 
     # Validate the user from the database
@@ -337,7 +342,9 @@ def add_user_to_database(
 
 
 @router.get("/user_info")
-def get_current_user_info(user: Annotated[User, Depends(get_current_user)]) -> UserPublic:
+def get_current_user_info(
+    user: Annotated[User, Depends(get_current_user)],
+) -> UserPublic:
     """Return information about the current user.
 
     Args:
@@ -376,7 +383,7 @@ def login(
 
     tokens = generate_tokens({"id": user.id, "sub": user.username})
 
-    response = JSONResponse(content={"access_token": tokens.access_token, "refresh_token": tokens.refresh_token})
+    response = JSONResponse(content={"access_token": tokens.access_token})
 
     if AuthConfig.cookie_domain == "":
         response.set_cookie(
@@ -414,7 +421,9 @@ def logout() -> JSONResponse:
         JSONResponse: A response in which the cookies are deleted
 
     """
-    response = JSONResponse(content={"message": "logged out"}, status_code=status.HTTP_200_OK)
+    response = JSONResponse(
+        content={"message": "logged out"}, status_code=status.HTTP_200_OK
+    )
     response.delete_cookie("refresh_token")
     return response
 

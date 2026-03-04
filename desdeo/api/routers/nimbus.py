@@ -37,6 +37,7 @@ from desdeo.api.models import (
     UserSavedSolutionDB,
 )
 from desdeo.api.models.generic import SolutionInfo
+from desdeo.api.models.generic_states import StateKind
 from desdeo.api.models.nimbus import NIMBUSMultiplierRequest, NIMBUSMultiplierResponse
 from desdeo.api.models.state import IntermediateSolutionState
 from desdeo.api.routers.generic import solve_intermediate
@@ -552,8 +553,15 @@ def get_or_initialize(
             isinstance(state.state, IntermediateSolutionState)
             and state.state.context == "nimbus"
         ):
-            latest_state = state
-            break
+            # Check that it's a NIMBUS state by looking at the base state kind
+            if state.base_state.kind in [
+                StateKind.NIMBUS_SOLVE,
+                StateKind.NIMBUS_INIT,
+                StateKind.NIMBUS_FINAL,
+                StateKind.NIMBUS_SAVE,
+            ]:
+                latest_state = state
+                break
 
     if latest_state is not None:
         saved_solutions = collect_saved_solutions(user, request.problem_id, session)
