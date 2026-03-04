@@ -4,6 +4,7 @@ import { zod4 } from "sveltekit-superforms/adapters";
 import { loginLoginPost } from "$lib/gen/endpoints/DESDEOFastAPI";
 import type { BodyLoginLoginPost } from '$lib/gen/models';
 import { redirect, type Actions } from "@sveltejs/kit";
+import { dev } from "$app/environment";
 
 const loginSchema = z.object({
     username: z.string(),
@@ -37,8 +38,8 @@ export const actions: Actions = {
             return fail(response.status);
         }
 
-        cookies.set("access_token", response.data.access_token, {httpOnly: true, secure: true, sameSite: "lax", path: '/'});
-        cookies.set("refresh_token", response.data.refresh_token, {httpOnly: true, secure: true, sameSite: "lax", path: '/'});
+        cookies.set("access_token", response.data.access_token, {httpOnly: true, secure: !dev, sameSite: "lax", path: '/'});
+        cookies.set("refresh_token", response.data.refresh_token, {httpOnly: true, secure: !dev, sameSite: "lax", path: '/'});
 
         redirect(303, '/dashboard');
     },
