@@ -17,6 +17,9 @@ from sqlmodel import (
 
 from desdeo.problem import Tensor, VariableType
 
+from .nautilus import (
+    NautilusState,
+)
 from .state import (
     EMOFetchState,
     EMOIterateState,
@@ -28,7 +31,6 @@ from .state import (
     GNIMBUSOptimizationState,
     GNIMBUSVotingState,
     IntermediateSolutionState,
-    NautilusState,
     NIMBUSClassificationState,
     NIMBUSFinalState,
     NIMBUSInitializationState,
@@ -120,100 +122,100 @@ class StateDB(SQLModel, table=True):
     session: "InteractiveSessionDB" = Relationship(back_populates="states")
     problem: "ProblemDB" = Relationship(back_populates="states")
 
-    # @classmethod
-    # def create(
-    #     cls,
-    #     database_session: Session,
-    #     *,
-    #     problem_id: int | None = None,
-    #     session_id: int | None = None,
-    #     parent_id: int | None = None,
-    #     state: SQLModel | None = None,
-    # ) -> "StateDB":
-    #     """Build a StateDB + base State with a concrete substate."""
-    #     sub_cls = type(state)
-    #     kind: StateKind | None = None
-
-    #     for cls_in_mro in sub_cls.mro():
-    #         if cls_in_mro in SUBSTATE_TO_KIND:
-    #             kind = SUBSTATE_TO_KIND[cls_in_mro]
-    #             break
-
-    #     if kind is None:
-    #         raise ValueError(f"No StateKind mapping for substate type {sub_cls!r}")
-
-    #     method, phase = _method_phase_from_kind(kind)
-    #     base = State(method=method, phase=phase, kind=kind)
-
-    #     row = cls(
-    #         problem_id=problem_id,
-    #         session_id=session_id,
-    #         parent_id=parent_id,
-    #         base_state=base,
-    #     )
-    #     database_session.add(row)
-
-    #     # Persist base and link substate PK=FK
-    #     _attach_substate(database_session, base, state)
-
-    #     return row
-
     @classmethod
     def create(
         cls,
         database_session: Session,
         *,
-        kind: StateKind,
         problem_id: int | None = None,
         session_id: int | None = None,
         parent_id: int | None = None,
         state: SQLModel | None = None,
     ) -> "StateDB":
-        """Create a new StateDB entry and corresponding substate entry.
+        """Build a StateDB + base State with a concrete substate."""
+        sub_cls = type(state)
+        kind: StateKind | None = None
 
-        Args:
-            database_session: Database session
-            kind: Explicit StateKind of this state.
-            problem_id: Required for root states.
-            session_id: Required for child states.
-            parent_id: Parent state ID if this is a child.
-            state: The substate SQLModel instance.
-        """
-        if state is None:
-            raise ValueError("State (substate) must be provided.")
+        for cls_in_mro in sub_cls.mro():
+            if cls_in_mro in SUBSTATE_TO_KIND:
+                kind = SUBSTATE_TO_KIND[cls_in_mro]
+                break
 
-        if parent_id is None:
-            # Root state
-            if problem_id is None:
-                raise ValueError("Root state requires problem_id.")
-            state_db = cls(
-                problem_id=problem_id,
-                session_id=None,
-                parent_id=None,
-                kind=kind,
-            )
-        else:
-            # Child state
-            if session_id is None:
-                raise ValueError("Child state requires session_id.")
-            state_db = cls(
-                problem_id=None,
-                session_id=session_id,
-                parent_id=parent_id,
-                kind=kind,
-            )
+        if kind is None:
+            raise ValueError(f"No StateKind mapping for substate type {sub_cls!r}")
 
-        database_session.add(state_db)
-        database_session.commit()
-        database_session.refresh(state_db)
+        method, phase = _method_phase_from_kind(kind)
+        base = State(method=method, phase=phase, kind=kind)
 
-        # Link substate
-        state.state_id = state_db.id
-        database_session.add(state)
-        database_session.commit()
-        database_session.refresh(state_db)
+        row = cls(
+            problem_id=problem_id,
+            session_id=session_id,
+            parent_id=parent_id,
+            base_state=base,
+        )
+        database_session.add(row)
 
-        return state_db
+        # Persist base and link substate PK=FK
+        _attach_substate(database_session, base, state)
+
+        return row
+
+    # @classmethod
+    # def create(
+    #     cls,
+    #     database_session: Session,
+    #     *,
+    #     kind: StateKind,
+    #     problem_id: int | None = None,
+    #     session_id: int | None = None,
+    #     parent_id: int | None = None,
+    #     state: SQLModel | None = None,
+    # ) -> "StateDB":
+    #     """Create a new StateDB entry and corresponding substate entry.
+
+    #     Args:
+    #         database_session: Database session
+    #         kind: Explicit StateKind of this state.
+    #         problem_id: Required for root states.
+    #         session_id: Required for child states.
+    #         parent_id: Parent state ID if this is a child.
+    #         state: The substate SQLModel instance.
+    #     """
+    #     if state is None:
+    #         raise ValueError("State (substate) must be provided.")
+
+    #     if parent_id is None:
+    #         # Root state
+    #         if problem_id is None:
+    #             raise ValueError("Root state requires problem_id.")
+    #         state_db = cls(
+    #             problem_id=problem_id,
+    #             session_id=None,
+    #             parent_id=None,
+    #             kind=kind,
+    #         )
+    #     else:
+    #         # Child state
+    #         if session_id is None:
+    #             raise ValueError("Child state requires session_id.")
+    #         state_db = cls(
+    #             problem_id=None,
+    #             session_id=session_id,
+    #             parent_id=parent_id,
+    #             kind=kind,
+    #         )
+
+    #     database_session.add(state_db)
+    #     database_session.commit()
+    #     database_session.refresh(state_db)
+
+    #     # Link substate
+    #     state.state_id = state_db.id
+    #     database_session.add(state)
+    #     database_session.commit()
+    #     database_session.refresh(state_db)
+
+    #     return state_db
 
     @property
     def state(self) -> SQLModel | None:
@@ -258,25 +260,25 @@ KIND_TO_TABLE: dict[StateKind, SQLModel] = {
     StateKind.NAUTILUS_INITIALIZE: NautilusState
 }
 
-# SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
-#     RPMState: StateKind.RPM_SOLVE,
-#     NIMBUSClassificationState: StateKind.NIMBUS_SOLVE,
-#     NIMBUSSaveState: StateKind.NIMBUS_SAVE,
-#     NIMBUSInitializationState: StateKind.NIMBUS_INIT,
-#     NIMBUSFinalState: StateKind.NIMBUS_FINAL,
-#     EMOIterateState: StateKind.EMO_RUN,
-#     GNIMBUSOptimizationState: StateKind.GNIMBUS_OPTIMIZE,
-#     GNIMBUSVotingState: StateKind.GNIMBUS_VOTE,
-#     GNIMBUSEndState: StateKind.GNIMBUS_END,
-#     EMOSaveState: StateKind.EMO_SAVE,
-#     EMOFetchState: StateKind.EMO_FETCH,
-#     EMOSCOREState: StateKind.EMO_SCORE,
-#     IntermediateSolutionState: StateKind.GENERIC_INTERMEDIATE,
-#     ENautilusState: StateKind.ENAUTILUS_STEP,
-#     ENautilusFinalState: StateKind.ENAUTILUS_FINAL,
-#     # NautilusState: StateKind.NAUTILUS_NAVIGATE,
-#     # NautilusState: StateKind.NAUTILUS_INITIALIZE
-# }
+SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
+    RPMState: StateKind.RPM_SOLVE,
+    NIMBUSClassificationState: StateKind.NIMBUS_SOLVE,
+    NIMBUSSaveState: StateKind.NIMBUS_SAVE,
+    NIMBUSInitializationState: StateKind.NIMBUS_INIT,
+    NIMBUSFinalState: StateKind.NIMBUS_FINAL,
+    EMOIterateState: StateKind.EMO_RUN,
+    GNIMBUSOptimizationState: StateKind.GNIMBUS_OPTIMIZE,
+    GNIMBUSVotingState: StateKind.GNIMBUS_VOTE,
+    GNIMBUSEndState: StateKind.GNIMBUS_END,
+    EMOSaveState: StateKind.EMO_SAVE,
+    EMOFetchState: StateKind.EMO_FETCH,
+    EMOSCOREState: StateKind.EMO_SCORE,
+    IntermediateSolutionState: StateKind.GENERIC_INTERMEDIATE,
+    ENautilusState: StateKind.ENAUTILUS_STEP,
+    ENautilusFinalState: StateKind.ENAUTILUS_FINAL,
+    # NautilusState: StateKind.NAUTILUS_NAVIGATE,
+    # NautilusState: StateKind.NAUTILUS_INITIALIZE
+}
 
 
 def _method_phase_from_kind(kind: StateKind) -> tuple[str, str]:
