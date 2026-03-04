@@ -123,7 +123,7 @@
 
 		// Adapt left margin based on longest objective name
 		const longestNameLength = d3.max(data, (d) => d.name.length) ?? 0;
-		margin.left = Math.max(8, longestNameLength * 3);
+		margin.left = Math.max(10, longestNameLength * 5);
 
 		colorDict = createColorDictionary(data);
 

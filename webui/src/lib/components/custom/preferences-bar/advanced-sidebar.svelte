@@ -221,13 +221,13 @@
 										<Tooltip.Trigger class="w-4 h-4 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold hover:bg-blue-200 cursor-help">
 											?
 										</Tooltip.Trigger>
-										<Tooltip.Content class="text-xs max-w-xs">
+										<Tooltip.Content class="text-sm max-w-xs">
 											Click on any bar to see their expected changes when improving <span class="font-semibold">{objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol}</span>
 										</Tooltip.Content>
 									</Tooltip.Root>
 								</div>
 
-								<p class="text-xs text-gray-600">
+								<p class="text-sm text-gray-600">
 									Tradeoff levels ranked from the strongest to the weakest.
 								</p>
 
@@ -246,7 +246,7 @@
 									<p class="text-sm font-semibold text-amber-900">
 										{objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol} is most strongly impaired by {highestTradeoffObjectiveName}
 									</p>
-									<p class="text-xs text-amber-800">
+									<p class="text-sm text-amber-800">
 										You need to choose which objective to impair. If you cannot accept losses in {highestTradeoffObjectiveName}, pick a lower-ranked objective—smaller values mean less impact.
 									</p>
 								</div>
