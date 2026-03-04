@@ -1,44 +1,63 @@
-import datetime
-
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String
-
-from desdeo.api.db import Base
+from sqlmodel import JSON, Column, Field, SQLModel
 
 
-class NautilusStateDB(Base):
-    """Database model storing the state of a NAUTILUS interactive navigation session.
+class NautilusState(SQLModel, table=True):
+    """Concrete NAUTILUS Navigator state stored for a single interaction step.
 
-    Each record represents a single interaction step within a NAUTILUS session,
-    such as initialization, navigation, or finalization. The table supports
-    branching session trees by maintaining parent-child relationships between states.
+    This model stores the full algorithmic state returned by the
+    NAUTILUS Navigator after either initialization or a navigation step.
+
+    The instance is linked to a base `StateDB` entry, which defines the
+    problem context and state type (e.g. "nautilus.initialize" or
+    "nautilus.navigate"). This table contains only the algorithm-specific
+    data required to reconstruct the navigation process at that step.
 
     Attributes:
-        id (int): Primary key identifying this state entry.
-        session_id (int): Identifier of the interactive NAUTILUS session.
-        parent_state_id (int | None): Foreign key referencing the parent state.
-            Null for root (initialization) nodes.
-        request (JSON): Serialized Nautilus request model used to generate this state.
-        response (JSON): Serialized Nautilus response model produced by the algorithm.
-        node_type (str): Type of interaction that generated the state.
-            Expected values include:
-                - "initialize"
-                - "navigate"
-                - "final"
-        depth (int): Depth of this node within the session tree (root = 0).
-        created_at (datetime): Timestamp when this state was created.
+        id (int | None): Primary key of this NAUTILUS state entry.
+        objective_symbols (list[str]): Short symbolic names of the objectives.
+        objective_long_names (list[str]): Descriptive names of the objectives.
+        units (list[str] | None): Units of the objectives, if defined. None if unitless.
+        is_maximized (list[bool]): Boolean flags indicating whether each objective
+            is to be maximized (True) or minimized (False).
+        ideal (list[float]): Ideal objective values of the problem.
+        nadir (list[float]): Nadir objective values of the problem.
+        lower_bounds (dict[str, list[float]]): Lower bounds of the reachable region per objective
+            across navigation steps.
+        upper_bounds (dict[str, list[float]]): Upper bounds of the reachable region per objective
+            across navigation steps.
+        preferences (dict[str, list[float]]): Preference values provided by the decision maker
+            for each navigation step.
+        bounds (dict[str, list[float]]): Bound preferences provided by the decision maker
+            for each navigation step.
+        total_steps (int): Total number of steps allowed in this NAUTILUS session.
+        current_step (int): Current navigation step index.
+        remaining_steps (int): Number of steps remaining in the navigation process.
+        reachable_solution (dict[str, float]): The objective values of the currently reachable solution.
     """
 
     __tablename__ = "nautilus_states"
 
-    id = Column(Integer, primary_key=True)
-    session_id = Column(Integer, nullable=False)
-    parent_state_id = Column(Integer, ForeignKey("nautilus_states.id"), nullable=True)
+    id: int | None = Field(default=None, primary_key=True)
 
-    request = Column(JSON, nullable=False)
-    response = Column(JSON, nullable=False)
+    # Problem meta
+    objective_symbols: list[str] = Field(sa_column=Column(JSON))
+    objective_long_names: list[str] = Field(sa_column=Column(JSON))
+    units: list[str] | None = Field(default=None, sa_column=Column(JSON))
+    is_maximized: list[bool] = Field(sa_column=Column(JSON))
 
-    node_type = Column(String, nullable=False)  # "initialize", "navigate", "final"
+    # Problem bounds
+    ideal: list[float] = Field(sa_column=Column(JSON))
+    nadir: list[float] = Field(sa_column=Column(JSON))
 
-    depth = Column(Integer, nullable=False)
+    # Navigation data
+    lower_bounds: dict[str, list[float]] = Field(sa_column=Column(JSON))
+    upper_bounds: dict[str, list[float]] = Field(sa_column=Column(JSON))
+    preferences: dict[str, list[float]] = Field(sa_column=Column(JSON))
+    bounds: dict[str, list[float]] = Field(sa_column=Column(JSON))
 
-    created_at = Column(DateTime, default=datetime.utcnow)
+    total_steps: int
+    current_step: int
+    remaining_steps: int
+
+    # Final reachable solution
+    reachable_solution: dict[str, float] = Field(sa_column=Column(JSON))

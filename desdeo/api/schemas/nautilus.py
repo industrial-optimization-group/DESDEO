@@ -25,7 +25,6 @@ class NautilusInitialResponse(BaseModel):
 
     state_id: int = Field(..., description="The ID of this navigation state.")
     response_type: Literal["nautilus.initialize"] = "nautilus.initialize"
-    node_type: Literal["initialize"] = "initialize"
     parent_state_id: int | None = Field(None, description="Parent state ID, if this is a child step.")
 
     objective_symbols: list[str] = Field(..., description="The symbols of the objectives.")
@@ -42,7 +41,6 @@ class NautilusNavigateResponse(BaseModel):
 
     state_id: int = Field(..., description="The ID of this navigation state.")
     response_type: Literal["nautilus.navigate"] = "nautilus.navigate"
-    node_type: Literal["navigate", "final"] = "navigate"
     parent_state_id: int | None = Field(None, description="Parent state ID, if this is a child step.")
 
     objective_symbols: list[str] = Field(..., description="The symbols of the objectives.")
@@ -58,4 +56,4 @@ class NautilusNavigateResponse(BaseModel):
     bounds: dict[str, list[float]] = Field(..., description="Bounds used in each step per objective.")
 
     total_steps: int = Field(..., description="The total number of steps in the current navigation path.")
-    reachable_solution: dict = Field(..., description="The solution reached at the end of navigation.")
+    reachable_solution: dict[str, float] = Field(..., description="The solution reached at the end of navigation.")
