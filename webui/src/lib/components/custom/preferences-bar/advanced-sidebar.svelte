@@ -182,8 +182,76 @@
 										}
 									}}
 								/>
-								<!-- Preference Suggestions Section (PRIMARY - shown first) -->
 								{#if selectedObjectiveSymbol && currentSuggestions}
+									
+										<!-- Tradeoff ranking chart  -->
+										{#if tradeoffs && selectedObjectiveSymbol}
+											<div class="mt-4 pt-3 border-t border-gray-200">
+												<div class="flex items-center gap-2 mb-4">
+													<p class="text-primary font-semibold text-gray-600">Tradeoff Ranking
+													</p>
+													
+													<Tooltip.Root>
+														<Tooltip.Trigger class="w-4 h-4 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold hover:bg-blue-200 cursor-help">
+															?
+														</Tooltip.Trigger>
+														<Tooltip.Content class="text-xs max-w-xs">
+															Click on any bar to see their expected changes when improving <span class="font-semibold">{objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol}</span>
+														</Tooltip.Content>
+													</Tooltip.Root>
+
+												</div>
+												<div class="text-primary text-sm mb-4">Tradeoff levels ranked from the strongest to the weakest.</div>
+
+												<ExpRankingBarchart
+													data={formatTradeofftoDict(tradeoffs[selectedObjectiveSymbol], problem)}
+													options={{ showLabels: false }}
+													onSelect={handleTradeoffClick}
+													selectedBarSymbol={selectedTradeoffSymbol}
+													selected_objective_symbol={selectedObjectiveSymbol}
+												/>
+												<div class="mb-2 mt-4 p-3 bg-gray-50 rounded text-xs space-y-2">
+															{#if primaryConflicts.length > 0}
+																<div class="flex items-start gap-2">
+																	<span class="text-red-600 font-bold">Strong Tradeoffs ({primaryConflicts.length}):</span>
+																	<span class="text-gray-600">
+																		{primaryConflicts.map((s) => objectiveNames[s] || s).join(', ')}
+																	</span>
+																</div>
+															{/if}
+
+															{#if primaryConflicts.length === 0 && resilient.length === 0}
+																<div class="flex items-start gap-2">
+																	<span class="text-blue-600 font-bold">Moderate Tradeoffs:</span>
+																	<span class="text-gray-600">
+																		All other objectives have moderate tradeoffs with {objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol}.
+																	</span>
+																</div>
+															{/if}
+															{#if resilient.length > 0}
+																<div class="flex items-start gap-2">
+																	<span class="text-green-600 font-bold">Weak Tradeoffs ({resilient.length}):</span>
+																	<span class="text-gray-600">
+																		{resilient.map((s) => objectiveNames[s] || s).join(', ')}
+																	</span>
+																</div>
+															{/if}
+												</div>
+												{#if selectedTradeoffSymbol !== null && selectedTradeoffSymbol !== undefined && selectedTradeoffSymbol !== ''}
+													<div class="mt-3 p-3 bg-purple-50 rounded">
+
+
+							
+														Gaining one unit in {objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol}, will impair {objectiveNames[selectedTradeoffSymbol] || selectedTradeoffSymbol} by {Math.abs(tradeoffs[selectedObjectiveSymbol][selectedTradeoffSymbol]).toFixed(2)} units.
+															
+															
+														
+													</div>
+												{/if}
+												
+											</div>
+										{/if}
+										<!-- 
 									<div class="mt-4 pt-4 border-t border-gray-200">
 										<div class="mb-3 flex flex-row items-center gap-2">
 											<span class="text-sm font-semibold">✨ Recommended Actions</span>
@@ -200,7 +268,6 @@
 											</Tooltip.Root>
 										</div>
 
-										<!-- Primary action: improve selected objective -->
 										<div class="mb-3 p-3 bg-blue-50 rounded">
 											<div class="flex items-start justify-between gap-2">
 												<div class="flex-1">
@@ -338,58 +405,7 @@
 											</div>
 										{/if}
 
-										<!-- Tradeoff ranking chart as secondary detail -->
-										{#if tradeoffs && selectedObjectiveSymbol}
-											<div class="mt-4 pt-3 border-t border-gray-200">
-												<div class="flex items-center gap-2 mb-2">
-													<p class="text-xs font-semibold text-gray-600">📊 Tradeoff Ranking (details)</p>
-													<Tooltip.Root>
-														<Tooltip.Trigger class="w-4 h-4 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold hover:bg-blue-200 cursor-help">
-															?
-														</Tooltip.Trigger>
-														<Tooltip.Content class="text-xs max-w-xs">
-															Click on any bar to see how to adjust that objective when improving <span class="font-semibold">{objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol}</span>
-														</Tooltip.Content>
-													</Tooltip.Root>
-												</div>
-												<ExpRankingBarchart
-													data={formatTradeofftoDict(tradeoffs[selectedObjectiveSymbol], problem)}
-													options={{ showLabels: false }}
-													onSelect={handleTradeoffClick}
-													selectedBarSymbol={selectedTradeoffSymbol}
-													selected_objective_symbol={selectedObjectiveSymbol}
-												/>
-												{#if selectedTradeoffSymbol !== null && selectedTradeoffSymbol !== undefined && selectedTradeoffSymbol !== ''}
-													<div class="mt-3 p-3 bg-purple-50 rounded">
-														<p class="text-xs font-semibold text-purple-700 mb-2">
-															If you improve {objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol}, handle {objectiveNames[selectedTradeoffSymbol] || selectedTradeoffSymbol} as follows:
-														</p>
-														<div class="text-xs text-purple-800 space-y-1">
-															<div class="flex justify-between">
-																<span>Current:</span>
-																<span class="font-mono font-semibold"
-																	>{selectedSolutionObjectiveValues && selectedTradeoffSymbol
-																		? selectedSolutionObjectiveValues[selectedTradeoffSymbol]?.toFixed(4)
-																		: 'N/A'}</span
-																>
-															</div>
-															<div class="flex justify-between">
-																<span>Suggested:</span>
-																<span class="font-mono font-semibold text-purple-900"
-																	>{currentSuggestions.suggested_preferences[selectedTradeoffSymbol]?.toFixed(4) || 'N/A'}</span
-																>
-															</div>
-															{#if currentSuggestions.preferences_explanations[selectedTradeoffSymbol]}
-																<p class="text-purple-700 italic mt-1">
-																	{currentSuggestions.preferences_explanations[selectedTradeoffSymbol].split(':')[0]}
-																</p>
-															{/if}
-														</div>
-													</div>
-												{/if}
-											</div>
-										{/if}
-									</div>
+									</div> -->
 								{/if}
 							</div>
 						{/if}
