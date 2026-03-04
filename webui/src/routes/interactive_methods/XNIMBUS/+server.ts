@@ -133,14 +133,6 @@ const handlers: Record<string, HandlerFunction> = {
         };
         return makeApiRequest('/method/xnimbus/get-multipliers-info', requestBody, refreshToken);
     },
-    get_all_preference_suggestions: (body, refreshToken) => {
-        const { state_id } = body;
-        const requestBody = {
-            state_id: Number(state_id),
-            objective_symbols: body.objective_symbols
-        };
-        return makeApiRequest('/method/xnimbus/get-all-preference-suggestions', requestBody, refreshToken);
-    }
 };
 
 export const POST: RequestHandler = async ({ url, request, cookies }) => {

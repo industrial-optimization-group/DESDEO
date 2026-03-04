@@ -18,7 +18,6 @@
 		solutions: Array<Solution>;
 		multipliers: Record<string, number> | null;
 		tradeoffs: Record<string, Record<string, number>> | null;
-		allPreferenceSuggestions?: Record<string, any> | null;
 		currentObjectiveValues?: Record<string, number> | null;
 		selectedSolutions?: Array<number>;
 		selectedObjectiveSymbol?: string | null;
@@ -34,7 +33,6 @@
 		solutions,
 		multipliers,
 		tradeoffs,
-		allPreferenceSuggestions = null,
 		currentObjectiveValues = null,
 		selectedSolutions,
 		selectedObjectiveSymbol,
@@ -72,16 +70,6 @@
 		return undefined;
 	}
 
-	// Derived reactive variables for preference suggestions
-	const currentSuggestions = $derived(
-		selectedObjectiveSymbol && allPreferenceSuggestions && allPreferenceSuggestions[selectedObjectiveSymbol]
-			? allPreferenceSuggestions[selectedObjectiveSymbol]
-			: null
-	);
-
-	const primaryConflicts = $derived(currentSuggestions?.primary_conflicts || []);
-	const resilient = $derived(currentSuggestions?.resilient_objectives || []);
-
 	// Compute current objective values from selected solution
 	const selectedSolutionObjectiveValues = $derived.by(() => {
 		if (!selectedSolutions || selectedSolutions.length === 0 || !solutions[selectedSolutions[0]]) {
@@ -91,6 +79,55 @@
 		// objective_values is already an object mapping symbol -> value
 		return selectedSolution.objective_values || null;
 	});
+
+		const highestTradeoffObjectiveSymbol = $derived.by(() => {
+		if (!tradeoffs || !selectedObjectiveSymbol || !tradeoffs[selectedObjectiveSymbol]) {
+			return null;
+		}
+
+		let highestSymbol: string | null = null;
+		let highestValue = -Infinity;
+		const selectedRow = tradeoffs[selectedObjectiveSymbol];
+
+		for (const [symbol, value] of Object.entries(selectedRow)) {
+			if (symbol === selectedObjectiveSymbol) {
+				continue;
+			}
+
+			const absValue = Math.abs(value);
+			if (absValue > highestValue) {
+				highestValue = absValue;
+				highestSymbol = symbol;
+			}
+		}
+
+		return highestSymbol;
+	});
+
+	const highestTradeoffObjectiveName = $derived(
+		highestTradeoffObjectiveSymbol
+			? objectiveNames[highestTradeoffObjectiveSymbol] || highestTradeoffObjectiveSymbol
+			: 'N/A'
+	);
+
+	// Format number with significant digits, avoiding "0.00" for very small values
+	function formatTradeoffValue(value: number): string {
+		const absValue = Math.abs(value);
+		if (absValue === 0) return '0';
+		
+		// For very small numbers, use scientific notation
+		if (absValue < 0.001) {
+			return absValue.toExponential(SIGNIFICANT_DIGITS);
+		}
+		
+		// For values less than 1, show enough decimals to capture significant digits
+		if (absValue < 1) {
+			return absValue.toPrecision(SIGNIFICANT_DIGITS);
+		}
+		
+		// For larger values, use fixed decimal places
+		return absValue.toFixed(SIGNIFICANT_DIGITS);
+	}
 
 </script>
 
@@ -106,311 +143,129 @@
 				Please select a solution to view its explanations.
 			</div>
 		{:else}
-			<div>
-				<!-- 				<h4 class="mb-3 text-sm font-semibold">
-					{solutions[selectedSolutions[0]].name == null
-						? 'Solution ' + (selectedSolutions[0] + 1)
-						: solutions[selectedSolutions[0]].name}
-				</h4> -->
+			<div class="space-y-6">
+				{#if multipliers}
+					<!-- Impact Section -->
+					<div class="space-y-3">
+						<div class="flex items-center gap-2">
+							<h3 class="text-sm font-semibold">
+								Impact Analysis for 
+								<span class="text-primary">
+									{solutions[selectedSolutions[0]].name == null
+										? 'Solution ' + (selectedSolutions[0] + 1)
+										: solutions[selectedSolutions[0]].name}
+								</span>
+							</h3>
+							<Tooltip.Root>
+								<Tooltip.Trigger><InfoIcon class="h-4 w-4 text-gray-400" /></Tooltip.Trigger>
+								<Tooltip.Content side="right" class="tooltip-content max-w-xs">
+									The height of each bar represents how strongly each objective function
+									influences the selected solution. When you select an objective function, you can see how improving it affects the other objectives.
+								</Tooltip.Content>
+							</Tooltip.Root>
+						</div>
 
-				<!-- Objective values -->
-				<div class="mb-4">
-					<div>
-						{#if multipliers}
-							<div class="mb-4">
-								<div class="mb-2 flex flex-row">
-									<span class="text-sm"
-										>Impact of each objective function value in <span
-											class="text-primary font-semibold"
-										>
-											{solutions[selectedSolutions[0]].name == null
-												? 'Solution ' + (selectedSolutions[0] + 1)
-												: solutions[selectedSolutions[0]].name}</span
-										>.</span
-									>
+						<div class="bg-gray-50 rounded-lg p-3">
+							<ExpBarchart
+								data={multipliers && selectedSolutions.length > 0
+									? Object.entries(multipliers).map(([key, value]) => {
+											const obj = problem.objectives.find((o) => o.symbol === key);
+											return {
+												name: obj?.name ?? key,
+												symbol: key,
+												value: -1 * value,
+												direction: obj?.maximize ? 'max' : 'min'
+											};
+										})
+									: []}
+								options={{ showLabels: true, type: 'multipliers' }}
+								onSelect={handleObjectiveClick}
+								selected_objective_symbol={selectedObjectiveSymbol}
+							/>
+						</div>
+					</div>
 
+					<!-- Objective Selection Section -->
+					<div class="space-y-2">
+						<label class="text-sm font-medium text-gray-700">
+							Select objective function to improve
+						</label>
+						<Combobox
+							placeholder="Select Objective to View Trade-offs"
+							width={300}
+							options={objectiveNames
+								? problem.objectives.map((obj, idx) => ({
+										label: objectiveNames[obj.symbol] || obj.symbol,
+										value: obj.symbol
+									}))
+								: []}
+							defaultSelected={selectedObjectiveSymbol !== null &&
+							selectedObjectiveSymbol !== undefined
+								? selectedObjectiveSymbol
+								: ''}
+							onChange={(value) => {
+								if (handleObjectiveClick) {
+									handleObjectiveClick(value);
+								}
+							}}
+						/>
+					</div>
+
+					{#if selectedObjectiveSymbol !== null && selectedObjectiveSymbol !== undefined && selectedObjectiveSymbol !== ''}
+						{#if tradeoffs && selectedObjectiveSymbol}
+							<!-- Tradeoff Ranking Section -->
+							<div class="border-t pt-4 space-y-4">
+								<div class="flex items-center gap-2">
+									<h3 class="text-sm font-semibold text-primary">Tradeoff Ranking</h3>
 									<Tooltip.Root>
-										<Tooltip.Trigger><InfoIcon class="h-5 w-5" /></Tooltip.Trigger>
-										<Tooltip.Content side="right" class="tooltip-content">
-											The height of each bar represents how strongly each objective function
-											influences the selected solution (<span class="text-primary font-semibold"
-												>{solutions[selectedSolutions[0]].name == null
-													? 'Solution ' + (selectedSolutions[0] + 1)
-													: solutions[selectedSolutions[0]].name}</span
-											>). When you select an objective function, you can see how improving it by one
-											unit affects the other objective functions.
+										<Tooltip.Trigger class="w-4 h-4 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold hover:bg-blue-200 cursor-help">
+											?
+										</Tooltip.Trigger>
+										<Tooltip.Content class="text-xs max-w-xs">
+											Click on any bar to see their expected changes when improving <span class="font-semibold">{objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol}</span>
 										</Tooltip.Content>
 									</Tooltip.Root>
 								</div>
 
-								<div>
-									<ExpBarchart
-										data={multipliers && selectedSolutions.length > 0
-											? Object.entries(multipliers).map(([key, value]) => {
-													const obj = problem.objectives.find((o) => o.symbol === key);
-													return {
-														name: obj?.name ?? key,
-														symbol: key,
-														value: -1 * value,
-														direction: obj?.maximize ? 'max' : 'min'
-													};
-												})
-											: []}
-										options={{ showLabels: true, type: 'multipliers' }}
-										onSelect={handleObjectiveClick}
+								<p class="text-xs text-gray-600">
+									Tradeoff levels ranked from the strongest to the weakest.
+								</p>
+
+								<div class="bg-gray-50 rounded-lg p-3">
+									<ExpRankingBarchart
+										data={formatTradeofftoDict(tradeoffs[selectedObjectiveSymbol], problem)}
+										options={{ showLabels: false }}
+										onSelect={handleTradeoffClick}
+										selectedBarSymbol={selectedTradeoffSymbol}
 										selected_objective_symbol={selectedObjectiveSymbol}
 									/>
 								</div>
-								<span class="text-sm"> Select an objective function you want to improve. </span>
 
-								<Combobox
-									placeholder="Select Objective to View Trade-offs"
-									width={300}
-									options={objectiveNames
-										? problem.objectives.map((obj, idx) => ({
-												label: objectiveNames[obj.symbol] || obj.symbol,
-												value: obj.symbol
-											}))
-										: []}
-									defaultSelected={selectedObjectiveSymbol !== null &&
-									selectedObjectiveSymbol !== undefined
-										? selectedObjectiveSymbol
-										: ''}
-									onChange={(value) => {
-										if (handleObjectiveClick) {
-											handleObjectiveClick(value);
-										}
-									}}
-								/>
-								{#if selectedObjectiveSymbol && currentSuggestions}
-									
-										<!-- Tradeoff ranking chart  -->
-										{#if tradeoffs && selectedObjectiveSymbol}
-											<div class="mt-4 pt-3 border-t border-gray-200">
-												<div class="flex items-center gap-2 mb-4">
-													<p class="text-primary font-semibold text-gray-600">Tradeoff Ranking
-													</p>
-													
-													<Tooltip.Root>
-														<Tooltip.Trigger class="w-4 h-4 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold hover:bg-blue-200 cursor-help">
-															?
-														</Tooltip.Trigger>
-														<Tooltip.Content class="text-xs max-w-xs">
-															Click on any bar to see their expected changes when improving <span class="font-semibold">{objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol}</span>
-														</Tooltip.Content>
-													</Tooltip.Root>
+								<!-- Decision Guidance -->
+								<div class="bg-amber-50 border-l-4 border-amber-400 rounded-r-lg p-3 space-y-2">
+									<p class="text-sm font-semibold text-amber-900">
+										{objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol} is most strongly impaired by {highestTradeoffObjectiveName}
+									</p>
+									<p class="text-xs text-amber-800">
+										You need to choose which objective to impair. If you cannot accept losses in {highestTradeoffObjectiveName}, pick a lower-ranked objective—smaller values mean less impact.
+									</p>
+								</div>
 
-												</div>
-												<div class="text-primary text-sm mb-4">Tradeoff levels ranked from the strongest to the weakest.</div>
-
-												<ExpRankingBarchart
-													data={formatTradeofftoDict(tradeoffs[selectedObjectiveSymbol], problem)}
-													options={{ showLabels: false }}
-													onSelect={handleTradeoffClick}
-													selectedBarSymbol={selectedTradeoffSymbol}
-													selected_objective_symbol={selectedObjectiveSymbol}
-												/>
-												<div class="mb-2 mt-4 p-3 bg-gray-50 rounded text-xs space-y-2">
-															{#if primaryConflicts.length > 0}
-																<div class="flex items-start gap-2">
-																	<span class="text-red-600 font-bold">Strong Tradeoffs ({primaryConflicts.length}):</span>
-																	<span class="text-gray-600">
-																		{primaryConflicts.map((s) => objectiveNames[s] || s).join(', ')}
-																	</span>
-																</div>
-															{/if}
-
-															{#if primaryConflicts.length === 0 && resilient.length === 0}
-																<div class="flex items-start gap-2">
-																	<span class="text-blue-600 font-bold">Moderate Tradeoffs:</span>
-																	<span class="text-gray-600">
-																		All other objectives have moderate tradeoffs with {objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol}.
-																	</span>
-																</div>
-															{/if}
-															{#if resilient.length > 0}
-																<div class="flex items-start gap-2">
-																	<span class="text-green-600 font-bold">Weak Tradeoffs ({resilient.length}):</span>
-																	<span class="text-gray-600">
-																		{resilient.map((s) => objectiveNames[s] || s).join(', ')}
-																	</span>
-																</div>
-															{/if}
-												</div>
-												{#if selectedTradeoffSymbol !== null && selectedTradeoffSymbol !== undefined && selectedTradeoffSymbol !== ''}
-													<div class="mt-3 p-3 bg-purple-50 rounded">
-
-
-							
-														Gaining one unit in {objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol}, will impair {objectiveNames[selectedTradeoffSymbol] || selectedTradeoffSymbol} by {Math.abs(tradeoffs[selectedObjectiveSymbol][selectedTradeoffSymbol]).toFixed(2)} units.
-															
-															
-														
-													</div>
-												{/if}
-												
-											</div>
-										{/if}
-										<!-- 
-									<div class="mt-4 pt-4 border-t border-gray-200">
-										<div class="mb-3 flex flex-row items-center gap-2">
-											<span class="text-sm font-semibold">✨ Recommended Actions</span>
-											<Tooltip.Root>
-												<Tooltip.Trigger><InfoIcon class="h-4 w-4" /></Tooltip.Trigger>
-												<Tooltip.Content side="right" class="tooltip-content max-w-xs">
-													<p>
-														Based on the tradeoff analysis, here's what to adjust to improve
-														<span class="text-primary font-semibold"
-															>{objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol}</span
-														>.
-													</p>
-												</Tooltip.Content>
-											</Tooltip.Root>
-										</div>
-
-										<div class="mb-3 p-3 bg-blue-50 rounded">
-											<div class="flex items-start justify-between gap-2">
-												<div class="flex-1">
-													<p class="font-semibold text-blue-700 text-sm mb-2">
-														To improve {objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol}:
-													</p>
-													<div class="text-xs text-blue-900 mb-2 space-y-1">
-														<div class="flex justify-between">
-															<span>Current solution value:</span>
-															<span class="font-mono font-semibold"
-																>{selectedSolutionObjectiveValues && selectedObjectiveSymbol
-																	? selectedSolutionObjectiveValues[selectedObjectiveSymbol]?.toFixed(4)
-																	: 'N/A'}
-																</span
-															>
-														</div>
-														<div class="flex justify-between text-green-700">
-															<span>Suggested aspiration:</span>
-															<span class="font-mono font-semibold"
-																>{currentSuggestions.suggested_preferences[selectedObjectiveSymbol]?.toFixed(4) ||
-																	'N/A'}</span
-															>
-														</div>
-													</div>
-													<p class="text-xs text-blue-700 italic">
-														({currentSuggestions.improvement_direction}) ~25% improvement from current
-													</p>
-												</div>
-												<Tooltip.Root>
-													<Tooltip.Trigger><InfoIcon class="h-4 w-4 flex-shrink-0 text-blue-600" /></Tooltip.Trigger>
-													<Tooltip.Content side="right" class="tooltip-content max-w-xs">
-														<p>
-															This suggestion is 25% better than the current objective value (or 25% of the way toward the bound if available). It's an ambitious but feasible target based on the solution space.
-														</p>
-													</Tooltip.Content>
-												</Tooltip.Root>
-											</div>
-										</div>
-
-										{#if primaryConflicts.length > 0}
-											<div class="mb-3 p-3 bg-red-50 rounded">
-												<div class="flex items-start gap-2 mb-2">
-													<p class="font-semibold text-red-700 text-sm">
-														⚠️ Expected impacts on objectives with strong tradeoffs:
-													</p>
-													<Tooltip.Root>
-														<Tooltip.Trigger><InfoIcon class="h-4 w-4 flex-shrink-0 text-red-600" /></Tooltip.Trigger>
-														<Tooltip.Content side="right" class="tooltip-content max-w-xs">
-															<p>
-																These objectives are heavily affected when improving
-																<span class="text-primary font-semibold"
-																	>{objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol}</span
-																>. The suggested values are slightly relaxed from the current solution to make
-																room for improvement.
-															</p>
-														</Tooltip.Content>
-													</Tooltip.Root>
-												</div>
-												<div class="text-red-600 space-y-2 text-xs">
-													{#each primaryConflicts as objSymbol}
-														<div class="border-l-2 border-red-300 pl-2">
-															<div class="flex justify-between items-start mb-1">
-																<span class="font-semibold">{objectiveNames[objSymbol] || objSymbol}</span>
-															</div>
-															<div class="space-y-0.5 text-red-700">
-																<div class="flex justify-between">
-																	<span class="text-gray-600">Current:</span>
-																	<span class="font-mono"
-																		>{selectedSolutionObjectiveValues && objSymbol
-																			? selectedSolutionObjectiveValues[objSymbol]?.toFixed(4)
-																			: 'N/A'}</span
-																	>
-																</div>
-																<div class="flex justify-between">
-																	<span class="font-semibold">→ Suggested:</span>
-																	<span class="font-mono font-semibold"
-																		>{currentSuggestions.suggested_preferences[objSymbol]?.toFixed(4) ||
-																			'N/A'}</span
-																	>
-																</div>
-															</div>
-															{#if currentSuggestions.preferences_explanations[objSymbol]}
-																<p class="text-red-600 italic text-xs mt-1">
-																	{currentSuggestions.preferences_explanations[objSymbol].split(':')[0]}
-																</p>
-															{/if}
-														</div>
-													{/each}
-												</div>
-											</div>
-										{/if}
-
-										{#if resilient.length > 0}
-											<div class="mb-3 p-3 bg-green-50 rounded">
-												<div class="flex items-start gap-2 mb-2">
-													<p class="font-semibold text-green-700 text-sm">✓ Objectives resilient to changes:</p>
-													<Tooltip.Root>
-														<Tooltip.Trigger><InfoIcon class="h-4 w-4 flex-shrink-0 text-green-600" /></Tooltip.Trigger>
-														<Tooltip.Content side="right" class="tooltip-content max-w-xs">
-															<p>
-																These objectives are barely affected when improving
-																<span class="text-primary font-semibold"
-																	>{objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol}</span
-																>. You can slightly tighten them with minimal impact.
-															</p>
-														</Tooltip.Content>
-													</Tooltip.Root>
-												</div>
-												<div class="text-green-600 space-y-2 text-xs">
-													{#each resilient as objSymbol}
-														<div class="border-l-2 border-green-300 pl-2">
-															<div class="flex justify-between items-start mb-1">
-																<span class="font-semibold">{objectiveNames[objSymbol] || objSymbol}</span>
-															</div>
-															<div class="space-y-0.5 text-green-700">
-																<div class="flex justify-between">
-																	<span class="text-gray-600">Current:</span>
-																	<span class="font-mono"
-																		>{selectedSolutionObjectiveValues && objSymbol
-																			? selectedSolutionObjectiveValues[objSymbol]?.toFixed(4)
-																			: 'N/A'}</span
-																	>
-																</div>
-																<div class="flex justify-between">
-																	<span class="font-semibold">→ Suggested:</span>
-																	<span class="font-mono font-semibold"
-																		>{currentSuggestions.suggested_preferences[objSymbol]?.toFixed(4) ||
-																			'N/A'}</span
-																	>
-																</div>
-															</div>
-														</div>
-													{/each}
-												</div>
-											</div>
-										{/if}
-
-									</div> -->
+								{#if selectedTradeoffSymbol !== null && selectedTradeoffSymbol !== undefined && selectedTradeoffSymbol !== ''}
+									<!-- Selected Tradeoff Details -->
+									<div class="bg-purple-50 border-l-4 border-purple-400 rounded-r-lg p-3">
+										<p class="text-sm font-semibold text-purple-900 mb-1">Tradeoff Rate</p>
+										<p class="text-sm text-purple-800">
+											Improving <span class="font-semibold">{objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol}</span> by one unit will impair 
+											<span class="font-semibold">{objectiveNames[selectedTradeoffSymbol] || selectedTradeoffSymbol}</span> by approximately
+											<span class="font-semibold">{formatTradeoffValue(tradeoffs[selectedObjectiveSymbol][selectedTradeoffSymbol])}</span> units.
+										</p>
+									</div>
 								{/if}
 							</div>
 						{/if}
-					</div>
-				</div>
+					{/if}
+				{/if}
 			</div>
 		{/if}
 	</Sidebar.Content>

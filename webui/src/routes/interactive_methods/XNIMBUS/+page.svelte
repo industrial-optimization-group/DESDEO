@@ -64,8 +64,7 @@
 		handle_finish as handleFinishRequest,
 		get_maps as getMapsRequest,
 		initialize_nimbus_state as initializeNimbusStateRequest,
-		handle_get_multipliers as handleGetMultipliersRequest,
-		handle_get_all_preference_suggestions as handleGetAllPreferenceSuggestionsRequest
+		handle_get_multipliers as handleGetMultipliersRequest
 	} from './handlers';
 
 	// State for NIMBUS iteration management
@@ -148,8 +147,6 @@
 	let current_multipliers: Array<Record<string, number> | null> | null = $state(null);
 	// Store current tradeoffs matrix for the current solutions
 	let current_tradeoffs: Array<Record<string, Record<string, number>> | null> | null = $state(null);
-	// Store all preference suggestions for the current solution (indexed by objective)
-	let all_preference_suggestions: Record<string, any> | null = $state(null);
 	let current_objective_values: Record<string, number> | null = $state(null);
 
 	// Variable to track if problem has utopia metadata
@@ -436,7 +433,7 @@
 		}
 	}
 
-	//Fetch multipliers, tradeoffs, and preference suggestions for current solutions
+	//Fetch multipliers and tradeoffs for current solutions
 	async function fetch_multipliers() {
 		if (!current_state || !current_state.state_id) {
 			console.error('No current state available to fetch multipliers');
@@ -454,17 +451,6 @@
 		} else {
 			current_multipliers = null;
 			current_tradeoffs = null;
-		}
-
-		// Fetch all preference suggestions (computed for every objective)
-		const suggestionsData = await handleGetAllPreferenceSuggestionsRequest(current_state.state_id, objective_symbols);
-		console.log('Fetched all preference suggestions:', suggestionsData);
-		if (suggestionsData) {
-			all_preference_suggestions = suggestionsData.all_suggestions;
-			current_objective_values = suggestionsData.current_objective_values;
-		} else {
-			all_preference_suggestions = null;
-			current_objective_values = null;
 		}
 	}
 
@@ -871,7 +857,6 @@
 					solutions={chosen_solutions}
 					multipliers={current_multipliers ? current_multipliers[selectedIndexes[0]] : null}
 					tradeoffs={current_tradeoffs ? current_tradeoffs[selectedIndexes[0]] : null}
-					allPreferenceSuggestions={all_preference_suggestions}
 					currentObjectiveValues={current_objective_values}
 					selectedSolutions={selectedIndexes}
 					selectedObjectiveSymbol={selected_objective_symbol}

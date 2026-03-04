@@ -122,41 +122,6 @@ export async function handle_get_multipliers(
 }
 
 /**
- * Fetch all preference suggestions for improving any objective based on multipliers.
- * @param state_id The state ID containing the solution to analyze
- * @returns All suggestions for each objective, current values, and tradeoff analysis
- */
-export async function handle_get_all_preference_suggestions(
-	state_id: number,
-	objective_symbols: Array<string>,
-): Promise<{
-	all_suggestions: Record<string, any>;
-	current_objective_values: Record<string, number>;
-	filtered_multipliers: Record<string, number>;
-	tradeoffs_matrix: Record<string, Record<string, number>>;
-} | null> {
-	interface SuggestionsResponse {
-		all_suggestions: Record<string, any>;
-		current_objective_values: Record<string, number>;
-		filtered_multipliers: Record<string, number>;
-		tradeoffs_matrix: Record<string, Record<string, number>>;
-	}
-
-	const result = await callNimbusAPI<SuggestionsResponse>('get_all_preference_suggestions', {
-		state_id: state_id,
-		objective_symbols: objective_symbols
-	});
-	console.log('All preference suggestions:', result?.all_suggestions);
-
-	return result ? {
-		all_suggestions: result.all_suggestions,
-		current_objective_values: result.current_objective_values,
-		filtered_multipliers: result.filtered_multipliers,
-		tradeoffs_matrix: result.tradeoffs_matrix
-	} : null;
-}
-
-/**
  * Saves a solution with an optional user-provided name.
  * @param problem The active problem context.
  * @param solution The solution to be saved.
