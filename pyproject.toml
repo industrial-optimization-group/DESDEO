@@ -66,7 +66,7 @@ docs = [
     "mkdocs-material>=9.5.12",
     "mkdocstrings-python>=1.0",
     "mkdocs-macros-plugin>=1.0.5",
-    "mkdocs-jupyter>=0.25.1",
+    "mkdocs-jupyter @ git+https://github.com/gialmisi/mkdocs-jupyter.git@build",
     "mkdocs-include-markdown-plugin[cache]>=7.0.0",
     "neoteroi-mkdocs>=1.1.2",
     "griffe>=1.4.1",

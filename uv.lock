@@ -694,7 +694,7 @@ wheels = [
 
 [[package]]
 name = "desdeo"
-version = "2.2.1"
+version = "2.2.2"
 source = { editable = "." }
 dependencies = [
     { name = "bayesian-optimization" },
@@ -852,7 +852,7 @@ all-dev = [
     { name = "jupytext", specifier = ">=1.16.4" },
     { name = "mkdocs", specifier = ">=1.0" },
     { name = "mkdocs-include-markdown-plugin", extras = ["cache"], specifier = ">=7.0.0" },
-    { name = "mkdocs-jupyter", specifier = ">=0.25.1" },
+    { name = "mkdocs-jupyter", git = "https://github.com/gialmisi/mkdocs-jupyter.git?rev=build" },
     { name = "mkdocs-llmstxt", specifier = ">=0.5.0" },
     { name = "mkdocs-macros-plugin", specifier = ">=1.0.5" },
     { name = "mkdocs-material", specifier = ">=9.5.12" },
@@ -891,7 +891,7 @@ docs = [
     { name = "griffe", specifier = ">=1.4.1" },
     { name = "mkdocs", specifier = ">=1.0" },
     { name = "mkdocs-include-markdown-plugin", extras = ["cache"], specifier = ">=7.0.0" },
-    { name = "mkdocs-jupyter", specifier = ">=0.25.1" },
+    { name = "mkdocs-jupyter", git = "https://github.com/gialmisi/mkdocs-jupyter.git?rev=build" },
     { name = "mkdocs-llmstxt", specifier = ">=0.5.0" },
     { name = "mkdocs-macros-plugin", specifier = ">=1.0.5" },
     { name = "mkdocs-material", specifier = ">=9.5.12" },
@@ -2046,7 +2046,7 @@ cache = [
 [[package]]
 name = "mkdocs-jupyter"
 version = "0.25.1"
-source = { registry = "https://pypi.org/simple" }
+source = { git = "https://github.com/gialmisi/mkdocs-jupyter.git?rev=build#ecae39c556eb9430a9b2776243e45842de211fd0" }
 dependencies = [
     { name = "ipykernel" },
     { name = "jupytext" },
@@ -2054,10 +2054,6 @@ dependencies = [
     { name = "mkdocs-material" },
     { name = "nbconvert" },
     { name = "pygments" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/6c/23/6ffb8d2fd2117aa860a04c6fe2510b21bc3c3c085907ffdd851caba53152/mkdocs_jupyter-0.25.1.tar.gz", hash = "sha256:0e9272ff4947e0ec683c92423a4bfb42a26477c103ab1a6ab8277e2dcc8f7afe", size = 1626747, upload-time = "2024-10-15T14:56:32.373Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/08/37/5f1fd5c3f6954b3256f8126275e62af493b96fb6aef6c0dbc4ee326032ad/mkdocs_jupyter-0.25.1-py3-none-any.whl", hash = "sha256:3f679a857609885d322880e72533ef5255561bbfdb13cfee2a1e92ef4d4ad8d8", size = 1456197, upload-time = "2024-10-15T14:56:29.854Z" },
 ]
 
 [[package]]
