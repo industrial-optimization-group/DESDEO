@@ -29,8 +29,10 @@ plugins:
     include_requirejs: true
     custom_mathjax_url: "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS_CHTML-full,Safe"
     remove_tag_config:
-      remove_input_tags: hide_code
-      remove_cell_tags: remove_cell
+      remove_input_tags:
+        - hide_code
+      remove_cell_tags:
+        - remove_cell
   neoteroi.mkdocsoad:
     use_pymdownx: true
   llmstxt:
