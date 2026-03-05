@@ -242,13 +242,16 @@
 								</div>
 
 								<!-- Decision Guidance -->
-								<div class="bg-amber-50 border-l-4 border-amber-400 rounded-r-lg p-3 space-y-2">
+								<div class="flex bg-amber-50 border-l-4 border-amber-400 rounded-r-lg p-3 space-y-2">
 									<p class="text-sm font-semibold text-amber-900">
 										{objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol} is most strongly impaired by {highestTradeoffObjectiveName}
 									</p>
-									<p class="text-sm text-amber-800">
-										You need to choose which objective to impair. If you cannot accept losses in {highestTradeoffObjectiveName}, pick a lower-ranked objective—smaller values mean less impact.
-									</p>
+									<Tooltip.Root>
+										<Tooltip.Trigger><InfoIcon class="h-4 w-4 text-amber-600" /></Tooltip.Trigger>
+										<Tooltip.Content side="right" class="tooltip-content max-w-xs">
+											To improve {objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol}, at least one other objective needs to be impaired. If you do not want to impair {highestTradeoffObjectiveName}, choose a lower ranked objective. Lower ranked objectives usually mean a smaller impact. 
+										</Tooltip.Content>
+									</Tooltip.Root>
 								</div>
 
 								{#if selectedTradeoffSymbol !== null && selectedTradeoffSymbol !== undefined && selectedTradeoffSymbol !== ''}

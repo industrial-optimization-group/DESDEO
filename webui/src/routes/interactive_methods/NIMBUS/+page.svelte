@@ -116,7 +116,7 @@
 	let selected_type_solutions = $state('current');
 	const frameworks = [
 		{ value: 'current', label: 'Current solutions' },
-		{ value: 'best', label: 'Best candidate solutions' },
+		{ value: 'best', label: 'Saved solutions' },
 		{ value: 'all', label: 'All solutions' }
 	];
 
