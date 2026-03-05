@@ -801,35 +801,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/method/xnimbus/get-all-preference-suggestions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Get All Preference Suggestions
-         * @description Compute all possible preference suggestions for a solution at once.
-         *
-         *     For each objective that could be selected for improvement, this endpoint computes:
-         *     - Suggested aspiration levels for all objectives
-         *     - Explanation for each suggestion
-         *     - Impact analysis showing which objectives conflict and which are resilient
-         *     - Tradeoff statistics
-         *
-         *     The UI can then filter these suggestions based on user selection.
-         *     This is more efficient than computing suggestions on-demand for each selected objective.
-         */
-        post: operations["get_all_preference_suggestions_method_xnimbus_get_all_preference_suggestions_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/method/generic/intermediate": {
         parameters: {
             query?: never;
@@ -864,6 +835,85 @@ export interface paths {
          * @description Calculate SCORE bands parameters from objective data.
          */
         post: operations["calculate_score_bands_from_objective_data_method_generic_score_bands_obj_data_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/method/generic/final-solutions/{problem_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Final Solutions
+         * @description Get the latest NIMBUS_FINAL and XNIMBUS_FINAL states with their solutions for a given problem.
+         *
+         *     Parameters:
+         *     -----------
+         *     problem_id : int
+         *         The ID of the problem
+         *     user : User
+         *         The current authenticated user (dependency injection)
+         *     session : Session
+         *         The database session (dependency injection)
+         *
+         *     Returns:
+         *     --------
+         *     FinalSolutionsResponse
+         *         Contains nimbus_final and xnimbus_final solution references if they exist.
+         *         Either or both may be None if no final states exist for the problem.
+         *
+         *     Raises:
+         *     -------
+         *     HTTPException
+         *         - 404: If problem not found or doesn't belong to user
+         */
+        get: operations["get_final_solutions_method_generic_final_solutions__problem_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/method/generic/save-method-preference": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save Method Preference
+         * @description Save the user's preferred method (NIMBUS or XNIMBUS).
+         *
+         *     Parameters:
+         *     -----------
+         *     request : MethodPreferenceRequest
+         *         Contains the preferred method name
+         *     user : User
+         *         The current authenticated user (dependency injection)
+         *     session : Session
+         *         The database session (dependency injection)
+         *
+         *     Returns:
+         *     --------
+         *     MethodPreferenceResponse
+         *         Confirmation of the saved preference
+         *
+         *     Raises:
+         *     -------
+         *     HTTPException
+         *         - 400: If invalid method name provided
+         */
+        post: operations["save_method_preference_method_generic_save_method_preference_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1934,6 +1984,14 @@ export interface components {
             problem_id?: number | null;
         };
         /**
+         * FinalSolutionsResponse
+         * @description Response containing the latest NIMBUS_FINAL and XNIMBUS_FINAL solutions.
+         */
+        FinalSolutionsResponse: {
+            nimbus_final?: components["schemas"]["SolutionReference"] | null;
+            xnimbus_final?: components["schemas"]["SolutionReference"] | null;
+        };
+        /**
          * ForestProblemMetaData
          * @description A problem metadata class to hold UTOPIA forest problem specific information.
          */
@@ -2365,6 +2423,26 @@ export interface components {
              * @default 5
              */
             n_clusters: number;
+        };
+        /**
+         * MethodPreferenceRequest
+         * @description Request to save user's method preference.
+         */
+        MethodPreferenceRequest: {
+            /** Preferred Method */
+            preferred_method: string;
+        };
+        /**
+         * MethodPreferenceResponse
+         * @description Response after saving method preference.
+         */
+        MethodPreferenceResponse: {
+            /** Success */
+            success: boolean;
+            /** Message */
+            message: string;
+            /** Preferred Method */
+            preferred_method: string;
         };
         /**
          * NIMBUSClassificationRequest
@@ -4723,41 +4801,6 @@ export interface operations {
             };
         };
     };
-    get_all_preference_suggestions_method_xnimbus_get_all_preference_suggestions_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["NIMBUSMultiplierRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     solve_intermediate_method_generic_intermediate_post: {
         parameters: {
             query?: never;
@@ -4811,6 +4854,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ScoreBandsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_final_solutions_method_generic_final_solutions__problem_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                problem_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinalSolutionsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_method_preference_method_generic_save_method_preference_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MethodPreferenceRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MethodPreferenceResponse"];
                 };
             };
             /** @description Validation Error */

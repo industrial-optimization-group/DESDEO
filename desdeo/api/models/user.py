@@ -41,6 +41,7 @@ class User(UserBase, table=True):
     )  # The user is either a member of a group or an owner of a group
     active_session_id: int | None = Field(default=None)
     experiment_group: int | None = Field(default=None)
+    preferred_method: str | None = Field(default=None)  # User's preferred method (NIMBUS or XNIMBUS)
 
     # Back populates
     archive: list["UserSavedSolutionDB"] = Relationship(back_populates="user")

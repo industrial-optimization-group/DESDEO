@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	/**
 	 * EndStateView Component
 	 *
@@ -103,6 +104,13 @@
 			}
 		});
 	}
+
+	/**
+	 * Navigates the user back to the main page
+	 */
+	function goToMainPage() {
+		goto('/dashboard');
+	}
 </script>
 
 <div class="flex h-full flex-col gap-4">
@@ -127,6 +135,8 @@
 	{/if}
 
 	<div class="flex-none">
-		<Button onclick={handleDownload}>Download Results as CSV</Button>
+		<Button onclick={handleDownload} variant="ghost">Download Results as CSV</Button>
+		<Button onclick={goToMainPage} variant="secondary">
+			Back to main page</Button>
 	</div>
 </div>

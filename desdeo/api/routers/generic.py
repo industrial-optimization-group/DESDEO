@@ -5,6 +5,7 @@ from typing import Annotated
 import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from desdeo.api.db import get_session
@@ -20,6 +21,7 @@ from desdeo.api.models import (
     User,
 )
 from desdeo.api.models.generic import GenericIntermediateSolutionResponse
+from desdeo.api.models.generic_states import State, StateKind
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.mcdm.nimbus import solve_intermediate_solutions
 from desdeo.problem import Problem
@@ -27,6 +29,27 @@ from desdeo.tools import SolverResults
 from desdeo.tools.score_bands import calculate_axes_positions, cluster, order_dimensions
 
 router = APIRouter(prefix="/method/generic")
+
+
+class FinalSolutionsResponse(BaseModel):
+    """Response containing the latest NIMBUS_FINAL and XNIMBUS_FINAL solutions."""
+
+    nimbus_final: SolutionReference | None = None
+    xnimbus_final: SolutionReference | None = None
+
+
+class MethodPreferenceRequest(BaseModel):
+    """Request to save user's method preference."""
+
+    preferred_method: str  # "NIMBUS" or "XNIMBUS"
+
+
+class MethodPreferenceResponse(BaseModel):
+    """Response after saving method preference."""
+
+    success: bool
+    message: str
+    preferred_method: str
 
 
 @router.post("/intermediate")
@@ -246,3 +269,131 @@ def calculate_score_bands_from_objective_data(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Error calculating SCORE bands parameters: {e!r}",
         ) from e
+
+
+@router.get("/final-solutions/{problem_id}")
+def get_final_solutions(
+    problem_id: int,
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)],
+) -> FinalSolutionsResponse:
+    """Get the latest NIMBUS_FINAL and XNIMBUS_FINAL states with their solutions for a given problem.
+
+    Parameters:
+    -----------
+    problem_id : int
+        The ID of the problem
+    user : User
+        The current authenticated user (dependency injection)
+    session : Session
+        The database session (dependency injection)
+
+    Returns:
+    --------
+    FinalSolutionsResponse
+        Contains nimbus_final and xnimbus_final solution references if they exist.
+        Either or both may be None if no final states exist for the problem.
+
+    Raises:
+    -------
+    HTTPException
+        - 404: If problem not found or doesn't belong to user
+    """
+    # Verify that the problem belongs to the current user
+    statement = select(ProblemDB).where(
+        ProblemDB.user_id == user.id, ProblemDB.id == problem_id
+    )
+    problem_db = session.exec(statement).first()
+
+    if problem_db is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Problem with id={problem_id} could not be found or does not belong to the current user.",
+        )
+
+    # Query for the latest NIMBUS_FINAL state
+    nimbus_final_statement = (
+        select(StateDB)
+        .join(State, StateDB.state_id == State.id)
+        .where(
+            StateDB.problem_id == problem_id,
+            State.kind == StateKind.NIMBUS_FINAL,
+        )
+        .order_by(StateDB.id.desc())
+        .limit(1)
+    )
+    nimbus_final_state = session.exec(nimbus_final_statement).first()
+
+    # Query for the latest XNIMBUS_FINAL state
+    xnimbus_final_statement = (
+        select(StateDB)
+        .join(State, StateDB.state_id == State.id)
+        .where(
+            StateDB.problem_id == problem_id,
+            State.kind == StateKind.XNIMBUS_FINAL,
+        )
+        .order_by(StateDB.id.desc())
+        .limit(1)
+    )
+    xnimbus_final_state = session.exec(xnimbus_final_statement).first()
+
+    # Build response with whichever states exist
+    return FinalSolutionsResponse(
+        nimbus_final=(
+            SolutionReference(state=nimbus_final_state, solution_index=0)
+            if nimbus_final_state is not None
+            else None
+        ),
+        xnimbus_final=(
+            SolutionReference(state=xnimbus_final_state, solution_index=0)
+            if xnimbus_final_state is not None
+            else None
+        ),
+    )
+
+
+@router.post("/save-method-preference")
+def save_method_preference(
+    request: MethodPreferenceRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)],
+) -> MethodPreferenceResponse:
+    """Save the user's preferred method (NIMBUS or XNIMBUS).
+
+    Parameters:
+    -----------
+    request : MethodPreferenceRequest
+        Contains the preferred method name
+    user : User
+        The current authenticated user (dependency injection)
+    session : Session
+        The database session (dependency injection)
+
+    Returns:
+    --------
+    MethodPreferenceResponse
+        Confirmation of the saved preference
+
+    Raises:
+    -------
+    HTTPException
+        - 400: If invalid method name provided
+    """
+    # Validate method name
+    if request.preferred_method not in ["NIMBUS", "XNIMBUS"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid method name: {request.preferred_method}. Must be 'NIMBUS' or 'XNIMBUS'.",
+        )
+
+    # Update user's preferred method
+    user.preferred_method = request.preferred_method
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+
+    return MethodPreferenceResponse(
+        success=True,
+        message=f"Successfully saved preference for {request.preferred_method}",
+        preferred_method=request.preferred_method,
+    )

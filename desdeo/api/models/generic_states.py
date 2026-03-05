@@ -336,7 +336,7 @@ class SolutionReferenceBase(SQLModel):
     @computed_field
     @property
     def num_solutions(self) -> int:
-        return len(self.state.state.solver_results)
+        return self.state.state.num_solutions
 
 
 class SolutionReference(SolutionReferenceBase):
