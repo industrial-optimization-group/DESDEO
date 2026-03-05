@@ -115,8 +115,8 @@ def river_pollution_problem(*, five_objective_variant: bool = True) -> Problem:
         is_twice_differentiable=True,
     )
     objective_4 = Objective(
-        name="RCity",
-        description="Return on investment in the city",
+        name="CityTax",
+        description="Addition to city tax",
         symbol="f_4",
         func=f_4,
         maximize=True,
