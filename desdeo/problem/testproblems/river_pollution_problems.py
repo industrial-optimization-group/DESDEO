@@ -79,8 +79,8 @@ def river_pollution_problem(*, five_objective_variant: bool = True) -> Problem:
     f_5 = "Max(Abs(x_1 - 0.65), Abs(x_2 - 0.65))"
 
     objective_1 = Objective(
-        name="DOCity",
-        description="Level of dissolved oxygen in the city",
+        name="WQCity",
+        description="Water quality in the city",
         symbol="f_1",
         func=f_1,
         maximize=True,
@@ -91,8 +91,8 @@ def river_pollution_problem(*, five_objective_variant: bool = True) -> Problem:
         is_twice_differentiable=True,
     )
     objective_2 = Objective(
-        name="DOMun",
-        description="Level of dissolved oxygen in the municipality",
+        name="WQBorder",
+        description="Water quality downstream at the state line",
         symbol="f_2",
         func=f_2,
         maximize=True,
