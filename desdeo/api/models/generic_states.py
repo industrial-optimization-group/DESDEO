@@ -17,6 +17,9 @@ from sqlmodel import (
 
 from desdeo.problem import Tensor, VariableType
 
+from .nautilus import (
+    NautilusState,
+)
 from .state import (
     EMOFetchState,
     EMOIterateState,
@@ -64,6 +67,8 @@ class StateKind(str, Enum):
     GENERIC_INTERMEDIATE = "generic.solve_intermediate"
     ENAUTILUS_STEP = "e-nautilus.stepping"
     ENAUTILUS_FINAL = "e-nautilus.final"
+    NAUTILUS_NAVIGATE = "nautilus.navigate"
+    NAUTILUS_INITIALIZE = "nautilus.initialize"
 
 
 class State(SQLModel, table=True):
@@ -155,6 +160,63 @@ class StateDB(SQLModel, table=True):
 
         return row
 
+    # @classmethod
+    # def create(
+    #     cls,
+    #     database_session: Session,
+    #     *,
+    #     kind: StateKind,
+    #     problem_id: int | None = None,
+    #     session_id: int | None = None,
+    #     parent_id: int | None = None,
+    #     state: SQLModel | None = None,
+    # ) -> "StateDB":
+    #     """Create a new StateDB entry and corresponding substate entry.
+
+    #     Args:
+    #         database_session: Database session
+    #         kind: Explicit StateKind of this state.
+    #         problem_id: Required for root states.
+    #         session_id: Required for child states.
+    #         parent_id: Parent state ID if this is a child.
+    #         state: The substate SQLModel instance.
+    #     """
+    #     if state is None:
+    #         raise ValueError("State (substate) must be provided.")
+
+    #     if parent_id is None:
+    #         # Root state
+    #         if problem_id is None:
+    #             raise ValueError("Root state requires problem_id.")
+    #         state_db = cls(
+    #             problem_id=problem_id,
+    #             session_id=None,
+    #             parent_id=None,
+    #             kind=kind,
+    #         )
+    #     else:
+    #         # Child state
+    #         if session_id is None:
+    #             raise ValueError("Child state requires session_id.")
+    #         state_db = cls(
+    #             problem_id=None,
+    #             session_id=session_id,
+    #             parent_id=parent_id,
+    #             kind=kind,
+    #         )
+
+    #     database_session.add(state_db)
+    #     database_session.commit()
+    #     database_session.refresh(state_db)
+
+    #     # Link substate
+    #     state.state_id = state_db.id
+    #     database_session.add(state)
+    #     database_session.commit()
+    #     database_session.refresh(state_db)
+
+    #     return state_db
+
     @property
     def state(self) -> SQLModel | None:
         """Return the concrete substate instance (e.g., NIMBUSSaveState)...
@@ -194,6 +256,8 @@ KIND_TO_TABLE: dict[StateKind, SQLModel] = {
     StateKind.GENERIC_INTERMEDIATE: IntermediateSolutionState,
     StateKind.ENAUTILUS_STEP: ENautilusState,
     StateKind.ENAUTILUS_FINAL: ENautilusFinalState,
+    StateKind.NAUTILUS_NAVIGATE: NautilusState,
+    StateKind.NAUTILUS_INITIALIZE: NautilusState
 }
 
 SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
@@ -212,6 +276,8 @@ SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
     IntermediateSolutionState: StateKind.GENERIC_INTERMEDIATE,
     ENautilusState: StateKind.ENAUTILUS_STEP,
     ENautilusFinalState: StateKind.ENAUTILUS_FINAL,
+    # NautilusState: StateKind.NAUTILUS_NAVIGATE,
+    # NautilusState: StateKind.NAUTILUS_INITIALIZE
 }
 
 
