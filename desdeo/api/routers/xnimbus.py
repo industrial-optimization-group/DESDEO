@@ -822,6 +822,7 @@ def get_multipliers_info(
         return empty_response
 
     lagrange_multipliers = []
+    constraint_values = []
 
     # Handle states with multiple results (list of SolverResults)
     if isinstance(actual_state.solver_results, list):
@@ -835,9 +836,16 @@ def get_multipliers_info(
                         result.lagrange_multipliers, objective_symbols
                     )
                 )
+                constraint_values.append(
+                    filter_constraint_values(
+                        result.constraint_values, objective_symbols
+                    )
+                )
+
                 print("Added multipliers:", result.lagrange_multipliers)
             else:
                 lagrange_multipliers.append(None)
+                constraint_values.append(None)
 
     # Handle states with single result (single SolverResults object)
     else:
@@ -846,13 +854,23 @@ def get_multipliers_info(
             hasattr(result, "lagrange_multipliers")
             and result.lagrange_multipliers is not None
         ):
+            if (
+                hasattr(result, "constraint_values")
+                and result.constraint_values is not None
+            ):
+                print("Constraint values:", result.constraint_values)
+
             lagrange_multipliers.append(
                 filter_lagrange_multipliers(
                     result.lagrange_multipliers, objective_symbols
                 )
             )
+            constraint_values.append(
+                filter_constraint_values(result.constraint_values, objective_symbols)
+            )
         else:
             lagrange_multipliers.append(None)
+            constraint_values.append(None)
 
     # Compute tradeoffs matrix for each solution
     tradeoffs_list = []
@@ -873,9 +891,45 @@ def get_multipliers_info(
 
     print(lagrange_multipliers)
 
+    print("Constraint values:", constraint_values)
+
+    # Determine the active objectives based on the constraint values (if available). Active objectives are those for which the corresponding constraint is active (constraint value is close to zero).
+    active_objectives = []
+    if constraint_values and objective_symbols:
+        for constraint_dict in constraint_values:
+            active_objs_for_result = []
+            for obj, value in constraint_dict.items():
+                if (
+                    obj in objective_symbols and value >= 0
+                ):  # If its lower than zero, the constraint is not active, if its close to zero, it is active (we can use a tolerance here if needed). Not sure if works for minimization problems, need to check.
+                    active_objs_for_result.append(obj)
+            active_objectives.append(active_objs_for_result)
+    elif objective_symbols:
+        # If constraint values are not available, we can determine if they are active based on the magnitude of the multiplier using a threshold (e.g., if the multiplier is close to zero, we can consider the objective as inactive). This is a very rough approximation and should be used with caution.
+        threshold = 1e-5  # This threshold can be adjusted based on the problem characteristics and solver precision.
+        for multiplier_dict in lagrange_multipliers:
+            active_objs_for_result = []
+            for obj in objective_symbols:
+                multiplier_value = multiplier_dict.get(obj, 0.0)
+                if abs(multiplier_value) > threshold:
+                    active_objs_for_result.append(obj)
+            active_objectives.append(active_objs_for_result)
+    else:
+        # If no objective symbols and no constraint values are available, we will assume that all objectives with non-zero multipliers are active and we will use the default f_{index} format for the objective names.
+        threshold = 1e-5
+        for multiplier_dict in lagrange_multipliers:
+            active_objs_for_result = []
+            for obj, multiplier_value in multiplier_dict.items():
+                if abs(multiplier_value) > threshold:
+                    active_objs_for_result.append(obj)
+            active_objectives.append(active_objs_for_result)
+
+    print("Active objectives:", active_objectives)
+
     return {
         "lagrange_multipliers": lagrange_multipliers,
         "tradeoffs_matrix": tradeoffs_list,
+        "active_objectives": active_objectives,
     }
 
 
@@ -979,3 +1033,40 @@ def filter_lagrange_multipliers(
                 filtered_multipliers[key] = 0.0
 
     return filtered_multipliers
+
+
+def filter_constraint_values(
+    constraint_values, objective_symbols=None
+) -> dict[str, float]:
+    # Similar to filter_lagrange_multipliers but for constraint values. We will keep only one value per constraint and we will use the same grouping and selection logic as for the multipliers.
+    grouped = defaultdict(list)
+
+    for key, value in constraint_values.items():
+        if objective_symbols is None:
+            match = re.search(
+                r"f_(\d+)", key
+            )  # Match keys like "f_0", "f_1", etc. and extract the objective number
+            if match:
+                f_i = match.group(1)  # Extract the objective number
+                grouped[f_i].append((key, value))
+        else:  # Get one value per constraint based on the symbols in the problem definition
+            for symbol in objective_symbols:
+                if symbol in key:
+                    grouped[symbol].append((key, value))
+                    break
+
+    filtered_values = {}
+    for obj_num, entries in grouped.items():
+        preferred = next(
+            (entry for entry in entries if not entry[0].endswith("eq")), None
+        )
+        if preferred is None and entries:
+            preferred = entries[0]
+
+        if preferred:
+            key = preferred[0]
+            if objective_symbols is not None and obj_num in objective_symbols:
+                key = obj_num
+            filtered_values[key] = preferred[1]
+
+    return filtered_values

@@ -195,3 +195,7 @@ class NIMBUSMultiplierResponse(SQLModel):
         default=None,
         description="List of tradeoffs matrices for each solution, or None if not available",
     )
+    active_objectives: list[list[str]] | None = Field(
+        default=None,
+        description="List of active objectives for each solution, or None if not available",
+    )
