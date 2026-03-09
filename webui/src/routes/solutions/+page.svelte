@@ -52,7 +52,7 @@
     
     const solutions = $derived.by(() => {
         const nimbus = {
-            label: 'Blue Solution',
+            label: 'Vega Solution',
             methodName: 'NIMBUS',
             data: nimbusData,
             objectives: data.solutions?.nimbus_final?.objective_values,
@@ -60,7 +60,7 @@
         };
         
         const xnimbus = {
-            label: 'Green Solution',
+            label: 'Polaris Solution',
             methodName: 'XNIMBUS',
             data: xnimbusData,
             objectives: data.solutions?.xnimbus_final?.objective_values,
