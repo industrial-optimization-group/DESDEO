@@ -148,7 +148,7 @@
                                     />
                                 </div>
                                 <div class="space-y-2 border-t border-gray-100 pt-4">
-                                    <p class="text-sm font-medium text-gray-600">State ID: {solution.stateId}</p>
+                                    <!-- <p class="text-sm font-medium text-gray-600">State ID: {solution.stateId}</p> -->
                                     <div class="mt-3">
                                         <h3 class="mb-2 text-sm font-medium text-gray-700">Objective Values</h3>
                                         <div class="overflow-x-auto">
