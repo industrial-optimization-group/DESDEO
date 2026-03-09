@@ -959,5 +959,23 @@ def filter_lagrange_multipliers(
             filtered_multipliers[key] = preferred[1]
 
     # result.append(filtered_multipliers)
+    # Check if there are multiplier for each objective, if not, assignt that value to 0 (this can happen if the solver does not return multipliers for inactive constraints)
+    if objective_symbols is not None:
+        for symbol in objective_symbols:
+            if symbol not in filtered_multipliers:
+                filtered_multipliers[symbol] = 0.0
+    else:
+        # If symbols are not available, we will assume that the objectives are numbered from 0 to n-1 and use f_{index} format for keys
+        max_index = -1
+        for key in filtered_multipliers.keys():
+            match = re.search(r"f_(\d+)", key)
+            if match:
+                index = int(match.group(1))
+                max_index = max(max_index, index)
+
+        for i in range(max_index + 1):
+            key = f"f_{i}"
+            if key not in filtered_multipliers:
+                filtered_multipliers[key] = 0.0
 
     return filtered_multipliers

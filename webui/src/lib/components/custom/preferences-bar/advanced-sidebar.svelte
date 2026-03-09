@@ -129,6 +129,27 @@
 		return absValue.toFixed(SIGNIFICANT_DIGITS);
 	}
 
+	function formatMultiplierToDict(multipliers: Record<string, number>, problem: ProblemInfo) {
+		if (multipliers && problem) {
+			const formatedDict: Array<{
+				name: string;
+				symbol: string;
+				value: number;
+				direction: 'max' | 'min';
+			}> = [];
+			problem.objectives.forEach((obj) => {
+				formatedDict.push({
+					name: obj.name ?? obj.symbol,
+					symbol: obj.symbol,
+					value: -1 * multipliers[obj.symbol],
+					direction: obj.maximize ? 'max' : 'min'
+				});
+			});
+			return formatedDict;
+		}
+		return undefined;
+	}
+
 </script>
 
 <Sidebar.Root side="right" class="fixed top-12 right-0 h-[calc(100vh-3rem)]">
@@ -167,17 +188,7 @@
 
 						<div class="bg-gray-50 rounded-lg p-3">
 							<ExpBarchart
-								data={multipliers && selectedSolutions.length > 0
-									? Object.entries(multipliers).map(([key, value]) => {
-											const obj = problem.objectives.find((o) => o.symbol === key);
-											return {
-												name: obj?.name ?? key,
-												symbol: key,
-												value: -1 * value,
-												direction: obj?.maximize ? 'max' : 'min'
-											};
-										})
-									: []}
+								data={formatMultiplierToDict(multipliers, problem)}
 								options={{ showLabels: true, type: 'multipliers' }}
 								onSelect={handleObjectiveClick}
 								selected_objective_symbol={selectedObjectiveSymbol}
