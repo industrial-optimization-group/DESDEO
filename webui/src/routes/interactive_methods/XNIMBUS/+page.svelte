@@ -147,6 +147,7 @@
 	let current_multipliers: Array<Record<string, number> | null> | null = $state(null);
 	// Store current tradeoffs matrix for the current solutions
 	let current_tradeoffs: Array<Record<string, Record<string, number>> | null> | null = $state(null);
+	let current_active_objectives: Array<Array<string>> = $state([]); // List of active objectives for each solution, aligned with chosen_solutions
 	let current_objective_values: Record<string, number> | null = $state(null);
 
 	// Variable to track if problem has utopia metadata
@@ -448,9 +449,11 @@
 		if (data) {
 			current_multipliers = data.lagrange_multipliers;
 			current_tradeoffs = data.tradeoffs_matrix;
+			current_active_objectives = data.active_objectives;
 		} else {
 			current_multipliers = null;
 			current_tradeoffs = null;
+			current_active_objectives = [];
 		}
 	}
 
@@ -857,6 +860,7 @@
 					solutions={chosen_solutions}
 					multipliers={current_multipliers ? current_multipliers[selectedIndexes[0]] : null}
 					tradeoffs={current_tradeoffs ? current_tradeoffs[selectedIndexes[0]] : null}
+					activeObjectives={current_active_objectives ? current_active_objectives[selectedIndexes[0]] : []}	
 					currentObjectiveValues={current_objective_values}
 					selectedSolutions={selectedIndexes}
 					selectedObjectiveSymbol={selected_objective_symbol}

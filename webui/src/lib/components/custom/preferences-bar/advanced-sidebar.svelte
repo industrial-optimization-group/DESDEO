@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import InfoIcon from '@lucide/svelte/icons/info';
+	import AlertTriangleIcon from '@lucide/svelte/icons/alert-triangle';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 	import { COLOR_PALETTE } from '$lib/components/visualizations/utils/colors.js';
 
@@ -18,6 +19,7 @@
 		solutions: Array<Solution>;
 		multipliers: Record<string, number> | null;
 		tradeoffs: Record<string, Record<string, number>> | null;
+		activeObjectives: Array<string>;
 		currentObjectiveValues?: Record<string, number> | null;
 		selectedSolutions?: Array<number>;
 		selectedObjectiveSymbol?: string | null;
@@ -33,6 +35,7 @@
 		solutions,
 		multipliers,
 		tradeoffs,
+		activeObjectives,
 		currentObjectiveValues = null,
 		selectedSolutions,
 		selectedObjectiveSymbol,
@@ -46,6 +49,49 @@
 
 	problem.objectives.forEach((obj) => {
 		objectiveNames[obj.symbol] = obj.name ?? obj.symbol;
+	});
+
+	const activeObjectiveLabels = $derived(
+		activeObjectives.map((sym) => objectiveNames[sym] || sym).join(', ')
+	);
+
+	const inactiveObjectiveLabels = $derived(
+		problem.objectives
+			.filter((obj) => !activeObjectives.includes(obj.symbol))
+			.map((obj) => objectiveNames[obj.symbol] || obj.symbol)
+			.join(', ')
+	);
+
+	const inactiveObjectiveCount = $derived(
+		problem.objectives.filter((obj) => !activeObjectives.includes(obj.symbol)).length
+	);
+
+	const isTradeoffOutsideActiveObjectives = $derived(
+		(selectedObjectiveSymbol && !activeObjectives.includes(selectedObjectiveSymbol)) ||
+		(selectedTradeoffSymbol && !activeObjectives.includes(selectedTradeoffSymbol))
+	);
+
+	// Calculate the rank of the selected tradeoff (1 = strongest, higher = weaker)
+	const selectedTradeoffRank = $derived.by(() => {
+		if (!tradeoffs || !selectedObjectiveSymbol || !selectedTradeoffSymbol || !tradeoffs[selectedObjectiveSymbol]) {
+			return null;
+		}
+
+		const selectedRow = tradeoffs[selectedObjectiveSymbol];
+		const sortedEntries = Object.entries(selectedRow)
+			.filter(([symbol]) => symbol !== selectedObjectiveSymbol)
+			.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+
+		const rank = sortedEntries.findIndex(([symbol]) => symbol === selectedTradeoffSymbol) + 1;
+		return rank > 0 ? rank : null;
+	});
+
+	// Get descriptive text for tradeoff strength
+	const tradeoffStrengthText = $derived.by(() => {
+		if (selectedTradeoffRank === null || selectedTradeoffRank === 0) return 'a tradeoff';
+		if (selectedTradeoffRank === 1) return 'a strong tradeoff';
+		if (selectedTradeoffRank === 2) return 'a moderate tradeoff';
+		return 'a slight tradeoff';
 	});
 
 	function formatTradeofftoDict(tradeoffs_row: Record<string, number>, problem: ProblemInfo) {
@@ -194,6 +240,21 @@
 								selected_objective_symbol={selectedObjectiveSymbol}
 							/>
 						</div>
+						{#if activeObjectives.length > 0}
+							<div class=" bg-amber-50 border-l-4 border-amber-400 rounded-r-lg p-3 space-y-2 text-amber-900">
+								<p class="text-sm leading-relaxed text-amber-900">
+									The objectives that influence this solution are
+									<span class="font-semibold"> {activeObjectiveLabels}</span>.
+								</p>
+									{#if inactiveObjectiveCount === 0}
+										<p class="mt-1 text-sm leading-relaxed text-amber-800">No other objectives currently affect the trade-offs.</p>
+									{:else}
+										<p class="mt-1 text-sm leading-relaxed text-amber-800">
+											<span class="font-semibold">{inactiveObjectiveLabels}</span> currently {inactiveObjectiveCount === 1 ? 'has' : 'have'} little impact on the trade-offs.
+										</p>
+									{/if}
+							</div>
+						{/if}
 					</div>
 
 					<!-- Objective Selection Section -->
@@ -232,8 +293,19 @@
 										<Tooltip.Trigger class="w-4 h-4 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold hover:bg-blue-200 cursor-help">
 											?
 										</Tooltip.Trigger>
-										<Tooltip.Content class="text-sm max-w-xs">
-											Click on any bar to see their expected changes when improving <span class="font-semibold">{objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol}</span>
+										<Tooltip.Content class="tooltip-content max-w-xs">
+										<p>
+														The values represent local effects near
+														<span class="text-primary font-semibold"
+															>{solutions[selectedSolutions[0]].name == null
+																? 'Solution ' + (selectedSolutions[0] + 1)
+																: solutions[selectedSolutions[0]].name}</span
+														>. TIP: To improve
+														<span class="text-primary font-semibold"
+															>{objectiveNames[selectedObjectiveSymbol] ||
+																selectedObjectiveSymbol}</span
+														> impair the objective function with the highest rank in the plot.
+													</p>
 										</Tooltip.Content>
 									</Tooltip.Root>
 								</div>
@@ -253,7 +325,7 @@
 								</div>
 
 								<!-- Decision Guidance -->
-								<div class="flex bg-amber-50 border-l-4 border-amber-400 rounded-r-lg p-3 space-y-2">
+<!-- 								<div class="flex bg-amber-50 border-l-4 border-amber-400 rounded-r-lg p-3 space-y-2">
 									<p class="text-sm font-semibold text-amber-900">
 										{objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol} is most strongly impaired by {highestTradeoffObjectiveName}
 									</p>
@@ -263,19 +335,68 @@
 											To improve {objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol}, at least one other objective needs to be impaired. If you do not want to impair {highestTradeoffObjectiveName}, choose a lower ranked objective. Lower ranked objectives usually mean a smaller impact. 
 										</Tooltip.Content>
 									</Tooltip.Root>
-								</div>
+								</div> -->
 
-								{#if selectedTradeoffSymbol !== null && selectedTradeoffSymbol !== undefined && selectedTradeoffSymbol !== ''}
-									<!-- Selected Tradeoff Details -->
-									<div class="bg-purple-50 border-l-4 border-purple-400 rounded-r-lg p-3">
-										<p class="text-sm font-semibold text-purple-900 mb-1">Tradeoff Rate</p>
-										<p class="text-sm text-purple-800">
-											Improving <span class="font-semibold">{objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol}</span> by one unit will impair 
-											<span class="font-semibold">{objectiveNames[selectedTradeoffSymbol] || selectedTradeoffSymbol}</span> by approximately
-											<span class="font-semibold">{formatTradeoffValue(tradeoffs[selectedObjectiveSymbol][selectedTradeoffSymbol])}</span> units.
-										</p>
-									</div>
-								{/if}
+{#if selectedTradeoffSymbol !== null && selectedTradeoffSymbol !== undefined && selectedTradeoffSymbol !== ''}
+	<!-- Selected Tradeoff Details -->
+	<div class="bg-purple-50 border-l-4 border-purple-400 rounded-r-lg p-3">
+		<div class="flex items-center gap-2 mb-1">
+			<p class="text-sm font-semibold text-purple-900">
+				{#if isTradeoffOutsideActiveObjectives}
+					Tradeoff Information
+					<Tooltip.Root>
+					<Tooltip.Trigger><AlertTriangleIcon class="h-4 w-4 text-amber-600" /></Tooltip.Trigger>
+					<Tooltip.Content side="right" class="tooltip-content max-w-xs">
+						<div class="mt-2 text-xs items-start gap-1">
+	<span class="font-semibold">Use with caution:</span>
+	<span>
+		The current solution does not provide reliable trade-off estimates for
+		<span class="font-semibold">{objectiveNames[selectedObjectiveSymbol]}</span>.
+		This ranking should be treated as exploratory.
+	</span>
+</div>
+					</Tooltip.Content>
+				</Tooltip.Root>
+				{:else}
+					Tradeoff Rate
+				{/if}
+			</p>
+
+			
+<!-- 				<Tooltip.Root>
+					<Tooltip.Trigger><InfoIcon class="h-4 w-4 text-purple-600" /></Tooltip.Trigger>
+					<Tooltip.Content side="right" class="tooltip-content max-w-xs">
+						This solution does not clearly show how improving
+						{objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol}
+						would affect
+						{objectiveNames[selectedTradeoffSymbol] || selectedTradeoffSymbol}.
+					</Tooltip.Content>
+				</Tooltip.Root> -->
+			
+		</div>
+
+		<p class="text-sm text-purple-800">
+			{#if isTradeoffOutsideActiveObjectives}
+				Improving
+				<span class="font-semibold">{objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol}</span>
+				may affect
+				<span class="font-semibold">{objectiveNames[selectedTradeoffSymbol] || selectedTradeoffSymbol}</span>, but the exact trade-off cannot be estimated from this solution.
+			{:else}
+				Improving <span class="font-semibold">{objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol}</span> by one unit will impair
+				<span class="font-semibold">{objectiveNames[selectedTradeoffSymbol] || selectedTradeoffSymbol}</span> by approximately
+				<span class="font-semibold">{formatTradeoffValue(tradeoffs[selectedObjectiveSymbol][selectedTradeoffSymbol])}</span> units.
+			{/if}
+		</p>
+
+		{#if isTradeoffOutsideActiveObjectives}
+			<p class="mt-2 text-sm text-purple-700">
+				To understand it better, explore a solution where
+				<span class="font-semibold">{objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol}</span>
+				has more influence.
+			</p>
+		{/if}
+	</div>
+{/if}
 							</div>
 						{/if}
 					{/if}

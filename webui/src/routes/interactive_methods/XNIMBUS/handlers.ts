@@ -102,10 +102,12 @@ export async function handle_get_multipliers(
 ): Promise<{ 
 	lagrange_multipliers: Array<Record<string, number> | null> | null;
 	tradeoffs_matrix: Array<Record<string, Record<string, number>> | null> | null;
+	active_objectives: Array<Array<string>>;
 } | null> {
 	interface MultipliersResponse {
 		lagrange_multipliers: Array<Record<string, number> | null> | null;
 		tradeoffs_matrix: Array<Record<string, Record<string, number>> | null> | null;
+		active_objectives: Array<Array<string>>;
 	}
 
 	const result = await callNimbusAPI<MultipliersResponse>('get_multipliers', {
@@ -114,10 +116,12 @@ export async function handle_get_multipliers(
 	});
 	console.log('Multipliers response:', result?.lagrange_multipliers);
 	console.log('Tradeoffs response:', result?.tradeoffs_matrix);
+	console.log('Active objectives response:', result?.active_objectives);
 
 	return result ? {
 		lagrange_multipliers: result.lagrange_multipliers,
-		tradeoffs_matrix: result.tradeoffs_matrix
+		tradeoffs_matrix: result.tradeoffs_matrix,
+		active_objectives: result.active_objectives
 	} : null;
 }
 
