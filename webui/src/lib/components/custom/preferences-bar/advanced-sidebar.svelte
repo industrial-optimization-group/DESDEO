@@ -12,6 +12,7 @@
 	import ExpRankingBarchart from '$lib/components/visualizations/barchart/exp-ranking-barchart.svelte';
 	import { Combobox } from '$lib/components/ui/combobox';
 	import type { symbol } from 'd3';
+	import { cons } from 'effect/List';
 
 	interface Props {
 		problem: ProblemInfo;
@@ -77,6 +78,23 @@
 	const isSelectedTradeoffActive = $derived(
 		selectedTradeoffSymbol ? activeObjectives.includes(selectedTradeoffSymbol) : false
 	);
+
+	//Check if its outside the range of the ideal and nadir values for that objective (ideal - nadir is the range where we expect to see tradeoffs, outside of that the tradeoff values might be less reliable)
+	const isOutsideRange = (value: number, objectiveSymbol: string) => {
+		const ideal = problem.objectives.find((obj) => obj.symbol === objectiveSymbol)?.ideal;
+		const nadir = problem.objectives.find((obj) => obj.symbol === objectiveSymbol)?.nadir;
+
+		console.log('Ideal and nadir values for', objectiveSymbol, ':', ideal, nadir);
+		if (ideal === undefined || nadir === undefined || ideal ===null || nadir ===null) return false;
+
+		const [min, max] = ideal < nadir ? [ideal, nadir] : [nadir, ideal];
+
+		const range = max - min;
+		console.log('Checking range for', objectiveSymbol, 'value:', value, 'ideal:', ideal, 'nadir:', nadir);
+	
+		console.log('Value is outside range:', value < min, value > max, 'with range:', range);
+		return Math.abs(value) > range;
+	};
 
 	// Calculate the rank of the selected tradeoff (1 = strongest, higher = weaker)
 	const selectedTradeoffRank = $derived.by(() => {
@@ -388,9 +406,17 @@
 		<span class="font-semibold">{!isSelectedObjectiveActive ? objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol : !isSelectedTradeoffActive ? objectiveNames[selectedTradeoffSymbol] || selectedTradeoffSymbol : ''}</span>.
 		This ranking should be treated as exploratory.
 			{:else}
+				{#if isOutsideRange(tradeoffs[selectedObjectiveSymbol][selectedTradeoffSymbol], selectedTradeoffSymbol)}
+					The current solution does not provide reliable trade-off estimates between
+					<span class="font-semibold">{objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol}</span> and
+					<span class="font-semibold">{objectiveNames[selectedTradeoffSymbol] || selectedTradeoffSymbol}</span>. 
+					
+				{:else}
+
 				Improving <span class="font-semibold">{objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol}</span> by one unit will impair
 				<span class="font-semibold">{objectiveNames[selectedTradeoffSymbol] || selectedTradeoffSymbol}</span> by approximately
 				<span class="font-semibold">{formatTradeoffValue(tradeoffs[selectedObjectiveSymbol][selectedTradeoffSymbol])}</span> units.
+				{/if}
 			{/if}
 		</p>
 
