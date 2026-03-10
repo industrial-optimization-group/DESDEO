@@ -39,7 +39,7 @@
                 <Card.Content>
                     {#if page.status === 404}
                         <p class="text-muted-foreground mx-auto max-w-2xl text-lg">
-                            This page is like the optimal solution in multiobjective optimization... <br> It doesn't really exist!
+                            This page is like the best solution in the multiobjective optimization... <br> It doesn't really exist!
                         </p>
                     {:else if page.status === 500}
                         <p class="text-muted-foreground mx-auto max-w-2xl text-lg">
