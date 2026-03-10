@@ -43,7 +43,7 @@
                         </p>
                     {:else if page.status === 500}
                         <p class="text-muted-foreground mx-auto max-w-2xl text-lg">
-                            Something went wrong at our end, it's not your fault. Sorry about that.
+                            Something at our end is not working, it's not your fault. Sorry about that.
                         </p>
                     {:else}
                         <p class="text-muted-foreground mx-auto max-w-2xl text-lg">
