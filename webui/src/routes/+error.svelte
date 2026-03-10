@@ -43,11 +43,11 @@
                         </p>
                     {:else if page.status === 500}
                         <p class="text-muted-foreground mx-auto max-w-2xl text-lg">
-                            Something is broken on our side
+                            Something went wrong at our end, it's not your fault. Sorry about that.
                         </p>
                     {:else}
                         <p class="text-muted-foreground mx-auto max-w-2xl text-lg">
-                            This is kinda not working. You'd better go back home!
+                            This is kinda not working. You'd better go back home <br>...or try to refresh page <br>...or do whatever you think is optimal
                         </p>
                     {/if}
                 </Card.Content>                
