@@ -71,6 +71,13 @@
 		(selectedTradeoffSymbol && !activeObjectives.includes(selectedTradeoffSymbol))
 	);
 
+	const isSelectedObjectiveActive = $derived(
+		selectedObjectiveSymbol ? activeObjectives.includes(selectedObjectiveSymbol) : false
+	);
+	const isSelectedTradeoffActive = $derived(
+		selectedTradeoffSymbol ? activeObjectives.includes(selectedTradeoffSymbol) : false
+	);
+
 	// Calculate the rank of the selected tradeoff (1 = strongest, higher = weaker)
 	const selectedTradeoffRank = $derived.by(() => {
 		if (!tradeoffs || !selectedObjectiveSymbol || !selectedTradeoffSymbol || !tradeoffs[selectedObjectiveSymbol]) {
@@ -344,7 +351,7 @@
 			<p class="text-sm font-semibold text-purple-900">
 				{#if isTradeoffOutsideActiveObjectives}
 					Tradeoff Information
-					<Tooltip.Root>
+<!-- 					<Tooltip.Root>
 					<Tooltip.Trigger><AlertTriangleIcon class="h-4 w-4 text-amber-600" /></Tooltip.Trigger>
 					<Tooltip.Content side="right" class="tooltip-content max-w-xs">
 						<div class="mt-2 text-xs items-start gap-1">
@@ -356,7 +363,7 @@
 	</span>
 </div>
 					</Tooltip.Content>
-				</Tooltip.Root>
+				</Tooltip.Root> -->
 				{:else}
 					Tradeoff Rate
 				{/if}
@@ -377,10 +384,9 @@
 
 		<p class="text-sm text-purple-800">
 			{#if isTradeoffOutsideActiveObjectives}
-				Improving
-				<span class="font-semibold">{objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol}</span>
-				may affect
-				<span class="font-semibold">{objectiveNames[selectedTradeoffSymbol] || selectedTradeoffSymbol}</span>, but the exact trade-off cannot be estimated from this solution.
+		The current solution does not provide reliable trade-off estimates for
+		<span class="font-semibold">{!isSelectedObjectiveActive ? objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol : !isSelectedTradeoffActive ? objectiveNames[selectedTradeoffSymbol] || selectedTradeoffSymbol : ''}</span>.
+		This ranking should be treated as exploratory.
 			{:else}
 				Improving <span class="font-semibold">{objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol}</span> by one unit will impair
 				<span class="font-semibold">{objectiveNames[selectedTradeoffSymbol] || selectedTradeoffSymbol}</span> by approximately
@@ -388,13 +394,13 @@
 			{/if}
 		</p>
 
-		{#if isTradeoffOutsideActiveObjectives}
+<!-- 		{#if isTradeoffOutsideActiveObjectives}
 			<p class="mt-2 text-sm text-purple-700">
 				To understand it better, explore a solution where
 				<span class="font-semibold">{objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol}</span>
 				has more influence.
 			</p>
-		{/if}
+		{/if} -->
 	</div>
 {/if}
 							</div>
