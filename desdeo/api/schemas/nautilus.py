@@ -14,7 +14,7 @@ class NautilusNavigateRequest(BaseModel):
     """Request to navigate a NAUTILUS Navigator session."""
 
     problem_id: int = Field(..., description="The ID of the problem to navigate.")
-    preference: dict[str, float] = Field(..., description="The preference of the Decision Maker (DM) for each objective.")
+    reference_point: dict[str, float] = Field(..., description="Reference point provided by the decision maker.")
     bounds: dict[str, float] = Field(..., description="The bounds preference of the DM for each objective.")
     go_back_step: int = Field(..., description="The step index to go back in the navigation history.")
     steps_remaining: int = Field(..., description="The number of steps remaining in the navigation process.")
@@ -52,8 +52,12 @@ class NautilusNavigateResponse(BaseModel):
 
     lower_bounds: dict[str, list[float]] = Field(..., description="Lower bounds of the reachable region per objective.")
     upper_bounds: dict[str, list[float]] = Field(..., description="Upper bounds of the reachable region per objective.")
-    preferences: dict[str, list[float]] = Field(..., description="Preferences used in each step per objective.")
-    bounds: dict[str, list[float]] = Field(..., description="Bounds used in each step per objective.")
+
+    reference_point: dict[str, float] = Field(..., description="Reference point used in each step per objective.")
+    bounds: dict[str, float] | None = Field(
+        default=None,
+        description="Bounds used in each step per objective."
+    )
 
     total_steps: int = Field(..., description="The total number of steps in the current navigation path.")
     reachable_solution: dict[str, float] = Field(..., description="The solution reached at the end of navigation.")

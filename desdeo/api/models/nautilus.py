@@ -1,120 +1,79 @@
-from sqlmodel import JSON, Column, Field, SQLModel
+from sqlalchemy import JSON, Column, ForeignKey, Integer
+from sqlmodel import Field, SQLModel
 
 
 class NautilusNavigatorInitializationState(SQLModel, table=True):
-    """State storing the inputs and outputs of the NAUTILUS Navigator initialization.
+    """State representing initialization of a NAUTILUS Navigator session.
 
-    This state corresponds to the execution of the `navigator_init` function in the
-    NAUTILUS Navigator core algorithm. It stores both the request provided by the
-    user and the resulting initialization information returned by the algorithm.
+    This state corresponds to the execution of the `navigator_init` function
+    in the NAUTILUS Navigator algorithm.
 
-    The state is linked to a base `StateDB` entry which defines the interaction
-    type (`StateKind.NAUTILUS_INITIALIZE`) and stores the session hierarchy.
+    The initialization currently requires no explicit parameters from the API
+    since the required information (problem and solver) is obtained from the
+    surrounding application context. Therefore, this state only stores the
+    primary key linking it to the base `State` entry.
 
-    The purpose of storing this information is to allow the API to:
-        1. Retrieve previously computed initialization results without re-running
-           the algorithm.
-        2. Reconstruct the algorithm state if the function must be re-evaluated.
-
-    Attributes:
-        state_id (int): Foreign key referencing the base `StateDB` entry.
-
-        request (dict): Serialized request data passed to `navigator_init`.
-        response (dict): Serialized response returned by `navigator_init`.
-
-        objective_symbols (list[str]): Short symbolic names of the objectives.
-        objective_long_names (list[str]): Descriptive names of the objectives.
-        units (list[str] | None): Units of the objectives if defined, otherwise None.
-        is_maximized (list[bool]): Boolean flags indicating whether each objective
-            is to be maximized (True) or minimized (False).
-
-        ideal (list[float]): Ideal objective values of the problem.
-        nadir (list[float]): Nadir objective values of the problem.
-
-        total_steps (int): Total number of navigation steps specified for the session.
+    Future versions may include additional fields such as
+    `non_dominated_solutions_id` if the algorithm later supports explicitly
+    supplying these.
     """
 
     __tablename__ = "nautilus_navigator_initialization_states"
 
-    state_id: int = Field(foreign_key="state.id", primary_key=True)
-
-    # Stored request/response
-    request: dict = Field(sa_column=Column(JSON))
-    response: dict = Field(sa_column=Column(JSON))
-
-    # Problem meta
-    objective_symbols: list[str] = Field(sa_column=Column(JSON))
-    objective_long_names: list[str] = Field(sa_column=Column(JSON))
-    units: list[str] | None = Field(default=None, sa_column=Column(JSON))
-    is_maximized: list[bool] = Field(sa_column=Column(JSON))
-
-    # Problem bounds
-    ideal: list[float] = Field(sa_column=Column(JSON))
-    nadir: list[float] = Field(sa_column=Column(JSON))
-
-    # Navigator configuration
-    total_steps: int
-
+    # Primary key referencing the base State entry.
+    state_id: int | None = Field(
+        sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True)
+    )
 
 class NautilusNavigatorNavigationState(SQLModel, table=True):
-    """State storing the inputs and outputs of a NAUTILUS Navigator navigation step.
+    """State representing one execution of the NAUTILUS Navigator navigation step.
 
-    This state corresponds to the execution of the `navigator_all_steps` function
-    in the NAUTILUS Navigator algorithm. Each navigation step produces a new
-    reachable solution and updated bounds based on the decision maker's
-    preferences.
+    This state corresponds to a call to the `navigator_all_steps` function in
+    the NAUTILUS Navigator algorithm.
 
-    The state stores both the user input and the algorithm output so that:
-        1. The navigation history can be inspected without recomputing results.
-        2. The algorithm can be re-evaluated if needed.
+    The design follows the standard pattern used in DESDEO method states:
 
-    The state is linked to a base `StateDB` entry which defines the interaction
-    type (`StateKind.NAUTILUS_NAVIGATE`) and the parent state relationship.
+        - Fields correspond to the input arguments of the algorithm function
+        - A single field stores the result returned by the function
 
-    Attributes:
-        state_id (int): Foreign key referencing the base `StateDB` entry.
+    This allows the API to:
+        1. Retrieve previously computed navigation results without
+           re-running the algorithm.
+        2. Re-evaluate the algorithm if necessary, since the original
+           input parameters are stored.
 
-        request (dict): Serialized navigation request provided by the decision maker.
-        response (dict): Serialized response returned by the navigator algorithm.
+    Notes:
+        The parameters `problem` and `solver` are not stored in the state,
+        as they are provided by the surrounding application context.
 
-        current_step (int): Current step index in the navigation process.
-        remaining_steps (int): Number of remaining navigation steps.
+    Stored Inputs (arguments to `navigator_all_steps`):
+        steps_remaining:
+            Number of navigation steps to perform.
 
-        preferences (dict[str, list[float]]): Preference values provided by the
-            decision maker for each objective.
+        reference_point:
+            The reference point provided by the decision maker.
 
-        bounds (dict[str, list[float]]): Bound preferences provided by the
-            decision maker.
+        previous_responses:
+            The list of previous NAUTILUS responses representing the
+            navigation history up to this point.
 
-        lower_bounds (dict[str, list[float]]): Lower bounds of the reachable
-            objective region after the navigation step.
+        bounds:
+            Optional bounds specified by the decision maker.
 
-        upper_bounds (dict[str, list[float]]): Upper bounds of the reachable
-            objective region after the navigation step.
-
-        reachable_solution (dict[str, float]): Objective values of the currently
-            reachable solution produced by the navigation step.
+    Stored Output:
+        navigator_results:
+            The list of responses returned by `navigator_all_steps`.
+            Each entry corresponds to one computed navigation step.
     """
 
     __tablename__ = "nautilus_navigator_navigation_states"
 
-    state_id: int = Field(foreign_key="state.id", primary_key=True)
-
-    # Stored request/response
-    request: dict = Field(sa_column=Column(JSON))
-    response: dict = Field(sa_column=Column(JSON))
-
-    # Navigation progress
-    current_step: int
-    remaining_steps: int
-
-    # Decision maker input
-    preferences: dict[str, list[float]] = Field(sa_column=Column(JSON))
-    bounds: dict[str, list[float]] = Field(sa_column=Column(JSON))
-
-    # Reachable region bounds
-    lower_bounds: dict[str, list[float]] = Field(sa_column=Column(JSON))
-    upper_bounds: dict[str, list[float]] = Field(sa_column=Column(JSON))
-
-    # Resulting solution
-    reachable_solution: dict[str, float] = Field(sa_column=Column(JSON))
+    # Primary key referencing the base State entry.
+    state_id: int | None = Field(
+        sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True)
+    )
+    steps_remaining: int
+    reference_point: dict[str, float] = Field(sa_column=Column(JSON))
+    bounds: dict[str, float] | None = Field(default=None, sa_column=Column(JSON))
+    previous_responses: list[dict] = Field(sa_column=Column(JSON))
+    navigator_results: list[dict] = Field(sa_column=Column(JSON))
