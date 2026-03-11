@@ -358,6 +358,11 @@
 	}
 </script>
 
+<svelte:head>
+	<title>SCORE-bands | DESDEO</title>
+	<meta name="description" content="Placeholder page for single-user SCORE-bands interactive multiobjective optimization method.">
+</svelte:head>
+
 <div class="container mx-auto p-6">
 	{#if $errorMessage}
 		<Alert title="Error" message={$errorMessage} variant="destructive" />
