@@ -53,7 +53,7 @@ class NautilusNavigateResponse(BaseModel):
     lower_bounds: dict[str, list[float]] = Field(..., description="Lower bounds of the reachable region per objective.")
     upper_bounds: dict[str, list[float]] = Field(..., description="Upper bounds of the reachable region per objective.")
 
-    reference_point: dict[str, float] = Field(..., description="Preferences used in each step per objective.")
+    reference_point: dict[str, float] = Field(..., description="Reference point used in each step per objective.")
     bounds: dict[str, float] | None = Field(
         default=None,
         description="Bounds used in each step per objective."
